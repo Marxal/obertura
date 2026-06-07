@@ -4,8 +4,9 @@ import type { Key } from 'chessground/types';
 import 'chessground/assets/chessground.base.css';
 import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
-import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise } from './tree';
+import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, uciPathTo } from './tree';
 import { saveLine, getAllLines } from './storage';
+import { fetchOpeningName } from './openings';
 import type { Line } from './types';
 
 const chess = new Chess();
@@ -23,6 +24,23 @@ function legalDests(): Map<Key, Key[]> {
 
 function turnColor(): 'white' | 'black' {
   return chess.turn() === 'w' ? 'white' : 'black';
+}
+
+// Opening-name lookup. Debounced so rapid moves fire one request, and
+// race-guarded so a slow older request can't overwrite a newer result.
+let openingTimer: ReturnType<typeof setTimeout> | undefined;
+let openingRequestId = 0;
+
+function updateOpeningName() {
+  if (openingTimer) clearTimeout(openingTimer);
+  openingTimer = setTimeout(async () => {
+    const reqId = ++openingRequestId;
+    const name = await fetchOpeningName(uciPathTo());
+    // Ignore stale results: only apply if this is still the latest request.
+    if (reqId !== openingRequestId) return;
+    const el = document.getElementById('opening-name')!;
+    el.textContent = name ?? '';
+  }, 350);
 }
 
 function renderMoveList() {
@@ -80,6 +98,7 @@ function handleMoveClick(nodeId: string) {
   });
 
   renderMoveList();
+  updateOpeningName();
 }
 
 let saveColour: 'white' | 'black' = 'white';
@@ -169,6 +188,7 @@ requestAnimationFrame(() => {
           },
         });
         renderMoveList();
+        updateOpeningName();
       },
     },
   });
@@ -179,6 +199,9 @@ requestAnimationFrame(() => {
     reset();
     chess.reset();
     document.getElementById('save-msg')!.textContent = '';
+    // Clear the opening label and invalidate any in-flight lookup.
+    openingRequestId++;
+    document.getElementById('opening-name')!.textContent = '';
     cg.set({
       fen: chess.fen(),
       turnColor: 'white',

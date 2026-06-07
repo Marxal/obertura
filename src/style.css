@@ -105,6 +105,15 @@ cg-board square.move-dest.oc {
   gap: 0.75rem;
 }
 
+.opening-name {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 0.95rem;
+  font-style: italic;
+  color: #9c7a5a;
+  min-height: 1.2em;
+  margin-bottom: 0.25rem;
+}
+
 #move-list {
   font-family: 'Courier New', Courier, monospace;
   font-size: 1rem;

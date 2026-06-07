@@ -82,6 +82,13 @@ export function getCurrentNode(): MoveNode {
   return current;
 }
 
+// UCI moves from the start to the given node, ready for an opening lookup.
+// Defaults to the current node. Root is excluded by pathTo, so this is just
+// each node's uci in order.
+export function uciPathTo(nodeId: string = current.id): string[] {
+  return pathTo(nodeId).map(n => n.uci);
+}
+
 export function isEmpty(): boolean {
   return root.children.length === 0;
 }
