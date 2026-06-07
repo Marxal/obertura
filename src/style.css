@@ -1,0 +1,93 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: #f3ead7;
+  color: #3a2a1a;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#app {
+  width: 100%;
+  max-width: 500px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+header h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #ff9b21;
+  text-transform: uppercase;
+}
+
+#board-wrap {
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+#board {
+  width: 100%;
+  height: 100%;
+}
+
+/* Square colors */
+.cg-wrap {
+  background: #9c6b43;
+}
+
+cg-board square.white {
+  background: #f0e6cc;
+}
+
+cg-board square.black {
+  background: #9c6b43;
+}
+
+/* Highlights */
+cg-board square.last-move {
+  background-color: rgba(255, 155, 33, 0.35) !important;
+}
+
+cg-board square.selected {
+  background-color: rgba(255, 155, 33, 0.5) !important;
+}
+
+cg-board square.move-dest {
+  background: radial-gradient(
+    rgba(20, 85, 30, 0.5) 22%,
+    rgba(0, 0, 0, 0) 0
+  ) !important;
+}
+
+cg-board square.move-dest.oc {
+  background: radial-gradient(
+    transparent 0%,
+    transparent 79%,
+    rgba(20, 85, 30, 0.5) 80%
+  ) !important;
+}
+
+/* FEN display */
+#fen-display {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 6px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.65rem;
+  line-height: 1.4;
+  word-break: break-all;
+  color: #6b4a2a;
+}
