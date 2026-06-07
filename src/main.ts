@@ -111,6 +111,70 @@ let saveColour: 'white' | 'black' = 'white';
 let loadedLineId: string | null = null;
 let loadedLineCreatedAt: number | undefined;
 
+// Metadata from the loaded line for the builder readout.
+// Phase 3 training will populate confidence and lastTrained.
+let loadedLineMeta: { confidence: number; lastTrained: string | null } | null = null;
+
+// Single timer handle for Watch line — prevents stacked playback.
+let playbackTimer: ReturnType<typeof setTimeout> | undefined;
+
+function relativeDate(isoStr: string): string {
+  const diff = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000);
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  const days = Math.floor(diff / 86400);
+  if (days === 1) return 'yesterday';
+  if (days < 30) return `${days} days ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return months === 1 ? '1 month ago' : `${months} months ago`;
+  return isoStr.slice(0, 10);
+}
+
+function confidenceDots(c: number): string {
+  if (!c) return '—';
+  const n = Math.min(Math.max(c, 0), 5);
+  return '●'.repeat(n) + '○'.repeat(5 - n);
+}
+
+function renderLineMeta(): void {
+  const el = document.getElementById('line-meta')!;
+  if (!loadedLineMeta) {
+    el.hidden = true;
+    return;
+  }
+  const { confidence, lastTrained } = loadedLineMeta;
+  const dateText = lastTrained ? relativeDate(lastTrained) : 'Never trained';
+  el.textContent = `Confidence: ${confidenceDots(confidence)} · ${dateText}`;
+  el.hidden = false;
+}
+
+function stopPlayback(): void {
+  if (playbackTimer !== undefined) {
+    clearTimeout(playbackTimer);
+    playbackTimer = undefined;
+  }
+  const watchBtn = document.getElementById('watch-btn') as HTMLButtonElement | null;
+  if (watchBtn) {
+    watchBtn.textContent = 'Watch line';
+    watchBtn.classList.remove('playing');
+  }
+}
+
+function goToStart(): void {
+  goTo('root');
+  chess.reset();
+  openingRequestId++;
+  document.getElementById('opening-name')!.textContent = '';
+  cg.set({
+    fen: chess.fen(),
+    turnColor: 'white',
+    movable: { color: 'both', dests: legalDests() },
+    lastMove: undefined,
+  });
+  renderMoveList();
+}
+
 // ── Navigation ────────────────────────────────────────────────────────────────
 
 type ViewName = 'builder' | 'lines';
@@ -136,9 +200,11 @@ function showView(view: ViewName): void {
 }
 
 function onOpenLine(line: Line): void {
+  stopPlayback();
   loadTree(line.tree);
   loadedLineId = line.id;
   loadedLineCreatedAt = line.createdAt;
+  loadedLineMeta = { confidence: line.confidence, lastTrained: line.lastTrained };
 
   chess.reset();
   cg.set({
@@ -162,6 +228,7 @@ function onOpenLine(line: Line): void {
   document.getElementById('opening-name')!.textContent = '';
 
   renderMoveList();
+  renderLineMeta();
   showView('builder');
 }
 
@@ -255,6 +322,48 @@ function setupSettings() {
   });
 }
 
+// ── Playback controls ─────────────────────────────────────────────────────────
+
+function setupPlaybackControls(): void {
+  const lastPosBtn = document.getElementById('last-pos-btn') as HTMLButtonElement;
+  const watchBtn = document.getElementById('watch-btn') as HTMLButtonElement;
+
+  lastPosBtn.addEventListener('click', () => {
+    const moves = mainline();
+    if (moves.length === 0) return;
+    handleMoveClick(moves[moves.length - 1].id);
+  });
+
+  watchBtn.addEventListener('click', () => {
+    if (playbackTimer !== undefined) {
+      stopPlayback();
+      return;
+    }
+
+    const moves = mainline();
+    if (moves.length === 0) return;
+
+    watchBtn.textContent = 'Stop';
+    watchBtn.classList.add('playing');
+    goToStart();
+
+    function playStep(index: number): void {
+      if (index >= moves.length) {
+        watchBtn.textContent = 'Watch line';
+        watchBtn.classList.remove('playing');
+        playbackTimer = undefined;
+        return;
+      }
+      playbackTimer = setTimeout(() => {
+        handleMoveClick(moves[index].id);
+        playStep(index + 1);
+      }, 700);
+    }
+
+    playStep(0);
+  });
+}
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
 const boardEl = document.getElementById('board') as HTMLElement;
@@ -297,12 +406,15 @@ requestAnimationFrame(() => {
 
   setupSaveForm();
   setupSettings();
+  setupPlaybackControls();
 
   document.getElementById('reset-btn')!.addEventListener('click', () => {
+    stopPlayback();
     reset();
     chess.reset();
     loadedLineId = null;
     loadedLineCreatedAt = undefined;
+    loadedLineMeta = null;
     (document.getElementById('line-name') as HTMLInputElement).value = '';
     (document.getElementById('line-tags') as HTMLInputElement).value = '';
     // Reset colour toggle to White.
@@ -324,6 +436,7 @@ requestAnimationFrame(() => {
       lastMove: undefined,
     });
     renderMoveList();
+    renderLineMeta();
   });
 
   new ResizeObserver(() => cg.redrawAll()).observe(boardEl);
