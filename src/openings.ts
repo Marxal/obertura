@@ -1,4 +1,4 @@
-// Opening-name lookups via the free Lichess opening explorer.
+// Opening-name lookups via the Lichess opening explorer.
 //
 // Host is explorer.lichess.ovh (the public explorer), NOT lichess.org.
 // We query by `play` (a comma-separated list of UCI moves from the start)
@@ -6,9 +6,41 @@
 // when its en-passant field is "honest" (a capture is actually possible),
 // whereas chess.js always sets the en-passant target after a double pawn
 // push. Using `play` sidesteps that mismatch entirely.
+//
+// AUTH: as of 2026 the explorer no longer serves anonymous requests — they
+// return HTTP 401. A free Lichess Personal Access Token (no scopes needed)
+// must be sent as `Authorization: Bearer <token>`. We keep the token on the
+// device only (localStorage); it is NEVER committed, because this is a
+// public static site and Lichess auto-revokes leaked tokens.
 
 const EXPLORER_URL = 'https://explorer.lichess.ovh/lichess';
 const TIMEOUT_MS = 4000;
+const TOKEN_KEY = 'obertura.lichessToken';
+
+// --- Token storage (device-local) --------------------------------------
+
+export function getToken(): string {
+  try {
+    return localStorage.getItem(TOKEN_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+export function setToken(token: string): void {
+  try {
+    const t = token.trim();
+    if (t) localStorage.setItem(TOKEN_KEY, t);
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    /* private mode / storage disabled — nothing we can do, lookup stays off */
+  }
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 /**
  * Look up the opening name for a line, given its moves as UCI strings from
@@ -29,7 +61,7 @@ export async function fetchOpeningName(uciMoves: string[]): Promise<string | nul
   try {
     const play = uciMoves.join(',');
     const url = `${EXPLORER_URL}?play=${play}&moves=0&topGames=0&recentGames=0`;
-    const res = await fetch(url, { signal: controller.signal });
+    const res = await fetch(url, { signal: controller.signal, headers: authHeaders() });
     if (!res.ok) return null;
 
     // The `opening` field is either { eco, name } or null.
@@ -45,8 +77,8 @@ export async function fetchOpeningName(uciMoves: string[]): Promise<string | nul
 
 // TEMPORARY DIAGNOSTIC — remove once the lookup is confirmed working.
 // Same request as fetchOpeningName, but instead of swallowing failures it
-// reports what happened (status code, network/timeout error, or "no opening
-// for this position") so we can surface it on-screen and on the phone.
+// reports what happened (missing token, status code, network/timeout error,
+// or "no opening for this position") so we can surface it on-screen.
 export interface OpeningProbe {
   name: string | null;
   debug: string; // human-readable status for the label
@@ -54,6 +86,7 @@ export interface OpeningProbe {
 
 export async function probeOpeningName(uciMoves: string[]): Promise<OpeningProbe> {
   if (uciMoves.length === 0) return { name: null, debug: 'start position (no request)' };
+  if (!getToken()) return { name: null, debug: 'no token — add one in Settings' };
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -61,7 +94,8 @@ export async function probeOpeningName(uciMoves: string[]): Promise<OpeningProbe
   try {
     const play = uciMoves.join(',');
     const url = `${EXPLORER_URL}?play=${play}&moves=0&topGames=0&recentGames=0`;
-    const res = await fetch(url, { signal: controller.signal });
+    const res = await fetch(url, { signal: controller.signal, headers: authHeaders() });
+    if (res.status === 401) return { name: null, debug: 'HTTP 401 — token missing/invalid' };
     if (!res.ok) return { name: null, debug: `HTTP ${res.status} ${res.statusText}` };
 
     const data = (await res.json()) as { opening?: { eco: string; name: string } | null };

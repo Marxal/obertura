@@ -266,3 +266,53 @@ cg-board square.move-dest.oc {
   font-size: 0.75rem;
   color: #9c7a5a;
 }
+
+/* Settings (device-local Lichess token) */
+#settings {
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(156, 107, 67, 0.3);
+  font-size: 0.875rem;
+}
+
+#settings summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #6b5638;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#settings label {
+  display: block;
+  margin: 0.6rem 0 0.3rem;
+  color: #6b5638;
+}
+
+#settings input[type='password'] {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #c9b48f;
+  border-radius: 6px;
+  background: #faf4e6;
+  color: #3a2a1a;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 1rem;
+}
+
+#settings input[type='password']:focus {
+  outline: none;
+  border-color: #ff9b21;
+}
+
+#token-msg {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.75rem;
+  color: #9c7a5a;
+}
+
+#settings a {
+  display: inline-block;
+  margin-top: 0.5rem;
+  color: #7a2230;
+  font-size: 0.8rem;
+}

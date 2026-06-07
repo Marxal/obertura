@@ -6,7 +6,7 @@ import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
 import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, uciPathTo } from './tree';
 import { saveLine, getAllLines } from './storage';
-import { probeOpeningName } from './openings';
+import { probeOpeningName, getToken, setToken } from './openings';
 import type { Line } from './types';
 
 const chess = new Chess();
@@ -159,6 +159,22 @@ function setupSaveForm() {
   refreshDebugReadout();
 }
 
+function setupSettings() {
+  const tokenInput = document.getElementById('lichess-token') as HTMLInputElement;
+  const tokenMsg = document.getElementById('token-msg')!;
+
+  // Prefill from device storage so it survives reloads.
+  tokenInput.value = getToken();
+  tokenMsg.textContent = getToken() ? 'Token saved on this device ✓' : '';
+
+  tokenInput.addEventListener('change', () => {
+    setToken(tokenInput.value);
+    tokenMsg.textContent = getToken() ? 'Token saved on this device ✓' : 'Token cleared';
+    // Re-run the lookup for the current line now that auth changed.
+    updateOpeningName();
+  });
+}
+
 const boardEl = document.getElementById('board') as HTMLElement;
 
 requestAnimationFrame(() => {
@@ -196,6 +212,7 @@ requestAnimationFrame(() => {
   });
 
   setupSaveForm();
+  setupSettings();
 
   document.getElementById('reset-btn')!.addEventListener('click', () => {
     reset();
