@@ -82,6 +82,17 @@ export function getCurrentNode(): MoveNode {
   return current;
 }
 
+export function isEmpty(): boolean {
+  return root.children.length === 0;
+}
+
+// Return a clean, deep-cloned snapshot of the move tree. MoveNodes are already
+// plain data (no functions or class instances), so structuredClone gives us a
+// detached, fully serialisable copy that IndexedDB can store directly.
+export function serialise(): MoveNode {
+  return structuredClone(root);
+}
+
 export function reset(): void {
   root.children = [];
   current = root;

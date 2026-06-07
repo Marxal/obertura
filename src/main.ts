@@ -4,7 +4,9 @@ import type { Key } from 'chessground/types';
 import 'chessground/assets/chessground.base.css';
 import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
-import { addMove, goTo, mainline, pathTo, getCurrentNode, reset } from './tree';
+import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise } from './tree';
+import { saveLine, getAllLines } from './storage';
+import type { Line } from './types';
 
 const chess = new Chess();
 let cg!: ReturnType<typeof Chessground>;
@@ -80,6 +82,62 @@ function handleMoveClick(nodeId: string) {
   renderMoveList();
 }
 
+let saveColour: 'white' | 'black' = 'white';
+
+async function refreshDebugReadout() {
+  const all = await getAllLines();
+  const el = document.getElementById('debug-readout')!;
+  el.textContent = `${all.length} line${all.length === 1 ? '' : 's'} saved`;
+}
+
+function setupSaveForm() {
+  const nameInput = document.getElementById('line-name') as HTMLInputElement;
+  const tagsInput = document.getElementById('line-tags') as HTMLInputElement;
+  const saveBtn = document.getElementById('save-btn') as HTMLButtonElement;
+  const saveMsg = document.getElementById('save-msg')!;
+  const toggle = document.getElementById('colour-toggle')!;
+
+  // White / Black segmented control.
+  toggle.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      saveColour = btn.dataset.colour as 'white' | 'black';
+      toggle.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
+  saveBtn.addEventListener('click', async () => {
+    if (isEmpty()) {
+      saveMsg.textContent = 'Play a move first';
+      return;
+    }
+
+    const tags = tagsInput.value
+      .split(',')
+      .map(t => t.trim())
+      .filter(t => t.length > 0);
+
+    const line: Line = {
+      id: crypto.randomUUID(),
+      name: nameInput.value.trim() || 'Untitled line',
+      tags,
+      colour: saveColour,
+      openingName: null,
+      confidence: 0,
+      lastTrained: null,
+      inTraining: false,
+      tree: serialise(),
+    };
+
+    await saveLine(line);
+    saveMsg.textContent = 'Saved ✓';
+    await refreshDebugReadout();
+  });
+
+  // Show the persisted count on load — confirms data survived an app restart.
+  refreshDebugReadout();
+}
+
 const boardEl = document.getElementById('board') as HTMLElement;
 
 requestAnimationFrame(() => {
@@ -102,6 +160,7 @@ requestAnimationFrame(() => {
         if (!result) return;
         const uci = from + to + (result.promotion ?? '');
         addMove(result.san, uci, chess.fen());
+        document.getElementById('save-msg')!.textContent = '';
         cg.set({
           turnColor: turnColor(),
           movable: {
@@ -114,9 +173,12 @@ requestAnimationFrame(() => {
     },
   });
 
+  setupSaveForm();
+
   document.getElementById('reset-btn')!.addEventListener('click', () => {
     reset();
     chess.reset();
+    document.getElementById('save-msg')!.textContent = '';
     cg.set({
       fen: chess.fen(),
       turnColor: 'white',

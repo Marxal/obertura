@@ -26,6 +26,20 @@
         <div id="line-panel">
           <div id="move-list"></div>
           <button id="reset-btn">Reset line</button>
+
+          <div id="save-form">
+            <input id="line-name" type="text" placeholder="Italian Game — main line" />
+            <input id="line-tags" type="text" placeholder="tags, comma, separated" />
+            <div id="colour-toggle" role="group" aria-label="Repertoire colour">
+              <button type="button" data-colour="white" class="active">White</button>
+              <button type="button" data-colour="black">Black</button>
+            </div>
+            <div id="save-row">
+              <button id="save-btn">Save line</button>
+              <span id="save-msg" aria-live="polite"></span>
+            </div>
+            <div id="debug-readout"></div>
+          </div>
         </div>
       </main>
     </div>

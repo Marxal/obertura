@@ -162,3 +162,98 @@ cg-board square.move-dest.oc {
 #reset-btn:active {
   background: #e08800;
 }
+
+/* Save line form */
+#save-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(156, 107, 67, 0.3);
+}
+
+#save-form input[type='text'] {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #c9b48f;
+  border-radius: 6px;
+  background: #faf4e6;
+  color: #3a2a1a;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 1rem;
+}
+
+#save-form input[type='text']::placeholder {
+  color: #a8997f;
+}
+
+#save-form input[type='text']:focus {
+  outline: none;
+  border-color: #ff9b21;
+}
+
+/* White / Black segmented control */
+#colour-toggle {
+  display: flex;
+  gap: 0;
+  border: 1px solid #c9b48f;
+  border-radius: 6px;
+  overflow: hidden;
+  align-self: flex-start;
+}
+
+#colour-toggle button {
+  padding: 0.5rem 1.25rem;
+  border: none;
+  background: #faf4e6;
+  color: #6b5638;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#colour-toggle button + button {
+  border-left: 1px solid #c9b48f;
+}
+
+#colour-toggle button.active {
+  background: #ff9b21;
+  color: #fff;
+}
+
+#save-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+#save-btn {
+  padding: 0.5rem 1.25rem;
+  background: #7a2230;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#save-btn:active {
+  background: #5f1a25;
+}
+
+#save-msg {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #7a2230;
+}
+
+#debug-readout {
+  font-size: 0.75rem;
+  color: #9c7a5a;
+}
