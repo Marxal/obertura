@@ -70,7 +70,24 @@ cg-board square.move-dest.oc {
   ) !important;
 }
 
-/* Coordinates — keep small so they sit inside the board edges */
+/* Coordinates — inside the board, top-left for ranks, bottom-right for files */
 .cg-wrap coords {
-  font-size: 9px;
+  font-size: 7px;
+}
+
+/* Ranks: move inside board (base has top:-20px which clips above viewport) */
+.cg-wrap coords.ranks {
+  top: 0;
+  left: 2px;
+}
+
+.cg-wrap coords.ranks coord {
+  transform: none; /* base translateY(39%) shifts them out; reset to top of each slot */
+}
+
+/* Files: move inside board (base has bottom:-4px which clips below viewport) */
+.cg-wrap coords.files {
+  bottom: 2px;
+  left: 0;
+  text-align: right;
 }
