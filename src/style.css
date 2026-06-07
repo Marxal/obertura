@@ -746,6 +746,14 @@ cg-board square.move-dest.oc {
   background: #e08800;
 }
 
+.add-training-btn.add-training-btn--active {
+  background: #2a6b3a;
+}
+
+.add-training-btn.add-training-btn--active:active {
+  background: #1e4f2c;
+}
+
 /* ── Add to training button (lines card) ───────────────────────────────────── */
 
 .card-training-btn {
@@ -771,6 +779,14 @@ cg-board square.move-dest.oc {
 
 .card-training-btn:active {
   background: #e08800;
+}
+
+.card-training-btn.card-training-btn--active {
+  background: #2a6b3a;
+}
+
+.card-training-btn.card-training-btn--active:active {
+  background: #1e4f2c;
 }
 
 /* ── Pre-training overlay ──────────────────────────────────────────────────── */
