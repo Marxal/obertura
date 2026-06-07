@@ -827,6 +827,7 @@ cg-board square.move-dest.oc {
   width: 100vw;
   height: 100vw;
   flex-shrink: 0;
+  position: relative; /* anchor for the error-flash overlay */
 }
 
 .pt-board {
@@ -835,6 +836,40 @@ cg-board square.move-dest.oc {
 }
 
 /* Board colors inside the pre-training overlay inherit cg-board rules above. */
+
+/* ── Wrong-move error flash ────────────────────────────────────────────────── */
+
+@keyframes pt-flash-out {
+  0%   { opacity: 0.45; }
+  100% { opacity: 0; }
+}
+
+.pt-error-flash {
+  position: absolute;
+  inset: 0;
+  background: #7a2230;
+  pointer-events: none;
+  animation: pt-flash-out 0.6s ease-out forwards;
+  z-index: 10;
+}
+
+/* ── Move-note card (shown after a wrong move when the node has a note) ─────── */
+
+.pt-note-card {
+  margin: 0 1rem;
+  padding: 0.6rem 0.875rem;
+  background: #faf4e6;
+  border: 1px solid #e0d0b8;
+  border-left: 3px solid #ff9b21;
+  border-radius: 6px;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-style: italic;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #3a2a1a;
+  max-height: 5rem;
+  overflow-y: auto;
+}
 
 .pt-status {
   padding: 0.875rem 1rem 0.5rem;
@@ -1006,5 +1041,12 @@ cg-board square.move-dest.oc {
 
   .train-all-done {
     color: #5dba7a;
+  }
+
+  .pt-note-card {
+    background: #2a1e12;
+    border-color: #4a3a28;
+    border-left-color: #ff9b21;
+    color: #e8dcc8;
   }
 }

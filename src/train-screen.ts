@@ -1,4 +1,5 @@
 import type { Line } from './types';
+import type { MoveNode } from './tree';
 import { getAllLines, saveLine } from './storage';
 import { startDrill } from './drill';
 
@@ -146,13 +147,41 @@ function buildTrainCard(line: Line, container: HTMLElement): HTMLElement {
 
 // ── Drill entry ───────────────────────────────────────────────────────────────
 
+function mainlineOf(tree: MoveNode): MoveNode[] {
+  const result: MoveNode[] = [];
+  let node = tree.children[0];
+  while (node) {
+    result.push(node);
+    node = node.children[0];
+  }
+  return result;
+}
+
 function startTrainDrill(line: Line, container: HTMLElement): void {
-  startDrill(line, {
+  // Deep-clone so lapse/session edits don't mutate the caller's in-memory copy.
+  const lineCopy: Line = { ...line, tree: structuredClone(line.tree) };
+  const copyMoves = mainlineOf(lineCopy.tree);
+
+  function recordMiss(node: MoveNode): void {
+    // node comes from drill.ts's mainlineOf(lineCopy.tree) — same object refs
+    // as copyMoves, so we can mutate directly without searching.
+    const target = copyMoves.find(m => m.id === node.id) ?? node;
+    if (!target.review) {
+      target.review = { ease: 2.5, interval: 0, reps: 0, lapses: 0, due: new Date() };
+    }
+    target.review.lapses++;
+    target.missedThisSession = true;
+  }
+
+  startDrill(lineCopy, {
     completeMessage: 'Line complete',
+    wrongMoveMode: 'full',
+    recordMiss,
     onCancel: () => void doRender(container),
     onBeforeComplete: async () => {
-      const updated: Line = { ...line, lastTrained: new Date().toISOString() };
-      await saveLine(updated);
+      // Persist lapses, missedThisSession, and lastTrained in one write.
+      lineCopy.lastTrained = new Date().toISOString();
+      await saveLine(lineCopy);
     },
     onComplete: async () => {
       const freshLines = await getAllLines();

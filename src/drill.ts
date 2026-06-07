@@ -13,6 +13,9 @@ export interface DrillOptions {
   recordMiss?: (node: MoveNode) => void;
   completeMessage?: string;
   backLabel?: string;
+  // 'gentle': show error text and let the user retry freely (pre-training).
+  // 'full':   flash → snap back → draw arrow → show note → require correct replay.
+  wrongMoveMode?: 'gentle' | 'full';
 }
 
 function mainlineOf(tree: MoveNode): MoveNode[] {
@@ -36,6 +39,8 @@ export function startDrill(line: Line, opts: DrillOptions): void {
   const userColour = line.colour;
   let moveIndex = 0;
   let autoTimer: ReturnType<typeof setTimeout> | undefined;
+  // True while the user must replay the correct move after a wrong attempt.
+  let awaitingCorrectReplay = false;
 
   // ── Overlay ───────────────────────────────────────────────────────────────
 
@@ -69,12 +74,17 @@ export function startDrill(line: Line, opts: DrillOptions): void {
   statusEl.className = 'pt-status';
   statusEl.setAttribute('aria-live', 'polite');
 
+  const noteCardEl = document.createElement('div');
+  noteCardEl.className = 'pt-note-card';
+  noteCardEl.setAttribute('hidden', '');
+
   const progressEl = document.createElement('div');
   progressEl.className = 'pt-progress';
 
   overlay.appendChild(headerEl);
   overlay.appendChild(boardWrap);
   overlay.appendChild(statusEl);
+  overlay.appendChild(noteCardEl);
   overlay.appendChild(progressEl);
   document.body.appendChild(overlay);
 
@@ -114,6 +124,10 @@ export function startDrill(line: Line, opts: DrillOptions): void {
     },
   });
 
+  // Register the accent brush for programmatic hint arrows after the instance
+  // exists (not in initial config — avoids a chessground rendering quirk).
+  cg.state.drawable.brushes['accent'] = { key: 'accent', color: '#ff9b21', opacity: 0.85, lineWidth: 10 };
+
   const ro = new ResizeObserver(() => cg.redrawAll());
   ro.observe(boardEl);
 
@@ -129,6 +143,56 @@ export function startDrill(line: Line, opts: DrillOptions): void {
 
   updateProgress();
 
+  // ── Error flash ───────────────────────────────────────────────────────────
+
+  function flashError(): void {
+    const flash = document.createElement('div');
+    flash.className = 'pt-error-flash';
+    boardWrap.appendChild(flash);
+    flash.addEventListener('animationend', () => flash.remove(), { once: true });
+  }
+
+  // ── Note card ─────────────────────────────────────────────────────────────
+
+  function showNoteCard(note: string): void {
+    noteCardEl.textContent = note;
+    noteCardEl.removeAttribute('hidden');
+  }
+
+  function hideNoteCard(): void {
+    noteCardEl.setAttribute('hidden', '');
+    noteCardEl.textContent = '';
+  }
+
+  // ── Full wrong-move sequence ───────────────────────────────────────────────
+
+  function handleWrongMoveFull(expected: MoveNode): void {
+    awaitingCorrectReplay = true;
+
+    // 1. Brief red flash over the board (~600ms CSS animation).
+    flashError();
+
+    // 2. Snap board back. chess.js was never updated (we don't call chess.move()
+    //    in the wrong-move branch), so chess.fen() is still the pre-move FEN.
+    cg.set({
+      fen: chess.fen(),
+      turnColor: cgTurn(),
+      movable: { color: userColour, dests: legalDests() },
+    });
+
+    // 3. Draw a hint arrow to the correct move. setAutoShapes is called AFTER
+    //    cg.set() to avoid the chessground shapes-with-FEN rendering bug.
+    const orig = expected.uci.slice(0, 2) as Key;
+    const dest = expected.uci.slice(2, 4) as Key;
+    cg.setAutoShapes([{ orig, dest, brush: 'accent' }]);
+
+    // 4. Show the move note if one exists (task 4 writes notes; until then this
+    //    branch is never reached).
+    if (expected.note) {
+      showNoteCard(expected.note);
+    }
+  }
+
   // ── Move logic ────────────────────────────────────────────────────────────
 
   function onUserMove(from: Key, to: Key): void {
@@ -137,6 +201,12 @@ export function startDrill(line: Line, opts: DrillOptions): void {
     const eTo = expected.uci.slice(2, 4);
 
     if (from === eFrom && to === eTo) {
+      // Correct move — if we were in replay-required state, clear the hint UI.
+      if (awaitingCorrectReplay) {
+        cg.setAutoShapes([]);
+        hideNoteCard();
+        awaitingCorrectReplay = false;
+      }
       statusEl.textContent = '';
       statusEl.className = 'pt-status';
       chess.move({ from, to, promotion: 'q' });
@@ -157,14 +227,24 @@ export function startDrill(line: Line, opts: DrillOptions): void {
 
       scheduleOpponent();
     } else {
-      opts.recordMiss?.(expected);
-      statusEl.textContent = 'Not yet — try that move again';
-      statusEl.className = 'pt-status pt-status--error';
-      cg.set({
-        fen: chess.fen(),
-        turnColor: cgTurn(),
-        movable: { color: userColour, dests: legalDests() },
-      });
+      // Wrong move. In full mode, only record the miss on the first attempt for
+      // this node (not on repeated wrong attempts during replay-required state).
+      if (opts.wrongMoveMode !== 'full' || !awaitingCorrectReplay) {
+        opts.recordMiss?.(expected);
+      }
+
+      if (opts.wrongMoveMode === 'full') {
+        handleWrongMoveFull(expected);
+      } else {
+        // Gentle mode (default) — used by pre-training.
+        statusEl.textContent = 'Not yet — try that move again';
+        statusEl.className = 'pt-status pt-status--error';
+        cg.set({
+          fen: chess.fen(),
+          turnColor: cgTurn(),
+          movable: { color: userColour, dests: legalDests() },
+        });
+      }
     }
   }
 
