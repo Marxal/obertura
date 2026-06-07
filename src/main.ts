@@ -9,6 +9,7 @@ import { saveLine, getAllLines } from './storage';
 import { probeOpeningName, getToken, setToken } from './openings';
 import type { Line } from './types';
 import { renderLinesScreen } from './lines-screen';
+import { renderBranchView } from './branch-view';
 
 const chess = new Chess();
 let cg!: ReturnType<typeof Chessground>;
@@ -46,6 +47,18 @@ function updateOpeningName() {
   }, 350);
 }
 
+let treeViewMode: 'list' | 'branches' = 'list';
+
+function redrawBranchView(): void {
+  if (treeViewMode !== 'branches') return;
+  const container = document.getElementById('branch-view')!;
+  if (!container) return;
+  renderBranchView(container, serialise(), {
+    onSelectNode: handleMoveClick,
+    activeNodeId: getCurrentNode().id,
+  });
+}
+
 function renderMoveList() {
   const moves = mainline();
   const activeId = getCurrentNode().id;
@@ -76,6 +89,8 @@ function renderMoveList() {
       el.appendChild(bSpan);
     }
   }
+
+  redrawBranchView();
 }
 
 function handleMoveClick(nodeId: string) {
@@ -364,6 +379,51 @@ function setupPlaybackControls(): void {
   });
 }
 
+// ── Branch view toggle ────────────────────────────────────────────────────────
+
+function setupBranchView(): void {
+  const linePanel = document.getElementById('line-panel')!;
+  const moveList = document.getElementById('move-list')!;
+
+  const toggleRow = document.createElement('div');
+  toggleRow.id = 'tree-toggle';
+  const listBtn = document.createElement('button');
+  listBtn.type = 'button';
+  listBtn.id = 'toggle-list';
+  listBtn.className = 'tree-tab active';
+  listBtn.textContent = 'List';
+  const branchBtn = document.createElement('button');
+  branchBtn.type = 'button';
+  branchBtn.id = 'toggle-branches';
+  branchBtn.className = 'tree-tab';
+  branchBtn.textContent = 'Branches';
+  toggleRow.appendChild(listBtn);
+  toggleRow.appendChild(branchBtn);
+  linePanel.insertBefore(toggleRow, moveList);
+
+  const branchContainer = document.createElement('div');
+  branchContainer.id = 'branch-view';
+  branchContainer.hidden = true;
+  moveList.insertAdjacentElement('afterend', branchContainer);
+
+  listBtn.addEventListener('click', () => {
+    treeViewMode = 'list';
+    moveList.hidden = false;
+    branchContainer.hidden = true;
+    listBtn.classList.add('active');
+    branchBtn.classList.remove('active');
+  });
+
+  branchBtn.addEventListener('click', () => {
+    treeViewMode = 'branches';
+    moveList.hidden = true;
+    branchContainer.hidden = false;
+    listBtn.classList.remove('active');
+    branchBtn.classList.add('active');
+    redrawBranchView();
+  });
+}
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
 const boardEl = document.getElementById('board') as HTMLElement;
@@ -407,6 +467,7 @@ requestAnimationFrame(() => {
   setupSaveForm();
   setupSettings();
   setupPlaybackControls();
+  setupBranchView();
 
   document.getElementById('reset-btn')!.addEventListener('click', () => {
     stopPlayback();

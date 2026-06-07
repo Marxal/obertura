@@ -667,3 +667,56 @@ cg-board square.move-dest.oc {
   color: #fff;
   border-color: #9c3a3a;
 }
+
+/* ── Branch view toggle (List ↔ Branches) ─────────────────────────────────── */
+
+#tree-toggle {
+  display: flex;
+  align-self: flex-start;
+  border: 1px solid #c9b48f;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.tree-tab {
+  padding: 0.3rem 0.875rem;
+  min-height: 36px;
+  border: none;
+  background: #faf4e6;
+  color: #6b5638;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s, color 0.12s;
+}
+
+.tree-tab + .tree-tab {
+  border-left: 1px solid #c9b48f;
+}
+
+.tree-tab.active {
+  background: #ff9b21;
+  color: #fff;
+}
+
+#branch-view {
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  max-height: 260px;
+  border: 1px solid #e0d0b8;
+  border-radius: 6px;
+  background: #f3ead7;
+}
+
+#branch-view svg {
+  display: block;
+}
+
+.branch-empty {
+  padding: 1rem;
+  color: #9c7a5a;
+  font-style: italic;
+  font-size: 0.875rem;
+}
