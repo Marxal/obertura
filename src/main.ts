@@ -11,6 +11,7 @@ import type { Line } from './types';
 import { renderLinesScreen } from './lines-screen';
 import { renderBranchView } from './branch-view';
 import { startPretrainingRun } from './pretraining';
+import { renderTrainScreen } from './train-screen';
 
 const chess = new Chess();
 let cg!: ReturnType<typeof Chessground>;
@@ -203,7 +204,7 @@ function updateTrainingButton(): void {
 
 // ── Navigation ────────────────────────────────────────────────────────────────
 
-type ViewName = 'builder' | 'lines';
+type ViewName = 'builder' | 'lines' | 'train';
 let currentView: ViewName = 'builder';
 
 function handleStartTraining(line: Line): void {
@@ -222,9 +223,11 @@ function showView(view: ViewName): void {
   currentView = view;
   const builderEl = document.getElementById('view-builder')!;
   const linesEl = document.getElementById('view-lines')!;
+  const trainEl = document.getElementById('view-train')!;
 
   builderEl.toggleAttribute('hidden', view !== 'builder');
   linesEl.toggleAttribute('hidden', view !== 'lines');
+  trainEl.toggleAttribute('hidden', view !== 'train');
 
   document.querySelectorAll<HTMLElement>('#main-nav .nav-tab').forEach(btn => {
     const active = btn.dataset.view === view;
@@ -234,6 +237,10 @@ function showView(view: ViewName): void {
 
   if (view === 'lines') {
     renderLinesScreen(linesEl, { onOpenLine, onStartTraining: handleStartTraining });
+  }
+
+  if (view === 'train') {
+    renderTrainScreen(trainEl);
   }
 }
 

@@ -861,3 +861,150 @@ cg-board square.move-dest.oc {
   font-family: system-ui, -apple-system, sans-serif;
   padding: 0 1rem 0.5rem;
 }
+
+/* ── Train screen ──────────────────────────────────────────────────────────── */
+
+#view-train {
+  overflow-y: auto;
+  padding-bottom: 2rem;
+}
+
+.train-heading {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #9c7a5a;
+  margin: 1rem 1rem 0.5rem;
+}
+
+/* Card done-today muted state */
+.line-card--done-today .line-card-name {
+  color: #9c7a5a;
+}
+
+.training-stat--done {
+  color: #2a6b3a;
+  font-weight: 600;
+}
+
+/* ── Train empty state ─────────────────────────────────────────────────────── */
+
+.train-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 3rem 2rem;
+  text-align: center;
+}
+
+.train-empty-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #3c3225;
+}
+
+.train-empty-body {
+  font-size: 0.9rem;
+  color: #9c7a5a;
+  line-height: 1.5;
+  max-width: 280px;
+}
+
+/* ── Completion panel ──────────────────────────────────────────────────────── */
+
+.train-completion {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 3rem 1.5rem 2rem;
+  text-align: center;
+}
+
+.train-completion-done {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #2a6b3a;
+  letter-spacing: 0.02em;
+}
+
+.train-completion-name {
+  font-size: 1rem;
+  color: #9c7a5a;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-style: italic;
+}
+
+.train-next-btn {
+  width: 100%;
+  max-width: 320px;
+  min-height: 52px;
+  padding: 0.875rem 1.25rem;
+  background: #ff9b21;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s;
+  text-align: center;
+}
+
+.train-next-btn:active {
+  background: #e08800;
+}
+
+.train-all-done {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2a6b3a;
+  padding: 0.5rem 0;
+}
+
+.train-done-btn {
+  width: 100%;
+  max-width: 320px;
+  min-height: 44px;
+  padding: 0.7rem 1.25rem;
+  background: transparent;
+  color: #6b5638;
+  border: 1px solid #c9b48f;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.1s;
+}
+
+.train-done-btn:active {
+  background: rgba(156, 107, 67, 0.12);
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #1e1510;
+    color: #e8dcc8;
+  }
+
+  .train-empty-title {
+    color: #e8dcc8;
+  }
+
+  .train-completion-done {
+    color: #5dba7a;
+  }
+
+  .train-all-done {
+    color: #5dba7a;
+  }
+}
