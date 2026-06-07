@@ -93,5 +93,6 @@ cg-board square.move-dest.oc {
 }
 
 .cg-wrap coords.files coord {
-  padding-right: 2px; /* match the 2px left margin of rank numbers */
+  padding-right: 2px;
+  padding-bottom: 2px;
 }
