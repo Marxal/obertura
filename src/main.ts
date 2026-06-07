@@ -22,9 +22,6 @@ function turnColor(): 'white' | 'black' {
 }
 
 const boardEl = document.getElementById('board') as HTMLElement;
-const fenEl = document.getElementById('fen') as HTMLElement;
-
-fenEl.textContent = chess.fen();
 
 // Defer init by one frame so getBoundingClientRect() on #board
 // returns real pixel dimensions (chessground sizes cg-container in px).
@@ -52,7 +49,6 @@ requestAnimationFrame(() => {
             dests: legalDests(),
           },
         });
-        fenEl.textContent = chess.fen();
       },
     },
   });
