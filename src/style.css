@@ -298,6 +298,43 @@ cg-board square.move-dest.oc {
   color: #9c7a5a;
 }
 
+#line-meta {
+  font-size: 0.8rem;
+  color: #9c7a5a;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+#playback-controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.playback-btn {
+  flex: 1;
+  padding: 0.55rem 0.75rem;
+  min-height: 44px;
+  background: transparent;
+  color: #6b5638;
+  border: 1px solid #c9b48f;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.playback-btn:active {
+  background: rgba(156, 107, 67, 0.12);
+}
+
+.playback-btn.playing {
+  background: #7a2230;
+  color: #fff;
+  border-color: #7a2230;
+}
+
 /* Settings (device-local Lichess token) */
 #settings {
   padding-top: 0.75rem;
@@ -481,6 +518,26 @@ cg-board square.move-dest.oc {
   color: #6b5638;
   font-weight: 500;
   font-family: system-ui, -apple-system, sans-serif;
+}
+
+.line-card-training {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.2rem;
+}
+
+.training-stat {
+  font-size: 0.72rem;
+  color: #b8a48a;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-weight: 400;
+}
+
+.training-sep {
+  font-size: 0.72rem;
+  color: #c9b48f;
+  user-select: none;
 }
 
 .line-edit-btn {

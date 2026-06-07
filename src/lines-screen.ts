@@ -1,6 +1,26 @@
 import type { Line } from './types';
 import { getAllLines, saveLine, deleteLine } from './storage';
 
+// Phase 3 training will populate confidence and lastTrained.
+function relativeDate(isoStr: string): string {
+  const diff = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000);
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  const days = Math.floor(diff / 86400);
+  if (days === 1) return 'yesterday';
+  if (days < 30) return `${days} days ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return months === 1 ? '1 month ago' : `${months} months ago`;
+  return isoStr.slice(0, 10);
+}
+
+function confidenceDots(c: number): string {
+  if (!c) return '—';
+  const n = Math.min(Math.max(c, 0), 5);
+  return '●'.repeat(n) + '○'.repeat(5 - n);
+}
+
 type SortMode = 'latest' | 'weakest' | 'strongest' | 'name';
 let currentSort: SortMode = 'latest';
 
@@ -141,8 +161,26 @@ function buildCard(
     meta.appendChild(chip);
   }
 
+  // Phase 3 training will populate confidence and lastTrained.
+  const trainingRow = document.createElement('div');
+  trainingRow.className = 'line-card-training';
+  const confSpan = document.createElement('span');
+  confSpan.className = 'training-stat';
+  confSpan.textContent = `Confidence: ${confidenceDots(line.confidence)}`;
+  const sep = document.createElement('span');
+  sep.className = 'training-sep';
+  sep.setAttribute('aria-hidden', 'true');
+  sep.textContent = '·';
+  const dateSpan = document.createElement('span');
+  dateSpan.className = 'training-stat';
+  dateSpan.textContent = line.lastTrained ? relativeDate(line.lastTrained) : 'Never trained';
+  trainingRow.appendChild(confSpan);
+  trainingRow.appendChild(sep);
+  trainingRow.appendChild(dateSpan);
+
   body.appendChild(nameEl);
   body.appendChild(meta);
+  body.appendChild(trainingRow);
   card.appendChild(body);
 
   const editBtn = document.createElement('button');
