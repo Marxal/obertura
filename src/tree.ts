@@ -5,6 +5,7 @@ export interface MoveNode {
   fen: string;
   children: MoveNode[];
   note?: string;
+  missedThisSession?: boolean;
   review?: {
     ease: number;
     interval: number;
