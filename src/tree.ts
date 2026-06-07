@@ -105,3 +105,22 @@ export function reset(): void {
   current = root;
   idCounter = 0;
 }
+
+// Load a previously serialised tree into the module, replacing the current
+// tree. Scans the loaded nodes for the highest numeric id so that any new
+// moves added afterwards don't collide with existing node ids.
+export function loadTree(data: MoveNode): void {
+  root.children = structuredClone(data.children);
+  current = root;
+  idCounter = scanMaxId(root);
+}
+
+function scanMaxId(node: MoveNode): number {
+  let max = 0;
+  const m = node.id.match(/^n(\d+)$/);
+  if (m) max = parseInt(m[1], 10);
+  for (const child of node.children) {
+    max = Math.max(max, scanMaxId(child));
+  }
+  return max;
+}

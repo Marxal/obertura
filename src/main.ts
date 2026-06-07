@@ -4,10 +4,11 @@ import type { Key } from 'chessground/types';
 import 'chessground/assets/chessground.base.css';
 import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
-import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, uciPathTo } from './tree';
+import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, uciPathTo, loadTree } from './tree';
 import { saveLine, getAllLines } from './storage';
 import { probeOpeningName, getToken, setToken } from './openings';
 import type { Line } from './types';
+import { renderLinesScreen } from './lines-screen';
 
 const chess = new Chess();
 let cg!: ReturnType<typeof Chessground>;
@@ -105,11 +106,83 @@ function handleMoveClick(nodeId: string) {
 
 let saveColour: 'white' | 'black' = 'white';
 
+// When a line is loaded from My Lines, stash its id and createdAt so
+// a subsequent Save updates the same line instead of creating a duplicate.
+let loadedLineId: string | null = null;
+let loadedLineCreatedAt: number | undefined;
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+
+type ViewName = 'builder' | 'lines';
+let currentView: ViewName = 'builder';
+
+function showView(view: ViewName): void {
+  currentView = view;
+  const builderEl = document.getElementById('view-builder')!;
+  const linesEl = document.getElementById('view-lines')!;
+
+  builderEl.toggleAttribute('hidden', view !== 'builder');
+  linesEl.toggleAttribute('hidden', view !== 'lines');
+
+  document.querySelectorAll<HTMLElement>('#main-nav .nav-tab').forEach(btn => {
+    const active = btn.dataset.view === view;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-selected', String(active));
+  });
+
+  if (view === 'lines') {
+    renderLinesScreen(linesEl, { onOpenLine });
+  }
+}
+
+function onOpenLine(line: Line): void {
+  loadTree(line.tree);
+  loadedLineId = line.id;
+  loadedLineCreatedAt = line.createdAt;
+
+  chess.reset();
+  cg.set({
+    fen: chess.fen(),
+    turnColor: 'white',
+    movable: { color: 'both', dests: legalDests() },
+    lastMove: undefined,
+  });
+
+  // Prefill save form with the loaded line's metadata.
+  (document.getElementById('line-name') as HTMLInputElement).value = line.name;
+  (document.getElementById('line-tags') as HTMLInputElement).value = line.tags.join(', ');
+
+  saveColour = line.colour;
+  document.querySelectorAll<HTMLElement>('#colour-toggle button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.colour === line.colour);
+  });
+
+  document.getElementById('save-msg')!.textContent = '';
+  openingRequestId++;
+  document.getElementById('opening-name')!.textContent = '';
+
+  renderMoveList();
+  showView('builder');
+}
+
+function setupNav(): void {
+  document.querySelectorAll<HTMLElement>('#main-nav .nav-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const view = btn.dataset.view as ViewName | undefined;
+      if (view) showView(view);
+    });
+  });
+}
+
+// ── Debug readout ─────────────────────────────────────────────────────────────
+
 async function refreshDebugReadout() {
   const all = await getAllLines();
   const el = document.getElementById('debug-readout')!;
   el.textContent = `${all.length} line${all.length === 1 ? '' : 's'} saved`;
 }
+
+// ── Save form ─────────────────────────────────────────────────────────────────
 
 function setupSaveForm() {
   const nameInput = document.getElementById('line-name') as HTMLInputElement;
@@ -138,8 +211,10 @@ function setupSaveForm() {
       .map(t => t.trim())
       .filter(t => t.length > 0);
 
+    const isNew = !loadedLineId;
+    const id = loadedLineId ?? crypto.randomUUID();
     const line: Line = {
-      id: crypto.randomUUID(),
+      id,
       name: nameInput.value.trim() || 'Untitled line',
       tags,
       colour: saveColour,
@@ -148,9 +223,12 @@ function setupSaveForm() {
       lastTrained: null,
       inTraining: false,
       tree: serialise(),
+      createdAt: isNew ? Date.now() : (loadedLineCreatedAt ?? Date.now()),
     };
 
     await saveLine(line);
+    loadedLineId = id;
+    loadedLineCreatedAt = line.createdAt;
     saveMsg.textContent = 'Saved ✓';
     await refreshDebugReadout();
   });
@@ -158,6 +236,8 @@ function setupSaveForm() {
   // Show the persisted count on load — confirms data survived an app restart.
   refreshDebugReadout();
 }
+
+// ── Settings ──────────────────────────────────────────────────────────────────
 
 function setupSettings() {
   const tokenInput = document.getElementById('lichess-token') as HTMLInputElement;
@@ -175,7 +255,11 @@ function setupSettings() {
   });
 }
 
+// ── Boot ──────────────────────────────────────────────────────────────────────
+
 const boardEl = document.getElementById('board') as HTMLElement;
+
+setupNav();
 
 requestAnimationFrame(() => {
   cg = Chessground(boardEl, {
@@ -217,6 +301,15 @@ requestAnimationFrame(() => {
   document.getElementById('reset-btn')!.addEventListener('click', () => {
     reset();
     chess.reset();
+    loadedLineId = null;
+    loadedLineCreatedAt = undefined;
+    (document.getElementById('line-name') as HTMLInputElement).value = '';
+    (document.getElementById('line-tags') as HTMLInputElement).value = '';
+    // Reset colour toggle to White.
+    saveColour = 'white';
+    document.querySelectorAll<HTMLElement>('#colour-toggle button').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.colour === 'white');
+    });
     document.getElementById('save-msg')!.textContent = '';
     // Clear the opening label and invalidate any in-flight lookup.
     openingRequestId++;

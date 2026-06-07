@@ -18,40 +18,48 @@
     <div id="app">
       <header>
         <h1>Obertura</h1>
+        <nav id="main-nav" role="tablist" aria-label="App navigation">
+          <button class="nav-tab active" data-view="builder" role="tab" aria-selected="true" type="button">Build</button>
+          <button class="nav-tab" data-view="lines" role="tab" aria-selected="false" type="button">My Lines</button>
+        </nav>
       </header>
       <main>
-        <div id="board-wrap">
-          <div id="board"></div>
-        </div>
-        <div id="line-panel">
-          <div class="opening-name" id="opening-name" aria-live="polite"></div>
-          <div id="move-list"></div>
-          <button id="reset-btn">Reset line</button>
-
-          <div id="save-form">
-            <input id="line-name" type="text" placeholder="Italian Game — main line" />
-            <input id="line-tags" type="text" placeholder="tags, comma, separated" />
-            <div id="colour-toggle" role="group" aria-label="Repertoire colour">
-              <button type="button" data-colour="white" class="active">White</button>
-              <button type="button" data-colour="black">Black</button>
-            </div>
-            <div id="save-row">
-              <button id="save-btn">Save line</button>
-              <span id="save-msg" aria-live="polite"></span>
-            </div>
-            <div id="debug-readout"></div>
+        <div id="view-builder">
+          <div id="board-wrap">
+            <div id="board"></div>
           </div>
+          <div id="line-panel">
+            <div class="opening-name" id="opening-name" aria-live="polite"></div>
+            <div id="move-list"></div>
+            <button id="reset-btn">Reset line</button>
 
-          <details id="settings">
-            <summary>Settings</summary>
-            <label for="lichess-token">Lichess API token</label>
-            <input id="lichess-token" type="password" autocomplete="off"
-                   placeholder="Paste token to enable opening names" />
-            <span id="token-msg"></span>
-            <a href="https://lichess.org/account/oauth/token/create?description=Obertura"
-               target="_blank" rel="noopener">Create a free token →</a>
-          </details>
+            <div id="save-form">
+              <input id="line-name" type="text" placeholder="Italian Game — main line" />
+              <input id="line-tags" type="text" placeholder="tags, comma, separated" />
+              <div id="colour-toggle" role="group" aria-label="Repertoire colour">
+                <button type="button" data-colour="white" class="active">White</button>
+                <button type="button" data-colour="black">Black</button>
+              </div>
+              <div id="save-row">
+                <button id="save-btn">Save line</button>
+                <span id="save-msg" aria-live="polite"></span>
+              </div>
+              <div id="debug-readout"></div>
+            </div>
+
+            <details id="settings">
+              <summary>Settings</summary>
+              <label for="lichess-token">Lichess API token</label>
+              <input id="lichess-token" type="password" autocomplete="off"
+                     placeholder="Paste token to enable opening names" />
+              <span id="token-msg"></span>
+              <a href="https://lichess.org/account/oauth/token/create?description=Obertura"
+                 target="_blank" rel="noopener">Create a free token →</a>
+            </details>
+          </div>
         </div>
+
+        <div id="view-lines" hidden></div>
       </main>
     </div>
     <script type="module" src="/src/main.ts"></script>
