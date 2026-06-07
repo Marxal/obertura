@@ -53,3 +53,9 @@ const cg = Chessground(boardEl, {
     },
   },
 });
+
+// Redraw once layout has settled so pieces land on correct squares
+requestAnimationFrame(() => cg.redrawAll());
+
+// Re-fit on resize (orientation changes on mobile)
+new ResizeObserver(() => cg.redrawAll()).observe(boardEl);

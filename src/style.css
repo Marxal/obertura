@@ -34,12 +34,13 @@ header h1 {
 
 #board-wrap {
   width: 100%;
-  aspect-ratio: 1;
+  aspect-ratio: 1 / 1;
+  position: relative;
 }
 
 #board {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  inset: 0;
 }
 
 /* Square colors */

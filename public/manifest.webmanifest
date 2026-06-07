@@ -1,6 +1,6 @@
 {
-  "name": "Aperture",
-  "short_name": "Aperture",
+  "name": "Obertura",
+  "short_name": "Obertura",
   "description": "Personal chess openings trainer",
   "start_url": ".",
   "display": "standalone",
