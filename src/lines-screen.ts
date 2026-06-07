@@ -192,8 +192,20 @@ function buildCard(
   body.appendChild(trainingRow);
   card.appendChild(body);
 
-  // "Add to training" button — shown only for lines not yet in training.
-  if (!line.inTraining && onStartTraining) {
+  // Training toggle — "Add to training" or "✓ Training" (tap to remove).
+  if (line.inTraining) {
+    const trainBtn = document.createElement('button');
+    trainBtn.type = 'button';
+    trainBtn.className = 'card-training-btn card-training-btn--active';
+    trainBtn.textContent = '✓ Training';
+    trainBtn.title = 'Tap to remove from training';
+    trainBtn.addEventListener('click', async e => {
+      e.stopPropagation();
+      await saveLine({ ...line, inTraining: false });
+      rerender();
+    });
+    card.appendChild(trainBtn);
+  } else if (onStartTraining) {
     const trainBtn = document.createElement('button');
     trainBtn.type = 'button';
     trainBtn.className = 'card-training-btn';

@@ -238,10 +238,20 @@ function goToStart(): void {
   renderNotePanel();
 }
 
-// Show or hide the "Add to training" button based on current saved line state.
+// Sync the training toggle in the builder panel with the current line state.
 function updateTrainingButton(): void {
   const row = document.getElementById('add-training-row');
-  if (row) row.hidden = !currentTrainingLine || currentTrainingLine.inTraining;
+  const btn = document.getElementById('add-training-btn') as HTMLButtonElement | null;
+  if (!row) return;
+  row.hidden = !currentTrainingLine;
+  if (!btn || !currentTrainingLine) return;
+  if (currentTrainingLine.inTraining) {
+    btn.textContent = '✓ In training';
+    btn.classList.add('add-training-btn--active');
+  } else {
+    btn.textContent = 'Add to training';
+    btn.classList.remove('add-training-btn--active');
+  }
 }
 
 // ── Navigation ────────────────────────────────────────────────────────────────
@@ -359,24 +369,34 @@ function setupSaveForm() {
   addTrainingRow.hidden = true;
   const addTrainingBtn = document.createElement('button');
   addTrainingBtn.type = 'button';
+  addTrainingBtn.id = 'add-training-btn';
   addTrainingBtn.className = 'add-training-btn';
   addTrainingBtn.textContent = 'Add to training';
   addTrainingRow.appendChild(addTrainingBtn);
   saveForm.insertBefore(addTrainingRow, debugReadout);
 
-  addTrainingBtn.addEventListener('click', () => {
+  addTrainingBtn.addEventListener('click', async () => {
     if (!currentTrainingLine) return;
-    startPretrainingRun(
-      currentTrainingLine,
-      () => {
-        // Training complete from builder: hide button, update local state.
-        loadedLineInTraining = true;
-        currentTrainingLine = currentTrainingLine ? { ...currentTrainingLine, inTraining: true } : null;
-        updateTrainingButton();
-        saveMsg.textContent = 'Added to training ✓';
-      },
-      () => { /* cancelled — stay in builder, do nothing */ }
-    );
+    if (currentTrainingLine.inTraining) {
+      // Remove from training — flip the flag and save; SM-2 data is kept intact.
+      const updated: Line = { ...currentTrainingLine, inTraining: false };
+      await saveLine(updated);
+      loadedLineInTraining = false;
+      currentTrainingLine = updated;
+      updateTrainingButton();
+      saveMsg.textContent = 'Removed from training';
+    } else {
+      startPretrainingRun(
+        currentTrainingLine,
+        () => {
+          loadedLineInTraining = true;
+          currentTrainingLine = currentTrainingLine ? { ...currentTrainingLine, inTraining: true } : null;
+          updateTrainingButton();
+          saveMsg.textContent = 'Added to training ✓';
+        },
+        () => { /* cancelled — stay in builder */ }
+      );
+    }
   });
 
   // White / Black segmented control.
