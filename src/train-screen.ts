@@ -2,46 +2,21 @@ import type { Line } from './types';
 import type { MoveNode } from './tree';
 import { getAllLines, saveLine } from './storage';
 import { startDrill } from './drill';
+import { TrainingSession, type SessionItem } from './session';
+import {
+  userMoveNodes,
+  gradeReview,
+  newReview,
+  qualityFromMisses,
+  lineConfidence,
+  lineIsDue,
+  dueLines,
+  nextDue,
+  describeDue,
+} from './scheduler';
+import { runSchedulerSelfTest } from './scheduler.selftest';
 
-// ── Date helpers ──────────────────────────────────────────────────────────────
-
-function todayUTC(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function isSameDay(isoStr: string | null): boolean {
-  return !!isoStr && isoStr.slice(0, 10) === todayUTC();
-}
-
-function relativeDate(isoStr: string): string {
-  const diff = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000);
-  if (diff < 60) return 'just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  const days = Math.floor(diff / 86400);
-  if (days === 1) return 'yesterday';
-  if (days < 30) return `${days} days ago`;
-  const months = Math.floor(days / 30);
-  return months < 12 ? (months === 1 ? '1 month ago' : `${months} months ago`) : isoStr.slice(0, 10);
-}
-
-// ── Next-line ordering ────────────────────────────────────────────────────────
-// Exported so Task 5 can swap this for the real SM-2 due-logic without
-// touching the screen code.
-
-export function nextLineToTrain(lines: Line[]): Line | null {
-  const candidates = lines
-    .filter(l => l.inTraining && !isSameDay(l.lastTrained))
-    .sort((a, b) => {
-      // Never-trained (lastTrained === null) counts as oldest (time 0).
-      const at = a.lastTrained ? new Date(a.lastTrained).getTime() : 0;
-      const bt = b.lastTrained ? new Date(b.lastTrained).getTime() : 0;
-      return at - bt;
-    });
-  return candidates[0] ?? null;
-}
-
-// ── Screen entry point ────────────────────────────────────────────────────────
+// ── Screen entry point ──────────────────────────────────────────────────────────
 
 export function renderTrainScreen(container: HTMLElement): void {
   void doRender(container);
@@ -56,10 +31,14 @@ async function doRender(container: HTMLElement): Promise<void> {
 
   if (trainingLines.length === 0) {
     renderEmpty(container);
+    appendSelfTestLink(container);
     return;
   }
 
+  const due = dueLines(trainingLines);
+  renderSessionHeader(container, due, trainingLines);
   renderCardList(container, trainingLines);
+  appendSelfTestLink(container);
 }
 
 // ── Empty state ───────────────────────────────────────────────────────────────
@@ -81,7 +60,35 @@ function renderEmpty(container: HTMLElement): void {
   container.appendChild(wrap);
 }
 
-// ── Card list ─────────────────────────────────────────────────────────────────
+// ── Session header (the "Start review" call to action) ──────────────────────────
+
+function renderSessionHeader(container: HTMLElement, due: Line[], allTraining: Line[]): void {
+  const wrap = document.createElement('div');
+  wrap.className = 'session-header';
+
+  const count = document.createElement('div');
+  count.className = 'session-count';
+  count.textContent = due.length > 0
+    ? `${due.length} line${due.length === 1 ? '' : 's'} due for review`
+    : 'All caught up for now ✓';
+  wrap.appendChild(count);
+
+  if (due.length > 0) {
+    const startBtn = document.createElement('button');
+    startBtn.type = 'button';
+    startBtn.className = 'session-start-btn';
+    startBtn.textContent = 'Start review session';
+    startBtn.addEventListener('click', () => {
+      const session = new TrainingSession(allTraining);
+      runSession(session, container, { linesReviewed: 0, movesMissed: 0 });
+    });
+    wrap.appendChild(startBtn);
+  }
+
+  container.appendChild(wrap);
+}
+
+// ── Card list (browse every training line) ──────────────────────────────────────
 
 function renderCardList(container: HTMLElement, trainingLines: Line[]): void {
   const heading = document.createElement('h2');
@@ -98,13 +105,17 @@ function buildTrainCard(line: Line, container: HTMLElement): HTMLElement {
   const card = document.createElement('div');
   card.className = 'line-card';
 
-  const doneToday = isSameDay(line.lastTrained);
-  if (doneToday) card.classList.add('line-card--done-today');
+  const isDue = lineIsDue(line);
+  if (!isDue) card.classList.add('line-card--rested');
 
   const body = document.createElement('button');
   body.type = 'button';
   body.className = 'line-card-body';
-  body.addEventListener('click', () => startTrainDrill(line, container));
+  // Tapping a card drills just that line (a one-line practice session).
+  body.addEventListener('click', () => {
+    const session = new TrainingSession([line], { explicit: true });
+    runSession(session, container, { linesReviewed: 0, movesMissed: 0 });
+  });
 
   const nameEl = document.createElement('div');
   nameEl.className = 'line-card-name';
@@ -128,14 +139,10 @@ function buildTrainCard(line: Line, container: HTMLElement): HTMLElement {
   const trainingRow = document.createElement('div');
   trainingRow.className = 'line-card-training';
 
-  const dateSpan = document.createElement('span');
-  dateSpan.className = doneToday ? 'training-stat training-stat--done' : 'training-stat';
-  dateSpan.textContent = doneToday
-    ? 'Done today ✓'
-    : line.lastTrained
-      ? `Last: ${relativeDate(line.lastTrained)}`
-      : 'Not yet trained';
-  trainingRow.appendChild(dateSpan);
+  const dueSpan = document.createElement('span');
+  dueSpan.className = isDue ? 'training-stat training-stat--due' : 'training-stat';
+  dueSpan.textContent = describeDue(nextDue(line));
+  trainingRow.appendChild(dueSpan);
 
   body.appendChild(nameEl);
   body.appendChild(meta);
@@ -145,7 +152,21 @@ function buildTrainCard(line: Line, container: HTMLElement): HTMLElement {
   return card;
 }
 
-// ── Drill entry ───────────────────────────────────────────────────────────────
+// ── Driving a session ───────────────────────────────────────────────────────────
+
+interface SessionStats {
+  linesReviewed: number;
+  movesMissed: number;
+}
+
+function runSession(session: TrainingSession, container: HTMLElement, stats: SessionStats): void {
+  const item = session.next();
+  if (!item) {
+    renderSessionComplete(container, stats);
+    return;
+  }
+  runItem(item, session, container, stats);
+}
 
 function mainlineOf(tree: MoveNode): MoveNode[] {
   const result: MoveNode[] = [];
@@ -157,43 +178,66 @@ function mainlineOf(tree: MoveNode): MoveNode[] {
   return result;
 }
 
-function startTrainDrill(line: Line, container: HTMLElement): void {
-  // Deep-clone so lapse/session edits don't mutate the caller's in-memory copy.
+function runItem(
+  item: SessionItem,
+  session: TrainingSession,
+  container: HTMLElement,
+  stats: SessionStats
+): void {
+  const { line, isResurface } = item;
+
+  // Deep-clone so grading edits don't mutate the queued/in-memory line until we
+  // deliberately persist.
   const lineCopy: Line = { ...line, tree: structuredClone(line.tree) };
   const copyMoves = mainlineOf(lineCopy.tree);
+  const userNodes = userMoveNodes(lineCopy.tree, lineCopy.colour);
+
+  // Track which user-moves were missed on this pass (one entry per node).
+  const missed = new Set<string>();
 
   function recordMiss(node: MoveNode): void {
-    // node comes from drill.ts's mainlineOf(lineCopy.tree) — same object refs
-    // as copyMoves, so we can mutate directly without searching.
-    const target = copyMoves.find(m => m.id === node.id) ?? node;
-    if (!target.review) {
-      target.review = { ease: 2.5, interval: 0, reps: 0, lapses: 0, due: new Date() };
-    }
-    target.review.lapses++;
-    target.missedThisSession = true;
+    // drill.ts fires this once per node (first wrong attempt) in 'full' mode.
+    const target = copyMoves.find(m => m.id === node.id);
+    if (target) target.missedThisSession = true;
+    missed.add(node.id);
   }
 
   startDrill(lineCopy, {
-    completeMessage: 'Line complete',
     wrongMoveMode: 'full',
+    completeMessage: isResurface ? 'Got it that time ✓' : 'Line complete',
     recordMiss,
     onCancel: () => void doRender(container),
     onBeforeComplete: async () => {
-      // Persist lapses, missedThisSession, and lastTrained in one write.
-      lineCopy.lastTrained = new Date().toISOString();
+      // Resurfaced passes are reinforcement only — they don't re-grade or
+      // re-persist, so a clean replay can't inflate the schedule.
+      if (isResurface) return;
+
+      const now = new Date();
+      for (const node of userNodes) {
+        const misses = missed.has(node.id) ? 1 : 0;
+        const quality = qualityFromMisses(misses);
+        node.review = gradeReview(node.review ?? newReview(now), quality, now);
+        node.missedThisSession = false;
+      }
+      lineCopy.lastTrained = now.toISOString();
+      lineCopy.confidence = lineConfidence(lineCopy);
       await saveLine(lineCopy);
     },
-    onComplete: async () => {
-      const freshLines = await getAllLines();
-      const updated = freshLines.find(l => l.id === line.id) ?? line;
-      renderCompletion(container, updated, freshLines);
+    onComplete: () => {
+      if (!isResurface) {
+        stats.linesReviewed++;
+        stats.movesMissed += missed.size;
+      }
+      // Missed material comes back later in this same session.
+      if (missed.size > 0) session.resurface(line, missed.size);
+      runSession(session, container, stats);
     },
   });
 }
 
-// ── Completion panel ──────────────────────────────────────────────────────────
+// ── Session-complete panel ──────────────────────────────────────────────────────
 
-function renderCompletion(container: HTMLElement, completedLine: Line, allLines: Line[]): void {
+function renderSessionComplete(container: HTMLElement, stats: SessionStats): void {
   container.innerHTML = '';
 
   const wrap = document.createElement('div');
@@ -201,36 +245,69 @@ function renderCompletion(container: HTMLElement, completedLine: Line, allLines:
 
   const doneEl = document.createElement('div');
   doneEl.className = 'train-completion-done';
-  doneEl.textContent = 'Line complete ✓';
+  doneEl.textContent = 'Session complete ✓';
   wrap.appendChild(doneEl);
 
-  const nameEl = document.createElement('div');
-  nameEl.className = 'train-completion-name';
-  nameEl.textContent = completedLine.name || 'Untitled line';
-  wrap.appendChild(nameEl);
+  const summary = document.createElement('div');
+  summary.className = 'train-completion-name';
+  const lines = `${stats.linesReviewed} line${stats.linesReviewed === 1 ? '' : 's'} reviewed`;
+  summary.textContent = stats.movesMissed === 0
+    ? `${lines} · clean run`
+    : `${lines} · ${stats.movesMissed} move${stats.movesMissed === 1 ? '' : 's'} to firm up`;
+  wrap.appendChild(summary);
 
-  const next = nextLineToTrain(allLines);
-
-  if (next) {
-    const nextBtn = document.createElement('button');
-    nextBtn.type = 'button';
-    nextBtn.className = 'train-next-btn';
-    nextBtn.textContent = `Next: ${next.name || 'Untitled line'} →`;
-    nextBtn.addEventListener('click', () => startTrainDrill(next, container));
-    wrap.appendChild(nextBtn);
-  } else {
-    const allDoneEl = document.createElement('div');
-    allDoneEl.className = 'train-all-done';
-    allDoneEl.textContent = 'All caught up for today ✓';
-    wrap.appendChild(allDoneEl);
-  }
+  const allDone = document.createElement('div');
+  allDone.className = 'train-all-done';
+  allDone.textContent = 'Missed moves are scheduled to come back sooner.';
+  wrap.appendChild(allDone);
 
   const doneBtn = document.createElement('button');
   doneBtn.type = 'button';
   doneBtn.className = 'train-done-btn';
-  doneBtn.textContent = 'Done for now';
+  doneBtn.textContent = 'Back to training';
   doneBtn.addEventListener('click', () => void doRender(container));
   wrap.appendChild(doneBtn);
 
+  container.appendChild(wrap);
+}
+
+// ── Scheduler self-test (a phone-friendly way to verify the maths) ──────────────
+
+function appendSelfTestLink(container: HTMLElement): void {
+  const wrap = document.createElement('div');
+  wrap.className = 'selftest-wrap';
+
+  const link = document.createElement('button');
+  link.type = 'button';
+  link.className = 'selftest-link';
+  link.textContent = 'Run scheduler self-test';
+
+  const out = document.createElement('div');
+  out.className = 'selftest-output';
+  out.hidden = true;
+
+  link.addEventListener('click', () => {
+    const results = runSchedulerSelfTest();
+    out.hidden = false;
+    out.innerHTML = '';
+
+    const passed = results.filter(r => r.pass).length;
+    const head = document.createElement('div');
+    head.className = `selftest-head ${passed === results.length ? 'ok' : 'fail'}`;
+    head.textContent = `${passed}/${results.length} checks passed`;
+    out.appendChild(head);
+
+    for (const r of results) {
+      const row = document.createElement('div');
+      row.className = `selftest-row ${r.pass ? 'ok' : 'fail'}`;
+      row.textContent = `${r.pass ? '✓' : '✗'} ${r.name} — ${r.detail}`;
+      out.appendChild(row);
+    }
+    // Also dump to the console for desktop inspection.
+    console.log('[scheduler self-test]', results);
+  });
+
+  wrap.appendChild(link);
+  wrap.appendChild(out);
   container.appendChild(wrap);
 }
