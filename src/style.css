@@ -16,15 +16,46 @@ body {
 }
 
 header {
-  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid rgba(156, 107, 67, 0.2);
 }
 
 header h1 {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   color: #ff9b21;
   text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* ── Navigation tabs ───────────────────────────────────────────────────────── */
+
+#main-nav {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.nav-tab {
+  padding: 0.4rem 0.875rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #6b5638;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s, color 0.12s;
+}
+
+.nav-tab.active {
+  background: #ff9b21;
+  color: #fff;
 }
 
 #board-wrap {
@@ -315,4 +346,267 @@ cg-board square.move-dest.oc {
   margin-top: 0.5rem;
   color: #7a2230;
   font-size: 0.8rem;
+}
+
+/* ── My Lines screen ───────────────────────────────────────────────────────── */
+
+[hidden] { display: none !important; }
+
+#view-lines {
+  overflow-y: auto;
+  padding-bottom: 2rem;
+}
+
+.lines-loading {
+  padding: 1.5rem 1rem;
+  color: #9c7a5a;
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+.sort-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.75rem 1rem 0.5rem;
+  flex-wrap: wrap;
+}
+
+.sort-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #9c7a5a;
+}
+
+.sort-btn {
+  padding: 0.3rem 0.75rem;
+  border: 1px solid #c9b48f;
+  border-radius: 20px;
+  background: #faf4e6;
+  color: #6b5638;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.sort-btn.active {
+  background: #ff9b21;
+  color: #fff;
+  border-color: #ff9b21;
+}
+
+.lines-section {
+  padding: 0 1rem 0.25rem;
+}
+
+.lines-heading {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #9c7a5a;
+  margin: 1rem 0 0.5rem;
+}
+
+.lines-empty {
+  color: #b8a48a;
+  font-size: 0.875rem;
+  font-style: italic;
+  padding: 0.25rem 0 0.75rem;
+}
+
+/* Line card */
+.line-card {
+  display: flex;
+  align-items: stretch;
+  background: #faf4e6;
+  border: 1px solid #e0d0b8;
+  border-radius: 8px;
+  margin-bottom: 0.6rem;
+  overflow: hidden;
+  min-height: 56px;
+}
+
+.line-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.7rem 0.9rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-family: system-ui, -apple-system, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.1s;
+}
+
+.line-card-body:active {
+  background: rgba(255, 155, 33, 0.1);
+}
+
+.line-card-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #3c3225;
+  line-height: 1.3;
+}
+
+.line-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.strength-dot {
+  font-size: 0.75rem;
+  color: #b8a48a;
+  font-weight: 500;
+  line-height: 1;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.tag-chip {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 10px;
+  background: rgba(156, 107, 67, 0.12);
+  color: #6b5638;
+  font-weight: 500;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.line-edit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  min-width: 44px;
+  border: none;
+  border-left: 1px solid #e0d0b8;
+  background: transparent;
+  color: #9c7a5a;
+  font-size: 1.25rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.1s;
+}
+
+.line-edit-btn:active {
+  background: rgba(156, 107, 67, 0.12);
+}
+
+/* ── Edit sheet (bottom-sheet modal) ──────────────────────────────────────── */
+
+.edit-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+  z-index: 100;
+}
+
+.edit-sheet {
+  width: 100%;
+  background: #f3ead7;
+  border-radius: 16px 16px 0 0;
+  padding: 1.25rem 1.25rem env(safe-area-inset-bottom, 1.25rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.edit-sheet-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #3c3225;
+}
+
+.edit-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #6b5638;
+  margin-bottom: 0.25rem;
+}
+
+.edit-input {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #c9b48f;
+  border-radius: 6px;
+  background: #faf4e6;
+  color: #3a2a1a;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 1rem;
+}
+
+.edit-input:focus {
+  outline: none;
+  border-color: #ff9b21;
+}
+
+.edit-btn-row {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.edit-save-btn {
+  flex: 1;
+  padding: 0.7rem 1rem;
+  background: #7a2230;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.edit-save-btn:active {
+  background: #5f1a25;
+}
+
+.edit-cancel-btn {
+  padding: 0.7rem 1rem;
+  background: transparent;
+  color: #6b5638;
+  border: 1px solid #c9b48f;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.edit-delete-btn {
+  width: 100%;
+  padding: 0.7rem 1rem;
+  background: transparent;
+  color: #9c3a3a;
+  border: 1px solid rgba(156, 58, 58, 0.4);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.edit-delete-btn.confirming {
+  background: #9c3a3a;
+  color: #fff;
+  border-color: #9c3a3a;
 }

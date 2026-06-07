@@ -13,4 +13,5 @@ export interface Line {
   lastTrained: string | null;
   inTraining: boolean;
   tree: MoveNode;
+  createdAt?: number;
 }
