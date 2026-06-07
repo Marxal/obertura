@@ -91,3 +91,7 @@ cg-board square.move-dest.oc {
   left: 0;
   text-align: right;
 }
+
+.cg-wrap coords.files coord {
+  padding-right: 2px; /* match the 2px left margin of rank numbers */
+}
