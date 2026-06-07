@@ -1024,6 +1024,95 @@ cg-board square.move-dest.oc {
   background: rgba(156, 107, 67, 0.12);
 }
 
+/* ── Session header ────────────────────────────────────────────────────────── */
+
+.session-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1rem;
+}
+
+.session-count {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #3c3225;
+}
+
+.session-start-btn {
+  width: 100%;
+  min-height: 52px;
+  padding: 0.875rem 1.25rem;
+  background: #ff9b21;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s;
+}
+
+.session-start-btn:active {
+  background: #e08800;
+}
+
+/* A line whose moves aren't due yet reads quieter than a due one. */
+.line-card--rested .line-card-name {
+  color: #9c7a5a;
+}
+
+.training-stat--due {
+  color: #c0531f;
+  font-weight: 600;
+}
+
+/* ── Scheduler self-test ───────────────────────────────────────────────────── */
+
+.selftest-wrap {
+  padding: 1.5rem 1rem 0.5rem;
+}
+
+.selftest-link {
+  background: none;
+  border: none;
+  padding: 0.4rem 0;
+  color: #9c7a5a;
+  font-size: 0.8rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  text-decoration: underline;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.selftest-output {
+  margin-top: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.selftest-head {
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-bottom: 0.2rem;
+}
+
+.selftest-head.ok { color: #2a6b3a; }
+.selftest-head.fail { color: #c0531f; }
+
+.selftest-row {
+  font-size: 0.72rem;
+  line-height: 1.35;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #6b5638;
+}
+
+.selftest-row.fail { color: #c0531f; font-weight: 600; }
+
 /* ── Move note panel (builder) ─────────────────────────────────────────────── */
 
 #note-panel {

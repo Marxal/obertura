@@ -2,6 +2,7 @@ import type { Line } from './types';
 import type { MoveNode } from './tree';
 import { saveLine } from './storage';
 import { startDrill } from './drill';
+import { newReview } from './scheduler';
 
 function mainlineOf(tree: MoveNode): MoveNode[] {
   const result: MoveNode[] = [];
@@ -30,7 +31,7 @@ export function startPretrainingRun(
     const target = copyMoves.find(m => m.id === node.id);
     if (!target) return;
     if (!target.review) {
-      target.review = { ease: 2.5, interval: 0, reps: 0, lapses: 0, due: new Date() };
+      target.review = newReview();
     }
     target.review.lapses++;
   }
