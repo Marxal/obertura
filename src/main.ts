@@ -79,20 +79,60 @@ function renderMoveList() {
 
     const wSpan = document.createElement('span');
     wSpan.className = `move-san${white.id === activeId ? ' active' : ''}`;
-    wSpan.textContent = white.san;
     wSpan.addEventListener('click', () => handleMoveClick(white.id));
+    wSpan.textContent = white.san;
+    if (white.note) {
+      const dot = document.createElement('span');
+      dot.className = 'move-note-dot';
+      dot.setAttribute('aria-hidden', 'true');
+      wSpan.appendChild(dot);
+    }
     el.appendChild(wSpan);
 
     if (black) {
       const bSpan = document.createElement('span');
       bSpan.className = `move-san${black.id === activeId ? ' active' : ''}`;
-      bSpan.textContent = black.san;
       bSpan.addEventListener('click', () => handleMoveClick(black.id));
+      bSpan.textContent = black.san;
+      if (black.note) {
+        const dot = document.createElement('span');
+        dot.className = 'move-note-dot';
+        dot.setAttribute('aria-hidden', 'true');
+        bSpan.appendChild(dot);
+      }
       el.appendChild(bSpan);
     }
   }
 
   redrawBranchView();
+}
+
+// ── Note panel ────────────────────────────────────────────────────────────────
+
+function renderNotePanel(): void {
+  const panel = document.getElementById('note-panel')!;
+  const label = document.getElementById('note-panel-label')!;
+  const textarea = document.getElementById('move-note-input') as HTMLTextAreaElement;
+  const node = getCurrentNode();
+  if (node.id === 'root') {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+  label.textContent = `Note for ${node.san}`;
+  textarea.value = node.note ?? '';
+}
+
+function setupNotePanel(): void {
+  const textarea = document.getElementById('move-note-input') as HTMLTextAreaElement;
+  textarea.addEventListener('input', () => {
+    const node = getCurrentNode();
+    if (node.id === 'root') return;
+    const val = textarea.value;
+    node.note = val.trim() ? val : undefined;
+    // Update note dot indicator without clobbering the textarea.
+    renderMoveList();
+  });
 }
 
 function handleMoveClick(nodeId: string) {
@@ -118,6 +158,7 @@ function handleMoveClick(nodeId: string) {
   });
 
   renderMoveList();
+  renderNotePanel();
   updateOpeningName();
 }
 
@@ -194,6 +235,7 @@ function goToStart(): void {
     lastMove: undefined,
   });
   renderMoveList();
+  renderNotePanel();
 }
 
 // Show or hide the "Add to training" button based on current saved line state.
@@ -277,6 +319,7 @@ function onOpenLine(line: Line): void {
   document.getElementById('opening-name')!.textContent = '';
 
   renderMoveList();
+  renderNotePanel();
   renderLineMeta();
   updateTrainingButton();
   showView('builder');
@@ -525,6 +568,7 @@ requestAnimationFrame(() => {
           },
         });
         renderMoveList();
+        renderNotePanel();
         updateOpeningName();
       },
     },
@@ -534,6 +578,7 @@ requestAnimationFrame(() => {
   setupSettings();
   setupPlaybackControls();
   setupBranchView();
+  setupNotePanel();
 
   document.getElementById('reset-btn')!.addEventListener('click', () => {
     stopPlayback();
@@ -565,6 +610,7 @@ requestAnimationFrame(() => {
       lastMove: undefined,
     });
     renderMoveList();
+    renderNotePanel();
     renderLineMeta();
     updateTrainingButton();
   });

@@ -1024,6 +1024,61 @@ cg-board square.move-dest.oc {
   background: rgba(156, 107, 67, 0.12);
 }
 
+/* ── Move note panel (builder) ─────────────────────────────────────────────── */
+
+#note-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.note-panel-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #9c7a5a;
+  letter-spacing: 0.03em;
+}
+
+.note-panel-textarea {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #c9b48f;
+  border-left: 3px solid #ff9b21;
+  border-radius: 6px;
+  background: #faf4e6;
+  color: #3a2a1a;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-style: italic;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 3.25rem;
+}
+
+.note-panel-textarea:focus {
+  outline: none;
+  border-color: #ff9b21;
+  border-left-color: #ff9b21;
+}
+
+.note-panel-textarea::placeholder {
+  color: #b8a48a;
+  font-style: italic;
+}
+
+/* Tiny amber dot on moves that have a note */
+.move-note-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #ff9b21;
+  vertical-align: middle;
+  margin-left: 3px;
+  margin-bottom: 2px;
+  flex-shrink: 0;
+}
+
 /* Dark mode adjustments */
 @media (prefers-color-scheme: dark) {
   body {
@@ -1047,6 +1102,12 @@ cg-board square.move-dest.oc {
     background: #2a1e12;
     border-color: #4a3a28;
     border-left-color: #ff9b21;
+    color: #e8dcc8;
+  }
+
+  .note-panel-textarea {
+    background: #2a1e12;
+    border-color: #4a3a28;
     color: #e8dcc8;
   }
 }
