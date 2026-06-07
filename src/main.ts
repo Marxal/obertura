@@ -6,7 +6,7 @@ import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
 import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, uciPathTo } from './tree';
 import { saveLine, getAllLines } from './storage';
-import { fetchOpeningName } from './openings';
+import { probeOpeningName } from './openings';
 import type { Line } from './types';
 
 const chess = new Chess();
@@ -35,11 +35,13 @@ function updateOpeningName() {
   if (openingTimer) clearTimeout(openingTimer);
   openingTimer = setTimeout(async () => {
     const reqId = ++openingRequestId;
-    const name = await fetchOpeningName(uciPathTo());
+    // TEMPORARY DIAGNOSTIC: probe reports why a lookup is empty.
+    const { name, debug } = await probeOpeningName(uciPathTo());
     // Ignore stale results: only apply if this is still the latest request.
     if (reqId !== openingRequestId) return;
     const el = document.getElementById('opening-name')!;
-    el.textContent = name ?? '';
+    el.textContent = name ?? debug;
+    console.log('[opening]', debug);
   }, 350);
 }
 
