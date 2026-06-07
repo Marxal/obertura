@@ -10,6 +10,7 @@ import { probeOpeningName, getToken, setToken } from './openings';
 import type { Line } from './types';
 import { renderLinesScreen } from './lines-screen';
 import { renderBranchView } from './branch-view';
+import { startPretrainingRun } from './pretraining';
 
 const chess = new Chess();
 let cg!: ReturnType<typeof Chessground>;
@@ -125,10 +126,14 @@ let saveColour: 'white' | 'black' = 'white';
 // a subsequent Save updates the same line instead of creating a duplicate.
 let loadedLineId: string | null = null;
 let loadedLineCreatedAt: number | undefined;
+let loadedLineInTraining = false;
 
 // Metadata from the loaded line for the builder readout.
 // Phase 3 training will populate confidence and lastTrained.
 let loadedLineMeta: { confidence: number; lastTrained: string | null } | null = null;
+
+// The most recently saved line — drives the "Add to training" button visibility.
+let currentTrainingLine: Line | null = null;
 
 // Single timer handle for Watch line — prevents stacked playback.
 let playbackTimer: ReturnType<typeof setTimeout> | undefined;
@@ -190,10 +195,28 @@ function goToStart(): void {
   renderMoveList();
 }
 
+// Show or hide the "Add to training" button based on current saved line state.
+function updateTrainingButton(): void {
+  const row = document.getElementById('add-training-row');
+  if (row) row.hidden = !currentTrainingLine || currentTrainingLine.inTraining;
+}
+
 // ── Navigation ────────────────────────────────────────────────────────────────
 
 type ViewName = 'builder' | 'lines';
 let currentView: ViewName = 'builder';
+
+function handleStartTraining(line: Line): void {
+  startPretrainingRun(
+    line,
+    () => {
+      // Re-render lines screen so the "Add to training" button disappears.
+      const linesEl = document.getElementById('view-lines')!;
+      renderLinesScreen(linesEl, { onOpenLine, onStartTraining: handleStartTraining });
+    },
+    () => { /* cancelled — user is already back at the lines screen */ }
+  );
+}
 
 function showView(view: ViewName): void {
   currentView = view;
@@ -210,7 +233,7 @@ function showView(view: ViewName): void {
   });
 
   if (view === 'lines') {
-    renderLinesScreen(linesEl, { onOpenLine });
+    renderLinesScreen(linesEl, { onOpenLine, onStartTraining: handleStartTraining });
   }
 }
 
@@ -219,7 +242,11 @@ function onOpenLine(line: Line): void {
   loadTree(line.tree);
   loadedLineId = line.id;
   loadedLineCreatedAt = line.createdAt;
+  loadedLineInTraining = line.inTraining;
   loadedLineMeta = { confidence: line.confidence, lastTrained: line.lastTrained };
+
+  // Set the training button state for the loaded line.
+  currentTrainingLine = line;
 
   chess.reset();
   cg.set({
@@ -244,6 +271,7 @@ function onOpenLine(line: Line): void {
 
   renderMoveList();
   renderLineMeta();
+  updateTrainingButton();
   showView('builder');
 }
 
@@ -267,11 +295,39 @@ async function refreshDebugReadout() {
 // ── Save form ─────────────────────────────────────────────────────────────────
 
 function setupSaveForm() {
+  const saveForm = document.getElementById('save-form')!;
   const nameInput = document.getElementById('line-name') as HTMLInputElement;
   const tagsInput = document.getElementById('line-tags') as HTMLInputElement;
   const saveBtn = document.getElementById('save-btn') as HTMLButtonElement;
   const saveMsg = document.getElementById('save-msg')!;
+  const debugReadout = document.getElementById('debug-readout')!;
   const toggle = document.getElementById('colour-toggle')!;
+
+  // "Add to training" row — hidden until a line is saved and inTraining is false.
+  const addTrainingRow = document.createElement('div');
+  addTrainingRow.id = 'add-training-row';
+  addTrainingRow.hidden = true;
+  const addTrainingBtn = document.createElement('button');
+  addTrainingBtn.type = 'button';
+  addTrainingBtn.className = 'add-training-btn';
+  addTrainingBtn.textContent = 'Add to training';
+  addTrainingRow.appendChild(addTrainingBtn);
+  saveForm.insertBefore(addTrainingRow, debugReadout);
+
+  addTrainingBtn.addEventListener('click', () => {
+    if (!currentTrainingLine) return;
+    startPretrainingRun(
+      currentTrainingLine,
+      () => {
+        // Training complete from builder: hide button, update local state.
+        loadedLineInTraining = true;
+        currentTrainingLine = currentTrainingLine ? { ...currentTrainingLine, inTraining: true } : null;
+        updateTrainingButton();
+        saveMsg.textContent = 'Added to training ✓';
+      },
+      () => { /* cancelled — stay in builder, do nothing */ }
+    );
+  });
 
   // White / Black segmented control.
   toggle.querySelectorAll('button').forEach(btn => {
@@ -303,7 +359,8 @@ function setupSaveForm() {
       openingName: null,
       confidence: 0,
       lastTrained: null,
-      inTraining: false,
+      // Preserve inTraining for existing lines; new lines start as false.
+      inTraining: isNew ? false : loadedLineInTraining,
       tree: serialise(),
       createdAt: isNew ? Date.now() : (loadedLineCreatedAt ?? Date.now()),
     };
@@ -311,7 +368,9 @@ function setupSaveForm() {
     await saveLine(line);
     loadedLineId = id;
     loadedLineCreatedAt = line.createdAt;
+    currentTrainingLine = line;
     saveMsg.textContent = 'Saved ✓';
+    updateTrainingButton();
     await refreshDebugReadout();
   });
 
@@ -475,7 +534,9 @@ requestAnimationFrame(() => {
     chess.reset();
     loadedLineId = null;
     loadedLineCreatedAt = undefined;
+    loadedLineInTraining = false;
     loadedLineMeta = null;
+    currentTrainingLine = null;
     (document.getElementById('line-name') as HTMLInputElement).value = '';
     (document.getElementById('line-tags') as HTMLInputElement).value = '';
     // Reset colour toggle to White.
@@ -498,6 +559,7 @@ requestAnimationFrame(() => {
     });
     renderMoveList();
     renderLineMeta();
+    updateTrainingButton();
   });
 
   new ResizeObserver(() => cg.redrawAll()).observe(boardEl);

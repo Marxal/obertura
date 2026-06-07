@@ -26,34 +26,42 @@ let currentSort: SortMode = 'latest';
 
 export function renderLinesScreen(
   container: HTMLElement,
-  { onOpenLine }: { onOpenLine: (line: Line) => void }
+  {
+    onOpenLine,
+    onStartTraining,
+  }: {
+    onOpenLine: (line: Line) => void;
+    onStartTraining?: (line: Line) => void;
+  }
 ): void {
-  doRender(container, onOpenLine);
+  doRender(container, onOpenLine, onStartTraining);
 }
 
 async function doRender(
   container: HTMLElement,
-  onOpenLine: (line: Line) => void
+  onOpenLine: (line: Line) => void,
+  onStartTraining?: (line: Line) => void
 ): Promise<void> {
   container.innerHTML = '<p class="lines-loading">Loading…</p>';
   const allLines = await getAllLines();
   container.innerHTML = '';
 
-  const sortRow = buildSortRow(container, onOpenLine);
+  const sortRow = buildSortRow(container, onOpenLine, onStartTraining);
   container.appendChild(sortRow);
 
-  const rerender = () => doRender(container, onOpenLine);
+  const rerender = () => doRender(container, onOpenLine, onStartTraining);
 
   for (const colour of ['white', 'black'] as const) {
     container.appendChild(
-      buildSection(colour, allLines.filter(l => l.colour === colour), onOpenLine, rerender)
+      buildSection(colour, allLines.filter(l => l.colour === colour), onOpenLine, rerender, onStartTraining)
     );
   }
 }
 
 function buildSortRow(
   container: HTMLElement,
-  onOpenLine: (line: Line) => void
+  onOpenLine: (line: Line) => void,
+  onStartTraining?: (line: Line) => void
 ): HTMLElement {
   const row = document.createElement('div');
   row.className = 'sort-row';
@@ -77,7 +85,7 @@ function buildSortRow(
     btn.textContent = s.label;
     btn.addEventListener('click', () => {
       currentSort = s.key;
-      doRender(container, onOpenLine);
+      doRender(container, onOpenLine, onStartTraining);
     });
     row.appendChild(btn);
   }
@@ -104,7 +112,8 @@ function buildSection(
   colour: 'white' | 'black',
   lines: Line[],
   onOpenLine: (line: Line) => void,
-  rerender: () => void
+  rerender: () => void,
+  onStartTraining?: (line: Line) => void
 ): HTMLElement {
   const section = document.createElement('section');
   section.className = 'lines-section';
@@ -123,7 +132,7 @@ function buildSection(
   }
 
   for (const line of sortLines(lines, currentSort)) {
-    section.appendChild(buildCard(line, onOpenLine, rerender));
+    section.appendChild(buildCard(line, onOpenLine, rerender, onStartTraining));
   }
   return section;
 }
@@ -131,7 +140,8 @@ function buildSection(
 function buildCard(
   line: Line,
   onOpenLine: (line: Line) => void,
-  rerender: () => void
+  rerender: () => void,
+  onStartTraining?: (line: Line) => void
 ): HTMLElement {
   const card = document.createElement('div');
   card.className = 'line-card';
@@ -161,7 +171,6 @@ function buildCard(
     meta.appendChild(chip);
   }
 
-  // Phase 3 training will populate confidence and lastTrained.
   const trainingRow = document.createElement('div');
   trainingRow.className = 'line-card-training';
   const confSpan = document.createElement('span');
@@ -182,6 +191,19 @@ function buildCard(
   body.appendChild(meta);
   body.appendChild(trainingRow);
   card.appendChild(body);
+
+  // "Add to training" button — shown only for lines not yet in training.
+  if (!line.inTraining && onStartTraining) {
+    const trainBtn = document.createElement('button');
+    trainBtn.type = 'button';
+    trainBtn.className = 'card-training-btn';
+    trainBtn.textContent = 'Add to training';
+    trainBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      onStartTraining(line);
+    });
+    card.appendChild(trainBtn);
+  }
 
   const editBtn = document.createElement('button');
   editBtn.type = 'button';
