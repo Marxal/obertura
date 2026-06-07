@@ -96,3 +96,69 @@ cg-board square.move-dest.oc {
   padding-right: 2px;
   padding-bottom: 2px;
 }
+
+/* Line panel */
+#line-panel {
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+#move-list {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 1rem;
+  line-height: 1.8;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 0.1em;
+  min-height: 1.8em;
+}
+
+.move-num {
+  color: #9c7a5a;
+  margin: 0 0.1em 0 0.25em;
+  user-select: none;
+}
+
+.move-num:first-child {
+  margin-left: 0;
+}
+
+.move-san {
+  cursor: pointer;
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s;
+}
+
+.move-san:hover {
+  background: rgba(255, 155, 33, 0.25);
+}
+
+.move-san.active {
+  background: #ff9b21;
+  color: #fff;
+  font-weight: 700;
+}
+
+#reset-btn {
+  align-self: flex-start;
+  padding: 0.5rem 1.25rem;
+  background: #ff9b21;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#reset-btn:active {
+  background: #e08800;
+}
