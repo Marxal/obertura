@@ -20,11 +20,14 @@ import { runSchedulerSelfTest } from './scheduler.selftest';
 
 // ── Screen entry point ──────────────────────────────────────────────────────────
 
-export function renderTrainScreen(container: HTMLElement): void {
-  void doRender(container);
+export function renderTrainScreen(
+  container: HTMLElement,
+  opts: { focusLineId?: string } = {},
+): void {
+  void doRender(container, opts.focusLineId);
 }
 
-async function doRender(container: HTMLElement): Promise<void> {
+async function doRender(container: HTMLElement, focusLineId?: string): Promise<void> {
   container.innerHTML = '<p class="lines-loading">Loading…</p>';
   const allLines = await getAllLines();
   container.innerHTML = '';
@@ -35,6 +38,18 @@ async function doRender(container: HTMLElement): Promise<void> {
     renderEmpty(container);
     appendSelfTestLink(container);
     return;
+  }
+
+  // Arrived here from a "Drill" button on another screen: skip the list and
+  // drill that one line straight away. When it finishes, the completion panel's
+  // "Back to training" returns to the normal (unfocused) Train screen.
+  if (focusLineId) {
+    const focus = trainingLines.find(l => l.id === focusLineId);
+    if (focus) {
+      const session = new TrainingSession([focus], { explicit: true });
+      runSession(session, container, makeStats());
+      return;
+    }
   }
 
   const due = dueLines(trainingLines);

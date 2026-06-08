@@ -415,6 +415,29 @@ function updateTrainingButton(): void {
 type ViewName = 'builder' | 'lines' | 'train' | 'review' | 'progress';
 let currentView: ViewName = 'builder';
 
+// Set when a "Drill" button elsewhere wants the Train screen to open straight
+// into one specific line, rather than the due-session list. Consumed (and
+// cleared) the next time the Train view is shown.
+let pendingTrainLineId: string | null = null;
+
+// Drill or enrol a single line by id, from the Progress screen. An in-training
+// line drills immediately; a saved line that isn't in training yet runs the
+// "confirm & add to training" flow, then returns to Progress.
+async function onTrainLine(lineId: string, inTraining: boolean): Promise<void> {
+  if (inTraining) {
+    pendingTrainLineId = lineId;
+    showView('train');
+    return;
+  }
+  const line = (await getAllLines()).find(l => l.id === lineId);
+  if (!line) return;
+  startPretrainingRun(
+    line,
+    () => showView('progress'), // re-render so the line now reads as in-training
+    () => { /* cancelled — stay on Progress */ },
+  );
+}
+
 function handleStartTraining(line: Line): void {
   startPretrainingRun(
     line,
@@ -452,7 +475,8 @@ function showView(view: ViewName): void {
   }
 
   if (view === 'train') {
-    renderTrainScreen(trainEl);
+    renderTrainScreen(trainEl, { focusLineId: pendingTrainLineId ?? undefined });
+    pendingTrainLineId = null;
   }
 
   if (view === 'review') {
@@ -460,7 +484,7 @@ function showView(view: ViewName): void {
   }
 
   if (view === 'progress') {
-    renderProgressScreen(progressEl, { onOpenTrain: () => showView('train') });
+    renderProgressScreen(progressEl, { onTrainLine });
   }
 
   if (view === 'builder') {
