@@ -19,6 +19,7 @@ import { runChesscomSelfTest } from './chesscom.selftest';
 import { explainMove, describeGrade } from './explain';
 import type { Line } from './types';
 import { renderLinesScreen } from './lines-screen';
+import { renderReviewScreen } from './review-screen';
 import { renderBranchView } from './branch-view';
 import { startPretrainingRun } from './pretraining';
 import { renderTrainScreen } from './train-screen';
@@ -410,7 +411,7 @@ function updateTrainingButton(): void {
 
 // ── Navigation ────────────────────────────────────────────────────────────────
 
-type ViewName = 'builder' | 'lines' | 'train';
+type ViewName = 'builder' | 'lines' | 'train' | 'review';
 let currentView: ViewName = 'builder';
 
 function handleStartTraining(line: Line): void {
@@ -430,10 +431,12 @@ function showView(view: ViewName): void {
   const builderEl = document.getElementById('view-builder')!;
   const linesEl = document.getElementById('view-lines')!;
   const trainEl = document.getElementById('view-train')!;
+  const reviewEl = document.getElementById('view-review')!;
 
   builderEl.toggleAttribute('hidden', view !== 'builder');
   linesEl.toggleAttribute('hidden', view !== 'lines');
   trainEl.toggleAttribute('hidden', view !== 'train');
+  reviewEl.toggleAttribute('hidden', view !== 'review');
 
   document.querySelectorAll<HTMLElement>('#main-nav .nav-tab').forEach(btn => {
     const active = btn.dataset.view === view;
@@ -447,6 +450,10 @@ function showView(view: ViewName): void {
 
   if (view === 'train') {
     renderTrainScreen(trainEl);
+  }
+
+  if (view === 'review') {
+    renderReviewScreen(reviewEl, { onBuildLine });
   }
 
   if (view === 'builder') {
@@ -490,6 +497,66 @@ function onOpenLine(line: Line): void {
   renderNotePanel();
   renderLineMeta();
   updateTrainingButton();
+  showView('builder');
+}
+
+// Seed the builder from the Review screen: start a fresh line of the given
+// colour, replay the supplied UCI moves onto the board and move tree, then show
+// the builder. Used to turn a finding ("you play this a lot", "you left prep
+// here") into prep — the board lands exactly where you need to start working.
+function onBuildLine(ucis: string[], colour: 'white' | 'black'): void {
+  stopPlayback();
+  reset();
+  chess.reset();
+
+  // A new line, not an edit of an existing one.
+  loadedLineId = null;
+  loadedLineCreatedAt = undefined;
+  loadedLineInTraining = false;
+  loadedLineMeta = null;
+  currentTrainingLine = null;
+
+  (document.getElementById('line-name') as HTMLInputElement).value = '';
+  (document.getElementById('line-tags') as HTMLInputElement).value = '';
+
+  saveColour = colour;
+  document.querySelectorAll<HTMLElement>('#colour-toggle button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.colour === colour);
+  });
+
+  // Replay the seed moves. chess.js validates each; addMove records the tree.
+  let lastFrom: Key | undefined;
+  let lastTo: Key | undefined;
+  for (const uci of ucis) {
+    const from = uci.slice(0, 2);
+    const to = uci.slice(2, 4);
+    const promotion = (uci[4] as 'q' | 'r' | 'b' | 'n') || 'q';
+    const move = chess.move({ from, to, promotion });
+    if (!move) break; // defensive: stop at the first move that doesn't fit
+    addMove(move.san, from + to + (move.promotion ?? ''), chess.fen());
+    lastFrom = from as Key;
+    lastTo = to as Key;
+  }
+
+  document.getElementById('save-msg')!.textContent = '';
+  openingRequestId++;
+  document.getElementById('opening-name')!.textContent = '';
+
+  cg.set({
+    fen: chess.fen(),
+    turnColor: turnColor(),
+    movable: { color: 'both', dests: legalDests() },
+    lastMove: lastFrom && lastTo ? [lastFrom, lastTo] : undefined,
+  });
+
+  renderMoveList();
+  renderNotePanel();
+  renderLineMeta();
+  updateTrainingButton();
+  updateOpeningName();
+  evalPanel.clear();
+  engine.evaluate(chess.fen());
+
   showView('builder');
 }
 
