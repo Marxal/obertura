@@ -905,6 +905,10 @@ cg-board square.move-dest.oc {
   color: #2a6b3a;
 }
 
+.pt-status--alt {
+  color: #1a7a4a;
+}
+
 .pt-progress {
   text-align: center;
   font-size: 0.8rem;

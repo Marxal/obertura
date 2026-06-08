@@ -16,6 +16,9 @@ export interface DrillOptions {
   // 'gentle': show error text and let the user retry freely (pre-training).
   // 'full':   flash → snap back → draw arrow → show note → require correct replay.
   wrongMoveMode?: 'gentle' | 'full';
+  // If provided (full mode only), the engine checks whether a wrong move is
+  // actually a good alternative before penalising it as a mistake.
+  checkAlternative?: (preFen: string, userUci: string) => Promise<boolean>;
 }
 
 function mainlineOf(tree: MoveNode): MoveNode[] {
@@ -39,8 +42,12 @@ export function startDrill(line: Line, opts: DrillOptions): void {
   const userColour = line.colour;
   let moveIndex = 0;
   let autoTimer: ReturnType<typeof setTimeout> | undefined;
+  let altTimer: ReturnType<typeof setTimeout> | undefined;
   // True while the user must replay the correct move after a wrong attempt.
   let awaitingCorrectReplay = false;
+  // True while an async engine check is in progress — blocks board input.
+  let checkingAlternative = false;
+  let isCleaned = false;
 
   // ── Overlay ───────────────────────────────────────────────────────────────
 
@@ -124,9 +131,9 @@ export function startDrill(line: Line, opts: DrillOptions): void {
     },
   });
 
-  // Register the accent brush for programmatic hint arrows after the instance
-  // exists (not in initial config — avoids a chessground rendering quirk).
+  // Register brushes for hint arrows after the instance exists.
   cg.state.drawable.brushes['accent'] = { key: 'accent', color: '#ff9b21', opacity: 0.85, lineWidth: 10 };
+  cg.state.drawable.brushes['alt'] = { key: 'alt', color: '#3a9a5c', opacity: 0.85, lineWidth: 10 };
 
   const ro = new ResizeObserver(() => cg.redrawAll());
   ro.observe(boardEl);
@@ -186,16 +193,57 @@ export function startDrill(line: Line, opts: DrillOptions): void {
     const dest = expected.uci.slice(2, 4) as Key;
     cg.setAutoShapes([{ orig, dest, brush: 'accent' }]);
 
-    // 4. Show the move note if one exists (task 4 writes notes; until then this
-    //    branch is never reached).
+    // 4. Show the move note if one exists.
     if (expected.note) {
       showNoteCard(expected.note);
     }
   }
 
+  // ── Good-alternative sequence ─────────────────────────────────────────────
+
+  function handleGoodAlternative(expected: MoveNode): void {
+    statusEl.textContent = `Good alternative! Your line plays ${expected.san}.`;
+    statusEl.className = 'pt-status pt-status--alt';
+
+    // Show a green arrow pointing to the saved line's move.
+    const orig = expected.uci.slice(0, 2) as Key;
+    const dest = expected.uci.slice(2, 4) as Key;
+    cg.setAutoShapes([{ orig, dest, brush: 'alt' }]);
+
+    // After a brief pause, play the expected move and continue the drill.
+    altTimer = setTimeout(() => {
+      if (isCleaned) return;
+      altTimer = undefined;
+      cg.setAutoShapes([]);
+      statusEl.textContent = '';
+      statusEl.className = 'pt-status';
+
+      chess.move({ from: orig, to: dest, promotion: 'q' });
+      moveIndex++;
+      updateProgress();
+
+      if (moveIndex >= moves.length) {
+        void completeRun();
+        return;
+      }
+
+      cg.set({
+        fen: chess.fen(),
+        turnColor: cgTurn(),
+        movable: { color: undefined, dests: new Map() },
+        lastMove: [orig, dest],
+      });
+
+      scheduleOpponent();
+    }, 2200);
+  }
+
   // ── Move logic ────────────────────────────────────────────────────────────
 
   function onUserMove(from: Key, to: Key): void {
+    // Block input while an async engine check is running.
+    if (checkingAlternative) return;
+
     const expected = moves[moveIndex];
     const eFrom = expected.uci.slice(0, 2);
     const eTo = expected.uci.slice(2, 4);
@@ -226,9 +274,36 @@ export function startDrill(line: Line, opts: DrillOptions): void {
       });
 
       scheduleOpponent();
+    } else if (opts.wrongMoveMode === 'full' && !awaitingCorrectReplay && opts.checkAlternative) {
+      // Async alternative check. Snap back and disable board immediately so the
+      // user can't play again while we wait for the engine.
+      checkingAlternative = true;
+      const preFen = chess.fen();
+      cg.set({
+        fen: preFen,
+        turnColor: cgTurn(),
+        movable: { color: undefined, dests: new Map() },
+      });
+
+      opts.checkAlternative(preFen, from + to)
+        .then(isAlt => {
+          if (isCleaned) return;
+          checkingAlternative = false;
+          if (isAlt) {
+            handleGoodAlternative(expected);
+          } else {
+            opts.recordMiss?.(expected);
+            handleWrongMoveFull(expected);
+          }
+        })
+        .catch(() => {
+          if (isCleaned) return;
+          checkingAlternative = false;
+          opts.recordMiss?.(expected);
+          handleWrongMoveFull(expected);
+        });
     } else {
-      // Wrong move. In full mode, only record the miss on the first attempt for
-      // this node (not on repeated wrong attempts during replay-required state).
+      // Synchronous wrong-move path (gentle mode or already in replay state).
       if (opts.wrongMoveMode !== 'full' || !awaitingCorrectReplay) {
         opts.recordMiss?.(expected);
       }
@@ -290,7 +365,9 @@ export function startDrill(line: Line, opts: DrillOptions): void {
   }
 
   function cleanup(): void {
+    isCleaned = true;
     if (autoTimer) clearTimeout(autoTimer);
+    if (altTimer) clearTimeout(altTimer);
     ro.disconnect();
     overlay.remove();
   }
