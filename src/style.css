@@ -1133,6 +1133,22 @@ cg-board square.move-dest.oc {
 
 .selftest-row.fail { color: #c0531f; font-weight: 600; }
 
+/* ── Generated "why this move" explanation (builder) ───────────────────────── */
+/* Read-only, auto-generated reasoning. Hidden whenever the user has written
+   their own note — their words override this. Styled as a quiet parchment
+   card, distinct from the amber-bordered editable note below it. */
+.move-explanation {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #e2d3b3;
+  border-left: 3px solid #c9b48f;
+  border-radius: 6px;
+  background: #f6efdd;
+  color: #6b5638;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
 /* ── Move note panel (builder) ─────────────────────────────────────────────── */
 
 #note-panel {
