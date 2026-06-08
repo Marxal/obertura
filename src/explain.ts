@@ -13,6 +13,7 @@
 // whenever one exists — their words always win.
 
 import { Chess } from 'chess.js';
+import type { MoveGrade } from './engine';
 
 const PIECE_NAMES: Record<string, string> = {
   p: 'pawn',
@@ -179,9 +180,30 @@ export function explainMove(
   sentence += '.';
 
   // ── Opening-name grounding, if we have it. ───────────────────────────────
+  // Neutral context only — it names the opening, it does NOT vouch for the move
+  // (that judgement is the engine verdict's job, when the engine is on).
   if (openingName) {
-    sentence += ` A standard move in the ${openingName}.`;
+    sentence += ` Part of the ${openingName}.`;
   }
 
   return sentence;
+}
+
+// Turn an engine move-grade into a plain-language verdict to sit under the
+// descriptive sentence. Pure and offline — the grading itself happens in
+// engine.ts; this only phrases the result.
+export function describeGrade(grade: MoveGrade): string {
+  const pawns = (grade.lossCp / 100).toFixed(1);
+  switch (grade.classification) {
+    case 'best':
+      return `This is the engine's top choice.`;
+    case 'good':
+      return `A sound alternative — it barely changes the evaluation.`;
+    case 'inaccuracy':
+      return `A slight inaccuracy — it gives up about ${pawns}. The engine prefers ${grade.bestSan}.`;
+    case 'mistake':
+      return `A mistake — it loses about ${pawns}. Better is ${grade.bestSan}.`;
+    case 'blunder':
+      return `A blunder — it drops about ${pawns}. The engine plays ${grade.bestSan}.`;
+  }
 }
