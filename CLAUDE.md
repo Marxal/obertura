@@ -32,11 +32,24 @@ understand concepts, not syntax. I direct; you build; I test on my phone.
 - Must run as a PWA installable on Android (manifest + add-to-home-screen).
 - Keep files small and focused (keeps context/token cost low).
 
-## The build order (do not skip ahead)
-- Phase 1: working board on my phone (chessground + chess.js + PWA shell).
-- Phase 2: repertoire builder — the heart. Get it genuinely good.
-- Phase 3: training + spaced repetition (SM-2). Completes v1.
-- Phase 4+: engine, explanations, Chess.com import, polish. All later.
+## Current status — v1.1 refinement round
+
+The app has grown well beyond the original Phase 3 scope. As of v1.0 the
+following are already shipped and working:
+
+- Phase 1–3 complete: board, repertoire builder, training, SM-2 scheduler.
+- Phase 4+: Stockfish WASM engine + eval bar, Chess.com PGN import, a
+  Progress tab with win-rate cross-referencing, and a Branch explorer screen.
+
+We are now in **v1.1** — a refinement and polish round. The plan lives in
+**ROADMAP.md** at the repo root. Expand that file as tasks are defined and
+check items off as they land.
+
+## Original build order (historical reference)
+- Phase 1: working board on my phone (chessground + chess.js + PWA shell). ✓
+- Phase 2: repertoire builder — the heart. ✓
+- Phase 3: training + spaced repetition (SM-2). ✓
+- Phase 4+: engine, explanations, Chess.com import, polish. ✓ (shipped in v1.0)
 
 ## Data model (get right early)
 - Repertoire: "my White lines" or "my Black lines".
