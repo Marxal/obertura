@@ -5,8 +5,17 @@ import 'chessground/assets/chessground.base.css';
 import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
 import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, uciPathTo, loadTree, fenBefore } from './tree';
-import { saveLine, getAllLines } from './storage';
+import { saveLine, getAllLines, saveGames, countGames, clearGames } from './storage';
 import { probeOpeningName, getToken, setToken } from './openings';
+import {
+  getUsername,
+  setUsername,
+  importRecentGames,
+  summariseGames,
+  MONTHS_BACK,
+  type ImportedGame,
+} from './chesscom';
+import { runChesscomSelfTest } from './chesscom.selftest';
 import { explainMove, describeGrade } from './explain';
 import type { Line } from './types';
 import { renderLinesScreen } from './lines-screen';
@@ -615,6 +624,110 @@ function setupSettings() {
   });
 }
 
+// ── Chess.com import ────────────────────────────────────────────────────────────
+// Pull ~a year of games from the free Published-Data API, parse the PGNs with
+// chess.js, and store the compact records in IndexedDB. Each month is persisted
+// as it arrives, so a long import never holds the whole year in memory at once.
+
+function setupImport(): void {
+  const userInput = document.getElementById('chesscom-user') as HTMLInputElement;
+  const importBtn = document.getElementById('import-btn') as HTMLButtonElement;
+  const status = document.getElementById('import-status')!;
+  const summary = document.getElementById('import-summary')!;
+
+  // Prefill the saved username and show how many games are already stored.
+  userInput.value = getUsername();
+  countGames().then(n => {
+    if (n > 0) summary.textContent = `${n} game${n === 1 ? '' : 's'} stored on this device.`;
+  });
+
+  userInput.addEventListener('change', () => setUsername(userInput.value));
+
+  importBtn.addEventListener('click', async () => {
+    const user = userInput.value.trim();
+    if (!user) {
+      status.textContent = 'Enter your Chess.com username first.';
+      return;
+    }
+    setUsername(user);
+
+    importBtn.disabled = true;
+    summary.textContent = '';
+    status.textContent = 'Looking up your archives…';
+
+    // Re-import from scratch so removed/renamed games don't linger. Records are
+    // keyed by game id, so this is just to keep the store clean.
+    await clearGames();
+
+    const stored: ImportedGame[] = [];
+    try {
+      const result = await importRecentGames(user, {
+        months: MONTHS_BACK,
+        onProgress: p => {
+          status.textContent =
+            `Month ${Math.min(p.monthsDone + 1, p.monthsTotal)}/${p.monthsTotal} ` +
+            `(${p.label}) — ${p.gamesSoFar} games so far…`;
+        },
+        // Persist each month's batch immediately, then drop it from memory.
+        onGames: async batch => {
+          await saveGames(batch);
+          stored.push(...batch);
+        },
+      });
+
+      const s = summariseGames(stored);
+      if (s.total === 0) {
+        status.textContent = `No standard games found in the last ${result.monthsFetched} months.`;
+      } else {
+        status.textContent = `Imported ${s.total} games from ${result.monthsFetched} months ✓`;
+        summary.innerHTML = '';
+        const line1 = document.createElement('div');
+        line1.textContent =
+          `${s.byTimeClass.bullet} bullet · ${s.byTimeClass.blitz} blitz · ` +
+          `${s.byTimeClass.rapid} rapid · ${s.byTimeClass.daily} daily`;
+        const line2 = document.createElement('div');
+        line2.textContent =
+          `${s.white} as White / ${s.black} as Black · ` +
+          `W-L-D ${s.wins}-${s.losses}-${s.draws}`;
+        summary.appendChild(line1);
+        summary.appendChild(line2);
+      }
+    } catch (err) {
+      status.textContent = `Import failed — ${(err as Error).message}`;
+    } finally {
+      importBtn.disabled = false;
+    }
+  });
+
+  setupImportSelfTest();
+}
+
+// Offline parser self-test — mirrors the scheduler self-test on the Train screen.
+function setupImportSelfTest(): void {
+  const link = document.getElementById('import-selftest-link') as HTMLButtonElement;
+  const out = document.getElementById('import-selftest-output')!;
+
+  link.addEventListener('click', () => {
+    const results = runChesscomSelfTest();
+    out.hidden = false;
+    out.innerHTML = '';
+
+    const passed = results.filter(r => r.pass).length;
+    const head = document.createElement('div');
+    head.className = `selftest-head ${passed === results.length ? 'ok' : 'fail'}`;
+    head.textContent = `${passed}/${results.length} checks passed`;
+    out.appendChild(head);
+
+    for (const r of results) {
+      const row = document.createElement('div');
+      row.className = `selftest-row ${r.pass ? 'ok' : 'fail'}`;
+      row.textContent = `${r.pass ? '✓' : '✗'} ${r.name} — ${r.detail}`;
+      out.appendChild(row);
+    }
+    console.log('[chesscom self-test]', results);
+  });
+}
+
 // ── Playback controls ─────────────────────────────────────────────────────────
 
 function setupPlaybackControls(): void {
@@ -773,6 +886,7 @@ requestAnimationFrame(() => {
 
   setupSaveForm();
   setupSettings();
+  setupImport();
   setupPlaybackControls();
   setupBranchView();
   setupNotePanel();
