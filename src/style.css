@@ -36,7 +36,9 @@ header h1 {
 
 #main-nav {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.25rem;
+  row-gap: 0.2rem;
 }
 
 .nav-tab {
@@ -1880,4 +1882,63 @@ cg-board square.move-dest.oc {
 
 .review-build-btn:active {
   background: #e08800;
+}
+
+/* ── Progress screen (win-rate ↔ training) ─────────────────────────────────── */
+
+.progress-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.progress-verdict {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 10px;
+  white-space: nowrap;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: rgba(156, 107, 67, 0.12);
+  color: #6b5638;
+}
+
+.progress-verdict--improved {
+  background: rgba(42, 107, 58, 0.15);
+  color: #2a6b3a;
+}
+
+.progress-verdict--declined {
+  background: rgba(192, 83, 31, 0.15);
+  color: #c0531f;
+}
+
+.progress-verdict--steady {
+  background: rgba(216, 150, 31, 0.18);
+  color: #a96f12;
+}
+
+.progress-compare {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  width: 100%;
+}
+
+.progress-window {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.progress-window-label {
+  flex-shrink: 0;
+  width: 3.2rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #8a6f4f;
 }

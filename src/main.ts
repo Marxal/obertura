@@ -20,6 +20,7 @@ import { explainMove, describeGrade } from './explain';
 import type { Line } from './types';
 import { renderLinesScreen } from './lines-screen';
 import { renderReviewScreen } from './review-screen';
+import { renderProgressScreen } from './progress-screen';
 import { renderBranchView } from './branch-view';
 import { startPretrainingRun } from './pretraining';
 import { renderTrainScreen } from './train-screen';
@@ -411,7 +412,7 @@ function updateTrainingButton(): void {
 
 // ── Navigation ────────────────────────────────────────────────────────────────
 
-type ViewName = 'builder' | 'lines' | 'train' | 'review';
+type ViewName = 'builder' | 'lines' | 'train' | 'review' | 'progress';
 let currentView: ViewName = 'builder';
 
 function handleStartTraining(line: Line): void {
@@ -432,11 +433,13 @@ function showView(view: ViewName): void {
   const linesEl = document.getElementById('view-lines')!;
   const trainEl = document.getElementById('view-train')!;
   const reviewEl = document.getElementById('view-review')!;
+  const progressEl = document.getElementById('view-progress')!;
 
   builderEl.toggleAttribute('hidden', view !== 'builder');
   linesEl.toggleAttribute('hidden', view !== 'lines');
   trainEl.toggleAttribute('hidden', view !== 'train');
   reviewEl.toggleAttribute('hidden', view !== 'review');
+  progressEl.toggleAttribute('hidden', view !== 'progress');
 
   document.querySelectorAll<HTMLElement>('#main-nav .nav-tab').forEach(btn => {
     const active = btn.dataset.view === view;
@@ -454,6 +457,10 @@ function showView(view: ViewName): void {
 
   if (view === 'review') {
     renderReviewScreen(reviewEl, { onBuildLine });
+  }
+
+  if (view === 'progress') {
+    renderProgressScreen(progressEl, { onOpenTrain: () => showView('train') });
   }
 
   if (view === 'builder') {
