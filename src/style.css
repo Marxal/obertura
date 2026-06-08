@@ -1152,20 +1152,26 @@ cg-board square.move-dest.oc {
   gap: 0.4rem;
 }
 
-/* Engine verdict line — colour-coded by severity. */
+/* Engine verdict — the headline, colour-coded by severity. */
 .explanation-verdict {
-  font-style: italic;
+  font-weight: 700;
 }
 .explanation-verdict.verdict-best,
 .explanation-verdict.verdict-good {
   color: #2a6b3a;
 }
-.explanation-verdict.verdict-inaccuracy {
+.explanation-verdict.verdict-inaccuracy,
+.explanation-verdict.verdict-dubious {
   color: #a9751a;
 }
 .explanation-verdict.verdict-mistake,
 .explanation-verdict.verdict-blunder {
   color: #c0531f;
+}
+
+/* The move description sits under the verdict, quieter and italic. */
+.explanation-text {
+  font-style: italic;
 }
 
 /* Quiet action row: adopt-as-note button and the engine-off hint. */
@@ -1446,9 +1452,9 @@ cg-board square.move-dest.oc {
   background: #ece3cc;
   border-bottom: 1px solid rgba(156, 107, 67, 0.18);
   padding: 6px 12px;
-  min-height: 52px;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .eval-row {
@@ -1458,37 +1464,38 @@ cg-board square.move-dest.oc {
   width: 100%;
 }
 
-/* Vertical eval bar */
+/* Horizontal eval bar, full width, with the score floating at its right end. */
 .eval-bar-wrap {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
+  gap: 8px;
+  width: 100%;
 }
 
 .eval-bar {
-  width: 10px;
-  height: 40px;
+  flex: 1;
+  height: 8px;
   background: #2a1a0a;
-  border-radius: 3px;
+  border-radius: 4px;
   overflow: hidden;
-  display: flex;
-  flex-direction: column-reverse; /* white fills from bottom */
+  display: flex;        /* white fills from the left */
 }
 
 .eval-bar-fill {
   background: #f5edd8;
-  width: 100%;
-  transition: height 0.35s ease;
+  height: 100%;
+  transition: width 0.35s ease;
 }
 
 .eval-score {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.01em;
   color: #3a2a1a;
   white-space: nowrap;
+  min-width: 2.6em;
+  text-align: right;
 }
 
 /* Move chips */
@@ -1525,18 +1532,25 @@ cg-board square.move-dest.oc {
   font-style: italic;
 }
 
-/* Toggle + source stacked on the right */
+/* Source + toggle + label, inline on the right */
 .eval-right {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 2px;
+  gap: 6px;
   flex-shrink: 0;
 }
 
 .eval-source {
   font-size: 0.62rem;
   color: #9c7a5a;
+  white-space: nowrap;
+}
+
+.engine-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #7a5a38;
   white-space: nowrap;
 }
 

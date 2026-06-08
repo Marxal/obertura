@@ -13,21 +13,24 @@ export class EvalPanel {
   }
 
   private build() {
+    // Horizontal eval bar sits on top, full width; the score floats at its right
+    // end. A second row carries the candidate moves and the engine toggle.
     this.el.innerHTML = `
-      <div class="eval-row">
-        <div class="eval-bar-wrap" id="eval-bar-wrap">
-          <div class="eval-bar" id="eval-bar">
-            <div class="eval-bar-fill" id="eval-bar-fill" style="height:50%"></div>
-          </div>
-          <span class="eval-score" id="eval-score">0.0</span>
+      <div class="eval-bar-wrap" id="eval-bar-wrap">
+        <div class="eval-bar" id="eval-bar">
+          <div class="eval-bar-fill" id="eval-bar-fill" style="width:50%"></div>
         </div>
+        <span class="eval-score" id="eval-score">0.0</span>
+      </div>
+      <div class="eval-row">
         <div class="eval-moves" id="eval-moves"></div>
         <div class="eval-right">
+          <span class="eval-source" id="eval-source"></span>
           <label class="engine-toggle" title="Engine analysis">
             <input type="checkbox" id="engine-cb" ${this._enabled ? 'checked' : ''}>
             <span class="engine-toggle-track"></span>
           </label>
-          <span class="eval-source" id="eval-source"></span>
+          <span class="engine-label" id="engine-label"></span>
         </div>
       </div>`;
 
@@ -45,7 +48,9 @@ export class EvalPanel {
     const barWrap = this.el.querySelector<HTMLElement>('#eval-bar-wrap')!;
     const movesEl = this.el.querySelector<HTMLElement>('#eval-moves')!;
     const sourceEl = this.el.querySelector<HTMLElement>('#eval-source')!;
+    const labelEl = this.el.querySelector<HTMLElement>('#engine-label')!;
     barWrap.hidden = !this._enabled;
+    labelEl.textContent = this._enabled ? 'Engine on' : 'Turn on engine';
     if (!this._enabled) {
       movesEl.innerHTML = '';
       sourceEl.textContent = '';
@@ -73,7 +78,7 @@ export class EvalPanel {
     }
 
     const fillPct = this.cpToFill(cpWhite);
-    this.el.querySelector<HTMLElement>('#eval-bar-fill')!.style.height = `${fillPct}%`;
+    this.el.querySelector<HTMLElement>('#eval-bar-fill')!.style.width = `${fillPct}%`;
     this.el.querySelector<HTMLElement>('#eval-score')!.textContent = scoreText;
 
     // Top 3 moves.
@@ -94,7 +99,7 @@ export class EvalPanel {
 
   clear() {
     const fill = this.el.querySelector<HTMLElement>('#eval-bar-fill');
-    if (fill) fill.style.height = '50%';
+    if (fill) fill.style.width = '50%';
     const score = this.el.querySelector<HTMLElement>('#eval-score');
     if (score) score.textContent = '0.0';
     const moves = this.el.querySelector<HTMLElement>('#eval-moves');
@@ -103,8 +108,8 @@ export class EvalPanel {
     if (source) source.textContent = '';
   }
 
-  // Maps white-perspective centipawns to a 0–100% fill (white fills from bottom).
-  // Uses a soft sigmoid so extreme evals don't peg the bar instantly.
+  // Maps white-perspective centipawns to a 0–100% fill (white fills from the
+  // left). Uses a soft sigmoid so extreme evals don't peg the bar instantly.
   private cpToFill(cp: number): number {
     if (cp >= 9999) return 100;
     if (cp <= -9999) return 0;
