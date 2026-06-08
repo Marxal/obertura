@@ -4,9 +4,10 @@ import type { Key } from 'chessground/types';
 import 'chessground/assets/chessground.base.css';
 import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
-import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, uciPathTo, loadTree } from './tree';
+import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, uciPathTo, loadTree, fenBefore } from './tree';
 import { saveLine, getAllLines } from './storage';
 import { probeOpeningName, getToken, setToken } from './openings';
+import { explainMove } from './explain';
 import type { Line } from './types';
 import { renderLinesScreen } from './lines-screen';
 import { renderBranchView } from './branch-view';
@@ -39,6 +40,10 @@ function turnColor(): 'white' | 'black' {
 let openingTimer: ReturnType<typeof setTimeout> | undefined;
 let openingRequestId = 0;
 
+// Last opening name resolved from Lichess, fed into the move explanation as
+// grounding. Null when unknown (start position, lookup failed, no token).
+let currentOpeningName: string | null = null;
+
 function updateOpeningName() {
   if (openingTimer) clearTimeout(openingTimer);
   openingTimer = setTimeout(async () => {
@@ -49,8 +54,34 @@ function updateOpeningName() {
     if (reqId !== openingRequestId) return;
     const el = document.getElementById('opening-name')!;
     el.textContent = name ?? debug;
+    currentOpeningName = name;
     console.log('[opening]', debug);
+    // The name feeds the explanation's grounding line — refresh it now that
+    // we know it (or know it's unavailable).
+    renderExplanation();
   }, 350);
+}
+
+// ── "Why this move" explanation ─────────────────────────────────────────────
+// A read-only, plain-language reason for the selected move, generated from the
+// position. The user's own note always overrides it: when a note exists we
+// hide this panel, because the note (shown in the editor below) is the truth.
+function renderExplanation(): void {
+  const el = document.getElementById('move-explanation')!;
+  const node = getCurrentNode();
+  if (node.id === 'root' || node.note?.trim()) {
+    el.hidden = true;
+    el.textContent = '';
+    return;
+  }
+  const text = explainMove(fenBefore(node.id), node.san, currentOpeningName);
+  if (!text) {
+    el.hidden = true;
+    el.textContent = '';
+    return;
+  }
+  el.textContent = text;
+  el.hidden = false;
 }
 
 let treeViewMode: 'list' | 'branches' = 'list';
@@ -125,6 +156,7 @@ function renderNotePanel(): void {
   panel.hidden = false;
   label.textContent = `Note for ${node.san}`;
   textarea.value = node.note ?? '';
+  renderExplanation();
 }
 
 function setupNotePanel(): void {
@@ -136,6 +168,9 @@ function setupNotePanel(): void {
     node.note = val.trim() ? val : undefined;
     // Update note dot indicator without clobbering the textarea.
     renderMoveList();
+    // A note overrides the generated text: refresh so it hides (or, once the
+    // note is cleared, reappears).
+    renderExplanation();
   });
 }
 
@@ -234,6 +269,7 @@ function goToStart(): void {
   chess.reset();
   openingRequestId++;
   document.getElementById('opening-name')!.textContent = '';
+  currentOpeningName = null;
   cg.set({
     fen: chess.fen(),
     turnColor: 'white',
@@ -339,6 +375,7 @@ function onOpenLine(line: Line): void {
   document.getElementById('save-msg')!.textContent = '';
   openingRequestId++;
   document.getElementById('opening-name')!.textContent = '';
+  currentOpeningName = null;
 
   renderMoveList();
   renderNotePanel();
@@ -656,6 +693,7 @@ requestAnimationFrame(() => {
     // Clear the opening label and invalidate any in-flight lookup.
     openingRequestId++;
     document.getElementById('opening-name')!.textContent = '';
+  currentOpeningName = null;
     cg.set({
       fen: chess.fen(),
       turnColor: 'white',
