@@ -23,6 +23,53 @@ export type EvalCallback = (result: EvalResult) => void;
 const MAX_DEPTH = 15;
 const LICHESS_CLOUD = 'https://lichess.org/api/cloud-eval';
 
+// Returns true if userUci is a "good alternative" at this position — i.e. it
+// appears in Lichess cloud's top-3 lines AND is within `threshold` centipawns
+// of the best move. Falls back to false on any network/parse failure.
+export async function isGoodAlternative(
+  fen: string,
+  userUci: string,
+  threshold = 30
+): Promise<boolean> {
+  try {
+    const url = `${LICHESS_CLOUD}?fen=${encodeURIComponent(fen)}&multiPv=3`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+    if (!res.ok) return false;
+
+    const data = await res.json() as {
+      pvs?: Array<{ moves?: string; cp?: number; mate?: number }>;
+    };
+    if (!data.pvs?.length) return false;
+
+    const side = sideToMove(fen);
+
+    // Normalise a Lichess pv entry to a white-perspective centipawn value.
+    // Mate scores become ±10000 sentinel values.
+    const pvCp = (pv: { cp?: number; mate?: number }): number | null => {
+      if (pv.mate !== undefined) {
+        const winsForSide = pv.mate > 0;
+        return (side === 'w') === winsForSide ? 10000 : -10000;
+      }
+      if (pv.cp !== undefined) return normCp(pv.cp, side);
+      return null;
+    };
+
+    const pvs = data.pvs.slice(0, 3);
+    const bestCp = pvCp(pvs[0]);
+    if (bestCp === null) return false;
+
+    const userPv = pvs.find(pv => pv.moves?.split(' ')[0] === userUci);
+    if (!userPv) return false;
+
+    const userCp = pvCp(userPv);
+    if (userCp === null) return false;
+
+    return Math.abs(bestCp - userCp) <= threshold;
+  } catch {
+    return false;
+  }
+}
+
 function sideToMove(fen: string): 'w' | 'b' {
   return fen.split(' ')[1] as 'w' | 'b';
 }

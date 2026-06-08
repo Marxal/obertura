@@ -2,6 +2,7 @@ import type { Line } from './types';
 import type { MoveNode } from './tree';
 import { getAllLines, saveLine } from './storage';
 import { startDrill } from './drill';
+import { isGoodAlternative } from './engine';
 import { TrainingSession, type SessionItem } from './session';
 import {
   userMoveNodes,
@@ -250,6 +251,7 @@ function runItem(
   startDrill(lineCopy, {
     wrongMoveMode: 'full',
     completeMessage: isResurface ? 'Got it that time ✓' : 'Line complete',
+    checkAlternative: (fen, uci) => isGoodAlternative(fen, uci),
     recordMiss,
     onCancel: () => void doRender(container),
     onBeforeComplete: async () => {
