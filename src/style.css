@@ -295,11 +295,6 @@ cg-board square.move-dest.oc {
   color: #7a2230;
 }
 
-#debug-readout {
-  font-size: 0.75rem;
-  color: #9c7a5a;
-}
-
 #line-meta {
   font-size: 0.8rem;
   color: #9c7a5a;

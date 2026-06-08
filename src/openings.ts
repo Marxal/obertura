@@ -75,41 +75,6 @@ export async function fetchOpeningName(uciMoves: string[]): Promise<string | nul
   }
 }
 
-// TEMPORARY DIAGNOSTIC — remove once the lookup is confirmed working.
-// Same request as fetchOpeningName, but instead of swallowing failures it
-// reports what happened (missing token, status code, network/timeout error,
-// or "no opening for this position") so we can surface it on-screen.
-export interface OpeningProbe {
-  name: string | null;
-  debug: string; // human-readable status for the label
-}
-
-export async function probeOpeningName(uciMoves: string[]): Promise<OpeningProbe> {
-  if (uciMoves.length === 0) return { name: null, debug: 'start position (no request)' };
-  if (!getToken()) return { name: null, debug: 'no token — add one in Settings' };
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
-  try {
-    const play = uciMoves.join(',');
-    const url = `${EXPLORER_URL}?play=${play}&moves=0&topGames=0&recentGames=0`;
-    const res = await fetch(url, { signal: controller.signal, headers: authHeaders() });
-    if (res.status === 401) return { name: null, debug: 'HTTP 401 — token missing/invalid' };
-    if (!res.ok) return { name: null, debug: `HTTP ${res.status} ${res.statusText}` };
-
-    const data = (await res.json()) as { opening?: { eco: string; name: string } | null };
-    const name = data.opening?.name ?? null;
-    return { name, debug: name ? `ok: ${name}` : 'HTTP 200 but opening:null' };
-  } catch (err) {
-    const e = err as Error;
-    const reason = e.name === 'AbortError' ? `timeout >${TIMEOUT_MS}ms` : `${e.name}: ${e.message}`;
-    return { name: null, debug: `fetch failed — ${reason}` };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 /**
  * Safety net for any future FEN-based explorer call. NOT used by
  * fetchOpeningName (which queries by `play`), but kept here to document the
