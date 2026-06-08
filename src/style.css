@@ -798,7 +798,7 @@ cg-board square.move-dest.oc {
   z-index: 200;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .pt-header {
@@ -841,7 +841,8 @@ cg-board square.move-dest.oc {
 
 .pt-board-wrap {
   width: 100vw;
-  height: 100vw;
+  /* Cap at ~58 vh so status + note/alt card are always visible without scrolling. */
+  height: min(100vw, 58vh);
   flex-shrink: 0;
   position: relative; /* anchor for the error-flash overlay */
 }
@@ -885,6 +886,63 @@ cg-board square.move-dest.oc {
   color: #3a2a1a;
   max-height: 5rem;
   overflow-y: auto;
+}
+
+.pt-alt-card {
+  margin: 0 1rem;
+  padding: 0.6rem 0.875rem;
+  background: #f0faf4;
+  border: 1px solid #b8dfc8;
+  border-left: 3px solid #3a9a5c;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pt-alt-note {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-style: italic;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #1a3d2a;
+}
+
+.pt-alt-add-note-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.8rem;
+  color: #3a9a5c;
+  cursor: pointer;
+  text-align: left;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.pt-alt-note-input {
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #b8dfc8;
+  border-radius: 4px;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 0.875rem;
+  color: #1a3d2a;
+  background: #fff;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.pt-alt-new-line-btn {
+  background: none;
+  border: 1px solid #b8dfc8;
+  border-radius: 4px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.78rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: #3a9a5c;
+  cursor: pointer;
+  align-self: flex-start;
 }
 
 .pt-status {
