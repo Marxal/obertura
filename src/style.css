@@ -385,6 +385,67 @@ cg-board square.move-dest.oc {
   font-size: 0.8rem;
 }
 
+/* ── Chess.com import ──────────────────────────────────────────────────────── */
+
+#import-block {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(156, 107, 67, 0.3);
+}
+
+#import-block input[type='text'] {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #c9b48f;
+  border-radius: 6px;
+  background: #faf4e6;
+  color: #3a2a1a;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 1rem;
+}
+
+#import-block input[type='text']:focus {
+  outline: none;
+  border-color: #ff9b21;
+}
+
+#import-btn {
+  margin-top: 0.6rem;
+  width: 100%;
+  padding: 0.7rem 1rem;
+  border: none;
+  border-radius: 6px;
+  background: #7a2230;
+  color: #faf4e6;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#import-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+#import-status {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+  color: #9c7a5a;
+}
+
+#import-summary {
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: #6b5638;
+}
+
+#import-selftest-link {
+  margin-top: 0.8rem;
+}
+
 /* ── My Lines screen ───────────────────────────────────────────────────────── */
 
 [hidden] { display: none !important; }

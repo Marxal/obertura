@@ -68,6 +68,18 @@
               <span id="token-msg"></span>
               <a href="https://lichess.org/account/oauth/token/create?description=Obertura"
                  target="_blank" rel="noopener">Create a free token →</a>
+
+              <div id="import-block">
+                <label for="chesscom-user">Chess.com username</label>
+                <input id="chesscom-user" type="text" autocomplete="off"
+                       autocapitalize="none" spellcheck="false"
+                       placeholder="Your Chess.com username" />
+                <button id="import-btn" type="button">Import last 12 months</button>
+                <span id="import-status" aria-live="polite"></span>
+                <div id="import-summary"></div>
+                <button id="import-selftest-link" type="button" class="selftest-link">Run import parser self-test</button>
+                <div id="import-selftest-output" class="selftest-output" hidden></div>
+              </div>
             </details>
           </div>
         </div>
