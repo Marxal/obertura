@@ -129,7 +129,14 @@ function renderExplanation(): void {
     if (reqId !== gradeRequestId) return;
     const current = getCurrentNode();
     if (current.id !== nodeId || current.note?.trim()) return;
-    if (!grade) return;
+    if (!grade) {
+      // The engine can't grade this position (it's off the known map). The
+      // offline description here is usually too vague to be worth showing, so
+      // replace the whole panel with an honest nudge to annotate it yourself.
+      textEl.textContent = 'This is new territory — add your own notes.';
+      textEl.classList.add('explanation-newground');
+      return;
+    }
     verdictEl.textContent = describeGrade(grade);
     verdictEl.className = `explanation-verdict verdict-${grade.classification}`;
     verdictEl.hidden = false;
@@ -263,6 +270,32 @@ function handleMoveClick(nodeId: string) {
     lastMove: last
       ? [last.uci.slice(0, 2) as Key, last.uci.slice(2, 4) as Key]
       : undefined,
+  });
+
+  renderMoveList();
+  renderNotePanel();
+  updateOpeningName();
+  evalPanel.clear();
+  engine.evaluate(chess.fen());
+}
+
+// Play a move given as UCI (e.g. from a clicked engine recommendation) at the
+// current position: same effect as making it on the board.
+function playUci(uci: string): void {
+  const from = uci.slice(0, 2);
+  const to = uci.slice(2, 4);
+  const promotion = (uci[4] as 'q' | 'r' | 'b' | 'n') || 'q';
+  const result = chess.move({ from, to, promotion });
+  if (!result) return;
+
+  const fullUci = from + to + (result.promotion ?? '');
+  addMove(result.san, fullUci, chess.fen());
+  document.getElementById('save-msg')!.textContent = '';
+  cg.set({
+    fen: chess.fen(),
+    turnColor: turnColor(),
+    movable: { color: 'both', dests: legalDests() },
+    lastMove: [from as Key, to as Key],
   });
 
   renderMoveList();
@@ -717,7 +750,8 @@ requestAnimationFrame(() => {
     evalPanel.update(result, chess.fen());
   });
   evalPanel = new EvalPanel(
-    document.getElementById('eval-panel')!,
+    document.getElementById('eval-bar-top')!,
+    document.getElementById('eval-controls')!,
     engine.isEnabled,
     (enabled) => {
       if (enabled) {
@@ -730,6 +764,7 @@ requestAnimationFrame(() => {
       // The explanation panel is engine-gated, so refresh it on toggle.
       renderExplanation();
     },
+    (uci) => playUci(uci),
   );
   if (engine.isEnabled) {
     engine.enable();
