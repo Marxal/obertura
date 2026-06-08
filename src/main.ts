@@ -12,9 +12,13 @@ import { renderLinesScreen } from './lines-screen';
 import { renderBranchView } from './branch-view';
 import { startPretrainingRun } from './pretraining';
 import { renderTrainScreen } from './train-screen';
+import { Engine } from './engine';
+import { EvalPanel } from './eval-panel';
 
 const chess = new Chess();
 let cg!: ReturnType<typeof Chessground>;
+let engine!: Engine;
+let evalPanel!: EvalPanel;
 
 function legalDests(): Map<Key, Key[]> {
   const dests = new Map<Key, Key[]>();
@@ -160,6 +164,8 @@ function handleMoveClick(nodeId: string) {
   renderMoveList();
   renderNotePanel();
   updateOpeningName();
+  evalPanel.clear();
+  engine.evaluate(chess.fen());
 }
 
 let saveColour: 'white' | 'black' = 'white';
@@ -236,6 +242,8 @@ function goToStart(): void {
   });
   renderMoveList();
   renderNotePanel();
+  evalPanel.clear();
+  engine.evaluate(chess.fen());
 }
 
 // Sync the training toggle in the builder panel with the current line state.
@@ -293,6 +301,10 @@ function showView(view: ViewName): void {
 
   if (view === 'train') {
     renderTrainScreen(trainEl);
+  }
+
+  if (view === 'builder') {
+    engine.evaluate(chess.fen());
   }
 }
 
@@ -590,9 +602,33 @@ requestAnimationFrame(() => {
         renderMoveList();
         renderNotePanel();
         updateOpeningName();
+        evalPanel.clear();
+        engine.evaluate(chess.fen());
       },
     },
   });
+
+  // Engine + eval panel — must come after cg is available so evaluate() can read chess.fen().
+  engine = new Engine(import.meta.env.BASE_URL, (result) => {
+    evalPanel.update(result, chess.fen());
+  });
+  evalPanel = new EvalPanel(
+    document.getElementById('eval-panel')!,
+    engine.isEnabled,
+    (enabled) => {
+      if (enabled) {
+        engine.enable();
+        engine.evaluate(chess.fen());
+      } else {
+        engine.disable();
+        evalPanel.clear();
+      }
+    },
+  );
+  if (engine.isEnabled) {
+    engine.enable();
+    engine.evaluate(chess.fen());
+  }
 
   setupSaveForm();
   setupSettings();
@@ -633,6 +669,8 @@ requestAnimationFrame(() => {
     renderNotePanel();
     renderLineMeta();
     updateTrainingButton();
+    evalPanel.clear();
+    engine.evaluate(chess.fen());
   });
 
   new ResizeObserver(() => cg.redrawAll()).observe(boardEl);

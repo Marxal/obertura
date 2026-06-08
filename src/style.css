@@ -1370,3 +1370,149 @@ cg-board square.move-dest.oc {
     color: #5dba7a;
   }
 }
+
+/* ── Engine eval panel ───────────────────────────────────────────────────────── */
+
+#eval-panel {
+  background: #ece3cc;
+  border-bottom: 1px solid rgba(156, 107, 67, 0.18);
+  padding: 6px 12px;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+}
+
+.eval-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+/* Vertical eval bar */
+.eval-bar-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.eval-bar {
+  width: 10px;
+  height: 40px;
+  background: #2a1a0a;
+  border-radius: 3px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column-reverse; /* white fills from bottom */
+}
+
+.eval-bar-fill {
+  background: #f5edd8;
+  width: 100%;
+  transition: height 0.35s ease;
+}
+
+.eval-score {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #3a2a1a;
+  white-space: nowrap;
+}
+
+/* Move chips */
+.eval-moves {
+  flex: 1;
+  display: flex;
+  gap: 8px;
+  overflow: hidden;
+  align-items: center;
+}
+
+.eval-move {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+.eval-move-san {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1e1206;
+}
+
+.eval-move-cp {
+  font-size: 0.68rem;
+  color: #7a5a38;
+}
+
+.eval-waiting {
+  font-size: 0.8rem;
+  color: #9c7a5a;
+  font-style: italic;
+}
+
+/* Toggle + source stacked on the right */
+.eval-right {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.eval-source {
+  font-size: 0.62rem;
+  color: #9c7a5a;
+  white-space: nowrap;
+}
+
+/* iOS-style toggle switch */
+.engine-toggle {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 22px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.engine-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.engine-toggle-track {
+  position: absolute;
+  inset: 0;
+  background: #c8b898;
+  border-radius: 11px;
+  transition: background 0.2s;
+}
+
+.engine-toggle-track::after {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  top: 2px;
+  left: 2px;
+  transition: transform 0.2s;
+}
+
+.engine-toggle input:checked + .engine-toggle-track {
+  background: #ff9b21;
+}
+
+.engine-toggle input:checked + .engine-toggle-track::after {
+  transform: translateX(16px);
+}
