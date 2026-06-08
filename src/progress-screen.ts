@@ -18,8 +18,9 @@ import {
 import { runProgressSelfTest } from './progress.selftest';
 
 export interface ProgressCallbacks {
-  // Jump to the Train tab so a flagged line can be drilled right away.
-  onOpenTrain: () => void;
+  // Act on the line a card refers to. In-training lines drill straight away;
+  // a saved line that isn't in training yet runs the "add to training" flow.
+  onTrainLine: (lineId: string, inTraining: boolean) => void;
 }
 
 export function renderProgressScreen(container: HTMLElement, cb: ProgressCallbacks): void {
@@ -221,18 +222,18 @@ function progressCard(item: LineProgress, cb: ProgressCallbacks): HTMLElement {
 
   card.appendChild(body);
 
-  // Action: drill the flagged lines. Most useful when slipping or not yet drilled.
-  if (item.verdict === 'declined' || item.verdict === 'untrained' || !item.inTraining) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'review-build-btn';
-    btn.textContent = 'Train';
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      cb.onOpenTrain();
-    });
-    card.appendChild(btn);
-  }
+  // Action button, scoped to this exact line: drill it if it's in training,
+  // otherwise add it to training. Either way you act on the line you're looking
+  // at — no hunting through the Train list.
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'review-build-btn';
+  btn.textContent = item.inTraining ? 'Drill' : 'Add';
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    cb.onTrainLine(item.lineId, item.inTraining);
+  });
+  card.appendChild(btn);
 
   return card;
 }
