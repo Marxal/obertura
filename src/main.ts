@@ -6,7 +6,7 @@ import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
 import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, uciPathTo, loadTree, fenBefore } from './tree';
 import { saveLine, getAllLines, saveGames, countGames, clearGames } from './storage';
-import { probeOpeningName, getToken, setToken } from './openings';
+import { fetchOpeningName, getToken, setToken } from './openings';
 import {
   getUsername,
   setUsername,
@@ -55,13 +55,11 @@ function updateOpeningName() {
   if (openingTimer) clearTimeout(openingTimer);
   openingTimer = setTimeout(async () => {
     const reqId = ++openingRequestId;
-    // TEMPORARY DIAGNOSTIC: probe reports why a lookup is empty.
-    const { name, debug } = await probeOpeningName(uciPathTo());
+    const name = await fetchOpeningName(uciPathTo());
     // Ignore stale results: only apply if this is still the latest request.
     if (reqId !== openingRequestId) return;
     const el = document.getElementById('opening-name')!;
-    el.textContent = name ?? debug;
-    console.log('[opening]', debug);
+    el.textContent = name ?? '';
   }, 350);
 }
 
@@ -600,14 +598,6 @@ function setupNav(): void {
   });
 }
 
-// ── Debug readout ─────────────────────────────────────────────────────────────
-
-async function refreshDebugReadout() {
-  const all = await getAllLines();
-  const el = document.getElementById('debug-readout')!;
-  el.textContent = `${all.length} line${all.length === 1 ? '' : 's'} saved`;
-}
-
 // ── Save form ─────────────────────────────────────────────────────────────────
 
 function setupSaveForm() {
@@ -616,7 +606,6 @@ function setupSaveForm() {
   const tagsInput = document.getElementById('line-tags') as HTMLInputElement;
   const saveBtn = document.getElementById('save-btn') as HTMLButtonElement;
   const saveMsg = document.getElementById('save-msg')!;
-  const debugReadout = document.getElementById('debug-readout')!;
   const toggle = document.getElementById('colour-toggle')!;
 
   // "Add to training" row — hidden until a line is saved and inTraining is false.
@@ -629,7 +618,7 @@ function setupSaveForm() {
   addTrainingBtn.className = 'add-training-btn';
   addTrainingBtn.textContent = 'Add to training';
   addTrainingRow.appendChild(addTrainingBtn);
-  saveForm.insertBefore(addTrainingRow, debugReadout);
+  saveForm.appendChild(addTrainingRow);
 
   addTrainingBtn.addEventListener('click', async () => {
     if (!currentTrainingLine) return;
@@ -697,11 +686,7 @@ function setupSaveForm() {
     currentTrainingLine = line;
     saveMsg.textContent = 'Saved ✓';
     updateTrainingButton();
-    await refreshDebugReadout();
   });
-
-  // Show the persisted count on load — confirms data survived an app restart.
-  refreshDebugReadout();
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────────
