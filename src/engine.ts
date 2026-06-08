@@ -75,13 +75,13 @@ export async function isGoodAlternative(
 // the played move is from the engine's best, and names that best move — so the
 // builder can explain *why* a move is good or bad in plain language.
 
-export type MoveClass = 'best' | 'good' | 'inaccuracy' | 'mistake' | 'blunder';
+export type MoveClass = 'best' | 'good' | 'inaccuracy' | 'mistake' | 'blunder' | 'dubious';
 
 export interface MoveGrade {
   classification: MoveClass;
-  lossCp: number;   // centipawns lost vs the best move, mover's perspective (>= 0)
-  bestSan: string;  // the engine's preferred move, in SAN
-  isBest: boolean;  // the played move *is* the engine's top choice
+  lossCp: number | null;  // centipawns lost vs best (>= 0), or null if unmeasurable
+  bestSan: string;        // the engine's preferred move, in SAN
+  isBest: boolean;        // the played move *is* the engine's top choice
 }
 
 // Pure, side-effect-free bucketing of a centipawn loss into a verbal grade.
@@ -123,6 +123,7 @@ export async function gradeMove(preFen: string, userUci: string): Promise<MoveGr
     const userPv = pvs.find(pv => pv.moves?.split(' ')[0] === userUci);
     if (userPv) {
       userCp = pvToWhiteCp(userPv, side);
+      if (userCp === null) return null; // pv with neither cp nor mate — unmeasurable
     } else {
       const afterFen = applyUci(preFen, userUci);
       if (afterFen) {
@@ -132,8 +133,13 @@ export async function gradeMove(preFen: string, userUci: string): Promise<MoveGr
         // to white either way, so it is directly comparable to bestCp.
         if (afterPv) userCp = pvToWhiteCp(afterPv, sideToMove(afterFen));
       }
+      // The move isn't among the engine's top lines and we couldn't price the
+      // resulting position — still flag it as off the engine's radar rather than
+      // staying silent (this is the "really wrong move says nothing" case).
+      if (userCp === null) {
+        return { classification: 'dubious', lossCp: null, bestSan, isBest: false };
+      }
     }
-    if (userCp === null) return null;
 
     const lossCp = Math.abs(bestCp - userCp);
     return { classification: classifyLoss(lossCp, false), lossCp, bestSan, isBest: false };
