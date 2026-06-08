@@ -1191,6 +1191,71 @@ cg-board square.move-dest.oc {
 
 .selftest-row.fail { color: #c0531f; font-weight: 600; }
 
+/* ── Generated "why this move" explanation (builder) ───────────────────────── */
+/* Read-only, auto-generated reasoning. Hidden whenever the user has written
+   their own note — their words override this. Styled as a quiet parchment
+   card, distinct from the amber-bordered editable note below it. */
+.move-explanation {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #e2d3b3;
+  border-left: 3px solid #c9b48f;
+  border-radius: 6px;
+  background: #f6efdd;
+  color: #6b5638;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+/* Engine verdict line — colour-coded by severity. */
+.explanation-verdict {
+  font-style: italic;
+}
+.explanation-verdict.verdict-best,
+.explanation-verdict.verdict-good {
+  color: #2a6b3a;
+}
+.explanation-verdict.verdict-inaccuracy {
+  color: #a9751a;
+}
+.explanation-verdict.verdict-mistake,
+.explanation-verdict.verdict-blunder {
+  color: #c0531f;
+}
+
+/* Quiet action row: adopt-as-note button and the engine-off hint. */
+.explanation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.6rem;
+  margin-top: 0.1rem;
+}
+.explanation-add-note {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  color: #9c6b43;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.explanation-add-note:hover {
+  color: #ff9b21;
+}
+.explanation-hint {
+  color: #b8a48a;
+  font-size: 0.75rem;
+  font-style: italic;
+}
+
 /* ── Move note panel (builder) ─────────────────────────────────────────────── */
 
 #note-panel {

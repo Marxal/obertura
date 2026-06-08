@@ -4,15 +4,16 @@ import type { Key } from 'chessground/types';
 import 'chessground/assets/chessground.base.css';
 import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
-import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, uciPathTo, loadTree } from './tree';
+import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, uciPathTo, loadTree, fenBefore } from './tree';
 import { saveLine, getAllLines } from './storage';
 import { probeOpeningName, getToken, setToken } from './openings';
+import { explainMove, describeGrade } from './explain';
 import type { Line } from './types';
 import { renderLinesScreen } from './lines-screen';
 import { renderBranchView } from './branch-view';
 import { startPretrainingRun } from './pretraining';
 import { renderTrainScreen } from './train-screen';
-import { Engine } from './engine';
+import { Engine, gradeMove } from './engine';
 import { EvalPanel } from './eval-panel';
 
 const chess = new Chess();
@@ -39,6 +40,10 @@ function turnColor(): 'white' | 'black' {
 let openingTimer: ReturnType<typeof setTimeout> | undefined;
 let openingRequestId = 0;
 
+// Last opening name resolved from Lichess, fed into the move explanation as
+// grounding. Null when unknown (start position, lookup failed, no token).
+let currentOpeningName: string | null = null;
+
 function updateOpeningName() {
   if (openingTimer) clearTimeout(openingTimer);
   openingTimer = setTimeout(async () => {
@@ -49,8 +54,108 @@ function updateOpeningName() {
     if (reqId !== openingRequestId) return;
     const el = document.getElementById('opening-name')!;
     el.textContent = name ?? debug;
+    currentOpeningName = name;
     console.log('[opening]', debug);
+    // The name feeds the explanation's grounding line — refresh it now that
+    // we know it (or know it's unavailable).
+    renderExplanation();
   }, 350);
+}
+
+// ── "Why this move" explanation ─────────────────────────────────────────────
+// A read-only, plain-language reason for the selected move, generated from the
+// position. The user's own note always overrides it: when a note exists we
+// hide this panel, because the note (shown in the editor below) is the truth.
+//
+// Structure inside #move-explanation:
+//   .explanation-text     — instant, offline, chess.js description
+//   .explanation-verdict  — async engine grade (only when the engine is on)
+//   .explanation-actions  — "Add to my note" button + a discreet engine hint
+
+// Race guard for the async grade, twin of openingRequestId: a slow older grade
+// must never overwrite a newer move's verdict.
+let gradeRequestId = 0;
+
+function renderExplanation(): void {
+  const el = document.getElementById('move-explanation')!;
+  const node = getCurrentNode();
+
+  // Bump the request id so any in-flight grade for a previous move is ignored.
+  gradeRequestId++;
+
+  if (node.id === 'root' || node.note?.trim()) {
+    el.hidden = true;
+    el.replaceChildren();
+    return;
+  }
+  const text = explainMove(fenBefore(node.id), node.san, currentOpeningName);
+  if (!text) {
+    el.hidden = true;
+    el.replaceChildren();
+    return;
+  }
+
+  const textEl = document.createElement('div');
+  textEl.className = 'explanation-text';
+  textEl.textContent = text;
+
+  const verdictEl = document.createElement('div');
+  verdictEl.className = 'explanation-verdict';
+  verdictEl.hidden = true;
+
+  const actions = document.createElement('div');
+  actions.className = 'explanation-actions';
+
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'explanation-add-note';
+  addBtn.textContent = 'Add to my note';
+  addBtn.addEventListener('click', () => adoptExplanationAsNote());
+  actions.appendChild(addBtn);
+
+  if (!engine.isEnabled) {
+    const hint = document.createElement('span');
+    hint.className = 'explanation-hint';
+    hint.textContent = 'Turn on the engine to grade this move.';
+    actions.appendChild(hint);
+  }
+
+  el.replaceChildren(textEl, verdictEl, actions);
+  el.hidden = false;
+
+  // Quality verdict — only when the engine toggle is on, and only via its own
+  // Lichess cloud request (independent of the eval-panel flow).
+  if (engine.isEnabled) {
+    const reqId = gradeRequestId;
+    const nodeId = node.id;
+    gradeMove(fenBefore(node.id), node.uci).then(grade => {
+      // Stale guard: same request, still the same selected move, still no note.
+      if (reqId !== gradeRequestId) return;
+      const current = getCurrentNode();
+      if (current.id !== nodeId || current.note?.trim()) return;
+      if (!grade) return;
+      verdictEl.textContent = describeGrade(grade);
+      verdictEl.className = `explanation-verdict verdict-${grade.classification}`;
+      verdictEl.hidden = false;
+    });
+  }
+}
+
+// Copy the generated explanation (description + verdict, if shown) into the
+// move's note. It then becomes the user's editable override — the generated
+// panel hides and the note editor takes over, seeded with this text.
+function adoptExplanationAsNote(): void {
+  const node = getCurrentNode();
+  if (node.id === 'root') return;
+  const textEl = document.querySelector('#move-explanation .explanation-text');
+  const verdictEl = document.querySelector('#move-explanation .explanation-verdict:not([hidden])');
+  const parts = [textEl?.textContent, verdictEl?.textContent].filter(Boolean);
+  const note = parts.join(' ').trim();
+  if (!note) return;
+  node.note = note;
+  (document.getElementById('move-note-input') as HTMLTextAreaElement).value = note;
+  renderMoveList();
+  renderExplanation();
 }
 
 let treeViewMode: 'list' | 'branches' = 'list';
@@ -125,6 +230,7 @@ function renderNotePanel(): void {
   panel.hidden = false;
   label.textContent = `Note for ${node.san}`;
   textarea.value = node.note ?? '';
+  renderExplanation();
 }
 
 function setupNotePanel(): void {
@@ -136,6 +242,9 @@ function setupNotePanel(): void {
     node.note = val.trim() ? val : undefined;
     // Update note dot indicator without clobbering the textarea.
     renderMoveList();
+    // A note overrides the generated text: refresh so it hides (or, once the
+    // note is cleared, reappears).
+    renderExplanation();
   });
 }
 
@@ -234,6 +343,7 @@ function goToStart(): void {
   chess.reset();
   openingRequestId++;
   document.getElementById('opening-name')!.textContent = '';
+  currentOpeningName = null;
   cg.set({
     fen: chess.fen(),
     turnColor: 'white',
@@ -339,6 +449,7 @@ function onOpenLine(line: Line): void {
   document.getElementById('save-msg')!.textContent = '';
   openingRequestId++;
   document.getElementById('opening-name')!.textContent = '';
+  currentOpeningName = null;
 
   renderMoveList();
   renderNotePanel();
@@ -656,6 +767,7 @@ requestAnimationFrame(() => {
     // Clear the opening label and invalidate any in-flight lookup.
     openingRequestId++;
     document.getElementById('opening-name')!.textContent = '';
+  currentOpeningName = null;
     cg.set({
       fen: chess.fen(),
       turnColor: 'white',
