@@ -798,7 +798,7 @@ cg-board square.move-dest.oc {
   z-index: 200;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .pt-header {
@@ -841,7 +841,8 @@ cg-board square.move-dest.oc {
 
 .pt-board-wrap {
   width: 100vw;
-  height: 100vw;
+  /* Cap at ~58 vh so status + note/alt card are always visible without scrolling. */
+  height: min(100vw, 58vh);
   flex-shrink: 0;
   position: relative; /* anchor for the error-flash overlay */
 }
