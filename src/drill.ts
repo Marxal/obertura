@@ -42,9 +42,10 @@ export function startDrill(line: Line, opts: DrillOptions): void {
   const userColour = line.colour;
   let moveIndex = 0;
   let autoTimer: ReturnType<typeof setTimeout> | undefined;
-  let altTimer: ReturnType<typeof setTimeout> | undefined;
   // True while the user must replay the correct move after a wrong attempt.
   let awaitingCorrectReplay = false;
+  // True while the user must play the expected move after a good-alternative notice.
+  let awaitingAlternativePlay = false;
   // True while an async engine check is in progress — blocks board input.
   let checkingAlternative = false;
   let isCleaned = false;
@@ -85,6 +86,11 @@ export function startDrill(line: Line, opts: DrillOptions): void {
   noteCardEl.className = 'pt-note-card';
   noteCardEl.setAttribute('hidden', '');
 
+  // Card shown after a good-alternative detection (note + create-line button).
+  const altCardEl = document.createElement('div');
+  altCardEl.className = 'pt-alt-card';
+  altCardEl.setAttribute('hidden', '');
+
   const progressEl = document.createElement('div');
   progressEl.className = 'pt-progress';
 
@@ -92,6 +98,7 @@ export function startDrill(line: Line, opts: DrillOptions): void {
   overlay.appendChild(boardWrap);
   overlay.appendChild(statusEl);
   overlay.appendChild(noteCardEl);
+  overlay.appendChild(altCardEl);
   overlay.appendChild(progressEl);
   document.body.appendChild(overlay);
 
@@ -159,7 +166,7 @@ export function startDrill(line: Line, opts: DrillOptions): void {
     flash.addEventListener('animationend', () => flash.remove(), { once: true });
   }
 
-  // ── Note card ─────────────────────────────────────────────────────────────
+  // ── Note card (mistake hints) ─────────────────────────────────────────────
 
   function showNoteCard(note: string): void {
     noteCardEl.textContent = note;
@@ -169,6 +176,56 @@ export function startDrill(line: Line, opts: DrillOptions): void {
   function hideNoteCard(): void {
     noteCardEl.setAttribute('hidden', '');
     noteCardEl.textContent = '';
+  }
+
+  // ── Alt card (good-alternative notice) ───────────────────────────────────
+
+  function showAltCard(expected: MoveNode): void {
+    altCardEl.innerHTML = '';
+
+    if (expected.note) {
+      const noteEl = document.createElement('div');
+      noteEl.className = 'pt-alt-note';
+      noteEl.textContent = expected.note;
+      altCardEl.appendChild(noteEl);
+    } else {
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'pt-alt-add-note-btn';
+      addBtn.textContent = '+ Add a note to remember this';
+
+      const textarea = document.createElement('textarea');
+      textarea.className = 'pt-alt-note-input';
+      textarea.placeholder = 'Why does the line play this move?';
+      textarea.hidden = true;
+
+      addBtn.addEventListener('click', () => {
+        addBtn.hidden = true;
+        textarea.hidden = false;
+        textarea.focus();
+      });
+
+      textarea.addEventListener('input', () => {
+        expected.note = textarea.value.trim() || undefined;
+      });
+
+      altCardEl.appendChild(addBtn);
+      altCardEl.appendChild(textarea);
+    }
+
+    const newLineBtn = document.createElement('button');
+    newLineBtn.type = 'button';
+    newLineBtn.className = 'pt-alt-new-line-btn';
+    newLineBtn.textContent = 'Create new line';
+    newLineBtn.addEventListener('click', () => { cleanup(); opts.onCancel(); });
+    altCardEl.appendChild(newLineBtn);
+
+    altCardEl.removeAttribute('hidden');
+  }
+
+  function hideAltCard(): void {
+    altCardEl.setAttribute('hidden', '');
+    altCardEl.innerHTML = '';
   }
 
   // ── Full wrong-move sequence ───────────────────────────────────────────────
@@ -187,55 +244,41 @@ export function startDrill(line: Line, opts: DrillOptions): void {
       movable: { color: userColour, dests: legalDests() },
     });
 
-    // 3. Draw a hint arrow to the correct move. setAutoShapes is called AFTER
-    //    cg.set() to avoid the chessground shapes-with-FEN rendering bug.
-    const orig = expected.uci.slice(0, 2) as Key;
-    const dest = expected.uci.slice(2, 4) as Key;
-    cg.setAutoShapes([{ orig, dest, brush: 'accent' }]);
-
-    // 4. Show the move note if one exists.
-    if (expected.note) {
-      showNoteCard(expected.note);
-    }
+    // 3. Draw a hint arrow. Deferred to the next animation frame so it always
+    //    runs after chessground's own pending render, avoiding a shapes-clearing
+    //    race condition.
+    requestAnimationFrame(() => {
+      if (isCleaned) return;
+      const orig = expected.uci.slice(0, 2) as Key;
+      const dest = expected.uci.slice(2, 4) as Key;
+      cg.setAutoShapes([{ orig, dest, brush: 'accent' }]);
+      if (expected.note) showNoteCard(expected.note);
+    });
   }
 
   // ── Good-alternative sequence ─────────────────────────────────────────────
 
   function handleGoodAlternative(expected: MoveNode): void {
+    awaitingAlternativePlay = true;
+
     statusEl.textContent = `Good alternative! Your line plays ${expected.san}.`;
     statusEl.className = 'pt-status pt-status--alt';
 
-    // Show a green arrow pointing to the saved line's move.
+    // Restrict board to only the expected move (the green arrow shows where).
     const orig = expected.uci.slice(0, 2) as Key;
     const dest = expected.uci.slice(2, 4) as Key;
-    cg.setAutoShapes([{ orig, dest, brush: 'alt' }]);
+    cg.set({
+      movable: {
+        color: userColour,
+        dests: new Map([[orig, [dest]]]),
+      },
+    });
 
-    // After a brief pause, play the expected move and continue the drill.
-    altTimer = setTimeout(() => {
+    requestAnimationFrame(() => {
       if (isCleaned) return;
-      altTimer = undefined;
-      cg.setAutoShapes([]);
-      statusEl.textContent = '';
-      statusEl.className = 'pt-status';
-
-      chess.move({ from: orig, to: dest, promotion: 'q' });
-      moveIndex++;
-      updateProgress();
-
-      if (moveIndex >= moves.length) {
-        void completeRun();
-        return;
-      }
-
-      cg.set({
-        fen: chess.fen(),
-        turnColor: cgTurn(),
-        movable: { color: undefined, dests: new Map() },
-        lastMove: [orig, dest],
-      });
-
-      scheduleOpponent();
-    }, 2200);
+      cg.setAutoShapes([{ orig, dest, brush: 'alt' }]);
+      showAltCard(expected);
+    });
   }
 
   // ── Move logic ────────────────────────────────────────────────────────────
@@ -249,11 +292,16 @@ export function startDrill(line: Line, opts: DrillOptions): void {
     const eTo = expected.uci.slice(2, 4);
 
     if (from === eFrom && to === eTo) {
-      // Correct move — if we were in replay-required state, clear the hint UI.
+      // Correct move — clear any pending hint UI first.
       if (awaitingCorrectReplay) {
         cg.setAutoShapes([]);
         hideNoteCard();
         awaitingCorrectReplay = false;
+      }
+      if (awaitingAlternativePlay) {
+        cg.setAutoShapes([]);
+        hideAltCard();
+        awaitingAlternativePlay = false;
       }
       statusEl.textContent = '';
       statusEl.className = 'pt-status';
@@ -274,7 +322,7 @@ export function startDrill(line: Line, opts: DrillOptions): void {
       });
 
       scheduleOpponent();
-    } else if (opts.wrongMoveMode === 'full' && !awaitingCorrectReplay && opts.checkAlternative) {
+    } else if (opts.wrongMoveMode === 'full' && !awaitingCorrectReplay && !awaitingAlternativePlay && opts.checkAlternative) {
       // Async alternative check. Snap back and disable board immediately so the
       // user can't play again while we wait for the engine.
       checkingAlternative = true;
@@ -303,7 +351,7 @@ export function startDrill(line: Line, opts: DrillOptions): void {
           handleWrongMoveFull(expected);
         });
     } else {
-      // Synchronous wrong-move path (gentle mode or already in replay state).
+      // Synchronous wrong-move path (gentle mode or already in a hint state).
       if (opts.wrongMoveMode !== 'full' || !awaitingCorrectReplay) {
         opts.recordMiss?.(expected);
       }
@@ -367,7 +415,6 @@ export function startDrill(line: Line, opts: DrillOptions): void {
   function cleanup(): void {
     isCleaned = true;
     if (autoTimer) clearTimeout(autoTimer);
-    if (altTimer) clearTimeout(altTimer);
     ro.disconnect();
     overlay.remove();
   }
