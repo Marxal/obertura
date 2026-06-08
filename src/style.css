@@ -1748,3 +1748,136 @@ cg-board square.move-dest.oc {
 .engine-toggle input:checked + .engine-toggle-track::after {
   transform: translateX(16px);
 }
+
+/* ── Review screen (game analysis) ─────────────────────────────────────────── */
+
+.review-intro {
+  padding: 1rem 1rem 0.25rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #3c3225;
+}
+
+.review-heading {
+  padding: 0 1rem;
+  margin: 1.25rem 0 0.35rem;
+}
+
+.review-hint {
+  padding: 0 1rem;
+  margin-bottom: 0.6rem;
+  font-size: 0.78rem;
+  font-style: italic;
+  color: #9c7a5a;
+  line-height: 1.4;
+}
+
+/* Reuse .line-card chrome but the body is a div, not a button. */
+.review-card {
+  margin-left: 1rem;
+  margin-right: 1rem;
+}
+
+.review-card-body {
+  cursor: default;
+  gap: 0.4rem;
+}
+
+.review-card-body:active {
+  background: transparent;
+}
+
+.review-stat-chip {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 10px;
+  background: rgba(156, 107, 67, 0.12);
+  color: #6b5638;
+  font-weight: 600;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.review-stat-chip--prepped {
+  background: rgba(42, 107, 58, 0.15);
+  color: #2a6b3a;
+}
+
+.review-score-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.review-score-bar {
+  flex: 1;
+  height: 7px;
+  background: rgba(156, 107, 67, 0.18);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.review-score-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+.review-score-text {
+  font-size: 0.72rem;
+  color: #6b5638;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.review-moves {
+  font-size: 0.78rem;
+  color: #8a6f4f;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  line-height: 1.4;
+}
+
+.review-dev-text {
+  font-size: 0.85rem;
+  color: #3c3225;
+  line-height: 1.45;
+}
+
+.review-dev-text strong {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 700;
+  color: #c0531f;
+}
+
+.review-dev-score {
+  font-size: 0.72rem;
+  color: #9c7a5a;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Build/Open action, mirrors .card-training-btn on the right edge of a card. */
+.review-build-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  min-width: 72px;
+  padding: 0 0.5rem;
+  border: none;
+  border-left: 1px solid #e0d0b8;
+  background: #ff9b21;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-family: system-ui, -apple-system, sans-serif;
+  cursor: pointer;
+  line-height: 1.25;
+  text-align: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s;
+}
+
+.review-build-btn:active {
+  background: #e08800;
+}
