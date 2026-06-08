@@ -1,4 +1,4 @@
-# Aperture — project guide for Claude Code
+# Obertura — project guide for Claude Code
 
 A personal chess-openings trainer (a focused Lotus-style clone, openings only).
 Built as an installable PWA. Personal use first; zero budget; slow-burn side project.
