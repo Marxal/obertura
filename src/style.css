@@ -1232,6 +1232,12 @@ cg-board square.move-dest.oc {
   font-style: italic;
 }
 
+/* "New territory" replaces the description when the engine can't grade it. */
+.explanation-text.explanation-newground {
+  font-style: normal;
+  color: #7a5a38;
+}
+
 /* Quiet action row: adopt-as-note button and the engine-off hint. */
 .explanation-actions {
   display: flex;
@@ -1506,13 +1512,22 @@ cg-board square.move-dest.oc {
 
 /* ── Engine eval panel ───────────────────────────────────────────────────────── */
 
-#eval-panel {
+/* Eval bar sits above the board; the moves + toggle sit below it. */
+#eval-bar-top {
+  background: #ece3cc;
+  padding: 8px 12px;
+}
+/* Collapse the top strip entirely when the bar is hidden (engine off), so it
+   leaves no empty gap above the board. */
+#eval-bar-top:empty,
+#eval-bar-top:has(#eval-bar-wrap[hidden]) {
+  display: none;
+}
+
+#eval-controls {
   background: #ece3cc;
   border-bottom: 1px solid rgba(156, 107, 67, 0.18);
   padding: 6px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 
 .eval-row {
@@ -1571,6 +1586,21 @@ cg-board square.move-dest.oc {
   align-items: center;
   gap: 0;
   flex-shrink: 0;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 5px;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s;
+}
+
+.eval-move:hover,
+.eval-move:focus-visible {
+  background: rgba(255, 155, 33, 0.22);
+  outline: none;
+}
+
+.eval-move:active {
+  background: rgba(255, 155, 33, 0.4);
 }
 
 .eval-move-san {

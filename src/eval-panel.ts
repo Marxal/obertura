@@ -1,27 +1,43 @@
 import type { EvalResult, MoveEval } from './engine';
 
+// The eval display is split across two mount points:
+//   barEl       — the horizontal eval bar + score, sits ABOVE the board.
+//   controlsEl  — the recommended moves + engine toggle, sit BELOW the board.
+// Clicking a recommended move calls onPlayMove(uci) so it's played on the board.
 export class EvalPanel {
-  private el: HTMLElement;
+  private barEl: HTMLElement;
+  private controlsEl: HTMLElement;
   private _enabled: boolean;
   private onToggle: (enabled: boolean) => void;
+  private onPlayMove: (uci: string) => void;
 
-  constructor(el: HTMLElement, enabled: boolean, onToggle: (enabled: boolean) => void) {
-    this.el = el;
+  constructor(
+    barEl: HTMLElement,
+    controlsEl: HTMLElement,
+    enabled: boolean,
+    onToggle: (enabled: boolean) => void,
+    onPlayMove: (uci: string) => void,
+  ) {
+    this.barEl = barEl;
+    this.controlsEl = controlsEl;
     this._enabled = enabled;
     this.onToggle = onToggle;
+    this.onPlayMove = onPlayMove;
     this.build();
   }
 
   private build() {
-    // Horizontal eval bar sits on top, full width; the score floats at its right
-    // end. A second row carries the candidate moves and the engine toggle.
-    this.el.innerHTML = `
+    // Top: full-width horizontal bar with the score floating at its right end.
+    this.barEl.innerHTML = `
       <div class="eval-bar-wrap" id="eval-bar-wrap">
         <div class="eval-bar" id="eval-bar">
           <div class="eval-bar-fill" id="eval-bar-fill" style="width:50%"></div>
         </div>
         <span class="eval-score" id="eval-score">0.0</span>
-      </div>
+      </div>`;
+
+    // Bottom: candidate moves on the left, toggle + label on the right.
+    this.controlsEl.innerHTML = `
       <div class="eval-row">
         <div class="eval-moves" id="eval-moves"></div>
         <div class="eval-right">
@@ -34,21 +50,29 @@ export class EvalPanel {
         </div>
       </div>`;
 
-    this.el.querySelector<HTMLInputElement>('#engine-cb')!
+    this.controlsEl.querySelector<HTMLInputElement>('#engine-cb')!
       .addEventListener('change', e => {
         this._enabled = (e.target as HTMLInputElement).checked;
         this.syncVisibility();
         this.onToggle(this._enabled);
       });
 
+    // Delegated click: play whichever recommended move was tapped.
+    this.controlsEl.querySelector<HTMLElement>('#eval-moves')!
+      .addEventListener('click', e => {
+        const chip = (e.target as HTMLElement).closest<HTMLElement>('.eval-move');
+        const uci = chip?.dataset.uci;
+        if (uci) this.onPlayMove(uci);
+      });
+
     this.syncVisibility();
   }
 
   private syncVisibility() {
-    const barWrap = this.el.querySelector<HTMLElement>('#eval-bar-wrap')!;
-    const movesEl = this.el.querySelector<HTMLElement>('#eval-moves')!;
-    const sourceEl = this.el.querySelector<HTMLElement>('#eval-source')!;
-    const labelEl = this.el.querySelector<HTMLElement>('#engine-label')!;
+    const barWrap = this.barEl.querySelector<HTMLElement>('#eval-bar-wrap')!;
+    const movesEl = this.controlsEl.querySelector<HTMLElement>('#eval-moves')!;
+    const sourceEl = this.controlsEl.querySelector<HTMLElement>('#eval-source')!;
+    const labelEl = this.controlsEl.querySelector<HTMLElement>('#engine-label')!;
     barWrap.hidden = !this._enabled;
     labelEl.textContent = this._enabled ? 'Engine on' : 'Turn on engine';
     if (!this._enabled) {
@@ -78,33 +102,33 @@ export class EvalPanel {
     }
 
     const fillPct = this.cpToFill(cpWhite);
-    this.el.querySelector<HTMLElement>('#eval-bar-fill')!.style.width = `${fillPct}%`;
-    this.el.querySelector<HTMLElement>('#eval-score')!.textContent = scoreText;
+    this.barEl.querySelector<HTMLElement>('#eval-bar-fill')!.style.width = `${fillPct}%`;
+    this.barEl.querySelector<HTMLElement>('#eval-score')!.textContent = scoreText;
 
-    // Top 3 moves.
-    const movesEl = this.el.querySelector<HTMLElement>('#eval-moves')!;
+    // Top 3 moves — clickable, each carrying its UCI so it can be played.
+    const movesEl = this.controlsEl.querySelector<HTMLElement>('#eval-moves')!;
     movesEl.innerHTML = result.moves.slice(0, 3).map(m =>
-      `<span class="eval-move">` +
+      `<span class="eval-move" data-uci="${m.uci}" role="button" tabindex="0">` +
         `<span class="eval-move-san">${m.san || m.uci}</span>` +
         `<span class="eval-move-cp">${this.fmtScore(m)}</span>` +
       `</span>`
     ).join('');
 
     // Source badge.
-    const sourceEl = this.el.querySelector<HTMLElement>('#eval-source')!;
+    const sourceEl = this.controlsEl.querySelector<HTMLElement>('#eval-source')!;
     sourceEl.textContent = result.source === 'lichess'
       ? `☁ d${result.depth}`
       : `⚙ d${result.depth}`;
   }
 
   clear() {
-    const fill = this.el.querySelector<HTMLElement>('#eval-bar-fill');
+    const fill = this.barEl.querySelector<HTMLElement>('#eval-bar-fill');
     if (fill) fill.style.width = '50%';
-    const score = this.el.querySelector<HTMLElement>('#eval-score');
+    const score = this.barEl.querySelector<HTMLElement>('#eval-score');
     if (score) score.textContent = '0.0';
-    const moves = this.el.querySelector<HTMLElement>('#eval-moves');
+    const moves = this.controlsEl.querySelector<HTMLElement>('#eval-moves');
     if (moves) moves.innerHTML = this._enabled ? '<span class="eval-waiting">Analyzing…</span>' : '';
-    const source = this.el.querySelector<HTMLElement>('#eval-source');
+    const source = this.controlsEl.querySelector<HTMLElement>('#eval-source');
     if (source) source.textContent = '';
   }
 
