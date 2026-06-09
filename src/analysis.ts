@@ -286,6 +286,51 @@ export function analyseGames(games: ImportedGame[], lines: Line[]): Analysis {
   return { totalGames: games.length, stats, mostPlayed, weakest, suggestions, deviations };
 }
 
+// ── Per-line play counts ─────────────────────────────────────────────────────────
+//
+// "Played N times in your games": for each saved line, how many imported games
+// actually went down it. A game counts if it follows the line's tree either all
+// the way to a leaf (you played the whole line) OR through the opening — at least
+// LINE_PLAY_PLIES of agreement — even if deep theory later diverged. That keeps
+// the badge meaningful for long lines, where opponents rarely follow to the end.
+
+// Plies of agreement that still count a game as "having played" a line.
+export const LINE_PLAY_PLIES = COVERAGE_PLIES;
+
+export function countGamesPerLine(games: ImportedGame[], lines: Line[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  // Build each line's tree once, then pour every game of that colour through it.
+  const trees = lines.map(line => {
+    const root = newMergeNode();
+    graft(root, line.tree);
+    return { id: line.id, colour: line.colour, root };
+  });
+  for (const t of trees) counts.set(t.id, 0);
+
+  for (const game of games) {
+    for (const t of trees) {
+      if (t.colour !== game.colour) continue;
+      if (gameFollowsLine(t.root, game.ucis)) {
+        counts.set(t.id, (counts.get(t.id) ?? 0) + 1);
+      }
+    }
+  }
+  return counts;
+}
+
+function gameFollowsLine(root: MergeNode, ucis: string[]): boolean {
+  if (root.children.size === 0) return false; // an empty line matches nothing
+  let node = root;
+  for (let ply = 0; ply < ucis.length; ply++) {
+    const next = node.children.get(ucis[ply]);
+    if (!next) return false;                      // game stepped off the line
+    node = next;
+    if (node.children.size === 0) return true;    // reached a leaf — whole line played
+    if (ply + 1 >= LINE_PLAY_PLIES) return true;  // stayed on the line through the opening
+  }
+  return false; // game ended before the line did
+}
+
 // Replay one game through the merged tree; return the first move that left prep
 // while the tree still had a move on offer, or null if the game stayed in book
 // (or your prep simply ran out — that's "past book", not a deviation).

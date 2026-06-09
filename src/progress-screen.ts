@@ -48,7 +48,7 @@ async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<
     renderEmpty(
       container,
       'Nothing to compare yet',
-      'None of your imported games match a saved line. Build the openings you actually play (the Review tab shows which), add them to training, and this tab will start tracking whether drilling helps.',
+      'None of your imported games match a saved line. Build the openings you actually play (My Lines → From my games shows which), add them to training, and this tab will start tracking whether drilling helps.',
     );
     appendSelfTestLink(container);
     return;
