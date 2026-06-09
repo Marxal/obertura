@@ -461,6 +461,7 @@ function clearBuilder(colour: 'white' | 'black' = 'white'): void {
   document.getElementById('opening-name')!.textContent = '';
   cg.set({
     fen: chess.fen(),
+    orientation: colour,
     turnColor: 'white',
     movable: { color: 'both', dests: legalDests() },
     lastMove: undefined,
@@ -503,7 +504,7 @@ function handleStartTraining(line: Line): void {
     () => {
       // Re-render lines screen so the "Add to training" button disappears.
       const linesEl = document.getElementById('view-lines')!;
-      renderLinesScreen(linesEl, { onOpenLine, onStartTraining: handleStartTraining });
+      renderLinesScreen(linesEl, { onOpenLine, onAddLine: startNewLine, onStartTraining: handleStartTraining });
     },
     () => { /* cancelled — user is already back at the lines screen */ }
   );
@@ -541,7 +542,7 @@ function showView(view: ViewName): void {
   });
 
   if (view === 'lines') {
-    renderLinesScreen(linesEl, { onOpenLine, onStartTraining: handleStartTraining });
+    renderLinesScreen(linesEl, { onOpenLine, onAddLine: startNewLine, onStartTraining: handleStartTraining });
   }
 
   if (view === 'home') {
@@ -587,6 +588,7 @@ function onOpenLine(line: Line): void {
   chess.reset();
   cg.set({
     fen: chess.fen(),
+    orientation: line.colour,
     turnColor: 'white',
     movable: { color: 'both', dests: legalDests() },
     lastMove: undefined,
@@ -681,6 +683,8 @@ function setupSaveForm() {
       saveColour = btn.dataset.colour as 'white' | 'black';
       toggle.querySelectorAll('button').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+      // Keep the board oriented to the chosen side.
+      cg.set({ orientation: saveColour });
     });
   });
 
