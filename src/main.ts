@@ -26,6 +26,7 @@ import { startPretrainingRun } from './pretraining';
 import { renderTrainScreen } from './train-screen';
 import { Engine, gradeMove } from './engine';
 import { EvalPanel } from './eval-panel';
+import { initThemeControl } from './theme';
 
 const chess = new Chess();
 let cg!: ReturnType<typeof Chessground>;
@@ -902,6 +903,7 @@ function setupBranchView(): void {
 
 const boardEl = document.getElementById('board') as HTMLElement;
 
+initThemeControl();
 setupNav();
 
 requestAnimationFrame(() => {

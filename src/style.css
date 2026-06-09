@@ -1,3 +1,93 @@
+/* ════════════════════════════════════════════════════════════════════════════
+   DESIGN TOKENS
+   Every colour in the app resolves to one of these variables. The board
+   squares are deliberately NOT themed — they stay identical in light and dark
+   (see the cg-board rules further down). Only the page chrome (surfaces, text,
+   borders) changes between themes.
+
+   The active theme is chosen by JS, which sets data-theme="light" | "dark" on
+   <html> (defaulting to the system preference, overridable, persisted). The
+   :root block below is the light theme; [data-theme="dark"] overrides it.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  color-scheme: light;
+
+  /* Board — identical in BOTH themes. Never override these per-theme. */
+  --board-light: #eecfa1;
+  --board-dark: #b58863;
+  --board-lastmove: #e3b25a; /* warm gold; reads against both squares */
+
+  /* Surfaces */
+  --bg-page: #f1ece1;       /* warm cream page (texture lives here) */
+  --bg-card: var(--bg-card);       /* cards + inputs — light, with a 1px stroke */
+  --bg-sheet: var(--bg-sheet);      /* bottom sheets / full-screen overlays */
+  --bg-elevated: var(--bg-elevated);   /* eval strip above the board */
+  --bg-parchment: var(--bg-parchment);  /* quiet generated-explanation card */
+
+  /* Text */
+  --text: var(--text);          /* primary copy + headings */
+  --text-muted: var(--text-muted);    /* labels, secondary copy */
+  --text-faint: var(--text-faint);    /* captions, metadata */
+  --text-fainter: var(--text-fainter);  /* the quietest hints + placeholders */
+
+  /* Borders / strokes */
+  --border: var(--border);            /* input + control strokes */
+  --border-card: var(--border-card);       /* card strokes */
+  --hairline: var(--hairline);   /* section separators */
+  --hairline-soft: var(--hairline-soft);
+
+  /* Accent + status (mostly shared; a few brighten in dark) */
+  --accent: var(--accent);
+  --accent-active: var(--accent-active);
+  --accent-soft: var(--accent-soft);
+  --maroon: var(--maroon);
+  --maroon-active: var(--maroon-active);
+  --success: var(--success);
+  --success-active: var(--success-active);
+  --warn: var(--warn);
+  --danger: var(--danger);
+
+  /* Paper texture — faint speckle layered over --bg-page only. */
+  --paper-speckle: rgba(120, 90, 50, 0.035);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Surfaces — genuinely dark page, dark cards. */
+  --bg-page: #1a1512;
+  --bg-card: #241d18;
+  --bg-sheet: #221b16;
+  --bg-elevated: #221b15;
+  --bg-parchment: #241d18;
+
+  /* Text — light on dark. */
+  --text: #e8dcc8;
+  --text-muted: #c2b39a;
+  --text-faint: #9a8870;
+  --text-fainter: #786a56;
+
+  /* Borders — a subtle LIGHT stroke on the dark cards. */
+  --border: #463829;
+  --border-card: #3a2e22;
+  --hairline: rgba(232, 220, 200, 0.12);
+  --hairline-soft: rgba(232, 220, 200, 0.07);
+
+  /* Accent stays; status colours brighten so they read on dark. */
+  --accent: var(--accent);
+  --accent-active: var(--accent-active);
+  --accent-soft: rgba(255, 155, 33, 0.28);
+  --maroon: #8e2c3a;
+  --maroon-active: var(--maroon);
+  --success: #4a9d63;
+  --success-active: #357a4a;
+  --warn: #d9763f;
+  --danger: #c75c5c;
+
+  --paper-speckle: rgba(255, 240, 214, 0.02);
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -6,8 +96,18 @@
 
 body {
   font-family: system-ui, -apple-system, sans-serif;
-  background: #f3ead7;
-  color: #3a2a1a;
+  color: var(--text);
+  background-color: var(--bg-page);
+  /* Subtle paper texture: two offset dot grids of the faint speckle colour,
+     fixed so it doesn't scroll. Cards/board/eval-strip all paint their own
+     opaque backgrounds on top, so the texture only shows through bare page
+     chrome — never under the board, and only ghost-faint under text. */
+  background-image:
+    radial-gradient(var(--paper-speckle) 1px, transparent 1.4px),
+    radial-gradient(var(--paper-speckle) 1px, transparent 1.4px);
+  background-size: 24px 24px, 37px 37px;
+  background-position: 0 0, 12px 19px;
+  background-attachment: fixed;
 }
 
 #app {
@@ -17,19 +117,65 @@ body {
 
 header {
   display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+
+.header-top {
+  display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.6rem 1rem;
-  border-bottom: 1px solid rgba(156, 107, 67, 0.2);
+  gap: 0.5rem;
 }
 
 header h1 {
   font-size: 1.4rem;
   font-weight: 700;
   letter-spacing: 0.08em;
-  color: #ff9b21;
+  color: var(--accent);
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+/* ── Theme switch (light / auto / dark) ────────────────────────────────────── */
+/* A compact segmented control. Lives in the header for now; it moves into
+   Settings in task 7.2. */
+
+#theme-switch {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+#theme-switch button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  min-height: 30px;
+  padding: 0 0.4rem;
+  border: none;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s, color 0.12s;
+}
+
+#theme-switch button + button {
+  border-left: 1px solid var(--border);
+}
+
+#theme-switch button.active {
+  background: var(--accent);
+  color: #fff;
 }
 
 /* ── Navigation tabs ───────────────────────────────────────────────────────── */
@@ -46,7 +192,7 @@ header h1 {
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: #6b5638;
+  color: var(--text-muted);
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 0.875rem;
   font-weight: 600;
@@ -56,7 +202,7 @@ header h1 {
 }
 
 .nav-tab.active {
-  background: #ff9b21;
+  background: var(--accent);
   color: #fff;
 }
 
@@ -72,20 +218,21 @@ header h1 {
 
 /* Board square colors — chessground uses a background SVG on cg-board,
    not classes on individual squares. Override with our own 2×2 tile SVG:
-   (0,0)=light, (1,0)=dark, (0,1)=dark, (1,1)=light */
+   (0,0)=light, (1,0)=dark, (0,1)=dark, (1,1)=light. These hexes are the same
+   in both themes by design — the board never changes when the theme does. */
 cg-board {
-  background-color: #9c6b43;
-  background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyIDIiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyI+PHJlY3Qgd2lkdGg9IjEiIGhlaWdodD0iMSIgZmlsbD0iI2YwZTZjYyIvPjxyZWN0IHg9IjEiIHk9IjEiIHdpZHRoPSIxIiBoZWlnaHQ9IjEiIGZpbGw9IiNmMGU2Y2MiLz48L3N2Zz4=');
+  background-color: var(--board-dark);
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 2" shape-rendering="crispEdges"><rect width="1" height="1" fill="%23eecfa1"/><rect x="1" y="1" width="1" height="1" fill="%23eecfa1"/></svg>');
   background-size: 25% 25%;
 }
 
-/* Move highlights */
+/* Move highlights — warm gold, identical in both themes. */
 cg-board square.last-move {
-  background-color: rgba(255, 155, 33, 0.35) !important;
+  background-color: var(--board-lastmove) !important;
 }
 
 cg-board square.selected {
-  background-color: rgba(255, 155, 33, 0.5) !important;
+  background-color: rgba(227, 178, 90, 0.75) !important;
 }
 
 cg-board square.move-dest {
@@ -142,7 +289,7 @@ cg-board square.move-dest.oc {
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 0.95rem;
   font-style: italic;
-  color: #9c7a5a;
+  color: var(--text-faint);
   min-height: 1.2em;
   margin-bottom: 0.25rem;
 }
@@ -159,7 +306,7 @@ cg-board square.move-dest.oc {
 }
 
 .move-num {
-  color: #9c7a5a;
+  color: var(--text-faint);
   margin: 0 0.1em 0 0.25em;
   user-select: none;
 }
@@ -177,11 +324,11 @@ cg-board square.move-dest.oc {
 }
 
 .move-san:hover {
-  background: rgba(255, 155, 33, 0.25);
+  background: var(--accent-soft);
 }
 
 .move-san.active {
-  background: #ff9b21;
+  background: var(--accent);
   color: #fff;
   font-weight: 700;
 }
@@ -189,7 +336,7 @@ cg-board square.move-dest.oc {
 #reset-btn {
   align-self: flex-start;
   padding: 0.5rem 1.25rem;
-  background: #ff9b21;
+  background: var(--accent);
   color: #fff;
   border: none;
   border-radius: 6px;
@@ -202,7 +349,7 @@ cg-board square.move-dest.oc {
 }
 
 #reset-btn:active {
-  background: #e08800;
+  background: var(--accent-active);
 }
 
 /* Save line form */
@@ -211,34 +358,34 @@ cg-board square.move-dest.oc {
   flex-direction: column;
   gap: 0.6rem;
   padding-top: 0.75rem;
-  border-top: 1px solid rgba(156, 107, 67, 0.3);
+  border-top: 1px solid var(--hairline);
 }
 
 #save-form input[type='text'] {
   width: 100%;
   padding: 0.6rem 0.75rem;
-  border: 1px solid #c9b48f;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: #faf4e6;
-  color: #3a2a1a;
+  background: var(--bg-card);
+  color: var(--text);
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 1rem;
 }
 
 #save-form input[type='text']::placeholder {
-  color: #a8997f;
+  color: var(--text-fainter);
 }
 
 #save-form input[type='text']:focus {
   outline: none;
-  border-color: #ff9b21;
+  border-color: var(--accent);
 }
 
 /* White / Black segmented control */
 #colour-toggle {
   display: flex;
   gap: 0;
-  border: 1px solid #c9b48f;
+  border: 1px solid var(--border);
   border-radius: 6px;
   overflow: hidden;
   align-self: flex-start;
@@ -247,8 +394,8 @@ cg-board square.move-dest.oc {
 #colour-toggle button {
   padding: 0.5rem 1.25rem;
   border: none;
-  background: #faf4e6;
-  color: #6b5638;
+  background: var(--bg-card);
+  color: var(--text-muted);
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 0.875rem;
   font-weight: 600;
@@ -257,11 +404,11 @@ cg-board square.move-dest.oc {
 }
 
 #colour-toggle button + button {
-  border-left: 1px solid #c9b48f;
+  border-left: 1px solid var(--border);
 }
 
 #colour-toggle button.active {
-  background: #ff9b21;
+  background: var(--accent);
   color: #fff;
 }
 
@@ -273,7 +420,7 @@ cg-board square.move-dest.oc {
 
 #save-btn {
   padding: 0.5rem 1.25rem;
-  background: #7a2230;
+  background: var(--maroon);
   color: #fff;
   border: none;
   border-radius: 6px;
@@ -286,18 +433,18 @@ cg-board square.move-dest.oc {
 }
 
 #save-btn:active {
-  background: #5f1a25;
+  background: var(--maroon-active);
 }
 
 #save-msg {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #7a2230;
+  color: var(--maroon);
 }
 
 #line-meta {
   font-size: 0.8rem;
-  color: #9c7a5a;
+  color: var(--text-faint);
   font-family: system-ui, -apple-system, sans-serif;
 }
 
@@ -311,8 +458,8 @@ cg-board square.move-dest.oc {
   padding: 0.55rem 0.75rem;
   min-height: 44px;
   background: transparent;
-  color: #6b5638;
-  border: 1px solid #c9b48f;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 0.875rem;
   font-family: system-ui, -apple-system, sans-serif;
@@ -327,58 +474,58 @@ cg-board square.move-dest.oc {
 }
 
 .playback-btn.playing {
-  background: #7a2230;
+  background: var(--maroon);
   color: #fff;
-  border-color: #7a2230;
+  border-color: var(--maroon);
 }
 
 /* Settings (device-local Lichess token) */
 #settings {
   padding-top: 0.75rem;
-  border-top: 1px solid rgba(156, 107, 67, 0.3);
+  border-top: 1px solid var(--hairline);
   font-size: 0.875rem;
 }
 
 #settings summary {
   cursor: pointer;
   font-weight: 600;
-  color: #6b5638;
+  color: var(--text-muted);
   -webkit-tap-highlight-color: transparent;
 }
 
 #settings label {
   display: block;
   margin: 0.6rem 0 0.3rem;
-  color: #6b5638;
+  color: var(--text-muted);
 }
 
 #settings input[type='password'] {
   width: 100%;
   padding: 0.6rem 0.75rem;
-  border: 1px solid #c9b48f;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: #faf4e6;
-  color: #3a2a1a;
+  background: var(--bg-card);
+  color: var(--text);
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 1rem;
 }
 
 #settings input[type='password']:focus {
   outline: none;
-  border-color: #ff9b21;
+  border-color: var(--accent);
 }
 
 #token-msg {
   display: block;
   margin-top: 0.3rem;
   font-size: 0.75rem;
-  color: #9c7a5a;
+  color: var(--text-faint);
 }
 
 #settings a {
   display: inline-block;
   margin-top: 0.5rem;
-  color: #7a2230;
+  color: var(--maroon);
   font-size: 0.8rem;
 }
 
@@ -387,23 +534,23 @@ cg-board square.move-dest.oc {
 #import-block {
   margin-top: 1rem;
   padding-top: 0.75rem;
-  border-top: 1px solid rgba(156, 107, 67, 0.3);
+  border-top: 1px solid var(--hairline);
 }
 
 #import-block input[type='text'] {
   width: 100%;
   padding: 0.6rem 0.75rem;
-  border: 1px solid #c9b48f;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: #faf4e6;
-  color: #3a2a1a;
+  background: var(--bg-card);
+  color: var(--text);
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 1rem;
 }
 
 #import-block input[type='text']:focus {
   outline: none;
-  border-color: #ff9b21;
+  border-color: var(--accent);
 }
 
 #import-btn {
@@ -412,8 +559,8 @@ cg-board square.move-dest.oc {
   padding: 0.7rem 1rem;
   border: none;
   border-radius: 6px;
-  background: #7a2230;
-  color: #faf4e6;
+  background: var(--maroon);
+  color: #fff;
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
@@ -429,14 +576,14 @@ cg-board square.move-dest.oc {
   display: block;
   margin-top: 0.5rem;
   font-size: 0.78rem;
-  color: #9c7a5a;
+  color: var(--text-faint);
 }
 
 #import-summary {
   margin-top: 0.4rem;
   font-size: 0.78rem;
   line-height: 1.5;
-  color: #6b5638;
+  color: var(--text-muted);
 }
 
 #import-selftest-link {
@@ -454,7 +601,7 @@ cg-board square.move-dest.oc {
 
 .lines-loading {
   padding: 1.5rem 1rem;
-  color: #9c7a5a;
+  color: var(--text-faint);
   font-style: italic;
   font-size: 0.9rem;
 }
@@ -470,15 +617,15 @@ cg-board square.move-dest.oc {
 .sort-label {
   font-size: 0.8rem;
   font-weight: 600;
-  color: #9c7a5a;
+  color: var(--text-faint);
 }
 
 .sort-btn {
   padding: 0.3rem 0.75rem;
-  border: 1px solid #c9b48f;
+  border: 1px solid var(--border);
   border-radius: 20px;
-  background: #faf4e6;
-  color: #6b5638;
+  background: var(--bg-card);
+  color: var(--text-muted);
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 0.8rem;
   font-weight: 500;
@@ -488,9 +635,9 @@ cg-board square.move-dest.oc {
 }
 
 .sort-btn.active {
-  background: #ff9b21;
+  background: var(--accent);
   color: #fff;
-  border-color: #ff9b21;
+  border-color: var(--accent);
 }
 
 .lines-section {
@@ -502,12 +649,12 @@ cg-board square.move-dest.oc {
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: #9c7a5a;
+  color: var(--text-faint);
   margin: 1rem 0 0.5rem;
 }
 
 .lines-empty {
-  color: #b8a48a;
+  color: var(--text-fainter);
   font-size: 0.875rem;
   font-style: italic;
   padding: 0.25rem 0 0.75rem;
@@ -517,8 +664,8 @@ cg-board square.move-dest.oc {
 .line-card {
   display: flex;
   align-items: stretch;
-  background: #faf4e6;
-  border: 1px solid #e0d0b8;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
   border-radius: 8px;
   margin-bottom: 0.6rem;
   overflow: hidden;
@@ -549,7 +696,7 @@ cg-board square.move-dest.oc {
 .line-card-name {
   font-size: 1rem;
   font-weight: 600;
-  color: #3c3225;
+  color: var(--text);
   line-height: 1.3;
 }
 
@@ -562,7 +709,7 @@ cg-board square.move-dest.oc {
 
 .strength-dot {
   font-size: 0.75rem;
-  color: #b8a48a;
+  color: var(--text-fainter);
   font-weight: 500;
   line-height: 1;
   font-family: system-ui, -apple-system, sans-serif;
@@ -573,7 +720,7 @@ cg-board square.move-dest.oc {
   padding: 0.15rem 0.5rem;
   border-radius: 10px;
   background: rgba(156, 107, 67, 0.12);
-  color: #6b5638;
+  color: var(--text-muted);
   font-weight: 500;
   font-family: system-ui, -apple-system, sans-serif;
 }
@@ -587,14 +734,14 @@ cg-board square.move-dest.oc {
 
 .training-stat {
   font-size: 0.72rem;
-  color: #b8a48a;
+  color: var(--text-fainter);
   font-family: system-ui, -apple-system, sans-serif;
   font-weight: 400;
 }
 
 .training-sep {
   font-size: 0.72rem;
-  color: #c9b48f;
+  color: var(--text-fainter);
   user-select: none;
 }
 
@@ -605,9 +752,9 @@ cg-board square.move-dest.oc {
   width: 44px;
   min-width: 44px;
   border: none;
-  border-left: 1px solid #e0d0b8;
+  border-left: 1px solid var(--border-card);
   background: transparent;
-  color: #9c7a5a;
+  color: var(--text-faint);
   font-size: 1.25rem;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -631,7 +778,7 @@ cg-board square.move-dest.oc {
 
 .edit-sheet {
   width: 100%;
-  background: #f3ead7;
+  background: var(--bg-sheet);
   border-radius: 16px 16px 0 0;
   padding: 1.25rem 1.25rem env(safe-area-inset-bottom, 1.25rem);
   display: flex;
@@ -642,31 +789,31 @@ cg-board square.move-dest.oc {
 .edit-sheet-title {
   font-size: 1rem;
   font-weight: 700;
-  color: #3c3225;
+  color: var(--text);
 }
 
 .edit-label {
   display: block;
   font-size: 0.8rem;
   font-weight: 600;
-  color: #6b5638;
+  color: var(--text-muted);
   margin-bottom: 0.25rem;
 }
 
 .edit-input {
   width: 100%;
   padding: 0.6rem 0.75rem;
-  border: 1px solid #c9b48f;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: #faf4e6;
-  color: #3a2a1a;
+  background: var(--bg-card);
+  color: var(--text);
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 1rem;
 }
 
 .edit-input:focus {
   outline: none;
-  border-color: #ff9b21;
+  border-color: var(--accent);
 }
 
 .edit-btn-row {
@@ -677,7 +824,7 @@ cg-board square.move-dest.oc {
 .edit-save-btn {
   flex: 1;
   padding: 0.7rem 1rem;
-  background: #7a2230;
+  background: var(--maroon);
   color: #fff;
   border: none;
   border-radius: 6px;
@@ -689,14 +836,14 @@ cg-board square.move-dest.oc {
 }
 
 .edit-save-btn:active {
-  background: #5f1a25;
+  background: var(--maroon-active);
 }
 
 .edit-cancel-btn {
   padding: 0.7rem 1rem;
   background: transparent;
-  color: #6b5638;
-  border: 1px solid #c9b48f;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 0.9rem;
   font-family: system-ui, -apple-system, sans-serif;
@@ -709,7 +856,7 @@ cg-board square.move-dest.oc {
   width: 100%;
   padding: 0.7rem 1rem;
   background: transparent;
-  color: #9c3a3a;
+  color: var(--danger);
   border: 1px solid rgba(156, 58, 58, 0.4);
   border-radius: 6px;
   font-size: 0.875rem;
@@ -721,9 +868,9 @@ cg-board square.move-dest.oc {
 }
 
 .edit-delete-btn.confirming {
-  background: #9c3a3a;
+  background: var(--danger);
   color: #fff;
-  border-color: #9c3a3a;
+  border-color: var(--danger);
 }
 
 /* ── Branch view toggle (List ↔ Branches) ─────────────────────────────────── */
@@ -731,7 +878,7 @@ cg-board square.move-dest.oc {
 #tree-toggle {
   display: flex;
   align-self: flex-start;
-  border: 1px solid #c9b48f;
+  border: 1px solid var(--border);
   border-radius: 6px;
   overflow: hidden;
 }
@@ -740,8 +887,8 @@ cg-board square.move-dest.oc {
   padding: 0.3rem 0.875rem;
   min-height: 36px;
   border: none;
-  background: #faf4e6;
-  color: #6b5638;
+  background: var(--bg-card);
+  color: var(--text-muted);
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 0.8rem;
   font-weight: 600;
@@ -751,11 +898,11 @@ cg-board square.move-dest.oc {
 }
 
 .tree-tab + .tree-tab {
-  border-left: 1px solid #c9b48f;
+  border-left: 1px solid var(--border);
 }
 
 .tree-tab.active {
-  background: #ff9b21;
+  background: var(--accent);
   color: #fff;
 }
 
@@ -763,9 +910,9 @@ cg-board square.move-dest.oc {
   overflow: auto;
   -webkit-overflow-scrolling: touch;
   max-height: 260px;
-  border: 1px solid #e0d0b8;
+  border: 1px solid var(--border-card);
   border-radius: 6px;
-  background: #f3ead7;
+  background: var(--bg-sheet);
 }
 
 #branch-view svg {
@@ -774,7 +921,7 @@ cg-board square.move-dest.oc {
 
 .branch-empty {
   padding: 1rem;
-  color: #9c7a5a;
+  color: var(--text-faint);
   font-style: italic;
   font-size: 0.875rem;
 }
@@ -787,7 +934,7 @@ cg-board square.move-dest.oc {
 
 .add-training-btn {
   padding: 0.5rem 1.25rem;
-  background: #ff9b21;
+  background: var(--accent);
   color: #fff;
   border: none;
   border-radius: 6px;
@@ -801,15 +948,15 @@ cg-board square.move-dest.oc {
 }
 
 .add-training-btn:active {
-  background: #e08800;
+  background: var(--accent-active);
 }
 
 .add-training-btn.add-training-btn--active {
-  background: #2a6b3a;
+  background: var(--success);
 }
 
 .add-training-btn.add-training-btn--active:active {
-  background: #1e4f2c;
+  background: var(--success-active);
 }
 
 /* ── Add to training button (lines card) ───────────────────────────────────── */
@@ -822,8 +969,8 @@ cg-board square.move-dest.oc {
   min-width: 78px;
   padding: 0 0.5rem;
   border: none;
-  border-left: 1px solid #e0d0b8;
-  background: #ff9b21;
+  border-left: 1px solid var(--border-card);
+  background: var(--accent);
   color: #fff;
   font-size: 0.7rem;
   font-weight: 700;
@@ -836,15 +983,15 @@ cg-board square.move-dest.oc {
 }
 
 .card-training-btn:active {
-  background: #e08800;
+  background: var(--accent-active);
 }
 
 .card-training-btn.card-training-btn--active {
-  background: #2a6b3a;
+  background: var(--success);
 }
 
 .card-training-btn.card-training-btn--active:active {
-  background: #1e4f2c;
+  background: var(--success-active);
 }
 
 /* ── Pre-training overlay ──────────────────────────────────────────────────── */
@@ -852,7 +999,7 @@ cg-board square.move-dest.oc {
 .pt-overlay {
   position: fixed;
   inset: 0;
-  background: #f3ead7;
+  background: var(--bg-sheet);
   z-index: 200;
   display: flex;
   flex-direction: column;
@@ -864,15 +1011,15 @@ cg-board square.move-dest.oc {
   align-items: center;
   gap: 0.5rem;
   padding: 0.6rem 1rem;
-  background: #3a2a1a;
-  border-bottom: 1px solid rgba(156, 107, 67, 0.3);
+  background: #2a2018; /* fixed dark training toolbar in both themes */
+  border-bottom: 1px solid var(--hairline);
   flex-shrink: 0;
 }
 
 .pt-back-btn {
   background: transparent;
   border: none;
-  color: #c9b48f;
+  color: #cbb89a;
   font-size: 0.875rem;
   font-family: system-ui, -apple-system, sans-serif;
   font-weight: 600;
@@ -884,13 +1031,13 @@ cg-board square.move-dest.oc {
 }
 
 .pt-back-btn:active {
-  color: #f3ead7;
+  color: #fff;
 }
 
 .pt-title {
   font-size: 1rem;
   font-weight: 700;
-  color: #ff9b21;
+  color: var(--accent);
   flex: 1;
   white-space: nowrap;
   overflow: hidden;
@@ -922,7 +1069,7 @@ cg-board square.move-dest.oc {
 .pt-error-flash {
   position: absolute;
   inset: 0;
-  background: #7a2230;
+  background: var(--maroon);
   pointer-events: none;
   animation: pt-flash-out 0.6s ease-out forwards;
   z-index: 10;
@@ -933,15 +1080,15 @@ cg-board square.move-dest.oc {
 .pt-note-card {
   margin: 0 1rem;
   padding: 0.6rem 0.875rem;
-  background: #faf4e6;
-  border: 1px solid #e0d0b8;
-  border-left: 3px solid #ff9b21;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-left: 3px solid var(--accent);
   border-radius: 6px;
   font-family: Georgia, 'Times New Roman', serif;
   font-style: italic;
   font-size: 0.875rem;
   line-height: 1.5;
-  color: #3a2a1a;
+  color: var(--text);
   max-height: 5rem;
   overflow-y: auto;
 }
@@ -1014,11 +1161,11 @@ cg-board square.move-dest.oc {
 }
 
 .pt-status--error {
-  color: #7a2230;
+  color: var(--maroon);
 }
 
 .pt-status--success {
-  color: #2a6b3a;
+  color: var(--success);
 }
 
 .pt-status--alt {
@@ -1028,7 +1175,7 @@ cg-board square.move-dest.oc {
 .pt-progress {
   text-align: center;
   font-size: 0.8rem;
-  color: #9c7a5a;
+  color: var(--text-faint);
   font-family: system-ui, -apple-system, sans-serif;
   padding: 0 1rem 0.5rem;
 }
@@ -1045,17 +1192,17 @@ cg-board square.move-dest.oc {
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: #9c7a5a;
+  color: var(--text-faint);
   margin: 1rem 1rem 0.5rem;
 }
 
 /* Card done-today muted state */
 .line-card--done-today .line-card-name {
-  color: #9c7a5a;
+  color: var(--text-faint);
 }
 
 .training-stat--done {
-  color: #2a6b3a;
+  color: var(--success);
   font-weight: 600;
 }
 
@@ -1074,12 +1221,12 @@ cg-board square.move-dest.oc {
 .train-empty-title {
   font-size: 1.1rem;
   font-weight: 700;
-  color: #3c3225;
+  color: var(--text);
 }
 
 .train-empty-body {
   font-size: 0.9rem;
-  color: #9c7a5a;
+  color: var(--text-faint);
   line-height: 1.5;
   max-width: 280px;
 }
@@ -1098,13 +1245,13 @@ cg-board square.move-dest.oc {
 .train-completion-done {
   font-size: 1.4rem;
   font-weight: 700;
-  color: #2a6b3a;
+  color: var(--success);
   letter-spacing: 0.02em;
 }
 
 .train-completion-name {
   font-size: 1rem;
-  color: #9c7a5a;
+  color: var(--text-faint);
   font-family: Georgia, 'Times New Roman', serif;
   font-style: italic;
 }
@@ -1114,7 +1261,7 @@ cg-board square.move-dest.oc {
   max-width: 320px;
   min-height: 52px;
   padding: 0.875rem 1.25rem;
-  background: #ff9b21;
+  background: var(--accent);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -1129,13 +1276,13 @@ cg-board square.move-dest.oc {
 }
 
 .train-next-btn:active {
-  background: #e08800;
+  background: var(--accent-active);
 }
 
 .train-all-done {
   font-size: 1rem;
   font-weight: 600;
-  color: #2a6b3a;
+  color: var(--success);
   padding: 0.5rem 0;
 }
 
@@ -1145,8 +1292,8 @@ cg-board square.move-dest.oc {
   min-height: 44px;
   padding: 0.7rem 1.25rem;
   background: transparent;
-  color: #6b5638;
-  border: 1px solid #c9b48f;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 0.9rem;
   font-family: system-ui, -apple-system, sans-serif;
@@ -1172,14 +1319,14 @@ cg-board square.move-dest.oc {
 .session-count {
   font-size: 0.95rem;
   font-weight: 600;
-  color: #3c3225;
+  color: var(--text);
 }
 
 .session-start-btn {
   width: 100%;
   min-height: 52px;
   padding: 0.875rem 1.25rem;
-  background: #ff9b21;
+  background: var(--accent);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -1193,16 +1340,16 @@ cg-board square.move-dest.oc {
 }
 
 .session-start-btn:active {
-  background: #e08800;
+  background: var(--accent-active);
 }
 
 /* A line whose moves aren't due yet reads quieter than a due one. */
 .line-card--rested .line-card-name {
-  color: #9c7a5a;
+  color: var(--text-faint);
 }
 
 .training-stat--due {
-  color: #c0531f;
+  color: var(--warn);
   font-weight: 600;
 }
 
@@ -1216,7 +1363,7 @@ cg-board square.move-dest.oc {
   background: none;
   border: none;
   padding: 0.4rem 0;
-  color: #9c7a5a;
+  color: var(--text-faint);
   font-size: 0.8rem;
   font-family: system-ui, -apple-system, sans-serif;
   text-decoration: underline;
@@ -1237,17 +1384,17 @@ cg-board square.move-dest.oc {
   margin-bottom: 0.2rem;
 }
 
-.selftest-head.ok { color: #2a6b3a; }
-.selftest-head.fail { color: #c0531f; }
+.selftest-head.ok { color: var(--success); }
+.selftest-head.fail { color: var(--warn); }
 
 .selftest-row {
   font-size: 0.72rem;
   line-height: 1.35;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: #6b5638;
+  color: var(--text-muted);
 }
 
-.selftest-row.fail { color: #c0531f; font-weight: 600; }
+.selftest-row.fail { color: var(--warn); font-weight: 600; }
 
 /* ── Generated "why this move" explanation (builder) ───────────────────────── */
 /* Read-only, auto-generated reasoning. Hidden whenever the user has written
@@ -1255,11 +1402,11 @@ cg-board square.move-dest.oc {
    card, distinct from the amber-bordered editable note below it. */
 .move-explanation {
   padding: 0.5rem 0.75rem;
-  border: 1px solid #e2d3b3;
-  border-left: 3px solid #c9b48f;
+  border: 1px solid var(--border-card);
+  border-left: 3px solid var(--border);
   border-radius: 6px;
-  background: #f6efdd;
-  color: #6b5638;
+  background: var(--bg-parchment);
+  color: var(--text-muted);
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 0.875rem;
   line-height: 1.5;
@@ -1274,7 +1421,7 @@ cg-board square.move-dest.oc {
 }
 .explanation-verdict.verdict-best,
 .explanation-verdict.verdict-good {
-  color: #2a6b3a;
+  color: var(--success);
 }
 .explanation-verdict.verdict-inaccuracy,
 .explanation-verdict.verdict-dubious {
@@ -1282,7 +1429,7 @@ cg-board square.move-dest.oc {
 }
 .explanation-verdict.verdict-mistake,
 .explanation-verdict.verdict-blunder {
-  color: #c0531f;
+  color: var(--warn);
 }
 
 /* The move description sits under the verdict, quieter and italic. */
@@ -1293,7 +1440,7 @@ cg-board square.move-dest.oc {
 /* "New territory" replaces the description when the engine can't grade it. */
 .explanation-text.explanation-newground {
   font-style: normal;
-  color: #7a5a38;
+  color: var(--text-muted);
 }
 
 /* Quiet action row: adopt-as-note button and the engine-off hint. */
@@ -1309,7 +1456,7 @@ cg-board square.move-dest.oc {
   background: none;
   border: none;
   padding: 0;
-  color: #9c6b43;
+  color: var(--text-muted);
   font-family: inherit;
   font-size: 0.8rem;
   font-weight: 600;
@@ -1318,10 +1465,10 @@ cg-board square.move-dest.oc {
   cursor: pointer;
 }
 .explanation-add-note:hover {
-  color: #ff9b21;
+  color: var(--accent);
 }
 .explanation-hint {
-  color: #b8a48a;
+  color: var(--text-fainter);
   font-size: 0.75rem;
   font-style: italic;
 }
@@ -1337,18 +1484,18 @@ cg-board square.move-dest.oc {
 .note-panel-label {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #9c7a5a;
+  color: var(--text-faint);
   letter-spacing: 0.03em;
 }
 
 .note-panel-textarea {
   width: 100%;
   padding: 0.5rem 0.75rem;
-  border: 1px solid #c9b48f;
-  border-left: 3px solid #ff9b21;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
   border-radius: 6px;
-  background: #faf4e6;
-  color: #3a2a1a;
+  background: var(--bg-card);
+  color: var(--text);
   font-family: Georgia, 'Times New Roman', serif;
   font-style: italic;
   font-size: 0.875rem;
@@ -1359,12 +1506,12 @@ cg-board square.move-dest.oc {
 
 .note-panel-textarea:focus {
   outline: none;
-  border-color: #ff9b21;
-  border-left-color: #ff9b21;
+  border-color: var(--accent);
+  border-left-color: var(--accent);
 }
 
 .note-panel-textarea::placeholder {
-  color: #b8a48a;
+  color: var(--text-fainter);
   font-style: italic;
 }
 
@@ -1374,7 +1521,7 @@ cg-board square.move-dest.oc {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #ff9b21;
+  background: var(--accent);
   vertical-align: middle;
   margin-left: 3px;
   margin-bottom: 2px;
@@ -1386,25 +1533,25 @@ cg-board square.move-dest.oc {
 .session-progress-bar {
   width: 100%;
   height: 8px;
-  background: rgba(156, 107, 67, 0.18);
+  background: var(--hairline-soft);
   border-radius: 4px;
   overflow: hidden;
 }
 
 .session-progress-fill {
   height: 100%;
-  background: #ff9b21;
+  background: var(--accent);
   border-radius: 4px;
   transition: width 0.4s ease;
 }
 
 .session-progress-fill--done {
-  background: #2a6b3a;
+  background: var(--success);
 }
 
 .session-pos-label {
   font-size: 0.78rem;
-  color: #9c7a5a;
+  color: var(--text-faint);
   font-family: system-ui, -apple-system, sans-serif;
 }
 
@@ -1425,8 +1572,8 @@ cg-board square.move-dest.oc {
   gap: 0.2rem;
   padding: 0.875rem 0.5rem;
   border-radius: 8px;
-  background: #faf4e6;
-  border: 1px solid #e0d0b8;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
 }
 
 .summary-stat-value {
@@ -1438,23 +1585,23 @@ cg-board square.move-dest.oc {
 
 .summary-stat-label {
   font-size: 0.72rem;
-  color: #9c7a5a;
+  color: var(--text-faint);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-family: system-ui, -apple-system, sans-serif;
 }
 
-.summary-stat-box--right .summary-stat-value { color: #2a6b3a; }
-.summary-stat-box--missed .summary-stat-value { color: #c0531f; }
-.summary-stat-box--zero .summary-stat-value { color: #9c7a5a; }
+.summary-stat-box--right .summary-stat-value { color: var(--success); }
+.summary-stat-box--missed .summary-stat-value { color: var(--warn); }
+.summary-stat-box--zero .summary-stat-value { color: var(--text-faint); }
 
 .summary-needs-work-head {
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #9c7a5a;
+  color: var(--text-faint);
   align-self: flex-start;
   width: 100%;
   max-width: 320px;
@@ -1468,8 +1615,8 @@ cg-board square.move-dest.oc {
   width: 100%;
   max-width: 320px;
   padding: 0.55rem 0.75rem;
-  background: #faf4e6;
-  border: 1px solid #e0d0b8;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
   border-radius: 6px;
   text-align: left;
 }
@@ -1477,7 +1624,7 @@ cg-board square.move-dest.oc {
 .summary-line-name {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #3c3225;
+  color: var(--text);
   font-family: system-ui, -apple-system, sans-serif;
   white-space: nowrap;
   overflow: hidden;
@@ -1486,7 +1633,7 @@ cg-board square.move-dest.oc {
 
 .summary-line-miss-rate {
   font-size: 0.72rem;
-  color: #c0531f;
+  color: var(--warn);
   font-family: system-ui, -apple-system, sans-serif;
   font-weight: 500;
 }
@@ -1501,78 +1648,30 @@ cg-board square.move-dest.oc {
 
 .summary-line-bar-fill {
   height: 100%;
-  background: #c0531f;
+  background: var(--warn);
   border-radius: 2px;
 }
 
 .summary-clean-run {
   font-size: 1rem;
   font-weight: 600;
-  color: #2a6b3a;
+  color: var(--success);
   font-family: Georgia, 'Times New Roman', serif;
   font-style: italic;
   text-align: center;
   padding: 0.25rem 0;
 }
 
-/* Dark mode adjustments */
-@media (prefers-color-scheme: dark) {
-  body {
-    background: #1e1510;
-    color: #e8dcc8;
-  }
-
-  .train-empty-title {
-    color: #e8dcc8;
-  }
-
-  .train-completion-done {
-    color: #5dba7a;
-  }
-
-  .train-all-done {
-    color: #5dba7a;
-  }
-
-  .pt-note-card {
-    background: #2a1e12;
-    border-color: #4a3a28;
-    border-left-color: #ff9b21;
-    color: #e8dcc8;
-  }
-
-  .note-panel-textarea {
-    background: #2a1e12;
-    border-color: #4a3a28;
-    color: #e8dcc8;
-  }
-
-  .summary-stat-box {
-    background: #2a1e12;
-    border-color: #4a3a28;
-  }
-
-  .summary-stat-box--right .summary-stat-value { color: #5dba7a; }
-
-  .summary-line-row {
-    background: #2a1e12;
-    border-color: #4a3a28;
-  }
-
-  .summary-line-name {
-    color: #e8dcc8;
-  }
-
-  .summary-clean-run {
-    color: #5dba7a;
-  }
-}
+/* Dark mode is handled entirely by the design tokens at the top of this file
+   (light defaults in :root, overrides in [data-theme="dark"]). The element-by-
+   element @media block that used to live here is gone — every surface, text
+   and border colour now flows from a token, so the theme flips wholesale. */
 
 /* ── Engine eval panel ───────────────────────────────────────────────────────── */
 
 /* Eval bar sits above the board; the moves + toggle sit below it. */
 #eval-bar-top {
-  background: #ece3cc;
+  background: var(--bg-elevated);
   padding: 8px 12px;
 }
 /* Collapse the top strip entirely when the bar is hidden (engine off), so it
@@ -1583,8 +1682,8 @@ cg-board square.move-dest.oc {
 }
 
 #eval-controls {
-  background: #ece3cc;
-  border-bottom: 1px solid rgba(156, 107, 67, 0.18);
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--hairline-soft);
   padding: 6px 12px;
 }
 
@@ -1623,7 +1722,7 @@ cg-board square.move-dest.oc {
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.01em;
-  color: #3a2a1a;
+  color: var(--text);
   white-space: nowrap;
   min-width: 2.6em;
   text-align: right;
@@ -1664,17 +1763,17 @@ cg-board square.move-dest.oc {
 .eval-move-san {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #1e1206;
+  color: var(--text);
 }
 
 .eval-move-cp {
   font-size: 0.68rem;
-  color: #7a5a38;
+  color: var(--text-muted);
 }
 
 .eval-waiting {
   font-size: 0.8rem;
-  color: #9c7a5a;
+  color: var(--text-faint);
   font-style: italic;
 }
 
@@ -1689,14 +1788,14 @@ cg-board square.move-dest.oc {
 
 .eval-source {
   font-size: 0.62rem;
-  color: #9c7a5a;
+  color: var(--text-faint);
   white-space: nowrap;
 }
 
 .engine-label {
   font-size: 0.72rem;
   font-weight: 600;
-  color: #7a5a38;
+  color: var(--text-muted);
   white-space: nowrap;
 }
 
@@ -1739,7 +1838,7 @@ cg-board square.move-dest.oc {
 }
 
 .engine-toggle input:checked + .engine-toggle-track {
-  background: #ff9b21;
+  background: var(--accent);
 }
 
 .engine-toggle input:checked + .engine-toggle-track::after {
@@ -1752,7 +1851,7 @@ cg-board square.move-dest.oc {
   padding: 1rem 1rem 0.25rem;
   font-size: 0.95rem;
   font-weight: 600;
-  color: #3c3225;
+  color: var(--text);
 }
 
 .review-heading {
@@ -1765,7 +1864,7 @@ cg-board square.move-dest.oc {
   margin-bottom: 0.6rem;
   font-size: 0.78rem;
   font-style: italic;
-  color: #9c7a5a;
+  color: var(--text-faint);
   line-height: 1.4;
 }
 
@@ -1789,14 +1888,14 @@ cg-board square.move-dest.oc {
   padding: 0.15rem 0.5rem;
   border-radius: 10px;
   background: rgba(156, 107, 67, 0.12);
-  color: #6b5638;
+  color: var(--text-muted);
   font-weight: 600;
   font-family: system-ui, -apple-system, sans-serif;
 }
 
 .review-stat-chip--prepped {
   background: rgba(42, 107, 58, 0.15);
-  color: #2a6b3a;
+  color: var(--success);
 }
 
 .review-score-row {
@@ -1809,7 +1908,7 @@ cg-board square.move-dest.oc {
 .review-score-bar {
   flex: 1;
   height: 7px;
-  background: rgba(156, 107, 67, 0.18);
+  background: var(--hairline-soft);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -1822,7 +1921,7 @@ cg-board square.move-dest.oc {
 
 .review-score-text {
   font-size: 0.72rem;
-  color: #6b5638;
+  color: var(--text-muted);
   font-weight: 600;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -1830,26 +1929,26 @@ cg-board square.move-dest.oc {
 
 .review-moves {
   font-size: 0.78rem;
-  color: #8a6f4f;
+  color: var(--text-muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   line-height: 1.4;
 }
 
 .review-dev-text {
   font-size: 0.85rem;
-  color: #3c3225;
+  color: var(--text);
   line-height: 1.45;
 }
 
 .review-dev-text strong {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-weight: 700;
-  color: #c0531f;
+  color: var(--warn);
 }
 
 .review-dev-score {
   font-size: 0.72rem;
-  color: #9c7a5a;
+  color: var(--text-faint);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1862,8 +1961,8 @@ cg-board square.move-dest.oc {
   min-width: 72px;
   padding: 0 0.5rem;
   border: none;
-  border-left: 1px solid #e0d0b8;
-  background: #ff9b21;
+  border-left: 1px solid var(--border-card);
+  background: var(--accent);
   color: #fff;
   font-size: 0.72rem;
   font-weight: 700;
@@ -1876,7 +1975,7 @@ cg-board square.move-dest.oc {
 }
 
 .review-build-btn:active {
-  background: #e08800;
+  background: var(--accent-active);
 }
 
 /* ── Progress screen (win-rate ↔ training) ─────────────────────────────────── */
@@ -1898,17 +1997,17 @@ cg-board square.move-dest.oc {
   white-space: nowrap;
   font-family: system-ui, -apple-system, sans-serif;
   background: rgba(156, 107, 67, 0.12);
-  color: #6b5638;
+  color: var(--text-muted);
 }
 
 .progress-verdict--improved {
   background: rgba(42, 107, 58, 0.15);
-  color: #2a6b3a;
+  color: var(--success);
 }
 
 .progress-verdict--declined {
   background: rgba(192, 83, 31, 0.15);
-  color: #c0531f;
+  color: var(--warn);
 }
 
 .progress-verdict--steady {
@@ -1935,5 +2034,5 @@ cg-board square.move-dest.oc {
   width: 3.2rem;
   font-size: 0.7rem;
   font-weight: 600;
-  color: #8a6f4f;
+  color: var(--text-muted);
 }

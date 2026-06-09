@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Obertura — Style Guide</title>
+    <style>
+      /* ════════════════════════════════════════════════════════════════════
+         DESIGN TOKENS — mirror of src/style.css (v1.1, task 1.1).
+         This document is self-contained so it can be opened directly. When the
+         tokens in style.css change, update them here too.
+         ════════════════════════════════════════════════════════════════════ */
+      :root {
+        color-scheme: light;
+
+        /* Board — identical in BOTH themes (never themed). */
+        --board-light: #eecfa1;
+        --board-dark: #b58863;
+        --board-lastmove: #e3b25a;
+
+        /* Surfaces */
+        --bg-page: #f1ece1;
+        --bg-card: #faf4e6;
+        --bg-sheet: #f3ead7;
+        --bg-elevated: #ece3cc;
+        --bg-parchment: #f6efdd;
+
+        /* Text */
+        --text: #3c3225;
+        --text-muted: #6b5638;
+        --text-faint: #9c7a5a;
+        --text-fainter: #b8a48a;
+
+        /* Borders / strokes */
+        --border: #c9b48f;
+        --border-card: #e0d0b8;
+        --hairline: rgba(156, 107, 67, 0.3);
+        --hairline-soft: rgba(156, 107, 67, 0.18);
+
+        /* Accent + status */
+        --accent: #ff9b21;
+        --accent-active: #e08800;
+        --accent-soft: rgba(255, 155, 33, 0.25);
+        --maroon: #7a2230;
+        --maroon-active: #5f1a25;
+        --success: #2a6b3a;
+        --success-active: #1e4f2c;
+        --warn: #c0531f;
+        --danger: #9c3a3a;
+
+        /* Paper texture speckle (page bg only). */
+        --paper-speckle: rgba(120, 90, 50, 0.035);
+      }
+
+      [data-theme='dark'] {
+        color-scheme: dark;
+
+        --bg-page: #1a1512;
+        --bg-card: #241d18;
+        --bg-sheet: #221b16;
+        --bg-elevated: #221b15;
+        --bg-parchment: #241d18;
+
+        --text: #e8dcc8;
+        --text-muted: #c2b39a;
+        --text-faint: #9a8870;
+        --text-fainter: #786a56;
+
+        --border: #463829;
+        --border-card: #3a2e22;
+        --hairline: rgba(232, 220, 200, 0.12);
+        --hairline-soft: rgba(232, 220, 200, 0.07);
+
+        --accent: #ff9b21;
+        --accent-active: #e08800;
+        --accent-soft: rgba(255, 155, 33, 0.28);
+        --maroon: #8e2c3a;
+        --maroon-active: #7a2230;
+        --success: #4a9d63;
+        --success-active: #357a4a;
+        --warn: #d9763f;
+        --danger: #c75c5c;
+
+        --paper-speckle: rgba(255, 240, 214, 0.02);
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        color: var(--text);
+        background-color: var(--bg-page);
+        /* The same subtle paper texture used by the app, page-background only. */
+        background-image:
+          radial-gradient(var(--paper-speckle) 1px, transparent 1.4px),
+          radial-gradient(var(--paper-speckle) 1px, transparent 1.4px);
+        background-size: 24px 24px, 37px 37px;
+        background-position: 0 0, 12px 19px;
+        background-attachment: fixed;
+        line-height: 1.5;
+        padding: 1.5rem 1.25rem 4rem;
+        max-width: 760px;
+        margin: 0 auto;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 0.5rem;
+      }
+      h1 {
+        font-size: 1.4rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+      .lede { color: var(--text-muted); margin-bottom: 2rem; font-size: 0.95rem; }
+
+      h2 {
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-faint);
+        margin: 2rem 0 0.75rem;
+        padding-bottom: 0.4rem;
+        border-bottom: 1px solid var(--hairline);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 0.75rem;
+      }
+      .swatch {
+        border: 1px solid var(--border-card);
+        border-radius: 8px;
+        overflow: hidden;
+        background: var(--bg-card);
+      }
+      .swatch .chip { height: 56px; }
+      .swatch .meta { padding: 0.5rem 0.6rem; }
+      .swatch .name {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      .swatch .role { font-size: 0.72rem; color: var(--text-faint); }
+
+      /* Board preview — 4×4 of the real tile + a last-move highlight. */
+      .board {
+        width: 176px;
+        height: 176px;
+        border-radius: 8px;
+        border: 1px solid var(--border-card);
+        background-color: var(--board-dark);
+        background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 2" shape-rendering="crispEdges"><rect width="1" height="1" fill="%23eecfa1"/><rect x="1" y="1" width="1" height="1" fill="%23eecfa1"/></svg>');
+        background-size: 25% 25%;
+        position: relative;
+      }
+      .board .hl {
+        position: absolute;
+        width: 25%;
+        height: 25%;
+        background: var(--board-lastmove);
+      }
+      .board .hl.on-light { left: 25%; top: 0; }
+      .board .hl.on-dark { left: 0; top: 0; }
+
+      .row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; }
+
+      /* Component samples */
+      .samples { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; }
+      .btn {
+        padding: 0.5rem 1.1rem;
+        border: none;
+        border-radius: 6px;
+        font: inherit;
+        font-weight: 600;
+        font-size: 0.875rem;
+        color: #fff;
+        cursor: pointer;
+      }
+      .btn.accent { background: var(--accent); }
+      .btn.maroon { background: var(--maroon); }
+      .btn.success { background: var(--success); }
+      .btn.ghost {
+        background: transparent;
+        color: var(--text-muted);
+        border: 1px solid var(--border);
+      }
+      .card {
+        border: 1px solid var(--border-card);
+        background: var(--bg-card);
+        border-radius: 8px;
+        padding: 0.75rem 0.9rem;
+        font-size: 0.9rem;
+        max-width: 280px;
+      }
+      .card .title { font-weight: 600; }
+      .card .sub { color: var(--text-faint); font-size: 0.8rem; }
+      input.demo {
+        padding: 0.5rem 0.7rem;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg-card);
+        color: var(--text);
+        font: inherit;
+      }
+      .pill { font-size: 0.8rem; font-weight: 600; }
+      .pill.success { color: var(--success); }
+      .pill.warn { color: var(--warn); }
+      .pill.danger { color: var(--danger); }
+
+      /* Theme switch — same control as the app header. */
+      #theme-switch {
+        display: flex;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      #theme-switch button {
+        min-width: 34px;
+        min-height: 30px;
+        padding: 0 0.4rem;
+        border: none;
+        background: var(--bg-card);
+        color: var(--text-muted);
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      #theme-switch button + button { border-left: 1px solid var(--border); }
+      #theme-switch button.active { background: var(--accent); color: #fff; }
+
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.85em;
+        background: var(--bg-elevated);
+        padding: 0.1em 0.35em;
+        border-radius: 4px;
+      }
+      p.note { color: var(--text-muted); font-size: 0.9rem; margin: 0.5rem 0; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Obertura — Style Guide</h1>
+      <div id="theme-switch" role="group" aria-label="Theme">
+        <button type="button" data-theme-choice="light" title="Light">☀</button>
+        <button type="button" data-theme-choice="auto" title="Auto">A</button>
+        <button type="button" data-theme-choice="dark" title="Dark">☾</button>
+      </div>
+    </header>
+    <p class="lede">
+      v1.1 design tokens. Flip the switch above to preview both themes — every
+      swatch, control and surface below is driven by the same CSS variables the
+      app uses (<code>src/style.css</code>). The board never changes between
+      themes; only the page chrome does.
+    </p>
+
+    <h2>Board — identical in both themes</h2>
+    <div class="row">
+      <div>
+        <div class="board">
+          <div class="hl on-light"></div>
+          <div class="hl on-dark"></div>
+        </div>
+      </div>
+      <div class="grid" style="flex: 1; min-width: 280px">
+        <div class="swatch"><div class="chip" style="background: var(--board-light)"></div><div class="meta"><div class="name">--board-light</div><div class="role">#eecfa1 · light square</div></div></div>
+        <div class="swatch"><div class="chip" style="background: var(--board-dark)"></div><div class="meta"><div class="name">--board-dark</div><div class="role">#b58863 · dark square</div></div></div>
+        <div class="swatch"><div class="chip" style="background: var(--board-lastmove)"></div><div class="meta"><div class="name">--board-lastmove</div><div class="role">#e3b25a · warm gold</div></div></div>
+      </div>
+    </div>
+    <p class="note">The two gold squares above sit on a light and a dark square so
+      you can check the last-move highlight reads against both.</p>
+
+    <h2>Surfaces</h2>
+    <div class="grid">
+      <div class="swatch"><div class="chip" style="background: var(--bg-page)"></div><div class="meta"><div class="name">--bg-page</div><div class="role">page (textured)</div></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--bg-card)"></div><div class="meta"><div class="name">--bg-card</div><div class="role">cards + inputs</div></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--bg-sheet)"></div><div class="meta"><div class="name">--bg-sheet</div><div class="role">sheets / overlays</div></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--bg-elevated)"></div><div class="meta"><div class="name">--bg-elevated</div><div class="role">eval strip</div></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--bg-parchment)"></div><div class="meta"><div class="name">--bg-parchment</div><div class="role">explanation card</div></div></div>
+    </div>
+
+    <h2>Text</h2>
+    <div class="grid">
+      <div class="swatch"><div class="chip" style="background: var(--text)"></div><div class="meta"><div class="name">--text</div><div class="role">primary + headings</div></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--text-muted)"></div><div class="meta"><div class="name">--text-muted</div><div class="role">labels</div></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--text-faint)"></div><div class="meta"><div class="name">--text-faint</div><div class="role">captions</div></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--text-fainter)"></div><div class="meta"><div class="name">--text-fainter</div><div class="role">hints / placeholders</div></div></div>
+    </div>
+
+    <h2>Borders</h2>
+    <div class="grid">
+      <div class="swatch"><div class="chip" style="background: var(--border)"></div><div class="meta"><div class="name">--border</div><div class="role">control strokes</div></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--border-card)"></div><div class="meta"><div class="name">--border-card</div><div class="role">card strokes</div></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--hairline)"></div><div class="meta"><div class="name">--hairline</div><div class="role">separators</div></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--hairline-soft)"></div><div class="meta"><div class="name">--hairline-soft</div><div class="role">faint separators</div></div></div>
+    </div>
+
+    <h2>Accent &amp; status</h2>
+    <div class="grid">
+      <div class="swatch"><div class="chip" style="background: var(--accent)"></div><div class="meta"><div class="name">--accent</div><div class="role">primary action</div></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--accent-active)"></div><div class="meta"><div class="name">--accent-active</div><div class="role">pressed</div></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--maroon)"></div><div class="meta"><div class="name">--maroon</div><div class="role">save</div></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--success)"></div><div class="meta"><div class="name">--success</div><div class="role">in training / right</div></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--warn)"></div><div class="meta"><div class="name">--warn</div><div class="role">due / missed</div></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--danger)"></div><div class="meta"><div class="name">--danger</div><div class="role">delete</div></div></div>
+    </div>
+
+    <h2>Components in context</h2>
+    <div class="samples">
+      <button class="btn accent">Reset line</button>
+      <button class="btn maroon">Save line</button>
+      <button class="btn success">✓ In training</button>
+      <button class="btn ghost">Watch line</button>
+      <input class="demo" placeholder="Italian Game — main line" />
+    </div>
+    <div class="samples" style="margin-top: 0.9rem">
+      <div class="card">
+        <div class="title">Ruy López — Berlin</div>
+        <div class="sub">●●●○○ · 3 days ago</div>
+      </div>
+      <span class="pill success">Prepped</span>
+      <span class="pill warn">Due</span>
+      <span class="pill danger">Weak</span>
+    </div>
+
+    <h2>Theme behaviour</h2>
+    <p class="note">
+      The active theme defaults to the system preference and can be pinned to
+      <strong>light</strong>, <strong>dark</strong>, or <strong>auto</strong>.
+      The choice is saved in <code>localStorage</code> under
+      <code>obertura-theme</code>. JS resolves the choice and sets
+      <code>data-theme="light|dark"</code> on <code>&lt;html&gt;</code>; CSS only
+      ever reads <code>data-theme</code>. See <code>src/theme.ts</code>.
+    </p>
+
+    <script>
+      // Standalone theme control for this doc — same contract as src/theme.ts.
+      (function () {
+        var KEY = 'obertura-theme';
+        var darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        function choice() {
+          var v = localStorage.getItem(KEY);
+          return v === 'light' || v === 'dark' || v === 'auto' ? v : 'auto';
+        }
+        function apply() {
+          var c = choice();
+          var dark = c === 'dark' || (c === 'auto' && darkQuery.matches);
+          document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+          document.querySelectorAll('#theme-switch button').forEach(function (b) {
+            b.classList.toggle('active', b.dataset.themeChoice === c);
+          });
+        }
+        document.querySelectorAll('#theme-switch button').forEach(function (b) {
+          b.addEventListener('click', function () {
+            localStorage.setItem(KEY, b.dataset.themeChoice);
+            apply();
+          });
+        });
+        darkQuery.addEventListener('change', function () {
+          if (choice() === 'auto') apply();
+        });
+        apply();
+      })();
+    </script>
+  </body>
+</html>
