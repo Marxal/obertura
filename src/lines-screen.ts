@@ -1,6 +1,10 @@
 import type { Line } from './types';
+import type { MoveNode } from './tree';
+import { Chessground } from 'chessground';
 import { getAllLines, saveLine, deleteLine } from './storage';
 import { Icons } from './icons';
+
+const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
 // Phase 3 training will populate confidence and lastTrained.
 function relativeDate(isoStr: string): string {
@@ -22,48 +26,225 @@ function confidenceDots(c: number): string {
   return '●'.repeat(n) + '○'.repeat(5 - n);
 }
 
+// The position a mini-board should show. Ideally the opening's "key named
+// position" — but pinning that down means an online lookup per line, which
+// isn't cheap. So we use the final mainline position: walk first-children to
+// the end of the tree and take that FEN. Empty lines fall back to the start.
+function finalMainlineFen(tree: MoveNode): string {
+  let node: MoveNode | undefined = tree.children[0];
+  let fen = START_FEN;
+  while (node) {
+    fen = node.fen;
+    node = node.children[0];
+  }
+  return fen;
+}
+
 type SortMode = 'latest' | 'weakest' | 'strongest' | 'name';
 let currentSort: SortMode = 'latest';
 
-export function renderLinesScreen(
-  container: HTMLElement,
-  {
-    onOpenLine,
-    onStartTraining,
-  }: {
-    onOpenLine: (line: Line) => void;
-    onStartTraining?: (line: Line) => void;
-  }
-): void {
-  doRender(container, onOpenLine, onStartTraining);
+interface LinesDeps {
+  onOpenLine: (line: Line) => void;
+  onAddLine: (colour: 'white' | 'black') => void;
+  onStartTraining?: (line: Line) => void;
 }
 
-async function doRender(
+export function renderLinesScreen(
   container: HTMLElement,
-  onOpenLine: (line: Line) => void,
-  onStartTraining?: (line: Line) => void
-): Promise<void> {
+  deps: LinesDeps
+): void {
+  void doRender(container, deps);
+}
+
+async function doRender(container: HTMLElement, deps: LinesDeps): Promise<void> {
   container.innerHTML = '<p class="lines-loading">Loading…</p>';
   const allLines = await getAllLines();
   container.innerHTML = '';
 
-  const sortRow = buildSortRow(container, onOpenLine, onStartTraining);
-  container.appendChild(sortRow);
-
-  const rerender = () => doRender(container, onOpenLine, onStartTraining);
+  // Pending mini-boards: built now, mounted after the layout exists so
+  // chessground can read real pixel bounds and place pieces correctly.
+  const pending: { el: HTMLElement; fen: string; orientation: 'white' | 'black' }[] = [];
 
   for (const colour of ['white', 'black'] as const) {
     container.appendChild(
-      buildSection(colour, allLines.filter(l => l.colour === colour), onOpenLine, rerender, onStartTraining)
+      buildCarouselSection(
+        container,
+        colour,
+        allLines.filter(l => l.colour === colour),
+        deps,
+        pending
+      )
     );
   }
+
+  // Mount the static boards once the sections are in the (visible) DOM.
+  requestAnimationFrame(() => {
+    for (const b of pending) mountMiniBoard(b.el, b.fen, b.orientation);
+  });
 }
 
-function buildSortRow(
+// ── Carousel screen ─────────────────────────────────────────────────────────
+
+function buildCarouselSection(
   container: HTMLElement,
-  onOpenLine: (line: Line) => void,
-  onStartTraining?: (line: Line) => void
+  colour: 'white' | 'black',
+  lines: Line[],
+  deps: LinesDeps,
+  pending: { el: HTMLElement; fen: string; orientation: 'white' | 'black' }[]
 ): HTMLElement {
+  const section = document.createElement('section');
+  section.className = 'carousel-section';
+
+  // Heading row: colour pip + name, with the Add button beside it.
+  const head = document.createElement('div');
+  head.className = 'carousel-head';
+
+  const title = document.createElement('div');
+  title.className = 'carousel-head-title';
+  const pip = document.createElement('span');
+  pip.className = `colour-pip colour-pip--${colour}`;
+  pip.setAttribute('aria-hidden', 'true');
+  const name = document.createElement('span');
+  name.textContent = colour === 'white' ? 'White' : 'Black';
+  title.appendChild(pip);
+  title.appendChild(name);
+  head.appendChild(title);
+
+  // "+ Add new line" — the only entry into the builder from this screen.
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = `lines-add-btn lines-add-btn--${colour}`;
+  addBtn.appendChild(Icons.plus(15));
+  addBtn.appendChild(document.createTextNode('Add new line'));
+  addBtn.addEventListener('click', () => deps.onAddLine(colour));
+  head.appendChild(addBtn);
+
+  section.appendChild(head);
+
+  if (lines.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'lines-empty';
+    empty.textContent = `No ${colour === 'white' ? 'White' : 'Black'} lines yet.`;
+    section.appendChild(empty);
+    return section;
+  }
+
+  // Horizontally-scrolling track of mini-board cards.
+  const carousel = document.createElement('div');
+  carousel.className = 'carousel-track';
+  for (const line of sortLines(lines, 'latest')) {
+    carousel.appendChild(buildMiniCard(container, line, deps, pending));
+  }
+  section.appendChild(carousel);
+
+  // "View more" → the detailed list (task 3.2).
+  const more = document.createElement('button');
+  more.type = 'button';
+  more.className = 'carousel-more';
+  more.textContent = 'View more →';
+  more.addEventListener('click', () => renderDetail(container, colour, lines, deps));
+  section.appendChild(more);
+
+  return section;
+}
+
+function buildMiniCard(
+  container: HTMLElement,
+  line: Line,
+  deps: LinesDeps,
+  pending: { el: HTMLElement; fen: string; orientation: 'white' | 'black' }[]
+): HTMLElement {
+  const card = document.createElement('button');
+  card.type = 'button';
+  card.className = 'carousel-card';
+  // Tapping a card opens the detailed list for its colour (task 3.2). The
+  // builder is reached only via "Add new line".
+  card.addEventListener('click', () => renderDetailFromLine(container, line, deps));
+
+  const board = document.createElement('div');
+  board.className = 'carousel-board';
+  card.appendChild(board);
+  pending.push({ el: board, fen: finalMainlineFen(line.tree), orientation: line.colour });
+
+  const titleEl = document.createElement('div');
+  titleEl.className = 'carousel-card-title';
+  titleEl.textContent = line.name || line.openingName || 'Untitled line';
+  card.appendChild(titleEl);
+
+  return card;
+}
+
+// A static, non-interactive chessground board at the given position.
+function mountMiniBoard(el: HTMLElement, fen: string, orientation: 'white' | 'black'): void {
+  Chessground(el, {
+    fen,
+    orientation,
+    viewOnly: true,
+    coordinates: false,
+    drawable: { enabled: false },
+    animation: { enabled: false },
+    selectable: { enabled: false },
+    highlight: { lastMove: false, check: false },
+  });
+}
+
+// ── Detailed list (View more target — task 3.2 will flesh this out) ──────────
+
+// Re-fetch all lines of a colour, then render the detail list. Used when a card
+// is tapped (we only have the one line in hand).
+async function renderDetailFromLine(
+  container: HTMLElement,
+  line: Line,
+  deps: LinesDeps
+): Promise<void> {
+  const all = await getAllLines();
+  renderDetail(container, line.colour, all.filter(l => l.colour === line.colour), deps);
+}
+
+function renderDetail(
+  container: HTMLElement,
+  colour: 'white' | 'black',
+  lines: Line[],
+  deps: LinesDeps
+): void {
+  container.innerHTML = '';
+
+  const back = document.createElement('button');
+  back.type = 'button';
+  back.className = 'detail-back';
+  back.appendChild(Icons.back(18));
+  back.appendChild(document.createTextNode('My Lines'));
+  back.addEventListener('click', () => doRender(container, deps));
+  container.appendChild(back);
+
+  const heading = document.createElement('h2');
+  heading.className = 'lines-heading';
+  heading.textContent = colour === 'white' ? 'White lines' : 'Black lines';
+  container.appendChild(heading);
+
+  const rerender = () => renderDetail(container, colour, lines, deps);
+
+  container.appendChild(buildSortRow(() => {
+    renderDetail(container, colour, lines, deps);
+  }));
+
+  if (lines.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'lines-empty';
+    empty.textContent = `No ${colour === 'white' ? 'White' : 'Black'} lines yet.`;
+    container.appendChild(empty);
+    return;
+  }
+
+  const list = document.createElement('div');
+  list.className = 'lines-section';
+  for (const line of sortLines(lines, currentSort)) {
+    list.appendChild(buildCard(line, deps.onOpenLine, rerender, deps.onStartTraining));
+  }
+  container.appendChild(list);
+}
+
+function buildSortRow(onChange: () => void): HTMLElement {
   const row = document.createElement('div');
   row.className = 'sort-row';
 
@@ -86,7 +267,7 @@ function buildSortRow(
     btn.textContent = s.label;
     btn.addEventListener('click', () => {
       currentSort = s.key;
-      doRender(container, onOpenLine, onStartTraining);
+      onChange();
     });
     row.appendChild(btn);
   }
@@ -107,35 +288,6 @@ function sortLines(lines: Line[], mode: SortMode): Line[] {
     default:
       return copy.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
   }
-}
-
-function buildSection(
-  colour: 'white' | 'black',
-  lines: Line[],
-  onOpenLine: (line: Line) => void,
-  rerender: () => void,
-  onStartTraining?: (line: Line) => void
-): HTMLElement {
-  const section = document.createElement('section');
-  section.className = 'lines-section';
-
-  const heading = document.createElement('h2');
-  heading.className = 'lines-heading';
-  heading.textContent = colour === 'white' ? '○ White' : '● Black';
-  section.appendChild(heading);
-
-  if (lines.length === 0) {
-    const empty = document.createElement('p');
-    empty.className = 'lines-empty';
-    empty.textContent = `No ${colour === 'white' ? 'White' : 'Black'} lines yet.`;
-    section.appendChild(empty);
-    return section;
-  }
-
-  for (const line of sortLines(lines, currentSort)) {
-    section.appendChild(buildCard(line, onOpenLine, rerender, onStartTraining));
-  }
-  return section;
 }
 
 function buildCard(
