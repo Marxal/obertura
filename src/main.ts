@@ -453,9 +453,6 @@ function clearBuilder(colour: 'white' | 'black' = 'white'): void {
   (document.getElementById('line-name') as HTMLInputElement).value = '';
   (document.getElementById('line-tags') as HTMLInputElement).value = '';
   saveColour = colour;
-  document.querySelectorAll<HTMLElement>('#colour-toggle button').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.colour === colour);
-  });
   document.getElementById('save-msg')!.textContent = '';
   // Clear the opening label and invalidate any in-flight lookup.
   openingRequestId++;
@@ -641,9 +638,6 @@ function onOpenLine(line: Line): void {
   (document.getElementById('line-tags') as HTMLInputElement).value = line.tags.join(', ');
 
   saveColour = line.colour;
-  document.querySelectorAll<HTMLElement>('#colour-toggle button').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.colour === line.colour);
-  });
 
   document.getElementById('save-msg')!.textContent = '';
   openingRequestId++;
@@ -680,7 +674,6 @@ function setupSaveForm() {
   const tagsInput = document.getElementById('line-tags') as HTMLInputElement;
   const saveBtn = document.getElementById('save-btn') as HTMLButtonElement;
   const saveMsg = document.getElementById('save-msg')!;
-  const toggle = document.getElementById('colour-toggle')!;
 
   // "Add to training" row — hidden until a line is saved and inTraining is false.
   const addTrainingRow = document.createElement('div');
@@ -717,17 +710,6 @@ function setupSaveForm() {
         () => { /* cancelled — stay in builder */ }
       );
     }
-  });
-
-  // White / Black segmented control.
-  toggle.querySelectorAll('button').forEach(btn => {
-    btn.addEventListener('click', () => {
-      saveColour = btn.dataset.colour as 'white' | 'black';
-      toggle.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      // Keep the board oriented to the chosen side.
-      cg.set({ orientation: saveColour });
-    });
   });
 
   saveBtn.addEventListener('click', async () => {
@@ -1060,6 +1042,11 @@ requestAnimationFrame(() => {
   setupNotePanel();
 
   document.getElementById('reset-btn')!.addEventListener('click', () => clearBuilder('white'));
+
+  // Flip icon: a temporary, view-only swap to the other side. It does NOT change
+  // the line's saved colour — reopening or resetting the line restores the
+  // colour-correct orientation.
+  document.getElementById('board-flip')!.addEventListener('click', () => cg.toggleOrientation());
 
   new ResizeObserver(() => cg.redrawAll()).observe(boardEl);
 
