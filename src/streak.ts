@@ -64,6 +64,11 @@ export function trainedToday(now: Date = new Date()): boolean {
   return loadDays().has(dayKey(now));
 }
 
+// All recorded training day keys ("YYYY-MM-DD" local time), sorted oldest-first.
+export function getTrainingDays(): string[] {
+  return [...loadDays()].sort();
+}
+
 // The current streak length, in days (see the rule at the top of the file).
 export function currentStreak(now: Date = new Date()): number {
   const days = loadDays();

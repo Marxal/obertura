@@ -3464,6 +3464,349 @@ cg-board square.move-dest.oc {
   line-height: 1.4;
 }
 
+/* ── Statistics screen ──────────────────────────────────────────────────────── */
+
+/* Streak hero */
+.stats-streak-hero {
+  margin: 1rem 1rem 0;
+  padding: 1.25rem 1.25rem 1rem;
+  background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-parchment) 100%);
+  border: 1px solid var(--border-card);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+}
+
+.stats-streak-main {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
+.stats-streak-flame {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.stats-streak-num {
+  font-size: 3.2rem;
+  font-weight: 900;
+  color: var(--accent);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-streak-num--cold {
+  color: var(--text-faint);
+}
+
+.stats-streak-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  align-self: flex-end;
+  padding-bottom: 0.3rem;
+}
+
+/* 7-day mini grid */
+.stats-week-grid {
+  display: flex;
+  gap: 0.3rem;
+  margin-bottom: 0.8rem;
+}
+
+.stats-week-cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.4rem 0 0.3rem;
+  border-radius: 7px;
+  background: var(--bg-elevated);
+}
+
+.stats-week-cell--on {
+  background: var(--accent);
+}
+
+.stats-week-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-fainter);
+}
+
+.stats-week-cell--on .stats-week-dot {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.stats-week-letter {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--text-faint);
+  letter-spacing: 0;
+}
+
+.stats-week-cell--on .stats-week-letter {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.stats-streak-sub {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.stats-streak-sub--done {
+  color: var(--success);
+  font-weight: 600;
+}
+
+/* Quick stats row */
+.stats-quick-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.65rem;
+  margin: 0.8rem 1rem 0;
+}
+
+.stats-quick-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.85rem 0.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  box-shadow: var(--shadow-card);
+}
+
+.stats-quick-num {
+  font-size: 1.9rem;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-quick-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-faint);
+  margin-top: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+/* Section wrapper */
+.stats-section {
+  margin: 1.25rem 1rem 0;
+}
+
+.stats-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.7rem;
+}
+
+.stats-section-title {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.stats-section-meta {
+  font-size: 0.7rem;
+  color: var(--text-faint);
+}
+
+/* Training activity grid (28 days, 4 rows × 7 cols) */
+.stats-activity-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.stats-activity-cell {
+  aspect-ratio: 1;
+  border-radius: 3px;
+  background: var(--bg-elevated);
+  min-height: 0;
+}
+
+.stats-activity-cell--on {
+  background: var(--accent);
+}
+
+/* Confidence bar chart */
+.stats-conf-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.stats-conf-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.stats-conf-dots {
+  font-size: 0.58rem;
+  font-family: monospace;
+  width: 3.6rem;
+  flex-shrink: 0;
+  line-height: 1;
+  letter-spacing: 0.06em;
+}
+
+.stats-conf-filled {
+  color: var(--accent);
+}
+
+.stats-conf-empty {
+  color: var(--text-fainter);
+}
+
+.stats-conf-bar-wrap {
+  flex: 1;
+  height: 9px;
+  background: var(--bg-elevated);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.stats-conf-bar {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 5px;
+  min-width: 4px;
+}
+
+.stats-conf-bar--new {
+  background: var(--text-fainter);
+}
+
+.stats-conf-count {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  width: 1.4rem;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* Needs Attention cards */
+.stats-attention-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.stats-attention-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-left-width: 3px;
+  border-radius: 10px;
+  box-shadow: var(--shadow-card);
+}
+
+.stats-attention-card--danger {
+  border-left-color: var(--warn);
+}
+
+.stats-attention-card--warn {
+  border-left-color: #d8961f;
+}
+
+.stats-attention-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.stats-attention-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stats-attention-reason {
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  margin-top: 0.1rem;
+}
+
+.stats-attention-reason--danger {
+  color: var(--warn);
+}
+
+.stats-attention-reason--warn {
+  color: #a96f12;
+}
+
+[data-theme="dark"] .stats-attention-reason--warn {
+  color: #d4892c;
+}
+
+/* Win rate by opening rows */
+.stats-winrate-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.4rem;
+}
+
+.stats-winrate-name {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  width: 7.5rem;
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stats-winrate-meta {
+  font-size: 0.7rem;
+  color: var(--text-faint);
+  flex-shrink: 0;
+  width: 4rem;
+  text-align: right;
+}
+
+/* Opening detail section intro */
+.stats-detail-intro {
+  font-size: 0.78rem;
+  color: var(--text-faint);
+  font-style: italic;
+  margin-bottom: 0.75rem;
+  line-height: 1.4;
+}
+
+/* No games note */
+.stats-no-games {
+  padding: 0.5rem 0 0.25rem;
+  font-size: 0.82rem;
+  color: var(--text-faint);
+  font-style: italic;
+  line-height: 1.55;
+}
+
+/* Bottom padding so content clears the nav bar */
+#view-progress > .selftest-wrap:last-child {
+  margin-bottom: 1rem;
+}
+
 /* ── Progress screen (win-rate ↔ training) ─────────────────────────────────── */
 
 .progress-card-head {
