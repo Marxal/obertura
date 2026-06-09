@@ -7,7 +7,8 @@
     "dev": "node scripts/copy-engine.mjs && vite",
     "build": "node scripts/copy-engine.mjs && tsc && vite build",
     "preview": "vite preview",
-    "generate-icons": "node scripts/generate-icons.mjs"
+    "generate-icons": "node scripts/generate-icons.mjs",
+    "build-openings": "node scripts/build-openings.mjs"
   },
   "dependencies": {
     "chess.js": "^1.3.0",
