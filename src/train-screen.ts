@@ -1,11 +1,12 @@
 import type { Line } from './types';
 import type { MoveNode } from './tree';
 import { getAllLines, saveLine } from './storage';
-import { startDrill, startPositionsDrill } from './drill';
+import { startDrill, startPositionsDrill, startTimedDrill } from './drill';
 import { selectIndividualPositions } from './individual';
 import { openExplorer } from './explore';
 import { Icons } from './icons';
 import { isGoodAlternative } from './engine';
+import { getTimedBest, recordTimedBest } from './prefs';
 import { TrainingSession, type SessionItem } from './session';
 import {
   userMoveNodes,
@@ -23,6 +24,30 @@ import {
 } from './scheduler';
 import { runSchedulerSelfTest } from './scheduler.selftest';
 import { recordTrainingDay } from './streak';
+
+const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
+// One missed spot worth revisiting at the end of a session: the position to
+// show and the move that should have been played there.
+interface Mistake {
+  preFen: string;
+  expected: MoveNode;
+}
+
+// Add a missed position to the review list, de-duplicated by position + answer
+// (the same move can be missed twice — e.g. across timed laps — but is only
+// worth reviewing once).
+function addMistake(
+  list: Mistake[],
+  keys: Set<string>,
+  preFen: string,
+  expected: MoveNode,
+): void {
+  const key = preFen + ' ' + expected.uci;
+  if (keys.has(key)) return;
+  keys.add(key);
+  list.push({ preFen, expected });
+}
 
 // ── Screen entry point ──────────────────────────────────────────────────────────
 
@@ -157,6 +182,18 @@ function renderSessionHeader(container: HTMLElement, due: Line[], allTraining: L
     ));
     indBtn.addEventListener('click', () => runIndividual(container, allTraining));
     wrap.appendChild(indBtn);
+
+    // Timed challenge — a 3-minute speed run over the same individual positions.
+    const best = getTimedBest();
+    const timedBtn = document.createElement('button');
+    timedBtn.type = 'button';
+    timedBtn.className = 'session-timed-btn';
+    timedBtn.appendChild(Icons.clock(16));
+    timedBtn.appendChild(document.createTextNode(
+      best > 0 ? `Timed challenge · best ${best}` : 'Timed challenge',
+    ));
+    timedBtn.addEventListener('click', () => runTimed(container, allTraining));
+    wrap.appendChild(timedBtn);
   }
 
   container.appendChild(wrap);
@@ -340,10 +377,20 @@ interface SessionStats {
   movesMissed: number;
   totalMoves: number;
   lineStats: Map<string, LineSessionStat>;
+  // Distinct missed positions, for the end-of-session "try your mistakes" review.
+  mistakes: Mistake[];
+  mistakeKeys: Set<string>;
 }
 
 function makeStats(): SessionStats {
-  return { linesReviewed: 0, movesMissed: 0, totalMoves: 0, lineStats: new Map() };
+  return {
+    linesReviewed: 0,
+    movesMissed: 0,
+    totalMoves: 0,
+    lineStats: new Map(),
+    mistakes: [],
+    mistakeKeys: new Set(),
+  };
 }
 
 function runSession(session: TrainingSession, container: HTMLElement, stats: SessionStats): void {
@@ -384,9 +431,15 @@ function runItem(
 
   function recordMiss(node: MoveNode): void {
     // drill.ts fires this once per node (first wrong attempt) in 'full' mode.
-    const target = copyMoves.find(m => m.id === node.id);
-    if (target) target.missedThisSession = true;
+    const idx = copyMoves.findIndex(m => m.id === node.id);
+    if (idx >= 0) copyMoves[idx].missedThisSession = true;
     missed.add(node.id);
+    // Collect the position for the end-of-session review. Resurfaced passes are
+    // pure reinforcement, so they don't add anything new.
+    if (!isResurface) {
+      const preFen = idx <= 0 ? START_FEN : copyMoves[idx - 1].fen;
+      addMistake(stats.mistakes, stats.mistakeKeys, preFen, node);
+    }
   }
 
   startDrill(lineCopy, {
@@ -467,6 +520,8 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
 
   const missed = new Set<string>();
   const stats = { reviewed: 0, missed: 0 };
+  const mistakes: Mistake[] = [];
+  const mistakeKeys = new Set<string>();
 
   startPositionsDrill(
     positions.map(p => ({ preFen: p.preFen, expected: p.expected })),
@@ -484,6 +539,10 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
         if (!line) return;
         const now = new Date();
         const wasMissed = missed.has(expected.id);
+        if (wasMissed) {
+          const pos = positions.find(p => p.expected === expected);
+          if (pos) addMistake(mistakes, mistakeKeys, pos.preFen, expected);
+        }
         const quality = qualityFromMisses(wasMissed ? 1 : 0);
         expected.review = gradeReview(expected.review ?? newReview(now), quality, now);
         line.lastTrained = now.toISOString();
@@ -492,7 +551,7 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
         stats.reviewed++;
         if (wasMissed) stats.missed++;
       },
-      onComplete: () => renderIndividualComplete(container, stats),
+      onComplete: () => renderIndividualComplete(container, stats, mistakes),
       onCancel: () => void doRender(container),
     },
   );
@@ -501,6 +560,7 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
 function renderIndividualComplete(
   container: HTMLElement,
   stats: { reviewed: number; missed: number },
+  mistakes: Mistake[],
 ): void {
   if (stats.reviewed > 0) recordTrainingDay();
 
@@ -556,12 +616,7 @@ function renderIndividualComplete(
     : 'Clean run — every position remembered!';
   wrap.appendChild(reschedNote);
 
-  const doneBtn = document.createElement('button');
-  doneBtn.type = 'button';
-  doneBtn.className = 'train-done-btn';
-  doneBtn.textContent = 'Back to training';
-  doneBtn.addEventListener('click', () => void doRender(container));
-  wrap.appendChild(doneBtn);
+  appendReviewActions(wrap, container, mistakes);
 
   container.appendChild(wrap);
 }
@@ -673,12 +728,236 @@ function renderSessionComplete(container: HTMLElement, stats: SessionStats): voi
     wrap.appendChild(reschedNote);
   }
 
-  const doneBtn = document.createElement('button');
-  doneBtn.type = 'button';
-  doneBtn.className = 'train-done-btn';
-  doneBtn.textContent = 'Back to training';
-  doneBtn.addEventListener('click', () => void doRender(container));
-  wrap.appendChild(doneBtn);
+  appendReviewActions(wrap, container, stats.mistakes);
+
+  container.appendChild(wrap);
+}
+
+// ── End-of-session review (all modes) ─────────────────────────────────────────
+//
+// Every completed session ends the same way: if anything was missed, offer to
+// drill just those positions ("Try your mistakes again"); otherwise just close.
+// The retry reuses the normal teaching drill (arrows + notes), so it doubles as
+// a focused fix-up of the exact spots that tripped you up.
+
+function appendReviewActions(
+  wrap: HTMLElement,
+  container: HTMLElement,
+  mistakes: Mistake[],
+): void {
+  if (mistakes.length > 0) {
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.className = 'train-next-btn';
+    retry.textContent = `Try your mistakes again (${mistakes.length})`;
+    retry.addEventListener('click', () => runMistakesReview(container, mistakes));
+    wrap.appendChild(retry);
+  }
+
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'train-done-btn';
+  close.textContent = 'Close training';
+  close.addEventListener('click', () => void doRender(container));
+  wrap.appendChild(close);
+}
+
+// Re-drill a set of missed positions in the normal teaching mode. Whatever's
+// still shaky afterwards can be looped through again.
+function runMistakesReview(container: HTMLElement, mistakes: Mistake[]): void {
+  if (mistakes.length === 0) { void doRender(container); return; }
+
+  const stillMissed = new Set<MoveNode>();
+
+  startPositionsDrill(
+    mistakes.map(m => ({ preFen: m.preFen, expected: m.expected })),
+    {
+      wrongMoveMode: 'full',
+      modeLabel: 'Your mistakes',
+      hideTitleUntilComplete: true,
+      celebrateOnComplete: true,
+      completeMessage: 'Mistakes reviewed ✓',
+      checkAlternative: (fen, uci) => isGoodAlternative(fen, uci),
+      onExplore: (fenAfter, label, orientation) =>
+        openExplorer(fenAfter, { label, orientation, onClose: () => {} }),
+      recordMiss: (node) => { stillMissed.add(node); },
+      onComplete: () => {
+        const again = mistakes.filter(m => stillMissed.has(m.expected));
+        renderReviewComplete(container, mistakes.length, again);
+      },
+      onCancel: () => void doRender(container),
+    },
+  );
+}
+
+function renderReviewComplete(
+  container: HTMLElement,
+  reviewed: number,
+  again: Mistake[],
+): void {
+  recordTrainingDay();
+
+  container.innerHTML = '';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'train-completion';
+
+  const doneEl = document.createElement('div');
+  doneEl.className = 'train-completion-done';
+  doneEl.textContent = 'Mistakes reviewed ✓';
+  wrap.appendChild(doneEl);
+
+  const sub = document.createElement('div');
+  sub.className = 'train-completion-name';
+  sub.textContent = `${reviewed} position${reviewed === 1 ? '' : 's'} revisited`;
+  wrap.appendChild(sub);
+
+  const note = document.createElement('div');
+  note.className = 'train-all-done';
+  if (again.length > 0) {
+    note.textContent = `Still shaky on ${again.length} — give them another go.`;
+  } else {
+    note.textContent = 'All cleared — nicely done!';
+  }
+  wrap.appendChild(note);
+
+  appendReviewActions(wrap, container, again);
+
+  container.appendChild(wrap);
+}
+
+// ── Timed mode ────────────────────────────────────────────────────────────────
+//
+// A 3-minute countdown over individual positions: the goal is as many correct
+// as possible. A wrong answer flashes and skips on at once (no dwelling); the
+// pool cycles until the clock runs out. The end screen shows the score against
+// a stored personal best, with a "Retry mistakes" drill of everything missed.
+
+const TIMED_DURATION_MS = 3 * 60 * 1000;
+
+function runTimed(container: HTMLElement, trainingLines: Line[]): void {
+  const clones = trainingLines.map(l => ({ ...l, tree: structuredClone(l.tree) }));
+  const positions = selectIndividualPositions(clones, { max: 80 });
+  if (positions.length === 0) { void doRender(container); return; }
+
+  const mistakes: Mistake[] = [];
+  const mistakeKeys = new Set<string>();
+  let correct = 0;
+  let wrong = 0;
+
+  startTimedDrill(
+    positions.map(p => ({ preFen: p.preFen, expected: p.expected })),
+    {
+      timedMs: TIMED_DURATION_MS,
+      modeLabel: 'Timed',
+      hideTitleUntilComplete: true,
+      onTimedResult: (ok, pos) => {
+        if (ok) {
+          correct++;
+        } else {
+          wrong++;
+          addMistake(mistakes, mistakeKeys, pos.preFen, pos.expected);
+        }
+      },
+      onComplete: () => renderTimedComplete(container, trainingLines, correct, wrong, mistakes),
+      onCancel: () => void doRender(container),
+    },
+  );
+}
+
+function renderTimedComplete(
+  container: HTMLElement,
+  trainingLines: Line[],
+  correct: number,
+  wrong: number,
+  mistakes: Mistake[],
+): void {
+  if (correct > 0 || wrong > 0) recordTrainingDay();
+
+  const prevBest = getTimedBest();
+  const isNewBest = recordTimedBest(correct);
+
+  container.innerHTML = '';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'train-completion';
+
+  const doneEl = document.createElement('div');
+  doneEl.className = 'train-completion-done';
+  doneEl.textContent = "Time's up ⏱";
+  wrap.appendChild(doneEl);
+
+  const sub = document.createElement('div');
+  sub.className = 'train-completion-name';
+  sub.textContent = `${correct} correct in 3 minutes`;
+  wrap.appendChild(sub);
+
+  // Correct vs. mistakes.
+  const statsRow = document.createElement('div');
+  statsRow.className = 'summary-stats-row';
+
+  const rightBox = document.createElement('div');
+  rightBox.className = 'summary-stat-box summary-stat-box--right';
+  const rightVal = document.createElement('div');
+  rightVal.className = 'summary-stat-value';
+  rightVal.textContent = String(correct);
+  const rightLbl = document.createElement('div');
+  rightLbl.className = 'summary-stat-label';
+  rightLbl.textContent = 'correct';
+  rightBox.appendChild(rightVal);
+  rightBox.appendChild(rightLbl);
+  statsRow.appendChild(rightBox);
+
+  const missBox = document.createElement('div');
+  missBox.className = `summary-stat-box ${wrong > 0 ? 'summary-stat-box--missed' : 'summary-stat-box--zero'}`;
+  const missVal = document.createElement('div');
+  missVal.className = 'summary-stat-value';
+  missVal.textContent = String(wrong);
+  const missLbl = document.createElement('div');
+  missLbl.className = 'summary-stat-label';
+  missLbl.textContent = 'mistakes';
+  missBox.appendChild(missVal);
+  missBox.appendChild(missLbl);
+  statsRow.appendChild(missBox);
+
+  wrap.appendChild(statsRow);
+
+  // Personal best line.
+  const pb = document.createElement('div');
+  if (isNewBest && correct > 0) {
+    pb.className = 'timed-best timed-best--new';
+    pb.textContent = `New personal best! 🎉 (was ${prevBest})`;
+  } else {
+    pb.className = 'timed-best';
+    pb.textContent = prevBest > 0
+      ? `Personal best: ${prevBest} — beat it next time`
+      : 'Answer one to set your first personal best!';
+  }
+  wrap.appendChild(pb);
+
+  // Actions: retry mistakes (teaching drill), play again, close.
+  if (mistakes.length > 0) {
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.className = 'train-next-btn';
+    retry.textContent = `Retry mistakes (${mistakes.length})`;
+    retry.addEventListener('click', () => runMistakesReview(container, mistakes));
+    wrap.appendChild(retry);
+  }
+
+  const again = document.createElement('button');
+  again.type = 'button';
+  again.className = mistakes.length > 0 ? 'train-done-btn' : 'train-next-btn';
+  again.textContent = 'Play again';
+  again.addEventListener('click', () => runTimed(container, trainingLines));
+  wrap.appendChild(again);
+
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'train-done-btn';
+  close.textContent = 'Close training';
+  close.addEventListener('click', () => void doRender(container));
+  wrap.appendChild(close);
 
   container.appendChild(wrap);
 }

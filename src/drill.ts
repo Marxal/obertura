@@ -39,6 +39,12 @@ export interface DrillOptions {
   // that opens the position AFTER the played move so the user can see where it
   // leads. The drill stays open underneath and resumes when the explorer closes.
   onExplore?: (fenAfter: string, label: string, orientation: 'white' | 'black') => void;
+  // Timed mode (positions only). When set, the drill runs as a countdown of this
+  // many milliseconds: a correct move scores and jumps on; a wrong move flashes
+  // and IMMEDIATELY advances (no retry, no arrow). The pool cycles until the
+  // clock runs out, then onComplete fires. onTimedResult reports each answer.
+  timedMs?: number;
+  onTimedResult?: (correct: boolean, position: { preFen: string; expected: MoveNode }) => void;
 }
 
 // A single ply to auto-play (animated) between the user's moves.
@@ -153,10 +159,32 @@ export function startPositionsDrill(
   runDrill({ intro: [], tasks, titleText: '' }, opts);
 }
 
+// Timed mode: a countdown drill over a pool of individual positions. Correct
+// moves score; wrong moves flash and skip on at once. The pool reshuffles and
+// repeats until the clock expires.
+export function startTimedDrill(
+  positions: { preFen: string; expected: MoveNode }[],
+  opts: DrillOptions & { timedMs: number },
+): void {
+  if (positions.length === 0) {
+    opts.onCancel();
+    return;
+  }
+  const tasks: Task[] = positions.map(p => ({
+    preFen: p.preFen,
+    expected: p.expected,
+    colour: colourToMove(p.preFen),
+    replies: [],
+    continuous: false,
+  }));
+  runDrill({ intro: [], tasks, titleText: '' }, opts);
+}
+
 // ── The shared drill runtime ──────────────────────────────────────────────────
 
 function runDrill(config: DrillConfig, opts: DrillOptions): void {
   const { tasks } = config;
+  const timed = opts.timedMs != null;
 
   const chess = new Chess();
   // The side the user is playing right now — constant in line mode, per-task in
@@ -176,6 +204,11 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   let wrongAttempts = 0;
   // Extra tries a wrong move gets before we draw the arrow (full mode only).
   const retriesAllowed = getRetriesBeforeReveal();
+
+  // Timed-mode state: a live correct tally and a countdown that ends the run.
+  let timedCorrect = 0;
+  let timeUp = false;
+  let tickTimer: ReturnType<typeof setTimeout> | undefined;
 
   // ── Overlay ───────────────────────────────────────────────────────────────
 
@@ -199,6 +232,28 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
 
   headerEl.appendChild(backBtn);
   headerEl.appendChild(modeEl);
+
+  // Timed mode: a live "✓ N" score and a mm:ss countdown pinned to the header.
+  const scoreEl = document.createElement('div');
+  const timerEl = document.createElement('div');
+  if (timed) {
+    scoreEl.className = 'pt-timed-score';
+    timerEl.className = 'pt-timer';
+    headerEl.appendChild(scoreEl);
+    headerEl.appendChild(timerEl);
+  }
+
+  function renderTimedScore(): void {
+    scoreEl.textContent = `✓ ${timedCorrect}`;
+  }
+
+  function renderTimer(msLeft: number): void {
+    const secs = Math.ceil(msLeft / 1000);
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    timerEl.textContent = `${m}:${String(s).padStart(2, '0')}`;
+    timerEl.classList.toggle('pt-timer--low', secs <= 10);
+  }
 
   const boardWrap = document.createElement('div');
   boardWrap.className = 'pt-board-wrap';
@@ -276,12 +331,16 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
 
   // ── Progress dots ─────────────────────────────────────────────────────────
 
+  // No dots in timed mode — the pool cycles, so a fixed count is meaningless;
+  // the header score + clock stand in instead.
   const dotEls: HTMLElement[] = [];
-  for (let k = 0; k < tasks.length; k++) {
-    const dot = document.createElement('span');
-    dot.className = 'pt-dot';
-    progressEl.appendChild(dot);
-    dotEls.push(dot);
+  if (!timed) {
+    for (let k = 0; k < tasks.length; k++) {
+      const dot = document.createElement('span');
+      dot.className = 'pt-dot';
+      progressEl.appendChild(dot);
+      dotEls.push(dot);
+    }
   }
 
   // Mark the dot for a task. Red is sticky — a correct replay never overrides an
@@ -510,6 +569,8 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     // Block input while an async engine check is running.
     if (checkingAlternative) return;
 
+    if (timed) { onTimedMove(from, to); return; }
+
     const expected = tasks[taskIndex].expected;
     const eFrom = expected.uci.slice(0, 2);
     const eTo = expected.uci.slice(2, 4);
@@ -613,6 +674,72 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     }
   }
 
+  // ── Timed mode ──────────────────────────────────────────────────────────────
+
+  // One answer in timed mode: correct scores and jumps on; wrong flashes and
+  // skips on at once. No retries, no arrows — speed is the whole point.
+  function onTimedMove(from: Key, to: Key): void {
+    if (timeUp) return;
+    const task = tasks[taskIndex];
+    const expected = task.expected;
+    const correct = from === expected.uci.slice(0, 2) && to === expected.uci.slice(2, 4);
+
+    if (correct) {
+      timedCorrect++;
+      renderTimedScore();
+      chess.move({ from, to, promotion: 'q' });
+      cg.set({
+        fen: chess.fen(),
+        turnColor: cgTurn(),
+        movable: { color: undefined, dests: new Map() },
+        lastMove: [from, to],
+      });
+    } else {
+      flashError();
+      snapBack();
+      cg.set({ movable: { color: undefined, dests: new Map() } });
+    }
+
+    opts.onTimedResult?.(correct, { preFen: task.preFen, expected });
+
+    autoTimer = setTimeout(() => {
+      if (isCleaned || timeUp) return;
+      let next = taskIndex + 1;
+      if (next >= tasks.length) { shuffleTasks(); next = 0; }
+      startTask(next);
+    }, correct ? 220 : 360);
+  }
+
+  // Fisher–Yates, so a second lap through the pool feels fresh rather than rote.
+  function shuffleTasks(): void {
+    for (let i = tasks.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [tasks[i], tasks[j]] = [tasks[j], tasks[i]];
+    }
+  }
+
+  function startTimer(): void {
+    const deadline = Date.now() + opts.timedMs!;
+    renderTimedScore();
+    const tick = (): void => {
+      if (isCleaned) return;
+      const left = Math.max(0, deadline - Date.now());
+      renderTimer(left);
+      if (left <= 0) { finishTimed(); return; }
+      tickTimer = setTimeout(tick, 200);
+    };
+    tick();
+  }
+
+  function finishTimed(): void {
+    timeUp = true;
+    if (autoTimer) clearTimeout(autoTimer);
+    if (tickTimer) clearTimeout(tickTimer);
+    cg.set({ movable: { color: undefined, dests: new Map() } });
+    cleanup();
+    opts.onComplete();
+  }
+
   // Auto-play a run of plies (opponent replies / opening lead-in), animated.
   function animatePlies(plies: Ply[], done: () => void): void {
     let k = 0;
@@ -679,6 +806,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   function cleanup(): void {
     isCleaned = true;
     if (autoTimer) clearTimeout(autoTimer);
+    if (tickTimer) clearTimeout(tickTimer);
     ro.disconnect();
     overlay.remove();
   }
@@ -698,4 +826,6 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   } else {
     startTask(0);
   }
+
+  if (timed) startTimer();
 }

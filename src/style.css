@@ -1965,6 +1965,30 @@ cg-board square.move-dest.oc {
   text-overflow: ellipsis;
 }
 
+/* Timed mode: live score + countdown pinned to the right of the training
+   toolbar. The clock turns urgent-red in the final seconds. */
+.pt-timed-score {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--success);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.pt-timer {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #f0e3cc;
+  flex-shrink: 0;
+  min-width: 3ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.pt-timer--low {
+  color: #ff6b5e;
+}
+
 /* Opening title, shown UNDER the board (revealed on completion in training). */
 .pt-title-under {
   text-align: center;
@@ -2330,6 +2354,19 @@ cg-board square.move-dest.oc {
   padding: 0.5rem 0;
 }
 
+/* Timed end-screen "personal best" line. Gold-ish when a new best is set. */
+.timed-best {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 0.25rem 0 0.5rem;
+}
+
+.timed-best--new {
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .train-done-btn {
   display: inline-flex;
   align-items: center;
@@ -2439,6 +2476,37 @@ cg-board square.move-dest.oc {
 }
 
 .session-individual-btn:active {
+  filter: brightness(0.95);
+  transform: translateY(1px);
+}
+
+/* Timed challenge — same shape as the individual-moves button, accent-tinted to
+   read as the playful "speed run" option. */
+.session-timed-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 48px;
+  padding: 0.75rem 1.25rem;
+  background-color: var(--bg-card);
+  background-image: linear-gradient(180deg, rgba(255,255,255,0.45) 0%, transparent 100%);
+  color: var(--accent);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.session-timed-btn:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.session-timed-btn:active {
   filter: brightness(0.95);
   transform: translateY(1px);
 }
@@ -3131,6 +3199,31 @@ cg-board square.move-dest.oc {
 }
 
 .board-flip-btn:active {
+  color: var(--accent);
+  filter: brightness(0.96);
+}
+
+/* Watch-line playback speed: a compact chip that cycles Slow → Normal → Fast,
+   sitting between the watch and flip buttons. */
+.watch-speed-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--border-card);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+
+.watch-speed-btn:active {
   color: var(--accent);
   filter: brightness(0.96);
 }
