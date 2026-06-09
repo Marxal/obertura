@@ -84,6 +84,13 @@
 
             <details id="settings">
               <summary>Settings</summary>
+              <label for="retries-before-reveal">Retries before the answer is shown</label>
+              <select id="retries-before-reveal">
+                <option value="0">Reveal straight away</option>
+                <option value="1">One retry</option>
+                <option value="2">Two retries</option>
+              </select>
+
               <label for="lichess-token">Lichess API token</label>
               <input id="lichess-token" type="password" autocomplete="off"
                      placeholder="Paste token to enable opening names" />

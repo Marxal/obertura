@@ -28,6 +28,7 @@ import { renderHomeScreen } from './home-screen';
 import { Engine, gradeMove } from './engine';
 import { EvalPanel } from './eval-panel';
 import { initThemeControl } from './theme';
+import { getRetriesBeforeReveal, setRetriesBeforeReveal, type Retries } from './prefs';
 
 const chess = new Chess();
 let cg!: ReturnType<typeof Chessground>;
@@ -780,6 +781,13 @@ function setupSettings() {
     tokenMsg.textContent = getToken() ? 'Token saved on this device ✓' : 'Token cleared';
     // Re-run the lookup for the current line now that auth changed.
     updateOpeningName();
+  });
+
+  // Training: how many retries a wrong move gets before the arrow is shown.
+  const retriesSelect = document.getElementById('retries-before-reveal') as HTMLSelectElement;
+  retriesSelect.value = String(getRetriesBeforeReveal());
+  retriesSelect.addEventListener('change', () => {
+    setRetriesBeforeReveal(Number(retriesSelect.value) as Retries);
   });
 }
 

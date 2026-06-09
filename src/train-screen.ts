@@ -282,6 +282,9 @@ function runItem(
 
   startDrill(lineCopy, {
     wrongMoveMode: 'full',
+    modeLabel: isResurface ? 'Second look' : 'Training',
+    hideTitleUntilComplete: true,
+    celebrateOnComplete: true,
     completeMessage: isResurface ? 'Got it that time ✓' : 'Line complete',
     checkAlternative: (fen, uci) => isGoodAlternative(fen, uci),
     recordMiss,

@@ -4,6 +4,7 @@ import type { Key } from 'chessground/types';
 import type { Line } from './types';
 import type { MoveNode } from './tree';
 import { Icons } from './icons';
+import { getRetriesBeforeReveal } from './prefs';
 
 export interface DrillOptions {
   onComplete: () => void;
@@ -14,9 +15,17 @@ export interface DrillOptions {
   recordMiss?: (node: MoveNode) => void;
   completeMessage?: string;
   backLabel?: string;
+  // Small muted label shown at the top of the overlay (e.g. "Training"). Falls
+  // back to the opening/line name when omitted.
+  modeLabel?: string;
   // 'gentle': show error text and let the user retry freely (pre-training).
-  // 'full':   flash → snap back → draw arrow → show note → require correct replay.
+  // 'full':   flash → snap back → (retries) → draw arrow → require correct replay.
   wrongMoveMode?: 'gentle' | 'full';
+  // Keep the opening title hidden (under the board) until the line completes, so
+  // it can't act as a hint mid-drill. Used by the training screen.
+  hideTitleUntilComplete?: boolean;
+  // Fire a brief confetti burst when the line is completed.
+  celebrateOnComplete?: boolean;
   // If provided (full mode only), the engine checks whether a wrong move is
   // actually a good alternative before penalising it as a mistake.
   checkAlternative?: (preFen: string, userUci: string) => Promise<boolean>;
@@ -43,13 +52,20 @@ export function startDrill(line: Line, opts: DrillOptions): void {
   const userColour = line.colour;
   let moveIndex = 0;
   let autoTimer: ReturnType<typeof setTimeout> | undefined;
-  // True while the user must replay the correct move after a wrong attempt.
+  // True while the user must replay the correct move after the arrow is shown.
   let awaitingCorrectReplay = false;
   // True while the user must play the expected move after a good-alternative notice.
   let awaitingAlternativePlay = false;
   // True while an async engine check is in progress — blocks board input.
   let checkingAlternative = false;
   let isCleaned = false;
+
+  // Wrong attempts on the *current* user move; reset when we advance.
+  let wrongAttempts = 0;
+  // Extra tries a wrong move gets before we draw the arrow (full mode only).
+  const retriesAllowed = getRetriesBeforeReveal();
+
+  const opponentName = line.openingName || line.name || 'Untitled line';
 
   // ── Overlay ───────────────────────────────────────────────────────────────
 
@@ -66,12 +82,13 @@ export function startDrill(line: Line, opts: DrillOptions): void {
   backBtn.appendChild(document.createTextNode(opts.backLabel ?? 'Back'));
   backBtn.addEventListener('click', () => { cleanup(); opts.onCancel(); });
 
-  const titleEl = document.createElement('div');
-  titleEl.className = 'pt-title';
-  titleEl.textContent = line.openingName || line.name || 'Untitled line';
+  // Top label: the training mode, not the opening (which would be a hint).
+  const modeEl = document.createElement('div');
+  modeEl.className = 'pt-mode-label';
+  modeEl.textContent = opts.modeLabel ?? opponentName;
 
   headerEl.appendChild(backBtn);
-  headerEl.appendChild(titleEl);
+  headerEl.appendChild(modeEl);
 
   const boardWrap = document.createElement('div');
   boardWrap.className = 'pt-board-wrap';
@@ -79,6 +96,16 @@ export function startDrill(line: Line, opts: DrillOptions): void {
   const boardEl = document.createElement('div');
   boardEl.className = 'pt-board';
   boardWrap.appendChild(boardEl);
+
+  // Opening title, UNDER the board. Hidden until completion in full mode.
+  const titleEl = document.createElement('div');
+  titleEl.className = 'pt-title-under';
+  titleEl.textContent = opponentName;
+  if (opts.hideTitleUntilComplete) titleEl.setAttribute('hidden', '');
+
+  // Progress dots — one circle per user move.
+  const progressEl = document.createElement('div');
+  progressEl.className = 'pt-dots';
 
   const statusEl = document.createElement('div');
   statusEl.className = 'pt-status';
@@ -93,15 +120,13 @@ export function startDrill(line: Line, opts: DrillOptions): void {
   altCardEl.className = 'pt-alt-card';
   altCardEl.setAttribute('hidden', '');
 
-  const progressEl = document.createElement('div');
-  progressEl.className = 'pt-progress';
-
   overlay.appendChild(headerEl);
   overlay.appendChild(boardWrap);
+  overlay.appendChild(titleEl);
+  overlay.appendChild(progressEl);
   overlay.appendChild(statusEl);
   overlay.appendChild(noteCardEl);
   overlay.appendChild(altCardEl);
-  overlay.appendChild(progressEl);
   document.body.appendChild(overlay);
 
   // ── Chess helpers ─────────────────────────────────────────────────────────
@@ -147,17 +172,44 @@ export function startDrill(line: Line, opts: DrillOptions): void {
   const ro = new ResizeObserver(() => cg.redrawAll());
   ro.observe(boardEl);
 
-  // ── Progress ──────────────────────────────────────────────────────────────
+  // ── Progress dots ───────────────────────────────────────────────────────────
 
-  function updateProgress(): void {
-    const userIdxs = moves
-      .map((_, i) => i)
-      .filter(i => userColour === 'white' ? i % 2 === 0 : i % 2 !== 0);
-    const done = userIdxs.filter(i => i < moveIndex).length;
-    progressEl.textContent = `Move ${done} / ${userIdxs.length}`;
+  // Indices into `moves` that are the user's own moves.
+  const userIdxs = moves
+    .map((_, i) => i)
+    .filter(i => (userColour === 'white' ? i % 2 === 0 : i % 2 !== 0));
+
+  const dotEls: HTMLElement[] = [];
+  for (let k = 0; k < userIdxs.length; k++) {
+    const dot = document.createElement('span');
+    dot.className = 'pt-dot';
+    progressEl.appendChild(dot);
+    dotEls.push(dot);
   }
 
-  updateProgress();
+  // Mark the dot for the user move at `mi`. Red is sticky for the rest of the
+  // line — a correct replay never overrides an earlier miss.
+  function markDot(mi: number, state: 'correct' | 'wrong'): void {
+    const di = userIdxs.indexOf(mi);
+    if (di < 0) return;
+    const dot = dotEls[di];
+    if (state === 'wrong') {
+      dot.classList.add('pt-dot--wrong');
+    } else if (!dot.classList.contains('pt-dot--wrong')) {
+      dot.classList.add('pt-dot--correct');
+    }
+  }
+
+  // ── Status line ─────────────────────────────────────────────────────────────
+
+  function setStatus(text: string, variant = ''): void {
+    statusEl.textContent = text;
+    statusEl.className = 'pt-status' + (variant ? ' ' + variant : '');
+  }
+
+  function promptYourMove(): void {
+    setStatus('Your move', 'pt-status--prompt');
+  }
 
   // ── Error flash ───────────────────────────────────────────────────────────
 
@@ -166,6 +218,34 @@ export function startDrill(line: Line, opts: DrillOptions): void {
     flash.className = 'pt-error-flash';
     boardWrap.appendChild(flash);
     flash.addEventListener('animationend', () => flash.remove(), { once: true });
+  }
+
+  // ── Confetti ────────────────────────────────────────────────────────────────
+
+  function burstConfetti(): void {
+    // Respect users who'd rather not have motion.
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const layer = document.createElement('div');
+    layer.className = 'confetti-layer';
+    const colors = ['#c07a2a', '#2d7d3e', '#e8c14a', '#d4633f', '#5b8fb0', '#f5ede0'];
+    const N = 26;
+    for (let i = 0; i < N; i++) {
+      const p = document.createElement('span');
+      p.className = 'confetti-piece';
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 55 + Math.random() * 120;
+      const dx = Math.cos(angle) * dist;
+      const dy = Math.sin(angle) * dist - 35; // bias upward
+      p.style.setProperty('--dx', `${dx.toFixed(0)}px`);
+      p.style.setProperty('--dy', `${dy.toFixed(0)}px`);
+      p.style.setProperty('--rot', `${(Math.random() * 720 - 360).toFixed(0)}deg`);
+      p.style.background = colors[i % colors.length];
+      p.style.animationDelay = `${(Math.random() * 60).toFixed(0)}ms`;
+      layer.appendChild(p);
+    }
+    boardWrap.appendChild(layer);
+    setTimeout(() => layer.remove(), 1300);
   }
 
   // ── Note card (mistake hints) ─────────────────────────────────────────────
@@ -230,25 +310,45 @@ export function startDrill(line: Line, opts: DrillOptions): void {
     altCardEl.innerHTML = '';
   }
 
-  // ── Full wrong-move sequence ───────────────────────────────────────────────
+  // ── Wrong-move flow (full mode) ────────────────────────────────────────────
 
-  function handleWrongMoveFull(expected: MoveNode): void {
-    awaitingCorrectReplay = true;
-
-    // 1. Brief red flash over the board (~600ms CSS animation).
-    flashError();
-
-    // 2. Snap board back. chess.js was never updated (we don't call chess.move()
-    //    in the wrong-move branch), so chess.fen() is still the pre-move FEN.
+  // Snap the board back to the pre-move position and re-enable the user's pieces.
+  function snapBack(): void {
     cg.set({
       fen: chess.fen(),
       turnColor: cgTurn(),
       movable: { color: userColour, dests: legalDests() },
     });
+  }
 
-    // 3. Draw a hint arrow. Deferred to the next animation frame so it always
-    //    runs after chessground's own pending render, avoiding a shapes-clearing
-    //    race condition.
+  // A wrong attempt in full mode. The first wrong attempt on a move records the
+  // miss and reddens its dot (recordMiss fires once per node). Retries are
+  // allowed up to the pref; after that, the correct-move arrow is revealed.
+  function registerWrongAttempt(expected: MoveNode): void {
+    if (wrongAttempts === 0) {
+      opts.recordMiss?.(expected);
+      markDot(moveIndex, 'wrong');
+    }
+    wrongAttempts++;
+
+    flashError();
+    snapBack();
+
+    if (wrongAttempts > retriesAllowed) {
+      revealCorrectMove(expected);
+    } else {
+      const left = retriesAllowed - wrongAttempts + 1;
+      setStatus(left === 1 ? 'Not quite — one more try' : 'Not quite — try again', 'pt-status--error');
+    }
+  }
+
+  // Draw the hint arrow and require the user to replay the correct move.
+  function revealCorrectMove(expected: MoveNode): void {
+    awaitingCorrectReplay = true;
+    setStatus(expected.note ? '' : 'Play the highlighted move', 'pt-status--reveal');
+
+    // Deferred to the next frame so it always runs after chessground's own
+    // pending render, avoiding a shapes-clearing race condition.
     requestAnimationFrame(() => {
       if (isCleaned) return;
       const orig = expected.uci.slice(0, 2) as Key;
@@ -263,8 +363,7 @@ export function startDrill(line: Line, opts: DrillOptions): void {
   function handleGoodAlternative(expected: MoveNode): void {
     awaitingAlternativePlay = true;
 
-    statusEl.textContent = `Good alternative! Your line plays ${expected.san}.`;
-    statusEl.className = 'pt-status pt-status--alt';
+    setStatus(`Good alternative! Your line plays ${expected.san}.`, 'pt-status--alt');
 
     // Restrict board to only the expected move (the green arrow shows where).
     const orig = expected.uci.slice(0, 2) as Key;
@@ -305,11 +404,11 @@ export function startDrill(line: Line, opts: DrillOptions): void {
         hideAltCard();
         awaitingAlternativePlay = false;
       }
-      statusEl.textContent = '';
-      statusEl.className = 'pt-status';
+      markDot(moveIndex, 'correct');
+      setStatus('');
       chess.move({ from, to, promotion: 'q' });
       moveIndex++;
-      updateProgress();
+      wrongAttempts = 0;
 
       if (moveIndex >= moves.length) {
         void completeRun();
@@ -324,52 +423,57 @@ export function startDrill(line: Line, opts: DrillOptions): void {
       });
 
       scheduleOpponent();
-    } else if (opts.wrongMoveMode === 'full' && !awaitingCorrectReplay && !awaitingAlternativePlay && opts.checkAlternative) {
-      // Async alternative check. Snap back and disable board immediately so the
-      // user can't play again while we wait for the engine.
-      checkingAlternative = true;
-      const preFen = chess.fen();
-      cg.set({
-        fen: preFen,
-        turnColor: cgTurn(),
-        movable: { color: undefined, dests: new Map() },
-      });
+      return;
+    }
 
-      opts.checkAlternative(preFen, from + to)
-        .then(isAlt => {
+    // ── Wrong move ──
+    if (opts.wrongMoveMode === 'full') {
+      // Already showing the arrow: just flash; don't re-record or re-check.
+      if (awaitingCorrectReplay) {
+        flashError();
+        snapBack();
+        // Re-draw the arrow (snapBack cleared the board state, not shapes, but
+        // keep it robust across renders).
+        requestAnimationFrame(() => {
           if (isCleaned) return;
-          checkingAlternative = false;
-          if (isAlt) {
-            handleGoodAlternative(expected);
-          } else {
-            opts.recordMiss?.(expected);
-            handleWrongMoveFull(expected);
-          }
-        })
-        .catch(() => {
-          if (isCleaned) return;
-          checkingAlternative = false;
-          opts.recordMiss?.(expected);
-          handleWrongMoveFull(expected);
+          const orig = expected.uci.slice(0, 2) as Key;
+          const dest = expected.uci.slice(2, 4) as Key;
+          cg.setAutoShapes([{ orig, dest, brush: 'accent' }]);
         });
-    } else {
-      // Synchronous wrong-move path (gentle mode or already in a hint state).
-      if (opts.wrongMoveMode !== 'full' || !awaitingCorrectReplay) {
-        opts.recordMiss?.(expected);
+        return;
       }
 
-      if (opts.wrongMoveMode === 'full') {
-        handleWrongMoveFull(expected);
-      } else {
-        // Gentle mode (default) — used by pre-training.
-        statusEl.textContent = 'Not yet — try that move again';
-        statusEl.className = 'pt-status pt-status--error';
+      // First wrong move on this position — maybe it's a good alternative.
+      if (opts.checkAlternative) {
+        checkingAlternative = true;
+        const preFen = chess.fen();
         cg.set({
-          fen: chess.fen(),
+          fen: preFen,
           turnColor: cgTurn(),
-          movable: { color: userColour, dests: legalDests() },
+          movable: { color: undefined, dests: new Map() },
         });
+
+        opts.checkAlternative(preFen, from + to)
+          .then(isAlt => {
+            if (isCleaned) return;
+            checkingAlternative = false;
+            if (isAlt) handleGoodAlternative(expected);
+            else registerWrongAttempt(expected);
+          })
+          .catch(() => {
+            if (isCleaned) return;
+            checkingAlternative = false;
+            registerWrongAttempt(expected);
+          });
+      } else {
+        registerWrongAttempt(expected);
       }
+    } else {
+      // Gentle mode (default) — used by pre-training. Retry freely, no arrow.
+      opts.recordMiss?.(expected);
+      markDot(moveIndex, 'wrong');
+      setStatus('Not yet — try that move again', 'pt-status--error');
+      snapBack();
     }
   }
 
@@ -381,7 +485,6 @@ export function startDrill(line: Line, opts: DrillOptions): void {
       const to = node.uci.slice(2, 4) as Key;
       chess.move({ from, to, promotion: 'q' });
       moveIndex++;
-      updateProgress();
 
       cg.set({
         fen: chess.fen(),
@@ -396,6 +499,7 @@ export function startDrill(line: Line, opts: DrillOptions): void {
       if (moveIndex >= moves.length) {
         void completeRun();
       } else {
+        if (isUserTurn()) promptYourMove();
         scheduleOpponent();
       }
     }, 700);
@@ -409,8 +513,9 @@ export function startDrill(line: Line, opts: DrillOptions): void {
       await opts.onBeforeComplete();
     }
 
-    statusEl.textContent = opts.completeMessage ?? 'Line complete';
-    statusEl.className = 'pt-status pt-status--success';
+    setStatus(opts.completeMessage ?? 'Line complete', 'pt-status--success');
+    if (opts.hideTitleUntilComplete) titleEl.removeAttribute('hidden');
+    if (opts.celebrateOnComplete) burstConfetti();
     setTimeout(() => { cleanup(); opts.onComplete(); }, 1500);
   }
 
@@ -423,5 +528,7 @@ export function startDrill(line: Line, opts: DrillOptions): void {
 
   if (!isUserTurn()) {
     scheduleOpponent();
+  } else {
+    promptYourMove();
   }
 }
