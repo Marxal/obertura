@@ -208,7 +208,7 @@ body {
    SVG icons from icons.ts are currentColor stroked, aria-hidden.
    ════════════════════════════════════════════════════════════════════════════ */
 
-.nav-tab svg,
+.tab-item svg,
 .btn-icon svg {
   flex-shrink: 0;
 }
@@ -233,6 +233,40 @@ header {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+}
+
+/* Left side of the header: optional back arrow + the wordmark. */
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+/* Back arrow — only shown on board screens (builder / training / watch),
+   where it replaces the bottom tab bar as the way out. */
+.nav-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  margin-left: -0.4rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+
+.nav-back[hidden] {
+  display: none;
+}
+
+.nav-back:active {
+  background: var(--accent-soft);
 }
 
 header h1 {
@@ -283,46 +317,71 @@ header h1 {
   color: #fff;
 }
 
-/* ── Navigation tabs ───────────────────────────────────────────────────────── */
+/* ── Bottom tab bar ─────────────────────────────────────────────────────────
+   Phone-first navigation: four destinations fixed to the bottom of the screen,
+   each an icon over a label. Hidden on board screens, where the header's back
+   arrow takes over. `main` reserves space for it so content never hides behind. */
 
-#main-nav {
+#bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  row-gap: 0.2rem;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-card);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-.nav-tab {
-  display: inline-flex;
+#bottom-nav[hidden] {
+  display: none;
+}
+
+.tab-item {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.4rem 0.875rem;
-  min-height: 36px;
+  justify-content: center;
+  gap: 0.15rem;
+  min-height: 56px;
+  padding: 0.4rem 0.25rem;
   border: none;
-  border-radius: 6px;
   background: transparent;
-  color: var(--text-muted);
+  color: var(--text-faint);
   font-family: system-ui, -apple-system, sans-serif;
-  font-size: 0.875rem;
+  font-size: 0.68rem;
   font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.12s, color 0.12s;
+  transition: color 0.12s;
 }
 
-.nav-tab:hover {
-  background: var(--accent-soft);
+.tab-item span {
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.tab-item:active {
   color: var(--text);
 }
 
-.nav-tab.active {
-  background: var(--accent);
-  color: #fff;
+.tab-item.active {
+  color: var(--accent);
 }
 
-.nav-tab.active:hover {
-  background: var(--accent);
-  filter: brightness(1.07);
+/* Keep page content clear of the fixed bottom bar. */
+main {
+  padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+}
+
+/* ── Home (Today) placeholder — filled in a later task ─────────────────────── */
+.home-placeholder {
+  padding: 3rem 1.5rem;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 0.95rem;
 }
 
 #board-wrap {
