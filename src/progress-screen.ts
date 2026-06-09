@@ -21,10 +21,14 @@ import {
 } from './progress';
 import { runProgressSelfTest } from './progress.selftest';
 import { currentStreak, trainedToday, getTrainingDays } from './streak';
+import { openLineMap, openColourMap } from './repertoire-map';
 
 export interface ProgressCallbacks {
   onTrainLine: (lineId: string, inTraining: boolean) => void;
 }
+
+// Cached so any card builder can look up a full Line by id when opening the map.
+let _lines: Line[] = [];
 
 export function renderProgressScreen(container: HTMLElement, cb: ProgressCallbacks): void {
   void doRender(container, cb);
@@ -34,6 +38,7 @@ async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<
   container.innerHTML = '<p class="lines-loading">Loading…</p>';
   const [games, lines] = await Promise.all([getAllGames(), getAllLines()]);
   container.innerHTML = '';
+  _lines = lines;
 
   const report = crossReference(games, lines);
 
@@ -44,6 +49,7 @@ async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<
 
   if (lines.length > 0) {
     renderConfidenceChart(container, lines);
+    renderRepertoireMapSection(container, lines);
   }
 
   const needsAttention = computeNeedsAttention(lines, report);
@@ -273,6 +279,40 @@ function renderConfidenceChart(container: HTMLElement, lines: Line[]): void {
   container.appendChild(section);
 }
 
+// ── 4b. Repertoire Map section ────────────────────────────────────────────────
+
+function renderRepertoireMapSection(container: HTMLElement, lines: Line[]): void {
+  const section = statsSection('Repertoire Map', '');
+
+  const row = document.createElement('div');
+  row.className = 'rmap-trigger-row';
+
+  for (const colour of ['white', 'black'] as const) {
+    const colourLines = lines.filter(l => l.colour === colour);
+    if (!colourLines.length) continue;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'rmap-trigger-btn';
+
+    // Colour pip + label + count
+    const pip = document.createElement('span');
+    pip.className = `colour-pip colour-pip--${colour}`;
+    pip.setAttribute('aria-hidden', 'true');
+    btn.appendChild(pip);
+    btn.appendChild(document.createTextNode(
+      `${colour === 'white' ? 'White' : 'Black'} (${colourLines.length})`
+    ));
+
+    btn.addEventListener('click', () => openColourMap(colourLines, colour));
+    row.appendChild(btn);
+  }
+
+  if (!row.children.length) return;
+  section.appendChild(row);
+  container.appendChild(section);
+}
+
 // ── 5. Needs Attention ────────────────────────────────────────────────────────
 
 interface AttentionItem {
@@ -348,6 +388,17 @@ function renderNeedsAttention(container: HTMLElement, items: AttentionItem[], cb
     body.appendChild(reasonEl);
 
     card.appendChild(body);
+
+    const mapBtn = document.createElement('button');
+    mapBtn.type = 'button';
+    mapBtn.className = 'rmap-line-btn';
+    mapBtn.textContent = 'Map';
+    mapBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      const line = _lines.find(l => l.id === item.lineId);
+      if (line) openLineMap(line);
+    });
+    card.appendChild(mapBtn);
 
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -610,6 +661,18 @@ function progressCard(item: LineProgress, cb: ProgressCallbacks): HTMLElement {
   body.appendChild(note);
 
   card.appendChild(body);
+
+  // Small "Map" button to open this line's variation tree.
+  const mapBtn = document.createElement('button');
+  mapBtn.type = 'button';
+  mapBtn.className = 'rmap-line-btn';
+  mapBtn.textContent = 'Map';
+  mapBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const line = _lines.find(l => l.id === item.lineId);
+    if (line) openLineMap(line);
+  });
+  card.appendChild(mapBtn);
 
   const btn = document.createElement('button');
   btn.type = 'button';
