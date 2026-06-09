@@ -290,6 +290,10 @@ header h1 {
   flex-shrink: 0;
 }
 
+#theme-switch[hidden] {
+  display: none;
+}
+
 #theme-switch button {
   display: flex;
   align-items: center;
@@ -315,6 +319,45 @@ header h1 {
 #theme-switch button.active {
   background: var(--accent);
   color: #fff;
+}
+
+/* Save line — lives in the header top-right on the builder screen (in place of
+   the theme switch, which is a preference and hidden there). */
+.header-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.95rem;
+  min-height: 36px;
+  flex-shrink: 0;
+  background-color: var(--maroon);
+  background-image: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 55%, rgba(0,0,0,0.06) 100%);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 2px 5px rgba(122,34,48,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+  text-shadow: 0 1px 1px rgba(0,0,0,0.18);
+  transition: filter 0.12s, box-shadow 0.12s;
+}
+
+.header-save[hidden] {
+  display: none;
+}
+
+.header-save:hover {
+  filter: brightness(1.1);
+}
+
+.header-save:active {
+  filter: brightness(0.88);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.18);
+  transform: translateY(1px);
 }
 
 /* ── Bottom tab bar ─────────────────────────────────────────────────────────
@@ -641,36 +684,41 @@ cg-board square.move-dest.oc {
   gap: 0.75rem;
 }
 
-/* Title row: the live opening name (the auto-given title) with small Watch and
-   Rename controls beside it. */
+/* Title row: a colour pip + the line name + a small edit control. Typography
+   matches the My Lines detail cards (.dline-name) for consistency. */
 .line-title-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
+}
+
+.line-title-row .colour-pip {
+  width: 12px;
+  height: 12px;
 }
 
 .opening-name {
   flex: 1;
   min-width: 0;
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 1.05rem;
-  font-weight: 600;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
   color: var(--text);
-  min-height: 1.2em;
+  line-height: 1.3;
+  min-height: 1.3em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* No name yet ("Unnamed line") — show it quiet and italic. */
+/* No name yet / "Play the first move" prompt — quiet and italic. */
 .opening-name--empty {
   font-style: italic;
   font-weight: 400;
   color: var(--text-faint);
 }
 
-/* Small round icon controls in the title row (Watch / Rename). */
-.watch-btn,
+/* Small round edit control in the title row. */
 .rename-btn {
   display: inline-flex;
   align-items: center;
@@ -689,12 +737,13 @@ cg-board square.move-dest.oc {
   transition: color 0.12s, border-color 0.12s, filter 0.12s;
 }
 
-.watch-btn:active,
 .rename-btn:active {
   filter: brightness(0.95);
   transform: translateY(1px);
 }
 
+/* Watch/play-line button (in the eval controls, next to Flip): accent while
+   a line is playing back. */
 .watch-btn.playing {
   color: var(--accent);
   border-color: var(--accent);
@@ -716,6 +765,16 @@ cg-board square.move-dest.oc {
   border-radius: 999px;
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+/* The moves are their own distinct block, set apart from the title and notes
+   with a recessed parchment panel. */
+.moves-block {
+  background: var(--bg-parchment);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  padding: 0.4rem 0.5rem;
+  box-shadow: inset 0 1px 2px rgba(28, 22, 16, 0.06);
 }
 
 /* Move navigation: step arrows flanking the scrolling move strip, with discrete
@@ -818,117 +877,6 @@ cg-board square.move-dest.oc {
   background: var(--accent);
   color: #fff;
   font-weight: 700;
-}
-
-/* Reset line — a discrete icon button sitting next to Save. */
-.reset-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  width: 38px;
-  height: 38px;
-  padding: 0;
-  background-color: var(--bg-card);
-  background-image: linear-gradient(180deg, rgba(255,255,255,0.45) 0%, transparent 100%);
-  color: var(--text-muted);
-  border: 1px solid var(--border-card);
-  border-radius: 8px;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  box-shadow: var(--shadow-card);
-  transition: color 0.12s, border-color 0.12s, box-shadow 0.12s, filter 0.12s;
-}
-
-.reset-btn:hover {
-  color: var(--text);
-  border-color: var(--border);
-  box-shadow: var(--shadow-card-hover);
-}
-
-.reset-btn:active {
-  filter: brightness(0.95);
-  box-shadow: inset 0 1px 3px rgba(28,22,16,0.1);
-  transform: translateY(1px);
-}
-
-/* Save line form */
-#save-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--hairline);
-}
-
-#save-form input[type='text'] {
-  width: 100%;
-  padding: 0.6rem 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg-card);
-  color: var(--text);
-  font-family: system-ui, -apple-system, sans-serif;
-  font-size: 1rem;
-}
-
-#save-form input[type='text']::placeholder {
-  color: var(--text-fainter);
-}
-
-#save-form input[type='text']:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-#save-row {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-
-/* Training toggle sits at the right edge of the save row. */
-#save-row #train-toggle {
-  margin-left: auto;
-}
-
-#save-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.55rem 1.25rem;
-  min-height: 44px;
-  background-color: var(--maroon);
-  background-image: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 55%, rgba(0,0,0,0.06) 100%);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  font-size: 0.925rem;
-  font-family: system-ui, -apple-system, sans-serif;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 2px 5px rgba(122,34,48,0.3), 0 1px 2px rgba(122,34,48,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
-  text-shadow: 0 1px 1px rgba(0,0,0,0.18);
-  transition: filter 0.12s, box-shadow 0.12s;
-}
-
-#save-btn:hover {
-  filter: brightness(1.1);
-  box-shadow: 0 3px 8px rgba(122,34,48,0.35), 0 1px 3px rgba(122,34,48,0.25);
-}
-
-#save-btn:active {
-  filter: brightness(0.88);
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.18);
-  transform: translateY(1px);
-}
-
-#save-msg {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--maroon);
 }
 
 /* Settings */
@@ -3246,4 +3194,50 @@ cg-board square.move-dest.oc {
   font-size: 0.7rem;
   font-weight: 600;
   color: var(--text-muted);
+}
+
+/* ── Toast (transient confirmation) ─────────────────────────────────────────── */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 4.75rem);
+  transform: translate(-50%, 1.5rem);
+  z-index: 200;
+  max-width: calc(100% - 2rem);
+  padding: 0.6rem 1rem;
+  background: var(--text);
+  color: var(--bg-card);
+  border-radius: 999px;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.toast--show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* ── Just-saved line highlight (My Lines) ───────────────────────────────────── */
+.dline-card--highlight {
+  animation: dline-flash 2.2s ease-out;
+}
+
+@keyframes dline-flash {
+  0% {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-card);
+  }
+  60% {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-card);
+  }
+  100% {
+    border-color: var(--border-card);
+    box-shadow: var(--shadow-card);
+  }
 }

@@ -45,6 +45,7 @@
             <button type="button" data-theme-choice="auto" aria-label="Match system theme" title="Auto">A</button>
             <button type="button" data-theme-choice="dark" aria-label="Dark theme" title="Dark">☾</button>
           </div>
+          <button id="header-save" class="header-save" type="button" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg><span id="header-save-label">Save line</span></button>
         </div>
       </header>
       <main>
@@ -55,20 +56,22 @@
           </div>
           <div id="eval-controls"></div>
           <div id="line-panel">
+            <div class="moves-block">
+              <div class="move-nav">
+                <button id="move-first" type="button" class="move-nav-btn move-nav-btn--edge" aria-label="Go to start" title="Start"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m11 17-5-5 5-5"/><path d="m18 17-5-5 5-5"/></svg></button>
+                <button id="move-prev" type="button" class="move-nav-btn" aria-label="Step back" title="Back"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+                <div id="move-list"></div>
+                <button id="move-next" type="button" class="move-nav-btn" aria-label="Step forward" title="Forward"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
+                <button id="move-last" type="button" class="move-nav-btn move-nav-btn--edge" aria-label="Go to end" title="End"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 17 5-5-5-5"/><path d="m13 17 5-5-5-5"/></svg></button>
+              </div>
+            </div>
+
             <div class="line-title-row">
+              <span class="colour-pip colour-pip--white" id="title-pip" aria-hidden="true"></span>
               <div class="opening-name" id="opening-name" aria-live="polite"></div>
-              <button id="watch-btn" type="button" class="watch-btn" aria-label="Watch line" title="Watch line"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>
-              <button id="rename-btn" type="button" class="rename-btn" aria-label="Edit name and tags" title="Edit name & tags"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+              <button id="rename-btn" type="button" class="rename-btn" aria-label="Edit name and tags" title="Edit name & tags"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg></button>
             </div>
             <div id="builder-tags" class="builder-tags" hidden></div>
-
-            <div class="move-nav">
-              <button id="move-first" type="button" class="move-nav-btn move-nav-btn--edge" aria-label="Go to start" title="Start"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m11 17-5-5 5-5"/><path d="m18 17-5-5 5-5"/></svg></button>
-              <button id="move-prev" type="button" class="move-nav-btn" aria-label="Step back" title="Back"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
-              <div id="move-list"></div>
-              <button id="move-next" type="button" class="move-nav-btn" aria-label="Step forward" title="Forward"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
-              <button id="move-last" type="button" class="move-nav-btn move-nav-btn--edge" aria-label="Go to end" title="End"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 17 5-5-5-5"/><path d="m13 17 5-5-5-5"/></svg></button>
-            </div>
 
             <div id="move-explanation" class="move-explanation" hidden aria-live="polite"></div>
             <div id="note-panel" hidden>
@@ -76,22 +79,10 @@
                 <label id="note-panel-label" class="note-panel-label" for="move-note-input">Note for this move</label>
                 <div class="note-panel-actions">
                   <button id="note-add-btn" type="button" class="note-icon-btn" aria-label="Add suggestion to note" title="Add suggestion to note" hidden><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg></button>
-                  <button id="note-write-btn" type="button" class="note-icon-btn" aria-label="Write a note" title="Write a note"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+                  <button id="note-write-btn" type="button" class="note-icon-btn" aria-label="Write a note" title="Write a note"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4"/><path d="M2 6h4"/><path d="M2 10h4"/><path d="M2 14h4"/><path d="M2 18h4"/><path d="M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"/></svg></button>
                 </div>
               </div>
               <textarea id="move-note-input" class="note-panel-textarea" placeholder="Reminder or plan for this move…" rows="2" hidden></textarea>
-            </div>
-
-            <div id="save-form">
-              <div id="save-row">
-                <button id="save-btn"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg><span id="save-btn-label">Save line</span></button>
-                <button id="reset-btn" type="button" class="reset-btn" aria-label="Reset line" title="Reset line"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg></button>
-                <button id="train-toggle" type="button" class="dline-toggle" role="switch" aria-checked="false" hidden>
-                  <span class="dline-switch"><span class="dline-switch-knob"></span></span>
-                  <span class="dline-toggle-label">Training OFF</span>
-                </button>
-              </div>
-              <span id="save-msg" aria-live="polite"></span>
             </div>
           </div>
         </div>

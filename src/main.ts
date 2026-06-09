@@ -18,7 +18,7 @@ import {
 import { runChesscomSelfTest } from './chesscom.selftest';
 import { explainMove, describeGrade } from './explain';
 import type { Line } from './types';
-import { renderLinesScreen } from './lines-screen';
+import { renderLinesScreen, focusSavedLine } from './lines-screen';
 import { renderProgressScreen } from './progress-screen';
 import { startPretrainingRun } from './pretraining';
 import { renderTrainScreen } from './train-screen';
@@ -78,6 +78,15 @@ function currentTitle(): string {
 // rename control. The rename input, when open, is left alone.
 function renderTitle(): void {
   const el = document.getElementById('opening-name')!;
+  const pip = document.getElementById('title-pip');
+  if (pip) pip.className = `colour-pip colour-pip--${saveColour}`;
+  // A fresh line with no moves yet: prompt the first move rather than show
+  // an empty "Unnamed line".
+  if (isEmpty()) {
+    el.textContent = 'Play the first move';
+    el.classList.add('opening-name--empty');
+    return;
+  }
   const title = currentTitle();
   el.textContent = title || 'Unnamed line';
   el.classList.toggle('opening-name--empty', !title);
@@ -518,7 +527,6 @@ function playUci(uci: string): void {
 
   const fullUci = from + to + (result.promotion ?? '');
   addMove(result.san, fullUci, chess.fen());
-  document.getElementById('save-msg')!.textContent = '';
   cg.set({
     fen: chess.fen(),
     turnColor: turnColor(),
@@ -541,16 +549,17 @@ let loadedLineId: string | null = null;
 let loadedLineCreatedAt: number | undefined;
 let loadedLineInTraining = false;
 
-// The most recently saved line — drives the training toggle visibility.
+// The currently loaded/saved line — used to preserve training data (confidence,
+// schedule, inTraining) when re-saving an existing line.
 let currentTrainingLine: Line | null = null;
 
 // Single timer handle for Watch line — prevents stacked playback.
 let playbackTimer: ReturnType<typeof setTimeout> | undefined;
 
-// Watch line is now an icon-only button: a play triangle that becomes a stop
-// square while a line is playing back.
-const PLAY_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
-const STOP_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>';
+// Watch line is an icon-only button (next to Flip): a play triangle that becomes
+// a stop square while a line is playing back.
+const PLAY_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" stroke="none" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
+const STOP_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" stroke="none" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>';
 
 function setWatchPlaying(playing: boolean): void {
   const btn = document.getElementById('watch-btn') as HTMLButtonElement | null;
@@ -585,29 +594,29 @@ function goToStart(): void {
   engine.evaluate(chess.fen());
 }
 
-// Sync the builder's training toggle with the current line state. The toggle
-// mirrors the My Lines card switch, so it only appears once a line is saved
-// (you can't train a line that doesn't exist yet).
-function updateTrainingToggle(): void {
-  const btn = document.getElementById('train-toggle') as HTMLButtonElement | null;
-  if (!btn) return;
-  if (!currentTrainingLine) {
-    btn.hidden = true;
-    return;
-  }
-  btn.hidden = false;
-  const on = currentTrainingLine.inTraining;
-  btn.classList.toggle('dline-toggle--on', on);
-  btn.setAttribute('aria-checked', String(on));
-  const label = btn.querySelector('.dline-toggle-label');
-  if (label) label.textContent = `Training ${on ? 'ON' : 'OFF'}`;
+// The header save button reads "Save changes" when editing an existing line,
+// and "Save line" for a fresh one — standard create-vs-edit wording.
+function updateSaveButtonLabel(): void {
+  const label = document.getElementById('header-save-label');
+  if (label) label.textContent = loadedLineId ? 'Save changes' : 'Save line';
 }
 
-// The save button reads "Save changes" when editing an existing line, and
-// "Save line" for a fresh one — standard create-vs-edit wording.
-function updateSaveButtonLabel(): void {
-  const label = document.getElementById('save-btn-label');
-  if (label) label.textContent = loadedLineId ? 'Save changes' : 'Save line';
+// A small transient toast for confirmations ("Line saved ✓").
+let toastTimer: ReturnType<typeof setTimeout> | undefined;
+function showToast(message: string): void {
+  let toast = document.getElementById('toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'toast';
+    toast.className = 'toast';
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.classList.add('toast--show');
+  if (toastTimer !== undefined) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast!.classList.remove('toast--show'), 2200);
 }
 
 // ── Navigation ────────────────────────────────────────────────────────────────
@@ -637,9 +646,9 @@ let pendingTrainLineId: string | null = null;
 // the due session immediately. Consumed the next time the Train view is shown.
 let pendingTrainAutoStart = false;
 
-// Reset the builder to an empty line of the given colour. Shared by the
-// "Reset line" button (always White) and the Home screen's per-colour Add
-// buttons (which preselect the side).
+// Reset the builder to an empty line of the given colour. Shared by the Home
+// screen's per-colour Add buttons (which preselect the side) and the post-save
+// redirect.
 function clearBuilder(colour: 'white' | 'black' = 'white'): void {
   stopPlayback();
   reset();
@@ -650,7 +659,6 @@ function clearBuilder(colour: 'white' | 'black' = 'white'): void {
   currentTrainingLine = null;
   currentTags = [];
   saveColour = colour;
-  document.getElementById('save-msg')!.textContent = '';
   // Fresh line: drop any manual title and clear the auto-detected name.
   manualTitle = null;
   detectedName = '';
@@ -665,7 +673,6 @@ function clearBuilder(colour: 'white' | 'black' = 'white'): void {
   });
   renderMoveList();
   renderNotePanel();
-  updateTrainingToggle();
   updateSaveButtonLabel();
   evalPanel.clear();
   engine.evaluate(chess.fen());
@@ -772,6 +779,12 @@ function showView(view: ViewName): void {
   document.getElementById('bottom-nav')!.toggleAttribute('hidden', onBoard);
   document.getElementById('nav-back')!.toggleAttribute('hidden', !onBoard);
 
+  // The builder puts Save in the top-right and hides the theme switch — no
+  // user preferences on the builder screen.
+  const onBuilder = view === 'builder';
+  document.getElementById('header-save')!.toggleAttribute('hidden', !onBuilder);
+  document.getElementById('theme-switch')!.toggleAttribute('hidden', onBuilder);
+
   document.querySelectorAll<HTMLElement>('#bottom-nav .tab-item').forEach(btn => {
     const active = btn.dataset.view === view;
     btn.classList.toggle('active', active);
@@ -819,9 +832,10 @@ function onOpenLine(line: Line): void {
   loadedLineCreatedAt = line.createdAt;
   loadedLineInTraining = line.inTraining;
 
-  // Set the training toggle state for the loaded line.
+  // Keep the loaded line so a re-save preserves its training data.
   currentTrainingLine = line;
   currentTags = [...line.tags];
+  saveColour = line.colour;
 
   chess.reset();
   cg.set({
@@ -839,13 +853,8 @@ function onOpenLine(line: Line): void {
   renderTitle();
   renderBuilderTags();
 
-  saveColour = line.colour;
-
-  document.getElementById('save-msg')!.textContent = '';
-
   renderMoveList();
   renderNotePanel();
-  updateTrainingToggle();
   updateSaveButtonLabel();
   showView('builder');
 }
@@ -866,79 +875,58 @@ function setupNav(): void {
   });
 }
 
-// ── Save form ─────────────────────────────────────────────────────────────────
+// ── Save ────────────────────────────────────────────────────────────────────
+// Save lives in the header (top-right). On success we confirm with a toast and
+// drop the user back on My Lines, where the just-saved line is highlighted and
+// can be enrolled in training.
 
-function setupSaveForm() {
-  const saveBtn = document.getElementById('save-btn') as HTMLButtonElement;
-  const saveMsg = document.getElementById('save-msg')!;
-  const trainToggle = document.getElementById('train-toggle') as HTMLButtonElement;
+async function saveCurrentLine(): Promise<void> {
+  if (isEmpty()) {
+    showToast('Play a move first');
+    return;
+  }
 
-  // Training toggle — mirrors the My Lines card switch. ON enrols the line
-  // (running the pretraining pass); OFF excludes it but keeps its SM-2 data.
-  trainToggle.addEventListener('click', async () => {
-    if (!currentTrainingLine) return;
-    if (currentTrainingLine.inTraining) {
-      const updated: Line = { ...currentTrainingLine, inTraining: false };
-      await saveLine(updated);
-      loadedLineInTraining = false;
-      currentTrainingLine = updated;
-      updateTrainingToggle();
-      saveMsg.textContent = 'Removed from training';
-    } else {
-      startPretrainingRun(
-        currentTrainingLine,
-        () => {
-          loadedLineInTraining = true;
-          currentTrainingLine = currentTrainingLine ? { ...currentTrainingLine, inTraining: true } : null;
-          updateTrainingToggle();
-          saveMsg.textContent = 'Added to training ✓';
-        },
-        () => { /* cancelled — stay in builder */ }
-      );
-    }
-  });
+  // Tags are edited in the lightbox; use the working set as-is.
+  const tags = [...currentTags];
 
-  saveBtn.addEventListener('click', async () => {
-    if (isEmpty()) {
-      saveMsg.textContent = 'Play a move first';
-      return;
-    }
+  // Auto-naming (default): the title is the manual name if the user renamed,
+  // otherwise the opening name from the bundled database for the whole line.
+  const opening = detectedNameForLine();
+  const name = currentTitle() || opening || 'Untitled line';
+  manualTitle = name;
 
-    // Tags are edited in the lightbox; use the working set as-is.
-    const tags = [...currentTags];
+  const isNew = !loadedLineId;
+  const id = loadedLineId ?? crypto.randomUUID();
+  const line: Line = {
+    id,
+    name,
+    tags,
+    colour: saveColour,
+    openingName: opening || null,
+    // Preserve training progress on edit; new lines start fresh.
+    confidence: isNew ? 0 : (currentTrainingLine?.confidence ?? 0),
+    lastTrained: isNew ? null : (currentTrainingLine?.lastTrained ?? null),
+    // Preserve inTraining for existing lines; new lines start as false.
+    inTraining: isNew ? false : loadedLineInTraining,
+    tree: serialise(),
+    createdAt: isNew ? Date.now() : (loadedLineCreatedAt ?? Date.now()),
+  };
 
-    // Auto-naming (default): the title is the manual name if the user renamed,
-    // otherwise the opening name from the bundled database for the whole line.
-    const opening = detectedNameForLine();
-    const name = currentTitle() || opening || 'Untitled line';
-    // Keep the title row in sync with what we just saved.
-    manualTitle = name;
-    renderTitle();
+  await saveLine(line);
+  loadedLineId = id;
+  loadedLineCreatedAt = line.createdAt;
+  currentTrainingLine = line;
 
-    const isNew = !loadedLineId;
-    const id = loadedLineId ?? crypto.randomUUID();
-    const line: Line = {
-      id,
-      name,
-      tags,
-      colour: saveColour,
-      openingName: opening || null,
-      // Preserve training progress on edit; new lines start fresh.
-      confidence: isNew ? 0 : (currentTrainingLine?.confidence ?? 0),
-      lastTrained: isNew ? null : (currentTrainingLine?.lastTrained ?? null),
-      // Preserve inTraining for existing lines; new lines start as false.
-      inTraining: isNew ? false : loadedLineInTraining,
-      tree: serialise(),
-      createdAt: isNew ? Date.now() : (loadedLineCreatedAt ?? Date.now()),
-    };
+  showToast(isNew ? 'Line saved ✓' : 'Changes saved ✓');
+  // Surface the saved line on My Lines, highlighted so it's easy to find and
+  // add to training.
+  focusSavedLine(id);
+  showView('lines');
+}
 
-    await saveLine(line);
-    loadedLineId = id;
-    loadedLineCreatedAt = line.createdAt;
-    currentTrainingLine = line;
-    saveMsg.textContent = 'Saved ✓';
-    updateTrainingToggle();
-    updateSaveButtonLabel();
+function setupSaveButton() {
+  document.getElementById('header-save')!.addEventListener('click', () => {
+    void saveCurrentLine();
   });
 }
 
@@ -1117,7 +1105,6 @@ requestAnimationFrame(() => {
         if (!result) return;
         const uci = from + to + (result.promotion ?? '');
         addMove(result.san, uci, chess.fen());
-        document.getElementById('save-msg')!.textContent = '';
         cg.set({
           turnColor: turnColor(),
           movable: {
@@ -1163,7 +1150,7 @@ requestAnimationFrame(() => {
     engine.evaluate(chess.fen());
   }
 
-  setupSaveForm();
+  setupSaveButton();
   // Settings (retries) and the Chess.com import are parked: they'll move to a
   // dedicated Settings screen (top-right of the app) rather than living in the
   // builder. setupSettings()/setupImport() below are kept ready to re-wire then.
@@ -1171,8 +1158,6 @@ requestAnimationFrame(() => {
   setupTitleControls();
   setupNotePanel();
   setupMoveNav();
-
-  document.getElementById('reset-btn')!.addEventListener('click', () => clearBuilder('white'));
 
   new ResizeObserver(() => cg.redrawAll()).observe(boardEl);
 
