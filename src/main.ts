@@ -480,6 +480,47 @@ function startNewLine(colour: 'white' | 'black'): void {
   showView('builder');
 }
 
+// Seed the builder with a UCI move list, then open it (from "From my games"
+// suggestions). Starts from a clean, unsaved line so a Save creates a new one.
+function buildFromUcis(ucis: string[], colour: 'white' | 'black'): void {
+  clearBuilder(colour);
+  for (const uci of ucis) {
+    const from = uci.slice(0, 2);
+    const to = uci.slice(2, 4);
+    const promotion = (uci[4] as 'q' | 'r' | 'b' | 'n') || 'q';
+    const result = chess.move({ from, to, promotion });
+    if (!result) break; // stop on an illegal move rather than corrupt the tree
+    addMove(result.san, from + to + (result.promotion ?? ''), chess.fen());
+  }
+  const last = mainline()[mainline().length - 1];
+  cg.set({
+    fen: chess.fen(),
+    orientation: colour,
+    turnColor: turnColor(),
+    movable: { color: 'both', dests: legalDests() },
+    lastMove: last
+      ? [last.uci.slice(0, 2) as Key, last.uci.slice(2, 4) as Key]
+      : undefined,
+  });
+  renderMoveList();
+  renderNotePanel();
+  updateOpeningName();
+  evalPanel.clear();
+  engine.evaluate(chess.fen());
+  showView('builder');
+}
+
+// The full dependency set the My Lines screen needs. Centralised so every
+// place that (re)renders it stays in sync.
+function linesScreenDeps(): Parameters<typeof renderLinesScreen>[1] {
+  return {
+    onOpenLine,
+    onAddLine: startNewLine,
+    onStartTraining: handleStartTraining,
+    onBuildLine: buildFromUcis,
+  };
+}
+
 // Drill or enrol a single line by id, from the Progress screen. An in-training
 // line drills immediately; a saved line that isn't in training yet runs the
 // "confirm & add to training" flow, then returns to Progress.
@@ -504,7 +545,7 @@ function handleStartTraining(line: Line): void {
     () => {
       // Re-render lines screen so the "Add to training" button disappears.
       const linesEl = document.getElementById('view-lines')!;
-      renderLinesScreen(linesEl, { onOpenLine, onAddLine: startNewLine, onStartTraining: handleStartTraining });
+      renderLinesScreen(linesEl, linesScreenDeps());
     },
     () => { /* cancelled — user is already back at the lines screen */ }
   );
@@ -542,7 +583,7 @@ function showView(view: ViewName): void {
   });
 
   if (view === 'lines') {
-    renderLinesScreen(linesEl, { onOpenLine, onAddLine: startNewLine, onStartTraining: handleStartTraining });
+    renderLinesScreen(linesEl, linesScreenDeps());
   }
 
   if (view === 'home') {

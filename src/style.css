@@ -1178,41 +1178,111 @@ cg-board square.move-dest.oc {
   overflow: hidden;
 }
 
-/* ── Detailed list (same page, below the carousels) ─────────────────────────── */
+/* "Played N×" badge under a mini-card title — from the last games import. */
+.carousel-card-badge {
+  align-self: flex-start;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--maroon);
+  background: rgba(156, 107, 67, 0.14);
+  padding: 0.1rem 0.4rem;
+  border-radius: 9px;
+  font-family: system-ui, -apple-system, sans-serif;
+}
 
+/* ── My Lines tabs (Saved lines | From my games) ────────────────────────────── */
+
+/* Two prominent, equally-weighted tab buttons, side by side. */
+.lines-tabs {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem 0.75rem;
+  margin-top: 0.25rem;
+  border-top: 1px solid var(--hairline-soft);
+}
+
+.lines-tab {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.7rem 0.5rem;
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.14s, color 0.14s, border-color 0.14s, transform 0.12s;
+}
+
+.lines-tab:active { transform: translateY(1px); }
+
+.lines-tab-icon { flex: 0 0 auto; }
+
+.lines-tab.active {
+  background: var(--maroon);
+  color: #fff;
+  border-color: var(--maroon);
+}
+
+.lines-tab-content {
+  padding-top: 0.1rem;
+}
+
+/* Detailed list (now lives inside the Saved lines tab). */
 .detail-list {
   margin-top: 0.5rem;
   border-top: 1px solid var(--hairline-soft);
   padding-top: 0.25rem;
 }
 
-/* Colour filter (Show) + order options, wrapping side by side. */
+/* Colour filter + order dropdown — kept to a single line (no wrap). */
 .dfilter-row {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0 1rem 0.6rem;
-  flex-wrap: wrap;
+  padding: 0.6rem 1rem;
+  flex-wrap: nowrap;
 }
 
-.dfilter-label {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--text-faint);
+/* The Show: All / White / Black segmented control. */
+.dfilter-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
 }
 
 .dfilter-btn {
-  padding: 0.3rem 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
   border: 1px solid var(--border);
   border-radius: 20px;
   background: var(--bg-card);
   color: var(--text-muted);
   font-family: system-ui, -apple-system, sans-serif;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+/* Colour pip inside a filter button stays small and crisp. */
+.dfilter-btn .colour-pip {
+  width: 11px;
+  height: 11px;
 }
 
 .dfilter-btn.active {
@@ -1351,6 +1421,18 @@ cg-board square.move-dest.oc {
   border-radius: 10px;
 }
 
+/* "Played N× in your games" badge on a saved-line row. */
+.dline-played {
+  align-self: flex-start;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--maroon);
+  background: rgba(156, 107, 67, 0.14);
+  padding: 0.15rem 0.5rem;
+  border-radius: 10px;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
 .dline-opening {
   font-size: 0.8rem;
   color: var(--text-muted);
@@ -1383,7 +1465,7 @@ cg-board square.move-dest.oc {
   user-select: none;
 }
 
-/* Footer: training toggle bottom-left, icon actions bottom-right. */
+/* Footer: training toggle (+ Due tag) bottom-left, icon actions bottom-right. */
 .dline-footer {
   display: flex;
   align-items: center;
@@ -1392,6 +1474,14 @@ cg-board square.move-dest.oc {
   margin-top: 0.15rem;
   padding-top: 0.55rem;
   border-top: 1px solid var(--hairline-soft);
+}
+
+/* Training switch and the Due tag sit together on the left. */
+.dline-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
 }
 
 /* The single training control — a switch + label. Green when ON. */
@@ -2962,6 +3052,49 @@ cg-board square.move-dest.oc {
 
 .review-build-btn:active {
   filter: brightness(0.88);
+}
+
+/* ── From my games tab (refresh + suggestions) ──────────────────────────────── */
+
+.games-refresh-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem 0.25rem;
+}
+
+.games-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+  -webkit-tap-highlight-color: transparent;
+  transition: filter 0.12s, transform 0.12s;
+}
+
+.games-refresh-btn:active { filter: brightness(0.92); transform: translateY(1px); }
+.games-refresh-btn:disabled { opacity: 0.6; cursor: default; }
+
+.games-refresh-status {
+  font-size: 0.76rem;
+  color: var(--text-faint);
+}
+
+.games-intro {
+  padding: 0.1rem 1rem 0.5rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.4;
 }
 
 /* ── Progress screen (win-rate ↔ training) ─────────────────────────────────── */

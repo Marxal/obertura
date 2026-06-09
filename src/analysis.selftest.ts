@@ -1,7 +1,8 @@
 // A runnable, network-free check of the game-analysis logic — same spirit as
-// chesscom.selftest.ts and scheduler.selftest.ts. The Review screen has a "Run
-// analysis self-test" link that calls this and shows pass/fail, so the grouping,
-// scoring, and "left my prep" diff can be verified right on the phone, offline.
+// chesscom.selftest.ts and scheduler.selftest.ts. The "From my games" tab on My
+// Lines has a "Run analysis self-test" link that calls this and shows pass/fail,
+// so the grouping, scoring, and "left my prep" diff can be verified on the
+// phone, offline.
 
 import { Chess } from 'chess.js';
 import { analyseGames, openingFamily, UNKNOWN_FAMILY } from './analysis';
