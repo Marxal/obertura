@@ -18,17 +18,22 @@ import {
   describeDue,
 } from './scheduler';
 import { runSchedulerSelfTest } from './scheduler.selftest';
+import { recordTrainingDay } from './streak';
 
 // ── Screen entry point ──────────────────────────────────────────────────────────
 
 export function renderTrainScreen(
   container: HTMLElement,
-  opts: { focusLineId?: string } = {},
+  opts: { focusLineId?: string; autoStart?: boolean } = {},
 ): void {
-  void doRender(container, opts.focusLineId);
+  void doRender(container, opts.focusLineId, opts.autoStart);
 }
 
-async function doRender(container: HTMLElement, focusLineId?: string): Promise<void> {
+async function doRender(
+  container: HTMLElement,
+  focusLineId?: string,
+  autoStart?: boolean,
+): Promise<void> {
   container.innerHTML = '<p class="lines-loading">Loading…</p>';
   const allLines = await getAllLines();
   container.innerHTML = '';
@@ -54,6 +59,16 @@ async function doRender(container: HTMLElement, focusLineId?: string): Promise<v
   }
 
   const due = dueLines(trainingLines);
+
+  // Arrived from the Home screen's "Start training": jump straight into the due
+  // session rather than showing the list first. Falls through to the list when
+  // nothing is due (so the "all caught up" header still shows).
+  if (autoStart && due.length > 0) {
+    const session = new TrainingSession(trainingLines);
+    runSession(session, container, makeStats());
+    return;
+  }
+
   renderSessionHeader(container, due, trainingLines);
   renderCardList(container, trainingLines);
   appendSelfTestLink(container);
@@ -317,6 +332,10 @@ function runItem(
 // ── Session-complete panel ──────────────────────────────────────────────────────
 
 function renderSessionComplete(container: HTMLElement, stats: SessionStats): void {
+  // A session that reviewed at least one line counts as today's training for
+  // the Home-screen streak.
+  if (stats.linesReviewed > 0) recordTrainingDay();
+
   container.innerHTML = '';
 
   const wrap = document.createElement('div');

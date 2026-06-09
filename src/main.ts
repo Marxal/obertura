@@ -24,6 +24,7 @@ import { renderProgressScreen } from './progress-screen';
 import { renderBranchView } from './branch-view';
 import { startPretrainingRun } from './pretraining';
 import { renderTrainScreen } from './train-screen';
+import { renderHomeScreen } from './home-screen';
 import { Engine, gradeMove } from './engine';
 import { EvalPanel } from './eval-panel';
 import { initThemeControl } from './theme';
@@ -432,6 +433,52 @@ let returnView: ViewName = 'lines';
 // cleared) the next time the Train view is shown.
 let pendingTrainLineId: string | null = null;
 
+// Set when the Home screen's "Start training" wants the Train screen to launch
+// the due session immediately. Consumed the next time the Train view is shown.
+let pendingTrainAutoStart = false;
+
+// Reset the builder to an empty line of the given colour. Shared by the
+// "Reset line" button (always White) and the Home screen's per-colour Add
+// buttons (which preselect the side).
+function clearBuilder(colour: 'white' | 'black' = 'white'): void {
+  stopPlayback();
+  reset();
+  chess.reset();
+  loadedLineId = null;
+  loadedLineCreatedAt = undefined;
+  loadedLineInTraining = false;
+  loadedLineMeta = null;
+  currentTrainingLine = null;
+  (document.getElementById('line-name') as HTMLInputElement).value = '';
+  (document.getElementById('line-tags') as HTMLInputElement).value = '';
+  saveColour = colour;
+  document.querySelectorAll<HTMLElement>('#colour-toggle button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.colour === colour);
+  });
+  document.getElementById('save-msg')!.textContent = '';
+  // Clear the opening label and invalidate any in-flight lookup.
+  openingRequestId++;
+  document.getElementById('opening-name')!.textContent = '';
+  cg.set({
+    fen: chess.fen(),
+    turnColor: 'white',
+    movable: { color: 'both', dests: legalDests() },
+    lastMove: undefined,
+  });
+  renderMoveList();
+  renderNotePanel();
+  renderLineMeta();
+  updateTrainingButton();
+  evalPanel.clear();
+  engine.evaluate(chess.fen());
+}
+
+// Open the builder on a fresh line of the given colour (from Home's Add buttons).
+function startNewLine(colour: 'white' | 'black'): void {
+  clearBuilder(colour);
+  showView('builder');
+}
+
 // Drill or enrol a single line by id, from the Progress screen. An in-training
 // line drills immediately; a saved line that isn't in training yet runs the
 // "confirm & add to training" flow, then returns to Progress.
@@ -497,9 +544,24 @@ function showView(view: ViewName): void {
     renderLinesScreen(linesEl, { onOpenLine, onStartTraining: handleStartTraining });
   }
 
+  if (view === 'home') {
+    renderHomeScreen(homeEl, {
+      onStartTraining: () => {
+        pendingTrainAutoStart = true;
+        showView('train');
+      },
+      onGoToLines: () => showView('lines'),
+      onAddLine: (colour) => startNewLine(colour),
+    });
+  }
+
   if (view === 'train') {
-    renderTrainScreen(trainEl, { focusLineId: pendingTrainLineId ?? undefined });
+    renderTrainScreen(trainEl, {
+      focusLineId: pendingTrainLineId ?? undefined,
+      autoStart: pendingTrainAutoStart,
+    });
     pendingTrainLineId = null;
+    pendingTrainAutoStart = false;
   }
 
   if (view === 'progress') {
@@ -944,42 +1006,7 @@ requestAnimationFrame(() => {
   setupBranchView();
   setupNotePanel();
 
-  document.getElementById('reset-btn')!.addEventListener('click', () => {
-    stopPlayback();
-    reset();
-    chess.reset();
-    loadedLineId = null;
-    loadedLineCreatedAt = undefined;
-    loadedLineInTraining = false;
-    loadedLineMeta = null;
-    currentTrainingLine = null;
-    (document.getElementById('line-name') as HTMLInputElement).value = '';
-    (document.getElementById('line-tags') as HTMLInputElement).value = '';
-    // Reset colour toggle to White.
-    saveColour = 'white';
-    document.querySelectorAll<HTMLElement>('#colour-toggle button').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.colour === 'white');
-    });
-    document.getElementById('save-msg')!.textContent = '';
-    // Clear the opening label and invalidate any in-flight lookup.
-    openingRequestId++;
-    document.getElementById('opening-name')!.textContent = '';
-    cg.set({
-      fen: chess.fen(),
-      turnColor: 'white',
-      movable: {
-        color: 'both',
-        dests: legalDests(),
-      },
-      lastMove: undefined,
-    });
-    renderMoveList();
-    renderNotePanel();
-    renderLineMeta();
-    updateTrainingButton();
-    evalPanel.clear();
-    engine.evaluate(chess.fen());
-  });
+  document.getElementById('reset-btn')!.addEventListener('click', () => clearBuilder('white'));
 
   new ResizeObserver(() => cg.redrawAll()).observe(boardEl);
 

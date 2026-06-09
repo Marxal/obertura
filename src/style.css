@@ -376,12 +376,190 @@ main {
   padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
 }
 
-/* ── Home (Today) placeholder — filled in a later task ─────────────────────── */
-.home-placeholder {
-  padding: 3rem 1.5rem;
-  text-align: center;
-  color: var(--text-faint);
+/* ── Home (Today) screen ───────────────────────────────────────────────────── */
+
+#view-home {
+  padding: 1rem 1rem 2rem;
+}
+
+.home-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.home-greeting {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--text);
+}
+
+.home-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-active);
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.home-streak-flame {
   font-size: 0.95rem;
+  line-height: 1;
+}
+
+/* No streak yet — quieter, and the flame reads "unlit". */
+.home-streak--cold {
+  background: var(--bg-elevated);
+  color: var(--text-faint);
+}
+
+.home-streak--cold .home-streak-flame {
+  filter: grayscale(1);
+  opacity: 0.6;
+}
+
+/* The "Today" card — the due count and the Start-training call to action. */
+.home-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  padding: 1.1rem 1.1rem 1.2rem;
+  box-shadow: var(--shadow-card);
+  margin-bottom: 1.5rem;
+}
+
+.home-card-count {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.home-card-count-num {
+  font-size: 2.1rem;
+  font-weight: 800;
+  color: var(--accent-active);
+  margin-right: 0.3rem;
+  line-height: 1;
+}
+
+.home-card-headline {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.home-card--rested .home-card-headline {
+  color: var(--success);
+}
+
+.home-card-sub {
+  font-size: 0.875rem;
+  color: var(--text-faint);
+  line-height: 1.45;
+}
+
+.home-start-btn {
+  margin-top: 0.35rem;
+}
+
+/* Section title + My Lines quick links. */
+.home-section-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 0 0 0.4rem;
+}
+
+.home-lines-summary {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 0.7rem;
+}
+
+/* Neutral, outlined link button (View all lines / Go to My Lines). */
+.home-link-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 48px;
+  padding: 0.7rem 1rem;
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 0.14s, filter 0.12s;
+}
+
+.home-link-btn:hover { box-shadow: var(--shadow-card-hover); }
+.home-link-btn:active { filter: brightness(0.96); transform: translateY(1px); }
+
+/* Per-colour Add buttons, side by side. */
+.home-add-row {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+}
+
+.home-add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  flex: 1;
+  min-height: 48px;
+  padding: 0.7rem 0.6rem;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  border: 1px solid var(--border);
+  transition: filter 0.12s, box-shadow 0.12s;
+  box-shadow: var(--shadow-card);
+}
+
+.home-add-btn:active { filter: brightness(0.92); transform: translateY(1px); }
+
+/* White-side: light chip with a dark outline; Black-side: dark chip. */
+.home-add-btn--white {
+  background: #f4ede0;
+  color: #2a2118;
+  border-color: #cdbfa8;
+}
+
+.home-add-btn--black {
+  background: #2b241d;
+  color: #f1ece1;
+  border-color: #4a3d2e;
+}
+
+/* First-run state borrows .train-empty, just adds room for the action row. */
+.home-first-actions {
+  margin-top: 0.5rem;
+  width: 100%;
+  max-width: 320px;
 }
 
 #board-wrap {
