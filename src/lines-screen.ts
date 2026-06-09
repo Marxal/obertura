@@ -115,6 +115,16 @@ let suggestSort: SuggestSort = 'played';
 type TabName = 'saved' | 'games';
 let activeTab: TabName = 'saved';
 
+// Set by the builder right after a save: the next saved-lines render highlights
+// this line and scrolls it into view, so the user can see where it landed and
+// add it to training. Consumed (cleared) once shown.
+let highlightLineId: string | null = null;
+export function focusSavedLine(id: string): void {
+  activeTab = 'saved';
+  detailFilter = 'all';
+  highlightLineId = id;
+}
+
 export function renderLinesScreen(
   container: HTMLElement,
   deps: LinesDeps
@@ -455,6 +465,15 @@ function buildDetailCard(
 
   const card = document.createElement('div');
   card.className = 'dline-card';
+
+  // Just saved from the builder: draw attention and scroll it into view.
+  if (line.id === highlightLineId) {
+    card.classList.add('dline-card--highlight');
+    highlightLineId = null;
+    requestAnimationFrame(() =>
+      card.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    );
+  }
 
   // Title row — its own line. Tap to open the line in the builder.
   const titleRow = document.createElement('button');
