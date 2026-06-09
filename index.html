@@ -13,11 +13,36 @@
     <link rel="apple-touch-icon" href="icons/icon-192.png" />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" type="image/png" href="icons/icon-192.png" />
+    <script>
+      // Apply the saved (or system) theme before first paint so there's no
+      // flash of the wrong theme. Mirrors src/theme.ts — keep the key + colours
+      // in sync. JS resolves "auto" to light/dark; CSS only ever sees those two.
+      (function () {
+        try {
+          var choice = localStorage.getItem('obertura-theme') || 'auto';
+          var dark =
+            choice === 'dark' ||
+            (choice === 'auto' &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches);
+          var eff = dark ? 'dark' : 'light';
+          document.documentElement.setAttribute('data-theme', eff);
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', dark ? '#1a1512' : '#f1ece1');
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="app">
       <header>
-        <h1>Obertura</h1>
+        <div class="header-top">
+          <h1>Obertura</h1>
+          <div id="theme-switch" role="group" aria-label="Theme">
+            <button type="button" data-theme-choice="light" aria-label="Light theme" title="Light">☀</button>
+            <button type="button" data-theme-choice="auto" aria-label="Match system theme" title="Auto">A</button>
+            <button type="button" data-theme-choice="dark" aria-label="Dark theme" title="Dark">☾</button>
+          </div>
+        </div>
         <nav id="main-nav" role="tablist" aria-label="App navigation">
           <button class="nav-tab active" data-view="builder" role="tab" aria-selected="true" type="button">Build</button>
           <button class="nav-tab" data-view="lines" role="tab" aria-selected="false" type="button">My Lines</button>
