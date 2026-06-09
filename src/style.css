@@ -4291,3 +4291,92 @@ cg-board square.move-dest.oc {
     box-shadow: var(--shadow-card);
   }
 }
+
+/* ── Backup & restore (My Lines footer) ──────────────────────────────────────── */
+.backup-section {
+  margin: 1.5rem 1rem 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card);
+}
+
+.backup-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.backup-blurb {
+  margin: 0 0 0.85rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.backup-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.backup-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1 1 auto;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-parchment);
+  color: var(--text);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.backup-btn:hover { border-color: var(--accent); }
+.backup-btn:active { filter: brightness(0.94); transform: translateY(1px); }
+
+.backup-status {
+  margin: 0.75rem 0 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.backup-status--ok { color: var(--success); }
+.backup-status--error { color: var(--danger); }
+.backup-status--info { color: var(--text-muted); }
+
+.backup-import-summary {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.backup-choice-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  background: var(--bg-parchment);
+  color: var(--text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.backup-choice-btn strong { font-size: 0.9rem; font-weight: 700; }
+.backup-choice-btn span { font-size: 0.78rem; line-height: 1.4; color: var(--text-muted); }
+.backup-choice-btn:hover { border-color: var(--accent); }
+.backup-choice-btn:active { filter: brightness(0.95); transform: translateY(1px); }
+
+.backup-choice-btn--danger:hover { border-color: var(--danger); }
+.backup-choice-btn--danger strong { color: var(--danger); }
