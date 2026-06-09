@@ -1,7 +1,8 @@
 import type { Line } from './types';
 import type { MoveNode } from './tree';
 import { getAllLines, saveLine } from './storage';
-import { startDrill } from './drill';
+import { startDrill, startPositionsDrill } from './drill';
+import { selectIndividualPositions } from './individual';
 import { Icons } from './icons';
 import { isGoodAlternative } from './engine';
 import { TrainingSession, type SessionItem } from './session';
@@ -148,6 +149,22 @@ function renderSessionHeader(container: HTMLElement, due: Line[], allTraining: L
       runSession(session, container, makeStats());
     });
     wrap.appendChild(startBtn);
+  }
+
+  // Individual-moves mode: a stream of single positions (due + weakest moves),
+  // each starting mid-opening. Offered whenever there's anything deep enough to
+  // drill, even when no full line is due.
+  const individual = selectIndividualPositions(allTraining);
+  if (individual.length > 0) {
+    const indBtn = document.createElement('button');
+    indBtn.type = 'button';
+    indBtn.className = 'session-individual-btn';
+    indBtn.appendChild(Icons.zap(16));
+    indBtn.appendChild(document.createTextNode(
+      `Fix individual moves (${individual.length})`,
+    ));
+    indBtn.addEventListener('click', () => runIndividual(container, allTraining));
+    wrap.appendChild(indBtn);
   }
 
   container.appendChild(wrap);
@@ -330,6 +347,129 @@ function runItem(
       runSession(session, container, stats);
     },
   });
+}
+
+// ── Individual-moves mode ─────────────────────────────────────────────────────────
+//
+// A stream of single positions rather than a walk down a line. The positions
+// are a blend of scheduled-due and most-missed moves, each one starting
+// mid-opening (see individual.ts). A correct move jumps to the next position; a
+// wrong one runs the same full wrong-move flow as line training. Every position
+// is graded and persisted on its own, reusing the spaced-repetition scheduler.
+
+function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
+  // Work on clones so grading edits only persist through saveLine, never the
+  // in-memory list.
+  const clones = trainingLines.map(l => ({ ...l, tree: structuredClone(l.tree) }));
+  const positions = selectIndividualPositions(clones);
+  if (positions.length === 0) {
+    void doRender(container);
+    return;
+  }
+
+  const cloneById = new Map(clones.map(c => [c.id, c]));
+  // Map each quizzed node back to its line, so a finished position knows what
+  // to grade and save.
+  const lineByNode = new Map(positions.map(p => [p.expected, cloneById.get(p.lineId)!]));
+
+  const missed = new Set<string>();
+  const stats = { reviewed: 0, missed: 0 };
+
+  startPositionsDrill(
+    positions.map(p => ({ preFen: p.preFen, expected: p.expected })),
+    {
+      wrongMoveMode: 'full',
+      modeLabel: 'Individual moves',
+      hideTitleUntilComplete: true,
+      celebrateOnComplete: true,
+      completeMessage: 'Positions cleared ✓',
+      checkAlternative: (fen, uci) => isGoodAlternative(fen, uci),
+      recordMiss: (node) => { missed.add(node.id); },
+      onStepComplete: (expected) => {
+        const line = lineByNode.get(expected);
+        if (!line) return;
+        const now = new Date();
+        const wasMissed = missed.has(expected.id);
+        const quality = qualityFromMisses(wasMissed ? 1 : 0);
+        expected.review = gradeReview(expected.review ?? newReview(now), quality, now);
+        line.lastTrained = now.toISOString();
+        line.confidence = lineConfidence(line);
+        void saveLine(line);
+        stats.reviewed++;
+        if (wasMissed) stats.missed++;
+      },
+      onComplete: () => renderIndividualComplete(container, stats),
+      onCancel: () => void doRender(container),
+    },
+  );
+}
+
+function renderIndividualComplete(
+  container: HTMLElement,
+  stats: { reviewed: number; missed: number },
+): void {
+  if (stats.reviewed > 0) recordTrainingDay();
+
+  container.innerHTML = '';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'train-completion';
+
+  const doneEl = document.createElement('div');
+  doneEl.className = 'train-completion-done';
+  doneEl.textContent = 'Positions cleared ✓';
+  wrap.appendChild(doneEl);
+
+  const sub = document.createElement('div');
+  sub.className = 'train-completion-name';
+  sub.textContent = `${stats.reviewed} position${stats.reviewed === 1 ? '' : 's'} drilled`;
+  wrap.appendChild(sub);
+
+  const correct = stats.reviewed - stats.missed;
+  const statsRow = document.createElement('div');
+  statsRow.className = 'summary-stats-row';
+
+  const rightBox = document.createElement('div');
+  rightBox.className = 'summary-stat-box summary-stat-box--right';
+  const rightVal = document.createElement('div');
+  rightVal.className = 'summary-stat-value';
+  rightVal.textContent = String(correct);
+  const rightLbl = document.createElement('div');
+  rightLbl.className = 'summary-stat-label';
+  rightLbl.textContent = 'first try';
+  rightBox.appendChild(rightVal);
+  rightBox.appendChild(rightLbl);
+  statsRow.appendChild(rightBox);
+
+  const missBox = document.createElement('div');
+  missBox.className = `summary-stat-box ${stats.missed > 0 ? 'summary-stat-box--missed' : 'summary-stat-box--zero'}`;
+  const missVal = document.createElement('div');
+  missVal.className = 'summary-stat-value';
+  missVal.textContent = String(stats.missed);
+  const missLbl = document.createElement('div');
+  missLbl.className = 'summary-stat-label';
+  missLbl.textContent = 'missed';
+  missBox.appendChild(missVal);
+  missBox.appendChild(missLbl);
+  statsRow.appendChild(missBox);
+
+  wrap.appendChild(statsRow);
+
+  const reschedNote = document.createElement('div');
+  reschedNote.className = 'train-all-done';
+  reschedNote.textContent = stats.missed > 0
+    ? 'Missed positions are scheduled to come back sooner.'
+    : 'Clean run — every position remembered!';
+  wrap.appendChild(reschedNote);
+
+  const doneBtn = document.createElement('button');
+  doneBtn.type = 'button';
+  doneBtn.className = 'train-done-btn';
+  doneBtn.textContent = 'Back to training';
+  doneBtn.addEventListener('click', () => void doRender(container));
+  wrap.appendChild(doneBtn);
+
+  container.appendChild(wrap);
 }
 
 // ── Session-complete panel ──────────────────────────────────────────────────────

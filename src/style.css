@@ -2385,6 +2385,36 @@ cg-board square.move-dest.oc {
   transform: translateY(1px);
 }
 
+/* Secondary action under "Start review" — the individual-moves stream. Quieter
+   than the maroon primary so the daily review stays the headline. */
+.session-individual-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 48px;
+  padding: 0.75rem 1.25rem;
+  background-color: var(--bg-card);
+  background-image: linear-gradient(180deg, rgba(255,255,255,0.45) 0%, transparent 100%);
+  color: var(--maroon);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.session-individual-btn:hover {
+  border-color: var(--maroon);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.session-individual-btn:active {
+  filter: brightness(0.95);
+  transform: translateY(1px);
+}
+
 /* A line whose moves aren't due yet reads quieter than a due one. */
 .line-card--rested .line-card-name {
   color: var(--text-faint);

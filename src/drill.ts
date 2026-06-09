@@ -6,6 +6,8 @@ import type { MoveNode } from './tree';
 import { Icons } from './icons';
 import { getRetriesBeforeReveal } from './prefs';
 
+const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
 export interface DrillOptions {
   onComplete: () => void;
   onCancel: () => void;
@@ -13,6 +15,10 @@ export interface DrillOptions {
   // complete before the user sees confirmation.
   onBeforeComplete?: () => Promise<void>;
   recordMiss?: (node: MoveNode) => void;
+  // Individual-moves mode only: fires once per position when it's finished
+  // (after a correct move, even if it took a couple of tries). Use to grade and
+  // persist that single position before the stream moves on.
+  onStepComplete?: (expected: MoveNode) => void;
   completeMessage?: string;
   backLabel?: string;
   // Small muted label shown at the top of the overlay (e.g. "Training"). Falls
@@ -24,11 +30,32 @@ export interface DrillOptions {
   // Keep the opening title hidden (under the board) until the line completes, so
   // it can't act as a hint mid-drill. Used by the training screen.
   hideTitleUntilComplete?: boolean;
-  // Fire a brief confetti burst when the line is completed.
+  // Fire a brief confetti burst when the run is completed.
   celebrateOnComplete?: boolean;
   // If provided (full mode only), the engine checks whether a wrong move is
   // actually a good alternative before penalising it as a mistake.
   checkAlternative?: (preFen: string, userUci: string) => Promise<boolean>;
+}
+
+// A single ply to auto-play (animated) between the user's moves.
+interface Ply { uci: string; fen: string; }
+
+// One thing the user has to play: the board sits at `preFen`, they must play
+// `expected`. `replies` are the plies auto-played afterwards (line mode keeps
+// the board continuous; positions mode leaves it empty and jumps to the next
+// task instead). `colour` is the side the user is playing this task.
+interface Task {
+  preFen: string;
+  expected: MoveNode;
+  colour: 'white' | 'black';
+  replies: Ply[];
+  continuous: boolean;
+}
+
+interface DrillConfig {
+  intro: Ply[];      // opponent plies to animate from the start (line mode)
+  tasks: Task[];
+  titleText: string; // shown under the board (revealed on completion)
 }
 
 function mainlineOf(tree: MoveNode): MoveNode[] {
@@ -41,6 +68,13 @@ function mainlineOf(tree: MoveNode): MoveNode[] {
   return result;
 }
 
+function colourToMove(fen: string): 'white' | 'black' {
+  return fen.split(' ')[1] === 'b' ? 'black' : 'white';
+}
+
+// ── Public entry points ──────────────────────────────────────────────────────
+
+// Walk a whole line: auto-play the opponent, quiz every user move in order.
 export function startDrill(line: Line, opts: DrillOptions): void {
   const moves = mainlineOf(line.tree);
   if (moves.length === 0) {
@@ -48,9 +82,67 @@ export function startDrill(line: Line, opts: DrillOptions): void {
     return;
   }
 
-  const chess = new Chess();
   const userColour = line.colour;
-  let moveIndex = 0;
+  const isUser = (i: number) => (userColour === 'white' ? i % 2 === 0 : i % 2 === 1);
+  const ply = (n: MoveNode): Ply => ({ uci: n.uci, fen: n.fen });
+
+  // Leading opponent moves before the user gets to play (a Black line opens
+  // with White's move).
+  const firstUser = moves.findIndex((_, i) => isUser(i));
+  if (firstUser < 0) {
+    opts.onCancel();
+    return;
+  }
+  const intro = moves.slice(0, firstUser).map(ply);
+
+  const tasks: Task[] = [];
+  for (let i = firstUser; i < moves.length; i += 2) {
+    tasks.push({
+      preFen: i === 0 ? START_FEN : moves[i - 1].fen,
+      expected: moves[i],
+      colour: userColour,
+      // The single opponent reply that follows (or nothing, at the line's end).
+      replies: moves.slice(i + 1, i + 2).map(ply),
+      continuous: true,
+    });
+  }
+
+  runDrill(
+    { intro, tasks, titleText: line.openingName || line.name || 'Untitled line' },
+    opts,
+  );
+}
+
+// Drill a stream of individual positions. Each one resets the board to its
+// position; a correct move jumps straight to the next.
+export function startPositionsDrill(
+  positions: { preFen: string; expected: MoveNode }[],
+  opts: DrillOptions,
+): void {
+  if (positions.length === 0) {
+    opts.onCancel();
+    return;
+  }
+  const tasks: Task[] = positions.map(p => ({
+    preFen: p.preFen,
+    expected: p.expected,
+    colour: colourToMove(p.preFen),
+    replies: [],
+    continuous: false,
+  }));
+  runDrill({ intro: [], tasks, titleText: '' }, opts);
+}
+
+// ── The shared drill runtime ──────────────────────────────────────────────────
+
+function runDrill(config: DrillConfig, opts: DrillOptions): void {
+  const { tasks } = config;
+
+  const chess = new Chess();
+  // The side the user is playing right now — constant in line mode, per-task in
+  // positions mode.
+  let userColour = tasks[0].colour;
+  let taskIndex = 0;
   let autoTimer: ReturnType<typeof setTimeout> | undefined;
   // True while the user must replay the correct move after the arrow is shown.
   let awaitingCorrectReplay = false;
@@ -60,12 +152,10 @@ export function startDrill(line: Line, opts: DrillOptions): void {
   let checkingAlternative = false;
   let isCleaned = false;
 
-  // Wrong attempts on the *current* user move; reset when we advance.
+  // Wrong attempts on the *current* task; reset when we advance.
   let wrongAttempts = 0;
   // Extra tries a wrong move gets before we draw the arrow (full mode only).
   const retriesAllowed = getRetriesBeforeReveal();
-
-  const opponentName = line.openingName || line.name || 'Untitled line';
 
   // ── Overlay ───────────────────────────────────────────────────────────────
 
@@ -85,7 +175,7 @@ export function startDrill(line: Line, opts: DrillOptions): void {
   // Top label: the training mode, not the opening (which would be a hint).
   const modeEl = document.createElement('div');
   modeEl.className = 'pt-mode-label';
-  modeEl.textContent = opts.modeLabel ?? opponentName;
+  modeEl.textContent = opts.modeLabel ?? config.titleText;
 
   headerEl.appendChild(backBtn);
   headerEl.appendChild(modeEl);
@@ -100,10 +190,10 @@ export function startDrill(line: Line, opts: DrillOptions): void {
   // Opening title, UNDER the board. Hidden until completion in full mode.
   const titleEl = document.createElement('div');
   titleEl.className = 'pt-title-under';
-  titleEl.textContent = opponentName;
+  titleEl.textContent = config.titleText;
   if (opts.hideTitleUntilComplete) titleEl.setAttribute('hidden', '');
 
-  // Progress dots — one circle per user move.
+  // Progress dots — one circle per task.
   const progressEl = document.createElement('div');
   progressEl.className = 'pt-dots';
 
@@ -145,19 +235,11 @@ export function startDrill(line: Line, opts: DrillOptions): void {
     return chess.turn() === 'w' ? 'white' : 'black';
   }
 
-  function isUserTurn(): boolean {
-    return cgTurn() === userColour;
-  }
-
   // ── Chessground ───────────────────────────────────────────────────────────
 
   const cg = Chessground(boardEl, {
     orientation: userColour,
-    movable: {
-      color: isUserTurn() ? userColour : undefined,
-      free: false,
-      dests: isUserTurn() ? legalDests() : new Map(),
-    },
+    movable: { color: undefined, free: false, dests: new Map() },
     draggable: { showGhost: true },
     animation: { enabled: true, duration: 200 },
     events: {
@@ -172,27 +254,21 @@ export function startDrill(line: Line, opts: DrillOptions): void {
   const ro = new ResizeObserver(() => cg.redrawAll());
   ro.observe(boardEl);
 
-  // ── Progress dots ───────────────────────────────────────────────────────────
-
-  // Indices into `moves` that are the user's own moves.
-  const userIdxs = moves
-    .map((_, i) => i)
-    .filter(i => (userColour === 'white' ? i % 2 === 0 : i % 2 !== 0));
+  // ── Progress dots ─────────────────────────────────────────────────────────
 
   const dotEls: HTMLElement[] = [];
-  for (let k = 0; k < userIdxs.length; k++) {
+  for (let k = 0; k < tasks.length; k++) {
     const dot = document.createElement('span');
     dot.className = 'pt-dot';
     progressEl.appendChild(dot);
     dotEls.push(dot);
   }
 
-  // Mark the dot for the user move at `mi`. Red is sticky for the rest of the
-  // line — a correct replay never overrides an earlier miss.
-  function markDot(mi: number, state: 'correct' | 'wrong'): void {
-    const di = userIdxs.indexOf(mi);
-    if (di < 0) return;
-    const dot = dotEls[di];
+  // Mark the dot for a task. Red is sticky — a correct replay never overrides an
+  // earlier miss.
+  function markDot(idx: number, state: 'correct' | 'wrong'): void {
+    const dot = dotEls[idx];
+    if (!dot) return;
     if (state === 'wrong') {
       dot.classList.add('pt-dot--wrong');
     } else if (!dot.classList.contains('pt-dot--wrong')) {
@@ -200,7 +276,7 @@ export function startDrill(line: Line, opts: DrillOptions): void {
     }
   }
 
-  // ── Status line ─────────────────────────────────────────────────────────────
+  // ── Status line ───────────────────────────────────────────────────────────
 
   function setStatus(text: string, variant = ''): void {
     statusEl.textContent = text;
@@ -211,7 +287,7 @@ export function startDrill(line: Line, opts: DrillOptions): void {
     setStatus('Your move', 'pt-status--prompt');
   }
 
-  // ── Error flash ───────────────────────────────────────────────────────────
+  // ── Error flash ─────────────────────────────────────────────────────────────
 
   function flashError(): void {
     const flash = document.createElement('div');
@@ -220,7 +296,7 @@ export function startDrill(line: Line, opts: DrillOptions): void {
     flash.addEventListener('animationend', () => flash.remove(), { once: true });
   }
 
-  // ── Confetti ────────────────────────────────────────────────────────────────
+  // ── Confetti ──────────────────────────────────────────────────────────────
 
   function burstConfetti(): void {
     // Respect users who'd rather not have motion.
@@ -248,7 +324,7 @@ export function startDrill(line: Line, opts: DrillOptions): void {
     setTimeout(() => layer.remove(), 1300);
   }
 
-  // ── Note card (mistake hints) ─────────────────────────────────────────────
+  // ── Note card (mistake hints) ───────────────────────────────────────────────
 
   function showNoteCard(note: string): void {
     noteCardEl.textContent = note;
@@ -260,7 +336,7 @@ export function startDrill(line: Line, opts: DrillOptions): void {
     noteCardEl.textContent = '';
   }
 
-  // ── Alt card (good-alternative notice) ───────────────────────────────────
+  // ── Alt card (good-alternative notice) ───────────────────────────────────────
 
   function showAltCard(expected: MoveNode): void {
     altCardEl.innerHTML = '';
@@ -310,7 +386,7 @@ export function startDrill(line: Line, opts: DrillOptions): void {
     altCardEl.innerHTML = '';
   }
 
-  // ── Wrong-move flow (full mode) ────────────────────────────────────────────
+  // ── Wrong-move flow (full mode) ──────────────────────────────────────────────
 
   // Snap the board back to the pre-move position and re-enable the user's pieces.
   function snapBack(): void {
@@ -327,7 +403,7 @@ export function startDrill(line: Line, opts: DrillOptions): void {
   function registerWrongAttempt(expected: MoveNode): void {
     if (wrongAttempts === 0) {
       opts.recordMiss?.(expected);
-      markDot(moveIndex, 'wrong');
+      markDot(taskIndex, 'wrong');
     }
     wrongAttempts++;
 
@@ -388,7 +464,7 @@ export function startDrill(line: Line, opts: DrillOptions): void {
     // Block input while an async engine check is running.
     if (checkingAlternative) return;
 
-    const expected = moves[moveIndex];
+    const expected = tasks[taskIndex].expected;
     const eFrom = expected.uci.slice(0, 2);
     const eTo = expected.uci.slice(2, 4);
 
@@ -404,16 +480,9 @@ export function startDrill(line: Line, opts: DrillOptions): void {
         hideAltCard();
         awaitingAlternativePlay = false;
       }
-      markDot(moveIndex, 'correct');
+      markDot(taskIndex, 'correct');
       setStatus('');
       chess.move({ from, to, promotion: 'q' });
-      moveIndex++;
-      wrongAttempts = 0;
-
-      if (moveIndex >= moves.length) {
-        void completeRun();
-        return;
-      }
 
       cg.set({
         fen: chess.fen(),
@@ -422,7 +491,7 @@ export function startDrill(line: Line, opts: DrillOptions): void {
         lastMove: [from, to],
       });
 
-      scheduleOpponent();
+      advanceAfterCorrect();
       return;
     }
 
@@ -471,38 +540,80 @@ export function startDrill(line: Line, opts: DrillOptions): void {
     } else {
       // Gentle mode (default) — used by pre-training. Retry freely, no arrow.
       opts.recordMiss?.(expected);
-      markDot(moveIndex, 'wrong');
+      markDot(taskIndex, 'wrong');
       setStatus('Not yet — try that move again', 'pt-status--error');
       snapBack();
     }
   }
 
-  function scheduleOpponent(): void {
-    if (moveIndex >= moves.length || isUserTurn()) return;
-    autoTimer = setTimeout(() => {
-      const node = moves[moveIndex];
-      const from = node.uci.slice(0, 2) as Key;
-      const to = node.uci.slice(2, 4) as Key;
-      chess.move({ from, to, promotion: 'q' });
-      moveIndex++;
+  // After a correct move, either flow into the next task (line mode, animating
+  // the opponent's reply) or jump to the next position (individual mode).
+  function advanceAfterCorrect(): void {
+    const task = tasks[taskIndex];
 
-      cg.set({
-        fen: chess.fen(),
-        turnColor: cgTurn(),
-        movable: {
-          color: isUserTurn() ? userColour : undefined,
-          dests: isUserTurn() ? legalDests() : new Map(),
-        },
-        lastMove: [from, to],
+    if (task.continuous) {
+      animatePlies(task.replies, () => {
+        if (taskIndex + 1 >= tasks.length) { void completeRun(); return; }
+        startTask(taskIndex + 1);
       });
+    } else {
+      // Individual position done — let the caller grade it before moving on.
+      opts.onStepComplete?.(task.expected);
+      autoTimer = setTimeout(() => {
+        if (isCleaned) return;
+        if (taskIndex + 1 >= tasks.length) { void completeRun(); return; }
+        startTask(taskIndex + 1);
+      }, 550);
+    }
+  }
 
-      if (moveIndex >= moves.length) {
-        void completeRun();
-      } else {
-        if (isUserTurn()) promptYourMove();
-        scheduleOpponent();
-      }
-    }, 700);
+  // Auto-play a run of plies (opponent replies / opening lead-in), animated.
+  function animatePlies(plies: Ply[], done: () => void): void {
+    let k = 0;
+    function step(): void {
+      if (isCleaned) return;
+      if (k >= plies.length) { done(); return; }
+      const p = plies[k++];
+      autoTimer = setTimeout(() => {
+        if (isCleaned) return;
+        const from = p.uci.slice(0, 2) as Key;
+        const to = p.uci.slice(2, 4) as Key;
+        chess.move({ from, to, promotion: 'q' });
+        cg.set({
+          fen: chess.fen(),
+          turnColor: cgTurn(),
+          movable: { color: undefined, dests: new Map() },
+          lastMove: [from, to],
+        });
+        step();
+      }, 700);
+    }
+    step();
+  }
+
+  // Present a task: place the board at its position and hand control over.
+  function startTask(idx: number): void {
+    taskIndex = idx;
+    const task = tasks[idx];
+    userColour = task.colour;
+    wrongAttempts = 0;
+    awaitingCorrectReplay = false;
+    awaitingAlternativePlay = false;
+    chess.load(task.preFen);
+    cg.setAutoShapes([]);
+    hideNoteCard();
+    hideAltCard();
+
+    const base = {
+      fen: task.preFen,
+      orientation: task.colour,
+      turnColor: cgTurn(),
+      movable: { color: userColour, dests: legalDests() },
+    };
+    // Continuous tasks keep the opponent's last-move highlight that the reply
+    // animation just set; a position jump starts clean.
+    cg.set(task.continuous ? base : { ...base, lastMove: undefined });
+    promptYourMove();
   }
 
   async function completeRun(): Promise<void> {
@@ -514,7 +625,7 @@ export function startDrill(line: Line, opts: DrillOptions): void {
     }
 
     setStatus(opts.completeMessage ?? 'Line complete', 'pt-status--success');
-    if (opts.hideTitleUntilComplete) titleEl.removeAttribute('hidden');
+    if (opts.hideTitleUntilComplete && config.titleText) titleEl.removeAttribute('hidden');
     if (opts.celebrateOnComplete) burstConfetti();
     setTimeout(() => { cleanup(); opts.onComplete(); }, 1500);
   }
@@ -526,9 +637,19 @@ export function startDrill(line: Line, opts: DrillOptions): void {
     overlay.remove();
   }
 
-  if (!isUserTurn()) {
-    scheduleOpponent();
+  // ── Kick off ──────────────────────────────────────────────────────────────
+
+  if (config.intro.length > 0) {
+    // Animate the opening lead-in from the start before the first user move.
+    chess.load(START_FEN);
+    cg.set({
+      fen: START_FEN,
+      orientation: tasks[0].colour,
+      turnColor: 'white',
+      movable: { color: undefined, dests: new Map() },
+    });
+    animatePlies(config.intro, () => startTask(0));
   } else {
-    promptYourMove();
+    startTask(0);
   }
 }
