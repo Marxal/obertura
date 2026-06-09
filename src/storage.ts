@@ -1,4 +1,5 @@
 import type { Line } from './types';
+import type { MoveNode } from './tree';
 import type { ImportedGame } from './chesscom';
 
 // Thin IndexedDB wrapper. IndexedDB's native API is event-based: every call
@@ -111,4 +112,141 @@ export async function countGames(): Promise<number> {
 export async function clearGames(): Promise<void> {
   const s = await gamesStore('readwrite');
   await promisify(s.clear());
+}
+
+// ── Backup & restore ─────────────────────────────────────────────────────────
+//
+// One self-contained JSON file holding the whole repertoire — every line with
+// its move tree, notes, tags, confidence and review/scheduler stats. This is
+// the safety net: all the data lives only in this browser, so a backup file
+// (kept in Drive or email) is the only way to survive a cleared browser or a
+// new device. Imported Chess.com games are intentionally NOT included — they're
+// re-fetchable from chess.com, so leaving them out keeps the file small and
+// focused on the irreplaceable hand-built data.
+
+// The exported file's shape. Versioned and tagged so a bad/foreign file is
+// caught on import, and a future format change can be told apart from v1.
+export interface BackupFile {
+  format: 'obertura-backup';
+  version: number;
+  exportedAt: string;
+  lines: Line[];
+}
+
+const BACKUP_FORMAT = 'obertura-backup';
+const BACKUP_VERSION = 1;
+
+// Gather the whole repertoire into a plain object ready to serialise. Lines come
+// straight from IndexedDB; JSON.stringify turns each move's `review.due` Date
+// into an ISO string, which parseBackup() revives on the way back in.
+export async function exportBackup(): Promise<BackupFile> {
+  const lines = await getAllLines();
+  return {
+    format: BACKUP_FORMAT,
+    version: BACKUP_VERSION,
+    exportedAt: new Date().toISOString(),
+    lines,
+  };
+}
+
+// Parse and validate backup text, throwing a clear, human Error on anything
+// malformed so the caller can show a friendly message rather than a stack
+// trace. On success the lines are clean and ready to store (Dates revived).
+export function parseBackup(text: string): BackupFile {
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error('That file isn’t valid JSON.');
+  }
+  if (!data || typeof data !== 'object') {
+    throw new Error('This doesn’t look like an Obertura backup.');
+  }
+  const obj = data as Record<string, unknown>;
+  if (obj.format !== BACKUP_FORMAT) {
+    throw new Error('This doesn’t look like an Obertura backup.');
+  }
+  if (!Array.isArray(obj.lines)) {
+    throw new Error('Backup is missing its lines.');
+  }
+  const lines = obj.lines.map((l, i) => validateLine(l, i));
+  return {
+    format: BACKUP_FORMAT,
+    version: typeof obj.version === 'number' ? obj.version : 1,
+    exportedAt: typeof obj.exportedAt === 'string' ? obj.exportedAt : '',
+    lines,
+  };
+}
+
+// Check one line has the shape we expect and return a normalised copy. A single
+// bad line aborts the whole import (better to refuse than half-restore).
+function validateLine(raw: unknown, index: number): Line {
+  if (!raw || typeof raw !== 'object') {
+    throw new Error(`Line ${index + 1} is not an object.`);
+  }
+  const l = raw as Record<string, unknown>;
+  if (typeof l.id !== 'string' || !l.id) {
+    throw new Error(`Line ${index + 1} is missing an id.`);
+  }
+  if (l.colour !== 'white' && l.colour !== 'black') {
+    throw new Error(`Line ${index + 1} has an invalid colour.`);
+  }
+  if (!l.tree || typeof l.tree !== 'object' || !Array.isArray((l.tree as MoveNode).children)) {
+    throw new Error(`Line ${index + 1} has no move tree.`);
+  }
+  return {
+    id: l.id,
+    name: typeof l.name === 'string' ? l.name : 'Untitled line',
+    tags: Array.isArray(l.tags) ? l.tags.filter((t): t is string => typeof t === 'string') : [],
+    colour: l.colour,
+    openingName: typeof l.openingName === 'string' ? l.openingName : null,
+    confidence: typeof l.confidence === 'number' ? l.confidence : 0,
+    lastTrained: typeof l.lastTrained === 'string' ? l.lastTrained : null,
+    inTraining: l.inTraining === true,
+    tree: reviveTree(l.tree as MoveNode),
+    createdAt: typeof l.createdAt === 'number' ? l.createdAt : undefined,
+  };
+}
+
+// Walk a move tree and turn each node's `review.due` (an ISO string after JSON
+// round-trips) back into a real Date, so restored lines match what the app
+// produces natively. The scheduler also coerces `due` defensively, so this is
+// belt-and-braces rather than strictly required.
+function reviveTree(node: MoveNode): MoveNode {
+  if (node.review && node.review.due != null) {
+    node.review = { ...node.review, due: new Date(node.review.due) };
+  }
+  node.children = (node.children ?? []).map(reviveTree);
+  return node;
+}
+
+// Resolve once a transaction has fully committed (or reject if it aborts). Used
+// when several writes share one transaction — awaiting individual requests
+// between writes can let IndexedDB auto-commit early, so we issue all writes
+// synchronously and wait on the transaction itself.
+function txnDone(tx: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+
+// Replace the entire repertoire with the backup's lines: wipe what's stored,
+// then write the file's lines. The result is exactly the file — the right
+// choice for a clean restore onto a cleared browser or fresh device.
+export async function replaceAllLines(lines: Line[]): Promise<void> {
+  const s = await store('readwrite');
+  s.clear();
+  for (const line of lines) s.put(line);
+  await txnDone(s.transaction);
+}
+
+// Merge the backup into what's already here: a line whose id matches an
+// existing one overwrites it; new ids are added; untouched lines stay. Nothing
+// is ever deleted, which makes this the safe default.
+export async function mergeLines(lines: Line[]): Promise<void> {
+  const s = await store('readwrite');
+  for (const line of lines) s.put(line);
+  await txnDone(s.transaction);
 }
