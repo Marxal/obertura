@@ -3943,22 +3943,35 @@ cg-board square.move-dest.oc {
   text-overflow: ellipsis;
 }
 
-/* Tree scrollable / zoomable container */
-.rmap-tree-wrap {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-  padding: 0.5rem;
-  position: relative;
+.rmap-title-count {
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  background: var(--bg-elevated);
+  border-radius: 10px;
+  padding: 0.15rem 0.5rem;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.rmap-tree-wrap--zoomable {
+/* ── Tree area ─────────────────────────────────────────────────────────────── */
+
+.rmap-tree-area {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* The pannable/zoomable layer fills the tree-area. */
+.rmap-tree-wrap {
+  position: absolute;
+  inset: 0;
   overflow: hidden;
   touch-action: none;
   cursor: grab;
+  user-select: none;
 }
-.rmap-tree-wrap--zoomable:active { cursor: grabbing; }
+.rmap-tree-wrap:active { cursor: grabbing; }
 
 .rmap-zoom-inner {
   display: inline-block;
@@ -3973,7 +3986,116 @@ cg-board square.move-dest.oc {
   text-align: center;
 }
 
-/* SVG tree elements */
+/* ── Position preview (floating, absolute top of tree-area) ─────────────────── */
+
+.rmap-pos-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+
+/* Board column — fills half the panel width and is square */
+.rmap-pos-board-col {
+  flex: 0 0 50%;
+  max-width: 50%;
+}
+
+.rmap-pos-board {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+}
+
+/* Info column */
+.rmap-pos-info-col {
+  flex: 1;
+  min-width: 0;
+  padding: 0.75rem 0.75rem 0.75rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  justify-content: center;
+}
+
+.rmap-pos-opening {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rmap-pos-san {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+
+.rmap-pos-meta {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+}
+
+.rmap-pos-line-title {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rmap-pos-open-btn {
+  margin-top: 0.2rem;
+  padding: 0.38rem 0.65rem;
+  background: var(--accent);
+  border: none;
+  border-radius: 7px;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  align-self: flex-start;
+  -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
+}
+.rmap-pos-open-btn:active { filter: brightness(0.9); }
+
+/* Collapse button — discrete ×  */
+.rmap-pos-collapse {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: var(--bg-elevated);
+  color: var(--text-faint);
+  border-radius: 50%;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  z-index: 1;
+}
+.rmap-pos-collapse:active { background: var(--border); }
+
+/* ── SVG tree elements ───────────────────────────────────────────────────────── */
+
 .rmap-edge {
   fill: none;
   stroke: var(--border);
@@ -3986,32 +4108,29 @@ cg-board square.move-dest.oc {
   fill: var(--bg-card);
   stroke: var(--border-card);
   stroke-width: 1;
-  transition: fill 0.1s, stroke 0.1s;
 }
 
-/* White-move nodes: light background */
+/* White moves: light parchment */
 .rmap-node--white > .rmap-node-bg {
-  fill: #f8f5ef;
-  stroke: #d4c8b6;
+  fill: #f7f3ec;
+  stroke: #d2c6b4;
 }
-
 [data-theme="dark"] .rmap-node--white > .rmap-node-bg {
-  fill: #2d2620;
-  stroke: #4a3d30;
+  fill: #2c2820;
+  stroke: #48392c;
 }
 
-/* Black-move nodes: slightly darker background */
+/* Black moves: slightly warmer dark */
 .rmap-node--black > .rmap-node-bg {
-  fill: #e8e0d4;
-  stroke: #b8a898;
+  fill: #e5ddd0;
+  stroke: #b5a592;
 }
-
 [data-theme="dark"] .rmap-node--black > .rmap-node-bg {
-  fill: #1e1914;
-  stroke: #3a2e22;
+  fill: #1c1712;
+  stroke: #382d22;
 }
 
-/* Fork nodes (variation split point): accent border */
+/* Fork = variation split point */
 .rmap-node--fork > .rmap-node-bg {
   stroke: var(--accent);
   stroke-width: 1.5;
@@ -4019,7 +4138,7 @@ cg-board square.move-dest.oc {
 
 .rmap-node--selected > .rmap-node-bg {
   fill: var(--accent) !important;
-  stroke: var(--accent) !important;
+  stroke: var(--accent-active) !important;
 }
 
 .rmap-node-text {
@@ -4030,130 +4149,128 @@ cg-board square.move-dest.oc {
   pointer-events: none;
   user-select: none;
 }
+.rmap-node--selected > .rmap-node-text { fill: #fff; }
 
-.rmap-node--selected > .rmap-node-text {
-  fill: #fff;
-}
+/* ── Bottom controls bar ──────────────────────────────────────────────────────── */
 
-/* Position preview panel */
-.rmap-preview {
+.rmap-controls {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 0.9rem;
-  padding: 0.75rem 1rem;
-  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0.75rem));
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0.5rem));
   border-top: 1px solid var(--border);
   background: var(--bg-card);
+  gap: 0.5rem;
 }
 
-.rmap-preview-hint {
-  flex: 1;
-  color: var(--text-faint);
-  font-size: 0.82rem;
-  text-align: center;
-  padding: 0.5rem 0;
-}
-
-.rmap-preview-board {
-  width: 120px;
-  height: 120px;
-  flex-shrink: 0;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.rmap-preview-info {
-  flex: 1;
-  min-width: 0;
+.rmap-controls-nav {
   display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.3rem;
 }
 
-.rmap-preview-opening {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--accent);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+.rmap-controls-zoom {
+  display: flex;
+  gap: 0.3rem;
 }
 
-.rmap-preview-san {
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  font-size: 1.3rem;
-  font-weight: 700;
-  color: var(--text);
-  line-height: 1;
-}
-
-.rmap-preview-meta {
-  font-size: 0.78rem;
-  color: var(--text-faint);
-}
-
-/* "Open in builder" button inside the preview */
-.rmap-open-btn {
-  margin-top: 0.15rem;
-  padding: 0.4rem 0.7rem;
-  background: var(--accent);
-  border: none;
-  border-radius: 7px;
-  color: #fff;
-  font-size: 0.78rem;
-  font-weight: 700;
-  cursor: pointer;
-  align-self: flex-start;
-  -webkit-tap-highlight-color: transparent;
-}
-.rmap-open-btn:active { filter: brightness(0.9); }
-
-/* Line count chip in the map header */
-.rmap-title-count {
-  font-size: 0.72rem;
-  color: var(--text-faint);
-  background: var(--bg-elevated);
-  border-radius: 10px;
-  padding: 0.15rem 0.5rem;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-/* Single full-width trigger button from the stats screen */
-.rmap-trigger-btn {
+.rmap-nav-btn,
+.rmap-zoom-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  width: 100%;
-  padding: 0.65rem 1rem;
+  min-width: 44px;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
   background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 10px;
   color: var(--text-muted);
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: 1.05rem;
+  font-weight: 500;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  margin-top: 0.75rem;
+  transition: background 0.1s, opacity 0.1s;
 }
-.rmap-trigger-btn:active { filter: brightness(0.94); }
-.rmap-trigger-btn--full { width: 100%; }
+.rmap-nav-btn:active,
+.rmap-zoom-btn:active { background: var(--border); }
+.rmap-nav-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
 
-/* Small "Map" button inside an individual card */
-.rmap-line-btn {
-  padding: 0.3rem 0.55rem;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text-faint);
-  font-size: 0.73rem;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  -webkit-tap-highlight-color: transparent;
+.rmap-zoom-btn {
+  min-width: 44px;
+  font-size: 1.3rem;
+  font-weight: 400;
 }
-.rmap-line-btn:active { background: var(--bg-elevated); }
+
+/* ── Statistics screen: two-button repertoire map entry ─────────────────────── */
+
+.rmap-section-desc {
+  font-size: 0.78rem;
+  color: var(--text-faint);
+  line-height: 1.45;
+  margin: 0 0 0.75rem;
+}
+
+.rmap-colour-btns {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.rmap-colour-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 1rem 0.5rem 0.8rem;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: filter 0.1s;
+}
+.rmap-colour-btn:active { filter: brightness(0.93); }
+
+.rmap-colour-btn--white {
+  background: #f5f0e8;
+  border-color: #d4c8b0;
+  color: #2a2218;
+}
+[data-theme="dark"] .rmap-colour-btn--white {
+  background: #2d2820;
+  border-color: #4a3d2e;
+  color: #e0d4be;
+}
+
+.rmap-colour-btn--black {
+  background: #272018;
+  border-color: #3a3028;
+  color: #d4c8b0;
+}
+[data-theme="dark"] .rmap-colour-btn--black {
+  background: #18130e;
+  border-color: #2d2218;
+  color: #b8a888;
+}
+
+.rmap-colour-btn-icon {
+  display: block;
+  opacity: 0.85;
+}
+
+.rmap-colour-btn-label {
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.rmap-colour-btn-count {
+  font-size: 0.72rem;
+  opacity: 0.65;
+}
 
 /* ── Just-saved line highlight (My Lines) ───────────────────────────────────── */
 .dline-card--highlight {
