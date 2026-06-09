@@ -2,11 +2,11 @@ import type { Line } from './types';
 import type { MoveNode } from './tree';
 import { Chessground } from 'chessground';
 import { getAllLines, saveLine, deleteLine } from './storage';
+import { lineIsDue } from './scheduler';
 import { Icons } from './icons';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
-// Phase 3 training will populate confidence and lastTrained.
 function relativeDate(isoStr: string): string {
   const diff = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000);
   if (diff < 60) return 'just now';
@@ -40,14 +40,24 @@ function finalMainlineFen(tree: MoveNode): string {
   return fen;
 }
 
-type SortMode = 'latest' | 'weakest' | 'strongest' | 'name';
-let currentSort: SortMode = 'latest';
+function byLatest(lines: Line[]): Line[] {
+  return [...lines].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+}
 
 interface LinesDeps {
   onOpenLine: (line: Line) => void;
   onAddLine: (colour: 'white' | 'black') => void;
   onStartTraining?: (line: Line) => void;
 }
+
+// Pending mini-boards: built first, mounted after the layout exists so
+// chessground can read real pixel bounds and place pieces correctly.
+type Pending = { el: HTMLElement; fen: string; orientation: 'white' | 'black' };
+
+// The colour filter on the detailed list. Persisted across re-renders so a
+// toggle/rename doesn't reset what you were looking at.
+type ColourFilter = 'all' | 'white' | 'black';
+let detailFilter: ColourFilter = 'all';
 
 export function renderLinesScreen(
   container: HTMLElement,
@@ -61,21 +71,27 @@ async function doRender(container: HTMLElement, deps: LinesDeps): Promise<void> 
   const allLines = await getAllLines();
   container.innerHTML = '';
 
-  // Pending mini-boards: built now, mounted after the layout exists so
-  // chessground can read real pixel bounds and place pieces correctly.
-  const pending: { el: HTMLElement; fen: string; orientation: 'white' | 'black' }[] = [];
+  const pending: Pending[] = [];
 
+  // Quick view: one carousel of mini-boards per colour.
   for (const colour of ['white', 'black'] as const) {
     container.appendChild(
-      buildCarouselSection(
-        container,
-        colour,
-        allLines.filter(l => l.colour === colour),
-        deps,
-        pending
-      )
+      buildCarouselSection(colour, allLines.filter(l => l.colour === colour), deps, pending)
     );
   }
+
+  // Detailed list: same page, scrolled below the carousels.
+  const detailWrap = document.createElement('section');
+  detailWrap.className = 'detail-list';
+  container.appendChild(detailWrap);
+
+  // Re-fetch and re-render only the detail list (used after toggle/delete so
+  // we don't re-mount every mini-board or jump the scroll back to the top).
+  const refreshDetail = async () => {
+    const fresh = await getAllLines();
+    renderDetailList(detailWrap, fresh, deps, container, refreshDetail);
+  };
+  renderDetailList(detailWrap, allLines, deps, container, refreshDetail);
 
   // Mount the static boards once the sections are in the (visible) DOM.
   requestAnimationFrame(() => {
@@ -83,14 +99,13 @@ async function doRender(container: HTMLElement, deps: LinesDeps): Promise<void> 
   });
 }
 
-// ── Carousel screen ─────────────────────────────────────────────────────────
+// ── Quick view: carousel ─────────────────────────────────────────────────────
 
 function buildCarouselSection(
-  container: HTMLElement,
   colour: 'white' | 'black',
   lines: Line[],
   deps: LinesDeps,
-  pending: { el: HTMLElement; fen: string; orientation: 'white' | 'black' }[]
+  pending: Pending[]
 ): HTMLElement {
   const section = document.createElement('section');
   section.className = 'carousel-section';
@@ -110,7 +125,7 @@ function buildCarouselSection(
   title.appendChild(name);
   head.appendChild(title);
 
-  // "+ Add new line" — the only entry into the builder from this screen.
+  // "+ Add new line" — the only entry into the builder for a fresh line.
   const addBtn = document.createElement('button');
   addBtn.type = 'button';
   addBtn.className = `lines-add-btn lines-add-btn--${colour}`;
@@ -132,34 +147,21 @@ function buildCarouselSection(
   // Horizontally-scrolling track of mini-board cards.
   const carousel = document.createElement('div');
   carousel.className = 'carousel-track';
-  for (const line of sortLines(lines, 'latest')) {
-    carousel.appendChild(buildMiniCard(container, line, deps, pending));
+  for (const line of byLatest(lines)) {
+    carousel.appendChild(buildMiniCard(line, deps, pending));
   }
   section.appendChild(carousel);
-
-  // "View more" → the detailed list (task 3.2).
-  const more = document.createElement('button');
-  more.type = 'button';
-  more.className = 'carousel-more';
-  more.textContent = 'View more →';
-  more.addEventListener('click', () => renderDetail(container, colour, lines, deps));
-  section.appendChild(more);
 
   return section;
 }
 
-function buildMiniCard(
-  container: HTMLElement,
-  line: Line,
-  deps: LinesDeps,
-  pending: { el: HTMLElement; fen: string; orientation: 'white' | 'black' }[]
-): HTMLElement {
+function buildMiniCard(line: Line, deps: LinesDeps, pending: Pending[]): HTMLElement {
   const card = document.createElement('button');
   card.type = 'button';
   card.className = 'carousel-card';
-  // Tapping a card opens the detailed list for its colour (task 3.2). The
-  // builder is reached only via "Add new line".
-  card.addEventListener('click', () => renderDetailFromLine(container, line, deps));
+  card.dataset.lineId = line.id;
+  // Tapping a mini-board opens that individual line in the builder.
+  card.addEventListener('click', () => deps.onOpenLine(line));
 
   const board = document.createElement('div');
   board.className = 'carousel-board';
@@ -188,85 +190,68 @@ function mountMiniBoard(el: HTMLElement, fen: string, orientation: 'white' | 'bl
   });
 }
 
-// ── Detailed list (View more target — task 3.2 will flesh this out) ──────────
+// ── Detailed list ────────────────────────────────────────────────────────────
 
-// Re-fetch all lines of a colour, then render the detail list. Used when a card
-// is tapped (we only have the one line in hand).
-async function renderDetailFromLine(
+function renderDetailList(
+  wrap: HTMLElement,
+  allLines: Line[],
+  deps: LinesDeps,
   container: HTMLElement,
-  line: Line,
-  deps: LinesDeps
-): Promise<void> {
-  const all = await getAllLines();
-  renderDetail(container, line.colour, all.filter(l => l.colour === line.colour), deps);
-}
-
-function renderDetail(
-  container: HTMLElement,
-  colour: 'white' | 'black',
-  lines: Line[],
-  deps: LinesDeps
+  refresh: () => void
 ): void {
-  container.innerHTML = '';
-
-  const back = document.createElement('button');
-  back.type = 'button';
-  back.className = 'detail-back';
-  back.appendChild(Icons.back(18));
-  back.appendChild(document.createTextNode('My Lines'));
-  back.addEventListener('click', () => doRender(container, deps));
-  container.appendChild(back);
+  wrap.innerHTML = '';
 
   const heading = document.createElement('h2');
   heading.className = 'lines-heading';
-  heading.textContent = colour === 'white' ? 'White lines' : 'Black lines';
-  container.appendChild(heading);
+  heading.textContent = 'All lines';
+  wrap.appendChild(heading);
 
-  const rerender = () => renderDetail(container, colour, lines, deps);
+  // Colour filter: All / White / Black.
+  wrap.appendChild(buildFilterRow(() => renderDetailList(wrap, allLines, deps, container, refresh)));
 
-  container.appendChild(buildSortRow(() => {
-    renderDetail(container, colour, lines, deps);
-  }));
+  const filtered =
+    detailFilter === 'all' ? allLines : allLines.filter(l => l.colour === detailFilter);
 
-  if (lines.length === 0) {
+  if (filtered.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'lines-empty';
-    empty.textContent = `No ${colour === 'white' ? 'White' : 'Black'} lines yet.`;
-    container.appendChild(empty);
+    empty.style.padding = '0 1rem 0.75rem';
+    empty.textContent = 'No lines here yet.';
+    wrap.appendChild(empty);
     return;
   }
 
   const list = document.createElement('div');
   list.className = 'lines-section';
-  for (const line of sortLines(lines, currentSort)) {
-    list.appendChild(buildCard(line, deps.onOpenLine, rerender, deps.onStartTraining));
+  // Both colours piled together, newest first.
+  for (const line of byLatest(filtered)) {
+    list.appendChild(buildDetailCard(line, deps, container, refresh));
   }
-  container.appendChild(list);
+  wrap.appendChild(list);
 }
 
-function buildSortRow(onChange: () => void): HTMLElement {
+function buildFilterRow(onChange: () => void): HTMLElement {
   const row = document.createElement('div');
-  row.className = 'sort-row';
+  row.className = 'dfilter-row';
 
   const label = document.createElement('span');
-  label.className = 'sort-label';
-  label.textContent = 'Sort:';
+  label.className = 'dfilter-label';
+  label.textContent = 'Show:';
   row.appendChild(label);
 
-  const sorts: { key: SortMode; label: string }[] = [
-    { key: 'latest', label: 'Latest' },
-    { key: 'weakest', label: 'Weakest' },
-    { key: 'strongest', label: 'Strongest' },
-    { key: 'name', label: 'Name' },
+  const opts: { key: ColourFilter; label: string }[] = [
+    { key: 'all', label: 'All' },
+    { key: 'white', label: 'White' },
+    { key: 'black', label: 'Black' },
   ];
 
-  for (const s of sorts) {
+  for (const o of opts) {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = `sort-btn${currentSort === s.key ? ' active' : ''}`;
-    btn.textContent = s.label;
+    btn.className = `dfilter-btn${detailFilter === o.key ? ' active' : ''}`;
+    btn.textContent = o.label;
     btn.addEventListener('click', () => {
-      currentSort = s.key;
+      detailFilter = o.key;
       onChange();
     });
     row.appendChild(btn);
@@ -275,116 +260,167 @@ function buildSortRow(onChange: () => void): HTMLElement {
   return row;
 }
 
-function sortLines(lines: Line[], mode: SortMode): Line[] {
-  const copy = [...lines];
-  switch (mode) {
-    case 'weakest':
-      return copy.sort((a, b) => (a.confidence ?? 0) - (b.confidence ?? 0));
-    case 'strongest':
-      return copy.sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0));
-    case 'name':
-      return copy.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    case 'latest':
-    default:
-      return copy.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
-  }
-}
-
-function buildCard(
+function buildDetailCard(
   line: Line,
-  onOpenLine: (line: Line) => void,
-  rerender: () => void,
-  onStartTraining?: (line: Line) => void
+  deps: LinesDeps,
+  container: HTMLElement,
+  refresh: () => void
 ): HTMLElement {
+  const due = line.inTraining && lineIsDue(line);
+
   const card = document.createElement('div');
-  card.className = 'line-card';
+  card.className = 'dline-card';
 
-  const body = document.createElement('button');
-  body.type = 'button';
-  body.className = 'line-card-body';
-  body.addEventListener('click', () => onOpenLine(line));
-
-  const nameEl = document.createElement('div');
-  nameEl.className = 'line-card-name';
+  // Title gets the whole top row — colour pip + name.
+  const titleRow = document.createElement('div');
+  titleRow.className = 'dline-title';
+  const pip = document.createElement('span');
+  pip.className = `colour-pip colour-pip--${line.colour}`;
+  pip.setAttribute('aria-hidden', 'true');
+  const nameEl = document.createElement('span');
+  nameEl.className = 'dline-name';
   nameEl.textContent = line.name || line.openingName || 'Untitled line';
+  titleRow.appendChild(pip);
+  titleRow.appendChild(nameEl);
+  if (due) {
+    const dueBadge = document.createElement('span');
+    dueBadge.className = 'dline-due';
+    dueBadge.textContent = 'Due';
+    titleRow.appendChild(dueBadge);
+  }
+  card.appendChild(titleRow);
 
-  const meta = document.createElement('div');
-  meta.className = 'line-card-meta';
-
-  const dot = document.createElement('span');
-  dot.className = 'strength-dot';
-  dot.textContent = '—';
-  dot.title = 'Strength: not yet trained';
-  meta.appendChild(dot);
-
-  for (const tag of line.tags) {
-    const chip = document.createElement('span');
-    chip.className = 'tag-chip';
-    chip.textContent = tag;
-    meta.appendChild(chip);
+  // Opening name (when it differs from the title) + tags.
+  if (line.openingName && line.openingName !== nameEl.textContent) {
+    const opening = document.createElement('div');
+    opening.className = 'dline-opening';
+    opening.textContent = line.openingName;
+    card.appendChild(opening);
   }
 
-  const trainingRow = document.createElement('div');
-  trainingRow.className = 'line-card-training';
-  const confSpan = document.createElement('span');
-  confSpan.className = 'training-stat';
-  confSpan.textContent = `Confidence: ${confidenceDots(line.confidence)}`;
-  const sep = document.createElement('span');
-  sep.className = 'training-sep';
-  sep.setAttribute('aria-hidden', 'true');
-  sep.textContent = '·';
-  const dateSpan = document.createElement('span');
-  dateSpan.className = 'training-stat';
-  dateSpan.textContent = line.lastTrained ? relativeDate(line.lastTrained) : 'Never trained';
-  trainingRow.appendChild(confSpan);
-  trainingRow.appendChild(sep);
-  trainingRow.appendChild(dateSpan);
-
-  body.appendChild(nameEl);
-  body.appendChild(meta);
-  body.appendChild(trainingRow);
-  card.appendChild(body);
-
-  // Training toggle — "Add to training" or "✓ Training" (tap to remove).
-  if (line.inTraining) {
-    const trainBtn = document.createElement('button');
-    trainBtn.type = 'button';
-    trainBtn.className = 'card-training-btn card-training-btn--active';
-    trainBtn.textContent = '✓ Training';
-    trainBtn.title = 'Tap to remove from training';
-    trainBtn.addEventListener('click', async e => {
-      e.stopPropagation();
-      await saveLine({ ...line, inTraining: false });
-      rerender();
-    });
-    card.appendChild(trainBtn);
-  } else if (onStartTraining) {
-    const trainBtn = document.createElement('button');
-    trainBtn.type = 'button';
-    trainBtn.className = 'card-training-btn';
-    trainBtn.textContent = 'Add to training';
-    trainBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      onStartTraining(line);
-    });
-    card.appendChild(trainBtn);
+  if (line.tags.length) {
+    const tagRow = document.createElement('div');
+    tagRow.className = 'dline-tags';
+    for (const tag of line.tags) {
+      const chip = document.createElement('span');
+      chip.className = 'tag-chip';
+      chip.textContent = tag;
+      tagRow.appendChild(chip);
+    }
+    card.appendChild(tagRow);
   }
 
-  const editBtn = document.createElement('button');
-  editBtn.type = 'button';
-  editBtn.className = 'line-edit-btn';
-  editBtn.setAttribute('aria-label', 'Edit line');
-  editBtn.appendChild(Icons.pencil(16));
-  editBtn.addEventListener('click', e => {
-    e.stopPropagation();
-    openEditSheet(line, rerender);
+  // Stats row: confidence · last-trained · in-training state.
+  const stats = document.createElement('div');
+  stats.className = 'dline-stats';
+
+  const conf = document.createElement('span');
+  conf.className = 'dline-stat';
+  conf.textContent = `Confidence ${confidenceDots(line.confidence)}`;
+  stats.appendChild(conf);
+
+  stats.appendChild(sepDot());
+
+  const last = document.createElement('span');
+  last.className = 'dline-stat';
+  last.textContent = line.lastTrained ? `Trained ${relativeDate(line.lastTrained)}` : 'Never trained';
+  stats.appendChild(last);
+
+  stats.appendChild(sepDot());
+
+  const state = document.createElement('span');
+  state.className = `dline-stat dline-state${line.inTraining ? ' dline-state--on' : ''}`;
+  state.textContent = line.inTraining ? 'In training' : 'Not training';
+  stats.appendChild(state);
+
+  card.appendChild(stats);
+
+  // Quiet (tonal) actions below: Rename · Open · In-training toggle · Delete.
+  const actions = document.createElement('div');
+  actions.className = 'dline-actions';
+
+  const renameBtn = document.createElement('button');
+  renameBtn.type = 'button';
+  renameBtn.className = 'dline-act';
+  renameBtn.textContent = 'Rename';
+  renameBtn.addEventListener('click', () =>
+    openRenameSheet(line, newName => {
+      // Keep the carousel title in sync without re-mounting boards.
+      const carouselTitle = container.querySelector<HTMLElement>(
+        `.carousel-card[data-line-id="${line.id}"] .carousel-card-title`
+      );
+      if (carouselTitle) carouselTitle.textContent = newName;
+      refresh();
+    })
+  );
+  actions.appendChild(renameBtn);
+
+  const openBtn = document.createElement('button');
+  openBtn.type = 'button';
+  openBtn.className = 'dline-act';
+  openBtn.textContent = 'Open';
+  openBtn.addEventListener('click', () => deps.onOpenLine(line));
+  actions.appendChild(openBtn);
+
+  // The ONE training control: on = in the drill pool, off = excluded but kept
+  // (stats and all). No separate pause/remove.
+  const toggleBtn = document.createElement('button');
+  toggleBtn.type = 'button';
+  toggleBtn.className = `dline-act dline-toggle${line.inTraining ? ' dline-toggle--on' : ''}`;
+  toggleBtn.setAttribute('role', 'switch');
+  toggleBtn.setAttribute('aria-checked', String(line.inTraining));
+  toggleBtn.textContent = line.inTraining ? 'In training: ON' : 'In training: OFF';
+  toggleBtn.addEventListener('click', async () => {
+    await saveLine({ ...line, inTraining: !line.inTraining });
+    refresh();
   });
-  card.appendChild(editBtn);
+  actions.appendChild(toggleBtn);
+
+  // Delete — discrete, tap-again-to-confirm. The only full removal.
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
+  deleteBtn.className = 'dline-act dline-act--danger';
+  deleteBtn.textContent = 'Delete';
+  let awaitingConfirm = false;
+  let resetTimer: ReturnType<typeof setTimeout> | undefined;
+  deleteBtn.addEventListener('click', async () => {
+    if (!awaitingConfirm) {
+      awaitingConfirm = true;
+      deleteBtn.textContent = 'Tap to confirm';
+      deleteBtn.classList.add('confirming');
+      resetTimer = setTimeout(() => {
+        awaitingConfirm = false;
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.classList.remove('confirming');
+      }, 3000);
+      return;
+    }
+    if (resetTimer) clearTimeout(resetTimer);
+    await deleteLine(line.id);
+    // Drop the matching carousel card too.
+    container
+      .querySelector(`.carousel-card[data-line-id="${line.id}"]`)
+      ?.remove();
+    refresh();
+  });
+  actions.appendChild(deleteBtn);
+
+  card.appendChild(actions);
 
   return card;
 }
 
-function openEditSheet(line: Line, rerender: () => void): void {
+function sepDot(): HTMLElement {
+  const sep = document.createElement('span');
+  sep.className = 'dline-sep';
+  sep.setAttribute('aria-hidden', 'true');
+  sep.textContent = '·';
+  return sep;
+}
+
+// ── Rename sheet (bottom-sheet modal, name only) ─────────────────────────────
+
+function openRenameSheet(line: Line, onSaved: (newName: string) => void): void {
   const overlay = document.createElement('div');
   overlay.className = 'edit-overlay';
 
@@ -393,10 +429,9 @@ function openEditSheet(line: Line, rerender: () => void): void {
 
   const title = document.createElement('h3');
   title.className = 'edit-sheet-title';
-  title.textContent = 'Edit line';
+  title.textContent = 'Rename line';
   sheet.appendChild(title);
 
-  const nameGroup = document.createElement('div');
   const nameLabel = document.createElement('label');
   nameLabel.className = 'edit-label';
   nameLabel.textContent = 'Name';
@@ -405,22 +440,8 @@ function openEditSheet(line: Line, rerender: () => void): void {
   nameInput.className = 'edit-input';
   nameInput.value = line.name;
   nameInput.placeholder = 'Line name';
-  nameGroup.appendChild(nameLabel);
-  nameGroup.appendChild(nameInput);
-  sheet.appendChild(nameGroup);
-
-  const tagsGroup = document.createElement('div');
-  const tagsLabel = document.createElement('label');
-  tagsLabel.className = 'edit-label';
-  tagsLabel.textContent = 'Tags (comma-separated)';
-  const tagsInput = document.createElement('input');
-  tagsInput.type = 'text';
-  tagsInput.className = 'edit-input';
-  tagsInput.value = line.tags.join(', ');
-  tagsInput.placeholder = 'e.g. sicilian, opening';
-  tagsGroup.appendChild(tagsLabel);
-  tagsGroup.appendChild(tagsInput);
-  sheet.appendChild(tagsGroup);
+  sheet.appendChild(nameLabel);
+  sheet.appendChild(nameInput);
 
   const btnRow = document.createElement('div');
   btnRow.className = 'edit-btn-row';
@@ -430,17 +451,10 @@ function openEditSheet(line: Line, rerender: () => void): void {
   saveBtn.className = 'edit-save-btn';
   saveBtn.textContent = 'Save';
   saveBtn.addEventListener('click', async () => {
-    const updated: Line = {
-      ...line,
-      name: nameInput.value.trim() || 'Untitled line',
-      tags: tagsInput.value
-        .split(',')
-        .map(t => t.trim())
-        .filter(Boolean),
-    };
-    await saveLine(updated);
+    const newName = nameInput.value.trim() || 'Untitled line';
+    await saveLine({ ...line, name: newName });
     close();
-    rerender();
+    onSaved(newName);
   });
 
   const cancelBtn = document.createElement('button');
@@ -453,33 +467,16 @@ function openEditSheet(line: Line, rerender: () => void): void {
   btnRow.appendChild(cancelBtn);
   sheet.appendChild(btnRow);
 
-  const deleteBtn = document.createElement('button');
-  deleteBtn.type = 'button';
-  deleteBtn.className = 'edit-delete-btn';
-  deleteBtn.appendChild(Icons.trash(15));
-  deleteBtn.appendChild(document.createTextNode('Delete line'));
-  let awaitingConfirm = false;
-  deleteBtn.addEventListener('click', async () => {
-    if (!awaitingConfirm) {
-      awaitingConfirm = true;
-      deleteBtn.replaceChildren();
-      deleteBtn.appendChild(Icons.trash(15));
-      deleteBtn.appendChild(document.createTextNode('Tap again to confirm delete'));
-      deleteBtn.classList.add('confirming');
-      return;
-    }
-    await deleteLine(line.id);
-    close();
-    rerender();
-  });
-  sheet.appendChild(deleteBtn);
-
   function close() {
     overlay.remove();
   }
 
   overlay.addEventListener('click', e => {
     if (e.target === overlay) close();
+  });
+
+  nameInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveBtn.click();
   });
 
   overlay.appendChild(sheet);
