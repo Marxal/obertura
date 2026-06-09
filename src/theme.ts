@@ -6,8 +6,9 @@
 // data-theme (never prefers-color-scheme), so JS is the single source of truth.
 //
 // A tiny inline script in index.html applies the same logic before first paint
-// to avoid a flash of the wrong theme; this module keeps it in sync afterwards
-// and wires up the in-header switch. (The control moves into Settings in 7.2.)
+// to avoid a flash of the wrong theme; this module keeps it in sync afterwards.
+// The user-facing control now lives in the Settings screen (settings-screen.ts),
+// which calls setThemeChoice() / getThemeChoice() directly.
 
 export type ThemeChoice = 'light' | 'dark' | 'auto';
 
@@ -38,41 +39,17 @@ function applyTheme(choice: ThemeChoice): void {
   if (meta) meta.setAttribute('content', THEME_COLOR[eff]);
 }
 
-function setThemeChoice(choice: ThemeChoice): void {
+export function setThemeChoice(choice: ThemeChoice): void {
   localStorage.setItem(STORAGE_KEY, choice);
   applyTheme(choice);
 }
 
-// Wire the header segmented control, reflect the active choice, and keep "auto"
-// in step with the OS as it changes.
-export function initThemeControl(): void {
-  const group = document.getElementById('theme-switch');
-  const buttons = group
-    ? Array.from(group.querySelectorAll<HTMLButtonElement>('[data-theme-choice]'))
-    : [];
-
-  function reflect(): void {
-    const choice = getThemeChoice();
-    for (const btn of buttons) {
-      const active = btn.dataset.themeChoice === choice;
-      btn.classList.toggle('active', active);
-      btn.setAttribute('aria-pressed', String(active));
-    }
-  }
-
-  for (const btn of buttons) {
-    btn.addEventListener('click', () => {
-      setThemeChoice(btn.dataset.themeChoice as ThemeChoice);
-      reflect();
-    });
-  }
-
-  // Follow the OS only while on "auto".
+// Apply the saved theme and keep "auto" in step with the OS as it changes.
+// Called once at boot; the pre-paint script has already applied an initial value.
+export function initTheme(): void {
   darkQuery.addEventListener('change', () => {
     if (getThemeChoice() === 'auto') applyTheme('auto');
   });
-
   // Re-assert in case the pre-paint script and storage ever disagree.
   applyTheme(getThemeChoice());
-  reflect();
 }

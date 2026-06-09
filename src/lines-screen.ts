@@ -19,7 +19,6 @@ import {
   type ImportedGame,
 } from './chesscom';
 import { runAnalysisSelfTest } from './analysis.selftest';
-import { renderBackupSection } from './backup';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -179,9 +178,8 @@ async function doRender(container: HTMLElement, deps: LinesDeps): Promise<void> 
   updateTabButtons(tabs);
   renderActive();
 
-  // Backup & restore lives at the foot of My Lines — a repertoire-wide action,
-  // not a per-line one. A successful import re-renders the whole screen.
-  container.appendChild(renderBackupSection(() => doRender(container, deps)));
+  // Backup & restore now lives in Settings → Data (a device-wide action), so it's
+  // no longer duplicated here.
 
   // Mount the static boards once the sections are in the (visible) DOM.
   requestAnimationFrame(() => {

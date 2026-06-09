@@ -250,3 +250,29 @@ export async function mergeLines(lines: Line[]): Promise<void> {
   for (const line of lines) s.put(line);
   await txnDone(s.transaction);
 }
+
+// ── Reset progress ─────────────────────────────────────────────────────────────
+//
+// Wipe everything the spaced-repetition trainer learned, while KEEPING the
+// repertoire itself: each move loses its review record (so it's "never trained"
+// and due immediately again), and every line's confidence + last-trained reset.
+// Lines, notes, tags and training membership are untouched — this is "forget my
+// scores", not "delete my work". The Settings screen guards it with a confirm.
+
+function stripReviewData(node: MoveNode): void {
+  delete node.review;
+  delete node.missedThisSession;
+  for (const child of node.children) stripReviewData(child);
+}
+
+export async function resetAllProgress(): Promise<void> {
+  const lines = await getAllLines();
+  const s = await store('readwrite');
+  for (const line of lines) {
+    stripReviewData(line.tree);
+    line.confidence = 0;
+    line.lastTrained = null;
+    s.put(line);
+  }
+  await txnDone(s.transaction);
+}

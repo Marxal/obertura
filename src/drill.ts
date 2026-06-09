@@ -5,6 +5,7 @@ import type { Line } from './types';
 import type { MoveNode } from './tree';
 import { Icons } from './icons';
 import { getRetriesBeforeReveal } from './prefs';
+import { playFeedback } from './sound';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -369,6 +370,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   // ── Error flash ─────────────────────────────────────────────────────────────
 
   function flashError(): void {
+    playFeedback('wrong');
     const flash = document.createElement('div');
     flash.className = 'pt-error-flash';
     boardWrap.appendChild(flash);
@@ -588,6 +590,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
         awaitingAlternativePlay = false;
       }
       markDot(taskIndex, 'correct');
+      playFeedback('correct');
       setStatus('');
       chess.move({ from, to, promotion: 'q' });
 
@@ -686,6 +689,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
 
     if (correct) {
       timedCorrect++;
+      playFeedback('correct');
       renderTimedScore();
       chess.move({ from, to, promotion: 'q' });
       cg.set({
