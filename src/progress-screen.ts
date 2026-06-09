@@ -282,24 +282,58 @@ function renderRepertoireMapSection(
   lines: Line[],
   cb: ProgressCallbacks,
 ): void {
-  const section = statsSection('Repertoire Map', `${lines.length} line${lines.length !== 1 ? 's' : ''}`);
+  const section = statsSection('Repertoire Map', '');
 
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'rmap-trigger-btn rmap-trigger-btn--full';
+  const desc = document.createElement('p');
+  desc.className = 'rmap-section-desc';
+  desc.textContent = 'See your preparation as a branching tree. Tap any move to explore the position and navigate to the builder.';
+  section.appendChild(desc);
 
-  // Map icon
-  btn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none"
-    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-    aria-hidden="true">
-    <circle cx="12" cy="12" r="3"/>
-    <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
-    <path d="M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>
-  </svg>`;
-  btn.appendChild(document.createTextNode('View repertoire map'));
+  const btnRow = document.createElement('div');
+  btnRow.className = 'rmap-colour-btns';
 
-  btn.addEventListener('click', () => openRepertoireMap(lines, cb.onOpenLine));
-  section.appendChild(btn);
+  for (const colour of ['white', 'black'] as const) {
+    const colourLines = lines.filter(l => l.colour === colour);
+    if (!colourLines.length) continue;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `rmap-colour-btn rmap-colour-btn--${colour}`;
+
+    // Large chess-piece icon (king shape, SVG).
+    const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    icon.setAttribute('viewBox', '0 0 24 24');
+    icon.setAttribute('width', '36');
+    icon.setAttribute('height', '36');
+    icon.setAttribute('fill', 'currentColor');
+    icon.setAttribute('aria-hidden', 'true');
+    icon.setAttribute('class', 'rmap-colour-btn-icon');
+    // Simple king silhouette: cross + head + body + base.
+    icon.innerHTML = `
+      <rect x="11" y="2" width="2" height="5" rx="1"/>
+      <rect x="9" y="4" width="6" height="2" rx="1"/>
+      <ellipse cx="12" cy="10" rx="3.5" ry="3"/>
+      <path d="M7.5 21 Q8 14 12 14 Q16 14 16.5 21Z"/>
+      <rect x="6" y="20" width="12" height="2.5" rx="1.25"/>
+    `;
+    btn.appendChild(icon);
+
+    const label = document.createElement('span');
+    label.className = 'rmap-colour-btn-label';
+    label.textContent = colour === 'white' ? 'White' : 'Black';
+    btn.appendChild(label);
+
+    const lineCount = document.createElement('span');
+    lineCount.className = 'rmap-colour-btn-count';
+    lineCount.textContent = `${colourLines.length} line${colourLines.length !== 1 ? 's' : ''}`;
+    btn.appendChild(lineCount);
+
+    btn.addEventListener('click', () => openRepertoireMap(colourLines, colour, cb.onOpenLine));
+    btnRow.appendChild(btn);
+  }
+
+  if (!btnRow.children.length) return;
+  section.appendChild(btnRow);
   container.appendChild(section);
 }
 

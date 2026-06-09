@@ -1,11 +1,10 @@
-// Repertoire Map — full-repertoire view of all saved lines as one zoomable tree.
+// Repertoire Map — full-colour view, zoomable tree, arrow navigation.
 //
-// openRepertoireMap(lines, onOpenLine)
+// openRepertoireMap(lines, colour, onOpenLine)
 //
-// All lines (white and black) are merged into a single tree from the start
-// position. Shared opening moves appear as one node. Tapping a node opens a
-// position preview at the bottom; the preview shows the opening name (offline,
-// from the bundled database) and a button to open the position in the builder.
+// Shows all lines for one colour merged into a tree from the start position.
+// Tap a node → position preview slides in at the top (two-column: board + info).
+// Arrow buttons (bottom) navigate the tree; ± buttons zoom.
 
 import type { Line } from './types';
 import type { MoveNode } from './tree';
@@ -15,32 +14,33 @@ import type { Key } from 'chessground/types';
 import { nameForFen } from './openings';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-const SVG_NS = 'http://www.w3.org/2000/svg';
+const NS = 'http://www.w3.org/2000/svg';
 
-// Node box geometry (all in px)
-const NW = 58;   // node width
+// Node box geometry
+const NW = 56;   // node width
 const NH = 30;   // node height
 const HG = 10;   // horizontal gap between sibling subtrees
 const VG = 44;   // vertical gap: bottom of parent → top of child
-const PAD = 20;  // outer padding around the whole tree
+const PAD = 20;  // outer padding
 
-// ── Internal map node ─────────────────────────────────────────────────────────
+// ── Map node ──────────────────────────────────────────────────────────────────
 
 interface MapNode {
   san: string;
   uci: string;
   fen: string;
-  lineIds: string[];    // which Line.ids pass through this node
+  lineIds: string[];
   children: MapNode[];
+  parent: MapNode | null;
   x: number;
   y: number;
+  svgEl: SVGGElement | null; // set during SVG build
 }
 
-// Build the merged tree from all lines (both colours merged at the root).
 function buildMergedTree(lines: Line[]): MapNode {
   const root: MapNode = {
     san: '', uci: '', fen: START_FEN, lineIds: [],
-    children: [], x: 0, y: 0,
+    children: [], parent: null, x: 0, y: 0, svgEl: null,
   };
   for (const l of lines) mergeInto(root, l.tree, l.id);
   return root;
@@ -50,7 +50,10 @@ function mergeInto(parent: MapNode, src: MoveNode, lineId: string): void {
   for (const sc of src.children) {
     let ex = parent.children.find(c => c.uci === sc.uci);
     if (!ex) {
-      ex = { san: sc.san, uci: sc.uci, fen: sc.fen, lineIds: [], children: [], x: 0, y: 0 };
+      ex = {
+        san: sc.san, uci: sc.uci, fen: sc.fen, lineIds: [],
+        children: [], parent, x: 0, y: 0, svgEl: null,
+      };
       parent.children.push(ex);
     }
     if (!ex.lineIds.includes(lineId)) ex.lineIds.push(lineId);
@@ -58,12 +61,12 @@ function mergeInto(parent: MapNode, src: MoveNode, lineId: string): void {
   }
 }
 
-// ── Tree layout ───────────────────────────────────────────────────────────────
+// ── Layout ────────────────────────────────────────────────────────────────────
 
 function subW(n: MapNode): number {
   if (!n.children.length) return NW;
-  const total = n.children.reduce((s, c, i) => s + subW(c) + (i ? HG : 0), 0);
-  return Math.max(NW, total);
+  const tot = n.children.reduce((s, c, i) => s + subW(c) + (i ? HG : 0), 0);
+  return Math.max(NW, tot);
 }
 
 function placeNodes(n: MapNode, x: number, y: number, w: number): void {
@@ -85,48 +88,46 @@ function treeMaxY(n: MapNode): number {
   return Math.max(...n.children.map(treeMaxY));
 }
 
-// Whose move: FEN second field = 'b' means white just moved, 'w' means black moved.
+// FEN field 2: 'b' = black to move, meaning white just played.
 function movedBy(fen: string): 'white' | 'black' {
   return fen.split(' ')[1] === 'b' ? 'white' : 'black';
 }
 
-// ── SVG tree ──────────────────────────────────────────────────────────────────
+// ── SVG ───────────────────────────────────────────────────────────────────────
 
 function buildSVG(
   root: MapNode,
-  onSelect: (n: MapNode) => void,
+  onTap: (n: MapNode) => void,
 ): SVGSVGElement {
   const w = subW(root);
-  const svgW = w + 2 * PAD;
   placeNodes(root, PAD, PAD, w);
   const maxY = treeMaxY(root);
+  const svgW = w + 2 * PAD;
   const svgH = maxY + NH + PAD * 2;
 
-  const svg = document.createElementNS(SVG_NS, 'svg') as SVGSVGElement;
+  const svg = document.createElementNS(NS, 'svg') as SVGSVGElement;
   svg.setAttribute('width', String(svgW));
   svg.setAttribute('height', String(svgH));
   svg.style.display = 'block';
   svg.style.overflow = 'visible';
 
-  // Root is the start position (no SAN); draw its children directly.
+  // Root is the start position (no SAN) — skip it, draw its children.
   drawEdges(svg, root, true);
-  drawNodes(svg, root, true, onSelect);
-
+  drawNodes(svg, root, true, onTap);
   return svg;
 }
 
-function drawEdges(parent: SVGElement, n: MapNode, skipCurrent: boolean): void {
-  for (const child of n.children) {
-    if (!skipCurrent) {
-      const x1 = n.x, y1 = n.y + NH, x2 = child.x, y2 = child.y;
-      const cy1 = y1 + (y2 - y1) * 0.5;
-      const cy2 = y2 - (y2 - y1) * 0.5;
-      const p = document.createElementNS(SVG_NS, 'path');
-      p.setAttribute('d', `M${x1},${y1} C${x1},${cy1} ${x2},${cy2} ${x2},${y2}`);
+function drawEdges(parent: SVGElement, n: MapNode, skip: boolean): void {
+  for (const c of n.children) {
+    if (!skip) {
+      const x1 = n.x, y1 = n.y + NH, x2 = c.x, y2 = c.y;
+      const my = (y2 - y1) * 0.5;
+      const p = document.createElementNS(NS, 'path');
+      p.setAttribute('d', `M${x1},${y1} C${x1},${y1 + my} ${x2},${y2 - my} ${x2},${y2}`);
       p.setAttribute('class', 'rmap-edge');
       parent.appendChild(p);
     }
-    drawEdges(parent, child, false);
+    drawEdges(parent, c, false);
   }
 }
 
@@ -134,22 +135,20 @@ function drawNodes(
   parent: SVGElement,
   n: MapNode,
   skip: boolean,
-  onSelect: (n: MapNode) => void,
+  onTap: (n: MapNode) => void,
 ): void {
   if (!skip) {
     const isFork = n.children.length > 1;
-    const mover = movedBy(n.fen); // 'white' or 'black' just moved
-    const cls = [
+    const mover = movedBy(n.fen);
+    const g = document.createElementNS(NS, 'g') as SVGGElement;
+    g.setAttribute('class', [
       'rmap-node',
       `rmap-node--${mover}`,
       isFork ? 'rmap-node--fork' : '',
-    ].filter(Boolean).join(' ');
+    ].filter(Boolean).join(' '));
 
-    const g = document.createElementNS(SVG_NS, 'g') as SVGGElement;
-    g.setAttribute('class', cls);
-
-    // Oversized transparent hit area for reliable finger taps.
-    const hit = document.createElementNS(SVG_NS, 'rect');
+    // Enlarged transparent hit area (≈44px tall for reliable taps).
+    const hit = document.createElementNS(NS, 'rect');
     hit.setAttribute('x', String(n.x - NW / 2 - 10));
     hit.setAttribute('y', String(n.y - 7));
     hit.setAttribute('width', String(NW + 20));
@@ -158,8 +157,7 @@ function drawNodes(
     hit.setAttribute('fill', 'transparent');
     g.appendChild(hit);
 
-    // Visible background.
-    const bg = document.createElementNS(SVG_NS, 'rect');
+    const bg = document.createElementNS(NS, 'rect');
     bg.setAttribute('x', String(n.x - NW / 2));
     bg.setAttribute('y', String(n.y));
     bg.setAttribute('width', String(NW));
@@ -168,8 +166,7 @@ function drawNodes(
     bg.setAttribute('class', 'rmap-node-bg');
     g.appendChild(bg);
 
-    // SAN label.
-    const txt = document.createElementNS(SVG_NS, 'text');
+    const txt = document.createElementNS(NS, 'text');
     txt.setAttribute('x', String(n.x));
     txt.setAttribute('y', String(n.y + NH / 2 + 5));
     txt.setAttribute('text-anchor', 'middle');
@@ -177,180 +174,295 @@ function drawNodes(
     txt.textContent = n.san;
     g.appendChild(txt);
 
+    n.svgEl = g;
     g.addEventListener('click', e => {
       e.stopPropagation();
-      parent.querySelectorAll('.rmap-node--selected')
-        .forEach(el => el.classList.remove('rmap-node--selected'));
-      g.classList.add('rmap-node--selected');
-      onSelect(n);
+      onTap(n);
     });
-
     parent.appendChild(g);
   }
-
-  for (const c of n.children) drawNodes(parent, c, false, onSelect);
+  for (const c of n.children) drawNodes(parent, c, false, onTap);
 }
 
 // ── Position preview panel ────────────────────────────────────────────────────
 
-interface Preview {
+interface PreviewController {
   el: HTMLElement;
-  show(n: MapNode, lines: Line[], onOpenLine: (l: Line) => void): void;
+  show(n: MapNode, lines: Line[], open: (l: Line) => void): void;
 }
 
-function makePreview(): Preview {
+function makePreview(colour: 'white' | 'black'): PreviewController {
   const panel = document.createElement('div');
-  panel.className = 'rmap-preview';
+  panel.className = 'rmap-pos-panel';
+  panel.hidden = true;
 
-  const hint = document.createElement('div');
-  hint.className = 'rmap-preview-hint';
-  hint.textContent = 'Tap any move to see the position';
-  panel.appendChild(hint);
+  // Collapse button (top-right).
+  const collapseBtn = document.createElement('button');
+  collapseBtn.type = 'button';
+  collapseBtn.className = 'rmap-pos-collapse';
+  collapseBtn.setAttribute('aria-label', 'Hide position');
+  collapseBtn.textContent = '×';
+  collapseBtn.addEventListener('click', () => { panel.hidden = true; });
+  panel.appendChild(collapseBtn);
 
+  // Board column (left).
+  const boardCol = document.createElement('div');
+  boardCol.className = 'rmap-pos-board-col';
   const boardEl = document.createElement('div');
-  boardEl.className = 'rmap-preview-board';
-  boardEl.hidden = true;
-  panel.appendChild(boardEl);
+  boardEl.className = 'rmap-pos-board';
+  boardCol.appendChild(boardEl);
+  panel.appendChild(boardCol);
 
-  const info = document.createElement('div');
-  info.className = 'rmap-preview-info';
-  info.hidden = true;
-  panel.appendChild(info);
+  // Info column (right).
+  const infoCol = document.createElement('div');
+  infoCol.className = 'rmap-pos-info-col';
+  panel.appendChild(infoCol);
 
   let cg: CgApi | null = null;
-  let cgMounted = false;
 
-  function show(n: MapNode, lines: Line[], onOpenLine: (l: Line) => void): void {
-    hint.hidden = true;
-    boardEl.hidden = false;
-    info.hidden = false;
+  function show(n: MapNode, lines: Line[], open: (l: Line) => void): void {
+    panel.hidden = false;
 
     const from = n.uci.slice(0, 2) as Key;
     const to = n.uci.slice(2, 4) as Key;
+    const assoc = lines.find(l => n.lineIds.includes(l.id));
+    const orient = assoc?.colour ?? colour;
 
-    // Orient the board based on the first associated line's colour.
-    const assocLine = lines.find(l => n.lineIds.includes(l.id));
-    const orientation = assocLine?.colour ?? 'white';
-
-    if (!cgMounted) {
+    if (!cg) {
       cg = Chessground(boardEl, {
-        fen: n.fen, orientation,
-        viewOnly: true, coordinates: false,
-        drawable: { enabled: false },
-        animation: { enabled: false },
+        fen: n.fen, orientation: orient, viewOnly: true,
+        coordinates: false,
+        drawable: { enabled: false }, animation: { enabled: false },
         selectable: { enabled: false },
         highlight: { lastMove: true, check: false },
         lastMove: [from, to],
       });
-      cgMounted = true;
     } else {
-      cg!.set({ fen: n.fen, orientation, lastMove: [from, to] });
+      cg.set({ fen: n.fen, orientation: orient, lastMove: [from, to] });
     }
 
-    // Rebuild info section.
-    info.innerHTML = '';
+    infoCol.innerHTML = '';
 
     const opening = nameForFen(n.fen);
     if (opening) {
-      const nameEl = document.createElement('div');
-      nameEl.className = 'rmap-preview-opening';
-      nameEl.textContent = opening;
-      info.appendChild(nameEl);
+      const nm = document.createElement('div');
+      nm.className = 'rmap-pos-opening';
+      nm.textContent = opening;
+      infoCol.appendChild(nm);
     }
 
-    const sanEl = document.createElement('div');
-    sanEl.className = 'rmap-preview-san';
-    sanEl.textContent = n.san;
-    info.appendChild(sanEl);
+    const san = document.createElement('div');
+    san.className = 'rmap-pos-san';
+    san.textContent = n.san;
+    infoCol.appendChild(san);
 
-    const meta = document.createElement('div');
-    meta.className = 'rmap-preview-meta';
     if (n.children.length > 1) {
-      meta.textContent = `${n.children.length} variations`;
+      const v = document.createElement('div');
+      v.className = 'rmap-pos-meta';
+      v.textContent = `${n.children.length} variations`;
+      infoCol.appendChild(v);
     } else if (n.children.length === 0) {
-      meta.textContent = 'End of line';
-    } else {
-      meta.textContent = ' ';
+      const v = document.createElement('div');
+      v.className = 'rmap-pos-meta';
+      v.textContent = 'End of line';
+      infoCol.appendChild(v);
     }
-    info.appendChild(meta);
 
-    // "Open in builder" — only when this node belongs to at least one saved line.
-    if (assocLine) {
+    if (assoc) {
+      const titleEl = document.createElement('div');
+      titleEl.className = 'rmap-pos-line-title';
+      titleEl.textContent = assoc.name || assoc.openingName || '';
+      if (titleEl.textContent) infoCol.appendChild(titleEl);
+
       const openBtn = document.createElement('button');
       openBtn.type = 'button';
-      openBtn.className = 'rmap-open-btn';
+      openBtn.className = 'rmap-pos-open-btn';
       openBtn.textContent = 'Open in builder';
-      openBtn.addEventListener('click', () => onOpenLine(assocLine));
-      info.appendChild(openBtn);
+      openBtn.addEventListener('click', () => open(assoc));
+      infoCol.appendChild(openBtn);
     }
   }
 
   return { el: panel, show };
 }
 
-// ── Pinch-zoom + pan ──────────────────────────────────────────────────────────
+// ── Pan + zoom ─────────────────────────────────────────────────────────────────
 
-function initZoomPan(outer: HTMLElement, inner: HTMLElement): void {
-  let scale = 1, tx = 0, ty = 0;
-  let dragging = false, dragOx = 0, dragOy = 0;
-  const ptrs = new Map<number, PointerEvent>();
-  let lastPinchDist = 0;
+interface TxState {
+  scale: number;
+  tx: number;
+  ty: number;
+}
 
-  function apply(): void {
-    inner.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+function applyTx(inner: HTMLElement, state: TxState, animated = false): void {
+  if (animated) {
+    inner.style.transition = 'transform 0.22s ease-out';
+    setTimeout(() => { inner.style.transition = ''; }, 260);
+  } else {
+    inner.style.transition = '';
   }
+  inner.style.transform = `translate(${state.tx}px, ${state.ty}px) scale(${state.scale})`;
+}
 
-  outer.addEventListener('pointerdown', e => {
-    ptrs.set(e.pointerId, e);
-    try { outer.setPointerCapture(e.pointerId); } catch { /* fine */ }
-    if (ptrs.size === 1) {
-      dragging = true; dragOx = e.clientX - tx; dragOy = e.clientY - ty;
-    } else {
-      dragging = false;
+function initPanZoom(outer: HTMLElement, inner: HTMLElement, state: TxState): void {
+  // Touch pan + pinch
+  let t0: Touch | null = null;
+  let startTx = 0, startTy = 0;
+  let lastDist = 0;
+
+  outer.addEventListener('touchstart', e => {
+    if (e.touches.length === 1) {
+      t0 = e.touches[0];
+      startTx = state.tx; startTy = state.ty;
     }
+    lastDist = 0;
   }, { passive: true });
 
-  outer.addEventListener('pointermove', e => {
-    if (!ptrs.has(e.pointerId)) return;
-    ptrs.set(e.pointerId, e);
-    if (ptrs.size >= 2) {
-      dragging = false;
-      const [a, b] = [...ptrs.values()];
-      const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-      if (lastPinchDist > 0) {
-        scale = Math.max(0.2, Math.min(4, scale * (dist / lastPinchDist)));
-        apply();
+  outer.addEventListener('touchmove', e => {
+    if (e.touches.length === 2) {
+      const [a, b] = [e.touches[0], e.touches[1]];
+      const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      if (lastDist > 0) {
+        state.scale = Math.max(0.15, Math.min(5, state.scale * (d / lastDist)));
+        applyTx(inner, state);
       }
-      lastPinchDist = dist;
-    } else if (ptrs.size === 1 && dragging) {
-      tx = e.clientX - dragOx; ty = e.clientY - dragOy; apply();
+      lastDist = d;
+    } else if (e.touches.length === 1 && t0) {
+      state.tx = startTx + (e.touches[0].clientX - t0.clientX);
+      state.ty = startTy + (e.touches[0].clientY - t0.clientY);
+      applyTx(inner, state);
     }
   }, { passive: true });
 
-  const end = (e: PointerEvent) => {
-    ptrs.delete(e.pointerId);
-    if (ptrs.size < 2) lastPinchDist = 0;
-    if (ptrs.size === 0) dragging = false;
-  };
-  outer.addEventListener('pointerup', end, { passive: true });
-  outer.addEventListener('pointercancel', end, { passive: true });
+  outer.addEventListener('touchend', () => { lastDist = 0; }, { passive: true });
 
+  // Mouse drag
+  let md = false, mx = 0, my = 0, mtx = 0, mty = 0;
+  outer.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    md = true; mx = e.clientX; my = e.clientY; mtx = state.tx; mty = state.ty;
+    outer.style.cursor = 'grabbing';
+  });
+  window.addEventListener('mousemove', e => {
+    if (!md) return;
+    state.tx = mtx + (e.clientX - mx);
+    state.ty = mty + (e.clientY - my);
+    applyTx(inner, state);
+  });
+  window.addEventListener('mouseup', () => {
+    md = false;
+    outer.style.cursor = '';
+  });
+
+  // Wheel zoom — faster multiplier for snappier feel
   outer.addEventListener('wheel', e => {
     e.preventDefault();
-    scale = Math.max(0.2, Math.min(4, scale * (e.deltaY < 0 ? 1.12 : 0.9)));
-    apply();
+    const f = e.deltaY < 0 ? 1.18 : 0.85;
+    state.scale = Math.max(0.15, Math.min(5, state.scale * f));
+    applyTx(inner, state);
   }, { passive: false });
+}
+
+// Centre a node in the visible area (with smooth animation).
+function centreNode(node: MapNode, outer: HTMLElement, state: TxState, inner: HTMLElement): void {
+  const rect = outer.getBoundingClientRect();
+  state.tx = rect.width / 2 - node.x * state.scale;
+  state.ty = rect.height / 3 - node.y * state.scale;
+  applyTx(inner, state, true);
+}
+
+// ── Navigation buttons ────────────────────────────────────────────────────────
+
+interface NavControls {
+  container: HTMLElement;
+  update(n: MapNode | null, forkChoice: Map<MapNode, number>): void;
+}
+
+function makeControls(
+  onLeft: () => void,
+  onUp: () => void,
+  onDown: () => void,
+  onRight: () => void,
+  onZoomIn: () => void,
+  onZoomOut: () => void,
+): NavControls {
+  const bar = document.createElement('div');
+  bar.className = 'rmap-controls';
+
+  const navGroup = document.createElement('div');
+  navGroup.className = 'rmap-controls-nav';
+
+  const LEFT = '←', UP = '↑', DOWN = '↓', RIGHT = '→';
+
+  const [leftBtn, upBtn, downBtn, rightBtn] = [
+    [LEFT, 'Previous move', onLeft],
+    [UP, 'Prev variation', onUp],
+    [DOWN, 'Next variation', onDown],
+    [RIGHT, 'Next move', onRight],
+  ].map(([label, aria, handler]) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'rmap-nav-btn';
+    b.setAttribute('aria-label', String(aria));
+    b.textContent = String(label);
+    b.disabled = true;
+    b.addEventListener('click', handler as () => void);
+    navGroup.appendChild(b);
+    return b;
+  });
+
+  const zoomGroup = document.createElement('div');
+  zoomGroup.className = 'rmap-controls-zoom';
+
+  for (const [t, a, h] of [['−', 'Zoom out', onZoomOut], ['+', 'Zoom in', onZoomIn]]) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'rmap-zoom-btn';
+    b.setAttribute('aria-label', String(a));
+    b.textContent = String(t);
+    b.addEventListener('click', h as () => void);
+    zoomGroup.appendChild(b);
+  }
+
+  bar.appendChild(navGroup);
+  bar.appendChild(zoomGroup);
+
+  function update(n: MapNode | null, forkChoice: Map<MapNode, number>): void {
+    if (!n) {
+      leftBtn.disabled = upBtn.disabled = downBtn.disabled = rightBtn.disabled = true;
+      return;
+    }
+    // ← available if parent exists (and parent has a san — not the invisible root).
+    leftBtn.disabled = !n.parent || !n.parent.san;
+    // → available if node has any children.
+    rightBtn.disabled = n.children.length === 0;
+    // ↑/↓ available if we have siblings (parent has multiple children).
+    const siblings = n.parent?.children ?? [];
+    const idx = siblings.indexOf(n);
+    upBtn.disabled = idx <= 0;
+    downBtn.disabled = idx >= siblings.length - 1;
+
+    // Show a hint on the → button when there's a fork to navigate.
+    if (n.children.length > 1) {
+      const ci = forkChoice.get(n) ?? 0;
+      rightBtn.title = `Into variation ${ci + 1} of ${n.children.length}`;
+    } else {
+      rightBtn.title = '';
+    }
+  }
+
+  return { container: bar, update };
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-// Open the full repertoire map — all lines merged into one zoomable tree.
-// onOpenLine is called (and the map closed) when the user taps "Open in builder".
 export function openRepertoireMap(
   lines: Line[],
+  colour: 'white' | 'black',
   onOpenLine: (line: Line) => void,
 ): void {
-  if (!lines.length) return;
+  const filtered = lines.filter(l => l.colour === colour);
+  if (!filtered.length) return;
 
   const overlay = document.createElement('div');
   overlay.className = 'rmap-overlay';
@@ -372,49 +484,133 @@ export function openRepertoireMap(
 
   const titleEl = document.createElement('h2');
   titleEl.className = 'rmap-title';
-  titleEl.textContent = 'Repertoire map';
+  titleEl.textContent = colour === 'white' ? 'White repertoire' : 'Black repertoire';
 
-  const countEl = document.createElement('span');
-  countEl.className = 'rmap-title-count';
-  countEl.textContent = `${lines.length} line${lines.length !== 1 ? 's' : ''}`;
+  const count = document.createElement('span');
+  count.className = 'rmap-title-count';
+  count.textContent = `${filtered.length} line${filtered.length !== 1 ? 's' : ''}`;
 
   header.appendChild(back);
   header.appendChild(titleEl);
-  header.appendChild(countEl);
+  header.appendChild(count);
   overlay.appendChild(header);
 
-  const root = buildMergedTree(lines);
+  // Tree area (relative-positioned so the preview panel can float inside it).
+  const treeArea = document.createElement('div');
+  treeArea.className = 'rmap-tree-area';
 
-  if (!root.children.length) {
-    const empty = document.createElement('p');
-    empty.className = 'rmap-empty';
-    empty.textContent = 'No lines saved yet. Build your first line to see the map.';
-    overlay.appendChild(empty);
-    document.body.appendChild(overlay);
-    return;
-  }
-
-  // Tree area — zoomable/pannable.
+  // Pan/zoom container.
   const treeWrap = document.createElement('div');
   treeWrap.className = 'rmap-tree-wrap';
 
   const inner = document.createElement('div');
   inner.className = 'rmap-zoom-inner';
 
-  const preview = makePreview();
+  const root = buildMergedTree(filtered);
 
-  const svg = buildSVG(root, n => {
-    preview.show(n, lines, line => {
+  if (!root.children.length) {
+    const empty = document.createElement('p');
+    empty.className = 'rmap-empty';
+    empty.textContent = 'No lines saved yet.';
+    treeArea.appendChild(empty);
+    overlay.appendChild(treeArea);
+    document.body.appendChild(overlay);
+    return;
+  }
+
+  // Navigation state.
+  let selected: MapNode | null = null;
+  const forkChoice = new Map<MapNode, number>();
+  const state: TxState = { scale: 1, tx: 0, ty: 0 };
+
+  // Preview panel.
+  const preview = makePreview(colour);
+  treeArea.appendChild(preview.el);
+
+  function selectNode(n: MapNode): void {
+    selected = n;
+
+    // Update SVG highlight.
+    svg.querySelectorAll('.rmap-node--selected')
+      .forEach(el => el.classList.remove('rmap-node--selected'));
+    n.svgEl?.classList.add('rmap-node--selected');
+
+    // Show preview.
+    preview.show(n, filtered, line => {
       overlay.remove();
       onOpenLine(line);
     });
-  });
+
+    // Centre node (with animation).
+    centreNode(n, treeWrap, state, inner);
+
+    // Update nav buttons.
+    controls.update(n, forkChoice);
+  }
+
+  const svg = buildSVG(root, selectNode);
   inner.appendChild(svg);
   treeWrap.appendChild(inner);
+  treeArea.appendChild(treeWrap);
+  overlay.appendChild(treeArea);
 
-  overlay.appendChild(treeWrap);
-  overlay.appendChild(preview.el);
+  // Arrow + zoom controls.
+  const controls = makeControls(
+    // ← previous move
+    () => {
+      if (selected?.parent?.san) selectNode(selected.parent);
+    },
+    // ↑ previous sibling
+    () => {
+      if (!selected?.parent) return;
+      const siblings = selected.parent.children;
+      const idx = siblings.indexOf(selected);
+      if (idx > 0) {
+        forkChoice.set(selected.parent, idx - 1);
+        selectNode(siblings[idx - 1]);
+      }
+    },
+    // ↓ next sibling
+    () => {
+      if (!selected?.parent) return;
+      const siblings = selected.parent.children;
+      const idx = siblings.indexOf(selected);
+      if (idx < siblings.length - 1) {
+        forkChoice.set(selected.parent, idx + 1);
+        selectNode(siblings[idx + 1]);
+      }
+    },
+    // → next move
+    () => {
+      if (!selected?.children.length) return;
+      const idx = forkChoice.get(selected) ?? 0;
+      const target = selected.children[Math.min(idx, selected.children.length - 1)];
+      selectNode(target);
+    },
+    // zoom in
+    () => {
+      state.scale = Math.min(5, state.scale * 1.35);
+      applyTx(inner, state, true);
+    },
+    // zoom out
+    () => {
+      state.scale = Math.max(0.15, state.scale / 1.35);
+      applyTx(inner, state, true);
+    },
+  );
+
+  overlay.appendChild(controls.container);
   document.body.appendChild(overlay);
 
-  initZoomPan(treeWrap, inner);
+  initPanZoom(treeWrap, inner, state);
+
+  // Start centred on the first child.
+  requestAnimationFrame(() => {
+    if (root.children[0]) {
+      const rect = treeWrap.getBoundingClientRect();
+      state.tx = rect.width / 2 - root.children[0].x;
+      state.ty = 60;
+      applyTx(inner, state);
+    }
+  });
 }
