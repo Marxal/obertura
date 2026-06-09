@@ -5,9 +5,9 @@ import 'chessground/assets/chessground.base.css';
 import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
 import { Icons } from './icons';
-import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, uciPathTo, loadTree, fenBefore } from './tree';
+import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, loadTree, fenBefore } from './tree';
 import { saveLine, getAllLines, saveGames, countGames, clearGames } from './storage';
-import { fetchOpeningName, getToken, setToken } from './openings';
+import { nameForPath } from './openings';
 import {
   getUsername,
   setUsername,
@@ -21,7 +21,6 @@ import { explainMove, describeGrade } from './explain';
 import type { Line } from './types';
 import { renderLinesScreen } from './lines-screen';
 import { renderProgressScreen } from './progress-screen';
-import { renderBranchView } from './branch-view';
 import { startPretrainingRun } from './pretraining';
 import { renderTrainScreen } from './train-screen';
 import { renderHomeScreen } from './home-screen';
@@ -49,21 +48,85 @@ function turnColor(): 'white' | 'black' {
   return chess.turn() === 'w' ? 'white' : 'black';
 }
 
-// Opening-name lookup. Debounced so rapid moves fire one request, and
-// race-guarded so a slow older request can't overwrite a newer result.
-let openingTimer: ReturnType<typeof setTimeout> | undefined;
-let openingRequestId = 0;
+// ── Opening name + line title ──────────────────────────────────────────────
+// Names come from the bundled database (openings.ts) — instant and offline, no
+// API and no token. The shown title is the user's manual name if they renamed
+// this line, otherwise the auto-detected opening name. `detectedName` always
+// tracks the database name so a Save can auto-fill the title.
 
-function updateOpeningName() {
-  if (openingTimer) clearTimeout(openingTimer);
-  openingTimer = setTimeout(async () => {
-    const reqId = ++openingRequestId;
-    const name = await fetchOpeningName(uciPathTo());
-    // Ignore stale results: only apply if this is still the latest request.
-    if (reqId !== openingRequestId) return;
-    const el = document.getElementById('opening-name')!;
-    el.textContent = name ?? '';
-  }, 350);
+// The auto-detected opening name for the current cursor position ('' if none).
+let detectedName = '';
+// The user's manual title for this line, or null when auto-naming applies.
+let manualTitle: string | null = null;
+
+// FENs of every position along the path to the current node, in order.
+function currentPathFens(): string[] {
+  return pathTo(getCurrentNode().id).map(n => n.fen);
+}
+
+// The deepest known opening name for the WHOLE line (independent of the cursor),
+// used to auto-fill the title on Save.
+function detectedNameForLine(): string {
+  return nameForPath(mainline().map(n => n.fen)) ?? '';
+}
+
+// The title currently in effect: the manual name if set, else the detected one.
+function currentTitle(): string {
+  return (manualTitle ?? detectedName).trim();
+}
+
+// Paint the title row: the live opening name (or the manual override) plus the
+// rename control. The rename input, when open, is left alone.
+function renderTitle(): void {
+  const el = document.getElementById('opening-name')!;
+  const title = currentTitle();
+  el.textContent = title || 'Unnamed line';
+  el.classList.toggle('opening-name--empty', !title);
+}
+
+// Recompute the detected name for the cursor position and repaint the title.
+function updateOpeningName(): void {
+  detectedName = nameForPath(currentPathFens()) ?? '';
+  renderTitle();
+}
+
+// Hide the inline rename input and restore the title display.
+function closeRenameInput(): void {
+  const input = document.getElementById('line-name') as HTMLInputElement;
+  input.hidden = true;
+}
+
+// Open the inline rename input seeded with the current title, ready to edit.
+function openRenameInput(): void {
+  const input = document.getElementById('line-name') as HTMLInputElement;
+  input.value = currentTitle();
+  input.hidden = false;
+  input.focus();
+  input.select();
+}
+
+// Commit whatever's in the rename input as the manual title (empty → auto-name).
+function commitRename(): void {
+  const input = document.getElementById('line-name') as HTMLInputElement;
+  const val = input.value.trim();
+  manualTitle = val ? val : null;
+  closeRenameInput();
+  renderTitle();
+}
+
+function setupTitleControls(): void {
+  const renameBtn = document.getElementById('rename-btn')!;
+  const input = document.getElementById('line-name') as HTMLInputElement;
+
+  renameBtn.addEventListener('click', () => {
+    if (input.hidden) openRenameInput();
+    else commitRename();
+  });
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); commitRename(); }
+    else if (e.key === 'Escape') { e.preventDefault(); closeRenameInput(); }
+  });
+  input.addEventListener('blur', commitRename);
 }
 
 // ── "Why this move" explanation ─────────────────────────────────────────────
@@ -172,18 +235,6 @@ function adoptExplanationAsNote(): void {
   renderExplanation();
 }
 
-let treeViewMode: 'list' | 'branches' = 'list';
-
-function redrawBranchView(): void {
-  if (treeViewMode !== 'branches') return;
-  const container = document.getElementById('branch-view')!;
-  if (!container) return;
-  renderBranchView(container, serialise(), {
-    onSelectNode: handleMoveClick,
-    activeNodeId: getCurrentNode().id,
-  });
-}
-
 function renderMoveList() {
   const moves = mainline();
   const activeId = getCurrentNode().id;
@@ -226,8 +277,6 @@ function renderMoveList() {
       el.appendChild(bSpan);
     }
   }
-
-  redrawBranchView();
 }
 
 // ── Note panel ────────────────────────────────────────────────────────────────
@@ -366,23 +415,32 @@ function renderLineMeta(): void {
   el.hidden = false;
 }
 
+// Watch line is now an icon-only button: a play triangle that becomes a stop
+// square while a line is playing back.
+const PLAY_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
+const STOP_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>';
+
+function setWatchPlaying(playing: boolean): void {
+  const btn = document.getElementById('watch-btn') as HTMLButtonElement | null;
+  if (!btn) return;
+  btn.innerHTML = playing ? STOP_ICON : PLAY_ICON;
+  btn.classList.toggle('playing', playing);
+  btn.setAttribute('aria-label', playing ? 'Stop' : 'Watch line');
+  btn.title = playing ? 'Stop' : 'Watch line';
+}
+
 function stopPlayback(): void {
   if (playbackTimer !== undefined) {
     clearTimeout(playbackTimer);
     playbackTimer = undefined;
   }
-  const watchBtn = document.getElementById('watch-btn') as HTMLButtonElement | null;
-  if (watchBtn) {
-    watchBtn.textContent = 'Watch line';
-    watchBtn.classList.remove('playing');
-  }
+  setWatchPlaying(false);
 }
 
 function goToStart(): void {
   goTo('root');
   chess.reset();
-  openingRequestId++;
-  document.getElementById('opening-name')!.textContent = '';
+  updateOpeningName();
   cg.set({
     fen: chess.fen(),
     turnColor: 'white',
@@ -454,9 +512,11 @@ function clearBuilder(colour: 'white' | 'black' = 'white'): void {
   (document.getElementById('line-tags') as HTMLInputElement).value = '';
   saveColour = colour;
   document.getElementById('save-msg')!.textContent = '';
-  // Clear the opening label and invalidate any in-flight lookup.
-  openingRequestId++;
-  document.getElementById('opening-name')!.textContent = '';
+  // Fresh line: drop any manual title and clear the auto-detected name.
+  manualTitle = null;
+  detectedName = '';
+  closeRenameInput();
+  renderTitle();
   cg.set({
     fen: chess.fen(),
     orientation: colour,
@@ -633,15 +693,18 @@ function onOpenLine(line: Line): void {
     lastMove: undefined,
   });
 
-  // Prefill save form with the loaded line's metadata.
+  // Prefill the title with the saved name; the cursor sits at the start so the
+  // detected name reflects the root until the user steps through the line.
   (document.getElementById('line-name') as HTMLInputElement).value = line.name;
   (document.getElementById('line-tags') as HTMLInputElement).value = line.tags.join(', ');
+  manualTitle = line.name;
+  detectedName = '';
+  closeRenameInput();
+  renderTitle();
 
   saveColour = line.colour;
 
   document.getElementById('save-msg')!.textContent = '';
-  openingRequestId++;
-  document.getElementById('opening-name')!.textContent = '';
 
   renderMoveList();
   renderNotePanel();
@@ -670,7 +733,6 @@ function setupNav(): void {
 
 function setupSaveForm() {
   const saveForm = document.getElementById('save-form')!;
-  const nameInput = document.getElementById('line-name') as HTMLInputElement;
   const tagsInput = document.getElementById('line-tags') as HTMLInputElement;
   const saveBtn = document.getElementById('save-btn') as HTMLButtonElement;
   const saveMsg = document.getElementById('save-msg')!;
@@ -723,14 +785,22 @@ function setupSaveForm() {
       .map(t => t.trim())
       .filter(t => t.length > 0);
 
+    // Auto-naming (default): the title is the manual name if the user renamed,
+    // otherwise the opening name from the bundled database for the whole line.
+    const opening = detectedNameForLine();
+    const name = currentTitle() || opening || 'Untitled line';
+    // Keep the title row in sync with what we just saved.
+    manualTitle = name;
+    renderTitle();
+
     const isNew = !loadedLineId;
     const id = loadedLineId ?? crypto.randomUUID();
     const line: Line = {
       id,
-      name: nameInput.value.trim() || 'Untitled line',
+      name,
       tags,
       colour: saveColour,
-      openingName: null,
+      openingName: opening || null,
       confidence: 0,
       lastTrained: null,
       // Preserve inTraining for existing lines; new lines start as false.
@@ -751,20 +821,6 @@ function setupSaveForm() {
 // ── Settings ──────────────────────────────────────────────────────────────────
 
 function setupSettings() {
-  const tokenInput = document.getElementById('lichess-token') as HTMLInputElement;
-  const tokenMsg = document.getElementById('token-msg')!;
-
-  // Prefill from device storage so it survives reloads.
-  tokenInput.value = getToken();
-  tokenMsg.textContent = getToken() ? 'Token saved on this device ✓' : '';
-
-  tokenInput.addEventListener('change', () => {
-    setToken(tokenInput.value);
-    tokenMsg.textContent = getToken() ? 'Token saved on this device ✓' : 'Token cleared';
-    // Re-run the lookup for the current line now that auth changed.
-    updateOpeningName();
-  });
-
   // Training: how many retries a wrong move gets before the arrow is shown.
   const retriesSelect = document.getElementById('retries-before-reveal') as HTMLSelectElement;
   retriesSelect.value = String(getRetriesBeforeReveal());
@@ -880,14 +936,7 @@ function setupImportSelfTest(): void {
 // ── Playback controls ─────────────────────────────────────────────────────────
 
 function setupPlaybackControls(): void {
-  const lastPosBtn = document.getElementById('last-pos-btn') as HTMLButtonElement;
   const watchBtn = document.getElementById('watch-btn') as HTMLButtonElement;
-
-  lastPosBtn.addEventListener('click', () => {
-    const moves = mainline();
-    if (moves.length === 0) return;
-    handleMoveClick(moves[moves.length - 1].id);
-  });
 
   watchBtn.addEventListener('click', () => {
     if (playbackTimer !== undefined) {
@@ -898,14 +947,12 @@ function setupPlaybackControls(): void {
     const moves = mainline();
     if (moves.length === 0) return;
 
-    watchBtn.textContent = 'Stop';
-    watchBtn.classList.add('playing');
+    setWatchPlaying(true);
     goToStart();
 
     function playStep(index: number): void {
       if (index >= moves.length) {
-        watchBtn.textContent = 'Watch line';
-        watchBtn.classList.remove('playing');
+        setWatchPlaying(false);
         playbackTimer = undefined;
         return;
       }
@@ -916,51 +963,6 @@ function setupPlaybackControls(): void {
     }
 
     playStep(0);
-  });
-}
-
-// ── Branch view toggle ────────────────────────────────────────────────────────
-
-function setupBranchView(): void {
-  const linePanel = document.getElementById('line-panel')!;
-  const moveList = document.getElementById('move-list')!;
-
-  const toggleRow = document.createElement('div');
-  toggleRow.id = 'tree-toggle';
-  const listBtn = document.createElement('button');
-  listBtn.type = 'button';
-  listBtn.id = 'toggle-list';
-  listBtn.className = 'tree-tab active';
-  listBtn.textContent = 'List';
-  const branchBtn = document.createElement('button');
-  branchBtn.type = 'button';
-  branchBtn.id = 'toggle-branches';
-  branchBtn.className = 'tree-tab';
-  branchBtn.textContent = 'Branches';
-  toggleRow.appendChild(listBtn);
-  toggleRow.appendChild(branchBtn);
-  linePanel.insertBefore(toggleRow, moveList);
-
-  const branchContainer = document.createElement('div');
-  branchContainer.id = 'branch-view';
-  branchContainer.hidden = true;
-  moveList.insertAdjacentElement('afterend', branchContainer);
-
-  listBtn.addEventListener('click', () => {
-    treeViewMode = 'list';
-    moveList.hidden = false;
-    branchContainer.hidden = true;
-    listBtn.classList.add('active');
-    branchBtn.classList.remove('active');
-  });
-
-  branchBtn.addEventListener('click', () => {
-    treeViewMode = 'branches';
-    moveList.hidden = true;
-    branchContainer.hidden = false;
-    listBtn.classList.remove('active');
-    branchBtn.classList.add('active');
-    redrawBranchView();
   });
 }
 
@@ -1028,6 +1030,9 @@ requestAnimationFrame(() => {
       renderExplanation();
     },
     (uci) => playUci(uci),
+    // Flip: a temporary, view-only swap to the other side. It does NOT change
+    // the line's saved colour — reopening or resetting restores the correct one.
+    () => cg.toggleOrientation(),
   );
   if (engine.isEnabled) {
     engine.enable();
@@ -1038,15 +1043,10 @@ requestAnimationFrame(() => {
   setupSettings();
   setupImport();
   setupPlaybackControls();
-  setupBranchView();
+  setupTitleControls();
   setupNotePanel();
 
   document.getElementById('reset-btn')!.addEventListener('click', () => clearBuilder('white'));
-
-  // Flip icon: a temporary, view-only swap to the other side. It does NOT change
-  // the line's saved colour — reopening or resetting the line restores the
-  // colour-correct orientation.
-  document.getElementById('board-flip')!.addEventListener('click', () => cg.toggleOrientation());
 
   new ResizeObserver(() => cg.redrawAll()).observe(boardEl);
 

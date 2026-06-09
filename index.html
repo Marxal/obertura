@@ -52,11 +52,15 @@
           <div id="eval-bar-top"></div>
           <div id="board-wrap">
             <div id="board"></div>
-            <button id="board-flip" type="button" class="board-flip" aria-label="Flip board view" title="Flip board"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></button>
           </div>
           <div id="eval-controls"></div>
           <div id="line-panel">
-            <div class="opening-name" id="opening-name" aria-live="polite"></div>
+            <div class="line-title-row">
+              <div class="opening-name" id="opening-name" aria-live="polite"></div>
+              <button id="watch-btn" type="button" class="watch-btn" aria-label="Watch line" title="Watch line"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>
+              <button id="rename-btn" type="button" class="rename-btn" aria-label="Rename line" title="Rename"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+            </div>
+            <input id="line-name" type="text" class="line-name-input" placeholder="Line name" hidden />
             <div id="move-list"></div>
             <div id="move-explanation" class="move-explanation" hidden aria-live="polite"></div>
             <div id="note-panel" hidden>
@@ -64,19 +68,14 @@
               <textarea id="move-note-input" class="note-panel-textarea" placeholder="Reminder or plan for this move…" rows="2"></textarea>
             </div>
             <div id="line-meta" hidden></div>
-            <div id="playback-controls">
-              <button id="last-pos-btn" type="button" class="playback-btn">Last position</button>
-              <button id="watch-btn" type="button" class="playback-btn">Watch line</button>
-            </div>
-            <button id="reset-btn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>Reset line</button>
 
             <div id="save-form">
-              <input id="line-name" type="text" placeholder="Italian Game — main line" />
-              <input id="line-tags" type="text" placeholder="tags, comma, separated" />
               <div id="save-row">
                 <button id="save-btn"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>Save line</button>
                 <span id="save-msg" aria-live="polite"></span>
               </div>
+              <input id="line-tags" type="text" placeholder="tags, comma, separated" />
+              <button id="reset-btn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>Reset line</button>
             </div>
 
             <details id="settings">
@@ -87,13 +86,6 @@
                 <option value="1">One retry</option>
                 <option value="2">Two retries</option>
               </select>
-
-              <label for="lichess-token">Lichess API token</label>
-              <input id="lichess-token" type="password" autocomplete="off"
-                     placeholder="Paste token to enable opening names" />
-              <span id="token-msg"></span>
-              <a href="https://lichess.org/account/oauth/token/create?description=Obertura"
-                 target="_blank" rel="noopener">Create a free token →</a>
 
               <div id="import-block">
                 <label for="chesscom-user">Chess.com username</label>

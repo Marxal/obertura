@@ -565,33 +565,6 @@ main {
 #board-wrap {
   width: 100vw;
   height: 100vw;
-  position: relative; /* anchor for the flip button */
-}
-
-/* Discreet flip control — tucked into the board's top-right corner. View-only:
-   it swaps which side faces you without touching the line's saved colour. */
-.board-flip {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: none;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--bg-card) 78%, transparent);
-  color: var(--text-muted);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  backdrop-filter: blur(2px);
-}
-
-.board-flip:active {
-  color: var(--accent);
 }
 
 #board {
@@ -668,13 +641,79 @@ cg-board square.move-dest.oc {
   gap: 0.75rem;
 }
 
+/* Title row: the live opening name (the auto-given title) with small Watch and
+   Rename controls beside it. */
+.line-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .opening-name {
+  flex: 1;
+  min-width: 0;
   font-family: Georgia, 'Times New Roman', serif;
-  font-size: 0.95rem;
-  font-style: italic;
-  color: var(--text-faint);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text);
   min-height: 1.2em;
-  margin-bottom: 0.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* No name yet ("Unnamed line") — show it quiet and italic. */
+.opening-name--empty {
+  font-style: italic;
+  font-weight: 400;
+  color: var(--text-faint);
+}
+
+/* Small round icon controls in the title row (Watch / Rename). */
+.watch-btn,
+.rename-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--border-card);
+  border-radius: 50%;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-card);
+  transition: color 0.12s, border-color 0.12s, filter 0.12s;
+}
+
+.watch-btn:active,
+.rename-btn:active {
+  filter: brightness(0.95);
+  transform: translateY(1px);
+}
+
+.watch-btn.playing {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Inline rename field, revealed under the title when renaming. */
+.line-name-input {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 1rem;
+}
+
+.line-name-input:focus {
+  outline: none;
 }
 
 #move-list {
@@ -830,54 +869,7 @@ cg-board square.move-dest.oc {
   font-family: system-ui, -apple-system, sans-serif;
 }
 
-#playback-controls {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.playback-btn {
-  flex: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  padding: 0.55rem 0.75rem;
-  min-height: 44px;
-  background-color: var(--bg-card);
-  background-image: linear-gradient(180deg, rgba(255,255,255,0.45) 0%, transparent 100%);
-  color: var(--text-muted);
-  border: 1px solid var(--border-card);
-  border-radius: 7px;
-  font-size: 0.875rem;
-  font-family: system-ui, -apple-system, sans-serif;
-  font-weight: 600;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  box-shadow: var(--shadow-card);
-  transition: background 0.12s, color 0.12s, border-color 0.12s, box-shadow 0.12s;
-}
-
-.playback-btn:hover {
-  color: var(--text);
-  border-color: var(--border);
-  box-shadow: var(--shadow-card-hover);
-}
-
-.playback-btn:active {
-  filter: brightness(0.95);
-  box-shadow: inset 0 1px 3px rgba(28,22,16,0.1);
-  transform: translateY(1px);
-}
-
-.playback-btn.playing {
-  background-image: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 55%, rgba(0,0,0,0.06) 100%);
-  background-color: var(--maroon);
-  color: #fff;
-  border-color: var(--maroon);
-  box-shadow: 0 2px 5px rgba(122,34,48,0.3);
-}
-
-/* Settings (device-local Lichess token) */
+/* Settings */
 #settings {
   padding-top: 0.75rem;
   border-top: 1px solid var(--hairline);
@@ -895,36 +887,6 @@ cg-board square.move-dest.oc {
   display: block;
   margin: 0.6rem 0 0.3rem;
   color: var(--text-muted);
-}
-
-#settings input[type='password'] {
-  width: 100%;
-  padding: 0.6rem 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg-card);
-  color: var(--text);
-  font-family: system-ui, -apple-system, sans-serif;
-  font-size: 1rem;
-}
-
-#settings input[type='password']:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-#token-msg {
-  display: block;
-  margin-top: 0.3rem;
-  font-size: 0.75rem;
-  color: var(--text-faint);
-}
-
-#settings a {
-  display: inline-block;
-  margin-top: 0.5rem;
-  color: var(--maroon);
-  font-size: 0.8rem;
 }
 
 /* ── Chess.com import ──────────────────────────────────────────────────────── */
@@ -1861,60 +1823,6 @@ cg-board square.move-dest.oc {
   color: #fff;
   border-color: var(--danger);
   box-shadow: 0 2px 5px rgba(160,48,48,0.3);
-}
-
-/* ── Branch view toggle (List ↔ Branches) ─────────────────────────────────── */
-
-#tree-toggle {
-  display: flex;
-  align-self: flex-start;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.tree-tab {
-  padding: 0.3rem 0.875rem;
-  min-height: 36px;
-  border: none;
-  background: var(--bg-card);
-  color: var(--text-muted);
-  font-family: system-ui, -apple-system, sans-serif;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: background 0.12s, color 0.12s;
-}
-
-.tree-tab + .tree-tab {
-  border-left: 1px solid var(--border);
-}
-
-.tree-tab.active {
-  background: var(--accent);
-  color: #fff;
-}
-
-#branch-view {
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-  max-height: 260px;
-  border: 1px solid var(--border-card);
-  border-radius: 8px;
-  background: var(--bg-sheet);
-  box-shadow: var(--shadow-card);
-}
-
-#branch-view svg {
-  display: block;
-}
-
-.branch-empty {
-  padding: 1rem;
-  color: var(--text-faint);
-  font-style: italic;
-  font-size: 0.875rem;
 }
 
 /* ── Add to training button (builder save form) ────────────────────────────── */
@@ -2939,6 +2847,29 @@ cg-board square.move-dest.oc {
   font-size: 0.62rem;
   color: var(--text-faint);
   white-space: nowrap;
+}
+
+/* Small flip-board control, sitting just left of the engine toggle. View-only:
+   it swaps which side faces you without touching the line's saved colour. */
+.board-flip-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border-card);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+
+.board-flip-btn:active {
+  color: var(--accent);
+  filter: brightness(0.96);
 }
 
 .engine-label {
