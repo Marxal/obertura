@@ -841,7 +841,10 @@ function showView(view: ViewName): void {
   }
 
   if (view === 'progress') {
-    renderProgressScreen(progressEl, { onTrainLine });
+    renderProgressScreen(progressEl, {
+      onTrainLine,
+      onOpenLine: (line) => onOpenLine(line),
+    });
   }
 
   if (view === 'builder') {

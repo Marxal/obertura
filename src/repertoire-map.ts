@@ -1,75 +1,71 @@
-// Repertoire Map — two views reachable from Statistics:
+// Repertoire Map — full-repertoire view of all saved lines as one zoomable tree.
 //
-//   openLineMap(line)            — branching diagram for a single opening
-//   openColourMap(lines, colour) — zoomable/pannable tree of all lines for one colour
+// openRepertoireMap(lines, onOpenLine)
 //
-// Both open as a full-screen overlay. Tapping a node shows a mini chessboard
-// at that position in a panel along the bottom.
+// All lines (white and black) are merged into a single tree from the start
+// position. Shared opening moves appear as one node. Tapping a node opens a
+// position preview at the bottom; the preview shows the opening name (offline,
+// from the bundled database) and a button to open the position in the builder.
 
 import type { Line } from './types';
 import type { MoveNode } from './tree';
 import { Chessground } from 'chessground';
 import type { Api as CgApi } from 'chessground/api';
 import type { Key } from 'chessground/types';
+import { nameForFen } from './openings';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-// Node box geometry
-const NW = 56;   // node width
+// Node box geometry (all in px)
+const NW = 58;   // node width
 const NH = 30;   // node height
 const HG = 10;   // horizontal gap between sibling subtrees
-const VG = 42;   // vertical gap: bottom of level N → top of level N+1
-const PAD = 18;  // outer padding around the whole tree
+const VG = 44;   // vertical gap: bottom of parent → top of child
+const PAD = 20;  // outer padding around the whole tree
 
-// ── Internal node ─────────────────────────────────────────────────────────────
+// ── Internal map node ─────────────────────────────────────────────────────────
 
 interface MapNode {
   san: string;
   uci: string;
   fen: string;
+  lineIds: string[];    // which Line.ids pass through this node
   children: MapNode[];
   x: number;
   y: number;
 }
 
-function fromMoveNode(n: MoveNode): MapNode {
-  return {
-    san: n.san, uci: n.uci, fen: n.fen,
-    children: n.children.map(fromMoveNode),
-    x: 0, y: 0,
-  };
-}
-
-// Merge all lines into one tree: nodes with the same uci at the same position
-// are shared, so repeated opening moves appear only once.
+// Build the merged tree from all lines (both colours merged at the root).
 function buildMergedTree(lines: Line[]): MapNode {
-  const root: MapNode = { san: '', uci: '', fen: START_FEN, children: [], x: 0, y: 0 };
-  for (const l of lines) mergeInto(root, l.tree);
+  const root: MapNode = {
+    san: '', uci: '', fen: START_FEN, lineIds: [],
+    children: [], x: 0, y: 0,
+  };
+  for (const l of lines) mergeInto(root, l.tree, l.id);
   return root;
 }
 
-function mergeInto(parent: MapNode, src: MoveNode): void {
+function mergeInto(parent: MapNode, src: MoveNode, lineId: string): void {
   for (const sc of src.children) {
     let ex = parent.children.find(c => c.uci === sc.uci);
     if (!ex) {
-      ex = { san: sc.san, uci: sc.uci, fen: sc.fen, children: [], x: 0, y: 0 };
+      ex = { san: sc.san, uci: sc.uci, fen: sc.fen, lineIds: [], children: [], x: 0, y: 0 };
       parent.children.push(ex);
     }
-    mergeInto(ex, sc);
+    if (!ex.lineIds.includes(lineId)) ex.lineIds.push(lineId);
+    mergeInto(ex, sc, lineId);
   }
 }
 
-// ── Layout ────────────────────────────────────────────────────────────────────
+// ── Tree layout ───────────────────────────────────────────────────────────────
 
-// Minimum width this subtree needs (horizontal space).
 function subW(n: MapNode): number {
   if (!n.children.length) return NW;
   const total = n.children.reduce((s, c, i) => s + subW(c) + (i ? HG : 0), 0);
   return Math.max(NW, total);
 }
 
-// Assign x/y to every node. x is centre; y is top edge.
 function placeNodes(n: MapNode, x: number, y: number, w: number): void {
   n.x = x + w / 2;
   n.y = y;
@@ -84,22 +80,25 @@ function placeNodes(n: MapNode, x: number, y: number, w: number): void {
   }
 }
 
-// Deepest y-coordinate reached by any leaf.
 function treeMaxY(n: MapNode): number {
   if (!n.children.length) return n.y;
   return Math.max(...n.children.map(treeMaxY));
 }
 
-// ── SVG construction ──────────────────────────────────────────────────────────
+// Whose move: FEN second field = 'b' means white just moved, 'w' means black moved.
+function movedBy(fen: string): 'white' | 'black' {
+  return fen.split(' ')[1] === 'b' ? 'white' : 'black';
+}
+
+// ── SVG tree ──────────────────────────────────────────────────────────────────
 
 function buildSVG(
   root: MapNode,
-  skipRoot: boolean,
   onSelect: (n: MapNode) => void,
 ): SVGSVGElement {
-  const totalW = subW(root);
-  const svgW = totalW + 2 * PAD;
-  placeNodes(root, PAD, PAD, totalW);
+  const w = subW(root);
+  const svgW = w + 2 * PAD;
+  placeNodes(root, PAD, PAD, w);
   const maxY = treeMaxY(root);
   const svgH = maxY + NH + PAD * 2;
 
@@ -109,8 +108,9 @@ function buildSVG(
   svg.style.display = 'block';
   svg.style.overflow = 'visible';
 
-  drawEdges(svg, root, skipRoot);
-  drawNodes(svg, root, skipRoot, onSelect);
+  // Root is the start position (no SAN); draw its children directly.
+  drawEdges(svg, root, true);
+  drawNodes(svg, root, true, onSelect);
 
   return svg;
 }
@@ -118,17 +118,13 @@ function buildSVG(
 function drawEdges(parent: SVGElement, n: MapNode, skipCurrent: boolean): void {
   for (const child of n.children) {
     if (!skipCurrent) {
-      // Curved connector: cubic bezier from parent-bottom-centre to child-top-centre.
-      const x1 = n.x;
-      const y1 = n.y + NH;
-      const x2 = child.x;
-      const y2 = child.y;
-      const cy1 = y1 + (y2 - y1) * 0.45;
-      const cy2 = y2 - (y2 - y1) * 0.45;
-      const path = document.createElementNS(SVG_NS, 'path');
-      path.setAttribute('d', `M${x1},${y1} C${x1},${cy1} ${x2},${cy2} ${x2},${y2}`);
-      path.setAttribute('class', 'rmap-edge');
-      parent.appendChild(path);
+      const x1 = n.x, y1 = n.y + NH, x2 = child.x, y2 = child.y;
+      const cy1 = y1 + (y2 - y1) * 0.5;
+      const cy2 = y2 - (y2 - y1) * 0.5;
+      const p = document.createElementNS(SVG_NS, 'path');
+      p.setAttribute('d', `M${x1},${y1} C${x1},${cy1} ${x2},${cy2} ${x2},${y2}`);
+      p.setAttribute('class', 'rmap-edge');
+      parent.appendChild(p);
     }
     drawEdges(parent, child, false);
   }
@@ -142,10 +138,17 @@ function drawNodes(
 ): void {
   if (!skip) {
     const isFork = n.children.length > 1;
-    const g = document.createElementNS(SVG_NS, 'g') as SVGGElement;
-    g.setAttribute('class', 'rmap-node' + (isFork ? ' rmap-node--fork' : ''));
+    const mover = movedBy(n.fen); // 'white' or 'black' just moved
+    const cls = [
+      'rmap-node',
+      `rmap-node--${mover}`,
+      isFork ? 'rmap-node--fork' : '',
+    ].filter(Boolean).join(' ');
 
-    // Oversized transparent hit-area for reliable tapping on mobile.
+    const g = document.createElementNS(SVG_NS, 'g') as SVGGElement;
+    g.setAttribute('class', cls);
+
+    // Oversized transparent hit area for reliable finger taps.
     const hit = document.createElementNS(SVG_NS, 'rect');
     hit.setAttribute('x', String(n.x - NW / 2 - 10));
     hit.setAttribute('y', String(n.y - 7));
@@ -165,7 +168,7 @@ function drawNodes(
     bg.setAttribute('class', 'rmap-node-bg');
     g.appendChild(bg);
 
-    // SAN text.
+    // SAN label.
     const txt = document.createElementNS(SVG_NS, 'text');
     txt.setAttribute('x', String(n.x));
     txt.setAttribute('y', String(n.y + NH / 2 + 5));
@@ -185,27 +188,23 @@ function drawNodes(
     parent.appendChild(g);
   }
 
-  for (const child of n.children) {
-    drawNodes(parent, child, false, onSelect);
-  }
+  for (const c of n.children) drawNodes(parent, c, false, onSelect);
 }
 
 // ── Position preview panel ────────────────────────────────────────────────────
 
 interface Preview {
   el: HTMLElement;
-  show(n: MapNode): void;
+  show(n: MapNode, lines: Line[], onOpenLine: (l: Line) => void): void;
 }
 
-function makePreview(colour: 'white' | 'black'): Preview {
+function makePreview(): Preview {
   const panel = document.createElement('div');
   panel.className = 'rmap-preview';
-  panel.hidden = true;
 
-  // Placeholder shown before any node is selected.
   const hint = document.createElement('div');
   hint.className = 'rmap-preview-hint';
-  hint.textContent = 'Tap a move to see the position';
+  hint.textContent = 'Tap any move to see the position';
   panel.appendChild(hint);
 
   const boardEl = document.createElement('div');
@@ -219,9 +218,9 @@ function makePreview(colour: 'white' | 'black'): Preview {
   panel.appendChild(info);
 
   let cg: CgApi | null = null;
+  let cgMounted = false;
 
-  function show(n: MapNode): void {
-    panel.hidden = false;
+  function show(n: MapNode, lines: Line[], onOpenLine: (l: Line) => void): void {
     hint.hidden = true;
     boardEl.hidden = false;
     info.hidden = false;
@@ -229,53 +228,71 @@ function makePreview(colour: 'white' | 'black'): Preview {
     const from = n.uci.slice(0, 2) as Key;
     const to = n.uci.slice(2, 4) as Key;
 
-    if (!cg) {
+    // Orient the board based on the first associated line's colour.
+    const assocLine = lines.find(l => n.lineIds.includes(l.id));
+    const orientation = assocLine?.colour ?? 'white';
+
+    if (!cgMounted) {
       cg = Chessground(boardEl, {
-        fen: n.fen,
-        orientation: colour,
-        viewOnly: true,
-        coordinates: false,
+        fen: n.fen, orientation,
+        viewOnly: true, coordinates: false,
         drawable: { enabled: false },
         animation: { enabled: false },
         selectable: { enabled: false },
         highlight: { lastMove: true, check: false },
         lastMove: [from, to],
       });
+      cgMounted = true;
     } else {
-      cg.set({ fen: n.fen, lastMove: [from, to] });
+      cg!.set({ fen: n.fen, orientation, lastMove: [from, to] });
     }
 
+    // Rebuild info section.
     info.innerHTML = '';
+
+    const opening = nameForFen(n.fen);
+    if (opening) {
+      const nameEl = document.createElement('div');
+      nameEl.className = 'rmap-preview-opening';
+      nameEl.textContent = opening;
+      info.appendChild(nameEl);
+    }
+
     const sanEl = document.createElement('div');
     sanEl.className = 'rmap-preview-san';
     sanEl.textContent = n.san;
     info.appendChild(sanEl);
 
+    const meta = document.createElement('div');
+    meta.className = 'rmap-preview-meta';
     if (n.children.length > 1) {
-      const varEl = document.createElement('div');
-      varEl.className = 'rmap-preview-meta';
-      varEl.textContent = `${n.children.length} variations`;
-      info.appendChild(varEl);
+      meta.textContent = `${n.children.length} variations`;
     } else if (n.children.length === 0) {
-      const endEl = document.createElement('div');
-      endEl.className = 'rmap-preview-meta';
-      endEl.textContent = 'End of line';
-      info.appendChild(endEl);
+      meta.textContent = 'End of line';
+    } else {
+      meta.textContent = ' ';
+    }
+    info.appendChild(meta);
+
+    // "Open in builder" — only when this node belongs to at least one saved line.
+    if (assocLine) {
+      const openBtn = document.createElement('button');
+      openBtn.type = 'button';
+      openBtn.className = 'rmap-open-btn';
+      openBtn.textContent = 'Open in builder';
+      openBtn.addEventListener('click', () => onOpenLine(assocLine));
+      info.appendChild(openBtn);
     }
   }
 
   return { el: panel, show };
 }
 
-// ── Pinch-zoom + pan (whole-colour view) ──────────────────────────────────────
+// ── Pinch-zoom + pan ──────────────────────────────────────────────────────────
 
 function initZoomPan(outer: HTMLElement, inner: HTMLElement): void {
-  let scale = 1;
-  let tx = 0;
-  let ty = 0;
-  let isDragging = false;
-  let dragOx = 0;
-  let dragOy = 0;
+  let scale = 1, tx = 0, ty = 0;
+  let dragging = false, dragOx = 0, dragOy = 0;
   const ptrs = new Map<number, PointerEvent>();
   let lastPinchDist = 0;
 
@@ -285,157 +302,119 @@ function initZoomPan(outer: HTMLElement, inner: HTMLElement): void {
 
   outer.addEventListener('pointerdown', e => {
     ptrs.set(e.pointerId, e);
-    outer.setPointerCapture(e.pointerId);
+    try { outer.setPointerCapture(e.pointerId); } catch { /* fine */ }
     if (ptrs.size === 1) {
-      isDragging = true;
-      dragOx = e.clientX - tx;
-      dragOy = e.clientY - ty;
+      dragging = true; dragOx = e.clientX - tx; dragOy = e.clientY - ty;
     } else {
-      isDragging = false;
+      dragging = false;
     }
   }, { passive: true });
 
   outer.addEventListener('pointermove', e => {
     if (!ptrs.has(e.pointerId)) return;
     ptrs.set(e.pointerId, e);
-
     if (ptrs.size >= 2) {
-      isDragging = false;
+      dragging = false;
       const [a, b] = [...ptrs.values()];
-      const dx = a.clientX - b.clientX;
-      const dy = a.clientY - b.clientY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
+      const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
       if (lastPinchDist > 0) {
-        const factor = dist / lastPinchDist;
-        scale = Math.max(0.25, Math.min(3, scale * factor));
+        scale = Math.max(0.2, Math.min(4, scale * (dist / lastPinchDist)));
         apply();
       }
       lastPinchDist = dist;
-    } else if (ptrs.size === 1 && isDragging) {
-      tx = e.clientX - dragOx;
-      ty = e.clientY - dragOy;
-      apply();
+    } else if (ptrs.size === 1 && dragging) {
+      tx = e.clientX - dragOx; ty = e.clientY - dragOy; apply();
     }
   }, { passive: true });
 
   const end = (e: PointerEvent) => {
     ptrs.delete(e.pointerId);
     if (ptrs.size < 2) lastPinchDist = 0;
-    if (ptrs.size === 0) isDragging = false;
+    if (ptrs.size === 0) dragging = false;
   };
   outer.addEventListener('pointerup', end, { passive: true });
   outer.addEventListener('pointercancel', end, { passive: true });
 
-  // Mouse-wheel zoom for desktop/trackpad.
   outer.addEventListener('wheel', e => {
     e.preventDefault();
-    const factor = e.deltaY < 0 ? 1.12 : 0.9;
-    scale = Math.max(0.25, Math.min(3, scale * factor));
+    scale = Math.max(0.2, Math.min(4, scale * (e.deltaY < 0 ? 1.12 : 0.9)));
     apply();
   }, { passive: false });
 }
 
-// ── Empty-tree guard ──────────────────────────────────────────────────────────
+// ── Public API ────────────────────────────────────────────────────────────────
 
-function renderEmpty(container: HTMLElement, msg: string): void {
-  const p = document.createElement('p');
-  p.className = 'rmap-empty';
-  p.textContent = msg;
-  container.appendChild(p);
-}
-
-// ── Overlay builder ───────────────────────────────────────────────────────────
-
-function openOverlay(
-  title: string,
-  root: MapNode,
-  colour: 'white' | 'black',
-  zoomable: boolean,
+// Open the full repertoire map — all lines merged into one zoomable tree.
+// onOpenLine is called (and the map closed) when the user taps "Open in builder".
+export function openRepertoireMap(
+  lines: Line[],
+  onOpenLine: (line: Line) => void,
 ): void {
+  if (!lines.length) return;
+
   const overlay = document.createElement('div');
   overlay.className = 'rmap-overlay';
   overlay.setAttribute('role', 'dialog');
   overlay.setAttribute('aria-modal', 'true');
 
-  // Header row.
+  // Header.
   const header = document.createElement('div');
   header.className = 'rmap-header';
 
-  const backBtn = document.createElement('button');
-  backBtn.type = 'button';
-  backBtn.className = 'rmap-back';
-  backBtn.setAttribute('aria-label', 'Close map');
-  // Back-arrow SVG.
-  backBtn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none"
+  const back = document.createElement('button');
+  back.type = 'button';
+  back.className = 'rmap-back';
+  back.setAttribute('aria-label', 'Close map');
+  back.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none"
     stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
     <path d="M19 12H5M12 5l-7 7 7 7"/></svg>`;
-  backBtn.addEventListener('click', () => overlay.remove());
+  back.addEventListener('click', () => overlay.remove());
 
   const titleEl = document.createElement('h2');
   titleEl.className = 'rmap-title';
-  titleEl.textContent = title;
+  titleEl.textContent = 'Repertoire map';
 
-  header.appendChild(backBtn);
+  const countEl = document.createElement('span');
+  countEl.className = 'rmap-title-count';
+  countEl.textContent = `${lines.length} line${lines.length !== 1 ? 's' : ''}`;
+
+  header.appendChild(back);
   header.appendChild(titleEl);
+  header.appendChild(countEl);
   overlay.appendChild(header);
 
-  // Tree area.
-  const treeWrap = document.createElement('div');
-  treeWrap.className = zoomable ? 'rmap-tree-wrap rmap-tree-wrap--zoomable' : 'rmap-tree-wrap';
+  const root = buildMergedTree(lines);
 
-  const preview = makePreview(colour);
-
-  if (root.children.length === 0) {
-    renderEmpty(treeWrap, 'No moves in this line yet.');
-    overlay.appendChild(treeWrap);
-    overlay.appendChild(preview.el);
+  if (!root.children.length) {
+    const empty = document.createElement('p');
+    empty.className = 'rmap-empty';
+    empty.textContent = 'No lines saved yet. Build your first line to see the map.';
+    overlay.appendChild(empty);
     document.body.appendChild(overlay);
     return;
   }
 
-  if (zoomable) {
-    // Zoom/pan: inner div receives the transform.
-    const inner = document.createElement('div');
-    inner.className = 'rmap-zoom-inner';
-    const svg = buildSVG(root, true, n => preview.show(n));
-    inner.appendChild(svg);
-    treeWrap.appendChild(inner);
-    overlay.appendChild(treeWrap);
-    overlay.appendChild(preview.el);
-    document.body.appendChild(overlay);
-    initZoomPan(treeWrap, inner);
-  } else {
-    // Plain scrollable container for the per-opening tree.
-    const svg = buildSVG(root, true, n => preview.show(n));
-    treeWrap.appendChild(svg);
-    overlay.appendChild(treeWrap);
-    overlay.appendChild(preview.el);
-    document.body.appendChild(overlay);
-  }
-}
+  // Tree area — zoomable/pannable.
+  const treeWrap = document.createElement('div');
+  treeWrap.className = 'rmap-tree-wrap';
 
-// ── Public API ────────────────────────────────────────────────────────────────
+  const inner = document.createElement('div');
+  inner.className = 'rmap-zoom-inner';
 
-// Open the per-opening variation tree for a single saved line.
-export function openLineMap(line: Line): void {
-  const root = fromMoveNode(line.tree);
-  openOverlay(
-    `${line.name || line.openingName || 'Line'} — variations`,
-    root,
-    line.colour,
-    false,
-  );
-}
+  const preview = makePreview();
 
-// Open the zoomable whole-colour navigator merging all lines of one colour.
-export function openColourMap(lines: Line[], colour: 'white' | 'black'): void {
-  const filtered = lines.filter(l => l.colour === colour);
-  if (!filtered.length) return;
-  const root = buildMergedTree(filtered);
-  openOverlay(
-    colour === 'white' ? 'White repertoire map' : 'Black repertoire map',
-    root,
-    colour,
-    true,
-  );
+  const svg = buildSVG(root, n => {
+    preview.show(n, lines, line => {
+      overlay.remove();
+      onOpenLine(line);
+    });
+  });
+  inner.appendChild(svg);
+  treeWrap.appendChild(inner);
+
+  overlay.appendChild(treeWrap);
+  overlay.appendChild(preview.el);
+  document.body.appendChild(overlay);
+
+  initZoomPan(treeWrap, inner);
 }

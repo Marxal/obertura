@@ -21,14 +21,12 @@ import {
 } from './progress';
 import { runProgressSelfTest } from './progress.selftest';
 import { currentStreak, trainedToday, getTrainingDays } from './streak';
-import { openLineMap, openColourMap } from './repertoire-map';
+import { openRepertoireMap } from './repertoire-map';
 
 export interface ProgressCallbacks {
   onTrainLine: (lineId: string, inTraining: boolean) => void;
+  onOpenLine: (line: Line) => void;
 }
-
-// Cached so any card builder can look up a full Line by id when opening the map.
-let _lines: Line[] = [];
 
 export function renderProgressScreen(container: HTMLElement, cb: ProgressCallbacks): void {
   void doRender(container, cb);
@@ -38,18 +36,16 @@ async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<
   container.innerHTML = '<p class="lines-loading">Loading…</p>';
   const [games, lines] = await Promise.all([getAllGames(), getAllLines()]);
   container.innerHTML = '';
-  _lines = lines;
 
   const report = crossReference(games, lines);
 
-  // Streak + quick stats always shown regardless of game/line state.
   renderStreakHero(container);
   renderQuickStats(container, lines);
   renderActivityGrid(container);
 
   if (lines.length > 0) {
     renderConfidenceChart(container, lines);
-    renderRepertoireMapSection(container, lines);
+    renderRepertoireMapSection(container, lines, cb);
   }
 
   const needsAttention = computeNeedsAttention(lines, report);
@@ -281,35 +277,29 @@ function renderConfidenceChart(container: HTMLElement, lines: Line[]): void {
 
 // ── 4b. Repertoire Map section ────────────────────────────────────────────────
 
-function renderRepertoireMapSection(container: HTMLElement, lines: Line[]): void {
-  const section = statsSection('Repertoire Map', '');
+function renderRepertoireMapSection(
+  container: HTMLElement,
+  lines: Line[],
+  cb: ProgressCallbacks,
+): void {
+  const section = statsSection('Repertoire Map', `${lines.length} line${lines.length !== 1 ? 's' : ''}`);
 
-  const row = document.createElement('div');
-  row.className = 'rmap-trigger-row';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'rmap-trigger-btn rmap-trigger-btn--full';
 
-  for (const colour of ['white', 'black'] as const) {
-    const colourLines = lines.filter(l => l.colour === colour);
-    if (!colourLines.length) continue;
+  // Map icon
+  btn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+    aria-hidden="true">
+    <circle cx="12" cy="12" r="3"/>
+    <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+    <path d="M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>
+  </svg>`;
+  btn.appendChild(document.createTextNode('View repertoire map'));
 
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'rmap-trigger-btn';
-
-    // Colour pip + label + count
-    const pip = document.createElement('span');
-    pip.className = `colour-pip colour-pip--${colour}`;
-    pip.setAttribute('aria-hidden', 'true');
-    btn.appendChild(pip);
-    btn.appendChild(document.createTextNode(
-      `${colour === 'white' ? 'White' : 'Black'} (${colourLines.length})`
-    ));
-
-    btn.addEventListener('click', () => openColourMap(colourLines, colour));
-    row.appendChild(btn);
-  }
-
-  if (!row.children.length) return;
-  section.appendChild(row);
+  btn.addEventListener('click', () => openRepertoireMap(lines, cb.onOpenLine));
+  section.appendChild(btn);
   container.appendChild(section);
 }
 
@@ -388,17 +378,6 @@ function renderNeedsAttention(container: HTMLElement, items: AttentionItem[], cb
     body.appendChild(reasonEl);
 
     card.appendChild(body);
-
-    const mapBtn = document.createElement('button');
-    mapBtn.type = 'button';
-    mapBtn.className = 'rmap-line-btn';
-    mapBtn.textContent = 'Map';
-    mapBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      const line = _lines.find(l => l.id === item.lineId);
-      if (line) openLineMap(line);
-    });
-    card.appendChild(mapBtn);
 
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -661,18 +640,6 @@ function progressCard(item: LineProgress, cb: ProgressCallbacks): HTMLElement {
   body.appendChild(note);
 
   card.appendChild(body);
-
-  // Small "Map" button to open this line's variation tree.
-  const mapBtn = document.createElement('button');
-  mapBtn.type = 'button';
-  mapBtn.className = 'rmap-line-btn';
-  mapBtn.textContent = 'Map';
-  mapBtn.addEventListener('click', e => {
-    e.stopPropagation();
-    const line = _lines.find(l => l.id === item.lineId);
-    if (line) openLineMap(line);
-  });
-  card.appendChild(mapBtn);
 
   const btn = document.createElement('button');
   btn.type = 'button';
