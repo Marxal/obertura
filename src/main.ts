@@ -26,7 +26,15 @@ import { renderHomeScreen } from './home-screen';
 import { Engine, gradeMove } from './engine';
 import { EvalPanel } from './eval-panel';
 import { initThemeControl } from './theme';
-import { getRetriesBeforeReveal, setRetriesBeforeReveal, type Retries } from './prefs';
+import {
+  getRetriesBeforeReveal,
+  setRetriesBeforeReveal,
+  type Retries,
+  getWatchSpeed,
+  setWatchSpeed,
+  watchSpeedMs,
+  type WatchSpeed,
+} from './prefs';
 
 const chess = new Chess();
 let cg!: ReturnType<typeof Chessground>;
@@ -555,26 +563,42 @@ let currentTrainingLine: Line | null = null;
 
 // Single timer handle for Watch line — prevents stacked playback.
 let playbackTimer: ReturnType<typeof setTimeout> | undefined;
+// The line currently being watched, and the index of the NEXT move to play.
+// Kept across a pause so the button can resume rather than restart.
+let playbackMoves: ReturnType<typeof mainline> = [];
+let playbackIndex = 0;
 
 // Watch line is an icon-only button (next to Flip): a play triangle that becomes
-// a stop square while a line is playing back.
+// a pause symbol while a line is playing back.
 const PLAY_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" stroke="none" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
-const STOP_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" stroke="none" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>';
+const PAUSE_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" stroke="none" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
 
 function setWatchPlaying(playing: boolean): void {
   const btn = document.getElementById('watch-btn') as HTMLButtonElement | null;
   if (!btn) return;
-  btn.innerHTML = playing ? STOP_ICON : PLAY_ICON;
+  btn.innerHTML = playing ? PAUSE_ICON : PLAY_ICON;
   btn.classList.toggle('playing', playing);
-  btn.setAttribute('aria-label', playing ? 'Stop' : 'Watch line');
-  btn.title = playing ? 'Stop' : 'Watch line';
+  // Paused mid-line (moves still queued) offers "Resume"; otherwise "Watch".
+  const resumable = !playing && playbackMoves.length > 0 && playbackIndex < playbackMoves.length;
+  const label = playing ? 'Pause' : resumable ? 'Resume line' : 'Watch line';
+  btn.setAttribute('aria-label', label);
+  btn.title = label;
 }
 
-function stopPlayback(): void {
+// Pause playback but keep the queue, so the button can resume from here.
+function pausePlayback(): void {
   if (playbackTimer !== undefined) {
     clearTimeout(playbackTimer);
     playbackTimer = undefined;
   }
+  setWatchPlaying(false);
+}
+
+// Fully stop and forget the queue (used when leaving the board / loading a line).
+function stopPlayback(): void {
+  pausePlayback();
+  playbackMoves = [];
+  playbackIndex = 0;
   setWatchPlaying(false);
 }
 
@@ -1047,34 +1071,62 @@ function setupImportSelfTest(): void {
 
 // ── Playback controls ─────────────────────────────────────────────────────────
 
+const SPEED_LABELS: Record<WatchSpeed, string> = {
+  slow: 'Slow',
+  normal: 'Normal',
+  fast: 'Fast',
+};
+
 function setupPlaybackControls(): void {
   const watchBtn = document.getElementById('watch-btn') as HTMLButtonElement;
+  const speedBtn = document.getElementById('watch-speed-btn') as HTMLButtonElement | null;
 
-  watchBtn.addEventListener('click', () => {
-    if (playbackTimer !== undefined) {
+  function refreshSpeedLabel(): void {
+    if (speedBtn) speedBtn.textContent = SPEED_LABELS[getWatchSpeed()];
+  }
+  refreshSpeedLabel();
+
+  // The speed control cycles slow → normal → fast. Persisted and read live, so a
+  // change takes effect on the very next move even mid-playback.
+  speedBtn?.addEventListener('click', () => {
+    const order: WatchSpeed[] = ['slow', 'normal', 'fast'];
+    const next = order[(order.indexOf(getWatchSpeed()) + 1) % order.length];
+    setWatchSpeed(next);
+    refreshSpeedLabel();
+  });
+
+  // Play the next queued move, then schedule the one after at the current speed.
+  function playStep(): void {
+    if (playbackIndex >= playbackMoves.length) {
       stopPlayback();
       return;
     }
+    playbackTimer = setTimeout(() => {
+      handleMoveClick(playbackMoves[playbackIndex].id);
+      playbackIndex++;
+      playStep();
+    }, watchSpeedMs());
+  }
 
-    const moves = mainline();
-    if (moves.length === 0) return;
-
-    setWatchPlaying(true);
-    goToStart();
-
-    function playStep(index: number): void {
-      if (index >= moves.length) {
-        setWatchPlaying(false);
-        playbackTimer = undefined;
-        return;
-      }
-      playbackTimer = setTimeout(() => {
-        handleMoveClick(moves[index].id);
-        playStep(index + 1);
-      }, 700);
+  watchBtn.addEventListener('click', () => {
+    // Already playing → pause (keeps position for a later resume).
+    if (playbackTimer !== undefined) {
+      pausePlayback();
+      return;
     }
 
-    playStep(0);
+    // Fresh start (or restart after a finished run): load the line from the top.
+    if (playbackMoves.length === 0 || playbackIndex >= playbackMoves.length) {
+      const moves = mainline();
+      if (moves.length === 0) return;
+      playbackMoves = moves;
+      playbackIndex = 0;
+      goToStart();
+    }
+    // Otherwise we're resuming a paused line from playbackIndex.
+
+    setWatchPlaying(true);
+    playStep();
   });
 }
 
