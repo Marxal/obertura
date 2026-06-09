@@ -1186,7 +1186,7 @@ cg-board square.move-dest.oc {
   padding-top: 0.25rem;
 }
 
-/* Colour filter: All / White / Black. */
+/* Colour filter (Show) + order options, wrapping side by side. */
 .dfilter-row {
   display: flex;
   align-items: center;
@@ -1199,6 +1199,11 @@ cg-board square.move-dest.oc {
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--text-faint);
+}
+
+/* Push the order group slightly clear of the colour chips. */
+.dfilter-label--order {
+  margin-left: 0.4rem;
 }
 
 .dfilter-btn {
@@ -1221,7 +1226,7 @@ cg-board square.move-dest.oc {
   border-color: var(--accent);
 }
 
-/* Detail card — title spans the top; info and quiet actions stack below. */
+/* Detail card — title row up top; info and the training toggle stack below. */
 .dline-card {
   display: flex;
   flex-direction: column;
@@ -1234,13 +1239,32 @@ cg-board square.move-dest.oc {
   box-shadow: var(--shadow-card);
 }
 
-.dline-title {
+/* Top row: title fills the space; rename/delete icons sit to the right. */
+.dline-top {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* Title is a button — tap to open the line in the builder. */
+.dline-open {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 0.45rem;
+  padding: 0.1rem 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-family: system-ui, -apple-system, sans-serif;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.dline-title .colour-pip {
+.dline-open:active { opacity: 0.7; }
+
+.dline-open .colour-pip {
   width: 12px;
   height: 12px;
 }
@@ -1252,6 +1276,35 @@ cg-board square.move-dest.oc {
   font-weight: 700;
   color: var(--text);
   line-height: 1.3;
+}
+
+/* Quiet square icon buttons for rename / delete. */
+.dline-icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s, color 0.12s;
+}
+
+.dline-icon:hover {
+  color: var(--text-muted);
+  background: var(--accent-soft);
+}
+
+.dline-icon:active { transform: translateY(1px); }
+
+.dline-icon--danger:hover {
+  color: var(--danger);
+  background: rgba(160, 48, 48, 0.1);
 }
 
 .dline-due {
@@ -1298,67 +1351,34 @@ cg-board square.move-dest.oc {
   user-select: none;
 }
 
-.dline-state--on {
-  color: var(--success);
-  font-weight: 600;
-}
-
-/* Quiet (tonal) action row. */
+/* Training toggle row. */
 .dline-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
   margin-top: 0.1rem;
 }
 
-.dline-act {
-  padding: 0.4rem 0.75rem;
+/* The single training control. Quiet/tonal when OFF; reads green when ON. */
+.dline-toggle {
+  padding: 0.4rem 0.85rem;
   min-height: 36px;
   border: 1px solid var(--border-card);
   border-radius: 8px;
-  background: var(--bg-soft, transparent);
+  background: transparent;
   color: var(--text-muted);
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 0.8rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
 
-.dline-act:hover {
-  color: var(--text);
-  border-color: var(--border);
-}
+.dline-toggle:active { transform: translateY(1px); }
 
-.dline-act:active {
-  transform: translateY(1px);
-}
-
-/* In-training toggle — tonal, brighter when ON. */
-.dline-toggle.dline-toggle--on {
-  background: var(--accent-soft);
+.dline-toggle--on {
+  background: rgba(45, 125, 62, 0.12);
   border-color: transparent;
   color: var(--success);
-}
-
-/* Delete — tonal danger; fills in once tapped, asking to confirm. */
-.dline-act--danger {
-  margin-left: auto;
-  color: var(--danger);
-  border-color: rgba(160, 48, 48, 0.28);
-}
-
-.dline-act--danger:hover {
-  color: var(--danger);
-  background: rgba(160, 48, 48, 0.07);
-  border-color: rgba(160, 48, 48, 0.45);
-}
-
-.dline-act--danger.confirming {
-  background: var(--danger);
-  color: #fff;
-  border-color: var(--danger);
 }
 
 /* Line card */
@@ -1527,6 +1547,63 @@ cg-board square.move-dest.oc {
 .edit-input:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+/* Mini-board on the rename sheet, so the position is recognisable. */
+.rename-board {
+  display: flex;
+  justify-content: center;
+}
+
+.rename-board-inner {
+  width: 150px;
+  aspect-ratio: 1 / 1;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-card);
+  pointer-events: none;
+}
+
+/* Delete confirmation popup. */
+.delete-warn {
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.delete-confirm-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.7rem 1rem;
+  min-height: 44px;
+  background-color: var(--danger);
+  background-image: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 55%, rgba(0,0,0,0.06) 100%);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 2px 5px rgba(160,48,48,0.3);
+  text-shadow: 0 1px 1px rgba(0,0,0,0.18);
+  transition: filter 0.12s, box-shadow 0.12s;
+}
+
+.delete-confirm-btn:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 3px 8px rgba(160,48,48,0.35);
+}
+
+.delete-confirm-btn:active {
+  filter: brightness(0.88);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.18);
+  transform: translateY(1px);
 }
 
 .edit-btn-row {
