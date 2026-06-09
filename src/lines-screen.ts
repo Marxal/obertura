@@ -273,10 +273,13 @@ function buildControlsRow(onChange: () => void): HTMLElement {
     row.appendChild(btn);
   }
 
-  const orderLabel = document.createElement('span');
-  orderLabel.className = 'dfilter-label dfilter-label--order';
-  orderLabel.textContent = 'Order:';
-  row.appendChild(orderLabel);
+  // Order: an icon + a dropdown that shows the active order.
+  const orderWrap = document.createElement('div');
+  orderWrap.className = 'dorder';
+
+  const orderIcon = Icons.order(16);
+  orderIcon.classList.add('dorder-icon');
+  orderWrap.appendChild(orderIcon);
 
   const orders: { key: SortMode; label: string }[] = [
     { key: 'latest', label: 'Latest' },
@@ -284,17 +287,23 @@ function buildControlsRow(onChange: () => void): HTMLElement {
     { key: 'strongest', label: 'Strongest' },
     { key: 'name', label: 'Name' },
   ];
+  const select = document.createElement('select');
+  select.className = 'dorder-select';
+  select.setAttribute('aria-label', 'Order lines');
   for (const o of orders) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = `dfilter-btn${detailSort === o.key ? ' active' : ''}`;
-    btn.textContent = o.label;
-    btn.addEventListener('click', () => {
-      detailSort = o.key;
-      onChange();
-    });
-    row.appendChild(btn);
+    const opt = document.createElement('option');
+    opt.value = o.key;
+    opt.textContent = o.label;
+    if (detailSort === o.key) opt.selected = true;
+    select.appendChild(opt);
   }
+  select.addEventListener('change', () => {
+    detailSort = select.value as SortMode;
+    onChange();
+  });
+  orderWrap.appendChild(select);
+
+  row.appendChild(orderWrap);
 
   return row;
 }
@@ -310,31 +319,94 @@ function buildDetailCard(
   const card = document.createElement('div');
   card.className = 'dline-card';
 
-  // Top row: title (tap to open in builder) on the left; quiet rename/delete
-  // icons on the right.
-  const top = document.createElement('div');
-  top.className = 'dline-top';
-
-  const openBtn = document.createElement('button');
-  openBtn.type = 'button';
-  openBtn.className = 'dline-open';
+  // Title row — its own line. Tap to open the line in the builder.
+  const titleRow = document.createElement('button');
+  titleRow.type = 'button';
+  titleRow.className = 'dline-open';
   const pip = document.createElement('span');
   pip.className = `colour-pip colour-pip--${line.colour}`;
   pip.setAttribute('aria-hidden', 'true');
   const nameEl = document.createElement('span');
   nameEl.className = 'dline-name';
   nameEl.textContent = line.name || line.openingName || 'Untitled line';
-  openBtn.appendChild(pip);
-  openBtn.appendChild(nameEl);
-  openBtn.addEventListener('click', () => deps.onOpenLine(line));
-  top.appendChild(openBtn);
-
+  titleRow.appendChild(pip);
+  titleRow.appendChild(nameEl);
   if (due) {
     const dueBadge = document.createElement('span');
     dueBadge.className = 'dline-due';
     dueBadge.textContent = 'Due';
-    top.appendChild(dueBadge);
+    titleRow.appendChild(dueBadge);
   }
+  titleRow.addEventListener('click', () => deps.onOpenLine(line));
+  card.appendChild(titleRow);
+
+  // Card info, stacked under the title.
+  const info = document.createElement('div');
+  info.className = 'dline-info';
+
+  if (line.openingName && line.openingName !== nameEl.textContent) {
+    const opening = document.createElement('div');
+    opening.className = 'dline-opening';
+    opening.textContent = line.openingName;
+    info.appendChild(opening);
+  }
+
+  if (line.tags.length) {
+    const tagRow = document.createElement('div');
+    tagRow.className = 'dline-tags';
+    for (const tag of line.tags) {
+      const chip = document.createElement('span');
+      chip.className = 'tag-chip';
+      chip.textContent = tag;
+      tagRow.appendChild(chip);
+    }
+    info.appendChild(tagRow);
+  }
+
+  const stats = document.createElement('div');
+  stats.className = 'dline-stats';
+  const conf = document.createElement('span');
+  conf.className = 'dline-stat';
+  conf.textContent = `Confidence ${confidenceDots(line.confidence)}`;
+  stats.appendChild(conf);
+  stats.appendChild(sepDot());
+  const last = document.createElement('span');
+  last.className = 'dline-stat';
+  last.textContent = line.lastTrained ? `Trained ${relativeDate(line.lastTrained)}` : 'Never trained';
+  stats.appendChild(last);
+  info.appendChild(stats);
+
+  card.appendChild(info);
+
+  // Footer: training toggle bottom-left, rename/delete icons bottom-right.
+  const footer = document.createElement('div');
+  footer.className = 'dline-footer';
+
+  // The ONE training control: a switch. On = in the drill pool, off = excluded
+  // but fully kept (stats and all). No separate pause/remove. Green when ON.
+  const toggleBtn = document.createElement('button');
+  toggleBtn.type = 'button';
+  toggleBtn.className = `dline-toggle${line.inTraining ? ' dline-toggle--on' : ''}`;
+  toggleBtn.setAttribute('role', 'switch');
+  toggleBtn.setAttribute('aria-checked', String(line.inTraining));
+  const sw = document.createElement('span');
+  sw.className = 'dline-switch';
+  const knob = document.createElement('span');
+  knob.className = 'dline-switch-knob';
+  sw.appendChild(knob);
+  const toggleLabel = document.createElement('span');
+  toggleLabel.className = 'dline-toggle-label';
+  toggleLabel.textContent = `Training ${line.inTraining ? 'ON' : 'OFF'}`;
+  toggleBtn.appendChild(sw);
+  toggleBtn.appendChild(toggleLabel);
+  toggleBtn.addEventListener('click', async () => {
+    await saveLine({ ...line, inTraining: !line.inTraining });
+    refresh();
+  });
+  footer.appendChild(toggleBtn);
+
+  const iconRow = document.createElement('div');
+  iconRow.className = 'dline-iconrow';
 
   const renameBtn = document.createElement('button');
   renameBtn.type = 'button';
@@ -352,7 +424,7 @@ function buildDetailCard(
       refresh();
     })
   );
-  top.appendChild(renameBtn);
+  iconRow.appendChild(renameBtn);
 
   const deleteBtn = document.createElement('button');
   deleteBtn.type = 'button';
@@ -367,66 +439,10 @@ function buildDetailCard(
       refresh();
     })
   );
-  top.appendChild(deleteBtn);
+  iconRow.appendChild(deleteBtn);
 
-  card.appendChild(top);
-
-  // Opening name (when it differs from the title) + tags.
-  if (line.openingName && line.openingName !== nameEl.textContent) {
-    const opening = document.createElement('div');
-    opening.className = 'dline-opening';
-    opening.textContent = line.openingName;
-    card.appendChild(opening);
-  }
-
-  if (line.tags.length) {
-    const tagRow = document.createElement('div');
-    tagRow.className = 'dline-tags';
-    for (const tag of line.tags) {
-      const chip = document.createElement('span');
-      chip.className = 'tag-chip';
-      chip.textContent = tag;
-      tagRow.appendChild(chip);
-    }
-    card.appendChild(tagRow);
-  }
-
-  // Stats row: confidence · last-trained.
-  const stats = document.createElement('div');
-  stats.className = 'dline-stats';
-
-  const conf = document.createElement('span');
-  conf.className = 'dline-stat';
-  conf.textContent = `Confidence ${confidenceDots(line.confidence)}`;
-  stats.appendChild(conf);
-
-  stats.appendChild(sepDot());
-
-  const last = document.createElement('span');
-  last.className = 'dline-stat';
-  last.textContent = line.lastTrained ? `Trained ${relativeDate(line.lastTrained)}` : 'Never trained';
-  stats.appendChild(last);
-
-  card.appendChild(stats);
-
-  // The ONE training control: on = in the drill pool, off = excluded but kept
-  // (stats and all). No separate pause/remove. Reads green when ON.
-  const actions = document.createElement('div');
-  actions.className = 'dline-actions';
-
-  const toggleBtn = document.createElement('button');
-  toggleBtn.type = 'button';
-  toggleBtn.className = `dline-toggle${line.inTraining ? ' dline-toggle--on' : ''}`;
-  toggleBtn.setAttribute('role', 'switch');
-  toggleBtn.setAttribute('aria-checked', String(line.inTraining));
-  toggleBtn.textContent = `Training: ${line.inTraining ? 'ON' : 'OFF'}`;
-  toggleBtn.addEventListener('click', async () => {
-    await saveLine({ ...line, inTraining: !line.inTraining });
-    refresh();
-  });
-  actions.appendChild(toggleBtn);
-
-  card.appendChild(actions);
+  footer.appendChild(iconRow);
+  card.appendChild(footer);
 
   return card;
 }
