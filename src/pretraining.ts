@@ -38,6 +38,7 @@ export function startPretrainingRun(
 
   startDrill(lineCopy, {
     backLabel: '← Cancel',
+    modeLabel: 'Confirm line',
     completeMessage: 'Line confirmed — added to training',
     recordMiss,
     // Save before the success message appears, matching original behaviour.
