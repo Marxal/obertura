@@ -4,7 +4,6 @@ import type { Key } from 'chessground/types';
 import 'chessground/assets/chessground.base.css';
 import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
-import { Icons } from './icons';
 import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, loadTree, fenBefore } from './tree';
 import { saveLine, getAllLines, saveGames, countGames, clearGames } from './storage';
 import { nameForPath } from './openings';
@@ -90,43 +89,130 @@ function updateOpeningName(): void {
   renderTitle();
 }
 
-// Hide the inline rename input and restore the title display.
-function closeRenameInput(): void {
-  const input = document.getElementById('line-name') as HTMLInputElement;
-  input.hidden = true;
+// ── Tags ────────────────────────────────────────────────────────────────────
+// A small fixed set of toggleable suggestion chips, plus any freeform tags the
+// user types. The working set lives here and is edited in the edit lightbox
+// (opened from the pencil in the title row), then saved with the line.
+const SUGGESTED_TAGS = ['aggressive', 'solid', 'gambit', 'sideline', 'main line'] as const;
+
+// The tags currently applied to the line being built/edited.
+let currentTags: string[] = [];
+
+// Paint the read-only tag chips shown under the title (hidden when none).
+function renderBuilderTags(): void {
+  const el = document.getElementById('builder-tags')!;
+  el.replaceChildren();
+  if (currentTags.length === 0) {
+    el.hidden = true;
+    return;
+  }
+  el.hidden = false;
+  for (const t of currentTags) {
+    const chip = document.createElement('span');
+    chip.className = 'builder-tag';
+    chip.textContent = t;
+    el.appendChild(chip);
+  }
 }
 
-// Open the inline rename input seeded with the current title, ready to edit.
-function openRenameInput(): void {
-  const input = document.getElementById('line-name') as HTMLInputElement;
-  input.value = currentTitle();
-  input.hidden = false;
-  input.focus();
-  input.select();
-}
+// The edit lightbox: rename the line and toggle/enter tags in one place. Opened
+// from the pencil in the title row. Replaces the old inline rename field.
+function openEditSheet(): void {
+  const overlay = document.createElement('div');
+  overlay.className = 'edit-overlay';
+  const sheet = document.createElement('div');
+  sheet.className = 'edit-sheet';
 
-// Commit whatever's in the rename input as the manual title (empty → auto-name).
-function commitRename(): void {
-  const input = document.getElementById('line-name') as HTMLInputElement;
-  const val = input.value.trim();
-  manualTitle = val ? val : null;
-  closeRenameInput();
-  renderTitle();
+  const title = document.createElement('h3');
+  title.className = 'edit-sheet-title';
+  title.textContent = 'Name & tags';
+  sheet.appendChild(title);
+
+  // Name.
+  const nameLabel = document.createElement('label');
+  nameLabel.className = 'edit-label';
+  nameLabel.textContent = 'Name';
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.className = 'edit-input';
+  nameInput.value = currentTitle();
+  nameInput.placeholder = 'Line name';
+  sheet.appendChild(nameLabel);
+  sheet.appendChild(nameInput);
+
+  // Suggested-tag chips.
+  const tagsLabel = document.createElement('label');
+  tagsLabel.className = 'edit-label';
+  tagsLabel.textContent = 'Tags';
+  sheet.appendChild(tagsLabel);
+
+  const chipRow = document.createElement('div');
+  chipRow.className = 'edit-chips';
+  for (const tag of SUGGESTED_TAGS) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'tag-chip';
+    chip.textContent = tag;
+    if (currentTags.includes(tag)) chip.classList.add('tag-chip--on');
+    chip.addEventListener('click', () => chip.classList.toggle('tag-chip--on'));
+    chipRow.appendChild(chip);
+  }
+  sheet.appendChild(chipRow);
+
+  // Freeform tags — seeded with any current tags that aren't suggestion chips.
+  const freeInput = document.createElement('input');
+  freeInput.type = 'text';
+  freeInput.className = 'edit-input';
+  freeInput.placeholder = 'your own tags, comma, separated';
+  freeInput.value = currentTags
+    .filter(t => !SUGGESTED_TAGS.includes(t as typeof SUGGESTED_TAGS[number]))
+    .join(', ');
+  sheet.appendChild(freeInput);
+
+  const btnRow = document.createElement('div');
+  btnRow.className = 'edit-btn-row';
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.className = 'edit-save-btn';
+  saveBtn.textContent = 'Done';
+  saveBtn.addEventListener('click', () => {
+    const selected = [...chipRow.querySelectorAll('.tag-chip--on')].map(
+      c => (c as HTMLElement).textContent!.trim()
+    );
+    const custom = freeInput.value.split(',').map(t => t.trim()).filter(Boolean);
+    currentTags = [...new Set([...selected, ...custom])];
+    const val = nameInput.value.trim();
+    manualTitle = val ? val : null;
+    renderTitle();
+    renderBuilderTags();
+    close();
+  });
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'edit-cancel-btn';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', close);
+  btnRow.appendChild(saveBtn);
+  btnRow.appendChild(cancelBtn);
+  sheet.appendChild(btnRow);
+
+  function close() {
+    overlay.remove();
+  }
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) close();
+  });
+  nameInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); saveBtn.click(); }
+  });
+
+  overlay.appendChild(sheet);
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => nameInput.focus());
 }
 
 function setupTitleControls(): void {
-  const renameBtn = document.getElementById('rename-btn')!;
-  const input = document.getElementById('line-name') as HTMLInputElement;
-
-  renameBtn.addEventListener('click', () => {
-    if (input.hidden) openRenameInput();
-    else commitRename();
-  });
-  input.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); commitRename(); }
-    else if (e.key === 'Escape') { e.preventDefault(); closeRenameInput(); }
-  });
-  input.addEventListener('blur', commitRename);
+  document.getElementById('rename-btn')!.addEventListener('click', openEditSheet);
 }
 
 // ── "Why this move" explanation ─────────────────────────────────────────────
@@ -144,6 +230,13 @@ function setupTitleControls(): void {
 // newer move's verdict.
 let gradeRequestId = 0;
 
+// Show or hide the "+" note icon — it adopts the engine suggestion, so it only
+// makes sense while a suggestion is actually on screen.
+function setNoteAddVisible(visible: boolean): void {
+  const btn = document.getElementById('note-add-btn');
+  if (btn) btn.hidden = !visible;
+}
+
 function renderExplanation(): void {
   const el = document.getElementById('move-explanation')!;
   const node = getCurrentNode();
@@ -154,6 +247,7 @@ function renderExplanation(): void {
   if (node.id === 'root' || node.note?.trim()) {
     el.hidden = true;
     el.replaceChildren();
+    setNoteAddVisible(false);
     return;
   }
 
@@ -164,6 +258,7 @@ function renderExplanation(): void {
     prompt.textContent = 'Turn on the engine to explain this move.';
     el.replaceChildren(prompt);
     el.hidden = false;
+    setNoteAddVisible(false);
     return;
   }
 
@@ -171,6 +266,7 @@ function renderExplanation(): void {
   if (!text) {
     el.hidden = true;
     el.replaceChildren();
+    setNoteAddVisible(false);
     return;
   }
 
@@ -183,17 +279,10 @@ function renderExplanation(): void {
   textEl.className = 'explanation-text';
   textEl.textContent = text;
 
-  const actions = document.createElement('div');
-  actions.className = 'explanation-actions';
-  const addBtn = document.createElement('button');
-  addBtn.type = 'button';
-  addBtn.className = 'explanation-add-note';
-  addBtn.textContent = 'Add to my note';
-  addBtn.addEventListener('click', () => adoptExplanationAsNote());
-  actions.appendChild(addBtn);
-
-  el.replaceChildren(verdictEl, textEl, actions);
+  el.replaceChildren(verdictEl, textEl);
   el.hidden = false;
+  // A suggestion is on screen and the move has no note yet — offer the "+".
+  setNoteAddVisible(true);
 
   // Grade the move against Lichess cloud's best line (its own request,
   // independent of the eval-panel flow).
@@ -230,9 +319,9 @@ function adoptExplanationAsNote(): void {
   const note = parts.join(' ').trim();
   if (!note) return;
   node.note = note;
-  (document.getElementById('move-note-input') as HTMLTextAreaElement).value = note;
   renderMoveList();
-  renderExplanation();
+  // Note now exists: the panel switches to the editor and hides the icons.
+  renderNotePanel();
 }
 
 function renderMoveList() {
@@ -277,6 +366,65 @@ function renderMoveList() {
       el.appendChild(bSpan);
     }
   }
+
+  // Keep the active move visible in the horizontally-scrolling strip.
+  const activeEl = el.querySelector<HTMLElement>('.move-san.active');
+  if (activeEl) {
+    activeEl.scrollIntoView({ block: 'nearest', inline: 'center' });
+  } else {
+    el.scrollLeft = 0;
+  }
+
+  updateMoveNavButtons();
+}
+
+// ── Move navigation (plain step arrows, not engine arrows) ──────────────────
+// The cursor's index within the mainline, or -1 when sitting at the root.
+function moveIndex(): number {
+  const id = getCurrentNode().id;
+  return mainline().findIndex(n => n.id === id);
+}
+
+function stepBack(): void {
+  const idx = moveIndex();
+  if (idx <= 0) { goToStart(); return; }
+  handleMoveClick(mainline()[idx - 1].id);
+}
+
+function stepForward(): void {
+  const moves = mainline();
+  const idx = moveIndex();
+  if (idx >= moves.length - 1) return;
+  handleMoveClick(moves[idx + 1].id);
+}
+
+function goToEnd(): void {
+  const moves = mainline();
+  if (moves.length === 0) return;
+  handleMoveClick(moves[moves.length - 1].id);
+}
+
+// Grey out the step/jump buttons at the ends of the line.
+function updateMoveNavButtons(): void {
+  const moves = mainline();
+  const idx = moveIndex();
+  const atStart = idx < 0;
+  const atEnd = moves.length === 0 || idx === moves.length - 1;
+  const set = (id: string, disabled: boolean) => {
+    const b = document.getElementById(id) as HTMLButtonElement | null;
+    if (b) b.disabled = disabled;
+  };
+  set('move-first', atStart);
+  set('move-prev', atStart);
+  set('move-next', atEnd);
+  set('move-last', atEnd);
+}
+
+function setupMoveNav(): void {
+  document.getElementById('move-first')!.addEventListener('click', goToStart);
+  document.getElementById('move-prev')!.addEventListener('click', stepBack);
+  document.getElementById('move-next')!.addEventListener('click', stepForward);
+  document.getElementById('move-last')!.addEventListener('click', goToEnd);
 }
 
 // ── Note panel ────────────────────────────────────────────────────────────────
@@ -285,6 +433,7 @@ function renderNotePanel(): void {
   const panel = document.getElementById('note-panel')!;
   const label = document.getElementById('note-panel-label')!;
   const textarea = document.getElementById('move-note-input') as HTMLTextAreaElement;
+  const writeBtn = document.getElementById('note-write-btn')!;
   const node = getCurrentNode();
   if (node.id === 'root') {
     panel.hidden = true;
@@ -293,11 +442,29 @@ function renderNotePanel(): void {
   panel.hidden = false;
   label.textContent = `Note for ${node.san}`;
   textarea.value = node.note ?? '';
+  // Compact by default: the editor stays collapsed until there's a note to
+  // show or the user taps the pencil to write one.
+  const hasNote = !!node.note?.trim();
+  textarea.hidden = !hasNote;
+  writeBtn.hidden = hasNote;
   renderExplanation();
 }
 
 function setupNotePanel(): void {
   const textarea = document.getElementById('move-note-input') as HTMLTextAreaElement;
+  const writeBtn = document.getElementById('note-write-btn')!;
+  const addBtn = document.getElementById('note-add-btn')!;
+
+  // Pencil: reveal the editor for a move with no note yet.
+  writeBtn.addEventListener('click', () => {
+    textarea.hidden = false;
+    writeBtn.hidden = true;
+    textarea.focus();
+  });
+
+  // "+": adopt the engine's suggestion as the starting note.
+  addBtn.addEventListener('click', () => adoptExplanationAsNote());
+
   textarea.addEventListener('input', () => {
     const node = getCurrentNode();
     if (node.id === 'root') return;
@@ -374,46 +541,11 @@ let loadedLineId: string | null = null;
 let loadedLineCreatedAt: number | undefined;
 let loadedLineInTraining = false;
 
-// Metadata from the loaded line for the builder readout.
-// Phase 3 training will populate confidence and lastTrained.
-let loadedLineMeta: { confidence: number; lastTrained: string | null } | null = null;
-
-// The most recently saved line — drives the "Add to training" button visibility.
+// The most recently saved line — drives the training toggle visibility.
 let currentTrainingLine: Line | null = null;
 
 // Single timer handle for Watch line — prevents stacked playback.
 let playbackTimer: ReturnType<typeof setTimeout> | undefined;
-
-function relativeDate(isoStr: string): string {
-  const diff = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000);
-  if (diff < 60) return 'just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  const days = Math.floor(diff / 86400);
-  if (days === 1) return 'yesterday';
-  if (days < 30) return `${days} days ago`;
-  const months = Math.floor(days / 30);
-  if (months < 12) return months === 1 ? '1 month ago' : `${months} months ago`;
-  return isoStr.slice(0, 10);
-}
-
-function confidenceDots(c: number): string {
-  if (!c) return '—';
-  const n = Math.min(Math.max(c, 0), 5);
-  return '●'.repeat(n) + '○'.repeat(5 - n);
-}
-
-function renderLineMeta(): void {
-  const el = document.getElementById('line-meta')!;
-  if (!loadedLineMeta) {
-    el.hidden = true;
-    return;
-  }
-  const { confidence, lastTrained } = loadedLineMeta;
-  const dateText = lastTrained ? relativeDate(lastTrained) : 'Never trained';
-  el.textContent = `Confidence: ${confidenceDots(confidence)} · ${dateText}`;
-  el.hidden = false;
-}
 
 // Watch line is now an icon-only button: a play triangle that becomes a stop
 // square while a line is playing back.
@@ -453,20 +585,29 @@ function goToStart(): void {
   engine.evaluate(chess.fen());
 }
 
-// Sync the training toggle in the builder panel with the current line state.
-function updateTrainingButton(): void {
-  const row = document.getElementById('add-training-row');
-  const btn = document.getElementById('add-training-btn') as HTMLButtonElement | null;
-  if (!row) return;
-  row.hidden = !currentTrainingLine;
-  if (!btn || !currentTrainingLine) return;
-  if (currentTrainingLine.inTraining) {
-    btn.textContent = '✓ In training';
-    btn.classList.add('add-training-btn--active');
-  } else {
-    btn.textContent = 'Add to training';
-    btn.classList.remove('add-training-btn--active');
+// Sync the builder's training toggle with the current line state. The toggle
+// mirrors the My Lines card switch, so it only appears once a line is saved
+// (you can't train a line that doesn't exist yet).
+function updateTrainingToggle(): void {
+  const btn = document.getElementById('train-toggle') as HTMLButtonElement | null;
+  if (!btn) return;
+  if (!currentTrainingLine) {
+    btn.hidden = true;
+    return;
   }
+  btn.hidden = false;
+  const on = currentTrainingLine.inTraining;
+  btn.classList.toggle('dline-toggle--on', on);
+  btn.setAttribute('aria-checked', String(on));
+  const label = btn.querySelector('.dline-toggle-label');
+  if (label) label.textContent = `Training ${on ? 'ON' : 'OFF'}`;
+}
+
+// The save button reads "Save changes" when editing an existing line, and
+// "Save line" for a fresh one — standard create-vs-edit wording.
+function updateSaveButtonLabel(): void {
+  const label = document.getElementById('save-btn-label');
+  if (label) label.textContent = loadedLineId ? 'Save changes' : 'Save line';
 }
 
 // ── Navigation ────────────────────────────────────────────────────────────────
@@ -506,17 +647,15 @@ function clearBuilder(colour: 'white' | 'black' = 'white'): void {
   loadedLineId = null;
   loadedLineCreatedAt = undefined;
   loadedLineInTraining = false;
-  loadedLineMeta = null;
   currentTrainingLine = null;
-  (document.getElementById('line-name') as HTMLInputElement).value = '';
-  (document.getElementById('line-tags') as HTMLInputElement).value = '';
+  currentTags = [];
   saveColour = colour;
   document.getElementById('save-msg')!.textContent = '';
   // Fresh line: drop any manual title and clear the auto-detected name.
   manualTitle = null;
   detectedName = '';
-  closeRenameInput();
   renderTitle();
+  renderBuilderTags();
   cg.set({
     fen: chess.fen(),
     orientation: colour,
@@ -526,8 +665,8 @@ function clearBuilder(colour: 'white' | 'black' = 'white'): void {
   });
   renderMoveList();
   renderNotePanel();
-  renderLineMeta();
-  updateTrainingButton();
+  updateTrainingToggle();
+  updateSaveButtonLabel();
   evalPanel.clear();
   engine.evaluate(chess.fen());
 }
@@ -679,10 +818,10 @@ function onOpenLine(line: Line): void {
   loadedLineId = line.id;
   loadedLineCreatedAt = line.createdAt;
   loadedLineInTraining = line.inTraining;
-  loadedLineMeta = { confidence: line.confidence, lastTrained: line.lastTrained };
 
-  // Set the training button state for the loaded line.
+  // Set the training toggle state for the loaded line.
   currentTrainingLine = line;
+  currentTags = [...line.tags];
 
   chess.reset();
   cg.set({
@@ -695,12 +834,10 @@ function onOpenLine(line: Line): void {
 
   // Prefill the title with the saved name; the cursor sits at the start so the
   // detected name reflects the root until the user steps through the line.
-  (document.getElementById('line-name') as HTMLInputElement).value = line.name;
-  (document.getElementById('line-tags') as HTMLInputElement).value = line.tags.join(', ');
   manualTitle = line.name;
   detectedName = '';
-  closeRenameInput();
   renderTitle();
+  renderBuilderTags();
 
   saveColour = line.colour;
 
@@ -708,8 +845,8 @@ function onOpenLine(line: Line): void {
 
   renderMoveList();
   renderNotePanel();
-  renderLineMeta();
-  updateTrainingButton();
+  updateTrainingToggle();
+  updateSaveButtonLabel();
   showView('builder');
 }
 
@@ -732,33 +869,20 @@ function setupNav(): void {
 // ── Save form ─────────────────────────────────────────────────────────────────
 
 function setupSaveForm() {
-  const saveForm = document.getElementById('save-form')!;
-  const tagsInput = document.getElementById('line-tags') as HTMLInputElement;
   const saveBtn = document.getElementById('save-btn') as HTMLButtonElement;
   const saveMsg = document.getElementById('save-msg')!;
+  const trainToggle = document.getElementById('train-toggle') as HTMLButtonElement;
 
-  // "Add to training" row — hidden until a line is saved and inTraining is false.
-  const addTrainingRow = document.createElement('div');
-  addTrainingRow.id = 'add-training-row';
-  addTrainingRow.hidden = true;
-  const addTrainingBtn = document.createElement('button');
-  addTrainingBtn.type = 'button';
-  addTrainingBtn.id = 'add-training-btn';
-  addTrainingBtn.className = 'add-training-btn';
-  addTrainingBtn.appendChild(Icons.plus());
-  addTrainingBtn.appendChild(document.createTextNode('Add to training'));
-  addTrainingRow.appendChild(addTrainingBtn);
-  saveForm.appendChild(addTrainingRow);
-
-  addTrainingBtn.addEventListener('click', async () => {
+  // Training toggle — mirrors the My Lines card switch. ON enrols the line
+  // (running the pretraining pass); OFF excludes it but keeps its SM-2 data.
+  trainToggle.addEventListener('click', async () => {
     if (!currentTrainingLine) return;
     if (currentTrainingLine.inTraining) {
-      // Remove from training — flip the flag and save; SM-2 data is kept intact.
       const updated: Line = { ...currentTrainingLine, inTraining: false };
       await saveLine(updated);
       loadedLineInTraining = false;
       currentTrainingLine = updated;
-      updateTrainingButton();
+      updateTrainingToggle();
       saveMsg.textContent = 'Removed from training';
     } else {
       startPretrainingRun(
@@ -766,7 +890,7 @@ function setupSaveForm() {
         () => {
           loadedLineInTraining = true;
           currentTrainingLine = currentTrainingLine ? { ...currentTrainingLine, inTraining: true } : null;
-          updateTrainingButton();
+          updateTrainingToggle();
           saveMsg.textContent = 'Added to training ✓';
         },
         () => { /* cancelled — stay in builder */ }
@@ -780,10 +904,8 @@ function setupSaveForm() {
       return;
     }
 
-    const tags = tagsInput.value
-      .split(',')
-      .map(t => t.trim())
-      .filter(t => t.length > 0);
+    // Tags are edited in the lightbox; use the working set as-is.
+    const tags = [...currentTags];
 
     // Auto-naming (default): the title is the manual name if the user renamed,
     // otherwise the opening name from the bundled database for the whole line.
@@ -801,8 +923,9 @@ function setupSaveForm() {
       tags,
       colour: saveColour,
       openingName: opening || null,
-      confidence: 0,
-      lastTrained: null,
+      // Preserve training progress on edit; new lines start fresh.
+      confidence: isNew ? 0 : (currentTrainingLine?.confidence ?? 0),
+      lastTrained: isNew ? null : (currentTrainingLine?.lastTrained ?? null),
       // Preserve inTraining for existing lines; new lines start as false.
       inTraining: isNew ? false : loadedLineInTraining,
       tree: serialise(),
@@ -814,7 +937,8 @@ function setupSaveForm() {
     loadedLineCreatedAt = line.createdAt;
     currentTrainingLine = line;
     saveMsg.textContent = 'Saved ✓';
-    updateTrainingButton();
+    updateTrainingToggle();
+    updateSaveButtonLabel();
   });
 }
 
@@ -1040,11 +1164,13 @@ requestAnimationFrame(() => {
   }
 
   setupSaveForm();
-  setupSettings();
-  setupImport();
+  // Settings (retries) and the Chess.com import are parked: they'll move to a
+  // dedicated Settings screen (top-right of the app) rather than living in the
+  // builder. setupSettings()/setupImport() below are kept ready to re-wire then.
   setupPlaybackControls();
   setupTitleControls();
   setupNotePanel();
+  setupMoveNav();
 
   document.getElementById('reset-btn')!.addEventListener('click', () => clearBuilder('white'));
 

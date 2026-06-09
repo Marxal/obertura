@@ -58,47 +58,41 @@
             <div class="line-title-row">
               <div class="opening-name" id="opening-name" aria-live="polite"></div>
               <button id="watch-btn" type="button" class="watch-btn" aria-label="Watch line" title="Watch line"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>
-              <button id="rename-btn" type="button" class="rename-btn" aria-label="Rename line" title="Rename"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+              <button id="rename-btn" type="button" class="rename-btn" aria-label="Edit name and tags" title="Edit name & tags"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
             </div>
-            <input id="line-name" type="text" class="line-name-input" placeholder="Line name" hidden />
-            <div id="move-list"></div>
+            <div id="builder-tags" class="builder-tags" hidden></div>
+
+            <div class="move-nav">
+              <button id="move-first" type="button" class="move-nav-btn move-nav-btn--edge" aria-label="Go to start" title="Start"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m11 17-5-5 5-5"/><path d="m18 17-5-5 5-5"/></svg></button>
+              <button id="move-prev" type="button" class="move-nav-btn" aria-label="Step back" title="Back"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+              <div id="move-list"></div>
+              <button id="move-next" type="button" class="move-nav-btn" aria-label="Step forward" title="Forward"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
+              <button id="move-last" type="button" class="move-nav-btn move-nav-btn--edge" aria-label="Go to end" title="End"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 17 5-5-5-5"/><path d="m13 17 5-5-5-5"/></svg></button>
+            </div>
+
             <div id="move-explanation" class="move-explanation" hidden aria-live="polite"></div>
             <div id="note-panel" hidden>
-              <label id="note-panel-label" class="note-panel-label" for="move-note-input">Note for this move</label>
-              <textarea id="move-note-input" class="note-panel-textarea" placeholder="Reminder or plan for this move…" rows="2"></textarea>
+              <div class="note-panel-head">
+                <label id="note-panel-label" class="note-panel-label" for="move-note-input">Note for this move</label>
+                <div class="note-panel-actions">
+                  <button id="note-add-btn" type="button" class="note-icon-btn" aria-label="Add suggestion to note" title="Add suggestion to note" hidden><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg></button>
+                  <button id="note-write-btn" type="button" class="note-icon-btn" aria-label="Write a note" title="Write a note"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+                </div>
+              </div>
+              <textarea id="move-note-input" class="note-panel-textarea" placeholder="Reminder or plan for this move…" rows="2" hidden></textarea>
             </div>
-            <div id="line-meta" hidden></div>
 
             <div id="save-form">
               <div id="save-row">
-                <button id="save-btn"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>Save line</button>
-                <span id="save-msg" aria-live="polite"></span>
+                <button id="save-btn"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg><span id="save-btn-label">Save line</span></button>
+                <button id="reset-btn" type="button" class="reset-btn" aria-label="Reset line" title="Reset line"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg></button>
+                <button id="train-toggle" type="button" class="dline-toggle" role="switch" aria-checked="false" hidden>
+                  <span class="dline-switch"><span class="dline-switch-knob"></span></span>
+                  <span class="dline-toggle-label">Training OFF</span>
+                </button>
               </div>
-              <input id="line-tags" type="text" placeholder="tags, comma, separated" />
-              <button id="reset-btn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>Reset line</button>
+              <span id="save-msg" aria-live="polite"></span>
             </div>
-
-            <details id="settings">
-              <summary>Settings</summary>
-              <label for="retries-before-reveal">Retries before the answer is shown</label>
-              <select id="retries-before-reveal">
-                <option value="0">Reveal straight away</option>
-                <option value="1">One retry</option>
-                <option value="2">Two retries</option>
-              </select>
-
-              <div id="import-block">
-                <label for="chesscom-user">Chess.com username</label>
-                <input id="chesscom-user" type="text" autocomplete="off"
-                       autocapitalize="none" spellcheck="false"
-                       placeholder="Your Chess.com username" />
-                <button id="import-btn" type="button"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>Import last 12 months</button>
-                <span id="import-status" aria-live="polite"></span>
-                <div id="import-summary"></div>
-                <button id="import-selftest-link" type="button" class="selftest-link">Run import parser self-test</button>
-                <div id="import-selftest-output" class="selftest-output" hidden></div>
-              </div>
-            </details>
           </div>
         </div>
 
