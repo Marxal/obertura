@@ -4,6 +4,7 @@ import type { Key } from 'chessground/types';
 import 'chessground/assets/chessground.base.css';
 import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
+import { Icons } from './icons';
 import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, uciPathTo, loadTree, fenBefore } from './tree';
 import { saveLine, getAllLines, saveGames, countGames, clearGames } from './storage';
 import { fetchOpeningName, getToken, setToken } from './openings';
@@ -617,7 +618,8 @@ function setupSaveForm() {
   addTrainingBtn.type = 'button';
   addTrainingBtn.id = 'add-training-btn';
   addTrainingBtn.className = 'add-training-btn';
-  addTrainingBtn.textContent = 'Add to training';
+  addTrainingBtn.appendChild(Icons.plus());
+  addTrainingBtn.appendChild(document.createTextNode('Add to training'));
   addTrainingRow.appendChild(addTrainingBtn);
   saveForm.appendChild(addTrainingRow);
 

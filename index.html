@@ -44,11 +44,11 @@
           </div>
         </div>
         <nav id="main-nav" role="tablist" aria-label="App navigation">
-          <button class="nav-tab active" data-view="builder" role="tab" aria-selected="true" type="button">Build</button>
-          <button class="nav-tab" data-view="lines" role="tab" aria-selected="false" type="button">My Lines</button>
-          <button class="nav-tab" data-view="train" role="tab" aria-selected="false" type="button">Train</button>
-          <button class="nav-tab" data-view="review" role="tab" aria-selected="false" type="button">Review</button>
-          <button class="nav-tab" data-view="progress" role="tab" aria-selected="false" type="button">Progress</button>
+          <button class="nav-tab active" data-view="builder" role="tab" aria-selected="true" type="button"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>Build</button>
+          <button class="nav-tab" data-view="lines" role="tab" aria-selected="false" type="button"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/></svg>My Lines</button>
+          <button class="nav-tab" data-view="train" role="tab" aria-selected="false" type="button"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>Train</button>
+          <button class="nav-tab" data-view="review" role="tab" aria-selected="false" type="button"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Review</button>
+          <button class="nav-tab" data-view="progress" role="tab" aria-selected="false" type="button"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>Progress</button>
         </nav>
       </header>
       <main>
@@ -71,7 +71,7 @@
               <button id="last-pos-btn" type="button" class="playback-btn">Last position</button>
               <button id="watch-btn" type="button" class="playback-btn">Watch line</button>
             </div>
-            <button id="reset-btn">Reset line</button>
+            <button id="reset-btn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>Reset line</button>
 
             <div id="save-form">
               <input id="line-name" type="text" placeholder="Italian Game — main line" />
@@ -81,7 +81,7 @@
                 <button type="button" data-colour="black">Black</button>
               </div>
               <div id="save-row">
-                <button id="save-btn">Save line</button>
+                <button id="save-btn"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>Save line</button>
                 <span id="save-msg" aria-live="polite"></span>
               </div>
             </div>
@@ -100,7 +100,7 @@
                 <input id="chesscom-user" type="text" autocomplete="off"
                        autocapitalize="none" spellcheck="false"
                        placeholder="Your Chess.com username" />
-                <button id="import-btn" type="button">Import last 12 months</button>
+                <button id="import-btn" type="button"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>Import last 12 months</button>
                 <span id="import-status" aria-live="polite"></span>
                 <div id="import-summary"></div>
                 <button id="import-selftest-link" type="button" class="selftest-link">Run import parser self-test</button>

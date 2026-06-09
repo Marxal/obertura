@@ -1,5 +1,6 @@
 import type { Line } from './types';
 import { getAllLines, saveLine, deleteLine } from './storage';
+import { Icons } from './icons';
 
 // Phase 3 training will populate confidence and lastTrained.
 function relativeDate(isoStr: string): string {
@@ -221,7 +222,7 @@ function buildCard(
   editBtn.type = 'button';
   editBtn.className = 'line-edit-btn';
   editBtn.setAttribute('aria-label', 'Edit line');
-  editBtn.textContent = '⋯';
+  editBtn.appendChild(Icons.pencil(16));
   editBtn.addEventListener('click', e => {
     e.stopPropagation();
     openEditSheet(line, rerender);
@@ -303,12 +304,15 @@ function openEditSheet(line: Line, rerender: () => void): void {
   const deleteBtn = document.createElement('button');
   deleteBtn.type = 'button';
   deleteBtn.className = 'edit-delete-btn';
-  deleteBtn.textContent = 'Delete line';
+  deleteBtn.appendChild(Icons.trash(15));
+  deleteBtn.appendChild(document.createTextNode('Delete line'));
   let awaitingConfirm = false;
   deleteBtn.addEventListener('click', async () => {
     if (!awaitingConfirm) {
       awaitingConfirm = true;
-      deleteBtn.textContent = 'Tap again to confirm delete';
+      deleteBtn.replaceChildren();
+      deleteBtn.appendChild(Icons.trash(15));
+      deleteBtn.appendChild(document.createTextNode('Tap again to confirm delete'));
       deleteBtn.classList.add('confirming');
       return;
     }

@@ -2,6 +2,7 @@ import type { Line } from './types';
 import type { MoveNode } from './tree';
 import { getAllLines, saveLine } from './storage';
 import { startDrill } from './drill';
+import { Icons } from './icons';
 import { isGoodAlternative } from './engine';
 import { TrainingSession, type SessionItem } from './session';
 import {
@@ -125,7 +126,8 @@ function renderSessionHeader(container: HTMLElement, due: Line[], allTraining: L
     const startBtn = document.createElement('button');
     startBtn.type = 'button';
     startBtn.className = 'session-start-btn';
-    startBtn.textContent = 'Start review session';
+    startBtn.appendChild(Icons.play(17));
+    startBtn.appendChild(document.createTextNode('Start review session'));
     startBtn.addEventListener('click', () => {
       const session = new TrainingSession(allTraining);
       runSession(session, container, makeStats());

@@ -3,6 +3,7 @@ import { Chessground } from 'chessground';
 import type { Key } from 'chessground/types';
 import type { Line } from './types';
 import type { MoveNode } from './tree';
+import { Icons } from './icons';
 
 export interface DrillOptions {
   onComplete: () => void;
@@ -61,7 +62,8 @@ export function startDrill(line: Line, opts: DrillOptions): void {
   const backBtn = document.createElement('button');
   backBtn.type = 'button';
   backBtn.className = 'pt-back-btn';
-  backBtn.textContent = opts.backLabel ?? '← Back';
+  backBtn.appendChild(Icons.back(15));
+  backBtn.appendChild(document.createTextNode(opts.backLabel ?? 'Back'));
   backBtn.addEventListener('click', () => { cleanup(); opts.onCancel(); });
 
   const titleEl = document.createElement('div');
