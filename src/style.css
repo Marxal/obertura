@@ -2074,6 +2074,35 @@ cg-board square.move-dest.oc {
   box-sizing: border-box;
 }
 
+.pt-alt-head {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1a7a4a;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.pt-alt-btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.pt-alt-explore-btn {
+  background: #3a9a5c;
+  border: 1px solid #3a9a5c;
+  border-radius: 4px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: #fff;
+  cursor: pointer;
+}
+
+.pt-alt-explore-btn:active {
+  filter: brightness(0.9);
+}
+
 .pt-alt-new-line-btn {
   background: none;
   border: 1px solid #b8dfc8;
@@ -2083,7 +2112,6 @@ cg-board square.move-dest.oc {
   font-family: system-ui, -apple-system, sans-serif;
   color: #3a9a5c;
   cursor: pointer;
-  align-self: flex-start;
 }
 
 .pt-status {
@@ -2411,6 +2439,182 @@ cg-board square.move-dest.oc {
 }
 
 .session-individual-btn:active {
+  filter: brightness(0.95);
+  transform: translateY(1px);
+}
+
+/* ── Practice picker (what a session loads) ────────────────────────────────── */
+
+.session-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.session-picker-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.practice-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.7rem 0.9rem;
+  background-color: var(--bg-card);
+  background-image: linear-gradient(180deg, rgba(255,255,255,0.45) 0%, transparent 100%);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: filter 0.12s, box-shadow 0.12s, border-color 0.12s;
+}
+
+.practice-option:hover {
+  border-color: var(--maroon);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.practice-option:active {
+  filter: brightness(0.95);
+  transform: translateY(1px);
+}
+
+/* The headline option (Due now) gets the maroon primary treatment. */
+.practice-option--primary {
+  background-color: var(--maroon);
+  background-image: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 55%, rgba(0,0,0,0.06) 100%);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(122,34,48,0.3), 0 1px 2px rgba(122,34,48,0.2);
+}
+
+.practice-option--primary .practice-option-sub { color: rgba(255,255,255,0.82); }
+.practice-option--primary:hover { filter: brightness(1.08); border-color: transparent; }
+
+.practice-option--disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.practice-option--disabled:hover {
+  border-color: var(--border-card);
+  box-shadow: none;
+}
+
+.practice-option-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+.practice-option--primary .practice-option-icon { color: #fff; }
+.practice-option:not(.practice-option--primary) .practice-option-icon { color: var(--maroon); }
+
+.practice-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.practice-option-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.practice-option-sub {
+  font-size: 0.78rem;
+  color: var(--text-faint);
+}
+
+/* ── Line explorer (where a good-alternative move leads) ───────────────────── */
+
+.explore-eval {
+  padding: 0.7rem 1rem 0.3rem;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--accent);
+}
+
+.explore-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 1rem;
+}
+
+.explore-line-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-right: 0.15rem;
+}
+
+.explore-line-move {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 5px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: 'SF Mono', ui-monospace, monospace;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.explore-line-move:active {
+  background: var(--maroon);
+  color: #fff;
+}
+
+.explore-history {
+  padding: 0.4rem 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  font-family: 'SF Mono', ui-monospace, monospace;
+  color: var(--text-faint);
+  word-break: break-word;
+}
+
+.explore-controls {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.4rem 1rem 1rem;
+}
+
+.explore-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--maroon);
+  cursor: pointer;
+}
+
+.explore-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.explore-btn:not(:disabled):active {
   filter: brightness(0.95);
   transform: translateY(1px);
 }

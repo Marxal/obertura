@@ -35,6 +35,10 @@ export interface DrillOptions {
   // If provided (full mode only), the engine checks whether a wrong move is
   // actually a good alternative before penalising it as a mistake.
   checkAlternative?: (preFen: string, userUci: string) => Promise<boolean>;
+  // If provided, the good-alternative card offers an "Explore this line" button
+  // that opens the position AFTER the played move so the user can see where it
+  // leads. The drill stays open underneath and resumes when the explorer closes.
+  onExplore?: (fenAfter: string, label: string, orientation: 'white' | 'black') => void;
 }
 
 // A single ply to auto-play (animated) between the user's moves.
@@ -70,6 +74,22 @@ function mainlineOf(tree: MoveNode): MoveNode[] {
 
 function colourToMove(fen: string): 'white' | 'black' {
   return fen.split(' ')[1] === 'b' ? 'black' : 'white';
+}
+
+// The position (and SAN) after applying a UCI move to a FEN — used to open the
+// explorer at the spot a good-alternative move leads to. Null on an illegal move.
+function afterMove(preFen: string, uci: string): { fen: string; san: string } | null {
+  try {
+    const ch = new Chess(preFen);
+    const m = ch.move({
+      from: uci.slice(0, 2),
+      to: uci.slice(2, 4),
+      promotion: (uci[4] as 'q' | 'r' | 'b' | 'n') || 'q',
+    });
+    return m ? { fen: ch.fen(), san: m.san } : null;
+  } catch {
+    return null;
+  }
 }
 
 // ── Public entry points ──────────────────────────────────────────────────────
@@ -338,8 +358,14 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
 
   // ── Alt card (good-alternative notice) ───────────────────────────────────────
 
-  function showAltCard(expected: MoveNode): void {
+  function showAltCard(expected: MoveNode, explore: { fen: string; san: string } | null): void {
     altCardEl.innerHTML = '';
+
+    // Brief headline: a sound move, but not the saved line.
+    const headEl = document.createElement('div');
+    headEl.className = 'pt-alt-head';
+    headEl.textContent = `Good move${explore ? ` (${explore.san})` : ''} — but not your saved line.`;
+    altCardEl.appendChild(headEl);
 
     if (expected.note) {
       const noteEl = document.createElement('div');
@@ -371,13 +397,30 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
       altCardEl.appendChild(textarea);
     }
 
+    const btnRow = document.createElement('div');
+    btnRow.className = 'pt-alt-btn-row';
+
+    // "Explore this line" — open the position after the played move so the user
+    // can see where it goes, without leaving the drill.
+    if (explore && opts.onExplore) {
+      const exploreBtn = document.createElement('button');
+      exploreBtn.type = 'button';
+      exploreBtn.className = 'pt-alt-explore-btn';
+      exploreBtn.textContent = 'Explore this line →';
+      exploreBtn.addEventListener('click', () => {
+        opts.onExplore!(explore.fen, `After ${explore.san}`, userColour);
+      });
+      btnRow.appendChild(exploreBtn);
+    }
+
     const newLineBtn = document.createElement('button');
     newLineBtn.type = 'button';
     newLineBtn.className = 'pt-alt-new-line-btn';
     newLineBtn.textContent = 'Create new line';
     newLineBtn.addEventListener('click', () => { cleanup(); opts.onCancel(); });
-    altCardEl.appendChild(newLineBtn);
+    btnRow.appendChild(newLineBtn);
 
+    altCardEl.appendChild(btnRow);
     altCardEl.removeAttribute('hidden');
   }
 
@@ -436,10 +479,11 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
 
   // ── Good-alternative sequence ─────────────────────────────────────────────
 
-  function handleGoodAlternative(expected: MoveNode): void {
+  function handleGoodAlternative(expected: MoveNode, preFen: string, userUci: string): void {
     awaitingAlternativePlay = true;
 
-    setStatus(`Good alternative! Your line plays ${expected.san}.`, 'pt-status--alt');
+    // A sound move, but it isn't the line we saved — still ask for the saved move.
+    setStatus(`Good move — but not your line. Play ${expected.san} to continue.`, 'pt-status--alt');
 
     // Restrict board to only the expected move (the green arrow shows where).
     const orig = expected.uci.slice(0, 2) as Key;
@@ -451,10 +495,12 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
       },
     });
 
+    const explore = afterMove(preFen, userUci);
+
     requestAnimationFrame(() => {
       if (isCleaned) return;
       cg.setAutoShapes([{ orig, dest, brush: 'alt' }]);
-      showAltCard(expected);
+      showAltCard(expected, explore);
     });
   }
 
@@ -526,7 +572,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
           .then(isAlt => {
             if (isCleaned) return;
             checkingAlternative = false;
-            if (isAlt) handleGoodAlternative(expected);
+            if (isAlt) handleGoodAlternative(expected, preFen, from + to);
             else registerWrongAttempt(expected);
           })
           .catch(() => {

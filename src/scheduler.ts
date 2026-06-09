@@ -140,6 +140,30 @@ export function lineConfidence(line: Line): number {
   return Math.round(avg);
 }
 
+// ── Session-picker orderings ─────────────────────────────────────────────────────
+//
+// The Train screen lets you pick what a session loads. These are the cheap,
+// engine-free orderings behind those choices — each takes the training lines
+// and returns them in the order that picker wants to drill.
+
+// Total lifetime misses (lapses) across a line's user-moves. The "weakest"
+// signal: a line you keep getting wrong has a high count.
+export function lineMissCount(line: Line): number {
+  return userMoveNodes(line.tree, line.colour)
+    .reduce((sum, n) => sum + (n.review?.lapses ?? 0), 0);
+}
+
+// Newest first. Lines without a createdAt (older saves) sort last.
+export function recentlyAddedLines(lines: Line[]): Line[] {
+  return [...lines].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+}
+
+// Most-missed first; ties broken by lower confidence so the shakiest lead.
+export function weakestLines(lines: Line[]): Line[] {
+  return [...lines].sort((a, b) =>
+    lineMissCount(b) - lineMissCount(a) || a.confidence - b.confidence);
+}
+
 // ── Within-session resurfacing ──────────────────────────────────────────────────
 //
 // When you miss material, it shouldn't wait until tomorrow — it should come

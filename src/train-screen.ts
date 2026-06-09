@@ -3,6 +3,7 @@ import type { MoveNode } from './tree';
 import { getAllLines, saveLine } from './storage';
 import { startDrill, startPositionsDrill } from './drill';
 import { selectIndividualPositions } from './individual';
+import { openExplorer } from './explore';
 import { Icons } from './icons';
 import { isGoodAlternative } from './engine';
 import { TrainingSession, type SessionItem } from './session';
@@ -17,6 +18,8 @@ import {
   dueLines,
   nextDue,
   describeDue,
+  recentlyAddedLines,
+  weakestLines,
 } from './scheduler';
 import { runSchedulerSelfTest } from './scheduler.selftest';
 import { recordTrainingDay } from './streak';
@@ -138,18 +141,7 @@ function renderSessionHeader(container: HTMLElement, due: Line[], allTraining: L
     wrap.appendChild(posLabel);
   }
 
-  if (due.length > 0) {
-    const startBtn = document.createElement('button');
-    startBtn.type = 'button';
-    startBtn.className = 'session-start-btn';
-    startBtn.appendChild(Icons.play(17));
-    startBtn.appendChild(document.createTextNode('Start review session'));
-    startBtn.addEventListener('click', () => {
-      const session = new TrainingSession(allTraining);
-      runSession(session, container, makeStats());
-    });
-    wrap.appendChild(startBtn);
-  }
+  renderPracticePicker(wrap, due, allTraining, container);
 
   // Individual-moves mode: a stream of single positions (due + weakest moves),
   // each starting mid-opening. Offered whenever there's anything deep enough to
@@ -168,6 +160,106 @@ function renderSessionHeader(container: HTMLElement, due: Line[], allTraining: L
   }
 
   container.appendChild(wrap);
+}
+
+// ── Practice picker (choose what a session loads) ────────────────────────────────
+//
+// Three cheap, engine-free ways to build today's session:
+//   • Due now        — the spaced-repetition queue (what's actually scheduled).
+//   • Recently added — your newest lines first (drill what you just built).
+//   • Weakest        — the lines you miss most, hardest first.
+// "Due now" reflects the real due set; the other two are explicit walks through
+// the repertoire in their chosen order, capped so a session stays bite-sized.
+
+const PICKER_SESSION_CAP = 12;
+
+function renderPracticePicker(
+  wrap: HTMLElement,
+  due: Line[],
+  allTraining: Line[],
+  container: HTMLElement,
+): void {
+  const picker = document.createElement('div');
+  picker.className = 'session-picker';
+
+  const label = document.createElement('div');
+  label.className = 'session-picker-label';
+  label.textContent = 'Practise';
+  picker.appendChild(label);
+
+  const start = (session: TrainingSession) => runSession(session, container, makeStats());
+
+  // Due now — the scheduled queue. Disabled when nothing is due.
+  picker.appendChild(buildOption({
+    icon: Icons.play(18),
+    title: 'Due now',
+    sub: due.length > 0
+      ? `${due.length} line${due.length === 1 ? '' : 's'} scheduled`
+      : 'Nothing due — all caught up',
+    primary: true,
+    disabled: due.length === 0,
+    onClick: () => start(new TrainingSession(allTraining)),
+  }));
+
+  // Recently added — newest first.
+  picker.appendChild(buildOption({
+    icon: Icons.plus(18),
+    title: 'Recently added',
+    sub: 'Your newest lines first',
+    onClick: () => {
+      const ordered = recentlyAddedLines(allTraining).slice(0, PICKER_SESSION_CAP);
+      start(new TrainingSession(ordered, { explicit: true }));
+    },
+  }));
+
+  // Weakest — most-missed first.
+  picker.appendChild(buildOption({
+    icon: Icons.trending(18),
+    title: 'Weakest',
+    sub: 'The moves you miss most',
+    onClick: () => {
+      const ordered = weakestLines(allTraining).slice(0, PICKER_SESSION_CAP);
+      start(new TrainingSession(ordered, { explicit: true }));
+    },
+  }));
+
+  wrap.appendChild(picker);
+}
+
+function buildOption(o: {
+  icon: SVGElement;
+  title: string;
+  sub: string;
+  onClick: () => void;
+  primary?: boolean;
+  disabled?: boolean;
+}): HTMLElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'practice-option'
+    + (o.primary ? ' practice-option--primary' : '')
+    + (o.disabled ? ' practice-option--disabled' : '');
+  btn.disabled = !!o.disabled;
+
+  const iconWrap = document.createElement('span');
+  iconWrap.className = 'practice-option-icon';
+  iconWrap.appendChild(o.icon);
+
+  const text = document.createElement('span');
+  text.className = 'practice-option-text';
+  const title = document.createElement('span');
+  title.className = 'practice-option-title';
+  title.textContent = o.title;
+  const sub = document.createElement('span');
+  sub.className = 'practice-option-sub';
+  sub.textContent = o.sub;
+  text.appendChild(title);
+  text.appendChild(sub);
+
+  btn.appendChild(iconWrap);
+  btn.appendChild(text);
+  if (!o.disabled) btn.addEventListener('click', o.onClick);
+  return btn;
 }
 
 // ── Card list (browse every training line) ──────────────────────────────────────
@@ -304,6 +396,7 @@ function runItem(
     celebrateOnComplete: true,
     completeMessage: isResurface ? 'Got it that time ✓' : 'Line complete',
     checkAlternative: (fen, uci) => isGoodAlternative(fen, uci),
+    onExplore: (fenAfter, label, orientation) => openExplorer(fenAfter, { label, orientation, onClose: () => {} }),
     recordMiss,
     onCancel: () => void doRender(container),
     onBeforeComplete: async () => {
@@ -384,6 +477,7 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
       celebrateOnComplete: true,
       completeMessage: 'Positions cleared ✓',
       checkAlternative: (fen, uci) => isGoodAlternative(fen, uci),
+      onExplore: (fenAfter, label, orientation) => openExplorer(fenAfter, { label, orientation, onClose: () => {} }),
       recordMiss: (node) => { missed.add(node.id); },
       onStepComplete: (expected) => {
         const line = lineByNode.get(expected);

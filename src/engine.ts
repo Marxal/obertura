@@ -148,6 +148,59 @@ export async function gradeMove(preFen: string, userUci: string): Promise<MoveGr
   }
 }
 
+// ── Continuation lookup (for "explore this line") ────────────────────────────
+// The engine's single best line from a position: the first move (for an arrow),
+// a white-normalised eval, and the principal variation in both SAN and UCI so a
+// caller can show "where it leads" and let the user step into it.
+
+export interface CloudLine {
+  bestUci: string;
+  cp?: number;    // white perspective
+  mate?: number;  // white perspective
+  sanLine: string[];
+  uciLine: string[];
+}
+
+export async function cloudLine(fen: string): Promise<CloudLine | null> {
+  const data = await cloudEval(fen);
+  const pv = data?.pvs?.[0];
+  const moves = pv?.moves?.trim();
+  if (!pv || !moves) return null;
+
+  const uciAll = moves.split(/\s+/);
+  if (!uciAll[0]) return null;
+
+  // Convert the PV to SAN by replaying it; stop at the first move that doesn't
+  // apply (cloud PVs are trustworthy, but stay defensive).
+  const ch = new Chess(fen);
+  const sanLine: string[] = [];
+  const uciLine: string[] = [];
+  for (const u of uciAll) {
+    try {
+      const m = ch.move({
+        from: u.slice(0, 2),
+        to: u.slice(2, 4),
+        promotion: (u[4] as 'q' | 'r' | 'b' | 'n') || undefined,
+      });
+      if (!m) break;
+      sanLine.push(m.san);
+      uciLine.push(u);
+    } catch {
+      break;
+    }
+  }
+  if (uciLine.length === 0) return null;
+
+  const side = sideToMove(fen);
+  return {
+    bestUci: uciLine[0],
+    cp: pv.cp !== undefined ? normCp(pv.cp, side) : undefined,
+    mate: pv.mate !== undefined ? normCp(pv.mate, side) : undefined,
+    sanLine,
+    uciLine,
+  };
+}
+
 // Normalise a Lichess pv entry to a white-perspective centipawn value, with
 // mate scores collapsed to ±10000 sentinels. Returns null if the entry has
 // neither cp nor mate.
