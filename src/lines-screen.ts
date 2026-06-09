@@ -44,6 +44,23 @@ function byLatest(lines: Line[]): Line[] {
   return [...lines].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
 }
 
+type SortMode = 'latest' | 'weakest' | 'strongest' | 'name';
+
+function sortLines(lines: Line[], mode: SortMode): Line[] {
+  const copy = [...lines];
+  switch (mode) {
+    case 'weakest':
+      return copy.sort((a, b) => (a.confidence ?? 0) - (b.confidence ?? 0));
+    case 'strongest':
+      return copy.sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0));
+    case 'name':
+      return copy.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    case 'latest':
+    default:
+      return copy.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+  }
+}
+
 interface LinesDeps {
   onOpenLine: (line: Line) => void;
   onAddLine: (colour: 'white' | 'black') => void;
@@ -58,6 +75,7 @@ type Pending = { el: HTMLElement; fen: string; orientation: 'white' | 'black' };
 // toggle/rename doesn't reset what you were looking at.
 type ColourFilter = 'all' | 'white' | 'black';
 let detailFilter: ColourFilter = 'all';
+let detailSort: SortMode = 'latest';
 
 export function renderLinesScreen(
   container: HTMLElement,
@@ -206,8 +224,8 @@ function renderDetailList(
   heading.textContent = 'All lines';
   wrap.appendChild(heading);
 
-  // Colour filter: All / White / Black.
-  wrap.appendChild(buildFilterRow(() => renderDetailList(wrap, allLines, deps, container, refresh)));
+  // Colour filter + order options, side by side.
+  wrap.appendChild(buildControlsRow(() => renderDetailList(wrap, allLines, deps, container, refresh)));
 
   const filtered =
     detailFilter === 'all' ? allLines : allLines.filter(l => l.colour === detailFilter);
@@ -223,35 +241,56 @@ function renderDetailList(
 
   const list = document.createElement('div');
   list.className = 'lines-section';
-  // Both colours piled together, newest first.
-  for (const line of byLatest(filtered)) {
+  for (const line of sortLines(filtered, detailSort)) {
     list.appendChild(buildDetailCard(line, deps, container, refresh));
   }
   wrap.appendChild(list);
 }
 
-function buildFilterRow(onChange: () => void): HTMLElement {
+function buildControlsRow(onChange: () => void): HTMLElement {
   const row = document.createElement('div');
   row.className = 'dfilter-row';
 
-  const label = document.createElement('span');
-  label.className = 'dfilter-label';
-  label.textContent = 'Show:';
-  row.appendChild(label);
+  const showLabel = document.createElement('span');
+  showLabel.className = 'dfilter-label';
+  showLabel.textContent = 'Show:';
+  row.appendChild(showLabel);
 
-  const opts: { key: ColourFilter; label: string }[] = [
+  const filters: { key: ColourFilter; label: string }[] = [
     { key: 'all', label: 'All' },
     { key: 'white', label: 'White' },
     { key: 'black', label: 'Black' },
   ];
-
-  for (const o of opts) {
+  for (const o of filters) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = `dfilter-btn${detailFilter === o.key ? ' active' : ''}`;
     btn.textContent = o.label;
     btn.addEventListener('click', () => {
       detailFilter = o.key;
+      onChange();
+    });
+    row.appendChild(btn);
+  }
+
+  const orderLabel = document.createElement('span');
+  orderLabel.className = 'dfilter-label dfilter-label--order';
+  orderLabel.textContent = 'Order:';
+  row.appendChild(orderLabel);
+
+  const orders: { key: SortMode; label: string }[] = [
+    { key: 'latest', label: 'Latest' },
+    { key: 'weakest', label: 'Weakest' },
+    { key: 'strongest', label: 'Strongest' },
+    { key: 'name', label: 'Name' },
+  ];
+  for (const o of orders) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `dfilter-btn${detailSort === o.key ? ' active' : ''}`;
+    btn.textContent = o.label;
+    btn.addEventListener('click', () => {
+      detailSort = o.key;
       onChange();
     });
     row.appendChild(btn);
@@ -271,24 +310,66 @@ function buildDetailCard(
   const card = document.createElement('div');
   card.className = 'dline-card';
 
-  // Title gets the whole top row — colour pip + name.
-  const titleRow = document.createElement('div');
-  titleRow.className = 'dline-title';
+  // Top row: title (tap to open in builder) on the left; quiet rename/delete
+  // icons on the right.
+  const top = document.createElement('div');
+  top.className = 'dline-top';
+
+  const openBtn = document.createElement('button');
+  openBtn.type = 'button';
+  openBtn.className = 'dline-open';
   const pip = document.createElement('span');
   pip.className = `colour-pip colour-pip--${line.colour}`;
   pip.setAttribute('aria-hidden', 'true');
   const nameEl = document.createElement('span');
   nameEl.className = 'dline-name';
   nameEl.textContent = line.name || line.openingName || 'Untitled line';
-  titleRow.appendChild(pip);
-  titleRow.appendChild(nameEl);
+  openBtn.appendChild(pip);
+  openBtn.appendChild(nameEl);
+  openBtn.addEventListener('click', () => deps.onOpenLine(line));
+  top.appendChild(openBtn);
+
   if (due) {
     const dueBadge = document.createElement('span');
     dueBadge.className = 'dline-due';
     dueBadge.textContent = 'Due';
-    titleRow.appendChild(dueBadge);
+    top.appendChild(dueBadge);
   }
-  card.appendChild(titleRow);
+
+  const renameBtn = document.createElement('button');
+  renameBtn.type = 'button';
+  renameBtn.className = 'dline-icon';
+  renameBtn.setAttribute('aria-label', 'Rename line');
+  renameBtn.title = 'Rename';
+  renameBtn.appendChild(Icons.pencil(16));
+  renameBtn.addEventListener('click', () =>
+    openRenameSheet(line, newName => {
+      // Keep the carousel title in sync without re-mounting boards.
+      const carouselTitle = container.querySelector<HTMLElement>(
+        `.carousel-card[data-line-id="${line.id}"] .carousel-card-title`
+      );
+      if (carouselTitle) carouselTitle.textContent = newName;
+      refresh();
+    })
+  );
+  top.appendChild(renameBtn);
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
+  deleteBtn.className = 'dline-icon dline-icon--danger';
+  deleteBtn.setAttribute('aria-label', 'Delete line');
+  deleteBtn.title = 'Delete';
+  deleteBtn.appendChild(Icons.trash(16));
+  deleteBtn.addEventListener('click', () =>
+    openDeletePopup(line, () => {
+      // Drop the matching carousel card too.
+      container.querySelector(`.carousel-card[data-line-id="${line.id}"]`)?.remove();
+      refresh();
+    })
+  );
+  top.appendChild(deleteBtn);
+
+  card.appendChild(top);
 
   // Opening name (when it differs from the title) + tags.
   if (line.openingName && line.openingName !== nameEl.textContent) {
@@ -310,7 +391,7 @@ function buildDetailCard(
     card.appendChild(tagRow);
   }
 
-  // Stats row: confidence · last-trained · in-training state.
+  // Stats row: confidence · last-trained.
   const stats = document.createElement('div');
   stats.className = 'dline-stats';
 
@@ -326,84 +407,24 @@ function buildDetailCard(
   last.textContent = line.lastTrained ? `Trained ${relativeDate(line.lastTrained)}` : 'Never trained';
   stats.appendChild(last);
 
-  stats.appendChild(sepDot());
-
-  const state = document.createElement('span');
-  state.className = `dline-stat dline-state${line.inTraining ? ' dline-state--on' : ''}`;
-  state.textContent = line.inTraining ? 'In training' : 'Not training';
-  stats.appendChild(state);
-
   card.appendChild(stats);
 
-  // Quiet (tonal) actions below: Rename · Open · In-training toggle · Delete.
+  // The ONE training control: on = in the drill pool, off = excluded but kept
+  // (stats and all). No separate pause/remove. Reads green when ON.
   const actions = document.createElement('div');
   actions.className = 'dline-actions';
 
-  const renameBtn = document.createElement('button');
-  renameBtn.type = 'button';
-  renameBtn.className = 'dline-act';
-  renameBtn.textContent = 'Rename';
-  renameBtn.addEventListener('click', () =>
-    openRenameSheet(line, newName => {
-      // Keep the carousel title in sync without re-mounting boards.
-      const carouselTitle = container.querySelector<HTMLElement>(
-        `.carousel-card[data-line-id="${line.id}"] .carousel-card-title`
-      );
-      if (carouselTitle) carouselTitle.textContent = newName;
-      refresh();
-    })
-  );
-  actions.appendChild(renameBtn);
-
-  const openBtn = document.createElement('button');
-  openBtn.type = 'button';
-  openBtn.className = 'dline-act';
-  openBtn.textContent = 'Open';
-  openBtn.addEventListener('click', () => deps.onOpenLine(line));
-  actions.appendChild(openBtn);
-
-  // The ONE training control: on = in the drill pool, off = excluded but kept
-  // (stats and all). No separate pause/remove.
   const toggleBtn = document.createElement('button');
   toggleBtn.type = 'button';
-  toggleBtn.className = `dline-act dline-toggle${line.inTraining ? ' dline-toggle--on' : ''}`;
+  toggleBtn.className = `dline-toggle${line.inTraining ? ' dline-toggle--on' : ''}`;
   toggleBtn.setAttribute('role', 'switch');
   toggleBtn.setAttribute('aria-checked', String(line.inTraining));
-  toggleBtn.textContent = line.inTraining ? 'In training: ON' : 'In training: OFF';
+  toggleBtn.textContent = `Training: ${line.inTraining ? 'ON' : 'OFF'}`;
   toggleBtn.addEventListener('click', async () => {
     await saveLine({ ...line, inTraining: !line.inTraining });
     refresh();
   });
   actions.appendChild(toggleBtn);
-
-  // Delete — discrete, tap-again-to-confirm. The only full removal.
-  const deleteBtn = document.createElement('button');
-  deleteBtn.type = 'button';
-  deleteBtn.className = 'dline-act dline-act--danger';
-  deleteBtn.textContent = 'Delete';
-  let awaitingConfirm = false;
-  let resetTimer: ReturnType<typeof setTimeout> | undefined;
-  deleteBtn.addEventListener('click', async () => {
-    if (!awaitingConfirm) {
-      awaitingConfirm = true;
-      deleteBtn.textContent = 'Tap to confirm';
-      deleteBtn.classList.add('confirming');
-      resetTimer = setTimeout(() => {
-        awaitingConfirm = false;
-        deleteBtn.textContent = 'Delete';
-        deleteBtn.classList.remove('confirming');
-      }, 3000);
-      return;
-    }
-    if (resetTimer) clearTimeout(resetTimer);
-    await deleteLine(line.id);
-    // Drop the matching carousel card too.
-    container
-      .querySelector(`.carousel-card[data-line-id="${line.id}"]`)
-      ?.remove();
-    refresh();
-  });
-  actions.appendChild(deleteBtn);
 
   card.appendChild(actions);
 
@@ -431,6 +452,14 @@ function openRenameSheet(line: Line, onSaved: (newName: string) => void): void {
   title.className = 'edit-sheet-title';
   title.textContent = 'Rename line';
   sheet.appendChild(title);
+
+  // Mini-board of the line's position so you can recognise what you're naming.
+  const boardWrap = document.createElement('div');
+  boardWrap.className = 'rename-board';
+  const board = document.createElement('div');
+  board.className = 'rename-board-inner';
+  boardWrap.appendChild(board);
+  sheet.appendChild(boardWrap);
 
   const nameLabel = document.createElement('label');
   nameLabel.className = 'edit-label';
@@ -481,5 +510,66 @@ function openRenameSheet(line: Line, onSaved: (newName: string) => void): void {
 
   overlay.appendChild(sheet);
   document.body.appendChild(overlay);
-  requestAnimationFrame(() => nameInput.focus());
+  requestAnimationFrame(() => {
+    mountMiniBoard(board, finalMainlineFen(line.tree), line.colour);
+    nameInput.focus();
+  });
+}
+
+// ── Delete confirmation popup ────────────────────────────────────────────────
+
+function openDeletePopup(line: Line, onDeleted: () => void): void {
+  const overlay = document.createElement('div');
+  overlay.className = 'edit-overlay';
+
+  const sheet = document.createElement('div');
+  sheet.className = 'edit-sheet';
+
+  const title = document.createElement('h3');
+  title.className = 'edit-sheet-title';
+  title.textContent = 'Delete this line?';
+  sheet.appendChild(title);
+
+  const warn = document.createElement('p');
+  warn.className = 'delete-warn';
+  const label = line.name || line.openingName || 'this line';
+  warn.textContent =
+    `“${label}” and all of its training data — confidence, review history and ` +
+    `schedule — will be permanently deleted. This can’t be undone.`;
+  sheet.appendChild(warn);
+
+  const btnRow = document.createElement('div');
+  btnRow.className = 'edit-btn-row';
+
+  const confirmBtn = document.createElement('button');
+  confirmBtn.type = 'button';
+  confirmBtn.className = 'delete-confirm-btn';
+  confirmBtn.appendChild(Icons.trash(15));
+  confirmBtn.appendChild(document.createTextNode('Delete'));
+  confirmBtn.addEventListener('click', async () => {
+    await deleteLine(line.id);
+    close();
+    onDeleted();
+  });
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'edit-cancel-btn';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', close);
+
+  btnRow.appendChild(confirmBtn);
+  btnRow.appendChild(cancelBtn);
+  sheet.appendChild(btnRow);
+
+  function close() {
+    overlay.remove();
+  }
+
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) close();
+  });
+
+  overlay.appendChild(sheet);
+  document.body.appendChild(overlay);
 }
