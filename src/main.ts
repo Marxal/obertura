@@ -13,7 +13,7 @@ import { renderLinesScreen, focusSavedLine } from './lines-screen';
 import { renderProgressScreen } from './progress-screen';
 import { startPretrainingRun } from './pretraining';
 import { renderTrainScreen } from './train-screen';
-import { renderHomeScreen } from './home-screen';
+import { renderExploreScreen } from './explore-screen';
 import { renderSettingsScreen } from './settings-screen';
 import { Engine, gradeMove } from './engine';
 import { EvalPanel } from './eval-panel';
@@ -634,10 +634,11 @@ function showToast(message: string): void {
 // ── Navigation ────────────────────────────────────────────────────────────────
 
 // The four bottom-tab destinations, plus the board screens reached from them.
-// "home" is the landing dashboard (filled in a later task); "builder" shows a
-// chessboard, so it counts as a board screen (see BOARD_VIEWS below).
-type ViewName = 'home' | 'lines' | 'train' | 'progress' | 'builder' | 'settings';
-let currentView: ViewName = 'home';
+// "train" is the start view and back-navigation root; "explore" is a v1.2
+// placeholder; "builder" shows a chessboard, so it counts as a board screen
+// (see BACK_VIEWS below).
+type ViewName = 'train' | 'lines' | 'explore' | 'progress' | 'builder' | 'settings';
+let currentView: ViewName = 'train';
 
 // Full screens reached from outside the bottom tab bar: the builder (a board) and
 // Settings (from the header icon). On these we hide the bottom tab bar and show a
@@ -654,13 +655,8 @@ let returnView: ViewName = 'lines';
 // cleared) the next time the Train view is shown.
 let pendingTrainLineId: string | null = null;
 
-// Set when the Home screen's "Start training" wants the Train screen to launch
-// the due session immediately. Consumed the next time the Train view is shown.
-let pendingTrainAutoStart = false;
-
-// Reset the builder to an empty line of the given colour. Shared by the Home
-// screen's per-colour Add buttons (which preselect the side) and the post-save
-// redirect.
+// Reset the builder to an empty line of the given colour. Shared by the
+// per-colour Add buttons (which preselect the side) and the post-save redirect.
 function clearBuilder(colour: 'white' | 'black' = 'white'): void {
   stopPlayback();
   reset();
@@ -775,16 +771,16 @@ function showView(view: ViewName): void {
   }
   currentView = view;
 
-  const homeEl = document.getElementById('view-home')!;
   const builderEl = document.getElementById('view-builder')!;
   const linesEl = document.getElementById('view-lines')!;
+  const exploreEl = document.getElementById('view-explore')!;
   const trainEl = document.getElementById('view-train')!;
   const progressEl = document.getElementById('view-progress')!;
   const settingsEl = document.getElementById('view-settings')!;
 
-  homeEl.toggleAttribute('hidden', view !== 'home');
   builderEl.toggleAttribute('hidden', view !== 'builder');
   linesEl.toggleAttribute('hidden', view !== 'lines');
+  exploreEl.toggleAttribute('hidden', view !== 'explore');
   trainEl.toggleAttribute('hidden', view !== 'train');
   progressEl.toggleAttribute('hidden', view !== 'progress');
   settingsEl.toggleAttribute('hidden', view !== 'settings');
@@ -811,24 +807,15 @@ function showView(view: ViewName): void {
     renderLinesScreen(linesEl, linesScreenDeps());
   }
 
-  if (view === 'home') {
-    renderHomeScreen(homeEl, {
-      onStartTraining: () => {
-        pendingTrainAutoStart = true;
-        showView('train');
-      },
-      onGoToLines: () => showView('lines'),
-      onAddLine: (colour) => startNewLine(colour),
-    });
+  if (view === 'explore') {
+    renderExploreScreen(exploreEl);
   }
 
   if (view === 'train') {
     renderTrainScreen(trainEl, {
       focusLineId: pendingTrainLineId ?? undefined,
-      autoStart: pendingTrainAutoStart,
     });
     pendingTrainLineId = null;
-    pendingTrainAutoStart = false;
   }
 
   if (view === 'progress') {
@@ -910,13 +897,13 @@ function setupNav(): void {
       showView(returnView);
       return true;
     }
-    // Any other tab returns to the home dashboard.
-    if (currentView !== 'home') {
+    // Any other tab steps back to Train, the start view / back-nav root.
+    if (currentView !== 'train') {
       stopPlayback();
-      showView('home');
+      showView('train');
       return true;
     }
-    // Home with nothing open: let the press through so the app can close.
+    // Train with nothing open: let the press through so the app can close.
     return false;
   });
   initBackNav();
@@ -1101,7 +1088,8 @@ requestAnimationFrame(() => {
 
   new ResizeObserver(() => cg.redrawAll()).observe(boardEl);
 
-  // Land on the Today screen. The board (in the builder) was created above while
-  // visible, so chessground sized itself correctly before we switch away.
-  showView('home');
+  // Land on the Train screen — the app's start view. The board (in the builder)
+  // was created above while visible, so chessground sized itself correctly
+  // before we switch away.
+  showView('train');
 });

@@ -8,15 +8,15 @@
 // The fix: keep exactly one spare "buffer" history entry armed at all times. A
 // back press consumes the buffer and fires `popstate`; we handle ONE step of
 // in-app back, then re-arm the buffer so the next press is trapped too. When
-// there's genuinely nothing left to go back to (home screen, no sheets open) we
-// stop trapping and replay the press so the app closes as the user expects.
+// there's genuinely nothing left to go back to (the Train root, no sheets open)
+// we stop trapping and replay the press so the app closes as the user expects.
 //
 // Two kinds of "back" exist, checked in this order:
 //   1. Dismissible layers — edit sheets, confirm dialogs, the drill / explore /
 //      map overlays. Each registers a close step with `pushBack()` when it opens
 //      and drops it when it closes. The topmost one is closed first.
 //   2. View-level navigation — once no layers are open, fall back to the screen
-//      router (registered via `setViewBack`) to step toward home.
+//      router (registered via `setViewBack`) to step toward the Train root.
 
 const BUFFER_STATE = { obertura: true };
 
@@ -26,8 +26,8 @@ let started = false;
 type BackStep = () => void;
 const stack: BackStep[] = [];
 
-// View-level fallback. Returns true if it moved one screen toward home, or
-// false when already at the root (so a back press there should exit the app).
+// View-level fallback. Returns true if it moved one screen toward the Train
+// root, or false when already at the root (so a back press there exits the app).
 let viewBack: () => boolean = () => false;
 
 export function setViewBack(fn: () => boolean): void {
@@ -62,7 +62,7 @@ function onPopState(): void {
     rearm();
     return;
   }
-  // Otherwise step one screen back toward home.
+  // Otherwise step one screen back toward the Train root.
   if (viewBack()) {
     rearm();
     return;
