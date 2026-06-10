@@ -5,8 +5,25 @@ const RETRIES_KEY = 'obertura.retriesBeforeReveal';
 const NAMING_MODE_KEY = 'obertura.namingMode';
 const WATCH_SPEED_KEY = 'obertura.watchSpeed';
 const TIMED_BEST_KEY = 'obertura.timedBest';
+const DEFAULT_MODE_KEY = 'obertura.defaultTrainingMode';
 
 export type Retries = 0 | 1 | 2;
+
+// Which session the Home screen's "Start training" launches, and the option the
+// Train screen leads with. Mirrors the practice picker:
+//   "due"     → the scheduled spaced-repetition queue (default)
+//   "recent"  → newest lines first
+//   "weakest" → the lines you miss most, hardest first
+export type TrainingMode = 'due' | 'recent' | 'weakest';
+
+export function getDefaultTrainingMode(): TrainingMode {
+  const v = localStorage.getItem(DEFAULT_MODE_KEY);
+  return v === 'recent' || v === 'weakest' ? v : 'due';
+}
+
+export function setDefaultTrainingMode(mode: TrainingMode): void {
+  localStorage.setItem(DEFAULT_MODE_KEY, mode);
+}
 
 // How a saved line gets its title. "auto" (default) fills the name from the
 // bundled opening database with no popup; "manual" will open a name popup on
@@ -67,4 +84,9 @@ export function recordTimedBest(score: number): boolean {
     return true;
   }
   return false;
+}
+
+// Forget the timed personal best — part of "Reset progress" in Settings.
+export function clearTimedBest(): void {
+  localStorage.removeItem(TIMED_BEST_KEY);
 }

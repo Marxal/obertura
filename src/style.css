@@ -118,6 +118,11 @@ body {
   background-attachment: fixed;
 }
 
+/* Paper texture off (Settings → Appearance): drop the speckle, leave the colour. */
+[data-paper="off"] body {
+  background-image: none;
+}
+
 #app {
   display: flex;
   flex-direction: column;
@@ -278,47 +283,37 @@ header h1 {
   white-space: nowrap;
 }
 
-/* ── Theme switch (light / auto / dark) ────────────────────────────────────── */
-/* A compact segmented control. Lives in the header for now; it moves into
-   Settings in task 7.2. */
+/* ── Settings icon (header, top-right) ─────────────────────────────────────── */
+/* A user icon that opens the Settings screen. Hidden on the builder (where Save
+   takes the slot) and on the Settings screen itself. */
 
-#theme-switch {
-  display: flex;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-#theme-switch[hidden] {
-  display: none;
-}
-
-#theme-switch button {
-  display: flex;
+.nav-settings {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 34px;
-  min-height: 30px;
-  padding: 0 0.4rem;
+  width: 38px;
+  height: 38px;
+  margin-right: -0.3rem;
   border: none;
-  background: var(--bg-card);
+  border-radius: 999px;
+  background: transparent;
   color: var(--text-muted);
-  font-size: 0.95rem;
-  font-family: system-ui, -apple-system, sans-serif;
-  font-weight: 700;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
   transition: background 0.12s, color 0.12s;
 }
 
-#theme-switch button + button {
-  border-left: 1px solid var(--border);
+.nav-settings[hidden] {
+  display: none;
 }
 
-#theme-switch button.active {
-  background: var(--accent);
-  color: #fff;
+.nav-settings:hover {
+  color: var(--text);
+}
+
+.nav-settings:active {
+  background: var(--accent-soft);
 }
 
 /* Save line — lives in the header top-right on the builder screen (in place of
@@ -615,14 +610,42 @@ main {
   height: 100%;
 }
 
-/* Board square colors — chessground uses a background SVG on cg-board,
-   not classes on individual squares. Override with our own 2×2 tile SVG:
-   (0,0)=light, (1,0)=dark, (0,1)=dark, (1,1)=light. These hexes are the same
-   in both themes by design — the board never changes when the theme does. */
+/* Board square colors — chessground uses a background SVG on cg-board, not
+   classes on individual squares. We override with our own 2×2 tile SVG:
+   (0,0)=light, (1,0)=dark, (0,1)=dark, (1,1)=light. The DARK squares come from
+   the cg-board background-color (var --board-dark, so a scheme can re-theme them
+   with one variable); the LIGHT squares are the SVG fill, swapped per scheme
+   below. The board is independent of light/dark theme — only the chosen
+   board-colour scheme changes it. */
 cg-board {
   background-color: var(--board-dark);
   background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 2" shape-rendering="crispEdges"><rect width="1" height="1" fill="%23eecfa1"/><rect x="1" y="1" width="1" height="1" fill="%23eecfa1"/></svg>');
   background-size: 25% 25%;
+}
+
+/* Board-colour schemes (Settings → Appearance). "wood" is the :root default and
+   carries no attribute. Each scheme re-themes the dark squares + last-move
+   highlight via variables, and the light squares via the SVG fill. */
+[data-board="green"] {
+  --board-dark: #779556;
+  --board-lastmove: #cdd470;
+}
+[data-board="green"] cg-board {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 2" shape-rendering="crispEdges"><rect width="1" height="1" fill="%23ebecd0"/><rect x="1" y="1" width="1" height="1" fill="%23ebecd0"/></svg>');
+}
+[data-board="blue"] {
+  --board-dark: #8ca2ad;
+  --board-lastmove: #b9c6d6;
+}
+[data-board="blue"] cg-board {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 2" shape-rendering="crispEdges"><rect width="1" height="1" fill="%23dee3e6"/><rect x="1" y="1" width="1" height="1" fill="%23dee3e6"/></svg>');
+}
+[data-board="grey"] {
+  --board-dark: #909090;
+  --board-lastmove: #c7c79a;
+}
+[data-board="grey"] cg-board {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 2" shape-rendering="crispEdges"><rect width="1" height="1" fill="%23dcdcdc"/><rect x="1" y="1" width="1" height="1" fill="%23dcdcdc"/></svg>');
 }
 
 /* Move highlights — warm gold, identical in both themes. */
@@ -879,109 +902,283 @@ cg-board square.move-dest.oc {
   font-weight: 700;
 }
 
-/* Settings */
-#settings {
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--hairline);
-  font-size: 0.875rem;
+/* ════════════════════════════════════════════════════════════════════════════
+   SETTINGS SCREEN
+   Five grouped cards of device-local preferences. Reached from the header user
+   icon; uses the back arrow to return.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+#view-settings {
+  overflow-y: auto;
+  padding: 0 1rem 2.5rem;
 }
 
-#settings summary {
+.settings-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 1rem 0 0.25rem;
+}
+
+.settings-group {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+  padding: 0.5rem 0.9rem;
+  margin-top: 1rem;
+}
+
+.settings-group-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  padding: 0.5rem 0 0.4rem;
+}
+
+/* One setting: label (+ optional sub-text) on the left, control on the right. */
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0;
+  border-top: 1px solid var(--hairline-soft);
+}
+
+.settings-group-title + .settings-row {
+  border-top: none;
+}
+
+/* Stacked rows put a full-width control under the label (board swatches, inputs). */
+.settings-row--stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.6rem;
+}
+
+.settings-row-text {
+  min-width: 0;
+}
+
+.settings-row-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.settings-row-sub {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-faint);
+  margin-top: 0.15rem;
+}
+
+/* ── Segmented control ───────────────────────────────────────────────────── */
+
+.seg-control {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--bg-page);
+}
+
+.seg-btn {
+  min-width: 48px;
+  min-height: 38px;
+  padding: 0 0.7rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-weight: 600;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s, color 0.12s;
+}
+
+.seg-btn + .seg-btn {
+  border-left: 1px solid var(--border);
+}
+
+.seg-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ── Toggle switch ───────────────────────────────────────────────────────── */
+
+.switch {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 46px;
+  height: 28px;
+  cursor: pointer;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+}
+
+.switch-track {
+  flex: 1;
+  border-radius: 999px;
+  background: var(--border);
+  transition: background 0.15s;
+}
+
+.switch-track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+  transition: transform 0.15s;
+}
+
+.switch input:checked + .switch-track {
+  background: var(--success);
+}
+
+.switch input:checked + .switch-track::after {
+  transform: translateX(18px);
+}
+
+/* ── Board-colour swatches ───────────────────────────────────────────────── */
+
+.board-swatches {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.board-swatch {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.3rem;
+  border: 2px solid var(--border-card);
+  border-radius: 10px;
+  background: var(--bg-page);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.12s;
+}
+
+.board-swatch.active {
+  border-color: var(--accent);
+}
+
+.board-swatch-preview {
+  width: 38px;
+  height: 38px;
+  border-radius: 6px;
+  border: 1px solid var(--hairline);
+}
+
+.board-swatch-name {
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--text-muted);
-  -webkit-tap-highlight-color: transparent;
 }
 
-#settings label {
-  display: block;
-  margin: 0.6rem 0 0.3rem;
-  color: var(--text-muted);
-}
+/* ── Inputs, buttons, notes ──────────────────────────────────────────────── */
 
-/* ── Chess.com import ──────────────────────────────────────────────────────── */
-
-#import-block {
-  margin-top: 1rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--hairline);
-}
-
-#import-block input[type='text'] {
+.settings-input {
   width: 100%;
-  padding: 0.6rem 0.75rem;
+  padding: 0.65rem 0.75rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg-card);
+  border-radius: 8px;
+  background: var(--bg-page);
   color: var(--text);
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 1rem;
 }
 
-#import-block input[type='text']:focus {
+.settings-input:focus {
   outline: none;
   border-color: var(--accent);
 }
 
-#import-btn {
-  margin-top: 0.6rem;
-  width: 100%;
+.settings-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.7rem;
+}
+
+.settings-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  padding: 0.7rem 1rem;
+  padding: 0.65rem 1rem;
   min-height: 44px;
-  border: none;
+  border: 1px solid var(--border-card);
   border-radius: 8px;
-  background-color: var(--maroon);
-  background-image: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 55%, rgba(0,0,0,0.06) 100%);
-  color: #fff;
-  font-size: 0.95rem;
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-size: 0.9rem;
   font-family: system-ui, -apple-system, sans-serif;
   font-weight: 600;
-  letter-spacing: 0.02em;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 2px 5px rgba(122,34,48,0.3), 0 1px 2px rgba(122,34,48,0.2);
-  text-shadow: 0 1px 1px rgba(0,0,0,0.18);
-  transition: filter 0.12s, box-shadow 0.12s;
+  transition: filter 0.12s, border-color 0.12s;
 }
 
-#import-btn:hover {
-  filter: brightness(1.1);
-  box-shadow: 0 3px 8px rgba(122,34,48,0.35), 0 1px 3px rgba(122,34,48,0.25);
+.settings-btn:hover {
+  border-color: var(--border);
 }
 
-#import-btn:active {
-  filter: brightness(0.88);
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.18);
+.settings-btn:active {
+  filter: brightness(0.95);
   transform: translateY(1px);
 }
 
-#import-btn:disabled {
+.settings-btn:disabled {
   opacity: 0.55;
   cursor: default;
-  filter: none;
-  box-shadow: none;
 }
 
-#import-status {
-  display: block;
-  margin-top: 0.5rem;
-  font-size: 0.78rem;
+.settings-btn--danger {
+  color: #fff;
+  background: var(--danger);
+  border-color: transparent;
+}
+
+.settings-note {
+  margin-top: 0.6rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
   color: var(--text-faint);
 }
 
-#import-summary {
-  margin-top: 0.4rem;
-  font-size: 0.78rem;
-  line-height: 1.5;
-  color: var(--text-muted);
+.settings-subheading {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-top: 0.5rem;
 }
 
-#import-selftest-link {
-  margin-top: 0.8rem;
+.settings-reset {
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--hairline);
 }
 
 /* ── My Lines screen ───────────────────────────────────────────────────────── */

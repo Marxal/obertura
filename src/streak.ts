@@ -69,6 +69,15 @@ export function getTrainingDays(): string[] {
   return [...loadDays()].sort();
 }
 
+// Forget every recorded training day — part of "Reset progress" in Settings.
+export function clearTrainingDays(): void {
+  try {
+    localStorage.removeItem(KEY);
+  } catch {
+    /* storage unavailable — nothing to clear. */
+  }
+}
+
 // The current streak length, in days (see the rule at the top of the file).
 export function currentStreak(now: Date = new Date()): number {
   const days = loadDays();

@@ -5,17 +5,8 @@ import 'chessground/assets/chessground.base.css';
 import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
 import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, loadTree, fenBefore } from './tree';
-import { saveLine, getAllLines, saveGames, countGames, clearGames } from './storage';
+import { saveLine, getAllLines } from './storage';
 import { nameForPath } from './openings';
-import {
-  getUsername,
-  setUsername,
-  importRecentGames,
-  summariseGames,
-  MONTHS_BACK,
-  type ImportedGame,
-} from './chesscom';
-import { runChesscomSelfTest } from './chesscom.selftest';
 import { explainMove, describeGrade } from './explain';
 import type { Line } from './types';
 import { renderLinesScreen, focusSavedLine } from './lines-screen';
@@ -23,18 +14,12 @@ import { renderProgressScreen } from './progress-screen';
 import { startPretrainingRun } from './pretraining';
 import { renderTrainScreen } from './train-screen';
 import { renderHomeScreen } from './home-screen';
+import { renderSettingsScreen } from './settings-screen';
 import { Engine, gradeMove } from './engine';
 import { EvalPanel } from './eval-panel';
-import { initThemeControl } from './theme';
-import {
-  getRetriesBeforeReveal,
-  setRetriesBeforeReveal,
-  type Retries,
-  getWatchSpeed,
-  setWatchSpeed,
-  watchSpeedMs,
-  type WatchSpeed,
-} from './prefs';
+import { initTheme } from './theme';
+import { initAppearance } from './appearance';
+import { watchSpeedMs } from './prefs';
 
 const chess = new Chess();
 let cg!: ReturnType<typeof Chessground>;
@@ -648,17 +633,17 @@ function showToast(message: string): void {
 // The four bottom-tab destinations, plus the board screens reached from them.
 // "home" is the landing dashboard (filled in a later task); "builder" shows a
 // chessboard, so it counts as a board screen (see BOARD_VIEWS below).
-type ViewName = 'home' | 'lines' | 'train' | 'progress' | 'builder';
+type ViewName = 'home' | 'lines' | 'train' | 'progress' | 'builder' | 'settings';
 let currentView: ViewName = 'home';
 
-// Screens that show a chessboard. On these we hide the bottom tab bar and show
-// a back arrow instead, freeing the bottom for the screen's primary action.
-// (Training and Watch run in their own full-screen overlay with its own back
-// button, so they're handled there, not here.)
-const BOARD_VIEWS: ReadonlySet<ViewName> = new Set<ViewName>(['builder']);
+// Full screens reached from outside the bottom tab bar: the builder (a board) and
+// Settings (from the header icon). On these we hide the bottom tab bar and show a
+// back arrow instead, freeing the bottom for the screen's own use. (Training and
+// Watch run in their own full-screen overlay with its own back button.)
+const BACK_VIEWS: ReadonlySet<ViewName> = new Set<ViewName>(['builder', 'settings']);
 
-// The tab to return to when the back arrow exits a board screen. Builder is
-// conceptually opened from My Lines, so that's the sensible default.
+// The tab to return to when the back arrow exits a full screen. Builder is
+// conceptually opened from My Lines; Settings remembers wherever you came from.
 let returnView: ViewName = 'lines';
 
 // Set when a "Drill" button elsewhere wants the Train screen to open straight
@@ -780,8 +765,9 @@ function handleStartTraining(line: Line): void {
 }
 
 function showView(view: ViewName): void {
-  // Entering a board screen from a tab: remember the tab so back returns to it.
-  if (BOARD_VIEWS.has(view) && !BOARD_VIEWS.has(currentView)) {
+  // Entering a full screen (builder/settings) from a tab: remember it so the back
+  // arrow returns there.
+  if (BACK_VIEWS.has(view) && !BACK_VIEWS.has(currentView)) {
     returnView = currentView;
   }
   currentView = view;
@@ -791,23 +777,25 @@ function showView(view: ViewName): void {
   const linesEl = document.getElementById('view-lines')!;
   const trainEl = document.getElementById('view-train')!;
   const progressEl = document.getElementById('view-progress')!;
+  const settingsEl = document.getElementById('view-settings')!;
 
   homeEl.toggleAttribute('hidden', view !== 'home');
   builderEl.toggleAttribute('hidden', view !== 'builder');
   linesEl.toggleAttribute('hidden', view !== 'lines');
   trainEl.toggleAttribute('hidden', view !== 'train');
   progressEl.toggleAttribute('hidden', view !== 'progress');
+  settingsEl.toggleAttribute('hidden', view !== 'settings');
 
-  // Board screens swap the bottom tab bar for a back arrow.
-  const onBoard = BOARD_VIEWS.has(view);
-  document.getElementById('bottom-nav')!.toggleAttribute('hidden', onBoard);
-  document.getElementById('nav-back')!.toggleAttribute('hidden', !onBoard);
+  // Full screens swap the bottom tab bar for a back arrow.
+  const onBack = BACK_VIEWS.has(view);
+  document.getElementById('bottom-nav')!.toggleAttribute('hidden', onBack);
+  document.getElementById('nav-back')!.toggleAttribute('hidden', !onBack);
 
-  // The builder puts Save in the top-right and hides the theme switch — no
-  // user preferences on the builder screen.
+  // The builder puts Save in the top-right; the settings icon is hidden on both
+  // the builder (Save takes its place) and the Settings screen itself.
   const onBuilder = view === 'builder';
   document.getElementById('header-save')!.toggleAttribute('hidden', !onBuilder);
-  document.getElementById('theme-switch')!.toggleAttribute('hidden', onBuilder);
+  document.getElementById('nav-settings')!.toggleAttribute('hidden', onBuilder || view === 'settings');
 
   document.querySelectorAll<HTMLElement>('#bottom-nav .tab-item').forEach(btn => {
     const active = btn.dataset.view === view;
@@ -845,6 +833,10 @@ function showView(view: ViewName): void {
       onTrainLine,
       onOpenLine: (line) => onOpenLine(line),
     });
+  }
+
+  if (view === 'settings') {
+    renderSettingsScreen(settingsEl);
   }
 
   if (view === 'builder') {
@@ -894,11 +886,15 @@ function setupNav(): void {
     });
   });
 
-  // Back arrow on board screens — stop any playback and return to the tab we
-  // came from.
+  // Back arrow on full screens — stop any playback and return to where we came from.
   document.getElementById('nav-back')!.addEventListener('click', () => {
     stopPlayback();
     showView(returnView);
+  });
+
+  // The header user icon opens Settings.
+  document.getElementById('nav-settings')!.addEventListener('click', () => {
+    showView('settings');
   });
 }
 
@@ -957,146 +953,13 @@ function setupSaveButton() {
   });
 }
 
-// ── Settings ──────────────────────────────────────────────────────────────────
-
-function setupSettings() {
-  // Training: how many retries a wrong move gets before the arrow is shown.
-  const retriesSelect = document.getElementById('retries-before-reveal') as HTMLSelectElement;
-  retriesSelect.value = String(getRetriesBeforeReveal());
-  retriesSelect.addEventListener('change', () => {
-    setRetriesBeforeReveal(Number(retriesSelect.value) as Retries);
-  });
-}
-
-// ── Chess.com import ────────────────────────────────────────────────────────────
-// Pull ~a year of games from the free Published-Data API, parse the PGNs with
-// chess.js, and store the compact records in IndexedDB. Each month is persisted
-// as it arrives, so a long import never holds the whole year in memory at once.
-
-function setupImport(): void {
-  const userInput = document.getElementById('chesscom-user') as HTMLInputElement;
-  const importBtn = document.getElementById('import-btn') as HTMLButtonElement;
-  const status = document.getElementById('import-status')!;
-  const summary = document.getElementById('import-summary')!;
-
-  // Prefill the saved username and show how many games are already stored.
-  userInput.value = getUsername();
-  countGames().then(n => {
-    if (n > 0) summary.textContent = `${n} game${n === 1 ? '' : 's'} stored on this device.`;
-  });
-
-  userInput.addEventListener('change', () => setUsername(userInput.value));
-
-  importBtn.addEventListener('click', async () => {
-    const user = userInput.value.trim();
-    if (!user) {
-      status.textContent = 'Enter your Chess.com username first.';
-      return;
-    }
-    setUsername(user);
-
-    importBtn.disabled = true;
-    summary.textContent = '';
-    status.textContent = 'Looking up your archives…';
-
-    // Re-import from scratch so removed/renamed games don't linger. Records are
-    // keyed by game id, so this is just to keep the store clean.
-    await clearGames();
-
-    const stored: ImportedGame[] = [];
-    try {
-      const result = await importRecentGames(user, {
-        months: MONTHS_BACK,
-        onProgress: p => {
-          status.textContent =
-            `Month ${Math.min(p.monthsDone + 1, p.monthsTotal)}/${p.monthsTotal} ` +
-            `(${p.label}) — ${p.gamesSoFar} games so far…`;
-        },
-        // Persist each month's batch immediately, then drop it from memory.
-        onGames: async batch => {
-          await saveGames(batch);
-          stored.push(...batch);
-        },
-      });
-
-      const s = summariseGames(stored);
-      if (s.total === 0) {
-        status.textContent = `No standard games found in the last ${result.monthsFetched} months.`;
-      } else {
-        status.textContent = `Imported ${s.total} games from ${result.monthsFetched} months ✓`;
-        summary.innerHTML = '';
-        const line1 = document.createElement('div');
-        line1.textContent =
-          `${s.byTimeClass.bullet} bullet · ${s.byTimeClass.blitz} blitz · ` +
-          `${s.byTimeClass.rapid} rapid · ${s.byTimeClass.daily} daily`;
-        const line2 = document.createElement('div');
-        line2.textContent =
-          `${s.white} as White / ${s.black} as Black · ` +
-          `W-L-D ${s.wins}-${s.losses}-${s.draws}`;
-        summary.appendChild(line1);
-        summary.appendChild(line2);
-      }
-    } catch (err) {
-      status.textContent = `Import failed — ${(err as Error).message}`;
-    } finally {
-      importBtn.disabled = false;
-    }
-  });
-
-  setupImportSelfTest();
-}
-
-// Offline parser self-test — mirrors the scheduler self-test on the Train screen.
-function setupImportSelfTest(): void {
-  const link = document.getElementById('import-selftest-link') as HTMLButtonElement;
-  const out = document.getElementById('import-selftest-output')!;
-
-  link.addEventListener('click', () => {
-    const results = runChesscomSelfTest();
-    out.hidden = false;
-    out.innerHTML = '';
-
-    const passed = results.filter(r => r.pass).length;
-    const head = document.createElement('div');
-    head.className = `selftest-head ${passed === results.length ? 'ok' : 'fail'}`;
-    head.textContent = `${passed}/${results.length} checks passed`;
-    out.appendChild(head);
-
-    for (const r of results) {
-      const row = document.createElement('div');
-      row.className = `selftest-row ${r.pass ? 'ok' : 'fail'}`;
-      row.textContent = `${r.pass ? '✓' : '✗'} ${r.name} — ${r.detail}`;
-      out.appendChild(row);
-    }
-    console.log('[chesscom self-test]', results);
-  });
-}
-
 // ── Playback controls ─────────────────────────────────────────────────────────
-
-const SPEED_LABELS: Record<WatchSpeed, string> = {
-  slow: 'Slow',
-  normal: 'Normal',
-  fast: 'Fast',
-};
+// The board carries only the play/pause button now; the watch-line SPEED lives in
+// Settings (set via setWatchSpeed there). watchSpeedMs() reads it live, so a speed
+// change in Settings takes effect on the very next auto-played move.
 
 function setupPlaybackControls(): void {
   const watchBtn = document.getElementById('watch-btn') as HTMLButtonElement;
-  const speedBtn = document.getElementById('watch-speed-btn') as HTMLButtonElement | null;
-
-  function refreshSpeedLabel(): void {
-    if (speedBtn) speedBtn.textContent = SPEED_LABELS[getWatchSpeed()];
-  }
-  refreshSpeedLabel();
-
-  // The speed control cycles slow → normal → fast. Persisted and read live, so a
-  // change takes effect on the very next move even mid-playback.
-  speedBtn?.addEventListener('click', () => {
-    const order: WatchSpeed[] = ['slow', 'normal', 'fast'];
-    const next = order[(order.indexOf(getWatchSpeed()) + 1) % order.length];
-    setWatchSpeed(next);
-    refreshSpeedLabel();
-  });
 
   // Play the next queued move, then schedule the one after at the current speed.
   function playStep(): void {
@@ -1137,7 +1000,8 @@ function setupPlaybackControls(): void {
 
 const boardEl = document.getElementById('board') as HTMLElement;
 
-initThemeControl();
+initTheme();
+initAppearance();
 setupNav();
 
 requestAnimationFrame(() => {
@@ -1206,9 +1070,6 @@ requestAnimationFrame(() => {
   }
 
   setupSaveButton();
-  // Settings (retries) and the Chess.com import are parked: they'll move to a
-  // dedicated Settings screen (top-right of the app) rather than living in the
-  // builder. setupSettings()/setupImport() below are kept ready to re-wire then.
   setupPlaybackControls();
   setupTitleControls();
   setupNotePanel();

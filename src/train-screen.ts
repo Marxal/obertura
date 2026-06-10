@@ -6,7 +6,7 @@ import { selectIndividualPositions } from './individual';
 import { openExplorer } from './explore';
 import { Icons } from './icons';
 import { isGoodAlternative } from './engine';
-import { getTimedBest, recordTimedBest } from './prefs';
+import { getTimedBest, recordTimedBest, getDefaultTrainingMode } from './prefs';
 import { TrainingSession, type SessionItem } from './session';
 import {
   userMoveNodes,
@@ -89,18 +89,39 @@ async function doRender(
 
   const due = dueLines(trainingLines);
 
-  // Arrived from the Home screen's "Start training": jump straight into the due
-  // session rather than showing the list first. Falls through to the list when
-  // nothing is due (so the "all caught up" header still shows).
-  if (autoStart && due.length > 0) {
-    const session = new TrainingSession(trainingLines);
-    runSession(session, container, makeStats());
-    return;
+  // Arrived from the Home screen's "Start training": jump straight into a session
+  // built from the user's default training mode (Settings), rather than showing
+  // the list first. Falls through to the list when the chosen mode has nothing to
+  // drill (e.g. "Due now" with nothing due — so the "all caught up" header shows).
+  if (autoStart) {
+    const session = sessionForDefaultMode(trainingLines, due);
+    if (session) {
+      runSession(session, container, makeStats());
+      return;
+    }
   }
 
   renderSessionHeader(container, due, trainingLines);
   renderCardList(container, trainingLines);
   appendSelfTestLink(container);
+}
+
+// Build the session that "Start training" launches, per the default-mode pref.
+// Returns null when the chosen mode has nothing to drill, so the caller can fall
+// back to the list/header instead of opening an empty session.
+function sessionForDefaultMode(trainingLines: Line[], due: Line[]): TrainingSession | null {
+  switch (getDefaultTrainingMode()) {
+    case 'recent': {
+      const ordered = recentlyAddedLines(trainingLines).slice(0, PICKER_SESSION_CAP);
+      return ordered.length ? new TrainingSession(ordered, { explicit: true }) : null;
+    }
+    case 'weakest': {
+      const ordered = weakestLines(trainingLines).slice(0, PICKER_SESSION_CAP);
+      return ordered.length ? new TrainingSession(ordered, { explicit: true }) : null;
+    }
+    default:
+      return due.length > 0 ? new TrainingSession(trainingLines) : null;
+  }
 }
 
 // ── Empty state ───────────────────────────────────────────────────────────────
