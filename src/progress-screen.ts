@@ -484,7 +484,7 @@ function renderWinRates(container: HTMLElement, report: ProgressReport): void {
     fill.className = 'review-score-fill';
     fill.style.width = `${Math.max(4, scorePct)}%`;
     fill.style.background =
-      scorePct >= 55 ? '#2a6b3a' : scorePct >= 45 ? '#d8961f' : '#c0531f';
+      scorePct >= 55 ? '#708151' : scorePct >= 45 ? '#d8961f' : '#b4533a';
     barWrap.appendChild(fill);
     row.appendChild(barWrap);
 
@@ -536,19 +536,19 @@ function renderNoGamesNote(container: HTMLElement, gameCount: number): void {
 
 function statsSection(title: string, meta: string): HTMLElement {
   const wrap = document.createElement('div');
-  wrap.className = 'stats-section';
+  wrap.className = 'section';
 
   const head = document.createElement('div');
-  head.className = 'stats-section-head';
+  head.className = 'section-head';
 
   const h = document.createElement('h2');
-  h.className = 'stats-section-title';
+  h.className = 'section-title';
   h.textContent = title;
   head.appendChild(h);
 
   if (meta) {
     const m = document.createElement('span');
-    m.className = 'stats-section-meta';
+    m.className = 'section-meta';
     m.textContent = meta;
     head.appendChild(m);
   }
@@ -613,7 +613,7 @@ function windowRow(label: string, w: ProgressWindow, muted: boolean): HTMLElemen
     fill.style.width = `${Math.max(4, Math.min(100, w.scorePct))}%`;
     fill.style.background = muted
       ? '#b8a17f'
-      : w.scorePct >= 55 ? '#2a6b3a' : w.scorePct >= 45 ? '#d8961f' : '#c0531f';
+      : w.scorePct >= 55 ? '#708151' : w.scorePct >= 45 ? '#d8961f' : '#b4533a';
   }
   bar.appendChild(fill);
   row.appendChild(bar);

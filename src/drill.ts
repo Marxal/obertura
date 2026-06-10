@@ -329,7 +329,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
 
   // Register brushes for hint arrows after the instance exists.
   cg.state.drawable.brushes['accent'] = { key: 'accent', color: '#ff9b21', opacity: 0.85, lineWidth: 10 };
-  cg.state.drawable.brushes['alt'] = { key: 'alt', color: '#3a9a5c', opacity: 0.85, lineWidth: 10 };
+  cg.state.drawable.brushes['alt'] = { key: 'alt', color: '#708151', opacity: 0.85, lineWidth: 10 };
 
   const ro = new ResizeObserver(() => cg.redrawAll());
   ro.observe(boardEl);

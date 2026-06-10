@@ -43,10 +43,22 @@
         --accent-soft: rgba(255, 155, 33, 0.25);
         --maroon: #7a2230;
         --maroon-active: #5f1a25;
-        --success: #2a6b3a;
-        --success-active: #1e4f2c;
+        /* Sage / brick (v1.2) replace the old generic green / red everywhere. */
+        --success: #708151;
+        --success-active: #5c6b41;
         --warn: #c0531f;
-        --danger: #9c3a3a;
+        --danger: #b4533a;
+        --danger-active: #98442f;
+
+        /* Spacing scale (v1.2): 4 / 8 / 12 / 16 / 24. */
+        --space-xs: 4px;
+        --space-sm: 8px;
+        --space-md: 12px;
+        --space-lg: 16px;
+        --space-xl: 24px;
+
+        /* Faint wash behind .section wrappers. */
+        --fill-faint: rgba(28, 22, 16, 0.025);
 
         /* Paper texture speckle (page bg only). */
         --paper-speckle: rgba(120, 90, 50, 0.035);
@@ -76,10 +88,13 @@
         --accent-soft: rgba(255, 155, 33, 0.28);
         --maroon: #8e2c3a;
         --maroon-active: #7a2230;
-        --success: #4a9d63;
-        --success-active: #357a4a;
+        --success: #8a9b63;
+        --success-active: #74874f;
         --warn: #d9763f;
-        --danger: #c75c5c;
+        --danger: #c76b50;
+        --danger-active: #b4533a;
+
+        --fill-faint: rgba(232, 220, 200, 0.03);
 
         --paper-speckle: rgba(255, 240, 214, 0.02);
       }
@@ -236,6 +251,54 @@
       #theme-switch button + button { border-left: 1px solid var(--border); }
       #theme-switch button.active { background: var(--accent); color: #fff; }
 
+      /* ── v1.2 (task 1.3) — spacing scale + component layer demos ─────────── */
+      .scale-row { display: flex; align-items: flex-end; gap: 1.1rem; flex-wrap: wrap; }
+      .scale-item { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; }
+      .scale-bar { width: 26px; background: var(--accent); border-radius: 4px; }
+      .scale-item .name {
+        font-size: 0.72rem; color: var(--text-faint);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+
+      .sg-section {
+        margin-top: 1rem;
+        padding: 12px 16px 16px;
+        background: var(--fill-faint);
+        border: 1px solid var(--hairline);
+        border-radius: 14px;
+      }
+      .sg-section-title {
+        font-size: 0.76rem; font-weight: 700; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px;
+      }
+      .sg-card {
+        background: var(--bg-card); border: 1px solid var(--border-card);
+        border-radius: 12px; padding: 16px; font-size: 0.9rem; color: var(--text-muted);
+      }
+      .sg-pref-row {
+        display: flex; flex-direction: column; gap: 8px;
+        padding: 12px 0; border-top: 1px solid var(--hairline-soft);
+      }
+      .sg-pref-row:first-child { border-top: none; }
+      .sg-pref-row .t { font-size: 0.95rem; font-weight: 600; color: var(--text); }
+      .sg-pref-row .d { font-size: 0.78rem; color: var(--text-faint); }
+
+      .sg-btns { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; }
+      .sg-btn {
+        min-height: 44px; padding: 12px 16px; border-radius: 8px;
+        border: 1px solid transparent; font: inherit; font-weight: 600;
+        font-size: 0.9rem; cursor: pointer; color: #fff;
+      }
+      .sg-btn-primary {
+        background-color: var(--maroon);
+        background-image: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, transparent 55%, rgba(0,0,0,0.06) 100%);
+      }
+      [data-theme='dark'] .sg-btn-primary { background-image: none; }
+      .sg-btn-secondary { background: var(--bg-card); color: var(--text-muted); border-color: var(--border-card); }
+      .sg-btn-success { background: var(--success); }
+      .sg-btn-danger { background: var(--danger); }
+      .sg-btn-quiet { background: transparent; color: var(--text-muted); border-color: transparent; }
+
       code {
         font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
         font-size: 0.85em;
@@ -256,10 +319,10 @@
       </div>
     </header>
     <p class="lede">
-      v1.1 design tokens. Flip the switch above to preview both themes — every
-      swatch, control and surface below is driven by the same CSS variables the
-      app uses (<code>src/style.css</code>). The board never changes between
-      themes; only the page chrome does.
+      v1.1 design tokens + the v1.2 component &amp; spacing layer. Flip the switch
+      above to preview both themes — every swatch, control and surface below is
+      driven by the same CSS variables the app uses (<code>src/style.css</code>).
+      The board never changes between themes; only the page chrome does.
     </p>
 
     <h2>Board — identical in both themes</h2>
@@ -309,9 +372,9 @@
       <div class="swatch"><div class="chip" style="background: var(--accent)"></div><div class="meta"><div class="name">--accent</div><div class="role">primary action</div></div></div>
       <div class="swatch"><div class="chip" style="background: var(--accent-active)"></div><div class="meta"><div class="name">--accent-active</div><div class="role">pressed</div></div></div>
       <div class="swatch"><div class="chip" style="background: var(--maroon)"></div><div class="meta"><div class="name">--maroon</div><div class="role">save</div></div></div>
-      <div class="swatch"><div class="chip" style="background: var(--success)"></div><div class="meta"><div class="name">--success</div><div class="role">in training / right</div></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--success)"></div><div class="meta"><div class="name">--success</div><div class="role">sage · in training / right</div></div></div>
       <div class="swatch"><div class="chip" style="background: var(--warn)"></div><div class="meta"><div class="name">--warn</div><div class="role">due / missed</div></div></div>
-      <div class="swatch"><div class="chip" style="background: var(--danger)"></div><div class="meta"><div class="name">--danger</div><div class="role">delete</div></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--danger)"></div><div class="meta"><div class="name">--danger</div><div class="role">brick · delete / wrong</div></div></div>
     </div>
 
     <h2>Components in context</h2>
@@ -330,6 +393,69 @@
       <span class="pill success">Prepped</span>
       <span class="pill warn">Due</span>
       <span class="pill danger">Weak</span>
+    </div>
+
+    <h2>Spacing scale</h2>
+    <p class="note">
+      One 4-based scale — <code>4 / 8 / 12 / 16 / 24</code> — drives every gap and
+      padding from v1.2 on, so screens stop inventing their own numbers. Tokens:
+      <code>--space-xs … --space-xl</code>.
+    </p>
+    <div class="scale-row">
+      <div class="scale-item"><div class="scale-bar" style="height: 4px"></div><div class="name">xs · 4</div></div>
+      <div class="scale-item"><div class="scale-bar" style="height: 8px"></div><div class="name">sm · 8</div></div>
+      <div class="scale-item"><div class="scale-bar" style="height: 12px"></div><div class="name">md · 12</div></div>
+      <div class="scale-item"><div class="scale-bar" style="height: 16px"></div><div class="name">lg · 16</div></div>
+      <div class="scale-item"><div class="scale-bar" style="height: 24px"></div><div class="name">xl · 24</div></div>
+    </div>
+
+    <h2>Components</h2>
+    <p class="note">
+      Shared building blocks layered on the tokens. Screens compose these instead
+      of hand-rolling paddings. <code>.section</code> — a soft wrapper (hairline
+      border + a very faint fill + a title row) — is what kills the “stacked”
+      feeling. <code>.card</code> is the one card; <code>.row</code> the standard
+      list row.
+    </p>
+    <div class="sg-section">
+      <div class="sg-section-title">Section title</div>
+      <div class="sg-card">.card — surface colour, hairline border, radius, internal padding.</div>
+    </div>
+
+    <p class="note" style="margin-top: 1.5rem">
+      <strong>Preference rows.</strong> Every Settings row is the same shape:
+      title + description stacked in one column, with the control on its own line
+      below.
+    </p>
+    <div class="sg-section">
+      <div class="sg-section-title">Appearance</div>
+      <div class="sg-pref-row">
+        <div class="t">Theme</div>
+        <div class="d">Auto follows your phone’s light/dark setting.</div>
+        <div id="theme-switch-2" style="display:inline-flex">
+          <button type="button" class="sg-btn sg-btn-secondary" style="min-height:34px;padding:6px 12px">Light · Dark · Auto</button>
+        </div>
+      </div>
+      <div class="sg-pref-row">
+        <div class="t">Feedback sound</div>
+        <div class="d">A soft tone on right and wrong moves while training.</div>
+        <div><button type="button" class="sg-btn sg-btn-secondary" style="min-height:34px;padding:6px 12px">Off / On</button></div>
+      </div>
+    </div>
+
+    <h2>Buttons</h2>
+    <p class="note">
+      One shared chrome, five variants. <strong>Primary</strong> (oxblood) shows a
+      subtle top-light vertical gradient in <em>light</em> mode only — dark stays
+      flat. <strong>Success</strong> is sage and <strong>danger</strong> is brick,
+      the same two colours used for the drill’s right / wrong feedback.
+    </p>
+    <div class="sg-btns">
+      <button class="sg-btn sg-btn-primary">Save line</button>
+      <button class="sg-btn sg-btn-secondary">Cancel</button>
+      <button class="sg-btn sg-btn-success">✓ In training</button>
+      <button class="sg-btn sg-btn-danger">Delete</button>
+      <button class="sg-btn sg-btn-quiet">Edit</button>
     </div>
 
     <h2>Theme behaviour</h2>
