@@ -68,7 +68,7 @@ export function openExplorer(
 
   const undoBtn = document.createElement('button');
   undoBtn.type = 'button';
-  undoBtn.className = 'explore-btn';
+  undoBtn.className = 'btn-secondary explore-btn';
   undoBtn.textContent = 'Undo';
   undoBtn.addEventListener('click', () => {
     if (chess.history().length > 0) { chess.undo(); refresh(); }
@@ -76,7 +76,7 @@ export function openExplorer(
 
   const resetBtn = document.createElement('button');
   resetBtn.type = 'button';
-  resetBtn.className = 'explore-btn';
+  resetBtn.className = 'btn-secondary explore-btn';
   resetBtn.textContent = 'Restart';
   resetBtn.addEventListener('click', () => { chess.load(startFen); refresh(); });
 

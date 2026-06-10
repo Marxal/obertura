@@ -154,7 +154,7 @@ function renderEmpty(container: HTMLElement): void {
 
 function renderSessionHeader(container: HTMLElement, due: Line[], allTraining: Line[]): void {
   const wrap = document.createElement('div');
-  wrap.className = 'session-header';
+  wrap.className = 'section session-header';
 
   // Count individual user-move positions across all training lines.
   const now = new Date();
@@ -203,7 +203,7 @@ function renderSessionHeader(container: HTMLElement, due: Line[], allTraining: L
   if (individual.length > 0) {
     const indBtn = document.createElement('button');
     indBtn.type = 'button';
-    indBtn.className = 'session-individual-btn';
+    indBtn.className = 'btn-secondary session-individual-btn';
     indBtn.appendChild(Icons.zap(16));
     indBtn.appendChild(document.createTextNode(
       `Fix individual moves (${individual.length})`,
@@ -215,7 +215,7 @@ function renderSessionHeader(container: HTMLElement, due: Line[], allTraining: L
     const best = getTimedBest();
     const timedBtn = document.createElement('button');
     timedBtn.type = 'button';
-    timedBtn.className = 'session-timed-btn';
+    timedBtn.className = 'btn-secondary session-timed-btn';
     timedBtn.appendChild(Icons.clock(16));
     timedBtn.appendChild(document.createTextNode(
       best > 0 ? `Timed challenge · best ${best}` : 'Timed challenge',
@@ -248,7 +248,7 @@ function renderPracticePicker(
   picker.className = 'session-picker';
 
   const label = document.createElement('div');
-  label.className = 'session-picker-label';
+  label.className = 'section-title';
   label.textContent = 'Practise';
   picker.appendChild(label);
 
@@ -330,14 +330,21 @@ function buildOption(o: {
 // ── Card list (browse every training line) ──────────────────────────────────────
 
 function renderCardList(container: HTMLElement, trainingLines: Line[]): void {
+  const section = document.createElement('div');
+  section.className = 'section';
+
+  const head = document.createElement('div');
+  head.className = 'section-head';
   const heading = document.createElement('h2');
-  heading.className = 'train-heading';
+  heading.className = 'section-title';
   heading.textContent = 'Training lines';
-  container.appendChild(heading);
+  head.appendChild(heading);
+  section.appendChild(head);
 
   for (const line of trainingLines) {
-    container.appendChild(buildTrainCard(line, container));
+    section.appendChild(buildTrainCard(line, container));
   }
+  container.appendChild(section);
 }
 
 function buildTrainCard(line: Line, container: HTMLElement): HTMLElement {
@@ -595,7 +602,7 @@ function renderIndividualComplete(
   container.innerHTML = '';
 
   const wrap = document.createElement('div');
-  wrap.className = 'train-completion';
+  wrap.className = 'section train-completion';
 
   const doneEl = document.createElement('div');
   doneEl.className = 'train-completion-done';
@@ -659,7 +666,7 @@ function renderSessionComplete(container: HTMLElement, stats: SessionStats): voi
   container.innerHTML = '';
 
   const wrap = document.createElement('div');
-  wrap.className = 'train-completion';
+  wrap.className = 'section train-completion';
 
   const doneEl = document.createElement('div');
   doneEl.className = 'train-completion-done';
@@ -776,7 +783,7 @@ function appendReviewActions(
   if (mistakes.length > 0) {
     const retry = document.createElement('button');
     retry.type = 'button';
-    retry.className = 'train-next-btn';
+    retry.className = 'btn-primary train-next-btn';
     retry.textContent = `Try your mistakes again (${mistakes.length})`;
     retry.addEventListener('click', () => runMistakesReview(container, mistakes));
     wrap.appendChild(retry);
@@ -784,7 +791,7 @@ function appendReviewActions(
 
   const close = document.createElement('button');
   close.type = 'button';
-  close.className = 'train-done-btn';
+  close.className = 'btn-secondary train-done-btn';
   close.textContent = 'Close training';
   close.addEventListener('click', () => void doRender(container));
   wrap.appendChild(close);
@@ -828,7 +835,7 @@ function renderReviewComplete(
   container.innerHTML = '';
 
   const wrap = document.createElement('div');
-  wrap.className = 'train-completion';
+  wrap.className = 'section train-completion';
 
   const doneEl = document.createElement('div');
   doneEl.className = 'train-completion-done';
@@ -908,7 +915,7 @@ function renderTimedComplete(
   container.innerHTML = '';
 
   const wrap = document.createElement('div');
-  wrap.className = 'train-completion';
+  wrap.className = 'section train-completion';
 
   const doneEl = document.createElement('div');
   doneEl.className = 'train-completion-done';
@@ -967,7 +974,7 @@ function renderTimedComplete(
   if (mistakes.length > 0) {
     const retry = document.createElement('button');
     retry.type = 'button';
-    retry.className = 'train-next-btn';
+    retry.className = 'btn-primary train-next-btn';
     retry.textContent = `Retry mistakes (${mistakes.length})`;
     retry.addEventListener('click', () => runMistakesReview(container, mistakes));
     wrap.appendChild(retry);
@@ -975,14 +982,14 @@ function renderTimedComplete(
 
   const again = document.createElement('button');
   again.type = 'button';
-  again.className = mistakes.length > 0 ? 'train-done-btn' : 'train-next-btn';
+  again.className = mistakes.length > 0 ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
   again.textContent = 'Play again';
   again.addEventListener('click', () => runTimed(container, trainingLines));
   wrap.appendChild(again);
 
   const close = document.createElement('button');
   close.type = 'button';
-  close.className = 'train-done-btn';
+  close.className = 'btn-secondary train-done-btn';
   close.textContent = 'Close training';
   close.addEventListener('click', () => void doRender(container));
   wrap.appendChild(close);

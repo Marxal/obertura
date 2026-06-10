@@ -266,7 +266,7 @@ function buildCarouselSection(
   playCounts: Map<string, number>
 ): HTMLElement {
   const section = document.createElement('section');
-  section.className = 'carousel-section';
+  section.className = 'section carousel-section';
 
   // Heading row: colour pip + name, with the Add button beside it.
   const head = document.createElement('div');
@@ -470,16 +470,18 @@ function renderSavedTab(
     detailFilter === 'all' ? lines : lines.filter(l => l.colour === detailFilter);
 
   if (filtered.length === 0) {
+    const emptySection = document.createElement('div');
+    emptySection.className = 'section';
     const empty = document.createElement('p');
     empty.className = 'lines-empty';
-    empty.style.padding = '0 1rem 0.75rem';
     empty.textContent = lines.length === 0 ? 'No saved lines yet.' : 'No lines here yet.';
-    content.appendChild(empty);
+    emptySection.appendChild(empty);
+    content.appendChild(emptySection);
     return;
   }
 
   const list = document.createElement('div');
-  list.className = 'lines-section';
+  list.className = 'section lines-section';
   for (const line of sortLines(filtered, detailSort)) {
     list.appendChild(
       buildDetailCard(line, deps, container, refresh, counts.get(line.id) ?? 0)
@@ -720,14 +722,16 @@ function renderGamesTab(
   suggestions = sortSuggestions(suggestions, suggestSort);
 
   if (suggestions.length === 0) {
+    const emptySection = document.createElement('div');
+    emptySection.className = 'section';
     const empty = document.createElement('p');
     empty.className = 'lines-empty';
-    empty.style.padding = '0 1rem 0.75rem';
     empty.textContent =
       analysis.suggestions.length === 0
-        ? 'Nothing to suggest — you’ve prepped the openings you play. Nice.'
-        : 'No suggestions for this colour.';
-    content.appendChild(empty);
+        ? "Nothing to suggest — you've prepped the openings you play. Nice."
+        : "No suggestions for this colour.";
+    emptySection.appendChild(empty);
+    content.appendChild(emptySection);
     appendSelfTestLink(content);
     return;
   }
@@ -738,7 +742,7 @@ function renderGamesTab(
   content.appendChild(intro);
 
   const list = document.createElement('div');
-  list.className = 'lines-section';
+  list.className = 'section lines-section';
   for (const stat of suggestions) {
     list.appendChild(suggestionCard(stat, deps));
   }
@@ -962,7 +966,7 @@ function openRenameSheet(line: Line, onSaved: (newName: string) => void): void {
 
   const saveBtn = document.createElement('button');
   saveBtn.type = 'button';
-  saveBtn.className = 'edit-save-btn';
+  saveBtn.className = 'btn-primary edit-save-btn';
   saveBtn.textContent = 'Save';
   saveBtn.addEventListener('click', async () => {
     const newName = nameInput.value.trim() || 'Untitled line';
@@ -973,7 +977,7 @@ function openRenameSheet(line: Line, onSaved: (newName: string) => void): void {
 
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
-  cancelBtn.className = 'edit-cancel-btn';
+  cancelBtn.className = 'btn-secondary';
   cancelBtn.textContent = 'Cancel';
   cancelBtn.addEventListener('click', close);
 
@@ -1030,7 +1034,7 @@ function openDeletePopup(line: Line, onDeleted: () => void): void {
 
   const confirmBtn = document.createElement('button');
   confirmBtn.type = 'button';
-  confirmBtn.className = 'delete-confirm-btn';
+  confirmBtn.className = 'btn-danger delete-confirm-btn';
   confirmBtn.appendChild(Icons.trash(15));
   confirmBtn.appendChild(document.createTextNode('Delete'));
   confirmBtn.addEventListener('click', async () => {
@@ -1041,7 +1045,7 @@ function openDeletePopup(line: Line, onDeleted: () => void): void {
 
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
-  cancelBtn.className = 'edit-cancel-btn';
+  cancelBtn.className = 'btn-secondary';
   cancelBtn.textContent = 'Cancel';
   cancelBtn.addEventListener('click', close);
 

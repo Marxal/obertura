@@ -176,7 +176,7 @@ function openEditSheet(): void {
   btnRow.className = 'edit-btn-row';
   const saveBtn = document.createElement('button');
   saveBtn.type = 'button';
-  saveBtn.className = 'edit-save-btn';
+  saveBtn.className = 'btn-primary edit-save-btn';
   saveBtn.textContent = 'Done';
   saveBtn.addEventListener('click', () => {
     const selected = [...chipRow.querySelectorAll('.tag-chip--on')].map(
@@ -192,7 +192,7 @@ function openEditSheet(): void {
   });
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
-  cancelBtn.className = 'edit-cancel-btn';
+  cancelBtn.className = 'btn-secondary';
   cancelBtn.textContent = 'Cancel';
   cancelBtn.addEventListener('click', close);
   btnRow.appendChild(saveBtn);

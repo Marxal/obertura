@@ -1272,8 +1272,9 @@ cg-board square.move-dest.oc {
   font-size: 0.9rem;
 }
 
+/* Chrome and spacing from .section in HTML. */
 .lines-section {
-  padding: 0 1rem 0.25rem;
+  padding-bottom: var(--space-xs);
 }
 
 .lines-heading {
@@ -1294,8 +1295,10 @@ cg-board square.move-dest.oc {
 
 /* ── My Lines carousel ──────────────────────────────────────────────────────── */
 
+/* Chrome and spacing from .section in HTML. Overflow hidden to clip the
+   scroll-track within the section's rounded border. */
 .carousel-section {
-  padding: 0.5rem 0 0.75rem;
+  overflow: hidden;
 }
 
 /* Heading row: colour pip + name on the left, Add button on the right. */
@@ -1303,8 +1306,8 @@ cg-board square.move-dest.oc {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.6rem;
-  padding: 0.75rem 1rem 0.5rem;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
 }
 
 .carousel-head-title {
@@ -1363,11 +1366,14 @@ cg-board square.move-dest.oc {
   border-color: #4a3d2e;
 }
 
-/* Horizontal scroller. ~3 full cards + a sliver of the next hints scroll. */
+/* Horizontal scroller. Negative margin escapes the .section padding so the
+   track aligns flush to the section edge. */
 .carousel-track {
   display: flex;
-  gap: 0.6rem;
-  padding: 0.25rem 1rem 0.4rem;
+  gap: var(--space-sm);
+  margin-left: calc(-1 * var(--space-lg));
+  margin-right: calc(-1 * var(--space-lg));
+  padding: var(--space-xs) var(--space-lg) var(--space-sm);
   overflow-x: auto;
   scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
@@ -1570,8 +1576,8 @@ cg-board square.move-dest.oc {
   background: var(--bg-card);
   border: 1px solid var(--border-card);
   border-radius: 10px;
-  padding: 0.8rem 0.9rem;
-  margin-bottom: 0.6rem;
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-sm);
   box-shadow: var(--shadow-card);
 }
 
@@ -2000,110 +2006,18 @@ cg-board square.move-dest.oc {
   color: var(--text-muted);
 }
 
-.delete-confirm-btn {
-  flex: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  padding: 0.7rem 1rem;
-  min-height: 44px;
-  background-color: var(--danger);
-  background-image: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 55%, rgba(0,0,0,0.06) 100%);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  font-family: system-ui, -apple-system, sans-serif;
-  font-weight: 600;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 2px 5px rgba(160,48,48,0.3);
-  text-shadow: 0 1px 1px rgba(0,0,0,0.18);
-  transition: filter 0.12s, box-shadow 0.12s;
-}
-
-.delete-confirm-btn:hover {
-  filter: brightness(1.08);
-  box-shadow: 0 3px 8px rgba(160,48,48,0.35);
-}
-
-.delete-confirm-btn:active {
-  filter: brightness(0.88);
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.18);
-  transform: translateY(1px);
-}
+/* .delete-confirm-btn removed — now uses .btn-danger flex: 1 in HTML */
+.delete-confirm-btn { flex: 1; }
 
 .edit-btn-row {
   display: flex;
   gap: 0.6rem;
 }
 
-.edit-save-btn {
-  flex: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  padding: 0.7rem 1rem;
-  min-height: 44px;
-  background-color: var(--maroon);
-  background-image: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 55%, rgba(0,0,0,0.06) 100%);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  font-family: system-ui, -apple-system, sans-serif;
-  font-weight: 600;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 2px 5px rgba(122,34,48,0.3);
-  text-shadow: 0 1px 1px rgba(0,0,0,0.18);
-  transition: filter 0.12s, box-shadow 0.12s;
-}
+/* Chrome from .btn-primary in HTML; only flex stretch stays here. */
+.edit-save-btn { flex: 1; }
 
-.edit-save-btn:hover {
-  filter: brightness(1.1);
-  box-shadow: 0 3px 8px rgba(122,34,48,0.35);
-}
-
-.edit-save-btn:active {
-  filter: brightness(0.88);
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.18);
-  transform: translateY(1px);
-}
-
-.edit-cancel-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  padding: 0.7rem 1rem;
-  min-height: 44px;
-  background-color: var(--bg-card);
-  background-image: linear-gradient(180deg, rgba(255,255,255,0.45) 0%, transparent 100%);
-  color: var(--text-muted);
-  border: 1px solid var(--border-card);
-  border-radius: 8px;
-  font-size: 0.9rem;
-  font-family: system-ui, -apple-system, sans-serif;
-  font-weight: 600;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  box-shadow: var(--shadow-card);
-  transition: color 0.12s, border-color 0.12s, box-shadow 0.12s;
-}
-
-.edit-cancel-btn:hover {
-  color: var(--text);
-  border-color: var(--border);
-  box-shadow: var(--shadow-card-hover);
-}
-
-.edit-cancel-btn:active {
-  filter: brightness(0.95);
-  transform: translateY(1px);
-}
+/* .edit-cancel-btn removed — now uses .btn-secondary in HTML */
 
 .edit-delete-btn {
   display: inline-flex;
@@ -2513,14 +2427,7 @@ cg-board square.move-dest.oc {
   padding-bottom: 2rem;
 }
 
-.train-heading {
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-  margin: 1rem 1rem 0.5rem;
-}
+/* .train-heading removed — now uses .section + .section-title in HTML */
 
 /* Card done-today muted state */
 .line-card--done-today .line-card-name {
@@ -2559,12 +2466,13 @@ cg-board square.move-dest.oc {
 
 /* ── Completion panel ──────────────────────────────────────────────────────── */
 
+/* Chrome from .section in HTML; layout from this rule only. */
 .train-completion {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1rem;
-  padding: 3rem 1.5rem 2rem;
+  gap: var(--space-lg);
+  padding-top: var(--space-xl);
   text-align: center;
 }
 
@@ -2582,41 +2490,13 @@ cg-board square.move-dest.oc {
   font-style: italic;
 }
 
+/* Width/size modifiers only — chrome from .btn-primary in HTML. */
 .train-next-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
   width: 100%;
   max-width: 320px;
   min-height: 52px;
-  padding: 0.875rem 1.25rem;
-  background-color: var(--maroon);
-  background-image: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 55%, rgba(0,0,0,0.06) 100%);
-  color: #fff;
-  border: none;
-  border-radius: 10px;
   font-size: 1rem;
-  font-family: system-ui, -apple-system, sans-serif;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 2px 6px rgba(122,34,48,0.3), 0 1px 2px rgba(122,34,48,0.2);
-  text-shadow: 0 1px 1px rgba(0,0,0,0.18);
-  transition: filter 0.12s, box-shadow 0.12s;
-  text-align: center;
-}
-
-.train-next-btn:hover {
-  filter: brightness(1.1);
-  box-shadow: 0 3px 10px rgba(122,34,48,0.35), 0 1px 4px rgba(122,34,48,0.25);
-}
-
-.train-next-btn:active {
-  filter: brightness(0.88);
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.18);
-  transform: translateY(1px);
+  border-radius: 10px;
 }
 
 .train-all-done {
@@ -2639,46 +2519,19 @@ cg-board square.move-dest.oc {
   font-weight: 700;
 }
 
+/* Width modifier only — chrome from .btn-secondary in HTML. */
 .train-done-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   width: 100%;
   max-width: 320px;
-  min-height: 44px;
-  padding: 0.7rem 1.25rem;
-  background-color: var(--bg-card);
-  background-image: linear-gradient(180deg, rgba(255,255,255,0.45) 0%, transparent 100%);
-  color: var(--text-muted);
-  border: 1px solid var(--border-card);
-  border-radius: 8px;
-  font-size: 0.9rem;
-  font-family: system-ui, -apple-system, sans-serif;
-  font-weight: 600;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  box-shadow: var(--shadow-card);
-  transition: color 0.12s, border-color 0.12s, box-shadow 0.12s;
-}
-
-.train-done-btn:hover {
-  color: var(--text);
-  border-color: var(--border);
-  box-shadow: var(--shadow-card-hover);
-}
-
-.train-done-btn:active {
-  filter: brightness(0.95);
-  transform: translateY(1px);
 }
 
 /* ── Session header ────────────────────────────────────────────────────────── */
 
+/* Layout only — chrome comes from .section in HTML. */
 .session-header {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
-  padding: 1rem;
+  gap: var(--space-sm);
 }
 
 .session-count {
@@ -2687,101 +2540,31 @@ cg-board square.move-dest.oc {
   color: var(--text);
 }
 
+/* Width/size modifiers only — chrome from .btn-primary in HTML. */
 .session-start-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
   width: 100%;
   min-height: 52px;
-  padding: 0.875rem 1.25rem;
-  background-color: var(--maroon);
-  background-image: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 55%, rgba(0,0,0,0.06) 100%);
-  color: #fff;
-  border: none;
-  border-radius: 10px;
   font-size: 1rem;
-  font-family: system-ui, -apple-system, sans-serif;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 2px 6px rgba(122,34,48,0.3), 0 1px 2px rgba(122,34,48,0.2);
-  text-shadow: 0 1px 1px rgba(0,0,0,0.18);
-  transition: filter 0.12s, box-shadow 0.12s;
+  border-radius: 10px;
 }
 
-.session-start-btn:hover {
-  filter: brightness(1.1);
-  box-shadow: 0 3px 10px rgba(122,34,48,0.35), 0 1px 4px rgba(122,34,48,0.25);
-}
-
-.session-start-btn:active {
-  filter: brightness(0.88);
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.18);
-  transform: translateY(1px);
-}
-
-/* Secondary action under "Start review" — the individual-moves stream. Quieter
-   than the maroon primary so the daily review stays the headline. */
+/* Width/color modifiers only — chrome from .btn-secondary in HTML. */
 .session-individual-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
   width: 100%;
   min-height: 48px;
-  padding: 0.75rem 1.25rem;
-  background-color: var(--bg-card);
-  background-image: linear-gradient(180deg, rgba(255,255,255,0.45) 0%, transparent 100%);
   color: var(--maroon);
-  border: 1px solid var(--border-card);
   border-radius: 10px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
 }
+.session-individual-btn:hover { border-color: var(--maroon); }
 
-.session-individual-btn:hover {
-  border-color: var(--maroon);
-  box-shadow: var(--shadow-card-hover);
-}
-
-.session-individual-btn:active {
-  filter: brightness(0.95);
-  transform: translateY(1px);
-}
-
-/* Timed challenge — same shape as the individual-moves button, accent-tinted to
-   read as the playful "speed run" option. */
+/* Width/color modifiers only — chrome from .btn-secondary in HTML. */
 .session-timed-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
   width: 100%;
   min-height: 48px;
-  padding: 0.75rem 1.25rem;
-  background-color: var(--bg-card);
-  background-image: linear-gradient(180deg, rgba(255,255,255,0.45) 0%, transparent 100%);
   color: var(--accent);
-  border: 1px solid var(--border-card);
   border-radius: 10px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
 }
-
-.session-timed-btn:hover {
-  border-color: var(--accent);
-  box-shadow: var(--shadow-card-hover);
-}
-
-.session-timed-btn:active {
-  filter: brightness(0.95);
-  transform: translateY(1px);
-}
+.session-timed-btn:hover { border-color: var(--accent); }
 
 /* ── Practice picker (what a session loads) ────────────────────────────────── */
 
@@ -2791,13 +2574,7 @@ cg-board square.move-dest.oc {
   gap: 0.5rem;
 }
 
-.session-picker-label {
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-}
+/* .session-picker-label removed — now uses .section-title in HTML */
 
 .practice-option {
   display: flex;
@@ -2937,26 +2714,12 @@ cg-board square.move-dest.oc {
   padding: 0.4rem 1rem 1rem;
 }
 
+/* Chrome from .btn-secondary in HTML; color stays here. */
 .explore-btn {
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  border-radius: 8px;
-  padding: 0.5rem 1rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  font-family: system-ui, -apple-system, sans-serif;
   color: var(--maroon);
-  cursor: pointer;
-}
-
-.explore-btn:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.explore-btn:not(:disabled):active {
-  filter: brightness(0.95);
-  transform: translateY(1px);
+  min-height: 40px;
+  padding: var(--space-sm) var(--space-lg);
+  font-size: 0.85rem;
 }
 
 /* A line whose moves aren't due yet reads quieter than a due one. */
@@ -3699,8 +3462,8 @@ cg-board square.move-dest.oc {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem 0.25rem;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 0 var(--space-xs);
 }
 
 .games-refresh-btn {
@@ -3730,7 +3493,7 @@ cg-board square.move-dest.oc {
 }
 
 .games-intro {
-  padding: 0.1rem 1rem 0.5rem;
+  padding: var(--space-xs) 0 var(--space-sm);
   font-size: 0.82rem;
   color: var(--text-muted);
   line-height: 1.4;
@@ -4544,12 +4307,11 @@ cg-board square.move-dest.oc {
 
 /* ── Backup & restore (My Lines footer) ──────────────────────────────────────── */
 .backup-section {
-  margin: 1.5rem 1rem 1rem;
-  padding: 1rem;
-  border: 1px solid var(--border-card);
-  border-radius: 12px;
-  background: var(--bg-card);
-  box-shadow: var(--shadow-card);
+  margin: var(--space-xl) var(--space-lg) var(--space-lg);
+  padding: var(--space-md) var(--space-lg) var(--space-lg);
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: var(--fill-faint);
 }
 
 .backup-title {
