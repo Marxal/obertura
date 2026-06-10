@@ -24,6 +24,7 @@ import {
 import { runProgressSelfTest } from './progress.selftest';
 import { currentStreak, trainedToday, getTrainingDays } from './streak';
 import { openRepertoireMap } from './repertoire-map';
+import { Icons } from './icons';
 
 export interface ProgressCallbacks {
   onTrainLine: (lineId: string, inTraining: boolean) => void;
@@ -309,22 +310,9 @@ function renderRepertoireMapSection(
     btn.type = 'button';
     btn.className = `rmap-colour-btn rmap-colour-btn--${colour}`;
 
-    // Large chess-piece icon (king shape, SVG).
-    const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    icon.setAttribute('viewBox', '0 0 24 24');
-    icon.setAttribute('width', '36');
-    icon.setAttribute('height', '36');
-    icon.setAttribute('fill', 'currentColor');
-    icon.setAttribute('aria-hidden', 'true');
-    icon.setAttribute('class', 'rmap-colour-btn-icon');
-    // Simple king silhouette: cross + head + body + base.
-    icon.innerHTML = `
-      <rect x="11" y="2" width="2" height="5" rx="1"/>
-      <rect x="9" y="4" width="6" height="2" rx="1"/>
-      <ellipse cx="12" cy="10" rx="3.5" ry="3"/>
-      <path d="M7.5 21 Q8 14 12 14 Q16 14 16.5 21Z"/>
-      <rect x="6" y="20" width="12" height="2.5" rx="1.25"/>
-    `;
+    // Branching-tree glyph: a trunk splitting into variations (line icon).
+    const icon = Icons.tree(36);
+    icon.classList.add('rmap-colour-btn-icon');
     btn.appendChild(icon);
 
     const label = document.createElement('span');

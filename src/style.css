@@ -1390,16 +1390,19 @@ cg-board square.move-dest.oc {
 
 .carousel-track::-webkit-scrollbar { display: none; }
 
+/* The board and its title share one box, so the card reads as a single unit. */
 .carousel-card {
   flex: 0 0 auto;
   width: 28vw;
   max-width: 140px;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
   padding: 0;
-  border: none;
-  background: transparent;
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card);
   cursor: pointer;
   scroll-snap-align: start;
   -webkit-tap-highlight-color: transparent;
@@ -1408,41 +1411,26 @@ cg-board square.move-dest.oc {
 
 .carousel-card:active { transform: translateY(1px); }
 
-/* Static mini-board — square, framed, non-interactive. */
+/* Static mini-board — square, flush to the card edges, non-interactive. */
 .carousel-board {
   width: 100%;
   aspect-ratio: 1 / 1;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid var(--border-card);
-  box-shadow: var(--shadow-card);
   pointer-events: none;
 }
 
 .carousel-card-title {
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   font-weight: 600;
   color: var(--text);
   line-height: 1.25;
   text-align: left;
+  /* Snug under the board, with just a little breathing room. */
+  padding: 0.3rem 0.4rem 0.35rem;
   /* Clamp to two lines so cards stay even. */
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-/* "Played N×" badge under a mini-card title — from the last games import. */
-.carousel-card-badge {
-  align-self: flex-start;
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  color: var(--maroon);
-  background: rgba(156, 107, 67, 0.14);
-  padding: 0.1rem 0.4rem;
-  border-radius: 9px;
-  font-family: system-ui, -apple-system, sans-serif;
 }
 
 /* ── My Lines tabs (Saved lines | From my games) ────────────────────────────── */

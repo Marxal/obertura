@@ -168,18 +168,16 @@ async function doRender(container: HTMLElement, deps: LinesDeps): Promise<void> 
   }
   container.innerHTML = '';
 
-  const playCounts = cachedCounts(games, allLines);
   const pending: Pending[] = [];
 
-  // Quick view: one carousel of mini-boards per colour, each with a play badge.
+  // Quick view: one carousel of mini-boards per colour, title-only cards.
   for (const colour of ['white', 'black'] as const) {
     container.appendChild(
       buildCarouselSection(
         colour,
         allLines.filter(l => l.colour === colour),
         deps,
-        pending,
-        playCounts
+        pending
       )
     );
   }
@@ -262,8 +260,7 @@ function buildCarouselSection(
   colour: 'white' | 'black',
   lines: Line[],
   deps: LinesDeps,
-  pending: Pending[],
-  playCounts: Map<string, number>
+  pending: Pending[]
 ): HTMLElement {
   const section = document.createElement('section');
   section.className = 'section carousel-section';
@@ -306,7 +303,7 @@ function buildCarouselSection(
   const carousel = document.createElement('div');
   carousel.className = 'carousel-track';
   for (const line of byLatest(lines)) {
-    carousel.appendChild(buildMiniCard(line, deps, pending, playCounts.get(line.id) ?? 0));
+    carousel.appendChild(buildMiniCard(line, deps, pending));
   }
   section.appendChild(carousel);
 
@@ -316,8 +313,7 @@ function buildCarouselSection(
 function buildMiniCard(
   line: Line,
   deps: LinesDeps,
-  pending: Pending[],
-  playCount: number
+  pending: Pending[]
 ): HTMLElement {
   const card = document.createElement('button');
   card.type = 'button';
@@ -335,15 +331,6 @@ function buildMiniCard(
   titleEl.className = 'carousel-card-title';
   titleEl.textContent = line.name || line.openingName || 'Untitled line';
   card.appendChild(titleEl);
-
-  // Play-count badge from the last import (omitted when zero/unknown).
-  if (playCount > 0) {
-    const badge = document.createElement('div');
-    badge.className = 'carousel-card-badge';
-    badge.textContent = `Played ${playCount}×`;
-    badge.title = `Played ${playCount} time${playCount === 1 ? '' : 's'} in your games`;
-    card.appendChild(badge);
-  }
 
   return card;
 }
