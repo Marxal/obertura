@@ -10,6 +10,40 @@ later in v1.2, so its couplings are noted but not counted as findings to fix.
 
 ---
 
+## Fixed in task 1.2 (this round)
+
+Both criticals plus the cheap, zero-risk worth-it items, with new self-tests so
+they stay fixed. Each finding below is tagged **✅ FIXED** inline.
+
+- **4.1** ✅ — every data screen (Lines / Train / Stats) now wraps its IndexedDB
+  load in try/catch and shows a shared error + Retry panel (`load-error.ts`)
+  instead of hanging on "Loading…". (Home left alone — it retires later.)
+- **6.1** ✅ — game analysis (`analyseGames` / `countGamesPerLine`) is memoised
+  per games+lines snapshot in `lines-screen.ts`; sort toggles and re-renders now
+  reuse the cached result instead of re-walking every game.
+- **6.3** ✅ — the Repertoire Map's window `mousemove`/`mouseup` listeners are
+  detached on `close()` (via a disposer from `initPanZoom`), ending the leak.
+- **1.4** ✅ (partial) — `openDB()` now handles `onblocked` and rejects with a
+  clear message (surfaced by the 4.1 panels). Quota-on-write surfacing deferred.
+- **4.2** ✅ — a single failed month no longer aborts the whole Chess.com import;
+  the bad archive is skipped and the import carries on.
+
+New self-tests added: **openings lookup** (`openings.selftest.ts`) and a
+**storage round-trip** (`storage.selftest.ts`), both surfaced in Settings →
+Diagnostics alongside the **import parser** test (`chesscom.selftest.ts`, which
+was previously defined but never wired into a screen). A shared
+`selftest-panel.ts` renders them (sync or async). The scheduler self-test was
+also made date-independent (it had started failing as the wall clock moved past
+its authoring date). All self-tests and the production build pass.
+
+Deliberately skipped this round (not quick-and-zero-risk, or cosmetic): **1.1**
+(Manual naming — threads through the builder's live title state machine),
+**1.2 / 1.3** (mid-line variations, stale-eval race — real changes, not
+zero-risk), **6.2** (Progress caching — not on a hot path), and all items tagged
+*cosmetic*.
+
+---
+
 ## 1) Bugs / likely bugs
 
 ### 1.1 "Manual" naming mode is a no-op — `worth-it`
@@ -48,7 +82,7 @@ already equals the live fen. Rare (Lichess usually answers first) but real.
 newer request has started (same pattern already used for `gradeRequestId` in
 `main.ts`).
 
-### 1.4 No `onblocked` / quota handling on the IndexedDB open — `worth-it`
+### 1.4 No `onblocked` / quota handling on the IndexedDB open — `worth-it` ✅ FIXED (onblocked; quota deferred)
 `storage.ts › openDB()` (~29) handles `onsuccess`/`onerror` but not `onblocked`
 (another tab holding the old version during a `DB_VERSION` bump will hang the
 open forever) and there's no surfacing of quota-exceeded on writes. See also 4.1.
@@ -150,7 +184,7 @@ missed" pair. A small `statBox(value, label, variant)` builder removes ~60 lines
 
 ## 4) Missing error handling — network & IndexedDB
 
-### 4.1 Data screens get stuck on "Loading…" if IndexedDB fails — `critical`
+### 4.1 Data screens get stuck on "Loading…" if IndexedDB fails — `critical` ✅ FIXED
 Every screen's `doRender` does `container.innerHTML = '…Loading…'; const x = await
 getAllLines()` with **no try/catch**: `home-screen.ts` (~28), `lines-screen.ts`
 (~136), `train-screen.ts` (~66), `progress-screen.ts` (~36). If `openDB()` rejects
@@ -158,7 +192,7 @@ getAllLines()` with **no try/catch**: `home-screen.ts` (~28), `lines-screen.ts`
 clears, and it surfaces as an unhandled rejection. Wrap each in try/catch with a
 visible error + retry.
 
-### 4.2 One failed month aborts the whole import — `worth-it`
+### 4.2 One failed month aborts the whole import — `worth-it` ✅ FIXED
 `chesscom.ts › importRecentGames()` (~249): a single archive fetch that throws
 (transient 5xx) rejects the entire import. Already-saved months persist
 (incremental `onGames`), but the user just sees "failed". Catch per-archive,
@@ -213,7 +247,7 @@ Several catch blocks (`lines-screen.ts` ~762, `settings-screen.ts` ~363, ~413,
 
 ## 6) Performance smells (phone)
 
-### 6.1 Game analysis recomputed on every render and every sort toggle — `critical`
+### 6.1 Game analysis recomputed on every render and every sort toggle — `critical` ✅ FIXED
 `lines-screen.ts`: `doRender` calls `countGamesPerLine` (~141); `renderSavedTab`
 calls it **again** (~423); `renderGamesTab` runs the full `analyseGames` (~676)
 and re-runs it on **every** sort-dropdown change (the `rerender` closure, ~678).
@@ -226,7 +260,7 @@ cached `stats` array rather than re-analysing.
 `progress.ts › crossReference` (~166) is O(games × lines × plies) and runs on
 each `renderProgressScreen`. Same data-snapshot caching applies.
 
-### 6.3 Repertoire Map leaks window listeners — `worth-it`
+### 6.3 Repertoire Map leaks window listeners — `worth-it` ✅ FIXED
 `repertoire-map.ts › initPanZoom` (~347, ~353) attaches `mousemove`/`mouseup`
 to `window` but the `close()` path (~475) only removes the overlay and the
 back-stack entry — it never detaches these. Every open of the map adds another
@@ -274,13 +308,13 @@ do not.
 
 ---
 
-## Recommended fix batch (criticals, in order)
+## Recommended fix batch (criticals, in order) — ✅ all done (task 1.2)
 
-1. **Guard data screens against IndexedDB failure** (4.1) — wrap the `await
-   getAllLines()` loads in `home/lines/train/progress` `doRender`s with a visible
-   error + retry so a DB failure can't leave the app stuck on "Loading…".
-2. **Cache game analysis** (6.1) — compute `analyseGames`/`countGamesPerLine`
-   once per lines+games snapshot in `lines-screen.ts` and re-sort the cached
-   result instead of re-analysing on every render and sort toggle.
-3. **Stop the Repertoire Map listener leak** (6.3) — detach the window
-   `mousemove`/`mouseup` handlers in the map's `close()`.
+1. ✅ **Guard data screens against IndexedDB failure** (4.1) — `lines/train/progress`
+   `doRender`s now wrap the load in try/catch with a shared error + Retry panel
+   (`load-error.ts`). (Home skipped — it retires later in v1.2.)
+2. ✅ **Cache game analysis** (6.1) — `analyseGames`/`countGamesPerLine` are
+   memoised per lines+games snapshot in `lines-screen.ts`; sort toggles re-use
+   the cached result instead of re-analysing.
+3. ✅ **Stop the Repertoire Map listener leak** (6.3) — the window
+   `mousemove`/`mouseup` handlers are detached in the map's `close()`.

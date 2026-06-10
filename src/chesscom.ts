@@ -251,7 +251,16 @@ export async function importRecentGames(
     const label = archiveUrl.split('/').slice(-2).join('/');
     onProgress?.({ monthsTotal: recent.length, monthsDone: done, label, gamesSoFar: collected.length });
 
-    const { games } = await fetchJson<ArchiveResponse>(archiveUrl);
+    // One transient archive failure (a 5xx, a dropped connection) shouldn't sink
+    // the whole import — earlier months are already saved via onGames. Skip the
+    // bad month and carry on; the next refresh can pick it up.
+    let games: ArchiveResponse['games'];
+    try {
+      ({ games } = await fetchJson<ArchiveResponse>(archiveUrl));
+    } catch {
+      done++;
+      continue;
+    }
     const batch: ImportedGame[] = [];
     for (const raw of games) {
       const parsed = parseGame(raw, user);

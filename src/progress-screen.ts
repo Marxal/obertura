@@ -11,7 +11,9 @@
 //   8. Self-test link
 
 import type { Line } from './types';
+import type { ImportedGame } from './chesscom';
 import { getAllGames, getAllLines } from './storage';
+import { renderLoadError } from './load-error';
 import {
   crossReference,
   type ProgressReport,
@@ -34,7 +36,14 @@ export function renderProgressScreen(container: HTMLElement, cb: ProgressCallbac
 
 async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<void> {
   container.innerHTML = '<p class="lines-loading">Loading…</p>';
-  const [games, lines] = await Promise.all([getAllGames(), getAllLines()]);
+  let games: ImportedGame[];
+  let lines: Line[];
+  try {
+    [games, lines] = await Promise.all([getAllGames(), getAllLines()]);
+  } catch (err) {
+    renderLoadError(container, err, () => void doRender(container, cb));
+    return;
+  }
   container.innerHTML = '';
 
   const report = crossReference(games, lines);

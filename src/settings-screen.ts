@@ -40,6 +40,10 @@ import { clearTrainingDays } from './streak';
 import { renderBackupSection } from './backup';
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
+import { appendSelfTest } from './selftest-panel';
+import { runStorageSelfTest } from './storage.selftest';
+import { runOpeningsSelfTest } from './openings.selftest';
+import { runChesscomSelfTest } from './chesscom.selftest';
 
 export function renderSettingsScreen(container: HTMLElement): void {
   container.innerHTML = '';
@@ -57,8 +61,31 @@ export function renderSettingsScreen(container: HTMLElement): void {
   screen.appendChild(buildNamingGroup());
   screen.appendChild(buildUserGroup());
   screen.appendChild(buildDataGroup());
+  screen.appendChild(buildDiagnosticsGroup());
 
   container.appendChild(screen);
+}
+
+// ── Diagnostics ──────────────────────────────────────────────────────────────
+// Offline self-tests for the data layer, runnable right on the phone. Storage
+// hits the real IndexedDB (round-tripping a throwaway line), openings checks the
+// bundled name database, and the import parser checks Chess.com PGN parsing over
+// a fixed game sample. The scheduler / analysis / progress self-tests live on
+// their own screens (Train, Lines, Stats).
+
+function buildDiagnosticsGroup(): HTMLElement {
+  const sec = group('Diagnostics');
+
+  const blurb = document.createElement('p');
+  blurb.className = 'settings-row-sub';
+  blurb.textContent = 'Offline checks of the data layer. Tap one to run it and see pass/fail.';
+  sec.appendChild(blurb);
+
+  appendSelfTest(sec, 'Run storage self-test', runStorageSelfTest, '[storage self-test]');
+  appendSelfTest(sec, 'Run openings lookup self-test', runOpeningsSelfTest, '[openings self-test]');
+  appendSelfTest(sec, 'Run import parser self-test', runChesscomSelfTest, '[chesscom self-test]');
+
+  return sec;
 }
 
 // ── Group / row scaffolding ──────────────────────────────────────────────────

@@ -25,9 +25,11 @@ export interface TestResult {
   detail: string;
 }
 
-function makeLine(reviews: (number | undefined)[]): Line {
+function makeLine(reviews: (number | undefined)[], now: Date): Line {
   // Build a 2-ply-per-user-move mainline so `reviews[i]` lands on the i-th
-  // White (user) move. Opponent replies get no review.
+  // White (user) move. Opponent replies get no review. Due dates are offset from
+  // the test's fixed `now` (not the wall clock) so the checks are deterministic
+  // whatever day they're run.
   const root: MoveNode = { id: 'root', san: '', uci: '', fen: '', children: [] };
   let cursor = root;
   reviews.forEach((daysUntilDue, i) => {
@@ -35,7 +37,7 @@ function makeLine(reviews: (number | undefined)[]): Line {
       id: `u${i}`, san: 'e4', uci: 'e2e4', fen: '', children: [],
       review: daysUntilDue === undefined
         ? undefined
-        : { ease: 2.5, interval: 1, reps: 1, lapses: 0, due: new Date(Date.now() + daysUntilDue * 86400000) },
+        : { ease: 2.5, interval: 1, reps: 1, lapses: 0, due: new Date(now.getTime() + daysUntilDue * 86400000) },
     };
     const reply: MoveNode = { id: `o${i}`, san: 'e5', uci: 'e7e5', fen: '', children: [] };
     cursor.children.push(userMove);
@@ -127,8 +129,8 @@ export function runSchedulerSelfTest(): TestResult[] {
 
   // 9. dueLines / lineIsDue: a line with one overdue move is due; a line whose
   //    moves are all far in the future is not.
-  const dueLine = makeLine([-1, 10]);   // first user move overdue by a day
-  const restedLine = makeLine([20, 30]); // both far in the future
+  const dueLine = makeLine([-1, 10], now);   // first user move overdue by a day
+  const restedLine = makeLine([20, 30], now); // both far in the future
   restedLine.id = 'R';
   const due = dueLines([dueLine, restedLine], now);
   check(
