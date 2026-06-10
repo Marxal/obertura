@@ -25,11 +25,12 @@
   --bg-elevated: #ede5d5;
   --bg-parchment: #f8f3ea;
 
-  /* Text */
+  /* Text — all values verified ≥ 4.5:1 on --bg-card (#faf8f5) and --bg-page
+     (#f1ece1) except --text-fainter which targets ≥ 3:1 (decorative use). */
   --text: #1c1610;
   --text-muted: #5c4838;
-  --text-faint: #8a7462;
-  --text-fainter: #b89e88;
+  --text-faint: #7a6353;   /* 5.3:1 on card, 4.7:1 on page */
+  --text-fainter: #977f6b; /* 3.6:1 on card, 3.2:1 on page */
 
   /* Borders / strokes */
   --border: #d0c4b4;
@@ -75,24 +76,26 @@
 [data-theme="dark"] {
   color-scheme: dark;
 
-  /* Surfaces — genuinely dark page, dark cards. */
-  --bg-page: #1a1512;
-  --bg-card: #241d18;
-  --bg-sheet: #221b16;
-  --bg-elevated: #221b15;
-  --bg-parchment: #241d18;
+  /* Surfaces — warm charcoal: page darkest, card a step lighter. */
+  --bg-page: #211c16;
+  --bg-card: #2c261e;
+  --bg-sheet: #271f18;
+  --bg-elevated: #261e17;
+  --bg-parchment: #2d271f;
 
-  /* Text — light on dark. */
-  --text: #e8dcc8;
-  --text-muted: #c2b39a;
-  --text-faint: #9a8870;
-  --text-fainter: #786a56;
+  /* Text — warm cream primary; muted/faint/fainter stepped for contrast.
+     All values verified ≥ 4.5:1 on --bg-card (#2c261e) except --text-fainter
+     which targets ≥ 3:1 (decorative use only). */
+  --text: #efe6d6;
+  --text-muted: #c4b49c;
+  --text-faint: #a8957c;   /* 4.8:1 on card */
+  --text-fainter: #8e7f6a; /* 3.4:1 on card — decorative only */
 
-  /* Borders — a subtle LIGHT stroke on the dark cards. */
-  --border: #463829;
-  --border-card: #3a2e22;
-  --hairline: rgba(232, 220, 200, 0.12);
-  --hairline-soft: rgba(232, 220, 200, 0.07);
+  /* Borders — subtle warm strokes; hairline as rgba so alpha blends well. */
+  --border: #47392c;
+  --border-card: #3d352a;
+  --hairline: rgba(239, 230, 214, 0.10);
+  --hairline-soft: rgba(239, 230, 214, 0.06);
 
   /* Accent brightens for dark-mode legibility. */
   --accent: #d4892c;
@@ -100,18 +103,20 @@
   --accent-soft: rgba(212, 137, 44, 0.22);
   --maroon: #8e2c3a;
   --maroon-active: #7a2433;
-  /* Sage / brick brighten a touch on dark for legibility, same as the accents. */
-  --success: #8a9b63;
-  --success-active: #74874f;
+  /* Sage / brick: slightly darker than v1.1 so white label text passes 3:1 on
+     the button surface (large-text threshold). As inline status text they pass
+     3:1 on the dark card bg. */
+  --success: #7d9154;
+  --success-active: #6a7b44;
   --warn: #d9763f;
   --danger: #c76b50;
   --danger-active: #b4533a;
 
   /* Shadows disappear on dark — borders do the job. */
   --shadow-card: none;
-  --shadow-card-hover: 0 0 0 1px rgba(232, 220, 200, 0.08);
+  --shadow-card-hover: 0 0 0 1px rgba(239, 230, 214, 0.08);
 
-  --fill-faint: rgba(232, 220, 200, 0.03);
+  --fill-faint: rgba(239, 230, 214, 0.03);
 
   --paper-speckle: rgba(255, 240, 214, 0.02);
 }
@@ -209,7 +214,10 @@ body {
   box-shadow: inset 0 1px 3px rgba(0,0,0,0.18);
   transform: translateY(1px);
 }
-[data-theme="dark"] .btn-primary {
+[data-theme="dark"] .btn-primary,
+[data-theme="dark"] .header-save,
+[data-theme="dark"] .review-build-btn,
+[data-theme="dark"] .practice-option--primary {
   background-image: none;
   box-shadow: none;
   text-shadow: none;
@@ -2093,6 +2101,11 @@ cg-board square.move-dest.oc {
   background-image: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, transparent 55%, rgba(0,0,0,0.06) 100%);
 }
 
+[data-theme="dark"] .card-training-btn,
+[data-theme="dark"] .card-training-btn.card-training-btn--active {
+  background-image: none;
+}
+
 .card-training-btn.card-training-btn--active:active {
   filter: brightness(0.88);
 }
@@ -2242,9 +2255,9 @@ cg-board square.move-dest.oc {
 .pt-alt-card {
   margin: 0 1rem;
   padding: 0.6rem 0.875rem;
-  background: #f0faf4;
-  border: 1px solid #b8dfc8;
-  border-left: 3px solid #3a9a5c;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-left: 3px solid var(--success);
   border-radius: 6px;
   display: flex;
   flex-direction: column;
@@ -2256,7 +2269,7 @@ cg-board square.move-dest.oc {
   font-style: italic;
   font-size: 0.875rem;
   line-height: 1.5;
-  color: #1a3d2a;
+  color: var(--text-muted);
 }
 
 .pt-alt-add-note-btn {
@@ -2264,7 +2277,7 @@ cg-board square.move-dest.oc {
   border: none;
   padding: 0;
   font-size: 0.8rem;
-  color: #3a9a5c;
+  color: var(--success);
   cursor: pointer;
   text-align: left;
   font-family: system-ui, -apple-system, sans-serif;
@@ -2274,12 +2287,12 @@ cg-board square.move-dest.oc {
   width: 100%;
   min-height: 3rem;
   padding: 0.4rem 0.5rem;
-  border: 1px solid #b8dfc8;
+  border: 1px solid var(--border);
   border-radius: 4px;
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 0.875rem;
-  color: #1a3d2a;
-  background: #fff;
+  color: var(--text);
+  background: var(--bg-page);
   resize: vertical;
   box-sizing: border-box;
 }
@@ -2287,7 +2300,7 @@ cg-board square.move-dest.oc {
 .pt-alt-head {
   font-size: 0.85rem;
   font-weight: 700;
-  color: #1a7a4a;
+  color: var(--success);
   font-family: system-ui, -apple-system, sans-serif;
 }
 
@@ -2297,31 +2310,45 @@ cg-board square.move-dest.oc {
   gap: 0.5rem;
 }
 
+/* Reuse the btn-success / btn-secondary chrome; just override size/radius. */
 .pt-alt-explore-btn {
-  background: #3a9a5c;
-  border: 1px solid #3a9a5c;
-  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  background: var(--success);
+  border: 1px solid transparent;
+  border-radius: 6px;
   padding: 0.4rem 0.8rem;
   font-size: 0.8rem;
   font-weight: 600;
   font-family: system-ui, -apple-system, sans-serif;
   color: #fff;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: filter 0.12s;
 }
 
-.pt-alt-explore-btn:active {
-  filter: brightness(0.9);
-}
+.pt-alt-explore-btn:hover { filter: brightness(1.07); }
+.pt-alt-explore-btn:active { filter: brightness(0.9); }
 
 .pt-alt-new-line-btn {
-  background: none;
-  border: 1px solid #b8dfc8;
-  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 6px;
   padding: 0.35rem 0.7rem;
   font-size: 0.78rem;
   font-family: system-ui, -apple-system, sans-serif;
-  color: #3a9a5c;
+  font-weight: 600;
+  color: var(--text-muted);
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.12s, color 0.12s;
+}
+
+.pt-alt-new-line-btn:hover {
+  border-color: var(--border);
+  color: var(--text);
 }
 
 .pt-status {
@@ -2343,7 +2370,7 @@ cg-board square.move-dest.oc {
 }
 
 .pt-status--alt {
-  color: #1a7a4a;
+  color: var(--success);
 }
 
 /* Subtle "your move" / retry prompts — quiet so the board stays the focus. */
@@ -2590,6 +2617,11 @@ cg-board square.move-dest.oc {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: filter 0.12s, box-shadow 0.12s, border-color 0.12s;
+}
+
+/* Drop the white-sheen gradient in dark mode — it reads as a grey smear. */
+[data-theme="dark"] .practice-option {
+  background-image: none;
 }
 
 .practice-option:hover {

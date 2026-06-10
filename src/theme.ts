@@ -17,7 +17,7 @@ const STORAGE_KEY = 'obertura-theme';
 // Browser chrome colour per theme — matches --bg-page in style.css.
 const THEME_COLOR: Record<'light' | 'dark', string> = {
   light: '#f1ece1',
-  dark: '#1a1512',
+  dark: '#211c16',
 };
 
 const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
