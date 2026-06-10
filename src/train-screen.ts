@@ -868,7 +868,6 @@ function runItem(
   startDrill(lineCopy, {
     wrongMoveMode: 'full',
     modeLabel: isResurface ? 'Second look' : 'Training',
-    hideTitleUntilComplete: true,
     celebrateOnComplete: true,
     completeMessage: isResurface ? 'Got it that time ✓' : 'Line complete',
     checkAlternative: (fen, uci) => isGoodAlternative(fen, uci),
@@ -952,7 +951,6 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
     {
       wrongMoveMode: 'full',
       modeLabel: 'Individual moves',
-      hideTitleUntilComplete: true,
       celebrateOnComplete: true,
       completeMessage: 'Positions cleared ✓',
       checkAlternative: (fen, uci) => isGoodAlternative(fen, uci),
@@ -1199,7 +1197,6 @@ function runMistakesReview(container: HTMLElement, mistakes: Mistake[]): void {
     {
       wrongMoveMode: 'full',
       modeLabel: 'Your mistakes',
-      hideTitleUntilComplete: true,
       celebrateOnComplete: true,
       completeMessage: 'Mistakes reviewed ✓',
       checkAlternative: (fen, uci) => isGoodAlternative(fen, uci),
@@ -1274,7 +1271,6 @@ function runTimed(container: HTMLElement, trainingLines: Line[], minutes: TimedM
     {
       timedMs: minutes * 60 * 1000,
       modeLabel: 'Timed',
-      hideTitleUntilComplete: true,
       onTimedResult: (ok, pos) => {
         if (ok) {
           correct++;

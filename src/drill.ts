@@ -29,9 +29,6 @@ export interface DrillOptions {
   // 'gentle': show error text and let the user retry freely (pre-training).
   // 'full':   flash → snap back → (retries) → draw arrow → require correct replay.
   wrongMoveMode?: 'gentle' | 'full';
-  // Keep the opening title hidden (under the board) until the line completes, so
-  // it can't act as a hint mid-drill. Used by the training screen.
-  hideTitleUntilComplete?: boolean;
   // Fire a brief confetti burst when the run is completed.
   celebrateOnComplete?: boolean;
   // If provided (full mode only), the engine checks whether a wrong move is
@@ -67,7 +64,7 @@ interface Task {
 interface DrillConfig {
   intro: Ply[];      // opponent plies to animate from the start (line mode)
   tasks: Task[];
-  titleText: string; // shown under the board (revealed on completion)
+  titleText: string; // the line/opening name shown above the board ('' hides it)
 }
 
 function mainlineOf(tree: MoveNode): MoveNode[] {
@@ -213,6 +210,12 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   let tickTimer: ReturnType<typeof setTimeout> | undefined;
 
   // ── Overlay ───────────────────────────────────────────────────────────────
+  //
+  // Vertical layout: a fixed back/timer toolbar, then a flexible TOP block (mode
+  // title + line name) that hugs the board from above, the board in the middle,
+  // and a flexible BOTTOM block (dots + your-move prompt / feedback + hint cards)
+  // that hugs it from below. The two flex blocks share the spare height, so the
+  // board sits vertically centred and within easy thumb reach.
 
   const overlay = document.createElement('div');
   overlay.className = 'pt-overlay';
@@ -226,16 +229,10 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   backBtn.appendChild(Icons.back(15));
   backBtn.appendChild(document.createTextNode(opts.backLabel ?? 'Back'));
   backBtn.addEventListener('click', () => { cleanup(); opts.onCancel(); });
-
-  // Top label: the training mode, not the opening (which would be a hint).
-  const modeEl = document.createElement('div');
-  modeEl.className = 'pt-mode-label';
-  modeEl.textContent = opts.modeLabel ?? config.titleText;
-
   headerEl.appendChild(backBtn);
-  headerEl.appendChild(modeEl);
 
-  // Timed mode: a live "✓ N" score and a mm:ss countdown pinned to the header.
+  // Timed mode: a live "✓ N" score and a mm:ss countdown pinned to the right of
+  // the toolbar.
   const scoreEl = document.createElement('div');
   const timerEl = document.createElement('div');
   if (timed) {
@@ -244,6 +241,27 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     headerEl.appendChild(scoreEl);
     headerEl.appendChild(timerEl);
   }
+
+  // ── Top block: mode title + line name, sitting just above the board ─────────
+
+  const topEl = document.createElement('div');
+  topEl.className = 'pt-top';
+
+  // The training mode (e.g. "Training") — never the opening, in modes where that
+  // would be a hint.
+  const modeEl = document.createElement('div');
+  modeEl.className = 'pt-mode-title';
+  modeEl.textContent = opts.modeLabel ?? config.titleText;
+  topEl.appendChild(modeEl);
+
+  // The line name, directly under the mode title. Shown for full-line drills
+  // (you picked the line by name); empty — and so hidden — for the individual-
+  // move and timed modes, where it would give the answer away.
+  const titleEl = document.createElement('div');
+  titleEl.className = 'pt-line-name';
+  titleEl.textContent = config.titleText;
+  if (!config.titleText) titleEl.setAttribute('hidden', '');
+  topEl.appendChild(titleEl);
 
   function renderTimedScore(): void {
     scoreEl.textContent = `✓ ${timedCorrect}`;
@@ -257,6 +275,8 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     timerEl.classList.toggle('pt-timer--low', secs <= 10);
   }
 
+  // ── Board ───────────────────────────────────────────────────────────────────
+
   const boardWrap = document.createElement('div');
   boardWrap.className = 'pt-board-wrap';
 
@@ -264,11 +284,10 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   boardEl.className = 'pt-board';
   boardWrap.appendChild(boardEl);
 
-  // Opening title, UNDER the board. Hidden until completion in full mode.
-  const titleEl = document.createElement('div');
-  titleEl.className = 'pt-title-under';
-  titleEl.textContent = config.titleText;
-  if (opts.hideTitleUntilComplete) titleEl.setAttribute('hidden', '');
+  // ── Bottom block: progress dots, your-move prompt / feedback, hint cards ─────
+
+  const bottomEl = document.createElement('div');
+  bottomEl.className = 'pt-bottom';
 
   // Progress dots — one circle per task.
   const progressEl = document.createElement('div');
@@ -287,13 +306,15 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   altCardEl.className = 'pt-alt-card';
   altCardEl.setAttribute('hidden', '');
 
+  bottomEl.appendChild(progressEl);
+  bottomEl.appendChild(statusEl);
+  bottomEl.appendChild(noteCardEl);
+  bottomEl.appendChild(altCardEl);
+
   overlay.appendChild(headerEl);
+  overlay.appendChild(topEl);
   overlay.appendChild(boardWrap);
-  overlay.appendChild(titleEl);
-  overlay.appendChild(progressEl);
-  overlay.appendChild(statusEl);
-  overlay.appendChild(noteCardEl);
-  overlay.appendChild(altCardEl);
+  overlay.appendChild(bottomEl);
   document.body.appendChild(overlay);
 
   // System back gesture exits the drill, same as tapping Back.
@@ -806,7 +827,6 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     }
 
     setStatus(opts.completeMessage ?? 'Line complete', 'pt-status--success');
-    if (opts.hideTitleUntilComplete && config.titleText) titleEl.removeAttribute('hidden');
     if (opts.celebrateOnComplete) burstConfetti();
     setTimeout(() => { cleanup(); opts.onComplete(); }, 1500);
   }
