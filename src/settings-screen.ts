@@ -39,6 +39,7 @@ import { saveGames, countGames, clearGames, resetAllProgress } from './storage';
 import { clearTrainingDays } from './streak';
 import { renderBackupSection } from './backup';
 import { Icons } from './icons';
+import { pushBack } from './back-nav';
 
 export function renderSettingsScreen(container: HTMLElement): void {
   container.innerHTML = '';
@@ -486,7 +487,9 @@ function confirmDialog(opts: {
 
   function close() {
     overlay.remove();
+    removeBack();
   }
+  const removeBack = pushBack(close);
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) close();
   });

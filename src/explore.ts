@@ -3,6 +3,7 @@ import { Chessground } from 'chessground';
 import type { Key } from 'chessground/types';
 import { Icons } from './icons';
 import { cloudLine, type CloudLine } from './engine';
+import { pushBack } from './back-nav';
 
 // ── Line explorer ────────────────────────────────────────────────────────────
 //
@@ -89,6 +90,9 @@ export function openExplorer(
   overlay.appendChild(histEl);
   overlay.appendChild(controls);
   document.body.appendChild(overlay);
+
+  // System back gesture returns to the drill, same as tapping Back.
+  const removeBack = pushBack(() => { cleanup(); opts.onClose(); });
 
   // ── Chess helpers ───────────────────────────────────────────────────────────
   function legalDests(): Map<Key, Key[]> {
@@ -205,6 +209,7 @@ export function openExplorer(
     isCleaned = true;
     ro.disconnect();
     overlay.remove();
+    removeBack();
   }
 
   refresh();

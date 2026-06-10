@@ -6,6 +6,7 @@ import type { MoveNode } from './tree';
 import { Icons } from './icons';
 import { getRetriesBeforeReveal } from './prefs';
 import { playFeedback } from './sound';
+import { pushBack } from './back-nav';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -294,6 +295,9 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   overlay.appendChild(noteCardEl);
   overlay.appendChild(altCardEl);
   document.body.appendChild(overlay);
+
+  // System back gesture exits the drill, same as tapping Back.
+  const removeBack = pushBack(() => { cleanup(); opts.onCancel(); });
 
   // ── Chess helpers ─────────────────────────────────────────────────────────
 
@@ -813,6 +817,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     if (tickTimer) clearTimeout(tickTimer);
     ro.disconnect();
     overlay.remove();
+    removeBack();
   }
 
   // ── Kick off ──────────────────────────────────────────────────────────────
