@@ -23,7 +23,7 @@ import {
   weakestLines,
 } from './scheduler';
 import { runSchedulerSelfTest } from './scheduler.selftest';
-import { recordTrainingDay } from './streak';
+import { recordTrainingDay, currentStreak, trainedToday } from './streak';
 import { renderLoadError } from './load-error';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -77,6 +77,7 @@ async function doRender(
   const trainingLines = allLines.filter(l => l.inTraining);
 
   if (trainingLines.length === 0) {
+    renderTrainHead(container);
     renderEmpty(container);
     appendSelfTestLink(container);
     return;
@@ -108,9 +109,48 @@ async function doRender(
     }
   }
 
+  renderTrainHead(container);
   renderSessionHeader(container, due, trainingLines);
   renderCardList(container, trainingLines);
   appendSelfTestLink(container);
+}
+
+// ── Train header (daily streak pill) ──────────────────────────────────────────
+//
+// The streak pill lives here now — Train is the app's home, so this is the
+// daily face of the streak. (The Statistics screen keeps its own streak hero.)
+
+function renderTrainHead(container: HTMLElement): void {
+  const head = document.createElement('div');
+  head.className = 'train-head';
+  head.appendChild(buildStreakPill());
+  container.appendChild(head);
+}
+
+function buildStreakPill(): HTMLElement {
+  const streak = currentStreak();
+  const pill = document.createElement('div');
+  pill.className = 'streak-pill' + (streak === 0 ? ' streak-pill--cold' : '');
+
+  const flame = document.createElement('span');
+  flame.className = 'streak-pill-flame';
+  flame.setAttribute('aria-hidden', 'true');
+  flame.textContent = '🔥';
+  pill.appendChild(flame);
+
+  const label = document.createElement('span');
+  label.className = 'streak-pill-label';
+  if (streak === 0) {
+    label.textContent = 'Start a streak';
+    pill.setAttribute('aria-label', 'No training streak yet — train today to start one');
+  } else {
+    label.textContent = `${streak}-day streak`;
+    const todayNote = trainedToday() ? ' Trained today.' : ' Train today to keep it going.';
+    pill.setAttribute('aria-label', `${streak}-day training streak.${todayNote}`);
+  }
+  pill.appendChild(label);
+
+  return pill;
 }
 
 // Build the session that "Start training" launches, per the default-mode pref.
