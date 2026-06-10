@@ -2106,6 +2106,9 @@ cg-board square.move-dest.oc {
   font-weight: 700;
   color: var(--success);
   flex-shrink: 0;
+  /* Push the score + clock to the right edge of the toolbar (the old mode label
+     that used to fill the gap now lives in the top block). */
+  margin-left: auto;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2123,17 +2126,46 @@ cg-board square.move-dest.oc {
   color: #ff6b5e;
 }
 
-/* Opening title, shown UNDER the board (revealed on completion in training). */
-.pt-title-under {
+/* ── Top block: mode title + line name, hugging the board from above ────────── */
+/* A flex spacer that shares the screen's spare height with .pt-bottom, so the
+   board between them ends up vertically centred. Its content bottom-aligns to
+   sit right above the board. */
+.pt-top {
+  /* Grows to share spare height (centring the board) but never shrinks below its
+     content, so the title stays readable and the overlay scrolls on short screens
+     rather than clipping. */
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.6rem 1rem 0.5rem;
+}
+
+/* The training-mode title — deliberately NOT the opening name, so it can't act
+   as a hint. */
+.pt-mode-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
   text-align: center;
-  font-size: 0.95rem;
+}
+
+/* The line name, under the mode title. Hidden (empty) in modes where it would
+   give the answer away — individual moves and timed. */
+.pt-line-name {
+  font-size: 1.05rem;
   font-weight: 700;
   color: var(--accent);
   font-family: system-ui, -apple-system, sans-serif;
-  padding: 0.5rem 1rem 0.1rem;
+  text-align: center;
+  line-height: 1.25;
 }
 
-.pt-title-under[hidden] {
+.pt-line-name[hidden] {
   display: none;
 }
 
@@ -2284,6 +2316,17 @@ cg-board square.move-dest.oc {
 .pt-alt-new-line-btn:hover {
   border-color: var(--border);
   color: var(--text);
+}
+
+/* ── Bottom block: dots + your-move prompt / feedback + hint cards ──────────── */
+/* The matching flex spacer below the board. Its content top-aligns so the dots
+   and status sit right under the board; it grows to share the spare height with
+   .pt-top, centring the board between them. */
+.pt-bottom {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
 }
 
 .pt-status {
