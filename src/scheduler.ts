@@ -128,6 +128,37 @@ export function nextDue(line: Line): Date | null {
   return soonest === null ? null : new Date(soonest);
 }
 
+// ── Status buckets (for the Train hub's filter row) ─────────────────────────────
+//
+// Each in-training line falls into exactly one of three buckets, derived purely
+// from the scheduler's own per-move data:
+//
+//   Due      – something is due right now (or never trained). Train it today.
+//   Learning – not due yet, but still being cemented: at least one move is on a
+//              short interval. A miss resets a move to a 1-day interval, so this
+//              also captures lines with a recent slip.
+//   Solid    – not due, and every move has graduated to a long interval.
+//
+// The cut between Learning and Solid is the interval (in days) at which a move
+// counts as "settled". 21 days is a sensible line: SM-2 climbs 1 → 6 → ~15 → ~37,
+// so a move only reaches 21+ after several clean recalls — by then it's earned
+// "Solid". A line is only as solid as its weakest (shortest-interval) move.
+export type LineBucket = 'due' | 'learning' | 'solid';
+
+export const SETTLED_INTERVAL_DAYS = 21;
+
+export function lineBucket(line: Line, now: Date = new Date()): LineBucket {
+  if (lineIsDue(line, now)) return 'due';
+  // Past the due check, every user-move has a review; the weakest move's
+  // interval decides. (A defensive `?? 0` keeps an unreviewed move in Learning.)
+  let minInterval = Infinity;
+  for (const n of userMoveNodes(line.tree, line.colour)) {
+    const iv = n.review?.interval ?? 0;
+    if (iv < minInterval) minInterval = iv;
+  }
+  return minInterval < SETTLED_INTERVAL_DAYS ? 'learning' : 'solid';
+}
+
 // A 0–5 confidence for the My-Lines display, derived from how settled the
 // line's moves are. A move's score is its consecutive clean reps (capped at 5);
 // the line's confidence is the average, rounded. Mastered lines climb to 5;

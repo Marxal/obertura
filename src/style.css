@@ -1726,6 +1726,98 @@ cg-board square.move-dest.oc {
   user-select: none;
 }
 
+/* ── Train hub: "In training" filter row + rows ─────────────────────────────── */
+
+.train-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0 0 0.7rem;
+}
+
+/* Colour seg wraps on its own line above; status seg + sort share the next. */
+.train-filter-line {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.train-filter-line .dorder {
+  margin-left: auto;
+}
+
+.train-lines-empty {
+  padding: 1rem 0.2rem;
+  color: var(--text-fainter);
+  font-size: 0.85rem;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* A training row: info stacked above a clear action strip. */
+.train-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.6rem;
+  padding: 0.75rem 0.9rem;
+}
+
+.train-row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.train-row-meta {
+  margin-top: 0;
+}
+
+.train-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* "Train now" takes the row; the two quiet icons sit to its right. */
+.train-row-train {
+  flex: 1;
+  min-height: 40px;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+}
+
+.train-row-view,
+.train-row-remove {
+  border: 1px solid var(--border-card);
+}
+
+/* Status pill in a row's meta line — one per bucket. */
+.status-chip {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.12rem 0.45rem;
+  border-radius: 10px;
+  font-family: system-ui, -apple-system, sans-serif;
+  line-height: 1.4;
+}
+
+.status-chip--due {
+  color: #fff;
+  background: var(--warn);
+}
+
+.status-chip--learning {
+  color: var(--maroon);
+  background: rgba(156, 107, 67, 0.16);
+}
+
+.status-chip--solid {
+  color: var(--success);
+  background: rgba(112, 129, 81, 0.16);
+}
+
 .line-edit-btn {
   display: flex;
   align-items: center;
@@ -3842,6 +3934,41 @@ cg-board square.move-dest.oc {
 .toast--show {
   opacity: 1;
   transform: translate(-50%, 0);
+}
+
+/* Undo toast — the agile "removed, but…" affordance. Clickable, so it opts back
+   into pointer events the plain toast turns off. */
+.undo-toast {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.6rem 0.55rem 1rem;
+  pointer-events: auto;
+}
+
+.undo-toast-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.undo-toast-btn {
+  flex: 0 0 auto;
+  border: none;
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--bg-card);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.undo-toast-btn:active {
+  background: rgba(255, 255, 255, 0.28);
 }
 
 /* ── Repertoire Map overlay ──────────────────────────────────────────────────── */

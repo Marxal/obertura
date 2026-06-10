@@ -6,6 +6,13 @@ const NAMING_MODE_KEY = 'obertura.namingMode';
 const WATCH_SPEED_KEY = 'obertura.watchSpeed';
 const DEFAULT_MODE_KEY = 'obertura.defaultTrainingMode';
 
+// The Train hub's line-list filters & sort. Device-local like every other pref,
+// so what you were looking at survives a reload.
+const TRAIN_COLOUR_KEY = 'obertura.train.filterColour';
+const TRAIN_STATUS_KEY = 'obertura.train.filterStatus';
+const TRAIN_SORT_KEY = 'obertura.train.sort';
+// (An Opponent filter joins these once Explore ships — see train-screen.ts.)
+
 // Timed personal bests are kept per duration ("obertura.timedBest.3" etc.).
 const TIMED_BEST_PREFIX = 'obertura.timedBest.';
 // The pre-split single best lived here; migrated to the 3-minute slot on first
@@ -28,6 +35,42 @@ export function getDefaultTrainingMode(): TrainingMode {
 
 export function setDefaultTrainingMode(mode: TrainingMode): void {
   localStorage.setItem(DEFAULT_MODE_KEY, mode);
+}
+
+// ── Train hub line-list view (filters + sort) ───────────────────────────────────
+//
+// Three small choices that shape the "In training" list. Each is read with a
+// safe fallback so a stray/old value can never wedge the screen.
+
+export type TrainColourFilter = 'all' | 'white' | 'black';
+export type TrainStatusFilter = 'all' | 'due' | 'learning' | 'solid';
+export type TrainSort = 'weakest' | 'oldest' | 'newest' | 'name';
+
+export function getTrainColourFilter(): TrainColourFilter {
+  const v = localStorage.getItem(TRAIN_COLOUR_KEY);
+  return v === 'white' || v === 'black' ? v : 'all';
+}
+
+export function setTrainColourFilter(v: TrainColourFilter): void {
+  localStorage.setItem(TRAIN_COLOUR_KEY, v);
+}
+
+export function getTrainStatusFilter(): TrainStatusFilter {
+  const v = localStorage.getItem(TRAIN_STATUS_KEY);
+  return v === 'due' || v === 'learning' || v === 'solid' ? v : 'all';
+}
+
+export function setTrainStatusFilter(v: TrainStatusFilter): void {
+  localStorage.setItem(TRAIN_STATUS_KEY, v);
+}
+
+export function getTrainSort(): TrainSort {
+  const v = localStorage.getItem(TRAIN_SORT_KEY);
+  return v === 'oldest' || v === 'newest' || v === 'name' ? v : 'weakest';
+}
+
+export function setTrainSort(v: TrainSort): void {
+  localStorage.setItem(TRAIN_SORT_KEY, v);
 }
 
 // How a saved line gets its title. "auto" (default) fills the name from the

@@ -12,6 +12,15 @@ import {
   getDefaultTrainingMode,
   TIMED_DURATIONS,
   type TimedMinutes,
+  getTrainColourFilter,
+  setTrainColourFilter,
+  getTrainStatusFilter,
+  setTrainStatusFilter,
+  getTrainSort,
+  setTrainSort,
+  type TrainColourFilter,
+  type TrainStatusFilter,
+  type TrainSort,
 } from './prefs';
 import { TrainingSession, type SessionItem } from './session';
 import {
@@ -20,7 +29,7 @@ import {
   newReview,
   qualityFromMisses,
   lineConfidence,
-  lineIsDue,
+  lineBucket,
   isReviewDue,
   dueLines,
   nextDue,
@@ -39,6 +48,11 @@ import {
 import { renderLoadError } from './load-error';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
+// How the quiet "view line" icon opens a line (in the builder, to step through
+// it). Set on every screen entry; held at module scope so the many internal
+// doRender(container) calls — which only pass the container — keep working.
+let onViewLine: ((line: Line) => void) | null = null;
 
 // One missed spot worth revisiting at the end of a session: the position to
 // show and the move that should have been played there.
@@ -66,8 +80,9 @@ function addMistake(
 
 export function renderTrainScreen(
   container: HTMLElement,
-  opts: { focusLineId?: string; autoStart?: boolean } = {},
+  opts: { focusLineId?: string; autoStart?: boolean; onOpenLine?: (line: Line) => void } = {},
 ): void {
+  onViewLine = opts.onOpenLine ?? null;
   void doRender(container, opts.focusLineId, opts.autoStart);
 }
 
@@ -466,7 +481,64 @@ function countUp(el: HTMLElement, to: number, durationMs = 550): void {
   requestAnimationFrame(step);
 }
 
-// ── Card list (browse every training line) ──────────────────────────────────────
+// ── "In training" list (filter + sort + rows) ────────────────────────────────────
+//
+// A filter row (colour · status · sort) sits above the list; every choice is
+// persisted (prefs.ts) so it survives a reload. Status buckets come straight from
+// the scheduler (see lineBucket): Due now / Learning (short intervals or a recent
+// miss) / Solid (long intervals). Each row carries the line, a "Train now" primary
+// action and two quiet icons — view the line, or remove it from training.
+
+const TRAIN_COLOURS: { key: TrainColourFilter; label: string; pip?: 'white' | 'black' }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'white', label: 'White', pip: 'white' },
+  { key: 'black', label: 'Black', pip: 'black' },
+];
+
+const TRAIN_STATUSES: { key: TrainStatusFilter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'due', label: 'Due' },
+  { key: 'learning', label: 'Learning' },
+  { key: 'solid', label: 'Solid' },
+];
+
+const TRAIN_SORTS: { key: TrainSort; label: string }[] = [
+  { key: 'weakest', label: 'Weakest' },
+  { key: 'oldest', label: 'Oldest trained' },
+  { key: 'newest', label: 'Newest' },
+  { key: 'name', label: 'A–Z' },
+];
+
+// Apply the persisted colour + status filters, then the chosen ordering.
+function viewTrainingLines(lines: Line[]): Line[] {
+  const colour = getTrainColourFilter();
+  const status = getTrainStatusFilter();
+  let out = lines;
+  if (colour !== 'all') out = out.filter(l => l.colour === colour);
+  // (An Opponent filter lands here once Explore ships.)
+  if (status !== 'all') out = out.filter(l => lineBucket(l) === status);
+  return sortTrainingLines(out, getTrainSort());
+}
+
+function sortTrainingLines(lines: Line[], sort: TrainSort): Line[] {
+  switch (sort) {
+    case 'newest':
+      return recentlyAddedLines(lines);
+    case 'name':
+      return [...lines].sort((a, b) =>
+        (a.name || 'Untitled line').localeCompare(b.name || 'Untitled line'));
+    case 'oldest':
+      // Oldest trained first; never-trained lines (no timestamp) lead.
+      return [...lines].sort((a, b) => trainedTime(a) - trainedTime(b));
+    case 'weakest':
+    default:
+      return weakestLines(lines);
+  }
+}
+
+function trainedTime(line: Line): number {
+  return line.lastTrained ? new Date(line.lastTrained).getTime() : 0;
+}
 
 function renderCardList(container: HTMLElement, trainingLines: Line[]): void {
   const section = document.createElement('div');
@@ -476,65 +548,242 @@ function renderCardList(container: HTMLElement, trainingLines: Line[]): void {
   head.className = 'section-head';
   const heading = document.createElement('h2');
   heading.className = 'section-title';
-  heading.textContent = 'Training lines';
+  heading.textContent = 'In training';
   head.appendChild(heading);
   section.appendChild(head);
 
-  for (const line of trainingLines) {
-    section.appendChild(buildTrainCard(line, container));
+  // The list re-renders in place when a filter/sort changes; a remove/undo
+  // re-renders the whole screen (so the hero counts stay honest).
+  const listEl = document.createElement('div');
+  listEl.className = 'train-lines';
+
+  function rebuildList(): void {
+    listEl.innerHTML = '';
+    const shown = viewTrainingLines(trainingLines);
+    if (shown.length === 0) {
+      const note = document.createElement('p');
+      note.className = 'train-lines-empty';
+      note.textContent = 'No lines match these filters.';
+      listEl.appendChild(note);
+      return;
+    }
+    for (const line of shown) {
+      listEl.appendChild(buildTrainRow(line, container));
+    }
   }
+
+  section.appendChild(buildFilterRow(rebuildList));
+  rebuildList();
+  section.appendChild(listEl);
   container.appendChild(section);
 }
 
-function buildTrainCard(line: Line, container: HTMLElement): HTMLElement {
-  const card = document.createElement('div');
-  card.className = 'line-card';
+// The colour · status · sort controls. Each click persists the choice, repaints
+// its own segment's active state, and rebuilds the list beneath.
+function buildFilterRow(onChange: () => void): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'train-filters';
 
-  const isDue = lineIsDue(line);
-  if (!isDue) card.classList.add('line-card--rested');
+  wrap.appendChild(buildSeg(
+    TRAIN_COLOURS,
+    getTrainColourFilter(),
+    key => { setTrainColourFilter(key); onChange(); },
+  ));
 
-  const body = document.createElement('button');
-  body.type = 'button';
-  body.className = 'line-card-body';
-  // Tapping a card drills just that line (a one-line practice session).
-  body.addEventListener('click', () => {
-    const session = new TrainingSession([line], { explicit: true });
-    runSession(session, container, makeStats());
+  const line = document.createElement('div');
+  line.className = 'train-filter-line';
+  line.appendChild(buildSeg(
+    TRAIN_STATUSES,
+    getTrainStatusFilter(),
+    key => { setTrainStatusFilter(key); onChange(); },
+  ));
+  line.appendChild(buildSortMenu(onChange));
+  wrap.appendChild(line);
+
+  return wrap;
+}
+
+function buildSeg<T extends string>(
+  options: { key: T; label: string; pip?: 'white' | 'black' }[],
+  current: T,
+  onPick: (key: T) => void,
+): HTMLElement {
+  const seg = document.createElement('div');
+  seg.className = 'dfilter-seg';
+  for (const o of options) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `dfilter-btn${current === o.key ? ' active' : ''}`;
+    if (o.pip) {
+      const pip = document.createElement('span');
+      pip.className = `colour-pip colour-pip--${o.pip}`;
+      pip.setAttribute('aria-hidden', 'true');
+      btn.appendChild(pip);
+    }
+    btn.appendChild(document.createTextNode(o.label));
+    btn.setAttribute('aria-label', o.label);
+    btn.addEventListener('click', () => {
+      seg.querySelectorAll('.dfilter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      onPick(o.key);
+    });
+    seg.appendChild(btn);
+  }
+  return seg;
+}
+
+function buildSortMenu(onChange: () => void): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'dorder';
+
+  const icon = Icons.order(16);
+  icon.classList.add('dorder-icon');
+  wrap.appendChild(icon);
+
+  const select = document.createElement('select');
+  select.className = 'dorder-select';
+  select.setAttribute('aria-label', 'Sort training lines');
+  const current = getTrainSort();
+  for (const o of TRAIN_SORTS) {
+    const opt = document.createElement('option');
+    opt.value = o.key;
+    opt.textContent = o.label;
+    if (o.key === current) opt.selected = true;
+    select.appendChild(opt);
+  }
+  select.addEventListener('change', () => {
+    setTrainSort(select.value as TrainSort);
+    onChange();
   });
+  wrap.appendChild(select);
+
+  return wrap;
+}
+
+function buildTrainRow(line: Line, container: HTMLElement): HTMLElement {
+  const card = document.createElement('div');
+  card.className = 'line-card train-row';
+
+  const bucket = lineBucket(line);
+  if (bucket !== 'due') card.classList.add('line-card--rested');
+
+  // Info block — name + a small meta line (colour · status · next due).
+  const info = document.createElement('div');
+  info.className = 'train-row-info';
 
   const nameEl = document.createElement('div');
   nameEl.className = 'line-card-name';
   nameEl.textContent = line.name || 'Untitled line';
+  info.appendChild(nameEl);
 
   const meta = document.createElement('div');
-  meta.className = 'line-card-meta';
+  meta.className = 'line-card-meta train-row-meta';
 
   const colourChip = document.createElement('span');
   colourChip.className = 'tag-chip';
   colourChip.textContent = line.colour === 'white' ? '○ White' : '● Black';
   meta.appendChild(colourChip);
 
-  for (const tag of line.tags) {
-    const chip = document.createElement('span');
-    chip.className = 'tag-chip';
-    chip.textContent = tag;
-    meta.appendChild(chip);
-  }
-
-  const trainingRow = document.createElement('div');
-  trainingRow.className = 'line-card-training';
+  const statusChip = document.createElement('span');
+  statusChip.className = `status-chip status-chip--${bucket}`;
+  statusChip.textContent = bucket === 'due' ? 'Due' : bucket === 'learning' ? 'Learning' : 'Solid';
+  meta.appendChild(statusChip);
 
   const dueSpan = document.createElement('span');
-  dueSpan.className = isDue ? 'training-stat training-stat--due' : 'training-stat';
+  dueSpan.className = 'training-stat';
   dueSpan.textContent = describeDue(nextDue(line));
-  trainingRow.appendChild(dueSpan);
+  meta.appendChild(dueSpan);
 
-  body.appendChild(nameEl);
-  body.appendChild(meta);
-  body.appendChild(trainingRow);
-  card.appendChild(body);
+  info.appendChild(meta);
+  card.appendChild(info);
+
+  // Actions — a clear primary plus two quiet icons.
+  const actions = document.createElement('div');
+  actions.className = 'train-row-actions';
+
+  const train = document.createElement('button');
+  train.type = 'button';
+  train.className = 'btn-primary train-row-train';
+  train.textContent = 'Train now';
+  train.addEventListener('click', () => {
+    const session = new TrainingSession([line], { explicit: true });
+    runSession(session, container, makeStats());
+  });
+  actions.appendChild(train);
+
+  const view = document.createElement('button');
+  view.type = 'button';
+  view.className = 'dline-icon train-row-view';
+  view.setAttribute('aria-label', 'View line');
+  view.title = 'View line';
+  view.appendChild(Icons.eye(18));
+  view.addEventListener('click', () => onViewLine?.(line));
+  actions.appendChild(view);
+
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.className = 'dline-icon dline-icon--danger train-row-remove';
+  remove.setAttribute('aria-label', 'Remove from training');
+  remove.title = 'Remove from training';
+  remove.appendChild(Icons.trash(18));
+  // One tap removes immediately — no confirm. An Undo toast restores it.
+  remove.addEventListener('click', () => void removeFromTraining(line, container));
+  actions.appendChild(remove);
+
+  card.appendChild(actions);
 
   return card;
+}
+
+// Agile remove: flip the line out of training and repaint the whole Train screen
+// at once (so the hero "Due" count and the list both update), then float an Undo
+// toast that puts it straight back if tapped within a few seconds.
+async function removeFromTraining(line: Line, container: HTMLElement): Promise<void> {
+  await saveLine({ ...line, inTraining: false });
+  await doRender(container);
+  showUndoToast(`Removed “${line.name || 'Untitled line'}”`, async () => {
+    await saveLine({ ...line, inTraining: true });
+    await doRender(container);
+  });
+}
+
+// A transient toast with an Undo action. Reuses the .toast chrome; only one is
+// ever on screen (a new remove replaces the previous toast and its timer).
+let undoToastTimer: ReturnType<typeof setTimeout> | undefined;
+function showUndoToast(message: string, onUndo: () => void): void {
+  document.getElementById('train-undo-toast')?.remove();
+  if (undoToastTimer !== undefined) clearTimeout(undoToastTimer);
+
+  const toast = document.createElement('div');
+  toast.id = 'train-undo-toast';
+  toast.className = 'toast undo-toast';
+  toast.setAttribute('role', 'status');
+  toast.setAttribute('aria-live', 'polite');
+
+  const text = document.createElement('span');
+  text.className = 'undo-toast-text';
+  text.textContent = message;
+  toast.appendChild(text);
+
+  const undo = document.createElement('button');
+  undo.type = 'button';
+  undo.className = 'undo-toast-btn';
+  undo.textContent = 'Undo';
+  undo.addEventListener('click', () => {
+    if (undoToastTimer !== undefined) clearTimeout(undoToastTimer);
+    toast.remove();
+    onUndo();
+  });
+  toast.appendChild(undo);
+
+  document.body.appendChild(toast);
+  // Let the element mount before adding the show class, so it animates in.
+  requestAnimationFrame(() => toast.classList.add('toast--show'));
+
+  undoToastTimer = setTimeout(() => {
+    toast.classList.remove('toast--show');
+    setTimeout(() => toast.remove(), 200);
+  }, 5000);
 }
 
 // ── Driving a session ───────────────────────────────────────────────────────────

@@ -814,6 +814,7 @@ function showView(view: ViewName): void {
   if (view === 'train') {
     renderTrainScreen(trainEl, {
       focusLineId: pendingTrainLineId ?? undefined,
+      onOpenLine,
     });
     pendingTrainLineId = null;
   }
