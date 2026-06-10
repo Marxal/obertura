@@ -305,7 +305,12 @@ function applyTx(inner: HTMLElement, state: TxState, animated = false): void {
   inner.style.transform = `translate(${state.tx}px, ${state.ty}px) scale(${state.scale})`;
 }
 
-function initPanZoom(outer: HTMLElement, inner: HTMLElement, state: TxState): void {
+// Returns a disposer that detaches the window-level listeners. The pan/zoom
+// handlers on `outer` go away with the overlay, but the mouse drag tracks moves
+// across the whole window, so its `mousemove`/`mouseup` are on `window` and must
+// be removed by hand on close — otherwise every open of the map leaks another
+// pair that fires for the rest of the session.
+function initPanZoom(outer: HTMLElement, inner: HTMLElement, state: TxState): () => void {
   // Touch pan + pinch
   let t0: Touch | null = null;
   let startTx = 0, startTy = 0;
@@ -344,16 +349,18 @@ function initPanZoom(outer: HTMLElement, inner: HTMLElement, state: TxState): vo
     md = true; mx = e.clientX; my = e.clientY; mtx = state.tx; mty = state.ty;
     outer.style.cursor = 'grabbing';
   });
-  window.addEventListener('mousemove', e => {
+  const onMouseMove = (e: MouseEvent) => {
     if (!md) return;
     state.tx = mtx + (e.clientX - mx);
     state.ty = mty + (e.clientY - my);
     applyTx(inner, state);
-  });
-  window.addEventListener('mouseup', () => {
+  };
+  const onMouseUp = () => {
     md = false;
     outer.style.cursor = '';
-  });
+  };
+  window.addEventListener('mousemove', onMouseMove);
+  window.addEventListener('mouseup', onMouseUp);
 
   // Wheel zoom — faster multiplier for snappier feel
   outer.addEventListener('wheel', e => {
@@ -362,6 +369,11 @@ function initPanZoom(outer: HTMLElement, inner: HTMLElement, state: TxState): vo
     state.scale = Math.max(0.15, Math.min(5, state.scale * f));
     applyTx(inner, state);
   }, { passive: false });
+
+  return () => {
+    window.removeEventListener('mousemove', onMouseMove);
+    window.removeEventListener('mouseup', onMouseUp);
+  };
 }
 
 // Centre a node in the visible area (with smooth animation).
@@ -472,7 +484,10 @@ export function openRepertoireMap(
 
   // Closing the map (back button, opening a line, or the system back gesture)
   // all route through here so the back-navigation stack stays in sync.
+  // Set once initPanZoom runs (below); detaches the window drag listeners.
+  let disposePanZoom: (() => void) | null = null;
   function close(): void {
+    disposePanZoom?.();
     overlay.remove();
     removeBack();
   }
@@ -611,7 +626,7 @@ export function openRepertoireMap(
   overlay.appendChild(controls.container);
   document.body.appendChild(overlay);
 
-  initPanZoom(treeWrap, inner, state);
+  disposePanZoom = initPanZoom(treeWrap, inner, state);
 
   // Start centred on the first child.
   requestAnimationFrame(() => {

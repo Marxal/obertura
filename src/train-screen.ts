@@ -24,6 +24,7 @@ import {
 } from './scheduler';
 import { runSchedulerSelfTest } from './scheduler.selftest';
 import { recordTrainingDay } from './streak';
+import { renderLoadError } from './load-error';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -64,7 +65,13 @@ async function doRender(
   autoStart?: boolean,
 ): Promise<void> {
   container.innerHTML = '<p class="lines-loading">Loading…</p>';
-  const allLines = await getAllLines();
+  let allLines: Line[];
+  try {
+    allLines = await getAllLines();
+  } catch (err) {
+    renderLoadError(container, err, () => void doRender(container, focusLineId, autoStart));
+    return;
+  }
   container.innerHTML = '';
 
   const trainingLines = allLines.filter(l => l.inTraining);

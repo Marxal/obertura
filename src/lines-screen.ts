@@ -12,7 +12,7 @@ import {
 import { lineIsDue } from './scheduler';
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
-import { analyseGames, countGamesPerLine, type OpeningStat } from './analysis';
+import { analyseGames, countGamesPerLine, type Analysis, type OpeningStat } from './analysis';
 import {
   getUsername,
   importRecentGames,
@@ -20,6 +20,29 @@ import {
   type ImportedGame,
 } from './chesscom';
 import { runAnalysisSelfTest } from './analysis.selftest';
+import { renderLoadError } from './load-error';
+
+// Game analysis walks every imported game through a merged repertoire tree — at
+// a year's worth of games that's a visible hitch on a phone. It was being re-run
+// on every render AND every sort-toggle. Cache the result against the exact
+// games + lines arrays a render pass was handed: a sort toggle reuses the same
+// arrays (cache hit), while a fresh fetch after a toggle/delete/import makes new
+// arrays (cache busts), so the cache can never go stale.
+let analysisCache: { games: ImportedGame[]; lines: Line[]; result: Analysis } | null = null;
+function cachedAnalysis(games: ImportedGame[], lines: Line[]): Analysis {
+  if (!analysisCache || analysisCache.games !== games || analysisCache.lines !== lines) {
+    analysisCache = { games, lines, result: analyseGames(games, lines) };
+  }
+  return analysisCache.result;
+}
+
+let countsCache: { games: ImportedGame[]; lines: Line[]; result: Map<string, number> } | null = null;
+function cachedCounts(games: ImportedGame[], lines: Line[]): Map<string, number> {
+  if (!countsCache || countsCache.games !== games || countsCache.lines !== lines) {
+    countsCache = { games, lines, result: countGamesPerLine(games, lines) };
+  }
+  return countsCache.result;
+}
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -135,10 +158,17 @@ export function renderLinesScreen(
 
 async function doRender(container: HTMLElement, deps: LinesDeps): Promise<void> {
   container.innerHTML = '<p class="lines-loading">Loading…</p>';
-  const [allLines, games] = await Promise.all([getAllLines(), getAllGames()]);
+  let allLines: Line[];
+  let games: ImportedGame[];
+  try {
+    [allLines, games] = await Promise.all([getAllLines(), getAllGames()]);
+  } catch (err) {
+    renderLoadError(container, err, () => void doRender(container, deps));
+    return;
+  }
   container.innerHTML = '';
 
-  const playCounts = countGamesPerLine(games, allLines);
+  const playCounts = cachedCounts(games, allLines);
   const pending: Pending[] = [];
 
   // Quick view: one carousel of mini-boards per colour, each with a play badge.
@@ -420,7 +450,7 @@ function renderSavedTab(
   container: HTMLElement
 ): void {
   content.innerHTML = '';
-  const counts = countGamesPerLine(games, lines);
+  const counts = cachedCounts(games, lines);
 
   // After a toggle/delete/rename, re-fetch lines and re-render this tab.
   const refresh = async () => {
@@ -673,7 +703,7 @@ function renderGamesTab(
     return;
   }
 
-  const analysis = analyseGames(games, lines);
+  const analysis = cachedAnalysis(games, lines);
 
   const rerender = () => renderGamesTab(content, games, lines, deps, fullRefresh);
   content.appendChild(

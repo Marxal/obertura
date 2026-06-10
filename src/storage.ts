@@ -46,6 +46,12 @@ function openDB(): Promise<IDBDatabase> {
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
+    // Another tab still holding the old version open blocks a DB_VERSION bump,
+    // and without this the open would hang forever (no success, no error) and
+    // leave every data screen stuck on "Loading…". Reject with a clear message
+    // the screens' load-error panels can show.
+    request.onblocked = () =>
+      reject(new Error('Another tab has Obertura open. Close it and reload.'));
   });
   return dbPromise;
 }
