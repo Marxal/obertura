@@ -12,6 +12,7 @@ import { Chessground } from 'chessground';
 import type { Api as CgApi } from 'chessground/api';
 import type { Key } from 'chessground/types';
 import { nameForFen } from './openings';
+import { pushBack } from './back-nav';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 const NS = 'http://www.w3.org/2000/svg';
@@ -469,6 +470,14 @@ export function openRepertoireMap(
   overlay.setAttribute('role', 'dialog');
   overlay.setAttribute('aria-modal', 'true');
 
+  // Closing the map (back button, opening a line, or the system back gesture)
+  // all route through here so the back-navigation stack stays in sync.
+  function close(): void {
+    overlay.remove();
+    removeBack();
+  }
+  const removeBack = pushBack(close);
+
   // Header.
   const header = document.createElement('div');
   header.className = 'rmap-header';
@@ -480,7 +489,7 @@ export function openRepertoireMap(
   back.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none"
     stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
     <path d="M19 12H5M12 5l-7 7 7 7"/></svg>`;
-  back.addEventListener('click', () => overlay.remove());
+  back.addEventListener('click', close);
 
   const titleEl = document.createElement('h2');
   titleEl.className = 'rmap-title';
@@ -537,7 +546,7 @@ export function openRepertoireMap(
 
     // Show preview.
     preview.show(n, filtered, line => {
-      overlay.remove();
+      close();
       onOpenLine(line);
     });
 

@@ -20,6 +20,7 @@ import { EvalPanel } from './eval-panel';
 import { initTheme } from './theme';
 import { initAppearance } from './appearance';
 import { watchSpeedMs } from './prefs';
+import { initBackNav, setViewBack, pushBack } from './back-nav';
 
 const chess = new Chess();
 let cg!: ReturnType<typeof Chessground>;
@@ -200,7 +201,9 @@ function openEditSheet(): void {
 
   function close() {
     overlay.remove();
+    removeBack();
   }
+  const removeBack = pushBack(close);
   overlay.addEventListener('click', e => {
     if (e.target === overlay) close();
   });
@@ -896,6 +899,27 @@ function setupNav(): void {
   document.getElementById('nav-settings')!.addEventListener('click', () => {
     showView('settings');
   });
+
+  // The system back gesture steps back through the app (closing any open sheet
+  // first) instead of closing the PWA. Overlays register their own steps; this
+  // is the view-level fallback once nothing is open.
+  setViewBack(() => {
+    // Full screens (builder / settings) return to wherever they were opened from.
+    if (BACK_VIEWS.has(currentView)) {
+      stopPlayback();
+      showView(returnView);
+      return true;
+    }
+    // Any other tab returns to the home dashboard.
+    if (currentView !== 'home') {
+      stopPlayback();
+      showView('home');
+      return true;
+    }
+    // Home with nothing open: let the press through so the app can close.
+    return false;
+  });
+  initBackNav();
 }
 
 // ── Save ────────────────────────────────────────────────────────────────────

@@ -11,6 +11,7 @@ import {
 } from './storage';
 import { lineIsDue } from './scheduler';
 import { Icons } from './icons';
+import { pushBack } from './back-nav';
 import { analyseGames, countGamesPerLine, type OpeningStat } from './analysis';
 import {
   getUsername,
@@ -952,7 +953,9 @@ function openRenameSheet(line: Line, onSaved: (newName: string) => void): void {
 
   function close() {
     overlay.remove();
+    removeBack();
   }
+  const removeBack = pushBack(close);
 
   overlay.addEventListener('click', e => {
     if (e.target === overlay) close();
@@ -1018,7 +1021,9 @@ function openDeletePopup(line: Line, onDeleted: () => void): void {
 
   function close() {
     overlay.remove();
+    removeBack();
   }
+  const removeBack = pushBack(close);
 
   overlay.addEventListener('click', e => {
     if (e.target === overlay) close();

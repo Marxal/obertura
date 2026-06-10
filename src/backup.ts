@@ -15,6 +15,7 @@ import {
   type BackupFile,
 } from './storage';
 import { Icons } from './icons';
+import { pushBack } from './back-nav';
 
 // Build the "Backup & restore" section. `onRestored` is called after a
 // successful import so the caller can re-render the lines it just changed.
@@ -210,7 +211,9 @@ function openImportChooser(
 
   function close() {
     overlay.remove();
+    removeBack();
   }
+  const removeBack = pushBack(close);
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) close();
   });
