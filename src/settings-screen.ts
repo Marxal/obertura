@@ -36,7 +36,7 @@ import {
   type ImportedGame,
 } from './chesscom';
 import { saveGames, countGames, clearGames, resetAllProgress } from './storage';
-import { clearTrainingDays } from './streak';
+import { clearTrainingDays, clearReviewedToday } from './streak';
 import { renderBackupSection } from './backup';
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
@@ -439,6 +439,7 @@ function buildDataGroup(): HTMLElement {
         try {
           await resetAllProgress();
           clearTrainingDays();
+          clearReviewedToday();
           clearTimedBest();
           status.textContent = 'Progress reset ✓ — every line is due again.';
         } catch (err) {

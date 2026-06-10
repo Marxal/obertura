@@ -6,7 +6,13 @@ import { selectIndividualPositions } from './individual';
 import { openExplorer } from './explore';
 import { Icons } from './icons';
 import { isGoodAlternative } from './engine';
-import { getTimedBest, recordTimedBest, getDefaultTrainingMode } from './prefs';
+import {
+  getTimedBest,
+  recordTimedBest,
+  getDefaultTrainingMode,
+  TIMED_DURATIONS,
+  type TimedMinutes,
+} from './prefs';
 import { TrainingSession, type SessionItem } from './session';
 import {
   userMoveNodes,
@@ -23,7 +29,13 @@ import {
   weakestLines,
 } from './scheduler';
 import { runSchedulerSelfTest } from './scheduler.selftest';
-import { recordTrainingDay, currentStreak, trainedToday } from './streak';
+import {
+  recordTrainingDay,
+  currentStreak,
+  trainedToday,
+  recordReviewed,
+  reviewedToday,
+} from './streak';
 import { renderLoadError } from './load-error';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -110,7 +122,8 @@ async function doRender(
   }
 
   renderTrainHead(container);
-  renderSessionHeader(container, due, trainingLines);
+  renderHero(container, due, trainingLines);
+  renderModeCards(container, trainingLines);
   renderCardList(container, trainingLines);
   appendSelfTestLink(container);
 }
@@ -190,181 +203,267 @@ function renderEmpty(container: HTMLElement): void {
   container.appendChild(wrap);
 }
 
-// ── Session header (due preview + "Start review" call to action) ─────────────
-
-function renderSessionHeader(container: HTMLElement, due: Line[], allTraining: Line[]): void {
-  const wrap = document.createElement('div');
-  wrap.className = 'section session-header';
-
-  // Count individual user-move positions across all training lines.
-  const now = new Date();
-  let totalPositions = 0;
-  let duePositions = 0;
-  for (const line of allTraining) {
-    const nodes = userMoveNodes(line.tree, line.colour);
-    totalPositions += nodes.length;
-    duePositions += nodes.filter(n => isReviewDue(n.review, now)).length;
-  }
-  const masteredPositions = totalPositions - duePositions;
-  const masteryPct = totalPositions > 0 ? (masteredPositions / totalPositions) * 100 : 100;
-
-  const count = document.createElement('div');
-  count.className = 'session-count';
-  count.textContent = due.length > 0
-    ? `${due.length} line${due.length === 1 ? '' : 's'} due for review`
-    : 'All caught up for now ✓';
-  wrap.appendChild(count);
-
-  // Progress bar — fills as positions are mastered (100 % = fully up to date).
-  const barWrap = document.createElement('div');
-  barWrap.className = 'session-progress-bar';
-  const barFill = document.createElement('div');
-  barFill.className = 'session-progress-fill' + (due.length === 0 ? ' session-progress-fill--done' : '');
-  barFill.style.width = `${Math.round(masteryPct)}%`;
-  barWrap.appendChild(barFill);
-  wrap.appendChild(barWrap);
-
-  // Sub-label: how many individual positions need attention.
-  if (totalPositions > 0) {
-    const posLabel = document.createElement('div');
-    posLabel.className = 'session-pos-label';
-    posLabel.textContent = duePositions > 0
-      ? `${duePositions} of ${totalPositions} position${totalPositions === 1 ? '' : 's'} need a look`
-      : `${totalPositions} position${totalPositions === 1 ? '' : 's'} all up to date`;
-    wrap.appendChild(posLabel);
-  }
-
-  renderPracticePicker(wrap, due, allTraining, container);
-
-  // Individual-moves mode: a stream of single positions (due + weakest moves),
-  // each starting mid-opening. Offered whenever there's anything deep enough to
-  // drill, even when no full line is due.
-  const individual = selectIndividualPositions(allTraining);
-  if (individual.length > 0) {
-    const indBtn = document.createElement('button');
-    indBtn.type = 'button';
-    indBtn.className = 'btn-secondary session-individual-btn';
-    indBtn.appendChild(Icons.zap(16));
-    indBtn.appendChild(document.createTextNode(
-      `Fix individual moves (${individual.length})`,
-    ));
-    indBtn.addEventListener('click', () => runIndividual(container, allTraining));
-    wrap.appendChild(indBtn);
-
-    // Timed challenge — a 3-minute speed run over the same individual positions.
-    const best = getTimedBest();
-    const timedBtn = document.createElement('button');
-    timedBtn.type = 'button';
-    timedBtn.className = 'btn-secondary session-timed-btn';
-    timedBtn.appendChild(Icons.clock(16));
-    timedBtn.appendChild(document.createTextNode(
-      best > 0 ? `Timed challenge · best ${best}` : 'Timed challenge',
-    ));
-    timedBtn.addEventListener('click', () => runTimed(container, allTraining));
-    wrap.appendChild(timedBtn);
-  }
-
-  container.appendChild(wrap);
-}
-
-// ── Practice picker (choose what a session loads) ────────────────────────────────
+// ── Hero: "Due now" ───────────────────────────────────────────────────────────
 //
-// Three cheap, engine-free ways to build today's session:
-//   • Due now        — the spaced-repetition queue (what's actually scheduled).
-//   • Recently added — your newest lines first (drill what you just built).
-//   • Weakest        — the lines you miss most, hardest first.
-// "Due now" reflects the real due set; the other two are explicit walks through
-// the repertoire in their chosen order, capped so a session stays bite-sized.
+// The front door. One number (lines due), today's effort when there is some,
+// and the primary Start button that launches the scheduled queue. Calm: the
+// count animates up on entry; nothing flashes.
 
+// Lines drilled per explicit-mode session, so Fresh/Trouble stay bite-sized.
 const PICKER_SESSION_CAP = 12;
 
-function renderPracticePicker(
-  wrap: HTMLElement,
-  due: Line[],
-  allTraining: Line[],
-  container: HTMLElement,
-): void {
-  const picker = document.createElement('div');
-  picker.className = 'session-picker';
+function renderHero(container: HTMLElement, due: Line[], allTraining: Line[]): void {
+  const hero = document.createElement('div');
+  hero.className = 'card train-hero' + (due.length === 0 ? ' train-hero--clear' : '');
+
+  const label = document.createElement('div');
+  label.className = 'train-hero-label';
+  label.textContent = 'Due now';
+  hero.appendChild(label);
+
+  const countRow = document.createElement('div');
+  countRow.className = 'train-hero-count-row';
+  const count = document.createElement('span');
+  count.className = 'train-hero-count';
+  count.textContent = '0';
+  countRow.appendChild(count);
+  const unit = document.createElement('span');
+  unit.className = 'train-hero-unit';
+  unit.textContent = due.length === 1 ? 'line' : 'lines';
+  countRow.appendChild(unit);
+  hero.appendChild(countRow);
+  countUp(count, due.length);
+
+  // Today's effort, when there's been any.
+  const reviewed = reviewedToday();
+  if (reviewed > 0) {
+    const rev = document.createElement('div');
+    rev.className = 'train-hero-reviewed';
+    rev.textContent = `${reviewed} reviewed today`;
+    hero.appendChild(rev);
+  }
+
+  const start = document.createElement('button');
+  start.type = 'button';
+  start.className = 'btn-primary train-hero-start';
+  if (due.length > 0) {
+    start.textContent = 'Start review';
+    start.addEventListener('click', () =>
+      runSession(new TrainingSession(allTraining), container, makeStats()));
+  } else {
+    start.textContent = 'All caught up ✓';
+    start.disabled = true;
+  }
+  hero.appendChild(start);
+
+  container.appendChild(hero);
+}
+
+// ── Mode cards ──────────────────────────────────────────────────────────────────
+//
+// One clear front door per training mode. Each card carries a line icon, a name,
+// a one-line subtitle and a live stat. They replace the old separate buttons and
+// the practice picker — same underlying modes, presented as one menu. Room is
+// left below for a fifth "Prep" card that arrives with Explore.
+
+function renderModeCards(container: HTMLElement, allTraining: Line[]): void {
+  const section = document.createElement('div');
+  section.className = 'section mode-cards';
 
   const label = document.createElement('div');
   label.className = 'section-title';
   label.textContent = 'Practise';
-  picker.appendChild(label);
+  section.appendChild(label);
 
-  const start = (session: TrainingSession) => runSession(session, container, makeStats());
-
-  // Due now — the scheduled queue. Disabled when nothing is due.
-  picker.appendChild(buildOption({
-    icon: Icons.play(18),
-    title: 'Due now',
-    sub: due.length > 0
-      ? `${due.length} line${due.length === 1 ? '' : 's'} scheduled`
-      : 'Nothing due — all caught up',
-    primary: true,
-    disabled: due.length === 0,
-    onClick: () => start(new TrainingSession(allTraining)),
+  // Quick fixes — the count of due individual moves. Tappable as long as there's
+  // anything deep enough to drill (the mode falls back to weak/upcoming moves).
+  const duePositions = countDuePositions(allTraining);
+  const hasPositions = selectIndividualPositions(allTraining).length > 0;
+  section.appendChild(buildModeCard({
+    icon: Icons.zap(20),
+    name: 'Quick fixes',
+    sub: 'single moves you’ve missed',
+    stat: duePositions,
+    statLabel: duePositions === 1 ? 'due move' : 'due moves',
+    disabled: !hasPositions,
+    onClick: () => runIndividual(container, allTraining),
   }));
 
-  // Recently added — newest first.
-  picker.appendChild(buildOption({
-    icon: Icons.plus(18),
-    title: 'Recently added',
-    sub: 'Your newest lines first',
-    onClick: () => {
-      const ordered = recentlyAddedLines(allTraining).slice(0, PICKER_SESSION_CAP);
-      start(new TrainingSession(ordered, { explicit: true }));
-    },
+  // Time attack — three timed runs, each with its own personal best.
+  section.appendChild(buildTimedCard(container, allTraining, hasPositions));
+
+  // Fresh lines — full runs of the newest lines first.
+  section.appendChild(buildModeCard({
+    icon: Icons.plus(20),
+    name: 'Fresh lines',
+    sub: 'full runs of your newest lines',
+    onClick: () => runSession(
+      new TrainingSession(recentlyAddedLines(allTraining).slice(0, PICKER_SESSION_CAP), { explicit: true }),
+      container, makeStats()),
   }));
 
-  // Weakest — most-missed first.
-  picker.appendChild(buildOption({
-    icon: Icons.trending(18),
-    title: 'Weakest',
-    sub: 'The moves you miss most',
-    onClick: () => {
-      const ordered = weakestLines(allTraining).slice(0, PICKER_SESSION_CAP);
-      start(new TrainingSession(ordered, { explicit: true }));
-    },
+  // Trouble spots — full runs of the weakest lines first.
+  section.appendChild(buildModeCard({
+    icon: Icons.trending(20),
+    name: 'Trouble spots',
+    sub: 'full runs of your weakest lines',
+    onClick: () => runSession(
+      new TrainingSession(weakestLines(allTraining).slice(0, PICKER_SESSION_CAP), { explicit: true }),
+      container, makeStats()),
   }));
 
-  wrap.appendChild(picker);
+  // (A fifth "Prep" card lands here once Explore ships.)
+
+  container.appendChild(section);
 }
 
-function buildOption(o: {
+// How many individual user-moves are due across the training lines — the live
+// stat behind "Quick fixes".
+function countDuePositions(lines: Line[], now: Date = new Date()): number {
+  let due = 0;
+  for (const line of lines) {
+    for (const node of userMoveNodes(line.tree, line.colour)) {
+      if (isReviewDue(node.review, now)) due++;
+    }
+  }
+  return due;
+}
+
+function buildModeCard(o: {
   icon: SVGElement;
-  title: string;
+  name: string;
   sub: string;
+  stat?: number;
+  statLabel?: string;
   onClick: () => void;
-  primary?: boolean;
   disabled?: boolean;
 }): HTMLElement {
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'practice-option'
-    + (o.primary ? ' practice-option--primary' : '')
-    + (o.disabled ? ' practice-option--disabled' : '');
-  btn.disabled = !!o.disabled;
+  const card = document.createElement('button');
+  card.type = 'button';
+  card.className = 'mode-card' + (o.disabled ? ' mode-card--disabled' : '');
+  card.disabled = !!o.disabled;
 
-  const iconWrap = document.createElement('span');
-  iconWrap.className = 'practice-option-icon';
-  iconWrap.appendChild(o.icon);
+  const icon = document.createElement('span');
+  icon.className = 'mode-card-icon';
+  icon.appendChild(o.icon);
+  card.appendChild(icon);
 
   const text = document.createElement('span');
-  text.className = 'practice-option-text';
-  const title = document.createElement('span');
-  title.className = 'practice-option-title';
-  title.textContent = o.title;
+  text.className = 'mode-card-text';
+  const name = document.createElement('span');
+  name.className = 'mode-card-name';
+  name.textContent = o.name;
   const sub = document.createElement('span');
-  sub.className = 'practice-option-sub';
+  sub.className = 'mode-card-sub';
   sub.textContent = o.sub;
-  text.appendChild(title);
+  text.appendChild(name);
   text.appendChild(sub);
+  card.appendChild(text);
 
-  btn.appendChild(iconWrap);
-  btn.appendChild(text);
-  if (!o.disabled) btn.addEventListener('click', o.onClick);
-  return btn;
+  if (o.stat !== undefined) {
+    const stat = document.createElement('span');
+    stat.className = 'mode-card-stat';
+    const num = document.createElement('span');
+    num.className = 'mode-card-stat-num';
+    num.textContent = '0';
+    countUp(num, o.stat);
+    const lbl = document.createElement('span');
+    lbl.className = 'mode-card-stat-label';
+    lbl.textContent = o.statLabel ?? '';
+    stat.appendChild(num);
+    stat.appendChild(lbl);
+    card.appendChild(stat);
+  }
+
+  if (!o.disabled) card.addEventListener('click', o.onClick);
+  return card;
+}
+
+// Time attack: the card body isn't itself tappable — its three duration chips
+// are, each starting a run of that length and showing its own personal best.
+function buildTimedCard(
+  container: HTMLElement,
+  allTraining: Line[],
+  enabled: boolean,
+): HTMLElement {
+  const card = document.createElement('div');
+  card.className = 'mode-card mode-card--timed' + (enabled ? '' : ' mode-card--disabled');
+
+  const head = document.createElement('div');
+  head.className = 'mode-card-head';
+  const icon = document.createElement('span');
+  icon.className = 'mode-card-icon';
+  icon.appendChild(Icons.clock(20));
+  head.appendChild(icon);
+  const text = document.createElement('span');
+  text.className = 'mode-card-text';
+  const name = document.createElement('span');
+  name.className = 'mode-card-name';
+  name.textContent = 'Time attack';
+  const sub = document.createElement('span');
+  sub.className = 'mode-card-sub';
+  sub.textContent = 'beat your best in 1, 3 or 5 minutes';
+  text.appendChild(name);
+  text.appendChild(sub);
+  head.appendChild(text);
+  card.appendChild(head);
+
+  const chips = document.createElement('div');
+  chips.className = 'timed-chips';
+  for (const minutes of TIMED_DURATIONS) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'timed-chip';
+    chip.disabled = !enabled;
+
+    const dur = document.createElement('span');
+    dur.className = 'timed-chip-dur';
+    dur.textContent = `${minutes}m`;
+    chip.appendChild(dur);
+
+    const best = getTimedBest(minutes);
+    const bestEl = document.createElement('span');
+    bestEl.className = 'timed-chip-best';
+    if (best > 0) {
+      bestEl.appendChild(document.createTextNode('best '));
+      const num = document.createElement('span');
+      num.className = 'timed-chip-best-num';
+      num.textContent = '0';
+      bestEl.appendChild(num);
+      countUp(num, best);
+    } else {
+      bestEl.textContent = '—';
+    }
+    chip.appendChild(bestEl);
+
+    if (enabled) chip.addEventListener('click', () => runTimed(container, allTraining, minutes));
+    chips.appendChild(chip);
+  }
+  card.appendChild(chips);
+
+  return card;
+}
+
+// ── Count-up animation ──────────────────────────────────────────────────────────
+//
+// A subtle bit of life on screen entry: a number ticks up from 0 to its value
+// over half a second, easing to a stop. Honours prefers-reduced-motion (and a
+// zero/one target) by just showing the final value.
+function countUp(el: HTMLElement, to: number, durationMs = 550): void {
+  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  if (to <= 1 || reduce) {
+    el.textContent = String(to);
+    return;
+  }
+  const start = performance.now();
+  const step = (now: number) => {
+    const t = Math.min(1, (now - start) / durationMs);
+    const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
+    el.textContent = String(Math.round(eased * to));
+    if (t < 1) requestAnimationFrame(step);
+    else el.textContent = String(to);
+  };
+  requestAnimationFrame(step);
 }
 
 // ── Card list (browse every training line) ──────────────────────────────────────
@@ -542,6 +641,7 @@ function runItem(
       lineCopy.lastTrained = now.toISOString();
       lineCopy.confidence = lineConfidence(lineCopy);
       await saveLine(lineCopy);
+      recordReviewed(userNodes.length);
     },
     onComplete: () => {
       if (!isResurface) {
@@ -623,6 +723,7 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
         line.lastTrained = now.toISOString();
         line.confidence = lineConfidence(line);
         void saveLine(line);
+        recordReviewed(1);
         stats.reviewed++;
         if (wasMissed) stats.missed++;
       },
@@ -903,14 +1004,13 @@ function renderReviewComplete(
 
 // ── Timed mode ────────────────────────────────────────────────────────────────
 //
-// A 3-minute countdown over individual positions: the goal is as many correct
-// as possible. A wrong answer flashes and skips on at once (no dwelling); the
-// pool cycles until the clock runs out. The end screen shows the score against
-// a stored personal best, with a "Retry mistakes" drill of everything missed.
+// A countdown (1, 3 or 5 minutes) over individual positions: the goal is as many
+// correct as possible. A wrong answer flashes and skips on at once (no
+// dwelling); the pool cycles until the clock runs out. The end screen shows the
+// score against this duration's personal best, with a "Retry mistakes" drill of
+// everything missed.
 
-const TIMED_DURATION_MS = 3 * 60 * 1000;
-
-function runTimed(container: HTMLElement, trainingLines: Line[]): void {
+function runTimed(container: HTMLElement, trainingLines: Line[], minutes: TimedMinutes): void {
   const clones = trainingLines.map(l => ({ ...l, tree: structuredClone(l.tree) }));
   const positions = selectIndividualPositions(clones, { max: 80 });
   if (positions.length === 0) { void doRender(container); return; }
@@ -923,7 +1023,7 @@ function runTimed(container: HTMLElement, trainingLines: Line[]): void {
   startTimedDrill(
     positions.map(p => ({ preFen: p.preFen, expected: p.expected })),
     {
-      timedMs: TIMED_DURATION_MS,
+      timedMs: minutes * 60 * 1000,
       modeLabel: 'Timed',
       hideTitleUntilComplete: true,
       onTimedResult: (ok, pos) => {
@@ -934,7 +1034,7 @@ function runTimed(container: HTMLElement, trainingLines: Line[]): void {
           addMistake(mistakes, mistakeKeys, pos.preFen, pos.expected);
         }
       },
-      onComplete: () => renderTimedComplete(container, trainingLines, correct, wrong, mistakes),
+      onComplete: () => renderTimedComplete(container, trainingLines, minutes, correct, wrong, mistakes),
       onCancel: () => void doRender(container),
     },
   );
@@ -943,14 +1043,15 @@ function runTimed(container: HTMLElement, trainingLines: Line[]): void {
 function renderTimedComplete(
   container: HTMLElement,
   trainingLines: Line[],
+  minutes: TimedMinutes,
   correct: number,
   wrong: number,
   mistakes: Mistake[],
 ): void {
   if (correct > 0 || wrong > 0) recordTrainingDay();
 
-  const prevBest = getTimedBest();
-  const isNewBest = recordTimedBest(correct);
+  const prevBest = getTimedBest(minutes);
+  const isNewBest = recordTimedBest(minutes, correct);
 
   container.innerHTML = '';
 
@@ -964,7 +1065,7 @@ function renderTimedComplete(
 
   const sub = document.createElement('div');
   sub.className = 'train-completion-name';
-  sub.textContent = `${correct} correct in 3 minutes`;
+  sub.textContent = `${correct} correct in ${minutes} minute${minutes === 1 ? '' : 's'}`;
   wrap.appendChild(sub);
 
   // Correct vs. mistakes.
@@ -1024,7 +1125,7 @@ function renderTimedComplete(
   again.type = 'button';
   again.className = mistakes.length > 0 ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
   again.textContent = 'Play again';
-  again.addEventListener('click', () => runTimed(container, trainingLines));
+  again.addEventListener('click', () => runTimed(container, trainingLines, minutes));
   wrap.appendChild(again);
 
   const close = document.createElement('button');
