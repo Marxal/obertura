@@ -4,8 +4,13 @@
 const RETRIES_KEY = 'obertura.retriesBeforeReveal';
 const NAMING_MODE_KEY = 'obertura.namingMode';
 const WATCH_SPEED_KEY = 'obertura.watchSpeed';
-const TIMED_BEST_KEY = 'obertura.timedBest';
 const DEFAULT_MODE_KEY = 'obertura.defaultTrainingMode';
+
+// Timed personal bests are kept per duration ("obertura.timedBest.3" etc.).
+const TIMED_BEST_PREFIX = 'obertura.timedBest.';
+// The pre-split single best lived here; migrated to the 3-minute slot on first
+// read (the old timed mode was always a 3-minute run).
+const LEGACY_TIMED_BEST_KEY = 'obertura.timedBest';
 
 export type Retries = 0 | 1 | 2;
 
@@ -70,23 +75,43 @@ export function watchSpeedMs(speed: WatchSpeed = getWatchSpeed()): number {
   return speed === 'slow' ? 800 : speed === 'fast' ? 200 : 400;
 }
 
-// Personal best for timed mode — the most positions answered correctly in one
-// countdown. Kept device-local like every other pref.
-export function getTimedBest(): number {
-  const n = Number(localStorage.getItem(TIMED_BEST_KEY));
+// The three timed-run lengths, in minutes. Each keeps its own personal best.
+export type TimedMinutes = 1 | 3 | 5;
+export const TIMED_DURATIONS: readonly TimedMinutes[] = [1, 3, 5];
+
+function timedBestKey(minutes: TimedMinutes): string {
+  return TIMED_BEST_PREFIX + minutes;
+}
+
+// One-time move of the old single best into the 3-minute slot, so an existing
+// record survives the split. Runs on first best access; harmless afterwards.
+function migrateLegacyTimedBest(): void {
+  const legacy = localStorage.getItem(LEGACY_TIMED_BEST_KEY);
+  if (legacy === null) return;
+  const key = timedBestKey(3);
+  if (localStorage.getItem(key) === null) localStorage.setItem(key, legacy);
+  localStorage.removeItem(LEGACY_TIMED_BEST_KEY);
+}
+
+// Personal best for a timed run — the most positions answered correctly in one
+// countdown of this length. Kept device-local like every other pref.
+export function getTimedBest(minutes: TimedMinutes): number {
+  migrateLegacyTimedBest();
+  const n = Number(localStorage.getItem(timedBestKey(minutes)));
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
 }
 
-// Store a new best if this score beats the old one. Returns true when it did.
-export function recordTimedBest(score: number): boolean {
-  if (score > getTimedBest()) {
-    localStorage.setItem(TIMED_BEST_KEY, String(score));
+// Store a new best for this duration if it beats the old one. Returns true then.
+export function recordTimedBest(minutes: TimedMinutes, score: number): boolean {
+  if (score > getTimedBest(minutes)) {
+    localStorage.setItem(timedBestKey(minutes), String(score));
     return true;
   }
   return false;
 }
 
-// Forget the timed personal best — part of "Reset progress" in Settings.
+// Forget every timed personal best — part of "Reset progress" in Settings.
 export function clearTimedBest(): void {
-  localStorage.removeItem(TIMED_BEST_KEY);
+  for (const m of TIMED_DURATIONS) localStorage.removeItem(timedBestKey(m));
+  localStorage.removeItem(LEGACY_TIMED_BEST_KEY);
 }

@@ -13,6 +13,7 @@
 // no session — i.e. the most recent counted day is older than yesterday.
 
 const KEY = 'obertura-training-days';
+const REVIEWED_KEY = 'obertura-reviewed-today';
 
 // Local-time day key, e.g. "2026-06-09" — local, not UTC, so "today" matches
 // the wall clock on the phone.
@@ -73,6 +74,60 @@ export function getTrainingDays(): string[] {
 export function clearTrainingDays(): void {
   try {
     localStorage.removeItem(KEY);
+  } catch {
+    /* storage unavailable — nothing to clear. */
+  }
+}
+
+// ── Reviewed-today counter ─────────────────────────────────────────────────────
+//
+// A running tally of how many positions you've reviewed today, shown on the
+// Train hero so the screen reflects today's effort. It's purely a daily figure:
+// stored with the day it belongs to and read as 0 once the calendar rolls over.
+
+interface ReviewedToday {
+  day: string;
+  count: number;
+}
+
+function loadReviewed(): ReviewedToday {
+  try {
+    const raw = localStorage.getItem(REVIEWED_KEY);
+    if (!raw) return { day: '', count: 0 };
+    const obj = JSON.parse(raw) as Partial<ReviewedToday>;
+    return {
+      day: typeof obj.day === 'string' ? obj.day : '',
+      count: typeof obj.count === 'number' && obj.count > 0 ? Math.floor(obj.count) : 0,
+    };
+  } catch {
+    return { day: '', count: 0 };
+  }
+}
+
+// How many positions have been reviewed today (0 once a new day begins).
+export function reviewedToday(now: Date = new Date()): number {
+  const r = loadReviewed();
+  return r.day === dayKey(now) ? r.count : 0;
+}
+
+// Add to today's reviewed tally. Resets automatically when the day has rolled
+// over since the stored figure.
+export function recordReviewed(n: number, now: Date = new Date()): void {
+  if (n <= 0) return;
+  const key = dayKey(now);
+  const r = loadReviewed();
+  const count = (r.day === key ? r.count : 0) + n;
+  try {
+    localStorage.setItem(REVIEWED_KEY, JSON.stringify({ day: key, count }));
+  } catch {
+    /* storage unavailable — the tally is a nicety, never block on it. */
+  }
+}
+
+// Forget today's reviewed tally — part of "Reset progress" in Settings.
+export function clearReviewedToday(): void {
+  try {
+    localStorage.removeItem(REVIEWED_KEY);
   } catch {
     /* storage unavailable — nothing to clear. */
   }

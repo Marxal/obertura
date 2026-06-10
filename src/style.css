@@ -2395,137 +2395,228 @@ cg-board square.move-dest.oc {
   max-width: 320px;
 }
 
-/* ── Session header ────────────────────────────────────────────────────────── */
+/* ── Train hero ("Due now") ────────────────────────────────────────────────── */
 
-/* Layout only — chrome comes from .section in HTML. */
-.session-header {
+/* The hero sits in a .card; this adds the centred stack + a maroon wash so it
+   reads as the screen's headline, not just another card. */
+.train-hero {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  align-items: center;
+  gap: var(--space-xs);
+  margin: var(--space-lg) var(--space-lg) 0;
+  text-align: center;
+  background-image: linear-gradient(165deg, var(--accent-soft) 0%, transparent 60%);
 }
 
-.session-count {
-  font-size: 0.95rem;
+.train-hero-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.train-hero-count-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.train-hero-count {
+  font-size: 3.4rem;
+  line-height: 1;
+  font-weight: 800;
+  color: var(--maroon);
+  font-variant-numeric: tabular-nums;
+}
+
+.train-hero--clear .train-hero-count { color: var(--success); }
+
+.train-hero-unit {
+  font-size: 1rem;
   font-weight: 600;
-  color: var(--text);
+  color: var(--text-faint);
 }
 
-/* Width/size modifiers only — chrome from .btn-primary in HTML. */
-.session-start-btn {
+.train-hero-reviewed {
+  font-size: 0.82rem;
+  color: var(--text-faint);
+}
+
+/* Size/width modifiers only — chrome from .btn-primary in HTML. */
+.train-hero-start {
   width: 100%;
+  margin-top: var(--space-sm);
   min-height: 52px;
   font-size: 1rem;
   border-radius: 10px;
 }
 
-/* Width/color modifiers only — chrome from .btn-secondary in HTML. */
-.session-individual-btn {
-  width: 100%;
-  min-height: 48px;
-  color: var(--maroon);
-  border-radius: 10px;
-}
-.session-individual-btn:hover { border-color: var(--maroon); }
+/* ── Mode cards ────────────────────────────────────────────────────────────── */
 
-/* Width/color modifiers only — chrome from .btn-secondary in HTML. */
-.session-timed-btn {
-  width: 100%;
-  min-height: 48px;
-  color: var(--accent);
-  border-radius: 10px;
-}
-.session-timed-btn:hover { border-color: var(--accent); }
-
-/* ── Practice picker (what a session loads) ────────────────────────────────── */
-
-.session-picker {
+.mode-cards {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-/* .session-picker-label removed — now uses .section-title in HTML */
-
-.practice-option {
+.mode-card {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.85rem;
   width: 100%;
   text-align: left;
-  padding: 0.7rem 0.9rem;
+  padding: 0.8rem 0.9rem;
   background-color: var(--bg-card);
   background-image: linear-gradient(180deg, rgba(255,255,255,0.45) 0%, transparent 100%);
   border: 1px solid var(--border-card);
-  border-radius: 10px;
+  border-radius: 12px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: filter 0.12s, box-shadow 0.12s, border-color 0.12s;
+  transition: filter 0.12s, box-shadow 0.12s, border-color 0.12s, transform 0.08s;
 }
 
-/* Drop the white-sheen gradient in dark mode — it reads as a grey smear. */
-[data-theme="dark"] .practice-option {
+/* The white-sheen gradient reads as a grey smear in dark mode — drop it. */
+[data-theme="dark"] .mode-card {
   background-image: none;
 }
 
-.practice-option:hover {
+.mode-card:hover {
   border-color: var(--maroon);
   box-shadow: var(--shadow-card-hover);
 }
 
-.practice-option:active {
-  filter: brightness(0.95);
-  transform: translateY(1px);
+/* Satisfying press: the whole card dips and dims for a moment. */
+.mode-card:not(.mode-card--disabled):active {
+  filter: brightness(0.96);
+  transform: translateY(1px) scale(0.995);
 }
 
-/* The headline option (Due now) gets the maroon primary treatment. */
-.practice-option--primary {
-  background-color: var(--maroon);
-  background-image: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 55%, rgba(0,0,0,0.06) 100%);
-  border-color: transparent;
-  color: #fff;
-  box-shadow: 0 2px 6px rgba(122,34,48,0.3), 0 1px 2px rgba(122,34,48,0.2);
-}
-
-.practice-option--primary .practice-option-sub { color: rgba(255,255,255,0.82); }
-.practice-option--primary:hover { filter: brightness(1.08); border-color: transparent; }
-
-.practice-option--disabled {
+.mode-card--disabled {
   opacity: 0.5;
   cursor: default;
 }
-
-.practice-option--disabled:hover {
+.mode-card--disabled:hover {
   border-color: var(--border-card);
   box-shadow: none;
 }
 
-.practice-option-icon {
+.mode-card-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: inherit;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--maroon);
 }
 
-.practice-option--primary .practice-option-icon { color: #fff; }
-.practice-option:not(.practice-option--primary) .practice-option-icon { color: var(--maroon); }
-
-.practice-option-text {
+.mode-card-text {
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
   min-width: 0;
+  flex: 1;
 }
 
-.practice-option-title {
-  font-size: 0.95rem;
+.mode-card-name {
+  font-size: 0.98rem;
   font-weight: 700;
   font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text);
 }
 
-.practice-option-sub {
+.mode-card-sub {
   font-size: 0.78rem;
   color: var(--text-faint);
+}
+
+/* The live stat at the card's trailing edge. */
+.mode-card-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  line-height: 1.1;
+}
+
+.mode-card-stat-num {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--maroon);
+  font-variant-numeric: tabular-nums;
+}
+
+.mode-card-stat-label {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Time attack: a non-tappable card body with chips below the header. */
+.mode-card--timed {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.7rem;
+  cursor: default;
+}
+.mode-card--timed:hover {
+  border-color: var(--border-card);
+  box-shadow: var(--shadow-card);
+}
+
+.mode-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.timed-chips {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.timed-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  flex: 1;
+  padding: 0.5rem 0.3rem;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: filter 0.12s, border-color 0.12s, transform 0.08s;
+}
+
+.timed-chip:not(:disabled):hover { border-color: var(--accent); }
+.timed-chip:not(:disabled):active {
+  filter: brightness(0.96);
+  transform: translateY(1px) scale(0.98);
+}
+.timed-chip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.timed-chip-dur {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.timed-chip-best {
+  font-size: 0.66rem;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Line explorer (where a good-alternative move leads) ───────────────────── */
@@ -2822,33 +2913,6 @@ cg-board square.move-dest.oc {
   margin-left: 3px;
   margin-bottom: 2px;
   flex-shrink: 0;
-}
-
-/* ── Due-preview progress bar (session header) ─────────────────────────────── */
-
-.session-progress-bar {
-  width: 100%;
-  height: 8px;
-  background: var(--hairline-soft);
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.session-progress-fill {
-  height: 100%;
-  background: var(--accent);
-  border-radius: 4px;
-  transition: width 0.4s ease;
-}
-
-.session-progress-fill--done {
-  background: var(--success);
-}
-
-.session-pos-label {
-  font-size: 0.78rem;
-  color: var(--text-faint);
-  font-family: system-ui, -apple-system, sans-serif;
 }
 
 /* ── End-of-session summary ────────────────────────────────────────────────── */
