@@ -77,7 +77,7 @@ function buildDiagnosticsGroup(): HTMLElement {
   const sec = group('Diagnostics');
 
   const blurb = document.createElement('p');
-  blurb.className = 'settings-row-sub';
+  blurb.className = 'section-desc';
   blurb.textContent = 'Offline checks of the data layer. Tap one to run it and see pass/fail.';
   sec.appendChild(blurb);
 
@@ -92,34 +92,40 @@ function buildDiagnosticsGroup(): HTMLElement {
 
 function group(titleText: string): HTMLElement {
   const sec = document.createElement('section');
-  sec.className = 'settings-group';
+  sec.className = 'section';
   const h = document.createElement('h2');
-  h.className = 'settings-group-title';
+  h.className = 'section-title';
   h.textContent = titleText;
   sec.appendChild(h);
   return sec;
 }
 
-// One labelled setting. `control` sits to the right on wide rows; pass
-// `stacked` for controls that need the full width under the label.
-function row(label: string, control: HTMLElement, opts: { sub?: string; stacked?: boolean } = {}): HTMLElement {
+// One preference, using the shared .pref-row component: title (+ optional
+// description) stacked in a column, with the control on its own line below.
+// Every Settings row has this same shape.
+function row(label: string, control: HTMLElement, opts: { sub?: string } = {}): HTMLElement {
   const r = document.createElement('div');
-  r.className = 'settings-row' + (opts.stacked ? ' settings-row--stacked' : '');
+  r.className = 'pref-row';
 
   const text = document.createElement('div');
-  text.className = 'settings-row-text';
+  text.className = 'pref-row-text';
   const l = document.createElement('div');
-  l.className = 'settings-row-label';
+  l.className = 'pref-row-title';
   l.textContent = label;
   text.appendChild(l);
   if (opts.sub) {
     const s = document.createElement('div');
-    s.className = 'settings-row-sub';
+    s.className = 'pref-row-desc';
     s.textContent = opts.sub;
     text.appendChild(s);
   }
   r.appendChild(text);
-  r.appendChild(control);
+
+  const ctrl = document.createElement('div');
+  ctrl.className = 'pref-row-control';
+  ctrl.appendChild(control);
+  r.appendChild(ctrl);
+
   return r;
 }
 
@@ -246,7 +252,6 @@ function buildAppearanceGroup(): HTMLElement {
   sec.appendChild(row(
     'Board colours',
     boardSwatches(getBoardColour(), (v) => setBoardColour(v)),
-    { stacked: true },
   ));
 
   sec.appendChild(row(
@@ -337,13 +342,13 @@ function buildUserGroup(): HTMLElement {
   userInput.placeholder = 'your Chess.com username';
   userInput.value = getUsername();
   userInput.addEventListener('change', () => setUsername(userInput.value));
-  sec.appendChild(row('Chess.com username', userInput, { stacked: true }));
+  sec.appendChild(row('Chess.com username', userInput));
 
   // Refresh my games — re-imports ~a year of games from the free Published-Data
   // API into IndexedDB, replacing what's stored. Mirrors the old builder import.
   const refreshBtn = document.createElement('button');
   refreshBtn.type = 'button';
-  refreshBtn.className = 'settings-btn';
+  refreshBtn.className = 'btn-secondary';
   refreshBtn.appendChild(Icons.reset(16));
   refreshBtn.appendChild(document.createTextNode('Refresh my games'));
 
@@ -413,7 +418,7 @@ function buildDataGroup(): HTMLElement {
   // Reset progress — destructive, so it's set apart and confirmed.
   const resetBtn = document.createElement('button');
   resetBtn.type = 'button';
-  resetBtn.className = 'settings-btn settings-btn--danger';
+  resetBtn.className = 'btn-danger';
   resetBtn.appendChild(Icons.reset(16));
   resetBtn.appendChild(document.createTextNode('Reset progress'));
 
@@ -451,7 +456,7 @@ function buildDataGroup(): HTMLElement {
   heading.className = 'settings-subheading';
   heading.textContent = 'Reset progress';
   const blurb = document.createElement('p');
-  blurb.className = 'settings-row-sub';
+  blurb.className = 'section-desc';
   blurb.textContent = 'Start the spaced-repetition schedule over without deleting any lines.';
   wrap.appendChild(heading);
   wrap.appendChild(blurb);
@@ -486,7 +491,7 @@ function confirmDialog(opts: {
   sheet.appendChild(h);
 
   const p = document.createElement('p');
-  p.className = 'settings-row-sub';
+  p.className = 'section-desc';
   p.textContent = opts.body;
   sheet.appendChild(p);
 
@@ -495,7 +500,7 @@ function confirmDialog(opts: {
 
   const confirm = document.createElement('button');
   confirm.type = 'button';
-  confirm.className = opts.danger ? 'settings-btn settings-btn--danger' : 'settings-btn';
+  confirm.className = opts.danger ? 'btn-danger' : 'btn-secondary';
   confirm.textContent = opts.confirmLabel;
   confirm.addEventListener('click', () => {
     close();

@@ -43,14 +43,30 @@
   --accent-soft: rgba(192, 122, 42, 0.12);
   --maroon: #7a2230;
   --maroon-active: #611b26;
-  --success: #2d7d3e;
-  --success-active: #226030;
+  /* Sage replaces the old generic green; brick replaces the old generic red.
+     Used for every success/danger state in the app (buttons, toggles, drill
+     feedback, pills…). */
+  --success: #708151;
+  --success-active: #5c6b41;
   --warn: #b8591a;
-  --danger: #a03030;
+  --danger: #b4533a;
+  --danger-active: #98442f;
 
   /* Elevation / depth */
   --shadow-card: 0 1px 3px rgba(28, 22, 16, 0.07), 0 1px 2px rgba(28, 22, 16, 0.04);
   --shadow-card-hover: 0 2px 6px rgba(28, 22, 16, 0.1), 0 1px 3px rgba(28, 22, 16, 0.06);
+
+  /* Spacing scale — 4 / 8 / 12 / 16 / 24. Every gap and padding from v1.2 on
+     resolves to one of these, so screens stop inventing their own numbers. */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+
+  /* A very faint wash used behind .section wrappers — just enough to separate a
+     section from the bare page without reading as a solid card. */
+  --fill-faint: rgba(28, 22, 16, 0.025);
 
   /* Paper texture — faint speckle layered over --bg-page only. */
   --paper-speckle: rgba(120, 90, 50, 0.035);
@@ -84,14 +100,18 @@
   --accent-soft: rgba(212, 137, 44, 0.22);
   --maroon: #8e2c3a;
   --maroon-active: #7a2433;
-  --success: #4a9d63;
-  --success-active: #357a4a;
+  /* Sage / brick brighten a touch on dark for legibility, same as the accents. */
+  --success: #8a9b63;
+  --success-active: #74874f;
   --warn: #d9763f;
-  --danger: #c75c5c;
+  --danger: #c76b50;
+  --danger-active: #b4533a;
 
   /* Shadows disappear on dark — borders do the job. */
   --shadow-card: none;
   --shadow-card-hover: 0 0 0 1px rgba(232, 220, 200, 0.08);
+
+  --fill-faint: rgba(232, 220, 200, 0.03);
 
   --paper-speckle: rgba(255, 240, 214, 0.02);
 }
@@ -129,19 +149,28 @@ body {
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
-   BUTTON HIERARCHY
-   Three tiers, phone-first tap targets (min 44px tall).
+   BUTTONS — one shared chrome, five variants. Phone-first (min 44px tall).
+   Apply a single variant class:
+     .btn-primary    oxblood — the main action (light-mode top-sheen; flat on dark)
+     .btn-secondary  flat tonal surface — the quiet default
+     .btn-success    sage — a positive / confirming action
+     .btn-danger     brick — a destructive action
+     .btn-quiet      ghost / icon — no fill, colour only
    ════════════════════════════════════════════════════════════════════════════ */
 
-/* Shared button chrome — applied via the tier classes below. */
-.btn-base {
+.btn-primary,
+.btn-secondary,
+.btn-success,
+.btn-danger,
+.btn-quiet {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
+  gap: var(--space-sm);
   min-height: 44px;
-  padding: 0.65rem 1.25rem;
+  padding: var(--space-md) var(--space-lg);
   border-radius: 8px;
+  border: 1px solid transparent;
   font-size: 0.925rem;
   font-family: system-ui, -apple-system, sans-serif;
   font-weight: 600;
@@ -152,12 +181,22 @@ body {
   transition: filter 0.12s, box-shadow 0.12s, background 0.12s, color 0.12s;
 }
 
-/* PRIMARY — oxblood, light text, subtle top-sheen gradient + shadow. */
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-success:disabled,
+.btn-danger:disabled,
+.btn-quiet:disabled {
+  opacity: 0.55;
+  cursor: default;
+  filter: none;
+}
+
+/* PRIMARY — oxblood. Subtle top-light vertical gradient in LIGHT mode only;
+   dark mode stays flat (see the override below). */
 .btn-primary {
   background-color: var(--maroon);
-  background-image: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 55%, rgba(0,0,0,0.06) 100%);
+  background-image: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, transparent 55%, rgba(0,0,0,0.06) 100%);
   color: #fff;
-  border: none;
   box-shadow: 0 2px 5px rgba(122,34,48,0.3), 0 1px 2px rgba(122,34,48,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
   text-shadow: 0 1px 1px rgba(0,0,0,0.18);
 }
@@ -170,20 +209,23 @@ body {
   box-shadow: inset 0 1px 3px rgba(0,0,0,0.18);
   transform: translateY(1px);
 }
+[data-theme="dark"] .btn-primary {
+  background-image: none;
+  box-shadow: none;
+  text-shadow: none;
+}
 
-/* SECONDARY — tonal card surface, faint border, subtle sheen. */
+/* SECONDARY — flat tonal surface, faint border. No sheen. */
 .btn-secondary {
   background-color: var(--bg-card);
-  background-image: linear-gradient(180deg, rgba(255,255,255,0.45) 0%, transparent 100%);
   color: var(--text-muted);
-  border: 1px solid var(--border-card);
+  border-color: var(--border-card);
   box-shadow: var(--shadow-card);
 }
 .btn-secondary:hover {
   color: var(--text);
   border-color: var(--border);
   box-shadow: var(--shadow-card-hover);
-  background-image: linear-gradient(180deg, rgba(255,255,255,0.6) 0%, transparent 100%);
 }
 .btn-secondary:active {
   filter: brightness(0.95);
@@ -191,21 +233,145 @@ body {
   transform: translateY(1px);
 }
 
-/* GHOST / TEXT — no fill, no border; colour only. */
-.btn-ghost {
+/* SUCCESS — sage, light text. Flat. */
+.btn-success {
+  background-color: var(--success);
+  color: #fff;
+}
+.btn-success:hover { filter: brightness(1.07); }
+.btn-success:active {
+  background-color: var(--success-active);
+  transform: translateY(1px);
+}
+
+/* DANGER — brick, light text. Flat. */
+.btn-danger {
+  background-color: var(--danger);
+  color: #fff;
+}
+.btn-danger:hover { filter: brightness(1.07); }
+.btn-danger:active {
+  background-color: var(--danger-active);
+  transform: translateY(1px);
+}
+
+/* QUIET — no fill, no border; colour only. The icon / text-button variant. */
+.btn-quiet {
   background: transparent;
   color: var(--text-muted);
-  border: none;
   box-shadow: none;
-  min-height: 44px;
-  padding: 0.5rem 0.75rem;
+  padding: var(--space-sm) var(--space-md);
 }
-.btn-ghost:hover {
+.btn-quiet:hover {
   color: var(--text);
   background: var(--accent-soft);
 }
-.btn-ghost:active {
-  background: rgba(122,34,48,0.1);
+.btn-quiet:active {
+  background: var(--accent-soft);
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   COMPONENT LAYER (v1.2, task 1.3)
+   Shared building blocks layered on the v1.1 tokens + the spacing scale above.
+   Screens compose these instead of inventing their own paddings.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* CARD — the one card: surface colour, hairline border, radius, inner padding. */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-card);
+}
+
+/* SECTION — a soft wrapper around a screen section: hairline border + a very
+   faint fill, a title row, and a consistent outer margin. This is what stops a
+   screen reading as a bare stack of blocks. */
+.section {
+  margin: var(--space-xl) var(--space-lg) 0;
+  padding: var(--space-md) var(--space-lg) var(--space-lg);
+  background: var(--fill-faint);
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+}
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.section-title {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.section-meta {
+  font-size: 0.7rem;
+  color: var(--text-faint);
+}
+
+/* A short descriptive paragraph under a section title. */
+.section-desc {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--text-faint);
+  margin-bottom: var(--space-sm);
+}
+
+/* ROW — the standard list row: content left, optional control / aside right. */
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) 0;
+  border-top: 1px solid var(--hairline-soft);
+}
+.row:first-child {
+  border-top: none;
+}
+
+/* PREFERENCE ROW — title + description stacked in one column, control below.
+   Every Settings row uses this, so the whole screen reads the same way. */
+.pref-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md) 0;
+  border-top: 1px solid var(--hairline-soft);
+}
+
+.section-title + .pref-row {
+  border-top: none;
+}
+
+.pref-row-text {
+  min-width: 0;
+}
+
+.pref-row-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.pref-row-desc {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+
+/* The control sits under the text. Full-width controls (inputs, board swatches)
+   fill the row; compact ones (segmented, switch) stay their own size, left-aligned. */
+.pref-row-control {
+  min-width: 0;
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -908,72 +1074,19 @@ cg-board square.move-dest.oc {
    icon; uses the back arrow to return.
    ════════════════════════════════════════════════════════════════════════════ */
 
+/* The Settings screen is built entirely from the shared component layer:
+   each group is a .section, each preference is a .pref-row. Only the screen
+   title and a few controls need screen-specific rules below. */
 #view-settings {
   overflow-y: auto;
-  padding: 0 1rem 2.5rem;
+  padding: 0 0 2.5rem;
 }
 
 .settings-title {
   font-size: 1.4rem;
   font-weight: 700;
   color: var(--text);
-  margin: 1rem 0 0.25rem;
-}
-
-.settings-group {
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  border-radius: 12px;
-  box-shadow: var(--shadow-card);
-  padding: 0.5rem 0.9rem;
-  margin-top: 1rem;
-}
-
-.settings-group-title {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--accent);
-  padding: 0.5rem 0 0.4rem;
-}
-
-/* One setting: label (+ optional sub-text) on the left, control on the right. */
-.settings-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.7rem 0;
-  border-top: 1px solid var(--hairline-soft);
-}
-
-.settings-group-title + .settings-row {
-  border-top: none;
-}
-
-/* Stacked rows put a full-width control under the label (board swatches, inputs). */
-.settings-row--stacked {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.6rem;
-}
-
-.settings-row-text {
-  min-width: 0;
-}
-
-.settings-row-label {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.settings-row-sub {
-  font-size: 0.78rem;
-  line-height: 1.45;
-  color: var(--text-faint);
-  margin-top: 0.15rem;
+  margin: var(--space-lg) var(--space-lg) 0;
 }
 
 /* ── Segmented control ───────────────────────────────────────────────────── */
@@ -1116,49 +1229,11 @@ cg-board square.move-dest.oc {
   border-color: var(--accent);
 }
 
+/* Action rows use the shared button variants (.btn-secondary / .btn-danger). */
 .settings-actions {
   display: flex;
-  gap: 0.6rem;
-  margin-top: 0.7rem;
-}
-
-.settings-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  padding: 0.65rem 1rem;
-  min-height: 44px;
-  border: 1px solid var(--border-card);
-  border-radius: 8px;
-  background: var(--bg-elevated);
-  color: var(--text);
-  font-size: 0.9rem;
-  font-family: system-ui, -apple-system, sans-serif;
-  font-weight: 600;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: filter 0.12s, border-color 0.12s;
-}
-
-.settings-btn:hover {
-  border-color: var(--border);
-}
-
-.settings-btn:active {
-  filter: brightness(0.95);
-  transform: translateY(1px);
-}
-
-.settings-btn:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
-.settings-btn--danger {
-  color: #fff;
-  background: var(--danger);
-  border-color: transparent;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
 }
 
 .settings-note {
@@ -2225,7 +2300,7 @@ cg-board square.move-dest.oc {
 .pt-error-flash {
   position: absolute;
   inset: 0;
-  background: var(--maroon);
+  background: var(--danger);
   pointer-events: none;
   animation: pt-flash-out 0.6s ease-out forwards;
   z-index: 10;
@@ -2399,8 +2474,8 @@ cg-board square.move-dest.oc {
 }
 
 .pt-dot--wrong {
-  background: var(--maroon);
-  border-color: var(--maroon);
+  background: var(--danger);
+  border-color: var(--danger);
   transform: scale(1.1);
 }
 
@@ -3795,30 +3870,8 @@ cg-board square.move-dest.oc {
   letter-spacing: 0.07em;
 }
 
-/* Section wrapper */
-.stats-section {
-  margin: 1.25rem 1rem 0;
-}
-
-.stats-section-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  margin-bottom: 0.7rem;
-}
-
-.stats-section-title {
-  font-size: 0.76rem;
-  font-weight: 700;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.stats-section-meta {
-  font-size: 0.7rem;
-  color: var(--text-faint);
-}
+/* Sections on this screen use the shared .section / .section-head / .section-title
+   / .section-meta component layer (see COMPONENT LAYER above). */
 
 /* Training activity grid (28 days, 4 rows × 7 cols) */
 .stats-activity-grid {
@@ -4027,7 +4080,7 @@ cg-board square.move-dest.oc {
 }
 
 .progress-verdict--improved {
-  background: rgba(42, 107, 58, 0.15);
+  background: rgba(112, 129, 81, 0.16);
   color: var(--success);
 }
 
