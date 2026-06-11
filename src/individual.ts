@@ -20,6 +20,8 @@ export interface IndividualPosition {
   lineId: string;
   preFen: string;        // the position to show (before the user's move)
   expected: MoveNode;    // the one correct move to play
+  prevUci?: string;      // the opponent's move that led to preFen (mark / replay)
+  prevFen?: string;      // the position before that opponent move (replay start)
 }
 
 // First ply we'll ever quiz. Index 4 = White's 3rd move / Black's 3rd move, so
@@ -46,6 +48,8 @@ function candidatesFor(line: Line, now: Date): Candidate[] {
       lineId: line.id,
       preFen: nodes[i - 1].fen, // position before this move (i ≥ 4, so safe)
       expected,
+      prevUci: nodes[i - 1].uci, // opponent's move into this position
+      prevFen: nodes[i - 2].fen, // position before that (i ≥ 4, so safe)
       due: isReviewDue(review, now),
       lapses: review?.lapses ?? 0,
       dueTime: review ? new Date(review.due).getTime() : now.getTime(),
@@ -98,5 +102,6 @@ export function selectIndividualPositions(
     blended.push(...[...uniq].sort((a, b) => a.dueTime - b.dueTime).slice(0, max));
   }
 
-  return blended.map(({ lineId, preFen, expected }) => ({ lineId, preFen, expected }));
+  return blended.map(({ lineId, preFen, expected, prevUci, prevFen }) =>
+    ({ lineId, preFen, expected, prevUci, prevFen }));
 }

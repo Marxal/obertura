@@ -2062,7 +2062,7 @@ cg-board square.move-dest.oc {
   align-items: center;
   gap: 0.5rem;
   padding: 0.6rem 1rem;
-  background: #2a2018; /* fixed dark training toolbar in both themes */
+  background: var(--bg-card); /* follows the theme — light in light mode */
   border-bottom: 1px solid var(--hairline);
   flex-shrink: 0;
 }
@@ -2070,7 +2070,7 @@ cg-board square.move-dest.oc {
 .pt-back-btn {
   background: transparent;
   border: none;
-  color: #cbb89a;
+  color: var(--text-muted);
   font-size: 0.875rem;
   font-family: system-ui, -apple-system, sans-serif;
   font-weight: 600;
@@ -2082,17 +2082,16 @@ cg-board square.move-dest.oc {
 }
 
 .pt-back-btn:active {
-  color: #fff;
+  color: var(--text);
 }
 
-/* Muted "what mode am I in" label at the top — deliberately NOT the opening
-   name, so it can't act as a hint. */
+/* Muted "what mode am I in" label (used by the Explore overlay's toolbar). */
 .pt-mode-label {
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: #cbb89a;
+  color: var(--text-muted);
   flex: 1;
   white-space: nowrap;
   overflow: hidden;
@@ -2115,7 +2114,7 @@ cg-board square.move-dest.oc {
 .pt-timer {
   font-size: 1rem;
   font-weight: 700;
-  color: #f0e3cc;
+  color: var(--text);
   flex-shrink: 0;
   min-width: 3ch;
   text-align: right;
@@ -2123,7 +2122,7 @@ cg-board square.move-dest.oc {
 }
 
 .pt-timer--low {
-  color: #ff6b5e;
+  color: var(--danger);
 }
 
 /* ── Top block: mode title + line name, hugging the board from above ────────── */
@@ -2201,9 +2200,17 @@ cg-board square.move-dest.oc {
 }
 
 /* ── Move-note card (shown after a wrong move when the node has a note) ─────── */
+/* Both hint cards float over the bottom block (position: absolute) so popping one
+   up never reflows the layout — the board stays put and stays easy to play on. */
 
 .pt-note-card {
-  margin: 0 1rem;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  box-sizing: border-box;
+  margin: 0 1rem 0.6rem;
   padding: 0.6rem 0.875rem;
   background: var(--bg-card);
   border: 1px solid var(--border-card);
@@ -2214,21 +2221,72 @@ cg-board square.move-dest.oc {
   font-size: 0.875rem;
   line-height: 1.5;
   color: var(--text);
-  max-height: 5rem;
+  max-height: 40vh;
   overflow-y: auto;
   box-shadow: var(--shadow-card);
 }
 
 .pt-alt-card {
-  margin: 0 1rem;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  box-sizing: border-box;
+  margin: 0 1rem 0.6rem;
   padding: 0.6rem 0.875rem;
   background: var(--bg-card);
   border: 1px solid var(--border-card);
   border-left: 3px solid var(--success);
   border-radius: 6px;
+  max-height: 45vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-card);
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+/* When the full-line note button occupies the bottom-right corner, lift the cards
+   above it so they don't collide. */
+.pt-has-note-btn .pt-note-card,
+.pt-has-note-btn .pt-alt-card {
+  bottom: 3.5rem;
+}
+
+/* ── Note button (full-line drills) ────────────────────────────────────────── */
+/* A discreet round button in the bottom-right corner. Dim while the current move
+   has no note; lights up (and becomes tappable) when it does, peeking the note. */
+.pt-note-btn {
+  position: absolute;
+  right: 0.85rem;
+  bottom: 0.85rem;
+  z-index: 6;
+  width: 2.6rem;
+  height: 2.6rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  color: var(--text-fainter);
+  opacity: 0.5;
+  cursor: default;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s, border-color 0.15s, opacity 0.15s;
+}
+
+.pt-note-btn--active {
+  color: var(--accent);
+  border-color: var(--accent);
+  opacity: 1;
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+}
+
+.pt-note-btn--active:active {
+  filter: brightness(0.92);
 }
 
 .pt-alt-note {
@@ -2327,6 +2385,8 @@ cg-board square.move-dest.oc {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
+  /* Anchor for the absolutely-positioned note / alt cards. */
+  position: relative;
 }
 
 .pt-status {
