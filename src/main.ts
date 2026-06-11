@@ -200,7 +200,22 @@ function openEditSheet(): void {
   btnRow.appendChild(cancelBtn);
   sheet.appendChild(btnRow);
 
+  // The on-screen keyboard shrinks the visual viewport from the bottom, which
+  // would otherwise hide the bottom-anchored sheet's Done button behind it.
+  // Lift the overlay's content by the keyboard's height so the buttons stay
+  // visible and reachable. Updates live as the keyboard opens/closes.
+  const vv = window.visualViewport;
+  function syncKeyboardInset() {
+    if (!vv) return;
+    const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    overlay.style.paddingBottom = `${inset}px`;
+  }
+  vv?.addEventListener('resize', syncKeyboardInset);
+  vv?.addEventListener('scroll', syncKeyboardInset);
+
   function close() {
+    vv?.removeEventListener('resize', syncKeyboardInset);
+    vv?.removeEventListener('scroll', syncKeyboardInset);
     overlay.remove();
     removeBack();
   }
@@ -214,7 +229,10 @@ function openEditSheet(): void {
 
   overlay.appendChild(sheet);
   document.body.appendChild(overlay);
-  requestAnimationFrame(() => nameInput.focus());
+  requestAnimationFrame(() => {
+    nameInput.focus();
+    syncKeyboardInset();
+  });
 }
 
 function setupTitleControls(): void {
@@ -474,25 +492,42 @@ function renderAnnotationPicker(): void {
 
 // ── Note panel ────────────────────────────────────────────────────────────────
 
-function renderNotePanel(): void {
-  const panel = document.getElementById('note-panel')!;
-  const label = document.getElementById('note-panel-label')!;
+// Open or collapse the note editor for the current move. Open = textarea +
+// Save button visible; collapsed = just the pencil. Kept as one place so the
+// pencil, the Save button and a fresh render all agree on the state.
+function setNoteEditing(editing: boolean): void {
   const textarea = document.getElementById('move-note-input') as HTMLTextAreaElement;
   const writeBtn = document.getElementById('note-write-btn')!;
+  const doneBtn = document.getElementById('note-done-btn')!;
+  textarea.hidden = !editing;
+  writeBtn.hidden = editing;
+  doneBtn.hidden = !editing;
+}
+
+function renderNotePanel(): void {
+  const panel = document.getElementById('note-panel')!;
+  const annRow = document.getElementById('annotate-row')!;
+  const annLabel = document.getElementById('annotate-label')!;
+  const label = document.getElementById('note-panel-label')!;
+  const textarea = document.getElementById('move-note-input') as HTMLTextAreaElement;
   const node = getCurrentNode();
   if (node.id === 'root') {
     panel.hidden = true;
+    annRow.hidden = true;
     return;
   }
+  // Annotation marks are their own always-visible control for any move — they
+  // do NOT depend on writing a note.
+  annRow.hidden = false;
+  annLabel.textContent = `Mark ${node.san}`;
+  renderAnnotationPicker();
+
   panel.hidden = false;
   label.textContent = `Note for ${node.san}`;
   textarea.value = node.note ?? '';
   // Compact by default: the editor stays collapsed until there's a note to
   // show or the user taps the pencil to write one.
-  const hasNote = !!node.note?.trim();
-  textarea.hidden = !hasNote;
-  writeBtn.hidden = hasNote;
-  renderAnnotationPicker();
+  setNoteEditing(!!node.note?.trim());
   renderExplanation();
 }
 
@@ -500,16 +535,21 @@ function setupNotePanel(): void {
   const textarea = document.getElementById('move-note-input') as HTMLTextAreaElement;
   const writeBtn = document.getElementById('note-write-btn')!;
   const addBtn = document.getElementById('note-add-btn')!;
+  const doneBtn = document.getElementById('note-done-btn')!;
 
   // Pencil: reveal the editor for a move with no note yet.
   writeBtn.addEventListener('click', () => {
-    textarea.hidden = false;
-    writeBtn.hidden = true;
+    setNoteEditing(true);
     textarea.focus();
   });
 
   // "+": adopt the engine's suggestion as the starting note.
   addBtn.addEventListener('click', () => adoptExplanationAsNote());
+
+  // Save: dismiss the keyboard, persist (if the line is already saved) and
+  // confirm with a discreet toast so the note clearly "took". An empty note
+  // collapses the editor back to the pencil.
+  doneBtn.addEventListener('click', () => { void finishNote(); });
 
   textarea.addEventListener('input', () => {
     const node = getCurrentNode();
@@ -522,6 +562,31 @@ function setupNotePanel(): void {
     // note is cleared, reappears).
     renderExplanation();
   });
+}
+
+// Confirm the current note: collapse the keyboard, persist it durably when the
+// line already lives in storage, and toast a confirmation.
+async function finishNote(): Promise<void> {
+  const textarea = document.getElementById('move-note-input') as HTMLTextAreaElement;
+  textarea.blur();
+  const node = getCurrentNode();
+  const hasNote = !!node.note?.trim();
+  if (!hasNote) {
+    // Nothing written — quietly fold the editor away again.
+    setNoteEditing(false);
+    return;
+  }
+  // An already-saved line persists immediately so the note can't be lost by
+  // leaving without a second Save. A brand-new line keeps it in memory until
+  // the header Save writes the whole line.
+  if (loadedLineId) {
+    const line = buildCurrentLine();
+    await saveLine(line);
+    currentTrainingLine = line;
+    showToast('Note saved ✓');
+  } else {
+    showToast('Note added — Save the line to keep it');
+  }
 }
 
 function handleMoveClick(nodeId: string) {
@@ -956,27 +1021,16 @@ function setupNav(): void {
 // drop the user back on My Lines, where the just-saved line is highlighted and
 // can be enrolled in training.
 
-async function saveCurrentLine(): Promise<void> {
-  if (isEmpty()) {
-    showToast('Play a move first');
-    return;
-  }
-
-  // Tags are edited in the lightbox; use the working set as-is.
-  const tags = [...currentTags];
-
-  // Auto-naming (default): the title is the manual name if the user renamed,
-  // otherwise the opening name from the bundled database for the whole line.
+// Assemble a Line from the builder's current working state. Shared by the
+// header Save and the quiet note-save, so they can never drift apart.
+function buildCurrentLine(): Line {
   const opening = detectedNameForLine();
   const name = currentTitle() || opening || 'Untitled line';
-  manualTitle = name;
-
   const isNew = !loadedLineId;
-  const id = loadedLineId ?? crypto.randomUUID();
-  const line: Line = {
-    id,
+  return {
+    id: loadedLineId ?? crypto.randomUUID(),
     name,
-    tags,
+    tags: [...currentTags],
     colour: saveColour,
     openingName: opening || null,
     // Preserve training progress on edit; new lines start fresh.
@@ -987,16 +1041,28 @@ async function saveCurrentLine(): Promise<void> {
     tree: serialise(),
     createdAt: isNew ? Date.now() : (loadedLineCreatedAt ?? Date.now()),
   };
+}
+
+async function saveCurrentLine(): Promise<void> {
+  if (isEmpty()) {
+    showToast('Play a move first');
+    return;
+  }
+
+  const isNew = !loadedLineId;
+  const line = buildCurrentLine();
+  // Lock in the auto-named title so it sticks as the manual name.
+  manualTitle = line.name;
 
   await saveLine(line);
-  loadedLineId = id;
+  loadedLineId = line.id;
   loadedLineCreatedAt = line.createdAt;
   currentTrainingLine = line;
 
   showToast(isNew ? 'Line saved ✓' : 'Changes saved ✓');
   // Surface the saved line on My Lines, highlighted so it's easy to find and
   // add to training.
-  focusSavedLine(id);
+  focusSavedLine(line.id);
   showView('lines');
 }
 
