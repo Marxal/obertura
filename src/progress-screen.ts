@@ -25,6 +25,12 @@ import { runProgressSelfTest } from './progress.selftest';
 import { currentStreak, trainedToday, getTrainingDays } from './streak';
 import { openRepertoireMap } from './repertoire-map';
 import { Icons } from './icons';
+import {
+  getShowStreakSection,
+  getShowActivitySection,
+  getActivityExpanded,
+  setActivityExpanded,
+} from './prefs';
 
 export interface ProgressCallbacks {
   onTrainLine: (lineId: string, inTraining: boolean) => void;
@@ -49,9 +55,11 @@ async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<
 
   const report = crossReference(games, lines);
 
-  renderStreakHero(container);
+  // Two sections are switchable from Settings → Statistics. The Train-header
+  // streak pill is separate and unaffected by either toggle.
+  if (getShowStreakSection()) renderStreakHero(container);
   renderQuickStats(container, lines);
-  renderActivityGrid(container);
+  if (getShowActivitySection()) renderActivityGrid(container);
 
   if (lines.length > 0) {
     renderConfidenceChart(container, lines);
@@ -113,10 +121,10 @@ function renderStreakHero(container: HTMLElement): void {
 
   hero.appendChild(main);
 
-  // 7-day mini grid (day letter + filled/empty dot)
+  // 7-day mini strip: the day NUMBER in each cell; trained days get a sage fill,
+  // today gets a subtle ring. (Streak counting itself is untouched — see streak.ts.)
   const trainingDays = new Set(getTrainingDays());
   const now = new Date();
-  const DAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
   const weekGrid = document.createElement('div');
   weekGrid.className = 'stats-week-grid';
@@ -127,19 +135,18 @@ function renderStreakHero(container: HTMLElement): void {
     d.setDate(d.getDate() - i);
     const key = localDateKey(d);
     const trained = trainingDays.has(key);
+    const isToday = i === 0;
 
     const cell = document.createElement('div');
-    cell.className = 'stats-week-cell' + (trained ? ' stats-week-cell--on' : '');
+    cell.className = 'stats-week-cell'
+      + (trained ? ' stats-week-cell--on' : '')
+      + (isToday ? ' stats-week-cell--today' : '');
     cell.setAttribute('aria-label', `${key}: ${trained ? 'trained' : 'not trained'}`);
 
-    const dot = document.createElement('span');
-    dot.className = 'stats-week-dot';
-    cell.appendChild(dot);
-
-    const letter = document.createElement('span');
-    letter.className = 'stats-week-letter';
-    letter.textContent = DAY_LETTERS[d.getDay()];
-    cell.appendChild(letter);
+    const numEl = document.createElement('span');
+    numEl.className = 'stats-week-num';
+    numEl.textContent = String(d.getDate());
+    cell.appendChild(numEl);
 
     weekGrid.appendChild(cell);
   }
@@ -205,31 +212,68 @@ function renderActivityGrid(container: HTMLElement): void {
 
   // Count trained days in the window
   let trainedCount = 0;
-  for (let i = 27; i >= 0; i--) {
+  for (let i = 0; i < 28; i++) {
     const d = new Date(now);
     d.setDate(d.getDate() - i);
     if (trainingDays.has(localDateKey(d))) trainedCount++;
   }
 
-  const section = statsSection('Training Activity', `${trainedCount} of 28 days`);
+  const section = document.createElement('div');
+  section.className = 'section';
+
+  // A tappable head with a chevron: the grid collapses behind it, default
+  // collapsed, and we remember the choice across visits.
+  let expanded = getActivityExpanded();
+
+  const head = document.createElement('button');
+  head.type = 'button';
+  head.className = 'stats-activity-head' + (expanded ? ' stats-activity-head--open' : '');
+  head.setAttribute('aria-expanded', String(expanded));
+
+  const h = document.createElement('h2');
+  h.className = 'section-title';
+  h.textContent = 'Training Activity';
+  head.appendChild(h);
+
+  const meta = document.createElement('span');
+  meta.className = 'section-meta stats-activity-meta';
+  meta.textContent = `${trainedCount} of 28 days`;
+  head.appendChild(meta);
+
+  const chev = Icons.chevronDown(18);
+  chev.classList.add('stats-activity-chev');
+  head.appendChild(chev);
+  section.appendChild(head);
 
   const grid = document.createElement('div');
   grid.className = 'stats-activity-grid';
   grid.setAttribute('aria-label', 'Training activity last 28 days');
+  grid.hidden = !expanded;
 
-  for (let i = 27; i >= 0; i--) {
+  // Today sits top-left, counting back to 27 days ago at the bottom-right.
+  for (let i = 0; i < 28; i++) {
     const d = new Date(now);
     d.setDate(d.getDate() - i);
     const key = localDateKey(d);
     const trained = trainingDays.has(key);
 
     const cell = document.createElement('div');
-    cell.className = 'stats-activity-cell' + (trained ? ' stats-activity-cell--on' : '');
+    cell.className = 'stats-activity-cell'
+      + (trained ? ' stats-activity-cell--on' : '')
+      + (i === 0 ? ' stats-activity-cell--today' : '');
     cell.setAttribute('title', key);
     grid.appendChild(cell);
   }
-
   section.appendChild(grid);
+
+  head.addEventListener('click', () => {
+    expanded = !expanded;
+    grid.hidden = !expanded;
+    head.classList.toggle('stats-activity-head--open', expanded);
+    head.setAttribute('aria-expanded', String(expanded));
+    setActivityExpanded(expanded);
+  });
+
   container.appendChild(section);
 }
 
@@ -619,23 +663,23 @@ function windowRow(label: string, w: ProgressWindow, muted: boolean): HTMLElemen
 // ── Per-line card (Opening Detail section) ────────────────────────────────────
 
 function progressCard(item: LineProgress, cb: ProgressCallbacks): HTMLElement {
+  // Built on the .card + .row component layer, same as My Lines.
   const card = document.createElement('div');
-  card.className = 'line-card review-card';
+  card.className = 'card stat-card';
 
-  const body = document.createElement('div');
-  body.className = 'line-card-body review-card-body';
-
+  // Row 1: title + verdict badge.
   const head = document.createElement('div');
-  head.className = 'progress-card-head';
+  head.className = 'row stat-card-head';
   const nameEl = document.createElement('div');
-  nameEl.className = 'line-card-name';
+  nameEl.className = 'stat-card-name';
   nameEl.textContent = item.title;
   head.appendChild(nameEl);
   head.appendChild(verdictBadge(item));
-  body.appendChild(head);
+  card.appendChild(head);
 
+  // Row 2: colour / family / confidence / in-training chips.
   const meta = document.createElement('div');
-  meta.className = 'line-card-meta';
+  meta.className = 'row stat-card-chips';
   meta.appendChild(colourChip(item.colour));
   if (item.family && item.family !== item.title) {
     const fam = document.createElement('span');
@@ -653,8 +697,11 @@ function progressCard(item: LineProgress, cb: ProgressCallbacks): HTMLElement {
     prep.textContent = '✓ in training';
     meta.appendChild(prep);
   }
-  body.appendChild(meta);
+  card.appendChild(meta);
 
+  // Row 3: before/after compare bars.
+  const compareRow = document.createElement('div');
+  compareRow.className = 'row stat-card-compare';
   const compare = document.createElement('div');
   compare.className = 'progress-compare';
   if (item.verdict === 'untrained') {
@@ -663,24 +710,27 @@ function progressCard(item: LineProgress, cb: ProgressCallbacks): HTMLElement {
     compare.appendChild(windowRow('Before', item.before, false));
     compare.appendChild(windowRow('Since', item.after, false));
   }
-  body.appendChild(compare);
+  compareRow.appendChild(compare);
+  card.appendChild(compareRow);
 
+  // Row 4: plain-language verdict + the Drill/Add action.
+  const foot = document.createElement('div');
+  foot.className = 'row stat-card-foot';
   const note = document.createElement('div');
-  note.className = 'review-dev-score';
+  note.className = 'stat-card-note';
   note.textContent = verdictSentence(item);
-  body.appendChild(note);
-
-  card.appendChild(body);
+  foot.appendChild(note);
 
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.className = 'review-build-btn';
+  btn.className = 'btn-secondary stat-card-btn';
   btn.textContent = item.inTraining ? 'Drill' : 'Add';
   btn.addEventListener('click', e => {
     e.stopPropagation();
     cb.onTrainLine(item.lineId, item.inTraining);
   });
-  card.appendChild(btn);
+  foot.appendChild(btn);
+  card.appendChild(foot);
 
   return card;
 }

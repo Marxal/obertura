@@ -13,7 +13,7 @@ import { getShowQuickView, getShowLineMiniatures } from './prefs';
 import { lineIsDue } from './scheduler';
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
-import { analyseGames, countGamesPerLine, type Analysis, type OpeningStat } from './analysis';
+import { analyseGames, countGamesPerLine, TOP_N, type Analysis, type OpeningStat } from './analysis';
 import { openImportPanel, getGamesSource } from './import-panel';
 import { isOpponentTag } from './scout';
 import type { ImportedGame } from './chesscom';
@@ -839,12 +839,40 @@ function renderGamesTab(
 
   const list = document.createElement('div');
   list.className = 'section lines-section';
-  for (const stat of suggestions) {
-    list.appendChild(suggestionCard(stat, deps));
-  }
+  // Keep the top-6 cap, but reveal the rest inline behind a "Show all".
+  suggestions.forEach((stat, i) => {
+    const card = suggestionCard(stat, deps);
+    if (i >= TOP_N) card.hidden = true;
+    list.appendChild(card);
+  });
   content.appendChild(list);
 
+  if (suggestions.length > TOP_N) {
+    content.appendChild(buildShowAllToggle(list, suggestions.length));
+  }
+
   appendSelfTestLink(content);
+}
+
+// A "Show all N" / "Show fewer" toggle that reveals the cards hidden past the
+// top-N cap, collapsing them again on a second tap.
+function buildShowAllToggle(list: HTMLElement, total: number): HTMLElement {
+  let showingAll = false;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn-secondary lines-show-all';
+  const setLabel = () => {
+    btn.textContent = showingAll ? 'Show fewer' : `Show all ${total}`;
+  };
+  setLabel();
+  btn.addEventListener('click', () => {
+    showingAll = !showingAll;
+    (Array.from(list.children) as HTMLElement[]).forEach((card, i) => {
+      card.hidden = !showingAll && i >= TOP_N;
+    });
+    setLabel();
+  });
+  return btn;
 }
 
 function buildRefreshRow(fullRefresh: () => void): HTMLElement {
@@ -906,37 +934,42 @@ function formatSanLine(sans: string[]): string {
 }
 
 function suggestionCard(stat: OpeningStat, deps: LinesDeps): HTMLElement {
+  // Built on the .card + .row component layer, to match My Lines.
   const card = document.createElement('div');
-  card.className = 'line-card review-card';
+  card.className = 'card stat-card games-card';
 
-  // A miniature of the suggested line's final position, replayed from its
-  // representative UCI moves. Skipped when miniatures are hidden, or when there
-  // are no moves to show.
+  // Row 1: optional position miniature + family name and chips.
+  const head = document.createElement('div');
+  head.className = 'row games-card-head';
+
   if (getShowLineMiniatures() && stat.repUcis.length > 0) {
     const mini = document.createElement('div');
-    mini.className = 'line-card-mini';
+    mini.className = 'games-card-mini';
     mini.appendChild(buildMiniBoard(fenFromUcis(stat.repUcis), stat.colour));
-    card.appendChild(mini);
+    head.appendChild(mini);
   }
 
-  const body = document.createElement('div');
-  body.className = 'line-card-body review-card-body';
-
+  const headText = document.createElement('div');
+  headText.className = 'games-card-headtext';
   const nameEl = document.createElement('div');
-  nameEl.className = 'line-card-name';
+  nameEl.className = 'stat-card-name';
   nameEl.textContent = stat.family;
-  body.appendChild(nameEl);
+  headText.appendChild(nameEl);
 
   const meta = document.createElement('div');
-  meta.className = 'line-card-meta';
+  meta.className = 'stat-card-chips';
   meta.appendChild(colourChip(stat.colour));
   const gamesChip = document.createElement('span');
   gamesChip.className = 'review-stat-chip';
   gamesChip.textContent = `Played ${stat.games}×`;
   meta.appendChild(gamesChip);
-  body.appendChild(meta);
+  headText.appendChild(meta);
+  head.appendChild(headText);
+  card.appendChild(head);
 
-  // Score line: bar + "67% · W-D-L".
+  // Row 2: score line — bar + "67% · W-D-L".
+  const scoreRowWrap = document.createElement('div');
+  scoreRowWrap.className = 'row stat-card-compare';
   const scoreRow = document.createElement('div');
   scoreRow.className = 'review-score-row';
   scoreRow.appendChild(scoreBar(stat.scorePct));
@@ -944,29 +977,29 @@ function suggestionCard(stat: OpeningStat, deps: LinesDeps): HTMLElement {
   scoreText.className = 'review-score-text';
   scoreText.textContent = `${stat.scorePct}% · ${stat.wins}-${stat.draws}-${stat.losses} W-D-L`;
   scoreRow.appendChild(scoreText);
-  body.appendChild(scoreRow);
+  scoreRowWrap.appendChild(scoreRow);
+  card.appendChild(scoreRowWrap);
 
-  // The representative line, so you recognise which variation this is.
-  if (stat.repSans.length > 0) {
-    const lineEl = document.createElement('div');
-    lineEl.className = 'review-moves';
-    lineEl.textContent = formatSanLine(stat.repSans);
-    body.appendChild(lineEl);
-  }
-
-  card.appendChild(body);
+  // Row 3: the representative line + the Build action.
+  const foot = document.createElement('div');
+  foot.className = 'row stat-card-foot';
+  const lineEl = document.createElement('div');
+  lineEl.className = 'review-moves stat-card-note';
+  lineEl.textContent = stat.repSans.length > 0 ? formatSanLine(stat.repSans) : '';
+  foot.appendChild(lineEl);
 
   if (stat.repUcis.length > 0 && deps.onBuildLine) {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'review-build-btn';
+    btn.className = 'btn-secondary stat-card-btn';
     btn.textContent = 'Build line';
     btn.addEventListener('click', e => {
       e.stopPropagation();
       deps.onBuildLine!(stat.repUcis, stat.colour);
     });
-    card.appendChild(btn);
+    foot.appendChild(btn);
   }
+  card.appendChild(foot);
 
   return card;
 }

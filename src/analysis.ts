@@ -273,11 +273,12 @@ export function analyseGames(games: ImportedGame[], lines: Line[]): Analysis {
     .sort((a, b) => a.scorePct - b.scorePct || b.games - a.games)
     .slice(0, TOP_N);
 
+  // Full list, uncapped: the From-my-games tab shows the top TOP_N and reveals
+  // the rest behind a "Show all". (mostPlayed / weakest keep their caps below.)
   const suggestions = stats
     .filter(s => recognised(s) && !s.hasRepertoire && s.games >= MIN_GAMES_SUGGEST)
     // Most-played gaps first; among equals, the weaker ones matter more.
-    .sort((a, b) => b.games - a.games || a.scorePct - b.scorePct)
-    .slice(0, TOP_N);
+    .sort((a, b) => b.games - a.games || a.scorePct - b.scorePct);
 
   const deviations = [...devs.values()]
     .sort((a, b) => b.count - a.count || a.ply - b.ply)

@@ -35,6 +35,10 @@ import {
   setShowQuickView,
   getShowLineMiniatures,
   setShowLineMiniatures,
+  getShowStreakSection,
+  setShowStreakSection,
+  getShowActivitySection,
+  setShowActivitySection,
 } from './prefs';
 import { getFeedbackSound, setFeedbackSound, previewFeedback } from './sound';
 import {
@@ -76,6 +80,7 @@ export function renderSettingsScreen(container: HTMLElement): void {
 
   screen.appendChild(buildAppearanceGroup());
   screen.appendChild(buildTrainingGroup());
+  screen.appendChild(buildStatisticsGroup());
   screen.appendChild(buildNamingGroup());
   const userSlotMid = document.createElement('div');
   screen.appendChild(userSlotMid);
@@ -450,6 +455,28 @@ function buildTrainingGroup(): HTMLElement {
       (v) => setDefaultTrainingMode(v),
     ),
     { sub: 'What “Start training” launches from the Today screen.' },
+  ));
+
+  return sec;
+}
+
+// ── Statistics ───────────────────────────────────────────────────────────────
+// Two switches for the Statistics screen's optional sections. The Train-header
+// streak pill is independent of both — it always shows.
+
+function buildStatisticsGroup(): HTMLElement {
+  const sec = group('Statistics');
+
+  sec.appendChild(row(
+    'Show streak on Statistics',
+    toggle(getShowStreakSection(), (on) => setShowStreakSection(on)),
+    { sub: 'The big streak counter and 7-day strip. The Train-screen streak pill stays either way.' },
+  ));
+
+  sec.appendChild(row(
+    'Show training activity',
+    toggle(getShowActivitySection(), (on) => setShowActivitySection(on)),
+    { sub: 'The 28-day activity grid.' },
   ));
 
   return sec;

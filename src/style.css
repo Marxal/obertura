@@ -4249,38 +4249,33 @@ cg-board square.move-dest.oc {
 .stats-week-cell {
   flex: 1;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.4rem 0 0.3rem;
+  justify-content: center;
+  padding: 0.5rem 0;
   border-radius: 7px;
   background: var(--bg-elevated);
 }
 
+/* Trained days take a sage fill. */
 .stats-week-cell--on {
-  background: var(--accent);
+  background: var(--success);
 }
 
-.stats-week-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--text-fainter);
+/* Today gets a subtle ring, fill or not. */
+.stats-week-cell--today {
+  box-shadow: inset 0 0 0 2px var(--accent);
 }
 
-.stats-week-cell--on .stats-week-dot {
-  background: rgba(255, 255, 255, 0.9);
-}
-
-.stats-week-letter {
-  font-size: 0.6rem;
+.stats-week-num {
+  font-size: 0.82rem;
   font-weight: 700;
-  color: var(--text-faint);
-  letter-spacing: 0;
+  color: var(--text-muted);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
-.stats-week-cell--on .stats-week-letter {
-  color: rgba(255, 255, 255, 0.85);
+.stats-week-cell--on .stats-week-num {
+  color: #fff;
 }
 
 .stats-streak-sub {
@@ -4332,22 +4327,58 @@ cg-board square.move-dest.oc {
 /* Sections on this screen use the shared .section / .section-head / .section-title
    / .section-meta component layer (see COMPONENT LAYER above). */
 
-/* Training activity grid (28 days, 4 rows × 7 cols) */
+/* Training activity — a collapsible section: a tappable head with a chevron. */
+.stats-activity-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.stats-activity-meta {
+  margin-left: auto;
+}
+
+.stats-activity-chev {
+  flex: 0 0 auto;
+  color: var(--text-faint);
+  transition: transform 0.18s ease;
+}
+
+.stats-activity-head--open .stats-activity-chev {
+  transform: rotate(180deg);
+}
+
+/* The grid itself: smaller cells, capped width, today top-left. */
 .stats-activity-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
+  gap: 5px;
+  margin-top: var(--space-md);
+  max-width: 210px;
 }
 
 .stats-activity-cell {
   aspect-ratio: 1;
   border-radius: 3px;
+  /* A hairline border lifts an un-trained cell off the section fill. */
   background: var(--bg-elevated);
+  border: 1px solid var(--border-card);
   min-height: 0;
 }
 
 .stats-activity-cell--on {
-  background: var(--accent);
+  background: var(--success);
+  border-color: var(--success);
+}
+
+.stats-activity-cell--today {
+  box-shadow: 0 0 0 2px var(--accent);
 }
 
 /* Confidence bar chart */
@@ -4573,6 +4604,90 @@ cg-board square.move-dest.oc {
   font-size: 0.7rem;
   font-weight: 600;
   color: var(--text-muted);
+}
+
+/* ── Stat cards (Opening Detail + From-my-games) on .card + .row ─────────────── */
+/* Same data as before, new clothes: the shared .card surface with .row dividers,
+   so these read like the My Lines cards. The .card's vertical padding is zeroed
+   so the rows' own padding sets the rhythm; horizontal padding is kept. */
+.stat-card {
+  padding-top: 0;
+  padding-bottom: 0;
+  margin-bottom: var(--space-md);
+}
+
+.stat-card:last-child {
+  margin-bottom: 0;
+}
+
+.stat-card-head {
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.stat-card-name {
+  min-width: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.stat-card-chips {
+  flex-wrap: wrap;
+}
+
+/* The compare row holds a full-width block (bars or a score row). */
+.stat-card-compare > * {
+  width: 100%;
+}
+
+.stat-card-foot {
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.stat-card-note {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  line-height: 1.4;
+}
+
+/* A compact action button that sits inside a card row. */
+.stat-card-btn {
+  flex: 0 0 auto;
+  min-height: 0;
+  padding: var(--space-sm) var(--space-md);
+  font-size: 0.8rem;
+}
+
+/* From-my-games header row: miniature left, name + chips stacked right. */
+.games-card-head {
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.games-card-mini {
+  flex: 0 0 auto;
+  width: 56px;
+}
+
+.games-card-headtext {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+/* "Show all N" / "Show fewer" toggle under a capped list. */
+.lines-show-all {
+  display: block;
+  width: calc(100% - 2rem);
+  margin: 0.6rem 1rem 0;
 }
 
 /* ── Toast (transient confirmation) ─────────────────────────────────────────── */
