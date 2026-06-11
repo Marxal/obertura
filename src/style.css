@@ -4898,3 +4898,194 @@ cg-board square.move-dest.oc {
   width: 100%;
   margin-top: var(--space-xs);
 }
+
+/* ── Opening library ──────────────────────────────────────────────────────── */
+
+/* The library + detail overlays reuse the rmap-overlay chrome (header, back,
+   title, count badge). These rules cover the search field, the grouped results,
+   and the detail board + step controls. */
+
+.lib-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: var(--space-sm) var(--space-lg);
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.lib-search-icon {
+  position: absolute;
+  left: calc(var(--space-lg) + 0.6rem);
+  display: flex;
+  color: var(--text-faint);
+  pointer-events: none;
+}
+.lib-search-input {
+  width: 100%;
+  padding: 0.6rem 0.75rem 0.6rem 2.4rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-size: 0.95rem;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.lib-search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.lib-results {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-sm) var(--space-lg) var(--space-xl);
+}
+
+.lib-status {
+  font-size: 0.78rem;
+  color: var(--text-faint);
+  margin: var(--space-sm) 0;
+}
+
+.lib-group {
+  margin-bottom: var(--space-md);
+}
+.lib-group-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: var(--space-xs) 0;
+  position: sticky;
+  top: 0;
+  background: var(--bg-page);
+}
+.lib-group-name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.lib-group-count {
+  font-size: 0.7rem;
+  color: var(--text-faint);
+}
+
+.lib-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 0.4rem;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.lib-row:active { background: var(--bg-elevated); }
+.lib-row-eco {
+  flex-shrink: 0;
+  width: 2.4rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.lib-row-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.lib-row-variation {
+  font-size: 0.85rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lib-row-moves {
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Library detail (board + step-through) ─────────────────────────────────── */
+
+.lib-board-wrap {
+  width: 100vw;
+  height: min(100vw, 52vh);
+  flex-shrink: 0;
+}
+.lib-board {
+  width: 100%;
+  height: 100%;
+}
+
+.lib-movelist {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem 0.3rem;
+  padding: var(--space-md) var(--space-lg);
+  flex: 1;
+  min-height: 2.5rem;
+  overflow-y: auto;
+}
+.lib-movelist-empty {
+  font-size: 0.8rem;
+  color: var(--text-faint);
+}
+.lib-move-num {
+  font-size: 0.78rem;
+  color: var(--text-faint);
+  margin-left: 0.25rem;
+  font-variant-numeric: tabular-nums;
+}
+.lib-move {
+  font-size: 0.85rem;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  padding: 0.1rem 0.3rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.lib-move--current {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+.lib-controls {
+  display: flex;
+  gap: var(--space-sm);
+  padding: 0 var(--space-lg);
+  flex-shrink: 0;
+}
+.lib-nav-btn {
+  flex: 1;
+  height: 44px;
+  font-size: 1.1rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.lib-nav-btn:active { filter: brightness(0.92); }
+.lib-nav-btn:disabled { opacity: 0.4; cursor: default; }
+
+.lib-open-btn {
+  margin: var(--space-md) var(--space-lg) calc(var(--space-lg) + env(safe-area-inset-bottom, 0));
+  align-self: stretch;
+  text-align: center;
+  font-size: 0.9rem;
+  padding: 0.7rem;
+}

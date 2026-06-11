@@ -976,7 +976,11 @@ function showView(view: ViewName): void {
   }
 
   if (view === 'explore') {
-    renderExploreScreen(exploreEl, { onPrepareReply: prepareReply, onOpenLine });
+    renderExploreScreen(exploreEl, {
+      onPrepareReply: prepareReply,
+      onOpenLine,
+      onOpenInBuilder: (ucis, colour) => buildFromUcis(ucis, colour),
+    });
   }
 
   if (view === 'train') {
