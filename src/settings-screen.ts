@@ -31,6 +31,10 @@ import {
   getConfirmRunBeforeTraining,
   setConfirmRunBeforeTraining,
   clearTimedBest,
+  getShowQuickView,
+  setShowQuickView,
+  getShowLineMiniatures,
+  setShowLineMiniatures,
 } from './prefs';
 import { getFeedbackSound, setFeedbackSound, previewFeedback } from './sound';
 import {
@@ -381,6 +385,18 @@ function buildAppearanceGroup(): HTMLElement {
     'Paper texture',
     toggle(getPaperTexture(), (on) => setPaperTexture(on)),
     { sub: 'The subtle speckle behind the app.' },
+  ));
+
+  sec.appendChild(row(
+    'Quick-view carousels',
+    toggle(getShowQuickView(), (on) => setShowQuickView(on)),
+    { sub: 'The swipe-through board rows at the top of My Lines. Off shows quick add-line buttons instead.' },
+  ));
+
+  sec.appendChild(row(
+    'Line position miniatures',
+    toggle(getShowLineMiniatures(), (on) => setShowLineMiniatures(on)),
+    { sub: 'A tiny board on every saved-line and suggestion card, showing where the line ends up.' },
   ));
 
   return sec;
