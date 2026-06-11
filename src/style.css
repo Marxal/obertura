@@ -794,11 +794,11 @@ cg-board square.move-dest.oc {
   transform: translateY(1px);
 }
 
-/* Watch/play-line button (in the eval controls, next to Flip): accent while
-   a line is playing back. */
+/* Watch/play-line button (in the bottom control bar, next to Flip): accent
+   while a line is playing back. */
 .watch-btn.playing {
   color: var(--accent);
-  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 /* Applied-tag chips shown under the title (read-only; edited in the lightbox). */
@@ -829,66 +829,21 @@ cg-board square.move-dest.oc {
   box-shadow: inset 0 1px 2px rgba(28, 22, 16, 0.06);
 }
 
-/* Move navigation: step arrows flanking the scrolling move strip, with discrete
-   jump-to-end buttons on the outside. These are plain navigation controls — not
-   the engine's best-move arrows drawn on the board. */
-.move-nav {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  min-height: 2em;
-}
-
-.move-nav-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  border: 1px solid var(--border-card);
-  border-radius: 8px;
-  background: var(--bg-card);
-  color: var(--text-muted);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  box-shadow: var(--shadow-card);
-  transition: color 0.12s, border-color 0.12s, filter 0.12s, opacity 0.12s;
-}
-
-.move-nav-btn:active {
-  filter: brightness(0.95);
-  transform: translateY(1px);
-}
-
-.move-nav-btn:disabled {
-  opacity: 0.35;
-  cursor: default;
-  box-shadow: none;
-}
-
-/* Jump-to-start/end: smaller and quieter than the step arrows. */
-.move-nav-btn--edge {
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: transparent;
-  box-shadow: none;
-  color: var(--text-faint);
-}
-
+/* The move strip fills the whole moves-block now that the step arrows live in
+   the bottom control bar — it keeps the horizontal scroll and gains the
+   vertical room the old control row used. */
 #move-list {
-  flex: 1;
+  width: 100%;
   min-width: 0;
   font-family: 'Courier New', Courier, monospace;
-  font-size: 1rem;
+  font-size: 0.9rem;
   line-height: 1.8;
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
   gap: 0 0.1em;
-  min-height: 1.8em;
+  min-height: 2.6em;
+  padding: 0.2rem 0.1rem;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -929,6 +884,124 @@ cg-board square.move-dest.oc {
   background: var(--accent);
   color: #fff;
   font-weight: 700;
+}
+
+/* ── Builder bottom control bar ─────────────────────────────────────────────
+   Pinned to the bottom of the screen while building (the tab bar is hidden on
+   the builder, so the space is free). Flip + watch on the left, single-step
+   move arrows on the right. Bottom padding respects the phone's gesture area.
+   `main` already reserves this height, so the bar never covers the panel. */
+.builder-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-card);
+  padding: 0.3rem 0.75rem calc(0.3rem + env(safe-area-inset-bottom, 0px));
+}
+
+.builder-bar-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Quiet icon buttons: no fill or border, colour only — same treatment as
+   .btn-quiet, sized as square touch targets. */
+.bar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.12s, background 0.12s, opacity 0.12s;
+}
+
+.bar-btn:active {
+  color: var(--text);
+  background: var(--accent-soft);
+}
+
+.bar-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* ── Annotation marks ────────────────────────────────────────────────────────
+   The six standard symbols as coloured chips: sage for the strong marks,
+   gold for the speculative middle, brick for the blunders. Used as tiny chips
+   on moves in the strip and as tappable chips in the note-panel picker. */
+.ann-brilliant { --ann: var(--success-active); }
+.ann-good { --ann: var(--success); }
+.ann-interesting { --ann: #a9851e; }
+.ann-dubious { --ann: #b8741a; }
+.ann-mistake { --ann: var(--warn); }
+.ann-blunder { --ann: var(--danger); }
+
+[data-theme="dark"] .ann-interesting { --ann: #c79b32; }
+[data-theme="dark"] .ann-dubious { --ann: #cf8a35; }
+
+/* Tiny chip riding on a move in the strip. */
+.ann-chip {
+  display: inline-block;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  padding: 0.18em 0.4em 0.22em;
+  border-radius: 999px;
+  background: var(--ann);
+  color: #fff;
+  vertical-align: 0.18em;
+  margin-left: 3px;
+}
+
+/* Picker chips in the note panel: tonal at rest, filled when selected. */
+.annotation-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.ann-pick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  height: 30px;
+  padding: 0 0.6em;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ann) 14%, var(--bg-card));
+  color: var(--ann);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.ann-pick:active {
+  border-color: var(--ann);
+}
+
+.ann-pick--on {
+  background: var(--ann);
+  color: #fff;
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -2948,7 +3021,7 @@ cg-board square.move-dest.oc {
   background: var(--bg-parchment);
   color: var(--text-muted);
   font-family: Georgia, 'Times New Roman', serif;
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   line-height: 1.5;
   display: flex;
   flex-direction: column;
@@ -3347,54 +3420,6 @@ cg-board square.move-dest.oc {
   font-size: 0.62rem;
   color: var(--text-faint);
   white-space: nowrap;
-}
-
-/* Small flip-board control, sitting just left of the engine toggle. View-only:
-   it swaps which side faces you without touching the line's saved colour. */
-.board-flip-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 1px solid var(--border-card);
-  border-radius: 6px;
-  background: var(--bg-card);
-  color: var(--text-muted);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  flex-shrink: 0;
-}
-
-.board-flip-btn:active {
-  color: var(--accent);
-  filter: brightness(0.96);
-}
-
-/* Watch-line playback speed: a compact chip that cycles Slow → Normal → Fast,
-   sitting between the watch and flip buttons. */
-.watch-speed-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 28px;
-  padding: 0 8px;
-  border: 1px solid var(--border-card);
-  border-radius: 6px;
-  background: var(--bg-card);
-  color: var(--text-muted);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  flex-shrink: 0;
-}
-
-.watch-speed-btn:active {
-  color: var(--accent);
-  filter: brightness(0.96);
 }
 
 .engine-label {

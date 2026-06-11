@@ -5,6 +5,7 @@ import 'chessground/assets/chessground.base.css';
 import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
 import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, loadTree, fenBefore } from './tree';
+import type { Annotation, MoveNode } from './tree';
 import { saveLine, getAllLines } from './storage';
 import { nameForPath } from './openings';
 import { explainMove, describeGrade } from './explain';
@@ -329,6 +330,28 @@ function adoptExplanationAsNote(): void {
   renderNotePanel();
 }
 
+// One clickable move in the strip: the SAN, its annotation chip (if marked)
+// and a note dot (if annotated in words too).
+function moveSpan(node: MoveNode, activeId: string): HTMLElement {
+  const span = document.createElement('span');
+  span.className = `move-san${node.id === activeId ? ' active' : ''}`;
+  span.addEventListener('click', () => handleMoveClick(node.id));
+  span.textContent = node.san;
+  if (node.annotation) {
+    const chip = document.createElement('span');
+    chip.className = `ann-chip ann-${annClass(node.annotation)}`;
+    chip.textContent = node.annotation;
+    span.appendChild(chip);
+  }
+  if (node.note) {
+    const dot = document.createElement('span');
+    dot.className = 'move-note-dot';
+    dot.setAttribute('aria-hidden', 'true');
+    span.appendChild(dot);
+  }
+  return span;
+}
+
 function renderMoveList() {
   const moves = mainline();
   const activeId = getCurrentNode().id;
@@ -345,31 +368,8 @@ function renderMoveList() {
     numSpan.textContent = `${num}.`;
     el.appendChild(numSpan);
 
-    const wSpan = document.createElement('span');
-    wSpan.className = `move-san${white.id === activeId ? ' active' : ''}`;
-    wSpan.addEventListener('click', () => handleMoveClick(white.id));
-    wSpan.textContent = white.san;
-    if (white.note) {
-      const dot = document.createElement('span');
-      dot.className = 'move-note-dot';
-      dot.setAttribute('aria-hidden', 'true');
-      wSpan.appendChild(dot);
-    }
-    el.appendChild(wSpan);
-
-    if (black) {
-      const bSpan = document.createElement('span');
-      bSpan.className = `move-san${black.id === activeId ? ' active' : ''}`;
-      bSpan.addEventListener('click', () => handleMoveClick(black.id));
-      bSpan.textContent = black.san;
-      if (black.note) {
-        const dot = document.createElement('span');
-        dot.className = 'move-note-dot';
-        dot.setAttribute('aria-hidden', 'true');
-        bSpan.appendChild(dot);
-      }
-      el.appendChild(bSpan);
-    }
+    el.appendChild(moveSpan(white, activeId));
+    if (black) el.appendChild(moveSpan(black, activeId));
   }
 
   // Keep the active move visible in the horizontally-scrolling strip.
@@ -403,13 +403,7 @@ function stepForward(): void {
   handleMoveClick(moves[idx + 1].id);
 }
 
-function goToEnd(): void {
-  const moves = mainline();
-  if (moves.length === 0) return;
-  handleMoveClick(moves[moves.length - 1].id);
-}
-
-// Grey out the step/jump buttons at the ends of the line.
+// Grey out the step arrows at the ends of the line.
 function updateMoveNavButtons(): void {
   const moves = mainline();
   const idx = moveIndex();
@@ -419,17 +413,63 @@ function updateMoveNavButtons(): void {
     const b = document.getElementById(id) as HTMLButtonElement | null;
     if (b) b.disabled = disabled;
   };
-  set('move-first', atStart);
   set('move-prev', atStart);
   set('move-next', atEnd);
-  set('move-last', atEnd);
 }
 
 function setupMoveNav(): void {
-  document.getElementById('move-first')!.addEventListener('click', goToStart);
   document.getElementById('move-prev')!.addEventListener('click', stepBack);
   document.getElementById('move-next')!.addEventListener('click', stepForward);
-  document.getElementById('move-last')!.addEventListener('click', goToEnd);
+}
+
+// ── Annotation marks ─────────────────────────────────────────────────────────
+// The six standard chess symbols, strongest to worst, each with a colour class
+// (sage for the strong marks, gold for the speculative ones, brick for the
+// blunders). Shown as small chips in the move list and picked from a chip row
+// in the note panel — tapping the active chip clears the mark.
+const ANNOTATIONS: ReadonlyArray<{ symbol: Annotation; cls: string; label: string }> = [
+  { symbol: '!!', cls: 'brilliant', label: 'Brilliant move (!!)' },
+  { symbol: '!', cls: 'good', label: 'Good move (!)' },
+  { symbol: '!?', cls: 'interesting', label: 'Interesting move (!?)' },
+  { symbol: '?!', cls: 'dubious', label: 'Dubious move (?!)' },
+  { symbol: '?', cls: 'mistake', label: 'Mistake (?)' },
+  { symbol: '??', cls: 'blunder', label: 'Blunder (??)' },
+];
+
+function annClass(symbol: Annotation): string {
+  return ANNOTATIONS.find(a => a.symbol === symbol)!.cls;
+}
+
+// Build the six picker chips once; renderAnnotationPicker just toggles which
+// one reads as selected for the current move.
+function setupAnnotationPicker(): void {
+  const row = document.getElementById('annotation-picker')!;
+  for (const a of ANNOTATIONS) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = `ann-pick ann-${a.cls}`;
+    chip.dataset.symbol = a.symbol;
+    chip.textContent = a.symbol;
+    chip.setAttribute('aria-label', a.label);
+    chip.title = a.label;
+    chip.addEventListener('click', () => {
+      const node = getCurrentNode();
+      if (node.id === 'root') return;
+      node.annotation = node.annotation === a.symbol ? undefined : a.symbol;
+      renderAnnotationPicker();
+      renderMoveList();
+    });
+    row.appendChild(chip);
+  }
+}
+
+function renderAnnotationPicker(): void {
+  const current = getCurrentNode().annotation;
+  document.querySelectorAll<HTMLElement>('#annotation-picker .ann-pick').forEach(chip => {
+    const on = chip.dataset.symbol === current;
+    chip.classList.toggle('ann-pick--on', on);
+    chip.setAttribute('aria-pressed', String(on));
+  });
 }
 
 // ── Note panel ────────────────────────────────────────────────────────────────
@@ -452,6 +492,7 @@ function renderNotePanel(): void {
   const hasNote = !!node.note?.trim();
   textarea.hidden = !hasNote;
   writeBtn.hidden = hasNote;
+  renderAnnotationPicker();
   renderExplanation();
 }
 
@@ -556,10 +597,10 @@ let playbackTimer: ReturnType<typeof setTimeout> | undefined;
 let playbackMoves: ReturnType<typeof mainline> = [];
 let playbackIndex = 0;
 
-// Watch line is an icon-only button (next to Flip): a play triangle that becomes
-// a pause symbol while a line is playing back.
-const PLAY_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" stroke="none" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
-const PAUSE_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" stroke="none" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
+// Watch line is an icon-only button (in the bottom bar, next to Flip): a play
+// triangle that becomes a pause symbol while a line is playing back.
+const PLAY_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" stroke="none" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
+const PAUSE_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" stroke="none" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
 
 function setWatchPlaying(playing: boolean): void {
   const btn = document.getElementById('watch-btn') as HTMLButtonElement | null;
@@ -966,12 +1007,17 @@ function setupSaveButton() {
 }
 
 // ── Playback controls ─────────────────────────────────────────────────────────
-// The board carries only the play/pause button now; the watch-line SPEED lives in
-// Settings (set via setWatchSpeed there). watchSpeedMs() reads it live, so a speed
-// change in Settings takes effect on the very next auto-played move.
+// Flip and play/pause live in the builder's bottom control bar; the watch-line
+// SPEED lives in Settings (set via setWatchSpeed there). watchSpeedMs() reads it
+// live, so a speed change in Settings takes effect on the very next auto-played
+// move.
 
 function setupPlaybackControls(): void {
   const watchBtn = document.getElementById('watch-btn') as HTMLButtonElement;
+
+  // Flip: a temporary, view-only swap to the other side. It does NOT change
+  // the line's saved colour — reopening or resetting restores the correct one.
+  document.getElementById('board-flip')!.addEventListener('click', () => cg.toggleOrientation());
 
   // Play the next queued move, then schedule the one after at the current speed.
   function playStep(): void {
@@ -1072,9 +1118,6 @@ requestAnimationFrame(() => {
       renderExplanation();
     },
     (uci) => playUci(uci),
-    // Flip: a temporary, view-only swap to the other side. It does NOT change
-    // the line's saved colour — reopening or resetting restores the correct one.
-    () => cg.toggleOrientation(),
   );
   if (engine.isEnabled) {
     engine.enable();
@@ -1085,6 +1128,7 @@ requestAnimationFrame(() => {
   setupPlaybackControls();
   setupTitleControls();
   setupNotePanel();
+  setupAnnotationPicker();
   setupMoveNav();
 
   new ResizeObserver(() => cg.redrawAll()).observe(boardEl);

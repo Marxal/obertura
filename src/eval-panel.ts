@@ -10,7 +10,6 @@ export class EvalPanel {
   private _enabled: boolean;
   private onToggle: (enabled: boolean) => void;
   private onPlayMove: (uci: string) => void;
-  private onFlip: () => void;
 
   constructor(
     barEl: HTMLElement,
@@ -18,14 +17,12 @@ export class EvalPanel {
     enabled: boolean,
     onToggle: (enabled: boolean) => void,
     onPlayMove: (uci: string) => void,
-    onFlip: () => void,
   ) {
     this.barEl = barEl;
     this.controlsEl = controlsEl;
     this._enabled = enabled;
     this.onToggle = onToggle;
     this.onPlayMove = onPlayMove;
-    this.onFlip = onFlip;
     this.build();
   }
 
@@ -44,8 +41,6 @@ export class EvalPanel {
       <div class="eval-row">
         <div class="eval-moves" id="eval-moves"></div>
         <div class="eval-right">
-          <button type="button" class="board-flip-btn watch-btn" id="watch-btn" aria-label="Watch line" title="Watch line"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" stroke="none" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>
-          <button type="button" class="board-flip-btn" id="board-flip" aria-label="Flip board view" title="Flip board"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></button>
           <span class="eval-source" id="eval-source"></span>
           <label class="engine-toggle" title="Engine analysis">
             <input type="checkbox" id="engine-cb" ${this._enabled ? 'checked' : ''}>
@@ -54,9 +49,6 @@ export class EvalPanel {
           <span class="engine-label" id="engine-label"></span>
         </div>
       </div>`;
-
-    this.controlsEl.querySelector<HTMLButtonElement>('#board-flip')!
-      .addEventListener('click', () => this.onFlip());
 
     this.controlsEl.querySelector<HTMLInputElement>('#engine-cb')!
       .addEventListener('change', e => {

@@ -1,3 +1,6 @@
+// The six standard chess annotation marks, strongest to worst.
+export type Annotation = '!!' | '!' | '!?' | '?!' | '?' | '??';
+
 export interface MoveNode {
   id: string;
   san: string;
@@ -5,6 +8,7 @@ export interface MoveNode {
   fen: string;
   children: MoveNode[];
   note?: string;
+  annotation?: Annotation;
   missedThisSession?: boolean;
   review?: {
     ease: number;
