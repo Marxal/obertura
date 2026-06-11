@@ -331,3 +331,22 @@ export async function resetAllProgress(): Promise<void> {
   }
   await txnDone(s.transaction);
 }
+
+// ── Erase everything ─────────────────────────────────────────────────────────
+//
+// The nuclear option behind Settings → "Erase everything": empty every
+// IndexedDB store — lines, imported games and scouted opponents alike — in one
+// transaction, so the app reopens with no data at all. Device preferences live
+// in localStorage and are wiped separately by the caller; together with a page
+// reload that lands the app in a true first-launch state. Unlike resetAllProgress
+// (which keeps your lines), this leaves nothing behind, so the Settings dialog
+// guards it with a two-step confirm and a "back up first" offer.
+
+export async function eraseAllData(): Promise<void> {
+  const db = await openDB();
+  const tx = db.transaction([STORE, GAMES_STORE, OPPONENTS_STORE], 'readwrite');
+  tx.objectStore(STORE).clear();
+  tx.objectStore(GAMES_STORE).clear();
+  tx.objectStore(OPPONENTS_STORE).clear();
+  await txnDone(tx);
+}
