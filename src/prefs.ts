@@ -77,6 +77,43 @@ export function setShowLineMiniatures(on: boolean): void {
   localStorage.setItem(SHOW_MINIATURES_KEY, on ? 'on' : 'off');
 }
 
+// ── Statistics screen sections ───────────────────────────────────────────────
+//
+// Two device-local toggles that hide whole sections of the Statistics screen,
+// plus the 28-day activity grid's remembered open/closed state. The streak and
+// activity sections both default ON; the grid itself defaults COLLAPSED.
+const SHOW_STREAK_KEY = 'obertura.stats.showStreak';
+const SHOW_ACTIVITY_KEY = 'obertura.stats.showActivity';
+const ACTIVITY_EXPANDED_KEY = 'obertura.stats.activityExpanded';
+
+// Whether the streak hero (big streak + 7-day strip) shows on Statistics. The
+// Train-header streak pill is separate and unaffected by this.
+export function getShowStreakSection(): boolean {
+  return localStorage.getItem(SHOW_STREAK_KEY) !== 'off';
+}
+
+export function setShowStreakSection(on: boolean): void {
+  localStorage.setItem(SHOW_STREAK_KEY, on ? 'on' : 'off');
+}
+
+// Whether the Training Activity section shows on Statistics at all.
+export function getShowActivitySection(): boolean {
+  return localStorage.getItem(SHOW_ACTIVITY_KEY) !== 'off';
+}
+
+export function setShowActivitySection(on: boolean): void {
+  localStorage.setItem(SHOW_ACTIVITY_KEY, on ? 'on' : 'off');
+}
+
+// The 28-day grid starts collapsed; we remember each open/close toggle.
+export function getActivityExpanded(): boolean {
+  return localStorage.getItem(ACTIVITY_EXPANDED_KEY) === 'on';
+}
+
+export function setActivityExpanded(on: boolean): void {
+  localStorage.setItem(ACTIVITY_EXPANDED_KEY, on ? 'on' : 'off');
+}
+
 // ── Train hub line-list view (filters + sort) ───────────────────────────────────
 //
 // Three small choices that shape the "In training" list. Each is read with a
