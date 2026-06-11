@@ -13,6 +13,7 @@ import { Icons } from './icons';
 import { showDialog } from './dialog';
 import { openImportPanel } from './import-panel';
 import { openRepertoireMap } from './repertoire-map';
+import { openLibrary } from './library';
 import { analyseGames, type OpeningStat } from './analysis';
 import {
   getAllLines, getAllOpponents, getOpponent, saveOpponent, deleteOpponent, countOpponents,
@@ -36,6 +37,9 @@ export interface ExploreDeps {
   onPrepareReply: (ucis: string[], answeringColour: 'white' | 'black', opponentName: string) => void;
   // Open a saved line in the builder/line view.
   onOpenLine: (line: Line) => void;
+  // Seed the builder with a move sequence (from the opening library), oriented
+  // to the chosen colour. No opponent tag — this is a plain reference line.
+  onOpenInBuilder: (ucis: string[], colour: 'white' | 'black') => void;
 }
 
 let exploreDeps: ExploreDeps | null = null;
@@ -95,6 +99,42 @@ async function buildScreen(container: HTMLElement): Promise<void> {
   }
 
   container.appendChild(section);
+  container.appendChild(librarySection());
+}
+
+// ── Opening library ────────────────────────────────────────────────────────────────
+
+// A launcher card for the opening library. The ~490 KB dataset is lazy-loaded
+// only when the library is actually opened, so this section is free to render.
+function librarySection(): HTMLElement {
+  const section = document.createElement('div');
+  section.className = 'section';
+
+  const head = document.createElement('div');
+  head.className = 'section-head';
+  const heading = document.createElement('h2');
+  heading.className = 'section-title';
+  heading.textContent = 'Opening library';
+  head.appendChild(heading);
+  section.appendChild(head);
+
+  const desc = document.createElement('p');
+  desc.className = 'section-desc';
+  desc.textContent =
+    'Browse the bundled opening book — search ~3,700 openings by name or ECO code, step through the moves, and open any into the builder.';
+  section.appendChild(desc);
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'games-refresh-btn scout-add-btn';
+  btn.appendChild(Icons.search(15));
+  btn.appendChild(document.createTextNode('Browse openings'));
+  btn.addEventListener('click', () => {
+    openLibrary((ucis, colour) => exploreDeps?.onOpenInBuilder(ucis, colour));
+  });
+  section.appendChild(btn);
+
+  return section;
 }
 
 // ── Opponent card ────────────────────────────────────────────────────────────────
