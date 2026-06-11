@@ -6,19 +6,13 @@ import {
   saveLine,
   deleteLine,
   getAllGames,
-  saveGames,
-  clearGames,
 } from './storage';
 import { lineIsDue } from './scheduler';
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
 import { analyseGames, countGamesPerLine, type Analysis, type OpeningStat } from './analysis';
-import {
-  getUsername,
-  importRecentGames,
-  MONTHS_BACK,
-  type ImportedGame,
-} from './chesscom';
+import { openImportPanel, getGamesSource } from './import-panel';
+import type { ImportedGame } from './chesscom';
 import { runAnalysisSelfTest } from './analysis.selftest';
 import { renderLoadError } from './load-error';
 
@@ -742,48 +736,25 @@ function buildRefreshRow(fullRefresh: () => void): HTMLElement {
   const row = document.createElement('div');
   row.className = 'games-refresh-row';
 
+  const source = getGamesSource();
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'games-refresh-btn';
   btn.appendChild(Icons.reset(15));
-  btn.appendChild(document.createTextNode('Refresh my games'));
+  btn.appendChild(document.createTextNode(source ? 'Refresh my games' : 'Import my games'));
 
   const status = document.createElement('span');
   status.className = 'games-refresh-status';
   status.setAttribute('aria-live', 'polite');
+  if (source) status.textContent = `${source.username} on ${source.platform === 'lichess' ? 'Lichess' : 'Chess.com'}`;
 
-  btn.addEventListener('click', async () => {
-    const user = getUsername();
-    if (!user) {
-      status.textContent = 'Add your Chess.com username in Build → Settings first.';
-      return;
-    }
-    btn.disabled = true;
-    status.textContent = 'Refreshing…';
-    try {
-      // Re-import from scratch so removed/renamed games don't linger.
-      await clearGames();
-      let total = 0;
-      await importRecentGames(user, {
-        months: MONTHS_BACK,
-        onProgress: p => {
-          status.textContent =
-            `Month ${Math.min(p.monthsDone + 1, p.monthsTotal)}/${p.monthsTotal} ` +
-            `— ${p.gamesSoFar} games…`;
-        },
-        onGames: async batch => {
-          await saveGames(batch);
-          total += batch.length;
-        },
-      });
-      status.textContent = `Imported ${total} games ✓`;
-      // Re-render the whole screen so badges + suggestions reflect the import.
-      fullRefresh();
-    } catch (err) {
-      status.textContent = `Refresh failed — ${(err as Error).message}`;
-      btn.disabled = false;
-    }
-  });
+  // The shared import panel does the scan/filter/import; on success we re-render
+  // the whole screen so badges + suggestions reflect the new games.
+  btn.addEventListener('click', () => openImportPanel({
+    platform: source?.platform,
+    username: source?.username,
+    onImported: () => fullRefresh(),
+  }));
 
   row.appendChild(btn);
   row.appendChild(status);

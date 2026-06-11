@@ -23,9 +23,11 @@ export const OPENING_PLIES = 24;
 // thousands of games; we keep the most recent 500 and report when we truncate.
 export const MAX_GAMES = 500;
 
-// How far back an import reaches. Chess.com counts monthly archives; Lichess
-// uses the matching `since` timestamp. The old fixed 12 is now just one choice.
-export type Range = 1 | 3 | 12;
+// How far back an import reaches, in months. Chess.com counts that many monthly
+// archives; Lichess uses the matching `since` timestamp. Any positive month
+// count is valid (the panel's "All" passes a very large one); RANGES are just
+// the common presets the old fixed 12 used to be the only choice among.
+export type Range = number;
 export const RANGES: Range[] = [1, 3, 12];
 export const DEFAULT_RANGE: Range = 3;
 

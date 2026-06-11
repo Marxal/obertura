@@ -30,14 +30,11 @@ import {
 } from './prefs';
 import { getFeedbackSound, setFeedbackSound, previewFeedback } from './sound';
 import {
-  getUsername,
-  setUsername,
-  importRecentGames,
-  summariseGames,
-  MONTHS_BACK,
-  type ImportedGame,
-} from './chesscom';
-import { saveGames, countGames, clearGames, resetAllProgress } from './storage';
+  openImportPanel,
+  getGamesSource,
+  platformLabel,
+} from './import-panel';
+import { countGames, resetAllProgress } from './storage';
 import { clearTrainingDays, clearReviewedToday } from './streak';
 import { renderBackupSection } from './backup';
 import { Icons } from './icons';
@@ -58,14 +55,28 @@ export function renderSettingsScreen(container: HTMLElement): void {
   title.textContent = 'Settings';
   screen.appendChild(title);
 
+  // The User group leads the screen until you've imported games — getting your
+  // games in is the first thing a new install wants. Once connected it drops
+  // back to its usual spot below Naming. We learn which only after a quick async
+  // count, so build a placeholder now and slot it in once we know.
+  const userSlotTop = document.createElement('div');
+  screen.appendChild(userSlotTop);
+
   screen.appendChild(buildAppearanceGroup());
   screen.appendChild(buildTrainingGroup());
   screen.appendChild(buildNamingGroup());
-  screen.appendChild(buildUserGroup());
+  const userSlotMid = document.createElement('div');
+  screen.appendChild(userSlotMid);
   screen.appendChild(buildDataGroup());
   screen.appendChild(buildDiagnosticsGroup());
 
   container.appendChild(screen);
+
+  void countGames().then((count) => {
+    const connected = count > 0;
+    const group = buildUserGroup(count, () => renderSettingsScreen(container));
+    (connected ? userSlotMid : userSlotTop).appendChild(group);
+  });
 }
 
 // ── Diagnostics ──────────────────────────────────────────────────────────────
@@ -338,81 +349,101 @@ function buildNamingGroup(): HTMLElement {
 
 // ── User ─────────────────────────────────────────────────────────────────────
 
-function buildUserGroup(): HTMLElement {
-  const sec = group('User');
+// The User group has two faces. Before any games are imported it's a prominent
+// call-to-action (and leads the whole Settings screen). Once connected it shows
+// the account you're synced with, when it last synced, how many games are on the
+// device, and a quiet Refresh — all driven by the shared import panel.
+function buildUserGroup(gameCount: number, refresh: () => void): HTMLElement {
+  const sec = group('Your games');
+  const source = getGamesSource();
 
-  const userInput = document.createElement('input');
-  userInput.type = 'text';
-  userInput.className = 'settings-input';
-  userInput.autocomplete = 'off';
-  userInput.autocapitalize = 'none';
-  userInput.spellcheck = false;
-  userInput.placeholder = 'your Chess.com username';
-  userInput.value = getUsername();
-  userInput.addEventListener('change', () => setUsername(userInput.value));
-  sec.appendChild(row('Chess.com username', userInput));
+  // Open the panel pre-filled with the connected account (or the last-used one),
+  // then re-render Settings so the connected card and counts update.
+  const openPanel = () => openImportPanel({
+    platform: source?.platform,
+    username: source?.username,
+    onImported: () => refresh(),
+  });
 
-  // Refresh my games — re-imports ~a year of games from the free Published-Data
-  // API into IndexedDB, replacing what's stored. Mirrors the old builder import.
+  if (gameCount === 0 || !source) {
+    // ── Not connected — make it pop ──
+    const card = document.createElement('div');
+    card.className = 'settings-connect-card';
+
+    const heading = document.createElement('h3');
+    heading.className = 'settings-connect-title';
+    heading.textContent = 'Import your games';
+    card.appendChild(heading);
+
+    const blurb = document.createElement('p');
+    blurb.className = 'settings-connect-desc';
+    blurb.textContent =
+      'Pull your recent games from Chess.com or Lichess to see which openings ' +
+      'you actually play, where you score badly, and what to prep next.';
+    card.appendChild(blurb);
+
+    const cta = document.createElement('button');
+    cta.type = 'button';
+    cta.className = 'btn-primary settings-connect-btn';
+    cta.appendChild(Icons.download(16));
+    cta.appendChild(document.createTextNode('Import my games'));
+    cta.addEventListener('click', openPanel);
+    card.appendChild(cta);
+
+    sec.appendChild(card);
+    return sec;
+  }
+
+  // ── Connected — show the account, sync date, count, and a quiet Refresh ──
+  const card = document.createElement('div');
+  card.className = 'settings-connected';
+
+  const who = document.createElement('div');
+  who.className = 'settings-connected-who';
+  const handle = document.createElement('span');
+  handle.className = 'settings-connected-handle';
+  handle.textContent = source.username;
+  const plat = document.createElement('span');
+  plat.className = 'settings-connected-platform';
+  plat.textContent = `on ${platformLabel(source.platform)}`;
+  who.appendChild(handle);
+  who.appendChild(plat);
+  card.appendChild(who);
+
+  const meta = document.createElement('p');
+  meta.className = 'settings-connected-meta';
+  meta.textContent =
+    `${gameCount} game${gameCount === 1 ? '' : 's'} on this device · ` +
+    `synced ${relativeDate(source.syncedAt)}`;
+  card.appendChild(meta);
+
   const refreshBtn = document.createElement('button');
   refreshBtn.type = 'button';
   refreshBtn.className = 'btn-secondary';
   refreshBtn.appendChild(Icons.reset(16));
   refreshBtn.appendChild(document.createTextNode('Refresh my games'));
+  refreshBtn.addEventListener('click', openPanel);
 
-  const status = document.createElement('p');
-  status.className = 'settings-note';
-  status.setAttribute('aria-live', 'polite');
+  const actions = document.createElement('div');
+  actions.className = 'settings-actions';
+  actions.appendChild(refreshBtn);
+  card.appendChild(actions);
 
-  void countGames().then((n) => {
-    if (n > 0) status.textContent = `${n} game${n === 1 ? '' : 's'} stored on this device.`;
-  });
-
-  refreshBtn.addEventListener('click', async () => {
-    const user = userInput.value.trim();
-    if (!user) {
-      status.textContent = 'Enter your Chess.com username first.';
-      return;
-    }
-    setUsername(user);
-    refreshBtn.disabled = true;
-    status.textContent = 'Looking up your archives…';
-
-    // Re-import from scratch so removed/renamed games don't linger.
-    await clearGames();
-    const stored: ImportedGame[] = [];
-    try {
-      const result = await importRecentGames(user, {
-        months: MONTHS_BACK,
-        onProgress: (p) => {
-          status.textContent =
-            `Month ${Math.min(p.monthsDone + 1, p.monthsTotal)}/${p.monthsTotal} ` +
-            `(${p.label}) — ${p.gamesSoFar} games so far…`;
-        },
-        onGames: async (batch) => {
-          await saveGames(batch);
-          stored.push(...batch);
-        },
-      });
-      const s = summariseGames(stored);
-      status.textContent = s.total === 0
-        ? `No standard games found in the last ${result.monthsFetched} months.`
-        : `Imported ${s.total} games from ${result.monthsFetched} months ✓ ` +
-          `(${s.white} White / ${s.black} Black).`;
-    } catch (err) {
-      status.textContent = `Import failed — ${(err as Error).message}`;
-    } finally {
-      refreshBtn.disabled = false;
-    }
-  });
-
-  const btnRow = document.createElement('div');
-  btnRow.className = 'settings-actions';
-  btnRow.appendChild(refreshBtn);
-  sec.appendChild(btnRow);
-  sec.appendChild(status);
-
+  sec.appendChild(card);
   return sec;
+}
+
+// "synced 2 days ago" from an ISO timestamp.
+function relativeDate(iso: string): string {
+  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (!Number.isFinite(diff) || diff < 0) return 'just now';
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  const days = Math.floor(diff / 86400);
+  if (days === 1) return 'yesterday';
+  if (days < 30) return `${days} days ago`;
+  return iso.slice(0, 10);
 }
 
 // ── Data ─────────────────────────────────────────────────────────────────────
