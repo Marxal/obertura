@@ -3929,13 +3929,36 @@ cg-board square.move-dest.oc {
   cursor: pointer;
 }
 
-.settings-link-row:last-child {
-  border-bottom: none;
-}
-
 .settings-link-row svg {
   color: var(--text-faint);
   flex: none;
+}
+
+.settings-link-row-left {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.settings-link-row-left svg {
+  color: var(--text-muted);
+}
+
+/* ── Buy me a coffee ────────────────────────────────────────────────────────── */
+
+.support-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+}
+
+.support-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  text-decoration: none;
 }
 
 /* ── Feedback sheet ─────────────────────────────────────────────────────────── */
@@ -3994,28 +4017,6 @@ cg-board square.move-dest.oc {
 
 .about-link:hover {
   text-decoration: underline;
-}
-
-/* Both support buttons span the full sheet width. */
-.about-support-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  text-decoration: none;
-}
-
-/* Swish button: quiet surface, logo only (height-capped so it sits like text). */
-.about-swish-btn svg {
-  height: 1.6rem;
-  width: auto;
-}
-
-.about-swish-note {
-  font-size: 0.78rem;
-  color: var(--text-faint);
-  text-align: center;
-  margin-top: -0.4rem;
 }
 
 .about-licences {
