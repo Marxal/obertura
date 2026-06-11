@@ -42,6 +42,7 @@ import { pushBack } from './back-nav';
 import { appendSelfTest } from './selftest-panel';
 import { openFeedbackSheet } from './feedback';
 import { openAboutSheet } from './about';
+import { buildSupportSection } from './support';
 import { runStorageSelfTest } from './storage.selftest';
 import { runOpeningsSelfTest } from './openings.selftest';
 import { runSparSelfTest } from './spar.selftest';
@@ -113,23 +114,33 @@ function buildDiagnosticsGroup(): HTMLElement {
 function buildAboutGroup(): HTMLElement {
   const sec = group('Feedback & about');
 
-  const feedbackBtn = document.createElement('button');
-  feedbackBtn.type = 'button';
-  feedbackBtn.className = 'settings-link-row';
-  feedbackBtn.textContent = 'Send feedback';
-  feedbackBtn.appendChild(Icons.chevronRight(18));
-  feedbackBtn.addEventListener('click', () => openFeedbackSheet());
-  sec.appendChild(feedbackBtn);
+  sec.appendChild(linkRow('Send feedback', openFeedbackSheet, Icons.note(18)));
+  sec.appendChild(linkRow('About', openAboutSheet));
 
-  const aboutBtn = document.createElement('button');
-  aboutBtn.type = 'button';
-  aboutBtn.className = 'settings-link-row';
-  aboutBtn.textContent = 'About';
-  aboutBtn.appendChild(Icons.chevronRight(18));
-  aboutBtn.addEventListener('click', () => openAboutSheet());
-  sec.appendChild(aboutBtn);
+  // Buy me a coffee — Swish / Card, right below.
+  sec.appendChild(buildSupportSection());
 
   return sec;
+}
+
+// A full-width tap row that opens a sheet: an optional leading icon, the label,
+// and a trailing chevron.
+function linkRow(label: string, onClick: () => void, leading?: SVGElement): HTMLElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'settings-link-row';
+
+  const left = document.createElement('span');
+  left.className = 'settings-link-row-left';
+  if (leading) left.appendChild(leading);
+  const text = document.createElement('span');
+  text.textContent = label;
+  left.appendChild(text);
+  btn.appendChild(left);
+
+  btn.appendChild(Icons.chevronRight(18));
+  btn.addEventListener('click', onClick);
+  return btn;
 }
 
 // ── Group / row scaffolding ──────────────────────────────────────────────────
