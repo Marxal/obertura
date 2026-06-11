@@ -920,6 +920,12 @@ function showView(view: ViewName): void {
   }
   currentView = view;
 
+  // The builder owns a back-layer while it's on screen, so the system back
+  // gesture runs the save-guard with priority (rather than the less reliable
+  // view-level fallback). Drop it the moment we leave for any other screen.
+  if (view === 'builder') armBuilderBack();
+  else disarmBuilderBack();
+
   const builderEl = document.getElementById('view-builder')!;
   const linesEl = document.getElementById('view-lines')!;
   const exploreEl = document.getElementById('view-explore')!;
@@ -1043,12 +1049,9 @@ function setupNav(): void {
   // is the view-level fallback once nothing is open.
   setViewBack(() => {
     // Full screens (builder / settings) return to wherever they were opened from.
+    // The builder normally catches the gesture with its own back-layer (see
+    // showView / onBuilderBackGesture); this stays a safe fallback.
     if (BACK_VIEWS.has(currentView)) {
-      // A dirty builder asks to save first; the guard itself becomes the back layer.
-      if (currentView === 'builder' && isBuilderDirty()) {
-        showSaveGuard(() => { stopPlayback(); showView(returnView); });
-        return true;
-      }
       stopPlayback();
       showView(returnView);
       return true;
@@ -1075,6 +1078,33 @@ function guardBuilderLeave(proceed: () => void): void {
     showSaveGuard(proceed);
   } else {
     proceed();
+  }
+}
+
+// The builder's own back-layer (see showView). It catches the system back
+// gesture directly — the same mechanism drills and sheets use — so the guard
+// fires on a gesture exactly as it does on the back arrow. The gesture consumes
+// the layer, so a "stay" re-arms it for the next press.
+let removeBuilderBack: (() => void) | null = null;
+
+function armBuilderBack(): void {
+  if (!removeBuilderBack) removeBuilderBack = pushBack(onBuilderBackGesture);
+}
+
+function disarmBuilderBack(): void {
+  removeBuilderBack?.();
+  removeBuilderBack = null;
+}
+
+function onBuilderBackGesture(): void {
+  // Our layer was just popped by the gesture; forget the stale remover.
+  removeBuilderBack = null;
+  if (isBuilderDirty()) {
+    armBuilderBack(); // stay trapped while the guard is up
+    showSaveGuard(() => { stopPlayback(); showView(returnView); });
+  } else {
+    stopPlayback();
+    showView(returnView);
   }
 }
 
@@ -1162,7 +1192,13 @@ function promptAddToTraining(line: Line): void {
     body: confirmRun
       ? 'Do one clean run to confirm the line, then it joins your training.'
       : 'Add this line straight into your training rotation.',
+    // Later on the left, the primary action on the right (the expected spot).
     buttons: [
+      {
+        label: 'Later',
+        variant: 'secondary',
+        onClick: () => goToSavedLine(line.id),
+      },
       {
         label: confirmRun ? 'Confirm run' : 'Add to training',
         variant: 'primary',
@@ -1171,11 +1207,6 @@ function promptAddToTraining(line: Line): void {
           () => goToSavedLine(line.id),
           () => goToSavedLine(line.id),
         ),
-      },
-      {
-        label: 'Later',
-        variant: 'secondary',
-        onClick: () => goToSavedLine(line.id),
       },
     ],
     onDismiss: () => goToSavedLine(line.id),
