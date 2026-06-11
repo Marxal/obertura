@@ -1501,6 +1501,25 @@ cg-board square.move-dest.oc {
   border-color: var(--accent);
 }
 
+/* Opponent filter chips (Lines & Train) — one per scouted opponent. They can be
+   numerous and the names long, so the segment scrolls sideways on its own row. */
+.opp-filter-row {
+  padding-top: 0;
+}
+.opp-filter-seg {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  max-width: 100%;
+}
+.opp-filter-seg::-webkit-scrollbar {
+  display: none;
+}
+.opp-filter-seg .dfilter-btn {
+  flex: 0 0 auto;
+}
+
 /* Order: icon + dropdown, pushed to the end of the controls row. */
 .dorder {
   display: inline-flex;

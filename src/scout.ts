@@ -158,3 +158,21 @@ export function opponentLine(tree: MoveNode, colour: 'white' | 'black', name: st
 export function colourGameCount(opp: Opponent, colour: 'white' | 'black'): number {
   return opp.games.filter(g => g.colour === colour).length;
 }
+
+// ── Opponent tags ─────────────────────────────────────────────────────────────
+//
+// A line prepared against a scouted opponent carries a tag like "vs magnus"
+// alongside its normal tags. That single string is what the Lines/Train filters
+// and the Prep training mode key off — no extra field on the Line.
+
+const OPPONENT_TAG_PREFIX = 'vs ';
+
+// The tag a prepared reply carries for this opponent.
+export function opponentTag(name: string): string {
+  return `${OPPONENT_TAG_PREFIX}${name}`;
+}
+
+// Whether a tag was minted by the Prepare flow (i.e. ties a line to an opponent).
+export function isOpponentTag(tag: string): boolean {
+  return tag.startsWith(OPPONENT_TAG_PREFIX);
+}

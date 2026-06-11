@@ -18,10 +18,13 @@ import {
   setTrainStatusFilter,
   getTrainSort,
   setTrainSort,
+  getTrainOpponentFilter,
+  setTrainOpponentFilter,
   type TrainColourFilter,
   type TrainStatusFilter,
   type TrainSort,
 } from './prefs';
+import { isOpponentTag } from './scout';
 import { TrainingSession, type SessionItem } from './session';
 import {
   userMoveNodes,
@@ -327,7 +330,21 @@ function renderModeCards(container: HTMLElement, allTraining: Line[]): void {
       container, makeStats()),
   }));
 
-  // (A fifth "Prep" card lands here once Explore ships.)
+  // Prep — full runs of lines prepared against a scouted opponent. Only shown
+  // when any opponent-tagged lines are in training.
+  const prepLines = allTraining.filter(l => l.tags.some(isOpponentTag));
+  if (prepLines.length > 0) {
+    section.appendChild(buildModeCard({
+      icon: Icons.target(20),
+      name: 'Prep',
+      sub: 'opponent-tagged lines',
+      stat: prepLines.length,
+      statLabel: prepLines.length === 1 ? 'line' : 'lines',
+      onClick: () => runSession(
+        new TrainingSession(prepLines.slice(0, PICKER_SESSION_CAP), { explicit: true }),
+        container, makeStats()),
+    }));
+  }
 
   container.appendChild(section);
 }
@@ -515,7 +532,8 @@ function viewTrainingLines(lines: Line[]): Line[] {
   const status = getTrainStatusFilter();
   let out = lines;
   if (colour !== 'all') out = out.filter(l => l.colour === colour);
-  // (An Opponent filter lands here once Explore ships.)
+  const opponent = getTrainOpponentFilter();
+  if (opponent !== 'all') out = out.filter(l => l.tags.includes(opponent));
   if (status !== 'all') out = out.filter(l => lineBucket(l) === status);
   return sortTrainingLines(out, getTrainSort());
 }
@@ -572,15 +590,22 @@ function renderCardList(container: HTMLElement, trainingLines: Line[]): void {
     }
   }
 
-  section.appendChild(buildFilterRow(rebuildList));
+  section.appendChild(buildFilterRow(trainingLines, rebuildList));
   rebuildList();
   section.appendChild(listEl);
   container.appendChild(section);
 }
 
+// Every distinct opponent tag ("vs <name>") across the training lines, sorted.
+function distinctOpponentTags(lines: Line[]): string[] {
+  const set = new Set<string>();
+  for (const l of lines) for (const t of l.tags) if (isOpponentTag(t)) set.add(t);
+  return [...set].sort((a, b) => a.localeCompare(b));
+}
+
 // The colour · status · sort controls. Each click persists the choice, repaints
 // its own segment's active state, and rebuilds the list beneath.
-function buildFilterRow(onChange: () => void): HTMLElement {
+function buildFilterRow(trainingLines: Line[], onChange: () => void): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'train-filters';
 
@@ -599,6 +624,18 @@ function buildFilterRow(onChange: () => void): HTMLElement {
   ));
   line.appendChild(buildSortMenu(onChange));
   wrap.appendChild(line);
+
+  // Opponent filter — only when prepared (tagged) lines are in training. A stale
+  // selection reverts to All so the list never silently empties.
+  const opponentTags = distinctOpponentTags(trainingLines);
+  if (opponentTags.length > 0) {
+    let current = getTrainOpponentFilter();
+    if (current !== 'all' && !opponentTags.includes(current)) { current = 'all'; setTrainOpponentFilter('all'); }
+    const opts = [{ key: 'all', label: 'All' }, ...opponentTags.map(t => ({ key: t, label: t }))];
+    const seg = buildSeg(opts, current, key => { setTrainOpponentFilter(key); onChange(); });
+    seg.classList.add('opp-filter-seg');
+    wrap.appendChild(seg);
+  }
 
   return wrap;
 }

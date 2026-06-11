@@ -15,6 +15,7 @@ import { renderProgressScreen } from './progress-screen';
 import { startPretrainingRun, enrolLineDirectly } from './pretraining';
 import { renderTrainScreen } from './train-screen';
 import { renderExploreScreen } from './explore-screen';
+import { opponentTag } from './scout';
 import { renderSettingsScreen } from './settings-screen';
 import { Engine, gradeMove } from './engine';
 import { EvalPanel } from './eval-panel';
@@ -830,9 +831,12 @@ function startNewLine(colour: 'white' | 'black'): void {
 }
 
 // Seed the builder with a UCI move list, then open it (from "From my games"
-// suggestions). Starts from a clean, unsaved line so a Save creates a new one.
-function buildFromUcis(ucis: string[], colour: 'white' | 'black'): void {
+// suggestions, or the Prepare flow). Starts from a clean, unsaved line so a Save
+// creates a new one. Optional tags pre-fill the working tag set (used by Prepare
+// to stamp the opponent tag).
+function buildFromUcis(ucis: string[], colour: 'white' | 'black', tags: string[] = []): void {
   clearBuilder(colour);
+  currentTags = [...tags];
   for (const uci of ucis) {
     const from = uci.slice(0, 2);
     const to = uci.slice(2, 4);
@@ -853,10 +857,19 @@ function buildFromUcis(ucis: string[], colour: 'white' | 'black'): void {
   });
   renderMoveList();
   renderNotePanel();
+  renderBuilderTags();
   updateOpeningName();
   evalPanel.clear();
   engine.evaluate(chess.fen());
   showView('builder');
+}
+
+// Prepare a reply against a scouted opponent: seed the builder with their move
+// sequence, flip the board to MY (answering) colour, and stamp the opponent tag
+// so a Save files this line under "vs <name>". The answering colour is the
+// opposite of the opponent's map colour — I'm replying to what they play.
+function prepareReply(ucis: string[], answeringColour: 'white' | 'black', opponentName: string): void {
+  buildFromUcis(ucis, answeringColour, [opponentTag(opponentName)]);
 }
 
 // The full dependency set the My Lines screen needs. Centralised so every
@@ -963,7 +976,7 @@ function showView(view: ViewName): void {
   }
 
   if (view === 'explore') {
-    renderExploreScreen(exploreEl);
+    renderExploreScreen(exploreEl, { onPrepareReply: prepareReply, onOpenLine });
   }
 
   if (view === 'train') {
