@@ -50,70 +50,74 @@ _Restore point: tag `v1.1`. Shipped._
 
 ---
 
-## v1.2 — structure, scouting & shine 🔜
+## v1.2 — structure, scouting & shine ✅
 
 A bigger round than v1.1: a foundations sweep, a navigation restructure around
 training, an Explore tab that turns imported games into preparation, and a
 trimmings phase to round the app off. Built in four phases, in order. The v1.1
-tag is the restore point for the whole round.
+tag was the restore point for the whole round.
 
-### Phase 1 — Foundations 🔜
+### Phase 1 — Foundations ✅
 
 Get the house in order before adding rooms. No new product surface; this phase
 is about correctness, consistency, and the visual baseline.
 
-- 🔜 **Code audit & critical fixes** — a read-only pass over the codebase to
+- ✅ **Code audit & critical fixes** — a read-only pass over the codebase to
   find real bugs and fragile spots, then fix the critical ones and add new
   self-tests so they stay fixed.
-- 🔜 **Design-system pass** — a consistent component & spacing system: shared
+- ✅ **Design-system pass** — a consistent component & spacing system: shared
   card / button / chip / list patterns and a single spacing scale applied
   across screens.
-- 🔜 **Dark-mode retune** — a warm-charcoal dark theme (away from the cold grey)
+- ✅ **Dark-mode retune** — a warm-charcoal dark theme (away from the cold grey)
   with a contrast audit so text and controls meet legibility targets.
-- 🔜 **Feedback colours** — replace generic green/red with a sage (right) and
+- ✅ **Feedback colours** — replace generic green/red with a sage (right) and
   brick (wrong) pair used consistently for training and validation feedback.
-- 🔜 **Two small visual fixes** — a pair of targeted layout/visual corrections
+- ✅ **Two small visual fixes** — a pair of targeted layout/visual corrections
   carried over from v1.1 use.
 
-### Phase 2 — Structure 🔜
+### Phase 2 — Structure ✅
 
 Re-centre the whole app on training and tidy the flows around it.
 
-- 🔜 **Today retires** — drop the "Today" dashboard tab.
-- 🔜 **Four tabs** — Train / Lines / Explore / Stats, with **Train** as the
+- ✅ **Today retires** — drop the "Today" dashboard tab.
+- ✅ **Four tabs** — Train / Lines / Explore / Stats, with **Train** as the
   home tab.
-- 🔜 **Train hub redesign** — mode cards, a filterable training list, and
+- ✅ **Train hub redesign** — mode cards, a filterable training list, and
   1 / 3 / 5-minute timed personal bests on the hub.
-- 🔜 **Drill screen** — a centred drill-screen layout.
-- 🔜 **Builder bottom control bar** — move the builder controls into a bottom
+- ✅ **Drill screen** — a centred drill-screen layout.
+- ✅ **Builder bottom control bar** — move the builder controls into a bottom
   bar, with annotation-symbol chips (!, ?, !?, etc.).
-- 🔜 **Flow guards** — a save-to-training dialog, a builder leave guard, and a
+- ✅ **Flow guards** — a save-to-training dialog, a builder leave guard, and a
   training abandon guard so work and sessions aren't lost by accident.
 
-### Phase 3 — Explore 🔜
+### Phase 3 — Explore ✅
 
 Turn games into preparation. The Explore tab is the new home for import,
 scouting, the opening library, and engine sparring.
 
-- 🔜 **Unified import** — one Chess.com + Lichess import with date/colour
+- ✅ **Unified import** — one Chess.com + Lichess import with date/colour
   ranges and a scan step before committing.
-- 🔜 **Opponent scouting** — scout up to 10 opponents, build auto repertoire
+- ✅ **Opponent scouting** — scout up to 10 opponents, build auto repertoire
   maps from their games, and a **Prepare** flow that produces opponent-tagged
   lines.
-- 🔜 **Opening library** — a browser over the bundled opening book.
-- 🔜 **Engine sparring** — create lines by sparring against the engine.
+- ✅ **Opening library** — a browser over the bundled opening book.
+- ✅ **Engine sparring** — create lines by sparring against the engine.
 
-### Phase 4 — Trimmings 🔜
+### Phase 4 — Trimmings ✅
 
 The finishing layer that makes it feel like a real, shippable app.
 
-- 🔜 **Feedback & About** — an in-app feedback form and an About screen with
+- ✅ **Feedback & About** — an in-app feedback form and an About screen with
   open-source licenses.
-- 🔜 **Piece sets** — four selectable piece sets.
-- 🔜 **Position miniatures** — small board thumbnails on line cards.
-- 🔜 **Statistics polish** — another pass on the Stats screen.
-- 🔜 **Full app reset** — a complete wipe-and-start-over option.
-- 🔜 **Tag v1.2** — cut the v1.2 restore point.
+- ✅ **Piece sets** — four selectable piece sets.
+- ✅ **Position miniatures** — small board thumbnails on line cards.
+- ✅ **Statistics polish** — another pass on the Stats screen.
+- ✅ **Full app reset** — a complete wipe-and-start-over option (Settings →
+  Data → "Erase everything"): a two-step confirm that backs up on request,
+  then wipes every store and preference back to a first-launch state.
+- ✅ **Tag v1.2** — cut the v1.2 restore point.
+
+_Restore point: tag `v1.2`. Shipped._
 
 ---
 

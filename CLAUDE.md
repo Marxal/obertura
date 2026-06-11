@@ -39,10 +39,12 @@ understand concepts, not syntax. I direct; you build; I test on my phone.
 - Phase 4+: engine, explanations, Chess.com import, polish. All later.
 
 ## Where we are now
-v1.0 and v1.1 have shipped (tags `v1.0`, `v1.1`). The **v1.2 round is
-underway** — foundations, structure, an Explore tab, and trimmings. The full
-plan lives in `ROADMAP.md`; follow its four phases in order and don't skip
-ahead. The `v1.1` tag is the restore point for the whole round.
+v1.0, v1.1 and v1.2 have all shipped (tags `v1.0`, `v1.1`, `v1.2`). The v1.2
+round delivered the foundations sweep, the Train-centred navigation
+restructure, the Explore tab, and the trimmings — closing with a full
+"Erase everything" reset. `ROADMAP.md` records the round phase by phase, and
+the `v1.2` tag is the latest restore point. The next round isn't planned yet —
+confirm scope before starting new work.
 
 ## Data model (get right early)
 - Repertoire: "my White lines" or "my Black lines".

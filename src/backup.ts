@@ -76,9 +76,7 @@ export function renderBackupSection(onRestored: () => void): HTMLElement {
 
   exportBtn.addEventListener('click', async () => {
     try {
-      const data = await exportBackup();
-      downloadBackup(data);
-      const n = data.lines.length;
+      const n = await exportBackupNow();
       setStatus(`Exported ${n} line${n === 1 ? '' : 's'} ✓`, 'ok');
     } catch (err) {
       setStatus(`Export failed — ${(err as Error).message}`, 'error');
@@ -122,6 +120,16 @@ export function renderBackupSection(onRestored: () => void): HTMLElement {
   });
 
   return section;
+}
+
+// Run the export immediately: gather the whole repertoire and hand the browser
+// a dated download file, returning how many lines it held. Exposed so other
+// screens — notably the "Erase everything" dialog's "export a backup first"
+// step — can offer a one-tap backup without rebuilding the whole section.
+export async function exportBackupNow(): Promise<number> {
+  const data = await exportBackup();
+  downloadBackup(data);
+  return data.lines.length;
 }
 
 // Serialise the backup and hand it to the browser as a dated download. Object

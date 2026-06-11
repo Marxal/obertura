@@ -46,9 +46,9 @@ import {
   getGamesSource,
   platformLabel,
 } from './import-panel';
-import { countGames, resetAllProgress } from './storage';
+import { countGames, resetAllProgress, eraseAllData } from './storage';
 import { clearTrainingDays, clearReviewedToday } from './streak';
-import { renderBackupSection } from './backup';
+import { renderBackupSection, exportBackupNow } from './backup';
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
 import { appendSelfTest } from './selftest-panel';
@@ -660,7 +660,222 @@ function buildDataGroup(): HTMLElement {
   wrap.appendChild(status);
   sec.appendChild(wrap);
 
+  // Erase everything — the true nuclear option, kept well clear of Reset
+  // progress (which keeps your lines). Two-step, with a back-up-first offer.
+  sec.appendChild(buildEraseSubsection());
+
   return sec;
+}
+
+// The "Erase everything" block: a heading, a plain warning, and the button that
+// opens the two-step danger dialog. Visually separated from Reset progress so
+// the two destructive actions are never confused.
+function buildEraseSubsection(): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'settings-reset settings-erase';
+
+  const heading = document.createElement('h3');
+  heading.className = 'settings-subheading';
+  heading.textContent = 'Erase everything';
+
+  const blurb = document.createElement('p');
+  blurb.className = 'section-desc';
+  blurb.textContent =
+    'Delete all your data and start over from scratch — lines, training history, ' +
+    'imported games, opponents and preferences. There is no undo.';
+
+  const eraseBtn = document.createElement('button');
+  eraseBtn.type = 'button';
+  eraseBtn.className = 'btn-danger';
+  eraseBtn.appendChild(Icons.trash(16));
+  eraseBtn.appendChild(document.createTextNode('Erase everything'));
+  eraseBtn.addEventListener('click', openEraseDialog);
+
+  const actions = document.createElement('div');
+  actions.className = 'settings-actions';
+  actions.appendChild(eraseBtn);
+
+  wrap.appendChild(heading);
+  wrap.appendChild(blurb);
+  wrap.appendChild(actions);
+  return wrap;
+}
+
+// ── Erase-everything dialog ────────────────────────────────────────────────────
+// A deliberately two-step flow for the one irreversible action in the app.
+//
+//   Step 1 — explains exactly what goes, and offers a one-tap "export a backup
+//            first" right there (the only way any of it comes back), then a
+//            Continue that advances rather than erases.
+//   Step 2 — the final, danger-styled confirm. Only this actually wipes.
+//
+// On confirm we empty every IndexedDB store and every obertura.* localStorage
+// key, then reload — landing the app in a genuine first-launch state.
+
+function openEraseDialog(): void {
+  const overlay = document.createElement('div');
+  overlay.className = 'edit-overlay';
+
+  function close() {
+    overlay.remove();
+    removeBack();
+  }
+  const removeBack = pushBack(close);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) close();
+  });
+
+  // Swap the sheet contents in place as we move between steps.
+  const setSheet = (sheet: HTMLElement) => {
+    overlay.innerHTML = '';
+    overlay.appendChild(sheet);
+  };
+
+  setSheet(buildEraseStep1(setSheet, close));
+  document.body.appendChild(overlay);
+}
+
+// Step 1 — what will be erased, plus the back-up-first offer and Continue.
+function buildEraseStep1(
+  setSheet: (sheet: HTMLElement) => void,
+  close: () => void,
+): HTMLElement {
+  const sheet = document.createElement('div');
+  sheet.className = 'edit-sheet';
+
+  const h = document.createElement('h3');
+  h.className = 'edit-sheet-title';
+  h.textContent = 'Erase everything?';
+  sheet.appendChild(h);
+
+  const body = document.createElement('p');
+  body.className = 'section-desc';
+  body.textContent =
+    'This permanently deletes everything Obertura keeps on this device: all your ' +
+    'lines, every training score and your streak, imported games, scouted ' +
+    'opponents, and all preferences. The app returns to a brand-new state.';
+  sheet.appendChild(body);
+
+  const warn = document.createElement('p');
+  warn.className = 'section-desc';
+  warn.textContent =
+    'There is no cloud copy. If you might want any of it back, export a backup first.';
+  sheet.appendChild(warn);
+
+  const status = document.createElement('p');
+  status.className = 'settings-note';
+  status.setAttribute('aria-live', 'polite');
+
+  // Export a backup, right here — never closes the dialog.
+  const exportBtn = document.createElement('button');
+  exportBtn.type = 'button';
+  exportBtn.className = 'btn-secondary';
+  exportBtn.appendChild(Icons.download(16));
+  exportBtn.appendChild(document.createTextNode('Export a backup first'));
+  exportBtn.addEventListener('click', async () => {
+    exportBtn.disabled = true;
+    status.textContent = 'Exporting…';
+    try {
+      const n = await exportBackupNow();
+      status.textContent = `Backup downloaded — ${n} line${n === 1 ? '' : 's'} ✓`;
+    } catch (err) {
+      status.textContent = `Export failed — ${(err as Error).message}`;
+    } finally {
+      exportBtn.disabled = false;
+    }
+  });
+
+  // Continue — advances to the final confirm; does not erase yet.
+  const continueBtn = document.createElement('button');
+  continueBtn.type = 'button';
+  continueBtn.className = 'btn-danger';
+  continueBtn.textContent = 'Continue';
+  continueBtn.addEventListener('click', () => setSheet(buildEraseStep2(close)));
+
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.className = 'edit-cancel-btn';
+  cancel.textContent = 'Cancel';
+  cancel.addEventListener('click', close);
+
+  const btnRow = document.createElement('div');
+  btnRow.className = 'edit-btn-row';
+  btnRow.appendChild(continueBtn);
+  btnRow.appendChild(cancel);
+
+  sheet.appendChild(exportBtn);
+  sheet.appendChild(status);
+  sheet.appendChild(btnRow);
+  return sheet;
+}
+
+// Step 2 — the final danger confirm. This is the only place that erases.
+function buildEraseStep2(close: () => void): HTMLElement {
+  const sheet = document.createElement('div');
+  sheet.className = 'edit-sheet';
+
+  const h = document.createElement('h3');
+  h.className = 'edit-sheet-title';
+  h.textContent = 'Last chance — erase it all?';
+  sheet.appendChild(h);
+
+  const body = document.createElement('p');
+  body.className = 'section-desc';
+  body.textContent =
+    'This cannot be undone. The app will close and reopen empty, exactly as if you ' +
+    'had just installed it.';
+  sheet.appendChild(body);
+
+  const status = document.createElement('p');
+  status.className = 'settings-note';
+  status.setAttribute('aria-live', 'polite');
+
+  const eraseBtn = document.createElement('button');
+  eraseBtn.type = 'button';
+  eraseBtn.className = 'btn-danger';
+  eraseBtn.textContent = 'Erase everything';
+  eraseBtn.addEventListener('click', async () => {
+    eraseBtn.disabled = true;
+    status.textContent = 'Erasing…';
+    try {
+      await eraseAllData();
+      wipeOberturaLocalStorage();
+      // Reload into a true first-launch state — no data, default preferences.
+      location.reload();
+    } catch (err) {
+      status.textContent = `Erase failed — ${(err as Error).message}`;
+      eraseBtn.disabled = false;
+    }
+  });
+
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.className = 'edit-cancel-btn';
+  cancel.textContent = 'Cancel';
+  cancel.addEventListener('click', close);
+
+  const btnRow = document.createElement('div');
+  btnRow.className = 'edit-btn-row';
+  btnRow.appendChild(eraseBtn);
+  btnRow.appendChild(cancel);
+
+  sheet.appendChild(status);
+  sheet.appendChild(btnRow);
+  return sheet;
+}
+
+// Remove every Obertura preference from localStorage. The app's keys all begin
+// with "obertura" (both the "obertura." and the older "obertura-" families), so
+// a prefix sweep catches them without each module having to expose its keys.
+// engineEnabled predates the convention and is cleared explicitly.
+function wipeOberturaLocalStorage(): void {
+  const doomed: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('obertura')) doomed.push(key);
+  }
+  for (const key of doomed) localStorage.removeItem(key);
+  localStorage.removeItem('engineEnabled');
 }
 
 // ── Confirm dialog ───────────────────────────────────────────────────────────

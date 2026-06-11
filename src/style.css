@@ -1290,6 +1290,12 @@ cg-board square.move-dest.oc {
   border-top: 1px solid var(--hairline);
 }
 
+/* Erase everything sits below Reset progress and is the more dangerous of the
+   two, so its heading takes the danger colour to set it clearly apart. */
+.settings-erase .settings-subheading {
+  color: var(--danger);
+}
+
 /* ── My Lines screen ───────────────────────────────────────────────────────── */
 
 [hidden] { display: none !important; }
