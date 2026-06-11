@@ -2076,6 +2076,22 @@ cg-board square.move-dest.oc {
   gap: 0.6rem;
 }
 
+/* Shared dialog (dialog.ts): buttons share the row evenly, or stack vertically
+   when there are three or more so longer labels never get cramped. */
+.dialog-btn-row {
+  display: flex;
+  gap: 0.6rem;
+}
+.dialog-btn-row .dialog-btn {
+  flex: 1;
+}
+.dialog-btn-row--stack {
+  flex-direction: column;
+}
+.dialog-btn-row--stack .dialog-btn {
+  width: 100%;
+}
+
 /* Chrome from .btn-primary in HTML; only flex stretch stays here. */
 .edit-save-btn { flex: 1; }
 

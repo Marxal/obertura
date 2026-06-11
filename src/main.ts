@@ -12,7 +12,7 @@ import { explainMove, describeGrade } from './explain';
 import type { Line } from './types';
 import { renderLinesScreen, focusSavedLine } from './lines-screen';
 import { renderProgressScreen } from './progress-screen';
-import { startPretrainingRun } from './pretraining';
+import { startPretrainingRun, enrolLineDirectly } from './pretraining';
 import { renderTrainScreen } from './train-screen';
 import { renderExploreScreen } from './explore-screen';
 import { renderSettingsScreen } from './settings-screen';
@@ -20,8 +20,9 @@ import { Engine, gradeMove } from './engine';
 import { EvalPanel } from './eval-panel';
 import { initTheme } from './theme';
 import { initAppearance } from './appearance';
-import { watchSpeedMs } from './prefs';
+import { watchSpeedMs, getConfirmRunBeforeTraining } from './prefs';
 import { initBackNav, setViewBack, pushBack } from './back-nav';
+import { showDialog } from './dialog';
 
 const chess = new Chess();
 let cg!: ReturnType<typeof Chessground>;
@@ -495,13 +496,18 @@ function renderAnnotationPicker(): void {
 // Open or collapse the note editor for the current move. Open = textarea +
 // Save button visible; collapsed = just the pencil. Kept as one place so the
 // pencil, the Save button and a fresh render all agree on the state.
+//
+// Annotation marks ride with the editor: they only show while a note is being
+// written (or already exists), never on their own.
 function setNoteEditing(editing: boolean): void {
   const textarea = document.getElementById('move-note-input') as HTMLTextAreaElement;
   const writeBtn = document.getElementById('note-write-btn')!;
   const doneBtn = document.getElementById('note-done-btn')!;
+  const annRow = document.getElementById('annotate-row')!;
   textarea.hidden = !editing;
   writeBtn.hidden = editing;
   doneBtn.hidden = !editing;
+  annRow.hidden = !editing;
 }
 
 function renderNotePanel(): void {
@@ -516,17 +522,17 @@ function renderNotePanel(): void {
     annRow.hidden = true;
     return;
   }
-  // Annotation marks are their own always-visible control for any move — they
-  // do NOT depend on writing a note.
-  annRow.hidden = false;
+  // Keep the annotation picker's label and selection in step with the move, but
+  // its visibility is owned by setNoteEditing — the marks only appear alongside
+  // the note editor, never on their own.
   annLabel.textContent = `Mark ${node.san}`;
   renderAnnotationPicker();
 
   panel.hidden = false;
   label.textContent = `Note for ${node.san}`;
   textarea.value = node.note ?? '';
-  // Compact by default: the editor stays collapsed until there's a note to
-  // show or the user taps the pencil to write one.
+  // Compact by default: the editor (and the annotation marks) stay collapsed
+  // until there's a note to show or the user taps the pencil to write one.
   setNoteEditing(!!node.note?.trim());
   renderExplanation();
 }
@@ -583,6 +589,7 @@ async function finishNote(): Promise<void> {
     const line = buildCurrentLine();
     await saveLine(line);
     currentTrainingLine = line;
+    savedSnapshot = builderSnapshot();
     showToast('Note saved ✓');
   } else {
     showToast('Note added — Save the line to keep it');
@@ -654,6 +661,28 @@ let loadedLineInTraining = false;
 // The currently loaded/saved line — used to preserve training data (confidence,
 // schedule, inTraining) when re-saving an existing line.
 let currentTrainingLine: Line | null = null;
+
+// A snapshot of the builder's state as last saved/loaded, for the unsaved-edits
+// leave guard. null means "fresh line" — dirty as soon as it has any move. We
+// compare a fingerprint of the editable state (name, tags, colour, tree) rather
+// than tracking a flag across every mutation, so it can never drift out of sync.
+let savedSnapshot: string | null = null;
+
+function builderSnapshot(): string {
+  return JSON.stringify({
+    name: currentTitle(),
+    tags: currentTags,
+    colour: saveColour,
+    tree: serialise(),
+  });
+}
+
+// True when the builder holds moves that differ from the last saved state.
+function isBuilderDirty(): boolean {
+  if (isEmpty()) return false;             // nothing worth saving
+  if (savedSnapshot === null) return true; // a fresh line that now has moves
+  return builderSnapshot() !== savedSnapshot;
+}
 
 // Single timer handle for Watch line — prevents stacked playback.
 let playbackTimer: ReturnType<typeof setTimeout> | undefined;
@@ -773,6 +802,8 @@ function clearBuilder(colour: 'white' | 'black' = 'white'): void {
   currentTrainingLine = null;
   currentTags = [];
   saveColour = colour;
+  // Fresh, empty line — no snapshot, so it only counts as dirty once a move lands.
+  savedSnapshot = null;
   // Fresh line: drop any manual title and clear the auto-detected name.
   manualTitle = null;
   detectedName = '';
@@ -839,9 +870,21 @@ function linesScreenDeps(): Parameters<typeof renderLinesScreen>[1] {
   };
 }
 
+// Add a line to training, honouring the "Confirm run before training" pref.
+// ON (default): run the pre-training confirm drill, enrolling on a clean run.
+// OFF: enrol instantly, with no run. The manual add-to-training paths and the
+// post-save prompt all funnel through here, so they skip the gate identically.
+function addLineToTraining(line: Line, onDone: () => void, onCancel: () => void = () => {}): void {
+  if (getConfirmRunBeforeTraining()) {
+    startPretrainingRun(line, onDone, onCancel);
+  } else {
+    void enrolLineDirectly(line).then(onDone);
+  }
+}
+
 // Drill or enrol a single line by id, from the Progress screen. An in-training
 // line drills immediately; a saved line that isn't in training yet runs the
-// "confirm & add to training" flow, then returns to Progress.
+// "add to training" flow (gated by the pref), then returns to Progress.
 async function onTrainLine(lineId: string, inTraining: boolean): Promise<void> {
   if (inTraining) {
     pendingTrainLineId = lineId;
@@ -850,7 +893,7 @@ async function onTrainLine(lineId: string, inTraining: boolean): Promise<void> {
   }
   const line = (await getAllLines()).find(l => l.id === lineId);
   if (!line) return;
-  startPretrainingRun(
+  addLineToTraining(
     line,
     () => showView('progress'), // re-render so the line now reads as in-training
     () => { /* cancelled — stay on Progress */ },
@@ -858,7 +901,7 @@ async function onTrainLine(lineId: string, inTraining: boolean): Promise<void> {
 }
 
 function handleStartTraining(line: Line): void {
-  startPretrainingRun(
+  addLineToTraining(
     line,
     () => {
       // Re-render lines screen so the "Add to training" button disappears.
@@ -972,6 +1015,8 @@ function onOpenLine(line: Line): void {
   renderMoveList();
   renderNotePanel();
   updateSaveButtonLabel();
+  // Just loaded from storage — the builder matches what's saved.
+  savedSnapshot = builderSnapshot();
   showView('builder');
 }
 
@@ -979,19 +1024,18 @@ function setupNav(): void {
   document.querySelectorAll<HTMLElement>('#bottom-nav .tab-item').forEach(btn => {
     btn.addEventListener('click', () => {
       const view = btn.dataset.view as ViewName | undefined;
-      if (view) showView(view);
+      if (view) guardBuilderLeave(() => showView(view));
     });
   });
 
   // Back arrow on full screens — stop any playback and return to where we came from.
   document.getElementById('nav-back')!.addEventListener('click', () => {
-    stopPlayback();
-    showView(returnView);
+    guardBuilderLeave(() => { stopPlayback(); showView(returnView); });
   });
 
   // The header user icon opens Settings.
   document.getElementById('nav-settings')!.addEventListener('click', () => {
-    showView('settings');
+    guardBuilderLeave(() => showView('settings'));
   });
 
   // The system back gesture steps back through the app (closing any open sheet
@@ -1000,6 +1044,11 @@ function setupNav(): void {
   setViewBack(() => {
     // Full screens (builder / settings) return to wherever they were opened from.
     if (BACK_VIEWS.has(currentView)) {
+      // A dirty builder asks to save first; the guard itself becomes the back layer.
+      if (currentView === 'builder' && isBuilderDirty()) {
+        showSaveGuard(() => { stopPlayback(); showView(returnView); });
+        return true;
+      }
       stopPlayback();
       showView(returnView);
       return true;
@@ -1014,6 +1063,36 @@ function setupNav(): void {
     return false;
   });
   initBackNav();
+}
+
+// ── Builder leave guard ───────────────────────────────────────────────────────
+// Leaving the builder with unsaved moves asks "Save this line?" before any
+// navigation — back arrow, tab tap, settings, or the system back gesture. Save
+// persists then continues; Discard continues without saving; Keep editing stays.
+
+function guardBuilderLeave(proceed: () => void): void {
+  if (currentView === 'builder' && isBuilderDirty()) {
+    showSaveGuard(proceed);
+  } else {
+    proceed();
+  }
+}
+
+function showSaveGuard(proceed: () => void): void {
+  showDialog({
+    title: 'Save this line?',
+    body: 'You have unsaved moves in this line.',
+    buttons: [
+      {
+        label: 'Save',
+        variant: 'primary',
+        onClick: () => { void persistCurrentLine().then(() => proceed()); },
+      },
+      { label: 'Discard', variant: 'danger', onClick: proceed },
+      { label: 'Keep editing', variant: 'secondary' },
+    ],
+    // Backdrop tap / back gesture = keep editing (stay put).
+  });
 }
 
 // ── Save ────────────────────────────────────────────────────────────────────
@@ -1043,12 +1122,14 @@ function buildCurrentLine(): Line {
   };
 }
 
-async function saveCurrentLine(): Promise<void> {
+// Persist the builder's current state, leaving the builder "clean". Returns the
+// saved line (and whether it was newly created), or null when there's nothing to
+// save. Shared by the header Save and the leave-guard's Save.
+async function persistCurrentLine(): Promise<{ line: Line; isNew: boolean } | null> {
   if (isEmpty()) {
     showToast('Play a move first');
-    return;
+    return null;
   }
-
   const isNew = !loadedLineId;
   const line = buildCurrentLine();
   // Lock in the auto-named title so it sticks as the manual name.
@@ -1057,13 +1138,61 @@ async function saveCurrentLine(): Promise<void> {
   await saveLine(line);
   loadedLineId = line.id;
   loadedLineCreatedAt = line.createdAt;
+  loadedLineInTraining = line.inTraining;
   currentTrainingLine = line;
+  // The builder now matches storage — no unsaved edits.
+  savedSnapshot = builderSnapshot();
+  return { line, isNew };
+}
 
-  showToast(isNew ? 'Line saved ✓' : 'Changes saved ✓');
-  // Surface the saved line on My Lines, highlighted so it's easy to find and
-  // add to training.
-  focusSavedLine(line.id);
+// Surface a saved line on My Lines, highlighted so it's easy to find.
+function goToSavedLine(id: string): void {
+  focusSavedLine(id);
   showView('lines');
+}
+
+// After saving, offer to add the line to training. The primary action depends on
+// the "Confirm run before training" pref: a confirm run when ON, an instant
+// enrol when OFF. Either way [Later] just drops the user on My Lines, as before.
+// A line that's already in training skips the prompt entirely.
+function promptAddToTraining(line: Line): void {
+  const confirmRun = getConfirmRunBeforeTraining();
+  showDialog({
+    title: 'Add to training now?',
+    body: confirmRun
+      ? 'Do one clean run to confirm the line, then it joins your training.'
+      : 'Add this line straight into your training rotation.',
+    buttons: [
+      {
+        label: confirmRun ? 'Confirm run' : 'Add to training',
+        variant: 'primary',
+        onClick: () => addLineToTraining(
+          line,
+          () => goToSavedLine(line.id),
+          () => goToSavedLine(line.id),
+        ),
+      },
+      {
+        label: 'Later',
+        variant: 'secondary',
+        onClick: () => goToSavedLine(line.id),
+      },
+    ],
+    onDismiss: () => goToSavedLine(line.id),
+  });
+}
+
+async function saveCurrentLine(): Promise<void> {
+  const result = await persistCurrentLine();
+  if (!result) return;
+  const { line, isNew } = result;
+  showToast(isNew ? 'Line saved ✓' : 'Changes saved ✓');
+  // Already enrolled — no point asking; just surface it on My Lines.
+  if (line.inTraining) {
+    goToSavedLine(line.id);
+    return;
+  }
+  promptAddToTraining(line);
 }
 
 function setupSaveButton() {

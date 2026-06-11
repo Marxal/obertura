@@ -867,6 +867,7 @@ function runItem(
 
   startDrill(lineCopy, {
     wrongMoveMode: 'full',
+    confirmAbandon: true,
     modeLabel: isResurface ? 'Second look' : 'Training',
     celebrateOnComplete: true,
     completeMessage: isResurface ? 'Got it that time ✓' : 'Line complete',
@@ -950,6 +951,7 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
     positions.map(p => ({ preFen: p.preFen, expected: p.expected, prevUci: p.prevUci, prevFen: p.prevFen })),
     {
       wrongMoveMode: 'full',
+      confirmAbandon: true,
       modeLabel: 'Individual moves',
       // Replay the opponent's move into each position so you see how it arose.
       playPrelude: true,
@@ -1272,6 +1274,7 @@ function runTimed(container: HTMLElement, trainingLines: Line[], minutes: TimedM
     positions.map(p => ({ preFen: p.preFen, expected: p.expected, prevUci: p.prevUci, prevFen: p.prevFen })),
     {
       timedMs: minutes * 60 * 1000,
+      confirmAbandon: true,
       modeLabel: 'Timed',
       // Mark the opponent's last move so the position reads at a glance (no replay —
       // speed is the point).

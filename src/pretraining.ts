@@ -4,6 +4,13 @@ import { saveLine } from './storage';
 import { startDrill } from './drill';
 import { newReview } from './scheduler';
 
+// Enrol a line into training straight away, with no confirm run. Used when the
+// "Confirm run before training" pref is OFF. Clones so the caller's in-memory
+// copy isn't mutated; persists with inTraining = true.
+export async function enrolLineDirectly(line: Line): Promise<void> {
+  await saveLine({ ...line, tree: structuredClone(line.tree), inTraining: true });
+}
+
 function mainlineOf(tree: MoveNode): MoveNode[] {
   const result: MoveNode[] = [];
   let node = tree.children[0];

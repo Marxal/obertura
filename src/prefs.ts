@@ -5,6 +5,7 @@ const RETRIES_KEY = 'obertura.retriesBeforeReveal';
 const NAMING_MODE_KEY = 'obertura.namingMode';
 const WATCH_SPEED_KEY = 'obertura.watchSpeed';
 const DEFAULT_MODE_KEY = 'obertura.defaultTrainingMode';
+const CONFIRM_RUN_KEY = 'obertura.confirmRunBeforeTraining';
 
 // The Train hub's line-list filters & sort. Device-local like every other pref,
 // so what you were looking at survives a reload.
@@ -35,6 +36,17 @@ export function getDefaultTrainingMode(): TrainingMode {
 
 export function setDefaultTrainingMode(mode: TrainingMode): void {
   localStorage.setItem(DEFAULT_MODE_KEY, mode);
+}
+
+// Whether adding a line to training first requires one clean "confirm run".
+// Default ON: the run double-checks the line plays as expected before it joins
+// the schedule. OFF: a line is enrolled instantly, with no run.
+export function getConfirmRunBeforeTraining(): boolean {
+  return localStorage.getItem(CONFIRM_RUN_KEY) !== 'false';
+}
+
+export function setConfirmRunBeforeTraining(on: boolean): void {
+  localStorage.setItem(CONFIRM_RUN_KEY, String(on));
 }
 
 // ── Train hub line-list view (filters + sort) ───────────────────────────────────
