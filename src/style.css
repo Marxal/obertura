@@ -3745,6 +3745,153 @@ cg-board square.move-dest.oc {
   line-height: 1.4;
 }
 
+/* ── Import panel (import-panel.ts) ─────────────────────────────────────────── */
+
+.import-sheet {
+  gap: 1rem;
+}
+
+.import-step {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.import-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+/* The platform toggle stretches to fill the sheet, halves either side. */
+.import-platform {
+  display: flex;
+}
+.import-platform .seg-btn {
+  flex: 1;
+}
+
+/* Range + time-control chips share the wrap row look. */
+.import-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.import-scan-btn,
+.import-go-btn {
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+.import-step2 {
+  border-top: 1px solid var(--hairline);
+  padding-top: 1rem;
+}
+
+.import-found {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.import-cap-note {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  background: var(--bg-page);
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+}
+
+.import-status {
+  font-size: 0.8rem;
+  color: var(--text-faint);
+  min-height: 1em;
+}
+
+.import-error {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--wrong, #c0531f);
+  background: color-mix(in srgb, var(--wrong, #c0531f) 12%, transparent);
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+}
+
+/* ── Settings · Your games ──────────────────────────────────────────────────── */
+
+/* Pre-import call-to-action — the prominent card that leads Settings. */
+.settings-connect-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1.1rem;
+  border-radius: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--accent);
+  box-shadow: var(--shadow-card);
+}
+
+.settings-connect-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.settings-connect-desc {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.settings-connect-btn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.2rem;
+}
+
+/* Post-import connected card. */
+.settings-connected {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-card);
+}
+
+.settings-connected-who {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.settings-connected-handle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.settings-connected-platform {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.settings-connected-meta {
+  font-size: 0.8rem;
+  color: var(--text-faint);
+}
+
+.settings-connected .settings-actions {
+  margin-top: 0.35rem;
+}
+
 /* ── Statistics screen ──────────────────────────────────────────────────────── */
 
 /* Streak hero */
