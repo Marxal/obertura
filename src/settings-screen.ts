@@ -40,6 +40,8 @@ import { renderBackupSection } from './backup';
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
 import { appendSelfTest } from './selftest-panel';
+import { openFeedbackSheet } from './feedback';
+import { openAboutSheet } from './about';
 import { runStorageSelfTest } from './storage.selftest';
 import { runOpeningsSelfTest } from './openings.selftest';
 import { runSparSelfTest } from './spar.selftest';
@@ -70,6 +72,7 @@ export function renderSettingsScreen(container: HTMLElement): void {
   screen.appendChild(userSlotMid);
   screen.appendChild(buildDataGroup());
   screen.appendChild(buildDiagnosticsGroup());
+  screen.appendChild(buildAboutGroup());
 
   container.appendChild(screen);
 
@@ -99,6 +102,32 @@ function buildDiagnosticsGroup(): HTMLElement {
   appendSelfTest(sec, 'Run openings lookup self-test', runOpeningsSelfTest, '[openings self-test]');
   appendSelfTest(sec, 'Run out-of-book self-test', runSparSelfTest, '[spar self-test]');
   appendSelfTest(sec, 'Run import parser self-test', runImportSelfTest, '[import self-test]');
+
+  return sec;
+}
+
+// ── Feedback & About ─────────────────────────────────────────────────────────
+// The closing group: a way to write to me, and an About sheet with credits,
+// support links and the version. About sits at the very bottom of Settings.
+
+function buildAboutGroup(): HTMLElement {
+  const sec = group('Feedback & about');
+
+  const feedbackBtn = document.createElement('button');
+  feedbackBtn.type = 'button';
+  feedbackBtn.className = 'settings-link-row';
+  feedbackBtn.textContent = 'Send feedback';
+  feedbackBtn.appendChild(Icons.chevronRight(18));
+  feedbackBtn.addEventListener('click', () => openFeedbackSheet());
+  sec.appendChild(feedbackBtn);
+
+  const aboutBtn = document.createElement('button');
+  aboutBtn.type = 'button';
+  aboutBtn.className = 'settings-link-row';
+  aboutBtn.textContent = 'About';
+  aboutBtn.appendChild(Icons.chevronRight(18));
+  aboutBtn.addEventListener('click', () => openAboutSheet());
+  sec.appendChild(aboutBtn);
 
   return sec;
 }
