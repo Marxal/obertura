@@ -12,6 +12,7 @@ import { Icons } from './icons';
 import { pushBack } from './back-nav';
 import { analyseGames, countGamesPerLine, type Analysis, type OpeningStat } from './analysis';
 import { openImportPanel, getGamesSource } from './import-panel';
+import { isOpponentTag } from './scout';
 import type { ImportedGame } from './chesscom';
 import { runAnalysisSelfTest } from './analysis.selftest';
 import { renderLoadError } from './load-error';
@@ -129,6 +130,11 @@ let detailFilter: ColourFilter = 'all';
 let detailSort: SortMode = 'latest';
 let suggestSort: SuggestSort = 'played';
 
+// An optional opponent filter on the Saved tab: the full "vs <name>" tag, or
+// null for all. Surfaces only when prepared (tagged) lines exist; persisted
+// across re-renders like the colour filter.
+let opponentFilter: string | null = null;
+
 // Which of the two tabs is showing. Module-level so it survives re-renders.
 type TabName = 'saved' | 'games';
 let activeTab: TabName = 'saved';
@@ -140,6 +146,8 @@ let highlightLineId: string | null = null;
 export function focusSavedLine(id: string): void {
   activeTab = 'saved';
   detailFilter = 'all';
+  // Clear the opponent filter so a freshly-saved line is never hidden behind it.
+  opponentFilter = null;
   highlightLineId = id;
 }
 
@@ -423,6 +431,41 @@ const SAVED_ORDERS: OrderOption<SortMode>[] = [
   { key: 'name', label: 'Name' },
 ];
 
+// Every distinct opponent tag ("vs <name>") across the saved lines, sorted.
+function distinctOpponentTags(lines: Line[]): string[] {
+  const set = new Set<string>();
+  for (const l of lines) for (const t of l.tags) if (isOpponentTag(t)) set.add(t);
+  return [...set].sort((a, b) => a.localeCompare(b));
+}
+
+// A scrollable chip row: All + one chip per opponent. Selecting a chip filters
+// the saved list to lines prepared against that opponent.
+function buildOpponentFilterRow(tags: string[], onChange: () => void): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'dfilter-row opp-filter-row';
+
+  const seg = document.createElement('div');
+  seg.className = 'dfilter-seg opp-filter-seg';
+
+  const opts: { key: string | null; label: string }[] = [
+    { key: null, label: 'All' },
+    ...tags.map(t => ({ key: t, label: t })),
+  ];
+  for (const o of opts) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `dfilter-btn${opponentFilter === o.key ? ' active' : ''}`;
+    btn.textContent = o.label;
+    btn.addEventListener('click', () => {
+      opponentFilter = o.key;
+      onChange();
+    });
+    seg.appendChild(btn);
+  }
+  row.appendChild(seg);
+  return row;
+}
+
 function renderSavedTab(
   content: HTMLElement,
   lines: Line[],
@@ -447,8 +490,19 @@ function renderSavedTab(
     })
   );
 
-  const filtered =
+  // Opponent filter — one chip per opponent any saved line is prepared against.
+  // Shown only when such tags exist; a stale selection falls back to "All".
+  const opponentTags = distinctOpponentTags(lines);
+  if (opponentTags.length > 0) {
+    if (opponentFilter && !opponentTags.includes(opponentFilter)) opponentFilter = null;
+    content.appendChild(buildOpponentFilterRow(opponentTags, rerender));
+  } else {
+    opponentFilter = null;
+  }
+
+  let filtered =
     detailFilter === 'all' ? lines : lines.filter(l => l.colour === detailFilter);
+  if (opponentFilter) filtered = filtered.filter(l => l.tags.includes(opponentFilter!));
 
   if (filtered.length === 0) {
     const emptySection = document.createElement('div');

@@ -8,16 +8,17 @@
 //
 // The opening library and engine sparring arrive in later v1.2 tasks.
 
+import type { Line } from './types';
 import { Icons } from './icons';
 import { showDialog } from './dialog';
 import { openImportPanel } from './import-panel';
 import { openRepertoireMap } from './repertoire-map';
 import { analyseGames, type OpeningStat } from './analysis';
 import {
-  getAllOpponents, getOpponent, saveOpponent, deleteOpponent, countOpponents,
+  getAllLines, getAllOpponents, getOpponent, saveOpponent, deleteOpponent, countOpponents,
 } from './storage';
 import {
-  MAX_OPPONENTS, makeOpponent, opponentLine, colourGameCount, type Opponent,
+  MAX_OPPONENTS, makeOpponent, opponentLine, colourGameCount, opponentTag, type Opponent,
 } from './scout';
 import { pushBack } from './back-nav';
 
@@ -25,7 +26,22 @@ const PLATFORM_LABEL = { chesscom: 'Chess.com', lichess: 'Lichess' } as const;
 // Most-played list cap before "Show all".
 const TOP_OPENINGS = 6;
 
-export function renderExploreScreen(container: HTMLElement): void {
+// What the Explore tab hands back to the app shell (main.ts): seed the builder
+// with a prepared reply, or open one of my saved lines. Held at module scope —
+// like train-screen's onViewLine — so the many internal re-renders (which only
+// pass a container) keep working.
+export interface ExploreDeps {
+  // Open the builder seeded with the opponent's moves, flipped to my answering
+  // colour, tagged to the opponent.
+  onPrepareReply: (ucis: string[], answeringColour: 'white' | 'black', opponentName: string) => void;
+  // Open a saved line in the builder/line view.
+  onOpenLine: (line: Line) => void;
+}
+
+let exploreDeps: ExploreDeps | null = null;
+
+export function renderExploreScreen(container: HTMLElement, deps?: ExploreDeps): void {
+  if (deps) exploreDeps = deps;
   void buildScreen(container);
 }
 
@@ -165,6 +181,9 @@ function openDetail(id: string, container: HTMLElement): void {
   void (async () => {
     const opp = await getOpponent(id);
     if (!opp) { renderExploreScreen(container); return; }
+    // My saved lines prepared against this opponent (tagged "vs <name>").
+    const tag = opponentTag(opp.name);
+    const myPrep = (await getAllLines()).filter(l => l.tags.includes(tag));
 
     const overlay = document.createElement('div');
     overlay.className = 'rmap-overlay scout-detail';
@@ -239,18 +258,33 @@ function openDetail(id: string, container: HTMLElement): void {
     actions.appendChild(deleteBtn);
     bodyWrap.appendChild(actions);
 
+    // Prepare a reply: leave the detail (and any open map) for the builder,
+    // seeded with the opponent's moves and flipped to MY answering colour —
+    // the opposite of the colour they played in this map/opening.
+    const prepare = (ucis: string[], opponentColour: 'white' | 'black') => {
+      close();
+      exploreDeps?.onPrepareReply(ucis, opponentColour === 'white' ? 'black' : 'white', opp.name);
+    };
+
+    // My prep against this opponent, when I have any.
+    if (myPrep.length > 0) {
+      bodyWrap.appendChild(yourPrepSection(myPrep, line => { close(); exploreDeps?.onOpenLine(line); }));
+    }
+
     // Opening maps (auto-built at import; open instantly).
-    bodyWrap.appendChild(mapSection(opp));
+    bodyWrap.appendChild(mapSection(opp, prepare));
 
     // Most-played openings, per colour.
     const analysis = analyseGames(opp.games, []);
     bodyWrap.appendChild(openingsSection(
       'Most played as White',
       analysis.stats.filter(s => s.colour === 'white'),
+      prepare,
     ));
     bodyWrap.appendChild(openingsSection(
       'Most played as Black',
       analysis.stats.filter(s => s.colour === 'black'),
+      prepare,
     ));
 
     overlay.appendChild(bodyWrap);
@@ -258,8 +292,60 @@ function openDetail(id: string, container: HTMLElement): void {
   })();
 }
 
+// ── Your prep (my saved lines tagged to this opponent) ────────────────────────────
+
+function yourPrepSection(lines: Line[], onOpen: (line: Line) => void): HTMLElement {
+  const section = document.createElement('div');
+  section.className = 'section';
+  const head = document.createElement('div');
+  head.className = 'section-head';
+  const h = document.createElement('h2');
+  h.className = 'section-title';
+  h.textContent = 'Your prep';
+  head.appendChild(h);
+  const m = document.createElement('span');
+  m.className = 'section-meta';
+  m.textContent = `${lines.length} line${lines.length === 1 ? '' : 's'}`;
+  head.appendChild(m);
+  section.appendChild(head);
+
+  const list = document.createElement('div');
+  list.className = 'lines-section';
+  for (const line of lines) {
+    const card = document.createElement('div');
+    card.className = 'line-card';
+    const body = document.createElement('div');
+    body.className = 'line-card-body';
+    body.setAttribute('role', 'button');
+    body.tabIndex = 0;
+    const open = () => onOpen(line);
+    body.addEventListener('click', open);
+    body.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+    });
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'line-card-name';
+    nameEl.textContent = line.name || line.openingName || 'Untitled line';
+    body.appendChild(nameEl);
+
+    const metaRow = document.createElement('div');
+    metaRow.className = 'line-card-meta';
+    metaRow.appendChild(chip(line.colour === 'white' ? '○ White' : '● Black'));
+    if (line.openingName && line.openingName !== nameEl.textContent) {
+      metaRow.appendChild(chip(line.openingName));
+    }
+    body.appendChild(metaRow);
+
+    card.appendChild(body);
+    list.appendChild(card);
+  }
+  section.appendChild(list);
+  return section;
+}
+
 // Opening-map launchers, one per colour. Disabled when there's nothing to show.
-function mapSection(opp: Opponent): HTMLElement {
+function mapSection(opp: Opponent, prepare: PrepareFn): HTMLElement {
   const section = document.createElement('div');
   section.className = 'section';
   const head = document.createElement('div');
@@ -272,13 +358,17 @@ function mapSection(opp: Opponent): HTMLElement {
 
   const row = document.createElement('div');
   row.className = 'scout-map-row';
-  row.appendChild(mapButton(opp, 'white'));
-  row.appendChild(mapButton(opp, 'black'));
+  row.appendChild(mapButton(opp, 'white', prepare));
+  row.appendChild(mapButton(opp, 'black', prepare));
   section.appendChild(row);
   return section;
 }
 
-function mapButton(opp: Opponent, colour: 'white' | 'black'): HTMLElement {
+// Seed a prepared reply from the opponent's move sequence; the colour passed is
+// the colour THEY played (the answering side is the opposite).
+type PrepareFn = (ucis: string[], opponentColour: 'white' | 'black') => void;
+
+function mapButton(opp: Opponent, colour: 'white' | 'black', prepare: PrepareFn): HTMLElement {
   const tree = colour === 'white' ? opp.whiteTree : opp.blackTree;
   const games = colourGameCount(opp, colour);
   const btn = document.createElement('button');
@@ -297,8 +387,11 @@ function mapButton(opp: Opponent, colour: 'white' | 'black'): HTMLElement {
         {
           title: `${opp.name} — ${colour === 'white' ? 'White' : 'Black'}`,
           subtitle: `${games} game${games === 1 ? '' : 's'}`,
-          // "Prepare a reply" comes alive in the next task — visible but disabled.
-          nodeAction: { label: 'Prepare a reply', disabled: true },
+          // Prepare a reply from any node: seed the builder with the path to it.
+          nodeAction: {
+            label: 'Prepare a reply',
+            onAct: ({ ucis }) => prepare(ucis, colour),
+          },
         },
       );
     });
@@ -307,7 +400,7 @@ function mapButton(opp: Opponent, colour: 'white' | 'black'): HTMLElement {
 }
 
 // One colour's most-played openings: top N, with a "Show all" reveal.
-function openingsSection(title: string, stats: OpeningStat[]): HTMLElement {
+function openingsSection(title: string, stats: OpeningStat[], prepare: PrepareFn): HTMLElement {
   const section = document.createElement('div');
   section.className = 'section';
   const head = document.createElement('div');
@@ -335,7 +428,7 @@ function openingsSection(title: string, stats: OpeningStat[]): HTMLElement {
   const list = document.createElement('div');
   list.className = 'lines-section';
   stats.forEach((stat, i) => {
-    const card = openingCard(stat);
+    const card = openingCard(stat, prepare);
     if (i >= TOP_OPENINGS) card.hidden = true;
     list.appendChild(card);
   });
@@ -355,7 +448,7 @@ function openingsSection(title: string, stats: OpeningStat[]): HTMLElement {
   return section;
 }
 
-function openingCard(stat: OpeningStat): HTMLElement {
+function openingCard(stat: OpeningStat, prepare: PrepareFn): HTMLElement {
   const card = document.createElement('div');
   card.className = 'line-card review-card';
 
@@ -392,14 +485,18 @@ function openingCard(stat: OpeningStat): HTMLElement {
     body.appendChild(lineEl);
   }
 
-  // Disabled stub — wired up in the next task.
-  const prepare = document.createElement('button');
-  prepare.type = 'button';
-  prepare.className = 'btn-secondary scout-prepare';
-  prepare.textContent = 'Prepare a reply';
-  prepare.disabled = true;
-  prepare.title = 'Coming in the next update';
-  body.appendChild(prepare);
+  // Prepare a reply against this opening's representative line.
+  const prepareBtn = document.createElement('button');
+  prepareBtn.type = 'button';
+  prepareBtn.className = 'btn-secondary scout-prepare';
+  prepareBtn.textContent = 'Prepare a reply';
+  if (stat.repUcis.length === 0) {
+    prepareBtn.disabled = true;
+    prepareBtn.title = 'No moves to seed from';
+  } else {
+    prepareBtn.addEventListener('click', () => prepare(stat.repUcis, stat.colour));
+  }
+  body.appendChild(prepareBtn);
 
   card.appendChild(body);
   return card;

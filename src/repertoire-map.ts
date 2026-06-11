@@ -230,7 +230,11 @@ function nodePath(n: MapNode): { ucis: string[]; sans: string[] } {
   return { ucis, sans };
 }
 
-function makePreview(colour: 'white' | 'black', opts: RepertoireMapOptions): PreviewController {
+function makePreview(
+  colour: 'white' | 'black',
+  opts: RepertoireMapOptions,
+  requestClose: () => void,
+): PreviewController {
   const panel = document.createElement('div');
   panel.className = 'rmap-pos-panel';
   panel.hidden = true;
@@ -317,6 +321,9 @@ function makePreview(colour: 'white' | 'black', opts: RepertoireMapOptions): Pre
       const act = opts.nodeAction;
       actBtn.addEventListener('click', () => {
         const { ucis, sans } = nodePath(n);
+        // The action leaves the map (e.g. into the builder), so close first to
+        // keep the back-navigation stack tidy and the overlay out of the way.
+        if (!act.disabled) requestClose();
         act.onAct?.({ fen: n.fen, san: n.san, ucis, sans, colour });
       });
       infoCol.appendChild(actBtn);
@@ -600,7 +607,7 @@ export function openRepertoireMap(
   const state: TxState = { scale: 1, tx: 0, ty: 0 };
 
   // Preview panel.
-  const preview = makePreview(colour, opts);
+  const preview = makePreview(colour, opts, close);
   treeArea.appendChild(preview.el);
 
   function selectNode(n: MapNode): void {

@@ -12,7 +12,8 @@ const CONFIRM_RUN_KEY = 'obertura.confirmRunBeforeTraining';
 const TRAIN_COLOUR_KEY = 'obertura.train.filterColour';
 const TRAIN_STATUS_KEY = 'obertura.train.filterStatus';
 const TRAIN_SORT_KEY = 'obertura.train.sort';
-// (An Opponent filter joins these once Explore ships — see train-screen.ts.)
+// The opponent filter: 'all' (default) or a "vs <name>" tag string.
+const TRAIN_OPPONENT_KEY = 'obertura.train.filterOpponent';
 
 // Timed personal bests are kept per duration ("obertura.timedBest.3" etc.).
 const TIMED_BEST_PREFIX = 'obertura.timedBest.';
@@ -83,6 +84,17 @@ export function getTrainSort(): TrainSort {
 
 export function setTrainSort(v: TrainSort): void {
   localStorage.setItem(TRAIN_SORT_KEY, v);
+}
+
+// The opponent filter: 'all' for no filter, otherwise a "vs <name>" tag. A stale
+// tag (opponent prep since deleted) is harmless — the list just shows nothing,
+// and the filter row reverts to All on the next render.
+export function getTrainOpponentFilter(): string {
+  return localStorage.getItem(TRAIN_OPPONENT_KEY) ?? 'all';
+}
+
+export function setTrainOpponentFilter(v: string): void {
+  localStorage.setItem(TRAIN_OPPONENT_KEY, v);
 }
 
 // How a saved line gets its title. "auto" (default) fills the name from the
