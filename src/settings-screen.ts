@@ -42,6 +42,7 @@ import { pushBack } from './back-nav';
 import { appendSelfTest } from './selftest-panel';
 import { runStorageSelfTest } from './storage.selftest';
 import { runOpeningsSelfTest } from './openings.selftest';
+import { runSparSelfTest } from './spar.selftest';
 import { runImportSelfTest } from './import.selftest';
 
 export function renderSettingsScreen(container: HTMLElement): void {
@@ -96,6 +97,7 @@ function buildDiagnosticsGroup(): HTMLElement {
 
   appendSelfTest(sec, 'Run storage self-test', runStorageSelfTest, '[storage self-test]');
   appendSelfTest(sec, 'Run openings lookup self-test', runOpeningsSelfTest, '[openings self-test]');
+  appendSelfTest(sec, 'Run out-of-book self-test', runSparSelfTest, '[spar self-test]');
   appendSelfTest(sec, 'Run import parser self-test', runImportSelfTest, '[import self-test]');
 
   return sec;
