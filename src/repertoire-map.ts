@@ -17,6 +17,31 @@ import { pushBack } from './back-nav';
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 const NS = 'http://www.w3.org/2000/svg';
 
+// The moves reaching the tapped node, handed to a custom node action so a caller
+// (opponent scouting) can prepare a reply from exactly that position.
+export interface NodeActionContext {
+  fen: string;
+  san: string;
+  ucis: string[];   // uci path from the start to this node
+  sans: string[];   // same path in SAN
+  colour: 'white' | 'black';
+}
+
+export interface RepertoireMapOptions {
+  // Header title — defaults to "White/Black repertoire".
+  title?: string;
+  // Header badge — defaults to "N lines".
+  subtitle?: string;
+  // Replaces the default "Open in builder" preview action. When set, the button
+  // shows on EVERY node (not just nodes tied to a saved line); pass disabled to
+  // surface it as a not-yet-live stub.
+  nodeAction?: {
+    label: string;
+    disabled?: boolean;
+    onAct?: (ctx: NodeActionContext) => void;
+  };
+}
+
 // Node box geometry
 const NW = 56;   // node width
 const NH = 30;   // node height
@@ -192,7 +217,20 @@ interface PreviewController {
   show(n: MapNode, lines: Line[], open: (l: Line) => void): void;
 }
 
-function makePreview(colour: 'white' | 'black'): PreviewController {
+// The uci/san path from the (invisible) root down to this node.
+function nodePath(n: MapNode): { ucis: string[]; sans: string[] } {
+  const ucis: string[] = [];
+  const sans: string[] = [];
+  let cur: MapNode | null = n;
+  while (cur && cur.san) {
+    ucis.unshift(cur.uci);
+    sans.unshift(cur.san);
+    cur = cur.parent;
+  }
+  return { ucis, sans };
+}
+
+function makePreview(colour: 'white' | 'black', opts: RepertoireMapOptions): PreviewController {
   const panel = document.createElement('div');
   panel.className = 'rmap-pos-panel';
   panel.hidden = true;
@@ -269,7 +307,20 @@ function makePreview(colour: 'white' | 'black'): PreviewController {
       infoCol.appendChild(v);
     }
 
-    if (assoc) {
+    if (opts.nodeAction) {
+      // Custom action (e.g. scouting's "Prepare a reply"): on every node.
+      const actBtn = document.createElement('button');
+      actBtn.type = 'button';
+      actBtn.className = 'rmap-pos-open-btn';
+      actBtn.textContent = opts.nodeAction.label;
+      actBtn.disabled = !!opts.nodeAction.disabled;
+      const act = opts.nodeAction;
+      actBtn.addEventListener('click', () => {
+        const { ucis, sans } = nodePath(n);
+        act.onAct?.({ fen: n.fen, san: n.san, ucis, sans, colour });
+      });
+      infoCol.appendChild(actBtn);
+    } else if (assoc) {
       const titleEl = document.createElement('div');
       titleEl.className = 'rmap-pos-line-title';
       titleEl.textContent = assoc.name || assoc.openingName || '';
@@ -473,6 +524,7 @@ export function openRepertoireMap(
   lines: Line[],
   colour: 'white' | 'black',
   onOpenLine: (line: Line) => void,
+  opts: RepertoireMapOptions = {},
 ): void {
   const filtered = lines.filter(l => l.colour === colour);
   if (!filtered.length) return;
@@ -508,11 +560,11 @@ export function openRepertoireMap(
 
   const titleEl = document.createElement('h2');
   titleEl.className = 'rmap-title';
-  titleEl.textContent = colour === 'white' ? 'White repertoire' : 'Black repertoire';
+  titleEl.textContent = opts.title ?? (colour === 'white' ? 'White repertoire' : 'Black repertoire');
 
   const count = document.createElement('span');
   count.className = 'rmap-title-count';
-  count.textContent = `${filtered.length} line${filtered.length !== 1 ? 's' : ''}`;
+  count.textContent = opts.subtitle ?? `${filtered.length} line${filtered.length !== 1 ? 's' : ''}`;
 
   header.appendChild(back);
   header.appendChild(titleEl);
@@ -548,7 +600,7 @@ export function openRepertoireMap(
   const state: TxState = { scale: 1, tx: 0, ty: 0 };
 
   // Preview panel.
-  const preview = makePreview(colour);
+  const preview = makePreview(colour, opts);
   treeArea.appendChild(preview.el);
 
   function selectNode(n: MapNode): void {

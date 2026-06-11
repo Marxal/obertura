@@ -8,12 +8,14 @@
 
 import { runImportSelfTest } from '../src/import.selftest';
 import { runAnalysisSelfTest } from '../src/analysis.selftest';
+import { runScoutSelfTest } from '../src/scout.selftest';
 
 interface TestResult { name: string; pass: boolean; detail: string }
 
 const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'import', run: runImportSelfTest },
   { suite: 'analysis', run: runAnalysisSelfTest },
+  { suite: 'scout', run: runScoutSelfTest },
 ];
 
 let total = 0;
