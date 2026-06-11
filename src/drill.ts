@@ -7,6 +7,7 @@ import { Icons } from './icons';
 import { getRetriesBeforeReveal } from './prefs';
 import { playFeedback } from './sound';
 import { pushBack } from './back-nav';
+import { showDialog } from './dialog';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -51,6 +52,10 @@ export interface DrillOptions {
   // each position before you play, rather than the board jumping straight to it.
   // (Implies the last-move highlight.) Needs prevUci/prevFen on each position.
   playPrelude?: boolean;
+  // When set, backing out (Back button or system back gesture) asks "Abandon this
+  // session?" first. Whatever was already reviewed still counts. Used by the
+  // training modes so a stray back press can't drop you out of a drill.
+  confirmAbandon?: boolean;
 }
 
 // A single ply to auto-play (animated) between the user's moves.
@@ -257,7 +262,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   backBtn.className = 'pt-back-btn';
   backBtn.appendChild(Icons.back(15));
   backBtn.appendChild(document.createTextNode(opts.backLabel ?? 'Back'));
-  backBtn.addEventListener('click', () => { cleanup(); opts.onCancel(); });
+  backBtn.addEventListener('click', () => exitViaButton());
   headerEl.appendChild(backBtn);
 
   // Timed mode: a live "✓ N" score and a mm:ss countdown pinned to the right of
@@ -371,8 +376,44 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     noteBtnEl.classList.toggle('pt-note-btn--active', !!expected.note);
   }
 
-  // System back gesture exits the drill, same as tapping Back.
-  const removeBack = pushBack(() => { cleanup(); opts.onCancel(); });
+  // ── Exit / abandon guard ────────────────────────────────────────────────────
+  //
+  // Leaving the drill (Back button or system back gesture) either exits straight
+  // away, or — when confirmAbandon is set — asks "Abandon this session?" first.
+  // The back gesture consumes our back-layer before we hear about it, so the
+  // "stay" path on that route re-arms the layer for the next press.
+
+  function doExit(): void {
+    cleanup();
+    opts.onCancel();
+  }
+
+  function showAbandonDialog(onStay: () => void): void {
+    showDialog({
+      title: 'Abandon this session?',
+      body: 'Anything you’ve already reviewed still counts.',
+      buttons: [
+        { label: 'Abandon', variant: 'danger', onClick: doExit },
+        { label: 'Keep going', variant: 'secondary', onClick: onStay },
+      ],
+      onDismiss: onStay,
+    });
+  }
+
+  // Back button: our back-layer is still armed, so staying needs no re-arm.
+  function exitViaButton(): void {
+    if (opts.confirmAbandon) showAbandonDialog(() => {});
+    else doExit();
+  }
+
+  // System back gesture: our back-layer was just popped, so re-arm it if the
+  // user decides to stay.
+  function exitViaBackGesture(): void {
+    if (opts.confirmAbandon) showAbandonDialog(() => { removeBack = pushBack(exitViaBackGesture); });
+    else doExit();
+  }
+
+  let removeBack = pushBack(exitViaBackGesture);
 
   // ── Chess helpers ─────────────────────────────────────────────────────────
 

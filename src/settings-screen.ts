@@ -24,6 +24,8 @@ import {
   getDefaultTrainingMode,
   setDefaultTrainingMode,
   type TrainingMode,
+  getConfirmRunBeforeTraining,
+  setConfirmRunBeforeTraining,
   clearTimedBest,
 } from './prefs';
 import { getFeedbackSound, setFeedbackSound, previewFeedback } from './sound';
@@ -267,6 +269,12 @@ function buildAppearanceGroup(): HTMLElement {
 
 function buildTrainingGroup(): HTMLElement {
   const sec = group('Training');
+
+  sec.appendChild(row(
+    'Confirm run before training',
+    toggle(getConfirmRunBeforeTraining(), (on) => setConfirmRunBeforeTraining(on)),
+    { sub: 'Do one clean run before a line joins training. Off adds it straight away.' },
+  ));
 
   sec.appendChild(row(
     'Retries before arrow',
