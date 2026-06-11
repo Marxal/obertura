@@ -1,12 +1,15 @@
 import type { Line } from './types';
 import type { MoveNode } from './tree';
 import { Chessground } from 'chessground';
+import { Chess } from 'chess.js';
 import {
   getAllLines,
   saveLine,
   deleteLine,
   getAllGames,
 } from './storage';
+import { buildMiniBoard } from './board-mini';
+import { getShowQuickView, getShowLineMiniatures } from './prefs';
 import { lineIsDue } from './scheduler';
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
@@ -72,6 +75,21 @@ function finalMainlineFen(tree: MoveNode): string {
     node = node.children[0];
   }
   return fen;
+}
+
+// The final position of a representative line (a flat UCI list) for a
+// suggestion miniature. Replays the moves and returns the FEN; a bad/illegal
+// move just stops the walk early, so the miniature shows as far as it got.
+function fenFromUcis(ucis: string[]): string {
+  const chess = new Chess();
+  for (const uci of ucis) {
+    try {
+      chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci.slice(4) || undefined });
+    } catch {
+      break;
+    }
+  }
+  return chess.fen();
 }
 
 function byLatest(lines: Line[]): Line[] {
@@ -172,16 +190,23 @@ async function doRender(container: HTMLElement, deps: LinesDeps): Promise<void> 
 
   const pending: Pending[] = [];
 
-  // Quick view: one carousel of mini-boards per colour, title-only cards.
-  for (const colour of ['white', 'black'] as const) {
-    container.appendChild(
-      buildCarouselSection(
-        colour,
-        allLines.filter(l => l.colour === colour),
-        deps,
-        pending
-      )
-    );
+  // Quick view: one carousel of mini-boards per colour, title-only cards. When
+  // it's switched off in Settings, the per-colour "Add new line" buttons that
+  // live in the carousel heads go with it — so surface a compact inline add row
+  // instead, keeping the only entry into the builder reachable.
+  if (getShowQuickView()) {
+    for (const colour of ['white', 'black'] as const) {
+      container.appendChild(
+        buildCarouselSection(
+          colour,
+          allLines.filter(l => l.colour === colour),
+          deps,
+          pending
+        )
+      );
+    }
+  } else {
+    container.appendChild(buildInlineAddRow(deps));
   }
 
   // Two prominent tabs: SAVED LINES | FROM MY GAMES.
@@ -309,6 +334,25 @@ function buildCarouselSection(
   }
   section.appendChild(carousel);
 
+  return section;
+}
+
+// Shown in place of the carousels when quick view is off: one add-line button
+// per colour, so a fresh line is still one tap away.
+function buildInlineAddRow(deps: LinesDeps): HTMLElement {
+  const section = document.createElement('section');
+  section.className = 'section lines-add-row';
+  for (const colour of ['white', 'black'] as const) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `lines-add-btn lines-add-btn--${colour}`;
+    btn.appendChild(Icons.plus(15));
+    btn.appendChild(
+      document.createTextNode(colour === 'white' ? 'Add White line' : 'Add Black line')
+    );
+    btn.addEventListener('click', () => deps.onAddLine(colour));
+    section.appendChild(btn);
+  }
   return section;
 }
 
@@ -546,6 +590,21 @@ function buildDetailCard(
     );
   }
 
+  // Top of the card: an optional position miniature on the left, with the title
+  // and info stacked beside it on the right.
+  const main = document.createElement('div');
+  main.className = 'dline-main';
+
+  if (getShowLineMiniatures()) {
+    const mini = document.createElement('div');
+    mini.className = 'dline-mini';
+    mini.appendChild(buildMiniBoard(finalMainlineFen(line.tree), line.colour));
+    main.appendChild(mini);
+  }
+
+  const body = document.createElement('div');
+  body.className = 'dline-body';
+
   // Title row — its own line. Tap to open the line in the builder.
   const titleRow = document.createElement('button');
   titleRow.type = 'button';
@@ -559,7 +618,7 @@ function buildDetailCard(
   titleRow.appendChild(pip);
   titleRow.appendChild(nameEl);
   titleRow.addEventListener('click', () => deps.onOpenLine(line));
-  card.appendChild(titleRow);
+  body.appendChild(titleRow);
 
   // Card info, stacked under the title.
   const info = document.createElement('div');
@@ -605,7 +664,9 @@ function buildDetailCard(
   stats.appendChild(last);
   info.appendChild(stats);
 
-  card.appendChild(info);
+  body.appendChild(info);
+  main.appendChild(body);
+  card.appendChild(main);
 
   // Footer: training toggle (+ Due badge) bottom-left, rename/delete bottom-right.
   const footer = document.createElement('div');
@@ -847,6 +908,16 @@ function formatSanLine(sans: string[]): string {
 function suggestionCard(stat: OpeningStat, deps: LinesDeps): HTMLElement {
   const card = document.createElement('div');
   card.className = 'line-card review-card';
+
+  // A miniature of the suggested line's final position, replayed from its
+  // representative UCI moves. Skipped when miniatures are hidden, or when there
+  // are no moves to show.
+  if (getShowLineMiniatures() && stat.repUcis.length > 0) {
+    const mini = document.createElement('div');
+    mini.className = 'line-card-mini';
+    mini.appendChild(buildMiniBoard(fenFromUcis(stat.repUcis), stat.colour));
+    card.appendChild(mini);
+  }
 
   const body = document.createElement('div');
   body.className = 'line-card-body review-card-body';

@@ -7,6 +7,12 @@ const WATCH_SPEED_KEY = 'obertura.watchSpeed';
 const DEFAULT_MODE_KEY = 'obertura.defaultTrainingMode';
 const CONFIRM_RUN_KEY = 'obertura.confirmRunBeforeTraining';
 
+// My Lines view options. Both default ON.
+//   quick view   → the swipe-through board carousels at the top of My Lines.
+//   miniatures   → the tiny position board on each saved-line / suggestion card.
+const SHOW_QUICKVIEW_KEY = 'obertura.lines.showQuickView';
+const SHOW_MINIATURES_KEY = 'obertura.lines.showMiniatures';
+
 // The Train hub's line-list filters & sort. Device-local like every other pref,
 // so what you were looking at survives a reload.
 const TRAIN_COLOUR_KEY = 'obertura.train.filterColour';
@@ -48,6 +54,27 @@ export function getConfirmRunBeforeTraining(): boolean {
 
 export function setConfirmRunBeforeTraining(on: boolean): void {
   localStorage.setItem(CONFIRM_RUN_KEY, String(on));
+}
+
+// ── My Lines view options ────────────────────────────────────────────────────
+
+// The quick-view carousels at the top of My Lines. ON by default; OFF hides them
+// and the screen surfaces inline "add line" buttons instead.
+export function getShowQuickView(): boolean {
+  return localStorage.getItem(SHOW_QUICKVIEW_KEY) !== 'off';
+}
+
+export function setShowQuickView(on: boolean): void {
+  localStorage.setItem(SHOW_QUICKVIEW_KEY, on ? 'on' : 'off');
+}
+
+// The tiny position board on each saved-line and suggestion card. ON by default.
+export function getShowLineMiniatures(): boolean {
+  return localStorage.getItem(SHOW_MINIATURES_KEY) !== 'off';
+}
+
+export function setShowLineMiniatures(on: boolean): void {
+  localStorage.setItem(SHOW_MINIATURES_KEY, on ? 'on' : 'off');
 }
 
 // ── Train hub line-list view (filters + sort) ───────────────────────────────────
