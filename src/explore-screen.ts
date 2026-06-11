@@ -14,6 +14,7 @@ import { showDialog } from './dialog';
 import { openImportPanel } from './import-panel';
 import { openRepertoireMap } from './repertoire-map';
 import { openLibrary } from './library';
+import { openSpar, type SparSaveFn } from './spar';
 import { analyseGames, type OpeningStat } from './analysis';
 import {
   getAllLines, getAllOpponents, getOpponent, saveOpponent, deleteOpponent, countOpponents,
@@ -40,6 +41,9 @@ export interface ExploreDeps {
   // Seed the builder with a move sequence (from the opening library), oriented
   // to the chosen colour. No opponent tag — this is a plain reference line.
   onOpenInBuilder: (ucis: string[], colour: 'white' | 'black') => void;
+  // Persist a game sparred against the engine as a new auto-named line, then run
+  // the post-save "add to training" flow (see spar.ts / main.ts).
+  onSparSave: SparSaveFn;
 }
 
 let exploreDeps: ExploreDeps | null = null;
@@ -100,6 +104,114 @@ async function buildScreen(container: HTMLElement): Promise<void> {
 
   container.appendChild(section);
   container.appendChild(librarySection());
+  container.appendChild(sparSection());
+}
+
+// ── Spar with the engine ─────────────────────────────────────────────────────
+
+// Friendly difficulty names mapped to Stockfish's UCI Skill Level (0–20).
+const SPAR_LEVELS = [
+  { id: 'casual', label: 'Casual', skill: 3 },
+  { id: 'club', label: 'Club', skill: 8 },
+  { id: 'strong', label: 'Strong', skill: 14 },
+  { id: 'master', label: 'Master', skill: 20 },
+] as const;
+
+// Remembered across re-renders so the picker keeps its last setting.
+let sparColour: 'white' | 'black' = 'white';
+let sparLevelId: (typeof SPAR_LEVELS)[number]['id'] = 'club';
+
+// A launcher card for a casual game against the local engine. Picks a side and a
+// difficulty, then opens the full-screen spar board.
+function sparSection(): HTMLElement {
+  const section = document.createElement('div');
+  section.className = 'section';
+
+  const head = document.createElement('div');
+  head.className = 'section-head';
+  const heading = document.createElement('h2');
+  heading.className = 'section-title';
+  heading.textContent = 'Spar with the engine';
+  head.appendChild(heading);
+  section.appendChild(head);
+
+  const desc = document.createElement('p');
+  desc.className = 'section-desc';
+  desc.textContent =
+    'Play a casual game against the engine from the start, then save the moves as a new line whenever you like.';
+  section.appendChild(desc);
+
+  // Side picker.
+  section.appendChild(sparPickerRow('Your side', [
+    { value: 'white', label: '○ White' },
+    { value: 'black', label: '● Black' },
+  ], sparColour, (v) => { sparColour = v as 'white' | 'black'; }));
+
+  // Level picker.
+  section.appendChild(sparPickerRow('Level',
+    SPAR_LEVELS.map(l => ({ value: l.id, label: l.label })),
+    sparLevelId,
+    (v) => { sparLevelId = v as typeof sparLevelId; }));
+
+  const startBtn = document.createElement('button');
+  startBtn.type = 'button';
+  startBtn.className = 'games-refresh-btn scout-add-btn';
+  startBtn.appendChild(Icons.zap(15));
+  startBtn.appendChild(document.createTextNode('Start sparring'));
+  startBtn.addEventListener('click', () => {
+    const level = SPAR_LEVELS.find(l => l.id === sparLevelId) ?? SPAR_LEVELS[1];
+    if (!exploreDeps) return;
+    openSpar({
+      colour: sparColour,
+      skill: level.skill,
+      levelLabel: level.label,
+      onSparSave: exploreDeps.onSparSave,
+    });
+  });
+  section.appendChild(startBtn);
+
+  return section;
+}
+
+// A labelled segmented control (reusing the settings .seg-control look).
+function sparPickerRow(
+  label: string,
+  options: { value: string; label: string }[],
+  current: string,
+  onChange: (v: string) => void,
+): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'spar-picker-row';
+
+  const lab = document.createElement('span');
+  lab.className = 'spar-picker-label';
+  lab.textContent = label;
+  row.appendChild(lab);
+
+  const seg = document.createElement('div');
+  seg.className = 'seg-control';
+  seg.setAttribute('role', 'group');
+  const buttons: HTMLButtonElement[] = [];
+  const reflect = (active: string) => {
+    for (const b of buttons) {
+      const on = b.dataset.value === active;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', String(on));
+    }
+  };
+  for (const opt of options) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'seg-btn';
+    btn.dataset.value = opt.value;
+    btn.textContent = opt.label;
+    btn.addEventListener('click', () => { reflect(opt.value); onChange(opt.value); });
+    buttons.push(btn);
+    seg.appendChild(btn);
+  }
+  reflect(current);
+  row.appendChild(seg);
+  return row;
 }
 
 // ── Opening library ────────────────────────────────────────────────────────────────

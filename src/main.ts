@@ -872,6 +872,78 @@ function prepareReply(ucis: string[], answeringColour: 'white' | 'black', oppone
   buildFromUcis(ucis, answeringColour, [opponentTag(opponentName)]);
 }
 
+// Build a fresh Line from a flat UCI list, auto-named from the bundled book —
+// the same naming the builder's Save uses, without touching the live builder
+// tree. Used by the engine-sparring "Save as line" flow. Returns null if no
+// legal move could be applied.
+function lineFromUcis(ucis: string[], colour: 'white' | 'black'): Line | null {
+  const ch = new Chess();
+  const root: MoveNode = { id: 'root', san: '', uci: '', fen: ch.fen(), children: [] };
+  let cursor = root;
+  const fens: string[] = [];
+  let i = 0;
+  for (const uci of ucis) {
+    const from = uci.slice(0, 2);
+    const to = uci.slice(2, 4);
+    const promotion = (uci[4] as 'q' | 'r' | 'b' | 'n') || 'q';
+    let move;
+    try { move = ch.move({ from, to, promotion }); } catch { move = null; }
+    if (!move) break; // stop on an illegal move rather than corrupt the tree
+    const fen = ch.fen();
+    fens.push(fen);
+    const node: MoveNode = {
+      id: `n${++i}`, san: move.san, uci: from + to + (move.promotion ?? ''), fen, children: [],
+    };
+    cursor.children.push(node);
+    cursor = node;
+  }
+  if (root.children.length === 0) return null;
+  const opening = nameForPath(fens);
+  return {
+    id: crypto.randomUUID(),
+    name: opening ?? 'Untitled line',
+    tags: [],
+    colour,
+    openingName: opening ?? null,
+    confidence: 0,
+    lastTrained: null,
+    inTraining: false,
+    tree: root,
+    createdAt: Date.now(),
+  };
+}
+
+// "Save as line" from the spar screen: persist the moves played as a new
+// auto-named line, then run the same post-save "Add to training?" dialog as the
+// builder (task 2.6). `afterSaved` lets the spar screen know whether to stay
+// (keep playing / new game) or to close because we navigated on to training.
+function sparSave(ucis: string[], colour: 'white' | 'black', afterSaved: (action: 'stay' | 'left') => void): void {
+  const line = lineFromUcis(ucis, colour);
+  if (!line) { afterSaved('stay'); return; }
+  void saveLine(line).then(() => {
+    showToast('Line saved ✓');
+    const confirmRun = getConfirmRunBeforeTraining();
+    showDialog({
+      title: 'Add to training now?',
+      body: confirmRun
+        ? 'Do one clean run to confirm the line, then it joins your training.'
+        : 'Add this line straight into your training rotation.',
+      buttons: [
+        { label: 'Later', variant: 'secondary', onClick: () => afterSaved('stay') },
+        {
+          label: confirmRun ? 'Confirm run' : 'Add to training',
+          variant: 'primary',
+          onClick: () => {
+            afterSaved('left'); // close the spar screen first, then enrol/run
+            addLineToTraining(line, () => showView('lines'), () => showView('lines'));
+          },
+        },
+      ],
+      onDismiss: () => afterSaved('stay'),
+    });
+  });
+}
+
 // The full dependency set the My Lines screen needs. Centralised so every
 // place that (re)renders it stays in sync.
 function linesScreenDeps(): Parameters<typeof renderLinesScreen>[1] {
@@ -980,6 +1052,7 @@ function showView(view: ViewName): void {
       onPrepareReply: prepareReply,
       onOpenLine,
       onOpenInBuilder: (ucis, colour) => buildFromUcis(ucis, colour),
+      onSparSave: sparSave,
     });
   }
 

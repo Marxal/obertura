@@ -38,3 +38,28 @@ export function nameForPath(fens: string[]): string | null {
   }
   return null;
 }
+
+// ── "Out of book" detection (for engine sparring) ────────────────────────────
+// The database names only the *terminal* position of each known line, so legal
+// theory has short unnamed gaps mid-sequence (e.g. the Ruy Lopez names a6 and
+// O-O but not the Ba4/Nf6 between them). We therefore declare a line "out of
+// book" only after several consecutive unnamed half-moves: that never triggers
+// inside known theory yet latches reliably once theory genuinely ends.
+export const BOOK_GAP_TOLERANCE = 3;
+
+// Deepest half-move (1-based) along `fens` that the book recognises, or 0.
+function deepestNamedPly(fens: string[]): number {
+  let last = 0;
+  for (let i = 0; i < fens.length; i++) if (nameForFen(fens[i])) last = i + 1;
+  return last;
+}
+
+/**
+ * True once a line has run far enough past its deepest named position to count
+ * as off-book. A pure function of the positions played, so callers can recompute
+ * it freely (e.g. after an undo).
+ */
+export function isOutOfBook(fens: string[]): boolean {
+  if (fens.length === 0) return false;
+  return fens.length - deepestNamedPly(fens) >= BOOK_GAP_TOLERANCE;
+}
