@@ -1,6 +1,7 @@
 import type { Line } from './types';
 import type { MoveNode } from './tree';
 import type { ImportedGame } from './chesscom';
+import type { Opponent } from './scout';
 
 // Thin IndexedDB wrapper. IndexedDB's native API is event-based: every call
 // returns a request and you attach onsuccess / onerror handlers. This module
@@ -8,9 +9,11 @@ import type { ImportedGame } from './chesscom';
 
 const DB_NAME = 'obertura';
 // v2 adds the 'games' store for Chess.com imports (see chesscom.ts).
-const DB_VERSION = 2;
+// v3 adds the 'opponents' store for Explore scouting (see scout.ts).
+const DB_VERSION = 3;
 const STORE = 'lines';
 const GAMES_STORE = 'games';
+const OPPONENTS_STORE = 'opponents';
 
 // Wrap a single IndexedDB request in a Promise (the core of "no onsuccess
 // handlers for callers"): resolve on success with its result, reject on error.
@@ -42,6 +45,11 @@ function openDB(): Promise<IDBDatabase> {
         // The endTime index lets later phases scan games newest-first cheaply.
         const games = db.createObjectStore(GAMES_STORE, { keyPath: 'id' });
         games.createIndex('endTime', 'endTime');
+      }
+      if (!db.objectStoreNames.contains(OPPONENTS_STORE)) {
+        // One self-contained record per scouted opponent (games + precomputed
+        // maps), keyed by id so deleting one wipes everything stored for them.
+        db.createObjectStore(OPPONENTS_STORE, { keyPath: 'id' });
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -118,6 +126,47 @@ export async function countGames(): Promise<number> {
 export async function clearGames(): Promise<void> {
   const s = await gamesStore('readwrite');
   await promisify(s.clear());
+}
+
+// ── Scouted opponents ──────────────────────────────────────────────────────────
+//
+// Each opponent is one self-contained record (their imported games plus the two
+// precomputed opening-map trees). Stored separately from "my games" so the two
+// never collide; deleting a record removes everything kept for that opponent.
+
+async function opponentsStore(mode: IDBTransactionMode): Promise<IDBObjectStore> {
+  const db = await openDB();
+  return db.transaction(OPPONENTS_STORE, mode).objectStore(OPPONENTS_STORE);
+}
+
+// Insert or overwrite an opponent by id (a refresh keeps the same id).
+export async function saveOpponent(opp: Opponent): Promise<void> {
+  const s = await opponentsStore('readwrite');
+  await promisify(s.put(opp));
+}
+
+// Every stored opponent.
+export async function getAllOpponents(): Promise<Opponent[]> {
+  const s = await opponentsStore('readonly');
+  return promisify(s.getAll());
+}
+
+// One opponent by id, or undefined if it isn't stored.
+export async function getOpponent(id: string): Promise<Opponent | undefined> {
+  const s = await opponentsStore('readonly');
+  return promisify(s.get(id));
+}
+
+// Remove an opponent and everything stored for them.
+export async function deleteOpponent(id: string): Promise<void> {
+  const s = await opponentsStore('readwrite');
+  await promisify(s.delete(id));
+}
+
+// How many opponents are stored — used to enforce the scouting cap.
+export async function countOpponents(): Promise<number> {
+  const s = await opponentsStore('readonly');
+  return promisify(s.count());
 }
 
 // ── Backup & restore ─────────────────────────────────────────────────────────

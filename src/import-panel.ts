@@ -137,6 +137,14 @@ export interface ImportPanelOptions {
   // Prefill — defaults to the last-used platform and its saved username.
   platform?: Platform;
   username?: string;
+  // Sheet title — defaults to "Import games". Scouting overrides it.
+  title?: string;
+  // Whether a successful scan remembers the typed username as *yours*. True for
+  // "my games"; opponent scouting passes false so it doesn't clobber your handle.
+  rememberUser?: boolean;
+  // Where to persist the chosen games. Defaults to saveMyGames (replace "my
+  // games"); opponent scouting passes its own sink.
+  save?: (games: ImportedGame[], meta: { platform: Platform; username: string }) => Promise<void>;
   // Run after a successful import (games already saved): re-render badges etc.
   onImported?: (count: number) => void;
 }
@@ -177,7 +185,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
 
   const title = document.createElement('h3');
   title.className = 'edit-sheet-title';
-  title.textContent = 'Import games';
+  title.textContent = opts.title ?? 'Import games';
   sheet.appendChild(title);
 
   // Inline, friendly error line (unknown user, network, …). Never silent.
@@ -297,7 +305,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     if (!user) { showError(`Enter your ${PLATFORM_LABELS[platform]} username first.`); return; }
     clearError();
     resetScan();
-    setLastPlatform(platform);
+    if (opts.rememberUser !== false) setLastPlatform(platform);
     scanBtn.disabled = true;
     scanBtn.textContent = 'Scanning…';
     scanStatus.textContent = 'Looking up your games…';
@@ -311,7 +319,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
         },
       });
       scan = result;
-      saveUsername(platform, user);   // remember it for next time
+      if (opts.rememberUser !== false) saveUsername(platform, user); // remember for next time
       scanStatus.textContent = '';
       buildStep2(result);
     } catch (err) {
@@ -403,7 +411,8 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       scanBtn.disabled = true;
       importStatus.textContent = 'Saving to this device…';
       try {
-        await saveMyGames(games, { platform: result.platform, username: userInput.value.trim() });
+        const persist = opts.save ?? saveMyGames;
+        await persist(games, { platform: result.platform, username: userInput.value.trim() });
         close();
         opts.onImported?.(games.length);
       } catch (err) {

@@ -4820,3 +4820,62 @@ cg-board square.move-dest.oc {
 
 .backup-choice-btn--danger:hover { border-color: var(--danger); }
 .backup-choice-btn--danger strong { color: var(--danger); }
+
+/* ── Explore: opponent scouting ──────────────────────────────────────────────── */
+
+.scout-add-btn {
+  margin-bottom: var(--space-md);
+}
+
+.scout-empty {
+  margin-top: var(--space-sm);
+}
+
+/* Full-screen opponent detail (reuses the rmap-overlay chrome). */
+.scout-detail {
+  overflow-y: auto;
+}
+
+.scout-detail-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-lg) var(--space-lg) var(--space-xl);
+}
+
+.scout-summary {
+  margin-top: 0;
+}
+
+.scout-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+}
+.scout-actions .btn-secondary,
+.scout-actions .btn-danger {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.scout-map-row {
+  display: flex;
+  gap: var(--space-sm);
+}
+.scout-map-btn {
+  flex: 1;
+}
+
+/* The disabled "Prepare a reply" stub sits at the foot of each opening card. */
+.scout-prepare {
+  margin-top: var(--space-sm);
+  width: 100%;
+  font-size: 0.78rem;
+}
+
+.scout-show-all {
+  width: 100%;
+  margin-top: var(--space-xs);
+}
