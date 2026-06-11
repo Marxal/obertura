@@ -44,6 +44,13 @@ export interface DrillOptions {
   // clock runs out, then onComplete fires. onTimedResult reports each answer.
   timedMs?: number;
   onTimedResult?: (correct: boolean, position: { preFen: string; expected: MoveNode }) => void;
+  // Positions modes only. When set, each resting position carries the opponent's
+  // previous move as a last-move highlight, so you can see how the position arose.
+  showLastMove?: boolean;
+  // Positions modes only. When set, the opponent's previous move is animated INTO
+  // each position before you play, rather than the board jumping straight to it.
+  // (Implies the last-move highlight.) Needs prevUci/prevFen on each position.
+  playPrelude?: boolean;
 }
 
 // A single ply to auto-play (animated) between the user's moves.
@@ -52,13 +59,18 @@ interface Ply { uci: string; fen: string; }
 // One thing the user has to play: the board sits at `preFen`, they must play
 // `expected`. `replies` are the plies auto-played afterwards (line mode keeps
 // the board continuous; positions mode leaves it empty and jumps to the next
-// task instead). `colour` is the side the user is playing this task.
+// task instead). `colour` is the side the user is playing this task. In positions
+// modes, `lastMove`/`prelude` optionally carry the opponent's previous move — to
+// highlight, or to animate in (see DrillOptions.showLastMove / playPrelude).
 interface Task {
   preFen: string;
   expected: MoveNode;
   colour: 'white' | 'black';
   replies: Ply[];
   continuous: boolean;
+  lastMove?: [Key, Key];
+  prelude?: Ply;
+  preludeFen?: string;
 }
 
 interface DrillConfig {
@@ -138,23 +150,46 @@ export function startDrill(line: Line, opts: DrillOptions): void {
   );
 }
 
+// A single position to drill. `prevUci`/`prevFen` describe the opponent's move
+// that led here — optional, used only for the last-move mark / replay.
+interface Position {
+  preFen: string;
+  expected: MoveNode;
+  prevUci?: string;
+  prevFen?: string;
+}
+
+// Build a positions-mode task, wiring up the opponent's previous move as a
+// last-move highlight (showLastMove) and/or an animated prelude (playPrelude).
+function positionTask(p: Position, opts: DrillOptions): Task {
+  const lastMove: [Key, Key] | undefined = p.prevUci
+    ? [p.prevUci.slice(0, 2) as Key, p.prevUci.slice(2, 4) as Key]
+    : undefined;
+  const canPrelude = opts.playPrelude && !!p.prevUci && !!p.prevFen;
+  return {
+    preFen: p.preFen,
+    expected: p.expected,
+    colour: colourToMove(p.preFen),
+    replies: [],
+    continuous: false,
+    // The mark shows for showLastMove, and also rides along with a prelude.
+    lastMove: (opts.showLastMove || canPrelude) ? lastMove : undefined,
+    prelude: canPrelude ? { uci: p.prevUci!, fen: p.preFen } : undefined,
+    preludeFen: canPrelude ? p.prevFen : undefined,
+  };
+}
+
 // Drill a stream of individual positions. Each one resets the board to its
 // position; a correct move jumps straight to the next.
 export function startPositionsDrill(
-  positions: { preFen: string; expected: MoveNode }[],
+  positions: Position[],
   opts: DrillOptions,
 ): void {
   if (positions.length === 0) {
     opts.onCancel();
     return;
   }
-  const tasks: Task[] = positions.map(p => ({
-    preFen: p.preFen,
-    expected: p.expected,
-    colour: colourToMove(p.preFen),
-    replies: [],
-    continuous: false,
-  }));
+  const tasks: Task[] = positions.map(p => positionTask(p, opts));
   runDrill({ intro: [], tasks, titleText: '' }, opts);
 }
 
@@ -162,20 +197,14 @@ export function startPositionsDrill(
 // moves score; wrong moves flash and skip on at once. The pool reshuffles and
 // repeats until the clock expires.
 export function startTimedDrill(
-  positions: { preFen: string; expected: MoveNode }[],
+  positions: Position[],
   opts: DrillOptions & { timedMs: number },
 ): void {
   if (positions.length === 0) {
     opts.onCancel();
     return;
   }
-  const tasks: Task[] = positions.map(p => ({
-    preFen: p.preFen,
-    expected: p.expected,
-    colour: colourToMove(p.preFen),
-    replies: [],
-    continuous: false,
-  }));
+  const tasks: Task[] = positions.map(p => positionTask(p, opts));
   runDrill({ intro: [], tasks, titleText: '' }, opts);
 }
 
@@ -311,11 +340,36 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   bottomEl.appendChild(noteCardEl);
   bottomEl.appendChild(altCardEl);
 
+  // A discreet note button, bottom-right, for full-line drills only. It lights up
+  // when the current move carries a note; tapping it peeks at that note.
+  const isLineDrill = tasks[0].continuous;
+  const noteBtnEl = document.createElement('button');
+  if (isLineDrill) {
+    noteBtnEl.type = 'button';
+    noteBtnEl.className = 'pt-note-btn';
+    noteBtnEl.setAttribute('aria-label', 'Show move note');
+    noteBtnEl.appendChild(Icons.note(20));
+    noteBtnEl.addEventListener('click', () => {
+      const note = tasks[taskIndex].expected.note;
+      if (!note) return;
+      if (noteCardEl.hasAttribute('hidden')) showNoteCard(note);
+      else hideNoteCard();
+    });
+    overlay.classList.add('pt-has-note-btn');
+  }
+
   overlay.appendChild(headerEl);
   overlay.appendChild(topEl);
   overlay.appendChild(boardWrap);
   overlay.appendChild(bottomEl);
+  if (isLineDrill) overlay.appendChild(noteBtnEl);
   document.body.appendChild(overlay);
+
+  // Light the note button when the current move has a note; dim it otherwise.
+  function updateNoteButton(expected: MoveNode): void {
+    if (!isLineDrill) return;
+    noteBtnEl.classList.toggle('pt-note-btn--active', !!expected.note);
+  }
 
   // System back gesture exits the drill, same as tapping Back.
   const removeBack = pushBack(() => { cleanup(); opts.onCancel(); });
@@ -801,11 +855,31 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     wrongAttempts = 0;
     awaitingCorrectReplay = false;
     awaitingAlternativePlay = false;
-    chess.load(task.preFen);
     cg.setAutoShapes([]);
     hideNoteCard();
     hideAltCard();
+    updateNoteButton(task.expected);
 
+    // Quick fixes: animate the opponent's previous move INTO the position, so you
+    // see how you got here, then hand control over.
+    if (task.prelude && task.preludeFen) {
+      chess.load(task.preludeFen);
+      cg.set({
+        fen: task.preludeFen,
+        orientation: task.colour,
+        turnColor: colourToMove(task.preludeFen),
+        movable: { color: undefined, dests: new Map() },
+        lastMove: undefined,
+      });
+      animatePlies([task.prelude], () => {
+        if (isCleaned) return;
+        cg.set({ turnColor: cgTurn(), movable: { color: userColour, dests: legalDests() } });
+        promptYourMove();
+      });
+      return;
+    }
+
+    chess.load(task.preFen);
     const base = {
       fen: task.preFen,
       orientation: task.colour,
@@ -813,8 +887,9 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
       movable: { color: userColour, dests: legalDests() },
     };
     // Continuous tasks keep the opponent's last-move highlight that the reply
-    // animation just set; a position jump starts clean.
-    cg.set(task.continuous ? base : { ...base, lastMove: undefined });
+    // animation just set; a position jump shows its own opponent-move mark (timed
+    // mode) or starts clean.
+    cg.set(task.continuous ? base : { ...base, lastMove: task.lastMove ?? undefined });
     promptYourMove();
   }
 

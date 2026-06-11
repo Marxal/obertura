@@ -947,10 +947,12 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
   const mistakeKeys = new Set<string>();
 
   startPositionsDrill(
-    positions.map(p => ({ preFen: p.preFen, expected: p.expected })),
+    positions.map(p => ({ preFen: p.preFen, expected: p.expected, prevUci: p.prevUci, prevFen: p.prevFen })),
     {
       wrongMoveMode: 'full',
       modeLabel: 'Individual moves',
+      // Replay the opponent's move into each position so you see how it arose.
+      playPrelude: true,
       celebrateOnComplete: true,
       completeMessage: 'Positions cleared ✓',
       checkAlternative: (fen, uci) => isGoodAlternative(fen, uci),
@@ -1267,10 +1269,13 @@ function runTimed(container: HTMLElement, trainingLines: Line[], minutes: TimedM
   let wrong = 0;
 
   startTimedDrill(
-    positions.map(p => ({ preFen: p.preFen, expected: p.expected })),
+    positions.map(p => ({ preFen: p.preFen, expected: p.expected, prevUci: p.prevUci, prevFen: p.prevFen })),
     {
       timedMs: minutes * 60 * 1000,
       modeLabel: 'Timed',
+      // Mark the opponent's last move so the position reads at a glance (no replay —
+      // speed is the point).
+      showLastMove: true,
       onTimedResult: (ok, pos) => {
         if (ok) {
           correct++;
