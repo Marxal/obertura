@@ -9,8 +9,12 @@ import {
   setBoardColour,
   getPaperTexture,
   setPaperTexture,
+  getPieceSet,
+  setPieceSet,
   type BoardColour,
+  type PieceSet,
 } from './appearance';
+import { PIECE_PREVIEWS } from './pieces/previews';
 import {
   getRetriesBeforeReveal,
   setRetriesBeforeReveal,
@@ -291,6 +295,64 @@ function boardSwatches(current: BoardColour, onChange: (v: BoardColour) => void)
   return wrap;
 }
 
+// The four piece sets, in bundle-first order. cburnett is the bundled default;
+// the rest load on demand (see appearance.ts). Licences are recorded in About.
+const PIECE_PRESETS: { value: PieceSet; label: string }[] = [
+  { value: 'cburnett', label: 'cburnett' },
+  { value: 'merida', label: 'Merida' },
+  { value: 'chessnut', label: 'Chessnut' },
+  { value: 'kiwen-suwi', label: 'Kiwen-Suwi' },
+];
+
+// A mini two-square preview (light + dark) with two glyphs from the set, drawn
+// from the always-bundled previews module so the picker needs no on-demand load.
+function pieceSwatches(current: PieceSet, onChange: (v: PieceSet) => void): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'piece-swatches';
+
+  const buttons: HTMLButtonElement[] = [];
+  const reflect = (active: PieceSet) => {
+    for (const b of buttons) b.classList.toggle('active', b.dataset.value === active);
+  };
+
+  for (const p of PIECE_PRESETS) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'piece-swatch';
+    btn.dataset.value = p.value;
+    btn.setAttribute('aria-label', p.label);
+    btn.title = p.label;
+
+    const preview = document.createElement('span');
+    preview.className = 'piece-swatch-preview';
+    const glyphs = PIECE_PREVIEWS[p.value];
+    for (const [pieceKey, shade] of [['wN', 'light'], ['bQ', 'dark']] as const) {
+      const sq = document.createElement('span');
+      sq.className = `piece-swatch-sq ${shade}`;
+      const img = document.createElement('span');
+      img.className = 'piece-swatch-glyph';
+      img.style.backgroundImage = `url("${glyphs[pieceKey]}")`;
+      sq.appendChild(img);
+      preview.appendChild(sq);
+    }
+
+    const name = document.createElement('span');
+    name.className = 'piece-swatch-name';
+    name.textContent = p.label;
+
+    btn.appendChild(preview);
+    btn.appendChild(name);
+    btn.addEventListener('click', () => {
+      reflect(p.value);
+      onChange(p.value);
+    });
+    buttons.push(btn);
+    wrap.appendChild(btn);
+  }
+  reflect(current);
+  return wrap;
+}
+
 function buildAppearanceGroup(): HTMLElement {
   const sec = group('Appearance');
 
@@ -307,6 +369,12 @@ function buildAppearanceGroup(): HTMLElement {
   sec.appendChild(row(
     'Board colours',
     boardSwatches(getBoardColour(), (v) => setBoardColour(v)),
+  ));
+
+  sec.appendChild(row(
+    'Pieces',
+    pieceSwatches(getPieceSet(), (v) => setPieceSet(v)),
+    { sub: 'New sets download once, then stay cached.' },
   ));
 
   sec.appendChild(row(

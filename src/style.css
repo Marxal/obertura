@@ -1187,6 +1187,64 @@ cg-board square.move-dest.oc {
   color: var(--text-muted);
 }
 
+/* Piece-set picker: same card shape as the board swatches, but the preview is a
+   two-square strip (light + dark) carrying a sample glyph from each set. The
+   glyphs come from the bundled previews module, so the picker needs no on-demand
+   stylesheet to render. */
+.piece-swatches {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.piece-swatch {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.3rem;
+  border: 2px solid var(--border-card);
+  border-radius: 10px;
+  background: var(--bg-page);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.12s;
+}
+
+.piece-swatch.active {
+  border-color: var(--accent);
+}
+
+.piece-swatch-preview {
+  display: flex;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+}
+
+.piece-swatch-sq {
+  width: 26px;
+  height: 26px;
+}
+
+.piece-swatch-sq.light { background: #eecfa1; }
+.piece-swatch-sq.dark { background: #b58863; }
+
+.piece-swatch-glyph {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.piece-swatch-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
 /* ── Inputs, buttons, notes ──────────────────────────────────────────────── */
 
 .settings-input {

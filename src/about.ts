@@ -14,8 +14,9 @@ const LICENCES: Licence[] = [
   { name: 'Stockfish', licence: 'GPL-3.0' },
   { name: 'Lichess chess-openings data', licence: 'CC0-1.0 (public domain)' },
   { name: 'cburnett piece set', licence: 'GPL-2.0-or-later' },
-  // NEXT TASK (Piece sets): add one entry per new piece set here —
-  // { name: '<set name>', licence: '<licence>' }.
+  { name: 'Merida piece set (Armando H. Marroquin)', licence: 'GPL-2.0-or-later' },
+  { name: 'Chessnut piece set (Alexis Luengas)', licence: 'Apache-2.0' },
+  { name: 'Kiwen-Suwi piece set (neverRare)', licence: 'CC-BY-4.0' },
 ];
 
 function externalLink(text: string, href: string, className: string): HTMLAnchorElement {
