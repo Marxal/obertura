@@ -7,8 +7,6 @@ import { getThemeChoice, setThemeChoice, type ThemeChoice } from './theme';
 import {
   getBoardColour,
   setBoardColour,
-  getPaperTexture,
-  setPaperTexture,
   getPieceSet,
   setPieceSet,
   type BoardColour,
@@ -384,12 +382,6 @@ function buildAppearanceGroup(): HTMLElement {
     'Pieces',
     pieceSwatches(getPieceSet(), (v) => setPieceSet(v)),
     { sub: 'New sets download once, then stay cached.' },
-  ));
-
-  sec.appendChild(row(
-    'Paper texture',
-    toggle(getPaperTexture(), (on) => setPaperTexture(on)),
-    { sub: 'The subtle speckle behind the app.' },
   ));
 
   sec.appendChild(row(

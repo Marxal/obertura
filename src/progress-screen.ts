@@ -21,7 +21,6 @@ import {
   type ProgressWindow,
   type ProgressVerdict,
 } from './progress';
-import { runProgressSelfTest } from './progress.selftest';
 import { currentStreak, trainedToday, getTrainingDays } from './streak';
 import { openRepertoireMap } from './repertoire-map';
 import { Icons } from './icons';
@@ -77,8 +76,6 @@ async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<
   } else {
     renderNoGamesNote(container, games.length);
   }
-
-  appendSelfTestLink(container);
 }
 
 // ── Local date helper ─────────────────────────────────────────────────────────
@@ -752,42 +749,3 @@ function verdictSentence(item: LineProgress): string {
   }
 }
 
-// ── Progress self-test link ───────────────────────────────────────────────────
-
-function appendSelfTestLink(container: HTMLElement): void {
-  const wrap = document.createElement('div');
-  wrap.className = 'selftest-wrap';
-
-  const link = document.createElement('button');
-  link.type = 'button';
-  link.className = 'selftest-link';
-  link.textContent = 'Run progress self-test';
-
-  const out = document.createElement('div');
-  out.className = 'selftest-output';
-  out.hidden = true;
-
-  link.addEventListener('click', () => {
-    const results = runProgressSelfTest();
-    out.hidden = false;
-    out.innerHTML = '';
-
-    const passed = results.filter(r => r.pass).length;
-    const head = document.createElement('div');
-    head.className = `selftest-head ${passed === results.length ? 'ok' : 'fail'}`;
-    head.textContent = `${passed}/${results.length} checks passed`;
-    out.appendChild(head);
-
-    for (const r of results) {
-      const row = document.createElement('div');
-      row.className = `selftest-row ${r.pass ? 'ok' : 'fail'}`;
-      row.textContent = `${r.pass ? '✓' : '✗'} ${r.name} — ${r.detail}`;
-      out.appendChild(row);
-    }
-    console.log('[progress self-test]', results);
-  });
-
-  wrap.appendChild(link);
-  wrap.appendChild(out);
-  container.appendChild(wrap);
-}

@@ -28,12 +28,10 @@
           document.documentElement.setAttribute('data-theme', eff);
           var meta = document.querySelector('meta[name="theme-color"]');
           if (meta) meta.setAttribute('content', dark ? '#1a1512' : '#f1ece1');
-          // Board colours + paper texture (see appearance.ts) — applied here too
-          // so there's no flash of the default scheme before the app boots.
+          // Board colours (see appearance.ts) — applied here too so there's no
+          // flash of the default scheme before the app boots.
           var board = localStorage.getItem('obertura.boardColour');
           if (board && board !== 'wood') document.documentElement.setAttribute('data-board', board);
-          if (localStorage.getItem('obertura.paperTexture') === 'off')
-            document.documentElement.setAttribute('data-paper', 'off');
         } catch (e) {}
       })();
     </script>

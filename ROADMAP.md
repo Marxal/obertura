@@ -121,6 +121,26 @@ _Restore point: tag `v1.2`. Shipped._
 
 ---
 
+## v1.3 — refinement round 🔜
+
+A nine-phase round that tightens the visual language, makes the builder and
+train hub tell the truth, deepens Explore and engine-assisted building, and
+finishes with onboarding and a release pass. Built in order. The `v1.2` tag is
+the restore point for the whole round.
+
+- 🔜 **Phase 0 — Safety & dead wood** — cut the `v1.2` rollback tag and sweep
+  dead controls (inline self-test links, the dead Paper-texture toggle).
+- 💤 **Phase 1 — Visual language**
+- 💤 **Phase 2 — Builder truth**
+- 💤 **Phase 3 — Train hub**
+- 💤 **Phase 4 — Explore & scouting**
+- 💤 **Phase 5 — Build with the engine**
+- 💤 **Phase 6 — Statistics**
+- 💤 **Phase 7 — Onboarding & empty states**
+- 💤 **Phase 8 — Settings & release**
+
+---
+
 ## Later 💤
 
 Deliberately deferred. Out of scope for v1.2; revisited once it has had real

@@ -68,9 +68,6 @@
   /* A very faint wash used behind .section wrappers — just enough to separate a
      section from the bare page without reading as a solid card. */
   --fill-faint: rgba(28, 22, 16, 0.025);
-
-  /* Paper texture — faint speckle layered over --bg-page only. */
-  --paper-speckle: rgba(120, 90, 50, 0.035);
 }
 
 [data-theme="dark"] {
@@ -117,8 +114,6 @@
   --shadow-card-hover: 0 0 0 1px rgba(239, 230, 214, 0.08);
 
   --fill-faint: rgba(239, 230, 214, 0.03);
-
-  --paper-speckle: rgba(255, 240, 214, 0.02);
 }
 
 *, *::before, *::after {
@@ -131,21 +126,6 @@ body {
   font-family: system-ui, -apple-system, sans-serif;
   color: var(--text);
   background-color: var(--bg-page);
-  /* Subtle paper texture: two offset dot grids of the faint speckle colour,
-     fixed so it doesn't scroll. Cards/board/eval-strip all paint their own
-     opaque backgrounds on top, so the texture only shows through bare page
-     chrome — never under the board, and only ghost-faint under text. */
-  background-image:
-    radial-gradient(var(--paper-speckle) 1px, transparent 1.4px),
-    radial-gradient(var(--paper-speckle) 1px, transparent 1.4px);
-  background-size: 24px 24px, 37px 37px;
-  background-position: 0 0, 12px 19px;
-  background-attachment: fixed;
-}
-
-/* Paper texture off (Settings → Appearance): drop the speckle, leave the colour. */
-[data-paper="off"] body {
-  background-image: none;
 }
 
 #app {
