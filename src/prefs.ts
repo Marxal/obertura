@@ -16,6 +16,18 @@ const SHOW_MINIATURES_KEY = 'obertura.lines.showMiniatures';
 // The Train hub's line-list filters & sort now live in the shared filter bar
 // (filters.ts), which persists its own selection under 'obertura.train.filter'.
 
+// Whether the Train list also reveals paused (out-of-training) lines, dimmed and
+// with their switch off, so one flick re-enables them. Default OFF (hidden).
+const SHOW_PAUSED_KEY = 'obertura.train.showPaused';
+
+export function getShowPausedLines(): boolean {
+  return localStorage.getItem(SHOW_PAUSED_KEY) === 'on';
+}
+
+export function setShowPausedLines(on: boolean): void {
+  localStorage.setItem(SHOW_PAUSED_KEY, on ? 'on' : 'off');
+}
+
 // Timed personal bests are kept per duration ("obertura.timedBest.3" etc.).
 const TIMED_BEST_PREFIX = 'obertura.timedBest.';
 // The pre-split single best lived here; migrated to the 3-minute slot on first
