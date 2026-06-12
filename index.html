@@ -19,19 +19,26 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen&display=swap" />
     <script>
       // Apply the saved (or system) theme before first paint so there's no
-      // flash of the wrong theme. Mirrors src/theme.ts — keep the key + colours
-      // in sync. JS resolves "auto" to light/dark; CSS only ever sees those two.
+      // flash of the wrong theme. Mirrors src/theme.ts — keep the keys, the
+      // pre-v1.3 migration, and the colours in sync. JS resolves the choice to
+      // light/dark/game; CSS only ever sees those three.
       (function () {
         try {
-          var choice = localStorage.getItem('obertura-theme') || 'auto';
-          var dark =
-            choice === 'dark' ||
-            (choice === 'auto' &&
-              window.matchMedia('(prefers-color-scheme: dark)').matches);
-          var eff = dark ? 'dark' : 'light';
+          var raw = localStorage.getItem('obertura-theme') || 'system';
+          var choice =
+            raw === 'light' ? 'classic-light'
+            : raw === 'dark' ? 'classic-dark'
+            : raw === 'auto' ? 'system'
+            : raw;
+          var eff;
+          if (choice === 'classic-light') eff = 'light';
+          else if (choice === 'classic-dark') eff = 'dark';
+          else if (choice === 'game') eff = 'game';
+          else eff = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
           document.documentElement.setAttribute('data-theme', eff);
           var meta = document.querySelector('meta[name="theme-color"]');
-          if (meta) meta.setAttribute('content', dark ? '#1a1512' : '#f1ece1');
+          var color = eff === 'dark' ? '#1a1512' : eff === 'game' ? '#1e3128' : '#f1ece1';
+          if (meta) meta.setAttribute('content', color);
           // Board colours (see appearance.ts) — applied here too so there's no
           // flash of the default scheme before the app boots.
           var board = localStorage.getItem('obertura.boardColour');

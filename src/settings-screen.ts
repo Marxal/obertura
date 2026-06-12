@@ -201,9 +201,10 @@ function segmented<T extends string>(
   options: { value: T; label: string }[],
   current: T,
   onChange: (v: T) => void,
+  opts: { fullWidth?: boolean } = {},
 ): HTMLElement {
   const wrap = document.createElement('div');
-  wrap.className = 'seg-control';
+  wrap.className = opts.fullWidth ? 'seg-control seg-control--full' : 'seg-control';
   wrap.setAttribute('role', 'group');
 
   const buttons: HTMLButtonElement[] = [];
@@ -366,11 +367,17 @@ function buildAppearanceGroup(): HTMLElement {
   sec.appendChild(row(
     'Theme',
     segmented<ThemeChoice>(
-      [{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }, { value: 'auto', label: 'Auto' }],
+      [
+        { value: 'classic-light', label: 'Classic light' },
+        { value: 'classic-dark', label: 'Classic dark' },
+        { value: 'game', label: 'Game' },
+        { value: 'system', label: 'System' },
+      ],
       getThemeChoice(),
       (v) => setThemeChoice(v),
+      { fullWidth: true },
     ),
-    { sub: 'Auto follows your phone’s light/dark setting.' },
+    { sub: 'Game is a felt-table green. System follows your phone’s light/dark setting.' },
   ));
 
   sec.appendChild(row(
