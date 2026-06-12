@@ -1098,28 +1098,13 @@ cg-board square.move-dest.oc {
   margin-left: 3px;
 }
 
-/* Annotation marks are their own labelled row — always visible for any move,
-   independent of writing a note. */
-.annotate-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.annotate-label {
-  font-family: system-ui, -apple-system, sans-serif;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-/* Picker chips in the annotate row: tonal at rest, filled when selected. */
-.annotation-picker {
+/* Annotation marks live in the note sheet: a row of picker chips above the
+   textarea, tonal at rest and filled when selected. */
+.note-sheet-marks {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
+  margin: 0.25rem 0 0.5rem;
 }
 
 .ann-pick {
@@ -3439,7 +3424,7 @@ cg-board square.move-dest.oc {
   transform: translateY(1px);
 }
 
-/* The textarea inside the note sheet (showPromptSheet). */
+/* The textarea inside the note sheet. */
 .prompt-sheet-textarea {
   width: 100%;
   margin: 0.25rem 0 0.75rem;
