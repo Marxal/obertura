@@ -1536,13 +1536,13 @@ cg-board square.move-dest.oc {
   border-color: #4a3d2e;
 }
 
-/* Horizontal scroller. Inset to the page margin on both ends so the first board
-   has padding before it and the last has padding after it; the fourth board
-   still peeks past the right edge on first view as the scroll hint. */
+/* Horizontal scroller. Edge spacing lives on the first/last cards (margins on
+   flex children are honoured at both scroll extremes, unlike a scroll
+   container's own end padding), so both ends get a clean page-margin inset. */
 .carousel-track {
   display: flex;
   gap: var(--space-sm);
-  padding: var(--space-xs) var(--space-lg) var(--space-sm);
+  padding: var(--space-xs) 0 var(--space-sm);
   overflow-x: auto;
   scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
@@ -1574,6 +1574,10 @@ cg-board square.move-dest.oc {
 }
 
 .carousel-card:active { transform: translateY(1px); }
+
+/* Page-margin inset at each end of the track (see .carousel-track). */
+.carousel-card:first-child { margin-left: var(--space-lg); }
+.carousel-card:last-child { margin-right: var(--space-lg); }
 
 /* Static mini-board — square, gently rounded, non-interactive. overflow clips
    the chessground board to the rounded corners. */
