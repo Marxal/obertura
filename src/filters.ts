@@ -28,9 +28,10 @@ export interface FilterSelection {
 export interface FilterConfig {
   // Where the selection is remembered (one JSON entry, device-local).
   persistKey: string;
-  // The sort menu options and which one leads by default.
-  sorts: { key: string; label: string }[];
-  defaultSort: string;
+  // The sort menu options and which one leads by default. Omit (or pass an empty
+  // list) on a screen that doesn't sort — the sort menu then simply isn't drawn.
+  sorts?: { key: string; label: string }[];
+  defaultSort?: string;
   // Chip groups, drawn left-to-right. Empty/omitted groups simply don't appear.
   userTags?: string[];
   opponentTags?: string[];
@@ -61,7 +62,8 @@ const STATUSES: { key: Exclude<StatusFilter, 'all'>; label: string }[] = [
 // (deleted opponent/tag) or an old sort key can never wedge the bar.
 function loadSelection(config: FilterConfig): FilterSelection {
   const known = new Set([...(config.userTags ?? []), ...(config.opponentTags ?? [])]);
-  const sortKeys = new Set(config.sorts.map(s => s.key));
+  const sorts = config.sorts ?? [];
+  const sortKeys = new Set(sorts.map(s => s.key));
   let saved: Partial<FilterSelection> = {};
   try {
     const raw = localStorage.getItem(config.persistKey);
@@ -75,7 +77,8 @@ function loadSelection(config: FilterConfig): FilterSelection {
     saved.status === 'due' || saved.status === 'learning' || saved.status === 'solid'
       ? saved.status
       : 'all';
-  const sort = typeof saved.sort === 'string' && sortKeys.has(saved.sort) ? saved.sort : config.defaultSort;
+  const fallbackSort = config.defaultSort ?? sorts[0]?.key ?? '';
+  const sort = typeof saved.sort === 'string' && sortKeys.has(saved.sort) ? saved.sort : fallbackSort;
   const tags = Array.isArray(saved.tags) ? saved.tags.filter(t => known.has(t)) : [];
 
   return { colour, sort, status, tags };
@@ -111,7 +114,8 @@ function buildTopRow(config: FilterConfig, sel: FilterSelection, commit: () => v
   const row = document.createElement('div');
   row.className = 'fbar-top';
   row.appendChild(buildColourSeg(sel, commit));
-  row.appendChild(buildSortMenu(config, sel, commit));
+  // The sort menu is optional: a screen with no sorts keeps just the colour seg.
+  if ((config.sorts ?? []).length > 0) row.appendChild(buildSortMenu(config, sel, commit));
   return row;
 }
 
@@ -152,7 +156,7 @@ function buildSortMenu(config: FilterConfig, sel: FilterSelection, commit: () =>
   const select = document.createElement('select');
   select.className = 'dorder-select';
   select.setAttribute('aria-label', 'Sort lines');
-  for (const o of config.sorts) {
+  for (const o of config.sorts ?? []) {
     const opt = document.createElement('option');
     opt.value = o.key;
     opt.textContent = o.label;

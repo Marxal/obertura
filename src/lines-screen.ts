@@ -16,6 +16,7 @@ import { pushBack } from './back-nav';
 import { analyseGames, countGamesPerLine, TOP_N, type Analysis, type OpeningStat } from './analysis';
 import { openImportPanel, getGamesSource } from './import-panel';
 import { isOpponentTag } from './scout';
+import { createFilterBar, type FilterSelection } from './filters';
 import type { ImportedGame } from './chesscom';
 import { runAnalysisSelfTest } from './analysis.selftest';
 import { renderLoadError } from './load-error';
@@ -141,17 +142,10 @@ interface LinesDeps {
 // chessground can read real pixel bounds and place pieces correctly.
 type Pending = { el: HTMLElement; fen: string; orientation: 'white' | 'black' };
 
-// The colour filter, shared by both tabs. Persisted across re-renders so a
-// toggle/rename doesn't reset what you were looking at.
-type ColourFilter = 'all' | 'white' | 'black';
-let detailFilter: ColourFilter = 'all';
-let detailSort: SortMode = 'latest';
-let suggestSort: SuggestSort = 'played';
-
-// An optional opponent filter on the Saved tab: the full "vs <name>" tag, or
-// null for all. Surfaces only when prepared (tagged) lines exist; persisted
-// across re-renders like the colour filter.
-let opponentFilter: string | null = null;
+// Persistence keys for the shared two-row filter bar (filters.ts). Each list
+// keeps its own remembered selection, device-local.
+const LINES_FILTER_KEY = 'obertura.lines.filter';
+const GAMES_FILTER_KEY = 'obertura.games.filter';
 
 // Which of the two tabs is showing. Module-level so it survives re-renders.
 type TabName = 'saved' | 'games';
@@ -163,10 +157,24 @@ let activeTab: TabName = 'saved';
 let highlightLineId: string | null = null;
 export function focusSavedLine(id: string): void {
   activeTab = 'saved';
-  detailFilter = 'all';
-  // Clear the opponent filter so a freshly-saved line is never hidden behind it.
-  opponentFilter = null;
+  // Clear the colour + tag filters so a freshly-saved line is never hidden
+  // behind them; the chosen sort is left alone.
+  clearSavedFilterScope();
   highlightLineId = id;
+}
+
+// Reset only the saved list's colour + tag selection in its persisted entry,
+// leaving the sort untouched. Used so a just-saved line is always visible.
+function clearSavedFilterScope(): void {
+  try {
+    const raw = localStorage.getItem(LINES_FILTER_KEY);
+    const sel = raw ? JSON.parse(raw) : {};
+    sel.colour = 'all';
+    sel.tags = [];
+    localStorage.setItem(LINES_FILTER_KEY, JSON.stringify(sel));
+  } catch {
+    localStorage.removeItem(LINES_FILTER_KEY);
+  }
 }
 
 export function renderLinesScreen(
@@ -395,119 +403,36 @@ function mountMiniBoard(el: HTMLElement, fen: string, orientation: 'white' | 'bl
   });
 }
 
-// ── Shared controls row: colour filter + order dropdown, on one line ─────────
-
-interface OrderOption<T extends string> {
-  key: T;
-  label: string;
-}
-
-function buildControlsRow<T extends string>(
-  currentSort: T,
-  orders: OrderOption<T>[],
-  onFilterChange: () => void,
-  onSortChange: (mode: T) => void
-): HTMLElement {
-  const row = document.createElement('div');
-  row.className = 'dfilter-row';
-
-  // Compact segmented colour filter. White/Black are colour pips (with text
-  // labels) so the whole row stays on one line beside the order dropdown.
-  const seg = document.createElement('div');
-  seg.className = 'dfilter-seg';
-
-  const filters: { key: ColourFilter; label: string; pip?: 'white' | 'black' }[] = [
-    { key: 'all', label: 'All' },
-    { key: 'white', label: 'White', pip: 'white' },
-    { key: 'black', label: 'Black', pip: 'black' },
-  ];
-  for (const o of filters) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = `dfilter-btn${detailFilter === o.key ? ' active' : ''}`;
-    if (o.pip) {
-      const pip = document.createElement('span');
-      pip.className = `colour-pip colour-pip--${o.pip}`;
-      pip.setAttribute('aria-hidden', 'true');
-      btn.appendChild(pip);
-    }
-    btn.appendChild(document.createTextNode(o.label));
-    btn.setAttribute('aria-label', `Show ${o.label}`);
-    btn.addEventListener('click', () => {
-      detailFilter = o.key;
-      onFilterChange();
-    });
-    seg.appendChild(btn);
-  }
-  row.appendChild(seg);
-
-  // Order: an icon + a dropdown showing the active order.
-  const orderWrap = document.createElement('div');
-  orderWrap.className = 'dorder';
-
-  const orderIcon = Icons.order(16);
-  orderIcon.classList.add('dorder-icon');
-  orderWrap.appendChild(orderIcon);
-
-  const select = document.createElement('select');
-  select.className = 'dorder-select';
-  select.setAttribute('aria-label', 'Order');
-  for (const o of orders) {
-    const opt = document.createElement('option');
-    opt.value = o.key;
-    opt.textContent = o.label;
-    if (currentSort === o.key) opt.selected = true;
-    select.appendChild(opt);
-  }
-  select.addEventListener('change', () => onSortChange(select.value as T));
-  orderWrap.appendChild(select);
-  row.appendChild(orderWrap);
-
-  return row;
-}
-
 // ── Saved lines tab ──────────────────────────────────────────────────────────
 
-const SAVED_ORDERS: OrderOption<SortMode>[] = [
+const SAVED_ORDERS: { key: SortMode; label: string }[] = [
   { key: 'latest', label: 'Latest' },
   { key: 'weakest', label: 'Weakest' },
   { key: 'strongest', label: 'Strongest' },
   { key: 'name', label: 'Name' },
 ];
 
-// Every distinct opponent tag ("vs <name>") across the saved lines, sorted.
+// Every distinct opponent tag ("vs <name>") across the lines, sorted.
 function distinctOpponentTags(lines: Line[]): string[] {
   const set = new Set<string>();
   for (const l of lines) for (const t of l.tags) if (isOpponentTag(t)) set.add(t);
   return [...set].sort((a, b) => a.localeCompare(b));
 }
 
-// A scrollable chip row: All + one chip per opponent. Selecting a chip filters
-// the saved list to lines prepared against that opponent.
-function buildOpponentFilterRow(tags: string[], onChange: () => void): HTMLElement {
-  const row = document.createElement('div');
-  row.className = 'dfilter-row opp-filter-row';
+// Every distinct user-authored tag (everything that isn't a "vs <name>" tag).
+function distinctUserTags(lines: Line[]): string[] {
+  const set = new Set<string>();
+  for (const l of lines) for (const t of l.tags) if (!isOpponentTag(t)) set.add(t);
+  return [...set].sort((a, b) => a.localeCompare(b));
+}
 
-  const seg = document.createElement('div');
-  seg.className = 'dfilter-seg opp-filter-seg';
-
-  const opts: { key: string | null; label: string }[] = [
-    { key: null, label: 'All' },
-    ...tags.map(t => ({ key: t, label: t })),
-  ];
-  for (const o of opts) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = `dfilter-btn${opponentFilter === o.key ? ' active' : ''}`;
-    btn.textContent = o.label;
-    btn.addEventListener('click', () => {
-      opponentFilter = o.key;
-      onChange();
-    });
-    seg.appendChild(btn);
-  }
-  row.appendChild(seg);
-  return row;
+// Apply the bar's colour + tag selection (tags OR'd: a line shows if it carries
+// any selected tag), then the chosen ordering.
+function viewSavedLines(lines: Line[], sel: FilterSelection): Line[] {
+  let out = lines;
+  if (sel.colour !== 'all') out = out.filter(l => l.colour === sel.colour);
+  if (sel.tags.length > 0) out = out.filter(l => sel.tags.some(t => l.tags.includes(t)));
+  return sortLines(out, sel.sort as SortMode);
 }
 
 function renderSavedTab(
@@ -526,51 +451,46 @@ function renderSavedTab(
     renderSavedTab(content, fresh, games, deps, container);
   };
 
-  const rerender = () => renderSavedTab(content, lines, games, deps, container);
-  content.appendChild(
-    buildControlsRow(detailSort, SAVED_ORDERS, rerender, mode => {
-      detailSort = mode;
-      rerender();
-    })
-  );
+  // The shared two-row filter bar (filters.ts): colour + sort on row 1, my own
+  // tags then vs-opponent tags on row 2. No status here — the saved list has no
+  // Due/Learning/Solid buckets. The bar owns + persists its selection; we read
+  // it on each rebuild and do the filtering. Changing a filter rebuilds only the
+  // list, so the page keeps its place.
+  const filter = createFilterBar({
+    persistKey: LINES_FILTER_KEY,
+    sorts: SAVED_ORDERS,
+    defaultSort: 'latest',
+    userTags: distinctUserTags(lines),
+    opponentTags: distinctOpponentTags(lines),
+    onChange: () => rebuildList(),
+  });
+  content.appendChild(filter.element);
 
-  // Opponent filter — one chip per opponent any saved line is prepared against.
-  // Shown only when such tags exist; a stale selection falls back to "All".
-  const opponentTags = distinctOpponentTags(lines);
-  if (opponentTags.length > 0) {
-    if (opponentFilter && !opponentTags.includes(opponentFilter)) opponentFilter = null;
-    content.appendChild(buildOpponentFilterRow(opponentTags, rerender));
-  } else {
-    opponentFilter = null;
-  }
-
-  let filtered =
-    detailFilter === 'all' ? lines : lines.filter(l => l.colour === detailFilter);
-  if (opponentFilter) filtered = filtered.filter(l => l.tags.includes(opponentFilter!));
-
-  if (filtered.length === 0) {
-    const emptySection = document.createElement('div');
-    emptySection.className = 'section';
-    const empty = document.createElement('p');
-    empty.className = 'lines-empty';
-    empty.textContent = lines.length === 0 ? 'No saved lines yet.' : 'No lines here yet.';
-    emptySection.appendChild(empty);
-    content.appendChild(emptySection);
-    return;
-  }
-
-  // One quiet group box (de-boxed section + .group) holding plain rows.
   const sec = document.createElement('div');
   sec.className = 'section';
   const list = document.createElement('div');
   list.className = 'group';
-  for (const line of sortLines(filtered, detailSort)) {
-    list.appendChild(
-      buildDetailCard(line, deps, container, refresh, counts.get(line.id) ?? 0)
-    );
-  }
   sec.appendChild(list);
   content.appendChild(sec);
+
+  function rebuildList(): void {
+    list.innerHTML = '';
+    const shown = viewSavedLines(lines, filter.selection);
+    if (shown.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'lines-empty';
+      empty.textContent = lines.length === 0 ? 'No saved lines yet.' : 'No lines here yet.';
+      list.appendChild(empty);
+      return;
+    }
+    for (const line of shown) {
+      list.appendChild(
+        buildDetailCard(line, deps, container, refresh, counts.get(line.id) ?? 0)
+      );
+    }
+  }
+
+  rebuildList();
 }
 
 function buildDetailCard(
@@ -785,7 +705,7 @@ function sepDot(): HTMLElement {
 // no prep for yet, each with a one-tap "Build line" into the builder. A
 // "Refresh my games" button re-runs the import so badges and suggestions update.
 
-const SUGGEST_ORDERS: OrderOption<SuggestSort>[] = [
+const SUGGEST_ORDERS: { key: SuggestSort; label: string }[] = [
   { key: 'played', label: 'Most played' },
   { key: 'weakest', label: 'Weakest' },
   { key: 'name', label: 'Name' },
@@ -824,19 +744,23 @@ function renderGamesTab(
 
   const analysis = cachedAnalysis(games, lines);
 
+  // The shared filter bar — colour + sort only here. Suggestions are openings
+  // you haven't saved yet, so they carry no tags and there's no row 2.
   const rerender = () => renderGamesTab(content, games, lines, deps, fullRefresh);
-  content.appendChild(
-    buildControlsRow(suggestSort, SUGGEST_ORDERS, rerender, mode => {
-      suggestSort = mode;
-      rerender();
-    })
-  );
+  const filter = createFilterBar({
+    persistKey: GAMES_FILTER_KEY,
+    sorts: SUGGEST_ORDERS,
+    defaultSort: 'played',
+    onChange: rerender,
+  });
+  content.appendChild(filter.element);
+  const sel = filter.selection;
 
   let suggestions = analysis.suggestions;
-  if (detailFilter !== 'all') {
-    suggestions = suggestions.filter(s => s.colour === detailFilter);
+  if (sel.colour !== 'all') {
+    suggestions = suggestions.filter(s => s.colour === sel.colour);
   }
-  suggestions = sortSuggestions(suggestions, suggestSort);
+  suggestions = sortSuggestions(suggestions, sel.sort as SuggestSort);
 
   if (suggestions.length === 0) {
     const emptySection = document.createElement('div');
