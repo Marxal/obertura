@@ -16,12 +16,13 @@ const SHOW_MINIATURES_KEY = 'obertura.lines.showMiniatures';
 // The Train hub's line-list filters & sort now live in the shared filter bar
 // (filters.ts), which persists its own selection under 'obertura.train.filter'.
 
-// Whether the Train list also reveals paused (out-of-training) lines, dimmed and
-// with their switch off, so one flick re-enables them. Default OFF (hidden).
+// Whether the Train list reveals paused (out-of-training) lines, dimmed and with
+// their switch off, so one flick re-enables them. Default ON (shown); the header
+// toggle hides them.
 const SHOW_PAUSED_KEY = 'obertura.train.showPaused';
 
 export function getShowPausedLines(): boolean {
-  return localStorage.getItem(SHOW_PAUSED_KEY) === 'on';
+  return localStorage.getItem(SHOW_PAUSED_KEY) !== 'off';
 }
 
 export function setShowPausedLines(on: boolean): void {

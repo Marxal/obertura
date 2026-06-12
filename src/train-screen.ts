@@ -542,9 +542,10 @@ function renderCardList(container: HTMLElement, trainingLines: Line[], pausedLin
   const section = document.createElement('div');
   section.className = 'section';
 
-  // By default the list shows only in-training lines. When paused lines exist, a
-  // quiet "Show paused" text-toggle reveals them in place (dimmed, switch off);
-  // its state persists across reloads.
+  // Paused lines (out of training) show by default, dimmed with their switch
+  // off; a quiet header toggle hides them. Pausing/resuming flips a card in
+  // place — no re-render — so the page never jumps. The toggle just flips a CSS
+  // class on the list, so it never re-renders either. State persists.
   let showPaused = getShowPausedLines();
 
   const head = document.createElement('div');
@@ -553,6 +554,10 @@ function renderCardList(container: HTMLElement, trainingLines: Line[], pausedLin
   heading.className = 'section-title';
   heading.textContent = 'In training';
   head.appendChild(heading);
+
+  // The list itself; paused rows live in it always, shown/hidden via CSS.
+  const listEl = document.createElement('div');
+  listEl.className = 'train-lines group' + (showPaused ? '' : ' train-lines--hide-paused');
 
   if (pausedLines.length > 0) {
     const toggle = document.createElement('button');
@@ -567,28 +572,28 @@ function renderCardList(container: HTMLElement, trainingLines: Line[], pausedLin
     toggle.addEventListener('click', () => {
       showPaused = !showPaused;
       setShowPausedLines(showPaused);
+      listEl.classList.toggle('train-lines--hide-paused', !showPaused);
       syncToggle();
+      // Rebuild so the "nothing here" note reflects what's now visible; only the
+      // list's contents change, so the page doesn't jump.
       rebuildList();
     });
     head.appendChild(toggle);
   }
   section.appendChild(head);
 
-  // The list re-renders in place when a filter/sort/Show-paused changes; a
-  // pause/resume re-renders the whole screen (so the hero counts stay honest).
-  const listEl = document.createElement('div');
-  listEl.className = 'train-lines group';
-
   // The shared two-row filter bar (filters.ts). It owns and persists the
   // selection; we read filter.selection on every rebuild and do the filtering
   // here. My own tags lead the chip row, vs-opponent tags follow, status pills
   // close it.
+  // Tag chips cover every shown line — paused included, since they're listed too.
+  const allShown = [...trainingLines, ...pausedLines];
   const filter = createFilterBar({
     persistKey: TRAIN_FILTER_KEY,
     sorts: TRAIN_SORTS,
     defaultSort: 'weakest',
-    userTags: distinctUserTags(trainingLines),
-    opponentTags: distinctOpponentTags(trainingLines),
+    userTags: distinctUserTags(allShown),
+    opponentTags: distinctOpponentTags(allShown),
     status: true,
     onChange: () => rebuildList(),
   });
@@ -596,8 +601,11 @@ function renderCardList(container: HTMLElement, trainingLines: Line[], pausedLin
   function rebuildList(): void {
     listEl.innerHTML = '';
     const inTraining = viewTrainingLines(trainingLines, filter.selection);
-    const paused = showPaused ? viewTrainingLines(pausedLines, filter.selection) : [];
-    if (inTraining.length === 0 && paused.length === 0) {
+    // Paused rows are always built; CSS (.train-lines--hide-paused) shows/hides
+    // them, and a card flipped to paused settles into view (or out) in place.
+    const paused = viewTrainingLines(pausedLines, filter.selection);
+    const visible = inTraining.length + (showPaused ? paused.length : 0);
+    if (visible === 0) {
       const note = document.createElement('p');
       note.className = 'train-lines-empty';
       note.textContent = 'No lines match these filters.';
@@ -693,10 +701,11 @@ function buildTrainRow(line: Line, container: HTMLElement): HTMLElement {
   actions.appendChild(view);
 
   // The one training control — the exact In-training switch My Lines uses. ON
-  // here means "in the drill pool". Flicking it off pauses the line (keeping it
-  // in My Lines); the row fades out and a toast confirms. No confirm dialog —
-  // the switch itself is reversible (re-flick it under "Show paused").
-  actions.appendChild(buildTrainingSwitch(line, card, container));
+  // here means "in the drill pool". Flicking it just flips the card in place
+  // (dim + switch), exactly like My Lines: no re-render, so the page never
+  // jumps. A paused line stays put, dimmed; if paused lines are hidden it slips
+  // out via CSS. The switch itself is the (reversible) undo.
+  actions.appendChild(buildTrainingSwitch(line, card));
 
   card.appendChild(actions);
 
@@ -705,13 +714,11 @@ function buildTrainRow(line: Line, container: HTMLElement): HTMLElement {
 
 // The In-training switch, identical in markup to the My Lines control so it
 // looks and behaves the same everywhere.
-function buildTrainingSwitch(line: Line, row: HTMLElement, container: HTMLElement): HTMLElement {
+function buildTrainingSwitch(line: Line, row: HTMLElement): HTMLElement {
   const toggle = document.createElement('button');
   toggle.type = 'button';
-  toggle.className = `dline-toggle train-row-toggle${line.inTraining ? ' dline-toggle--on' : ''}`;
-  toggle.setAttribute('role', 'switch');
-  toggle.setAttribute('aria-checked', String(line.inTraining));
-  toggle.setAttribute('aria-label', line.inTraining ? 'In training' : 'Paused');
+  toggle.className = 'dline-toggle train-row-toggle';
+  applySwitchState(toggle, row, line.inTraining);
 
   const sw = document.createElement('span');
   sw.className = 'dline-switch';
@@ -722,72 +729,36 @@ function buildTrainingSwitch(line: Line, row: HTMLElement, container: HTMLElemen
 
   const label = document.createElement('span');
   label.className = 'dline-toggle-label';
-  label.textContent = `Training ${line.inTraining ? 'ON' : 'OFF'}`;
   toggle.appendChild(label);
+  applySwitchLabel(toggle, line.inTraining);
 
-  toggle.addEventListener('click', () => void toggleTraining(line, row, container));
+  toggle.addEventListener('click', () => void toggleTraining(line, row, toggle));
   return toggle;
 }
 
-// Flip a line in/out of the drill pool. Pausing animates the row out and floats
-// a confirming toast; resuming repaints at once so the line leaves the paused
-// view. Either way the whole screen re-renders so the hero counts stay honest.
-async function toggleTraining(line: Line, row: HTMLElement, container: HTMLElement): Promise<void> {
-  const pausing = line.inTraining;
-  await saveLine({ ...line, inTraining: !line.inTraining });
-  if (pausing) {
-    showToast('Paused — still in My Lines');
-    animateRowOut(row, () => void doRender(container));
-  } else {
-    await doRender(container);
-  }
+// Flip a line in/out of the drill pool, updating its card in place — no
+// re-render, so the page keeps its scroll position (matching My Lines).
+async function toggleTraining(line: Line, row: HTMLElement, toggle: HTMLElement): Promise<void> {
+  const next = !line.inTraining;
+  await saveLine({ ...line, inTraining: next });
+  line.inTraining = next; // keep the in-memory line in step for repeat flicks
+  applySwitchState(toggle, row, next);
+  applySwitchLabel(toggle, next);
 }
 
-// Collapse + fade a row out, then run a callback. Honours reduced-motion by
-// skipping straight to the callback.
-function animateRowOut(row: HTMLElement, done: () => void): void {
-  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  if (reduce) { done(); return; }
-
-  row.style.maxHeight = `${row.offsetHeight}px`;
-  row.classList.add('train-row--leaving');
-  let called = false;
-  const finish = () => { if (!called) { called = true; done(); } };
-  row.addEventListener('transitionend', finish, { once: true });
-  // Fallback in case the transition never fires (e.g. display quirks).
-  setTimeout(finish, 400);
-  requestAnimationFrame(() => {
-    row.style.maxHeight = '0';
-    row.style.opacity = '0';
-    row.style.paddingTop = '0';
-    row.style.paddingBottom = '0';
-    row.style.marginTop = '0';
-    row.style.marginBottom = '0';
-  });
+// Paint the switch + its row for the given on/off state. A paused row reads
+// dimmed (and, when paused lines are hidden, drops out via CSS).
+function applySwitchState(toggle: HTMLElement, row: HTMLElement, inTraining: boolean): void {
+  toggle.classList.toggle('dline-toggle--on', inTraining);
+  toggle.setAttribute('role', 'switch');
+  toggle.setAttribute('aria-checked', String(inTraining));
+  toggle.setAttribute('aria-label', inTraining ? 'In training' : 'Paused');
+  row.classList.toggle('train-row--paused', !inTraining);
 }
 
-// A plain transient toast (no actions). Reuses the .toast chrome; only one is
-// ever on screen.
-let toastTimer: ReturnType<typeof setTimeout> | undefined;
-function showToast(message: string): void {
-  document.getElementById('train-toast')?.remove();
-  if (toastTimer !== undefined) clearTimeout(toastTimer);
-
-  const toast = document.createElement('div');
-  toast.id = 'train-toast';
-  toast.className = 'toast';
-  toast.setAttribute('role', 'status');
-  toast.setAttribute('aria-live', 'polite');
-  toast.textContent = message;
-
-  document.body.appendChild(toast);
-  // Let the element mount before adding the show class, so it animates in.
-  requestAnimationFrame(() => toast.classList.add('toast--show'));
-
-  toastTimer = setTimeout(() => {
-    toast.classList.remove('toast--show');
-    setTimeout(() => toast.remove(), 200);
-  }, 3000);
+function applySwitchLabel(toggle: HTMLElement, inTraining: boolean): void {
+  const label = toggle.querySelector('.dline-toggle-label');
+  if (label) label.textContent = `Training ${inTraining ? 'ON' : 'OFF'}`;
 }
 
 // ── Driving a session ───────────────────────────────────────────────────────────
