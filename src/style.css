@@ -2247,20 +2247,19 @@ cg-board square.move-dest.oc {
   flex: 0 0 auto;
 }
 
-/* Paused rows revealed by "Show paused": dimmed, switch off, one flick to wake. */
-.train-row--paused {
-  opacity: 0.55;
+/* Paused rows (out of training): dimmed, switch off, one flick to wake. The
+   dim fades in/out as the switch is flipped in place. */
+.train-row {
+  transition: opacity 0.2s ease;
 }
 
-/* The short fade/collapse a row plays when flicked out of training. */
-.train-row--leaving {
-  overflow: hidden;
-  opacity: 1;
-  transition:
-    max-height 0.28s ease,
-    opacity 0.22s ease,
-    padding 0.28s ease,
-    margin 0.28s ease;
+.train-row--paused {
+  opacity: 0.5;
+}
+
+/* "Hide paused" drops the paused rows out of the list entirely. */
+.train-lines--hide-paused .train-row--paused {
+  display: none;
 }
 
 /* A quiet text-toggle beside the "In training" heading. */
