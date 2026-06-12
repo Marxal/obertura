@@ -3714,10 +3714,21 @@ cg-board square.move-dest.oc {
   flex-shrink: 0;
 }
 
+/* Mono source/depth badge: "cloud · d38" or "local · d14…d20". Quiet,
+   always visible while the engine is on. */
 .eval-source {
-  font-size: 0.62rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.6rem;
+  letter-spacing: -0.01em;
   color: var(--text-faint);
   white-space: nowrap;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+}
+
+.eval-source:empty {
+  display: none;
 }
 
 .engine-label {
