@@ -107,8 +107,8 @@ async function buildScreen(container: HTMLElement): Promise<void> {
     section.appendChild(list);
   }
 
-  container.appendChild(section);
   container.appendChild(librarySection());
+  container.appendChild(section);
   container.appendChild(sparSection());
 }
 
@@ -136,7 +136,7 @@ function sparSection(): HTMLElement {
   head.className = 'section-head';
   const heading = document.createElement('h2');
   heading.className = 'section-title';
-  heading.textContent = 'Spar with the engine';
+  heading.textContent = 'Build with the engine';
   head.appendChild(heading);
   section.appendChild(head);
 
@@ -146,23 +146,24 @@ function sparSection(): HTMLElement {
     'Play a casual game against the engine from the start, then save the moves as a new line whenever you like.';
   section.appendChild(desc);
 
-  // Side picker.
-  section.appendChild(sparPickerRow('Your side', [
-    { value: 'white', label: '○ White' },
-    { value: 'black', label: '● Black' },
-  ], sparColour, (v) => { sparColour = v as 'white' | 'black'; }));
-
   // Level picker.
   section.appendChild(sparPickerRow('Level',
     SPAR_LEVELS.map(l => ({ value: l.id, label: l.label })),
     sparLevelId,
     (v) => { sparLevelId = v as typeof sparLevelId; }));
 
+  // Play-as side picker, sitting directly under the Level row.
+  section.appendChild(sparPickerRow('Play as', [
+    { value: 'white', label: '○ White' },
+    { value: 'black', label: '● Black' },
+  ], sparColour, (v) => { sparColour = v as 'white' | 'black'; }));
+
+  // The front door: a full-width primary that starts the game.
   const startBtn = document.createElement('button');
   startBtn.type = 'button';
-  startBtn.className = 'games-refresh-btn scout-add-btn';
-  startBtn.appendChild(Icons.zap(15));
-  startBtn.appendChild(document.createTextNode('Start sparring'));
+  startBtn.className = 'btn-primary spar-start-btn';
+  startBtn.appendChild(Icons.play(15));
+  startBtn.appendChild(document.createTextNode('Play'));
   startBtn.addEventListener('click', () => {
     const level = SPAR_LEVELS.find(l => l.id === sparLevelId) ?? SPAR_LEVELS[1];
     if (!exploreDeps) return;
@@ -234,12 +235,6 @@ function librarySection(): HTMLElement {
   heading.textContent = 'Opening library';
   head.appendChild(heading);
   section.appendChild(head);
-
-  const desc = document.createElement('p');
-  desc.className = 'section-desc';
-  desc.textContent =
-    'Browse the bundled opening book — search ~3,700 openings by name or ECO code, step through the moves, and open any into the builder.';
-  section.appendChild(desc);
 
   const btn = document.createElement('button');
   btn.type = 'button';
