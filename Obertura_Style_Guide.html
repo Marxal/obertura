@@ -41,8 +41,9 @@
         --accent: #ff9b21;
         --accent-active: #e08800;
         --accent-soft: rgba(255, 155, 33, 0.25);
-        --maroon: #7a2230;
-        --maroon-active: #5f1a25;
+        /* Felt green — THE primary (retired the old oxblood). */
+        --primary: #3e6650;
+        --primary-active: #345646;
         /* Sage / brick (v1.2) replace the old generic green / red everywhere. */
         --success: #708151;
         --success-active: #5c6b41;
@@ -86,8 +87,8 @@
         --accent: #ff9b21;
         --accent-active: #e08800;
         --accent-soft: rgba(255, 155, 33, 0.28);
-        --maroon: #8e2c3a;
-        --maroon-active: #7a2230;
+        --primary: #527d63;
+        --primary-active: #466b54;
         --success: #8a9b63;
         --success-active: #74874f;
         --warn: #d9763f;
@@ -200,7 +201,7 @@
         cursor: pointer;
       }
       .btn.accent { background: var(--accent); }
-      .btn.maroon { background: var(--maroon); }
+      .btn.primary { background: var(--primary); }
       .btn.success { background: var(--success); }
       .btn.ghost {
         background: transparent;
@@ -290,7 +291,7 @@
         font-size: 0.9rem; cursor: pointer; color: #fff;
       }
       .sg-btn-primary {
-        background-color: var(--maroon);
+        background-color: var(--primary);
         background-image: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, transparent 55%, rgba(0,0,0,0.06) 100%);
       }
       [data-theme='dark'] .sg-btn-primary { background-image: none; }
@@ -371,7 +372,7 @@
     <div class="grid">
       <div class="swatch"><div class="chip" style="background: var(--accent)"></div><div class="meta"><div class="name">--accent</div><div class="role">primary action</div></div></div>
       <div class="swatch"><div class="chip" style="background: var(--accent-active)"></div><div class="meta"><div class="name">--accent-active</div><div class="role">pressed</div></div></div>
-      <div class="swatch"><div class="chip" style="background: var(--maroon)"></div><div class="meta"><div class="name">--maroon</div><div class="role">save</div></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--primary)"></div><div class="meta"><div class="name">--primary</div><div class="role">felt green · primary action / save</div></div></div>
       <div class="swatch"><div class="chip" style="background: var(--success)"></div><div class="meta"><div class="name">--success</div><div class="role">sage · in training / right</div></div></div>
       <div class="swatch"><div class="chip" style="background: var(--warn)"></div><div class="meta"><div class="name">--warn</div><div class="role">due / missed</div></div></div>
       <div class="swatch"><div class="chip" style="background: var(--danger)"></div><div class="meta"><div class="name">--danger</div><div class="role">brick · delete / wrong</div></div></div>
@@ -380,7 +381,7 @@
     <h2>Components in context</h2>
     <div class="samples">
       <button class="btn accent">Reset line</button>
-      <button class="btn maroon">Save line</button>
+      <button class="btn primary">Save line</button>
       <button class="btn success">✓ In training</button>
       <button class="btn ghost">Watch line</button>
       <input class="demo" placeholder="Italian Game — main line" />
