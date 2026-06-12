@@ -20,13 +20,18 @@ import {
   getAllLines, getAllOpponents, getOpponent, saveOpponent, deleteOpponent, countOpponents,
 } from './storage';
 import {
-  MAX_OPPONENTS, makeOpponent, opponentLine, colourGameCount, opponentTag, type Opponent,
+  MAX_OPPONENTS, makeOpponent, opponentLine, colourGameCount, opponentTag, isOpponentTag,
+  type Opponent,
 } from './scout';
+import { createFilterBar } from './filters';
 import { pushBack } from './back-nav';
 
 const PLATFORM_LABEL = { chesscom: 'Chess.com', lichess: 'Lichess' } as const;
 // Most-played list cap before "Show all".
 const TOP_OPENINGS = 6;
+// Persistence key for the prepared-lines filter bar (shared across opponents;
+// stale tags from another opponent are sanitised away on load).
+const PREP_FILTER_KEY = 'obertura.prep.filter';
 
 // What the Explore tab hands back to the app shell (main.ts): seed the builder
 // with a prepared reply, or open one of my saved lines. Held at module scope —
@@ -461,39 +466,76 @@ function yourPrepSection(lines: Line[], onOpen: (line: Line) => void): HTMLEleme
   head.appendChild(m);
   section.appendChild(head);
 
+  // The shared filter bar (filters.ts). These lines are all prepared against the
+  // one opponent, so there's no opponent-tag group, no status and no sort — just
+  // colour on row 1 and any of my own tags on row 2. The bar drops empty groups.
   const list = document.createElement('div');
   list.className = 'group';
-  for (const line of lines) {
-    const card = document.createElement('div');
-    card.className = 'line-card';
-    const body = document.createElement('div');
-    body.className = 'line-card-body';
-    body.setAttribute('role', 'button');
-    body.tabIndex = 0;
-    const open = () => onOpen(line);
-    body.addEventListener('click', open);
-    body.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
-    });
 
-    const nameEl = document.createElement('div');
-    nameEl.className = 'line-card-name';
-    nameEl.textContent = line.name || line.openingName || 'Untitled line';
-    body.appendChild(nameEl);
-
-    const metaRow = document.createElement('div');
-    metaRow.className = 'line-card-meta';
-    metaRow.appendChild(chip(line.colour === 'white' ? '○ White' : '● Black'));
-    if (line.openingName && line.openingName !== nameEl.textContent) {
-      metaRow.appendChild(chip(line.openingName));
-    }
-    body.appendChild(metaRow);
-
-    card.appendChild(body);
-    list.appendChild(card);
-  }
+  const filter = createFilterBar({
+    persistKey: PREP_FILTER_KEY,
+    userTags: distinctUserTags(lines),
+    onChange: () => rebuildList(),
+  });
+  section.appendChild(filter.element);
   section.appendChild(list);
+
+  function rebuildList(): void {
+    list.innerHTML = '';
+    const sel = filter.selection;
+    let shown = sel.colour === 'all' ? lines : lines.filter(l => l.colour === sel.colour);
+    if (sel.tags.length > 0) shown = shown.filter(l => sel.tags.some(t => l.tags.includes(t)));
+
+    if (shown.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'section-desc';
+      empty.textContent = 'No prep matches these filters.';
+      list.appendChild(empty);
+      return;
+    }
+
+    for (const line of shown) list.appendChild(prepCard(line, onOpen));
+  }
+
+  rebuildList();
   return section;
+}
+
+// Every distinct user-authored tag (everything that isn't a "vs <name>" tag).
+function distinctUserTags(lines: Line[]): string[] {
+  const set = new Set<string>();
+  for (const l of lines) for (const t of l.tags) if (!isOpponentTag(t)) set.add(t);
+  return [...set].sort((a, b) => a.localeCompare(b));
+}
+
+function prepCard(line: Line, onOpen: (line: Line) => void): HTMLElement {
+  const card = document.createElement('div');
+  card.className = 'line-card';
+  const body = document.createElement('div');
+  body.className = 'line-card-body';
+  body.setAttribute('role', 'button');
+  body.tabIndex = 0;
+  const open = () => onOpen(line);
+  body.addEventListener('click', open);
+  body.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+  });
+
+  const nameEl = document.createElement('div');
+  nameEl.className = 'line-card-name';
+  nameEl.textContent = line.name || line.openingName || 'Untitled line';
+  body.appendChild(nameEl);
+
+  const metaRow = document.createElement('div');
+  metaRow.className = 'line-card-meta';
+  metaRow.appendChild(chip(line.colour === 'white' ? '○ White' : '● Black'));
+  if (line.openingName && line.openingName !== nameEl.textContent) {
+    metaRow.appendChild(chip(line.openingName));
+  }
+  body.appendChild(metaRow);
+
+  card.appendChild(body);
+  return card;
 }
 
 // Opening-map launchers, one per colour. Disabled when there's nothing to show.
