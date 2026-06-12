@@ -253,7 +253,7 @@ function librarySection(): HTMLElement {
 
 function opponentCard(opp: Opponent, container: HTMLElement): HTMLElement {
   const card = document.createElement('div');
-  card.className = 'line-card group-row';
+  card.className = 'line-card';
 
   const body = document.createElement('div');
   body.className = 'line-card-body';
@@ -465,7 +465,7 @@ function yourPrepSection(lines: Line[], onOpen: (line: Line) => void): HTMLEleme
   list.className = 'group';
   for (const line of lines) {
     const card = document.createElement('div');
-    card.className = 'line-card group-row';
+    card.className = 'line-card';
     const body = document.createElement('div');
     body.className = 'line-card-body';
     body.setAttribute('role', 'button');
@@ -602,7 +602,7 @@ function openingsSection(title: string, stats: OpeningStat[], prepare: PrepareFn
 
 function openingCard(stat: OpeningStat, prepare: PrepareFn): HTMLElement {
   const card = document.createElement('div');
-  card.className = 'line-card review-card group-row';
+  card.className = 'line-card review-card';
 
   const body = document.createElement('div');
   body.className = 'line-card-body review-card-body';

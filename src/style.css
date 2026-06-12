@@ -455,43 +455,27 @@ body {
   min-width: 0;
 }
 
-/* ── Grouped lists (v1.3) ──────────────────────────────────────────────────
-   A listing reads as ONE quiet group: a faint fill, a single hairline border
-   and the section radius, holding plain rows divided by hairlines — the
-   inset-grouped look. Rows drop the card chrome (border, fill, shadow, radius,
-   margin) they carried as standalone cards. Used by the saved-lines list, the
-   In-training list, and the Explore opponent / opening lists.
-   Settings keeps its boxes — it composes .card / .pref-row, never .group. */
+/* ── Unboxed lists (v1.3) ──────────────────────────────────────────────────
+   A listing is a plain stack of individual cards — each card keeps its own
+   border, fill and shadow — but it is NOT wrapped in a general box. The .group
+   marker draws nothing; it just lets its parent .section drop its box, so the
+   cards never read as boxes inside a box. Used by the saved-lines list, the
+   In-training list and the Explore opponent / opening lists. Settings keeps its
+   boxes — it composes .card / .pref-row, never .group. */
 .group {
   margin-top: var(--space-sm);
-  background: var(--fill-faint);
-  border: 1px solid var(--hairline);
-  border-radius: 14px;
-  overflow: hidden;
 }
 
-.group > .group-row {
-  margin: 0;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  border-top: 1px solid var(--hairline-soft);
+/* Inside a group the cards align to the page margin, so the openings card drops
+   the side margin it carries on the standalone Review screen. */
+.group > .review-card {
+  margin-left: 0;
+  margin-right: 0;
 }
 
-.group > .group-row:first-child {
-  border-top: none;
-}
-
-/* A grouped line-card must not re-raise its standalone hover shadow (that rule
-   outranks the reset above). */
-.group > .group-row:has(.line-card-body:hover) {
-  box-shadow: none;
-}
-
-/* When a section is just a header (+ controls) above a .group, it stops drawing
-   its own box: the group becomes the only box, so a screen never reads as a box
-   inside a box. The heading, description and filter rows sit bare above it. */
+/* A section that is just a header (+ controls) above a .group stops drawing its
+   own box — the cards stand on their own, never inside a general box. The
+   heading, description and filter rows sit bare above the stack. */
 .section:has(.group) {
   background: transparent;
   border: none;
@@ -1552,12 +1536,13 @@ cg-board square.move-dest.oc {
   border-color: #4a3d2e;
 }
 
-/* Horizontal scroller. Inset to the page margin on the left; flush to the
-   screen on the right so the next card bleeds off-edge. */
+/* Horizontal scroller. Inset to the page margin on both ends so the first board
+   has padding before it and the last has padding after it; the fourth board
+   still peeks past the right edge on first view as the scroll hint. */
 .carousel-track {
   display: flex;
   gap: var(--space-sm);
-  padding: var(--space-xs) 0 var(--space-sm) var(--space-lg);
+  padding: var(--space-xs) var(--space-lg) var(--space-sm);
   overflow-x: auto;
   scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;

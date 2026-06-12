@@ -696,7 +696,7 @@ function buildSortMenu(onChange: () => void): HTMLElement {
 
 function buildTrainRow(line: Line, container: HTMLElement): HTMLElement {
   const card = document.createElement('div');
-  card.className = 'line-card train-row group-row';
+  card.className = 'line-card train-row';
 
   const bucket = lineBucket(line);
   if (bucket !== 'due') card.classList.add('line-card--rested');
