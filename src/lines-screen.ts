@@ -290,7 +290,7 @@ function buildCarouselSection(
   pending: Pending[]
 ): HTMLElement {
   const section = document.createElement('section');
-  section.className = 'section carousel-section';
+  section.className = 'carousel-section';
 
   // Heading row: colour pip + name, with the Add button beside it.
   const head = document.createElement('div');
@@ -559,14 +559,18 @@ function renderSavedTab(
     return;
   }
 
+  // One quiet group box (de-boxed section + .group) holding plain rows.
+  const sec = document.createElement('div');
+  sec.className = 'section';
   const list = document.createElement('div');
-  list.className = 'section lines-section';
+  list.className = 'group';
   for (const line of sortLines(filtered, detailSort)) {
     list.appendChild(
       buildDetailCard(line, deps, container, refresh, counts.get(line.id) ?? 0)
     );
   }
-  content.appendChild(list);
+  sec.appendChild(list);
+  content.appendChild(sec);
 }
 
 function buildDetailCard(
@@ -579,7 +583,7 @@ function buildDetailCard(
   const due = line.inTraining && lineIsDue(line);
 
   const card = document.createElement('div');
-  card.className = 'dline-card';
+  card.className = 'dline-card group-row';
 
   // Just saved from the builder: draw attention and scroll it into view.
   if (line.id === highlightLineId) {
@@ -605,7 +609,11 @@ function buildDetailCard(
   const body = document.createElement('div');
   body.className = 'dline-body';
 
-  // Title row — its own line. Tap to open the line in the builder.
+  // Title row — its own line. Tap the title (or the eye beside it) to open the
+  // line in the builder.
+  const titleRowWrap = document.createElement('div');
+  titleRowWrap.className = 'dline-titlerow';
+
   const titleRow = document.createElement('button');
   titleRow.type = 'button';
   titleRow.className = 'dline-open';
@@ -618,7 +626,20 @@ function buildDetailCard(
   titleRow.appendChild(pip);
   titleRow.appendChild(nameEl);
   titleRow.addEventListener('click', () => deps.onOpenLine(line));
-  body.appendChild(titleRow);
+  titleRowWrap.appendChild(titleRow);
+
+  // The eye: a quiet, right-aligned twin of the title tap — same action, just a
+  // visible affordance for it.
+  const eyeBtn = document.createElement('button');
+  eyeBtn.type = 'button';
+  eyeBtn.className = 'dline-icon dline-eye';
+  eyeBtn.setAttribute('aria-label', 'Open line');
+  eyeBtn.title = 'Open line';
+  eyeBtn.appendChild(Icons.eye(18));
+  eyeBtn.addEventListener('click', () => deps.onOpenLine(line));
+  titleRowWrap.appendChild(eyeBtn);
+
+  body.appendChild(titleRowWrap);
 
   // Card info, stacked under the title.
   const info = document.createElement('div');

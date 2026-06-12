@@ -455,6 +455,49 @@ body {
   min-width: 0;
 }
 
+/* ── Grouped lists (v1.3) ──────────────────────────────────────────────────
+   A listing reads as ONE quiet group: a faint fill, a single hairline border
+   and the section radius, holding plain rows divided by hairlines — the
+   inset-grouped look. Rows drop the card chrome (border, fill, shadow, radius,
+   margin) they carried as standalone cards. Used by the saved-lines list, the
+   In-training list, and the Explore opponent / opening lists.
+   Settings keeps its boxes — it composes .card / .pref-row, never .group. */
+.group {
+  margin-top: var(--space-sm);
+  background: var(--fill-faint);
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.group > .group-row {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  border-top: 1px solid var(--hairline-soft);
+}
+
+.group > .group-row:first-child {
+  border-top: none;
+}
+
+/* A grouped line-card must not re-raise its standalone hover shadow (that rule
+   outranks the reset above). */
+.group > .group-row:has(.line-card-body:hover) {
+  box-shadow: none;
+}
+
+/* When a section is just a header (+ controls) above a .group, it stops drawing
+   its own box: the group becomes the only box, so a screen never reads as a box
+   inside a box. The heading, description and filter rows sit bare above it. */
+.section:has(.group) {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
 /* ════════════════════════════════════════════════════════════════════════════
    ICON SIZING
    SVG icons from icons.ts are currentColor stroked, aria-hidden.
@@ -1429,18 +1472,27 @@ cg-board square.move-dest.oc {
 
 /* ── My Lines carousel ──────────────────────────────────────────────────────── */
 
-/* Chrome and spacing from .section in HTML. Overflow hidden to clip the
-   scroll-track within the section's rounded border. */
+/* No outer box: the mini-boards float directly on the page. The section spans
+   full width (no side margins) so the track can bleed off the right edge — the
+   peeking next board IS the only scroll hint. */
 .carousel-section {
-  overflow: hidden;
+  margin: var(--space-xl) 0 0;
 }
 
-/* Heading row: colour pip + name on the left, Add button on the right. */
+/* The empty-state note still needs the page inset the de-boxed section dropped. */
+.carousel-section .lines-empty {
+  padding-left: var(--space-lg);
+  padding-right: var(--space-lg);
+}
+
+/* Heading row: colour pip + name on the left, Add button on the right. Padded
+   to the page margin now that the section no longer pads its children. */
 .carousel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
+  padding: 0 var(--space-lg);
   margin-bottom: var(--space-md);
 }
 
@@ -1500,14 +1552,12 @@ cg-board square.move-dest.oc {
   border-color: #4a3d2e;
 }
 
-/* Horizontal scroller. Negative margin escapes the .section padding so the
-   track aligns flush to the section edge. */
+/* Horizontal scroller. Inset to the page margin on the left; flush to the
+   screen on the right so the next card bleeds off-edge. */
 .carousel-track {
   display: flex;
   gap: var(--space-sm);
-  margin-left: calc(-1 * var(--space-lg));
-  margin-right: calc(-1 * var(--space-lg));
-  padding: var(--space-xs) var(--space-lg) var(--space-sm);
+  padding: var(--space-xs) 0 var(--space-sm) var(--space-lg);
   overflow-x: auto;
   scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
@@ -1518,9 +1568,12 @@ cg-board square.move-dest.oc {
 
 /* The board floats free — no card box around it — with its title underneath.
    The track's sizing lets the next board peek in from the right edge. */
+/* Sized so three cards plus ~15% of the fourth fit a 390px viewport (16px left
+   inset, 8px gaps): (390 − 16 − 3×8) / 3.15 ≈ 111px ≈ 28.5vw. That sliver of
+   the fourth board peeking past the right edge is the scroll hint. */
 .carousel-card {
   flex: 0 0 auto;
-  width: 30vw;
+  width: 28.5vw;
   max-width: 132px;
   display: flex;
   flex-direction: column;
@@ -1815,6 +1868,23 @@ cg-board square.move-dest.oc {
   font-weight: 700;
   color: var(--text);
   line-height: 1.3;
+}
+
+/* Title row: the tap-to-open title fills the line; a quiet eye on the right is
+   a second, visible affordance for the very same "open in builder" tap. */
+.dline-titlerow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.dline-titlerow .dline-open {
+  flex: 1;
+  width: auto;
+}
+
+.dline-eye {
+  flex: 0 0 auto;
 }
 
 /* Card info, stacked under the title. */
