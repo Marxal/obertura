@@ -2091,7 +2091,9 @@ cg-board square.move-dest.oc {
   background: rgba(0, 0, 0, 0.45);
   display: flex;
   align-items: flex-end;
-  z-index: 100;
+  /* Above the drill / explore / map overlays (z-index 200) so confirm dialogs
+     and edit sheets are always visible and tappable, even mid-session. */
+  z-index: 300;
   /* padding-bottom is set live in JS to lift the sheet above the keyboard. */
   transition: padding-bottom 0.18s ease;
 }
@@ -2329,6 +2331,12 @@ cg-board square.move-dest.oc {
 }
 
 .pt-back-btn {
+  /* inline-flex centres the chevron icon against the label's cap height, so the
+     "<" and its text read as one piece rather than the icon sitting on the
+     text baseline. */
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   background: transparent;
   border: none;
   color: var(--text-muted);

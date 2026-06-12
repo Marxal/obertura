@@ -261,7 +261,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   backBtn.type = 'button';
   backBtn.className = 'pt-back-btn';
   backBtn.appendChild(Icons.back(15));
-  backBtn.appendChild(document.createTextNode(opts.backLabel ?? 'Back'));
+  backBtn.appendChild(document.createTextNode(opts.backLabel ?? 'End session'));
   backBtn.addEventListener('click', () => exitViaButton());
   headerEl.appendChild(backBtn);
 
@@ -378,10 +378,11 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
 
   // ── Exit / abandon guard ────────────────────────────────────────────────────
   //
-  // Leaving the drill (Back button or system back gesture) either exits straight
-  // away, or — when confirmAbandon is set — asks "Abandon this session?" first.
-  // The back gesture consumes our back-layer before we hear about it, so the
-  // "stay" path on that route re-arms the layer for the next press.
+  // Leaving the drill (End session button or system back gesture) either exits
+  // straight away, or — when confirmAbandon is set — asks "End this session?"
+  // first. Both doors raise the same dialog. The back gesture consumes our
+  // back-layer before we hear about it, so the "stay" path on that route re-arms
+  // the layer for the next press (so a second back-swipe asks again).
 
   function doExit(): void {
     cleanup();
@@ -390,10 +391,10 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
 
   function showAbandonDialog(onStay: () => void): void {
     showDialog({
-      title: 'Abandon this session?',
-      body: 'Anything you’ve already reviewed still counts.',
+      title: 'End this session?',
+      body: 'Progress on finished lines is kept.',
       buttons: [
-        { label: 'Abandon', variant: 'danger', onClick: doExit },
+        { label: 'End session', variant: 'danger', onClick: doExit },
         { label: 'Keep going', variant: 'secondary', onClick: onStay },
       ],
       onDismiss: onStay,

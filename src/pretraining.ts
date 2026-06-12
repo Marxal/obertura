@@ -44,7 +44,8 @@ export function startPretrainingRun(
   }
 
   startDrill(lineCopy, {
-    backLabel: '← Cancel',
+    // No backLabel override: the in-session exit control reads "End session"
+    // everywhere (the default), with the header chevron as its icon.
     modeLabel: 'Confirm line',
     completeMessage: 'Line confirmed — added to training',
     recordMiss,
