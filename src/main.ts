@@ -22,7 +22,7 @@ import { initTheme } from './theme';
 import { initAppearance } from './appearance';
 import { watchSpeedMs, getConfirmRunBeforeTraining } from './prefs';
 import { initBackNav, setViewBack, pushBack } from './back-nav';
-import { showDialog, showPromptSheet } from './dialog';
+import { showDialog } from './dialog';
 
 const chess = new Chess();
 let cg!: ReturnType<typeof Chessground>;
@@ -336,7 +336,7 @@ function setupMoveNav(): void {
 // The six standard chess symbols, strongest to worst, each with a colour class
 // (sage for the strong marks, gold for the speculative ones, brick for the
 // blunders). Shown as small chips in the move list and picked from a chip row
-// in the note panel — tapping the active chip clears the mark.
+// inside the note sheet — tapping the active chip clears the mark.
 const ANNOTATIONS: ReadonlyArray<{ symbol: Annotation; cls: string; label: string }> = [
   { symbol: '!!', cls: 'brilliant', label: 'Brilliant move (!!)' },
   { symbol: '!', cls: 'good', label: 'Good move (!)' },
@@ -350,64 +350,17 @@ function annClass(symbol: Annotation): string {
   return ANNOTATIONS.find(a => a.symbol === symbol)!.cls;
 }
 
-// Build the six picker chips once; renderAnnotationPicker just toggles which
-// one reads as selected for the current move.
-function setupAnnotationPicker(): void {
-  const row = document.getElementById('annotation-picker')!;
-  for (const a of ANNOTATIONS) {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = `ann-pick ann-${a.cls}`;
-    chip.dataset.symbol = a.symbol;
-    chip.textContent = a.symbol;
-    chip.setAttribute('aria-label', a.label);
-    chip.title = a.label;
-    chip.addEventListener('click', () => {
-      const node = getCurrentNode();
-      if (node.id === 'root') return;
-      node.annotation = node.annotation === a.symbol ? undefined : a.symbol;
-      renderAnnotationPicker();
-      renderMoveList();
-    });
-    row.appendChild(chip);
-  }
-}
-
-function renderAnnotationPicker(): void {
-  const current = getCurrentNode().annotation;
-  document.querySelectorAll<HTMLElement>('#annotation-picker .ann-pick').forEach(chip => {
-    const on = chip.dataset.symbol === current;
-    chip.classList.toggle('ann-pick--on', on);
-    chip.setAttribute('aria-pressed', String(on));
-  });
-}
-
-// The annotation marks live under the title row and show whenever a move is
-// selected (root excluded), in step with the note block below them.
-function renderAnnotationRow(): void {
-  const annRow = document.getElementById('annotate-row')!;
-  const annLabel = document.getElementById('annotate-label')!;
-  const node = getCurrentNode();
-  if (node.id === 'root') {
-    annRow.hidden = true;
-    return;
-  }
-  annRow.hidden = false;
-  annLabel.textContent = `Mark ${node.san}`;
-  renderAnnotationPicker();
-}
-
 // ── Move note ────────────────────────────────────────────────────────────────
 // Notes are purely manual: a per-move reminder the user types by hand. The
 // builder shows a single button under the title row — "Add a note for 3…Nf6"
 // when the move has none, or the note text plus an "Edit note" button when it
-// does. Tapping opens a small sheet (a textarea with Save / Cancel). The note
-// lives on the move node and saves with the line; an empty save deletes it.
+// does. Tapping opens a small sheet — the annotation marks, a textarea, and
+// Save / Cancel. The note and the mark live on the move node and save with the
+// line; an empty save deletes the note. Cancel discards both edits.
 
-// Combined per-move detail refresh: the annotation marks and the note block,
-// both keyed to the selected move. Called wherever the cursor moves.
+// Per-move detail refresh. The marks now live inside the note sheet, so all the
+// panel shows is the note block, keyed to the selected move.
 function renderMoveDetails(): void {
-  renderAnnotationRow();
   renderNoteBlock();
 }
 
@@ -433,34 +386,125 @@ function renderNoteBlock(): void {
   }
 }
 
-// Open the note sheet for the selected move, seeded with any existing note.
+// Open the note sheet for the selected move, seeded with its current note and
+// mark. Both are transactional: tapping a mark and typing edit local state, and
+// nothing touches the move until Save. Cancel / backdrop / back gesture discard.
 function openNoteSheet(): void {
   const node = getCurrentNode();
   if (node.id === 'root') return;
-  showPromptSheet({
-    title: `Note for ${node.san}`,
-    initialValue: node.note ?? '',
-    placeholder: 'Reminder or plan for this move…',
-    onSave: (value) => { void saveNote(value); },
+  let pendingAnn: Annotation | undefined = node.annotation;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'edit-overlay';
+  const sheet = document.createElement('div');
+  sheet.className = 'edit-sheet';
+
+  const h = document.createElement('h3');
+  h.className = 'edit-sheet-title';
+  h.textContent = `Note for ${node.san}`;
+  sheet.appendChild(h);
+
+  // Annotation marks: one row of chips, the active mark highlighted. Tapping the
+  // active mark clears it.
+  const marks = document.createElement('div');
+  marks.className = 'note-sheet-marks';
+  marks.setAttribute('role', 'group');
+  marks.setAttribute('aria-label', 'Annotation mark');
+  const chips: HTMLButtonElement[] = [];
+  const paintMarks = () => {
+    for (const chip of chips) {
+      const on = chip.dataset.symbol === pendingAnn;
+      chip.classList.toggle('ann-pick--on', on);
+      chip.setAttribute('aria-pressed', String(on));
+    }
+  };
+  for (const a of ANNOTATIONS) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = `ann-pick ann-${a.cls}`;
+    chip.dataset.symbol = a.symbol;
+    chip.textContent = a.symbol;
+    chip.setAttribute('aria-label', a.label);
+    chip.title = a.label;
+    chip.addEventListener('click', () => {
+      pendingAnn = pendingAnn === a.symbol ? undefined : a.symbol;
+      paintMarks();
+    });
+    chips.push(chip);
+    marks.appendChild(chip);
+  }
+  paintMarks();
+  sheet.appendChild(marks);
+
+  const textarea = document.createElement('textarea');
+  textarea.className = 'prompt-sheet-textarea';
+  textarea.rows = 3;
+  textarea.value = node.note ?? '';
+  textarea.placeholder = 'Reminder or plan for this move…';
+  sheet.appendChild(textarea);
+
+  const btnRow = document.createElement('div');
+  btnRow.className = 'dialog-btn-row';
+
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    overlay.remove();
+    removeBack();
+  };
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'dialog-btn btn-secondary';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', () => close());
+
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.className = 'dialog-btn btn-primary';
+  saveBtn.textContent = 'Save';
+  saveBtn.addEventListener('click', () => {
+    const value = textarea.value;
+    close();
+    void saveNote(value, pendingAnn);
   });
+
+  btnRow.appendChild(cancelBtn);
+  btnRow.appendChild(saveBtn);
+  sheet.appendChild(btnRow);
+
+  const removeBack = pushBack(() => close());
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) close();
+  });
+
+  overlay.appendChild(sheet);
+  document.body.appendChild(overlay);
+  // Focus after mount so the keyboard opens straight onto the note, cursor at
+  // the end of any existing text.
+  textarea.focus();
+  textarea.setSelectionRange(textarea.value.length, textarea.value.length);
 }
 
-// Persist a note onto the current move. An empty value deletes it. When the
-// line already lives in storage we write it through immediately so it can't be
-// lost; a brand-new line keeps it in memory until the header Save.
-async function saveNote(value: string): Promise<void> {
+// Persist the note (and mark) onto the current move. An empty note value
+// deletes it. When the line already lives in storage we write it through
+// immediately so it can't be lost; a brand-new line keeps it in memory until
+// the header Save.
+async function saveNote(value: string, annotation: Annotation | undefined): Promise<void> {
   const node = getCurrentNode();
   if (node.id === 'root') return;
   const trimmed = value.trim();
   node.note = trimmed ? value : undefined;
+  node.annotation = annotation;
   renderNoteBlock();
-  renderMoveList(); // refresh the note dot in the move strip
+  renderMoveList(); // refresh the note dot and the mark chip in the move strip
   if (loadedLineId) {
     const line = buildCurrentLine();
     await saveLine(line);
     currentTrainingLine = line;
     savedSnapshot = builderSnapshot();
-    showToast(trimmed ? 'Note saved ✓' : 'Note removed');
+    showToast(trimmed ? 'Note saved ✓' : 'Saved ✓');
   } else if (trimmed) {
     showToast('Note added — Save the line to keep it');
   }
@@ -1315,7 +1359,6 @@ requestAnimationFrame(() => {
   setupPlaybackControls();
   setupTitleControls();
   setupNoteBlock();
-  setupAnnotationPicker();
   setupMoveNav();
 
   new ResizeObserver(() => cg.redrawAll()).observe(boardEl);
