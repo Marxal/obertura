@@ -12,19 +12,9 @@ import {
   getDefaultTrainingMode,
   TIMED_DURATIONS,
   type TimedMinutes,
-  getTrainColourFilter,
-  setTrainColourFilter,
-  getTrainStatusFilter,
-  setTrainStatusFilter,
-  getTrainSort,
-  setTrainSort,
-  getTrainOpponentFilter,
-  setTrainOpponentFilter,
-  type TrainColourFilter,
-  type TrainStatusFilter,
-  type TrainSort,
 } from './prefs';
 import { isOpponentTag } from './scout';
+import { createFilterBar, type FilterSelection } from './filters';
 import { TrainingSession, type SessionItem } from './session';
 import {
   userMoveNodes,
@@ -503,39 +493,26 @@ function countUp(el: HTMLElement, to: number, durationMs = 550): void {
 // miss) / Solid (long intervals). Each row carries the line, a "Train now" primary
 // action and two quiet icons — view the line, or remove it from training.
 
-const TRAIN_COLOURS: { key: TrainColourFilter; label: string; pip?: 'white' | 'black' }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'white', label: 'White', pip: 'white' },
-  { key: 'black', label: 'Black', pip: 'black' },
-];
-
-const TRAIN_STATUSES: { key: TrainStatusFilter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'due', label: 'Due' },
-  { key: 'learning', label: 'Learning' },
-  { key: 'solid', label: 'Solid' },
-];
-
-const TRAIN_SORTS: { key: TrainSort; label: string }[] = [
+// Persistence key + sort options for the shared filter bar (filters.ts).
+const TRAIN_FILTER_KEY = 'obertura.train.filter';
+const TRAIN_SORTS = [
   { key: 'weakest', label: 'Weakest' },
   { key: 'oldest', label: 'Oldest trained' },
   { key: 'newest', label: 'Newest' },
   { key: 'name', label: 'A–Z' },
 ];
 
-// Apply the persisted colour + status filters, then the chosen ordering.
-function viewTrainingLines(lines: Line[]): Line[] {
-  const colour = getTrainColourFilter();
-  const status = getTrainStatusFilter();
+// Apply the bar's colour + tag + status selection, then the chosen ordering.
+// Tags are OR'd: a line shows if it carries any selected tag (user or opponent).
+function viewTrainingLines(lines: Line[], sel: FilterSelection): Line[] {
   let out = lines;
-  if (colour !== 'all') out = out.filter(l => l.colour === colour);
-  const opponent = getTrainOpponentFilter();
-  if (opponent !== 'all') out = out.filter(l => l.tags.includes(opponent));
-  if (status !== 'all') out = out.filter(l => lineBucket(l) === status);
-  return sortTrainingLines(out, getTrainSort());
+  if (sel.colour !== 'all') out = out.filter(l => l.colour === sel.colour);
+  if (sel.tags.length > 0) out = out.filter(l => sel.tags.some(t => l.tags.includes(t)));
+  if (sel.status !== 'all') out = out.filter(l => lineBucket(l) === sel.status);
+  return sortTrainingLines(out, sel.sort);
 }
 
-function sortTrainingLines(lines: Line[], sort: TrainSort): Line[] {
+function sortTrainingLines(lines: Line[], sort: string): Line[] {
   switch (sort) {
     case 'newest':
       return recentlyAddedLines(lines);
@@ -572,9 +549,23 @@ function renderCardList(container: HTMLElement, trainingLines: Line[]): void {
   const listEl = document.createElement('div');
   listEl.className = 'train-lines group';
 
+  // The shared two-row filter bar (filters.ts). It owns and persists the
+  // selection; we read filter.selection on every rebuild and do the filtering
+  // here. My own tags lead the chip row, vs-opponent tags follow, status pills
+  // close it.
+  const filter = createFilterBar({
+    persistKey: TRAIN_FILTER_KEY,
+    sorts: TRAIN_SORTS,
+    defaultSort: 'weakest',
+    userTags: distinctUserTags(trainingLines),
+    opponentTags: distinctOpponentTags(trainingLines),
+    status: true,
+    onChange: () => rebuildList(),
+  });
+
   function rebuildList(): void {
     listEl.innerHTML = '';
-    const shown = viewTrainingLines(trainingLines);
+    const shown = viewTrainingLines(trainingLines, filter.selection);
     if (shown.length === 0) {
       const note = document.createElement('p');
       note.className = 'train-lines-empty';
@@ -587,7 +578,7 @@ function renderCardList(container: HTMLElement, trainingLines: Line[]): void {
     }
   }
 
-  section.appendChild(buildFilterRow(trainingLines, rebuildList));
+  section.appendChild(filter.element);
   rebuildList();
   section.appendChild(listEl);
   container.appendChild(section);
@@ -600,98 +591,11 @@ function distinctOpponentTags(lines: Line[]): string[] {
   return [...set].sort((a, b) => a.localeCompare(b));
 }
 
-// The colour · status · sort controls. Each click persists the choice, repaints
-// its own segment's active state, and rebuilds the list beneath.
-function buildFilterRow(trainingLines: Line[], onChange: () => void): HTMLElement {
-  const wrap = document.createElement('div');
-  wrap.className = 'train-filters';
-
-  wrap.appendChild(buildSeg(
-    TRAIN_COLOURS,
-    getTrainColourFilter(),
-    key => { setTrainColourFilter(key); onChange(); },
-  ));
-
-  const line = document.createElement('div');
-  line.className = 'train-filter-line';
-  line.appendChild(buildSeg(
-    TRAIN_STATUSES,
-    getTrainStatusFilter(),
-    key => { setTrainStatusFilter(key); onChange(); },
-  ));
-  line.appendChild(buildSortMenu(onChange));
-  wrap.appendChild(line);
-
-  // Opponent filter — only when prepared (tagged) lines are in training. A stale
-  // selection reverts to All so the list never silently empties.
-  const opponentTags = distinctOpponentTags(trainingLines);
-  if (opponentTags.length > 0) {
-    let current = getTrainOpponentFilter();
-    if (current !== 'all' && !opponentTags.includes(current)) { current = 'all'; setTrainOpponentFilter('all'); }
-    const opts = [{ key: 'all', label: 'All' }, ...opponentTags.map(t => ({ key: t, label: t }))];
-    const seg = buildSeg(opts, current, key => { setTrainOpponentFilter(key); onChange(); });
-    seg.classList.add('opp-filter-seg');
-    wrap.appendChild(seg);
-  }
-
-  return wrap;
-}
-
-function buildSeg<T extends string>(
-  options: { key: T; label: string; pip?: 'white' | 'black' }[],
-  current: T,
-  onPick: (key: T) => void,
-): HTMLElement {
-  const seg = document.createElement('div');
-  seg.className = 'dfilter-seg';
-  for (const o of options) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = `dfilter-btn${current === o.key ? ' active' : ''}`;
-    if (o.pip) {
-      const pip = document.createElement('span');
-      pip.className = `colour-pip colour-pip--${o.pip}`;
-      pip.setAttribute('aria-hidden', 'true');
-      btn.appendChild(pip);
-    }
-    btn.appendChild(document.createTextNode(o.label));
-    btn.setAttribute('aria-label', o.label);
-    btn.addEventListener('click', () => {
-      seg.querySelectorAll('.dfilter-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      onPick(o.key);
-    });
-    seg.appendChild(btn);
-  }
-  return seg;
-}
-
-function buildSortMenu(onChange: () => void): HTMLElement {
-  const wrap = document.createElement('div');
-  wrap.className = 'dorder';
-
-  const icon = Icons.order(16);
-  icon.classList.add('dorder-icon');
-  wrap.appendChild(icon);
-
-  const select = document.createElement('select');
-  select.className = 'dorder-select';
-  select.setAttribute('aria-label', 'Sort training lines');
-  const current = getTrainSort();
-  for (const o of TRAIN_SORTS) {
-    const opt = document.createElement('option');
-    opt.value = o.key;
-    opt.textContent = o.label;
-    if (o.key === current) opt.selected = true;
-    select.appendChild(opt);
-  }
-  select.addEventListener('change', () => {
-    setTrainSort(select.value as TrainSort);
-    onChange();
-  });
-  wrap.appendChild(select);
-
-  return wrap;
+// Every distinct user-authored tag (everything that isn't a "vs <name>" tag).
+function distinctUserTags(lines: Line[]): string[] {
+  const set = new Set<string>();
+  for (const l of lines) for (const t of l.tags) if (!isOpponentTag(t)) set.add(t);
+  return [...set].sort((a, b) => a.localeCompare(b));
 }
 
 function buildTrainRow(line: Line, container: HTMLElement): HTMLElement {

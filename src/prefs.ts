@@ -13,13 +13,8 @@ const CONFIRM_RUN_KEY = 'obertura.confirmRunBeforeTraining';
 const SHOW_QUICKVIEW_KEY = 'obertura.lines.showQuickView';
 const SHOW_MINIATURES_KEY = 'obertura.lines.showMiniatures';
 
-// The Train hub's line-list filters & sort. Device-local like every other pref,
-// so what you were looking at survives a reload.
-const TRAIN_COLOUR_KEY = 'obertura.train.filterColour';
-const TRAIN_STATUS_KEY = 'obertura.train.filterStatus';
-const TRAIN_SORT_KEY = 'obertura.train.sort';
-// The opponent filter: 'all' (default) or a "vs <name>" tag string.
-const TRAIN_OPPONENT_KEY = 'obertura.train.filterOpponent';
+// The Train hub's line-list filters & sort now live in the shared filter bar
+// (filters.ts), which persists its own selection under 'obertura.train.filter'.
 
 // Timed personal bests are kept per duration ("obertura.timedBest.3" etc.).
 const TIMED_BEST_PREFIX = 'obertura.timedBest.';
@@ -112,53 +107,6 @@ export function getActivityExpanded(): boolean {
 
 export function setActivityExpanded(on: boolean): void {
   localStorage.setItem(ACTIVITY_EXPANDED_KEY, on ? 'on' : 'off');
-}
-
-// ── Train hub line-list view (filters + sort) ───────────────────────────────────
-//
-// Three small choices that shape the "In training" list. Each is read with a
-// safe fallback so a stray/old value can never wedge the screen.
-
-export type TrainColourFilter = 'all' | 'white' | 'black';
-export type TrainStatusFilter = 'all' | 'due' | 'learning' | 'solid';
-export type TrainSort = 'weakest' | 'oldest' | 'newest' | 'name';
-
-export function getTrainColourFilter(): TrainColourFilter {
-  const v = localStorage.getItem(TRAIN_COLOUR_KEY);
-  return v === 'white' || v === 'black' ? v : 'all';
-}
-
-export function setTrainColourFilter(v: TrainColourFilter): void {
-  localStorage.setItem(TRAIN_COLOUR_KEY, v);
-}
-
-export function getTrainStatusFilter(): TrainStatusFilter {
-  const v = localStorage.getItem(TRAIN_STATUS_KEY);
-  return v === 'due' || v === 'learning' || v === 'solid' ? v : 'all';
-}
-
-export function setTrainStatusFilter(v: TrainStatusFilter): void {
-  localStorage.setItem(TRAIN_STATUS_KEY, v);
-}
-
-export function getTrainSort(): TrainSort {
-  const v = localStorage.getItem(TRAIN_SORT_KEY);
-  return v === 'oldest' || v === 'newest' || v === 'name' ? v : 'weakest';
-}
-
-export function setTrainSort(v: TrainSort): void {
-  localStorage.setItem(TRAIN_SORT_KEY, v);
-}
-
-// The opponent filter: 'all' for no filter, otherwise a "vs <name>" tag. A stale
-// tag (opponent prep since deleted) is harmless — the list just shows nothing,
-// and the filter row reverts to All on the next render.
-export function getTrainOpponentFilter(): string {
-  return localStorage.getItem(TRAIN_OPPONENT_KEY) ?? 'all';
-}
-
-export function setTrainOpponentFilter(v: string): void {
-  localStorage.setItem(TRAIN_OPPONENT_KEY, v);
 }
 
 // How a saved line gets its title. "auto" (default) fills the name from the
