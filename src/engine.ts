@@ -70,84 +70,6 @@ export async function isGoodAlternative(
   }
 }
 
-// ── Move grading ─────────────────────────────────────────────────────────────
-// A richer cousin of isGoodAlternative: instead of a yes/no, it reports how far
-// the played move is from the engine's best, and names that best move — so the
-// builder can explain *why* a move is good or bad in plain language.
-
-export type MoveClass = 'best' | 'good' | 'inaccuracy' | 'mistake' | 'blunder' | 'dubious';
-
-export interface MoveGrade {
-  classification: MoveClass;
-  lossCp: number | null;  // centipawns lost vs best (>= 0), or null if unmeasurable
-  bestSan: string;        // the engine's preferred move, in SAN
-  isBest: boolean;        // the played move *is* the engine's top choice
-}
-
-// Pure, side-effect-free bucketing of a centipawn loss into a verbal grade.
-// Thresholds echo training's 30 cp "good alternative" cutoff and are easy to
-// tune. Exported so it can be unit-tested without the network.
-export function classifyLoss(lossCp: number, isBest: boolean): MoveClass {
-  if (isBest) return 'best';
-  if (lossCp <= 30) return 'good';
-  if (lossCp <= 90) return 'inaccuracy';
-  if (lossCp <= 200) return 'mistake';
-  return 'blunder';
-}
-
-// Ask Lichess cloud eval for the top lines at `preFen`, then grade `userUci`
-// against the best move. Returns null on any network/parse failure or when the
-// position simply isn't in the cloud — callers then show no verdict rather than
-// invent one.
-export async function gradeMove(preFen: string, userUci: string): Promise<MoveGrade | null> {
-  try {
-    const data = await cloudEval(preFen);
-    if (!data?.pvs?.length) return null;
-
-    const side = sideToMove(preFen);
-    const pvs = data.pvs.slice(0, 3);
-    const bestUci = pvs[0].moves?.split(' ')[0];
-    const bestCp = pvToWhiteCp(pvs[0], side);
-    if (!bestUci || bestCp === null) return null;
-
-    const bestSan = uciToSan(preFen, bestUci);
-
-    if (userUci === bestUci) {
-      return { classification: 'best', lossCp: 0, bestSan, isBest: true };
-    }
-
-    // The played move's eval. If it's among the top-3 lines we have it directly;
-    // otherwise (the genuinely weak moves) evaluate the resulting position once
-    // more — its best-line value, white-normalised, is the played move's worth.
-    let userCp: number | null = null;
-    const userPv = pvs.find(pv => pv.moves?.split(' ')[0] === userUci);
-    if (userPv) {
-      userCp = pvToWhiteCp(userPv, side);
-      if (userCp === null) return null; // pv with neither cp nor mate — unmeasurable
-    } else {
-      const afterFen = applyUci(preFen, userUci);
-      if (afterFen) {
-        const afterData = await cloudEval(afterFen);
-        const afterPv = afterData?.pvs?.[0];
-        // After-position eval is from the opponent's side; pvToWhiteCp normalises
-        // to white either way, so it is directly comparable to bestCp.
-        if (afterPv) userCp = pvToWhiteCp(afterPv, sideToMove(afterFen));
-      }
-      // The move isn't among the engine's top lines and we couldn't price the
-      // resulting position — still flag it as off the engine's radar rather than
-      // staying silent (this is the "really wrong move says nothing" case).
-      if (userCp === null) {
-        return { classification: 'dubious', lossCp: null, bestSan, isBest: false };
-      }
-    }
-
-    const lossCp = Math.abs(bestCp - userCp);
-    return { classification: classifyLoss(lossCp, false), lossCp, bestSan, isBest: false };
-  } catch {
-    return null;
-  }
-}
-
 // ── Continuation lookup (for "explore this line") ────────────────────────────
 // The engine's single best line from a position: the first move (for an arrow),
 // a white-normalised eval, and the principal variation in both SAN and UCI so a
@@ -201,18 +123,6 @@ export async function cloudLine(fen: string): Promise<CloudLine | null> {
   };
 }
 
-// Normalise a Lichess pv entry to a white-perspective centipawn value, with
-// mate scores collapsed to ±10000 sentinels. Returns null if the entry has
-// neither cp nor mate.
-function pvToWhiteCp(pv: { cp?: number; mate?: number }, side: 'w' | 'b'): number | null {
-  if (pv.mate !== undefined) {
-    const winsForSide = pv.mate > 0;
-    return (side === 'w') === winsForSide ? 10000 : -10000;
-  }
-  if (pv.cp !== undefined) return normCp(pv.cp, side);
-  return null;
-}
-
 interface CloudEval {
   pvs?: Array<{ moves?: string; cp?: number; mate?: number }>;
 }
@@ -225,21 +135,6 @@ async function cloudEval(fen: string): Promise<CloudEval | null> {
     const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
     if (!res.ok) return null;
     return await res.json() as CloudEval;
-  } catch {
-    return null;
-  }
-}
-
-// Apply a UCI move to a FEN, returning the resulting FEN (or null if illegal).
-function applyUci(fen: string, uci: string): string | null {
-  try {
-    const ch = new Chess(fen);
-    ch.move({
-      from: uci.slice(0, 2),
-      to: uci.slice(2, 4),
-      promotion: (uci[4] as 'q' | 'r' | 'b' | 'n') || undefined,
-    });
-    return ch.fen();
   } catch {
     return null;
   }

@@ -60,6 +60,9 @@ export function runTreeSelfTest(): TestResult[] {
     `e5 children: ${e5.children.length}, mainline "${sans()}"`
   );
 
+  // A manual note on a move rides along with the line through a round-trip.
+  mainline()[2].note = 'kingside attack idea';
+
   // serialise / loadTree round-trip preserves exactly one path, nothing else.
   const snapshot = serialise();
   reset();
@@ -69,6 +72,14 @@ export function runTreeSelfTest(): TestResult[] {
     'round-trip preserves exactly one line',
     sans() === 'e4 e5 f4' && total === 4,
     `mainline "${sans()}", ${total} nodes total (root + 3 moves)`
+  );
+
+  // The note survived serialise → loadTree on the right move.
+  const noteAfter = mainline()[2]?.note;
+  check(
+    'a move note round-trips through save/load',
+    noteAfter === 'kingside attack idea',
+    `f4 note "${noteAfter ?? '(none)'}"`
   );
 
   reset();
