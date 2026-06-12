@@ -93,15 +93,6 @@ export function getCurrentNode(): MoveNode {
   return current;
 }
 
-// FEN of the position *before* the given move was played — i.e. its parent's
-// fen, or the start position for a first move. Handy for explaining a move,
-// which needs the position the move was made from.
-export function fenBefore(nodeId: string): string {
-  const path = pathTo(nodeId);
-  if (path.length <= 1) return START_FEN;
-  return path[path.length - 2].fen;
-}
-
 // UCI moves from the start to the given node, ready for an opening lookup.
 // Defaults to the current node. Root is excluded by pathTo, so this is just
 // each node's uci in order.

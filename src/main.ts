@@ -4,11 +4,10 @@ import type { Key } from 'chessground/types';
 import 'chessground/assets/chessground.base.css';
 import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
-import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, loadTree, fenBefore } from './tree';
+import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, loadTree } from './tree';
 import type { Annotation, MoveNode } from './tree';
 import { saveLine, getAllLines } from './storage';
 import { nameForPath } from './openings';
-import { explainMove, describeGrade } from './explain';
 import type { Line } from './types';
 import { renderLinesScreen, focusSavedLine } from './lines-screen';
 import { renderProgressScreen } from './progress-screen';
@@ -17,13 +16,13 @@ import { renderTrainScreen } from './train-screen';
 import { renderExploreScreen } from './explore-screen';
 import { opponentTag } from './scout';
 import { renderSettingsScreen } from './settings-screen';
-import { Engine, gradeMove } from './engine';
+import { Engine } from './engine';
 import { EvalPanel } from './eval-panel';
 import { initTheme } from './theme';
 import { initAppearance } from './appearance';
 import { watchSpeedMs, getConfirmRunBeforeTraining } from './prefs';
 import { initBackNav, setViewBack, pushBack } from './back-nav';
-import { showDialog } from './dialog';
+import { showDialog, showPromptSheet } from './dialog';
 
 const chess = new Chess();
 let cg!: ReturnType<typeof Chessground>;
@@ -241,115 +240,6 @@ function setupTitleControls(): void {
   document.getElementById('rename-btn')!.addEventListener('click', openEditSheet);
 }
 
-// ── "Why this move" explanation ─────────────────────────────────────────────
-// Shown only when the engine is on — the engine verdict is what makes the
-// description worth reading. The user's own note always overrides it: when a
-// note exists the panel hides (the note editor below is the truth).
-//
-// Structure inside #move-explanation, engine ON:
-//   .explanation-verdict  — async engine grade (good / mistake / …), shown first
-//   .explanation-text     — instant, offline, chess.js description of the move
-//   .explanation-actions  — "Add to my note" button
-// Engine OFF: a single quiet prompt to turn the engine on.
-
-// Race guard for the async grade: a slow older grade must never overwrite a
-// newer move's verdict.
-let gradeRequestId = 0;
-
-// Show or hide the "+" note icon — it adopts the engine suggestion, so it only
-// makes sense while a suggestion is actually on screen.
-function setNoteAddVisible(visible: boolean): void {
-  const btn = document.getElementById('note-add-btn');
-  if (btn) btn.hidden = !visible;
-}
-
-function renderExplanation(): void {
-  const el = document.getElementById('move-explanation')!;
-  const node = getCurrentNode();
-
-  // Bump the request id so any in-flight grade for a previous move is ignored.
-  gradeRequestId++;
-
-  if (node.id === 'root' || node.note?.trim()) {
-    el.hidden = true;
-    el.replaceChildren();
-    setNoteAddVisible(false);
-    return;
-  }
-
-  // Engine off: nothing instructive to say, so just invite turning it on.
-  if (!engine.isEnabled) {
-    const prompt = document.createElement('span');
-    prompt.className = 'explanation-hint';
-    prompt.textContent = 'Turn on the engine to explain this move.';
-    el.replaceChildren(prompt);
-    el.hidden = false;
-    setNoteAddVisible(false);
-    return;
-  }
-
-  const text = explainMove(fenBefore(node.id), node.san);
-  if (!text) {
-    el.hidden = true;
-    el.replaceChildren();
-    setNoteAddVisible(false);
-    return;
-  }
-
-  // Verdict slot sits first (filled async); description shows instantly below it.
-  const verdictEl = document.createElement('div');
-  verdictEl.className = 'explanation-verdict';
-  verdictEl.hidden = true;
-
-  const textEl = document.createElement('div');
-  textEl.className = 'explanation-text';
-  textEl.textContent = text;
-
-  el.replaceChildren(verdictEl, textEl);
-  el.hidden = false;
-  // A suggestion is on screen and the move has no note yet — offer the "+".
-  setNoteAddVisible(true);
-
-  // Grade the move against Lichess cloud's best line (its own request,
-  // independent of the eval-panel flow).
-  const reqId = gradeRequestId;
-  const nodeId = node.id;
-  gradeMove(fenBefore(node.id), node.uci).then(grade => {
-    // Stale guard: same request, still the same selected move, still no note.
-    if (reqId !== gradeRequestId) return;
-    const current = getCurrentNode();
-    if (current.id !== nodeId || current.note?.trim()) return;
-    if (!grade) {
-      // The engine can't grade this position (it's off the known map). The
-      // offline description here is usually too vague to be worth showing, so
-      // replace the whole panel with an honest nudge to annotate it yourself.
-      textEl.textContent = 'This is new territory — add your own notes.';
-      textEl.classList.add('explanation-newground');
-      return;
-    }
-    verdictEl.textContent = describeGrade(grade);
-    verdictEl.className = `explanation-verdict verdict-${grade.classification}`;
-    verdictEl.hidden = false;
-  });
-}
-
-// Copy the generated explanation (description + verdict, if shown) into the
-// move's note. It then becomes the user's editable override — the generated
-// panel hides and the note editor takes over, seeded with this text.
-function adoptExplanationAsNote(): void {
-  const node = getCurrentNode();
-  if (node.id === 'root') return;
-  const verdictEl = document.querySelector('#move-explanation .explanation-verdict:not([hidden])');
-  const textEl = document.querySelector('#move-explanation .explanation-text');
-  const parts = [verdictEl?.textContent, textEl?.textContent].filter(Boolean);
-  const note = parts.join(' ').trim();
-  if (!note) return;
-  node.note = note;
-  renderMoveList();
-  // Note now exists: the panel switches to the editor and hides the icons.
-  renderNotePanel();
-}
-
 // One clickable move in the strip: the SAN, its annotation chip (if marked)
 // and a note dot (if annotated in words too).
 function moveSpan(node: MoveNode, activeId: string): HTMLElement {
@@ -492,109 +382,92 @@ function renderAnnotationPicker(): void {
   });
 }
 
-// ── Note panel ────────────────────────────────────────────────────────────────
-
-// Open or collapse the note editor for the current move. Open = textarea +
-// Save button visible; collapsed = just the pencil. Kept as one place so the
-// pencil, the Save button and a fresh render all agree on the state.
-//
-// Annotation marks ride with the editor: they only show while a note is being
-// written (or already exists), never on their own.
-function setNoteEditing(editing: boolean): void {
-  const textarea = document.getElementById('move-note-input') as HTMLTextAreaElement;
-  const writeBtn = document.getElementById('note-write-btn')!;
-  const doneBtn = document.getElementById('note-done-btn')!;
-  const annRow = document.getElementById('annotate-row')!;
-  textarea.hidden = !editing;
-  writeBtn.hidden = editing;
-  doneBtn.hidden = !editing;
-  annRow.hidden = !editing;
-}
-
-function renderNotePanel(): void {
-  const panel = document.getElementById('note-panel')!;
+// The annotation marks live under the title row and show whenever a move is
+// selected (root excluded), in step with the note block below them.
+function renderAnnotationRow(): void {
   const annRow = document.getElementById('annotate-row')!;
   const annLabel = document.getElementById('annotate-label')!;
-  const label = document.getElementById('note-panel-label')!;
-  const textarea = document.getElementById('move-note-input') as HTMLTextAreaElement;
   const node = getCurrentNode();
   if (node.id === 'root') {
-    panel.hidden = true;
     annRow.hidden = true;
     return;
   }
-  // Keep the annotation picker's label and selection in step with the move, but
-  // its visibility is owned by setNoteEditing — the marks only appear alongside
-  // the note editor, never on their own.
+  annRow.hidden = false;
   annLabel.textContent = `Mark ${node.san}`;
   renderAnnotationPicker();
-
-  panel.hidden = false;
-  label.textContent = `Note for ${node.san}`;
-  textarea.value = node.note ?? '';
-  // Compact by default: the editor (and the annotation marks) stay collapsed
-  // until there's a note to show or the user taps the pencil to write one.
-  setNoteEditing(!!node.note?.trim());
-  renderExplanation();
 }
 
-function setupNotePanel(): void {
-  const textarea = document.getElementById('move-note-input') as HTMLTextAreaElement;
-  const writeBtn = document.getElementById('note-write-btn')!;
-  const addBtn = document.getElementById('note-add-btn')!;
-  const doneBtn = document.getElementById('note-done-btn')!;
+// ── Move note ────────────────────────────────────────────────────────────────
+// Notes are purely manual: a per-move reminder the user types by hand. The
+// builder shows a single button under the title row — "Add a note for 3…Nf6"
+// when the move has none, or the note text plus an "Edit note" button when it
+// does. Tapping opens a small sheet (a textarea with Save / Cancel). The note
+// lives on the move node and saves with the line; an empty save deletes it.
 
-  // Pencil: reveal the editor for a move with no note yet.
-  writeBtn.addEventListener('click', () => {
-    setNoteEditing(true);
-    textarea.focus();
-  });
-
-  // "+": adopt the engine's suggestion as the starting note.
-  addBtn.addEventListener('click', () => adoptExplanationAsNote());
-
-  // Save: dismiss the keyboard, persist (if the line is already saved) and
-  // confirm with a discreet toast so the note clearly "took". An empty note
-  // collapses the editor back to the pencil.
-  doneBtn.addEventListener('click', () => { void finishNote(); });
-
-  textarea.addEventListener('input', () => {
-    const node = getCurrentNode();
-    if (node.id === 'root') return;
-    const val = textarea.value;
-    node.note = val.trim() ? val : undefined;
-    // Update note dot indicator without clobbering the textarea.
-    renderMoveList();
-    // A note overrides the generated text: refresh so it hides (or, once the
-    // note is cleared, reappears).
-    renderExplanation();
-  });
+// Combined per-move detail refresh: the annotation marks and the note block,
+// both keyed to the selected move. Called wherever the cursor moves.
+function renderMoveDetails(): void {
+  renderAnnotationRow();
+  renderNoteBlock();
 }
 
-// Confirm the current note: collapse the keyboard, persist it durably when the
-// line already lives in storage, and toast a confirmation.
-async function finishNote(): Promise<void> {
-  const textarea = document.getElementById('move-note-input') as HTMLTextAreaElement;
-  textarea.blur();
+function renderNoteBlock(): void {
+  const block = document.getElementById('note-block')!;
+  const display = document.getElementById('note-display')!;
+  const label = document.getElementById('note-btn-label')!;
   const node = getCurrentNode();
-  const hasNote = !!node.note?.trim();
-  if (!hasNote) {
-    // Nothing written — quietly fold the editor away again.
-    setNoteEditing(false);
+  if (node.id === 'root') {
+    block.hidden = true;
     return;
   }
-  // An already-saved line persists immediately so the note can't be lost by
-  // leaving without a second Save. A brand-new line keeps it in memory until
-  // the header Save writes the whole line.
+  block.hidden = false;
+  const note = node.note?.trim();
+  if (note) {
+    display.textContent = note;
+    display.hidden = false;
+    label.textContent = 'Edit note';
+  } else {
+    display.textContent = '';
+    display.hidden = true;
+    label.textContent = `Add a note for ${node.san}`;
+  }
+}
+
+// Open the note sheet for the selected move, seeded with any existing note.
+function openNoteSheet(): void {
+  const node = getCurrentNode();
+  if (node.id === 'root') return;
+  showPromptSheet({
+    title: `Note for ${node.san}`,
+    initialValue: node.note ?? '',
+    placeholder: 'Reminder or plan for this move…',
+    onSave: (value) => { void saveNote(value); },
+  });
+}
+
+// Persist a note onto the current move. An empty value deletes it. When the
+// line already lives in storage we write it through immediately so it can't be
+// lost; a brand-new line keeps it in memory until the header Save.
+async function saveNote(value: string): Promise<void> {
+  const node = getCurrentNode();
+  if (node.id === 'root') return;
+  const trimmed = value.trim();
+  node.note = trimmed ? value : undefined;
+  renderNoteBlock();
+  renderMoveList(); // refresh the note dot in the move strip
   if (loadedLineId) {
     const line = buildCurrentLine();
     await saveLine(line);
     currentTrainingLine = line;
     savedSnapshot = builderSnapshot();
-    showToast('Note saved ✓');
-  } else {
+    showToast(trimmed ? 'Note saved ✓' : 'Note removed');
+  } else if (trimmed) {
     showToast('Note added — Save the line to keep it');
   }
+}
+
+function setupNoteBlock(): void {
+  document.getElementById('note-btn')!.addEventListener('click', openNoteSheet);
 }
 
 function handleMoveClick(nodeId: string) {
@@ -620,7 +493,7 @@ function handleMoveClick(nodeId: string) {
   });
 
   renderMoveList();
-  renderNotePanel();
+  renderMoveDetails();
   updateOpeningName();
   evalPanel.clear();
   engine.evaluate(chess.fen());
@@ -645,7 +518,7 @@ function playUci(uci: string): void {
   });
 
   renderMoveList();
-  renderNotePanel();
+  renderMoveDetails();
   updateOpeningName();
   evalPanel.clear();
   engine.evaluate(chess.fen());
@@ -737,7 +610,7 @@ function goToStart(): void {
     lastMove: undefined,
   });
   renderMoveList();
-  renderNotePanel();
+  renderMoveDetails();
   evalPanel.clear();
   engine.evaluate(chess.fen());
 }
@@ -818,7 +691,7 @@ function clearBuilder(colour: 'white' | 'black' = 'white'): void {
     lastMove: undefined,
   });
   renderMoveList();
-  renderNotePanel();
+  renderMoveDetails();
   updateSaveButtonLabel();
   evalPanel.clear();
   engine.evaluate(chess.fen());
@@ -856,7 +729,7 @@ function buildFromUcis(ucis: string[], colour: 'white' | 'black', tags: string[]
       : undefined,
   });
   renderMoveList();
-  renderNotePanel();
+  renderMoveDetails();
   renderBuilderTags();
   updateOpeningName();
   evalPanel.clear();
@@ -1109,7 +982,7 @@ function onOpenLine(line: Line): void {
   renderBuilderTags();
 
   renderMoveList();
-  renderNotePanel();
+  renderMoveDetails();
   updateSaveButtonLabel();
   // Just loaded from storage — the builder matches what's saved.
   savedSnapshot = builderSnapshot();
@@ -1406,7 +1279,7 @@ requestAnimationFrame(() => {
           },
         });
         renderMoveList();
-        renderNotePanel();
+        renderMoveDetails();
         updateOpeningName();
         evalPanel.clear();
         engine.evaluate(chess.fen());
@@ -1430,8 +1303,6 @@ requestAnimationFrame(() => {
         engine.disable();
         evalPanel.clear();
       }
-      // The explanation panel is engine-gated, so refresh it on toggle.
-      renderExplanation();
     },
     (uci) => playUci(uci),
   );
@@ -1443,7 +1314,7 @@ requestAnimationFrame(() => {
   setupSaveButton();
   setupPlaybackControls();
   setupTitleControls();
-  setupNotePanel();
+  setupNoteBlock();
   setupAnnotationPicker();
   setupMoveNav();
 

@@ -78,23 +78,17 @@
             </div>
             <div id="builder-tags" class="builder-tags" hidden></div>
 
-            <div id="move-explanation" class="move-explanation" hidden aria-live="polite"></div>
+            <div id="note-block" class="note-block" hidden>
+              <p id="note-display" class="note-display" hidden></p>
+              <button id="note-btn" type="button" class="note-btn">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <span id="note-btn-label">Add a note</span>
+              </button>
+            </div>
 
             <div id="annotate-row" class="annotate-row" hidden>
               <span id="annotate-label" class="annotate-label">Mark move</span>
               <div id="annotation-picker" class="annotation-picker" role="group" aria-label="Annotation mark"></div>
-            </div>
-
-            <div id="note-panel" hidden>
-              <div class="note-panel-head">
-                <label id="note-panel-label" class="note-panel-label" for="move-note-input">Note for this move</label>
-                <div class="note-panel-actions">
-                  <button id="note-add-btn" type="button" class="note-icon-btn" aria-label="Add suggestion to note" title="Add suggestion to note" hidden><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg></button>
-                  <button id="note-write-btn" type="button" class="note-icon-btn" aria-label="Write a note" title="Write a note"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4"/><path d="M2 6h4"/><path d="M2 10h4"/><path d="M2 14h4"/><path d="M2 18h4"/><path d="M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"/></svg></button>
-                  <button id="note-done-btn" type="button" class="note-done-btn" aria-label="Save note" title="Save note" hidden><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>Save</span></button>
-                </div>
-              </div>
-              <textarea id="move-note-input" class="note-panel-textarea" placeholder="Reminder or plan for this move…" rows="2" hidden></textarea>
             </div>
           </div>
           <div id="builder-bar" class="builder-bar">

@@ -1069,7 +1069,7 @@ cg-board square.move-dest.oc {
 /* ── Annotation marks ────────────────────────────────────────────────────────
    The six standard symbols as coloured chips: sage for the strong marks,
    gold for the speculative middle, brick for the blunders. Used as tiny chips
-   on moves in the strip and as tappable chips in the note-panel picker. */
+   on moves in the strip and as tappable chips in the annotation picker. */
 .ann-brilliant { --ann: var(--success-active); }
 .ann-good { --ann: var(--success); }
 .ann-interesting { --ann: #a9851e; }
@@ -3381,167 +3381,68 @@ cg-board square.move-dest.oc {
 
 .selftest-row.fail { color: var(--warn); font-weight: 600; }
 
-/* ── Generated "why this move" explanation (builder) ───────────────────────── */
-/* Read-only, auto-generated reasoning. Hidden whenever the user has written
-   their own note — their words override this. Styled as a quiet parchment
-   card, distinct from the amber-bordered editable note below it. */
-.move-explanation {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border-card);
-  border-left: 3px solid var(--border);
-  border-radius: 0 8px 8px 0;
-  background: var(--bg-parchment);
-  color: var(--text-muted);
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 0.8rem;
-  line-height: 1.5;
+/* ── Move note (builder) ───────────────────────────────────────────────────── */
+/* A purely manual per-move note. The block sits under the title row and shows
+   the note text (when present) above a single button that opens the editor. */
+
+.note-block {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  box-shadow: var(--shadow-card);
+  align-items: flex-start;
 }
 
-/* Engine verdict — the headline, colour-coded by severity. */
-.explanation-verdict {
-  font-weight: 700;
-}
-.explanation-verdict.verdict-best,
-.explanation-verdict.verdict-good {
-  color: var(--success);
-}
-.explanation-verdict.verdict-inaccuracy,
-.explanation-verdict.verdict-dubious {
-  color: #a9751a;
-}
-.explanation-verdict.verdict-mistake,
-.explanation-verdict.verdict-blunder {
-  color: var(--warn);
-}
-
-/* The move description sits under the verdict, quieter and italic. */
-.explanation-text {
+/* The saved note, shown quietly above the Edit button. */
+.note-display {
+  width: 100%;
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-family: Georgia, 'Times New Roman', serif;
   font-style: italic;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
-/* "New territory" replaces the description when the engine can't grade it. */
-.explanation-text.explanation-newground {
-  font-style: normal;
-  color: var(--text-muted);
-}
-
-/* Quiet action row: adopt-as-note button and the engine-off hint. */
-.explanation-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem 0.6rem;
-  margin-top: 0.1rem;
-}
-.explanation-add-note {
-  appearance: none;
-  background: none;
-  border: none;
-  padding: 0;
-  color: var(--text-muted);
-  font-family: inherit;
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
-}
-.explanation-add-note:hover {
-  color: var(--accent);
-}
-.explanation-hint {
-  color: var(--text-fainter);
-  font-size: 0.75rem;
-  font-style: italic;
-}
-
-/* ── Move note panel (builder) ─────────────────────────────────────────────── */
-
-#note-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-/* Compact head: the label with two small icon actions (+ adopt, pencil write). */
-.note-panel-head {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.note-panel-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  margin-left: auto;
-}
-
-.note-icon-btn {
+/* The add/edit button: note icon + label. */
+.note-btn {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
+  gap: 0.4rem;
+  padding: 0.4rem 0.7rem;
   border: 1px solid var(--border-card);
-  border-radius: 50%;
+  border-radius: 999px;
   background: var(--bg-card);
   color: var(--text-muted);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   box-shadow: var(--shadow-card);
   transition: color 0.12s, border-color 0.12s, filter 0.12s;
 }
 
-.note-icon-btn:hover {
+.note-btn:hover {
   color: var(--accent);
   border-color: var(--accent);
 }
 
-.note-icon-btn:active {
-  filter: brightness(0.95);
-  transform: translateY(1px);
-}
-
-/* Save-note button: a small accent pill shown while the note editor is open.
-   Tapping it dismisses the keyboard and confirms the note took. */
-.note-done-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  height: 28px;
-  padding: 0 0.7rem;
-  border: 1px solid var(--accent);
-  border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-family: system-ui, -apple-system, sans-serif;
-  font-size: 0.78rem;
-  font-weight: 700;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: filter 0.12s, transform 0.12s;
-}
-
-.note-done-btn:active {
+.note-btn:active {
   filter: brightness(0.96);
   transform: translateY(1px);
 }
 
-.note-panel-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-faint);
-  letter-spacing: 0.03em;
-}
-
-.note-panel-textarea {
+/* The textarea inside the note sheet (showPromptSheet). */
+.prompt-sheet-textarea {
   width: 100%;
+  margin: 0.25rem 0 0.75rem;
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--border);
   border-left: 3px solid var(--accent);
@@ -3553,16 +3454,16 @@ cg-board square.move-dest.oc {
   font-size: 0.875rem;
   line-height: 1.5;
   resize: vertical;
-  min-height: 3.25rem;
+  min-height: 4rem;
 }
 
-.note-panel-textarea:focus {
+.prompt-sheet-textarea:focus {
   outline: none;
   border-color: var(--accent);
   border-left-color: var(--accent);
 }
 
-.note-panel-textarea::placeholder {
+.prompt-sheet-textarea::placeholder {
   color: var(--text-fainter);
   font-style: italic;
 }
