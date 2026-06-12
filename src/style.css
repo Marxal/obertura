@@ -2125,23 +2125,77 @@ cg-board square.move-dest.oc {
 
 /* ── Train hub: "In training" filter row + rows ─────────────────────────────── */
 
-.train-filters {
+/* Shared filter bar (filters.ts): two rows. Row 1 is the colour segment with
+   the sort menu pushed to its right; row 2 is one scrollable chip row. */
+.fbar {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0.5rem;
   padding: 0 0 0.7rem;
 }
 
-/* Colour seg wraps on its own line above; status seg + sort share the next. */
-.train-filter-line {
+.fbar-top {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  flex-wrap: wrap;
 }
 
-.train-filter-line .dorder {
-  margin-left: auto;
+/* The whole bar reads in the Phase 1 primary green when active. */
+.fbar .dfilter-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+/* One horizontally scrollable chip row — no wrapping, it scrolls. */
+.fbar-chips {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.fbar-chips::-webkit-scrollbar {
+  display: none;
+}
+
+/* A quiet pill chip (tags + status). Mirrors the segment buttons' shape; turns
+   primary green when active. */
+.fchip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.fchip.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+/* Hairline divider between the tag chips and the status pills that close the row. */
+.fbar-sep {
+  flex: 0 0 auto;
+  align-self: stretch;
+  width: 1px;
+  margin: 0.15rem 0.15rem;
+  background: var(--border);
 }
 
 .train-lines-empty {
