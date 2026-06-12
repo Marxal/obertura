@@ -15,12 +15,15 @@ export interface EvalResult {
   fen: string;
   source: EvalSource;
   depth: number;
+  // Local Stockfish only: the depth the search is climbing towards, so the
+  // badge can show "local · d14…d20" while it works.
+  targetDepth?: number;
   moves: MoveEval[];
 }
 
 export type EvalCallback = (result: EvalResult) => void;
 
-const MAX_DEPTH = 15;
+const MAX_DEPTH = 20;
 const LICHESS_CLOUD = 'https://lichess.org/api/cloud-eval';
 
 // Returns true if userUci is a "good alternative" at this position — i.e. it
@@ -257,7 +260,7 @@ export class Engine {
       cp: v.cp,
       mate: v.mate,
     }));
-    this.cb({ fen: this.currentFen, source: 'stockfish', depth: maxDepth, moves });
+    this.cb({ fen: this.currentFen, source: 'stockfish', depth: maxDepth, targetDepth: MAX_DEPTH, moves });
   }
 
   async evaluate(fen: string) {

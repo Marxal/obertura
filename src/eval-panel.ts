@@ -114,11 +114,11 @@ export class EvalPanel {
       `</span>`
     ).join('');
 
-    // Source badge.
+    // Source + depth badge: "cloud · d38" when Lichess answered, or
+    // "local · d14…d20" while the bundled Stockfish climbs to its target
+    // (collapsing to "local · d20" once it lands).
     const sourceEl = this.controlsEl.querySelector<HTMLElement>('#eval-source')!;
-    sourceEl.textContent = result.source === 'lichess'
-      ? `☁ d${result.depth}`
-      : `⚙ d${result.depth}`;
+    sourceEl.textContent = this.badgeText(result);
   }
 
   clear() {
@@ -133,11 +133,23 @@ export class EvalPanel {
   }
 
   // Maps white-perspective centipawns to a 0–100% fill (white fills from the
-  // left). Uses a soft sigmoid so extreme evals don't peg the bar instantly.
+  // left) using Lichess's winning-chances curve, so the bar reads as the
+  // practical chance of winning rather than raw material. A +0.8 edge lands
+  // near 57%, not a near-win. Mate scores are pinned to the extremes.
   private cpToFill(cp: number): number {
     if (cp >= 9999) return 100;
     if (cp <= -9999) return 0;
-    return 50 + 50 * (2 / (1 + Math.exp(-cp / 250)) - 1);
+    // winChance ∈ (-1, 1): +1 = white winning, -1 = black winning.
+    const winChance = 2 / (1 + Math.exp(-0.00368208 * cp)) - 1;
+    const clamped = Math.max(-1, Math.min(1, winChance));
+    return 50 + 50 * clamped;
+  }
+
+  private badgeText(result: EvalResult): string {
+    if (result.source === 'lichess') return `cloud · d${result.depth}`;
+    const target = result.targetDepth;
+    if (target && result.depth < target) return `local · d${result.depth}…d${target}`;
+    return `local · d${result.depth}`;
   }
 
   private fmtScore(m: MoveEval): string {
