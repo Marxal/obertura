@@ -33,14 +33,20 @@ const root: MoveNode = {
 
 let current: MoveNode = root;
 
+// The builder edits a single line, not a branching tree. Playing the move that
+// already continues from the cursor (children[0]) just advances along it. Playing
+// ANY other move from mid-line is an edit: the new move REPLACES everything from
+// here on — it becomes the node's sole child and the old continuation is dropped
+// immediately. This keeps the tree a single path, so mainline() always equals the
+// visible line and serialise() stores exactly one line (no stray sibling branches).
 export function addMove(san: string, uci: string, fen: string): MoveNode {
-  const existing = current.children.find(c => c.san === san);
-  if (existing) {
-    current = existing;
-    return existing;
+  const next = current.children[0];
+  if (next && next.san === san) {
+    current = next;
+    return next;
   }
   const node: MoveNode = { id: `n${++idCounter}`, san, uci, fen, children: [] };
-  current.children.push(node);
+  current.children = [node];
   current = node;
   return node;
 }
@@ -123,6 +129,13 @@ export function reset(): void {
 // Load a previously serialised tree into the module, replacing the current
 // tree. Scans the loaded nodes for the highest numeric id so that any new
 // moves added afterwards don't collide with existing node ids.
+//
+// OLD DATA: there is NO migration. Lines saved before the builder edited a
+// single line may carry hidden dead branches (extra siblings under some node).
+// They load fine and display their mainline (the children[0] chain) exactly as
+// today, since every reader walks children[0] only. The first divergent edit
+// truncates from the edit point onward (see addMove), which discards those dead
+// branches and cleans the line naturally on the next save.
 export function loadTree(data: MoveNode): void {
   root.children = structuredClone(data.children);
   current = root;
