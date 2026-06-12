@@ -5676,6 +5676,15 @@ cg-board square.move-dest.oc {
   color: var(--text-muted);
 }
 
+/* The front-door "Play" button — full-width primary (chrome from .btn-primary). */
+.spar-start-btn {
+  width: 100%;
+  margin-top: var(--space-md);
+  min-height: 52px;
+  font-size: 1rem;
+  border-radius: 10px;
+}
+
 /* The full-screen spar overlay reuses the .pt- pre-training shell. Its bottom
    block mirrors .pt-top so the board sits centred between them. */
 .spar-bottom {
