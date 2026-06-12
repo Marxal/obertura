@@ -10,6 +10,8 @@ import {
   getTimedBest,
   recordTimedBest,
   getDefaultTrainingMode,
+  getShowPausedLines,
+  setShowPausedLines,
   TIMED_DURATIONS,
   type TimedMinutes,
 } from './prefs';
@@ -130,7 +132,7 @@ async function doRender(
   renderTrainHead(container);
   renderHero(container, due, trainingLines);
   renderModeCards(container, trainingLines);
-  renderCardList(container, trainingLines);
+  renderCardList(container, trainingLines, allLines.filter(l => !l.inTraining));
 }
 
 // ── Train header (daily streak pill) ──────────────────────────────────────────
@@ -208,11 +210,11 @@ function renderEmpty(container: HTMLElement): void {
   container.appendChild(wrap);
 }
 
-// ── Hero: "Due now" ───────────────────────────────────────────────────────────
+// ── Hero: "Due now" · "Reviewed today" ────────────────────────────────────────
 //
-// The front door. One number (lines due), today's effort when there is some,
-// and the primary Start button that launches the scheduled queue. Calm: the
-// count animates up on entry; nothing flashes.
+// The front door. Two compact stats side by side — lines due and today's effort —
+// at half the old headline height, with the primary Start button full-width
+// below. Same data, calmer footprint. The counts animate up on entry.
 
 // Lines drilled per explicit-mode session, so Fresh/Trouble stay bite-sized.
 const PICKER_SESSION_CAP = 12;
@@ -221,32 +223,24 @@ function renderHero(container: HTMLElement, due: Line[], allTraining: Line[]): v
   const hero = document.createElement('div');
   hero.className = 'card train-hero' + (due.length === 0 ? ' train-hero--clear' : '');
 
-  const label = document.createElement('div');
-  label.className = 'train-hero-label';
-  label.textContent = 'Due now';
-  hero.appendChild(label);
+  // Two stats in a row: "Due now" and "Reviewed today". Numbers above, labels
+  // beneath, each at roughly half the old single big count.
+  const stats = document.createElement('div');
+  stats.className = 'train-hero-stats';
 
-  const countRow = document.createElement('div');
-  countRow.className = 'train-hero-count-row';
-  const count = document.createElement('span');
-  count.className = 'train-hero-count';
-  count.textContent = '0';
-  countRow.appendChild(count);
-  const unit = document.createElement('span');
-  unit.className = 'train-hero-unit';
-  unit.textContent = due.length === 1 ? 'line' : 'lines';
-  countRow.appendChild(unit);
-  hero.appendChild(countRow);
-  countUp(count, due.length);
+  const dueNum = document.createElement('span');
+  dueNum.className = 'train-hero-stat-num';
+  dueNum.textContent = '0';
+  stats.appendChild(buildHeroStat('due', dueNum, 'Due now'));
+  countUp(dueNum, due.length);
 
-  // Today's effort, when there's been any.
-  const reviewed = reviewedToday();
-  if (reviewed > 0) {
-    const rev = document.createElement('div');
-    rev.className = 'train-hero-reviewed';
-    rev.textContent = `${reviewed} reviewed today`;
-    hero.appendChild(rev);
-  }
+  const revNum = document.createElement('span');
+  revNum.className = 'train-hero-stat-num';
+  revNum.textContent = '0';
+  stats.appendChild(buildHeroStat('reviewed', revNum, 'Reviewed today'));
+  countUp(revNum, reviewedToday());
+
+  hero.appendChild(stats);
 
   const start = document.createElement('button');
   start.type = 'button';
@@ -262,6 +256,18 @@ function renderHero(container: HTMLElement, due: Line[], allTraining: Line[]): v
   hero.appendChild(start);
 
   container.appendChild(hero);
+}
+
+// One column of the hero pair: a big-ish number stacked over its label.
+function buildHeroStat(kind: 'due' | 'reviewed', num: HTMLElement, label: string): HTMLElement {
+  const col = document.createElement('div');
+  col.className = `train-hero-stat train-hero-stat--${kind}`;
+  col.appendChild(num);
+  const lbl = document.createElement('div');
+  lbl.className = 'train-hero-stat-label';
+  lbl.textContent = label;
+  col.appendChild(lbl);
+  return col;
 }
 
 // ── Mode cards ──────────────────────────────────────────────────────────────────
@@ -532,9 +538,14 @@ function trainedTime(line: Line): number {
   return line.lastTrained ? new Date(line.lastTrained).getTime() : 0;
 }
 
-function renderCardList(container: HTMLElement, trainingLines: Line[]): void {
+function renderCardList(container: HTMLElement, trainingLines: Line[], pausedLines: Line[]): void {
   const section = document.createElement('div');
   section.className = 'section';
+
+  // By default the list shows only in-training lines. When paused lines exist, a
+  // quiet "Show paused" text-toggle reveals them in place (dimmed, switch off);
+  // its state persists across reloads.
+  let showPaused = getShowPausedLines();
 
   const head = document.createElement('div');
   head.className = 'section-head';
@@ -542,10 +553,29 @@ function renderCardList(container: HTMLElement, trainingLines: Line[]): void {
   heading.className = 'section-title';
   heading.textContent = 'In training';
   head.appendChild(heading);
+
+  if (pausedLines.length > 0) {
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'train-show-paused';
+    const syncToggle = () => {
+      toggle.classList.toggle('active', showPaused);
+      toggle.setAttribute('aria-pressed', String(showPaused));
+      toggle.textContent = showPaused ? 'Hide paused' : 'Show paused';
+    };
+    syncToggle();
+    toggle.addEventListener('click', () => {
+      showPaused = !showPaused;
+      setShowPausedLines(showPaused);
+      syncToggle();
+      rebuildList();
+    });
+    head.appendChild(toggle);
+  }
   section.appendChild(head);
 
-  // The list re-renders in place when a filter/sort changes; a remove/undo
-  // re-renders the whole screen (so the hero counts stay honest).
+  // The list re-renders in place when a filter/sort/Show-paused changes; a
+  // pause/resume re-renders the whole screen (so the hero counts stay honest).
   const listEl = document.createElement('div');
   listEl.className = 'train-lines group';
 
@@ -565,17 +595,18 @@ function renderCardList(container: HTMLElement, trainingLines: Line[]): void {
 
   function rebuildList(): void {
     listEl.innerHTML = '';
-    const shown = viewTrainingLines(trainingLines, filter.selection);
-    if (shown.length === 0) {
+    const inTraining = viewTrainingLines(trainingLines, filter.selection);
+    const paused = showPaused ? viewTrainingLines(pausedLines, filter.selection) : [];
+    if (inTraining.length === 0 && paused.length === 0) {
       const note = document.createElement('p');
       note.className = 'train-lines-empty';
       note.textContent = 'No lines match these filters.';
       listEl.appendChild(note);
       return;
     }
-    for (const line of shown) {
-      listEl.appendChild(buildTrainRow(line, container));
-    }
+    // In-training rows first; paused rows follow, dimmed with their switch off.
+    for (const line of inTraining) listEl.appendChild(buildTrainRow(line, container));
+    for (const line of paused) listEl.appendChild(buildTrainRow(line, container));
   }
 
   section.appendChild(filter.element);
@@ -601,6 +632,9 @@ function distinctUserTags(lines: Line[]): string[] {
 function buildTrainRow(line: Line, container: HTMLElement): HTMLElement {
   const card = document.createElement('div');
   card.className = 'line-card train-row';
+
+  // Paused rows (revealed by "Show paused") read dimmed, switch off.
+  if (!line.inTraining) card.classList.add('train-row--paused');
 
   const bucket = lineBucket(line);
   if (bucket !== 'due') card.classList.add('line-card--rested');
@@ -658,70 +692,102 @@ function buildTrainRow(line: Line, container: HTMLElement): HTMLElement {
   view.addEventListener('click', () => onViewLine?.(line));
   actions.appendChild(view);
 
-  const remove = document.createElement('button');
-  remove.type = 'button';
-  remove.className = 'dline-icon dline-icon--danger train-row-remove';
-  remove.setAttribute('aria-label', 'Remove from training');
-  remove.title = 'Remove from training';
-  remove.appendChild(Icons.trash(18));
-  // One tap removes immediately — no confirm. An Undo toast restores it.
-  remove.addEventListener('click', () => void removeFromTraining(line, container));
-  actions.appendChild(remove);
+  // The one training control — the exact In-training switch My Lines uses. ON
+  // here means "in the drill pool". Flicking it off pauses the line (keeping it
+  // in My Lines); the row fades out and a toast confirms. No confirm dialog —
+  // the switch itself is reversible (re-flick it under "Show paused").
+  actions.appendChild(buildTrainingSwitch(line, card, container));
 
   card.appendChild(actions);
 
   return card;
 }
 
-// Agile remove: flip the line out of training and repaint the whole Train screen
-// at once (so the hero "Due" count and the list both update), then float an Undo
-// toast that puts it straight back if tapped within a few seconds.
-async function removeFromTraining(line: Line, container: HTMLElement): Promise<void> {
-  await saveLine({ ...line, inTraining: false });
-  await doRender(container);
-  showUndoToast(`Removed “${line.name || 'Untitled line'}”`, async () => {
-    await saveLine({ ...line, inTraining: true });
+// The In-training switch, identical in markup to the My Lines control so it
+// looks and behaves the same everywhere.
+function buildTrainingSwitch(line: Line, row: HTMLElement, container: HTMLElement): HTMLElement {
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = `dline-toggle train-row-toggle${line.inTraining ? ' dline-toggle--on' : ''}`;
+  toggle.setAttribute('role', 'switch');
+  toggle.setAttribute('aria-checked', String(line.inTraining));
+  toggle.setAttribute('aria-label', line.inTraining ? 'In training' : 'Paused');
+
+  const sw = document.createElement('span');
+  sw.className = 'dline-switch';
+  const knob = document.createElement('span');
+  knob.className = 'dline-switch-knob';
+  sw.appendChild(knob);
+  toggle.appendChild(sw);
+
+  const label = document.createElement('span');
+  label.className = 'dline-toggle-label';
+  label.textContent = `Training ${line.inTraining ? 'ON' : 'OFF'}`;
+  toggle.appendChild(label);
+
+  toggle.addEventListener('click', () => void toggleTraining(line, row, container));
+  return toggle;
+}
+
+// Flip a line in/out of the drill pool. Pausing animates the row out and floats
+// a confirming toast; resuming repaints at once so the line leaves the paused
+// view. Either way the whole screen re-renders so the hero counts stay honest.
+async function toggleTraining(line: Line, row: HTMLElement, container: HTMLElement): Promise<void> {
+  const pausing = line.inTraining;
+  await saveLine({ ...line, inTraining: !line.inTraining });
+  if (pausing) {
+    showToast('Paused — still in My Lines');
+    animateRowOut(row, () => void doRender(container));
+  } else {
     await doRender(container);
+  }
+}
+
+// Collapse + fade a row out, then run a callback. Honours reduced-motion by
+// skipping straight to the callback.
+function animateRowOut(row: HTMLElement, done: () => void): void {
+  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  if (reduce) { done(); return; }
+
+  row.style.maxHeight = `${row.offsetHeight}px`;
+  row.classList.add('train-row--leaving');
+  let called = false;
+  const finish = () => { if (!called) { called = true; done(); } };
+  row.addEventListener('transitionend', finish, { once: true });
+  // Fallback in case the transition never fires (e.g. display quirks).
+  setTimeout(finish, 400);
+  requestAnimationFrame(() => {
+    row.style.maxHeight = '0';
+    row.style.opacity = '0';
+    row.style.paddingTop = '0';
+    row.style.paddingBottom = '0';
+    row.style.marginTop = '0';
+    row.style.marginBottom = '0';
   });
 }
 
-// A transient toast with an Undo action. Reuses the .toast chrome; only one is
-// ever on screen (a new remove replaces the previous toast and its timer).
-let undoToastTimer: ReturnType<typeof setTimeout> | undefined;
-function showUndoToast(message: string, onUndo: () => void): void {
-  document.getElementById('train-undo-toast')?.remove();
-  if (undoToastTimer !== undefined) clearTimeout(undoToastTimer);
+// A plain transient toast (no actions). Reuses the .toast chrome; only one is
+// ever on screen.
+let toastTimer: ReturnType<typeof setTimeout> | undefined;
+function showToast(message: string): void {
+  document.getElementById('train-toast')?.remove();
+  if (toastTimer !== undefined) clearTimeout(toastTimer);
 
   const toast = document.createElement('div');
-  toast.id = 'train-undo-toast';
-  toast.className = 'toast undo-toast';
+  toast.id = 'train-toast';
+  toast.className = 'toast';
   toast.setAttribute('role', 'status');
   toast.setAttribute('aria-live', 'polite');
-
-  const text = document.createElement('span');
-  text.className = 'undo-toast-text';
-  text.textContent = message;
-  toast.appendChild(text);
-
-  const undo = document.createElement('button');
-  undo.type = 'button';
-  undo.className = 'undo-toast-btn';
-  undo.textContent = 'Undo';
-  undo.addEventListener('click', () => {
-    if (undoToastTimer !== undefined) clearTimeout(undoToastTimer);
-    toast.remove();
-    onUndo();
-  });
-  toast.appendChild(undo);
+  toast.textContent = message;
 
   document.body.appendChild(toast);
   // Let the element mount before adding the show class, so it animates in.
   requestAnimationFrame(() => toast.classList.add('toast--show'));
 
-  undoToastTimer = setTimeout(() => {
+  toastTimer = setTimeout(() => {
     toast.classList.remove('toast--show');
     setTimeout(() => toast.remove(), 200);
-  }, 5000);
+  }, 3000);
 }
 
 // ── Driving a session ───────────────────────────────────────────────────────────

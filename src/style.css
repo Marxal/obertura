@@ -2238,9 +2238,47 @@ cg-board square.move-dest.oc {
   font-size: 0.875rem;
 }
 
-.train-row-view,
-.train-row-remove {
+.train-row-view {
   border: 1px solid var(--border-card);
+}
+
+/* The In-training switch sits at the end of the action strip, matching My Lines. */
+.train-row-toggle {
+  flex: 0 0 auto;
+}
+
+/* Paused rows revealed by "Show paused": dimmed, switch off, one flick to wake. */
+.train-row--paused {
+  opacity: 0.55;
+}
+
+/* The short fade/collapse a row plays when flicked out of training. */
+.train-row--leaving {
+  overflow: hidden;
+  opacity: 1;
+  transition:
+    max-height 0.28s ease,
+    opacity 0.22s ease,
+    padding 0.28s ease,
+    margin 0.28s ease;
+}
+
+/* A quiet text-toggle beside the "In training" heading. */
+.train-show-paused {
+  border: none;
+  background: transparent;
+  padding: 0.2rem 0.1rem;
+  color: var(--text-muted);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.train-show-paused.active {
+  color: var(--primary);
 }
 
 /* Status pill in a row's meta line — one per bucket. */
@@ -3087,39 +3125,47 @@ cg-board square.move-dest.oc {
   background-image: linear-gradient(165deg, var(--accent-soft) 0%, transparent 60%);
 }
 
-.train-hero-label {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.train-hero-count-row {
+/* The two compact stats, side by side: half the old headline height. */
+.train-hero-stats {
   display: flex;
-  align-items: baseline;
-  gap: 0.35rem;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--space-xl);
+  width: 100%;
 }
 
-.train-hero-count {
-  font-size: 3.4rem;
+.train-hero-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.train-hero-stat-num {
+  font-size: 1.9rem;
   line-height: 1;
   font-weight: 800;
   color: var(--primary);
   font-variant-numeric: tabular-nums;
 }
 
-.train-hero--clear .train-hero-count { color: var(--success); }
-
-.train-hero-unit {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-faint);
+.train-hero-stat--reviewed .train-hero-stat-num {
+  color: var(--text);
 }
 
-.train-hero-reviewed {
-  font-size: 0.82rem;
-  color: var(--text-faint);
+.train-hero--clear .train-hero-stat--due .train-hero-stat-num {
+  color: var(--success);
+}
+
+.train-hero-stat-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-align: center;
 }
 
 /* Size/width modifiers only — chrome from .btn-primary in HTML. */
