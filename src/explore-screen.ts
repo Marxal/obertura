@@ -97,7 +97,7 @@ async function buildScreen(container: HTMLElement): Promise<void> {
     section.appendChild(empty);
   } else {
     const list = document.createElement('div');
-    list.className = 'lines-section';
+    list.className = 'group';
     for (const opp of opponents) list.appendChild(opponentCard(opp, container));
     section.appendChild(list);
   }
@@ -253,7 +253,7 @@ function librarySection(): HTMLElement {
 
 function opponentCard(opp: Opponent, container: HTMLElement): HTMLElement {
   const card = document.createElement('div');
-  card.className = 'line-card';
+  card.className = 'line-card group-row';
 
   const body = document.createElement('div');
   body.className = 'line-card-body';
@@ -462,10 +462,10 @@ function yourPrepSection(lines: Line[], onOpen: (line: Line) => void): HTMLEleme
   section.appendChild(head);
 
   const list = document.createElement('div');
-  list.className = 'lines-section';
+  list.className = 'group';
   for (const line of lines) {
     const card = document.createElement('div');
-    card.className = 'line-card';
+    card.className = 'line-card group-row';
     const body = document.createElement('div');
     body.className = 'line-card-body';
     body.setAttribute('role', 'button');
@@ -578,7 +578,7 @@ function openingsSection(title: string, stats: OpeningStat[], prepare: PrepareFn
   }
 
   const list = document.createElement('div');
-  list.className = 'lines-section';
+  list.className = 'group';
   stats.forEach((stat, i) => {
     const card = openingCard(stat, prepare);
     if (i >= TOP_OPENINGS) card.hidden = true;
@@ -602,7 +602,7 @@ function openingsSection(title: string, stats: OpeningStat[], prepare: PrepareFn
 
 function openingCard(stat: OpeningStat, prepare: PrepareFn): HTMLElement {
   const card = document.createElement('div');
-  card.className = 'line-card review-card';
+  card.className = 'line-card review-card group-row';
 
   const body = document.createElement('div');
   body.className = 'line-card-body review-card-body';

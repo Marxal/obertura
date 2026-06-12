@@ -570,7 +570,7 @@ function renderCardList(container: HTMLElement, trainingLines: Line[]): void {
   // The list re-renders in place when a filter/sort changes; a remove/undo
   // re-renders the whole screen (so the hero counts stay honest).
   const listEl = document.createElement('div');
-  listEl.className = 'train-lines';
+  listEl.className = 'train-lines group';
 
   function rebuildList(): void {
     listEl.innerHTML = '';
@@ -696,7 +696,7 @@ function buildSortMenu(onChange: () => void): HTMLElement {
 
 function buildTrainRow(line: Line, container: HTMLElement): HTMLElement {
   const card = document.createElement('div');
-  card.className = 'line-card train-row';
+  card.className = 'line-card train-row group-row';
 
   const bucket = lineBucket(line);
   if (bucket !== 'due') card.classList.add('line-card--rested');
