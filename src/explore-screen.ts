@@ -17,12 +17,14 @@ import { openLibrary } from './library';
 import { openSpar, type SparSaveFn } from './spar';
 import { analyseGames, type OpeningStat } from './analysis';
 import {
-  getAllLines, getAllOpponents, getOpponent, saveOpponent, deleteOpponent, countOpponents,
+  getAllLines, getAllOpponents, getOpponent, saveOpponent, deleteOpponent, deleteLine,
+  countOpponents,
 } from './storage';
 import {
   MAX_OPPONENTS, makeOpponent, opponentLine, colourGameCount, opponentTag, isOpponentTag,
-  type Opponent,
+  opponentSummary, type Opponent,
 } from './scout';
+import { wdlBlock } from './wdl-bar';
 import { createFilterBar } from './filters';
 import { pushBack } from './back-nav';
 
@@ -53,9 +55,12 @@ export interface ExploreDeps {
 
 let exploreDeps: ExploreDeps | null = null;
 
-export function renderExploreScreen(container: HTMLElement, deps?: ExploreDeps): void {
+// Returns the rebuild promise so callers that must wait for a fresh list (the
+// delete flow) can await it before revealing the screen; everyone else ignores
+// it and renders fire-and-forget.
+export function renderExploreScreen(container: HTMLElement, deps?: ExploreDeps): Promise<void> {
   if (deps) exploreDeps = deps;
-  void buildScreen(container);
+  return buildScreen(container);
 }
 
 async function buildScreen(container: HTMLElement): Promise<void> {
@@ -256,7 +261,7 @@ function opponentCard(opp: Opponent, container: HTMLElement): HTMLElement {
   card.className = 'line-card';
 
   const body = document.createElement('div');
-  body.className = 'line-card-body';
+  body.className = 'line-card-body scout-card-body';
   body.setAttribute('role', 'button');
   body.tabIndex = 0;
   const open = () => openDetail(opp.id, container);
@@ -265,17 +270,35 @@ function opponentCard(opp: Opponent, container: HTMLElement): HTMLElement {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
   });
 
+  // Line 1: name, with a chevron pinned to the far right so the card reads as
+  // tappable.
+  const headRow = document.createElement('div');
+  headRow.className = 'scout-card-head';
   const nameEl = document.createElement('div');
   nameEl.className = 'line-card-name';
   nameEl.textContent = opp.name;
-  body.appendChild(nameEl);
+  headRow.appendChild(nameEl);
+  const chevron = Icons.chevronRight(18);
+  chevron.classList.add('scout-card-chevron');
+  headRow.appendChild(chevron);
+  body.appendChild(headRow);
 
-  const metaRow = document.createElement('div');
-  metaRow.className = 'line-card-meta';
-  metaRow.appendChild(chip(PLATFORM_LABEL[opp.platform]));
-  metaRow.appendChild(chip(`${opp.gamesAnalysed} game${opp.gamesAnalysed === 1 ? '' : 's'}`));
-  metaRow.appendChild(chip(timeAgo(opp.refreshedAt)));
-  body.appendChild(metaRow);
+  const summary = opponentSummary(opp);
+
+  // Line 2: their most-played opening, one truncated line.
+  const openingEl = document.createElement('div');
+  openingEl.className = 'scout-card-opening';
+  openingEl.textContent = summary.topOpening ?? 'No openings yet';
+  body.appendChild(openingEl);
+
+  // Line 3: their W-D-L bar (the reusable component).
+  body.appendChild(wdlBlock({
+    wins: summary.wins,
+    draws: summary.draws,
+    losses: summary.losses,
+    scorePct: summary.scorePct,
+    games: summary.games,
+  }));
 
   card.appendChild(body);
   return card;
@@ -394,14 +417,41 @@ function openDetail(id: string, container: HTMLElement): void {
     deleteBtn.className = 'btn-danger';
     deleteBtn.appendChild(Icons.trash(15));
     deleteBtn.appendChild(document.createTextNode('Delete'));
+    // Delete. The games and the scouting maps always go; the only choice is what
+    // happens to the prepared lines tagged against this opponent. Refresh the
+    // list FIRST and only then drop the detail overlay, so the back of the deck
+    // is already fresh — never the stale list the old ordering flashed.
+    const removeOpponent = (alsoDeleteLines: boolean) => {
+      void (async () => {
+        if (alsoDeleteLines) await Promise.all(myPrep.map(l => deleteLine(l.id)));
+        await deleteOpponent(id);
+        await renderExploreScreen(container);
+        close();
+      })();
+    };
     deleteBtn.addEventListener('click', () => {
+      // No prep against them — a plain two-button confirm.
+      if (myPrep.length === 0) {
+        showDialog({
+          title: `Delete ${opp.name}?`,
+          body: 'This removes their imported games and scouting maps from this device.',
+          buttons: [
+            { label: 'Delete', variant: 'danger', onClick: () => removeOpponent(false) },
+            { label: 'Cancel', variant: 'secondary' },
+          ],
+        });
+        return;
+      }
+      // They have prepared lines — offer to keep them (still useful, tagged) or
+      // sweep them away too, with a live count.
+      const n = myPrep.length;
+      const them = n === 1 ? 'it' : 'them';
       showDialog({
         title: `Delete ${opp.name}?`,
-        body: 'This removes their imported games and scouting maps from this device.',
+        body: `Their games and scouting maps will be removed. You have ${n} prepared line${n === 1 ? '' : 's'} tagged “vs ${opp.name}” — keep ${them} in My Lines, or delete ${them} too?`,
         buttons: [
-          { label: 'Delete', variant: 'danger', onClick: () => {
-            void deleteOpponent(id).then(() => { close(); renderExploreScreen(container); });
-          } },
+          { label: `Keep my ${n} line${n === 1 ? '' : 's'}`, variant: 'primary', onClick: () => removeOpponent(false) },
+          { label: 'Delete the lines too', variant: 'danger', onClick: () => removeOpponent(true) },
           { label: 'Cancel', variant: 'secondary' },
         ],
       });

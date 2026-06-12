@@ -14,6 +14,7 @@ import { Chess } from 'chess.js';
 import type { MoveNode } from './tree';
 import type { Line } from './types';
 import type { ImportedGame, Platform } from './import-core';
+import { openingFamily, UNKNOWN_FAMILY } from './analysis';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -157,6 +158,50 @@ export function opponentLine(tree: MoveNode, colour: 'white' | 'black', name: st
 // How many of an opponent's games were played as the given colour.
 export function colourGameCount(opp: Opponent, colour: 'white' | 'black'): number {
   return opp.games.filter(g => g.colour === colour).length;
+}
+
+// ── Per-opponent aggregates (for the Explore card) ────────────────────────────
+//
+// One quick read over an opponent's games: their overall W/D/L (results are
+// already stored from THEIR perspective, since the scouted username is the one
+// the import treats as "me"), the matching score percentage, and their single
+// most-played opening family. Recognised families win the headline slot; we
+// only fall back to "Unrecognised opening" if that's genuinely all they have.
+
+export interface OpponentSummary {
+  games: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  scorePct: number;             // their perspective: (wins + draws/2) / games
+  topOpening: string | null;    // most-played family, or null if no games
+}
+
+export function opponentSummary(opp: Opponent): OpponentSummary {
+  let wins = 0, draws = 0, losses = 0;
+  const familyCounts = new Map<string, number>();
+  for (const g of opp.games) {
+    if (g.result === 'win') wins++;
+    else if (g.result === 'loss') losses++;
+    else draws++;
+    const fam = openingFamily(g.opening);
+    familyCounts.set(fam, (familyCounts.get(fam) ?? 0) + 1);
+  }
+
+  const games = opp.games.length;
+  const scorePct = games === 0 ? 0 : Math.round(((wins + draws / 2) / games) * 100);
+
+  // Prefer the most-played RECOGNISED family; only headline an unrecognised one
+  // if no named opening was ever tagged.
+  let topOpening: string | null = null;
+  let best = 0;
+  for (const [fam, n] of familyCounts) {
+    if (fam === UNKNOWN_FAMILY) continue;
+    if (n > best) { best = n; topOpening = fam; }
+  }
+  if (topOpening === null && familyCounts.size > 0) topOpening = UNKNOWN_FAMILY;
+
+  return { games, wins, draws, losses, scorePct, topOpening };
 }
 
 // ── Opponent tags ─────────────────────────────────────────────────────────────
