@@ -42,8 +42,10 @@
   --accent: #c07a2a;
   --accent-active: #9f6220;
   --accent-soft: rgba(192, 122, 42, 0.12);
-  --maroon: #7a2230;
-  --maroon-active: #611b26;
+  /* Felt green — THE primary (replaces the retired oxblood). White text on it
+     measures 6.5:1 (cream 5.3:1), so it clears 4.5:1 comfortably. */
+  --primary: #3e6650;
+  --primary-active: #345646;
   /* Sage replaces the old generic green; brick replaces the old generic red.
      Used for every success/danger state in the app (buttons, toggles, drill
      feedback, pills…). */
@@ -98,8 +100,10 @@
   --accent: #d4892c;
   --accent-active: #b8721f;
   --accent-soft: rgba(212, 137, 44, 0.22);
-  --maroon: #8e2c3a;
-  --maroon-active: #7a2433;
+  /* Felt green, a touch brighter for dark-mode legibility. White text on it
+     measures 4.7:1 — over the 4.5:1 bar, so the green holds and the ink stays. */
+  --primary: #527d63;
+  --primary-active: #466b54;
   /* Sage / brick: slightly darker than v1.1 so white label text passes 3:1 on
      the button surface (large-text threshold). As inline status text they pass
      3:1 on the dark card bg. */
@@ -136,7 +140,7 @@ body {
 /* ════════════════════════════════════════════════════════════════════════════
    BUTTONS — one shared chrome, five variants. Phone-first (min 44px tall).
    Apply a single variant class:
-     .btn-primary    oxblood — the main action (light-mode top-sheen; flat on dark)
+     .btn-primary    felt green — the main action (light-mode top-sheen; flat on dark)
      .btn-secondary  flat tonal surface — the quiet default
      .btn-success    sage — a positive / confirming action
      .btn-danger     brick — a destructive action
@@ -176,18 +180,18 @@ body {
   filter: none;
 }
 
-/* PRIMARY — oxblood. Subtle top-light vertical gradient in LIGHT mode only;
+/* PRIMARY — felt green. Subtle top-light vertical gradient in LIGHT mode only;
    dark mode stays flat (see the override below). */
 .btn-primary {
-  background-color: var(--maroon);
+  background-color: var(--primary);
   background-image: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, transparent 55%, rgba(0,0,0,0.06) 100%);
   color: #fff;
-  box-shadow: 0 2px 5px rgba(122,34,48,0.3), 0 1px 2px rgba(122,34,48,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
+  box-shadow: 0 2px 5px rgba(62,102,80,0.3), 0 1px 2px rgba(62,102,80,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
   text-shadow: 0 1px 1px rgba(0,0,0,0.18);
 }
 .btn-primary:hover {
   filter: brightness(1.1);
-  box-shadow: 0 3px 8px rgba(122,34,48,0.35), 0 1px 3px rgba(122,34,48,0.25);
+  box-shadow: 0 3px 8px rgba(62,102,80,0.35), 0 1px 3px rgba(62,102,80,0.25);
 }
 .btn-primary:active {
   filter: brightness(0.88);
@@ -428,10 +432,14 @@ header {
   background: var(--accent-soft);
 }
 
+/* Wordmark — the pixel font Silkscreen (weight 400, fallback monospace). Only
+   the wordmark uses it. Silkscreen's glyphs sit small inside the em, so the size
+   is bumped from the old 1.4rem to land at roughly the same optical cap height. */
 header h1 {
-  font-size: 1.4rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-family: 'Silkscreen', monospace;
+  font-size: 1.6rem;
+  font-weight: 400;
+  letter-spacing: 0.01em;
   color: var(--accent);
   text-transform: uppercase;
   white-space: nowrap;
@@ -479,7 +487,7 @@ header h1 {
   padding: 0.45rem 0.95rem;
   min-height: 36px;
   flex-shrink: 0;
-  background-color: var(--maroon);
+  background-color: var(--primary);
   background-image: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 55%, rgba(0,0,0,0.06) 100%);
   color: #fff;
   border: none;
@@ -490,7 +498,7 @@ header h1 {
   letter-spacing: 0.02em;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 2px 5px rgba(122,34,48,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+  box-shadow: 0 2px 5px rgba(62,102,80,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
   text-shadow: 0 1px 1px rgba(0,0,0,0.18);
   transition: filter 0.12s, box-shadow 0.12s;
 }
@@ -1525,9 +1533,9 @@ cg-board square.move-dest.oc {
 .lines-tab-icon { flex: 0 0 auto; }
 
 .lines-tab.active {
-  background: var(--maroon);
+  background: var(--primary);
   color: #fff;
-  border-color: var(--maroon);
+  border-color: var(--primary);
 }
 
 .lines-tab-content {
@@ -1762,7 +1770,7 @@ cg-board square.move-dest.oc {
   align-self: flex-start;
   font-size: 0.72rem;
   font-weight: 600;
-  color: var(--maroon);
+  color: var(--primary);
   background: rgba(156, 107, 67, 0.14);
   padding: 0.15rem 0.5rem;
   border-radius: 10px;
@@ -2048,7 +2056,7 @@ cg-board square.move-dest.oc {
 }
 
 .status-chip--learning {
-  color: var(--maroon);
+  color: var(--primary);
   background: rgba(156, 107, 67, 0.16);
 }
 
@@ -2669,7 +2677,7 @@ cg-board square.move-dest.oc {
 }
 
 .pt-status--error {
-  color: var(--maroon);
+  color: var(--danger);
 }
 
 .pt-status--success {
@@ -2861,7 +2869,7 @@ cg-board square.move-dest.oc {
 
 /* ── Train hero ("Due now") ────────────────────────────────────────────────── */
 
-/* The hero sits in a .card; this adds the centred stack + a maroon wash so it
+/* The hero sits in a .card; this adds the centred stack + a warm wash so it
    reads as the screen's headline, not just another card. */
 .train-hero {
   display: flex;
@@ -2891,7 +2899,7 @@ cg-board square.move-dest.oc {
   font-size: 3.4rem;
   line-height: 1;
   font-weight: 800;
-  color: var(--maroon);
+  color: var(--primary);
   font-variant-numeric: tabular-nums;
 }
 
@@ -2947,7 +2955,7 @@ cg-board square.move-dest.oc {
 }
 
 .mode-card:hover {
-  border-color: var(--maroon);
+  border-color: var(--primary);
   box-shadow: var(--shadow-card-hover);
 }
 
@@ -2975,7 +2983,7 @@ cg-board square.move-dest.oc {
   height: 38px;
   border-radius: 10px;
   background: var(--accent-soft);
-  color: var(--maroon);
+  color: var(--accent);
 }
 
 .mode-card-text {
@@ -3010,7 +3018,7 @@ cg-board square.move-dest.oc {
 .mode-card-stat-num {
   font-size: 1.4rem;
   font-weight: 800;
-  color: var(--maroon);
+  color: var(--primary);
   font-variant-numeric: tabular-nums;
 }
 
@@ -3124,7 +3132,7 @@ cg-board square.move-dest.oc {
 }
 
 .explore-line-move:active {
-  background: var(--maroon);
+  background: var(--primary);
   color: #fff;
 }
 
@@ -3146,7 +3154,7 @@ cg-board square.move-dest.oc {
 
 /* Chrome from .btn-secondary in HTML; color stays here. */
 .explore-btn {
-  color: var(--maroon);
+  color: var(--primary);
   min-height: 40px;
   padding: var(--space-sm) var(--space-lg);
   font-size: 0.85rem;
@@ -3824,7 +3832,7 @@ cg-board square.move-dest.oc {
   padding: 0 0.4rem;
   border: none;
   border-left: 1px solid var(--border-card);
-  background-color: var(--maroon);
+  background-color: var(--primary);
   background-image: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 55%, rgba(0,0,0,0.06) 100%);
   color: #fff;
   font-size: 0.68rem;
