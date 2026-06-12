@@ -583,7 +583,7 @@ function buildDetailCard(
   const due = line.inTraining && lineIsDue(line);
 
   const card = document.createElement('div');
-  card.className = 'dline-card group-row';
+  card.className = 'dline-card';
 
   // Just saved from the builder: draw attention and scroll it into view.
   if (line.id === highlightLineId) {
