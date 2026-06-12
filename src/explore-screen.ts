@@ -24,7 +24,7 @@ import {
   MAX_OPPONENTS, makeOpponent, opponentLine, colourGameCount, opponentTag, isOpponentTag,
   opponentSummary, type Opponent,
 } from './scout';
-import { wdlBlock } from './wdl-bar';
+import { wdlBlock, wdlScoreRow } from './wdl-bar';
 import { createFilterBar } from './filters';
 import { pushBack } from './back-nav';
 
@@ -468,23 +468,28 @@ function openDetail(id: string, container: HTMLElement): void {
       exploreDeps?.onPrepareReply(ucis, opponentColour === 'white' ? 'black' : 'white', opp.name);
     };
 
-    // My prep against this opponent, when I have any.
+    // 1) Scouting report — the dossier opens on it. Right now just the shell:
+    //    title, their overall W-D-L bar (the one "their results" caption for the
+    //    whole screen), and a quiet placeholder. Task 4.4 mounts the findings.
+    bodyWrap.appendChild(reportSection(opp));
+
+    // 2) Opening maps (auto-built at import; open instantly).
+    bodyWrap.appendChild(mapSection(opp, prepare));
+
+    // 3) My prep against this opponent, when I have any.
     if (myPrep.length > 0) {
       bodyWrap.appendChild(yourPrepSection(myPrep, line => { close(); exploreDeps?.onOpenLine(line); }));
     }
 
-    // Opening maps (auto-built at import; open instantly).
-    bodyWrap.appendChild(mapSection(opp, prepare));
-
-    // Most-played openings, per colour.
+    // 4) Their most-played openings, per colour.
     const analysis = analyseGames(opp.games, []);
     bodyWrap.appendChild(openingsSection(
-      'Most played as White',
+      'Their openings as White',
       analysis.stats.filter(s => s.colour === 'white'),
       prepare,
     ));
     bodyWrap.appendChild(openingsSection(
-      'Most played as Black',
+      'Their openings as Black',
       analysis.stats.filter(s => s.colour === 'black'),
       prepare,
     ));
@@ -492,6 +497,40 @@ function openDetail(id: string, container: HTMLElement): void {
     overlay.appendChild(bodyWrap);
     document.body.appendChild(overlay);
   })();
+}
+
+// ── Scouting report (the dossier's headline) ──────────────────────────────────────
+
+// The report shell: a title, the opponent's overall W-D-L bar (this is the one
+// place the "their results" caption appears, fixing the perspective for the
+// whole detail), and a quiet placeholder where task 4.4's findings will mount.
+function reportSection(opp: Opponent): HTMLElement {
+  const section = document.createElement('div');
+  section.className = 'section';
+
+  const head = document.createElement('div');
+  head.className = 'section-head';
+  const h = document.createElement('h2');
+  h.className = 'section-title';
+  h.textContent = 'Scouting report';
+  head.appendChild(h);
+  section.appendChild(head);
+
+  const summary = opponentSummary(opp);
+  section.appendChild(wdlBlock({
+    wins: summary.wins,
+    draws: summary.draws,
+    losses: summary.losses,
+    scorePct: summary.scorePct,
+    games: summary.games,
+  }));
+
+  const placeholder = document.createElement('p');
+  placeholder.className = 'section-desc scout-report-placeholder';
+  placeholder.textContent = 'Report arrives with the next update.';
+  section.appendChild(placeholder);
+
+  return section;
 }
 
 // ── Your prep (my saved lines tagged to this opponent) ────────────────────────────
@@ -707,15 +746,16 @@ function openingCard(stat: OpeningStat, prepare: PrepareFn): HTMLElement {
   metaRow.appendChild(gamesChip);
   body.appendChild(metaRow);
 
-  const scoreRow = document.createElement('div');
-  scoreRow.className = 'review-score-row';
-  scoreRow.appendChild(scoreBar(stat.scorePct));
-  const scoreText = document.createElement('span');
-  scoreText.className = 'review-score-text';
-  // Score is from the opponent's perspective — say so.
-  scoreText.textContent = `${stat.scorePct}% · ${stat.wins}-${stat.draws}-${stat.losses} W-D-L`;
-  scoreRow.appendChild(scoreText);
-  body.appendChild(scoreRow);
+  // Their result on this opening, as a slim bar: score% left, the W-D-L split as
+  // segments, the bare counts in small text on the right. The perspective is
+  // already captioned once up in the scouting report, so no caption repeats here.
+  body.appendChild(wdlScoreRow({
+    wins: stat.wins,
+    draws: stat.draws,
+    losses: stat.losses,
+    scorePct: stat.scorePct,
+    games: stat.games,
+  }));
 
   if (stat.repSans.length > 0) {
     const lineEl = document.createElement('div');
@@ -748,18 +788,6 @@ function chip(text: string): HTMLElement {
   el.className = 'tag-chip';
   el.textContent = text;
   return el;
-}
-
-// A win/draw/loss score bar, green→amber→red by how good the score is.
-function scoreBar(pct: number): HTMLElement {
-  const wrap = document.createElement('div');
-  wrap.className = 'review-score-bar';
-  const fill = document.createElement('div');
-  fill.className = 'review-score-fill';
-  fill.style.width = `${Math.max(4, Math.min(100, pct))}%`;
-  fill.style.background = pct >= 55 ? '#2a6b3a' : pct >= 45 ? '#d8961f' : '#c0531f';
-  wrap.appendChild(fill);
-  return wrap;
 }
 
 // "1.e4 e5 2.Nf3 Nc6 3.Bc4" from a flat SAN list.

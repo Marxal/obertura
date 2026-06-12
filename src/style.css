@@ -5522,6 +5522,15 @@ cg-board square.move-dest.oc {
   gap: var(--space-sm);
   margin-bottom: var(--space-lg);
 }
+
+/* The placeholder under the scouting-report bar — a quiet single line, sitting
+   just below the overall W-D-L until task 4.4 mounts the findings here. */
+.scout-report-placeholder {
+  margin-top: var(--space-sm);
+  margin-bottom: 0;
+  color: var(--text-fainter);
+  font-style: italic;
+}
 .scout-actions .btn-secondary,
 .scout-actions .btn-danger {
   flex: 1;

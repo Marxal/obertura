@@ -22,6 +22,15 @@ export function wdlBlock(counts: WdlCounts, caption = 'their results'): HTMLElem
   cap.textContent = caption;
   block.appendChild(cap);
 
+  block.appendChild(wdlScoreRow(counts, `${counts.games} game${counts.games === 1 ? '' : 's'}`));
+  return block;
+}
+
+// A caption-less [score% · bar · right] row. Used per-opening in the detail
+// lists, where the perspective caption is already fixed once at the top, so the
+// right label defaults to the bare W-D-L counts ("8-3-2") rather than a games
+// total. Any right-hand text can be supplied.
+export function wdlScoreRow(counts: WdlCounts, rightText?: string): HTMLElement {
   const row = document.createElement('div');
   row.className = 'wdl-row';
 
@@ -32,13 +41,12 @@ export function wdlBlock(counts: WdlCounts, caption = 'their results'): HTMLElem
 
   row.appendChild(wdlBar(counts));
 
-  const count = document.createElement('span');
-  count.className = 'wdl-count';
-  count.textContent = `${counts.games} game${counts.games === 1 ? '' : 's'}`;
-  row.appendChild(count);
+  const right = document.createElement('span');
+  right.className = 'wdl-count';
+  right.textContent = rightText ?? `${counts.wins}-${counts.draws}-${counts.losses}`;
+  row.appendChild(right);
 
-  block.appendChild(row);
-  return block;
+  return row;
 }
 
 // Just the three-segment bar, widths proportional to the W/D/L split. An empty
