@@ -204,6 +204,128 @@ export function opponentSummary(opp: Opponent): OpponentSummary {
   return { games, wins, draws, losses, scorePct, topOpening };
 }
 
+// ── Scouting report: where they struggle / score, and what to play ────────────
+//
+// A coaching dossier built purely from imported games — theirs, plus my own.
+// We group each side's games into recognised opening FAMILIES (folding the
+// chess.com micro-labels down the same way analysis.ts does) and keep, per
+// family, the colour that side had and their W/D/L from their own perspective.
+//
+// Only families with a real sample of THEIR games (MIN_REPORT_GAMES) earn a row,
+// so a single fluke result never headlines. From those we read off their three
+// WEAKEST openings (lowest their-score) and three STRONGEST (highest), then turn
+// the weakness into RECOMMENDATIONS: openings I should play against them. Every
+// opening they play is reachable — I just take the other colour — so each
+// recommendation is ranked by how weak THEY are, nudged by how I score in the
+// same family from the side I'd actually be on. Where I've never played it, the
+// rank rests on their weakness alone and the row admits it has no data on my side.
+
+// An opening must have at least this many of the opponent's games before it
+// earns a report row — fewer is statistical noise, not a tendency.
+export const MIN_REPORT_GAMES = 5;
+// How many openings each report group shows.
+const REPORT_PICKS = 3;
+// How far my own record may tip a recommendation: half a point per point my
+// family score sits away from an even 50%. Their weakness is the main axis; my
+// results only break the tie between similarly soft openings.
+const MY_EDGE_WEIGHT = 0.5;
+
+// One opening's record: all games of one family where a player had one colour,
+// summed W/D/L from that player's own perspective.
+export interface OpeningRecord {
+  family: string;
+  colour: 'white' | 'black';   // the colour that player had in these games
+  games: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  scorePct: number;            // (wins + draws/2) / games, rounded
+}
+
+// A recommended opening to play against them: their (soft) record, the side I'd
+// play it from, and my own record in that family from that side — null when I've
+// never played it (the row then carries a "no data on your side" hint).
+export interface Recommendation {
+  their: OpeningRecord;
+  myColour: 'white' | 'black'; // opposite of the colour they played
+  mine: OpeningRecord | null;
+}
+
+export interface ScoutReport {
+  enoughGames: boolean;        // false → the honest "import more" empty state
+  weakest: OpeningRecord[];    // their lowest-scoring openings (≤ REPORT_PICKS)
+  strongest: OpeningRecord[];  // their highest-scoring openings (≤ REPORT_PICKS)
+  recommendations: Recommendation[];
+}
+
+function reportScore(wins: number, draws: number, games: number): number {
+  return games === 0 ? 0 : Math.round(((wins + draws / 2) / games) * 100);
+}
+
+// Group games by recognised family + the colour that player had, tallying W/D/L
+// from their perspective. Unrecognised openings are dropped: they bundle
+// unrelated lines under one label, so their record would mean nothing.
+function recordsByFamily(games: ImportedGame[]): Map<string, OpeningRecord> {
+  const map = new Map<string, OpeningRecord>();
+  for (const g of games) {
+    const family = openingFamily(g.opening);
+    if (family === UNKNOWN_FAMILY) continue;
+    const key = `${family}|${g.colour}`;
+    let rec = map.get(key);
+    if (!rec) {
+      rec = { family, colour: g.colour, games: 0, wins: 0, draws: 0, losses: 0, scorePct: 0 };
+      map.set(key, rec);
+    }
+    rec.games++;
+    if (g.result === 'win') rec.wins++;
+    else if (g.result === 'loss') rec.losses++;
+    else rec.draws++;
+  }
+  for (const rec of map.values()) rec.scorePct = reportScore(rec.wins, rec.draws, rec.games);
+  return map;
+}
+
+// The whole report from one opponent's games and my own imported games. Pure and
+// order-independent: it only reads families, colours and results.
+export function buildScoutReport(opponentGames: ImportedGame[], myGames: ImportedGame[]): ScoutReport {
+  const theirs = recordsByFamily(opponentGames);
+  const mine = recordsByFamily(myGames);
+
+  // Only openings with a real sample of THEIR games count.
+  const qualifying = [...theirs.values()].filter(r => r.games >= MIN_REPORT_GAMES);
+  if (qualifying.length === 0) {
+    return { enoughGames: false, weakest: [], strongest: [], recommendations: [] };
+  }
+
+  const weakest = [...qualifying]
+    .sort((a, b) => a.scorePct - b.scorePct || b.games - a.games || a.family.localeCompare(b.family))
+    .slice(0, REPORT_PICKS);
+
+  const strongest = [...qualifying]
+    .sort((a, b) => b.scorePct - a.scorePct || b.games - a.games || a.family.localeCompare(b.family))
+    .slice(0, REPORT_PICKS);
+
+  // What to play: rank their soft openings by their weakness, nudged by my own
+  // record in the family from the side I'd play it (the opposite colour).
+  const recommendations = qualifying
+    .map(their => {
+      const myColour: 'white' | 'black' = their.colour === 'white' ? 'black' : 'white';
+      const myRec = mine.get(`${their.family}|${myColour}`) ?? null;
+      const base = 100 - their.scorePct;
+      const nudge = myRec ? MY_EDGE_WEIGHT * (myRec.scorePct - 50) : 0;
+      return { their, myColour, mine: myRec, rank: base + nudge };
+    })
+    .sort((a, b) =>
+      b.rank - a.rank ||
+      a.their.scorePct - b.their.scorePct ||
+      b.their.games - a.their.games ||
+      a.their.family.localeCompare(b.their.family))
+    .slice(0, REPORT_PICKS)
+    .map(({ their, myColour, mine: myRec }) => ({ their, myColour, mine: myRec }));
+
+  return { enoughGames: true, weakest, strongest, recommendations };
+}
+
 // ── Opponent tags ─────────────────────────────────────────────────────────────
 //
 // A line prepared against a scouted opponent carries a tag like "vs magnus"

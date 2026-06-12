@@ -5523,11 +5523,49 @@ cg-board square.move-dest.oc {
   margin-bottom: var(--space-lg);
 }
 
-/* The placeholder under the scouting-report bar — a quiet single line, sitting
-   just below the overall W-D-L until task 4.4 mounts the findings here. */
-.scout-report-placeholder {
+/* The honest empty line under the scouting-report bar, shown when no opening
+   has reached the games floor yet. */
+.scout-report-empty {
   margin-top: var(--space-sm);
   margin-bottom: 0;
+  color: var(--text-fainter);
+  font-style: italic;
+}
+
+/* ── Scouting-report findings (where they struggle / score / what to play) ──── */
+
+.scout-report-group {
+  margin-top: var(--space-lg);
+}
+.scout-report-group-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  margin-bottom: var(--space-sm);
+}
+
+/* Each finding is a compact card: name + games count on one line, the W-D-L bar
+   below. Tighter than the full opening cards — this is a scan list, not a menu. */
+.scout-report-row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
+}
+.scout-report-row-head .line-card-name {
+  font-size: 0.95rem;
+}
+
+/* The "what to play" footnote: which side I'd play and my own score here. */
+.scout-report-mine {
+  margin-top: var(--space-xs);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.scout-report-mine--nodata {
   color: var(--text-fainter);
   font-style: italic;
 }
