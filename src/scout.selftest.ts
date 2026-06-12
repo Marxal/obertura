@@ -4,7 +4,7 @@
 // are pruned on a big enough sample, and that depth is capped.
 
 import { Chess } from 'chess.js';
-import { buildOpponentTree, makeOpponent } from './scout';
+import { buildOpponentTree, makeOpponent, buildScoutReport } from './scout';
 import type { ImportedGame } from './chesscom';
 import type { MoveNode } from './tree';
 
@@ -100,6 +100,117 @@ export function runScoutSelfTest(): TestResult[] {
     opp.gamesAnalysed === 3 && opp.name === 'Foe' &&
       opp.whiteTree.children.length === 1 && opp.blackTree.children.length === 1,
     `count=${opp.gamesAnalysed} white=${opp.whiteTree.children.length} black=${opp.blackTree.children.length}`,
+  );
+
+  // ── Scouting report ─────────────────────────────────────────────────────────
+  // A fixed sample with hand-picked records so the weak/strong/recommendation
+  // picks are unambiguous. `rep()` only needs colour/opening/result.
+  let repSeq = 0;
+  const rep = (
+    colour: 'white' | 'black',
+    opening: string,
+    result: ImportedGame['result'],
+  ): ImportedGame => ({
+    id: `rep${++repSeq}`, url: '', endTime: 0,
+    timeClass: 'blitz', timeControl: '180', rated: true,
+    colour, result, opponent: 'foe', eco: null, opening,
+    sans: [], ucis: [], plyCount: 0,
+  });
+  // n games of one family/colour/result, batched.
+  const batch = (
+    n: number, colour: 'white' | 'black', opening: string, result: ImportedGame['result'],
+  ): ImportedGame[] => Array.from({ length: n }, () => rep(colour, opening, result));
+
+  // Their games (their perspective). Scores below are what buildScoutReport reads:
+  //   Sicilian (black)  1W 0D 5L /6 → 17%   ← weakest
+  //   French   (black)  1W 1D 3L /5 → 30%
+  //   Queen's Gambit(w) 2W 0D 3L /5 → 40%
+  //   Caro-Kann(black)  3W 1D 1L /5 → 70%
+  //   Ruy Lopez (white) 4W 0D 1L /5 → 80%
+  //   Italian   (white) 5W 0D 1L /6 → 83%   ← strongest
+  //   London System(w)  3W 0D 0L /3        ← below the 5-game floor, excluded
+  const theirGames: ImportedGame[] = [
+    ...batch(1, 'black', 'Sicilian Defense', 'win'), ...batch(5, 'black', 'Sicilian Defense', 'loss'),
+    ...batch(1, 'black', 'French Defense', 'win'), ...batch(1, 'black', 'French Defense', 'draw'),
+    ...batch(3, 'black', 'French Defense', 'loss'),
+    ...batch(2, 'white', 'Queen\'s Gambit', 'win'), ...batch(3, 'white', 'Queen\'s Gambit', 'loss'),
+    ...batch(3, 'black', 'Caro-Kann Defense', 'win'), ...batch(1, 'black', 'Caro-Kann Defense', 'draw'),
+    ...batch(1, 'black', 'Caro-Kann Defense', 'loss'),
+    ...batch(4, 'white', 'Ruy Lopez', 'win'), ...batch(1, 'white', 'Ruy Lopez', 'loss'),
+    ...batch(5, 'white', 'Italian Game', 'win'), ...batch(1, 'white', 'Italian Game', 'loss'),
+    ...batch(3, 'white', 'London System', 'win'),
+  ];
+
+  // My games (my perspective), only in the families I'd actually play against
+  // them — the opposite colour to theirs:
+  //   Sicilian (white) 4W 1D 1L /6 → 75%   (strong for me → lifts the rec)
+  //   French   (white) 1W 0D 4L /5 → 20%   (weak for me → drops the rec)
+  //   (no games in Queen's Gambit as black → that rec stays on their weakness)
+  const myGames: ImportedGame[] = [
+    ...batch(4, 'white', 'Sicilian Defense', 'win'), ...batch(1, 'white', 'Sicilian Defense', 'draw'),
+    ...batch(1, 'white', 'Sicilian Defense', 'loss'),
+    ...batch(1, 'white', 'French Defense', 'win'), ...batch(4, 'white', 'French Defense', 'loss'),
+  ];
+
+  const report = buildScoutReport(theirGames, myGames);
+
+  check(
+    'report: weakest three by their score, ascending',
+    report.enoughGames &&
+      report.weakest.map(r => r.family).join(' < ') ===
+        "Sicilian Defense < French Defense < Queen's Gambit" &&
+      report.weakest[0].scorePct === 17 && report.weakest[0].games === 6,
+    `weakest=${report.weakest.map(r => `${r.family}:${r.scorePct}%`).join(', ')}`,
+  );
+
+  check(
+    'report: strongest three by their score, descending',
+    report.strongest.map(r => r.family).join(' > ') ===
+      'Italian Game > Ruy Lopez > Caro-Kann Defense' &&
+      report.strongest[0].scorePct === 83,
+    `strongest=${report.strongest.map(r => `${r.family}:${r.scorePct}%`).join(', ')}`,
+  );
+
+  check(
+    'report: under-5-games opening excluded from every group',
+    ![...report.weakest, ...report.strongest, ...report.recommendations.map(r => r.their)]
+      .some(r => r.family === 'London System'),
+    `families=${report.weakest.concat(report.strongest).map(r => r.family).join(',')}`,
+  );
+
+  // Recommendations: their weakness leads, my record tips the order.
+  //   Sicilian  base 83 + 0.5*(75-50)=+12.5 → 95.5   (top: weak + I'm strong)
+  //   Queen's G base 60 + 0 (no data)        → 60.0
+  //   French    base 70 + 0.5*(20-50)=-15    → 55.0   (my poor record sinks it)
+  const recs = report.recommendations;
+  check(
+    'report: top recommendation = their weakness lifted by my strong record',
+    recs[0].their.family === 'Sicilian Defense' && recs[0].myColour === 'white' &&
+      recs[0].mine !== null && recs[0].mine.scorePct === 75,
+    `rec0=${recs[0]?.their.family} my=${recs[0]?.mine?.scorePct ?? 'none'}`,
+  );
+  check(
+    'report: my weak record sinks French below no-data Queen\'s Gambit',
+    recs[1].their.family === "Queen's Gambit" && recs[1].mine === null &&
+      recs[2].their.family === 'French Defense' && recs[2].mine?.scorePct === 20,
+    `order=${recs.map(r => r.their.family).join(' > ')}`,
+  );
+  check(
+    'report: no-data recommendation flagged via null mine',
+    recs[1].mine === null && recs[1].myColour === 'black',
+    `rec1 mine=${recs[1]?.mine === null ? 'null' : 'present'} myColour=${recs[1]?.myColour}`,
+  );
+
+  // A thin opponent — nothing reaches 5 games — yields the honest empty report.
+  const thin = buildScoutReport([
+    ...batch(3, 'white', 'Italian Game', 'win'),
+    ...batch(4, 'black', 'Sicilian Defense', 'loss'),
+  ], myGames);
+  check(
+    'report: thin opponent → enoughGames false, all groups empty',
+    !thin.enoughGames && thin.weakest.length === 0 &&
+      thin.strongest.length === 0 && thin.recommendations.length === 0,
+    `enough=${thin.enoughGames} weak=${thin.weakest.length} rec=${thin.recommendations.length}`,
   );
 
   return results;

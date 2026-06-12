@@ -17,12 +17,13 @@ import { openLibrary } from './library';
 import { openSpar, type SparSaveFn } from './spar';
 import { analyseGames, type OpeningStat } from './analysis';
 import {
-  getAllLines, getAllOpponents, getOpponent, saveOpponent, deleteOpponent, deleteLine,
+  getAllLines, getAllGames, getAllOpponents, getOpponent, saveOpponent, deleteOpponent, deleteLine,
   countOpponents,
 } from './storage';
 import {
   MAX_OPPONENTS, makeOpponent, opponentLine, colourGameCount, opponentTag, isOpponentTag,
-  opponentSummary, type Opponent,
+  opponentSummary, buildScoutReport, type Opponent, type ScoutReport, type OpeningRecord,
+  type Recommendation,
 } from './scout';
 import { wdlBlock, wdlScoreRow } from './wdl-bar';
 import { createFilterBar } from './filters';
@@ -356,9 +357,13 @@ function openDetail(id: string, container: HTMLElement): void {
   void (async () => {
     const opp = await getOpponent(id);
     if (!opp) { renderExploreScreen(container); return; }
-    // My saved lines prepared against this opponent (tagged "vs <name>").
+    // My saved lines prepared against this opponent (tagged "vs <name>"), plus
+    // my own imported games — the report ranks recommendations against how I
+    // actually score in each opening family.
     const tag = opponentTag(opp.name);
-    const myPrep = (await getAllLines()).filter(l => l.tags.includes(tag));
+    const [allLines, myGames] = await Promise.all([getAllLines(), getAllGames()]);
+    const myPrep = allLines.filter(l => l.tags.includes(tag));
+    const report = buildScoutReport(opp.games, myGames);
 
     const overlay = document.createElement('div');
     overlay.className = 'rmap-overlay scout-detail';
@@ -468,10 +473,10 @@ function openDetail(id: string, container: HTMLElement): void {
       exploreDeps?.onPrepareReply(ucis, opponentColour === 'white' ? 'black' : 'white', opp.name);
     };
 
-    // 1) Scouting report — the dossier opens on it. Right now just the shell:
-    //    title, their overall W-D-L bar (the one "their results" caption for the
-    //    whole screen), and a quiet placeholder. Task 4.4 mounts the findings.
-    bodyWrap.appendChild(reportSection(opp));
+    // 1) Scouting report — the dossier opens on it: their overall W-D-L bar (the
+    //    one "their results" caption for the whole screen) and the three findings
+    //    groups (where they struggle, where they score, what to play).
+    bodyWrap.appendChild(reportSection(opp, report));
 
     // 2) Opening maps (auto-built at import; open instantly).
     bodyWrap.appendChild(mapSection(opp, prepare));
@@ -501,10 +506,11 @@ function openDetail(id: string, container: HTMLElement): void {
 
 // ── Scouting report (the dossier's headline) ──────────────────────────────────────
 
-// The report shell: a title, the opponent's overall W-D-L bar (this is the one
-// place the "their results" caption appears, fixing the perspective for the
-// whole detail), and a quiet placeholder where task 4.4's findings will mount.
-function reportSection(opp: Opponent): HTMLElement {
+// The report: a title, the opponent's overall W-D-L bar (the one place the
+// "their results" caption appears, fixing the perspective for the whole detail),
+// then — once they have a deep enough sample — three compact groups. With no
+// opening reaching the games floor, an honest empty line replaces the groups.
+function reportSection(opp: Opponent, report: ScoutReport): HTMLElement {
   const section = document.createElement('div');
   section.className = 'section';
 
@@ -525,12 +531,93 @@ function reportSection(opp: Opponent): HTMLElement {
     games: summary.games,
   }));
 
-  const placeholder = document.createElement('p');
-  placeholder.className = 'section-desc scout-report-placeholder';
-  placeholder.textContent = 'Report arrives with the next update.';
-  section.appendChild(placeholder);
+  if (!report.enoughGames) {
+    const empty = document.createElement('p');
+    empty.className = 'section-desc scout-report-empty';
+    empty.textContent = 'Not enough games for a report yet — import more.';
+    section.appendChild(empty);
+    return section;
+  }
+
+  section.appendChild(reportGroup('Where they struggle',
+    report.weakest.map(r => recordRow(r))));
+  section.appendChild(reportGroup('Where they score',
+    report.strongest.map(r => recordRow(r))));
+  section.appendChild(reportGroup('What to play',
+    report.recommendations.map(rec => recommendationRow(rec))));
 
   return section;
+}
+
+// One titled cluster of report rows.
+function reportGroup(title: string, rows: HTMLElement[]): HTMLElement {
+  const group = document.createElement('div');
+  group.className = 'scout-report-group';
+
+  const label = document.createElement('div');
+  label.className = 'scout-report-group-title';
+  label.textContent = title;
+  group.appendChild(label);
+
+  const list = document.createElement('div');
+  list.className = 'group';
+  for (const row of rows) list.appendChild(row);
+  group.appendChild(list);
+  return group;
+}
+
+// A compact report row: the opening name + games count on the top line, their
+// W-D-L bar below. `extra`, when given, hangs a small line under the bar.
+function recordRow(rec: OpeningRecord, extra?: HTMLElement): HTMLElement {
+  const card = document.createElement('div');
+  card.className = 'line-card review-card scout-report-row';
+
+  const body = document.createElement('div');
+  body.className = 'line-card-body review-card-body';
+
+  const headRow = document.createElement('div');
+  headRow.className = 'scout-report-row-head';
+  const nameEl = document.createElement('div');
+  nameEl.className = 'line-card-name';
+  nameEl.textContent = rec.family;
+  headRow.appendChild(nameEl);
+  const gamesChip = document.createElement('span');
+  gamesChip.className = 'review-stat-chip';
+  gamesChip.textContent = `${rec.games} game${rec.games === 1 ? '' : 's'}`;
+  headRow.appendChild(gamesChip);
+  body.appendChild(headRow);
+
+  // Their record as a slim bar; the perspective is captioned once up top, so no
+  // caption repeats here.
+  body.appendChild(wdlScoreRow({
+    wins: rec.wins,
+    draws: rec.draws,
+    losses: rec.losses,
+    scorePct: rec.scorePct,
+    games: rec.games,
+  }));
+
+  if (extra) body.appendChild(extra);
+
+  card.appendChild(body);
+  return card;
+}
+
+// A "what to play" row: the opponent's (weak) record, plus a small line giving
+// the side I'd play and my own score in the family — or admitting I have none.
+function recommendationRow(rec: Recommendation): HTMLElement {
+  const sideWord = rec.myColour === 'white' ? 'White' : 'Black';
+  const note = document.createElement('div');
+  note.className = 'scout-report-mine';
+  if (rec.mine) {
+    note.textContent =
+      `Play ${sideWord} · you score ${rec.mine.scorePct}% here ` +
+      `(${rec.mine.wins}-${rec.mine.draws}-${rec.mine.losses})`;
+  } else {
+    note.classList.add('scout-report-mine--nodata');
+    note.textContent = `Play ${sideWord} · no data on your side`;
+  }
+  return recordRow(rec.their, note);
 }
 
 // ── Your prep (my saved lines tagged to this opponent) ────────────────────────────
