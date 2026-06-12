@@ -40,7 +40,6 @@ import {
   recentlyAddedLines,
   weakestLines,
 } from './scheduler';
-import { runSchedulerSelfTest } from './scheduler.selftest';
 import {
   recordTrainingDay,
   currentStreak,
@@ -109,7 +108,6 @@ async function doRender(
   if (trainingLines.length === 0) {
     renderTrainHead(container);
     renderEmpty(container);
-    appendSelfTestLink(container);
     return;
   }
 
@@ -143,7 +141,6 @@ async function doRender(
   renderHero(container, due, trainingLines);
   renderModeCards(container, trainingLines);
   renderCardList(container, trainingLines);
-  appendSelfTestLink(container);
 }
 
 // ── Train header (daily streak pill) ──────────────────────────────────────────
@@ -1425,46 +1422,5 @@ function renderTimedComplete(
   close.addEventListener('click', () => void doRender(container));
   wrap.appendChild(close);
 
-  container.appendChild(wrap);
-}
-
-// ── Scheduler self-test (a phone-friendly way to verify the maths) ──────────────
-
-function appendSelfTestLink(container: HTMLElement): void {
-  const wrap = document.createElement('div');
-  wrap.className = 'selftest-wrap';
-
-  const link = document.createElement('button');
-  link.type = 'button';
-  link.className = 'selftest-link';
-  link.textContent = 'Run scheduler self-test';
-
-  const out = document.createElement('div');
-  out.className = 'selftest-output';
-  out.hidden = true;
-
-  link.addEventListener('click', () => {
-    const results = runSchedulerSelfTest();
-    out.hidden = false;
-    out.innerHTML = '';
-
-    const passed = results.filter(r => r.pass).length;
-    const head = document.createElement('div');
-    head.className = `selftest-head ${passed === results.length ? 'ok' : 'fail'}`;
-    head.textContent = `${passed}/${results.length} checks passed`;
-    out.appendChild(head);
-
-    for (const r of results) {
-      const row = document.createElement('div');
-      row.className = `selftest-row ${r.pass ? 'ok' : 'fail'}`;
-      row.textContent = `${r.pass ? '✓' : '✗'} ${r.name} — ${r.detail}`;
-      out.appendChild(row);
-    }
-    // Also dump to the console for desktop inspection.
-    console.log('[scheduler self-test]', results);
-  });
-
-  wrap.appendChild(link);
-  wrap.appendChild(out);
   container.appendChild(wrap);
 }

@@ -1,11 +1,10 @@
 // Appearance preferences beyond the light/dark theme: the board colour scheme
-// and the page's paper texture. Both are device-local (localStorage) and applied
-// by setting a data-* attribute on <html>, which the CSS keys off. A tiny
-// pre-paint snippet in index.html applies the same values before first paint so
-// there's no flash of the wrong board/texture.
+// and the piece set. Both are device-local (localStorage) and applied by setting
+// a data-* attribute on <html>, which the CSS keys off. A tiny pre-paint snippet
+// in index.html applies the same values before first paint so there's no flash of
+// the wrong board.
 
 const BOARD_KEY = 'obertura.boardColour';
-const PAPER_KEY = 'obertura.paperTexture';
 const PIECE_KEY = 'obertura.pieceSet';
 
 export type BoardColour = 'wood' | 'green' | 'blue' | 'grey';
@@ -83,27 +82,11 @@ export function applyBoardColour(c: BoardColour = getBoardColour()): void {
   else document.documentElement.dataset.board = c;
 }
 
-// Paper texture is on by default; only an explicit "off" disables it.
-export function getPaperTexture(): boolean {
-  return localStorage.getItem(PAPER_KEY) !== 'off';
-}
-
-export function setPaperTexture(on: boolean): void {
-  localStorage.setItem(PAPER_KEY, on ? 'on' : 'off');
-  applyPaperTexture(on);
-}
-
-export function applyPaperTexture(on: boolean = getPaperTexture()): void {
-  if (on) delete document.documentElement.dataset.paper;
-  else document.documentElement.dataset.paper = 'off';
-}
-
-// Apply all three at boot (theme.ts handles light/dark separately). The piece
-// set may need to fetch its on-demand stylesheet; that resolves asynchronously,
-// so a non-default set can briefly show as cburnett on a cold open until its
+// Apply both at boot (theme.ts handles light/dark separately). The piece set may
+// need to fetch its on-demand stylesheet; that resolves asynchronously, so a
+// non-default set can briefly show as cburnett on a cold open until its
 // (browser-cached) chunk lands.
 export function initAppearance(): void {
   applyBoardColour();
-  applyPaperTexture();
   void applyPieceSet();
 }
