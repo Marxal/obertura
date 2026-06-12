@@ -42,6 +42,9 @@
   --accent: #c07a2a;
   --accent-active: #9f6220;
   --accent-soft: rgba(192, 122, 42, 0.12);
+  /* Ink that sits ON an --accent background. White works on the darker
+     light/dark accents; the Game theme's bright brass overrides this. */
+  --on-accent: #fff;
   /* Felt green — THE primary (replaces the retired oxblood). White text on it
      measures 6.5:1 (cream 5.3:1), so it clears 4.5:1 comfortably. */
   --primary: #3e6650;
@@ -118,6 +121,65 @@
   --shadow-card-hover: 0 0 0 1px rgba(239, 230, 214, 0.08);
 
   --fill-faint: rgba(239, 230, 214, 0.03);
+}
+
+/* ── Game ─────────────────────────────────────────────────────────────────────
+   A warm, saturated casino-felt green — bolder than light, sitting between the
+   two Classics. Cream inks, brass accents. Like dark, it carries color-scheme:
+   dark and rides the dark-mode component treatments (flat fills, no sheen) via
+   the shared [data-theme="dark"], [data-theme="game"] selectors further down.
+   The board is NOT themed — only this chrome changes.
+
+   Contrast verified against the felt surfaces (body ≥ 4.5:1, UI/large ≥ 3:1):
+     text   #f1e8d2 → 9.0:1 card / 11.3:1 page
+     muted  #cbc6ad → 6.4:1 card
+     faint  #a4ab96 → 4.6:1 card  (decorative fainter → 3.4:1 card)
+     cream label on --primary #43715a → 4.6:1
+     dark --on-accent #241d12 on brass #dca844 → 7.7:1
+     white label on --success → 4.2:1, on --danger → 3.6:1 (≥ 3 UI bar). */
+[data-theme="game"] {
+  color-scheme: dark;
+
+  /* Surfaces — deep felt: page darkest, card a step up, raised lighter still. */
+  --bg-page: #1e3128;
+  --bg-card: #274236;
+  --bg-sheet: #223a2e;
+  --bg-elevated: #2f4d3f;
+  --bg-parchment: #2f4d3f;
+
+  /* Text — cream inks, stepped for contrast on the felt. */
+  --text: #f1e8d2;
+  --text-muted: #cbc6ad;   /* 6.4:1 on card */
+  --text-faint: #a4ab96;   /* 4.6:1 on card — lightened from the seed #9aa18c */
+  --text-fainter: #8a937d; /* 3.4:1 on card — decorative only */
+
+  /* Borders — soft green hairlines; rgba so alpha blends on any felt surface. */
+  --border: #3b5a4a;
+  --border-card: #34503f;
+  --hairline: rgba(241, 232, 210, 0.10);
+  --hairline-soft: rgba(241, 232, 210, 0.06);
+
+  /* Accent brass — bright, so text rides it as dark ink (--on-accent). */
+  --accent: #dca844;
+  --accent-active: #c8922f;
+  --accent-soft: rgba(220, 168, 68, 0.18);
+  --on-accent: #241d12;
+  /* Primary — felt-green button, darkened from the seed #5d9377 so the cream
+     label clears 4.5:1 (the seed only reached 2.9:1). */
+  --primary: #43715a;
+  --primary-active: #39604c;
+  /* Sage success / brick danger — white labels clear the 3:1 UI bar. */
+  --success: #6a8348;
+  --success-active: #5a7140;
+  --warn: #d9763f;
+  --danger: #d06a4e;
+  --danger-active: #b85a3f;
+
+  /* Shadows off — borders carry depth on the dark felt, as in dark mode. */
+  --shadow-card: none;
+  --shadow-card-hover: 0 0 0 1px rgba(241, 232, 210, 0.08);
+
+  --fill-faint: rgba(241, 232, 210, 0.035);
 }
 
 *, *::before, *::after {
@@ -201,10 +263,37 @@ body {
 [data-theme="dark"] .btn-primary,
 [data-theme="dark"] .header-save,
 [data-theme="dark"] .review-build-btn,
-[data-theme="dark"] .practice-option--primary {
+[data-theme="dark"] .practice-option--primary,
+[data-theme="game"] .btn-primary,
+[data-theme="game"] .header-save,
+[data-theme="game"] .review-build-btn,
+[data-theme="game"] .practice-option--primary {
   background-image: none;
   box-shadow: none;
   text-shadow: none;
+}
+
+/* Game: cream ink on the felt-green primaries (the seed's "cream ink" call). */
+[data-theme="game"] .btn-primary,
+[data-theme="game"] .header-save,
+[data-theme="game"] .review-build-btn,
+[data-theme="game"] .practice-option--primary {
+  color: var(--text);
+}
+
+/* Game: the brass accent is bright, so anything riding it as a background takes
+   the dark --on-accent ink instead of the white used in light/dark themes. The
+   active card-training button flips to --success (a darker olive), so it keeps
+   its white label and is excluded here. */
+[data-theme="game"] .move-san.active,
+[data-theme="game"] .seg-btn.active,
+[data-theme="game"] .dfilter-btn.active,
+[data-theme="game"] .tag-chip--on,
+[data-theme="game"] .card-training-btn:not(.card-training-btn--active),
+[data-theme="game"] .rmap-pos-open-btn,
+[data-theme="game"] .lib-move--current,
+[data-theme="game"] .spar-banner {
+  color: var(--on-accent);
 }
 
 /* SECONDARY — flat tonal surface, faint border. No sheen. */
@@ -961,8 +1050,10 @@ cg-board square.move-dest.oc {
 .ann-mistake { --ann: var(--warn); }
 .ann-blunder { --ann: var(--danger); }
 
-[data-theme="dark"] .ann-interesting { --ann: #c79b32; }
-[data-theme="dark"] .ann-dubious { --ann: #cf8a35; }
+[data-theme="dark"] .ann-interesting,
+[data-theme="game"] .ann-interesting { --ann: #c79b32; }
+[data-theme="dark"] .ann-dubious,
+[data-theme="game"] .ann-dubious { --ann: #cf8a35; }
 
 /* Tiny chip riding on a move in the strip. */
 .ann-chip {
@@ -1086,6 +1177,21 @@ cg-board square.move-dest.oc {
 .seg-btn.active {
   background: var(--accent);
   color: #fff;
+}
+
+/* Full-width variant — for pickers with more or longer options (e.g. the
+   four-way Theme control). Stretches across the row, equal columns; a long
+   label wraps to a second line rather than overflowing the rounded box. */
+.seg-control--full {
+  display: flex;
+  width: 100%;
+}
+.seg-control--full .seg-btn {
+  flex: 1;
+  min-width: 0;
+  padding: 0.35rem 0.4rem;
+  white-space: normal;
+  line-height: 1.15;
 }
 
 /* ── Toggle switch ───────────────────────────────────────────────────────── */
@@ -2308,7 +2414,9 @@ cg-board square.move-dest.oc {
 }
 
 [data-theme="dark"] .card-training-btn,
-[data-theme="dark"] .card-training-btn.card-training-btn--active {
+[data-theme="dark"] .card-training-btn.card-training-btn--active,
+[data-theme="game"] .card-training-btn,
+[data-theme="game"] .card-training-btn.card-training-btn--active {
   background-image: none;
 }
 
@@ -2949,8 +3057,9 @@ cg-board square.move-dest.oc {
   transition: filter 0.12s, box-shadow 0.12s, border-color 0.12s, transform 0.08s;
 }
 
-/* The white-sheen gradient reads as a grey smear in dark mode — drop it. */
-[data-theme="dark"] .mode-card {
+/* The white-sheen gradient reads as a grey smear on dark surfaces — drop it. */
+[data-theme="dark"] .mode-card,
+[data-theme="game"] .mode-card {
   background-image: none;
 }
 
@@ -4496,7 +4605,8 @@ cg-board square.move-dest.oc {
   color: #a96f12;
 }
 
-[data-theme="dark"] .stats-attention-reason--warn {
+[data-theme="dark"] .stats-attention-reason--warn,
+[data-theme="game"] .stats-attention-reason--warn {
   color: #d4892c;
 }
 
@@ -4976,7 +5086,8 @@ cg-board square.move-dest.oc {
   fill: #f7f3ec;
   stroke: #d2c6b4;
 }
-[data-theme="dark"] .rmap-node--white > .rmap-node-bg {
+[data-theme="dark"] .rmap-node--white > .rmap-node-bg,
+[data-theme="game"] .rmap-node--white > .rmap-node-bg {
   fill: #2c2820;
   stroke: #48392c;
 }
@@ -4986,7 +5097,8 @@ cg-board square.move-dest.oc {
   fill: #e5ddd0;
   stroke: #b5a592;
 }
-[data-theme="dark"] .rmap-node--black > .rmap-node-bg {
+[data-theme="dark"] .rmap-node--black > .rmap-node-bg,
+[data-theme="game"] .rmap-node--black > .rmap-node-bg {
   fill: #1c1712;
   stroke: #382d22;
 }
@@ -5100,7 +5212,8 @@ cg-board square.move-dest.oc {
   border-color: #d4c8b0;
   color: #2a2218;
 }
-[data-theme="dark"] .rmap-colour-btn--white {
+[data-theme="dark"] .rmap-colour-btn--white,
+[data-theme="game"] .rmap-colour-btn--white {
   background: #2d2820;
   border-color: #4a3d2e;
   color: #e0d4be;
@@ -5111,7 +5224,8 @@ cg-board square.move-dest.oc {
   border-color: #3a3028;
   color: #d4c8b0;
 }
-[data-theme="dark"] .rmap-colour-btn--black {
+[data-theme="dark"] .rmap-colour-btn--black,
+[data-theme="game"] .rmap-colour-btn--black {
   background: #18130e;
   border-color: #2d2218;
   color: #b8a888;
