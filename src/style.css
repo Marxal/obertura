@@ -5074,6 +5074,14 @@ cg-board square.move-dest.oc {
   color: var(--text-faint);
 }
 
+/* Per-move stats block in the tap preview: caption + W/D/L row + meta lines. */
+.rmap-pos-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0.15rem 0;
+}
+
 .rmap-pos-line-title {
   font-size: 0.78rem;
   color: var(--text-muted);
@@ -5179,9 +5187,20 @@ cg-board square.move-dest.oc {
 }
 .rmap-node--selected > .rmap-node-text { fill: #fff; }
 
+/* Per-move win/draw/loss bar on each node (sage win, neutral draw, brick loss),
+   matching the wdl-bar component. Non-interactive so taps hit the node. */
+.rmap-wdl-track { fill: var(--hairline-soft); pointer-events: none; }
+.rmap-wdl-seg { pointer-events: none; }
+.rmap-wdl-seg--win { fill: var(--success); }
+.rmap-wdl-seg--draw { fill: var(--text-fainter); }
+.rmap-wdl-seg--loss { fill: var(--danger); }
+/* Keep the bar legible over the accent-filled selected node. */
+.rmap-node--selected > .rmap-wdl-track { fill: rgba(255, 255, 255, 0.35); }
+
 /* ── Bottom controls bar ──────────────────────────────────────────────────────── */
 
 .rmap-controls {
+  position: relative;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -5191,6 +5210,30 @@ cg-board square.move-dest.oc {
   border-top: 1px solid var(--border);
   background: var(--bg-card);
   gap: 0.5rem;
+}
+
+/* Discrete show/hide-stats toggle, straddling the top edge of the bottom bar. */
+.rmap-stats-toggle {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -55%);
+  z-index: 2;
+  padding: 0.22rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--text-faint);
+  font-size: 0.72rem;
+  font-weight: 600;
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.rmap-stats-toggle--on {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .rmap-controls-left {

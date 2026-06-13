@@ -24,6 +24,7 @@ import {
 import { currentStreak, trainedToday, getTrainingDays } from './streak';
 import { openRepertoireMap } from './repertoire-map';
 import { DEFAULT_MAP_PLIES, DEEP_MAP_PLIES } from './scout';
+import { buildMoveStats } from './move-stats';
 import type { MoveNode } from './tree';
 import { Icons } from './icons';
 import {
@@ -64,7 +65,7 @@ async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<
 
   if (lines.length > 0) {
     renderConfidenceChart(container, lines);
-    renderRepertoireMapSection(container, lines, cb);
+    renderRepertoireMapSection(container, lines, games, cb);
   }
 
   const needsAttention = computeNeedsAttention(lines, report);
@@ -340,6 +341,7 @@ function treeDepth(node: MoveNode): number {
 function renderRepertoireMapSection(
   container: HTMLElement,
   lines: Line[],
+  games: ImportedGame[],
   cb: ProgressCallbacks,
 ): void {
   const section = statsSection('Repertoire Map', '');
@@ -386,6 +388,14 @@ function renderRepertoireMapSection(
         maxPlies: reach,
         atDepth: () => colourLines,
       },
+      // Per-move W/D/L from MY imported games (my perspective). Moves I've never
+      // actually played show no bar. Omitted entirely when nothing's imported.
+      ...(games.length > 0 && {
+        stats: {
+          tree: buildMoveStats(games, colour, DEEP_MAP_PLIES),
+          caption: 'your results',
+        },
+      }),
     }));
     btnRow.appendChild(btn);
   }
