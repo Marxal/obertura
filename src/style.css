@@ -6171,6 +6171,25 @@ cg-board square.move-dest.oc {
   color: var(--text-muted);
 }
 
+/* The engine-opening picker: a stacked row (label, full-width segments, hint)
+   since its option labels are too long for the inline side/level rows. */
+.spar-mode-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+.spar-mode-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.3;
+  color: var(--text-muted);
+}
+.seg-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* The front-door "Play" button — full-width primary (chrome from .btn-primary). */
 .spar-start-btn {
   width: 100%;

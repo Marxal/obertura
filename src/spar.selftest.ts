@@ -9,7 +9,14 @@
 
 import { Chess } from 'chess.js';
 import { isOutOfBook } from './openings';
+import { pickBookLine, pickGameLine, MIN_BOOK_PLIES } from './book-lines';
+import type { ImportedGame } from './import-core';
 import type { TestResult } from './selftest-panel';
+
+// A throwaway ImportedGame with just the fields the book sampler reads.
+function fakeGame(colour: 'white' | 'black', ucis: string[]): ImportedGame {
+  return { colour, ucis } as unknown as ImportedGame;
+}
 
 // The FEN of every position along a line, in order — what isOutOfBook expects.
 function pathFens(sans: string[]): string[] {
@@ -45,6 +52,28 @@ export function runSparSelfTest(): TestResult[] {
   // 5. A weird first move with no follow-up names latches after the tolerance.
   const weird = pathFens(['a4', 'h5', 'b4', 'g5']);
   check('an unnamed opening latches off-book', isOutOfBook(weird), '1.a4 h5 2.b4 g5');
+
+  // ── Book-line sampling (Surprise me / From my games) ──────────────────────
+  const deep = ['e2e4', 'c7c5', 'g1f3', 'd7d6', 'd2d4', 'c5d4', 'f3d4', 'g8f6',
+    'b1c3', 'a7a6', 'f1e2', 'e7e5']; // 12 plies (Najdorf)
+  const shallow = ['e2e4', 'e7e5', 'g1f3']; // only 3 plies
+
+  // 6. "Surprise me": one library entry → its SAN replayed into UCI.
+  const line = pickBookLine([{ eco: 'C20', name: 'King\'s Pawn', moves: ['e4', 'e5', 'Nf3'] }]);
+  check('pickBookLine converts SAN to UCI', line.join(',') === 'e2e4,e7e5,g1f3', line.join(','));
+  check('pickBookLine on an empty catalogue yields nothing', pickBookLine([]).length === 0, 'empty');
+
+  // 7. "From my games": only games on the sparred side, deep enough, are sampled.
+  const games = [
+    fakeGame('white', deep),     // I played White → engine (Black) replays this
+    fakeGame('black', deep),     // wrong side for a White spar
+    fakeGame('white', shallow),  // too shallow
+  ];
+  const fromWhite = pickGameLine(games, 'white');
+  check('pickGameLine samples my side, deep enough',
+    fromWhite.join(',') === deep.join(','), `${fromWhite.length} plies (≥ ${MIN_BOOK_PLIES})`);
+  check('pickGameLine with no qualifying games yields nothing',
+    pickGameLine([fakeGame('white', shallow)], 'white').length === 0, 'only shallow');
 
   return results;
 }

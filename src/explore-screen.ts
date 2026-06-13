@@ -14,11 +14,12 @@ import { showDialog } from './dialog';
 import { openImportPanel } from './import-panel';
 import { openRepertoireMap } from './repertoire-map';
 import { openLibrary } from './library';
-import { openSpar, type SparSaveFn } from './spar';
+import { openSpar, type SparSaveFn, type SparMode } from './spar';
+import { loadBookLines, pickBookLine, pickGameLine } from './book-lines';
 import { analyseGames, type OpeningStat } from './analysis';
 import {
   getAllLines, getAllGames, getAllOpponents, getOpponent, saveOpponent, deleteOpponent, deleteLine,
-  countOpponents,
+  countOpponents, countGames,
 } from './storage';
 import {
   MAX_OPPONENTS, makeOpponent, opponentLine, colourGameCount, opponentTag, isOpponentTag,
@@ -115,28 +116,44 @@ async function buildScreen(container: HTMLElement): Promise<void> {
     section.appendChild(list);
   }
 
+  const hasGames = (await countGames()) > 0;
+
   container.appendChild(librarySection());
   container.appendChild(section);
-  container.appendChild(sparSection());
+  container.appendChild(sparSection(hasGames));
 }
 
 // ── Spar with the engine ─────────────────────────────────────────────────────
 
-// Friendly difficulty names mapped to Stockfish's UCI Skill Level (0–20).
+// Friendly difficulty names mapped to Stockfish's UCI Skill Level (0–20), each
+// with a think-time budget. The top two levels actually get time to think; the
+// easy levels stay snappy (skill, not time, is what makes them easy).
 const SPAR_LEVELS = [
-  { id: 'casual', label: 'Casual', skill: 3 },
-  { id: 'club', label: 'Club', skill: 8 },
-  { id: 'strong', label: 'Strong', skill: 14 },
-  { id: 'master', label: 'Master', skill: 20 },
+  { id: 'casual', label: 'Casual', skill: 3, movetime: 300 },
+  { id: 'club', label: 'Club', skill: 8, movetime: 300 },
+  { id: 'strong', label: 'Strong', skill: 14, movetime: 900 },
+  { id: 'master', label: 'Master', skill: 20, movetime: 1400 },
 ] as const;
 
 // Remembered across re-renders so the picker keeps its last setting.
 let sparColour: 'white' | 'black' = 'white';
 let sparLevelId: (typeof SPAR_LEVELS)[number]['id'] = 'club';
 
+// The engine-opening mode is persisted device-local (tiny, like the library
+// view mode in library.ts), so the picker survives a reload.
+const SPAR_MODE_KEY = 'obertura.spar.mode';
+function getSparMode(): SparMode {
+  const v = localStorage.getItem(SPAR_MODE_KEY);
+  return v === 'surprise' || v === 'games' || v === 'engine' ? v : 'surprise';
+}
+let sparMode: SparMode = getSparMode();
+
 // A launcher card for a casual game against the local engine. Picks a side and a
 // difficulty, then opens the full-screen spar board.
-function sparSection(): HTMLElement {
+function sparSection(hasGames: boolean): HTMLElement {
+  // A persisted "From my games" with no games left falls back to Surprise me.
+  if (sparMode === 'games' && !hasGames) sparMode = 'surprise';
+
   const section = document.createElement('div');
   section.className = 'section';
 
@@ -166,25 +183,117 @@ function sparSection(): HTMLElement {
     { value: 'black', label: '● Black' },
   ], sparColour, (v) => { sparColour = v as 'white' | 'black'; }));
 
+  // Engine-opening picker — its own full-width row, since the labels are long.
+  section.appendChild(sparModeRow(hasGames));
+
   // The front door: a full-width primary that starts the game.
   const startBtn = document.createElement('button');
   startBtn.type = 'button';
   startBtn.className = 'btn-primary spar-start-btn';
   startBtn.appendChild(Icons.play(15));
   startBtn.appendChild(document.createTextNode('Play'));
-  startBtn.addEventListener('click', () => {
-    const level = SPAR_LEVELS.find(l => l.id === sparLevelId) ?? SPAR_LEVELS[1];
-    if (!exploreDeps) return;
-    openSpar({
-      colour: sparColour,
-      skill: level.skill,
-      levelLabel: level.label,
-      onSparSave: exploreDeps.onSparSave,
-    });
-  });
+  startBtn.addEventListener('click', () => { void startSpar(startBtn); });
   section.appendChild(startBtn);
 
   return section;
+}
+
+// Build the engine opening for the chosen mode, then open the spar board. For
+// "Surprise me" we draw a fresh random book line per game; for "From my games"
+// we sample a line from my imported games on the side I'm sparring.
+async function startSpar(startBtn: HTMLButtonElement): Promise<void> {
+  if (!exploreDeps) return;
+  const level = SPAR_LEVELS.find(l => l.id === sparLevelId) ?? SPAR_LEVELS[1];
+
+  let nextBookLine: (() => string[]) | undefined;
+  if (sparMode === 'surprise') {
+    // The library file is lazy-loaded; guard against a double-tap while it lands.
+    startBtn.disabled = true;
+    try {
+      const entries = await loadBookLines();
+      nextBookLine = () => pickBookLine(entries);
+    } finally {
+      startBtn.disabled = false;
+    }
+  } else if (sparMode === 'games') {
+    const games = await getAllGames();
+    const colour = sparColour;
+    nextBookLine = () => pickGameLine(games, colour);
+  }
+
+  openSpar({
+    colour: sparColour,
+    skill: level.skill,
+    movetimeMs: level.movetime,
+    levelLabel: level.label,
+    mode: sparMode,
+    nextBookLine,
+    onSparSave: exploreDeps.onSparSave,
+  });
+}
+
+// The engine-opening picker: a full-width segmented control with a one-line hint
+// beneath. "From my games" is disabled (with an explaining hint) until games are
+// imported. The choice is persisted.
+function sparModeRow(hasGames: boolean): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'spar-mode-row';
+
+  const lab = document.createElement('span');
+  lab.className = 'spar-picker-label';
+  lab.textContent = 'Engine opening';
+  row.appendChild(lab);
+
+  const seg = document.createElement('div');
+  seg.className = 'seg-control seg-control--full';
+  seg.setAttribute('role', 'group');
+
+  const hint = document.createElement('p');
+  hint.className = 'spar-mode-hint';
+
+  const opts: { value: SparMode; label: string; disabled: boolean }[] = [
+    { value: 'surprise', label: 'Surprise me', disabled: false },
+    { value: 'games', label: 'From my games', disabled: !hasGames },
+    { value: 'engine', label: 'Pure engine', disabled: false },
+  ];
+  const buttons: HTMLButtonElement[] = [];
+  const reflect = () => {
+    for (const b of buttons) {
+      const on = b.dataset.value === sparMode;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', String(on));
+    }
+    // When there are no games, the disabled option is the thing worth explaining.
+    hint.textContent = !hasGames
+      ? '“From my games” needs imported games — import some in My games first.'
+      : sparMode === 'surprise' ? 'The engine opens with a random recognisable book line.'
+      : sparMode === 'games' ? 'The engine opens with an opening from your imported games.'
+      : 'No book — the engine plays its own moves from the first move.';
+  };
+
+  for (const opt of opts) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'seg-btn';
+    btn.dataset.value = opt.value;
+    btn.textContent = opt.label;
+    if (opt.disabled) {
+      btn.disabled = true;
+    } else {
+      btn.addEventListener('click', () => {
+        sparMode = opt.value;
+        localStorage.setItem(SPAR_MODE_KEY, sparMode);
+        reflect();
+      });
+    }
+    buttons.push(btn);
+    seg.appendChild(btn);
+  }
+  reflect();
+
+  row.appendChild(seg);
+  row.appendChild(hint);
+  return row;
 }
 
 // A labelled segmented control (reusing the settings .seg-control look).
