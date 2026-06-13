@@ -13,6 +13,8 @@ import type { Api as CgApi } from 'chessground/api';
 import type { Key } from 'chessground/types';
 import { nameForFen } from './openings';
 import { pushBack } from './back-nav';
+import { statAt, statScorePct, topReply, type StatNode } from './move-stats';
+import { wdlScoreRow } from './wdl-bar';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 const NS = 'http://www.w3.org/2000/svg';
@@ -44,6 +46,11 @@ export interface RepertoireMapOptions {
   // first `defaultPlies` plies and offers a quiet "Go deeper" control that
   // re-renders to `deeperPlies` from data already on the phone. One step only.
   depth?: MapDepth;
+  // Per-move statistics. When set, each node gets a win/draw/loss bar (toggleable)
+  // and the tap preview gains games / W-D-L / frequency / most-played reply. The
+  // `tree` is a UCI-keyed stats lookup (see move-stats.ts); `caption` names whose
+  // results these are ("their results" / "your results").
+  stats?: { tree: StatNode; caption: string };
 }
 
 export interface MapDepth {
@@ -70,6 +77,11 @@ const HG = 10;   // horizontal gap between sibling subtrees
 const VG = 44;   // vertical gap: bottom of parent → top of child
 const PAD = 20;  // outer padding
 
+// Win/draw/loss bar, pinned to the bottom edge of the node box (below the SAN).
+const BAR_M = 6;             // horizontal inset from the box edges
+const BAR_H = 3.5;           // bar thickness
+const BAR_GAP = 3;           // gap from the box bottom up to the bar
+
 // ── Map node ──────────────────────────────────────────────────────────────────
 
 interface MapNode {
@@ -82,15 +94,26 @@ interface MapNode {
   x: number;
   y: number;
   svgEl: SVGGElement | null; // set during SVG build
+  stats: StatNode | null;    // stamped by attachStats when a stats lookup is set
 }
 
 function buildMergedTree(lines: Line[], maxPlies = Infinity): MapNode {
   const root: MapNode = {
     san: '', uci: '', fen: START_FEN, lineIds: [],
-    children: [], parent: null, x: 0, y: 0, svgEl: null,
+    children: [], parent: null, x: 0, y: 0, svgEl: null, stats: null,
   };
   for (const l of lines) mergeInto(root, l.tree, l.id, maxPlies);
   return root;
+}
+
+// Stamp each MapNode with its W/D/L stats by descending both trees in lockstep
+// (one pass, O(nodes)). A node whose move never appears in the games is left
+// null — no bar, no preview stats. The root carries the colour totals.
+function attachStats(node: MapNode, stat: StatNode | null): void {
+  node.stats = stat;
+  for (const c of node.children) {
+    attachStats(c, stat ? stat.children.get(c.uci) ?? null : null);
+  }
 }
 
 // `depthLeft` is the plies still allowed below `parent`; at 0 we stop, which is
@@ -102,7 +125,7 @@ function mergeInto(parent: MapNode, src: MoveNode, lineId: string, depthLeft: nu
     if (!ex) {
       ex = {
         san: sc.san, uci: sc.uci, fen: sc.fen, lineIds: [],
-        children: [], parent, x: 0, y: 0, svgEl: null,
+        children: [], parent, x: 0, y: 0, svgEl: null, stats: null,
       };
       parent.children.push(ex);
     }
@@ -148,6 +171,7 @@ function movedBy(fen: string): 'white' | 'black' {
 function buildSVG(
   root: MapNode,
   onTap: (n: MapNode) => void,
+  showStats: boolean,
 ): SVGSVGElement {
   const w = subW(root);
   placeNodes(root, PAD, PAD, w);
@@ -163,8 +187,48 @@ function buildSVG(
 
   // Root is the start position (no SAN) — skip it, draw its children.
   drawEdges(svg, root, true);
-  drawNodes(svg, root, true, onTap);
+  drawNodes(svg, root, true, onTap, showStats);
   return svg;
+}
+
+// A thin three-segment win/draw/loss bar along the node's bottom edge. Colours
+// mirror wdl-bar.ts (sage win, neutral draw, brick loss). Non-interactive so
+// taps still land on the node.
+function drawStatBar(g: SVGGElement, n: MapNode): void {
+  const s = n.stats;
+  if (!s) return;
+  const total = s.wins + s.draws + s.losses;
+  if (total === 0) return;
+
+  const left = n.x - NW / 2 + BAR_M;
+  const barW = NW - 2 * BAR_M;
+  const top = n.y + NH - BAR_GAP - BAR_H;
+
+  const track = document.createElementNS(NS, 'rect');
+  track.setAttribute('x', String(left));
+  track.setAttribute('y', String(top));
+  track.setAttribute('width', String(barW));
+  track.setAttribute('height', String(BAR_H));
+  track.setAttribute('rx', '1.5');
+  track.setAttribute('class', 'rmap-wdl-track');
+  g.appendChild(track);
+
+  let cx = left;
+  const seg = (kind: 'win' | 'draw' | 'loss', val: number) => {
+    if (val === 0) return;
+    const w = (val / total) * barW;
+    const r = document.createElementNS(NS, 'rect');
+    r.setAttribute('x', String(cx));
+    r.setAttribute('y', String(top));
+    r.setAttribute('width', String(w));
+    r.setAttribute('height', String(BAR_H));
+    r.setAttribute('class', `rmap-wdl-seg rmap-wdl-seg--${kind}`);
+    g.appendChild(r);
+    cx += w;
+  };
+  seg('win', s.wins);
+  seg('draw', s.draws);
+  seg('loss', s.losses);
 }
 
 function drawEdges(parent: SVGElement, n: MapNode, skip: boolean): void {
@@ -186,6 +250,7 @@ function drawNodes(
   n: MapNode,
   skip: boolean,
   onTap: (n: MapNode) => void,
+  showStats: boolean,
 ): void {
   if (!skip) {
     const isFork = n.children.length > 1;
@@ -224,6 +289,8 @@ function drawNodes(
     txt.textContent = n.san;
     g.appendChild(txt);
 
+    if (showStats) drawStatBar(g, n);
+
     n.svgEl = g;
     g.addEventListener('click', e => {
       e.stopPropagation();
@@ -231,7 +298,7 @@ function drawNodes(
     });
     parent.appendChild(g);
   }
-  for (const c of n.children) drawNodes(parent, c, false, onTap);
+  for (const c of n.children) drawNodes(parent, c, false, onTap, showStats);
 }
 
 // ── Position preview panel ────────────────────────────────────────────────────
@@ -254,10 +321,47 @@ function nodePath(n: MapNode): { ucis: string[]; sans: string[] } {
   return { ucis, sans };
 }
 
+// The tap-preview stats block: caption, [score% · W/D/L bar · counts], plus
+// frequency (share of games reaching the parent) and the most-played reply.
+function statsBlock(n: MapNode, caption: string): HTMLElement {
+  const s = n.stats!;
+  const wrap = document.createElement('div');
+  wrap.className = 'rmap-pos-stats';
+
+  const cap = document.createElement('div');
+  cap.className = 'wdl-caption';
+  cap.textContent = caption;
+  wrap.appendChild(cap);
+
+  wrap.appendChild(wdlScoreRow(
+    { wins: s.wins, draws: s.draws, losses: s.losses, scorePct: statScorePct(s), games: s.games },
+    `${s.games} game${s.games === 1 ? '' : 's'}`,
+  ));
+
+  const parentGames = n.parent?.stats?.games ?? 0;
+  if (parentGames > 0) {
+    const freq = document.createElement('div');
+    freq.className = 'rmap-pos-meta';
+    freq.textContent = `Played in ${Math.round((s.games / parentGames) * 100)}% of games here`;
+    wrap.appendChild(freq);
+  }
+
+  const reply = topReply(s);
+  if (reply) {
+    const r = document.createElement('div');
+    r.className = 'rmap-pos-meta';
+    r.textContent = `Most common reply: ${reply.san} (${Math.round((reply.games / s.games) * 100)}%)`;
+    wrap.appendChild(r);
+  }
+
+  return wrap;
+}
+
 function makePreview(
   colour: 'white' | 'black',
   opts: RepertoireMapOptions,
   requestClose: () => void,
+  showStats: () => boolean,
 ): PreviewController {
   const panel = document.createElement('div');
   panel.className = 'rmap-pos-panel';
@@ -322,6 +426,10 @@ function makePreview(
     san.className = 'rmap-pos-san';
     san.textContent = n.san;
     infoCol.appendChild(san);
+
+    if (opts.stats && showStats() && n.stats && n.stats.games > 0) {
+      infoCol.appendChild(statsBlock(n, opts.stats.caption));
+    }
 
     if (n.children.length > 1) {
       const v = document.createElement('div');
@@ -640,7 +748,13 @@ export function openRepertoireMap(
   // control to re-supply deeper data (opponents rebuild their pruned tree).
   const currentLines = (): Line[] => (depth && deepened ? depth.atDepth(currentPlies) : filtered);
 
+  // Per-move stats. Built once by the caller (UCI-keyed lookup); stamped onto the
+  // tree on every (re)build. Bars are shown by default when stats are available.
+  const statsTree = opts.stats?.tree ?? null;
+  let statsOn = !!statsTree;
+
   let root = buildMergedTree(currentLines(), currentPlies);
+  attachStats(root, statsTree);
 
   if (!root.children.length) {
     const empty = document.createElement('p');
@@ -658,7 +772,7 @@ export function openRepertoireMap(
   const state: TxState = { scale: 1, tx: 0, ty: 0 };
 
   // Preview panel.
-  const preview = makePreview(colour, opts, close);
+  const preview = makePreview(colour, opts, close, () => statsOn);
   treeArea.appendChild(preview.el);
 
   // A tiny spinner shown while a "Go deeper" rebuild runs off the paint frame.
@@ -689,11 +803,25 @@ export function openRepertoireMap(
     controls.update(n, forkChoice);
   }
 
-  let svg = buildSVG(root, selectNode);
+  let svg = buildSVG(root, selectNode, statsOn);
   inner.appendChild(svg);
   treeWrap.appendChild(inner);
   treeArea.appendChild(treeWrap);
   overlay.appendChild(treeArea);
+
+  // Flip the per-move stat bars on/off. The tree itself is unchanged, so we keep
+  // the current selection and view — only the SVG is redrawn.
+  function toggleStats(): void {
+    statsOn = !statsOn;
+    const newSvg = buildSVG(root, selectNode, statsOn);
+    svg.replaceWith(newSvg);
+    svg = newSvg;
+    if (selected) {
+      selected.svgEl?.classList.add('rmap-node--selected');
+      preview.show(selected, filtered, line => { close(); onOpenLine(line); });
+    }
+    updateStatsToggle();
+  }
 
   // Re-centre the view on the first move of the (possibly rebuilt) tree.
   function centreOnFirst(): void {
@@ -710,7 +838,8 @@ export function openRepertoireMap(
   // Swap in a freshly built tree at the current depth (after "Go deeper").
   function rebuild(): void {
     root = buildMergedTree(currentLines(), currentPlies);
-    const newSvg = buildSVG(root, selectNode);
+    attachStats(root, statsTree);
+    const newSvg = buildSVG(root, selectNode, statsOn);
     svg.replaceWith(newSvg);
     svg = newSvg;
     selected = null;
@@ -810,6 +939,23 @@ export function openRepertoireMap(
     // the move arrows and the preview panel.
     treeArea.appendChild(deeperBtn);
     updateDeeper();
+  }
+
+  // Discrete "show/hide stats" toggle, sitting at the top edge of the bottom bar.
+  let statsToggleBtn: HTMLButtonElement | null = null;
+  function updateStatsToggle(): void {
+    if (!statsToggleBtn) return;
+    statsToggleBtn.setAttribute('aria-pressed', String(statsOn));
+    statsToggleBtn.classList.toggle('rmap-stats-toggle--on', statsOn);
+    statsToggleBtn.textContent = statsOn ? 'Hide stats' : 'Show stats';
+  }
+  if (statsTree) {
+    statsToggleBtn = document.createElement('button');
+    statsToggleBtn.type = 'button';
+    statsToggleBtn.className = 'rmap-stats-toggle';
+    statsToggleBtn.addEventListener('click', toggleStats);
+    controls.container.appendChild(statsToggleBtn);
+    updateStatsToggle();
   }
 
   overlay.appendChild(controls.container);

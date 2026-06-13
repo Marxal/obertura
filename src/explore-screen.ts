@@ -27,6 +27,7 @@ import {
   type Opponent, type ScoutReport, type OpeningRecord, type Recommendation,
 } from './scout';
 import { wdlBlock, wdlScoreRow } from './wdl-bar';
+import { buildMoveStats } from './move-stats';
 import { createFilterBar } from './filters';
 import { pushBack } from './back-nav';
 
@@ -768,6 +769,12 @@ function mapButton(opp: Opponent, colour: 'white' | 'black', prepare: PrepareFn)
               opponentLine(buildOpponentTree(opp.games, colour, plies), colour, opp.name),
             ],
             importHint: true,
+          },
+          // Per-move W/D/L from THEIR perspective (the scouted user was "me" at
+          // import), built to the deep limit so the deeper view has stats too.
+          stats: {
+            tree: buildMoveStats(opp.games, colour, DEEP_MAP_PLIES),
+            caption: 'their results',
           },
         },
       );

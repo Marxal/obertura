@@ -58,6 +58,7 @@ import { runOpeningsSelfTest } from './openings.selftest';
 import { runSparSelfTest } from './spar.selftest';
 import { runImportSelfTest } from './import.selftest';
 import { runTreeSelfTest } from './tree.selftest';
+import { runMoveStatsSelfTest } from './move-stats.selftest';
 
 export function renderSettingsScreen(container: HTMLElement): void {
   container.innerHTML = '';
@@ -116,6 +117,7 @@ function buildDiagnosticsGroup(): HTMLElement {
   appendSelfTest(sec, 'Run out-of-book self-test', runSparSelfTest, '[spar self-test]');
   appendSelfTest(sec, 'Run import parser self-test', runImportSelfTest, '[import self-test]');
   appendSelfTest(sec, 'Run move-tree self-test', runTreeSelfTest, '[tree self-test]');
+  appendSelfTest(sec, 'Run move-stats self-test', runMoveStatsSelfTest, '[move-stats self-test]');
 
   return sec;
 }
