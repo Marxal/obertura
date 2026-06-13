@@ -5286,10 +5286,11 @@ cg-board square.move-dest.oc {
 .rmap-zoom-btn:active { background: var(--border); }
 
 /* "Go deeper" — a quiet floating pill, top-left of the tree area. */
+/* "Go deeper" sits bottom-right of the tree area, just above the nav bar. */
 .rmap-deeper-btn {
   position: absolute;
-  top: 0.6rem;
-  left: 0.6rem;
+  bottom: 0.6rem;
+  right: 0.6rem;
   z-index: 4;
   display: inline-flex;
   align-items: center;
@@ -5305,6 +5306,30 @@ cg-board square.move-dest.oc {
   -webkit-tap-highlight-color: transparent;
 }
 .rmap-deeper-btn:active { background: var(--accent-soft); color: var(--accent); }
+
+/* Board-explorer launcher — a quiet compass pill, top-left of the tree area.
+   Sits above the position preview (z-index 10) so it stays tappable once a move
+   is selected — the explorer then opens at that move. */
+.rmap-explore-btn {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.6rem;
+  z-index: 11;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.rmap-explore-btn:active { background: var(--accent-soft); color: var(--accent); }
 /* The shallow-import note: faint and non-interactive. */
 .rmap-deeper-btn--hint {
   color: var(--text-faint);
@@ -5341,6 +5366,17 @@ cg-board square.move-dest.oc {
   color: var(--text-faint);
   line-height: 1.45;
   margin: 0 0 0.75rem;
+}
+
+/* Group heading above each map's White/Black button row ("Your repertoire" /
+   "Your games"). */
+.rmap-map-group-label {
+  margin: 0.9rem 0 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
 }
 
 .rmap-colour-btns {
@@ -5884,6 +5920,97 @@ cg-board square.move-dest.oc {
 
 .lib-open-btn {
   margin: var(--space-md) var(--space-lg) calc(var(--space-lg) + env(safe-area-inset-bottom, 0));
+  align-self: stretch;
+  text-align: center;
+  font-size: 0.9rem;
+  padding: 0.7rem;
+}
+
+/* ── Board explorer ─────────────────────────────────────────────────────────── */
+
+.bx-board-wrap {
+  width: 100vw;
+  height: min(100vw, 50vh);
+  flex-shrink: 0;
+}
+.bx-board { width: 100%; height: 100%; }
+
+.bx-opening {
+  padding: var(--space-sm) var(--space-lg);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--hairline-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bx-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 var(--space-lg);
+}
+.bx-empty {
+  padding: var(--space-lg);
+  font-size: 0.85rem;
+  color: var(--text-faint);
+}
+.bx-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  padding: 0.55rem 0.25rem;
+  border: none;
+  border-bottom: 1px solid var(--hairline-soft);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.bx-row:active { background: var(--accent-soft); }
+.bx-move {
+  flex-shrink: 0;
+  min-width: 4.25rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+/* The reused W/D/L row fills the rest; its bar is a touch taller here. */
+.bx-row .wdl-row { flex: 1; }
+.bx-row .wdl-bar { height: 14px; }
+
+.bx-controls {
+  display: flex;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-lg) calc(var(--space-md) + env(safe-area-inset-bottom, 0));
+  flex-shrink: 0;
+}
+.bx-nav-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 52px;
+  font-size: 0.62rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.bx-nav-btn:active { filter: brightness(0.92); }
+.bx-nav-btn:disabled { opacity: 0.4; cursor: default; }
+
+.bx-action {
+  margin: 0 var(--space-lg) calc(var(--space-lg) + env(safe-area-inset-bottom, 0));
   align-self: stretch;
   text-align: center;
   font-size: 0.9rem;

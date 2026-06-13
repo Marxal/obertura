@@ -15,6 +15,7 @@ import { nameForFen } from './openings';
 import { pushBack } from './back-nav';
 import { statScorePct, topReply, type StatNode } from './move-stats';
 import { wdlScoreRow } from './wdl-bar';
+import { openBoardExplorer } from './board-explorer';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 const NS = 'http://www.w3.org/2000/svg';
@@ -519,6 +520,20 @@ function initPanZoom(
   // two within 300ms fire onDoubleTap.
   let lastTapAt = 0, tapX = 0, tapY = 0, tapMoved = false, multiTouch = false;
 
+  // Scale around a screen point (client coords), keeping the world point under it
+  // fixed — so zoom homes in where the gesture is, rather than the origin.
+  function zoomAt(clientX: number, clientY: number, factor: number): void {
+    const rect = outer.getBoundingClientRect();
+    const ax = clientX - rect.left, ay = clientY - rect.top;
+    const s0 = state.scale;
+    const s1 = Math.max(0.15, Math.min(5, s0 * factor));
+    if (s1 === s0) return;
+    state.tx = ax - ((ax - state.tx) / s0) * s1;
+    state.ty = ay - ((ay - state.ty) / s0) * s1;
+    state.scale = s1;
+    applyTx(inner, state);
+  }
+
   outer.addEventListener('touchstart', e => {
     if (e.touches.length === 1) {
       t0 = e.touches[0];
@@ -535,8 +550,7 @@ function initPanZoom(
       const [a, b] = [e.touches[0], e.touches[1]];
       const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
       if (lastDist > 0) {
-        state.scale = Math.max(0.15, Math.min(5, state.scale * (d / lastDist)));
-        applyTx(inner, state);
+        zoomAt((a.clientX + b.clientX) / 2, (a.clientY + b.clientY) / 2, d / lastDist);
       }
       lastDist = d;
     } else if (e.touches.length === 1 && t0) {
@@ -580,12 +594,10 @@ function initPanZoom(
   window.addEventListener('mousemove', onMouseMove);
   window.addEventListener('mouseup', onMouseUp);
 
-  // Wheel zoom — faster multiplier for snappier feel
+  // Wheel zoom — anchored on the pointer, faster multiplier for snappier feel.
   outer.addEventListener('wheel', e => {
     e.preventDefault();
-    const f = e.deltaY < 0 ? 1.18 : 0.85;
-    state.scale = Math.max(0.15, Math.min(5, state.scale * f));
-    applyTx(inner, state);
+    zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.18 : 0.85);
   }, { passive: false });
 
   return () => {
@@ -797,14 +809,13 @@ export function openRepertoireMap(
   const statsTree = opts.stats?.tree ?? null;
 
   // View mode. "all" shows every branch; "frequent" prunes by the stats counts.
-  // The toggle only appears when we have stats to prune by; default is "all" so
-  // the map opens with full branching (the user can declutter to "frequent").
-  let viewMode: 'all' | 'frequent' = 'all';
+  // The toggle only appears when we have stats to prune by; default is "frequent"
+  // so the map opens clean (the user can expand to "all replies").
+  let viewMode: 'all' | 'frequent' = 'frequent';
 
-  // Default viewMode is "all", so the first build shows full branching; switching
-  // to "frequent" prunes via rebuild() below.
   let root = buildMergedTree(currentLines(), currentPlies);
   attachStats(root, statsTree);
+  if (statsTree && viewMode === 'frequent') pruneByStats(root);
 
   if (!root.children.length) {
     const empty = document.createElement('p');
@@ -888,7 +899,7 @@ export function openRepertoireMap(
     const keepPath = selected ? nodePath(selected).ucis : null;
     root = buildMergedTree(currentLines(), currentPlies);
     attachStats(root, statsTree);
-    if (viewMode === 'frequent') pruneByStats(root);
+    if (statsTree && viewMode === 'frequent') pruneByStats(root);
     const newSvg = buildSVG(root, selectNode);
     svg.replaceWith(newSvg);
     svg = newSvg;
@@ -952,18 +963,30 @@ export function openRepertoireMap(
       selectNode(target);
     },
     // zoom in
-    () => {
-      state.scale = Math.min(5, state.scale * 1.35);
-      applyTx(inner, state, true);
-    },
+    () => zoomBy(1.35),
     // zoom out
-    () => {
-      state.scale = Math.max(0.15, state.scale / 1.35);
-      applyTx(inner, state, true);
-    },
+    () => zoomBy(1 / 1.35),
     // centre — bring a drifted map back to the current move (or the start)
     () => recentre(),
   );
+
+  // Zoom the +/- buttons around the selected move (so zoom "guides through" it),
+  // or the viewport centre when nothing's selected.
+  function zoomBy(factor: number): void {
+    const s0 = state.scale;
+    const s1 = Math.max(0.15, Math.min(5, s0 * factor));
+    if (s1 === s0) return;
+    if (selected) {
+      state.tx += selected.x * (s0 - s1);
+      state.ty += selected.y * (s0 - s1);
+    } else {
+      const rect = treeWrap.getBoundingClientRect();
+      state.tx = rect.width / 2 - ((rect.width / 2 - state.tx) / s0) * s1;
+      state.ty = rect.height / 2 - ((rect.height / 2 - state.ty) / s0) * s1;
+    }
+    state.scale = s1;
+    applyTx(inner, state, true);
+  }
 
   // Re-centre on the selected move if there is one, else on the first move. Used
   // by the centre button and by double-tapping the map.
@@ -1042,6 +1065,28 @@ export function openRepertoireMap(
     // the move arrows and the preview panel.
     treeArea.appendChild(deeperBtn);
     updateDeeper();
+  }
+
+  // Board explorer — a quiet compass pill, top-left of the tree area. Only shown
+  // when we have game stats to list; opens at the currently selected move.
+  if (statsTree && opts.stats) {
+    const exploreBtn = document.createElement('button');
+    exploreBtn.type = 'button';
+    exploreBtn.className = 'rmap-explore-btn';
+    exploreBtn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none"
+      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+      aria-hidden="true"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg><span>Explore</span>`;
+    exploreBtn.addEventListener('click', () => {
+      openBoardExplorer({
+        statsTree,
+        caption: opts.stats!.caption,
+        colour,
+        startUcis: selected ? nodePath(selected).ucis : [],
+        title: opts.title ?? 'Board explorer',
+        action: opts.nodeAction,
+      });
+    });
+    treeArea.appendChild(exploreBtn);
   }
 
   // Zoom floats bottom-left of the tree area (outside the bar).

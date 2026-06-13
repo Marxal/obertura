@@ -23,7 +23,10 @@ import {
 } from './progress';
 import { currentStreak, trainedToday, getTrainingDays } from './streak';
 import { openRepertoireMap } from './repertoire-map';
-import { MAP_START_PLIES, MAP_STEP_PLIES, MAP_MAX_PLIES } from './scout';
+import {
+  MAP_START_PLIES, MAP_STEP_PLIES, MAP_MAX_PLIES,
+  buildOpponentTree, opponentLine,
+} from './scout';
 import { buildMoveStats } from './move-stats';
 import type { MoveNode } from './tree';
 import { Icons } from './icons';
@@ -37,6 +40,8 @@ import {
 export interface ProgressCallbacks {
   onTrainLine: (lineId: string, inTraining: boolean) => void;
   onOpenLine: (line: Line) => void;
+  // Seed the builder with a move path (used by the "your games" map's nodes).
+  onBuildFromPath: (ucis: string[], colour: 'white' | 'black') => void;
 }
 
 export function renderProgressScreen(container: HTMLElement, cb: ProgressCallbacks): void {
@@ -338,70 +343,105 @@ function treeDepth(node: MoveNode): number {
   return 1 + Math.max(...node.children.map(treeDepth));
 }
 
+// A colour button (icon + "White/Black" + a count line) for a map group.
+function mapColourBtn(
+  colour: 'white' | 'black',
+  icon: SVGElement,
+  countText: string,
+  onClick: () => void,
+): HTMLButtonElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = `rmap-colour-btn rmap-colour-btn--${colour}`;
+  icon.classList.add('rmap-colour-btn-icon');
+  btn.appendChild(icon);
+
+  const label = document.createElement('span');
+  label.className = 'rmap-colour-btn-label';
+  label.textContent = colour === 'white' ? 'White' : 'Black';
+  btn.appendChild(label);
+
+  const count = document.createElement('span');
+  count.className = 'rmap-colour-btn-count';
+  count.textContent = countText;
+  btn.appendChild(count);
+
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+
 function renderRepertoireMapSection(
   container: HTMLElement,
   lines: Line[],
   games: ImportedGame[],
   cb: ProgressCallbacks,
 ): void {
-  const section = statsSection('Repertoire Map', '');
+  const section = statsSection('Maps', '');
 
   const desc = document.createElement('p');
   desc.className = 'rmap-section-desc';
-  desc.textContent = 'See your preparation as a branching tree. Tap any move to explore the position and navigate to the builder.';
+  desc.textContent = 'Browse your openings as a branching tree. Tap any move to explore the position, or open the Board explorer for a move-by-move view.';
   section.appendChild(desc);
 
-  const btnRow = document.createElement('div');
-  btnRow.className = 'rmap-colour-btns';
-
-  for (const colour of ['white', 'black'] as const) {
-    const colourLines = lines.filter(l => l.colour === colour);
-    if (!colourLines.length) continue;
-
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = `rmap-colour-btn rmap-colour-btn--${colour}`;
-
-    // Branching-tree glyph: a trunk splitting into variations (line icon).
-    const icon = Icons.tree(36);
-    icon.classList.add('rmap-colour-btn-icon');
-    btn.appendChild(icon);
-
-    const label = document.createElement('span');
-    label.className = 'rmap-colour-btn-label';
-    label.textContent = colour === 'white' ? 'White' : 'Black';
-    btn.appendChild(label);
-
-    const lineCount = document.createElement('span');
-    lineCount.className = 'rmap-colour-btn-count';
-    lineCount.textContent = `${colourLines.length} line${colourLines.length !== 1 ? 's' : ''}`;
-    btn.appendChild(lineCount);
-
-    // Lines can run any length; the map opens at 5 moves and steps 5 moves at a
-    // time on "Go deeper" — same as the opponent maps — from the full saved trees
-    // already on the phone (the merge truncates to the current depth).
-    const reach = Math.max(0, ...colourLines.map(l => treeDepth(l.tree)));
-    btn.addEventListener('click', () => openRepertoireMap(colourLines, colour, cb.onOpenLine, {
-      depth: {
-        startPlies: MAP_START_PLIES,
-        stepPlies: MAP_STEP_PLIES,
-        maxPlies: reach,
-        atDepth: () => colourLines,
-      },
-      // Per-move W/D/L from MY imported games (my perspective). Moves I've never
-      // actually played show no bar. Omitted entirely when nothing's imported.
-      ...(games.length > 0 && {
-        stats: {
-          tree: buildMoveStats(games, colour, MAP_MAX_PLIES),
-          caption: 'your results',
-        },
-      }),
-    }));
-    btnRow.appendChild(btn);
+  // Renders a labelled group with a White/Black button row; skips empty groups.
+  function group(title: string, makeBtns: () => HTMLButtonElement[]): void {
+    const btns = makeBtns();
+    if (!btns.length) return;
+    const heading = document.createElement('h4');
+    heading.className = 'rmap-map-group-label';
+    heading.textContent = title;
+    section.appendChild(heading);
+    const row = document.createElement('div');
+    row.className = 'rmap-colour-btns';
+    btns.forEach(b => row.appendChild(b));
+    section.appendChild(row);
   }
 
-  if (!btnRow.children.length) return;
-  section.appendChild(btnRow);
+  // Per-move W/D/L from MY imported games (my perspective), shared by both maps.
+  const myStats = (colour: 'white' | 'black') => ({
+    tree: buildMoveStats(games, colour, MAP_MAX_PLIES),
+    caption: 'your results',
+  });
+
+  // 1) Your repertoire — the saved lines as a tree.
+  group('Your repertoire', () =>
+    (['white', 'black'] as const).flatMap(colour => {
+      const colourLines = lines.filter(l => l.colour === colour);
+      if (!colourLines.length) return [];
+      const reach = Math.max(0, ...colourLines.map(l => treeDepth(l.tree)));
+      return [mapColourBtn(colour, Icons.tree(36),
+        `${colourLines.length} line${colourLines.length !== 1 ? 's' : ''}`,
+        () => openRepertoireMap(colourLines, colour, cb.onOpenLine, {
+          depth: { startPlies: MAP_START_PLIES, stepPlies: MAP_STEP_PLIES, maxPlies: reach, atDepth: () => colourLines },
+          ...(games.length > 0 && { stats: myStats(colour) }),
+        }))];
+    }),
+  );
+
+  // 2) Your games — what you actually play, from imported games (like an opponent
+  //    map, but yours). Only when games are imported.
+  group('Your games', () =>
+    games.length === 0 ? [] :
+    (['white', 'black'] as const).flatMap(colour => {
+      const colourGames = games.filter(g => g.colour === colour);
+      if (!colourGames.length) return [];
+      const reach = Math.max(0, ...colourGames.map(g => g.sans.length));
+      const buildLines = (plies: number) =>
+        [opponentLine(buildOpponentTree(games, colour, plies, false), colour, 'Your games')];
+      return [mapColourBtn(colour, Icons.search(34),
+        `${colourGames.length} game${colourGames.length !== 1 ? 's' : ''}`,
+        () => openRepertoireMap(buildLines(MAP_START_PLIES), colour, cb.onOpenLine, {
+          title: `Your games — ${colour === 'white' ? 'White' : 'Black'}`,
+          subtitle: `${colourGames.length} game${colourGames.length !== 1 ? 's' : ''}`,
+          depth: { startPlies: MAP_START_PLIES, stepPlies: MAP_STEP_PLIES, maxPlies: reach, atDepth: buildLines },
+          stats: myStats(colour),
+          nodeAction: { label: 'Open in builder', onAct: ({ ucis }) => cb.onBuildFromPath(ucis, colour) },
+        }))];
+    }),
+  );
+
+  // Nothing to show (no lines and no games)? Drop the section entirely.
+  if (!section.querySelector('.rmap-colour-btns')) return;
   container.appendChild(section);
 }
 
