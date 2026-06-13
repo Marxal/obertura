@@ -765,8 +765,10 @@ function mapButton(opp: Opponent, colour: 'white' | 'black', prepare: PrepareFn)
             startPlies: MAP_START_PLIES,
             stepPlies: MAP_STEP_PLIES,
             maxPlies: opponentReachPlies(opp, colour),
+            // Feed the FULL (unpruned) tree so the map's "All replies" view
+            // shows every move they played; "Frequent" prunes it by stats.
             atDepth: plies => [
-              opponentLine(buildOpponentTree(opp.games, colour, plies), colour, opp.name),
+              opponentLine(buildOpponentTree(opp.games, colour, plies, false), colour, opp.name),
             ],
             importHint: true,
           },

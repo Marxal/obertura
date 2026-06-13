@@ -5223,13 +5223,45 @@ cg-board square.move-dest.oc {
   gap: 0.3rem;
 }
 
+/* Zoom floats bottom-left of the tree area, outside the bar (mirrors the
+   top-left "Go deeper" pill). */
 .rmap-controls-zoom {
+  position: absolute;
+  bottom: 0.6rem;
+  left: 0.6rem;
+  z-index: 4;
   display: flex;
   gap: 0.3rem;
 }
 
+/* All replies / Frequent toggle — a compact segmented pill in the bar's left
+   slot. Quiet by default; the active segment uses the accent. */
+.rmap-view-seg {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--bg-elevated);
+}
+.rmap-view-btn {
+  padding: 0.34rem 0.62rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s, color 0.12s;
+}
+.rmap-view-btn--on {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 /* The nav buttons borrow .bar-btn / .bar-btn--step (the builder's look); only
-   their map-specific width is set here, so all four arrows stay compact. */
+   their map-specific width is set here, so all the arrows stay compact. */
 .rmap-nav-btn.bar-btn--step {
   width: 44px;
   height: 40px;
