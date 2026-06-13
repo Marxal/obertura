@@ -16,6 +16,7 @@ import { pushBack } from './back-nav';
 import { analyseGames, countGamesPerLine, TOP_N, type Analysis, type OpeningStat } from './analysis';
 import { openImportPanel, getGamesSource } from './import-panel';
 import { isOpponentTag } from './scout';
+import { buildEmptyState } from './empty-state';
 import { createFilterBar, type FilterSelection } from './filters';
 import type { ImportedGame } from './chesscom';
 import { runAnalysisSelfTest } from './analysis.selftest';
@@ -198,6 +199,13 @@ async function doRender(container: HTMLElement, deps: LinesDeps): Promise<void> 
 
   const pending: Pending[] = [];
 
+  // Jump to the "From my games" tab (the empty-state carousels offer it as the
+  // quieter alternative to building a line by hand).
+  const goToGamesTab = () => {
+    activeTab = 'games';
+    void doRender(container, deps);
+  };
+
   // Quick view: one carousel of mini-boards per colour, title-only cards. When
   // it's switched off in Settings, the per-colour "Add new line" buttons that
   // live in the carousel heads go with it — so surface a compact inline add row
@@ -209,7 +217,8 @@ async function doRender(container: HTMLElement, deps: LinesDeps): Promise<void> 
           colour,
           allLines.filter(l => l.colour === colour),
           deps,
-          pending
+          pending,
+          goToGamesTab
         )
       );
     }
@@ -295,7 +304,8 @@ function buildCarouselSection(
   colour: 'white' | 'black',
   lines: Line[],
   deps: LinesDeps,
-  pending: Pending[]
+  pending: Pending[],
+  goToGamesTab: () => void
 ): HTMLElement {
   const section = document.createElement('section');
   section.className = 'carousel-section';
@@ -315,6 +325,20 @@ function buildCarouselSection(
   title.appendChild(name);
   head.appendChild(title);
 
+  const colourName = colour === 'white' ? 'White' : 'Black';
+
+  // Empty colour: drop the bare note (and the head's small Add button) for the
+  // shared empty-state pattern — its CTA is the way in, so no duplicate button.
+  if (lines.length === 0) {
+    section.appendChild(head);
+    section.appendChild(buildEmptyState({
+      line: `No ${colourName} lines yet.`,
+      cta: { label: `+ Add ${colourName} line`, onClick: () => deps.onAddLine(colour) },
+      link: { label: 'or import from your games', onClick: goToGamesTab },
+    }));
+    return section;
+  }
+
   // "+ Add new line" — the only entry into the builder for a fresh line.
   const addBtn = document.createElement('button');
   addBtn.type = 'button';
@@ -325,14 +349,6 @@ function buildCarouselSection(
   head.appendChild(addBtn);
 
   section.appendChild(head);
-
-  if (lines.length === 0) {
-    const empty = document.createElement('p');
-    empty.className = 'lines-empty';
-    empty.textContent = `No ${colour === 'white' ? 'White' : 'Black'} lines yet.`;
-    section.appendChild(empty);
-    return section;
-  }
 
   // Horizontally-scrolling track of mini-board cards.
   const carousel = document.createElement('div');

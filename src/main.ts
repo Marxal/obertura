@@ -23,6 +23,7 @@ import { initAppearance } from './appearance';
 import { watchSpeedMs, getConfirmRunBeforeTraining } from './prefs';
 import { initBackNav, setViewBack, pushBack } from './back-nav';
 import { showDialog } from './dialog';
+import { openImportPanel } from './import-panel';
 import { maybeShowIntro } from './onboarding';
 
 const chess = new Chess();
@@ -978,6 +979,8 @@ function showView(view: ViewName): void {
     renderTrainScreen(trainEl, {
       focusLineId: pendingTrainLineId ?? undefined,
       onOpenLine,
+      onBuildLine: () => startNewLine('white'),
+      onImportGames: () => openImportPanel({ onImported: () => showView('train') }),
     });
     pendingTrainLineId = null;
   }
@@ -987,6 +990,8 @@ function showView(view: ViewName): void {
       onTrainLine,
       onOpenLine: (line) => onOpenLine(line),
       onBuildFromPath: (ucis, colour) => buildFromUcis(ucis, colour),
+      onStartTraining: () => showView('train'),
+      onBuildLine: () => startNewLine('white'),
     });
   }
 

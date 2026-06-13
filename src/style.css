@@ -3049,6 +3049,52 @@ cg-board square.move-dest.oc {
   max-width: 280px;
 }
 
+/* ── Shared empty state (empty-state.ts) ──────────────────────────────────────
+   One pattern across Train / My Lines / Explore / Statistics: an optional icon,
+   one short line, a primary CTA, and a quieter text link beneath. */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  padding: 2.25rem 1.5rem;
+  text-align: center;
+}
+
+.empty-state-icon {
+  display: flex;
+  color: var(--text-fainter);
+}
+
+.empty-state-line {
+  max-width: 280px;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.empty-state-cta {
+  min-width: 180px;
+}
+
+.empty-state-link {
+  padding: 0.45rem 0.6rem;
+  background: none;
+  border: none;
+  font-size: 0.85rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-faint);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.empty-state-link:hover {
+  color: var(--text);
+}
+
 /* ── Completion panel ──────────────────────────────────────────────────────── */
 
 /* Chrome from .section in HTML; layout from this rule only. */

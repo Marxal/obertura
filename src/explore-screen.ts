@@ -30,6 +30,7 @@ import {
 import { wdlBlock, wdlScoreRow } from './wdl-bar';
 import { buildMoveStats } from './move-stats';
 import { createFilterBar } from './filters';
+import { buildEmptyState } from './empty-state';
 import { pushBack } from './back-nav';
 
 const PLATFORM_LABEL = { chesscom: 'Chess.com', lichess: 'Lichess' } as const;
@@ -88,28 +89,39 @@ async function buildScreen(container: HTMLElement): Promise<void> {
   head.appendChild(meta);
   section.appendChild(head);
 
-  const desc = document.createElement('p');
-  desc.className = 'section-desc';
-  desc.textContent =
-    'Import an opponent’s games to scout their openings and build a map of what they play.';
-  section.appendChild(desc);
+  // The library section is rendered first; keep a handle so the empty state's
+  // "browse the openings library" link can jump straight to it.
+  const libEl = librarySection();
 
-  // Add-opponent button.
-  const addBtn = document.createElement('button');
-  addBtn.type = 'button';
-  addBtn.className = 'games-refresh-btn scout-add-btn';
-  addBtn.appendChild(Icons.plus(15));
-  addBtn.appendChild(document.createTextNode('Add opponent'));
-  addBtn.addEventListener('click', () => addOpponent(container));
-  section.appendChild(addBtn);
-
-  // Cards (or an empty note).
+  // No opponents yet: the shared empty-state pattern carries the way in (its CTA
+  // is the add-opponent flow), so the standalone description + Add button are
+  // dropped here to avoid doubling up.
   if (opponents.length === 0) {
-    const empty = document.createElement('p');
-    empty.className = 'stats-no-games scout-empty';
-    empty.textContent = 'No opponents yet. Add one to start scouting.';
-    section.appendChild(empty);
+    section.appendChild(buildEmptyState({
+      icon: Icons.target(28),
+      line: 'Scout your first opponent.',
+      cta: { label: 'Add opponent', onClick: () => addOpponent(container) },
+      link: {
+        label: 'or browse the openings library',
+        onClick: () => libEl.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+      },
+    }));
   } else {
+    const desc = document.createElement('p');
+    desc.className = 'section-desc';
+    desc.textContent =
+      'Import an opponent’s games to scout their openings and build a map of what they play.';
+    section.appendChild(desc);
+
+    // Add-opponent button.
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'games-refresh-btn scout-add-btn';
+    addBtn.appendChild(Icons.plus(15));
+    addBtn.appendChild(document.createTextNode('Add opponent'));
+    addBtn.addEventListener('click', () => addOpponent(container));
+    section.appendChild(addBtn);
+
     const list = document.createElement('div');
     list.className = 'group';
     for (const opp of opponents) list.appendChild(opponentCard(opp, container));
@@ -118,7 +130,7 @@ async function buildScreen(container: HTMLElement): Promise<void> {
 
   const hasGames = (await countGames()) > 0;
 
-  container.appendChild(librarySection());
+  container.appendChild(libEl);
   container.appendChild(section);
   container.appendChild(sparSection(hasGames));
 }

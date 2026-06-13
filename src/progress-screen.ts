@@ -29,6 +29,7 @@ import {
 import { buildMoveStats } from './move-stats';
 import type { MoveNode } from './tree';
 import { Icons } from './icons';
+import { buildEmptyState } from './empty-state';
 import {
   getShowStreakSection,
   getShowActivitySection,
@@ -41,6 +42,9 @@ export interface ProgressCallbacks {
   onOpenLine: (line: Line) => void;
   // Seed the builder with a move path (used by the "your games" map's nodes).
   onBuildFromPath: (ucis: string[], colour: 'white' | 'black') => void;
+  // Empty-state routes: jump to the Train tab, or open the builder on a fresh line.
+  onStartTraining: () => void;
+  onBuildLine: () => void;
 }
 
 export function renderProgressScreen(container: HTMLElement, cb: ProgressCallbacks): void {
@@ -58,6 +62,18 @@ async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<
     return;
   }
   container.innerHTML = '';
+
+  // Truly fresh — no lines and no games — has no numbers to show yet. One clean
+  // empty state beats a wall of zeroes (cold streak, 0/0/0 stats, no-games note).
+  if (lines.length === 0 && games.length === 0) {
+    container.appendChild(buildEmptyState({
+      icon: Icons.barChart(28),
+      line: 'Your numbers start with your first session.',
+      cta: { label: 'Start training', onClick: () => cb.onStartTraining() },
+      link: { label: 'or build your first line', onClick: () => cb.onBuildLine() },
+    }));
+    return;
+  }
 
   const report = crossReference(games, lines);
 
