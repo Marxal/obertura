@@ -21,13 +21,14 @@ const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 // At most this many opponents on the device at once (the Explore cap).
 export const MAX_OPPONENTS = 10;
 
-// How deep the scouting map renders. The DEFAULT view shows 40 plies = 20 full
-// moves — deep enough to read a repertoire, shallow enough that frequency
-// pruning keeps it legible. "Go deeper" re-renders to DEEP = 60 plies (30 moves)
-// from the same stored games (now kept OPENING_PLIES = 60 deep). Old, shallow
-// imports can't reach the deep view — see opponentReachPlies / the map control.
-export const DEFAULT_MAP_PLIES = 40;
-export const DEEP_MAP_PLIES = 60;
+// How deep the maps render. They open at MAP_START_PLIES = 10 plies (5 moves)
+// and "Go deeper" steps MAP_STEP_PLIES = 10 plies (5 moves) at a time, repeatably,
+// up to the data's true reach (capped at MAP_MAX_PLIES = OPENING_PLIES = 60, the
+// deepest the stored games keep). Pruning keeps the main lines legible — see
+// prune(); old, shallow imports can't reach the deep view — see opponentReachPlies.
+export const MAP_START_PLIES = 10;
+export const MAP_STEP_PLIES = 10;
+export const MAP_MAX_PLIES = 60;
 
 // The persisted opponent record. `games` is the source of truth; `whiteTree`
 // and `blackTree` are the precomputed maps (rebuilt on every import / refresh).
@@ -59,7 +60,7 @@ interface BuildNode {
 export function buildOpponentTree(
   games: ImportedGame[],
   colour: 'white' | 'black',
-  maxPlies: number = DEFAULT_MAP_PLIES,
+  maxPlies: number = MAP_MAX_PLIES,
 ): MoveNode {
   const mine = games.filter(g => g.colour === colour);
   const root: BuildNode = { san: '', uci: '', fen: START_FEN, count: mine.length, children: new Map() };
@@ -91,8 +92,8 @@ export function buildOpponentTree(
     }
   }
 
-  // Drop rare branches so the map reads as a repertoire, not a game dump. The
-  // threshold scales with the sample; tiny samples keep everything. It's also
+  // Drop rare SIDE branches so the map reads as a repertoire, not a game dump.
+  // The threshold scales with the sample; tiny samples keep everything. It's also
   // clamped so the single most-played first move always survives — the map is
   // never pruned down to nothing.
   let maxRoot = 0;
@@ -104,9 +105,16 @@ export function buildOpponentTree(
   return toMoveNode(root, { n: 0 });
 }
 
+// Keep the single most-played continuation at every node regardless of count, so
+// the main line traces all the way to the requested depth; only rarer SIDE lines
+// (below minCount, and not the busiest child) are trimmed.
 function prune(node: BuildNode, minCount: number): void {
+  let top: BuildNode | null = null;
+  for (const c of node.children.values()) {
+    if (!top || c.count > top.count) top = c;
+  }
   for (const [uci, child] of node.children) {
-    if (child.count < minCount) node.children.delete(uci);
+    if (child !== top && child.count < minCount) node.children.delete(uci);
     else prune(child, minCount);
   }
 }

@@ -23,7 +23,7 @@ import {
 import {
   MAX_OPPONENTS, makeOpponent, opponentLine, colourGameCount, opponentTag, isOpponentTag,
   opponentSummary, buildScoutReport, buildOpponentTree, opponentReachPlies,
-  DEFAULT_MAP_PLIES, DEEP_MAP_PLIES,
+  MAP_START_PLIES, MAP_STEP_PLIES, MAP_MAX_PLIES,
   type Opponent, type ScoutReport, type OpeningRecord, type Recommendation,
 } from './scout';
 import { wdlBlock, wdlScoreRow } from './wdl-bar';
@@ -748,8 +748,8 @@ function mapButton(opp: Opponent, colour: 'white' | 'black', prepare: PrepareFn)
   } else {
     btn.addEventListener('click', () => {
       openRepertoireMap(
-        // First render uses the precomputed default tree (instant); "Go deeper"
-        // rebuilds the pruned tree from stored games at the deeper depth.
+        // The map rebuilds the pruned tree from stored games at each depth (see
+        // `atDepth`); this line is just the seed used for preview association.
         [opponentLine(tree, colour, opp.name)],
         colour,
         () => { /* opponent maps have no "open in builder" */ },
@@ -762,8 +762,8 @@ function mapButton(opp: Opponent, colour: 'white' | 'black', prepare: PrepareFn)
             onAct: ({ ucis }) => prepare(ucis, colour),
           },
           depth: {
-            defaultPlies: DEFAULT_MAP_PLIES,
-            deeperPlies: DEEP_MAP_PLIES,
+            startPlies: MAP_START_PLIES,
+            stepPlies: MAP_STEP_PLIES,
             maxPlies: opponentReachPlies(opp, colour),
             atDepth: plies => [
               opponentLine(buildOpponentTree(opp.games, colour, plies), colour, opp.name),
@@ -773,7 +773,7 @@ function mapButton(opp: Opponent, colour: 'white' | 'black', prepare: PrepareFn)
           // Per-move W/D/L from THEIR perspective (the scouted user was "me" at
           // import), built to the deep limit so the deeper view has stats too.
           stats: {
-            tree: buildMoveStats(opp.games, colour, DEEP_MAP_PLIES),
+            tree: buildMoveStats(opp.games, colour, MAP_MAX_PLIES),
             caption: 'their results',
           },
         },

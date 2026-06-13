@@ -13,7 +13,7 @@ import type { Api as CgApi } from 'chessground/api';
 import type { Key } from 'chessground/types';
 import { nameForFen } from './openings';
 import { pushBack } from './back-nav';
-import { statAt, statScorePct, topReply, type StatNode } from './move-stats';
+import { statScorePct, topReply, type StatNode } from './move-stats';
 import { wdlScoreRow } from './wdl-bar';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -43,21 +43,21 @@ export interface RepertoireMapOptions {
     onAct?: (ctx: NodeActionContext) => void;
   };
   // Depth control — the "Go deeper" feature. When set, the map renders only the
-  // first `defaultPlies` plies and offers a quiet "Go deeper" control that
-  // re-renders to `deeperPlies` from data already on the phone. One step only.
+  // first `startPlies` plies and offers a quiet "Go deeper" control that reveals
+  // `stepPlies` more each click, rebuilding from data already on the phone.
   depth?: MapDepth;
-  // Per-move statistics. When set, each node gets a win/draw/loss bar (toggleable)
-  // and the tap preview gains games / W-D-L / frequency / most-played reply. The
-  // `tree` is a UCI-keyed stats lookup (see move-stats.ts); `caption` names whose
-  // results these are ("their results" / "your results").
+  // Per-move statistics. When set, each node gets a win/draw/loss bar and the tap
+  // preview gains games / W-D-L / most-played reply. The `tree` is a UCI-keyed
+  // stats lookup (see move-stats.ts); `caption` names whose results these are
+  // ("their results" / "your results").
   stats?: { tree: StatNode; caption: string };
 }
 
 export interface MapDepth {
-  defaultPlies: number;   // first render depth (e.g. 40 = 20 moves)
-  deeperPlies: number;    // after "Go deeper" (e.g. 60 = 30 moves)
-  // How deep the underlying data truly reaches. Drives whether "Go deeper" is
-  // offered (reach > defaultPlies) and the shallow hint when it isn't.
+  startPlies: number;     // first render depth (10 = 5 moves)
+  stepPlies: number;      // added per "Go deeper" click (10 = 5 moves)
+  // How deep the underlying data truly reaches. Caps the stepping and drives the
+  // shallow "imported at N moves" hint when the data can't deepen at all.
   maxPlies: number;
   // Re-supply the lines to draw at `plies` deep. For the repertoire map this is
   // just the full saved lines (the map truncates); for opponents it rebuilds the
@@ -171,7 +171,6 @@ function movedBy(fen: string): 'white' | 'black' {
 function buildSVG(
   root: MapNode,
   onTap: (n: MapNode) => void,
-  showStats: boolean,
 ): SVGSVGElement {
   const w = subW(root);
   placeNodes(root, PAD, PAD, w);
@@ -187,7 +186,7 @@ function buildSVG(
 
   // Root is the start position (no SAN) — skip it, draw its children.
   drawEdges(svg, root, true);
-  drawNodes(svg, root, true, onTap, showStats);
+  drawNodes(svg, root, true, onTap);
   return svg;
 }
 
@@ -250,7 +249,6 @@ function drawNodes(
   n: MapNode,
   skip: boolean,
   onTap: (n: MapNode) => void,
-  showStats: boolean,
 ): void {
   if (!skip) {
     const isFork = n.children.length > 1;
@@ -289,7 +287,8 @@ function drawNodes(
     txt.textContent = n.san;
     g.appendChild(txt);
 
-    if (showStats) drawStatBar(g, n);
+    // No-ops when the node has no stats (e.g. repertoire moves never played).
+    drawStatBar(g, n);
 
     n.svgEl = g;
     g.addEventListener('click', e => {
@@ -298,7 +297,7 @@ function drawNodes(
     });
     parent.appendChild(g);
   }
-  for (const c of n.children) drawNodes(parent, c, false, onTap, showStats);
+  for (const c of n.children) drawNodes(parent, c, false, onTap);
 }
 
 // ── Position preview panel ────────────────────────────────────────────────────
@@ -321,8 +320,8 @@ function nodePath(n: MapNode): { ucis: string[]; sans: string[] } {
   return { ucis, sans };
 }
 
-// The tap-preview stats block: caption, [score% · W/D/L bar · counts], plus
-// frequency (share of games reaching the parent) and the most-played reply.
+// The tap-preview stats block: caption, [score% · W/D/L bar · counts], plus the
+// most-played reply from this position.
 function statsBlock(n: MapNode, caption: string): HTMLElement {
   const s = n.stats!;
   const wrap = document.createElement('div');
@@ -337,14 +336,6 @@ function statsBlock(n: MapNode, caption: string): HTMLElement {
     { wins: s.wins, draws: s.draws, losses: s.losses, scorePct: statScorePct(s), games: s.games },
     `${s.games} game${s.games === 1 ? '' : 's'}`,
   ));
-
-  const parentGames = n.parent?.stats?.games ?? 0;
-  if (parentGames > 0) {
-    const freq = document.createElement('div');
-    freq.className = 'rmap-pos-meta';
-    freq.textContent = `Played in ${Math.round((s.games / parentGames) * 100)}% of games here`;
-    wrap.appendChild(freq);
-  }
 
   const reply = topReply(s);
   if (reply) {
@@ -361,7 +352,6 @@ function makePreview(
   colour: 'white' | 'black',
   opts: RepertoireMapOptions,
   requestClose: () => void,
-  showStats: () => boolean,
 ): PreviewController {
   const panel = document.createElement('div');
   panel.className = 'rmap-pos-panel';
@@ -427,7 +417,7 @@ function makePreview(
     san.textContent = n.san;
     infoCol.appendChild(san);
 
-    if (opts.stats && showStats() && n.stats && n.stats.games > 0) {
+    if (opts.stats && n.stats && n.stats.games > 0) {
       infoCol.appendChild(statsBlock(n, opts.stats.caption));
     }
 
@@ -435,11 +425,6 @@ function makePreview(
       const v = document.createElement('div');
       v.className = 'rmap-pos-meta';
       v.textContent = `${n.children.length} variations`;
-      infoCol.appendChild(v);
-    } else if (n.children.length === 0) {
-      const v = document.createElement('div');
-      v.className = 'rmap-pos-meta';
-      v.textContent = 'End of line';
       infoCol.appendChild(v);
     }
 
@@ -736,22 +721,19 @@ export function openRepertoireMap(
   const inner = document.createElement('div');
   inner.className = 'rmap-zoom-inner';
 
-  // Depth control. When set, render only `currentPlies` deep; "Go deeper" steps
-  // it once to deeperPlies, rebuilding from data already on the phone.
+  // Depth control. When set, render only `currentPlies` deep and let "Go deeper"
+  // step it 5 moves at a time. The lines are (re)supplied at the current depth by
+  // the control: opponents rebuild their pruned tree from stored games, the
+  // repertoire hands back its saved lines (the merge truncates). Building from
+  // games at the shallow start depth is cheap, so this is fine on first render.
   const depth = opts.depth ?? null;
-  let currentPlies = depth ? depth.defaultPlies : Infinity;
-  let deepened = false;
+  let currentPlies = depth ? depth.startPlies : Infinity;
 
-  // Lines to draw at the current depth. The first render always uses the lines
-  // handed in (instant: an opponent's precomputed default tree, or the saved
-  // lines), truncated by the merge. Only after "Go deeper" do we ask the depth
-  // control to re-supply deeper data (opponents rebuild their pruned tree).
-  const currentLines = (): Line[] => (depth && deepened ? depth.atDepth(currentPlies) : filtered);
+  const currentLines = (): Line[] => (depth ? depth.atDepth(currentPlies) : filtered);
 
   // Per-move stats. Built once by the caller (UCI-keyed lookup); stamped onto the
-  // tree on every (re)build. Bars are shown by default when stats are available.
+  // tree on every (re)build, and always shown when present.
   const statsTree = opts.stats?.tree ?? null;
-  let statsOn = !!statsTree;
 
   let root = buildMergedTree(currentLines(), currentPlies);
   attachStats(root, statsTree);
@@ -772,7 +754,7 @@ export function openRepertoireMap(
   const state: TxState = { scale: 1, tx: 0, ty: 0 };
 
   // Preview panel.
-  const preview = makePreview(colour, opts, close, () => statsOn);
+  const preview = makePreview(colour, opts, close);
   treeArea.appendChild(preview.el);
 
   // A tiny spinner shown while a "Go deeper" rebuild runs off the paint frame.
@@ -803,25 +785,11 @@ export function openRepertoireMap(
     controls.update(n, forkChoice);
   }
 
-  let svg = buildSVG(root, selectNode, statsOn);
+  let svg = buildSVG(root, selectNode);
   inner.appendChild(svg);
   treeWrap.appendChild(inner);
   treeArea.appendChild(treeWrap);
   overlay.appendChild(treeArea);
-
-  // Flip the per-move stat bars on/off. The tree itself is unchanged, so we keep
-  // the current selection and view — only the SVG is redrawn.
-  function toggleStats(): void {
-    statsOn = !statsOn;
-    const newSvg = buildSVG(root, selectNode, statsOn);
-    svg.replaceWith(newSvg);
-    svg = newSvg;
-    if (selected) {
-      selected.svgEl?.classList.add('rmap-node--selected');
-      preview.show(selected, filtered, line => { close(); onOpenLine(line); });
-    }
-    updateStatsToggle();
-  }
 
   // Re-centre the view on the first move of the (possibly rebuilt) tree.
   function centreOnFirst(): void {
@@ -835,24 +803,43 @@ export function openRepertoireMap(
     });
   }
 
+  // Find a node by its uci-path from the root, or null if the path doesn't exist.
+  function findByUcis(ucis: string[]): MapNode | null {
+    let cur: MapNode | null = root;
+    for (const u of ucis) {
+      cur = cur ? cur.children.find(c => c.uci === u) ?? null : null;
+      if (!cur) return null;
+    }
+    return cur;
+  }
+
   // Swap in a freshly built tree at the current depth (after "Go deeper").
+  // Going deeper only adds nodes, so we keep the user's place: re-select the
+  // same move (by path) when one was selected, else re-centre on the first move.
   function rebuild(): void {
+    const keepPath = selected ? nodePath(selected).ucis : null;
     root = buildMergedTree(currentLines(), currentPlies);
     attachStats(root, statsTree);
-    const newSvg = buildSVG(root, selectNode, statsOn);
+    const newSvg = buildSVG(root, selectNode);
     svg.replaceWith(newSvg);
     svg = newSvg;
-    selected = null;
     forkChoice.clear();
-    controls.update(null, forkChoice);
-    preview.el.hidden = true;
-    centreOnFirst();
+    const restored = keepPath ? findByUcis(keepPath) : null;
+    if (restored) {
+      selectNode(restored);
+    } else {
+      selected = null;
+      controls.update(null, forkChoice);
+      preview.el.hidden = true;
+      centreOnFirst();
+    }
   }
 
   function goDeeper(): void {
-    if (!depth || deepened) return;
-    deepened = true;
-    currentPlies = depth.deeperPlies;
+    if (!depth) return;
+    const next = Math.min(currentPlies + depth.stepPlies, depth.maxPlies);
+    if (next <= currentPlies) return;  // already at the data's full depth
+    currentPlies = next;
     spinner.hidden = false;
     updateDeeper();
     // Let the spinner paint before the (possibly heavy) opponent rebuild.
@@ -907,28 +894,29 @@ export function openRepertoireMap(
     },
   );
 
-  // The quiet "Go deeper" control sits in the left group of the control bar.
+  // The quiet "Go deeper" control sits in the left group of the control bar. It
+  // steps 5 moves at a time and retires once the data's full depth is on screen.
   let deeperBtn: HTMLButtonElement | null = null;
   function updateDeeper(): void {
     if (!depth || !deeperBtn) return;
-    if (deepened) {
-      deeperBtn.hidden = true;  // one step is enough — retire the control
+    if (currentPlies >= depth.maxPlies) {
+      if (depth.importHint && depth.maxPlies <= depth.startPlies) {
+        // Too shallow to deepen at all (an old, shallow import): show the reach.
+        deeperBtn.hidden = false;
+        deeperBtn.disabled = true;
+        deeperBtn.classList.add('rmap-deeper-btn--hint');
+        deeperBtn.textContent = `Imported at ${Math.floor(depth.maxPlies / 2)} moves`;
+      } else {
+        deeperBtn.hidden = true;  // the full depth is already on screen
+      }
       return;
     }
-    if (depth.maxPlies > depth.defaultPlies) {
-      deeperBtn.hidden = false;
-      deeperBtn.disabled = false;
-      deeperBtn.classList.remove('rmap-deeper-btn--hint');
-      deeperBtn.textContent = 'Go deeper';
-    } else if (depth.importHint) {
-      // Too shallow to deepen (an old, shallow import): show the honest reach.
-      deeperBtn.hidden = false;
-      deeperBtn.disabled = true;
-      deeperBtn.classList.add('rmap-deeper-btn--hint');
-      deeperBtn.textContent = `Imported at ${Math.floor(depth.maxPlies / 2)} moves`;
-    } else {
-      deeperBtn.hidden = true;  // a repertoire with nothing deeper to show
-    }
+    deeperBtn.hidden = false;
+    deeperBtn.disabled = false;
+    deeperBtn.classList.remove('rmap-deeper-btn--hint');
+    const movesLeft = Math.ceil((depth.maxPlies - currentPlies) / 2);
+    const step = Math.min(depth.stepPlies / 2, movesLeft);
+    deeperBtn.textContent = `Go ${step} move${step === 1 ? '' : 's'} deeper`;
   }
   if (depth) {
     deeperBtn = document.createElement('button');
@@ -939,23 +927,6 @@ export function openRepertoireMap(
     // the move arrows and the preview panel.
     treeArea.appendChild(deeperBtn);
     updateDeeper();
-  }
-
-  // Discrete "show/hide stats" toggle, sitting at the top edge of the bottom bar.
-  let statsToggleBtn: HTMLButtonElement | null = null;
-  function updateStatsToggle(): void {
-    if (!statsToggleBtn) return;
-    statsToggleBtn.setAttribute('aria-pressed', String(statsOn));
-    statsToggleBtn.classList.toggle('rmap-stats-toggle--on', statsOn);
-    statsToggleBtn.textContent = statsOn ? 'Hide stats' : 'Show stats';
-  }
-  if (statsTree) {
-    statsToggleBtn = document.createElement('button');
-    statsToggleBtn.type = 'button';
-    statsToggleBtn.className = 'rmap-stats-toggle';
-    statsToggleBtn.addEventListener('click', toggleStats);
-    controls.container.appendChild(statsToggleBtn);
-    updateStatsToggle();
   }
 
   overlay.appendChild(controls.container);

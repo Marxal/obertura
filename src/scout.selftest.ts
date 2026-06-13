@@ -84,7 +84,7 @@ export function runScoutSelfTest(): TestResult[] {
   );
 
   // 4. Depth is parameterised: an explicit cap truncates, while the default
-  //    (40 plies) keeps a 20-ply game whole.
+  //    (MAP_MAX_PLIES = 60) keeps a 20-ply game whole.
   const longLine =
     'e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3 O-O h3 Nb8 d4 Nbd7'; // 20 plies
   const capped = buildOpponentTree([game('white', longLine)], 'white', 8);
@@ -93,6 +93,22 @@ export function runScoutSelfTest(): TestResult[] {
     'depth cap honours the requested plies',
     maxDepth(capped) === 8 && maxDepth(full) === 20,
     `capped=${maxDepth(capped)} default=${maxDepth(full)}`,
+  );
+
+  // 4b. The main line is traced to full depth even where it drops below the prune
+  //     threshold: 7 games stop at 1...e5, one carries on deep, and a one-off
+  //     first move (d4) is a rare SIDE branch that must still be trimmed.
+  const spineGames: ImportedGame[] = [];
+  for (let i = 0; i < 7; i++) spineGames.push(game('white', 'e4 e5'));
+  spineGames.push(game('white', 'e4 e5 Nf3 Nc6 Bb5')); // lone deep continuation
+  spineGames.push(game('white', 'd4 d5'));             // lone shallow sideline
+  const spine = buildOpponentTree(spineGames, 'white');
+  const deep = spine.children[0]?.children[0]?.children[0]?.children[0]?.children[0];
+  check(
+    'main line kept deep past the prune threshold; rare sideline trimmed',
+    spine.children.length === 1 && spine.children[0].san === 'e4' &&
+      maxDepth(spine) === 5 && deep?.san === 'Bb5',
+    `roots=${spine.children.map(c => c.san).join(',')} depth=${maxDepth(spine)} tip=${deep?.san}`,
   );
 
   // 5. makeOpponent records counts and both colour trees.

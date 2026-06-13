@@ -23,7 +23,7 @@ import {
 } from './progress';
 import { currentStreak, trainedToday, getTrainingDays } from './streak';
 import { openRepertoireMap } from './repertoire-map';
-import { DEFAULT_MAP_PLIES, DEEP_MAP_PLIES } from './scout';
+import { MAP_START_PLIES, MAP_STEP_PLIES, MAP_MAX_PLIES } from './scout';
 import { buildMoveStats } from './move-stats';
 import type { MoveNode } from './tree';
 import { Icons } from './icons';
@@ -377,14 +377,14 @@ function renderRepertoireMapSection(
     lineCount.textContent = `${colourLines.length} line${colourLines.length !== 1 ? 's' : ''}`;
     btn.appendChild(lineCount);
 
-    // Lines can run any length; the map shows 20 moves by default and steps to
-    // 30 on "Go deeper" — same defaults as the opponent maps, from the full saved
-    // trees already on the phone.
+    // Lines can run any length; the map opens at 5 moves and steps 5 moves at a
+    // time on "Go deeper" — same as the opponent maps — from the full saved trees
+    // already on the phone (the merge truncates to the current depth).
     const reach = Math.max(0, ...colourLines.map(l => treeDepth(l.tree)));
     btn.addEventListener('click', () => openRepertoireMap(colourLines, colour, cb.onOpenLine, {
       depth: {
-        defaultPlies: DEFAULT_MAP_PLIES,
-        deeperPlies: DEEP_MAP_PLIES,
+        startPlies: MAP_START_PLIES,
+        stepPlies: MAP_STEP_PLIES,
         maxPlies: reach,
         atDepth: () => colourLines,
       },
@@ -392,7 +392,7 @@ function renderRepertoireMapSection(
       // actually played show no bar. Omitted entirely when nothing's imported.
       ...(games.length > 0 && {
         stats: {
-          tree: buildMoveStats(games, colour, DEEP_MAP_PLIES),
+          tree: buildMoveStats(games, colour, MAP_MAX_PLIES),
           caption: 'your results',
         },
       }),
