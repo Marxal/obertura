@@ -2,7 +2,6 @@
 // synced). Mirrors the style of theme.ts / streak.ts.
 
 const RETRIES_KEY = 'obertura.retriesBeforeReveal';
-const NAMING_MODE_KEY = 'obertura.namingMode';
 const WATCH_SPEED_KEY = 'obertura.watchSpeed';
 const DEFAULT_MODE_KEY = 'obertura.defaultTrainingMode';
 const CONFIRM_RUN_KEY = 'obertura.confirmRunBeforeTraining';
@@ -122,18 +121,10 @@ export function setActivityExpanded(on: boolean): void {
   localStorage.setItem(ACTIVITY_EXPANDED_KEY, on ? 'on' : 'off');
 }
 
-// How a saved line gets its title. "auto" (default) fills the name from the
-// bundled opening database with no popup; "manual" will open a name popup on
-// save — wired into Settings in task 7.2. Stored now so the default is set.
-export type NamingMode = 'auto' | 'manual';
-
-export function getNamingMode(): NamingMode {
-  return localStorage.getItem(NAMING_MODE_KEY) === 'manual' ? 'manual' : 'auto';
-}
-
-export function setNamingMode(mode: NamingMode): void {
-  localStorage.setItem(NAMING_MODE_KEY, mode);
-}
+// Saved lines always auto-name themselves from the bundled opening database on
+// save (no popup). The pencil in the builder's title row is the override: a
+// manual rename is stored on the line itself and wins over the auto name. There
+// is no naming-mode preference — auto is the single, hard-coded behaviour.
 
 // How many extra attempts a wrong move gets before the correct-move arrow is
 // drawn. 0 = reveal immediately, 1 (default) = one retry, 2 = two retries.
