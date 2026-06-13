@@ -30,16 +30,29 @@ export type SparSaveFn = (
   afterSaved: (action: 'stay' | 'left') => void,
 ) => void;
 
+// Where the engine's opening comes from: a random book line, a line sampled from
+// my imported games, or nothing at all (today's pure-engine behaviour).
+export type SparMode = 'surprise' | 'games' | 'engine';
+
 export interface SparOptions {
   colour: 'white' | 'black';   // the side I play
   skill: number;               // UCI Skill Level (0–20)
+  movetimeMs: number;          // think-time budget per move
   levelLabel: string;          // friendly name, shown in the toolbar
+  mode: SparMode;              // where the engine's opening comes from
+  // A fresh book line (UCI sequence) for each new game, or undefined / [] for
+  // none (Pure engine). The engine follows its OWN side's moves from this line
+  // while the game stays on it; the first deviation hands over to Stockfish.
+  nextBookLine?: () => string[];
   onSparSave: SparSaveFn;
 }
 
-// A short, fixed think-time so replies feel instant. The Skill Level — not the
-// time — is what makes the engine easy or hard here.
-const MOVETIME_MS = 300;
+// How far the book layer reaches before normal engine play resumes: 6 full moves
+// (12 plies). Plus a tiny pause so a booked reply doesn't teleport onto the board.
+const BOOK_PLIES = 12;
+const BOOK_PAUSE_MS = 250;
+
+const delay = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 
 // ── The local engine driver ──────────────────────────────────────────────────
 // A thin wrapper over a single Stockfish worker: set a skill level, then ask for
@@ -50,8 +63,10 @@ class SparEngine {
   private ready = false;
   private queued: (() => void)[] = [];
   private resolveBest: ((uci: string | null) => void) | null = null;
+  private movetime: number;
 
-  constructor(skill: number) {
+  constructor(skill: number, movetime: number) {
+    this.movetime = movetime;
     this.worker = new Worker(`${import.meta.env.BASE_URL}engine/stockfish.js`);
     this.worker.onmessage = (e: MessageEvent<string>) => this.onMsg(e.data);
     this.worker.onerror = (e) => console.error('[spar] engine error', e);
@@ -84,7 +99,7 @@ class SparEngine {
       const run = () => {
         this.resolveBest = resolve;
         this.worker.postMessage(`position fen ${fen}`);
-        this.worker.postMessage(`go movetime ${MOVETIME_MS}`);
+        this.worker.postMessage(`go movetime ${this.movetime}`);
       };
       if (this.ready) run();
       else this.queued.push(run);
@@ -101,12 +116,16 @@ class SparEngine {
 export function openSpar(opts: SparOptions): void {
   const myColour = opts.colour;
   const chess = new Chess();
-  const engine = new SparEngine(opts.skill);
+  const engine = new SparEngine(opts.skill, opts.movetimeMs);
 
   // Move history, kept in parallel for naming, book detection, and saving.
   const sans: string[] = [];
   const ucis: string[] = [];
   const fens: string[] = [];
+
+  // The current book line (UCI), refreshed for each new game. Empty in
+  // Pure-engine mode, or when the chosen source had nothing to offer.
+  let bookUcis: string[] = opts.nextBookLine?.() ?? [];
 
   let thinking = false;       // engine is choosing a move — board is locked
   let bannerShown = false;    // the one-time out-of-book banner has fired
@@ -129,8 +148,10 @@ export function openSpar(opts: SparOptions): void {
   backBtn.addEventListener('click', () => close());
   const modeLabel = document.createElement('div');
   modeLabel.className = 'pt-mode-label';
+  const modeWord = opts.mode === 'surprise' ? 'Surprise me'
+    : opts.mode === 'games' ? 'From my games' : 'Pure engine';
   modeLabel.textContent =
-    `Spar · ${opts.levelLabel} · ${myColour === 'white' ? '○ White' : '● Black'}`;
+    `${opts.levelLabel} · ${myColour === 'white' ? '○ White' : '● Black'} · ${modeWord}`;
   header.appendChild(backBtn);
   header.appendChild(modeLabel);
   overlay.appendChild(header);
@@ -249,13 +270,33 @@ export function openSpar(opts: SparOptions): void {
     void engineReply();
   }
 
+  // The next book move for the engine, or null to defer to Stockfish: only while
+  // we're inside the opening window AND every move so far has matched the line.
+  // The first deviation — mine, or the engine's own once Stockfish takes the
+  // wheel — drops us off book for good (no transposition chasing).
+  function bookMove(): string | null {
+    const ply = ucis.length;
+    if (ply >= BOOK_PLIES || ply >= bookUcis.length) return null;
+    for (let i = 0; i < ply; i++) if (ucis[i] !== bookUcis[i]) return null;
+    return bookUcis[ply];
+  }
+
   async function engineReply(): Promise<void> {
     if (chess.isGameOver()) { render(); return; }
     const myGen = gen;
     thinking = true;
     syncBoard();
     render();
-    const uci = await engine.bestMove(chess.fen());
+    // Play the book move when we still have one (after a short, natural pause);
+    // otherwise hand the position to Stockfish.
+    const booked = bookMove();
+    let uci: string | null;
+    if (booked) {
+      await delay(BOOK_PAUSE_MS);
+      uci = booked;
+    } else {
+      uci = await engine.bestMove(chess.fen());
+    }
     if (closed || myGen !== gen) return; // position moved on — drop this reply
     thinking = false;
     if (uci) {
@@ -294,6 +335,7 @@ export function openSpar(opts: SparOptions): void {
     sans.length = 0;
     ucis.length = 0;
     fens.length = 0;
+    bookUcis = opts.nextBookLine?.() ?? []; // a fresh opening for the new game
     bannerShown = false;
     banner.setAttribute('hidden', '');
     syncBoard();

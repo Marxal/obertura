@@ -134,7 +134,13 @@ the restore point for the whole round.
 - 💤 **Phase 2 — Builder truth**
 - 💤 **Phase 3 — Train hub**
 - 💤 **Phase 4 — Explore & scouting**
-- 💤 **Phase 5 — Build with the engine**
+- 🔜 **Phase 5 — Build with the engine**
+  - ✅ **5.1 The engine opens like a human** — a persisted opening-mode picker
+    (Surprise me / From my games / Pure engine). The two book modes feed the
+    engine a real opening for ~6 moves (a random book line, or one sampled from
+    my imported games), handing over to Stockfish the instant I deviate. The
+    opening-name line shows under the board; Strong/Master now think longer
+    (900 / 1400 ms).
 - 💤 **Phase 6 — Statistics**
 - 💤 **Phase 7 — Onboarding & empty states**
 - 💤 **Phase 8 — Settings & release**
