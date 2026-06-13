@@ -10,8 +10,18 @@
 import { Chess } from 'chess.js';
 import { isOutOfBook } from './openings';
 import { pickBookLine, pickGameLine, MIN_BOOK_PLIES } from './book-lines';
+import { chooseSuggestMove, type SuggestCand } from './spar';
 import type { ImportedGame } from './import-core';
 import type { TestResult } from './selftest-panel';
+
+// First move (san) matching a predicate, plus its UCI — for building suggest
+// candidate lists from a real position.
+function findMove(fen: string, pred: (san: string) => boolean): { uci: string; san: string } {
+  const ch = new Chess(fen);
+  const m = ch.moves({ verbose: true }).find(v => pred(v.san));
+  if (!m) throw new Error(`no move matching predicate in ${fen}`);
+  return { uci: m.from + m.to + (m.promotion ?? ''), san: m.san };
+}
 
 // A throwaway ImportedGame with just the fields the book sampler reads.
 function fakeGame(colour: 'white' | 'black', ucis: string[]): ImportedGame {
@@ -74,6 +84,32 @@ export function runSparSelfTest(): TestResult[] {
     fromWhite.join(',') === deep.join(','), `${fromWhite.length} plies (≥ ${MIN_BOOK_PLIES})`);
   check('pickGameLine with no qualifying games yields nothing',
     pickGameLine([fakeGame('white', shallow)], 'white').length === 0, 'only shallow');
+
+  // ── Suggest-a-move flavour selection ───────────────────────────────────────
+  // 8. Solid always returns the engine's best (first) candidate.
+  const trio: SuggestCand[] = [{ uci: 'a', cp: 50 }, { uci: 'b', cp: 30 }, { uci: 'c', cp: -200 }];
+  check('Solid takes the best move', chooseSuggestMove('solid', '', trio) === 'a', 'cp 50/30/-200');
+
+  // 9. Random never escapes the 50cp safe set — the far-worse 'c' is unreachable.
+  let everPickedBad = false;
+  for (let i = 0; i < 60; i++) if (chooseSuggestMove('random', '', trio) === 'c') everPickedBad = true;
+  check('Random never blunders out of the safe set', !everPickedBad, '60 draws, none = c (-200)');
+
+  // 10. Aggressive prefers a check inside the 80cp safe set over the quiet best.
+  const checkFen = '4k3/8/8/8/8/8/4Q3/4K3 w - - 0 1';
+  const quiet = findMove(checkFen, s => !s.includes('+') && !s.includes('x'));
+  const giveCheck = findMove(checkFen, s => s.includes('+'));
+  const checkCands: SuggestCand[] = [{ uci: quiet.uci, cp: 60 }, { uci: giveCheck.uci, cp: 30 }];
+  check('Aggressive prefers a check', chooseSuggestMove('aggressive', checkFen, checkCands) === giveCheck.uci,
+    `${quiet.san}=best, picks ${giveCheck.san}`);
+
+  // 11. With no check available, Aggressive falls back to a capture.
+  const capFen = '4k3/8/8/3p4/4P3/8/8/4K3 w - - 0 1';
+  const push = findMove(capFen, s => !s.includes('+') && !s.includes('x'));
+  const capture = findMove(capFen, s => s.includes('x'));
+  const capCands: SuggestCand[] = [{ uci: push.uci, cp: 60 }, { uci: capture.uci, cp: 25 }];
+  check('Aggressive takes a capture when no check exists',
+    chooseSuggestMove('aggressive', capFen, capCands) === capture.uci, `picks ${capture.san}`);
 
   return results;
 }

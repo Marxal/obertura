@@ -176,24 +176,28 @@ export class Engine {
   private _enabled: boolean;
   private cb: EvalCallback;
   private baseUrl: string;
+  // localStorage key the on/off state persists under. Defaults to the builder's
+  // key; spar passes its own so its toggle is independent and defaults OFF.
+  private storageKey: string;
 
-  constructor(baseUrl: string, cb: EvalCallback) {
+  constructor(baseUrl: string, cb: EvalCallback, storageKey = 'engineEnabled') {
     this.baseUrl = baseUrl;
     this.cb = cb;
-    this._enabled = localStorage.getItem('engineEnabled') === 'true';
+    this.storageKey = storageKey;
+    this._enabled = localStorage.getItem(storageKey) === 'true';
   }
 
   get isEnabled() { return this._enabled; }
 
   enable() {
     this._enabled = true;
-    localStorage.setItem('engineEnabled', 'true');
+    localStorage.setItem(this.storageKey, 'true');
     if (!this.worker) this.initWorker();
   }
 
   disable() {
     this._enabled = false;
-    localStorage.setItem('engineEnabled', 'false');
+    localStorage.setItem(this.storageKey, 'false');
     this.cancel();
   }
 

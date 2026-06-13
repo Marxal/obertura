@@ -6247,6 +6247,71 @@ cg-board square.move-dest.oc {
 }
 .spar-ctrl-btn:disabled { opacity: 0.4; }
 
+/* ── Engine in spar: eval bar/panel + Suggest ──────────────────────────────── */
+/* Eval bar above the board — mirrors the builder's #eval-bar-top. Collapses to
+   nothing when the engine is off (the EvalPanel hides its inner wrap). */
+.spar-eval-bar {
+  width: 100%;
+  background: var(--bg-elevated);
+  padding: 8px 12px;
+}
+.spar-eval-bar:empty,
+.spar-eval-bar:has(#eval-bar-wrap[hidden]) {
+  display: none;
+}
+
+/* Eval controls below the board — the candidate chips, source badge and the
+   on/off toggle, exactly as the builder mounts them. */
+.spar-eval-controls {
+  width: 100%;
+  max-width: 420px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--hairline-soft);
+  border-radius: 10px;
+  padding: 6px 10px;
+}
+
+/* Suggest-a-move row: a small label and the three flavour buttons. */
+.spar-suggest {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  max-width: 420px;
+}
+.spar-suggest-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.spar-suggest-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  padding: 0.55rem 0.4rem;
+}
+.spar-suggest-btn:disabled { opacity: 0.4; }
+
+/* Tiny busy state: a spinning dot replaces nothing visually until loading. */
+.spar-suggest-spinner {
+  display: none;
+  width: 11px;
+  height: 11px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  opacity: 0.85;
+  animation: spar-spin 0.7s linear infinite;
+}
+.spar-suggest-btn.is-loading .spar-suggest-spinner { display: inline-block; }
+@keyframes spar-spin { to { transform: rotate(360deg); } }
+
 /* The one-time "left the book" banner, floating over the top of the board. */
 @keyframes spar-banner-in {
   0%   { opacity: 0; transform: translate(-50%, -8px); }
