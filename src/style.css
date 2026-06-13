@@ -5200,7 +5200,6 @@ cg-board square.move-dest.oc {
 /* ── Bottom controls bar ──────────────────────────────────────────────────────── */
 
 .rmap-controls {
-  position: relative;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -5210,30 +5209,6 @@ cg-board square.move-dest.oc {
   border-top: 1px solid var(--border);
   background: var(--bg-card);
   gap: 0.5rem;
-}
-
-/* Discrete show/hide-stats toggle, straddling the top edge of the bottom bar. */
-.rmap-stats-toggle {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translate(-50%, -55%);
-  z-index: 2;
-  padding: 0.22rem 0.7rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--bg-card);
-  color: var(--text-faint);
-  font-size: 0.72rem;
-  font-weight: 600;
-  box-shadow: var(--shadow-card);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.rmap-stats-toggle--on {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: var(--accent-soft);
 }
 
 .rmap-controls-left {
