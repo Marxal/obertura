@@ -4,6 +4,9 @@
 // not. This hook appends `.ts`/`.tsx`/`/index.ts` when an extensionless
 // relative import fails to resolve, leaving everything else (bare packages like
 // `chess.js`) to Node's default resolver.
+//
+// It also adds the `type: json` import attribute for `.json` imports (the
+// opening-name database), which Vite supplies implicitly but bare Node requires.
 
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -11,6 +14,10 @@ import { fileURLToPath } from 'node:url';
 const EXT_CANDIDATES = ['.ts', '.tsx', '/index.ts'];
 
 export async function resolve(specifier, context, next) {
+  if (specifier.endsWith('.json')) {
+    const resolved = await next(specifier, context);
+    return { ...resolved, importAttributes: { type: 'json' } };
+  }
   if (specifier.startsWith('./') || specifier.startsWith('../')) {
     try {
       return await next(specifier, context);
