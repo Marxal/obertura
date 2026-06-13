@@ -35,6 +35,7 @@ import type { Key } from 'chessground/types';
 import { Icons } from './icons';
 import { showDialog } from './dialog';
 import { pushBack } from './back-nav';
+import { createLibraryExplorer, type LibraryExplorer } from './library-explorer';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 // Cap rendered rows so a broad/empty search can't spray thousands of nodes onto
@@ -79,12 +80,18 @@ function variationOf(name: string): string {
 }
 
 // Which browse mode the library opens in — remembered device-local (tiny, like
-// the prefs in prefs.ts). Defaults to "stacked" so the library is unchanged for
-// anyone who never touches the toggle.
-type LibMode = 'stacked' | 'visual';
+// the prefs in prefs.ts). Three ways to browse the same book:
+//   board → interactive playable board over the book (the default).
+//   list  → the searchable flat list, grouped by family (the original library).
+//   moves → the collapsible family tree.
+type LibMode = 'board' | 'list' | 'moves';
 const LIB_MODE_KEY = 'obertura.library.viewMode';
 function getLibMode(): LibMode {
-  return localStorage.getItem(LIB_MODE_KEY) === 'visual' ? 'visual' : 'stacked';
+  // Migrate the earlier two-mode names (stacked/visual) on read.
+  const v = localStorage.getItem(LIB_MODE_KEY);
+  if (v === 'list' || v === 'stacked') return 'list';
+  if (v === 'moves' || v === 'visual') return 'moves';
+  return 'board';
 }
 function setLibMode(mode: LibMode): void {
   localStorage.setItem(LIB_MODE_KEY, mode);
@@ -97,9 +104,12 @@ export function openLibrary(onOpenInBuilder: (ucis: string[], colour: 'white' | 
   overlay.className = 'rmap-overlay lib-overlay';
 
   let closed = false;
+  // Built lazily the first time Board mode is shown; torn down on close.
+  let explorer: LibraryExplorer | null = null;
   function close(): void {
     if (closed) return;
     closed = true;
+    explorer?.destroy();
     overlay.remove();
     removeBack();
   }
@@ -125,7 +135,8 @@ export function openLibrary(onOpenInBuilder: (ucis: string[], colour: 'white' | 
   header.appendChild(countBadge);
   overlay.appendChild(header);
 
-  // Mode toggle — Stacked (search list) / Visual (family tree). Remembered.
+  // Mode toggle — Board (interactive board) / List (search list) / Moves (family
+  // tree). Remembered; Board is the default.
   let mode: LibMode = getLibMode();
   // Assigned once the dataset loads; the toggle calls it to repaint the body.
   let render: () => void = () => {};
@@ -135,8 +146,9 @@ export function openLibrary(onOpenInBuilder: (ucis: string[], colour: 'white' | 
   const seg = document.createElement('div');
   seg.className = 'lib-mode-seg';
   const modeDefs: { id: LibMode; label: string }[] = [
-    { id: 'stacked', label: 'Stacked' },
-    { id: 'visual', label: 'Visual' },
+    { id: 'board', label: 'Board' },
+    { id: 'list', label: 'List' },
+    { id: 'moves', label: 'Moves' },
   ];
   const modeBtns = modeDefs.map(m => {
     const b = document.createElement('button');
@@ -204,8 +216,20 @@ export function openLibrary(onOpenInBuilder: (ucis: string[], colour: 'white' | 
     };
 
     render = () => {
-      searchWrap.hidden = mode === 'visual';
-      if (mode === 'visual') {
+      // Search field only in List; results area in List/Moves; board panel in Board.
+      searchWrap.hidden = mode !== 'list';
+      results.hidden = mode === 'board';
+      if (explorer) explorer.el.hidden = mode !== 'board';
+
+      if (mode === 'board') {
+        if (!explorer) {
+          explorer = createLibraryExplorer(entries, onOpenInBuilder);
+          overlay.appendChild(explorer.el);
+        }
+        // The board needs a layout pass before chessground can size itself, so
+        // redraw once it's actually visible.
+        requestAnimationFrame(() => explorer?.redraw());
+      } else if (mode === 'moves') {
         renderFamilyTree(results, entries, expanded, entry => openDetail(entry, onOpenInBuilder));
       } else {
         renderStacked();
@@ -214,9 +238,9 @@ export function openLibrary(onOpenInBuilder: (ucis: string[], colour: 'white' | 
 
     // Filtering 3,700 entries on a string includes is sub-millisecond, so render
     // straight on input — no debounce needed, and it stays responsive on a phone.
-    input.addEventListener('input', () => { if (mode === 'stacked') renderStacked(); });
+    input.addEventListener('input', () => { if (mode === 'list') renderStacked(); });
     render();
-    if (mode === 'stacked') input.focus();
+    if (mode === 'list') input.focus();
   }).catch(() => {
     if (closed) return;
     loading.textContent = 'Could not load the library. Check your connection and try again.';
