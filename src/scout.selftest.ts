@@ -83,6 +83,16 @@ export function runScoutSelfTest(): TestResult[] {
     `kids after Nf3 = ${afterNf3?.children.map(c => c.san).join(',')}`,
   );
 
+  // 3b. With prune disabled ("All replies" view), the one-off branch survives.
+  const unpruned = buildOpponentTree(many, 'white', undefined, false);
+  const allAfterNf3 = unpruned.children[0]?.children[0]?.children[0];
+  check(
+    'prune=false keeps the rare branch',
+    !!allAfterNf3 && allAfterNf3.children.length === 2 &&
+      allAfterNf3.children.map(c => c.san).sort().join(',') === 'Nc6,d6',
+    `kids after Nf3 = ${allAfterNf3?.children.map(c => c.san).join(',')}`,
+  );
+
   // 4. Depth is parameterised: an explicit cap truncates, while the default
   //    (MAP_MAX_PLIES = 60) keeps a 20-ply game whole.
   const longLine =

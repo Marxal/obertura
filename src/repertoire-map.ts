@@ -116,6 +116,26 @@ function attachStats(node: MapNode, stat: StatNode | null): void {
   }
 }
 
+// "Frequent" view: trim the tree to the moves actually played often, by the
+// per-move game counts already stamped by attachStats. At each node keep the
+// busiest child (the spine, so lines never dead-end) plus any sibling at/above a
+// sample-scaled threshold — the same rule scout uses for the opponent tree, but
+// applied here so it works identically for both maps (opponent games / my games).
+// Run AFTER attachStats and BEFORE buildSVG. Nodes with no stats count as 0.
+function pruneByStats(root: MapNode): void {
+  const total = root.stats?.games ?? 0;
+  const minCount = total >= 8 ? Math.max(2, Math.ceil(total * 0.05)) : 1;
+  const games = (n: MapNode): number => n.stats?.games ?? 0;
+  const walk = (n: MapNode): void => {
+    if (!n.children.length) return;
+    let top = n.children[0];
+    for (const c of n.children) if (games(c) > games(top)) top = c;
+    n.children = n.children.filter(c => c === top || games(c) >= minCount);
+    for (const c of n.children) walk(c);
+  };
+  walk(root);
+}
+
 // `depthLeft` is the plies still allowed below `parent`; at 0 we stop, which is
 // how "Go deeper" truncates a long line to the current render depth.
 function mergeInto(parent: MapNode, src: MoveNode, lineId: string, depthLeft: number): void {
@@ -485,16 +505,27 @@ function applyTx(inner: HTMLElement, state: TxState, animated = false): void {
 // across the whole window, so its `mousemove`/`mouseup` are on `window` and must
 // be removed by hand on close — otherwise every open of the map leaks another
 // pair that fires for the rest of the session.
-function initPanZoom(outer: HTMLElement, inner: HTMLElement, state: TxState): () => void {
+function initPanZoom(
+  outer: HTMLElement,
+  inner: HTMLElement,
+  state: TxState,
+  onDoubleTap?: () => void,
+): () => void {
   // Touch pan + pinch
   let t0: Touch | null = null;
   let startTx = 0, startTy = 0;
   let lastDist = 0;
+  // Double-tap-to-centre: a tap is a single finger that didn't pinch or drag;
+  // two within 300ms fire onDoubleTap.
+  let lastTapAt = 0, tapX = 0, tapY = 0, tapMoved = false, multiTouch = false;
 
   outer.addEventListener('touchstart', e => {
     if (e.touches.length === 1) {
       t0 = e.touches[0];
       startTx = state.tx; startTy = state.ty;
+      tapX = t0.clientX; tapY = t0.clientY; tapMoved = false; multiTouch = false;
+    } else {
+      multiTouch = true;
     }
     lastDist = 0;
   }, { passive: true });
@@ -509,13 +540,25 @@ function initPanZoom(outer: HTMLElement, inner: HTMLElement, state: TxState): ()
       }
       lastDist = d;
     } else if (e.touches.length === 1 && t0) {
-      state.tx = startTx + (e.touches[0].clientX - t0.clientX);
-      state.ty = startTy + (e.touches[0].clientY - t0.clientY);
+      const tx = e.touches[0].clientX, ty = e.touches[0].clientY;
+      if (Math.hypot(tx - tapX, ty - tapY) > 10) tapMoved = true;
+      state.tx = startTx + (tx - t0.clientX);
+      state.ty = startTy + (ty - t0.clientY);
       applyTx(inner, state);
     }
   }, { passive: true });
 
-  outer.addEventListener('touchend', () => { lastDist = 0; }, { passive: true });
+  outer.addEventListener('touchend', e => {
+    lastDist = 0;
+    if (e.touches.length === 0 && !multiTouch && !tapMoved) {
+      const now = Date.now();
+      if (now - lastTapAt < 300) { onDoubleTap?.(); lastTapAt = 0; }
+      else lastTapAt = now;
+    }
+  }, { passive: true });
+
+  // Mouse double-click also re-centres.
+  outer.addEventListener('dblclick', () => onDoubleTap?.());
 
   // Mouse drag
   let md = false, mx = 0, my = 0, mtx = 0, mty = 0;
@@ -562,21 +605,27 @@ function centreNode(node: MapNode, outer: HTMLElement, state: TxState, inner: HT
 // ── Navigation buttons ────────────────────────────────────────────────────────
 
 interface NavControls {
-  container: HTMLElement;
-  leftGroup: HTMLElement;   // where the caller drops the quiet "Go deeper" control
+  container: HTMLElement;   // the bottom bar (view-toggle slot + move arrows)
+  zoom: HTMLElement;        // floating zoom group — caller drops it in the tree area
+  viewSlot: HTMLElement;    // left slot in the bar for the All/Frequent toggle
   update(n: MapNode | null, forkChoice: Map<MapNode, number>): void;
 }
 
-// Chevron glyphs matching the builder's step arrows (same viewBox + stroke), so
-// the map's move arrows read as the same control the builder uses.
-const CHEVRON: Record<string, string> = {
+// Single-chevron glyphs matching the builder's step arrows (same viewBox +
+// stroke), so the map's MOVE arrows read as the same control the builder uses.
+const CHEVRON: Record<'left' | 'right', string> = {
   left: 'm15 18-6-6 6-6',
   right: 'm9 18 6-6-6-6',
-  up: 'm6 15 6-6 6 6',
-  down: 'm6 9 6 6 6-6',
 };
 
-function chevronBtn(dir: keyof typeof CHEVRON, aria: string, handler: () => void): HTMLButtonElement {
+// Double-chevron glyphs for the VARIATION ("jump") arrows, so they're visibly
+// distinct from the single-step move arrows.
+const DBL_CHEVRON: Record<'up' | 'down', [string, string]> = {
+  up: ['m17 11-5-5-5 5', 'm17 18-5-5-5 5'],
+  down: ['m7 6 5 5 5-5', 'm7 13 5 5 5-5'],
+};
+
+function svgBtn(aria: string, paths: string[], handler: () => void): HTMLButtonElement {
   const b = document.createElement('button');
   b.type = 'button';
   // Borrow the builder's step-button look (bar-btn--step) for an identical feel.
@@ -584,7 +633,7 @@ function chevronBtn(dir: keyof typeof CHEVRON, aria: string, handler: () => void
   b.setAttribute('aria-label', aria);
   b.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none"
     stroke="currentColor" stroke-width="2.25" stroke-linecap="round"
-    stroke-linejoin="round" aria-hidden="true"><path d="${CHEVRON[dir]}"/></svg>`;
+    stroke-linejoin="round" aria-hidden="true">${paths.map(d => `<path d="${d}"/>`).join('')}</svg>`;
   b.disabled = true;
   b.addEventListener('click', handler);
   return b;
@@ -597,16 +646,19 @@ function makeControls(
   onRight: () => void,
   onZoomIn: () => void,
   onZoomOut: () => void,
+  onCentre: () => void,
 ): NavControls {
   const bar = document.createElement('div');
   bar.className = 'rmap-controls';
 
-  // Left group: zoom (and the caller's "Go deeper" control, prepended later).
-  const leftGroup = document.createElement('div');
-  leftGroup.className = 'rmap-controls-left';
+  // Left slot of the bar: the All/Frequent toggle drops in here when present.
+  const viewSlot = document.createElement('div');
+  viewSlot.className = 'rmap-controls-left';
 
-  const zoomGroup = document.createElement('div');
-  zoomGroup.className = 'rmap-controls-zoom';
+  // Zoom + centre float OUTSIDE the bar (bottom-left of the tree area). Returned
+  // for the caller to place; CSS positions the cluster.
+  const zoom = document.createElement('div');
+  zoom.className = 'rmap-controls-zoom';
   for (const [t, a, h] of [['−', 'Zoom out', onZoomOut], ['+', 'Zoom in', onZoomIn]]) {
     const b = document.createElement('button');
     b.type = 'button';
@@ -614,20 +666,29 @@ function makeControls(
     b.setAttribute('aria-label', String(a));
     b.textContent = String(t);
     b.addEventListener('click', h as () => void);
-    zoomGroup.appendChild(b);
+    zoom.appendChild(b);
   }
-  leftGroup.appendChild(zoomGroup);
+  // Crosshair — recentres a drifted map (double-tapping the map does the same).
+  const centreBtn = document.createElement('button');
+  centreBtn.type = 'button';
+  centreBtn.className = 'rmap-zoom-btn';
+  centreBtn.setAttribute('aria-label', 'Centre map');
+  centreBtn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+    aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>`;
+  centreBtn.addEventListener('click', onCentre);
+  zoom.appendChild(centreBtn);
 
-  // Right group: the move arrows, in the builder's step style.
+  // Right group: the variation (jump) arrows, then the move arrows.
   const navGroup = document.createElement('div');
   navGroup.className = 'rmap-controls-nav';
-  const leftBtn = chevronBtn('left', 'Previous move', onLeft);
-  const upBtn = chevronBtn('up', 'Prev variation', onUp);
-  const downBtn = chevronBtn('down', 'Next variation', onDown);
-  const rightBtn = chevronBtn('right', 'Next move', onRight);
-  navGroup.append(leftBtn, upBtn, downBtn, rightBtn);
+  const upBtn = svgBtn('Prev variation', DBL_CHEVRON.up, onUp);
+  const downBtn = svgBtn('Next variation', DBL_CHEVRON.down, onDown);
+  const leftBtn = svgBtn('Previous move', [CHEVRON.left], onLeft);
+  const rightBtn = svgBtn('Next move', [CHEVRON.right], onRight);
+  navGroup.append(upBtn, downBtn, leftBtn, rightBtn);
 
-  bar.appendChild(leftGroup);
+  bar.appendChild(viewSlot);
   bar.appendChild(navGroup);
 
   function update(n: MapNode | null, forkChoice: Map<MapNode, number>): void {
@@ -654,7 +715,7 @@ function makeControls(
     }
   }
 
-  return { container: bar, leftGroup, update };
+  return { container: bar, zoom, viewSlot, update };
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -735,6 +796,13 @@ export function openRepertoireMap(
   // tree on every (re)build, and always shown when present.
   const statsTree = opts.stats?.tree ?? null;
 
+  // View mode. "all" shows every branch; "frequent" prunes by the stats counts.
+  // The toggle only appears when we have stats to prune by; default is "all" so
+  // the map opens with full branching (the user can declutter to "frequent").
+  let viewMode: 'all' | 'frequent' = 'all';
+
+  // Default viewMode is "all", so the first build shows full branching; switching
+  // to "frequent" prunes via rebuild() below.
   let root = buildMergedTree(currentLines(), currentPlies);
   attachStats(root, statsTree);
 
@@ -820,6 +888,7 @@ export function openRepertoireMap(
     const keepPath = selected ? nodePath(selected).ucis : null;
     root = buildMergedTree(currentLines(), currentPlies);
     attachStats(root, statsTree);
+    if (viewMode === 'frequent') pruneByStats(root);
     const newSvg = buildSVG(root, selectNode);
     svg.replaceWith(newSvg);
     svg = newSvg;
@@ -892,7 +961,53 @@ export function openRepertoireMap(
       state.scale = Math.max(0.15, state.scale / 1.35);
       applyTx(inner, state, true);
     },
+    // centre — bring a drifted map back to the current move (or the start)
+    () => recentre(),
   );
+
+  // Re-centre on the selected move if there is one, else on the first move. Used
+  // by the centre button and by double-tapping the map.
+  function recentre(): void {
+    if (selected) centreNode(selected, treeWrap, state, inner);
+    else centreOnFirst();
+  }
+
+  // View toggle (All replies / Frequent) — only when we have stats to prune by.
+  // Lives in the bar's left slot. Switching rebuilds at the current depth (which
+  // keeps the selected move) behind the same spinner as "Go deeper".
+  if (statsTree) {
+    const seg = document.createElement('div');
+    seg.className = 'rmap-view-seg';
+    const modes: { id: 'all' | 'frequent'; label: string }[] = [
+      { id: 'all', label: 'All replies' },
+      { id: 'frequent', label: 'Frequent' },
+    ];
+    const btns = modes.map(m => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'rmap-view-btn';
+      b.textContent = m.label;
+      b.setAttribute('aria-pressed', String(m.id === viewMode));
+      b.classList.toggle('rmap-view-btn--on', m.id === viewMode);
+      b.addEventListener('click', () => {
+        if (m.id === viewMode) return;
+        viewMode = m.id;
+        btns.forEach((bb, i) => {
+          const on = modes[i].id === viewMode;
+          bb.classList.toggle('rmap-view-btn--on', on);
+          bb.setAttribute('aria-pressed', String(on));
+        });
+        spinner.hidden = false;
+        requestAnimationFrame(() => setTimeout(() => {
+          rebuild();
+          spinner.hidden = true;
+        }, 0));
+      });
+      seg.appendChild(b);
+      return b;
+    });
+    controls.viewSlot.appendChild(seg);
+  }
 
   // The quiet "Go deeper" control sits in the left group of the control bar. It
   // steps 5 moves at a time and retires once the data's full depth is on screen.
@@ -929,10 +1044,13 @@ export function openRepertoireMap(
     updateDeeper();
   }
 
+  // Zoom floats bottom-left of the tree area (outside the bar).
+  treeArea.appendChild(controls.zoom);
+
   overlay.appendChild(controls.container);
   document.body.appendChild(overlay);
 
-  disposePanZoom = initPanZoom(treeWrap, inner, state);
+  disposePanZoom = initPanZoom(treeWrap, inner, state, recentre);
 
   // Start centred on the first child.
   centreOnFirst();

@@ -61,6 +61,7 @@ export function buildOpponentTree(
   games: ImportedGame[],
   colour: 'white' | 'black',
   maxPlies: number = MAP_MAX_PLIES,
+  prunable: boolean = true,
 ): MoveNode {
   const mine = games.filter(g => g.colour === colour);
   const root: BuildNode = { san: '', uci: '', fen: START_FEN, count: mine.length, children: new Map() };
@@ -96,11 +97,15 @@ export function buildOpponentTree(
   // The threshold scales with the sample; tiny samples keep everything. It's also
   // clamped so the single most-played first move always survives — the map is
   // never pruned down to nothing.
-  let maxRoot = 0;
-  for (const c of root.children.values()) maxRoot = Math.max(maxRoot, c.count);
-  const target = mine.length >= 8 ? Math.max(2, Math.ceil(mine.length * 0.05)) : 1;
-  const minCount = Math.min(target, Math.max(1, maxRoot));
-  prune(root, minCount);
+  // When `prunable` is false (the map's "All replies" view), keep every played
+  // move so the user sees the opponent's full branching.
+  if (prunable) {
+    let maxRoot = 0;
+    for (const c of root.children.values()) maxRoot = Math.max(maxRoot, c.count);
+    const target = mine.length >= 8 ? Math.max(2, Math.ceil(mine.length * 0.05)) : 1;
+    const minCount = Math.min(target, Math.max(1, maxRoot));
+    prune(root, minCount);
+  }
 
   return toMoveNode(root, { n: 0 });
 }
