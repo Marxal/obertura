@@ -985,6 +985,7 @@ function showView(view: ViewName): void {
     renderProgressScreen(progressEl, {
       onTrainLine,
       onOpenLine: (line) => onOpenLine(line),
+      onBuildFromPath: (ucis, colour) => buildFromUcis(ucis, colour),
     });
   }
 
