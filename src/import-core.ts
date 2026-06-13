@@ -15,9 +15,14 @@
 
 import { Chess } from 'chess.js';
 
-// Opening depth we retain per game. 24 plies = 12 full moves — deep enough to
-// capture the opening and early middlegame, shallow enough to stay compact.
-export const OPENING_PLIES = 24;
+// Opening depth we retain per game. 60 plies = 30 full moves — deep enough to
+// feed the maps' "Go deeper" view (30 moves) entirely from stored data.
+//
+// DECIDED (v1.3): NO migration and NO re-import nudge. Opponents imported before
+// this bump keep their old, shallower games (the previous cap was 24 plies = 12
+// moves) and simply stay shallow — their maps can't go deep. Only games imported
+// from now on carry the full 60 plies.
+export const OPENING_PLIES = 60;
 
 // Hard cap per import, newest first. A heavy bullet/blitz year can run to
 // thousands of games; we keep the most recent 500 and report when we truncate.

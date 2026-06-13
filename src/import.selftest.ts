@@ -227,7 +227,8 @@ export function runImportSelfTest(): TestResult[] {
   );
 
   // 7. Opening moves are capped at OPENING_PLIES, but plyCount keeps full length.
-  const longMoves = '1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 O-O 9. h3 Nb8 10. d4 Nbd7 11. Nbd2 Bb7 12. Bc2 Re8 13. Nf1 Bf8 14. Ng3 g6 *';
+  // A reversible knight shuffle gives a long, legal game (68 plies) past the cap.
+  const longMoves = 'Nf3 Nf6 Ng1 Ng8 '.repeat(17).trim(); // 68 plies, bare SAN
   const longGame: RawGame = {
     url: 'u', uuid: 'long', time_control: '600', time_class: 'rapid', rules: 'chess',
     white: { username: 'marxal', result: 'win' }, black: { username: 'z', result: 'resigned' },
@@ -236,7 +237,7 @@ export function runImportSelfTest(): TestResult[] {
   const g4 = parseGame(longGame, ME);
   check(
     `chesscom: moves capped at ${OPENING_PLIES} plies, full length retained`,
-    !!g4 && g4.sans.length === OPENING_PLIES && g4.plyCount === 28,
+    !!g4 && g4.sans.length === OPENING_PLIES && g4.plyCount === 68,
     g4 ? `kept ${g4.sans.length} of ${g4.plyCount}` : 'returned null',
   );
 

@@ -5193,6 +5193,13 @@ cg-board square.move-dest.oc {
   gap: 0.5rem;
 }
 
+.rmap-controls-left {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* Move arrows live on the right, in the builder's step-button style. */
 .rmap-controls-nav {
   display: flex;
   gap: 0.3rem;
@@ -5203,7 +5210,13 @@ cg-board square.move-dest.oc {
   gap: 0.3rem;
 }
 
-.rmap-nav-btn,
+/* The nav buttons borrow .bar-btn / .bar-btn--step (the builder's look); only
+   their map-specific width is set here, so all four arrows stay compact. */
+.rmap-nav-btn.bar-btn--step {
+  width: 44px;
+  height: 40px;
+}
+
 .rmap-zoom-btn {
   display: flex;
   align-items: center;
@@ -5214,23 +5227,61 @@ cg-board square.move-dest.oc {
   border-radius: 9px;
   background: var(--bg-elevated);
   color: var(--text-muted);
-  font-size: 1.05rem;
-  font-weight: 500;
+  font-size: 1.3rem;
+  font-weight: 400;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.1s, opacity 0.1s;
 }
-.rmap-nav-btn:active,
 .rmap-zoom-btn:active { background: var(--border); }
-.rmap-nav-btn:disabled {
-  opacity: 0.3;
+
+/* "Go deeper" — a quiet floating pill, top-left of the tree area. */
+.rmap-deeper-btn {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.6rem;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.rmap-deeper-btn:active { background: var(--accent-soft); color: var(--accent); }
+/* The shallow-import note: faint and non-interactive. */
+.rmap-deeper-btn--hint {
+  color: var(--text-faint);
+  font-weight: 500;
+  box-shadow: none;
   cursor: default;
+  opacity: 0.85;
 }
 
-.rmap-zoom-btn {
-  min-width: 44px;
-  font-size: 1.3rem;
-  font-weight: 400;
+/* Tiny spinner shown while a "Go deeper" rebuild runs. */
+.rmap-spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+}
+.rmap-spinner-ring {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: rmap-spin 0.7s linear infinite;
+}
+@keyframes rmap-spin {
+  to { transform: rotate(360deg); }
 }
 
 /* ── Statistics screen: two-button repertoire map entry ─────────────────────── */
