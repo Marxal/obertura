@@ -16,6 +16,7 @@ import {
   type TimedMinutes,
 } from './prefs';
 import { isOpponentTag } from './scout';
+import { buildEmptyState } from './empty-state';
 import { createFilterBar, type FilterSelection } from './filters';
 import { TrainingSession, type SessionItem } from './session';
 import {
@@ -48,6 +49,11 @@ const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 // doRender(container) calls — which only pass the container — keep working.
 let onViewLine: ((line: Line) => void) | null = null;
 
+// The empty-state routes (open the builder; open the import-your-games flow).
+// Module scope for the same reason as onViewLine.
+let onBuildLine: (() => void) | null = null;
+let onImportGames: (() => void) | null = null;
+
 // One missed spot worth revisiting at the end of a session: the position to
 // show and the move that should have been played there.
 interface Mistake {
@@ -74,9 +80,17 @@ function addMistake(
 
 export function renderTrainScreen(
   container: HTMLElement,
-  opts: { focusLineId?: string; autoStart?: boolean; onOpenLine?: (line: Line) => void } = {},
+  opts: {
+    focusLineId?: string;
+    autoStart?: boolean;
+    onOpenLine?: (line: Line) => void;
+    onBuildLine?: () => void;
+    onImportGames?: () => void;
+  } = {},
 ): void {
   onViewLine = opts.onOpenLine ?? null;
+  onBuildLine = opts.onBuildLine ?? null;
+  onImportGames = opts.onImportGames ?? null;
   void doRender(container, opts.focusLineId, opts.autoStart);
 }
 
@@ -194,20 +208,12 @@ function sessionForDefaultMode(trainingLines: Line[], due: Line[]): TrainingSess
 // ── Empty state ───────────────────────────────────────────────────────────────
 
 function renderEmpty(container: HTMLElement): void {
-  const wrap = document.createElement('div');
-  wrap.className = 'train-empty';
-
-  const title = document.createElement('p');
-  title.className = 'train-empty-title';
-  title.textContent = 'No lines in training yet';
-  wrap.appendChild(title);
-
-  const body = document.createElement('p');
-  body.className = 'train-empty-body';
-  body.textContent = 'Go to My Lines, open a line, and tap "Add to training" to get started.';
-  wrap.appendChild(body);
-
-  container.appendChild(wrap);
+  container.appendChild(buildEmptyState({
+    icon: Icons.zap(28),
+    line: 'Nothing in training yet.',
+    cta: { label: 'Build a line', onClick: () => onBuildLine?.() },
+    link: { label: 'or import your games', onClick: () => onImportGames?.() },
+  }));
 }
 
 // ── Hero: "Due now" · "Reviewed today" ────────────────────────────────────────
