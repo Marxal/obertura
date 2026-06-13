@@ -25,6 +25,7 @@ import { initBackNav, setViewBack, pushBack } from './back-nav';
 import { showDialog } from './dialog';
 import { openImportPanel } from './import-panel';
 import { maybeShowIntro } from './onboarding';
+import { maybeAutoRefreshGames } from './auto-refresh';
 
 const chess = new Chess();
 let cg!: ReturnType<typeof Chessground>;
@@ -1378,4 +1379,15 @@ requestAnimationFrame(() => {
   // First launch: play the intro over the top, landing back on Train when it's
   // done (an import there refreshes Train's view). Shows once — see onboarding.ts.
   maybeShowIntro({ onFinish: () => showView('train') });
+
+  // Weekly games auto-refresh: runs after the first view has rendered, never
+  // blocks launch, and stays silent on zero or on failure. New games trigger a
+  // toast and re-render the current tab so game-derived views pick them up
+  // (Statistics win rates, From-my-games suggestions, scout aggregates) exactly
+  // as they would after a manual import.
+  void maybeAutoRefreshGames().then((newCount) => {
+    if (newCount <= 0) return;
+    showToast(`Games refreshed · ${newCount} new`);
+    if (currentView !== 'builder') showView(currentView);
+  });
 });

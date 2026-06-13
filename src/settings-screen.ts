@@ -43,6 +43,7 @@ import {
   platformLabel,
 } from './import-panel';
 import { countGames, resetAllProgress, eraseAllData } from './storage';
+import { getAutoRefreshEnabled, setAutoRefreshEnabled, getLastGamesRefresh } from './auto-refresh';
 import { clearTrainingDays, clearReviewedToday } from './streak';
 import { renderBackupSection, exportBackupNow } from './backup';
 import { Icons } from './icons';
@@ -623,8 +624,33 @@ function relativeDate(iso: string): string {
 
 // ── Data ─────────────────────────────────────────────────────────────────────
 
+// The quiet line under "Auto-refresh games": "Last refreshed N days ago", or
+// "never" before any games have been pulled.
+function lastRefreshCaption(): string {
+  const iso = getLastGamesRefresh();
+  if (!iso) return 'Last refreshed: never';
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  if (!Number.isFinite(days) || days <= 0) return 'Last refreshed: today';
+  if (days === 1) return 'Last refreshed: yesterday';
+  return `Last refreshed: ${days} days ago`;
+}
+
 function buildDataGroup(): HTMLElement {
   const sec = group('Data');
+
+  // Auto-refresh games — the weekly check. Only does anything once a username
+  // has been saved by a previous import (see auto-refresh.ts); the caption
+  // underneath reports when games were last pulled.
+  const autoRow = row(
+    'Auto-refresh games',
+    toggle(getAutoRefreshEnabled(), (on) => setAutoRefreshEnabled(on)),
+    { sub: 'Checks for new games about once a week, when you open the app.' },
+  );
+  const caption = document.createElement('div');
+  caption.className = 'pref-row-caption';
+  caption.textContent = lastRefreshCaption();
+  autoRow.appendChild(caption);
+  sec.appendChild(autoRow);
 
   // Export / import — the existing backup section does both.
   sec.appendChild(renderBackupSection(() => { /* nothing else on this screen depends on it */ }));

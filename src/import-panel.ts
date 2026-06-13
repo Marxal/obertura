@@ -33,13 +33,17 @@ import {
   getUsername as getLichessUser,
   setUsername as setLichessUser,
 } from './lichess';
-import { clearGames, saveGames } from './storage';
+import { clearGames, saveGames, countGames } from './storage';
 import { pushBack } from './back-nav';
 
 // ── Remembered choices (device-local) ────────────────────────────────────────
 
 const PLATFORM_KEY = 'obertura.importPlatform';
 const SOURCE_KEY = 'obertura.gamesSource';
+// The one timestamp the weekly auto-refresh checks against (see auto-refresh.ts).
+// Set by every "my games" import AND by each successful auto-refresh, so the
+// 7-day window is driven by a single key the user can poke from the console.
+const REFRESH_KEY = 'obertura.lastGamesRefresh';
 
 const PLATFORM_LABELS: Record<Platform, string> = {
   chesscom: 'Chess.com',
@@ -94,6 +98,36 @@ export function platformLabel(p: Platform): string {
   return PLATFORM_LABELS[p];
 }
 
+// ── Auto-refresh bookkeeping (the weekly games refresh) ───────────────────────
+
+// When games were last pulled (a manual import or an auto-refresh), as ISO — or
+// null if never. Falls back to the source's sync date for installs that imported
+// before this key existed, so the weekly check has a sensible baseline.
+export function getLastGamesRefresh(): string | null {
+  try {
+    return localStorage.getItem(REFRESH_KEY) ?? getGamesSource()?.syncedAt ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function setLastGamesRefresh(iso: string): void {
+  try { localStorage.setItem(REFRESH_KEY, iso); } catch { /* storage off */ }
+}
+
+// Merge an auto-refresh's new games into what's already stored (no clear), then
+// stamp the refresh date and keep the source card honest. Called even with an
+// empty batch so the date advances and we don't re-fetch on the next open.
+export async function mergeRefreshedGames(newGames: ImportedGame[]): Promise<void> {
+  const now = new Date().toISOString();
+  if (newGames.length) await saveGames(newGames); // put() dedupes by id
+  const source = getGamesSource();
+  if (source) {
+    setGamesSource({ ...source, syncedAt: now, count: await countGames() });
+  }
+  setLastGamesRefresh(now);
+}
+
 // ── Persistence shared by every "my games" caller ────────────────────────────
 
 // Replace the stored games with this import and record where they came from.
@@ -102,14 +136,17 @@ export async function saveMyGames(
   games: ImportedGame[],
   meta: { platform: Platform; username: string },
 ): Promise<void> {
+  const now = new Date().toISOString();
   await clearGames();
   await saveGames(games);
   setGamesSource({
     platform: meta.platform,
     username: meta.username,
-    syncedAt: new Date().toISOString(),
+    syncedAt: now,
     count: games.length,
   });
+  // A manual import counts as a refresh — reset the weekly auto-refresh window.
+  setLastGamesRefresh(now);
 }
 
 // ── Range chooser ─────────────────────────────────────────────────────────────
