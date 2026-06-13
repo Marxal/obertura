@@ -23,6 +23,7 @@ import { initAppearance } from './appearance';
 import { watchSpeedMs, getConfirmRunBeforeTraining } from './prefs';
 import { initBackNav, setViewBack, pushBack } from './back-nav';
 import { showDialog } from './dialog';
+import { maybeShowIntro } from './onboarding';
 
 const chess = new Chess();
 let cg!: ReturnType<typeof Chessground>;
@@ -1368,4 +1369,8 @@ requestAnimationFrame(() => {
   // was created above while visible, so chessground sized itself correctly
   // before we switch away.
   showView('train');
+
+  // First launch: play the intro over the top, landing back on Train when it's
+  // done (an import there refreshes Train's view). Shows once — see onboarding.ts.
+  maybeShowIntro({ onFinish: () => showView('train') });
 });
