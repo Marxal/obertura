@@ -1,7 +1,8 @@
 // The Settings screen — every device-local preference in one place, grouped into
-// Appearance, Training, Naming, User and Data. Each control writes straight to
-// the pref the matching feature already reads (theme.ts, appearance.ts, prefs.ts,
-// sound.ts, chesscom.ts), so a change takes effect the next time that feature runs.
+// Appearance, Training, Statistics, Add your games, Data, Diagnostics and
+// Feedback & about. Each control writes straight to the pref the matching feature
+// already reads (theme.ts, appearance.ts, prefs.ts, sound.ts, chesscom.ts), so a
+// change takes effect the next time that feature runs.
 
 import { getThemeChoice, setThemeChoice, type ThemeChoice } from './theme';
 import {
@@ -20,9 +21,6 @@ import {
   getWatchSpeed,
   setWatchSpeed,
   type WatchSpeed,
-  getNamingMode,
-  setNamingMode,
-  type NamingMode,
   getDefaultTrainingMode,
   setDefaultTrainingMode,
   type TrainingMode,
@@ -60,6 +58,8 @@ import { runSparSelfTest } from './spar.selftest';
 import { runImportSelfTest } from './import.selftest';
 import { runTreeSelfTest } from './tree.selftest';
 import { runMoveStatsSelfTest } from './move-stats.selftest';
+import { runSchedulerSelfTest } from './scheduler.selftest';
+import { runAnalysisSelfTest } from './analysis.selftest';
 
 export function renderSettingsScreen(container: HTMLElement): void {
   container.innerHTML = '';
@@ -72,17 +72,16 @@ export function renderSettingsScreen(container: HTMLElement): void {
   title.textContent = 'Settings';
   screen.appendChild(title);
 
-  // The User group leads the screen until you've imported games — getting your
-  // games in is the first thing a new install wants. Once connected it drops
-  // back to its usual spot below Naming. We learn which only after a quick async
-  // count, so build a placeholder now and slot it in once we know.
+  // "Add your games" leads the screen until you've imported any — getting your
+  // games in is the first thing a new install wants. Once you have games it drops
+  // back to its usual spot below Statistics. We learn which only after a quick
+  // async count, so build a placeholder now and slot it in once we know.
   const userSlotTop = document.createElement('div');
   screen.appendChild(userSlotTop);
 
   screen.appendChild(buildAppearanceGroup());
   screen.appendChild(buildTrainingGroup());
   screen.appendChild(buildStatisticsGroup());
-  screen.appendChild(buildNamingGroup());
   const userSlotMid = document.createElement('div');
   screen.appendChild(userSlotMid);
   screen.appendChild(buildDataGroup());
@@ -99,27 +98,41 @@ export function renderSettingsScreen(container: HTMLElement): void {
 }
 
 // ── Diagnostics ──────────────────────────────────────────────────────────────
-// Offline self-tests for the data layer, runnable right on the phone. Storage
-// hits the real IndexedDB (round-tripping a throwaway line), openings checks the
-// bundled name database, and the import parser checks Chess.com PGN parsing over
-// a fixed game sample. The scheduler / analysis / progress self-tests live on
-// their own screens (Train, Lines, Stats).
+// Offline self-tests for the data layer, runnable right on the phone — now the
+// single home for every self-test in the app. They tuck behind an "Advanced"
+// disclosure (closed by default) so day-to-day Settings stays uncluttered.
+// Storage hits the real IndexedDB; openings checks the bundled name database; the
+// import parser checks Chess.com PGN parsing; the move-tree, move-stats,
+// scheduler and analysis tests cover the pure-logic layers. The scheduler and
+// analysis tests used to live inline on the Train and Lines screens — those
+// links are gone, and these are the only copies now.
 
 function buildDiagnosticsGroup(): HTMLElement {
   const sec = group('Diagnostics');
 
+  const details = document.createElement('details');
+  details.className = 'settings-advanced';
+
+  const summary = document.createElement('summary');
+  summary.className = 'settings-advanced-summary';
+  summary.textContent = 'Advanced';
+  details.appendChild(summary);
+
   const blurb = document.createElement('p');
   blurb.className = 'section-desc';
-  blurb.textContent = 'Offline checks of the data layer. Tap one to run it and see pass/fail.';
-  sec.appendChild(blurb);
+  blurb.textContent = 'Offline self-tests. Tap one to run it and see pass/fail.';
+  details.appendChild(blurb);
 
-  appendSelfTest(sec, 'Run storage self-test', runStorageSelfTest, '[storage self-test]');
-  appendSelfTest(sec, 'Run openings lookup self-test', runOpeningsSelfTest, '[openings self-test]');
-  appendSelfTest(sec, 'Run out-of-book self-test', runSparSelfTest, '[spar self-test]');
-  appendSelfTest(sec, 'Run import parser self-test', runImportSelfTest, '[import self-test]');
-  appendSelfTest(sec, 'Run move-tree self-test', runTreeSelfTest, '[tree self-test]');
-  appendSelfTest(sec, 'Run move-stats self-test', runMoveStatsSelfTest, '[move-stats self-test]');
+  appendSelfTest(details, 'Run storage self-test', runStorageSelfTest, '[storage self-test]');
+  appendSelfTest(details, 'Run openings lookup self-test', runOpeningsSelfTest, '[openings self-test]');
+  appendSelfTest(details, 'Run out-of-book self-test', runSparSelfTest, '[spar self-test]');
+  appendSelfTest(details, 'Run import parser self-test', runImportSelfTest, '[import self-test]');
+  appendSelfTest(details, 'Run move-tree self-test', runTreeSelfTest, '[tree self-test]');
+  appendSelfTest(details, 'Run move-stats self-test', runMoveStatsSelfTest, '[move-stats self-test]');
+  appendSelfTest(details, 'Run scheduler self-test', runSchedulerSelfTest, '[scheduler self-test]');
+  appendSelfTest(details, 'Run analysis self-test', runAnalysisSelfTest, '[analysis self-test]');
 
+  sec.appendChild(details);
   return sec;
 }
 
@@ -174,30 +187,50 @@ function group(titleText: string): HTMLElement {
   return sec;
 }
 
-// One preference, using the shared .pref-row component: title (+ optional
-// description) stacked in a column, with the control on its own line below.
-// Every Settings row has this same shape.
+// One preference, using the shared .pref-row component. Two layouts, chosen by
+// the control:
+//   • a SWITCH sits right-aligned on the title line, with the description below
+//     spanning the full width (a compact, scannable on/off row).
+//   • every other control (segmented pickers, swatches, buttons, fields) keeps
+//     the stacked layout: title + optional description, then the control below.
+// We tell them apart by the control's own class, so callers pass the same args.
 function row(label: string, control: HTMLElement, opts: { sub?: string } = {}): HTMLElement {
-  const r = document.createElement('div');
-  r.className = 'pref-row';
+  const isSwitch = control.classList.contains('switch');
 
-  const text = document.createElement('div');
-  text.className = 'pref-row-text';
-  const l = document.createElement('div');
-  l.className = 'pref-row-title';
-  l.textContent = label;
-  text.appendChild(l);
-  if (opts.sub) {
-    const s = document.createElement('div');
-    s.className = 'pref-row-desc';
-    s.textContent = opts.sub;
-    text.appendChild(s);
+  const r = document.createElement('div');
+  r.className = isSwitch ? 'pref-row pref-row--switch' : 'pref-row';
+
+  const title = document.createElement('div');
+  title.className = 'pref-row-title';
+  title.textContent = label;
+
+  const sub = opts.sub ? document.createElement('div') : null;
+  if (sub) {
+    sub.className = 'pref-row-desc';
+    sub.textContent = opts.sub!;
   }
-  r.appendChild(text);
 
   const ctrl = document.createElement('div');
   ctrl.className = 'pref-row-control';
   ctrl.appendChild(control);
+
+  if (isSwitch) {
+    // Title and switch share the top line; the description (if any) spans below.
+    const head = document.createElement('div');
+    head.className = 'pref-row-head';
+    head.appendChild(title);
+    head.appendChild(ctrl);
+    r.appendChild(head);
+    if (sub) r.appendChild(sub);
+    return r;
+  }
+
+  // Stacked: title + description in a text column, control on its own line below.
+  const text = document.createElement('div');
+  text.className = 'pref-row-text';
+  text.appendChild(title);
+  if (sub) text.appendChild(sub);
+  r.appendChild(text);
   r.appendChild(ctrl);
 
   return r;
@@ -489,32 +522,14 @@ function buildStatisticsGroup(): HTMLElement {
   return sec;
 }
 
-// ── Naming ───────────────────────────────────────────────────────────────────
+// ── Add your games ───────────────────────────────────────────────────────────
 
-function buildNamingGroup(): HTMLElement {
-  const sec = group('Naming');
-
-  sec.appendChild(row(
-    'New line names',
-    segmented<NamingMode>(
-      [{ value: 'auto', label: 'Auto' }, { value: 'manual', label: 'Manual' }],
-      getNamingMode(),
-      (v) => setNamingMode(v),
-    ),
-    { sub: 'Auto names lines from the opening database; Manual lets you name them yourself.' },
-  ));
-
-  return sec;
-}
-
-// ── User ─────────────────────────────────────────────────────────────────────
-
-// The User group has two faces. Before any games are imported it's a prominent
+// This group has two faces. Before any games are imported it's a prominent
 // call-to-action (and leads the whole Settings screen). Once connected it shows
 // the account you're synced with, when it last synced, how many games are on the
 // device, and a quiet Refresh — all driven by the shared import panel.
 function buildUserGroup(gameCount: number, refresh: () => void): HTMLElement {
-  const sec = group('Your games');
+  const sec = group('Add your games');
   const source = getGamesSource();
 
   // Open the panel pre-filled with the connected account (or the last-used one),

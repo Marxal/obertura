@@ -19,7 +19,6 @@ import { isOpponentTag } from './scout';
 import { buildEmptyState } from './empty-state';
 import { createFilterBar, type FilterSelection } from './filters';
 import type { ImportedGame } from './chesscom';
-import { runAnalysisSelfTest } from './analysis.selftest';
 import { renderLoadError } from './load-error';
 
 // Game analysis walks every imported game through a merged repertoire tree — at
@@ -754,7 +753,6 @@ function renderGamesTab(
       'haven’t saved.';
     wrap.appendChild(body);
     content.appendChild(wrap);
-    appendSelfTestLink(content);
     return;
   }
 
@@ -789,7 +787,6 @@ function renderGamesTab(
         : "No suggestions for this colour.";
     emptySection.appendChild(empty);
     content.appendChild(emptySection);
-    appendSelfTestLink(content);
     return;
   }
 
@@ -811,8 +808,6 @@ function renderGamesTab(
   if (suggestions.length > TOP_N) {
     content.appendChild(buildShowAllToggle(list, suggestions.length));
   }
-
-  appendSelfTestLink(content);
 }
 
 // A "Show all N" / "Show fewer" toggle that reveals the cards hidden past the
@@ -963,46 +958,6 @@ function suggestionCard(stat: OpeningStat, deps: LinesDeps): HTMLElement {
   card.appendChild(foot);
 
   return card;
-}
-
-// ── Analysis self-test (verify the maths on the phone, offline) ──────────────
-
-function appendSelfTestLink(container: HTMLElement): void {
-  const wrap = document.createElement('div');
-  wrap.className = 'selftest-wrap';
-
-  const link = document.createElement('button');
-  link.type = 'button';
-  link.className = 'selftest-link';
-  link.textContent = 'Run analysis self-test';
-
-  const out = document.createElement('div');
-  out.className = 'selftest-output';
-  out.hidden = true;
-
-  link.addEventListener('click', () => {
-    const results = runAnalysisSelfTest();
-    out.hidden = false;
-    out.innerHTML = '';
-
-    const passed = results.filter(r => r.pass).length;
-    const head = document.createElement('div');
-    head.className = `selftest-head ${passed === results.length ? 'ok' : 'fail'}`;
-    head.textContent = `${passed}/${results.length} checks passed`;
-    out.appendChild(head);
-
-    for (const r of results) {
-      const row = document.createElement('div');
-      row.className = `selftest-row ${r.pass ? 'ok' : 'fail'}`;
-      row.textContent = `${r.pass ? '✓' : '✗'} ${r.name} — ${r.detail}`;
-      out.appendChild(row);
-    }
-    console.log('[analysis self-test]', results);
-  });
-
-  wrap.appendChild(link);
-  wrap.appendChild(out);
-  container.appendChild(wrap);
 }
 
 // ── Rename sheet (bottom-sheet modal, name only) ─────────────────────────────

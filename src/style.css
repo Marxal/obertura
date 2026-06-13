@@ -450,9 +450,26 @@ body {
 }
 
 /* The control sits under the text. Full-width controls (inputs, board swatches)
-   fill the row; compact ones (segmented, switch) stay their own size, left-aligned. */
+   fill the row; compact ones (segmented) stay their own size, left-aligned. */
 .pref-row-control {
   min-width: 0;
+}
+
+/* SWITCH ROW — a toggle preference. The switch rides on the title line,
+   right-aligned, and the description drops to its own full-width line below. */
+.pref-row--switch .pref-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.pref-row--switch .pref-row-head .pref-row-title {
+  min-width: 0;
+}
+
+.pref-row--switch .pref-row-control {
+  flex: none;
 }
 
 /* ── Unboxed lists (v1.3) ──────────────────────────────────────────────────
@@ -4405,6 +4422,26 @@ cg-board square.move-dest.oc {
   font-size: 0.78rem;
   color: var(--text-faint);
   text-align: center;
+}
+
+/* ADVANCED DISCLOSURE — the closed-by-default fold the Diagnostics self-tests
+   hide behind, so Settings stays calm until you go looking. Same shape as the
+   About licences fold. */
+.settings-advanced {
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  padding: 0.5rem 0.75rem;
+}
+
+.settings-advanced-summary {
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.settings-advanced[open] .settings-advanced-summary {
+  margin-bottom: var(--space-sm);
 }
 
 /* ── Statistics screen ──────────────────────────────────────────────────────── */
