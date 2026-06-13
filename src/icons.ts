@@ -23,6 +23,10 @@ export const Icons = {
   zap:      (s?: number) => svg(`<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>`, s),
   search:   (s?: number) => svg(`<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>`, s),
   trending: (s?: number) => svg(`<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>`, s),
+  // The Explore and Statistics tab-bar marks (see index.html's #bottom-nav). Kept
+  // here so the onboarding intro can teach the menu with the very same glyphs.
+  compass:  (s?: number) => svg(`<circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>`, s),
+  barChart: (s?: number) => svg(`<line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/>`, s),
   tree:     (s?: number) => svg(`<circle cx="12" cy="19" r="2.5"/><circle cx="6" cy="5" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M18 7.5v2a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-2"/><path d="M12 11.5v5"/>`, s),
 
   // ── Actions ──────────────────────────────────────────────────────────────────

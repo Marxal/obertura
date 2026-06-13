@@ -6326,3 +6326,179 @@ cg-board square.move-dest.oc {
 }
 .spar-banner[hidden] { display: none; }
 .spar-banner--in { animation: spar-banner-in 0.25s ease-out; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   ONBOARDING INTRO (onboarding.ts)
+   A first-launch, full-screen walkthrough: six horizontal slides, each leading
+   with the matching tab-bar icon, with progress dots and Back / Next. CSS-only
+   animation. Sits at z-index 200 (the full-screen-overlay tier) so the shared
+   import sheet (.edit-overlay, z-index 300) opens cleanly on top of slide 6.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+.intro-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-page);
+  overflow: hidden;
+  /* Keep clear of the notch; the footer handles the bottom gesture-bar inset. */
+  padding-top: env(safe-area-inset-top, 0);
+}
+
+/* The slides sit in a row and slide horizontally as one. */
+.intro-track {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  transition: transform 0.35s cubic-bezier(0.22, 0.61, 0.36, 1);
+  will-change: transform;
+}
+
+.intro-slide {
+  flex: 0 0 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xl);
+  padding: var(--space-xl) clamp(1.5rem, 8vw, 3rem);
+  text-align: center;
+}
+
+/* The leading icon, in a soft accent disc — the menu marks ride the themed
+   accent so they echo the tab bar lighting up. */
+.intro-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 132px;
+  height: 132px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* The Welcome app mark keeps its own brand orange (no accent tint, plain disc). */
+.intro-icon--mark {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+}
+
+.intro-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  max-width: 28rem;
+}
+
+.intro-heading {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.intro-body {
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* Entrance animation — runs whenever a slide becomes active (the class is
+   toggled on every navigation, so revisiting a slide replays it). The icon
+   floats up and scales in; the text fades up just behind it. */
+.intro-slide .intro-icon,
+.intro-slide .intro-text { opacity: 0; }
+
+.intro-slide.is-active .intro-icon {
+  animation: intro-icon-in 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+.intro-slide.is-active .intro-text {
+  animation: intro-text-in 0.45s ease-out 0.12s forwards;
+}
+
+@keyframes intro-icon-in {
+  0%   { opacity: 0; transform: translateY(16px) scale(0.6); }
+  60%  { opacity: 1; transform: translateY(-4px) scale(1.04); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes intro-text-in {
+  0%   { opacity: 0; transform: translateY(14px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* Slide 6 action row — Import primary button + a quiet Skip link. */
+.intro-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  max-width: 20rem;
+  margin-top: var(--space-sm);
+}
+.intro-import-btn { width: 100%; }
+
+.intro-skip-link {
+  background: none;
+  border: none;
+  padding: var(--space-sm);
+  color: var(--text-faint);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.intro-skip-link:active { color: var(--text); }
+
+/* Footer: Back · dots · Next, kept on one row with the dots centred. */
+.intro-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg) calc(var(--space-lg) + env(safe-area-inset-bottom, 0));
+  gap: var(--space-md);
+}
+
+.intro-nav-btn {
+  background: none;
+  border: none;
+  padding: var(--space-sm) var(--space-md);
+  min-width: 4.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  border-radius: 8px;
+}
+.intro-back { text-align: left; }
+.intro-next { text-align: right; }
+.intro-nav-btn:active { background: var(--accent-soft); }
+
+/* Hidden but space-preserving, so the dots stay centred when Back/Next drop. */
+.intro-hidden { visibility: hidden; }
+
+.intro-dots {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.intro-dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: var(--border);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.2s, width 0.2s;
+}
+.intro-dot.is-active {
+  width: 22px;
+  background: var(--accent);
+}

@@ -52,6 +52,7 @@ import { pushBack } from './back-nav';
 import { appendSelfTest } from './selftest-panel';
 import { openFeedbackSheet } from './feedback';
 import { openAboutSheet } from './about';
+import { showIntro } from './onboarding';
 import { buildSupportSection } from './support';
 import { runStorageSelfTest } from './storage.selftest';
 import { runOpeningsSelfTest } from './openings.selftest';
@@ -130,6 +131,9 @@ function buildAboutGroup(): HTMLElement {
   const sec = group('Feedback & about');
 
   sec.appendChild(linkRow('Send feedback', openFeedbackSheet, Icons.note(18)));
+  // Replay the first-launch intro on demand — the seen-flag stays set, so it
+  // doesn't reappear on its own afterwards.
+  sec.appendChild(linkRow('Replay intro', () => showIntro(), Icons.play(18)));
   sec.appendChild(linkRow('About', openAboutSheet));
 
   // Buy me a coffee — Swish / Card, right below.
