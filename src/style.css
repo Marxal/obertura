@@ -5850,6 +5850,95 @@ cg-board square.move-dest.oc {
   text-overflow: ellipsis;
 }
 
+/* ── Library mode toggle (Stacked / Visual) ────────────────────────────────── */
+
+.lib-mode-bar {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-sm) var(--space-lg);
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.lib-mode-seg {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--bg-elevated);
+}
+.lib-mode-btn {
+  padding: 0.4rem 1.1rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s, color 0.12s;
+}
+.lib-mode-btn--on {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* ── Library Visual mode (collapsible family tree) ─────────────────────────── */
+
+.lib-fam {
+  border-bottom: 1px solid var(--border);
+}
+.lib-fam-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.7rem 0.4rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.lib-fam-head:active { background: var(--bg-elevated); }
+.lib-fam-chev {
+  flex-shrink: 0;
+  display: flex;
+  color: var(--text-faint);
+  transition: transform 0.15s ease;
+}
+.lib-fam-head--open .lib-fam-chev {
+  transform: rotate(90deg);
+  color: var(--accent);
+}
+.lib-fam-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lib-fam-count {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+/* The variation rows of an open family — indented under the family with a
+   connecting rail, so the hierarchy reads as a tree. */
+.lib-fam-kids {
+  margin-left: 0.95rem;
+  padding-left: 0.6rem;
+  border-left: 2px solid var(--border);
+}
+.lib-fam-kids .lib-row:last-child {
+  border-bottom: none;
+}
+
 /* ── Library detail (board + step-through) ─────────────────────────────────── */
 
 .lib-board-wrap {

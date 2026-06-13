@@ -1,13 +1,28 @@
 // The opening Library — a browsable reference over the bundled opening book.
 //
-// openLibrary(onOpenInBuilder) opens a full-screen overlay with a search field
-// over the ~3,700 named openings (by name or ECO code), results grouped by
-// family. Tapping one opens a DETAIL view: name + ECO, a board, and the move
-// sequence you can step through. "Open in builder" asks White or Black, then
-// hands the moves back to the app shell to seed the builder, flipped to side.
+// openLibrary(onOpenInBuilder) opens a full-screen overlay with TWO ways to
+// browse the ~3,700 named openings, switched by a toggle at the top:
+//   • Stacked (default) — a search field (by name or ECO) over a flat list,
+//     results grouped by family. This is the original library, untouched.
+//   • Visual — a collapsible map-style tree of the whole book: ~150 FAMILY
+//     nodes (Sicilian Defense, Ruy Lopez, …) that expand on tap into their
+//     named variations. No search; you scan and drill down instead.
+// The chosen mode is remembered device-locally.
 //
-// SCOPE: this is a reference, not an explorer — no transpositions, no stats, no
-// tree UI. Simple in-memory filtering as you type.
+// Both modes share the same leaf action: tapping an opening opens the DETAIL
+// view — name + ECO, a board, and the move sequence you can step through.
+// "Open in builder" asks White or Black, then hands the moves back to the app
+// shell to seed the builder, flipped to side.
+//
+// On reuse: the repertoire-map renderer draws a pan/zoom SVG tree of CHESS
+// MOVES (one position per node), rendered all at once with no expand-on-tap.
+// The book is grouped by family NAME and must collapse/expand to stay sane at
+// 3,700 entries, so that renderer doesn't fit — the Visual tree below is a
+// small purpose-built accordion instead.
+//
+// SCOPE: this is a reference, not an explorer — no transpositions, no stats.
+// Simple in-memory filtering (Stacked) and one level of family grouping
+// (Visual).
 //
 // The dataset (src/openings-library.json) is produced alongside the naming
 // lookup by scripts/build-openings.mjs. It's LAZY-LOADED — a dynamic import so
@@ -63,6 +78,18 @@ function variationOf(name: string): string {
   return i === -1 ? 'Main line' : name.slice(i + 1).trim();
 }
 
+// Which browse mode the library opens in — remembered device-local (tiny, like
+// the prefs in prefs.ts). Defaults to "stacked" so the library is unchanged for
+// anyone who never touches the toggle.
+type LibMode = 'stacked' | 'visual';
+const LIB_MODE_KEY = 'obertura.library.viewMode';
+function getLibMode(): LibMode {
+  return localStorage.getItem(LIB_MODE_KEY) === 'visual' ? 'visual' : 'stacked';
+}
+function setLibMode(mode: LibMode): void {
+  localStorage.setItem(LIB_MODE_KEY, mode);
+}
+
 // ── Public entry point ──────────────────────────────────────────────────────
 
 export function openLibrary(onOpenInBuilder: (ucis: string[], colour: 'white' | 'black') => void): void {
@@ -98,7 +125,43 @@ export function openLibrary(onOpenInBuilder: (ucis: string[], colour: 'white' | 
   header.appendChild(countBadge);
   overlay.appendChild(header);
 
-  // Search field.
+  // Mode toggle — Stacked (search list) / Visual (family tree). Remembered.
+  let mode: LibMode = getLibMode();
+  // Assigned once the dataset loads; the toggle calls it to repaint the body.
+  let render: () => void = () => {};
+
+  const modeBar = document.createElement('div');
+  modeBar.className = 'lib-mode-bar';
+  const seg = document.createElement('div');
+  seg.className = 'lib-mode-seg';
+  const modeDefs: { id: LibMode; label: string }[] = [
+    { id: 'stacked', label: 'Stacked' },
+    { id: 'visual', label: 'Visual' },
+  ];
+  const modeBtns = modeDefs.map(m => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'lib-mode-btn' + (m.id === mode ? ' lib-mode-btn--on' : '');
+    b.textContent = m.label;
+    b.setAttribute('aria-pressed', String(m.id === mode));
+    b.addEventListener('click', () => {
+      if (m.id === mode) return;
+      mode = m.id;
+      setLibMode(mode);
+      modeBtns.forEach((bb, i) => {
+        const on = modeDefs[i].id === mode;
+        bb.classList.toggle('lib-mode-btn--on', on);
+        bb.setAttribute('aria-pressed', String(on));
+      });
+      render();
+    });
+    seg.appendChild(b);
+    return b;
+  });
+  modeBar.appendChild(seg);
+  overlay.appendChild(modeBar);
+
+  // Search field (Stacked only — hidden in Visual mode).
   const searchWrap = document.createElement('div');
   searchWrap.className = 'lib-search-wrap';
   const searchIcon = document.createElement('span');
@@ -126,21 +189,34 @@ export function openLibrary(onOpenInBuilder: (ucis: string[], colour: 'white' | 
 
   document.body.appendChild(overlay);
 
+  // Family expansion state for the Visual tree, kept across mode switches so a
+  // re-open of Visual within the session lands where you left it.
+  const expanded = new Set<string>();
+
   void loadLibrary().then(entries => {
     if (closed) return;
     countBadge.textContent = `${entries.length}`;
 
-    const render = () => {
+    const renderStacked = () => {
       const q = input.value.trim().toLowerCase();
       const matches = q ? entries.filter(e => e.haystack.includes(q)) : entries;
       renderResults(results, matches, q, entry => openDetail(entry, onOpenInBuilder));
     };
 
+    render = () => {
+      searchWrap.hidden = mode === 'visual';
+      if (mode === 'visual') {
+        renderFamilyTree(results, entries, expanded, entry => openDetail(entry, onOpenInBuilder));
+      } else {
+        renderStacked();
+      }
+    };
+
     // Filtering 3,700 entries on a string includes is sub-millisecond, so render
     // straight on input — no debounce needed, and it stays responsive on a phone.
-    input.addEventListener('input', render);
+    input.addEventListener('input', () => { if (mode === 'stacked') renderStacked(); });
     render();
-    input.focus();
+    if (mode === 'stacked') input.focus();
   }).catch(() => {
     if (closed) return;
     loading.textContent = 'Could not load the library. Check your connection and try again.';
@@ -228,6 +304,86 @@ function resultRow(entry: IndexedEntry, onOpen: (entry: IndexedEntry) => void): 
   row.appendChild(text);
 
   return row;
+}
+
+// ── Visual mode: collapsible family tree ─────────────────────────────────────
+//
+// One node per family (Sicilian Defense, Ruy Lopez, …), in the dataset's order
+// (so it matches the Stacked groups). Each family is collapsed by default and
+// expands on tap into its variations — the same rows the Stacked list shows.
+// Variation rows are filled lazily, only when their family is first opened, so
+// a big family like the Sicilian (380+ lines) costs nothing until you ask.
+
+function renderFamilyTree(
+  container: HTMLElement,
+  entries: IndexedEntry[],
+  expanded: Set<string>,
+  onOpen: (entry: IndexedEntry) => void,
+): void {
+  container.innerHTML = '';
+
+  // Group by family, preserving dataset order (Map keeps insertion order).
+  const groups = new Map<string, IndexedEntry[]>();
+  for (const e of entries) {
+    const fam = familyOf(e.name);
+    if (!groups.has(fam)) groups.set(fam, []);
+    groups.get(fam)!.push(e);
+  }
+
+  const count = document.createElement('p');
+  count.className = 'lib-status';
+  count.textContent = `${groups.size} families · ${entries.length} openings — tap a family to expand`;
+  container.appendChild(count);
+
+  for (const [family, fents] of groups) {
+    const fam = document.createElement('div');
+    fam.className = 'lib-fam';
+
+    const head = document.createElement('button');
+    head.type = 'button';
+    head.className = 'lib-fam-head';
+
+    const chev = document.createElement('span');
+    chev.className = 'lib-fam-chev';
+    chev.setAttribute('aria-hidden', 'true');
+    chev.appendChild(Icons.chevronRight(18));
+    head.appendChild(chev);
+
+    const name = document.createElement('span');
+    name.className = 'lib-fam-name';
+    name.textContent = family;
+    head.appendChild(name);
+
+    const cnt = document.createElement('span');
+    cnt.className = 'lib-fam-count';
+    cnt.textContent = `${fents.length}`;
+    head.appendChild(cnt);
+
+    const kids = document.createElement('div');
+    kids.className = 'lib-fam-kids';
+    kids.hidden = true;
+
+    const setOpen = (open: boolean): void => {
+      head.classList.toggle('lib-fam-head--open', open);
+      head.setAttribute('aria-expanded', String(open));
+      kids.hidden = !open;
+      // Fill the variation rows the first time this family opens.
+      if (open && !kids.childElementCount) {
+        for (const e of fents) kids.appendChild(resultRow(e, onOpen));
+      }
+    };
+    setOpen(expanded.has(family));
+
+    head.addEventListener('click', () => {
+      const open = !expanded.has(family);
+      if (open) expanded.add(family); else expanded.delete(family);
+      setOpen(open);
+    });
+
+    fam.appendChild(head);
+    fam.appendChild(kids);
+    container.appendChild(fam);
+  }
 }
 
 // ── Detail view (board + step-through) ──────────────────────────────────────
