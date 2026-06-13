@@ -40,6 +40,27 @@ export interface RepertoireMapOptions {
     disabled?: boolean;
     onAct?: (ctx: NodeActionContext) => void;
   };
+  // Depth control — the "Go deeper" feature. When set, the map renders only the
+  // first `defaultPlies` plies and offers a quiet "Go deeper" control that
+  // re-renders to `deeperPlies` from data already on the phone. One step only.
+  depth?: MapDepth;
+}
+
+export interface MapDepth {
+  defaultPlies: number;   // first render depth (e.g. 40 = 20 moves)
+  deeperPlies: number;    // after "Go deeper" (e.g. 60 = 30 moves)
+  // How deep the underlying data truly reaches. Drives whether "Go deeper" is
+  // offered (reach > defaultPlies) and the shallow hint when it isn't.
+  maxPlies: number;
+  // Re-supply the lines to draw at `plies` deep. For the repertoire map this is
+  // just the full saved lines (the map truncates); for opponents it rebuilds the
+  // pruned tree from stored games. Heavy work is fine — the map calls it behind
+  // a spinner, off the paint frame.
+  atDepth: (plies: number) => Line[];
+  // Opponent maps set this: when the data is too shallow to deepen, the control
+  // disables with an "imported at N moves" note instead of vanishing. Repertoire
+  // maps leave it false and the control simply hides when there's nothing deeper.
+  importHint?: boolean;
 }
 
 // Node box geometry
@@ -63,16 +84,19 @@ interface MapNode {
   svgEl: SVGGElement | null; // set during SVG build
 }
 
-function buildMergedTree(lines: Line[]): MapNode {
+function buildMergedTree(lines: Line[], maxPlies = Infinity): MapNode {
   const root: MapNode = {
     san: '', uci: '', fen: START_FEN, lineIds: [],
     children: [], parent: null, x: 0, y: 0, svgEl: null,
   };
-  for (const l of lines) mergeInto(root, l.tree, l.id);
+  for (const l of lines) mergeInto(root, l.tree, l.id, maxPlies);
   return root;
 }
 
-function mergeInto(parent: MapNode, src: MoveNode, lineId: string): void {
+// `depthLeft` is the plies still allowed below `parent`; at 0 we stop, which is
+// how "Go deeper" truncates a long line to the current render depth.
+function mergeInto(parent: MapNode, src: MoveNode, lineId: string, depthLeft: number): void {
+  if (depthLeft <= 0) return;
   for (const sc of src.children) {
     let ex = parent.children.find(c => c.uci === sc.uci);
     if (!ex) {
@@ -83,7 +107,7 @@ function mergeInto(parent: MapNode, src: MoveNode, lineId: string): void {
       parent.children.push(ex);
     }
     if (!ex.lineIds.includes(lineId)) ex.lineIds.push(lineId);
-    mergeInto(ex, sc, lineId);
+    mergeInto(ex, sc, lineId, depthLeft - 1);
   }
 }
 
@@ -446,7 +470,31 @@ function centreNode(node: MapNode, outer: HTMLElement, state: TxState, inner: HT
 
 interface NavControls {
   container: HTMLElement;
+  leftGroup: HTMLElement;   // where the caller drops the quiet "Go deeper" control
   update(n: MapNode | null, forkChoice: Map<MapNode, number>): void;
+}
+
+// Chevron glyphs matching the builder's step arrows (same viewBox + stroke), so
+// the map's move arrows read as the same control the builder uses.
+const CHEVRON: Record<string, string> = {
+  left: 'm15 18-6-6 6-6',
+  right: 'm9 18 6-6-6-6',
+  up: 'm6 15 6-6 6 6',
+  down: 'm6 9 6 6 6-6',
+};
+
+function chevronBtn(dir: keyof typeof CHEVRON, aria: string, handler: () => void): HTMLButtonElement {
+  const b = document.createElement('button');
+  b.type = 'button';
+  // Borrow the builder's step-button look (bar-btn--step) for an identical feel.
+  b.className = 'rmap-nav-btn bar-btn bar-btn--step';
+  b.setAttribute('aria-label', aria);
+  b.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none"
+    stroke="currentColor" stroke-width="2.25" stroke-linecap="round"
+    stroke-linejoin="round" aria-hidden="true"><path d="${CHEVRON[dir]}"/></svg>`;
+  b.disabled = true;
+  b.addEventListener('click', handler);
+  return b;
 }
 
 function makeControls(
@@ -460,31 +508,12 @@ function makeControls(
   const bar = document.createElement('div');
   bar.className = 'rmap-controls';
 
-  const navGroup = document.createElement('div');
-  navGroup.className = 'rmap-controls-nav';
-
-  const LEFT = '←', UP = '↑', DOWN = '↓', RIGHT = '→';
-
-  const [leftBtn, upBtn, downBtn, rightBtn] = [
-    [LEFT, 'Previous move', onLeft],
-    [UP, 'Prev variation', onUp],
-    [DOWN, 'Next variation', onDown],
-    [RIGHT, 'Next move', onRight],
-  ].map(([label, aria, handler]) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'rmap-nav-btn';
-    b.setAttribute('aria-label', String(aria));
-    b.textContent = String(label);
-    b.disabled = true;
-    b.addEventListener('click', handler as () => void);
-    navGroup.appendChild(b);
-    return b;
-  });
+  // Left group: zoom (and the caller's "Go deeper" control, prepended later).
+  const leftGroup = document.createElement('div');
+  leftGroup.className = 'rmap-controls-left';
 
   const zoomGroup = document.createElement('div');
   zoomGroup.className = 'rmap-controls-zoom';
-
   for (const [t, a, h] of [['−', 'Zoom out', onZoomOut], ['+', 'Zoom in', onZoomIn]]) {
     const b = document.createElement('button');
     b.type = 'button';
@@ -494,9 +523,19 @@ function makeControls(
     b.addEventListener('click', h as () => void);
     zoomGroup.appendChild(b);
   }
+  leftGroup.appendChild(zoomGroup);
 
+  // Right group: the move arrows, in the builder's step style.
+  const navGroup = document.createElement('div');
+  navGroup.className = 'rmap-controls-nav';
+  const leftBtn = chevronBtn('left', 'Previous move', onLeft);
+  const upBtn = chevronBtn('up', 'Prev variation', onUp);
+  const downBtn = chevronBtn('down', 'Next variation', onDown);
+  const rightBtn = chevronBtn('right', 'Next move', onRight);
+  navGroup.append(leftBtn, upBtn, downBtn, rightBtn);
+
+  bar.appendChild(leftGroup);
   bar.appendChild(navGroup);
-  bar.appendChild(zoomGroup);
 
   function update(n: MapNode | null, forkChoice: Map<MapNode, number>): void {
     if (!n) {
@@ -522,7 +561,7 @@ function makeControls(
     }
   }
 
-  return { container: bar, update };
+  return { container: bar, leftGroup, update };
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -589,7 +628,19 @@ export function openRepertoireMap(
   const inner = document.createElement('div');
   inner.className = 'rmap-zoom-inner';
 
-  const root = buildMergedTree(filtered);
+  // Depth control. When set, render only `currentPlies` deep; "Go deeper" steps
+  // it once to deeperPlies, rebuilding from data already on the phone.
+  const depth = opts.depth ?? null;
+  let currentPlies = depth ? depth.defaultPlies : Infinity;
+  let deepened = false;
+
+  // Lines to draw at the current depth. The first render always uses the lines
+  // handed in (instant: an opponent's precomputed default tree, or the saved
+  // lines), truncated by the merge. Only after "Go deeper" do we ask the depth
+  // control to re-supply deeper data (opponents rebuild their pruned tree).
+  const currentLines = (): Line[] => (depth && deepened ? depth.atDepth(currentPlies) : filtered);
+
+  let root = buildMergedTree(currentLines(), currentPlies);
 
   if (!root.children.length) {
     const empty = document.createElement('p');
@@ -609,6 +660,13 @@ export function openRepertoireMap(
   // Preview panel.
   const preview = makePreview(colour, opts, close);
   treeArea.appendChild(preview.el);
+
+  // A tiny spinner shown while a "Go deeper" rebuild runs off the paint frame.
+  const spinner = document.createElement('div');
+  spinner.className = 'rmap-spinner';
+  spinner.hidden = true;
+  spinner.innerHTML = '<div class="rmap-spinner-ring" aria-label="Building deeper map"></div>';
+  treeArea.appendChild(spinner);
 
   function selectNode(n: MapNode): void {
     selected = n;
@@ -631,11 +689,49 @@ export function openRepertoireMap(
     controls.update(n, forkChoice);
   }
 
-  const svg = buildSVG(root, selectNode);
+  let svg = buildSVG(root, selectNode);
   inner.appendChild(svg);
   treeWrap.appendChild(inner);
   treeArea.appendChild(treeWrap);
   overlay.appendChild(treeArea);
+
+  // Re-centre the view on the first move of the (possibly rebuilt) tree.
+  function centreOnFirst(): void {
+    requestAnimationFrame(() => {
+      if (root.children[0]) {
+        const rect = treeWrap.getBoundingClientRect();
+        state.tx = rect.width / 2 - root.children[0].x * state.scale;
+        state.ty = 60;
+        applyTx(inner, state);
+      }
+    });
+  }
+
+  // Swap in a freshly built tree at the current depth (after "Go deeper").
+  function rebuild(): void {
+    root = buildMergedTree(currentLines(), currentPlies);
+    const newSvg = buildSVG(root, selectNode);
+    svg.replaceWith(newSvg);
+    svg = newSvg;
+    selected = null;
+    forkChoice.clear();
+    controls.update(null, forkChoice);
+    preview.el.hidden = true;
+    centreOnFirst();
+  }
+
+  function goDeeper(): void {
+    if (!depth || deepened) return;
+    deepened = true;
+    currentPlies = depth.deeperPlies;
+    spinner.hidden = false;
+    updateDeeper();
+    // Let the spinner paint before the (possibly heavy) opponent rebuild.
+    requestAnimationFrame(() => setTimeout(() => {
+      rebuild();
+      spinner.hidden = true;
+    }, 0));
+  }
 
   // Arrow + zoom controls.
   const controls = makeControls(
@@ -682,18 +778,45 @@ export function openRepertoireMap(
     },
   );
 
+  // The quiet "Go deeper" control sits in the left group of the control bar.
+  let deeperBtn: HTMLButtonElement | null = null;
+  function updateDeeper(): void {
+    if (!depth || !deeperBtn) return;
+    if (deepened) {
+      deeperBtn.hidden = true;  // one step is enough — retire the control
+      return;
+    }
+    if (depth.maxPlies > depth.defaultPlies) {
+      deeperBtn.hidden = false;
+      deeperBtn.disabled = false;
+      deeperBtn.classList.remove('rmap-deeper-btn--hint');
+      deeperBtn.textContent = 'Go deeper';
+    } else if (depth.importHint) {
+      // Too shallow to deepen (an old, shallow import): show the honest reach.
+      deeperBtn.hidden = false;
+      deeperBtn.disabled = true;
+      deeperBtn.classList.add('rmap-deeper-btn--hint');
+      deeperBtn.textContent = `Imported at ${Math.floor(depth.maxPlies / 2)} moves`;
+    } else {
+      deeperBtn.hidden = true;  // a repertoire with nothing deeper to show
+    }
+  }
+  if (depth) {
+    deeperBtn = document.createElement('button');
+    deeperBtn.type = 'button';
+    deeperBtn.className = 'rmap-deeper-btn';
+    deeperBtn.addEventListener('click', goDeeper);
+    // A quiet floating pill, top-left of the tree area — out of the way of both
+    // the move arrows and the preview panel.
+    treeArea.appendChild(deeperBtn);
+    updateDeeper();
+  }
+
   overlay.appendChild(controls.container);
   document.body.appendChild(overlay);
 
   disposePanZoom = initPanZoom(treeWrap, inner, state);
 
   // Start centred on the first child.
-  requestAnimationFrame(() => {
-    if (root.children[0]) {
-      const rect = treeWrap.getBoundingClientRect();
-      state.tx = rect.width / 2 - root.children[0].x;
-      state.ty = 60;
-      applyTx(inner, state);
-    }
-  });
+  centreOnFirst();
 }

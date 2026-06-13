@@ -83,14 +83,16 @@ export function runScoutSelfTest(): TestResult[] {
     `kids after Nf3 = ${afterNf3?.children.map(c => c.san).join(',')}`,
   );
 
-  // 4. Depth is capped at the map limit (16 plies) even for a long game.
+  // 4. Depth is parameterised: an explicit cap truncates, while the default
+  //    (40 plies) keeps a 20-ply game whole.
   const longLine =
-    'e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3 O-O h3 Nb8 d4 Nbd7';
-  const deep = buildOpponentTree([game('white', longLine)], 'white');
+    'e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3 O-O h3 Nb8 d4 Nbd7'; // 20 plies
+  const capped = buildOpponentTree([game('white', longLine)], 'white', 8);
+  const full = buildOpponentTree([game('white', longLine)], 'white');
   check(
-    'depth capped at 16 plies',
-    maxDepth(deep) === 16,
-    `maxDepth=${maxDepth(deep)}`,
+    'depth cap honours the requested plies',
+    maxDepth(capped) === 8 && maxDepth(full) === 20,
+    `capped=${maxDepth(capped)} default=${maxDepth(full)}`,
   );
 
   // 5. makeOpponent records counts and both colour trees.

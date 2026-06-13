@@ -21,9 +21,13 @@ const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 // At most this many opponents on the device at once (the Explore cap).
 export const MAX_OPPONENTS = 10;
 
-// How deep the scouting map goes — 16 plies = 8 full moves, deep enough to read
-// a repertoire without drowning the map in one-off middlegame branches.
-const MAP_PLIES = 16;
+// How deep the scouting map renders. The DEFAULT view shows 40 plies = 20 full
+// moves — deep enough to read a repertoire, shallow enough that frequency
+// pruning keeps it legible. "Go deeper" re-renders to DEEP = 60 plies (30 moves)
+// from the same stored games (now kept OPENING_PLIES = 60 deep). Old, shallow
+// imports can't reach the deep view — see opponentReachPlies / the map control.
+export const DEFAULT_MAP_PLIES = 40;
+export const DEEP_MAP_PLIES = 60;
 
 // The persisted opponent record. `games` is the source of truth; `whiteTree`
 // and `blackTree` are the precomputed maps (rebuilt on every import / refresh).
@@ -52,14 +56,18 @@ interface BuildNode {
 // Replay every game of one colour and merge them into a frequency tree, keeping
 // only branches played often enough to matter and capping the depth. Returns a
 // root MoveNode (empty san/uci, start position) ready for the map renderer.
-export function buildOpponentTree(games: ImportedGame[], colour: 'white' | 'black'): MoveNode {
+export function buildOpponentTree(
+  games: ImportedGame[],
+  colour: 'white' | 'black',
+  maxPlies: number = DEFAULT_MAP_PLIES,
+): MoveNode {
   const mine = games.filter(g => g.colour === colour);
   const root: BuildNode = { san: '', uci: '', fen: START_FEN, count: mine.length, children: new Map() };
 
   for (const game of mine) {
     const chess = new Chess();
     let node = root;
-    const plies = Math.min(game.ucis.length, MAP_PLIES);
+    const plies = Math.min(game.ucis.length, maxPlies);
     for (let i = 0; i < plies; i++) {
       const uci = game.ucis[i];
       let mv;
@@ -158,6 +166,18 @@ export function opponentLine(tree: MoveNode, colour: 'white' | 'black', name: st
 // How many of an opponent's games were played as the given colour.
 export function colourGameCount(opp: Opponent, colour: 'white' | 'black'): number {
   return opp.games.filter(g => g.colour === colour).length;
+}
+
+// The deepest ply an opponent's stored games of one colour actually reach (the
+// longest kept move list). This is the true ceiling for "Go deeper": a game
+// imported under the old 24-ply cap can never feed a 30-move map, so the map
+// uses this to decide whether the deep view is offered or shows the shallow hint.
+export function opponentReachPlies(opp: Opponent, colour: 'white' | 'black'): number {
+  let max = 0;
+  for (const g of opp.games) {
+    if (g.colour === colour) max = Math.max(max, g.sans.length);
+  }
+  return max;
 }
 
 // ── Per-opponent aggregates (for the Explore card) ────────────────────────────

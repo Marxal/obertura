@@ -22,8 +22,9 @@ import {
 } from './storage';
 import {
   MAX_OPPONENTS, makeOpponent, opponentLine, colourGameCount, opponentTag, isOpponentTag,
-  opponentSummary, buildScoutReport, type Opponent, type ScoutReport, type OpeningRecord,
-  type Recommendation,
+  opponentSummary, buildScoutReport, buildOpponentTree, opponentReachPlies,
+  DEFAULT_MAP_PLIES, DEEP_MAP_PLIES,
+  type Opponent, type ScoutReport, type OpeningRecord, type Recommendation,
 } from './scout';
 import { wdlBlock, wdlScoreRow } from './wdl-bar';
 import { createFilterBar } from './filters';
@@ -746,6 +747,8 @@ function mapButton(opp: Opponent, colour: 'white' | 'black', prepare: PrepareFn)
   } else {
     btn.addEventListener('click', () => {
       openRepertoireMap(
+        // First render uses the precomputed default tree (instant); "Go deeper"
+        // rebuilds the pruned tree from stored games at the deeper depth.
         [opponentLine(tree, colour, opp.name)],
         colour,
         () => { /* opponent maps have no "open in builder" */ },
@@ -756,6 +759,15 @@ function mapButton(opp: Opponent, colour: 'white' | 'black', prepare: PrepareFn)
           nodeAction: {
             label: 'Prepare a reply',
             onAct: ({ ucis }) => prepare(ucis, colour),
+          },
+          depth: {
+            defaultPlies: DEFAULT_MAP_PLIES,
+            deeperPlies: DEEP_MAP_PLIES,
+            maxPlies: opponentReachPlies(opp, colour),
+            atDepth: plies => [
+              opponentLine(buildOpponentTree(opp.games, colour, plies), colour, opp.name),
+            ],
+            importHint: true,
           },
         },
       );

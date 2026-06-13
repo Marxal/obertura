@@ -23,6 +23,8 @@ import {
 } from './progress';
 import { currentStreak, trainedToday, getTrainingDays } from './streak';
 import { openRepertoireMap } from './repertoire-map';
+import { DEFAULT_MAP_PLIES, DEEP_MAP_PLIES } from './scout';
+import type { MoveNode } from './tree';
 import { Icons } from './icons';
 import {
   getShowStreakSection,
@@ -328,6 +330,13 @@ function renderConfidenceChart(container: HTMLElement, lines: Line[]): void {
 
 // ── 4b. Repertoire Map section ────────────────────────────────────────────────
 
+// Plies in a line's longest variation (root has no move, so its children are
+// ply 1). Drives whether the repertoire map can "Go deeper" than the default.
+function treeDepth(node: MoveNode): number {
+  if (!node.children.length) return 0;
+  return 1 + Math.max(...node.children.map(treeDepth));
+}
+
 function renderRepertoireMapSection(
   container: HTMLElement,
   lines: Line[],
@@ -366,7 +375,18 @@ function renderRepertoireMapSection(
     lineCount.textContent = `${colourLines.length} line${colourLines.length !== 1 ? 's' : ''}`;
     btn.appendChild(lineCount);
 
-    btn.addEventListener('click', () => openRepertoireMap(colourLines, colour, cb.onOpenLine));
+    // Lines can run any length; the map shows 20 moves by default and steps to
+    // 30 on "Go deeper" — same defaults as the opponent maps, from the full saved
+    // trees already on the phone.
+    const reach = Math.max(0, ...colourLines.map(l => treeDepth(l.tree)));
+    btn.addEventListener('click', () => openRepertoireMap(colourLines, colour, cb.onOpenLine, {
+      depth: {
+        defaultPlies: DEFAULT_MAP_PLIES,
+        deeperPlies: DEEP_MAP_PLIES,
+        maxPlies: reach,
+        atDepth: () => colourLines,
+      },
+    }));
     btnRow.appendChild(btn);
   }
 
