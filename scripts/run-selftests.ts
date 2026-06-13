@@ -6,19 +6,27 @@
 // Only DOM/IndexedDB-free suites are listed here; the storage self-test runs
 // against a real IndexedDB, so it stays phone-only.
 
+import { runOpeningsSelfTest } from '../src/openings.selftest';
 import { runImportSelfTest } from '../src/import.selftest';
+import { runSchedulerSelfTest } from '../src/scheduler.selftest';
 import { runAnalysisSelfTest } from '../src/analysis.selftest';
+import { runSparSelfTest } from '../src/spar.selftest';
 import { runScoutSelfTest } from '../src/scout.selftest';
 import { runMoveStatsSelfTest } from '../src/move-stats.selftest';
+import { runProgressSelfTest } from '../src/progress.selftest';
 import { runTreeSelfTest } from '../src/tree.selftest';
 
 interface TestResult { name: string; pass: boolean; detail: string }
 
 const SUITES: { suite: string; run: () => TestResult[] }[] = [
+  { suite: 'openings', run: runOpeningsSelfTest },
   { suite: 'import', run: runImportSelfTest },
+  { suite: 'scheduler', run: runSchedulerSelfTest },
   { suite: 'analysis', run: runAnalysisSelfTest },
+  { suite: 'spar', run: runSparSelfTest },
   { suite: 'scout', run: runScoutSelfTest },
   { suite: 'move-stats', run: runMoveStatsSelfTest },
+  { suite: 'progress', run: runProgressSelfTest },
   { suite: 'tree', run: runTreeSelfTest },
 ];
 

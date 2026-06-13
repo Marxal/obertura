@@ -121,43 +121,63 @@ _Restore point: tag `v1.2`. Shipped._
 
 ---
 
-## v1.3 — refinement round 🔜
+## v1.3 — refinement round ✅
 
-A nine-phase round that tightens the visual language, makes the builder and
-train hub tell the truth, deepens Explore and engine-assisted building, and
-finishes with onboarding and a release pass. Built in order. The `v1.2` tag is
+A nine-phase round that tightened the visual language, made the builder and
+train hub tell the truth, deepened Explore and engine-assisted building, and
+finished with onboarding and a release pass. Built in order. The `v1.2` tag was
 the restore point for the whole round.
 
-- 🔜 **Phase 0 — Safety & dead wood** — cut the `v1.2` rollback tag and sweep
-  dead controls (inline self-test links, the dead Paper-texture toggle).
-- 💤 **Phase 1 — Visual language**
-- 💤 **Phase 2 — Builder truth**
-- 💤 **Phase 3 — Train hub**
-- 💤 **Phase 4 — Explore & scouting**
-- 🔜 **Phase 5 — Build with the engine**
-  - ✅ **5.1 The engine opens like a human** — a persisted opening-mode picker
-    (Surprise me / From my games / Pure engine). The two book modes feed the
-    engine a real opening for ~6 moves (a random book line, or one sampled from
-    my imported games), handing over to Stockfish the instant I deviate. The
-    opening-name line shows under the board; Strong/Master now think longer
-    (900 / 1400 ms).
-  - ✅ **5.2 Assists inside the engine game** — a persisted (default-off) Engine
-    toggle reveals the builder's eval bar/panel (source+depth badge included)
-    plus candidate-move arrows mid-game, and hides them instantly when off. A
-    Suggest control (Solid · Aggressive · Random) runs a local MultiPV-4
-    analysis and plays a vetted move for me: every flavour picks only from a
-    "safe set" within 50cp of best (Aggressive widens to 80cp and prefers
-    checks → captures → the most advancing move), so a suggestion never blunders.
-- 💤 **Phase 6 — Statistics**
-- 💤 **Phase 7 — Onboarding & empty states**
-- 💤 **Phase 8 — Settings & release**
+- ✅ **Phase 0 — Safety & dead wood** — cut the `v1.2` rollback tag, swept the
+  dead controls (inline self-test links, the Paper-texture toggle), and fixed a
+  dead back-navigation zone in training (the exit became "End session").
+- ✅ **Phase 1 — Visual language** — swapped the oxblood primary for felt green,
+  reworked themes into a four-option picker (added the Game theme), and flattened
+  listings into individual cards on a bare page with tidy carousel edge insets.
+- ✅ **Phase 2 — Builder truth** — the builder now saves exactly one line
+  (divergent edits truncate the tree), notes are purely manual, annotation marks
+  live in the note sheet, and the eval reads honestly (winning-chances bar,
+  depth-20 progressive fallback, source badge).
+- ✅ **Phase 3 — Train hub** — a compact two-stat hero, a shared two-row filter
+  bar rolled out everywhere, and pause/resume via a switch that flips the card in
+  place (with Show paused) instead of a page jump.
+- ✅ **Phase 4 — Explore & scouting** — a library-first slim landing,
+  informative opponent cards with a three-way delete, a dossier detail with
+  W-D-L bars throughout, a scouting report (weak/strong openings + what to play),
+  deeper repeatable maps with per-move stats and a Go deeper control, a Board
+  explorer, and a games map on Statistics.
+- ✅ **Phase 5 — Build with the engine** — a persisted opening-mode picker
+  (Surprise me / From my games / Pure engine) so the engine opens like a human,
+  plus a default-off Engine toggle (eval bar/panel + candidate arrows) and a
+  Suggest control (Solid · Aggressive · Random) that only ever plays a vetted,
+  non-blundering move.
+- ✅ **Phase 6 — Statistics** — reordered the screen, switched the activity grid
+  to weekday letters, and made the heatmap full-width.
+- ✅ **Phase 7 — Onboarding & empty states** — a first-launch intro walkthrough
+  and pedagogical empty states across the four main screens.
+- ✅ **Phase 8 — Settings & release** — regrouped Settings (dropped Naming,
+  folded in Diagnostics, switch rows), added weekly games auto-refresh, and cut
+  the release: full self-test + build pass, version bump, and the `v1.3` tag.
+
+_Restore point: tag `v1.3`. Shipped._
+
+---
+
+## v1.4 — seeds (parked) 💤
+
+Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on
+the phone.
+
+- 💤 A fourth board/app theme.
+- 💤 Map transpositions (merge positions reached by different move orders).
+- 💤 True background sync via a service worker.
+- 💤 Deeper engine adaptation.
 
 ---
 
 ## Later 💤
 
-Deliberately deferred. Out of scope for v1.2; revisited once it has had real
-use on the phone.
+Deliberately deferred. Revisited once the app has had more real use on the phone.
 
 - 💤 Accounts / sync (Google Drive sync for the repertoire backup, etc.)
 - 💤 Monetization build-out
