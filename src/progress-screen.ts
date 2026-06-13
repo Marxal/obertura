@@ -1,14 +1,13 @@
 // Statistics screen — "is the training working, and where should I focus?"
 //
-// Sections:
-//   1. Streak hero  — big daily streak + 7-day mini grid
-//   2. Quick stats  — total lines / in training / mastered
-//   3. Activity     — 28-day training calendar
-//   4. Mastery      — confidence-level bar chart
+// Sections, top to bottom:
+//   1. Streak hero  — big daily streak + rolling 7-day strip, with the 28-day
+//                     training-activity heatmap tucked inside as an accordion row
+//   2. Quick stats  — total lines / in training / mastered (compact)
+//   3. Repertoire map — browse openings as a branching tree
+//   4. Win Rate     — per-opening win rate bars (when games are imported)
 //   5. Needs Attention — lines that need work (cross-referenced with Chess.com)
-//   6. Win Rate     — per-opening win rate bars (when games are imported)
-//   7. Opening Detail — existing before/after drill cards
-//   8. Self-test link
+//   6. Opening Detail — existing before/after drill cards
 
 import type { Line } from './types';
 import type { ImportedGame } from './chesscom';
@@ -62,27 +61,40 @@ async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<
 
   const report = crossReference(games, lines);
 
-  // Two sections are switchable from Settings → Statistics. The Train-header
-  // streak pill is separate and unaffected by either toggle.
-  if (getShowStreakSection()) renderStreakHero(container);
+  // Two sections are switchable from Settings → Statistics. The activity heatmap
+  // now lives as an accordion row inside the streak hero; if the streak card is
+  // hidden but the heatmap stays on, it gets a lightweight card of its own so the
+  // toggle still works. The Train-header streak pill is separate and unaffected
+  // by either toggle.
+  const showStreak = getShowStreakSection();
+  const showActivity = getShowActivitySection();
+  if (showStreak) {
+    renderStreakHero(container, showActivity);
+  } else if (showActivity) {
+    renderActivitySolo(container);
+  }
+
   renderQuickStats(container, lines);
-  if (getShowActivitySection()) renderActivityGrid(container);
 
   if (lines.length > 0) {
-    renderConfidenceChart(container, lines);
     renderRepertoireMapSection(container, lines, games, cb);
   }
 
   const needsAttention = computeNeedsAttention(lines, report);
+
+  // Win rate (or its no-games placeholder) → Needs attention → Opening detail.
+  if (report.items.length > 0) {
+    renderWinRates(container, report);
+  } else {
+    renderNoGamesNote(container, games.length);
+  }
+
   if (needsAttention.length > 0) {
     renderNeedsAttention(container, needsAttention, cb);
   }
 
   if (report.items.length > 0) {
-    renderWinRates(container, report);
     renderOpeningDetail(container, report, cb);
-  } else {
-    renderNoGamesNote(container, games.length);
   }
 }
 
@@ -97,7 +109,7 @@ function localDateKey(d: Date): string {
 
 // ── 1. Streak hero ────────────────────────────────────────────────────────────
 
-function renderStreakHero(container: HTMLElement): void {
+function renderStreakHero(container: HTMLElement, showActivity: boolean): void {
   const streak = currentStreak();
   const today = trainedToday();
 
@@ -126,10 +138,14 @@ function renderStreakHero(container: HTMLElement): void {
 
   hero.appendChild(main);
 
-  // 7-day mini strip: the day NUMBER in each cell; trained days get a sage fill,
-  // today gets a subtle ring. (Streak counting itself is untouched — see streak.ts.)
+  // Rolling 7-day strip: the day NUMBER in each dot with its real WEEKDAY LETTER
+  // beneath it; today is the rightmost dot (subtle ring), trained days get a sage
+  // fill. (Streak counting itself is untouched — see streak.ts.)
   const trainingDays = new Set(getTrainingDays());
   const now = new Date();
+
+  // Sun..Sat single-letter labels, indexed by Date.getDay().
+  const DOW = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
   const weekGrid = document.createElement('div');
   weekGrid.className = 'stats-week-grid';
@@ -142,6 +158,9 @@ function renderStreakHero(container: HTMLElement): void {
     const trained = trainingDays.has(key);
     const isToday = i === 0;
 
+    const col = document.createElement('div');
+    col.className = 'stats-week-col';
+
     const cell = document.createElement('div');
     cell.className = 'stats-week-cell'
       + (trained ? ' stats-week-cell--on' : '')
@@ -152,8 +171,14 @@ function renderStreakHero(container: HTMLElement): void {
     numEl.className = 'stats-week-num';
     numEl.textContent = String(d.getDate());
     cell.appendChild(numEl);
+    col.appendChild(cell);
 
-    weekGrid.appendChild(cell);
+    const dowEl = document.createElement('span');
+    dowEl.className = 'stats-week-dow' + (isToday ? ' stats-week-dow--today' : '');
+    dowEl.textContent = DOW[d.getDay()];
+    col.appendChild(dowEl);
+
+    weekGrid.appendChild(col);
   }
   hero.appendChild(weekGrid);
 
@@ -169,6 +194,9 @@ function renderStreakHero(container: HTMLElement): void {
     sub.textContent = `Train today to keep your ${streak}-day streak going`;
   }
   hero.appendChild(sub);
+
+  // The 28-day activity heatmap rides at the bottom of the hero as an accordion.
+  if (showActivity) renderActivityAccordion(hero);
 
   container.appendChild(hero);
 }
@@ -209,9 +237,15 @@ function renderQuickStats(container: HTMLElement, lines: Line[]): void {
   container.appendChild(row);
 }
 
-// ── 3. Training activity (28-day grid) ────────────────────────────────────────
-
-function renderActivityGrid(container: HTMLElement): void {
+// ── Training activity accordion (28-day heatmap) ──────────────────────────────
+//
+// A tappable row ("Training activity" + chevron) that reveals a 28-day heatmap.
+// Default collapsed; the open/closed choice is remembered across visits. The grid
+// is a 7-column CSS grid that fills the card's full width — cells size themselves
+// from the container — so it never reads as a narrow rectangle. Normally it rides
+// at the bottom of the streak hero; renderActivitySolo gives it its own card when
+// the streak hero is switched off.
+function renderActivityAccordion(parent: HTMLElement): void {
   const trainingDays = new Set(getTrainingDays());
   const now = new Date();
 
@@ -223,11 +257,9 @@ function renderActivityGrid(container: HTMLElement): void {
     if (trainingDays.has(localDateKey(d))) trainedCount++;
   }
 
-  const section = document.createElement('div');
-  section.className = 'section';
+  const wrap = document.createElement('div');
+  wrap.className = 'stats-activity';
 
-  // A tappable head with a chevron: the grid collapses behind it, default
-  // collapsed, and we remember the choice across visits.
   let expanded = getActivityExpanded();
 
   const head = document.createElement('button');
@@ -235,20 +267,20 @@ function renderActivityGrid(container: HTMLElement): void {
   head.className = 'stats-activity-head' + (expanded ? ' stats-activity-head--open' : '');
   head.setAttribute('aria-expanded', String(expanded));
 
-  const h = document.createElement('h2');
-  h.className = 'section-title';
-  h.textContent = 'Training Activity';
+  const h = document.createElement('span');
+  h.className = 'stats-activity-title';
+  h.textContent = 'Training activity';
   head.appendChild(h);
 
   const meta = document.createElement('span');
-  meta.className = 'section-meta stats-activity-meta';
+  meta.className = 'stats-activity-meta';
   meta.textContent = `${trainedCount} of 28 days`;
   head.appendChild(meta);
 
   const chev = Icons.chevronDown(18);
   chev.classList.add('stats-activity-chev');
   head.appendChild(chev);
-  section.appendChild(head);
+  wrap.appendChild(head);
 
   const grid = document.createElement('div');
   grid.className = 'stats-activity-grid';
@@ -269,7 +301,7 @@ function renderActivityGrid(container: HTMLElement): void {
     cell.setAttribute('title', key);
     grid.appendChild(cell);
   }
-  section.appendChild(grid);
+  wrap.appendChild(grid);
 
   head.addEventListener('click', () => {
     expanded = !expanded;
@@ -279,62 +311,19 @@ function renderActivityGrid(container: HTMLElement): void {
     setActivityExpanded(expanded);
   });
 
-  container.appendChild(section);
+  parent.appendChild(wrap);
 }
 
-// ── 4. Confidence distribution bar chart ─────────────────────────────────────
-
-function renderConfidenceChart(container: HTMLElement, lines: Line[]): void {
-  const counts: number[] = [0, 0, 0, 0, 0, 0]; // index = confidence level 0..5
-  for (const line of lines) {
-    const c = Math.min(5, Math.max(0, Math.round(line.confidence)));
-    counts[c]++;
-  }
-  const maxCount = Math.max(1, ...counts);
-
-  const section = statsSection('Line Mastery', `${lines.length} line${lines.length !== 1 ? 's' : ''}`);
-  const chart = document.createElement('div');
-  chart.className = 'stats-conf-chart';
-
-  for (let level = 5; level >= 0; level--) {
-    const row = document.createElement('div');
-    row.className = 'stats-conf-row';
-
-    const dotsEl = document.createElement('span');
-    dotsEl.className = 'stats-conf-dots';
-    // Two-tone: filled circles + empty circles
-    const filled = document.createElement('span');
-    filled.className = 'stats-conf-filled';
-    filled.textContent = '●'.repeat(level);
-    const empty = document.createElement('span');
-    empty.className = 'stats-conf-empty';
-    empty.textContent = '○'.repeat(5 - level);
-    dotsEl.appendChild(filled);
-    dotsEl.appendChild(empty);
-    row.appendChild(dotsEl);
-
-    const barWrap = document.createElement('div');
-    barWrap.className = 'stats-conf-bar-wrap';
-    const bar = document.createElement('div');
-    bar.className = 'stats-conf-bar';
-    bar.style.width = (counts[level] / maxCount * 100) + '%';
-    if (level === 0 && counts[level] > 0) bar.classList.add('stats-conf-bar--new');
-    barWrap.appendChild(bar);
-    row.appendChild(barWrap);
-
-    const cntEl = document.createElement('span');
-    cntEl.className = 'stats-conf-count';
-    cntEl.textContent = String(counts[level]);
-    row.appendChild(cntEl);
-
-    chart.appendChild(row);
-  }
-
-  section.appendChild(chart);
-  container.appendChild(section);
+// When the streak hero is hidden but the activity toggle stays on, the heatmap
+// still needs a home — give it a lightweight card of its own.
+function renderActivitySolo(container: HTMLElement): void {
+  const card = document.createElement('div');
+  card.className = 'stats-streak-hero stats-activity-solo';
+  renderActivityAccordion(card);
+  container.appendChild(card);
 }
 
-// ── 4b. Repertoire Map section ────────────────────────────────────────────────
+// ── 3. Repertoire Map section ─────────────────────────────────────────────────
 
 // Plies in a line's longest variation (root has no move, so its children are
 // ply 1). Drives whether the repertoire map can "Go deeper" than the default.
@@ -499,8 +488,9 @@ function renderNeedsAttention(container: HTMLElement, items: AttentionItem[], cb
     `${items.length} line${items.length !== 1 ? 's' : ''}`,
   );
 
+  // .group drops the section's box so the cards never read as boxes-in-a-box.
   const list = document.createElement('div');
-  list.className = 'stats-attention-list';
+  list.className = 'stats-attention-list group';
 
   for (const item of items) {
     const card = document.createElement('div');
@@ -538,7 +528,7 @@ function renderNeedsAttention(container: HTMLElement, items: AttentionItem[], cb
   container.appendChild(section);
 }
 
-// ── 6. Win rate by opening ────────────────────────────────────────────────────
+// ── 4. Win rate by opening ────────────────────────────────────────────────────
 
 function renderWinRates(container: HTMLElement, report: ProgressReport): void {
   // Aggregate all games per opening family across before + after windows
@@ -598,7 +588,7 @@ function renderWinRates(container: HTMLElement, report: ProgressReport): void {
   container.appendChild(section);
 }
 
-// ── 7. Opening detail (per-line before/after cards) ───────────────────────────
+// ── 6. Opening detail (per-line before/after cards) ───────────────────────────
 
 function renderOpeningDetail(container: HTMLElement, report: ProgressReport, cb: ProgressCallbacks): void {
   const section = statsSection(
@@ -611,9 +601,13 @@ function renderOpeningDetail(container: HTMLElement, report: ProgressReport, cb:
   intro.textContent = 'Win rate before vs since you last drilled each line:';
   section.appendChild(intro);
 
+  // .group drops the section's box so the per-line cards stand on their own.
+  const list = document.createElement('div');
+  list.className = 'group';
   for (const item of report.items) {
-    section.appendChild(progressCard(item, cb));
+    list.appendChild(progressCard(item, cb));
   }
+  section.appendChild(list);
 
   container.appendChild(section);
 }

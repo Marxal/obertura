@@ -4405,21 +4405,42 @@ cg-board square.move-dest.oc {
   padding-bottom: 0.3rem;
 }
 
-/* 7-day mini grid */
+/* Rolling 7-day strip: a dot per day with its weekday letter beneath. */
 .stats-week-grid {
   display: flex;
   gap: 0.3rem;
   margin-bottom: 0.8rem;
 }
 
-.stats-week-cell {
+.stats-week-col {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.25rem;
+}
+
+.stats-week-cell {
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0.5rem 0;
   border-radius: 7px;
   background: var(--bg-elevated);
+}
+
+/* The real weekday letter under each dot; today's is accented. */
+.stats-week-dow {
+  text-align: center;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--text-fainter);
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.stats-week-dow--today {
+  color: var(--accent);
 }
 
 /* Trained days take a sage fill. */
@@ -4466,7 +4487,7 @@ cg-board square.move-dest.oc {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0.85rem 0.5rem;
+  padding: 0.55rem 0.4rem;
   background: var(--bg-card);
   border: 1px solid var(--border-card);
   border-radius: 10px;
@@ -4474,7 +4495,7 @@ cg-board square.move-dest.oc {
 }
 
 .stats-quick-num {
-  font-size: 1.9rem;
+  font-size: 1.5rem;
   font-weight: 800;
   color: var(--text);
   line-height: 1;
@@ -4482,10 +4503,10 @@ cg-board square.move-dest.oc {
 }
 
 .stats-quick-label {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: 700;
   color: var(--text-faint);
-  margin-top: 0.25rem;
+  margin-top: 0.2rem;
   text-transform: uppercase;
   letter-spacing: 0.07em;
 }
@@ -4493,7 +4514,22 @@ cg-board square.move-dest.oc {
 /* Sections on this screen use the shared .section / .section-head / .section-title
    / .section-meta component layer (see COMPONENT LAYER above). */
 
-/* Training activity — a collapsible section: a tappable head with a chevron. */
+/* Training activity accordion — a row at the bottom of the streak hero, set off
+   from the strip above it by a hairline. */
+.stats-activity {
+  margin-top: 0.9rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--hairline-soft);
+}
+
+/* Stood up on its own card (streak hero hidden), it carries no divider. */
+.stats-activity-solo .stats-activity {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+/* A tappable head with a chevron: the grid collapses behind it. */
 .stats-activity-head {
   display: flex;
   align-items: center;
@@ -4506,8 +4542,19 @@ cg-board square.move-dest.oc {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Same small-caps label as a section title, sitting inside the hero card. */
+.stats-activity-title {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .stats-activity-meta {
   margin-left: auto;
+  font-size: 0.7rem;
+  color: var(--text-faint);
 }
 
 .stats-activity-chev {
@@ -4520,19 +4567,21 @@ cg-board square.move-dest.oc {
   transform: rotate(180deg);
 }
 
-/* The grid itself: smaller cells, capped width, today top-left. */
+/* The grid fills the card's full width: seven 1fr columns size the square cells
+   straight from the container, so it never reads as a narrow rectangle. Today
+   sits top-left, counting back to 27 days ago at bottom-right. */
 .stats-activity-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 5px;
-  margin-top: var(--space-md);
-  max-width: 210px;
+  gap: 6px;
+  margin-top: 0.7rem;
+  width: 100%;
 }
 
 .stats-activity-cell {
   aspect-ratio: 1;
-  border-radius: 3px;
-  /* A hairline border lifts an un-trained cell off the section fill. */
+  border-radius: 4px;
+  /* A hairline border lifts an un-trained cell off the card fill. */
   background: var(--bg-elevated);
   border: 1px solid var(--border-card);
   min-height: 0;
@@ -4545,64 +4594,6 @@ cg-board square.move-dest.oc {
 
 .stats-activity-cell--today {
   box-shadow: 0 0 0 2px var(--accent);
-}
-
-/* Confidence bar chart */
-.stats-conf-chart {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.stats-conf-row {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-}
-
-.stats-conf-dots {
-  font-size: 0.58rem;
-  font-family: monospace;
-  width: 3.6rem;
-  flex-shrink: 0;
-  line-height: 1;
-  letter-spacing: 0.06em;
-}
-
-.stats-conf-filled {
-  color: var(--accent);
-}
-
-.stats-conf-empty {
-  color: var(--text-fainter);
-}
-
-.stats-conf-bar-wrap {
-  flex: 1;
-  height: 9px;
-  background: var(--bg-elevated);
-  border-radius: 5px;
-  overflow: hidden;
-}
-
-.stats-conf-bar {
-  height: 100%;
-  background: var(--accent);
-  border-radius: 5px;
-  min-width: 4px;
-}
-
-.stats-conf-bar--new {
-  background: var(--text-fainter);
-}
-
-.stats-conf-count {
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  width: 1.4rem;
-  text-align: right;
-  flex-shrink: 0;
 }
 
 /* Needs Attention cards */
