@@ -449,6 +449,15 @@ body {
   margin-top: 2px;
 }
 
+/* The quiet status line under a switch (e.g. "Last refreshed 8 days ago"). */
+.pref-row-caption {
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--text-faint);
+  opacity: 0.85;
+  margin-top: 6px;
+}
+
 /* The control sits under the text. Full-width controls (inputs, board swatches)
    fill the row; compact ones (segmented) stay their own size, left-aligned. */
 .pref-row-control {
