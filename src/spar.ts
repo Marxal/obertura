@@ -19,6 +19,8 @@ import { Icons } from './icons';
 import { showDialog } from './dialog';
 import { pushBack } from './back-nav';
 import { isOutOfBook, nameForPath } from './openings';
+import { Engine, type EvalResult } from './engine';
+import { EvalPanel } from './eval-panel';
 
 // How the spar screen hands a finished game back to the app shell: persist the
 // moves as a new auto-named line and run the post-save "add to training" dialog.
@@ -111,6 +113,174 @@ class SparEngine {
   }
 }
 
+// ── "Suggest a move" — a one-shot local analysis ──────────────────────────────
+// Separate from both SparEngine (move-playing) and engine.ts's Engine (the eval
+// panel, which may use Lichess cloud): "suggest" must be LOCAL and runs MultiPV
+// so we get a spread of candidates to choose a flavour from. Modest budget —
+// capped at ~14 plies / ~1.2s — so it feels instant on a phone.
+const SUGGEST_MULTIPV = 4;
+const SUGGEST_DEPTH = 14;
+const SUGGEST_MOVETIME = 1200;
+
+// One engine candidate, scored from the SIDE-TO-MOVE's perspective (positive =
+// good for the player on move) — the natural frame for "best move for me".
+export interface SuggestCand { uci: string; cp?: number; mate?: number; }
+
+export type SuggestFlavour = 'solid' | 'aggressive' | 'random';
+
+class SuggestEngine {
+  private worker: Worker;
+  private ready = false;
+  private queued: (() => void)[] = [];
+  private resolve: ((c: SuggestCand[]) => void) | null = null;
+  private lines = new Map<number, SuggestCand & { depth: number }>();
+  private bestUci: string | null = null;
+
+  constructor() {
+    this.worker = new Worker(`${import.meta.env.BASE_URL}engine/stockfish.js`);
+    this.worker.onmessage = (e: MessageEvent<string>) => this.onMsg(e.data);
+    this.worker.onerror = (e) => console.error('[spar] suggest engine error', e);
+    this.worker.postMessage('uci');
+    this.worker.postMessage(`setoption name MultiPV value ${SUGGEST_MULTIPV}`);
+    this.worker.postMessage('isready');
+  }
+
+  private onMsg(msg: string): void {
+    if (typeof msg !== 'string') return;
+    if (msg === 'readyok') {
+      this.ready = true;
+      const q = this.queued;
+      this.queued = [];
+      for (const fn of q) fn();
+      return;
+    }
+    if (msg.startsWith('info') && msg.includes('multipv') && msg.includes(' pv ')) {
+      const pvNum = parseInt(msg.match(/\bmultipv (\d+)/)?.[1] ?? '0');
+      const uci = msg.match(/\bpv ([a-h][1-8][a-h][1-8][qrbn]?)/)?.[1];
+      if (!uci || pvNum < 1) return;
+      const depth = parseInt(msg.match(/\bdepth (\d+)/)?.[1] ?? '0');
+      const cp = msg.match(/\bscore cp (-?\d+)/)?.[1];
+      const mate = msg.match(/\bscore mate (-?\d+)/)?.[1];
+      this.lines.set(pvNum, {
+        uci,
+        cp: cp !== undefined ? parseInt(cp) : undefined,
+        mate: mate !== undefined ? parseInt(mate) : undefined,
+        depth,
+      });
+      return;
+    }
+    if (msg.startsWith('bestmove')) {
+      const uci = msg.split(/\s+/)[1];
+      this.bestUci = uci && uci !== '(none)' ? uci : null;
+      const resolve = this.resolve;
+      this.resolve = null;
+      if (resolve) resolve(this.collect());
+    }
+  }
+
+  // Candidates best-first (MultiPV 1 is the engine's best). Falls back to the
+  // bare bestmove if no multipv lines arrived (e.g. a forced single reply).
+  private collect(): SuggestCand[] {
+    const entries = [...this.lines.entries()].sort(([a], [b]) => a - b);
+    const cands = entries.map(([, v]) => ({ uci: v.uci, cp: v.cp, mate: v.mate }));
+    if (cands.length === 0 && this.bestUci) return [{ uci: this.bestUci }];
+    return cands;
+  }
+
+  // Analyse fen locally; resolves with up to MultiPV candidates, best-first.
+  // Never rejects — the caller just renders whatever comes back.
+  analyze(fen: string): Promise<SuggestCand[]> {
+    return new Promise((resolve) => {
+      const run = () => {
+        this.lines.clear();
+        this.bestUci = null;
+        this.resolve = resolve;
+        this.worker.postMessage('stop'); // ignored if idle; clears any stray search
+        this.worker.postMessage(`position fen ${fen}`);
+        this.worker.postMessage(`go depth ${SUGGEST_DEPTH} movetime ${SUGGEST_MOVETIME}`);
+      };
+      if (this.ready) run();
+      else this.queued.push(run);
+    });
+  }
+
+  destroy(): void {
+    try { this.worker.terminate(); } catch { /* already gone */ }
+  }
+}
+
+// ── Suggest-flavour selection (pure, side-to-move frame) ──────────────────────
+// A single comparable number per candidate, bigger = better for the mover. Mate
+// scores dominate centipawns, and a nearer mate outranks a farther one.
+export function candScore(c: SuggestCand): number {
+  if (c.mate !== undefined) return c.mate > 0 ? 100000 - c.mate : -100000 - c.mate;
+  return c.cp ?? 0;
+}
+
+// The "never a bad move" core: every flavour picks only from a SAFE SET of
+// candidates within a centipawn margin of the best move.
+//   Solid      = the engine's best move.
+//   Random     = uniform over the safe set (within 50cp).
+//   Aggressive = safe set widened to 80cp, then prefer checks, then captures,
+//                then the most advancing move (score breaks ties).
+// `fen` is the position to move in — needed to classify a move as check/capture.
+export function chooseSuggestMove(
+  flavour: SuggestFlavour,
+  fen: string,
+  cands: SuggestCand[],
+): string | null {
+  if (cands.length === 0) return null;
+  const best = cands[0];
+  if (flavour === 'solid') return best.uci;
+
+  const bestCp = candScore(best);
+  const within = (margin: number) => cands.filter(c => bestCp - candScore(c) <= margin);
+
+  if (flavour === 'random') {
+    const safe = within(50);
+    return safe[Math.floor(Math.random() * safe.length)].uci;
+  }
+
+  // Aggressive.
+  const feats = within(80).map(c => ({ c, ...classifyMove(fen, c.uci) }));
+  const checks = feats.filter(f => f.check);
+  if (checks.length) return topByScore(checks).c.uci;
+  const caps = feats.filter(f => f.capture);
+  if (caps.length) return topByScore(caps).c.uci;
+  feats.sort((a, b) => b.advance - a.advance || candScore(b.c) - candScore(a.c));
+  return feats[0].c.uci;
+}
+
+function topByScore<T extends { c: SuggestCand }>(items: T[]): T {
+  return items.reduce((best, f) => (candScore(f.c) > candScore(best.c) ? f : best));
+}
+
+// Classify a candidate move in `fen`: does it give check, is it a capture, and
+// how many ranks does the moving piece advance toward the opponent?
+function classifyMove(
+  fen: string,
+  uci: string,
+): { check: boolean; capture: boolean; advance: number } {
+  try {
+    const ch = new Chess(fen);
+    const mover = ch.turn();
+    const m = ch.move({
+      from: uci.slice(0, 2),
+      to: uci.slice(2, 4),
+      promotion: (uci[4] as 'q' | 'r' | 'b' | 'n') || 'q',
+    });
+    if (!m) return { check: false, capture: false, advance: 0 };
+    const check = m.san.includes('+') || m.san.includes('#');
+    const capture = m.flags.includes('c') || m.flags.includes('e');
+    const fromRank = parseInt(uci[1]);
+    const toRank = parseInt(uci[3]);
+    const advance = mover === 'w' ? toRank - fromRank : fromRank - toRank;
+    return { check, capture, advance };
+  } catch {
+    return { check: false, capture: false, advance: 0 };
+  }
+}
+
 // ── The spar screen ──────────────────────────────────────────────────────────
 
 export function openSpar(opts: SparOptions): void {
@@ -128,6 +298,7 @@ export function openSpar(opts: SparOptions): void {
   let bookUcis: string[] = opts.nextBookLine?.() ?? [];
 
   let thinking = false;       // engine is choosing a move — board is locked
+  let suggesting = false;     // a "suggest a move" analysis is in flight
   let bannerShown = false;    // the one-time out-of-book banner has fired
   let closed = false;
   // Bumped on every reset / undo / close so a slow engine reply that lands after
@@ -168,6 +339,13 @@ export function openSpar(opts: SparOptions): void {
   top.appendChild(oobEl);
   overlay.appendChild(top);
 
+  // Engine eval bar — sits just above the board, like the builder's. The
+  // EvalPanel hides this wrapper when the engine is off; the CSS collapses the
+  // empty strip so it leaves no gap.
+  const evalBarEl = document.createElement('div');
+  evalBarEl.className = 'spar-eval-bar';
+  overlay.appendChild(evalBarEl);
+
   const boardWrap = document.createElement('div');
   boardWrap.className = 'pt-board-wrap';
   const boardEl = document.createElement('div');
@@ -183,6 +361,31 @@ export function openSpar(opts: SparOptions): void {
 
   const bottom = document.createElement('div');
   bottom.className = 'spar-bottom';
+
+  // Engine controls (candidate-move chips + source badge + the on/off toggle),
+  // mounted by EvalPanel below the board exactly as in the builder.
+  const evalControlsEl = document.createElement('div');
+  evalControlsEl.className = 'spar-eval-controls';
+  bottom.appendChild(evalControlsEl);
+
+  // "Suggest a move" — three flavours that each play a vetted move for me.
+  const suggestRow = document.createElement('div');
+  suggestRow.className = 'spar-suggest';
+  const suggestLabel = document.createElement('span');
+  suggestLabel.className = 'spar-suggest-label';
+  suggestLabel.textContent = 'Suggest';
+  const solidBtn = suggestButton('Solid');
+  const aggroBtn = suggestButton('Aggressive');
+  const randomBtn = suggestButton('Random');
+  solidBtn.addEventListener('click', () => void suggest('solid'));
+  aggroBtn.addEventListener('click', () => void suggest('aggressive'));
+  randomBtn.addEventListener('click', () => void suggest('random'));
+  suggestRow.appendChild(suggestLabel);
+  suggestRow.appendChild(solidBtn);
+  suggestRow.appendChild(aggroBtn);
+  suggestRow.appendChild(randomBtn);
+  bottom.appendChild(suggestRow);
+
   const statusEl = document.createElement('div');
   statusEl.className = 'spar-status';
   statusEl.setAttribute('aria-live', 'polite');
@@ -236,10 +439,62 @@ export function openSpar(opts: SparOptions): void {
   const ro = new ResizeObserver(() => cg.redrawAll());
   ro.observe(boardEl);
 
+  // Candidate-arrow brushes: the engine's best line in solid green, the next
+  // two progressively fainter; the suggest flash in the accent orange.
+  cg.state.drawable.brushes['eng1'] = { key: 'eng1', color: '#3a9a5c', opacity: 0.9, lineWidth: 11 };
+  cg.state.drawable.brushes['eng2'] = { key: 'eng2', color: '#3a9a5c', opacity: 0.55, lineWidth: 9 };
+  cg.state.drawable.brushes['eng3'] = { key: 'eng3', color: '#3a9a5c', opacity: 0.38, lineWidth: 8 };
+  cg.state.drawable.brushes['flash'] = { key: 'flash', color: '#ff9b21', opacity: 0.95, lineWidth: 12 };
+
+  // ── Engine analysis (toggle) + suggest ─────────────────────────────────────
+  // The analysis engine drives the eval bar/panel and the candidate arrows. It
+  // persists under its OWN key so the spar toggle is independent of the builder's
+  // and defaults OFF. The suggest engine is a separate, local-only MultiPV worker.
+  const analysisEngine = new Engine(import.meta.env.BASE_URL, (result) => {
+    evalPanel.update(result, chess.fen());
+    drawEngineArrows(result);
+  }, 'sparEngineEnabled');
+
+  const evalPanel = new EvalPanel(
+    evalBarEl,
+    evalControlsEl,
+    analysisEngine.isEnabled,
+    (enabled) => {
+      if (enabled) { analysisEngine.enable(); refreshAnalysis(); }
+      else { analysisEngine.disable(); evalPanel.clear(); cg.setAutoShapes([]); }
+    },
+    (uci) => { playMyMove(uci); },
+  );
+
+  let suggestEngine: SuggestEngine | null = null; // created lazily on first use
+
+  // Draw arrows for the engine's top lines — only while the toggle is on, it's a
+  // stable (my-turn) position, and the result matches what's on the board.
+  function drawEngineArrows(result: EvalResult): void {
+    if (!analysisEngine.isEnabled || thinking || suggesting || result.fen !== chess.fen()) return;
+    const brushes = ['eng1', 'eng2', 'eng3'];
+    cg.setAutoShapes(result.moves.slice(0, 3).map((m, i) => ({
+      orig: m.uci.slice(0, 2) as Key,
+      dest: m.uci.slice(2, 4) as Key,
+      brush: brushes[i],
+    })));
+  }
+
+  // Kick a fresh analysis of the current position. No-op while the engine is
+  // off; clears the board's arrows whenever it isn't a quiet, my-turn position
+  // (the two engines shouldn't crunch at once, and stale arrows must not linger).
+  function refreshAnalysis(): void {
+    if (!analysisEngine.isEnabled) { cg.setAutoShapes([]); return; }
+    if (thinking || suggesting || chess.isGameOver()) { cg.setAutoShapes([]); return; }
+    cg.setAutoShapes([]);
+    evalPanel.clear();
+    analysisEngine.evaluate(chess.fen());
+  }
+
   // Reflect the chess.js position onto the board, locking input whenever it
-  // isn't my turn (engine thinking, or game over).
+  // isn't my turn (engine thinking, suggesting, or game over).
   function syncBoard(): void {
-    const myTurn = !thinking && !chess.isGameOver() && turnColour() === myColour;
+    const myTurn = !thinking && !suggesting && !chess.isGameOver() && turnColour() === myColour;
     cg.set({
       fen: chess.fen(),
       turnColor: turnColour(),
@@ -259,7 +514,7 @@ export function openSpar(opts: SparOptions): void {
   }
 
   function onUserMove(from: Key, to: Key): void {
-    if (thinking || chess.isGameOver()) return;
+    if (thinking || suggesting || chess.isGameOver()) return;
     let move;
     try { move = chess.move({ from, to, promotion: 'q' }); } catch { move = null; }
     if (!move) { syncBoard(); return; } // illegal (shouldn't happen) — resync
@@ -287,6 +542,7 @@ export function openSpar(opts: SparOptions): void {
     thinking = true;
     syncBoard();
     render();
+    cg.setAutoShapes([]); // drop my-turn arrows while the engine replies
     // Play the book move when we still have one (after a short, natural pause);
     // otherwise hand the position to Stockfish.
     const booked = bookMove();
@@ -310,6 +566,56 @@ export function openSpar(opts: SparOptions): void {
     syncBoard();
     checkBook();
     render();
+    refreshAnalysis(); // my turn again — re-evaluate and redraw arrows
+  }
+
+  // Play a move (UCI) as MY move — used by the engine-line chips and by the
+  // suggest buttons. Validates it's legal and genuinely my turn first.
+  function playMyMove(uci: string): boolean {
+    if (thinking || suggesting || chess.isGameOver() || turnColour() !== myColour) return false;
+    const from = uci.slice(0, 2);
+    const to = uci.slice(2, 4);
+    const promotion = (uci[4] as 'q' | 'r' | 'b' | 'n') || 'q';
+    let move;
+    try { move = chess.move({ from, to, promotion }); } catch { move = null; }
+    if (!move) return false;
+    record(move, from, to);
+    syncBoard();
+    checkBook();
+    render();
+    void engineReply();
+    return true;
+  }
+
+  // ── Suggest a move ─────────────────────────────────────────────────────────
+  async function suggest(flavour: SuggestFlavour): Promise<void> {
+    if (thinking || suggesting || chess.isGameOver() || turnColour() !== myColour) return;
+    suggesting = true;
+    const myGen = gen;
+    const flavourBtns = [solidBtn, aggroBtn, randomBtn];
+    for (const b of flavourBtns) b.classList.add('is-loading');
+    syncBoard(); // lock the board while we think
+    render();
+    cg.setAutoShapes([]); // clear any engine arrows during the flash
+
+    if (!suggestEngine) suggestEngine = new SuggestEngine();
+    const fen = chess.fen();
+    const cands = await suggestEngine.analyze(fen);
+
+    // Always clear the busy state first, even if the position moved on under us.
+    suggesting = false;
+    for (const b of flavourBtns) b.classList.remove('is-loading');
+    if (closed || myGen !== gen) return; // position moved on — drop the result
+
+    const uci = chooseSuggestMove(flavour, fen, cands);
+    if (!uci) { syncBoard(); render(); refreshAnalysis(); return; }
+
+    // Flash an arrow on the chosen move, then play it for me.
+    cg.setAutoShapes([{ orig: uci.slice(0, 2) as Key, dest: uci.slice(2, 4) as Key, brush: 'flash' }]);
+    await delay(550);
+    if (closed || myGen !== gen) return;
+    cg.setAutoShapes([]);
+    playMyMove(uci);
   }
 
   // ── Controls ─────────────────────────────────────────────────────────────
@@ -317,7 +623,7 @@ export function openSpar(opts: SparOptions): void {
   // back on move with the position I had before my last move. Disabled until a
   // full pair exists and only while it's quietly my turn.
   function undoPair(): void {
-    if (thinking || ucis.length < 2 || turnColour() !== myColour) return;
+    if (thinking || suggesting || ucis.length < 2 || turnColour() !== myColour) return;
     gen++; // invalidate any in-flight reply
     chess.undo();
     chess.undo();
@@ -326,11 +632,13 @@ export function openSpar(opts: SparOptions): void {
     fens.length -= 2;
     syncBoard();
     render();
+    refreshAnalysis();
   }
 
   function newGame(): void {
     gen++;
     thinking = false;
+    suggesting = false;
     chess.reset();
     sans.length = 0;
     ucis.length = 0;
@@ -342,6 +650,7 @@ export function openSpar(opts: SparOptions): void {
     render();
     // Playing Black means the engine opens.
     if (myColour === 'black') void engineReply();
+    else refreshAnalysis();
   }
 
   function save(): void {
@@ -396,8 +705,14 @@ export function openSpar(opts: SparOptions): void {
     statusEl.textContent = status;
 
     // Control availability.
-    saveBtn.disabled = ucis.length === 0;
-    undoBtn.disabled = thinking || ucis.length < 2 || turnColour() !== myColour;
+    saveBtn.disabled = ucis.length === 0 || suggesting;
+    undoBtn.disabled = thinking || suggesting || ucis.length < 2 || turnColour() !== myColour;
+    newBtn.disabled = suggesting; // don't yank the board out from under a suggest
+    // Suggest only when it's quietly my turn.
+    const canSuggest = !thinking && !suggesting && !chess.isGameOver() && turnColour() === myColour;
+    solidBtn.disabled = !canSuggest;
+    aggroBtn.disabled = !canSuggest;
+    randomBtn.disabled = !canSuggest;
   }
 
   function gameOverText(): string {
@@ -419,7 +734,9 @@ export function openSpar(opts: SparOptions): void {
     closed = true;
     gen++;
     ro.disconnect();
-    engine.destroy();
+    engine.destroy();          // the move-playing SparEngine
+    analysisEngine.destroy();  // the eval-panel engine
+    suggestEngine?.destroy();
     overlay.remove();
     removeBack();
   }
@@ -429,6 +746,7 @@ export function openSpar(opts: SparOptions): void {
   syncBoard();
   render();
   if (myColour === 'black') void engineReply();
+  else refreshAnalysis(); // show the eval bar/arrows at once if the toggle's on
 }
 
 // A labelled control button (icon + text) for the bottom bar.
@@ -438,5 +756,21 @@ function ctrlButton(label: string, icon: SVGElement): HTMLButtonElement {
   btn.className = 'btn-secondary spar-ctrl-btn';
   btn.appendChild(icon);
   btn.appendChild(document.createTextNode(label));
+  return btn;
+}
+
+// A "Suggest" flavour button: its label plus a dot that spins while it computes.
+function suggestButton(label: string): HTMLButtonElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn-secondary spar-suggest-btn';
+  const text = document.createElement('span');
+  text.className = 'spar-suggest-text';
+  text.textContent = label;
+  const dot = document.createElement('span');
+  dot.className = 'spar-suggest-spinner';
+  dot.setAttribute('aria-hidden', 'true');
+  btn.appendChild(text);
+  btn.appendChild(dot);
   return btn;
 }

@@ -141,6 +141,13 @@ the restore point for the whole round.
     my imported games), handing over to Stockfish the instant I deviate. The
     opening-name line shows under the board; Strong/Master now think longer
     (900 / 1400 ms).
+  - ✅ **5.2 Assists inside the engine game** — a persisted (default-off) Engine
+    toggle reveals the builder's eval bar/panel (source+depth badge included)
+    plus candidate-move arrows mid-game, and hides them instantly when off. A
+    Suggest control (Solid · Aggressive · Random) runs a local MultiPV-4
+    analysis and plays a vetted move for me: every flavour picks only from a
+    "safe set" within 50cp of best (Aggressive widens to 80cp and prefers
+    checks → captures → the most advancing move), so a suggestion never blunders.
 - 💤 **Phase 6 — Statistics**
 - 💤 **Phase 7 — Onboarding & empty states**
 - 💤 **Phase 8 — Settings & release**
