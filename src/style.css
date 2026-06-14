@@ -6691,7 +6691,7 @@ cg-board square.move-dest.oc {
 .gate-install-btn { width: 100%; }
 
 /* iOS install instructions — share → add diagram plus a one-line caption. */
-.gate-ios-steps {
+.gate-steps {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -6704,7 +6704,7 @@ cg-board square.move-dest.oc {
   color: var(--accent);
 }
 .gate-ios-diagram { color: var(--accent); }
-.gate-ios-text {
+.gate-step-text {
   margin: 0;
   font-size: 0.95rem;
   line-height: 1.45;

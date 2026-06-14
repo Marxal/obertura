@@ -13,18 +13,21 @@
 // trade-off: this is a friendly speed-bump for a private beta, NOT real
 // security. No email, no personal data, no analytics are collected here.
 //
-// TO ROTATE THE CODE: replace ACCESS_CODE_SHA256 with the hash of the new code.
-// Codes are trimmed and lower-cased before hashing, so generate the hash the
+// TO ROTATE THE CODES: replace the hashes in ACCESS_CODE_SHA256S. Any code whose
+// hash is in the list unlocks the app, so you can run several codes at once.
+// Codes are trimmed and lower-cased before hashing, so generate each hash the
 // same way, e.g. in a terminal:
 //   node -e "crypto=require('crypto');console.log(crypto.createHash('sha256').update('your-new-code'.trim().toLowerCase()).digest('hex'))"
-// Rotating the code does NOT lock out already-unlocked devices — the localStorage
+// Rotating the codes does NOT lock out already-unlocked devices — the localStorage
 // flag below is the source of truth, not the code.
 // ════════════════════════════════════════════════════════════════════════════
 
-// SHA-256 of the current beta code (trim + lower-case applied before hashing).
-// Current code: "obertura-beta"  ← rotate by replacing the hash above this line.
-const ACCESS_CODE_SHA256 =
-  '8310d97dad3fca12f8d8110bcb8f1c87e9cd9251222573ad0051a94726305e10';
+// SHA-256 of every currently-valid beta code (trim + lower-case before hashing).
+// Current codes: "joan", "thunderchess"  ← rotate by replacing the hashes below.
+const ACCESS_CODE_SHA256S = [
+  'd2dae6d1b4625413eade8cafcb06d6d000fdb57d963fc3c5c497084d42288319', // joan
+  '7832da28625d9bf6dd2c2bcb092731debdec80664a0f77da564ae074a4787681', // thunderchess
+];
 
 // Once set, the gate never shows on this device again.
 const UNLOCKED_KEY = 'obertura.betaUnlocked';
@@ -69,6 +72,10 @@ function isIos(): boolean {
   const ua = navigator.userAgent;
   if (/iphone|ipad|ipod/i.test(ua)) return true;
   return /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+}
+
+function isAndroid(): boolean {
+  return /android/i.test(navigator.userAgent);
 }
 
 async function sha256Hex(text: string): Promise<string> {
@@ -172,11 +179,26 @@ function showWelcome(overlay: HTMLDivElement, onPass: () => void): void {
     lead.textContent = 'Add Obertura to your home screen for an app-like, full-screen experience.';
 
     const steps = document.createElement('div');
-    steps.className = 'gate-ios-steps';
+    steps.className = 'gate-steps';
     steps.innerHTML = IOS_DIAGRAM;
     const stepText = document.createElement('p');
-    stepText.className = 'gate-ios-text';
+    stepText.className = 'gate-step-text';
     stepText.textContent = 'Tap the Share button, then "Add to Home Screen".';
+    steps.appendChild(stepText);
+    card.appendChild(steps);
+  } else if (isAndroid()) {
+    // Android, but no install event — e.g. Firefox, which doesn't fire
+    // `beforeinstallprompt`. Chromium browsers (Chrome, Edge, Samsung, Brave,
+    // Opera) take the install-button branch above; this is the manual fallback.
+    lead.textContent = 'Add Obertura to your home screen for an app-like, full-screen experience.';
+
+    const steps = document.createElement('div');
+    steps.className = 'gate-steps';
+    const stepText = document.createElement('p');
+    stepText.className = 'gate-step-text';
+    stepText.textContent =
+      'Open your browser menu (⋮), then tap "Install" or "Add to Home screen". ' +
+      'For the smoothest install, open this page in Chrome.';
     steps.appendChild(stepText);
     card.appendChild(steps);
   } else {
@@ -249,7 +271,7 @@ function showCodeEntry(overlay: HTMLDivElement, onPass: () => void): void {
     if (!value) return;
     submit.disabled = true;
     const hash = await sha256Hex(value);
-    if (hash === ACCESS_CODE_SHA256) {
+    if (ACCESS_CODE_SHA256S.includes(hash)) {
       markUnlocked();
       showWelcome(overlay, onPass);
     } else {

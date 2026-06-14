@@ -4,13 +4,18 @@ Obertura is behind a small code gate so only people I invite can open it. This
 is everything I need to run the private beta. (The gate lives in
 `src/gate.ts`.)
 
-## 1. Rotating the code
+## 1. Rotating the codes
 
-The current code is hashed (SHA-256), not stored in plain text. To change it,
-replace one constant in `src/gate.ts`:
+Codes are hashed (SHA-256), not stored in plain text. The app accepts **any**
+code whose hash is in the list, so you can run several at once. The current
+codes are **`joan`** and **`thunderchess`**. To change them, edit one array in
+`src/gate.ts`:
 
 ```ts
-const ACCESS_CODE_SHA256 = '8310d97dad3fca12f8d8110bcb8f1c87e9cd9251222573ad0051a94726305e10';
+const ACCESS_CODE_SHA256S = [
+  'd2dae6d1b4625413eade8cafcb06d6d000fdb57d963fc3c5c497084d42288319', // joan
+  '7832da28625d9bf6dd2c2bcb092731debdec80664a0f77da564ae074a4787681', // thunderchess
+];
 ```
 
 Generate the hash of a new code with this one-liner (codes are trimmed and
@@ -20,8 +25,8 @@ lower-cased before hashing, so do the same here):
 node -e "crypto=require('crypto');console.log(crypto.createHash('sha256').update('your-new-code'.trim().toLowerCase()).digest('hex'))"
 ```
 
-Paste the printed hash in as the new value, then rebuild and push so GitHub
-Pages serves it.
+Add or replace entries in the array (a trailing `// comment` to remember which
+code is which helps), then rebuild and push so GitHub Pages serves it.
 
 **Key fact:** rotating the code does **not** lock out testers who already
 unlocked. Once a device passes the gate, it sets a flag in `localStorage`
@@ -34,7 +39,7 @@ testers.
 Send each tester two things, by hand:
 
 - **URL:** https://marxal.github.io/obertura
-- **The current code**
+- **A current code** (`joan` or `thunderchess`)
 
 I collect tester emails myself, out of band (a note, a chat) — **the app
 stores nothing about who's testing**: no emails, no accounts, no analytics.
@@ -43,7 +48,11 @@ stores nothing about who's testing**: no emails, no accounts, no analytics.
 
 1. Open the URL → **enter the code** → tap Unlock.
 2. They land on a **welcome / install** screen.
-   - **Android (Chrome):** taps **Install app**.
+   - **Android (Chrome, Edge, Samsung, Brave, Opera):** taps **Install app** —
+     a real button that adds the icon to the home screen.
+   - **Android (Firefox or other non-Chromium):** no button is possible, so the
+     screen shows manual steps — browser menu (⋮) → **Install** / **Add to Home
+     screen** (and a nudge to use Chrome for the smoothest install).
    - **iPhone (Safari):** taps the **Share** button → **Add to Home Screen**.
 3. An **Obertura icon** appears on their home screen. Opening it launches the
    app full-screen, and it **updates automatically** from the URL — no
