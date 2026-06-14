@@ -6711,15 +6711,27 @@ cg-board square.move-dest.oc {
   color: var(--text-muted);
 }
 
-/* The quiet "Continue in browser" link — same restraint as the intro skip link. */
+/* A quiet reassurance line above the skip link. */
+.gate-reassure {
+  margin: var(--space-md) 0 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* The "Continue in browser" link — deliberately almost invisible: install is
+   the path we want, this is just an escape hatch. */
 .gate-continue-link {
   background: none;
   border: none;
-  padding: var(--space-sm);
+  margin-top: var(--space-sm);
+  padding: var(--space-xs);
   color: var(--text-faint);
-  font-size: 0.95rem;
-  font-weight: 600;
+  font-size: 0.75rem;
+  font-weight: 400;
+  opacity: 0.6;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.gate-continue-link:active { color: var(--text); }
+.gate-continue-link:active { color: var(--text); opacity: 1; }
