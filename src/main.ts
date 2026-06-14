@@ -26,6 +26,7 @@ import { showDialog } from './dialog';
 import { openImportPanel } from './import-panel';
 import { maybeShowIntro } from './onboarding';
 import { maybeAutoRefreshGames } from './auto-refresh';
+import { maybeShowGate } from './gate';
 
 const chess = new Chess();
 let cg!: ReturnType<typeof Chessground>;
@@ -1303,7 +1304,11 @@ initTheme();
 initAppearance();
 setupNav();
 
-requestAnimationFrame(() => {
+// Beta access gate (gate.ts) — a self-contained invitation gate + install screen
+// shown before the app boots. Skips itself when already unlocked or installed,
+// so this is a no-op pass-through on every normal launch. Everything below runs
+// only once the gate calls back.
+maybeShowGate(() => requestAnimationFrame(() => {
   cg = Chessground(boardEl, {
     movable: {
       color: 'both',
@@ -1390,4 +1395,4 @@ requestAnimationFrame(() => {
     showToast(`Games refreshed · ${newCount} new`);
     if (currentView !== 'builder') showView(currentView);
   });
-});
+}));

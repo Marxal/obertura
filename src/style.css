@@ -6594,3 +6594,132 @@ cg-board square.move-dest.oc {
   width: 22px;
   background: var(--accent);
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   BETA ACCESS GATE (gate.ts)
+   A self-contained, full-screen panel shown before the app boots: a code-entry
+   screen, then a welcome / install screen. Styled to the warm-classic theme,
+   reusing the shared button variants. Sits above everything (z-index 400) so it
+   covers the un-booted app underneath. Easy to delete with gate.ts.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+.gate-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-page);
+  padding: calc(var(--space-xl) + env(safe-area-inset-top, 0))
+           var(--space-xl)
+           calc(var(--space-xl) + env(safe-area-inset-bottom, 0));
+  overflow-y: auto;
+}
+
+.gate-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-lg);
+  width: 100%;
+  max-width: 22rem;
+}
+
+.gate-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 108px;
+  height: 108px;
+  border-radius: 999px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+}
+
+.gate-heading {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.gate-body {
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.gate-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  width: 100%;
+}
+
+.gate-input {
+  width: 100%;
+  min-height: 48px;
+  padding: var(--space-md) var(--space-lg);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 1rem;
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+.gate-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.gate-input--error {
+  border-color: var(--danger);
+}
+
+.gate-error {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--danger);
+}
+
+.gate-submit-btn,
+.gate-install-btn { width: 100%; }
+
+/* iOS install instructions — share → add diagram plus a one-line caption. */
+.gate-ios-steps {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: var(--space-lg);
+  border-radius: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  color: var(--accent);
+}
+.gate-ios-diagram { color: var(--accent); }
+.gate-ios-text {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+/* The quiet "Continue in browser" link — same restraint as the intro skip link. */
+.gate-continue-link {
+  background: none;
+  border: none;
+  padding: var(--space-sm);
+  color: var(--text-faint);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.gate-continue-link:active { color: var(--text); }
