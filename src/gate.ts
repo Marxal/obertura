@@ -131,6 +131,59 @@ function makeOverlay(): HTMLDivElement {
   return overlay;
 }
 
+// A quiet reassurance shared by the welcome and installed screens: this is
+// theirs, on their phone, with their data — no expiry, nothing held server-side.
+function reassureNote(): HTMLParagraphElement {
+  const note = document.createElement('p');
+  note.className = 'gate-reassure';
+  note.textContent =
+    'It’s yours to keep — use Obertura on your phone for as long as you like, ' +
+    'and all your data stays on your device.';
+  return note;
+}
+
+// An extremely discrete "skip install" link. Install is the path we want; this
+// is just an escape hatch, so it sits quietly at the bottom.
+function addContinueLink(card: HTMLDivElement, label: string, onClick: () => void): void {
+  const link = document.createElement('button');
+  link.type = 'button';
+  link.className = 'gate-continue-link';
+  link.textContent = label;
+  link.addEventListener('click', onClick);
+  card.appendChild(link);
+}
+
+// ── Installed confirmation (shown after the user accepts the install prompt) ────
+function showInstalled(overlay: HTMLDivElement, onPass: () => void): void {
+  overlay.replaceChildren();
+
+  const card = document.createElement('div');
+  card.className = 'gate-card';
+
+  const mark = document.createElement('div');
+  mark.className = 'gate-mark';
+  mark.appendChild(appMark(64));
+  card.appendChild(mark);
+
+  const h = document.createElement('h1');
+  h.className = 'gate-heading';
+  h.textContent = 'You’re all set';
+  card.appendChild(h);
+
+  const body = document.createElement('p');
+  body.className = 'gate-body';
+  body.textContent =
+    'Obertura is now installed. Open it from your phone’s home screen — that’s ' +
+    'where you’ll use it from now on.';
+  card.appendChild(body);
+
+  card.appendChild(reassureNote());
+
+  addContinueLink(card, 'Continue in browser', () => { overlay.remove(); onPass(); });
+
+  overlay.appendChild(card);
+}
+
 // ── Welcome / install screen (shown after a correct code) ──────────────────────
 function showWelcome(overlay: HTMLDivElement, onPass: () => void): void {
   overlay.replaceChildren();
@@ -169,9 +222,14 @@ function showWelcome(overlay: HTMLDivElement, onPass: () => void): void {
       deferredInstallPrompt = null;
       installBtn.disabled = true;
       await prompt.prompt();
-      await prompt.userChoice; // resolves whether accepted or dismissed
-      // Either way, continue into the app; if installed, it relaunches standalone.
-      finish();
+      const choice = await prompt.userChoice;
+      if (choice.outcome === 'accepted') {
+        // Installed: tell them to open it from the phone, app relaunches standalone.
+        showInstalled(overlay, onPass);
+      } else {
+        // Dismissed: just let them carry on in the browser.
+        finish();
+      }
     });
     card.appendChild(installBtn);
   } else if (isIos()) {
@@ -206,13 +264,10 @@ function showWelcome(overlay: HTMLDivElement, onPass: () => void): void {
     lead.textContent = 'You’re in. Open this page on your phone to install it to your home screen.';
   }
 
-  // Always offer to just use it in the browser.
-  const continueLink = document.createElement('button');
-  continueLink.type = 'button';
-  continueLink.className = 'gate-continue-link';
-  continueLink.textContent = 'Continue in browser';
-  continueLink.addEventListener('click', finish);
-  card.appendChild(continueLink);
+  card.appendChild(reassureNote());
+
+  // Always offer to just use it in the browser — but keep it extremely discrete.
+  addContinueLink(card, 'Continue in browser', finish);
 
   overlay.appendChild(card);
 }
