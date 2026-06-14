@@ -1,12 +1,13 @@
-// Theme control — four named choices, persisted on the device.
+// Theme control — five named choices, persisted on the device.
 //
 //   classic-light → the original light theme
 //   classic-dark  → the original dark theme
 //   elegant       → a warm casino-felt green, between light and dark
+//   gamer         → near-black base with neon-cyan/violet glow on the chrome
 //   system        → follows the OS, resolving to classic-light / classic-dark
 //
 // The chosen value is stored in localStorage and resolved to a concrete theme
-// ("light" | "dark" | "game") that we write to <html data-theme>. The CSS only
+// ("light" | "dark" | "game" | "gamer") that we write to <html data-theme>. The CSS only
 // ever reads data-theme (never prefers-color-scheme), so JS is the single source
 // of truth. Older stored values (light/dark/auto, from before v1.3) are migrated
 // on read to their new names.
@@ -22,9 +23,9 @@
 // The user-facing control lives in the Settings screen (settings-screen.ts),
 // which calls setThemeChoice() / getThemeChoice() directly.
 
-export type ThemeChoice = 'classic-light' | 'classic-dark' | 'elegant' | 'system';
+export type ThemeChoice = 'classic-light' | 'classic-dark' | 'elegant' | 'gamer' | 'system';
 
-type ResolvedTheme = 'light' | 'dark' | 'game';
+type ResolvedTheme = 'light' | 'dark' | 'game' | 'gamer';
 
 const STORAGE_KEY = 'obertura-theme';
 
@@ -33,6 +34,7 @@ const THEME_COLOR: Record<ResolvedTheme, string> = {
   light: '#f1ece1',
   dark: '#211c16',
   game: '#1e3128',
+  gamer: '#0e1020',
 };
 
 const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -43,6 +45,7 @@ function normalise(raw: string | null): ThemeChoice {
     case 'classic-light':
     case 'classic-dark':
     case 'elegant':
+    case 'gamer':
     case 'system':
       return raw;
     case 'game':
@@ -70,6 +73,8 @@ function effectiveTheme(choice: ThemeChoice): ResolvedTheme {
       return 'dark';
     case 'elegant':
       return 'game'; // resolves to the unchanged "game" CSS/colours
+    case 'gamer':
+      return 'gamer';
     case 'system':
       return darkQuery.matches ? 'dark' : 'light';
   }
