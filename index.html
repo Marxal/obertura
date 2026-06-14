@@ -29,11 +29,12 @@
             raw === 'light' ? 'classic-light'
             : raw === 'dark' ? 'classic-dark'
             : raw === 'auto' ? 'system'
+            : raw === 'game' ? 'elegant' // migrated: "Game" renamed to "Elegant"
             : raw;
           var eff;
           if (choice === 'classic-light') eff = 'light';
           else if (choice === 'classic-dark') eff = 'dark';
-          else if (choice === 'game') eff = 'game';
+          else if (choice === 'elegant') eff = 'game';
           else eff = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
           document.documentElement.setAttribute('data-theme', eff);
           var meta = document.querySelector('meta[name="theme-color"]');
