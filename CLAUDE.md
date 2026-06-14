@@ -39,15 +39,11 @@ understand concepts, not syntax. I direct; you build; I test on my phone.
 - Phase 4+: engine, explanations, Chess.com import, polish. All later.
 
 ## Where we are now
-v1.0–v1.3 have all shipped (tags `v1.0`, `v1.1`, `v1.2`, `v1.3`). The v1.3
-refinement round tightened the visual language, made the builder and train hub
-tell the truth, deepened Explore/scouting and engine-assisted building, and
-finished with onboarding, empty states, a Settings regroup and a release pass.
-`ROADMAP.md` records the round phase by phase, and the `v1.3` tag is the latest
-restore point. The next round isn't planned yet — the parked v1.4 seeds (a
-fourth theme, map transpositions, true background sync via a service worker,
-deeper engine adaptation) are noted in `ROADMAP.md`. Confirm scope before
-starting new work.
+Shipped through v0.3 (formerly v1.3 in the old internal scheme; old tags left
+intact). The project has renumbered to a v0.x beta scheme (v1.0→v0.1 …
+v1.3→v0.3 conceptually). The v0.4 round is the current beta-polish round and is
+in progress. Latest rollback tag is `v0.3`. `ROADMAP.md` records every round
+phase by phase. Confirm scope before starting new work.
 
 ## Data model (get right early)
 - Repertoire: "my White lines" or "my Black lines".

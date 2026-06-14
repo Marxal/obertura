@@ -6,6 +6,18 @@ phase-by-phase build order.
 
 Status key: ✅ done · 🔜 next · 💤 later
 
+> **Renumbering note (June 2026):** The project has moved from an internal v1.x
+> scheme to a public v0.x beta scheme. Conceptually: v1.0→v0.1, v1.1→v0.2,
+> v1.2→v0.2, v1.3→v0.3. Old git tags (`v1.0`–`v1.3`) are left intact; new
+> releases are tagged `v0.x`.
+
+---
+
+## v0.4 — beta polish round 🔜
+
+In progress. This round's scope is confirmed before work begins on each phase.
+The `v0.3` tag (formerly `v1.3`) is the rollback point for the whole round.
+
 ---
 
 ## v1.0 — the working trainer ✅
