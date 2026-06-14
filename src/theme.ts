@@ -2,7 +2,7 @@
 //
 //   classic-light → the original light theme
 //   classic-dark  → the original dark theme
-//   game          → a warm casino-felt green, between light and dark
+//   elegant       → a warm casino-felt green, between light and dark
 //   system        → follows the OS, resolving to classic-light / classic-dark
 //
 // The chosen value is stored in localStorage and resolved to a concrete theme
@@ -11,12 +11,18 @@
 // of truth. Older stored values (light/dark/auto, from before v1.3) are migrated
 // on read to their new names.
 //
+// NOTE: the "elegant" choice was originally called "game" (display label "Game").
+// It was renamed to "Elegant" for v0.4; the stored value and the resolved
+// data-theme still read "game" so the colours/CSS are untouched. Old stored
+// "game" values migrate to "elegant" on read (see normalise) so a returning
+// user's selection isn't reset.
+//
 // A tiny inline script in index.html applies the same logic before first paint
 // to avoid a flash of the wrong theme; this module keeps it in sync afterwards.
 // The user-facing control lives in the Settings screen (settings-screen.ts),
 // which calls setThemeChoice() / getThemeChoice() directly.
 
-export type ThemeChoice = 'classic-light' | 'classic-dark' | 'game' | 'system';
+export type ThemeChoice = 'classic-light' | 'classic-dark' | 'elegant' | 'system';
 
 type ResolvedTheme = 'light' | 'dark' | 'game';
 
@@ -36,9 +42,11 @@ function normalise(raw: string | null): ThemeChoice {
   switch (raw) {
     case 'classic-light':
     case 'classic-dark':
-    case 'game':
+    case 'elegant':
     case 'system':
       return raw;
+    case 'game':
+      return 'elegant'; // migrated: "Game" was renamed to "Elegant" in v0.4
     case 'light':
       return 'classic-light'; // migrated
     case 'dark':
@@ -60,8 +68,8 @@ function effectiveTheme(choice: ThemeChoice): ResolvedTheme {
       return 'light';
     case 'classic-dark':
       return 'dark';
-    case 'game':
-      return 'game';
+    case 'elegant':
+      return 'game'; // resolves to the unchanged "game" CSS/colours
     case 'system':
       return darkQuery.matches ? 'dark' : 'light';
   }
