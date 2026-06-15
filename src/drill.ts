@@ -65,9 +65,12 @@ export interface DrillOptions {
   // first (overlay + back-nav layer), then hands control back via the callback.
   //  onPauseLine — stop scheduling this line (inTraining=false); the caller drops
   //    it from the session and carries on with whatever's left.
-  //  onEditLine  — leave the session and open this line in the builder.
+  //  onEditLine  — leave the session and open this line in the builder, at the
+  //    position currently on the board (atFen).
+  //  onNoteEdit  — the current move's note was edited in-session; persist it.
   onPauseLine?: () => void;
-  onEditLine?: () => void;
+  onEditLine?: (atFen: string) => void;
+  onNoteEdit?: () => void;
 }
 
 // A single ply to auto-play (animated) between the user's moves.
@@ -365,34 +368,26 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   bottomEl.appendChild(noteCardEl);
   bottomEl.appendChild(altCardEl);
 
-  // A discreet note button, bottom-right, for full-line drills only. It lights up
-  // when the current move carries a note; tapping it peeks at that note.
   const isLineDrill = tasks[0].continuous;
-  const noteBtnEl = document.createElement('button');
-  if (isLineDrill) {
-    noteBtnEl.type = 'button';
-    noteBtnEl.className = 'pt-note-btn';
-    noteBtnEl.setAttribute('aria-label', 'Show move note');
-    noteBtnEl.appendChild(Icons.note(20));
-    noteBtnEl.addEventListener('click', () => {
-      const note = tasks[taskIndex].expected.note;
-      if (!note) return;
-      if (noteCardEl.hasAttribute('hidden')) showNoteCard(note);
-      else hideNoteCard();
-    });
-    overlay.classList.add('pt-has-note-btn');
-  }
 
   // ── In-session controls (full-line training) ────────────────────────────────
   //
-  // A discreet row beneath the board: peek a hint, pause this line out of
-  // training, or jump to the builder to edit it. Quiet icons (+ a tiny label) so
-  // the board stays the focus. Positions/timed modes don't get the row — pause
-  // and edit act on a whole line, which those modes don't have.
+  // A discreet row beneath the board: view/add a note on this move, peek a hint,
+  // pause this line out of training, or jump to the builder to edit it. Quiet
+  // icons (+ a tiny label) so the board stays the focus. Positions/timed modes
+  // don't get the row — these act on a whole line, which those modes lack.
+  let noteControl: HTMLButtonElement | null = null;
+  let noteControlLabel: HTMLElement | null = null;
   const showControls = isLineDrill && !timed;
   if (showControls) {
     const controls = document.createElement('div');
     controls.className = 'pt-controls';
+
+    // Note — view this move's note, or add one when it has none. The label flips
+    // between "View note" and "Add note" as the current move changes.
+    noteControl = buildControl('note', Icons.note(19), 'Add note', () => toggleNote());
+    noteControlLabel = noteControl.querySelector('.pt-control-label');
+    controls.appendChild(noteControl);
 
     // Hint — draw the correct-move arrow for the current position. Never counts
     // as a miss; it just reuses the reveal arrow without requiring a replay.
@@ -412,13 +407,15 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   overlay.appendChild(topEl);
   overlay.appendChild(boardWrap);
   overlay.appendChild(bottomEl);
-  if (isLineDrill) overlay.appendChild(noteBtnEl);
   document.body.appendChild(overlay);
 
-  // Light the note button when the current move has a note; dim it otherwise.
+  // Reflect whether the current move has a note: the control reads "View note"
+  // when it does, "Add note" when it doesn't.
   function updateNoteButton(expected: MoveNode): void {
-    if (!isLineDrill) return;
-    noteBtnEl.classList.toggle('pt-note-btn--active', !!expected.note);
+    if (!noteControlLabel || !noteControl) return;
+    const has = !!expected.note;
+    noteControlLabel.textContent = has ? 'View note' : 'Add note';
+    noteControl.classList.toggle('pt-control--has-note', has);
   }
 
   // ── Exit / abandon guard ────────────────────────────────────────────────────
@@ -505,12 +502,14 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     });
   }
 
-  // Leave the session to edit the line in the builder. The drill runs on a clone
-  // and only commits on completion, so there's nothing half-saved to lose — we
-  // tear down cleanly (releasing the back-nav layer) and hand control over.
+  // Leave the session to edit the line in the builder, at the position currently
+  // on the board. The drill runs on a clone and only commits on completion, so
+  // there's nothing half-saved to lose — we tear down cleanly (releasing the
+  // back-nav layer) and hand control over.
   function leaveForEdit(): void {
+    const atFen = tasks[taskIndex]?.preFen ?? START_FEN;
     cleanup();
-    opts.onEditLine!();
+    opts.onEditLine!(atFen);
   }
 
   // ── Chess helpers ─────────────────────────────────────────────────────────
@@ -623,16 +622,41 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     setTimeout(() => layer.remove(), 1300);
   }
 
-  // ── Note card (mistake hints) ───────────────────────────────────────────────
+  // ── Note card (mistake hints + the note control's view/add editor) ──────────
 
   function showNoteCard(note: string): void {
+    noteCardEl.classList.remove('pt-note-card--edit');
     noteCardEl.textContent = note;
     noteCardEl.removeAttribute('hidden');
   }
 
   function hideNoteCard(): void {
     noteCardEl.setAttribute('hidden', '');
+    noteCardEl.classList.remove('pt-note-card--edit');
     noteCardEl.textContent = '';
+  }
+
+  // The note control: open an editor for the current move's note (closing it if
+  // already open). Empty text clears the note. Edits write straight to the move
+  // node; onNoteEdit lets the caller persist (so a note survives an abandon).
+  function toggleNote(): void {
+    if (!noteCardEl.hasAttribute('hidden')) { hideNoteCard(); return; }
+    const expected = tasks[taskIndex]?.expected;
+    if (!expected) return;
+    noteCardEl.textContent = '';
+    noteCardEl.classList.add('pt-note-card--edit');
+    const ta = document.createElement('textarea');
+    ta.className = 'pt-note-input';
+    ta.placeholder = 'Why does the line play this move?';
+    ta.value = expected.note ?? '';
+    ta.addEventListener('input', () => {
+      expected.note = ta.value.trim() || undefined;
+      updateNoteButton(expected);
+    });
+    ta.addEventListener('change', () => opts.onNoteEdit?.());
+    noteCardEl.appendChild(ta);
+    noteCardEl.removeAttribute('hidden');
+    ta.focus();
   }
 
   // ── Alt card (good-alternative notice) ───────────────────────────────────────

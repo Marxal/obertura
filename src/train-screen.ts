@@ -44,9 +44,11 @@ import { buildPositionCard, colourPip, lineFinalFen } from './card-position';
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
 // How the quiet "view line" icon opens a line (in the builder, to step through
-// it). Set on every screen entry; held at module scope so the many internal
-// doRender(container) calls — which only pass the container — keep working.
-let onViewLine: ((line: Line) => void) | null = null;
+// it). An optional atFen opens the builder at that position (used by the drill's
+// in-session "Edit" control). Set on every screen entry; held at module scope so
+// the many internal doRender(container) calls — which only pass the container —
+// keep working.
+let onViewLine: ((line: Line, atFen?: string) => void) | null = null;
 
 // The empty-state routes (open the builder; open the import-your-games flow).
 // Module scope for the same reason as onViewLine.
@@ -82,7 +84,7 @@ export function renderTrainScreen(
   opts: {
     focusLineId?: string;
     autoStart?: boolean;
-    onOpenLine?: (line: Line) => void;
+    onOpenLine?: (line: Line, atFen?: string) => void;
     onBuildLine?: () => void;
     onImportGames?: () => void;
   } = {},
@@ -863,8 +865,12 @@ function runItem(
       runSession(session, container, stats);
     },
     // Edit this line mid-drill: leave the session and open the original line in
-    // the builder. Only offered when the app provides a view-line route.
-    onEditLine: onViewLine ? () => onViewLine!(line) : undefined,
+    // the builder, at the position on the board. Only offered when the app
+    // provides a view-line route.
+    onEditLine: onViewLine ? (atFen) => onViewLine!(line, atFen) : undefined,
+    // A note added/edited during the drill: persist the clone (its tree, where
+    // the note lives) so it survives even if the line isn't finished.
+    onNoteEdit: () => { void saveLine(lineCopy); },
     onBeforeComplete: async () => {
       // Resurfaced passes are reinforcement only — they don't re-grade or
       // re-persist, so a clean replay can't inflate the schedule.

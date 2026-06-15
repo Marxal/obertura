@@ -2982,57 +2982,15 @@ cg-board square.move-dest.oc {
   gap: 0.5rem;
 }
 
-/* When the full-line note button occupies the bottom-right corner, lift the cards
-   above it so they don't collide. */
-.pt-has-note-btn .pt-note-card,
-.pt-has-note-btn .pt-alt-card {
-  bottom: 3.5rem;
-}
-
-/* ── Note button (full-line drills) ────────────────────────────────────────── */
-/* A discreet round button in the bottom-right corner. Dim while the current move
-   has no note; lights up (and becomes tappable) when it does, peeking the note. */
-.pt-note-btn {
-  position: absolute;
-  right: 0.85rem;
-  bottom: 0.85rem;
-  z-index: 6;
-  width: 2.6rem;
-  height: 2.6rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  color: var(--text-fainter);
-  opacity: 0.5;
-  cursor: default;
-  -webkit-tap-highlight-color: transparent;
-  transition: color 0.15s, border-color 0.15s, opacity 0.15s;
-}
-
-.pt-note-btn--active {
-  color: var(--accent);
-  border-color: var(--accent);
-  opacity: 1;
-  cursor: pointer;
-  box-shadow: var(--shadow-card);
-}
-
-.pt-note-btn--active:active {
-  filter: brightness(0.92);
-}
-
 /* ── In-session control row (full-line training) ───────────────────────────── */
-/* A quiet row of icon controls just under the board's status line: hint, pause,
-   edit. Kept small and muted so the board stays the focus. Right-padded so it
-   never sits under the floating note button. */
+/* A quiet row of icon controls just under the board's status line: note, hint,
+   pause, edit. Kept small and muted so the board stays the focus. */
 .pt-controls {
   display: flex;
   justify-content: center;
-  gap: 1.5rem;
-  padding: 0.25rem 3.5rem 0.25rem 1rem;
+  flex-wrap: wrap;
+  gap: 1.1rem;
+  padding: 0.25rem 1rem;
 }
 
 .pt-control {
@@ -3061,9 +3019,35 @@ cg-board square.move-dest.oc {
   letter-spacing: 0.01em;
 }
 
+/* The note control lights up (accent) when the current move carries a note. */
+.pt-control--has-note {
+  color: var(--accent);
+}
+
 /* The pause control hints at its consequence (leaving training) on press. */
 .pt-control--pause:active {
   color: var(--danger);
+}
+
+/* The note editor (note control). Drops the read-note card's italic serif for a
+   plain, editable textarea that fills the card. */
+.pt-note-card--edit {
+  font-style: normal;
+  padding: 0.5rem;
+}
+
+.pt-note-input {
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 0.875rem;
+  color: var(--text);
+  background: var(--bg-page);
+  resize: vertical;
+  box-sizing: border-box;
 }
 
 .pt-alt-note {
