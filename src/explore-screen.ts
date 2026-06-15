@@ -1,14 +1,22 @@
-// The Explore tab — opponent scouting.
+// The Explore tab — scouting, maps, the opening library and engine sparring.
 //
-// Lists the opponents you've imported games for (capped at MAX_OPPONENTS) as
-// cards; tapping one opens a full-screen DETAIL view with their most-played
-// openings per colour and their auto-built opening maps. "Add opponent" and a
-// per-opponent "Refresh" both reuse the one import panel, pointed at a scouting
-// sink instead of "my games". (Distinct from explore.ts, the in-board explorer.)
+// Sections, top to bottom (the agreed Explore order):
+//   1. Opponents      — scout imported opponents; tapping one opens a full-screen
+//                       DETAIL view with their most-played openings per colour and
+//                       their auto-built opening maps. "Add opponent" and a
+//                       per-opponent "Refresh" reuse the one import panel, pointed
+//                       at a scouting sink instead of "my games".
+//   2. Maps           — browse YOUR openings as branching trees: your saved lines,
+//                       and (once games are imported) what you actually play. Moved
+//                       here from the Statistics screen.
+//   3. Opening library — browse the bundled opening library.
+//   4. Build with the engine — a casual game against the local engine.
 //
-// The opening library and engine sparring arrive in later v1.2 tasks.
+// (Distinct from explore.ts, the in-board explorer.)
 
 import type { Line } from './types';
+import type { ImportedGame } from './chesscom';
+import type { MoveNode } from './tree';
 import { Icons } from './icons';
 import { showDialog } from './dialog';
 import { openImportPanel } from './import-panel';
@@ -19,7 +27,7 @@ import { loadBookLines, pickBookLine, pickGameLine } from './book-lines';
 import { analyseGames, type OpeningStat } from './analysis';
 import {
   getAllLines, getAllGames, getAllOpponents, getOpponent, saveOpponent, deleteOpponent, deleteLine,
-  countOpponents, countGames,
+  countOpponents,
 } from './storage';
 import {
   MAX_OPPONENTS, makeOpponent, opponentLine, colourGameCount, opponentTag, isOpponentTag,
@@ -128,10 +136,17 @@ async function buildScreen(container: HTMLElement): Promise<void> {
     section.appendChild(list);
   }
 
-  const hasGames = (await countGames()) > 0;
+  // My saved lines and imported games feed the Maps section (and the games count
+  // gates the spar "From my games" mode). Fetched once here for both.
+  const [lines, games] = await Promise.all([getAllLines(), getAllGames()]);
+  const hasGames = games.length > 0;
 
-  container.appendChild(libEl);
+  // The agreed Explore order: 1) Opponents, 2) Maps, 3) Opening library,
+  // 4) Build with the engine.
   container.appendChild(section);
+  const maps = mapsSection(lines, games);
+  if (maps) container.appendChild(maps);
+  container.appendChild(libEl);
   container.appendChild(sparSection(hasGames));
 }
 
@@ -375,6 +390,130 @@ function librarySection(): HTMLElement {
   });
   section.appendChild(btn);
 
+  return section;
+}
+
+// ── Maps (your repertoire + your games) ───────────────────────────────────────
+//
+// Moved here from the Statistics screen: browse YOUR openings as branching trees.
+// "Your repertoire" maps your saved lines; "Your games" maps what you actually
+// play, from imported games (like an opponent map, but yours). The data wiring —
+// buildMoveStats for per-move W/D/L, the depth configs, and the opponent-tree
+// builder for the games map — is carried over intact. (Opponent maps stay inside
+// the scouting detail view, untouched.)
+
+// Plies in a line's longest variation (root has no move, so its children are
+// ply 1). Drives whether the repertoire map can "Go deeper" than the default.
+function treeDepth(node: MoveNode): number {
+  if (!node.children.length) return 0;
+  return 1 + Math.max(...node.children.map(treeDepth));
+}
+
+// A colour button (icon + "White/Black" + a count line) for a map group.
+function mapColourBtn(
+  colour: 'white' | 'black',
+  icon: SVGElement,
+  countText: string,
+  onClick: () => void,
+): HTMLButtonElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = `rmap-colour-btn rmap-colour-btn--${colour}`;
+  icon.classList.add('rmap-colour-btn-icon');
+  btn.appendChild(icon);
+
+  const label = document.createElement('span');
+  label.className = 'rmap-colour-btn-label';
+  label.textContent = colour === 'white' ? 'White' : 'Black';
+  btn.appendChild(label);
+
+  const count = document.createElement('span');
+  count.className = 'rmap-colour-btn-count';
+  count.textContent = countText;
+  btn.appendChild(count);
+
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+
+// Build the Maps section, or return null when there's nothing to map (no lines
+// and no games) so the caller can skip appending it.
+function mapsSection(lines: Line[], games: ImportedGame[]): HTMLElement | null {
+  const section = document.createElement('div');
+  section.className = 'section';
+
+  const head = document.createElement('div');
+  head.className = 'section-head';
+  const heading = document.createElement('h2');
+  heading.className = 'section-title';
+  heading.textContent = 'Maps';
+  head.appendChild(heading);
+  section.appendChild(head);
+
+  const desc = document.createElement('p');
+  desc.className = 'rmap-section-desc';
+  desc.textContent = 'Browse your openings as a branching tree. Tap any move to explore the position, or open the Board explorer for a move-by-move view.';
+  section.appendChild(desc);
+
+  // Renders a labelled group with a White/Black button row; skips empty groups.
+  function group(title: string, makeBtns: () => HTMLButtonElement[]): void {
+    const btns = makeBtns();
+    if (!btns.length) return;
+    const label = document.createElement('h4');
+    label.className = 'rmap-map-group-label';
+    label.textContent = title;
+    section.appendChild(label);
+    const row = document.createElement('div');
+    row.className = 'rmap-colour-btns';
+    btns.forEach(b => row.appendChild(b));
+    section.appendChild(row);
+  }
+
+  // Per-move W/D/L from MY imported games (my perspective), shared by both maps.
+  const myStats = (colour: 'white' | 'black') => ({
+    tree: buildMoveStats(games, colour, MAP_MAX_PLIES),
+    caption: 'your results',
+  });
+
+  // 1) Your repertoire — the saved lines as a tree.
+  group('Your repertoire', () =>
+    (['white', 'black'] as const).flatMap(colour => {
+      const colourLines = lines.filter(l => l.colour === colour);
+      if (!colourLines.length) return [];
+      const reach = Math.max(0, ...colourLines.map(l => treeDepth(l.tree)));
+      return [mapColourBtn(colour, Icons.tree(36),
+        `${colourLines.length} line${colourLines.length !== 1 ? 's' : ''}`,
+        () => openRepertoireMap(colourLines, colour, line => exploreDeps?.onOpenLine(line), {
+          depth: { startPlies: MAP_START_PLIES, stepPlies: MAP_STEP_PLIES, maxPlies: reach, atDepth: () => colourLines },
+          ...(games.length > 0 && { stats: myStats(colour) }),
+        }))];
+    }),
+  );
+
+  // 2) Your games — what you actually play, from imported games (like an opponent
+  //    map, but yours). Only when games are imported.
+  group('Your games', () =>
+    games.length === 0 ? [] :
+    (['white', 'black'] as const).flatMap(colour => {
+      const colourGames = games.filter(g => g.colour === colour);
+      if (!colourGames.length) return [];
+      const reach = Math.max(0, ...colourGames.map(g => g.sans.length));
+      const buildLines = (plies: number) =>
+        [opponentLine(buildOpponentTree(games, colour, plies, false), colour, 'Your games')];
+      return [mapColourBtn(colour, Icons.search(34),
+        `${colourGames.length} game${colourGames.length !== 1 ? 's' : ''}`,
+        () => openRepertoireMap(buildLines(MAP_START_PLIES), colour, line => exploreDeps?.onOpenLine(line), {
+          title: `Your games — ${colour === 'white' ? 'White' : 'Black'}`,
+          subtitle: `${colourGames.length} game${colourGames.length !== 1 ? 's' : ''}`,
+          depth: { startPlies: MAP_START_PLIES, stepPlies: MAP_STEP_PLIES, maxPlies: reach, atDepth: buildLines },
+          stats: myStats(colour),
+          nodeAction: { label: 'Open in builder', onAct: ({ ucis }) => exploreDeps?.onOpenInBuilder(ucis, colour) },
+        }))];
+    }),
+  );
+
+  // Nothing to show (no lines and no games)? Tell the caller to drop the section.
+  if (!section.querySelector('.rmap-colour-btns')) return null;
   return section;
 }
 

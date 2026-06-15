@@ -4,10 +4,11 @@
 //   1. Streak hero  — big daily streak + rolling 7-day strip, with the 28-day
 //                     training-activity heatmap tucked inside as an accordion row
 //   2. Quick stats  — total lines / in training / mastered (compact)
-//   3. Repertoire map — browse openings as a branching tree
-//   4. Win Rate     — per-opening win rate bars (when games are imported)
-//   5. Needs Attention — lines that need work (cross-referenced with Chess.com)
-//   6. Opening Detail — existing before/after drill cards
+//   3. Win Rate     — per-opening win rate bars (when games are imported)
+//   4. Needs Attention — lines that need work (cross-referenced with Chess.com)
+//   5. Opening Detail — existing before/after drill cards
+//
+// The opening Maps used to live here; they moved to the Explore tab (Phase 6).
 
 import type { Line } from './types';
 import type { ImportedGame } from './chesscom';
@@ -21,13 +22,6 @@ import {
   type ProgressVerdict,
 } from './progress';
 import { currentStreak, trainedToday, getTrainingDays } from './streak';
-import { openRepertoireMap } from './repertoire-map';
-import {
-  MAP_START_PLIES, MAP_STEP_PLIES, MAP_MAX_PLIES,
-  buildOpponentTree, opponentLine,
-} from './scout';
-import { buildMoveStats } from './move-stats';
-import type { MoveNode } from './tree';
 import { Icons } from './icons';
 import { buildEmptyState } from './empty-state';
 import {
@@ -40,8 +34,6 @@ import {
 export interface ProgressCallbacks {
   onTrainLine: (lineId: string, inTraining: boolean) => void;
   onOpenLine: (line: Line) => void;
-  // Seed the builder with a move path (used by the "your games" map's nodes).
-  onBuildFromPath: (ucis: string[], colour: 'white' | 'black') => void;
   // Empty-state routes: jump to the Train tab, or open the builder on a fresh line.
   onStartTraining: () => void;
   onBuildLine: () => void;
@@ -91,10 +83,6 @@ async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<
   }
 
   renderQuickStats(container, lines);
-
-  if (lines.length > 0) {
-    renderRepertoireMapSection(container, lines, games, cb);
-  }
 
   const needsAttention = computeNeedsAttention(lines, report);
 
@@ -339,118 +327,7 @@ function renderActivitySolo(container: HTMLElement): void {
   container.appendChild(card);
 }
 
-// ── 3. Repertoire Map section ─────────────────────────────────────────────────
-
-// Plies in a line's longest variation (root has no move, so its children are
-// ply 1). Drives whether the repertoire map can "Go deeper" than the default.
-function treeDepth(node: MoveNode): number {
-  if (!node.children.length) return 0;
-  return 1 + Math.max(...node.children.map(treeDepth));
-}
-
-// A colour button (icon + "White/Black" + a count line) for a map group.
-function mapColourBtn(
-  colour: 'white' | 'black',
-  icon: SVGElement,
-  countText: string,
-  onClick: () => void,
-): HTMLButtonElement {
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = `rmap-colour-btn rmap-colour-btn--${colour}`;
-  icon.classList.add('rmap-colour-btn-icon');
-  btn.appendChild(icon);
-
-  const label = document.createElement('span');
-  label.className = 'rmap-colour-btn-label';
-  label.textContent = colour === 'white' ? 'White' : 'Black';
-  btn.appendChild(label);
-
-  const count = document.createElement('span');
-  count.className = 'rmap-colour-btn-count';
-  count.textContent = countText;
-  btn.appendChild(count);
-
-  btn.addEventListener('click', onClick);
-  return btn;
-}
-
-function renderRepertoireMapSection(
-  container: HTMLElement,
-  lines: Line[],
-  games: ImportedGame[],
-  cb: ProgressCallbacks,
-): void {
-  const section = statsSection('Maps', '');
-
-  const desc = document.createElement('p');
-  desc.className = 'rmap-section-desc';
-  desc.textContent = 'Browse your openings as a branching tree. Tap any move to explore the position, or open the Board explorer for a move-by-move view.';
-  section.appendChild(desc);
-
-  // Renders a labelled group with a White/Black button row; skips empty groups.
-  function group(title: string, makeBtns: () => HTMLButtonElement[]): void {
-    const btns = makeBtns();
-    if (!btns.length) return;
-    const heading = document.createElement('h4');
-    heading.className = 'rmap-map-group-label';
-    heading.textContent = title;
-    section.appendChild(heading);
-    const row = document.createElement('div');
-    row.className = 'rmap-colour-btns';
-    btns.forEach(b => row.appendChild(b));
-    section.appendChild(row);
-  }
-
-  // Per-move W/D/L from MY imported games (my perspective), shared by both maps.
-  const myStats = (colour: 'white' | 'black') => ({
-    tree: buildMoveStats(games, colour, MAP_MAX_PLIES),
-    caption: 'your results',
-  });
-
-  // 1) Your repertoire — the saved lines as a tree.
-  group('Your repertoire', () =>
-    (['white', 'black'] as const).flatMap(colour => {
-      const colourLines = lines.filter(l => l.colour === colour);
-      if (!colourLines.length) return [];
-      const reach = Math.max(0, ...colourLines.map(l => treeDepth(l.tree)));
-      return [mapColourBtn(colour, Icons.tree(36),
-        `${colourLines.length} line${colourLines.length !== 1 ? 's' : ''}`,
-        () => openRepertoireMap(colourLines, colour, cb.onOpenLine, {
-          depth: { startPlies: MAP_START_PLIES, stepPlies: MAP_STEP_PLIES, maxPlies: reach, atDepth: () => colourLines },
-          ...(games.length > 0 && { stats: myStats(colour) }),
-        }))];
-    }),
-  );
-
-  // 2) Your games — what you actually play, from imported games (like an opponent
-  //    map, but yours). Only when games are imported.
-  group('Your games', () =>
-    games.length === 0 ? [] :
-    (['white', 'black'] as const).flatMap(colour => {
-      const colourGames = games.filter(g => g.colour === colour);
-      if (!colourGames.length) return [];
-      const reach = Math.max(0, ...colourGames.map(g => g.sans.length));
-      const buildLines = (plies: number) =>
-        [opponentLine(buildOpponentTree(games, colour, plies, false), colour, 'Your games')];
-      return [mapColourBtn(colour, Icons.search(34),
-        `${colourGames.length} game${colourGames.length !== 1 ? 's' : ''}`,
-        () => openRepertoireMap(buildLines(MAP_START_PLIES), colour, cb.onOpenLine, {
-          title: `Your games — ${colour === 'white' ? 'White' : 'Black'}`,
-          subtitle: `${colourGames.length} game${colourGames.length !== 1 ? 's' : ''}`,
-          depth: { startPlies: MAP_START_PLIES, stepPlies: MAP_STEP_PLIES, maxPlies: reach, atDepth: buildLines },
-          stats: myStats(colour),
-          nodeAction: { label: 'Open in builder', onAct: ({ ucis }) => cb.onBuildFromPath(ucis, colour) },
-        }))];
-    }),
-  );
-
-  // Nothing to show (no lines and no games)? Drop the section entirely.
-  if (!section.querySelector('.rmap-colour-btns')) return;
-  container.appendChild(section);
-}
-
-// ── 5. Needs Attention ────────────────────────────────────────────────────────
+// ── 4. Needs Attention ────────────────────────────────────────────────────────
 
 interface AttentionItem {
   lineId: string;
@@ -544,7 +421,7 @@ function renderNeedsAttention(container: HTMLElement, items: AttentionItem[], cb
   container.appendChild(section);
 }
 
-// ── 4. Win rate by opening ────────────────────────────────────────────────────
+// ── 3. Win rate by opening ────────────────────────────────────────────────────
 
 function renderWinRates(container: HTMLElement, report: ProgressReport): void {
   // Aggregate all games per opening family across before + after windows
@@ -604,7 +481,7 @@ function renderWinRates(container: HTMLElement, report: ProgressReport): void {
   container.appendChild(section);
 }
 
-// ── 6. Opening detail (per-line before/after cards) ───────────────────────────
+// ── 5. Opening detail (per-line before/after cards) ───────────────────────────
 
 function renderOpeningDetail(container: HTMLElement, report: ProgressReport, cb: ProgressCallbacks): void {
   const section = statsSection(
