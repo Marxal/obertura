@@ -224,7 +224,7 @@ function renderEmpty(container: HTMLElement): void {
 // at half the old headline height, with the primary Start button full-width
 // below. Same data, calmer footprint. The counts animate up on entry.
 
-// Lines drilled per explicit-mode session, so Fresh/Trouble stay bite-sized.
+// Lines drilled per explicit-mode session, so Fresh/Weak stay bite-sized.
 const PICKER_SESSION_CAP = 12;
 
 function renderHero(container: HTMLElement, due: Line[], allTraining: Line[]): void {
@@ -281,9 +281,23 @@ function buildHeroStat(kind: 'due' | 'reviewed', num: HTMLElement, label: string
 // ── Mode cards ──────────────────────────────────────────────────────────────────
 //
 // One clear front door per training mode. Each card carries a line icon, a name,
-// a one-line subtitle and a live stat. They replace the old separate buttons and
-// the practice picker — same underlying modes, presented as one menu. Room is
-// left below for a fifth "Prep" card that arrives with Explore.
+// a one-line subtitle and a live stat shown as a small badge. They replace the
+// old separate buttons and the practice picker — same underlying modes, presented
+// as one menu. Each mode owns a subtle accent colour (a left edge bar, its icon
+// chip and its stat badge) so Time attack reads distinctly from a review card at
+// a glance — game-y identity without any points/XP.
+
+// Per-mode accent colours. Muted, warm-classic-friendly hues, each clearly
+// distinct from the next; applied via the --mode-accent custom property and
+// tinted softly in CSS (color-mix), so they sit happily on light and dark chrome
+// alike. The board squares are never touched.
+const MODE_ACCENT = {
+  fix:    '#c0603f', // terracotta — corrective
+  timed:  '#c79a2a', // gold — against the clock
+  fresh:  '#4e8063', // green — new growth
+  weak:   '#7d5a86', // plum — shore up the soft spots
+  prep:   '#3f7d8a', // teal — strategy against an opponent
+} as const;
 
 function renderModeCards(container: HTMLElement, allTraining: Line[], allLines: Line[]): void {
   const section = document.createElement('div');
@@ -294,13 +308,14 @@ function renderModeCards(container: HTMLElement, allTraining: Line[], allLines: 
   label.textContent = 'Practise';
   section.appendChild(label);
 
-  // Quick fixes — the count of due individual moves. Tappable as long as there's
+  // Fix mistakes — the count of due individual moves. Tappable as long as there's
   // anything deep enough to drill (the mode falls back to weak/upcoming moves).
   const duePositions = countDuePositions(allTraining);
   const hasPositions = selectIndividualPositions(allTraining).length > 0;
   section.appendChild(buildModeCard({
+    accent: MODE_ACCENT.fix,
     icon: Icons.zap(20),
-    name: 'Quick fixes',
+    name: 'Fix mistakes',
     sub: 'single moves you’ve missed',
     stat: duePositions,
     statLabel: duePositions === 1 ? 'due move' : 'due moves',
@@ -317,6 +332,7 @@ function renderModeCards(container: HTMLElement, allTraining: Line[], allLines: 
 
   // Fresh lines — full runs of the newest lines first.
   section.appendChild(buildModeCard({
+    accent: MODE_ACCENT.fresh,
     icon: Icons.plus(20),
     name: 'Fresh lines',
     sub: 'full runs of your newest lines',
@@ -325,10 +341,11 @@ function renderModeCards(container: HTMLElement, allTraining: Line[], allLines: 
       container, makeStats()),
   }));
 
-  // Trouble spots — full runs of the weakest lines first.
+  // Weak spots — full runs of the weakest lines first.
   section.appendChild(buildModeCard({
+    accent: MODE_ACCENT.weak,
     icon: Icons.trending(20),
-    name: 'Trouble spots',
+    name: 'Weak spots',
     sub: 'full runs of your weakest lines',
     onClick: () => runSession(
       new TrainingSession(weakestLines(allTraining).slice(0, PICKER_SESSION_CAP), { explicit: true }),
@@ -340,6 +357,7 @@ function renderModeCards(container: HTMLElement, allTraining: Line[], allLines: 
   const prepLines = allTraining.filter(l => l.tags.some(isOpponentTag));
   if (prepLines.length > 0) {
     section.appendChild(buildModeCard({
+      accent: MODE_ACCENT.prep,
       icon: Icons.target(20),
       name: 'Prep',
       sub: 'opponent-tagged lines',
@@ -355,7 +373,7 @@ function renderModeCards(container: HTMLElement, allTraining: Line[], allLines: 
 }
 
 // How many individual user-moves are due across the training lines — the live
-// stat behind "Quick fixes".
+// stat behind "Fix mistakes".
 function countDuePositions(lines: Line[], now: Date = new Date()): number {
   let due = 0;
   for (const line of lines) {
@@ -367,6 +385,7 @@ function countDuePositions(lines: Line[], now: Date = new Date()): number {
 }
 
 function buildModeCard(o: {
+  accent: string;
   icon: SVGElement;
   name: string;
   sub: string;
@@ -379,6 +398,7 @@ function buildModeCard(o: {
   const card = document.createElement('button');
   card.type = 'button';
   card.className = 'mode-card' + (o.disabled ? ' mode-card--disabled' : '');
+  card.style.setProperty('--mode-accent', o.accent);
   card.disabled = !!o.disabled;
 
   const icon = document.createElement('span');
@@ -442,6 +462,7 @@ function buildTimedCard(
 ): HTMLElement {
   const card = document.createElement('div');
   card.className = 'mode-card mode-card--timed' + (enabled ? '' : ' mode-card--disabled');
+  card.style.setProperty('--mode-accent', MODE_ACCENT.timed);
 
   const head = document.createElement('div');
   head.className = 'mode-card-head';
