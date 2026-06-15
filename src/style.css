@@ -1646,12 +1646,6 @@ cg-board square.move-dest.oc {
   margin: var(--space-xl) 0 0;
 }
 
-/* The empty-state note still needs the page inset the de-boxed section dropped. */
-.carousel-section .lines-empty {
-  padding-left: var(--space-lg);
-  padding-right: var(--space-lg);
-}
-
 /* Heading row: colour pip + name on the left, Add button on the right. Padded
    to the page margin now that the section no longer pads its children. */
 .carousel-head {
@@ -1869,8 +1863,21 @@ cg-board square.move-dest.oc {
   border-color: var(--primary);
 }
 
+/* The quick-view carousel above bleeds to the screen edges, so #view-lines
+   carries no page inset of its own. Everything in the tab body (filter bar,
+   games refresh row + intro) must pick up the page margin here, or it sits flush
+   to the screen edge instead of lining up with the cards. */
 .lines-tab-content {
-  padding-top: 0.1rem;
+  padding: 0.1rem var(--space-lg) 0;
+}
+
+/* Cards and boxed sections carry their own side margin for screens whose parent
+   isn't padded; inside this now-padded body that would double up and push them
+   past the filter chips, so drop it and let the body's inset place them. Keeps
+   the cards aligned with the chip row above. */
+.lines-tab-content .section {
+  margin-left: 0;
+  margin-right: 0;
 }
 
 /* Detailed list (now lives inside the Saved lines tab). */
