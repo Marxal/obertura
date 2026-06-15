@@ -13,6 +13,7 @@ import {
   summariseGames,
   tallyTimeClasses,
   filterByTimeClasses,
+  takeNewest,
   OPENING_PLIES,
   type ImportedGame,
 } from './import-core';
@@ -337,6 +338,36 @@ export function runImportSelfTest(): TestResult[] {
     s.total === 6 && s.white === 4 && s.black === 2 &&
       s.wins === 2 && s.losses === 2 && s.draws === 2,
     `W${s.white}/B${s.black}, ${s.wins}-${s.losses}-${s.draws}`,
+  );
+
+  // ── How-many count chooser (takeNewest) ───────────────────────────────────
+
+  // The scan hands games back newest-first, so takeNewest just heads-slices.
+  // Build a numbered stand-in (1 = newest … 250 = oldest) to check the cut.
+  const newestFirst = Array.from({ length: 250 }, (_, i) => i + 1);
+
+  // 17. "Last 100" keeps the most recent 100 — the first 100, in order.
+  const last100 = takeNewest(newestFirst, 100);
+  check(
+    'count: Last 100 keeps the most recent 100',
+    last100.length === 100 && last100[0] === 1 && last100[99] === 100,
+    `kept ${last100.length}, [${last100[0]}..${last100[last100.length - 1]}]`,
+  );
+
+  // 18. "All" keeps everything the scan held (a copy, not the same array).
+  const all = takeNewest(newestFirst, 'all');
+  check(
+    'count: All keeps every scanned game',
+    all.length === 250 && all !== newestFirst && all[0] === 1 && all[249] === 250,
+    `kept ${all.length}`,
+  );
+
+  // 19. A slice larger than the set just returns the whole set (no padding).
+  const last500 = takeNewest(newestFirst, 500);
+  check(
+    'count: a slice bigger than the set returns it all',
+    last500.length === 250,
+    `kept ${last500.length} of 250`,
   );
 
   return results;

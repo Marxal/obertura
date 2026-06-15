@@ -10,7 +10,7 @@
 // This module lists the archives, takes the chosen RANGE of recent months, and
 // fetches them SERIALLY newest-first (the API asks callers not to hammer it in
 // parallel) — handing each month's games to the core as NormalisedGame batches.
-// The core parses, caps at MAX_GAMES newest-first, tallies and reports. We keep
+// The core parses, caps at HARD_CAP newest-first, tallies and reports. We keep
 // every time format here; filtering by speed happens locally afterwards.
 
 import {
