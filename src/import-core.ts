@@ -4,8 +4,8 @@
 //
 //   • the NORMALISED game shape both platforms boil down to (NormalisedGame),
 //   • the PGN → compact ImportedGame parser (parseNormalised),
-//   • the driver that runs a platform fetcher, parses, applies the 500-game cap
-//     (newest first), and reports truncation (runImport),
+//   • the driver that runs a platform fetcher, parses, applies the 1000-game
+//     hard cap (newest first), and reports truncation (runImport),
 //   • the TALLY step (counts per time control over the fetched set),
 //   • local FILTERING by chosen time controls.
 //
@@ -24,9 +24,21 @@ import { Chess } from 'chess.js';
 // from now on carry the full 60 plies.
 export const OPENING_PLIES = 60;
 
-// Hard cap per import, newest first. A heavy bullet/blitz year can run to
-// thousands of games; we keep the most recent 500 and report when we truncate.
-export const MAX_GAMES = 500;
+// Hard cap per scan, newest first — the ceiling the "All" count choice lands on.
+// A heavy bullet/blitz year can run to thousands of games; for phone safety we
+// parse and keep at most the most recent 1000 and report when we truncate. The
+// panel then lets the user take a smaller slice (Last 100 / Last 500) on top.
+export const HARD_CAP = 1000;
+
+// How many games each count choice keeps from the scan (newest-first). 'all'
+// keeps everything the scan held, which is already ≤ HARD_CAP.
+export type CountChoice = 100 | 500 | 'all';
+
+// Keep the most recent N games for a count choice. The scan hands these back
+// newest-first, so a plain head-slice IS "the last N". 'all' keeps the lot.
+export function takeNewest<T>(games: T[], choice: CountChoice): T[] {
+  return choice === 'all' ? games.slice() : games.slice(0, choice);
+}
 
 // How far back an import reaches, in months. Chess.com counts that many monthly
 // archives; Lichess uses the matching `since` timestamp. Any positive month
@@ -173,14 +185,14 @@ export interface TimeTally {
 }
 
 export interface ImportResult {
-  games: ImportedGame[];   // all kept games, newest first, ≤ MAX_GAMES
+  games: ImportedGame[];   // all kept games, newest first, ≤ HARD_CAP
   platform: Platform;
   range: Range;
   monthsScanned: number;
   fetched: number;         // normalised games seen before the cap
   kept: number;            // games.length
   skipped: number;         // dropped (not our game / unparseable)
-  truncated: boolean;      // hit the cap with more still available
+  truncated: boolean;      // hit the hard cap (≥ HARD_CAP) with more available
   tally: TimeTally;
 }
 
@@ -202,8 +214,8 @@ export async function runImport(
   const emit: Emit = async (batch, progress) => {
     const parsed: ImportedGame[] = [];
     for (const raw of batch) {
-      if (games.length + parsed.length >= MAX_GAMES) {
-        // A game beyond the cap exists, so this import is genuinely truncated.
+      if (games.length + parsed.length >= HARD_CAP) {
+        // A game beyond the hard cap exists, so this scan is genuinely truncated.
         truncated = true;
         break;
       }
@@ -217,7 +229,7 @@ export async function runImport(
       if (opts.onGames) await opts.onGames(parsed);
     }
     opts.onProgress?.({ ...progress, gamesSoFar: games.length });
-    return games.length < MAX_GAMES; // keep going?
+    return games.length < HARD_CAP; // keep going?
   };
 
   const monthsScanned = await fetchFn(username, range, emit);

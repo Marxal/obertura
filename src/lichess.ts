@@ -17,7 +17,7 @@
 import {
   runImport,
   parseNormalised,
-  MAX_GAMES,
+  HARD_CAP,
   type NormalisedGame,
   type ImportedGame,
   type TimeClass,
@@ -148,8 +148,8 @@ function sinceMs(months: Range): number {
 }
 
 // The shared core's Lichess fetcher. One streamed request, newest first. We ask
-// for one more than the cap (max+1): if the server can fill it, the core's
-// cap logic trips on game #501 and correctly reports truncation; otherwise the
+// for one more than the hard cap (max+1): if the server can fill it, the core's
+// cap logic trips on game #1001 and correctly reports truncation; otherwise the
 // whole window fits and nothing is dropped.
 export const fetchLichess: SourceFetch = async (username, months, emit) => {
   const user = username.trim();
@@ -157,7 +157,7 @@ export const fetchLichess: SourceFetch = async (username, months, emit) => {
 
   const url = new URL(`${API_BASE}/${encodeURIComponent(user)}`);
   url.searchParams.set('since', String(sinceMs(months)));
-  url.searchParams.set('max', String(MAX_GAMES + 1));
+  url.searchParams.set('max', String(HARD_CAP + 1));
   url.searchParams.set('moves', 'true');
   url.searchParams.set('pgnInJson', 'true');
   url.searchParams.set('opening', 'true');

@@ -4,24 +4,29 @@
 //
 //   STEP 1 — pick a platform (Chess.com / Lichess), a username, and how far back
 //            to look (1m / 3m / 12m / All), then Scan.
-//   STEP 2 — "Found N games", a row of time-control toggles each showing its
-//            count (bullet OFF by default), a cap notice if the 500-game limit
-//            was hit, and an Import button that always shows the resulting count.
+//   STEP 2 — "Found N games", a how-many chooser (Last 100 / Last 500 / All), a
+//            row of time-control toggles each showing its count (bullet OFF by
+//            default), a cap notice if the 1000-game hard cap was hit, and an
+//            Import button that always shows the resulting count.
 //
-// The scan always pulls every speed and caps at 500 newest-first (import-core);
-// the time-control toggles are a local filter on top, so you decide what lands
-// on the device. On import the panel persists the chosen games (replacing what's
-// stored) and records the source, then hands control back so the caller can
-// re-run its analysis and refresh badges/suggestions.
+// The scan always pulls every speed and caps at 1000 newest-first (import-core).
+// The how-many chooser slices the most recent N off that; the time-control
+// toggles are a local filter on top of whichever slice — so you decide what
+// lands on the device. On import the panel persists the chosen games (replacing
+// what's stored) and records the source, then hands control back so the caller
+// can re-run its analysis and refresh badges/suggestions.
 
 import {
   importGames,
   filterByTimeClasses,
   tallyTimeClasses,
+  takeNewest,
   TIME_CLASS_LABELS,
   DEFAULT_TIME_CLASSES,
+  HARD_CAP,
   type Platform,
   type TimeClass,
+  type CountChoice,
   type ImportResult,
   type ImportedGame,
 } from './import-games';
@@ -168,6 +173,23 @@ function rangeMonths(r: RangeChoice): number {
 // Order the time-control toggles are shown in.
 const TC_ORDER: TimeClass[] = ['bullet', 'blitz', 'rapid', 'daily'];
 
+// ── How-many chooser (after the scan) ─────────────────────────────────────────
+
+// The count choices offered in Step 2. We only surface a smaller slice when the
+// scan actually held more than it — "Last 100" is pointless with 80 games. "All"
+// is always offered and is already ≤ HARD_CAP. Default to All so the user keeps
+// everything they scanned unless they deliberately trim it.
+const DEFAULT_COUNT: CountChoice = 'all';
+
+function countOptionsFor(total: number, truncated: boolean): { value: CountChoice; label: string }[] {
+  const opts: { value: CountChoice; label: string }[] = [];
+  if (total > 100) opts.push({ value: 100, label: 'Last 100' });
+  if (total > 500) opts.push({ value: 500, label: 'Last 500' });
+  // When the hard cap bit, "All" is the most recent HARD_CAP — spell it out.
+  opts.push({ value: 'all', label: truncated ? `All (${HARD_CAP.toLocaleString()})` : 'All' });
+  return opts;
+}
+
 // ── The panel ─────────────────────────────────────────────────────────────────
 
 export interface ImportPanelOptions {
@@ -190,6 +212,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
   let platform: Platform = opts.platform ?? getLastPlatform();
   let range: RangeChoice = DEFAULT_RANGE_CHOICE;
   let scan: ImportResult | null = null;
+  let count: CountChoice = DEFAULT_COUNT;
   const selected = new Set<TimeClass>();
 
   // ── Shell ──
@@ -330,6 +353,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
   // A step-1 change makes any prior scan stale; clear step 2.
   function resetScan(): void {
     scan = null;
+    count = DEFAULT_COUNT;
     selected.clear();
     step2.hidden = true;
     step2.innerHTML = '';
@@ -370,15 +394,20 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
 
   function buildStep2(result: ImportResult): void {
     step2.innerHTML = '';
+    count = DEFAULT_COUNT;
     selected.clear();
-    const tally = tallyTimeClasses(result.games);
+    const total = result.games.length; // newest-first, already ≤ HARD_CAP
 
+    // "Found N games" — the true count in range. If the hard cap bit, there are
+    // genuinely more than HARD_CAP and we say so.
     const found = document.createElement('p');
     found.className = 'import-found';
-    found.textContent = `Found ${result.kept} game${result.kept === 1 ? '' : 's'}.`;
+    found.textContent = result.truncated
+      ? `Found more than ${HARD_CAP.toLocaleString()} games in this range.`
+      : `Found ${total.toLocaleString()} game${total === 1 ? '' : 's'}.`;
     step2.appendChild(found);
 
-    if (result.kept === 0) {
+    if (total === 0) {
       const none = document.createElement('p');
       none.className = 'import-status';
       none.textContent = 'Nothing to import in this range — try a longer range.';
@@ -387,38 +416,54 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       return;
     }
 
-    // Cap notice — only when the 500-game limit actually bit.
-    if (result.truncated) {
-      const cap = document.createElement('p');
-      cap.className = 'import-cap-note';
-      cap.textContent = `Showing your most recent ${result.kept} games (the import cap). Use a shorter range for older games.`;
-      step2.appendChild(cap);
+    // Seed the time-control selection once from the defaults present in the full
+    // scan (bullet OFF). It then stays stable as the count slice changes.
+    const fullTally = tallyTimeClasses(result.games);
+    for (const tc of TC_ORDER) {
+      if (fullTally.byTimeClass[tc] > 0 && DEFAULT_TIME_CLASSES.includes(tc)) selected.add(tc);
     }
 
-    // Time-control toggles, each with its count. Bullet starts OFF.
-    const label = document.createElement('div');
-    label.className = 'edit-label';
-    label.textContent = 'Which to import';
-    step2.appendChild(label);
+    // ── How many to import (Last 100 / Last 500 / All) ──
+    const countOpts = countOptionsFor(total, result.truncated);
+    if (countOpts.length > 1) {
+      const countLabel = document.createElement('div');
+      countLabel.className = 'edit-label';
+      countLabel.textContent = 'How many';
+      step2.appendChild(countLabel);
+
+      const countRow = document.createElement('div');
+      countRow.className = 'import-chips';
+      const countChips: HTMLButtonElement[] = [];
+      countOpts.forEach((opt) => {
+        const c = document.createElement('button');
+        c.type = 'button';
+        c.className = 'tag-chip' + (opt.value === count ? ' tag-chip--on' : '');
+        c.textContent = opt.label;
+        c.addEventListener('click', () => {
+          count = opt.value;
+          countChips.forEach((b, i) => b.classList.toggle('tag-chip--on', countOpts[i].value === count));
+          renderSlice();
+        });
+        countChips.push(c);
+        countRow.appendChild(c);
+      });
+      step2.appendChild(countRow);
+    }
+
+    // ── Cap notice (rebuilt per slice — only honest for the chosen count) ──
+    const capNote = document.createElement('p');
+    capNote.className = 'import-cap-note';
+    capNote.hidden = true;
+    step2.appendChild(capNote);
+
+    // ── Which to import (time-control toggles, counts reflect the slice) ──
+    const tcLabel = document.createElement('div');
+    tcLabel.className = 'edit-label';
+    tcLabel.textContent = 'Which to import';
+    step2.appendChild(tcLabel);
 
     const tcRow = document.createElement('div');
     tcRow.className = 'import-chips';
-    for (const tc of TC_ORDER) {
-      const n = tally.byTimeClass[tc];
-      if (n === 0) continue;
-      const on = DEFAULT_TIME_CLASSES.includes(tc); // everything but bullet
-      if (on) selected.add(tc);
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'tag-chip' + (on ? ' tag-chip--on' : '');
-      chip.textContent = `${TIME_CLASS_LABELS[tc]} ${n}`;
-      chip.addEventListener('click', () => {
-        if (selected.has(tc)) { selected.delete(tc); chip.classList.remove('tag-chip--on'); }
-        else { selected.add(tc); chip.classList.add('tag-chip--on'); }
-        reflectImportCount();
-      });
-      tcRow.appendChild(chip);
-    }
     step2.appendChild(tcRow);
 
     // Import button — always shows the resulting count.
@@ -432,17 +477,53 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     importStatus.setAttribute('aria-live', 'polite');
     step2.appendChild(importStatus);
 
-    function reflectImportCount(): void {
-      const count = filterByTimeClasses(result.games, selected).length;
-      importBtn.textContent = count === 0
-        ? 'Pick at least one'
-        : `Import ${count} game${count === 1 ? '' : 's'}`;
-      importBtn.disabled = count === 0;
+    // The games for the current count choice, newest-first.
+    const sliceGames = () => takeNewest(result.games, count);
+
+    // Re-render the time-control toggles (counts within the current slice) and
+    // the cap note, then refresh the import button's count.
+    function renderSlice(): void {
+      const slice = sliceGames();
+      const tally = tallyTimeClasses(slice);
+
+      // Cap note: only when "All" is chosen AND the hard cap actually bit. The
+      // smaller slices are a deliberate choice, not a forced truncation.
+      if (count === 'all' && result.truncated) {
+        capNote.textContent = `More than ${HARD_CAP.toLocaleString()} games found — importing only the most recent ${HARD_CAP.toLocaleString()} (phone-friendly cap).`;
+        capNote.hidden = false;
+      } else {
+        capNote.hidden = true;
+      }
+
+      tcRow.innerHTML = '';
+      for (const tc of TC_ORDER) {
+        const n = tally.byTimeClass[tc];
+        if (n === 0) continue;
+        const on = selected.has(tc);
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'tag-chip' + (on ? ' tag-chip--on' : '');
+        chip.textContent = `${TIME_CLASS_LABELS[tc]} ${n}`;
+        chip.addEventListener('click', () => {
+          if (selected.has(tc)) { selected.delete(tc); chip.classList.remove('tag-chip--on'); }
+          else { selected.add(tc); chip.classList.add('tag-chip--on'); }
+          reflectImportCount();
+        });
+        tcRow.appendChild(chip);
+      }
+      reflectImportCount();
     }
-    reflectImportCount();
+
+    function reflectImportCount(): void {
+      const n = filterByTimeClasses(sliceGames(), selected).length;
+      importBtn.textContent = n === 0
+        ? 'Pick at least one'
+        : `Import ${n.toLocaleString()} game${n === 1 ? '' : 's'}`;
+      importBtn.disabled = n === 0;
+    }
 
     importBtn.addEventListener('click', async () => {
-      const games = filterByTimeClasses(result.games, selected);
+      const games = filterByTimeClasses(sliceGames(), selected);
       if (games.length === 0) return;
       importBtn.disabled = true;
       scanBtn.disabled = true;
@@ -460,6 +541,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       }
     });
 
+    renderSlice();
     step2.hidden = false;
   }
 
