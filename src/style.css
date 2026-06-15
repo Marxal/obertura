@@ -4412,6 +4412,15 @@ cg-board square.move-dest.oc {
 .games-refresh-btn:active { filter: brightness(0.92); transform: translateY(1px); }
 .games-refresh-btn:disabled { opacity: 0.6; cursor: default; }
 
+/* "Browse opening library" leading the Statistics screen — a simple full-width
+   launcher sitting on the bare page (no .section card around it). */
+.stats-library-btn {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-bottom: var(--space-md);
+}
+
 .games-refresh-status {
   font-size: 0.76rem;
   color: var(--text-faint);

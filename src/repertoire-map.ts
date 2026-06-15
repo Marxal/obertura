@@ -15,7 +15,6 @@ import { nameForFen } from './openings';
 import { pushBack } from './back-nav';
 import { statScorePct, topReply, type StatNode } from './move-stats';
 import { wdlScoreRow } from './wdl-bar';
-import { openBoardExplorer } from './board-explorer';
 import type { ImportedGame } from './import-core';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -44,10 +43,6 @@ export interface RepertoireMapOptions {
     disabled?: boolean;
     onAct?: (ctx: NodeActionContext) => void;
   };
-  // Builder-seed path for the Line browser's "Open in builder" control. Used
-  // when there's no `nodeAction` (the repertoire map) so the Line browser can
-  // still hand the walked line to the builder.
-  onOpenInBuilder?: (ucis: string[], colour: 'white' | 'black') => void;
   // Depth control — the "Go deeper" feature. When set, the map renders only the
   // first `startPlies` plies and offers a quiet "Go deeper" control that reveals
   // `stepPlies` more each click, rebuilding from data already on the phone.
@@ -1153,30 +1148,9 @@ export function openRepertoireMap(
     updateDeeper();
   }
 
-  // Line browser — a quiet compass pill, top-left of the tree area. Only shown
-  // when we have game stats to list; opens at the currently selected move and
-  // walks the lines move-by-move on a board.
-  if (statsTree && opts.stats) {
-    const exploreBtn = document.createElement('button');
-    exploreBtn.type = 'button';
-    exploreBtn.className = 'rmap-explore-btn';
-    exploreBtn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none"
-      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-      aria-hidden="true"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg><span>Line browser</span>`;
-    exploreBtn.addEventListener('click', () => {
-      openBoardExplorer({
-        statsTree,
-        caption: opts.stats!.caption,
-        colour,
-        games: opts.stats!.games,
-        startUcis: selected ? nodePath(selected).ucis : [],
-        title: 'Line browser',
-        action: opts.nodeAction,
-        onOpenInBuilder: opts.onOpenInBuilder,
-      });
-    });
-    treeArea.appendChild(exploreBtn);
-  }
+  // (The Board browser — formerly a "Line browser" pill here — now lives as its
+  // own entry in the Explore tab's "Visualize your play" section, so it's no
+  // longer launched from inside the map.)
 
   // Zoom floats bottom-left of the tree area (outside the bar).
   treeArea.appendChild(controls.zoom);
