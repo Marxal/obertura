@@ -25,6 +25,10 @@ export class TrainingSession {
   private resurfaceCount = new Map<string, number>();
   private cumulativeMisses = new Map<string, number>();
   readonly maxResurface: number;
+  // How many lines the session started with (first-pass lines only, before any
+  // resurfacing). The denominator for the session-level "Line X of Y" progress
+  // bar — resurfaced reviews are bonus reinforcement and don't inflate it.
+  readonly initialCount: number;
 
   // Build from a pool of lines (only the due ones are queued), or pass an
   // explicit list of lines to force into the queue (used for single-line
@@ -37,6 +41,7 @@ export class TrainingSession {
     this.maxResurface = opts.maxResurface ?? 3;
     const initial = opts.explicit ? lines : dueLines(lines, now);
     this.queue = initial.map(line => ({ line, isResurface: false }));
+    this.initialCount = this.queue.length;
   }
 
   get remaining(): number {
