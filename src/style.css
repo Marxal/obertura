@@ -3382,6 +3382,7 @@ cg-board square.move-dest.oc {
   gap: var(--space-lg);
   padding-top: var(--space-xl);
   text-align: center;
+  position: relative; /* anchor for the completion confetti layer */
 }
 
 .train-completion-done {

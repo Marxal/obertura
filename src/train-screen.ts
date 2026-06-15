@@ -40,6 +40,7 @@ import {
 } from './streak';
 import { renderLoadError } from './load-error';
 import { buildPositionCard, colourPip, lineFinalFen } from './card-position';
+import { burstConfetti } from './confetti';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -1162,6 +1163,10 @@ function renderSessionComplete(container: HTMLElement, stats: SessionStats): voi
   appendReviewActions(wrap, container, stats.mistakes);
 
   container.appendChild(wrap);
+
+  // Celebrate a genuinely-finished session (at least one line reviewed) with the
+  // same tasteful burst the per-line drill uses. Honours reduced-motion itself.
+  if (stats.linesReviewed > 0) burstConfetti(wrap);
 }
 
 // ── End-of-session review (all modes) ─────────────────────────────────────────
