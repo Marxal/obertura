@@ -71,6 +71,13 @@ export interface DrillOptions {
   onPauseLine?: () => void;
   onEditLine?: (atFen: string) => void;
   onNoteEdit?: () => void;
+  // Full-line training sessions only. Drives the session-level progress bar at
+  // the top of the overlay: how far through the whole session we are. The dots
+  // near the board track moves WITHIN this line; this bar tracks lines ACROSS
+  // the session. `completed` = first-pass lines finished before this one;
+  // `total` = lines the session started with; `isResurface` = this is a repeat
+  // of a missed line (reinforcement), so it doesn't advance the bar.
+  sessionProgress?: { completed: number; total: number; isResurface: boolean };
 }
 
 // A single ply to auto-play (animated) between the user's moves.
@@ -299,6 +306,45 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     headerEl.appendChild(timerEl);
   }
 
+  // ── Session progress bar (full-line training sessions) ─────────────────────
+  //
+  // A thin bar pinned just under the toolbar that tracks LINES across the whole
+  // session — it fills a notch as each line is completed, with a "Line X of Y"
+  // caption. (The dots near the board, by contrast, track the MOVES within the
+  // current line.) Only the multi-line full-line modes pass sessionProgress, and
+  // a one-line session has nothing to track, so we skip the bar there too.
+  const sp = opts.sessionProgress;
+  const showSessionBar = !!sp && sp.total >= 2;
+  const sessionBarEl = document.createElement('div');
+  let sessionFillEl: HTMLElement | null = null;
+  let sessionLabelEl: HTMLElement | null = null;
+  if (showSessionBar) {
+    sessionBarEl.className = 'pt-session-bar';
+
+    sessionLabelEl = document.createElement('div');
+    sessionLabelEl.className = 'pt-session-bar-label';
+    sessionBarEl.appendChild(sessionLabelEl);
+
+    const trackEl = document.createElement('div');
+    trackEl.className = 'pt-session-bar-track';
+    sessionFillEl = document.createElement('div');
+    sessionFillEl.className = 'pt-session-bar-fill';
+    trackEl.appendChild(sessionFillEl);
+    sessionBarEl.appendChild(trackEl);
+  }
+
+  // Paint the bar to a given number of completed lines (0..total). The caption
+  // reads "Line X of Y" on a fresh line, or "Second look" on a resurfaced repeat.
+  function renderSessionBar(completed: number): void {
+    if (!sessionFillEl || !sessionLabelEl || !sp) return;
+    const frac = Math.max(0, Math.min(1, completed / sp.total));
+    sessionFillEl.style.width = `${frac * 100}%`;
+    sessionLabelEl.textContent = sp.isResurface
+      ? 'Second look'
+      : `Line ${Math.min(completed + 1, sp.total)} of ${sp.total}`;
+  }
+  if (showSessionBar && sp) renderSessionBar(sp.completed);
+
   // ── Top block: mode title + line name, sitting just above the board ─────────
 
   const topEl = document.createElement('div');
@@ -404,6 +450,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   }
 
   overlay.appendChild(headerEl);
+  if (showSessionBar) overlay.appendChild(sessionBarEl);
   overlay.appendChild(topEl);
   overlay.appendChild(boardWrap);
   overlay.appendChild(bottomEl);
@@ -1067,6 +1114,9 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     }
 
     setStatus(opts.completeMessage ?? 'Line complete', 'pt-status--success');
+    // Fill this line's notch on the session bar before we hand off — a fresh line
+    // advances it; a resurfaced repeat is reinforcement, so it holds where it was.
+    if (showSessionBar && sp && !sp.isResurface) renderSessionBar(sp.completed + 1);
     if (opts.celebrateOnComplete) burstConfetti();
     setTimeout(() => { cleanup(); opts.onComplete(); }, 1500);
   }

@@ -849,6 +849,14 @@ function runItem(
     wrongMoveMode: 'full',
     confirmAbandon: true,
     modeLabel: isResurface ? 'Second look' : 'Training',
+    // Session-level progress bar: lines completed so far out of the lines the
+    // session started with. linesReviewed counts first-pass completions, so for
+    // a fresh line this is "line linesReviewed+1 of total".
+    sessionProgress: {
+      completed: stats.linesReviewed,
+      total: session.initialCount,
+      isResurface,
+    },
     celebrateOnComplete: true,
     completeMessage: isResurface ? 'Got it that time ✓' : 'Line complete',
     // Training is strict: only the move stored in the line is accepted. We
