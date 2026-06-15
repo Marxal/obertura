@@ -68,10 +68,8 @@ export function renderSettingsScreen(container: HTMLElement): void {
   const screen = document.createElement('div');
   screen.className = 'settings-screen';
 
-  const title = document.createElement('h1');
-  title.className = 'settings-title';
-  title.textContent = 'Settings';
-  screen.appendChild(title);
+  // The screen title now lives in the app header (set in showView), so it's not
+  // repeated here.
 
   // "Add your games" leads the screen until you've imported any — getting your
   // games in is the first thing a new install wants. Once you have games it drops
@@ -403,25 +401,120 @@ function pieceSwatches(current: PieceSet, onChange: (v: PieceSet) => void): HTML
   return wrap;
 }
 
+// The four explicit themes, shown as swatches in the same shape as the board and
+// piece pickers. Each preview is the theme's own page colour with its accent-
+// coloured icon, so the swatch previews the real theme. These hexes MUST match
+// theme.ts / the [data-theme] rules in style.css. "System" is a separate,
+// discrete control (see buildThemeRow), not one of these swatches.
+const THEME_PRESETS: {
+  value: Exclude<ThemeChoice, 'system'>;
+  label: string;
+  bg: string;
+  accent: string;
+  icon: (s?: number) => SVGElement;
+}[] = [
+  { value: 'classic-light', label: 'Light',   bg: '#f1ece1', accent: '#c07a2a', icon: Icons.sun },
+  { value: 'classic-dark',  label: 'Dark',    bg: '#211c16', accent: '#d4892c', icon: Icons.moon },
+  { value: 'elegant',       label: 'Elegant', bg: '#1e3128', accent: '#dca844', icon: Icons.sparkles },
+  { value: 'gamer',         label: 'Gamer',   bg: '#0e1020', accent: '#27e0ff', icon: Icons.gamepad },
+];
+
+function themeSwatches(): { element: HTMLElement; reflect: (active: ThemeChoice) => void } {
+  const wrap = document.createElement('div');
+  wrap.className = 'theme-swatches';
+
+  const buttons: HTMLButtonElement[] = [];
+  const reflect = (active: ThemeChoice) => {
+    for (const b of buttons) b.classList.toggle('active', b.dataset.value === active);
+  };
+
+  for (const p of THEME_PRESETS) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'theme-swatch';
+    btn.dataset.value = p.value;
+    btn.setAttribute('aria-label', p.label);
+    btn.title = p.label;
+
+    const preview = document.createElement('span');
+    preview.className = 'theme-swatch-preview';
+    preview.style.background = p.bg;
+    preview.style.color = p.accent;
+    preview.appendChild(p.icon(20));
+
+    const name = document.createElement('span');
+    name.className = 'theme-swatch-name';
+    name.textContent = p.label;
+
+    btn.appendChild(preview);
+    btn.appendChild(name);
+    btn.addEventListener('click', () => setTheme(p.value));
+    buttons.push(btn);
+    wrap.appendChild(btn);
+  }
+
+  return { element: wrap, reflect };
+}
+
+// "System" follows the OS light/dark setting, so JS — not these swatches — is the
+// source of truth for what it resolves to (see theme.ts).
+const systemPrefersDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+// One handle to set the theme and keep the row in sync, shared by the swatches
+// and the System pill below.
+let setTheme: (choice: ThemeChoice) => void = () => {};
+
+// The Theme row: a swatch grid for the four explicit themes, with a discrete
+// "System" pill pinned to the right of the title. Picking a swatch takes an
+// explicit theme; tapping System hands the choice back to the phone. When System
+// drives, the swatches dim but still highlight whichever theme it resolved to.
+function buildThemeRow(): HTMLElement {
+  const r = document.createElement('div');
+  r.className = 'pref-row';
+
+  const head = document.createElement('div');
+  head.className = 'pref-row-head theme-row-head';
+  const title = document.createElement('div');
+  title.className = 'pref-row-title';
+  title.textContent = 'Theme';
+  head.appendChild(title);
+
+  const systemBtn = document.createElement('button');
+  systemBtn.type = 'button';
+  systemBtn.className = 'theme-system-btn';
+  systemBtn.textContent = 'System';
+  head.appendChild(systemBtn);
+  r.appendChild(head);
+
+  const swatches = themeSwatches();
+  r.appendChild(swatches.element);
+
+  const sub = document.createElement('div');
+  sub.className = 'pref-row-desc';
+  sub.textContent =
+    'Elegant is a felt-table green; Gamer is a neon-glow dark. System follows your phone’s light/dark setting.';
+  r.appendChild(sub);
+
+  const sync = () => {
+    const choice = getThemeChoice();
+    const onSystem = choice === 'system';
+    systemBtn.classList.toggle('active', onSystem);
+    systemBtn.setAttribute('aria-pressed', String(onSystem));
+    swatches.element.classList.toggle('theme-swatches--system', onSystem);
+    swatches.reflect(onSystem ? (systemPrefersDark() ? 'classic-dark' : 'classic-light') : choice);
+  };
+
+  setTheme = (choice) => { setThemeChoice(choice); sync(); };
+  systemBtn.addEventListener('click', () => setTheme('system'));
+
+  sync();
+  return r;
+}
+
 function buildAppearanceGroup(): HTMLElement {
   const sec = group('Appearance');
 
-  sec.appendChild(row(
-    'Theme',
-    segmented<ThemeChoice>(
-      [
-        { value: 'classic-light', label: 'Classic light' },
-        { value: 'classic-dark', label: 'Classic dark' },
-        { value: 'elegant', label: 'Elegant' },
-        { value: 'gamer', label: 'Gamer' },
-        { value: 'system', label: 'System' },
-      ],
-      getThemeChoice(),
-      (v) => setThemeChoice(v),
-      { fullWidth: true },
-    ),
-    { sub: 'Elegant is a felt-table green; Gamer is a neon-glow dark. System follows your phone’s light/dark setting.' },
-  ));
+  sec.appendChild(buildThemeRow());
 
   sec.appendChild(row(
     'Board colours',
