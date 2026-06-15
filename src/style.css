@@ -4462,6 +4462,35 @@ cg-board square.move-dest.oc {
   padding-top: 1rem;
 }
 
+/* Step-2 header: the step heading with a quiet "re-scan" link opposite it. */
+.import-step2-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.import-step-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* Discrete text link — keeps Import the one obvious primary action. */
+.import-rescan-link {
+  flex: none;
+  background: none;
+  border: none;
+  padding: 0.2rem 0;
+  color: var(--text-faint);
+  font-size: 0.8rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.import-rescan-link:active { color: var(--text); }
+
 .import-found {
   font-size: 0.95rem;
   font-weight: 700;

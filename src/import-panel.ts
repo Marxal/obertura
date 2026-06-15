@@ -358,6 +358,10 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     step2.hidden = true;
     step2.innerHTML = '';
     scanStatus.textContent = '';
+    // Bring the prominent Scan button back: editing step 1 invalidates the scan,
+    // so the obvious next action is to scan again (step 2 hides its quiet link).
+    scanBtn.hidden = false;
+    scanBtn.textContent = 'Scan';
     clearError();
   }
 
@@ -388,7 +392,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       scanStatus.textContent = '';
     } finally {
       scanBtn.disabled = false;
-      scanBtn.textContent = scan ? 'Re-scan' : 'Scan';
+      scanBtn.textContent = 'Scan';
     }
   }
 
@@ -397,6 +401,26 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     count = DEFAULT_COUNT;
     selected.clear();
     const total = result.games.length; // newest-first, already ≤ HARD_CAP
+
+    // With results in hand, Import becomes the single obvious primary action, so
+    // hide the big Scan button. Re-scanning lives on as a quiet text link below.
+    scanBtn.hidden = true;
+
+    // Header: the step heading, with a discrete "↻ re-scan" link opposite it
+    // (re-runs the scan with the current step-1 choices — no fields changed).
+    const head = document.createElement('div');
+    head.className = 'import-step2-head';
+    const heading = document.createElement('h4');
+    heading.className = 'import-step-title';
+    heading.textContent = '2 · Choose what to import';
+    head.appendChild(heading);
+    const rescan = document.createElement('button');
+    rescan.type = 'button';
+    rescan.className = 'import-rescan-link';
+    rescan.textContent = '↻ re-scan';
+    rescan.addEventListener('click', runScan);
+    head.appendChild(rescan);
+    step2.appendChild(head);
 
     // "Found N games" — the true count in range. If the hard cap bit, there are
     // genuinely more than HARD_CAP and we say so.
