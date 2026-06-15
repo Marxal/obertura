@@ -52,6 +52,17 @@ export interface RepertoireMapOptions {
   // stats lookup (see move-stats.ts); `caption` names whose results these are
   // ("their results" / "your results").
   stats?: { tree: StatNode; caption: string };
+  // Colour toggle — when set, a White/Black segmented control sits at the top of
+  // the tree (just under the header). The map shows one colour at a time; picking
+  // the other colour closes this map and reopens it for that colour (so all the
+  // colour-specific data — lines, stats, depth — is rebuilt by the caller).
+  // `enabled` greys out a side with nothing to show; `onPick` runs AFTER this map
+  // has closed itself.
+  colourToggle?: {
+    current: 'white' | 'black';
+    enabled: { white: boolean; black: boolean };
+    onPick: (colour: 'white' | 'black') => void;
+  };
 }
 
 export interface MapDepth {
@@ -730,6 +741,46 @@ function makeControls(
   return { container: bar, zoom, viewSlot, update };
 }
 
+// ── Colour toggle (top-of-tree White/Black segmented control) ──────────────────
+
+// A segmented White/Black control for the top of the tree. Picking the other
+// colour closes this map first (keeping the back stack balanced), then hands off
+// to the caller's onPick, which reopens the map for that colour.
+function buildColourToggle(
+  toggle: NonNullable<RepertoireMapOptions['colourToggle']>,
+  close: () => void,
+): HTMLElement {
+  const bar = document.createElement('div');
+  bar.className = 'rmap-colour-toggle';
+
+  const seg = document.createElement('div');
+  seg.className = 'rmap-view-seg';
+  seg.setAttribute('role', 'group');
+
+  const colours: { id: 'white' | 'black'; label: string }[] = [
+    { id: 'white', label: '○ White' },
+    { id: 'black', label: '● Black' },
+  ];
+  for (const c of colours) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'rmap-view-btn';
+    b.textContent = c.label;
+    const on = c.id === toggle.current;
+    b.classList.toggle('rmap-view-btn--on', on);
+    b.setAttribute('aria-pressed', String(on));
+    if (!toggle.enabled[c.id]) {
+      b.disabled = true;
+    } else if (!on) {
+      b.addEventListener('click', () => { close(); toggle.onPick(c.id); });
+    }
+    seg.appendChild(b);
+  }
+
+  bar.appendChild(seg);
+  return bar;
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export function openRepertoireMap(
@@ -782,6 +833,12 @@ export function openRepertoireMap(
   header.appendChild(titleEl);
   header.appendChild(count);
   overlay.appendChild(header);
+
+  // Colour toggle bar (under the header) — White/Black, when the caller wired it.
+  // Picking the other side closes this map; the caller reopens it for that colour.
+  if (opts.colourToggle) {
+    overlay.appendChild(buildColourToggle(opts.colourToggle, close));
+  }
 
   // Tree area (relative-positioned so the preview panel can float inside it).
   const treeArea = document.createElement('div');
@@ -1067,22 +1124,23 @@ export function openRepertoireMap(
     updateDeeper();
   }
 
-  // Board explorer — a quiet compass pill, top-left of the tree area. Only shown
-  // when we have game stats to list; opens at the currently selected move.
+  // Line browser — a quiet compass pill, top-left of the tree area. Only shown
+  // when we have game stats to list; opens at the currently selected move and
+  // walks the lines move-by-move on a board.
   if (statsTree && opts.stats) {
     const exploreBtn = document.createElement('button');
     exploreBtn.type = 'button';
     exploreBtn.className = 'rmap-explore-btn';
     exploreBtn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none"
       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-      aria-hidden="true"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg><span>Explore</span>`;
+      aria-hidden="true"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg><span>Line browser</span>`;
     exploreBtn.addEventListener('click', () => {
       openBoardExplorer({
         statsTree,
         caption: opts.stats!.caption,
         colour,
         startUcis: selected ? nodePath(selected).ucis : [],
-        title: opts.title ?? 'Board explorer',
+        title: 'Line browser',
         action: opts.nodeAction,
       });
     });

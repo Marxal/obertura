@@ -5629,6 +5629,21 @@ cg-board square.move-dest.oc {
   background: var(--accent-soft);
   color: var(--accent);
 }
+.rmap-view-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* The White/Black colour toggle at the top of an opened tree — a thin bar under
+   the header carrying a centred segmented control (reusing the view-seg look). */
+.rmap-colour-toggle {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card);
+  flex-shrink: 0;
+}
 
 /* The nav buttons borrow .bar-btn / .bar-btn--step (the builder's look); only
    their map-specific width is set here, so all the arrows stay compact. */
@@ -5738,85 +5753,61 @@ cg-board square.move-dest.oc {
   margin: 0 0 0.75rem;
 }
 
-/* Group heading above each map's White/Black button row ("Your repertoire" /
-   "Your games"). */
-.rmap-map-group-label {
-  margin: 0.9rem 0 0.5rem;
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-}
-
-.rmap-colour-btns {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.rmap-colour-btn {
-  flex: 1;
+/* The Tree section's map entries — one full-width row per map type ("Your
+   repertoire" / "Your games"). Colour is chosen inside the opened tree, so each
+   row is a single neutral card (icon · title/count · chevron). */
+.rmap-entries {
   display: flex;
   flex-direction: column;
+  gap: 0.6rem;
+}
+
+.rmap-entry {
+  display: flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 1rem 0.5rem 0.8rem;
+  gap: 0.8rem;
+  width: 100%;
+  padding: 0.85rem 1rem;
   border-radius: 14px;
-  border: 1px solid transparent;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text);
+  text-align: left;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: filter 0.1s;
 }
-.rmap-colour-btn:active { filter: brightness(0.93); }
+.rmap-entry:active { filter: brightness(0.95); }
 
-.rmap-colour-btn--white {
-  background: #f5f0e8;
-  border-color: #d4c8b0;
-  color: #2a2218;
-}
-[data-theme="dark"] .rmap-colour-btn--white,
-[data-theme="game"] .rmap-colour-btn--white {
-  background: #2d2820;
-  border-color: #4a3d2e;
-  color: #e0d4be;
-}
-[data-theme="gamer"] .rmap-colour-btn--white {
-  background: #1b2138;
-  border-color: #303a63;
-  color: #d7def2;
-}
-
-.rmap-colour-btn--black {
-  background: #272018;
-  border-color: #3a3028;
-  color: #d4c8b0;
-}
-[data-theme="dark"] .rmap-colour-btn--black,
-[data-theme="game"] .rmap-colour-btn--black {
-  background: #18130e;
-  border-color: #2d2218;
-  color: #b8a888;
-}
-[data-theme="gamer"] .rmap-colour-btn--black {
-  background: #0f1426;
-  border-color: #283051;
-  color: #9aa4cc;
-}
-
-.rmap-colour-btn-icon {
+.rmap-entry-icon {
   display: block;
+  flex-shrink: 0;
+  color: var(--text-muted);
   opacity: 0.85;
 }
 
-.rmap-colour-btn-label {
-  font-size: 0.88rem;
+.rmap-entry-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.rmap-entry-title {
+  font-size: 0.9rem;
   font-weight: 700;
   letter-spacing: 0.01em;
 }
 
-.rmap-colour-btn-count {
-  font-size: 0.72rem;
-  opacity: 0.65;
+.rmap-entry-count {
+  font-size: 0.74rem;
+  color: var(--text-faint);
+}
+
+.rmap-entry-chevron {
+  flex-shrink: 0;
+  color: var(--text-faint);
 }
 
 /* ── Just-saved line highlight (My Lines) ───────────────────────────────────── */
