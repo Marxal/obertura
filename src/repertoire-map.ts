@@ -82,12 +82,15 @@ export interface MapDepth {
   importHint?: boolean;
 }
 
-// Node box geometry
-const NW = 56;   // node width
-const NH = 30;   // node height
-const HG = 10;   // horizontal gap between sibling subtrees
-const VG = 44;   // vertical gap: bottom of parent → top of child
-const PAD = 20;  // outer padding
+// Node box geometry. The tree flows LEFT → RIGHT: the root sits at the left,
+// each generation of moves marches to the right, and sibling variations stack
+// vertically. So the "sibling gap" is now vertical and the "generation gap" is
+// horizontal (the reverse of a top-down tree).
+const NW = 56;          // node width
+const NH = 30;          // node height
+const SIBLING_GAP = 12; // vertical gap between stacked sibling subtrees
+const GEN_GAP = 44;     // horizontal gap: right of parent → left of child
+const PAD = 20;         // outer padding
 
 // Win/draw/loss bar, pinned to the bottom edge of the node box (below the SAN).
 const BAR_M = 6;             // horizontal inset from the box edges
@@ -168,29 +171,39 @@ function mergeInto(parent: MapNode, src: MoveNode, lineId: string, depthLeft: nu
 
 // ── Layout ────────────────────────────────────────────────────────────────────
 
-function subW(n: MapNode): number {
-  if (!n.children.length) return NW;
-  const tot = n.children.reduce((s, c, i) => s + subW(c) + (i ? HG : 0), 0);
-  return Math.max(NW, tot);
+// The vertical extent a subtree needs — siblings stack along Y, so a node's
+// "subtree height" is the sum of its children's heights (plus the gaps between
+// them), floored at one node tall.
+function subH(n: MapNode): number {
+  if (!n.children.length) return NH;
+  const tot = n.children.reduce((s, c, i) => s + subH(c) + (i ? SIBLING_GAP : 0), 0);
+  return Math.max(NH, tot);
 }
 
-function placeNodes(n: MapNode, x: number, y: number, w: number): void {
-  n.x = x + w / 2;
-  n.y = y;
+// Place a node and its descendants. `x` is the left edge of this node's column,
+// `y`..`y+h` is the vertical band reserved for its whole subtree. The node is
+// centred vertically in that band; children march one generation to the right.
+// We keep n.x = horizontal centre and n.y = top edge (the SVG drawing code
+// relies on that), so only the axis the maths walks has changed.
+function placeNodes(n: MapNode, x: number, y: number, h: number): void {
+  n.x = x + NW / 2;
+  n.y = y + h / 2 - NH / 2;
   if (!n.children.length) return;
-  const cws = n.children.map(subW);
-  const tot = cws.reduce((s, v) => s + v, 0) + HG * (cws.length - 1);
-  let cx = x + (w - tot) / 2;
-  const cy = y + NH + VG;
+  const chs = n.children.map(subH);
+  const tot = chs.reduce((s, v) => s + v, 0) + SIBLING_GAP * (chs.length - 1);
+  let cy = y + (h - tot) / 2;
+  const cx = x + NW + GEN_GAP;
   for (let i = 0; i < n.children.length; i++) {
-    placeNodes(n.children[i], cx, cy, cws[i]);
-    cx += cws[i] + HG;
+    placeNodes(n.children[i], cx, cy, chs[i]);
+    cy += chs[i] + SIBLING_GAP;
   }
 }
 
-function treeMaxY(n: MapNode): number {
-  if (!n.children.length) return n.y;
-  return Math.max(...n.children.map(treeMaxY));
+// Rightmost edge reached by any node — drives the SVG width.
+function treeMaxX(n: MapNode): number {
+  let m = n.x + NW / 2;
+  for (const c of n.children) m = Math.max(m, treeMaxX(c));
+  return m;
 }
 
 // FEN field 2: 'b' = black to move, meaning white just played.
@@ -204,11 +217,11 @@ function buildSVG(
   root: MapNode,
   onTap: (n: MapNode) => void,
 ): SVGSVGElement {
-  const w = subW(root);
-  placeNodes(root, PAD, PAD, w);
-  const maxY = treeMaxY(root);
-  const svgW = w + 2 * PAD;
-  const svgH = maxY + NH + PAD * 2;
+  const h = subH(root);
+  placeNodes(root, PAD, PAD, h);
+  const maxX = treeMaxX(root);
+  const svgW = maxX + PAD;
+  const svgH = h + 2 * PAD;
 
   const svg = document.createElementNS(NS, 'svg') as SVGSVGElement;
   svg.setAttribute('width', String(svgW));
@@ -265,10 +278,13 @@ function drawStatBar(g: SVGGElement, n: MapNode): void {
 function drawEdges(parent: SVGElement, n: MapNode, skip: boolean): void {
   for (const c of n.children) {
     if (!skip) {
-      const x1 = n.x, y1 = n.y + NH, x2 = c.x, y2 = c.y;
-      const my = (y2 - y1) * 0.5;
+      // Edges now run left → right: from the parent's right-centre to the
+      // child's left-centre, with a horizontal S-curve.
+      const x1 = n.x + NW / 2, y1 = n.y + NH / 2;
+      const x2 = c.x - NW / 2, y2 = c.y + NH / 2;
+      const mx = (x2 - x1) * 0.5;
       const p = document.createElementNS(NS, 'path');
-      p.setAttribute('d', `M${x1},${y1} C${x1},${y1 + my} ${x2},${y2 - my} ${x2},${y2}`);
+      p.setAttribute('d', `M${x1},${y1} C${x1 + mx},${y1} ${x2 - mx},${y2} ${x2},${y2}`);
       p.setAttribute('class', 'rmap-edge');
       parent.appendChild(p);
     }
@@ -620,8 +636,10 @@ function initPanZoom(
 // Centre a node in the visible area (with smooth animation).
 function centreNode(node: MapNode, outer: HTMLElement, state: TxState, inner: HTMLElement): void {
   const rect = outer.getBoundingClientRect();
-  state.tx = rect.width / 2 - node.x * state.scale;
-  state.ty = rect.height / 3 - node.y * state.scale;
+  // Bias slightly left of centre so the selected move's children (which extend
+  // to the right in the horizontal layout) stay on screen; centre vertically.
+  state.tx = rect.width / 3 - node.x * state.scale;
+  state.ty = rect.height / 2 - (node.y + NH / 2) * state.scale;
   applyTx(inner, state, true);
 }
 
@@ -927,13 +945,16 @@ export function openRepertoireMap(
   treeArea.appendChild(treeWrap);
   overlay.appendChild(treeArea);
 
-  // Re-centre the view on the first move of the (possibly rebuilt) tree.
+  // Re-centre the view on the first move of the (possibly rebuilt) tree. With
+  // the left → right layout we pin the first move near the left edge and centre
+  // it vertically, so the tree reads outward to the right like a game.
   function centreOnFirst(): void {
     requestAnimationFrame(() => {
       if (root.children[0]) {
         const rect = treeWrap.getBoundingClientRect();
-        state.tx = rect.width / 2 - root.children[0].x * state.scale;
-        state.ty = 60;
+        const c0 = root.children[0];
+        state.tx = 40 - (c0.x - NW / 2) * state.scale;
+        state.ty = rect.height / 2 - (c0.y + NH / 2) * state.scale;
         applyTx(inner, state);
       }
     });
