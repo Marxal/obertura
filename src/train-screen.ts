@@ -1,6 +1,6 @@
 import type { Line } from './types';
 import type { MoveNode } from './tree';
-import { getAllLines, saveLine } from './storage';
+import { getAllLines, saveLine, countGames } from './storage';
 import { startDrill, startPositionsDrill, startTimedDrill } from './drill';
 import { selectIndividualPositions, selectTimedPositions } from './individual';
 import { Icons } from './icons';
@@ -115,7 +115,7 @@ async function doRender(
 
   if (trainingLines.length === 0) {
     renderTrainHead(container);
-    renderEmpty(container);
+    renderEmpty(container, (await countGames()) > 0);
     return;
   }
 
@@ -209,12 +209,14 @@ function sessionForDefaultMode(trainingLines: Line[], due: Line[]): TrainingSess
 
 // ── Empty state ───────────────────────────────────────────────────────────────
 
-function renderEmpty(container: HTMLElement): void {
+function renderEmpty(container: HTMLElement, hasGames: boolean): void {
   container.appendChild(buildEmptyState({
     icon: Icons.zap(28),
     line: 'Nothing in training yet.',
     cta: { label: 'Build a line', onClick: () => onBuildLine?.() },
-    link: { label: 'or import your games', onClick: () => onImportGames?.() },
+    // The "import your games" nudge belongs only before anything's imported;
+    // once games are in, drop it (the user already has them).
+    ...(hasGames ? {} : { link: { label: 'or import your games', onClick: () => onImportGames?.() } }),
   }));
 }
 
