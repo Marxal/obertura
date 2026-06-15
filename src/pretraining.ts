@@ -3,6 +3,7 @@ import type { MoveNode } from './tree';
 import { saveLine } from './storage';
 import { startDrill } from './drill';
 import { newReview } from './scheduler';
+import { watchSpeedMs } from './prefs';
 
 // Enrol a line into training straight away, with no confirm run. Used when the
 // "Confirm run before training" pref is OFF. Clones so the caller's in-memory
@@ -22,7 +23,10 @@ function mainlineOf(tree: MoveNode): MoveNode[] {
 }
 
 // Mounts a full-screen pre-training run over the current view.
-// Walks the mainline only. Auto-plays the opponent side; validates user moves.
+// Walks the mainline only. First auto-plays the whole line through once (at the
+// user's watch speed) so they see it, then asks them to play it themselves. A
+// wrong move uses training's "full" flow: flash → snap back → (retries) → draw
+// the correct-move arrow → require the correct replay.
 // On one clean run: sets inTraining = true, persists lapse data, shows
 // confirmation, then calls onComplete. Cancel exits without saving.
 export function startPretrainingRun(
@@ -48,6 +52,11 @@ export function startPretrainingRun(
     // everywhere (the default), with the header chevron as its icon.
     modeLabel: 'Confirm line',
     completeMessage: 'Line confirmed — added to training',
+    // Watch the line through once first, at the user's chosen watch speed.
+    watchFirstMs: watchSpeedMs(),
+    // A wrong move draws the correct-move arrow and requires the replay — the
+    // same hint mechanism training uses.
+    wrongMoveMode: 'full',
     recordMiss,
     // Save before the success message appears, matching original behaviour.
     onBeforeComplete: async () => {
