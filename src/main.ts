@@ -90,6 +90,9 @@ function renderTitle(): void {
   const title = currentTitle();
   el.textContent = title || 'Unnamed line';
   el.classList.toggle('opening-name--empty', !title);
+  // The builder's header mirrors the line name, so keep it live as the opening
+  // is detected / renamed while building.
+  if (currentView === 'builder') updateHeaderTitle();
 }
 
 // Recompute the detected name for the cursor position and repaint the title.
@@ -918,6 +921,21 @@ function handleStartTraining(line: Line): void {
   );
 }
 
+// The header text: the "Obertura" wordmark on the four main tabs, the screen's
+// own title on the inner full screens. The builder shows the line's name (or
+// "New line" before it's named); Settings shows "Settings". A modifier class
+// swaps the pixel wordmark font for a plain heading on the inner screens.
+function updateHeaderTitle(): void {
+  const el = document.getElementById('header-title');
+  if (!el) return;
+  const onTab = !BACK_VIEWS.has(currentView);
+  el.textContent =
+    currentView === 'builder' ? (currentTitle() || 'New line')
+    : currentView === 'settings' ? 'Settings'
+    : 'Obertura';
+  el.classList.toggle('header-title--screen', !onTab);
+}
+
 function showView(view: ViewName): void {
   // Entering a full screen (builder/settings) from a tab: remember it so the back
   // arrow returns there.
@@ -925,6 +943,7 @@ function showView(view: ViewName): void {
     returnView = currentView;
   }
   currentView = view;
+  updateHeaderTitle();
 
   // The builder owns a back-layer while it's on screen, so the system back
   // gesture runs the save-guard with priority (rather than the less reliable
