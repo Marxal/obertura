@@ -4521,6 +4521,107 @@ cg-board square.move-dest.oc {
   padding: 0.55rem 0.7rem;
 }
 
+/* ── Pixel-pawn progress bar (import scan, see import-progress.ts) ───────────── */
+
+.pawn-progress {
+  position: relative;
+  /* Half-pawn breathing room each side so the marching pawn never clips at the
+     extremes, where translateX(-50%) lets it overhang the track edge. */
+  padding: 0 9px;
+  margin-top: 0.25rem;
+}
+
+/* The pawn rides this rail, sitting just above the track. */
+.pawn-progress-rail {
+  position: relative;
+  height: 18px;
+}
+
+.pawn-progress-pawn {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  transform: translateX(-50%);
+  color: var(--accent);
+  line-height: 0;
+  transition: left 0.35s ease;
+  will-change: left;
+}
+
+.pawn-progress-pawn-svg { display: block; }
+/* crispEdges keeps the blocky 8-bit feel; currentColor themes it from --accent. */
+.pawn-progress-pawn-svg rect {
+  fill: currentColor;
+  shape-rendering: crispEdges;
+}
+
+.pawn-progress-track {
+  position: relative;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--accent-soft);
+  overflow: hidden;
+}
+
+.pawn-progress-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  background: var(--accent);
+  border-radius: 4px;
+  transition: width 0.35s ease;
+}
+
+/* Marching legs — the two feet bob in alternation while the pawn walks. */
+.pawn-progress-pawn-svg .pawn-foot {
+  transform-box: fill-box;
+  animation: pawn-march 0.42s steps(1) infinite;
+}
+.pawn-progress-pawn-svg .pawn-foot--r { animation-delay: 0.21s; }
+
+@keyframes pawn-march {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-1px); }
+}
+
+/* Indeterminate: the pawn walks the full rail on a loop, laying a trail that
+   resets — used when the end is unknown ("All", or a single archive). */
+.pawn-progress--indeterminate .pawn-progress-pawn {
+  transition: none;
+  animation: pawn-walk-across 1.7s linear infinite;
+}
+.pawn-progress--indeterminate .pawn-progress-fill {
+  transition: none;
+  animation: pawn-trail-across 1.7s linear infinite;
+}
+
+@keyframes pawn-walk-across {
+  0%   { left: 0%; }
+  100% { left: 100%; }
+}
+@keyframes pawn-trail-across {
+  0%   { width: 0%; }
+  100% { width: 100%; }
+}
+
+/* Reduced motion: no walking, no bobbing legs — a calm, static bar. The fill
+   snaps without easing; an indeterminate scan just shows a parked half-full bar
+   (the status text below carries the live count). */
+@media (prefers-reduced-motion: reduce) {
+  .pawn-progress-pawn,
+  .pawn-progress-fill { transition: none; }
+  .pawn-progress-pawn-svg .pawn-foot { animation: none; }
+  .pawn-progress--indeterminate .pawn-progress-pawn {
+    animation: none;
+    left: 50%;
+  }
+  .pawn-progress--indeterminate .pawn-progress-fill {
+    animation: none;
+    width: 50%;
+    background: color-mix(in srgb, var(--accent) 55%, transparent);
+  }
+}
+
 /* ── Settings · Your games ──────────────────────────────────────────────────── */
 
 /* Pre-import call-to-action — the prominent card that leads Settings. */

@@ -40,6 +40,7 @@ import {
 } from './lichess';
 import { clearGames, saveGames, countGames } from './storage';
 import { pushBack } from './back-nav';
+import { createPawnProgress } from './import-progress';
 
 // ── Remembered choices (device-local) ────────────────────────────────────────
 
@@ -235,6 +236,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
   function close(): void {
     if (closed) return;
     closed = true;
+    clearTimeout(hideBarTimer);
     vv?.removeEventListener('resize', syncKeyboardInset);
     vv?.removeEventListener('scroll', syncKeyboardInset);
     overlay.remove();
@@ -336,9 +338,17 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
   const scanStatus = document.createElement('p');
   scanStatus.className = 'import-status';
   scanStatus.setAttribute('aria-live', 'polite');
+  // The little pixel pawn marching along while we fetch. Hidden until a scan
+  // starts; the status line below it carries the same progress as text.
+  const pawnProgress = createPawnProgress();
   scanBtn.addEventListener('click', runScan);
   step1.appendChild(scanBtn);
+  step1.appendChild(pawnProgress.el);
   step1.appendChild(scanStatus);
+
+  // Holds the brief "leave the finished bar up for a beat" timer between a
+  // successful scan and the bar fading out as step 2 appears.
+  let hideBarTimer: ReturnType<typeof setTimeout> | undefined;
 
   sheet.appendChild(step1);
 
@@ -358,6 +368,8 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     step2.hidden = true;
     step2.innerHTML = '';
     scanStatus.textContent = '';
+    clearTimeout(hideBarTimer);
+    pawnProgress.hide();
     // Bring the prominent Scan button back: editing step 1 invalidates the scan,
     // so the obvious next action is to scan again (step 2 hides its quiet link).
     scanBtn.hidden = false;
@@ -374,6 +386,11 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     scanBtn.disabled = true;
     scanBtn.textContent = 'Scanning…';
     scanStatus.textContent = 'Looking up your games…';
+    // Walk the pawn while we wait. "All" reaches an unknown end (the 1000-game
+    // cap can trip in any month), so it stays indeterminate; the fixed ranges
+    // switch to a proportional fill on the first progress with a real total.
+    const indeterminate = range === 'all';
+    pawnProgress.start();
     try {
       const result = await importGames(platform, user, {
         months: rangeMonths(range),
@@ -381,15 +398,21 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
           scanStatus.textContent = p.monthsTotal > 1
             ? `Scanning ${p.label} (${p.monthsDone}/${p.monthsTotal}) — ${p.gamesSoFar} games so far…`
             : `${p.gamesSoFar} games so far…`;
+          if (!indeterminate && p.monthsTotal > 1) pawnProgress.set(p.monthsDone / p.monthsTotal);
         },
       });
       scan = result;
       if (opts.rememberUser !== false) saveUsername(platform, user); // remember for next time
       scanStatus.textContent = '';
+      // Snap the pawn home, hold the finished bar for a beat, then let it fade as
+      // step 2's "Found N games" takes over.
+      pawnProgress.done();
+      hideBarTimer = setTimeout(() => pawnProgress.hide(), 650);
       buildStep2(result);
     } catch (err) {
       showError(friendlyError(err, platform));
       scanStatus.textContent = '';
+      pawnProgress.hide();
     } finally {
       scanBtn.disabled = false;
       scanBtn.textContent = 'Scan';
