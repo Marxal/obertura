@@ -28,25 +28,23 @@ function markIntroSeen(): void {
   try { localStorage.setItem(INTRO_SEEN_KEY, '1'); } catch { /* storage off */ }
 }
 
-// The app mark — Obertura's orange ring "O" (mirrors icons/icon-192.png). Built
-// here rather than in icons.ts because it's a filled brand mark, not a stroked
-// Lucide glyph. The brand orange is fixed so it reads on all three themes, the
-// same way the real app icon does.
-function appMark(size = 72): SVGSVGElement {
-  const el = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  el.setAttribute('viewBox', '0 0 24 24');
-  el.setAttribute('width', String(size));
-  el.setAttribute('height', String(size));
-  el.setAttribute('fill', 'none');
-  el.setAttribute('stroke', '#f5a623');
-  el.setAttribute('stroke-width', '4');
-  el.setAttribute('aria-hidden', 'true');
-  el.innerHTML = `<circle cx="12" cy="12" r="7.5"/>`;
-  return el;
+// The app mark — Obertura's real installed icon (public/icons/icon-192.png), the
+// same art Android puts on the home screen, so the intro opens on the actual
+// brand mark instead of a stand-in. Served from public/ under the app's base
+// path; rendered as a rounded app-icon tile (see .intro-mark-img in style.css).
+function appMark(size = 104): HTMLImageElement {
+  const img = document.createElement('img');
+  img.src = `${import.meta.env.BASE_URL}icons/icon-192.png`;
+  img.width = size;
+  img.height = size;
+  img.alt = '';
+  img.setAttribute('aria-hidden', 'true');
+  img.className = 'intro-mark-img';
+  return img;
 }
 
 interface Slide {
-  icon: () => SVGSVGElement;
+  icon: () => SVGSVGElement | HTMLImageElement;
   // The app mark rides its own brand colour; the menu icons take the themed
   // accent so they match the tab bar as it lights up.
   mark?: boolean;
@@ -56,7 +54,7 @@ interface Slide {
 
 const SLIDES: Slide[] = [
   {
-    icon: () => appMark(76),
+    icon: () => appMark(),
     mark: true,
     heading: 'Welcome to Obertura',
     body: 'Your personal opening library. Master your repertoire, analyze your play, and never forget a line.',
