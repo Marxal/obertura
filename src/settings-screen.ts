@@ -35,10 +35,7 @@ import {
   setShowStreakSection,
   getShowActivitySection,
   setShowActivitySection,
-  getCrashReportsEnabled,
-  setCrashReportsEnabled,
 } from './prefs';
-import { applyCrashReporting } from './crash';
 import { getFeedbackSound, setFeedbackSound, previewFeedback } from './sound';
 import {
   openImportPanel,
@@ -748,17 +745,6 @@ function buildDataGroup(): HTMLElement {
   caption.textContent = lastRefreshCaption();
   autoRow.appendChild(caption);
   sec.appendChild(autoRow);
-
-  // Crash reporting — opt-in, default off. Flipping it on/off starts or stops
-  // Sentry live (applyCrashReporting reads the pref we just wrote).
-  sec.appendChild(row(
-    'Send crash reports',
-    toggle(getCrashReportsEnabled(), (on) => {
-      setCrashReportsEnabled(on);
-      applyCrashReporting();
-    }),
-    { sub: 'Send anonymous crash reports to help fix bugs. Off by default.' },
-  ));
 
   // Export / import — the existing backup section does both.
   sec.appendChild(renderBackupSection(() => { /* nothing else on this screen depends on it */ }));

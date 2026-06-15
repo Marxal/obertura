@@ -28,7 +28,6 @@ import { maybeShowIntro } from './onboarding';
 import { maybeAutoRefreshGames } from './auto-refresh';
 import { maybeShowGate } from './gate';
 import { showToast } from './toast';
-import { applyCrashReporting } from './crash';
 
 const chess = new Chess();
 let cg!: ReturnType<typeof Chessground>;
@@ -1312,10 +1311,6 @@ const boardEl = document.getElementById('board') as HTMLElement;
 
 initTheme();
 initAppearance();
-// Crash reporting — only does anything if the opt-in toggle is on (default off),
-// in which case it lazily loads + starts Sentry. A no-op otherwise. Run early so
-// it can catch boot-time errors when enabled.
-applyCrashReporting();
 setupNav();
 
 // Beta access gate (gate.ts) — a self-contained invitation gate + install screen
