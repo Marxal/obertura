@@ -1,14 +1,14 @@
-// The first-launch intro — six full-screen slides that teach the menu and end on
+// The first-launch intro — four full-screen slides that pitch the app and end on
 // a "start from your games" action. Shown once (a localStorage flag), and
 // replayable from Settings. CSS-only animation, no libraries.
 //
-// Each slide leads with the very icon the tab bar uses for the matching screen
-// (the app mark for Welcome, then Build / Train / Explore / Statistics), so the
-// intro literally points at where each feature lives once you're in.
+// Each slide leads with an icon the tab bar uses for the matching area (the app
+// mark for Welcome, then the Train, Explore and Import glyphs), so the intro
+// nods at where each feature lives once you're in.
 //
-// Slide 6 doesn't rebuild the import flow — its Import button opens the shared
-// import panel (import-panel.ts). A successful import OR the "Skip for now" link
-// both finish the intro and land the caller on Train.
+// The final slide doesn't rebuild the import flow — its Import button opens the
+// shared import panel (import-panel.ts). A successful import OR the "Skip for
+// now" link both finish the intro and land the caller on Train.
 
 import { Icons } from './icons';
 import { openImportPanel } from './import-panel';
@@ -59,32 +59,22 @@ const SLIDES: Slide[] = [
     icon: () => appMark(76),
     mark: true,
     heading: 'Welcome to Obertura',
-    body: 'All your openings in one place. Build, train and remember them.',
-  },
-  {
-    icon: () => Icons.list(64),
-    heading: 'Build',
-    body: 'Play a line on the board — save it in your repertoire.',
+    body: 'Your personal opening library. Master your repertoire, analyze your play, and never forget a line.',
   },
   {
     icon: () => Icons.zap(64),
-    heading: 'Train',
-    body: 'Train full lines or individual moves. The algorithm helps you remember your openings.',
+    heading: 'Build & Train',
+    body: 'Play your favorite lines to save them to your repertoire, then let the algorithm help you memorize them perfectly.',
   },
   {
     icon: () => Icons.compass(64),
-    heading: 'Explore',
-    body: 'Scout your future opponents, analyse what they play, browse the library or build with the engine.',
-  },
-  {
-    icon: () => Icons.barChart(64),
-    heading: 'Statistics',
-    body: 'Keep track of your opening performance and what you’re learning.',
+    heading: 'Explore & Analyze',
+    body: 'Scout your opponents, consult the engine, and track your opening performance to see exactly what’s working.',
   },
   {
     icon: () => Icons.download(64),
-    heading: 'Start from YOUR games',
-    body: 'Pull your recent Chess.com or Lichess games and Obertura shows you the openings you actually play.',
+    heading: 'Start from your games',
+    body: 'Connect your Chess.com or Lichess account. Obertura shows you the openings you actually play.',
   },
 ];
 

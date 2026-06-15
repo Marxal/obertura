@@ -6709,10 +6709,10 @@ cg-board square.move-dest.oc {
 
 /* ════════════════════════════════════════════════════════════════════════════
    ONBOARDING INTRO (onboarding.ts)
-   A first-launch, full-screen walkthrough: six horizontal slides, each leading
-   with the matching tab-bar icon, with progress dots and Back / Next. CSS-only
+   A first-launch, full-screen walkthrough: four horizontal slides, each leading
+   with a matching tab-bar icon, with progress dots and Back / Next. CSS-only
    animation. Sits at z-index 200 (the full-screen-overlay tier) so the shared
-   import sheet (.edit-overlay, z-index 300) opens cleanly on top of slide 6.
+   import sheet (.edit-overlay, z-index 300) opens cleanly on top of the final slide.
    ════════════════════════════════════════════════════════════════════════════ */
 
 .intro-overlay {
@@ -6789,25 +6789,54 @@ cg-board square.move-dest.oc {
 
 /* Entrance animation — runs whenever a slide becomes active (the class is
    toggled on every navigation, so revisiting a slide replays it). The icon
-   floats up and scales in; the text fades up just behind it. */
+   springs up and overshoots in its disc, then heading, body and the action row
+   each fade up in a quick staggered cascade just behind it. */
 .intro-slide .intro-icon,
-.intro-slide .intro-text { opacity: 0; }
+.intro-slide .intro-heading,
+.intro-slide .intro-body,
+.intro-slide .intro-actions { opacity: 0; }
 
 .intro-slide.is-active .intro-icon {
-  animation: intro-icon-in 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+  animation: intro-icon-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
-.intro-slide.is-active .intro-text {
-  animation: intro-text-in 0.45s ease-out 0.12s forwards;
+.intro-slide.is-active .intro-icon > svg {
+  animation: intro-glyph-in 0.5s ease-out 0.18s backwards;
+}
+.intro-slide.is-active .intro-heading {
+  animation: intro-text-in 0.45s ease-out 0.16s forwards;
+}
+.intro-slide.is-active .intro-body {
+  animation: intro-text-in 0.45s ease-out 0.26s forwards;
+}
+.intro-slide.is-active .intro-actions {
+  animation: intro-text-in 0.45s ease-out 0.36s forwards;
 }
 
 @keyframes intro-icon-in {
-  0%   { opacity: 0; transform: translateY(16px) scale(0.6); }
-  60%  { opacity: 1; transform: translateY(-4px) scale(1.04); }
+  0%   { opacity: 0; transform: translateY(20px) scale(0.5); }
   100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+/* The glyph inside the disc gives a second little beat — a soft pop. */
+@keyframes intro-glyph-in {
+  0%   { transform: scale(0.6); }
+  100% { transform: scale(1); }
 }
 @keyframes intro-text-in {
   0%   { opacity: 0; transform: translateY(14px); }
   100% { opacity: 1; transform: translateY(0); }
+}
+
+/* Respect reduced-motion: show everything, skip the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .intro-slide .intro-icon,
+  .intro-slide .intro-heading,
+  .intro-slide .intro-body,
+  .intro-slide .intro-actions { opacity: 1; }
+  .intro-slide.is-active .intro-icon,
+  .intro-slide.is-active .intro-icon > svg,
+  .intro-slide.is-active .intro-heading,
+  .intro-slide.is-active .intro-body,
+  .intro-slide.is-active .intro-actions { animation: none; }
 }
 
 /* Slide 6 action row — Import primary button + a quiet Skip link. */
