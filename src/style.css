@@ -182,6 +182,68 @@
   --fill-faint: rgba(241, 232, 210, 0.035);
 }
 
+/* ── Gamer ────────────────────────────────────────────────────────────────────
+   A bold, playful neon theme on a near-black base. Electric cyan is the accent;
+   violet is the primary. Like dark/game it carries color-scheme: dark and rides
+   the dark-mode component treatments (flat fills, no sheen) via the shared
+   selectors above. The board is NOT themed — only this chrome changes. The neon
+   GLOW lives in a dedicated block lower down (search "GAMER — neon glow"); it is
+   pure box-shadow / text-shadow on chrome, scoped under [data-theme="gamer"], so
+   it never touches the board squares or leaks into the other themes.
+
+   Contrast verified against the near-black surfaces (body ≥ 4.5:1, UI/large ≥ 3:1):
+     text   #eaf1ff → 15.7:1 card / 17.5:1 page
+     muted  #aeb8de → 8.4:1 card
+     faint  #8b95c2 → 5.3:1 card  (decorative fainter → 3.4:1 card)
+     white label on violet --primary #6f54f0 → 5.0:1
+     dark --on-accent #06121a on cyan #27e0ff → 11.3:1
+     white label on --success #2faf63 → 3.2:1, on --danger #e84860 → 3.8:1. */
+[data-theme="gamer"] {
+  color-scheme: dark;
+
+  /* Surfaces — near-black with a faint cool/blue cast; page darkest, card up. */
+  --bg-page: #0e1020;
+  --bg-card: #161a2e;
+  --bg-sheet: #131628;
+  --bg-elevated: #1c2138;
+  --bg-parchment: #1c2138;
+
+  /* Text — cool near-white inks, stepped for contrast on the near-black. */
+  --text: #eaf1ff;
+  --text-muted: #aeb8de;   /* 8.4:1 on card */
+  --text-faint: #8b95c2;   /* 5.3:1 on card */
+  --text-fainter: #6f79a4; /* 3.4:1 on card — decorative only */
+
+  /* Borders — cool dark hairlines; neon-tinted rgba so alpha blends on any bg. */
+  --border: #2a3052;
+  --border-card: #242a48;
+  --hairline: rgba(124, 156, 255, 0.12);
+  --hairline-soft: rgba(124, 156, 255, 0.06);
+
+  /* Accent — electric cyan. Bright, so anything riding it as a background takes
+     the dark --on-accent ink (handled in the shared rule above). */
+  --accent: #27e0ff;
+  --accent-active: #00c4e6;
+  --accent-soft: rgba(39, 224, 255, 0.16);
+  --on-accent: #06121a;
+  /* Primary — neon violet. White label clears 4.5:1 (5.0:1). */
+  --primary: #6f54f0;
+  --primary-active: #5d43e0;
+  /* Neon green success / neon red-pink danger — white labels clear the 3:1 bar. */
+  --success: #2faf63;
+  --success-active: #279553;
+  --warn: #ff9f1c;
+  --danger: #e84860;
+  --danger-active: #d23350;
+
+  /* Shadows off by default — borders carry depth, and the dedicated glow block
+     adds neon halos to the chrome that should pop. */
+  --shadow-card: none;
+  --shadow-card-hover: 0 0 0 1px rgba(39, 224, 255, 0.16);
+
+  --fill-faint: rgba(124, 92, 255, 0.06);
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -267,7 +329,11 @@ body {
 [data-theme="game"] .btn-primary,
 [data-theme="game"] .header-save,
 [data-theme="game"] .review-build-btn,
-[data-theme="game"] .practice-option--primary {
+[data-theme="game"] .practice-option--primary,
+[data-theme="gamer"] .btn-primary,
+[data-theme="gamer"] .header-save,
+[data-theme="gamer"] .review-build-btn,
+[data-theme="gamer"] .practice-option--primary {
   background-image: none;
   box-shadow: none;
   text-shadow: none;
@@ -281,10 +347,10 @@ body {
   color: var(--text);
 }
 
-/* Game: the brass accent is bright, so anything riding it as a background takes
-   the dark --on-accent ink instead of the white used in light/dark themes. The
-   active card-training button flips to --success (a darker olive), so it keeps
-   its white label and is excluded here. */
+/* Game/Gamer: the accent is bright (brass / neon-cyan), so anything riding it as
+   a background takes the dark --on-accent ink instead of the white used in
+   light/dark themes. The active card-training button flips to --success (a
+   darker olive), so it keeps its white label and is excluded here. */
 [data-theme="game"] .move-san.active,
 [data-theme="game"] .seg-btn.active,
 [data-theme="game"] .dfilter-btn.active,
@@ -292,7 +358,15 @@ body {
 [data-theme="game"] .card-training-btn:not(.card-training-btn--active),
 [data-theme="game"] .rmap-pos-open-btn,
 [data-theme="game"] .lib-move--current,
-[data-theme="game"] .spar-banner {
+[data-theme="game"] .spar-banner,
+[data-theme="gamer"] .move-san.active,
+[data-theme="gamer"] .seg-btn.active,
+[data-theme="gamer"] .dfilter-btn.active,
+[data-theme="gamer"] .tag-chip--on,
+[data-theme="gamer"] .card-training-btn:not(.card-training-btn--active),
+[data-theme="gamer"] .rmap-pos-open-btn,
+[data-theme="gamer"] .lib-move--current,
+[data-theme="gamer"] .spar-banner {
   color: var(--on-accent);
 }
 
@@ -1104,9 +1178,11 @@ cg-board square.move-dest.oc {
 .ann-blunder { --ann: var(--danger); }
 
 [data-theme="dark"] .ann-interesting,
-[data-theme="game"] .ann-interesting { --ann: #c79b32; }
+[data-theme="game"] .ann-interesting,
+[data-theme="gamer"] .ann-interesting { --ann: #c79b32; }
 [data-theme="dark"] .ann-dubious,
-[data-theme="game"] .ann-dubious { --ann: #cf8a35; }
+[data-theme="game"] .ann-dubious,
+[data-theme="gamer"] .ann-dubious { --ann: #cf8a35; }
 
 /* Tiny chip riding on a move in the strip. */
 .ann-chip {
@@ -2577,7 +2653,9 @@ cg-board square.move-dest.oc {
 [data-theme="dark"] .card-training-btn,
 [data-theme="dark"] .card-training-btn.card-training-btn--active,
 [data-theme="game"] .card-training-btn,
-[data-theme="game"] .card-training-btn.card-training-btn--active {
+[data-theme="game"] .card-training-btn.card-training-btn--active,
+[data-theme="gamer"] .card-training-btn,
+[data-theme="gamer"] .card-training-btn.card-training-btn--active {
   background-image: none;
 }
 
@@ -3274,7 +3352,8 @@ cg-board square.move-dest.oc {
 
 /* The white-sheen gradient reads as a grey smear on dark surfaces — drop it. */
 [data-theme="dark"] .mode-card,
-[data-theme="game"] .mode-card {
+[data-theme="game"] .mode-card,
+[data-theme="gamer"] .mode-card {
   background-image: none;
 }
 
@@ -4744,7 +4823,8 @@ cg-board square.move-dest.oc {
 }
 
 [data-theme="dark"] .stats-attention-reason--warn,
-[data-theme="game"] .stats-attention-reason--warn {
+[data-theme="game"] .stats-attention-reason--warn,
+[data-theme="gamer"] .stats-attention-reason--warn {
   color: #d4892c;
 }
 
@@ -5237,6 +5317,10 @@ cg-board square.move-dest.oc {
   fill: #2c2820;
   stroke: #48392c;
 }
+[data-theme="gamer"] .rmap-node--white > .rmap-node-bg {
+  fill: #1b2138;
+  stroke: #2f3a63;
+}
 
 /* Black moves: slightly warmer dark */
 .rmap-node--black > .rmap-node-bg {
@@ -5247,6 +5331,10 @@ cg-board square.move-dest.oc {
 [data-theme="game"] .rmap-node--black > .rmap-node-bg {
   fill: #1c1712;
   stroke: #382d22;
+}
+[data-theme="gamer"] .rmap-node--black > .rmap-node-bg {
+  fill: #0f1426;
+  stroke: #283051;
 }
 
 /* Fork = variation split point */
@@ -5493,6 +5581,11 @@ cg-board square.move-dest.oc {
   border-color: #4a3d2e;
   color: #e0d4be;
 }
+[data-theme="gamer"] .rmap-colour-btn--white {
+  background: #1b2138;
+  border-color: #303a63;
+  color: #d7def2;
+}
 
 .rmap-colour-btn--black {
   background: #272018;
@@ -5504,6 +5597,11 @@ cg-board square.move-dest.oc {
   background: #18130e;
   border-color: #2d2218;
   color: #b8a888;
+}
+[data-theme="gamer"] .rmap-colour-btn--black {
+  background: #0f1426;
+  border-color: #283051;
+  color: #9aa4cc;
 }
 
 .rmap-colour-btn-icon {
@@ -6735,3 +6833,92 @@ cg-board square.move-dest.oc {
   -webkit-tap-highlight-color: transparent;
 }
 .gate-continue-link:active { color: var(--text); opacity: 1; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   GAMER — neon glow
+   The playful layer of the Gamer theme. EVERY rule here is scoped under
+   [data-theme="gamer"], so the glow only exists in this theme and never leaks
+   into Classic light/dark or Elegant. It is pure box-shadow / text-shadow on the
+   CHROME — primary actions, active states, the streak pill, focus rings, cards.
+   The board squares are never touched (the theme defines no board variables).
+
+   Two glow hues, used with restraint: cyan (var(--accent)) for active/selected
+   states and focus, violet (var(--primary)) for the main action buttons.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Primary action buttons — violet halo + a soft inner top-light. */
+[data-theme="gamer"] .btn-primary,
+[data-theme="gamer"] .header-save,
+[data-theme="gamer"] .review-build-btn,
+[data-theme="gamer"] .practice-option--primary {
+  box-shadow: 0 0 16px rgba(111, 84, 240, 0.5), 0 0 4px rgba(111, 84, 240, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+[data-theme="gamer"] .btn-primary:hover,
+[data-theme="gamer"] .header-save:hover,
+[data-theme="gamer"] .review-build-btn:hover,
+[data-theme="gamer"] .practice-option--primary:hover {
+  box-shadow: 0 0 24px rgba(111, 84, 240, 0.7), 0 0 7px rgba(111, 84, 240, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+/* Success / danger buttons — a gentler halo in their own hue. */
+[data-theme="gamer"] .btn-success {
+  box-shadow: 0 0 14px rgba(47, 175, 99, 0.45), 0 0 3px rgba(47, 175, 99, 0.55);
+}
+[data-theme="gamer"] .btn-danger {
+  box-shadow: 0 0 14px rgba(232, 72, 96, 0.45), 0 0 3px rgba(232, 72, 96, 0.55);
+}
+
+/* Active selected states riding the cyan accent — a cyan halo so the choice pops. */
+[data-theme="gamer"] .seg-btn.active,
+[data-theme="gamer"] .dfilter-btn.active,
+[data-theme="gamer"] .tag-chip--on,
+[data-theme="gamer"] .move-san.active,
+[data-theme="gamer"] .lib-move--current {
+  box-shadow: 0 0 14px rgba(39, 224, 255, 0.5), 0 0 4px rgba(39, 224, 255, 0.6);
+}
+
+/* Bottom-nav active tab — cyan text, glowing icon + label (text-shadow only). */
+[data-theme="gamer"] .tab-item.active {
+  text-shadow: 0 0 10px rgba(39, 224, 255, 0.7);
+}
+[data-theme="gamer"] .tab-item.active svg {
+  filter: drop-shadow(0 0 6px rgba(39, 224, 255, 0.7));
+}
+
+/* The streak pill — the daily face of the streak, so it earns a cyan halo.
+   A cold (no-streak) pill stays quiet, with no glow. */
+[data-theme="gamer"] .streak-pill:not(.streak-pill--cold) {
+  box-shadow: 0 0 14px rgba(39, 224, 255, 0.4), inset 0 0 0 1px rgba(39, 224, 255, 0.35);
+  text-shadow: 0 0 8px rgba(39, 224, 255, 0.45);
+}
+[data-theme="gamer"] .stats-streak-flame,
+[data-theme="gamer"] .streak-pill:not(.streak-pill--cold) .streak-pill-flame {
+  filter: drop-shadow(0 0 6px rgba(255, 159, 28, 0.7));
+}
+
+/* Cards lift on hover with a faint cyan edge instead of a flat outline. */
+[data-theme="gamer"] .card:hover,
+[data-theme="gamer"] .mode-card:hover {
+  box-shadow: 0 0 18px rgba(39, 224, 255, 0.16), 0 0 0 1px rgba(39, 224, 255, 0.22);
+}
+
+/* Focus rings — a cyan glow ring so keyboard / tap focus is unmistakable. Pairs
+   with the accent border these inputs already adopt on focus. */
+[data-theme="gamer"] .settings-input:focus,
+[data-theme="gamer"] .edit-input:focus,
+[data-theme="gamer"] .gate-input:focus,
+[data-theme="gamer"] .lib-search-input:focus,
+[data-theme="gamer"] .prompt-sheet-textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(39, 224, 255, 0.25), 0 0 12px rgba(39, 224, 255, 0.3);
+}
+[data-theme="gamer"] .btn-primary:focus-visible,
+[data-theme="gamer"] .btn-secondary:focus-visible,
+[data-theme="gamer"] .btn-success:focus-visible,
+[data-theme="gamer"] .btn-danger:focus-visible,
+[data-theme="gamer"] .seg-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(39, 224, 255, 0.35), 0 0 14px rgba(39, 224, 255, 0.4);
+}

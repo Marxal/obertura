@@ -35,10 +35,11 @@
           if (choice === 'classic-light') eff = 'light';
           else if (choice === 'classic-dark') eff = 'dark';
           else if (choice === 'elegant') eff = 'game';
+          else if (choice === 'gamer') eff = 'gamer';
           else eff = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
           document.documentElement.setAttribute('data-theme', eff);
           var meta = document.querySelector('meta[name="theme-color"]');
-          var color = eff === 'dark' ? '#1a1512' : eff === 'game' ? '#1e3128' : '#f1ece1';
+          var color = eff === 'dark' ? '#1a1512' : eff === 'game' ? '#1e3128' : eff === 'gamer' ? '#0e1020' : '#f1ece1';
           if (meta) meta.setAttribute('content', color);
           // Board colours (see appearance.ts) — applied here too so there's no
           // flash of the default scheme before the app boots.

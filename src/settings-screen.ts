@@ -413,13 +413,14 @@ function buildAppearanceGroup(): HTMLElement {
         { value: 'classic-light', label: 'Classic light' },
         { value: 'classic-dark', label: 'Classic dark' },
         { value: 'elegant', label: 'Elegant' },
+        { value: 'gamer', label: 'Gamer' },
         { value: 'system', label: 'System' },
       ],
       getThemeChoice(),
       (v) => setThemeChoice(v),
       { fullWidth: true },
     ),
-    { sub: 'Elegant is a felt-table green. System follows your phone’s light/dark setting.' },
+    { sub: 'Elegant is a felt-table green; Gamer is a neon-glow dark. System follows your phone’s light/dark setting.' },
   ));
 
   sec.appendChild(row(
