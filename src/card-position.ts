@@ -1,0 +1,87 @@
+// Shared scaffold for any card that represents a chess position — used by the
+// Saved-lines cards, the "From my games" suggestion cards, and the Train hub's
+// "In training" rows, so all three read as one family.
+//
+// The shape (agreed in Phase 2, Task 5):
+//   Row 1 (titleRow): full width — the line/opening title with its colour pip.
+//   Row 2 (body): a larger position miniature on the LEFT, with the rest of the
+//     card's info + action buttons stacked on the RIGHT (content).
+//
+// Every position card shows a miniature, gated globally by the Settings
+// "show line miniatures" toggle. When it's off (or there's no FEN), no board is
+// drawn and the content simply fills the row — the layout reflows cleanly.
+
+import type { Line } from './types';
+import type { MoveNode } from './tree';
+import { buildMiniBoard } from './board-mini';
+import { getShowLineMiniatures } from './prefs';
+
+const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
+// The final position of a line's mainline (the children[0] chain), for its
+// miniature. Shared so every screen draws the same board for a given line.
+export function lineFinalFen(tree: MoveNode): string {
+  let node: MoveNode | undefined = tree.children[0];
+  let fen = START_FEN;
+  while (node) {
+    fen = node.fen;
+    node = node.children[0];
+  }
+  return fen;
+}
+
+export interface PositionCardParts {
+  /** The outer card element — append it to the list. */
+  card: HTMLDivElement;
+  /** Row 1, full width — append the colour pip + title (and any trailing icon). */
+  titleRow: HTMLDivElement;
+  /** Row 2 flex container — holds the board slot (when shown) + content. */
+  body: HTMLDivElement;
+  /** Right side of row 2 — append the info + action buttons here. */
+  content: HTMLDivElement;
+}
+
+export interface PositionCardOpts {
+  /** Position to draw a miniature for. Omit to never show a board for this card. */
+  fen?: string | null;
+  /** Board orientation — Black lines show from Black's side. */
+  orientation?: 'white' | 'black';
+  /** Extra class(es) for the card element (e.g. 'games-card', 'train-row'). */
+  className?: string;
+}
+
+export function buildPositionCard(opts: PositionCardOpts = {}): PositionCardParts {
+  const card = document.createElement('div');
+  card.className = 'pcard' + (opts.className ? ' ' + opts.className : '');
+
+  const titleRow = document.createElement('div');
+  titleRow.className = 'pcard-titlerow';
+  card.appendChild(titleRow);
+
+  const body = document.createElement('div');
+  body.className = 'pcard-body';
+
+  if (opts.fen && getShowLineMiniatures()) {
+    const mini = document.createElement('div');
+    mini.className = 'pcard-mini';
+    mini.appendChild(buildMiniBoard(opts.fen, opts.orientation ?? 'white'));
+    body.appendChild(mini);
+    card.classList.add('pcard--hasboard');
+  }
+
+  const content = document.createElement('div');
+  content.className = 'pcard-content';
+  body.appendChild(content);
+
+  card.appendChild(body);
+
+  return { card, titleRow, body, content };
+}
+
+// Convenience: a colour pip (white/black dot) for a position card's title row.
+export function colourPip(colour: Line['colour']): HTMLSpanElement {
+  const pip = document.createElement('span');
+  pip.className = `colour-pip colour-pip--${colour}`;
+  pip.setAttribute('aria-hidden', 'true');
+  return pip;
+}
