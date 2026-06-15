@@ -3,9 +3,7 @@ import type { MoveNode } from './tree';
 import { getAllLines, saveLine } from './storage';
 import { startDrill, startPositionsDrill, startTimedDrill } from './drill';
 import { selectIndividualPositions } from './individual';
-import { openExplorer } from './explore';
 import { Icons } from './icons';
-import { isGoodAlternative } from './engine';
 import {
   getTimedBest,
   recordTimedBest,
@@ -851,8 +849,9 @@ function runItem(
     modeLabel: isResurface ? 'Second look' : 'Training',
     celebrateOnComplete: true,
     completeMessage: isResurface ? 'Got it that time ✓' : 'Line complete',
-    checkAlternative: (fen, uci) => isGoodAlternative(fen, uci),
-    onExplore: (fenAfter, label, orientation) => openExplorer(fenAfter, { label, orientation, onClose: () => {} }),
+    // Training is strict: only the move stored in the line is accepted. We
+    // deliberately do NOT pass checkAlternative/onExplore here — a sound but
+    // off-line move is treated as a plain miss (correct-move arrow as usual).
     recordMiss,
     onCancel: () => void doRender(container),
     onBeforeComplete: async () => {
@@ -937,8 +936,8 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
       playPrelude: true,
       celebrateOnComplete: true,
       completeMessage: 'Positions cleared ✓',
-      checkAlternative: (fen, uci) => isGoodAlternative(fen, uci),
-      onExplore: (fenAfter, label, orientation) => openExplorer(fenAfter, { label, orientation, onClose: () => {} }),
+      // Strict training: no checkAlternative/onExplore — only the stored move
+      // is accepted; anything else is a miss.
       recordMiss: (node) => { missed.add(node.id); },
       onStepComplete: (expected) => {
         const line = lineByNode.get(expected);
@@ -1183,9 +1182,8 @@ function runMistakesReview(container: HTMLElement, mistakes: Mistake[]): void {
       modeLabel: 'Your mistakes',
       celebrateOnComplete: true,
       completeMessage: 'Mistakes reviewed ✓',
-      checkAlternative: (fen, uci) => isGoodAlternative(fen, uci),
-      onExplore: (fenAfter, label, orientation) =>
-        openExplorer(fenAfter, { label, orientation, onClose: () => {} }),
+      // Strict training: no checkAlternative/onExplore — only the stored move
+      // is accepted; anything else is a miss.
       recordMiss: (node) => { stillMissed.add(node); },
       onComplete: () => {
         const again = mistakes.filter(m => stillMissed.has(m.expected));
