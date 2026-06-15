@@ -24,7 +24,10 @@ import { openRepertoireMap } from './repertoire-map';
 import { openLibrary } from './library';
 import { openSpar, type SparSaveFn, type SparMode } from './spar';
 import { loadBookLines, pickBookLine, pickGameLine } from './book-lines';
-import { analyseGames, type OpeningStat } from './analysis';
+import {
+  analyseGames, UNKNOWN_FAMILY, MIN_GAMES_WEAK, WEAK_SCORE_PCT, type OpeningStat,
+} from './analysis';
+import { buildPositionCard, colourPip, fenFromUcis } from './card-position';
 import {
   getAllLines, getAllGames, getAllOpponents, getOpponent, saveOpponent, deleteOpponent, deleteLine,
   countOpponents,
@@ -148,6 +151,13 @@ async function buildScreen(container: HTMLElement): Promise<void> {
   if (maps) container.appendChild(maps);
   container.appendChild(libEl);
   container.appendChild(sparSection(hasGames));
+
+  // 5) Recommended lines to try — games-gated, at the very bottom. Only when
+  //    games are imported, and only if there's actually something worth nudging.
+  if (hasGames) {
+    const recs = recommendationsSection(games, lines);
+    if (recs) container.appendChild(recs);
+  }
 }
 
 // ── Spar with the engine ─────────────────────────────────────────────────────
@@ -1191,6 +1201,133 @@ function openingCard(stat: OpeningStat, prepare: PrepareFn): HTMLElement {
 
   card.appendChild(body);
   return card;
+}
+
+// ── Recommended lines to try (games-gated) ───────────────────────────────────
+//
+// Once games are imported, surface up to 4 openings per colour worth building a
+// solid line for. HEURISTIC: openings you reach OFTEN ENOUGH to matter
+// (≥ MIN_GAMES_WEAK games) but UNDER-PERFORM in (score under WEAK_SCORE_PCT, i.e.
+// below even). That's the honest "you keep playing this and keep losing — go prep
+// a solid line" signal. Worst score leads; ties break on most games. We require a
+// recognised family (so the card has a real name) and a representative line (so
+// "Build line" has moves to seed). This reuses analysis.ts's existing per-opening
+// stats untouched — no extra signal was needed for a decent pick. (A future
+// refinement could weight how *recent* the losses are, or down-rank openings
+// you've since prepped; both would need analysis to expose more than it does now.)
+function recommendedFor(stats: OpeningStat[], colour: 'white' | 'black'): OpeningStat[] {
+  return stats
+    .filter(s =>
+      s.colour === colour &&
+      s.family !== UNKNOWN_FAMILY &&
+      s.repUcis.length > 0 &&
+      s.games >= MIN_GAMES_WEAK &&
+      s.scorePct < WEAK_SCORE_PCT)
+    .sort((a, b) => a.scorePct - b.scorePct || b.games - a.games)
+    .slice(0, 4);
+}
+
+// The section element, or null when there's nothing worth recommending (so the
+// caller can omit it entirely). Only ever reached when games are imported.
+function recommendationsSection(games: ImportedGame[], lines: Line[]): HTMLElement | null {
+  const analysis = analyseGames(games, lines);
+  const white = recommendedFor(analysis.stats, 'white');
+  const black = recommendedFor(analysis.stats, 'black');
+  if (white.length === 0 && black.length === 0) return null;
+
+  const section = document.createElement('div');
+  section.className = 'section';
+
+  const head = document.createElement('div');
+  head.className = 'section-head';
+  const heading = document.createElement('h2');
+  heading.className = 'section-title';
+  heading.textContent = 'Recommended lines to try';
+  head.appendChild(heading);
+  section.appendChild(head);
+
+  const desc = document.createElement('p');
+  desc.className = 'section-desc';
+  desc.textContent =
+    'Openings you play a lot but score poorly in — build a solid line and train it.';
+  section.appendChild(desc);
+
+  if (white.length > 0) {
+    section.appendChild(reportGroup('As White', white.map(recommendationCard)));
+  }
+  if (black.length > 0) {
+    section.appendChild(reportGroup('As Black', black.map(recommendationCard)));
+  }
+  return section;
+}
+
+// One recommendation, built on the shared position-card scaffold so it reads
+// exactly like the From-my-games suggestion cards: family + colour pip on row 1,
+// a miniature (honouring the global toggle) on the left of row 2 with the score,
+// line and Build action on the right. "Build line" reuses the same builder seed
+// path as those suggestions (onOpenInBuilder → buildFromUcis in main.ts).
+function recommendationCard(stat: OpeningStat): HTMLElement {
+  const { card, titleRow, content } = buildPositionCard({
+    fen: fenFromUcis(stat.repUcis),
+    orientation: stat.colour,
+    className: 'games-card',
+  });
+
+  titleRow.appendChild(colourPip(stat.colour));
+  const nameEl = document.createElement('span');
+  nameEl.className = 'pcard-name';
+  nameEl.textContent = stat.family;
+  titleRow.appendChild(nameEl);
+
+  const meta = document.createElement('div');
+  meta.className = 'stat-card-chips';
+  const gamesChip = document.createElement('span');
+  gamesChip.className = 'review-stat-chip';
+  gamesChip.textContent = `Played ${stat.games}×`;
+  meta.appendChild(gamesChip);
+  content.appendChild(meta);
+
+  // Score line — bar + "42% · W-D-L".
+  const scoreRow = document.createElement('div');
+  scoreRow.className = 'review-score-row';
+  scoreRow.appendChild(scoreBar(stat.scorePct));
+  const scoreText = document.createElement('span');
+  scoreText.className = 'review-score-text';
+  scoreText.textContent = `${stat.scorePct}% · ${stat.wins}-${stat.draws}-${stat.losses} W-D-L`;
+  scoreRow.appendChild(scoreText);
+  content.appendChild(scoreRow);
+
+  if (stat.repSans.length > 0) {
+    const lineEl = document.createElement('div');
+    lineEl.className = 'review-moves stat-card-note';
+    lineEl.textContent = formatSanLine(stat.repSans);
+    content.appendChild(lineEl);
+  }
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn-secondary stat-card-btn';
+  btn.textContent = 'Build line';
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    exploreDeps?.onOpenInBuilder(stat.repUcis, stat.colour);
+  });
+  content.appendChild(btn);
+
+  return card;
+}
+
+// A win/draw/loss score bar, green→amber→red by how good the score is. (Same
+// shape as the From-my-games suggestion cards in lines-screen.)
+function scoreBar(pct: number): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'review-score-bar';
+  const fill = document.createElement('div');
+  fill.className = 'review-score-fill';
+  fill.style.width = `${Math.max(4, Math.min(100, pct))}%`;
+  fill.style.background = pct >= 55 ? '#2a6b3a' : pct >= 45 ? '#d8961f' : '#c0531f';
+  wrap.appendChild(fill);
+  return wrap;
 }
 
 // ── Small shared helpers ──────────────────────────────────────────────────────────
