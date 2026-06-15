@@ -1,5 +1,4 @@
 import type { Line } from './types';
-import type { MoveNode } from './tree';
 import { Chessground } from 'chessground';
 import { Chess } from 'chess.js';
 import {
@@ -8,8 +7,8 @@ import {
   deleteLine,
   getAllGames,
 } from './storage';
-import { buildMiniBoard } from './board-mini';
-import { getShowQuickView, getShowLineMiniatures } from './prefs';
+import { buildPositionCard, colourPip, lineFinalFen } from './card-position';
+import { getShowQuickView } from './prefs';
 import { lineIsDue } from './scheduler';
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
@@ -43,8 +42,6 @@ function cachedCounts(games: ImportedGame[], lines: Line[]): Map<string, number>
   return countsCache.result;
 }
 
-const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-
 function relativeDate(isoStr: string): string {
   const diff = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000);
   if (diff < 60) return 'just now';
@@ -62,20 +59,6 @@ function confidenceDots(c: number): string {
   if (!c) return '—';
   const n = Math.min(Math.max(c, 0), 5);
   return '●'.repeat(n) + '○'.repeat(5 - n);
-}
-
-// The position a mini-board should show. Ideally the opening's "key named
-// position" — but pinning that down means an online lookup per line, which
-// isn't cheap. So we use the final mainline position: walk first-children to
-// the end of the tree and take that FEN. Empty lines fall back to the start.
-function finalMainlineFen(tree: MoveNode): string {
-  let node: MoveNode | undefined = tree.children[0];
-  let fen = START_FEN;
-  while (node) {
-    fen = node.fen;
-    node = node.children[0];
-  }
-  return fen;
 }
 
 // The final position of a representative line (a flat UCI list) for a
@@ -394,7 +377,7 @@ function buildMiniCard(
   const board = document.createElement('div');
   board.className = 'carousel-board';
   card.appendChild(board);
-  pending.push({ el: board, fen: finalMainlineFen(line.tree), orientation: line.colour });
+  pending.push({ el: board, fen: lineFinalFen(line.tree), orientation: line.colour });
 
   const titleEl = document.createElement('div');
   titleEl.className = 'carousel-card-title';
@@ -517,8 +500,12 @@ function buildDetailCard(
 ): HTMLElement {
   const due = line.inTraining && lineIsDue(line);
 
-  const card = document.createElement('div');
-  card.className = 'dline-card';
+  // Shared position-card scaffold: title row on top, a larger miniature on the
+  // left of row 2 with the info + actions on the right.
+  const { card, titleRow: titleRowWrap, content } = buildPositionCard({
+    fen: lineFinalFen(line.tree),
+    orientation: line.colour,
+  });
 
   // Just saved from the builder: draw attention and scroll it into view.
   if (line.id === highlightLineId) {
@@ -529,36 +516,15 @@ function buildDetailCard(
     );
   }
 
-  // Top of the card: an optional position miniature on the left, with the title
-  // and info stacked beside it on the right.
-  const main = document.createElement('div');
-  main.className = 'dline-main';
-
-  if (getShowLineMiniatures()) {
-    const mini = document.createElement('div');
-    mini.className = 'dline-mini';
-    mini.appendChild(buildMiniBoard(finalMainlineFen(line.tree), line.colour));
-    main.appendChild(mini);
-  }
-
-  const body = document.createElement('div');
-  body.className = 'dline-body';
-
-  // Title row — its own line. Tap the title (or the eye beside it) to open the
-  // line in the builder.
-  const titleRowWrap = document.createElement('div');
-  titleRowWrap.className = 'dline-titlerow';
-
+  // Title row (row 1) — full width. Tap the title (or the eye beside it) to open
+  // the line in the builder.
   const titleRow = document.createElement('button');
   titleRow.type = 'button';
-  titleRow.className = 'dline-open';
-  const pip = document.createElement('span');
-  pip.className = `colour-pip colour-pip--${line.colour}`;
-  pip.setAttribute('aria-hidden', 'true');
+  titleRow.className = 'pcard-title';
+  titleRow.appendChild(colourPip(line.colour));
   const nameEl = document.createElement('span');
-  nameEl.className = 'dline-name';
+  nameEl.className = 'pcard-name';
   nameEl.textContent = line.name || line.openingName || 'Untitled line';
-  titleRow.appendChild(pip);
   titleRow.appendChild(nameEl);
   titleRow.addEventListener('click', () => deps.onOpenLine(line));
   titleRowWrap.appendChild(titleRow);
@@ -574,9 +540,7 @@ function buildDetailCard(
   eyeBtn.addEventListener('click', () => deps.onOpenLine(line));
   titleRowWrap.appendChild(eyeBtn);
 
-  body.appendChild(titleRowWrap);
-
-  // Card info, stacked under the title.
+  // Card info, stacked beside the board.
   const info = document.createElement('div');
   info.className = 'dline-info';
 
@@ -620,9 +584,7 @@ function buildDetailCard(
   stats.appendChild(last);
   info.appendChild(stats);
 
-  body.appendChild(info);
-  main.appendChild(body);
-  card.appendChild(main);
+  content.appendChild(info);
 
   // Footer: training toggle (+ Due badge) bottom-left, rename/delete bottom-right.
   const footer = document.createElement('div');
@@ -701,7 +663,7 @@ function buildDetailCard(
   iconRow.appendChild(deleteBtn);
 
   footer.appendChild(iconRow);
-  card.appendChild(footer);
+  content.appendChild(footer);
 
   return card;
 }
@@ -860,12 +822,6 @@ function buildRefreshRow(fullRefresh: () => void): HTMLElement {
   return row;
 }
 
-function colourChip(colour: 'white' | 'black'): HTMLElement {
-  const chip = document.createElement('span');
-  chip.className = 'tag-chip';
-  chip.textContent = colour === 'white' ? '○ White' : '● Black';
-  return chip;
-}
 
 // A win/draw/loss score bar, green→amber→red by how good the score is.
 function scoreBar(pct: number): HTMLElement {
@@ -890,42 +846,32 @@ function formatSanLine(sans: string[]): string {
 }
 
 function suggestionCard(stat: OpeningStat, deps: LinesDeps): HTMLElement {
-  // Built on the .card + .row component layer, to match My Lines.
-  const card = document.createElement('div');
-  card.className = 'card stat-card games-card';
+  // Shared position-card scaffold so suggestions read like the saved-line cards:
+  // family name + colour pip on row 1, a larger miniature on the left of row 2
+  // with the score, line and Build action stacked on the right.
+  const { card, titleRow, content } = buildPositionCard({
+    fen: stat.repUcis.length > 0 ? fenFromUcis(stat.repUcis) : null,
+    orientation: stat.colour,
+    className: 'games-card',
+  });
 
-  // Row 1: optional position miniature + family name and chips.
-  const head = document.createElement('div');
-  head.className = 'row games-card-head';
-
-  if (getShowLineMiniatures() && stat.repUcis.length > 0) {
-    const mini = document.createElement('div');
-    mini.className = 'games-card-mini';
-    mini.appendChild(buildMiniBoard(fenFromUcis(stat.repUcis), stat.colour));
-    head.appendChild(mini);
-  }
-
-  const headText = document.createElement('div');
-  headText.className = 'games-card-headtext';
-  const nameEl = document.createElement('div');
-  nameEl.className = 'stat-card-name';
+  // Row 1: colour pip + opening family name.
+  titleRow.appendChild(colourPip(stat.colour));
+  const nameEl = document.createElement('span');
+  nameEl.className = 'pcard-name';
   nameEl.textContent = stat.family;
-  headText.appendChild(nameEl);
+  titleRow.appendChild(nameEl);
 
+  // Played-count chip.
   const meta = document.createElement('div');
   meta.className = 'stat-card-chips';
-  meta.appendChild(colourChip(stat.colour));
   const gamesChip = document.createElement('span');
   gamesChip.className = 'review-stat-chip';
   gamesChip.textContent = `Played ${stat.games}×`;
   meta.appendChild(gamesChip);
-  headText.appendChild(meta);
-  head.appendChild(headText);
-  card.appendChild(head);
+  content.appendChild(meta);
 
-  // Row 2: score line — bar + "67% · W-D-L".
-  const scoreRowWrap = document.createElement('div');
-  scoreRowWrap.className = 'row stat-card-compare';
+  // Score line — bar + "67% · W-D-L".
   const scoreRow = document.createElement('div');
   scoreRow.className = 'review-score-row';
   scoreRow.appendChild(scoreBar(stat.scorePct));
@@ -933,17 +879,17 @@ function suggestionCard(stat: OpeningStat, deps: LinesDeps): HTMLElement {
   scoreText.className = 'review-score-text';
   scoreText.textContent = `${stat.scorePct}% · ${stat.wins}-${stat.draws}-${stat.losses} W-D-L`;
   scoreRow.appendChild(scoreText);
-  scoreRowWrap.appendChild(scoreRow);
-  card.appendChild(scoreRowWrap);
+  content.appendChild(scoreRow);
 
-  // Row 3: the representative line + the Build action.
-  const foot = document.createElement('div');
-  foot.className = 'row stat-card-foot';
-  const lineEl = document.createElement('div');
-  lineEl.className = 'review-moves stat-card-note';
-  lineEl.textContent = stat.repSans.length > 0 ? formatSanLine(stat.repSans) : '';
-  foot.appendChild(lineEl);
+  // The representative line.
+  if (stat.repSans.length > 0) {
+    const lineEl = document.createElement('div');
+    lineEl.className = 'review-moves stat-card-note';
+    lineEl.textContent = formatSanLine(stat.repSans);
+    content.appendChild(lineEl);
+  }
 
+  // The Build action.
   if (stat.repUcis.length > 0 && deps.onBuildLine) {
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -953,9 +899,8 @@ function suggestionCard(stat: OpeningStat, deps: LinesDeps): HTMLElement {
       e.stopPropagation();
       deps.onBuildLine!(stat.repUcis, stat.colour);
     });
-    foot.appendChild(btn);
+    content.appendChild(btn);
   }
-  card.appendChild(foot);
 
   return card;
 }
@@ -1034,7 +979,7 @@ function openRenameSheet(line: Line, onSaved: (newName: string) => void): void {
   overlay.appendChild(sheet);
   document.body.appendChild(overlay);
   requestAnimationFrame(() => {
-    mountMiniBoard(board, finalMainlineFen(line.tree), line.colour);
+    mountMiniBoard(board, lineFinalFen(line.tree), line.colour);
     nameInput.focus();
   });
 }

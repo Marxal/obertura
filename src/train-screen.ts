@@ -41,6 +41,7 @@ import {
   reviewedToday,
 } from './streak';
 import { renderLoadError } from './load-error';
+import { buildPositionCard, colourPip, lineFinalFen } from './card-position';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -644,31 +645,30 @@ function distinctUserTags(lines: Line[]): string[] {
 }
 
 function buildTrainRow(line: Line, container: HTMLElement): HTMLElement {
-  const card = document.createElement('div');
-  card.className = 'line-card train-row';
+  const bucket = lineBucket(line);
+
+  // Shared position-card scaffold: title + colour pip on row 1, a miniature on
+  // the left of row 2 with the meta + actions on the right. The board respects
+  // the same global "show miniatures" Settings toggle as the other listings.
+  const { card, titleRow, content } = buildPositionCard({
+    fen: lineFinalFen(line.tree),
+    orientation: line.colour,
+    className: 'train-row' + (bucket !== 'due' ? ' line-card--rested' : ''),
+  });
 
   // Paused rows (revealed by "Show paused") read dimmed, switch off.
   if (!line.inTraining) card.classList.add('train-row--paused');
 
-  const bucket = lineBucket(line);
-  if (bucket !== 'due') card.classList.add('line-card--rested');
-
-  // Info block — name + a small meta line (colour · status · next due).
-  const info = document.createElement('div');
-  info.className = 'train-row-info';
-
-  const nameEl = document.createElement('div');
-  nameEl.className = 'line-card-name';
+  // Title row — colour pip + the line name.
+  titleRow.appendChild(colourPip(line.colour));
+  const nameEl = document.createElement('span');
+  nameEl.className = 'pcard-name';
   nameEl.textContent = line.name || 'Untitled line';
-  info.appendChild(nameEl);
+  titleRow.appendChild(nameEl);
 
+  // Meta line (status · next due). Colour is already shown by the pip above.
   const meta = document.createElement('div');
   meta.className = 'line-card-meta train-row-meta';
-
-  const colourChip = document.createElement('span');
-  colourChip.className = 'tag-chip';
-  colourChip.textContent = line.colour === 'white' ? '○ White' : '● Black';
-  meta.appendChild(colourChip);
 
   const statusChip = document.createElement('span');
   statusChip.className = `status-chip status-chip--${bucket}`;
@@ -680,8 +680,7 @@ function buildTrainRow(line: Line, container: HTMLElement): HTMLElement {
   dueSpan.textContent = describeDue(nextDue(line));
   meta.appendChild(dueSpan);
 
-  info.appendChild(meta);
-  card.appendChild(info);
+  content.appendChild(meta);
 
   // Actions — a clear primary plus two quiet icons.
   const actions = document.createElement('div');
@@ -713,7 +712,7 @@ function buildTrainRow(line: Line, container: HTMLElement): HTMLElement {
   // out via CSS. The switch itself is the (reversible) undo.
   actions.appendChild(buildTrainingSwitch(line, card));
 
-  card.appendChild(actions);
+  content.appendChild(actions);
 
   return card;
 }
