@@ -1,4 +1,4 @@
-// Line browser (board explorer) — a chess.com-style opening explorer.
+// Board browser (formerly "Line browser") — a chess.com-style opening explorer.
 //
 // A full, playable board (in the app's board style) plus, for the current
 // position, the opening name and a ranked list of the moves played from here in
@@ -87,12 +87,12 @@ export function openBoardExplorer(opts: BoardExplorerOptions): void {
   const back = document.createElement('button');
   back.type = 'button';
   back.className = 'rmap-back';
-  back.setAttribute('aria-label', 'Close line browser');
+  back.setAttribute('aria-label', 'Close board browser');
   back.appendChild(Icons.back(20));
   back.addEventListener('click', close);
   const titleEl = document.createElement('h2');
   titleEl.className = 'rmap-title';
-  titleEl.textContent = opts.title ?? 'Line browser';
+  titleEl.textContent = opts.title ?? 'Board browser';
   const badge = document.createElement('span');
   badge.className = 'rmap-title-count';
   badge.textContent = opts.caption;
