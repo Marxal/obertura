@@ -4,7 +4,7 @@ import type { Key } from 'chessground/types';
 import 'chessground/assets/chessground.base.css';
 import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
-import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, loadTree } from './tree';
+import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, loadTree, removeLastMove } from './tree';
 import type { Annotation, MoveNode } from './tree';
 import { saveLine, getAllLines } from './storage';
 import { nameForPath } from './openings';
@@ -1239,7 +1239,44 @@ function promptAddToTraining(line: Line): void {
   });
 }
 
+// True when the line's last mainline move was the OPPONENT's, not mine. We drill
+// the user's moves, so a line ideally finishes on one of theirs — see the save
+// nudge below. (FEN field 2 is whose turn it is now, so the last mover is the
+// opposite.)
+function lineEndsOnOpponentMove(): boolean {
+  const line = mainline();
+  if (line.length === 0) return false;
+  const lastMover = line[line.length - 1].fen.split(' ')[1] === 'b' ? 'white' : 'black';
+  return lastMover !== saveColour;
+}
+
+// Drop the trailing opponent move and re-sync the board to the new last move.
+function trimLastMove(): void {
+  removeLastMove();
+  handleMoveClick(getCurrentNode().id);
+}
+
 async function saveCurrentLine(): Promise<void> {
+  // Nudge (never block): a line that ends on the opponent's move leaves the last
+  // drill rep theirs, not yours. Offer to trim it, keep it, or back out.
+  if (!isEmpty() && lineEndsOnOpponentMove()) {
+    showDialog({
+      title: 'End on your move?',
+      body: 'This line ends on your opponent’s move. Lines usually finish on YOUR move, so the last thing you drill is a move you make.',
+      buttons: [
+        { label: 'Trim last move', variant: 'primary', onClick: () => { trimLastMove(); void finishSave(); } },
+        { label: 'Keep as is', variant: 'secondary', onClick: () => { void finishSave(); } },
+        { label: 'Cancel', variant: 'secondary' },
+      ],
+    });
+    return;
+  }
+  void finishSave();
+}
+
+// Persist + confirm + offer training. Split out so the save nudge can route here
+// after the user picks trim / keep.
+async function finishSave(): Promise<void> {
   const result = await persistCurrentLine();
   if (!result) return;
   const { line, isNew } = result;

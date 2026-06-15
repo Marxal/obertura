@@ -507,6 +507,8 @@ function buildDetailCard(
   const { card, titleRow: titleRowWrap, content } = buildPositionCard({
     fen: lineFinalFen(line.tree),
     orientation: line.colour,
+    onMiniClick: () => deps.onOpenLine(line),
+    miniLabel: 'Open line',
   });
 
   // Just saved from the builder: draw attention and scroll it into view.
@@ -855,6 +857,10 @@ function suggestionCard(stat: OpeningStat, deps: LinesDeps): HTMLElement {
     fen: stat.repUcis.length > 0 ? fenFromUcis(stat.repUcis) : null,
     orientation: stat.colour,
     className: 'games-card',
+    ...(stat.repUcis.length > 0 && deps.onBuildLine && {
+      onMiniClick: () => deps.onBuildLine!(stat.repUcis, stat.colour),
+      miniLabel: 'Build this line',
+    }),
   });
 
   // Row 1: colour pip + opening family name.

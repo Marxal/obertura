@@ -2064,6 +2064,24 @@ cg-board square.move-dest.oc {
   width: clamp(88px, 30vw, 116px);
 }
 
+/* A clickable miniature (item 8) — strips the button chrome, keeps the board,
+   and adds a gentle press + focus affordance so it reads as a live link. */
+.pcard-mini--btn {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 6px;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.pcard-mini--btn:active { transform: scale(0.97); }
+.pcard-mini--btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.pcard-mini--btn .mini-board { pointer-events: none; }
+
 .pcard-content {
   flex: 1;
   min-width: 0;
@@ -6156,6 +6174,61 @@ cg-board square.move-dest.oc {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* ── Opponent card (position-card scaffold) ──────────────────────────────────── */
+.opponent-card { cursor: pointer; }
+/* Pin the chevron to the far right of the title row; the platform chip stays
+   tucked beside the name. */
+.opponent-card .pcard-titlerow .scout-card-chevron { margin-left: auto; }
+.opponent-card-platform {
+  flex: none;
+  font-size: 0.68rem;
+}
+.opponent-card-weak {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--wrong, #c0531f);
+}
+.opponent-card-meta {
+  font-size: 0.72rem;
+  color: var(--text-faint);
+}
+
+/* ── Scouting-report accordion (collapsible findings) ────────────────────────── */
+.scout-accordion {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 0.5rem;
+}
+.scout-accordion-head {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border: none;
+  background: var(--bg-page);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.scout-accordion-title { flex: 1; text-align: left; }
+.scout-accordion-chev {
+  flex: none;
+  color: var(--text-faint);
+  transition: transform 0.18s ease;
+}
+.scout-accordion-head--open .scout-accordion-chev { transform: rotate(180deg); }
+.scout-accordion-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem;
 }
 
 /* ── W-D-L bar (reusable: opponent cards + detail screen) ─────────────────────

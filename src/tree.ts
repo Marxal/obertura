@@ -56,6 +56,17 @@ export function goTo(nodeId: string): void {
   if (found) current = found;
 }
 
+// Drop the last move of the mainline (the children[0] chain), leaving the cursor
+// on the new last node — or the root when the line had a single move. Used by the
+// builder's "end on your move?" save nudge to trim a trailing opponent move.
+export function removeLastMove(): void {
+  const line = mainline();
+  if (line.length === 0) return;
+  const parent = line.length === 1 ? root : line[line.length - 2];
+  parent.children = [];
+  current = parent;
+}
+
 function findNode(node: MoveNode, id: string): MoveNode | null {
   if (node.id === id) return node;
   for (const child of node.children) {

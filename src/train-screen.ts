@@ -703,6 +703,8 @@ function buildTrainRow(line: Line, container: HTMLElement): HTMLElement {
     fen: lineFinalFen(line.tree),
     orientation: line.colour,
     className: 'train-row' + (bucket !== 'due' ? ' line-card--rested' : ''),
+    onMiniClick: () => onViewLine?.(line),
+    miniLabel: 'Open line',
   });
 
   // Paused rows (revealed by "Show paused") read dimmed, switch off.

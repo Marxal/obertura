@@ -581,43 +581,77 @@ function visualizeSection(lines: Line[], games: ImportedGame[]): HTMLElement | n
 
 // ── Opponent card ────────────────────────────────────────────────────────────────
 
-function opponentCard(opp: Opponent, container: HTMLElement): HTMLElement {
-  const card = document.createElement('div');
-  card.className = 'line-card';
+// A few cheap-ish highlights for an opponent card, from one analysis pass over
+// their games: a representative position (their most-played opening) for the
+// miniature, and their clearest weakness (lowest-scoring opening that's still
+// genuinely below even) for an at-a-glance prep nudge.
+interface OpponentHighlights {
+  fen: string | null;
+  topUcis: string[];
+  topColour: 'white' | 'black';
+  weak: OpeningStat | null;
+}
+function opponentHighlights(opp: Opponent): OpponentHighlights {
+  const stats = analyseGames(opp.games, []).stats;
+  const top = [...stats].filter(s => s.repUcis.length > 0).sort((a, b) => b.games - a.games)[0] ?? null;
+  const weak = stats
+    .filter(s => s.family !== UNKNOWN_FAMILY && s.games >= MIN_GAMES_WEAK && s.scorePct < WEAK_SCORE_PCT)
+    .sort((a, b) => a.scorePct - b.scorePct)[0] ?? null;
+  return {
+    fen: top ? fenFromUcis(top.repUcis) : null,
+    topUcis: top?.repUcis ?? [],
+    topColour: top?.colour ?? 'white',
+    weak,
+  };
+}
 
-  const body = document.createElement('div');
-  body.className = 'line-card-body scout-card-body';
-  body.setAttribute('role', 'button');
-  body.tabIndex = 0;
+function opponentCard(opp: Opponent, container: HTMLElement): HTMLElement {
+  const summary = opponentSummary(opp);
+  const hl = opponentHighlights(opp);
   const open = () => openDetail(opp.id, container);
-  body.addEventListener('click', open);
-  body.addEventListener('keydown', (e) => {
+
+  // Position-card scaffold so opponents read like the rest of the app's cards,
+  // with a miniature of their most-played opening. Tapping the miniature jumps
+  // straight to preparing a reply against that line (item 7/8); tapping the rest
+  // of the card opens their full dossier.
+  const { card, titleRow, content } = buildPositionCard({
+    fen: hl.fen,
+    orientation: hl.topColour,
+    className: 'opponent-card',
+    ...(hl.fen && hl.topUcis.length > 0 && {
+      onMiniClick: () =>
+        exploreDeps?.onPrepareReply(hl.topUcis, hl.topColour === 'white' ? 'black' : 'white', opp.name),
+      miniLabel: `Prepare a reply vs ${opp.name}`,
+    }),
+  });
+  card.setAttribute('role', 'button');
+  card.tabIndex = 0;
+  card.addEventListener('click', open);
+  card.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
   });
 
-  // Line 1: name, with a chevron pinned to the far right so the card reads as
-  // tappable.
-  const headRow = document.createElement('div');
-  headRow.className = 'scout-card-head';
-  const nameEl = document.createElement('div');
-  nameEl.className = 'line-card-name';
+  // Title row: name + platform chip + a chevron pinned right so it reads tappable.
+  const nameEl = document.createElement('span');
+  nameEl.className = 'pcard-name';
   nameEl.textContent = opp.name;
-  headRow.appendChild(nameEl);
+  titleRow.appendChild(nameEl);
+  const plat = document.createElement('span');
+  plat.className = 'tag-chip opponent-card-platform';
+  plat.textContent = PLATFORM_LABEL[opp.platform];
+  titleRow.appendChild(plat);
   const chevron = Icons.chevronRight(18);
   chevron.classList.add('scout-card-chevron');
-  headRow.appendChild(chevron);
-  body.appendChild(headRow);
+  titleRow.appendChild(chevron);
 
-  const summary = opponentSummary(opp);
-
-  // Line 2: their most-played opening, one truncated line.
+  // Their most-played opening.
   const openingEl = document.createElement('div');
   openingEl.className = 'scout-card-opening';
   openingEl.textContent = summary.topOpening ?? 'No openings yet';
-  body.appendChild(openingEl);
+  content.appendChild(openingEl);
 
-  // Line 3: their W-D-L bar (the reusable component).
-  body.appendChild(wdlBlock({
+  // Their overall W-D-L bar (the reusable component).
+  content.appendChild(wdlBlock({
     wins: summary.wins,
     draws: summary.draws,
     losses: summary.losses,
@@ -625,7 +659,21 @@ function opponentCard(opp: Opponent, container: HTMLElement): HTMLElement {
     games: summary.games,
   }));
 
-  card.appendChild(body);
+  // A clearest-weakness nudge — the single most useful scouting line at a glance.
+  if (hl.weak) {
+    const weakEl = document.createElement('div');
+    weakEl.className = 'opponent-card-weak';
+    weakEl.textContent = `Struggles: ${hl.weak.family} · ${hl.weak.scorePct}%`;
+    content.appendChild(weakEl);
+  }
+
+  // Meta: games analysed + when last refreshed.
+  const meta = document.createElement('div');
+  meta.className = 'opponent-card-meta';
+  meta.textContent =
+    `${summary.games} game${summary.games === 1 ? '' : 's'} · refreshed ${timeAgo(opp.refreshedAt)}`;
+  content.appendChild(meta);
+
   return card;
 }
 
@@ -797,13 +845,14 @@ function openDetail(id: string, container: HTMLElement): void {
       exploreDeps?.onPrepareReply(ucis, opponentColour === 'white' ? 'black' : 'white', opp.name);
     };
 
-    // 1) Scouting report — the dossier opens on it: their overall W-D-L bar (the
-    //    one "their results" caption for the whole screen) and the three findings
-    //    groups (where they struggle, where they score, what to play).
-    bodyWrap.appendChild(reportSection(opp, report));
+    // 1) Visualize their games — at the top (mirrors the Explore tab's
+    //    "Visualize your play"): a Board browser and their games tree, both
+    //    pointed at THEIR games and handing "Prepare a reply" back here.
+    bodyWrap.appendChild(visualizeOpponentSection(opp, prepare));
 
-    // 2) Opening maps (auto-built at import; open instantly).
-    bodyWrap.appendChild(mapSection(opp, prepare));
+    // 2) Scouting report — their overall W-D-L bar, then the three findings
+    //    (where they struggle / score / what to play) tucked in an accordion.
+    bodyWrap.appendChild(reportSection(opp, report));
 
     // 3) My prep against this opponent, when I have any.
     if (myPrep.length > 0) {
@@ -828,12 +877,14 @@ function openDetail(id: string, container: HTMLElement): void {
   })();
 }
 
-// ── Scouting report (the dossier's headline) ──────────────────────────────────────
+// ── Scouting report (their record + an accordion of findings) ─────────────────────
 
-// The report: a title, the opponent's overall W-D-L bar (the one place the
-// "their results" caption appears, fixing the perspective for the whole detail),
-// then — once they have a deep enough sample — three compact groups. With no
-// opening reaching the games floor, an honest empty line replaces the groups.
+// The report: the opponent's overall W-D-L bar ("Their results" — the one place
+// that caption appears, fixing the perspective for the whole detail), then —
+// once they have a deep enough sample — the three findings groups (where they
+// struggle / score / what to play) tucked inside a "Scouting report" accordion,
+// collapsed by default to keep the dossier scannable. With no opening reaching
+// the games floor, an honest empty line replaces the accordion.
 function reportSection(opp: Opponent, report: ScoutReport): HTMLElement {
   const section = document.createElement('div');
   section.className = 'section';
@@ -842,7 +893,7 @@ function reportSection(opp: Opponent, report: ScoutReport): HTMLElement {
   head.className = 'section-head';
   const h = document.createElement('h2');
   h.className = 'section-title';
-  h.textContent = 'Scouting report';
+  h.textContent = 'Their results';
   head.appendChild(h);
   section.appendChild(head);
 
@@ -863,14 +914,54 @@ function reportSection(opp: Opponent, report: ScoutReport): HTMLElement {
     return section;
   }
 
-  section.appendChild(reportGroup('Where they struggle',
+  // The three findings live in a collapsible "Scouting report" accordion.
+  const { wrap, body } = makeAccordion('Scouting report');
+  body.appendChild(reportGroup('Where they struggle',
     report.weakest.map(r => recordRow(r))));
-  section.appendChild(reportGroup('Where they score',
+  body.appendChild(reportGroup('Where they score',
     report.strongest.map(r => recordRow(r))));
-  section.appendChild(reportGroup('What to play',
+  body.appendChild(reportGroup('What to play',
     report.recommendations.map(rec => recommendationRow(rec))));
+  section.appendChild(wrap);
 
   return section;
+}
+
+// A simple collapsible accordion (header button + chevron + hidden body),
+// collapsed by default. Used for the scouting-report findings.
+function makeAccordion(title: string, startOpen = false): { wrap: HTMLElement; body: HTMLElement } {
+  const wrap = document.createElement('div');
+  wrap.className = 'scout-accordion';
+
+  let open = startOpen;
+  const head = document.createElement('button');
+  head.type = 'button';
+  head.className = 'scout-accordion-head' + (open ? ' scout-accordion-head--open' : '');
+  head.setAttribute('aria-expanded', String(open));
+
+  const t = document.createElement('span');
+  t.className = 'scout-accordion-title';
+  t.textContent = title;
+  head.appendChild(t);
+
+  const chev = Icons.chevronDown(18);
+  chev.classList.add('scout-accordion-chev');
+  head.appendChild(chev);
+  wrap.appendChild(head);
+
+  const body = document.createElement('div');
+  body.className = 'scout-accordion-body';
+  body.hidden = !open;
+  wrap.appendChild(body);
+
+  head.addEventListener('click', () => {
+    open = !open;
+    body.hidden = !open;
+    head.classList.toggle('scout-accordion-head--open', open);
+    head.setAttribute('aria-expanded', String(open));
+  });
+
+  return { wrap, body };
 }
 
 // One titled cluster of report rows.
@@ -1033,79 +1124,90 @@ function prepCard(line: Line, onOpen: (line: Line) => void): HTMLElement {
   return card;
 }
 
-// Opening-map launchers, one per colour. Disabled when there's nothing to show.
-function mapSection(opp: Opponent, prepare: PrepareFn): HTMLElement {
+// Seed a prepared reply from the opponent's move sequence; the colour passed is
+// the colour THEY played (the answering side is the opposite).
+type PrepareFn = (ucis: string[], opponentColour: 'white' | 'black') => void;
+
+// Visualize their games — a Board browser + their games tree, mirroring the
+// Explore tab's "Visualize your play" but pointed at THIS opponent's games. Both
+// hand "Prepare a reply" back through `prepare`, and each carries its own
+// White/Black toggle (greying out a side they never played).
+function visualizeOpponentSection(opp: Opponent, prepare: PrepareFn): HTMLElement {
   const section = document.createElement('div');
   section.className = 'section';
   const head = document.createElement('div');
   head.className = 'section-head';
   const h = document.createElement('h2');
   h.className = 'section-title';
-  h.textContent = 'Opening map';
+  h.textContent = `Visualize ${opp.name}’s games`;
   head.appendChild(h);
   section.appendChild(head);
 
-  const row = document.createElement('div');
-  row.className = 'scout-map-row';
-  row.appendChild(mapButton(opp, 'white', prepare));
-  row.appendChild(mapButton(opp, 'black', prepare));
-  section.appendChild(row);
-  return section;
-}
+  const entries = document.createElement('div');
+  entries.className = 'rmap-entries';
+  section.appendChild(entries);
 
-// Seed a prepared reply from the opponent's move sequence; the colour passed is
-// the colour THEY played (the answering side is the opposite).
-type PrepareFn = (ucis: string[], opponentColour: 'white' | 'black') => void;
-
-function mapButton(opp: Opponent, colour: 'white' | 'black', prepare: PrepareFn): HTMLElement {
-  const tree = colour === 'white' ? opp.whiteTree : opp.blackTree;
-  const games = colourGameCount(opp, colour);
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'btn-secondary scout-map-btn';
-  btn.textContent = colour === 'white' ? '○ White map' : '● Black map';
-  if (tree.children.length === 0) {
-    btn.disabled = true;
-    btn.title = `No games as ${colour}`;
-  } else {
-    btn.addEventListener('click', () => {
-      openRepertoireMap(
-        // The map rebuilds the pruned tree from stored games at each depth (see
-        // `atDepth`); this line is just the seed used for preview association.
-        [opponentLine(tree, colour, opp.name)],
-        colour,
-        () => { /* opponent maps have no "open in builder" */ },
-        {
-          title: `${opp.name} — ${colour === 'white' ? 'White' : 'Black'}`,
-          subtitle: `${games} game${games === 1 ? '' : 's'}`,
-          // Prepare a reply from any node: seed the builder with the path to it.
-          nodeAction: {
-            label: 'Prepare a reply',
-            onAct: ({ ucis }) => prepare(ucis, colour),
-          },
-          depth: {
-            startPlies: MAP_START_PLIES,
-            stepPlies: MAP_STEP_PLIES,
-            maxPlies: opponentReachPlies(opp, colour),
-            // Feed the FULL (unpruned) tree so the map's "All replies" view
-            // shows every move they played; "Frequent" prunes it by stats.
-            atDepth: plies => [
-              opponentLine(buildOpponentTree(opp.games, colour, plies, false), colour, opp.name),
-            ],
-            importHint: true,
-          },
-          // Per-move W/D/L from THEIR perspective (the scouted user was "me" at
-          // import), built to the deep limit so the deeper view has stats too.
-          stats: {
-            tree: buildMoveStats(opp.games, colour, MAP_MAX_PLIES),
-            caption: 'their results',
-            games: opp.games,
-          },
-        },
-      );
-    });
+  const has = (c: 'white' | 'black') => colourGameCount(opp, c) > 0;
+  if (!has('white') && !has('black')) {
+    const empty = document.createElement('p');
+    empty.className = 'section-desc';
+    empty.textContent = 'No games to visualize yet.';
+    section.appendChild(empty);
+    return section;
   }
-  return btn;
+  const start: 'white' | 'black' = has('white') ? 'white' : 'black';
+  const enabled = { white: has('white'), black: has('black') };
+
+  // Board browser — walk their positions with their per-move W/D/L; "Prepare a
+  // reply" hands the walked line back (flipped to my answering colour).
+  const openBrowser = (colour: 'white' | 'black'): void => {
+    openBoardExplorer({
+      statsTree: buildMoveStats(opp.games, colour, MAP_MAX_PLIES),
+      caption: 'their results',
+      colour,
+      games: opp.games,
+      title: `${opp.name} — board browser`,
+      action: { label: 'Prepare a reply', onAct: ({ ucis }) => prepare(ucis, colour) },
+      colourToggle: { current: colour, enabled, onPick: openBrowser },
+    });
+  };
+  entries.appendChild(mapEntryBtn(Icons.compass(24), 'Board browser',
+    `Walk ${opp.name}’s games on a board`, () => openBrowser(start)));
+
+  // Their games tree — the auto-built opponent map, colour toggling inside.
+  const openTree = (colour: 'white' | 'black'): void => {
+    const games = colourGameCount(opp, colour);
+    openRepertoireMap(
+      // The map rebuilds the pruned tree from stored games at each depth (see
+      // `atDepth`); this line is just the seed used for preview association.
+      [opponentLine(buildOpponentTree(opp.games, colour, MAP_START_PLIES, false), colour, opp.name)],
+      colour,
+      () => { /* opponent maps have no "open in builder" */ },
+      {
+        title: `${opp.name} — ${colour === 'white' ? 'White' : 'Black'}`,
+        subtitle: `${games} game${games === 1 ? '' : 's'}`,
+        // Prepare a reply from any node: seed the builder with the path to it.
+        nodeAction: { label: 'Prepare a reply', onAct: ({ ucis }) => prepare(ucis, colour) },
+        depth: {
+          startPlies: MAP_START_PLIES,
+          stepPlies: MAP_STEP_PLIES,
+          maxPlies: opponentReachPlies(opp, colour),
+          // Feed the FULL (unpruned) tree so the map's "All replies" view shows
+          // every move they played; "Frequent" prunes it by stats.
+          atDepth: plies => [opponentLine(buildOpponentTree(opp.games, colour, plies, false), colour, opp.name)],
+          importHint: true,
+        },
+        // Per-move W/D/L from THEIR perspective (the scouted user was "me" at
+        // import), built to the deep limit so the deeper view has stats too.
+        stats: { tree: buildMoveStats(opp.games, colour, MAP_MAX_PLIES), caption: 'their results', games: opp.games },
+        colourToggle: { current: colour, enabled, onPick: openTree },
+      },
+    );
+  };
+  entries.appendChild(mapEntryBtn(Icons.search(24), 'Their games tree',
+    `${opp.gamesAnalysed} game${opp.gamesAnalysed === 1 ? '' : 's'}`, () => openTree(start)));
+
+  return section;
 }
 
 // One colour's most-played openings: top N, with a "Show all" reveal.
@@ -1280,6 +1382,8 @@ function recommendationCard(stat: OpeningStat): HTMLElement {
     fen: fenFromUcis(stat.repUcis),
     orientation: stat.colour,
     className: 'games-card',
+    onMiniClick: () => exploreDeps?.onOpenInBuilder(stat.repUcis, stat.colour),
+    miniLabel: 'Build this line',
   });
 
   titleRow.appendChild(colourPip(stat.colour));
