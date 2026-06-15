@@ -27,6 +27,7 @@ import { openImportPanel } from './import-panel';
 import { maybeShowIntro } from './onboarding';
 import { maybeAutoRefreshGames } from './auto-refresh';
 import { maybeShowGate } from './gate';
+import { showToast } from './toast';
 
 const chess = new Chess();
 let cg!: ReturnType<typeof Chessground>;
@@ -671,24 +672,6 @@ function goToStart(): void {
 function updateSaveButtonLabel(): void {
   const label = document.getElementById('header-save-label');
   if (label) label.textContent = loadedLineId ? 'Save changes' : 'Save line';
-}
-
-// A small transient toast for confirmations ("Line saved ✓").
-let toastTimer: ReturnType<typeof setTimeout> | undefined;
-function showToast(message: string): void {
-  let toast = document.getElementById('toast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'toast';
-    toast.className = 'toast';
-    toast.setAttribute('role', 'status');
-    toast.setAttribute('aria-live', 'polite');
-    document.body.appendChild(toast);
-  }
-  toast.textContent = message;
-  toast.classList.add('toast--show');
-  if (toastTimer !== undefined) clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toast!.classList.remove('toast--show'), 2200);
 }
 
 // ── Navigation ────────────────────────────────────────────────────────────────
