@@ -4,7 +4,7 @@
 // position, the opening name and a ranked list of the moves played from here in
 // the underlying games, each with its game count and a win/draw/loss bar. You
 // walk the line by playing on the board, tapping a reply, or stepping with the
-// bottom controls (flip / reset / back / forward).
+// bottom controls (open in builder / reset / back / forward).
 //
 // It's purely a reader over a pre-built stats tree (the opponent's games, or
 // your own), so it carries no persistence of its own — opened from a map, it
@@ -29,16 +29,20 @@ export interface BoardExplorerOptions {
   colour: 'white' | 'black';     // initial board orientation
   startUcis?: string[];          // open at this position (e.g. the selected map node)
   title?: string;                // header title
-  action?: {                     // optional "open in builder / prepare" button
+  action?: {                     // optional "open in builder / prepare" action
     label: string;
     disabled?: boolean;
     onAct?: (ctx: NodeActionContext) => void;
   };
+  // Builder-seed fallback for the primary control. Used when no `action` is
+  // supplied (e.g. the repertoire map's Line browser) so the bottom bar can
+  // still offer "Open in builder" with the walked move path and colour.
+  onOpenInBuilder?: (ucis: string[], colour: 'white' | 'black') => void;
 }
 
 export function openBoardExplorer(opts: BoardExplorerOptions): void {
   const chess = new Chess();
-  let orientation = opts.colour;
+  const orientation = opts.colour;
 
   // The walked line, kept in lockstep with `chess`. fens/lastMoves are indexed by
   // ply (index 0 = the start), so fens[ucis.length] is always the live position.
@@ -114,28 +118,19 @@ export function openBoardExplorer(opts: BoardExplorerOptions): void {
   list.className = 'bx-list';
   overlay.appendChild(list);
 
-  // Step controls: flip / reset / back / forward.
+  // Step controls: open in builder / reset / back / forward.
   const controls = document.createElement('div');
   controls.className = 'bx-controls';
-  const flipBtn = navBtn(Icons.flip(20), 'Flip', 'Flip board', () => {
-    orientation = orientation === 'white' ? 'black' : 'white';
-    cg.toggleOrientation();
-  });
-  const resetBtn = navBtn(Icons.reset(20), 'Reset', 'Back to start', reset);
-  const backBtn = navBtn(Icons.back(20), 'Back', 'Step back', stepBack);
-  const fwdBtn = navBtn(Icons.chevronRight(20), 'Forward', 'Step forward', stepForward);
-  controls.append(flipBtn, resetBtn, backBtn, fwdBtn);
-  overlay.appendChild(controls);
 
-  // Optional "open in builder / prepare" action.
+  // Primary control (where "Flip board" used to live): hand the walked line back
+  // to the builder. Prefer the caller's contextual action (e.g. an opponent
+  // map's "Prepare a reply"); otherwise fall back to the plain builder-seed path.
+  let primaryBtn: HTMLButtonElement | null = null;
   if (opts.action) {
-    const act = document.createElement('button');
-    act.type = 'button';
-    act.className = 'rmap-pos-open-btn bx-action';
-    act.textContent = opts.action.label;
-    act.disabled = !!opts.action.disabled;
-    act.addEventListener('click', () => {
-      opts.action!.onAct?.({
+    const act = opts.action;
+    primaryBtn = navBtn(Icons.build(20), act.label, act.label, () => {
+      if (act.disabled) return;
+      act.onAct?.({
         fen: chess.fen(),
         san: sans[sans.length - 1] ?? '',
         ucis: [...ucis],
@@ -144,8 +139,21 @@ export function openBoardExplorer(opts: BoardExplorerOptions): void {
       });
       close();
     });
-    overlay.appendChild(act);
+    primaryBtn.disabled = !!act.disabled;
+  } else if (opts.onOpenInBuilder) {
+    const seed = opts.onOpenInBuilder;
+    primaryBtn = navBtn(Icons.build(20), 'Open in builder', 'Open in builder', () => {
+      seed([...ucis], opts.colour);
+      close();
+    });
   }
+
+  const resetBtn = navBtn(Icons.reset(20), 'Reset', 'Back to start', reset);
+  const backBtn = navBtn(Icons.back(20), 'Back', 'Step back', stepBack);
+  const fwdBtn = navBtn(Icons.chevronRight(20), 'Forward', 'Step forward', stepForward);
+  if (primaryBtn) controls.append(primaryBtn);
+  controls.append(resetBtn, backBtn, fwdBtn);
+  overlay.appendChild(controls);
 
   document.body.appendChild(overlay);
   render();
