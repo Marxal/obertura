@@ -43,6 +43,10 @@ export interface RepertoireMapOptions {
     disabled?: boolean;
     onAct?: (ctx: NodeActionContext) => void;
   };
+  // Builder-seed path for the Line browser's "Open in builder" control. Used
+  // when there's no `nodeAction` (the repertoire map) so the Line browser can
+  // still hand the walked line to the builder.
+  onOpenInBuilder?: (ucis: string[], colour: 'white' | 'black') => void;
   // Depth control — the "Go deeper" feature. When set, the map renders only the
   // first `startPlies` plies and offers a quiet "Go deeper" control that reveals
   // `stepPlies` more each click, rebuilding from data already on the phone.
@@ -1163,6 +1167,7 @@ export function openRepertoireMap(
         startUcis: selected ? nodePath(selected).ucis : [],
         title: 'Line browser',
         action: opts.nodeAction,
+        onOpenInBuilder: opts.onOpenInBuilder,
       });
     });
     treeArea.appendChild(exploreBtn);

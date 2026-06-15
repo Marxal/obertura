@@ -487,6 +487,7 @@ function mapsSection(lines: Line[], games: ImportedGame[]): HTMLElement | null {
         title: 'Your repertoire',
         depth: { startPlies: MAP_START_PLIES, stepPlies: MAP_STEP_PLIES, maxPlies: reach, atDepth: () => colourLines },
         ...(games.length > 0 && { stats: myStats(colour) }),
+        onOpenInBuilder: (ucis, c) => exploreDeps?.onOpenInBuilder(ucis, c),
         colourToggle: { current: colour, enabled: { white: repHas('white'), black: repHas('black') }, onPick: openRep },
       });
     };
