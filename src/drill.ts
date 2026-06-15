@@ -306,15 +306,23 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     headerEl.appendChild(timerEl);
   }
 
-  // ── Session progress bar (full-line training sessions) ─────────────────────
+  // ── Session progress bar ───────────────────────────────────────────────────
   //
-  // A thin bar pinned just under the toolbar that tracks LINES across the whole
-  // session — it fills a notch as each line is completed, with a "Line X of Y"
-  // caption. (The dots near the board, by contrast, track the MOVES within the
-  // current line.) Only the multi-line full-line modes pass sessionProgress, and
-  // a one-line session has nothing to track, so we skip the bar there too.
+  // A thin bar pinned just under the toolbar. Two shapes share the same look
+  // (see .pt-session-bar):
+  //  • Full-line modes pass sessionProgress; the bar tracks LINES across the
+  //    whole session, with a "Line X of Y" caption. (The dots near the board,
+  //    by contrast, track the MOVES within the current line.)
+  //  • Single-move modes (Quick fixes / Fix mistakes) drill a FIXED number of
+  //    positions, so the bar honestly tracks POSITIONS through the run, with a
+  //    "Position N of M" caption. Timed mode is excluded: its pool cycles, so a
+  //    fixed count is meaningless (the same reason it has no dots).
+  // Either way a one-item run has nothing to track, so the bar is skipped.
   const sp = opts.sessionProgress;
-  const showSessionBar = !!sp && sp.total >= 2;
+  const showLineBar = !!sp && sp.total >= 2;
+  const isPositionsMode = !timed && !tasks[0].continuous;
+  const showPositionBar = isPositionsMode && tasks.length >= 2;
+  const showSessionBar = showLineBar || showPositionBar;
   const sessionBarEl = document.createElement('div');
   let sessionFillEl: HTMLElement | null = null;
   let sessionLabelEl: HTMLElement | null = null;
@@ -333,17 +341,32 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     sessionBarEl.appendChild(trackEl);
   }
 
-  // Paint the bar to a given number of completed lines (0..total). The caption
-  // reads "Line X of Y" on a fresh line, or "Second look" on a resurfaced repeat.
-  function renderSessionBar(completed: number): void {
-    if (!sessionFillEl || !sessionLabelEl || !sp) return;
-    const frac = Math.max(0, Math.min(1, completed / sp.total));
-    sessionFillEl.style.width = `${frac * 100}%`;
-    sessionLabelEl.textContent = sp.isResurface
-      ? 'Second look'
-      : `Line ${Math.min(completed + 1, sp.total)} of ${sp.total}`;
+  // Paint the bar: `frac` (0..1) drives the fill width, `label` the caption.
+  function paintSessionBar(frac: number, label: string): void {
+    if (!sessionFillEl || !sessionLabelEl) return;
+    sessionFillEl.style.width = `${Math.max(0, Math.min(1, frac)) * 100}%`;
+    sessionLabelEl.textContent = label;
   }
-  if (showSessionBar && sp) renderSessionBar(sp.completed);
+
+  // Full-line bar: `completed` lines are behind us (0..total). The caption reads
+  // "Line X of Y" on a fresh line, or "Second look" on a resurfaced repeat.
+  function renderSessionBar(completed: number): void {
+    if (!sp) return;
+    paintSessionBar(
+      completed / sp.total,
+      sp.isResurface ? 'Second look' : `Line ${Math.min(completed + 1, sp.total)} of ${sp.total}`,
+    );
+  }
+
+  // Single-move bar: `done` positions are behind us (0..total). The caption
+  // reads "Position N of M".
+  function renderPositionBar(done: number): void {
+    const total = tasks.length;
+    paintSessionBar(done / total, `Position ${Math.min(done + 1, total)} of ${total}`);
+  }
+
+  if (showLineBar && sp) renderSessionBar(sp.completed);
+  else if (showPositionBar) renderPositionBar(0);
 
   // ── Top block: mode title + line name, sitting just above the board ─────────
 
@@ -1062,6 +1085,8 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   // Present a task: place the board at its position and hand control over.
   function startTask(idx: number): void {
     taskIndex = idx;
+    // Single-move modes: advance the position bar as each new position opens.
+    if (showPositionBar) renderPositionBar(idx);
     const task = tasks[idx];
     userColour = task.colour;
     wrongAttempts = 0;
@@ -1116,7 +1141,9 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     setStatus(opts.completeMessage ?? 'Line complete', 'pt-status--success');
     // Fill this line's notch on the session bar before we hand off — a fresh line
     // advances it; a resurfaced repeat is reinforcement, so it holds where it was.
-    if (showSessionBar && sp && !sp.isResurface) renderSessionBar(sp.completed + 1);
+    if (showLineBar && sp && !sp.isResurface) renderSessionBar(sp.completed + 1);
+    // Single-move modes: top the bar off — every position is behind us now.
+    if (showPositionBar) renderPositionBar(tasks.length);
     if (opts.celebrateOnComplete) burstConfetti();
     setTimeout(() => { cleanup(); opts.onComplete(); }, 1500);
   }
