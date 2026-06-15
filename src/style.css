@@ -2568,7 +2568,7 @@ cg-board square.move-dest.oc {
   overflow-y: auto;
   background: var(--bg-sheet);
   border-radius: 16px 16px 0 0;
-  padding: 1.25rem 1.25rem env(safe-area-inset-bottom, 1.25rem);
+  padding: 1.25rem 1.25rem calc(16px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
