@@ -13,6 +13,7 @@
 
 import type { Line } from './types';
 import type { MoveNode } from './tree';
+import { Chess } from 'chess.js';
 import { buildMiniBoard } from './board-mini';
 import { getShowLineMiniatures } from './prefs';
 
@@ -28,6 +29,22 @@ export function lineFinalFen(tree: MoveNode): string {
     node = node.children[0];
   }
   return fen;
+}
+
+// The final position of a representative line (a flat UCI list) for a card
+// miniature. Replays the moves and returns the FEN; a bad/illegal move just
+// stops the walk early, so the miniature shows as far as it got. Shared by the
+// suggestion and recommendation cards.
+export function fenFromUcis(ucis: string[]): string {
+  const chess = new Chess();
+  for (const uci of ucis) {
+    try {
+      chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci.slice(4) || undefined });
+    } catch {
+      break;
+    }
+  }
+  return chess.fen();
 }
 
 export interface PositionCardParts {

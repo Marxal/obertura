@@ -1,13 +1,12 @@
 import type { Line } from './types';
 import { Chessground } from 'chessground';
-import { Chess } from 'chess.js';
 import {
   getAllLines,
   saveLine,
   deleteLine,
   getAllGames,
 } from './storage';
-import { buildPositionCard, colourPip, lineFinalFen } from './card-position';
+import { buildPositionCard, colourPip, lineFinalFen, fenFromUcis } from './card-position';
 import { getShowQuickView } from './prefs';
 import { lineIsDue } from './scheduler';
 import { Icons } from './icons';
@@ -59,21 +58,6 @@ function confidenceDots(c: number): string {
   if (!c) return '—';
   const n = Math.min(Math.max(c, 0), 5);
   return '●'.repeat(n) + '○'.repeat(5 - n);
-}
-
-// The final position of a representative line (a flat UCI list) for a
-// suggestion miniature. Replays the moves and returns the FEN; a bad/illegal
-// move just stops the walk early, so the miniature shows as far as it got.
-function fenFromUcis(ucis: string[]): string {
-  const chess = new Chess();
-  for (const uci of ucis) {
-    try {
-      chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci.slice(4) || undefined });
-    } catch {
-      break;
-    }
-  }
-  return chess.fen();
 }
 
 function byLatest(lines: Line[]): Line[] {
