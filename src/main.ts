@@ -848,14 +848,14 @@ function sparSave(ucis: string[], colour: 'white' | 'black', afterSaved: (action
     showToast('Line saved ✓');
     const confirmRun = getConfirmRunBeforeTraining();
     showDialog({
-      title: 'Add to training now?',
+      title: 'Start training this line?',
       body: confirmRun
-        ? 'Do one clean run to confirm the line, then it joins your training.'
+        ? 'Play it once to confirm the line, then it joins your training.'
         : 'Add this line straight into your training rotation.',
       buttons: [
-        { label: 'Later', variant: 'secondary', onClick: () => afterSaved('stay') },
+        { label: 'Just save it', variant: 'secondary', onClick: () => afterSaved('stay') },
         {
-          label: confirmRun ? 'Confirm run' : 'Add to training',
+          label: confirmRun ? 'Play it once first' : 'Add to training',
           variant: 'primary',
           onClick: () => {
             afterSaved('left'); // close the spar screen first, then enrol/run
@@ -1218,24 +1218,24 @@ function goToSavedLine(id: string): void {
 
 // After saving, offer to add the line to training. The primary action depends on
 // the "Confirm run before training" pref: a confirm run when ON, an instant
-// enrol when OFF. Either way [Later] just drops the user on My Lines, as before.
+// enrol when OFF. [Just save it] drops the user on My Lines without enrolling.
 // A line that's already in training skips the prompt entirely.
 function promptAddToTraining(line: Line): void {
   const confirmRun = getConfirmRunBeforeTraining();
   showDialog({
-    title: 'Add to training now?',
+    title: 'Start training this line?',
     body: confirmRun
-      ? 'Do one clean run to confirm the line, then it joins your training.'
+      ? 'Play it once to confirm the line, then it joins your training.'
       : 'Add this line straight into your training rotation.',
-    // Later on the left, the primary action on the right (the expected spot).
+    // Save-only on the left, the primary action on the right (the expected spot).
     buttons: [
       {
-        label: 'Later',
+        label: 'Just save it',
         variant: 'secondary',
         onClick: () => goToSavedLine(line.id),
       },
       {
-        label: confirmRun ? 'Confirm run' : 'Add to training',
+        label: confirmRun ? 'Play it once first' : 'Add to training',
         variant: 'primary',
         onClick: () => addLineToTraining(
           line,
