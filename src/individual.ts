@@ -24,6 +24,10 @@ export interface IndividualPosition {
   prevFen?: string;      // the position before that opponent move (replay start)
 }
 
+// The standard chess start position — used when a quizzed move is so early that
+// the position before it (or before the opponent's reply) is the opening itself.
+const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
 // First ply we'll ever quiz. Index 4 = White's 3rd move / Black's 3rd move, so
 // the board always opens somewhere mid-opening rather than on move 1.
 const MIN_PLY_INDEX = 4;
@@ -36,20 +40,24 @@ interface Candidate extends IndividualPosition {
   dueTime: number;
 }
 
-function candidatesFor(line: Line, now: Date): Candidate[] {
+function candidatesFor(line: Line, now: Date, minPly: number): Candidate[] {
   const nodes = mainlineNodes(line.tree);
   const out: Candidate[] = [];
-  for (let i = MIN_PLY_INDEX; i < nodes.length; i++) {
+  for (let i = minPly; i < nodes.length; i++) {
     const isUserMove = line.colour === 'white' ? i % 2 === 0 : i % 2 === 1;
     if (!isUserMove) continue;
     const expected = nodes[i];
     const review = expected.review;
     out.push({
       lineId: line.id,
-      preFen: nodes[i - 1].fen, // position before this move (i ≥ 4, so safe)
+      // Position before this move. At i === 0 (White's first move) that's the
+      // opening itself; otherwise the previous node.
+      preFen: i >= 1 ? nodes[i - 1].fen : START_FEN,
       expected,
-      prevUci: nodes[i - 1].uci, // opponent's move into this position
-      prevFen: nodes[i - 2].fen, // position before that (i ≥ 4, so safe)
+      // The opponent's move into this position, and the position before it (for
+      // the replay). Both are absent/START_FEN this early in a line.
+      prevUci: i >= 1 ? nodes[i - 1].uci : undefined,
+      prevFen: i >= 2 ? nodes[i - 2].fen : i === 1 ? START_FEN : undefined,
       due: isReviewDue(review, now),
       lapses: review?.lapses ?? 0,
       dueTime: review ? new Date(review.due).getTime() : now.getTime(),
@@ -60,15 +68,16 @@ function candidatesFor(line: Line, now: Date): Candidate[] {
 
 export function selectIndividualPositions(
   lines: Line[],
-  opts: { now?: Date; max?: number } = {},
+  opts: { now?: Date; max?: number; includePaused?: boolean; minPly?: number } = {},
 ): IndividualPosition[] {
   const now = opts.now ?? new Date();
   const max = opts.max ?? DEFAULT_MAX;
+  const minPly = opts.minPly ?? MIN_PLY_INDEX;
 
   const all: Candidate[] = [];
   for (const line of lines) {
-    if (!line.inTraining) continue;
-    all.push(...candidatesFor(line, now));
+    if (!opts.includePaused && !line.inTraining) continue;
+    all.push(...candidatesFor(line, now, minPly));
   }
 
   // Drop duplicate prep shared across lines (same position + same answer).
@@ -104,4 +113,18 @@ export function selectIndividualPositions(
 
   return blended.map(({ lineId, preFen, expected, prevUci, prevFen }) =>
     ({ lineId, preFen, expected, prevUci, prevFen }));
+}
+
+// Time attack must always be playable when there's anything saved at all. Try
+// the normal in-training pool first; if it comes up empty (very little trained
+// yet, or only shallow lines), broaden to EVERY saved line and the shallowest
+// moves so a run is still possible with at least one position. Returns empty
+// only when there are literally no saved user-moves anywhere.
+export function selectTimedPositions(
+  lines: Line[],
+  opts: { now?: Date; max?: number } = {},
+): IndividualPosition[] {
+  const normal = selectIndividualPositions(lines, opts);
+  if (normal.length > 0) return normal;
+  return selectIndividualPositions(lines, { ...opts, includePaused: true, minPly: 0 });
 }

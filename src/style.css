@@ -3583,6 +3583,15 @@ cg-board square.move-dest.oc {
   color: var(--text-faint);
 }
 
+/* The "why is this greyed out" line beneath a disabled card's title. Tinted
+   with the accent so it reads as a hint, not just more faint sub-text. */
+.mode-card-reason {
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
 /* The live stat at the card's trailing edge. */
 .mode-card-stat {
   display: flex;

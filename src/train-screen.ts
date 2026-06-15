@@ -2,7 +2,7 @@ import type { Line } from './types';
 import type { MoveNode } from './tree';
 import { getAllLines, saveLine } from './storage';
 import { startDrill, startPositionsDrill, startTimedDrill } from './drill';
-import { selectIndividualPositions } from './individual';
+import { selectIndividualPositions, selectTimedPositions } from './individual';
 import { Icons } from './icons';
 import {
   getTimedBest,
@@ -147,7 +147,7 @@ async function doRender(
 
   renderTrainHead(container);
   renderHero(container, due, trainingLines);
-  renderModeCards(container, trainingLines);
+  renderModeCards(container, trainingLines, allLines);
   renderCardList(container, trainingLines, allLines.filter(l => !l.inTraining));
 }
 
@@ -285,7 +285,7 @@ function buildHeroStat(kind: 'due' | 'reviewed', num: HTMLElement, label: string
 // the practice picker — same underlying modes, presented as one menu. Room is
 // left below for a fifth "Prep" card that arrives with Explore.
 
-function renderModeCards(container: HTMLElement, allTraining: Line[]): void {
+function renderModeCards(container: HTMLElement, allTraining: Line[], allLines: Line[]): void {
   const section = document.createElement('div');
   section.className = 'section mode-cards';
 
@@ -305,11 +305,15 @@ function renderModeCards(container: HTMLElement, allTraining: Line[]): void {
     stat: duePositions,
     statLabel: duePositions === 1 ? 'due move' : 'due moves',
     disabled: !hasPositions,
+    disabledReason: 'Train a little more to unlock single-move drills',
     onClick: () => runIndividual(container, allTraining),
   }));
 
-  // Time attack — three timed runs, each with its own personal best.
-  section.appendChild(buildTimedCard(container, allTraining, hasPositions));
+  // Time attack — three timed runs, each with its own personal best. Always
+  // playable when there's any saved position anywhere (it falls back to shallow
+  // and paused lines); only disabled when nothing is saved at all.
+  const timedReady = selectTimedPositions(allLines, { max: 80 }).length > 0;
+  section.appendChild(buildTimedCard(container, allLines, timedReady));
 
   // Fresh lines — full runs of the newest lines first.
   section.appendChild(buildModeCard({
@@ -370,6 +374,7 @@ function buildModeCard(o: {
   statLabel?: string;
   onClick: () => void;
   disabled?: boolean;
+  disabledReason?: string;
 }): HTMLElement {
   const card = document.createElement('button');
   card.type = 'button';
@@ -391,6 +396,11 @@ function buildModeCard(o: {
   sub.textContent = o.sub;
   text.appendChild(name);
   text.appendChild(sub);
+  // When greyed out, explain why right beneath the title so the card isn't a
+  // dead end with no reason given.
+  if (o.disabled && o.disabledReason) {
+    text.appendChild(buildModeReason(o.disabledReason));
+  }
   card.appendChild(text);
 
   if (o.stat !== undefined) {
@@ -412,11 +422,22 @@ function buildModeCard(o: {
   return card;
 }
 
+// The one-line "why is this greyed out" note shown beneath a disabled card's
+// title.
+function buildModeReason(text: string): HTMLElement {
+  const reason = document.createElement('span');
+  reason.className = 'mode-card-reason';
+  reason.textContent = text;
+  return reason;
+}
+
 // Time attack: the card body isn't itself tappable — its three duration chips
 // are, each starting a run of that length and showing its own personal best.
+// The pool is every saved line (selectTimedPositions falls back to shallow /
+// paused positions), so it stays playable with very little trained.
 function buildTimedCard(
   container: HTMLElement,
-  allTraining: Line[],
+  allLines: Line[],
   enabled: boolean,
 ): HTMLElement {
   const card = document.createElement('div');
@@ -438,6 +459,10 @@ function buildTimedCard(
   sub.textContent = 'beat your best in 1, 3 or 5 minutes';
   text.appendChild(name);
   text.appendChild(sub);
+  // Only ever greyed when there's nothing saved at all — say so.
+  if (!enabled) {
+    text.appendChild(buildModeReason('Save a line first to play Time attack'));
+  }
   head.appendChild(text);
   card.appendChild(head);
 
@@ -469,7 +494,7 @@ function buildTimedCard(
     }
     chip.appendChild(bestEl);
 
-    if (enabled) chip.addEventListener('click', () => runTimed(container, allTraining, minutes));
+    if (enabled) chip.addEventListener('click', () => runTimed(container, allLines, minutes));
     chips.appendChild(chip);
   }
   card.appendChild(chips);
@@ -1268,9 +1293,11 @@ function renderReviewComplete(
 // score against this duration's personal best, with a "Retry mistakes" drill of
 // everything missed.
 
-function runTimed(container: HTMLElement, trainingLines: Line[], minutes: TimedMinutes): void {
-  const clones = trainingLines.map(l => ({ ...l, tree: structuredClone(l.tree) }));
-  const positions = selectIndividualPositions(clones, { max: 80 });
+function runTimed(container: HTMLElement, allLines: Line[], minutes: TimedMinutes): void {
+  const clones = allLines.map(l => ({ ...l, tree: structuredClone(l.tree) }));
+  // Always-playable pool: normal in-training positions first, falling back to
+  // any saved position (shallow / paused) when little has been trained.
+  const positions = selectTimedPositions(clones, { max: 80 });
   if (positions.length === 0) { void doRender(container); return; }
 
   const mistakes: Mistake[] = [];
@@ -1295,7 +1322,7 @@ function runTimed(container: HTMLElement, trainingLines: Line[], minutes: TimedM
           addMistake(mistakes, mistakeKeys, pos.preFen, pos.expected);
         }
       },
-      onComplete: () => renderTimedComplete(container, trainingLines, minutes, correct, wrong, mistakes),
+      onComplete: () => renderTimedComplete(container, allLines, minutes, correct, wrong, mistakes),
       onCancel: () => void doRender(container),
     },
   );
@@ -1303,7 +1330,7 @@ function runTimed(container: HTMLElement, trainingLines: Line[], minutes: TimedM
 
 function renderTimedComplete(
   container: HTMLElement,
-  trainingLines: Line[],
+  allLines: Line[],
   minutes: TimedMinutes,
   correct: number,
   wrong: number,
@@ -1386,7 +1413,7 @@ function renderTimedComplete(
   again.type = 'button';
   again.className = mistakes.length > 0 ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
   again.textContent = 'Play again';
-  again.addEventListener('click', () => runTimed(container, trainingLines, minutes));
+  again.addEventListener('click', () => runTimed(container, allLines, minutes));
   wrap.appendChild(again);
 
   const close = document.createElement('button');
