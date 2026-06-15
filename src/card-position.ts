@@ -65,6 +65,15 @@ export interface PositionCardOpts {
   orientation?: 'white' | 'black';
   /** Extra class(es) for the card element (e.g. 'games-card', 'train-row'). */
   className?: string;
+  /**
+   * When set, the miniature becomes a button that opens the position (item 8) —
+   * the tap fires this, stopping propagation so it doesn't also trigger any
+   * card-level handler. Wire it to whatever "open this position" means for the
+   * card (open the line, build it, prepare a reply…).
+   */
+  onMiniClick?: () => void;
+  /** Accessible label for the clickable miniature (defaults to "Open position"). */
+  miniLabel?: string;
 }
 
 export function buildPositionCard(opts: PositionCardOpts = {}): PositionCardParts {
@@ -79,8 +88,20 @@ export function buildPositionCard(opts: PositionCardOpts = {}): PositionCardPart
   body.className = 'pcard-body';
 
   if (opts.fen && getShowLineMiniatures()) {
-    const mini = document.createElement('div');
-    mini.className = 'pcard-mini';
+    // A plain div by default; a button when the position is openable, so the
+    // miniature itself is a live link to the position (not just decoration).
+    let mini: HTMLElement;
+    if (opts.onMiniClick) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'pcard-mini pcard-mini--btn';
+      btn.setAttribute('aria-label', opts.miniLabel ?? 'Open position');
+      btn.addEventListener('click', (e) => { e.stopPropagation(); opts.onMiniClick!(); });
+      mini = btn;
+    } else {
+      mini = document.createElement('div');
+      mini.className = 'pcard-mini';
+    }
     mini.appendChild(buildMiniBoard(opts.fen, opts.orientation ?? 'white'));
     body.appendChild(mini);
     card.classList.add('pcard--hasboard');
