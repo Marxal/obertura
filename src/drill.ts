@@ -314,7 +314,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   //  • Full-line modes pass sessionProgress; the bar tracks LINES across the
   //    whole session, with a "Line X of Y" caption. (The dots near the board,
   //    by contrast, track the MOVES within the current line.)
-  //  • Single-move modes (Quick fixes / Fix mistakes) drill a FIXED number of
+  //  • Single-move modes (Fix mistakes) drill a FIXED number of
   //    positions, so the bar honestly tracks POSITIONS through the run, with a
   //    "Position N of M" caption. Timed mode is excluded: its pool cycles, so a
   //    fixed count is meaningless (the same reason it has no dots).
@@ -1070,7 +1070,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     hideAltCard();
     updateNoteButton(task.expected);
 
-    // Quick fixes: animate the opponent's previous move INTO the position, so you
+    // Fix mistakes: animate the opponent's previous move INTO the position, so you
     // see how you got here, then hand control over.
     if (task.prelude && task.preludeFen) {
       chess.load(task.preludeFen);

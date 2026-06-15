@@ -3509,19 +3509,34 @@ cg-board square.move-dest.oc {
 }
 
 .mode-card {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.85rem;
   width: 100%;
   text-align: left;
-  padding: 0.8rem 0.9rem;
+  padding: 0.8rem 0.9rem 0.8rem 1.05rem;
   background-color: var(--bg-card);
   background-image: linear-gradient(180deg, rgba(255,255,255,0.45) 0%, transparent 100%);
   border: 1px solid var(--border-card);
   border-radius: 12px;
+  overflow: hidden;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: filter 0.12s, box-shadow 0.12s, border-color 0.12s, transform 0.08s;
+}
+
+/* Each mode owns a coloured left edge — the quickest at-a-glance tell that
+   Time attack isn't a review card. Drawn as a bar so the hover border (which
+   recolours all four sides) never erases it. */
+.mode-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--mode-accent, transparent);
 }
 
 /* The white-sheen gradient reads as a grey smear on dark surfaces — drop it. */
@@ -3559,8 +3574,10 @@ cg-board square.move-dest.oc {
   width: 38px;
   height: 38px;
   border-radius: 10px;
-  background: var(--accent-soft);
-  color: var(--accent);
+  /* Tinted with this mode's accent (soft fill, full-strength glyph) so the icon
+     chip carries the card's identity. Falls back to the theme accent. */
+  background: color-mix(in srgb, var(--mode-accent, var(--accent)) 15%, transparent);
+  color: var(--mode-accent, var(--accent));
 }
 
 .mode-card-text {
@@ -3592,28 +3609,34 @@ cg-board square.move-dest.oc {
   color: var(--accent);
 }
 
-/* The live stat at the card's trailing edge. */
+/* The live stat at the card's trailing edge — a small pill badge tinted with
+   the mode accent, so the number reads as part of this card's identity. */
 .mode-card-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.28rem;
   flex-shrink: 0;
-  line-height: 1.1;
+  padding: 0.22rem 0.55rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--mode-accent, var(--primary)) 16%, transparent);
+  line-height: 1;
 }
 
 .mode-card-stat-num {
-  font-size: 1.4rem;
+  font-size: 1.05rem;
   font-weight: 800;
-  color: var(--primary);
+  color: var(--mode-accent, var(--primary));
   font-variant-numeric: tabular-nums;
 }
 
 .mode-card-stat-label {
-  font-size: 0.62rem;
-  font-weight: 600;
-  color: var(--text-faint);
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--mode-accent, var(--text-faint));
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
+  opacity: 0.9;
 }
 
 /* Time attack: a non-tappable card body with chips below the header. */
@@ -3654,7 +3677,7 @@ cg-board square.move-dest.oc {
   transition: filter 0.12s, border-color 0.12s, transform 0.08s;
 }
 
-.timed-chip:not(:disabled):hover { border-color: var(--accent); }
+.timed-chip:not(:disabled):hover { border-color: var(--mode-accent, var(--accent)); }
 .timed-chip:not(:disabled):active {
   filter: brightness(0.96);
   transform: translateY(1px) scale(0.98);
@@ -3667,7 +3690,7 @@ cg-board square.move-dest.oc {
 .timed-chip-dur {
   font-size: 1rem;
   font-weight: 800;
-  color: var(--accent);
+  color: var(--mode-accent, var(--accent));
   font-variant-numeric: tabular-nums;
 }
 
