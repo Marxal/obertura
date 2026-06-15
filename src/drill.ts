@@ -30,6 +30,10 @@ export interface DrillOptions {
   // 'gentle': show error text and let the user retry freely (pre-training).
   // 'full':   flash → snap back → (retries) → draw arrow → require correct replay.
   wrongMoveMode?: 'gentle' | 'full';
+  // Line mode only. When set, the whole line is auto-played through once at this
+  // interval (ms between moves) before the user is asked to play it — a "watch it
+  // once, then do it yourself" warm-up. Use watchSpeedMs() to honour the pref.
+  watchFirstMs?: number;
   // Fire a brief confetti burst when the run is completed.
   celebrateOnComplete?: boolean;
   // If provided (full mode only), the engine checks whether a wrong move is
@@ -82,6 +86,9 @@ interface DrillConfig {
   intro: Ply[];      // opponent plies to animate from the start (line mode)
   tasks: Task[];
   titleText: string; // the line/opening name shown above the board ('' hides it)
+  // The whole line as plies (line mode only), used for the optional watch-first
+  // warm-up. Empty for positions/timed modes.
+  watchPlies?: Ply[];
 }
 
 function mainlineOf(tree: MoveNode): MoveNode[] {
@@ -150,7 +157,12 @@ export function startDrill(line: Line, opts: DrillOptions): void {
   }
 
   runDrill(
-    { intro, tasks, titleText: line.openingName || line.name || 'Untitled line' },
+    {
+      intro,
+      tasks,
+      titleText: line.openingName || line.name || 'Untitled line',
+      watchPlies: moves.map(ply),
+    },
     opts,
   );
 }
@@ -865,8 +877,10 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     opts.onComplete();
   }
 
-  // Auto-play a run of plies (opponent replies / opening lead-in), animated.
-  function animatePlies(plies: Ply[], done: () => void): void {
+  // Auto-play a run of plies (opponent replies / opening lead-in / watch-first
+  // warm-up), animated. `delay` is the gap before each move (default 700 ms);
+  // the watch-first pass passes the user's watch-speed instead.
+  function animatePlies(plies: Ply[], done: () => void, delay = 700): void {
     let k = 0;
     function step(): void {
       if (isCleaned) return;
@@ -884,7 +898,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
           lastMove: [from, to],
         });
         step();
-      }, 700);
+      }, delay);
     }
     step();
   }
@@ -959,8 +973,28 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
 
   // ── Kick off ──────────────────────────────────────────────────────────────
 
-  if (config.intro.length > 0) {
-    // Animate the opening lead-in from the start before the first user move.
+  // The real run: animate the opening lead-in (black lines open with White's
+  // move) before handing the first task over, or start straight away.
+  function beginRun(): void {
+    if (config.intro.length > 0) {
+      chess.load(START_FEN);
+      cg.set({
+        fen: START_FEN,
+        orientation: tasks[0].colour,
+        turnColor: 'white',
+        movable: { color: undefined, dests: new Map() },
+      });
+      animatePlies(config.intro, () => startTask(0));
+    } else {
+      startTask(0);
+    }
+  }
+
+  // Watch-first warm-up (line mode): play the whole line through once at the
+  // user's watch speed, then reset to the start and hand the run over so they
+  // play it themselves.
+  const watchPlies = config.watchPlies ?? [];
+  if (opts.watchFirstMs != null && watchPlies.length > 0) {
     chess.load(START_FEN);
     cg.set({
       fen: START_FEN,
@@ -968,9 +1002,13 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
       turnColor: 'white',
       movable: { color: undefined, dests: new Map() },
     });
-    animatePlies(config.intro, () => startTask(0));
+    setStatus('Watch the line once', 'pt-status--prompt');
+    animatePlies(watchPlies, () => {
+      // Hold on the final position for a beat, then reset and start the quiz.
+      autoTimer = setTimeout(() => { if (!isCleaned) beginRun(); }, opts.watchFirstMs! + 300);
+    }, opts.watchFirstMs);
   } else {
-    startTask(0);
+    beginRun();
   }
 
   if (timed) startTimer();
