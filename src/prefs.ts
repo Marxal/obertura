@@ -6,20 +6,6 @@ const WATCH_SPEED_KEY = 'obertura.watchSpeed';
 const DEFAULT_MODE_KEY = 'obertura.defaultTrainingMode';
 const CONFIRM_RUN_KEY = 'obertura.confirmRunBeforeTraining';
 
-// Opt-in crash reporting (Sentry). OFF by default: when off, the Sentry SDK is
-// never even loaded (see crash.ts), so nothing is sent. Turning it on lazily
-// loads and initialises Sentry; turning it off shuts it down again, live.
-const CRASH_REPORTS_KEY = 'obertura.crashReportsEnabled';
-
-// Whether anonymous crash reports are sent. Default OFF (opt-in).
-export function getCrashReportsEnabled(): boolean {
-  return localStorage.getItem(CRASH_REPORTS_KEY) === 'on';
-}
-
-export function setCrashReportsEnabled(on: boolean): void {
-  localStorage.setItem(CRASH_REPORTS_KEY, on ? 'on' : 'off');
-}
-
 // My Lines view options. Both default ON.
 //   quick view   → the swipe-through board carousels at the top of My Lines.
 //   miniatures   → the tiny position board on each saved-line / suggestion card.
