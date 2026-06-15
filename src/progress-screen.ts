@@ -23,7 +23,6 @@ import {
 } from './progress';
 import { currentStreak, trainedToday, getTrainingDays } from './streak';
 import { Icons } from './icons';
-import { openLibrary } from './library';
 import { buildEmptyState } from './empty-state';
 import {
   getShowStreakSection,
@@ -38,9 +37,6 @@ export interface ProgressCallbacks {
   // Empty-state routes: jump to the Train tab, or open the builder on a fresh line.
   onStartTraining: () => void;
   onBuildLine: () => void;
-  // Seed the builder with a move sequence (from the opening library), oriented
-  // to the chosen colour — backs the "Browse opening library" button up top.
-  onOpenInBuilder: (ucis: string[], colour: 'white' | 'black') => void;
 }
 
 export function renderProgressScreen(container: HTMLElement, cb: ProgressCallbacks): void {
@@ -58,10 +54,6 @@ async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<
     return;
   }
   container.innerHTML = '';
-
-  // "Browse opening library" leads the screen — a plain full-width button (no
-  // card box), always present, even before there are any numbers to show.
-  renderLibraryButton(container, cb);
 
   // Truly fresh — no lines and no games — has no numbers to show yet. One clean
   // empty state beats a wall of zeroes (cold streak, 0/0/0 stats, no-games note).
@@ -108,23 +100,6 @@ async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<
   if (report.items.length > 0) {
     renderOpeningDetail(container, report, cb);
   }
-}
-
-// ── Browse opening library (top of screen, a bare button) ─────────────────────
-
-// A standalone full-width button, deliberately NOT wrapped in a .section card,
-// so it reads as a simple launcher above the stats. The ~490 KB library dataset
-// is lazy-loaded only when it's actually opened, so this is free to render.
-function renderLibraryButton(container: HTMLElement, cb: ProgressCallbacks): void {
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'games-refresh-btn stats-library-btn';
-  btn.appendChild(Icons.search(15));
-  btn.appendChild(document.createTextNode('Browse opening library'));
-  btn.addEventListener('click', () => {
-    openLibrary((ucis, colour) => cb.onOpenInBuilder(ucis, colour));
-  });
-  container.appendChild(btn);
 }
 
 // ── Local date helper ─────────────────────────────────────────────────────────

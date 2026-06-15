@@ -1,6 +1,7 @@
 // The Explore tab — visualizing your play, scouting and engine sparring.
 //
-// Sections, top to bottom (the agreed Explore order):
+// Top to bottom: a "Browse opening library" launcher leads (a bare button, not a
+// section), then the agreed Explore order:
 //   1. Visualize your play — see your games and repertoire on the board:
 //        • Board browser  — walk positions on a board, with your games' W/D/L
 //                           (formerly the "Line browser"); White/Black toggle.
@@ -13,8 +14,7 @@
 //                       at a scouting sink instead of "my games".
 //   3. Build with the engine — a casual game against the local engine.
 //
-// (The opening library moved to the Statistics tab. Distinct from explore.ts,
-// the in-board explorer.)
+// (Distinct from explore.ts, the in-board explorer.)
 
 import type { Line } from './types';
 import type { ImportedGame } from './chesscom';
@@ -24,6 +24,7 @@ import { showDialog } from './dialog';
 import { openImportPanel } from './import-panel';
 import { openRepertoireMap } from './repertoire-map';
 import { openBoardExplorer } from './board-explorer';
+import { openLibrary } from './library';
 import { openSpar, type SparSaveFn, type SparMode } from './spar';
 import { loadBookLines, pickBookLine, pickGameLine } from './book-lines';
 import {
@@ -95,6 +96,10 @@ async function buildScreen(container: HTMLElement): Promise<void> {
   opponents.sort((a, b) => b.refreshedAt.localeCompare(a.refreshedAt));
   const hasGames = games.length > 0;
 
+  // "Browse opening library" leads the screen — a plain full-width launcher
+  // (not a .section card). The ~490 KB dataset is lazy-loaded only on open.
+  container.appendChild(libraryButton());
+
   // 1) Visualize your play — board browser + your games / repertoire trees.
   const visualize = visualizeSection(lines, games);
   if (visualize) container.appendChild(visualize);
@@ -111,6 +116,23 @@ async function buildScreen(container: HTMLElement): Promise<void> {
     const recs = recommendationsSection(games, lines);
     if (recs) container.appendChild(recs);
   }
+}
+
+// ── Browse opening library (top of Explore, a bare button) ────────────────────
+
+// A standalone full-width launcher, deliberately NOT wrapped in a .section card,
+// so it reads as a simple button above the sections. The ~490 KB library dataset
+// is lazy-loaded only when it's actually opened, so this is free to render.
+function libraryButton(): HTMLElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'games-refresh-btn library-launch-btn';
+  btn.appendChild(Icons.search(15));
+  btn.appendChild(document.createTextNode('Browse opening library'));
+  btn.addEventListener('click', () => {
+    openLibrary((ucis, colour) => exploreDeps?.onOpenInBuilder(ucis, colour));
+  });
+  return btn;
 }
 
 // ── Scout opponents ────────────────────────────────────────────────────────────
