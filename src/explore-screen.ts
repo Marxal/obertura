@@ -175,8 +175,9 @@ function getSparMode(): SparMode {
 }
 let sparMode: SparMode = getSparMode();
 
-// A launcher card for a casual game against the local engine. Picks a side and a
-// difficulty, then opens the full-screen spar board.
+// A launcher card for a casual game against the local engine. The settings
+// (level, side, engine opening) and the Play button now live in a bottom sheet
+// so the Explore landing stays clean; this section is just the front door.
 function sparSection(hasGames: boolean): HTMLElement {
   // A persisted "From my games" with no games left falls back to Surprise me.
   if (sparMode === 'games' && !hasGames) sparMode = 'surprise';
@@ -198,37 +199,75 @@ function sparSection(hasGames: boolean): HTMLElement {
     'Play a casual game against the engine from the start, then save the moves as a new line whenever you like.';
   section.appendChild(desc);
 
+  // The front door: a single primary that opens the settings sheet.
+  const openBtn = document.createElement('button');
+  openBtn.type = 'button';
+  openBtn.className = 'btn-primary spar-start-btn';
+  openBtn.appendChild(Icons.play(15));
+  openBtn.appendChild(document.createTextNode('Build with the engine'));
+  openBtn.addEventListener('click', () => openSparSheet(hasGames));
+  section.appendChild(openBtn);
+
+  return section;
+}
+
+// The settings bottom sheet: Level / Play-as / Engine-opening pickers plus the
+// Play button. The pickers mutate the same persisted module state as before, so
+// the chosen settings survive between opens and reloads.
+function openSparSheet(hasGames: boolean): void {
+  const overlay = document.createElement('div');
+  overlay.className = 'edit-overlay';
+  const sheet = document.createElement('div');
+  sheet.className = 'edit-sheet spar-sheet';
+
+  let closed = false;
+  function close(): void {
+    if (closed) return;
+    closed = true;
+    overlay.remove();
+    removeBack();
+  }
+  const removeBack = pushBack(close);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+
+  const title = document.createElement('h3');
+  title.className = 'edit-sheet-title';
+  title.textContent = 'Build with the engine';
+  sheet.appendChild(title);
+
   // Level picker.
-  section.appendChild(sparPickerRow('Level',
+  sheet.appendChild(sparPickerRow('Level',
     SPAR_LEVELS.map(l => ({ value: l.id, label: l.label })),
     sparLevelId,
     (v) => { sparLevelId = v as typeof sparLevelId; }));
 
-  // Play-as side picker, sitting directly under the Level row.
-  section.appendChild(sparPickerRow('Play as', [
+  // Play-as side picker.
+  sheet.appendChild(sparPickerRow('Play as', [
     { value: 'white', label: '○ White' },
     { value: 'black', label: '● Black' },
   ], sparColour, (v) => { sparColour = v as 'white' | 'black'; }));
 
   // Engine-opening picker — its own full-width row, since the labels are long.
-  section.appendChild(sparModeRow(hasGames));
+  sheet.appendChild(sparModeRow(hasGames));
 
-  // The front door: a full-width primary that starts the game.
+  // The Play button: close the sheet as the spar board opens, so the back stack
+  // stays tidy. startSpar runs the chosen settings exactly as before.
   const startBtn = document.createElement('button');
   startBtn.type = 'button';
   startBtn.className = 'btn-primary spar-start-btn';
   startBtn.appendChild(Icons.play(15));
   startBtn.appendChild(document.createTextNode('Play'));
-  startBtn.addEventListener('click', () => { void startSpar(startBtn); });
-  section.appendChild(startBtn);
+  startBtn.addEventListener('click', () => { void startSpar(startBtn, close); });
+  sheet.appendChild(startBtn);
 
-  return section;
+  document.body.appendChild(overlay);
+  overlay.appendChild(sheet);
 }
 
 // Build the engine opening for the chosen mode, then open the spar board. For
 // "Surprise me" we draw a fresh random book line per game; for "From my games"
 // we sample a line from my imported games on the side I'm sparring.
-async function startSpar(startBtn: HTMLButtonElement): Promise<void> {
+async function startSpar(startBtn: HTMLButtonElement, onLaunch?: () => void): Promise<void> {
   if (!exploreDeps) return;
   const level = SPAR_LEVELS.find(l => l.id === sparLevelId) ?? SPAR_LEVELS[1];
 
@@ -247,6 +286,9 @@ async function startSpar(startBtn: HTMLButtonElement): Promise<void> {
     const colour = sparColour;
     nextBookLine = () => pickGameLine(games, colour);
   }
+
+  // Dismiss the settings sheet just as the spar board opens.
+  onLaunch?.();
 
   openSpar({
     colour: sparColour,
@@ -366,25 +408,18 @@ function sparPickerRow(
 
 // ── Opening library ────────────────────────────────────────────────────────────────
 
-// A launcher card for the opening library. The ~490 KB dataset is lazy-loaded
-// only when the library is actually opened, so this section is free to render.
+// The opening library, collapsed to a single launcher button (no separate
+// header). The ~490 KB dataset is lazy-loaded only when the library is actually
+// opened, so this is free to render.
 function librarySection(): HTMLElement {
   const section = document.createElement('div');
   section.className = 'section';
-
-  const head = document.createElement('div');
-  head.className = 'section-head';
-  const heading = document.createElement('h2');
-  heading.className = 'section-title';
-  heading.textContent = 'Opening library';
-  head.appendChild(heading);
-  section.appendChild(head);
 
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'games-refresh-btn scout-add-btn';
   btn.appendChild(Icons.search(15));
-  btn.appendChild(document.createTextNode('Browse openings'));
+  btn.appendChild(document.createTextNode('Browse opening library'));
   btn.addEventListener('click', () => {
     openLibrary((ucis, colour) => exploreDeps?.onOpenInBuilder(ucis, colour));
   });
