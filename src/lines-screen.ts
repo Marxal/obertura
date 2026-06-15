@@ -163,6 +163,17 @@ async function doRender(container: HTMLElement, deps: LinesDeps): Promise<void> 
   }
   container.innerHTML = '';
 
+  // Default landing tab. With no saved lines yet but games already imported, the
+  // Saved tab is just an empty state — open straight on "From my games" so the
+  // user lands on opening suggestions instead of a blank list. This only nudges
+  // away from a still-default Saved tab; an explicit jump to "From my games"
+  // (a tab tap or goToGamesTab) sets activeTab = 'games' and is left untouched.
+  if (activeTab === 'saved' && allLines.length === 0 && games.length > 0) {
+    activeTab = 'games';
+  }
+
+  const hasGames = games.length > 0;
+
   const pending: Pending[] = [];
 
   // Jump to the "From my games" tab (the empty-state carousels offer it as the
@@ -184,7 +195,8 @@ async function doRender(container: HTMLElement, deps: LinesDeps): Promise<void> 
           allLines.filter(l => l.colour === colour),
           deps,
           pending,
-          goToGamesTab
+          goToGamesTab,
+          hasGames
         )
       );
     }
@@ -271,7 +283,8 @@ function buildCarouselSection(
   lines: Line[],
   deps: LinesDeps,
   pending: Pending[],
-  goToGamesTab: () => void
+  goToGamesTab: () => void,
+  hasGames: boolean
 ): HTMLElement {
   const section = document.createElement('section');
   section.className = 'carousel-section';
@@ -300,7 +313,12 @@ function buildCarouselSection(
     section.appendChild(buildEmptyState({
       line: `No ${colourName} lines yet.`,
       cta: { label: `+ Add ${colourName} line`, onClick: () => deps.onAddLine(colour) },
-      link: { label: 'or import from your games', onClick: goToGamesTab },
+      // Once games are imported the games tab shows suggestions, not an import
+      // prompt — so point there with matching wording instead of "import".
+      link: {
+        label: hasGames ? 'or see suggestions from your games' : 'or import from your games',
+        onClick: goToGamesTab,
+      },
     }));
     return section;
   }
