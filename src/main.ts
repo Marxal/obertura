@@ -1025,7 +1025,7 @@ function showView(view: ViewName): void {
   }
 }
 
-function onOpenLine(line: Line): void {
+function onOpenLine(line: Line, atFen?: string): void {
   stopPlayback();
   loadTree(line.tree);
   loadedLineId = line.id;
@@ -1059,6 +1059,14 @@ function onOpenLine(line: Line): void {
   // Just loaded from storage — the builder matches what's saved.
   savedSnapshot = builderSnapshot();
   showView('builder');
+
+  // Optionally open at a given position — the drill's in-session "Edit" jumps
+  // here at the move you were on. The start position is the root, so a START
+  // (or unmatched) fen simply stays there.
+  if (atFen) {
+    const target = mainline().find(n => n.fen === atFen);
+    if (target) handleMoveClick(target.id);
+  }
 }
 
 function setupNav(): void {
