@@ -16,6 +16,7 @@ import { pushBack } from './back-nav';
 import { statScorePct, topReply, type StatNode } from './move-stats';
 import { wdlScoreRow } from './wdl-bar';
 import { openBoardExplorer } from './board-explorer';
+import type { ImportedGame } from './import-core';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 const NS = 'http://www.w3.org/2000/svg';
@@ -55,7 +56,10 @@ export interface RepertoireMapOptions {
   // preview gains games / W-D-L / most-played reply. The `tree` is a UCI-keyed
   // stats lookup (see move-stats.ts); `caption` names whose results these are
   // ("their results" / "your results").
-  stats?: { tree: StatNode; caption: string };
+  // `games` (optional) are the games behind the tree, in the same perspective;
+  // the Line browser uses them to offer a "See full game" link when the walked
+  // position pins down exactly one of them.
+  stats?: { tree: StatNode; caption: string; games?: ImportedGame[] };
   // Colour toggle — when set, a White/Black segmented control sits at the top of
   // the tree (just under the header). The map shows one colour at a time; picking
   // the other colour closes this map and reopens it for that colour (so all the
@@ -1164,6 +1168,7 @@ export function openRepertoireMap(
         statsTree,
         caption: opts.stats!.caption,
         colour,
+        games: opts.stats!.games,
         startUcis: selected ? nodePath(selected).ucis : [],
         title: 'Line browser',
         action: opts.nodeAction,

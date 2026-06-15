@@ -2,7 +2,7 @@
 // as scout.selftest.ts: build games from SAN lines, then assert the W/D/L tree.
 
 import { Chess } from 'chess.js';
-import { buildMoveStats, statAt, statScorePct, topReply } from './move-stats';
+import { buildMoveStats, statAt, statScorePct, topReply, gameAtPath } from './move-stats';
 import type { ImportedGame } from './import-core';
 
 export interface TestResult { name: string; pass: boolean; detail: string }
@@ -101,6 +101,39 @@ export function runMoveStatsSelfTest(): TestResult[] {
     statAt(shallow, games[0].ucis.slice(0, 2)) !== null &&
       statAt(shallow, games[0].ucis.slice(0, 3)) === null,
     `depth-3 present=${statAt(shallow, games[0].ucis.slice(0, 3)) !== null}`,
+  );
+
+  // 8. gameAtPath pins down a single stored game once the path is unique to it.
+  //    games[2] (Bc4) is the only White game down 1.e4 e5 Bc4, so it resolves;
+  //    the shared 1.e4 e5 prefix (3 games) and the empty start do not.
+  const withUrls = games.map((g, i) => ({ ...g, url: `https://chess.com/game/${i}` }));
+  const unique = gameAtPath(withUrls, 'white', withUrls[2].ucis.slice(0, 3));
+  const shared = gameAtPath(withUrls, 'white', withUrls[0].ucis.slice(0, 2));
+  check(
+    'gameAtPath resolves a unique line to its game',
+    unique?.id === withUrls[2].id && unique?.url === 'https://chess.com/game/2',
+    `unique=${unique?.id} url=${unique?.url}`,
+  );
+  check(
+    'gameAtPath returns null for a shared (aggregate) position',
+    shared === null,
+    `shared=${shared}`,
+  );
+
+  // 9. The start position (empty path) is always an aggregate — never one game.
+  check(
+    'gameAtPath returns null at the start',
+    gameAtPath(withUrls, 'white', []) === null,
+    `start=${gameAtPath(withUrls, 'white', [])}`,
+  );
+
+  // 10. Colour is respected: the lone Black game resolves only under 'black'.
+  const blackOnly = gameAtPath(withUrls, 'black', withUrls[4].ucis.slice(0, 3));
+  check(
+    'gameAtPath respects colour perspective',
+    blackOnly?.id === withUrls[4].id &&
+      gameAtPath(withUrls, 'white', withUrls[4].ucis.slice(0, 1))?.id !== withUrls[4].id,
+    `blackOnly=${blackOnly?.id}`,
   );
 
   return results;
