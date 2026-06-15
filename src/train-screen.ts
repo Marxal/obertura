@@ -854,6 +854,17 @@ function runItem(
     // off-line move is treated as a plain miss (correct-move arrow as usual).
     recordMiss,
     onCancel: () => void doRender(container),
+    // Pause this line out of training mid-drill: persist inTraining=false, drop it
+    // from the session, and carry on with whatever's left. Nothing is graded — the
+    // clone is simply discarded.
+    onPauseLine: () => {
+      void saveLine({ ...line, inTraining: false });
+      line.inTraining = false;
+      runSession(session, container, stats);
+    },
+    // Edit this line mid-drill: leave the session and open the original line in
+    // the builder. Only offered when the app provides a view-line route.
+    onEditLine: onViewLine ? () => onViewLine!(line) : undefined,
     onBeforeComplete: async () => {
       // Resurfaced passes are reinforcement only — they don't re-grade or
       // re-persist, so a clean replay can't inflate the schedule.

@@ -60,6 +60,14 @@ export interface DrillOptions {
   // session?" first. Whatever was already reviewed still counts. Used by the
   // training modes so a stray back press can't drop you out of a drill.
   confirmAbandon?: boolean;
+  // Full-line training only. When provided, a small control row beneath the board
+  // offers in-session actions on the current line. The drill tears itself down
+  // first (overlay + back-nav layer), then hands control back via the callback.
+  //  onPauseLine — stop scheduling this line (inTraining=false); the caller drops
+  //    it from the session and carries on with whatever's left.
+  //  onEditLine  — leave the session and open this line in the builder.
+  onPauseLine?: () => void;
+  onEditLine?: () => void;
 }
 
 // A single ply to auto-play (animated) between the user's moves.
@@ -375,6 +383,31 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     overlay.classList.add('pt-has-note-btn');
   }
 
+  // ── In-session controls (full-line training) ────────────────────────────────
+  //
+  // A discreet row beneath the board: peek a hint, pause this line out of
+  // training, or jump to the builder to edit it. Quiet icons (+ a tiny label) so
+  // the board stays the focus. Positions/timed modes don't get the row — pause
+  // and edit act on a whole line, which those modes don't have.
+  const showControls = isLineDrill && !timed;
+  if (showControls) {
+    const controls = document.createElement('div');
+    controls.className = 'pt-controls';
+
+    // Hint — draw the correct-move arrow for the current position. Never counts
+    // as a miss; it just reuses the reveal arrow without requiring a replay.
+    controls.appendChild(buildControl('hint', Icons.bulb(19), 'Hint', () => showHint()));
+
+    if (opts.onPauseLine) {
+      controls.appendChild(buildControl('pause', Icons.pause(19), 'Pause', () => confirmPause()));
+    }
+    if (opts.onEditLine) {
+      controls.appendChild(buildControl('edit', Icons.pencil(19), 'Edit', () => leaveForEdit()));
+    }
+
+    bottomEl.appendChild(controls);
+  }
+
   overlay.appendChild(headerEl);
   overlay.appendChild(topEl);
   overlay.appendChild(boardWrap);
@@ -427,6 +460,58 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   }
 
   let removeBack = pushBack(exitViaBackGesture);
+
+  // ── In-session controls ─────────────────────────────────────────────────────
+
+  // One control: a small icon button with a tiny label beneath it.
+  function buildControl(kind: string, icon: SVGElement, label: string, onClick: () => void): HTMLButtonElement {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `pt-control pt-control--${kind}`;
+    btn.setAttribute('aria-label', label);
+    btn.appendChild(icon);
+    const lbl = document.createElement('span');
+    lbl.className = 'pt-control-label';
+    lbl.textContent = label;
+    btn.appendChild(lbl);
+    btn.addEventListener('click', onClick);
+    return btn;
+  }
+
+  // Draw the correct-move arrow for the current position — a free peek that never
+  // records a miss. No-op while a reveal/alternative arrow is already up, or while
+  // an engine check is mid-flight.
+  function showHint(): void {
+    if (awaitingCorrectReplay || awaitingAlternativePlay || checkingAlternative) return;
+    const expected = tasks[taskIndex]?.expected;
+    if (!expected) return;
+    const orig = expected.uci.slice(0, 2) as Key;
+    const dest = expected.uci.slice(2, 4) as Key;
+    cg.setAutoShapes([{ orig, dest, brush: 'accent' }]);
+  }
+
+  // Pause this line out of training. We confirm first (it stops the line being
+  // scheduled), then tear down and hand back to the caller, which drops it from
+  // the session and carries on.
+  function confirmPause(): void {
+    showDialog({
+      title: 'Pause this line?',
+      body: 'It stops coming up in training. Turn it back on any time from My Lines.',
+      buttons: [
+        { label: 'Pause line', variant: 'danger', onClick: () => { cleanup(); opts.onPauseLine!(); } },
+        { label: 'Keep training', variant: 'secondary', onClick: () => {} },
+      ],
+      onDismiss: () => {},
+    });
+  }
+
+  // Leave the session to edit the line in the builder. The drill runs on a clone
+  // and only commits on completion, so there's nothing half-saved to lose — we
+  // tear down cleanly (releasing the back-nav layer) and hand control over.
+  function leaveForEdit(): void {
+    cleanup();
+    opts.onEditLine!();
+  }
 
   // ── Chess helpers ─────────────────────────────────────────────────────────
 
@@ -711,9 +796,9 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     const eTo = expected.uci.slice(2, 4);
 
     if (from === eFrom && to === eTo) {
-      // Correct move — clear any pending hint UI first.
+      // Correct move — clear any arrow (reveal, alternative, or a peeked hint).
+      cg.setAutoShapes([]);
       if (awaitingCorrectReplay) {
-        cg.setAutoShapes([]);
         hideNoteCard();
         awaitingCorrectReplay = false;
       }
