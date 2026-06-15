@@ -18,6 +18,12 @@ Status key: ✅ done · 🔜 next · 💤 later
 In progress. This round's scope is confirmed before work begins on each phase.
 The `v0.3` tag (formerly `v1.3`) is the rollback point for the whole round.
 
+- 🔜 **Phase 6 — Explore vs Statistics** — moved the opening **Maps** (your
+  repertoire + your games) out of Statistics and into the Explore tab, with the
+  data wiring carried over intact. Set the agreed Explore order: Opponents →
+  Maps → Opening library → Build with the engine. Statistics now stays about
+  progress (streak, stats, win-rate, needs-attention, opening detail).
+
 ---
 
 ## v1.0 — the working trainer ✅
