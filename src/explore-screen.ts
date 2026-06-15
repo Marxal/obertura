@@ -1,18 +1,20 @@
-// The Explore tab — scouting, maps, the opening library and engine sparring.
+// The Explore tab — visualizing your play, scouting and engine sparring.
 //
 // Sections, top to bottom (the agreed Explore order):
-//   1. Opponents      — scout imported opponents; tapping one opens a full-screen
+//   1. Visualize your play — see your games and repertoire on the board:
+//        • Board browser  — walk positions on a board, with your games' W/D/L
+//                           (formerly the "Line browser"); White/Black toggle.
+//        • Your games tree — what you actually play, from imported games.
+//        • Your repertoire tree — your saved lines as a merged tree.
+//   2. Scout opponents — scout imported opponents; tapping one opens a full-screen
 //                       DETAIL view with their most-played openings per colour and
 //                       their auto-built opening maps. "Add opponent" and a
 //                       per-opponent "Refresh" reuse the one import panel, pointed
 //                       at a scouting sink instead of "my games".
-//   2. Tree           — browse YOUR openings as branching trees: your saved lines,
-//                       and (once games are imported) what you actually play. Moved
-//                       here from the Statistics screen. Colour toggles inside.
-//   3. Opening library — browse the bundled opening library.
-//   4. Build with the engine — a casual game against the local engine.
+//   3. Build with the engine — a casual game against the local engine.
 //
-// (Distinct from explore.ts, the in-board explorer.)
+// (The opening library moved to the Statistics tab. Distinct from explore.ts,
+// the in-board explorer.)
 
 import type { Line } from './types';
 import type { ImportedGame } from './chesscom';
@@ -21,7 +23,7 @@ import { Icons } from './icons';
 import { showDialog } from './dialog';
 import { openImportPanel } from './import-panel';
 import { openRepertoireMap } from './repertoire-map';
-import { openLibrary } from './library';
+import { openBoardExplorer } from './board-explorer';
 import { openSpar, type SparSaveFn, type SparMode } from './spar';
 import { loadBookLines, pickBookLine, pickGameLine } from './book-lines';
 import {
@@ -81,10 +83,39 @@ export function renderExploreScreen(container: HTMLElement, deps?: ExploreDeps):
 
 async function buildScreen(container: HTMLElement): Promise<void> {
   container.innerHTML = '';
-  const opponents = await getAllOpponents();
+
+  // Everything the screen needs, fetched once up front so the sections render in
+  // the agreed order without round-trips: my games + lines feed "Visualize your
+  // play", the opponents feed scouting, and the games count gates spar's "From
+  // my games" mode and the bottom recommendations.
+  const [opponents, lines, games] = await Promise.all([
+    getAllOpponents(), getAllLines(), getAllGames(),
+  ]);
   // Newest refresh first, so the one you just touched leads.
   opponents.sort((a, b) => b.refreshedAt.localeCompare(a.refreshedAt));
+  const hasGames = games.length > 0;
 
+  // 1) Visualize your play — board browser + your games / repertoire trees.
+  const visualize = visualizeSection(lines, games);
+  if (visualize) container.appendChild(visualize);
+
+  // 2) Scout opponents.
+  container.appendChild(scoutSection(opponents, container));
+
+  // 3) Build with the engine.
+  container.appendChild(sparSection(hasGames));
+
+  // 4) Recommended lines to try — games-gated, at the very bottom. Only when
+  //    games are imported, and only if there's actually something worth nudging.
+  if (hasGames) {
+    const recs = recommendationsSection(games, lines);
+    if (recs) container.appendChild(recs);
+  }
+}
+
+// ── Scout opponents ────────────────────────────────────────────────────────────
+
+function scoutSection(opponents: Opponent[], container: HTMLElement): HTMLElement {
   const section = document.createElement('div');
   section.className = 'section';
 
@@ -92,17 +123,13 @@ async function buildScreen(container: HTMLElement): Promise<void> {
   head.className = 'section-head';
   const heading = document.createElement('h2');
   heading.className = 'section-title';
-  heading.textContent = 'Opponents';
+  heading.textContent = 'Scout opponents';
   head.appendChild(heading);
   const meta = document.createElement('span');
   meta.className = 'section-meta';
   meta.textContent = `${opponents.length} / ${MAX_OPPONENTS}`;
   head.appendChild(meta);
   section.appendChild(head);
-
-  // The library section is rendered first; keep a handle so the empty state's
-  // "browse the openings library" link can jump straight to it.
-  const libEl = librarySection();
 
   // No opponents yet: the shared empty-state pattern carries the way in (its CTA
   // is the add-opponent flow), so the standalone description + Add button are
@@ -112,52 +139,31 @@ async function buildScreen(container: HTMLElement): Promise<void> {
       icon: Icons.target(28),
       line: 'Scout your first opponent.',
       cta: { label: 'Add opponent', onClick: () => addOpponent(container) },
-      link: {
-        label: 'or browse the openings library',
-        onClick: () => libEl.scrollIntoView({ behavior: 'smooth', block: 'start' }),
-      },
     }));
-  } else {
-    const desc = document.createElement('p');
-    desc.className = 'section-desc';
-    desc.textContent =
-      'Import an opponent’s games to scout their openings and build a map of what they play.';
-    section.appendChild(desc);
-
-    // Add-opponent button.
-    const addBtn = document.createElement('button');
-    addBtn.type = 'button';
-    addBtn.className = 'games-refresh-btn scout-add-btn';
-    addBtn.appendChild(Icons.plus(15));
-    addBtn.appendChild(document.createTextNode('Add opponent'));
-    addBtn.addEventListener('click', () => addOpponent(container));
-    section.appendChild(addBtn);
-
-    const list = document.createElement('div');
-    list.className = 'group';
-    for (const opp of opponents) list.appendChild(opponentCard(opp, container));
-    section.appendChild(list);
+    return section;
   }
 
-  // My saved lines and imported games feed the Tree section (and the games count
-  // gates the spar "From my games" mode). Fetched once here for both.
-  const [lines, games] = await Promise.all([getAllLines(), getAllGames()]);
-  const hasGames = games.length > 0;
+  const desc = document.createElement('p');
+  desc.className = 'section-desc';
+  desc.textContent =
+    'Import an opponent’s games to scout their openings and build a map of what they play.';
+  section.appendChild(desc);
 
-  // The agreed Explore order: 1) Opponents, 2) Tree, 3) Opening library,
-  // 4) Build with the engine.
-  container.appendChild(section);
-  const maps = mapsSection(lines, games);
-  if (maps) container.appendChild(maps);
-  container.appendChild(libEl);
-  container.appendChild(sparSection(hasGames));
+  // Add-opponent button.
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'games-refresh-btn scout-add-btn';
+  addBtn.appendChild(Icons.plus(15));
+  addBtn.appendChild(document.createTextNode('Add opponent'));
+  addBtn.addEventListener('click', () => addOpponent(container));
+  section.appendChild(addBtn);
 
-  // 5) Recommended lines to try — games-gated, at the very bottom. Only when
-  //    games are imported, and only if there's actually something worth nudging.
-  if (hasGames) {
-    const recs = recommendationsSection(games, lines);
-    if (recs) container.appendChild(recs);
-  }
+  const list = document.createElement('div');
+  list.className = 'group';
+  for (const opp of opponents) list.appendChild(opponentCard(opp, container));
+  section.appendChild(list);
+
+  return section;
 }
 
 // ── Spar with the engine ─────────────────────────────────────────────────────
@@ -416,36 +422,17 @@ function sparPickerRow(
   return row;
 }
 
-// ── Opening library ────────────────────────────────────────────────────────────────
-
-// The opening library, collapsed to a single launcher button (no separate
-// header). The ~490 KB dataset is lazy-loaded only when the library is actually
-// opened, so this is free to render.
-function librarySection(): HTMLElement {
-  const section = document.createElement('div');
-  section.className = 'section';
-
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'games-refresh-btn scout-add-btn';
-  btn.appendChild(Icons.search(15));
-  btn.appendChild(document.createTextNode('Browse opening library'));
-  btn.addEventListener('click', () => {
-    openLibrary((ucis, colour) => exploreDeps?.onOpenInBuilder(ucis, colour));
-  });
-  section.appendChild(btn);
-
-  return section;
-}
-
-// ── Tree (your repertoire + your games) ───────────────────────────────────────
+// ── Visualize your play (board browser + your games / repertoire trees) ───────
 //
-// Moved here from the Statistics screen: browse YOUR openings as branching trees.
-// "Your repertoire" maps your saved lines; "Your games" maps what you actually
-// play, from imported games (like an opponent map, but yours). The data wiring —
-// buildMoveStats for per-move W/D/L, the depth configs, and the opponent-tree
-// builder for the games map — is carried over intact. (Opponent maps stay inside
-// the scouting detail view, untouched.)
+// Three ways to see YOUR play on the board:
+//   • Board browser — walk positions on a real board with your games' per-move
+//     W/D/L (formerly the "Line browser"); a White/Black toggle flips the side.
+//   • Your games tree — what you actually play, from imported games (like an
+//     opponent map, but yours).
+//   • Your repertoire tree — your saved lines merged into one tree.
+// The data wiring — buildMoveStats for per-move W/D/L, the depth configs, and the
+// opponent-tree builder for the games map — is carried over intact. (Opponent
+// maps stay inside the scouting detail view, untouched.)
 
 // Plies in a line's longest variation (root has no move, so its children are
 // ply 1). Drives whether the repertoire map can "Go deeper" than the default.
@@ -489,10 +476,11 @@ function mapEntryBtn(
   return btn;
 }
 
-// Build the Tree section, or return null when there's nothing to map (no lines
-// and no games) so the caller can skip appending it. Each map type is a single
-// entry; the colour choice now lives at the top of the opened tree.
-function mapsSection(lines: Line[], games: ImportedGame[]): HTMLElement | null {
+// Build the Visualize-your-play section, or return null when there's nothing to
+// show (no lines and no games) so the caller can skip appending it. Three
+// entries: a standalone Board browser, your games tree, your repertoire tree.
+// The colour choice lives INSIDE each (a White/Black toggle at the top).
+function visualizeSection(lines: Line[], games: ImportedGame[]): HTMLElement | null {
   const section = document.createElement('div');
   section.className = 'section';
 
@@ -500,13 +488,13 @@ function mapsSection(lines: Line[], games: ImportedGame[]): HTMLElement | null {
   head.className = 'section-head';
   const heading = document.createElement('h2');
   heading.className = 'section-title';
-  heading.textContent = 'Tree';
+  heading.textContent = 'Visualize your play';
   head.appendChild(heading);
   section.appendChild(head);
 
   const desc = document.createElement('p');
   desc.className = 'rmap-section-desc';
-  desc.textContent = 'See the lines you play on the board.';
+  desc.textContent = 'See your games and repertoire on the board.';
   section.appendChild(desc);
 
   const entries = document.createElement('div');
@@ -515,36 +503,39 @@ function mapsSection(lines: Line[], games: ImportedGame[]): HTMLElement | null {
 
   const onOpenLine = (line: Line) => exploreDeps?.onOpenLine(line);
 
-  // Per-move W/D/L from MY imported games (my perspective), shared by both maps.
+  // Per-move W/D/L from MY imported games (my perspective), shared by the maps
+  // and the board browser.
   const myStats = (colour: 'white' | 'black') => ({
     tree: buildMoveStats(games, colour, MAP_MAX_PLIES),
     caption: 'your results',
     games,
   });
 
-  // 1) Your repertoire — the saved lines as a tree. One entry; the White/Black
-  //    toggle sits at the top of the opened tree (defaulting to White).
+  const gamesHas = (c: 'white' | 'black') => games.some(g => g.colour === c);
   const repHas = (c: 'white' | 'black') => lines.some(l => l.colour === c);
-  if (repHas('white') || repHas('black')) {
-    const openRep = (colour: 'white' | 'black'): void => {
-      const colourLines = lines.filter(l => l.colour === colour);
-      const reach = Math.max(0, ...colourLines.map(l => treeDepth(l.tree)));
-      openRepertoireMap(colourLines, colour, onOpenLine, {
-        title: 'Your repertoire',
-        depth: { startPlies: MAP_START_PLIES, stepPlies: MAP_STEP_PLIES, maxPlies: reach, atDepth: () => colourLines },
-        ...(games.length > 0 && { stats: myStats(colour) }),
+
+  // 1) Board browser — walk positions on a board with your games' per-move
+  //    W/D/L. Standalone (no map underneath), so "Open in builder" lands cleanly
+  //    on the builder; a White/Black toggle reopens it for the other side.
+  if (gamesHas('white') || gamesHas('black')) {
+    const openBrowser = (colour: 'white' | 'black'): void => {
+      openBoardExplorer({
+        statsTree: buildMoveStats(games, colour, MAP_MAX_PLIES),
+        caption: 'your results',
+        colour,
+        games,
+        title: 'Board browser',
         onOpenInBuilder: (ucis, c) => exploreDeps?.onOpenInBuilder(ucis, c),
-        colourToggle: { current: colour, enabled: { white: repHas('white'), black: repHas('black') }, onPick: openRep },
+        colourToggle: { current: colour, enabled: { white: gamesHas('white'), black: gamesHas('black') }, onPick: openBrowser },
       });
     };
-    entries.appendChild(mapEntryBtn(Icons.tree(24), 'Your repertoire',
-      `${lines.length} line${lines.length !== 1 ? 's' : ''}`,
-      () => openRep(repHas('white') ? 'white' : 'black')));
+    entries.appendChild(mapEntryBtn(Icons.compass(24), 'Board browser',
+      'Walk your games on a board',
+      () => openBrowser(gamesHas('white') ? 'white' : 'black')));
   }
 
-  // 2) Your games — what you actually play, from imported games (like an opponent
-  //    map, but yours). Only when games are imported; colour toggles inside too.
-  const gamesHas = (c: 'white' | 'black') => games.some(g => g.colour === c);
+  // 2) Your games tree — what you actually play, from imported games (like an
+  //    opponent map, but yours). Colour toggles inside too.
   if (gamesHas('white') || gamesHas('black')) {
     const openGames = (colour: 'white' | 'black'): void => {
       const colourGames = games.filter(g => g.colour === colour);
@@ -560,9 +551,27 @@ function mapsSection(lines: Line[], games: ImportedGame[]): HTMLElement | null {
         colourToggle: { current: colour, enabled: { white: gamesHas('white'), black: gamesHas('black') }, onPick: openGames },
       });
     };
-    entries.appendChild(mapEntryBtn(Icons.search(24), 'Your games',
+    entries.appendChild(mapEntryBtn(Icons.search(24), 'Your games tree',
       `${games.length} game${games.length !== 1 ? 's' : ''}`,
       () => openGames(gamesHas('white') ? 'white' : 'black')));
+  }
+
+  // 3) Your repertoire tree — the saved lines as one merged tree. The White/Black
+  //    toggle sits at the top of the opened tree (defaulting to White).
+  if (repHas('white') || repHas('black')) {
+    const openRep = (colour: 'white' | 'black'): void => {
+      const colourLines = lines.filter(l => l.colour === colour);
+      const reach = Math.max(0, ...colourLines.map(l => treeDepth(l.tree)));
+      openRepertoireMap(colourLines, colour, onOpenLine, {
+        title: 'Your repertoire',
+        depth: { startPlies: MAP_START_PLIES, stepPlies: MAP_STEP_PLIES, maxPlies: reach, atDepth: () => colourLines },
+        ...(games.length > 0 && { stats: myStats(colour) }),
+        colourToggle: { current: colour, enabled: { white: repHas('white'), black: repHas('black') }, onPick: openRep },
+      });
+    };
+    entries.appendChild(mapEntryBtn(Icons.tree(24), 'Your repertoire tree',
+      `${lines.length} line${lines.length !== 1 ? 's' : ''}`,
+      () => openRep(repHas('white') ? 'white' : 'black')));
   }
 
   // Nothing to show (no lines and no games)? Tell the caller to drop the section.

@@ -39,9 +39,18 @@ export interface BoardExplorerOptions {
     onAct?: (ctx: NodeActionContext) => void;
   };
   // Builder-seed fallback for the primary control. Used when no `action` is
-  // supplied (e.g. the repertoire map's Line browser) so the bottom bar can
-  // still offer "Open in builder" with the walked move path and colour.
+  // supplied (e.g. the standalone Board browser) so the bottom bar can still
+  // offer "Open in builder" with the walked move path and colour.
   onOpenInBuilder?: (ucis: string[], colour: 'white' | 'black') => void;
+  // White/Black toggle — when set, a segmented control sits under the header.
+  // The browser reads one colour's games at a time; picking the other colour
+  // closes this browser and reopens it for that colour (so the caller rebuilds
+  // the colour-specific stats tree). Mirrors the repertoire map's colour toggle.
+  colourToggle?: {
+    current: 'white' | 'black';
+    enabled: { white: boolean; black: boolean };
+    onPick: (colour: 'white' | 'black') => void;
+  };
 }
 
 export function openBoardExplorer(opts: BoardExplorerOptions): void {
@@ -89,6 +98,12 @@ export function openBoardExplorer(opts: BoardExplorerOptions): void {
   badge.textContent = opts.caption;
   header.append(back, titleEl, badge);
   overlay.appendChild(header);
+
+  // White/Black toggle (under the header) — when the caller wired it. Picking
+  // the other side closes this browser; the caller reopens it for that colour.
+  if (opts.colourToggle) {
+    overlay.appendChild(buildColourToggle(opts.colourToggle, close));
+  }
 
   // Board.
   const boardWrap = document.createElement('div');
@@ -318,6 +333,44 @@ export function openBoardExplorer(opts: BoardExplorerOptions): void {
       list.appendChild(row);
     }
   }
+}
+
+// A segmented White/Black control for the top of the browser (reuses the map's
+// look). Picking the other colour closes this browser first (keeping the back
+// stack balanced), then hands off to the caller's onPick, which reopens it.
+function buildColourToggle(
+  toggle: NonNullable<BoardExplorerOptions['colourToggle']>,
+  close: () => void,
+): HTMLElement {
+  const bar = document.createElement('div');
+  bar.className = 'rmap-colour-toggle';
+
+  const seg = document.createElement('div');
+  seg.className = 'rmap-view-seg';
+  seg.setAttribute('role', 'group');
+
+  const colours: { id: 'white' | 'black'; label: string }[] = [
+    { id: 'white', label: '○ White' },
+    { id: 'black', label: '● Black' },
+  ];
+  for (const c of colours) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'rmap-view-btn';
+    b.textContent = c.label;
+    const on = c.id === toggle.current;
+    b.classList.toggle('rmap-view-btn--on', on);
+    b.setAttribute('aria-pressed', String(on));
+    if (!toggle.enabled[c.id]) {
+      b.disabled = true;
+    } else if (!on) {
+      b.addEventListener('click', () => { close(); toggle.onPick(c.id); });
+    }
+    seg.appendChild(b);
+  }
+
+  bar.appendChild(seg);
+  return bar;
 }
 
 // Name the platform from a game URL, for the external-link label.

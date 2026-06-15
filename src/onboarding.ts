@@ -228,7 +228,13 @@ export function showIntro(opts: IntroOptions = {}): void {
   }, { passive: true });
   track.addEventListener('touchmove', (e) => {
     if (!dragging) return;
-    const dx = e.touches[0].clientX - startX;
+    let dx = e.touches[0].clientX - startX;
+    // At the ends there's nothing to reveal, so resist an over-swipe instead of
+    // dragging blank space in: a heavily damped pull keeps the first and last
+    // slides essentially centred (and it snaps back on release).
+    const atStartPullingRight = index === 0 && dx > 0;
+    const atEndPullingLeft = index === lastIndex && dx < 0;
+    if (atStartPullingRight || atEndPullingLeft) dx *= 0.2;
     track.style.transform = `translateX(calc(${-index * 100}% + ${dx}px))`;
   }, { passive: true });
   track.addEventListener('touchend', (e) => {
