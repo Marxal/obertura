@@ -41,6 +41,7 @@ import {
 import { clearGames, saveGames, countGames } from './storage';
 import { pushBack } from './back-nav';
 import { createPawnProgress } from './import-progress';
+import { showToast } from './toast';
 
 // ── Remembered choices (device-local) ────────────────────────────────────────
 
@@ -579,6 +580,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
         const persist = opts.save ?? saveMyGames;
         await persist(games, { platform: result.platform, username: userInput.value.trim() });
         close();
+        showToast(`Imported ${games.length} game${games.length === 1 ? '' : 's'} ✓`);
         opts.onImported?.(games.length);
       } catch (err) {
         showError(`Couldn’t save your games — ${(err as Error).message}`);
