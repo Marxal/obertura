@@ -16,10 +16,11 @@ import type { Key } from 'chessground/types';
 import type { Api as CgApi } from 'chessground/api';
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
-import { type StatNode, statAt, statScorePct } from './move-stats';
+import { type StatNode, statAt, statScorePct, gameAtPath } from './move-stats';
 import { wdlScoreRow } from './wdl-bar';
 import { nameForPath } from './openings';
 import type { NodeActionContext } from './repertoire-map';
+import type { ImportedGame } from './import-core';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -27,6 +28,9 @@ export interface BoardExplorerOptions {
   statsTree: StatNode;            // per-move stats keyed by uci path (their / my games)
   caption: string;               // 'their results' | 'your results' — the perspective
   colour: 'white' | 'black';     // initial board orientation
+  // The games behind the stats tree (same perspective). When the walked path
+  // pins down exactly one of them, we offer a "See full game" external link.
+  games?: ImportedGame[];
   startUcis?: string[];          // open at this position (e.g. the selected map node)
   title?: string;                // header title
   action?: {                     // optional "open in builder / prepare" action
@@ -112,6 +116,16 @@ export function openBoardExplorer(opts: BoardExplorerOptions): void {
   const openingEl = document.createElement('div');
   openingEl.className = 'bx-opening';
   overlay.appendChild(openingEl);
+
+  // "See full game" — a discrete external link shown only when the walked line
+  // resolves to one identifiable stored game (see gameAtPath). Opens that game's
+  // original page on its platform in a new tab; hidden for aggregate positions.
+  const fullGame = document.createElement('a');
+  fullGame.className = 'bx-full-game';
+  fullGame.target = '_blank';
+  fullGame.rel = 'noopener noreferrer';
+  fullGame.hidden = true;
+  overlay.appendChild(fullGame);
 
   // Reply list.
   const list = document.createElement('div');
@@ -244,10 +258,26 @@ export function openBoardExplorer(opts: BoardExplorerOptions): void {
     const name = nameForPath(fens);
     openingEl.textContent = name ?? '—';
 
+    renderFullGameLink();
+
     resetBtn.disabled = backBtn.disabled = ucis.length === 0;
     fwdBtn.disabled = forward.length === 0;
 
     renderList();
+  }
+
+  // Show "See full game ↗" only when this exact position belongs to one stored
+  // game (and we were handed the games to check against). Otherwise stay hidden.
+  function renderFullGameLink(): void {
+    const game = opts.games ? gameAtPath(opts.games, opts.colour, ucis) : null;
+    if (!game || !game.url) {
+      fullGame.hidden = true;
+      fullGame.removeAttribute('href');
+      return;
+    }
+    fullGame.href = game.url;
+    fullGame.textContent = `See full game on ${platformLabel(game.url)} ↗`;
+    fullGame.hidden = false;
   }
 
   function renderList(): void {
@@ -288,6 +318,14 @@ export function openBoardExplorer(opts: BoardExplorerOptions): void {
       list.appendChild(row);
     }
   }
+}
+
+// Name the platform from a game URL, for the external-link label.
+function platformLabel(url: string): string {
+  const u = url.toLowerCase();
+  if (u.includes('lichess.org')) return 'Lichess';
+  if (u.includes('chess.com')) return 'Chess.com';
+  return 'the original site';
 }
 
 // A stacked icon-over-label step button for the bottom control bar.

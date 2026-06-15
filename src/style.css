@@ -6586,6 +6586,24 @@ cg-board square.move-dest.oc {
   text-overflow: ellipsis;
 }
 
+/* "See full game" — a discrete external link under the opening name. */
+.bx-full-game {
+  display: block;
+  padding: var(--space-sm) var(--space-lg);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--hairline-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-tap-highlight-color: transparent;
+}
+.bx-full-game:active { opacity: 0.7; }
+.bx-full-game[hidden] { display: none; }
+
 .bx-list {
   flex: 1;
   min-height: 0;

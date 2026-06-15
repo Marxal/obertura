@@ -509,6 +509,7 @@ function mapsSection(lines: Line[], games: ImportedGame[]): HTMLElement | null {
   const myStats = (colour: 'white' | 'black') => ({
     tree: buildMoveStats(games, colour, MAP_MAX_PLIES),
     caption: 'your results',
+    games,
   });
 
   // 1) Your repertoire — the saved lines as a tree. One entry; the White/Black
@@ -1079,6 +1080,7 @@ function mapButton(opp: Opponent, colour: 'white' | 'black', prepare: PrepareFn)
           stats: {
             tree: buildMoveStats(opp.games, colour, MAP_MAX_PLIES),
             caption: 'their results',
+            games: opp.games,
           },
         },
       );

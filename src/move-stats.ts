@@ -74,6 +74,32 @@ export function statAt(root: StatNode, ucis: string[]): StatNode | null {
   return node ?? null;
 }
 
+// Resolve the walked path to a single stored game, or null if it doesn't pin
+// down exactly one. A game "passes through" the position when its stored moves
+// start with the walked path (same colour). When precisely one of the colour's
+// games does so, the view IS that game — so we can offer "See full game". An
+// empty path (the start) or any position shared by 2+ games is an aggregate.
+export function gameAtPath(
+  games: ImportedGame[],
+  colour: 'white' | 'black',
+  ucis: string[],
+): ImportedGame | null {
+  if (ucis.length === 0) return null;
+  let found: ImportedGame | null = null;
+  for (const g of games) {
+    if (g.colour !== colour) continue;
+    if (g.ucis.length < ucis.length) continue;
+    let matches = true;
+    for (let i = 0; i < ucis.length; i++) {
+      if (g.ucis[i] !== ucis[i]) { matches = false; break; }
+    }
+    if (!matches) continue;
+    if (found) return null; // 2+ games reach here — an aggregate, not one game
+    found = g;
+  }
+  return found;
+}
+
 // Score from the named perspective: a win is 1, a draw ½. 0–100, rounded.
 export function statScorePct(s: StatNode): number {
   return s.games === 0 ? 0 : Math.round(((s.wins + s.draws / 2) / s.games) * 100);
