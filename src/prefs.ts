@@ -6,9 +6,11 @@ const WATCH_SPEED_KEY = 'obertura.watchSpeed';
 const DEFAULT_MODE_KEY = 'obertura.defaultTrainingMode';
 const CONFIRM_RUN_KEY = 'obertura.confirmRunBeforeTraining';
 
-// My Lines view options. Both default ON.
+// My Lines view options.
 //   quick view   → the swipe-through board carousels at the top of My Lines.
+//                  OFF by default (a focused list beats carousels for most).
 //   miniatures   → the tiny position board on each saved-line / suggestion card.
+//                  ON by default.
 const SHOW_QUICKVIEW_KEY = 'obertura.lines.showQuickView';
 const SHOW_MINIATURES_KEY = 'obertura.lines.showMiniatures';
 
@@ -65,10 +67,11 @@ export function setConfirmRunBeforeTraining(on: boolean): void {
 
 // ── My Lines view options ────────────────────────────────────────────────────
 
-// The quick-view carousels at the top of My Lines. ON by default; OFF hides them
-// and the screen surfaces inline "add line" buttons instead.
+// The quick-view carousels at the top of My Lines. OFF by default; ON shows the
+// swipe-through board rows. When off, the screen surfaces inline "add line"
+// buttons instead.
 export function getShowQuickView(): boolean {
-  return localStorage.getItem(SHOW_QUICKVIEW_KEY) !== 'off';
+  return localStorage.getItem(SHOW_QUICKVIEW_KEY) === 'on';
 }
 
 export function setShowQuickView(on: boolean): void {

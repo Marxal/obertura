@@ -4,10 +4,14 @@
 //
 //   STEP 1 — pick a platform (Chess.com / Lichess), a username, and how far back
 //            to look (1m / 3m / 12m / All), then Scan.
-//   STEP 2 — "Found N games", a how-many chooser (Last 100 / Last 500 / All), a
-//            row of time-control toggles each showing its count (bullet OFF by
-//            default), a cap notice if the 1000-game hard cap was hit, and an
-//            Import button that always shows the resulting count.
+//   STEP 2 — step 1 collapses (an "Edit search" link brings it back) so the
+//            focus is the import itself: the source echoed (@user · platform),
+//            "Found N games", a how-many chooser (Last 100 / Last 500 / All,
+//            defaulting to 500 once there's more than that), a row of
+//            time-control toggles each showing its count (bullet OFF by
+//            default), an amber alert when a big "All" import is chosen, an
+//            Import button that always shows the resulting count, and the
+//            White/Black split of exactly what will land.
 //
 // The scan always pulls every speed and caps at 1000 newest-first (import-core).
 // The how-many chooser slices the most recent N off that; the time-control
@@ -179,9 +183,16 @@ const TC_ORDER: TimeClass[] = ['bullet', 'blitz', 'rapid', 'daily'];
 
 // The count choices offered in Step 2. We only surface a smaller slice when the
 // scan actually held more than it — "Last 100" is pointless with 80 games. "All"
-// is always offered and is already ≤ HARD_CAP. Default to All so the user keeps
-// everything they scanned unless they deliberately trim it.
+// is always offered and is already ≤ HARD_CAP.
 const DEFAULT_COUNT: CountChoice = 'all';
+
+// Default the how-many chooser to a phone-friendly 500 once there's more than
+// that to choose from; otherwise keep everything the scan held. Big imports
+// (All, up to the 1000 cap) noticeably slow the map and the board browser on a
+// phone, so we don't reach for them by default — the user can opt up.
+function defaultCountFor(total: number): CountChoice {
+  return total > 500 ? 500 : 'all';
+}
 
 function countOptionsFor(total: number, truncated: boolean): { value: CountChoice; label: string }[] {
   const opts: { value: CountChoice; label: string }[] = [];
@@ -361,11 +372,13 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
 
   // ── Behaviour ──
 
-  // A step-1 change makes any prior scan stale; clear step 2.
+  // A step-1 change makes any prior scan stale; clear step 2 and bring step 1
+  // back into view (it's hidden while step 2 is up).
   function resetScan(): void {
     scan = null;
     count = DEFAULT_COUNT;
     selected.clear();
+    step1.hidden = false;
     step2.hidden = true;
     step2.innerHTML = '';
     scanStatus.textContent = '';
@@ -422,29 +435,43 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
 
   function buildStep2(result: ImportResult): void {
     step2.innerHTML = '';
-    count = DEFAULT_COUNT;
-    selected.clear();
     const total = result.games.length; // newest-first, already ≤ HARD_CAP
+    count = defaultCountFor(total);
+    selected.clear();
 
-    // With results in hand, Import becomes the single obvious primary action, so
-    // hide the big Scan button. Re-scanning lives on as a quiet text link below.
+    // Step 2 takes over the sheet: hide step 1 (platform / username / range) so
+    // the focus is purely on how many games and which time controls to import.
+    // The big Scan button goes with it; "Edit search" brings step 1 back.
+    step1.hidden = true;
     scanBtn.hidden = true;
 
-    // Header: the step heading, with a discrete "↻ re-scan" link opposite it
-    // (re-runs the scan with the current step-1 choices — no fields changed).
+    // Header: the step heading + an "Edit search" link that reveals step 1 again
+    // (to change platform, username or range, then Scan afresh).
     const head = document.createElement('div');
     head.className = 'import-step2-head';
     const heading = document.createElement('h4');
     heading.className = 'import-step-title';
     heading.textContent = '2 · Choose what to import';
     head.appendChild(heading);
-    const rescan = document.createElement('button');
-    rescan.type = 'button';
-    rescan.className = 'import-rescan-link';
-    rescan.textContent = '↻ re-scan';
-    rescan.addEventListener('click', runScan);
-    head.appendChild(rescan);
+    const editSearch = document.createElement('button');
+    editSearch.type = 'button';
+    editSearch.className = 'import-rescan-link';
+    editSearch.textContent = '← Edit search';
+    editSearch.addEventListener('click', () => {
+      step1.hidden = false;
+      step2.hidden = true;
+      scanBtn.hidden = false;
+      clearError();
+    });
+    head.appendChild(editSearch);
     step2.appendChild(head);
+
+    // Whose games these are — the username field now lives only in step 1, so
+    // echo the source here so it's never lost.
+    const source = document.createElement('p');
+    source.className = 'import-source';
+    source.textContent = `@${userInput.value.trim()} · ${PLATFORM_LABELS[result.platform]}`;
+    step2.appendChild(source);
 
     // "Found N games" — the true count in range. If the hard cap bit, there are
     // genuinely more than HARD_CAP and we say so.
@@ -498,8 +525,8 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       step2.appendChild(countRow);
     }
 
-    // ── Cap notice (rebuilt per slice — only honest for the chosen count) ──
-    const capNote = document.createElement('p');
+    // ── Large-import warning (rebuilt per slice — only shown for big "All") ──
+    const capNote = document.createElement('div');
     capNote.className = 'import-cap-note';
     capNote.hidden = true;
     step2.appendChild(capNote);
@@ -520,6 +547,13 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     importBtn.className = 'btn-primary import-go-btn';
     step2.appendChild(importBtn);
 
+    // White/Black split of exactly what will land — useful context for an
+    // openings trainer, where each colour is mapped on its own.
+    const splitNote = document.createElement('p');
+    splitNote.className = 'import-split';
+    splitNote.hidden = true;
+    step2.appendChild(splitNote);
+
     const importStatus = document.createElement('p');
     importStatus.className = 'import-status';
     importStatus.setAttribute('aria-live', 'polite');
@@ -534,10 +568,19 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       const slice = sliceGames();
       const tally = tallyTimeClasses(slice);
 
-      // Cap note: only when "All" is chosen AND the hard cap actually bit. The
-      // smaller slices are a deliberate choice, not a forced truncation.
-      if (count === 'all' && result.truncated) {
-        capNote.textContent = `More than ${HARD_CAP.toLocaleString()} games found — importing only the most recent ${HARD_CAP.toLocaleString()} (phone-friendly cap).`;
+      // Large-import warning ("alert mode"): "All" can pull up to the 1000 cap,
+      // which makes the map and the board browser sluggish on a phone. Warn
+      // whenever All is chosen and it lands a big batch (the cap bit, or > 500).
+      // The smaller slices are a deliberate, safe choice — no warning.
+      const bigImport = count === 'all' && (result.truncated || slice.length > 500);
+      if (bigImport) {
+        capNote.innerHTML = '';
+        capNote.appendChild(warnIcon());
+        const msg = document.createElement('span');
+        msg.textContent = result.truncated
+          ? `Importing the most recent ${HARD_CAP.toLocaleString()} games — the cap. Big imports make the map and the board browser slow on a phone; around 500 keeps it snappy.`
+          : `Importing all ${slice.length.toLocaleString()} games. More than ~500 can make the map and the board browser slow on a phone.`;
+        capNote.appendChild(msg);
         capNote.hidden = false;
       } else {
         capNote.hidden = true;
@@ -563,11 +606,19 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     }
 
     function reflectImportCount(): void {
-      const n = filterByTimeClasses(sliceGames(), selected).length;
+      const games = filterByTimeClasses(sliceGames(), selected);
+      const n = games.length;
       importBtn.textContent = n === 0
         ? 'Pick at least one'
         : `Import ${n.toLocaleString()} game${n === 1 ? '' : 's'}`;
       importBtn.disabled = n === 0;
+      if (n === 0) {
+        splitNote.hidden = true;
+      } else {
+        const white = games.filter(g => g.colour === 'white').length;
+        splitNote.textContent = `${white.toLocaleString()} as White · ${(n - white).toLocaleString()} as Black`;
+        splitNote.hidden = false;
+      }
     }
 
     importBtn.addEventListener('click', async () => {
@@ -580,7 +631,10 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
         const persist = opts.save ?? saveMyGames;
         await persist(games, { platform: result.platform, username: userInput.value.trim() });
         close();
-        showToast(`Imported ${games.length} game${games.length === 1 ? '' : 's'} ✓`);
+        showToast(
+          `Imported ${games.length.toLocaleString()} game${games.length === 1 ? '' : 's'}`,
+          { variant: 'success' },
+        );
         opts.onImported?.(games.length);
       } catch (err) {
         showError(`Couldn’t save your games — ${(err as Error).message}`);
@@ -598,6 +652,23 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
   overlay.appendChild(sheet);
   // Focus the username if it's empty so the keyboard is ready.
   if (!userInput.value) setTimeout(() => userInput.focus(), 50);
+}
+
+// A small triangle-bang glyph for the large-import warning.
+function warnIcon(): SVGSVGElement {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('width', '16');
+  svg.setAttribute('height', '16');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '2');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.classList.add('import-cap-icon');
+  svg.innerHTML = '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/>';
+  return svg;
 }
 
 // A titled control block, matching the sheet's label style.

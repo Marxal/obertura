@@ -873,8 +873,12 @@ cg-board {
 
 /* Board-colour schemes (Settings → Appearance). "wood" is the :root default and
    carries no attribute. Each scheme re-themes the dark squares + last-move
-   highlight via variables, and the light squares via the SVG fill. */
+   highlight via variables, and the light squares via the SVG fill. The
+   --board-light variable must mirror that SVG light fill so the static SVG
+   miniatures (board-mini.ts: .mini-light) track the chosen scheme too — without
+   it, only the dark squares followed and the minis stayed wood-light. */
 [data-board="green"] {
+  --board-light: #ebecd0;
   --board-dark: #779556;
   --board-lastmove: #cdd470;
 }
@@ -882,6 +886,7 @@ cg-board {
   background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 2" shape-rendering="crispEdges"><rect width="1" height="1" fill="%23ebecd0"/><rect x="1" y="1" width="1" height="1" fill="%23ebecd0"/></svg>');
 }
 [data-board="blue"] {
+  --board-light: #dee3e6;
   --board-dark: #8ca2ad;
   --board-lastmove: #b9c6d6;
 }
@@ -889,6 +894,7 @@ cg-board {
   background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 2" shape-rendering="crispEdges"><rect width="1" height="1" fill="%23dee3e6"/><rect x="1" y="1" width="1" height="1" fill="%23dee3e6"/></svg>');
 }
 [data-board="grey"] {
+  --board-light: #dcdcdc;
   --board-dark: #909090;
   --board-lastmove: #c7c79a;
 }
@@ -4497,13 +4503,42 @@ cg-board square.move-dest.oc {
   color: var(--text);
 }
 
+/* The large-import warning ("alert mode") — a clear amber callout with a
+   triangle-bang, distinct from the quiet status line it replaced. */
 .import-cap-note {
-  font-size: 0.78rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.82rem;
   line-height: 1.45;
-  color: var(--text-muted);
-  background: var(--bg-page);
+  font-weight: 600;
+  color: #8a5a12;
+  background: color-mix(in srgb, #d8961f 16%, transparent);
+  border: 1px solid color-mix(in srgb, #d8961f 45%, transparent);
   border-radius: 8px;
-  padding: 0.5rem 0.65rem;
+  padding: 0.55rem 0.7rem;
+}
+[data-theme="dark"] .import-cap-note,
+[data-theme="gamer"] .import-cap-note { color: #f0c067; }
+.import-cap-icon {
+  flex: 0 0 auto;
+  margin-top: 0.05rem;
+  color: #d8961f;
+}
+
+/* Whose games (echoed in step 2, since the username field is back in step 1). */
+.import-source {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-top: -0.15rem;
+}
+
+/* The White/Black split of exactly what the Import button will save. */
+.import-split {
+  font-size: 0.8rem;
+  color: var(--text-faint);
+  min-height: 1em;
 }
 
 .import-status {
@@ -5373,6 +5408,31 @@ cg-board square.move-dest.oc {
 .toast--show {
   opacity: 1;
   transform: translate(-50%, 0);
+}
+
+/* Success variant — a brighter card with a sage check badge, for the moments
+   worth a small celebration (a finished import). */
+.toast {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.toast--success {
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border-card);
+  padding-left: 0.6rem;
+}
+.toast-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  background: #708151;
+  color: #fff;
 }
 
 /* Undo toast — the agile "removed, but…" affordance. Clickable, so it opts back
@@ -7108,11 +7168,14 @@ cg-board square.move-dest.oc {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 108px;
-  height: 108px;
-  border-radius: 999px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
+}
+/* The real app icon, as a rounded app-icon tile with a soft lift (mirrors the
+   onboarding Welcome mark). */
+.gate-mark-img {
+  width: 88px;
+  height: 88px;
+  border-radius: 20px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
 }
 
 .gate-heading {

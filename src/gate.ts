@@ -86,19 +86,19 @@ async function sha256Hex(text: string): Promise<string> {
     .join('');
 }
 
-// The app mark — Obertura's brand-orange ring "O" (mirrors onboarding.ts), so
-// the gate reads as the same product before the app proper appears.
-function appMark(size = 64): SVGSVGElement {
-  const el = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  el.setAttribute('viewBox', '0 0 24 24');
-  el.setAttribute('width', String(size));
-  el.setAttribute('height', String(size));
-  el.setAttribute('fill', 'none');
-  el.setAttribute('stroke', '#f5a623');
-  el.setAttribute('stroke-width', '4');
-  el.setAttribute('aria-hidden', 'true');
-  el.innerHTML = '<circle cx="12" cy="12" r="7.5"/>';
-  return el;
+// The app mark — Obertura's real installed icon (public/icons/icon-192.png),
+// the same art Android puts on the home screen (mirrors onboarding.ts), so the
+// gate reads as the same product before the app proper appears. Served from
+// public/ under the app's base path; styled as a rounded app-icon tile.
+function appMark(size = 88): HTMLImageElement {
+  const img = document.createElement('img');
+  img.src = `${import.meta.env.BASE_URL}icons/icon-192.png`;
+  img.width = size;
+  img.height = size;
+  img.alt = '';
+  img.setAttribute('aria-hidden', 'true');
+  img.className = 'gate-mark-img';
+  return img;
 }
 
 // The iOS "Share → Add to Home Screen" diagram: the share glyph, an arrow, then
