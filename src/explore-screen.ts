@@ -61,6 +61,12 @@ const PREP_FILTER_KEY = 'obertura.prep.filter';
 // shared across opponents — it carries no per-opponent state.
 const OPENINGS_FILTER_KEY = 'obertura.scout.openings.filter';
 
+// The scouting report's filters: a colour segment (All / White / Black) and a
+// Weakest / Strongest toggle, both shared across opponents.
+const REPORT_FILTER_KEY = 'obertura.scout.report.filter';
+const REPORT_RANK_KEY = 'obertura.scout.report.rank';
+type ReportRank = 'weakest' | 'strongest';
+
 // What the Explore tab hands back to the app shell (main.ts): seed the builder
 // with a prepared reply, or open one of my saved lines. Held at module scope —
 // like train-screen's onViewLine — so the many internal re-renders (which only
@@ -572,6 +578,9 @@ function visualizeSection(lines: Line[], games: ImportedGame[]): HTMLElement | n
         : buildRepertoireStatTree(lines, games, colour, MAP_MAX_PLIES),
       caption: isGames ? 'your results' : 'your repertoire',
       colour,
+      // No opponent here — still show the strips ("You" below, a generic
+      // "Opponent" on top) so the perspective reads the same as a scout browser.
+      players: {},
       // "See full game" only makes sense over real games.
       ...(isGames && { games }),
       title: 'Board browser',
@@ -918,16 +927,15 @@ function openDetail(id: string, container: HTMLElement): void {
   })();
 }
 
-// ── Scouting report (their record + an accordion of findings) ─────────────────────
+// ── Scouting report (their record + a filtered findings list) ─────────────────────
 
 // The report: the opponent's overall W-D-L bar ("Their results" — the one place
 // that caption appears, fixing the perspective for the whole detail), then —
-// once they have a deep enough sample — the two findings groups (where they
-// struggle / where they score) tucked inside a "Scouting report" accordion,
-// collapsed by default to keep the dossier scannable. Each finding is the SAME
-// rich card as "Their openings" (board, moves, W-D-L, "Prepare a reply"), fed
-// the matching OpeningStat. With no opening reaching the games floor, an honest
-// empty line replaces the accordion.
+// once they have a deep enough sample — a single findings list driven by two
+// filters: a colour segment (All / White / Black) and a Weakest / Strongest
+// toggle. Each finding is the SAME rich card as "Their openings" (board, moves,
+// W-D-L, "Prepare a reply"), fed the matching OpeningStat. With no opening
+// reaching the games floor, an honest empty line replaces the list.
 function reportSection(opp: Opponent, stats: OpeningStat[], prepare: PrepareFn): HTMLElement {
   const section = document.createElement('div');
   section.className = 'section';
@@ -950,7 +958,7 @@ function reportSection(opp: Opponent, stats: OpeningStat[], prepare: PrepareFn):
   }));
 
   // Only recognised families with a real sample of their games count — fewer is
-  // noise, not a tendency. From those, their lowest- and highest-scoring picks.
+  // noise, not a tendency.
   const qualifying = stats.filter(s => s.family !== UNKNOWN_FAMILY && s.games >= MIN_REPORT_GAMES);
   if (qualifying.length === 0) {
     const empty = document.createElement('p');
@@ -960,57 +968,82 @@ function reportSection(opp: Opponent, stats: OpeningStat[], prepare: PrepareFn):
     return section;
   }
 
-  const weakest = [...qualifying]
-    .sort((a, b) => a.scorePct - b.scorePct || b.games - a.games || a.family.localeCompare(b.family))
-    .slice(0, REPORT_PICKS);
-  const strongest = [...qualifying]
-    .sort((a, b) => b.scorePct - a.scorePct || b.games - a.games || a.family.localeCompare(b.family))
-    .slice(0, REPORT_PICKS);
+  // Colour segment (shared filter bar, no sort/tags) + a Weakest/Strongest
+  // toggle riding alongside it on the same row.
+  let rank: ReportRank = localStorage.getItem(REPORT_RANK_KEY) === 'strongest' ? 'strongest' : 'weakest';
+  const list = document.createElement('div');
+  list.className = 'group';
 
-  // The findings live in a collapsible "Scouting report" accordion.
-  const { wrap, body } = makeAccordion('Scouting report');
-  body.appendChild(reportGroup('Where they struggle', weakest.map(s => openingCard(s, prepare))));
-  body.appendChild(reportGroup('Where they score', strongest.map(s => openingCard(s, prepare))));
-  section.appendChild(wrap);
+  const filter = createFilterBar({
+    persistKey: REPORT_FILTER_KEY,
+    onChange: () => rebuildList(),
+  });
+  filter.element.querySelector('.fbar-top')?.appendChild(
+    buildRankSeg(rank, r => { rank = r; localStorage.setItem(REPORT_RANK_KEY, r); rebuildList(); }),
+  );
+  section.appendChild(filter.element);
+  section.appendChild(list);
 
+  function rebuildList(): void {
+    list.innerHTML = '';
+    const sel = filter.selection;
+    const filtered = sel.colour === 'all' ? qualifying : qualifying.filter(s => s.colour === sel.colour);
+    const shown = [...filtered].sort(rank === 'weakest'
+      ? (a, b) => a.scorePct - b.scorePct || b.games - a.games || a.family.localeCompare(b.family)
+      : (a, b) => b.scorePct - a.scorePct || b.games - a.games || a.family.localeCompare(b.family));
+
+    if (shown.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'section-desc';
+      empty.textContent = 'No openings on this side.';
+      list.appendChild(empty);
+      return;
+    }
+
+    shown.forEach((stat, i) => {
+      const card = openingCard(stat, prepare);
+      if (i >= REPORT_PICKS) card.hidden = true;
+      list.appendChild(card);
+    });
+
+    if (shown.length > REPORT_PICKS) {
+      const more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'btn-secondary scout-show-all';
+      more.textContent = `Show all ${shown.length}`;
+      more.addEventListener('click', () => {
+        for (const c of Array.from(list.children) as HTMLElement[]) c.hidden = false;
+        more.remove();
+      });
+      list.appendChild(more);
+    }
+  }
+
+  rebuildList();
   return section;
 }
 
-// A simple collapsible accordion (header button + chevron + hidden body),
-// collapsed by default. Used for the scouting-report findings.
-function makeAccordion(title: string, startOpen = false): { wrap: HTMLElement; body: HTMLElement } {
-  const wrap = document.createElement('div');
-  wrap.className = 'scout-accordion';
-
-  let open = startOpen;
-  const head = document.createElement('button');
-  head.type = 'button';
-  head.className = 'scout-accordion-head' + (open ? ' scout-accordion-head--open' : '');
-  head.setAttribute('aria-expanded', String(open));
-
-  const t = document.createElement('span');
-  t.className = 'scout-accordion-title';
-  t.textContent = title;
-  head.appendChild(t);
-
-  const chev = Icons.chevronDown(18);
-  chev.classList.add('scout-accordion-chev');
-  head.appendChild(chev);
-  wrap.appendChild(head);
-
-  const body = document.createElement('div');
-  body.className = 'scout-accordion-body';
-  body.hidden = !open;
-  wrap.appendChild(body);
-
-  head.addEventListener('click', () => {
-    open = !open;
-    body.hidden = !open;
-    head.classList.toggle('scout-accordion-head--open', open);
-    head.setAttribute('aria-expanded', String(open));
-  });
-
-  return { wrap, body };
+// A small two-button Weakest/Strongest segment, styled like the colour segment.
+function buildRankSeg(current: ReportRank, onPick: (r: ReportRank) => void): HTMLElement {
+  const seg = document.createElement('div');
+  seg.className = 'dfilter-seg';
+  const opts: { key: ReportRank; label: string }[] = [
+    { key: 'weakest', label: 'Weakest' },
+    { key: 'strongest', label: 'Strongest' },
+  ];
+  for (const o of opts) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `dfilter-btn${current === o.key ? ' active' : ''}`;
+    btn.textContent = o.label;
+    btn.addEventListener('click', () => {
+      seg.querySelectorAll('.dfilter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      onPick(o.key);
+    });
+    seg.appendChild(btn);
+  }
+  return seg;
 }
 
 // One titled cluster of report rows.
@@ -1160,6 +1193,10 @@ function visualizeOpponentSection(opp: Opponent, prepare: PrepareFn): HTMLElemen
       statsTree: buildMoveStats(opp.games, colour, MAP_MAX_PLIES),
       caption: 'their results',
       colour,
+      // Face the board from MY answering side (the opposite of their colour),
+      // with their avatar/name on top and "You" below.
+      orientation: colour === 'white' ? 'black' : 'white',
+      players: { opponent: { name: opp.name, avatarUrl: opp.avatarUrl } },
       games: opp.games,
       title: `${opp.name} — board browser`,
       action: { label: 'Prepare a reply', onAct: ({ ucis }) => prepare(ucis, colour) },
@@ -1195,6 +1232,11 @@ function visualizeOpponentSection(opp: Opponent, prepare: PrepareFn): HTMLElemen
         // Per-move W/D/L from THEIR perspective (the scouted user was "me" at
         // import), built to the deep limit so the deeper view has stats too.
         stats: { tree: buildMoveStats(opp.games, colour, MAP_MAX_PLIES), caption: 'their results', games: opp.games },
+        // Preview the position from MY answering side, with their avatar/name.
+        perspective: {
+          you: colour === 'white' ? 'black' : 'white',
+          opponent: { name: opp.name, avatarUrl: opp.avatarUrl },
+        },
         colourToggle: { current: colour, enabled, onPick: openTree },
       },
     );
