@@ -190,15 +190,15 @@ async function paint(root: HTMLElement, deps: StarterDeps): Promise<void> {
     });
     packsWrap.appendChild(pc.card);
   });
-  // When packs are the lead content, open the first so lines are visible at once.
-  if (suggestions.length === 0 && ctrls.length > 0) ctrls[0].setOpen(true);
+  // All packs start collapsed (including the first); tapping a header opens that
+  // one and closes the others.
   root.appendChild(packsWrap);
 
   // ── Footer: primary routes, then quieter ones ──
   const foot = document.createElement('div');
   foot.className = 'onb-foot';
-  foot.appendChild(mainButton('Build a line myself', () => deps.onBuildManually()));
-  foot.appendChild(mainButton('Import your games', () => deps.onImportGames()));
+  foot.appendChild(mainButton('Build a line myself', Icons.plus(18), () => deps.onBuildManually()));
+  foot.appendChild(mainButton('Import your games', Icons.download(18), () => deps.onImportGames()));
   const discrete = document.createElement('div');
   discrete.className = 'onb-foot-discrete';
   discrete.appendChild(footLink('Browse opening library', () => deps.onBrowseLibrary()));
@@ -396,11 +396,12 @@ function sectionTitle(text: string): HTMLElement {
   return el;
 }
 
-function mainButton(label: string, onClick: () => void): HTMLElement {
+function mainButton(label: string, icon: SVGElement, onClick: () => void): HTMLElement {
   const b = document.createElement('button');
   b.type = 'button';
-  b.className = 'btn-secondary onb-foot-btn';
-  b.textContent = label;
+  b.className = 'btn-primary onb-foot-btn';
+  b.appendChild(icon);
+  b.appendChild(document.createTextNode(label));
   b.addEventListener('click', onClick);
   return b;
 }
