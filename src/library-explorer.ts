@@ -20,6 +20,7 @@ import type { Api as CgApi } from 'chessground/api';
 import { Icons } from './icons';
 import { showDialog } from './dialog';
 import { nameForFen, nameForPath } from './openings';
+import { deeperMoves, type ExplorerMove } from './explorer-api';
 import type { LibraryEntry } from './library';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -74,6 +75,10 @@ export function createLibraryExplorer(
   const fens: string[] = [START_FEN];
   const lastMoves: Array<[Key, Key] | undefined> = [undefined];
   const forward: string[] = [];
+
+  // Bumped on every renderList so a slow deeper-lines fetch that resolves after
+  // the user has moved on can detect it's stale and discard its result.
+  let deeperToken = 0;
 
   const root = document.createElement('div');
   root.className = 'lib-explore';
@@ -179,6 +184,14 @@ export function createLibraryExplorer(
     render();
   }
 
+  // Walk on by UCI (used for deeper explorer moves, whose SAN dialect we don't
+  // want to trust — chess.js resolves the move from the squares itself).
+  function advanceUci(uci: string): void {
+    const m = chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci.slice(4) || undefined });
+    if (m) { record(m); forward.length = 0; }
+    render();
+  }
+
   function stepBack(): void {
     if (!ucis.length) return;
     chess.undo();
@@ -236,18 +249,22 @@ export function createLibraryExplorer(
 
   function renderList(): void {
     list.innerHTML = '';
+    const token = ++deeperToken; // invalidates any in-flight deeper fetch
     const node = bookNodeNow();
     const kids = node ? [...node.children.entries()] : [];
     // Busiest branches first (most named openings under them), then alphabetical.
     kids.sort((a, b) => b[1].count - a[1].count || a[0].localeCompare(b[0]));
 
+    // Past the named book (a leaf opening, or off-book entirely): keep the
+    // walker going with master-game continuations from the online explorer.
     if (!kids.length) {
       const empty = document.createElement('div');
       empty.className = 'bx-empty';
       empty.textContent = node
         ? 'End of the book line — this is a named opening.'
-        : 'Off the book from here — step back to keep exploring.';
+        : 'Off the book from here.';
       list.appendChild(empty);
+      renderDeeper(token);
       return;
     }
 
@@ -289,11 +306,98 @@ export function createLibraryExplorer(
     }
   }
 
+  // Once the named book runs out, ask the online explorer for master-game
+  // continuations and append them below the context line. Resolves async; the
+  // token check drops the result if the user has stepped elsewhere meanwhile.
+  function renderDeeper(token: number): void {
+    const status = document.createElement('div');
+    status.className = 'bx-empty';
+    status.textContent = 'Looking for deeper lines…';
+    list.appendChild(status);
+
+    deeperMoves(chess.fen()).then(res => {
+      if (token !== deeperToken) return; // the position changed under us
+      status.remove();
+
+      if (!res.ok) {
+        const msg = document.createElement('div');
+        msg.className = 'bx-empty';
+        msg.textContent = res.reason === 'rate-limited'
+          ? 'Couldn’t load deeper lines — Lichess is rate-limiting. Try again shortly.'
+          : 'Couldn’t load deeper lines — offline or unavailable.';
+        list.appendChild(msg);
+        return;
+      }
+      if (!res.moves.length) {
+        const msg = document.createElement('div');
+        msg.className = 'bx-empty';
+        msg.textContent = 'No deeper master lines from this position.';
+        list.appendChild(msg);
+        return;
+      }
+
+      const head = document.createElement('div');
+      head.className = 'lib-bx-deep-head';
+      head.textContent = 'Beyond the book · master games';
+      list.appendChild(head);
+
+      const ply = ucis.length;
+      const num = Math.floor(ply / 2) + 1;
+      const prefix = ply % 2 === 0 ? `${num}.` : `${num}…`;
+      for (const mv of res.moves) list.appendChild(deeperRow(mv, prefix));
+    });
+  }
+
+  // A continuation row for a deeper (off-book) move. Mirrors the book row but is
+  // styled distinctly and counts master games rather than named openings.
+  function deeperRow(mv: ExplorerMove, prefix: string): HTMLButtonElement {
+    // Canonical SAN + the reached position's name, via a play/undo on the live
+    // board — we trust chess.js's SAN over the explorer's dialect.
+    let san = mv.san;
+    let label = '';
+    const played = chess.move({ from: mv.uci.slice(0, 2), to: mv.uci.slice(2, 4), promotion: mv.uci.slice(4) || undefined });
+    if (played) {
+      san = played.san;
+      label = nameForFen(chess.fen()) ?? '';
+      chess.undo();
+    }
+
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'lib-bx-row lib-bx-row--deep';
+    row.addEventListener('click', () => advanceUci(mv.uci));
+
+    const move = document.createElement('span');
+    move.className = 'lib-bx-move';
+    move.textContent = `${prefix} ${san}`;
+    row.appendChild(move);
+
+    const name = document.createElement('span');
+    name.className = 'lib-bx-name';
+    name.textContent = label;
+    row.appendChild(name);
+
+    const count = document.createElement('span');
+    count.className = 'lib-bx-count';
+    count.textContent = formatGames(mv.games);
+    row.appendChild(count);
+
+    return row;
+  }
+
   return {
     el: root,
     redraw: () => cg.redrawAll(),
     destroy: () => ro.disconnect(),
   };
+}
+
+// Compact game-count label for deeper rows: 1234 → "1.2k", 25000 → "25k", 3.4M.
+function formatGames(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 10_000) return `${Math.round(n / 1000)}k`;
+  if (n >= 1_000) return `${(n / 1000).toFixed(1)}k`;
+  return String(n);
 }
 
 // A stacked icon-over-label step button, matching the map explorer's controls.
