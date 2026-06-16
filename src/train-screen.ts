@@ -19,6 +19,7 @@ import { isOpponentTag } from './scout';
 import { buildEmptyState } from './empty-state';
 import { renderStarterOnboarding, ONBOARDING_GOAL } from './onboarding-starter';
 import { createFilterBar, type FilterSelection } from './filters';
+import { renderFamilyGroups } from './line-groups';
 import { TrainingSession, type SessionItem } from './session';
 import {
   userMoveNodes,
@@ -68,6 +69,10 @@ let onAddStarterLine:
 // engine. Module scope, wired from main.ts like the others.
 let onBrowseLibrary: (() => void) | null = null;
 let onBuildWithEngine: (() => void) | null = null;
+
+// Which opening families are expanded in the grouped in-training list. Module
+// scope so it survives the list's in-place rebuilds.
+const trainExpanded = new Set<string>();
 
 // One missed spot worth revisiting at the end of a session: the position to
 // show and the move that should have been played there.
@@ -699,6 +704,7 @@ function renderCardList(container: HTMLElement, trainingLines: Line[], pausedLin
     userTags: distinctUserTags(allShown),
     opponentTags: distinctOpponentTags(allShown),
     status: true,
+    group: true,
     onChange: () => rebuildList(),
   });
 
@@ -717,7 +723,11 @@ function renderCardList(container: HTMLElement, trainingLines: Line[], pausedLin
       return;
     }
     // In-training rows first; paused rows follow, dimmed with their switch off.
-    for (const line of inTraining) listEl.appendChild(buildTrainRow(line, container));
+    if (filter.selection.group) {
+      renderFamilyGroups(listEl, inTraining, line => buildTrainRow(line, container), trainExpanded);
+    } else {
+      for (const line of inTraining) listEl.appendChild(buildTrainRow(line, container));
+    }
     for (const line of paused) listEl.appendChild(buildTrainRow(line, container));
   }
 

@@ -23,6 +23,7 @@ export interface FilterSelection {
   sort: string;
   status: StatusFilter;
   tags: string[];
+  group: boolean;
 }
 
 export interface FilterConfig {
@@ -36,6 +37,9 @@ export interface FilterConfig {
   userTags?: string[];
   opponentTags?: string[];
   status?: boolean;
+  // When true, draw a "group by opening" icon toggle on row 1; the caller reads
+  // selection.group and renders its list grouped into families (or flat).
+  group?: boolean;
   // Fired after every change, with the (already-persisted) selection.
   onChange: (sel: FilterSelection) => void;
 }
@@ -80,8 +84,9 @@ function loadSelection(config: FilterConfig): FilterSelection {
   const fallbackSort = config.defaultSort ?? sorts[0]?.key ?? '';
   const sort = typeof saved.sort === 'string' && sortKeys.has(saved.sort) ? saved.sort : fallbackSort;
   const tags = Array.isArray(saved.tags) ? saved.tags.filter(t => known.has(t)) : [];
+  const group = !!config.group && saved.group === true;
 
-  return { colour, sort, status, tags };
+  return { colour, sort, status, tags, group };
 }
 
 function persist(config: FilterConfig, sel: FilterSelection): void {
@@ -114,8 +119,13 @@ function buildTopRow(config: FilterConfig, sel: FilterSelection, commit: () => v
   const row = document.createElement('div');
   row.className = 'fbar-top';
   row.appendChild(buildColourSeg(sel, commit));
-  // The sort menu is optional: a screen with no sorts keeps just the colour seg.
-  if ((config.sorts ?? []).length > 0) row.appendChild(buildSortMenu(config, sel, commit));
+  // Sort + group ride together on the right, each an icon-only control. Either is
+  // optional: a screen with no sorts / no grouping just omits that icon.
+  const tools = document.createElement('div');
+  tools.className = 'fbar-tools';
+  if ((config.sorts ?? []).length > 0) tools.appendChild(buildSortMenu(config, sel, commit));
+  if (config.group) tools.appendChild(buildGroupToggle(sel, commit));
+  if (tools.childElementCount > 0) row.appendChild(tools);
   return row;
 }
 
@@ -146,15 +156,18 @@ function buildColourSeg(sel: FilterSelection, commit: () => void): HTMLElement {
 }
 
 function buildSortMenu(config: FilterConfig, sel: FilterSelection, commit: () => void): HTMLElement {
+  // Icon-only: the order glyph shows, with the native <select> laid transparently
+  // over it so a tap opens the platform sort menu (and it stays accessible).
   const wrap = document.createElement('div');
-  wrap.className = 'dorder';
+  wrap.className = 'dorder dorder--icon';
+  wrap.title = 'Sort';
 
-  const icon = Icons.order(16);
+  const icon = Icons.order(18);
   icon.classList.add('dorder-icon');
   wrap.appendChild(icon);
 
   const select = document.createElement('select');
-  select.className = 'dorder-select';
+  select.className = 'dorder-select dorder-select--overlay';
   select.setAttribute('aria-label', 'Sort lines');
   for (const o of config.sorts ?? []) {
     const opt = document.createElement('option');
@@ -170,6 +183,28 @@ function buildSortMenu(config: FilterConfig, sel: FilterSelection, commit: () =>
   wrap.appendChild(select);
 
   return wrap;
+}
+
+// The "group by opening" icon toggle — sits beside sort on row 1. Active when on.
+function buildGroupToggle(sel: FilterSelection, commit: () => void): HTMLElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'dgroup' + (sel.group ? ' active' : '');
+  btn.title = 'Group by opening';
+  btn.setAttribute('aria-label', 'Group by opening');
+  btn.setAttribute('aria-pressed', String(sel.group));
+
+  const icon = Icons.tree(18);
+  icon.classList.add('dgroup-icon');
+  btn.appendChild(icon);
+
+  btn.addEventListener('click', () => {
+    sel.group = !sel.group;
+    btn.classList.toggle('active', sel.group);
+    btn.setAttribute('aria-pressed', String(sel.group));
+    commit();
+  });
+  return btn;
 }
 
 // ── Row 2: tag chips (user, then opponent) + status pills ──────────────────────

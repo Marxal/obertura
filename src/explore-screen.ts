@@ -45,6 +45,7 @@ import {
 import { wdlBlock, wdlScoreRow } from './wdl-bar';
 import { buildMoveStats, buildRepertoireStatTree } from './move-stats';
 import { createFilterBar } from './filters';
+import { renderFamilyGroups } from './line-groups';
 import { buildEmptyState } from './empty-state';
 import { pushBack } from './back-nav';
 
@@ -1065,6 +1066,10 @@ function reportGroup(title: string, rows: HTMLElement[]): HTMLElement {
 
 // ── Your prep (my saved lines tagged to this opponent) ────────────────────────────
 
+// Expanded opening families in the grouped prep list (module scope; survives the
+// list's in-place rebuilds within an opponent view).
+const prepExpanded = new Set<string>();
+
 function yourPrepSection(lines: Line[], onOpen: (line: Line) => void): HTMLElement {
   const section = document.createElement('div');
   section.className = 'section';
@@ -1089,6 +1094,7 @@ function yourPrepSection(lines: Line[], onOpen: (line: Line) => void): HTMLEleme
   const filter = createFilterBar({
     persistKey: PREP_FILTER_KEY,
     userTags: distinctUserTags(lines),
+    group: true,
     onChange: () => rebuildList(),
   });
   section.appendChild(filter.element);
@@ -1108,7 +1114,11 @@ function yourPrepSection(lines: Line[], onOpen: (line: Line) => void): HTMLEleme
       return;
     }
 
-    for (const line of shown) list.appendChild(prepCard(line, onOpen));
+    if (filter.selection.group) {
+      renderFamilyGroups(list, shown, line => prepCard(line, onOpen), prepExpanded);
+    } else {
+      for (const line of shown) list.appendChild(prepCard(line, onOpen));
+    }
   }
 
   rebuildList();

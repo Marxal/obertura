@@ -7767,31 +7767,54 @@ cg-board square.move-dest.oc {
   margin-top: 2px;
 }
 
-/* ── My Lines: group saved lines by opening family ─────────────────────────────
-   A pill toggle above the list flips between a flat list and collapsible family
-   groups (Italian Game (3) ▸). Mirrors the opening-library family accordion. */
-.lines-view-row {
-  display: flex;
-  justify-content: flex-end;
-  margin: 2px 0 8px;
+/* ── Filter-bar row-1 tools: icon-only sort + group-by-opening toggle ───────────
+   Both sit on the right of row 1 beside All/White/Black. The sort glyph carries a
+   transparent native <select> over it (taps open the platform menu); the group
+   glyph is a plain toggle, green when on. */
+.fbar-tools {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
-.lines-group-toggle {
-  background: none;
-  border: 1px solid var(--border-card);
-  border-radius: 999px;
-  padding: 5px 12px;
-  font: inherit;
-  font-size: 0.8rem;
-  color: var(--text-muted);
+.dorder--icon {
+  position: relative;
+  margin-left: 0;
+  padding: 0;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  gap: 0;
+}
+.dorder-select--overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.dgroup {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--bg-card);
+  color: var(--text-faint);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.lines-group-toggle.active {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--accent);
+.dgroup.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
 }
 
+/* Collapsible opening-family groups (Italian Game (3) ▸) — used by My Lines, the
+   Train in-training list and Scout prep via line-groups.ts. */
 .lines-fam {
   border: 1px solid var(--border-card);
   border-radius: 12px;
