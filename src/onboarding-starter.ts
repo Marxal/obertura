@@ -12,19 +12,20 @@
 // the deps), which — with the default "confirm run" pref — plays the line through
 // once (watch), then has you play it (the "Learn" step) before it joins training.
 // After each add we repaint in place so the progress bar climbs and added lines
-// tick off, keeping the flow linear. A soft goal (GOAL) nudges toward "enough to
-// train"; "Start training" is offered as soon as there's at least one line.
+// tick off, keeping the flow linear. Training stays gated until ONBOARDING_GOAL
+// lines are in (the Train screen owns that gate); "Start training" only appears
+// once the goal is reached.
 
 import { getAllLines, getAllGames } from './storage';
 import { analyseGames, type OpeningStat } from './analysis';
 import type { MoveNode } from './tree';
 import { Icons } from './icons';
-import { colourPip } from './card-position';
+import { buildPositionCard, colourPip, fenFromUcis } from './card-position';
 import { burstConfetti } from './confetti';
 
-// Lines in training that make the screen feel "ready". Soft — training is offered
-// from the first line; this just sets the progress target and the celebration.
-const GOAL = 6;
+// Lines in training needed to unlock the Train hub. The Train screen reads this
+// for its gate; onboarding shows progress toward it.
+export const ONBOARDING_GOAL = 6;
 
 type Colour = 'white' | 'black';
 
@@ -56,12 +57,16 @@ export interface StarterDeps {
     onDone: () => void,
     onCancel: () => void,
   ) => void;
-  // Leave onboarding for the normal Train hub (used once there's ≥1 line).
+  // Leave onboarding for the normal Train hub (offered once the goal is reached).
   onFinish: () => void;
   // Open the builder to make a line by hand.
   onBuildManually: () => void;
   // Open the import-your-games flow.
   onImportGames: () => void;
+  // Open the opening library browser.
+  onBrowseLibrary: () => void;
+  // Open the "play the engine to build a line" flow.
+  onBuildWithEngine: () => void;
 }
 
 // Lazy-load the curated packs only when onboarding actually shows (keeps them out
@@ -104,6 +109,8 @@ async function paint(root: HTMLElement, deps: StarterDeps): Promise<void> {
   const packs = await loadPacks();
 
   root.innerHTML = '';
+  const reached = inTraining >= ONBOARDING_GOAL;
+  const repaint = () => void paint(root, deps);
 
   // ── Header ──
   const head = document.createElement('div');
@@ -119,44 +126,43 @@ async function paint(root: HTMLElement, deps: StarterDeps): Promise<void> {
   head.appendChild(h);
   const sub = document.createElement('p');
   sub.className = 'onb-sub';
-  sub.textContent = 'Add a few lines and learn each one — watch it play, then try it yourself. Training opens up as soon as you have some.';
+  sub.textContent = reached
+    ? 'Your starter repertoire is ready — jump into training, or keep adding lines.'
+    : `Add ${ONBOARDING_GOAL} lines to unlock training. Watch each one play, then try it yourself.`;
   head.appendChild(sub);
   root.appendChild(head);
 
   // ── Progress ──
-  const reached = inTraining >= GOAL;
   const prog = document.createElement('div');
   prog.className = 'onb-progress';
   const bar = document.createElement('div');
   bar.className = 'onb-bar';
   const fill = document.createElement('div');
   fill.className = 'onb-bar-fill';
-  fill.style.width = `${Math.min(1, inTraining / GOAL) * 100}%`;
+  fill.style.width = `${Math.min(1, inTraining / ONBOARDING_GOAL) * 100}%`;
   bar.appendChild(fill);
   prog.appendChild(bar);
   const plabel = document.createElement('div');
   plabel.className = 'onb-progress-label';
   plabel.textContent = reached
-    ? `${inTraining} lines in training — nicely done!`
-    : `${inTraining} / ${GOAL} lines in training`;
+    ? `${inTraining} lines in training — training unlocked!`
+    : `${inTraining} / ${ONBOARDING_GOAL} lines — training unlocks at ${ONBOARDING_GOAL}`;
   prog.appendChild(plabel);
   root.appendChild(prog);
 
-  // ── Start-training payoff (offered from the first line) ──
-  if (inTraining >= 1) {
-    if (reached && !goalCelebrated) {
+  // ── Payoff: only once the goal is reached ──
+  if (reached) {
+    if (!goalCelebrated) {
       goalCelebrated = true;
       burstConfetti(root);
     }
     const start = document.createElement('button');
     start.type = 'button';
     start.className = 'btn-primary onb-start';
-    start.textContent = reached ? 'Start training →' : `Start training (${inTraining}) →`;
+    start.textContent = 'Start training →';
     start.addEventListener('click', () => deps.onFinish());
     root.appendChild(start);
   }
-
-  const repaint = () => void paint(root, deps);
 
   // ── Content: suggestions (if any) then packs ──
   if (suggestions.length > 0) {
@@ -172,33 +178,50 @@ async function paint(root: HTMLElement, deps: StarterDeps): Promise<void> {
     root.appendChild(sectionTitle('Pick a starter pack'));
   }
 
-  // Packs — first one open by default when it's the lead content.
+  // Packs — a single-open accordion (opening one closes the others).
   const packsWrap = document.createElement('div');
   packsWrap.className = 'onb-packs';
-  packs.forEach((pack, i) => {
-    packsWrap.appendChild(packCard(pack, i === 0 && suggestions.length === 0, existing, deps, repaint));
+  const ctrls = packs.map(pack => packCard(pack, existing, deps, repaint));
+  ctrls.forEach(pc => {
+    pc.headBtn.addEventListener('click', () => {
+      const willOpen = !pc.isOpen();
+      ctrls.forEach(c => c.setOpen(false));
+      pc.setOpen(willOpen);
+    });
+    packsWrap.appendChild(pc.card);
   });
+  // When packs are the lead content, open the first so lines are visible at once.
+  if (suggestions.length === 0 && ctrls.length > 0) ctrls[0].setOpen(true);
   root.appendChild(packsWrap);
 
-  // ── Footer routes (build by hand / import) ──
+  // ── Footer: primary routes, then quieter ones ──
   const foot = document.createElement('div');
   foot.className = 'onb-foot';
-  foot.appendChild(footLink('Build a line myself', () => deps.onBuildManually()));
-  if (!deps.hasGames) {
-    foot.appendChild(footLink('Import your games', () => deps.onImportGames()));
-  }
+  foot.appendChild(mainButton('Build a line myself', () => deps.onBuildManually()));
+  foot.appendChild(mainButton('Import your games', () => deps.onImportGames()));
+  const discrete = document.createElement('div');
+  discrete.className = 'onb-foot-discrete';
+  discrete.appendChild(footLink('Browse opening library', () => deps.onBrowseLibrary()));
+  discrete.appendChild(footLink('Build with the engine', () => deps.onBuildWithEngine()));
+  foot.appendChild(discrete);
   root.appendChild(foot);
 }
 
-// ── Pack card (collapsible) ────────────────────────────────────────────────────
+// ── Pack card (single-open accordion member) ───────────────────────────────────
+
+interface PackCtrl {
+  card: HTMLElement;
+  headBtn: HTMLButtonElement;
+  setOpen: (open: boolean) => void;
+  isOpen: () => boolean;
+}
 
 function packCard(
   pack: Pack,
-  open: boolean,
   existing: Set<string>,
   deps: StarterDeps,
   repaint: () => void,
-): HTMLElement {
+): PackCtrl {
   const card = document.createElement('div');
   card.className = 'onb-pack';
 
@@ -212,10 +235,10 @@ function packCard(
   title.className = 'onb-pack-title';
   title.textContent = pack.title;
   titleWrap.appendChild(title);
-  const chips = document.createElement('span');
-  chips.className = 'onb-pack-meta';
-  chips.textContent = `${pack.level} · ${pack.style} · ${pack.lines.length} lines`;
-  titleWrap.appendChild(chips);
+  const meta = document.createElement('span');
+  meta.className = 'onb-pack-meta';
+  meta.textContent = `${pack.level} · ${pack.style} · ${pack.lines.length} lines`;
+  titleWrap.appendChild(meta);
   headBtn.appendChild(titleWrap);
 
   const chev = document.createElement('span');
@@ -226,16 +249,7 @@ function packCard(
 
   const body = document.createElement('div');
   body.className = 'onb-pack-body';
-  body.hidden = !open;
-  headBtn.classList.toggle('onb-pack-head--open', open);
-  headBtn.setAttribute('aria-expanded', String(open));
-
-  headBtn.addEventListener('click', () => {
-    const nowOpen = body.hidden;
-    body.hidden = !nowOpen;
-    headBtn.classList.toggle('onb-pack-head--open', nowOpen);
-    headBtn.setAttribute('aria-expanded', String(nowOpen));
-  });
+  body.hidden = true;
 
   const blurb = document.createElement('p');
   blurb.className = 'onb-pack-blurb';
@@ -249,7 +263,6 @@ function packCard(
   }
   body.appendChild(list);
 
-  // "Add all" — a quieter route that skips the per-line walkthrough.
   const pending = pack.lines.filter(l => !existing.has(sig(l.ucis)));
   if (pending.length > 1) {
     const addAll = document.createElement('button');
@@ -266,7 +279,15 @@ function packCard(
 
   card.appendChild(headBtn);
   card.appendChild(body);
-  return card;
+
+  const setOpen = (open: boolean): void => {
+    body.hidden = !open;
+    headBtn.classList.toggle('onb-pack-head--open', open);
+    headBtn.setAttribute('aria-expanded', String(open));
+  };
+  setOpen(false);
+
+  return { card, headBtn, setOpen, isOpen: () => !body.hidden };
 }
 
 // Add a batch of lines straight to training (no walkthrough), one after another.
@@ -277,7 +298,7 @@ function addSequentially(lines: PackLine[], colour: Colour, deps: StarterDeps): 
   );
 }
 
-// ── Rows ───────────────────────────────────────────────────────────────────────
+// ── Rows (shared position-card look, with a board miniature) ────────────────────
 
 function packLineRow(
   line: PackLine,
@@ -289,6 +310,7 @@ function packLineRow(
   return lineRow({
     name: line.name,
     moves: formatSan(line.sans),
+    fen: fenFromUcis(line.ucis),
     colour,
     added: existing.has(sig(line.ucis)),
     onAdd: () => deps.onAddLine(line.ucis, colour, true, repaint, repaint),
@@ -301,11 +323,11 @@ function suggestionRow(
   deps: StarterDeps,
   repaint: () => void,
 ): HTMLElement {
-  const sub = `${stat.games} game${stat.games === 1 ? '' : 's'} · ${stat.scorePct}% score`;
   return lineRow({
     name: stat.family,
     moves: formatSan(stat.repSans),
-    sub,
+    sub: `${stat.games} game${stat.games === 1 ? '' : 's'} · ${stat.scorePct}% score`,
+    fen: fenFromUcis(stat.repUcis),
     colour: stat.colour,
     added: existing.has(sig(stat.repUcis)),
     onAdd: () => deps.onAddLine(stat.repUcis, stat.colour, true, repaint, repaint),
@@ -316,50 +338,53 @@ function lineRow(o: {
   name: string;
   moves: string;
   sub?: string;
+  fen: string;
   colour: Colour;
   added: boolean;
   onAdd: () => void;
 }): HTMLElement {
-  const row = document.createElement('div');
-  row.className = 'onb-line';
+  // Reuse the shared position-card scaffold so onboarding lines read like the
+  // Saved / Games / In-training cards (miniature on the left, info + action on
+  // the right). The board honours the global "show miniatures" pref.
+  const { card, titleRow, content } = buildPositionCard({
+    fen: o.fen,
+    orientation: o.colour,
+    className: 'onb-line',
+  });
 
-  const info = document.createElement('div');
-  info.className = 'onb-line-info';
-
-  const nameEl = document.createElement('div');
-  nameEl.className = 'onb-line-name';
-  nameEl.appendChild(colourPip(o.colour));
-  nameEl.appendChild(document.createTextNode(o.name));
-  info.appendChild(nameEl);
+  titleRow.appendChild(colourPip(o.colour));
+  const nameEl = document.createElement('span');
+  nameEl.className = 'pcard-name';
+  nameEl.textContent = o.name;
+  titleRow.appendChild(nameEl);
 
   const movesEl = document.createElement('div');
   movesEl.className = 'onb-line-moves';
   movesEl.textContent = o.moves;
-  info.appendChild(movesEl);
+  content.appendChild(movesEl);
 
   if (o.sub) {
     const subEl = document.createElement('div');
     subEl.className = 'onb-line-sub';
     subEl.textContent = o.sub;
-    info.appendChild(subEl);
+    content.appendChild(subEl);
   }
-  row.appendChild(info);
 
   if (o.added) {
     const done = document.createElement('span');
     done.className = 'onb-added';
     done.textContent = '✓ Added';
-    row.appendChild(done);
+    content.appendChild(done);
   } else {
     const add = document.createElement('button');
     add.type = 'button';
     add.className = 'btn-primary onb-add';
     add.textContent = 'Add & learn';
     add.addEventListener('click', o.onAdd);
-    row.appendChild(add);
+    content.appendChild(add);
   }
 
-  return row;
+  return card;
 }
 
 // ── Small helpers ────────────────────────────────────────────────────────────
@@ -371,10 +396,19 @@ function sectionTitle(text: string): HTMLElement {
   return el;
 }
 
+function mainButton(label: string, onClick: () => void): HTMLElement {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'btn-secondary onb-foot-btn';
+  b.textContent = label;
+  b.addEventListener('click', onClick);
+  return b;
+}
+
 function footLink(label: string, onClick: () => void): HTMLElement {
   const b = document.createElement('button');
   b.type = 'button';
-  b.className = 'empty-state-link';
+  b.className = 'empty-state-link onb-foot-link';
   b.textContent = label;
   b.addEventListener('click', onClick);
   return b;

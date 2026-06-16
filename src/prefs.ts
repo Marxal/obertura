@@ -65,6 +65,20 @@ export function setConfirmRunBeforeTraining(on: boolean): void {
   localStorage.setItem(CONFIRM_RUN_KEY, String(on));
 }
 
+// First-run onboarding gate. The Train screen shows the "build your first lines"
+// flow (not the hub) until the user has the goal number of lines in training;
+// once they've ever reached it we flip this flag so they're never sent back to
+// onboarding again, even if they later pause lines below the goal.
+const ONBOARDING_DONE_KEY = 'obertura.onboardingComplete';
+
+export function isOnboardingComplete(): boolean {
+  return localStorage.getItem(ONBOARDING_DONE_KEY) === '1';
+}
+
+export function setOnboardingComplete(): void {
+  localStorage.setItem(ONBOARDING_DONE_KEY, '1');
+}
+
 // ── My Lines view options ────────────────────────────────────────────────────
 
 // The quick-view carousels at the top of My Lines. OFF by default; ON shows the

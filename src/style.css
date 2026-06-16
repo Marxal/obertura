@@ -7695,31 +7695,12 @@ cg-board square.move-dest.oc {
   line-height: 1.4;
 }
 
-/* Line / suggestion rows with their add action. */
+/* Line / suggestion rows — built on the shared .pcard scaffold (miniature on the
+   left, info + action on the right), so they match every other position card. */
 .onb-lines {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-.onb-line {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 11px;
-  border: 1px solid var(--border-card);
-  border-radius: 10px;
-  background: var(--bg-parchment);
-}
-.onb-line-info {
-  flex: 1;
-  min-width: 0;
-}
-.onb-line-name {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.9rem;
-  font-weight: 600;
 }
 .onb-line-moves {
   font-size: 0.76rem;
@@ -7736,18 +7717,19 @@ cg-board square.move-dest.oc {
   margin-top: 2px;
 }
 .onb-add {
-  flex: 0 0 auto;
-  padding: 8px 12px;
+  align-self: flex-start;
+  margin-top: 8px;
+  padding: 7px 14px;
   font-size: 0.82rem;
   white-space: nowrap;
 }
 .onb-added {
-  flex: 0 0 auto;
+  align-self: flex-start;
+  margin-top: 8px;
   font-size: 0.82rem;
   font-weight: 600;
   color: var(--accent);
   white-space: nowrap;
-  padding: 0 6px;
 }
 .onb-addall {
   display: block;
@@ -7770,8 +7752,17 @@ cg-board square.move-dest.oc {
 
 .onb-foot {
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 22px;
+}
+.onb-foot-btn {
+  width: 100%;
+}
+.onb-foot-discrete {
+  display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 18px;
-  margin-top: 20px;
+  margin-top: 2px;
 }

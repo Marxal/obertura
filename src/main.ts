@@ -24,6 +24,7 @@ import { watchSpeedMs, getConfirmRunBeforeTraining } from './prefs';
 import { initBackNav, setViewBack, pushBack } from './back-nav';
 import { showDialog } from './dialog';
 import { openImportPanel } from './import-panel';
+import { openLibrary } from './library';
 import { maybeShowIntro } from './onboarding';
 import { maybeAutoRefreshGames } from './auto-refresh';
 import { maybeShowGate } from './gate';
@@ -994,6 +995,10 @@ function showView(view: ViewName): void {
         if (learn) addLineToTraining(line, onDone, onCancel);
         else void enrolLineDirectly(line).then(onDone);
       },
+      // Onboarding's quieter routes: the opening-library browser (seeds the
+      // builder) and the Explore screen, home of "play the engine" sparring.
+      onBrowseLibrary: () => openLibrary((ucis, colour) => buildFromUcis(ucis, colour)),
+      onBuildWithEngine: () => showView('explore'),
     });
     pendingTrainLineId = null;
   }

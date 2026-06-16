@@ -10,12 +10,14 @@ import {
   getDefaultTrainingMode,
   getShowPausedLines,
   setShowPausedLines,
+  isOnboardingComplete,
+  setOnboardingComplete,
   TIMED_DURATIONS,
   type TimedMinutes,
 } from './prefs';
 import { isOpponentTag } from './scout';
 import { buildEmptyState } from './empty-state';
-import { renderStarterOnboarding } from './onboarding-starter';
+import { renderStarterOnboarding, ONBOARDING_GOAL } from './onboarding-starter';
 import { createFilterBar, type FilterSelection } from './filters';
 import { TrainingSession, type SessionItem } from './session';
 import {
@@ -62,6 +64,10 @@ let onImportGames: (() => void) | null = null;
 let onAddStarterLine:
   | ((ucis: string[], colour: 'white' | 'black', learn: boolean, onDone: () => void, onCancel: () => void) => void)
   | null = null;
+// Onboarding's quieter routes: browse the opening library / build by playing the
+// engine. Module scope, wired from main.ts like the others.
+let onBrowseLibrary: (() => void) | null = null;
+let onBuildWithEngine: (() => void) | null = null;
 
 // One missed spot worth revisiting at the end of a session: the position to
 // show and the move that should have been played there.
@@ -102,12 +108,16 @@ export function renderTrainScreen(
       onDone: () => void,
       onCancel: () => void,
     ) => void;
+    onBrowseLibrary?: () => void;
+    onBuildWithEngine?: () => void;
   } = {},
 ): void {
   onViewLine = opts.onOpenLine ?? null;
   onBuildLine = opts.onBuildLine ?? null;
   onImportGames = opts.onImportGames ?? null;
   onAddStarterLine = opts.onAddStarterLine ?? null;
+  onBrowseLibrary = opts.onBrowseLibrary ?? null;
+  onBuildWithEngine = opts.onBuildWithEngine ?? null;
   void doRender(container, opts.focusLineId, opts.autoStart);
 }
 
@@ -128,11 +138,15 @@ async function doRender(
 
   const trainingLines = allLines.filter(l => l.inTraining);
 
-  if (trainingLines.length === 0) {
-    renderTrainHead(container);
+  // First-run gate: keep the onboarding flow up (no streak head — it reads as a
+  // clean first run) until there are ONBOARDING_GOAL lines in training. Once the
+  // user has ever reached the goal, the flag keeps them on the hub for good, even
+  // if they later pause lines below it.
+  if (!isOnboardingComplete() && trainingLines.length < ONBOARDING_GOAL) {
     renderEmpty(container, (await countGames()) > 0);
     return;
   }
+  if (trainingLines.length >= ONBOARDING_GOAL) setOnboardingComplete();
 
   // Arrived here from a "Drill" button on another screen: skip the list and
   // drill that one line straight away. When it finishes, the completion panel's
@@ -233,11 +247,13 @@ function renderEmpty(container: HTMLElement, hasGames: boolean): void {
       hasGames,
       onAddLine: (ucis, colour, learn, onDone, onCancel) =>
         onAddStarterLine!(ucis, colour, learn, onDone, onCancel),
-      // Leaving onboarding re-renders Train; with ≥1 line in training it now lands
-      // on the normal hub instead of here.
+      // Leaving onboarding re-renders Train; once the goal is reached it lands on
+      // the normal hub instead of here.
       onFinish: () => void doRender(container),
       onBuildManually: () => onBuildLine?.(),
       onImportGames: () => onImportGames?.(),
+      onBrowseLibrary: () => onBrowseLibrary?.(),
+      onBuildWithEngine: () => onBuildWithEngine?.(),
     });
     return;
   }
