@@ -51,6 +51,15 @@ export interface BoardExplorerOptions {
     enabled: { white: boolean; black: boolean };
     onPick: (colour: 'white' | 'black') => void;
   };
+  // Source toggle — a discrete "Games / Repertoire" segmented control sitting
+  // next to the colour toggle. Picking the other source closes this browser and
+  // reopens it with the other stats tree (the caller rebuilds it). Mirrors the
+  // colour toggle's close-then-reopen contract.
+  sourceToggle?: {
+    current: 'games' | 'repertoire';
+    enabled: { games: boolean; repertoire: boolean };
+    onPick: (source: 'games' | 'repertoire') => void;
+  };
 }
 
 export function openBoardExplorer(opts: BoardExplorerOptions): void {
@@ -101,8 +110,9 @@ export function openBoardExplorer(opts: BoardExplorerOptions): void {
 
   // White/Black toggle (under the header) — when the caller wired it. Picking
   // the other side closes this browser; the caller reopens it for that colour.
-  if (opts.colourToggle) {
-    overlay.appendChild(buildColourToggle(opts.colourToggle, close));
+  // A discrete Games/Repertoire source toggle rides alongside it on the same row.
+  if (opts.colourToggle || opts.sourceToggle) {
+    overlay.appendChild(buildTopToggles(opts, close));
   }
 
   // Board.
@@ -335,42 +345,59 @@ export function openBoardExplorer(opts: BoardExplorerOptions): void {
   }
 }
 
-// A segmented White/Black control for the top of the browser (reuses the map's
-// look). Picking the other colour closes this browser first (keeping the back
-// stack balanced), then hands off to the caller's onPick, which reopens it.
-function buildColourToggle(
-  toggle: NonNullable<BoardExplorerOptions['colourToggle']>,
-  close: () => void,
-): HTMLElement {
+// The top toggle row: a prominent White/Black segment plus, when wired, a
+// discrete Games/Repertoire source segment. Both reuse the map's look. Picking
+// a different option closes this browser first (keeping the back stack
+// balanced), then hands off to the caller's onPick, which reopens it.
+function buildTopToggles(opts: BoardExplorerOptions, close: () => void): HTMLElement {
   const bar = document.createElement('div');
   bar.className = 'rmap-colour-toggle';
 
-  const seg = document.createElement('div');
-  seg.className = 'rmap-view-seg';
-  seg.setAttribute('role', 'group');
+  if (opts.colourToggle) {
+    const t = opts.colourToggle;
+    bar.appendChild(buildSeg(
+      [{ id: 'white', label: '○ White' }, { id: 'black', label: '● Black' }],
+      t.current, t.enabled, close, t.onPick,
+    ));
+  }
+  if (opts.sourceToggle) {
+    const t = opts.sourceToggle;
+    bar.appendChild(buildSeg(
+      [{ id: 'games', label: 'Games' }, { id: 'repertoire', label: 'Repertoire' }],
+      t.current, t.enabled, close, t.onPick, 'rmap-source-seg',
+    ));
+  }
+  return bar;
+}
 
-  const colours: { id: 'white' | 'black'; label: string }[] = [
-    { id: 'white', label: '○ White' },
-    { id: 'black', label: '● Black' },
-  ];
-  for (const c of colours) {
+// A generic segmented control (reused for both the colour and source toggles).
+function buildSeg<T extends string>(
+  options: { id: T; label: string }[],
+  current: T,
+  enabled: Record<T, boolean>,
+  close: () => void,
+  onPick: (id: T) => void,
+  extraClass?: string,
+): HTMLElement {
+  const seg = document.createElement('div');
+  seg.className = 'rmap-view-seg' + (extraClass ? ` ${extraClass}` : '');
+  seg.setAttribute('role', 'group');
+  for (const o of options) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'rmap-view-btn';
-    b.textContent = c.label;
-    const on = c.id === toggle.current;
+    b.textContent = o.label;
+    const on = o.id === current;
     b.classList.toggle('rmap-view-btn--on', on);
     b.setAttribute('aria-pressed', String(on));
-    if (!toggle.enabled[c.id]) {
+    if (!enabled[o.id]) {
       b.disabled = true;
     } else if (!on) {
-      b.addEventListener('click', () => { close(); toggle.onPick(c.id); });
+      b.addEventListener('click', () => { close(); onPick(o.id); });
     }
     seg.appendChild(b);
   }
-
-  bar.appendChild(seg);
-  return bar;
+  return seg;
 }
 
 // Name the platform from a game URL, for the external-link label.

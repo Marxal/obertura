@@ -39,6 +39,7 @@ export interface Opponent {
   username: string;
   gamesAnalysed: number;
   refreshedAt: string;      // ISO
+  avatarUrl?: string;       // Chess.com profile picture, when they have one
   games: ImportedGame[];
   whiteTree: MoveNode;      // their games as White, merged into a tree
   blackTree: MoveNode;      // their games as Black
@@ -145,7 +146,7 @@ function toMoveNode(node: BuildNode, ctr: { n: number }): MoveNode {
 export function makeOpponent(
   meta: { platform: Platform; username: string },
   games: ImportedGame[],
-  opts: { id?: string } = {},
+  opts: { id?: string; avatarUrl?: string } = {},
 ): Opponent {
   return {
     id: opts.id ?? `opp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -154,6 +155,7 @@ export function makeOpponent(
     username: meta.username,
     gamesAnalysed: games.length,
     refreshedAt: new Date().toISOString(),
+    ...(opts.avatarUrl ? { avatarUrl: opts.avatarUrl } : {}),
     games,
     whiteTree: buildOpponentTree(games, 'white'),
     blackTree: buildOpponentTree(games, 'black'),

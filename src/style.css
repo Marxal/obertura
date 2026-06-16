@@ -1622,11 +1622,6 @@ cg-board square.move-dest.oc {
   font-size: 0.9rem;
 }
 
-/* Chrome and spacing from .section in HTML. */
-.lines-section {
-  padding-bottom: var(--space-xs);
-}
-
 .lines-heading {
   font-size: 0.8rem;
   font-weight: 700;
@@ -4430,13 +4425,13 @@ cg-board square.move-dest.oc {
 .games-refresh-btn:active { filter: brightness(0.92); transform: translateY(1px); }
 .games-refresh-btn:disabled { opacity: 0.6; cursor: default; }
 
-/* "Browse opening library" leading the Explore screen — a simple full-width
-   launcher sitting on the bare page (no .section card around it). */
+/* "Browse opening library" leading the Explore screen — a simple centered
+   launcher sitting on the bare page (no .section card around it). Side margins
+   keep it inset from the screen edges, matching the page's 16px padding. */
 .library-launch-btn {
   display: flex;
   justify-content: center;
-  width: 100%;
-  margin-bottom: var(--space-md);
+  margin: var(--space-md) var(--space-lg);
 }
 
 .games-refresh-status {
@@ -5851,12 +5846,38 @@ cg-board square.move-dest.oc {
   cursor: default;
 }
 
+/* Make the top-of-tree colour toggle POP: a bigger segment with a filled green
+   active pill. Scoped to the colour toggle so the in-tree view-mode segment and
+   the discrete source toggle keep their quiet look. */
+.rmap-colour-toggle .rmap-view-seg:not(.rmap-source-seg) {
+  border-color: var(--primary);
+}
+.rmap-colour-toggle .rmap-view-seg:not(.rmap-source-seg) .rmap-view-btn {
+  padding: 0.48rem 1.05rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.rmap-colour-toggle .rmap-view-seg:not(.rmap-source-seg) .rmap-view-btn--on {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* The discrete Games/Repertoire source toggle riding beside the colour toggle —
+   deliberately smaller and quieter so the colour choice leads. */
+.rmap-source-seg .rmap-view-btn {
+  padding: 0.3rem 0.62rem;
+  font-size: 0.68rem;
+}
+
 /* The White/Black colour toggle at the top of an opened tree — a thin bar under
    the header carrying a centred segmented control (reusing the view-seg look). */
 .rmap-colour-toggle {
   display: flex;
   justify-content: center;
-  padding: 0.5rem 1rem;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.55rem 1rem;
   border-bottom: 1px solid var(--border);
   background: var(--bg-card);
   flex-shrink: 0;
@@ -6025,6 +6046,32 @@ cg-board square.move-dest.oc {
 .rmap-entry-chevron {
   flex-shrink: 0;
   color: var(--text-faint);
+}
+
+/* Board browser leads as the prominent green entry. */
+.rmap-entry--primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  box-shadow: var(--shadow-card);
+}
+.rmap-entry--primary .rmap-entry-icon,
+.rmap-entry--primary .rmap-entry-count,
+.rmap-entry--primary .rmap-entry-chevron {
+  color: #fff;
+  opacity: 0.92;
+}
+
+/* The games / repertoire tree as a quieter, link-like entry beneath it. */
+.rmap-entry--discrete {
+  background: transparent;
+  border-color: transparent;
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
+}
+.rmap-entry--discrete .rmap-entry-title {
+  font-size: 0.84rem;
+  font-weight: 600;
 }
 
 /* ── Just-saved line highlight (My Lines) ───────────────────────────────────── */
@@ -6287,20 +6334,42 @@ cg-board square.move-dest.oc {
   overflow-y: auto;
 }
 
+/* Round avatar for a scouted player — their Chess.com picture, or a faintly
+   ringed fallback user icon. Used on the opponent card and in the detail header. */
+.scout-avatar {
+  flex-shrink: 0;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--bg-elevated);
+  box-shadow: 0 0 0 1px var(--hairline);
+}
+.scout-avatar--icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+}
+
 .scout-detail-body {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-lg) var(--space-lg) var(--space-xl);
+  /* No horizontal padding here: the .section children already inset themselves
+     16px (their own margin), so body padding would double it to 32px and drift
+     from the rest of the app. The two direct non-section children below (summary
+     + actions) take their own side margin instead. */
+  padding: var(--space-lg) 0 var(--space-xl);
 }
 
 .scout-summary {
   margin-top: 0;
+  margin-left: var(--space-lg);
+  margin-right: var(--space-lg);
 }
 
 .scout-actions {
   display: flex;
   gap: var(--space-sm);
-  margin-bottom: var(--space-lg);
+  margin: 0 var(--space-lg) var(--space-lg);
 }
 
 /* The honest empty line under the scouting-report bar, shown when no opening

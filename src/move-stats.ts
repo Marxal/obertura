@@ -13,6 +13,8 @@
 // own pruning) so every drawn node — however rare — still finds its stats.
 
 import type { ImportedGame } from './import-core';
+import type { Line } from './types';
+import type { MoveNode } from './tree';
 
 export interface StatNode {
   san: string;
@@ -59,6 +61,54 @@ export function buildMoveStats(
       tally(child, g.result);
       node = child;
     }
+  }
+  return root;
+}
+
+// A stats tree shaped like your REPERTOIRE (the merged saved lines for a
+// colour) rather than your games. Each repertoire move carries the W/D/L from
+// your games where you've actually played it (overlaid via the games stats
+// tree); moves you've prepared but never played stay at zero — so the board
+// browser's Repertoire mode shows your lines, with results where they exist.
+export function buildRepertoireStatTree(
+  lines: Line[],
+  games: ImportedGame[],
+  colour: 'white' | 'black',
+  maxPlies: number,
+): StatNode {
+  const gameStats = buildMoveStats(games, colour, maxPlies);
+  const root = blank();
+  // The root carries the colour totals, mirroring buildMoveStats.
+  root.games = gameStats.games;
+  root.wins = gameStats.wins;
+  root.draws = gameStats.draws;
+  root.losses = gameStats.losses;
+
+  const path: string[] = [];
+  const walk = (children: MoveNode[], dst: StatNode, ply: number): void => {
+    if (ply >= maxPlies) return;
+    for (const child of children) {
+      let node = dst.children.get(child.uci);
+      if (!node) {
+        node = blank(child.san, child.uci);
+        const gs = statAt(gameStats, [...path, child.uci]);
+        if (gs) {
+          node.games = gs.games;
+          node.wins = gs.wins;
+          node.draws = gs.draws;
+          node.losses = gs.losses;
+        }
+        dst.children.set(child.uci, node);
+      }
+      path.push(child.uci);
+      walk(child.children, node, ply + 1);
+      path.pop();
+    }
+  };
+
+  for (const line of lines) {
+    if (line.colour !== colour) continue;
+    walk(line.tree.children, root, 0);
   }
   return root;
 }

@@ -66,6 +66,15 @@ export interface RepertoireMapOptions {
     enabled: { white: boolean; black: boolean };
     onPick: (colour: 'white' | 'black') => void;
   };
+  // Source toggle — a discrete "Games / Repertoire" segmented control next to
+  // the colour toggle. Picking the other source closes this map and reopens it
+  // backed by that source (the caller rebuilds lines / stats / depth). Same
+  // close-then-reopen contract as the colour toggle.
+  sourceToggle?: {
+    current: 'games' | 'repertoire';
+    enabled: { games: boolean; repertoire: boolean };
+    onPick: (source: 'games' | 'repertoire') => void;
+  };
 }
 
 export interface MapDepth {
@@ -767,39 +776,56 @@ function makeControls(
 // A segmented White/Black control for the top of the tree. Picking the other
 // colour closes this map first (keeping the back stack balanced), then hands off
 // to the caller's onPick, which reopens the map for that colour.
-function buildColourToggle(
-  toggle: NonNullable<RepertoireMapOptions['colourToggle']>,
-  close: () => void,
-): HTMLElement {
+function buildTopToggles(opts: RepertoireMapOptions, close: () => void): HTMLElement {
   const bar = document.createElement('div');
   bar.className = 'rmap-colour-toggle';
 
-  const seg = document.createElement('div');
-  seg.className = 'rmap-view-seg';
-  seg.setAttribute('role', 'group');
+  if (opts.colourToggle) {
+    const t = opts.colourToggle;
+    bar.appendChild(buildSeg(
+      [{ id: 'white', label: '○ White' }, { id: 'black', label: '● Black' }],
+      t.current, t.enabled, close, t.onPick,
+    ));
+  }
+  if (opts.sourceToggle) {
+    const t = opts.sourceToggle;
+    bar.appendChild(buildSeg(
+      [{ id: 'games', label: 'Games' }, { id: 'repertoire', label: 'Repertoire' }],
+      t.current, t.enabled, close, t.onPick, 'rmap-source-seg',
+    ));
+  }
+  return bar;
+}
 
-  const colours: { id: 'white' | 'black'; label: string }[] = [
-    { id: 'white', label: '○ White' },
-    { id: 'black', label: '● Black' },
-  ];
-  for (const c of colours) {
+// A generic segmented control, reused for the colour and source toggles. Picking
+// a non-active, enabled option closes the map first, then hands off to onPick.
+function buildSeg<T extends string>(
+  options: { id: T; label: string }[],
+  current: T,
+  enabled: Record<T, boolean>,
+  close: () => void,
+  onPick: (id: T) => void,
+  extraClass?: string,
+): HTMLElement {
+  const seg = document.createElement('div');
+  seg.className = 'rmap-view-seg' + (extraClass ? ` ${extraClass}` : '');
+  seg.setAttribute('role', 'group');
+  for (const o of options) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'rmap-view-btn';
-    b.textContent = c.label;
-    const on = c.id === toggle.current;
+    b.textContent = o.label;
+    const on = o.id === current;
     b.classList.toggle('rmap-view-btn--on', on);
     b.setAttribute('aria-pressed', String(on));
-    if (!toggle.enabled[c.id]) {
+    if (!enabled[o.id]) {
       b.disabled = true;
     } else if (!on) {
-      b.addEventListener('click', () => { close(); toggle.onPick(c.id); });
+      b.addEventListener('click', () => { close(); onPick(o.id); });
     }
     seg.appendChild(b);
   }
-
-  bar.appendChild(seg);
-  return bar;
+  return seg;
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -855,10 +881,11 @@ export function openRepertoireMap(
   header.appendChild(count);
   overlay.appendChild(header);
 
-  // Colour toggle bar (under the header) — White/Black, when the caller wired it.
-  // Picking the other side closes this map; the caller reopens it for that colour.
-  if (opts.colourToggle) {
-    overlay.appendChild(buildColourToggle(opts.colourToggle, close));
+  // Toggle bar (under the header): a prominent White/Black colour toggle plus,
+  // when wired, a discrete Games/Repertoire source toggle. Picking any option
+  // closes this map; the caller reopens it rebuilt for that choice.
+  if (opts.colourToggle || opts.sourceToggle) {
+    overlay.appendChild(buildTopToggles(opts, close));
   }
 
   // Tree area (relative-positioned so the preview panel can float inside it).

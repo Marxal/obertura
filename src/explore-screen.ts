@@ -18,6 +18,7 @@
 
 import type { Line } from './types';
 import type { ImportedGame } from './chesscom';
+import { fetchAvatar } from './chesscom';
 import type { MoveNode } from './tree';
 import { Icons } from './icons';
 import { showDialog } from './dialog';
@@ -42,7 +43,7 @@ import {
   type Opponent, type ScoutReport, type OpeningRecord, type Recommendation,
 } from './scout';
 import { wdlBlock, wdlScoreRow } from './wdl-bar';
-import { buildMoveStats } from './move-stats';
+import { buildMoveStats, buildRepertoireStatTree } from './move-stats';
 import { createFilterBar } from './filters';
 import { buildEmptyState } from './empty-state';
 import { pushBack } from './back-nav';
@@ -53,6 +54,10 @@ const TOP_OPENINGS = 6;
 // Persistence key for the prepared-lines filter bar (shared across opponents;
 // stale tags from another opponent are sanitised away on load).
 const PREP_FILTER_KEY = 'obertura.prep.filter';
+
+// Persistence key for the "Their openings" colour filter (All / White / Black),
+// shared across opponents — it carries no per-opponent state.
+const OPENINGS_FILTER_KEY = 'obertura.scout.openings.filter';
 
 // What the Explore tab hands back to the app shell (main.ts): seed the builder
 // with a prepared reply, or open one of my saved lines. Held at module scope —
@@ -471,10 +476,11 @@ function mapEntryBtn(
   title: string,
   countText: string,
   onClick: () => void,
+  variant?: 'primary' | 'discrete',
 ): HTMLButtonElement {
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.className = 'rmap-entry';
+  btn.className = 'rmap-entry' + (variant ? ` rmap-entry--${variant}` : '');
   icon.classList.add('rmap-entry-icon');
   btn.appendChild(icon);
 
@@ -499,9 +505,15 @@ function mapEntryBtn(
 }
 
 // Build the Visualize-your-play section, or return null when there's nothing to
-// show (no lines and no games) so the caller can skip appending it. Three
-// entries: a standalone Board browser, your games tree, your repertoire tree.
-// The colour choice lives INSIDE each (a White/Black toggle at the top).
+// show (no lines and no games) so the caller can skip appending it.
+//
+// Layout: the Board browser leads as the prominent (green) entry, with your
+// games tree as a discrete link beneath. The repertoire is no longer its own
+// entry — instead, BOTH the board browser and the tree carry a discrete
+// "Games / Repertoire" source toggle at the top (next to the White/Black
+// toggle), so you switch source from inside. With no games (only saved lines),
+// the repertoire tree stands in as the single discrete entry so it stays
+// reachable.
 function visualizeSection(lines: Line[], games: ImportedGame[]): HTMLElement | null {
   const section = document.createElement('div');
   section.className = 'section';
@@ -516,7 +528,7 @@ function visualizeSection(lines: Line[], games: ImportedGame[]): HTMLElement | n
 
   const desc = document.createElement('p');
   desc.className = 'rmap-section-desc';
-  desc.textContent = 'See your games and repertoire on the board.';
+  desc.textContent = 'Walk your games on the board — switch to your repertoire from inside.';
   section.appendChild(desc);
 
   const entries = document.createElement('div');
@@ -525,75 +537,94 @@ function visualizeSection(lines: Line[], games: ImportedGame[]): HTMLElement | n
 
   const onOpenLine = (line: Line) => exploreDeps?.onOpenLine(line);
 
-  // Per-move W/D/L from MY imported games (my perspective), shared by the maps
-  // and the board browser.
+  // Per-move W/D/L from MY imported games (my perspective), overlaid on both the
+  // games tree and the repertoire tree.
   const myStats = (colour: 'white' | 'black') => ({
     tree: buildMoveStats(games, colour, MAP_MAX_PLIES),
     caption: 'your results',
     games,
   });
 
+  type Source = 'games' | 'repertoire';
   const gamesHas = (c: 'white' | 'black') => games.some(g => g.colour === c);
   const repHas = (c: 'white' | 'black') => lines.some(l => l.colour === c);
+  const gamesAny = gamesHas('white') || gamesHas('black');
+  const repAny = repHas('white') || repHas('black');
 
-  // 1) Board browser — walk positions on a board with your games' per-move
-  //    W/D/L. Standalone (no map underneath), so "Open in builder" lands cleanly
-  //    on the builder; a White/Black toggle reopens it for the other side.
-  if (gamesHas('white') || gamesHas('black')) {
-    const openBrowser = (colour: 'white' | 'black'): void => {
-      openBoardExplorer({
-        statsTree: buildMoveStats(games, colour, MAP_MAX_PLIES),
-        caption: 'your results',
-        colour,
-        games,
-        title: 'Board browser',
-        onOpenInBuilder: (ucis, c) => exploreDeps?.onOpenInBuilder(ucis, c),
-        colourToggle: { current: colour, enabled: { white: gamesHas('white'), black: gamesHas('black') }, onPick: openBrowser },
-      });
-    };
-    entries.appendChild(mapEntryBtn(Icons.compass(24), 'Board browser',
-      'Walk your games on a board',
-      () => openBrowser(gamesHas('white') ? 'white' : 'black')));
-  }
+  // Which colours a source can show, and a safe colour to land on when switching
+  // source (the source you came in on may not have the colour you were viewing).
+  const colourEnabled = (s: Source, c: 'white' | 'black') => (s === 'games' ? gamesHas(c) : repHas(c));
+  const colourEnabledMap = (s: Source) => ({ white: colourEnabled(s, 'white'), black: colourEnabled(s, 'black') });
+  const firstColour = (s: Source): 'white' | 'black' => (colourEnabled(s, 'white') ? 'white' : 'black');
+  const validColour = (s: Source, from: 'white' | 'black') => (colourEnabled(s, from) ? from : firstColour(s));
+  const sourceEnabled = { games: gamesAny, repertoire: repAny };
 
-  // 2) Your games tree — what you actually play, from imported games (like an
-  //    opponent map, but yours). Colour toggles inside too.
-  if (gamesHas('white') || gamesHas('black')) {
-    const openGames = (colour: 'white' | 'black'): void => {
-      const colourGames = games.filter(g => g.colour === colour);
-      const reach = Math.max(0, ...colourGames.map(g => g.sans.length));
-      const buildLines = (plies: number) =>
-        [opponentLine(buildOpponentTree(games, colour, plies, false), colour, 'Your games')];
-      openRepertoireMap(buildLines(MAP_START_PLIES), colour, onOpenLine, {
-        title: 'Your games',
-        subtitle: `${colourGames.length} game${colourGames.length !== 1 ? 's' : ''}`,
-        depth: { startPlies: MAP_START_PLIES, stepPlies: MAP_STEP_PLIES, maxPlies: reach, atDepth: buildLines },
-        stats: myStats(colour),
+  // Board browser — walk positions with per-move W/D/L. The source toggle swaps
+  // the stats tree: your games' results, or your repertoire (with your game
+  // results overlaid where you've actually played those moves).
+  const openBrowser = (colour: 'white' | 'black', source: Source): void => {
+    const isGames = source === 'games';
+    openBoardExplorer({
+      statsTree: isGames
+        ? buildMoveStats(games, colour, MAP_MAX_PLIES)
+        : buildRepertoireStatTree(lines, games, colour, MAP_MAX_PLIES),
+      caption: isGames ? 'your results' : 'your repertoire',
+      colour,
+      // "See full game" only makes sense over real games.
+      ...(isGames && { games }),
+      title: 'Board browser',
+      onOpenInBuilder: (ucis, c) => exploreDeps?.onOpenInBuilder(ucis, c),
+      colourToggle: { current: colour, enabled: colourEnabledMap(source), onPick: c => openBrowser(c, source) },
+      sourceToggle: { current: source, enabled: sourceEnabled, onPick: s => openBrowser(validColour(s, colour), s) },
+    });
+  };
+
+  // The tree (repertoire-map) for either source. Games: the merged imported-game
+  // tree; Repertoire: the saved lines merged. Both overlay your game results
+  // when you have games, and both carry the colour + source toggles.
+  const openTree = (colour: 'white' | 'black', source: Source): void => {
+    const isGames = source === 'games';
+    const buildGameLines = (plies: number) =>
+      [opponentLine(buildOpponentTree(games, colour, plies, false), colour, 'Your games')];
+    const colourLines = isGames ? buildGameLines(MAP_START_PLIES) : lines.filter(l => l.colour === colour);
+    const reach = isGames
+      ? Math.max(0, ...games.filter(g => g.colour === colour).map(g => g.sans.length))
+      : Math.max(0, ...lines.filter(l => l.colour === colour).map(l => treeDepth(l.tree)));
+    openRepertoireMap(colourLines, colour, onOpenLine, {
+      title: isGames ? 'Your games' : 'Your repertoire',
+      ...(isGames && {
+        subtitle: `${games.filter(g => g.colour === colour).length} game${
+          games.filter(g => g.colour === colour).length !== 1 ? 's' : ''}`,
+      }),
+      depth: {
+        startPlies: MAP_START_PLIES,
+        stepPlies: MAP_STEP_PLIES,
+        maxPlies: reach,
+        atDepth: isGames ? buildGameLines : () => lines.filter(l => l.colour === colour),
+      },
+      ...(games.length > 0 && { stats: myStats(colour) }),
+      ...(isGames && {
         nodeAction: { label: 'Open in builder', onAct: ({ ucis }) => exploreDeps?.onOpenInBuilder(ucis, colour) },
-        colourToggle: { current: colour, enabled: { white: gamesHas('white'), black: gamesHas('black') }, onPick: openGames },
-      });
-    };
+      }),
+      colourToggle: { current: colour, enabled: colourEnabledMap(source), onPick: c => openTree(c, source) },
+      sourceToggle: { current: source, enabled: sourceEnabled, onPick: s => openTree(validColour(s, colour), s) },
+    });
+  };
+
+  if (gamesAny) {
+    // Board browser leads as the prominent green entry…
+    entries.appendChild(mapEntryBtn(Icons.compass(24), 'Board browser',
+      `${games.length} game${games.length !== 1 ? 's' : ''}`,
+      () => openBrowser(firstColour('games'), 'games'), 'primary'));
+    // …with the games tree as a discrete link beneath.
     entries.appendChild(mapEntryBtn(Icons.search(24), 'Your games tree',
       `${games.length} game${games.length !== 1 ? 's' : ''}`,
-      () => openGames(gamesHas('white') ? 'white' : 'black')));
-  }
-
-  // 3) Your repertoire tree — the saved lines as one merged tree. The White/Black
-  //    toggle sits at the top of the opened tree (defaulting to White).
-  if (repHas('white') || repHas('black')) {
-    const openRep = (colour: 'white' | 'black'): void => {
-      const colourLines = lines.filter(l => l.colour === colour);
-      const reach = Math.max(0, ...colourLines.map(l => treeDepth(l.tree)));
-      openRepertoireMap(colourLines, colour, onOpenLine, {
-        title: 'Your repertoire',
-        depth: { startPlies: MAP_START_PLIES, stepPlies: MAP_STEP_PLIES, maxPlies: reach, atDepth: () => colourLines },
-        ...(games.length > 0 && { stats: myStats(colour) }),
-        colourToggle: { current: colour, enabled: { white: repHas('white'), black: repHas('black') }, onPick: openRep },
-      });
-    };
+      () => openTree(firstColour('games'), 'games'), 'discrete'));
+  } else if (repAny) {
+    // No games yet — keep the repertoire tree reachable as the single entry.
     entries.appendChild(mapEntryBtn(Icons.tree(24), 'Your repertoire tree',
       `${lines.length} line${lines.length !== 1 ? 's' : ''}`,
-      () => openRep(repHas('white') ? 'white' : 'black')));
+      () => openTree(firstColour('repertoire'), 'repertoire'), 'discrete'));
   }
 
   // Nothing to show (no lines and no games)? Tell the caller to drop the section.
@@ -627,6 +658,34 @@ function opponentHighlights(opp: Opponent): OpponentHighlights {
   };
 }
 
+// A small round avatar for a scouted player: their Chess.com picture when we
+// have one, otherwise a fallback user icon. Used on the opponent card and in
+// the detail header so they read as people, not just usernames.
+function buildAvatar(opp: Opponent, size: number): HTMLElement {
+  if (opp.avatarUrl) {
+    const img = document.createElement('img');
+    img.className = 'scout-avatar';
+    img.src = opp.avatarUrl;
+    img.alt = '';
+    img.width = size;
+    img.height = size;
+    img.loading = 'lazy';
+    // A broken/blocked image quietly falls back to the icon.
+    img.addEventListener('error', () => img.replaceWith(buildAvatarIcon(size)));
+    return img;
+  }
+  return buildAvatarIcon(size);
+}
+
+function buildAvatarIcon(size: number): HTMLElement {
+  const wrap = document.createElement('span');
+  wrap.className = 'scout-avatar scout-avatar--icon';
+  wrap.style.width = `${size}px`;
+  wrap.style.height = `${size}px`;
+  wrap.appendChild(Icons.userCircle(Math.round(size * 0.7)));
+  return wrap;
+}
+
 function opponentCard(opp: Opponent, container: HTMLElement): HTMLElement {
   const summary = opponentSummary(opp);
   const hl = opponentHighlights(opp);
@@ -653,7 +712,9 @@ function opponentCard(opp: Opponent, container: HTMLElement): HTMLElement {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
   });
 
-  // Title row: name + platform chip + a chevron pinned right so it reads tappable.
+  // Title row: avatar + name + platform chip + a chevron pinned right so it
+  // reads tappable.
+  titleRow.appendChild(buildAvatar(opp, 28));
   const nameEl = document.createElement('span');
   nameEl.className = 'pcard-name';
   nameEl.textContent = opp.name;
@@ -717,7 +778,11 @@ function addOpponent(container: HTMLElement): void {
       username: '',
       rememberUser: false,
       save: async (games, metaInfo) => {
-        const opp = makeOpponent(metaInfo, games);
+        // A Chess.com profile picture, when they have one (Lichess has none).
+        // Purely cosmetic and non-blocking — a miss just shows the fallback icon.
+        const avatarUrl =
+          metaInfo.platform === 'chesscom' ? await fetchAvatar(metaInfo.username) : undefined;
+        const opp = makeOpponent(metaInfo, games, { avatarUrl });
         await saveOpponent(opp);
         addedId = opp.id;
       },
@@ -736,7 +801,12 @@ function refreshOpponent(opp: Opponent, container: HTMLElement, onDone: () => vo
     username: opp.username,
     rememberUser: false,
     save: async (games, metaInfo) => {
-      await saveOpponent(makeOpponent(metaInfo, games, { id: opp.id }));
+      // Re-fetch the avatar on refresh so a newly-set picture appears; fall back
+      // to the one we already had if the lookup turns up nothing.
+      const avatarUrl =
+        (metaInfo.platform === 'chesscom' ? await fetchAvatar(metaInfo.username) : undefined) ??
+        opp.avatarUrl;
+      await saveOpponent(makeOpponent(metaInfo, games, { id: opp.id, avatarUrl }));
     },
     onImported: () => {
       renderExploreScreen(container);
@@ -787,6 +857,7 @@ function openDetail(id: string, container: HTMLElement): void {
     badge.className = 'rmap-title-count';
     badge.textContent = PLATFORM_LABEL[opp.platform];
     header.appendChild(back);
+    header.appendChild(buildAvatar(opp, 32));
     header.appendChild(titleEl);
     header.appendChild(badge);
     overlay.appendChild(header);
@@ -881,18 +952,10 @@ function openDetail(id: string, container: HTMLElement): void {
       bodyWrap.appendChild(yourPrepSection(myPrep, line => { close(); exploreDeps?.onOpenLine(line); }));
     }
 
-    // 4) Their most-played openings, per colour.
+    // 4) Their most-played openings — one list with an All / White / Black
+    //    filter (mirrors My Lines), rather than two split colour sections.
     const analysis = analyseGames(opp.games, []);
-    bodyWrap.appendChild(openingsSection(
-      'Their openings as White',
-      analysis.stats.filter(s => s.colour === 'white'),
-      prepare,
-    ));
-    bodyWrap.appendChild(openingsSection(
-      'Their openings as Black',
-      analysis.stats.filter(s => s.colour === 'black'),
-      prepare,
-    ));
+    bodyWrap.appendChild(openingsSection(analysis.stats, prepare));
 
     overlay.appendChild(bodyWrap);
     document.body.appendChild(overlay);
@@ -1232,15 +1295,17 @@ function visualizeOpponentSection(opp: Opponent, prepare: PrepareFn): HTMLElemen
   return section;
 }
 
-// One colour's most-played openings: top N, with a "Show all" reveal.
-function openingsSection(title: string, stats: OpeningStat[], prepare: PrepareFn): HTMLElement {
+// Their most-played openings — both colours in one list, filtered by an
+// All / White / Black segment (the shared filter bar, mirroring My Lines).
+// Top-N per filter, with a "Show all" reveal.
+function openingsSection(stats: OpeningStat[], prepare: PrepareFn): HTMLElement {
   const section = document.createElement('div');
   section.className = 'section';
   const head = document.createElement('div');
   head.className = 'section-head';
   const h = document.createElement('h2');
   h.className = 'section-title';
-  h.textContent = title;
+  h.textContent = 'Their openings';
   head.appendChild(h);
   if (stats.length > 0) {
     const m = document.createElement('span');
@@ -1253,58 +1318,88 @@ function openingsSection(title: string, stats: OpeningStat[], prepare: PrepareFn
   if (stats.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'section-desc';
-    empty.textContent = 'No games on this side yet.';
+    empty.textContent = 'No openings yet.';
     section.appendChild(empty);
     return section;
   }
 
+  // Colour-only filter bar (no sorts/tags/status) — the same All/White/Black
+  // segment used by saved lines and the prep list.
   const list = document.createElement('div');
   list.className = 'group';
-  stats.forEach((stat, i) => {
-    const card = openingCard(stat, prepare);
-    if (i >= TOP_OPENINGS) card.hidden = true;
-    list.appendChild(card);
+  const filter = createFilterBar({
+    persistKey: OPENINGS_FILTER_KEY,
+    onChange: () => rebuildList(),
   });
+  section.appendChild(filter.element);
   section.appendChild(list);
 
-  if (stats.length > TOP_OPENINGS) {
-    const more = document.createElement('button');
-    more.type = 'button';
-    more.className = 'btn-secondary scout-show-all';
-    more.textContent = `Show all ${stats.length}`;
-    more.addEventListener('click', () => {
-      for (const c of Array.from(list.children) as HTMLElement[]) c.hidden = false;
-      more.remove();
+  function rebuildList(): void {
+    list.innerHTML = '';
+    const sel = filter.selection;
+    const shown = sel.colour === 'all' ? stats : stats.filter(s => s.colour === sel.colour);
+
+    if (shown.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'section-desc';
+      empty.textContent = 'No openings on this side.';
+      list.appendChild(empty);
+      return;
+    }
+
+    shown.forEach((stat, i) => {
+      const card = openingCard(stat, prepare);
+      if (i >= TOP_OPENINGS) card.hidden = true;
+      list.appendChild(card);
     });
-    section.appendChild(more);
+
+    if (shown.length > TOP_OPENINGS) {
+      const more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'btn-secondary scout-show-all';
+      more.textContent = `Show all ${shown.length}`;
+      more.addEventListener('click', () => {
+        for (const c of Array.from(list.children) as HTMLElement[]) c.hidden = false;
+        more.remove();
+      });
+      list.appendChild(more);
+    }
   }
+
+  rebuildList();
   return section;
 }
 
 function openingCard(stat: OpeningStat, prepare: PrepareFn): HTMLElement {
-  const card = document.createElement('div');
-  card.className = 'line-card review-card';
+  // The shared position-card scaffold, so each opening shows a miniature of its
+  // representative line (gated by the global "show line miniatures" toggle) and
+  // reads like the rest of the app's cards.
+  const { card, titleRow, content } = buildPositionCard({
+    fen: stat.repUcis.length > 0 ? fenFromUcis(stat.repUcis) : null,
+    orientation: stat.colour,
+    className: 'opening-card',
+  });
 
-  const body = document.createElement('div');
-  body.className = 'line-card-body review-card-body';
-
-  const nameEl = document.createElement('div');
-  nameEl.className = 'line-card-name';
+  // Title row: colour pip + opening family name.
+  titleRow.appendChild(colourPip(stat.colour));
+  const nameEl = document.createElement('span');
+  nameEl.className = 'pcard-name';
   nameEl.textContent = stat.family;
-  body.appendChild(nameEl);
+  titleRow.appendChild(nameEl);
 
+  // Played-count chip.
   const metaRow = document.createElement('div');
   metaRow.className = 'line-card-meta';
   const gamesChip = document.createElement('span');
   gamesChip.className = 'review-stat-chip';
   gamesChip.textContent = `Played ${stat.games}×`;
   metaRow.appendChild(gamesChip);
-  body.appendChild(metaRow);
+  content.appendChild(metaRow);
 
   // Their result on this opening, as a slim bar: score% left, the W-D-L split as
   // segments, the bare counts in small text on the right. The perspective is
   // already captioned once up in the scouting report, so no caption repeats here.
-  body.appendChild(wdlScoreRow({
+  content.appendChild(wdlScoreRow({
     wins: stat.wins,
     draws: stat.draws,
     losses: stat.losses,
@@ -1316,7 +1411,7 @@ function openingCard(stat: OpeningStat, prepare: PrepareFn): HTMLElement {
     const lineEl = document.createElement('div');
     lineEl.className = 'review-moves';
     lineEl.textContent = formatSanLine(stat.repSans);
-    body.appendChild(lineEl);
+    content.appendChild(lineEl);
   }
 
   // Prepare a reply against this opening's representative line.
@@ -1330,9 +1425,8 @@ function openingCard(stat: OpeningStat, prepare: PrepareFn): HTMLElement {
   } else {
     prepareBtn.addEventListener('click', () => prepare(stat.repUcis, stat.colour));
   }
-  body.appendChild(prepareBtn);
+  content.appendChild(prepareBtn);
 
-  card.appendChild(body);
   return card;
 }
 
