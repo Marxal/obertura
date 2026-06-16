@@ -7,11 +7,11 @@ import {
   getAllGames,
 } from './storage';
 import { buildPositionCard, colourPip, lineFinalFen, fenFromUcis } from './card-position';
-import { getShowQuickView } from './prefs';
+import { getShowQuickView, getGroupSavedByFamily, setGroupSavedByFamily } from './prefs';
 import { lineIsDue } from './scheduler';
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
-import { analyseGames, countGamesPerLine, TOP_N, type Analysis, type OpeningStat } from './analysis';
+import { analyseGames, countGamesPerLine, openingFamily, TOP_N, type Analysis, type OpeningStat } from './analysis';
 import { openImportPanel, getGamesSource } from './import-panel';
 import { isOpponentTag } from './scout';
 import { buildEmptyState } from './empty-state';
@@ -117,6 +117,10 @@ const GAMES_FILTER_KEY = 'obertura.games.filter';
 // Which of the two tabs is showing. Module-level so it survives re-renders.
 type TabName = 'saved' | 'games';
 let activeTab: TabName = 'saved';
+
+// Which opening families are expanded in the grouped saved view. Module-level so
+// a filter change / refresh keeps the open/closed state across re-renders.
+const expandedFamilies = new Set<string>();
 
 // Set by the builder right after a save: the next saved-lines render highlights
 // this line and scrolls it into view, so the user can see where it landed and
@@ -466,6 +470,30 @@ function renderSavedTab(
   });
   content.appendChild(filter.element);
 
+  // View toggle: flat list ↔ grouped into collapsible opening families. Only
+  // worth offering once there are a few lines to group.
+  if (lines.length > 1) {
+    const viewRow = document.createElement('div');
+    viewRow.className = 'lines-view-row';
+    const groupToggle = document.createElement('button');
+    groupToggle.type = 'button';
+    groupToggle.className = 'lines-group-toggle';
+    const syncToggle = (): void => {
+      const on = getGroupSavedByFamily();
+      groupToggle.classList.toggle('active', on);
+      groupToggle.setAttribute('aria-pressed', String(on));
+      groupToggle.textContent = on ? 'Grouped by opening' : 'Group by opening';
+    };
+    syncToggle();
+    groupToggle.addEventListener('click', () => {
+      setGroupSavedByFamily(!getGroupSavedByFamily());
+      syncToggle();
+      rebuildList();
+    });
+    viewRow.appendChild(groupToggle);
+    content.appendChild(viewRow);
+  }
+
   const sec = document.createElement('div');
   sec.className = 'section';
   const list = document.createElement('div');
@@ -483,14 +511,111 @@ function renderSavedTab(
       list.appendChild(empty);
       return;
     }
-    for (const line of shown) {
-      list.appendChild(
-        buildDetailCard(line, deps, container, refresh, counts.get(line.id) ?? 0)
-      );
+    if (getGroupSavedByFamily()) {
+      renderGroupedSaved(list, shown, deps, container, refresh, counts);
+    } else {
+      for (const line of shown) {
+        list.appendChild(
+          buildDetailCard(line, deps, container, refresh, counts.get(line.id) ?? 0)
+        );
+      }
     }
   }
 
   rebuildList();
+}
+
+// Render the saved list grouped into collapsible opening families, preserving the
+// chosen sort order (families appear in the order their first line does). Each
+// family's cards are built lazily the first time it opens, so collapsed boards
+// never render at the wrong size (and big lists stay cheap).
+function renderGroupedSaved(
+  list: HTMLElement,
+  shown: Line[],
+  deps: LinesDeps,
+  container: HTMLElement,
+  refresh: () => void,
+  counts: Map<string, number>,
+): void {
+  const groups = new Map<string, Line[]>();
+  for (const line of shown) {
+    const fam = openingFamily(line.openingName);
+    if (!groups.has(fam)) groups.set(fam, []);
+    groups.get(fam)!.push(line);
+  }
+
+  // A just-saved line should be visible: open its family so its highlighted card
+  // is built and scrolled into view.
+  if (highlightLineId) {
+    const hit = shown.find(l => l.id === highlightLineId);
+    if (hit) expandedFamilies.add(openingFamily(hit.openingName));
+  }
+
+  for (const [family, flines] of groups) {
+    list.appendChild(buildFamilyGroup(family, flines, deps, container, refresh, counts));
+  }
+}
+
+function buildFamilyGroup(
+  family: string,
+  flines: Line[],
+  deps: LinesDeps,
+  container: HTMLElement,
+  refresh: () => void,
+  counts: Map<string, number>,
+): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'lines-fam';
+
+  const head = document.createElement('button');
+  head.type = 'button';
+  head.className = 'lines-fam-head';
+
+  const chev = document.createElement('span');
+  chev.className = 'lines-fam-chev';
+  chev.setAttribute('aria-hidden', 'true');
+  chev.appendChild(Icons.chevronRight(18));
+  head.appendChild(chev);
+
+  const name = document.createElement('span');
+  name.className = 'lines-fam-name';
+  name.textContent = family;
+  head.appendChild(name);
+
+  const count = document.createElement('span');
+  count.className = 'lines-fam-count';
+  count.textContent = String(flines.length);
+  head.appendChild(count);
+
+  const body = document.createElement('div');
+  body.className = 'lines-fam-body';
+  body.hidden = true;
+
+  // Fill the cards the first time this family opens (lazy, like the library tree).
+  const fill = (): void => {
+    if (body.childElementCount) return;
+    for (const line of flines) {
+      body.appendChild(buildDetailCard(line, deps, container, refresh, counts.get(line.id) ?? 0));
+    }
+  };
+
+  const setOpen = (open: boolean): void => {
+    head.classList.toggle('lines-fam-head--open', open);
+    head.setAttribute('aria-expanded', String(open));
+    body.hidden = !open;
+    if (open) fill();
+  };
+  setOpen(expandedFamilies.has(family));
+
+  head.addEventListener('click', () => {
+    const open = !expandedFamilies.has(family);
+    if (open) expandedFamilies.add(family); else expandedFamilies.delete(family);
+    setOpen(open);
+  });
+
+  wrap.appendChild(head);
+  wrap.appendChild(body);
+  return wrap;
 }
 
 function buildDetailCard(

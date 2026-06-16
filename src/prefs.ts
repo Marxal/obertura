@@ -101,6 +101,18 @@ export function setShowLineMiniatures(on: boolean): void {
   localStorage.setItem(SHOW_MINIATURES_KEY, on ? 'on' : 'off');
 }
 
+// Whether the saved-lines list is grouped into collapsible opening families
+// (e.g. "Italian Game (3)") rather than shown as a flat list. OFF by default.
+const GROUP_BY_FAMILY_KEY = 'obertura.lines.groupByFamily';
+
+export function getGroupSavedByFamily(): boolean {
+  return localStorage.getItem(GROUP_BY_FAMILY_KEY) === 'on';
+}
+
+export function setGroupSavedByFamily(on: boolean): void {
+  localStorage.setItem(GROUP_BY_FAMILY_KEY, on ? 'on' : 'off');
+}
+
 // ── Statistics screen sections ───────────────────────────────────────────────
 //
 // Two device-local toggles that hide whole sections of the Statistics screen,

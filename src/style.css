@@ -7766,3 +7766,77 @@ cg-board square.move-dest.oc {
   gap: 18px;
   margin-top: 2px;
 }
+
+/* ── My Lines: group saved lines by opening family ─────────────────────────────
+   A pill toggle above the list flips between a flat list and collapsible family
+   groups (Italian Game (3) ▸). Mirrors the opening-library family accordion. */
+.lines-view-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: 2px 0 8px;
+}
+.lines-group-toggle {
+  background: none;
+  border: 1px solid var(--border-card);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.lines-group-toggle.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.lines-fam {
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  background: var(--bg-card);
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.lines-fam-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.lines-fam-chev {
+  flex: 0 0 auto;
+  display: inline-flex;
+  color: var(--text-faint);
+  transition: transform 0.15s ease;
+}
+.lines-fam-head--open .lines-fam-chev {
+  transform: rotate(90deg);
+}
+.lines-fam-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+.lines-fam-count {
+  flex: 0 0 auto;
+  font-size: 0.8rem;
+  color: var(--text-faint);
+  background: var(--bg-elevated);
+  border-radius: 999px;
+  padding: 1px 9px;
+}
+.lines-fam-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 10px 10px;
+}

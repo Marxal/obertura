@@ -1270,6 +1270,28 @@ function trimLastMove(): void {
 }
 
 async function saveCurrentLine(): Promise<void> {
+  // Editing an EXISTING line whose moves/details have changed: offer to update it
+  // in place, or keep the original and branch this off as a new line. A fresh
+  // line — or an unchanged one — skips straight to the save.
+  if (loadedLineId && isBuilderDirty()) {
+    const label = currentTitle() || detectedNameForLine() || 'this line';
+    showDialog({
+      title: 'Save your changes',
+      body: `You’ve changed “${label}”. Update this line, or keep the original and save this as a new line?`,
+      buttons: [
+        { label: 'Update this line', variant: 'primary', onClick: () => { void continueSave(); } },
+        { label: 'Save as new line', variant: 'secondary', onClick: () => { detachAsNewLine(); void continueSave(); } },
+        { label: 'Cancel', variant: 'secondary' },
+      ],
+    });
+    return;
+  }
+  void continueSave();
+}
+
+// The end-on-your-move nudge, then the actual save. Split out so the
+// update / save-as-new choice can run ahead of it.
+async function continueSave(): Promise<void> {
   // Nudge (never block): a line that ends on the opponent's move leaves the last
   // drill rep theirs, not yours. Offer to trim it, keep it, or back out.
   if (!isEmpty() && lineEndsOnOpponentMove()) {
@@ -1285,6 +1307,16 @@ async function saveCurrentLine(): Promise<void> {
     return;
   }
   void finishSave();
+}
+
+// Detach the builder from the saved line it was editing so the next save creates
+// a brand-new line (fresh id, no inherited training data) and leaves the original
+// untouched. buildCurrentLine then takes its isNew branch.
+function detachAsNewLine(): void {
+  loadedLineId = null;
+  loadedLineCreatedAt = undefined;
+  loadedLineInTraining = false;
+  currentTrainingLine = null;
 }
 
 // Persist + confirm + offer training. Split out so the save nudge can route here
