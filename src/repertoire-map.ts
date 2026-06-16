@@ -12,6 +12,7 @@ import { Chessground } from 'chessground';
 import type { Api as CgApi } from 'chessground/api';
 import type { Key } from 'chessground/types';
 import { nameForFen } from './openings';
+import { Icons } from './icons';
 import { pushBack } from './back-nav';
 import { statScorePct, topReply, type StatNode } from './move-stats';
 import { wdlScoreRow } from './wdl-bar';
@@ -74,6 +75,13 @@ export interface RepertoireMapOptions {
     current: 'games' | 'repertoire';
     enabled: { games: boolean; repertoire: boolean };
     onPick: (source: 'games' | 'repertoire') => void;
+  };
+  // Opponent perspective. When set, the tap-preview board faces MY answering side
+  // (`you`) and shows the opponent (avatar + name) above it and "You" below — so
+  // a scouted position reads from the seat I'll play it from.
+  perspective?: {
+    you: 'white' | 'black';
+    opponent?: { name: string; avatarUrl?: string };
   };
 }
 
@@ -408,6 +416,45 @@ function statsBlock(n: MapNode, caption: string): HTMLElement {
   return wrap;
 }
 
+// A compact player strip bracketing the preview board (opponent on top, "You"
+// below). Mirrors the board browser's strips; a missing opponent shows a generic
+// user icon + "Opponent".
+function rmapPlayerStrip(who: { name: string; avatarUrl?: string } | undefined | 'you'): HTMLElement {
+  const strip = document.createElement('div');
+  strip.className = 'rmap-player' + (who === 'you' ? ' rmap-player--you' : '');
+
+  const isYou = who === 'you';
+  const name = isYou ? 'You' : (who?.name ?? 'Opponent');
+  const url = isYou ? undefined : who?.avatarUrl;
+
+  if (url) {
+    const img = document.createElement('img');
+    img.className = 'rmap-player-avatar';
+    img.src = url;
+    img.alt = '';
+    img.width = 18;
+    img.height = 18;
+    img.loading = 'lazy';
+    img.addEventListener('error', () => img.replaceWith(rmapPlayerIcon()));
+    strip.appendChild(img);
+  } else {
+    strip.appendChild(rmapPlayerIcon());
+  }
+
+  const label = document.createElement('span');
+  label.className = 'rmap-player-name';
+  label.textContent = name;
+  strip.appendChild(label);
+  return strip;
+}
+
+function rmapPlayerIcon(): HTMLElement {
+  const wrap = document.createElement('span');
+  wrap.className = 'rmap-player-avatar rmap-player-avatar--icon';
+  wrap.appendChild(Icons.userCircle(13));
+  return wrap;
+}
+
 function makePreview(
   colour: 'white' | 'black',
   opts: RepertoireMapOptions,
@@ -426,12 +473,15 @@ function makePreview(
   collapseBtn.addEventListener('click', () => { panel.hidden = true; });
   panel.appendChild(collapseBtn);
 
-  // Board column (left).
+  // Board column (left). For opponent maps it's bracketed by player strips
+  // (opponent on top, "You" below) so the perspective reads at a glance.
   const boardCol = document.createElement('div');
   boardCol.className = 'rmap-pos-board-col';
+  if (opts.perspective) boardCol.appendChild(rmapPlayerStrip(opts.perspective.opponent));
   const boardEl = document.createElement('div');
   boardEl.className = 'rmap-pos-board';
   boardCol.appendChild(boardEl);
+  if (opts.perspective) boardCol.appendChild(rmapPlayerStrip('you'));
   panel.appendChild(boardCol);
 
   // Info column (right).
@@ -447,7 +497,9 @@ function makePreview(
     const from = n.uci.slice(0, 2) as Key;
     const to = n.uci.slice(2, 4) as Key;
     const assoc = lines.find(l => n.lineIds.includes(l.id));
-    const orient = assoc?.colour ?? colour;
+    // Opponent maps fix the orientation to MY answering side; otherwise follow
+    // the associated saved line (falling back to the map's colour).
+    const orient = opts.perspective?.you ?? assoc?.colour ?? colour;
 
     if (!cg) {
       cg = Chessground(boardEl, {

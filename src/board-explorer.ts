@@ -27,7 +27,15 @@ const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 export interface BoardExplorerOptions {
   statsTree: StatNode;            // per-move stats keyed by uci path (their / my games)
   caption: string;               // 'their results' | 'your results' — the perspective
-  colour: 'white' | 'black';     // initial board orientation
+  colour: 'white' | 'black';     // the games' colour (drives "Prepare a reply")
+  // Board orientation. Defaults to `colour`. Opponent browsers pass MY answering
+  // side here (the opposite of the opponent's colour) so I study the line from
+  // the seat I'll actually play it from.
+  orientation?: 'white' | 'black';
+  // Player strips around the board (opponent on top, "You" on the bottom) so the
+  // perspective reads at a glance. Pass `{}` (no opponent) for your-own-games
+  // browsers — the top strip then shows a generic "Opponent".
+  players?: { opponent?: { name: string; avatarUrl?: string } };
   // The games behind the stats tree (same perspective). When the walked path
   // pins down exactly one of them, we offer a "See full game" external link.
   games?: ImportedGame[];
@@ -64,7 +72,7 @@ export interface BoardExplorerOptions {
 
 export function openBoardExplorer(opts: BoardExplorerOptions): void {
   const chess = new Chess();
-  const orientation = opts.colour;
+  const orientation = opts.orientation ?? opts.colour;
 
   // The walked line, kept in lockstep with `chess`. fens/lastMoves are indexed by
   // ply (index 0 = the start), so fens[ucis.length] is always the live position.
@@ -115,6 +123,12 @@ export function openBoardExplorer(opts: BoardExplorerOptions): void {
     overlay.appendChild(buildTopToggles(opts, close));
   }
 
+  // Player strips (opponent on top, "You" on the bottom) bracket the board so
+  // the perspective is unmistakable — the board is oriented to MY side.
+  if (opts.players) {
+    overlay.appendChild(playerStrip(opts.players.opponent));
+  }
+
   // Board.
   const boardWrap = document.createElement('div');
   boardWrap.className = 'bx-board-wrap';
@@ -122,6 +136,10 @@ export function openBoardExplorer(opts: BoardExplorerOptions): void {
   boardEl.className = 'bx-board';
   boardWrap.appendChild(boardEl);
   overlay.appendChild(boardWrap);
+
+  if (opts.players) {
+    overlay.appendChild(playerStrip('you'));
+  }
 
   const cg: CgApi = Chessground(boardEl, {
     fen: fens[fens.length - 1],
@@ -167,7 +185,7 @@ export function openBoardExplorer(opts: BoardExplorerOptions): void {
   let primaryBtn: HTMLButtonElement | null = null;
   if (opts.action) {
     const act = opts.action;
-    primaryBtn = navBtn(Icons.build(20), act.label, act.label, () => {
+    primaryBtn = navBtn(Icons.reply(20), act.label, act.label, () => {
       if (act.disabled) return;
       act.onAct?.({
         fen: chess.fen(),
@@ -181,11 +199,14 @@ export function openBoardExplorer(opts: BoardExplorerOptions): void {
     primaryBtn.disabled = !!act.disabled;
   } else if (opts.onOpenInBuilder) {
     const seed = opts.onOpenInBuilder;
-    primaryBtn = navBtn(Icons.build(20), 'Open in builder', 'Open in builder', () => {
+    primaryBtn = navBtn(Icons.reply(20), 'Open in builder', 'Open in builder', () => {
       seed([...ucis], opts.colour);
       close();
     });
   }
+  // The primary action stands out in brass — it's the one button that leaves the
+  // browser for the builder.
+  if (primaryBtn) primaryBtn.classList.add('bx-nav-btn--accent');
 
   const resetBtn = navBtn(Icons.reset(20), 'Reset', 'Back to start', reset);
   const backBtn = navBtn(Icons.back(20), 'Back', 'Step back', stepBack);
@@ -406,6 +427,52 @@ function platformLabel(url: string): string {
   if (u.includes('lichess.org')) return 'Lichess';
   if (u.includes('chess.com')) return 'Chess.com';
   return 'the original site';
+}
+
+// A compact player strip that brackets the board. Pass the opponent (avatar +
+// name) for the top strip, or 'you' for the near strip. A missing/absent
+// opponent shows a generic user icon + "Opponent", so the perspective still
+// reads even with no one scouted.
+function playerStrip(who: { name: string; avatarUrl?: string } | undefined | 'you'): HTMLElement {
+  const strip = document.createElement('div');
+  strip.className = 'bx-player' + (who === 'you' ? ' bx-player--you' : '');
+
+  const isYou = who === 'you';
+  const name = isYou ? 'You' : (who?.name ?? 'Opponent');
+  const avatarUrl = isYou ? undefined : who?.avatarUrl;
+
+  strip.appendChild(playerAvatar(avatarUrl, 22));
+  const label = document.createElement('span');
+  label.className = 'bx-player-name';
+  label.textContent = name;
+  strip.appendChild(label);
+  return strip;
+}
+
+// A small round avatar: the player's picture when we have one, otherwise the
+// fallback user icon (mirrors explore-screen's buildAvatar, kept local here).
+function playerAvatar(url: string | undefined, size: number): HTMLElement {
+  if (url) {
+    const img = document.createElement('img');
+    img.className = 'bx-player-avatar';
+    img.src = url;
+    img.alt = '';
+    img.width = size;
+    img.height = size;
+    img.loading = 'lazy';
+    img.addEventListener('error', () => img.replaceWith(playerAvatarIcon(size)));
+    return img;
+  }
+  return playerAvatarIcon(size);
+}
+
+function playerAvatarIcon(size: number): HTMLElement {
+  const wrap = document.createElement('span');
+  wrap.className = 'bx-player-avatar bx-player-avatar--icon';
+  wrap.style.width = `${size}px`;
+  wrap.style.height = `${size}px`;
+  wrap.appendChild(Icons.userCircle(Math.round(size * 0.7)));
+  return wrap;
 }
 
 // A stacked icon-over-label step button for the bottom control bar.
