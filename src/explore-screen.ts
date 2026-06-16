@@ -38,9 +38,9 @@ import {
 } from './storage';
 import {
   MAX_OPPONENTS, makeOpponent, opponentLine, colourGameCount, opponentTag, isOpponentTag,
-  opponentSummary, buildScoutReport, buildOpponentTree, opponentReachPlies,
+  opponentSummary, buildOpponentTree, opponentReachPlies, MIN_REPORT_GAMES,
   MAP_START_PLIES, MAP_STEP_PLIES, MAP_MAX_PLIES,
-  type Opponent, type ScoutReport, type OpeningRecord, type Recommendation,
+  type Opponent,
 } from './scout';
 import { wdlBlock, wdlScoreRow } from './wdl-bar';
 import { buildMoveStats, buildRepertoireStatTree } from './move-stats';
@@ -51,6 +51,8 @@ import { pushBack } from './back-nav';
 const PLATFORM_LABEL = { chesscom: 'Chess.com', lichess: 'Lichess' } as const;
 // Most-played list cap before "Show all".
 const TOP_OPENINGS = 6;
+// How many openings the scouting report shows per group (struggle / score).
+const REPORT_PICKS = 3;
 // Persistence key for the prepared-lines filter bar (shared across opponents;
 // stale tags from another opponent are sanitised away on load).
 const PREP_FILTER_KEY = 'obertura.prep.filter';
@@ -634,30 +636,6 @@ function visualizeSection(lines: Line[], games: ImportedGame[]): HTMLElement | n
 
 // ── Opponent card ────────────────────────────────────────────────────────────────
 
-// A few cheap-ish highlights for an opponent card, from one analysis pass over
-// their games: a representative position (their most-played opening) for the
-// miniature, and their clearest weakness (lowest-scoring opening that's still
-// genuinely below even) for an at-a-glance prep nudge.
-interface OpponentHighlights {
-  fen: string | null;
-  topUcis: string[];
-  topColour: 'white' | 'black';
-  weak: OpeningStat | null;
-}
-function opponentHighlights(opp: Opponent): OpponentHighlights {
-  const stats = analyseGames(opp.games, []).stats;
-  const top = [...stats].filter(s => s.repUcis.length > 0).sort((a, b) => b.games - a.games)[0] ?? null;
-  const weak = stats
-    .filter(s => s.family !== UNKNOWN_FAMILY && s.games >= MIN_GAMES_WEAK && s.scorePct < WEAK_SCORE_PCT)
-    .sort((a, b) => a.scorePct - b.scorePct)[0] ?? null;
-  return {
-    fen: top ? fenFromUcis(top.repUcis) : null,
-    topUcis: top?.repUcis ?? [],
-    topColour: top?.colour ?? 'white',
-    weak,
-  };
-}
-
 // A small round avatar for a scouted player: their Chess.com picture when we
 // have one, otherwise a fallback user icon. Used on the opponent card and in
 // the detail header so they read as people, not just usernames.
@@ -688,22 +666,14 @@ function buildAvatarIcon(size: number): HTMLElement {
 
 function opponentCard(opp: Opponent, container: HTMLElement): HTMLElement {
   const summary = opponentSummary(opp);
-  const hl = opponentHighlights(opp);
   const open = () => openDetail(opp.id, container);
 
-  // Position-card scaffold so opponents read like the rest of the app's cards,
-  // with a miniature of their most-played opening. Tapping the miniature jumps
-  // straight to preparing a reply against that line (item 7/8); tapping the rest
-  // of the card opens their full dossier.
+  // A roster card — no board, no opening: just who they are and how they score.
+  // The position-card scaffold (with no fen) gives us the title-row + content
+  // layout without a miniature, so opponents still read like the app's cards.
   const { card, titleRow, content } = buildPositionCard({
-    fen: hl.fen,
-    orientation: hl.topColour,
+    fen: null,
     className: 'opponent-card',
-    ...(hl.fen && hl.topUcis.length > 0 && {
-      onMiniClick: () =>
-        exploreDeps?.onPrepareReply(hl.topUcis, hl.topColour === 'white' ? 'black' : 'white', opp.name),
-      miniLabel: `Prepare a reply vs ${opp.name}`,
-    }),
   });
   card.setAttribute('role', 'button');
   card.tabIndex = 0;
@@ -727,12 +697,6 @@ function opponentCard(opp: Opponent, container: HTMLElement): HTMLElement {
   chevron.classList.add('scout-card-chevron');
   titleRow.appendChild(chevron);
 
-  // Their most-played opening.
-  const openingEl = document.createElement('div');
-  openingEl.className = 'scout-card-opening';
-  openingEl.textContent = summary.topOpening ?? 'No openings yet';
-  content.appendChild(openingEl);
-
   // Their overall W-D-L bar (the reusable component).
   content.appendChild(wdlBlock({
     wins: summary.wins,
@@ -741,14 +705,6 @@ function opponentCard(opp: Opponent, container: HTMLElement): HTMLElement {
     scorePct: summary.scorePct,
     games: summary.games,
   }));
-
-  // A clearest-weakness nudge — the single most useful scouting line at a glance.
-  if (hl.weak) {
-    const weakEl = document.createElement('div');
-    weakEl.className = 'opponent-card-weak';
-    weakEl.textContent = `Struggles: ${hl.weak.family} · ${hl.weak.scorePct}%`;
-    content.appendChild(weakEl);
-  }
 
   // Meta: games analysed + when last refreshed.
   const meta = document.createElement('div');
@@ -821,13 +777,13 @@ function openDetail(id: string, container: HTMLElement): void {
   void (async () => {
     const opp = await getOpponent(id);
     if (!opp) { renderExploreScreen(container); return; }
-    // My saved lines prepared against this opponent (tagged "vs <name>"), plus
-    // my own imported games — the report ranks recommendations against how I
-    // actually score in each opening family.
+    // My saved lines prepared against this opponent (tagged "vs <name>").
     const tag = opponentTag(opp.name);
-    const [allLines, myGames] = await Promise.all([getAllLines(), getAllGames()]);
+    const allLines = await getAllLines();
     const myPrep = allLines.filter(l => l.tags.includes(tag));
-    const report = buildScoutReport(opp.games, myGames);
+    // One analysis pass over their games — the openings list and the scouting
+    // report findings are both read off the same OpeningStat[].
+    const stats = analyseGames(opp.games, []).stats;
 
     const overlay = document.createElement('div');
     overlay.className = 'rmap-overlay scout-detail';
@@ -943,9 +899,10 @@ function openDetail(id: string, container: HTMLElement): void {
     //    pointed at THEIR games and handing "Prepare a reply" back here.
     bodyWrap.appendChild(visualizeOpponentSection(opp, prepare));
 
-    // 2) Scouting report — their overall W-D-L bar, then the three findings
-    //    (where they struggle / score / what to play) tucked in an accordion.
-    bodyWrap.appendChild(reportSection(opp, report));
+    // 2) Scouting report — their overall W-D-L bar, then the two findings
+    //    (where they struggle / where they score) tucked in an accordion, each
+    //    shown as the same rich card as Their openings.
+    bodyWrap.appendChild(reportSection(opp, stats, prepare));
 
     // 3) My prep against this opponent, when I have any.
     if (myPrep.length > 0) {
@@ -954,8 +911,7 @@ function openDetail(id: string, container: HTMLElement): void {
 
     // 4) Their most-played openings — one list with an All / White / Black
     //    filter (mirrors My Lines), rather than two split colour sections.
-    const analysis = analyseGames(opp.games, []);
-    bodyWrap.appendChild(openingsSection(analysis.stats, prepare));
+    bodyWrap.appendChild(openingsSection(stats, prepare));
 
     overlay.appendChild(bodyWrap);
     document.body.appendChild(overlay);
@@ -966,11 +922,13 @@ function openDetail(id: string, container: HTMLElement): void {
 
 // The report: the opponent's overall W-D-L bar ("Their results" — the one place
 // that caption appears, fixing the perspective for the whole detail), then —
-// once they have a deep enough sample — the three findings groups (where they
-// struggle / score / what to play) tucked inside a "Scouting report" accordion,
-// collapsed by default to keep the dossier scannable. With no opening reaching
-// the games floor, an honest empty line replaces the accordion.
-function reportSection(opp: Opponent, report: ScoutReport): HTMLElement {
+// once they have a deep enough sample — the two findings groups (where they
+// struggle / where they score) tucked inside a "Scouting report" accordion,
+// collapsed by default to keep the dossier scannable. Each finding is the SAME
+// rich card as "Their openings" (board, moves, W-D-L, "Prepare a reply"), fed
+// the matching OpeningStat. With no opening reaching the games floor, an honest
+// empty line replaces the accordion.
+function reportSection(opp: Opponent, stats: OpeningStat[], prepare: PrepareFn): HTMLElement {
   const section = document.createElement('div');
   section.className = 'section';
 
@@ -991,7 +949,10 @@ function reportSection(opp: Opponent, report: ScoutReport): HTMLElement {
     games: summary.games,
   }));
 
-  if (!report.enoughGames) {
+  // Only recognised families with a real sample of their games count — fewer is
+  // noise, not a tendency. From those, their lowest- and highest-scoring picks.
+  const qualifying = stats.filter(s => s.family !== UNKNOWN_FAMILY && s.games >= MIN_REPORT_GAMES);
+  if (qualifying.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'section-desc scout-report-empty';
     empty.textContent = 'Not enough games for a report yet — import more.';
@@ -999,14 +960,17 @@ function reportSection(opp: Opponent, report: ScoutReport): HTMLElement {
     return section;
   }
 
-  // The three findings live in a collapsible "Scouting report" accordion.
+  const weakest = [...qualifying]
+    .sort((a, b) => a.scorePct - b.scorePct || b.games - a.games || a.family.localeCompare(b.family))
+    .slice(0, REPORT_PICKS);
+  const strongest = [...qualifying]
+    .sort((a, b) => b.scorePct - a.scorePct || b.games - a.games || a.family.localeCompare(b.family))
+    .slice(0, REPORT_PICKS);
+
+  // The findings live in a collapsible "Scouting report" accordion.
   const { wrap, body } = makeAccordion('Scouting report');
-  body.appendChild(reportGroup('Where they struggle',
-    report.weakest.map(r => recordRow(r))));
-  body.appendChild(reportGroup('Where they score',
-    report.strongest.map(r => recordRow(r))));
-  body.appendChild(reportGroup('What to play',
-    report.recommendations.map(rec => recommendationRow(rec))));
+  body.appendChild(reportGroup('Where they struggle', weakest.map(s => openingCard(s, prepare))));
+  body.appendChild(reportGroup('Where they score', strongest.map(s => openingCard(s, prepare))));
   section.appendChild(wrap);
 
   return section;
@@ -1064,60 +1028,6 @@ function reportGroup(title: string, rows: HTMLElement[]): HTMLElement {
   for (const row of rows) list.appendChild(row);
   group.appendChild(list);
   return group;
-}
-
-// A compact report row: the opening name + games count on the top line, their
-// W-D-L bar below. `extra`, when given, hangs a small line under the bar.
-function recordRow(rec: OpeningRecord, extra?: HTMLElement): HTMLElement {
-  const card = document.createElement('div');
-  card.className = 'line-card review-card scout-report-row';
-
-  const body = document.createElement('div');
-  body.className = 'line-card-body review-card-body';
-
-  const headRow = document.createElement('div');
-  headRow.className = 'scout-report-row-head';
-  const nameEl = document.createElement('div');
-  nameEl.className = 'line-card-name';
-  nameEl.textContent = rec.family;
-  headRow.appendChild(nameEl);
-  const gamesChip = document.createElement('span');
-  gamesChip.className = 'review-stat-chip';
-  gamesChip.textContent = `${rec.games} game${rec.games === 1 ? '' : 's'}`;
-  headRow.appendChild(gamesChip);
-  body.appendChild(headRow);
-
-  // Their record as a slim bar; the perspective is captioned once up top, so no
-  // caption repeats here.
-  body.appendChild(wdlScoreRow({
-    wins: rec.wins,
-    draws: rec.draws,
-    losses: rec.losses,
-    scorePct: rec.scorePct,
-    games: rec.games,
-  }));
-
-  if (extra) body.appendChild(extra);
-
-  card.appendChild(body);
-  return card;
-}
-
-// A "what to play" row: the opponent's (weak) record, plus a small line giving
-// the side I'd play and my own score in the family — or admitting I have none.
-function recommendationRow(rec: Recommendation): HTMLElement {
-  const sideWord = rec.myColour === 'white' ? 'White' : 'Black';
-  const note = document.createElement('div');
-  note.className = 'scout-report-mine';
-  if (rec.mine) {
-    note.textContent =
-      `Play ${sideWord} · you score ${rec.mine.scorePct}% here ` +
-      `(${rec.mine.wins}-${rec.mine.draws}-${rec.mine.losses})`;
-  } else {
-    note.classList.add('scout-report-mine--nodata');
-    note.textContent = `Play ${sideWord} · no data on your side`;
-  }
-  return recordRow(rec.their, note);
 }
 
 // ── Your prep (my saved lines tagged to this opponent) ────────────────────────────
@@ -1257,7 +1167,7 @@ function visualizeOpponentSection(opp: Opponent, prepare: PrepareFn): HTMLElemen
     });
   };
   entries.appendChild(mapEntryBtn(Icons.compass(24), 'Board browser',
-    `Walk ${opp.name}’s games on a board`, () => openBrowser(start)));
+    `Walk ${opp.name}’s games on a board`, () => openBrowser(start), 'primary'));
 
   // Their games tree — the auto-built opponent map, colour toggling inside.
   const openTree = (colour: 'white' | 'black'): void => {
@@ -1290,14 +1200,38 @@ function visualizeOpponentSection(opp: Opponent, prepare: PrepareFn): HTMLElemen
     );
   };
   entries.appendChild(mapEntryBtn(Icons.search(24), 'Their games tree',
-    `${opp.gamesAnalysed} game${opp.gamesAnalysed === 1 ? '' : 's'}`, () => openTree(start)));
+    `${opp.gamesAnalysed} game${opp.gamesAnalysed === 1 ? '' : 's'}`, () => openTree(start), 'discrete'));
 
   return section;
 }
 
+// Sort order for an opening list. Mirrors saved lines' sort menu, but over the
+// stats we have here: most-played by default, then by their score, then name.
+const OPENING_ORDERS: { key: string; label: string }[] = [
+  { key: 'played', label: 'Most played' },
+  { key: 'weakest', label: 'Weakest' },
+  { key: 'strongest', label: 'Strongest' },
+  { key: 'name', label: 'Name' },
+];
+
+function sortStats(stats: OpeningStat[], mode: string): OpeningStat[] {
+  const copy = [...stats];
+  switch (mode) {
+    case 'weakest':
+      return copy.sort((a, b) => a.scorePct - b.scorePct || b.games - a.games);
+    case 'strongest':
+      return copy.sort((a, b) => b.scorePct - a.scorePct || b.games - a.games);
+    case 'name':
+      return copy.sort((a, b) => a.family.localeCompare(b.family));
+    case 'played':
+    default:
+      return copy.sort((a, b) => b.games - a.games);
+  }
+}
+
 // Their most-played openings — both colours in one list, filtered by an
-// All / White / Black segment (the shared filter bar, mirroring My Lines).
-// Top-N per filter, with a "Show all" reveal.
+// All / White / Black segment and a sort menu (the shared filter bar, mirroring
+// My Lines). Top-N per filter, with a "Show all" reveal.
 function openingsSection(stats: OpeningStat[], prepare: PrepareFn): HTMLElement {
   const section = document.createElement('div');
   section.className = 'section';
@@ -1323,12 +1257,14 @@ function openingsSection(stats: OpeningStat[], prepare: PrepareFn): HTMLElement 
     return section;
   }
 
-  // Colour-only filter bar (no sorts/tags/status) — the same All/White/Black
-  // segment used by saved lines and the prep list.
+  // Colour segment + sort menu (no tags/status) — the same All/White/Black
+  // segment and sort dropdown used by saved lines and the prep list.
   const list = document.createElement('div');
   list.className = 'group';
   const filter = createFilterBar({
     persistKey: OPENINGS_FILTER_KEY,
+    sorts: OPENING_ORDERS,
+    defaultSort: 'played',
     onChange: () => rebuildList(),
   });
   section.appendChild(filter.element);
@@ -1337,7 +1273,8 @@ function openingsSection(stats: OpeningStat[], prepare: PrepareFn): HTMLElement 
   function rebuildList(): void {
     list.innerHTML = '';
     const sel = filter.selection;
-    const shown = sel.colour === 'all' ? stats : stats.filter(s => s.colour === sel.colour);
+    const filtered = sel.colour === 'all' ? stats : stats.filter(s => s.colour === sel.colour);
+    const shown = sortStats(filtered, sel.sort);
 
     if (shown.length === 0) {
       const empty = document.createElement('p');

@@ -6215,14 +6215,6 @@ cg-board square.move-dest.oc {
   color: var(--text-fainter);
 }
 
-.scout-card-opening {
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 /* ── Opponent card (position-card scaffold) ──────────────────────────────────── */
 .opponent-card { cursor: pointer; }
 /* Pin the chevron to the far right of the title row; the platform chip stays
@@ -6231,11 +6223,6 @@ cg-board square.move-dest.oc {
 .opponent-card-platform {
   flex: none;
   font-size: 0.68rem;
-}
-.opponent-card-weak {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--wrong, #c0531f);
 }
 .opponent-card-meta {
   font-size: 0.72rem;
@@ -6395,29 +6382,6 @@ cg-board square.move-dest.oc {
   margin-bottom: var(--space-sm);
 }
 
-/* Each finding is a compact card: name + games count on one line, the W-D-L bar
-   below. Tighter than the full opening cards — this is a scan list, not a menu. */
-.scout-report-row-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-xs);
-}
-.scout-report-row-head .line-card-name {
-  font-size: 0.95rem;
-}
-
-/* The "what to play" footnote: which side I'd play and my own score here. */
-.scout-report-mine {
-  margin-top: var(--space-xs);
-  font-size: 0.78rem;
-  color: var(--text-muted);
-}
-.scout-report-mine--nodata {
-  color: var(--text-fainter);
-  font-style: italic;
-}
 .scout-actions .btn-secondary,
 .scout-actions .btn-danger {
   flex: 1;
