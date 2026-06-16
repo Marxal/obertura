@@ -112,7 +112,8 @@ export function openBoardExplorer(opts: BoardExplorerOptions): void {
   titleEl.textContent = opts.title ?? 'Board browser';
   const badge = document.createElement('span');
   badge.className = 'rmap-title-count';
-  badge.textContent = opts.caption;
+  // Set live by renderList() to the games reaching the current position.
+  badge.textContent = 'games 0';
   header.append(back, titleEl, badge);
   overlay.appendChild(header);
 
@@ -329,6 +330,9 @@ export function openBoardExplorer(opts: BoardExplorerOptions): void {
   function renderList(): void {
     list.innerHTML = '';
     const node = statAt(opts.statsTree, ucis);
+    // Badge shows the games reaching THIS position (total at the start, fewer as
+    // the line narrows, 0 once off the games tree).
+    badge.textContent = `games ${node?.games ?? 0}`;
     const replies = node ? [...node.children.values()] : [];
     replies.sort((a, b) => b.games - a.games || a.san.localeCompare(b.san));
 
