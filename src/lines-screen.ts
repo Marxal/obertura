@@ -761,15 +761,20 @@ function renderGamesTab(
   intro.textContent = 'Openings you play often but haven’t saved yet. Build one:';
   content.appendChild(intro);
 
+  // Section + inner .group so the cards sit edge-to-edge (no surrounding box),
+  // exactly like Saved lines — `.section:has(.group)` drops the section chrome.
+  const sec = document.createElement('div');
+  sec.className = 'section';
   const list = document.createElement('div');
-  list.className = 'section lines-section';
+  list.className = 'group';
   // Keep the top-6 cap, but reveal the rest inline behind a "Show all".
   suggestions.forEach((stat, i) => {
     const card = suggestionCard(stat, deps);
     if (i >= TOP_N) card.hidden = true;
     list.appendChild(card);
   });
-  content.appendChild(list);
+  sec.appendChild(list);
+  content.appendChild(sec);
 
   if (suggestions.length > TOP_N) {
     content.appendChild(buildShowAllToggle(list, suggestions.length));

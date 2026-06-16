@@ -2,8 +2,10 @@
 // as scout.selftest.ts: build games from SAN lines, then assert the W/D/L tree.
 
 import { Chess } from 'chess.js';
-import { buildMoveStats, statAt, statScorePct, topReply, gameAtPath } from './move-stats';
+import { buildMoveStats, buildRepertoireStatTree, statAt, statScorePct, topReply, gameAtPath } from './move-stats';
 import type { ImportedGame } from './import-core';
+import type { MoveNode } from './tree';
+import type { Line } from './types';
 
 export interface TestResult { name: string; pass: boolean; detail: string }
 
@@ -26,6 +28,27 @@ function game(
     timeClass: 'blitz', timeControl: '180', rated: true,
     colour, result, opponent: 'foe', eco: null, opening: null,
     sans, ucis, plyCount: sans.length,
+  };
+}
+
+// A single-path Line from a SAN line, for repertoire-stat-tree tests.
+function line(colour: 'white' | 'black', sanLine: string): Line {
+  const chess = new Chess();
+  const root: MoveNode = { id: 'root', san: '', uci: '', fen: chess.fen(), children: [] };
+  let node = root;
+  for (const san of sanLine.split(/\s+/).filter(Boolean)) {
+    const m = chess.move(san);
+    const child: MoveNode = {
+      id: `n${++seq}`, san: m.san, uci: m.from + m.to + (m.promotion ?? ''),
+      fen: chess.fen(), children: [],
+    };
+    node.children.push(child);
+    node = child;
+  }
+  return {
+    id: `l${++seq}`, name: sanLine, tags: [], colour,
+    openingName: null, confidence: 0, lastTrained: null, inTraining: false,
+    tree: root,
   };
 }
 
@@ -134,6 +157,37 @@ export function runMoveStatsSelfTest(): TestResult[] {
     blackOnly?.id === withUrls[4].id &&
       gameAtPath(withUrls, 'white', withUrls[4].ucis.slice(0, 1))?.id !== withUrls[4].id,
     `blackOnly=${blackOnly?.id}`,
+  );
+
+  // 11. buildRepertoireStatTree: the tree is shaped like the REPERTOIRE, with
+  //     your game W/D/L overlaid where you've played those moves, and zeros on
+  //     prepared-but-unplayed moves.
+  //     Repertoire: 1.e4 e5 Nf3 (played in games: 2W) and 1.e4 e5 Bc4 (1L), plus
+  //     a prepared-but-never-played 1.e4 e5 Nc3.
+  const rep = [
+    line('white', 'e4 e5 Nf3'),
+    line('white', 'e4 e5 Bc4'),
+    line('white', 'e4 e5 Nc3'),
+  ];
+  const repTree = buildRepertoireStatTree(rep, games, 'white', 40);
+  // The mainline uci path of a single-path Line (root → children[0] chain).
+  const mainPath = (l: Line): string[] => {
+    const ucis: string[] = [];
+    let n: MoveNode | undefined = l.tree.children[0];
+    while (n) { ucis.push(n.uci); n = n.children[0]; }
+    return ucis;
+  };
+  const repNf3 = statAt(repTree, mainPath(rep[0]));   // e4 e5 Nf3 — played 2W
+  const repNc3 = statAt(repTree, mainPath(rep[2]));   // e4 e5 Nc3 — prepared, unplayed
+  check(
+    'repertoire tree overlays game results on played moves',
+    !!repNf3 && repNf3.games === 2 && repNf3.wins === 2,
+    `Nf3=${repNf3?.games}W${repNf3?.wins}`,
+  );
+  check(
+    'repertoire tree keeps prepared-but-unplayed moves at zero',
+    !!repNc3 && repNc3.games === 0 && repNc3.san === 'Nc3',
+    `Nc3 present=${!!repNc3} games=${repNc3?.games}`,
   );
 
   return results;

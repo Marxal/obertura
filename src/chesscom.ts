@@ -65,6 +65,22 @@ export function setUsername(name: string): void {
   }
 }
 
+// Fetch a player's profile picture from the Chess.com public API. Returns the
+// avatar URL, or undefined when they have none (or the request fails) — purely
+// cosmetic, so a miss just means the fallback user icon shows instead.
+export async function fetchAvatar(username: string): Promise<string | undefined> {
+  const name = username.trim().toLowerCase();
+  if (!name) return undefined;
+  try {
+    const res = await fetch(`${API_BASE}/player/${encodeURIComponent(name)}`);
+    if (!res.ok) return undefined;
+    const data = (await res.json()) as { avatar?: string };
+    return typeof data.avatar === 'string' && data.avatar ? data.avatar : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 // ── Raw API shapes (only the fields we read) ───────────────────────────────────
 
 interface ArchivesResponse {
