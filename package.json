@@ -9,7 +9,8 @@
     "selftest": "node --experimental-strip-types --import ./scripts/register-ts.mjs scripts/run-selftests.ts",
     "preview": "vite preview",
     "generate-icons": "node scripts/generate-icons.mjs",
-    "build-openings": "node scripts/build-openings.mjs"
+    "build-openings": "node scripts/build-openings.mjs",
+    "build-starter-packs": "node scripts/build-starter-packs.mjs"
   },
   "dependencies": {
     "chess.js": "^1.3.0",

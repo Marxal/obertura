@@ -7576,3 +7576,202 @@ cg-board square.move-dest.oc {
   outline: none;
   box-shadow: 0 0 0 3px rgba(39, 224, 255, 0.35), 0 0 14px rgba(39, 224, 255, 0.4);
 }
+
+/* ── First-run onboarding (Train empty state) ──────────────────────────────────
+   The starter-packs / game-suggestion flow that gets a new user to their first
+   trainable lines. Built from the shared tokens so it rides every theme. */
+.onb-head {
+  text-align: center;
+  padding: 8px 4px 4px;
+}
+.onb-head-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.onb-title {
+  margin: 0 0 4px;
+  font-size: 1.25rem;
+}
+.onb-sub {
+  margin: 0 auto;
+  max-width: 42ch;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+/* Progress toward the soft "enough to train" goal. */
+.onb-progress {
+  margin: 16px 0 4px;
+}
+.onb-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  overflow: hidden;
+}
+.onb-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.4s ease;
+}
+.onb-progress-label {
+  margin-top: 6px;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-faint);
+}
+.onb-start {
+  width: 100%;
+  margin: 12px 0 4px;
+}
+
+.onb-section-title {
+  margin-top: 18px;
+}
+
+/* Pack cards — collapsible mini-repertoires. */
+.onb-packs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.onb-pack {
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  background: var(--bg-card);
+  overflow: hidden;
+}
+.onb-pack-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.onb-pack-titles {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.onb-pack-title {
+  font-weight: 600;
+}
+.onb-pack-meta {
+  font-size: 0.78rem;
+  color: var(--text-faint);
+  margin-top: 1px;
+}
+.onb-pack-chev {
+  flex: 0 0 auto;
+  color: var(--text-faint);
+  transition: transform 0.15s ease;
+}
+.onb-pack-head--open .onb-pack-chev {
+  transform: rotate(90deg);
+}
+.onb-pack-body {
+  padding: 0 14px 12px;
+}
+.onb-pack-blurb {
+  margin: 2px 0 10px;
+  font-size: 0.84rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* Line / suggestion rows with their add action. */
+.onb-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.onb-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  background: var(--bg-parchment);
+}
+.onb-line-info {
+  flex: 1;
+  min-width: 0;
+}
+.onb-line-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.onb-line-moves {
+  font-size: 0.76rem;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+.onb-line-sub {
+  font-size: 0.74rem;
+  color: var(--text-fainter);
+  margin-top: 2px;
+}
+.onb-add {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+.onb-added {
+  flex: 0 0 auto;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+  padding: 0 6px;
+}
+.onb-addall {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.onb-addall:disabled {
+  color: var(--text-fainter);
+  cursor: default;
+  text-decoration: none;
+}
+
+.onb-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 18px;
+  margin-top: 20px;
+}

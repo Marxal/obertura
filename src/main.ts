@@ -985,6 +985,15 @@ function showView(view: ViewName): void {
       onOpenLine,
       onBuildLine: () => startNewLine('white'),
       onImportGames: () => openImportPanel({ onImported: () => showView('train') }),
+      // Onboarding's one-tap add: turn a starter/suggested line's moves into a
+      // saved Line and route it through the normal add-to-training flow (learn =
+      // the watch-then-play confirm run; otherwise enrol directly).
+      onAddStarterLine: (ucis, colour, learn, onDone, onCancel) => {
+        const line = lineFromUcis(ucis, colour);
+        if (!line) { onCancel(); return; }
+        if (learn) addLineToTraining(line, onDone, onCancel);
+        else void enrolLineDirectly(line).then(onDone);
+      },
     });
     pendingTrainLineId = null;
   }

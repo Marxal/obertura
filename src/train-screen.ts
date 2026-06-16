@@ -15,6 +15,7 @@ import {
 } from './prefs';
 import { isOpponentTag } from './scout';
 import { buildEmptyState } from './empty-state';
+import { renderStarterOnboarding } from './onboarding-starter';
 import { createFilterBar, type FilterSelection } from './filters';
 import { TrainingSession, type SessionItem } from './session';
 import {
@@ -55,6 +56,12 @@ let onViewLine: ((line: Line, atFen?: string) => void) | null = null;
 // Module scope for the same reason as onViewLine.
 let onBuildLine: (() => void) | null = null;
 let onImportGames: (() => void) | null = null;
+// Add a starter/suggested line to training (wired from main.ts, which owns
+// lineFromUcis + addLineToTraining). learn=true runs the watch-then-play confirm
+// run; false enrols directly. Module scope, like the routes above.
+let onAddStarterLine:
+  | ((ucis: string[], colour: 'white' | 'black', learn: boolean, onDone: () => void, onCancel: () => void) => void)
+  | null = null;
 
 // One missed spot worth revisiting at the end of a session: the position to
 // show and the move that should have been played there.
@@ -88,11 +95,19 @@ export function renderTrainScreen(
     onOpenLine?: (line: Line, atFen?: string) => void;
     onBuildLine?: () => void;
     onImportGames?: () => void;
+    onAddStarterLine?: (
+      ucis: string[],
+      colour: 'white' | 'black',
+      learn: boolean,
+      onDone: () => void,
+      onCancel: () => void,
+    ) => void;
   } = {},
 ): void {
   onViewLine = opts.onOpenLine ?? null;
   onBuildLine = opts.onBuildLine ?? null;
   onImportGames = opts.onImportGames ?? null;
+  onAddStarterLine = opts.onAddStarterLine ?? null;
   void doRender(container, opts.focusLineId, opts.autoStart);
 }
 
@@ -210,6 +225,23 @@ function sessionForDefaultMode(trainingLines: Line[], due: Line[]): TrainingSess
 // ── Empty state ───────────────────────────────────────────────────────────────
 
 function renderEmpty(container: HTMLElement, hasGames: boolean): void {
+  // The onboarding flow (starter packs / game-based suggestions) needs a way to
+  // add lines; the app always wires it. Fall back to the bare empty state only if
+  // it's somehow missing, so this never becomes a dead end.
+  if (onAddStarterLine) {
+    renderStarterOnboarding(container, {
+      hasGames,
+      onAddLine: (ucis, colour, learn, onDone, onCancel) =>
+        onAddStarterLine!(ucis, colour, learn, onDone, onCancel),
+      // Leaving onboarding re-renders Train; with ≥1 line in training it now lands
+      // on the normal hub instead of here.
+      onFinish: () => void doRender(container),
+      onBuildManually: () => onBuildLine?.(),
+      onImportGames: () => onImportGames?.(),
+    });
+    return;
+  }
+
   container.appendChild(buildEmptyState({
     icon: Icons.zap(28),
     line: 'Nothing in training yet.',
