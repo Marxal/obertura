@@ -995,7 +995,6 @@ function showView(view: ViewName): void {
       onOpenLine: (line) => onOpenLine(line),
       onStartTraining: () => showView('train'),
       onBuildLine: () => startNewLine('white'),
-      onOpenInBuilder: (ucis, colour) => buildFromUcis(ucis, colour),
     });
   }
 
