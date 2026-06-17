@@ -13,15 +13,44 @@ const CONFETTI_COLORS = ['#c07a2a', '#2d7d3e', '#e8c14a', '#d4633f', '#5b8fb0', 
 // The little pixel-pawn mascot, hopping to celebrate a finished round. Returns
 // the element so the caller can place it at the top of the completion panel.
 //
-// Unlike the confetti, the pawn always shows — it's part of the screen's
-// content, not just sparkle. Reduced-motion just stills the hop (handled in CSS)
-// so it stands there calmly instead.
+// Three nested elements so three independent CSS animations can run at once:
+//   • .celebrate-pawn       — the one-shot drop-in entrance (and tap explosion).
+//   • .celebrate-pawn-flip  — the occasional mid-air somersault.
+//   • .celebrate-pawn-svg   — the constant squash-and-stretch hop.
+//
+// Tap it and it bursts into confetti and pops back a beat later — a small
+// easter-egg reward. Unlike the confetti, the pawn always shows (it's content,
+// not just sparkle); reduced-motion just stills it (handled in CSS).
 export function celebratePawn(): HTMLElement {
   const el = document.createElement('div');
   el.className = 'celebrate-pawn';
   el.setAttribute('aria-hidden', 'true');
-  el.innerHTML = pixelPawnSvg('celebrate-pawn-svg');
+
+  const flip = document.createElement('div');
+  flip.className = 'celebrate-pawn-flip';
+  flip.innerHTML = pixelPawnSvg('celebrate-pawn-svg');
+  el.appendChild(flip);
+
+  el.addEventListener('click', () => explodePawn(el));
   return el;
+}
+
+// Tap reward: burst confetti from the pawn, blow it apart, leave it gone for a
+// beat, then pop it back. Guarded so rapid taps don't overlap.
+function explodePawn(el: HTMLElement): void {
+  if (el.dataset.boom) return;
+  el.dataset.boom = '1';
+  burstConfetti(el);
+  el.classList.add('celebrate-pawn--boom');
+  // Explosion (~420ms) then a short absence before it springs back.
+  window.setTimeout(() => {
+    el.classList.remove('celebrate-pawn--boom');
+    el.classList.add('celebrate-pawn--return');
+    window.setTimeout(() => {
+      el.classList.remove('celebrate-pawn--return');
+      delete el.dataset.boom;
+    }, 520);
+  }, 820);
 }
 
 export function burstConfetti(target: HTMLElement): void {
