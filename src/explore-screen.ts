@@ -970,7 +970,10 @@ function openDetail(id: string, container: HTMLElement): void {
 // reaching the games floor, an honest empty line replaces the list.
 function reportSection(opp: Opponent, stats: OpeningStat[], prepare: PrepareFn): HTMLElement {
   const section = document.createElement('div');
-  section.className = 'section';
+  // A stronger border/background than the plain .section — this accordion
+  // needs to read as its own boxed card, distinct from the openings list
+  // right below it, even when collapsed to just its header.
+  section.className = 'section scout-report-box';
 
   // Collapsed by default — this section doubles the W-D-L bar already shown
   // on the roster card, so it's detail you opt into, not a first read.
@@ -980,7 +983,7 @@ function reportSection(opp: Opponent, stats: OpeningStat[], prepare: PrepareFn):
   head.setAttribute('aria-expanded', 'false');
   const h = document.createElement('h2');
   h.className = 'section-title';
-  h.textContent = `What to play against ${opp.name}`;
+  h.textContent = `Quick report of ${opp.name}`;
   head.appendChild(h);
   const chev = document.createElement('span');
   chev.className = 'section-toggle-chev';
