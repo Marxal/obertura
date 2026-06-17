@@ -3383,10 +3383,21 @@ cg-board square.move-dest.oc {
    gentle stagger. Both honour prefers-reduced-motion below. */
 
 .celebrate-pawn {
+  position: relative; /* anchor for the tap-to-explode confetti layer */
   color: var(--accent);
   line-height: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
   /* Drop in first, then hand off to the looping hop on the inner svg. */
   animation: celebrate-pawn-drop 420ms cubic-bezier(0.2, 0.7, 0.3, 1) backwards;
+}
+
+/* Somersault wrapper: still most of the time, a full flip now and then. The
+   spin lands inside one hop's airborne window so it reads as a jump-flip. */
+.celebrate-pawn-flip {
+  display: inline-block;
+  transform-origin: center;
+  animation: celebrate-pawn-flip 5.25s ease-in-out 420ms infinite;
 }
 
 .celebrate-pawn-svg {
@@ -3415,6 +3426,38 @@ cg-board square.move-dest.oc {
   82%      { transform: translateY(0) scaleY(1)    scaleX(1); }
 }
 
+/* Hold steady through ~4 hops, then flip during the 5th hop's airtime. Ending on
+   360deg = the same orientation as 0deg, so the loop back to 0% is seamless. */
+@keyframes celebrate-pawn-flip {
+  0%, 80% { transform: rotate(0); }
+  96%, 100% { transform: rotate(360deg); }
+}
+
+/* Tap reward: explode outward, then spring back (see explodePawn in confetti.ts). */
+.celebrate-pawn--boom {
+  animation: celebrate-pawn-boom 420ms ease-out forwards;
+}
+.celebrate-pawn--return {
+  animation: celebrate-pawn-return 520ms cubic-bezier(0.2, 0.8, 0.3, 1.3) backwards;
+}
+
+@keyframes celebrate-pawn-boom {
+  0%   { transform: scale(1) rotate(0); opacity: 1; }
+  100% { transform: scale(2.3) rotate(35deg); opacity: 0; }
+}
+
+@keyframes celebrate-pawn-return {
+  0%   { transform: scale(0); opacity: 0; }
+  60%  { transform: scale(1.18); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Action buttons sit lower: extra breathing room above the first button in the
+   panel (the rest follow on the normal flex gap). */
+.train-completion > *:not(button) + button {
+  margin-top: var(--space-md);
+}
+
 /* Staggered entrance for the panel's content. The pawn is child 1 (its own
    animation), so the content stack starts at child 2. backwards keeps each
    element hidden through its delay rather than flashing in first. */
@@ -3435,14 +3478,19 @@ cg-board square.move-dest.oc {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  /* Keep the pawn (it's content), drop the motion: no drop-in, no hop, no rise. */
+  /* Keep the pawn (it's content), drop the motion: no drop-in, no hop, no flip,
+     no rise — and a tap stays put rather than exploding. */
   .celebrate-pawn,
+  .celebrate-pawn-flip,
   .celebrate-pawn-svg,
+  .celebrate-pawn--boom,
+  .celebrate-pawn--return,
   .train-completion--enter > * {
     animation: none;
     opacity: 1;
     transform: none;
   }
+  .celebrate-pawn { cursor: default; }
 }
 
 /* ── Train screen ──────────────────────────────────────────────────────────── */

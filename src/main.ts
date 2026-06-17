@@ -1066,6 +1066,7 @@ function showView(view: ViewName): void {
       // builder) and the Explore screen, home of "play the engine" sparring.
       onBrowseLibrary: () => openLibrary((ucis, colour) => buildFromUcis(ucis, colour)),
       onBuildWithEngine: () => showView('explore'),
+      onSetFabVisible: (visible) => fabController?.setVisible(visible),
     });
     pendingTrainLineId = null;
   }

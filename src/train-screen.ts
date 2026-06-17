@@ -70,6 +70,12 @@ let onAddStarterLine:
 let onBrowseLibrary: (() => void) | null = null;
 let onBuildWithEngine: (() => void) | null = null;
 
+// Show/hide the global FAB (wired from main.ts, which owns the controller). The
+// finish screens hide it so its ＋ doesn't sit over the celebration; the train
+// list restores it. Navigating away resets it via the router, so a stale-hidden
+// FAB can't leak onto other tabs.
+let setFabVisible: ((visible: boolean) => void) | null = null;
+
 // Which opening families are expanded in the grouped in-training list. Module
 // scope so it survives the list's in-place rebuilds.
 const trainExpanded = new Set<string>();
@@ -115,6 +121,7 @@ export function renderTrainScreen(
     ) => void;
     onBrowseLibrary?: () => void;
     onBuildWithEngine?: () => void;
+    onSetFabVisible?: (visible: boolean) => void;
   } = {},
 ): void {
   onViewLine = opts.onOpenLine ?? null;
@@ -123,6 +130,7 @@ export function renderTrainScreen(
   onAddStarterLine = opts.onAddStarterLine ?? null;
   onBrowseLibrary = opts.onBrowseLibrary ?? null;
   onBuildWithEngine = opts.onBuildWithEngine ?? null;
+  setFabVisible = opts.onSetFabVisible ?? null;
   void doRender(container, opts.focusLineId, opts.autoStart);
 }
 
@@ -131,6 +139,9 @@ async function doRender(
   focusLineId?: string,
   autoStart?: boolean,
 ): Promise<void> {
+  // Leaving any finish screen lands back here ("Close training" / "Save &
+  // close"), so this is where the FAB the completion panel hid comes back.
+  setFabVisible?.(true);
   container.innerHTML = '<p class="lines-loading">Loading…</p>';
   let allLines: Line[];
   try {
@@ -1231,7 +1242,7 @@ function renderIndividualComplete(
   rightBox.className = 'summary-stat-box summary-stat-box--right';
   const rightVal = document.createElement('div');
   rightVal.className = 'summary-stat-value';
-  rightVal.textContent = String(correct);
+  countUp(rightVal, correct);
   const rightLbl = document.createElement('div');
   rightLbl.className = 'summary-stat-label';
   rightLbl.textContent = 'first try';
@@ -1243,7 +1254,7 @@ function renderIndividualComplete(
   missBox.className = `summary-stat-box ${stats.missed > 0 ? 'summary-stat-box--missed' : 'summary-stat-box--zero'}`;
   const missVal = document.createElement('div');
   missVal.className = 'summary-stat-value';
-  missVal.textContent = String(stats.missed);
+  countUp(missVal, stats.missed);
   const missLbl = document.createElement('div');
   missLbl.className = 'summary-stat-label';
   missLbl.textContent = 'missed';
@@ -1271,6 +1282,10 @@ function renderIndividualComplete(
 // the panel's content is built (the pawn is prepended, so it leads the stagger).
 // Shared by every completion screen so they all feel of a piece.
 function celebrate(wrap: HTMLElement): void {
+  // The FAB's ＋ would sit right over the finish panel — hide it for the
+  // celebration. doRender() (every exit that stays in Train) restores it, and
+  // the router restores it on any navigation away.
+  setFabVisible?.(false);
   wrap.prepend(celebratePawn());
   wrap.classList.add('train-completion--enter');
 }
@@ -1284,7 +1299,7 @@ function appendStatsRow(wrap: HTMLElement, correct: number, missed: number, miss
   rightBox.className = 'summary-stat-box summary-stat-box--right';
   const rightVal = document.createElement('div');
   rightVal.className = 'summary-stat-value';
-  rightVal.textContent = String(correct);
+  countUp(rightVal, correct);
   const rightLbl = document.createElement('div');
   rightLbl.className = 'summary-stat-label';
   rightLbl.textContent = 'correct';
@@ -1296,7 +1311,7 @@ function appendStatsRow(wrap: HTMLElement, correct: number, missed: number, miss
   missBox.className = `summary-stat-box ${missed > 0 ? 'summary-stat-box--missed' : 'summary-stat-box--zero'}`;
   const missVal = document.createElement('div');
   missVal.className = 'summary-stat-value';
-  missVal.textContent = String(missed);
+  countUp(missVal, missed);
   const missLbl = document.createElement('div');
   missLbl.className = 'summary-stat-label';
   missLbl.textContent = missLabel;
@@ -1421,7 +1436,7 @@ function renderSessionComplete(container: HTMLElement, stats: SessionStats): voi
   rightBox.className = 'summary-stat-box summary-stat-box--right';
   const rightVal = document.createElement('div');
   rightVal.className = 'summary-stat-value';
-  rightVal.textContent = String(correctMoves);
+  countUp(rightVal, correctMoves);
   const rightLbl = document.createElement('div');
   rightLbl.className = 'summary-stat-label';
   rightLbl.textContent = 'correct';
@@ -1433,7 +1448,7 @@ function renderSessionComplete(container: HTMLElement, stats: SessionStats): voi
   missBox.className = `summary-stat-box ${stats.movesMissed > 0 ? 'summary-stat-box--missed' : 'summary-stat-box--zero'}`;
   const missVal = document.createElement('div');
   missVal.className = 'summary-stat-value';
-  missVal.textContent = String(stats.movesMissed);
+  countUp(missVal, stats.movesMissed);
   const missLbl = document.createElement('div');
   missLbl.className = 'summary-stat-label';
   missLbl.textContent = 'missed';
@@ -1678,7 +1693,7 @@ function renderTimedComplete(
   rightBox.className = 'summary-stat-box summary-stat-box--right';
   const rightVal = document.createElement('div');
   rightVal.className = 'summary-stat-value';
-  rightVal.textContent = String(correct);
+  countUp(rightVal, correct);
   const rightLbl = document.createElement('div');
   rightLbl.className = 'summary-stat-label';
   rightLbl.textContent = 'correct';
@@ -1690,7 +1705,7 @@ function renderTimedComplete(
   missBox.className = `summary-stat-box ${wrong > 0 ? 'summary-stat-box--missed' : 'summary-stat-box--zero'}`;
   const missVal = document.createElement('div');
   missVal.className = 'summary-stat-value';
-  missVal.textContent = String(wrong);
+  countUp(missVal, wrong);
   const missLbl = document.createElement('div');
   missLbl.className = 'summary-stat-label';
   missLbl.textContent = 'mistakes';
