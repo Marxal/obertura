@@ -1014,7 +1014,7 @@ function runItem(
   stats: SessionStats,
   onEmpty?: () => void,
 ): void {
-  const { line, isResurface } = item;
+  const { line } = item;
 
   // Deep-clone so grading edits don't mutate the queued/in-memory line until we
   // deliberately persist.
@@ -1030,28 +1030,24 @@ function runItem(
     const idx = copyMoves.findIndex(m => m.id === node.id);
     if (idx >= 0) copyMoves[idx].missedThisSession = true;
     missed.add(node.id);
-    // Collect the position for the end-of-session review. Resurfaced passes are
-    // pure reinforcement, so they don't add anything new.
-    if (!isResurface) {
-      const preFen = idx <= 0 ? START_FEN : copyMoves[idx - 1].fen;
-      addMistake(stats.mistakes, stats.mistakeKeys, preFen, node);
-    }
+    // Collect the position for the end-of-session "Try your mistakes again".
+    const preFen = idx <= 0 ? START_FEN : copyMoves[idx - 1].fen;
+    addMistake(stats.mistakes, stats.mistakeKeys, preFen, node);
   }
 
   startDrill(lineCopy, {
     wrongMoveMode: 'full',
     confirmAbandon: true,
-    modeLabel: isResurface ? 'Second look' : 'Training',
+    modeLabel: 'Training',
     // Session-level progress bar: lines completed so far out of the lines the
-    // session started with. linesReviewed counts first-pass completions, so for
-    // a fresh line this is "line linesReviewed+1 of total".
+    // session started with. linesReviewed counts completions, so for the current
+    // line this is "line linesReviewed+1 of total".
     sessionProgress: {
       completed: stats.linesReviewed,
       total: session.initialCount,
-      isResurface,
     },
     celebrateOnComplete: true,
-    completeMessage: isResurface ? 'Got it that time ✓' : 'Line complete',
+    completeMessage: 'Line complete',
     // Training is strict: only the move stored in the line is accepted. We
     // deliberately do NOT pass checkAlternative/onExplore here — a sound but
     // off-line move is treated as a plain miss (correct-move arrow as usual).
@@ -1073,10 +1069,6 @@ function runItem(
     // the note lives) so it survives even if the line isn't finished.
     onNoteEdit: () => { void saveLine(lineCopy); },
     onBeforeComplete: async () => {
-      // Resurfaced passes are reinforcement only — they don't re-grade or
-      // re-persist, so a clean replay can't inflate the schedule.
-      if (isResurface) return;
-
       const now = new Date();
       for (const node of userNodes) {
         const misses = missed.has(node.id) ? 1 : 0;
@@ -1090,27 +1082,23 @@ function runItem(
       recordReviewed(userNodes.length);
     },
     onComplete: () => {
-      if (!isResurface) {
-        stats.linesReviewed++;
-        stats.movesMissed += missed.size;
-        stats.totalMoves += userNodes.length;
-        // Accumulate per-line stats; handles the same line appearing twice in
-        // an explicit single-line drill session.
-        const prev = stats.lineStats.get(line.id);
-        if (prev) {
-          prev.misses += missed.size;
-          prev.totalMoves += userNodes.length;
-        } else {
-          stats.lineStats.set(line.id, {
-            lineName: line.name || 'Untitled',
-            openingName: line.openingName,
-            misses: missed.size,
-            totalMoves: userNodes.length,
-          });
-        }
+      stats.linesReviewed++;
+      stats.movesMissed += missed.size;
+      stats.totalMoves += userNodes.length;
+      // Accumulate per-line stats; handles the same line appearing twice in
+      // an explicit single-line drill session.
+      const prev = stats.lineStats.get(line.id);
+      if (prev) {
+        prev.misses += missed.size;
+        prev.totalMoves += userNodes.length;
+      } else {
+        stats.lineStats.set(line.id, {
+          lineName: line.name || 'Untitled',
+          openingName: line.openingName,
+          misses: missed.size,
+          totalMoves: userNodes.length,
+        });
       }
-      // Missed material comes back later in this same session.
-      if (missed.size > 0) session.resurface(line, missed.size);
       runSession(session, container, stats, onEmpty);
     },
   });

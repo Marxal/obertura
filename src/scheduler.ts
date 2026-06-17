@@ -195,17 +195,6 @@ export function weakestLines(lines: Line[]): Line[] {
     lineMissCount(b) - lineMissCount(a) || a.confidence - b.confidence);
 }
 
-// ── Within-session resurfacing ──────────────────────────────────────────────────
-//
-// When you miss material, it shouldn't wait until tomorrow — it should come
-// back before the session ends. This returns how many queue positions later a
-// missed line should reappear: more misses → a smaller gap → it returns sooner.
-// Clamped to the 3–8 range so it neither nags immediately nor disappears.
-export function resurfaceGap(misses: number): number {
-  const gap = 8 - (Math.max(1, misses) - 1) * 2; // 1→8, 2→6, 3→4, 4→2 …
-  return Math.min(8, Math.max(3, gap));
-}
-
 // A human label for a move/line's next due date, for small UI readouts.
 export function describeDue(due: Date | null, now: Date = new Date()): string {
   if (due === null) return 'New';
