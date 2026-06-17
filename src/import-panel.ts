@@ -25,6 +25,7 @@ import {
   filterByTimeClasses,
   tallyTimeClasses,
   takeNewest,
+  summariseGames,
   TIME_CLASS_LABELS,
   DEFAULT_TIME_CLASSES,
   HARD_CAP,
@@ -46,6 +47,8 @@ import {
 import { clearGames, saveGames, countGames } from './storage';
 import { pushBack } from './back-nav';
 import { createImportLoader, type ImportLoader } from './import-progress';
+import { userAvatar } from './avatar';
+import { wdlBlock } from './wdl-bar';
 import { showToast } from './toast';
 
 // ── Remembered choices (device-local) ────────────────────────────────────────
@@ -263,6 +266,14 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     removeLoaderBack = null;
   }
 
+  // Step 2 (choose what to import) takes the whole screen — a clearer review
+  // page with your picture, your results and the Import button pinned at the
+  // bottom. Step 1 stays the compact bottom sheet, so we flip the shell's mode.
+  function setFullScreen(on: boolean): void {
+    overlay.classList.toggle('edit-overlay--full', on);
+    sheet.classList.toggle('edit-sheet--full', on);
+  }
+
   // ── Shell ──
   const overlay = document.createElement('div');
   overlay.className = 'edit-overlay';
@@ -412,6 +423,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     step1.hidden = false;
     step2.hidden = true;
     step2.innerHTML = '';
+    setFullScreen(false);
     clearTimeout(hideBarTimer);
     unmountLoader();
     // Bring the prominent Scan button back: editing step 1 invalidates the scan,
@@ -497,11 +509,12 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     count = defaultCountFor(total);
     selected.clear();
 
-    // Step 2 takes over the sheet: hide step 1 (platform / username / range) so
-    // the focus is purely on how many games and which time controls to import.
+    // Step 2 takes over the whole screen: hide step 1 (platform / username /
+    // range) and switch the shell to full-screen so the review reads cleanly.
     // The big Scan button goes with it; "Edit search" brings step 1 back.
     step1.hidden = true;
     scanBtn.hidden = true;
+    setFullScreen(true);
 
     // Header: the step heading + an "Edit search" link that reveals step 1 again
     // (to change platform, username or range, then Scan afresh).
@@ -509,7 +522,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     head.className = 'import-step2-head';
     const heading = document.createElement('h4');
     heading.className = 'import-step-title';
-    heading.textContent = '2 · Choose what to import';
+    heading.textContent = 'Choose what to import';
     head.appendChild(heading);
     const editSearch = document.createElement('button');
     editSearch.type = 'button';
@@ -519,17 +532,29 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       step1.hidden = false;
       step2.hidden = true;
       scanBtn.hidden = false;
+      setFullScreen(false);
       clearError();
     });
     head.appendChild(editSearch);
     step2.appendChild(head);
+
+    // Scrollable body holds everything above the pinned footer.
+    const body = document.createElement('div');
+    body.className = 'import-step2-body';
+    step2.appendChild(body);
+
+    // Your picture leads the screen (Chess.com only; Lichess / none → icon).
+    const avatarRow = document.createElement('div');
+    avatarRow.className = 'import-step2-avatar';
+    avatarRow.appendChild(userAvatar(scannedAvatarUrl, 72));
+    body.appendChild(avatarRow);
 
     // Whose games these are — the username field now lives only in step 1, so
     // echo the source here so it's never lost.
     const source = document.createElement('p');
     source.className = 'import-source';
     source.textContent = `@${userInput.value.trim()} · ${PLATFORM_LABELS[result.platform]}`;
-    step2.appendChild(source);
+    body.appendChild(source);
 
     // "Found N games" — the true count in range. If the hard cap bit, there are
     // genuinely more than HARD_CAP and we say so.
@@ -538,16 +563,22 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     found.textContent = result.truncated
       ? `Found more than ${HARD_CAP.toLocaleString()} games in this range.`
       : `Found ${total.toLocaleString()} game${total === 1 ? '' : 's'}.`;
-    step2.appendChild(found);
+    body.appendChild(found);
 
     if (total === 0) {
       const none = document.createElement('p');
       none.className = 'import-status';
       none.textContent = 'Nothing to import in this range — try a longer range.';
-      step2.appendChild(none);
+      body.appendChild(none);
       step2.hidden = false;
       return;
     }
+
+    // Your won/lost graph for exactly the games that will land — updated live as
+    // you change the count / time-control selection.
+    const wdlWrap = document.createElement('div');
+    wdlWrap.className = 'import-wdl';
+    body.appendChild(wdlWrap);
 
     // Seed the time-control selection once from the defaults present in the full
     // scan (bullet OFF). It then stays stable as the count slice changes.
@@ -562,7 +593,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       const countLabel = document.createElement('div');
       countLabel.className = 'edit-label';
       countLabel.textContent = 'How many';
-      step2.appendChild(countLabel);
+      body.appendChild(countLabel);
 
       const countRow = document.createElement('div');
       countRow.className = 'import-chips';
@@ -580,42 +611,47 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
         countChips.push(c);
         countRow.appendChild(c);
       });
-      step2.appendChild(countRow);
+      body.appendChild(countRow);
     }
 
     // ── Large-import warning (rebuilt per slice — only shown for big "All") ──
     const capNote = document.createElement('div');
     capNote.className = 'import-cap-note';
     capNote.hidden = true;
-    step2.appendChild(capNote);
+    body.appendChild(capNote);
 
     // ── Which to import (time-control toggles, counts reflect the slice) ──
     const tcLabel = document.createElement('div');
     tcLabel.className = 'edit-label';
     tcLabel.textContent = 'Which to import';
-    step2.appendChild(tcLabel);
+    body.appendChild(tcLabel);
 
     const tcRow = document.createElement('div');
     tcRow.className = 'import-chips';
-    step2.appendChild(tcRow);
+    body.appendChild(tcRow);
 
-    // Import button — always shows the resulting count.
-    const importBtn = document.createElement('button');
-    importBtn.type = 'button';
-    importBtn.className = 'btn-primary import-go-btn';
-    step2.appendChild(importBtn);
+    // ── Pinned footer: the split, a status line, and the Import button ──
+    const footer = document.createElement('div');
+    footer.className = 'import-step2-footer';
+    step2.appendChild(footer);
 
     // White/Black split of exactly what will land — useful context for an
     // openings trainer, where each colour is mapped on its own.
     const splitNote = document.createElement('p');
     splitNote.className = 'import-split';
     splitNote.hidden = true;
-    step2.appendChild(splitNote);
+    footer.appendChild(splitNote);
 
     const importStatus = document.createElement('p');
     importStatus.className = 'import-status';
     importStatus.setAttribute('aria-live', 'polite');
-    step2.appendChild(importStatus);
+    footer.appendChild(importStatus);
+
+    // Import button — always shows the resulting count.
+    const importBtn = document.createElement('button');
+    importBtn.type = 'button';
+    importBtn.className = 'btn-primary import-go-btn';
+    footer.appendChild(importBtn);
 
     // The games for the current count choice, newest-first.
     const sliceGames = () => takeNewest(result.games, count);
@@ -670,6 +706,18 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
         ? 'Pick at least one'
         : `Import ${n.toLocaleString()} game${n === 1 ? '' : 's'}`;
       importBtn.disabled = n === 0;
+
+      // Your won/lost graph for exactly what will land (hidden when nothing is).
+      wdlWrap.innerHTML = '';
+      if (n > 0) {
+        const s = summariseGames(games);
+        const scorePct = Math.round(((s.wins + s.draws / 2) / n) * 100);
+        wdlWrap.appendChild(wdlBlock(
+          { wins: s.wins, draws: s.draws, losses: s.losses, scorePct, games: n },
+          'your results',
+        ));
+      }
+
       if (n === 0) {
         splitNote.hidden = true;
       } else {

@@ -4576,6 +4576,74 @@ cg-board square.move-dest.oc {
 }
 .import-rescan-link:active { color: var(--text); }
 
+/* ── Full-screen step 2 (the import review page) ─────────────────────────────── */
+
+/* Flip the bottom-sheet shell into a full-screen page for step 2. */
+.edit-overlay--full {
+  align-items: stretch;
+  background: var(--bg-page);
+  padding-bottom: 0 !important; /* no keyboard lift on this page */
+}
+.edit-sheet--full {
+  max-height: none;
+  height: 100%;
+  border-radius: 0;
+  overflow: hidden;
+  gap: 0;
+  padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 1.25rem
+           calc(1rem + env(safe-area-inset-bottom, 0px));
+}
+/* The generic sheet title is redundant here — your picture + the step heading
+   lead the page instead. */
+.edit-sheet--full > .edit-sheet-title { display: none; }
+
+/* Step 2 fills the page: a scrolling body above a pinned footer. */
+.edit-sheet--full .import-step2 {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: none;
+  padding-top: 0;
+  gap: 0;
+}
+
+.import-step2-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding-bottom: 0.5rem;
+}
+
+.import-step2-avatar {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 0 0.25rem;
+}
+
+.import-wdl {
+  margin: 0.1rem 0;
+}
+
+.edit-sheet--full .import-source,
+.edit-sheet--full .import-found {
+  text-align: center;
+}
+
+/* Pinned footer — the Import button sits at the very bottom of the page. */
+.import-step2-footer {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--hairline);
+}
+.import-step2-footer .import-go-btn { margin-top: 0.15rem; }
+
 .import-found {
   font-size: 0.95rem;
   font-weight: 700;
@@ -4659,8 +4727,12 @@ cg-board square.move-dest.oc {
 }
 
 .import-loader-avatar {
+  position: relative;
   width: 72px;
   height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .import-loader-avatar[hidden] {
@@ -4668,6 +4740,8 @@ cg-board square.move-dest.oc {
 }
 
 .import-loader-avatar-img {
+  position: relative;
+  z-index: 1;
   width: 72px;
   height: 72px;
   border-radius: 999px;
@@ -4676,9 +4750,31 @@ cg-board square.move-dest.oc {
   animation: import-loader-avatar-in 0.25s ease;
 }
 
+/* Growing circles rippling out from behind the picture. */
+.import-loader-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  border: 2px solid var(--accent);
+  opacity: 0;
+  animation: import-loader-ring 2.1s ease-out infinite;
+}
+.import-loader-ring:nth-child(2) { animation-delay: 0.7s; }
+.import-loader-ring:nth-child(3) { animation-delay: 1.4s; }
+
 @keyframes import-loader-avatar-in {
   from { opacity: 0; transform: scale(0.9); }
   to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes import-loader-ring {
+  0% { transform: scale(1); opacity: 0.55; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .import-loader-ring { animation: none; display: none; }
+  .import-loader-avatar-img { animation: none; }
 }
 
 .import-loader .pawn-progress {
