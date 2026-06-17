@@ -32,3 +32,36 @@ export function burstConfetti(target: HTMLElement): void {
   target.appendChild(layer);
   setTimeout(() => layer.remove(), 1300);
 }
+
+// A gentle rain of small stars, used to mark the end of a training round (a
+// lighter touch than the full confetti burst the finished session gets). Stars
+// drift down from above the target and fade out. Like the burst, the target
+// should be a positioned container — the layer fills it via inset: 0.
+//
+// Honours prefers-reduced-motion: nothing is shown when the user asked for less
+// motion.
+
+const STARFALL_COLORS = ['#e8c14a', '#f5ede0'];
+
+export function starfall(target: HTMLElement): void {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const layer = document.createElement('div');
+  layer.className = 'starfall-layer';
+  const N = 18;
+  for (let i = 0; i < N; i++) {
+    const s = document.createElement('span');
+    s.className = 'star';
+    s.style.left = `${(Math.random() * 100).toFixed(1)}%`;
+    s.style.setProperty('--drift', `${(Math.random() * 36 - 18).toFixed(0)}px`);
+    s.style.setProperty('--delay', `${(Math.random() * 400).toFixed(0)}ms`);
+    s.style.setProperty('--dur', `${(1000 + Math.random() * 500).toFixed(0)}ms`);
+    const size = 6 + Math.random() * 2;
+    s.style.width = `${size.toFixed(1)}px`;
+    s.style.height = `${size.toFixed(1)}px`;
+    s.style.background = STARFALL_COLORS[i % STARFALL_COLORS.length];
+    layer.appendChild(s);
+  }
+  target.appendChild(layer);
+  setTimeout(() => layer.remove(), 1600);
+}
