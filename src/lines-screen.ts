@@ -10,6 +10,7 @@ import { buildPositionCard, colourPip, lineFinalFen, fenFromUcis } from './card-
 import { getShowQuickView } from './prefs';
 import { lineIsDue } from './scheduler';
 import { Icons } from './icons';
+import { userAvatar } from './avatar';
 import { pushBack } from './back-nav';
 import { analyseGames, countGamesPerLine, openingFamily, TOP_N, type Analysis, type OpeningStat } from './analysis';
 import { renderFamilyGroups } from './line-groups';
@@ -836,7 +837,14 @@ function buildRefreshRow(fullRefresh: () => void): HTMLElement {
   const status = document.createElement('span');
   status.className = 'games-refresh-status';
   status.setAttribute('aria-live', 'polite');
-  if (source) status.textContent = `${source.username} on ${source.platform === 'lichess' ? 'Lichess' : 'Chess.com'}`;
+  if (source) {
+    // Your picture (Chess.com only) next to "username on Platform".
+    status.appendChild(userAvatar(source.avatarUrl, 18));
+    const who = document.createElement('span');
+    who.className = 'games-refresh-who';
+    who.textContent = `${source.username} on ${source.platform === 'lichess' ? 'Lichess' : 'Chess.com'}`;
+    status.appendChild(who);
+  }
 
   // The shared import panel does the scan/filter/import; on success we re-render
   // the whole screen so badges + suggestions reflect the new games.

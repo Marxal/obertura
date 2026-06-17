@@ -21,6 +21,7 @@ import { wdlScoreRow } from './wdl-bar';
 import { nameForPath } from './openings';
 import type { NodeActionContext } from './repertoire-map';
 import type { ImportedGame } from './import-core';
+import { getGamesSource } from './import-panel';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -442,8 +443,11 @@ function playerStrip(who: { name: string; avatarUrl?: string } | undefined | 'yo
   strip.className = 'bx-player' + (who === 'you' ? ' bx-player--you' : '');
 
   const isYou = who === 'you';
-  const name = isYou ? 'You' : (who?.name ?? 'Opponent');
-  const avatarUrl = isYou ? undefined : who?.avatarUrl;
+  // For "you", read your connected identity: the handle for either platform,
+  // your picture for Chess.com (Lichess has none → generic icon).
+  const me = isYou ? getGamesSource() : null;
+  const name = isYou ? (me?.username ? `@${me.username}` : 'You') : (who?.name ?? 'Opponent');
+  const avatarUrl = isYou ? me?.avatarUrl : who?.avatarUrl;
 
   strip.appendChild(playerAvatar(avatarUrl, 22));
   const label = document.createElement('span');

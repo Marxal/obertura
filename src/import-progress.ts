@@ -105,3 +105,82 @@ export function createPawnProgress(): PawnProgress {
     },
   };
 }
+
+// ── Full-screen import loader ─────────────────────────────────────────────────
+//
+// The scan is the one real wait in the import flow, so it gets the whole screen:
+// a centred pawn bar, the status line beneath it, and — for Chess.com — your
+// profile picture fading in above once it's fetched. It composes the pawn bar
+// above rather than reimplementing it, and sits at z-index 400 so it covers the
+// import bottom-sheet (.edit-sheet, 300) while scanning.
+
+export interface ImportLoader {
+  // The full-screen overlay. Append to document.body to show; remove() to close.
+  readonly el: HTMLElement;
+  // Show the bar walking. Pass true for an unknown end (the "All" range).
+  start(indeterminate: boolean): void;
+  // Proportional fill, fraction 0..1 (flips the bar out of indeterminate).
+  set(fraction: number): void;
+  // The status line under the bar.
+  setStatus(text: string): void;
+  // Fade your picture in above the bar (Chess.com only). A broken URL is ignored.
+  setAvatar(url: string): void;
+  // Finished: snap the pawn home to 100%.
+  done(): void;
+  // Detach from the DOM.
+  remove(): void;
+}
+
+export function createImportLoader(): ImportLoader {
+  const el = document.createElement('div');
+  el.className = 'import-loader';
+
+  const card = document.createElement('div');
+  card.className = 'import-loader-card';
+
+  // Avatar block — hidden until setAvatar() lands a usable picture.
+  const avatar = document.createElement('div');
+  avatar.className = 'import-loader-avatar';
+  avatar.hidden = true;
+
+  const bar = createPawnProgress();
+  bar.start(); // shown the moment the loader mounts
+
+  const status = document.createElement('p');
+  status.className = 'import-loader-status';
+  status.setAttribute('aria-live', 'polite');
+
+  card.append(avatar, bar.el, status);
+  el.appendChild(card);
+
+  return {
+    el,
+    start(indeterminate: boolean): void {
+      bar.start();
+      if (!indeterminate) bar.set(0);
+    },
+    set(fraction: number): void {
+      bar.set(fraction);
+    },
+    setStatus(text: string): void {
+      status.textContent = text;
+    },
+    setAvatar(url: string): void {
+      avatar.innerHTML = '';
+      const img = document.createElement('img');
+      img.className = 'import-loader-avatar-img';
+      img.src = url;
+      img.alt = '';
+      // A broken/blocked picture just keeps the loader picture-less.
+      img.addEventListener('error', () => { avatar.hidden = true; avatar.innerHTML = ''; });
+      img.addEventListener('load', () => { avatar.hidden = false; });
+      avatar.appendChild(img);
+    },
+    done(): void {
+      bar.done();
+    },
+    remove(): void {
+      el.remove();
+    },
+  };
+}

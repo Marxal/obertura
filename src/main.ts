@@ -23,7 +23,7 @@ import { initAppearance } from './appearance';
 import { watchSpeedMs, getConfirmRunBeforeTraining } from './prefs';
 import { initBackNav, setViewBack, pushBack } from './back-nav';
 import { showDialog } from './dialog';
-import { openImportPanel } from './import-panel';
+import { openImportPanel, getGamesSource, IDENTITY_CHANGED_EVENT } from './import-panel';
 import { openLibrary } from './library';
 import { maybeShowIntro } from './onboarding';
 import { maybeAutoRefreshGames } from './auto-refresh';
@@ -1164,6 +1164,33 @@ function onOpenLine(line: Line, atFen?: string): void {
   }
 }
 
+// Swap the header's generic user icon for your Chess.com picture when one is
+// stored (Lichess / no picture keeps the icon). The inline SVG stays in the DOM
+// as the fallback — a broken image removes the img and restores the icon.
+function applyNavSettingsAvatar(): void {
+  const btn = document.getElementById('nav-settings');
+  if (!btn) return;
+  const url = getGamesSource()?.avatarUrl;
+  const existing = btn.querySelector<HTMLImageElement>('img.nav-settings-avatar');
+  if (!url) {
+    existing?.remove();
+    btn.classList.remove('nav-settings--avatar');
+    return;
+  }
+  if (existing && existing.src === url) return;
+  const img = document.createElement('img');
+  img.className = 'nav-settings-avatar';
+  img.src = url;
+  img.alt = '';
+  img.addEventListener('load', () => btn.classList.add('nav-settings--avatar'));
+  img.addEventListener('error', () => {
+    img.remove();
+    btn.classList.remove('nav-settings--avatar');
+  });
+  existing?.remove();
+  btn.appendChild(img);
+}
+
 function setupNav(): void {
   document.querySelectorAll<HTMLElement>('#bottom-nav .tab-item').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1181,6 +1208,11 @@ function setupNav(): void {
   document.getElementById('nav-settings')!.addEventListener('click', () => {
     guardBuilderLeave(() => showView('settings'));
   });
+
+  // Show your Chess.com picture on the settings button when connected, and keep
+  // it in step with every import / auto-refresh.
+  applyNavSettingsAvatar();
+  window.addEventListener(IDENTITY_CHANGED_EVENT, applyNavSettingsAvatar);
 
   // The system back gesture steps back through the app (closing any open sheet
   // first) instead of closing the PWA. Overlays register their own steps; this
