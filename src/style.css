@@ -7884,3 +7884,127 @@ cg-board square.move-dest.oc {
   gap: 8px;
   padding: 0 10px 10px;
 }
+
+/* ── Floating action button (FAB) ─────────────────────────────────────────────
+   Bottom-right speed dial on the four main tabs. Sits above the bottom-nav
+   (z 50) but below the full-screen overlays (z 200) and dialogs (z 300). */
+.fab-root {
+  position: fixed;
+  right: 16px;
+  bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+  z-index: 60;
+}
+.fab-root[hidden] { display: none; }
+
+.fab-btn {
+  position: relative;
+  z-index: 2;
+  width: 56px;
+  height: 56px;
+  border: none;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--on-accent, #fff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28);
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.15s ease;
+}
+.fab-btn:active { background: var(--primary-active, var(--primary)); }
+.fab-btn svg { transition: transform 0.2s ease; }
+/* The plus rotates a quarter turn into an ×. */
+.fab-root--open .fab-btn svg { transform: rotate(45deg); }
+
+/* Outside-tap catcher — only live while the menu is open. */
+.fab-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background: transparent;
+}
+.fab-root--open .fab-backdrop { display: block; }
+
+/* The stacked items, anchored above the button and right-aligned to its column. */
+.fab-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 12px);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.fab-root--open .fab-menu {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.fab-item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.fab-item-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  padding: 6px 10px;
+  box-shadow: var(--shadow-card);
+}
+.fab-item-label { font-size: 0.9rem; font-weight: 600; line-height: 1.15; }
+.fab-item-sub { font-size: 0.72rem; color: var(--text-muted); line-height: 1.15; }
+
+.fab-item-icon {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  color: var(--accent);
+  border: 1px solid var(--border-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-card);
+}
+
+/* "New line" split — White | Black share the icon column's footprint. */
+.fab-split {
+  flex: none;
+  display: flex;
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+.fab-split-btn {
+  border: none;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0 14px;
+  height: 44px;
+}
+.fab-split-white { background: #f3f1ea; color: #2a2a2a; }
+.fab-split-black { background: #2a2a2a; color: #f3f1ea; }
+.fab-split-btn:active { filter: brightness(0.92); }

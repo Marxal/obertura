@@ -177,6 +177,11 @@ export interface ImportOptions {
   onProgress?: (p: ImportProgress) => void;
   // Called per parsed batch so the caller can persist incrementally and free it.
   onGames?: (games: ImportedGame[]) => Promise<void> | void;
+  // Stop once this many games are kept (newest first). Used by "import last game",
+  // which only needs the most recent one — the fetchers emit newest first, so we
+  // can abort after the first hit instead of pulling a whole month. Defaults to
+  // the hard cap (no early stop).
+  maxGames?: number;
 }
 
 export interface TimeTally {
@@ -206,6 +211,9 @@ export async function runImport(
   opts: ImportOptions = {},
 ): Promise<ImportResult> {
   const range = opts.months ?? DEFAULT_RANGE;
+  // The kept-games ceiling for this run: the hard cap, or a smaller maxGames when
+  // the caller only wants the most recent few (e.g. "import last game").
+  const cap = Math.min(HARD_CAP, opts.maxGames ?? HARD_CAP);
   const games: ImportedGame[] = [];
   let fetched = 0;
   let skipped = 0;
@@ -214,9 +222,10 @@ export async function runImport(
   const emit: Emit = async (batch, progress) => {
     const parsed: ImportedGame[] = [];
     for (const raw of batch) {
-      if (games.length + parsed.length >= HARD_CAP) {
-        // A game beyond the hard cap exists, so this scan is genuinely truncated.
-        truncated = true;
+      if (games.length + parsed.length >= cap) {
+        // Only the *hard* cap means more games were genuinely left behind; a
+        // smaller maxGames stop is an intentional "that's enough", not truncation.
+        if (cap === HARD_CAP) truncated = true;
         break;
       }
       fetched++;
@@ -229,7 +238,7 @@ export async function runImport(
       if (opts.onGames) await opts.onGames(parsed);
     }
     opts.onProgress?.({ ...progress, gamesSoFar: games.length });
-    return games.length < HARD_CAP; // keep going?
+    return games.length < cap; // keep going?
   };
 
   const monthsScanned = await fetchFn(username, range, emit);
