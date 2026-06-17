@@ -15,6 +15,8 @@ import { runScoutSelfTest } from '../src/scout.selftest';
 import { runMoveStatsSelfTest } from '../src/move-stats.selftest';
 import { runProgressSelfTest } from '../src/progress.selftest';
 import { runTreeSelfTest } from '../src/tree.selftest';
+import { runExplorerApiSelfTest } from '../src/explorer-api.selftest';
+import { runEngineSelfTest } from '../src/engine.selftest';
 
 interface TestResult { name: string; pass: boolean; detail: string }
 
@@ -28,6 +30,8 @@ const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'move-stats', run: runMoveStatsSelfTest },
   { suite: 'progress', run: runProgressSelfTest },
   { suite: 'tree', run: runTreeSelfTest },
+  { suite: 'explorer-api', run: runExplorerApiSelfTest },
+  { suite: 'engine', run: runEngineSelfTest },
 ];
 
 let total = 0;

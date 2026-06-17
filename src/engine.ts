@@ -1,4 +1,5 @@
 import { Chess } from 'chess.js';
+import type { Square } from 'chess.js';
 
 export type EvalSource = 'lichess' | 'stockfish';
 
@@ -101,18 +102,10 @@ export async function cloudLine(fen: string): Promise<CloudLine | null> {
   const sanLine: string[] = [];
   const uciLine: string[] = [];
   for (const u of uciAll) {
-    try {
-      const m = ch.move({
-        from: u.slice(0, 2),
-        to: u.slice(2, 4),
-        promotion: (u[4] as 'q' | 'r' | 'b' | 'n') || undefined,
-      });
-      if (!m) break;
-      sanLine.push(m.san);
-      uciLine.push(u);
-    } catch {
-      break;
-    }
+    const r = applyUci(ch, u); // tolerant of Lichess king-to-rook castling
+    if (!r) break;
+    sanLine.push(r.san);
+    uciLine.push(r.uci);
   }
   if (uciLine.length === 0) return null;
 
@@ -152,17 +145,58 @@ function normCp(cp: number, side: 'w' | 'b'): number {
   return side === 'w' ? cp : -cp;
 }
 
-function uciToSan(fen: string, uci: string): string {
+// Lichess encodes castling as "king onto its own rook" (e1h1/e1a1/e8h8/e8a8),
+// the way it stores Chess960 internally. chess.js's standard mode rejects that
+// (the king can't capture its own rook), so we remap such a move to the standard
+// king-two-squares destination before replaying it. Returns the standard target
+// square, or null if `from`→`to` isn't a king-to-own-rook move.
+function castlingTarget(ch: Chess, from: string, to: string): string | null {
+  const k = ch.get(from as Square);
+  const r = ch.get(to as Square);
+  if (k?.type === 'k' && r?.type === 'r' && k.color === r.color && from[1] === to[1]) {
+    const file = to[0] === 'h' ? 'g' : to[0] === 'a' ? 'c' : null; // kingside / queenside
+    return file ? file + from[1] : null;
+  }
+  return null;
+}
+
+// A single move attempt that yields null instead of throwing — chess.js 1.x
+// throws on an illegal move, and we want to fall through to the castling retry.
+function tryMove(ch: Chess, from: string, to: string, promotion?: 'q' | 'r' | 'b' | 'n') {
   try {
-    const ch = new Chess(fen);
-    const move = ch.move({
-      from: uci.slice(0, 2),
-      to: uci.slice(2, 4),
-      promotion: (uci[4] as 'q' | 'r' | 'b' | 'n') || undefined,
-    });
-    return move?.san ?? uci;
+    return ch.move({ from, to, promotion });
   } catch {
-    return uci;
+    return null;
+  }
+}
+
+// Apply a UCI move to a LIVE board (mutating it), tolerating Lichess's
+// king-to-rook castling notation. Returns the canonical SAN plus a NORMALISED,
+// legal uci, or null if the move is truly illegal. Used both for one-off
+// conversion and for replaying a whole PV in sequence (cloudLine).
+function applyUci(ch: Chess, uci: string): { uci: string; san: string } | null {
+  const from = uci.slice(0, 2);
+  const to = uci.slice(2, 4);
+  const promotion = (uci[4] as 'q' | 'r' | 'b' | 'n') || undefined;
+
+  const m = tryMove(ch, from, to, promotion);
+  if (m) return { uci, san: m.san };
+
+  // Standard application failed — try it as king-to-rook castling.
+  const dest = castlingTarget(ch, from, to);
+  if (dest) {
+    const c = tryMove(ch, from, dest);
+    if (c) return { uci: from + dest, san: c.san };
+  }
+  return null;
+}
+
+// Convert a single UCI move against `fen`, without mutating any shared board.
+export function resolveUci(fen: string, uci: string): { uci: string; san: string } | null {
+  try {
+    return applyUci(new Chess(fen), uci);
+  } catch {
+    return null;
   }
 }
 
@@ -258,12 +292,15 @@ export class Engine {
     if (!this.multiPv.size) return;
     const entries = [...this.multiPv.entries()].sort(([a], [b]) => a - b);
     const maxDepth = Math.max(...entries.map(([, v]) => v.depth));
-    const moves: MoveEval[] = entries.map(([, v]) => ({
-      uci: v.uci,
-      san: uciToSan(this.currentFen, v.uci),
-      cp: v.cp,
-      mate: v.mate,
-    }));
+    const moves: MoveEval[] = entries.map(([, v]) => {
+      const r = resolveUci(this.currentFen, v.uci);
+      return {
+        uci: r?.uci ?? v.uci,
+        san: r?.san ?? v.uci,
+        cp: v.cp,
+        mate: v.mate,
+      };
+    });
     this.cb({ fen: this.currentFen, source: 'stockfish', depth: maxDepth, targetDepth: MAX_DEPTH, moves });
   }
 
@@ -303,10 +340,11 @@ export class Engine {
 
       const side = sideToMove(fen);
       const moves: MoveEval[] = data.pvs.slice(0, 3).map(pv => {
-        const uci = pv.moves?.split(' ')[0] ?? '';
+        const rawUci = pv.moves?.split(' ')[0] ?? '';
+        const r = resolveUci(fen, rawUci); // normalises Lichess king-to-rook castling
         return {
-          uci,
-          san: uciToSan(fen, uci),
+          uci: r?.uci ?? rawUci,
+          san: r?.san ?? rawUci,
           cp: pv.cp !== undefined ? normCp(pv.cp, side) : undefined,
           mate: pv.mate !== undefined ? normCp(pv.mate, side) : undefined,
         };
