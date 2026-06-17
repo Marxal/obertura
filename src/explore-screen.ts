@@ -96,6 +96,38 @@ export function renderExploreScreen(container: HTMLElement, deps?: ExploreDeps):
   return buildScreen(container);
 }
 
+// ── Direct entry points for the global FAB ────────────────────────────────────
+// Let the FAB open Explore's "Build with the engine" and "Board browser" flows
+// from any tab, without first navigating to (and rendering) Explore. They take
+// the same deps object renderExploreScreen does, so the builder-seed and
+// spar-save handlers are wired even on a cold open.
+
+export async function openEngineSpar(deps: ExploreDeps): Promise<void> {
+  exploreDeps = deps;
+  const games = await getAllGames();
+  openSparSheet(games.length > 0);
+}
+
+export async function openMyGamesBrowser(deps: ExploreDeps): Promise<void> {
+  exploreDeps = deps;
+  const games = await getAllGames();
+  if (games.length === 0) return; // the FAB hides this action without games
+  const has = (c: 'white' | 'black') => games.some(g => g.colour === c);
+  const open = (colour: 'white' | 'black'): void => {
+    openBoardExplorer({
+      statsTree: buildMoveStats(games, colour, MAP_MAX_PLIES),
+      caption: 'your results',
+      colour,
+      players: {},
+      games,
+      title: 'Board browser',
+      onOpenInBuilder: (ucis, c) => exploreDeps?.onOpenInBuilder(ucis, c),
+      colourToggle: { current: colour, enabled: { white: has('white'), black: has('black') }, onPick: open },
+    });
+  };
+  open(has('white') ? 'white' : 'black');
+}
+
 async function buildScreen(container: HTMLElement): Promise<void> {
   container.innerHTML = '';
 

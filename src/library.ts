@@ -115,6 +115,16 @@ export function openLibrary(onOpenInBuilder: (ucis: string[], colour: 'white' | 
   }
   const removeBack = pushBack(close);
 
+  // Opening a line in the builder must also dismiss the library overlay itself —
+  // it's a full-screen opaque overlay (z-index 200), so without this the builder
+  // opens *behind* it and nothing appears to happen. close() also tears down the
+  // board-mode explorer. The detail view closes its own overlay first; closing an
+  // already-removed overlay again is a no-op.
+  const openInBuilder = (ucis: string[], colour: 'white' | 'black'): void => {
+    close();
+    onOpenInBuilder(ucis, colour);
+  };
+
   // Header.
   const header = document.createElement('div');
   header.className = 'rmap-header';
@@ -212,7 +222,7 @@ export function openLibrary(onOpenInBuilder: (ucis: string[], colour: 'white' | 
     const renderStacked = () => {
       const q = input.value.trim().toLowerCase();
       const matches = q ? entries.filter(e => e.haystack.includes(q)) : entries;
-      renderResults(results, matches, q, entry => openDetail(entry, onOpenInBuilder));
+      renderResults(results, matches, q, entry => openDetail(entry, openInBuilder));
     };
 
     render = () => {
@@ -223,14 +233,14 @@ export function openLibrary(onOpenInBuilder: (ucis: string[], colour: 'white' | 
 
       if (mode === 'board') {
         if (!explorer) {
-          explorer = createLibraryExplorer(entries, onOpenInBuilder);
+          explorer = createLibraryExplorer(entries, openInBuilder);
           overlay.appendChild(explorer.el);
         }
         // The board needs a layout pass before chessground can size itself, so
         // redraw once it's actually visible.
         requestAnimationFrame(() => explorer?.redraw());
       } else if (mode === 'moves') {
-        renderFamilyTree(results, entries, expanded, entry => openDetail(entry, onOpenInBuilder));
+        renderFamilyTree(results, entries, expanded, entry => openDetail(entry, openInBuilder));
       } else {
         renderStacked();
       }

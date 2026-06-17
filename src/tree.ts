@@ -67,6 +67,14 @@ export function removeLastMove(): void {
   current = parent;
 }
 
+// Drop everything after the cursor, so the line ends on the move currently shown
+// on the board. The builder edits a single path, so this just cuts the
+// children[0] chain at the cursor. Used by "save up to the move on the board"
+// (e.g. after importing a full game and stepping back to the position you want).
+export function truncateAfterCurrent(): void {
+  current.children = [];
+}
+
 function findNode(node: MoveNode, id: string): MoveNode | null {
   if (node.id === id) return node;
   for (const child of node.children) {

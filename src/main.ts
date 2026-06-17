@@ -4,9 +4,9 @@ import type { Key } from 'chessground/types';
 import 'chessground/assets/chessground.base.css';
 import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
-import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, loadTree, removeLastMove } from './tree';
+import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, loadTree, removeLastMove, truncateAfterCurrent } from './tree';
 import type { Annotation, MoveNode } from './tree';
-import { saveLine, getAllLines } from './storage';
+import { saveLine, getAllLines, countGames } from './storage';
 import { nameForPath } from './openings';
 import type { Line } from './types';
 import { renderLinesScreen, focusSavedLine } from './lines-screen';
@@ -29,6 +29,10 @@ import { maybeShowIntro } from './onboarding';
 import { maybeAutoRefreshGames } from './auto-refresh';
 import { maybeShowGate } from './gate';
 import { showToast } from './toast';
+import { Icons } from './icons';
+import { mountFab, type FabItem, type FabController } from './fab';
+import { importLastGame, hasConnectedAccount } from './import-last';
+import { openEngineSpar, openMyGamesBrowser } from './explore-screen';
 
 const chess = new Chess();
 let cg!: ReturnType<typeof Chessground>;
@@ -684,6 +688,10 @@ function updateSaveButtonLabel(): void {
 type ViewName = 'train' | 'lines' | 'explore' | 'progress' | 'builder' | 'settings';
 let currentView: ViewName = 'train';
 
+// The global FAB (mounted at boot). Shown on the four main tabs, hidden on the
+// full-screen views (builder, settings) — see showView.
+let fabController: FabController | null = null;
+
 // Full screens reached from outside the bottom tab bar: the builder (a board) and
 // Settings (from the header icon). On these we hide the bottom tab bar and show a
 // back arrow instead, freeing the bottom for the screen's own use. (Training and
@@ -778,6 +786,91 @@ function buildFromUcis(ucis: string[], colour: 'white' | 'black', tags: string[]
 // opposite of the opponent's map colour — I'm replying to what they play.
 function prepareReply(ucis: string[], answeringColour: 'white' | 'black', opponentName: string): void {
   buildFromUcis(ucis, answeringColour, [opponentTag(opponentName)]);
+}
+
+// The Explore screen's dependency object, shared by the Explore tab render and by
+// the FAB's "Build with the engine" / "Browse my games" shortcuts (which open
+// those Explore flows from any tab).
+function exploreScreenDeps() {
+  return {
+    onPrepareReply: prepareReply,
+    onOpenLine,
+    onOpenInBuilder: (ucis: string[], colour: 'white' | 'black') => buildFromUcis(ucis, colour),
+    onSparSave: sparSave,
+  };
+}
+
+// Build the FAB's action list fresh on every open so it reflects the live account
+// / games state. New line and the create flows are always there; "Import last
+// game" needs a connected account; the last slot is a board browser when games
+// exist, or a games-import prompt when they don't.
+async function buildFabActions(): Promise<FabItem[]> {
+  const gamesCount = await countGames();
+  const connected = hasConnectedAccount();
+  const items: FabItem[] = [];
+
+  if (connected) {
+    items.push({
+      icon: Icons.clock(20),
+      label: 'Import last game',
+      sublabel: 'Open your most recent game',
+      onClick: () => { void runImportLastGame(); },
+    });
+  }
+
+  items.push({
+    kind: 'split',
+    label: 'New line',
+    left: { label: 'White', onClick: () => startNewLine('white') },
+    right: { label: 'Black', onClick: () => startNewLine('black') },
+  });
+
+  items.push({
+    icon: Icons.search(20),
+    label: 'Opening library',
+    sublabel: 'Start from a named opening',
+    onClick: () => openLibrary((ucis, colour) => buildFromUcis(ucis, colour)),
+  });
+
+  items.push({
+    icon: Icons.gamepad(20),
+    label: 'Build with the engine',
+    sublabel: 'Play a game, save it as a line',
+    onClick: () => { void openEngineSpar(exploreScreenDeps()); },
+  });
+
+  if (gamesCount > 0) {
+    items.push({
+      icon: Icons.compass(20),
+      label: 'Browse my games',
+      sublabel: 'Walk your games on a board',
+      onClick: () => { void openMyGamesBrowser(exploreScreenDeps()); },
+    });
+  } else {
+    items.push({
+      icon: Icons.download(20),
+      label: 'Import my games',
+      sublabel: 'From Lichess or Chess.com',
+      onClick: () => openImportPanel({
+        onImported: () => { if (currentView === 'explore') showView('explore'); },
+      }),
+    });
+  }
+
+  return items;
+}
+
+// FAB "Import last game": fetch the newest game from the connected account, file
+// it with my games (deduped), and open it on the board to save as a line.
+async function runImportLastGame(): Promise<void> {
+  showToast('Fetching your last game…');
+  try {
+    const game = await importLastGame();
+    if (!game) { showToast('No recent game found to import.'); return; }
+    buildFromUcis(game.ucis, game.colour);
+  } catch {
+    showToast('Couldn’t reach your account — check your connection.');
+  }
 }
 
 // Build a fresh Line from a flat UCI list, auto-named from the bundled book —
@@ -953,6 +1046,9 @@ function showView(view: ViewName): void {
   const onBack = BACK_VIEWS.has(view);
   document.getElementById('bottom-nav')!.toggleAttribute('hidden', onBack);
   document.getElementById('nav-back')!.toggleAttribute('hidden', !onBack);
+  // The FAB rides along with the bottom nav: on the four main tabs, not the
+  // full-screen builder/settings.
+  fabController?.setVisible(!onBack);
 
   // The builder puts Save in the top-right; the settings icon is hidden on both
   // the builder (Save takes its place) and the Settings screen itself.
@@ -972,12 +1068,7 @@ function showView(view: ViewName): void {
   }
 
   if (view === 'explore') {
-    renderExploreScreen(exploreEl, {
-      onPrepareReply: prepareReply,
-      onOpenLine,
-      onOpenInBuilder: (ucis, colour) => buildFromUcis(ucis, colour),
-      onSparSave: sparSave,
-    });
+    renderExploreScreen(exploreEl, exploreScreenDeps());
   }
 
   if (view === 'train') {
@@ -1269,6 +1360,11 @@ function trimLastMove(): void {
   handleMoveClick(getCurrentNode().id);
 }
 
+// "Very long line" threshold for the save warning: more than 20 full moves
+// (40 plies). Deep imports (capped at 30 moves) and over-long hand-built lines
+// trip it; normal repertoire lines don't.
+const LONG_LINE_PLIES = 40;
+
 async function saveCurrentLine(): Promise<void> {
   // Editing an EXISTING line whose moves/details have changed: offer to update it
   // in place, or keep the original and branch this off as a new line. A fresh
@@ -1289,19 +1385,61 @@ async function saveCurrentLine(): Promise<void> {
   void continueSave();
 }
 
-// The end-on-your-move nudge, then the actual save. Split out so the
-// update / save-as-new choice can run ahead of it.
+// Save guards that run before the actual save, each a nudge that may show one
+// dialog and otherwise falls through to the next step:
+//   1. partial save — the board is parked before the line's end ("save up to here?")
+//   2. end-on-move  — the line ends on the opponent's move (trim it?)
+//   3. long line    — more than 20 moves (save anyway?)
+// Split into steps so a choice in one flows cleanly into the next.
 async function continueSave(): Promise<void> {
-  // Nudge (never block): a line that ends on the opponent's move leaves the last
-  // drill rep theirs, not yours. Offer to trim it, keep it, or back out.
+  // 1) Partial save: the cursor sits on a move before the end of the line. Offer
+  // to keep only up to the move on the board (e.g. after importing a full game).
+  if (getCurrentNode().children.length > 0) {
+    showDialog({
+      title: 'Save up to here?',
+      body: 'You’re viewing a move partway through the line. Save only up to the move on the board, or the whole line?',
+      buttons: [
+        { label: 'Save up to this move', variant: 'primary', onClick: () => {
+          truncateAfterCurrent();
+          handleMoveClick(getCurrentNode().id); // re-sync board + move list to the trimmed line
+          afterPartialSave();
+        } },
+        { label: 'Save the whole line', variant: 'secondary', onClick: afterPartialSave },
+        { label: 'Cancel', variant: 'secondary' },
+      ],
+    });
+    return;
+  }
+  afterPartialSave();
+}
+
+// Step 2: nudge a line that ends on the opponent's move (never blocks).
+function afterPartialSave(): void {
   if (!isEmpty() && lineEndsOnOpponentMove()) {
     showDialog({
       title: 'End on your move?',
       body: 'This line ends on your opponent’s move. Lines usually finish on YOUR move, so the last thing you drill is a move you make.',
       buttons: [
-        { label: 'Trim last move', variant: 'primary', onClick: () => { trimLastMove(); void finishSave(); } },
-        { label: 'Keep as is', variant: 'secondary', onClick: () => { void finishSave(); } },
+        { label: 'Trim last move', variant: 'primary', onClick: () => { trimLastMove(); afterEndNudge(); } },
+        { label: 'Keep as is', variant: 'secondary', onClick: afterEndNudge },
         { label: 'Cancel', variant: 'secondary' },
+      ],
+    });
+    return;
+  }
+  afterEndNudge();
+}
+
+// Step 3: warn on a very long line (harder to drill), then save.
+function afterEndNudge(): void {
+  if (mainline().length > LONG_LINE_PLIES) {
+    const moves = Math.ceil(mainline().length / 2);
+    showDialog({
+      title: 'That’s a very long line',
+      body: `This line is ${moves} moves long. Long lines are harder to drill — save it anyway, or go back to edit?`,
+      buttons: [
+        { label: 'Save anyway', variant: 'primary', onClick: () => { void finishSave(); } },
+        { label: 'Go back to edit', variant: 'secondary' },
       ],
     });
     return;
@@ -1465,6 +1603,10 @@ maybeShowGate(() => requestAnimationFrame(() => {
   setupTitleControls();
   setupNoteBlock();
   setupMoveNav();
+
+  // Mount the global FAB before the first showView, so its initial visibility is
+  // set correctly when we land on Train.
+  fabController = mountFab(buildFabActions);
 
   new ResizeObserver(() => cg.redrawAll()).observe(boardEl);
 
