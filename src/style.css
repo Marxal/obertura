@@ -3302,6 +3302,32 @@ cg-board square.move-dest.oc {
   100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--rot)); opacity: 0; }
 }
 
+/* Round-complete reward: a gentle rain of small stars (lighter than confetti). */
+.starfall-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 20;
+}
+
+.star {
+  position: absolute;
+  top: -10%;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: starfall var(--dur, 1300ms) linear var(--delay, 0ms) forwards;
+}
+
+@keyframes starfall {
+  0%   { transform: translate(0, 0); opacity: 0; }
+  15%  { opacity: 1; }
+  100% { transform: translate(var(--drift, 12px), 120%); opacity: 0; }
+}
+
 /* ── Train screen ──────────────────────────────────────────────────────────── */
 
 #view-train {
@@ -3473,7 +3499,7 @@ cg-board square.move-dest.oc {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  gap: var(--space-xl);
+  gap: var(--space-lg);
   width: 100%;
 }
 

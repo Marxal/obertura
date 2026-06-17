@@ -44,7 +44,7 @@ import {
 } from './streak';
 import { renderLoadError } from './load-error';
 import { buildPositionCard, colourPip, lineFinalFen } from './card-position';
-import { burstConfetti } from './confetti';
+import { burstConfetti, starfall } from './confetti';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -172,9 +172,9 @@ async function doRender(
   // the list first. Falls through to the list when the chosen mode has nothing to
   // drill (e.g. "Due now" with nothing due — so the "all caught up" header shows).
   if (autoStart) {
-    const session = sessionForDefaultMode(trainingLines, due);
-    if (session) {
-      runSession(session, container, makeStats());
+    const lines = linesForDefaultMode(trainingLines, due);
+    if (lines) {
+      startRounds(lines, container, { explicit: true });
       return;
     }
   }
@@ -223,21 +223,22 @@ function buildStreakPill(): HTMLElement {
   return pill;
 }
 
-// Build the session that "Start training" launches, per the default-mode pref.
-// Returns null when the chosen mode has nothing to drill, so the caller can fall
-// back to the list/header instead of opening an empty session.
-function sessionForDefaultMode(trainingLines: Line[], due: Line[]): TrainingSession | null {
+// The ordered list of lines that "Start training" drills, per the default-mode
+// pref. Already filtered/ordered and known-drillable, so the caller can hand it
+// straight to startRounds with explicit:true. Returns null when the chosen mode
+// has nothing to drill, so the caller falls back to the list/header.
+function linesForDefaultMode(trainingLines: Line[], due: Line[]): Line[] | null {
   switch (getDefaultTrainingMode()) {
     case 'recent': {
       const ordered = recentlyAddedLines(trainingLines).slice(0, PICKER_SESSION_CAP);
-      return ordered.length ? new TrainingSession(ordered, { explicit: true }) : null;
+      return ordered.length ? ordered : null;
     }
     case 'weakest': {
       const ordered = weakestLines(trainingLines).slice(0, PICKER_SESSION_CAP);
-      return ordered.length ? new TrainingSession(ordered, { explicit: true }) : null;
+      return ordered.length ? ordered : null;
     }
     default:
-      return due.length > 0 ? new TrainingSession(trainingLines) : null;
+      return due.length > 0 ? due : null;
   }
 }
 
@@ -282,6 +283,13 @@ function renderEmpty(container: HTMLElement, hasGames: boolean): void {
 // Lines drilled per explicit-mode session, so Fresh/Weak stay bite-sized.
 const PICKER_SESSION_CAP = 12;
 
+// A long session is split into bite-sized rounds so progress can be banked
+// without finishing everything in one sitting. Each completed line is already
+// graded and saved as it finishes, so closing between rounds loses nothing and
+// reopening simply resumes from the (now smaller) due pile.
+const ROUND_SIZE = 5;            // full lines per round
+const ROUND_SIZE_POSITIONS = 10; // single moves per round (quicker, so a bigger chunk)
+
 function renderHero(container: HTMLElement, due: Line[], allTraining: Line[]): void {
   const hero = document.createElement('div');
   hero.className = 'card train-hero' + (due.length === 0 ? ' train-hero--clear' : '');
@@ -303,6 +311,18 @@ function renderHero(container: HTMLElement, due: Line[], allTraining: Line[]): v
   stats.appendChild(buildHeroStat('reviewed', revNum, 'Reviewed today'));
   countUp(revNum, reviewedToday());
 
+  // How many rounds the due pile breaks into. Stateless — it shrinks as rounds
+  // are banked across sittings. Only worth showing once there's more than one
+  // round to do (otherwise it's just "Start review" as before).
+  const roundsLeft = Math.ceil(due.length / ROUND_SIZE);
+  if (roundsLeft > 1) {
+    const roundsNum = document.createElement('span');
+    roundsNum.className = 'train-hero-stat-num';
+    roundsNum.textContent = '0';
+    stats.appendChild(buildHeroStat('rounds', roundsNum, 'Rounds left'));
+    countUp(roundsNum, roundsLeft);
+  }
+
   hero.appendChild(stats);
 
   const start = document.createElement('button');
@@ -311,7 +331,7 @@ function renderHero(container: HTMLElement, due: Line[], allTraining: Line[]): v
   if (due.length > 0) {
     start.textContent = 'Start review';
     start.addEventListener('click', () =>
-      runSession(new TrainingSession(allTraining), container, makeStats()));
+      startRounds(dueLines(allTraining), container, { explicit: true }));
   } else {
     start.textContent = 'All caught up ✓';
     start.disabled = true;
@@ -322,7 +342,7 @@ function renderHero(container: HTMLElement, due: Line[], allTraining: Line[]): v
 }
 
 // One column of the hero pair: a big-ish number stacked over its label.
-function buildHeroStat(kind: 'due' | 'reviewed', num: HTMLElement, label: string): HTMLElement {
+function buildHeroStat(kind: 'due' | 'reviewed' | 'rounds', num: HTMLElement, label: string): HTMLElement {
   const col = document.createElement('div');
   col.className = `train-hero-stat train-hero-stat--${kind}`;
   col.appendChild(num);
@@ -391,9 +411,8 @@ function renderModeCards(container: HTMLElement, allTraining: Line[], allLines: 
     icon: Icons.plus(20),
     name: 'Fresh lines',
     sub: 'full runs of your newest lines',
-    onClick: () => runSession(
-      new TrainingSession(recentlyAddedLines(allTraining).slice(0, PICKER_SESSION_CAP), { explicit: true }),
-      container, makeStats()),
+    onClick: () => startRounds(
+      recentlyAddedLines(allTraining).slice(0, PICKER_SESSION_CAP), container, { explicit: true }),
   }));
 
   // Weak spots — full runs of the weakest lines first.
@@ -402,9 +421,8 @@ function renderModeCards(container: HTMLElement, allTraining: Line[], allLines: 
     icon: Icons.trending(20),
     name: 'Weak spots',
     sub: 'full runs of your weakest lines',
-    onClick: () => runSession(
-      new TrainingSession(weakestLines(allTraining).slice(0, PICKER_SESSION_CAP), { explicit: true }),
-      container, makeStats()),
+    onClick: () => startRounds(
+      weakestLines(allTraining).slice(0, PICKER_SESSION_CAP), container, { explicit: true }),
   }));
 
   // Prep — full runs of lines prepared against a scouted opponent. Only shown
@@ -418,9 +436,8 @@ function renderModeCards(container: HTMLElement, allTraining: Line[], allLines: 
       sub: 'opponent-tagged lines',
       stat: prepLines.length,
       statLabel: prepLines.length === 1 ? 'line' : 'lines',
-      onClick: () => runSession(
-        new TrainingSession(prepLines.slice(0, PICKER_SESSION_CAP), { explicit: true }),
-        container, makeStats()),
+      onClick: () => startRounds(
+        prepLines.slice(0, PICKER_SESSION_CAP), container, { explicit: true }),
     }));
   }
 
@@ -905,13 +922,79 @@ function makeStats(): SessionStats {
   };
 }
 
-function runSession(session: TrainingSession, container: HTMLElement, stats: SessionStats): void {
+// Drive one queue of lines to the end. `onEmpty` runs when the queue drains —
+// it defaults to the final session-complete screen, but the round driver passes
+// its own so it can show an intermediate round screen and start the next round.
+function runSession(
+  session: TrainingSession,
+  container: HTMLElement,
+  stats: SessionStats,
+  onEmpty?: () => void,
+): void {
   const item = session.next();
   if (!item) {
-    renderSessionComplete(container, stats);
+    (onEmpty ?? (() => renderSessionComplete(container, stats)))();
     return;
   }
-  runItem(item, session, container, stats);
+  runItem(item, session, container, stats, onEmpty);
+}
+
+// ── Rounds ──────────────────────────────────────────────────────────────────
+//
+// A long sitting is chunked into rounds of ROUND_SIZE lines. Each round is its
+// own little TrainingSession (so missed-line resurfacing stays inside the round
+// it happened in). Because every finished line is graded and saved the moment
+// it completes, banking a round and closing loses nothing: the lines just drop
+// out of the due pile, so reopening resumes from where you stopped. The stats
+// object is shared across the whole sitting, so the final screen and the
+// end-of-session mistakes review cover everything; the round screen shows just
+// that round's delta.
+
+interface RoundRunner {
+  lines: Line[];
+  explicit: boolean;
+  index: number;       // how many lines consumed so far
+  roundNo: number;     // 1-based current round
+  totalRounds: number;
+  stats: SessionStats;
+}
+
+function startRounds(
+  lines: Line[],
+  container: HTMLElement,
+  opts: { explicit?: boolean } = {},
+): void {
+  const runner: RoundRunner = {
+    lines,
+    explicit: opts.explicit ?? false,
+    index: 0,
+    roundNo: 0,
+    totalRounds: Math.max(1, Math.ceil(lines.length / ROUND_SIZE)),
+    stats: makeStats(),
+  };
+  runRound(runner, container);
+}
+
+function runRound(runner: RoundRunner, container: HTMLElement): void {
+  // Snapshot the cumulative counters so the round screen can show this round's
+  // own numbers (current − before).
+  const before = {
+    lines: runner.stats.linesReviewed,
+    missed: runner.stats.movesMissed,
+    moves: runner.stats.totalMoves,
+  };
+  const slice = runner.lines.slice(runner.index, runner.index + ROUND_SIZE);
+  runner.index += slice.length;
+  runner.roundNo += 1;
+
+  const session = new TrainingSession(slice, { explicit: runner.explicit });
+  runSession(session, container, runner.stats, () => {
+    if (runner.index >= runner.lines.length) {
+      renderSessionComplete(container, runner.stats);
+    } else {
+      renderRoundComplete(container, runner, before);
+    }
+  });
 }
 
 function mainlineOf(tree: MoveNode): MoveNode[] {
@@ -928,7 +1011,8 @@ function runItem(
   item: SessionItem,
   session: TrainingSession,
   container: HTMLElement,
-  stats: SessionStats
+  stats: SessionStats,
+  onEmpty?: () => void,
 ): void {
   const { line, isResurface } = item;
 
@@ -979,7 +1063,7 @@ function runItem(
     onPauseLine: () => {
       void saveLine({ ...line, inTraining: false });
       line.inTraining = false;
-      runSession(session, container, stats);
+      runSession(session, container, stats, onEmpty);
     },
     // Edit this line mid-drill: leave the session and open the original line in
     // the builder, at the position on the board. Only offered when the app
@@ -1027,7 +1111,7 @@ function runItem(
       }
       // Missed material comes back later in this same session.
       if (missed.size > 0) session.resurface(line, missed.size);
-      runSession(session, container, stats);
+      runSession(session, container, stats, onEmpty);
     },
   });
 }
@@ -1060,41 +1144,73 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
   const mistakes: Mistake[] = [];
   const mistakeKeys = new Set<string>();
 
-  startPositionsDrill(
-    positions.map(p => ({ preFen: p.preFen, expected: p.expected, prevUci: p.prevUci, prevFen: p.prevFen })),
-    {
-      wrongMoveMode: 'full',
-      confirmAbandon: true,
-      modeLabel: 'Individual moves',
-      // Replay the opponent's move into each position so you see how it arose.
-      playPrelude: true,
-      celebrateOnComplete: true,
-      completeMessage: 'Positions cleared ✓',
-      // Strict training: no checkAlternative/onExplore — only the stored move
-      // is accepted; anything else is a miss.
-      recordMiss: (node) => { missed.add(node.id); },
-      onStepComplete: (expected) => {
-        const line = lineByNode.get(expected);
-        if (!line) return;
-        const now = new Date();
-        const wasMissed = missed.has(expected.id);
-        if (wasMissed) {
-          const pos = positions.find(p => p.expected === expected);
-          if (pos) addMistake(mistakes, mistakeKeys, pos.preFen, expected);
-        }
-        const quality = qualityFromMisses(wasMissed ? 1 : 0);
-        expected.review = gradeReview(expected.review ?? newReview(now), quality, now);
-        line.lastTrained = now.toISOString();
-        line.confidence = lineConfidence(line);
-        void saveLine(line);
-        recordReviewed(1);
-        stats.reviewed++;
-        if (wasMissed) stats.missed++;
+  // Chunk the stream into rounds so a long Fix-mistakes run can be banked in
+  // stages. Each position is graded and saved on its own (onStepComplete), so
+  // closing between rounds loses nothing. stats/mistakes accumulate across the
+  // whole sitting; the round screen shows just that round's delta.
+  const totalRounds = Math.max(1, Math.ceil(positions.length / ROUND_SIZE_POSITIONS));
+  let index = 0;
+  let roundNo = 0;
+
+  function runPositionRound(): void {
+    const before = { reviewed: stats.reviewed, missed: stats.missed };
+    const slice = positions.slice(index, index + ROUND_SIZE_POSITIONS);
+    index += slice.length;
+    roundNo += 1;
+
+    startPositionsDrill(
+      slice.map(p => ({ preFen: p.preFen, expected: p.expected, prevUci: p.prevUci, prevFen: p.prevFen })),
+      {
+        wrongMoveMode: 'full',
+        confirmAbandon: true,
+        modeLabel: 'Individual moves',
+        // Replay the opponent's move into each position so you see how it arose.
+        playPrelude: true,
+        celebrateOnComplete: true,
+        completeMessage: 'Positions cleared ✓',
+        // Strict training: no checkAlternative/onExplore — only the stored move
+        // is accepted; anything else is a miss.
+        recordMiss: (node) => { missed.add(node.id); },
+        onStepComplete: (expected) => {
+          const line = lineByNode.get(expected);
+          if (!line) return;
+          const now = new Date();
+          const wasMissed = missed.has(expected.id);
+          if (wasMissed) {
+            const pos = positions.find(p => p.expected === expected);
+            if (pos) addMistake(mistakes, mistakeKeys, pos.preFen, expected);
+          }
+          const quality = qualityFromMisses(wasMissed ? 1 : 0);
+          expected.review = gradeReview(expected.review ?? newReview(now), quality, now);
+          line.lastTrained = now.toISOString();
+          line.confidence = lineConfidence(line);
+          void saveLine(line);
+          recordReviewed(1);
+          stats.reviewed++;
+          if (wasMissed) stats.missed++;
+        },
+        onComplete: () => {
+          if (index >= positions.length) {
+            renderIndividualComplete(container, stats, mistakes);
+          } else {
+            if (stats.reviewed > 0) recordTrainingDay();
+            const remaining = positions.length - index;
+            renderRoundScreen(container, {
+              roundNo,
+              totalRounds,
+              correct: (stats.reviewed - before.reviewed) - (stats.missed - before.missed),
+              missed: stats.missed - before.missed,
+              remainingLabel: `${remaining} position${remaining === 1 ? '' : 's'} left`,
+              onNext: runPositionRound,
+            });
+          }
+        },
+        onCancel: () => void doRender(container),
       },
-      onComplete: () => renderIndividualComplete(container, stats, mistakes),
-      onCancel: () => void doRender(container),
-    },
-  );
+    );
+  }
+
+  runPositionRound();
 }
 
 function renderIndividualComplete(
@@ -1159,6 +1275,120 @@ function renderIndividualComplete(
   appendReviewActions(wrap, container, mistakes);
 
   container.appendChild(wrap);
+}
+
+// A correct/missed stat pair, shared by the round and session screens.
+function appendStatsRow(wrap: HTMLElement, correct: number, missed: number, missLabel: string): void {
+  const statsRow = document.createElement('div');
+  statsRow.className = 'summary-stats-row';
+
+  const rightBox = document.createElement('div');
+  rightBox.className = 'summary-stat-box summary-stat-box--right';
+  const rightVal = document.createElement('div');
+  rightVal.className = 'summary-stat-value';
+  rightVal.textContent = String(correct);
+  const rightLbl = document.createElement('div');
+  rightLbl.className = 'summary-stat-label';
+  rightLbl.textContent = 'correct';
+  rightBox.appendChild(rightVal);
+  rightBox.appendChild(rightLbl);
+  statsRow.appendChild(rightBox);
+
+  const missBox = document.createElement('div');
+  missBox.className = `summary-stat-box ${missed > 0 ? 'summary-stat-box--missed' : 'summary-stat-box--zero'}`;
+  const missVal = document.createElement('div');
+  missVal.className = 'summary-stat-value';
+  missVal.textContent = String(missed);
+  const missLbl = document.createElement('div');
+  missLbl.className = 'summary-stat-label';
+  missLbl.textContent = missLabel;
+  missBox.appendChild(missVal);
+  missBox.appendChild(missLbl);
+  statsRow.appendChild(missBox);
+
+  wrap.appendChild(statsRow);
+}
+
+// ── Round-complete panel ─────────────────────────────────────────────────────
+//
+// Shown between rounds (only when material remains). Light by design: this
+// round's numbers, a gentle starfall, and the choice to push on or bank it.
+// Shared by the line-rounds and the individual-moves rounds.
+
+function renderRoundScreen(
+  container: HTMLElement,
+  opts: {
+    roundNo: number;
+    totalRounds: number;
+    correct: number;
+    missed: number;
+    remainingLabel: string;
+    onNext: () => void;
+  },
+): void {
+  container.innerHTML = '';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'section train-completion';
+
+  const doneEl = document.createElement('div');
+  doneEl.className = 'train-completion-done';
+  doneEl.textContent = `Round ${opts.roundNo} done ✓`;
+  wrap.appendChild(doneEl);
+
+  const sub = document.createElement('div');
+  sub.className = 'train-completion-name';
+  sub.textContent = `Round ${opts.roundNo} of ${opts.totalRounds}`;
+  wrap.appendChild(sub);
+
+  appendStatsRow(wrap, opts.correct, opts.missed, 'missed');
+
+  const note = document.createElement('div');
+  note.className = 'train-all-done';
+  note.textContent = opts.remainingLabel;
+  wrap.appendChild(note);
+
+  const next = document.createElement('button');
+  next.type = 'button';
+  next.className = 'btn-primary train-next-btn';
+  next.textContent = 'Next round →';
+  next.addEventListener('click', opts.onNext);
+  wrap.appendChild(next);
+
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'btn-secondary train-done-btn';
+  close.textContent = 'Save & close';
+  close.addEventListener('click', () => void doRender(container));
+  wrap.appendChild(close);
+
+  container.appendChild(wrap);
+
+  // A gentle reward — lighter than the finish-line confetti.
+  starfall(wrap);
+}
+
+// The line-rounds round screen: this round's move tally + lines remaining. The
+// streak is recorded here so closing mid-sitting still counts today.
+function renderRoundComplete(
+  container: HTMLElement,
+  runner: RoundRunner,
+  before: { lines: number; missed: number; moves: number },
+): void {
+  if (runner.stats.linesReviewed > 0) recordTrainingDay();
+
+  const roundMoves = runner.stats.totalMoves - before.moves;
+  const roundMissed = runner.stats.movesMissed - before.missed;
+  const remaining = runner.lines.length - runner.index;
+
+  renderRoundScreen(container, {
+    roundNo: runner.roundNo,
+    totalRounds: runner.totalRounds,
+    correct: roundMoves - roundMissed,
+    missed: roundMissed,
+    remainingLabel: `${remaining} line${remaining === 1 ? '' : 's'} left`,
+    onNext: () => runRound(runner, container),
+  });
 }
 
 // ── Session-complete panel ──────────────────────────────────────────────────────
