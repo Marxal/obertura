@@ -1,5 +1,5 @@
 // Spar with the engine — a casual game against the LOCAL Stockfish worker, from
-// the start position, that you can freeze into a saved line at any point.
+// the start position, that you can hand off to the builder at any point.
 //
 // This is deliberately separate from engine.ts's Engine (the eval helper, which
 // tries Lichess cloud first): sparring ALWAYS uses the bundled WASM engine, so
@@ -7,30 +7,19 @@
 // with a UCI Skill Level and a fixed, snappy movetime.
 //
 // The screen is a full-screen overlay (the pre-training pt- look): board,
-// opening name, a status line, and three controls — Save, Undo, New game. While
-// the position is still recognised by the bundled opening book we show its name;
-// the first move that leaves the book pops a one-time banner, then a quiet
-// "out of book" indicator stays put.
+// opening name, a status line, and three controls — Open in builder, Undo, New
+// game. While the position is still recognised by the bundled opening book we
+// show its name; the first move that leaves the book pops a one-time banner,
+// then a quiet "out of book" indicator stays put.
 
 import { Chess } from 'chess.js';
 import { Chessground } from 'chessground';
 import type { Key } from 'chessground/types';
 import { Icons } from './icons';
-import { showDialog } from './dialog';
 import { pushBack } from './back-nav';
 import { isOutOfBook, nameForPath } from './openings';
 import { Engine, type EvalResult } from './engine';
 import { EvalPanel } from './eval-panel';
-
-// How the spar screen hands a finished game back to the app shell: persist the
-// moves as a new auto-named line and run the post-save "add to training" dialog.
-// `afterSaved` reports whether the user stayed in the spar screen ('stay' — keep
-// playing / new game) or left it for training / My Lines ('left').
-export type SparSaveFn = (
-  ucis: string[],
-  colour: 'white' | 'black',
-  afterSaved: (action: 'stay' | 'left') => void,
-) => void;
 
 // Where the engine's opening comes from: a random book line, a line sampled from
 // my imported games, or nothing at all (today's pure-engine behaviour).
@@ -46,7 +35,10 @@ export interface SparOptions {
   // none (Pure engine). The engine follows its OWN side's moves from this line
   // while the game stays on it; the first deviation hands over to Stockfish.
   nextBookLine?: () => string[];
-  onSparSave: SparSaveFn;
+  // Hand the game so far to the builder, oriented to my colour, instead of
+  // saving it straight as a line — same path as the board browser's
+  // "Open in builder".
+  onOpenInBuilder: (ucis: string[], colour: 'white' | 'black') => void;
 }
 
 // How far the book layer reaches before normal engine play resumes: 6 full moves
@@ -393,13 +385,15 @@ export function openSpar(opts: SparOptions): void {
 
   const controls = document.createElement('div');
   controls.className = 'spar-controls';
-  const saveBtn = ctrlButton('Save', Icons.save(16));
+  // Styled exactly like the board browser's primary "Open in builder" — brass
+  // accent, since it's the one button that leaves this screen for the builder.
+  const openBuilderBtn = navBtn(Icons.reply(20), 'Open in builder', 'Open in builder', () => openInBuilder());
+  openBuilderBtn.classList.add('bx-nav-btn--accent');
   const undoBtn = ctrlButton('Undo', Icons.back(16));
   const newBtn = ctrlButton('New game', Icons.reset(16));
-  saveBtn.addEventListener('click', () => save());
   undoBtn.addEventListener('click', () => undoPair());
   newBtn.addEventListener('click', () => newGame());
-  controls.appendChild(saveBtn);
+  controls.appendChild(openBuilderBtn);
   controls.appendChild(undoBtn);
   controls.appendChild(newBtn);
   bottom.appendChild(controls);
@@ -653,21 +647,10 @@ export function openSpar(opts: SparOptions): void {
     else refreshAnalysis();
   }
 
-  function save(): void {
+  function openInBuilder(): void {
     if (ucis.length === 0) return;
-    opts.onSparSave([...ucis], myColour, (action) => {
-      if (closed) return;
-      if (action === 'left') { close(); return; }
-      // Saved, stayed: offer to keep playing or start fresh.
-      showDialog({
-        title: 'Line saved ✓',
-        body: 'Keep playing this game, or start a fresh one?',
-        buttons: [
-          { label: 'New game', variant: 'secondary', onClick: () => newGame() },
-          { label: 'Keep playing', variant: 'primary' },
-        ],
-      });
-    });
+    opts.onOpenInBuilder([...ucis], myColour);
+    close();
   }
 
   // ── Book + status rendering ──────────────────────────────────────────────
@@ -705,7 +688,7 @@ export function openSpar(opts: SparOptions): void {
     statusEl.textContent = status;
 
     // Control availability.
-    saveBtn.disabled = ucis.length === 0 || suggesting;
+    openBuilderBtn.disabled = ucis.length === 0 || suggesting;
     undoBtn.disabled = thinking || suggesting || ucis.length < 2 || turnColour() !== myColour;
     newBtn.disabled = suggesting; // don't yank the board out from under a suggest
     // Suggest only when it's quietly my turn.
@@ -756,6 +739,21 @@ function ctrlButton(label: string, icon: SVGElement): HTMLButtonElement {
   btn.className = 'btn-secondary spar-ctrl-btn';
   btn.appendChild(icon);
   btn.appendChild(document.createTextNode(label));
+  return btn;
+}
+
+// The board browser's stacked icon-over-label control button — reused here so
+// "Open in builder" matches it exactly (see board-explorer.ts's navBtn).
+function navBtn(icon: SVGElement, label: string, aria: string, onClick: () => void): HTMLButtonElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'bx-nav-btn';
+  btn.setAttribute('aria-label', aria);
+  btn.appendChild(icon);
+  const span = document.createElement('span');
+  span.textContent = label;
+  btn.appendChild(span);
+  btn.addEventListener('click', onClick);
   return btn;
 }
 

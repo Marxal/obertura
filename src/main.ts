@@ -796,7 +796,6 @@ function exploreScreenDeps() {
     onPrepareReply: prepareReply,
     onOpenLine,
     onOpenInBuilder: (ucis: string[], colour: 'white' | 'black') => buildFromUcis(ucis, colour),
-    onSparSave: sparSave,
   };
 }
 
@@ -883,8 +882,8 @@ async function runImportLastGame(): Promise<void> {
 
 // Build a fresh Line from a flat UCI list, auto-named from the bundled book —
 // the same naming the builder's Save uses, without touching the live builder
-// tree. Used by the engine-sparring "Save as line" flow. Returns null if no
-// legal move could be applied.
+// tree. Used by the onboarding starter-line flow. Returns null if no legal
+// move could be applied.
 function lineFromUcis(ucis: string[], colour: 'white' | 'black'): Line | null {
   const ch = new Chess();
   const root: MoveNode = { id: 'root', san: '', uci: '', fen: ch.fen(), children: [] };
@@ -920,37 +919,6 @@ function lineFromUcis(ucis: string[], colour: 'white' | 'black'): Line | null {
     tree: root,
     createdAt: Date.now(),
   };
-}
-
-// "Save as line" from the spar screen: persist the moves played as a new
-// auto-named line, then run the same post-save "Add to training?" dialog as the
-// builder (task 2.6). `afterSaved` lets the spar screen know whether to stay
-// (keep playing / new game) or to close because we navigated on to training.
-function sparSave(ucis: string[], colour: 'white' | 'black', afterSaved: (action: 'stay' | 'left') => void): void {
-  const line = lineFromUcis(ucis, colour);
-  if (!line) { afterSaved('stay'); return; }
-  void saveLine(line).then(() => {
-    showToast('Line saved ✓');
-    const confirmRun = getConfirmRunBeforeTraining();
-    showDialog({
-      title: 'Start training this line?',
-      body: confirmRun
-        ? 'Play it once to confirm the line, then it joins your training.'
-        : 'Add this line straight into your training rotation.',
-      buttons: [
-        { label: 'Just save it', variant: 'secondary', onClick: () => afterSaved('stay') },
-        {
-          label: confirmRun ? 'Play it once first' : 'Add to training',
-          variant: 'primary',
-          onClick: () => {
-            afterSaved('left'); // close the spar screen first, then enrol/run
-            addLineToTraining(line, () => showView('lines'), () => showView('lines'));
-          },
-        },
-      ],
-      onDismiss: () => afterSaved('stay'),
-    });
-  });
 }
 
 // The full dependency set the My Lines screen needs. Centralised so every

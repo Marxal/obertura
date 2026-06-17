@@ -26,7 +26,7 @@ import { openImportPanel } from './import-panel';
 import { openRepertoireMap } from './repertoire-map';
 import { openBoardExplorer } from './board-explorer';
 import { openLibrary } from './library';
-import { openSpar, type SparSaveFn, type SparMode } from './spar';
+import { openSpar, type SparMode } from './spar';
 import { loadBookLines, pickBookLine, pickGameLine } from './book-lines';
 import {
   analyseGames, UNKNOWN_FAMILY, MIN_GAMES_WEAK, WEAK_SCORE_PCT, type OpeningStat,
@@ -78,12 +78,10 @@ export interface ExploreDeps {
   onPrepareReply: (ucis: string[], answeringColour: 'white' | 'black', opponentName: string) => void;
   // Open a saved line in the builder/line view.
   onOpenLine: (line: Line) => void;
-  // Seed the builder with a move sequence (from the opening library), oriented
-  // to the chosen colour. No opponent tag — this is a plain reference line.
+  // Seed the builder with a move sequence (from the opening library, or a game
+  // sparred against the engine), oriented to the chosen colour. No opponent tag
+  // — this is a plain reference line.
   onOpenInBuilder: (ucis: string[], colour: 'white' | 'black') => void;
-  // Persist a game sparred against the engine as a new auto-named line, then run
-  // the post-save "add to training" flow (see spar.ts / main.ts).
-  onSparSave: SparSaveFn;
 }
 
 let exploreDeps: ExploreDeps | null = null;
@@ -99,8 +97,8 @@ export function renderExploreScreen(container: HTMLElement, deps?: ExploreDeps):
 // ── Direct entry points for the global FAB ────────────────────────────────────
 // Let the FAB open Explore's "Build with the engine" and "Board browser" flows
 // from any tab, without first navigating to (and rendering) Explore. They take
-// the same deps object renderExploreScreen does, so the builder-seed and
-// spar-save handlers are wired even on a cold open.
+// the same deps object renderExploreScreen does, so the builder-seed handler is
+// wired even on a cold open.
 
 export async function openEngineSpar(deps: ExploreDeps): Promise<void> {
   exploreDeps = deps;
@@ -280,7 +278,7 @@ function sparSection(hasGames: boolean): HTMLElement {
   const desc = document.createElement('p');
   desc.className = 'section-desc';
   desc.textContent =
-    'Play a casual game against the engine from the start, then save the moves as a new line whenever you like.';
+    'Play a casual game against the engine from the start, then open the moves in the builder whenever you like.';
   section.appendChild(desc);
 
   // The front door: a single primary that opens the settings sheet.
@@ -381,7 +379,7 @@ async function startSpar(startBtn: HTMLButtonElement, onLaunch?: () => void): Pr
     levelLabel: level.label,
     mode: sparMode,
     nextBookLine,
-    onSparSave: exploreDeps.onSparSave,
+    onOpenInBuilder: exploreDeps.onOpenInBuilder,
   });
 }
 
