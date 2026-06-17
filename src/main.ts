@@ -802,13 +802,25 @@ function exploreScreenDeps() {
 
 // Build the FAB's action list fresh on every open so it reflects the live account
 // / games state. New line and the create flows are always there; "Import last
-// game" needs a connected account; the last slot is a board browser when games
+// game" needs a connected account; the games slot is a board browser when games
 // exist, or a games-import prompt when they don't.
 async function buildFabActions(): Promise<FabItem[]> {
   const gamesCount = await countGames();
   const connected = hasConnectedAccount();
   const items: FabItem[] = [];
 
+  // Listed bottom (closest to the ＋) → top. .fab-menu is column-reverse, so the
+  // first item pushed renders nearest the button.
+
+  // 1) New line — always; colour is the action via the White | Black split.
+  items.push({
+    kind: 'split',
+    label: 'New line',
+    left: { label: 'White', onClick: () => startNewLine('white') },
+    right: { label: 'Black', onClick: () => startNewLine('black') },
+  });
+
+  // 2) Import last game — only with a connected account.
   if (connected) {
     items.push({
       icon: Icons.clock(20),
@@ -818,27 +830,7 @@ async function buildFabActions(): Promise<FabItem[]> {
     });
   }
 
-  items.push({
-    kind: 'split',
-    label: 'New line',
-    left: { label: 'White', onClick: () => startNewLine('white') },
-    right: { label: 'Black', onClick: () => startNewLine('black') },
-  });
-
-  items.push({
-    icon: Icons.search(20),
-    label: 'Opening library',
-    sublabel: 'Start from a named opening',
-    onClick: () => openLibrary((ucis, colour) => buildFromUcis(ucis, colour)),
-  });
-
-  items.push({
-    icon: Icons.gamepad(20),
-    label: 'Build with the engine',
-    sublabel: 'Play a game, save it as a line',
-    onClick: () => { void openEngineSpar(exploreScreenDeps()); },
-  });
-
+  // 3) Browse my games (with games) / Import my games (without) — same slot.
   if (gamesCount > 0) {
     items.push({
       icon: Icons.compass(20),
@@ -856,6 +848,22 @@ async function buildFabActions(): Promise<FabItem[]> {
       }),
     });
   }
+
+  // 4) Opening library — always.
+  items.push({
+    icon: Icons.search(20),
+    label: 'Opening library',
+    sublabel: 'Start from a named opening',
+    onClick: () => openLibrary((ucis, colour) => buildFromUcis(ucis, colour)),
+  });
+
+  // 5) Build with the engine — always; top of the menu.
+  items.push({
+    icon: Icons.gamepad(20),
+    label: 'Build with the engine',
+    sublabel: 'Play a game, save it as a line',
+    onClick: () => { void openEngineSpar(exploreScreenDeps()); },
+  });
 
   return items;
 }

@@ -7923,7 +7923,9 @@ cg-board square.move-dest.oc {
   position: fixed;
   inset: 0;
   z-index: 1;
-  background: transparent;
+  background: rgba(0, 0, 0, 0.45);   /* matches the app's dialog scrim */
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
 }
 .fab-root--open .fab-backdrop { display: block; }
 
@@ -7934,7 +7936,9 @@ cg-board square.move-dest.oc {
   bottom: calc(100% + 12px);
   z-index: 2;
   display: flex;
-  flex-direction: column;
+  /* Reversed so the first item rendered sits at the BOTTOM, closest to the FAB,
+     letting buildFabActions list items in the same bottom-to-top order. */
+  flex-direction: column-reverse;
   align-items: flex-end;
   gap: 12px;
   opacity: 0;
