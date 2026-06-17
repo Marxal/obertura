@@ -167,13 +167,19 @@ export function createImportLoader(): ImportLoader {
     },
     setAvatar(url: string): void {
       avatar.innerHTML = '';
+      avatar.hidden = false; // optimistic — the error handler hides it on failure
+      // Concentric rings pulsing out from behind the picture while we fetch.
+      for (let i = 0; i < 3; i++) {
+        const ring = document.createElement('span');
+        ring.className = 'import-loader-ring';
+        avatar.appendChild(ring);
+      }
       const img = document.createElement('img');
       img.className = 'import-loader-avatar-img';
       img.src = url;
       img.alt = '';
       // A broken/blocked picture just keeps the loader picture-less.
       img.addEventListener('error', () => { avatar.hidden = true; avatar.innerHTML = ''; });
-      img.addEventListener('load', () => { avatar.hidden = false; });
       avatar.appendChild(img);
     },
     done(): void {
