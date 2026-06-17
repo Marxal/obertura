@@ -776,10 +776,11 @@ function addOpponent(container: HTMLElement): void {
       username: '',
       rememberUser: false,
       save: async (games, metaInfo) => {
-        // A Chess.com profile picture, when they have one (Lichess has none).
-        // Purely cosmetic and non-blocking — a miss just shows the fallback icon.
-        const avatarUrl =
-          metaInfo.platform === 'chesscom' ? await fetchAvatar(metaInfo.username) : undefined;
+        // The opponent's Chess.com picture, when they have one (Lichess has
+        // none). The panel already fetched it for the loader; fall back to a
+        // fresh lookup just in case. Purely cosmetic — a miss shows the icon.
+        const avatarUrl = metaInfo.avatarUrl ??
+          (metaInfo.platform === 'chesscom' ? await fetchAvatar(metaInfo.username) : undefined);
         const opp = makeOpponent(metaInfo, games, { avatarUrl });
         await saveOpponent(opp);
         addedId = opp.id;
@@ -799,9 +800,9 @@ function refreshOpponent(opp: Opponent, container: HTMLElement, onDone: () => vo
     username: opp.username,
     rememberUser: false,
     save: async (games, metaInfo) => {
-      // Re-fetch the avatar on refresh so a newly-set picture appears; fall back
-      // to the one we already had if the lookup turns up nothing.
-      const avatarUrl =
+      // Prefer the picture the panel just fetched (so a newly-set one appears),
+      // then a fresh lookup, then the one we already had.
+      const avatarUrl = metaInfo.avatarUrl ??
         (metaInfo.platform === 'chesscom' ? await fetchAvatar(metaInfo.username) : undefined) ??
         opp.avatarUrl;
       await saveOpponent(makeOpponent(metaInfo, games, { id: opp.id, avatarUrl }));

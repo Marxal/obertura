@@ -461,10 +461,12 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       scanBtn.textContent = 'Scan';
     });
 
-    // Fetch your Chess.com picture alongside the scan and fade it into the
-    // loader the moment it lands. Only for *your* games (scouting handles its
-    // own avatar); Lichess has no public picture.
-    if (platform === 'chesscom' && opts.rememberUser !== false) {
+    // Fetch the subject's Chess.com picture alongside the scan and fade it into
+    // the loader the moment it lands — your picture for a my-games import, the
+    // opponent's for a scout. Lichess has no public picture. The handler that
+    // saves decides what to do with it (persist as my identity, or onto the
+    // scouted opponent).
+    if (platform === 'chesscom') {
       void fetchAvatar(user).then((url) => {
         if (!url) return;
         scannedAvatarUrl = url;
@@ -508,6 +510,9 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     const total = result.games.length; // newest-first, already ≤ HARD_CAP
     count = defaultCountFor(total);
     selected.clear();
+    // A my-games import shows "your results"; a scout (rememberUser: false) is
+    // the opponent's games, so the same graph reads "their results".
+    const isMine = opts.rememberUser !== false;
 
     // Step 2 takes over the whole screen: hide step 1 (platform / username /
     // range) and switch the shell to full-screen so the review reads cleanly.
@@ -714,7 +719,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
         const scorePct = Math.round(((s.wins + s.draws / 2) / n) * 100);
         wdlWrap.appendChild(wdlBlock(
           { wins: s.wins, draws: s.draws, losses: s.losses, scorePct, games: n },
-          'your results',
+          isMine ? 'your results' : 'their results',
         ));
       }
 
