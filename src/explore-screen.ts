@@ -744,7 +744,7 @@ function opponentCard(opp: Opponent, container: HTMLElement): HTMLElement {
     losses: summary.losses,
     scorePct: summary.scorePct,
     games: summary.games,
-  }));
+  }, `${opp.name}'s results`));
 
   // Meta: games analysed + when last refreshed.
   const meta = document.createElement('div');
@@ -901,7 +901,7 @@ function openDetail(id: string, container: HTMLElement): void {
       if (myPrep.length === 0) {
         showDialog({
           title: `Delete ${opp.name}?`,
-          body: 'This removes their imported games and scouting maps from this device.',
+          body: `This removes ${opp.name}'s imported games and scouting maps from this device.`,
           buttons: [
             { label: 'Delete', variant: 'danger', onClick: () => removeOpponent(false) },
             { label: 'Cancel', variant: 'secondary' },
@@ -915,7 +915,7 @@ function openDetail(id: string, container: HTMLElement): void {
       const them = n === 1 ? 'it' : 'them';
       showDialog({
         title: `Delete ${opp.name}?`,
-        body: `Their games and scouting maps will be removed. You have ${n} prepared line${n === 1 ? '' : 's'} tagged “vs ${opp.name}” — keep ${them} in My Lines, or delete ${them} too?`,
+        body: `${opp.name}'s games and scouting maps will be removed. You have ${n} prepared line${n === 1 ? '' : 's'} tagged “vs ${opp.name}” — keep ${them} in My Lines, or delete ${them} too?`,
         buttons: [
           { label: `Keep my ${n} line${n === 1 ? '' : 's'}`, variant: 'primary', onClick: () => removeOpponent(false) },
           { label: 'Delete the lines too', variant: 'danger', onClick: () => removeOpponent(true) },
@@ -952,7 +952,7 @@ function openDetail(id: string, container: HTMLElement): void {
 
     // 4) Their most-played openings — one list with an All / White / Black
     //    filter (mirrors My Lines), rather than two split colour sections.
-    bodyWrap.appendChild(openingsSection(stats, prepare));
+    bodyWrap.appendChild(openingsSection(opp, stats, prepare));
 
     overlay.appendChild(bodyWrap);
     document.body.appendChild(overlay);
@@ -972,22 +972,42 @@ function reportSection(opp: Opponent, stats: OpeningStat[], prepare: PrepareFn):
   const section = document.createElement('div');
   section.className = 'section';
 
-  const head = document.createElement('div');
-  head.className = 'section-head';
+  // Collapsed by default — this section doubles the W-D-L bar already shown
+  // on the roster card, so it's detail you opt into, not a first read.
+  const head = document.createElement('button');
+  head.type = 'button';
+  head.className = 'section-head section-head--toggle';
+  head.setAttribute('aria-expanded', 'false');
   const h = document.createElement('h2');
   h.className = 'section-title';
-  h.textContent = 'Their results';
+  h.textContent = `What to play against ${opp.name}`;
   head.appendChild(h);
+  const chev = document.createElement('span');
+  chev.className = 'section-toggle-chev';
+  chev.setAttribute('aria-hidden', 'true');
+  chev.appendChild(Icons.chevronRight(18));
+  head.appendChild(chev);
   section.appendChild(head);
 
+  const body = document.createElement('div');
+  body.className = 'section-toggle-body';
+  body.hidden = true;
+  section.appendChild(body);
+
+  head.addEventListener('click', () => {
+    const open = body.hidden;
+    body.hidden = !open;
+    head.setAttribute('aria-expanded', String(open));
+  });
+
   const summary = opponentSummary(opp);
-  section.appendChild(wdlBlock({
+  body.appendChild(wdlBlock({
     wins: summary.wins,
     draws: summary.draws,
     losses: summary.losses,
     scorePct: summary.scorePct,
     games: summary.games,
-  }));
+  }, `${opp.name}'s results`));
 
   // Only recognised families with a real sample of their games count — fewer is
   // noise, not a tendency.
@@ -996,7 +1016,7 @@ function reportSection(opp: Opponent, stats: OpeningStat[], prepare: PrepareFn):
     const empty = document.createElement('p');
     empty.className = 'section-desc scout-report-empty';
     empty.textContent = 'Not enough games for a report yet — import more.';
-    section.appendChild(empty);
+    body.appendChild(empty);
     return section;
   }
 
@@ -1013,8 +1033,8 @@ function reportSection(opp: Opponent, stats: OpeningStat[], prepare: PrepareFn):
   filter.element.querySelector('.fbar-top')?.appendChild(
     buildRankSeg(rank, r => { rank = r; localStorage.setItem(REPORT_RANK_KEY, r); rebuildList(); }),
   );
-  section.appendChild(filter.element);
-  section.appendChild(list);
+  body.appendChild(filter.element);
+  body.appendChild(list);
 
   function rebuildList(): void {
     list.innerHTML = '';
@@ -1232,7 +1252,7 @@ function visualizeOpponentSection(opp: Opponent, prepare: PrepareFn): HTMLElemen
   const openBrowser = (colour: 'white' | 'black'): void => {
     openBoardExplorer({
       statsTree: buildMoveStats(opp.games, colour, MAP_MAX_PLIES),
-      caption: 'their results',
+      caption: `${opp.name}'s results`,
       colour,
       // Face the board from MY answering side (the opposite of their colour),
       // with their avatar/name on top and "You" below.
@@ -1272,7 +1292,7 @@ function visualizeOpponentSection(opp: Opponent, prepare: PrepareFn): HTMLElemen
         },
         // Per-move W/D/L from THEIR perspective (the scouted user was "me" at
         // import), built to the deep limit so the deeper view has stats too.
-        stats: { tree: buildMoveStats(opp.games, colour, MAP_MAX_PLIES), caption: 'their results', games: opp.games },
+        stats: { tree: buildMoveStats(opp.games, colour, MAP_MAX_PLIES), caption: `${opp.name}'s results`, games: opp.games },
         // Preview the position from MY answering side, with their avatar/name.
         perspective: {
           you: colour === 'white' ? 'black' : 'white',
@@ -1282,7 +1302,7 @@ function visualizeOpponentSection(opp: Opponent, prepare: PrepareFn): HTMLElemen
       },
     );
   };
-  entries.appendChild(mapEntryBtn(Icons.search(24), 'Their games tree',
+  entries.appendChild(mapEntryBtn(Icons.search(24), `${opp.name}'s games tree`,
     `${opp.gamesAnalysed} game${opp.gamesAnalysed === 1 ? '' : 's'}`, () => openTree(start), 'discrete'));
 
   return section;
@@ -1315,14 +1335,14 @@ function sortStats(stats: OpeningStat[], mode: string): OpeningStat[] {
 // Their most-played openings — both colours in one list, filtered by an
 // All / White / Black segment and a sort menu (the shared filter bar, mirroring
 // My Lines). Top-N per filter, with a "Show all" reveal.
-function openingsSection(stats: OpeningStat[], prepare: PrepareFn): HTMLElement {
+function openingsSection(opp: Opponent, stats: OpeningStat[], prepare: PrepareFn): HTMLElement {
   const section = document.createElement('div');
   section.className = 'section';
   const head = document.createElement('div');
   head.className = 'section-head';
   const h = document.createElement('h2');
   h.className = 'section-title';
-  h.textContent = 'Their openings';
+  h.textContent = `${opp.name}'s openings`;
   head.appendChild(h);
   if (stats.length > 0) {
     const m = document.createElement('span');
