@@ -681,6 +681,8 @@ header h1.header-title--screen {
    takes the slot) and on the Settings screen itself. */
 
 .nav-settings {
+  position: relative;
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -695,6 +697,20 @@ header h1.header-title--screen {
   -webkit-tap-highlight-color: transparent;
   flex-shrink: 0;
   transition: background 0.12s, color 0.12s;
+}
+
+/* Your Chess.com picture, layered over the generic user SVG when connected. */
+.nav-settings-avatar {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 999px;
+}
+
+.nav-settings--avatar > svg {
+  display: none;
 }
 
 .nav-settings[hidden] {
@@ -4473,6 +4489,9 @@ cg-board square.move-dest.oc {
 }
 
 .games-refresh-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   font-size: 0.76rem;
   color: var(--text-faint);
 }
@@ -4614,6 +4633,64 @@ cg-board square.move-dest.oc {
   background: color-mix(in srgb, var(--wrong, #c0531f) 12%, transparent);
   border-radius: 8px;
   padding: 0.55rem 0.7rem;
+}
+
+/* ── Full-screen import loader (import scan, see import-progress.ts) ─────────── */
+
+.import-loader {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-page);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 400; /* above the import bottom-sheet (.edit-overlay/.edit-sheet, 300) */
+  padding: env(safe-area-inset-top, 0) 1.5rem 0;
+  overscroll-behavior: contain;
+}
+
+.import-loader-card {
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.import-loader-avatar {
+  width: 72px;
+  height: 72px;
+}
+
+.import-loader-avatar[hidden] {
+  display: none;
+}
+
+.import-loader-avatar-img {
+  width: 72px;
+  height: 72px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  animation: import-loader-avatar-in 0.25s ease;
+}
+
+@keyframes import-loader-avatar-in {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.import-loader .pawn-progress {
+  width: 100%;
+}
+
+.import-loader-status {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin: 0;
+  min-height: 1.2em;
 }
 
 /* ── Pixel-pawn progress bar (import scan, see import-progress.ts) ───────────── */
@@ -4765,7 +4842,7 @@ cg-board square.move-dest.oc {
 
 .settings-connected-who {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   flex-wrap: wrap;
   gap: 0.4rem;
 }
@@ -7329,6 +7406,15 @@ cg-board square.move-dest.oc {
   margin-top: var(--space-sm);
 }
 .intro-import-btn { width: 100%; }
+
+/* Post-import welcome state on the final slide: picture + greeting + Start. */
+.intro-welcome-greet {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+  text-align: center;
+}
 
 .intro-skip-link {
   background: none;

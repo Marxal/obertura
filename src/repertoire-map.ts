@@ -17,6 +17,7 @@ import { pushBack } from './back-nav';
 import { statScorePct, topReply, type StatNode } from './move-stats';
 import { wdlScoreRow } from './wdl-bar';
 import type { ImportedGame } from './import-core';
+import { getGamesSource } from './import-panel';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 const NS = 'http://www.w3.org/2000/svg';
@@ -424,8 +425,11 @@ function rmapPlayerStrip(who: { name: string; avatarUrl?: string } | undefined |
   strip.className = 'rmap-player' + (who === 'you' ? ' rmap-player--you' : '');
 
   const isYou = who === 'you';
-  const name = isYou ? 'You' : (who?.name ?? 'Opponent');
-  const url = isYou ? undefined : who?.avatarUrl;
+  // "You" reads your connected identity (handle for either platform, picture for
+  // Chess.com only) so the near strip matches the board browser.
+  const me = isYou ? getGamesSource() : null;
+  const name = isYou ? (me?.username ? `@${me.username}` : 'You') : (who?.name ?? 'Opponent');
+  const url = isYou ? me?.avatarUrl : who?.avatarUrl;
 
   if (url) {
     const img = document.createElement('img');

@@ -37,6 +37,7 @@ import {
 import {
   getUsername as getChesscomUser,
   setUsername as setChesscomUser,
+  fetchAvatar,
 } from './chesscom';
 import {
   getUsername as getLichessUser,
@@ -44,7 +45,7 @@ import {
 } from './lichess';
 import { clearGames, saveGames, countGames } from './storage';
 import { pushBack } from './back-nav';
-import { createPawnProgress } from './import-progress';
+import { createImportLoader, type ImportLoader } from './import-progress';
 import { showToast } from './toast';
 
 // ── Remembered choices (device-local) ────────────────────────────────────────
@@ -87,6 +88,17 @@ export interface GamesSource {
   username: string;
   syncedAt: string; // ISO
   count: number;
+  // Your Chess.com profile picture, when you have one. Undefined for Lichess
+  // (no public avatar) or when the lookup turns up nothing.
+  avatarUrl?: string;
+}
+
+// Fired whenever the connected account changes (a my-games import or an
+// auto-refresh) so the header settings button and any open surface can refresh
+// the picture without re-fetching. main.ts listens for it.
+export const IDENTITY_CHANGED_EVENT = 'obertura:identity-changed';
+function announceIdentityChange(): void {
+  try { window.dispatchEvent(new CustomEvent(IDENTITY_CHANGED_EVENT)); } catch { /* SSR/no window */ }
 }
 
 export function getGamesSource(): GamesSource | null {
@@ -134,7 +146,13 @@ export async function mergeRefreshedGames(newGames: ImportedGame[]): Promise<voi
   if (newGames.length) await saveGames(newGames); // put() dedupes by id
   const source = getGamesSource();
   if (source) {
-    setGamesSource({ ...source, syncedAt: now, count: await countGames() });
+    // Re-fetch the picture so a newly-set Chess.com avatar shows up after an
+    // auto-refresh; keep the one we had if the lookup turns up nothing.
+    const avatarUrl =
+      (source.platform === 'chesscom' ? await fetchAvatar(source.username) : undefined) ??
+      source.avatarUrl;
+    setGamesSource({ ...source, syncedAt: now, count: await countGames(), avatarUrl });
+    announceIdentityChange();
   }
   setLastGamesRefresh(now);
 }
@@ -145,7 +163,7 @@ export async function mergeRefreshedGames(newGames: ImportedGame[]): Promise<voi
 // (Opponent scouting will later sink elsewhere; today every caller is "my games".)
 export async function saveMyGames(
   games: ImportedGame[],
-  meta: { platform: Platform; username: string },
+  meta: { platform: Platform; username: string; avatarUrl?: string },
 ): Promise<void> {
   const now = new Date().toISOString();
   await clearGames();
@@ -155,9 +173,12 @@ export async function saveMyGames(
     username: meta.username,
     syncedAt: now,
     count: games.length,
+    avatarUrl: meta.avatarUrl,
   });
   // A manual import counts as a refresh — reset the weekly auto-refresh window.
   setLastGamesRefresh(now);
+  // Update the header picture / "you" strips for the new account.
+  announceIdentityChange();
 }
 
 // ── Range chooser ─────────────────────────────────────────────────────────────
@@ -216,7 +237,7 @@ export interface ImportPanelOptions {
   rememberUser?: boolean;
   // Where to persist the chosen games. Defaults to saveMyGames (replace "my
   // games"); opponent scouting passes its own sink.
-  save?: (games: ImportedGame[], meta: { platform: Platform; username: string }) => Promise<void>;
+  save?: (games: ImportedGame[], meta: { platform: Platform; username: string; avatarUrl?: string }) => Promise<void>;
   // Run after a successful import (games already saved): re-render badges etc.
   onImported?: (count: number) => void;
 }
@@ -227,6 +248,20 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
   let scan: ImportResult | null = null;
   let count: CountChoice = DEFAULT_COUNT;
   const selected = new Set<TimeClass>();
+
+  // The full-screen scan loader (mounted only while a scan is running) and the
+  // picture it found, captured here so the Import click can persist it.
+  let loader: ImportLoader | null = null;
+  let removeLoaderBack: (() => void) | null = null;
+  let scanCancelled = false;
+  let scannedAvatarUrl: string | undefined;
+
+  function unmountLoader(): void {
+    loader?.remove();
+    loader = null;
+    removeLoaderBack?.();
+    removeLoaderBack = null;
+  }
 
   // ── Shell ──
   const overlay = document.createElement('div');
@@ -249,6 +284,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     if (closed) return;
     closed = true;
     clearTimeout(hideBarTimer);
+    unmountLoader();
     vv?.removeEventListener('resize', syncKeyboardInset);
     vv?.removeEventListener('scroll', syncKeyboardInset);
     overlay.remove();
@@ -342,24 +378,17 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
   reflectRange();
   step1.appendChild(field('How far back', rangeRow));
 
-  // Scan button + progress.
+  // Scan button — the progress itself takes over the whole screen (the import
+  // loader, mounted in runScan) rather than living inline in the sheet.
   const scanBtn = document.createElement('button');
   scanBtn.type = 'button';
   scanBtn.className = 'btn-primary import-scan-btn';
   scanBtn.textContent = 'Scan';
-  const scanStatus = document.createElement('p');
-  scanStatus.className = 'import-status';
-  scanStatus.setAttribute('aria-live', 'polite');
-  // The little pixel pawn marching along while we fetch. Hidden until a scan
-  // starts; the status line below it carries the same progress as text.
-  const pawnProgress = createPawnProgress();
   scanBtn.addEventListener('click', runScan);
   step1.appendChild(scanBtn);
-  step1.appendChild(pawnProgress.el);
-  step1.appendChild(scanStatus);
 
   // Holds the brief "leave the finished bar up for a beat" timer between a
-  // successful scan and the bar fading out as step 2 appears.
+  // successful scan and the loader handing off to step 2.
   let hideBarTimer: ReturnType<typeof setTimeout> | undefined;
 
   sheet.appendChild(step1);
@@ -378,12 +407,13 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     scan = null;
     count = DEFAULT_COUNT;
     selected.clear();
+    scanCancelled = false;
+    scannedAvatarUrl = undefined;
     step1.hidden = false;
     step2.hidden = true;
     step2.innerHTML = '';
-    scanStatus.textContent = '';
     clearTimeout(hideBarTimer);
-    pawnProgress.hide();
+    unmountLoader();
     // Bring the prominent Scan button back: editing step 1 invalidates the scan,
     // so the obvious next action is to scan again (step 2 hides its quiet link).
     scanBtn.hidden = false;
@@ -399,34 +429,62 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     if (opts.rememberUser !== false) setLastPlatform(platform);
     scanBtn.disabled = true;
     scanBtn.textContent = 'Scanning…';
-    scanStatus.textContent = 'Looking up your games…';
-    // Walk the pawn while we wait. "All" reaches an unknown end (the 1000-game
-    // cap can trip in any month), so it stays indeterminate; the fixed ranges
-    // switch to a proportional fill on the first progress with a real total.
+
+    // The scan takes over the whole screen. "All" reaches an unknown end (the
+    // 1000-game cap can trip in any month), so it stays indeterminate; the fixed
+    // ranges switch to a proportional fill on the first progress with a real
+    // total.
     const indeterminate = range === 'all';
-    pawnProgress.start();
+    loader = createImportLoader();
+    loader.start(indeterminate);
+    loader.setStatus('Looking up your games…');
+    document.body.appendChild(loader.el);
+    // The system back gesture dismisses the loader and returns to step 1; the
+    // in-flight fetch resolves into a closed loader harmlessly (scanCancelled
+    // skips the step-2 hand-off).
+    removeLoaderBack = pushBack(() => {
+      scanCancelled = true;
+      unmountLoader();
+      scanBtn.disabled = false;
+      scanBtn.textContent = 'Scan';
+    });
+
+    // Fetch your Chess.com picture alongside the scan and fade it into the
+    // loader the moment it lands. Only for *your* games (scouting handles its
+    // own avatar); Lichess has no public picture.
+    if (platform === 'chesscom' && opts.rememberUser !== false) {
+      void fetchAvatar(user).then((url) => {
+        if (!url) return;
+        scannedAvatarUrl = url;
+        loader?.setAvatar(url);
+      });
+    }
+
     try {
       const result = await importGames(platform, user, {
         months: rangeMonths(range),
         onProgress: (p) => {
-          scanStatus.textContent = p.monthsTotal > 1
+          loader?.setStatus(p.monthsTotal > 1
             ? `Scanning ${p.label} (${p.monthsDone}/${p.monthsTotal}) — ${p.gamesSoFar} games so far…`
-            : `${p.gamesSoFar} games so far…`;
-          if (!indeterminate && p.monthsTotal > 1) pawnProgress.set(p.monthsDone / p.monthsTotal);
+            : `${p.gamesSoFar} games so far…`);
+          if (!indeterminate && p.monthsTotal > 1) loader?.set(p.monthsDone / p.monthsTotal);
         },
       });
+      if (scanCancelled) return; // backed out mid-scan — drop the result quietly
       scan = result;
       if (opts.rememberUser !== false) saveUsername(platform, user); // remember for next time
-      scanStatus.textContent = '';
-      // Snap the pawn home, hold the finished bar for a beat, then let it fade as
-      // step 2's "Found N games" takes over.
-      pawnProgress.done();
-      hideBarTimer = setTimeout(() => pawnProgress.hide(), 650);
-      buildStep2(result);
+      // Snap the pawn home, hold the finished bar for a beat, then let the loader
+      // hand off to step 2's "Found N games".
+      loader?.done();
+      hideBarTimer = setTimeout(() => {
+        if (scanCancelled) return; // backed out during the hold
+        unmountLoader();
+        buildStep2(result);
+      }, 650);
     } catch (err) {
+      if (scanCancelled) return;
+      unmountLoader();
       showError(friendlyError(err, platform));
-      scanStatus.textContent = '';
-      pawnProgress.hide();
     } finally {
       scanBtn.disabled = false;
       scanBtn.textContent = 'Scan';
@@ -629,7 +687,11 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       importStatus.textContent = 'Saving to this device…';
       try {
         const persist = opts.save ?? saveMyGames;
-        await persist(games, { platform: result.platform, username: userInput.value.trim() });
+        await persist(games, {
+          platform: result.platform,
+          username: userInput.value.trim(),
+          avatarUrl: scannedAvatarUrl,
+        });
         close();
         showToast(
           `Imported ${games.length.toLocaleString()} game${games.length === 1 ? '' : 's'}`,

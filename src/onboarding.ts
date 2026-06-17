@@ -11,7 +11,8 @@
 // now" link both finish the intro and land the caller on Train.
 
 import { Icons } from './icons';
-import { openImportPanel } from './import-panel';
+import { openImportPanel, getGamesSource } from './import-panel';
+import { userAvatar } from './avatar';
 import { pushBack } from './back-nav';
 
 const INTRO_SEEN_KEY = 'obertura.introSeen';
@@ -151,7 +152,7 @@ export function showIntro(opts: IntroOptions = {}): void {
   importBtn.appendChild(Icons.download(16));
   importBtn.appendChild(document.createTextNode('Import my games'));
   importBtn.addEventListener('click', () => {
-    openImportPanel({ onImported: () => finish() });
+    openImportPanel({ onImported: () => showWelcome() });
   });
 
   const skipBtn = document.createElement('button');
@@ -163,6 +164,29 @@ export function showIntro(opts: IntroOptions = {}): void {
   actions.appendChild(importBtn);
   actions.appendChild(skipBtn);
   slideEls[slideEls.length - 1].appendChild(actions);
+
+  // After a successful import, the final slide turns into a short welcome: your
+  // picture (Chess.com) and handle, then a Start button into the app. Lichess /
+  // no picture shows the generic icon — and the handle still greets you by name.
+  function showWelcome(): void {
+    const source = getGamesSource();
+    actions.innerHTML = '';
+    actions.classList.add('intro-welcome');
+
+    actions.appendChild(userAvatar(source?.avatarUrl, 64));
+
+    const greet = document.createElement('p');
+    greet.className = 'intro-welcome-greet';
+    greet.textContent = source?.username ? `You’re all set, @${source.username}` : 'You’re all set';
+    actions.appendChild(greet);
+
+    const startBtn = document.createElement('button');
+    startBtn.type = 'button';
+    startBtn.className = 'btn-primary intro-import-btn';
+    startBtn.textContent = 'Start';
+    startBtn.addEventListener('click', () => finish());
+    actions.appendChild(startBtn);
+  }
 
   // ── Footer: Back · dots · Next ──
   const footer = document.createElement('div');

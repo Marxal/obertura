@@ -47,6 +47,7 @@ import { getAutoRefreshEnabled, setAutoRefreshEnabled, getLastGamesRefresh } fro
 import { clearTrainingDays, clearReviewedToday } from './streak';
 import { renderBackupSection, exportBackupNow } from './backup';
 import { Icons } from './icons';
+import { userAvatar } from './avatar';
 import { pushBack } from './back-nav';
 import { appendSelfTest } from './selftest-panel';
 import { openFeedbackSheet } from './feedback';
@@ -674,6 +675,8 @@ function buildUserGroup(gameCount: number, refresh: () => void): HTMLElement {
 
   const who = document.createElement('div');
   who.className = 'settings-connected-who';
+  // Your Chess.com picture (Lichess / no picture → generic icon).
+  who.appendChild(userAvatar(source.avatarUrl, 28));
   const handle = document.createElement('span');
   handle.className = 'settings-connected-handle';
   handle.textContent = source.username;
