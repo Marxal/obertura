@@ -62,6 +62,7 @@ import { runMoveStatsSelfTest } from './move-stats.selftest';
 import { runSchedulerSelfTest } from './scheduler.selftest';
 import { runAnalysisSelfTest } from './analysis.selftest';
 import { runExplorerApiSelfTest } from './explorer-api.selftest';
+import { runEngineSelfTest } from './engine.selftest';
 
 export function renderSettingsScreen(container: HTMLElement): void {
   container.innerHTML = '';
@@ -132,6 +133,7 @@ function buildDiagnosticsGroup(): HTMLElement {
   appendSelfTest(details, 'Run scheduler self-test', runSchedulerSelfTest, '[scheduler self-test]');
   appendSelfTest(details, 'Run analysis self-test', runAnalysisSelfTest, '[analysis self-test]');
   appendSelfTest(details, 'Run deeper-lines self-test', runExplorerApiSelfTest, '[explorer-api self-test]');
+  appendSelfTest(details, 'Run engine castling self-test', runEngineSelfTest, '[engine self-test]');
 
   sec.appendChild(details);
   return sec;
