@@ -467,6 +467,31 @@ body {
   letter-spacing: 0.08em;
 }
 
+/* A .section-head that's also a disclosure button — same layout, reset to
+   look like the plain div it replaces, with a chevron that rotates open. */
+.section-head--toggle {
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0 0 var(--space-md);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.section-toggle-chev {
+  flex: none;
+  display: inline-flex;
+  color: var(--text-fainter);
+  transition: transform 0.15s ease;
+}
+
+.section-head--toggle[aria-expanded="true"] .section-toggle-chev {
+  transform: rotate(90deg);
+}
+
 .section-meta {
   font-size: 0.7rem;
   color: var(--text-faint);

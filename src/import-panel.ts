@@ -719,7 +719,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
         const scorePct = Math.round(((s.wins + s.draws / 2) / n) * 100);
         wdlWrap.appendChild(wdlBlock(
           { wins: s.wins, draws: s.draws, losses: s.losses, scorePct, games: n },
-          isMine ? 'your results' : 'their results',
+          isMine ? 'your results' : `${userInput.value.trim()}'s results`,
         ));
       }
 
