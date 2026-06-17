@@ -44,7 +44,7 @@ import {
 } from './streak';
 import { renderLoadError } from './load-error';
 import { buildPositionCard, colourPip, lineFinalFen } from './card-position';
-import { burstConfetti, starfall } from './confetti';
+import { burstConfetti, starfall, celebratePawn } from './confetti';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -1262,7 +1262,17 @@ function renderIndividualComplete(
 
   appendReviewActions(wrap, container, mistakes);
 
+  celebrate(wrap);
   container.appendChild(wrap);
+}
+
+// Give a finished-screen panel its playful send-off: the hopping pixel pawn at
+// the top, and a staggered entrance for everything beneath it. Call this once
+// the panel's content is built (the pawn is prepended, so it leads the stagger).
+// Shared by every completion screen so they all feel of a piece.
+function celebrate(wrap: HTMLElement): void {
+  wrap.prepend(celebratePawn());
+  wrap.classList.add('train-completion--enter');
 }
 
 // A correct/missed stat pair, shared by the round and session screens.
@@ -1350,6 +1360,7 @@ function renderRoundScreen(
   close.addEventListener('click', () => void doRender(container));
   wrap.appendChild(close);
 
+  celebrate(wrap);
   container.appendChild(wrap);
 
   // A gentle reward — lighter than the finish-line confetti.
@@ -1488,6 +1499,7 @@ function renderSessionComplete(container: HTMLElement, stats: SessionStats): voi
 
   appendReviewActions(wrap, container, stats.mistakes);
 
+  celebrate(wrap);
   container.appendChild(wrap);
 
   // Celebrate a genuinely-finished session (at least one line reviewed) with the
@@ -1583,6 +1595,7 @@ function renderReviewComplete(
 
   appendReviewActions(wrap, container, again);
 
+  celebrate(wrap);
   container.appendChild(wrap);
 }
 
@@ -1724,5 +1737,6 @@ function renderTimedComplete(
   close.addEventListener('click', () => void doRender(container));
   wrap.appendChild(close);
 
+  celebrate(wrap);
   container.appendChild(wrap);
 }

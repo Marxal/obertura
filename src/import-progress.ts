@@ -13,21 +13,7 @@
 // prefers-reduced-motion is honoured in CSS: no walking, no marching legs — just
 // a calm static bar.
 
-// Blocky pixel pawn: a stack of rects on a 16×18 grid. The two feet carry a
-// class so CSS can bob them alternately for the "marching" look; everything is
-// currentColor so the bar themes itself from --accent.
-const PAWN_SVG = `
-<svg class="pawn-progress-pawn-svg" viewBox="0 0 16 18" width="16" height="18" aria-hidden="true" focusable="false">
-  <rect x="5" y="0" width="6" height="3"/>
-  <rect x="4" y="3" width="8" height="3"/>
-  <rect x="6" y="6" width="4" height="2"/>
-  <rect x="4" y="8" width="8" height="2"/>
-  <rect x="3" y="10" width="10" height="2"/>
-  <rect x="5" y="12" width="6" height="2"/>
-  <rect x="2" y="14" width="12" height="2"/>
-  <rect class="pawn-foot pawn-foot--l" x="2" y="16" width="5" height="2"/>
-  <rect class="pawn-foot pawn-foot--r" x="9" y="16" width="5" height="2"/>
-</svg>`;
+import { pixelPawnSvg } from './pixel-pawn';
 
 export interface PawnProgress {
   // The element to drop into the DOM. Hidden until start().
@@ -57,7 +43,7 @@ export function createPawnProgress(): PawnProgress {
   rail.className = 'pawn-progress-rail';
   const pawn = document.createElement('div');
   pawn.className = 'pawn-progress-pawn';
-  pawn.innerHTML = PAWN_SVG;
+  pawn.innerHTML = pixelPawnSvg('pawn-progress-pawn-svg');
   rail.appendChild(pawn);
 
   const track = document.createElement('div');

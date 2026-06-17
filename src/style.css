@@ -3377,6 +3377,74 @@ cg-board square.move-dest.oc {
   100% { transform: translate(var(--drift, 12px), 120%); opacity: 0; }
 }
 
+/* ── Finish-screen celebration ─────────────────────────────────────────────────
+   The pixel-pawn mascot (shared with the import bar, see pixel-pawn.ts) hops at
+   the top of every completion panel, and the content beneath rises in with a
+   gentle stagger. Both honour prefers-reduced-motion below. */
+
+.celebrate-pawn {
+  color: var(--accent);
+  line-height: 0;
+  /* Drop in first, then hand off to the looping hop on the inner svg. */
+  animation: celebrate-pawn-drop 420ms cubic-bezier(0.2, 0.7, 0.3, 1) backwards;
+}
+
+.celebrate-pawn-svg {
+  display: block;
+  width: 44px;
+  height: 50px;
+  transform-origin: bottom center;
+  /* crispEdges keeps the blocky 8-bit feel; currentColor themes it from --accent. */
+  shape-rendering: crispEdges;
+  /* Start hopping once the drop-in has landed. */
+  animation: celebrate-pawn-hop 1.05s cubic-bezier(0.3, 0, 0.35, 1) 420ms infinite;
+}
+.celebrate-pawn-svg rect { fill: currentColor; }
+
+@keyframes celebrate-pawn-drop {
+  from { opacity: 0; transform: translateY(-14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* A bouncy hop with a touch of anticipation/landing squash for the cartoon feel. */
+@keyframes celebrate-pawn-hop {
+  0%, 100% { transform: translateY(0) scaleY(1)    scaleX(1); }
+  12%      { transform: translateY(0) scaleY(0.88) scaleX(1.1); }
+  40%      { transform: translateY(-15px) scaleY(1.08) scaleX(0.94); }
+  68%      { transform: translateY(0) scaleY(0.9)  scaleX(1.08); }
+  82%      { transform: translateY(0) scaleY(1)    scaleX(1); }
+}
+
+/* Staggered entrance for the panel's content. The pawn is child 1 (its own
+   animation), so the content stack starts at child 2. backwards keeps each
+   element hidden through its delay rather than flashing in first. */
+.train-completion--enter > *:not(.celebrate-pawn):not(.confetti-layer):not(.starfall-layer) {
+  animation: completion-rise 460ms cubic-bezier(0.2, 0.7, 0.3, 1) backwards;
+}
+.train-completion--enter > *:nth-child(2) { animation-delay: 70ms; }
+.train-completion--enter > *:nth-child(3) { animation-delay: 120ms; }
+.train-completion--enter > *:nth-child(4) { animation-delay: 170ms; }
+.train-completion--enter > *:nth-child(5) { animation-delay: 220ms; }
+.train-completion--enter > *:nth-child(6) { animation-delay: 270ms; }
+.train-completion--enter > *:nth-child(7) { animation-delay: 320ms; }
+.train-completion--enter > *:nth-child(n+8) { animation-delay: 360ms; }
+
+@keyframes completion-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Keep the pawn (it's content), drop the motion: no drop-in, no hop, no rise. */
+  .celebrate-pawn,
+  .celebrate-pawn-svg,
+  .train-completion--enter > * {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* ── Train screen ──────────────────────────────────────────────────────────── */
 
 #view-train {
