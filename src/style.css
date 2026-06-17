@@ -451,6 +451,14 @@ body {
   border-radius: 14px;
 }
 
+/* The opponent quick-report accordion: a visible card border (the same
+   weight used for opening cards) instead of the faint shared .section
+   border, so it stands apart from the plain section right after it. */
+.scout-report-box {
+  background: var(--bg-card);
+  border-color: var(--border-card);
+}
+
 .section-head {
   display: flex;
   align-items: baseline;
