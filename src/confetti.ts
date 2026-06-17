@@ -6,7 +6,23 @@
 // Honours prefers-reduced-motion: if the user asked for less motion, nothing is
 // shown at all.
 
+import { pixelPawnSvg } from './pixel-pawn';
+
 const CONFETTI_COLORS = ['#c07a2a', '#2d7d3e', '#e8c14a', '#d4633f', '#5b8fb0', '#f5ede0'];
+
+// The little pixel-pawn mascot, hopping to celebrate a finished round. Returns
+// the element so the caller can place it at the top of the completion panel.
+//
+// Unlike the confetti, the pawn always shows — it's part of the screen's
+// content, not just sparkle. Reduced-motion just stills the hop (handled in CSS)
+// so it stands there calmly instead.
+export function celebratePawn(): HTMLElement {
+  const el = document.createElement('div');
+  el.className = 'celebrate-pawn';
+  el.setAttribute('aria-hidden', 'true');
+  el.innerHTML = pixelPawnSvg('celebrate-pawn-svg');
+  return el;
+}
 
 export function burstConfetti(target: HTMLElement): void {
   // Respect users who'd rather not have motion.
