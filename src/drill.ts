@@ -75,10 +75,9 @@ export interface DrillOptions {
   // Full-line training sessions only. Drives the session-level progress bar at
   // the top of the overlay: how far through the whole session we are. The dots
   // near the board track moves WITHIN this line; this bar tracks lines ACROSS
-  // the session. `completed` = first-pass lines finished before this one;
-  // `total` = lines the session started with; `isResurface` = this is a repeat
-  // of a missed line (reinforcement), so it doesn't advance the bar.
-  sessionProgress?: { completed: number; total: number; isResurface: boolean };
+  // the session. `completed` = lines finished before this one; `total` = lines
+  // the session started with.
+  sessionProgress?: { completed: number; total: number };
 }
 
 // A single ply to auto-play (animated) between the user's moves.
@@ -350,12 +349,12 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   }
 
   // Full-line bar: `completed` lines are behind us (0..total). The caption reads
-  // "Line X of Y" on a fresh line, or "Second look" on a resurfaced repeat.
+  // "Line X of Y".
   function renderSessionBar(completed: number): void {
     if (!sp) return;
     paintSessionBar(
       completed / sp.total,
-      sp.isResurface ? 'Second look' : `Line ${Math.min(completed + 1, sp.total)} of ${sp.total}`,
+      `Line ${Math.min(completed + 1, sp.total)} of ${sp.total}`,
     );
   }
 
@@ -1112,9 +1111,8 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     }
 
     setStatus(opts.completeMessage ?? 'Line complete', 'pt-status--success');
-    // Fill this line's notch on the session bar before we hand off — a fresh line
-    // advances it; a resurfaced repeat is reinforcement, so it holds where it was.
-    if (showLineBar && sp && !sp.isResurface) renderSessionBar(sp.completed + 1);
+    // Fill this line's notch on the session bar before we hand off.
+    if (showLineBar && sp) renderSessionBar(sp.completed + 1);
     // Single-move modes: top the bar off — every position is behind us now.
     if (showPositionBar) renderPositionBar(tasks.length);
     if (opts.celebrateOnComplete) burstConfetti(boardWrap);

@@ -5,7 +5,6 @@ import {
   gradeReview,
   qualityFromMisses,
   isReviewDue,
-  resurfaceGap,
   dueLines,
   lineIsDue,
   MIN_EASE,
@@ -119,14 +118,6 @@ export function runSchedulerSelfTest(): TestResult[] {
     `1 miss → ${oneMiss.toFixed(2)} ease, repeated → ${badMiss.toFixed(2)} ease`
   );
 
-  // 8. Resurface gap is in 3–8 and shrinks as misses grow.
-  const g1 = resurfaceGap(1), g2 = resurfaceGap(2), g4 = resurfaceGap(4), g9 = resurfaceGap(9);
-  check(
-    'resurface gap is 3–8 and tightens with misses',
-    g1 === 8 && g2 < g1 && g4 <= g2 && g9 >= 3 && g1 <= 8,
-    `gaps: 1→${g1}, 2→${g2}, 4→${g4}, 9→${g9}`
-  );
-
   // 9. dueLines / lineIsDue: a line with one overdue move is due; a line whose
   //    moves are all far in the future is not.
   const dueLine = makeLine([-1, 10], now);   // first user move overdue by a day
@@ -141,19 +132,15 @@ export function runSchedulerSelfTest(): TestResult[] {
     `due lines: [${due.map(l => l.id).join(', ')}]`
   );
 
-  // 10. Session resurfacing: a missed line comes back later, then stops at the cap.
-  const session = new TrainingSession([dueLine], { now, explicit: true, maxResurface: 2 });
-  const first = session.next();
-  const reA = session.resurface(dueLine, 1); // 1st resurface (allowed)
-  const requeuedLen = session.remaining;
-  session.next();
-  const reB = session.resurface(dueLine, 1); // 2nd resurface (allowed)
-  session.next();
-  const reC = session.resurface(dueLine, 1); // 3rd (over cap → refused)
+  // 10. A session walks each line once, then ends — no resurfacing.
+  const session = new TrainingSession([dueLine, restedLine], { explicit: true });
+  const startCount = session.initialCount;
+  const walked: string[] = [];
+  for (let item = session.next(); item; item = session.next()) walked.push(item.line.id);
   check(
-    'missed line resurfaces, capped so the session ends',
-    first?.line.id === 'L' && reA === true && requeuedLen === 1 && reB === true && reC === false,
-    `requeued=${reA}/${reB}, over-cap refused=${!reC}`
+    'session yields each line once, then ends',
+    startCount === 2 && walked.length === 2 && walked[0] === 'L' && walked[1] === 'R' && session.isEmpty(),
+    `walked: [${walked.join(', ')}]`
   );
 
   return results;

@@ -1,46 +1,33 @@
 import type { Line } from './types';
-import { dueLines, resurfaceGap } from './scheduler';
+import { dueLines } from './scheduler';
 
 // ── A training session ──────────────────────────────────────────────────────────
 //
-// A session is an ordered queue of lines to walk today. It starts as the set of
-// due lines, and it grows: when you miss moves in a line, that line is
-// re-inserted a few positions later so the shaky material comes back before you
-// finish. The more you've missed a line across the session, the sooner it
-// returns (see resurfaceGap). A per-line cap stops a stubborn line from looping
-// forever, so every session terminates.
+// A session is an ordered queue of lines to walk today, once each. It starts as
+// the set of due lines (or an explicit list) and only shrinks as you work
+// through it. Missed material isn't replayed here — it's handled at the end by
+// the "Try your mistakes again" review (failed positions only) and by the
+// scheduler bringing the move back due sooner.
 //
 // No DOM here — the queue logic stands alone and is covered by the self-test.
 
 export interface SessionItem {
   line: Line;
-  // false on a line's first appearance; true when it has been resurfaced after
-  // a miss. The driver grades moves only on the first pass; resurfaced passes
-  // are pure reinforcement and don't touch the schedule.
-  isResurface: boolean;
 }
 
 export class TrainingSession {
   private queue: SessionItem[] = [];
-  private resurfaceCount = new Map<string, number>();
-  private cumulativeMisses = new Map<string, number>();
-  readonly maxResurface: number;
-  // How many lines the session started with (first-pass lines only, before any
-  // resurfacing). The denominator for the session-level "Line X of Y" progress
-  // bar — resurfaced reviews are bonus reinforcement and don't inflate it.
+  // How many lines the session started with — the denominator for the
+  // session-level "Line X of Y" progress bar.
   readonly initialCount: number;
 
   // Build from a pool of lines (only the due ones are queued), or pass an
   // explicit list of lines to force into the queue (used for single-line
   // practice, where you may want to drill a line that isn't strictly due yet).
-  constructor(
-    lines: Line[],
-    opts: { now?: Date; explicit?: boolean; maxResurface?: number } = {}
-  ) {
+  constructor(lines: Line[], opts: { now?: Date; explicit?: boolean } = {}) {
     const now = opts.now ?? new Date();
-    this.maxResurface = opts.maxResurface ?? 3;
     const initial = opts.explicit ? lines : dueLines(lines, now);
-    this.queue = initial.map(line => ({ line, isResurface: false }));
+    this.queue = initial.map(line => ({ line }));
     this.initialCount = this.queue.length;
   }
 
@@ -59,22 +46,5 @@ export class TrainingSession {
 
   next(): SessionItem | null {
     return this.queue.shift() ?? null;
-  }
-
-  // Re-insert a missed line later in the queue. `missesThisPass` is how many
-  // distinct moves were missed on the pass that just finished. Returns true if
-  // the line was actually re-queued (false once the per-line cap is hit).
-  resurface(line: Line, missesThisPass: number): boolean {
-    const used = this.resurfaceCount.get(line.id) ?? 0;
-    if (used >= this.maxResurface) return false;
-    this.resurfaceCount.set(line.id, used + 1);
-
-    const total = (this.cumulativeMisses.get(line.id) ?? 0) + missesThisPass;
-    this.cumulativeMisses.set(line.id, total);
-
-    const gap = resurfaceGap(total);
-    const pos = Math.min(gap, this.queue.length);
-    this.queue.splice(pos, 0, { line, isResurface: true });
-    return true;
   }
 }
