@@ -325,7 +325,7 @@ export function createLibraryExplorer(
         msg.className = 'bx-empty';
         msg.textContent = res.reason === 'rate-limited'
           ? 'Couldn’t load deeper lines — Lichess is rate-limiting. Try again shortly.'
-          : 'Couldn’t load deeper lines — offline or unavailable.';
+          : `Couldn’t load deeper lines — offline or unavailable${res.detail ? ` (${res.detail})` : ''}.`;
         list.appendChild(msg);
         return;
       }

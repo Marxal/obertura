@@ -17,7 +17,7 @@
 // explorer-api.selftest.ts.
 
 const HOST = 'https://explorer.lichess.ovh/masters';
-const TIMEOUT_MS = 6000;
+const TIMEOUT_MS = 12000; // the masters DB is slower than the games DB, esp. cold
 const MAX_MOVES = 12; // how many continuations to ask for
 const TOP_GAMES = 10; // how many real master games to show for the position
 
@@ -41,9 +41,11 @@ export interface ExplorerGame {
 }
 
 // A typed outcome so the UI can show the right message without try/catch.
+// `detail` carries the real failure cause (HTTP status / error name) so a stuck
+// request can be diagnosed from the phone, where the live call actually runs.
 export type ExplorerResult =
   | { ok: true; moves: ExplorerMove[]; games: ExplorerGame[] }
-  | { ok: false; reason: 'offline' | 'rate-limited' };
+  | { ok: false; reason: 'offline' | 'rate-limited'; detail?: string };
 
 // Pure parser, split out so it can be unit-tested offline. Defensive about the
 // shape: anything unexpected just yields no moves rather than throwing.
@@ -113,23 +115,23 @@ export async function deeperMoves(fen: string): Promise<ExplorerResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const url = new URL(HOST);
-    url.searchParams.set('fen', fen);
-    url.searchParams.set('moves', String(MAX_MOVES));
-    url.searchParams.set('topGames', String(TOP_GAMES));
+    // Build the query by hand: URLSearchParams encodes spaces as "+", which the
+    // masters endpoint rejects inside a FEN. encodeURIComponent uses %20, which
+    // it decodes correctly.
+    const url = `${HOST}?fen=${encodeURIComponent(fen)}&moves=${MAX_MOVES}&topGames=${TOP_GAMES}`;
 
-    const res = await fetch(url.toString(), { signal: controller.signal });
+    const res = await fetch(url, { signal: controller.signal });
     if (res.status === 429) return { ok: false, reason: 'rate-limited' };
-    if (!res.ok) return { ok: false, reason: 'offline' };
+    if (!res.ok) return { ok: false, reason: 'offline', detail: `HTTP ${res.status}` };
 
     const json = await res.json();
     const moves = parseExplorerMoves(json);
     const games = parseTopGames(json);
     cache.set(key, { moves, games });
     return { ok: true, moves, games };
-  } catch {
-    // AbortError (timeout) or a network failure (offline / blocked host).
-    return { ok: false, reason: 'offline' };
+  } catch (err) {
+    // AbortError (timeout) or a network failure (offline / blocked host / CORS).
+    return { ok: false, reason: 'offline', detail: (err as Error)?.name || 'error' };
   } finally {
     clearTimeout(timer);
   }
