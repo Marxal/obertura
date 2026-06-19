@@ -4637,6 +4637,19 @@ cg-board square.move-dest.oc {
   justify-content: center;
 }
 
+/* The two Explore launchers (Browse opening library / Master games), side by
+   side and equal width, with their icon + label centered. */
+.explore-launchers {
+  display: flex;
+  gap: var(--space-md);
+  margin: var(--space-md) var(--space-lg);
+}
+.explore-launch-btn {
+  flex: 1;
+  min-width: 0;
+  justify-content: center;
+}
+
 .games-refresh-status {
   display: inline-flex;
   align-items: center;

@@ -141,12 +141,14 @@ async function buildScreen(container: HTMLElement): Promise<void> {
   opponents.sort((a, b) => b.refreshedAt.localeCompare(a.refreshedAt));
   const hasGames = games.length > 0;
 
-  // "Browse opening library" leads the screen — a plain full-width launcher
-  // (not a .section card). The ~490 KB dataset is lazy-loaded only on open.
-  container.appendChild(libraryButton());
-  // …with "Master games" right beside it: walk a board and see real FIDE-rated
-  // master games for any position (online, via the Lichess masters explorer).
-  container.appendChild(mastersButton());
+  // Two launchers lead the screen, side by side: "Browse opening library" (the
+  // ~490 KB dataset is lazy-loaded only on open) and "Master games" (walk a board
+  // and see real FIDE-rated master games per position, via the Lichess explorer).
+  const launchers = document.createElement('div');
+  launchers.className = 'explore-launchers';
+  launchers.appendChild(libraryButton());
+  launchers.appendChild(mastersButton());
+  container.appendChild(launchers);
 
   // 1) Visualize your play — board browser + your games / repertoire trees.
   const visualize = visualizeSection(lines, games);
@@ -174,7 +176,7 @@ async function buildScreen(container: HTMLElement): Promise<void> {
 function libraryButton(): HTMLElement {
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.className = 'games-refresh-btn library-launch-btn';
+  btn.className = 'games-refresh-btn explore-launch-btn';
   btn.appendChild(Icons.search(15));
   btn.appendChild(document.createTextNode('Browse opening library'));
   btn.addEventListener('click', () => {
@@ -188,7 +190,7 @@ function libraryButton(): HTMLElement {
 function mastersButton(): HTMLElement {
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.className = 'games-refresh-btn library-launch-btn';
+  btn.className = 'games-refresh-btn explore-launch-btn';
   btn.appendChild(Icons.king(15));
   btn.appendChild(document.createTextNode('Master games'));
   btn.addEventListener('click', () => {

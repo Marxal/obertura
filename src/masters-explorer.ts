@@ -246,7 +246,7 @@ export function openMastersExplorer(
         msg.className = 'bx-empty';
         msg.textContent = res.reason === 'rate-limited'
           ? 'Couldn’t load — Lichess is rate-limiting. Try again shortly.'
-          : 'Couldn’t load — offline or unavailable.';
+          : `Couldn’t load — offline or unavailable${res.detail ? ` (${res.detail})` : ''}.`;
         list.appendChild(msg);
         return;
       }
