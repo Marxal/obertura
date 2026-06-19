@@ -20,7 +20,7 @@ import type { Api as CgApi } from 'chessground/api';
 import { Icons } from './icons';
 import { showDialog } from './dialog';
 import { nameForFen, nameForPath } from './openings';
-import { deeperMoves, type ExplorerMove } from './explorer-api';
+import { deeperMoves, type ExplorerMove, type ExplorerGame } from './explorer-api';
 import type { LibraryEntry } from './library';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -345,6 +345,15 @@ export function createLibraryExplorer(
       const num = Math.floor(ply / 2) + 1;
       const prefix = ply % 2 === 0 ? `${num}.` : `${num}…`;
       for (const mv of res.moves) list.appendChild(deeperRow(mv, prefix));
+
+      // The actual master games played from here — tap to view on lichess.
+      if (res.games.length) {
+        const ghead = document.createElement('div');
+        ghead.className = 'lib-bx-deep-head';
+        ghead.textContent = 'Master games';
+        list.appendChild(ghead);
+        for (const g of res.games) list.appendChild(gameRow(g));
+      }
     });
   }
 
@@ -381,6 +390,33 @@ export function createLibraryExplorer(
     count.className = 'lib-bx-count';
     count.textContent = formatGames(mv.games);
     row.appendChild(count);
+
+    return row;
+  }
+
+  // A real master game played from this position, as a link to the lichess game
+  // viewer. Reuses the row layout but is an <a>, not a play-this-move button.
+  function gameRow(g: ExplorerGame): HTMLAnchorElement {
+    const row = document.createElement('a');
+    row.className = 'lib-bx-row lib-bx-game';
+    row.href = `https://lichess.org/${g.id}`;
+    row.target = '_blank';
+    row.rel = 'noopener';
+
+    const players = document.createElement('span');
+    players.className = 'lib-bx-name';
+    players.textContent = `${g.white} (${g.whiteRating}) – ${g.black} (${g.blackRating})`;
+    row.appendChild(players);
+
+    const result = document.createElement('span');
+    result.className = 'lib-bx-game-result';
+    result.textContent = g.winner === 'white' ? '1–0' : g.winner === 'black' ? '0–1' : '½–½';
+    row.appendChild(result);
+
+    const year = document.createElement('span');
+    year.className = 'lib-bx-game-year';
+    year.textContent = g.year ? String(g.year) : '';
+    row.appendChild(year);
 
     return row;
   }

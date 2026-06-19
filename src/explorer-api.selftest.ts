@@ -4,7 +4,7 @@
 // lichess hosts), so here we pin down the PARSING of a representative masters
 // explorer response and the defensive handling of junk shapes.
 
-import { parseExplorerMoves } from './explorer-api';
+import { parseExplorerMoves, parseTopGames } from './explorer-api';
 import type { TestResult } from './selftest-panel';
 
 // A trimmed but real-shaped masters response for the position after 1.e4 e5 2.Nf3.
@@ -16,6 +16,18 @@ const SAMPLE = {
     { uci: 'b8c6', san: 'Nc6', white: 800, draws: 500, black: 300 },
     { uci: 'g8f6', san: 'Nf6', white: 200, draws: 150, black: 100 },
     { uci: 'd7d6', san: 'd6', white: 30, draws: 20, black: 10 },
+  ],
+  topGames: [
+    {
+      uci: 'b8c6', id: 'abcd1234', winner: 'white', year: 2019, month: '2019-05',
+      white: { name: 'Carlsen, M.', rating: 2872 },
+      black: { name: 'Caruana, F.', rating: 2820 },
+    },
+    {
+      uci: 'g8f6', id: 'efgh5678', winner: null, year: 2016,
+      white: { name: 'Nakamura, H.', rating: 2787 },
+      black: { name: 'So, W.', rating: 2794 },
+    },
   ],
   opening: { eco: 'C40', name: "King's Knight Opening" },
 };
@@ -55,6 +67,27 @@ export function runExplorerApiSelfTest(): TestResult[] {
     parseExplorerMoves({ moves: 'nope' }).length === 0 &&
     parseExplorerMoves({ moves: [{ uci: 'e2e4' }, 7, null] }).length === 0;
   check('defends against null / malformed responses', junk, 'all empty, no throw');
+
+  // 5. topGames parse: players, ratings, winner and year come through in order.
+  const games = parseTopGames(SAMPLE);
+  check(
+    'parses every top game with players, ratings, winner and year',
+    games.length === 2 &&
+      games[0].id === 'abcd1234' &&
+      games[0].white === 'Carlsen, M.' && games[0].whiteRating === 2872 &&
+      games[0].black === 'Caruana, F.' && games[0].blackRating === 2820 &&
+      games[0].winner === 'white' && games[0].year === 2019 &&
+      games[1].winner === null,
+    `got ${games.length} games: ${games.map(g => `${g.white}-${g.black} ${g.winner}`).join('; ')}`,
+  );
+
+  // 6. topGames defends against null / junk shapes the same way moves do.
+  const gjunk =
+    parseTopGames(null).length === 0 &&
+    parseTopGames({}).length === 0 &&
+    parseTopGames({ topGames: 'nope' }).length === 0 &&
+    parseTopGames({ topGames: [{ winner: 'white' }, 7, null] }).length === 0;
+  check('defends against null / malformed top games', gjunk, 'all empty, no throw');
 
   return results;
 }
