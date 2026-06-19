@@ -7079,6 +7079,30 @@ cg-board square.move-dest.oc {
   color: var(--text-faint);
 }
 
+/* Real master games played from the position — links to the lichess viewer,
+   subordinate to the move rows: players flexed, result + year right-aligned. */
+.lib-bx-game {
+  text-decoration: none;
+  border-left: 3px solid var(--hairline-soft);
+  padding-left: 0.55rem;
+}
+.lib-bx-game .lib-bx-name { color: var(--text); }
+.lib-bx-game-result {
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.lib-bx-game-year {
+  flex-shrink: 0;
+  min-width: 2.6rem;
+  text-align: right;
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Library detail (board + step-through) ─────────────────────────────────── */
 
 .lib-board-wrap {
