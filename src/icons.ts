@@ -31,6 +31,7 @@ export const Icons = {
   // The My Lines tab mark — a chess pawn drawn as a stroked outline (circle head,
   // collar ledge, bell body, flared base) to match the other nav glyphs.
   pawn:     (s?: number) => svg(`<circle cx="12" cy="4.5" r="2.5"/><path d="M9.5 8.5h5"/><path d="M9.5 8.5c0 2.5-1 3.5-2 6.5h9c-1-3-2-4-2-6.5"/><path d="M6 19c.5-2.5 1.5-3 1.5-4h9c0 1 1 1.5 1.5 4z"/>`, s),
+  king:     (s?: number) => svg(`<path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/>`, s),
 
   // ── Actions ──────────────────────────────────────────────────────────────────
   save:     (s?: number) => svg(`<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/>`, s),

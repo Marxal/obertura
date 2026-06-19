@@ -19,7 +19,7 @@
 const HOST = 'https://explorer.lichess.ovh/masters';
 const TIMEOUT_MS = 6000;
 const MAX_MOVES = 12; // how many continuations to ask for
-const TOP_GAMES = 5;  // how many real master games to show for the position
+const TOP_GAMES = 10; // how many real master games to show for the position
 
 // One continuation from a position: a move plus how many master games reached it.
 export interface ExplorerMove {

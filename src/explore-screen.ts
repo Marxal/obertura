@@ -26,6 +26,7 @@ import { openImportPanel } from './import-panel';
 import { openRepertoireMap } from './repertoire-map';
 import { openBoardExplorer } from './board-explorer';
 import { openLibrary } from './library';
+import { openMastersExplorer } from './masters-explorer';
 import { openSpar, type SparMode } from './spar';
 import { loadBookLines, pickBookLine, pickGameLine } from './book-lines';
 import {
@@ -143,6 +144,9 @@ async function buildScreen(container: HTMLElement): Promise<void> {
   // "Browse opening library" leads the screen — a plain full-width launcher
   // (not a .section card). The ~490 KB dataset is lazy-loaded only on open.
   container.appendChild(libraryButton());
+  // …with "Master games" right beside it: walk a board and see real FIDE-rated
+  // master games for any position (online, via the Lichess masters explorer).
+  container.appendChild(mastersButton());
 
   // 1) Visualize your play — board browser + your games / repertoire trees.
   const visualize = visualizeSection(lines, games);
@@ -175,6 +179,20 @@ function libraryButton(): HTMLElement {
   btn.appendChild(document.createTextNode('Browse opening library'));
   btn.addEventListener('click', () => {
     openLibrary((ucis, colour) => exploreDeps?.onOpenInBuilder(ucis, colour));
+  });
+  return btn;
+}
+
+// The "Master games" launcher, beside "Browse opening library". Opens the online
+// masters explorer; nothing heavy to load up front (it fetches per position).
+function mastersButton(): HTMLElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'games-refresh-btn library-launch-btn';
+  btn.appendChild(Icons.king(15));
+  btn.appendChild(document.createTextNode('Master games'));
+  btn.addEventListener('click', () => {
+    openMastersExplorer((ucis, colour) => exploreDeps?.onOpenInBuilder(ucis, colour));
   });
   return btn;
 }
