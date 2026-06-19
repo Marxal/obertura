@@ -116,9 +116,12 @@ export async function deeperMoves(fen: string): Promise<ExplorerResult> {
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
     // Build the query by hand: URLSearchParams encodes spaces as "+", which the
-    // masters endpoint rejects inside a FEN. encodeURIComponent uses %20, which
-    // it decodes correctly.
-    const url = `${HOST}?fen=${encodeURIComponent(fen)}&moves=${MAX_MOVES}&topGames=${TOP_GAMES}`;
+    // masters endpoint rejects inside a FEN. encodeURIComponent uses %20 — but it
+    // also turns the FEN's "/" separators into %2F, which lichess's proxy bounces
+    // (a 401). Restore literal slashes (legal in a query string); FENs only hold
+    // letters/digits/"/"/space/"-", so encoding just the rest is safe.
+    const fenParam = encodeURIComponent(fen).replace(/%2F/g, '/');
+    const url = `${HOST}?fen=${fenParam}&moves=${MAX_MOVES}&topGames=${TOP_GAMES}`;
 
     const res = await fetch(url, { signal: controller.signal });
     if (res.status === 429) return { ok: false, reason: 'rate-limited' };
