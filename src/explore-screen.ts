@@ -26,7 +26,6 @@ import { openImportPanel } from './import-panel';
 import { openRepertoireMap } from './repertoire-map';
 import { openBoardExplorer } from './board-explorer';
 import { openLibrary } from './library';
-import { openMastersExplorer } from './masters-explorer';
 import { openSpar, type SparMode } from './spar';
 import { loadBookLines, pickBookLine, pickGameLine } from './book-lines';
 import {
@@ -141,14 +140,9 @@ async function buildScreen(container: HTMLElement): Promise<void> {
   opponents.sort((a, b) => b.refreshedAt.localeCompare(a.refreshedAt));
   const hasGames = games.length > 0;
 
-  // Two launchers lead the screen, side by side: "Browse opening library" (the
-  // ~490 KB dataset is lazy-loaded only on open) and "Master games" (walk a board
-  // and see real FIDE-rated master games per position, via the Lichess explorer).
-  const launchers = document.createElement('div');
-  launchers.className = 'explore-launchers';
-  launchers.appendChild(libraryButton());
-  launchers.appendChild(mastersButton());
-  container.appendChild(launchers);
+  // "Browse opening library" leads the screen — a plain full-width launcher
+  // (not a .section card). The ~490 KB dataset is lazy-loaded only on open.
+  container.appendChild(libraryButton());
 
   // 1) Visualize your play — board browser + your games / repertoire trees.
   const visualize = visualizeSection(lines, games);
@@ -176,25 +170,11 @@ async function buildScreen(container: HTMLElement): Promise<void> {
 function libraryButton(): HTMLElement {
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.className = 'games-refresh-btn explore-launch-btn';
+  btn.className = 'games-refresh-btn library-launch-btn';
   btn.appendChild(Icons.search(15));
   btn.appendChild(document.createTextNode('Browse opening library'));
   btn.addEventListener('click', () => {
     openLibrary((ucis, colour) => exploreDeps?.onOpenInBuilder(ucis, colour));
-  });
-  return btn;
-}
-
-// The "Master games" launcher, beside "Browse opening library". Opens the online
-// masters explorer; nothing heavy to load up front (it fetches per position).
-function mastersButton(): HTMLElement {
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'games-refresh-btn explore-launch-btn';
-  btn.appendChild(Icons.king(15));
-  btn.appendChild(document.createTextNode('Master games'));
-  btn.addEventListener('click', () => {
-    openMastersExplorer((ucis, colour) => exploreDeps?.onOpenInBuilder(ucis, colour));
   });
   return btn;
 }
