@@ -18,6 +18,7 @@ import { opponentTag } from './scout';
 import { renderSettingsScreen } from './settings-screen';
 import { Engine } from './engine';
 import { EvalPanel } from './eval-panel';
+import { createBuilderPanels, type BuilderPanels } from './builder-panels';
 import { initTheme } from './theme';
 import { initAppearance } from './appearance';
 import { watchSpeedMs, getConfirmRunBeforeTraining } from './prefs';
@@ -38,6 +39,7 @@ const chess = new Chess();
 let cg!: ReturnType<typeof Chessground>;
 let engine!: Engine;
 let evalPanel!: EvalPanel;
+let builderPanels: BuilderPanels | null = null;
 
 function legalDests(): Map<Key, Key[]> {
   const dests = new Map<Key, Key[]>();
@@ -67,6 +69,14 @@ let manualTitle: string | null = null;
 // FENs of every position along the path to the current node, in order.
 function currentPathFens(): string[] {
   return pathTo(getCurrentNode().id).map(n => n.fen);
+}
+// The SAN / UCI move lists from the start to the current cursor — the inputs the
+// carousel's Library and Games slides need to list continuations from here.
+function currentPathSans(): string[] {
+  return pathTo(getCurrentNode().id).map(n => n.san);
+}
+function currentPathUcis(): string[] {
+  return pathTo(getCurrentNode().id).map(n => n.uci);
 }
 
 // The deepest known opening name for the WHOLE line (independent of the cursor),
@@ -102,9 +112,12 @@ function renderTitle(): void {
 }
 
 // Recompute the detected name for the cursor position and repaint the title.
+// Every position change runs through here, so it's also where the carousel's
+// Library/Games slides are refreshed for the new position.
 function updateOpeningName(): void {
   detectedName = nameForPath(currentPathFens()) ?? '';
   renderTitle();
+  builderPanels?.render();
 }
 
 // ── Tags ────────────────────────────────────────────────────────────────────
@@ -343,6 +356,59 @@ function updateMoveNavButtons(): void {
 function setupMoveNav(): void {
   document.getElementById('move-prev')!.addEventListener('click', stepBack);
   document.getElementById('move-next')!.addEventListener('click', stepForward);
+}
+
+// ── Builder carousel (the panels below the board) ───────────────────────────
+// A paged, swipeable strip — Line / Book / Games / Engine — sharing the one
+// builder board. The tab strip above the step arrows mirrors the active slide
+// and jumps to one on tap. The board sits ABOVE the carousel and is a fixed
+// square, so swiping slides never moves it.
+
+function setActiveSlideTab(index: number): void {
+  document.querySelectorAll<HTMLElement>('#builder-slide-tabs .slide-tab').forEach(tab => {
+    const on = Number(tab.dataset.slide) === index;
+    tab.classList.toggle('slide-tab--on', on);
+    tab.setAttribute('aria-selected', String(on));
+  });
+}
+
+// Fit the carousel into the space left between the board and the bottom dock, so
+// each slide scrolls internally and the dock (tabs + arrows) stays pinned. Done
+// in JS rather than CSS math so it's exact regardless of header/board heights.
+function sizeBuilderCarousel(): void {
+  const track = document.getElementById('builder-carousel');
+  const dock = document.getElementById('builder-dock');
+  if (!track || !dock || currentView !== 'builder') return;
+  const top = track.getBoundingClientRect().top;
+  const h = window.innerHeight - top - dock.offsetHeight;
+  if (h > 0) track.style.height = `${h}px`;
+}
+
+function setupBuilderCarousel(): void {
+  const track = document.getElementById('builder-carousel')!;
+
+  // Tap a tab → page to that slide.
+  document.querySelectorAll<HTMLButtonElement>('#builder-slide-tabs .slide-tab')
+    .forEach(tab => tab.addEventListener('click', () => {
+      const index = Number(tab.dataset.slide);
+      track.scrollTo({ left: index * track.clientWidth, behavior: 'smooth' });
+      setActiveSlideTab(index);
+    }));
+
+  // Swipe the strip → keep the active tab in sync. rAF-throttled so the scroll
+  // stays smooth.
+  let ticking = false;
+  track.addEventListener('scroll', () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      const index = Math.round(track.scrollLeft / track.clientWidth);
+      setActiveSlideTab(index);
+      ticking = false;
+    });
+  }, { passive: true });
+
+  window.addEventListener('resize', sizeBuilderCarousel);
 }
 
 // ── Annotation marks ─────────────────────────────────────────────────────────
@@ -738,6 +804,7 @@ function clearBuilder(colour: 'white' | 'black' = 'white'): void {
   updateSaveButtonLabel();
   evalPanel.clear();
   engine.evaluate(chess.fen());
+  builderPanels?.render(); // reset to the start position's continuations
 }
 
 // Open the builder on a fresh line of the given colour (from Home's Add buttons).
@@ -1086,6 +1153,14 @@ function showView(view: ViewName): void {
 
   if (view === 'builder') {
     engine.evaluate(chess.fen());
+    // The carousel can only be sized once the builder is visible (its slides have
+    // zero height while hidden). Re-read games too, in case some were just
+    // imported, then repaint the slides for the current position.
+    requestAnimationFrame(() => {
+      sizeBuilderCarousel();
+      builderPanels?.reload();
+      builderPanels?.render();
+    });
   }
 }
 
@@ -1589,7 +1664,9 @@ maybeShowGate(() => requestAnimationFrame(() => {
   });
   evalPanel = new EvalPanel(
     document.getElementById('eval-bar-top')!,
-    document.getElementById('eval-controls')!,
+    // The engine's controls (toggle + recommended moves) now live in the
+    // carousel's Engine slide, not a fixed strip below the board.
+    document.getElementById('slide-engine')!,
     engine.isEnabled,
     (enabled) => {
       if (enabled) {
@@ -1599,6 +1676,11 @@ maybeShowGate(() => requestAnimationFrame(() => {
         engine.disable();
         evalPanel.clear();
       }
+      // Force chessground to recompute its bounds after the toggle. Even though
+      // the eval bar now holds its space (so the board shouldn't move), this
+      // guards against any reflow leaving the cached bounds stale — which is
+      // what used to break piece dragging right after a toggle.
+      cg.redrawAll();
     },
     (uci) => playUci(uci),
   );
@@ -1607,11 +1689,24 @@ maybeShowGate(() => requestAnimationFrame(() => {
     engine.evaluate(chess.fen());
   }
 
+  // The Library / Games carousel slides — they read the live builder position
+  // and play a tapped continuation straight onto the line.
+  builderPanels = createBuilderPanels({
+    libraryEl: document.getElementById('slide-library')!,
+    gamesEl: document.getElementById('slide-games')!,
+    getSans: currentPathSans,
+    getUcis: currentPathUcis,
+    getFen: () => chess.fen(),
+    getColour: () => saveColour,
+    onPlay: (uci) => playUci(uci),
+  });
+
   setupSaveButton();
   setupPlaybackControls();
   setupTitleControls();
   setupNoteBlock();
   setupMoveNav();
+  setupBuilderCarousel();
 
   // Mount the global FAB before the first showView, so its initial visibility is
   // set correctly when we land on Train.

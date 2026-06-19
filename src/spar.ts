@@ -456,6 +456,9 @@ export function openSpar(opts: SparOptions): void {
     (enabled) => {
       if (enabled) { analysisEngine.enable(); refreshAnalysis(); }
       else { analysisEngine.disable(); evalPanel.clear(); cg.setAutoShapes([]); }
+      // Re-sync chessground bounds after the toggle so dragging stays correct
+      // (the eval bar now reserves its space, so the board itself won't move).
+      cg.redrawAll();
     },
     (uci) => { playMyMove(uci); },
   );

@@ -1010,6 +1010,39 @@ cg-board square.move-dest.oc {
   gap: 0.75rem;
 }
 
+/* ── Builder carousel ───────────────────────────────────────────────────────
+   A paged, swipeable strip below the board: Line / Book / Games / Engine. Its
+   height is set in JS (sizeBuilderCarousel) to fill the gap between the board
+   and the bottom dock; each slide scrolls internally so swiping never changes
+   the strip's height. min-height is a floor for very short screens. */
+.builder-carousel {
+  display: flex;
+  min-height: 120px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.builder-carousel::-webkit-scrollbar { display: none; }
+
+.builder-slide {
+  flex: 0 0 100%;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  scroll-snap-align: start;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.builder-slide::-webkit-scrollbar { display: none; }
+
+/* The Book/Games slides host the explorer's row lists (.lib-bx-row / .bx-row);
+   the Engine slide hosts the EvalPanel controls (.eval-row). */
+.builder-slide--list { padding: 0.25rem 0.5rem; }
+.builder-slide--engine { padding: 0.5rem 0.75rem; }
+
 /* Title row: a colour pip + the line name + a small edit control. Typography
    matches the My Lines detail cards (.dline-name) for consistency. */
 .line-title-row {
@@ -1160,22 +1193,54 @@ cg-board square.move-dest.oc {
   font-weight: 700;
 }
 
-/* ── Builder bottom control bar ─────────────────────────────────────────────
-   Pinned to the bottom of the screen while building (the tab bar is hidden on
-   the builder, so the space is free). Flip + watch on the left, single-step
-   move arrows on the right. Bottom padding respects the phone's gesture area.
-   `main` already reserves this height, so the bar never covers the panel. */
-.builder-bar {
+/* ── Builder bottom dock: slide tabs + control bar ──────────────────────────
+   The dock is pinned to the bottom while building (the tab bar is hidden on the
+   builder, so the space is free). It stacks the carousel's slide-tab strip on
+   top of the step-arrow bar. The carousel above is JS-sized to end exactly at
+   the dock's top, so the dock never covers a panel. */
+.builder-dock {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 50;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-card);
+}
+
+/* The slide tabs: four short labels, the active one underlined in the accent.
+   This is the carousel's navigation — it sits directly over the step arrows. */
+.builder-slide-tabs {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+.slide-tab {
+  flex: 1;
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0.4rem 0.25rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  border-bottom: 2px solid transparent;
+  transition: color 0.12s, border-color 0.12s;
+}
+.slide-tab--on {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* Flip + watch on the left, single-step move arrows on the right. Bottom padding
+   respects the phone's gesture area. */
+.builder-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--bg-card);
-  border-top: 1px solid var(--border-card);
   padding: 0.3rem 0.75rem calc(0.3rem + env(safe-area-inset-bottom, 0px));
 }
 
@@ -4255,17 +4320,21 @@ cg-board square.move-dest.oc {
   background: var(--bg-elevated);
   padding: 8px 12px;
 }
-/* Collapse the top strip entirely when the bar is hidden (engine off), so it
-   leaves no empty gap above the board. */
-#eval-bar-top:empty,
-#eval-bar-top:has(#eval-bar-wrap[hidden]) {
+/* Engine off: keep the eval bar's BOX in layout (just made invisible) rather
+   than collapsing it, so the board never shifts vertically when the engine is
+   toggled on/off. That shift used to leave chessground's cached board bounds
+   stale, which is why pieces stopped dragging correctly after a toggle. The
+   strip blends to transparent so it reads as empty, not a coloured gap. (An
+   un-built panel — before EvalPanel runs — is still fully collapsed.) */
+#eval-bar-top:empty {
   display: none;
 }
-
-#eval-controls {
-  background: var(--bg-elevated);
-  border-bottom: 1px solid var(--hairline-soft);
-  padding: 6px 12px;
+#eval-bar-wrap[hidden] {
+  display: flex;
+  visibility: hidden;
+}
+#eval-bar-top:has(#eval-bar-wrap[hidden]) {
+  background: transparent;
 }
 
 .eval-row {
@@ -7387,16 +7456,20 @@ cg-board square.move-dest.oc {
 .spar-ctrl-btn:disabled { opacity: 0.4; }
 
 /* ── Engine in spar: eval bar/panel + Suggest ──────────────────────────────── */
-/* Eval bar above the board — mirrors the builder's #eval-bar-top. Collapses to
-   nothing when the engine is off (the EvalPanel hides its inner wrap). */
+/* Eval bar above the board — mirrors the builder's #eval-bar-top. When the
+   engine is off the inner wrap is kept in layout but made invisible (the shared
+   #eval-bar-wrap[hidden] rule above), so the board never shifts on toggle; the
+   strip just blends to transparent. */
 .spar-eval-bar {
   width: 100%;
   background: var(--bg-elevated);
   padding: 8px 12px;
 }
-.spar-eval-bar:empty,
-.spar-eval-bar:has(#eval-bar-wrap[hidden]) {
+.spar-eval-bar:empty {
   display: none;
+}
+.spar-eval-bar:has(#eval-bar-wrap[hidden]) {
+  background: transparent;
 }
 
 /* Eval controls below the board — the candidate chips, source badge and the
