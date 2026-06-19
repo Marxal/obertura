@@ -4637,19 +4637,6 @@ cg-board square.move-dest.oc {
   justify-content: center;
 }
 
-/* The two Explore launchers (Browse opening library / Master games), side by
-   side and equal width, with their icon + label centered. */
-.explore-launchers {
-  display: flex;
-  gap: var(--space-md);
-  margin: var(--space-md) var(--space-lg);
-}
-.explore-launch-btn {
-  flex: 1;
-  min-width: 0;
-  justify-content: center;
-}
-
 .games-refresh-status {
   display: inline-flex;
   align-items: center;
@@ -7067,51 +7054,6 @@ cg-board square.move-dest.oc {
   flex-shrink: 0;
   font-size: 0.72rem;
   font-weight: 600;
-  color: var(--text-faint);
-  font-variant-numeric: tabular-nums;
-}
-
-/* Deeper (off-book) continuations from the online explorer — visually distinct
-   from named-book rows: a section header, an accent rail, and a games count. */
-.lib-bx-deep-head {
-  margin-top: var(--space-sm);
-  padding: 0.5rem 0.25rem 0.3rem;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-}
-.lib-bx-row--deep {
-  border-left: 3px solid var(--accent);
-  padding-left: 0.55rem;
-}
-.lib-bx-row--deep .lib-bx-move { color: var(--accent); }
-.lib-bx-row--deep .lib-bx-count::after {
-  content: ' ♟';
-  color: var(--text-faint);
-}
-
-/* Real master games played from the position — links to the lichess viewer,
-   subordinate to the move rows: players flexed, result + year right-aligned. */
-.lib-bx-game {
-  text-decoration: none;
-  border-left: 3px solid var(--hairline-soft);
-  padding-left: 0.55rem;
-}
-.lib-bx-game .lib-bx-name { color: var(--text); }
-.lib-bx-game-result {
-  flex-shrink: 0;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-}
-.lib-bx-game-year {
-  flex-shrink: 0;
-  min-width: 2.6rem;
-  text-align: right;
-  font-size: 0.72rem;
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
 }

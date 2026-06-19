@@ -20,8 +20,6 @@ import type { Api as CgApi } from 'chessground/api';
 import { Icons } from './icons';
 import { showDialog } from './dialog';
 import { nameForFen, nameForPath } from './openings';
-import { deeperMoves } from './explorer-api';
-import { deeperRow, gameRow } from './explorer-rows';
 import type { LibraryEntry } from './library';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -76,10 +74,6 @@ export function createLibraryExplorer(
   const fens: string[] = [START_FEN];
   const lastMoves: Array<[Key, Key] | undefined> = [undefined];
   const forward: string[] = [];
-
-  // Bumped on every renderList so a slow deeper-lines fetch that resolves after
-  // the user has moved on can detect it's stale and discard its result.
-  let deeperToken = 0;
 
   const root = document.createElement('div');
   root.className = 'lib-explore';
@@ -185,14 +179,6 @@ export function createLibraryExplorer(
     render();
   }
 
-  // Walk on by UCI (used for deeper explorer moves, whose SAN dialect we don't
-  // want to trust — chess.js resolves the move from the squares itself).
-  function advanceUci(uci: string): void {
-    const m = chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci.slice(4) || undefined });
-    if (m) { record(m); forward.length = 0; }
-    render();
-  }
-
   function stepBack(): void {
     if (!ucis.length) return;
     chess.undo();
@@ -250,14 +236,13 @@ export function createLibraryExplorer(
 
   function renderList(): void {
     list.innerHTML = '';
-    const token = ++deeperToken; // invalidates any in-flight deeper fetch
     const node = bookNodeNow();
     const kids = node ? [...node.children.entries()] : [];
     // Busiest branches first (most named openings under them), then alphabetical.
     kids.sort((a, b) => b[1].count - a[1].count || a[0].localeCompare(b[0]));
 
-    // Past the named book (a leaf opening, or off-book entirely): keep the
-    // walker going with master-game continuations from the online explorer.
+    // Past the named book (a leaf opening, or off-book entirely): the offline
+    // book has nothing more to show here.
     if (!kids.length) {
       const empty = document.createElement('div');
       empty.className = 'bx-empty';
@@ -265,7 +250,6 @@ export function createLibraryExplorer(
         ? 'End of the book line — this is a named opening.'
         : 'Off the book from here.';
       list.appendChild(empty);
-      renderDeeper(token);
       return;
     }
 
@@ -305,57 +289,6 @@ export function createLibraryExplorer(
 
       list.appendChild(row);
     }
-  }
-
-  // Once the named book runs out, ask the online explorer for master-game
-  // continuations and append them below the context line. Resolves async; the
-  // token check drops the result if the user has stepped elsewhere meanwhile.
-  function renderDeeper(token: number): void {
-    const status = document.createElement('div');
-    status.className = 'bx-empty';
-    status.textContent = 'Looking for deeper lines…';
-    list.appendChild(status);
-
-    deeperMoves(chess.fen()).then(res => {
-      if (token !== deeperToken) return; // the position changed under us
-      status.remove();
-
-      if (!res.ok) {
-        const msg = document.createElement('div');
-        msg.className = 'bx-empty';
-        msg.textContent = res.reason === 'rate-limited'
-          ? 'Couldn’t load deeper lines — Lichess is rate-limiting. Try again shortly.'
-          : `Couldn’t load deeper lines — offline or unavailable${res.detail ? ` (${res.detail})` : ''}.`;
-        list.appendChild(msg);
-        return;
-      }
-      if (!res.moves.length) {
-        const msg = document.createElement('div');
-        msg.className = 'bx-empty';
-        msg.textContent = 'No deeper master lines from this position.';
-        list.appendChild(msg);
-        return;
-      }
-
-      const head = document.createElement('div');
-      head.className = 'lib-bx-deep-head';
-      head.textContent = 'Beyond the book · master games';
-      list.appendChild(head);
-
-      const ply = ucis.length;
-      const num = Math.floor(ply / 2) + 1;
-      const prefix = ply % 2 === 0 ? `${num}.` : `${num}…`;
-      for (const mv of res.moves) list.appendChild(deeperRow(chess.fen(), mv, prefix, advanceUci));
-
-      // The actual master games played from here — tap to view on lichess.
-      if (res.games.length) {
-        const ghead = document.createElement('div');
-        ghead.className = 'lib-bx-deep-head';
-        ghead.textContent = 'Master games';
-        list.appendChild(ghead);
-        for (const g of res.games) list.appendChild(gameRow(g));
-      }
-    });
   }
 
   return {
