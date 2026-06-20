@@ -8387,21 +8387,9 @@ cg-board square.move-dest.oc {
   margin-top: 2px;
 }
 
-/* ── Opening traps screen ───────────────────────────────────────────────────────
-   Reuses the onboarding accordion + the shared .pcard rows; these add only the
-   trap-specific bits: level group headers, the level/idea text, and the action
-   rows (per-trap Practise/Puzzle/Add, and per-pack Puzzle/Timed). */
-.traps-body {
-  padding-bottom: 28px;
-}
-.trap-level-title {
-  margin: 12px 0 6px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-}
+/* ── Opening trap cards ──────────────────────────────────────────────────────────
+   Trap cards reuse the shared .pcard / Recommended-card look; these add only the
+   trap-specific bits: the level chip beside the name and the bait/idea blurb. */
 .trap-level-chip {
   margin-left: 6px;
   font-size: 0.68rem;
@@ -8415,33 +8403,6 @@ cg-board square.move-dest.oc {
 .trap-bait {
   font-weight: 600;
   color: var(--text);
-}
-.trap-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
-}
-.trap-action-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 12px;
-  font-size: 0.8rem;
-  white-space: nowrap;
-}
-.trap-pack-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 2px 0 8px;
-}
-.trap-pack-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 12px;
-  font-size: 0.8rem;
 }
 
 /* ── Filter-bar row-1 tools: icon-only sort + group-by-opening toggle ───────────
