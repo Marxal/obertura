@@ -63,21 +63,21 @@
       </header>
       <main>
         <div id="view-builder">
-          <div id="eval-bar-top"></div>
           <div id="board-wrap">
             <div id="board"></div>
           </div>
+          <div class="moves-block">
+            <div id="move-list"></div>
+          </div>
+          <div id="eval-bar-top"></div>
           <div id="builder-carousel" class="builder-carousel">
             <section class="builder-slide" id="slide-line" aria-label="This line">
               <div id="line-panel">
-                <div class="moves-block">
-                  <div id="move-list"></div>
-                </div>
-
                 <div class="line-title-row">
                   <span class="colour-pip colour-pip--white" id="title-pip" aria-hidden="true"></span>
                   <div class="opening-name" id="opening-name" aria-live="polite"></div>
-                  <button id="rename-btn" type="button" class="rename-btn" aria-label="Edit name and tags" title="Edit name & tags"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg></button>
+                  <button id="rename-btn" type="button" class="rename-btn" aria-label="Edit name" title="Edit name"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg></button>
+                  <button id="tags-btn" type="button" class="rename-btn" aria-label="Edit tags" title="Edit tags"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></svg></button>
                 </div>
                 <div id="builder-tags" class="builder-tags" hidden></div>
 
@@ -97,8 +97,8 @@
           <div id="builder-dock" class="builder-dock">
             <div id="builder-slide-tabs" class="builder-slide-tabs" role="tablist" aria-label="Builder panels">
               <button class="slide-tab slide-tab--on" data-slide="0" type="button" role="tab" aria-selected="true">Line</button>
-              <button class="slide-tab" data-slide="1" type="button" role="tab" aria-selected="false">Book</button>
-              <button class="slide-tab" data-slide="2" type="button" role="tab" aria-selected="false">Games</button>
+              <button class="slide-tab" data-slide="1" type="button" role="tab" aria-selected="false">Library</button>
+              <button class="slide-tab" data-slide="2" type="button" role="tab" aria-selected="false">My games</button>
               <button class="slide-tab" data-slide="3" type="button" role="tab" aria-selected="false">Engine</button>
             </div>
             <div id="builder-bar" class="builder-bar">

@@ -146,9 +146,9 @@ function renderBuilderTags(): void {
   }
 }
 
-// The edit lightbox: rename the line and toggle/enter tags in one place. Opened
-// from the pencil in the title row. Replaces the old inline rename field.
-function openEditSheet(): void {
+// The edit lightbox — now focused: the pencil opens it on the NAME only, the tag
+// icon on the TAGS only, so the two concerns are separate in the title row.
+function openEditSheet(focus: 'name' | 'tags' = 'name'): void {
   const overlay = document.createElement('div');
   overlay.className = 'edit-overlay';
   const sheet = document.createElement('div');
@@ -156,49 +156,55 @@ function openEditSheet(): void {
 
   const title = document.createElement('h3');
   title.className = 'edit-sheet-title';
-  title.textContent = 'Name & tags';
+  title.textContent = focus === 'tags' ? 'Tags' : 'Rename line';
   sheet.appendChild(title);
 
-  // Name.
-  const nameLabel = document.createElement('label');
-  nameLabel.className = 'edit-label';
-  nameLabel.textContent = 'Name';
-  const nameInput = document.createElement('input');
-  nameInput.type = 'text';
-  nameInput.className = 'edit-input';
-  nameInput.value = currentTitle();
-  nameInput.placeholder = 'Line name';
-  sheet.appendChild(nameLabel);
-  sheet.appendChild(nameInput);
-
-  // Suggested-tag chips.
-  const tagsLabel = document.createElement('label');
-  tagsLabel.className = 'edit-label';
-  tagsLabel.textContent = 'Tags';
-  sheet.appendChild(tagsLabel);
-
-  const chipRow = document.createElement('div');
-  chipRow.className = 'edit-chips';
-  for (const tag of SUGGESTED_TAGS) {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'tag-chip';
-    chip.textContent = tag;
-    if (currentTags.includes(tag)) chip.classList.add('tag-chip--on');
-    chip.addEventListener('click', () => chip.classList.toggle('tag-chip--on'));
-    chipRow.appendChild(chip);
+  // Name (pencil).
+  let nameInput: HTMLInputElement | null = null;
+  if (focus === 'name') {
+    const nameLabel = document.createElement('label');
+    nameLabel.className = 'edit-label';
+    nameLabel.textContent = 'Name';
+    nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.className = 'edit-input';
+    nameInput.value = currentTitle();
+    nameInput.placeholder = 'Line name';
+    sheet.appendChild(nameLabel);
+    sheet.appendChild(nameInput);
   }
-  sheet.appendChild(chipRow);
 
-  // Freeform tags — seeded with any current tags that aren't suggestion chips.
-  const freeInput = document.createElement('input');
-  freeInput.type = 'text';
-  freeInput.className = 'edit-input';
-  freeInput.placeholder = 'your own tags, comma, separated';
-  freeInput.value = currentTags
-    .filter(t => !SUGGESTED_TAGS.includes(t as typeof SUGGESTED_TAGS[number]))
-    .join(', ');
-  sheet.appendChild(freeInput);
+  // Tags (tag icon): suggested chips + freeform field.
+  let chipRow: HTMLElement | null = null;
+  let freeInput: HTMLInputElement | null = null;
+  if (focus === 'tags') {
+    const tagsLabel = document.createElement('label');
+    tagsLabel.className = 'edit-label';
+    tagsLabel.textContent = 'Tags';
+    sheet.appendChild(tagsLabel);
+
+    chipRow = document.createElement('div');
+    chipRow.className = 'edit-chips';
+    for (const tag of SUGGESTED_TAGS) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'tag-chip';
+      chip.textContent = tag;
+      if (currentTags.includes(tag)) chip.classList.add('tag-chip--on');
+      chip.addEventListener('click', () => chip.classList.toggle('tag-chip--on'));
+      chipRow.appendChild(chip);
+    }
+    sheet.appendChild(chipRow);
+
+    freeInput = document.createElement('input');
+    freeInput.type = 'text';
+    freeInput.className = 'edit-input';
+    freeInput.placeholder = 'your own tags, comma, separated';
+    freeInput.value = currentTags
+      .filter(t => !SUGGESTED_TAGS.includes(t as typeof SUGGESTED_TAGS[number]))
+      .join(', ');
+    sheet.appendChild(freeInput);
+  }
 
   const btnRow = document.createElement('div');
   btnRow.className = 'edit-btn-row';
@@ -207,15 +213,19 @@ function openEditSheet(): void {
   saveBtn.className = 'btn-primary edit-save-btn';
   saveBtn.textContent = 'Done';
   saveBtn.addEventListener('click', () => {
-    const selected = [...chipRow.querySelectorAll('.tag-chip--on')].map(
-      c => (c as HTMLElement).textContent!.trim()
-    );
-    const custom = freeInput.value.split(',').map(t => t.trim()).filter(Boolean);
-    currentTags = [...new Set([...selected, ...custom])];
-    const val = nameInput.value.trim();
-    manualTitle = val ? val : null;
-    renderTitle();
-    renderBuilderTags();
+    if (chipRow && freeInput) {
+      const selected = [...chipRow.querySelectorAll('.tag-chip--on')].map(
+        c => (c as HTMLElement).textContent!.trim()
+      );
+      const custom = freeInput.value.split(',').map(t => t.trim()).filter(Boolean);
+      currentTags = [...new Set([...selected, ...custom])];
+      renderBuilderTags();
+    }
+    if (nameInput) {
+      const val = nameInput.value.trim();
+      manualTitle = val ? val : null;
+      renderTitle();
+    }
     close();
   });
   const cancelBtn = document.createElement('button');
@@ -250,20 +260,21 @@ function openEditSheet(): void {
   overlay.addEventListener('click', e => {
     if (e.target === overlay) close();
   });
-  nameInput.addEventListener('keydown', e => {
+  nameInput?.addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); saveBtn.click(); }
   });
 
   overlay.appendChild(sheet);
   document.body.appendChild(overlay);
   requestAnimationFrame(() => {
-    nameInput.focus();
+    (nameInput ?? freeInput)?.focus();
     syncKeyboardInset();
   });
 }
 
 function setupTitleControls(): void {
-  document.getElementById('rename-btn')!.addEventListener('click', openEditSheet);
+  document.getElementById('rename-btn')!.addEventListener('click', () => openEditSheet('name'));
+  document.getElementById('tags-btn')!.addEventListener('click', () => openEditSheet('tags'));
 }
 
 // One clickable move in the strip: the SAN, its annotation chip (if marked)
@@ -308,10 +319,14 @@ function renderMoveList() {
     if (black) el.appendChild(moveSpan(black, activeId));
   }
 
-  // Keep the active move visible in the horizontally-scrolling strip.
+  // Keep the active move centred in the horizontally-scrolling strip. We adjust
+  // the strip's own scrollLeft (not scrollIntoView) so it never drags an
+  // ancestor — that was snapping the carousel back to the Line tab after a move.
   const activeEl = el.querySelector<HTMLElement>('.move-san.active');
   if (activeEl) {
-    activeEl.scrollIntoView({ block: 'nearest', inline: 'center' });
+    const elRect = el.getBoundingClientRect();
+    const aRect = activeEl.getBoundingClientRect();
+    el.scrollLeft += (aRect.left - elRect.left) - (el.clientWidth - aRect.width) / 2;
   } else {
     el.scrollLeft = 0;
   }
@@ -364,12 +379,23 @@ function setupMoveNav(): void {
 // and jumps to one on tap. The board sits ABOVE the carousel and is a fixed
 // square, so swiping slides never moves it.
 
-function setActiveSlideTab(index: number): void {
+const ENGINE_SLIDE = 3;
+let activeSlide = 0;
+
+// React to the active slide changing (by tap or swipe): repaint the tabs and,
+// on the Engine slide, turn the engine on by default so it's ready without a tap.
+function onActiveSlide(index: number): void {
   document.querySelectorAll<HTMLElement>('#builder-slide-tabs .slide-tab').forEach(tab => {
     const on = Number(tab.dataset.slide) === index;
     tab.classList.toggle('slide-tab--on', on);
     tab.setAttribute('aria-selected', String(on));
   });
+  if (index === activeSlide) return;
+  activeSlide = index;
+  builderPanels?.setActiveSlide(index);
+  if (index === ENGINE_SLIDE && evalPanel && !evalPanel.isEnabled) {
+    evalPanel.setEnabled(true);
+  }
 }
 
 // Fit the carousel into the space left between the board and the bottom dock, so
@@ -392,7 +418,7 @@ function setupBuilderCarousel(): void {
     .forEach(tab => tab.addEventListener('click', () => {
       const index = Number(tab.dataset.slide);
       track.scrollTo({ left: index * track.clientWidth, behavior: 'smooth' });
-      setActiveSlideTab(index);
+      onActiveSlide(index);
     }));
 
   // Swipe the strip → keep the active tab in sync. rAF-throttled so the scroll
@@ -403,7 +429,7 @@ function setupBuilderCarousel(): void {
     ticking = true;
     requestAnimationFrame(() => {
       const index = Math.round(track.scrollLeft / track.clientWidth);
-      setActiveSlideTab(index);
+      onActiveSlide(index);
       ticking = false;
     });
   }, { passive: true });
@@ -1676,11 +1702,10 @@ maybeShowGate(() => requestAnimationFrame(() => {
         engine.disable();
         evalPanel.clear();
       }
-      // Force chessground to recompute its bounds after the toggle. Even though
-      // the eval bar now holds its space (so the board shouldn't move), this
-      // guards against any reflow leaving the cached bounds stale — which is
-      // what used to break piece dragging right after a toggle.
+      // The eval bar sits under the board and shows/hides with the engine, so
+      // re-fit the carousel to the new gap and re-sync chessground's bounds.
       cg.redrawAll();
+      requestAnimationFrame(sizeBuilderCarousel);
     },
     (uci) => playUci(uci),
   );

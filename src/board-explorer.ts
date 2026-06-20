@@ -427,7 +427,7 @@ function buildSeg<T extends string>(
 }
 
 // Name the platform from a game URL, for the external-link label.
-function platformLabel(url: string): string {
+export function platformLabel(url: string): string {
   const u = url.toLowerCase();
   if (u.includes('lichess.org')) return 'Lichess';
   if (u.includes('chess.com')) return 'Chess.com';

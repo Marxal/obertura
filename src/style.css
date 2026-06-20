@@ -1033,15 +1033,31 @@ cg-board square.move-dest.oc {
   height: 100%;
   min-width: 0;
   scroll-snap-align: start;
+  /* Stop at each slide: one fling advances at most one tab, so a thumb-swipe
+     can't skip two slides or fly to the end. */
+  scroll-snap-stop: always;
   overflow-y: auto;
   scrollbar-width: none;
 }
 .builder-slide::-webkit-scrollbar { display: none; }
 
-/* The Book/Games slides host the explorer's row lists (.lib-bx-row / .bx-row);
-   the Engine slide hosts the EvalPanel controls (.eval-row). */
+/* The Library/My games slides host the explorer's row lists (.lib-bx-row /
+   .bx-row); the Engine slide hosts the EvalPanel controls (.eval-row). */
 .builder-slide--list { padding: 0.25rem 0.5rem; }
 .builder-slide--engine { padding: 0.5rem 0.75rem; }
+
+/* Thinner win/loss bars in both list slides (Library + My games). */
+.builder-slide--list .bx-row .wdl-bar,
+.builder-slide--list .lib-bx-row .wdl-bar { height: 8px; }
+
+/* Library's right-hand slot holds the named-opening count by default, swapped
+   for a compact Lichess win/loss bar when the explorer answers. */
+.lib-bx-wdl {
+  flex: 0 0 auto;
+  width: 64px;
+  display: flex;
+  align-items: center;
+}
 
 /* Title row: a colour pip + the line name + a small edit control. Typography
    matches the My Lines detail cards (.dline-name) for consistency. */
@@ -1128,12 +1144,15 @@ cg-board square.move-dest.oc {
 
 /* The moves are their own distinct block, set apart from the title and notes
    with a recessed parchment panel. */
+/* The move list is a flush strip directly under the board, shown on every
+   carousel tab — no rounded card, no gap above. */
 .moves-block {
   background: var(--bg-parchment);
-  border: 1px solid var(--border-card);
-  border-radius: 10px;
-  padding: 0.4rem 0.5rem;
-  box-shadow: inset 0 1px 2px rgba(28, 22, 16, 0.06);
+  border: none;
+  border-bottom: 1px solid var(--border-card);
+  border-radius: 0;
+  padding: 0.2rem 0.6rem;
+  box-shadow: none;
 }
 
 /* The move strip fills the whole moves-block now that the step arrows live in
@@ -4315,26 +4334,24 @@ cg-board square.move-dest.oc {
 
 /* ── Engine eval panel ───────────────────────────────────────────────────────── */
 
-/* Eval bar sits above the board; the moves + toggle sit below it. */
+/* The builder's eval bar now sits directly UNDER the board (below the move
+   strip). Because the board is above it, toggling the engine can't shift the
+   board, so the bar simply collapses when the engine is off. */
 #eval-bar-top {
   background: var(--bg-elevated);
   padding: 8px 12px;
 }
-/* Engine off: keep the eval bar's BOX in layout (just made invisible) rather
-   than collapsing it, so the board never shifts vertically when the engine is
-   toggled on/off. That shift used to leave chessground's cached board bounds
-   stale, which is why pieces stopped dragging correctly after a toggle. The
-   strip blends to transparent so it reads as empty, not a coloured gap. (An
-   un-built panel — before EvalPanel runs — is still fully collapsed.) */
-#eval-bar-top:empty {
+#eval-bar-top:empty,
+#eval-bar-top:has(#eval-bar-wrap[hidden]) {
   display: none;
 }
-#eval-bar-wrap[hidden] {
+
+/* Spar's eval bar still sits ABOVE its board, so there we KEEP the bar's box in
+   layout when off (invisible) to stop that board shifting on toggle — which
+   used to leave chessground's cached bounds stale and break dragging. */
+.spar-eval-bar #eval-bar-wrap[hidden] {
   display: flex;
   visibility: hidden;
-}
-#eval-bar-top:has(#eval-bar-wrap[hidden]) {
-  background: transparent;
 }
 
 .eval-row {
@@ -4378,15 +4395,54 @@ cg-board square.move-dest.oc {
   text-align: right;
 }
 
-/* Move chips */
+/* Engine lines — up to three principal variations, stacked vertically, each a
+   tappable row of [score][SAN line]. (Replaces the old single-move chips.) */
 .eval-moves {
   flex: 1;
+  min-width: 0;
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
   overflow: hidden;
-  align-items: center;
 }
 
+.eval-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 3px 6px;
+  border: none;
+  background: transparent;
+  border-radius: 5px;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s;
+}
+.eval-line:active { background: rgba(255, 155, 33, 0.28); }
+
+.eval-line-score {
+  flex: 0 0 auto;
+  min-width: 3em;
+  font-weight: 700;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.eval-line-pv {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Move chips (legacy single-move layout, kept for any other caller) */
 .eval-move {
   display: flex;
   flex-direction: column;

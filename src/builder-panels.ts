@@ -15,9 +15,11 @@ import { Chess } from 'chess.js';
 import { nameForFen } from './openings';
 import { buildBook, bookNodeAt, loadBookEntries, type BookNode } from './book-tree';
 import { getAllGames } from './storage';
-import { buildMoveStats, statAt, statScorePct, type StatNode } from './move-stats';
+import { buildMoveStats, statAt, statScorePct, gameAtPath, type StatNode } from './move-stats';
 import { MAP_MAX_PLIES } from './scout';
-import { wdlScoreRow } from './wdl-bar';
+import { wdlScoreRow, wdlBar, type WdlCounts } from './wdl-bar';
+import { fetchExplorer, type ExplorerCounts } from './lichess-explorer';
+import { platformLabel } from './board-explorer';
 import type { ImportedGame } from './import-core';
 
 export interface BuilderPanelsDeps {
@@ -33,11 +35,15 @@ export interface BuilderPanelsDeps {
 export interface BuilderPanels {
   render(): void;                   // repaint both slides for the current position
   reload(): void;                   // re-read games from storage (after an import)
+  setActiveSlide(index: number): void; // which carousel slide is showing
 }
+
+const LIBRARY_SLIDE = 1;
 
 export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   let book: BookNode | null = null;
   let games: ImportedGame[] | null = null;
+  let activeSlide = 0;
   const statsByColour = new Map<'white' | 'black', StatNode>();
 
   // Lazy loads — repaint each slide once its data lands.
@@ -78,9 +84,13 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     }
 
     const prefix = movePrefix(deps.getSans().length);
+    const fen = deps.getFen();
     // One chess seeded at the live position resolves each candidate to a UCI and
     // the opening name it reaches (play, read, undo).
-    const chess = new Chess(deps.getFen());
+    const chess = new Chess(fen);
+    // Track each row's right-hand slot by uci so we can swap the count for a
+    // Lichess win/loss bar once the explorer answers.
+    const statSlots = new Map<string, HTMLElement>();
     for (const [san, child] of kids) {
       let uci = '';
       let label = child.name ?? '';
@@ -101,9 +111,28 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
 
       row.appendChild(span('lib-bx-move', `${prefix} ${san}`));
       row.appendChild(span('lib-bx-name', label));
-      row.appendChild(span('lib-bx-count', `${child.count}`));
+      const stat = span('lib-bx-count', `${child.count}`);
+      row.appendChild(stat);
+      statSlots.set(uci, stat);
       el.appendChild(row);
     }
+
+    // Online win/draw/loss bars from the Lichess explorer (rated games) — only
+    // when the Library slide is actually showing, so we don't hit the network on
+    // every move. Applied only if the position hasn't moved on; silent offline.
+    if (activeSlide !== LIBRARY_SLIDE) return;
+    fetchExplorer(fen).then(moves => {
+      if (!moves || deps.getFen() !== fen) return;
+      const colour = deps.getColour();
+      for (const [uci, slot] of statSlots) {
+        const c = moves.get(uci);
+        if (!c) continue;
+        const counts = explorerCounts(c, colour);
+        if (!counts.games) continue;
+        slot.classList.add('lib-bx-wdl');
+        slot.replaceChildren(wdlBar(counts));
+      }
+    }).catch(() => { /* offline — keep the counts */ });
   }
 
   // ── Games slide ───────────────────────────────────────────────────────────
@@ -116,6 +145,19 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     if (!stats || stats.games === 0) {
       el.appendChild(emptyNote('No imported games for this colour yet — import games in Explore.'));
       return;
+    }
+
+    // When the line narrows to exactly one of your games, link straight to it —
+    // same affordance as the board browser's "See full game".
+    const single = gameAtPath(games, deps.getColour(), deps.getUcis());
+    if (single?.url) {
+      const a = document.createElement('a');
+      a.className = 'bx-full-game';
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.href = single.url;
+      a.textContent = `See full game on ${platformLabel(single.url)} ↗`;
+      el.appendChild(a);
     }
 
     const node = statAt(stats, deps.getUcis());
@@ -146,6 +188,12 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   return {
     render() { renderLibrary(); renderGames(); },
     reload() { loadGames(); },
+    setActiveSlide(index: number) {
+      if (index === activeSlide) return;
+      activeSlide = index;
+      // Entering the Library slide: repaint so its explorer bars fetch now.
+      if (index === LIBRARY_SLIDE) renderLibrary();
+    },
   };
 }
 
@@ -154,6 +202,15 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
 function movePrefix(ply: number): string {
   const num = Math.floor(ply / 2) + 1;
   return ply % 2 === 0 ? `${num}.` : `${num}…`;
+}
+
+// Orient Lichess's white/draws/black to the line's own colour, with a score%.
+function explorerCounts(c: ExplorerCounts, colour: 'white' | 'black'): WdlCounts {
+  const wins = colour === 'white' ? c.white : c.black;
+  const losses = colour === 'white' ? c.black : c.white;
+  const games = wins + c.draws + losses;
+  const scorePct = games ? Math.round(((wins + c.draws / 2) / games) * 100) : 0;
+  return { wins, draws: c.draws, losses, scorePct, games };
 }
 
 function span(cls: string, text: string): HTMLSpanElement {
