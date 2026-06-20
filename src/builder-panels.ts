@@ -22,6 +22,7 @@ import {
 } from './scout';
 import { openRepertoireMap } from './repertoire-map';
 import { userAvatar } from './avatar';
+import { Icons } from './icons';
 import { wdlScoreRow, wdlBar, type WdlCounts } from './wdl-bar';
 import { fetchExplorer, type ExplorerCounts } from './lichess-explorer';
 import { platformLabel } from './board-explorer';
@@ -31,8 +32,6 @@ export interface BuilderPanelsDeps {
   libraryEl: HTMLElement;
   gamesEl: HTMLElement;
   scoutingEl: HTMLElement;
-  boardOpponentEl: HTMLElement; // strip above the board: who you're scouting
-  boardYouEl: HTMLElement;      // strip below the board: you + your colour
   getSans: () => string[];          // SAN path to the current cursor node
   getUcis: () => string[];          // UCI path to the current cursor node
   getFen: () => string;             // FEN of the current position
@@ -61,7 +60,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   let selectedOppId: string | null = null;       // null → show the opponents list
   let activeSlide = 0;
   const statsByColour = new Map<'white' | 'black', StatNode>();
-  // Per-opponent stats trees (their side against you), cached by id+colour.
+  // Per-opponent stats trees (their side against you), cached by `id:colour`.
   const oppStats = new Map<string, StatNode>();
 
   // Lazy loads — repaint each slide once its data lands.
@@ -226,6 +225,8 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     openRepertoireMap(buildLines(MAP_START_PLIES), colour, () => { /* no open-in-builder; we're already here */ }, {
       title: 'Your games',
       subtitle: `${count} game${count !== 1 ? 's' : ''}`,
+      // Land on the board's current position rather than the first move.
+      initialPath: deps.getUcis(),
       depth: {
         startPlies: MAP_START_PLIES,
         stepPlies: MAP_STEP_PLIES,
@@ -250,9 +251,6 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   // opponent selected → their continuations from the current position, drawn
   // exactly like My games but from THEIR side (the opposite of your save colour).
   function renderScouting(): void {
-    // Keep the board's opponent/you strips in sync with the scouting state.
-    renderBoardPlayers();
-
     const el = deps.scoutingEl;
     el.innerHTML = '';
     if (!opponents) { el.appendChild(emptyNote('Loading opponents…')); return; }
@@ -274,12 +272,16 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     back.appendChild(document.createTextNode(' Opponents'));
     back.addEventListener('click', () => { selectedOppId = null; renderScouting(); });
     header.appendChild(back);
-    header.appendChild(userAvatar(selected.avatarUrl, 24));
+    // Avatar + name + side kept together as one centered cluster.
+    const id = document.createElement('div');
+    id.className = 'scout-slide-id';
+    id.appendChild(userAvatar(selected.avatarUrl, 24));
     const name = document.createElement('span');
     name.className = 'scout-slide-name';
     name.textContent = selected.name;
-    header.appendChild(name);
-    header.appendChild(colourTag(oppColour));
+    id.appendChild(name);
+    id.appendChild(colourTag(oppColour));
+    header.appendChild(id);
     const report = document.createElement('button');
     report.type = 'button';
     report.className = 'scout-report-btn';
@@ -288,8 +290,10 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     header.appendChild(report);
     el.appendChild(header);
 
-    let stats = oppStats.get(selected.id);
-    if (!stats) { stats = buildMoveStats(selected.games, oppColour, MAP_MAX_PLIES); oppStats.set(selected.id, stats); }
+    // Cache by id+colour: oppColour flips with the board, so the key must too.
+    const statsKey = `${selected.id}:${oppColour}`;
+    let stats = oppStats.get(statsKey);
+    if (!stats) { stats = buildMoveStats(selected.games, oppColour, MAP_MAX_PLIES); oppStats.set(statsKey, stats); }
     if (stats.games === 0) {
       el.appendChild(emptyNote(`No games for ${selected.name} as ${oppColour}.`));
       return;
@@ -324,15 +328,32 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
       el.appendChild(emptyNote('Scout an opponent to walk their games from here.'));
       return;
     }
+    // Their side is the opposite of the colour you're preparing — the same
+    // perspective the selected view uses, so the cached stats trees are reused.
+    const oppColour: 'white' | 'black' = deps.getColour() === 'white' ? 'black' : 'white';
     for (const opp of opponents) {
-      const row = document.createElement('button');
-      row.type = 'button';
-      row.className = 'bx-row scout-opp-row';
-      row.addEventListener('click', () => { selectedOppId = opp.id; renderScouting(); });
-      row.appendChild(userAvatar(opp.avatarUrl, 24));
-      row.appendChild(span('bx-move', opp.name));
-      row.appendChild(span('scout-opp-count', `${opp.gamesAnalysed} game${opp.gamesAnalysed !== 1 ? 's' : ''}`));
-      el.appendChild(row);
+      const statsKey = `${opp.id}:${oppColour}`;
+      let s = oppStats.get(statsKey);
+      if (!s) { s = buildMoveStats(opp.games, oppColour, MAP_MAX_PLIES); oppStats.set(statsKey, s); }
+      const posGames = statAt(s, deps.getUcis())?.games ?? 0;
+
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'scout-opp-card';
+      card.addEventListener('click', () => { selectedOppId = opp.id; renderScouting(); });
+      card.appendChild(userAvatar(opp.avatarUrl, 36));
+
+      const text = document.createElement('span');
+      text.className = 'scout-opp-text';
+      text.appendChild(span('scout-opp-name', opp.name));
+      text.appendChild(span('scout-opp-sub',
+        `${posGames} from this position · ${opp.gamesAnalysed} game${opp.gamesAnalysed !== 1 ? 's' : ''}`));
+      card.appendChild(text);
+
+      const chev = Icons.chevronRight(18);
+      chev.classList.add('scout-opp-chev');
+      card.appendChild(chev);
+      el.appendChild(card);
     }
   }
 
@@ -349,35 +370,6 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     return tag;
   }
 
-  // The board's opponent (top) and you (bottom) strips. Shown only on the
-  // Scouting slide with an opponent selected: "opponent on top, you on bottom".
-  // Driven off deps.getColour(), so a board flip repaints them correctly.
-  function renderBoardPlayers(): void {
-    const oppEl = deps.boardOpponentEl;
-    const youEl = deps.boardYouEl;
-    const selected = (selectedOppId && opponents)
-      ? opponents.find(o => o.id === selectedOppId) ?? null
-      : null;
-    if (activeSlide !== SCOUTING_SLIDE || !selected) {
-      oppEl.hidden = true;
-      youEl.hidden = true;
-      return;
-    }
-    const yourColour = deps.getColour();
-    const oppColour: 'white' | 'black' = yourColour === 'white' ? 'black' : 'white';
-
-    oppEl.innerHTML = '';
-    oppEl.appendChild(userAvatar(selected.avatarUrl, 22));
-    oppEl.appendChild(span('board-player-name', selected.name));
-    oppEl.appendChild(colourTag(oppColour));
-    oppEl.hidden = false;
-
-    youEl.innerHTML = '';
-    youEl.appendChild(span('board-player-name', 'You'));
-    youEl.appendChild(colourTag(yourColour));
-    youEl.hidden = false;
-  }
-
   return {
     render() { renderLibrary(); renderGames(); renderScouting(); },
     reload() { loadGames(); },
@@ -388,10 +380,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
       activeSlide = index;
       // Entering the Library slide: repaint so its explorer bars fetch now.
       if (index === LIBRARY_SLIDE) renderLibrary();
-      // The board's opponent/you strips belong to the Scouting slide only —
-      // repaint (which shows them) on entry, hide them on leaving.
       if (index === SCOUTING_SLIDE) renderScouting();
-      else renderBoardPlayers();
     },
   };
 }

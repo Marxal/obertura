@@ -900,7 +900,6 @@ main {
 #board-wrap {
   width: 100vw;
   height: 100vw;
-  position: relative; /* anchors the scouting player strips over the board edges */
 }
 
 #board {
@@ -908,37 +907,7 @@ main {
   height: 100%;
 }
 
-/* Scouting player strips — compact pills overlaid on the board's top and bottom
-   edges so it's obvious who's on top (the opponent) and that you play from the
-   bottom. Shown only on the builder's Scouting slide; hidden otherwise. */
-.board-player-bar {
-  position: absolute;
-  left: 8px;
-  z-index: 5;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  max-width: calc(100% - 16px);
-  padding: 0.2rem 0.55rem 0.2rem 0.3rem;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.6);
-  color: #fff;
-  font-size: 0.8rem;
-  line-height: 1.2;
-  pointer-events: none;
-}
-.board-player-bar[hidden] { display: none; }
-.board-player-bar--opponent { top: 8px; }
-.board-player-bar--you { bottom: 8px; }
-.board-player-bar .scout-avatar { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4); }
-.board-player-name {
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-/* The colour chip reads on the dark pill and in the scouting header alike. */
-.board-player-bar .scout-side-tag { color: #fff; }
+/* Side chip (colour pip + "White"/"Black") — used in the scouting header. */
 .scout-side-tag {
   flex: 0 0 auto;
   display: inline-flex;
@@ -1129,16 +1098,57 @@ cg-board square.move-dest.oc {
   cursor: pointer;
 }
 .scout-back-arrow { font-size: 1.1em; }
-.scout-slide-name {
+/* Avatar + name + side kept together as one centered cluster, so the picture
+   and name read as a pair rather than drifting to opposite edges. */
+.scout-slide-id {
   flex: 1 1 auto;
   min-width: 0;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+.scout-slide-name {
+  flex: 0 1 auto;
+  min-width: 0;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.scout-opp-count { flex: 0 0 auto; opacity: 0.6; font-size: 0.85rem; }
+
+/* Opponent picker rows — full cards so it's obvious they're tappable. */
+.scout-opp-card {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: var(--bg-elevated);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.scout-opp-card:active { filter: brightness(0.96); transform: translateY(1px); }
+.scout-opp-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.scout-opp-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scout-opp-sub { font-size: 0.8rem; opacity: 0.6; }
+.scout-opp-chev { flex: 0 0 auto; opacity: 0.4; }
 
 /* Library's right-hand slot holds the named-opening count by default, swapped
    for a compact Lichess win/loss bar when the explorer answers. */
