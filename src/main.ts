@@ -393,9 +393,9 @@ function onActiveSlide(index: number): void {
   if (index === activeSlide) return;
   activeSlide = index;
   builderPanels?.setActiveSlide(index);
-  if (index === ENGINE_SLIDE && evalPanel && !evalPanel.isEnabled) {
-    evalPanel.setEnabled(true);
-  }
+  // The engine runs only while its tab is showing: on when you land on it, off
+  // when you leave. There's no on/off toggle — the tab IS the switch.
+  if (evalPanel) evalPanel.setEnabled(index === ENGINE_SLIDE);
 }
 
 // Fit the carousel into the space left between the board and the bottom dock, so
@@ -472,22 +472,28 @@ function renderMoveDetails(): void {
 function renderNoteBlock(): void {
   const block = document.getElementById('note-block')!;
   const display = document.getElementById('note-display')!;
+  const btn = document.getElementById('note-btn')!;
   const label = document.getElementById('note-btn-label')!;
   const node = getCurrentNode();
+  // The note button lives in the Line tab's action row. At the root there's no
+  // move to annotate, so hide the button (Title/Tags stay) and the display.
   if (node.id === 'root') {
+    btn.hidden = true;
     block.hidden = true;
     return;
   }
-  block.hidden = false;
+  btn.hidden = false;
   const note = node.note?.trim();
   if (note) {
     display.textContent = note;
     display.hidden = false;
+    block.hidden = false;
     label.textContent = 'Edit note';
   } else {
     display.textContent = '';
     display.hidden = true;
-    label.textContent = `Add a note for ${node.san}`;
+    block.hidden = true;
+    label.textContent = 'Add note';
   }
 }
 
@@ -1178,7 +1184,13 @@ function showView(view: ViewName): void {
   }
 
   if (view === 'builder') {
-    engine.evaluate(chess.fen());
+    // Always land on the Line tab with the engine off; entering the Engine tab
+    // is what turns it on. Forcing activeSlide to a sentinel makes onActiveSlide
+    // run its leave-branch and disable the engine.
+    const track = document.getElementById('builder-carousel');
+    if (track) track.scrollLeft = 0;
+    activeSlide = -1;
+    onActiveSlide(0);
     // The carousel can only be sized once the builder is visible (its slides have
     // zero height while hidden). Re-read games too, in case some were just
     // imported, then repaint the slides for the current position.
@@ -1187,6 +1199,9 @@ function showView(view: ViewName): void {
       builderPanels?.reload();
       builderPanels?.render();
     });
+  } else if (evalPanel && evalPanel.isEnabled) {
+    // Leaving the builder for any other screen: stop the engine it was running.
+    evalPanel.setEnabled(false);
   }
 }
 
@@ -1690,9 +1705,9 @@ maybeShowGate(() => requestAnimationFrame(() => {
   });
   evalPanel = new EvalPanel(
     document.getElementById('eval-bar-top')!,
-    // The engine's controls (toggle + recommended moves) now live in the
-    // carousel's Engine slide, not a fixed strip below the board.
-    document.getElementById('slide-engine')!,
+    // Eval bar + engine lines both live in the Engine slide, so they only show
+    // on that tab. The engine is driven by the tab (no on/off toggle here).
+    document.getElementById('eval-controls')!,
     engine.isEnabled,
     (enabled) => {
       if (enabled) {
