@@ -189,10 +189,10 @@ async function doRender(container: HTMLElement, deps: LinesDeps): Promise<void> 
     void doRender(container, deps);
   };
 
-  // Quick view: one carousel of mini-boards per colour, title-only cards. When
-  // it's switched off in Settings, the per-colour "Add new line" buttons that
-  // live in the carousel heads go with it — so surface a compact inline add row
-  // instead, keeping the only entry into the builder reachable.
+  // Quick view: one carousel of mini-boards per colour, title-only cards, each
+  // with its own "Add new line" button in the head. When it's switched off in
+  // Settings, no add row appears here — the FAB's "New line" (White | Black) is
+  // the way in, so a fresh line is still one tap away.
   if (getShowQuickView()) {
     for (const colour of ['white', 'black'] as const) {
       container.appendChild(
@@ -206,8 +206,6 @@ async function doRender(container: HTMLElement, deps: LinesDeps): Promise<void> 
         )
       );
     }
-  } else {
-    container.appendChild(buildInlineAddRow(deps));
   }
 
   // Two prominent tabs: SAVED LINES | FROM MY GAMES.
@@ -348,25 +346,6 @@ function buildCarouselSection(
   }
   section.appendChild(carousel);
 
-  return section;
-}
-
-// Shown in place of the carousels when quick view is off: one add-line button
-// per colour, so a fresh line is still one tap away.
-function buildInlineAddRow(deps: LinesDeps): HTMLElement {
-  const section = document.createElement('section');
-  section.className = 'section lines-add-row';
-  for (const colour of ['white', 'black'] as const) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = `lines-add-btn lines-add-btn--${colour}`;
-    btn.appendChild(Icons.plus(15));
-    btn.appendChild(
-      document.createTextNode(colour === 'white' ? 'Add White line' : 'Add Black line')
-    );
-    btn.addEventListener('click', () => deps.onAddLine(colour));
-    section.appendChild(btn);
-  }
   return section;
 }
 

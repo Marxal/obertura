@@ -876,7 +876,10 @@ function openDetail(id: string, container: HTMLElement): void {
     // 1) Visualize their games — at the top (mirrors the Explore tab's
     //    "Visualize your play"): a Board browser and their games tree, both
     //    pointed at THEIR games and handing "Prepare a reply" back here.
-    bodyWrap.appendChild(visualizeOpponentSection(opp, prepare));
+    // Board browser closes this overlay first — otherwise it stays mounted on
+    // top of the builder we open and the button looks dead.
+    bodyWrap.appendChild(visualizeOpponentSection(opp, prepare,
+      () => { close(); exploreDeps?.onScoutInBuilder(opp.id); }));
 
     // 2) Scouting report — their overall W-D-L bar, then the two findings
     //    (where they struggle / where they score) tucked in an accordion, each
@@ -1162,7 +1165,7 @@ type PrepareFn = (ucis: string[], opponentColour: 'white' | 'black') => void;
 // Explore tab's "Visualize your play" but pointed at THIS opponent's games. Both
 // hand "Prepare a reply" back through `prepare`, and each carries its own
 // White/Black toggle (greying out a side they never played).
-function visualizeOpponentSection(opp: Opponent, prepare: PrepareFn): HTMLElement {
+function visualizeOpponentSection(opp: Opponent, prepare: PrepareFn, onBoardBrowser: () => void): HTMLElement {
   const section = document.createElement('div');
   section.className = 'section';
   const head = document.createElement('div');
@@ -1193,7 +1196,7 @@ function visualizeOpponentSection(opp: Opponent, prepare: PrepareFn): HTMLElemen
   // the line you're building.
   entries.appendChild(mapEntryBtn(Icons.compass(24), 'Board browser',
     `Walk ${opp.name}’s games in the builder`,
-    () => exploreDeps?.onScoutInBuilder(opp.id), 'primary'));
+    onBoardBrowser, 'primary'));
 
   // Their games tree — the auto-built opponent map, colour toggling inside.
   const openTree = (colour: 'white' | 'black'): void => {

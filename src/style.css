@@ -900,12 +900,69 @@ main {
 #board-wrap {
   width: 100vw;
   height: 100vw;
+  position: relative; /* anchors the scouting player strips over the board edges */
 }
 
 #board {
   width: 100%;
   height: 100%;
 }
+
+/* Scouting player strips — compact pills overlaid on the board's top and bottom
+   edges so it's obvious who's on top (the opponent) and that you play from the
+   bottom. Shown only on the builder's Scouting slide; hidden otherwise. */
+.board-player-bar {
+  position: absolute;
+  left: 8px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: calc(100% - 16px);
+  padding: 0.2rem 0.55rem 0.2rem 0.3rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.8rem;
+  line-height: 1.2;
+  pointer-events: none;
+}
+.board-player-bar[hidden] { display: none; }
+.board-player-bar--opponent { top: 8px; }
+.board-player-bar--you { bottom: 8px; }
+.board-player-bar .scout-avatar { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4); }
+.board-player-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The colour chip reads on the dark pill and in the scouting header alike. */
+.board-player-bar .scout-side-tag { color: #fff; }
+.scout-side-tag {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  opacity: 0.95;
+}
+
+/* Discrete link under the builder's "My games" list — opens the games tree. */
+.games-tree-link {
+  display: block;
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.4rem 0;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: center;
+  cursor: pointer;
+}
+.games-tree-link:active { opacity: 0.6; }
 
 /* Board square colors — chessground uses a background SVG on cg-board, not
    classes on individual squares. We override with our own 2×2 tile SVG:

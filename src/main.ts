@@ -1746,6 +1746,8 @@ maybeShowGate(() => requestAnimationFrame(() => {
     libraryEl: document.getElementById('slide-library')!,
     gamesEl: document.getElementById('slide-games')!,
     scoutingEl: document.getElementById('slide-scouting')!,
+    boardOpponentEl: document.getElementById('board-opponent-bar')!,
+    boardYouEl: document.getElementById('board-you-bar')!,
     getSans: currentPathSans,
     getUcis: currentPathUcis,
     getFen: () => chess.fen(),
