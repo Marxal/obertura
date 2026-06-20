@@ -24,8 +24,6 @@ import { Icons } from './icons';
 import { showDialog } from './dialog';
 import { openImportPanel } from './import-panel';
 import { openRepertoireMap } from './repertoire-map';
-import { openBoardExplorer } from './board-explorer';
-import { openLibrary } from './library';
 import { openSpar, type SparMode } from './spar';
 import { loadBookLines, pickBookLine, pickGameLine } from './book-lines';
 import {
@@ -43,7 +41,7 @@ import {
   type Opponent,
 } from './scout';
 import { wdlBlock, wdlScoreRow } from './wdl-bar';
-import { buildMoveStats, buildRepertoireStatTree } from './move-stats';
+import { buildMoveStats } from './move-stats';
 import { createFilterBar } from './filters';
 import { renderFamilyGroups } from './line-groups';
 import { buildEmptyState } from './empty-state';
@@ -82,9 +80,42 @@ export interface ExploreDeps {
   // sparred against the engine), oriented to the chosen colour. No opponent tag
   // — this is a plain reference line.
   onOpenInBuilder: (ucis: string[], colour: 'white' | 'black') => void;
+  // Open the builder's Scouting tab on this opponent (the new "board browser").
+  onScoutInBuilder: (opponentId: string) => void;
 }
 
 let exploreDeps: ExploreDeps | null = null;
+
+// Set by the builder's "Full report" action so the next Explore render opens
+// straight into this opponent's detail.
+let pendingOpponentId: string | null = null;
+export function openExploreOpponent(id: string): void { pendingOpponentId = id; }
+
+// Import a new opponent without the Explore screen — used by the builder's
+// Scouting tab. Imports + saves, then calls onDone (e.g. to refresh the list).
+export function importOpponentFlow(onDone: () => void): void {
+  void (async () => {
+    if (await countOpponents() >= MAX_OPPONENTS) {
+      showDialog({
+        title: 'Opponent limit reached',
+        body: `You can scout up to ${MAX_OPPONENTS} opponents. Delete one to make room first.`,
+        buttons: [{ label: 'OK', variant: 'primary' }],
+      });
+      return;
+    }
+    openImportPanel({
+      title: 'Scout an opponent',
+      username: '',
+      rememberUser: false,
+      save: async (games, metaInfo) => {
+        const avatarUrl = metaInfo.avatarUrl ??
+          (metaInfo.platform === 'chesscom' ? await fetchAvatar(metaInfo.username) : undefined);
+        await saveOpponent(makeOpponent(metaInfo, games, { avatarUrl }));
+      },
+      onImported: () => onDone(),
+    });
+  })();
+}
 
 // Returns the rebuild promise so callers that must wait for a fresh list (the
 // delete flow) can await it before revealing the screen; everyone else ignores
@@ -106,26 +137,6 @@ export async function openEngineSpar(deps: ExploreDeps): Promise<void> {
   openSparSheet(games.length > 0);
 }
 
-export async function openMyGamesBrowser(deps: ExploreDeps): Promise<void> {
-  exploreDeps = deps;
-  const games = await getAllGames();
-  if (games.length === 0) return; // the FAB hides this action without games
-  const has = (c: 'white' | 'black') => games.some(g => g.colour === c);
-  const open = (colour: 'white' | 'black'): void => {
-    openBoardExplorer({
-      statsTree: buildMoveStats(games, colour, MAP_MAX_PLIES),
-      caption: 'your results',
-      colour,
-      players: {},
-      games,
-      title: 'Board browser',
-      onOpenInBuilder: (ucis, c) => exploreDeps?.onOpenInBuilder(ucis, c),
-      colourToggle: { current: colour, enabled: { white: has('white'), black: has('black') }, onPick: open },
-    });
-  };
-  open(has('white') ? 'white' : 'black');
-}
-
 async function buildScreen(container: HTMLElement): Promise<void> {
   container.innerHTML = '';
 
@@ -140,44 +151,31 @@ async function buildScreen(container: HTMLElement): Promise<void> {
   opponents.sort((a, b) => b.refreshedAt.localeCompare(a.refreshedAt));
   const hasGames = games.length > 0;
 
-  // "Browse opening library" leads the screen — a plain full-width launcher
-  // (not a .section card). The ~490 KB dataset is lazy-loaded only on open.
-  container.appendChild(libraryButton());
-
-  // 1) Visualize your play — board browser + your games / repertoire trees.
+  // 1) Your games tree — a discrete launcher at the top. (Browsing the library
+  //    and your games now lives in the builder's tabs; building vs the engine is
+  //    on the FAB. Opening packs will land here later.)
   const visualize = visualizeSection(lines, games);
   if (visualize) container.appendChild(visualize);
 
   // 2) Scout opponents.
   container.appendChild(scoutSection(opponents, container));
 
-  // 3) Build with the engine.
-  container.appendChild(sparSection(hasGames));
-
-  // 4) Recommended lines to try — games-gated, at the very bottom. Only when
+  // 3) Recommended lines to try — games-gated, at the very bottom. Only when
   //    games are imported, and only if there's actually something worth nudging.
   if (hasGames) {
     const recs = recommendationsSection(games, lines);
     if (recs) container.appendChild(recs);
   }
+
+  // A "Full report" tap from the builder's Scouting tab asks us to open straight
+  // into one opponent's detail.
+  if (pendingOpponentId) {
+    const id = pendingOpponentId;
+    pendingOpponentId = null;
+    openDetail(id, container);
+  }
 }
 
-// ── Browse opening library (top of Explore, a bare button) ────────────────────
-
-// A standalone full-width launcher, deliberately NOT wrapped in a .section card,
-// so it reads as a simple button above the sections. The ~490 KB library dataset
-// is lazy-loaded only when it's actually opened, so this is free to render.
-function libraryButton(): HTMLElement {
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'games-refresh-btn library-launch-btn';
-  btn.appendChild(Icons.search(15));
-  btn.appendChild(document.createTextNode('Browse opening library'));
-  btn.addEventListener('click', () => {
-    openLibrary((ucis, colour) => exploreDeps?.onOpenInBuilder(ucis, colour));
-  });
-  return btn;
-}
 
 // ── Scout opponents ────────────────────────────────────────────────────────────
 
@@ -257,46 +255,12 @@ function getSparMode(): SparMode {
 }
 let sparMode: SparMode = getSparMode();
 
-// A launcher card for a casual game against the local engine. The settings
-// (level, side, engine opening) and the Play button now live in a bottom sheet
-// so the Explore landing stays clean; this section is just the front door.
-function sparSection(hasGames: boolean): HTMLElement {
-  // A persisted "From my games" with no games left falls back to Surprise me.
-  if (sparMode === 'games' && !hasGames) sparMode = 'surprise';
-
-  const section = document.createElement('div');
-  section.className = 'section';
-
-  const head = document.createElement('div');
-  head.className = 'section-head';
-  const heading = document.createElement('h2');
-  heading.className = 'section-title';
-  heading.textContent = 'Build with the engine';
-  head.appendChild(heading);
-  section.appendChild(head);
-
-  const desc = document.createElement('p');
-  desc.className = 'section-desc';
-  desc.textContent =
-    'Play a casual game against the engine from the start, then open the moves in the builder whenever you like.';
-  section.appendChild(desc);
-
-  // The front door: a single primary that opens the settings sheet.
-  const openBtn = document.createElement('button');
-  openBtn.type = 'button';
-  openBtn.className = 'btn-primary spar-start-btn';
-  openBtn.appendChild(Icons.play(15));
-  openBtn.appendChild(document.createTextNode('Build with the engine'));
-  openBtn.addEventListener('click', () => openSparSheet(hasGames));
-  section.appendChild(openBtn);
-
-  return section;
-}
-
 // The settings bottom sheet: Level / Play-as / Engine-opening pickers plus the
 // Play button. The pickers mutate the same persisted module state as before, so
 // the chosen settings survive between opens and reloads.
 function openSparSheet(hasGames: boolean): void {
+  // A persisted "From my games" with no games left falls back to Surprise me.
+  if (sparMode === 'games' && !hasGames) sparMode = 'surprise';
   const overlay = document.createElement('div');
   overlay.className = 'edit-overlay';
   const sheet = document.createElement('div');
@@ -567,7 +531,7 @@ function visualizeSection(lines: Line[], games: ImportedGame[]): HTMLElement | n
 
   const desc = document.createElement('p');
   desc.className = 'rmap-section-desc';
-  desc.textContent = 'Walk your games on the board — switch to your repertoire from inside.';
+  desc.textContent = 'See your lines as a tree — switch to your repertoire from inside.';
   section.appendChild(desc);
 
   const entries = document.createElement('div');
@@ -597,29 +561,6 @@ function visualizeSection(lines: Line[], games: ImportedGame[]): HTMLElement | n
   const firstColour = (s: Source): 'white' | 'black' => (colourEnabled(s, 'white') ? 'white' : 'black');
   const validColour = (s: Source, from: 'white' | 'black') => (colourEnabled(s, from) ? from : firstColour(s));
   const sourceEnabled = { games: gamesAny, repertoire: repAny };
-
-  // Board browser — walk positions with per-move W/D/L. The source toggle swaps
-  // the stats tree: your games' results, or your repertoire (with your game
-  // results overlaid where you've actually played those moves).
-  const openBrowser = (colour: 'white' | 'black', source: Source): void => {
-    const isGames = source === 'games';
-    openBoardExplorer({
-      statsTree: isGames
-        ? buildMoveStats(games, colour, MAP_MAX_PLIES)
-        : buildRepertoireStatTree(lines, games, colour, MAP_MAX_PLIES),
-      caption: isGames ? 'your results' : 'your repertoire',
-      colour,
-      // No opponent here — still show the strips ("You" below, a generic
-      // "Opponent" on top) so the perspective reads the same as a scout browser.
-      players: {},
-      // "See full game" only makes sense over real games.
-      ...(isGames && { games }),
-      title: 'Board browser',
-      onOpenInBuilder: (ucis, c) => exploreDeps?.onOpenInBuilder(ucis, c),
-      colourToggle: { current: colour, enabled: colourEnabledMap(source), onPick: c => openBrowser(c, source) },
-      sourceToggle: { current: source, enabled: sourceEnabled, onPick: s => openBrowser(validColour(s, colour), s) },
-    });
-  };
 
   // The tree (repertoire-map) for either source. Games: the merged imported-game
   // tree; Repertoire: the saved lines merged. Both overlay your game results
@@ -654,11 +595,8 @@ function visualizeSection(lines: Line[], games: ImportedGame[]): HTMLElement | n
   };
 
   if (gamesAny) {
-    // Board browser leads as the prominent green entry…
-    entries.appendChild(mapEntryBtn(Icons.compass(24), 'Board browser',
-      `${games.length} game${games.length !== 1 ? 's' : ''}`,
-      () => openBrowser(firstColour('games'), 'games'), 'primary'));
-    // …with the games tree as a discrete link beneath.
+    // Your games as a tree — the single discrete entry. (The board browser now
+    // lives in the builder's My games tab.)
     entries.appendChild(mapEntryBtn(Icons.search(24), 'Your games tree',
       `${games.length} game${games.length !== 1 ? 's' : ''}`,
       () => openTree(firstColour('games'), 'games'), 'discrete'));
@@ -1250,25 +1188,12 @@ function visualizeOpponentSection(opp: Opponent, prepare: PrepareFn): HTMLElemen
   const start: 'white' | 'black' = has('white') ? 'white' : 'black';
   const enabled = { white: has('white'), black: has('black') };
 
-  // Board browser — walk their positions with their per-move W/D/L; "Prepare a
-  // reply" hands the walked line back (flipped to my answering colour).
-  const openBrowser = (colour: 'white' | 'black'): void => {
-    openBoardExplorer({
-      statsTree: buildMoveStats(opp.games, colour, MAP_MAX_PLIES),
-      caption: `${opp.name}'s results`,
-      colour,
-      // Face the board from MY answering side (the opposite of their colour),
-      // with their avatar/name on top and "You" below.
-      orientation: colour === 'white' ? 'black' : 'white',
-      players: { opponent: { name: opp.name, avatarUrl: opp.avatarUrl } },
-      games: opp.games,
-      title: `${opp.name} — board browser`,
-      action: { label: 'Prepare a reply', onAct: ({ ucis }) => prepare(ucis, colour) },
-      colourToggle: { current: colour, enabled, onPick: openBrowser },
-    });
-  };
+  // Board browser — now opens the builder's Scouting tab on this opponent, where
+  // you walk their games from the live position and play replies straight onto
+  // the line you're building.
   entries.appendChild(mapEntryBtn(Icons.compass(24), 'Board browser',
-    `Walk ${opp.name}’s games on a board`, () => openBrowser(start), 'primary'));
+    `Walk ${opp.name}’s games in the builder`,
+    () => exploreDeps?.onScoutInBuilder(opp.id), 'primary'));
 
   // Their games tree — the auto-built opponent map, colour toggling inside.
   const openTree = (colour: 'white' | 'black'): void => {

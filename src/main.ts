@@ -6,7 +6,7 @@ import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
 import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, loadTree, removeLastMove, truncateAfterCurrent } from './tree';
 import type { Annotation, MoveNode } from './tree';
-import { saveLine, getAllLines, countGames } from './storage';
+import { saveLine, getAllLines } from './storage';
 import { nameForPath } from './openings';
 import type { Line } from './types';
 import { renderLinesScreen, focusSavedLine } from './lines-screen';
@@ -25,7 +25,6 @@ import { watchSpeedMs, getConfirmRunBeforeTraining } from './prefs';
 import { initBackNav, setViewBack, pushBack } from './back-nav';
 import { showDialog } from './dialog';
 import { openImportPanel, getGamesSource, IDENTITY_CHANGED_EVENT } from './import-panel';
-import { openLibrary } from './library';
 import { maybeShowIntro } from './onboarding';
 import { maybeAutoRefreshGames } from './auto-refresh';
 import { maybeShowGate } from './gate';
@@ -33,7 +32,7 @@ import { showToast } from './toast';
 import { Icons } from './icons';
 import { mountFab, type FabItem, type FabController } from './fab';
 import { importLastGame, hasConnectedAccount } from './import-last';
-import { openEngineSpar, openMyGamesBrowser } from './explore-screen';
+import { openEngineSpar, openExploreOpponent, importOpponentFlow } from './explore-screen';
 
 const chess = new Chess();
 let cg!: ReturnType<typeof Chessground>;
@@ -379,8 +378,15 @@ function setupMoveNav(): void {
 // and jumps to one on tap. The board sits ABOVE the carousel and is a fixed
 // square, so swiping slides never moves it.
 
+// Carousel slide indices: 0 Line, 1 Library, 2 My games, 3 Engine, 4 Scouting.
+const LIBRARY_SLIDE = 1;
 const ENGINE_SLIDE = 3;
+const SCOUTING_SLIDE = 4;
 let activeSlide = 0;
+// When opening the builder from an external link, the tab to land on (and an
+// opponent to preselect on the Scouting tab). Consumed in showView('builder').
+let pendingBuilderSlide: number | null = null;
+let pendingScoutOpponentId: string | null = null;
 
 // React to the active slide changing (by tap or swipe): repaint the tabs and,
 // on the Engine slide, turn the engine on by default so it's ready without a tap.
@@ -845,6 +851,24 @@ function startNewLine(colour: 'white' | 'black'): void {
   showView('builder');
 }
 
+// Open the builder on a specific carousel tab (e.g. an external "browse the
+// opening library" link lands straight on the Library tab). `fresh` starts a new
+// empty line of `colour` first.
+function openBuilderTab(slide: number, opts: { fresh?: boolean; colour?: 'white' | 'black' } = {}): void {
+  if (opts.fresh) clearBuilder(opts.colour ?? 'white');
+  pendingBuilderSlide = slide;
+  showView('builder');
+}
+
+// Open the builder on the Scouting tab with an opponent preselected — the new
+// home for the opponent "board browser" (from the Explore opponent detail).
+function scoutInBuilder(opponentId: string, colour: 'white' | 'black' = 'white'): void {
+  clearBuilder(colour);
+  pendingScoutOpponentId = opponentId;
+  pendingBuilderSlide = SCOUTING_SLIDE;
+  showView('builder');
+}
+
 // Seed the builder with a UCI move list, then open it (from "From my games"
 // suggestions, or the Prepare flow). Starts from a clean, unsaved line so a Save
 // creates a new one. Optional tags pre-fill the working tag set (used by Prepare
@@ -888,22 +912,22 @@ function prepareReply(ucis: string[], answeringColour: 'white' | 'black', oppone
 }
 
 // The Explore screen's dependency object, shared by the Explore tab render and by
-// the FAB's "Build with the engine" / "Browse my games" shortcuts (which open
-// those Explore flows from any tab).
+// the FAB's "Build with the engine" shortcut.
 function exploreScreenDeps() {
   return {
     onPrepareReply: prepareReply,
     onOpenLine,
     onOpenInBuilder: (ucis: string[], colour: 'white' | 'black') => buildFromUcis(ucis, colour),
+    // The opponent "board browser" now opens the builder's Scouting tab.
+    onScoutInBuilder: (opponentId: string) => scoutInBuilder(opponentId),
   };
 }
 
-// Build the FAB's action list fresh on every open so it reflects the live account
-// / games state. New line and the create flows are always there; "Import last
-// game" needs a connected account; the games slot is a board browser when games
-// exist, or a games-import prompt when they don't.
+// Build the FAB's action list fresh on every open. Now that the builder unifies
+// the library / my games / scouting browsing, the FAB is just the three ways to
+// START a line: a new line, your last game, or a game vs the engine. (Browsing
+// the library or your games happens inside the builder's tabs.)
 async function buildFabActions(): Promise<FabItem[]> {
-  const gamesCount = await countGames();
   const connected = hasConnectedAccount();
   const items: FabItem[] = [];
 
@@ -928,34 +952,7 @@ async function buildFabActions(): Promise<FabItem[]> {
     });
   }
 
-  // 3) Browse my games (with games) / Import my games (without) — same slot.
-  if (gamesCount > 0) {
-    items.push({
-      icon: Icons.compass(20),
-      label: 'Browse my games',
-      sublabel: 'Walk your games on a board',
-      onClick: () => { void openMyGamesBrowser(exploreScreenDeps()); },
-    });
-  } else {
-    items.push({
-      icon: Icons.download(20),
-      label: 'Import my games',
-      sublabel: 'From Lichess or Chess.com',
-      onClick: () => openImportPanel({
-        onImported: () => { if (currentView === 'explore') showView('explore'); },
-      }),
-    });
-  }
-
-  // 4) Opening library — always.
-  items.push({
-    icon: Icons.search(20),
-    label: 'Opening library',
-    sublabel: 'Start from a named opening',
-    onClick: () => openLibrary((ucis, colour) => buildFromUcis(ucis, colour)),
-  });
-
-  // 5) Build with the engine — always; top of the menu.
+  // 3) Build with the engine — always; top of the menu.
   items.push({
     icon: Icons.gamepad(20),
     label: 'Build with the engine',
@@ -1163,7 +1160,7 @@ function showView(view: ViewName): void {
       },
       // Onboarding's quieter routes: the opening-library browser (seeds the
       // builder) and the Explore screen, home of "play the engine" sparring.
-      onBrowseLibrary: () => openLibrary((ucis, colour) => buildFromUcis(ucis, colour)),
+      onBrowseLibrary: () => openBuilderTab(LIBRARY_SLIDE, { fresh: true, colour: 'white' }),
       onBuildWithEngine: () => showView('explore'),
       onSetFabVisible: (visible) => fabController?.setVisible(visible),
     });
@@ -1184,18 +1181,25 @@ function showView(view: ViewName): void {
   }
 
   if (view === 'builder') {
-    // Always land on the Line tab with the engine off; entering the Engine tab
-    // is what turns it on. Forcing activeSlide to a sentinel makes onActiveSlide
-    // run its leave-branch and disable the engine.
+    // Land on the Line tab by default (engine off); an external link can request
+    // a different tab via pendingBuilderSlide. Forcing activeSlide to a sentinel
+    // makes onActiveSlide run fully (so the engine state is set correctly).
+    const slide = pendingBuilderSlide ?? 0;
+    pendingBuilderSlide = null;
+    if (pendingScoutOpponentId) {
+      builderPanels?.selectOpponent(pendingScoutOpponentId);
+      pendingScoutOpponentId = null;
+    }
     const track = document.getElementById('builder-carousel');
-    if (track) track.scrollLeft = 0;
+    if (track) track.scrollLeft = slide * track.clientWidth;
     activeSlide = -1;
-    onActiveSlide(0);
+    onActiveSlide(slide);
     // The carousel can only be sized once the builder is visible (its slides have
     // zero height while hidden). Re-read games too, in case some were just
     // imported, then repaint the slides for the current position.
     requestAnimationFrame(() => {
       sizeBuilderCarousel();
+      if (track) track.scrollLeft = slide * track.clientWidth;
       builderPanels?.reload();
       builderPanels?.render();
     });
@@ -1612,9 +1616,16 @@ function setupSaveButton() {
 function setupPlaybackControls(): void {
   const watchBtn = document.getElementById('watch-btn') as HTMLButtonElement;
 
-  // Flip: a temporary, view-only swap to the other side. It does NOT change
-  // the line's saved colour — reopening or resetting restores the correct one.
-  document.getElementById('board-flip')!.addEventListener('click', () => cg.toggleOrientation());
+  // Flip: swap to the other side AND switch which colour this line saves as —
+  // building from White and flipping means you're now preparing the Black side.
+  // The colour-dependent slides (My games / Scouting) refresh to match.
+  document.getElementById('board-flip')!.addEventListener('click', () => {
+    cg.toggleOrientation();
+    saveColour = saveColour === 'white' ? 'black' : 'white';
+    renderTitle();
+    builderPanels?.render();
+    showToast(`This line will now save as ${saveColour === 'white' ? 'White' : 'Black'}`);
+  });
 
   // Play the next queued move, then schedule the one after at the current speed.
   function playStep(): void {
@@ -1734,11 +1745,19 @@ maybeShowGate(() => requestAnimationFrame(() => {
   builderPanels = createBuilderPanels({
     libraryEl: document.getElementById('slide-library')!,
     gamesEl: document.getElementById('slide-games')!,
+    scoutingEl: document.getElementById('slide-scouting')!,
     getSans: currentPathSans,
     getUcis: currentPathUcis,
     getFen: () => chess.fen(),
     getColour: () => saveColour,
     onPlay: (uci) => playUci(uci),
+    // My games empty-state import button.
+    onImportGames: () => openImportPanel({
+      onImported: () => { builderPanels?.reload(); builderPanels?.render(); },
+    }),
+    // Scouting: import a new opponent, and jump to an opponent's full report.
+    onImportOpponent: () => importOpponentFlow(() => builderPanels?.reloadOpponents()),
+    onOpenOpponentReport: (id: string) => { openExploreOpponent(id); showView('explore'); },
   });
 
   setupSaveButton();
