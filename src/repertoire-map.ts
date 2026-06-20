@@ -37,6 +37,11 @@ export interface RepertoireMapOptions {
   title?: string;
   // Header badge — defaults to "N lines".
   subtitle?: string;
+  // Open already focused on this position (uci path from the start) instead of
+  // the first move — so "Visualise your tree" from the builder lands on the
+  // board's current position. Falls back to the first move if the path isn't in
+  // the (possibly pruned) tree.
+  initialPath?: string[];
   // Replaces the default "Open in builder" preview action. When set, the button
   // shows on EVERY node (not just nodes tied to a saved line); pass disabled to
   // surface it as a not-yet-live stub.
@@ -961,7 +966,10 @@ export function openRepertoireMap(
   // repertoire hands back its saved lines (the merge truncates). Building from
   // games at the shallow start depth is cheap, so this is fine on first render.
   const depth = opts.depth ?? null;
-  let currentPlies = depth ? depth.startPlies : Infinity;
+  // Render deep enough for the requested initial position to exist on first paint.
+  let currentPlies = depth
+    ? Math.min(Math.max(depth.startPlies, opts.initialPath?.length ?? 0), depth.maxPlies)
+    : Infinity;
 
   const currentLines = (): Line[] => (depth ? depth.atDepth(currentPlies) : filtered);
 
@@ -1243,6 +1251,9 @@ export function openRepertoireMap(
 
   disposePanZoom = initPanZoom(treeWrap, inner, state, recentre);
 
-  // Start centred on the first child.
-  centreOnFirst();
+  // Open focused on the requested position when it's in the tree (selectNode
+  // highlights, centres, and shows its preview); otherwise centre on the first.
+  const target = opts.initialPath?.length ? findByUcis(opts.initialPath) : null;
+  if (target) selectNode(target);
+  else centreOnFirst();
 }
