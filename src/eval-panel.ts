@@ -57,16 +57,30 @@ export class EvalPanel {
         this.onToggle(this._enabled);
       });
 
-    // Delegated click: play whichever recommended move was tapped.
+    // Delegated click: play the first move of whichever line was tapped.
     this.controlsEl.querySelector<HTMLElement>('#eval-moves')!
       .addEventListener('click', e => {
-        const chip = (e.target as HTMLElement).closest<HTMLElement>('.eval-move');
-        const uci = chip?.dataset.uci;
+        const row = (e.target as HTMLElement).closest<HTMLElement>('[data-uci]');
+        const uci = row?.dataset.uci;
         if (uci) this.onPlayMove(uci);
       });
 
     this.syncVisibility();
   }
+
+  // Programmatically flip the toggle (used to auto-enable the engine when its
+  // carousel tab is opened). Mirrors a user tap: syncs the checkbox + the bar,
+  // then fires onToggle so the engine actually starts/stops.
+  setEnabled(on: boolean) {
+    if (this._enabled === on) return;
+    const cb = this.controlsEl.querySelector<HTMLInputElement>('#engine-cb');
+    if (cb) cb.checked = on;
+    this._enabled = on;
+    this.syncVisibility();
+    this.onToggle(on);
+  }
+
+  get isEnabled() { return this._enabled; }
 
   private syncVisibility() {
     const barWrap = this.barEl.querySelector<HTMLElement>('#eval-bar-wrap')!;
@@ -105,14 +119,16 @@ export class EvalPanel {
     this.barEl.querySelector<HTMLElement>('#eval-bar-fill')!.style.width = `${fillPct}%`;
     this.barEl.querySelector<HTMLElement>('#eval-score')!.textContent = scoreText;
 
-    // Top 3 moves — clickable, each carrying its UCI so it can be played.
+    // Top 3 lines — each its full principal variation, clickable to play its
+    // first move. The score sits on the left, the SAN line on the right.
     const movesEl = this.controlsEl.querySelector<HTMLElement>('#eval-moves')!;
-    movesEl.innerHTML = result.moves.slice(0, 3).map(m =>
-      `<span class="eval-move" data-uci="${m.uci}" role="button" tabindex="0">` +
-        `<span class="eval-move-san">${m.san || m.uci}</span>` +
-        `<span class="eval-move-cp">${this.fmtScore(m)}</span>` +
-      `</span>`
-    ).join('');
+    movesEl.innerHTML = result.moves.slice(0, 3).map(m => {
+      const pv = (m.sanLine && m.sanLine.length ? m.sanLine : [m.san || m.uci]);
+      return `<button class="eval-line" type="button" data-uci="${m.uci}">` +
+        `<span class="eval-line-score">${this.fmtScore(m)}</span>` +
+        `<span class="eval-line-pv">${this.escape(this.formatLine(pv, fen))}</span>` +
+      `</button>`;
+    }).join('');
 
     // Source + depth badge: "cloud · d38" when Lichess answered, or
     // "local · d14…d20" while the bundled Stockfish climbs to its target
@@ -150,6 +166,27 @@ export class EvalPanel {
     const target = result.targetDepth;
     if (target && result.depth < target) return `local · d${result.depth}…d${target}`;
     return `local · d${result.depth}`;
+  }
+
+  // Render a SAN line with move numbers, seeded from the position's fen so the
+  // first move gets the right number and "." / "…" for white / black to move.
+  private formatLine(sanLine: string[], fen: string): string {
+    const parts = fen.split(' ');
+    let moveNo = parseInt(parts[5] ?? '1') || 1;
+    let white = (parts[1] ?? 'w') === 'w';
+    const out: string[] = [];
+    for (let i = 0; i < sanLine.length; i++) {
+      if (white) out.push(`${moveNo}.`);
+      else if (i === 0) out.push(`${moveNo}…`);
+      out.push(sanLine[i]);
+      if (!white) moveNo++;
+      white = !white;
+    }
+    return out.join(' ');
+  }
+
+  private escape(s: string): string {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
   private fmtScore(m: MoveEval): string {

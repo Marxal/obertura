@@ -10,6 +10,9 @@ export interface MoveEval {
   // positive → white ahead, negative → black ahead.
   cp?: number;
   mate?: number;
+  // The principal variation as SAN, starting with `san` — used to show the
+  // engine's full line, not just its first move. Capped to a few plies.
+  sanLine?: string[];
 }
 
 export interface EvalResult {
@@ -200,12 +203,29 @@ export function resolveUci(fen: string, uci: string): { uci: string; san: string
   }
 }
 
+// Replay a UCI principal variation into a SAN list (for showing the engine's
+// line), capped to `cap` plies and stopping at the first move that won't apply.
+function uciLineToSan(fen: string, ucis: string[], cap: number): string[] {
+  const ch = new Chess(fen);
+  const out: string[] = [];
+  for (const u of ucis) {
+    if (out.length >= cap) break;
+    const r = applyUci(ch, u);
+    if (!r) break;
+    out.push(r.san);
+  }
+  return out;
+}
+
+// How many plies of each line to show.
+const PV_DISPLAY_PLIES = 8;
+
 export class Engine {
   private worker: Worker | null = null;
   private workerReady = false;
   private pendingFen: string | null = null;
   private currentFen = '';
-  private multiPv = new Map<number, { uci: string; cp?: number; mate?: number; depth: number }>();
+  private multiPv = new Map<number, { uci: string; cp?: number; mate?: number; depth: number; pv: string[] }>();
   private abortCtrl: AbortController | null = null;
   private _enabled: boolean;
   private cb: EvalCallback;
@@ -270,18 +290,22 @@ export class Engine {
   private parseInfo(line: string) {
     const depth = parseInt(line.match(/\bdepth (\d+)/)?.[1] ?? '0');
     const pvNum = parseInt(line.match(/\bmultipv (\d+)/)?.[1] ?? '0');
-    const uciMatch = line.match(/\bpv ([a-h][1-8][a-h][1-8][qrbn]?)/);
-    if (!uciMatch || pvNum < 1) return;
+    // Capture the WHOLE principal variation after " pv ", not just the first
+    // move, so we can show the engine's line.
+    const pvMatch = line.match(/\bpv (.+?)\s*$/);
+    const pv = pvMatch ? pvMatch[1].trim().split(/\s+/) : [];
+    if (!pv.length || pvNum < 1) return;
 
     const side = sideToMove(this.currentFen);
     const cpRaw = line.match(/\bscore cp (-?\d+)/)?.[1];
     const mateRaw = line.match(/\bscore mate (-?\d+)/)?.[1];
 
     this.multiPv.set(pvNum, {
-      uci: uciMatch[1],
+      uci: pv[0],
       cp: cpRaw !== undefined ? normCp(parseInt(cpRaw), side) : undefined,
       mate: mateRaw !== undefined ? normCp(parseInt(mateRaw), side) : undefined,
       depth,
+      pv,
     });
 
     // Emit progressive updates once we have a decent depth.
@@ -299,6 +323,7 @@ export class Engine {
         san: r?.san ?? v.uci,
         cp: v.cp,
         mate: v.mate,
+        sanLine: uciLineToSan(this.currentFen, v.pv, PV_DISPLAY_PLIES),
       };
     });
     this.cb({ fen: this.currentFen, source: 'stockfish', depth: maxDepth, targetDepth: MAX_DEPTH, moves });
@@ -340,13 +365,15 @@ export class Engine {
 
       const side = sideToMove(fen);
       const moves: MoveEval[] = data.pvs.slice(0, 3).map(pv => {
-        const rawUci = pv.moves?.split(' ')[0] ?? '';
+        const all = pv.moves?.trim().split(/\s+/) ?? [];
+        const rawUci = all[0] ?? '';
         const r = resolveUci(fen, rawUci); // normalises Lichess king-to-rook castling
         return {
           uci: r?.uci ?? rawUci,
           san: r?.san ?? rawUci,
           cp: pv.cp !== undefined ? normCp(pv.cp, side) : undefined,
           mate: pv.mate !== undefined ? normCp(pv.mate, side) : undefined,
+          sanLine: uciLineToSan(fen, all, PV_DISPLAY_PLIES),
         };
       });
 
