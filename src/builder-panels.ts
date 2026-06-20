@@ -16,7 +16,12 @@ import { nameForFen } from './openings';
 import { buildBook, bookNodeAt, loadBookEntries, type BookNode } from './book-tree';
 import { getAllGames, getAllOpponents } from './storage';
 import { buildMoveStats, statAt, statScorePct, gameAtPath, type StatNode } from './move-stats';
-import { MAP_MAX_PLIES, type Opponent } from './scout';
+import {
+  MAP_MAX_PLIES, MAP_START_PLIES, MAP_STEP_PLIES,
+  buildOpponentTree, opponentLine, type Opponent,
+} from './scout';
+import { openRepertoireMap } from './repertoire-map';
+import { userAvatar } from './avatar';
 import { wdlScoreRow, wdlBar, type WdlCounts } from './wdl-bar';
 import { fetchExplorer, type ExplorerCounts } from './lichess-explorer';
 import { platformLabel } from './board-explorer';
@@ -26,6 +31,8 @@ export interface BuilderPanelsDeps {
   libraryEl: HTMLElement;
   gamesEl: HTMLElement;
   scoutingEl: HTMLElement;
+  boardOpponentEl: HTMLElement; // strip above the board: who you're scouting
+  boardYouEl: HTMLElement;      // strip below the board: you + your colour
   getSans: () => string[];          // SAN path to the current cursor node
   getUcis: () => string[];          // UCI path to the current cursor node
   getFen: () => string;             // FEN of the current position
@@ -185,23 +192,57 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
 
     if (!replies.length) {
       el.appendChild(emptyNote('No games continue from here.'));
-      return;
+    } else {
+      const prefix = movePrefix(deps.getUcis().length);
+      for (const c of replies) {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'bx-row';
+        row.addEventListener('click', () => deps.onPlay(c.uci));
+
+        row.appendChild(span('bx-move', `${prefix} ${c.san}`));
+        row.appendChild(wdlScoreRow(
+          { wins: c.wins, draws: c.draws, losses: c.losses, scorePct: statScorePct(c), games: c.games },
+          `${c.games}`,
+        ));
+        el.appendChild(row);
+      }
     }
 
-    const prefix = movePrefix(deps.getUcis().length);
-    for (const c of replies) {
-      const row = document.createElement('button');
-      row.type = 'button';
-      row.className = 'bx-row';
-      row.addEventListener('click', () => deps.onPlay(c.uci));
+    // A discrete link to see all of this colour's imported games as one tree —
+    // the same viewer the Explore tab's "Visualize your play" opens.
+    el.appendChild(gamesTreeLink());
+  }
 
-      row.appendChild(span('bx-move', `${prefix} ${c.san}`));
-      row.appendChild(wdlScoreRow(
-        { wins: c.wins, draws: c.draws, losses: c.losses, scorePct: statScorePct(c), games: c.games },
-        `${c.games}`,
-      ));
-      el.appendChild(row);
-    }
+  // Open the current colour's imported games as a tree (repertoire-map). Reuses
+  // the recipe from explore-screen's visualizeSection: a single seed line of the
+  // merged game tree, re-pruned at each depth, with W/D/L overlaid from games.
+  function openGamesTree(): void {
+    if (!games) return;
+    const colour = deps.getColour();
+    const buildLines = (plies: number) =>
+      [opponentLine(buildOpponentTree(games!, colour, plies, false), colour, 'Your games')];
+    const count = games.filter(g => g.colour === colour).length;
+    openRepertoireMap(buildLines(MAP_START_PLIES), colour, () => { /* no open-in-builder; we're already here */ }, {
+      title: 'Your games',
+      subtitle: `${count} game${count !== 1 ? 's' : ''}`,
+      depth: {
+        startPlies: MAP_START_PLIES,
+        stepPlies: MAP_STEP_PLIES,
+        maxPlies: Math.max(0, ...games.filter(g => g.colour === colour).map(g => g.sans.length)),
+        atDepth: buildLines,
+      },
+      stats: { tree: buildMoveStats(games, colour, MAP_MAX_PLIES), caption: 'your results', games },
+    });
+  }
+
+  function gamesTreeLink(): HTMLElement {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'games-tree-link';
+    btn.textContent = 'Visualise your tree';
+    btn.addEventListener('click', openGamesTree);
+    return btn;
   }
 
   // ── Scouting slide ──────────────────────────────────────────────────────────
@@ -209,6 +250,9 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   // opponent selected → their continuations from the current position, drawn
   // exactly like My games but from THEIR side (the opposite of your save colour).
   function renderScouting(): void {
+    // Keep the board's opponent/you strips in sync with the scouting state.
+    renderBoardPlayers();
+
     const el = deps.scoutingEl;
     el.innerHTML = '';
     if (!opponents) { el.appendChild(emptyNote('Loading opponents…')); return; }
@@ -216,7 +260,11 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     const selected = selectedOppId ? opponents.find(o => o.id === selectedOppId) ?? null : null;
     if (!selected) { renderOpponentList(el); return; }
 
-    // Header: opponent name, a back-to-list control, and a full-report jump.
+    // Their side is the opposite of the colour you're preparing.
+    const oppColour: 'white' | 'black' = deps.getColour() === 'white' ? 'black' : 'white';
+
+    // Header: opponent avatar + name + their side, a back-to-list control, and a
+    // full-report jump.
     const header = document.createElement('div');
     header.className = 'scout-slide-head';
     const back = document.createElement('button');
@@ -226,10 +274,12 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     back.appendChild(document.createTextNode(' Opponents'));
     back.addEventListener('click', () => { selectedOppId = null; renderScouting(); });
     header.appendChild(back);
+    header.appendChild(userAvatar(selected.avatarUrl, 24));
     const name = document.createElement('span');
     name.className = 'scout-slide-name';
     name.textContent = selected.name;
     header.appendChild(name);
+    header.appendChild(colourTag(oppColour));
     const report = document.createElement('button');
     report.type = 'button';
     report.className = 'scout-report-btn';
@@ -238,8 +288,6 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     header.appendChild(report);
     el.appendChild(header);
 
-    // Their side is the opposite of the colour you're preparing.
-    const oppColour: 'white' | 'black' = deps.getColour() === 'white' ? 'black' : 'white';
     let stats = oppStats.get(selected.id);
     if (!stats) { stats = buildMoveStats(selected.games, oppColour, MAP_MAX_PLIES); oppStats.set(selected.id, stats); }
     if (stats.games === 0) {
@@ -281,10 +329,53 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
       row.type = 'button';
       row.className = 'bx-row scout-opp-row';
       row.addEventListener('click', () => { selectedOppId = opp.id; renderScouting(); });
+      row.appendChild(userAvatar(opp.avatarUrl, 24));
       row.appendChild(span('bx-move', opp.name));
       row.appendChild(span('scout-opp-count', `${opp.gamesAnalysed} game${opp.gamesAnalysed !== 1 ? 's' : ''}`));
       el.appendChild(row);
     }
+  }
+
+  // A small "White"/"Black" chip with a colour pip — reused for the scouting
+  // header and the board strips so a side reads the same everywhere.
+  function colourTag(colour: 'white' | 'black'): HTMLElement {
+    const tag = document.createElement('span');
+    tag.className = 'scout-side-tag';
+    const pip = document.createElement('span');
+    pip.className = `colour-pip colour-pip--${colour}`;
+    pip.setAttribute('aria-hidden', 'true');
+    tag.appendChild(pip);
+    tag.appendChild(document.createTextNode(colour === 'white' ? 'White' : 'Black'));
+    return tag;
+  }
+
+  // The board's opponent (top) and you (bottom) strips. Shown only on the
+  // Scouting slide with an opponent selected: "opponent on top, you on bottom".
+  // Driven off deps.getColour(), so a board flip repaints them correctly.
+  function renderBoardPlayers(): void {
+    const oppEl = deps.boardOpponentEl;
+    const youEl = deps.boardYouEl;
+    const selected = (selectedOppId && opponents)
+      ? opponents.find(o => o.id === selectedOppId) ?? null
+      : null;
+    if (activeSlide !== SCOUTING_SLIDE || !selected) {
+      oppEl.hidden = true;
+      youEl.hidden = true;
+      return;
+    }
+    const yourColour = deps.getColour();
+    const oppColour: 'white' | 'black' = yourColour === 'white' ? 'black' : 'white';
+
+    oppEl.innerHTML = '';
+    oppEl.appendChild(userAvatar(selected.avatarUrl, 22));
+    oppEl.appendChild(span('board-player-name', selected.name));
+    oppEl.appendChild(colourTag(oppColour));
+    oppEl.hidden = false;
+
+    youEl.innerHTML = '';
+    youEl.appendChild(span('board-player-name', 'You'));
+    youEl.appendChild(colourTag(yourColour));
+    youEl.hidden = false;
   }
 
   return {
@@ -297,7 +388,10 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
       activeSlide = index;
       // Entering the Library slide: repaint so its explorer bars fetch now.
       if (index === LIBRARY_SLIDE) renderLibrary();
+      // The board's opponent/you strips belong to the Scouting slide only —
+      // repaint (which shows them) on entry, hide them on leaving.
       if (index === SCOUTING_SLIDE) renderScouting();
+      else renderBoardPlayers();
     },
   };
 }
