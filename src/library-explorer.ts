@@ -21,37 +21,9 @@ import { Icons } from './icons';
 import { showDialog } from './dialog';
 import { nameForFen, nameForPath } from './openings';
 import type { LibraryEntry } from './library';
+import { buildBook, bookNodeAt, type BookNode } from './book-tree';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-
-// The book as a trie keyed by SAN: from any node, `children` are the moves the
-// book plays next, `count` is how many named openings run at or below it, and
-// `name`/`eco` are set when an opening ends exactly there.
-interface BookNode {
-  children: Map<string, BookNode>;
-  count: number;
-  name?: string;
-  eco?: string;
-}
-
-function buildBook(entries: LibraryEntry[]): BookNode {
-  const root: BookNode = { children: new Map(), count: entries.length };
-  for (const e of entries) {
-    let node = root;
-    for (const san of e.moves) {
-      let c = node.children.get(san);
-      if (!c) {
-        c = { children: new Map(), count: 0 };
-        node.children.set(san, c);
-      }
-      c.count++;
-      node = c;
-    }
-    node.name = e.name;
-    node.eco = e.eco;
-  }
-  return root;
-}
 
 export interface LibraryExplorer {
   el: HTMLElement;
@@ -210,9 +182,7 @@ export function createLibraryExplorer(
 
   // The book node reached by the current SAN path, or null once off the book.
   function bookNodeNow(): BookNode | null {
-    let n: BookNode | null = book;
-    for (const s of sans) n = n ? n.children.get(s) ?? null : null;
-    return n;
+    return bookNodeAt(book, sans);
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
