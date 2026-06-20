@@ -1,10 +1,10 @@
 // A runnable, network-free check of the opening-traps data and helpers — same
 // spirit as scout.selftest.ts. It re-validates every committed trap line
 // (legality + ends on the trapping colour's move) so a bad future edit fails CI
-// rather than the phone, and exercises the pure helpers in traps.ts.
+// rather than the phone, and exercises trapsForPairs.
 
 import { Chess } from 'chess.js';
-import { lineFromTrap, trapsForFamilies, trapPuzzlePositions, decisivePuzzle, type TrapPack } from './traps';
+import { trapsForPairs, type TrapPack } from './traps';
 import trapsJson from './traps.json' with { type: 'json' };
 
 export interface TestResult {
@@ -52,58 +52,27 @@ export function runTrapsSelfTest(): TestResult[] {
     allTraps.map(({ pack, trap }) => `${trap.name}:${trap.ucis.length}/${pack.colour}`).join(', '),
   );
 
-  // 3. Each trap carries a family + level + bait + idea (used by the screen).
+  // 3. Each trap carries a family + level + bait + idea (used by the card).
   const metaOk = allTraps.every(({ trap }) =>
     !!trap.family && !!trap.level && !!trap.bait && !!trap.idea);
   check('every trap has family/level/bait/idea', metaOk,
     allTraps.filter(({ trap }) => !(trap.family && trap.level && trap.bait && trap.idea))
       .map(({ trap }) => trap.name).join(', ') || 'all present');
 
-  // 4. lineFromTrap builds a Line whose mainline length equals the trap's plies.
+  // 4. trapsForPairs matches by (family, colour) and ignores the wrong colour.
   const sample = allTraps[0];
-  const line = lineFromTrap(sample.trap, sample.pack.colour, { tags: ['trap'] });
-  let len = 0;
-  if (line) { let n = line.tree.children[0]; while (n) { len++; n = n.children[0]; } }
-  check(
-    'lineFromTrap builds a full, tagged, paused line',
-    !!line && len === sample.trap.ucis.length && line.inTraining === false &&
-      line.tags.includes('trap') && line.openingName === sample.trap.family,
-    `len=${len}/${sample.trap.ucis.length} inTraining=${line?.inTraining} tags=${line?.tags.join(',')}`,
-  );
-
-  // 5. trapsForFamilies matches by family and honours the colour filter.
   const fam = sample.trap.family;
-  const matched = trapsForFamilies(PACKS, [fam]);
-  const matchedWrongColour = trapsForFamilies(PACKS, [fam],
-    sample.pack.colour === 'white' ? 'black' : 'white');
+  const matched = trapsForPairs(PACKS, [{ family: fam, colour: sample.pack.colour }]);
+  const wrongColour = trapsForPairs(PACKS, [{
+    family: fam, colour: sample.pack.colour === 'white' ? 'black' : 'white',
+  }]);
   check(
-    'trapsForFamilies matches family + filters by colour',
+    'trapsForPairs matches (family, colour) and filters by colour',
     matched.some(m => m.trap.name === sample.trap.name) &&
-      !matchedWrongColour.some(m => m.trap.name === sample.trap.name) &&
-      trapsForFamilies(PACKS, ['No Such Opening']).length === 0,
-    `matched=${matched.length} wrongColour=${matchedWrongColour.length}`,
+      !wrongColour.some(m => m.trap.name === sample.trap.name) &&
+      trapsForPairs(PACKS, [{ family: 'No Such Opening', colour: 'white' }]).length === 0,
+    `matched=${matched.length} wrongColour=${wrongColour.length}`,
   );
-
-  // 6. The decisive puzzle is the trapping side's final move, with the bait as
-  //    its prelude, and every puzzle position belongs to the trapping side.
-  let puzzleOk = true;
-  let puzzleDetail = '';
-  for (const { pack, trap } of allTraps) {
-    const l = lineFromTrap(trap, pack.colour);
-    if (!l) { puzzleOk = false; puzzleDetail = `no line for ${trap.name}`; break; }
-    const last = decisivePuzzle(l);
-    const lastUci = trap.ucis[trap.ucis.length - 1];
-    if (!last || last.expected.uci !== lastUci || !last.prevUci) {
-      puzzleOk = false;
-      puzzleDetail = `${trap.name}: decisive=${last?.expected.uci} want=${lastUci} prev=${last?.prevUci}`;
-      break;
-    }
-    // Each puzzle's expected move must be a trapping-side move (correct parity in
-    // the mainline). The decisive one is the last ply, so its parity = colour.
-    const positions = trapPuzzlePositions(l);
-    if (positions.length === 0) { puzzleOk = false; puzzleDetail = `no puzzles for ${trap.name}`; break; }
-  }
-  check('decisive puzzle = final blow with bait prelude', puzzleOk, puzzleDetail || 'all valid');
 
   return results;
 }
