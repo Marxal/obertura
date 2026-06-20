@@ -1050,6 +1050,39 @@ cg-board square.move-dest.oc {
 .builder-slide--list .bx-row .wdl-bar,
 .builder-slide--list .lib-bx-row .wdl-bar { height: 8px; }
 
+/* A full-width action button inside the list slides (import games / opponent). */
+.builder-slide-action { width: 100%; margin: 0.25rem 0 0.5rem; }
+
+/* Scouting slide: the selected-opponent header (back / name / full report). */
+.scout-slide-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.25rem 0.5rem;
+}
+.scout-back-btn,
+.scout-report-btn {
+  flex: 0 0 auto;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.15rem 0;
+  cursor: pointer;
+}
+.scout-back-arrow { font-size: 1.1em; }
+.scout-slide-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: center;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scout-opp-count { flex: 0 0 auto; opacity: 0.6; font-size: 0.85rem; }
+
 /* Library's right-hand slot holds the named-opening count by default, swapped
    for a compact Lichess win/loss bar when the explorer answers. */
 .lib-bx-wdl {
