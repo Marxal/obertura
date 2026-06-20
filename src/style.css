@@ -1067,6 +1067,34 @@ cg-board square.move-dest.oc {
   gap: 0.45rem;
 }
 
+/* One row of labelled actions for the line: Title, Tags, Note. Wraps if it
+   can't fit on one line. */
+.line-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.line-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--border-card);
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: var(--shadow-card);
+  transition: color 0.12s, border-color 0.12s, filter 0.12s;
+}
+.line-action svg { flex-shrink: 0; }
+.line-action:active { filter: brightness(0.97); color: var(--text); }
+.line-action[hidden] { display: none; }
+
 .line-title-row .colour-pip {
   width: 12px;
   height: 12px;
@@ -4334,15 +4362,21 @@ cg-board square.move-dest.oc {
 
 /* ── Engine eval panel ───────────────────────────────────────────────────────── */
 
-/* The builder's eval bar now sits directly UNDER the board (below the move
-   strip). Because the board is above it, toggling the engine can't shift the
-   board, so the bar simply collapses when the engine is off. */
+/* The builder's eval bar lives at the top of the Engine slide, so it only shows
+   on that tab. Blended (no boxed strip); collapses when the engine is off. */
 #eval-bar-top {
-  background: var(--bg-elevated);
-  padding: 8px 12px;
+  background: transparent;
+  padding: 2px 2px 8px;
 }
 #eval-bar-top:empty,
 #eval-bar-top:has(#eval-bar-wrap[hidden]) {
+  display: none;
+}
+
+/* The Engine tab itself is the on/off switch, so the explicit toggle + label
+   are hidden — only the eval bar, lines and source badge remain. */
+#eval-controls .engine-toggle,
+#eval-controls .engine-label {
   display: none;
 }
 
