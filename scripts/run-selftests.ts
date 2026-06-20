@@ -12,6 +12,7 @@ import { runSchedulerSelfTest } from '../src/scheduler.selftest';
 import { runAnalysisSelfTest } from '../src/analysis.selftest';
 import { runSparSelfTest } from '../src/spar.selftest';
 import { runScoutSelfTest } from '../src/scout.selftest';
+import { runTrapsSelfTest } from '../src/traps.selftest';
 import { runMoveStatsSelfTest } from '../src/move-stats.selftest';
 import { runProgressSelfTest } from '../src/progress.selftest';
 import { runTreeSelfTest } from '../src/tree.selftest';
@@ -26,6 +27,7 @@ const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'analysis', run: runAnalysisSelfTest },
   { suite: 'spar', run: runSparSelfTest },
   { suite: 'scout', run: runScoutSelfTest },
+  { suite: 'traps', run: runTrapsSelfTest },
   { suite: 'move-stats', run: runMoveStatsSelfTest },
   { suite: 'progress', run: runProgressSelfTest },
   { suite: 'tree', run: runTreeSelfTest },

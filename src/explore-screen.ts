@@ -40,6 +40,8 @@ import {
   MAP_START_PLIES, MAP_STEP_PLIES, MAP_MAX_PLIES,
   type Opponent,
 } from './scout';
+import { openTrapsScreen } from './traps-screen';
+import type { TrapWant } from './traps';
 import { wdlBlock, wdlScoreRow } from './wdl-bar';
 import { buildMoveStats } from './move-stats';
 import { createFilterBar } from './filters';
@@ -157,10 +159,14 @@ async function buildScreen(container: HTMLElement): Promise<void> {
   const visualize = visualizeSection(lines, games);
   if (visualize) container.appendChild(visualize);
 
-  // 2) Scout opponents.
+  // 2) Opening traps — curated traps to study and spring, with the ones for the
+  //    openings you play pinned inside.
+  container.appendChild(trapsSection());
+
+  // 3) Scout opponents.
   container.appendChild(scoutSection(opponents, container));
 
-  // 3) Recommended lines to try — games-gated, at the very bottom. Only when
+  // 4) Recommended lines to try — games-gated, at the very bottom. Only when
   //    games are imported, and only if there's actually something worth nudging.
   if (hasGames) {
     const recs = recommendationsSection(games, lines);
@@ -176,6 +182,73 @@ async function buildScreen(container: HTMLElement): Promise<void> {
   }
 }
 
+
+// ── Opening traps ──────────────────────────────────────────────────────────────
+
+// A single launcher into the full-screen traps browser. The screen itself pins
+// "Traps for your openings" when games are imported, so this entry stays a plain
+// one-liner here.
+function trapsSection(): HTMLElement {
+  const section = document.createElement('div');
+  section.className = 'section';
+
+  const head = document.createElement('div');
+  head.className = 'section-head';
+  const heading = document.createElement('h2');
+  heading.className = 'section-title';
+  heading.textContent = 'Opening traps';
+  head.appendChild(heading);
+  section.appendChild(head);
+
+  const desc = document.createElement('p');
+  desc.className = 'rmap-section-desc';
+  desc.textContent = 'Famous traps to practise, solve as puzzles, or add to your lines.';
+  section.appendChild(desc);
+
+  const entries = document.createElement('div');
+  entries.className = 'rmap-entries';
+  entries.appendChild(mapEntryBtn(Icons.target(24), 'Browse opening traps',
+    'Curated traps by level', () => openTrapsScreen(), 'discrete'));
+  section.appendChild(entries);
+
+  return section;
+}
+
+// A launcher into the traps browser, pinned to the openings THIS opponent plays
+// — each paired with my answering colour (the opposite of theirs). Returns null
+// when they have no recognised openings to match traps against.
+function opponentTrapsSection(opp: Opponent, stats: OpeningStat[]): HTMLElement | null {
+  const wants: TrapWant[] = [];
+  const seen = new Set<string>();
+  for (const s of stats) {
+    if (s.family === UNKNOWN_FAMILY) continue;
+    const myColour: 'white' | 'black' = s.colour === 'white' ? 'black' : 'white';
+    const key = `${s.family}|${myColour}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    wants.push({ family: s.family, colour: myColour });
+  }
+  if (wants.length === 0) return null;
+
+  const section = document.createElement('div');
+  section.className = 'section';
+  const head = document.createElement('div');
+  head.className = 'section-head';
+  const h = document.createElement('h2');
+  h.className = 'section-title';
+  h.textContent = 'Traps to set';
+  head.appendChild(h);
+  section.appendChild(head);
+
+  const entries = document.createElement('div');
+  entries.className = 'rmap-entries';
+  entries.appendChild(mapEntryBtn(Icons.target(24), 'Traps for their openings',
+    `Spring a trap on ${opp.name}`,
+    () => openTrapsScreen({ relevant: wants, relevanceLabel: `Traps to set against ${opp.name}` }),
+    'discrete'));
+  section.appendChild(entries);
+  return section;
+}
 
 // ── Scout opponents ────────────────────────────────────────────────────────────
 
@@ -885,6 +958,12 @@ function openDetail(id: string, container: HTMLElement): void {
     //    (where they struggle / where they score) tucked in an accordion, each
     //    shown as the same rich card as Their openings.
     bodyWrap.appendChild(reportSection(opp, stats, prepare));
+
+    // 2b) Traps to set against them — their openings paired with MY answering
+    //     colour (the opposite of theirs), opened in the traps browser. Only
+    //     shown when they have recognised openings to match against.
+    const oppTraps = opponentTrapsSection(opp, stats);
+    if (oppTraps) bodyWrap.appendChild(oppTraps);
 
     // 3) My prep against this opponent, when I have any.
     if (myPrep.length > 0) {
