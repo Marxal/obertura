@@ -23,19 +23,24 @@ export function loadTraps(): Promise<TrapPack[]> {
 }
 
 // One trap as a Recommended-style card: miniature (tap → build), colour pip,
-// name + level chip, the SAN line, the bait/idea blurb, and a "Build line"
-// button. `onBuild` seeds the builder with the trap's moves (exploreDeps
-// .onOpenInBuilder), so it behaves exactly like a Recommended card.
+// name + level chip, the family, the SAN line, and a "Build line" button. The
+// bait/idea explanation is deliberately NOT on the card (it would crowd it) —
+// it's carried into the builder as a description instead. `onBuild` seeds the
+// builder with the trap's moves + that description (exploreDeps.onOpenInBuilder),
+// so it behaves like a Recommended card with a hint attached.
 export function trapCard(
   trap: Trap,
   colour: Colour,
-  onBuild: (ucis: string[], colour: Colour) => void,
+  onBuild: (ucis: string[], colour: Colour, description: string) => void,
 ): HTMLElement {
+  const description = `Bait: ${trap.bait}. ${trap.idea}`;
+  const build = () => onBuild(trap.ucis, colour, description);
+
   const { card, titleRow, content } = buildPositionCard({
     fen: fenFromUcis(trap.ucis),
     orientation: colour,
     className: 'games-card',
-    onMiniClick: () => onBuild(trap.ucis, colour),
+    onMiniClick: build,
     miniLabel: 'Build this line',
   });
 
@@ -59,22 +64,13 @@ export function trapCard(
   movesEl.textContent = formatSan(trap.sans);
   content.appendChild(movesEl);
 
-  const idea = document.createElement('div');
-  idea.className = 'trap-idea';
-  const baitEl = document.createElement('span');
-  baitEl.className = 'trap-bait';
-  baitEl.textContent = `Bait: ${trap.bait}. `;
-  idea.appendChild(baitEl);
-  idea.appendChild(document.createTextNode(trap.idea));
-  content.appendChild(idea);
-
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'btn-secondary stat-card-btn';
   btn.textContent = 'Build line';
   btn.addEventListener('click', e => {
     e.stopPropagation();
-    onBuild(trap.ucis, colour);
+    build();
   });
   content.appendChild(btn);
 

@@ -44,7 +44,7 @@ import { loadTraps, trapCard } from './traps-screen';
 import { trapsForPairs, type TrapPack } from './traps';
 import { wdlBlock, wdlScoreRow } from './wdl-bar';
 import { buildMoveStats } from './move-stats';
-import { createFilterBar } from './filters';
+import { createFilterBar, type FilterSelection } from './filters';
 import { renderFamilyGroups } from './line-groups';
 import { buildEmptyState } from './empty-state';
 import { pushBack } from './back-nav';
@@ -78,10 +78,15 @@ export interface ExploreDeps {
   onPrepareReply: (ucis: string[], answeringColour: 'white' | 'black', opponentName: string) => void;
   // Open a saved line in the builder/line view.
   onOpenLine: (line: Line) => void;
-  // Seed the builder with a move sequence (from the opening library, or a game
-  // sparred against the engine), oriented to the chosen colour. No opponent tag
-  // — this is a plain reference line.
-  onOpenInBuilder: (ucis: string[], colour: 'white' | 'black') => void;
+  // Seed the builder with a move sequence (from the opening library, a game
+  // sparred against the engine, or a trap), oriented to the chosen colour. No
+  // opponent tag — this is a plain reference line. `opts.description` shows a
+  // transient hint under the builder title (used to carry a trap's idea across).
+  onOpenInBuilder: (
+    ucis: string[],
+    colour: 'white' | 'black',
+    opts?: { description?: string },
+  ) => void;
   // Open the builder's Scouting tab on this opponent (the new "board browser").
   onScoutInBuilder: (opponentId: string) => void;
 }
@@ -151,19 +156,14 @@ async function buildScreen(container: HTMLElement): Promise<void> {
   // Newest refresh first, so the one you just touched leads.
   opponents.sort((a, b) => b.refreshedAt.localeCompare(a.refreshedAt));
 
-  // 1) Your games tree — a discrete launcher at the top. (Browsing the library
-  //    and your games now lives in the builder's tabs; building vs the engine is
-  //    on the FAB. Opening packs will land here later.)
-  const visualize = visualizeSection(lines, games);
-  if (visualize) container.appendChild(visualize);
-
-  // 2) Lines to try — one tabbed block: Recommended (games-gated picks) and
-  //    Traps (curated opening traps, the ones for your openings pinned on top).
-  //    Both are "build a line from it" cards; the traps data is lazy-loaded.
+  // 1) Lines to try — Explore leads with this. One My-Lines-style tabbed block:
+  //    Recommended (games-gated picks) and Traps (curated opening traps, filtered
+  //    by colour/level, the ones for your openings first). Every card is a
+  //    "build a line from it" card; the traps data is lazy-loaded.
   const packs = await loadTraps();
   container.appendChild(linesToTrySection(games, lines, packs));
 
-  // 3) Scout opponents.
+  // 2) Scout opponents.
   container.appendChild(scoutSection(opponents, container));
 
   // A "Full report" tap from the builder's Scouting tab asks us to open straight
@@ -182,24 +182,18 @@ async function buildScreen(container: HTMLElement): Promise<void> {
 type LinesTryTab = 'recommended' | 'traps';
 let linesTryTab: LinesTryTab | null = null;
 
-// One block with two tabs (styled like the My Lines switcher): Recommended picks
-// from your games, and curated opening traps. Every card is a "build a line from
-// it" card — tapping it seeds the builder, identical to a Recommended card.
+// One block with two tabs, laid out exactly like the My Lines screen (the same
+// .lines-tabs switcher + padded .lines-tab-content body, so the side margins
+// line up): Recommended picks from your games, and curated opening traps. Every
+// card is a "build a line from it" card — tapping it seeds the builder. No
+// section title: Explore leads straight with this.
 function linesToTrySection(
   games: ImportedGame[],
   lines: Line[],
   packs: TrapPack[],
 ): HTMLElement {
-  const section = document.createElement('div');
-  section.className = 'section';
-
-  const head = document.createElement('div');
-  head.className = 'section-head';
-  const heading = document.createElement('h2');
-  heading.className = 'section-title';
-  heading.textContent = 'Lines to try';
-  head.appendChild(heading);
-  section.appendChild(head);
+  const wrap = document.createElement('div');
+  wrap.className = 'lines-try';
 
   const recommended = buildRecommendedTab(games, lines);
   const trapsTab = buildTrapsTab(packs, games, lines);
@@ -243,10 +237,10 @@ function linesToTrySection(
 
   tabs.appendChild(makeTab('recommended', 'Recommended', Icons.sparkles(18)));
   tabs.appendChild(makeTab('traps', 'Traps', Icons.target(18)));
-  section.appendChild(tabs);
-  section.appendChild(content);
+  wrap.appendChild(tabs);
+  wrap.appendChild(content);
   render();
-  return section;
+  return wrap;
 }
 
 // The Recommended tab body + whether it actually surfaced any picks (used to pick
@@ -285,9 +279,10 @@ function buildRecommendedTab(
   return { el: wrap, hasContent: true };
 }
 
-// The Traps tab body: curated traps as build-a-line cards. When games are
-// imported, traps in the families you play are pinned in a "For your openings"
-// group; the rest follow, grouped As White / As Black.
+// The Traps tab body: curated traps as build-a-line cards, behind the same
+// All / White / Black + level filter bar My Lines uses. Traps in the families
+// you play float to the top (best-effort relevance). Building a trap carries its
+// bait/idea into the builder as a description, so the card stays uncluttered.
 function buildTrapsTab(packs: TrapPack[], games: ImportedGame[], lines: Line[]): HTMLElement {
   const wrap = document.createElement('div');
   const desc = document.createElement('p');
@@ -296,36 +291,51 @@ function buildTrapsTab(packs: TrapPack[], games: ImportedGame[], lines: Line[]):
     'Famous traps to spring on a careless opponent — build one into a line to train it.';
   wrap.appendChild(desc);
 
-  const build = (ucis: string[], colour: 'white' | 'black') =>
-    exploreDeps?.onOpenInBuilder(ucis, colour);
+  const build = (ucis: string[], colour: 'white' | 'black', description: string) =>
+    exploreDeps?.onOpenInBuilder(ucis, colour, { description });
 
+  // Flatten, then float traps in the families you play to the top (stable sort
+  // keeps the pack order — White then Black — within each relevance group).
   const all = packs.flatMap(p => p.traps.map(t => ({ trap: t, colour: p.colour })));
-
-  // Relevance: pin traps in the families you actually play (best-effort).
-  const matchedNames = new Set<string>();
+  const relevant = new Set<string>();
   if (games.length > 0) {
     try {
       const wants = analyseGames(games, lines).stats
         .filter(s => s.family !== UNKNOWN_FAMILY)
         .map(s => ({ family: s.family, colour: s.colour }));
-      const matched = trapsForPairs(packs, wants);
-      if (matched.length > 0) {
-        matched.forEach(m => matchedNames.add(m.trap.name));
-        wrap.appendChild(reportGroup('For your openings',
-          matched.map(m => trapCard(m.trap, m.colour, build))));
-      }
+      trapsForPairs(packs, wants).forEach(m => relevant.add(m.trap.name));
     } catch { /* relevance is a bonus; ignore data errors */ }
   }
+  const ordered = [...all].sort(
+    (a, b) => (relevant.has(a.trap.name) ? 0 : 1) - (relevant.has(b.trap.name) ? 0 : 1),
+  );
 
-  const rest = all.filter(x => !matchedNames.has(x.trap.name));
-  const white = rest.filter(x => x.colour === 'white');
-  const black = rest.filter(x => x.colour === 'black');
-  if (white.length > 0) {
-    wrap.appendChild(reportGroup('As White', white.map(x => trapCard(x.trap, x.colour, build))));
-  }
-  if (black.length > 0) {
-    wrap.appendChild(reportGroup('As Black', black.map(x => trapCard(x.trap, x.colour, build))));
-  }
+  const list = document.createElement('div');
+  list.className = 'group';
+
+  const renderList = (sel: FilterSelection): void => {
+    list.innerHTML = '';
+    const shown = ordered.filter(x =>
+      (sel.colour === 'all' || x.colour === sel.colour) &&
+      (sel.tags.length === 0 || sel.tags.includes(x.trap.level)));
+    if (shown.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'section-desc';
+      empty.textContent = 'No traps match these filters.';
+      list.appendChild(empty);
+      return;
+    }
+    for (const x of shown) list.appendChild(trapCard(x.trap, x.colour, build));
+  };
+
+  const filter = createFilterBar({
+    persistKey: 'obertura.traps.filter',
+    userTags: ['Intermediate', 'Advanced'],
+    onChange: renderList,
+  });
+  wrap.appendChild(filter.element);
+  wrap.appendChild(list);
+  renderList(filter.selection);
   return wrap;
 }
 
@@ -657,111 +667,6 @@ function mapEntryBtn(
 
   btn.addEventListener('click', onClick);
   return btn;
-}
-
-// Build the Visualize-your-play section, or return null when there's nothing to
-// show (no lines and no games) so the caller can skip appending it.
-//
-// Layout: the Board browser leads as the prominent (green) entry, with your
-// games tree as a discrete link beneath. The repertoire is no longer its own
-// entry — instead, BOTH the board browser and the tree carry a discrete
-// "Games / Repertoire" source toggle at the top (next to the White/Black
-// toggle), so you switch source from inside. With no games (only saved lines),
-// the repertoire tree stands in as the single discrete entry so it stays
-// reachable.
-function visualizeSection(lines: Line[], games: ImportedGame[]): HTMLElement | null {
-  const section = document.createElement('div');
-  section.className = 'section';
-
-  const head = document.createElement('div');
-  head.className = 'section-head';
-  const heading = document.createElement('h2');
-  heading.className = 'section-title';
-  heading.textContent = 'Visualize your play';
-  head.appendChild(heading);
-  section.appendChild(head);
-
-  const desc = document.createElement('p');
-  desc.className = 'rmap-section-desc';
-  desc.textContent = 'See your lines as a tree — switch to your repertoire from inside.';
-  section.appendChild(desc);
-
-  const entries = document.createElement('div');
-  entries.className = 'rmap-entries';
-  section.appendChild(entries);
-
-  const onOpenLine = (line: Line) => exploreDeps?.onOpenLine(line);
-
-  // Per-move W/D/L from MY imported games (my perspective), overlaid on both the
-  // games tree and the repertoire tree.
-  const myStats = (colour: 'white' | 'black') => ({
-    tree: buildMoveStats(games, colour, MAP_MAX_PLIES),
-    caption: 'your results',
-    games,
-  });
-
-  type Source = 'games' | 'repertoire';
-  const gamesHas = (c: 'white' | 'black') => games.some(g => g.colour === c);
-  const repHas = (c: 'white' | 'black') => lines.some(l => l.colour === c);
-  const gamesAny = gamesHas('white') || gamesHas('black');
-  const repAny = repHas('white') || repHas('black');
-
-  // Which colours a source can show, and a safe colour to land on when switching
-  // source (the source you came in on may not have the colour you were viewing).
-  const colourEnabled = (s: Source, c: 'white' | 'black') => (s === 'games' ? gamesHas(c) : repHas(c));
-  const colourEnabledMap = (s: Source) => ({ white: colourEnabled(s, 'white'), black: colourEnabled(s, 'black') });
-  const firstColour = (s: Source): 'white' | 'black' => (colourEnabled(s, 'white') ? 'white' : 'black');
-  const validColour = (s: Source, from: 'white' | 'black') => (colourEnabled(s, from) ? from : firstColour(s));
-  const sourceEnabled = { games: gamesAny, repertoire: repAny };
-
-  // The tree (repertoire-map) for either source. Games: the merged imported-game
-  // tree; Repertoire: the saved lines merged. Both overlay your game results
-  // when you have games, and both carry the colour + source toggles.
-  const openTree = (colour: 'white' | 'black', source: Source): void => {
-    const isGames = source === 'games';
-    const buildGameLines = (plies: number) =>
-      [opponentLine(buildOpponentTree(games, colour, plies, false), colour, 'Your games')];
-    const colourLines = isGames ? buildGameLines(MAP_START_PLIES) : lines.filter(l => l.colour === colour);
-    const reach = isGames
-      ? Math.max(0, ...games.filter(g => g.colour === colour).map(g => g.sans.length))
-      : Math.max(0, ...lines.filter(l => l.colour === colour).map(l => treeDepth(l.tree)));
-    openRepertoireMap(colourLines, colour, onOpenLine, {
-      title: isGames ? 'Your games' : 'Your repertoire',
-      ...(isGames && {
-        subtitle: `${games.filter(g => g.colour === colour).length} game${
-          games.filter(g => g.colour === colour).length !== 1 ? 's' : ''}`,
-      }),
-      depth: {
-        startPlies: MAP_START_PLIES,
-        stepPlies: MAP_STEP_PLIES,
-        maxPlies: reach,
-        atDepth: isGames ? buildGameLines : () => lines.filter(l => l.colour === colour),
-      },
-      ...(games.length > 0 && { stats: myStats(colour) }),
-      ...(isGames && {
-        nodeAction: { label: 'Open in builder', onAct: ({ ucis }) => exploreDeps?.onOpenInBuilder(ucis, colour) },
-      }),
-      colourToggle: { current: colour, enabled: colourEnabledMap(source), onPick: c => openTree(c, source) },
-      sourceToggle: { current: source, enabled: sourceEnabled, onPick: s => openTree(validColour(s, colour), s) },
-    });
-  };
-
-  if (gamesAny) {
-    // Your games as a tree — the single discrete entry. (The board browser now
-    // lives in the builder's My games tab.)
-    entries.appendChild(mapEntryBtn(Icons.search(24), 'Your games tree',
-      `${games.length} game${games.length !== 1 ? 's' : ''}`,
-      () => openTree(firstColour('games'), 'games'), 'discrete'));
-  } else if (repAny) {
-    // No games yet — keep the repertoire tree reachable as the single entry.
-    entries.appendChild(mapEntryBtn(Icons.tree(24), 'Your repertoire tree',
-      `${lines.length} line${lines.length !== 1 ? 's' : ''}`,
-      () => openTree(firstColour('repertoire'), 'repertoire'), 'discrete'));
-  }
-
-  // Nothing to show (no lines and no games)? Tell the caller to drop the section.
-  if (!entries.children.length) return null;
-  return section;
 }
 
 // ── Opponent card ────────────────────────────────────────────────────────────────
