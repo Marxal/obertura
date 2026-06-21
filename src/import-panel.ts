@@ -163,7 +163,8 @@ export async function mergeRefreshedGames(newGames: ImportedGame[]): Promise<voi
 // ── Persistence shared by every "my games" caller ────────────────────────────
 
 // Replace the stored games with this import and record where they came from.
-// (Opponent scouting will later sink elsewhere; today every caller is "my games".)
+// The "Replace existing" choice on import, and the default when the device has
+// no games yet.
 export async function saveMyGames(
   games: ImportedGame[],
   meta: { platform: Platform; username: string; avatarUrl?: string },
@@ -181,6 +182,27 @@ export async function saveMyGames(
   // A manual import counts as a refresh — reset the weekly auto-refresh window.
   setLastGamesRefresh(now);
   // Update the header picture / "you" strips for the new account.
+  announceIdentityChange();
+}
+
+// Add this import to whatever's already stored, without clearing — the "Add to
+// existing" choice. Lets a Chess.com library and a Lichess library live side by
+// side. saveGames() dedupes by id, so re-importing overlapping games is safe.
+// The source card follows the most-recent import but with the combined count.
+export async function addMyGames(
+  games: ImportedGame[],
+  meta: { platform: Platform; username: string; avatarUrl?: string },
+): Promise<void> {
+  const now = new Date().toISOString();
+  await saveGames(games); // put() dedupes by id
+  setGamesSource({
+    platform: meta.platform,
+    username: meta.username,
+    syncedAt: now,
+    count: await countGames(),
+    avatarUrl: meta.avatarUrl,
+  });
+  setLastGamesRefresh(now);
   announceIdentityChange();
 }
 
@@ -732,14 +754,15 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       }
     }
 
-    importBtn.addEventListener('click', async () => {
-      const games = filterByTimeClasses(sliceGames(), selected);
-      if (games.length === 0) return;
+    // Persist with the chosen sink, then close + toast (or surface the error).
+    async function runPersist(
+      games: ImportedGame[],
+      persist: (g: ImportedGame[], m: { platform: Platform; username: string; avatarUrl?: string }) => Promise<void>,
+    ): Promise<void> {
       importBtn.disabled = true;
       scanBtn.disabled = true;
       importStatus.textContent = 'Saving to this device…';
       try {
-        const persist = opts.save ?? saveMyGames;
         await persist(games, {
           platform: result.platform,
           username: userInput.value.trim(),
@@ -757,6 +780,25 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
         scanBtn.disabled = false;
         importStatus.textContent = '';
       }
+    }
+
+    importBtn.addEventListener('click', async () => {
+      const games = filterByTimeClasses(sliceGames(), selected);
+      if (games.length === 0) return;
+
+      // Opponent scouting passes its own sink (rememberUser: false) and never
+      // prompts. For a "my games" import, ask whether to replace or add when the
+      // device already holds games — that's how two platforms get combined.
+      if (isMine && !opts.save) {
+        const existing = await countGames();
+        if (existing > 0) {
+          chooseImportMode(existing, games.length, (mode) => {
+            void runPersist(games, mode === 'replace' ? saveMyGames : addMyGames);
+          });
+          return;
+        }
+      }
+      await runPersist(games, opts.save ?? saveMyGames);
     });
 
     renderSlice();
@@ -767,6 +809,76 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
   overlay.appendChild(sheet);
   // Focus the username if it's empty so the keyboard is ready.
   if (!userInput.value) setTimeout(() => userInput.focus(), 50);
+}
+
+// Ask whether a "my games" import should replace the games already on the device
+// or add to them. Mirrors the backup import chooser. "Add" is listed first and
+// recommended — it never deletes, and it's how a second platform's games join an
+// existing library. "Replace" is the destructive, clean-slate choice.
+type ImportMode = 'add' | 'replace';
+function chooseImportMode(
+  existingCount: number,
+  incomingCount: number,
+  onChoose: (mode: ImportMode) => void,
+): void {
+  const overlay = document.createElement('div');
+  overlay.className = 'edit-overlay';
+
+  const sheet = document.createElement('div');
+  sheet.className = 'edit-sheet';
+
+  const title = document.createElement('h3');
+  title.className = 'edit-sheet-title';
+  title.textContent = 'Add to your games?';
+  sheet.appendChild(title);
+
+  const summary = document.createElement('p');
+  summary.className = 'backup-import-summary';
+  summary.textContent =
+    `You're importing ${incomingCount.toLocaleString()} game${incomingCount === 1 ? '' : 's'}. ` +
+    `You already have ${existingCount.toLocaleString()} game${existingCount === 1 ? '' : 's'} on this device.`;
+  sheet.appendChild(summary);
+
+  // Add — safe default. Keeps the existing games and merges these in (dedup by
+  // id), so Chess.com and Lichess libraries can sit together.
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'backup-choice-btn';
+  addBtn.innerHTML =
+    '<strong>Add to existing</strong>' +
+    '<span>Keep the games you have and merge these in. Good for combining Chess.com and Lichess.</span>';
+  addBtn.addEventListener('click', () => { close(); onChoose('add'); });
+  sheet.appendChild(addBtn);
+
+  // Replace — wipes what's stored first.
+  const replaceBtn = document.createElement('button');
+  replaceBtn.type = 'button';
+  replaceBtn.className = 'backup-choice-btn backup-choice-btn--danger';
+  replaceBtn.innerHTML =
+    '<strong>Replace everything</strong>' +
+    '<span>Delete the games you have and keep only this import.</span>';
+  replaceBtn.addEventListener('click', () => { close(); onChoose('replace'); });
+  sheet.appendChild(replaceBtn);
+
+  const btnRow = document.createElement('div');
+  btnRow.className = 'edit-btn-row';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'edit-cancel-btn';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', close);
+  btnRow.appendChild(cancelBtn);
+  sheet.appendChild(btnRow);
+
+  function close() {
+    overlay.remove();
+    removeBack();
+  }
+  const removeBack = pushBack(close);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+
+  overlay.appendChild(sheet);
+  document.body.appendChild(overlay);
 }
 
 // A small triangle-bang glyph for the large-import warning.

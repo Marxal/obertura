@@ -35,7 +35,12 @@ import {
   setShowStreakSection,
   getShowActivitySection,
   setShowActivitySection,
+  getScoutingEnabled,
+  setScoutingEnabled,
+  getIncludeSecondPlatform,
+  setIncludeSecondPlatform,
 } from './prefs';
+import type { Platform } from './import-games';
 import { getFeedbackSound, setFeedbackSound, previewFeedback } from './sound';
 import {
   openImportPanel,
@@ -84,6 +89,7 @@ export function renderSettingsScreen(container: HTMLElement): void {
   screen.appendChild(buildStatisticsGroup());
   const userSlotMid = document.createElement('div');
   screen.appendChild(userSlotMid);
+  screen.appendChild(buildExploreGroup());
   screen.appendChild(buildDataGroup());
   screen.appendChild(buildDiagnosticsGroup());
   screen.appendChild(buildAboutGroup());
@@ -108,32 +114,41 @@ export function renderSettingsScreen(container: HTMLElement): void {
 // links are gone, and these are the only copies now.
 
 function buildDiagnosticsGroup(): HTMLElement {
+  // The whole group is now a collapsed accordion panel, so the old nested
+  // "Advanced" disclosure is gone — the self-tests sit directly inside.
   const sec = group('Diagnostics');
-
-  const details = document.createElement('details');
-  details.className = 'settings-advanced';
-
-  const summary = document.createElement('summary');
-  summary.className = 'settings-advanced-summary';
-  summary.textContent = 'Advanced';
-  details.appendChild(summary);
 
   const blurb = document.createElement('p');
   blurb.className = 'section-desc';
   blurb.textContent = 'Offline self-tests. Tap one to run it and see pass/fail.';
-  details.appendChild(blurb);
+  sec.appendChild(blurb);
 
-  appendSelfTest(details, 'Run storage self-test', runStorageSelfTest, '[storage self-test]');
-  appendSelfTest(details, 'Run openings lookup self-test', runOpeningsSelfTest, '[openings self-test]');
-  appendSelfTest(details, 'Run out-of-book self-test', runSparSelfTest, '[spar self-test]');
-  appendSelfTest(details, 'Run import parser self-test', runImportSelfTest, '[import self-test]');
-  appendSelfTest(details, 'Run move-tree self-test', runTreeSelfTest, '[tree self-test]');
-  appendSelfTest(details, 'Run move-stats self-test', runMoveStatsSelfTest, '[move-stats self-test]');
-  appendSelfTest(details, 'Run scheduler self-test', runSchedulerSelfTest, '[scheduler self-test]');
-  appendSelfTest(details, 'Run analysis self-test', runAnalysisSelfTest, '[analysis self-test]');
-  appendSelfTest(details, 'Run engine castling self-test', runEngineSelfTest, '[engine self-test]');
+  appendSelfTest(sec, 'Run storage self-test', runStorageSelfTest, '[storage self-test]');
+  appendSelfTest(sec, 'Run openings lookup self-test', runOpeningsSelfTest, '[openings self-test]');
+  appendSelfTest(sec, 'Run out-of-book self-test', runSparSelfTest, '[spar self-test]');
+  appendSelfTest(sec, 'Run import parser self-test', runImportSelfTest, '[import self-test]');
+  appendSelfTest(sec, 'Run move-tree self-test', runTreeSelfTest, '[tree self-test]');
+  appendSelfTest(sec, 'Run move-stats self-test', runMoveStatsSelfTest, '[move-stats self-test]');
+  appendSelfTest(sec, 'Run scheduler self-test', runSchedulerSelfTest, '[scheduler self-test]');
+  appendSelfTest(sec, 'Run analysis self-test', runAnalysisSelfTest, '[analysis self-test]');
+  appendSelfTest(sec, 'Run engine castling self-test', runEngineSelfTest, '[engine self-test]');
 
-  sec.appendChild(details);
+  return sec;
+}
+
+// ── Explore ──────────────────────────────────────────────────────────────────
+// A small home for Explore-related preferences. For now just the scouting
+// switch, which gates the whole opponent-scouting feature.
+
+function buildExploreGroup(): HTMLElement {
+  const sec = group('Explore');
+
+  sec.appendChild(row(
+    'Scouting',
+    toggle(getScoutingEnabled(), (on) => setScoutingEnabled(on)),
+    { sub: 'Scout opponents from their games, on the Explore tab and in the board builder. Off hides it from both — your scouted opponents are kept.' },
+  ));
+
   return sec;
 }
 
@@ -142,7 +157,7 @@ function buildDiagnosticsGroup(): HTMLElement {
 // support links and the version. About sits at the very bottom of Settings.
 
 function buildAboutGroup(): HTMLElement {
-  const sec = group('Feedback & about');
+  const sec = staticGroup('Feedback & about');
 
   sec.appendChild(linkRow('Send feedback', openFeedbackSheet, Icons.note(18)));
   // Replay the first-launch intro on demand — the seen-flag stays set, so it
@@ -180,7 +195,29 @@ function linkRow(label: string, onClick: () => void, leading?: SVGElement): HTML
 
 // ── Group / row scaffolding ──────────────────────────────────────────────────
 
+// A collapsible group. Every accordion panel shares one `name`, so the browser
+// keeps just one open at a time (native exclusive <details> behaviour — no JS).
+// They all start closed, so Settings opens as a short, scannable list of titles.
+// Rows append straight onto the returned <details>, after the summary.
 function group(titleText: string): HTMLElement {
+  const sec = document.createElement('details');
+  sec.className = 'section section--acc';
+  sec.setAttribute('name', 'settings-acc');
+
+  const summary = document.createElement('summary');
+  summary.className = 'section-title section-summary';
+  const label = document.createElement('span');
+  label.textContent = titleText;
+  summary.appendChild(label);
+  summary.appendChild(Icons.chevronRight(16));
+  sec.appendChild(summary);
+  return sec;
+}
+
+// An always-open group (no accordion): the plain section used for the
+// "Add your games" card and "Feedback & about", which the user wants permanently
+// visible rather than tucked away.
+function staticGroup(titleText: string): HTMLElement {
   const sec = document.createElement('section');
   sec.className = 'section';
   const h = document.createElement('h2');
@@ -628,7 +665,7 @@ function buildStatisticsGroup(): HTMLElement {
 // the account you're synced with, when it last synced, how many games are on the
 // device, and a quiet Refresh — all driven by the shared import panel.
 function buildUserGroup(gameCount: number, refresh: () => void): HTMLElement {
-  const sec = group('Add your games');
+  const sec = staticGroup('Add your games');
   const source = getGamesSource();
 
   // Open the panel pre-filled with the connected account (or the last-used one),
@@ -706,6 +743,40 @@ function buildUserGroup(gameCount: number, refresh: () => void): HTMLElement {
   card.appendChild(actions);
 
   sec.appendChild(card);
+
+  // A discreet opt-in to pull games from the OTHER platform into the same
+  // library. Off by default — most people use a single site. When on, a quiet
+  // "Add games from …" button opens the import pre-set to the other platform;
+  // the Replace/Add prompt there merges them in.
+  const other: Platform = source.platform === 'chesscom' ? 'lichess' : 'chesscom';
+  const addSlot = document.createElement('div');
+
+  const renderAddBtn = () => {
+    addSlot.innerHTML = '';
+    if (!getIncludeSecondPlatform()) return;
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'btn-secondary';
+    addBtn.appendChild(Icons.download(16));
+    addBtn.appendChild(document.createTextNode(`Add games from ${platformLabel(other)}`));
+    addBtn.addEventListener('click', () => openImportPanel({
+      platform: other,
+      onImported: () => refresh(),
+    }));
+    const a = document.createElement('div');
+    a.className = 'settings-actions';
+    a.appendChild(addBtn);
+    addSlot.appendChild(a);
+  };
+
+  sec.appendChild(row(
+    'Include my other platform',
+    toggle(getIncludeSecondPlatform(), (on) => { setIncludeSecondPlatform(on); renderAddBtn(); }),
+    { sub: `Also pull games from ${platformLabel(other)} into this same library.` },
+  ));
+  sec.appendChild(addSlot);
+  renderAddBtn();
+
   return sec;
 }
 
