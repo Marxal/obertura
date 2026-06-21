@@ -5,25 +5,42 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Obertura — learn chess openings your way</title>
   <meta name="description" content="Build your own chess opening repertoire, train it with spaced repetition, and remember your openings when it matters. No subscriptions, no cloud lock-in." />
-  <meta name="theme-color" content="#f1ece1" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#1a1512" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f1ece1" id="theme-color-meta" />
 
-  <!-- Open Graph / sharing (used when the link is pasted into a chat or social) -->
+  <!-- Open Graph / sharing -->
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Obertura — learn chess openings your way" />
   <meta property="og:description" content="Build your own opening repertoire, train it with spaced repetition, and remember your openings when it matters." />
   <meta property="og:url" content="https://marxal.github.io/obertura/docs/" />
-  <!-- Drop a 1200×630 share image at /docs/og.png to enable rich link previews. -->
-  <meta property="og:image" content="https://marxal.github.io/obertura/docs/og.png" />
+  <meta property="og:image" content="https://marxal.github.io/obertura/docs/app-icon.png" />
 
-  <!-- Silkscreen (pixel font) — used ONLY for the "obertura" wordmark, exactly as in the app. -->
+  <!-- Resolve the theme before first paint (default: the phone's preference;
+       fallback: light). Mirrors the app's own pre-paint theme script. -->
+  <script>
+    (function () {
+      var root = document.documentElement;
+      try {
+        var saved = localStorage.getItem('obertura-landing-theme');
+        var t = saved || (window.matchMedia &&
+          window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        root.setAttribute('data-theme', t);
+        root.classList.add('js');
+      } catch (e) {
+        root.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
+  <!-- Silkscreen (pixel font) — used ONLY for the "obertura" wordmark, as in the app. -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen&display=swap" />
 
   <style>
     /* ── Design tokens — mirrored from the app (Obertura_Style_Guide.html).
-       Board squares (#eecfa1 / #b58863) NEVER change between themes. ── */
+       Light is the default :root; dark is applied via [data-theme="dark"], which
+       the pre-paint script sets from the phone's preference. Board squares
+       (#eecfa1 / #b58863) NEVER change between themes. ── */
     :root {
       --bg-page: #f1ece1;
       --bg-card: #faf4e6;
@@ -41,30 +58,27 @@
       --board-light: #eecfa1;
       --board-dark: #b58863;
       --shadow-card: 0 1px 3px rgba(28, 22, 16, 0.07), 0 1px 2px rgba(28, 22, 16, 0.04);
-      /* Paper texture speckle (page background only) — same as the app. */
       --paper-speckle: rgba(120, 90, 50, 0.035);
       color-scheme: light;
     }
 
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg-page: #1a1512;
-        --bg-card: #241d18;
-        --text: #e8dcc8;
-        --text-muted: #c2b39a;
-        --text-faint: #9a8870;
-        --border-card: #3a2e22;
-        --hairline: rgba(232, 220, 200, 0.12);
-        --accent: #ff9b21;
-        --accent-active: #e08800;
-        --accent-soft: rgba(255, 155, 33, 0.18);
-        --primary: #527d63;
-        --primary-active: #466b54;
-        --primary-sheen: none;
-        --shadow-card: none;
-        --paper-speckle: rgba(255, 240, 214, 0.02);
-        color-scheme: dark;
-      }
+    [data-theme="dark"] {
+      --bg-page: #1a1512;
+      --bg-card: #241d18;
+      --text: #e8dcc8;
+      --text-muted: #c2b39a;
+      --text-faint: #9a8870;
+      --border-card: #3a2e22;
+      --hairline: rgba(232, 220, 200, 0.12);
+      --accent: #ff9b21;
+      --accent-active: #e08800;
+      --accent-soft: rgba(255, 155, 33, 0.18);
+      --primary: #527d63;
+      --primary-active: #466b54;
+      --primary-sheen: none;
+      --shadow-card: none;
+      --paper-speckle: rgba(255, 240, 214, 0.02);
+      color-scheme: dark;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -84,11 +98,7 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    .wrap {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 0 1.25rem;
-    }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 0 1.25rem; }
 
     /* ── Shared button ──────────────────────────────────────────────────── */
     .btn-primary {
@@ -113,15 +123,47 @@
     }
     .btn-primary:hover { filter: brightness(1.1); }
     .btn-primary:active { filter: brightness(0.88); }
-    @media (prefers-color-scheme: dark) {
-      .btn-primary { box-shadow: none; text-shadow: none; }
+    [data-theme="dark"] .btn-primary { box-shadow: none; text-shadow: none; }
+
+    /* ── Theme toggle (top-right) ───────────────────────────────────────── */
+    .theme-toggle {
+      position: fixed;
+      top: 0.9rem;
+      right: 0.9rem;
+      z-index: 50;
+      width: 44px;
+      height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border-card);
+      border-radius: 999px;
+      background: var(--bg-card);
+      color: var(--text-muted);
+      cursor: pointer;
+      box-shadow: var(--shadow-card);
+      -webkit-tap-highlight-color: transparent;
+      transition: color 0.12s, border-color 0.12s;
     }
+    .theme-toggle:hover { color: var(--text); border-color: var(--accent); }
+    .theme-toggle svg { width: 22px; height: 22px; }
+    /* Show the icon for the mode you'll switch TO. */
+    [data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+    [data-theme="light"] .theme-toggle .icon-sun { display: none; }
 
     /* ── Hero ───────────────────────────────────────────────────────────── */
-    .hero {
-      text-align: center;
-      padding: 4rem 1.25rem 3rem;
+    .hero { text-align: center; padding: 4.5rem 1.25rem 3rem; }
+
+    .app-icon {
+      display: block;
+      width: 104px;
+      height: 104px;
+      margin: 1rem auto 2.5rem;
+      border-radius: 23px;
+      box-shadow: var(--shadow-card), 0 6px 22px rgba(28, 22, 16, 0.12);
+      border: 1px solid var(--hairline);
     }
+    [data-theme="dark"] .app-icon { box-shadow: 0 6px 22px rgba(0, 0, 0, 0.4); }
 
     .wordmark {
       font-family: 'Silkscreen', monospace;
@@ -153,25 +195,8 @@
       font-size: 0.95rem;
       color: var(--text-muted);
       max-width: 40ch;
-      margin: 0 auto 2rem;
+      margin: 0 auto;
     }
-
-    /* Decorative mini-board under the hero — board squares, never re-themed. */
-    .hero-board {
-      width: 92px;
-      height: 92px;
-      margin: 2.75rem auto 0;
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      grid-template-rows: repeat(4, 1fr);
-      border-radius: 8px;
-      overflow: hidden;
-      box-shadow: var(--shadow-card);
-      border: 1px solid var(--hairline);
-    }
-    .hero-board i { display: block; }
-    .hero-board i.l { background: var(--board-light); }
-    .hero-board i.d { background: var(--board-dark); }
 
     /* ── Section frame ──────────────────────────────────────────────────── */
     section { padding: 2.75rem 0; }
@@ -184,9 +209,7 @@
       color: var(--accent-active);
       margin-bottom: 0.75rem;
     }
-    @media (prefers-color-scheme: dark) {
-      .section-eyebrow { color: var(--accent); }
-    }
+    [data-theme="dark"] .section-eyebrow { color: var(--accent); }
 
     h2 {
       font-size: clamp(1.4rem, 6vw, 1.9rem);
@@ -203,18 +226,11 @@
       padding: 1.75rem;
       box-shadow: var(--shadow-card);
     }
-    .story p {
-      font-size: 1.06rem;
-      color: var(--text);
-    }
+    .story p { font-size: 1.06rem; color: var(--text); }
     .story p + p { margin-top: 0.9rem; }
 
     /* ── Pillars (Everything you need) ──────────────────────────────────── */
-    .pillars {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 1rem;
-    }
+    .pillars { display: grid; grid-template-columns: 1fr; gap: 1rem; }
     .pillar {
       background: var(--bg-card);
       border: 1px solid var(--border-card);
@@ -225,30 +241,29 @@
     .pillar h3 {
       font-size: 1.15rem;
       font-weight: 700;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.6rem;
       display: flex;
       align-items: center;
-      gap: 0.55rem;
+      gap: 0.7rem;
     }
-    .pillar h3 .pip {
+    .pillar h3 .ic {
       flex: none;
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--accent);
+      width: 40px;
+      height: 40px;
+      border-radius: 11px;
+      background: var(--accent-soft);
+      color: var(--accent-active);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
-    .pillar p {
-      color: var(--text-muted);
-      font-size: 0.98rem;
-    }
+    [data-theme="dark"] .pillar h3 .ic { color: var(--accent); }
+    .pillar h3 .ic svg { width: 22px; height: 22px; }
+    .pillar p { color: var(--text-muted); font-size: 0.98rem; }
     .pillar p + p { margin-top: 0.6rem; }
     .pillar .lead { color: var(--text); }
 
-    .pillar ul {
-      list-style: none;
-      margin: 0.75rem 0 0;
-      padding: 0;
-    }
+    .pillar ul { list-style: none; margin: 0.75rem 0 0; padding: 0; }
     .pillar ul li {
       position: relative;
       padding-left: 1.5rem;
@@ -266,21 +281,11 @@
       border-radius: 50%;
       background: var(--accent);
     }
-    .pillar .aside {
-      margin-top: 0.7rem;
-      font-weight: 600;
-      color: var(--text);
-    }
+    .pillar .aside { margin-top: 0.7rem; font-weight: 600; color: var(--text); }
 
     /* ── Included (checklist) ───────────────────────────────────────────── */
-    .included {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 0.55rem 1.5rem;
-    }
-    @media (min-width: 520px) {
-      .included { grid-template-columns: 1fr 1fr; }
-    }
+    .included { display: grid; grid-template-columns: 1fr; gap: 0.55rem 1.5rem; }
+    @media (min-width: 520px) { .included { grid-template-columns: 1fr 1fr; } }
     .included li {
       list-style: none;
       position: relative;
@@ -304,19 +309,22 @@
       font-size: 0.8rem;
       font-weight: 800;
     }
-    @media (prefers-color-scheme: dark) {
-      .included li::before { color: var(--accent); }
+    [data-theme="dark"] .included li::before { color: var(--accent); }
+
+    /* The "more to come" line, right after Included. */
+    .more-to-come {
+      text-align: center;
+      font-size: clamp(1.5rem, 6.5vw, 2.1rem);
+      font-weight: 700;
+      line-height: 1.2;
+      color: var(--text);
+      padding: 1rem 0 0.5rem;
     }
+    .more-to-come .glow { color: var(--accent); }
 
     /* ── Screenshots ────────────────────────────────────────────────────── */
-    .shots {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 0.85rem;
-    }
-    @media (min-width: 560px) {
-      .shots { grid-template-columns: repeat(4, 1fr); }
-    }
+    .shots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.85rem; }
+    @media (min-width: 560px) { .shots { grid-template-columns: repeat(4, 1fr); } }
     .shot {
       aspect-ratio: 9 / 19;
       border-radius: 14px;
@@ -367,21 +375,79 @@
     .feedback .send-row { margin-top: 1rem; }
     .feedback-status { margin-top: 0.75rem; font-size: 0.88rem; color: var(--text-faint); }
 
-    /* ── Footer ─────────────────────────────────────────────────────────── */
+    /* ── Footer + pawn mascot ───────────────────────────────────────────── */
     footer {
       border-top: 1px solid var(--hairline);
-      padding: 2.5rem 0 3rem;
+      padding: 2.75rem 0 3rem;
       text-align: center;
     }
+    .pawn-mascot { color: var(--accent); line-height: 0; display: flex; justify-content: center; margin-bottom: 2rem; }
+    .pawn-flip { display: inline-block; transform-origin: center; animation: pawn-flip 5.25s ease-in-out infinite; }
+    .pawn-svg {
+      display: block;
+      width: 46px;
+      height: 52px;
+      shape-rendering: crispEdges;
+      transform-origin: bottom center;
+      animation: pawn-hop 1.05s cubic-bezier(0.3, 0, 0.35, 1) infinite;
+    }
+    .pawn-svg rect { fill: currentColor; }
+
     .footer-cta { margin-bottom: 1.5rem; }
     .footer-made { font-size: 0.85rem; color: var(--text-faint); }
     .footer-made a { color: var(--text-faint); }
+
+    /* ════════════════ MOTION ════════════════
+       Hero rises in on load; sections rise in as they scroll into view. Only
+       enabled when JS is present (so no-JS / failed-JS still shows everything),
+       and fully disabled under prefers-reduced-motion. */
+    html.js .hero > * { opacity: 0; animation: rise 0.65s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+    html.js .hero > *:nth-child(1) { animation-delay: 0.05s; }
+    html.js .hero > *:nth-child(2) { animation-delay: 0.14s; }
+    html.js .hero > *:nth-child(3) { animation-delay: 0.23s; }
+    html.js .hero > *:nth-child(4) { animation-delay: 0.32s; }
+    html.js .hero > *:nth-child(5) { animation-delay: 0.41s; }
+
+    html.js .reveal {
+      opacity: 0;
+      transform: translateY(22px);
+      transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.2, 0.7, 0.3, 1);
+    }
+    html.js .reveal.in { opacity: 1; transform: none; }
+    /* Stagger the four pillars as the group reveals. */
+    html.js .pillars .pillar:nth-child(2) { transition-delay: 0.08s; }
+    html.js .pillars .pillar:nth-child(3) { transition-delay: 0.16s; }
+    html.js .pillars .pillar:nth-child(4) { transition-delay: 0.24s; }
+
+    @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+    @keyframes pawn-hop {
+      0%, 100% { transform: translateY(0) scaleY(1)    scaleX(1); }
+      12%      { transform: translateY(0) scaleY(0.88) scaleX(1.1); }
+      40%      { transform: translateY(-15px) scaleY(1.08) scaleX(0.94); }
+      68%      { transform: translateY(0) scaleY(0.9)  scaleX(1.08); }
+      82%      { transform: translateY(0) scaleY(1)    scaleX(1); }
+    }
+    @keyframes pawn-flip { 0%, 80% { transform: rotate(0); } 96%, 100% { transform: rotate(360deg); } }
+
+    @media (prefers-reduced-motion: reduce) {
+      html.js .hero > *,
+      html.js .reveal { opacity: 1 !important; transform: none !important; animation: none !important; transition: none !important; }
+      .pawn-svg, .pawn-flip { animation: none !important; }
+    }
   </style>
 </head>
 <body>
 
+  <!-- Light / dark toggle -->
+  <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle light or dark mode">
+    <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+  </button>
+
   <!-- ═══════════════════ HERO ═══════════════════ -->
   <header class="hero">
+    <img class="app-icon" src="app-icon.png" width="104" height="104"
+         alt="Obertura app icon" />
     <div class="wordmark">obertura</div>
     <h1>Learn chess openings your way.</h1>
     <p class="hero-sub">
@@ -391,20 +457,12 @@
     <p class="hero-promise">
       No subscriptions. No cloud lock-in. Your repertoire stays on your device.
     </p>
-    <a class="btn-primary" href="https://marxal.github.io/obertura">Open the app</a>
-    <!-- Decorative 4×4 board — uses the fixed board colours. -->
-    <div class="hero-board" aria-hidden="true">
-      <i class="l"></i><i class="d"></i><i class="l"></i><i class="d"></i>
-      <i class="d"></i><i class="l"></i><i class="d"></i><i class="l"></i>
-      <i class="l"></i><i class="d"></i><i class="l"></i><i class="d"></i>
-      <i class="d"></i><i class="l"></i><i class="d"></i><i class="l"></i>
-    </div>
   </header>
 
   <main class="wrap">
 
     <!-- ═══════════════════ THE STORY ═══════════════════ -->
-    <section>
+    <section class="reveal">
       <div class="section-eyebrow">Why I made Obertura</div>
       <div class="story">
         <p>I'm a passionate chess player, not a particularly strong one 🤓</p>
@@ -419,12 +477,16 @@
 
     <!-- ═══════════════════ EVERYTHING YOU NEED ═══════════════════ -->
     <section>
-      <div class="section-eyebrow">Everything you need</div>
-      <h2>Everything you need to learn openings.</h2>
+      <div class="section-eyebrow reveal">Everything you need</div>
+      <h2 class="reveal">Everything you need to learn openings.</h2>
       <div class="pillars">
 
-        <div class="pillar">
-          <h3><span class="pip"></span>Build your repertoire</h3>
+        <div class="pillar reveal">
+          <h3>
+            <span class="ic"><!-- building blocks -->
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+            </span>Build your repertoire
+          </h3>
           <p class="lead">Create your opening repertoire however you prefer:</p>
           <ul>
             <li>Enter moves directly on the board</li>
@@ -435,23 +497,35 @@
           </ul>
         </div>
 
-        <div class="pillar">
-          <h3><span class="pip"></span>Train with purpose</h3>
+        <div class="pillar reveal">
+          <h3>
+            <span class="ic"><!-- target -->
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+            </span>Train with purpose
+          </h3>
           <p>Spaced repetition focuses on the moves you forget and reviews them until
             they become automatic.</p>
           <p class="aside">No random drills. No wasted time.</p>
         </div>
 
-        <div class="pillar">
-          <h3><span class="pip"></span>Prepare for real games</h3>
+        <div class="pillar reveal">
+          <h3>
+            <span class="ic"><!-- scouting / search -->
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            </span>Prepare for real games
+          </h3>
           <p>Import games from Chess.com and Lichess, explore millions of online
             games, and scout opponents to see what they actually play.</p>
           <p class="aside">Build lines for the positions you're actually likely to
             face.</p>
         </div>
 
-        <div class="pillar">
-          <h3><span class="pip"></span>Statistics</h3>
+        <div class="pillar reveal">
+          <h3>
+            <span class="ic"><!-- bar chart (matches the app's Statistics tab) -->
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg>
+            </span>Know where you stand
+          </h3>
           <p>Follow your progress over time.</p>
           <p>See which openings you're mastering, which lines need attention, and
             where your training is paying off. Clear insights help you spend less
@@ -463,9 +537,10 @@
 
     <!-- ═══════════════════ INCLUDED ═══════════════════ -->
     <section>
-      <div class="section-eyebrow">Included</div>
-      <ul class="included">
+      <div class="section-eyebrow reveal">Included</div>
+      <ul class="included reveal">
         <li>Automatic opening recognition</li>
+        <li>Visual repertoire tree</li>
         <li>Engine evaluation on any position</li>
         <li>Opening trap library</li>
         <li>Position notes and tags</li>
@@ -476,10 +551,11 @@
         <li>Multiple piece sets</li>
         <li>Installable on your phone</li>
       </ul>
+      <p class="more-to-come reveal">And <span class="glow">many more features</span> on the way.</p>
     </section>
 
     <!-- ═══════════════════ SCREENSHOTS ═══════════════════ -->
-    <section>
+    <section class="reveal">
       <div class="section-eyebrow">On your phone</div>
       <!--
         SCREENSHOTS: drop four phone screenshots into /docs with these exact names,
@@ -488,7 +564,7 @@
           /docs/shot-build.png   — the repertoire builder (board + move list)
           /docs/shot-tree.png    — the visual repertoire tree / map
           /docs/shot-stats.png   — the Statistics screen (streak + stats)
-        Portrait 9:19 images look best (e.g. 1080×2280). They are object-fit: cover.
+        Portrait 9:19 (≈1080×2280) looks best. They are object-fit: cover.
       -->
       <div class="shots">
         <div class="shot"><!-- <img src="shot-train.png" alt="The Train hub" /> -->shot-train.png</div>
@@ -499,7 +575,7 @@
     </section>
 
     <!-- ═══════════════════ FEEDBACK ═══════════════════ -->
-    <section id="feedback">
+    <section id="feedback" class="reveal">
       <div class="section-eyebrow">Feedback</div>
       <h2>Found a bug or have an idea?</h2>
       <form class="feedback" id="feedback-form">
@@ -530,6 +606,22 @@
 
   <!-- ═══════════════════ FOOTER ═══════════════════ -->
   <footer>
+    <!-- The pixel-pawn mascot from the after-training success screen. -->
+    <div class="pawn-mascot" aria-hidden="true">
+      <span class="pawn-flip">
+        <svg class="pawn-svg" viewBox="0 0 16 18" focusable="false">
+          <rect x="5" y="0" width="6" height="3"/>
+          <rect x="4" y="3" width="8" height="3"/>
+          <rect x="6" y="6" width="4" height="2"/>
+          <rect x="4" y="8" width="8" height="2"/>
+          <rect x="3" y="10" width="10" height="2"/>
+          <rect x="5" y="12" width="6" height="2"/>
+          <rect x="2" y="14" width="12" height="2"/>
+          <rect x="2" y="16" width="5" height="2"/>
+          <rect x="9" y="16" width="5" height="2"/>
+        </svg>
+      </span>
+    </div>
     <div class="footer-cta">
       <a class="btn-primary" href="https://marxal.github.io/obertura">Open the app</a>
     </div>
@@ -537,8 +629,37 @@
   </footer>
 
   <script>
-    // Submit feedback to Web3Forms (no backend) — same destination as the app's
-    // in-app feedback sheet. The access key is public by design.
+    // ── Theme toggle ──
+    (function () {
+      var root = document.documentElement;
+      var meta = document.getElementById('theme-color-meta');
+      var btn = document.getElementById('theme-toggle');
+      function paint(t) { if (meta) meta.setAttribute('content', t === 'dark' ? '#1a1512' : '#f1ece1'); }
+      paint(root.getAttribute('data-theme'));
+      if (btn) btn.addEventListener('click', function () {
+        var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        root.setAttribute('data-theme', next);
+        paint(next);
+        try { localStorage.setItem('obertura-landing-theme', next); } catch (e) {}
+      });
+    })();
+
+    // ── Scroll-reveal entrance ──
+    (function () {
+      var els = document.querySelectorAll('.reveal');
+      if (!('IntersectionObserver' in window)) {
+        els.forEach(function (el) { el.classList.add('in'); });
+        return;
+      }
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
+        });
+      }, { rootMargin: '0px 0px -8% 0px', threshold: 0.12 });
+      els.forEach(function (el) { io.observe(el); });
+    })();
+
+    // ── Feedback → Web3Forms (no backend), same destination as the app ──
     (function () {
       var form = document.getElementById('feedback-form');
       var status = document.getElementById('feedback-status');
@@ -547,10 +668,7 @@
         e.preventDefault();
         var btn = form.querySelector('button[type="submit"]');
         var data = Object.fromEntries(new FormData(form).entries());
-        if (!String(data.message || '').trim()) {
-          status.textContent = 'Add a message first.';
-          return;
-        }
+        if (!String(data.message || '').trim()) { status.textContent = 'Add a message first.'; return; }
         btn.disabled = true;
         status.textContent = 'Sending…';
         try {
@@ -560,13 +678,8 @@
             body: JSON.stringify(data),
           });
           var json = await res.json().catch(function () { return {}; });
-          if (res.ok && json.success) {
-            form.reset();
-            status.textContent = 'Thanks — your feedback is on its way.';
-          } else {
-            status.textContent = 'Couldn’t send — please try again.';
-            btn.disabled = false;
-          }
+          if (res.ok && json.success) { form.reset(); status.textContent = 'Thanks — your feedback is on its way.'; }
+          else { status.textContent = 'Couldn’t send — please try again.'; btn.disabled = false; }
         } catch (err) {
           status.textContent = 'Couldn’t send — you may be offline. Please try again.';
           btn.disabled = false;
