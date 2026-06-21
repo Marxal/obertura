@@ -51,7 +51,6 @@ import { userAvatar } from './avatar';
 import { pushBack } from './back-nav';
 import { appendSelfTest } from './selftest-panel';
 import { openFeedbackSheet } from './feedback';
-import { openAboutSheet } from './about';
 import { showIntro } from './onboarding';
 import { buildSupportSection } from './support';
 import { runStorageSelfTest } from './storage.selftest';
@@ -149,7 +148,9 @@ function buildAboutGroup(): HTMLElement {
   // Replay the first-launch intro on demand — the seen-flag stays set, so it
   // doesn't reappear on its own afterwards.
   sec.appendChild(linkRow('Replay intro', () => showIntro(), Icons.play(18)));
-  sec.appendChild(linkRow('About', openAboutSheet));
+  sec.appendChild(linkRow('About', () => {
+    window.open('https://marxal.github.io/obertura/docs/', '_blank', 'noopener,noreferrer');
+  }));
 
   // Buy me a coffee — Swish / Card, right below.
   sec.appendChild(buildSupportSection());

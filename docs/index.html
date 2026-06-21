@@ -4,14 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Obertura — learn chess openings your way</title>
-  <meta name="description" content="Build your own chess opening repertoire, train it, and let spaced repetition help you remember. A phone-first opening trainer." />
+  <meta name="description" content="Build your own chess opening repertoire, train it with spaced repetition, and remember your openings when it matters. No subscriptions, no cloud lock-in." />
   <meta name="theme-color" content="#f1ece1" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#1a1512" media="(prefers-color-scheme: dark)" />
 
   <!-- Open Graph / sharing (used when the link is pasted into a chat or social) -->
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Obertura — learn chess openings your way" />
-  <meta property="og:description" content="Build your own opening repertoire, train it, and let spaced repetition help you remember." />
+  <meta property="og:description" content="Build your own opening repertoire, train it with spaced repetition, and remember your openings when it matters." />
   <meta property="og:url" content="https://marxal.github.io/obertura/docs/" />
   <!-- Drop a 1200×630 share image at /docs/og.png to enable rich link previews. -->
   <meta property="og:image" content="https://marxal.github.io/obertura/docs/og.png" />
@@ -90,6 +90,33 @@
       padding: 0 1.25rem;
     }
 
+    /* ── Shared button ──────────────────────────────────────────────────── */
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      padding: 0.85rem 1.7rem;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      background-color: var(--primary);
+      background-image: var(--primary-sheen);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-decoration: none;
+      cursor: pointer;
+      box-shadow: 0 2px 5px rgba(62,102,80,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+      text-shadow: 0 1px 1px rgba(0,0,0,0.18);
+      transition: filter 0.12s;
+    }
+    .btn-primary:hover { filter: brightness(1.1); }
+    .btn-primary:active { filter: brightness(0.88); }
+    @media (prefers-color-scheme: dark) {
+      .btn-primary { box-shadow: none; text-shadow: none; }
+    }
+
     /* ── Hero ───────────────────────────────────────────────────────────── */
     .hero {
       text-align: center;
@@ -104,64 +131,36 @@
       color: var(--accent);
       text-transform: uppercase;
       line-height: 1;
-      margin-bottom: 1.25rem;
+      margin-bottom: 1.5rem;
     }
 
-    .pitch {
-      font-size: clamp(1.1rem, 4.5vw, 1.45rem);
+    .hero h1 {
+      font-size: clamp(1.6rem, 6.5vw, 2.3rem);
+      font-weight: 700;
+      line-height: 1.15;
+      margin-bottom: 0.9rem;
+    }
+
+    .hero-sub {
+      font-size: clamp(1.05rem, 4.2vw, 1.25rem);
       font-weight: 500;
-      max-width: 30ch;
-      margin: 0 auto 2rem;
+      max-width: 34ch;
+      margin: 0 auto 1rem;
       color: var(--text);
     }
 
-    .hero-actions {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: center;
-      gap: 0.9rem;
+    .hero-promise {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      max-width: 40ch;
+      margin: 0 auto 2rem;
     }
-
-    .btn-primary {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 48px;
-      padding: 0.85rem 1.6rem;
-      border-radius: 8px;
-      border: 1px solid transparent;
-      background-color: var(--primary);
-      background-image: var(--primary-sheen);
-      color: #fff;
-      font-size: 1rem;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-      text-decoration: none;
-      box-shadow: 0 2px 5px rgba(62,102,80,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
-      text-shadow: 0 1px 1px rgba(0,0,0,0.18);
-      transition: filter 0.12s;
-    }
-    .btn-primary:hover { filter: brightness(1.1); }
-    .btn-primary:active { filter: brightness(0.88); }
-
-    @media (prefers-color-scheme: dark) {
-      .btn-primary { box-shadow: none; text-shadow: none; }
-    }
-
-    .link-secondary {
-      color: var(--accent);
-      font-weight: 600;
-      font-size: 0.98rem;
-      text-decoration: none;
-    }
-    .link-secondary:hover { text-decoration: underline; }
 
     /* Decorative mini-board under the hero — board squares, never re-themed. */
     .hero-board {
-      width: 96px;
-      height: 96px;
-      margin: 2.5rem auto 0;
+      width: 92px;
+      height: 92px;
+      margin: 2.75rem auto 0;
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       grid-template-rows: repeat(4, 1fr);
@@ -175,7 +174,7 @@
     .hero-board i.d { background: var(--board-dark); }
 
     /* ── Section frame ──────────────────────────────────────────────────── */
-    section { padding: 2.5rem 0; }
+    section { padding: 2.75rem 0; }
 
     .section-eyebrow {
       font-size: 0.76rem;
@@ -193,7 +192,7 @@
       font-size: clamp(1.4rem, 6vw, 1.9rem);
       font-weight: 700;
       line-height: 1.2;
-      margin-bottom: 1rem;
+      margin-bottom: 1.25rem;
     }
 
     /* ── Story ──────────────────────────────────────────────────────────── */
@@ -205,46 +204,108 @@
       box-shadow: var(--shadow-card);
     }
     .story p {
-      font-size: 1.08rem;
+      font-size: 1.06rem;
       color: var(--text);
     }
+    .story p + p { margin-top: 0.9rem; }
 
-    /* ── What you can do ────────────────────────────────────────────────── */
-    .features {
+    /* ── Pillars (Everything you need) ──────────────────────────────────── */
+    .pillars {
       display: grid;
       grid-template-columns: 1fr;
-      gap: 0.75rem;
+      gap: 1rem;
     }
-    @media (min-width: 560px) {
-      .features { grid-template-columns: 1fr 1fr; }
-    }
-
-    .feature {
+    .pillar {
       background: var(--bg-card);
       border: 1px solid var(--border-card);
-      border-radius: 12px;
-      padding: 1.1rem 1.15rem;
+      border-radius: 14px;
+      padding: 1.4rem 1.5rem;
       box-shadow: var(--shadow-card);
     }
-    .feature h3 {
-      font-size: 1rem;
+    .pillar h3 {
+      font-size: 1.15rem;
       font-weight: 700;
-      margin-bottom: 0.3rem;
+      margin-bottom: 0.5rem;
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.55rem;
     }
-    .feature h3 .pip {
+    .pillar h3 .pip {
       flex: none;
-      width: 9px;
-      height: 9px;
+      width: 10px;
+      height: 10px;
       border-radius: 50%;
       background: var(--accent);
     }
-    .feature p {
-      font-size: 0.92rem;
+    .pillar p {
       color: var(--text-muted);
-      line-height: 1.5;
+      font-size: 0.98rem;
+    }
+    .pillar p + p { margin-top: 0.6rem; }
+    .pillar .lead { color: var(--text); }
+
+    .pillar ul {
+      list-style: none;
+      margin: 0.75rem 0 0;
+      padding: 0;
+    }
+    .pillar ul li {
+      position: relative;
+      padding-left: 1.5rem;
+      margin-bottom: 0.45rem;
+      color: var(--text-muted);
+      font-size: 0.98rem;
+    }
+    .pillar ul li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.62em;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+    .pillar .aside {
+      margin-top: 0.7rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    /* ── Included (checklist) ───────────────────────────────────────────── */
+    .included {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.55rem 1.5rem;
+    }
+    @media (min-width: 520px) {
+      .included { grid-template-columns: 1fr 1fr; }
+    }
+    .included li {
+      list-style: none;
+      position: relative;
+      padding-left: 1.85rem;
+      color: var(--text);
+      font-size: 0.98rem;
+    }
+    .included li::before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1.35rem;
+      height: 1.35rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: var(--accent-soft);
+      color: var(--accent-active);
+      font-size: 0.8rem;
+      font-weight: 800;
+    }
+    @media (prefers-color-scheme: dark) {
+      .included li::before { color: var(--accent); }
     }
 
     /* ── Screenshots ────────────────────────────────────────────────────── */
@@ -280,6 +341,7 @@
       padding: 1.75rem;
       box-shadow: var(--shadow-card);
     }
+    .feedback > p { color: var(--text-muted); margin-bottom: 0.5rem; }
     .feedback label {
       display: block;
       font-size: 0.85rem;
@@ -311,21 +373,7 @@
       padding: 2.5rem 0 3rem;
       text-align: center;
     }
-    .footer-links {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem 1.25rem;
-      margin-bottom: 1.25rem;
-    }
-    .footer-links a {
-      color: var(--accent);
-      font-weight: 600;
-      font-size: 0.95rem;
-      text-decoration: none;
-    }
-    .footer-links a:hover { text-decoration: underline; }
+    .footer-cta { margin-bottom: 1.5rem; }
     .footer-made { font-size: 0.85rem; color: var(--text-faint); }
     .footer-made a { color: var(--text-faint); }
   </style>
@@ -335,14 +383,15 @@
   <!-- ═══════════════════ HERO ═══════════════════ -->
   <header class="hero">
     <div class="wordmark">obertura</div>
-    <p class="pitch">
-      Learn chess openings your way. Build your own repertoire, train it, and let
-      spaced repetition help you remember.
+    <h1>Learn chess openings your way.</h1>
+    <p class="hero-sub">
+      Build your own repertoire, train it with spaced repetition, and remember your
+      openings when it matters.
     </p>
-    <div class="hero-actions">
-      <a class="btn-primary" href="https://marxal.github.io/obertura">Open the app</a>
-      <a class="link-secondary" href="https://marxal.net" target="_blank" rel="noopener noreferrer">marxal.net&nbsp;→</a>
-    </div>
+    <p class="hero-promise">
+      No subscriptions. No cloud lock-in. Your repertoire stays on your device.
+    </p>
+    <a class="btn-primary" href="https://marxal.github.io/obertura">Open the app</a>
     <!-- Decorative 4×4 board — uses the fixed board colours. -->
     <div class="hero-board" aria-hidden="true">
       <i class="l"></i><i class="d"></i><i class="l"></i><i class="d"></i>
@@ -356,113 +405,82 @@
 
     <!-- ═══════════════════ THE STORY ═══════════════════ -->
     <section>
-      <div class="section-eyebrow">Why I made this</div>
+      <div class="section-eyebrow">Why I made Obertura</div>
       <div class="story">
-        <p>
-          I'm a passionate chess player — not a very good one. I built Obertura to
-          improve my openings after trying a lot of opening tools and never being
-          satisfied with any of them. So I made my own. Now I hope it helps other
-          players too, and that we can improve it together as we get better.
-        </p>
+        <p>I'm a passionate chess player, not a particularly strong one 🤓</p>
+        <p>After trying countless opening trainers, I always felt something was
+          missing. Most were either too rigid, too complicated, or didn't match the
+          way I wanted to study.</p>
+        <p>So I built Obertura for myself.</p>
+        <p>A place to build my own repertoire, train it efficiently, and prepare for
+          real opponents. If it helps other players improve too, even better. 🙌</p>
       </div>
     </section>
 
-    <!-- ═══════════════════ WHAT YOU CAN DO ═══════════════════ -->
+    <!-- ═══════════════════ EVERYTHING YOU NEED ═══════════════════ -->
     <section>
-      <div class="section-eyebrow">What you can do</div>
-      <h2>Your openings, learned your way.</h2>
-      <div class="features">
+      <div class="section-eyebrow">Everything you need</div>
+      <h2>Everything you need to learn openings.</h2>
+      <div class="pillars">
 
-        <div class="feature">
+        <div class="pillar">
           <h3><span class="pip"></span>Build your repertoire</h3>
-          <p>Enter lines your way — by hand on the board, picked from a built-in
-            opening library, pulled from your own games, suggested by the engine, or
-            lifted straight from scouting an opponent.</p>
+          <p class="lead">Create your opening repertoire however you prefer:</p>
+          <ul>
+            <li>Enter moves directly on the board</li>
+            <li>Start from the built-in opening library</li>
+            <li>Import lines from your own games</li>
+            <li>Use engine suggestions</li>
+            <li>Add ideas discovered while preparing for an opponent</li>
+          </ul>
         </div>
 
-        <div class="feature">
-          <h3><span class="pip"></span>Train it</h3>
-          <p>Play a line once to confirm it, then drill it. Spaced repetition brings
-            your mistakes back until they stick — never random.</p>
+        <div class="pillar">
+          <h3><span class="pip"></span>Train with purpose</h3>
+          <p>Spaced repetition focuses on the moves you forget and reviews them until
+            they become automatic.</p>
+          <p class="aside">No random drills. No wasted time.</p>
         </div>
 
-        <div class="feature">
-          <h3><span class="pip"></span>See the whole picture</h3>
-          <p>A visual tree of your openings and every branch.</p>
+        <div class="pillar">
+          <h3><span class="pip"></span>Prepare for real games</h3>
+          <p>Import games from Chess.com and Lichess, explore millions of online
+            games, and scout opponents to see what they actually play.</p>
+          <p class="aside">Build lines for the positions you're actually likely to
+            face.</p>
         </div>
 
-        <div class="feature">
-          <h3><span class="pip"></span>Know your openings by name</h3>
-          <p>Opening names recognised automatically as you build.</p>
-        </div>
-
-        <div class="feature">
-          <h3><span class="pip"></span>Get a second opinion</h3>
-          <p>Engine evaluation on any position, whenever you want it.</p>
-        </div>
-
-        <div class="feature">
-          <h3><span class="pip"></span>Bring in your games</h3>
-          <p>Import straight from Chess.com and Lichess.</p>
-        </div>
-
-        <div class="feature">
-          <h3><span class="pip"></span>Scout opponents</h3>
-          <p>Import someone's games and see what they actually play, so you can
-            prepare a surprise.</p>
-        </div>
-
-        <div class="feature">
-          <h3><span class="pip"></span>See what really gets played</h3>
-          <p>Real win, draw and loss numbers from millions of online games on any
-            position you reach.</p>
-        </div>
-
-        <div class="feature">
-          <h3><span class="pip"></span>Learn the traps</h3>
-          <p>A curated library of famous opening traps — tap one to drop the
-            trapping line straight onto your board.</p>
-        </div>
-
-        <div class="feature">
-          <h3><span class="pip"></span>Annotate as you go</h3>
-          <p>Mark moves brilliant, dubious or a blunder, and write your own notes on
-            any position.</p>
-        </div>
-
-        <div class="feature">
-          <h3><span class="pip"></span>Beat the clock</h3>
-          <p>Timed 1, 3 and 5-minute drills with your own personal bests.</p>
-        </div>
-
-        <div class="feature">
-          <h3><span class="pip"></span>Track progress</h3>
-          <p>Stats and streaks that follow your learning.</p>
-        </div>
-
-        <div class="feature">
-          <h3><span class="pip"></span>Never lose your work</h3>
-          <p>Export a backup of your whole repertoire and restore it anytime.</p>
-        </div>
-
-        <div class="feature">
-          <h3><span class="pip"></span>Make it yours</h3>
-          <p>Light and dark themes, and multiple piece sets.</p>
-        </div>
-
-        <div class="feature">
-          <h3><span class="pip"></span>Yours, on your phone</h3>
-          <p>Installable like an app, with no app store — and your data stays on your
-            device.</p>
+        <div class="pillar">
+          <h3><span class="pip"></span>Statistics</h3>
+          <p>Follow your progress over time.</p>
+          <p>See which openings you're mastering, which lines need attention, and
+            where your training is paying off. Clear insights help you spend less
+            time guessing and more time improving.</p>
         </div>
 
       </div>
+    </section>
+
+    <!-- ═══════════════════ INCLUDED ═══════════════════ -->
+    <section>
+      <div class="section-eyebrow">Included</div>
+      <ul class="included">
+        <li>Automatic opening recognition</li>
+        <li>Engine evaluation on any position</li>
+        <li>Opening trap library</li>
+        <li>Position notes and tags</li>
+        <li>Timed training modes</li>
+        <li>Progress statistics and streaks</li>
+        <li>Backup and restore</li>
+        <li>Light and dark themes</li>
+        <li>Multiple piece sets</li>
+        <li>Installable on your phone</li>
+      </ul>
     </section>
 
     <!-- ═══════════════════ SCREENSHOTS ═══════════════════ -->
     <section>
-      <div class="section-eyebrow">A look inside</div>
-      <h2>On your phone.</h2>
+      <div class="section-eyebrow">On your phone</div>
       <!--
         SCREENSHOTS: drop four phone screenshots into /docs with these exact names,
         then uncomment the <img> inside each slot below (delete the placeholder text):
@@ -483,8 +501,10 @@
     <!-- ═══════════════════ FEEDBACK ═══════════════════ -->
     <section id="feedback">
       <div class="section-eyebrow">Feedback</div>
-      <h2>Found a bug, or got an idea?</h2>
+      <h2>Found a bug or have an idea?</h2>
       <form class="feedback" id="feedback-form">
+        <p>Obertura is a personal project and is still evolving. I'd love to hear what
+          works, what doesn't, and what you'd like to see next.</p>
         <!-- Posts to the same Web3Forms destination as the in-app feedback form. -->
         <input type="hidden" name="access_key" value="07647d12-a144-4031-a14c-2c8cc3145650" />
         <input type="hidden" name="subject" value="Obertura feedback — landing page" />
@@ -494,7 +514,7 @@
 
         <label for="fb-message">Message</label>
         <textarea id="fb-message" name="message" required
-          placeholder="What happened, or what would make Obertura better?"></textarea>
+          placeholder="What works, what doesn't, or what you'd like to see next?"></textarea>
 
         <label for="fb-email">Your email (optional)</label>
         <input type="email" id="fb-email" name="email" autocomplete="email" placeholder="So I can reply" />
@@ -510,10 +530,8 @@
 
   <!-- ═══════════════════ FOOTER ═══════════════════ -->
   <footer>
-    <div class="footer-links">
-      <a href="https://marxal.github.io/obertura">Open the app</a>
-      <a href="https://marxal.net" target="_blank" rel="noopener noreferrer">marxal.net</a>
-      <a href="#feedback">Send feedback</a>
+    <div class="footer-cta">
+      <a class="btn-primary" href="https://marxal.github.io/obertura">Open the app</a>
     </div>
     <p class="footer-made">Made by <a href="https://marxal.net" target="_blank" rel="noopener noreferrer">marxal</a></p>
   </footer>
