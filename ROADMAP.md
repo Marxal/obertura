@@ -13,6 +13,30 @@ Status key: ✅ done · 🔜 next · 💤 later
 
 ---
 
+## v0.5 — polish & content round 🔜
+
+Planned. A light round after the v0.4 ship: detail fixes from real phone use,
+more opening packs, and room to explore a few new features. Built in order, safe
+stuff first. The `v0.4` tag is the restore point for the whole round. Scope per
+phase is confirmed before work begins; the bullets below are placeholders to be
+filled from Marçal's punch-list.
+
+- 🔜 **Phase 1 — Detail fixes** — triage and fix the small things noticed
+  testing on the phone (layout/visual nits, copy, off-by-one counts, etc.).
+  _To be filled from the phone-testing list._
+- 🔜 **Phase 2 — More opening packs** — add starter packs for more
+  openings/families (per colour), using the existing pack build script.
+  _To be filled with the agreed families._
+- 🔜 **Phase 3 — New-feature exploration** — pressure-test a few new ideas
+  against the v1 scope, then build the ones that earn their place.
+  _To be filled with the vetted ideas._
+- 🔜 **Release** — full self-test + production build pass, version bump to
+  `0.5.0`, and the `v0.5` tag.
+
+_Restore point: tag `v0.4`. In progress._
+
+---
+
 ## v0.4 — beta polish round ✅
 
 A wide polish round on top of v0.3: first-run onboarding, a clearer Explore vs
