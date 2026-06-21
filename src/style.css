@@ -1270,6 +1270,15 @@ cg-board square.move-dest.oc {
   color: var(--accent);
 }
 
+/* A transient hint under the title/tags — used when a trap seeds the builder, so
+   the trap's idea travels across without crowding the card. */
+.builder-desc {
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
 /* The moves are their own distinct block, set apart from the title and notes
    with a recessed parchment panel. */
 /* The move list is a flush strip directly under the board, shown on every
@@ -2116,6 +2125,14 @@ cg-board square.move-dest.oc {
 }
 
 .lines-tab:active { transform: translateY(1px); }
+
+/* In Explore the tab switcher leads the screen (no carousel above it), so drop
+   the divider that separates it from the My Lines carousel and give it a little
+   breathing room under the app header. */
+.lines-try .lines-tabs {
+  border-top: none;
+  padding-top: 0.75rem;
+}
 
 .lines-tab-icon { flex: 0 0 auto; }
 
@@ -8388,21 +8405,11 @@ cg-board square.move-dest.oc {
 }
 
 /* ── Opening trap cards ──────────────────────────────────────────────────────────
-   Trap cards reuse the shared .pcard / Recommended-card look; these add only the
-   trap-specific bits: the level chip beside the name and the bait/idea blurb. */
+   Trap cards reuse the shared .pcard / Recommended-card look; this adds only the
+   level chip beside the name. (The bait/idea now rides into the builder.) */
 .trap-level-chip {
   margin-left: 6px;
   font-size: 0.68rem;
-}
-.trap-idea {
-  margin-top: 6px;
-  font-size: 0.8rem;
-  line-height: 1.4;
-  color: var(--text-muted);
-}
-.trap-bait {
-  font-weight: 600;
-  color: var(--text);
 }
 
 /* ── Filter-bar row-1 tools: icon-only sort + group-by-opening toggle ───────────

@@ -145,6 +145,19 @@ function renderBuilderTags(): void {
   }
 }
 
+// A transient one-line hint shown under the title/actions — used when the builder
+// is seeded from a trap, to carry the trap's bait/idea across (the card itself
+// stays uncluttered). Display-only: it isn't part of the saved Line, and it's
+// cleared whenever a fresh line starts (clearBuilder).
+let builderDesc = '';
+
+function renderBuilderDesc(): void {
+  const el = document.getElementById('builder-desc')!;
+  const text = builderDesc.trim();
+  el.textContent = text;
+  el.hidden = text.length === 0;
+}
+
 // The edit lightbox — now focused: the pencil opens it on the NAME only, the tag
 // icon on the TAGS only, so the two concerns are separate in the title row.
 function openEditSheet(focus: 'name' | 'tags' = 'name'): void {
@@ -828,8 +841,10 @@ function clearBuilder(colour: 'white' | 'black' = 'white'): void {
   // Fresh line: drop any manual title and clear the auto-detected name.
   manualTitle = null;
   detectedName = '';
+  builderDesc = '';
   renderTitle();
   renderBuilderTags();
+  renderBuilderDesc();
   cg.set({
     fen: chess.fen(),
     orientation: colour,
@@ -873,9 +888,15 @@ function scoutInBuilder(opponentId: string, colour: 'white' | 'black' = 'white')
 // suggestions, or the Prepare flow). Starts from a clean, unsaved line so a Save
 // creates a new one. Optional tags pre-fill the working tag set (used by Prepare
 // to stamp the opponent tag).
-function buildFromUcis(ucis: string[], colour: 'white' | 'black', tags: string[] = []): void {
+function buildFromUcis(
+  ucis: string[],
+  colour: 'white' | 'black',
+  tags: string[] = [],
+  opts: { description?: string } = {},
+): void {
   clearBuilder(colour);
   currentTags = [...tags];
+  builderDesc = opts.description ?? '';
   for (const uci of ucis) {
     const from = uci.slice(0, 2);
     const to = uci.slice(2, 4);
@@ -897,6 +918,7 @@ function buildFromUcis(ucis: string[], colour: 'white' | 'black', tags: string[]
   renderMoveList();
   renderMoveDetails();
   renderBuilderTags();
+  renderBuilderDesc();
   updateOpeningName();
   evalPanel.clear();
   engine.evaluate(chess.fen());
@@ -917,7 +939,11 @@ function exploreScreenDeps() {
   return {
     onPrepareReply: prepareReply,
     onOpenLine,
-    onOpenInBuilder: (ucis: string[], colour: 'white' | 'black') => buildFromUcis(ucis, colour),
+    onOpenInBuilder: (
+      ucis: string[],
+      colour: 'white' | 'black',
+      opts?: { description?: string },
+    ) => buildFromUcis(ucis, colour, [], opts),
     // The opponent "board browser" now opens the builder's Scouting tab.
     onScoutInBuilder: (opponentId: string) => scoutInBuilder(opponentId),
   };
@@ -1234,8 +1260,10 @@ function onOpenLine(line: Line, atFen?: string): void {
   // detected name reflects the root until the user steps through the line.
   manualTitle = line.name;
   detectedName = '';
+  builderDesc = '';
   renderTitle();
   renderBuilderTags();
+  renderBuilderDesc();
 
   renderMoveList();
   renderMoveDetails();
