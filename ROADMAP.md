@@ -13,16 +13,55 @@ Status key: ✅ done · 🔜 next · 💤 later
 
 ---
 
-## v0.4 — beta polish round 🔜
+## v0.4 — beta polish round ✅
 
-In progress. This round's scope is confirmed before work begins on each phase.
-The `v0.3` tag (formerly `v1.3`) is the rollback point for the whole round.
+A wide polish round on top of v0.3: first-run onboarding, a clearer Explore vs
+Statistics split, a unified builder, a much larger opening library, opening
+traps, a friendlier import/scouting flow, and the app's first public landing
+page. The `v0.3` tag was the restore point for the whole round. The summary
+below is grouped by area; only Phase 6 was tracked as a distinct numbered phase
+in the plan, so the rest is recorded by theme rather than by phase number.
 
-- 🔜 **Phase 6 — Explore vs Statistics** — moved the opening **Maps** (your
+- ✅ **Onboarding & first run** — a first-launch flow that seeds starter packs
+  and game-based line suggestions (gated at six lines / six packs, packs
+  collapsed by default, mini-boards and footer routes).
+- ✅ **My Lines (Phase 2)** — group My Lines by opening family, Save-as-new on
+  edit, and a shared two-row filter bar (icon-only sort + group-by-opening)
+  rolled out across the line lists.
+- ✅ **Builder & engine** — unified the library / games / scouting sources into
+  the builder behind tabs, a builder carousel (and fixed the engine-toggle board
+  shift), engine eval confined to the Engine tab, deeper online continuations in
+  the Library board explorer, and fixed the engine showing raw `e8h8` instead of
+  O-O.
+- ✅ **Opening library & master games** — dropped the FIDE master-games
+  integration in favour of growing the bundled opening library ~3×, with a
+  dedicated master-games board explorer that shows real games from a position
+  and a live game-count badge.
+- ✅ **Opening traps** — added Opening traps to Explore (relevance-ranked packs
+  and puzzles), led Explore with a Recommended | Traps split, and pared the trap
+  cards down to a "build a line" action.
+- ✅ **Phase 6 — Explore vs Statistics** — moved the opening **Maps** (your
   repertoire + your games) out of Statistics and into the Explore tab, with the
   data wiring carried over intact. Set the agreed Explore order: Opponents →
   Maps → Opening library → Build with the engine. Statistics now stays about
-  progress (streak, stats, win-rate, needs-attention, opening detail).
+  progress (streak, stats, win-rate, needs-attention, opening detail). Plus an
+  Explore/Scout polish pass: library moved to the top, slimmer opponent cards, a
+  scouting report, board perspective fixes, and miniatures.
+- ✅ **Import & scouting flow** — a full-screen import loader with your profile
+  picture and a review graph, carried into opponent scouting; named the scouted
+  opponent instead of "their"; and a Spar → Open-in-builder hand-off.
+- ✅ **Training feel** — split training into rounds to bank progress
+  mid-session, dropped the in-session "second look" resurfacing, and made the
+  finish screens more playful/gamified.
+- ✅ **FAB** — a floating action button with quick create/import actions and a
+  readable backdrop.
+- ✅ **Landing page & Settings** — the app's first public landing page (with
+  README and an About-sheet link) and a redesigned Settings screen (accordion
+  groups, scouting toggle, dual-platform import, pinned Add-your-games).
+- ✅ **Release** — full self-test (108/108) + production build pass, version at
+  `0.4.0`, and the `v0.4` tag.
+
+_Restore point: tag `v0.4`. Shipped._
 
 ---
 

@@ -39,11 +39,10 @@ understand concepts, not syntax. I direct; you build; I test on my phone.
 - Phase 4+: engine, explanations, Chess.com import, polish. All later.
 
 ## Where we are now
-Shipped through v0.3 (formerly v1.3 in the old internal scheme; old tags left
-intact). The project has renumbered to a v0.x beta scheme (v1.0→v0.1 …
-v1.3→v0.3 conceptually). The v0.4 round is the current beta-polish round and is
-in progress. Latest rollback tag is `v0.3`. `ROADMAP.md` records every round
-phase by phase. Confirm scope before starting new work.
+Shipped through v0.4 (the beta-polish round). The project uses a v0.x beta
+scheme (old v1.x tags left intact; v1.0→v0.1 … v1.3→v0.3 conceptually). Latest
+rollback tag is `v0.4`. `ROADMAP.md` records every round phase by phase.
+Confirm scope before starting new work.
 
 ## Data model (get right early)
 - Repertoire: "my White lines" or "my Black lines".
