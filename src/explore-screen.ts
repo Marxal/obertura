@@ -48,6 +48,7 @@ import { createFilterBar, type FilterSelection } from './filters';
 import { renderFamilyGroups } from './line-groups';
 import { buildEmptyState } from './empty-state';
 import { pushBack } from './back-nav';
+import { getScoutingEnabled } from './prefs';
 
 const PLATFORM_LABEL = { chesscom: 'Chess.com', lichess: 'Lichess' } as const;
 // Most-played list cap before "Show all".
@@ -163,15 +164,20 @@ async function buildScreen(container: HTMLElement): Promise<void> {
   const packs = await loadTraps();
   container.appendChild(linesToTrySection(games, lines, packs));
 
-  // 2) Scout opponents.
-  container.appendChild(scoutSection(opponents, container));
+  // 2) Scout opponents — hidden entirely when scouting is switched off in
+  //    Settings (the opponents stay in storage, just out of sight).
+  if (getScoutingEnabled()) {
+    container.appendChild(scoutSection(opponents, container));
 
-  // A "Full report" tap from the builder's Scouting tab asks us to open straight
-  // into one opponent's detail.
-  if (pendingOpponentId) {
-    const id = pendingOpponentId;
+    // A "Full report" tap from the builder's Scouting tab asks us to open
+    // straight into one opponent's detail.
+    if (pendingOpponentId) {
+      const id = pendingOpponentId;
+      pendingOpponentId = null;
+      openDetail(id, container);
+    }
+  } else {
     pendingOpponentId = null;
-    openDetail(id, container);
   }
 }
 

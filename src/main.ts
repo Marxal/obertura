@@ -21,7 +21,7 @@ import { EvalPanel } from './eval-panel';
 import { createBuilderPanels, type BuilderPanels } from './builder-panels';
 import { initTheme } from './theme';
 import { initAppearance } from './appearance';
-import { watchSpeedMs, getConfirmRunBeforeTraining } from './prefs';
+import { watchSpeedMs, getConfirmRunBeforeTraining, getScoutingEnabled } from './prefs';
 import { initBackNav, setViewBack, pushBack } from './back-nav';
 import { showDialog } from './dialog';
 import { openImportPanel, getGamesSource, IDENTITY_CHANGED_EVENT } from './import-panel';
@@ -415,6 +415,19 @@ function onActiveSlide(index: number): void {
   // The engine runs only while its tab is showing: on when you land on it, off
   // when you leave. There's no on/off toggle — the tab IS the switch.
   if (evalPanel) evalPanel.setEnabled(index === ENGINE_SLIDE);
+}
+
+// Show or hide the builder's Scouting tab (and its slide) to match the Settings
+// toggle. With scouting off the carousel has four tabs — Line / Library / My
+// games / Engine — and the other slides keep their indices, so nothing else
+// shifts. Opponents stay in storage; flipping the toggle back brings the tab
+// straight back.
+function syncScoutingTab(): void {
+  const enabled = getScoutingEnabled();
+  const tab = document.querySelector<HTMLElement>('#builder-slide-tabs .slide-tab[data-slide="4"]');
+  const slide = document.getElementById('slide-scouting');
+  if (tab) tab.hidden = !enabled;
+  if (slide) slide.hidden = !enabled;
 }
 
 // Fit the carousel into the space left between the board and the bottom dock, so
@@ -1207,11 +1220,15 @@ function showView(view: ViewName): void {
   }
 
   if (view === 'builder') {
+    // Reflect the scouting toggle before we land on a slide, so a hidden
+    // Scouting tab can't be the target.
+    syncScoutingTab();
     // Land on the Line tab by default (engine off); an external link can request
     // a different tab via pendingBuilderSlide. Forcing activeSlide to a sentinel
     // makes onActiveSlide run fully (so the engine state is set correctly).
-    const slide = pendingBuilderSlide ?? 0;
+    let slide = pendingBuilderSlide ?? 0;
     pendingBuilderSlide = null;
+    if (slide === SCOUTING_SLIDE && !getScoutingEnabled()) slide = 0;
     if (pendingScoutOpponentId) {
       builderPanels?.selectOpponent(pendingScoutOpponentId);
       pendingScoutOpponentId = null;

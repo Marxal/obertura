@@ -513,6 +513,40 @@ body {
   margin-bottom: var(--space-sm);
 }
 
+/* SETTINGS ACCORDION — each preference group is a collapsed <details> that
+   shares one `name`, so only one opens at a time. Collapsed, it's just a title
+   row; the chevron rotates down when the panel opens. Keeps the .section border
+   and fill, but tightens the padding so a closed group reads as a single line. */
+.section--acc {
+  padding: var(--space-sm) var(--space-lg);
+}
+.section--acc[open] {
+  padding-bottom: var(--space-lg);
+}
+.section--acc > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-xs) 0;
+  cursor: pointer;
+  list-style: none;
+}
+.section--acc > summary::-webkit-details-marker {
+  display: none;
+}
+.section--acc[open] > summary {
+  margin-bottom: var(--space-sm);
+}
+.section--acc > summary svg {
+  flex: none;
+  color: var(--text-fainter);
+  transition: transform 0.15s ease;
+}
+.section--acc[open] > summary svg {
+  transform: rotate(90deg);
+}
+
 /* ROW — the standard list row: content left, optional control / aside right. */
 .row {
   display: flex;

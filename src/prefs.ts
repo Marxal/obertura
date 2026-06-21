@@ -138,6 +138,37 @@ export function setActivityExpanded(on: boolean): void {
   localStorage.setItem(ACTIVITY_EXPANDED_KEY, on ? 'on' : 'off');
 }
 
+// ── Explore / scouting ───────────────────────────────────────────────────────
+
+// Whether opponent scouting is available at all. Default ON. When off, the
+// Scout-opponents section disappears from Explore and the Scouting tab is
+// removed from the board builder's carousel. Scouted opponents stay in storage,
+// so turning it back on restores everything.
+const SCOUTING_KEY = 'obertura.scoutingEnabled';
+
+export function getScoutingEnabled(): boolean {
+  return localStorage.getItem(SCOUTING_KEY) !== 'off';
+}
+
+export function setScoutingEnabled(on: boolean): void {
+  localStorage.setItem(SCOUTING_KEY, on ? 'on' : 'off');
+}
+
+// A discreet opt-in: surface your *other* platform (the one you're not currently
+// connected with) in the Add-your-games card, so you can pull games from both
+// Chess.com and Lichess into one library without retyping. Default OFF — most
+// people use a single site. The merging itself is done by the Replace/Add prompt
+// on import; this only makes the second platform reachable.
+const SECOND_PLATFORM_KEY = 'obertura.includeSecondPlatform';
+
+export function getIncludeSecondPlatform(): boolean {
+  return localStorage.getItem(SECOND_PLATFORM_KEY) === 'on';
+}
+
+export function setIncludeSecondPlatform(on: boolean): void {
+  localStorage.setItem(SECOND_PLATFORM_KEY, on ? 'on' : 'off');
+}
+
 // Saved lines always auto-name themselves from the bundled opening database on
 // save (no popup). The pencil in the builder's title row is the override: a
 // manual rename is stored on the line itself and wins over the auto name. There
