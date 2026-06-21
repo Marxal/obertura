@@ -77,18 +77,16 @@ export function renderSettingsScreen(container: HTMLElement): void {
   // The screen title now lives in the app header (set in showView), so it's not
   // repeated here.
 
-  // "Add your games" leads the screen until you've imported any — getting your
-  // games in is the first thing a new install wants. Once you have games it drops
-  // back to its usual spot below Statistics. We learn which only after a quick
-  // async count, so build a placeholder now and slot it in once we know.
-  const userSlotTop = document.createElement('div');
-  screen.appendChild(userSlotTop);
+  // "Add your games" always leads the screen — getting your games in is the first
+  // thing a new install wants, and the synced account stays handy afterwards. It
+  // pops (an accent CTA card) until you've imported, then turns discreet. We learn
+  // which only after a quick async count, so build a placeholder now and fill it.
+  const userSlot = document.createElement('div');
+  screen.appendChild(userSlot);
 
   screen.appendChild(buildAppearanceGroup());
   screen.appendChild(buildTrainingGroup());
   screen.appendChild(buildStatisticsGroup());
-  const userSlotMid = document.createElement('div');
-  screen.appendChild(userSlotMid);
   screen.appendChild(buildExploreGroup());
   screen.appendChild(buildDataGroup());
   screen.appendChild(buildDiagnosticsGroup());
@@ -97,9 +95,7 @@ export function renderSettingsScreen(container: HTMLElement): void {
   container.appendChild(screen);
 
   void countGames().then((count) => {
-    const connected = count > 0;
-    const group = buildUserGroup(count, () => renderSettingsScreen(container));
-    (connected ? userSlotMid : userSlotTop).appendChild(group);
+    userSlot.appendChild(buildUserGroup(count, () => renderSettingsScreen(container)));
   });
 }
 
@@ -116,7 +112,7 @@ export function renderSettingsScreen(container: HTMLElement): void {
 function buildDiagnosticsGroup(): HTMLElement {
   // The whole group is now a collapsed accordion panel, so the old nested
   // "Advanced" disclosure is gone — the self-tests sit directly inside.
-  const sec = group('Diagnostics');
+  const sec = group('Diagnostics', Icons.search(16));
 
   const blurb = document.createElement('p');
   blurb.className = 'section-desc';
@@ -141,7 +137,7 @@ function buildDiagnosticsGroup(): HTMLElement {
 // switch, which gates the whole opponent-scouting feature.
 
 function buildExploreGroup(): HTMLElement {
-  const sec = group('Explore');
+  const sec = group('Explore', Icons.compass(16));
 
   sec.appendChild(row(
     'Scouting',
@@ -157,7 +153,7 @@ function buildExploreGroup(): HTMLElement {
 // support links and the version. About sits at the very bottom of Settings.
 
 function buildAboutGroup(): HTMLElement {
-  const sec = staticGroup('Feedback & about');
+  const sec = staticGroup('Feedback & about', Icons.note(16));
 
   sec.appendChild(linkRow('Send feedback', openFeedbackSheet, Icons.note(18)));
   // Replay the first-launch intro on demand — the seen-flag stays set, so it
@@ -165,7 +161,7 @@ function buildAboutGroup(): HTMLElement {
   sec.appendChild(linkRow('Replay intro', () => showIntro(), Icons.play(18)));
   sec.appendChild(linkRow('About', () => {
     window.open('https://marxal.github.io/obertura/docs/', '_blank', 'noopener,noreferrer');
-  }));
+  }, Icons.info(18)));
 
   // Buy me a coffee — Swish / Card, right below.
   sec.appendChild(buildSupportSection());
@@ -198,17 +194,24 @@ function linkRow(label: string, onClick: () => void, leading?: SVGElement): HTML
 // A collapsible group. Every accordion panel shares one `name`, so the browser
 // keeps just one open at a time (native exclusive <details> behaviour — no JS).
 // They all start closed, so Settings opens as a short, scannable list of titles.
-// Rows append straight onto the returned <details>, after the summary.
-function group(titleText: string): HTMLElement {
+// Each header carries an icon (left) and a chevron (right); rows append straight
+// onto the returned <details>, after the summary.
+function group(titleText: string, icon: SVGElement): HTMLElement {
   const sec = document.createElement('details');
   sec.className = 'section section--acc';
   sec.setAttribute('name', 'settings-acc');
 
   const summary = document.createElement('summary');
   summary.className = 'section-title section-summary';
+
+  const left = document.createElement('span');
+  left.className = 'section-summary-left';
+  left.appendChild(icon);
   const label = document.createElement('span');
   label.textContent = titleText;
-  summary.appendChild(label);
+  left.appendChild(label);
+
+  summary.appendChild(left);
   summary.appendChild(Icons.chevronRight(16));
   sec.appendChild(summary);
   return sec;
@@ -216,13 +219,17 @@ function group(titleText: string): HTMLElement {
 
 // An always-open group (no accordion): the plain section used for the
 // "Add your games" card and "Feedback & about", which the user wants permanently
-// visible rather than tucked away.
-function staticGroup(titleText: string): HTMLElement {
+// visible rather than tucked away. Carries the same leading icon as the
+// accordion headers, for a consistent row of marks down the screen.
+function staticGroup(titleText: string, icon: SVGElement): HTMLElement {
   const sec = document.createElement('section');
   sec.className = 'section';
   const h = document.createElement('h2');
-  h.className = 'section-title';
-  h.textContent = titleText;
+  h.className = 'section-title section-title--icon';
+  h.appendChild(icon);
+  const label = document.createElement('span');
+  label.textContent = titleText;
+  h.appendChild(label);
   sec.appendChild(h);
   return sec;
 }
@@ -553,7 +560,7 @@ function buildThemeRow(): HTMLElement {
 }
 
 function buildAppearanceGroup(): HTMLElement {
-  const sec = group('Appearance');
+  const sec = group('Appearance', Icons.eye(16));
 
   sec.appendChild(buildThemeRow());
 
@@ -586,7 +593,7 @@ function buildAppearanceGroup(): HTMLElement {
 // ── Training ─────────────────────────────────────────────────────────────────
 
 function buildTrainingGroup(): HTMLElement {
-  const sec = group('Training');
+  const sec = group('Training', Icons.zap(16));
 
   sec.appendChild(row(
     'Confirm run before training',
@@ -641,7 +648,7 @@ function buildTrainingGroup(): HTMLElement {
 // streak pill is independent of both — it always shows.
 
 function buildStatisticsGroup(): HTMLElement {
-  const sec = group('Statistics');
+  const sec = group('Statistics', Icons.barChart(16));
 
   sec.appendChild(row(
     'Show streak on Statistics',
@@ -665,7 +672,7 @@ function buildStatisticsGroup(): HTMLElement {
 // the account you're synced with, when it last synced, how many games are on the
 // device, and a quiet Refresh — all driven by the shared import panel.
 function buildUserGroup(gameCount: number, refresh: () => void): HTMLElement {
-  const sec = staticGroup('Add your games');
+  const sec = staticGroup('Add your games', Icons.download(16));
   const source = getGamesSource();
 
   // Open the panel pre-filled with the connected account (or the last-used one),
@@ -705,14 +712,15 @@ function buildUserGroup(gameCount: number, refresh: () => void): HTMLElement {
     return sec;
   }
 
-  // ── Connected — show the account, sync date, count, and a quiet Refresh ──
+  // ── Connected — discreet once games are in: a compact card with the account,
+  // sync date, count, and a small Refresh. The "pop" is for the empty state. ──
   const card = document.createElement('div');
-  card.className = 'settings-connected';
+  card.className = 'settings-connected settings-connected--compact';
 
   const who = document.createElement('div');
   who.className = 'settings-connected-who';
   // Your Chess.com picture (Lichess / no picture → generic icon).
-  who.appendChild(userAvatar(source.avatarUrl, 28));
+  who.appendChild(userAvatar(source.avatarUrl, 22));
   const handle = document.createElement('span');
   handle.className = 'settings-connected-handle';
   handle.textContent = source.username;
@@ -721,6 +729,16 @@ function buildUserGroup(gameCount: number, refresh: () => void): HTMLElement {
   plat.textContent = `on ${platformLabel(source.platform)}`;
   who.appendChild(handle);
   who.appendChild(plat);
+
+  // A small icon-led Refresh sits on the account line itself, keeping the card to
+  // two tight rows instead of a full-width action button.
+  const refreshBtn = document.createElement('button');
+  refreshBtn.type = 'button';
+  refreshBtn.className = 'btn-secondary btn-compact settings-connected-refresh';
+  refreshBtn.appendChild(Icons.reset(15));
+  refreshBtn.appendChild(document.createTextNode('Refresh'));
+  refreshBtn.addEventListener('click', openPanel);
+  who.appendChild(refreshBtn);
   card.appendChild(who);
 
   const meta = document.createElement('p');
@@ -729,18 +747,6 @@ function buildUserGroup(gameCount: number, refresh: () => void): HTMLElement {
     `${gameCount} game${gameCount === 1 ? '' : 's'} on this device · ` +
     `synced ${relativeDate(source.syncedAt)}`;
   card.appendChild(meta);
-
-  const refreshBtn = document.createElement('button');
-  refreshBtn.type = 'button';
-  refreshBtn.className = 'btn-secondary';
-  refreshBtn.appendChild(Icons.reset(16));
-  refreshBtn.appendChild(document.createTextNode('Refresh my games'));
-  refreshBtn.addEventListener('click', openPanel);
-
-  const actions = document.createElement('div');
-  actions.className = 'settings-actions';
-  actions.appendChild(refreshBtn);
-  card.appendChild(actions);
 
   sec.appendChild(card);
 
@@ -807,7 +813,7 @@ function lastRefreshCaption(): string {
 }
 
 function buildDataGroup(): HTMLElement {
-  const sec = group('Data');
+  const sec = group('Data', Icons.save(16));
 
   // Auto-refresh games — the weekly check. Only does anything once a username
   // has been saved by a previous import (see auto-refresh.ts); the caption

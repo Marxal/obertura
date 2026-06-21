@@ -538,13 +538,30 @@ body {
 .section--acc[open] > summary {
   margin-bottom: var(--space-sm);
 }
-.section--acc > summary svg {
+/* The chevron is the summary's DIRECT svg child; the leading group icon lives
+   inside .section-summary-left, so this rotation never touches it. */
+.section--acc > summary > svg {
   flex: none;
   color: var(--text-fainter);
   transition: transform 0.15s ease;
 }
-.section--acc[open] > summary svg {
+.section--acc[open] > summary > svg {
   transform: rotate(90deg);
+}
+
+/* Header icon + title — shared by the accordion summaries and the two static
+   group <h2>s, so every group leads with a mark in the same spot. The icon
+   inherits the muted .section-title colour. */
+.section-summary-left,
+.section-title--icon {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+.section-summary-left svg,
+.section-title--icon svg {
+  flex: none;
 }
 
 /* ROW — the standard list row: content left, optional control / aside right. */
@@ -5420,6 +5437,29 @@ cg-board square.move-dest.oc {
 
 .settings-connected .settings-actions {
   margin-top: 0.35rem;
+}
+
+/* Compact (discreet) connected card — the post-import state. Tighter padding, a
+   smaller handle, and the Refresh pulled onto the account line so the card is
+   just two quiet rows instead of a card plus a full-width button. */
+.settings-connected--compact {
+  gap: 0.3rem;
+  padding: 0.6rem 0.75rem;
+}
+.settings-connected--compact .settings-connected-handle {
+  font-size: 0.9rem;
+}
+.settings-connected-refresh {
+  margin-left: auto;
+}
+
+/* A smaller, quieter button — chrome (colour/border) comes from .btn-secondary;
+   this just shrinks the box and text. Still a comfortable tap target. */
+.btn-compact {
+  min-height: 34px;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.8rem;
+  gap: 0.3rem;
 }
 
 /* Tap-through rows that open a sheet (Send feedback, About). Full-width, with a
