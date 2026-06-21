@@ -63,13 +63,7 @@ export function openAboutSheet(): void {
   appName.className = 'about-app-name';
   appName.textContent = `${__APP_NAME__} v${__APP_VERSION__}`;
   sheet.appendChild(appName);
-  const credit = externalLink('Created by marxal', 'https://marxal.net', 'about-link');
-  credit.style.display = 'block';
-  sheet.appendChild(credit);
-  const projectPage = externalLink('About Obertura', 'https://marxal.github.io/obertura/docs/', 'about-link');
-  projectPage.style.display = 'block';
-  projectPage.style.marginTop = '0.3rem';
-  sheet.appendChild(projectPage);
+  sheet.appendChild(externalLink('Created by marxal', 'https://marxal.net', 'about-link'));
 
   // ── Open source ──
   sheet.appendChild(sectionHeading('Open source'));
