@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Obertura — learn chess openings your way</title>
+  <meta name="description" content="Build your own chess opening repertoire, train it, and let spaced repetition help you remember. A phone-first opening trainer." />
+  <meta name="theme-color" content="#f1ece1" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#1a1512" media="(prefers-color-scheme: dark)" />
+
+  <!-- Open Graph / sharing (used when the link is pasted into a chat or social) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Obertura — learn chess openings your way" />
+  <meta property="og:description" content="Build your own opening repertoire, train it, and let spaced repetition help you remember." />
+  <meta property="og:url" content="https://marxal.github.io/obertura/docs/" />
+  <!-- Drop a 1200×630 share image at /docs/og.png to enable rich link previews. -->
+  <meta property="og:image" content="https://marxal.github.io/obertura/docs/og.png" />
+
+  <!-- Silkscreen (pixel font) — used ONLY for the "obertura" wordmark, exactly as in the app. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen&display=swap" />
+
+  <style>
+    /* ── Design tokens — mirrored from the app (Obertura_Style_Guide.html).
+       Board squares (#eecfa1 / #b58863) NEVER change between themes. ── */
+    :root {
+      --bg-page: #f1ece1;
+      --bg-card: #faf4e6;
+      --text: #3c3225;
+      --text-muted: #6b5638;
+      --text-faint: #9c7a5a;
+      --border-card: #e0d0b8;
+      --hairline: rgba(156, 107, 67, 0.18);
+      --accent: #ff9b21;
+      --accent-active: #e08800;
+      --accent-soft: rgba(255, 155, 33, 0.14);
+      --primary: #3e6650;
+      --primary-active: #345646;
+      --primary-sheen: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, transparent 55%, rgba(0,0,0,0.06) 100%);
+      --board-light: #eecfa1;
+      --board-dark: #b58863;
+      --shadow-card: 0 1px 3px rgba(28, 22, 16, 0.07), 0 1px 2px rgba(28, 22, 16, 0.04);
+      /* Paper texture speckle (page background only) — same as the app. */
+      --paper-speckle: rgba(120, 90, 50, 0.035);
+      color-scheme: light;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-page: #1a1512;
+        --bg-card: #241d18;
+        --text: #e8dcc8;
+        --text-muted: #c2b39a;
+        --text-faint: #9a8870;
+        --border-card: #3a2e22;
+        --hairline: rgba(232, 220, 200, 0.12);
+        --accent: #ff9b21;
+        --accent-active: #e08800;
+        --accent-soft: rgba(255, 155, 33, 0.18);
+        --primary: #527d63;
+        --primary-active: #466b54;
+        --primary-sheen: none;
+        --shadow-card: none;
+        --paper-speckle: rgba(255, 240, 214, 0.02);
+        color-scheme: dark;
+      }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      color: var(--text);
+      background-color: var(--bg-page);
+      /* The same subtle paper texture used by the app, page-background only. */
+      background-image:
+        radial-gradient(var(--paper-speckle) 1px, transparent 1.4px),
+        radial-gradient(var(--paper-speckle) 1px, transparent 1.4px);
+      background-size: 24px 24px, 37px 37px;
+      background-position: 0 0, 12px 19px;
+      background-attachment: fixed;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .wrap {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 0 1.25rem;
+    }
+
+    /* ── Hero ───────────────────────────────────────────────────────────── */
+    .hero {
+      text-align: center;
+      padding: 4rem 1.25rem 3rem;
+    }
+
+    .wordmark {
+      font-family: 'Silkscreen', monospace;
+      font-weight: 400;
+      font-size: clamp(2.4rem, 11vw, 4rem);
+      letter-spacing: 0.01em;
+      color: var(--accent);
+      text-transform: uppercase;
+      line-height: 1;
+      margin-bottom: 1.25rem;
+    }
+
+    .pitch {
+      font-size: clamp(1.1rem, 4.5vw, 1.45rem);
+      font-weight: 500;
+      max-width: 30ch;
+      margin: 0 auto 2rem;
+      color: var(--text);
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 0.9rem;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      padding: 0.85rem 1.6rem;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      background-color: var(--primary);
+      background-image: var(--primary-sheen);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-decoration: none;
+      box-shadow: 0 2px 5px rgba(62,102,80,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+      text-shadow: 0 1px 1px rgba(0,0,0,0.18);
+      transition: filter 0.12s;
+    }
+    .btn-primary:hover { filter: brightness(1.1); }
+    .btn-primary:active { filter: brightness(0.88); }
+
+    @media (prefers-color-scheme: dark) {
+      .btn-primary { box-shadow: none; text-shadow: none; }
+    }
+
+    .link-secondary {
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 0.98rem;
+      text-decoration: none;
+    }
+    .link-secondary:hover { text-decoration: underline; }
+
+    /* Decorative mini-board under the hero — board squares, never re-themed. */
+    .hero-board {
+      width: 96px;
+      height: 96px;
+      margin: 2.5rem auto 0;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(4, 1fr);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: var(--shadow-card);
+      border: 1px solid var(--hairline);
+    }
+    .hero-board i { display: block; }
+    .hero-board i.l { background: var(--board-light); }
+    .hero-board i.d { background: var(--board-dark); }
+
+    /* ── Section frame ──────────────────────────────────────────────────── */
+    section { padding: 2.5rem 0; }
+
+    .section-eyebrow {
+      font-size: 0.76rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent-active);
+      margin-bottom: 0.75rem;
+    }
+    @media (prefers-color-scheme: dark) {
+      .section-eyebrow { color: var(--accent); }
+    }
+
+    h2 {
+      font-size: clamp(1.4rem, 6vw, 1.9rem);
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 1rem;
+    }
+
+    /* ── Story ──────────────────────────────────────────────────────────── */
+    .story {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 16px;
+      padding: 1.75rem;
+      box-shadow: var(--shadow-card);
+    }
+    .story p {
+      font-size: 1.08rem;
+      color: var(--text);
+    }
+
+    /* ── What you can do ────────────────────────────────────────────────── */
+    .features {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+    }
+    @media (min-width: 560px) {
+      .features { grid-template-columns: 1fr 1fr; }
+    }
+
+    .feature {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 12px;
+      padding: 1.1rem 1.15rem;
+      box-shadow: var(--shadow-card);
+    }
+    .feature h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 0.3rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .feature h3 .pip {
+      flex: none;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+    .feature p {
+      font-size: 0.92rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* ── Screenshots ────────────────────────────────────────────────────── */
+    .shots {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.85rem;
+    }
+    @media (min-width: 560px) {
+      .shots { grid-template-columns: repeat(4, 1fr); }
+    }
+    .shot {
+      aspect-ratio: 9 / 19;
+      border-radius: 14px;
+      border: 1px dashed var(--border-card);
+      background: var(--bg-card);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 0.75rem;
+      color: var(--text-faint);
+      font-size: 0.78rem;
+      overflow: hidden;
+    }
+    .shot img { width: 100%; height: 100%; object-fit: cover; border-radius: 13px; }
+
+    /* ── Feedback form (posts to the same Web3Forms destination as the app) ── */
+    .feedback {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 16px;
+      padding: 1.75rem;
+      box-shadow: var(--shadow-card);
+    }
+    .feedback label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin: 0.9rem 0 0.35rem;
+    }
+    .feedback textarea,
+    .feedback input[type="email"] {
+      width: 100%;
+      padding: 0.7rem 0.8rem;
+      border: 1px solid var(--border-card);
+      border-radius: 8px;
+      background: var(--bg-page);
+      color: var(--text);
+      font: inherit;
+      font-size: 1rem;
+    }
+    .feedback textarea:focus,
+    .feedback input:focus { outline: none; border-color: var(--accent); }
+    .feedback textarea { resize: vertical; min-height: 92px; }
+    .feedback .honeypot { position: absolute; left: -9999px; opacity: 0; }
+    .feedback .send-row { margin-top: 1rem; }
+    .feedback-status { margin-top: 0.75rem; font-size: 0.88rem; color: var(--text-faint); }
+
+    /* ── Footer ─────────────────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--hairline);
+      padding: 2.5rem 0 3rem;
+      text-align: center;
+    }
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+    .footer-links a {
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 0.95rem;
+      text-decoration: none;
+    }
+    .footer-links a:hover { text-decoration: underline; }
+    .footer-made { font-size: 0.85rem; color: var(--text-faint); }
+    .footer-made a { color: var(--text-faint); }
+  </style>
+</head>
+<body>
+
+  <!-- ═══════════════════ HERO ═══════════════════ -->
+  <header class="hero">
+    <div class="wordmark">obertura</div>
+    <p class="pitch">
+      Learn chess openings your way. Build your own repertoire, train it, and let
+      spaced repetition help you remember.
+    </p>
+    <div class="hero-actions">
+      <a class="btn-primary" href="https://marxal.github.io/obertura">Open the app</a>
+      <a class="link-secondary" href="https://marxal.net" target="_blank" rel="noopener noreferrer">marxal.net&nbsp;→</a>
+    </div>
+    <!-- Decorative 4×4 board — uses the fixed board colours. -->
+    <div class="hero-board" aria-hidden="true">
+      <i class="l"></i><i class="d"></i><i class="l"></i><i class="d"></i>
+      <i class="d"></i><i class="l"></i><i class="d"></i><i class="l"></i>
+      <i class="l"></i><i class="d"></i><i class="l"></i><i class="d"></i>
+      <i class="d"></i><i class="l"></i><i class="d"></i><i class="l"></i>
+    </div>
+  </header>
+
+  <main class="wrap">
+
+    <!-- ═══════════════════ THE STORY ═══════════════════ -->
+    <section>
+      <div class="section-eyebrow">Why I made this</div>
+      <div class="story">
+        <p>
+          I'm a passionate chess player — not a very good one. I built Obertura to
+          improve my openings after trying a lot of opening tools and never being
+          satisfied with any of them. So I made my own. Now I hope it helps other
+          players too, and that we can improve it together as we get better.
+        </p>
+      </div>
+    </section>
+
+    <!-- ═══════════════════ WHAT YOU CAN DO ═══════════════════ -->
+    <section>
+      <div class="section-eyebrow">What you can do</div>
+      <h2>Your openings, learned your way.</h2>
+      <div class="features">
+
+        <div class="feature">
+          <h3><span class="pip"></span>Build your repertoire</h3>
+          <p>Enter lines your way — by hand on the board, picked from a built-in
+            opening library, pulled from your own games, suggested by the engine, or
+            lifted straight from scouting an opponent.</p>
+        </div>
+
+        <div class="feature">
+          <h3><span class="pip"></span>Train it</h3>
+          <p>Play a line once to confirm it, then drill it. Spaced repetition brings
+            your mistakes back until they stick — never random.</p>
+        </div>
+
+        <div class="feature">
+          <h3><span class="pip"></span>See the whole picture</h3>
+          <p>A visual tree of your openings and every branch.</p>
+        </div>
+
+        <div class="feature">
+          <h3><span class="pip"></span>Know your openings by name</h3>
+          <p>Opening names recognised automatically as you build.</p>
+        </div>
+
+        <div class="feature">
+          <h3><span class="pip"></span>Get a second opinion</h3>
+          <p>Engine evaluation on any position, whenever you want it.</p>
+        </div>
+
+        <div class="feature">
+          <h3><span class="pip"></span>Bring in your games</h3>
+          <p>Import straight from Chess.com and Lichess.</p>
+        </div>
+
+        <div class="feature">
+          <h3><span class="pip"></span>Scout opponents</h3>
+          <p>Import someone's games and see what they actually play, so you can
+            prepare a surprise.</p>
+        </div>
+
+        <div class="feature">
+          <h3><span class="pip"></span>See what really gets played</h3>
+          <p>Real win, draw and loss numbers from millions of online games on any
+            position you reach.</p>
+        </div>
+
+        <div class="feature">
+          <h3><span class="pip"></span>Learn the traps</h3>
+          <p>A curated library of famous opening traps — tap one to drop the
+            trapping line straight onto your board.</p>
+        </div>
+
+        <div class="feature">
+          <h3><span class="pip"></span>Annotate as you go</h3>
+          <p>Mark moves brilliant, dubious or a blunder, and write your own notes on
+            any position.</p>
+        </div>
+
+        <div class="feature">
+          <h3><span class="pip"></span>Beat the clock</h3>
+          <p>Timed 1, 3 and 5-minute drills with your own personal bests.</p>
+        </div>
+
+        <div class="feature">
+          <h3><span class="pip"></span>Track progress</h3>
+          <p>Stats and streaks that follow your learning.</p>
+        </div>
+
+        <div class="feature">
+          <h3><span class="pip"></span>Never lose your work</h3>
+          <p>Export a backup of your whole repertoire and restore it anytime.</p>
+        </div>
+
+        <div class="feature">
+          <h3><span class="pip"></span>Make it yours</h3>
+          <p>Light and dark themes, and multiple piece sets.</p>
+        </div>
+
+        <div class="feature">
+          <h3><span class="pip"></span>Yours, on your phone</h3>
+          <p>Installable like an app, with no app store — and your data stays on your
+            device.</p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ═══════════════════ SCREENSHOTS ═══════════════════ -->
+    <section>
+      <div class="section-eyebrow">A look inside</div>
+      <h2>On your phone.</h2>
+      <!--
+        SCREENSHOTS: drop four phone screenshots into /docs with these exact names,
+        then uncomment the <img> inside each slot below (delete the placeholder text):
+          /docs/shot-train.png   — the Train hub / a drill in progress
+          /docs/shot-build.png   — the repertoire builder (board + move list)
+          /docs/shot-tree.png    — the visual repertoire tree / map
+          /docs/shot-stats.png   — the Statistics screen (streak + stats)
+        Portrait 9:19 images look best (e.g. 1080×2280). They are object-fit: cover.
+      -->
+      <div class="shots">
+        <div class="shot"><!-- <img src="shot-train.png" alt="The Train hub" /> -->shot-train.png</div>
+        <div class="shot"><!-- <img src="shot-build.png" alt="The repertoire builder" /> -->shot-build.png</div>
+        <div class="shot"><!-- <img src="shot-tree.png" alt="The repertoire tree" /> -->shot-tree.png</div>
+        <div class="shot"><!-- <img src="shot-stats.png" alt="The Statistics screen" /> -->shot-stats.png</div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════ FEEDBACK ═══════════════════ -->
+    <section id="feedback">
+      <div class="section-eyebrow">Feedback</div>
+      <h2>Found a bug, or got an idea?</h2>
+      <form class="feedback" id="feedback-form">
+        <!-- Posts to the same Web3Forms destination as the in-app feedback form. -->
+        <input type="hidden" name="access_key" value="07647d12-a144-4031-a14c-2c8cc3145650" />
+        <input type="hidden" name="subject" value="Obertura feedback — landing page" />
+        <input type="hidden" name="from_name" value="Obertura landing" />
+        <!-- Honeypot: must stay empty; bots fill it and Web3Forms rejects them. -->
+        <input type="text" name="botcheck" class="honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
+
+        <label for="fb-message">Message</label>
+        <textarea id="fb-message" name="message" required
+          placeholder="What happened, or what would make Obertura better?"></textarea>
+
+        <label for="fb-email">Your email (optional)</label>
+        <input type="email" id="fb-email" name="email" autocomplete="email" placeholder="So I can reply" />
+
+        <div class="send-row">
+          <button type="submit" class="btn-primary">Send feedback</button>
+        </div>
+        <p class="feedback-status" id="feedback-status" aria-live="polite"></p>
+      </form>
+    </section>
+
+  </main>
+
+  <!-- ═══════════════════ FOOTER ═══════════════════ -->
+  <footer>
+    <div class="footer-links">
+      <a href="https://marxal.github.io/obertura">Open the app</a>
+      <a href="https://marxal.net" target="_blank" rel="noopener noreferrer">marxal.net</a>
+      <a href="#feedback">Send feedback</a>
+    </div>
+    <p class="footer-made">Made by <a href="https://marxal.net" target="_blank" rel="noopener noreferrer">marxal</a></p>
+  </footer>
+
+  <script>
+    // Submit feedback to Web3Forms (no backend) — same destination as the app's
+    // in-app feedback sheet. The access key is public by design.
+    (function () {
+      var form = document.getElementById('feedback-form');
+      var status = document.getElementById('feedback-status');
+      if (!form) return;
+      form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        var btn = form.querySelector('button[type="submit"]');
+        var data = Object.fromEntries(new FormData(form).entries());
+        if (!String(data.message || '').trim()) {
+          status.textContent = 'Add a message first.';
+          return;
+        }
+        btn.disabled = true;
+        status.textContent = 'Sending…';
+        try {
+          var res = await fetch('https://api.web3forms.com/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify(data),
+          });
+          var json = await res.json().catch(function () { return {}; });
+          if (res.ok && json.success) {
+            form.reset();
+            status.textContent = 'Thanks — your feedback is on its way.';
+          } else {
+            status.textContent = 'Couldn’t send — please try again.';
+            btn.disabled = false;
+          }
+        } catch (err) {
+          status.textContent = 'Couldn’t send — you may be offline. Please try again.';
+          btn.disabled = false;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

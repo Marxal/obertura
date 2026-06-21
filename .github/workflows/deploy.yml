@@ -36,6 +36,12 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Copy the static landing page (repo /docs) into the Pages artifact so it
+      # goes live at <pages-url>/docs/ alongside the built app. Pages serves the
+      # uploaded `dist`, not a branch, so the page must be inside `dist`.
+      - name: Include landing page
+        run: cp -r docs dist/docs
+
       # Switch Pages source to GitHub Actions mode so Jekyll never overwrites this deploy
       - name: Ensure Pages uses GitHub Actions source
         env:
