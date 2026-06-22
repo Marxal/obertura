@@ -34,6 +34,7 @@ import { mountFab, type FabItem, type FabController } from './fab';
 import { importLastGame, hasConnectedAccount } from './import-last';
 import { openEngineSpar, openExploreOpponent, importOpponentFlow } from './explore-screen';
 import { formatMove } from './notation';
+import { maybeShowSurveyBanner } from './survey';
 
 const chess = new Chess();
 let cg!: ReturnType<typeof Chessground>;
@@ -1721,6 +1722,12 @@ initTheme();
 initAppearance();
 setupNav();
 
+// Stamp the install date on the very first launch — the beta survey banner
+// (survey.ts) waits a week from this timestamp before it first appears.
+if (!localStorage.getItem('obertura.installedAt')) {
+  localStorage.setItem('obertura.installedAt', String(Date.now()));
+}
+
 // Beta access gate (gate.ts) — a self-contained invitation gate + install screen
 // shown before the app boots. Skips itself when already unlocked or installed,
 // so this is a no-op pass-through on every normal launch. Everything below runs
@@ -1828,6 +1835,10 @@ maybeShowGate(() => requestAnimationFrame(() => {
   // was created above while visible, so chessground sized itself correctly
   // before we switch away.
   showView('train');
+
+  // A week after install, invite beta testers to the survey with a slim banner
+  // (shown once per session until they submit — see survey.ts).
+  maybeShowSurveyBanner();
 
   // First launch: play the intro over the top, landing back on Train when it's
   // done (an import there refreshes Train's view). Shows once — see onboarding.ts.
