@@ -23,6 +23,8 @@
 // The user-facing control lives in the Settings screen (settings-screen.ts),
 // which calls setThemeChoice() / getThemeChoice() directly.
 
+import { applyThemeDefaultBoardColour } from './appearance';
+
 export type ThemeChoice = 'classic-light' | 'classic-dark' | 'elegant' | 'gamer' | 'system';
 
 type ResolvedTheme = 'light' | 'dark' | 'game' | 'gamer';
@@ -90,6 +92,9 @@ function applyTheme(choice: ThemeChoice): void {
 export function setThemeChoice(choice: ThemeChoice): void {
   localStorage.setItem(STORAGE_KEY, choice);
   applyTheme(choice);
+  // "System" isn't a theme the user explicitly picked — it just follows the OS
+  // — so it never sets a board default, even on the first OS-driven resolve.
+  if (choice !== 'system') applyThemeDefaultBoardColour(choice);
 }
 
 // Apply the saved theme and keep "system" in step with the OS as it changes.

@@ -349,7 +349,10 @@ const BOARD_PRESETS: { value: BoardColour; label: string; light: string; dark: s
   { value: 'grey', label: 'Grey', light: '#dcdcdc', dark: '#909090' },
 ];
 
-function boardSwatches(current: BoardColour, onChange: (v: BoardColour) => void): HTMLElement {
+function boardSwatches(
+  current: BoardColour,
+  onChange: (v: BoardColour) => void,
+): { element: HTMLElement; reflect: (active: BoardColour) => void } {
   const wrap = document.createElement('div');
   wrap.className = 'board-swatches';
 
@@ -391,7 +394,7 @@ function boardSwatches(current: BoardColour, onChange: (v: BoardColour) => void)
     wrap.appendChild(btn);
   }
   reflect(current);
-  return wrap;
+  return { element: wrap, reflect };
 }
 
 // The four piece sets, in bundle-first order. cburnett is the bundled default;
@@ -515,6 +518,12 @@ const systemPrefersDark = () => window.matchMedia('(prefers-color-scheme: dark)'
 // and the System pill below.
 let setTheme: (choice: ThemeChoice) => void = () => {};
 
+// Picking a theme can silently change the board colour too (its theme default,
+// unless the user has picked one themselves — see appearance.ts). The board
+// swatches live in a separate row built later in buildAppearanceGroup, so this
+// handle lets the theme row re-sync their highlighted swatch after the change.
+let refreshBoardSwatches: () => void = () => {};
+
 // The Theme row: a swatch grid for the four explicit themes, with a discrete
 // "System" pill pinned to the right of the title. Picking a swatch takes an
 // explicit theme; tapping System hands the choice back to the phone. When System
@@ -555,7 +564,7 @@ function buildThemeRow(): HTMLElement {
     swatches.reflect(onSystem ? (systemPrefersDark() ? 'classic-dark' : 'classic-light') : choice);
   };
 
-  setTheme = (choice) => { setThemeChoice(choice); sync(); };
+  setTheme = (choice) => { setThemeChoice(choice); sync(); refreshBoardSwatches(); };
   systemBtn.addEventListener('click', () => setTheme('system'));
 
   sync();
@@ -567,10 +576,9 @@ function buildAppearanceGroup(): HTMLElement {
 
   sec.appendChild(buildThemeRow());
 
-  sec.appendChild(row(
-    'Board colours',
-    boardSwatches(getBoardColour(), (v) => setBoardColour(v)),
-  ));
+  const boardUI = boardSwatches(getBoardColour(), (v) => setBoardColour(v));
+  refreshBoardSwatches = () => boardUI.reflect(getBoardColour());
+  sec.appendChild(row('Board colours', boardUI.element));
 
   sec.appendChild(row(
     'Pieces',
