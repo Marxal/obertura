@@ -1212,6 +1212,11 @@ function showView(view: ViewName): void {
       onOpenLine: (line) => onOpenLine(line),
       onStartTraining: () => showView('train'),
       onBuildLine: () => startNewLine('white'),
+      // "Where you leave theory" seeds the builder at the exact fork so the line
+      // can be saved and trained.
+      onBuildFromMoves: (ucis, colour) => buildFromUcis(ucis, colour),
+      // The Your-games empty card opens the shared import flow, returning here.
+      onImportGames: () => openImportPanel({ onImported: () => showView('progress') }),
     });
   }
 

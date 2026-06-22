@@ -41,6 +41,7 @@ import {
   trainedToday,
   recordReviewed,
   reviewedToday,
+  recordReviewOutcome,
 } from './streak';
 import { renderLoadError } from './load-error';
 import { buildPositionCard, colourPip, lineFinalFen } from './card-position';
@@ -1091,6 +1092,9 @@ function runItem(
       lineCopy.confidence = lineConfidence(lineCopy);
       await saveLine(lineCopy);
       recordReviewed(userNodes.length);
+      // Feed the Statistics remembered-vs-failed bar: this line's moves split
+      // into recalled-first-try vs missed.
+      recordReviewOutcome(userNodes.length - missed.size, missed.size);
     },
     onComplete: () => {
       stats.linesReviewed++;
@@ -1185,6 +1189,8 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
           line.confidence = lineConfidence(line);
           void saveLine(line);
           recordReviewed(1);
+          // One move graded: one entry on the remembered-vs-failed bar.
+          recordReviewOutcome(wasMissed ? 0 : 1, wasMissed ? 1 : 0);
           stats.reviewed++;
           if (wasMissed) stats.missed++;
         },

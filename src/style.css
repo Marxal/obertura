@@ -5779,27 +5779,50 @@ cg-board square.move-dest.oc {
   font-weight: 600;
 }
 
-/* Quick stats row */
+/* Quick stats row — four tappable boxes, each opening a shortcut sheet. */
 .stats-quick-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 0.65rem;
-  margin: 0.8rem 1rem 0;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  margin: 0.6rem 1rem 0;
 }
 
 .stats-quick-cell {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0.55rem 0.4rem;
+  gap: 0.15rem;
+  padding: 0.6rem 0.3rem 0.5rem;
   background: var(--bg-card);
   border: 1px solid var(--border-card);
-  border-radius: 10px;
+  border-radius: 12px;
   box-shadow: var(--shadow-card);
+  cursor: pointer;
+  font: inherit;
+  text-align: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
+.stats-quick-cell:active {
+  transform: scale(0.97);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.stats-quick-icon {
+  display: flex;
+  color: var(--text-fainter);
+}
+
+/* Each box borrows its matching identity colour for the icon. */
+.stats-quick-cell--lines .stats-quick-icon { color: var(--accent); }
+.stats-quick-cell--training .stats-quick-icon { color: var(--success); }
+.stats-quick-cell--mastered .stats-quick-icon { color: #c79a2a; }
+.stats-quick-cell--mastered .stats-quick-icon svg { fill: currentColor; }
+.stats-quick-cell--needs .stats-quick-icon { color: var(--warn); }
+
 .stats-quick-num {
-  font-size: 1.5rem;
+  font-size: 1.45rem;
   font-weight: 800;
   color: var(--text);
   line-height: 1;
@@ -5807,12 +5830,12 @@ cg-board square.move-dest.oc {
 }
 
 .stats-quick-label {
-  font-size: 0.6rem;
+  font-size: 0.58rem;
   font-weight: 700;
   color: var(--text-faint);
-  margin-top: 0.2rem;
+  line-height: 1.15;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.04em;
 }
 
 /* Sections on this screen use the shared .section / .section-head / .section-title
@@ -8739,3 +8762,439 @@ cg-board square.move-dest.oc {
 .fab-split-white { background: #f3f1ea; color: #2a2a2a; }
 .fab-split-black { background: #2a2a2a; color: #f3f1ea; }
 .fab-split-btn:active { filter: brightness(0.92); }
+
+/* ── Statistics rebuild (Training + Your games regions) ────────────────────── */
+
+/* The two big region headings ("Training", "Your games") that split the page. */
+.stats-region-title {
+  margin: 1.5rem 1rem 0.2rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-fainter);
+}
+
+/* Time selector — Today / Week / Month chips. */
+.stats-range {
+  display: flex;
+  gap: 0.4rem;
+  margin: 0.55rem 1rem 0;
+}
+
+.stats-range-chip {
+  flex: 1;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border-card);
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.stats-range-chip--on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* Remembered-vs-failed two-tone stacked bar. */
+.stats-rf-legend {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.6rem;
+}
+
+.stats-rf-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  color: var(--text-faint);
+}
+
+.stats-rf-swatch {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+}
+
+.stats-rf-swatch--remembered { background: var(--success); }
+.stats-rf-swatch--failed { background: var(--danger); }
+
+.stats-rf-empty {
+  font-size: 0.82rem;
+  color: var(--text-faint);
+  font-style: italic;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* A row of day columns; each column is a fixed-height track holding a bottom-
+   anchored stack (remembered below, failed on top) plus an axis label. */
+.stats-rf-bars {
+  display: grid;
+  grid-template-columns: repeat(var(--rf-count, 7), 1fr);
+  gap: 3px;
+  align-items: end;
+  height: 132px;
+}
+
+.stats-rf-col {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  height: 100%;
+  min-width: 0;
+}
+
+.stats-rf-stack {
+  flex: 1;
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-start;
+  border-radius: 4px 4px 0 0;
+  overflow: hidden;
+  /* A faint baseline so empty days still read as a day. */
+  background: var(--bg-elevated);
+  min-height: 2px;
+}
+
+.stats-rf-col--today .stats-rf-stack {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.stats-rf-seg--remembered { background: var(--success); }
+.stats-rf-seg--failed { background: var(--danger); }
+
+.stats-rf-axis {
+  margin-top: 0.3rem;
+  text-align: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--text-fainter);
+  line-height: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Month calendar — "times trained this month". */
+.stats-cal-head,
+.stats-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+}
+
+.stats-cal-head { margin-bottom: 5px; }
+
+.stats-cal-dow {
+  text-align: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--text-fainter);
+  text-transform: uppercase;
+}
+
+.stats-cal-cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-card);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-cal-cell--blank {
+  background: transparent;
+  border-color: transparent;
+}
+
+.stats-cal-cell--on {
+  background: var(--success);
+  border-color: var(--success);
+  color: #fff;
+}
+
+.stats-cal-cell--today {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* Your-games empty card — the quiet single-card collapse. */
+.stats-games-empty {
+  margin: 0.4rem 1rem 0;
+  padding: 1.1rem 1.1rem 1.2rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+  text-align: center;
+}
+
+.stats-games-empty-text {
+  margin: 0 0 0.85rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.stats-games-empty-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Win rate by opening × training rows. */
+.stats-otr {
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+
+.stats-otr:last-child { border-bottom: none; }
+
+.stats-otr-name {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 0.35rem;
+}
+
+.stats-otr-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.stats-otr-tag {
+  flex-shrink: 0;
+  width: 3.9rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-fainter);
+}
+
+.stats-otr-meta {
+  flex-shrink: 0;
+  width: 4.5rem;
+  text-align: right;
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-otr-train {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+}
+
+.stats-otr-train--none {
+  font-style: italic;
+  color: var(--text-fainter);
+  letter-spacing: normal;
+}
+
+/* Win rate over time — inline SVG trend. */
+.stats-trend {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin-top: 0.3rem;
+}
+
+.stats-trend-mid {
+  stroke: var(--hairline);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.stats-trend-path {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.stats-trend-dot { fill: var(--accent); }
+
+.stats-trend-label {
+  fill: var(--text-fainter);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.stats-trend-caption {
+  margin: 0.5rem 0 0;
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+/* Where you leave theory — cards with a "Drill this" action. */
+.stats-theory-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+.stats-theory-body { flex: 1; min-width: 0; }
+
+.stats-theory-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.stats-theory-sub {
+  margin-top: 0.2rem;
+  font-size: 0.7rem;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-theory-btn { flex-shrink: 0; }
+
+/* Most played vs best scoring — two short ranked columns. */
+.stats-rank {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.stats-rank-title {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-fainter);
+  margin-bottom: 0.5rem;
+}
+
+.stats-rank-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.stats-rank-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.stats-rank-name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stats-rank-name span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stats-rank-val {
+  flex-shrink: 0;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-rank-empty {
+  font-size: 0.72rem;
+  color: var(--text-fainter);
+  font-style: italic;
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* Quick-stat lightbox sheets — list of shortcut cards. */
+.stats-sheet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.stats-sheet-card {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.stats-sheet-card:active { background: var(--bg-elevated); }
+
+.stats-sheet-card--needs { border-left: 3px solid var(--warn); }
+
+.stats-sheet-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.stats-sheet-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stats-sheet-meta {
+  font-size: 0.7rem;
+  color: var(--text-faint);
+}
+
+.stats-sheet-chev {
+  flex-shrink: 0;
+  color: var(--text-fainter);
+}
+
+.stats-sheet-action {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
