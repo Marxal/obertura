@@ -6,11 +6,13 @@
 //   • the survey itself, a full page (openSurvey), also reachable from the
 //     Settings "Beta survey" row.
 //
-// The survey opens as its own full-screen page. Every answer autosaves to a
-// localStorage draft as it's made, so closing the app (or anything else) never
-// loses progress — reopening restores exactly where you left off. On a
-// successful submit the draft is cleared and SENT_KEY is set, so the banner
-// never returns. Everything stays device-local apart from the single POST.
+// The survey is a focused, one-question-at-a-time form on its own full-screen
+// page: an intro, then a question per screen with Next / Skip, then a thank-you.
+// Every answer — and the current step — autosaves to a localStorage draft, so
+// closing the app (or anything else) never loses progress; reopening resumes
+// exactly where you left off. A successful submit clears the draft and sets
+// SENT_KEY, so the banner never returns. Everything is device-local apart from
+// the single POST.
 
 import { deviceLabel } from './feedback';
 import { pushBack } from './back-nav';
@@ -21,8 +23,12 @@ const ENDPOINT = 'https://api.web3forms.com/submit';
 const INSTALL_KEY = 'obertura.installedAt';            // ms timestamp, set by main.ts
 const SENT_KEY = 'obertura.survey.sent';               // '1' once submitted
 const DISMISS_KEY = 'obertura.survey.dismissedSession'; // session-only flag
-const DRAFT_KEY = 'obertura.survey.draft';             // JSON of in-progress answers
+const DRAFT_KEY = 'obertura.survey.draft';             // JSON of in-progress answers + step
 const DUE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
+
+// Dispatched by the thank-you screen's "Back to train" button; main.ts listens
+// for it and shows the Train tab.
+const GO_TO_TRAIN_EVENT = 'obertura:gototrain';
 
 // ── Launch banner ──────────────────────────────────────────────────────────
 // Shown on launch (from main.ts) once the install is a week old and the survey
@@ -98,17 +104,12 @@ export function maybeShowSurveyBanner(): void {
 }
 
 // ── Field model ──────────────────────────────────────────────────────────────
-// Every question is a Field: the element to drop on the page, the value to send,
-// whether it's been answered (for the progress bar), and serialize/restore for
-// the autosaved draft. Free-text fields don't count toward progress (they're
-// optional), so the bar reflects the choices and ratings.
-
+// Each question is a Field: the element to show, the value to send, and
+// serialize/restore for the autosaved draft.
 interface Field {
   id: string;                 // payload key
   el: HTMLElement;
-  counted: boolean;           // counts toward the progress bar
   value(): string | number;   // what gets sent
-  answered(): boolean;
   serialize(): unknown;       // for the draft
   restore(v: unknown): void;  // from the draft
 }
@@ -119,18 +120,16 @@ type Opt = string | { v: string; e?: string };
 interface NOpt { v: string; e?: string }
 function normOpt(o: Opt): NOpt { return typeof o === 'string' ? { v: o } : o; }
 
-// Lay the option cards in one or two columns, decided by the longest option so
-// short answers pair up and long ones get a full row to themselves. A lone last
-// card in a 2-column grid spans the full width (CSS), so 3-option questions stay
-// balanced rather than leaving a gap.
+// Two columns only for 2- or 4-option (and short) questions; everything else —
+// including 3- and 5-option questions — gets a single column, so there's never a
+// lone over-wide card.
 function applyGrid(group: HTMLElement, opts: NOpt[]): void {
   const maxLen = Math.max(...opts.map((o) => o.v.length));
-  const cols = maxLen > 22 ? 1 : 2;
-  group.dataset.cols = String(cols);
-  group.style.gridTemplateColumns = cols === 1 ? '1fr' : '1fr 1fr';
+  const twoCol = (opts.length === 2 || opts.length === 4) && maxLen <= 22;
+  group.style.gridTemplateColumns = twoCol ? '1fr 1fr' : '1fr';
 }
 
-// A question label, with an optional sub-line beneath it.
+// The question prompt, with an optional sub-line beneath it.
 function questionLabel(text: string, sub?: string): HTMLElement {
   const wrap = document.createElement('div');
   const l = document.createElement('label');
@@ -177,20 +176,6 @@ function makeOtherInput(onChange: () => void): { el: HTMLInputElement; get(): st
   return { el: input, get: () => input.value.trim(), set: (v) => { input.value = v; } };
 }
 
-// A section heading with an accent icon — these read as real titles.
-function sectionHead(icon: SVGElement, title: string): HTMLElement {
-  const h = document.createElement('div');
-  h.className = 'survey-section-head';
-  const badge = document.createElement('span');
-  badge.className = 'survey-section-icon';
-  badge.appendChild(icon);
-  const t = document.createElement('h3');
-  t.className = 'survey-section-title';
-  t.textContent = title;
-  h.append(badge, t);
-  return h;
-}
-
 // Single-choice: option cards, one selected at a time. An "Other" option reveals
 // a text field, and the typed text rides along in the sent value.
 function buildSingle(id: string, label: string, opts: Opt[], onChange: () => void): Field {
@@ -227,7 +212,7 @@ function buildSingle(id: string, label: string, opts: Opt[], onChange: () => voi
   if (hasOther) wrap.appendChild(otherInput.el);
 
   return {
-    id, el: wrap, counted: true,
+    id, el: wrap,
     value() {
       if (selected === 'Other') {
         const t = otherInput.get();
@@ -235,7 +220,6 @@ function buildSingle(id: string, label: string, opts: Opt[], onChange: () => voi
       }
       return selected;
     },
-    answered: () => selected !== '',
     serialize: () => ({ sel: selected, other: otherInput.get() }),
     restore(v) {
       const s = v as { sel?: string; other?: string } | null;
@@ -288,7 +272,7 @@ function buildMulti(id: string, label: string, opts: Opt[], onChange: () => void
   if (hasOther) wrap.appendChild(otherInput.el);
 
   return {
-    id, el: wrap, counted: true,
+    id, el: wrap,
     value() {
       return norm
         .filter((o) => selected.has(o.v))
@@ -301,7 +285,6 @@ function buildMulti(id: string, label: string, opts: Opt[], onChange: () => void
         })
         .join('; ');
     },
-    answered: () => selected.size > 0,
     serialize: () => ({ set: [...selected], other: otherInput.get() }),
     restore(v) {
       const s = v as { set?: string[]; other?: string } | null;
@@ -350,15 +333,14 @@ function buildStars(id: string, name: string, onChange: () => void): Field {
   wrap.append(nameEl, row);
 
   return {
-    id, el: wrap, counted: true,
+    id, el: wrap,
     value: () => rating,
-    answered: () => rating > 0,
     serialize: () => rating,
     restore(v) { rating = Number(v) || 0; reflect(); },
   };
 }
 
-// A free-text answer (optional — doesn't count toward progress).
+// A free-text answer.
 function buildText(
   id: string,
   label: string,
@@ -375,12 +357,43 @@ function buildText(
   ta.addEventListener('input', onChange);
   wrap.appendChild(ta);
   return {
-    id, el: wrap, counted: false,
+    id, el: wrap,
     value: () => ta.value.trim(),
-    answered: () => ta.value.trim() !== '',
     serialize: () => ta.value,
     restore(v) { ta.value = typeof v === 'string' ? v : ''; },
   };
+}
+
+// ── Steps ──────────────────────────────────────────────────────────────────
+// A step is one screen: a big section header, an optional must-not-miss context
+// callout, the field(s), and the fields it carries (for value/draft).
+interface Step {
+  el: HTMLElement;
+  fields: Field[];
+}
+
+function sectionHeader(name: string): HTMLElement {
+  const h = document.createElement('div');
+  h.className = 'survey-step-section';
+  h.textContent = name;
+  return h;
+}
+
+function contextEl(text: string): HTMLElement {
+  const p = document.createElement('p');
+  p.className = 'survey-step-context';
+  p.textContent = text;
+  return p;
+}
+
+// A standard one-field question screen.
+function oneFieldStep(section: string, field: Field, context?: string): Step {
+  const el = document.createElement('div');
+  el.className = 'survey-step';
+  el.appendChild(sectionHeader(section));
+  if (context) el.appendChild(contextEl(context));
+  el.appendChild(field.el);
+  return { el, fields: [field] };
 }
 
 // ── Survey page ──────────────────────────────────────────────────────────────
@@ -392,32 +405,35 @@ export function openSurvey(): void {
   const sheet = document.createElement('div');
   sheet.className = 'edit-sheet edit-sheet--full survey-page';
 
+  // ── Back-nav: a single armed layer that steps back one screen (or closes at
+  // the intro), re-arming itself so every press is caught. ──
   let closed = false;
+  let submitted = false;
+  let removeBack: (() => void) | null = null;
+  function armBack(): void {
+    removeBack = pushBack(() => {
+      removeBack = null;
+      if (submitted || current <= 0) close();
+      else { current -= 1; render(); persistDraft(); armBack(); }
+    });
+  }
   function close(): void {
     if (closed) return;
     closed = true;
+    removeBack?.();
+    removeBack = null;
     overlay.remove();
-    removeBack();
   }
-  const removeBack = pushBack(close);
 
-  // ── Header: back arrow, title, progress bar ──
+  // ── Top bar ──
   const header = document.createElement('div');
   header.className = 'survey-header';
-  const headRow = document.createElement('div');
-  headRow.className = 'survey-head-row';
   const backBtn = document.createElement('button');
   backBtn.type = 'button';
   backBtn.className = 'survey-back';
-  backBtn.setAttribute('aria-label', 'Close survey');
+  backBtn.setAttribute('aria-label', 'Back');
   backBtn.appendChild(Icons.back(22));
-  backBtn.addEventListener('click', close);
-  const titleEl = document.createElement('h2');
-  titleEl.className = 'survey-title';
-  titleEl.textContent = 'Quick survey';
-  headRow.append(backBtn, titleEl);
-  header.appendChild(headRow);
-
+  backBtn.addEventListener('click', () => { if (submitted || current <= 0) close(); else { current -= 1; render(); persistDraft(); } });
   const prog = document.createElement('div');
   prog.className = 'survey-progress';
   const track = document.createElement('div');
@@ -428,95 +444,81 @@ export function openSurvey(): void {
   const progLabel = document.createElement('span');
   progLabel.className = 'survey-progress-label';
   prog.append(track, progLabel);
-  header.appendChild(prog);
+  header.append(backBtn, prog);
   sheet.appendChild(header);
 
-  // ── Scrolling body ──
+  // ── Body ──
   const body = document.createElement('div');
   body.className = 'survey-body';
   sheet.appendChild(body);
 
-  const fields: Field[] = [];
-  const onChange = () => { persistDraft(); updateProgress(); };
-  const addSection = (icon: SVGElement, title: string) => body.appendChild(sectionHead(icon, title));
-  const addQ = (f: Field) => { fields.push(f); body.appendChild(f.el); };
-  const addNote = (text: string) => {
-    const p = document.createElement('p');
-    p.className = 'survey-intro';
-    p.textContent = text;
-    body.appendChild(p);
-  };
+  // ── Footer (persistent controls; labels/visibility set per screen) ──
+  const footer = document.createElement('div');
+  footer.className = 'survey-footer';
+  const status = document.createElement('p');
+  status.className = 'settings-note';
+  status.setAttribute('aria-live', 'polite');
+  const primary = document.createElement('button');
+  primary.type = 'button';
+  primary.className = 'btn-primary survey-next';
+  const skip = document.createElement('button');
+  skip.type = 'button';
+  skip.className = 'survey-skip';
+  skip.textContent = 'Skip this question';
+  footer.append(status, primary, skip);
+  sheet.appendChild(footer);
 
-  // Intro.
-  const intro = document.createElement('div');
-  intro.style.display = 'flex';
-  intro.style.flexDirection = 'column';
-  intro.style.gap = '0.6rem';
-  const lead = document.createElement('p');
-  lead.className = 'survey-intro survey-intro--lead';
-  lead.textContent = 'Thanks for testing Obertura. 🙌';
-  const i1 = document.createElement('p');
-  i1.className = 'survey-intro';
-  i1.textContent =
-    "This survey takes about 4 minutes. I'm trying to understand whether Obertura " +
-    "fits naturally into a player's weekly routine and whether it's worth growing " +
-    'into something bigger.';
-  const i2 = document.createElement('p');
-  i2.className = 'survey-intro';
-  i2.textContent = 'There are no wrong answers. Even "I barely used it" is valuable feedback.';
-  const i3 = document.createElement('p');
-  i3.className = 'survey-intro';
-  i3.textContent = 'Your responses are sent directly to me by email. No other data is collected.';
-  intro.append(lead, i1, i2, i3);
-  body.appendChild(intro);
+  // ── Build the fields, then the question steps ──
+  const onChange = () => persistDraft();
 
-  // ── You & chess ──
-  addSection(Icons.pawn(18), 'You & chess');
-  addQ(buildSingle('q01_player_type', 'How would you describe yourself as a chess player?', [
-    { v: 'Casual player', e: '🙂' },
-    { v: 'Club player', e: '♟️' },
-    { v: 'Tournament player', e: '🏆' },
-  ], onChange));
-  addQ(buildSingle('q02_play_online', 'How often do you play online?', [
+  const allFields: Field[] = [];
+  const qsteps: Step[] = [];
+  const single = (id: string, label: string, opts: Opt[]) => buildSingle(id, label, opts, onChange);
+  const multi = (id: string, label: string, opts: Opt[]) => buildMulti(id, label, opts, onChange);
+
+  // You & chess
+  qsteps.push(oneFieldStep('You & chess', single('q01_player_type', 'How would you describe yourself as a chess player?', [
+    { v: 'Casual player', e: '🙂' }, { v: 'Club player', e: '♟️' }, { v: 'Tournament player', e: '🏆' },
+  ])));
+  qsteps.push(oneFieldStep('You & chess', single('q02_play_online', 'How often do you play online?', [
     { v: 'Daily', e: '🔥' }, 'A few times a week', 'Occasionally', 'Rarely',
-  ], onChange));
-  addQ(buildText('q03_hardest_about_openings',
+  ])));
+  qsteps.push(oneFieldStep('You & chess', buildText('q03_hardest_about_openings',
     "What's the hardest part of learning and remembering openings?", onChange,
-    { placeholder: 'Move orders, the plans behind them, transpositions…' }));
-  addQ(buildMulti('q04_other_apps', 'Which opening or training tools have you used before?', [
+    { placeholder: 'Move orders, the plans behind them, transpositions…' })));
+  qsteps.push(oneFieldStep('You & chess', multi('q04_other_apps', 'Which opening or training tools have you used before?', [
     'Lotus Chess', 'Chessbook', 'ChessReps', 'Aimchess', 'Chesstempo', 'RepertoLab', 'None', 'Other',
-  ], onChange));
+  ])));
 
-  // ── Your week with Obertura ──
-  addSection(Icons.clock(18), 'Your week with Obertura');
-  addQ(buildSingle('q05_frequency', 'How often did you use Obertura this week?', [
+  // Your week with Obertura
+  qsteps.push(oneFieldStep('Your week with Obertura', single('q05_frequency', 'How often did you use Obertura this week?', [
     { v: 'Most days', e: '🔥' }, 'A few times', 'Once or twice', { v: 'Almost never', e: '😴' },
-  ], onChange));
-  addQ(buildSingle('q06_lines_added', 'Roughly how many lines did you add?', [
+  ])));
+  qsteps.push(oneFieldStep('Your week with Obertura', single('q06_lines_added', 'Roughly how many lines did you add?', [
     '0-5', '5-10', '10-20', { v: 'More than 20', e: '📈' },
-  ], onChange));
-  addQ(buildSingle('q07_best_add_method', 'How did you usually add new lines?', [
+  ])));
+  qsteps.push(oneFieldStep('Your week with Obertura', single('q07_best_add_method', 'How did you usually add new lines?', [
     'Manually on the board',
     { v: 'Browsing the opening library', e: '📚' },
     { v: 'Importing my games', e: '⬇️' },
     { v: 'Preparing against an opponent', e: '🎯' },
     { v: 'Building with the engine', e: '🤖' },
-  ], onChange));
-  addQ(buildSingle('q08_top_mode', 'Which training mode did you use most?', [
+  ])));
+  qsteps.push(oneFieldStep('Your week with Obertura', single('q08_top_mode', 'Which training mode did you use most?', [
     { v: 'Due Queue', e: '⏳' }, { v: 'Quick Fixes', e: '🔧' }, { v: 'Time Attack', e: '⏱️' },
     { v: 'Fresh Lines', e: '🌱' }, { v: 'Trouble Spots', e: '⚠️' }, "I didn't train",
-  ], onChange));
+  ])));
 
-  // ── The learning experience ──
-  addSection(Icons.bulb(18), 'The learning experience');
-  addNote('Obertura is built around a simple cycle: build a line → play it → review it later.');
-  addQ(buildSingle('q09_loop_made_sense', 'Did that workflow make sense?', [
-    { v: 'Yes, immediately', e: '✅' }, 'It took a little while', { v: 'Not really', e: '🤔' },
-  ], onChange));
-  addQ(buildSingle('q10_training_useful', 'Did your training sessions feel useful?', [
+  // The learning experience
+  qsteps.push(oneFieldStep('The learning experience',
+    single('q09_loop_made_sense', 'Did that workflow make sense?', [
+      { v: 'Yes, immediately', e: '✅' }, 'It took a little while', { v: 'Not really', e: '🤔' },
+    ]),
+    'Obertura is built around a simple cycle: build a line → play it → review it later.'));
+  qsteps.push(oneFieldStep('The learning experience', single('q10_training_useful', 'Did your training sessions feel useful?', [
     { v: 'Almost always', e: '🎯' }, 'Most of the time', 'About half the time', { v: 'Rarely', e: '😕' },
-  ], onChange));
-  addQ(buildMulti('q11_stopped_using', 'What, if anything, stopped you from using the app more?', [
+  ])));
+  qsteps.push(oneFieldStep('The learning experience', multi('q11_stopped_using', 'What, if anything, stopped you from using the app more?', [
     { v: 'Nothing, I used it as much as I wanted', e: '👍' },
     "I wasn't sure what to do next",
     'Adding lines took too much effort',
@@ -525,60 +527,93 @@ export function openSurvey(): void {
     { v: 'I ran into bugs', e: '🐛' },
     { v: "I didn't have time", e: '⏰' },
     'Other',
-  ], onChange));
+  ])));
 
-  // ── Future directions ──
-  addSection(Icons.compass(18), 'Future directions');
-  addQ(buildSingle('q12_curated_repertoires', 'Would you use ready-made repertoires as a starting point?', [
+  // Future directions
+  qsteps.push(oneFieldStep('Future directions', single('q12_curated_repertoires', 'Would you use ready-made repertoires as a starting point?', [
     { v: "Yes, that's how I'd begin", e: '📚' },
     'Maybe, alongside building my own',
     "No, I'd rather build everything myself",
-  ], onChange));
-  addQ(buildSingle('q13_browser_desktop', 'Would you use Obertura on a computer?', [
+  ])));
+  qsteps.push(oneFieldStep('Future directions', single('q13_browser_desktop', 'Would you use Obertura on a computer?', [
     { v: 'Yes, regularly', e: '💻' }, 'Sometimes', 'Probably not',
-  ], onChange));
-  addNote('Currently, your repertoire is stored only on this device.');
-  addQ(buildSingle('q14_data_preference', 'Which option would you prefer?', [
-    { v: 'Local-only, with manual export/import', e: '📱' },
-    { v: 'Google Drive backup and sync', e: '☁️' },
-    { v: 'An account that syncs across devices', e: '🔐' },
-    'Other',
-  ], onChange));
-  addQ(buildSingle('q15_payment_preference', 'If Obertura became a paid product, what would feel most reasonable?', [
+  ])));
+  qsteps.push(oneFieldStep('Future directions',
+    single('q14_data_preference', 'Which option would you prefer?', [
+      { v: 'Local-only, with manual export/import', e: '📱' },
+      { v: 'Google Drive backup and sync', e: '☁️' },
+      { v: 'An account that syncs across devices', e: '🔐' },
+      'Other',
+    ]),
+    'Currently, your repertoire is stored only on this device.'));
+  qsteps.push(oneFieldStep('Future directions', single('q15_payment_preference', 'If Obertura became a paid product, what would feel most reasonable?', [
     { v: 'One-time purchase', e: '💰' },
     { v: 'Monthly subscription', e: '🔁' },
     { v: 'Free with ads', e: '📺' },
     { v: "I wouldn't pay", e: '🙅' },
     'Other',
-  ], onChange));
+  ])));
 
-  // ── Quality & improvements ──
-  addSection(Icons.target(18), 'Quality & improvements');
-  addQ(buildText('q16_bugs', 'Did you encounter any bugs or issues?', onChange,
-    { placeholder: 'What went wrong, and where?' }));
-  addQ(buildSingle('q17_top_feature', "What's the one feature you'd most like to see next?", [
+  // Quality & improvements
+  qsteps.push(oneFieldStep('Quality & improvements', buildText('q16_bugs', 'Did you encounter any bugs or issues?', onChange,
+    { placeholder: 'What went wrong, and where?' })));
+  qsteps.push(oneFieldStep('Quality & improvements', single('q17_top_feature', "What's the one feature you'd most like to see next?", [
     { v: 'Share lines with others (friends or chess club)', e: '🤝' },
     { v: 'Have my own account', e: '👤' },
     { v: 'Google Drive sync', e: '☁️' },
     { v: 'Curated puzzles based on positions from my repertoire', e: '🧩' },
     { v: 'Curated repertoires with explanations', e: '📖' },
     'Other',
-  ], onChange));
+  ])));
 
-  // ── The name ──
-  addSection(Icons.sparkles(18), 'The name');
-  addNote('How do you feel about these possible names?');
-  addQ(buildStars('name_obertura', 'Obertura', onChange));
-  addQ(buildStars('name_zugzwang', 'Zugzwang', onChange));
-  addQ(buildStars('name_kaissa', 'Kaissa', onChange));
-  addQ(buildStars('name_movely', 'Movely', onChange));
-  addQ(buildStars('name_lumo', 'Lumo', onChange));
-  addQ(buildText('name_other', "Is there another name you'd prefer? I'm always open to ideas!", onChange,
-    { rows: 2, placeholder: 'Your suggestion…' }));
+  // The name — five ratings plus a free-text suggestion, all on one screen.
+  {
+    const el = document.createElement('div');
+    el.className = 'survey-step';
+    el.appendChild(sectionHeader('The name'));
+    el.appendChild(questionLabel('How do you feel about these possible names?'));
+    const fields: Field[] = [];
+    for (const [id, name] of [
+      ['name_obertura', 'Obertura'], ['name_zugzwang', 'Zugzwang'], ['name_kaissa', 'Kaissa'],
+      ['name_movely', 'Movely'], ['name_lumo', 'Lumo'],
+    ] as const) {
+      const f = buildStars(id, name, onChange);
+      fields.push(f);
+      el.appendChild(f.el);
+    }
+    const other = buildText('name_other', "Is there another name you'd prefer? I'm always open to ideas!", onChange,
+      { rows: 2, placeholder: 'Your suggestion…' });
+    fields.push(other);
+    el.appendChild(other.el);
+    qsteps.push({ el, fields });
+  }
 
-  // ── Optional contact, last ──
-  addQ(buildText('contact', 'Your name or email (optional)', onChange,
-    { rows: 2, sub: "If you'd like me to follow up.", placeholder: 'name@example.com' }));
+  // Last — optional contact.
+  qsteps.push(oneFieldStep('Before you go', buildText('contact', 'Your name or email (optional)', onChange,
+    { rows: 2, sub: "If you'd like me to follow up.", placeholder: 'name@example.com' })));
+
+  for (const s of qsteps) allFields.push(...s.fields);
+
+  // ── Intro screen ──
+  const introEl = document.createElement('div');
+  introEl.className = 'survey-intro-screen';
+  const lead = document.createElement('p');
+  lead.className = 'survey-intro-lead';
+  lead.textContent = 'Thanks for testing Obertura 🙌';
+  const text = document.createElement('p');
+  text.className = 'survey-intro-text';
+  text.textContent =
+    "About 4 minutes, one question at a time. I want to see whether Obertura fits " +
+    "into your week — and whether it's worth growing into something bigger. There " +
+    'are no wrong answers, and you can skip anything.';
+  const fine = document.createElement('p');
+  fine.className = 'survey-intro-fine';
+  fine.textContent = 'Your answers are emailed straight to me. Nothing else is collected.';
+  const arrow = document.createElement('div');
+  arrow.className = 'survey-arrow';
+  arrow.setAttribute('aria-hidden', 'true');
+  arrow.appendChild(Icons.chevronDown(30));
+  introEl.append(lead, text, fine, arrow);
 
   // ── Honeypot — present for bots, off-screen and inert for people (copied from
   // feedback.ts). Web3Forms rejects the submission if it comes back filled. ──
@@ -589,71 +624,67 @@ export function openSurvey(): void {
   honeypot.tabIndex = -1;
   honeypot.autocomplete = 'off';
   honeypot.setAttribute('aria-hidden', 'true');
-  body.appendChild(honeypot);
+  sheet.appendChild(honeypot);
 
-  // ── Footer: status line + the big send button ──
-  const footer = document.createElement('div');
-  footer.className = 'survey-footer';
-  const status = document.createElement('p');
-  status.className = 'settings-note';
-  status.setAttribute('aria-live', 'polite');
-  const sendBtn = document.createElement('button');
-  sendBtn.type = 'button';
-  sendBtn.className = 'btn-primary survey-send';
-  sendBtn.textContent = 'Send your answers';
-  footer.append(status, sendBtn);
-  sheet.appendChild(footer);
+  // ── Navigation state ──
+  // current === 0 is the intro; 1..qsteps.length are the question screens.
+  let current = 0;
 
-  // ── Progress + draft ──
   function updateProgress(): void {
-    const counted = fields.filter((f) => f.counted);
-    const done = counted.filter((f) => f.answered()).length;
-    const pct = counted.length ? Math.round((done / counted.length) * 100) : 0;
+    const total = qsteps.length;
+    const pct = total ? Math.round((current / total) * 100) : 0;
     fill.style.width = `${pct}%`;
-    progLabel.textContent = `${done} of ${counted.length} answered`;
+    progLabel.textContent = `${current} of ${total}`;
   }
+
+  function render(): void {
+    while (body.firstChild) body.removeChild(body.firstChild);
+    status.textContent = '';
+    if (current <= 0) {
+      body.appendChild(introEl);
+      prog.style.visibility = 'hidden';
+    } else {
+      body.appendChild(qsteps[current - 1].el);
+      prog.style.visibility = 'visible';
+      updateProgress();
+    }
+    const last = current === qsteps.length;
+    primary.textContent = current <= 0 ? 'Start the survey' : last ? 'Send your answers' : 'Next';
+    primary.disabled = false;
+    skip.hidden = !(current > 0 && !last);
+    body.scrollTop = 0;
+  }
+
+  primary.addEventListener('click', () => {
+    if (current <= 0) { current = 1; render(); persistDraft(); return; }
+    if (current === qsteps.length) { void submit(); return; }
+    current += 1;
+    render();
+    persistDraft();
+  });
+  skip.addEventListener('click', () => {
+    if (current > 0 && current < qsteps.length) { current += 1; render(); persistDraft(); }
+  });
+
+  // ── Draft (answers + current step) ──
   function persistDraft(): void {
-    const draft: Record<string, unknown> = {};
-    for (const f of fields) draft[f.id] = f.serialize();
-    try { localStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); } catch { /* storage full / blocked */ }
+    const answers: Record<string, unknown> = {};
+    for (const f of allFields) answers[f.id] = f.serialize();
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ answers, step: current })); } catch { /* blocked */ }
   }
   function restoreDraft(): void {
-    let draft: Record<string, unknown> | null = null;
+    let draft: { answers?: Record<string, unknown>; step?: number } | null = null;
     try { draft = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? 'null'); } catch { draft = null; }
-    if (!draft) return;
-    for (const f of fields) if (f.id in draft) f.restore(draft[f.id]);
+    if (!draft || typeof draft !== 'object') return;
+    const answers = draft.answers ?? {};
+    for (const f of allFields) if (f.id in answers) f.restore(answers[f.id]);
+    if (typeof draft.step === 'number') current = Math.max(0, Math.min(draft.step, qsteps.length));
   }
 
-  // Replace the page with a thank-you once the answers are safely sent.
-  function renderThanks(): void {
-    prog.hidden = true;
-    body.innerHTML = '';
-    footer.innerHTML = '';
-    const wrap = document.createElement('div');
-    wrap.className = 'survey-thanks';
-    const icon = document.createElement('div');
-    icon.className = 'survey-thanks-icon';
-    icon.appendChild(Icons.sparkles(48));
-    const h = document.createElement('h3');
-    h.className = 'survey-thanks-title';
-    h.textContent = 'Thank you! 🎉';
-    const p = document.createElement('p');
-    p.className = 'survey-thanks-body';
-    p.textContent =
-      'Your answers are on their way. This genuinely helps shape where Obertura goes next.';
-    wrap.append(icon, h, p);
-    body.appendChild(wrap);
-    const done = document.createElement('button');
-    done.type = 'button';
-    done.className = 'btn-primary survey-send';
-    done.textContent = 'Done';
-    done.addEventListener('click', close);
-    footer.appendChild(done);
-    done.focus();
-  }
-
-  sendBtn.addEventListener('click', async () => {
-    sendBtn.disabled = true;
+  // ── Submit ──
+  async function submit(): Promise<void> {
+    primary.disabled = true;
+    skip.hidden = true;
     status.textContent = 'Sending…';
 
     const payload: Record<string, unknown> = {
@@ -664,7 +695,7 @@ export function openSurvey(): void {
       app_version: __APP_VERSION__,
       device: deviceLabel(),
     };
-    for (const f of fields) payload[f.id] = f.value();
+    for (const f of allFields) payload[f.id] = f.value();
 
     try {
       const res = await fetch(ENDPOINT, {
@@ -680,18 +711,52 @@ export function openSurvey(): void {
       } else {
         const reason = (data && (data.message as string)) || `HTTP ${res.status}`;
         status.textContent = `Couldn’t send — ${reason}. Please try again.`;
-        sendBtn.disabled = false;
+        primary.disabled = false;
       }
     } catch {
       status.textContent = 'Couldn’t send — you may be offline. Please try again.';
-      sendBtn.disabled = false;
+      primary.disabled = false;
     }
-  });
+  }
 
-  // Bring back any in-progress answers, paint the bar, and mount.
+  // ── Thank-you — a full-size animated pawn and "Back to train". ──
+  function renderThanks(): void {
+    submitted = true;
+    prog.style.visibility = 'hidden';
+    while (body.firstChild) body.removeChild(body.firstChild);
+    while (footer.firstChild) footer.removeChild(footer.firstChild);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'survey-thanks';
+    const pawn = document.createElement('div');
+    pawn.className = 'survey-pawn';
+    pawn.setAttribute('aria-hidden', 'true');
+    pawn.appendChild(Icons.pawn(110));
+    const h = document.createElement('h2');
+    h.className = 'survey-thanks-title';
+    h.textContent = 'Thank you! 🎉';
+    const p = document.createElement('p');
+    p.className = 'survey-thanks-body';
+    p.textContent = 'Your answers are on their way. This genuinely helps shape where Obertura goes next.';
+    wrap.append(pawn, h, p);
+    body.appendChild(wrap);
+
+    const backToTrain = document.createElement('button');
+    backToTrain.type = 'button';
+    backToTrain.className = 'btn-primary survey-next';
+    backToTrain.textContent = 'Back to train';
+    backToTrain.addEventListener('click', () => {
+      close();
+      window.dispatchEvent(new Event(GO_TO_TRAIN_EVENT));
+    });
+    footer.appendChild(backToTrain);
+    backToTrain.focus();
+  }
+
+  // ── Mount: restore any draft, paint the right screen, arm back. ──
   restoreDraft();
-  updateProgress();
+  render();
+  armBack();
   overlay.appendChild(sheet);
   document.body.appendChild(overlay);
-  body.scrollTop = 0;
 }
