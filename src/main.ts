@@ -1355,6 +1355,9 @@ function setupNav(): void {
   applyNavSettingsAvatar();
   window.addEventListener(IDENTITY_CHANGED_EVENT, applyNavSettingsAvatar);
 
+  // The survey's "Back to train" button lands the user on the Train tab.
+  window.addEventListener('obertura:gototrain', () => showView('train'));
+
   // The system back gesture steps back through the app (closing any open sheet
   // first) instead of closing the PWA. Overlays register their own steps; this
   // is the view-level fallback once nothing is open.
