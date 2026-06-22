@@ -50,7 +50,7 @@ export interface BuilderPanels {
   setActiveSlide(index: number): void; // which carousel slide is showing
 }
 
-const LIBRARY_SLIDE = 1;
+const LIBRARY_SLIDE = 3;
 const SCOUTING_SLIDE = 4;
 
 export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
@@ -241,7 +241,11 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'games-tree-link';
-    btn.textContent = 'Visualise your tree';
+    btn.innerHTML =
+      '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="12" r="3"/>' +
+      '<path d="M9 6h3a3 3 0 0 1 3 3v0"/><path d="M9 18h3a3 3 0 0 0 3-3v0"/></svg>' +
+      '<span>Visualise your tree</span>';
     btn.addEventListener('click', openGamesTree);
     return btn;
   }

@@ -391,9 +391,9 @@ function setupMoveNav(): void {
 // and jumps to one on tap. The board sits ABOVE the carousel and is a fixed
 // square, so swiping slides never moves it.
 
-// Carousel slide indices: 0 Line, 1 Library, 2 My games, 3 Engine, 4 Scouting.
-const LIBRARY_SLIDE = 1;
-const ENGINE_SLIDE = 3;
+// Carousel slide indices: 0 Line, 1 Engine, 2 My games, 3 Library, 4 Scouting.
+const LIBRARY_SLIDE = 3;
+const ENGINE_SLIDE = 1;
 const SCOUTING_SLIDE = 4;
 let activeSlide = 0;
 // When opening the builder from an external link, the tab to land on (and an
