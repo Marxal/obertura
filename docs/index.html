@@ -155,14 +155,22 @@
     [data-theme="dark"] .theme-toggle .icon-moon { display: none; }
     [data-theme="light"] .theme-toggle .icon-sun { display: none; }
 
-    /* ── Hero ───────────────────────────────────────────────────────────── */
-    .hero { text-align: center; padding: 4.5rem 1.25rem 3rem; }
+    /* ── Hero (fills the viewport so nothing peeks below the scroll arrow) ── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 4rem 1.25rem 2.5rem;
+    }
 
     .app-icon {
       display: block;
       width: 104px;
       height: 104px;
-      margin: 1rem auto 1.75rem;
+      margin: 1rem auto 0.85rem;
       border-radius: 23px;
       box-shadow: var(--shadow-card), 0 6px 22px rgba(28, 22, 16, 0.12);
       border: 1px solid var(--hairline);
@@ -178,7 +186,7 @@
       color: var(--brand);
       text-transform: uppercase;
       line-height: 1;
-      margin-bottom: 1.1rem;
+      margin-bottom: 2rem;
     }
 
     .hero h1 {
@@ -210,10 +218,10 @@
     }
 
     .hero-promise {
-      font-size: 0.95rem;
-      color: var(--text-muted);
+      font-size: 0.82rem;
+      color: var(--text-faint);
       max-width: 40ch;
-      margin: 0 auto;
+      margin: 1.75rem auto 0;
     }
 
     /* ── Scroll cue (first load only) ───────────────────────────────────── */
@@ -251,59 +259,55 @@
       margin-bottom: 1.25rem;
     }
 
-    /* ── Story (a comic speech bubble with a speaker) ───────────────────── */
-    .story-block { display: flex; gap: 0.9rem; align-items: flex-start; }
+    /* ── Story (a comic speech bubble, with the speaker below it) ───────── */
+    .story-block { display: flex; flex-direction: column; align-items: center; }
+    .story {
+      position: relative;
+      width: 100%;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 18px;
+      padding: 1.6rem 1.75rem 1.9rem;
+      box-shadow: var(--shadow-card);
+      margin-bottom: 26px; /* room for the tail + the avatar overlap below */
+    }
+    /* Tail pointing down toward the avatar — border triangle + fill. */
+    .story::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -10px;
+      transform: translateX(-50%);
+      border-width: 10px 8px 0;
+      border-style: solid;
+      border-color: var(--border-card) transparent transparent;
+    }
+    .story::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -8px;
+      transform: translateX(-50%);
+      border-width: 9px 7px 0;
+      border-style: solid;
+      border-color: var(--bg-card) transparent transparent;
+    }
+    .story p { font-size: 1.06rem; color: var(--text); text-align: left; }
+    .story p + p { margin-top: 0.9rem; }
     .story-avatar {
-      flex: none;
-      width: 54px;
-      height: 54px;
+      width: 56px;
+      height: 56px;
       border-radius: 50%;
       background: var(--accent-soft);
       border: 1px solid var(--border-card);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.7rem;
+      font-size: 1.8rem;
       line-height: 1;
-      box-shadow: var(--shadow-card);
-      margin-top: 0.35rem;
-    }
-    .story {
       position: relative;
-      flex: 1;
-      background: var(--bg-card);
-      border: 1px solid var(--border-card);
-      /* Asymmetric corners: chat-bubble feel, square-ish near the tail. */
-      border-radius: 18px 18px 18px 4px;
-      padding: 1.6rem 1.75rem;
-      box-shadow: var(--shadow-card);
-    }
-    /* Tail pointing left toward the avatar — border triangle + fill. */
-    .story::before {
-      content: "";
-      position: absolute;
-      left: -10px;
-      top: 22px;
-      border-width: 8px 10px 8px 0;
-      border-style: solid;
-      border-color: transparent var(--border-card) transparent transparent;
-    }
-    .story::after {
-      content: "";
-      position: absolute;
-      left: -8px;
-      top: 23px;
-      border-width: 7px 9px 7px 0;
-      border-style: solid;
-      border-color: transparent var(--bg-card) transparent transparent;
-    }
-    .story p { font-size: 1.06rem; color: var(--text); }
-    .story p + p { margin-top: 0.9rem; }
-    @media (max-width: 460px) {
-      .story-block { flex-direction: column; align-items: flex-start; gap: 0; }
-      .story-avatar { margin: 0 0 -16px 1.25rem; position: relative; z-index: 1; }
-      .story { border-radius: 4px 18px 18px 18px; width: 100%; }
-      .story::before, .story::after { display: none; }
+      z-index: 1;
+      animation: avatar-glow 2.6s ease-in-out infinite;
     }
 
     /* ── Pillars (Everything you need) ──────────────────────────────────── */
@@ -429,22 +433,6 @@
       font-size: 1.1rem;
       animation: sparkle 2.8s ease-in-out infinite;
     }
-    .horizon-dots {
-      display: flex;
-      justify-content: center;
-      gap: 0.55rem;
-      margin-top: 1.4rem;
-    }
-    .horizon-dots span {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--accent);
-      opacity: 0.32;
-      animation: dot-pulse 2.4s ease-in-out infinite;
-    }
-    .horizon-dots span:nth-child(2) { animation-delay: 0.3s; }
-    .horizon-dots span:nth-child(3) { animation-delay: 0.6s; }
 
     /* ── Screenshots ────────────────────────────────────────────────────── */
     .shots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.85rem; }
@@ -459,6 +447,7 @@
       transition: transform 0.18s ease, box-shadow 0.18s ease;
     }
     .shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .shot { cursor: zoom-in; }
     @media (hover: hover) {
       .shot:hover {
         transform: translateY(-4px);
@@ -466,6 +455,70 @@
       }
     }
     [data-theme="dark"] .shot:hover { box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4); }
+
+    /* ── Screenshot lightbox (click a shot to open; drag/swipe to navigate) ── */
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(10, 8, 6, 0.92);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease;
+    }
+    .lightbox.open { opacity: 1; visibility: visible; }
+    .lightbox-stage {
+      width: min(86vw, 380px);
+      aspect-ratio: 9 / 19;
+      overflow: hidden;
+      border-radius: 16px;
+      touch-action: pan-y;
+      cursor: grab;
+    }
+    .lightbox-stage:active { cursor: grabbing; }
+    .lightbox-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+    .lightbox-close,
+    .lightbox-nav {
+      position: absolute;
+      border: none;
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      transition: background 0.12s;
+    }
+    .lightbox-close:hover,
+    .lightbox-nav:hover { background: rgba(255, 255, 255, 0.2); }
+    .lightbox-close {
+      top: 1rem;
+      right: 1rem;
+      width: 40px;
+      height: 40px;
+      font-size: 1.5rem;
+      line-height: 1;
+    }
+    .lightbox-nav {
+      top: 50%;
+      transform: translateY(-50%);
+      width: 44px;
+      height: 44px;
+      font-size: 1.6rem;
+    }
+    .lightbox-prev { left: 0.75rem; }
+    .lightbox-next { right: 0.75rem; }
 
     /* ── Feedback form (posts to the same Web3Forms destination as the app) ── */
     .feedback {
@@ -595,14 +648,17 @@
     @keyframes icon-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
     @keyframes scroll-bob { 0%, 100% { transform: translateY(0); opacity: 0.7; } 50% { transform: translateY(7px); opacity: 1; } }
     @keyframes sparkle { 0%, 100% { opacity: 0.5; transform: translate(-50%, -55%) scale(0.9); } 50% { opacity: 1; transform: translate(-50%, -55%) scale(1.15); } }
-    @keyframes dot-pulse { 0%, 100% { opacity: 0.32; } 50% { opacity: 0.85; } }
+    @keyframes avatar-glow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(255, 155, 33, 0); }
+      50% { box-shadow: 0 0 0 8px rgba(255, 155, 33, 0.18); }
+    }
 
     @media (prefers-reduced-motion: reduce) {
       html.js .hero > *,
       html.js .reveal,
       html.js .included li { opacity: 1 !important; transform: none !important; animation: none !important; transition: none !important; }
       .pawn-svg, .pawn-flip, .app-icon, .scroll-cue svg,
-      .horizon-line::after, .horizon-dots span { animation: none !important; }
+      .horizon-line::after, .story-avatar { animation: none !important; }
     }
   </style>
 </head>
@@ -621,7 +677,7 @@
     <div class="wordmark">obertura</div>
     <h1>
       <span class="hero-lead">Learn chess openings</span>
-      <span class="hero-yourway">your way.</span>
+      <span class="hero-yourway">your way</span>
     </h1>
     <p class="hero-sub">
       Build your own repertoire, train it with spaced repetition, and remember your
@@ -729,16 +785,14 @@
     <section class="horizon reveal">
       <p class="more-to-come">And <span class="glow">many more features</span> on&nbsp;the&nbsp;way.</p>
       <div class="horizon-line" aria-hidden="true"></div>
-      <div class="horizon-dots" aria-hidden="true"><span></span><span></span><span></span></div>
     </section>
 
     <!-- ═══════════════════ WHY I MADE OBERTURA (STORY) ═══════════════════ -->
     <section class="reveal">
       <div class="section-eyebrow">Why I made Obertura</div>
       <div class="story-block">
-        <div class="story-avatar" aria-hidden="true">🤓</div>
         <div class="story">
-          <p>I'm a passionate chess player, not a particularly strong one 🤓</p>
+          <p>I'm a passionate chess player, not a particularly strong one 🥹</p>
           <p>After trying countless opening trainers, I always felt something was
             missing. Most were either too rigid, too complicated, or didn't match the
             way I wanted to study.</p>
@@ -746,6 +800,7 @@
           <p>A place to build my own repertoire, train it efficiently, and prepare for
             real opponents. If it helps other players improve too, even better. 🙌</p>
         </div>
+        <div class="story-avatar" aria-hidden="true">🤓</div>
       </div>
     </section>
 
@@ -806,6 +861,16 @@
     <p class="footer-made">Made by <a href="https://marxal.net" target="_blank" rel="noopener noreferrer">marxal</a></p>
   </footer>
 
+  <!-- ═══════════════════ SCREENSHOT LIGHTBOX ═══════════════════ -->
+  <div class="lightbox" id="lightbox" aria-hidden="true">
+    <button class="lightbox-close" id="lightbox-close" type="button" aria-label="Close">&times;</button>
+    <button class="lightbox-nav lightbox-prev" id="lightbox-prev" type="button" aria-label="Previous screenshot">&lsaquo;</button>
+    <div class="lightbox-stage" id="lightbox-stage">
+      <img class="lightbox-img" id="lightbox-img" alt="" draggable="false" />
+    </div>
+    <button class="lightbox-nav lightbox-next" id="lightbox-next" type="button" aria-label="Next screenshot">&rsaquo;</button>
+  </div>
+
   <script>
     // ── Theme toggle ──
     (function () {
@@ -845,6 +910,72 @@
         });
       }, { rootMargin: '0px 0px -8% 0px', threshold: 0.12 });
       els.forEach(function (el) { io.observe(el); });
+    })();
+
+    // ── Screenshot lightbox: click a shot to open, drag/swipe or arrows to browse ──
+    (function () {
+      var shotImgs = Array.prototype.slice.call(document.querySelectorAll('.shots .shot img'));
+      var lb = document.getElementById('lightbox');
+      if (!shotImgs.length || !lb) return;
+      var stage = document.getElementById('lightbox-stage');
+      var lbImg = document.getElementById('lightbox-img');
+      var idx = 0;
+
+      function show(i) {
+        idx = (i + shotImgs.length) % shotImgs.length;
+        lbImg.src = shotImgs[idx].src;
+        lbImg.alt = shotImgs[idx].alt;
+        lbImg.style.transform = '';
+      }
+      function open(i) {
+        show(i);
+        lb.classList.add('open');
+        lb.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+      }
+      function close() {
+        lb.classList.remove('open');
+        lb.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+      }
+
+      shotImgs.forEach(function (img, i) {
+        img.closest('.shot').addEventListener('click', function () { open(i); });
+      });
+      document.getElementById('lightbox-close').addEventListener('click', close);
+      document.getElementById('lightbox-prev').addEventListener('click', function () { show(idx - 1); });
+      document.getElementById('lightbox-next').addEventListener('click', function () { show(idx + 1); });
+      lb.addEventListener('click', function (e) { if (e.target === lb) close(); });
+      document.addEventListener('keydown', function (e) {
+        if (!lb.classList.contains('open')) return;
+        if (e.key === 'Escape') close();
+        if (e.key === 'ArrowLeft') show(idx - 1);
+        if (e.key === 'ArrowRight') show(idx + 1);
+      });
+
+      // Simple drag/swipe navigation via Pointer Events.
+      var dragging = false, startX = 0, dx = 0;
+      stage.addEventListener('pointerdown', function (e) {
+        dragging = true;
+        startX = e.clientX;
+        dx = 0;
+        lbImg.style.transition = 'none';
+      });
+      stage.addEventListener('pointermove', function (e) {
+        if (!dragging) return;
+        dx = e.clientX - startX;
+        lbImg.style.transform = 'translateX(' + dx + 'px)';
+      });
+      function endDrag() {
+        if (!dragging) return;
+        dragging = false;
+        lbImg.style.transition = 'transform 0.2s ease';
+        if (dx > 60) show(idx - 1);
+        else if (dx < -60) show(idx + 1);
+        else lbImg.style.transform = '';
+      }
+      stage.addEventListener('pointerup', endDrag);
+      stage.addEventListener('pointerleave', endDrag);
     })();
 
     // ── Feedback → Web3Forms (no backend), same destination as the app ──
