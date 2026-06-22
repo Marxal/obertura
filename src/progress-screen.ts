@@ -1,13 +1,14 @@
 // Statistics screen — ONE scrolling page, three stacked blocks, top to bottom:
 //
-//   1. STREAK HERO   — big daily streak + rolling 7-day strip. Unchanged.
-//   2. TRAINING      — a time selector (Today/Week/Month) driving the
-//                      remembered-vs-failed bar, four tappable quick-stat boxes
-//                      (each opens a sheet of shortcuts), and the month "did I
-//                      show up?" calendar.
-//   3. YOUR GAMES    — only when games are imported: win rate by opening × my
-//                      training, win rate over time, where I leave theory, and
-//                      most-played vs best-scoring. Otherwise one quiet import card.
+//   1. STREAK HERO   — big daily streak + rolling 7-day strip, with a collapsible
+//                      "Times trained this month" calendar tucked inside it.
+//   2. TRAINING      — four tappable quick-stat boxes (each opens a sheet of
+//                      shortcuts) and the remembered-vs-failed bar with its own
+//                      Week / Month / All selector and tap-for-detail.
+//   3. YOUR GAMES    — only when games are imported: a discreet account strip with
+//                      refresh, win rate by opening × training (board + open),
+//                      win rate over time (filterable line graph), and a tabbed
+//                      most/best/worst-scoring list. Otherwise one quiet import card.
 //
 // Game numbers come from analysis.ts + stats.ts; nothing is invented. Where a
 // figure isn't tracked (a "first trained this opening" date), the section shows
@@ -18,7 +19,7 @@ import type { ImportedGame } from './chesscom';
 import { getAllGames, getAllLines } from './storage';
 import { renderLoadError } from './load-error';
 import { currentStreak, trainedToday, getTrainingDays, getReviewLog } from './streak';
-import { analyseGames, type Deviation, type OpeningStat } from './analysis';
+import { analyseGames, openingFamily, UNKNOWN_FAMILY, type OpeningStat } from './analysis';
 import {
   masteredLines,
   needsWorkMoves,
@@ -27,15 +28,27 @@ import {
   winRateOverTime,
   mostPlayedOpenings,
   bestScoringOpenings,
+  worstScoringOpenings,
   type NeedsWorkMove,
+  type DayBar,
   type OpeningTrainingRow,
   type TrendPoint,
 } from './stats';
 import { Icons } from './icons';
-import { colourPip } from './card-position';
+import { colourPip, buildPositionCard, lineFinalFen, fenFromUcis } from './card-position';
+import { userAvatar } from './avatar';
+import { getGamesSource, openImportPanel } from './import-panel';
 import { buildEmptyState } from './empty-state';
 import { pushBack } from './back-nav';
-import { getShowStreakSection, getShowActivitySection, getStatsRange, setStatsRange, type StatsRange } from './prefs';
+import {
+  getShowStreakSection,
+  getShowActivitySection,
+  getStatsRange,
+  setStatsRange,
+  getCalendarExpanded,
+  setCalendarExpanded,
+  type StatsRange,
+} from './prefs';
 
 export interface ProgressCallbacks {
   onTrainLine: (lineId: string, inTraining: boolean) => void;
@@ -43,8 +56,8 @@ export interface ProgressCallbacks {
   // Truly-fresh empty-state routes: jump to Train, or open the builder fresh.
   onStartTraining: () => void;
   onBuildLine: () => void;
-  // Seed the builder with a UCI move list (used by "Where you leave theory" to
-  // drop you at the exact fork so you can save + train it).
+  // Seed the builder with a UCI move list (used by win-rate-by-opening when I
+  // don't yet have a saved line for that opening — build from a representative game).
   onBuildFromMoves: (ucis: string[], colour: 'white' | 'black') => void;
   // Open the import flow (the Your-games empty card links here).
   onImportGames: () => void;
@@ -78,7 +91,8 @@ async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<
     return;
   }
 
-  // 1. Streak hero (kept exactly as it computed; Settings can hide it).
+  // 1. Streak hero (kept as it computed; Settings can hide it). The month calendar
+  //    rides inside it as a collapsible row.
   if (getShowStreakSection()) renderStreakHero(container);
 
   // 2. Training region — always shown.
@@ -92,13 +106,21 @@ async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<
   }
 }
 
-// ── Local date helper ─────────────────────────────────────────────────────────
+// ── Small helpers ───────────────────────────────────────────────────────────
+
+const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 function localDateKey(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+function formatDay(dayKey: string): string {
+  const d = new Date(`${dayKey}T00:00:00`);
+  return `${WEEKDAY[d.getDay()]} ${d.getDate()} ${MONTH[d.getMonth()]}`;
 }
 
 function confidenceDots(c: number): string {
@@ -110,8 +132,6 @@ function confidenceDots(c: number): string {
 function scoreColour(pct: number): string {
   return pct >= 55 ? '#708151' : pct >= 45 ? '#d8961f' : '#b4533a';
 }
-
-// ── Region + section scaffolds ─────────────────────────────────────────────────
 
 function regionTitle(container: HTMLElement, text: string): void {
   const h = document.createElement('h2');
@@ -139,7 +159,38 @@ function statsSection(title: string, meta = ''): HTMLElement {
   return wrap;
 }
 
-// ── 1. Streak hero ──────────────────────────────────────────────────────────
+// A reusable segmented pill row (range selector, colour toggle, scoring tabs).
+function buildSegmented<T extends string>(
+  opts: [T, string][],
+  current: T,
+  onChange: (v: T) => void,
+  className = 'stats-range',
+): HTMLElement {
+  const row = document.createElement('div');
+  row.className = className;
+  row.setAttribute('role', 'tablist');
+  for (const [key, label] of opts) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'stats-range-chip' + (key === current ? ' stats-range-chip--on' : '');
+    chip.textContent = label;
+    chip.setAttribute('aria-pressed', String(key === current));
+    chip.addEventListener('click', () => {
+      if (chip.classList.contains('stats-range-chip--on')) return;
+      row.querySelectorAll('.stats-range-chip').forEach(c => {
+        c.classList.remove('stats-range-chip--on');
+        c.setAttribute('aria-pressed', 'false');
+      });
+      chip.classList.add('stats-range-chip--on');
+      chip.setAttribute('aria-pressed', 'true');
+      onChange(key);
+    });
+    row.appendChild(chip);
+  }
+  return row;
+}
+
+// ── 1. Streak hero (+ month-calendar accordion) ─────────────────────────────
 
 function renderStreakHero(container: HTMLElement): void {
   const streak = currentStreak();
@@ -222,70 +273,109 @@ function renderStreakHero(container: HTMLElement): void {
   }
   hero.appendChild(sub);
 
+  // The month calendar rides at the bottom of the hero as a collapsible row.
+  appendCalendarAccordion(hero, now, trainingDays);
+
   container.appendChild(hero);
+}
+
+// A tappable "Times trained this month" row that reveals the month calendar;
+// the open/closed choice is remembered across visits (default collapsed).
+function appendCalendarAccordion(hero: HTMLElement, now: Date, trainingDays: Set<string>): void {
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  let trained = 0;
+  for (let d = 1; d <= daysInMonth; d++) {
+    if (trainingDays.has(localDateKey(new Date(year, month, d)))) trained++;
+  }
+
+  const wrap = document.createElement('div');
+  wrap.className = 'stats-activity';
+
+  let expanded = getCalendarExpanded();
+
+  const head = document.createElement('button');
+  head.type = 'button';
+  head.className = 'stats-activity-head' + (expanded ? ' stats-activity-head--open' : '');
+  head.setAttribute('aria-expanded', String(expanded));
+
+  const h = document.createElement('span');
+  h.className = 'stats-activity-title';
+  h.textContent = 'Times trained this month';
+  head.appendChild(h);
+
+  const meta = document.createElement('span');
+  meta.className = 'stats-activity-meta';
+  meta.textContent = `${trained} day${trained !== 1 ? 's' : ''}`;
+  head.appendChild(meta);
+
+  const chev = Icons.chevronDown(18);
+  chev.classList.add('stats-activity-chev');
+  head.appendChild(chev);
+  wrap.appendChild(head);
+
+  const cal = buildMonthCalendar(now, trainingDays);
+  cal.hidden = !expanded;
+  wrap.appendChild(cal);
+
+  head.addEventListener('click', () => {
+    expanded = !expanded;
+    cal.hidden = !expanded;
+    head.classList.toggle('stats-activity-head--open', expanded);
+    head.setAttribute('aria-expanded', String(expanded));
+    setCalendarExpanded(expanded);
+  });
+
+  hero.appendChild(wrap);
+}
+
+function buildMonthCalendar(now: Date, trainingDays: Set<string>): HTMLElement {
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const todayKey = localDateKey(now);
+  const firstDow = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const cal = document.createElement('div');
+  cal.className = 'stats-cal';
+
+  const head = document.createElement('div');
+  head.className = 'stats-cal-head';
+  for (const d of ['S', 'M', 'T', 'W', 'T', 'F', 'S']) {
+    const c = document.createElement('span');
+    c.className = 'stats-cal-dow';
+    c.textContent = d;
+    head.appendChild(c);
+  }
+  cal.appendChild(head);
+
+  const grid = document.createElement('div');
+  grid.className = 'stats-cal-grid';
+  for (let i = 0; i < firstDow; i++) {
+    const blank = document.createElement('span');
+    blank.className = 'stats-cal-cell stats-cal-cell--blank';
+    grid.appendChild(blank);
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const key = localDateKey(new Date(year, month, d));
+    const cell = document.createElement('span');
+    cell.className = 'stats-cal-cell'
+      + (trainingDays.has(key) ? ' stats-cal-cell--on' : '')
+      + (key === todayKey ? ' stats-cal-cell--today' : '');
+    cell.textContent = String(d);
+    grid.appendChild(cell);
+  }
+  cal.appendChild(grid);
+  return cal;
 }
 
 // ── 2. Training region ──────────────────────────────────────────────────────
 
 function renderTrainingRegion(container: HTMLElement, lines: Line[], cb: ProgressCallbacks): void {
   regionTitle(container, 'Training');
-
-  const showActivity = getShowActivitySection();
-  let range = getStatsRange();
-
-  // The time selector drives the remembered-vs-failed bar below (the region's one
-  // genuinely time-series view); the four quick boxes are current-state shortcuts
-  // and the calendar is always this month, so neither needs re-rendering on change.
-  let rebuildBar: (() => void) | null = null;
-  if (showActivity) {
-    container.appendChild(buildRangeChips(range, r => {
-      range = r;
-      setStatsRange(r);
-      rebuildBar?.();
-    }));
-  }
-
-  // Four tappable quick-stat boxes.
   renderQuickStats(container, lines, cb);
-
-  if (showActivity) {
-    const barWrap = document.createElement('div');
-    container.appendChild(barWrap);
-    rebuildBar = () => {
-      barWrap.innerHTML = '';
-      renderRememberedFailed(barWrap, range);
-    };
-    rebuildBar();
-
-    renderCalendar(container);
-  }
-}
-
-// The Today / Week / Month chips.
-function buildRangeChips(current: StatsRange, onChange: (r: StatsRange) => void): HTMLElement {
-  const row = document.createElement('div');
-  row.className = 'stats-range';
-  row.setAttribute('role', 'tablist');
-  const opts: [StatsRange, string][] = [['today', 'Today'], ['week', 'Week'], ['month', 'Month']];
-  for (const [key, label] of opts) {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'stats-range-chip' + (key === current ? ' stats-range-chip--on' : '');
-    chip.textContent = label;
-    chip.setAttribute('aria-pressed', String(key === current));
-    chip.addEventListener('click', () => {
-      if (chip.classList.contains('stats-range-chip--on')) return;
-      row.querySelectorAll('.stats-range-chip').forEach(c => {
-        c.classList.remove('stats-range-chip--on');
-        c.setAttribute('aria-pressed', 'false');
-      });
-      chip.classList.add('stats-range-chip--on');
-      chip.setAttribute('aria-pressed', 'true');
-      onChange(key);
-    });
-    row.appendChild(chip);
-  }
-  return row;
+  if (getShowActivitySection()) renderRememberedFailed(container);
 }
 
 // The four quick-stat boxes — each tappable, opening a sheet of shortcuts.
@@ -338,9 +428,6 @@ function quickBox(kind: string, icon: SVGElement, n: number, label: string, onCl
 
 // ── Quick-stat lightbox sheets ──────────────────────────────────────────────
 
-// A bottom-sheet lightbox (same chrome as the rename/edit sheets), with a title
-// and a body the caller fills. Returns nothing; closing is wired to backdrop tap
-// and the system back gesture.
 function openSheet(title: string, fill: (body: HTMLElement, close: () => void) => void): void {
   const overlay = document.createElement('div');
   overlay.className = 'edit-overlay';
@@ -372,8 +459,6 @@ function openSheet(title: string, fill: (body: HTMLElement, close: () => void) =
   document.body.appendChild(overlay);
 }
 
-// A sheet listing lines, each a shortcut that opens that line's preview. Empty
-// is never a dead-end: it offers the relevant CTA instead.
 function openLinesSheet(
   cb: ProgressCallbacks,
   title: string,
@@ -417,7 +502,6 @@ function openLinesSheet(
   });
 }
 
-// A sheet of the moves you fail most. Each card drills the line it lives in.
 function openNeedsWorkSheet(cb: ProgressCallbacks, moves: NeedsWorkMove[]): void {
   openSheet('Needs work', (body, close) => {
     if (moves.length === 0) {
@@ -456,31 +540,89 @@ function openNeedsWorkSheet(cb: ProgressCallbacks, moves: NeedsWorkMove[]): void
   });
 }
 
-// ── Remembered vs failed (per-day two-tone stacked bar) ──────────────────────
+// ── Remembered vs failed (per-day two-tone bar, Week / Month / All) ──────────
 
-function renderRememberedFailed(container: HTMLElement, range: StatsRange): void {
-  const bars = reviewBars(getReviewLog(), range);
-  const totalR = bars.reduce((n, b) => n + b.remembered, 0);
-  const totalF = bars.reduce((n, b) => n + b.failed, 0);
+function renderRememberedFailed(container: HTMLElement): void {
+  const section = document.createElement('div');
+  section.className = 'section';
 
-  const section = statsSection('Remembered vs failed',
-    totalR + totalF > 0 ? `${totalR} remembered · ${totalF} failed` : '');
+  const head = document.createElement('div');
+  head.className = 'section-head';
+  const h = document.createElement('h3');
+  h.className = 'section-title';
+  h.textContent = 'Remembered vs failed';
+  head.appendChild(h);
+  section.appendChild(head);
 
-  // Legend.
-  const legend = document.createElement('div');
-  legend.className = 'stats-rf-legend';
-  legend.appendChild(legendItem('remembered', 'Remembered'));
-  legend.appendChild(legendItem('failed', 'Failed'));
-  section.appendChild(legend);
+  let range = getStatsRange();
 
-  if (totalR + totalF === 0) {
+  const totals = document.createElement('div');
+  totals.className = 'stats-rf-totals';
+  section.appendChild(totals);
+
+  section.appendChild(buildSegmented<StatsRange>(
+    [['week', 'Week'], ['month', 'Month'], ['all', 'All']],
+    range,
+    r => { range = r; setStatsRange(r); rebuild(); },
+  ));
+
+  const chartEl = document.createElement('div');
+  section.appendChild(chartEl);
+
+  const detailEl = document.createElement('div');
+  detailEl.className = 'stats-rf-detail';
+  section.appendChild(detailEl);
+
+  function rebuild(): void {
+    const bars = reviewBars(getReviewLog(), range);
+    renderRfTotals(totals, bars);
+    renderRfChart(chartEl, detailEl, bars, range);
+  }
+  rebuild();
+
+  container.appendChild(section);
+}
+
+function renderRfTotals(el: HTMLElement, bars: DayBar[]): void {
+  el.innerHTML = '';
+  const r = bars.reduce((n, b) => n + b.remembered, 0);
+  const f = bars.reduce((n, b) => n + b.failed, 0);
+  el.appendChild(rfPill('remembered', r, 'remembered'));
+  el.appendChild(rfPill('failed', f, 'failed'));
+}
+
+function rfPill(kind: 'remembered' | 'failed', n: number, label: string): HTMLElement {
+  const pill = document.createElement('span');
+  pill.className = `stats-rf-pill stats-rf-pill--${kind}`;
+  const num = document.createElement('span');
+  num.className = 'stats-rf-pill-num';
+  num.textContent = String(n);
+  pill.appendChild(num);
+  const lbl = document.createElement('span');
+  lbl.className = 'stats-rf-pill-label';
+  lbl.textContent = label;
+  pill.appendChild(lbl);
+  return pill;
+}
+
+function rfDetailText(bar: DayBar): string {
+  const total = bar.remembered + bar.failed;
+  const label = bar.isToday ? 'Today' : formatDay(bar.day);
+  if (total === 0) return `${label} · no training`;
+  const acc = Math.round((bar.remembered / total) * 100);
+  return `${label} · ${bar.remembered} remembered · ${bar.failed} failed · ${acc}% recall`;
+}
+
+function renderRfChart(chartEl: HTMLElement, detailEl: HTMLElement, bars: DayBar[], range: StatsRange): void {
+  chartEl.innerHTML = '';
+  detailEl.textContent = '';
+
+  const grand = bars.reduce((n, b) => n + b.remembered + b.failed, 0);
+  if (grand === 0) {
     const note = document.createElement('p');
     note.className = 'stats-rf-empty';
-    note.textContent = range === 'today'
-      ? 'No moves reviewed today yet. Finish a drill and it shows here.'
-      : 'No training recorded in this range yet. Your drilled moves show up here from now on.';
-    section.appendChild(note);
-    container.appendChild(section);
+    note.textContent = 'No training recorded in this range yet. Your drilled moves show up here from now on.';
+    chartEl.appendChild(note);
     return;
   }
 
@@ -490,115 +632,79 @@ function renderRememberedFailed(container: HTMLElement, range: StatsRange): void
   chart.className = 'stats-rf-bars';
   chart.style.setProperty('--rf-count', String(bars.length));
 
-  bars.forEach((b, i) => {
-    const col = document.createElement('div');
+  let selected: HTMLElement | null = null;
+  const select = (col: HTMLElement, bar: DayBar) => {
+    if (selected) selected.classList.remove('stats-rf-col--sel');
+    selected = col;
+    col.classList.add('stats-rf-col--sel');
+    detailEl.textContent = rfDetailText(bar);
+  };
+
+  for (const b of bars) {
+    const col = document.createElement('button');
+    col.type = 'button';
     col.className = 'stats-rf-col' + (b.isToday ? ' stats-rf-col--today' : '');
 
     const stack = document.createElement('div');
     stack.className = 'stats-rf-stack';
     stack.setAttribute('role', 'img');
-    stack.setAttribute('aria-label',
-      `${b.day}: ${b.remembered} remembered, ${b.failed} failed`);
+    stack.setAttribute('aria-label', `${b.day}: ${b.remembered} remembered, ${b.failed} failed`);
 
     const total = b.remembered + b.failed;
     if (total > 0) {
-      // Heights are a fraction of the tallest day, so the busiest day fills the
-      // track and the rest read proportionally.
       const fill = (total / maxTotal) * 100;
       const failedPart = (b.failed / total) * fill;
-      const rememberedPart = fill - failedPart;
-      const fail = document.createElement('div');
-      fail.className = 'stats-rf-seg stats-rf-seg--failed';
-      fail.style.height = `${failedPart}%`;
       const remembered = document.createElement('div');
       remembered.className = 'stats-rf-seg stats-rf-seg--remembered';
-      remembered.style.height = `${rememberedPart}%`;
-      // Failed sits on top of remembered (stack builds bottom-up via column-reverse).
+      remembered.style.height = `${fill - failedPart}%`;
+      const failed = document.createElement('div');
+      failed.className = 'stats-rf-seg stats-rf-seg--failed';
+      failed.style.height = `${failedPart}%`;
+      // column-reverse builds bottom-up: remembered below, failed on top.
       stack.appendChild(remembered);
-      stack.appendChild(fail);
+      stack.appendChild(failed);
     }
     col.appendChild(stack);
 
-    // Axis label: weekday letters for a week, sparse day numbers for a month,
-    // "Today" for the single-day view.
-    const showLabel = range === 'today' || range === 'week'
-      || i === 0 || i === bars.length - 1 || b.dom % 5 === 0;
-    const axis = document.createElement('span');
-    axis.className = 'stats-rf-axis';
-    axis.textContent = !showLabel ? '' : range === 'today' ? 'Today' : range === 'week' ? b.dow : String(b.dom);
-    col.appendChild(axis);
+    // Week shows a weekday letter under each column; month/all use a sparse tick
+    // row instead (per-column labels clip in narrow columns).
+    if (range === 'week') {
+      const ax = document.createElement('span');
+      ax.className = 'stats-rf-axis';
+      ax.textContent = b.dow;
+      col.appendChild(ax);
+    }
 
+    col.addEventListener('click', () => select(col, b));
     chart.appendChild(col);
-  });
-  section.appendChild(chart);
+  }
+  chartEl.appendChild(chart);
 
-  container.appendChild(section);
+  if (range !== 'week') chartEl.appendChild(buildRfTicks(bars));
+
+  // Default the detail to today (the last bar).
+  const lastIdx = bars.length - 1;
+  select(chart.children[lastIdx] as HTMLElement, bars[lastIdx]);
 }
 
-function legendItem(kind: 'remembered' | 'failed', label: string): HTMLElement {
-  const item = document.createElement('span');
-  item.className = 'stats-rf-legend-item';
-  const swatch = document.createElement('span');
-  swatch.className = `stats-rf-swatch stats-rf-swatch--${kind}`;
-  item.appendChild(swatch);
-  item.appendChild(document.createTextNode(label));
-  return item;
-}
-
-// ── Month calendar ("times trained this month") ──────────────────────────────
-
-function renderCalendar(container: HTMLElement): void {
-  const trainingDays = new Set(getTrainingDays());
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const todayKey = localDateKey(now);
-
-  const firstDow = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-  let trainedThisMonth = 0;
-  for (let d = 1; d <= daysInMonth; d++) {
-    if (trainingDays.has(localDateKey(new Date(year, month, d)))) trainedThisMonth++;
+// A handful of evenly-spaced day-of-month ticks under a month/all chart, each
+// free to size naturally (so two-digit days never clip).
+function buildRfTicks(bars: DayBar[]): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'stats-rf-ticks';
+  const n = bars.length;
+  const idxs = [...new Set([0, Math.floor(n / 4), Math.floor(n / 2), Math.floor((3 * n) / 4), n - 1])];
+  for (const i of idxs) {
+    const s = document.createElement('span');
+    s.className = 'stats-rf-tick';
+    s.textContent = String(bars[i].dom);
+    row.appendChild(s);
   }
-
-  const section = statsSection('Times trained this month',
-    `${trainedThisMonth} day${trainedThisMonth !== 1 ? 's' : ''}`);
-
-  const head = document.createElement('div');
-  head.className = 'stats-cal-head';
-  for (const d of ['S', 'M', 'T', 'W', 'T', 'F', 'S']) {
-    const c = document.createElement('span');
-    c.className = 'stats-cal-dow';
-    c.textContent = d;
-    head.appendChild(c);
-  }
-  section.appendChild(head);
-
-  const grid = document.createElement('div');
-  grid.className = 'stats-cal-grid';
-  for (let i = 0; i < firstDow; i++) {
-    const blank = document.createElement('span');
-    blank.className = 'stats-cal-cell stats-cal-cell--blank';
-    grid.appendChild(blank);
-  }
-  for (let d = 1; d <= daysInMonth; d++) {
-    const key = localDateKey(new Date(year, month, d));
-    const cell = document.createElement('span');
-    cell.className = 'stats-cal-cell'
-      + (trainingDays.has(key) ? ' stats-cal-cell--on' : '')
-      + (key === todayKey ? ' stats-cal-cell--today' : '');
-    cell.textContent = String(d);
-    grid.appendChild(cell);
-  }
-  section.appendChild(grid);
-
-  container.appendChild(section);
+  return row;
 }
 
 // ── 3. Your games region ────────────────────────────────────────────────────
 
-// No games imported: the whole region collapses to one quiet card.
 function renderGamesEmpty(container: HTMLElement, cb: ProgressCallbacks): void {
   regionTitle(container, 'Your games');
   const card = document.createElement('div');
@@ -622,115 +728,237 @@ function renderGamesEmpty(container: HTMLElement, cb: ProgressCallbacks): void {
 
 function renderGamesRegion(container: HTMLElement, games: ImportedGame[], lines: Line[], cb: ProgressCallbacks): void {
   regionTitle(container, 'Your games');
+  renderGamesIdentity(container, cb);
 
   const analysis = analyseGames(games, lines);
 
-  renderWinRateByOpening(container, analysis.stats, lines);
-  renderWinRateOverTime(container, games);
-  renderLeaveTheory(container, analysis.deviations, lines.length, cb);
-  renderRankLists(container, analysis.stats);
+  renderWinRateByOpening(container, analysis.stats, lines, cb);
+  renderWinRateOverTime(container, games, analysis.stats);
+  renderScoringTabs(container, analysis.stats);
 }
 
-// Win rate by opening, beside my training mastery for that opening.
-function renderWinRateByOpening(container: HTMLElement, stats: OpeningStat[], lines: Line[]): void {
+// A discreet account strip: avatar + "username on Platform" + a Refresh button
+// that reopens the import flow prefilled and re-renders on success.
+function renderGamesIdentity(container: HTMLElement, cb: ProgressCallbacks): void {
+  const source = getGamesSource();
+  const row = document.createElement('div');
+  row.className = 'games-refresh-row stats-games-identity';
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'games-refresh-btn';
+  btn.appendChild(Icons.reset(15));
+  btn.appendChild(document.createTextNode(source ? 'Refresh my games' : 'Import my games'));
+  btn.addEventListener('click', () => {
+    if (source) {
+      openImportPanel({
+        platform: source.platform,
+        username: source.username,
+        onImported: () => void doRender(container, cb),
+      });
+    } else {
+      cb.onImportGames();
+    }
+  });
+  row.appendChild(btn);
+
+  const status = document.createElement('span');
+  status.className = 'games-refresh-status';
+  status.setAttribute('aria-live', 'polite');
+  if (source) {
+    status.appendChild(userAvatar(source.avatarUrl, 18));
+    const who = document.createElement('span');
+    who.className = 'games-refresh-who';
+    who.textContent = `${source.username} on ${source.platform === 'lichess' ? 'Lichess' : 'Chess.com'}`;
+    status.appendChild(who);
+  }
+  row.appendChild(status);
+
+  container.appendChild(row);
+}
+
+// Win rate by opening, beside my training mastery — each row a position card
+// with a miniature and an open/build action.
+function renderWinRateByOpening(container: HTMLElement, stats: OpeningStat[], lines: Line[], cb: ProgressCallbacks): void {
   const rows = winRateByOpening(stats, lines);
   if (rows.length === 0) return;
 
   const section = statsSection('Win rate by opening', 'vs your training');
-
   const intro = document.createElement('p');
   intro.className = 'stats-detail-intro';
   intro.textContent = 'Your real win rate beside how mastered that opening is in training:';
   section.appendChild(intro);
 
-  for (const r of rows) section.appendChild(openingTrainingRow(r));
+  // .group drops the section box so the cards stand on their own.
+  const list = document.createElement('div');
+  list.className = 'group';
+  for (const r of rows) list.appendChild(openingCard(r, lines, cb));
+  section.appendChild(list);
+
   container.appendChild(section);
 }
 
-function openingTrainingRow(r: OpeningTrainingRow): HTMLElement {
-  const row = document.createElement('div');
-  row.className = 'stats-otr';
+function openingCard(row: OpeningTrainingRow, lines: Line[], cb: ProgressCallbacks): HTMLElement {
+  // My best (most-confident) saved line for this opening, if any.
+  const mine = lines
+    .filter(l => l.colour === row.colour && openingFamily(l.openingName) === row.family)
+    .sort((a, b) => b.confidence - a.confidence);
+  const best = mine[0] ?? null;
 
-  const name = document.createElement('div');
-  name.className = 'stats-otr-name';
-  name.appendChild(colourPip(r.colour));
-  const nameText = document.createElement('span');
-  nameText.textContent = r.family;
-  name.appendChild(nameText);
-  row.appendChild(name);
+  const fen = best ? lineFinalFen(best.tree) : (row.repUcis.length > 0 ? fenFromUcis(row.repUcis) : null);
+  const openLabel = best ? 'Open line' : 'Build line';
+  const open = () => { if (best) cb.onOpenLine(best); else cb.onBuildFromMoves(row.repUcis, row.colour); };
 
-  // Win-rate bar + score.
-  const winRow = document.createElement('div');
-  winRow.className = 'stats-otr-line';
-  const tag = document.createElement('span');
-  tag.className = 'stats-otr-tag';
-  tag.textContent = 'Games';
-  winRow.appendChild(tag);
-  const barWrap = document.createElement('div');
-  barWrap.className = 'review-score-bar';
-  const fill = document.createElement('div');
-  fill.className = 'review-score-fill';
-  fill.style.width = `${Math.max(4, r.scorePct)}%`;
-  fill.style.background = scoreColour(r.scorePct);
-  barWrap.appendChild(fill);
-  winRow.appendChild(barWrap);
-  const meta = document.createElement('span');
-  meta.className = 'stats-otr-meta';
-  meta.textContent = `${r.scorePct}% · ${r.games}g`;
-  winRow.appendChild(meta);
-  row.appendChild(winRow);
+  const { card, titleRow, content } = buildPositionCard({
+    fen,
+    orientation: row.colour,
+    className: 'stats-otr-card',
+    ...(fen && { onMiniClick: open, miniLabel: openLabel }),
+  });
 
-  // Training side.
-  const trainRow = document.createElement('div');
-  trainRow.className = 'stats-otr-line';
+  titleRow.appendChild(colourPip(row.colour));
+  const name = document.createElement('span');
+  name.className = 'pcard-name';
+  name.textContent = row.family;
+  titleRow.appendChild(name);
+
+  content.appendChild(otrLine('Games', winBar(row.scorePct), `${row.scorePct}% · ${row.games}g`));
+
+  const train = document.createElement('div');
+  train.className = 'stats-otr-line';
   const tTag = document.createElement('span');
   tTag.className = 'stats-otr-tag';
   tTag.textContent = 'Training';
-  trainRow.appendChild(tTag);
-  const trainVal = document.createElement('span');
-  trainVal.className = 'stats-otr-train';
-  if (r.lineCount === 0) {
-    trainVal.classList.add('stats-otr-train--none');
-    trainVal.textContent = 'Not in your lines yet';
+  train.appendChild(tTag);
+  const tVal = document.createElement('span');
+  tVal.className = 'stats-otr-train';
+  if (row.lineCount === 0) {
+    tVal.classList.add('stats-otr-train--none');
+    tVal.textContent = 'Not in your lines yet';
   } else {
-    trainVal.textContent = `${confidenceDots(r.avgConfidence)}  ${r.masteredCount}/${r.lineCount} mastered`;
+    tVal.textContent = `${confidenceDots(row.avgConfidence)}  ${row.masteredCount}/${row.lineCount} mastered`;
   }
-  trainRow.appendChild(trainVal);
-  row.appendChild(trainRow);
+  train.appendChild(tVal);
+  content.appendChild(train);
 
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn-secondary stat-card-btn';
+  btn.textContent = openLabel;
+  btn.addEventListener('click', e => { e.stopPropagation(); open(); });
+  content.appendChild(btn);
+
+  return card;
+}
+
+function winBar(pct: number): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'review-score-bar';
+  const fill = document.createElement('div');
+  fill.className = 'review-score-fill';
+  fill.style.width = `${Math.max(4, pct)}%`;
+  fill.style.background = scoreColour(pct);
+  wrap.appendChild(fill);
+  return wrap;
+}
+
+function otrLine(tag: string, bar: HTMLElement, meta: string): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'stats-otr-line';
+  const t = document.createElement('span');
+  t.className = 'stats-otr-tag';
+  t.textContent = tag;
+  row.appendChild(t);
+  row.appendChild(bar);
+  const m = document.createElement('span');
+  m.className = 'stats-otr-meta';
+  m.textContent = meta;
+  row.appendChild(m);
   return row;
 }
 
-// Win rate over time — a monthly line graph (inline SVG, no dependency).
-function renderWinRateOverTime(container: HTMLElement, games: ImportedGame[]): void {
-  const points = winRateOverTime(games);
+// Win rate over time — a filterable monthly line graph (inline SVG, no dependency).
+function renderWinRateOverTime(container: HTMLElement, games: ImportedGame[], stats: OpeningStat[]): void {
   const section = statsSection('Win rate over time', '');
 
-  if (points.length < 2) {
-    const note = document.createElement('p');
-    note.className = 'stats-no-games';
-    note.textContent = 'Not enough months of games yet to chart a trend — check back after a few more.';
-    section.appendChild(note);
-    container.appendChild(section);
-    return;
+  // Controls: opening filter (select) + Overall/White/Black toggle.
+  let opening = 'all';
+  let colour: 'all' | 'white' | 'black' = 'all';
+
+  const controls = document.createElement('div');
+  controls.className = 'stats-trend-controls';
+
+  const families: string[] = [];
+  const seen = new Set<string>();
+  for (const s of stats) {
+    if (s.family !== UNKNOWN_FAMILY && !seen.has(s.family)) { seen.add(s.family); families.push(s.family); }
   }
 
-  section.appendChild(buildTrendChart(points));
+  const select = document.createElement('select');
+  select.className = 'stats-trend-select';
+  const allOpt = document.createElement('option');
+  allOpt.value = 'all';
+  allOpt.textContent = 'All openings';
+  select.appendChild(allOpt);
+  for (const fam of families) {
+    const opt = document.createElement('option');
+    opt.value = fam;
+    opt.textContent = fam;
+    select.appendChild(opt);
+  }
+  select.addEventListener('change', () => { opening = select.value; rebuild(); });
+  controls.appendChild(select);
 
-  // Honest note: we don't track WHEN an opening was first trained, so there's no
-  // "started training here" marker to place on the line.
+  controls.appendChild(buildSegmented<'all' | 'white' | 'black'>(
+    [['all', 'Overall'], ['white', 'White'], ['black', 'Black']],
+    colour,
+    c => { colour = c; rebuild(); },
+  ));
+  section.appendChild(controls);
+
+  const chartWrap = document.createElement('div');
+  section.appendChild(chartWrap);
+
+  const detail = document.createElement('div');
+  detail.className = 'stats-trend-detail';
+  section.appendChild(detail);
+
   const cap = document.createElement('p');
   cap.className = 'stats-trend-caption';
-  cap.textContent = 'Monthly score across your imported games.';
+  cap.textContent = 'Monthly score across your imported games. (First-trained dates aren’t tracked, so the line carries no start marker.)';
   section.appendChild(cap);
+
+  function rebuild(): void {
+    let gs = games;
+    if (colour !== 'all') gs = gs.filter(g => g.colour === colour);
+    if (opening !== 'all') gs = gs.filter(g => openingFamily(g.opening) === opening);
+    renderTrendChart(chartWrap, detail, winRateOverTime(gs));
+  }
+  rebuild();
 
   container.appendChild(section);
 }
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-function buildTrendChart(points: TrendPoint[]): SVGSVGElement {
-  const W = 300, H = 120, padX = 8, padTop = 8, padBottom = 22;
+function trendDetailText(p: TrendPoint): string {
+  const year = new Date(p.startMs).getFullYear();
+  return `${p.label} ${year} · ${p.games} game${p.games !== 1 ? 's' : ''} · ${p.wins}-${p.draws}-${p.losses} · ${p.scorePct}%`;
+}
+
+function renderTrendChart(chartWrap: HTMLElement, detailEl: HTMLElement, points: TrendPoint[]): void {
+  chartWrap.innerHTML = '';
+  detailEl.textContent = '';
+
+  if (points.length < 2) {
+    const note = document.createElement('p');
+    note.className = 'stats-no-games';
+    note.textContent = 'Not enough months of games here yet to chart a trend.';
+    chartWrap.appendChild(note);
+    return;
+  }
+
+  const W = 300, H = 120, padX = 10, padTop = 8, padBottom = 22;
   const innerW = W - padX * 2;
   const innerH = H - padTop - padBottom;
 
@@ -741,10 +969,9 @@ function buildTrendChart(points: TrendPoint[]): SVGSVGElement {
   svg.setAttribute('role', 'img');
   svg.setAttribute('aria-label', 'Win rate over time');
 
-  const x = (i: number) => padX + (points.length === 1 ? innerW / 2 : (i / (points.length - 1)) * innerW);
+  const x = (i: number) => padX + (i / (points.length - 1)) * innerW;
   const y = (pct: number) => padTop + (1 - pct / 100) * innerH;
 
-  // 50% reference line.
   const mid = document.createElementNS(SVG_NS, 'line');
   mid.setAttribute('x1', String(padX));
   mid.setAttribute('x2', String(W - padX));
@@ -753,7 +980,6 @@ function buildTrendChart(points: TrendPoint[]): SVGSVGElement {
   mid.setAttribute('class', 'stats-trend-mid');
   svg.appendChild(mid);
 
-  // The line itself.
   const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(p.scorePct).toFixed(1)}`).join(' ');
   const poly = document.createElementNS(SVG_NS, 'path');
   poly.setAttribute('d', path);
@@ -761,15 +987,37 @@ function buildTrendChart(points: TrendPoint[]): SVGSVGElement {
   poly.setAttribute('fill', 'none');
   svg.appendChild(poly);
 
-  // Dots + month labels (label every point when few, else sparsely).
+  // Point radius scales with that month's game volume.
+  const vols = points.map(p => p.games);
+  const minV = Math.min(...vols), maxV = Math.max(...vols);
+  const radius = (g: number) => maxV === minV ? 3.6 : 2.4 + ((g - minV) / (maxV - minV)) * 3.1;
+
   const labelEvery = points.length > 8 ? 2 : 1;
+  const dots: SVGCircleElement[] = [];
+  const select = (i: number) => {
+    dots.forEach(d => d.classList.remove('stats-trend-dot--sel'));
+    dots[i].classList.add('stats-trend-dot--sel');
+    detailEl.textContent = trendDetailText(points[i]);
+  };
+
   points.forEach((p, i) => {
     const dot = document.createElementNS(SVG_NS, 'circle');
     dot.setAttribute('cx', x(i).toFixed(1));
     dot.setAttribute('cy', y(p.scorePct).toFixed(1));
-    dot.setAttribute('r', '2.6');
+    dot.setAttribute('r', radius(p.games).toFixed(1));
     dot.setAttribute('class', 'stats-trend-dot');
+    dots.push(dot);
     svg.appendChild(dot);
+
+    // A larger transparent hit target so taps are comfortable.
+    const hit = document.createElementNS(SVG_NS, 'circle');
+    hit.setAttribute('cx', x(i).toFixed(1));
+    hit.setAttribute('cy', y(p.scorePct).toFixed(1));
+    hit.setAttribute('r', '12');
+    hit.setAttribute('fill', 'transparent');
+    hit.style.cursor = 'pointer';
+    hit.addEventListener('click', () => select(i));
+    svg.appendChild(hit);
 
     if (i % labelEvery === 0) {
       const lbl = document.createElementNS(SVG_NS, 'text');
@@ -782,118 +1030,64 @@ function buildTrendChart(points: TrendPoint[]): SVGSVGElement {
     }
   });
 
-  return svg;
+  chartWrap.appendChild(svg);
+  select(points.length - 1);
 }
 
-// Where my real games leave my saved lines.
-function renderLeaveTheory(container: HTMLElement, deviations: Deviation[], lineCount: number, cb: ProgressCallbacks): void {
-  const top = deviations.slice(0, 6);
-  const section = statsSection('Where you leave theory', top.length > 0 ? `${top.length} spot${top.length !== 1 ? 's' : ''}` : '');
+// Most played / Best scoring / Worst scoring — one tabbed ranked list.
+function renderScoringTabs(container: HTMLElement, stats: OpeningStat[]): void {
+  const tabs = [
+    { key: 'most', label: 'Most played', items: mostPlayedOpenings(stats), val: (s: OpeningStat) => `${s.games}g`, empty: 'No games yet.' },
+    { key: 'best', label: 'Best scoring', items: bestScoringOpenings(stats), val: (s: OpeningStat) => `${s.scorePct}%`, empty: 'Play a few more games to rank your best.' },
+    { key: 'worst', label: 'Worst scoring', items: worstScoringOpenings(stats), val: (s: OpeningStat) => `${s.scorePct}%`, empty: 'Play a few more games to rank your worst.' },
+  ];
+  if (tabs.every(t => t.items.length === 0)) return;
 
-  if (top.length === 0) {
-    const note = document.createElement('p');
-    note.className = 'stats-no-games';
-    note.textContent = lineCount === 0
-      ? 'Save the openings you play to see where your real games leave your prep.'
-      : 'Your games stay inside your prep in the openings on file — nothing leaves theory.';
-    section.appendChild(note);
-    container.appendChild(section);
-    return;
+  const section = statsSection('Openings', '');
+
+  const listWrap = document.createElement('div');
+  let active = 'most';
+
+  const tabRow = buildSegmented(
+    tabs.map(t => [t.key, t.label] as [string, string]),
+    active,
+    key => { active = key; renderList(); },
+    'stats-tabs',
+  );
+  section.appendChild(tabRow);
+  section.appendChild(listWrap);
+
+  function renderList(): void {
+    const tab = tabs.find(t => t.key === active)!;
+    listWrap.innerHTML = '';
+    if (tab.items.length === 0) {
+      const note = document.createElement('p');
+      note.className = 'stats-rank-empty';
+      note.textContent = tab.empty;
+      listWrap.appendChild(note);
+      return;
+    }
+    const list = document.createElement('div');
+    list.className = 'stats-rank-list';
+    for (const s of tab.items) {
+      const item = document.createElement('div');
+      item.className = 'stats-rank-item';
+      const name = document.createElement('span');
+      name.className = 'stats-rank-name';
+      name.appendChild(colourPip(s.colour));
+      const t = document.createElement('span');
+      t.textContent = s.family;
+      name.appendChild(t);
+      item.appendChild(name);
+      const val = document.createElement('span');
+      val.className = 'stats-rank-val';
+      val.textContent = tab.val(s);
+      item.appendChild(val);
+      list.appendChild(item);
+    }
+    listWrap.appendChild(list);
   }
-
-  const list = document.createElement('div');
-  list.className = 'group';
-  for (const dev of top) list.appendChild(leaveTheoryCard(dev, cb));
-  section.appendChild(list);
-  container.appendChild(section);
-}
-
-function leaveTheoryCard(dev: Deviation, cb: ProgressCallbacks): HTMLElement {
-  const card = document.createElement('div');
-  card.className = 'card stats-theory-card';
-
-  const body = document.createElement('div');
-  body.className = 'stats-theory-body';
-
-  const title = document.createElement('div');
-  title.className = 'stats-theory-title';
-  const expected = dev.expected.length > 0 ? dev.expected.join(' / ') : '—';
-  title.textContent = dev.side === 'you'
-    ? `Move ${dev.moveNumber}: you played ${dev.actual} (your line: ${expected})`
-    : `Move ${dev.moveNumber}: opponent played ${dev.actual} — outside your prep`;
-  body.appendChild(title);
-
-  const sub = document.createElement('div');
-  sub.className = 'stats-theory-sub';
-  const score = dev.count > 0 ? Math.round(((dev.wins + dev.draws / 2) / dev.count) * 100) : 0;
-  sub.textContent = `${dev.family} · ${dev.count} game${dev.count !== 1 ? 's' : ''} · ${score}% · ${dev.wins}-${dev.draws}-${dev.losses}`;
-  body.appendChild(sub);
-
-  card.appendChild(body);
-
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'btn-secondary stats-theory-btn';
-  btn.textContent = 'Drill this';
-  btn.addEventListener('click', () => cb.onBuildFromMoves(dev.prefixUcis, dev.colour));
-  card.appendChild(btn);
-
-  return card;
-}
-
-// Most played vs best scoring — two short ranked lists.
-function renderRankLists(container: HTMLElement, stats: OpeningStat[]): void {
-  const most = mostPlayedOpenings(stats);
-  const best = bestScoringOpenings(stats);
-  if (most.length === 0 && best.length === 0) return;
-
-  const section = statsSection('Most played vs best scoring', '');
-
-  const cols = document.createElement('div');
-  cols.className = 'stats-rank';
-  cols.appendChild(rankColumn('Most played', most, s => `${s.games}g`));
-  cols.appendChild(rankColumn('Best scoring', best, s => `${s.scorePct}%`,
-    'Play a few more games to rank your best openings.'));
-  section.appendChild(cols);
+  renderList();
 
   container.appendChild(section);
-}
-
-function rankColumn(title: string, items: OpeningStat[], value: (s: OpeningStat) => string, emptyNote?: string): HTMLElement {
-  const col = document.createElement('div');
-  col.className = 'stats-rank-col';
-
-  const h = document.createElement('div');
-  h.className = 'stats-rank-title';
-  h.textContent = title;
-  col.appendChild(h);
-
-  if (items.length === 0) {
-    const note = document.createElement('p');
-    note.className = 'stats-rank-empty';
-    note.textContent = emptyNote ?? 'Nothing yet.';
-    col.appendChild(note);
-    return col;
-  }
-
-  const list = document.createElement('div');
-  list.className = 'stats-rank-list';
-  for (const s of items) {
-    const item = document.createElement('div');
-    item.className = 'stats-rank-item';
-    const name = document.createElement('span');
-    name.className = 'stats-rank-name';
-    name.appendChild(colourPip(s.colour));
-    const t = document.createElement('span');
-    t.textContent = s.family;
-    name.appendChild(t);
-    item.appendChild(name);
-    const val = document.createElement('span');
-    val.className = 'stats-rank-val';
-    val.textContent = value(s);
-    item.appendChild(val);
-    list.appendChild(item);
-  }
-  col.appendChild(list);
-  return col;
 }

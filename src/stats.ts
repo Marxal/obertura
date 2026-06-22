@@ -89,16 +89,23 @@ function localKey(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-// How many days a range spans on the remembered-vs-failed bar.
-export function rangeDays(range: StatsRange): number {
-  return range === 'today' ? 1 : range === 'week' ? 7 : 30;
-}
-
 // The day-by-day remembered/failed bars for the selected range, oldest → newest.
-// Days with no training are filled as zero so the axis stays continuous.
+// 'week' = 7 days, 'month' = 30; 'all' spans from the earliest logged day to
+// today, clamped to [7, REVIEW_LOG_WINDOW]. Days with no training fill as zero
+// so the axis stays continuous.
+export const REVIEW_LOG_WINDOW = 120;
+
 export function reviewBars(log: DayOutcome[], range: StatsRange, now: Date = new Date()): DayBar[] {
   const byDay = new Map(log.map(o => [o.day, o]));
-  const n = rangeDays(range);
+  let n: number;
+  if (range === 'week') n = 7;
+  else if (range === 'month') n = 30;
+  else if (log.length === 0) n = 7;
+  else {
+    const firstMs = new Date(`${log[0].day}T00:00:00`).getTime();
+    const span = Math.floor((now.getTime() - firstMs) / 86_400_000) + 1;
+    n = Math.min(REVIEW_LOG_WINDOW, Math.max(7, span));
+  }
   const bars: DayBar[] = [];
   for (let i = n - 1; i >= 0; i--) {
     const d = new Date(now);
@@ -132,6 +139,7 @@ export interface OpeningTrainingRow {
   draws: number;
   losses: number;
   scorePct: number;          // real win rate from games
+  repUcis: string[];         // a representative game line, for the build fallback
   lineCount: number;         // my saved lines in this opening
   masteredCount: number;     // of those, how many are mastered
   avgConfidence: number;     // 0–5 mean confidence across them (0 if none)
@@ -163,6 +171,7 @@ export function winRateByOpening(stats: OpeningStat[], lines: Line[], max = 8): 
         draws: s.draws,
         losses: s.losses,
         scorePct: s.scorePct,
+        repUcis: s.repUcis,
         lineCount: t?.count ?? 0,
         masteredCount: t?.mastered ?? 0,
         avgConfidence: t && t.count > 0 ? Math.round(t.confSum / t.count) : 0,
@@ -177,8 +186,11 @@ export function winRateByOpening(stats: OpeningStat[], lines: Line[], max = 8): 
 
 export interface TrendPoint {
   label: string;      // "Mar"
-  startMs: number;    // first ms of that month, for ordering / markers
+  startMs: number;    // first ms of that month, for ordering / the detail year
   games: number;
+  wins: number;
+  draws: number;
+  losses: number;
   scorePct: number;
 }
 
@@ -186,8 +198,9 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 // Monthly win-rate series from imported games (oldest → newest). Months with no
 // games are skipped — no fabricated zeroes across a gap. endTime is unix seconds.
+// Callers pre-filter the game list (by colour / opening) before calling.
 export function winRateOverTime(games: ImportedGame[], maxMonths = 12): TrendPoint[] {
-  interface Bucket { y: number; m: number; games: number; score: number; }
+  interface Bucket { y: number; m: number; games: number; wins: number; draws: number; losses: number; }
   const buckets = new Map<string, Bucket>();
   for (const g of games) {
     if (!g.endTime) continue;
@@ -195,9 +208,11 @@ export function winRateOverTime(games: ImportedGame[], maxMonths = 12): TrendPoi
     const y = d.getFullYear();
     const m = d.getMonth();
     const key = `${y}-${m}`;
-    const b = buckets.get(key) ?? { y, m, games: 0, score: 0 };
+    const b = buckets.get(key) ?? { y, m, games: 0, wins: 0, draws: 0, losses: 0 };
     b.games++;
-    b.score += g.result === 'win' ? 1 : g.result === 'draw' ? 0.5 : 0;
+    if (g.result === 'win') b.wins++;
+    else if (g.result === 'draw') b.draws++;
+    else b.losses++;
     buckets.set(key, b);
   }
   const points = [...buckets.values()]
@@ -206,7 +221,10 @@ export function winRateOverTime(games: ImportedGame[], maxMonths = 12): TrendPoi
       label: MONTHS[b.m],
       startMs: new Date(b.y, b.m, 1).getTime(),
       games: b.games,
-      scorePct: b.games === 0 ? 0 : Math.round((b.score / b.games) * 100),
+      wins: b.wins,
+      draws: b.draws,
+      losses: b.losses,
+      scorePct: b.games === 0 ? 0 : Math.round(((b.wins + b.draws / 2) / b.games) * 100),
     }));
   return points.slice(Math.max(0, points.length - maxMonths));
 }
@@ -223,5 +241,13 @@ export function bestScoringOpenings(stats: OpeningStat[], n = 5): OpeningStat[] 
   return stats
     .filter(s => s.family !== UNKNOWN_FAMILY && s.games >= MIN_GAMES_WEAK)
     .sort((a, b) => b.scorePct - a.scorePct || b.games - a.games)
+    .slice(0, n);
+}
+
+// Worst-scoring openings — the mirror of bestScoring, weakest first.
+export function worstScoringOpenings(stats: OpeningStat[], n = 5): OpeningStat[] {
+  return stats
+    .filter(s => s.family !== UNKNOWN_FAMILY && s.games >= MIN_GAMES_WEAK)
+    .sort((a, b) => a.scorePct - b.scorePct || b.games - a.games)
     .slice(0, n);
 }

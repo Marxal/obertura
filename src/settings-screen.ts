@@ -655,13 +655,13 @@ function buildStatisticsGroup(): HTMLElement {
   sec.appendChild(row(
     'Show streak on Statistics',
     toggle(getShowStreakSection(), (on) => setShowStreakSection(on)),
-    { sub: 'The big streak counter and 7-day strip. The Train-screen streak pill stays either way.' },
+    { sub: 'The big streak counter, 7-day strip and the monthly calendar. The Train-screen streak pill stays either way.' },
   ));
 
   sec.appendChild(row(
     'Show training activity',
     toggle(getShowActivitySection(), (on) => setShowActivitySection(on)),
-    { sub: 'The remembered-vs-failed bar and the month training calendar.' },
+    { sub: 'The remembered-vs-failed bar.' },
   ));
 
   return sec;
