@@ -57,7 +57,7 @@ import { userAvatar } from './avatar';
 import { pushBack } from './back-nav';
 import { appendSelfTest } from './selftest-panel';
 import { openFeedbackSheet } from './feedback';
-import { openSurveySheet } from './survey';
+import { openSurvey } from './survey';
 import { showIntro } from './onboarding';
 import { buildSupportSection } from './support';
 import { runStorageSelfTest } from './storage.selftest';
@@ -160,7 +160,7 @@ function buildAboutGroup(): HTMLElement {
   const sec = staticGroup('Feedback & about', Icons.note(16));
 
   sec.appendChild(linkRow('Send feedback', openFeedbackSheet, Icons.note(18)));
-  sec.appendChild(linkRow('Beta survey', openSurveySheet, Icons.note(18)));
+  sec.appendChild(linkRow('Beta survey', openSurvey, Icons.note(18)));
   // Replay the first-launch intro on demand — the seen-flag stays set, so it
   // doesn't reappear on its own afterwards.
   sec.appendChild(linkRow('Replay intro', () => showIntro(), Icons.play(18)));
