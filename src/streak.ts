@@ -133,6 +133,86 @@ export function clearReviewedToday(): void {
   }
 }
 
+// ── Remembered-vs-failed review log ─────────────────────────────────────────────
+//
+// A small per-day tally of how many moves were REMEMBERED (recalled first try)
+// vs FAILED (missed) in training — the data behind the Statistics "remembered vs
+// failed" bar. Kept device-local like the streak. It's recorded going FORWARD
+// from each finished drill (full-line training and the single-move "Fix
+// mistakes" mode); there is deliberately NO historical backfill, so days before
+// this existed simply read as zero. A rolling window keeps the store tiny.
+
+const REVIEW_LOG_KEY = 'obertura-review-log';
+const REVIEW_LOG_MAX_DAYS = 120;
+
+// One day's outcome.
+export interface DayOutcome {
+  day: string;        // "YYYY-MM-DD" local
+  remembered: number;
+  failed: number;
+}
+
+// Stored compactly as { "2026-06-22": { r: 12, f: 3 }, … } to keep the key small.
+type StoredLog = Record<string, { r: number; f: number }>;
+
+function loadReviewLog(): StoredLog {
+  try {
+    const raw = localStorage.getItem(REVIEW_LOG_KEY);
+    if (!raw) return {};
+    const obj = JSON.parse(raw) as unknown;
+    if (!obj || typeof obj !== 'object') return {};
+    return obj as StoredLog;
+  } catch {
+    return {};
+  }
+}
+
+function saveReviewLog(log: StoredLog): void {
+  // Prune to the most recent REVIEW_LOG_MAX_DAYS days so it can't grow unbounded.
+  let out = log;
+  const keys = Object.keys(log);
+  if (keys.length > REVIEW_LOG_MAX_DAYS) {
+    const keep = keys.sort().slice(keys.length - REVIEW_LOG_MAX_DAYS);
+    out = {};
+    for (const k of keep) out[k] = log[k];
+  }
+  try {
+    localStorage.setItem(REVIEW_LOG_KEY, JSON.stringify(out));
+  } catch {
+    /* storage unavailable/full — the log is a nicety, never block training on it. */
+  }
+}
+
+// Add one finished drill's outcome to today's tally. Idempotent across a day in
+// the sense that repeated calls accumulate (a day with two sessions sums both).
+export function recordReviewOutcome(remembered: number, failed: number, now: Date = new Date()): void {
+  if (remembered <= 0 && failed <= 0) return;
+  const key = dayKey(now);
+  const log = loadReviewLog();
+  const cur = log[key] ?? { r: 0, f: 0 };
+  log[key] = { r: cur.r + Math.max(0, remembered), f: cur.f + Math.max(0, failed) };
+  saveReviewLog(log);
+}
+
+// The whole log as a sorted (oldest-first) array of clean DayOutcome rows.
+export function getReviewLog(): DayOutcome[] {
+  const log = loadReviewLog();
+  return Object.keys(log).sort().map(day => ({
+    day,
+    remembered: Math.max(0, Math.floor(log[day]?.r ?? 0)),
+    failed: Math.max(0, Math.floor(log[day]?.f ?? 0)),
+  }));
+}
+
+// Forget the whole remembered/failed log — part of "Reset progress" in Settings.
+export function clearReviewLog(): void {
+  try {
+    localStorage.removeItem(REVIEW_LOG_KEY);
+  } catch {
+    /* storage unavailable — nothing to clear. */
+  }
+}
+
 // The current streak length, in days (see the rule at the top of the file).
 export function currentStreak(now: Date = new Date()): number {
   const days = loadDays();

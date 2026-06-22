@@ -108,7 +108,7 @@ export function setShowLineMiniatures(on: boolean): void {
 // activity sections both default ON; the grid itself defaults COLLAPSED.
 const SHOW_STREAK_KEY = 'obertura.stats.showStreak';
 const SHOW_ACTIVITY_KEY = 'obertura.stats.showActivity';
-const ACTIVITY_EXPANDED_KEY = 'obertura.stats.activityExpanded';
+const STATS_RANGE_KEY = 'obertura.stats.range';
 
 // Whether the streak hero (big streak + 7-day strip) shows on Statistics. The
 // Train-header streak pill is separate and unaffected by this.
@@ -129,13 +129,17 @@ export function setShowActivitySection(on: boolean): void {
   localStorage.setItem(SHOW_ACTIVITY_KEY, on ? 'on' : 'off');
 }
 
-// The 28-day grid starts collapsed; we remember each open/close toggle.
-export function getActivityExpanded(): boolean {
-  return localStorage.getItem(ACTIVITY_EXPANDED_KEY) === 'on';
+// The Statistics → Training time selector (Today / Week / Month). Drives the
+// remembered-vs-failed bar's range; the last choice is remembered across visits.
+export type StatsRange = 'today' | 'week' | 'month';
+
+export function getStatsRange(): StatsRange {
+  const v = localStorage.getItem(STATS_RANGE_KEY);
+  return v === 'today' || v === 'month' ? v : 'week';
 }
 
-export function setActivityExpanded(on: boolean): void {
-  localStorage.setItem(ACTIVITY_EXPANDED_KEY, on ? 'on' : 'off');
+export function setStatsRange(range: StatsRange): void {
+  localStorage.setItem(STATS_RANGE_KEY, range);
 }
 
 // ── Explore / scouting ───────────────────────────────────────────────────────

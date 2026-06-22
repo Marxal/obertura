@@ -15,6 +15,7 @@ import { runScoutSelfTest } from '../src/scout.selftest';
 import { runTrapsSelfTest } from '../src/traps.selftest';
 import { runMoveStatsSelfTest } from '../src/move-stats.selftest';
 import { runProgressSelfTest } from '../src/progress.selftest';
+import { runStatsSelfTest } from '../src/stats.selftest';
 import { runTreeSelfTest } from '../src/tree.selftest';
 import { runEngineSelfTest } from '../src/engine.selftest';
 
@@ -30,6 +31,7 @@ const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'traps', run: runTrapsSelfTest },
   { suite: 'move-stats', run: runMoveStatsSelfTest },
   { suite: 'progress', run: runProgressSelfTest },
+  { suite: 'stats', run: runStatsSelfTest },
   { suite: 'tree', run: runTreeSelfTest },
   { suite: 'engine', run: runEngineSelfTest },
 ];

@@ -49,7 +49,7 @@ import {
 } from './import-panel';
 import { countGames, resetAllProgress, eraseAllData } from './storage';
 import { getAutoRefreshEnabled, setAutoRefreshEnabled, getLastGamesRefresh } from './auto-refresh';
-import { clearTrainingDays, clearReviewedToday } from './streak';
+import { clearTrainingDays, clearReviewedToday, clearReviewLog } from './streak';
 import { renderBackupSection, exportBackupNow } from './backup';
 import { Icons } from './icons';
 import { userAvatar } from './avatar';
@@ -66,6 +66,7 @@ import { runTreeSelfTest } from './tree.selftest';
 import { runMoveStatsSelfTest } from './move-stats.selftest';
 import { runSchedulerSelfTest } from './scheduler.selftest';
 import { runAnalysisSelfTest } from './analysis.selftest';
+import { runStatsSelfTest } from './stats.selftest';
 import { runEngineSelfTest } from './engine.selftest';
 
 export function renderSettingsScreen(container: HTMLElement): void {
@@ -127,6 +128,7 @@ function buildDiagnosticsGroup(): HTMLElement {
   appendSelfTest(sec, 'Run move-stats self-test', runMoveStatsSelfTest, '[move-stats self-test]');
   appendSelfTest(sec, 'Run scheduler self-test', runSchedulerSelfTest, '[scheduler self-test]');
   appendSelfTest(sec, 'Run analysis self-test', runAnalysisSelfTest, '[analysis self-test]');
+  appendSelfTest(sec, 'Run statistics self-test', runStatsSelfTest, '[stats self-test]');
   appendSelfTest(sec, 'Run engine castling self-test', runEngineSelfTest, '[engine self-test]');
 
   return sec;
@@ -659,7 +661,7 @@ function buildStatisticsGroup(): HTMLElement {
   sec.appendChild(row(
     'Show training activity',
     toggle(getShowActivitySection(), (on) => setShowActivitySection(on)),
-    { sub: 'The 28-day activity grid.' },
+    { sub: 'The remembered-vs-failed bar and the month training calendar.' },
   ));
 
   return sec;
@@ -857,6 +859,7 @@ function buildDataGroup(): HTMLElement {
           await resetAllProgress();
           clearTrainingDays();
           clearReviewedToday();
+          clearReviewLog();
           clearTimedBest();
           status.textContent = 'Progress reset ✓ — every line is due again.';
         } catch (err) {
