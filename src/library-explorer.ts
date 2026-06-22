@@ -22,6 +22,7 @@ import { showDialog } from './dialog';
 import { nameForFen, nameForPath } from './openings';
 import type { LibraryEntry } from './library';
 import { buildBook, bookNodeAt, type BookNode } from './book-tree';
+import { formatMove } from './notation';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -244,7 +245,7 @@ export function createLibraryExplorer(
 
       const move = document.createElement('span');
       move.className = 'lib-bx-move';
-      move.textContent = `${prefix} ${san}`;
+      move.textContent = `${prefix} ${formatMove(san)}`;
       row.appendChild(move);
 
       const name = document.createElement('span');

@@ -40,6 +40,7 @@ import { userAvatar } from './avatar';
 import { getGamesSource, openImportPanel } from './import-panel';
 import { buildEmptyState } from './empty-state';
 import { pushBack } from './back-nav';
+import { formatMove } from './notation';
 import {
   getShowStreakSection,
   getShowActivitySection,
@@ -522,7 +523,7 @@ function openNeedsWorkSheet(cb: ProgressCallbacks, moves: NeedsWorkMove[]): void
       text.className = 'stats-sheet-text';
       const name = document.createElement('span');
       name.className = 'stats-sheet-name';
-      name.textContent = `${m.moveNumber}. ${m.san} — ${m.lineName}`;
+      name.textContent = `${m.moveNumber}. ${formatMove(m.san)} — ${m.lineName}`;
       text.appendChild(name);
       const meta = document.createElement('span');
       meta.className = 'stats-sheet-meta';

@@ -10,6 +10,7 @@
 
 import { buildPositionCard, colourPip, fenFromUcis } from './card-position';
 import type { Trap, TrapPack } from './traps';
+import { formatSanLine } from './notation';
 
 type Colour = 'white' | 'black';
 
@@ -61,7 +62,7 @@ export function trapCard(
 
   const movesEl = document.createElement('div');
   movesEl.className = 'review-moves stat-card-note';
-  movesEl.textContent = formatSan(trap.sans);
+  movesEl.textContent = formatSanLine(trap.sans);
   content.appendChild(movesEl);
 
   const btn = document.createElement('button');
@@ -77,11 +78,3 @@ export function trapCard(
   return card;
 }
 
-// "1.e4 e5 2.Nf3 Nc6" from a flat SAN list.
-function formatSan(sans: string[]): string {
-  let out = '';
-  for (let i = 0; i < sans.length; i++) {
-    out += i % 2 === 0 ? `${i / 2 + 1}.${sans[i]} ` : `${sans[i]} `;
-  }
-  return out.trim();
-}

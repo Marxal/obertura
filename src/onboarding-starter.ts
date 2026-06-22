@@ -22,6 +22,7 @@ import type { MoveNode } from './tree';
 import { Icons } from './icons';
 import { buildPositionCard, colourPip, fenFromUcis } from './card-position';
 import { burstConfetti } from './confetti';
+import { formatSanLine } from './notation';
 
 // Lines in training needed to unlock the Train hub. The Train screen reads this
 // for its gate; onboarding shows progress toward it.
@@ -309,7 +310,7 @@ function packLineRow(
 ): HTMLElement {
   return lineRow({
     name: line.name,
-    moves: formatSan(line.sans),
+    moves: formatSanLine(line.sans),
     fen: fenFromUcis(line.ucis),
     colour,
     added: existing.has(sig(line.ucis)),
@@ -325,7 +326,7 @@ function suggestionRow(
 ): HTMLElement {
   return lineRow({
     name: stat.family,
-    moves: formatSan(stat.repSans),
+    moves: formatSanLine(stat.repSans),
     sub: `${stat.games} game${stat.games === 1 ? '' : 's'} · ${stat.scorePct}% score`,
     fen: fenFromUcis(stat.repUcis),
     colour: stat.colour,
@@ -413,15 +414,6 @@ function footLink(label: string, onClick: () => void): HTMLElement {
   b.textContent = label;
   b.addEventListener('click', onClick);
   return b;
-}
-
-// "1.e4 e5 2.Nf3 Nc6" from a flat SAN list.
-function formatSan(sans: string[]): string {
-  let out = '';
-  for (let i = 0; i < sans.length; i++) {
-    out += i % 2 === 0 ? `${i / 2 + 1}.${sans[i]} ` : `${sans[i]} `;
-  }
-  return out.trim();
 }
 
 // The mainline UCIs of a saved line's tree (children[0] all the way down).

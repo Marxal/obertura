@@ -9,6 +9,7 @@ import { playFeedback } from './sound';
 import { pushBack } from './back-nav';
 import { showDialog } from './dialog';
 import { burstConfetti } from './confetti';
+import { formatMove } from './notation';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -709,7 +710,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     // Brief headline: a sound move, but not the saved line.
     const headEl = document.createElement('div');
     headEl.className = 'pt-alt-head';
-    headEl.textContent = `Good move${explore ? ` (${explore.san})` : ''} — but not your saved line.`;
+    headEl.textContent = `Good move${explore ? ` (${formatMove(explore.san)})` : ''} — but not your saved line.`;
     altCardEl.appendChild(headEl);
 
     if (expected.note) {
@@ -753,7 +754,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
       exploreBtn.className = 'pt-alt-explore-btn';
       exploreBtn.textContent = 'Explore this line →';
       exploreBtn.addEventListener('click', () => {
-        opts.onExplore!(explore.fen, `After ${explore.san}`, userColour);
+        opts.onExplore!(explore.fen, `After ${formatMove(explore.san)}`, userColour);
       });
       btnRow.appendChild(exploreBtn);
     }
@@ -828,7 +829,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     awaitingAlternativePlay = true;
 
     // A sound move, but it isn't the line we saved — still ask for the saved move.
-    setStatus(`Good move — but not your line. Play ${expected.san} to continue.`, 'pt-status--alt');
+    setStatus(`Good move — but not your line. Play ${formatMove(expected.san)} to continue.`, 'pt-status--alt');
 
     // Restrict board to only the expected move (the green arrow shows where).
     const orig = expected.uci.slice(0, 2) as Key;

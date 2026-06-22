@@ -14,6 +14,7 @@ import {
   type PieceSet,
 } from './appearance';
 import { PIECE_PREVIEWS } from './pieces/previews';
+import { getMoveNotation, setMoveNotation, type MoveNotation } from './notation';
 import {
   getRetriesBeforeReveal,
   setRetriesBeforeReveal,
@@ -575,6 +576,16 @@ function buildAppearanceGroup(): HTMLElement {
     'Pieces',
     pieceSwatches(getPieceSet(), (v) => setPieceSet(v)),
     { sub: 'New sets download once, then stay cached.' },
+  ));
+
+  sec.appendChild(row(
+    'Move notation',
+    segmented<MoveNotation>(
+      [{ value: 'standard', label: 'Nf3' }, { value: 'figurine', label: '♞f3' }],
+      getMoveNotation(),
+      (v) => setMoveNotation(v),
+    ),
+    { sub: 'How moves are written everywhere: plain letters (Nf3, Bxf7) or piece symbols (♞f3, ♝xf7).' },
   ));
 
   sec.appendChild(row(
