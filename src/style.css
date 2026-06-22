@@ -1937,11 +1937,6 @@ cg-board square.move-dest.oc {
 
 [hidden] { display: none !important; }
 
-#view-lines {
-  overflow-y: auto;
-  padding-bottom: 2rem;
-}
-
 .lines-loading {
   padding: 1.5rem 1rem;
   color: var(--text-faint);
@@ -3781,10 +3776,8 @@ cg-board square.move-dest.oc {
 
 /* ── Train screen ──────────────────────────────────────────────────────────── */
 
-#view-train {
-  overflow-y: auto;
-  padding-bottom: 2rem;
-}
+/* #view-train's overflow + bottom padding is set with the other main tabs,
+   next to the FAB rules (so all four clear the floating button uniformly). */
 
 /* .train-heading removed — now uses .section + .section-title in HTML */
 
@@ -8646,6 +8639,17 @@ cg-board square.move-dest.oc {
 }
 .fab-root[hidden] { display: none; }
 
+/* Keep the end of every main tab clear of the FAB (which floats up to ~126px
+   above the viewport bottom — taller than the bottom-nav `main` already clears)
+   and give all four pages room to breathe at the bottom. */
+#view-train,
+#view-lines,
+#view-explore,
+#view-progress {
+  overflow-y: auto;
+  padding-bottom: 6rem;
+}
+
 .fab-btn {
   position: relative;
   z-index: 2;
@@ -8834,6 +8838,12 @@ cg-board square.move-dest.oc {
   font-style: italic;
   line-height: 1.5;
   margin: 0;
+}
+
+/* Wraps the bars (and, for month/all, the tick row); given clear air above so
+   the chart doesn't crowd the totals pills. */
+.stats-rf-chart {
+  margin-top: 1rem;
 }
 
 /* A row of day columns; each column is a fixed-height track holding a bottom-
