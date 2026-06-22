@@ -1,4 +1,5 @@
 import type { EvalResult, MoveEval } from './engine';
+import { formatMove } from './notation';
 
 // The eval display is split across two mount points:
 //   barEl       — the horizontal eval bar + score, sits ABOVE the board.
@@ -178,7 +179,7 @@ export class EvalPanel {
     for (let i = 0; i < sanLine.length; i++) {
       if (white) out.push(`${moveNo}.`);
       else if (i === 0) out.push(`${moveNo}…`);
-      out.push(sanLine[i]);
+      out.push(formatMove(sanLine[i]));
       if (!white) moveNo++;
       white = !white;
     }

@@ -36,6 +36,7 @@ import { Icons } from './icons';
 import { showDialog } from './dialog';
 import { pushBack } from './back-nav';
 import { createLibraryExplorer, type LibraryExplorer } from './library-explorer';
+import { formatMove, formatSanLine } from './notation';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 // Cap rendered rows so a broad/empty search can't spray thousands of nodes onto
@@ -562,7 +563,7 @@ function openDetail(
       const m = document.createElement('button');
       m.type = 'button';
       m.className = 'lib-move' + (cursor === ply ? ' lib-move--current' : '');
-      m.textContent = entry.moves[i];
+      m.textContent = formatMove(entry.moves[i]);
       m.addEventListener('click', () => setCursor(ply));
       moveList.appendChild(m);
     }
@@ -586,12 +587,3 @@ function navBtn(label: string, aria: string, onClick: () => void): HTMLButtonEle
   return b;
 }
 
-// "1.e4 e5 2.Nf3 Nc6" from a flat SAN list.
-function formatSanLine(sans: string[]): string {
-  let out = '';
-  for (let i = 0; i < sans.length; i++) {
-    if (i % 2 === 0) out += `${i / 2 + 1}.${sans[i]} `;
-    else out += `${sans[i]} `;
-  }
-  return out.trim();
-}

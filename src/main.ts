@@ -33,6 +33,7 @@ import { Icons } from './icons';
 import { mountFab, type FabItem, type FabController } from './fab';
 import { importLastGame, hasConnectedAccount } from './import-last';
 import { openEngineSpar, openExploreOpponent, importOpponentFlow } from './explore-screen';
+import { formatMove } from './notation';
 
 const chess = new Chess();
 let cg!: ReturnType<typeof Chessground>;
@@ -295,7 +296,7 @@ function moveSpan(node: MoveNode, activeId: string): HTMLElement {
   const span = document.createElement('span');
   span.className = `move-san${node.id === activeId ? ' active' : ''}`;
   span.addEventListener('click', () => handleMoveClick(node.id));
-  span.textContent = node.san;
+  span.textContent = formatMove(node.san);
   if (node.annotation) {
     const chip = document.createElement('span');
     chip.className = `ann-chip ann-${annClass(node.annotation)}`;
@@ -544,7 +545,7 @@ function openNoteSheet(): void {
 
   const h = document.createElement('h3');
   h.className = 'edit-sheet-title';
-  h.textContent = `Note for ${node.san}`;
+  h.textContent = `Note for ${formatMove(node.san)}`;
   sheet.appendChild(h);
 
   // Annotation marks: one row of chips, the active mark highlighted. Tapping the

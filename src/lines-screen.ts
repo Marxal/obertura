@@ -20,6 +20,7 @@ import { buildEmptyState } from './empty-state';
 import { createFilterBar, type FilterSelection } from './filters';
 import type { ImportedGame } from './chesscom';
 import { renderLoadError } from './load-error';
+import { formatSanLine } from './notation';
 
 // Game analysis walks every imported game through a merged repertoire tree — at
 // a year's worth of games that's a visible hitch on a phone. It was being re-run
@@ -849,16 +850,6 @@ function scoreBar(pct: number): HTMLElement {
   fill.style.background = pct >= 55 ? '#2a6b3a' : pct >= 45 ? '#d8961f' : '#c0531f';
   wrap.appendChild(fill);
   return wrap;
-}
-
-// "1.e4 e5 2.Nf3 Nc6 3.Bc4" from a flat SAN list.
-function formatSanLine(sans: string[]): string {
-  let out = '';
-  for (let i = 0; i < sans.length; i++) {
-    if (i % 2 === 0) out += `${i / 2 + 1}.${sans[i]} `;
-    else out += `${sans[i]} `;
-  }
-  return out.trim();
 }
 
 function suggestionCard(stat: OpeningStat, deps: LinesDeps): HTMLElement {

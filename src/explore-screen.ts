@@ -49,6 +49,7 @@ import { renderFamilyGroups } from './line-groups';
 import { buildEmptyState } from './empty-state';
 import { pushBack } from './back-nav';
 import { getScoutingEnabled } from './prefs';
+import { formatSanLine } from './notation';
 
 const PLATFORM_LABEL = { chesscom: 'Chess.com', lichess: 'Lichess' } as const;
 // Most-played list cap before "Show all".
@@ -1566,16 +1567,6 @@ function chip(text: string): HTMLElement {
   el.className = 'tag-chip';
   el.textContent = text;
   return el;
-}
-
-// "1.e4 e5 2.Nf3 Nc6 3.Bc4" from a flat SAN list.
-function formatSanLine(sans: string[]): string {
-  let out = '';
-  for (let i = 0; i < sans.length; i++) {
-    if (i % 2 === 0) out += `${i / 2 + 1}.${sans[i]} `;
-    else out += `${sans[i]} `;
-  }
-  return out.trim();
 }
 
 // "just now" / "3h ago" / "5d ago" from an ISO timestamp.

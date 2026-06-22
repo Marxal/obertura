@@ -4,6 +4,7 @@ import type { Key } from 'chessground/types';
 import { Icons } from './icons';
 import { cloudLine, type CloudLine } from './engine';
 import { pushBack } from './back-nav';
+import { formatMove } from './notation';
 
 // ── Line explorer ────────────────────────────────────────────────────────────
 //
@@ -198,7 +199,7 @@ export function openExplorer(
       const chip = document.createElement('button');
       chip.type = 'button';
       chip.className = 'explore-line-move';
-      chip.textContent = line.sanLine[i];
+      chip.textContent = formatMove(line.sanLine[i]);
       // Tapping a move plays the line up to and including it.
       chip.addEventListener('click', () => playInto(line, i));
       lineEl.appendChild(chip);

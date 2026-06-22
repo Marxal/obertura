@@ -21,6 +21,7 @@ import { wdlScoreRow } from './wdl-bar';
 import { nameForPath } from './openings';
 import type { NodeActionContext } from './repertoire-map';
 import type { ImportedGame } from './import-core';
+import { formatMove } from './notation';
 import { getGamesSource } from './import-panel';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -358,7 +359,7 @@ export function openBoardExplorer(opts: BoardExplorerOptions): void {
 
       const move = document.createElement('span');
       move.className = 'bx-move';
-      move.textContent = `${prefix} ${c.san}`;
+      move.textContent = `${prefix} ${formatMove(c.san)}`;
       row.appendChild(move);
 
       row.appendChild(wdlScoreRow(

@@ -23,6 +23,7 @@ import {
 import { openRepertoireMap } from './repertoire-map';
 import { userAvatar } from './avatar';
 import { Icons } from './icons';
+import { formatMove } from './notation';
 import { wdlScoreRow, wdlBar, type WdlCounts } from './wdl-bar';
 import { fetchExplorer, type ExplorerCounts } from './lichess-explorer';
 import { platformLabel } from './board-explorer';
@@ -133,7 +134,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
       row.className = 'lib-bx-row';
       row.addEventListener('click', () => deps.onPlay(uci));
 
-      row.appendChild(span('lib-bx-move', `${prefix} ${san}`));
+      row.appendChild(span('lib-bx-move', `${prefix} ${formatMove(san)}`));
       row.appendChild(span('lib-bx-name', label));
       const stat = span('lib-bx-count', `${child.count}`);
       row.appendChild(stat);
@@ -199,7 +200,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
         row.className = 'bx-row';
         row.addEventListener('click', () => deps.onPlay(c.uci));
 
-        row.appendChild(span('bx-move', `${prefix} ${c.san}`));
+        row.appendChild(span('bx-move', `${prefix} ${formatMove(c.san)}`));
         row.appendChild(wdlScoreRow(
           { wins: c.wins, draws: c.draws, losses: c.losses, scorePct: statScorePct(c), games: c.games },
           `${c.games}`,

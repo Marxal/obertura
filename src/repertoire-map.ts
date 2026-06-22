@@ -18,6 +18,7 @@ import { statScorePct, topReply, type StatNode } from './move-stats';
 import { wdlScoreRow } from './wdl-bar';
 import type { ImportedGame } from './import-core';
 import { getGamesSource } from './import-panel';
+import { formatMove } from './notation';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 const NS = 'http://www.w3.org/2000/svg';
@@ -358,7 +359,7 @@ function drawNodes(
     txt.setAttribute('y', String(n.y + NH / 2 + 5));
     txt.setAttribute('text-anchor', 'middle');
     txt.setAttribute('class', 'rmap-node-text');
-    txt.textContent = n.san;
+    txt.textContent = formatMove(n.san);
     g.appendChild(txt);
 
     // No-ops when the node has no stats (e.g. repertoire moves never played).
@@ -415,7 +416,7 @@ function statsBlock(n: MapNode, caption: string): HTMLElement {
   if (reply) {
     const r = document.createElement('div');
     r.className = 'rmap-pos-meta';
-    r.textContent = `Most common reply: ${reply.san} (${Math.round((reply.games / s.games) * 100)}%)`;
+    r.textContent = `Most common reply: ${formatMove(reply.san)} (${Math.round((reply.games / s.games) * 100)}%)`;
     wrap.appendChild(r);
   }
 
@@ -535,7 +536,7 @@ function makePreview(
 
     const san = document.createElement('div');
     san.className = 'rmap-pos-san';
-    san.textContent = n.san;
+    san.textContent = formatMove(n.san);
     infoCol.appendChild(san);
 
     if (opts.stats && n.stats && n.stats.games > 0) {
