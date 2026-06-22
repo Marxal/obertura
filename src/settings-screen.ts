@@ -160,7 +160,7 @@ function buildAboutGroup(): HTMLElement {
   const sec = staticGroup('Feedback & about', Icons.note(16));
 
   sec.appendChild(linkRow('Send feedback', openFeedbackSheet, Icons.note(18)));
-  sec.appendChild(linkRow('Beta survey', openSurvey, Icons.note(18)));
+  sec.appendChild(linkRow('Beta survey', openSurvey, Icons.list(18)));
   // Replay the first-launch intro on demand — the seen-flag stays set, so it
   // doesn't reappear on its own afterwards.
   sec.appendChild(linkRow('Replay intro', () => showIntro(), Icons.play(18)));

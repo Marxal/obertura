@@ -7,16 +7,17 @@
 //     Settings "Beta survey" row.
 //
 // The survey is a focused, one-question-at-a-time form on its own full-screen
-// page: an intro, then a question per screen with Next / Skip, then a thank-you.
-// Every answer — and the current step — autosaves to a localStorage draft, so
-// closing the app (or anything else) never loses progress; reopening resumes
-// exactly where you left off. A successful submit clears the draft and sets
-// SENT_KEY, so the banner never returns. Everything is device-local apart from
-// the single POST.
+// page: an intro, then a question per screen with Next / Back / Skip, then a
+// thank-you. Every answer — and the current step — autosaves to a localStorage
+// draft, so closing the app (or anything else) never loses progress; reopening
+// resumes exactly where you left off. A successful submit clears the draft and
+// sets SENT_KEY, so the banner never returns. Everything is device-local apart
+// from the single POST.
 
 import { deviceLabel } from './feedback';
 import { pushBack } from './back-nav';
 import { Icons } from './icons';
+import { celebratePawn } from './confetti';
 
 const ACCESS_KEY = '07647d12-a144-4031-a14c-2c8cc3145650';
 const ENDPOINT = 'https://api.web3forms.com/submit';
@@ -178,11 +179,11 @@ function makeOtherInput(onChange: () => void): { el: HTMLInputElement; get(): st
 
 // Single-choice: option cards, one selected at a time. An "Other" option reveals
 // a text field, and the typed text rides along in the sent value.
-function buildSingle(id: string, label: string, opts: Opt[], onChange: () => void): Field {
+function buildSingle(id: string, label: string, opts: Opt[], onChange: () => void, sub?: string): Field {
   const norm = opts.map(normOpt);
   const wrap = document.createElement('div');
   wrap.className = 'survey-q';
-  wrap.appendChild(questionLabel(label));
+  wrap.appendChild(questionLabel(label, sub));
 
   const group = document.createElement('div');
   group.className = 'survey-options';
@@ -233,11 +234,11 @@ function buildSingle(id: string, label: string, opts: Opt[], onChange: () => voi
 
 // Multi-choice: the same cards, several active at once; the chosen labels come
 // back joined by "; ". "Other" works as in buildSingle.
-function buildMulti(id: string, label: string, opts: Opt[], onChange: () => void): Field {
+function buildMulti(id: string, label: string, opts: Opt[], onChange: () => void, sub?: string): Field {
   const norm = opts.map(normOpt);
   const wrap = document.createElement('div');
   wrap.className = 'survey-q';
-  wrap.appendChild(questionLabel(label));
+  wrap.appendChild(questionLabel(label, sub));
 
   const group = document.createElement('div');
   group.className = 'survey-options';
@@ -405,8 +406,20 @@ export function openSurvey(): void {
   const sheet = document.createElement('div');
   sheet.className = 'edit-sheet edit-sheet--full survey-page';
 
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // A subtle slide-and-fade as each screen arrives. Re-triggers on every render
+  // because we animate the freshly-shown element directly (skipped if the user
+  // prefers reduced motion).
+  function animateIn(el: HTMLElement): void {
+    if (reduceMotion) return;
+    el.animate(
+      [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }],
+      { duration: 260, easing: 'cubic-bezier(0.2, 0.7, 0.3, 1)' },
+    );
+  }
+
   // ── Back-nav: a single armed layer that steps back one screen (or closes at
-  // the intro), re-arming itself so every press is caught. ──
+  // the intro / after submit), re-arming itself so every press is caught. ──
   let closed = false;
   let submitted = false;
   let removeBack: (() => void) | null = null;
@@ -461,11 +474,19 @@ export function openSurvey(): void {
   const primary = document.createElement('button');
   primary.type = 'button';
   primary.className = 'btn-primary survey-next';
+  // A discreet Back sits beside Skip, for people who don't spot the top arrow.
+  const footLinks = document.createElement('div');
+  footLinks.className = 'survey-foot-links';
+  const backInline = document.createElement('button');
+  backInline.type = 'button';
+  backInline.className = 'survey-skip';
+  backInline.textContent = 'Back';
   const skip = document.createElement('button');
   skip.type = 'button';
   skip.className = 'survey-skip';
-  skip.textContent = 'Skip this question';
-  footer.append(status, primary, skip);
+  skip.textContent = 'Skip';
+  footLinks.append(backInline, skip);
+  footer.append(status, primary, footLinks);
   sheet.appendChild(footer);
 
   // ── Build the fields, then the question steps ──
@@ -473,32 +494,38 @@ export function openSurvey(): void {
 
   const allFields: Field[] = [];
   const qsteps: Step[] = [];
-  const single = (id: string, label: string, opts: Opt[]) => buildSingle(id, label, opts, onChange);
-  const multi = (id: string, label: string, opts: Opt[]) => buildMulti(id, label, opts, onChange);
+  const single = (id: string, label: string, opts: Opt[], sub?: string) => buildSingle(id, label, opts, onChange, sub);
+  const multi = (id: string, label: string, opts: Opt[], sub?: string) => buildMulti(id, label, opts, onChange, sub);
+  const PICK_MANY = 'You can choose more than one.';
 
   // You & chess
   qsteps.push(oneFieldStep('You & chess', single('q01_player_type', 'How would you describe yourself as a chess player?', [
     { v: 'Casual player', e: '🙂' }, { v: 'Club player', e: '♟️' }, { v: 'Tournament player', e: '🏆' },
   ])));
   qsteps.push(oneFieldStep('You & chess', single('q02_play_online', 'How often do you play online?', [
-    { v: 'Daily', e: '🔥' }, 'A few times a week', 'Occasionally', 'Rarely',
+    { v: 'Daily', e: '🔥' }, { v: 'A few times a week', e: '📆' }, { v: 'Occasionally', e: '🤏' }, { v: 'Rarely', e: '🦥' },
   ])));
-  qsteps.push(oneFieldStep('You & chess', buildText('q03_hardest_about_openings',
-    "What's the hardest part of learning and remembering openings?", onChange,
-    { placeholder: 'Move orders, the plans behind them, transpositions…' })));
+  qsteps.push(oneFieldStep('You & chess', single('q03_hardest_about_openings',
+    "What's the hardest part of learning and remembering openings?", [
+      { v: 'Choose where to stop building the line', e: '✂️' },
+      { v: 'Understanding the why of each move', e: '🤔' },
+      { v: 'Why study, if what I study never happens on the board', e: '🤷' },
+      { v: 'Other', e: '💬' },
+    ])));
   qsteps.push(oneFieldStep('You & chess', multi('q04_other_apps', 'Which opening or training tools have you used before?', [
-    'Lotus Chess', 'Chessbook', 'ChessReps', 'Aimchess', 'Chesstempo', 'RepertoLab', 'None', 'Other',
-  ])));
+    { v: 'Lotus Chess', e: '🪷' }, { v: 'Chessbook', e: '📘' }, { v: 'ChessReps', e: '🔁' }, { v: 'Aimchess', e: '🎯' },
+    { v: 'Chesstempo', e: '⏱️' }, { v: 'RepertoLab', e: '🧪' }, { v: 'None', e: '🚫' }, { v: 'Other', e: '💬' },
+  ], PICK_MANY)));
 
   // Your week with Obertura
   qsteps.push(oneFieldStep('Your week with Obertura', single('q05_frequency', 'How often did you use Obertura this week?', [
-    { v: 'Most days', e: '🔥' }, 'A few times', 'Once or twice', { v: 'Almost never', e: '😴' },
+    { v: 'Most days', e: '🔥' }, { v: 'A few times', e: '🙂' }, { v: 'Once or twice', e: '🤏' }, { v: 'Almost never', e: '😴' },
   ])));
   qsteps.push(oneFieldStep('Your week with Obertura', single('q06_lines_added', 'Roughly how many lines did you add?', [
-    '0-5', '5-10', '10-20', { v: 'More than 20', e: '📈' },
+    { v: '0-5', e: '🌱' }, { v: '5-10', e: '📈' }, { v: '10-20', e: '💪' }, { v: 'More than 20', e: '🚀' },
   ])));
   qsteps.push(oneFieldStep('Your week with Obertura', single('q07_best_add_method', 'How did you usually add new lines?', [
-    'Manually on the board',
+    { v: 'Manually on the board', e: '✋' },
     { v: 'Browsing the opening library', e: '📚' },
     { v: 'Importing my games', e: '⬇️' },
     { v: 'Preparing against an opponent', e: '🎯' },
@@ -506,44 +533,44 @@ export function openSurvey(): void {
   ])));
   qsteps.push(oneFieldStep('Your week with Obertura', single('q08_top_mode', 'Which training mode did you use most?', [
     { v: 'Due Queue', e: '⏳' }, { v: 'Quick Fixes', e: '🔧' }, { v: 'Time Attack', e: '⏱️' },
-    { v: 'Fresh Lines', e: '🌱' }, { v: 'Trouble Spots', e: '⚠️' }, "I didn't train",
+    { v: 'Fresh Lines', e: '🌱' }, { v: 'Trouble Spots', e: '⚠️' }, { v: "I didn't train", e: '🙈' },
   ])));
 
   // The learning experience
   qsteps.push(oneFieldStep('The learning experience',
     single('q09_loop_made_sense', 'Did that workflow make sense?', [
-      { v: 'Yes, immediately', e: '✅' }, 'It took a little while', { v: 'Not really', e: '🤔' },
+      { v: 'Yes, immediately', e: '✅' }, { v: 'It took a little while', e: '🐢' }, { v: 'Not really', e: '🤔' },
     ]),
     'Obertura is built around a simple cycle: build a line → play it → review it later.'));
   qsteps.push(oneFieldStep('The learning experience', single('q10_training_useful', 'Did your training sessions feel useful?', [
-    { v: 'Almost always', e: '🎯' }, 'Most of the time', 'About half the time', { v: 'Rarely', e: '😕' },
+    { v: 'Almost always', e: '🎯' }, { v: 'Most of the time', e: '👍' }, { v: 'About half the time', e: '⚖️' }, { v: 'Rarely', e: '😕' },
   ])));
   qsteps.push(oneFieldStep('The learning experience', multi('q11_stopped_using', 'What, if anything, stopped you from using the app more?', [
     { v: 'Nothing, I used it as much as I wanted', e: '👍' },
-    "I wasn't sure what to do next",
-    'Adding lines took too much effort',
-    'Training felt repetitive',
+    { v: "I wasn't sure what to do next", e: '🤷' },
+    { v: 'Adding lines took too much effort', e: '😮‍💨' },
+    { v: 'Training felt repetitive', e: '🔁' },
     { v: 'I lost interest', e: '😐' },
     { v: 'I ran into bugs', e: '🐛' },
     { v: "I didn't have time", e: '⏰' },
-    'Other',
-  ])));
+    { v: 'Other', e: '💬' },
+  ], PICK_MANY)));
 
   // Future directions
   qsteps.push(oneFieldStep('Future directions', single('q12_curated_repertoires', 'Would you use ready-made repertoires as a starting point?', [
     { v: "Yes, that's how I'd begin", e: '📚' },
-    'Maybe, alongside building my own',
-    "No, I'd rather build everything myself",
+    { v: 'Maybe, alongside building my own', e: '🤝' },
+    { v: "No, I'd rather build everything myself", e: '🛠️' },
   ])));
   qsteps.push(oneFieldStep('Future directions', single('q13_browser_desktop', 'Would you use Obertura on a computer?', [
-    { v: 'Yes, regularly', e: '💻' }, 'Sometimes', 'Probably not',
+    { v: 'Yes, regularly', e: '💻' }, { v: 'Sometimes', e: '🙂' }, { v: 'Probably not', e: '🙅' },
   ])));
   qsteps.push(oneFieldStep('Future directions',
     single('q14_data_preference', 'Which option would you prefer?', [
       { v: 'Local-only, with manual export/import', e: '📱' },
       { v: 'Google Drive backup and sync', e: '☁️' },
       { v: 'An account that syncs across devices', e: '🔐' },
-      'Other',
+      { v: 'Other', e: '💬' },
     ]),
     'Currently, your repertoire is stored only on this device.'));
   qsteps.push(oneFieldStep('Future directions', single('q15_payment_preference', 'If Obertura became a paid product, what would feel most reasonable?', [
@@ -551,7 +578,7 @@ export function openSurvey(): void {
     { v: 'Monthly subscription', e: '🔁' },
     { v: 'Free with ads', e: '📺' },
     { v: "I wouldn't pay", e: '🙅' },
-    'Other',
+    { v: 'Other', e: '💬' },
   ])));
 
   // Quality & improvements
@@ -563,7 +590,7 @@ export function openSurvey(): void {
     { v: 'Google Drive sync', e: '☁️' },
     { v: 'Curated puzzles based on positions from my repertoire', e: '🧩' },
     { v: 'Curated repertoires with explanations', e: '📖' },
-    'Other',
+    { v: 'Other', e: '💬' },
   ])));
 
   // The name — five ratings plus a free-text suggestion, all on one screen.
@@ -588,9 +615,22 @@ export function openSurvey(): void {
     qsteps.push({ el, fields });
   }
 
-  // Last — optional contact.
-  qsteps.push(oneFieldStep('Before you go', buildText('contact', 'Your name or email (optional)', onChange,
-    { rows: 2, sub: "If you'd like me to follow up.", placeholder: 'name@example.com' })));
+  // Before you go — any other feedback, then optional contact.
+  {
+    const el = document.createElement('div');
+    el.className = 'survey-step';
+    el.appendChild(sectionHeader('Before you go'));
+    const fields: Field[] = [];
+    const fb = buildText('other_feedback', 'Is there any other feedback you’d like to leave?', onChange,
+      { rows: 3, placeholder: 'Anything at all — what you loved, what annoyed you, an idea…' });
+    fields.push(fb);
+    el.appendChild(fb.el);
+    const contact = buildText('contact', 'Your name or email (optional)', onChange,
+      { rows: 2, sub: "If you'd like me to follow up.", placeholder: 'name@example.com' });
+    fields.push(contact);
+    el.appendChild(contact.el);
+    qsteps.push({ el, fields });
+  }
 
   for (const s of qsteps) allFields.push(...s.fields);
 
@@ -609,11 +649,7 @@ export function openSurvey(): void {
   const fine = document.createElement('p');
   fine.className = 'survey-intro-fine';
   fine.textContent = 'Your answers are emailed straight to me. Nothing else is collected.';
-  const arrow = document.createElement('div');
-  arrow.className = 'survey-arrow';
-  arrow.setAttribute('aria-hidden', 'true');
-  arrow.appendChild(Icons.chevronDown(30));
-  introEl.append(lead, text, fine, arrow);
+  introEl.append(lead, text, fine);
 
   // ── Honeypot — present for bots, off-screen and inert for people (copied from
   // feedback.ts). Web3Forms rejects the submission if it comes back filled. ──
@@ -640,19 +676,22 @@ export function openSurvey(): void {
   function render(): void {
     while (body.firstChild) body.removeChild(body.firstChild);
     status.textContent = '';
+    const screen = current <= 0 ? introEl : qsteps[current - 1].el;
+    body.appendChild(screen);
     if (current <= 0) {
-      body.appendChild(introEl);
       prog.style.visibility = 'hidden';
     } else {
-      body.appendChild(qsteps[current - 1].el);
       prog.style.visibility = 'visible';
       updateProgress();
     }
     const last = current === qsteps.length;
     primary.textContent = current <= 0 ? 'Start the survey' : last ? 'Send your answers' : 'Next';
     primary.disabled = false;
+    footLinks.hidden = current <= 0;
+    backInline.hidden = !(current > 1);
     skip.hidden = !(current > 0 && !last);
     body.scrollTop = 0;
+    animateIn(screen);
   }
 
   primary.addEventListener('click', () => {
@@ -661,6 +700,9 @@ export function openSurvey(): void {
     current += 1;
     render();
     persistDraft();
+  });
+  backInline.addEventListener('click', () => {
+    if (current > 1) { current -= 1; render(); persistDraft(); }
   });
   skip.addEventListener('click', () => {
     if (current > 0 && current < qsteps.length) { current += 1; render(); persistDraft(); }
@@ -684,7 +726,7 @@ export function openSurvey(): void {
   // ── Submit ──
   async function submit(): Promise<void> {
     primary.disabled = true;
-    skip.hidden = true;
+    footLinks.hidden = true;
     status.textContent = 'Sending…';
 
     const payload: Record<string, unknown> = {
@@ -712,14 +754,16 @@ export function openSurvey(): void {
         const reason = (data && (data.message as string)) || `HTTP ${res.status}`;
         status.textContent = `Couldn’t send — ${reason}. Please try again.`;
         primary.disabled = false;
+        footLinks.hidden = false;
       }
     } catch {
       status.textContent = 'Couldn’t send — you may be offline. Please try again.';
       primary.disabled = false;
+      footLinks.hidden = false;
     }
   }
 
-  // ── Thank-you — a full-size animated pawn and "Back to train". ──
+  // ── Thank-you — the success-screen pixel pawn and "Back to train". ──
   function renderThanks(): void {
     submitted = true;
     prog.style.visibility = 'hidden';
@@ -728,18 +772,16 @@ export function openSurvey(): void {
 
     const wrap = document.createElement('div');
     wrap.className = 'survey-thanks';
-    const pawn = document.createElement('div');
-    pawn.className = 'survey-pawn';
-    pawn.setAttribute('aria-hidden', 'true');
-    pawn.appendChild(Icons.pawn(110));
+    wrap.appendChild(celebratePawn()); // same hopping pixel pawn as the training-finish screen
     const h = document.createElement('h2');
     h.className = 'survey-thanks-title';
     h.textContent = 'Thank you! 🎉';
     const p = document.createElement('p');
     p.className = 'survey-thanks-body';
     p.textContent = 'Your answers are on their way. This genuinely helps shape where Obertura goes next.';
-    wrap.append(pawn, h, p);
+    wrap.append(h, p);
     body.appendChild(wrap);
+    animateIn(wrap);
 
     const backToTrain = document.createElement('button');
     backToTrain.type = 'button';
