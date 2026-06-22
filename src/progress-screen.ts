@@ -390,7 +390,7 @@ function renderQuickStats(container: HTMLElement, lines: Line[], cb: ProgressCal
   row.appendChild(quickBox('lines', Icons.pawn(18), lines.length, 'Lines',
     () => openLinesSheet(cb, 'All lines', lines, 'No saved lines yet.', cb.onBuildLine)));
 
-  row.appendChild(quickBox('training', Icons.zap(18), inTraining.length, 'In training',
+  row.appendChild(quickBox('training', Icons.zap(18), inTraining.length, 'Training',
     () => openLinesSheet(cb, 'In training', inTraining, 'No lines in training yet.', cb.onStartTraining)));
 
   row.appendChild(quickBox('mastered', Icons.star(18), mastered.length, 'Mastered',
@@ -407,15 +407,16 @@ function quickBox(kind: string, icon: SVGElement, n: number, label: string, onCl
   cell.type = 'button';
   cell.className = `stats-quick-cell stats-quick-cell--${kind}`;
 
-  const iconWrap = document.createElement('span');
-  iconWrap.className = 'stats-quick-icon';
-  iconWrap.appendChild(icon);
-  cell.appendChild(iconWrap);
-
+  // Visual order: number first, then icon, then label (DOM order = column order).
   const numEl = document.createElement('span');
   numEl.className = 'stats-quick-num';
   numEl.textContent = String(n);
   cell.appendChild(numEl);
+
+  const iconWrap = document.createElement('span');
+  iconWrap.className = 'stats-quick-icon';
+  iconWrap.appendChild(icon);
+  cell.appendChild(iconWrap);
 
   const lblEl = document.createElement('span');
   lblEl.className = 'stats-quick-label';
@@ -560,18 +561,21 @@ function renderRememberedFailed(container: HTMLElement): void {
   totals.className = 'stats-rf-totals';
   section.appendChild(totals);
 
-  section.appendChild(buildSegmented<StatsRange>(
-    [['week', 'Week'], ['month', 'Month'], ['all', 'All']],
-    range,
-    r => { range = r; setStatsRange(r); rebuild(); },
-  ));
-
   const chartEl = document.createElement('div');
+  chartEl.className = 'stats-rf-chart';
   section.appendChild(chartEl);
 
   const detailEl = document.createElement('div');
   detailEl.className = 'stats-rf-detail';
   section.appendChild(detailEl);
+
+  // Range chips sit below the chart + caption: they drive only this chart, not
+  // the four quick boxes above.
+  section.appendChild(buildSegmented<StatsRange>(
+    [['week', 'Week'], ['month', 'Month'], ['all', 'All']],
+    range,
+    r => { range = r; setStatsRange(r); rebuild(); },
+  ));
 
   function rebuild(): void {
     const bars = reviewBars(getReviewLog(), range);
