@@ -11,11 +11,11 @@ import {
   masteredLines,
   needsWorkMoves,
   reviewBars,
-  rangeDays,
   winRateByOpening,
   winRateOverTime,
   mostPlayedOpenings,
   bestScoringOpenings,
+  worstScoringOpenings,
 } from './stats';
 import type { DayOutcome } from './streak';
 
@@ -125,16 +125,28 @@ export function runStatsSelfTest(): TestResult[] {
   const week = reviewBars(log, 'week', today);
   const todayBar = week[week.length - 1];
   check(
-    'reviewBars spans the range, marks today, fills zeroes',
-    rangeDays('week') === 7 && week.length === 7 &&
+    'reviewBars spans the week, marks today, fills zeroes',
+    week.length === 7 &&
       todayBar.isToday && todayBar.remembered === 7 && todayBar.failed === 2 &&
       week[0].remembered === 0 && week[0].failed === 0,
     `${week.length} bars, today ${todayBar.remembered}/${todayBar.failed}`,
   );
   check(
-    'reviewBars range lengths: today=1, month=30',
-    reviewBars(log, 'today', today).length === 1 && reviewBars(log, 'month', today).length === 30,
-    `today ${reviewBars(log, 'today', today).length}, month ${reviewBars(log, 'month', today).length}`,
+    'reviewBars range lengths: week=7, month=30',
+    reviewBars(log, 'week', today).length === 7 && reviewBars(log, 'month', today).length === 30,
+    `week ${reviewBars(log, 'week', today).length}, month ${reviewBars(log, 'month', today).length}`,
+  );
+  // 'all' spans from the earliest logged day to today (Jun 1 → Jun 22 = 22 days).
+  const allLog: DayOutcome[] = [
+    { day: '2026-06-01', remembered: 1, failed: 0 },
+    { day: '2026-06-22', remembered: 7, failed: 2 },
+  ];
+  const all = reviewBars(allLog, 'all', today);
+  check(
+    "reviewBars 'all' spans earliest-logged-day → today",
+    all.length === 22 && all[0].day === '2026-06-01' && all[0].remembered === 1 &&
+      all[all.length - 1].isToday,
+    `${all.length} bars, first ${all[0].day}`,
   );
 
   // 4. Win rate over time buckets by month, oldest first. Two wins in one month,
@@ -147,10 +159,11 @@ export function runStatsSelfTest(): TestResult[] {
     game('Italian Game', 'white', 'loss', 'e4 e5 Nf3 Nc6 Bc4', apr),
   ]);
   check(
-    'winRateOverTime buckets months oldest-first with the right score',
+    'winRateOverTime buckets months oldest-first with W-D-L and score',
     trend.length === 2 && trend[0].scorePct === 100 && trend[0].games === 2 &&
-      trend[1].scorePct === 0 && trend[0].startMs < trend[1].startMs,
-    trend.map(p => `${p.label} ${p.scorePct}%`).join(' → '),
+      trend[0].wins === 2 && trend[1].scorePct === 0 && trend[1].losses === 1 &&
+      trend[0].startMs < trend[1].startMs,
+    trend.map(p => `${p.label} ${p.scorePct}% (${p.wins}-${p.draws}-${p.losses})`).join(' → '),
   );
 
   // 5. Win-rate-by-opening joins my training mastery onto the games' family.
@@ -177,11 +190,12 @@ export function runStatsSelfTest(): TestResult[] {
   const allStats = analyseGames(many, []).stats;
   const most = mostPlayedOpenings(allStats);
   const best = bestScoringOpenings(allStats);
+  const worst = worstScoringOpenings(allStats);
   check(
-    'mostPlayed leads with the most-played; bestScoring leads with the top score',
+    'mostPlayed / bestScoring / worstScoring each lead with the right opening',
     most[0]?.family === 'Sicilian Defense' && best[0]?.family === 'Sicilian Defense' &&
-      best[0]?.scorePct === 100,
-    `most: ${most[0]?.family}; best: ${best[0]?.family} ${best[0]?.scorePct}%`,
+      best[0]?.scorePct === 100 && worst[0]?.family === 'Italian Game' && worst[0]?.scorePct === 0,
+    `most ${most[0]?.family}; best ${best[0]?.family} ${best[0]?.scorePct}%; worst ${worst[0]?.family} ${worst[0]?.scorePct}%`,
   );
 
   return results;

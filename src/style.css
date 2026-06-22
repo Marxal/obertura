@@ -8775,11 +8775,13 @@ cg-board square.move-dest.oc {
   color: var(--text-fainter);
 }
 
-/* Time selector — Today / Week / Month chips. */
+/* Segmented pill row — the Week/Month/All range selector, the trend colour
+   toggle and the scoring tabs all share this look. Sits inside a .section, which
+   already insets, so no horizontal margin of its own. */
 .stats-range {
   display: flex;
   gap: 0.4rem;
-  margin: 0.55rem 1rem 0;
+  margin: 0.55rem 0 0;
 }
 
 .stats-range-chip {
@@ -9198,3 +9200,116 @@ cg-board square.move-dest.oc {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+
+/* ── Statistics refinements (round 2) ─────────────────────────────────────── */
+
+/* The month calendar now rides inside the streak-hero accordion. */
+.stats-cal { margin-top: 0.7rem; }
+
+/* Remembered-vs-failed: coloured total pills under the title. */
+.stats-rf-totals {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.1rem 0 0.2rem;
+}
+
+.stats-rf-pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  color: #fff;
+}
+
+.stats-rf-pill--remembered { background: var(--success); }
+.stats-rf-pill--failed { background: var(--danger); }
+
+.stats-rf-pill-num {
+  font-size: 1rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-rf-pill-label { font-size: 0.7rem; font-weight: 600; opacity: 0.92; }
+
+/* Day columns are tappable buttons (tap → the detail readout below). */
+.stats-rf-col {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.stats-rf-col--sel .stats-rf-stack {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.stats-rf-detail {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  min-height: 1.1em;
+}
+
+/* Month/All axis ticks — evenly spaced, free to size (never clipped). */
+.stats-rf-ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.3rem;
+}
+
+.stats-rf-tick {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--text-fainter);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Win-rate-over-time controls — opening filter over the colour toggle. */
+.stats-trend-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.stats-trend-select {
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 0.8rem;
+}
+
+.stats-trend-controls .stats-range { margin: 0; }
+
+.stats-trend-detail {
+  margin-top: 0.45rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  min-height: 1.1em;
+}
+
+.stats-trend-dot--sel {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+/* Scoring tabs (Most played / Best / Worst) — the chip look, own spacing. */
+.stats-tabs {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+}
+
+/* The Your-games account strip aligns to the region inset (sections use a 16px
+   side margin; this row otherwise carries none). */
+.stats-games-identity { margin: 0 var(--space-lg); }
