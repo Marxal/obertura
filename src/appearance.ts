@@ -5,6 +5,7 @@
 // the wrong board.
 
 const BOARD_KEY = 'obertura.boardColour';
+const BOARD_MANUAL_KEY = 'obertura.boardColourManual';
 const PIECE_KEY = 'obertura.pieceSet';
 
 export type BoardColour = 'wood' | 'green' | 'blue' | 'grey';
@@ -70,8 +71,24 @@ export function getBoardColour(): BoardColour {
   return BOARD_VALUES.includes(v as BoardColour) ? (v as BoardColour) : 'wood';
 }
 
+// Whether the user has ever picked a board colour themselves (via the swatches
+// in Settings), as opposed to one set automatically as a theme's default. Once
+// true, theme changes must never touch the board colour again. Back-compat: any
+// colour stored before this flag existed can only have come from a user's own
+// swatch tap (setBoardColour was the only writer), so its presence alone counts
+// as manual and we stamp the flag in lazily on first check.
+export function hasManualBoardColour(): boolean {
+  if (localStorage.getItem(BOARD_MANUAL_KEY) === '1') return true;
+  if (localStorage.getItem(BOARD_KEY) !== null) {
+    localStorage.setItem(BOARD_MANUAL_KEY, '1');
+    return true;
+  }
+  return false;
+}
+
 export function setBoardColour(c: BoardColour): void {
   localStorage.setItem(BOARD_KEY, c);
+  localStorage.setItem(BOARD_MANUAL_KEY, '1');
   applyBoardColour(c);
 }
 
@@ -80,6 +97,26 @@ export function setBoardColour(c: BoardColour): void {
 export function applyBoardColour(c: BoardColour = getBoardColour()): void {
   if (c === 'wood') delete document.documentElement.dataset.board;
   else document.documentElement.dataset.board = c;
+}
+
+// The four named themes (system isn't one — it resolves to light or dark
+// without the user explicitly picking a theme), each with its own default board
+// colour. Applied whenever the user picks a theme, but only while they've never
+// chosen a board colour of their own (see hasManualBoardColour).
+export type NamedTheme = 'classic-light' | 'classic-dark' | 'elegant' | 'gamer';
+
+const THEME_BOARD_DEFAULT: Record<NamedTheme, BoardColour> = {
+  'classic-light': 'wood',
+  'classic-dark': 'grey',
+  elegant: 'green',
+  gamer: 'blue',
+};
+
+export function applyThemeDefaultBoardColour(theme: NamedTheme): void {
+  if (hasManualBoardColour()) return;
+  const colour = THEME_BOARD_DEFAULT[theme];
+  localStorage.setItem(BOARD_KEY, colour);
+  applyBoardColour(colour);
 }
 
 // Apply both at boot (theme.ts handles light/dark separately). The piece set may
