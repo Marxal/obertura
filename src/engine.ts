@@ -30,6 +30,25 @@ export type EvalCallback = (result: EvalResult) => void;
 const MAX_DEPTH = 20;
 const LICHESS_CLOUD = 'https://lichess.org/api/cloud-eval';
 
+// Cloud-eval works anonymously, but a Lichess token raises the rate limit and
+// keeps working if Lichess tightens anonymous access. The app injects a token
+// getter at boot (see setCloudAuthToken); headless self-tests never set one, so
+// engine.ts stays free of the OAuth import and its window/localStorage needs.
+let cloudTokenProvider: (() => Promise<string | null>) | null = null;
+
+export function setCloudAuthToken(provider: () => Promise<string | null>): void {
+  cloudTokenProvider = provider;
+}
+
+async function cloudAuthHeaders(): Promise<Record<string, string>> {
+  try {
+    const token = cloudTokenProvider ? await cloudTokenProvider() : null;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
+
 // Returns true if userUci is a "good alternative" at this position — i.e. it
 // appears in Lichess cloud's top-3 lines AND is within `threshold` centipawns
 // of the best move. Falls back to false on any network/parse failure.
@@ -40,7 +59,7 @@ export async function isGoodAlternative(
 ): Promise<boolean> {
   try {
     const url = `${LICHESS_CLOUD}?fen=${encodeURIComponent(fen)}&multiPv=3`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+    const res = await fetch(url, { signal: AbortSignal.timeout(4000), headers: await cloudAuthHeaders() });
     if (!res.ok) return false;
 
     const data = await res.json() as {
@@ -126,12 +145,25 @@ interface CloudEval {
   pvs?: Array<{ moves?: string; cp?: number; mate?: number }>;
 }
 
+// The cloud's top moves from a position, in order (best first), with cp/mate left
+// in Lichess's side-to-move (mover) perspective — handy for explaining a move
+// from the mover's point of view. Null when the position isn't in the cloud.
+export interface CloudTopMove { uci: string; cp?: number; mate?: number }
+
+export async function cloudTopMoves(fen: string): Promise<CloudTopMove[] | null> {
+  const data = await cloudEval(fen);
+  if (!data?.pvs?.length) return null;
+  return data.pvs
+    .map(pv => ({ uci: pv.moves?.trim().split(/\s+/)[0] ?? '', cp: pv.cp, mate: pv.mate }))
+    .filter(m => m.uci);
+}
+
 // Single multiPv=3 cloud-eval request, shared by the graders. Resolves to the
 // parsed body or null on any failure.
 async function cloudEval(fen: string): Promise<CloudEval | null> {
   try {
     const url = `${LICHESS_CLOUD}?fen=${encodeURIComponent(fen)}&multiPv=3`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+    const res = await fetch(url, { signal: AbortSignal.timeout(4000), headers: await cloudAuthHeaders() });
     if (!res.ok) return null;
     return await res.json() as CloudEval;
   } catch {
@@ -354,7 +386,7 @@ export class Engine {
     this.abortCtrl = new AbortController();
     try {
       const url = `${LICHESS_CLOUD}?fen=${encodeURIComponent(fen)}&multiPv=3`;
-      const res = await fetch(url, { signal: this.abortCtrl.signal });
+      const res = await fetch(url, { signal: this.abortCtrl.signal, headers: await cloudAuthHeaders() });
       if (!res.ok) return null;
 
       const data = await res.json() as {

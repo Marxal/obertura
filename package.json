@@ -13,7 +13,8 @@
     "build-explorer-stats": "node scripts/build-explorer-stats.mjs",
     "build-starter-packs": "node scripts/build-starter-packs.mjs",
     "build-traps": "node scripts/build-traps.mjs",
-    "build-traps-lichess": "node scripts/build-traps-from-lichess.mjs"
+    "build-traps-lichess": "node scripts/build-traps-from-lichess.mjs",
+    "build-puzzle-openings": "node scripts/build-puzzle-openings.mjs"
   },
   "dependencies": {
     "@bity/oauth2-auth-code-pkce": "^2.13.0",
