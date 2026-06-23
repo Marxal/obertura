@@ -281,7 +281,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     recordSeenPuzzle(draw.puzzle.id);
     solution = setup.solution;
     solverColour = setup.solverColour;
-    solIndex = 1;
+    solIndex = 0;            // the solver plays solution[0] first
     failed = false;
     awaitingReplay = false;
 
@@ -295,13 +295,13 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     });
     ratingEl.textContent = `Rating ${draw.puzzle.rating}`;
 
-    // Animate the opponent's setup move (solution[0]), then hand over.
+    // The solver is already to move — prompt and hand over (no opponent setup
+    // move; the pgn already ended with it).
     autoTimer = setTimeout(() => {
       if (isCleaned) return;
-      playMove(setup.setupMove);
       setStatus(`${solverColour === 'white' ? 'White' : 'Black'} to play — find the best move`, 'pt-status--prompt');
       handToSolver();
-    }, 520);
+    }, 360);
   }
 
   function revealCorrect(): void {

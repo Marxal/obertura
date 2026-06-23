@@ -76,9 +76,10 @@ export function runPuzzlesSelfTest(): TestResult[] {
 
   // ── Position replay ────────────────────────────────────────────────────────
   // Game: 1.e4 e5 2.Nf3 Nc6 (4 plies, white to move). Real puzzles set
-  // initialPly to pgnPlies - 1 (the pgn is truncated to the puzzle), so the whole
-  // pgn must be replayed. The opponent's setup move is Bc4 (f1c4); after it, black
-  // is the solver.
+  // initialPly to pgnPlies - 1 (the pgn is truncated to the puzzle and ends with
+  // the opponent's blunder), so the whole pgn is replayed and the SOLVER is to
+  // move. solution[0] (Bc4 / f1c4) is the solver's own first move; here the solver
+  // is white.
   const p = makePuzzle({
     pgn: 'e4 e5 Nf3 Nc6',
     initialPly: 3,
@@ -87,14 +88,13 @@ export function runPuzzlesSelfTest(): TestResult[] {
   const setup = puzzleSetup(p);
   check('setup: builds', setup !== null);
   if (setup) {
-    check('setup: fen is the pre-setup position (white to move)', / w /.test(setup.fen), setup.fen);
-    check('setup: setupMove is solution[0]', setup.setupMove === 'f1c4');
-    check('setup: solver plays the other colour', setup.solverColour === 'black', setup.solverColour);
+    check('setup: fen is the solver position (white to move)', / w /.test(setup.fen), setup.fen);
+    check('setup: solver plays the side to move', setup.solverColour === 'white', setup.solverColour);
   }
 
-  // A nonsense setup move yields null rather than throwing.
+  // A nonsense first move yields null rather than throwing.
   const bad = puzzleSetup(makePuzzle({ pgn: 'e4 e5', initialPly: 1, solution: ['a1a8'] }));
-  check('setup: illegal setup move → null', bad === null);
+  check('setup: illegal first move → null', bad === null);
 
   return results;
 }
