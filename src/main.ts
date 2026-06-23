@@ -35,7 +35,7 @@ import { importLastGame, hasConnectedAccount } from './import-last';
 import { openEngineSpar, openExploreOpponent, importOpponentFlow } from './explore-screen';
 import { formatMove } from './notation';
 import { maybeShowSurveyBanner } from './survey';
-import { tryCallback as lichessTryCallback } from './lichess-auth';
+import { tryCallback as lichessTryCallback, takeReturn as lichessTakeReturn } from './lichess-auth';
 
 const chess = new Chess();
 let cg!: ReturnType<typeof Chessground>;
@@ -1727,14 +1727,29 @@ initAppearance();
 setupNav();
 
 // If we've just returned from "Connect to Lichess", complete the OAuth token
-// exchange and clean the URL. Fire-and-forget: the builder re-renders once a
-// token lands so the Library slide can start using the live explorer.
-void lichessTryCallback().then((connected) => {
-  if (connected) {
-    showToast('Connected to Lichess');
-    builderPanels?.render();
-  }
+// exchange and clean the URL. On a fresh connect we toast and, once the app has
+// finished booting, return the builder to the position the user connected from
+// (the redirect reloads the page, so we restore from the stashed move path).
+let lichessReturn: { ucis: string[]; colour: 'white' | 'black' } | null = null;
+let appBooted = false;
+void lichessTryCallback().then((justConnected) => {
+  if (!justConnected) return;
+  showToast('Connected to Lichess');
+  lichessReturn = lichessTakeReturn();
+  if (lichessReturn) maybeRestoreLichessReturn();
+  else builderPanels?.render();
 });
+
+// Replay the stashed position once both halves are ready: the OAuth callback has
+// resolved AND the app has booted (so cg/builder exist). Called from both sides.
+function maybeRestoreLichessReturn(): void {
+  if (!appBooted || !lichessReturn) return;
+  const { ucis, colour } = lichessReturn;
+  lichessReturn = null;
+  // Land back on the Library tab — where Connect lives — at the same position.
+  pendingBuilderSlide = LIBRARY_SLIDE;
+  buildFromUcis(ucis, colour);
+}
 
 // Stamp the install date on the very first launch — the beta survey banner
 // (survey.ts) waits a week from this timestamp before it first appears.
@@ -1849,6 +1864,12 @@ maybeShowGate(() => requestAnimationFrame(() => {
   // was created above while visible, so chessground sized itself correctly
   // before we switch away.
   showView('train');
+
+  // Now that cg/builder exist, replay a "Connect to Lichess" return if one is
+  // pending (the OAuth callback may have resolved before boot finished). This
+  // overrides the Train landing above, dropping the user back in the builder.
+  appBooted = true;
+  maybeRestoreLichessReturn();
 
   // A week after install, invite beta testers to the survey with a slim banner
   // (shown once per session until they submit — see survey.ts).

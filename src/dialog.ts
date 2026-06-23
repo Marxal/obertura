@@ -17,6 +17,9 @@ export interface DialogButton {
 export interface DialogOptions {
   title: string;
   body?: string;
+  // Discrete "learn more" links shown as a small row under the body. Open in a
+  // new tab; purely informational (no effect on the dialog).
+  links?: Array<{ label: string; href: string }>;
   buttons: DialogButton[];
   // Runs when the dialog is dismissed without a button — a backdrop tap or the
   // system back gesture. Defaults to nothing (the dialog just closes).
@@ -35,10 +38,28 @@ export function showDialog(opts: DialogOptions): void {
   sheet.appendChild(h);
 
   if (opts.body) {
-    const p = document.createElement('p');
-    p.className = 'section-desc';
-    p.textContent = opts.body;
-    sheet.appendChild(p);
+    // Blank lines split the body into separate paragraphs.
+    for (const para of opts.body.split('\n\n')) {
+      const p = document.createElement('p');
+      p.className = 'section-desc';
+      p.textContent = para;
+      sheet.appendChild(p);
+    }
+  }
+
+  if (opts.links?.length) {
+    const row = document.createElement('div');
+    row.className = 'dialog-links';
+    for (const l of opts.links) {
+      const a = document.createElement('a');
+      a.className = 'dialog-link';
+      a.href = l.href;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.textContent = `${l.label} ↗`;
+      row.appendChild(a);
+    }
+    sheet.appendChild(row);
   }
 
   const btnRow = document.createElement('div');
