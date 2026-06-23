@@ -35,6 +35,7 @@ import { importLastGame, hasConnectedAccount } from './import-last';
 import { openEngineSpar, openExploreOpponent, importOpponentFlow } from './explore-screen';
 import { formatMove } from './notation';
 import { maybeShowSurveyBanner } from './survey';
+import { tryCallback as lichessTryCallback } from './lichess-auth';
 
 const chess = new Chess();
 let cg!: ReturnType<typeof Chessground>;
@@ -1724,6 +1725,16 @@ const boardEl = document.getElementById('board') as HTMLElement;
 initTheme();
 initAppearance();
 setupNav();
+
+// If we've just returned from "Connect to Lichess", complete the OAuth token
+// exchange and clean the URL. Fire-and-forget: the builder re-renders once a
+// token lands so the Library slide can start using the live explorer.
+void lichessTryCallback().then((connected) => {
+  if (connected) {
+    showToast('Connected to Lichess');
+    builderPanels?.render();
+  }
+});
 
 // Stamp the install date on the very first launch — the beta survey banner
 // (survey.ts) waits a week from this timestamp before it first appears.

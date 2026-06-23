@@ -16,7 +16,7 @@ const NAMES = data as Record<string, string>;
 // the halfmove/fullmove clocks (they never affect the opening name). chess.js
 // only sets the en-passant square when a capture is genuinely available, so the
 // raw FEN matches the dataset without any normalisation.
-function epdKey(fen: string): string {
+export function epdKey(fen: string): string {
   return fen.split(' ').slice(0, 4).join(' ');
 }
 

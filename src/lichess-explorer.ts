@@ -41,6 +41,7 @@ let inflight: AbortController | null = null;
 export async function fetchExplorer(
   fen: string,
   db: ExplorerDb = 'lichess',
+  token?: string | null,
 ): Promise<Map<string, ExplorerCounts> | null> {
   const key = `${db}|${fen}`;
   const cached = cache.get(key);
@@ -55,7 +56,12 @@ export async function fetchExplorer(
       url += `&variant=standard&recentGames=0` +
         `&speeds=${ALL_SPEEDS}&ratings=${ALL_RATINGS}`;
     }
-    const res = await fetch(url, { signal: ctrl.signal });
+    // Lichess now gates the explorer behind a login; an anonymous request is
+    // blocked. The token (when connected) lets us through. Without one we still
+    // try — it just degrades to the bundled stats in the caller.
+    const headers: Record<string, string> = {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(url, { signal: ctrl.signal, headers });
     if (!res.ok) return null;
     const data = await res.json() as {
       moves?: Array<{ uci: string; white: number; draws: number; black: number }>;
@@ -67,7 +73,7 @@ export async function fetchExplorer(
     cache.set(key, map);
     return map;
   } catch {
-    return null; // offline / aborted / parse error — caller leaves the count
+    return null; // offline / aborted / CORS / parse error — caller falls back
   } finally {
     if (inflight === ctrl) inflight = null;
   }

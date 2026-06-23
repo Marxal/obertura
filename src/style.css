@@ -1218,29 +1218,27 @@ cg-board square.move-dest.oc {
 }
 .lib-bx-wdl .wdl-row { flex: 1; }
 
-/* The Library slide's database toggle: a segmented Masters / Lichess-players
-   control plus a small "i" that explains the source. */
+/* The Library slide's database toggle: a small segmented Masters / Lichess
+   control plus a tiny "i". Compact and left-aligned, not full width. */
 .lib-db-bar {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.1rem 0.25rem 0.4rem;
+  gap: 0.35rem;
+  padding: 0.1rem 0.25rem 0.35rem;
 }
 .lib-db-seg {
-  display: flex;
-  flex: 1;
+  display: inline-flex;
   border: 1px solid var(--hairline);
   border-radius: 999px;
   overflow: hidden;
   background: var(--surface-2, transparent);
 }
 .lib-db-opt {
-  flex: 1;
-  padding: 0.4rem 0.5rem;
+  padding: 0.18rem 0.6rem;
   border: none;
   background: transparent;
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -1250,14 +1248,31 @@ cg-board square.move-dest.oc {
   color: var(--accent-contrast, #fff);
 }
 .lib-db-info {
-  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0.25rem;
+  padding: 0.15rem;
   border: none;
   background: transparent;
   color: var(--text-faint);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* A slim "Connect Lichess for every position" nudge under the toggle, shown only
+   while disconnected. */
+.lib-connect-cta {
+  display: block;
+  width: 100%;
+  margin: 0 0 0.4rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px dashed var(--accent);
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-align: center;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
