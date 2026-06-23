@@ -38,8 +38,6 @@ import {
 } from './stats';
 import { getPuzzleDays, getPuzzlesByOpening } from './puzzle-log';
 import { getPuzzleRating, getRatingHistory, type RatingPoint } from './puzzle-rating';
-import { fetchPuzzleDashboard } from './puzzles';
-import { isConnected, getAccessToken } from './lichess-auth';
 import { Icons } from './icons';
 import { colourPip, buildPositionCard, lineFinalFen, fenFromUcis } from './card-position';
 import { userAvatar } from './avatar';
@@ -391,19 +389,15 @@ function renderTrainingRegion(container: HTMLElement, lines: Line[], cb: Progres
 
 // ── Puzzles region ───────────────────────────────────────────────────────────
 //
-// Two layers, both degrading gracefully:
-//   • Local — solved/failed totals and accuracy-by-opening from the on-device
-//     puzzle log (works with no Lichess account).
-//   • Lichess — your puzzle performance and strongest/shakiest themes from the
-//     puzzle dashboard (only when connected, fetched live).
+// Your own on-device puzzle stats: the rating (with its trend), solved/accuracy
+// totals, and accuracy-by-opening. All local — no Lichess account needed.
 
 function renderPuzzlesRegion(container: HTMLElement): void {
   const days = getPuzzleDays();
   const byOpening = getPuzzlesByOpening();
   const history = getRatingHistory();
-  const connected = isConnected();
-  // Nothing to show yet, and no account to pull a dashboard from.
-  if (days.length === 0 && history.length === 0 && !connected) return;
+  // Nothing solved yet → no region at all.
+  if (days.length === 0 && history.length === 0) return;
 
   regionTitle(container, 'Puzzles');
 
@@ -451,17 +445,6 @@ function renderPuzzlesRegion(container: HTMLElement): void {
     }
     container.appendChild(section);
   }
-
-  // Your Lichess puzzle dashboard (rating + strongest/shakiest themes).
-  if (connected) {
-    const section = statsSection('Your Lichess puzzles', 'last 30 days');
-    const loading = document.createElement('p');
-    loading.className = 'lines-loading';
-    loading.textContent = 'Loading…';
-    section.appendChild(loading);
-    container.appendChild(section);
-    void fillPuzzleDashboard(section, loading);
-  }
 }
 
 // A display-only stat cell, sharing the training quick-box look but holding a
@@ -482,57 +465,6 @@ function puzzleStatCell(icon: SVGElement, value: string, label: string): HTMLEle
   lblEl.textContent = label;
   cell.appendChild(lblEl);
   return cell;
-}
-
-// "mateIn2" → "Mate in 2".
-function prettyTheme(theme: string): string {
-  const spaced = theme.replace(/([a-z])([A-Z0-9])/g, '$1 $2').toLowerCase();
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
-}
-
-async function fillPuzzleDashboard(section: HTMLElement, loading: HTMLElement): Promise<void> {
-  const token = await getAccessToken();
-  const dash = await fetchPuzzleDashboard(30, token);
-  loading.remove();
-
-  if (!dash || dash.nb === 0) {
-    const empty = document.createElement('p');
-    empty.className = 'stats-empty-note';
-    empty.textContent = 'Solve puzzles on Lichess and your rating and theme breakdown show up here.';
-    section.appendChild(empty);
-    return;
-  }
-
-  // Performance + count.
-  const row = document.createElement('div');
-  row.className = 'pz-stat-row';
-  row.appendChild(puzzleStatCell(Icons.trending(18), String(dash.performance), 'Performance'));
-  row.appendChild(puzzleStatCell(Icons.target(18), String(dash.nb), 'Solved'));
-  section.appendChild(row);
-
-  // Strongest / shakiest themes by performance (only themes you've actually
-  // attempted), three each.
-  const played = dash.themes.filter(t => t.nb > 0).sort((a, b) => b.performance - a.performance);
-  if (played.length >= 2) {
-    const strong = played.slice(0, 3).map(t => prettyTheme(t.theme));
-    const shaky = played.slice(-3).reverse().map(t => prettyTheme(t.theme));
-    section.appendChild(themeLine('Strongest', strong.join(', ')));
-    section.appendChild(themeLine('Needs work', shaky.join(', ')));
-  }
-}
-
-function themeLine(label: string, value: string): HTMLElement {
-  const line = document.createElement('div');
-  line.className = 'pz-theme-line';
-  const l = document.createElement('span');
-  l.className = 'pz-theme-label';
-  l.textContent = label;
-  const v = document.createElement('span');
-  v.className = 'pz-theme-value';
-  v.textContent = value;
-  line.appendChild(l);
-  line.appendChild(v);
-  return line;
 }
 
 // The four quick-stat boxes — each tappable, opening a sheet of shortcuts.

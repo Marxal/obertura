@@ -25,6 +25,7 @@ import { playFeedback } from './sound';
 import { pushBack } from './back-nav';
 import { burstConfetti, celebratePawn } from './confetti';
 import { puzzleSetup, type Puzzle } from './puzzles';
+import { showDialog } from './dialog';
 import { wasRecentlySeen, recordSeenPuzzle } from './puzzle-log';
 import { getPuzzleRating, nextRating, commitRating } from './puzzle-rating';
 import { countUp } from './count-up';
@@ -69,7 +70,8 @@ export interface PuzzleSessionOptions {
 // One finished puzzle, kept for the end-of-session review list.
 interface SessionEntry {
   draw: PuzzleDraw;
-  clean: boolean; // solved first try, no hint
+  clean: boolean;   // solved first try, no hint
+  points?: number;  // rated mode: the rating change this puzzle earned (+/-)
 }
 
 export function startPuzzleSession(opts: PuzzleSessionOptions): void {
@@ -89,6 +91,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   let solverColour: 'white' | 'black' = 'white';
   let failedThisPuzzle = false; // a wrong move or hint was used on this puzzle
   let inputLocked = true;       // board frozen during loads / animations
+  let sessionOver = false;      // results shown — back exits without confirming
 
   // Session tallies.
   let completed = 0;           // puzzles finished so far
@@ -105,7 +108,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
 
   // ── Overlay scaffold (mirrors drill.ts) ──────────────────────────────────────
   const overlay = document.createElement('div');
-  overlay.className = 'pt-overlay';
+  overlay.className = 'pt-overlay pt-overlay--puzzle';
 
   const headerEl = document.createElement('div');
   headerEl.className = 'pt-header';
@@ -113,34 +116,29 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   backBtn.type = 'button';
   backBtn.className = 'pt-back-btn';
   backBtn.appendChild(Icons.back(15));
-  backBtn.appendChild(document.createTextNode(timed ? 'End session' : 'Done'));
-  backBtn.addEventListener('click', () => doExit());
+  backBtn.appendChild(document.createTextNode('End session'));
+  backBtn.addEventListener('click', () => exitViaButton());
   headerEl.appendChild(backBtn);
 
   const scoreEl = document.createElement('div');
   scoreEl.className = 'pt-timed-score';
   if (timed) headerEl.appendChild(scoreEl);
 
-  // Time Attack: a 3-dot mistake tracker, pinned next to the clock.
+  // Time Attack HUD: the countdown and a 3-dot mistake tracker, centred above the
+  // mode title (built into .pt-top below).
+  const timerEl = document.createElement('div');
   const mistakesEl = document.createElement('div');
   const mistakeDots: HTMLElement[] = [];
   if (timed && opts.mode.kind === 'timed') {
+    timerEl.className = 'pt-timer';
     mistakesEl.className = 'pt-mistakes';
     mistakesEl.setAttribute('aria-label', 'Mistakes');
     for (let i = 0; i < opts.mode.maxMistakes; i++) {
       const dot = document.createElement('span');
-      dot.className = 'pt-dot';
+      dot.className = 'pt-mistake-dot';
       mistakeDots.push(dot);
       mistakesEl.appendChild(dot);
     }
-    headerEl.appendChild(mistakesEl);
-  }
-
-  // Timed countdown, pinned right (drill's .pt-timer look).
-  const timerEl = document.createElement('div');
-  if (timed) {
-    timerEl.className = 'pt-timer';
-    headerEl.appendChild(timerEl);
   }
 
   // Count mode: a "Puzzle X of N" progress bar under the toolbar.
@@ -162,6 +160,15 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
 
   const topEl = document.createElement('div');
   topEl.className = 'pt-top';
+  // Time Attack: clock + mistake dots sit centred at the top of the block, above
+  // the mode title (the block bottom-aligns, so this row floats just above it).
+  if (timed) {
+    const hud = document.createElement('div');
+    hud.className = 'pt-timed-hud';
+    hud.appendChild(timerEl);
+    hud.appendChild(mistakesEl);
+    topEl.appendChild(hud);
+  }
   const modeEl = document.createElement('div');
   modeEl.className = 'pt-mode-title';
   modeEl.textContent = opts.modeLabel ?? 'Puzzles';
@@ -197,7 +204,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
 
   const nextBtn = document.createElement('button');
   nextBtn.type = 'button';
-  nextBtn.className = 'pz-next-btn';
+  nextBtn.className = 'btn-primary pz-next-btn';
   nextBtn.textContent = 'Next puzzle';
   nextBtn.hidden = true;
   nextBtn.addEventListener('click', () => onNextTap());
@@ -225,7 +232,29 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   const ro = new ResizeObserver(() => cg.redrawAll());
   ro.observe(boardEl);
 
-  const removeBack = pushBack(() => doExit());
+  // Leaving mid-session asks first; once the results screen is up the session is
+  // already over, so back just exits. Mirrors drill.ts's abandon guard, including
+  // re-arming the back-nav layer when the user decides to stay after a back gesture.
+  function showAbandonDialog(onStay: () => void): void {
+    showDialog({
+      title: 'End this session?',
+      body: 'Your progress so far is kept.',
+      buttons: [
+        { label: 'End session', variant: 'danger', onClick: doExit },
+        { label: 'Keep going', variant: 'secondary', onClick: onStay },
+      ],
+      onDismiss: onStay,
+    });
+  }
+  function exitViaButton(): void {
+    if (sessionOver) doExit();
+    else showAbandonDialog(() => {});
+  }
+  function exitViaBackGesture(): void {
+    if (sessionOver) { doExit(); return; }
+    showAbandonDialog(() => { removeBack = pushBack(exitViaBackGesture); });
+  }
+  let removeBack = pushBack(exitViaBackGesture);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   function cgTurn(): 'white' | 'black' {
@@ -279,7 +308,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   }
   function renderMistakes(): void {
     for (let i = 0; i < mistakeDots.length; i++) {
-      mistakeDots[i].classList.toggle('pt-dot--miss', i < mistakes);
+      mistakeDots[i].classList.toggle('pt-mistake-dot--miss', i < mistakes);
     }
   }
   function renderSessionBar(): void {
@@ -361,6 +390,9 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
       if (isCleaned) return;
       setStatus(`${solverColour === 'white' ? 'White' : 'Black'} to play — find the best move`, 'pt-status--prompt');
       handToSolver();
+      // Refresh chessground's cached bounds after the layout has settled, so drags
+      // register from the right place even if anything nudged the board.
+      requestAnimationFrame(() => { if (!isCleaned) cg.redrawAll(); });
     }, 360);
   }
 
@@ -440,17 +472,20 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     completed++;
     const cur = draw!;
     const clean = !failedThisPuzzle;
-    entries.push({ draw: cur, clean });
     if (clean) solvedCount++; else missed.push(cur);
     renderScore();
     opts.onResult?.({ puzzle: cur.puzzle, solved: clean, angle: cur.angle });
 
-    // Rating moves only in rated mode, and only a clean solve scores. Bank it
-    // immediately so an early exit keeps what was earned.
+    // Rating moves only in rated mode, and only a clean solve scores. Record the
+    // per-puzzle change and bank it immediately so an early exit keeps it.
+    let points: number | undefined;
     if (rated) {
-      liveRating = nextRating(liveRating, cur.puzzle.rating, clean);
+      const updated = nextRating(liveRating, cur.puzzle.rating, clean);
+      points = updated - liveRating;
+      liveRating = updated;
       commitRating(liveRating);
     }
+    entries.push({ draw: cur, clean, points });
 
     if (timed) {
       if (!clean) { mistakes++; renderMistakes(); }
@@ -494,35 +529,39 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   function showResults(): void {
     if (resultsShown || isCleaned) return; // the clock and finish() can both reach here
     resultsShown = true;
+    sessionOver = true;
     stopTimer();
     if (autoTimer) clearTimeout(autoTimer);
     lockBoard();
     cg.setAutoShapes([]);
 
-    // Swap the overlay's body for a summary panel (reusing the train look).
+    // Swap the overlay's body for a summary panel (reusing the train look). The
+    // panel fills the space below the header as a flex column: a fixed head, a
+    // scrollable list, and fixed actions — so it fits without the page scrolling.
     boardWrap.remove();
     bottomEl.remove();
     topEl.remove();
     sessionBarEl.remove();
-    timerEl.remove();
-    scoreEl.remove();
-    mistakesEl.remove();
 
     const wrap = document.createElement('div');
-    wrap.className = 'section train-completion train-completion--enter pz-results';
+    wrap.className = 'train-completion train-completion--enter pz-results';
 
-    wrap.appendChild(celebratePawn());
+    const head = document.createElement('div');
+    head.className = 'pz-results-head';
+    wrap.appendChild(head);
+
+    head.appendChild(celebratePawn());
     burstConfetti(wrap);
 
     const done = document.createElement('div');
     done.className = 'train-completion-done';
     done.textContent = 'Session complete ✓';
-    wrap.appendChild(done);
+    head.appendChild(done);
 
     const sub = document.createElement('div');
     sub.className = 'train-completion-name';
     sub.textContent = `${solvedCount}/${completed} solved clean${timed ? ' against the clock' : ''}`;
-    wrap.appendChild(sub);
+    head.appendChild(sub);
 
     // Rated: the rating delta + the new total, animated up from the old rating.
     if (rated) {
@@ -541,44 +580,59 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
       lbl.className = 'pz-rating-label';
       lbl.textContent = 'puzzle rating';
       card.appendChild(lbl);
-      wrap.appendChild(card);
+      head.appendChild(card);
       // Let the panel settle, then tick the total up to its new value.
       setTimeout(() => { if (!isCleaned) countUp(totalEl, liveRating, { from: ratingBefore, durationMs: 950 }); }, 320);
     }
 
-    // Per-puzzle review list: green for clean, red for missed/hinted.
+    // Per-puzzle review list: green for clean, red for missed/hinted. Scrolls
+    // inside its own area, with a bottom fade to hint there's more.
     if (entries.length) {
+      const listWrap = document.createElement('div');
+      listWrap.className = 'pz-results-list-wrap';
       const list = document.createElement('div');
       list.className = 'pz-results-list';
       for (const e of entries) list.appendChild(resultRow(e));
-      wrap.appendChild(list);
+      listWrap.appendChild(list);
+      const fade = document.createElement('div');
+      fade.className = 'pz-results-fade';
+      fade.setAttribute('aria-hidden', 'true');
+      listWrap.appendChild(fade);
+      wrap.appendChild(listWrap);
     }
+
+    // Actions, matching the training success screen: a green primary + white
+    // secondaries, all full width.
+    const actions = document.createElement('div');
+    actions.className = 'pz-results-actions';
 
     if (opts.onPlayAgain) {
       const again = document.createElement('button');
       again.type = 'button';
-      again.className = 'pz-next-btn';
+      again.className = 'btn-primary train-next-btn';
       again.textContent = 'Play again';
       again.addEventListener('click', () => { const fn = opts.onPlayAgain!; cleanup(); fn(); });
-      wrap.appendChild(again);
+      actions.appendChild(again);
     }
 
     if (missed.length > 0) {
       const retry = document.createElement('button');
       retry.type = 'button';
-      retry.className = missed.length > 0 && opts.onPlayAgain ? 'pz-results-secondary' : 'pz-next-btn';
+      retry.className = 'btn-secondary train-done-btn';
       retry.textContent = `Retry mistakes (${missed.length})`;
       retry.addEventListener('click', () => retryMistakes(missed.slice()));
-      wrap.appendChild(retry);
+      actions.appendChild(retry);
     }
 
     const doneBtn = document.createElement('button');
     doneBtn.type = 'button';
-    doneBtn.className = 'pz-results-secondary';
+    // Without a "Play again" there's no green action, so promote Done.
+    doneBtn.className = opts.onPlayAgain ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
     doneBtn.textContent = 'Done';
     doneBtn.addEventListener('click', () => doExit());
-    wrap.appendChild(doneBtn);
+    actions.appendChild(doneBtn);
 
+    wrap.appendChild(actions);
     overlay.appendChild(wrap);
   }
 
@@ -591,6 +645,14 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     dot.className = 'pz-result-dot';
     dot.textContent = e.clean ? '✓' : '✕';
     row.appendChild(dot);
+
+    // Rated runs: the points this puzzle won or lost, right next to the outcome.
+    if (e.points !== undefined) {
+      const pts = document.createElement('span');
+      pts.className = 'pz-result-points ' + (e.points >= 0 ? 'pz-result-points--up' : 'pz-result-points--down');
+      pts.textContent = `${e.points >= 0 ? '+' : '−'}${Math.abs(e.points)}`;
+      row.appendChild(pts);
+    }
 
     const main = document.createElement('div');
     main.className = 'pz-result-main';
