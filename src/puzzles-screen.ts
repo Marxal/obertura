@@ -3,17 +3,18 @@
 //   • your repertoire — the openings of your saved lines
 //   • your games      — the openings that show up in your imported game history
 // Both resolve to Lichess opening "angle" keys (puzzles.ts), and we only offer
-// openings Lichess actually has a puzzle set for. Tapping one opens the solver
-// (puzzle-run.ts); "Mixed" rotates across all of them.
+// openings Lichess actually has a puzzle set for. Tapping one starts a SESSION
+// (puzzle-run.ts): a fixed run of 10, or a 3-minute timed sprint. "Mixed" rotates
+// across all of them.
 //
-// Connecting to Lichess isn't required — anonymous puzzles work — but with the
-// puzzle:read token Lichess skips puzzles you've already seen, so we nudge.
+// Connecting to Lichess isn't required — puzzles are fetched anonymously — but
+// connecting tracks your puzzle rating on the Statistics page, so we nudge.
 
 import { getAllLines, getAllGames } from './storage';
-import { isConnected, connect, getAccessToken } from './lichess-auth';
+import { isConnected, connect } from './lichess-auth';
 import { fetchNextPuzzle, toAngleKey, type Difficulty } from './puzzles';
 import { openingFamily } from './analysis';
-import { startPuzzleRun } from './puzzle-run';
+import { startPuzzleSession, type PuzzleMode } from './puzzle-run';
 import { recordPuzzleResult } from './puzzle-log';
 import { renderLoadError } from './load-error';
 import { Icons } from './icons';
@@ -24,15 +25,20 @@ export interface PuzzlesScreenDeps {
 }
 
 type Source = 'repertoire' | 'games';
+type Mode = 'count' | 'timed';
 
 const SOURCE_KEY = 'obertura.puzzles.source';
 const DIFFICULTY_KEY = 'obertura.puzzles.difficulty';
+const MODE_KEY = 'obertura.puzzles.mode';
+
+const SESSION_COUNT = 10;
+const TIMED_MS = 180_000; // 3 minutes
 
 interface OpeningEntry {
   angle: string;             // Lichess opening key
   family: string;            // display name, e.g. "Sicilian Defense"
   colour?: 'white' | 'black';
-  weight: number;            // line / game count, for ordering
+  weight: number;            // line / game count, for ordering and the count badge
 }
 
 function getSource(): Source {
@@ -47,6 +53,17 @@ function getDifficulty(): Difficulty {
 }
 function setDifficulty(d: Difficulty): void {
   try { localStorage.setItem(DIFFICULTY_KEY, d); } catch { /* non-critical */ }
+}
+function getMode(): Mode {
+  return localStorage.getItem(MODE_KEY) === 'timed' ? 'timed' : 'count';
+}
+function setMode(m: Mode): void {
+  try { localStorage.setItem(MODE_KEY, m); } catch { /* non-critical */ }
+}
+function modeConfig(): PuzzleMode {
+  return getMode() === 'timed'
+    ? { kind: 'timed', ms: TIMED_MS }
+    : { kind: 'count', count: SESSION_COUNT };
 }
 
 // Collapse a list of (openingName, colour) into distinct angle entries, most
@@ -79,6 +96,18 @@ function segmented<T extends string>(opts: [T, string][], current: T, onChange: 
   return row;
 }
 
+// A captioned control row: a small muted label above a segmented control.
+function controlGroup(label: string, control: HTMLElement): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'pz-control';
+  const cap = document.createElement('div');
+  cap.className = 'pz-control-label';
+  cap.textContent = label;
+  wrap.appendChild(cap);
+  wrap.appendChild(control);
+  return wrap;
+}
+
 function colourPip(colour: 'white' | 'black'): HTMLElement {
   const pip = document.createElement('span');
   pip.className = `colour-pip colour-pip--${colour}`;
@@ -86,21 +115,20 @@ function colourPip(colour: 'white' | 'black'): HTMLElement {
   return pip;
 }
 
-// Launch the solver over a set of angle entries; one entry = a single opening,
-// many = a "Mixed" rotation. Each fetch picks an entry (so colour matches) and we
-// attribute the result to that opening for the stats.
+// Launch a session over a set of angle entries; one entry = a single opening,
+// many = a "Mixed" rotation. Each fetch picks an entry (so colour matches) and
+// the result carries that opening's angle straight through to the stats.
 function launch(entries: OpeningEntry[], label: string): void {
-  let lastAngle: string | null = null;
   const difficulty = getDifficulty();
-  startPuzzleRun({
+  startPuzzleSession({
     modeLabel: label,
+    mode: modeConfig(),
     nextPuzzle: async () => {
       const pick = entries[Math.floor(Math.random() * entries.length)];
-      lastAngle = pick.angle;
-      const token = await getAccessToken();
-      return fetchNextPuzzle(pick.angle, { difficulty, colour: pick.colour, token });
+      const puzzle = await fetchNextPuzzle(pick.angle, { difficulty, colour: pick.colour });
+      return puzzle ? { puzzle, angle: pick.angle } : null;
     },
-    onResult: (r) => recordPuzzleResult(lastAngle, r.solved),
+    onResult: (r) => recordPuzzleResult(r.angle, r.solved),
     onExit: () => { /* overlay tears itself down */ },
   });
 }
@@ -131,28 +159,35 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
     // Intro.
     const intro = document.createElement('p');
     intro.className = 'pz-intro';
-    intro.textContent = 'Solve tactics from the openings you train. Pick an opening, or mix them all.';
+    intro.textContent = 'Solve tactics from the openings you train. Pick a source and a session, then choose an opening — or mix them all.';
     root.appendChild(intro);
 
-    // Source toggle.
-    const sourceRow = segmented<Source>(
-      [['repertoire', 'My repertoire'], ['games', 'My games']],
-      source,
-      (s) => {
-        if (s === 'games' && !hasGames) { deps.onImportGames(); return; }
-        source = s; setSource(s); rebuild();
-      },
-    );
+    // Source — two launcher cards (mirrors Explore), green when selected.
+    const sourceRow = document.createElement('div');
+    sourceRow.className = 'pz-source-row';
+    sourceRow.appendChild(sourceCard('repertoire', 'My repertoire', Icons.tree(22), source === 'repertoire', () => {
+      if (source !== 'repertoire') { source = 'repertoire'; setSource('repertoire'); rebuild(); }
+    }));
+    sourceRow.appendChild(sourceCard('games', 'My games', Icons.gamepad(22), source === 'games', () => {
+      if (!hasGames) { deps.onImportGames(); return; }
+      if (source !== 'games') { source = 'games'; setSource('games'); rebuild(); }
+    }));
     root.appendChild(sourceRow);
 
-    // Difficulty toggle.
+    // Difficulty + session controls.
     const diffRow = segmented<Difficulty>(
       [['easier', 'Easier'], ['normal', 'Normal'], ['harder', 'Harder']],
       getDifficulty(),
-      (d) => { setDifficulty(d); },
+      (d) => { setDifficulty(d); rebuild(); },
     );
-    diffRow.classList.add('pz-difficulty');
-    root.appendChild(diffRow);
+    root.appendChild(controlGroup('Difficulty', diffRow));
+
+    const modeRow = segmented<Mode>(
+      [['count', `${SESSION_COUNT} puzzles`], ['timed', '3-min timed']],
+      getMode(),
+      (m) => { setMode(m); rebuild(); },
+    );
+    root.appendChild(controlGroup('Session', modeRow));
 
     // Connection nudge (puzzles still work without it).
     if (!isConnected()) {
@@ -160,7 +195,7 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
       card.className = 'pz-connect-card';
       const text = document.createElement('div');
       text.className = 'pz-connect-text';
-      text.textContent = 'Connect to Lichess so puzzles you’ve already solved don’t repeat — and to track your puzzle rating on the Statistics page.';
+      text.textContent = 'Connect to Lichess to track your puzzle stats and rating on the Statistics page. Puzzles work without it too.';
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'pz-connect-btn';
@@ -192,7 +227,7 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
     mixed.addEventListener('click', () => launch(entries, 'Mixed puzzles'));
     root.appendChild(mixed);
 
-    // Opening list.
+    // Opening list — family rows in the My Lines style (name + count badge).
     const list = document.createElement('div');
     list.className = 'pz-list';
     for (const e of entries) {
@@ -204,6 +239,13 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
       name.className = 'pz-opening-name';
       name.textContent = e.family;
       row.appendChild(name);
+      const count = document.createElement('span');
+      count.className = 'pz-opening-count';
+      count.textContent = String(e.weight);
+      count.title = source === 'repertoire'
+        ? `${e.weight} ${e.weight === 1 ? 'line' : 'lines'}`
+        : `${e.weight} ${e.weight === 1 ? 'game' : 'games'}`;
+      row.appendChild(count);
       const go = document.createElement('span');
       go.className = 'pz-opening-go';
       go.appendChild(Icons.target(18));
@@ -215,6 +257,25 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
   };
 
   rebuild();
+}
+
+function sourceCard(
+  _source: Source,
+  label: string,
+  icon: SVGSVGElement,
+  selected: boolean,
+  onPick: () => void,
+): HTMLElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'pz-source-card' + (selected ? ' pz-source-card--on' : '');
+  btn.setAttribute('aria-pressed', String(selected));
+  btn.appendChild(icon);
+  const span = document.createElement('span');
+  span.textContent = label;
+  btn.appendChild(span);
+  btn.addEventListener('click', onPick);
+  return btn;
 }
 
 function emptyState(source: Source, hasGames: boolean, deps: PuzzlesScreenDeps): HTMLElement {

@@ -9744,7 +9744,50 @@ cg-board square.move-dest.oc {
   font-size: 0.92rem;
   line-height: 1.4;
 }
-.pz-difficulty { margin-top: calc(-1 * var(--space-xs)); }
+/* Source — two launcher cards (My repertoire / My games). */
+.pz-source-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+.pz-source-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.9rem 0.6rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+}
+.pz-source-card svg { color: var(--text-muted); }
+.pz-source-card--on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.pz-source-card--on svg { color: var(--accent); }
+.pz-source-card:active { background: var(--bg-elevated); }
+
+/* Captioned control rows (Difficulty / Session). */
+.pz-control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.pz-control-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
 
 .pz-connect-card {
   display: flex;
@@ -9814,7 +9857,34 @@ cg-board square.move-dest.oc {
 }
 .pz-opening-row:active { background: var(--bg-elevated); }
 .pz-opening-name { flex: 1; font-weight: 500; }
+.pz-opening-count {
+  flex: none;
+  min-width: 1.4rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-align: center;
+}
 .pz-opening-go { color: var(--text-muted); display: inline-flex; flex: none; }
+
+/* Session results screen (inside the solver overlay; reuses .train-completion). */
+.pz-results { margin: auto; max-width: 22rem; }
+.pz-results-secondary {
+  margin-top: 0.6rem;
+  align-self: center;
+  padding: 0.5rem 1.4rem;
+  border: 1px solid var(--border-card);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pz-results-secondary:active { background: var(--bg-elevated); }
 
 .pz-empty {
   display: flex;
@@ -9872,10 +9942,43 @@ cg-board square.move-dest.oc {
   line-height: 1.4;
 }
 
-/* "Explain this move" sheet text. */
+/* "Explain this move" — inline panel under the Line-tab buttons. */
+.explain-block {
+  margin-top: var(--space-sm);
+  padding: 0.7rem 0.85rem;
+  background: var(--accent-soft);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+}
 .explain-text {
-  margin: 0.2rem 0 0.4rem;
+  margin: 0;
   font-size: 0.95rem;
   line-height: 1.5;
   color: var(--text);
 }
+.explain-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+.explain-save,
+.explain-hide {
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+.explain-save {
+  border: none;
+  background: var(--primary);
+  color: var(--on-accent, #fff);
+}
+.explain-save:active { background: var(--primary-active, var(--primary)); }
+.explain-hide {
+  border: 1px solid var(--border-card);
+  background: transparent;
+  color: var(--text-muted);
+}
+.explain-hide:active { background: var(--bg-elevated); }
