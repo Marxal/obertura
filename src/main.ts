@@ -17,7 +17,7 @@ import { renderExploreScreen } from './explore-screen';
 import { renderPuzzlesScreen } from './puzzles-screen';
 import { opponentTag } from './scout';
 import { renderSettingsScreen } from './settings-screen';
-import { Engine } from './engine';
+import { Engine, setCloudAuthToken } from './engine';
 import { EvalPanel } from './eval-panel';
 import { createBuilderPanels, type BuilderPanels } from './builder-panels';
 import { initTheme } from './theme';
@@ -36,7 +36,11 @@ import { importLastGame, hasConnectedAccount } from './import-last';
 import { openEngineSpar, openExploreOpponent, importOpponentFlow } from './explore-screen';
 import { formatMove } from './notation';
 import { maybeShowSurveyBanner } from './survey';
-import { tryCallback as lichessTryCallback, takeReturn as lichessTakeReturn } from './lichess-auth';
+import { tryCallback as lichessTryCallback, takeReturn as lichessTakeReturn, getAccessToken as lichessAccessToken } from './lichess-auth';
+
+// Cloud-eval (engine.ts) uses the Lichess token when connected for higher rate
+// limits. Wire the getter once, here, so engine.ts needn't import the OAuth code.
+setCloudAuthToken(() => lichessAccessToken());
 
 const chess = new Chess();
 let cg!: ReturnType<typeof Chessground>;
