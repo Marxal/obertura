@@ -86,14 +86,16 @@ export async function fetchNextPuzzle(
 
 // ── Puzzle position ──────────────────────────────────────────────────────────
 //
-// Lichess convention: replaying the game to `initialPly` gives the position
-// BEFORE the opponent's setup move. solution[0] is that opponent move (played
-// automatically to reveal the tactic); the solver then plays solution[1], the
+// Lichess convention (verified against /api/puzzle/next): the `game.pgn` is
+// truncated to exactly the puzzle, so it has `initialPly + 1` plies. Replaying
+// the WHOLE pgn (initialPly + 1 moves) reaches the position before the opponent's
+// setup move. solution[0] is that opponent move (played automatically to reveal
+// the tactic), and is NOT part of the pgn; the solver then plays solution[1], the
 // opponent solution[2], and so on. So the board the solver faces is the position
 // after solution[0], oriented to whoever is to move there.
 
 export interface PuzzleSetup {
-  // FEN after replaying the game to initialPly (before the opponent's setup move).
+  // FEN after replaying the whole pgn (before the opponent's setup move).
   fen: string;
   // The opponent's first move (solution[0]), animated to set up the puzzle.
   setupMove: string;
@@ -119,7 +121,9 @@ export function puzzleSetup(puzzle: Puzzle): PuzzleSetup | null {
     const moves = game.history({ verbose: true });
 
     const board = new Chess();
-    const plies = Math.min(puzzle.initialPly, moves.length);
+    // Play the whole pgn (initialPly + 1 plies); solution[0] is the move that
+    // follows, played as the opponent's setup move below.
+    const plies = Math.min(puzzle.initialPly + 1, moves.length);
     for (let i = 0; i < plies; i++) board.move(moves[i].san);
     const fen = board.fen();
 
