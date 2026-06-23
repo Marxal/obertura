@@ -3785,8 +3785,8 @@ cg-board square.move-dest.oc {
 
 .celebrate-pawn-svg {
   display: block;
-  width: 44px;
-  height: 50px;
+  width: 34px;
+  height: 38px;
   transform-origin: bottom center;
   /* crispEdges keeps the blocky 8-bit feel; currentColor themes it from --accent. */
   shape-rendering: crispEdges;
@@ -9982,3 +9982,212 @@ cg-board square.move-dest.oc {
   color: var(--text-muted);
 }
 .explain-hide:active { background: var(--bg-elevated); }
+
+/* ══ Puzzles tab — reshaped (hero / Time Attack / practice) ══════════════════ */
+
+/* The page already pads + gaps via .pz-screen, so neutralise the inset margins
+   the shared .section / .train-hero carry, and let the flex gap do the spacing. */
+.pz-screen > .section,
+.pz-screen > .train-hero { margin: 0; }
+
+/* Today hero — the Daily Rated Mix front door (mirrors the Training hero). */
+.pz-hero { padding: var(--space-lg); }
+.train-hero-stat--solved .train-hero-stat-num { color: var(--success); }
+.train-hero-stat--missed .train-hero-stat-num { color: var(--danger); }
+.train-hero-stat--rating .train-hero-stat-num { color: var(--accent); }
+.pz-hero-start {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.pz-hero-start svg { flex: none; }
+.pz-hero-note {
+  margin-top: var(--space-sm);
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+/* Segmented controls sit a touch tighter and stretch full width here. */
+.pz-segmented { width: 100%; }
+.pz-segmented + .pz-segmented { margin-top: var(--space-sm); }
+
+/* Time Attack section. */
+.pz-ta-desc {
+  margin: 0 0 var(--space-md);
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+.pz-ta .pz-segmented { margin-top: var(--space-sm); }
+.pz-ta-start,
+.pz-practice .pz-segmented { width: 100%; }
+.pz-ta-start {
+  margin-top: var(--space-md);
+  min-height: 48px;
+  border-radius: 10px;
+}
+
+/* Practice by opening. */
+.pz-practice-source { margin: var(--space-sm) 0 var(--space-md); }
+.pz-practice .pz-list { margin-top: var(--space-sm); }
+
+/* Opening rows now end with a performance pill (no target icon). */
+.pz-perf {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.pz-perf--empty {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.pz-perf-bar {
+  width: 42px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  overflow: hidden;
+}
+.pz-perf-fill { display: block; height: 100%; border-radius: 999px; }
+.pz-perf--good { color: var(--success); }
+.pz-perf--good .pz-perf-fill { background: var(--success); }
+.pz-perf--ok { color: var(--accent); }
+.pz-perf--ok .pz-perf-fill { background: var(--accent); }
+.pz-perf--weak { color: var(--danger); }
+.pz-perf--weak .pz-perf-fill { background: var(--danger); }
+
+/* ── Solver overlay: Time Attack mistake dots + Hint button ────────────────── */
+.pt-mistakes {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex: none;
+}
+.pt-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid var(--text-faint);
+  transition: background-color 140ms ease, border-color 140ms ease, transform 140ms ease;
+}
+.pt-dot--miss {
+  background: var(--danger);
+  border-color: var(--danger);
+  transform: scale(1.1);
+}
+.pz-hint-btn {
+  margin-top: 0.7rem;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--border-card);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pz-hint-btn svg { flex: none; }
+.pz-hint-btn:active { background: var(--bg-elevated); }
+
+/* ── Results screen: rating delta + per-puzzle review list ─────────────────── */
+.pz-rating-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  margin: var(--space-md) 0;
+}
+.pz-rating-delta {
+  font-size: 1.5rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.pz-rating-delta--up { color: var(--success); }
+.pz-rating-delta--down { color: var(--danger); }
+.pz-rating-total {
+  font-size: 2.1rem;
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.pz-rating-label {
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.pz-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  width: 100%;
+  margin: var(--space-md) 0;
+  max-height: 38vh;
+  overflow-y: auto;
+  text-align: left;
+}
+.pz-result-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  background: var(--bg-card);
+  border-left: 3px solid var(--text-faint);
+}
+.pz-result-row--solved { border-left-color: var(--success); }
+.pz-result-row--missed { border-left-color: var(--danger); }
+.pz-result-dot {
+  flex: none;
+  width: 1.2rem;
+  font-weight: 800;
+  text-align: center;
+}
+.pz-result-row--solved .pz-result-dot { color: var(--success); }
+.pz-result-row--missed .pz-result-dot { color: var(--danger); }
+.pz-result-main { flex: 1; min-width: 0; }
+.pz-result-name {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pz-result-meta {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+.pz-result-rating {
+  flex: none;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Statistics: the big puzzle-rating number above its trend line. */
+.pz-rating-stat {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}

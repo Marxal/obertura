@@ -4,12 +4,17 @@
 // solution. Opponent moves auto-play; you play your moves.
 //
 // Puzzles come in SESSIONS with a defined end and a results screen:
-//   • count mode — a fixed number of puzzles (e.g. 10). A wrong move reveals the
-//     answer and you replay it (so you still learn the idea); the puzzle counts
-//     as missed.
-//   • timed mode — a single countdown (e.g. 3 min). A wrong move just flashes and
-//     jumps straight to the next puzzle (no reveal); each clean solve scores.
-// Either way the session ends on a results screen offering "Retry mistakes".
+//   • count mode — a fixed number of puzzles (e.g. 10). You keep trying until you
+//     find each move; a Hint button reveals the arrow if you're stuck. A wrong
+//     move or a hint marks the puzzle as not-clean (no rating gain). The puzzle
+//     never auto-jumps — you tap "Next" when you're ready. When `rated`, each
+//     clean first-try solve moves your puzzle rating (Daily Rated Mix only).
+//   • timed mode — "Time Attack": a countdown (3/5/10 min) with a 3-mistake cap.
+//     A wrong move flashes, fills a red mistake dot and jumps straight to the
+//     next puzzle (no reveal). The run ends on the clock or the third mistake.
+//     Difficulty ramps up as you solve. Casual — never touches your rating.
+// Either way the session ends on a results screen: a per-puzzle review list,
+// "Play again", "Retry mistakes" and "Done".
 
 import { Chess } from 'chess.js';
 import { Chessground } from 'chessground';
@@ -18,40 +23,53 @@ import type { Key } from 'chessground/types';
 import { Icons } from './icons';
 import { playFeedback } from './sound';
 import { pushBack } from './back-nav';
-import { burstConfetti } from './confetti';
+import { burstConfetti, celebratePawn } from './confetti';
 import { puzzleSetup, type Puzzle } from './puzzles';
 import { wasRecentlySeen, recordSeenPuzzle } from './puzzle-log';
+import { getPuzzleRating, nextRating, commitRating } from './puzzle-rating';
+import { countUp } from './count-up';
 
 // One puzzle plus the opening it was drawn for (so stats and retry know its
-// angle even in a Mixed session).
+// angle even in a Mixed session). `family` is a friendly display name for the
+// results list.
 export interface PuzzleDraw {
   puzzle: Puzzle;
   angle: string | null;
+  family?: string;
 }
 
 export type PuzzleMode =
-  | { kind: 'count'; count: number }
-  | { kind: 'timed'; ms: number };
+  | { kind: 'count'; count: number; rated?: boolean }
+  | { kind: 'timed'; ms: number; maxMistakes: number };
 
 export interface PuzzleResult {
   puzzle: Puzzle;
-  solved: boolean; // true only when finished with no wrong move
+  solved: boolean; // true only when finished clean (no wrong move, no hint)
   angle: string | null;
 }
 
 export interface PuzzleSessionOptions {
-  // Draw the next puzzle to present, or null when none is available.
-  nextPuzzle: () => Promise<PuzzleDraw | null>;
+  // Draw the next puzzle to present, or null when none is available. Receives the
+  // running solved count so the caller can ramp difficulty (Time Attack).
+  nextPuzzle: (ctx: { solved: number }) => Promise<PuzzleDraw | null>;
   // How the session ends.
   mode: PuzzleMode;
   // Fired once per puzzle when it's finished (solved or failed).
   onResult?: (r: PuzzleResult) => void;
   onExit: () => void;
+  // Re-launch the same session from the results screen ("Play again").
+  onPlayAgain?: () => void;
   // Small muted label above the board (e.g. the opening name, or "Mixed").
   modeLabel?: string;
   // Skip puzzles seen recently (default true); a retry session turns this off so
   // the missed puzzles are deliberately repeated.
   dedup?: boolean;
+}
+
+// One finished puzzle, kept for the end-of-session review list.
+interface SessionEntry {
+  draw: PuzzleDraw;
+  clean: boolean; // solved first try, no hint
 }
 
 export function startPuzzleSession(opts: PuzzleSessionOptions): void {
@@ -61,6 +79,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   let autoTimer: ReturnType<typeof setTimeout> | undefined;
   let tickTimer: ReturnType<typeof setInterval> | undefined;
   const timed = opts.mode.kind === 'timed';
+  const rated = opts.mode.kind === 'count' && opts.mode.rated === true;
   const dedup = opts.dedup !== false;
 
   // Per-puzzle state.
@@ -68,15 +87,21 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   let solution: string[] = [];
   let solIndex = 1;             // next solution move the solver owes (1, 3, 5…)
   let solverColour: 'white' | 'black' = 'white';
-  let failed = false;          // a wrong move was played on this puzzle
-  let awaitingReplay = false;  // after a miss, the correct move must be replayed
-  let inputLocked = true;      // board frozen during loads / animations
+  let failedThisPuzzle = false; // a wrong move or hint was used on this puzzle
+  let inputLocked = true;       // board frozen during loads / animations
 
   // Session tallies.
   let completed = 0;           // puzzles finished so far
-  let solvedCount = 0;
+  let solvedCount = 0;         // clean solves
+  let mistakes = 0;            // timed: wrong puzzles (capped by maxMistakes)
   const missed: PuzzleDraw[] = [];
+  const entries: SessionEntry[] = [];
   let deadline = 0;            // timed mode: epoch ms when the clock hits 0
+
+  // Rating (rated count mode only). We evolve a live rating across the run and
+  // bank it after every puzzle, so an early exit still keeps what was earned.
+  const ratingBefore = getPuzzleRating();
+  let liveRating = ratingBefore;
 
   // ── Overlay scaffold (mirrors drill.ts) ──────────────────────────────────────
   const overlay = document.createElement('div');
@@ -94,7 +119,22 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
 
   const scoreEl = document.createElement('div');
   scoreEl.className = 'pt-timed-score';
-  headerEl.appendChild(scoreEl);
+  if (timed) headerEl.appendChild(scoreEl);
+
+  // Time Attack: a 3-dot mistake tracker, pinned next to the clock.
+  const mistakesEl = document.createElement('div');
+  const mistakeDots: HTMLElement[] = [];
+  if (timed && opts.mode.kind === 'timed') {
+    mistakesEl.className = 'pt-mistakes';
+    mistakesEl.setAttribute('aria-label', 'Mistakes');
+    for (let i = 0; i < opts.mode.maxMistakes; i++) {
+      const dot = document.createElement('span');
+      dot.className = 'pt-dot';
+      mistakeDots.push(dot);
+      mistakesEl.appendChild(dot);
+    }
+    headerEl.appendChild(mistakesEl);
+  }
 
   // Timed countdown, pinned right (drill's .pt-timer look).
   const timerEl = document.createElement('div');
@@ -144,14 +184,27 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   const themesEl = document.createElement('div');
   themesEl.className = 'pz-themes';
   themesEl.hidden = true;
+
+  // Count mode: a Hint button (reveals the arrow) and a Next button (the puzzle
+  // never auto-advances — you tap when ready).
+  const hintBtn = document.createElement('button');
+  hintBtn.type = 'button';
+  hintBtn.className = 'pz-hint-btn';
+  hintBtn.appendChild(Icons.bulb(16));
+  hintBtn.appendChild(document.createTextNode('Hint'));
+  hintBtn.hidden = true;
+  hintBtn.addEventListener('click', () => useHint());
+
   const nextBtn = document.createElement('button');
   nextBtn.type = 'button';
   nextBtn.className = 'pz-next-btn';
   nextBtn.textContent = 'Next puzzle';
   nextBtn.hidden = true;
-  nextBtn.addEventListener('click', () => { nextBtn.hidden = true; void loadNext(); });
+  nextBtn.addEventListener('click', () => onNextTap());
+
   bottomEl.appendChild(statusEl);
   bottomEl.appendChild(themesEl);
+  if (!timed) bottomEl.appendChild(hintBtn);
   bottomEl.appendChild(nextBtn);
 
   overlay.appendChild(headerEl);
@@ -207,10 +260,12 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   }
   function lockBoard(): void {
     inputLocked = true;
+    hintBtn.hidden = true;
     cg.set({ movable: { color: undefined, dests: new Map() } });
   }
   function handToSolver(): void {
     inputLocked = false;
+    if (!timed) hintBtn.hidden = false;
     cg.set({ turnColor: cgTurn(), movable: { color: solverColour, dests: legalDests() } });
   }
   // Apply a UCI move to both chess.js and the board, animated.
@@ -221,6 +276,11 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   }
   function renderScore(): void {
     scoreEl.textContent = `✓ ${solvedCount}`;
+  }
+  function renderMistakes(): void {
+    for (let i = 0; i < mistakeDots.length; i++) {
+      mistakeDots[i].classList.toggle('pt-dot--miss', i < mistakes);
+    }
   }
   function renderSessionBar(): void {
     if (!sessionFillEl || !sessionLabelEl || opts.mode.kind !== 'count') return;
@@ -256,6 +316,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     lockBoard();
     setStatus('Loading puzzle…', 'pt-status--prompt');
     themesEl.hidden = true;
+    nextBtn.hidden = true;
     cg.setAutoShapes([]);
     renderSessionBar();
 
@@ -263,7 +324,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     // recently. Give up after a few misses so a backend hiccup can't spin forever.
     let setup = null;
     for (let tries = 0; tries < 6 && !isCleaned; tries++) {
-      const d = await opts.nextPuzzle();
+      const d = await opts.nextPuzzle({ solved: solvedCount });
       if (isCleaned) return;
       if (!d) break;
       if (dedup && wasRecentlySeen(d.puzzle.id)) continue;
@@ -282,8 +343,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     solution = setup.solution;
     solverColour = setup.solverColour;
     solIndex = 0;            // the solver plays solution[0] first
-    failed = false;
-    awaitingReplay = false;
+    failedThisPuzzle = false;
 
     chess.load(setup.fen);
     cg.set({
@@ -304,16 +364,24 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     }, 360);
   }
 
-  function revealCorrect(): void {
-    awaitingReplay = true;
+  // Show the arrow for the move the solver currently owes (used by the Hint
+  // button, and re-shown after a wrong move while a hint is active).
+  function showArrow(): void {
     const expected = solution[solIndex];
+    if (!expected) return;
     const { from, to } = uciParts(expected);
-    cg.set({ turnColor: cgTurn(), movable: { color: solverColour, dests: new Map([[from, [to]]]) } });
     requestAnimationFrame(() => {
       if (isCleaned) return;
       cg.setAutoShapes([{ orig: from, dest: to, brush: 'accent' }]);
     });
-    setStatus('Play the highlighted move', 'pt-status--reveal');
+  }
+
+  function useHint(): void {
+    if (inputLocked) return;
+    failedThisPuzzle = true; // a hinted solve earns no points
+    hintBtn.hidden = true;
+    showArrow();
+    setStatus('Hint — play the highlighted move', 'pt-status--reveal');
   }
 
   function onUserMove(from: Key, to: Key): void {
@@ -323,9 +391,8 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     const { from: eFrom, to: eTo } = uciParts(expected);
 
     if (from === eFrom && to === eTo) {
-      // Correct (or the required replay after a miss).
+      // Correct.
       cg.setAutoShapes([]);
-      awaitingReplay = false;
       playFeedback('correct');
       playMove(expected);
       solIndex++;
@@ -334,14 +401,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     }
 
     // Wrong move.
-    if (awaitingReplay) {
-      // Already revealed — just nudge them back to the highlighted move.
-      flashError();
-      cg.set({ fen: chess.fen(), turnColor: cgTurn(), movable: { color: solverColour, dests: new Map([[eFrom, [eTo]]]) } });
-      requestAnimationFrame(() => { if (!isCleaned) cg.setAutoShapes([{ orig: eFrom, dest: eTo, brush: 'accent' }]); });
-      return;
-    }
-    failed = true;
+    failedThisPuzzle = true;
     flashError();
     if (timed) {
       // No reveal — count it missed and jump straight to the next puzzle.
@@ -349,9 +409,11 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
       finish();
       return;
     }
-    // Count mode: reveal the answer and make them replay it to learn the idea.
-    cg.set({ fen: chess.fen(), turnColor: cgTurn(), movable: { color: undefined, dests: new Map() } });
-    revealCorrect();
+    // Count mode: snap the piece back and let them try again (the Hint button is
+    // there if they're stuck). If a hint is already showing, keep the arrow up.
+    setStatus('Not quite — try again', 'pt-status--error');
+    cg.set({ fen: chess.fen(), turnColor: cgTurn(), movable: { color: solverColour, dests: legalDests() } });
+    if (cg.state.drawable.autoShapes.length) showArrow();
   }
 
   // After the solver's correct move: auto-play the opponent's reply, then either
@@ -370,52 +432,72 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     }, 360);
   }
 
-  // Finish the current puzzle: record it, update tallies, then advance the
-  // session (next puzzle, or the results screen when the session is over).
+  // Finish the current puzzle: record it, update tallies and rating, then advance
+  // the session (next puzzle, or the results screen when the session is over).
   function finish(): void {
     lockBoard();
     cg.setAutoShapes([]);
     completed++;
     const cur = draw!;
-    if (!failed) solvedCount++; else missed.push(cur);
+    const clean = !failedThisPuzzle;
+    entries.push({ draw: cur, clean });
+    if (clean) solvedCount++; else missed.push(cur);
     renderScore();
-    opts.onResult?.({ puzzle: cur.puzzle, solved: !failed, angle: cur.angle });
+    opts.onResult?.({ puzzle: cur.puzzle, solved: clean, angle: cur.angle });
+
+    // Rating moves only in rated mode, and only a clean solve scores. Bank it
+    // immediately so an early exit keeps what was earned.
+    if (rated) {
+      liveRating = nextRating(liveRating, cur.puzzle.rating, clean);
+      commitRating(liveRating);
+    }
 
     if (timed) {
-      // Keep moving — the clock, not a button, ends the session.
-      if (Date.now() >= deadline) { showResults(); return; }
+      if (!clean) { mistakes++; renderMistakes(); }
+      // End on the third mistake or when the clock is up; otherwise keep going.
+      const maxMistakes = opts.mode.kind === 'timed' ? opts.mode.maxMistakes : 3;
+      if (mistakes >= maxMistakes || Date.now() >= deadline) {
+        autoTimer = setTimeout(() => { if (!isCleaned) showResults(); }, clean ? 300 : 700);
+        return;
+      }
       autoTimer = setTimeout(() => { if (!isCleaned && Date.now() < deadline) void loadNext(); }, 420);
       return;
     }
 
-    // Count mode: show the outcome, then either finish or load the next puzzle.
+    // Count mode: show the outcome and wait for a tap (no auto-advance).
     const total = opts.mode.kind === 'count' ? opts.mode.count : 0;
     renderSessionBar();
     if (cur.puzzle.themes.length) {
       themesEl.textContent = cur.puzzle.themes.map(prettyTheme).join(' · ');
       themesEl.hidden = false;
     }
-    if (failed) {
-      setStatus('Solution shown — next time!', 'pt-status--error');
-    } else {
+    if (clean) {
       setStatus('Solved!', 'pt-status--success');
       burstConfetti(boardWrap);
+    } else {
+      setStatus('Got it — no points this time', 'pt-status--reveal');
     }
-    if (completed >= total) {
-      autoTimer = setTimeout(() => { if (!isCleaned) showResults(); }, failed ? 1800 : 1200);
-      return;
-    }
+    nextBtn.textContent = completed >= total ? 'See results' : 'Next puzzle';
     nextBtn.hidden = false;
-    autoTimer = setTimeout(() => { if (!isCleaned) { nextBtn.hidden = true; void loadNext(); } }, failed ? 2600 : 1500);
+  }
+
+  // The Next/See-results button in count mode.
+  function onNextTap(): void {
+    const total = opts.mode.kind === 'count' ? opts.mode.count : 0;
+    nextBtn.hidden = true;
+    if (completed >= total) showResults();
+    else void loadNext();
   }
 
   // ── Results screen ──────────────────────────────────────────────────────────
+  let resultsShown = false;
   function showResults(): void {
+    if (resultsShown || isCleaned) return; // the clock and finish() can both reach here
+    resultsShown = true;
     stopTimer();
     if (autoTimer) clearTimeout(autoTimer);
     lockBoard();
     cg.setAutoShapes([]);
-    burstConfetti(boardWrap);
 
     // Swap the overlay's body for a summary panel (reusing the train look).
     boardWrap.remove();
@@ -424,9 +506,13 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     sessionBarEl.remove();
     timerEl.remove();
     scoreEl.remove();
+    mistakesEl.remove();
 
     const wrap = document.createElement('div');
     wrap.className = 'section train-completion train-completion--enter pz-results';
+
+    wrap.appendChild(celebratePawn());
+    burstConfetti(wrap);
 
     const done = document.createElement('div');
     done.className = 'train-completion-done';
@@ -435,19 +521,52 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
 
     const sub = document.createElement('div');
     sub.className = 'train-completion-name';
-    sub.textContent = `${completed} puzzle${completed === 1 ? '' : 's'}${timed ? ' in the time' : ''}`;
+    sub.textContent = `${solvedCount}/${completed} solved clean${timed ? ' against the clock' : ''}`;
     wrap.appendChild(sub);
 
-    const row = document.createElement('div');
-    row.className = 'summary-stats-row';
-    row.appendChild(statBox(solvedCount, 'solved', 'summary-stat-box--right'));
-    row.appendChild(statBox(missed.length, 'missed', missed.length > 0 ? 'summary-stat-box--missed' : 'summary-stat-box--zero'));
-    wrap.appendChild(row);
+    // Rated: the rating delta + the new total, animated up from the old rating.
+    if (rated) {
+      const delta = liveRating - ratingBefore;
+      const card = document.createElement('div');
+      card.className = 'pz-rating-result';
+      const deltaEl = document.createElement('div');
+      deltaEl.className = 'pz-rating-delta ' + (delta >= 0 ? 'pz-rating-delta--up' : 'pz-rating-delta--down');
+      deltaEl.textContent = `${delta >= 0 ? '+' : '−'}${Math.abs(delta)}`;
+      card.appendChild(deltaEl);
+      const totalEl = document.createElement('div');
+      totalEl.className = 'pz-rating-total';
+      totalEl.textContent = String(ratingBefore);
+      card.appendChild(totalEl);
+      const lbl = document.createElement('div');
+      lbl.className = 'pz-rating-label';
+      lbl.textContent = 'puzzle rating';
+      card.appendChild(lbl);
+      wrap.appendChild(card);
+      // Let the panel settle, then tick the total up to its new value.
+      setTimeout(() => { if (!isCleaned) countUp(totalEl, liveRating, { from: ratingBefore, durationMs: 950 }); }, 320);
+    }
+
+    // Per-puzzle review list: green for clean, red for missed/hinted.
+    if (entries.length) {
+      const list = document.createElement('div');
+      list.className = 'pz-results-list';
+      for (const e of entries) list.appendChild(resultRow(e));
+      wrap.appendChild(list);
+    }
+
+    if (opts.onPlayAgain) {
+      const again = document.createElement('button');
+      again.type = 'button';
+      again.className = 'pz-next-btn';
+      again.textContent = 'Play again';
+      again.addEventListener('click', () => { const fn = opts.onPlayAgain!; cleanup(); fn(); });
+      wrap.appendChild(again);
+    }
 
     if (missed.length > 0) {
       const retry = document.createElement('button');
       retry.type = 'button';
-      retry.className = 'pz-next-btn';
+      retry.className = missed.length > 0 && opts.onPlayAgain ? 'pz-results-secondary' : 'pz-next-btn';
       retry.textContent = `Retry mistakes (${missed.length})`;
       retry.addEventListener('click', () => retryMistakes(missed.slice()));
       wrap.appendChild(retry);
@@ -455,7 +574,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
 
     const doneBtn = document.createElement('button');
     doneBtn.type = 'button';
-    doneBtn.className = missed.length > 0 ? 'pz-results-secondary' : 'pz-next-btn';
+    doneBtn.className = 'pz-results-secondary';
     doneBtn.textContent = 'Done';
     doneBtn.addEventListener('click', () => doExit());
     wrap.appendChild(doneBtn);
@@ -463,21 +582,39 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     overlay.appendChild(wrap);
   }
 
-  function statBox(value: number, label: string, cls: string): HTMLElement {
-    const box = document.createElement('div');
-    box.className = `summary-stat-box ${cls}`;
-    const val = document.createElement('div');
-    val.className = 'summary-stat-value';
-    val.textContent = String(value);
-    const lbl = document.createElement('div');
-    lbl.className = 'summary-stat-label';
-    lbl.textContent = label;
-    box.appendChild(val);
-    box.appendChild(lbl);
-    return box;
+  // One row in the review list: outcome edge + opening name + theme/rating meta.
+  function resultRow(e: SessionEntry): HTMLElement {
+    const row = document.createElement('div');
+    row.className = 'pz-result-row ' + (e.clean ? 'pz-result-row--solved' : 'pz-result-row--missed');
+
+    const dot = document.createElement('span');
+    dot.className = 'pz-result-dot';
+    dot.textContent = e.clean ? '✓' : '✕';
+    row.appendChild(dot);
+
+    const main = document.createElement('div');
+    main.className = 'pz-result-main';
+    const name = document.createElement('div');
+    name.className = 'pz-result-name';
+    name.textContent = e.draw.family ?? prettyAngle(e.draw.angle);
+    main.appendChild(name);
+    const meta = document.createElement('div');
+    meta.className = 'pz-result-meta';
+    const theme = e.draw.puzzle.themes.length ? prettyTheme(e.draw.puzzle.themes[0]) : 'Tactic';
+    meta.textContent = theme;
+    main.appendChild(meta);
+    row.appendChild(main);
+
+    const rating = document.createElement('span');
+    rating.className = 'pz-result-rating';
+    rating.textContent = String(e.draw.puzzle.rating);
+    row.appendChild(rating);
+
+    return row;
   }
 
   // Replay the missed puzzles as a fresh count session (de-dup off so they repeat).
+  // Always unrated — a retry shouldn't move the ladder.
   function retryMistakes(pool: PuzzleDraw[]): void {
     cleanup();
     const queue = [...pool];
@@ -505,6 +642,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   }
 
   renderScore();
+  renderMistakes();
   if (timed) startTimer();
   void loadNext();
 }
@@ -513,4 +651,10 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
 function prettyTheme(theme: string): string {
   const spaced = theme.replace(/([a-z])([A-Z0-9])/g, '$1 $2').toLowerCase();
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+// "Sicilian_Defense" → "Sicilian Defense"; null → "Mixed".
+function prettyAngle(angle: string | null): string {
+  if (!angle) return 'Mixed';
+  return angle.replace(/_/g, ' ');
 }

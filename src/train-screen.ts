@@ -21,6 +21,7 @@ import { renderStarterOnboarding, ONBOARDING_GOAL } from './onboarding-starter';
 import { createFilterBar, type FilterSelection } from './filters';
 import { renderFamilyGroups } from './line-groups';
 import { TrainingSession, type SessionItem } from './session';
+import { countUp } from './count-up';
 import {
   userMoveNodes,
   gradeReview,
@@ -605,28 +606,6 @@ function buildTimedCard(
   card.appendChild(chips);
 
   return card;
-}
-
-// ── Count-up animation ──────────────────────────────────────────────────────────
-//
-// A subtle bit of life on screen entry: a number ticks up from 0 to its value
-// over half a second, easing to a stop. Honours prefers-reduced-motion (and a
-// zero/one target) by just showing the final value.
-function countUp(el: HTMLElement, to: number, durationMs = 550): void {
-  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  if (to <= 1 || reduce) {
-    el.textContent = String(to);
-    return;
-  }
-  const start = performance.now();
-  const step = (now: number) => {
-    const t = Math.min(1, (now - start) / durationMs);
-    const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
-    el.textContent = String(Math.round(eased * to));
-    if (t < 1) requestAnimationFrame(step);
-    else el.textContent = String(to);
-  };
-  requestAnimationFrame(step);
 }
 
 // ── "In training" list (filter + sort + rows) ────────────────────────────────────

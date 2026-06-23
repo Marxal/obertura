@@ -37,6 +37,7 @@ import {
   type TrendPoint,
 } from './stats';
 import { getPuzzleDays, getPuzzlesByOpening } from './puzzle-log';
+import { getPuzzleRating, getRatingHistory, type RatingPoint } from './puzzle-rating';
 import { fetchPuzzleDashboard } from './puzzles';
 import { isConnected, getAccessToken } from './lichess-auth';
 import { Icons } from './icons';
@@ -399,11 +400,23 @@ function renderTrainingRegion(container: HTMLElement, lines: Line[], cb: Progres
 function renderPuzzlesRegion(container: HTMLElement): void {
   const days = getPuzzleDays();
   const byOpening = getPuzzlesByOpening();
+  const history = getRatingHistory();
   const connected = isConnected();
   // Nothing to show yet, and no account to pull a dashboard from.
-  if (days.length === 0 && !connected) return;
+  if (days.length === 0 && history.length === 0 && !connected) return;
 
   regionTitle(container, 'Puzzles');
+
+  // Puzzle rating — the big personal number, with its evolution over time.
+  if (history.length > 0) {
+    const section = statsSection('Puzzle rating');
+    const big = document.createElement('div');
+    big.className = 'pz-rating-stat';
+    big.textContent = String(getPuzzleRating());
+    section.appendChild(big);
+    if (history.length >= 2) renderRatingTrend(section, history);
+    container.appendChild(section);
+  }
 
   // Solved + accuracy, with a Week / Month / All selector.
   if (days.length > 0) {
@@ -1088,6 +1101,75 @@ function renderWinRateOverTime(container: HTMLElement, games: ImportedGame[], st
 }
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
+
+// Puzzle rating over time — a small inline-SVG line (same look as the win-rate
+// trend, but the y-axis is the rating value rather than a percentage). Reuses the
+// .stats-trend classes. Assumes ≥2 points (the caller gates on that).
+function renderRatingTrend(container: HTMLElement, points: RatingPoint[]): void {
+  const W = 300, H = 110, padX = 10, padTop = 10, padBottom = 20;
+  const innerW = W - padX * 2;
+  const innerH = H - padTop - padBottom;
+
+  const ratings = points.map((p) => p.rating);
+  let lo = Math.min(...ratings);
+  let hi = Math.max(...ratings);
+  if (hi === lo) { hi += 1; lo -= 1; } // avoid a flat divide-by-zero
+  const pad = (hi - lo) * 0.15;
+  lo -= pad; hi += pad;
+
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('class', 'stats-trend');
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', 'Puzzle rating over time');
+
+  const x = (i: number): number => padX + (i / (points.length - 1)) * innerW;
+  const y = (r: number): number => padTop + (1 - (r - lo) / (hi - lo)) * innerH;
+
+  const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(p.rating).toFixed(1)}`).join(' ');
+  const poly = document.createElementNS(SVG_NS, 'path');
+  poly.setAttribute('d', path);
+  poly.setAttribute('class', 'stats-trend-path');
+  poly.setAttribute('fill', 'none');
+  svg.appendChild(poly);
+
+  const detail = document.createElement('div');
+  detail.className = 'stats-trend-detail';
+
+  const dots: SVGCircleElement[] = [];
+  const select = (i: number): void => {
+    dots.forEach((d) => d.classList.remove('stats-trend-dot--sel'));
+    dots[i].classList.add('stats-trend-dot--sel');
+    detail.textContent = `${points[i].day} · ${points[i].rating}`;
+  };
+
+  points.forEach((p, i) => {
+    const dot = document.createElementNS(SVG_NS, 'circle');
+    dot.setAttribute('cx', x(i).toFixed(1));
+    dot.setAttribute('cy', y(p.rating).toFixed(1));
+    dot.setAttribute('r', '3.4');
+    dot.setAttribute('class', 'stats-trend-dot');
+    dots.push(dot);
+    svg.appendChild(dot);
+
+    const hit = document.createElementNS(SVG_NS, 'circle');
+    hit.setAttribute('cx', x(i).toFixed(1));
+    hit.setAttribute('cy', y(p.rating).toFixed(1));
+    hit.setAttribute('r', '12');
+    hit.setAttribute('fill', 'transparent');
+    hit.style.cursor = 'pointer';
+    hit.addEventListener('click', () => select(i));
+    svg.appendChild(hit);
+  });
+
+  const chartWrap = document.createElement('div');
+  chartWrap.appendChild(svg);
+  container.appendChild(chartWrap);
+  container.appendChild(detail);
+  select(points.length - 1);
+}
+
 
 function trendDetailText(p: TrendPoint): string {
   const year = new Date(p.startMs).getFullYear();
