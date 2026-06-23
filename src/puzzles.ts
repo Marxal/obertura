@@ -6,9 +6,12 @@
 //   GET /api/puzzle/next?angle=&difficulty=&color=  → one puzzle (the next one)
 //   GET /api/puzzle/dashboard/{days}                → your puzzle results (auth)
 //
-// `next` works anonymously; with the puzzle:read token Lichess skips puzzles
-// you've already seen. The dashboard needs the token. We always fail soft
-// (return null) on any network/CORS/parse error, exactly like lichess-explorer.
+// `next` is called ANONYMOUSLY (no Authorization header): adding the Bearer token
+// turns it into a non-simple CORS request that Lichess's puzzle endpoint won't
+// preflight from the browser, so the fetch throws and no puzzle ever loads.
+// Avoiding repeats is handled locally instead (puzzle-log's seen-id ring). The
+// dashboard still needs the token. We always fail soft (return null) on any
+// network/CORS/parse error, exactly like lichess-explorer.
 
 import { Chess } from 'chess.js';
 import { openingFamily } from './analysis';
@@ -47,10 +50,10 @@ interface PuzzleResponse {
 export interface NextOptions {
   difficulty?: Difficulty;
   colour?: 'white' | 'black';
-  token?: string | null;
 }
 
 // Fetch the next puzzle for an angle (an opening key or theme, or null for any).
+// Always anonymous — see the header note: the token would break CORS here.
 export async function fetchNextPuzzle(
   angle: string | null,
   opts: NextOptions = {},
@@ -61,10 +64,7 @@ export async function fetchNextPuzzle(
     if (opts.difficulty) url.searchParams.set('difficulty', opts.difficulty);
     if (opts.colour) url.searchParams.set('color', opts.colour);
 
-    const headers: Record<string, string> = { Accept: 'application/json' };
-    if (opts.token) headers.Authorization = `Bearer ${opts.token}`;
-
-    const res = await fetch(url.toString(), { headers });
+    const res = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
     if (!res.ok) return null;
     const data = (await res.json()) as PuzzleResponse;
     const p = data.puzzle;

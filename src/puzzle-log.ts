@@ -10,7 +10,9 @@
 
 const DAY_KEY = 'obertura.puzzleLog';
 const OPENING_KEY = 'obertura.puzzleByOpening';
+const SEEN_KEY = 'obertura.puzzleSeen';
 const MAX_DAYS = 120;
+const MAX_SEEN = 300;
 
 function dayKey(d: Date): string {
   const y = d.getFullYear();
@@ -103,11 +105,47 @@ export function getPuzzlesByOpening(): PuzzleOpeningTally[] {
   }));
 }
 
+// ── Seen-puzzle de-dup ─────────────────────────────────────────────────────────
+//
+// Because /api/puzzle/next is called anonymously (sending the token breaks CORS),
+// Lichess can't skip puzzles you've already seen. We do it locally instead: a
+// capped, most-recent-first ring of puzzle ids. The solver checks wasRecentlySeen
+// when drawing and refetches a few times before accepting a repeat.
+
+function loadSeen(): string[] {
+  try {
+    const raw = localStorage.getItem(SEEN_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw) as unknown;
+    return Array.isArray(arr) ? (arr as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function wasRecentlySeen(id: string): boolean {
+  return loadSeen().includes(id);
+}
+
+// Record a puzzle as seen, moving it to the front and trimming to MAX_SEEN.
+export function recordSeenPuzzle(id: string): void {
+  if (!id) return;
+  const seen = loadSeen().filter((x) => x !== id);
+  seen.unshift(id);
+  if (seen.length > MAX_SEEN) seen.length = MAX_SEEN;
+  try {
+    localStorage.setItem(SEEN_KEY, JSON.stringify(seen));
+  } catch {
+    /* storage unavailable/full — de-dup is a nicety, never block on it. */
+  }
+}
+
 // Forget every puzzle tally — part of "Reset progress" in Settings.
 export function clearPuzzleLog(): void {
   try {
     localStorage.removeItem(DAY_KEY);
     localStorage.removeItem(OPENING_KEY);
+    localStorage.removeItem(SEEN_KEY);
   } catch {
     /* storage unavailable — nothing to clear. */
   }
