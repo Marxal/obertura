@@ -75,11 +75,13 @@ export function runPuzzlesSelfTest(): TestResult[] {
   );
 
   // ── Position replay ────────────────────────────────────────────────────────
-  // Game: 1.e4 e5 2.Nf3 Nc6 (4 plies, white to move). The opponent's setup move
-  // is Bc4 (f1c4); after it, black is the solver.
+  // Game: 1.e4 e5 2.Nf3 Nc6 (4 plies, white to move). Real puzzles set
+  // initialPly to pgnPlies - 1 (the pgn is truncated to the puzzle), so the whole
+  // pgn must be replayed. The opponent's setup move is Bc4 (f1c4); after it, black
+  // is the solver.
   const p = makePuzzle({
     pgn: 'e4 e5 Nf3 Nc6',
-    initialPly: 4,
+    initialPly: 3,
     solution: ['f1c4', 'g8f6', 'b1c3'],
   });
   const setup = puzzleSetup(p);
@@ -91,7 +93,7 @@ export function runPuzzlesSelfTest(): TestResult[] {
   }
 
   // A nonsense setup move yields null rather than throwing.
-  const bad = puzzleSetup(makePuzzle({ pgn: 'e4 e5', initialPly: 2, solution: ['a1a8'] }));
+  const bad = puzzleSetup(makePuzzle({ pgn: 'e4 e5', initialPly: 1, solution: ['a1a8'] }));
   check('setup: illegal setup move → null', bad === null);
 
   return results;
