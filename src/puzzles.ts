@@ -87,22 +87,20 @@ export async function fetchNextPuzzle(
 // ── Puzzle position ──────────────────────────────────────────────────────────
 //
 // Lichess convention (verified against /api/puzzle/next): the `game.pgn` is
-// truncated to exactly the puzzle, so it has `initialPly + 1` plies. Replaying
-// the WHOLE pgn (initialPly + 1 moves) reaches the position before the opponent's
-// setup move. solution[0] is that opponent move (played automatically to reveal
-// the tactic), and is NOT part of the pgn; the solver then plays solution[1], the
-// opponent solution[2], and so on. So the board the solver faces is the position
-// after solution[0], oriented to whoever is to move there.
+// truncated to exactly the puzzle, so it has `initialPly + 1` plies and ENDS with
+// the opponent's blunder. Replaying the WHOLE pgn reaches the position the solver
+// faces, with the SOLVER to move. solution[0] is the solver's own first move; the
+// opponent replies solution[1], the solver plays solution[2], and so on. So the
+// solver owns the EVEN indices (0, 2, 4…) and the odd indices are auto-played
+// opponent replies. The board is oriented to the solver.
 
 export interface PuzzleSetup {
-  // FEN after replaying the whole pgn (before the opponent's setup move).
+  // FEN after replaying the whole pgn — the solver is to move here.
   fen: string;
-  // The opponent's first move (solution[0]), animated to set up the puzzle.
-  setupMove: string;
-  // The side the solver plays (to move after setupMove).
+  // The side the solver plays (to move in `fen`).
   solverColour: 'white' | 'black';
-  // The full solution in UCI. The solver owns the odd indices (1, 3, 5…); the
-  // even indices from 2 on are auto-played opponent replies. Index 0 is setupMove.
+  // The full solution in UCI. The solver owns the even indices (0, 2, 4…); the
+  // odd indices are auto-played opponent replies.
   solution: string[];
 }
 
@@ -121,17 +119,18 @@ export function puzzleSetup(puzzle: Puzzle): PuzzleSetup | null {
     const moves = game.history({ verbose: true });
 
     const board = new Chess();
-    // Play the whole pgn (initialPly + 1 plies); solution[0] is the move that
-    // follows, played as the opponent's setup move below.
+    // Play the whole pgn (initialPly + 1 plies); the solver is now to move and
+    // solution[0] is their first move.
     const plies = Math.min(puzzle.initialPly + 1, moves.length);
     for (let i = 0; i < plies; i++) board.move(moves[i].san);
     const fen = board.fen();
-
-    const setupMove = puzzle.solution[0];
-    if (!board.move(FROM(setupMove))) return null;
     const solverColour = board.turn() === 'w' ? 'white' : 'black';
 
-    return { fen, setupMove, solverColour, solution: puzzle.solution };
+    // Sanity-check that the solver's first move is legal here (rejects corrupt
+    // data without mutating the returned position).
+    if (!puzzle.solution[0] || !board.move(FROM(puzzle.solution[0]))) return null;
+
+    return { fen, solverColour, solution: puzzle.solution };
   } catch {
     return null;
   }
