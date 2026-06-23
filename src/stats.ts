@@ -21,6 +21,7 @@ import {
   type OpeningStat,
 } from './analysis';
 import type { DayOutcome } from './streak';
+import type { PuzzleDay, PuzzleOpeningTally } from './puzzle-log';
 import type { StatsRange } from './prefs';
 
 // A line is "mastered" once its training confidence reaches the top of the 0–5
@@ -122,6 +123,75 @@ export function reviewBars(log: DayOutcome[], range: StatsRange, now: Date = new
     });
   }
   return bars;
+}
+
+// ── Puzzles ──────────────────────────────────────────────────────────────────
+//
+// Aggregations over the device-local puzzle log (puzzle-log.ts). These work with
+// no Lichess connection; the connected dashboard (puzzles.ts) is layered on top
+// in the screen, not here.
+
+export interface PuzzleTotals {
+  solved: number;
+  failed: number;
+  attempts: number;
+  accuracyPct: number; // solved / attempts, 0 when nothing attempted
+}
+
+// Solved/failed totals over the selected range. 'week' = last 7 days, 'month' =
+// last 30, 'all' = everything logged.
+export function puzzleTotals(days: PuzzleDay[], range: StatsRange, now: Date = new Date()): PuzzleTotals {
+  let cutoff = -Infinity;
+  if (range === 'week' || range === 'month') {
+    const back = range === 'week' ? 6 : 29; // inclusive of today
+    const d = new Date(now);
+    d.setDate(d.getDate() - back);
+    cutoff = new Date(`${localKey(d)}T00:00:00`).getTime();
+  }
+  let solved = 0;
+  let failed = 0;
+  for (const day of days) {
+    if (new Date(`${day.day}T00:00:00`).getTime() < cutoff) continue;
+    solved += day.solved;
+    failed += day.failed;
+  }
+  const attempts = solved + failed;
+  return { solved, failed, attempts, accuracyPct: attempts === 0 ? 0 : Math.round((solved / attempts) * 100) };
+}
+
+export interface PuzzleOpeningRow {
+  angle: string;
+  family: string;     // readable name, e.g. "Sicilian Defense"
+  solved: number;
+  failed: number;
+  attempts: number;
+  accuracyPct: number;
+}
+
+// Turn a Lichess angle key into a readable opening name ("Caro-Kann_Defense" →
+// "Caro-Kann Defense").
+export function angleToName(angle: string): string {
+  return angle.replace(/_/g, ' ');
+}
+
+// Per-opening puzzle accuracy, most-attempted first — the trained openings you're
+// sharp or shaky in tactically. Openings with fewer than `min` attempts are
+// dropped so a single lucky/unlucky puzzle doesn't dominate.
+export function puzzleAccuracyByOpening(byOpening: PuzzleOpeningTally[], min = 1): PuzzleOpeningRow[] {
+  return byOpening
+    .map(o => {
+      const attempts = o.solved + o.failed;
+      return {
+        angle: o.angle,
+        family: angleToName(o.angle),
+        solved: o.solved,
+        failed: o.failed,
+        attempts,
+        accuracyPct: attempts === 0 ? 0 : Math.round((o.solved / attempts) * 100),
+      };
+    })
+    .filter(r => r.attempts >= min)
+    .sort((a, b) => b.attempts - a.attempts || a.family.localeCompare(b.family));
 }
 
 // ── Win rate by opening × training ───────────────────────────────────────────

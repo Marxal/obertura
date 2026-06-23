@@ -16,8 +16,11 @@ import {
   mostPlayedOpenings,
   bestScoringOpenings,
   worstScoringOpenings,
+  puzzleTotals,
+  puzzleAccuracyByOpening,
 } from './stats';
 import type { DayOutcome } from './streak';
+import type { PuzzleDay, PuzzleOpeningTally } from './puzzle-log';
 
 export interface TestResult {
   name: string;
@@ -196,6 +199,41 @@ export function runStatsSelfTest(): TestResult[] {
     most[0]?.family === 'Sicilian Defense' && best[0]?.family === 'Sicilian Defense' &&
       best[0]?.scorePct === 100 && worst[0]?.family === 'Italian Game' && worst[0]?.scorePct === 0,
     `most ${most[0]?.family}; best ${best[0]?.family} ${best[0]?.scorePct}%; worst ${worst[0]?.family} ${worst[0]?.scorePct}%`,
+  );
+
+  // 7. Puzzle totals respect the range and compute accuracy. Today + 10 days ago;
+  //    'week' sees only today (8/2 → 80%), 'all' sees both (9/4 → 69%).
+  const pToday = new Date('2026-06-22T12:00:00');
+  const pDays: PuzzleDay[] = [
+    { day: '2026-06-12', solved: 1, failed: 2 },
+    { day: '2026-06-22', solved: 8, failed: 2 },
+  ];
+  const wk = puzzleTotals(pDays, 'week', pToday);
+  const allP = puzzleTotals(pDays, 'all', pToday);
+  check(
+    'puzzleTotals: week window + accuracy',
+    wk.solved === 8 && wk.failed === 2 && wk.attempts === 10 && wk.accuracyPct === 80,
+    `week ${wk.solved}/${wk.attempts} = ${wk.accuracyPct}%`,
+  );
+  check(
+    'puzzleTotals: all window sums everything',
+    allP.solved === 9 && allP.attempts === 13 && allP.accuracyPct === 69,
+    `all ${allP.solved}/${allP.attempts} = ${allP.accuracyPct}%`,
+  );
+
+  // 8. Accuracy by opening: readable name, accuracy, most-attempted first, and the
+  //    `min` floor drops thin samples.
+  const byOpening: PuzzleOpeningTally[] = [
+    { angle: 'Sicilian_Defense', solved: 6, failed: 4 }, // 10 attempts, 60%
+    { angle: 'Caro-Kann_Defense', solved: 2, failed: 0 }, // 2 attempts, 100%
+    { angle: 'Italian_Game', solved: 1, failed: 0 },       // 1 attempt
+  ];
+  const byOp = puzzleAccuracyByOpening(byOpening, 2);
+  check(
+    'puzzleAccuracyByOpening: name, accuracy, order, min floor',
+    byOp.length === 2 && byOp[0].family === 'Sicilian Defense' && byOp[0].accuracyPct === 60 &&
+      byOp[1].family === 'Caro-Kann Defense' && byOp[1].accuracyPct === 100,
+    byOp.map(r => `${r.family} ${r.accuracyPct}%`).join(', '),
   );
 
   return results;
