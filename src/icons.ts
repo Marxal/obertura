@@ -52,6 +52,8 @@ export const Icons = {
   clock:    (s?: number) => svg(`<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>`, s),
   note:     (s?: number) => svg(`<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>`, s),
   target:   (s?: number) => svg(`<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>`, s),
+  // The Puzzles tab mark — a jigsaw piece (knob on top, socket on the right).
+  puzzlePiece: (s?: number) => svg(`<path d="M9 4a2 2 0 0 1 4 0c0 .5-.2 1-.5 1.3-.3.4-.5.8-.5 1.2 0 .8.7 1.5 1.5 1.5.4 0 .8-.2 1.2-.5C16 8.2 16.5 8 17 8a2 2 0 0 1 0 4c-.5 0-1-.2-1.3-.5-.4-.3-.8-.5-1.2-.5-.8 0-1.5.7-1.5 1.5 0 .4.2.8.5 1.2.3.3.5.8.5 1.3v3a2 2 0 0 1-2 2H9a1 1 0 0 1-1-1v-2.5c0-.6-.4-1-1-1-.3 0-.6.1-.9.4-.3.3-.7.6-1.1.6a2 2 0 0 1 0-4c.4 0 .8.3 1.1.6.3.3.6.4.9.4.6 0 1-.4 1-1V6a2 2 0 0 1 1-1.7"/>`, s),
   // Fallback avatar for a scouted player with no profile picture.
   userCircle: (s?: number) => svg(`<circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M6.2 18.6a6 6 0 0 1 11.6 0"/>`, s),
   info:     (s?: number) => svg(`<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>`, s),
