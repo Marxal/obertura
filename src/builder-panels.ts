@@ -27,7 +27,7 @@ import { formatMove } from './notation';
 import { wdlScoreRow, type WdlCounts } from './wdl-bar';
 import { fetchExplorer, type ExplorerCounts, type ExplorerDb } from './lichess-explorer';
 import { bundledStats } from './explorer-stats';
-import { isConnected, connect, disconnect, getAccessToken } from './lichess-auth';
+import { isConnected, connect, disconnect, getAccessToken, stashReturn } from './lichess-auth';
 import { getExplorerDb, setExplorerDb } from './prefs';
 import { showDialog } from './dialog';
 import { platformLabel } from './board-explorer';
@@ -119,10 +119,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   function renderLibrary(): void {
     const el = deps.libraryEl;
     el.innerHTML = '';
-    // The compact Masters / Lichess toggle rides at the top, always.
-    el.appendChild(dbBar());
-    if (!isConnected()) el.appendChild(connectCta());
-    if (!book) { el.appendChild(emptyNote('Loading openings…')); return; }
+    if (!book) { el.appendChild(topBar()); el.appendChild(emptyNote('Loading openings…')); return; }
 
     const fen = deps.getFen();
     const node = bookNodeAt(book, deps.getSans());
@@ -131,15 +128,15 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     kids.sort((a, b) => b[1].count - a[1].count || a[0].localeCompare(b[0]));
 
     // Off the bundled book: keep going by listing the continuations the stats
-    // database (or live Lichess) plays from here, instead of dead-ending.
+    // database (or live Lichess) plays from here, instead of dead-ending. The
+    // "games from here" note rides discreetly on the top bar — no extra row.
     if (!kids.length) {
-      el.appendChild(emptyNote(node
-        ? 'End of the book line — games from here:'
-        : 'Off the book — games from here:'));
+      el.appendChild(topBar(node ? 'End of book · games from here' : 'Off book · games from here'));
       renderStatMoves(el, fen);
       return;
     }
 
+    el.appendChild(topBar());
     const prefix = movePrefix(deps.getSans().length);
     // One chess seeded at the live position resolves each candidate to a UCI and
     // the opening name it reaches (play, read, undo).
@@ -203,11 +200,14 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
         .filter(r => r.counts.games > 0)
         .sort((a, b) => b.counts.games - a.counts.games);
       if (!rows.length) {
-        // No data for this position. If they haven't connected, that's the nudge;
-        // otherwise it's simply a position too rare to have stats.
-        el.appendChild(emptyNote(isConnected()
-          ? 'No games recorded from here.'
-          : 'No bundled stats here — connect Lichess for every position.'));
+        // The games run out here — past the reach of the database. Frame it as a
+        // discovery rather than a dead end. Connected, that's genuinely new
+        // territory; disconnected, it may just be past the bundled set.
+        const note = emptyNote(isConnected()
+          ? '🧭 New territory — no recorded games reach this position.'
+          : '🧭 New territory — connect Lichess to see games this deep.');
+        note.classList.add('bx-frontier');
+        el.appendChild(note);
         return;
       }
       for (const r of rows) {
@@ -231,29 +231,44 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     }).catch(() => { /* graceful — bundled empty and live unavailable */ });
   }
 
-  // The compact Masters / Lichess toggle plus a small "i" explaining the source.
-  function dbBar(): HTMLElement {
+  // The Library slide's top bar, on a single row:
+  //   • connected   → the Masters / Lichess source toggle, then the "i".
+  //   • disconnected → the Connect nudge stands in for the toggle, then the "i".
+  // An optional caption (e.g. "games from here") rides discreetly in between, so
+  // off-book notes don't cost their own row.
+  function topBar(caption?: string): HTMLElement {
     const bar = document.createElement('div');
     bar.className = 'lib-db-bar';
 
-    const seg = document.createElement('div');
-    seg.className = 'lib-db-seg';
-    const opt = (db: ExplorerDb, label: string) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'lib-db-opt' + (explorerDb === db ? ' is-active' : '');
-      b.textContent = label;
-      b.addEventListener('click', () => {
-        if (explorerDb === db) return;
-        explorerDb = db;
-        setExplorerDb(db);
-        renderLibrary();
-      });
-      return b;
-    };
-    seg.appendChild(opt('masters', 'Masters'));
-    seg.appendChild(opt('lichess', 'Lichess'));
-    bar.appendChild(seg);
+    if (isConnected()) {
+      const seg = document.createElement('div');
+      seg.className = 'lib-db-seg';
+      const opt = (db: ExplorerDb, label: string) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'lib-db-opt' + (explorerDb === db ? ' is-active' : '');
+        b.textContent = label;
+        b.addEventListener('click', () => {
+          if (explorerDb === db) return;
+          explorerDb = db;
+          setExplorerDb(db);
+          renderLibrary();
+        });
+        return b;
+      };
+      seg.appendChild(opt('masters', 'Masters'));
+      seg.appendChild(opt('lichess', 'Lichess'));
+      bar.appendChild(seg);
+    } else {
+      const cta = document.createElement('button');
+      cta.type = 'button';
+      cta.className = 'lib-connect-cta lib-connect-cta--inline';
+      cta.textContent = 'Connect Lichess for every position →';
+      cta.addEventListener('click', doConnect);
+      bar.appendChild(cta);
+    }
+
+    if (caption) bar.appendChild(span('lib-db-caption', caption));
 
     const info = document.createElement('button');
     info.type = 'button';
@@ -265,32 +280,36 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     return bar;
   }
 
-  // A slim, dismissible-feeling call to action shown until Lichess is connected.
-  function connectCta(): HTMLElement {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'lib-connect-cta';
-    btn.textContent = 'Connect Lichess for every position →';
-    btn.addEventListener('click', () => { connect(); });
-    return btn;
+  // Start the Lichess connect, first stashing the current position so the
+  // post-redirect reload returns the builder here instead of to the start.
+  function doConnect(): void {
+    stashReturn(deps.getUcis(), deps.getColour());
+    connect();
   }
 
   function showDbInfo(): void {
     const connected = isConnected();
     showDialog({
       title: 'Opening database',
-      body: 'Win/loss stats come from a built-in database of the most common positions — ' +
-        'instant and offline, no login. Masters is over-the-board games between strong ' +
-        'titled players (cleaner theory); Lichess is rated online games (what real ' +
-        'opponents play). Connect your Lichess account to expand this to every position, ' +
-        'live. No personal data is read — a throwaway account works.',
+      body:
+        'The bars under each move show how that position has scored across real ' +
+        'games — so you can tell a solid main line from a shaky sideline at a glance.\n\n' +
+        'Masters — over-the-board games between titled players: cleaner, established theory.\n\n' +
+        'Lichess — rated online games: what real opponents actually play.\n\n' +
+        'A built-in set of the most common positions works instantly and offline, with no ' +
+        'login. Connecting your Lichess account extends the stats to every position, live — ' +
+        'no personal data is read, so even a throwaway account works.',
+      links: [
+        { label: 'Live opening explorer', href: 'https://lichess.org/analysis' },
+        { label: 'About the game data', href: 'https://database.lichess.org' },
+      ],
       buttons: connected
         ? [
             { label: 'Disconnect Lichess', variant: 'secondary', onClick: () => { disconnect(); renderLibrary(); } },
             { label: 'Done', variant: 'primary' },
           ]
         : [
-            { label: 'Connect to Lichess', variant: 'primary', onClick: () => { connect(); } },
+            { label: 'Connect to Lichess', variant: 'primary', onClick: doConnect },
             { label: 'Not now', variant: 'secondary' },
           ],
     });

@@ -45,14 +45,43 @@ export async function connect(): Promise<void> {
 }
 
 // Call once at app boot. If we've just returned from Lichess, complete the token
-// exchange. Returns true when a token is now held. Never throws.
+// exchange. Returns true ONLY when this boot is the return leg of a connect that
+// succeeded — so the caller can toast and restore once, not on every launch.
+// Never throws.
 export async function tryCallback(): Promise<boolean> {
+  let justConnected = false;
   try {
     if (await client().isReturningFromAuthServer()) {
       await client().getAccessToken();
+      justConnected = isConnected();
     }
   } catch { /* user denied, stale state, network — leave disconnected */ }
-  return isConnected();
+  return justConnected;
+}
+
+// The connect flow redirects to Lichess and back, reloading the page and losing
+// the builder's in-memory position. We stash that position on the way out and
+// hand it back once on return, so the user lands where they left off.
+const RETURN_KEY = 'obertura.lichessReturnTo';
+
+export function stashReturn(ucis: string[], colour: 'white' | 'black'): void {
+  try {
+    localStorage.setItem(RETURN_KEY, JSON.stringify({ ucis, colour, t: Date.now() }));
+  } catch { /* storage blocked/full — we simply won't restore the position */ }
+}
+
+// Consume the stashed position (once). Null if there is none, it's malformed, or
+// it's stale (> 10 min — a leftover from a connect the user abandoned).
+export function takeReturn(): { ucis: string[]; colour: 'white' | 'black' } | null {
+  try {
+    const raw = localStorage.getItem(RETURN_KEY);
+    if (!raw) return null;
+    localStorage.removeItem(RETURN_KEY);
+    const v = JSON.parse(raw) as { ucis?: unknown; colour?: unknown; t?: number };
+    if (!Array.isArray(v.ucis) || !v.ucis.every((u) => typeof u === 'string')) return null;
+    if (Date.now() - (v.t ?? 0) > 600_000) return null;
+    return { ucis: v.ucis as string[], colour: v.colour === 'black' ? 'black' : 'white' };
+  } catch { return null; }
 }
 
 // The current bearer token value, refreshing if needed. null when disconnected.

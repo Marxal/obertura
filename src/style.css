@@ -1251,6 +1251,7 @@ cg-board square.move-dest.oc {
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-left: auto;          /* always pinned to the far right of the bar */
   padding: 0.15rem;
   border: none;
   background: transparent;
@@ -1259,8 +1260,19 @@ cg-board square.move-dest.oc {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* A slim "Connect Lichess for every position" nudge under the toggle, shown only
-   while disconnected. */
+/* A discrete off-book note ("games from here") riding on the top bar, between
+   the source toggle / connect nudge and the info button. */
+.lib-db-caption {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.68rem;
+  color: var(--text-faint);
+}
+
+/* The "Connect Lichess for every position" nudge. Shown only while disconnected
+   and, in the Library top bar, standing in for the Masters/Lichess toggle. */
 .lib-connect-cta {
   display: block;
   width: 100%;
@@ -1275,6 +1287,20 @@ cg-board square.move-dest.oc {
   text-align: center;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+}
+/* Inline variant: rides on the top bar instead of its own full-width row. */
+.lib-connect-cta--inline {
+  display: inline-block;
+  width: auto;
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.72rem;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Title row: a colour pip + the line name + a small edit control. Typography
@@ -3079,6 +3105,21 @@ cg-board square.move-dest.oc {
 
 /* Shared dialog (dialog.ts): buttons share the row evenly, or stack vertically
    when there are three or more so longer labels never get cramped. */
+/* Discrete "learn more" links under a dialog body. */
+.dialog-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  margin: 0.1rem 0 0.2rem;
+}
+.dialog-link {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .dialog-btn-row {
   display: flex;
   gap: 0.6rem;
@@ -7977,6 +8018,13 @@ cg-board square.move-dest.oc {
   padding: var(--space-lg);
   font-size: 0.85rem;
   color: var(--text-faint);
+}
+/* "New territory" — the games have run out past the database's reach. A touch
+   bolder/warmer than a plain empty note, since it's a discovery, not an error. */
+.bx-frontier {
+  color: var(--text-muted);
+  font-weight: 600;
+  text-align: center;
 }
 .bx-row {
   display: flex;
