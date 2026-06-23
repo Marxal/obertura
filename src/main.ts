@@ -15,6 +15,7 @@ import { startPretrainingRun, enrolLineDirectly } from './pretraining';
 import { renderTrainScreen } from './train-screen';
 import { renderExploreScreen } from './explore-screen';
 import { renderPuzzlesScreen } from './puzzles-screen';
+import { gatherExplainSignals, explainMove } from './explain';
 import { opponentTag } from './scout';
 import { renderSettingsScreen } from './settings-screen';
 import { Engine, setCloudAuthToken } from './engine';
@@ -515,14 +516,17 @@ function renderNoteBlock(): void {
   const btn = document.getElementById('note-btn')!;
   const label = document.getElementById('note-btn-label')!;
   const node = getCurrentNode();
+  const explainBtn = document.getElementById('explain-btn');
   // The note button lives in the Line tab's action row. At the root there's no
   // move to annotate, so hide the button (Title/Tags stay) and the display.
   if (node.id === 'root') {
     btn.hidden = true;
+    if (explainBtn) explainBtn.hidden = true;
     block.hidden = true;
     return;
   }
   btn.hidden = false;
+  if (explainBtn) explainBtn.hidden = false;
   const note = node.note?.trim();
   if (note) {
     display.textContent = note;
@@ -661,8 +665,84 @@ async function saveNote(value: string, annotation: Annotation | undefined): Prom
   }
 }
 
+// "Explain this move" — gather opening + engine signals for the current move and
+// show a plain-language explanation, with the option to save it as the move's
+// note (append when one already exists). Read-only until the user chooses to save.
+const EXPLAIN_START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
+async function openExplainSheet(): Promise<void> {
+  const node = getCurrentNode();
+  if (node.id === 'root') return;
+
+  const path = pathTo(node.id);
+  const parent = path[path.length - 2];
+  const parentFen = parent && parent.id !== 'root' && parent.fen ? parent.fen : EXPLAIN_START_FEN;
+  const mover: 'white' | 'black' = parentFen.split(' ')[1] === 'b' ? 'black' : 'white';
+  const openingName = (nameForPath(currentPathFens()) || null);
+
+  const overlay = document.createElement('div');
+  overlay.className = 'edit-overlay';
+  const sheet = document.createElement('div');
+  sheet.className = 'edit-sheet';
+
+  const h = document.createElement('h3');
+  h.className = 'edit-sheet-title';
+  h.textContent = `Why ${formatMove(node.san)}?`;
+  sheet.appendChild(h);
+
+  const textEl = document.createElement('p');
+  textEl.className = 'explain-text';
+  textEl.textContent = 'Looking at the opening book and the engine…';
+  sheet.appendChild(textEl);
+
+  const btnRow = document.createElement('div');
+  btnRow.className = 'dialog-btn-row';
+  sheet.appendChild(btnRow);
+
+  let closed = false;
+  const close = (): void => {
+    if (closed) return;
+    closed = true;
+    overlay.remove();
+    removeBack();
+  };
+  const removeBack = pushBack(() => close());
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  overlay.appendChild(sheet);
+  document.body.appendChild(overlay);
+
+  // Fetch the signals, then render the explanation and the save controls.
+  const token = await lichessAccessToken();
+  const input = await gatherExplainSignals(parentFen, node.uci, node.san, mover, openingName, { token });
+  if (closed) return;
+  const text = explainMove(input);
+  textEl.textContent = text;
+
+  const hasNote = !!node.note?.trim();
+
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.className = 'dialog-btn btn-secondary';
+  closeBtn.textContent = 'Close';
+  closeBtn.addEventListener('click', () => close());
+
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.className = 'dialog-btn btn-primary';
+  saveBtn.textContent = hasNote ? 'Add to note' : 'Save as note';
+  saveBtn.addEventListener('click', () => {
+    const value = hasNote ? `${node.note!.trim()}\n\n${text}` : text;
+    close();
+    void saveNote(value, node.annotation);
+  });
+
+  btnRow.appendChild(closeBtn);
+  btnRow.appendChild(saveBtn);
+}
+
 function setupNoteBlock(): void {
   document.getElementById('note-btn')!.addEventListener('click', openNoteSheet);
+  document.getElementById('explain-btn')?.addEventListener('click', () => void openExplainSheet());
 }
 
 function handleMoveClick(nodeId: string) {

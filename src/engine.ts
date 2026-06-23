@@ -145,6 +145,19 @@ interface CloudEval {
   pvs?: Array<{ moves?: string; cp?: number; mate?: number }>;
 }
 
+// The cloud's top moves from a position, in order (best first), with cp/mate left
+// in Lichess's side-to-move (mover) perspective — handy for explaining a move
+// from the mover's point of view. Null when the position isn't in the cloud.
+export interface CloudTopMove { uci: string; cp?: number; mate?: number }
+
+export async function cloudTopMoves(fen: string): Promise<CloudTopMove[] | null> {
+  const data = await cloudEval(fen);
+  if (!data?.pvs?.length) return null;
+  return data.pvs
+    .map(pv => ({ uci: pv.moves?.trim().split(/\s+/)[0] ?? '', cp: pv.cp, mate: pv.mate }))
+    .filter(m => m.uci);
+}
+
 // Single multiPv=3 cloud-eval request, shared by the graders. Resolves to the
 // parsed body or null on any failure.
 async function cloudEval(fen: string): Promise<CloudEval | null> {

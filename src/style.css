@@ -9871,3 +9871,11 @@ cg-board square.move-dest.oc {
   font-size: 0.86rem;
   line-height: 1.4;
 }
+
+/* "Explain this move" sheet text. */
+.explain-text {
+  margin: 0.2rem 0 0.4rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--text);
+}

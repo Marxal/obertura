@@ -19,6 +19,7 @@ import { runStatsSelfTest } from '../src/stats.selftest';
 import { runTreeSelfTest } from '../src/tree.selftest';
 import { runEngineSelfTest } from '../src/engine.selftest';
 import { runPuzzlesSelfTest } from '../src/puzzles.selftest';
+import { runExplainSelfTest } from '../src/explain.selftest';
 
 interface TestResult { name: string; pass: boolean; detail: string }
 
@@ -36,6 +37,7 @@ const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'tree', run: runTreeSelfTest },
   { suite: 'engine', run: runEngineSelfTest },
   { suite: 'puzzles', run: runPuzzlesSelfTest },
+  { suite: 'explain', run: runExplainSelfTest },
 ];
 
 let total = 0;
