@@ -51,6 +51,7 @@ import {
 import { countGames, resetAllProgress, eraseAllData } from './storage';
 import { getAutoRefreshEnabled, setAutoRefreshEnabled, getLastGamesRefresh } from './auto-refresh';
 import { clearTrainingDays, clearReviewedToday, clearReviewLog } from './streak';
+import { clearPuzzleLog } from './puzzle-log';
 import { renderBackupSection, exportBackupNow } from './backup';
 import { Icons } from './icons';
 import { userAvatar } from './avatar';
@@ -881,6 +882,7 @@ function buildDataGroup(): HTMLElement {
           clearTrainingDays();
           clearReviewedToday();
           clearReviewLog();
+          clearPuzzleLog();
           clearTimedBest();
           status.textContent = 'Progress reset ✓ — every line is due again.';
         } catch (err) {

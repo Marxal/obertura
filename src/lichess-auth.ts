@@ -2,9 +2,13 @@
 // backend, no client secret). This is the same flow, and the same library,
 // Lichess's own client-side demo uses.
 //
-// We request NO scopes: the opening explorer reads no personal data, so any
-// account — even a throwaway one — works. The token only lets our requests past
-// Lichess's login gate on the explorer (anonymous requests are blocked now).
+// We request a single scope: `puzzle:read`. The opening explorer needs no
+// personal data, but the Puzzles tab benefits from it — Lichess then skips
+// puzzles you've already seen and exposes your puzzle dashboard (rating +
+// per-theme results) for the Statistics page. Everything still works without it
+// (anonymous puzzles, no dashboard); the scope just makes the experience nicer.
+// Existing connections keep working for the explorer; the puzzle extras switch on
+// the next time you connect.
 //
 // Tokens are long-lived (~a year) and there are no refresh tokens; the library
 // persists state in localStorage. On the phone the connect itself works fine —
@@ -23,7 +27,7 @@ function client(): OAuth2AuthCodePKCE {
       authorizationUrl: `${LICHESS}/oauth`,
       tokenUrl: `${LICHESS}/api/token`,
       clientId: 'obertura',
-      scopes: [],
+      scopes: ['puzzle:read'],
       // The page Lichess returns to. Must be identical on both legs; the library
       // remembers it. A stable app URL with no query/hash.
       redirectUrl: location.origin + location.pathname,

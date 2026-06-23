@@ -14,6 +14,7 @@ import { renderProgressScreen } from './progress-screen';
 import { startPretrainingRun, enrolLineDirectly } from './pretraining';
 import { renderTrainScreen } from './train-screen';
 import { renderExploreScreen } from './explore-screen';
+import { renderPuzzlesScreen } from './puzzles-screen';
 import { opponentTag } from './scout';
 import { renderSettingsScreen } from './settings-screen';
 import { Engine } from './engine';
@@ -818,7 +819,7 @@ function updateSaveButtonLabel(): void {
 // "train" is the start view and back-navigation root; "explore" is a v1.2
 // placeholder; "builder" shows a chessboard, so it counts as a board screen
 // (see BACK_VIEWS below).
-type ViewName = 'train' | 'lines' | 'explore' | 'progress' | 'builder' | 'settings';
+type ViewName = 'train' | 'lines' | 'explore' | 'puzzles' | 'progress' | 'builder' | 'settings';
 let currentView: ViewName = 'train';
 
 // The global FAB (mounted at boot). Shown on the four main tabs, hidden on the
@@ -1145,6 +1146,7 @@ function showView(view: ViewName): void {
   const builderEl = document.getElementById('view-builder')!;
   const linesEl = document.getElementById('view-lines')!;
   const exploreEl = document.getElementById('view-explore')!;
+  const puzzlesEl = document.getElementById('view-puzzles')!;
   const trainEl = document.getElementById('view-train')!;
   const progressEl = document.getElementById('view-progress')!;
   const settingsEl = document.getElementById('view-settings')!;
@@ -1152,6 +1154,7 @@ function showView(view: ViewName): void {
   builderEl.toggleAttribute('hidden', view !== 'builder');
   linesEl.toggleAttribute('hidden', view !== 'lines');
   exploreEl.toggleAttribute('hidden', view !== 'explore');
+  puzzlesEl.toggleAttribute('hidden', view !== 'puzzles');
   trainEl.toggleAttribute('hidden', view !== 'train');
   progressEl.toggleAttribute('hidden', view !== 'progress');
   settingsEl.toggleAttribute('hidden', view !== 'settings');
@@ -1183,6 +1186,13 @@ function showView(view: ViewName): void {
 
   if (view === 'explore') {
     renderExploreScreen(exploreEl, exploreScreenDeps());
+  }
+
+  if (view === 'puzzles') {
+    void renderPuzzlesScreen(puzzlesEl, {
+      onImportGames: () => openImportPanel({ onImported: () => showView('puzzles') }),
+      onBuildLine: () => startNewLine('white'),
+    });
   }
 
   if (view === 'train') {
