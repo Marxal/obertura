@@ -9870,22 +9870,6 @@ cg-board square.move-dest.oc {
 }
 .pz-opening-go { color: var(--text-muted); display: inline-flex; flex: none; }
 
-/* Session results screen (inside the solver overlay; reuses .train-completion). */
-.pz-results { margin: auto; max-width: 22rem; }
-.pz-results-secondary {
-  margin-top: 0.6rem;
-  align-self: center;
-  padding: 0.5rem 1.4rem;
-  border: 1px solid var(--border-card);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--text-muted);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-.pz-results-secondary:active { background: var(--bg-elevated); }
-
 .pz-empty {
   display: flex;
   flex-direction: column;
@@ -9904,19 +9888,15 @@ cg-board square.move-dest.oc {
   color: var(--text-muted);
   text-align: center;
 }
+/* Count-mode "Next puzzle": layout only — colour comes from .btn-primary. */
 .pz-next-btn {
-  margin-top: 0.8rem;
   align-self: center;
-  padding: 0.55rem 1.4rem;
-  border: none;
-  border-radius: 999px;
-  background: var(--primary);
-  color: var(--on-accent, #fff);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
+  width: calc(100% - 2rem);
+  max-width: 24rem;
+  margin-top: 0.7rem;
+  min-height: 48px;
+  border-radius: 10px;
 }
-.pz-next-btn:active { background: var(--primary-active, var(--primary)); }
 
 /* Puzzles region on the Statistics page. */
 .pz-stat-row {
@@ -10065,21 +10045,44 @@ cg-board square.move-dest.oc {
 .pz-perf--weak { color: var(--danger); }
 .pz-perf--weak .pz-perf-fill { background: var(--danger); }
 
-/* ── Solver overlay: Time Attack mistake dots + Hint button ────────────────── */
+/* ── Solver overlay: board stability (puzzles only) ─────────────────────────── */
+/* Split the spare height into two equal, content-independent halves so the board
+   between them never shifts as the bottom block's buttons/themes come and go
+   (a moving board leaves chessground's drag bounds stale). Scoped to puzzles so
+   the shared drill overlay keeps its own behaviour. */
+.pt-overlay--puzzle .pt-top,
+.pt-overlay--puzzle .pt-bottom {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+/* ── Time Attack HUD: countdown + mistake dots, centred above the title ─────── */
+.pt-timed-hud {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  margin-bottom: 0.35rem;
+}
+.pt-timed-hud .pt-timer {
+  font-size: 1.6rem;
+  min-width: 0;
+  text-align: center;
+}
 .pt-mistakes {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
   flex: none;
 }
-.pt-dot {
+.pt-mistake-dot {
   width: 9px;
   height: 9px;
   border-radius: 50%;
   border: 1.5px solid var(--text-faint);
   transition: background-color 140ms ease, border-color 140ms ease, transform 140ms ease;
 }
-.pt-dot--miss {
+.pt-mistake-dot--miss {
   background: var(--danger);
   border-color: var(--danger);
   transform: scale(1.1);
@@ -10133,15 +10136,61 @@ cg-board square.move-dest.oc {
   color: var(--text-muted);
 }
 
+/* The results panel fills the space under the header and lays out as a fixed
+   head + scrollable list + fixed actions, so it fits without the page scrolling. */
+.pz-results {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-sm);
+  width: 100%;
+  max-width: 26rem;
+  margin: 0 auto;
+  padding: var(--space-md) var(--space-lg);
+  text-align: center;
+}
+.pz-results-head {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+.pz-results .celebrate-pawn-svg { width: 28px; height: 32px; }
+.pz-results .train-completion-done { margin-top: 0.2rem; }
+
+.pz-results-list-wrap {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  margin: var(--space-sm) 0 var(--space-md);
+}
 .pz-results-list {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
   width: 100%;
-  margin: var(--space-md) 0;
-  max-height: 38vh;
+  height: 100%;
   overflow-y: auto;
   text-align: left;
+}
+/* Subtle bottom fade to hint the list scrolls. */
+.pz-results-fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2rem;
+  pointer-events: none;
+  background: linear-gradient(to bottom, transparent, var(--bg-sheet));
+}
+.pz-results-actions {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 .pz-result-row {
   display: flex;
@@ -10162,6 +10211,15 @@ cg-board square.move-dest.oc {
 }
 .pz-result-row--solved .pz-result-dot { color: var(--success); }
 .pz-result-row--missed .pz-result-dot { color: var(--danger); }
+.pz-result-points {
+  flex: none;
+  min-width: 2.2rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.pz-result-points--up { color: var(--success); }
+.pz-result-points--down { color: var(--danger); }
 .pz-result-main { flex: 1; min-width: 0; }
 .pz-result-name {
   font-size: 0.86rem;

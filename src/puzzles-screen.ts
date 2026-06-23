@@ -12,7 +12,6 @@
 // the Statistics page, so we still nudge.
 
 import { getAllLines, getAllGames } from './storage';
-import { isConnected, connect } from './lichess-auth';
 import { fetchNextPuzzle, toAngleKey, type Difficulty } from './puzzles';
 import { openingFamily } from './analysis';
 import { startPuzzleSession, type PuzzleMode } from './puzzle-run';
@@ -94,12 +93,21 @@ function segmented<T extends string | number>(opts: [T, string][], current: T, o
   const row = document.createElement('div');
   row.className = 'stats-range pz-segmented';
   row.setAttribute('role', 'tablist');
+  let selected = current;
   for (const [key, label] of opts) {
     const chip = document.createElement('button');
     chip.type = 'button';
     chip.className = 'stats-range-chip' + (key === current ? ' stats-range-chip--on' : '');
     chip.textContent = label;
-    chip.addEventListener('click', () => { if (key !== current) onChange(key); });
+    chip.addEventListener('click', () => {
+      if (key === selected) return;
+      selected = key;
+      // Move the selected highlight ourselves — callers that don't rebuild still
+      // see the chip update (and a full rebuild simply re-creates the row).
+      for (const c of row.children) c.classList.remove('stats-range-chip--on');
+      chip.classList.add('stats-range-chip--on');
+      onChange(key);
+    });
     row.appendChild(chip);
   }
   return row;
@@ -167,10 +175,6 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
     }
 
     root.appendChild(renderHero());
-
-    // Connection nudge (puzzles still work without it).
-    if (!isConnected()) root.appendChild(connectNudge());
-
     root.appendChild(renderTimeAttack());
     root.appendChild(renderPractice());
   };
@@ -367,22 +371,6 @@ function perfPill(p: { pct: number; attempts: number } | undefined): HTMLElement
   pct.textContent = `${p.pct}%`;
   wrap.appendChild(pct);
   return wrap;
-}
-
-function connectNudge(): HTMLElement {
-  const card = document.createElement('div');
-  card.className = 'pz-connect-card';
-  const text = document.createElement('div');
-  text.className = 'pz-connect-text';
-  text.textContent = 'Connect to Lichess to see your full puzzle dashboard on the Statistics page. Puzzles work without it too.';
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'pz-connect-btn';
-  btn.textContent = 'Connect to Lichess';
-  btn.addEventListener('click', () => connect());
-  card.appendChild(text);
-  card.appendChild(btn);
-  return card;
 }
 
 function emptyState(hasGames: boolean, deps: PuzzlesScreenDeps): HTMLElement {
