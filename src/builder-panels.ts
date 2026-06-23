@@ -24,8 +24,10 @@ import { openRepertoireMap } from './repertoire-map';
 import { userAvatar } from './avatar';
 import { Icons } from './icons';
 import { formatMove } from './notation';
-import { wdlScoreRow, wdlBar, type WdlCounts } from './wdl-bar';
-import { fetchExplorer, type ExplorerCounts } from './lichess-explorer';
+import { wdlScoreRow, type WdlCounts } from './wdl-bar';
+import { fetchExplorer, type ExplorerCounts, type ExplorerDb } from './lichess-explorer';
+import { getExplorerDb, setExplorerDb } from './prefs';
+import { showDialog } from './dialog';
 import { platformLabel } from './board-explorer';
 import type { ImportedGame } from './import-core';
 
@@ -60,6 +62,9 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   let opponents: Opponent[] | null = null;
   let selectedOppId: string | null = null;       // null → show the opponents list
   let activeSlide = 0;
+  // Which Lichess explorer database the Library slide draws its stats from.
+  // Remembered across sessions; the toggle at the top of the slide flips it.
+  let explorerDb: ExplorerDb = getExplorerDb();
   const statsByColour = new Map<'white' | 'black', StatNode>();
   // Per-opponent stats trees (their side against you), cached by `id:colour`.
   const oppStats = new Map<string, StatNode>();
@@ -94,27 +99,32 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   function renderLibrary(): void {
     const el = deps.libraryEl;
     el.innerHTML = '';
+    // The database toggle (Masters / Lichess players) rides at the top, always.
+    el.appendChild(dbBar());
     if (!book) { el.appendChild(emptyNote('Loading openings…')); return; }
 
+    const fen = deps.getFen();
     const node = bookNodeAt(book, deps.getSans());
     const kids = node ? [...node.children.entries()] : [];
     // Busiest branches first, then alphabetical — mirrors the library explorer.
     kids.sort((a, b) => b[1].count - a[1].count || a[0].localeCompare(b[0]));
 
+    // Off the bundled book: list the continuations straight from Lichess so the
+    // exploration keeps going instead of dead-ending.
     if (!kids.length) {
       el.appendChild(emptyNote(node
-        ? 'End of the book line — this is a named opening.'
-        : 'Off the book from here.'));
+        ? 'End of the book line — Lichess games from here:'
+        : 'Off the book — Lichess games from here:'));
+      renderExplorerMoves(el, fen);
       return;
     }
 
     const prefix = movePrefix(deps.getSans().length);
-    const fen = deps.getFen();
     // One chess seeded at the live position resolves each candidate to a UCI and
     // the opening name it reaches (play, read, undo).
     const chess = new Chess(fen);
     // Track each row's right-hand slot by uci so we can swap the count for a
-    // Lichess win/loss bar once the explorer answers.
+    // Lichess win/loss row once the explorer answers.
     const statSlots = new Map<string, HTMLElement>();
     for (const [san, child] of kids) {
       let uci = '';
@@ -142,11 +152,11 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
       el.appendChild(row);
     }
 
-    // Online win/draw/loss bars from the Lichess explorer (rated games) — only
+    // Online win/draw/loss + games count from the chosen Lichess database — only
     // when the Library slide is actually showing, so we don't hit the network on
     // every move. Applied only if the position hasn't moved on; silent offline.
     if (activeSlide !== LIBRARY_SLIDE) return;
-    fetchExplorer(fen).then(moves => {
+    fetchExplorer(fen, explorerDb).then(moves => {
       if (!moves || deps.getFen() !== fen) return;
       const colour = deps.getColour();
       for (const [uci, slot] of statSlots) {
@@ -154,10 +164,94 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
         if (!c) continue;
         const counts = explorerCounts(c, colour);
         if (!counts.games) continue;
-        slot.classList.add('lib-bx-wdl');
-        slot.replaceChildren(wdlBar(counts));
+        slot.className = 'lib-bx-wdl';
+        slot.replaceChildren(wdlScoreRow(counts, compactCount(counts.games)));
       }
     }).catch(() => { /* offline — keep the counts */ });
+  }
+
+  // The off-book continuations: every move the chosen Lichess database plays from
+  // here, busiest first, each a tappable row with the My-games-style W/D/L row.
+  function renderExplorerMoves(el: HTMLElement, fen: string): void {
+    if (activeSlide !== LIBRARY_SLIDE) return; // fetched when the slide is opened
+    const loading = emptyNote('Loading Lichess moves…');
+    el.appendChild(loading);
+    fetchExplorer(fen, explorerDb).then(moves => {
+      if (deps.getFen() !== fen) return;       // position moved on; drop this
+      loading.remove();
+      const colour = deps.getColour();
+      const chess = new Chess(fen);
+      const prefix = movePrefix(deps.getSans().length);
+      const rows = [...(moves?.entries() ?? [])]
+        .map(([uci, c]) => ({ uci, counts: explorerCounts(c, colour) }))
+        .filter(r => r.counts.games > 0)
+        .sort((a, b) => b.counts.games - a.counts.games);
+      if (!rows.length) {
+        el.appendChild(emptyNote(moves
+          ? 'No Lichess games from here.'
+          : 'Offline — Lichess unavailable.'));
+        return;
+      }
+      for (const r of rows) {
+        let san = '';
+        try {
+          const m = chess.move({
+            from: r.uci.slice(0, 2), to: r.uci.slice(2, 4),
+            promotion: r.uci.slice(4) || undefined,
+          });
+          if (m) { san = m.san; chess.undo(); }
+        } catch { /* explorer gave a move illegal here — skip it */ }
+        if (!san) continue;
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'bx-row';
+        row.addEventListener('click', () => deps.onPlay(r.uci));
+        row.appendChild(span('bx-move', `${prefix} ${formatMove(san)}`));
+        row.appendChild(wdlScoreRow(r.counts, compactCount(r.counts.games)));
+        el.appendChild(row);
+      }
+    }).catch(() => { loading.remove(); el.appendChild(emptyNote('Offline — Lichess unavailable.')); });
+  }
+
+  // The Masters / Lichess-players toggle plus a small "i" explaining the source.
+  function dbBar(): HTMLElement {
+    const bar = document.createElement('div');
+    bar.className = 'lib-db-bar';
+
+    const seg = document.createElement('div');
+    seg.className = 'lib-db-seg';
+    const opt = (db: ExplorerDb, label: string) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'lib-db-opt' + (explorerDb === db ? ' is-active' : '');
+      b.textContent = label;
+      b.addEventListener('click', () => {
+        if (explorerDb === db) return;
+        explorerDb = db;
+        setExplorerDb(db);
+        renderLibrary();
+      });
+      return b;
+    };
+    seg.appendChild(opt('masters', 'Masters'));
+    seg.appendChild(opt('lichess', 'Lichess players'));
+    bar.appendChild(seg);
+
+    const info = document.createElement('button');
+    info.type = 'button';
+    info.className = 'lib-db-info';
+    info.setAttribute('aria-label', 'About the opening database');
+    info.appendChild(Icons.info(18));
+    info.addEventListener('click', () => showDialog({
+      title: 'Opening database',
+      body: 'These move stats are live from Lichess’s free opening explorer — no login needed. ' +
+        'Masters covers over-the-board games between strong titled players (cleaner theory, fewer games). ' +
+        'Lichess players covers every rated game played online (hundreds of millions — what real opponents play). ' +
+        'When the bundled book runs out, moves are listed straight from Lichess so you can keep exploring.',
+      buttons: [{ label: 'Got it', variant: 'primary' }],
+    }));
+    bar.appendChild(info);
+    return bar;
   }
 
   // ── Games slide ───────────────────────────────────────────────────────────
@@ -404,6 +498,15 @@ function explorerCounts(c: ExplorerCounts, colour: 'white' | 'black'): WdlCounts
   const games = wins + c.draws + losses;
   const scorePct = games ? Math.round(((wins + c.draws / 2) / games) * 100) : 0;
   return { wins, draws: c.draws, losses, scorePct, games };
+}
+
+// Compact a games total so big Lichess counts fit the row: 276500000 → "276M",
+// 12400 → "12.4K". Keeps small counts (masters, deep lines) exact.
+function compactCount(n: number): string {
+  if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (n >= 1e4) return (n / 1e3).toFixed(0) + 'K';
+  if (n >= 1e3) return (n / 1e3).toFixed(1).replace(/\.0$/, '') + 'K';
+  return String(n);
 }
 
 function span(cls: string, text: string): HTMLSpanElement {

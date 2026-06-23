@@ -186,6 +186,20 @@ export function setIncludeSecondPlatform(on: boolean): void {
   localStorage.setItem(SECOND_PLATFORM_KEY, on ? 'on' : 'off');
 }
 
+// Which Lichess opening-explorer database the builder's Library slide shows its
+// real-game stats from. Both are free and anonymous (no login):
+//   'lichess'  → every rated Lichess game (default; the biggest sample).
+//   'masters'  → over-the-board games between strong titled players.
+const EXPLORER_DB_KEY = 'obertura.explorerDb';
+
+export function getExplorerDb(): 'masters' | 'lichess' {
+  return localStorage.getItem(EXPLORER_DB_KEY) === 'masters' ? 'masters' : 'lichess';
+}
+
+export function setExplorerDb(db: 'masters' | 'lichess'): void {
+  localStorage.setItem(EXPLORER_DB_KEY, db);
+}
+
 // Saved lines always auto-name themselves from the bundled opening database on
 // save (no popup). The pencil in the builder's title row is the override: a
 // manual rename is stored on the line itself and wins over the auto name. There
