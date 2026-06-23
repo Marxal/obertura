@@ -10,11 +10,13 @@
     "preview": "vite preview",
     "generate-icons": "node scripts/generate-icons.mjs",
     "build-openings": "node scripts/build-openings.mjs",
+    "build-explorer-stats": "node scripts/build-explorer-stats.mjs",
     "build-starter-packs": "node scripts/build-starter-packs.mjs",
     "build-traps": "node scripts/build-traps.mjs",
     "build-traps-lichess": "node scripts/build-traps-from-lichess.mjs"
   },
   "dependencies": {
+    "@bity/oauth2-auth-code-pkce": "^2.13.0",
     "chess.js": "^1.3.0",
     "chessground": "^9.1.0",
     "stockfish": "^18.0.7"

@@ -26,6 +26,8 @@ import { Icons } from './icons';
 import { formatMove } from './notation';
 import { wdlScoreRow, type WdlCounts } from './wdl-bar';
 import { fetchExplorer, type ExplorerCounts, type ExplorerDb } from './lichess-explorer';
+import { bundledStats } from './explorer-stats';
+import { isConnected, connect, disconnect, getAccessToken } from './lichess-auth';
 import { getExplorerDb, setExplorerDb } from './prefs';
 import { showDialog } from './dialog';
 import { platformLabel } from './board-explorer';
@@ -96,11 +98,30 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   }
 
   // ── Library slide ─────────────────────────────────────────────────────────
+  // Win/draw/loss stats come from the bundled stats database (instant, offline,
+  // no login). When the user has connected their Lichess account, we additionally
+  // try the live explorer (more current, every position) and prefer it when it
+  // answers — otherwise we degrade silently to the bundled data.
+  function resolveStats(
+    fen: string, db: ExplorerDb, allowLive: boolean,
+  ): Promise<Map<string, ExplorerCounts> | null> {
+    return bundledStats(fen, db).then(async bundled => {
+      if (allowLive && isConnected()) {
+        const token = await getAccessToken();
+        if (deps.getFen() !== fen) return null;        // moved on while awaiting
+        const live = await fetchExplorer(fen, db, token);
+        if (live && live.size) return live;
+      }
+      return bundled;
+    });
+  }
+
   function renderLibrary(): void {
     const el = deps.libraryEl;
     el.innerHTML = '';
-    // The database toggle (Masters / Lichess players) rides at the top, always.
+    // The compact Masters / Lichess toggle rides at the top, always.
     el.appendChild(dbBar());
+    if (!isConnected()) el.appendChild(connectCta());
     if (!book) { el.appendChild(emptyNote('Loading openings…')); return; }
 
     const fen = deps.getFen();
@@ -109,13 +130,13 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     // Busiest branches first, then alphabetical — mirrors the library explorer.
     kids.sort((a, b) => b[1].count - a[1].count || a[0].localeCompare(b[0]));
 
-    // Off the bundled book: list the continuations straight from Lichess so the
-    // exploration keeps going instead of dead-ending.
+    // Off the bundled book: keep going by listing the continuations the stats
+    // database (or live Lichess) plays from here, instead of dead-ending.
     if (!kids.length) {
       el.appendChild(emptyNote(node
-        ? 'End of the book line — Lichess games from here:'
-        : 'Off the book — Lichess games from here:'));
-      renderExplorerMoves(el, fen);
+        ? 'End of the book line — games from here:'
+        : 'Off the book — games from here:'));
+      renderStatMoves(el, fen);
       return;
     }
 
@@ -124,7 +145,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     // the opening name it reaches (play, read, undo).
     const chess = new Chess(fen);
     // Track each row's right-hand slot by uci so we can swap the count for a
-    // Lichess win/loss row once the explorer answers.
+    // win/loss row once the stats land.
     const statSlots = new Map<string, HTMLElement>();
     for (const [san, child] of kids) {
       let uci = '';
@@ -152,11 +173,10 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
       el.appendChild(row);
     }
 
-    // Online win/draw/loss + games count from the chosen Lichess database — only
-    // when the Library slide is actually showing, so we don't hit the network on
-    // every move. Applied only if the position hasn't moved on; silent offline.
-    if (activeSlide !== LIBRARY_SLIDE) return;
-    fetchExplorer(fen, explorerDb).then(moves => {
+    // Win/draw/loss + games count overlaid on each book move. Bundled is instant;
+    // live is only tried when the slide is actually showing, so we don't hit the
+    // network on every move. Applied only if the position hasn't moved on.
+    resolveStats(fen, explorerDb, activeSlide === LIBRARY_SLIDE).then(moves => {
       if (!moves || deps.getFen() !== fen) return;
       const colour = deps.getColour();
       for (const [uci, slot] of statSlots) {
@@ -167,18 +187,14 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
         slot.className = 'lib-bx-wdl';
         slot.replaceChildren(wdlScoreRow(counts, compactCount(counts.games)));
       }
-    }).catch(() => { /* offline — keep the counts */ });
+    }).catch(() => { /* keep the plain counts */ });
   }
 
-  // The off-book continuations: every move the chosen Lichess database plays from
-  // here, busiest first, each a tappable row with the My-games-style W/D/L row.
-  function renderExplorerMoves(el: HTMLElement, fen: string): void {
-    if (activeSlide !== LIBRARY_SLIDE) return; // fetched when the slide is opened
-    const loading = emptyNote('Loading Lichess moves…');
-    el.appendChild(loading);
-    fetchExplorer(fen, explorerDb).then(moves => {
+  // The off-book continuations: every move the stats database (or live Lichess)
+  // plays from here, busiest first, each a tappable My-games-style W/D/L row.
+  function renderStatMoves(el: HTMLElement, fen: string): void {
+    resolveStats(fen, explorerDb, activeSlide === LIBRARY_SLIDE).then(moves => {
       if (deps.getFen() !== fen) return;       // position moved on; drop this
-      loading.remove();
       const colour = deps.getColour();
       const chess = new Chess(fen);
       const prefix = movePrefix(deps.getSans().length);
@@ -187,9 +203,11 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
         .filter(r => r.counts.games > 0)
         .sort((a, b) => b.counts.games - a.counts.games);
       if (!rows.length) {
-        el.appendChild(emptyNote(moves
-          ? 'No Lichess games from here.'
-          : 'Offline — Lichess unavailable.'));
+        // No data for this position. If they haven't connected, that's the nudge;
+        // otherwise it's simply a position too rare to have stats.
+        el.appendChild(emptyNote(isConnected()
+          ? 'No games recorded from here.'
+          : 'No bundled stats here — connect Lichess for every position.'));
         return;
       }
       for (const r of rows) {
@@ -200,7 +218,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
             promotion: r.uci.slice(4) || undefined,
           });
           if (m) { san = m.san; chess.undo(); }
-        } catch { /* explorer gave a move illegal here — skip it */ }
+        } catch { /* a move illegal here — skip it */ }
         if (!san) continue;
         const row = document.createElement('button');
         row.type = 'button';
@@ -210,10 +228,10 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
         row.appendChild(wdlScoreRow(r.counts, compactCount(r.counts.games)));
         el.appendChild(row);
       }
-    }).catch(() => { loading.remove(); el.appendChild(emptyNote('Offline — Lichess unavailable.')); });
+    }).catch(() => { /* graceful — bundled empty and live unavailable */ });
   }
 
-  // The Masters / Lichess-players toggle plus a small "i" explaining the source.
+  // The compact Masters / Lichess toggle plus a small "i" explaining the source.
   function dbBar(): HTMLElement {
     const bar = document.createElement('div');
     bar.className = 'lib-db-bar';
@@ -234,24 +252,48 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
       return b;
     };
     seg.appendChild(opt('masters', 'Masters'));
-    seg.appendChild(opt('lichess', 'Lichess players'));
+    seg.appendChild(opt('lichess', 'Lichess'));
     bar.appendChild(seg);
 
     const info = document.createElement('button');
     info.type = 'button';
     info.className = 'lib-db-info';
     info.setAttribute('aria-label', 'About the opening database');
-    info.appendChild(Icons.info(18));
-    info.addEventListener('click', () => showDialog({
-      title: 'Opening database',
-      body: 'These move stats are live from Lichess’s free opening explorer — no login needed. ' +
-        'Masters covers over-the-board games between strong titled players (cleaner theory, fewer games). ' +
-        'Lichess players covers every rated game played online (hundreds of millions — what real opponents play). ' +
-        'When the bundled book runs out, moves are listed straight from Lichess so you can keep exploring.',
-      buttons: [{ label: 'Got it', variant: 'primary' }],
-    }));
+    info.appendChild(Icons.info(16));
+    info.addEventListener('click', showDbInfo);
     bar.appendChild(info);
     return bar;
+  }
+
+  // A slim, dismissible-feeling call to action shown until Lichess is connected.
+  function connectCta(): HTMLElement {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'lib-connect-cta';
+    btn.textContent = 'Connect Lichess for every position →';
+    btn.addEventListener('click', () => { connect(); });
+    return btn;
+  }
+
+  function showDbInfo(): void {
+    const connected = isConnected();
+    showDialog({
+      title: 'Opening database',
+      body: 'Win/loss stats come from a built-in database of the most common positions — ' +
+        'instant and offline, no login. Masters is over-the-board games between strong ' +
+        'titled players (cleaner theory); Lichess is rated online games (what real ' +
+        'opponents play). Connect your Lichess account to expand this to every position, ' +
+        'live. No personal data is read — a throwaway account works.',
+      buttons: connected
+        ? [
+            { label: 'Disconnect Lichess', variant: 'secondary', onClick: () => { disconnect(); renderLibrary(); } },
+            { label: 'Done', variant: 'primary' },
+          ]
+        : [
+            { label: 'Connect to Lichess', variant: 'primary', onClick: () => { connect(); } },
+            { label: 'Not now', variant: 'secondary' },
+          ],
+    });
   }
 
   // ── Games slide ───────────────────────────────────────────────────────────
