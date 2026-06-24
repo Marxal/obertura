@@ -97,6 +97,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   let solIndex = 1;             // next solution move the solver owes (1, 3, 5…)
   let solverColour: 'white' | 'black' = 'white';
   let failedThisPuzzle = false; // a wrong move or hint was used on this puzzle
+  let hintStage = 0;            // 0 none, 1 piece highlighted, 2 arrow shown
   let inputLocked = true;       // board frozen during loads / animations
   let sessionOver = false;      // results shown — back exits without confirming
 
@@ -183,6 +184,14 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   const ratingEl = document.createElement('div');
   ratingEl.className = 'pt-line-name';
   topEl.appendChild(ratingEl);
+  // The puzzle's themes ("explanation") — lives up here, under the rating, so a
+  // long theme list can never push the Hint/Next buttons below the fold. This
+  // block is content-independent in height (see .pt-overlay--puzzle .pt-top in
+  // style.css), so it overflows upward rather than shifting the board or bottom.
+  const themesEl = document.createElement('div');
+  themesEl.className = 'pz-themes';
+  themesEl.hidden = true;
+  topEl.appendChild(themesEl);
 
   const boardWrap = document.createElement('div');
   boardWrap.className = 'pt-board-wrap';
@@ -195,9 +204,6 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   const statusEl = document.createElement('div');
   statusEl.className = 'pt-status';
   statusEl.setAttribute('aria-live', 'polite');
-  const themesEl = document.createElement('div');
-  themesEl.className = 'pz-themes';
-  themesEl.hidden = true;
 
   // Count mode: a Hint button (reveals the arrow) and a Next button (the puzzle
   // never auto-advances — you tap when ready).
@@ -217,7 +223,6 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   nextBtn.addEventListener('click', () => onNextTap());
 
   bottomEl.appendChild(statusEl);
-  bottomEl.appendChild(themesEl);
   if (!timed) bottomEl.appendChild(hintBtn);
   bottomEl.appendChild(nextBtn);
 
@@ -381,6 +386,8 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     solverColour = setup.solverColour;
     solIndex = 0;            // the solver plays solution[0] first
     failedThisPuzzle = false;
+    hintStage = 0;
+    hintBtn.replaceChildren(Icons.bulb(16), document.createTextNode('Hint'));
 
     chess.load(setup.fen);
     cg.set({
@@ -390,11 +397,16 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
       lastMove: undefined,
       movable: { color: undefined, dests: new Map() },
     });
-    // The rating stays hidden while the puzzle is unsolved — it's revealed only
-    // after the solve (count modes), and never during Time Attack (it shows on the
-    // end-of-session listing instead).
-    ratingEl.textContent = '';
-    ratingEl.className = 'pt-line-name';
+    // In Time Attack the rating shows right away — that's the whole point, you're
+    // meant to track the difficulty ramp as you go. Count modes still hide it until
+    // the puzzle is solved (see finish()), since the reveal is part of the payoff.
+    if (timed) {
+      ratingEl.className = 'pt-line-name pt-rating--solved';
+      ratingEl.textContent = `Rating ${draw.puzzle.rating}`;
+    } else {
+      ratingEl.textContent = '';
+      ratingEl.className = 'pt-line-name';
+    }
 
     // The solver is already to move — prompt and hand over (no opponent setup
     // move; the pgn already ended with it).
@@ -420,12 +432,32 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     });
   }
 
+  // First hint tap: just highlight the piece that needs to move. Second tap
+  // (button now reads "Show solution"): reveal the full arrow.
+  function showPieceHighlight(): void {
+    const expected = solution[solIndex];
+    if (!expected) return;
+    const { from } = uciParts(expected);
+    requestAnimationFrame(() => {
+      if (isCleaned) return;
+      cg.setAutoShapes([{ orig: from, brush: 'accent' }]);
+    });
+  }
+
   function useHint(): void {
     if (inputLocked) return;
     failedThisPuzzle = true; // a hinted solve earns no points
-    hintBtn.hidden = true;
-    showArrow();
-    setStatus('Hint — play the highlighted move', 'pt-status--reveal');
+    if (hintStage === 0) {
+      hintStage = 1;
+      showPieceHighlight();
+      hintBtn.replaceChildren(Icons.eye(16), document.createTextNode('Show solution'));
+      setStatus('Hint — move the highlighted piece', 'pt-status--reveal');
+    } else {
+      hintStage = 2;
+      hintBtn.hidden = true;
+      showArrow();
+      setStatus('Hint — play the highlighted move', 'pt-status--reveal');
+    }
   }
 
   function onUserMove(from: Key, to: Key): void {
@@ -457,7 +489,8 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     // there if they're stuck). If a hint is already showing, keep the arrow up.
     setStatus('Not quite — try again', 'pt-status--error');
     cg.set({ fen: chess.fen(), turnColor: cgTurn(), movable: { color: solverColour, dests: legalDests() } });
-    if (cg.state.drawable.autoShapes.length) showArrow();
+    if (hintStage === 1) showPieceHighlight();
+    else if (hintStage === 2) showArrow();
   }
 
   // After the solver's correct move: auto-play the opponent's reply, then either

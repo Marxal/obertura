@@ -4746,6 +4746,16 @@ cg-board square.move-dest.oc {
   overflow: hidden;
 }
 
+/* Compact mounts (the spar overlay): the 3 candidates sit side by side in one
+   fixed-height row instead of stacking — a longer PV can never grow this
+   block taller and nudge the board out from under an in-progress drag. */
+.eval-moves--compact {
+  flex-direction: row;
+  align-items: stretch;
+  gap: 6px;
+}
+.eval-moves--compact .eval-move { flex: 1 1 0; min-width: 0; }
+
 .eval-line {
   display: flex;
   align-items: baseline;
@@ -4803,16 +4813,20 @@ cg-board square.move-dest.oc {
 }
 #eval-controls .eval-line-pv::-webkit-scrollbar { display: none; }
 
-/* Move chips (legacy single-move layout, kept for any other caller) */
+/* Move chips: a compact [move][score] column, used for the spar overlay's
+   one-row "3 best moves" display (see .eval-moves--compact above). */
 .eval-move {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0;
-  flex-shrink: 0;
+  min-width: 0;
+  max-width: 100%;
   cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 5px;
+  padding: 3px 4px;
+  border: none;
+  background: var(--bg-card);
+  border-radius: 6px;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.12s;
 }
@@ -4828,13 +4842,17 @@ cg-board square.move-dest.oc {
 }
 
 .eval-move-san {
-  font-size: 0.875rem;
+  max-width: 100%;
+  font-size: 0.85rem;
   font-weight: 600;
   color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .eval-move-cp {
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   color: var(--text-muted);
 }
 
@@ -4868,6 +4886,24 @@ cg-board square.move-dest.oc {
 
 .eval-source:empty {
   display: none;
+}
+
+/* Discrete "Show arrows / Hide arrows" toggle, builder Engine tab only. */
+.eval-arrows-toggle {
+  font-size: 0.6rem;
+  font-weight: 500;
+  color: var(--text-faint);
+  white-space: nowrap;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: none;
+  cursor: pointer;
+}
+
+.eval-arrows-toggle:hover {
+  color: var(--text-muted);
+  border-color: var(--text-faint);
 }
 
 .engine-label {
@@ -8238,7 +8274,10 @@ cg-board square.move-dest.oc {
 }
 
 /* Eval controls below the board — the candidate chips, source badge and the
-   on/off toggle, exactly as the builder mounts them. */
+   on/off toggle, exactly as the builder mounts them. The source badge gets its
+   own discrete row above the moves (mirrors the builder's #eval-controls
+   treatment), so the toggle/label/badge never squeeze the one-row move chips
+   and force the panel — and the board above it — to grow. */
 .spar-eval-controls {
   width: 100%;
   max-width: 420px;
@@ -8246,6 +8285,15 @@ cg-board square.move-dest.oc {
   border: 1px solid var(--hairline-soft);
   border-radius: 10px;
   padding: 6px 10px;
+}
+.spar-eval-controls .eval-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.spar-eval-controls .eval-right {
+  order: -1;
+  justify-content: flex-start;
 }
 
 /* Suggest-a-move row: a small label and the three flavour buttons. */
@@ -9957,6 +10005,12 @@ cg-board square.move-dest.oc {
   font-size: 0.82rem;
   color: var(--text-muted);
   text-align: center;
+  max-width: 100%;
+  /* A long theme list never wraps to multiple lines — it can't grow tall enough
+     to push into the board even though .pt-top is content-independent in height. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 /* Count-mode "Next puzzle": layout only — colour comes from .btn-primary. */
 .pz-next-btn {

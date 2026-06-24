@@ -713,8 +713,10 @@ function renderCardList(container: HTMLElement, trainingLines: Line[], pausedLin
     userTags: distinctUserTags(allShown),
     opponentTags: distinctOpponentTags(allShown),
     colourCounts: countLinesByColour(allShown),
-    tagCounts: countLinesByTag(allShown),
-    statusCounts: countLinesByStatus(allShown),
+    countsForColour: (colour) => {
+      const subset = colour === 'all' ? allShown : allShown.filter(l => l.colour === colour);
+      return { tagCounts: countLinesByTag(subset), statusCounts: countLinesByStatus(subset) };
+    },
     status: true,
     group: true,
     onChange: () => rebuildList(),
@@ -787,6 +789,14 @@ function distinctUserTags(lines: Line[]): string[] {
 function buildTrainRow(line: Line, container: HTMLElement): HTMLElement {
   const bucket = lineBucket(line);
 
+  // Tapping the board miniature jumps straight into training this line — the
+  // same action as "Train now" — since that's the action you come to this list
+  // to take. The view icon (below) is the one that still opens the line itself.
+  const startTraining = () => {
+    const session = new TrainingSession([line], { explicit: true });
+    runSession(session, container, makeStats());
+  };
+
   // Shared position-card scaffold: title + colour pip on row 1, a miniature on
   // the left of row 2 with the meta + actions on the right. The board respects
   // the same global "show miniatures" Settings toggle as the other listings.
@@ -794,8 +804,8 @@ function buildTrainRow(line: Line, container: HTMLElement): HTMLElement {
     fen: lineFinalFen(line.tree),
     orientation: line.colour,
     className: 'train-row' + (bucket !== 'due' ? ' line-card--rested' : ''),
-    onMiniClick: () => onViewLine?.(line),
-    miniLabel: 'Open line',
+    onMiniClick: startTraining,
+    miniLabel: 'Train now',
   });
 
   // Paused rows (revealed by "Show paused") read dimmed, switch off.
@@ -832,10 +842,7 @@ function buildTrainRow(line: Line, container: HTMLElement): HTMLElement {
   train.type = 'button';
   train.className = 'btn-primary train-row-train';
   train.textContent = 'Train now';
-  train.addEventListener('click', () => {
-    const session = new TrainingSession([line], { explicit: true });
-    runSession(session, container, makeStats());
-  });
+  train.addEventListener('click', startTraining);
   actions.appendChild(train);
 
   const view = document.createElement('button');

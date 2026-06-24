@@ -41,6 +41,15 @@ export interface FilterConfig {
   colourCounts?: { all: number; white: number; black: number };
   tagCounts?: Map<string, number>;
   statusCounts?: { due: number; learning: number; solid: number };
+  // When the chip counts depend on which colour is selected (e.g. a tag that
+  // only ever appears on Black lines), pass this instead of/alongside the
+  // static counts above. Whatever it returns for the active colour decides
+  // which chips are shown at all — a chip whose count is 0 hides outright,
+  // so the bar never offers a tab that would land on an empty list.
+  countsForColour?: (colour: ColourFilter) => {
+    tagCounts?: Map<string, number>;
+    statusCounts?: { due: number; learning: number; solid: number };
+  };
   status?: boolean;
   // When true, draw a "group by opening" icon toggle on row 1; the caller reads
   // selection.group and renders its list grouped into families (or flat).
@@ -104,16 +113,25 @@ export function createFilterBar(config: FilterConfig): FilterBar {
   const element = document.createElement('div');
   element.className = 'fbar';
 
-  // Persist + report after any change.
+  let refreshChips: (() => void) | null = null;
+
+  // Persist + report after any change, then re-evaluate which chips should be
+  // visible (the colour filter may have just changed, and counts can depend on
+  // it — see countsForColour).
   const commit = () => {
     persist(config, selection);
     config.onChange(selection);
+    refreshChips?.();
   };
 
   element.appendChild(buildTopRow(config, selection, commit));
 
   const chips = buildChipRow(config, selection, commit);
-  if (chips) element.appendChild(chips);
+  if (chips) {
+    element.appendChild(chips.element);
+    refreshChips = chips.refresh;
+    chips.refresh(); // hide any already-empty chip for the restored selection
+  }
 
   return { element, selection };
 }
@@ -215,7 +233,12 @@ function buildGroupToggle(sel: FilterSelection, commit: () => void): HTMLElement
 
 // ── Row 2: tag chips (user, then opponent) + status pills ──────────────────────
 
-function buildChipRow(config: FilterConfig, sel: FilterSelection, commit: () => void): HTMLElement | null {
+interface ChipRow {
+  element: HTMLElement;
+  refresh: () => void;
+}
+
+function buildChipRow(config: FilterConfig, sel: FilterSelection, commit: () => void): ChipRow | null {
   const userTags = config.userTags ?? [];
   const opponentTags = config.opponentTags ?? [];
   const hasStatus = !!config.status;
@@ -224,21 +247,61 @@ function buildChipRow(config: FilterConfig, sel: FilterSelection, commit: () => 
   const row = document.createElement('div');
   row.className = 'fbar-chips';
 
-  for (const tag of userTags) row.appendChild(buildTagChip(tag, config, sel, commit));
-  for (const tag of opponentTags) row.appendChild(buildTagChip(tag, config, sel, commit));
+  const tagChips: { tag: string; el: HTMLElement }[] = [];
+  for (const tag of userTags) {
+    const el = buildTagChip(tag, config, sel, commit);
+    tagChips.push({ tag, el });
+    row.appendChild(el);
+  }
+  for (const tag of opponentTags) {
+    const el = buildTagChip(tag, config, sel, commit);
+    tagChips.push({ tag, el });
+    row.appendChild(el);
+  }
 
+  let sep: HTMLElement | null = null;
+  const statusPills: { key: Exclude<StatusFilter, 'all'>; el: HTMLElement }[] = [];
   if (hasStatus) {
     // A hairline divider sets the status pills apart from the tags before them.
     if (userTags.length + opponentTags.length > 0) {
-      const sep = document.createElement('span');
+      sep = document.createElement('span');
       sep.className = 'fbar-sep';
       sep.setAttribute('aria-hidden', 'true');
       row.appendChild(sep);
     }
-    for (const s of STATUSES) row.appendChild(buildStatusPill(s, config, sel, commit));
+    for (const s of STATUSES) {
+      const el = buildStatusPill(s, config, sel, commit);
+      statusPills.push({ key: s.key, el });
+      row.appendChild(el);
+    }
   }
 
-  return row;
+  // Hide any chip whose count is known to be zero — for callers that pass
+  // countsForColour this re-runs on every colour change, so e.g. switching to
+  // White drops a tag that only ever appears on Black lines. Chips with no
+  // count info at all (callers that pass neither) always stay visible.
+  function refresh(): void {
+    const counts = config.countsForColour?.(sel.colour);
+    const tagCounts = counts?.tagCounts ?? config.tagCounts;
+    const statusCounts = counts?.statusCounts ?? config.statusCounts;
+
+    let anyTagVisible = false;
+    for (const { tag, el } of tagChips) {
+      const hide = !!tagCounts && (tagCounts.get(tag) ?? 0) === 0;
+      el.hidden = hide;
+      if (!hide) anyTagVisible = true;
+    }
+    let anyStatusVisible = false;
+    for (const { key, el } of statusPills) {
+      const hide = !!statusCounts && statusCounts[key] === 0;
+      el.hidden = hide;
+      if (!hide) anyStatusVisible = true;
+    }
+    if (sep) sep.hidden = !anyTagVisible || !anyStatusVisible;
+    row.hidden = !anyTagVisible && !anyStatusVisible;
+  }
+
+  return { element: row, refresh };
 }
 
 // A discrete count badge that rides inside a tab/chip after its label.

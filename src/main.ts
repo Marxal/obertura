@@ -18,12 +18,12 @@ import { renderPuzzlesScreen } from './puzzles-screen';
 import { gatherExplainSignals, explainMove } from './explain';
 import { opponentTag } from './scout';
 import { renderSettingsScreen } from './settings-screen';
-import { Engine, setCloudAuthToken } from './engine';
+import { Engine, setCloudAuthToken, type EvalResult } from './engine';
 import { EvalPanel } from './eval-panel';
 import { createBuilderPanels, type BuilderPanels } from './builder-panels';
 import { initTheme } from './theme';
 import { initAppearance } from './appearance';
-import { watchSpeedMs, getConfirmRunBeforeTraining, getScoutingEnabled } from './prefs';
+import { watchSpeedMs, getConfirmRunBeforeTraining, getScoutingEnabled, getShowEngineArrows, setShowEngineArrows } from './prefs';
 import { initBackNav, setViewBack, pushBack } from './back-nav';
 import { showDialog } from './dialog';
 import { openImportPanel, getGamesSource, IDENTITY_CHANGED_EVENT } from './import-panel';
@@ -48,6 +48,8 @@ let cg!: ReturnType<typeof Chessground>;
 let engine!: Engine;
 let evalPanel!: EvalPanel;
 let builderPanels: BuilderPanels | null = null;
+let showEngineArrows = getShowEngineArrows();
+let lastEngineResult: EvalResult | null = null;
 
 function legalDests(): Map<Key, Key[]> {
   const dests = new Map<Key, Key[]>();
@@ -400,8 +402,8 @@ function setupMoveNav(): void {
 // and jumps to one on tap. The board sits ABOVE the carousel and is a fixed
 // square, so swiping slides never moves it.
 
-// Carousel slide indices: 0 Line, 1 Engine, 2 My games, 3 Library, 4 Scouting.
-const LIBRARY_SLIDE = 3;
+// Carousel slide indices: 0 Line, 1 Engine, 2 Library, 3 My games, 4 Scouting.
+const LIBRARY_SLIDE = 2;
 const ENGINE_SLIDE = 1;
 const SCOUTING_SLIDE = 4;
 let activeSlide = 0;
@@ -424,6 +426,26 @@ function onActiveSlide(index: number): void {
   // The engine runs only while its tab is showing: on when you land on it, off
   // when you leave. There's no on/off toggle — the tab IS the switch.
   if (evalPanel) evalPanel.setEnabled(index === ENGINE_SLIDE);
+  // Suggested-move arrows are an Engine-tab-only thing — leaving the tab clears
+  // them immediately rather than waiting on the engine to actually wind down.
+  if (index !== ENGINE_SLIDE && cg) cg.setAutoShapes([]);
+}
+
+// Draw arrows for the engine's top 3 candidates on the board — gated on the
+// Engine tab being the one showing (so they can't linger while you're editing
+// a different slide), the engine actually being on, the arrows toggle, and the
+// result still matching the live position (engine replies can lag a move).
+function drawEngineArrows(result: EvalResult | null): void {
+  if (!result || !showEngineArrows || activeSlide !== ENGINE_SLIDE || !engine.isEnabled || result.fen !== chess.fen()) {
+    cg.setAutoShapes([]);
+    return;
+  }
+  const brushes = ['eng1', 'eng2', 'eng3'];
+  cg.setAutoShapes(result.moves.slice(0, 3).map((m, i) => ({
+    orig: m.uci.slice(0, 2) as Key,
+    dest: m.uci.slice(2, 4) as Key,
+    brush: brushes[i],
+  })));
 }
 
 // Show or hide the builder's Scouting tab (and its slide) to match the Settings
@@ -1894,14 +1916,23 @@ maybeShowGate(() => requestAnimationFrame(() => {
         renderMoveDetails();
         updateOpeningName();
         evalPanel.clear();
+        cg.setAutoShapes([]);
         engine.evaluate(chess.fen());
       },
     },
   });
 
+  // Decreasing-opacity arrows for the engine's top 3 candidates — same brushes
+  // as the spar overlay's "build with engine" mode (spar.ts).
+  cg.state.drawable.brushes['eng1'] = { key: 'eng1', color: '#3a9a5c', opacity: 0.9, lineWidth: 11 };
+  cg.state.drawable.brushes['eng2'] = { key: 'eng2', color: '#3a9a5c', opacity: 0.55, lineWidth: 9 };
+  cg.state.drawable.brushes['eng3'] = { key: 'eng3', color: '#3a9a5c', opacity: 0.38, lineWidth: 8 };
+
   // Engine + eval panel — must come after cg is available so evaluate() can read chess.fen().
   engine = new Engine(import.meta.env.BASE_URL, (result) => {
     evalPanel.update(result, chess.fen());
+    lastEngineResult = result;
+    drawEngineArrows(result);
   });
   evalPanel = new EvalPanel(
     document.getElementById('eval-bar-top')!,
@@ -1928,6 +1959,22 @@ maybeShowGate(() => requestAnimationFrame(() => {
     engine.enable();
     engine.evaluate(chess.fen());
   }
+
+  // Discrete "Show arrows / Hide arrows" toggle, sat right next to the source
+  // badge (e.g. "local · d20"). The engine itself is switched on/off by the tab;
+  // this only controls whether its top-3 suggestions are drawn on the board.
+  const evalSourceEl = document.getElementById('eval-source')!;
+  const arrowsToggleBtn = document.createElement('button');
+  arrowsToggleBtn.type = 'button';
+  arrowsToggleBtn.className = 'eval-arrows-toggle';
+  arrowsToggleBtn.textContent = showEngineArrows ? 'Hide arrows' : 'Show arrows';
+  arrowsToggleBtn.addEventListener('click', () => {
+    showEngineArrows = !showEngineArrows;
+    setShowEngineArrows(showEngineArrows);
+    arrowsToggleBtn.textContent = showEngineArrows ? 'Hide arrows' : 'Show arrows';
+    drawEngineArrows(lastEngineResult);
+  });
+  evalSourceEl.insertAdjacentElement('afterend', arrowsToggleBtn);
 
   // The Library / Games carousel slides — they read the live builder position
   // and play a tapped continuation straight onto the line.

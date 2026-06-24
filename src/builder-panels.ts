@@ -55,7 +55,7 @@ export interface BuilderPanels {
   setActiveSlide(index: number): void; // which carousel slide is showing
 }
 
-const LIBRARY_SLIDE = 3;
+const LIBRARY_SLIDE = 2;
 const SCOUTING_SLIDE = 4;
 
 export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
