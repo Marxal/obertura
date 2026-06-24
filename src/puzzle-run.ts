@@ -390,7 +390,11 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
       lastMove: undefined,
       movable: { color: undefined, dests: new Map() },
     });
-    ratingEl.textContent = `Rating ${draw.puzzle.rating}`;
+    // The rating stays hidden while the puzzle is unsolved — it's revealed only
+    // after the solve (count modes), and never during Time Attack (it shows on the
+    // end-of-session listing instead).
+    ratingEl.textContent = '';
+    ratingEl.className = 'pt-line-name';
 
     // The solver is already to move — prompt and hand over (no opponent setup
     // move; the pgn already ended with it).
@@ -514,6 +518,24 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     if (cur.puzzle.themes.length) {
       themesEl.textContent = cur.puzzle.themes.map(prettyTheme).join(' · ');
       themesEl.hidden = false;
+    }
+
+    // Reveal the rating now that the puzzle is over. In the rated Daily Mix we
+    // also show how many points the solve won or lost (green up / red down);
+    // practice runs just show the puzzle's rating.
+    if (rated) {
+      ratingEl.className = 'pt-line-name pt-rating--solved';
+      ratingEl.textContent = `Puzzle rating: ${cur.puzzle.rating}`;
+      if (points !== undefined) {
+        const sign = points >= 0 ? '+' : '−';
+        const pts = document.createElement('span');
+        pts.className = 'pt-rating-delta ' + (points >= 0 ? 'pt-rating-delta--up' : 'pt-rating-delta--down');
+        pts.textContent = ` ${sign}${Math.abs(points)} points`;
+        ratingEl.appendChild(pts);
+      }
+    } else {
+      ratingEl.className = 'pt-line-name pt-rating--solved';
+      ratingEl.textContent = `Rating ${cur.puzzle.rating}`;
     }
     if (clean) {
       setStatus('Solved!', 'pt-status--success');

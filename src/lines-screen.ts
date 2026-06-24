@@ -412,6 +412,18 @@ function distinctUserTags(lines: Line[]): string[] {
   return [...set].sort((a, b) => a.localeCompare(b));
 }
 
+// Line counts per colour and per tag, for the tab/chip count badges.
+function countLinesByColour(lines: Line[]): { all: number; white: number; black: number } {
+  let white = 0, black = 0;
+  for (const l of lines) (l.colour === 'black' ? black++ : white++);
+  return { all: lines.length, white, black };
+}
+function countLinesByTag(lines: Line[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const l of lines) for (const t of l.tags) counts.set(t, (counts.get(t) ?? 0) + 1);
+  return counts;
+}
+
 // Apply the bar's colour + tag selection (tags OR'd: a line shows if it carries
 // any selected tag), then the chosen ordering.
 function viewSavedLines(lines: Line[], sel: FilterSelection): Line[] {
@@ -448,6 +460,8 @@ function renderSavedTab(
     defaultSort: 'latest',
     userTags: distinctUserTags(lines),
     opponentTags: distinctOpponentTags(lines),
+    colourCounts: countLinesByColour(lines),
+    tagCounts: countLinesByTag(lines),
     group: true,
     onChange: () => rebuildList(),
   });

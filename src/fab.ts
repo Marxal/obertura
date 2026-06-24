@@ -16,6 +16,9 @@ import { pushBack } from './back-nav';
 export interface FabAction {
   kind?: 'action';
   icon: SVGElement;
+  // When set, the icon sits inside a coloured circle — used by the New line rows
+  // to show a white / black pawn token.
+  iconFrame?: 'white' | 'black';
   label: string;
   sublabel?: string;
   onClick: () => void;
@@ -67,7 +70,7 @@ export function mountFab(buildActions: () => FabItem[] | Promise<FabItem[]>): Fa
     row.className = 'fab-item';
     row.append(textBlock(item.label, item.sublabel));
     const ic = document.createElement('span');
-    ic.className = 'fab-item-icon';
+    ic.className = 'fab-item-icon' + (item.iconFrame ? ` fab-item-icon--token fab-item-icon--token-${item.iconFrame}` : '');
     ic.appendChild(item.icon);
     row.appendChild(ic);
     row.addEventListener('click', () => { close(); item.onClick(); });

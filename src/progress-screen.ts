@@ -392,14 +392,13 @@ function renderTrainingRegion(container: HTMLElement, lines: Line[], cb: Progres
 // Your own on-device puzzle stats: the rating (with its trend), solved/accuracy
 // totals, and accuracy-by-opening. All local — no Lichess account needed.
 
-// The puzzle rating block has its own range filter (Week / Month / 90 days / All)
-// — a superset of the shared StatsRange, kept local so adding "90 days" here
-// doesn't ripple into the other screens that use StatsRange.
-type PzStatsRange = 'week' | 'month' | '90d' | 'all';
+// The puzzle rating block's range filter (Week / Month / All) — kept local to
+// this screen, though it now matches the shared StatsRange set.
+type PzStatsRange = 'week' | 'month' | 'all';
 const PZ_STATS_RANGE_KEY = 'obertura.puzzles.statsRange';
 function getPzStatsRange(): PzStatsRange {
   const v = localStorage.getItem(PZ_STATS_RANGE_KEY);
-  return v === 'week' || v === 'month' || v === '90d' ? v : 'all';
+  return v === 'week' || v === 'month' ? v : 'all';
 }
 function setPzStatsRange(r: PzStatsRange): void {
   try { localStorage.setItem(PZ_STATS_RANGE_KEY, r); } catch { /* non-critical */ }
@@ -408,7 +407,7 @@ function setPzStatsRange(r: PzStatsRange): void {
 // Day strings compare lexicographically, so a string cutoff is enough.
 function pzRangeCutoff(range: PzStatsRange, now: Date = new Date()): string | null {
   if (range === 'all') return null;
-  const back = range === 'week' ? 6 : range === 'month' ? 29 : 89; // inclusive of today
+  const back = range === 'week' ? 6 : 29; // inclusive of today
   const d = new Date(now);
   d.setDate(d.getDate() - back);
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -431,25 +430,33 @@ function renderPuzzlesRegion(container: HTMLElement): void {
   if (history.length > 0) {
     const section = statsSection('Puzzle rating');
 
-    const big = document.createElement('div');
-    big.className = 'pz-rating-stat';
-    big.textContent = String(getPuzzleRating());
-    section.appendChild(big);
+    // Three matching boxes up top: your current rating (range-independent), plus
+    // Solved + Accuracy for the selected range.
+    const totals = document.createElement('div');
+    totals.className = 'pz-stat-row pz-stat-row--three';
+    totals.appendChild(puzzleStatCell(Icons.star(18), String(getPuzzleRating()), 'Your rating'));
+    const solvedCell = puzzleStatCell(Icons.target(18), '0', 'Solved');
+    const accCell = puzzleStatCell(Icons.sparkles(18), '—', 'Accuracy');
+    totals.appendChild(solvedCell);
+    totals.appendChild(accCell);
+    section.appendChild(totals);
 
     const chartHost = document.createElement('div');
     chartHost.className = 'pz-rating-chart';
     section.appendChild(chartHost);
 
+    // Range chips sit at the bottom (like "Remembered moves over time").
     let range = getPzStatsRange();
     section.appendChild(buildSegmented<PzStatsRange>(
-      [['week', 'Week'], ['month', 'Month'], ['90d', '90 days'], ['all', 'All']],
+      [['week', 'Week'], ['month', 'Month'], ['all', 'All']],
       range,
       (r) => { range = r; setPzStatsRange(r); fill(); },
     ));
 
-    const totals = document.createElement('div');
-    totals.className = 'pz-stat-row';
-    section.appendChild(totals);
+    const setCellValue = (cell: HTMLElement, value: string): void => {
+      const num = cell.querySelector('.stats-quick-num');
+      if (num) num.textContent = value;
+    };
 
     const fill = (): void => {
       const cutoff = pzRangeCutoff(range);
@@ -465,7 +472,6 @@ function renderPuzzlesRegion(container: HTMLElement): void {
         chartHost.appendChild(note);
       }
       // Solved + accuracy over the same range.
-      totals.innerHTML = '';
       let solved = 0, attempts = 0;
       for (const d of days) {
         if (cutoff && d.day < cutoff) continue;
@@ -473,8 +479,8 @@ function renderPuzzlesRegion(container: HTMLElement): void {
         attempts += d.solved + d.failed;
       }
       const accPct = attempts ? Math.round((100 * solved) / attempts) : 0;
-      totals.appendChild(puzzleStatCell(Icons.target(18), String(solved), 'Solved'));
-      totals.appendChild(puzzleStatCell(Icons.sparkles(18), attempts ? `${accPct}%` : '—', 'Accuracy'));
+      setCellValue(solvedCell, String(solved));
+      setCellValue(accCell, attempts ? `${accPct}%` : '—');
     };
     fill();
 
@@ -707,7 +713,7 @@ function renderRememberedFailed(container: HTMLElement): void {
   head.className = 'section-head';
   const h = document.createElement('h3');
   h.className = 'section-title';
-  h.textContent = 'Remembered vs failed';
+  h.textContent = 'Remembered moves over time';
   head.appendChild(h);
   section.appendChild(head);
 
@@ -735,28 +741,34 @@ function renderRememberedFailed(container: HTMLElement): void {
 
   function rebuild(): void {
     const bars = reviewBars(getReviewLog(), range);
-    renderRfTotals(totals, bars);
-    renderRfChart(chartEl, detailEl, bars, range);
+    // The pills default to the whole range; tapping a day swaps them to that day.
+    const r = bars.reduce((n, b) => n + b.remembered, 0);
+    const f = bars.reduce((n, b) => n + b.failed, 0);
+    renderRfTotals(totals, r, f);
+    renderRfChart(chartEl, detailEl, bars, range, (bar) => renderRfTotals(totals, bar.remembered, bar.failed));
   }
   rebuild();
 
   container.appendChild(section);
 }
 
-function renderRfTotals(el: HTMLElement, bars: DayBar[]): void {
+// The remembered / failed / recall pills. Shows whatever counts it's handed — the
+// range aggregate by default, or a single tapped day's numbers.
+function renderRfTotals(el: HTMLElement, remembered: number, failed: number): void {
   el.innerHTML = '';
-  const r = bars.reduce((n, b) => n + b.remembered, 0);
-  const f = bars.reduce((n, b) => n + b.failed, 0);
-  el.appendChild(rfPill('remembered', r, 'remembered'));
-  el.appendChild(rfPill('failed', f, 'failed'));
+  const total = remembered + failed;
+  const recall = total ? Math.round((remembered / total) * 100) : 0;
+  el.appendChild(rfPill('remembered', String(remembered), 'remembered'));
+  el.appendChild(rfPill('failed', String(failed), 'failed'));
+  el.appendChild(rfPill('recall', `${recall}%`, 'recall'));
 }
 
-function rfPill(kind: 'remembered' | 'failed', n: number, label: string): HTMLElement {
+function rfPill(kind: 'remembered' | 'failed' | 'recall', value: string, label: string): HTMLElement {
   const pill = document.createElement('span');
   pill.className = `stats-rf-pill stats-rf-pill--${kind}`;
   const num = document.createElement('span');
   num.className = 'stats-rf-pill-num';
-  num.textContent = String(n);
+  num.textContent = value;
   pill.appendChild(num);
   const lbl = document.createElement('span');
   lbl.className = 'stats-rf-pill-label';
@@ -773,7 +785,13 @@ function rfDetailText(bar: DayBar): string {
   return `${label} · ${bar.remembered} remembered · ${bar.failed} failed · ${acc}% recall`;
 }
 
-function renderRfChart(chartEl: HTMLElement, detailEl: HTMLElement, bars: DayBar[], range: StatsRange): void {
+function renderRfChart(
+  chartEl: HTMLElement,
+  detailEl: HTMLElement,
+  bars: DayBar[],
+  range: StatsRange,
+  onPick: (bar: DayBar) => void,
+): void {
   chartEl.innerHTML = '';
   detailEl.textContent = '';
 
@@ -835,7 +853,7 @@ function renderRfChart(chartEl: HTMLElement, detailEl: HTMLElement, bars: DayBar
       col.appendChild(ax);
     }
 
-    col.addEventListener('click', () => select(col, b));
+    col.addEventListener('click', () => { select(col, b); onPick(b); });
     chart.appendChild(col);
   }
   chartEl.appendChild(chart);
