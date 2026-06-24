@@ -714,6 +714,7 @@ function renderCardList(container: HTMLElement, trainingLines: Line[], pausedLin
     opponentTags: distinctOpponentTags(allShown),
     colourCounts: countLinesByColour(allShown),
     tagCounts: countLinesByTag(allShown),
+    statusCounts: countLinesByStatus(allShown),
     status: true,
     group: true,
     onChange: () => rebuildList(),
@@ -766,6 +767,13 @@ function countLinesByColour(lines: Line[]): { all: number; white: number; black:
 function countLinesByTag(lines: Line[]): Map<string, number> {
   const counts = new Map<string, number>();
   for (const l of lines) for (const t of l.tags) counts.set(t, (counts.get(t) ?? 0) + 1);
+  return counts;
+}
+
+// Line counts per status bucket, for the Due / Learning / Solid pill badges.
+function countLinesByStatus(lines: Line[]): { due: number; learning: number; solid: number } {
+  const counts = { due: 0, learning: 0, solid: 0 };
+  for (const l of lines) counts[lineBucket(l)]++;
   return counts;
 }
 

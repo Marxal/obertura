@@ -567,9 +567,10 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     lockBoard();
     cg.setAutoShapes([]);
 
-    // Swap the overlay's body for a summary panel (reusing the train look). The
-    // panel fills the space below the header as a flex column: a fixed head, a
-    // scrollable list, and fixed actions — so it fits without the page scrolling.
+    // Swap the whole overlay for a summary panel (reusing the train look) — the
+    // header bar goes too, so results are chrome-free. The panel is a flex column:
+    // a fixed head, a scrollable list, and fixed actions — fits without scrolling.
+    headerEl.remove();
     boardWrap.remove();
     bottomEl.remove();
     topEl.remove();
@@ -658,9 +659,9 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
 
     const doneBtn = document.createElement('button');
     doneBtn.type = 'button';
-    // Without a "Play again" there's no green action, so promote Done.
+    // Without a "Play again" there's no green action, so promote this one.
     doneBtn.className = opts.onPlayAgain ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
-    doneBtn.textContent = 'Done';
+    doneBtn.textContent = 'End session';
     doneBtn.addEventListener('click', () => doExit());
     actions.appendChild(doneBtn);
 
