@@ -4278,6 +4278,12 @@ cg-board square.move-dest.oc {
   opacity: 0.5;
   cursor: default;
 }
+/* Puzzle Time Attack reuses these chips to PICK a duration (Start is separate),
+   so the chosen length keeps a persistent highlight. */
+.timed-chip--on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-card));
+}
 
 .timed-chip-dur {
   font-size: 1rem;
@@ -10249,3 +10255,5 @@ cg-board square.move-dest.oc {
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
 }
+/* Rating graph sits between the big number and the range chips. */
+.pz-rating-chart { margin: 0.5rem 0 0.6rem; }

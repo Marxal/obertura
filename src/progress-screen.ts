@@ -392,6 +392,30 @@ function renderTrainingRegion(container: HTMLElement, lines: Line[], cb: Progres
 // Your own on-device puzzle stats: the rating (with its trend), solved/accuracy
 // totals, and accuracy-by-opening. All local — no Lichess account needed.
 
+// The puzzle rating block has its own range filter (Week / Month / 90 days / All)
+// — a superset of the shared StatsRange, kept local so adding "90 days" here
+// doesn't ripple into the other screens that use StatsRange.
+type PzStatsRange = 'week' | 'month' | '90d' | 'all';
+const PZ_STATS_RANGE_KEY = 'obertura.puzzles.statsRange';
+function getPzStatsRange(): PzStatsRange {
+  const v = localStorage.getItem(PZ_STATS_RANGE_KEY);
+  return v === 'week' || v === 'month' || v === '90d' ? v : 'all';
+}
+function setPzStatsRange(r: PzStatsRange): void {
+  try { localStorage.setItem(PZ_STATS_RANGE_KEY, r); } catch { /* non-critical */ }
+}
+// Earliest day string (inclusive, "YYYY-MM-DD") in a range, or null for "all".
+// Day strings compare lexicographically, so a string cutoff is enough.
+function pzRangeCutoff(range: PzStatsRange, now: Date = new Date()): string | null {
+  if (range === 'all') return null;
+  const back = range === 'week' ? 6 : range === 'month' ? 29 : 89; // inclusive of today
+  const d = new Date(now);
+  d.setDate(d.getDate() - back);
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
 function renderPuzzlesRegion(container: HTMLElement): void {
   const days = getPuzzleDays();
   const byOpening = getPuzzlesByOpening();
@@ -401,19 +425,62 @@ function renderPuzzlesRegion(container: HTMLElement): void {
 
   regionTitle(container, 'Puzzles');
 
-  // Puzzle rating — the big personal number, with its evolution over time.
+  // Puzzle rating with its evolution over time, plus the solved/accuracy totals —
+  // one integrated block sharing a single Week / Month / 90 days / All filter. The
+  // graph sits on top, the range chips below it, the totals beneath those.
   if (history.length > 0) {
     const section = statsSection('Puzzle rating');
+
     const big = document.createElement('div');
     big.className = 'pz-rating-stat';
     big.textContent = String(getPuzzleRating());
     section.appendChild(big);
-    if (history.length >= 2) renderRatingTrend(section, history);
-    container.appendChild(section);
-  }
 
-  // Solved + accuracy, with a Week / Month / All selector.
-  if (days.length > 0) {
+    const chartHost = document.createElement('div');
+    chartHost.className = 'pz-rating-chart';
+    section.appendChild(chartHost);
+
+    let range = getPzStatsRange();
+    section.appendChild(buildSegmented<PzStatsRange>(
+      [['week', 'Week'], ['month', 'Month'], ['90d', '90 days'], ['all', 'All']],
+      range,
+      (r) => { range = r; setPzStatsRange(r); fill(); },
+    ));
+
+    const totals = document.createElement('div');
+    totals.className = 'pz-stat-row';
+    section.appendChild(totals);
+
+    const fill = (): void => {
+      const cutoff = pzRangeCutoff(range);
+      // Rating line, clipped to the range (needs ≥2 points to chart).
+      chartHost.innerHTML = '';
+      const pts = cutoff ? history.filter((p) => p.day >= cutoff) : history;
+      if (pts.length >= 2) {
+        renderRatingTrend(chartHost, pts);
+      } else {
+        const note = document.createElement('p');
+        note.className = 'stats-no-games';
+        note.textContent = 'Not enough rated days in this range yet to chart a trend.';
+        chartHost.appendChild(note);
+      }
+      // Solved + accuracy over the same range.
+      totals.innerHTML = '';
+      let solved = 0, attempts = 0;
+      for (const d of days) {
+        if (cutoff && d.day < cutoff) continue;
+        solved += d.solved;
+        attempts += d.solved + d.failed;
+      }
+      const accPct = attempts ? Math.round((100 * solved) / attempts) : 0;
+      totals.appendChild(puzzleStatCell(Icons.target(18), String(solved), 'Solved'));
+      totals.appendChild(puzzleStatCell(Icons.sparkles(18), attempts ? `${accPct}%` : '—', 'Accuracy'));
+    };
+    fill();
+
+    container.appendChild(section);
+  } else if (days.length > 0) {
+    // No rated history yet (casual play only) — just the solved totals, as before.
     let range: StatsRange = getStatsRange();
     const section = statsSection('Solved');
     section.appendChild(buildSegmented<StatsRange>(

@@ -37,6 +37,10 @@ export interface PuzzleDraw {
   puzzle: Puzzle;
   angle: string | null;
   family?: string;
+  // A deliberate repeat from the review queue: it bypasses the recently-seen
+  // dedup (we want it back) and never moves the rating (re-seeing a known puzzle
+  // mustn't inflate the ladder).
+  repeat?: boolean;
 }
 
 export type PuzzleMode =
@@ -47,6 +51,7 @@ export interface PuzzleResult {
   puzzle: Puzzle;
   solved: boolean; // true only when finished clean (no wrong move, no hint)
   angle: string | null;
+  family?: string; // friendly opening name, for the repeat queue
 }
 
 export interface PuzzleSessionOptions {
@@ -57,6 +62,8 @@ export interface PuzzleSessionOptions {
   mode: PuzzleMode;
   // Fired once per puzzle when it's finished (solved or failed).
   onResult?: (r: PuzzleResult) => void;
+  // Fired once when the session ends (results screen), with the final tally.
+  onComplete?: (summary: { solved: number; completed: number; timed: boolean }) => void;
   onExit: () => void;
   // Re-launch the same session from the results screen ("Play again").
   onPlayAgain?: () => void;
@@ -356,7 +363,8 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
       const d = await opts.nextPuzzle({ solved: solvedCount });
       if (isCleaned) return;
       if (!d) break;
-      if (dedup && wasRecentlySeen(d.puzzle.id)) continue;
+      // A queued repeat is meant to come back, so it skips the dedup check.
+      if (dedup && !d.repeat && wasRecentlySeen(d.puzzle.id)) continue;
       const s = puzzleSetup(d.puzzle);
       if (s) { draw = d; setup = s; break; }
     }
@@ -474,12 +482,13 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     const clean = !failedThisPuzzle;
     if (clean) solvedCount++; else missed.push(cur);
     renderScore();
-    opts.onResult?.({ puzzle: cur.puzzle, solved: clean, angle: cur.angle });
+    opts.onResult?.({ puzzle: cur.puzzle, solved: clean, angle: cur.angle, family: cur.family });
 
-    // Rating moves only in rated mode, and only a clean solve scores. Record the
-    // per-puzzle change and bank it immediately so an early exit keeps it.
+    // Rating moves only in rated mode, and only a clean solve scores. A queued
+    // repeat never scores (already seen). Record the per-puzzle change and bank it
+    // immediately so an early exit keeps it.
     let points: number | undefined;
-    if (rated) {
+    if (rated && !cur.repeat) {
       const updated = nextRating(liveRating, cur.puzzle.rating, clean);
       points = updated - liveRating;
       liveRating = updated;
@@ -530,6 +539,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     if (resultsShown || isCleaned) return; // the clock and finish() can both reach here
     resultsShown = true;
     sessionOver = true;
+    opts.onComplete?.({ solved: solvedCount, completed, timed });
     stopTimer();
     if (autoTimer) clearTimeout(autoTimer);
     lockBoard();
