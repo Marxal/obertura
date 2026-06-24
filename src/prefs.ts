@@ -101,6 +101,19 @@ export function setShowLineMiniatures(on: boolean): void {
   localStorage.setItem(SHOW_MINIATURES_KEY, on ? 'on' : 'off');
 }
 
+// Whether the builder's Engine tab draws arrows on the board for its top 3
+// suggested moves. ON by default; the discrete toggle next to the source
+// badge can switch it off if the arrows get in the way.
+const SHOW_ENGINE_ARROWS_KEY = 'obertura.builder.showEngineArrows';
+
+export function getShowEngineArrows(): boolean {
+  return localStorage.getItem(SHOW_ENGINE_ARROWS_KEY) !== 'off';
+}
+
+export function setShowEngineArrows(on: boolean): void {
+  localStorage.setItem(SHOW_ENGINE_ARROWS_KEY, on ? 'on' : 'off');
+}
+
 // ── Statistics screen sections ───────────────────────────────────────────────
 //
 // Two device-local toggles that hide whole sections of the Statistics screen,

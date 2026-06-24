@@ -461,7 +461,9 @@ function renderSavedTab(
     userTags: distinctUserTags(lines),
     opponentTags: distinctOpponentTags(lines),
     colourCounts: countLinesByColour(lines),
-    tagCounts: countLinesByTag(lines),
+    countsForColour: (colour) => ({
+      tagCounts: countLinesByTag(colour === 'all' ? lines : lines.filter(l => l.colour === colour)),
+    }),
     group: true,
     onChange: () => rebuildList(),
   });

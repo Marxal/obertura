@@ -11,6 +11,11 @@ export class EvalPanel {
   private _enabled: boolean;
   private onToggle: (enabled: boolean) => void;
   private onPlayMove: (uci: string) => void;
+  // Compact mounts (e.g. the spar overlay) show just the 3 best moves in one
+  // fixed-height row — no principal variation — so a longer line can never grow
+  // the panel taller and nudge the board out from under an in-progress drag.
+  // The full builder Engine tab keeps the richer stacked-PV view.
+  private compact: boolean;
 
   constructor(
     barEl: HTMLElement,
@@ -18,12 +23,14 @@ export class EvalPanel {
     enabled: boolean,
     onToggle: (enabled: boolean) => void,
     onPlayMove: (uci: string) => void,
+    compact = false,
   ) {
     this.barEl = barEl;
     this.controlsEl = controlsEl;
     this._enabled = enabled;
     this.onToggle = onToggle;
     this.onPlayMove = onPlayMove;
+    this.compact = compact;
     this.build();
   }
 
@@ -40,7 +47,7 @@ export class EvalPanel {
     // Bottom: candidate moves on the left, toggle + label on the right.
     this.controlsEl.innerHTML = `
       <div class="eval-row">
-        <div class="eval-moves" id="eval-moves"></div>
+        <div class="eval-moves${this.compact ? ' eval-moves--compact' : ''}" id="eval-moves"></div>
         <div class="eval-right">
           <span class="eval-source" id="eval-source"></span>
           <label class="engine-toggle" title="Engine analysis">
@@ -120,16 +127,26 @@ export class EvalPanel {
     this.barEl.querySelector<HTMLElement>('#eval-bar-fill')!.style.width = `${fillPct}%`;
     this.barEl.querySelector<HTMLElement>('#eval-score')!.textContent = scoreText;
 
-    // Top 3 lines — each its full principal variation, clickable to play its
-    // first move. The score sits on the left, the SAN line on the right.
+    // Top 3 candidates, clickable to play. Compact mounts show just the best
+    // move itself (fixed height, one row); the full builder tab shows each
+    // move's whole principal variation, stacked.
     const movesEl = this.controlsEl.querySelector<HTMLElement>('#eval-moves')!;
-    movesEl.innerHTML = result.moves.slice(0, 3).map(m => {
-      const pv = (m.sanLine && m.sanLine.length ? m.sanLine : [m.san || m.uci]);
-      return `<button class="eval-line" type="button" data-uci="${m.uci}">` +
-        `<span class="eval-line-score">${this.fmtScore(m)}</span>` +
-        `<span class="eval-line-pv">${this.escape(this.formatLine(pv, fen))}</span>` +
-      `</button>`;
-    }).join('');
+    if (this.compact) {
+      movesEl.innerHTML = result.moves.slice(0, 3).map(m => {
+        return `<button class="eval-move" type="button" data-uci="${m.uci}">` +
+          `<span class="eval-move-san">${this.escape(formatMove(m.san))}</span>` +
+          `<span class="eval-move-cp">${this.fmtScore(m)}</span>` +
+        `</button>`;
+      }).join('');
+    } else {
+      movesEl.innerHTML = result.moves.slice(0, 3).map(m => {
+        const pv = (m.sanLine && m.sanLine.length ? m.sanLine : [m.san || m.uci]);
+        return `<button class="eval-line" type="button" data-uci="${m.uci}">` +
+          `<span class="eval-line-score">${this.fmtScore(m)}</span>` +
+          `<span class="eval-line-pv">${this.escape(this.formatLine(pv, fen))}</span>` +
+        `</button>`;
+      }).join('');
+    }
 
     // Source + depth badge: "cloud · d38" when Lichess answered, or
     // "local · d14…d20" while the bundled Stockfish climbs to its target
