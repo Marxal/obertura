@@ -64,7 +64,7 @@ import { openFeedbackSheet } from './feedback';
 import { openSurvey } from './survey';
 import { showIntro } from './onboarding';
 import { showOnboardingWizard } from './onboarding-wizard';
-import { isConnected, connect, disconnect } from './lichess-auth';
+import { isConnected, connect, disconnect, LICHESS_CONNECT_BLURB } from './lichess-auth';
 import { buildSupportSection } from './support';
 import { runStorageSelfTest } from './storage.selftest';
 import { runOpeningsSelfTest } from './openings.selftest';
@@ -93,13 +93,19 @@ export function renderSettingsScreen(container: HTMLElement): void {
   const userSlot = document.createElement('div');
   screen.appendChild(userSlot);
 
+  const refresh = () => renderSettingsScreen(container);
+  // Connecting Lichess unlocks a lot, so until you do it leads the screen as a
+  // prominent card. Once connected there's nothing to act on, so it collapses
+  // into a quiet accordion lower down (built inside buildLichessGroup).
+  if (!isConnected()) screen.appendChild(buildLichessGroup(refresh));
+
   screen.appendChild(buildAppearanceGroup());
-  screen.appendChild(buildLichessGroup(() => renderSettingsScreen(container)));
   screen.appendChild(buildTrainingGroup());
   screen.appendChild(buildStatisticsGroup());
   screen.appendChild(buildExploreGroup());
   screen.appendChild(buildDataGroup());
   screen.appendChild(buildDiagnosticsGroup());
+  if (isConnected()) screen.appendChild(buildLichessGroup(refresh));
   screen.appendChild(buildAboutGroup());
 
   container.appendChild(screen);
@@ -164,7 +170,7 @@ function buildExploreGroup(): HTMLElement {
 // support links and the version. About sits at the very bottom of Settings.
 
 function buildAboutGroup(): HTMLElement {
-  const sec = staticGroup('Feedback & about', Icons.note(16));
+  const sec = staticGroup('Feedback & about', Icons.smile(16));
 
   sec.appendChild(linkRow('Send feedback', openFeedbackSheet, Icons.note(18)));
   sec.appendChild(linkRow('Beta survey', openSurvey, Icons.list(18)));
@@ -420,7 +426,7 @@ const PIECE_PRESETS: { value: PieceSet; label: string }[] = [
 
 // A mini two-square preview (light + dark) with two glyphs from the set, drawn
 // from the always-bundled previews module so the picker needs no on-demand load.
-function pieceSwatches(current: PieceSet, onChange: (v: PieceSet) => void): HTMLElement {
+export function pieceSwatches(current: PieceSet, onChange: (v: PieceSet) => void): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'piece-swatches';
 
@@ -819,14 +825,14 @@ function buildUserGroup(gameCount: number, refresh: () => void): HTMLElement {
   return sec;
 }
 
-// ── Lichess ──────────────────────────────────────────────────────────────────
-// Connecting is optional — puzzles already work anonymously — but it unlocks the
-// live opening Library (every position, not just the bundled common ones) and the
-// Lichess puzzle dashboard (rating, and it skips puzzles you've already seen).
+// ── Lichess connection ─────────────────────────────────────────────────────────
+// Connecting is optional — puzzles already work anonymously — but it unlocks a lot
+// (see LICHESS_CONNECT_BLURB). Until you connect it leads the whole Settings screen
+// as a prominent card; once connected it collapses into a quiet accordion lower
+// down (the caller decides where via isConnected()).
 function buildLichessGroup(refresh: () => void): HTMLElement {
-  const sec = staticGroup('Lichess', Icons.compass(16));
-
   if (!isConnected()) {
+    const sec = staticGroup('Lichess connection', Icons.compass(16));
     const card = document.createElement('div');
     card.className = 'settings-connect-card';
 
@@ -837,11 +843,7 @@ function buildLichessGroup(refresh: () => void): HTMLElement {
 
     const blurb = document.createElement('p');
     blurb.className = 'settings-connect-desc';
-    blurb.textContent =
-      'Connecting unlocks the live opening Library for every position, and the ' +
-      'Lichess puzzle dashboard — your rating, and it skips puzzles you\'ve already ' +
-      'seen. It\'s free, reads no personal data, and puzzles work fine either way — ' +
-      'even a throwaway account works.';
+    blurb.textContent = LICHESS_CONNECT_BLURB;
     card.appendChild(blurb);
 
     const cta = document.createElement('button');
@@ -856,6 +858,8 @@ function buildLichessGroup(refresh: () => void): HTMLElement {
     return sec;
   }
 
+  // Connected: nothing to act on, so it lives as a collapsed accordion lower down.
+  const sec = group('Lichess connection', Icons.compass(16));
   const card = document.createElement('div');
   card.className = 'settings-connected settings-connected--compact';
 

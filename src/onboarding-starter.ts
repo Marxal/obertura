@@ -232,6 +232,26 @@ async function paint(root: HTMLElement, deps: StarterDeps): Promise<void> {
   root.appendChild(foot);
 }
 
+// Open the starter-pack picker on its own (e.g. from the My Lines empty states),
+// without the surrounding Train onboarding. Only needs a way to add a line; the
+// other StarterDeps routes are unused by the picker, so they're stubbed.
+export async function openStarterPackPicker(
+  onAddLine: StarterDeps['onAddLine'],
+): Promise<void> {
+  const [packs, lines] = await Promise.all([loadPacks(), getAllLines()]);
+  const existing = new Set(lines.map(l => sig(mainlineUcis(l.tree))));
+  const deps: StarterDeps = {
+    hasGames: false,
+    onAddLine,
+    onFinish: () => {},
+    onBuildManually: () => {},
+    onImportGames: () => {},
+    onBrowseLibrary: () => {},
+    onBuildWithEngine: () => {},
+  };
+  openPackPicker(packs, existing, deps, () => {});
+}
+
 // ── Starter-pack lightbox ────────────────────────────────────────────────────
 // "Pick a starter pack" opens this instead of an inline accordion — a focused
 // sheet, titled and dismissible like the rest of the app's edit-overlays.

@@ -20,8 +20,8 @@ import { reviewResult, takeDueRepeat } from './puzzle-repeat';
 import { getPuzzleRating, difficultyForRating, difficultyForStreak, targetRatingForStreak } from './puzzle-rating';
 import { countUp } from './count-up';
 import { renderLoadError } from './load-error';
-import { buildEmptyState } from './empty-state';
-import { isConnected } from './lichess-auth';
+import { buildEmptyState, type EmptyStateAction } from './empty-state';
+import { isConnected, LICHESS_CONNECT_BLURB } from './lichess-auth';
 import { Icons } from './icons';
 
 export interface PuzzlesScreenDeps {
@@ -494,16 +494,28 @@ function perfPill(p: { pct: number; attempts: number } | undefined): HTMLElement
 }
 
 function emptyState(hasGames: boolean, deps: PuzzlesScreenDeps): HTMLElement {
+  const line = hasGames
+    ? 'None of your openings have a Lichess puzzle set yet. Try saving more lines or importing more games.'
+    : 'Save some opening lines or import your games — then practise puzzles from the openings you actually play.';
+  const buildOrImport: EmptyStateAction = hasGames
+    ? { label: 'Import more games', onClick: deps.onImportGames }
+    : { label: 'Build a line', onClick: deps.onBuildLine };
+
+  // Not connected: Connecting is the headline action (it powers the puzzle
+  // dashboard), with the same pitch the wizard uses; build/import fall to second.
+  if (!isConnected()) {
+    return buildEmptyState({
+      icon: Icons.puzzlePiece(28),
+      line,
+      body: LICHESS_CONNECT_BLURB,
+      cta: { label: 'Connect to Lichess', onClick: deps.onConnectLichess },
+      secondaryActions: [buildOrImport],
+    });
+  }
+
   return buildEmptyState({
     icon: Icons.puzzlePiece(28),
-    line: hasGames
-      ? 'None of your openings have a Lichess puzzle set yet. Try saving more lines or importing more games.'
-      : 'Save some opening lines or import your games — then practise puzzles from the openings you actually play.',
-    cta: hasGames
-      ? { label: 'Import more games', onClick: deps.onImportGames }
-      : { label: 'Build a line', onClick: deps.onBuildLine },
-    link: !isConnected()
-      ? { label: 'Connect Lichess for your puzzle stats →', onClick: deps.onConnectLichess }
-      : undefined,
+    line,
+    cta: buildOrImport,
   });
 }

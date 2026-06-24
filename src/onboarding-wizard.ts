@@ -1,33 +1,44 @@
-// The setup wizard — a focused 4-step flow shown once, right after the intro
-// finishes (and replayable from Settings → "Replay setup"). Each step is a real
-// choice rather than another pitch slide:
+// The setup wizard — a focused, full-screen flow shown once, right after the
+// intro finishes (and replayable from Settings → "Replay setup"). It mirrors the
+// Beta survey's full-screen shape (header with step dots · scrollable body ·
+// pinned footer) rather than a small bottom sheet, so each choice gets room to
+// breathe. Each step is a real choice, not another pitch slide:
 //   1. Move notation
-//   2. Theme + board colour
+//   2. Theme + board colour + piece set
 //   3. Connect to Lichess, or skip
 //   4. Import your games, or skip
+//   5. "You're all set up" — the hand-off to adding lines / training
 //
 // Steps 1-2 write straight to the same prefs Settings → Appearance uses, via the
-// exact same controls (segmented / boardSwatches / buildThemeRow), so there's
-// nothing to "save" — every choice already lives wherever it always has.
+// exact same controls (segmented / boardSwatches / pieceSwatches / buildThemeRow),
+// so there's nothing to "save" — every choice already lives wherever it always has.
 //
 // Step 3's Connect does a full-page OAuth redirect away and back, which reloads
-// the app and loses this sheet's in-memory step. We stash which step we were on
+// the app and loses this page's in-memory step. We stash which step we were on
 // before redirecting (obertura.wizardStep, a tiny JSON blob with a 10-minute
 // staleness window — the same pattern lichess-auth.ts uses for stashReturn /
-// takeReturn, just wizard-local) so the wizard reopens at step 4 instead of
-// restarting from step 1.
+// takeReturn, just wizard-local) so the wizard reopens at the import step instead
+// of restarting from step 1.
 
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
-import { segmented, boardSwatches, buildThemeRow } from './settings-screen';
+import {
+  segmented,
+  boardSwatches,
+  buildThemeRow,
+  pieceSwatches,
+} from './settings-screen';
 import { getMoveNotation, setMoveNotation, type MoveNotation } from './notation';
-import { getBoardColour, setBoardColour } from './appearance';
-import { isConnected, connect } from './lichess-auth';
+import { getBoardColour, setBoardColour, getPieceSet, setPieceSet } from './appearance';
+import { isConnected, connect, LICHESS_CONNECT_BLURB } from './lichess-auth';
 import { openImportPanel } from './import-panel';
 
 const WIZARD_SEEN_KEY = 'obertura.wizardSeen';
 const WIZARD_STEP_KEY = 'obertura.wizardStep';
-const STEP_COUNT = 4;
+const STEP_COUNT = 5;
+const CONNECT_STEP = 2;
+const IMPORT_STEP = 3;
+const ALLSET_STEP = 4;
 
 export function hasSeenWizard(): boolean {
   try {
@@ -82,15 +93,16 @@ export function showOnboardingWizard(opts: WizardOptions): void {
   let step = takeStashedStep() ?? 0;
 
   const overlay = document.createElement('div');
-  overlay.className = 'edit-overlay';
+  overlay.className = 'edit-overlay edit-overlay--full wizard-overlay';
 
   function close(): void {
     overlay.remove();
     removeBack();
   }
-  const removeBack = pushBack(close);
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) close();
+  const removeBack = pushBack(() => {
+    // The system back gesture steps back one screen, closing at the first.
+    if (step <= 0) close();
+    else { step--; render(); }
   });
 
   function finish(): void {
@@ -102,15 +114,17 @@ export function showOnboardingWizard(opts: WizardOptions): void {
 
   function render(): void {
     overlay.innerHTML = '';
-    overlay.appendChild(buildSheet(step, {
+    overlay.appendChild(buildPage(step, {
       onBack: () => { step--; render(); },
       onNext: () => { step++; render(); },
       onConnect: () => {
-        stashStep(STEP_COUNT - 1);
+        stashStep(IMPORT_STEP);
         void connect();
       },
       onImport: () => {
-        openImportPanel({ onImported: () => finish() });
+        // A successful import lands on the closing "all set" screen rather than
+        // bailing straight out of setup.
+        openImportPanel({ onImported: () => { step = ALLSET_STEP; render(); } });
       },
       onFinish: finish,
     }));
@@ -128,10 +142,13 @@ interface StepActions {
   onFinish: () => void;
 }
 
-function buildSheet(step: number, actions: StepActions): HTMLElement {
-  const sheet = document.createElement('div');
-  sheet.className = 'edit-sheet wizard-sheet';
+function buildPage(step: number, actions: StepActions): HTMLElement {
+  const page = document.createElement('div');
+  page.className = 'edit-sheet edit-sheet--full survey-page wizard-page';
 
+  // ── Header: step dots ──
+  const header = document.createElement('div');
+  header.className = 'survey-header wizard-header';
   const dots = document.createElement('div');
   dots.className = 'intro-dots wizard-dots';
   for (let i = 0; i < STEP_COUNT; i++) {
@@ -139,43 +156,65 @@ function buildSheet(step: number, actions: StepActions): HTMLElement {
     dot.className = 'intro-dot' + (i === step ? ' is-active' : '');
     dots.appendChild(dot);
   }
-  sheet.appendChild(dots);
+  header.appendChild(dots);
+  page.appendChild(header);
 
-  if (step === 0) sheet.appendChild(buildNotationStep());
-  else if (step === 1) sheet.appendChild(buildThemeStep());
-  else if (step === 2) sheet.appendChild(buildConnectStep(actions.onConnect));
-  else sheet.appendChild(buildImportStep(actions.onImport));
+  // ── Body: the step's content ──
+  const body = document.createElement('div');
+  body.className = 'survey-body';
+  if (step === 0) body.appendChild(buildNotationStep());
+  else if (step === 1) body.appendChild(buildThemeStep());
+  else if (step === CONNECT_STEP) body.appendChild(buildConnectStep(actions.onConnect));
+  else if (step === IMPORT_STEP) body.appendChild(buildImportStep(actions.onImport));
+  else body.appendChild(buildAllSetStep());
+  page.appendChild(body);
 
-  const btnRow = document.createElement('div');
-  btnRow.className = 'edit-btn-row';
+  // ── Footer: a primary advance button (when the step has one), plus discrete
+  // Back / Skip links styled like the survey's. Opt-in steps (Connect, Import)
+  // carry their own full-width CTA in the body, so there the only way forward is
+  // the discrete Skip — no competing primary. ──
+  const connected = isConnected();
+  const isOptIn = (step === CONNECT_STEP && !connected) || step === IMPORT_STEP;
 
+  const footer = document.createElement('div');
+  footer.className = 'survey-footer';
+
+  if (!isOptIn) {
+    const primary = document.createElement('button');
+    primary.type = 'button';
+    primary.className = 'btn-primary survey-next';
+    primary.textContent = step === ALLSET_STEP ? 'Go to train' : 'Continue';
+    primary.addEventListener('click', step === ALLSET_STEP ? actions.onFinish : actions.onNext);
+    footer.appendChild(primary);
+  }
+
+  const links = document.createElement('div');
+  links.className = 'survey-foot-links';
   if (step > 0) {
     const back = document.createElement('button');
     back.type = 'button';
-    back.className = 'edit-cancel-btn';
+    back.className = 'survey-skip';
     back.textContent = 'Back';
     back.addEventListener('click', actions.onBack);
-    btnRow.appendChild(back);
+    links.appendChild(back);
   }
+  if (isOptIn) {
+    const skip = document.createElement('button');
+    skip.type = 'button';
+    skip.className = 'survey-skip';
+    skip.textContent = 'Skip';
+    skip.addEventListener('click', actions.onNext);
+    links.appendChild(skip);
+  }
+  footer.appendChild(links);
+  page.appendChild(footer);
 
-  // Steps 0-1 are plain preferences — "Next" carries you forward regardless.
-  // Steps 2-3 are opt-in (Lichess, import), each with its own CTA above, so the
-  // shared continue button reads "Skip" there instead — unless step 2 already
-  // found an existing connection, in which case there's nothing left to skip.
-  const isOptIn = step >= 2 && !(step === 2 && isConnected());
-  const cont = document.createElement('button');
-  cont.type = 'button';
-  cont.className = isOptIn ? 'btn-secondary' : 'btn-primary';
-  cont.textContent = isOptIn ? 'Skip' : 'Next';
-  cont.addEventListener('click', step < STEP_COUNT - 1 ? actions.onNext : actions.onFinish);
-  btnRow.appendChild(cont);
-
-  sheet.appendChild(btnRow);
-  return sheet;
+  return page;
 }
 
 function stepHeading(title: string, body: string): HTMLElement {
   const wrap = document.createElement('div');
+  wrap.className = 'wizard-step-head';
   const h = document.createElement('h3');
   h.className = 'edit-sheet-title';
   h.textContent = title;
@@ -191,6 +230,7 @@ function stepHeading(title: string, body: string): HTMLElement {
 
 function buildNotationStep(): HTMLElement {
   const wrap = document.createElement('div');
+  wrap.className = 'survey-step wizard-step';
   wrap.appendChild(stepHeading(
     'How should moves look?',
     'Pick how moves are written everywhere in the app — you can change this later in Settings.',
@@ -206,6 +246,7 @@ function buildNotationStep(): HTMLElement {
 
 function buildThemeStep(): HTMLElement {
   const wrap = document.createElement('div');
+  wrap.className = 'survey-step wizard-step';
   wrap.appendChild(stepHeading(
     'Pick a look',
     'You can always change this later in Settings.',
@@ -213,24 +254,20 @@ function buildThemeStep(): HTMLElement {
   wrap.appendChild(buildThemeRow());
   const boardUI = boardSwatches(getBoardColour(), (v) => setBoardColour(v));
   wrap.appendChild(boardUI.element);
+  wrap.appendChild(pieceSwatches(getPieceSet(), (v) => setPieceSet(v)));
   return wrap;
 }
 
 function buildConnectStep(onConnect: () => void): HTMLElement {
   const wrap = document.createElement('div');
+  wrap.className = 'survey-step wizard-step';
 
   if (isConnected()) {
-    wrap.appendChild(stepHeading('Connected to Lichess', 'You\'re all set — tap Next to continue.'));
+    wrap.appendChild(stepHeading('Connected to Lichess', 'You\'re all set — tap Continue.'));
     return wrap;
   }
 
-  wrap.appendChild(stepHeading(
-    'Connect to Lichess?',
-    'It unlocks the live opening Library for every position, and the Lichess puzzle ' +
-      'dashboard — your rating, and it skips puzzles you\'ve already seen.\n\n' +
-      'It\'s free, reads no personal data, and puzzles work fine either way — even a ' +
-      'throwaway account works.',
-  ));
+  wrap.appendChild(stepHeading('Connect to Lichess?', LICHESS_CONNECT_BLURB));
 
   const cta = document.createElement('button');
   cta.type = 'button';
@@ -245,9 +282,11 @@ function buildConnectStep(onConnect: () => void): HTMLElement {
 
 function buildImportStep(onImport: () => void): HTMLElement {
   const wrap = document.createElement('div');
+  wrap.className = 'survey-step wizard-step';
   wrap.appendChild(stepHeading(
     'Import your games?',
-    'Pull your recent games from Chess.com or Lichess to see which openings you actually play.',
+    'Pull your recent games from Chess.com or Lichess to see which openings you ' +
+      'actually play — it doesn\'t require login, only your username.',
   ));
 
   const cta = document.createElement('button');
@@ -258,5 +297,17 @@ function buildImportStep(onImport: () => void): HTMLElement {
   cta.addEventListener('click', onImport);
   wrap.appendChild(cta);
 
+  return wrap;
+}
+
+function buildAllSetStep(): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'survey-step wizard-step';
+  wrap.appendChild(stepHeading(
+    'You’re all set up',
+    'Add at least 5 lines to unlock training — we recommend keeping around 10 ' +
+      'active. Enter them yourself, grab a ready-made starter pack, or get ' +
+      'recommendations built from the games you just imported.',
+  ));
   return wrap;
 }

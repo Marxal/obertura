@@ -106,6 +106,10 @@ interface LinesDeps {
   onStartTraining?: (line: Line) => void;
   // Seed the builder with these UCI moves for the given colour, then open it.
   onBuildLine?: (ucis: string[], colour: 'white' | 'black') => void;
+  // Open the import-your-games flow (the leading "get your openings in" action).
+  onImportGames: () => void;
+  // Open the starter-pack picker (the curated quick-start route).
+  onPickStarterPack: () => void;
 }
 
 // Pending mini-boards: built first, mounted after the layout exists so
@@ -317,13 +321,18 @@ function buildCarouselSection(
     section.appendChild(head);
     section.appendChild(buildEmptyState({
       line: `No ${colourName} lines yet.`,
-      cta: { label: `+ Add ${colourName} line`, onClick: () => deps.onAddLine(colour) },
+      // Importing your games is the fastest way to a repertoire that's actually
+      // yours, so it leads; building by hand and the starter packs sit below.
+      cta: { label: 'Import my games', onClick: () => deps.onImportGames() },
+      secondaryActions: [
+        { label: 'Build a line myself', onClick: () => deps.onAddLine(colour) },
+        { label: 'Pick a starter pack', onClick: () => deps.onPickStarterPack() },
+      ],
       // Once games are imported the games tab shows suggestions, not an import
-      // prompt — so point there with matching wording instead of "import".
-      link: {
-        label: hasGames ? 'or see suggestions from your games' : 'or import from your games',
-        onClick: goToGamesTab,
-      },
+      // prompt — so point there with matching wording.
+      ...(hasGames
+        ? { link: { label: 'or see suggestions from your games', onClick: goToGamesTab } }
+        : {}),
     }));
     return section;
   }
@@ -718,26 +727,27 @@ function renderGamesTab(
 ): void {
   content.innerHTML = '';
 
-  // Refresh button row — always available so badges/suggestions can be redone.
-  content.appendChild(buildRefreshRow(fullRefresh));
-
   if (games.length === 0) {
-    const wrap = document.createElement('div');
-    wrap.className = 'train-empty';
-    const title = document.createElement('p');
-    title.className = 'train-empty-title';
-    title.textContent = 'No games imported yet';
-    wrap.appendChild(title);
-    const body = document.createElement('p');
-    body.className = 'train-empty-body';
-    body.textContent =
-      'Import your Chess.com games in Build → Settings (or tap Refresh if your ' +
-      'username is already saved). Then this tab suggests openings you play but ' +
-      'haven’t saved.';
-    wrap.appendChild(body);
-    content.appendChild(wrap);
+    // No games yet: the explanation stays, but Import is the prominent green
+    // action — with the same two quick-start routes as the Saved tab below it.
+    content.appendChild(buildEmptyState({
+      icon: Icons.download(28),
+      line: 'No games imported yet',
+      body: 'Pull your recent games from Chess.com or Lichess to see which ' +
+        'openings you actually play — then this tab suggests the ones you haven’t ' +
+        'saved yet.',
+      cta: { label: 'Import my games', onClick: () => deps.onImportGames() },
+      secondaryActions: [
+        { label: 'Build a line myself', onClick: () => deps.onAddLine('white') },
+        { label: 'Pick a starter pack', onClick: () => deps.onPickStarterPack() },
+      ],
+    }));
     return;
   }
+
+  // Refresh button row — available once games exist so badges/suggestions can be
+  // redone (and the saved source stays handy).
+  content.appendChild(buildRefreshRow(fullRefresh));
 
   const analysis = cachedAnalysis(games, lines);
 

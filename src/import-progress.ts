@@ -111,6 +111,10 @@ export interface ImportLoader {
   setStatus(text: string): void;
   // Fade your picture in above the bar (Chess.com only). A broken URL is ignored.
   setAvatar(url: string): void;
+  // Show the pulsing rings without a picture, around an optional centre glyph
+  // (used for Lichess, which has no public avatar, so there's still visible
+  // activity while we scan).
+  showRings(center?: Node): void;
   // Finished: snap the pawn home to 100%.
   done(): void;
   // Detach from the DOM.
@@ -139,6 +143,15 @@ export function createImportLoader(): ImportLoader {
   card.append(avatar, bar.el, status);
   el.appendChild(card);
 
+  // The three concentric rings that pulse out from behind the avatar block.
+  function addRings(): void {
+    for (let i = 0; i < 3; i++) {
+      const ring = document.createElement('span');
+      ring.className = 'import-loader-ring';
+      avatar.appendChild(ring);
+    }
+  }
+
   return {
     el,
     start(indeterminate: boolean): void {
@@ -154,12 +167,7 @@ export function createImportLoader(): ImportLoader {
     setAvatar(url: string): void {
       avatar.innerHTML = '';
       avatar.hidden = false; // optimistic — the error handler hides it on failure
-      // Concentric rings pulsing out from behind the picture while we fetch.
-      for (let i = 0; i < 3; i++) {
-        const ring = document.createElement('span');
-        ring.className = 'import-loader-ring';
-        avatar.appendChild(ring);
-      }
+      addRings();
       const img = document.createElement('img');
       img.className = 'import-loader-avatar-img';
       img.src = url;
@@ -167,6 +175,15 @@ export function createImportLoader(): ImportLoader {
       // A broken/blocked picture just keeps the loader picture-less.
       img.addEventListener('error', () => { avatar.hidden = true; avatar.innerHTML = ''; });
       avatar.appendChild(img);
+    },
+    showRings(center?: Node): void {
+      avatar.innerHTML = '';
+      avatar.hidden = false;
+      addRings();
+      const disc = document.createElement('span');
+      disc.className = 'import-loader-avatar-img import-loader-glyph';
+      if (center) disc.appendChild(center);
+      avatar.appendChild(disc);
     },
     done(): void {
       bar.done();
