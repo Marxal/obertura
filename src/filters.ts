@@ -40,6 +40,7 @@ export interface FilterConfig {
   // segment and the tag chips each carry a small count badge.
   colourCounts?: { all: number; white: number; black: number };
   tagCounts?: Map<string, number>;
+  statusCounts?: { due: number; learning: number; solid: number };
   status?: boolean;
   // When true, draw a "group by opening" icon toggle on row 1; the caller reads
   // selection.group and renders its list grouped into families (or flat).
@@ -234,7 +235,7 @@ function buildChipRow(config: FilterConfig, sel: FilterSelection, commit: () => 
       sep.setAttribute('aria-hidden', 'true');
       row.appendChild(sep);
     }
-    for (const s of STATUSES) row.appendChild(buildStatusPill(s, sel, commit));
+    for (const s of STATUSES) row.appendChild(buildStatusPill(s, config, sel, commit));
   }
 
   return row;
@@ -271,6 +272,7 @@ function buildTagChip(tag: string, config: FilterConfig, sel: FilterSelection, c
 
 function buildStatusPill(
   s: { key: Exclude<StatusFilter, 'all'>; label: string },
+  config: FilterConfig,
   sel: FilterSelection,
   commit: () => void,
 ): HTMLElement {
@@ -279,7 +281,8 @@ function buildStatusPill(
   const on = sel.status === s.key;
   pill.className = `fchip fchip--status${on ? ' active' : ''}`;
   pill.dataset.status = s.key;
-  pill.textContent = s.label;
+  pill.appendChild(document.createTextNode(s.label));
+  if (config.statusCounts) pill.appendChild(countBadge(config.statusCounts[s.key]));
   pill.setAttribute('aria-pressed', String(on));
   pill.addEventListener('click', () => {
     // Exclusive: tap the active pill to clear back to "all"; otherwise switch.

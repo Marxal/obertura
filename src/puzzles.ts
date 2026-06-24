@@ -64,7 +64,11 @@ export async function fetchNextPuzzle(
     if (opts.difficulty) url.searchParams.set('difficulty', opts.difficulty);
     if (opts.colour) url.searchParams.set('color', opts.colour);
 
-    const res = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
+    // `cache: 'no-store'` is essential: the same opening pool produces identical
+    // request URLs (angle + difficulty + color), so without it the browser HTTP
+    // cache replays a stored response and the "next" puzzle repeats across
+    // sessions, often in the same order.
+    const res = await fetch(url.toString(), { headers: { Accept: 'application/json' }, cache: 'no-store' });
     if (!res.ok) return null;
     const data = (await res.json()) as PuzzleResponse;
     const p = data.puzzle;
