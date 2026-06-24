@@ -47,6 +47,7 @@ import {
 import { renderLoadError } from './load-error';
 import { buildPositionCard, colourPip, lineFinalFen } from './card-position';
 import { burstConfetti, starfall, celebratePawn } from './confetti';
+import { pushBack } from './back-nav';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -711,6 +712,8 @@ function renderCardList(container: HTMLElement, trainingLines: Line[], pausedLin
     defaultSort: 'weakest',
     userTags: distinctUserTags(allShown),
     opponentTags: distinctOpponentTags(allShown),
+    colourCounts: countLinesByColour(allShown),
+    tagCounts: countLinesByTag(allShown),
     status: true,
     group: true,
     onChange: () => rebuildList(),
@@ -750,6 +753,20 @@ function distinctOpponentTags(lines: Line[]): string[] {
   const set = new Set<string>();
   for (const l of lines) for (const t of l.tags) if (isOpponentTag(t)) set.add(t);
   return [...set].sort((a, b) => a.localeCompare(b));
+}
+
+// Line counts per colour, for the All / White / Black tab badges.
+function countLinesByColour(lines: Line[]): { all: number; white: number; black: number } {
+  let white = 0, black = 0;
+  for (const l of lines) (l.colour === 'black' ? black++ : white++);
+  return { all: lines.length, white, black };
+}
+
+// Line counts per tag (user + opponent), for the chip badges.
+function countLinesByTag(lines: Line[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const l of lines) for (const t of l.tags) counts.set(t, (counts.get(t) ?? 0) + 1);
+  return counts;
 }
 
 // Every distinct user-authored tag (everything that isn't a "vs <name>" tag).
@@ -1204,62 +1221,29 @@ function renderIndividualComplete(
 ): void {
   if (stats.reviewed > 0) recordTrainingDay();
 
-  container.innerHTML = '';
-
-  const wrap = document.createElement('div');
-  wrap.className = 'section train-completion';
-
-  const doneEl = document.createElement('div');
-  doneEl.className = 'train-completion-done';
-  doneEl.textContent = 'Positions cleared ✓';
-  wrap.appendChild(doneEl);
-
-  const sub = document.createElement('div');
-  sub.className = 'train-completion-name';
-  sub.textContent = `${stats.reviewed} position${stats.reviewed === 1 ? '' : 's'} drilled`;
-  wrap.appendChild(sub);
+  const { panel, close, dismiss } = mountCompletionOverlay(container);
 
   const correct = stats.reviewed - stats.missed;
-  const statsRow = document.createElement('div');
-  statsRow.className = 'summary-stats-row';
-
-  const rightBox = document.createElement('div');
-  rightBox.className = 'summary-stat-box summary-stat-box--right';
-  const rightVal = document.createElement('div');
-  rightVal.className = 'summary-stat-value';
-  countUp(rightVal, correct);
-  const rightLbl = document.createElement('div');
-  rightLbl.className = 'summary-stat-label';
-  rightLbl.textContent = 'first try';
-  rightBox.appendChild(rightVal);
-  rightBox.appendChild(rightLbl);
-  statsRow.appendChild(rightBox);
-
-  const missBox = document.createElement('div');
-  missBox.className = `summary-stat-box ${stats.missed > 0 ? 'summary-stat-box--missed' : 'summary-stat-box--zero'}`;
-  const missVal = document.createElement('div');
-  missVal.className = 'summary-stat-value';
-  countUp(missVal, stats.missed);
-  const missLbl = document.createElement('div');
-  missLbl.className = 'summary-stat-label';
-  missLbl.textContent = 'missed';
-  missBox.appendChild(missVal);
-  missBox.appendChild(missLbl);
-  statsRow.appendChild(missBox);
-
-  wrap.appendChild(statsRow);
+  const head = completionHead(
+    'Positions cleared ✓',
+    `${stats.reviewed} position${stats.reviewed === 1 ? '' : 's'} drilled`,
+  );
+  head.classList.add('pz-results-head--fill');
+  appendStatsRow(head, correct, stats.missed, 'missed', 'first try');
 
   const reschedNote = document.createElement('div');
   reschedNote.className = 'train-all-done';
   reschedNote.textContent = stats.missed > 0
     ? 'Missed positions are scheduled to come back sooner.'
     : 'Clean run — every position remembered!';
-  wrap.appendChild(reschedNote);
+  head.appendChild(reschedNote);
+  panel.appendChild(head);
 
-  appendReviewActions(wrap, container, mistakes);
+  const actions = completionActions();
+  appendReviewActions(actions, container, mistakes, close, dismiss);
+  panel.appendChild(actions);
 
-  celebrate(wrap);
-  container.appendChild(wrap);
+  if (stats.reviewed > 0) burstConfetti(panel);
 }
 
 // Give a finished-screen panel its playful send-off: the hopping pixel pawn at
@@ -1275,8 +1259,97 @@ function celebrate(wrap: HTMLElement): void {
   wrap.classList.add('train-completion--enter');
 }
 
+// ── Full-screen completion overlay ───────────────────────────────────────────
+//
+// The final completion screens (session / positions / mistakes / timed) take
+// over the whole screen — no app header, no bottom nav — exactly like the puzzle
+// results, so they read as a clean "you're done" moment. The panel reuses the
+// puzzle results layout (`.pz-results`): a fixed head up top, an optional faded
+// scroll list, and the action buttons pinned to the bottom.
+//
+// `close()` tears the overlay down and returns to the Train hub (restoring the
+// FAB); `dismiss()` just removes the overlay (used when handing straight off to a
+// retry/replay drill that will draw its own overlay).
+function mountCompletionOverlay(container: HTMLElement): {
+  panel: HTMLElement;
+  close: () => void;
+  dismiss: () => void;
+} {
+  setFabVisible?.(false);
+
+  const overlay = document.createElement('div');
+  overlay.className = 'pt-overlay train-complete-overlay';
+
+  const panel = document.createElement('div');
+  panel.className = 'train-completion train-completion--enter pz-results';
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+
+  let done = false;
+  let removeBack: (() => void) | null = null;
+  const dismiss = (): void => {
+    if (done) return;
+    done = true;
+    removeBack?.();
+    overlay.remove();
+  };
+  const close = (): void => {
+    dismiss();
+    void doRender(container);
+  };
+  removeBack = pushBack(close);
+  return { panel, close, dismiss };
+}
+
+// The head block of a completion panel: the hopping pawn, the "done" line and a
+// subtitle. Returns the head element so the caller can append its own extras
+// (stat row, notes, best line) before the list/actions.
+function completionHead(doneText: string, subText: string): HTMLElement {
+  const head = document.createElement('div');
+  head.className = 'pz-results-head';
+  head.appendChild(celebratePawn());
+  const done = document.createElement('div');
+  done.className = 'train-completion-done';
+  done.textContent = doneText;
+  head.appendChild(done);
+  const sub = document.createElement('div');
+  sub.className = 'train-completion-name';
+  sub.textContent = subText;
+  head.appendChild(sub);
+  return head;
+}
+
+// A scrollable list with a bottom gradient fade — the same "there's more below"
+// affordance the puzzle results use. Pass the already-built rows.
+function completionList(rows: HTMLElement[]): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'pz-results-list-wrap';
+  const list = document.createElement('div');
+  list.className = 'pz-results-list';
+  for (const r of rows) list.appendChild(r);
+  wrap.appendChild(list);
+  const fade = document.createElement('div');
+  fade.className = 'pz-results-fade';
+  fade.setAttribute('aria-hidden', 'true');
+  wrap.appendChild(fade);
+  return wrap;
+}
+
+// The bottom action strip (flex:none), pinned below the head/list.
+function completionActions(): HTMLElement {
+  const el = document.createElement('div');
+  el.className = 'pz-results-actions';
+  return el;
+}
+
 // A correct/missed stat pair, shared by the round and session screens.
-function appendStatsRow(wrap: HTMLElement, correct: number, missed: number, missLabel: string): void {
+function appendStatsRow(
+  wrap: HTMLElement,
+  correct: number,
+  missed: number,
+  missLabel: string,
+  correctLabel = 'correct',
+): void {
   const statsRow = document.createElement('div');
   statsRow.className = 'summary-stats-row';
 
@@ -1287,7 +1360,7 @@ function appendStatsRow(wrap: HTMLElement, correct: number, missed: number, miss
   countUp(rightVal, correct);
   const rightLbl = document.createElement('div');
   rightLbl.className = 'summary-stat-label';
-  rightLbl.textContent = 'correct';
+  rightLbl.textContent = correctLabel;
   rightBox.appendChild(rightVal);
   rightBox.appendChild(rightLbl);
   statsRow.appendChild(rightBox);
@@ -1397,114 +1470,82 @@ function renderSessionComplete(container: HTMLElement, stats: SessionStats): voi
   // the Home-screen streak.
   if (stats.linesReviewed > 0) recordTrainingDay();
 
-  container.innerHTML = '';
+  const { panel, close, dismiss } = mountCompletionOverlay(container);
 
-  const wrap = document.createElement('div');
-  wrap.className = 'section train-completion';
-
-  const doneEl = document.createElement('div');
-  doneEl.className = 'train-completion-done';
-  doneEl.textContent = 'Session complete ✓';
-  wrap.appendChild(doneEl);
-
-  const linesEl = document.createElement('div');
-  linesEl.className = 'train-completion-name';
-  linesEl.textContent = `${stats.linesReviewed} line${stats.linesReviewed === 1 ? '' : 's'} reviewed`;
-  wrap.appendChild(linesEl);
-
-  // Right vs. wrong move counts.
   const correctMoves = stats.totalMoves - stats.movesMissed;
-  const statsRow = document.createElement('div');
-  statsRow.className = 'summary-stats-row';
+  const head = completionHead(
+    'Session complete ✓',
+    `${stats.linesReviewed} line${stats.linesReviewed === 1 ? '' : 's'} reviewed`,
+  );
+  appendStatsRow(head, correctMoves, stats.movesMissed, 'missed');
 
-  const rightBox = document.createElement('div');
-  rightBox.className = 'summary-stat-box summary-stat-box--right';
-  const rightVal = document.createElement('div');
-  rightVal.className = 'summary-stat-value';
-  countUp(rightVal, correctMoves);
-  const rightLbl = document.createElement('div');
-  rightLbl.className = 'summary-stat-label';
-  rightLbl.textContent = 'correct';
-  rightBox.appendChild(rightVal);
-  rightBox.appendChild(rightLbl);
-  statsRow.appendChild(rightBox);
-
-  const missBox = document.createElement('div');
-  missBox.className = `summary-stat-box ${stats.movesMissed > 0 ? 'summary-stat-box--missed' : 'summary-stat-box--zero'}`;
-  const missVal = document.createElement('div');
-  missVal.className = 'summary-stat-value';
-  countUp(missVal, stats.movesMissed);
-  const missLbl = document.createElement('div');
-  missLbl.className = 'summary-stat-label';
-  missLbl.textContent = 'missed';
-  missBox.appendChild(missVal);
-  missBox.appendChild(missLbl);
-  statsRow.appendChild(missBox);
-
-  wrap.appendChild(statsRow);
-
+  // Lines with misses become a faded, scrollable "Needs most work" list (the
+  // same affordance the puzzle results use); a clean run gets a one-line cheer.
+  let needsWorkRows: HTMLElement[] = [];
   if (stats.movesMissed === 0 && stats.linesReviewed > 0) {
     const cleanEl = document.createElement('div');
     cleanEl.className = 'summary-clean-run';
     cleanEl.textContent = 'Clean run — all moves remembered!';
-    wrap.appendChild(cleanEl);
+    head.appendChild(cleanEl);
   } else if (stats.movesMissed > 0) {
-    // Lines with misses, sorted by miss rate (worst first), capped at 5.
     const needsWork = Array.from(stats.lineStats.values())
       .filter(s => s.misses > 0)
       .sort((a, b) => {
         const rateA = a.misses / a.totalMoves;
         const rateB = b.misses / b.totalMoves;
         return rateB !== rateA ? rateB - rateA : b.misses - a.misses;
-      })
-      .slice(0, 5);
+      });
 
-    if (needsWork.length > 0) {
-      const sectionHead = document.createElement('div');
-      sectionHead.className = 'summary-needs-work-head';
-      sectionHead.textContent = 'Needs most work';
-      wrap.appendChild(sectionHead);
+    needsWorkRows = needsWork.map(ls => {
+      const row = document.createElement('div');
+      row.className = 'summary-line-row';
 
-      for (const ls of needsWork) {
-        const row = document.createElement('div');
-        row.className = 'summary-line-row';
+      const nameEl = document.createElement('div');
+      nameEl.className = 'summary-line-name';
+      nameEl.textContent = ls.openingName || ls.lineName;
 
-        const nameEl = document.createElement('div');
-        nameEl.className = 'summary-line-name';
-        nameEl.textContent = ls.openingName || ls.lineName;
+      const missRate = document.createElement('div');
+      missRate.className = 'summary-line-miss-rate';
+      missRate.textContent = `${ls.misses} of ${ls.totalMoves} missed`;
 
-        const missRate = document.createElement('div');
-        missRate.className = 'summary-line-miss-rate';
-        missRate.textContent = `${ls.misses} of ${ls.totalMoves} missed`;
+      const barWrap = document.createElement('div');
+      barWrap.className = 'summary-line-bar-wrap';
+      const barFill = document.createElement('div');
+      barFill.className = 'summary-line-bar-fill';
+      barFill.style.width = `${Math.round((ls.misses / ls.totalMoves) * 100)}%`;
+      barWrap.appendChild(barFill);
 
-        const barWrap = document.createElement('div');
-        barWrap.className = 'summary-line-bar-wrap';
-        const barFill = document.createElement('div');
-        barFill.className = 'summary-line-bar-fill';
-        barFill.style.width = `${Math.round((ls.misses / ls.totalMoves) * 100)}%`;
-        barWrap.appendChild(barFill);
-
-        row.appendChild(nameEl);
-        row.appendChild(missRate);
-        row.appendChild(barWrap);
-        wrap.appendChild(row);
-      }
-    }
-
-    const reschedNote = document.createElement('div');
-    reschedNote.className = 'train-all-done';
-    reschedNote.textContent = 'Missed moves are scheduled to come back sooner.';
-    wrap.appendChild(reschedNote);
+      row.appendChild(nameEl);
+      row.appendChild(missRate);
+      row.appendChild(barWrap);
+      return row;
+    });
   }
 
-  appendReviewActions(wrap, container, stats.mistakes);
+  if (needsWorkRows.length > 0) {
+    const sectionHead = document.createElement('div');
+    sectionHead.className = 'summary-needs-work-head';
+    sectionHead.textContent = 'Needs most work';
+    head.appendChild(sectionHead);
+    panel.appendChild(head);
+    panel.appendChild(completionList(needsWorkRows));
 
-  celebrate(wrap);
-  container.appendChild(wrap);
+    const reschedNote = document.createElement('div');
+    reschedNote.className = 'train-all-done train-all-done--pinned';
+    reschedNote.textContent = 'Missed moves are scheduled to come back sooner.';
+    panel.appendChild(reschedNote);
+  } else {
+    head.classList.add('pz-results-head--fill');
+    panel.appendChild(head);
+  }
+
+  const actions = completionActions();
+  appendReviewActions(actions, container, stats.mistakes, close, dismiss);
+  panel.appendChild(actions);
 
   // Celebrate a genuinely-finished session (at least one line reviewed) with the
   // same tasteful burst the per-line drill uses. Honours reduced-motion itself.
-  if (stats.linesReviewed > 0) burstConfetti(wrap);
+  if (stats.linesReviewed > 0) burstConfetti(panel);
 }
 
 // ── End-of-session review (all modes) ─────────────────────────────────────────
@@ -1515,25 +1556,27 @@ function renderSessionComplete(container: HTMLElement, stats: SessionStats): voi
 // a focused fix-up of the exact spots that tripped you up.
 
 function appendReviewActions(
-  wrap: HTMLElement,
+  actions: HTMLElement,
   container: HTMLElement,
   mistakes: Mistake[],
+  close: () => void,
+  dismiss: () => void,
 ): void {
   if (mistakes.length > 0) {
     const retry = document.createElement('button');
     retry.type = 'button';
     retry.className = 'btn-primary train-next-btn';
     retry.textContent = `Try your mistakes again (${mistakes.length})`;
-    retry.addEventListener('click', () => runMistakesReview(container, mistakes));
-    wrap.appendChild(retry);
+    retry.addEventListener('click', () => { dismiss(); runMistakesReview(container, mistakes); });
+    actions.appendChild(retry);
   }
 
-  const close = document.createElement('button');
-  close.type = 'button';
-  close.className = 'btn-secondary train-done-btn';
-  close.textContent = 'Close training';
-  close.addEventListener('click', () => void doRender(container));
-  wrap.appendChild(close);
+  const close_ = document.createElement('button');
+  close_.type = 'button';
+  close_.className = 'btn-secondary train-done-btn';
+  close_.textContent = 'Close training';
+  close_.addEventListener('click', close);
+  actions.appendChild(close_);
 }
 
 // Re-drill a set of missed positions in the normal teaching mode. Whatever's
@@ -1569,34 +1612,27 @@ function renderReviewComplete(
 ): void {
   recordTrainingDay();
 
-  container.innerHTML = '';
+  const { panel, close, dismiss } = mountCompletionOverlay(container);
 
-  const wrap = document.createElement('div');
-  wrap.className = 'section train-completion';
-
-  const doneEl = document.createElement('div');
-  doneEl.className = 'train-completion-done';
-  doneEl.textContent = 'Mistakes reviewed ✓';
-  wrap.appendChild(doneEl);
-
-  const sub = document.createElement('div');
-  sub.className = 'train-completion-name';
-  sub.textContent = `${reviewed} position${reviewed === 1 ? '' : 's'} revisited`;
-  wrap.appendChild(sub);
+  const head = completionHead(
+    'Mistakes reviewed ✓',
+    `${reviewed} position${reviewed === 1 ? '' : 's'} revisited`,
+  );
+  head.classList.add('pz-results-head--fill');
 
   const note = document.createElement('div');
   note.className = 'train-all-done';
-  if (again.length > 0) {
-    note.textContent = `Still shaky on ${again.length} — give them another go.`;
-  } else {
-    note.textContent = 'All cleared — nicely done!';
-  }
-  wrap.appendChild(note);
+  note.textContent = again.length > 0
+    ? `Still shaky on ${again.length} — give them another go.`
+    : 'All cleared — nicely done!';
+  head.appendChild(note);
+  panel.appendChild(head);
 
-  appendReviewActions(wrap, container, again);
+  const actions = completionActions();
+  appendReviewActions(actions, container, again, close, dismiss);
+  panel.appendChild(actions);
 
-  celebrate(wrap);
-  container.appendChild(wrap);
+  burstConfetti(panel);
 }
 
 // ── Timed mode ────────────────────────────────────────────────────────────────
@@ -1655,50 +1691,14 @@ function renderTimedComplete(
   const prevBest = getTimedBest(minutes);
   const isNewBest = recordTimedBest(minutes, correct);
 
-  container.innerHTML = '';
+  const { panel, close, dismiss } = mountCompletionOverlay(container);
 
-  const wrap = document.createElement('div');
-  wrap.className = 'section train-completion';
-
-  const doneEl = document.createElement('div');
-  doneEl.className = 'train-completion-done';
-  doneEl.textContent = "Time's up ⏱";
-  wrap.appendChild(doneEl);
-
-  const sub = document.createElement('div');
-  sub.className = 'train-completion-name';
-  sub.textContent = `${correct} correct in ${minutes} minute${minutes === 1 ? '' : 's'}`;
-  wrap.appendChild(sub);
-
-  // Correct vs. mistakes.
-  const statsRow = document.createElement('div');
-  statsRow.className = 'summary-stats-row';
-
-  const rightBox = document.createElement('div');
-  rightBox.className = 'summary-stat-box summary-stat-box--right';
-  const rightVal = document.createElement('div');
-  rightVal.className = 'summary-stat-value';
-  countUp(rightVal, correct);
-  const rightLbl = document.createElement('div');
-  rightLbl.className = 'summary-stat-label';
-  rightLbl.textContent = 'correct';
-  rightBox.appendChild(rightVal);
-  rightBox.appendChild(rightLbl);
-  statsRow.appendChild(rightBox);
-
-  const missBox = document.createElement('div');
-  missBox.className = `summary-stat-box ${wrong > 0 ? 'summary-stat-box--missed' : 'summary-stat-box--zero'}`;
-  const missVal = document.createElement('div');
-  missVal.className = 'summary-stat-value';
-  countUp(missVal, wrong);
-  const missLbl = document.createElement('div');
-  missLbl.className = 'summary-stat-label';
-  missLbl.textContent = 'mistakes';
-  missBox.appendChild(missVal);
-  missBox.appendChild(missLbl);
-  statsRow.appendChild(missBox);
-
-  wrap.appendChild(statsRow);
+  const head = completionHead(
+    "Time's up ⏱",
+    `${correct} correct in ${minutes} minute${minutes === 1 ? '' : 's'}`,
+  );
+  head.classList.add('pz-results-head--fill');
+  appendStatsRow(head, correct, wrong, 'mistakes');
 
   // Personal best line.
   const pb = document.createElement('div');
@@ -1711,32 +1711,35 @@ function renderTimedComplete(
       ? `Personal best: ${prevBest} — beat it next time`
       : 'Answer one to set your first personal best!';
   }
-  wrap.appendChild(pb);
+  head.appendChild(pb);
+  panel.appendChild(head);
 
   // Actions: retry mistakes (teaching drill), play again, close.
+  const actions = completionActions();
   if (mistakes.length > 0) {
     const retry = document.createElement('button');
     retry.type = 'button';
     retry.className = 'btn-primary train-next-btn';
     retry.textContent = `Retry mistakes (${mistakes.length})`;
-    retry.addEventListener('click', () => runMistakesReview(container, mistakes));
-    wrap.appendChild(retry);
+    retry.addEventListener('click', () => { dismiss(); runMistakesReview(container, mistakes); });
+    actions.appendChild(retry);
   }
 
   const again = document.createElement('button');
   again.type = 'button';
   again.className = mistakes.length > 0 ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
   again.textContent = 'Play again';
-  again.addEventListener('click', () => runTimed(container, allLines, minutes));
-  wrap.appendChild(again);
+  again.addEventListener('click', () => { dismiss(); runTimed(container, allLines, minutes); });
+  actions.appendChild(again);
 
-  const close = document.createElement('button');
-  close.type = 'button';
-  close.className = 'btn-secondary train-done-btn';
-  close.textContent = 'Close training';
-  close.addEventListener('click', () => void doRender(container));
-  wrap.appendChild(close);
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.className = 'btn-secondary train-done-btn';
+  closeBtn.textContent = 'Close training';
+  closeBtn.addEventListener('click', close);
+  actions.appendChild(closeBtn);
 
-  celebrate(wrap);
-  container.appendChild(wrap);
+  panel.appendChild(actions);
+
+  burstConfetti(panel);
 }

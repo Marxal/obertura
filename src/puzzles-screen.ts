@@ -36,6 +36,8 @@ const TA_SOURCE_KEY = 'obertura.puzzles.taSource';
 const TA_TIME_KEY = 'obertura.puzzles.taTime';
 
 const DAILY_COUNT = 10;
+// Practice-by-opening runs a shorter, focused set than the Daily Rated Mix.
+const PRACTICE_COUNT = 5;
 
 interface OpeningEntry {
   angle: string;             // Lichess opening key
@@ -232,6 +234,11 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
     });
   }
 
+  // The hero's count-up should only play once, on the first paint of the screen.
+  // Later rebuilds (switching the Practice source, returning from a session) just
+  // set the final numbers so they don't re-animate from zero on every tap.
+  let firstRender = true;
+
   const rebuild = (): void => {
     root.innerHTML = '';
 
@@ -241,13 +248,14 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
       return;
     }
 
-    root.appendChild(renderHero());
+    root.appendChild(renderHero(firstRender));
     root.appendChild(renderTimeAttack());
     root.appendChild(renderPractice());
+    firstRender = false;
   };
 
   // ── Today hero (Daily Rated Mix) ────────────────────────────────────────────
-  function renderHero(): HTMLElement {
+  function renderHero(animate: boolean): HTMLElement {
     const days = getPuzzleDays();
     const today = days.find((d) => d.day === todayKey());
     const solvedToday = today?.solved ?? 0;
@@ -259,9 +267,9 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
 
     const stats = document.createElement('div');
     stats.className = 'train-hero-stats';
-    stats.appendChild(heroStat('solved', solvedToday, 'Solved today'));
-    stats.appendChild(heroStat('missed', missedToday, 'Missed today'));
-    stats.appendChild(heroStat('rating', rating, 'Rating'));
+    stats.appendChild(heroStat('solved', solvedToday, 'Solved today', animate));
+    stats.appendChild(heroStat('missed', missedToday, 'Missed today', animate));
+    stats.appendChild(heroStat('rating', rating, 'Rating', animate));
     hero.appendChild(stats);
 
     const start = document.createElement('button');
@@ -281,7 +289,7 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
     return hero;
   }
 
-  function heroStat(kind: string, value: number, label: string): HTMLElement {
+  function heroStat(kind: string, value: number, label: string, animate: boolean): HTMLElement {
     const col = document.createElement('div');
     col.className = `train-hero-stat train-hero-stat--${kind}`;
     const num = document.createElement('span');
@@ -292,7 +300,8 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
     lbl.className = 'train-hero-stat-label';
     lbl.textContent = label;
     col.appendChild(lbl);
-    countUp(num, value);
+    if (animate) countUp(num, value);
+    else num.textContent = String(value);
     return col;
   }
 
@@ -445,7 +454,7 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
       // Performance pill (or a hint to play it) replaces the old target icon.
       row.appendChild(perfPill(perf.get(e.angle)));
       row.addEventListener('click', () =>
-        startSession([e], e.family, { kind: 'count', count: DAILY_COUNT }));
+        startSession([e], e.family, { kind: 'count', count: PRACTICE_COUNT }));
       list.appendChild(row);
     }
     section.appendChild(list);

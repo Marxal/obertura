@@ -36,6 +36,10 @@ export interface FilterConfig {
   // Chip groups, drawn left-to-right. Empty/omitted groups simply don't appear.
   userTags?: string[];
   opponentTags?: string[];
+  // Optional discrete counts shown inside each tab. When provided, the colour
+  // segment and the tag chips each carry a small count badge.
+  colourCounts?: { all: number; white: number; black: number };
+  tagCounts?: Map<string, number>;
   status?: boolean;
   // When true, draw a "group by opening" icon toggle on row 1; the caller reads
   // selection.group and renders its list grouped into families (or flat).
@@ -118,7 +122,7 @@ export function createFilterBar(config: FilterConfig): FilterBar {
 function buildTopRow(config: FilterConfig, sel: FilterSelection, commit: () => void): HTMLElement {
   const row = document.createElement('div');
   row.className = 'fbar-top';
-  row.appendChild(buildColourSeg(sel, commit));
+  row.appendChild(buildColourSeg(config, sel, commit));
   // Sort + group ride together on the right, each an icon-only control. Either is
   // optional: a screen with no sorts / no grouping just omits that icon.
   const tools = document.createElement('div');
@@ -129,7 +133,7 @@ function buildTopRow(config: FilterConfig, sel: FilterSelection, commit: () => v
   return row;
 }
 
-function buildColourSeg(sel: FilterSelection, commit: () => void): HTMLElement {
+function buildColourSeg(config: FilterConfig, sel: FilterSelection, commit: () => void): HTMLElement {
   const seg = document.createElement('div');
   seg.className = 'dfilter-seg';
   for (const o of COLOURS) {
@@ -143,6 +147,7 @@ function buildColourSeg(sel: FilterSelection, commit: () => void): HTMLElement {
       btn.appendChild(pip);
     }
     btn.appendChild(document.createTextNode(o.label));
+    if (config.colourCounts) btn.appendChild(countBadge(config.colourCounts[o.key]));
     btn.setAttribute('aria-label', o.label);
     btn.addEventListener('click', () => {
       sel.colour = o.key;
@@ -218,8 +223,8 @@ function buildChipRow(config: FilterConfig, sel: FilterSelection, commit: () => 
   const row = document.createElement('div');
   row.className = 'fbar-chips';
 
-  for (const tag of userTags) row.appendChild(buildTagChip(tag, sel, commit));
-  for (const tag of opponentTags) row.appendChild(buildTagChip(tag, sel, commit));
+  for (const tag of userTags) row.appendChild(buildTagChip(tag, config, sel, commit));
+  for (const tag of opponentTags) row.appendChild(buildTagChip(tag, config, sel, commit));
 
   if (hasStatus) {
     // A hairline divider sets the status pills apart from the tags before them.
@@ -235,12 +240,22 @@ function buildChipRow(config: FilterConfig, sel: FilterSelection, commit: () => 
   return row;
 }
 
-function buildTagChip(tag: string, sel: FilterSelection, commit: () => void): HTMLElement {
+// A discrete count badge that rides inside a tab/chip after its label.
+function countBadge(n: number): HTMLElement {
+  const b = document.createElement('span');
+  b.className = 'fchip-badge';
+  b.textContent = String(n);
+  b.setAttribute('aria-hidden', 'true');
+  return b;
+}
+
+function buildTagChip(tag: string, config: FilterConfig, sel: FilterSelection, commit: () => void): HTMLElement {
   const chip = document.createElement('button');
   chip.type = 'button';
   const on = sel.tags.includes(tag);
   chip.className = `fchip${on ? ' active' : ''}`;
-  chip.textContent = tag;
+  chip.appendChild(document.createTextNode(tag));
+  if (config.tagCounts) chip.appendChild(countBadge(config.tagCounts.get(tag) ?? 0));
   chip.setAttribute('aria-pressed', String(on));
   chip.addEventListener('click', () => {
     const i = sel.tags.indexOf(tag);

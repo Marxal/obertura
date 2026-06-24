@@ -1062,20 +1062,26 @@ async function buildFabActions(): Promise<FabItem[]> {
   // Listed bottom (closest to the ＋) → top. .fab-menu is column-reverse, so the
   // first item pushed renders nearest the button.
 
-  // 1) New line — always; colour is the action via the White | Black split.
+  // 1) New line — one row per colour, each with a pawn token in its colour.
   items.push({
-    kind: 'split',
-    label: 'New line',
-    left: { label: 'White', onClick: () => startNewLine('white') },
-    right: { label: 'Black', onClick: () => startNewLine('black') },
+    icon: Icons.pawn(18),
+    iconFrame: 'white',
+    label: 'New line white',
+    onClick: () => startNewLine('white'),
+  });
+  items.push({
+    icon: Icons.pawn(18),
+    iconFrame: 'black',
+    label: 'New line black',
+    onClick: () => startNewLine('black'),
   });
 
   // 2) Import last game — only with a connected account.
   if (connected) {
     items.push({
-      icon: Icons.clock(20),
+      icon: Icons.download(20),
       label: 'Import last game',
-      sublabel: 'Open your most recent game',
+      sublabel: 'Open the last game you played',
       onClick: () => { void runImportLastGame(); },
     });
   }
@@ -1098,7 +1104,8 @@ async function runImportLastGame(): Promise<void> {
   try {
     const game = await importLastGame();
     if (!game) { showToast('No recent game found to import.'); return; }
-    buildFromUcis(game.ucis, game.colour);
+    // Surface who the game was against, mirroring scouting's "vs <name>".
+    buildFromUcis(game.ucis, game.colour, [], { description: `vs ${game.opponent}` });
   } catch {
     showToast('Couldn’t reach your account — check your connection.');
   }

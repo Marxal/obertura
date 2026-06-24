@@ -2841,6 +2841,25 @@ cg-board square.move-dest.oc {
   color: #fff;
 }
 
+/* Discrete count badge inside a tab/chip (All / White / Black and each tag). Used
+   by both the colour segment (.dfilter-btn) and the tag chips (.fchip). */
+.fchip-badge {
+  min-width: 1.25em;
+  padding: 0 0.35em;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 16%, transparent);
+  color: var(--text-faint);
+  font-size: 0.72em;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.dfilter-btn.active .fchip-badge,
+.fchip.active .fchip-badge {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
 /* Hairline divider between the tag chips and the status pills that close the row. */
 .fbar-sep {
   flex: 0 0 auto;
@@ -3390,6 +3409,16 @@ cg-board square.move-dest.oc {
 .pt-line-name[hidden] {
   display: none;
 }
+
+/* Once a puzzle is solved the rating is revealed in a calmer, neutral tone (it's
+   no longer a live prompt). The Daily Rated Mix appends a +/- points delta. */
+.pt-rating--solved {
+  color: var(--text-faint);
+  font-weight: 600;
+}
+.pt-rating-delta { font-weight: 800; }
+.pt-rating-delta--up { color: var(--success); }
+.pt-rating-delta--down { color: var(--danger); }
 
 .pt-board-wrap {
   width: 100vw;
@@ -9158,6 +9187,19 @@ cg-board square.move-dest.oc {
   box-shadow: var(--shadow-card);
 }
 
+/* New-line rows: the pawn sits in a colour token — white pawn on a white disc,
+   black pawn on a black disc — so the colour reads at a glance. */
+.fab-item-icon--token-white {
+  background: #f3f1ea;
+  color: #2a2a2a;
+  border-color: rgba(0, 0, 0, 0.18);
+}
+.fab-item-icon--token-black {
+  background: #2a2a2a;
+  color: #f3f1ea;
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
 /* "New line" split — White | Black share the icon column's footprint. */
 .fab-split {
   flex: none;
@@ -9182,12 +9224,27 @@ cg-board square.move-dest.oc {
 
 /* The two big region headings ("Training", "Your games") that split the page. */
 .stats-region-title {
-  margin: 1.5rem 1rem 0.2rem;
-  font-size: 0.78rem;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 2rem 1rem 0.6rem;
+  padding-top: 1.4rem;
+  border-top: 1px solid var(--border);
+  font-size: 1.2rem;
   font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-fainter);
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+/* A short accent bar leads each region title, making the Training / Puzzles /
+   Your games boundaries obvious at a glance. */
+.stats-region-title::before {
+  content: "";
+  flex: none;
+  width: 0.25rem;
+  height: 1.05em;
+  border-radius: 999px;
+  background: var(--accent);
 }
 
 /* Segmented pill row — the Week/Month/All range selector, the trend colour
@@ -9645,6 +9702,13 @@ cg-board square.move-dest.oc {
 
 .stats-rf-pill--remembered { background: var(--success); }
 .stats-rf-pill--failed { background: var(--danger); }
+/* Recall % rides along in a neutral, outlined chip so it reads as a summary, not
+   a third category. */
+.stats-rf-pill--recall {
+  background: transparent;
+  color: var(--text-faint);
+  border: 1px solid var(--border);
+}
 
 .stats-rf-pill-num {
   font-size: 1rem;
@@ -9910,6 +9974,7 @@ cg-board square.move-dest.oc {
   grid-template-columns: 1fr 1fr;
   gap: 0.5rem;
 }
+.pz-stat-row--three { grid-template-columns: 1fr 1fr 1fr; }
 .stats-quick-cell--readonly { cursor: default; }
 .pz-theme-line {
   display: flex;
@@ -10163,6 +10228,20 @@ cg-board square.move-dest.oc {
   flex-direction: column;
   align-items: center;
   gap: 0.25rem;
+}
+
+/* When a completion panel has no scroll list, the head grows to fill the space
+   and centres its content, keeping the action buttons pinned to the bottom. */
+.pz-results-head--fill {
+  flex: 1 1 0;
+  justify-content: center;
+}
+
+/* A note pinned just above the actions (e.g. "Missed moves are scheduled…"),
+   below the scrollable needs-work list. */
+.train-all-done--pinned {
+  flex: none;
+  margin-top: 0.2rem;
 }
 .pz-results .celebrate-pawn-svg { width: 28px; height: 32px; }
 .pz-results .train-completion-done { margin-top: 0.2rem; }
