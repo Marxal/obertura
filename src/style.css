@@ -8587,6 +8587,13 @@ cg-board square.move-dest.oc {
   background: var(--accent);
 }
 
+/* ── Setup wizard (onboarding-wizard.ts) ──────────────────────────────────── */
+/* Reuses the edit-sheet shell and the intro's progress dots; just centres them
+   since the sheet itself is left-aligned. */
+.wizard-dots {
+  justify-content: center;
+}
+
 /* ════════════════════════════════════════════════════════════════════════════
    BETA ACCESS GATE (gate.ts)
    A self-contained, full-screen panel shown before the app boots: a code-entry
@@ -9907,33 +9914,6 @@ cg-board square.move-dest.oc {
   color: var(--text-muted);
 }
 
-.pz-connect-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-  padding: var(--space-md);
-  background: var(--accent-soft);
-  border: 1px solid var(--border-card);
-  border-radius: 12px;
-}
-.pz-connect-text {
-  margin: 0;
-  font-size: 0.88rem;
-  line-height: 1.4;
-  color: var(--text);
-}
-.pz-connect-btn {
-  align-self: flex-start;
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 999px;
-  background: var(--primary);
-  color: var(--on-accent, #fff);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-.pz-connect-btn:active { background: var(--primary-active, var(--primary)); }
 
 .pz-mixed-card {
   display: flex;
@@ -9987,17 +9967,6 @@ cg-board square.move-dest.oc {
   text-align: center;
 }
 .pz-opening-go { color: var(--text-muted); display: inline-flex; flex: none; }
-
-.pz-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.9rem;
-  padding: var(--space-xl) var(--space-lg);
-  text-align: center;
-  color: var(--text-muted);
-}
-.pz-empty p { margin: 0; line-height: 1.45; }
 
 /* Solver overlay extras (the rest is shared with .pt-* in the drill). */
 .pz-themes {

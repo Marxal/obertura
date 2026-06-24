@@ -42,6 +42,7 @@ import {
 } from './scout';
 import { loadTraps, trapCard } from './traps-screen';
 import { trapsForPairs, type TrapPack } from './traps';
+import { loadPacks, type Pack } from './onboarding-starter';
 import { wdlBlock, wdlScoreRow } from './wdl-bar';
 import { buildMoveStats } from './move-stats';
 import { createFilterBar, type FilterSelection } from './filters';
@@ -162,8 +163,8 @@ async function buildScreen(container: HTMLElement): Promise<void> {
   //    Recommended (games-gated picks) and Traps (curated opening traps, filtered
   //    by colour/level, the ones for your openings first). Every card is a
   //    "build a line from it" card; the traps data is lazy-loaded.
-  const packs = await loadTraps();
-  container.appendChild(linesToTrySection(games, lines, packs));
+  const [trapPacks, starterPacks] = await Promise.all([loadTraps(), loadPacks()]);
+  container.appendChild(linesToTrySection(games, lines, trapPacks, starterPacks));
 
   // 2) Scout opponents — hidden entirely when scouting is switched off in
   //    Settings (the opponents stay in storage, just out of sight).
@@ -186,24 +187,27 @@ async function buildScreen(container: HTMLElement): Promise<void> {
 // ── Lines to try (Recommended | Traps tabs) ──────────────────────────────────────
 
 // Which tab is showing. Module-level so it survives the screen's rebuilds.
-type LinesTryTab = 'recommended' | 'traps';
+type LinesTryTab = 'recommended' | 'traps' | 'packs';
 let linesTryTab: LinesTryTab | null = null;
 
-// One block with two tabs, laid out exactly like the My Lines screen (the same
+// One block with three tabs, laid out exactly like the My Lines screen (the same
 // .lines-tabs switcher + padded .lines-tab-content body, so the side margins
-// line up): Recommended picks from your games, and curated opening traps. Every
-// card is a "build a line from it" card — tapping it seeds the builder. No
-// section title: Explore leads straight with this.
+// line up): Recommended picks from your games, curated opening traps, and curated
+// starter packs (the same ones onboarding offers). Every card is a "build a line
+// from it" card — tapping it seeds the builder. No section title: Explore leads
+// straight with this.
 function linesToTrySection(
   games: ImportedGame[],
   lines: Line[],
   packs: TrapPack[],
+  starterPacks: Pack[],
 ): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'lines-try';
 
   const recommended = buildRecommendedTab(games, lines);
   const trapsTab = buildTrapsTab(packs, games, lines);
+  const packsTab = buildPacksTab(starterPacks);
 
   // Default to Recommended when it has real picks, else Traps (always populated).
   if (linesTryTab === null) linesTryTab = recommended.hasContent ? 'recommended' : 'traps';
@@ -213,9 +217,15 @@ function linesToTrySection(
   const content = document.createElement('div');
   content.className = 'lines-tab-content';
 
+  const tabEl = (tab: LinesTryTab): HTMLElement => {
+    if (tab === 'recommended') return recommended.el;
+    if (tab === 'traps') return trapsTab;
+    return packsTab;
+  };
+
   const render = (): void => {
     content.innerHTML = '';
-    content.appendChild(linesTryTab === 'recommended' ? recommended.el : trapsTab);
+    content.appendChild(tabEl(linesTryTab!));
     tabs.querySelectorAll<HTMLElement>('.lines-tab').forEach(btn => {
       const active = btn.dataset.tab === linesTryTab;
       btn.classList.toggle('active', active);
@@ -244,6 +254,7 @@ function linesToTrySection(
 
   tabs.appendChild(makeTab('recommended', 'Recommended', Icons.sparkles(18)));
   tabs.appendChild(makeTab('traps', 'Traps', Icons.target(18)));
+  tabs.appendChild(makeTab('packs', 'Packs', Icons.build(18)));
   wrap.appendChild(tabs);
   wrap.appendChild(content);
   render();
@@ -344,6 +355,57 @@ function buildTrapsTab(packs: TrapPack[], games: ImportedGame[], lines: Line[]):
   wrap.appendChild(list);
   renderList(filter.selection);
   return wrap;
+}
+
+// Curated starter packs (the same src/starter-packs.json onboarding offers),
+// grouped by pack — unlike Traps these are themed sets, not a flat pool, so each
+// pack keeps its own titled group rather than being flattened together.
+function buildPacksTab(packs: Pack[]): HTMLElement {
+  const wrap = document.createElement('div');
+  const desc = document.createElement('p');
+  desc.className = 'section-desc';
+  desc.textContent = 'Curated opening packs — pick one and build a line from it.';
+  wrap.appendChild(desc);
+
+  for (const pack of packs) {
+    wrap.appendChild(reportGroup(pack.title, pack.lines.map(line => packLineCard(pack, line))));
+  }
+  return wrap;
+}
+
+function packLineCard(pack: Pack, line: { name: string; sans: string[]; ucis: string[] }): HTMLElement {
+  const build = () => exploreDeps?.onOpenInBuilder(line.ucis, pack.colour, { description: pack.blurb });
+
+  const { card, titleRow, content } = buildPositionCard({
+    fen: fenFromUcis(line.ucis),
+    orientation: pack.colour,
+    className: 'games-card',
+    onMiniClick: build,
+    miniLabel: 'Build this line',
+  });
+
+  titleRow.appendChild(colourPip(pack.colour));
+  const nameEl = document.createElement('span');
+  nameEl.className = 'pcard-name';
+  nameEl.textContent = line.name;
+  titleRow.appendChild(nameEl);
+
+  const movesEl = document.createElement('div');
+  movesEl.className = 'review-moves stat-card-note';
+  movesEl.textContent = formatSanLine(line.sans);
+  content.appendChild(movesEl);
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn-secondary stat-card-btn';
+  btn.textContent = 'Build line';
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    build();
+  });
+  content.appendChild(btn);
+
+  return card;
 }
 
 // ── Scout opponents ────────────────────────────────────────────────────────────
