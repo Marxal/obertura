@@ -20,11 +20,14 @@ import { reviewResult, takeDueRepeat } from './puzzle-repeat';
 import { getPuzzleRating, difficultyForRating, difficultyForStreak, targetRatingForStreak } from './puzzle-rating';
 import { countUp } from './count-up';
 import { renderLoadError } from './load-error';
+import { buildEmptyState } from './empty-state';
+import { isConnected } from './lichess-auth';
 import { Icons } from './icons';
 
 export interface PuzzlesScreenDeps {
   onImportGames: () => void;
   onBuildLine: () => void;
+  onConnectLichess: () => void;
 }
 
 type Source = 'repertoire' | 'games';
@@ -491,23 +494,16 @@ function perfPill(p: { pct: number; attempts: number } | undefined): HTMLElement
 }
 
 function emptyState(hasGames: boolean, deps: PuzzlesScreenDeps): HTMLElement {
-  const wrap = document.createElement('div');
-  wrap.className = 'pz-empty';
-  const msg = document.createElement('p');
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'pz-connect-btn';
-
-  if (!hasGames) {
-    msg.textContent = 'Save some opening lines or import your games — then practise puzzles from the openings you actually play.';
-    btn.textContent = 'Build a line';
-    btn.addEventListener('click', deps.onBuildLine);
-  } else {
-    msg.textContent = 'None of your openings have a Lichess puzzle set yet. Try saving more lines or importing more games.';
-    btn.textContent = 'Import more games';
-    btn.addEventListener('click', deps.onImportGames);
-  }
-  wrap.appendChild(msg);
-  wrap.appendChild(btn);
-  return wrap;
+  return buildEmptyState({
+    icon: Icons.puzzlePiece(28),
+    line: hasGames
+      ? 'None of your openings have a Lichess puzzle set yet. Try saving more lines or importing more games.'
+      : 'Save some opening lines or import your games — then practise puzzles from the openings you actually play.',
+    cta: hasGames
+      ? { label: 'Import more games', onClick: deps.onImportGames }
+      : { label: 'Build a line', onClick: deps.onBuildLine },
+    link: !isConnected()
+      ? { label: 'Connect Lichess for your puzzle stats →', onClick: deps.onConnectLichess }
+      : undefined,
+  });
 }

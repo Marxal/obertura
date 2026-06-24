@@ -63,6 +63,8 @@ import { appendSelfTest } from './selftest-panel';
 import { openFeedbackSheet } from './feedback';
 import { openSurvey } from './survey';
 import { showIntro } from './onboarding';
+import { showOnboardingWizard } from './onboarding-wizard';
+import { isConnected, connect, disconnect } from './lichess-auth';
 import { buildSupportSection } from './support';
 import { runStorageSelfTest } from './storage.selftest';
 import { runOpeningsSelfTest } from './openings.selftest';
@@ -92,6 +94,7 @@ export function renderSettingsScreen(container: HTMLElement): void {
   screen.appendChild(userSlot);
 
   screen.appendChild(buildAppearanceGroup());
+  screen.appendChild(buildLichessGroup(() => renderSettingsScreen(container)));
   screen.appendChild(buildTrainingGroup());
   screen.appendChild(buildStatisticsGroup());
   screen.appendChild(buildExploreGroup());
@@ -168,6 +171,9 @@ function buildAboutGroup(): HTMLElement {
   // Replay the first-launch intro on demand — the seen-flag stays set, so it
   // doesn't reappear on its own afterwards.
   sec.appendChild(linkRow('Replay intro', () => showIntro(), Icons.play(18)));
+  // Replay the setup wizard (notation, theme, Lichess, import) on demand — it
+  // doesn't gate anything, so re-running it never resets a choice you've made.
+  sec.appendChild(linkRow('Replay setup', () => showOnboardingWizard({ onFinish: () => {} }), Icons.settings(18)));
   sec.appendChild(linkRow('About', () => {
     window.open('https://marxal.github.io/obertura/docs/', '_blank', 'noopener,noreferrer');
   }, Icons.info(18)));
@@ -294,7 +300,7 @@ function row(label: string, control: HTMLElement, opts: { sub?: string } = {}): 
 
 // ── Reusable controls ────────────────────────────────────────────────────────
 
-function segmented<T extends string>(
+export function segmented<T extends string>(
   options: { value: T; label: string }[],
   current: T,
   onChange: (v: T) => void,
@@ -355,7 +361,7 @@ const BOARD_PRESETS: { value: BoardColour; label: string; light: string; dark: s
   { value: 'grey', label: 'Grey', light: '#dcdcdc', dark: '#909090' },
 ];
 
-function boardSwatches(
+export function boardSwatches(
   current: BoardColour,
   onChange: (v: BoardColour) => void,
 ): { element: HTMLElement; reflect: (active: BoardColour) => void } {
@@ -534,7 +540,7 @@ let refreshBoardSwatches: () => void = () => {};
 // "System" pill pinned to the right of the title. Picking a swatch takes an
 // explicit theme; tapping System hands the choice back to the phone. When System
 // drives, the swatches dim but still highlight whichever theme it resolved to.
-function buildThemeRow(): HTMLElement {
+export function buildThemeRow(): HTMLElement {
   const r = document.createElement('div');
   r.className = 'pref-row';
 
@@ -810,6 +816,66 @@ function buildUserGroup(gameCount: number, refresh: () => void): HTMLElement {
   sec.appendChild(addSlot);
   renderAddBtn();
 
+  return sec;
+}
+
+// ── Lichess ──────────────────────────────────────────────────────────────────
+// Connecting is optional — puzzles already work anonymously — but it unlocks the
+// live opening Library (every position, not just the bundled common ones) and the
+// Lichess puzzle dashboard (rating, and it skips puzzles you've already seen).
+function buildLichessGroup(refresh: () => void): HTMLElement {
+  const sec = staticGroup('Lichess', Icons.compass(16));
+
+  if (!isConnected()) {
+    const card = document.createElement('div');
+    card.className = 'settings-connect-card';
+
+    const heading = document.createElement('h3');
+    heading.className = 'settings-connect-title';
+    heading.textContent = 'Connect to Lichess';
+    card.appendChild(heading);
+
+    const blurb = document.createElement('p');
+    blurb.className = 'settings-connect-desc';
+    blurb.textContent =
+      'Connecting unlocks the live opening Library for every position, and the ' +
+      'Lichess puzzle dashboard — your rating, and it skips puzzles you\'ve already ' +
+      'seen. It\'s free, reads no personal data, and puzzles work fine either way — ' +
+      'even a throwaway account works.';
+    card.appendChild(blurb);
+
+    const cta = document.createElement('button');
+    cta.type = 'button';
+    cta.className = 'btn-primary settings-connect-btn';
+    cta.appendChild(Icons.compass(16));
+    cta.appendChild(document.createTextNode('Connect to Lichess'));
+    cta.addEventListener('click', () => void connect());
+    card.appendChild(cta);
+
+    sec.appendChild(card);
+    return sec;
+  }
+
+  const card = document.createElement('div');
+  card.className = 'settings-connected settings-connected--compact';
+
+  const who = document.createElement('div');
+  who.className = 'settings-connected-who';
+  who.appendChild(Icons.compass(22));
+  const handle = document.createElement('span');
+  handle.className = 'settings-connected-handle';
+  handle.textContent = 'Connected';
+  who.appendChild(handle);
+
+  const disconnectBtn = document.createElement('button');
+  disconnectBtn.type = 'button';
+  disconnectBtn.className = 'empty-state-link settings-connected-refresh';
+  disconnectBtn.textContent = 'Disconnect';
+  disconnectBtn.addEventListener('click', () => { disconnect(); refresh(); });
+  who.appendChild(disconnectBtn);
+  card.appendChild(who);
+
+  sec.appendChild(card);
   return sec;
 }
 

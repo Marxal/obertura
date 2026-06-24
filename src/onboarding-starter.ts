@@ -23,19 +23,22 @@ import { Icons } from './icons';
 import { buildPositionCard, colourPip, fenFromUcis } from './card-position';
 import { burstConfetti } from './confetti';
 import { formatSanLine } from './notation';
+import { showDialog } from './dialog';
+import { pushBack } from './back-nav';
 
 // Lines in training needed to unlock the Train hub. The Train screen reads this
-// for its gate; onboarding shows progress toward it.
-export const ONBOARDING_GOAL = 6;
+// for its gate; onboarding shows progress toward it. Lowered from 6 → 5 to make
+// the climb feel a little shorter.
+export const ONBOARDING_GOAL = 5;
 
 type Colour = 'white' | 'black';
 
-interface PackLine {
+export interface PackLine {
   name: string;
   sans: string[];
   ucis: string[];
 }
-interface Pack {
+export interface Pack {
   id: string;
   title: string;
   colour: Colour;
@@ -71,9 +74,10 @@ export interface StarterDeps {
 }
 
 // Lazy-load the curated packs only when onboarding actually shows (keeps them out
-// of the initial bundle, like the opening library).
+// of the initial bundle, like the opening library). Also reused by the Explore
+// screen's Packs tab, so both surfaces read the same starter-packs.json.
 let packsPromise: Promise<Pack[]> | null = null;
-function loadPacks(): Promise<Pack[]> {
+export function loadPacks(): Promise<Pack[]> {
   if (!packsPromise) {
     packsPromise = import('./starter-packs.json').then(m => (m.default ?? m) as Pack[]);
   }
@@ -83,6 +87,42 @@ function loadPacks(): Promise<Pack[]> {
 // Once we've celebrated hitting the goal in this view, don't burst again on
 // every repaint.
 let goalCelebrated = false;
+
+// A one-time dialog before the very first "Build a line myself" — the builder
+// itself has no onboarding chrome, so this is the only explanation a brand-new
+// user gets before being dropped onto an empty board.
+const BUILD_WALKTHROUGH_KEY = 'obertura.buildWalkthroughSeen';
+
+function hasSeenBuildWalkthrough(): boolean {
+  try {
+    return localStorage.getItem(BUILD_WALKTHROUGH_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function markBuildWalkthroughSeen(): void {
+  try { localStorage.setItem(BUILD_WALKTHROUGH_KEY, '1'); } catch { /* storage off */ }
+}
+
+function handleBuildManually(deps: StarterDeps): void {
+  if (hasSeenBuildWalkthrough()) {
+    deps.onBuildManually();
+    return;
+  }
+  showDialog({
+    title: 'Build your first line',
+    body: 'Make your first move on the board — when you reach the end of a line, hit Save. That\'s it.',
+    buttons: [{
+      label: 'Got it',
+      variant: 'primary',
+      onClick: () => {
+        markBuildWalkthroughSeen();
+        deps.onBuildManually();
+      },
+    }],
+  });
+}
 
 export function renderStarterOnboarding(container: HTMLElement, deps: StarterDeps): void {
   const root = document.createElement('div');
@@ -165,7 +205,7 @@ async function paint(root: HTMLElement, deps: StarterDeps): Promise<void> {
     root.appendChild(start);
   }
 
-  // ── Content: suggestions (if any) then packs ──
+  // ── Content: suggestions (if any) ──
   if (suggestions.length > 0) {
     root.appendChild(sectionTitle('Based on your games'));
     const list = document.createElement('div');
@@ -174,38 +214,86 @@ async function paint(root: HTMLElement, deps: StarterDeps): Promise<void> {
       list.appendChild(suggestionRow(s, existing, deps, repaint));
     }
     root.appendChild(list);
-    root.appendChild(sectionTitle('Or start from a ready-made pack'));
-  } else {
-    root.appendChild(sectionTitle('Pick a starter pack'));
   }
 
-  // Packs — a single-open accordion (opening one closes the others).
-  const packsWrap = document.createElement('div');
-  packsWrap.className = 'onb-packs';
-  const ctrls = packs.map(pack => packCard(pack, existing, deps, repaint));
-  ctrls.forEach(pc => {
-    pc.headBtn.addEventListener('click', () => {
-      const willOpen = !pc.isOpen();
-      ctrls.forEach(c => c.setOpen(false));
-      pc.setOpen(willOpen);
-    });
-    packsWrap.appendChild(pc.card);
-  });
-  // All packs start collapsed (including the first); tapping a header opens that
-  // one and closes the others.
-  root.appendChild(packsWrap);
-
-  // ── Footer: primary routes, then quieter ones ──
+  // ── Footer: "Build a line myself" and "Pick a starter pack" lead, side by
+  // side — building manually opens the board; the pack button opens a lightbox
+  // (openPackPicker) rather than an inline accordion. Quieter routes sit below. ──
   const foot = document.createElement('div');
   foot.className = 'onb-foot';
-  foot.appendChild(mainButton('Build a line myself', Icons.plus(18), () => deps.onBuildManually()));
-  foot.appendChild(mainButton('Import your games', Icons.download(18), () => deps.onImportGames()));
+  foot.appendChild(mainButton('Build a line myself', Icons.plus(18), () => handleBuildManually(deps)));
+  foot.appendChild(mainButton('Pick a starter pack', Icons.build(18), () => openPackPicker(packs, existing, deps, repaint)));
   const discrete = document.createElement('div');
   discrete.className = 'onb-foot-discrete';
+  discrete.appendChild(footLink('Import your games', () => deps.onImportGames()));
   discrete.appendChild(footLink('Browse opening library', () => deps.onBrowseLibrary()));
   discrete.appendChild(footLink('Build with the engine', () => deps.onBuildWithEngine()));
   foot.appendChild(discrete);
   root.appendChild(foot);
+}
+
+// ── Starter-pack lightbox ────────────────────────────────────────────────────
+// "Pick a starter pack" opens this instead of an inline accordion — a focused
+// sheet, titled and dismissible like the rest of the app's edit-overlays.
+// Adding a line repaints the onboarding view underneath (the progress bar
+// climbs) without closing the sheet, so several packs/lines can be added in one
+// sitting; `existing` is mutated in place so this sheet's own "✓ Added" state
+// stays in sync across repaints without re-querying storage.
+function openPackPicker(
+  packs: Pack[],
+  existing: Set<string>,
+  deps: StarterDeps,
+  onAdded: () => void,
+): void {
+  const overlay = document.createElement('div');
+  overlay.className = 'edit-overlay';
+
+  function close(): void {
+    overlay.remove();
+    removeBack();
+  }
+  const removeBack = pushBack(close);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) close();
+  });
+
+  function render(): void {
+    overlay.innerHTML = '';
+    const sheet = document.createElement('div');
+    sheet.className = 'edit-sheet';
+
+    const h = document.createElement('h3');
+    h.className = 'edit-sheet-title';
+    h.textContent = 'Starter packs';
+    sheet.appendChild(h);
+
+    const repaint = () => { onAdded(); render(); };
+
+    const packsWrap = document.createElement('div');
+    packsWrap.className = 'onb-packs';
+    const ctrls = packs.map(pack => packCard(pack, existing, deps, repaint));
+    ctrls.forEach(pc => {
+      pc.headBtn.addEventListener('click', () => {
+        const willOpen = !pc.isOpen();
+        ctrls.forEach(c => c.setOpen(false));
+        pc.setOpen(willOpen);
+      });
+      packsWrap.appendChild(pc.card);
+    });
+    sheet.appendChild(packsWrap);
+
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'edit-cancel-btn';
+    cancel.textContent = 'Close';
+    cancel.addEventListener('click', close);
+    sheet.appendChild(cancel);
+
+    overlay.appendChild(sheet);
+  }
+
+  document.body.appendChild(overlay);
+  render();
 }
 
 // ── Pack card (single-open accordion member) ───────────────────────────────────
@@ -273,7 +361,10 @@ function packCard(
     addAll.addEventListener('click', () => {
       addAll.disabled = true;
       addAll.textContent = 'Adding…';
-      void addSequentially(pending, pack.colour, deps).then(repaint);
+      void addSequentially(pending, pack.colour, deps).then(() => {
+        for (const l of pending) existing.add(sig(l.ucis));
+        repaint();
+      });
     });
     body.appendChild(addAll);
   }
@@ -314,7 +405,10 @@ function packLineRow(
     fen: fenFromUcis(line.ucis),
     colour,
     added: existing.has(sig(line.ucis)),
-    onAdd: () => deps.onAddLine(line.ucis, colour, true, repaint, repaint),
+    onAdd: () => deps.onAddLine(line.ucis, colour, true, () => {
+      existing.add(sig(line.ucis));
+      repaint();
+    }, repaint),
   });
 }
 

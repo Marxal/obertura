@@ -28,6 +28,7 @@ import { initBackNav, setViewBack, pushBack } from './back-nav';
 import { showDialog } from './dialog';
 import { openImportPanel, getGamesSource, IDENTITY_CHANGED_EVENT } from './import-panel';
 import { maybeShowIntro } from './onboarding';
+import { showOnboardingWizard, wizardStepPending } from './onboarding-wizard';
 import { maybeAutoRefreshGames } from './auto-refresh';
 import { maybeShowGate } from './gate';
 import { showToast } from './toast';
@@ -37,7 +38,7 @@ import { importLastGame, hasConnectedAccount } from './import-last';
 import { openEngineSpar, openExploreOpponent, importOpponentFlow } from './explore-screen';
 import { formatMove } from './notation';
 import { maybeShowSurveyBanner } from './survey';
-import { tryCallback as lichessTryCallback, takeReturn as lichessTakeReturn, getAccessToken as lichessAccessToken } from './lichess-auth';
+import { tryCallback as lichessTryCallback, takeReturn as lichessTakeReturn, getAccessToken as lichessAccessToken, connect as lichessConnect } from './lichess-auth';
 
 // Cloud-eval (engine.ts) uses the Lichess token when connected for higher rate
 // limits. Wire the getter once, here, so engine.ts needn't import the OAuth code.
@@ -1306,6 +1307,7 @@ function showView(view: ViewName): void {
     void renderPuzzlesScreen(puzzlesEl, {
       onImportGames: () => openImportPanel({ onImported: () => showView('puzzles') }),
       onBuildLine: () => startNewLine('white'),
+      onConnectLichess: () => void lichessConnect(),
     });
   }
 
@@ -2024,9 +2026,18 @@ maybeShowGate(() => requestAnimationFrame(() => {
   // (shown once per session until they submit — see survey.ts).
   maybeShowSurveyBanner();
 
-  // First launch: play the intro over the top, landing back on Train when it's
-  // done (an import there refreshes Train's view). Shows once — see onboarding.ts.
-  maybeShowIntro({ onFinish: () => showView('train') });
+  // First launch: play the intro, then the setup wizard, landing back on Train
+  // when both are done (an import there refreshes Train's view). The intro shows
+  // once — see onboarding.ts. If the app rebooted mid-wizard (a Lichess OAuth
+  // redirect away and back from the wizard's Connect step), skip straight to
+  // resuming the wizard at its stashed step instead of replaying the intro.
+  if (wizardStepPending()) {
+    showOnboardingWizard({ onFinish: () => showView('train') });
+  } else {
+    maybeShowIntro({
+      onFinish: () => showOnboardingWizard({ onFinish: () => showView('train') }),
+    });
+  }
 
   // Weekly games auto-refresh: runs after the first view has rendered, never
   // blocks launch, and stays silent on zero or on failure. New games trigger a
