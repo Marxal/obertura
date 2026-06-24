@@ -48,6 +48,7 @@ import { clearGames, saveGames, countGames } from './storage';
 import { pushBack } from './back-nav';
 import { createImportLoader, type ImportLoader } from './import-progress';
 import { userAvatar } from './avatar';
+import { Icons } from './icons';
 import { wdlBlock } from './wdl-bar';
 import { showToast } from './toast';
 
@@ -494,6 +495,10 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
         scannedAvatarUrl = url;
         loader?.setAvatar(url);
       });
+    } else {
+      // Lichess has no public picture, but the scan still takes a moment — show
+      // the pulsing rings around a glyph so there's visible activity either way.
+      loader.showRings(Icons.compass(30));
     }
 
     try {

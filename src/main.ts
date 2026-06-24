@@ -28,6 +28,7 @@ import { initBackNav, setViewBack, pushBack } from './back-nav';
 import { showDialog } from './dialog';
 import { openImportPanel, getGamesSource, IDENTITY_CHANGED_EVENT } from './import-panel';
 import { maybeShowIntro } from './onboarding';
+import { openStarterPackPicker } from './onboarding-starter';
 import { showOnboardingWizard, wizardStepPending } from './onboarding-wizard';
 import { maybeAutoRefreshGames } from './auto-refresh';
 import { maybeShowGate } from './gate';
@@ -1138,6 +1139,23 @@ async function runImportLastGame(): Promise<void> {
 // the same naming the builder's Save uses, without touching the live builder
 // tree. Used by the onboarding starter-line flow. Returns null if no legal
 // move could be applied.
+// Onboarding's one-tap add: turn a starter/suggested line's moves into a saved
+// Line and route it through the normal add-to-training flow (learn = the
+// watch-then-play confirm run; otherwise enrol directly). Shared by the Train
+// onboarding and the starter-pack picker opened from My Lines.
+function addStarterLine(
+  ucis: string[],
+  colour: 'white' | 'black',
+  learn: boolean,
+  onDone: () => void,
+  onCancel: () => void,
+): void {
+  const line = lineFromUcis(ucis, colour);
+  if (!line) { onCancel(); return; }
+  if (learn) addLineToTraining(line, onDone, onCancel);
+  else void enrolLineDirectly(line).then(onDone);
+}
+
 function lineFromUcis(ucis: string[], colour: 'white' | 'black'): Line | null {
   const ch = new Chess();
   const root: MoveNode = { id: 'root', san: '', uci: '', fen: ch.fen(), children: [] };
@@ -1183,6 +1201,8 @@ function linesScreenDeps(): Parameters<typeof renderLinesScreen>[1] {
     onAddLine: startNewLine,
     onStartTraining: handleStartTraining,
     onBuildLine: buildFromUcis,
+    onImportGames: () => openImportPanel({ onImported: () => showView('lines') }),
+    onPickStarterPack: () => void openStarterPackPicker(addStarterLine),
   };
 }
 
@@ -1317,19 +1337,11 @@ function showView(view: ViewName): void {
       onOpenLine,
       onBuildLine: () => startNewLine('white'),
       onImportGames: () => openImportPanel({ onImported: () => showView('train') }),
-      // Onboarding's one-tap add: turn a starter/suggested line's moves into a
-      // saved Line and route it through the normal add-to-training flow (learn =
-      // the watch-then-play confirm run; otherwise enrol directly).
-      onAddStarterLine: (ucis, colour, learn, onDone, onCancel) => {
-        const line = lineFromUcis(ucis, colour);
-        if (!line) { onCancel(); return; }
-        if (learn) addLineToTraining(line, onDone, onCancel);
-        else void enrolLineDirectly(line).then(onDone);
-      },
+      onAddStarterLine: addStarterLine,
       // Onboarding's quieter routes: the opening-library browser (seeds the
       // builder) and the Explore screen, home of "play the engine" sparring.
       onBrowseLibrary: () => openBuilderTab(LIBRARY_SLIDE, { fresh: true, colour: 'white' }),
-      onBuildWithEngine: () => showView('explore'),
+      onBuildWithEngine: () => openBuilderTab(ENGINE_SLIDE, { fresh: true, colour: 'white' }),
       onSetFabVisible: (visible) => fabController?.setVisible(visible),
     });
     pendingTrainLineId = null;

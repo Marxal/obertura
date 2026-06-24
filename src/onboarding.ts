@@ -74,9 +74,9 @@ const SLIDES: Slide[] = [
     body: 'Improve your middlegame with puzzles, tailored to the openings you play and the lines you save.',
   },
   {
-    icon: () => Icons.download(64),
-    heading: 'Start from your games',
-    body: 'Connect your Chess.com or Lichess account. Obertura shows you the openings you actually play.',
+    icon: () => Icons.target(64),
+    heading: 'Start improving your chess',
+    body: 'Set the app up the way you like, then add the first 5 lines you want to learn. That’s all it takes to unlock training.',
   },
 ];
 

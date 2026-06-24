@@ -3973,8 +3973,20 @@ cg-board square.move-dest.oc {
   color: var(--text);
 }
 
+.empty-state-body {
+  max-width: 300px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
 .empty-state-cta {
-  min-width: 180px;
+  min-width: 220px;
+}
+/* A touch of breathing room between stacked buttons (the flex gap already
+   separates them, this just tightens secondaries to the primary). */
+.empty-state-cta--secondary {
+  margin-top: calc(-1 * var(--space-md) + var(--space-xs));
 }
 
 .empty-state-link {
@@ -5419,6 +5431,16 @@ cg-board square.move-dest.oc {
   object-fit: cover;
   border: 1px solid var(--border);
   animation: import-loader-avatar-in 0.25s ease;
+}
+
+/* When there's no picture (Lichess), the centre is a soft disc with a glyph so
+   the pulsing rings still have something to ripple out from. */
+.import-loader-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 /* Growing circles rippling out from behind the picture. */
@@ -8588,10 +8610,23 @@ cg-board square.move-dest.oc {
 }
 
 /* ── Setup wizard (onboarding-wizard.ts) ──────────────────────────────────── */
-/* Reuses the edit-sheet shell and the intro's progress dots; just centres them
-   since the sheet itself is left-aligned. */
+/* Full-screen like the Beta survey: reuses .survey-page / -header / -body /
+   -footer, with the intro's progress dots in the header instead of a bar. */
+.wizard-header {
+  justify-content: center;
+}
 .wizard-dots {
   justify-content: center;
+}
+/* The step's heading block sits above its controls; .survey-step already gives
+   the column layout, width cap and gap. */
+.wizard-step-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.wizard-step-head .edit-sheet-title {
+  margin: 0;
 }
 
 /* ════════════════════════════════════════════════════════════════════════════

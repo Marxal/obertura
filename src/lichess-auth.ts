@@ -19,6 +19,13 @@ import { OAuth2AuthCodePKCE } from '@bity/oauth2-auth-code-pkce';
 
 const LICHESS = 'https://lichess.org';
 
+// The single Lichess pitch, shared by the setup wizard, the Settings connect card
+// and the Puzzles empty state so the promise reads the same everywhere.
+export const LICHESS_CONNECT_BLURB =
+  'Connect to unlock the live opening library, a stronger chess engine, and the ' +
+  'Lichess puzzle dashboard with your rating and puzzle history. It’s free, ' +
+  'accesses no personal data, and even a throwaway account works.';
+
 let oauth: OAuth2AuthCodePKCE | null = null;
 
 function client(): OAuth2AuthCodePKCE {
