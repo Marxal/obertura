@@ -12,11 +12,12 @@
 // the Statistics page, so we still nudge.
 
 import { getAllLines, getAllGames } from './storage';
-import { fetchNextPuzzle, toAngleKey, type Difficulty } from './puzzles';
+import { fetchNextPuzzle, toAngleKey } from './puzzles';
 import { openingFamily } from './analysis';
-import { startPuzzleSession, type PuzzleMode } from './puzzle-run';
+import { startPuzzleSession, type PuzzleMode, type PuzzleDraw } from './puzzle-run';
 import { recordPuzzleResult, getPuzzleDays, getPuzzlesByOpening } from './puzzle-log';
-import { getPuzzleRating, difficultyForRating, difficultyForStreak } from './puzzle-rating';
+import { reviewResult, takeDueRepeat } from './puzzle-repeat';
+import { getPuzzleRating, difficultyForRating, difficultyForStreak, targetRatingForStreak } from './puzzle-rating';
 import { countUp } from './count-up';
 import { renderLoadError } from './load-error';
 import { Icons } from './icons';
@@ -63,6 +64,30 @@ function getTaTime(): TaMinutes {
 }
 function setTaTime(m: TaMinutes): void {
   try { localStorage.setItem(TA_TIME_KEY, String(m)); } catch { /* non-critical */ }
+}
+
+const TA_TIMES: readonly TaMinutes[] = [3, 5, 10];
+const TA_BEST_PREFIX = 'obertura.puzzles.taBest.';
+
+// Personal best for a Time Attack length — the most puzzles solved in one run of
+// this duration. One slot per length, mirroring the Training timed bests.
+function getTaBest(m: TaMinutes): number {
+  const n = Number(localStorage.getItem(TA_BEST_PREFIX + m));
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+function recordTaBest(m: TaMinutes, score: number): boolean {
+  if (score > getTaBest(m)) {
+    try { localStorage.setItem(TA_BEST_PREFIX + m, String(score)); } catch { /* non-critical */ }
+    return true;
+  }
+  return false;
+}
+
+// Forget every Time Attack best — part of "Reset progress" in Settings.
+export function clearTaBest(): void {
+  for (const m of TA_TIMES) {
+    try { localStorage.removeItem(TA_BEST_PREFIX + m); } catch { /* non-critical */ }
+  }
 }
 
 // ── Pure helpers ────────────────────────────────────────────────────────────
@@ -148,18 +173,60 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
   function startSession(entries: OpeningEntry[], label: string, mode: PuzzleMode): void {
     if (entries.length === 0) return;
     const playAgain = (): void => startSession(entries, label, mode);
+
+    // Per-session state for the repeat queue: which openings are in scope, the
+    // repeats already served (so we don't re-show one mid-run), and a cap so a
+    // session stays mostly fresh (~a third may be due repeats).
+    const angleSet = new Set(entries.map((e) => e.angle));
+    const servedRepeats = new Set<string>();
+    let repeatsServed = 0;
+
+    const drawFresh = async (ctx: { solved: number }): Promise<PuzzleDraw | null> => {
+      const pick = entries[Math.floor(Math.random() * entries.length)];
+      // Time Attack: keep the level climbing. Fetch a few candidates and take the
+      // first at/above a rising floor, so ratings trend up instead of bouncing.
+      if (mode.kind === 'timed') {
+        const floor = targetRatingForStreak(ctx.solved) - 50;
+        let best: PuzzleDraw | null = null;
+        for (let i = 0; i < 3; i++) {
+          const p = await fetchNextPuzzle(pick.angle, { difficulty: difficultyForStreak(ctx.solved), colour: pick.colour });
+          if (!p) break;
+          const cand: PuzzleDraw = { puzzle: p, angle: pick.angle, family: pick.family };
+          if (p.rating >= floor) return cand;
+          if (!best || p.rating > best.puzzle.rating) best = cand;
+        }
+        return best;
+      }
+      // Count modes (Daily Mix / Practice): difficulty tracks your rating.
+      const puzzle = await fetchNextPuzzle(pick.angle, { difficulty: difficultyForRating(getPuzzleRating()), colour: pick.colour });
+      return puzzle ? { puzzle, angle: pick.angle, family: pick.family } : null;
+    };
+
     startPuzzleSession({
       modeLabel: label,
       mode,
       nextPuzzle: async (ctx) => {
-        const difficulty: Difficulty = mode.kind === 'timed'
-          ? difficultyForStreak(ctx.solved)
-          : difficultyForRating(getPuzzleRating());
-        const pick = entries[Math.floor(Math.random() * entries.length)];
-        const puzzle = await fetchNextPuzzle(pick.angle, { difficulty, colour: pick.colour });
-        return puzzle ? { puzzle, angle: pick.angle, family: pick.family } : null;
+        // Count modes weave in a few due repeats before drawing fresh puzzles.
+        if (mode.kind === 'count') {
+          const cap = Math.floor(mode.count / 3);
+          if (repeatsServed < cap) {
+            const due = takeDueRepeat(servedRepeats, angleSet);
+            if (due) {
+              servedRepeats.add(due.puzzle.id);
+              repeatsServed++;
+              return { puzzle: due.puzzle, angle: due.angle, family: due.family, repeat: true };
+            }
+          }
+        }
+        return drawFresh(ctx);
       },
-      onResult: (r) => recordPuzzleResult(r.angle, r.solved),
+      onResult: (r) => {
+        recordPuzzleResult(r.angle, r.solved);
+        reviewResult(r.puzzle, r.angle, r.family, r.solved);
+      },
+      onComplete: (s) => {
+        if (mode.kind === 'timed') recordTaBest((mode.ms / 60_000) as TaMinutes, s.solved);
+      },
       onExit: () => { rebuild(); }, // refresh the "today" hero + performance on return
       onPlayAgain: playAgain,
     });
@@ -245,14 +312,47 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
     desc.textContent = 'Beat the clock — 3 mistakes and you’re out. Puzzles get harder as you go.';
     section.appendChild(desc);
 
-    // Time + source as two compact segmented rows.
+    // Time as chips that each show this length's personal best (mirrors the
+    // Training Time-attack card); source stays a compact segmented row below.
     let time = getTaTime();
-    const timeRow = segmented<TaMinutes>(
-      [[3, '3 min'], [5, '5 min'], [10, '10 min']],
-      time,
-      (m) => { time = m; setTaTime(m); },
-    );
-    section.appendChild(timeRow);
+    const chips = document.createElement('div');
+    chips.className = 'timed-chips pz-ta-times';
+    const chipEls: HTMLButtonElement[] = [];
+    for (const m of TA_TIMES) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'timed-chip' + (m === time ? ' timed-chip--on' : '');
+
+      const dur = document.createElement('span');
+      dur.className = 'timed-chip-dur';
+      dur.textContent = `${m}m`;
+      chip.appendChild(dur);
+
+      const best = getTaBest(m);
+      const bestEl = document.createElement('span');
+      bestEl.className = 'timed-chip-best';
+      if (best > 0) {
+        bestEl.appendChild(document.createTextNode('best '));
+        const num = document.createElement('span');
+        num.className = 'timed-chip-best-num';
+        num.textContent = '0';
+        bestEl.appendChild(num);
+        countUp(num, best);
+      } else {
+        bestEl.textContent = '—';
+      }
+      chip.appendChild(bestEl);
+
+      chip.addEventListener('click', () => {
+        time = m;
+        setTaTime(m);
+        for (const c of chipEls) c.classList.remove('timed-chip--on');
+        chip.classList.add('timed-chip--on');
+      });
+      chipEls.push(chip);
+      chips.appendChild(chip);
+    }
+    section.appendChild(chips);
 
     let taSource = getTaSource();
     if (taSource === 'games' && !hasGames) taSource = 'mixed';
@@ -334,6 +434,14 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
       name.className = 'pz-opening-name';
       name.textContent = e.family;
       row.appendChild(name);
+      // How many puzzles you've done here (hidden until you've played some).
+      const attempts = perf.get(e.angle)?.attempts ?? 0;
+      if (attempts > 0) {
+        const count = document.createElement('span');
+        count.className = 'pz-opening-count';
+        count.textContent = `${attempts} done`;
+        row.appendChild(count);
+      }
       // Performance pill (or a hint to play it) replaces the old target icon.
       row.appendChild(perfPill(perf.get(e.angle)));
       row.addEventListener('click', () =>

@@ -50,6 +50,15 @@ export function difficultyForStreak(solved: number): Difficulty {
   return 'hardest';
 }
 
+// A rising rating floor for Time Attack. Lichess's difficulty bands are coarse and
+// overlap, so anonymous puzzles bounce around in absolute rating (1200 → 1500 →
+// 1100). The caller fetches a few candidates and keeps the first at/above this
+// floor, so the run climbs in level instead of zig-zagging. Starts gentle, gains
+// ~75 a solve, capped so it stays beatable.
+export function targetRatingForStreak(solved: number): number {
+  return Math.min(2000, 1000 + solved * 75);
+}
+
 // ── Storage ───────────────────────────────────────────────────────────────────
 
 export function getPuzzleRating(): number {

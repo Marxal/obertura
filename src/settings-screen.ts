@@ -53,6 +53,8 @@ import { getAutoRefreshEnabled, setAutoRefreshEnabled, getLastGamesRefresh } fro
 import { clearTrainingDays, clearReviewedToday, clearReviewLog } from './streak';
 import { clearPuzzleLog } from './puzzle-log';
 import { clearPuzzleRating } from './puzzle-rating';
+import { clearPuzzleRepeat } from './puzzle-repeat';
+import { clearTaBest } from './puzzles-screen';
 import { renderBackupSection, exportBackupNow } from './backup';
 import { Icons } from './icons';
 import { userAvatar } from './avatar';
@@ -885,6 +887,8 @@ function buildDataGroup(): HTMLElement {
           clearReviewLog();
           clearPuzzleLog();
           clearPuzzleRating();
+          clearPuzzleRepeat();
+          clearTaBest();
           clearTimedBest();
           status.textContent = 'Progress reset ✓ — every line is due again.';
         } catch (err) {
