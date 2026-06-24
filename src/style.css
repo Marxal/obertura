@@ -1743,6 +1743,14 @@ cg-board square.move-dest.oc {
   line-height: 1.15;
 }
 
+.seg-btn-sublabel {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 500;
+  opacity: 0.7;
+  margin-top: 0.15rem;
+}
+
 /* ── Toggle switch ───────────────────────────────────────────────────────── */
 
 .switch {
@@ -8627,6 +8635,37 @@ cg-board square.move-dest.oc {
 }
 .wizard-step-head .edit-sheet-title {
   margin: 0;
+}
+
+/* Unlike the shared bottom-sheet pattern, the wizard reads as a centered
+   dialog card, not a drawer sliding up from the edge. */
+.wizard-overlay {
+  align-items: center;
+}
+
+.wizard-sheet {
+  border-radius: 16px;
+  width: calc(100% - 2rem);
+  max-width: 26rem;
+  animation: wizard-sheet-in 0.3s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes wizard-sheet-in {
+  0%   { opacity: 0; transform: translateY(10px) scale(0.97); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wizard-sheet {
+    animation: none;
+  }
+}
+
+/* Connect/Import step CTAs read as anchored toward the bottom of the card. */
+.wizard-cta {
+  width: 100%;
+  justify-content: center;
+  margin-top: 1.5rem;
 }
 
 /* ════════════════════════════════════════════════════════════════════════════

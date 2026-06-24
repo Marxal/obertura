@@ -222,7 +222,7 @@ async function doRender(container: HTMLElement, deps: LinesDeps): Promise<void> 
 
   const renderActive = () => {
     if (activeTab === 'saved') {
-      renderSavedTab(content, allLines, games, deps, container);
+      renderSavedTab(content, allLines, games, deps, container, goToGamesTab, hasGames);
     } else {
       renderGamesTab(content, games, allLines, deps, fullRefresh);
     }
@@ -447,7 +447,9 @@ function renderSavedTab(
   lines: Line[],
   games: ImportedGame[],
   deps: LinesDeps,
-  container: HTMLElement
+  container: HTMLElement,
+  goToGamesTab: () => void,
+  hasGames: boolean
 ): void {
   content.innerHTML = '';
   const counts = cachedCounts(games, lines);
@@ -455,7 +457,7 @@ function renderSavedTab(
   // After a toggle/delete/rename, re-fetch lines and re-render this tab.
   const refresh = async () => {
     const fresh = await getAllLines();
-    renderSavedTab(content, fresh, games, deps, container);
+    renderSavedTab(content, fresh, games, deps, container, goToGamesTab, hasGames);
   };
 
   // The shared two-row filter bar (filters.ts): colour + sort on row 1, my own
@@ -489,9 +491,20 @@ function renderSavedTab(
     list.innerHTML = '';
     const shown = viewSavedLines(lines, filter.selection);
     if (shown.length === 0) {
+      if (lines.length === 0) {
+        list.appendChild(buildEmptyState({
+          line: 'No saved lines yet.',
+          cta: { label: '+ Add a line', onClick: () => deps.onAddLine('white') },
+          link: {
+            label: hasGames ? 'or see suggestions from your games' : 'or import from your games',
+            onClick: goToGamesTab,
+          },
+        }));
+        return;
+      }
       const empty = document.createElement('p');
       empty.className = 'lines-empty';
-      empty.textContent = lines.length === 0 ? 'No saved lines yet.' : 'No lines here yet.';
+      empty.textContent = 'No lines here yet.';
       list.appendChild(empty);
       return;
     }

@@ -307,7 +307,7 @@ function row(label: string, control: HTMLElement, opts: { sub?: string } = {}): 
 // ── Reusable controls ────────────────────────────────────────────────────────
 
 export function segmented<T extends string>(
-  options: { value: T; label: string }[],
+  options: { value: T; label: string; sublabel?: string }[],
   current: T,
   onChange: (v: T) => void,
   opts: { fullWidth?: boolean } = {},
@@ -331,6 +331,12 @@ export function segmented<T extends string>(
     btn.className = 'seg-btn';
     btn.dataset.value = opt.value;
     btn.textContent = opt.label;
+    if (opt.sublabel) {
+      const sub = document.createElement('span');
+      sub.className = 'seg-btn-sublabel';
+      sub.textContent = opt.sublabel;
+      btn.appendChild(sub);
+    }
     btn.addEventListener('click', () => {
       reflect(opt.value);
       onChange(opt.value);
