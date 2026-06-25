@@ -10257,6 +10257,14 @@ cg-board square.move-dest.oc {
   color: var(--text-muted);
 }
 .pz-ta .pz-segmented { margin-top: var(--space-sm); }
+/* The two source pills (Openings / Traps) carry a glyph beside the label. */
+.pz-ta-source-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+.pz-ta-source-chip svg { flex: none; }
 .pz-ta-start,
 .pz-practice .pz-segmented { width: 100%; }
 .pz-ta-start {
