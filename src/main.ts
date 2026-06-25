@@ -466,13 +466,88 @@ function syncScoutingTab(): void {
 // Fit the carousel into the space left between the board and the bottom dock, so
 // each slide scrolls internally and the dock (tabs + arrows) stays pinned. Done
 // in JS rather than CSS math so it's exact regardless of header/board heights.
+// When expanded, the panel is pulled up to fill the whole space between the
+// header (scrolled off the top) and the fixed dock — the bottom-sheet state.
+let builderPanelExpanded = false;
+
 function sizeBuilderCarousel(): void {
   const track = document.getElementById('builder-carousel');
   const dock = document.getElementById('builder-dock');
-  if (!track || !dock || currentView !== 'builder') return;
-  const top = track.getBoundingClientRect().top;
-  const h = window.innerHeight - top - dock.offsetHeight;
-  if (h > 0) track.style.height = `${h}px`;
+  const view = document.getElementById('view-builder');
+  if (!track || !dock || !view || currentView !== 'builder') return;
+  const dockH = dock.offsetHeight;
+  if (builderPanelExpanded) {
+    // Fill from the very top of the viewport to the dock. The extra bottom
+    // padding gives the page just enough scroll room to lift the panel's top
+    // all the way up (the board scrolls away above it).
+    view.style.paddingBottom = `${dockH}px`;
+    track.style.height = `${window.innerHeight - dockH}px`;
+  } else {
+    view.style.paddingBottom = '';
+    // Document-relative top, so the maths is right regardless of scroll.
+    const docTop = track.getBoundingClientRect().top + window.scrollY;
+    const h = window.innerHeight - docTop - dockH;
+    if (h > 0) track.style.height = `${h}px`;
+  }
+}
+
+// Pull-up "drag handle" toggle: expand lifts the panel to fill the screen (and
+// auto-scrolls the board out of view); collapse drops it back and returns to the
+// top. Both moves animate — the height via CSS, the scroll via smooth behavior.
+function setBuilderPanelExpanded(expanded: boolean): void {
+  builderPanelExpanded = expanded;
+  const handle = document.getElementById('builder-panel-handle');
+  handle?.classList.toggle('expanded', expanded);
+  handle?.setAttribute('aria-expanded', String(expanded));
+  handle?.setAttribute('aria-label', expanded ? 'Collapse panel' : 'Expand panel');
+  sizeBuilderCarousel();
+  const track = document.getElementById('builder-carousel');
+  if (!track) return;
+  if (expanded) {
+    // Lift the panel's top up to just below the header.
+    const target = window.scrollY + track.getBoundingClientRect().top;
+    window.scrollTo({ top: target, behavior: 'smooth' });
+  } else {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+// Wire the pull-up handle: a tap toggles; a clear up/down drag sets the state in
+// that direction (and suppresses the trailing synthetic click).
+function setupBuilderPanelHandle(): void {
+  const handle = document.getElementById('builder-panel-handle');
+  if (!handle) return;
+  const THRESHOLD = 24; // px of travel before a drag counts (vs. a tap)
+  let dragging = false;
+  let startY = 0;
+  let moved = 0;
+  let suppressClick = false;
+
+  handle.addEventListener('pointerdown', e => {
+    dragging = true;
+    startY = e.clientY;
+    moved = 0;
+    handle.setPointerCapture(e.pointerId);
+  });
+  handle.addEventListener('pointermove', e => {
+    if (dragging) moved = startY - e.clientY; // positive = dragged up
+  });
+  const end = (e: PointerEvent) => {
+    if (!dragging) return;
+    dragging = false;
+    try { handle.releasePointerCapture(e.pointerId); } catch { /* already released */ }
+    if (Math.abs(moved) > THRESHOLD) {
+      suppressClick = true;
+      setBuilderPanelExpanded(moved > 0);
+    }
+  };
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
+  // Tap (and keyboard activation) toggles; a drag already handled it above.
+  handle.addEventListener('click', () => {
+    if (suppressClick) { suppressClick = false; return; }
+    setBuilderPanelExpanded(!builderPanelExpanded);
+  });
 }
 
 function setupBuilderCarousel(): void {
@@ -1383,6 +1458,14 @@ function showView(view: ViewName): void {
     if (track) track.scrollLeft = slide * track.clientWidth;
     activeSlide = -1;
     onActiveSlide(slide);
+    // Always land at the top with the board in view and the panel collapsed —
+    // the page may have been scrolled down on the previous screen (or the panel
+    // left expanded from a prior visit).
+    builderPanelExpanded = false;
+    const handle = document.getElementById('builder-panel-handle');
+    handle?.classList.remove('expanded');
+    handle?.setAttribute('aria-expanded', 'false');
+    window.scrollTo(0, 0);
     // The carousel can only be sized once the builder is visible (its slides have
     // zero height while hidden). Re-read games too, in case some were just
     // imported, then repaint the slides for the current position.
@@ -2016,6 +2099,7 @@ maybeShowGate(() => requestAnimationFrame(() => {
   setupNoteBlock();
   setupMoveNav();
   setupBuilderCarousel();
+  setupBuilderPanelHandle();
 
   // Mount the global FAB before the first showView, so its initial visibility is
   // set correctly when we land on Train.
