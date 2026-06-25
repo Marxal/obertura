@@ -5490,6 +5490,48 @@ cg-board square.move-dest.oc {
   min-height: 1.2em;
 }
 
+/* "Things about the app" ticker — a typewriter line that loops while the scan
+   runs. A fixed min-height holds two lines of room so the layout never jumps as
+   sentences of different lengths type in and out. */
+.import-facts {
+  margin: 0.5rem 0 0;
+  max-width: 30ch;
+  min-height: 3em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.98rem;
+  line-height: 1.45;
+  color: var(--text);
+  text-align: center;
+  transition: opacity 0.28s ease;
+}
+.import-facts.is-out {
+  opacity: 0;
+}
+.import-facts-text {
+  white-space: pre-wrap;
+}
+/* A blinking caret, shown only while typing, for the "writing" feel. */
+.import-facts-caret {
+  flex: none;
+  width: 2px;
+  height: 1.1em;
+  margin-left: 2px;
+  background: var(--accent);
+  opacity: 0;
+}
+.import-facts.is-typing .import-facts-caret {
+  animation: import-facts-caret 1s steps(1, end) infinite;
+}
+@keyframes import-facts-caret {
+  0%, 50% { opacity: 1; }
+  50.01%, 100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .import-facts-caret { display: none; }
+}
+
 /* ── Pixel-pawn progress bar (import scan, see import-progress.ts) ───────────── */
 
 .pawn-progress {
@@ -8626,19 +8668,68 @@ cg-board square.move-dest.oc {
 .wizard-dots {
   justify-content: center;
 }
-/* The step's heading block sits above its controls; .survey-step already gives
-   the column layout, width cap and gap. */
+
+/* Centre each step in the screen, intro-style, so the heading + controls sit in
+   the middle rather than pinned to the top. The body is the scroll container. */
+.wizard-page .survey-body {
+  justify-content: center;
+}
+/* The theme step is the one tall step (theme + board + pieces). Top-align it so
+   it can never be clipped by vertical centring, and let it scroll if it must. */
+.wizard-page .survey-body--top {
+  justify-content: flex-start;
+}
+
+/* The step's heading block: an accent icon disc, a big centred title, then the
+   body copy — all centred like the onboarding intro. */
 .wizard-step-head {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  align-items: center;
+  text-align: center;
+  gap: 0.4rem;
 }
-.wizard-step-head .edit-sheet-title {
+.wizard-step-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 84px;
+  height: 84px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  margin-bottom: 0.5rem;
+}
+.wizard-title {
   margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.wizard-body-text {
+  text-align: center;
+}
+/* The opt-in steps' CTA reads as part of the centred card, not pinned far below. */
+.wizard-step--success .wizard-step-icon {
+  color: var(--accent);
 }
 
 .wizard-page {
   animation: wizard-page-in 0.25s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+/* A subtle staggered entrance for the heading, mirroring the intro's cascade —
+   replays on every step change because the page is rebuilt each render. */
+.wizard-page .wizard-step-icon {
+  animation: intro-icon-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.wizard-page .wizard-title {
+  animation: intro-text-in 0.42s ease-out 0.1s both;
+}
+.wizard-page .wizard-body-text {
+  animation: intro-text-in 0.42s ease-out 0.18s both;
 }
 
 @keyframes wizard-page-in {
@@ -8647,7 +8738,10 @@ cg-board square.move-dest.oc {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .wizard-page {
+  .wizard-page,
+  .wizard-page .wizard-step-icon,
+  .wizard-page .wizard-title,
+  .wizard-page .wizard-body-text {
     animation: none;
   }
 }
