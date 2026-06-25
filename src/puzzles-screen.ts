@@ -4,7 +4,9 @@
 //     games, a 10-puzzle run that moves your personal puzzle rating. The only
 //     rated mode. Fronted by a "today" hero card (mirrors the Training hero).
 //   • Time Attack — 3 / 5 / 10 min against the clock, 3 mistakes and you're out,
-//     difficulty ramping as you solve. Source pick (Mixed by default). Casual.
+//     difficulty ramping as you solve. Two sources, each with its own per-length
+//     records: "From My Openings" (your repertoire + games) and "Satisfying Traps"
+//     (the Lichess `opening` theme). Casual.
 //   • Practice by opening — drill a single opening; each row shows your accuracy.
 // Openings resolve to Lichess "angle" keys (puzzles.ts); we only offer openings
 // Lichess actually has a puzzle set for. Connecting to Lichess isn't required —
@@ -31,8 +33,18 @@ export interface PuzzlesScreenDeps {
 }
 
 type Source = 'repertoire' | 'games';
-type TaSource = 'repertoire' | 'games' | 'mixed';
+// Time Attack now has just two pools: your own openings (the old "Mixed" — every
+// opening in your repertoire and games) and "Satisfying Traps". Lichess has no
+// real "opening trap" puzzle set, so Traps draws the genuine `opening` theme
+// (opening-phase tactics — where most traps live); see TRAP_ANGLE below.
+type TaSource = 'openings' | 'traps';
 type TaMinutes = 3 | 5 | 10;
+
+// The Lichess puzzle theme behind "Satisfying Traps". `opening` is a real theme
+// that filters to opening-phase tactics; `openingTrap` is NOT a Lichess theme
+// (the API silently returns random puzzles for unknown angles), so we don't use
+// it. Swap this single constant if we ever build a curated trap set.
+const TRAP_ANGLE = 'opening';
 
 const PRACTICE_SOURCE_KEY = 'obertura.puzzles.practiceSource';
 const TA_SOURCE_KEY = 'obertura.puzzles.taSource';
@@ -57,8 +69,7 @@ function setPracticeSource(s: Source): void {
   try { localStorage.setItem(PRACTICE_SOURCE_KEY, s); } catch { /* non-critical */ }
 }
 function getTaSource(): TaSource {
-  const v = localStorage.getItem(TA_SOURCE_KEY);
-  return v === 'repertoire' || v === 'games' ? v : 'mixed';
+  return localStorage.getItem(TA_SOURCE_KEY) === 'traps' ? 'traps' : 'openings';
 }
 function setTaSource(s: TaSource): void {
   try { localStorage.setItem(TA_SOURCE_KEY, s); } catch { /* non-critical */ }
@@ -72,26 +83,39 @@ function setTaTime(m: TaMinutes): void {
 }
 
 const TA_TIMES: readonly TaMinutes[] = [3, 5, 10];
+const TA_SOURCES: readonly TaSource[] = ['openings', 'traps'];
 const TA_BEST_PREFIX = 'obertura.puzzles.taBest.';
 
-// Personal best for a Time Attack length — the most puzzles solved in one run of
-// this duration. One slot per length, mirroring the Training timed bests.
-function getTaBest(m: TaMinutes): number {
-  const n = Number(localStorage.getItem(TA_BEST_PREFIX + m));
+// Personal best for a Time Attack length, tracked independently per source so
+// Openings and Traps each keep their own 3/5/10-minute records. The most puzzles
+// solved in one run of that source + duration.
+function bestKey(source: TaSource, m: TaMinutes): string {
+  return `${TA_BEST_PREFIX}${source}.${m}`;
+}
+function getTaBest(source: TaSource, m: TaMinutes): number {
+  let raw = localStorage.getItem(bestKey(source, m));
+  // Bests used to be un-namespaced (one slot per length, openings-only). Fold any
+  // legacy value into the Openings source so old records survive the refactor.
+  if (raw === null && source === 'openings') raw = localStorage.getItem(TA_BEST_PREFIX + m);
+  const n = Number(raw);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
 }
-function recordTaBest(m: TaMinutes, score: number): boolean {
-  if (score > getTaBest(m)) {
-    try { localStorage.setItem(TA_BEST_PREFIX + m, String(score)); } catch { /* non-critical */ }
+function recordTaBest(source: TaSource, m: TaMinutes, score: number): boolean {
+  if (score > getTaBest(source, m)) {
+    try { localStorage.setItem(bestKey(source, m), String(score)); } catch { /* non-critical */ }
     return true;
   }
   return false;
 }
 
-// Forget every Time Attack best — part of "Reset progress" in Settings.
+// Forget every Time Attack best — part of "Reset progress" in Settings. Clears
+// both sources plus the legacy un-namespaced slots.
 export function clearTaBest(): void {
   for (const m of TA_TIMES) {
     try { localStorage.removeItem(TA_BEST_PREFIX + m); } catch { /* non-critical */ }
+    for (const s of TA_SOURCES) {
+      try { localStorage.removeItem(bestKey(s, m)); } catch { /* non-critical */ }
+    }
   }
 }
 
@@ -175,9 +199,9 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
   // Launch a session over a set of angle entries; one entry = a single opening,
   // many = a "Mixed" rotation. Difficulty is adaptive: rated/practice tracks your
   // rating, Time Attack ramps with the running solved count.
-  function startSession(entries: OpeningEntry[], label: string, mode: PuzzleMode): void {
+  function startSession(entries: OpeningEntry[], label: string, mode: PuzzleMode, taSource: TaSource = 'openings'): void {
     if (entries.length === 0) return;
-    const playAgain = (): void => startSession(entries, label, mode);
+    const playAgain = (): void => startSession(entries, label, mode, taSource);
 
     // Per-session state for the repeat queue: which openings are in scope, the
     // repeats already served (so we don't re-show one mid-run), and a cap so a
@@ -230,7 +254,7 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
         reviewResult(r.puzzle, r.angle, r.family, r.solved);
       },
       onComplete: (s) => {
-        if (mode.kind === 'timed') recordTaBest((mode.ms / 60_000) as TaMinutes, s.solved);
+        if (mode.kind === 'timed') recordTaBest(taSource, (mode.ms / 60_000) as TaMinutes, s.solved);
       },
       onExit: () => { rebuild(); }, // refresh the "today" hero + performance on return
       onPlayAgain: playAgain,
@@ -324,12 +348,37 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
     desc.textContent = 'Beat the clock — 3 mistakes and you’re out. Puzzles get harder as you go.';
     section.appendChild(desc);
 
-    // Time as chips that each show this length's personal best (mirrors the
-    // Training Time-attack card); source stays a compact segmented row below.
+    // Source state is read first: the per-length bests under each time chip belong
+    // to the active source (Openings vs Traps), so switching source re-labels them.
     let time = getTaTime();
+    let taSource = getTaSource();
+
+    // Time as chips that each show this length's personal best (mirrors the
+    // Training Time-attack card); the source toggle sits in a row below.
     const chips = document.createElement('div');
     chips.className = 'timed-chips pz-ta-times';
     const chipEls: HTMLButtonElement[] = [];
+    const bestEls: { m: TaMinutes; el: HTMLSpanElement }[] = [];
+
+    // Paint a chip's "best N" label for the active source (— when there's none).
+    // Animate the count only on first paint; source switches just set the number.
+    const paintBest = (el: HTMLSpanElement, value: number, animate: boolean): void => {
+      el.textContent = '';
+      if (value > 0) {
+        el.appendChild(document.createTextNode('best '));
+        const num = document.createElement('span');
+        num.className = 'timed-chip-best-num';
+        if (animate) { num.textContent = '0'; countUp(num, value); }
+        else num.textContent = String(value);
+        el.appendChild(num);
+      } else {
+        el.textContent = '—';
+      }
+    };
+    const refreshBests = (animate: boolean): void => {
+      for (const { m, el } of bestEls) paintBest(el, getTaBest(taSource, m), animate);
+    };
+
     for (const m of TA_TIMES) {
       const chip = document.createElement('button');
       chip.type = 'button';
@@ -340,20 +389,10 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
       dur.textContent = `${m}m`;
       chip.appendChild(dur);
 
-      const best = getTaBest(m);
       const bestEl = document.createElement('span');
       bestEl.className = 'timed-chip-best';
-      if (best > 0) {
-        bestEl.appendChild(document.createTextNode('best '));
-        const num = document.createElement('span');
-        num.className = 'timed-chip-best-num';
-        num.textContent = '0';
-        bestEl.appendChild(num);
-        countUp(num, best);
-      } else {
-        bestEl.textContent = '—';
-      }
       chip.appendChild(bestEl);
+      bestEls.push({ m, el: bestEl });
 
       chip.addEventListener('click', () => {
         time = m;
@@ -365,14 +404,37 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
       chips.appendChild(chip);
     }
     section.appendChild(chips);
+    refreshBests(true);
 
-    let taSource = getTaSource();
-    if (taSource === 'games' && !hasGames) taSource = 'mixed';
-    const sourceOpts: [TaSource, string][] = hasGames
-      ? [['mixed', 'Mixed'], ['repertoire', 'Repertoire'], ['games', 'Games']]
-      : [['mixed', 'Mixed'], ['repertoire', 'Repertoire']];
-    const sourceRow = segmented<TaSource>(sourceOpts, taSource, (s) => { taSource = s; setTaSource(s); });
-    sourceRow.classList.add('pz-ta-source');
+    // Two pill toggles: your own openings vs the trap-flavoured `opening` theme.
+    // Same pill styling as the old segmented source row, now with a glyph each.
+    const sourceRow = document.createElement('div');
+    sourceRow.className = 'stats-range pz-segmented pz-ta-source';
+    sourceRow.setAttribute('role', 'tablist');
+    const sourceDefs: [TaSource, string, () => SVGSVGElement][] = [
+      ['openings', 'From My Openings', () => Icons.pawn(15)],
+      ['traps', 'Satisfying Traps', () => Icons.alert(15)],
+    ];
+    const sourceEls: HTMLButtonElement[] = [];
+    for (const [key, label, icon] of sourceDefs) {
+      const pill = document.createElement('button');
+      pill.type = 'button';
+      pill.className = 'stats-range-chip pz-ta-source-chip' + (key === taSource ? ' stats-range-chip--on' : '');
+      pill.appendChild(icon());
+      const txt = document.createElement('span');
+      txt.textContent = label;
+      pill.appendChild(txt);
+      pill.addEventListener('click', () => {
+        if (key === taSource) return;
+        taSource = key;
+        setTaSource(key);
+        for (const p of sourceEls) p.classList.remove('stats-range-chip--on');
+        pill.classList.add('stats-range-chip--on');
+        refreshBests(false); // swap the chip bests to the newly-selected source
+      });
+      sourceEls.push(pill);
+      sourceRow.appendChild(pill);
+    }
     section.appendChild(sourceRow);
 
     const start = document.createElement('button');
@@ -380,13 +442,15 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
     start.className = 'btn-primary pz-ta-start';
     start.textContent = 'Start Time Attack';
     start.addEventListener('click', () => {
-      const pool = taSource === 'repertoire' ? repEntries
-        : taSource === 'games' ? gameEntries
-        : allEntries;
-      const entries = pool.length ? pool : allEntries;
-      const label = taSource === 'mixed' ? 'Time Attack — Mixed'
-        : taSource === 'games' ? 'Time Attack — Games' : 'Time Attack — Repertoire';
-      startSession(entries, label, { kind: 'timed', ms: time * 60_000, maxMistakes: 3 });
+      const mode: PuzzleMode = { kind: 'timed', ms: time * 60_000, maxMistakes: 3 };
+      if (taSource === 'traps') {
+        // One synthetic entry pointed at the Lichess `opening` theme — no opening
+        // family/colour, so it works even with an empty repertoire.
+        const trapEntry: OpeningEntry = { angle: TRAP_ANGLE, family: 'Opening trap', weight: 1 };
+        startSession([trapEntry], 'Time Attack — Traps', mode, 'traps');
+      } else {
+        startSession(allEntries, 'Time Attack — Openings', mode, 'openings');
+      }
     });
     section.appendChild(start);
 
