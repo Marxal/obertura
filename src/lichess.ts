@@ -151,6 +151,13 @@ function sinceMs(months: Range): number {
 // for one more than the hard cap (max+1): if the server can fill it, the core's
 // cap logic trips on game #1001 and correctly reports truncation; otherwise the
 // whole window fits and nothing is dropped.
+//
+// The response can be large and slow to arrive, so we read it progressively off
+// the response body stream (rather than buffering the whole thing with
+// `res.text()` first) and emit a batch every 50 lines AS THEY ARRIVE. That keeps
+// `gamesSoFar` — and so the scan's progress bar — climbing in real time through
+// the whole download instead of sitting still and then jumping all at once once
+// the full body has landed.
 export const fetchLichess: SourceFetch = async (username, months, emit) => {
   const user = username.trim();
   if (!user) throw new Error('Enter your Lichess username first.');
@@ -167,30 +174,63 @@ export const fetchLichess: SourceFetch = async (username, months, emit) => {
   if (res.status === 429) throw new Error('Lichess rate limit hit — wait a moment and try again.');
   if (!res.ok) throw new Error(`Lichess API error ${res.status} ${res.statusText}`);
 
-  // The response is NDJSON; max+1 caps it well under any streaming concern, so
-  // read it whole and emit in chunks for a smooth progress line.
-  const text = await res.text();
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-
   const CHUNK = 50;
-  let done = 0;
-  for (let i = 0; i < lines.length; i += CHUNK) {
-    const slice = lines.slice(i, i + CHUNK);
-    const batch: NormalisedGame[] = [];
-    for (const line of slice) {
-      let obj: LichessGame;
-      try {
-        obj = JSON.parse(line) as LichessGame;
-      } catch {
-        continue;
-      }
-      const norm = normaliseLichess(obj);
+  let batch: NormalisedGame[] = [];
+  let linesSinceFlush = 0;
+  let totalDone = 0;
+  let cancelled = false;
+
+  // One NDJSON line in: parse, normalise, fold into the pending batch, and flush
+  // every CHUNK lines (blank lines don't count, matching the old whole-body split).
+  async function handleLine(line: string): Promise<void> {
+    if (cancelled) return;
+    const trimmed = line.trim();
+    if (!trimmed) return;
+    try {
+      const norm = normaliseLichess(JSON.parse(trimmed) as LichessGame);
       if (norm) batch.push(norm);
+    } catch {
+      // one malformed line shouldn't sink the stream
     }
-    done += slice.length;
-    const keepGoing = await emit(batch, { monthsTotal: lines.length, monthsDone: done, label: 'Lichess' });
-    if (!keepGoing) break;
+    totalDone++;
+    linesSinceFlush++;
+    if (linesSinceFlush >= CHUNK) {
+      const keepGoing = await emit(batch, { monthsTotal: 1, monthsDone: totalDone, label: 'Lichess' });
+      batch = [];
+      linesSinceFlush = 0;
+      if (!keepGoing) cancelled = true;
+    }
   }
+
+  if (res.body) {
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (!cancelled) {
+      const { value, done: streamDone } = await reader.read();
+      if (streamDone) break;
+      buffer += decoder.decode(value, { stream: true });
+      let nl: number;
+      while ((nl = buffer.indexOf('\n')) >= 0) {
+        const line = buffer.slice(0, nl);
+        buffer = buffer.slice(nl + 1);
+        await handleLine(line);
+        if (cancelled) break;
+      }
+    }
+    if (!cancelled && buffer) await handleLine(buffer);
+    if (cancelled) await reader.cancel().catch(() => {});
+  } else {
+    // No streamable body (older runtime) — fall back to a whole-body read,
+    // processed the same way so the cap/cancel logic stays identical.
+    const text = await res.text();
+    for (const line of text.split('\n')) {
+      await handleLine(line);
+      if (cancelled) break;
+    }
+  }
+
+  if (batch.length) await emit(batch, { monthsTotal: 1, monthsDone: totalDone, label: 'Lichess' });
 
   return 1; // one streamed window
 };

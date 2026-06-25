@@ -46,7 +46,7 @@ import {
 } from './lichess';
 import { clearGames, saveGames, countGames } from './storage';
 import { pushBack } from './back-nav';
-import { createImportLoader, type ImportLoader } from './import-progress';
+import { createImportLoader, approxScanFraction, type ImportLoader } from './import-progress';
 import { userAvatar } from './avatar';
 import { Icons } from './icons';
 import { wdlBlock } from './wdl-bar';
@@ -465,13 +465,11 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     scanBtn.disabled = true;
     scanBtn.textContent = 'Scanning…';
 
-    // The scan takes over the whole screen. "All" reaches an unknown end (the
-    // 1000-game cap can trip in any month), so it stays indeterminate; the fixed
-    // ranges switch to a proportional fill on the first progress with a real
-    // total.
-    const indeterminate = range === 'all';
+    // The scan takes over the whole screen. Neither platform reports a known
+    // total up front, so the fill tracks approxScanFraction(gamesSoFar) the
+    // whole way through — same curve for both, always moving forward.
     loader = createImportLoader();
-    loader.start(indeterminate);
+    loader.start();
     loader.setStatus('Looking up your games…');
     document.body.appendChild(loader.el);
     // The system back gesture dismisses the loader and returns to step 1; the
@@ -508,7 +506,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
           loader?.setStatus(p.monthsTotal > 1
             ? `Scanning ${p.label} (${p.monthsDone}/${p.monthsTotal}) — ${p.gamesSoFar} games so far…`
             : `${p.gamesSoFar} games so far…`);
-          if (!indeterminate && p.monthsTotal > 1) loader?.set(p.monthsDone / p.monthsTotal);
+          loader?.set(approxScanFraction(p.gamesSoFar));
         },
       });
       if (scanCancelled) return; // backed out mid-scan — drop the result quietly

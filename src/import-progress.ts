@@ -1,13 +1,11 @@
 // A tiny pixel-pawn progress bar for the import scan (see import-panel.ts).
 //
-// One little 8-bit pawn marches along a track. Two modes, both driven from the
-// import fetcher's onProgress (monthsDone / monthsTotal):
-//
-//   • DETERMINATE — when we know the total (e.g. the 1m/3m/12m ranges): the fill
-//     grows to monthsDone/monthsTotal and the pawn rides its leading edge.
-//   • INDETERMINATE — when the end is unknown (the "All" range, or a single
-//     archive where per-month progress isn't meaningful): the pawn walks the
-//     whole rail on a loop, laying a trail that resets, until we snap to 100%.
+// One little 8-bit pawn marches along a track. Neither source ever reports a
+// known total up front (Lichess streams one window; Chess.com's archive count
+// is a moving estimate), so the fill is driven from approxScanFraction(),
+// below — an asymptotic curve over gamesSoFar that always inches forward and
+// never resets, so the bar reads the same way on both platforms and never
+// appears to move backward.
 //
 // The pawn is inline pixel-art SVG (blocky, crisp edges), themed in --accent.
 // prefers-reduced-motion is honoured in CSS: no walking, no marching legs — just
@@ -138,15 +136,25 @@ export function createFactsTicker(): FactsTicker {
   };
 }
 
+// A scan never reports a known total up front (Lichess streams one window;
+// Chess.com's archive count is a moving estimate), so the bar can't ever know
+// "100%" until done() is called. Instead it crawls toward a soft ceiling as
+// games come in — strictly monotonic (never resets, never moves backward) and
+// asymptotic, so it keeps inching forward however long the scan takes.
+const SCAN_FRACTION_SOFTCAP = 0.92;
+const SCAN_FRACTION_K = 220;
+export function approxScanFraction(gamesSoFar: number): number {
+  return Math.min(SCAN_FRACTION_SOFTCAP, gamesSoFar / (gamesSoFar + SCAN_FRACTION_K));
+}
+
 export interface PawnProgress {
   // The element to drop into the DOM. Hidden until start().
   readonly el: HTMLElement;
-  // Show the bar and begin walking (indeterminate). Call set() to switch it to a
-  // proportional fill once a real total is known.
+  // Show the bar at 0% and begin tracking.
   start(): void;
-  // Determinate update: fraction in 0..1. Flips the bar out of indeterminate.
+  // Update: fraction in 0..1.
   set(fraction: number): void;
-  // Finished: stop walking and snap the fill (and pawn) to 100%.
+  // Finished: snap the fill (and pawn) to 100%.
   done(): void;
   // Reset and hide.
   hide(): void;
@@ -185,32 +193,23 @@ export function createPawnProgress(): PawnProgress {
     el.setAttribute('aria-valuenow', String(Math.round(p)));
   }
 
-  // Clear the inline left/width so the indeterminate CSS keyframes can drive them.
-  function clearInline(): void {
-    fill.style.width = '';
-    pawn.style.left = '';
-    el.removeAttribute('aria-valuenow');
-  }
-
   return {
     el,
     start(): void {
       el.hidden = false;
-      el.classList.add('pawn-progress--indeterminate');
-      clearInline();
+      setPct(0);
     },
     set(fraction: number): void {
-      el.classList.remove('pawn-progress--indeterminate');
       setPct(fraction * 100);
     },
     done(): void {
-      el.classList.remove('pawn-progress--indeterminate');
       setPct(100);
     },
     hide(): void {
       el.hidden = true;
-      el.classList.remove('pawn-progress--indeterminate');
-      clearInline();
+      fill.style.width = '';
+      pawn.style.left = '';
+      el.removeAttribute('aria-valuenow');
     },
   };
 }
@@ -226,9 +225,9 @@ export function createPawnProgress(): PawnProgress {
 export interface ImportLoader {
   // The full-screen overlay. Append to document.body to show; remove() to close.
   readonly el: HTMLElement;
-  // Show the bar walking. Pass true for an unknown end (the "All" range).
-  start(indeterminate: boolean): void;
-  // Proportional fill, fraction 0..1 (flips the bar out of indeterminate).
+  // Show the bar at 0% and begin tracking.
+  start(): void;
+  // Proportional fill, fraction 0..1. Always monotonic — never moves backward.
   set(fraction: number): void;
   // The status line under the bar.
   setStatus(text: string): void;
@@ -281,9 +280,8 @@ export function createImportLoader(): ImportLoader {
 
   return {
     el,
-    start(indeterminate: boolean): void {
+    start(): void {
       bar.start();
-      if (!indeterminate) bar.set(0);
     },
     set(fraction: number): void {
       bar.set(fraction);

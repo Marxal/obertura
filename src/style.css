@@ -5595,42 +5595,12 @@ cg-board square.move-dest.oc {
   50%      { transform: translateY(-1px); }
 }
 
-/* Indeterminate: the pawn walks the full rail on a loop, laying a trail that
-   resets — used when the end is unknown ("All", or a single archive). */
-.pawn-progress--indeterminate .pawn-progress-pawn {
-  transition: none;
-  animation: pawn-walk-across 1.7s linear infinite;
-}
-.pawn-progress--indeterminate .pawn-progress-fill {
-  transition: none;
-  animation: pawn-trail-across 1.7s linear infinite;
-}
-
-@keyframes pawn-walk-across {
-  0%   { left: 0%; }
-  100% { left: 100%; }
-}
-@keyframes pawn-trail-across {
-  0%   { width: 0%; }
-  100% { width: 100%; }
-}
-
 /* Reduced motion: no walking, no bobbing legs — a calm, static bar. The fill
-   snaps without easing; an indeterminate scan just shows a parked half-full bar
-   (the status text below carries the live count). */
+   snaps without easing. */
 @media (prefers-reduced-motion: reduce) {
   .pawn-progress-pawn,
   .pawn-progress-fill { transition: none; }
   .pawn-progress-pawn-svg .pawn-foot { animation: none; }
-  .pawn-progress--indeterminate .pawn-progress-pawn {
-    animation: none;
-    left: 50%;
-  }
-  .pawn-progress--indeterminate .pawn-progress-fill {
-    animation: none;
-    width: 50%;
-    background: color-mix(in srgb, var(--accent) 55%, transparent);
-  }
 }
 
 /* ── Settings · Your games ──────────────────────────────────────────────────── */
