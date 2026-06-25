@@ -65,12 +65,12 @@ const APP_FACTS: string[] = [
   'But we mere humans do. 😄',
 ];
 
-const TYPE_CHAR_MS = 28;   // per code-point while typing — fast but legible
-const FADE_MS = 280;       // cross-fade between facts
+const TYPE_CHAR_MS = 16;   // per code-point while typing — fast but legible
+const FADE_MS = 180;       // cross-fade between facts
 
 // Hold time once a fact is fully shown: enough to read, scaled to length, capped.
 function readMs(text: string): number {
-  return Math.min(2800, Math.max(1100, text.length * 45));
+  return Math.min(1600, Math.max(650, text.length * 26));
 }
 
 export interface FactsTicker {
