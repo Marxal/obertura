@@ -1107,6 +1107,8 @@ cg-board square.move-dest.oc {
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   overscroll-behavior-x: contain;
+  /* Smooth the JS height change when the pull-up handle expands/collapses. */
+  transition: height 0.25s ease;
 }
 .builder-carousel::-webkit-scrollbar { display: none; }
 
@@ -1506,6 +1508,37 @@ cg-board square.move-dest.oc {
   z-index: 50;
   background: var(--bg-card);
   border-top: 1px solid var(--border-card);
+}
+
+/* Pull-up handle: a thin, discrete grabber above the slide tabs. Tap to expand
+   the panel into a full-height bottom sheet (the board scrolls out of view), or
+   drag it up like a sheet. Tap again — or drag down — to drop it back. */
+.builder-panel-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 7px 0 5px;
+  border: none;
+  background: transparent;
+  cursor: grab;
+  /* We own the vertical drag, so the browser must not also scroll the page. */
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.builder-panel-handle::before {
+  content: '';
+  width: 34px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--text-faint);
+  opacity: 0.45;
+  transition: opacity 0.12s, width 0.12s, background 0.12s;
+}
+.builder-panel-handle:active::before,
+.builder-panel-handle.expanded::before {
+  opacity: 0.7;
+  width: 44px;
 }
 
 /* The slide tabs: four short labels, the active one underlined in the accent.
