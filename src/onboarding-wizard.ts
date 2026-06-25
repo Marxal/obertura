@@ -236,7 +236,10 @@ function buildNotationStep(): HTMLElement {
     'Pick how moves are written everywhere in the app — you can change this later in Settings.',
   ));
   wrap.appendChild(segmented<MoveNotation>(
-    [{ value: 'standard', label: 'Nf3' }, { value: 'figurine', label: '♞f3' }],
+    [
+      { value: 'standard', label: 'Nf3', sublabel: 'Classic notation' },
+      { value: 'figurine', label: '♞f3', sublabel: 'Emoji notation' },
+    ],
     getMoveNotation(),
     (v) => setMoveNotation(v),
     { fullWidth: true },
@@ -271,7 +274,7 @@ function buildConnectStep(onConnect: () => void): HTMLElement {
 
   const cta = document.createElement('button');
   cta.type = 'button';
-  cta.className = 'btn-primary settings-connect-btn';
+  cta.className = 'btn-primary settings-connect-btn wizard-cta';
   cta.appendChild(Icons.compass(16));
   cta.appendChild(document.createTextNode('Connect to Lichess'));
   cta.addEventListener('click', onConnect);
@@ -291,7 +294,7 @@ function buildImportStep(onImport: () => void): HTMLElement {
 
   const cta = document.createElement('button');
   cta.type = 'button';
-  cta.className = 'btn-primary settings-connect-btn';
+  cta.className = 'btn-primary settings-connect-btn wizard-cta';
   cta.appendChild(Icons.download(16));
   cta.appendChild(document.createTextNode('Import my games'));
   cta.addEventListener('click', onImport);

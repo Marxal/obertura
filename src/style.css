@@ -1743,6 +1743,14 @@ cg-board square.move-dest.oc {
   line-height: 1.15;
 }
 
+.seg-btn-sublabel {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 500;
+  opacity: 0.7;
+  margin-top: 0.15rem;
+}
+
 /* ── Toggle switch ───────────────────────────────────────────────────────── */
 
 .switch {
@@ -8627,6 +8635,28 @@ cg-board square.move-dest.oc {
 }
 .wizard-step-head .edit-sheet-title {
   margin: 0;
+}
+
+.wizard-page {
+  animation: wizard-page-in 0.25s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes wizard-page-in {
+  0%   { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wizard-page {
+    animation: none;
+  }
+}
+
+/* Connect/Import step CTAs read as anchored toward the bottom of the card. */
+.wizard-cta {
+  width: 100%;
+  justify-content: center;
+  margin-top: 1.5rem;
 }
 
 /* ════════════════════════════════════════════════════════════════════════════

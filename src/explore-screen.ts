@@ -164,7 +164,7 @@ async function buildScreen(container: HTMLElement): Promise<void> {
   //    by colour/level, the ones for your openings first). Every card is a
   //    "build a line from it" card; the traps data is lazy-loaded.
   const [trapPacks, starterPacks] = await Promise.all([loadTraps(), loadPacks()]);
-  container.appendChild(linesToTrySection(games, lines, trapPacks, starterPacks));
+  container.appendChild(linesToTrySection(games, lines, trapPacks, starterPacks, container));
 
   // 2) Scout opponents — hidden entirely when scouting is switched off in
   //    Settings (the opponents stay in storage, just out of sight).
@@ -201,11 +201,12 @@ function linesToTrySection(
   lines: Line[],
   packs: TrapPack[],
   starterPacks: Pack[],
+  container: HTMLElement,
 ): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'lines-try';
 
-  const recommended = buildRecommendedTab(games, lines);
+  const recommended = buildRecommendedTab(games, lines, container);
   const trapsTab = buildTrapsTab(packs, games, lines);
   const packsTab = buildPacksTab(starterPacks);
 
@@ -266,6 +267,7 @@ function linesToTrySection(
 function buildRecommendedTab(
   games: ImportedGame[],
   lines: Line[],
+  container: HTMLElement,
 ): { el: HTMLElement; hasContent: boolean } {
   const wrap = document.createElement('div');
   const desc = document.createElement('p');
@@ -282,12 +284,22 @@ function buildRecommendedTab(
     black = recommendedFor(analysis.stats, 'black');
   }
 
+  if (games.length === 0) {
+    wrap.appendChild(buildEmptyState({
+      icon: Icons.sparkles(28),
+      line: 'Import your games to get tailored picks — openings you play a lot but score poorly in.',
+      cta: {
+        label: 'Import your games',
+        onClick: () => openImportPanel({ onImported: () => renderExploreScreen(container) }),
+      },
+    }));
+    return { el: wrap, hasContent: false };
+  }
+
   if (white.length === 0 && black.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'section-desc';
-    empty.textContent = games.length === 0
-      ? 'Import your games to get tailored picks.'
-      : 'No weak spots to flag yet — nice. Check back after more games.';
+    empty.textContent = 'No weak spots to flag yet — nice. Check back after more games.';
     wrap.appendChild(empty);
     return { el: wrap, hasContent: false };
   }
