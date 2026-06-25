@@ -91,6 +91,9 @@ export interface WizardOptions {
 
 export function showOnboardingWizard(opts: WizardOptions): void {
   let step = takeStashedStep() ?? 0;
+  // How many games the in-wizard import pulled in (null until it runs). Drives the
+  // import step's success state, so importing confirms in place instead of jumping.
+  let importedCount: number | null = null;
 
   const overlay = document.createElement('div');
   overlay.className = 'edit-overlay edit-overlay--full wizard-overlay';
@@ -114,17 +117,19 @@ export function showOnboardingWizard(opts: WizardOptions): void {
 
   function render(): void {
     overlay.innerHTML = '';
-    overlay.appendChild(buildPage(step, {
+    overlay.appendChild(buildPage(step, importedCount, {
       onBack: () => { step--; render(); },
       onNext: () => { step++; render(); },
       onConnect: () => {
-        stashStep(IMPORT_STEP);
+        // Resume on THIS step after the OAuth round-trip, so the connect screen
+        // can confirm success in place rather than skipping ahead.
+        stashStep(CONNECT_STEP);
         void connect();
       },
       onImport: () => {
-        // A successful import lands on the closing "all set" screen rather than
-        // bailing straight out of setup.
-        openImportPanel({ onImported: () => { step = ALLSET_STEP; render(); } });
+        // A successful import confirms in place (success + game count) rather than
+        // bailing out of setup — the user taps Continue to move on.
+        openImportPanel({ onImported: (count) => { importedCount = count; render(); } });
       },
       onFinish: finish,
     }));
@@ -142,7 +147,7 @@ interface StepActions {
   onFinish: () => void;
 }
 
-function buildPage(step: number, actions: StepActions): HTMLElement {
+function buildPage(step: number, importedCount: number | null, actions: StepActions): HTMLElement {
   const page = document.createElement('div');
   page.className = 'edit-sheet edit-sheet--full survey-page wizard-page';
 
@@ -159,22 +164,25 @@ function buildPage(step: number, actions: StepActions): HTMLElement {
   header.appendChild(dots);
   page.appendChild(header);
 
-  // ── Body: the step's content ──
+  // ── Body: the step's content, centred in the screen (the theme step is the one
+  // tall step, so it top-aligns and scrolls if it has to). ──
   const body = document.createElement('div');
-  body.className = 'survey-body';
+  body.className = 'survey-body wizard-body' + (step === 1 ? ' wizard-body--top' : '');
   if (step === 0) body.appendChild(buildNotationStep());
   else if (step === 1) body.appendChild(buildThemeStep());
   else if (step === CONNECT_STEP) body.appendChild(buildConnectStep(actions.onConnect));
-  else if (step === IMPORT_STEP) body.appendChild(buildImportStep(actions.onImport));
+  else if (step === IMPORT_STEP) body.appendChild(buildImportStep(importedCount, actions.onImport));
   else body.appendChild(buildAllSetStep());
   page.appendChild(body);
 
   // ── Footer: a primary advance button (when the step has one), plus discrete
-  // Back / Skip links styled like the survey's. Opt-in steps (Connect, Import)
-  // carry their own full-width CTA in the body, so there the only way forward is
-  // the discrete Skip — no competing primary. ──
+  // Back / Skip links styled like the survey's. Opt-in steps carry their own
+  // full-width CTA in the body, so the only way forward there is the discrete
+  // Skip — no competing primary. Once a step has succeeded (Lichess connected,
+  // games imported) it stops being opt-in and the primary Continue returns. ──
   const connected = isConnected();
-  const isOptIn = (step === CONNECT_STEP && !connected) || step === IMPORT_STEP;
+  const imported = importedCount !== null;
+  const isOptIn = (step === CONNECT_STEP && !connected) || (step === IMPORT_STEP && !imported);
 
   const footer = document.createElement('div');
   footer.className = 'survey-footer';
@@ -183,7 +191,7 @@ function buildPage(step: number, actions: StepActions): HTMLElement {
     const primary = document.createElement('button');
     primary.type = 'button';
     primary.className = 'btn-primary survey-next';
-    primary.textContent = step === ALLSET_STEP ? 'Go to train' : 'Continue';
+    primary.textContent = step === ALLSET_STEP ? 'Start with Obertura' : 'Continue';
     primary.addEventListener('click', step === ALLSET_STEP ? actions.onFinish : actions.onNext);
     footer.appendChild(primary);
   }
@@ -212,16 +220,27 @@ function buildPage(step: number, actions: StepActions): HTMLElement {
   return page;
 }
 
-function stepHeading(title: string, body: string): HTMLElement {
+// The shared step header: an optional accent icon disc (intro-style), a big
+// centred title, then one or more body paragraphs. The icon is omitted on the
+// theme step (it's visual enough on its own, and the room is better spent
+// keeping every control on one screen).
+function stepHeading(title: string, body: string, icon?: SVGElement): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'wizard-step-head';
+  if (icon) {
+    const disc = document.createElement('div');
+    disc.className = 'wizard-step-icon';
+    disc.setAttribute('aria-hidden', 'true');
+    disc.appendChild(icon);
+    wrap.appendChild(disc);
+  }
   const h = document.createElement('h3');
-  h.className = 'edit-sheet-title';
+  h.className = 'edit-sheet-title wizard-title';
   h.textContent = title;
   wrap.appendChild(h);
   for (const para of body.split('\n\n')) {
     const p = document.createElement('p');
-    p.className = 'section-desc';
+    p.className = 'section-desc wizard-body-text';
     p.textContent = para;
     wrap.appendChild(p);
   }
@@ -234,6 +253,7 @@ function buildNotationStep(): HTMLElement {
   wrap.appendChild(stepHeading(
     'How should moves look?',
     'Pick how moves are written everywhere in the app — you can change this later in Settings.',
+    Icons.list(40),
   ));
   wrap.appendChild(segmented<MoveNotation>(
     [
@@ -265,17 +285,25 @@ function buildConnectStep(onConnect: () => void): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'survey-step wizard-step';
 
+  // After the OAuth round-trip we resume here connected — confirm it in place
+  // (a success header) and let the footer's Continue carry on.
   if (isConnected()) {
-    wrap.appendChild(stepHeading('Connected to Lichess', 'You\'re all set — tap Continue.'));
+    wrap.appendChild(stepHeading(
+      'Connected to Lichess',
+      'You’ve unlocked the live opening library, a stronger engine, and the ' +
+        'Lichess puzzle dashboard. Tap Continue.',
+      Icons.checkCircle(40),
+    ));
+    wrap.classList.add('wizard-step--success');
     return wrap;
   }
 
-  wrap.appendChild(stepHeading('Connect to Lichess?', LICHESS_CONNECT_BLURB));
+  wrap.appendChild(stepHeading('Unlock Features with Lichess', LICHESS_CONNECT_BLURB, Icons.link(40)));
 
   const cta = document.createElement('button');
   cta.type = 'button';
   cta.className = 'btn-primary settings-connect-btn wizard-cta';
-  cta.appendChild(Icons.compass(16));
+  cta.appendChild(Icons.link(16));
   cta.appendChild(document.createTextNode('Connect to Lichess'));
   cta.addEventListener('click', onConnect);
   wrap.appendChild(cta);
@@ -283,13 +311,29 @@ function buildConnectStep(onConnect: () => void): HTMLElement {
   return wrap;
 }
 
-function buildImportStep(onImport: () => void): HTMLElement {
+function buildImportStep(importedCount: number | null, onImport: () => void): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'survey-step wizard-step';
+
+  // Imported already — confirm in place with the game count; the footer's
+  // Continue moves on to the closing step.
+  if (importedCount !== null) {
+    const games = `${importedCount} game${importedCount === 1 ? '' : 's'}`;
+    wrap.appendChild(stepHeading(
+      'Games imported',
+      `We pulled in ${games}. We'll use them to suggest the openings you actually ` +
+        'play when you build your first lines.',
+      Icons.checkCircle(40),
+    ));
+    wrap.classList.add('wizard-step--success');
+    return wrap;
+  }
+
   wrap.appendChild(stepHeading(
-    'Import your games?',
+    'Start with Your Own Games',
     'Pull your recent games from Chess.com or Lichess to see which openings you ' +
       'actually play — it doesn\'t require login, only your username.',
+    Icons.download(40),
   ));
 
   const cta = document.createElement('button');
@@ -311,6 +355,7 @@ function buildAllSetStep(): HTMLElement {
     'Add at least 5 lines to unlock training — we recommend keeping around 10 ' +
       'active. Enter them yourself, grab a ready-made starter pack, or get ' +
       'recommendations built from the games you just imported.',
+    Icons.sparkles(40),
   ));
   return wrap;
 }

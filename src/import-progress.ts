@@ -15,6 +15,129 @@
 
 import { pixelPawnSvg } from './pixel-pawn';
 
+// ── "Did you know?" facts ticker ──────────────────────────────────────────────
+//
+// An import scan (your games, an opponent scout) can take a while — Chess.com and
+// Lichess are slow to hand over archives. Rather than leave you staring at a bar,
+// the loader types out a short fact about the app, holds it long enough to read,
+// fades it, and types the next — looping the list in order. Pure JS timers driving
+// a typewriter; prefers-reduced-motion swaps the typing for a plain cross-fade.
+
+const APP_FACTS: string[] = [
+  'Meanwhile, let me tell you a few things about the app.',
+  'This app doesn’t store any personal data.',
+  'Everything stays on your phone.',
+  'No subscriptions. No cloud lock-in.',
+  'All your moves stay on your phone.',
+  'You can export and import your data in Settings.',
+  'Sorry this is taking a while…',
+  'It takes some time for Chess.com and Lichess to fetch your games.',
+  'But it’s worth the wait, I promise.',
+  'I recommend saving at least 10 lines.',
+  'The app starts working with just 5 lines.',
+  'But I’m sure you’ll save many more!',
+  'I currently have around 100 lines!',
+  'And I’ve even managed to remember some of them! 😄',
+  'It’s so satisfying when they show up in a game!',
+  'Feel free to send feedback if you like the app.',
+  'And if you don’t like it, that helps me improve too.',
+  'If it’s taking this long, you’ve probably played a lot! 😅',
+  'You can import as many games as you want.',
+  'But I recommend starting with 500.',
+  'If you use the app daily, I’m sure you’ll improve.',
+  'I gained 100+ rating points in my first two weeks.',
+  'That’s a looooooooong wait… 😅',
+  'Stay with me…',
+  '“Obertura” means “Opening” in Catalan.',
+  'Now you’re learning languages too! 🌍',
+  'Soon you’ll be learning new openings.',
+  'Or should I say, “oberturas”? 😄',
+  'Grab a coffee ☕',
+  'Maybe I should have mentioned that earlier…',
+  'Anyway, thanks for waiting.',
+  'And thanks for using Obertura.',
+  'If you like it, share it with your friends.',
+  'Don’t keep it a secret. 🤫',
+  'They deserve to learn chess too.',
+  'Otherwise, it gets boring when you’re the only one winning… 😏',
+  'Just ask Magnus Carlsen. ♟️',
+  'He probably doesn’t need this app.',
+  'But we mere humans do. 😄',
+];
+
+const TYPE_CHAR_MS = 28;   // per code-point while typing — fast but legible
+const FADE_MS = 280;       // cross-fade between facts
+
+// Hold time once a fact is fully shown: enough to read, scaled to length, capped.
+function readMs(text: string): number {
+  return Math.min(2800, Math.max(1100, text.length * 45));
+}
+
+export interface FactsTicker {
+  readonly el: HTMLElement;
+  stop(): void;
+}
+
+export function createFactsTicker(): FactsTicker {
+  const el = document.createElement('p');
+  el.className = 'import-facts';
+  el.setAttribute('aria-live', 'polite');
+  const textEl = document.createElement('span');
+  textEl.className = 'import-facts-text';
+  const caret = document.createElement('span');
+  caret.className = 'import-facts-caret';
+  caret.setAttribute('aria-hidden', 'true');
+  el.append(textEl, caret);
+
+  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  let idx = 0;
+  let stopped = false;
+  const timers: number[] = [];
+  const wait = (ms: number) => new Promise<void>((res) => { timers.push(window.setTimeout(res, ms)); });
+
+  async function run(): Promise<void> {
+    while (!stopped) {
+      const text = APP_FACTS[idx];
+      idx = (idx + 1) % APP_FACTS.length;
+
+      if (reduce) {
+        textEl.textContent = text;
+        el.classList.remove('is-out');
+        await wait(readMs(text) + 600);
+        if (stopped) break;
+        el.classList.add('is-out');
+        await wait(FADE_MS);
+        continue;
+      }
+
+      // Type the fact out a code-point at a time (Array.from keeps emoji whole).
+      const chars = Array.from(text);
+      el.classList.remove('is-out');
+      el.classList.add('is-typing');
+      textEl.textContent = '';
+      for (let i = 1; i <= chars.length; i++) {
+        textEl.textContent = chars.slice(0, i).join('');
+        await wait(TYPE_CHAR_MS);
+        if (stopped) return;
+      }
+      el.classList.remove('is-typing');
+      await wait(readMs(text));
+      if (stopped) break;
+      el.classList.add('is-out');
+      await wait(FADE_MS);
+    }
+  }
+  void run();
+
+  return {
+    el,
+    stop(): void {
+      stopped = true;
+      for (const t of timers) clearTimeout(t);
+    },
+  };
+}
+
 export interface PawnProgress {
   // The element to drop into the DOM. Hidden until start().
   readonly el: HTMLElement;
@@ -140,7 +263,11 @@ export function createImportLoader(): ImportLoader {
   status.className = 'import-loader-status';
   status.setAttribute('aria-live', 'polite');
 
-  card.append(avatar, bar.el, status);
+  // A looping "things about the app" ticker, to fill the wait with something to
+  // read. It runs from the moment the loader mounts and is stopped on remove().
+  const facts = createFactsTicker();
+
+  card.append(avatar, bar.el, status, facts.el);
   el.appendChild(card);
 
   // The three concentric rings that pulse out from behind the avatar block.
@@ -189,6 +316,7 @@ export function createImportLoader(): ImportLoader {
       bar.done();
     },
     remove(): void {
+      facts.stop();
       el.remove();
     },
   };
