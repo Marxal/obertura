@@ -119,9 +119,23 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   function renderLibrary(): void {
     const el = deps.libraryEl;
     el.innerHTML = '';
-    if (!book) { el.appendChild(topBar()); el.appendChild(emptyNote('Loading openings…')); return; }
 
     const fen = deps.getFen();
+
+    // Connected to Lichess: the slide IS the live opening explorer — show the
+    // games (Masters/Lichess) from every position, never the bundled library
+    // list. The downloaded book is only the offline/not-connected fallback;
+    // mixing it in made the slide flip between the library and the games as
+    // book coverage came and went, and hid popular moves that weren't in the
+    // bundled book. One source, every position.
+    if (isConnected()) {
+      el.appendChild(topBar());
+      renderStatMoves(el, fen);
+      return;
+    }
+
+    if (!book) { el.appendChild(topBar()); el.appendChild(emptyNote('Loading openings…')); return; }
+
     const node = bookNodeAt(book, deps.getSans());
     const kids = node ? [...node.children.entries()] : [];
     // Busiest branches first, then alphabetical — mirrors the library explorer.
