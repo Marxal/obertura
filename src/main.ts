@@ -36,6 +36,7 @@ import { showToast } from './toast';
 import { Icons } from './icons';
 import { mountFab, type FabItem, type FabController } from './fab';
 import { importLastGame, hasConnectedAccount } from './import-last';
+import { openBuilderImport } from './builder-import';
 import { openEngineSpar, openExploreOpponent, importOpponentFlow } from './explore-screen';
 import { formatMove } from './notation';
 import { maybeShowSurveyBanner } from './survey';
@@ -396,6 +397,18 @@ function updateMoveNavButtons(): void {
 function setupMoveNav(): void {
   document.getElementById('move-prev')!.addEventListener('click', stepBack);
   document.getElementById('move-next')!.addEventListener('click', stepForward);
+}
+
+// The bar's import icon (next to Flip): open the "Import a game" popup — last
+// game / browse recent / paste PGN — and load whatever's chosen onto the board.
+function setupBuilderImportButton(): void {
+  document.getElementById('builder-import')?.addEventListener('click', () => {
+    openBuilderImport({
+      onLoadGame: (ucis, colour, description) =>
+        buildFromUcis(ucis, colour, [], description ? { description } : {}),
+      onGamesChanged: () => { builderPanels?.reload(); },
+    });
+  });
 }
 
 // ── Builder carousel (the panels below the board) ───────────────────────────
@@ -1702,6 +1715,9 @@ async function persistCurrentLine(): Promise<{ line: Line; isNew: boolean } | nu
   manualTitle = line.name;
 
   await saveLine(line);
+  // The My-lines slide reads saved lines from storage; refresh it so a just-saved
+  // line shows up in "My saved lines" without leaving the builder.
+  builderPanels?.reloadLines();
   loadedLineId = line.id;
   loadedLineCreatedAt = line.createdAt;
   loadedLineInTraining = line.inTraining;
@@ -2091,6 +2107,8 @@ maybeShowGate(() => requestAnimationFrame(() => {
     // Scouting: import a new opponent, and jump to an opponent's full report.
     onImportOpponent: () => importOpponentFlow(() => builderPanels?.reloadOpponents()),
     onOpenOpponentReport: (id: string) => { openExploreOpponent(id); showView('explore'); },
+    // My lines "Show tree": open the tapped saved line in the builder.
+    onOpenLine,
   });
 
   setupSaveButton();
@@ -2098,6 +2116,7 @@ maybeShowGate(() => requestAnimationFrame(() => {
   setupTitleControls();
   setupNoteBlock();
   setupMoveNav();
+  setupBuilderImportButton();
   setupBuilderCarousel();
   setupBuilderPanelHandle();
 

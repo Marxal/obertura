@@ -14,7 +14,9 @@
 import { Chess } from 'chess.js';
 import { nameForFen } from './openings';
 import { buildBook, bookNodeAt, loadBookEntries, type BookNode } from './book-tree';
-import { getAllGames, getAllOpponents } from './storage';
+import { getAllGames, getAllOpponents, getAllLines } from './storage';
+import type { Line } from './types';
+import type { MoveNode } from './tree';
 import { buildMoveStats, statAt, statScorePct, gameAtPath, type StatNode } from './move-stats';
 import {
   MAP_MAX_PLIES, MAP_START_PLIES, MAP_STEP_PLIES,
@@ -45,11 +47,13 @@ export interface BuilderPanelsDeps {
   onImportGames: () => void;        // My games empty state → import your games
   onImportOpponent: () => void;     // Scouting → import a new opponent
   onOpenOpponentReport: (id: string) => void; // Scouting → opponent's full report
+  onOpenLine: (line: Line) => void; // My lines "show tree" → open a saved line
 }
 
 export interface BuilderPanels {
   render(): void;                   // repaint every slide for the current position
   reload(): void;                   // re-read games from storage (after an import)
+  reloadLines(): void;              // re-read saved lines from storage (after a save)
   reloadOpponents(): void;          // re-read opponents from storage (after import)
   selectOpponent(id: string): void; // preselect a Scouting opponent (board browser)
   setActiveSlide(index: number): void; // which carousel slide is showing
@@ -61,6 +65,7 @@ const SCOUTING_SLIDE = 4;
 export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   let book: BookNode | null = null;
   let games: ImportedGame[] | null = null;
+  let lines: Line[] | null = null;
   let opponents: Opponent[] | null = null;
   let selectedOppId: string | null = null;       // null → show the opponents list
   let activeSlide = 0;
@@ -76,11 +81,18 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     .then(entries => { book = buildBook(entries); renderLibrary(); })
     .catch(() => { /* leave the loading note */ });
   loadGames();
+  loadLines();
   loadOpponents();
 
   function loadGames(): void {
     getAllGames()
       .then(g => { games = g; statsByColour.clear(); renderGames(); })
+      .catch(() => { /* leave the loading note */ });
+  }
+
+  function loadLines(): void {
+    getAllLines()
+      .then(l => { lines = l; renderGames(); })
       .catch(() => { /* leave the loading note */ });
   }
 
@@ -122,18 +134,16 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
 
     const fen = deps.getFen();
 
-    // Connected to Lichess: the slide IS the live opening explorer — show the
-    // games (Masters/Lichess) from every position, never the bundled library
-    // list. The downloaded book is only the offline/not-connected fallback;
-    // mixing it in made the slide flip between the library and the games as
-    // book coverage came and went, and hid popular moves that weren't in the
-    // bundled book. One source, every position.
-    if (isConnected()) {
-      el.appendChild(topBar());
-      renderStatMoves(el, fen);
-      return;
-    }
-
+    // One reliable path whether or not you're connected: list the bundled book's
+    // named continuations from here (always populated for real theory), and
+    // overlay each with live Lichess W/D/L when connected. Only once the book
+    // runs out do we lean purely on the live explorer (renderStatMoves below).
+    //
+    // The slide used to switch to the *pure* live explorer the moment you
+    // connected — but when the live fetch was blocked or empty (CORS, rate
+    // limit, a deep position) the slide showed nothing, so you had to connect
+    // AND disconnect to coax the moves back. Always rendering the book first
+    // means moves are there immediately; the live data only ever enriches them.
     if (!book) { el.appendChild(topBar()); el.appendChild(emptyNote('Loading openings…')); return; }
 
     const node = bookNodeAt(book, deps.getSans());
@@ -329,17 +339,84 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     });
   }
 
-  // ── Games slide ───────────────────────────────────────────────────────────
+  // ── My lines slide ──────────────────────────────────────────────────────────
+  // Two stacked sections, each listing the continuations from the CURRENT
+  // position and each topped by a discrete "Show tree" link that opens the full
+  // tree for that source:
+  //   • My saved lines — what your own saved repertoire plays from here. Always
+  //     shown, even with no imported games, since it reads from your lines.
+  //   • My games — what you actually played from here in your imported games
+  //     (the old "My games" slide). Offers the import flow when empty.
   function renderGames(): void {
     const el = deps.gamesEl;
     el.innerHTML = '';
-    if (!games) { el.appendChild(emptyNote('Loading your games…')); return; }
+    el.appendChild(savedLinesSection());
+    el.appendChild(myGamesSection());
+  }
 
-    const stats = statsFor(deps.getColour());
-    if (!stats || stats.games === 0) {
-      el.appendChild(emptyNote('No imported games for this colour yet.'));
-      el.appendChild(actionButton('Import games', () => deps.onImportGames()));
-      return;
+  // Section header: a title with a discrete "Show tree" link on the same row.
+  // `onTree` is omitted (no link) when there's nothing to open.
+  function sectionHead(title: string, onTree?: () => void): HTMLElement {
+    const head = document.createElement('div');
+    head.className = 'mylines-head';
+    head.appendChild(span('mylines-head-title', title));
+    if (onTree) {
+      const link = document.createElement('button');
+      link.type = 'button';
+      link.className = 'mylines-tree-link';
+      link.appendChild(Icons.tree(15));
+      link.appendChild(document.createTextNode('Show tree'));
+      link.addEventListener('click', onTree);
+      head.appendChild(link);
+    }
+    return head;
+  }
+
+  function savedLinesSection(): HTMLElement {
+    const wrap = document.createElement('div');
+    wrap.className = 'mylines-section';
+    const colour = deps.getColour();
+    const mine = (lines ?? []).filter(l => l.colour === colour);
+    const hasTree = mine.length > 0;
+
+    wrap.appendChild(sectionHead('My saved lines', hasTree ? () => openSavedTree(mine) : undefined));
+
+    if (!lines) { wrap.appendChild(emptyNote('Loading your lines…')); return wrap; }
+
+    const replies = savedLineReplies(mine, deps.getUcis());
+    if (!replies.length) {
+      wrap.appendChild(emptyNote('No lines saved from here.'));
+      return wrap;
+    }
+    const prefix = movePrefix(deps.getUcis().length);
+    for (const r of replies) {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'bx-row bx-row--plain';
+      row.addEventListener('click', () => deps.onPlay(r.uci));
+      row.appendChild(span('bx-move', `${prefix} ${formatMove(r.san)}`));
+      row.appendChild(span('bx-line-count', `${r.count} line${r.count === 1 ? '' : 's'}`));
+      wrap.appendChild(row);
+    }
+    return wrap;
+  }
+
+  function myGamesSection(): HTMLElement {
+    const wrap = document.createElement('div');
+    wrap.className = 'mylines-section';
+
+    const stats = games ? statsFor(deps.getColour()) : null;
+    const hasGames = !!stats && stats.games > 0;
+    wrap.appendChild(sectionHead('My games', hasGames ? () => openGamesTree() : undefined));
+
+    if (!games) { wrap.appendChild(emptyNote('Loading your games…')); return wrap; }
+
+    // No imported games for this colour: offer the import flow right here so
+    // "My games" is actionable rather than just empty.
+    if (!hasGames) {
+      wrap.appendChild(emptyNote('No games imported yet.'));
+      wrap.appendChild(actionButton('Import my games', () => deps.onImportGames()));
+      return wrap;
     }
 
     // When the line narrows to exactly one of your games, link straight to it —
@@ -352,35 +429,42 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
       a.rel = 'noopener noreferrer';
       a.href = single.url;
       a.textContent = `See full game on ${platformLabel(single.url)} ↗`;
-      el.appendChild(a);
+      wrap.appendChild(a);
     }
 
-    const node = statAt(stats, deps.getUcis());
+    const node = statAt(stats!, deps.getUcis());
     const replies = node ? [...node.children.values()] : [];
     replies.sort((a, b) => b.games - a.games || a.san.localeCompare(b.san));
 
     if (!replies.length) {
-      el.appendChild(emptyNote('No games continue from here.'));
-    } else {
-      const prefix = movePrefix(deps.getUcis().length);
-      for (const c of replies) {
-        const row = document.createElement('button');
-        row.type = 'button';
-        row.className = 'bx-row';
-        row.addEventListener('click', () => deps.onPlay(c.uci));
-
-        row.appendChild(span('bx-move', `${prefix} ${formatMove(c.san)}`));
-        row.appendChild(wdlScoreRow(
-          { wins: c.wins, draws: c.draws, losses: c.losses, scorePct: statScorePct(c), games: c.games },
-          `${c.games}`,
-        ));
-        el.appendChild(row);
-      }
+      wrap.appendChild(emptyNote('No games from here.'));
+      return wrap;
     }
+    const prefix = movePrefix(deps.getUcis().length);
+    for (const c of replies) {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'bx-row';
+      row.addEventListener('click', () => deps.onPlay(c.uci));
+      row.appendChild(span('bx-move', `${prefix} ${formatMove(c.san)}`));
+      row.appendChild(wdlScoreRow(
+        { wins: c.wins, draws: c.draws, losses: c.losses, scorePct: statScorePct(c), games: c.games },
+        `${c.games}`,
+      ));
+      wrap.appendChild(row);
+    }
+    return wrap;
+  }
 
-    // A discrete link to see all of this colour's imported games as one tree —
-    // the same viewer the Explore tab's "Visualize your play" opens.
-    el.appendChild(gamesTreeLink());
+  // Open this colour's saved lines as one merged tree, landed on the current
+  // position. Reuses the repertoire-map viewer with the real Line trees.
+  function openSavedTree(mine: Line[]): void {
+    const colour = deps.getColour();
+    openRepertoireMap(mine, colour, line => deps.onOpenLine(line), {
+      title: 'My saved lines',
+      subtitle: `${mine.length} line${mine.length === 1 ? '' : 's'}`,
+      initialPath: deps.getUcis(),
+    });
   }
 
   // Open the current colour's imported games as a tree (repertoire-map). Reuses
@@ -405,19 +489,6 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
       },
       stats: { tree: buildMoveStats(games, colour, MAP_MAX_PLIES), caption: 'your results', games },
     });
-  }
-
-  function gamesTreeLink(): HTMLElement {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'games-tree-link';
-    btn.innerHTML =
-      '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-      '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="12" r="3"/>' +
-      '<path d="M9 6h3a3 3 0 0 1 3 3v0"/><path d="M9 18h3a3 3 0 0 0 3-3v0"/></svg>' +
-      '<span>Visualise your tree</span>';
-    btn.addEventListener('click', openGamesTree);
-    return btn;
   }
 
   // ── Scouting slide ──────────────────────────────────────────────────────────
@@ -497,7 +568,15 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   }
 
   function renderOpponentList(el: HTMLElement): void {
-    el.appendChild(actionButton('Import opponent', () => deps.onImportOpponent()));
+    // "+ Add opponent" — the same pill the Explore scouting section uses, so the
+    // two entry points read identically.
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'games-refresh-btn scout-add-btn';
+    add.appendChild(Icons.plus(15));
+    add.appendChild(document.createTextNode('Add opponent'));
+    add.addEventListener('click', () => deps.onImportOpponent());
+    el.appendChild(add);
     if (!opponents || opponents.length === 0) {
       el.appendChild(emptyNote('Scout an opponent to walk their games from here.'));
       return;
@@ -547,6 +626,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   return {
     render() { renderLibrary(); renderGames(); renderScouting(); },
     reload() { loadGames(); },
+    reloadLines() { loadLines(); },
     reloadOpponents() { loadOpponents(); },
     selectOpponent(id: string) { selectedOppId = id; renderScouting(); },
     setActiveSlide(index: number) {
@@ -564,6 +644,30 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
 function movePrefix(ply: number): string {
   const num = Math.floor(ply / 2) + 1;
   return ply % 2 === 0 ? `${num}.` : `${num}…`;
+}
+
+// The moves your saved lines continue with from `ucis`, merged across every
+// line that passes through this exact position. `count` is how many of your
+// saved lines play each continuation (so a shared main move floats to the top).
+function savedLineReplies(
+  lines: Line[], ucis: string[],
+): Array<{ san: string; uci: string; count: number }> {
+  const byUci = new Map<string, { san: string; uci: string; count: number }>();
+  for (const line of lines) {
+    let node: MoveNode | undefined = line.tree;
+    let reached = true;
+    for (const u of ucis) {
+      node = node?.children.find(c => c.uci === u);
+      if (!node) { reached = false; break; }
+    }
+    if (!reached || !node) continue;
+    for (const child of node.children) {
+      const existing = byUci.get(child.uci);
+      if (existing) existing.count++;
+      else byUci.set(child.uci, { san: child.san, uci: child.uci, count: 1 });
+    }
+  }
+  return [...byUci.values()].sort((a, b) => b.count - a.count || a.san.localeCompare(b.san));
 }
 
 // Orient Lichess's white/draws/black to the line's own colour, with a score%.
