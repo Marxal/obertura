@@ -476,90 +476,145 @@ function syncScoutingTab(): void {
   if (slide) slide.hidden = !enabled;
 }
 
-// Fit the carousel into the space left between the board and the bottom dock, so
-// each slide scrolls internally and the dock (tabs + arrows) stays pinned. Done
-// in JS rather than CSS math so it's exact regardless of header/board heights.
-// When expanded, the panel is pulled up to fill the whole space between the
-// header (scrolled off the top) and the fixed dock — the bottom-sheet state.
-let builderPanelExpanded = false;
+// ── Builder sheet (draggable Google-Maps-style panel) ───────────────────────
+// The sheet overlays the lower part of the board and snaps between two states:
+//   • default — sits just under the board, which is fully visible.
+//   • full    — pulled up over the board, leaving ~15% of it peeking at the top.
+// Its HEIGHT (bottom-anchored at the control bar) is what changes; the board
+// stays put behind it and the sheet's content scrolls inside. The handle drags
+// or taps between states; an overscroll on the content nudges it too; and a tap
+// on the peeking board drops back to default.
+type SheetState = 'default' | 'full';
+let sheetState: SheetState = 'default';
 
-function sizeBuilderCarousel(): void {
-  const track = document.getElementById('builder-carousel');
+// How much of the board stays visible at the top in the FULL state.
+const SHEET_PEEK = 0.15;
+
+function sheetMetrics(): { barH: number; defaultH: number; fullH: number } {
+  const board = document.getElementById('board-wrap');
   const dock = document.getElementById('builder-dock');
-  const view = document.getElementById('view-builder');
-  if (!track || !dock || !view || currentView !== 'builder') return;
-  const dockH = dock.offsetHeight;
-  if (builderPanelExpanded) {
-    // Fill from the very top of the viewport to the dock. The extra bottom
-    // padding gives the page just enough scroll room to lift the panel's top
-    // all the way up (the board scrolls away above it).
-    view.style.paddingBottom = `${dockH}px`;
-    track.style.height = `${window.innerHeight - dockH}px`;
-  } else {
-    view.style.paddingBottom = '';
-    // Document-relative top, so the maths is right regardless of scroll.
-    const docTop = track.getBoundingClientRect().top + window.scrollY;
-    const h = window.innerHeight - docTop - dockH;
-    if (h > 0) track.style.height = `${h}px`;
-  }
+  const barH = dock?.offsetHeight ?? 56;
+  const rect = board?.getBoundingClientRect();
+  const boardTop = rect?.top ?? 0;
+  const boardH = rect?.height ?? 0;
+  const barTop = window.innerHeight - barH;
+  const fullTop = boardTop + boardH * SHEET_PEEK;       // ~15% of the board peeks
+  const defaultTop = boardTop + boardH;                 // board fully shown
+  return {
+    barH,
+    defaultH: Math.max(96, barTop - defaultTop),
+    fullH: Math.max(96, barTop - fullTop),
+  };
 }
 
-// Pull-up "drag handle" toggle: expand lifts the panel to fill the screen (and
-// auto-scrolls the board out of view); collapse drops it back and returns to the
-// top. Both moves animate — the height via CSS, the scroll via smooth behavior.
-function setBuilderPanelExpanded(expanded: boolean): void {
-  builderPanelExpanded = expanded;
+// Position the sheet for the given height (bottom-anchored above the bar).
+function applySheetHeight(h: number): void {
+  const sheet = document.getElementById('builder-sheet');
+  if (!sheet) return;
+  sheet.style.bottom = `${sheetMetrics().barH}px`;
+  sheet.style.height = `${h}px`;
+}
+
+function layoutBuilderSheet(): void {
+  if (currentView !== 'builder') return;
+  const m = sheetMetrics();
+  applySheetHeight(sheetState === 'full' ? m.fullH : m.defaultH);
+}
+
+function setSheetState(state: SheetState, animate = true): void {
+  sheetState = state;
+  const sheet = document.getElementById('builder-sheet');
   const handle = document.getElementById('builder-panel-handle');
-  handle?.classList.toggle('expanded', expanded);
-  handle?.setAttribute('aria-expanded', String(expanded));
-  handle?.setAttribute('aria-label', expanded ? 'Collapse panel' : 'Expand panel');
-  sizeBuilderCarousel();
-  const track = document.getElementById('builder-carousel');
-  if (!track) return;
-  if (expanded) {
-    // Lift the panel's top up to just below the header.
-    const target = window.scrollY + track.getBoundingClientRect().top;
-    window.scrollTo({ top: target, behavior: 'smooth' });
-  } else {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
+  if (!animate) sheet?.classList.add('builder-sheet--dragging');
+  handle?.classList.toggle('expanded', state === 'full');
+  handle?.setAttribute('aria-expanded', String(state === 'full'));
+  handle?.setAttribute('aria-label', state === 'full' ? 'Collapse panel' : 'Expand panel');
+  layoutBuilderSheet();
+  // Re-enable the height transition after this frame so the next snap animates.
+  if (!animate) requestAnimationFrame(() => sheet?.classList.remove('builder-sheet--dragging'));
 }
 
-// Wire the pull-up handle: a tap toggles; a clear up/down drag sets the state in
-// that direction (and suppresses the trailing synthetic click).
+// Snap to whichever state the live height landed nearer.
+function snapSheet(metrics: { defaultH: number; fullH: number }): void {
+  const sheet = document.getElementById('builder-sheet');
+  const h = sheet?.offsetHeight ?? metrics.defaultH;
+  const mid = (metrics.defaultH + metrics.fullH) / 2;
+  setSheetState(h >= mid ? 'full' : 'default');
+}
+
+// Wire the handle (drag/tap), an overscroll on the slide content, and a tap on
+// the peeking board to drop back to default.
 function setupBuilderPanelHandle(): void {
+  const sheet = document.getElementById('builder-sheet');
   const handle = document.getElementById('builder-panel-handle');
-  if (!handle) return;
-  const THRESHOLD = 24; // px of travel before a drag counts (vs. a tap)
-  let dragging = false;
-  let startY = 0;
-  let moved = 0;
-  let suppressClick = false;
+  if (!sheet || !handle) return;
+  const TAP_SLOP = 6; // movement under this counts as a tap, not a drag
 
+  // Handle drag / tap.
+  let dragging = false, startY = 0, startH = 0, moved = 0, m = sheetMetrics();
   handle.addEventListener('pointerdown', e => {
-    dragging = true;
-    startY = e.clientY;
-    moved = 0;
+    dragging = true; startY = e.clientY; moved = 0;
+    m = sheetMetrics(); startH = sheet.offsetHeight;
+    sheet.classList.add('builder-sheet--dragging');
     handle.setPointerCapture(e.pointerId);
   });
   handle.addEventListener('pointermove', e => {
-    if (dragging) moved = startY - e.clientY; // positive = dragged up
+    if (!dragging) return;
+    moved = startY - e.clientY; // up positive
+    applySheetHeight(Math.max(m.defaultH, Math.min(m.fullH, startH + moved)));
   });
-  const end = (e: PointerEvent) => {
+  const endHandle = (e: PointerEvent) => {
     if (!dragging) return;
     dragging = false;
     try { handle.releasePointerCapture(e.pointerId); } catch { /* already released */ }
-    if (Math.abs(moved) > THRESHOLD) {
-      suppressClick = true;
-      setBuilderPanelExpanded(moved > 0);
-    }
+    sheet.classList.remove('builder-sheet--dragging');
+    if (Math.abs(moved) <= TAP_SLOP) setSheetState(sheetState === 'full' ? 'default' : 'full');
+    else snapSheet(m);
   };
-  handle.addEventListener('pointerup', end);
-  handle.addEventListener('pointercancel', end);
-  // Tap (and keyboard activation) toggles; a drag already handled it above.
-  handle.addEventListener('click', () => {
-    if (suppressClick) { suppressClick = false; return; }
-    setBuilderPanelExpanded(!builderPanelExpanded);
+  handle.addEventListener('pointerup', endHandle);
+  handle.addEventListener('pointercancel', endHandle);
+
+  // Content overscroll: pull the sheet up (in default) or down (in full, at the
+  // content's top) past the edges, like a Google-Maps sheet. Touch only, so the
+  // conditional preventDefault never fights a desktop wheel.
+  const track = document.getElementById('builder-carousel');
+  if (track) {
+    let sY = 0, sX = 0, sH = 0, intercept = false, tm = sheetMetrics();
+    const activeEl = () => track.children[activeSlide] as HTMLElement | undefined;
+    track.addEventListener('touchstart', e => {
+      if (e.touches.length !== 1) return;
+      sY = e.touches[0].clientY; sX = e.touches[0].clientX;
+      tm = sheetMetrics(); sH = sheet.offsetHeight; intercept = false;
+    }, { passive: true });
+    track.addEventListener('touchmove', e => {
+      if (e.touches.length !== 1) return;
+      const dy = sY - e.touches[0].clientY; // up positive
+      const dx = sX - e.touches[0].clientX;
+      if (!intercept) {
+        if (Math.abs(dy) < 8 || Math.abs(dy) <= Math.abs(dx)) return; // not a clear vertical drag
+        const atTop = (activeEl()?.scrollTop ?? 0) <= 0;
+        const wantsExpand = sheetState === 'default' && dy > 0 && atTop;
+        const wantsCollapse = sheetState === 'full' && dy < 0 && atTop;
+        if (!wantsExpand && !wantsCollapse) return;
+        intercept = true;
+        sheet.classList.add('builder-sheet--dragging');
+      }
+      e.preventDefault();
+      applySheetHeight(Math.max(tm.defaultH, Math.min(tm.fullH, sH + dy)));
+    }, { passive: false });
+    const endTouch = () => {
+      if (!intercept) return;
+      intercept = false;
+      sheet.classList.remove('builder-sheet--dragging');
+      snapSheet(tm);
+    };
+    track.addEventListener('touchend', endTouch);
+    track.addEventListener('touchcancel', endTouch);
+  }
+
+  // Tap the peeking board (only reachable in full) to drop back to default.
+  document.getElementById('board-wrap')?.addEventListener('click', () => {
+    if (sheetState === 'full') setSheetState('default');
   });
 }
 
@@ -587,7 +642,7 @@ function setupBuilderCarousel(): void {
     });
   }, { passive: true });
 
-  window.addEventListener('resize', sizeBuilderCarousel);
+  window.addEventListener('resize', layoutBuilderSheet);
 }
 
 // ── Annotation marks ─────────────────────────────────────────────────────────
@@ -1471,19 +1526,15 @@ function showView(view: ViewName): void {
     if (track) track.scrollLeft = slide * track.clientWidth;
     activeSlide = -1;
     onActiveSlide(slide);
-    // Always land at the top with the board in view and the panel collapsed —
-    // the page may have been scrolled down on the previous screen (or the panel
-    // left expanded from a prior visit).
-    builderPanelExpanded = false;
-    const handle = document.getElementById('builder-panel-handle');
-    handle?.classList.remove('expanded');
-    handle?.setAttribute('aria-expanded', 'false');
+    // Always land with the board in view and the sheet collapsed to default — a
+    // prior visit may have left it pulled up over the board.
     window.scrollTo(0, 0);
-    // The carousel can only be sized once the builder is visible (its slides have
-    // zero height while hidden). Re-read games too, in case some were just
-    // imported, then repaint the slides for the current position.
+    setSheetState('default', false);
+    // The sheet/carousel can only be sized once the builder is visible (its
+    // slides have zero height while hidden). Re-read games too, in case some
+    // were just imported, then repaint the slides for the current position.
     requestAnimationFrame(() => {
-      sizeBuilderCarousel();
+      layoutBuilderSheet();
       if (track) track.scrollLeft = slide * track.clientWidth;
       builderPanels?.reload();
       builderPanels?.render();
@@ -2061,10 +2112,10 @@ maybeShowGate(() => requestAnimationFrame(() => {
         engine.disable();
         evalPanel.clear();
       }
-      // The eval bar sits under the board and shows/hides with the engine, so
-      // re-fit the carousel to the new gap and re-sync chessground's bounds.
+      // The eval bar shows/hides with the engine inside the slide; re-sync
+      // chessground's bounds and re-fit the sheet just in case.
       cg.redrawAll();
-      requestAnimationFrame(sizeBuilderCarousel);
+      requestAnimationFrame(layoutBuilderSheet);
     },
     (uci) => playUci(uci),
   );

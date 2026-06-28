@@ -1078,15 +1078,15 @@ cg-board square.move-dest.oc {
    the strip's height. min-height is a floor for very short screens. */
 .builder-carousel {
   display: flex;
-  min-height: 120px;
+  /* Fills the sheet below the handle + tabs; the sheet's height is what snaps. */
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-x: auto;
   overflow-y: hidden;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   overscroll-behavior-x: contain;
-  /* Smooth the JS height change when the pull-up handle expands/collapses. */
-  transition: height 0.25s ease;
 }
 .builder-carousel::-webkit-scrollbar { display: none; }
 
@@ -1488,19 +1488,41 @@ cg-board square.move-dest.oc {
   border-top: 1px solid var(--border-card);
 }
 
-/* Pull-up handle: a thin, discrete grabber above the slide tabs. Tap to expand
-   the panel into a full-height bottom sheet (the board scrolls out of view), or
-   drag it up like a sheet. Tap again — or drag down — to drop it back. */
+/* ── Builder sheet (Google-Maps-style draggable panel) ───────────────────────
+   A fixed sheet that overlays the lower part of the board. Its HEIGHT is set in
+   JS to snap between two states — DEFAULT (sitting just under the board) and
+   FULL (pulled up over the board, leaving ~15% of it peeking at the top). The
+   board stays fixed behind it; the sheet's content scrolls inside. The bottom
+   and height are set in JS (bottom = the control bar's height). */
+.builder-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-card);
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -6px 20px rgba(28, 22, 16, 0.12);
+  transition: height 0.28s ease;
+}
+/* While dragging we follow the finger frame-by-frame — no transition. */
+.builder-sheet--dragging { transition: none; }
+
+/* Grabber at the very top of the sheet — drag up/down to snap, tap to toggle.
+   We own the vertical drag, so the browser must not also scroll the page. */
 .builder-panel-handle {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
-  padding: 7px 0 5px;
+  flex: 0 0 auto;
+  padding: 8px 0 6px;
   border: none;
   background: transparent;
   cursor: grab;
-  /* We own the vertical drag, so the browser must not also scroll the page. */
   touch-action: none;
   -webkit-tap-highlight-color: transparent;
 }
@@ -1511,7 +1533,7 @@ cg-board square.move-dest.oc {
   border-radius: 999px;
   background: var(--text-faint);
   opacity: 0.45;
-  transition: opacity 0.12s, width 0.12s, background 0.12s;
+  transition: opacity 0.12s, width 0.12s;
 }
 .builder-panel-handle:active::before,
 .builder-panel-handle.expanded::before {
@@ -1519,23 +1541,28 @@ cg-board square.move-dest.oc {
   width: 44px;
 }
 
-/* The slide tabs: four short labels, the active one underlined in the accent.
-   This is the carousel's navigation — it sits directly over the step arrows. */
+/* The slide tabs now sit at the TOP of the sheet, directly below the board. They
+   fill the width when there's room and scroll horizontally if ever cramped. */
 .builder-slide-tabs {
   display: flex;
   align-items: stretch;
+  flex: 0 0 auto;
+  overflow-x: auto;
+  scrollbar-width: none;
   border-bottom: 1px solid var(--hairline-soft);
 }
+.builder-slide-tabs::-webkit-scrollbar { display: none; }
 .slide-tab {
-  flex: 1;
+  flex: 1 0 auto;
   appearance: none;
   border: none;
   background: transparent;
   color: var(--text-muted);
-  font-size: 0.7rem;
+  font-size: 0.74rem;
   font-weight: 600;
   letter-spacing: 0.02em;
-  padding: 0.4rem 0.25rem;
+  white-space: nowrap;
+  padding: 0.5rem 0.7rem;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   border-bottom: 2px solid transparent;

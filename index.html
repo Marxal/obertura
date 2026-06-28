@@ -66,7 +66,16 @@
           <div id="board-wrap">
             <div id="board"></div>
           </div>
-          <div id="builder-carousel" class="builder-carousel">
+          <div id="builder-sheet" class="builder-sheet">
+            <button id="builder-panel-handle" class="builder-panel-handle" type="button" aria-label="Expand panel" aria-expanded="false" title="Drag up for more room"></button>
+            <div id="builder-slide-tabs" class="builder-slide-tabs" role="tablist" aria-label="Builder panels">
+              <button class="slide-tab slide-tab--on" data-slide="0" type="button" role="tab" aria-selected="true">Line</button>
+              <button class="slide-tab" data-slide="1" type="button" role="tab" aria-selected="false">Engine</button>
+              <button class="slide-tab" data-slide="2" type="button" role="tab" aria-selected="false">Library</button>
+              <button class="slide-tab" data-slide="3" type="button" role="tab" aria-selected="false">My lines</button>
+              <button class="slide-tab" data-slide="4" type="button" role="tab" aria-selected="false">Scouting</button>
+            </div>
+            <div id="builder-carousel" class="builder-carousel">
             <section class="builder-slide" id="slide-line" aria-label="This line">
               <div id="line-panel">
                 <div class="line-actions">
@@ -95,16 +104,9 @@
             <section class="builder-slide builder-slide--list" id="slide-library" aria-label="Opening library"></section>
             <section class="builder-slide builder-slide--list" id="slide-games" aria-label="Your games"></section>
             <section class="builder-slide builder-slide--list" id="slide-scouting" aria-label="Scouting"></section>
+            </div>
           </div>
           <div id="builder-dock" class="builder-dock">
-            <button id="builder-panel-handle" class="builder-panel-handle" type="button" aria-label="Expand panel" aria-expanded="false" title="Drag up for more room"></button>
-            <div id="builder-slide-tabs" class="builder-slide-tabs" role="tablist" aria-label="Builder panels">
-              <button class="slide-tab slide-tab--on" data-slide="0" type="button" role="tab" aria-selected="true">Line</button>
-              <button class="slide-tab" data-slide="1" type="button" role="tab" aria-selected="false">Engine</button>
-              <button class="slide-tab" data-slide="2" type="button" role="tab" aria-selected="false">Library</button>
-              <button class="slide-tab" data-slide="3" type="button" role="tab" aria-selected="false">My lines</button>
-              <button class="slide-tab" data-slide="4" type="button" role="tab" aria-selected="false">Scouting</button>
-            </div>
             <div id="builder-bar" class="builder-bar">
               <div class="builder-bar-group">
                 <button id="board-flip" type="button" class="bar-btn" aria-label="Flip board view" title="Flip board"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></button>
