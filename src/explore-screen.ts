@@ -1,18 +1,14 @@
-// The Explore tab — visualizing your play, scouting and engine sparring.
-//
-// Top to bottom: a "Browse opening library" launcher leads (a bare button, not a
-// section), then the agreed Explore order:
-//   1. Visualize your play — see your games and repertoire on the board:
-//        • Board browser  — walk positions on a board, with your games' W/D/L
-//                           (formerly the "Line browser"); White/Black toggle.
-//        • Your games tree — what you actually play, from imported games.
-//        • Your repertoire tree — your saved lines as a merged tree.
-//   2. Scout opponents — scout imported opponents; tapping one opens a full-screen
-//                       DETAIL view with their most-played openings per colour and
-//                       their auto-built opening maps. "Add opponent" and a
-//                       per-opponent "Refresh" reuse the one import panel, pointed
-//                       at a scouting sink instead of "my games".
-//   3. Build with the engine — a casual game against the local engine.
+// The Explore tab — three top-level pillars, tabbed exactly like My Lines:
+//   1. Recommended — openings you play a lot but score poorly in, built from
+//                    your imported games. Build a solid line and train it.
+//   2. Packs       — the curated library: starter packs and traps, both
+//                    filterable by colour and by tag (skill level, or "Traps").
+//   3. Scouting    — scout imported opponents; tapping one opens a full-screen
+//                    DETAIL view with their most-played openings per colour and
+//                    their auto-built opening maps. "Add opponent" and a
+//                    per-opponent "Refresh" reuse the one import panel, pointed
+//                    at a scouting sink instead of "my games". Hidden entirely
+//                    when scouting is off in Settings.
 //
 // (Distinct from explore.ts, the in-board explorer.)
 
@@ -150,91 +146,88 @@ export async function openEngineSpar(deps: ExploreDeps): Promise<void> {
 async function buildScreen(container: HTMLElement): Promise<void> {
   container.innerHTML = '';
 
-  // Everything the screen needs, fetched once up front so the sections render in
-  // the agreed order without round-trips: my games + lines feed "Visualize your
-  // play" and the Recommended/Traps relevance, and the opponents feed scouting.
+  // Everything the screen needs, fetched once up front so the tabs render in the
+  // agreed order without round-trips: my games + lines feed Recommended and the
+  // traps relevance, and the opponents feed Scouting.
   const [opponents, lines, games] = await Promise.all([
     getAllOpponents(), getAllLines(), getAllGames(),
   ]);
   // Newest refresh first, so the one you just touched leads.
   opponents.sort((a, b) => b.refreshedAt.localeCompare(a.refreshedAt));
-
-  // 1) Lines to try — Explore leads with this. One My-Lines-style tabbed block:
-  //    Recommended (games-gated picks) and Traps (curated opening traps, filtered
-  //    by colour/level, the ones for your openings first). Every card is a
-  //    "build a line from it" card; the traps data is lazy-loaded.
   const [trapPacks, starterPacks] = await Promise.all([loadTraps(), loadPacks()]);
-  container.appendChild(linesToTrySection(games, lines, trapPacks, starterPacks, container));
 
-  // 2) Scout opponents — hidden entirely when scouting is switched off in
-  //    Settings (the opponents stay in storage, just out of sight).
-  if (getScoutingEnabled()) {
-    container.appendChild(scoutSection(opponents, container));
+  // A "Full report" tap from the builder's Scouting tab asks us to open straight
+  // into one opponent's detail — force the Scouting tab active for it.
+  if (pendingOpponentId && getScoutingEnabled()) exploreTab = 'scouting';
 
-    // A "Full report" tap from the builder's Scouting tab asks us to open
-    // straight into one opponent's detail.
-    if (pendingOpponentId) {
-      const id = pendingOpponentId;
-      pendingOpponentId = null;
-      openDetail(id, container);
-    }
+  container.appendChild(
+    exploreTabsSection(games, lines, trapPacks, starterPacks, opponents, container),
+  );
+
+  if (pendingOpponentId && getScoutingEnabled()) {
+    const id = pendingOpponentId;
+    pendingOpponentId = null;
+    openDetail(id, container);
   } else {
     pendingOpponentId = null;
   }
 }
 
 
-// ── Lines to try (Recommended | Traps tabs) ──────────────────────────────────────
+// ── Explore tabs (Recommended | Packs | Scouting) ────────────────────────────
 
 // Which tab is showing. Module-level so it survives the screen's rebuilds.
-type LinesTryTab = 'recommended' | 'traps' | 'packs';
-let linesTryTab: LinesTryTab | null = null;
+type ExploreTab = 'recommended' | 'packs' | 'scouting';
+let exploreTab: ExploreTab | null = null;
 
-// One block with three tabs, laid out exactly like the My Lines screen (the same
-// .lines-tabs switcher + padded .lines-tab-content body, so the side margins
-// line up): Recommended picks from your games, curated opening traps, and curated
-// starter packs (the same ones onboarding offers). Every card is a "build a line
-// from it" card — tapping it seeds the builder. No section title: Explore leads
-// straight with this.
-function linesToTrySection(
+// One block with the three pillars, laid out exactly like the My Lines screen
+// (the same .lines-tabs switcher + padded .lines-tab-content body, so the side
+// margins line up): Recommended picks from your games, the curated Packs library
+// (starter packs + traps, filterable), and Scouting — hidden entirely when
+// scouting is off in Settings. No section title: Explore leads straight with this.
+function exploreTabsSection(
   games: ImportedGame[],
   lines: Line[],
-  packs: TrapPack[],
+  trapPacks: TrapPack[],
   starterPacks: Pack[],
+  opponents: Opponent[],
   container: HTMLElement,
 ): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'lines-try';
 
+  const scoutingOn = getScoutingEnabled();
   const recommended = buildRecommendedTab(games, lines, container);
-  const trapsTab = buildTrapsTab(packs, games, lines);
-  const packsTab = buildPacksTab(starterPacks);
+  const packsTab = buildPacksTab(starterPacks, trapPacks, games, lines);
 
-  // Default to Recommended when it has real picks, else Traps (always populated).
-  if (linesTryTab === null) linesTryTab = recommended.hasContent ? 'recommended' : 'traps';
+  // Default to Recommended when it has real picks, else Packs (always
+  // populated). Fall back off Scouting if it's no longer available.
+  if (exploreTab === null || (exploreTab === 'scouting' && !scoutingOn)) {
+    exploreTab = recommended.hasContent ? 'recommended' : 'packs';
+  }
 
   const tabs = document.createElement('div');
   tabs.className = 'lines-tabs';
   const content = document.createElement('div');
   content.className = 'lines-tab-content';
 
-  const tabEl = (tab: LinesTryTab): HTMLElement => {
+  const tabEl = (tab: ExploreTab): HTMLElement => {
     if (tab === 'recommended') return recommended.el;
-    if (tab === 'traps') return trapsTab;
-    return packsTab;
+    if (tab === 'packs') return packsTab;
+    return buildScoutingTab(opponents, container);
   };
 
   const render = (): void => {
     content.innerHTML = '';
-    content.appendChild(tabEl(linesTryTab!));
+    content.appendChild(tabEl(exploreTab!));
     tabs.querySelectorAll<HTMLElement>('.lines-tab').forEach(btn => {
-      const active = btn.dataset.tab === linesTryTab;
+      const active = btn.dataset.tab === exploreTab;
       btn.classList.toggle('active', active);
       btn.setAttribute('aria-current', active ? 'true' : 'false');
     });
   };
 
-  const makeTab = (tab: LinesTryTab, label: string, icon: SVGElement): HTMLButtonElement => {
+  const makeTab = (tab: ExploreTab, label: string, icon: SVGElement): HTMLButtonElement => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'lines-tab';
@@ -246,16 +239,16 @@ function linesToTrySection(
     span.textContent = label;
     btn.appendChild(span);
     btn.addEventListener('click', () => {
-      if (linesTryTab === tab) return;
-      linesTryTab = tab;
+      if (exploreTab === tab) return;
+      exploreTab = tab;
       render();
     });
     return btn;
   };
 
   tabs.appendChild(makeTab('recommended', 'Recommended', Icons.sparkles(18)));
-  tabs.appendChild(makeTab('traps', 'Traps', Icons.target(18)));
   tabs.appendChild(makeTab('packs', 'Packs', Icons.build(18)));
+  if (scoutingOn) tabs.appendChild(makeTab('scouting', 'Scouting', Icons.target(18)));
   wrap.appendChild(tabs);
   wrap.appendChild(content);
   render();
@@ -309,34 +302,47 @@ function buildRecommendedTab(
   return { el: wrap, hasContent: true };
 }
 
-// The Traps tab body: curated traps as build-a-line cards, behind the same
-// All / White / Black + level filter bar My Lines uses. Traps in the families
-// you play float to the top (best-effort relevance). Building a trap carries its
-// bait/idea into the builder as a description, so the card stays uncluttered.
-function buildTrapsTab(packs: TrapPack[], games: ImportedGame[], lines: Line[]): HTMLElement {
+// Pack.level isn't a clean skill-level tag for every pack (the onboarding data
+// has one "Easy to learn" outlier) — normalise it so the filter chips match.
+function normalizePackLevel(level: string): string {
+  return level === 'Easy to learn' ? 'Beginner' : level;
+}
+
+// The Packs tab body: curated starter packs (themed sets, each its own titled
+// group) plus curated traps (a flat, relevance-sorted pool) — behind one
+// All / White / Black + tag filter bar. Tags are skill level (Beginner /
+// Intermediate / Advanced) plus a "Traps" content-type tag, OR-matched like
+// every other tag filter in the app. Traps in the families you play float to
+// the top within their group (best-effort relevance); building a trap carries
+// its bait/idea into the builder as a description.
+function buildPacksTab(
+  starterPacks: Pack[],
+  trapPacks: TrapPack[],
+  games: ImportedGame[],
+  lines: Line[],
+): HTMLElement {
   const wrap = document.createElement('div');
   const desc = document.createElement('p');
   desc.className = 'section-desc';
-  desc.textContent =
-    'Famous traps to spring on a careless opponent — build one into a line to train it.';
+  desc.textContent = 'Curated packs and traps — pick one and build a line from it.';
   wrap.appendChild(desc);
 
-  const build = (ucis: string[], colour: 'white' | 'black', description: string) =>
+  const buildTrap = (ucis: string[], colour: 'white' | 'black', description: string) =>
     exploreDeps?.onOpenInBuilder(ucis, colour, { description });
 
-  // Flatten, then float traps in the families you play to the top (stable sort
-  // keeps the pack order — White then Black — within each relevance group).
-  const all = packs.flatMap(p => p.traps.map(t => ({ trap: t, colour: p.colour })));
+  // Flatten the traps, then float traps in the families you play to the top
+  // (stable sort keeps the pack order — White then Black — within each group).
+  const allTraps = trapPacks.flatMap(p => p.traps.map(t => ({ trap: t, colour: p.colour })));
   const relevant = new Set<string>();
   if (games.length > 0) {
     try {
       const wants = analyseGames(games, lines).stats
         .filter(s => s.family !== UNKNOWN_FAMILY)
         .map(s => ({ family: s.family, colour: s.colour }));
-      trapsForPairs(packs, wants).forEach(m => relevant.add(m.trap.name));
+      trapsForPairs(trapPacks, wants).forEach(m => relevant.add(m.trap.name));
     } catch { /* relevance is a bonus; ignore data errors */ }
   }
-  const ordered = [...all].sort(
+  const orderedTraps = [...allTraps].sort(
     (a, b) => (relevant.has(a.trap.name) ? 0 : 1) - (relevant.has(b.trap.name) ? 0 : 1),
   );
 
@@ -345,43 +351,36 @@ function buildTrapsTab(packs: TrapPack[], games: ImportedGame[], lines: Line[]):
 
   const renderList = (sel: FilterSelection): void => {
     list.innerHTML = '';
-    const shown = ordered.filter(x =>
+    const matchingPacks = starterPacks.filter(pack =>
+      (sel.colour === 'all' || pack.colour === sel.colour) &&
+      (sel.tags.length === 0 || sel.tags.includes(normalizePackLevel(pack.level))));
+    const matchingTraps = orderedTraps.filter(x =>
       (sel.colour === 'all' || x.colour === sel.colour) &&
-      (sel.tags.length === 0 || sel.tags.includes(x.trap.level)));
-    if (shown.length === 0) {
+      (sel.tags.length === 0 || sel.tags.includes(x.trap.level) || sel.tags.includes('Traps')));
+
+    if (matchingPacks.length === 0 && matchingTraps.length === 0) {
       const empty = document.createElement('p');
       empty.className = 'section-desc';
-      empty.textContent = 'No traps match these filters.';
+      empty.textContent = 'No packs match these filters.';
       list.appendChild(empty);
       return;
     }
-    for (const x of shown) list.appendChild(trapCard(x.trap, x.colour, build));
+    for (const pack of matchingPacks) {
+      list.appendChild(reportGroup(pack.title, pack.lines.map(line => packLineCard(pack, line))));
+    }
+    if (matchingTraps.length > 0) {
+      list.appendChild(reportGroup('Traps', matchingTraps.map(x => trapCard(x.trap, x.colour, buildTrap))));
+    }
   };
 
   const filter = createFilterBar({
-    persistKey: 'obertura.traps.filter',
-    userTags: ['Intermediate', 'Advanced'],
+    persistKey: 'obertura.packs.filter',
+    userTags: ['Beginner', 'Intermediate', 'Advanced', 'Traps'],
     onChange: renderList,
   });
   wrap.appendChild(filter.element);
   wrap.appendChild(list);
   renderList(filter.selection);
-  return wrap;
-}
-
-// Curated starter packs (the same src/starter-packs.json onboarding offers),
-// grouped by pack — unlike Traps these are themed sets, not a flat pool, so each
-// pack keeps its own titled group rather than being flattened together.
-function buildPacksTab(packs: Pack[]): HTMLElement {
-  const wrap = document.createElement('div');
-  const desc = document.createElement('p');
-  desc.className = 'section-desc';
-  desc.textContent = 'Curated opening packs — pick one and build a line from it.';
-  wrap.appendChild(desc);
-
-  for (const pack of packs) {
-    wrap.appendChild(reportGroup(pack.title, pack.lines.map(line => packLineCard(pack, line))));
-  }
   return wrap;
 }
 
@@ -420,41 +419,37 @@ function packLineCard(pack: Pack, line: { name: string; sans: string[]; ucis: st
   return card;
 }
 
-// ── Scout opponents ────────────────────────────────────────────────────────────
+// ── Scouting ──────────────────────────────────────────────────────────────────
 
-function scoutSection(opponents: Opponent[], container: HTMLElement): HTMLElement {
-  const section = document.createElement('div');
-  section.className = 'section';
-
-  const head = document.createElement('div');
-  head.className = 'section-head';
-  const heading = document.createElement('h2');
-  heading.className = 'section-title';
-  heading.textContent = 'Scout opponents';
-  head.appendChild(heading);
-  const meta = document.createElement('span');
-  meta.className = 'section-meta';
-  meta.textContent = `${opponents.length} / ${MAX_OPPONENTS}`;
-  head.appendChild(meta);
-  section.appendChild(head);
+// The Scouting tab body. No section title here — the tab nav already reads
+// "Scouting" — so the head row pairs the description with the opponent count.
+function buildScoutingTab(opponents: Opponent[], container: HTMLElement): HTMLElement {
+  const wrap = document.createElement('div');
 
   // No opponents yet: the shared empty-state pattern carries the way in (its CTA
   // is the add-opponent flow), so the standalone description + Add button are
   // dropped here to avoid doubling up.
   if (opponents.length === 0) {
-    section.appendChild(buildEmptyState({
+    wrap.appendChild(buildEmptyState({
       icon: Icons.target(28),
       line: 'Scout your first opponent.',
       cta: { label: 'Add opponent', onClick: () => addOpponent(container) },
     }));
-    return section;
+    return wrap;
   }
 
+  const head = document.createElement('div');
+  head.className = 'section-head';
   const desc = document.createElement('p');
   desc.className = 'section-desc';
   desc.textContent =
     'Import an opponent’s games to scout their openings and build a map of what they play.';
-  section.appendChild(desc);
+  head.appendChild(desc);
+  const meta = document.createElement('span');
+  meta.className = 'section-meta';
+  meta.textContent = `${opponents.length} / ${MAX_OPPONENTS}`;
+  head.appendChild(meta);
+  wrap.appendChild(head);
 
   // Add-opponent button.
   const addBtn = document.createElement('button');
@@ -463,14 +458,14 @@ function scoutSection(opponents: Opponent[], container: HTMLElement): HTMLElemen
   addBtn.appendChild(Icons.plus(15));
   addBtn.appendChild(document.createTextNode('Add opponent'));
   addBtn.addEventListener('click', () => addOpponent(container));
-  section.appendChild(addBtn);
+  wrap.appendChild(addBtn);
 
   const list = document.createElement('div');
   list.className = 'group';
   for (const opp of opponents) list.appendChild(opponentCard(opp, container));
-  section.appendChild(list);
+  wrap.appendChild(list);
 
-  return section;
+  return wrap;
 }
 
 // ── Spar with the engine ─────────────────────────────────────────────────────
