@@ -23,7 +23,8 @@ import { EvalPanel } from './eval-panel';
 import { createBuilderPanels, type BuilderPanels } from './builder-panels';
 import { initTheme } from './theme';
 import { initAppearance } from './appearance';
-import { watchSpeedMs, getConfirmRunBeforeTraining, getScoutingEnabled, getShowEngineArrows, setShowEngineArrows } from './prefs';
+import { watchSpeedMs, getConfirmRunBeforeTraining, getScoutingEnabled, getShowEngineArrows, setShowEngineArrows, getShowMoveClassifications } from './prefs';
+import { reviewLine, clearClassifications } from './review';
 import { initBackNav, setViewBack, pushBack } from './back-nav';
 import { showDialog } from './dialog';
 import { openImportPanel, getGamesSource, IDENTITY_CHANGED_EVENT } from './import-panel';
@@ -33,7 +34,7 @@ import { showOnboardingWizard, wizardStepPending } from './onboarding-wizard';
 import { maybeAutoRefreshGames } from './auto-refresh';
 import { maybeShowGate } from './gate';
 import { showToast } from './toast';
-import { Icons } from './icons';
+import { Icons, classIcon, classBoardSvg, CLASS_LABEL } from './icons';
 import { mountFab, type FabItem, type FabController } from './fab';
 import { importLastGame, hasConnectedAccount } from './import-last';
 import { openBuilderImport } from './builder-import';
@@ -310,6 +311,14 @@ function moveSpan(node: MoveNode, activeId: string): HTMLElement {
   span.className = `move-san${node.id === activeId ? ' active' : ''}`;
   span.addEventListener('click', () => handleMoveClick(node.id));
   span.textContent = formatMove(node.san);
+  // Game-review grade: a coloured row tint + a small badge, when enabled.
+  if (node.classification && getShowMoveClassifications()) {
+    span.classList.add(`class--${node.classification}`);
+    span.title = CLASS_LABEL[node.classification];
+    const badge = classIcon(node.classification, 13);
+    badge.classList.add('move-class-badge');
+    span.appendChild(badge);
+  }
   if (node.annotation) {
     const chip = document.createElement('span');
     chip.className = `ann-chip ann-${annClass(node.annotation)}`;
@@ -411,6 +420,58 @@ function setupBuilderImportButton(): void {
   });
 }
 
+// ── Game Review (the bottom-bar Review icon) ────────────────────────────────
+// Runs a Chess.com-style review over the line currently on the board — works the
+// same for a hand-built line and an imported game (both live on this one board).
+// Grades paint in as each move resolves; a second tap cancels a run in progress.
+let reviewAbort: AbortController | null = null;
+
+function setupBuilderReviewButton(): void {
+  document.getElementById('builder-review')?.addEventListener('click', (e) => {
+    void runGameReview(e.currentTarget as HTMLButtonElement);
+  });
+}
+
+async function runGameReview(btn: HTMLButtonElement): Promise<void> {
+  // A second tap while running cancels.
+  if (reviewAbort) {
+    reviewAbort.abort();
+    reviewAbort = null;
+    btn.classList.remove('bar-btn--on');
+    showToast('Review stopped.');
+    return;
+  }
+
+  const nodes = mainline();
+  if (!nodes.length) { showToast('No moves to review yet.'); return; }
+
+  const ctrl = new AbortController();
+  reviewAbort = ctrl;
+  btn.classList.add('bar-btn--on');
+  clearClassifications(nodes);
+  renderMoveList();
+  refreshBoardBadge();
+  showToast(getShowMoveClassifications()
+    ? 'Reviewing game…'
+    : 'Reviewing game… (turn on move highlights in Settings to see it)');
+
+  try {
+    await reviewLine(nodes, {
+      useEngineFallback: true,
+      signal: ctrl.signal,
+      onProgress: () => { renderMoveList(); refreshBoardBadge(); },
+    });
+    if (!ctrl.signal.aborted) showToast('Game review complete.');
+  } catch {
+    if (!ctrl.signal.aborted) showToast('Couldn’t finish the review.');
+  } finally {
+    if (reviewAbort === ctrl) reviewAbort = null;
+    btn.classList.remove('bar-btn--on');
+    renderMoveList();
+    refreshBoardBadge();
+  }
+}
+
 // ── Builder carousel (the panels below the board) ───────────────────────────
 // A paged, swipeable strip — Line / Book / Games / Engine — sharing the one
 // builder board. The tab strip above the step arrows mirrors the active slide
@@ -441,9 +502,10 @@ function onActiveSlide(index: number): void {
   // The engine runs only while its tab is showing: on when you land on it, off
   // when you leave. There's no on/off toggle — the tab IS the switch.
   if (evalPanel) evalPanel.setEnabled(index === ENGINE_SLIDE);
-  // Suggested-move arrows are an Engine-tab-only thing — leaving the tab clears
-  // them immediately rather than waiting on the engine to actually wind down.
-  if (index !== ENGINE_SLIDE && cg) cg.setAutoShapes([]);
+  // Suggested-move arrows are an Engine-tab-only thing — leaving the tab swaps
+  // them for the move's game-review badge (if any) rather than waiting on the
+  // engine to wind down.
+  if (index !== ENGINE_SLIDE && cg) refreshBoardBadge();
 }
 
 // Draw arrows for the engine's top 3 candidates on the board — gated on the
@@ -461,6 +523,20 @@ function drawEngineArrows(result: EvalResult | null): void {
     dest: m.uci.slice(2, 4) as Key,
     brush: brushes[i],
   })));
+}
+
+// Show the active move's game-review badge on its destination square — the
+// non-engine-slide counterpart of the engine arrows. Cleared when classifications
+// are off, on the root, on an un-graded move, or while the Engine tab owns the
+// board (it draws arrows there instead).
+function refreshBoardBadge(): void {
+  if (!cg || activeSlide === ENGINE_SLIDE) return;
+  const node = getCurrentNode();
+  if (getShowMoveClassifications() && node.id !== 'root' && node.classification && node.uci) {
+    cg.setAutoShapes([{ orig: node.uci.slice(2, 4) as Key, customSvg: classBoardSvg(node.classification) }]);
+  } else {
+    cg.setAutoShapes([]);
+  }
 }
 
 // Show or hide the builder's Scouting tab (and its slide) to match the Settings
@@ -939,6 +1015,7 @@ function handleMoveClick(nodeId: string) {
   renderMoveDetails();
   updateOpeningName();
   evalPanel.clear();
+  refreshBoardBadge();
   engine.evaluate(chess.fen());
 }
 
@@ -1190,6 +1267,7 @@ function buildFromUcis(
   renderBuilderDesc();
   updateOpeningName();
   evalPanel.clear();
+  refreshBoardBadge();
   engine.evaluate(chess.fen());
   showView('builder');
 }
@@ -2096,7 +2174,10 @@ maybeShowGate(() => requestAnimationFrame(() => {
   engine = new Engine(import.meta.env.BASE_URL, (result) => {
     evalPanel.update(result, chess.fen());
     lastEngineResult = result;
-    drawEngineArrows(result);
+    // On the Engine tab the result drives the suggestion arrows; elsewhere it
+    // must not wipe the move's review badge, so just keep the badge in sync.
+    if (activeSlide === ENGINE_SLIDE) drawEngineArrows(result);
+    else refreshBoardBadge();
   });
   evalPanel = new EvalPanel(
     document.getElementById('eval-bar-top')!,
@@ -2168,6 +2249,7 @@ maybeShowGate(() => requestAnimationFrame(() => {
   setupNoteBlock();
   setupMoveNav();
   setupBuilderImportButton();
+  setupBuilderReviewButton();
   setupBuilderCarousel();
   setupBuilderPanelHandle();
 

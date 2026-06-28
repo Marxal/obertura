@@ -252,6 +252,127 @@ function uciLineToSan(fen: string, ucis: string[], cap: number): string[] {
 // How many plies of each line to show.
 const PV_DISPLAY_PLIES = 8;
 
+// A parsed Stockfish "info ... multipv ... pv ..." line, white-normalised. Shared
+// by the live Engine class and the one-shot analysePosition() helper so the regex
+// parsing lives in exactly one place.
+interface ParsedPv { pvNum: number; depth: number; uci: string; cp?: number; mate?: number; pv: string[] }
+
+function parseMultiPvLine(line: string, fen: string): ParsedPv | null {
+  if (!(line.startsWith('info') && line.includes('multipv') && line.includes(' pv '))) return null;
+  const depth = parseInt(line.match(/\bdepth (\d+)/)?.[1] ?? '0');
+  const pvNum = parseInt(line.match(/\bmultipv (\d+)/)?.[1] ?? '0');
+  // Capture the WHOLE principal variation after " pv ", not just the first move.
+  const pvMatch = line.match(/\bpv (.+?)\s*$/);
+  const pv = pvMatch ? pvMatch[1].trim().split(/\s+/) : [];
+  if (!pv.length || pvNum < 1) return null;
+  const side = sideToMove(fen);
+  const cpRaw = line.match(/\bscore cp (-?\d+)/)?.[1];
+  const mateRaw = line.match(/\bscore mate (-?\d+)/)?.[1];
+  return {
+    pvNum, depth, uci: pv[0],
+    cp: cpRaw !== undefined ? normCp(parseInt(cpRaw), side) : undefined,
+    mate: mateRaw !== undefined ? normCp(parseInt(mateRaw), side) : undefined,
+    pv,
+  };
+}
+
+// Build white-normalised MoveEval[] from a collected multipv map for `fen`.
+function evalsFromMultiPv(
+  fen: string,
+  multiPv: Map<number, { uci: string; cp?: number; mate?: number; pv: string[] }>,
+): MoveEval[] {
+  const entries = [...multiPv.entries()].sort(([a], [b]) => a - b);
+  return entries.map(([, v]) => {
+    const r = resolveUci(fen, v.uci);
+    return {
+      uci: r?.uci ?? v.uci,
+      san: r?.san ?? v.uci,
+      cp: v.cp,
+      mate: v.mate,
+      sanLine: uciLineToSan(fen, v.pv, PV_DISPLAY_PLIES),
+    };
+  });
+}
+
+// ── One-shot local analysis (the Game Review fallback) ───────────────────────
+// A promise-per-FEN wrapper around a DEDICATED Stockfish worker, separate from
+// any live Engine instance so a running review never blanks the eval panel (and
+// vice-versa). One worker can only search one position at a time, so calls are
+// serialised through a promise chain. Returns white-perspective MoveEval[] (same
+// shape as the cloud path), or [] on any failure.
+
+let reviewWorker: Worker | null = null;
+let reviewReady = false;
+let reviewChain: Promise<unknown> = Promise.resolve();
+// Resolves the in-flight analyseOnce with whatever it has so far — used by
+// cancelLocalAnalysis() so aborting a batch doesn't leave a promise hanging.
+let inflightFinish: (() => void) | null = null;
+
+function getReviewWorker(baseUrl: string): Promise<Worker | null> {
+  if (reviewWorker && reviewReady) return Promise.resolve(reviewWorker);
+  return new Promise((resolve) => {
+    try {
+      const w = new Worker(`${baseUrl}engine/stockfish.js`);
+      w.onmessage = (e: MessageEvent<string>) => {
+        if (e.data === 'readyok') { reviewReady = true; resolve(w); }
+      };
+      w.onerror = () => { reviewWorker = null; reviewReady = false; resolve(null); };
+      reviewWorker = w;
+      reviewReady = false;
+      w.postMessage('uci');
+      w.postMessage('setoption name MultiPV value 3');
+      w.postMessage('isready');
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+function analyseOnce(fen: string, depth: number, baseUrl: string): Promise<MoveEval[]> {
+  return new Promise((resolve) => {
+    void (async () => {
+      const worker = await getReviewWorker(baseUrl);
+      if (!worker) { resolve([]); return; }
+      const multiPv = new Map<number, { uci: string; cp?: number; mate?: number; pv: string[] }>();
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        inflightFinish = null;
+        resolve(evalsFromMultiPv(fen, multiPv));
+      };
+      inflightFinish = finish;
+      worker.onmessage = (e: MessageEvent<string>) => {
+        const msg = e.data;
+        if (typeof msg !== 'string') return;
+        if (msg.startsWith('bestmove')) { finish(); return; }
+        const p = parseMultiPvLine(msg, fen);
+        if (p) multiPv.set(p.pvNum, { uci: p.uci, cp: p.cp, mate: p.mate, pv: p.pv });
+      };
+      worker.postMessage(`position fen ${fen}`);
+      worker.postMessage(`go depth ${depth}`);
+    })();
+  });
+}
+
+export function analysePosition(
+  fen: string,
+  depth = 12,
+  baseUrl: string = import.meta.env.BASE_URL,
+): Promise<MoveEval[]> {
+  const run = reviewChain.then(() => analyseOnce(fen, depth, baseUrl));
+  // Keep the chain alive even if a call rejects, so the next one still runs.
+  reviewChain = run.catch(() => {});
+  return run;
+}
+
+// Stop the review worker's current search and resolve the in-flight call. Safe to
+// call when nothing is running.
+export function cancelLocalAnalysis(): void {
+  if (reviewWorker && reviewReady) reviewWorker.postMessage('stop');
+  inflightFinish?.();
+}
+
 export class Engine {
   private worker: Worker | null = null;
   private workerReady = false;
@@ -320,28 +441,11 @@ export class Engine {
   }
 
   private parseInfo(line: string) {
-    const depth = parseInt(line.match(/\bdepth (\d+)/)?.[1] ?? '0');
-    const pvNum = parseInt(line.match(/\bmultipv (\d+)/)?.[1] ?? '0');
-    // Capture the WHOLE principal variation after " pv ", not just the first
-    // move, so we can show the engine's line.
-    const pvMatch = line.match(/\bpv (.+?)\s*$/);
-    const pv = pvMatch ? pvMatch[1].trim().split(/\s+/) : [];
-    if (!pv.length || pvNum < 1) return;
-
-    const side = sideToMove(this.currentFen);
-    const cpRaw = line.match(/\bscore cp (-?\d+)/)?.[1];
-    const mateRaw = line.match(/\bscore mate (-?\d+)/)?.[1];
-
-    this.multiPv.set(pvNum, {
-      uci: pv[0],
-      cp: cpRaw !== undefined ? normCp(parseInt(cpRaw), side) : undefined,
-      mate: mateRaw !== undefined ? normCp(parseInt(mateRaw), side) : undefined,
-      depth,
-      pv,
-    });
-
+    const p = parseMultiPvLine(line, this.currentFen);
+    if (!p) return;
+    this.multiPv.set(p.pvNum, { uci: p.uci, cp: p.cp, mate: p.mate, depth: p.depth, pv: p.pv });
     // Emit progressive updates once we have a decent depth.
-    if (depth >= 10) this.emit();
+    if (p.depth >= 10) this.emit();
   }
 
   private emit() {

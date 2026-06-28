@@ -1,3 +1,5 @@
+import type { MoveClass } from './winprob';
+
 // The six standard chess annotation marks, strongest to worst.
 export type Annotation = '!!' | '!' | '!?' | '?!' | '?' | '??';
 
@@ -10,6 +12,12 @@ export interface MoveNode {
   note?: string;
   annotation?: Annotation;
   missedThisSession?: boolean;
+  // Game-review grade for the move INTO this node, judged from the parent
+  // position. Optional and serialisable, so it persists if the line is saved and
+  // is simply absent on un-reviewed / old data (no migration). A divergent edit
+  // replaces the node outright, so a grade can never outlive the move it scored.
+  classification?: MoveClass;
+  cpLoss?: number; // centipawns behind the engine's best, for display
   review?: {
     ease: number;
     interval: number;
