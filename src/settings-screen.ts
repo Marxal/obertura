@@ -40,6 +40,8 @@ import {
   setScoutingEnabled,
   getIncludeSecondPlatform,
   setIncludeSecondPlatform,
+  getShowMoveClassifications,
+  setShowMoveClassifications,
 } from './prefs';
 import type { Platform } from './import-games';
 import { getFeedbackSound, setFeedbackSound, previewFeedback } from './sound';
@@ -630,6 +632,12 @@ function buildAppearanceGroup(): HTMLElement {
     'Line position miniatures',
     toggle(getShowLineMiniatures(), (on) => setShowLineMiniatures(on)),
     { sub: 'A tiny board on every saved-line and suggestion card, showing where the line ends up.' },
+  ));
+
+  sec.appendChild(row(
+    'Move classifications',
+    toggle(getShowMoveClassifications(), (on) => setShowMoveClassifications(on)),
+    { sub: 'After a game review, colour each move and badge it (Brilliant, Best, Blunder…) in the move list and on the board.' },
   ));
 
   return sec;

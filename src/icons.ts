@@ -1,6 +1,8 @@
 // Inlined Lucide-style icons (stroke="currentColor", fill="none", strokeWidth=2).
 // Only the icons the app actually uses — no npm overhead.
 
+import type { MoveClass } from './winprob';
+
 function svg(paths: string, size = 16): SVGSVGElement {
   const el = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   el.setAttribute('viewBox', '0 0 24 24');
@@ -76,4 +78,89 @@ export const Icons = {
   moon:     (s?: number) => svg(`<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>`, s),
   sparkles: (s?: number) => svg(`<path d="M9.94 14.06A2 2 0 0 0 8.5 12.6l-5.2-1.35a.5.5 0 0 1 0-.96L8.5 8.94A2 2 0 0 0 9.94 7.5l1.35-5.2a.5.5 0 0 1 .96 0l1.35 5.2a2 2 0 0 0 1.44 1.44l5.2 1.35a.5.5 0 0 1 0 .96l-5.2 1.35a2 2 0 0 0-1.44 1.44l-1.35 5.2a.5.5 0 0 1-.96 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/>`, s),
   gamepad:  (s?: number) => svg(`<line x1="6" x2="10" y1="11" y2="11"/><line x1="8" x2="8" y1="9" y2="13"/><line x1="15" x2="15.01" y1="12" y2="12"/><line x1="18" x2="18.01" y1="10" y2="10"/><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.152A4 4 0 0 0 17.32 5z"/>`, s),
+
+  // The Game-Review icon in the builder bottom bar — a clipboard with a check,
+  // reading as "review / analysed".
+  review:   (s?: number) => svg(`<path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="m9 14 2 2 4-4"/>`, s),
 };
+
+// ── Move-classification badges (Game Review) ─────────────────────────────────
+// Filled circular badges, Chess.com style: a coloured disc with a white symbol.
+// The same glyph is used in the move list (classIcon) and on the board square
+// (classBoardSvg). Colours live here and are mirrored in style.css for the
+// move-list row tint — keep the two palettes in sync.
+
+const CLASS_SYMBOL: Record<MoveClass, string> = {
+  brilliant: '‼',
+  great: '!',
+  best: '★',
+  excellent: '✓',
+  good: '✓',
+  book: 'B',
+  inaccuracy: '?!',
+  mistake: '?',
+  blunder: '??',
+  forced: '□', // the chess notation mark for "only move"
+};
+
+export const CLASS_COLOR: Record<MoveClass, string> = {
+  brilliant: '#1baca6',
+  great: '#5c8bb0',
+  best: '#7ca64d',
+  excellent: '#7ca64d',
+  good: '#9bb068',
+  book: '#a88865',
+  inaccuracy: '#e6b23a',
+  mistake: '#e0822f',
+  blunder: '#c93636',
+  forced: '#9aa0a6',
+};
+
+export const CLASS_LABEL: Record<MoveClass, string> = {
+  brilliant: 'Brilliant',
+  great: 'Great move',
+  best: 'Best move',
+  excellent: 'Excellent',
+  good: 'Good',
+  book: 'Book move',
+  inaccuracy: 'Inaccuracy',
+  mistake: 'Mistake',
+  blunder: 'Blunder',
+  forced: 'Forced',
+};
+
+const BADGE_FONT = 'system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
+
+// A small filled badge for the move list. Colour comes from CSS
+// (.class-badge--<cls>); the symbol is drawn in white.
+export function classIcon(cls: MoveClass, size = 14): SVGSVGElement {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  el.setAttribute('viewBox', '0 0 24 24');
+  el.setAttribute('width', String(size));
+  el.setAttribute('height', String(size));
+  el.setAttribute('aria-hidden', 'true');
+  el.classList.add('class-badge', `class-badge--${cls}`);
+  const sym = CLASS_SYMBOL[cls];
+  const fs = sym.length > 1 ? 12 : 15;
+  el.innerHTML =
+    `<circle cx="12" cy="12" r="12"/>` +
+    `<text x="12" y="13" text-anchor="middle" dominant-baseline="central" ` +
+    `font-size="${fs}" font-weight="800" font-family='${BADGE_FONT}'>${sym}</text>`;
+  return el;
+}
+
+// The board badge for chessground's customSvg: a corner disc on the move's
+// destination square. The inner viewBox 0..100 maps to exactly one square (see
+// the cg-custom-svgs "-3.5 -3.5 8 8" viewBox), so (74,26) is the top-right corner.
+export function classBoardSvg(cls: MoveClass): { html: string; center: 'orig' } {
+  const sym = CLASS_SYMBOL[cls];
+  const fs = sym.length > 1 ? 26 : 34;
+  const color = CLASS_COLOR[cls];
+  return {
+    center: 'orig',
+    html:
+      `<circle cx="74" cy="26" r="22" fill="${color}" stroke="#fff" stroke-width="3"/>` +
+      `<text x="74" y="28" text-anchor="middle" dominant-baseline="central" ` +
+      `font-size="${fs}" font-weight="800" fill="#fff" font-family='${BADGE_FONT}'>${sym}</text>`,
+  };
+}
