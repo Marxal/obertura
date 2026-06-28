@@ -10,6 +10,7 @@ import {
   setBoardColour,
   getPieceSet,
   setPieceSet,
+  boardTextureUrl,
   type BoardColour,
   type PieceSet,
 } from './appearance';
@@ -366,13 +367,25 @@ function toggle(current: boolean, onChange: (v: boolean) => void): HTMLElement {
 
 // ── Appearance ───────────────────────────────────────────────────────────────
 
-// Board preview colours. These hexes MUST match the [data-board] rules in
-// style.css so the swatch shows the real scheme.
-const BOARD_PRESETS: { value: BoardColour; label: string; light: string; dark: string }[] = [
-  { value: 'wood', label: 'Wood', light: '#eecfa1', dark: '#b58863' },
+// Board preview colours, for the flat checker schemes only. These hexes MUST
+// match the [data-board] rules in style.css so the swatch shows the real
+// scheme. The photo/pattern schemes (no light/dark hexes here) use a real
+// image preview instead, resolved via appearance.ts's boardTextureUrl.
+const BOARD_PRESETS: {
+  value: BoardColour;
+  label: string;
+  light?: string;
+  dark?: string;
+}[] = [
+  { value: 'wood', label: 'Brown', light: '#eecfa1', dark: '#b58863' },
   { value: 'green', label: 'Green', light: '#ebecd0', dark: '#779556' },
   { value: 'blue', label: 'Blue', light: '#dee3e6', dark: '#8ca2ad' },
   { value: 'grey', label: 'Grey', light: '#dcdcdc', dark: '#909090' },
+  { value: 'purple-diag', label: 'Purple' },
+  { value: 'wood4', label: 'Wood' },
+  { value: 'newspaper', label: 'Newspaper' },
+  { value: 'olive', label: 'Olive' },
+  { value: 'blue-marble', label: 'Blue Marble' },
 ];
 
 export function boardSwatches(
@@ -397,14 +410,23 @@ export function boardSwatches(
 
     const preview = document.createElement('span');
     preview.className = 'board-swatch-preview';
-    // A 2×2 square checker, same two-gradient technique as the real board. With
-    // background-size 50%, a 50% position offset lands exactly half a tile across.
-    const tile =
-      `linear-gradient(45deg, ${p.dark} 25%, transparent 25%, transparent 75%, ${p.dark} 75%)`;
-    preview.style.backgroundColor = p.light;
-    preview.style.backgroundImage = `${tile}, ${tile}`;
-    preview.style.backgroundSize = '50% 50%';
-    preview.style.backgroundPosition = '0 0, 50% 50%';
+    const texture = boardTextureUrl(p.value);
+    if (texture) {
+      // Photo/pattern schemes: the image already IS the whole checkered board,
+      // so just show it scaled to fill the preview square.
+      preview.style.backgroundImage = `url('${texture}')`;
+      preview.style.backgroundSize = 'cover';
+    } else {
+      // Flat schemes: a 2×2 square checker, same two-gradient technique as the
+      // real board. With background-size 50%, a 50% position offset lands
+      // exactly half a tile across.
+      const tile =
+        `linear-gradient(45deg, ${p.dark} 25%, transparent 25%, transparent 75%, ${p.dark} 75%)`;
+      preview.style.backgroundColor = p.light!;
+      preview.style.backgroundImage = `${tile}, ${tile}`;
+      preview.style.backgroundSize = '50% 50%';
+      preview.style.backgroundPosition = '0 0, 50% 50%';
+    }
 
     const name = document.createElement('span');
     name.className = 'board-swatch-name';
@@ -423,13 +445,19 @@ export function boardSwatches(
   return { element: wrap, reflect };
 }
 
-// The four piece sets, in bundle-first order. cburnett is the bundled default;
+// The ten piece sets, bundled-default first. cburnett is the bundled default;
 // the rest load on demand (see appearance.ts). Licences are recorded in About.
 const PIECE_PRESETS: { value: PieceSet; label: string }[] = [
   { value: 'cburnett', label: 'cburnett' },
-  { value: 'merida', label: 'Merida' },
-  { value: 'chessnut', label: 'Chessnut' },
+  { value: 'maestro', label: 'Maestro' },
+  { value: 'california', label: 'California' },
+  { value: 'mpchess', label: 'Mpchess' },
   { value: 'kiwen-suwi', label: 'Kiwen-Suwi' },
+  { value: 'horsey', label: 'Horsey' },
+  { value: 'gioco', label: 'Gioco' },
+  { value: 'tatiana', label: 'Tatiana' },
+  { value: 'letter', label: 'Letter' },
+  { value: 'anarcandy', label: 'Anarcandy' },
 ];
 
 // A mini two-square preview (light + dark) with two glyphs from the set, drawn

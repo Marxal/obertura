@@ -1012,6 +1012,52 @@ cg-board {
   background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 2" shape-rendering="crispEdges"><rect width="1" height="1" fill="%23dcdcdc"/><rect x="1" y="1" width="1" height="1" fill="%23dcdcdc"/></svg>');
 }
 
+/* Photo/pattern board textures (from lichess: public/boards/*). Unlike the flat
+   schemes above, these images already ARE the whole checkered board, so the
+   square's checker SVG is replaced outright and stretched to fill — no tiling.
+   --board-light/--board-dark are lichess's own coord-colour approximations for
+   each texture, used by the static SVG board-mini and by the move highlights
+   (which stay translucent overlays here so the texture still shows through).
+   The image itself comes from --board-image, a var set by appearance.ts —
+   the app is served from a sub-path (vite `base`), which a literal url() here
+   couldn't know at author time. */
+[data-board="purple-diag"],
+[data-board="wood4"],
+[data-board="newspaper"],
+[data-board="olive"],
+[data-board="blue-marble"] {
+  --board-lastmove: rgba(205, 212, 112, 0.55);
+}
+[data-board="purple-diag"] cg-board,
+[data-board="wood4"] cg-board,
+[data-board="newspaper"] cg-board,
+[data-board="olive"] cg-board,
+[data-board="blue-marble"] cg-board {
+  background-color: transparent;
+  background-image: var(--board-image);
+  background-size: 100% 100%;
+}
+[data-board="purple-diag"] {
+  --board-light: #e5daf0;
+  --board-dark: #957ab0;
+}
+[data-board="wood4"] {
+  --board-light: #caaf7d;
+  --board-dark: #7b5330;
+}
+[data-board="newspaper"] {
+  --board-light: #fff;
+  --board-dark: #8d8d8d;
+}
+[data-board="olive"] {
+  --board-light: #b8b19f;
+  --board-dark: #6d6655;
+}
+[data-board="blue-marble"] {
+  --board-light: #eae6dd;
+  --board-dark: #7c7f87;
+}
+
 /* Move highlights — warm gold, identical in both themes. */
 cg-board square.last-move {
   background-color: var(--board-lastmove) !important;
@@ -2029,13 +2075,23 @@ cg-board square.move-dest.oc {
 
 /* ── Board-colour swatches ───────────────────────────────────────────────── */
 
+/* Nine presets don't fit on a phone screen at once, so the row scrolls
+   horizontally. Each swatch's width is set so exactly 4 sit flush plus a
+   quarter-width sliver of the 5th, signalling to the user that there's more
+   to scroll to. The scrollbar itself is hidden — the peek is the affordance. */
 .board-swatches {
   display: flex;
   gap: 0.6rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.board-swatches::-webkit-scrollbar {
+  display: none;
 }
 
 .board-swatch {
-  flex: 1;
+  flex: 0 0 calc((100% - 2.4rem) / 4.25);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2070,13 +2126,21 @@ cg-board square.move-dest.oc {
    two-square strip (light + dark) carrying a sample glyph from each set. The
    glyphs come from the bundled previews module, so the picker needs no on-demand
    stylesheet to render. */
+/* Ten presets: same horizontal-scroll-with-peek treatment as the board
+   swatches above (see comment there). */
 .piece-swatches {
   display: flex;
   gap: 0.6rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.piece-swatches::-webkit-scrollbar {
+  display: none;
 }
 
 .piece-swatch {
-  flex: 1;
+  flex: 0 0 calc((100% - 2.4rem) / 4.25);
   display: flex;
   flex-direction: column;
   align-items: center;
