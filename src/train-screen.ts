@@ -343,7 +343,7 @@ function renderHero(container: HTMLElement, due: Line[], allTraining: Line[]): v
   start.type = 'button';
   start.className = 'btn-primary train-hero-start';
   if (due.length > 0) {
-    start.textContent = 'Start review';
+    start.textContent = 'Start training';
     start.addEventListener('click', () =>
       startRounds(dueLines(allTraining), container, { explicit: true }));
   } else {
@@ -404,7 +404,7 @@ function renderModeCards(container: HTMLElement, allTraining: Line[], allLines: 
   section.appendChild(buildModeCard({
     accent: MODE_ACCENT.fix,
     icon: Icons.zap(20),
-    name: 'Fix mistakes',
+    name: 'Review missed moves',
     sub: 'single moves you’ve missed',
     stat: duePositions,
     statLabel: duePositions === 1 ? 'due move' : 'due moves',
@@ -423,7 +423,7 @@ function renderModeCards(container: HTMLElement, allTraining: Line[], allLines: 
   section.appendChild(buildModeCard({
     accent: MODE_ACCENT.fresh,
     icon: Icons.plus(20),
-    name: 'Fresh lines',
+    name: 'Drill new lines',
     sub: 'full runs of your newest lines',
     onClick: () => startRounds(
       recentlyAddedLines(allTraining).slice(0, PICKER_SESSION_CAP), container, { explicit: true }),
@@ -433,7 +433,7 @@ function renderModeCards(container: HTMLElement, allTraining: Line[], allLines: 
   section.appendChild(buildModeCard({
     accent: MODE_ACCENT.weak,
     icon: Icons.trending(20),
-    name: 'Weak spots',
+    name: 'Target weak areas',
     sub: 'full runs of your weakest lines',
     onClick: () => startRounds(
       weakestLines(allTraining).slice(0, PICKER_SESSION_CAP), container, { explicit: true }),

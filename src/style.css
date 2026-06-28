@@ -4415,6 +4415,16 @@ cg-board square.move-dest.oc {
   color: var(--success);
 }
 
+/* Nothing due: compact the hero so the Practise cards below it carry the
+   screen's visual weight instead. */
+.train-hero--clear {
+  padding: var(--space-sm) var(--space-lg);
+}
+
+.train-hero--clear .train-hero-stat-num {
+  font-size: 1.3rem;
+}
+
 .train-hero-stat-label {
   font-size: 0.68rem;
   font-weight: 700;
@@ -4431,6 +4441,13 @@ cg-board square.move-dest.oc {
   min-height: 52px;
   font-size: 1rem;
   border-radius: 10px;
+}
+
+.train-hero--clear .train-hero-start {
+  width: auto;
+  min-height: 40px;
+  padding: 0 var(--space-lg);
+  font-size: 0.9rem;
 }
 
 /* ── Mode cards ────────────────────────────────────────────────────────────── */
