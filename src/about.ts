@@ -13,10 +13,17 @@ const LICENCES: Licence[] = [
   { name: 'chess.js', licence: 'BSD-2-Clause' },
   { name: 'Stockfish', licence: 'GPL-3.0' },
   { name: 'Lichess chess-openings data', licence: 'CC0-1.0 (public domain)' },
-  { name: 'cburnett piece set', licence: 'GPL-2.0-or-later' },
-  { name: 'Merida piece set (Armando H. Marroquin)', licence: 'GPL-2.0-or-later' },
-  { name: 'Chessnut piece set (Alexis Luengas)', licence: 'Apache-2.0' },
+  { name: 'cburnett piece set (Colin M.L. Burnett)', licence: 'GPL-2.0-or-later' },
+  { name: 'Maestro piece set (sadsnake1)', licence: 'CC-BY-NC-SA-4.0' },
+  { name: 'California piece set (Jerry S.)', licence: 'CC-BY-NC-SA-4.0' },
+  { name: 'Mpchess piece set (Maxime Chupin)', licence: 'GPL-3.0-or-later' },
   { name: 'Kiwen-Suwi piece set (neverRare)', licence: 'CC-BY-4.0' },
+  { name: 'Horsey piece set (cham, michael1241)', licence: 'CC-BY-NC-SA-4.0' },
+  { name: 'Gioco piece set (sadsnake1)', licence: 'CC-BY-NC-SA-4.0' },
+  { name: 'Tatiana piece set (sadsnake1)', licence: 'CC-BY-NC-SA-4.0' },
+  { name: 'Letter piece set (usolando)', licence: 'AGPL-3.0-or-later' },
+  { name: 'Anarcandy piece set (caderek)', licence: 'CC-BY-NC-SA-4.0' },
+  { name: 'Board textures (the lila authors, pirouetti)', licence: 'AGPL-3.0-or-later' },
 ];
 
 function externalLink(text: string, href: string, className: string): HTMLAnchorElement {

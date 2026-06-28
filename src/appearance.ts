@@ -8,27 +8,77 @@ const BOARD_KEY = 'obertura.boardColour';
 const BOARD_MANUAL_KEY = 'obertura.boardColourManual';
 const PIECE_KEY = 'obertura.pieceSet';
 
-export type BoardColour = 'wood' | 'green' | 'blue' | 'grey';
+// "wood" is the original/default scheme's internal value (shown to the user as
+// "Brown" — see settings-screen.ts). The rest are vendored from lichess:
+// green/blue/grey are flat-colour checkers (style.css), the other five are
+// photo/pattern textures (public/boards/*).
+export type BoardColour =
+  | 'wood'
+  | 'green'
+  | 'blue'
+  | 'grey'
+  | 'purple-diag'
+  | 'wood4'
+  | 'newspaper'
+  | 'olive'
+  | 'blue-marble';
 
-const BOARD_VALUES: BoardColour[] = ['wood', 'green', 'blue', 'grey'];
+const BOARD_VALUES: BoardColour[] = [
+  'wood',
+  'green',
+  'blue',
+  'grey',
+  'purple-diag',
+  'wood4',
+  'newspaper',
+  'olive',
+  'blue-marble',
+];
 
 // ── Piece sets ────────────────────────────────────────────────────────────────
-// cburnett is the bundled default (its CSS ships in main.ts). The other three are
+// cburnett is the bundled default (its CSS ships in main.ts). The rest are
 // vendored from lichess (src/pieces/*.css) and loaded ON DEMAND the first time
 // they're picked, then cached. Each non-default set's CSS is scoped under
 // html[data-pieces="<set>"], which out-specifies cburnett's unscoped rules, so
 // setting the attribute swaps the pieces everywhere a board renders.
-export type PieceSet = 'cburnett' | 'merida' | 'chessnut' | 'kiwen-suwi';
+export type PieceSet =
+  | 'cburnett'
+  | 'maestro'
+  | 'california'
+  | 'mpchess'
+  | 'kiwen-suwi'
+  | 'horsey'
+  | 'gioco'
+  | 'tatiana'
+  | 'letter'
+  | 'anarcandy';
 
-const PIECE_VALUES: PieceSet[] = ['cburnett', 'merida', 'chessnut', 'kiwen-suwi'];
+const PIECE_VALUES: PieceSet[] = [
+  'cburnett',
+  'maestro',
+  'california',
+  'mpchess',
+  'kiwen-suwi',
+  'horsey',
+  'gioco',
+  'tatiana',
+  'letter',
+  'anarcandy',
+];
 
 // Static map so Vite can split each set's CSS into its own async chunk. The
 // import is fired only when a set is first applied; the returned promise is
 // cached below so re-selecting never re-imports.
 const PIECE_LOADERS: Record<Exclude<PieceSet, 'cburnett'>, () => Promise<unknown>> = {
-  merida: () => import('./pieces/merida.css'),
-  chessnut: () => import('./pieces/chessnut.css'),
+  maestro: () => import('./pieces/maestro.css'),
+  california: () => import('./pieces/california.css'),
+  mpchess: () => import('./pieces/mpchess.css'),
   'kiwen-suwi': () => import('./pieces/kiwen-suwi.css'),
+  horsey: () => import('./pieces/horsey.css'),
+  gioco: () => import('./pieces/gioco.css'),
+  tatiana: () => import('./pieces/tatiana.css'),
+  letter: () => import('./pieces/letter.css'),
+  anarcandy: () => import('./pieces/anarcandy.css'),
 };
 
 const loaded = new Map<PieceSet, Promise<unknown>>();
@@ -92,11 +142,37 @@ export function setBoardColour(c: BoardColour): void {
   applyBoardColour(c);
 }
 
+// Filenames for the photo/pattern board textures (public/boards/*), keyed by
+// their BoardColour value. The flat schemes (wood/green/blue/grey) have none —
+// they're drawn from CSS variables only.
+const BOARD_TEXTURE_FILES: Partial<Record<BoardColour, string>> = {
+  'purple-diag': 'purple-diag.png',
+  wood4: 'wood4.jpg',
+  newspaper: 'newspaper.svg',
+  olive: 'olive.jpg',
+  'blue-marble': 'blue-marble.jpg',
+};
+
+// Resolves a texture's URL under the app's base path (the site doesn't serve
+// from domain root — see vite.config.ts `base`), so plain `/boards/...` would
+// 404. Used both to apply the board and to render its swatch preview.
+export function boardTextureUrl(c: BoardColour): string | undefined {
+  const file = BOARD_TEXTURE_FILES[c];
+  return file ? `${import.meta.env.BASE_URL}boards/${file}` : undefined;
+}
+
 // Wood is the original/default scheme, so it carries no attribute — the :root
-// board variables already describe it. Other schemes set data-board.
+// board variables already describe it. Other schemes set data-board. Texture
+// schemes also set --board-image, which the [data-board="..."] cg-board rules
+// in style.css read instead of a literal url() (which couldn't know the base
+// path at CSS-author time).
 export function applyBoardColour(c: BoardColour = getBoardColour()): void {
   if (c === 'wood') delete document.documentElement.dataset.board;
   else document.documentElement.dataset.board = c;
+
+  const texture = boardTextureUrl(c);
+  if (texture) document.documentElement.style.setProperty('--board-image', `url('${texture}')`);
+  else document.documentElement.style.removeProperty('--board-image');
 }
 
 // The four named themes (system isn't one — it resolves to light or dark
