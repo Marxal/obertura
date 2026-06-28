@@ -968,28 +968,6 @@ main {
   opacity: 0.95;
 }
 
-/* Action button under the builder's "My games" list — opens the games tree. */
-.games-tree-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  width: 100%;
-  margin-top: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--accent);
-  font: inherit;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.games-tree-link svg { flex: 0 0 auto; }
-.games-tree-link:active { opacity: 0.6; }
-
 /* Board square colors — chessground uses a background SVG on cg-board, not
    classes on individual squares. We override with our own 2×2 tile SVG:
    (0,0)=light, (1,0)=dark, (0,1)=dark, (1,1)=light. The DARK squares come from
@@ -1313,24 +1291,28 @@ cg-board square.move-dest.oc {
   gap: 0.45rem;
 }
 
-/* One row of labelled actions for the line: Title, Tags, Note. Wraps if it
-   can't fit on one line. */
+/* One compact row of line actions at the top of the Line tab: Title, Tags, Add
+   note, Explain. They share the width equally and never wrap — the row stays a
+   single line, with labels truncating before the row ever breaks. */
 .line-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
+  flex-wrap: nowrap;
+  gap: 0.35rem;
 }
 .line-action {
+  flex: 1 1 0;
+  min-width: 0;
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.4rem 0.7rem;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.4rem 0.35rem;
   border: 1px solid var(--border-card);
   border-radius: 999px;
   background: var(--bg-card);
   color: var(--text-muted);
   font-family: system-ui, -apple-system, sans-serif;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -1338,6 +1320,12 @@ cg-board square.move-dest.oc {
   transition: color 0.12s, border-color 0.12s, filter 0.12s;
 }
 .line-action svg { flex-shrink: 0; }
+/* Labels truncate rather than wrap, keeping all four actions on one row. */
+.line-action span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .line-action:active { filter: brightness(0.97); color: var(--text); }
 .line-action[hidden] { display: none; }
 
@@ -1425,39 +1413,29 @@ cg-board square.move-dest.oc {
   color: var(--text-muted);
 }
 
-/* The moves are their own distinct block, set apart from the title and notes
-   with a recessed parchment panel. */
-/* The move list is a flush strip directly under the board, shown on every
-   carousel tab — no rounded card, no gap above. */
-.moves-block {
-  background: var(--bg-parchment);
-  border: none;
-  border-bottom: 1px solid var(--border-card);
-  border-radius: 0;
-  padding: 0.2rem 0.6rem;
-  box-shadow: none;
-}
-
-/* The move strip fills the whole moves-block now that the step arrows live in
-   the bottom control bar — it keeps the horizontal scroll and gains the
-   vertical room the old control row used. */
+/* The move list now lives inside the Line tab as a linear, wrapping list — it
+   reads top-to-bottom with the rest of the line's details, rather than being a
+   separate horizontal strip under the board. A recessed parchment panel sets it
+   apart from the title and notes above it. */
 #move-list {
   width: 100%;
   min-width: 0;
   font-family: 'Courier New', Courier, monospace;
-  font-size: 0.9rem;
-  line-height: 1.8;
+  font-size: 0.95rem;
+  line-height: 1.9;
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0 0.1em;
-  min-height: 2.6em;
-  padding: 0.2rem 0.1rem;
-  overflow-x: auto;
-  scrollbar-width: none;
+  min-height: 2.2em;
+  padding: 0.35rem 0.55rem;
+  background: var(--bg-parchment);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
 }
 
-#move-list::-webkit-scrollbar {
+/* Before any move is played, the empty list collapses out of the way. */
+#move-list:empty {
   display: none;
 }
 
@@ -1633,6 +1611,154 @@ cg-board square.move-dest.oc {
 .bar-btn--step:disabled {
   box-shadow: none;
 }
+
+/* The watch/play button sits in the right group next to the arrows and borrows
+   their button look; the play glyph just needs a touch of optical centring. */
+.watch-btn.bar-btn--step svg { margin-left: 1px; }
+
+/* ── My lines slide: saved-lines + games sections ────────────────────────────
+   Two stacked sections, each a titled list of continuations from here with a
+   discrete "Show tree" link on the title row. */
+.mylines-section { margin-bottom: 0.5rem; }
+.mylines-section + .mylines-section {
+  margin-top: 0.25rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--hairline-soft);
+}
+.mylines-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0.1rem 0 0.35rem;
+}
+.mylines-head-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.mylines-tree-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  padding: 0.1rem 0.15rem;
+}
+.mylines-tree-link svg { flex: 0 0 auto; }
+.mylines-tree-link:active { opacity: 0.6; }
+
+/* A saved-line continuation row reuses .bx-row but, lacking a W/D/L bar, pushes
+   a small line-count to the right instead. */
+.bx-row--plain { justify-content: space-between; }
+.bx-line-count {
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── "Import a game" popup (the bar's import icon) ───────────────────────────── */
+.bimport-body { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.bimport-option {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  background: var(--bg-card);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: var(--shadow-card);
+  transition: filter 0.12s, transform 0.06s;
+}
+.bimport-option:active { filter: brightness(0.96); transform: translateY(1px); }
+.bimport-option:disabled { opacity: 0.55; cursor: default; }
+.bimport-option-icon { flex: 0 0 auto; color: var(--accent); }
+.bimport-option-text { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.bimport-option-label { font-weight: 700; font-size: 0.95rem; color: var(--text); }
+.bimport-option-sub { font-size: 0.8rem; color: var(--text-muted); }
+
+.bimport-note { font-size: 0.85rem; color: var(--text-muted); line-height: 1.4; }
+
+.bimport-back {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.1rem 0.15rem;
+  -webkit-tap-highlight-color: transparent;
+}
+.bimport-back-arrow { font-size: 1.1rem; margin-right: 0.15rem; }
+.bimport-back:active { opacity: 0.6; }
+
+.bimport-game-list { display: flex; flex-direction: column; gap: 0.4rem; }
+.bimport-game {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  background: var(--bg-card);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.bimport-game:active { filter: brightness(0.96); transform: translateY(1px); }
+.bimport-game .colour-pip { flex: 0 0 auto; width: 12px; height: 12px; }
+.bimport-game-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 0.05rem; }
+.bimport-game-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bimport-game-sub { font-size: 0.78rem; color: var(--text-muted); }
+.bimport-game-chev { flex: 0 0 auto; color: var(--text-faint); }
+
+.bimport-pgn {
+  width: 100%;
+  resize: vertical;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.85rem;
+}
+.bimport-pgn:focus { outline: none; border-color: var(--accent); }
+.bimport-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+}
+.bimport-file input { display: none; }
+.bimport-pgn-go { width: 100%; }
 
 /* ── Annotation marks ────────────────────────────────────────────────────────
    The six standard symbols as coloured chips: sage for the strong marks,
@@ -4856,7 +4982,32 @@ cg-board square.move-dest.oc {
   order: -1;            /* source badge above the lines */
   justify-content: flex-start;
 }
-#eval-controls .eval-line-score { font-size: 0.9rem; min-width: 3.4em; }
+/* Each candidate reads as its own small, packed card: a recessed surface with
+   the score chip pinned left and the variation scrolling horizontally beside
+   it. Packing them as cards (rather than bare rows) makes the engine's choices
+   more glanceable. */
+#eval-controls .eval-line {
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  background: var(--bg-parchment);
+  border: 1px solid var(--border-card);
+  border-radius: 9px;
+  box-shadow: var(--shadow-card);
+}
+#eval-controls .eval-line:active {
+  background: var(--accent-soft);
+  transform: translateY(1px);
+}
+#eval-controls .eval-line-score {
+  font-size: 0.9rem;
+  min-width: 3.4em;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  text-align: center;
+}
 #eval-controls .eval-line-pv {
   font-size: 0.92rem;
   overflow-x: auto;
