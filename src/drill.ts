@@ -8,6 +8,7 @@ import { getRetriesBeforeReveal } from './prefs';
 import { playFeedback } from './sound';
 import { pushBack } from './back-nav';
 import { showDialog } from './dialog';
+import { showToast } from './toast';
 import { burstConfetti } from './confetti';
 import { formatMove } from './notation';
 
@@ -464,7 +465,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     controls.appendChild(buildControl('hint', Icons.bulb(19), 'Hint', () => showHint()));
 
     if (opts.onPauseLine) {
-      controls.appendChild(buildControl('pause', Icons.pause(19), 'Pause', () => confirmPause()));
+      controls.appendChild(buildControl('pause', Icons.toggleOff(19), 'Turn off', () => confirmPause()));
     }
     if (opts.onEditLine) {
       controls.appendChild(buildControl('edit', Icons.pencil(19), 'Edit', () => leaveForEdit()));
@@ -558,15 +559,19 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     cg.setAutoShapes([{ orig, dest, brush: 'accent' }]);
   }
 
-  // Pause this line out of training. We confirm first (it stops the line being
+  // Turn this line off from training. We confirm first (it stops the line being
   // scheduled), then tear down and hand back to the caller, which drops it from
   // the session and carries on.
   function confirmPause(): void {
     showDialog({
-      title: 'Pause this line?',
-      body: 'It stops coming up in training. Turn it back on any time from My Lines.',
+      title: 'Turn off this line?',
+      body: 'It will stop appearing in your active training sessions. You can flip it back on in My Lines.',
       buttons: [
-        { label: 'Pause line', variant: 'danger', onClick: () => { cleanup(); opts.onPauseLine!(); } },
+        { label: 'Turn off', variant: 'danger', onClick: () => {
+          cleanup();
+          opts.onPauseLine!();
+          showToast('Line turned off, continue training');
+        } },
         { label: 'Keep training', variant: 'secondary', onClick: () => {} },
       ],
       onDismiss: () => {},
