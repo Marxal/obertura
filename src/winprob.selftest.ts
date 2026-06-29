@@ -40,7 +40,7 @@ export function runWinprobSelfTest(): TestResult[] {
   check('mistake band', band(0.15) === 'mistake', band(0.15));
   check('blunder band', band(0.30) === 'blunder', band(0.30));
 
-  // ── best / book / forced ────────────────────────────────────────────────────
+  // ── best / book ──────────────────────────────────────────────────────────────
   check(
     'best move',
     classifyMove({ isBest: true, inBook: false, winLoss: 0, secondBestGap: 0 }) === 'best',
@@ -53,38 +53,15 @@ export function runWinprobSelfTest(): TestResult[] {
     'book never hides a blunder',
     classifyMove({ isBest: false, inBook: true, winLoss: 0.30, secondBestGap: 0 }) === 'blunder',
   );
-  check(
-    'forced overrides loss bands',
-    classifyMove({ isBest: true, inBook: false, winLoss: 0, secondBestGap: 0.25 }) === 'forced',
-  );
-  check(
-    'ignoring the only move is not forced',
-    classifyMove({ isBest: false, inBook: false, winLoss: 0.30, secondBestGap: 0.25 }) === 'blunder',
-  );
 
-  // ── great vs forced gap ──────────────────────────────────────────────────────
+  // ── great gap ────────────────────────────────────────────────────────────────
   check(
-    'great move (clear but not forced)',
+    'great move (best, clearly ahead of the rest)',
     classifyMove({ isBest: true, inBook: false, winLoss: 0, secondBestGap: 0.12 }) === 'great',
   );
-
-  // ── brilliant gating ─────────────────────────────────────────────────────────
-  const brilliantArgs = {
-    isBest: true, inBook: false, winLoss: 0.0, secondBestGap: 0.0,
-    isSacrifice: true, bestWin: 0.7, playedWin: 0.65,
-  };
-  check('brilliant: sound sacrifice + best', classifyMove(brilliantArgs) === 'brilliant');
   check(
-    'no brilliant without sacrifice',
-    classifyMove({ ...brilliantArgs, isSacrifice: false }) === 'best',
-  );
-  check(
-    'no brilliant when already winning huge',
-    classifyMove({ ...brilliantArgs, bestWin: 0.99 }) === 'best',
-  );
-  check(
-    'no brilliant when the sac leaves you worse',
-    classifyMove({ ...brilliantArgs, playedWin: 0.3 }) === 'best',
+    'ignoring the standout move is still a real error',
+    classifyMove({ isBest: false, inBook: false, winLoss: 0.30, secondBestGap: 0.25 }) === 'blunder',
   );
 
   return results;

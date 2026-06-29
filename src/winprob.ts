@@ -12,9 +12,10 @@
 // (positive = good for the side that is about to move). The reviewer (review.ts)
 // is responsible for getting evals into that perspective before calling in.
 
-// The ten classes, strongest to worst (book/forced sit outside the quality axis).
+// The eight classes, strongest to worst (book sits outside the quality axis).
+// "Brilliant" and "forced" were removed deliberately: the brilliant detector
+// fired too randomly to trust, and "forced" added noise without teaching much.
 export type MoveClass =
-  | 'brilliant'   // a sound sacrifice that's also the best move (!!)
   | 'great'       // the one strong move in a sharp spot (!)
   | 'best'        // the engine's #1 move
   | 'excellent'   // not #1, but essentially as good
@@ -22,8 +23,7 @@ export type MoveClass =
   | 'book'        // known opening theory (from the bundled book)
   | 'inaccuracy'  // a noticeable slip (?!)
   | 'mistake'     // a real error (?)
-  | 'blunder'     // a serious error (??)
-  | 'forced';     // the only reasonable move — can't be blamed for it
+  | 'blunder';    // a serious error (??)
 
 // ── Tunable thresholds (one place to adjust the whole feel) ──────────────────
 // Win-probability is 0..1; these bands are "expected-points" drops, chosen to
@@ -37,17 +37,10 @@ const MISTAKE_MAX = 0.20;     // < 20% → mistake, ≥ 20% → blunder
 // actually a blunder in this exact position still gets graded as a blunder.
 const BOOK_MAX_LOSS = 0.10;
 
-// "Forced": every alternative is at least this much worse (win%). At this gap
-// the move is effectively the only one, so it escapes the mistake/blunder bands.
-const FORCED_GAP = 0.15;
-// "Great": the best move is clearly ahead of the rest, but not quite forced.
+// "Great": the best move is clearly ahead of the rest — the one move that holds
+// or wins a sharp position. (No "forced" band any more; a wide gap just reads
+// as a great find when the player makes it.)
 const GREAT_GAP = 0.10;
-
-// "Brilliant": a real sacrifice that is also best and keeps the position good,
-// and isn't just mopping up an already-won game.
-const BRILLIANT_MAX_LOSS = 0.02;  // must be (near) best
-const BRILLIANT_MIN_WIN = 0.50;   // position stays at least equal for the mover
-const BRILLIANT_MAX_BEST = 0.97;  // don't crown sacs when already totally winning
 
 // Logistic centipawn → win% for the side to move. The constant is Lichess's
 // accuracy-model fit; cp is clamped implicitly by the mate sentinels below, so
@@ -72,31 +65,12 @@ export interface ClassifyInput {
   inBook: boolean;          // present in the bundled opening book at this position
   winLoss: number;          // 0..1 expected-points drop vs the best move
   secondBestGap: number;    // win% the best move leads the 2nd best by (≥ 0)
-  // Brilliant inputs (optional — without a sacrifice signal, never brilliant):
-  isSacrifice?: boolean;
-  bestWin?: number;         // mover win% if best move were played (0..1)
-  playedWin?: number;       // mover win% after the played move (0..1)
 }
 
 // The grade. First match wins, so order encodes priority.
 export function classifyMove(i: ClassifyInput): MoveClass {
-  // Forced: only one move holds the position. Played-the-only-move can't be a
-  // mistake, so this overrides the loss bands — but only when the player
-  // actually found it (isBest); ignoring the only move is a real error.
-  if (i.isBest && i.secondBestGap >= FORCED_GAP) return 'forced';
-
-  // Brilliant: a sound sacrifice that's also best and keeps things good.
-  if (
-    i.isBest &&
-    i.isSacrifice &&
-    i.winLoss <= BRILLIANT_MAX_LOSS &&
-    (i.playedWin ?? 1) >= BRILLIANT_MIN_WIN &&
-    (i.bestWin ?? 1) < BRILLIANT_MAX_BEST
-  ) {
-    return 'brilliant';
-  }
-
-  // Great: the standout move in a sharp position (clear gap, but not forced).
+  // Great: the standout move in a sharp position — best, and clearly ahead of
+  // every alternative. Only when the player actually found it (isBest).
   if (i.isBest && i.secondBestGap >= GREAT_GAP) return 'great';
 
   // Book theory — but never let "book" hide a genuine error.

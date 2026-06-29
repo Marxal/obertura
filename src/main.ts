@@ -34,7 +34,7 @@ import { showOnboardingWizard, wizardStepPending } from './onboarding-wizard';
 import { maybeAutoRefreshGames } from './auto-refresh';
 import { maybeShowGate } from './gate';
 import { showToast } from './toast';
-import { Icons, classIcon, classBoardSvg, CLASS_LABEL } from './icons';
+import { Icons, classBoardSvg, CLASS_LABEL } from './icons';
 import { mountFab, type FabItem, type FabController } from './fab';
 import { importLastGame, hasConnectedAccount } from './import-last';
 import { openBuilderImport } from './builder-import';
@@ -311,13 +311,16 @@ function moveSpan(node: MoveNode, activeId: string): HTMLElement {
   span.className = `move-san${node.id === activeId ? ' active' : ''}`;
   span.addEventListener('click', () => handleMoveClick(node.id));
   span.textContent = formatMove(node.san);
-  // Game-review grade: a coloured row tint + a small badge, when enabled.
+  // Game-review grade in the notation: a colour marker, no icon. Only the error
+  // moves (inaccuracy / mistake / blunder) are marked, so the list flags what
+  // went wrong without turning into a wall of colour. The full glyphs live on
+  // the board badge; here we just tint the move text.
   if (node.classification && getShowMoveClassifications()) {
-    span.classList.add(`class--${node.classification}`);
     span.title = CLASS_LABEL[node.classification];
-    const badge = classIcon(node.classification, 13);
-    badge.classList.add('move-class-badge');
-    span.appendChild(badge);
+    const c = node.classification;
+    if (c === 'inaccuracy' || c === 'mistake' || c === 'blunder') {
+      span.classList.add(`class--${c}`);
+    }
   }
   if (node.annotation) {
     const chip = document.createElement('span');
@@ -367,6 +370,19 @@ function renderMoveList() {
   }
 
   updateMoveNavButtons();
+  refreshReviewButtonState();
+}
+
+// The Analyse button has three looks: default (idle), lit (--on, a review is
+// running) and passive (--done, the line on the board has already been graded).
+// Driven from renderMoveList so it tracks every board change — editing a move
+// adds an ungraded node, which drops the passive look automatically.
+function refreshReviewButtonState(): void {
+  const btn = document.getElementById('builder-review');
+  if (!btn) return;
+  if (reviewAbort) { btn.classList.remove('bar-btn--done'); return; }
+  const analysed = mainline().some(n => n.classification);
+  btn.classList.toggle('bar-btn--done', analysed);
 }
 
 // ── Move navigation (plain step arrows, not engine arrows) ──────────────────

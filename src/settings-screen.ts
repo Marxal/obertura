@@ -665,7 +665,7 @@ function buildAppearanceGroup(): HTMLElement {
   sec.appendChild(row(
     'Move classifications',
     toggle(getShowMoveClassifications(), (on) => setShowMoveClassifications(on)),
-    { sub: 'After a game review, colour each move and badge it (Brilliant, Best, Blunder…) in the move list and on the board.' },
+    { sub: 'After a game review, mark mistakes and blunders in the move list and show a grade badge (Best, Book, Blunder…) on the board.' },
   ));
 
   return sec;
