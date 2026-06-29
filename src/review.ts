@@ -107,25 +107,28 @@ export interface ReviewOptions {
 
 // Top moves for a position (mover perspective, normalised ucis), cloud first then
 // the local engine. Caches per run — a move's child FEN is usually the next
-// move's parent FEN, which roughly halves the requests.
+// move's parent FEN, which roughly halves the requests. `source` names where the
+// answer came from (for the "analysed with…" tag); null on a cached/empty result.
 async function topMovesFor(
   fen: string,
   cache: Map<string, CloudTopMove[] | null>,
   useEngine: boolean,
-): Promise<{ top: CloudTopMove[] | null; hitCloud: boolean }> {
-  if (cache.has(fen)) return { top: cache.get(fen)!, hitCloud: false };
+): Promise<{ top: CloudTopMove[] | null; hitCloud: boolean; source: 'cloud' | 'local' | null }> {
+  if (cache.has(fen)) return { top: cache.get(fen)!, hitCloud: false, source: null };
 
   let top: CloudTopMove[] | null = null;
+  let source: 'cloud' | 'local' | null = null;
   const cloud = await cloudTopMoves(fen);
   const hitCloud = true; // a request went out (success or miss)
   if (cloud && cloud.length) {
     top = normaliseTop(cloud, fen);
+    source = 'cloud';
   } else if (useEngine) {
     const evals = await analysePosition(fen, ENGINE_DEPTH);
-    if (evals.length) top = toMoverTop(evals, fen);
+    if (evals.length) { top = toMoverTop(evals, fen); source = 'local'; }
   }
   cache.set(fen, top);
-  return { top, hitCloud };
+  return { top, hitCloud, source };
 }
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
@@ -136,22 +139,39 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
-// Review a line in place, writing classification + cpLoss onto each node. Walks
-// sequentially; safe to abort via opts.signal (also stops the local engine).
-export async function reviewLine(nodes: MoveNode[], opts: ReviewOptions): Promise<void> {
+// What a finished (or aborted) review used to judge the game — drives the
+// discrete "analysed with…" tag on the Line tab.
+export interface ReviewSummary {
+  engine: 'lichess' | 'local' | 'mixed' | 'none';
+}
+
+function engineFrom(cloud: number, local: number): ReviewSummary['engine'] {
+  if (cloud && local) return 'mixed';
+  if (cloud) return 'lichess';
+  if (local) return 'local';
+  return 'none';
+}
+
+// Review a line in place, writing classification + cpLoss + evalCp onto each
+// node. Walks sequentially; safe to abort via opts.signal (also stops the local
+// engine). Returns which engine(s) actually answered.
+export async function reviewLine(nodes: MoveNode[], opts: ReviewOptions): Promise<ReviewSummary> {
   const db = opts.db ?? 'lichess';
   const cache = new Map<string, CloudTopMove[] | null>();
   const onAbort = () => cancelLocalAnalysis();
   opts.signal?.addEventListener('abort', onAbort, { once: true });
+  let cloudUses = 0, localUses = 0;
 
   try {
     for (let i = 0; i < nodes.length; i++) {
-      if (opts.signal?.aborted) return;
+      if (opts.signal?.aborted) break;
       const node = nodes[i];
       const parentFen = i === 0 ? START_FEN : nodes[i - 1].fen;
 
       const parent = await topMovesFor(parentFen, cache, opts.useEngineFallback);
-      if (opts.signal?.aborted) return;
+      if (opts.signal?.aborted) break;
+      if (parent.source === 'cloud') cloudUses++;
+      else if (parent.source === 'local') localUses++;
       const parentTop = parent.top;
       if (!parentTop || !parentTop.length) continue; // can't judge → leave ungraded
 
@@ -164,7 +184,7 @@ export async function reviewLine(nodes: MoveNode[], opts: ReviewOptions): Promis
         playedCp = flattenCp(mine);
       } else {
         const child = await topMovesFor(node.fen, cache, opts.useEngineFallback);
-        if (opts.signal?.aborted) return;
+        if (opts.signal?.aborted) break;
         hitCloudChild = child.hitCloud;
         const c = child.top && child.top.length ? flattenCp(child.top[0]) : null;
         if (c !== null) playedCp = -c; // opponent's best, flipped to our side
@@ -176,6 +196,11 @@ export async function reviewLine(nodes: MoveNode[], opts: ReviewOptions): Promis
       if (graded) {
         node.classification = graded.classification;
         node.cpLoss = graded.cpLoss;
+        // Eval after the move, flipped from the mover's perspective to White's so
+        // the graph reads "+ = White ahead" regardless of whose move it was.
+        if (playedCp !== null) {
+          node.evalCp = blackToMove(parentFen) ? -playedCp : playedCp;
+        }
         opts.onProgress?.(i, node);
       }
 
@@ -184,6 +209,7 @@ export async function reviewLine(nodes: MoveNode[], opts: ReviewOptions): Promis
   } finally {
     opts.signal?.removeEventListener('abort', onAbort);
   }
+  return { engine: engineFrom(cloudUses, localUses) };
 }
 
 // Strip grades from a line (e.g. before a fresh review). Mutates in place.
@@ -191,5 +217,6 @@ export function clearClassifications(nodes: MoveNode[]): void {
   for (const n of nodes) {
     delete n.classification;
     delete n.cpLoss;
+    delete n.evalCp;
   }
 }

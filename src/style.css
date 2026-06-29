@@ -1883,21 +1883,27 @@ cg-board square.move-dest.oc {
 .class-badge--mistake   { color: #e0822f; }
 .class-badge--blunder   { color: #c93636; }
 
-/* Notation markers — only the error moves are flagged, by colouring the move
-   text (plus a faint wash), and only when it isn't the active (accent) move so
-   the selection keeps its strong highlight. No icons in the notation. */
+/* Notation markers — every graded move is tinted in its class colour (text +
+   faint wash), and only when it isn't the active (accent) move so the selection
+   keeps its strong highlight. No icons in the notation. The error moves carry a
+   stronger wash so mistakes and blunders still jump out of the list. */
+.move-san.class--great:not(.active)      { color: #4d7a9c; background: color-mix(in srgb, #5c8bb0 14%, transparent); }
+.move-san.class--best:not(.active)       { color: #4f8a37; background: color-mix(in srgb, #5a9e3f 14%, transparent); }
+.move-san.class--excellent:not(.active)  { color: #5f9142; background: color-mix(in srgb, #7fb05f 14%, transparent); }
+.move-san.class--good:not(.active)       { color: #6f8a52; background: color-mix(in srgb, #a6c08a 16%, transparent); }
+.move-san.class--book:not(.active)       { color: #8a6440; background: color-mix(in srgb, #9c7248 16%, transparent); }
 .move-san.class--inaccuracy:not(.active) {
   color: #b88a1f;
-  background: color-mix(in srgb, #e6b23a 16%, transparent);
+  background: color-mix(in srgb, #e6b23a 18%, transparent);
 }
 .move-san.class--mistake:not(.active) {
   color: #c4701f;
-  background: color-mix(in srgb, #e0822f 18%, transparent);
+  background: color-mix(in srgb, #e0822f 20%, transparent);
 }
 .move-san.class--blunder:not(.active) {
   color: #c93636;
   font-weight: 600;
-  background: color-mix(in srgb, #c93636 20%, transparent);
+  background: color-mix(in srgb, #c93636 22%, transparent);
 }
 
 /* The bottom-bar Analyse icon: lit (--on) while a review runs, then a quieter
@@ -1909,6 +1915,94 @@ cg-board square.move-dest.oc {
 .bar-btn--done {
   color: var(--accent);
   opacity: 0.55;
+}
+
+/* ── Line-tab analysis (eval graph + move-type summary) ──────────────────────
+   Shown only for a reviewed, imported game. */
+.line-analysis {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border, rgba(128, 128, 128, 0.25));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.la-engine-tag {
+  font-size: 11px;
+  opacity: 0.6;
+  letter-spacing: 0.02em;
+}
+.la-graph {
+  width: 100%;
+}
+.la-graph-svg {
+  display: block;
+  width: 100%;
+  height: 70px;
+  border-radius: 6px;
+  /* A neutral slate so the white-advantage (light) and black-advantage (dark)
+     fills both read clearly, in either app theme. */
+  background: #5b6470;
+}
+.la-graph-mid {
+  stroke: rgba(255, 255, 255, 0.4);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+}
+.la-graph-curve {
+  stroke: #ffffff;
+  stroke-width: 1.6;
+  vector-effect: non-scaling-stroke;
+}
+
+/* The condensed summary: a label column then one column per grade. Scrolls
+   sideways on a narrow phone rather than squashing the columns. */
+.la-summary {
+  display: grid;
+  gap: 2px 6px;
+  align-items: center;
+  overflow-x: auto;
+  font-size: 12px;
+}
+.la-cell {
+  text-align: center;
+  white-space: nowrap;
+}
+.la-head {
+  font-size: 9px;
+  line-height: 1.05;
+  white-space: normal;
+  opacity: 0.7;
+}
+.la-player {
+  text-align: left;
+  font-weight: 600;
+  padding-right: 6px;
+  max-width: 9ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.la-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+.la-count--zero {
+  opacity: 0.3;
+}
+.la-icon {
+  line-height: 0;
+}
+
+/* The review progress bar, pinned across the top of the builder dock. It floats
+   above the bar (absolute) so it never pushes the controls down or blocks taps. */
+.review-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  pointer-events: none;
 }
 
 /* Annotation marks live in the note sheet: a row of picker chips above the

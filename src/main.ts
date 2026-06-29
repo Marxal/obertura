@@ -24,7 +24,9 @@ import { createBuilderPanels, type BuilderPanels } from './builder-panels';
 import { initTheme } from './theme';
 import { initAppearance } from './appearance';
 import { watchSpeedMs, getConfirmRunBeforeTraining, getScoutingEnabled, getShowEngineArrows, setShowEngineArrows, getShowMoveClassifications } from './prefs';
-import { reviewLine, clearClassifications } from './review';
+import { reviewLine, clearClassifications, type ReviewSummary } from './review';
+import { renderLineAnalysis, hasReview } from './line-analysis';
+import { createPawnProgress, type PawnProgress } from './import-progress';
 import { initBackNav, setViewBack, pushBack } from './back-nav';
 import { showDialog } from './dialog';
 import { openImportPanel, getGamesSource, IDENTITY_CHANGED_EVENT } from './import-panel';
@@ -36,7 +38,7 @@ import { maybeShowGate } from './gate';
 import { showToast } from './toast';
 import { Icons, classBoardSvg, CLASS_LABEL } from './icons';
 import { mountFab, type FabItem, type FabController } from './fab';
-import { importLastGame, hasConnectedAccount } from './import-last';
+import { importLastGame, hasConnectedAccount, connectedAccount } from './import-last';
 import { openBuilderImport } from './builder-import';
 import { openEngineSpar, openExploreOpponent, importOpponentFlow } from './explore-screen';
 import { formatMove } from './notation';
@@ -311,16 +313,12 @@ function moveSpan(node: MoveNode, activeId: string): HTMLElement {
   span.className = `move-san${node.id === activeId ? ' active' : ''}`;
   span.addEventListener('click', () => handleMoveClick(node.id));
   span.textContent = formatMove(node.san);
-  // Game-review grade in the notation: a colour marker, no icon. Only the error
-  // moves (inaccuracy / mistake / blunder) are marked, so the list flags what
-  // went wrong without turning into a wall of colour. The full glyphs live on
-  // the board badge; here we just tint the move text.
+  // Game-review grade in the notation: a colour marker, no icon. Every graded
+  // move is tinted in its class colour (the full glyphs live on the board
+  // badge); the error moves get a stronger marker so mistakes still stand out.
   if (node.classification && getShowMoveClassifications()) {
+    span.classList.add(`class--${node.classification}`);
     span.title = CLASS_LABEL[node.classification];
-    const c = node.classification;
-    if (c === 'inaccuracy' || c === 'mistake' || c === 'blunder') {
-      span.classList.add(`class--${c}`);
-    }
   }
   if (node.annotation) {
     const chip = document.createElement('span');
@@ -371,6 +369,7 @@ function renderMoveList() {
 
   updateMoveNavButtons();
   refreshReviewButtonState();
+  refreshLineAnalysis();
 }
 
 // The Analyse button has three looks: default (idle), lit (--on, a review is
@@ -441,6 +440,21 @@ function setupBuilderImportButton(): void {
 // same for a hand-built line and an imported game (both live on this one board).
 // Grades paint in as each move resolves; a second tap cancels a run in progress.
 let reviewAbort: AbortController | null = null;
+// Which engine the last review used, for the Line-tab "analysed with…" tag.
+// 'none' = not analysed yet (the tag is hidden).
+let builderEngine: ReviewSummary['engine'] = 'none';
+// A slim, non-blocking progress bar pinned to the top of the builder dock while
+// a review runs (reuses the import scan's pawn bar).
+let reviewProgress: PawnProgress | null = null;
+
+function reviewBar(): PawnProgress {
+  if (!reviewProgress) {
+    reviewProgress = createPawnProgress();
+    reviewProgress.el.classList.add('review-progress');
+    document.getElementById('builder-dock')?.prepend(reviewProgress.el);
+  }
+  return reviewProgress;
+}
 
 function setupBuilderReviewButton(): void {
   document.getElementById('builder-review')?.addEventListener('click', (e) => {
@@ -463,29 +477,60 @@ async function runGameReview(btn: HTMLButtonElement): Promise<void> {
 
   const ctrl = new AbortController();
   reviewAbort = ctrl;
+  builderEngine = 'none';
   btn.classList.add('bar-btn--on');
   clearClassifications(nodes);
   renderMoveList();
   refreshBoardBadge();
+  const total = nodes.length;
+  const bar = reviewBar();
+  bar.start();
   showToast(getShowMoveClassifications()
     ? 'Reviewing game…'
     : 'Reviewing game… (turn on move highlights in Settings to see it)');
 
   try {
-    await reviewLine(nodes, {
+    const summary = await reviewLine(nodes, {
       useEngineFallback: true,
       signal: ctrl.signal,
-      onProgress: () => { renderMoveList(); refreshBoardBadge(); },
+      onProgress: (i) => {
+        bar.set(total ? (i + 1) / total : 1);
+        renderMoveList();
+        refreshBoardBadge();
+      },
     });
+    builderEngine = summary.engine;
     if (!ctrl.signal.aborted) showToast('Game review complete.');
   } catch {
     if (!ctrl.signal.aborted) showToast('Couldn’t finish the review.');
   } finally {
     if (reviewAbort === ctrl) reviewAbort = null;
     btn.classList.remove('bar-btn--on');
+    bar.done();
+    bar.hide();
     renderMoveList();
     refreshBoardBadge();
   }
+}
+
+// The Line-tab analysis block (eval graph + move-type summary + engine tag).
+// Shown only for an imported/loaded game ("vs <name>") that's been reviewed.
+function refreshLineAnalysis(): void {
+  const host = document.getElementById('line-analysis');
+  if (!host) return;
+  const nodes = mainline();
+  const isImportedGame = builderDesc.startsWith('vs ');
+  if (!isImportedGame || !getShowMoveClassifications() || !hasReview(nodes)) {
+    host.hidden = true;
+    host.innerHTML = '';
+    return;
+  }
+  const opponent = builderDesc.slice(3).trim() || 'Opponent';
+  const me = connectedAccount()?.username ?? 'You';
+  const whiteName = saveColour === 'white' ? me : opponent;
+  const blackName = saveColour === 'white' ? opponent : me;
+  host.hidden = false;
+  renderLineAnalysis(host, nodes, { whiteName, blackName, engine: builderEngine });
 }
 
 // ── Builder carousel (the panels below the board) ───────────────────────────
@@ -1204,6 +1249,7 @@ function clearBuilder(colour: 'white' | 'black' = 'white'): void {
   manualTitle = null;
   detectedName = '';
   builderDesc = '';
+  builderEngine = 'none';
   renderTitle();
   renderBuilderTags();
   renderBuilderDesc();
