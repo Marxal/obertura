@@ -2738,16 +2738,14 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 .mygames-sentinel { height: 1px; }
 
-/* Opening-group header (when "group by opening" is on). */
-.mygames-group-head {
-  margin: 0.6rem 0 0.1rem;
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-}
 .mygames-list-wrap { display: block; }
+
+/* The opponent's rating, a muted number after their name. */
+.mygames-card-rating {
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--text-faint);
+}
 
 /* User tags on a card. */
 .mygames-card-tags {
@@ -3349,7 +3347,8 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .fbar-top {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  /* Keep the sort/group controls on the same row as the colour segment. */
+  flex-wrap: nowrap;
   gap: 0.4rem;
 }
 
