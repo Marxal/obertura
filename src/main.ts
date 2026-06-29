@@ -15,7 +15,6 @@ import { startPretrainingRun, enrolLineDirectly } from './pretraining';
 import { renderTrainScreen } from './train-screen';
 import { renderExploreScreen } from './explore-screen';
 import { renderPuzzlesScreen } from './puzzles-screen';
-import { gatherExplainSignals, explainMove } from './explain';
 import { opponentTag } from './scout';
 import { renderSettingsScreen } from './settings-screen';
 import { Engine, setCloudAuthToken, type EvalResult } from './engine';
@@ -892,19 +891,14 @@ function renderNoteBlock(): void {
   const btn = document.getElementById('note-btn')!;
   const label = document.getElementById('note-btn-label')!;
   const node = getCurrentNode();
-  const explainBtn = document.getElementById('explain-btn');
-  // Any move change closes a stale inline explanation (it was about the old move).
-  hideExplainInline();
   // The note button lives in the Line tab's action row. At the root there's no
   // move to annotate, so hide the button (Title/Tags stay) and the display.
   if (node.id === 'root') {
     btn.hidden = true;
-    if (explainBtn) explainBtn.hidden = true;
     block.hidden = true;
     return;
   }
   btn.hidden = false;
-  if (explainBtn) explainBtn.hidden = false;
   const note = node.note?.trim();
   if (note) {
     display.textContent = note;
@@ -1043,83 +1037,8 @@ async function saveNote(value: string, annotation: Annotation | undefined): Prom
   }
 }
 
-// "Explain this move" — gather opening + engine signals for the current move and
-// show a plain-language explanation INLINE, in a panel under the Line-tab buttons
-// (not a popup), with the option to save it as the move's note (append when one
-// already exists). Read-only until the user chooses to save.
-const EXPLAIN_START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-
-// Bumped on every open/hide/navigation so a slow signal fetch can't paint a stale
-// explanation into the panel after the user has moved on.
-let explainToken = 0;
-
-function hideExplainInline(): void {
-  explainToken++;
-  const block = document.getElementById('explain-block');
-  if (block) { block.hidden = true; block.innerHTML = ''; }
-}
-
-function renderExplainInline(): void {
-  const block = document.getElementById('explain-block');
-  if (!block) return;
-  // Tapping Explain again closes the panel.
-  if (!block.hidden) { hideExplainInline(); return; }
-
-  const node = getCurrentNode();
-  if (node.id === 'root') return;
-
-  const path = pathTo(node.id);
-  const parent = path[path.length - 2];
-  const parentFen = parent && parent.id !== 'root' && parent.fen ? parent.fen : EXPLAIN_START_FEN;
-  const mover: 'white' | 'black' = parentFen.split(' ')[1] === 'b' ? 'black' : 'white';
-  const openingName = (nameForPath(currentPathFens()) || null);
-
-  const mine = ++explainToken;
-  block.innerHTML = '';
-  block.hidden = false;
-
-  const textEl = document.createElement('p');
-  textEl.className = 'explain-text';
-  textEl.textContent = 'Looking at the opening book and the engine…';
-  block.appendChild(textEl);
-
-  // Fetch the signals, then render the explanation and the inline controls.
-  void (async () => {
-    const token = await lichessAccessToken();
-    const input = await gatherExplainSignals(parentFen, node.uci, node.san, mover, openingName, { token });
-    if (mine !== explainToken) return; // navigated away or toggled closed
-    const text = explainMove(input);
-    textEl.textContent = text;
-
-    const actions = document.createElement('div');
-    actions.className = 'explain-actions';
-
-    const saveBtn = document.createElement('button');
-    saveBtn.type = 'button';
-    saveBtn.className = 'explain-save';
-    saveBtn.textContent = node.note?.trim() ? 'Add to note' : 'Save as note';
-    saveBtn.addEventListener('click', () => {
-      const existing = node.note?.trim();
-      const value = existing ? `${existing}\n\n${text}` : text;
-      hideExplainInline();
-      void saveNote(value, node.annotation);
-    });
-
-    const hideBtn = document.createElement('button');
-    hideBtn.type = 'button';
-    hideBtn.className = 'explain-hide';
-    hideBtn.textContent = 'Hide';
-    hideBtn.addEventListener('click', () => hideExplainInline());
-
-    actions.appendChild(saveBtn);
-    actions.appendChild(hideBtn);
-    block.appendChild(actions);
-  })();
-}
-
 function setupNoteBlock(): void {
   document.getElementById('note-btn')!.addEventListener('click', openNoteSheet);
-  document.getElementById('explain-btn')?.addEventListener('click', () => renderExplainInline());
 }
 
 function handleMoveClick(nodeId: string) {

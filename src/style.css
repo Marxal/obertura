@@ -1260,11 +1260,12 @@ cg-board square.move-dest.oc {
   background: var(--surface-2, transparent);
 }
 .lib-db-opt {
-  padding: 0.18rem 0.6rem;
+  /* Match the Title / Tags / Note action buttons' height (.line-action). */
+  padding: 0.4rem 0.7rem;
   border: none;
   background: transparent;
   color: var(--text-muted);
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -10609,47 +10610,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   font-size: 0.86rem;
   line-height: 1.4;
 }
-
-/* "Explain this move" — inline panel under the Line-tab buttons. */
-.explain-block {
-  margin-top: var(--space-sm);
-  padding: 0.7rem 0.85rem;
-  background: var(--accent-soft);
-  border: 1px solid var(--border-card);
-  border-radius: 12px;
-}
-.explain-text {
-  margin: 0;
-  font-size: 0.95rem;
-  line-height: 1.5;
-  color: var(--text);
-}
-.explain-actions {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.6rem;
-}
-.explain-save,
-.explain-hide {
-  padding: 0.4rem 0.9rem;
-  border-radius: 999px;
-  font: inherit;
-  font-weight: 600;
-  font-size: 0.86rem;
-  cursor: pointer;
-}
-.explain-save {
-  border: none;
-  background: var(--primary);
-  color: var(--on-accent, #fff);
-}
-.explain-save:active { background: var(--primary-active, var(--primary)); }
-.explain-hide {
-  border: 1px solid var(--border-card);
-  background: transparent;
-  color: var(--text-muted);
-}
-.explain-hide:active { background: var(--bg-elevated); }
 
 /* ══ Puzzles tab — reshaped (hero / Time Attack / practice) ══════════════════ */
 
