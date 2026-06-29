@@ -67,8 +67,8 @@ export interface LichessGame {
   lastMoveAt?: number;  // ms
   winner?: 'white' | 'black';
   players?: {
-    white?: { user?: { name?: string } };
-    black?: { user?: { name?: string } };
+    white?: { user?: { name?: string }; rating?: number };
+    black?: { user?: { name?: string }; rating?: number };
   };
   opening?: { eco?: string; name?: string; ply?: number };
   moves?: string;       // SAN, space-separated (no move numbers)
@@ -124,6 +124,8 @@ export function normaliseLichess(g: LichessGame): NormalisedGame | null {
     rated: !!g.rated,
     white,
     black,
+    whiteRating: g.players?.white?.rating,
+    blackRating: g.players?.black?.rating,
     winner: g.winner ?? null,
     pgn,
     eco: g.opening?.eco ?? null,

@@ -16,13 +16,9 @@
 import { Chess } from 'chess.js';
 import type { MoveNode } from './tree';
 
-// Opening depth we retain per game. 60 plies = 30 full moves — deep enough to
-// feed the maps' "Go deeper" view (30 moves) entirely from stored data.
-//
-// DECIDED (v1.3): NO migration and NO re-import nudge. Opponents imported before
-// this bump keep their old, shallower games (the previous cap was 24 plies = 12
-// moves) and simply stay shallow — their maps can't go deep. Only games imported
-// from now on carry the full 60 plies.
+// Opening-map depth: how many plies the opponent-scouting / repertoire maps walk.
+// 60 plies = 30 full moves. Games now store their FULL move list (so the game
+// analyser has the whole game), but the maps only ever read this far.
 export const OPENING_PLIES = 60;
 
 // Hard cap per scan, newest first — the ceiling the "All" count choice lands on.
@@ -83,6 +79,8 @@ export interface NormalisedGame {
   rated: boolean;
   white: string;                         // username
   black: string;                         // username
+  whiteRating?: number;                  // rating at the game, if known
+  blackRating?: number;
   winner: 'white' | 'black' | null;      // null = draw
   pgn: string;                           // movetext (with or without headers)
   eco: string | null;                    // ECO *code* hint; falls back to PGN [ECO]
@@ -100,11 +98,12 @@ export interface ImportedGame {
   colour: 'white' | 'black';             // which side *you* played
   result: GameResult;                    // from your perspective
   opponent: string;
+  opponentRating?: number;               // the opponent's rating, if the platform gave one
   eco: string | null;                    // ECO code (e.g. "C50"), if present
   opening: string | null;                // readable opening name
-  sans: string[];                        // opening moves in SAN, capped
-  ucis: string[];                        // same moves in UCI ("e2e4"), capped
-  plyCount: number;                      // total plies in the *full* game
+  sans: string[];                        // the game's moves in SAN (full game)
+  ucis: string[];                        // same moves in UCI ("e2e4")
+  plyCount: number;                      // total plies in the game
   // User-added tags, persisted by "Save game" (edited via the analyser's Tags
   // button). Used by the My games filters. Absent until the user adds any.
   tags?: string[];
@@ -148,9 +147,11 @@ export function parseNormalised(raw: NormalisedGame, username: string): Imported
   if (verbose.length === 0) return null; // abandoned before a move — nothing to learn
 
   const colour: 'white' | 'black' = iAmWhite ? 'white' : 'black';
-  const capped = verbose.slice(0, OPENING_PLIES);
+  // Store the FULL game (not just the opening) so the game analyser has every
+  // move; the opening maps slice to OPENING_PLIES themselves where they need to.
   // Prefer the platform's ECO hint; otherwise read the PGN's [ECO] tag.
   const eco = raw.eco ?? chess.getHeaders().ECO ?? null;
+  const opponentRating = iAmWhite ? raw.blackRating : raw.whiteRating;
 
   return {
     id: raw.id,
@@ -162,10 +163,11 @@ export function parseNormalised(raw: NormalisedGame, username: string): Imported
     colour,
     result: resultFromWinner(raw.winner, colour),
     opponent: iAmWhite ? raw.black : raw.white,
+    ...(opponentRating !== undefined ? { opponentRating } : {}),
     eco,
     opening: raw.opening,
-    sans: capped.map(m => m.san),
-    ucis: capped.map(m => m.lan), // chess.js `lan` is UCI ("e2e4", "e7e8q")
+    sans: verbose.map(m => m.san),
+    ucis: verbose.map(m => m.lan), // chess.js `lan` is UCI ("e2e4", "e7e8q")
     plyCount: verbose.length,
   };
 }

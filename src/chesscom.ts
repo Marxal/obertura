@@ -90,6 +90,7 @@ interface ArchivesResponse {
 interface RawPlayer {
   username: string;
   result: string; // "win", "checkmated", "agreed", "timeout", "resigned", …
+  rating?: number;
 }
 
 export interface RawGame {
@@ -145,6 +146,8 @@ export function normaliseChesscom(raw: RawGame): NormalisedGame | null {
     rated: raw.rated ?? false,
     white: raw.white.username,
     black: raw.black.username,
+    whiteRating: raw.white.rating,
+    blackRating: raw.black.rating,
     winner,
     pgn: raw.pgn,
     eco: null,

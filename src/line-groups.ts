@@ -12,28 +12,43 @@ import type { Line } from './types';
 import { openingFamily } from './analysis';
 import { Icons } from './icons';
 
+// The line-list flavour (My Lines / Train / Scout): families come from each
+// line's opening name.
 export function renderFamilyGroups(
   host: HTMLElement,
   lines: Line[],
   card: (line: Line) => HTMLElement,
   expanded: Set<string>,
 ): void {
-  const groups = new Map<string, Line[]>();
-  for (const line of lines) {
-    const fam = openingFamily(line.openingName);
+  renderGroups(host, lines, l => openingFamily(l.openingName), card, expanded);
+}
+
+// The generic flavour: group ANY item list into collapsible families. Families
+// appear in first-appearance order (so the caller's sort is preserved) and each
+// family's cards are built lazily the first time it opens.
+export function renderGroups<T>(
+  host: HTMLElement,
+  items: T[],
+  familyOf: (item: T) => string,
+  card: (item: T) => HTMLElement,
+  expanded: Set<string>,
+): void {
+  const groups = new Map<string, T[]>();
+  for (const item of items) {
+    const fam = familyOf(item);
     let bucket = groups.get(fam);
     if (!bucket) { bucket = []; groups.set(fam, bucket); }
-    bucket.push(line);
+    bucket.push(item);
   }
-  for (const [family, flines] of groups) {
-    host.appendChild(buildFamilyGroup(family, flines, card, expanded));
+  for (const [family, fitems] of groups) {
+    host.appendChild(buildFamilyGroup(family, fitems, card, expanded));
   }
 }
 
-function buildFamilyGroup(
+function buildFamilyGroup<T>(
   family: string,
-  flines: Line[],
-  card: (line: Line) => HTMLElement,
+  flines: T[],
+  card: (line: T) => HTMLElement,
   expanded: Set<string>,
 ): HTMLElement {
   const wrap = document.createElement('div');

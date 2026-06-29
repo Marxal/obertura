@@ -16,8 +16,13 @@ import type { ImportedGame } from './import-games';
 import { buildMiniBoard } from './board-mini';
 import { openingFamily } from './analysis';
 import { createFilterBar } from './filters';
+import { renderGroups } from './line-groups';
 import { Icons } from './icons';
 import { renderLoadError } from './load-error';
+
+// Which opening families are expanded in the grouped view. Module-level so the
+// open/closed state survives re-renders (filter changes, reopening the tab).
+const expandedFamilies = new Set<string>();
 
 export interface MyGamesDeps {
   // Open the import sheet (Import last game / Browse / Paste PGN).
@@ -137,65 +142,42 @@ export async function renderMyGamesScreen(host: HTMLElement, deps: MyGamesDeps):
       return;
     }
 
-    const items: ({ header: string } | { game: ImportedGame })[] =
-      sel.group ? groupItems(gs) : gs.map(g => ({ game: g }));
-
     const list = document.createElement('div');
     list.className = 'mygames-list';
     listWrap.appendChild(list);
 
+    if (sel.group) {
+      // Collapsible opening-family accordion (same as My Lines). Collapsed groups
+      // don't build their cards, so this stays cheap even for a big library.
+      renderGroups(list, gs, g => openingFamily(g.opening), g => gameCard(g, deps), expandedFamilies);
+      return;
+    }
+
+    // Flat list: render in batches and grow on scroll.
     let shown = 0;
     const renderBatch = (): void => {
-      const slice = items.slice(shown, shown + BATCH);
+      const slice = gs.slice(shown, shown + BATCH);
       const frag = document.createDocumentFragment();
-      for (const it of slice) {
-        frag.appendChild('header' in it ? groupHeader(it.header) : gameCard(it.game, deps));
-      }
+      for (const g of slice) frag.appendChild(gameCard(g, deps));
       list.appendChild(frag);
       shown += slice.length;
     };
     renderBatch();
 
-    if (shown < items.length) {
+    if (shown < gs.length) {
       const sentinel = document.createElement('div');
       sentinel.className = 'mygames-sentinel';
       listWrap.appendChild(sentinel);
       io = new IntersectionObserver(entries => {
         if (!entries.some(e => e.isIntersecting)) return;
         renderBatch();
-        if (shown >= items.length) { io?.disconnect(); sentinel.remove(); }
+        if (shown >= gs.length) { io?.disconnect(); sentinel.remove(); }
       }, { rootMargin: '500px' });
       io.observe(sentinel);
     }
   }
 
   apply();
-}
-
-// Group the (already-sorted) games by opening family, preserving the sorted order
-// both of the groups (by first appearance) and of games within each group.
-function groupItems(games: ImportedGame[]): ({ header: string } | { game: ImportedGame })[] {
-  const order: string[] = [];
-  const byFamily = new Map<string, ImportedGame[]>();
-  for (const g of games) {
-    const fam = openingFamily(g.opening);
-    let bucket = byFamily.get(fam);
-    if (!bucket) { bucket = []; byFamily.set(fam, bucket); order.push(fam); }
-    bucket.push(g);
-  }
-  const out: ({ header: string } | { game: ImportedGame })[] = [];
-  for (const fam of order) {
-    out.push({ header: `${fam} · ${byFamily.get(fam)!.length}` });
-    for (const g of byFamily.get(fam)!) out.push({ game: g });
-  }
-  return out;
-}
-
-function groupHeader(label: string): HTMLElement {
-  const h = document.createElement('div');
-  h.className = 'mygames-group-head';
-  h.textContent = label;
-  return h;
 }
 
 function gameCard(g: ImportedGame, deps: MyGamesDeps): HTMLElement {
@@ -218,6 +200,11 @@ function gameCard(g: ImportedGame, deps: MyGamesDeps): HTMLElement {
   pip.setAttribute('aria-hidden', 'true');
   opp.appendChild(pip);
   opp.appendChild(Object.assign(document.createElement('span'), { textContent: `vs ${g.opponent}` }));
+  if (g.opponentRating !== undefined) {
+    opp.appendChild(Object.assign(document.createElement('span'), {
+      className: 'mygames-card-rating', textContent: `${g.opponentRating}`,
+    }));
+  }
   text.appendChild(opp);
 
   if (g.opening) {
