@@ -778,7 +778,11 @@ header h1 {
   color: var(--accent);
   text-transform: uppercase;
   white-space: nowrap;
+  /* The wordmark is tappable on the main tabs — it reloads the app. */
+  cursor: pointer;
 }
+/* On inner screens it's just a title again, not a reload control. */
+header h1.header-title--screen { cursor: default; }
 
 /* On inner screens (builder / settings) the wordmark slot shows the screen's own
    title instead — a plain heading, not the pixel wordmark. Long names (a line's
