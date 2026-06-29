@@ -105,6 +105,9 @@ export interface ImportedGame {
   sans: string[];                        // opening moves in SAN, capped
   ucis: string[];                        // same moves in UCI ("e2e4"), capped
   plyCount: number;                      // total plies in the *full* game
+  // User-added tags, persisted by "Save game" (edited via the analyser's Tags
+  // button). Used by the My games filters. Absent until the user adds any.
+  tags?: string[];
   // Saved game-analyser state, written by "Save game". Absent until analysed +
   // saved; restoring it reopens the game with its variations and review intact.
   analysis?: GameAnalysis;

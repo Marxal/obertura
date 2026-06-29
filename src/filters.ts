@@ -16,7 +16,9 @@
 import { Icons } from './icons';
 
 export type ColourFilter = 'all' | 'white' | 'black';
-export type StatusFilter = 'all' | 'due' | 'learning' | 'solid';
+// 'all' means "no status selected"; any other key is one of the configured
+// status options (the line statuses by default, or e.g. won/lost/drew for games).
+export type StatusFilter = string;
 
 export interface FilterSelection {
   colour: ColourFilter;
@@ -40,7 +42,7 @@ export interface FilterConfig {
   // segment and the tag chips each carry a small count badge.
   colourCounts?: { all: number; white: number; black: number };
   tagCounts?: Map<string, number>;
-  statusCounts?: { due: number; learning: number; solid: number };
+  statusCounts?: Record<string, number>;
   // When the chip counts depend on which colour is selected (e.g. a tag that
   // only ever appears on Black lines), pass this instead of/alongside the
   // static counts above. Whatever it returns for the active colour decides
@@ -48,9 +50,12 @@ export interface FilterConfig {
   // so the bar never offers a tab that would land on an empty list.
   countsForColour?: (colour: ColourFilter) => {
     tagCounts?: Map<string, number>;
-    statusCounts?: { due: number; learning: number; solid: number };
+    statusCounts?: Record<string, number>;
   };
   status?: boolean;
+  // The exclusive status pills to draw (defaults to the line statuses). A games
+  // list passes its own, e.g. Won / Lost / Drew.
+  statusOptions?: { key: string; label: string }[];
   // When true, draw a "group by opening" icon toggle on row 1; the caller reads
   // selection.group and renders its list grouped into families (or flat).
   group?: boolean;
@@ -70,7 +75,8 @@ const COLOURS: { key: ColourFilter; label: string; pip?: 'white' | 'black' }[] =
   { key: 'black', label: 'Black', pip: 'black' },
 ];
 
-const STATUSES: { key: Exclude<StatusFilter, 'all'>; label: string }[] = [
+// Default status pills (line lists). Games override these via config.statusOptions.
+const STATUSES: { key: string; label: string }[] = [
   { key: 'due', label: 'Due' },
   { key: 'learning', label: 'Learning' },
   { key: 'solid', label: 'Solid' },
@@ -91,10 +97,8 @@ function loadSelection(config: FilterConfig): FilterSelection {
   }
 
   const colour = saved.colour === 'white' || saved.colour === 'black' ? saved.colour : 'all';
-  const status =
-    saved.status === 'due' || saved.status === 'learning' || saved.status === 'solid'
-      ? saved.status
-      : 'all';
+  const statusKeys = new Set((config.statusOptions ?? STATUSES).map(s => s.key));
+  const status = typeof saved.status === 'string' && statusKeys.has(saved.status) ? saved.status : 'all';
   const fallbackSort = config.defaultSort ?? sorts[0]?.key ?? '';
   const sort = typeof saved.sort === 'string' && sortKeys.has(saved.sort) ? saved.sort : fallbackSort;
   const tags = Array.isArray(saved.tags) ? saved.tags.filter(t => known.has(t)) : [];
@@ -260,7 +264,7 @@ function buildChipRow(config: FilterConfig, sel: FilterSelection, commit: () => 
   }
 
   let sep: HTMLElement | null = null;
-  const statusPills: { key: Exclude<StatusFilter, 'all'>; el: HTMLElement }[] = [];
+  const statusPills: { key: string; el: HTMLElement }[] = [];
   if (hasStatus) {
     // A hairline divider sets the status pills apart from the tags before them.
     if (userTags.length + opponentTags.length > 0) {
@@ -269,7 +273,7 @@ function buildChipRow(config: FilterConfig, sel: FilterSelection, commit: () => 
       sep.setAttribute('aria-hidden', 'true');
       row.appendChild(sep);
     }
-    for (const s of STATUSES) {
+    for (const s of (config.statusOptions ?? STATUSES)) {
       const el = buildStatusPill(s, config, sel, commit);
       statusPills.push({ key: s.key, el });
       row.appendChild(el);
@@ -334,7 +338,7 @@ function buildTagChip(tag: string, config: FilterConfig, sel: FilterSelection, c
 }
 
 function buildStatusPill(
-  s: { key: Exclude<StatusFilter, 'all'>; label: string },
+  s: { key: string; label: string },
   config: FilterConfig,
   sel: FilterSelection,
   commit: () => void,

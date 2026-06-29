@@ -477,12 +477,13 @@ function openMyGamesImport(): void {
 // a saved analysis, restore it (variations + review intact) and skip the review;
 // otherwise lay its moves down and analyse from scratch.
 function openGameForAnalysis(game: ImportedGame): void {
+  const tags = game.tags ?? [];
   if (game.analysis?.tree) {
-    buildFromTree(game.analysis.tree, game.colour, `vs ${game.opponent}`);
+    buildFromTree(game.analysis.tree, game.colour, `vs ${game.opponent}`, tags);
     builderEngine = game.analysis.engine;
     renderMoveList(); // repaint so the restored review's engine tag shows
   } else {
-    buildFromUcis(game.ucis, game.colour, [], { description: `vs ${game.opponent}`, analyser: true });
+    buildFromUcis(game.ucis, game.colour, tags, { description: `vs ${game.opponent}`, analyser: true });
     autoReview();
   }
   analyserGameId = game.id; // after build — clearBuilder resets it to null
@@ -1409,9 +1410,10 @@ function buildFromUcis(
 // Restore a previously-analysed game: load its saved move tree (main line +
 // variations + review) straight into the analyser, cursor at the start. Mirrors
 // buildFromUcis but from a tree rather than a flat move list.
-function buildFromTree(tree: MoveNode, colour: 'white' | 'black', description: string): void {
+function buildFromTree(tree: MoveNode, colour: 'white' | 'black', description: string, tags: string[] = []): void {
   clearBuilder(colour);
   builderDesc = description;
+  currentTags = [...tags];
   loadTree(tree);
   builderMode = 'analyser';
   setTreeMode('variations');
@@ -2078,6 +2080,7 @@ async function saveGame(): Promise<void> {
   if (analyserGameId) {
     const game = await getGame(analyserGameId);
     if (game) {
+      game.tags = [...currentTags];
       game.analysis = { tree: serialise(), engine: builderEngine, reviewedAt: Date.now() };
       await saveGames([game]);
       savedSnapshot = builderSnapshot();

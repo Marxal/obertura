@@ -2737,6 +2737,32 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   font-weight: 600;
 }
 .mygames-sentinel { height: 1px; }
+
+/* Opening-group header (when "group by opening" is on). */
+.mygames-group-head {
+  margin: 0.6rem 0 0.1rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.mygames-list-wrap { display: block; }
+
+/* User tags on a card. */
+.mygames-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.2rem;
+}
+.mygames-tag {
+  font-size: 0.7rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
 .mygames-card-chev {
   flex: 0 0 auto;
   color: var(--text-faint);
