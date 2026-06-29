@@ -1540,6 +1540,17 @@ cg-board square.move-dest.oc {
   font-weight: 700;
 }
 
+/* A parenthesised variation in the analyser's move list (PGN style). Muted and
+   slightly smaller than the main line, but its moves stay clickable and keep any
+   game-review colour. Nested variations indent naturally through the parens. */
+.move-var {
+  color: var(--text-faint);
+  font-size: 0.86em;
+}
+.move-var .move-num {
+  margin-left: 0.15em;
+}
+
 /* ── Builder bottom dock: slide tabs + control bar ──────────────────────────
    The dock is pinned to the bottom while building (the tab bar is hidden on the
    builder, so the space is free). It stacks the carousel's slide-tab strip on

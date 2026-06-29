@@ -7,7 +7,7 @@
 
 import type { MoveNode } from './tree';
 import type { TestResult } from './selftest-panel';
-import { reset, addMove, goTo, mainline, serialise, loadTree } from './tree';
+import { reset, addMove, goTo, mainline, serialise, loadTree, setTreeMode, getCurrentNode } from './tree';
 
 // Total nodes in a tree (root included), so a single mainline of N moves is N+1.
 // Used to prove no stray sibling branches survive a round-trip.
@@ -80,6 +80,43 @@ export function runTreeSelfTest(): TestResult[] {
     'a move note round-trips through save/load',
     noteAfter === 'kingside attack idea',
     `f4 note "${noteAfter ?? '(none)'}"`
+  );
+
+  // ── Variations mode (the game analyser) ─────────────────────────────────────
+  // Build the same main line, then deviate mid-line in 'variations' mode: the
+  // deviating move must be ADDED as a sibling, leaving the main line intact.
+  reset();
+  addMove('e4', 'e2e4', 'fen-e4');
+  const e5b = addMove('e5', 'e7e5', 'fen-e5');
+  addMove('Nf3', 'g1f3', 'fen-nf3');
+
+  setTreeMode('variations');
+  goTo(e5b.id);
+  addMove('Bc4', 'f1c4', 'fen-bc4'); // an alternative to Nf3
+
+  check(
+    'variation adds a sibling, main line intact',
+    e5b.children.length === 2 && e5b.children[0].san === 'Nf3' && e5b.children[1].san === 'Bc4',
+    `e5 children: [${e5b.children.map(c => c.san).join(', ')}]`
+  );
+  check(
+    'mainline still follows children[0]',
+    sans() === 'e4 e5 Nf3',
+    `mainline "${sans()}"`
+  );
+  check(
+    'cursor sits on the new variation move',
+    getCurrentNode().san === 'Bc4',
+    `current "${getCurrentNode().san}"`
+  );
+
+  // Replaying an existing variation move advances onto it (no duplicate sibling).
+  goTo(e5b.id);
+  addMove('Bc4', 'f1c4', 'fen-bc4');
+  check(
+    'replaying a variation advances, no duplicate',
+    e5b.children.length === 2,
+    `e5 children: ${e5b.children.length}`
   );
 
   reset();
