@@ -739,17 +739,19 @@ function setupBuilderPanelHandle(): void {
   handle.addEventListener('pointerup', endHandle);
   handle.addEventListener('pointercancel', endHandle);
 
-  // Content overscroll: pull the sheet up (in default) or down (in full, at the
-  // content's top) past the edges, like a Google-Maps sheet. Touch only, so the
-  // conditional preventDefault never fights a desktop wheel.
+  // Content scroll vs. sheet expand. The panel content scrolls independently —
+  // a swipe just browses the list without moving the sheet. The sheet only grows
+  // when you've run out of list and keep pulling: reaching the BOTTOM and still
+  // dragging up expands it; in full, sitting at the TOP and pulling down collapses
+  // it. Touch only, so the conditional preventDefault never fights a desktop wheel.
   const track = document.getElementById('builder-carousel');
   if (track) {
-    let sY = 0, sX = 0, sH = 0, intercept = false, tm = sheetMetrics();
+    let sY = 0, sX = 0, baseH = 0, baseDy = 0, intercept = false, tm = sheetMetrics();
     const activeEl = () => track.children[activeSlide] as HTMLElement | undefined;
     track.addEventListener('touchstart', e => {
       if (e.touches.length !== 1) return;
       sY = e.touches[0].clientY; sX = e.touches[0].clientX;
-      tm = sheetMetrics(); sH = sheet.offsetHeight; intercept = false;
+      tm = sheetMetrics(); intercept = false;
     }, { passive: true });
     track.addEventListener('touchmove', e => {
       if (e.touches.length !== 1) return;
@@ -757,15 +759,23 @@ function setupBuilderPanelHandle(): void {
       const dx = sX - e.touches[0].clientX;
       if (!intercept) {
         if (Math.abs(dy) < 8 || Math.abs(dy) <= Math.abs(dx)) return; // not a clear vertical drag
-        const atTop = (activeEl()?.scrollTop ?? 0) <= 0;
-        const wantsExpand = sheetState === 'default' && dy > 0 && atTop;
+        const el = activeEl();
+        const top = el?.scrollTop ?? 0;
+        const atTop = top <= 0;
+        const atBottom = el ? top + el.clientHeight >= el.scrollHeight - 1 : true;
+        // Default: only expand once the list is fully scrolled and you keep going.
+        const wantsExpand = sheetState === 'default' && dy > 0 && atBottom;
+        // Full: only collapse from the very top of the list, pulling down.
         const wantsCollapse = sheetState === 'full' && dy < 0 && atTop;
         if (!wantsExpand && !wantsCollapse) return;
         intercept = true;
+        // Rebase from here so the sheet doesn't jump by however far we scrolled
+        // the content first.
+        baseDy = dy; baseH = sheet.offsetHeight;
         sheet.classList.add('builder-sheet--dragging');
       }
       e.preventDefault();
-      applySheetHeight(Math.max(tm.defaultH, Math.min(tm.fullH, sH + dy)));
+      applySheetHeight(Math.max(tm.defaultH, Math.min(tm.fullH, baseH + (dy - baseDy))));
     }, { passive: false });
     const endTouch = () => {
       if (!intercept) return;
@@ -775,6 +785,40 @@ function setupBuilderPanelHandle(): void {
     };
     track.addEventListener('touchend', endTouch);
     track.addEventListener('touchcancel', endTouch);
+  }
+
+  // The tab strip is also a drag surface for the sheet: a clear vertical swipe up
+  // expands it, down collapses it — while horizontal swipes (scrolling the tabs)
+  // and taps (switching tabs) pass through untouched.
+  const tabs = document.getElementById('builder-slide-tabs');
+  if (tabs) {
+    let tY = 0, tX = 0, tBaseH = 0, tDrag = false, tmt = sheetMetrics();
+    tabs.addEventListener('touchstart', e => {
+      if (e.touches.length !== 1) return;
+      tY = e.touches[0].clientY; tX = e.touches[0].clientX;
+      tmt = sheetMetrics(); tDrag = false;
+    }, { passive: true });
+    tabs.addEventListener('touchmove', e => {
+      if (e.touches.length !== 1) return;
+      const dy = tY - e.touches[0].clientY; // up positive
+      const dx = tX - e.touches[0].clientX;
+      if (!tDrag) {
+        if (Math.abs(dy) < 8 || Math.abs(dy) <= Math.abs(dx)) return; // let taps / horizontal scroll be
+        tDrag = true;
+        tBaseH = sheet.offsetHeight;
+        sheet.classList.add('builder-sheet--dragging');
+      }
+      e.preventDefault();
+      applySheetHeight(Math.max(tmt.defaultH, Math.min(tmt.fullH, tBaseH + dy)));
+    }, { passive: false });
+    const endTabs = () => {
+      if (!tDrag) return;
+      tDrag = false;
+      sheet.classList.remove('builder-sheet--dragging');
+      snapSheet(tmt);
+    };
+    tabs.addEventListener('touchend', endTabs);
+    tabs.addEventListener('touchcancel', endTabs);
   }
 
   // Tap the peeking board (only reachable in full) to drop back to default.
