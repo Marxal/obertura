@@ -31,6 +31,16 @@ export function formatGameDate(endTimeSec: number | undefined): string {
   });
 }
 
+// A compact numeric date ("23/06/2026") for the card's own date row. Empty when
+// the date is unknown.
+function formatGameDateNumeric(endTimeSec: number | undefined): string {
+  if (!endTimeSec) return '';
+  const d = new Date(endTimeSec * 1000);
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return `${dd}/${mm}/${d.getFullYear()}`;
+}
+
 // Which opening families are expanded in the grouped view. Module-level so the
 // open/closed state survives re-renders (filter changes, reopening the tab).
 const expandedFamilies = new Set<string>();
@@ -44,11 +54,6 @@ export interface MyGamesDeps {
 
 const RESULT_LABEL: Record<ImportedGame['result'], string> = {
   win: 'Won', draw: 'Drew', loss: 'Lost',
-};
-
-// Filter pill key → stored result code.
-const RESULT_OF: Record<string, ImportedGame['result']> = {
-  won: 'win', lost: 'loss', drew: 'draw',
 };
 
 // How many list items (cards / group headers) to render per batch.
@@ -105,10 +110,6 @@ export async function renderMyGamesScreen(host: HTMLElement, deps: MyGamesDeps):
     white: games.filter(g => g.colour === 'white').length,
     black: games.filter(g => g.colour === 'black').length,
   };
-  const statusCounts: Record<string, number> = { won: 0, lost: 0, drew: 0 };
-  for (const g of games) {
-    statusCounts[g.result === 'win' ? 'won' : g.result === 'loss' ? 'lost' : 'drew']++;
-  }
   const tagCounts = new Map<string, number>();
   for (const g of games) for (const t of g.tags ?? []) tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
   const allTags = [...tagCounts.keys()].sort((a, b) => a.localeCompare(b));
@@ -117,14 +118,12 @@ export async function renderMyGamesScreen(host: HTMLElement, deps: MyGamesDeps):
   const listWrap = document.createElement('div');
   listWrap.className = 'mygames-list-wrap';
 
+  // Row 1 is intentionally lean: just the colour segment and the group/branching
+  // toggle. No sort menu (always newest-first) and no Won/Lost/Drew pills — the
+  // result now reads from the coloured border on each card's miniature.
   const filter = createFilterBar({
     persistKey: 'obertura.mygamesFilter',
-    sorts: [{ key: 'newest', label: 'Newest first' }, { key: 'oldest', label: 'Oldest first' }],
-    defaultSort: 'newest',
     group: true,
-    status: true,
-    statusOptions: [{ key: 'won', label: 'Won' }, { key: 'lost', label: 'Lost' }, { key: 'drew', label: 'Drew' }],
-    statusCounts,
     colourCounts,
     userTags: allTags,
     tagCounts,
@@ -144,9 +143,8 @@ export async function renderMyGamesScreen(host: HTMLElement, deps: MyGamesDeps):
 
     let gs = games.slice();
     if (sel.colour !== 'all') gs = gs.filter(g => g.colour === sel.colour);
-    if (sel.status !== 'all') gs = gs.filter(g => g.result === RESULT_OF[sel.status]);
     if (sel.tags.length > 0) gs = gs.filter(g => sel.tags.some(t => (g.tags ?? []).includes(t)));
-    gs.sort((a, b) => sel.sort === 'oldest' ? a.endTime - b.endTime : b.endTime - a.endTime);
+    gs.sort((a, b) => b.endTime - a.endTime); // always newest-first
 
     if (!gs.length) {
       const none = document.createElement('p');
@@ -205,8 +203,9 @@ function gameCard(g: ImportedGame, deps: MyGamesDeps, refresh: () => void): HTML
   open.className = 'mygames-card-open';
   open.addEventListener('click', () => deps.onOpenGame(g));
 
+  // The miniature carries a thin result border: green won, red lost, neutral drew.
   const mini = buildMiniBoard(fenAfter(g.ucis), g.colour);
-  mini.classList.add('mygames-card-mini');
+  mini.classList.add('mygames-card-mini', `mygames-card-mini--${g.result}`);
   open.appendChild(mini);
 
   const text = document.createElement('div');
@@ -235,8 +234,7 @@ function gameCard(g: ImportedGame, deps: MyGamesDeps, refresh: () => void): HTML
 
   const sub = document.createElement('div');
   sub.className = `mygames-card-sub mygames-card-sub--${g.result}`;
-  const date = formatGameDate(g.endTime);
-  sub.textContent = `${RESULT_LABEL[g.result]} · ${g.timeClass}${date ? ' · ' + date : ''}`;
+  sub.textContent = `${RESULT_LABEL[g.result]} · ${g.timeClass}`;
   if (g.analysis) {
     const tag = document.createElement('span');
     tag.className = 'mygames-card-analysed';
@@ -245,6 +243,15 @@ function gameCard(g: ImportedGame, deps: MyGamesDeps, refresh: () => void): HTML
     sub.appendChild(tag);
   }
   text.appendChild(sub);
+
+  // The date gets its own row, numeric (23/06/2026).
+  const date = formatGameDateNumeric(g.endTime);
+  if (date) {
+    const dateEl = document.createElement('div');
+    dateEl.className = 'mygames-card-date';
+    dateEl.textContent = date;
+    text.appendChild(dateEl);
+  }
 
   if (g.tags && g.tags.length) {
     const tags = document.createElement('div');
@@ -256,11 +263,10 @@ function gameCard(g: ImportedGame, deps: MyGamesDeps, refresh: () => void): HTML
   }
 
   open.appendChild(text);
-  const chev = Icons.chevronRight(18);
-  chev.classList.add('mygames-card-chev');
-  open.appendChild(chev);
   wrap.appendChild(open);
 
+  // Delete tucks into the top-right corner (overlaid on the card) so it no longer
+  // needs its own column.
   const del = document.createElement('button');
   del.type = 'button';
   del.className = 'mygames-card-del';

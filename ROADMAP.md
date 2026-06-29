@@ -65,6 +65,28 @@ _Restore point: tag `v0.4`. Shipped._
 
 ---
 
+## v0.5 — small improvements round 🔜
+
+A batch of focused UX refinements across Games, Lines, Train, Statistics and the
+PWA shell, plus a new daily-challenge feature. Shipped in three sessions; `v0.4`
+is the restore point for the round.
+
+- ✅ **Session 1 — card polish, close prompt, PWA shell, puzzle repeats.**
+  My Games cards now match the My Lines miniature size, carry a thin won/loss
+  border, show a numeric date (`23/06/2026`) on its own row, tuck delete into a
+  corner, and drop the sort + Won/Lost/Drew controls (colour + group only). The
+  game analyser no longer prompts "Save…" when an untouched game is closed (only
+  your own variations make it dirty; the auto-review's classifications are
+  excluded from the check) and the prompt is now game-aware. My Lines cards swap
+  the eye for an edit pencil in the title row and move delete onto the training
+  row. Added `overscroll-behavior` to stop pull-to-refresh reloads, a boot splash
+  (app icon) that replaces the first-paint "Loading…", and widened the puzzle
+  seen-ring + retry count so puzzles repeat far less often.
+- 🔜 **Session 2 — Train redesign, daily challenge, success screens.**
+- 🔜 **Session 3 — Statistics overhaul.**
+
+---
+
 ## v1.0 — the working trainer ✅
 
 The first end-to-end version: build lines, save them, train them with spaced

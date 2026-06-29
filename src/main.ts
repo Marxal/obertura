@@ -489,6 +489,10 @@ function openGameForAnalysis(game: ImportedGame): void {
     autoReview();
   }
   analyserGameId = game.id; // after build — clearBuilder resets it to null
+  // The just-loaded game matches what's stored — only *your* variations/notes make
+  // it dirty (the auto-review's classifications are stripped from the snapshot), so
+  // an untouched game closes without the save prompt.
+  savedSnapshot = builderSnapshot();
 }
 
 // Open a freshly imported/pasted game (no saved analysis yet) in the analyser and
@@ -498,6 +502,8 @@ function openImportedGame(ucis: string[], colour: 'white' | 'black', description
   buildFromUcis(ucis, colour, [], { description, analyser: true, gameDate: endTime });
   analyserGameId = gameId ?? null; // after build — clearBuilder resets it
   autoReview();
+  // Baseline the freshly-opened game so only your own edits trigger the save guard.
+  savedSnapshot = builderSnapshot();
 }
 
 function autoReview(): void {
@@ -1191,8 +1197,19 @@ function builderSnapshot(): string {
     name: currentTitle(),
     tags: currentTags,
     colour: saveColour,
-    tree: serialise(),
+    tree: stripDerived(serialise()),
   });
+}
+
+// Engine review writes derived fields (classification, evalCp) onto the nodes.
+// Those aren't authored edits — they re-compute on every open — so they must not
+// make a line/game read as "dirty". Strip them before fingerprinting for the
+// leave-guard. serialise() hands back a fresh clone, so mutating it is safe.
+function stripDerived(node: MoveNode): MoveNode {
+  delete node.classification;
+  delete node.evalCp;
+  for (const child of node.children) stripDerived(child);
+  return node;
 }
 
 // True when the builder holds moves that differ from the last saved state.
@@ -2010,14 +2027,22 @@ function onBuilderBackGesture(): void {
 }
 
 function showSaveGuard(proceed: () => void): void {
+  // A game analyser ("vs <name>", backed by a game record) phrases this as saving
+  // the analysis back onto the game; a hand-built line saves to My Lines.
+  const isGame = analyserGameId !== null;
   showDialog({
-    title: 'Save this line?',
-    body: 'You have unsaved moves in this line.',
+    title: isGame ? 'Save your analysis?' : 'Save this line?',
+    body: isGame
+      ? 'You have unsaved changes to this game.'
+      : 'You have unsaved moves in this line.',
     buttons: [
       {
         label: 'Save',
         variant: 'primary',
-        onClick: () => { void persistCurrentLine().then(() => proceed()); },
+        onClick: () => {
+          const done = isGame ? saveGame() : persistCurrentLine();
+          void Promise.resolve(done).then(() => proceed());
+        },
       },
       { label: 'Discard', variant: 'danger', onClick: proceed },
       { label: 'Keep editing', variant: 'secondary' },
@@ -2395,6 +2420,26 @@ function maybeRestoreLichessReturn(): void {
   buildFromUcis(ucis, colour);
 }
 
+// Fade out and remove the boot splash once the first screen's data is ready. Tied
+// to getAllLines (the Train screen's gating read); a fallback timeout guarantees
+// the splash can never get stuck if that read ever hangs.
+function hideAppSplashWhenReady(): void {
+  const splash = document.getElementById('app-splash');
+  if (!splash) return;
+  let done = false;
+  const reveal = (): void => {
+    if (done) return;
+    done = true;
+    // One more frame so the populated screen has painted under the splash.
+    requestAnimationFrame(() => {
+      splash.classList.add('app-splash--hide');
+      setTimeout(() => splash.remove(), 320);
+    });
+  };
+  void getAllLines().then(reveal, reveal);
+  setTimeout(reveal, 3000); // safety net
+}
+
 // Stamp the install date on the very first launch — the beta survey banner
 // (survey.ts) waits a week from this timestamp before it first appears.
 if (!localStorage.getItem('obertura.installedAt')) {
@@ -2540,6 +2585,11 @@ maybeShowGate(() => requestAnimationFrame(() => {
   // was created above while visible, so chessground sized itself correctly
   // before we switch away.
   showView('train');
+
+  // Drop the boot splash once the Train screen's gating data (the lines) has
+  // loaded — so the launch shows the app icon rather than a bare "Loading…",
+  // then reveals a populated screen. A short fallback guarantees it never sticks.
+  hideAppSplashWhenReady();
 
   // Now that cg/builder exist, replay a "Connect to Lichess" return if one is
   // pending (the OAuth callback may have resolved before boot finished). This

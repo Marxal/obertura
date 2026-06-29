@@ -559,8 +559,7 @@ function buildDetailCard(
     );
   }
 
-  // Title row (row 1) — full width. Tap the title (or the eye beside it) to open
-  // the line in the builder.
+  // Title row (row 1) — full width. Tap the title to open the line in the builder.
   const titleRow = document.createElement('button');
   titleRow.type = 'button';
   titleRow.className = 'pcard-title';
@@ -572,16 +571,24 @@ function buildDetailCard(
   titleRow.addEventListener('click', () => deps.onOpenLine(line));
   titleRowWrap.appendChild(titleRow);
 
-  // The eye: a quiet, right-aligned twin of the title tap — same action, just a
-  // visible affordance for it.
-  const eyeBtn = document.createElement('button');
-  eyeBtn.type = 'button';
-  eyeBtn.className = 'dline-icon dline-eye';
-  eyeBtn.setAttribute('aria-label', 'Open line');
-  eyeBtn.title = 'Open line';
-  eyeBtn.appendChild(Icons.eye(18));
-  eyeBtn.addEventListener('click', () => deps.onOpenLine(line));
-  titleRowWrap.appendChild(eyeBtn);
+  // Edit: a quiet, right-aligned twin of the title — opens the rename sheet.
+  const editBtn = document.createElement('button');
+  editBtn.type = 'button';
+  editBtn.className = 'dline-icon dline-edit';
+  editBtn.setAttribute('aria-label', 'Edit name');
+  editBtn.title = 'Edit name';
+  editBtn.appendChild(Icons.pencil(16));
+  editBtn.addEventListener('click', () =>
+    openRenameSheet(line, newName => {
+      // Keep the carousel title in sync without re-mounting boards.
+      const carouselTitle = container.querySelector<HTMLElement>(
+        `.carousel-card[data-line-id="${line.id}"] .carousel-card-title`
+      );
+      if (carouselTitle) carouselTitle.textContent = newName;
+      refresh();
+    })
+  );
+  titleRowWrap.appendChild(editBtn);
 
   // Card info, stacked beside the board.
   const info = document.createElement('div');
@@ -629,7 +636,7 @@ function buildDetailCard(
 
   content.appendChild(info);
 
-  // Footer: training toggle (+ Due badge) bottom-left, rename/delete bottom-right.
+  // Footer: training toggle (+ Due badge) bottom-left, delete bottom-right.
   const footer = document.createElement('div');
   footer.className = 'dline-footer';
 
@@ -669,26 +676,9 @@ function buildDetailCard(
 
   footer.appendChild(footerLeft);
 
+  // Delete sits on the training row, right-aligned (rename lives up in the title row).
   const iconRow = document.createElement('div');
   iconRow.className = 'dline-iconrow';
-
-  const renameBtn = document.createElement('button');
-  renameBtn.type = 'button';
-  renameBtn.className = 'dline-icon';
-  renameBtn.setAttribute('aria-label', 'Rename line');
-  renameBtn.title = 'Rename';
-  renameBtn.appendChild(Icons.pencil(16));
-  renameBtn.addEventListener('click', () =>
-    openRenameSheet(line, newName => {
-      // Keep the carousel title in sync without re-mounting boards.
-      const carouselTitle = container.querySelector<HTMLElement>(
-        `.carousel-card[data-line-id="${line.id}"] .carousel-card-title`
-      );
-      if (carouselTitle) carouselTitle.textContent = newName;
-      refresh();
-    })
-  );
-  iconRow.appendChild(renameBtn);
 
   const deleteBtn = document.createElement('button');
   deleteBtn.type = 'button';

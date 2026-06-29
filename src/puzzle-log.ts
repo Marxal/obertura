@@ -12,7 +12,11 @@ const DAY_KEY = 'obertura.puzzleLog';
 const OPENING_KEY = 'obertura.puzzleByOpening';
 const SEEN_KEY = 'obertura.puzzleSeen';
 const MAX_DAYS = 120;
-const MAX_SEEN = 300;
+// How many recently-seen puzzle ids to remember for de-dup. The bigger this ring,
+// the longer a puzzle stays excluded before it can resurface — so repeats are
+// spaced far apart. (The anonymous Lichess pool is finite, so this guarantees good
+// spacing, not zero repeats over thousands solved.)
+const MAX_SEEN = 1000;
 
 function dayKey(d: Date): string {
   const y = d.getFullYear();
