@@ -2686,18 +2686,43 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 .mygames-card {
   display: flex;
-  align-items: center;
-  gap: 0.7rem;
+  align-items: stretch;
   width: 100%;
-  padding: 0.55rem 0.65rem;
   border: 1px solid var(--border-card);
   border-radius: 12px;
   background: var(--bg-card);
   box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.mygames-card-open {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0.65rem;
+  border: none;
+  background: transparent;
   text-align: left;
   cursor: pointer;
 }
-.mygames-card:active { filter: brightness(0.97); }
+.mygames-card-open:active { filter: brightness(0.97); }
+.mygames-card-del {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  border: none;
+  border-left: 1px solid var(--border-card);
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.mygames-card-del:active {
+  background: var(--bg-elevated);
+  color: #c93636;
+}
 .mygames-card-mini {
   flex: 0 0 auto;
   width: 52px;
