@@ -13,9 +13,16 @@ import type { Line } from './types';
 import { renderLinesScreen, focusSavedLine } from './lines-screen';
 import { renderProgressScreen } from './progress-screen';
 import { startPretrainingRun, enrolLineDirectly } from './pretraining';
-import { renderTrainScreen } from './train-screen';
+import { renderTrainScreen, startLineSession } from './train-screen';
 import { renderExploreScreen } from './explore-screen';
-import { renderPuzzlesScreen } from './puzzles-screen';
+import { renderPuzzlesScreen, startDailyPuzzles } from './puzzles-screen';
+import {
+  renderDailyChallenge,
+  pickDailyLines,
+  markLinesDone,
+  markPuzzlesDone,
+  DAILY_PUZZLE_GOAL,
+} from './daily-challenge';
 import { renderMyGamesScreen, formatGameDate } from './my-games-screen';
 import { opponentTag } from './scout';
 import { renderSettingsScreen } from './settings-screen';
@@ -1702,9 +1709,40 @@ function renderTrainTabbed(host: HTMLElement): void {
   tabs.appendChild(mkTab('openings', 'Openings', Icons.zap(18)));
   tabs.appendChild(mkTab('puzzles', 'Puzzles', Icons.puzzlePiece(18)));
 
+  // The daily-challenge card sits above the tabs — it spans both halves (lines and
+  // puzzles), so it's the shared daily face of the Train screen.
+  const dailyHost = document.createElement('div');
+  dailyHost.className = 'daily-host';
   const openingsPane = document.createElement('div');
   const puzzlesPane = document.createElement('div');
-  host.append(tabs, openingsPane, puzzlesPane);
+  host.append(dailyHost, tabs, openingsPane, puzzlesPane);
+
+  // (Re)render the daily card from current lines + done state. Called on first
+  // paint and after either half completes.
+  const renderDaily = async (): Promise<void> => {
+    let allLines: Line[];
+    try {
+      allLines = await getAllLines();
+    } catch {
+      dailyHost.innerHTML = '';
+      return;
+    }
+    dailyHost.innerHTML = '';
+    const card = renderDailyChallenge({
+      lines: pickDailyLines(allLines),
+      onTrainLines: (lines) => {
+        // Drill today's lines on the Openings pane; mark the half done when the
+        // whole sitting finishes, then refresh the card behind the overlay.
+        if (trainTab !== 'openings') { trainTab = 'openings'; paint(); }
+        startLineSession(lines, openingsPane, () => { markLinesDone(); void renderDaily(); });
+      },
+      onSolvePuzzles: () => {
+        void startDailyPuzzles(DAILY_PUZZLE_GOAL, () => { markPuzzlesDone(); void renderDaily(); });
+      },
+    });
+    if (card) dailyHost.appendChild(card);
+  };
+  void renderDaily();
 
   const paint = (): void => {
     tabs.querySelectorAll<HTMLElement>('.lines-tab').forEach(b => {

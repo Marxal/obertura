@@ -983,6 +983,93 @@ main {
   opacity: 0.6;
 }
 
+/* ── Daily challenge card (top of Train, above the tabs) ──────────────────────── */
+/* Two bite-sized tasks for today — remember a few lines, solve a few rated
+   puzzles — with the streak alongside. Once both are done it shrinks to a quiet
+   "done for today" line. Visual but compact; copy stays short. */
+
+.daily-host { margin: 0.75rem 1rem 0; }
+
+.daily-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 0.85rem 0.9rem;
+  background: linear-gradient(135deg, var(--accent-soft), var(--bg-card) 75%);
+  border: 1px solid var(--border-card);
+}
+
+.daily-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.daily-card-title {
+  font-weight: 800;
+  font-size: 0.98rem;
+  letter-spacing: 0.01em;
+}
+
+.daily-card-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.daily-task {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border-card);
+  border-radius: 11px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+.daily-task:active { filter: brightness(0.97); }
+
+.daily-task-icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-active);
+}
+
+.daily-task-label { flex: 1 1 auto; min-width: 0; }
+
+/* A finished task: ticked, calm, and no longer tappable. */
+.daily-task--done {
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: default;
+}
+.daily-task--done .daily-task-icon { color: #5a9e3f; }
+.daily-task--done .daily-task-label { text-decoration: line-through; opacity: 0.8; }
+
+.daily-card-note {
+  font-size: 0.76rem;
+  color: var(--text-faint);
+}
+
+/* Both halves done — the card is now a slim success line. */
+.daily-card--done {
+  gap: 0.5rem;
+  padding: 0.7rem 0.9rem;
+}
+.daily-card-done-msg {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #5a9e3f;
+}
+
 #board-wrap {
   width: 100vw;
   height: 100vw;

@@ -174,6 +174,103 @@ function colourPip(colour: 'white' | 'black'): HTMLElement {
   return pip;
 }
 
+// The shared session runner (module-level so the daily challenge can launch the
+// same rated run as the Puzzles screen). Difficulty is adaptive: rated/practice
+// tracks your rating, Time Attack ramps with the running solved count. Count modes
+// weave in a few due repeats (puzzle-repeat.ts) before drawing fresh puzzles.
+function runMixedPuzzleSession(
+  entries: OpeningEntry[],
+  label: string,
+  mode: PuzzleMode,
+  hooks: { taSource?: TaSource; onExit: () => void; onPlayAgain?: () => void; onComplete?: () => void },
+): void {
+  if (entries.length === 0) return;
+  const taSource = hooks.taSource ?? 'openings';
+
+  // Per-session state for the repeat queue: which openings are in scope, the
+  // repeats already served (so we don't re-show one mid-run), and a cap so a
+  // session stays mostly fresh (~a third may be due repeats).
+  const angleSet = new Set(entries.map((e) => e.angle));
+  const servedRepeats = new Set<string>();
+  let repeatsServed = 0;
+
+  const drawFresh = async (ctx: { solved: number }): Promise<PuzzleDraw | null> => {
+    const pick = entries[Math.floor(Math.random() * entries.length)];
+    // Time Attack: keep the level climbing. Fetch a few candidates and take the
+    // first at/above a rising floor, so ratings trend up instead of bouncing.
+    if (mode.kind === 'timed') {
+      const floor = targetRatingForStreak(ctx.solved) - 50;
+      let best: PuzzleDraw | null = null;
+      for (let i = 0; i < 3; i++) {
+        const p = await fetchNextPuzzle(pick.angle, { difficulty: difficultyForStreak(ctx.solved), colour: pick.colour });
+        if (!p) break;
+        const cand: PuzzleDraw = { puzzle: p, angle: pick.angle, family: pick.family };
+        if (p.rating >= floor) return cand;
+        if (!best || p.rating > best.puzzle.rating) best = cand;
+      }
+      return best;
+    }
+    // Count modes (Daily Mix / Practice): difficulty tracks your rating.
+    const puzzle = await fetchNextPuzzle(pick.angle, { difficulty: difficultyForRating(getPuzzleRating()), colour: pick.colour });
+    return puzzle ? { puzzle, angle: pick.angle, family: pick.family } : null;
+  };
+
+  startPuzzleSession({
+    modeLabel: label,
+    mode,
+    nextPuzzle: async (ctx) => {
+      if (mode.kind === 'count') {
+        const cap = Math.floor(mode.count / 3);
+        if (repeatsServed < cap) {
+          const due = takeDueRepeat(servedRepeats, angleSet);
+          if (due) {
+            servedRepeats.add(due.puzzle.id);
+            repeatsServed++;
+            return { puzzle: due.puzzle, angle: due.angle, family: due.family, repeat: true };
+          }
+        }
+      }
+      return drawFresh(ctx);
+    },
+    onResult: (r) => {
+      recordPuzzleResult(r.angle, r.solved);
+      reviewResult(r.puzzle, r.angle, r.family, r.solved);
+    },
+    onComplete: (s) => {
+      if (mode.kind === 'timed') recordTaBest(taSource, (mode.ms / 60_000) as TaMinutes, s.solved);
+      hooks.onComplete?.();
+    },
+    onExit: hooks.onExit,
+    onPlayAgain: hooks.onPlayAgain,
+  });
+}
+
+// Launch the daily challenge's puzzle half: a short rated run (the same engine and
+// pool as the Daily Rated Mix, just a smaller count). `onComplete` fires when the
+// run reaches its results — i.e. the half is done. Resolves to false when there's
+// nothing to draw from (no openings in the repertoire/games yet).
+export async function startDailyPuzzles(count: number, onComplete: () => void): Promise<boolean> {
+  let lines: Awaited<ReturnType<typeof getAllLines>>;
+  let games: Awaited<ReturnType<typeof getAllGames>>;
+  try {
+    [lines, games] = await Promise.all([getAllLines(), getAllGames()]);
+  } catch {
+    return false;
+  }
+  const items = [
+    ...lines.map((l) => ({ opening: l.openingName, colour: l.colour })),
+    ...games.map((g) => ({ opening: g.opening, colour: g.colour })),
+  ];
+  const allEntries = entriesFrom(items);
+  if (allEntries.length === 0) return false;
+
+  runMixedPuzzleSession(allEntries, 'Daily challenge', { kind: 'count', count, rated: true }, {
+    onExit: () => { /* the daily card refreshes itself via onComplete */ },
+    onComplete,
+  });
+  return true;
+}
+
 export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreenDeps): Promise<void> {
   host.innerHTML = '';
   const root = document.createElement('div');
@@ -197,67 +294,13 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
   const allEntries = entriesFrom([...repItems, ...gameItems]);
 
   // Launch a session over a set of angle entries; one entry = a single opening,
-  // many = a "Mixed" rotation. Difficulty is adaptive: rated/practice tracks your
-  // rating, Time Attack ramps with the running solved count.
+  // many = a "Mixed" rotation. Wraps the shared runner with this screen's hooks:
+  // replay restarts the same session, and exiting refreshes the screen.
   function startSession(entries: OpeningEntry[], label: string, mode: PuzzleMode, taSource: TaSource = 'openings'): void {
-    if (entries.length === 0) return;
-    const playAgain = (): void => startSession(entries, label, mode, taSource);
-
-    // Per-session state for the repeat queue: which openings are in scope, the
-    // repeats already served (so we don't re-show one mid-run), and a cap so a
-    // session stays mostly fresh (~a third may be due repeats).
-    const angleSet = new Set(entries.map((e) => e.angle));
-    const servedRepeats = new Set<string>();
-    let repeatsServed = 0;
-
-    const drawFresh = async (ctx: { solved: number }): Promise<PuzzleDraw | null> => {
-      const pick = entries[Math.floor(Math.random() * entries.length)];
-      // Time Attack: keep the level climbing. Fetch a few candidates and take the
-      // first at/above a rising floor, so ratings trend up instead of bouncing.
-      if (mode.kind === 'timed') {
-        const floor = targetRatingForStreak(ctx.solved) - 50;
-        let best: PuzzleDraw | null = null;
-        for (let i = 0; i < 3; i++) {
-          const p = await fetchNextPuzzle(pick.angle, { difficulty: difficultyForStreak(ctx.solved), colour: pick.colour });
-          if (!p) break;
-          const cand: PuzzleDraw = { puzzle: p, angle: pick.angle, family: pick.family };
-          if (p.rating >= floor) return cand;
-          if (!best || p.rating > best.puzzle.rating) best = cand;
-        }
-        return best;
-      }
-      // Count modes (Daily Mix / Practice): difficulty tracks your rating.
-      const puzzle = await fetchNextPuzzle(pick.angle, { difficulty: difficultyForRating(getPuzzleRating()), colour: pick.colour });
-      return puzzle ? { puzzle, angle: pick.angle, family: pick.family } : null;
-    };
-
-    startPuzzleSession({
-      modeLabel: label,
-      mode,
-      nextPuzzle: async (ctx) => {
-        // Count modes weave in a few due repeats before drawing fresh puzzles.
-        if (mode.kind === 'count') {
-          const cap = Math.floor(mode.count / 3);
-          if (repeatsServed < cap) {
-            const due = takeDueRepeat(servedRepeats, angleSet);
-            if (due) {
-              servedRepeats.add(due.puzzle.id);
-              repeatsServed++;
-              return { puzzle: due.puzzle, angle: due.angle, family: due.family, repeat: true };
-            }
-          }
-        }
-        return drawFresh(ctx);
-      },
-      onResult: (r) => {
-        recordPuzzleResult(r.angle, r.solved);
-        reviewResult(r.puzzle, r.angle, r.family, r.solved);
-      },
-      onComplete: (s) => {
-        if (mode.kind === 'timed') recordTaBest(taSource, (mode.ms / 60_000) as TaMinutes, s.solved);
-      },
+    runMixedPuzzleSession(entries, label, mode, {
+      taSource,
       onExit: () => { rebuild(); }, // refresh the "today" hero + performance on return
-      onPlayAgain: playAgain,
+      onPlayAgain: () => startSession(entries, label, mode, taSource),
     });
   }
 
