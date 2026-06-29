@@ -92,7 +92,18 @@ is the restore point for the round.
   it shrinks to a "done — keep training ✓" line. Every training mode's success
   screen now lists the **openings reviewed** with correct/incorrect in the
   puzzle-results style (faded, one screen).
-- 🔜 **Session 3 — Statistics overhaul.**
+- ✅ **Session 3 — Statistics overhaul.**
+  The training region is now titled **Openings**. A new **most-forgotten-move**
+  card shows a board for the move you've missed most this week (fed by a small
+  device-local miss log written during line and single-move drills). The puzzle
+  rating block gains a 4th **Best run** box (longest clean rated streak), and
+  **tapping a day** on the rating line now swaps the rating / solved / accuracy
+  boxes to that day. Beating your best clean run is announced on the puzzle
+  results screen. The remembered-moves graph overlays a small **"lines added"**
+  marker per day (with a legend), so a recall dip reads as fresh material rather
+  than real forgetting.
+
+_Restore point: tag `v0.4`. In progress on `claude/games-training-ui-improvements-wblxc7`._
 
 ---
 

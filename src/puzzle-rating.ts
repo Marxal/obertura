@@ -12,6 +12,7 @@ import type { Difficulty } from './puzzles';
 
 const RATING_KEY = 'obertura.puzzleRating';
 const HISTORY_KEY = 'obertura.puzzleRatingHistory';
+const STREAK_KEY = 'obertura.puzzleStreak';
 export const START_RATING = 1000;
 const K = 24;             // Elo step size — brisk but not jumpy.
 const MAX_HISTORY = 120;  // cap the stored series, like the day log.
@@ -119,11 +120,58 @@ export function commitRating(newRating: number, now: Date = new Date()): void {
   }
 }
 
+// ── Clean-solve streak ────────────────────────────────────────────────────────
+//
+// The longest run of rated puzzles solved first-try with no miss in between. A
+// missed/hinted rated puzzle resets the running count; the best ever is kept for
+// the Statistics "Best run" box and the end-of-session "new best" note.
+
+interface StreakState { current: number; best: number; }
+
+function loadStreak(): StreakState {
+  try {
+    const raw = localStorage.getItem(STREAK_KEY);
+    if (!raw) return { current: 0, best: 0 };
+    const obj = JSON.parse(raw) as Partial<StreakState>;
+    return {
+      current: Number.isFinite(obj.current) ? Math.max(0, Math.floor(obj.current as number)) : 0,
+      best: Number.isFinite(obj.best) ? Math.max(0, Math.floor(obj.best as number)) : 0,
+    };
+  } catch {
+    return { current: 0, best: 0 };
+  }
+}
+
+export function getBestCleanStreak(): number {
+  return loadStreak().best;
+}
+
+// Fold one rated result into the streak. A clean first-try solve extends the run;
+// anything else resets it. Returns the new best and whether it just improved (so
+// the caller can celebrate it once, at the end of the session).
+export function recordCleanResult(solvedFirstTry: boolean): { best: number; improved: boolean } {
+  const s = loadStreak();
+  let improved = false;
+  if (solvedFirstTry) {
+    s.current += 1;
+    if (s.current > s.best) { s.best = s.current; improved = true; }
+  } else {
+    s.current = 0;
+  }
+  try {
+    localStorage.setItem(STREAK_KEY, JSON.stringify(s));
+  } catch {
+    /* storage unavailable/full — the streak is a nicety, never block on it. */
+  }
+  return { best: s.best, improved };
+}
+
 // Forget the rating and its history — part of "Reset progress" in Settings.
 export function clearPuzzleRating(): void {
   try {
     localStorage.removeItem(RATING_KEY);
     localStorage.removeItem(HISTORY_KEY);
+    localStorage.removeItem(STREAK_KEY);
   } catch {
     /* storage unavailable — nothing to clear. */
   }

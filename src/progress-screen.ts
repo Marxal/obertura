@@ -37,7 +37,9 @@ import {
   type TrendPoint,
 } from './stats';
 import { getPuzzleDays, getPuzzlesByOpening } from './puzzle-log';
-import { getPuzzleRating, getRatingHistory, type RatingPoint } from './puzzle-rating';
+import { getPuzzleRating, getRatingHistory, getBestCleanStreak, type RatingPoint } from './puzzle-rating';
+import { mostForgottenThisWeek } from './forgotten-moves';
+import { buildMiniBoard } from './board-mini';
 import { Icons } from './icons';
 import { colourPip, buildPositionCard, lineFinalFen, fenFromUcis } from './card-position';
 import { userAvatar } from './avatar';
@@ -382,9 +384,53 @@ function buildMonthCalendar(now: Date, trainingDays: Set<string>): HTMLElement {
 // ── 2. Training region ──────────────────────────────────────────────────────
 
 function renderTrainingRegion(container: HTMLElement, lines: Line[], cb: ProgressCallbacks): void {
-  regionTitle(container, 'Training');
+  regionTitle(container, 'Openings');
   renderQuickStats(container, lines, cb);
-  if (getShowActivitySection()) renderRememberedFailed(container);
+  renderForgottenMove(container, cb);
+  if (getShowActivitySection()) renderRememberedFailed(container, lines);
+}
+
+// ── Most forgotten move this week ────────────────────────────────────────────
+//
+// A single board: the position where you've missed the same move most often over
+// the last seven days. A focused "drill this next" nudge — only shown when there's
+// a miss to show.
+function renderForgottenMove(container: HTMLElement, cb: ProgressCallbacks): void {
+  const move = mostForgottenThisWeek();
+  if (!move) return;
+
+  const section = statsSection('Most forgotten this week');
+
+  const card = document.createElement('div');
+  card.className = 'stats-forgotten';
+
+  const board = buildMiniBoard(move.fen, move.colour);
+  board.classList.add('stats-forgotten-board');
+  card.appendChild(board);
+
+  const body = document.createElement('div');
+  body.className = 'stats-forgotten-body';
+
+  const moveEl = document.createElement('div');
+  moveEl.className = 'stats-forgotten-move';
+  moveEl.textContent = formatMove(move.san);
+  body.appendChild(moveEl);
+
+  const meta = document.createElement('div');
+  meta.className = 'stats-forgotten-meta';
+  meta.textContent = `Missed ${move.count}× this week`;
+  body.appendChild(meta);
+
+  const drill = document.createElement('button');
+  drill.type = 'button';
+  drill.className = 'btn-secondary stats-forgotten-btn';
+  drill.textContent = 'Review missed moves';
+  drill.addEventListener('click', () => cb.onStartTraining());
+  body.appendChild(drill);
+
+  card.appendChild(body);
+  section.appendChild(card);
+  container.appendChild(section);
 }
 
 // ── Puzzles region ───────────────────────────────────────────────────────────
@@ -430,13 +476,17 @@ function renderPuzzlesRegion(container: HTMLElement): void {
   if (history.length > 0) {
     const section = statsSection('Puzzle rating');
 
-    // Three matching boxes up top: your current rating (range-independent), plus
-    // Solved + Accuracy for the selected range.
+    // Four boxes up top: current rating + best clean run (both range-independent),
+    // plus Solved + Accuracy for the selected range. Tapping a day on the chart
+    // swaps rating/solved/accuracy to that single day.
     const totals = document.createElement('div');
-    totals.className = 'pz-stat-row pz-stat-row--three';
-    totals.appendChild(puzzleStatCell(Icons.star(18), String(getPuzzleRating()), 'Your rating'));
+    totals.className = 'pz-stat-row pz-stat-row--four';
+    const ratingCell = puzzleStatCell(Icons.star(18), String(getPuzzleRating()), 'Your rating');
+    const streakCell = puzzleStatCell(Icons.zap(18), String(getBestCleanStreak()), 'Best run');
     const solvedCell = puzzleStatCell(Icons.target(18), '0', 'Solved');
     const accCell = puzzleStatCell(Icons.sparkles(18), '—', 'Accuracy');
+    totals.appendChild(ratingCell);
+    totals.appendChild(streakCell);
     totals.appendChild(solvedCell);
     totals.appendChild(accCell);
     section.appendChild(totals);
@@ -458,20 +508,33 @@ function renderPuzzlesRegion(container: HTMLElement): void {
       if (num) num.textContent = value;
     };
 
+    // Tapping a day on the rating line: show that day's rating, solved and accuracy
+    // in the boxes (best run stays — it's an all-time figure).
+    const onSelectDay = (p: RatingPoint): void => {
+      setCellValue(ratingCell, String(p.rating));
+      const d = days.find((x) => x.day === p.day);
+      const solved = d?.solved ?? 0;
+      const attempts = (d?.solved ?? 0) + (d?.failed ?? 0);
+      setCellValue(solvedCell, String(solved));
+      setCellValue(accCell, attempts ? `${Math.round((100 * solved) / attempts)}%` : '—');
+    };
+
     const fill = (): void => {
       const cutoff = pzRangeCutoff(range);
       // Rating line, clipped to the range (needs ≥2 points to chart).
       chartHost.innerHTML = '';
       const pts = cutoff ? history.filter((p) => p.day >= cutoff) : history;
       if (pts.length >= 2) {
-        renderRatingTrend(chartHost, pts);
+        renderRatingTrend(chartHost, pts, onSelectDay);
       } else {
         const note = document.createElement('p');
         note.className = 'stats-no-games';
         note.textContent = 'Not enough rated days in this range yet to chart a trend.';
         chartHost.appendChild(note);
       }
-      // Solved + accuracy over the same range.
+      // Reset the rating box to the live current rating (a prior day-tap may have
+      // left a past value showing), then the range solved + accuracy.
+      setCellValue(ratingCell, String(getPuzzleRating()));
       let solved = 0, attempts = 0;
       for (const d of days) {
         if (cutoff && d.day < cutoff) continue;
@@ -705,7 +768,21 @@ function openNeedsWorkSheet(cb: ProgressCallbacks, moves: NeedsWorkMove[]): void
 
 // ── Remembered vs failed (per-day two-tone bar, Week / Month / All) ──────────
 
-function renderRememberedFailed(container: HTMLElement): void {
+// Count, per local day, how many lines were created — so the recall chart can mark
+// the days new material landed (a dip in recall right after often just means fresh
+// lines, not real forgetting).
+function linesAddedByDay(lines: Line[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const l of lines) {
+    if (!l.createdAt) continue;
+    const key = localDateKey(new Date(l.createdAt));
+    map.set(key, (map.get(key) ?? 0) + 1);
+  }
+  return map;
+}
+
+function renderRememberedFailed(container: HTMLElement, lines: Line[]): void {
+  const addedByDay = linesAddedByDay(lines);
   const section = document.createElement('div');
   section.className = 'section';
 
@@ -745,7 +822,7 @@ function renderRememberedFailed(container: HTMLElement): void {
     const r = bars.reduce((n, b) => n + b.remembered, 0);
     const f = bars.reduce((n, b) => n + b.failed, 0);
     renderRfTotals(totals, r, f);
-    renderRfChart(chartEl, detailEl, bars, range, (bar) => renderRfTotals(totals, bar.remembered, bar.failed));
+    renderRfChart(chartEl, detailEl, bars, range, (bar) => renderRfTotals(totals, bar.remembered, bar.failed), addedByDay);
   }
   rebuild();
 
@@ -791,12 +868,14 @@ function renderRfChart(
   bars: DayBar[],
   range: StatsRange,
   onPick: (bar: DayBar) => void,
+  addedByDay: Map<string, number> = new Map(),
 ): void {
   chartEl.innerHTML = '';
   detailEl.textContent = '';
 
   const grand = bars.reduce((n, b) => n + b.remembered + b.failed, 0);
-  if (grand === 0) {
+  const anyAdded = bars.some((b) => (addedByDay.get(b.day) ?? 0) > 0);
+  if (grand === 0 && !anyAdded) {
     const note = document.createElement('p');
     note.className = 'stats-rf-empty';
     note.textContent = 'No training recorded in this range yet. Your drilled moves show up here from now on.';
@@ -811,11 +890,12 @@ function renderRfChart(
   chart.style.setProperty('--rf-count', String(bars.length));
 
   let selected: HTMLElement | null = null;
-  const select = (col: HTMLElement, bar: DayBar) => {
+  const select = (col: HTMLElement, bar: DayBar, added = 0) => {
     if (selected) selected.classList.remove('stats-rf-col--sel');
     selected = col;
     col.classList.add('stats-rf-col--sel');
-    detailEl.textContent = rfDetailText(bar);
+    const addedNote = added > 0 ? ` · +${added} line${added === 1 ? '' : 's'} added` : '';
+    detailEl.textContent = rfDetailText(bar) + addedNote;
   };
 
   for (const b of bars) {
@@ -844,6 +924,16 @@ function renderRfChart(
     }
     col.appendChild(stack);
 
+    // A small dot marks days new lines were added — so a recall dip right after
+    // reads as "fresh material", not real forgetting.
+    const added = addedByDay.get(b.day) ?? 0;
+    if (added > 0) {
+      const mark = document.createElement('span');
+      mark.className = 'stats-rf-added';
+      mark.title = `${added} line${added === 1 ? '' : 's'} added`;
+      col.appendChild(mark);
+    }
+
     // Week shows a weekday letter under each column; month/all use a sparse tick
     // row instead (per-column labels clip in narrow columns).
     if (range === 'week') {
@@ -853,16 +943,27 @@ function renderRfChart(
       col.appendChild(ax);
     }
 
-    col.addEventListener('click', () => { select(col, b); onPick(b); });
+    col.addEventListener('click', () => { select(col, b, added); onPick(b); });
     chart.appendChild(col);
   }
   chartEl.appendChild(chart);
 
   if (range !== 'week') chartEl.appendChild(buildRfTicks(bars));
 
+  // A one-line legend, only when there's at least one new-line marker on screen.
+  if (anyAdded) {
+    const legend = document.createElement('div');
+    legend.className = 'stats-rf-legend';
+    const dot = document.createElement('span');
+    dot.className = 'stats-rf-added';
+    legend.appendChild(dot);
+    legend.appendChild(document.createTextNode('lines added that day'));
+    chartEl.appendChild(legend);
+  }
+
   // Default the detail to today (the last bar).
   const lastIdx = bars.length - 1;
-  select(chart.children[lastIdx] as HTMLElement, bars[lastIdx]);
+  select(chart.children[lastIdx] as HTMLElement, bars[lastIdx], addedByDay.get(bars[lastIdx].day) ?? 0);
 }
 
 // A handful of evenly-spaced day-of-month ticks under a month/all chart, each
@@ -1122,7 +1223,11 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 // Puzzle rating over time — a small inline-SVG line (same look as the win-rate
 // trend, but the y-axis is the rating value rather than a percentage). Reuses the
 // .stats-trend classes. Assumes ≥2 points (the caller gates on that).
-function renderRatingTrend(container: HTMLElement, points: RatingPoint[]): void {
+function renderRatingTrend(
+  container: HTMLElement,
+  points: RatingPoint[],
+  onUserSelect?: (p: RatingPoint) => void,
+): void {
   const W = 300, H = 110, padX = 10, padTop = 10, padBottom = 20;
   const innerW = W - padX * 2;
   const innerH = H - padTop - padBottom;
@@ -1155,10 +1260,13 @@ function renderRatingTrend(container: HTMLElement, points: RatingPoint[]): void 
   detail.className = 'stats-trend-detail';
 
   const dots: SVGCircleElement[] = [];
-  const select = (i: number): void => {
+  const select = (i: number, userTap: boolean): void => {
     dots.forEach((d) => d.classList.remove('stats-trend-dot--sel'));
     dots[i].classList.add('stats-trend-dot--sel');
     detail.textContent = `${points[i].day} · ${points[i].rating}`;
+    // Only a real tap drives the stat boxes; the initial auto-select leaves them
+    // showing the range aggregate.
+    if (userTap) onUserSelect?.(points[i]);
   };
 
   points.forEach((p, i) => {
@@ -1176,7 +1284,7 @@ function renderRatingTrend(container: HTMLElement, points: RatingPoint[]): void 
     hit.setAttribute('r', '12');
     hit.setAttribute('fill', 'transparent');
     hit.style.cursor = 'pointer';
-    hit.addEventListener('click', () => select(i));
+    hit.addEventListener('click', () => select(i, true));
     svg.appendChild(hit);
   });
 
@@ -1184,7 +1292,7 @@ function renderRatingTrend(container: HTMLElement, points: RatingPoint[]): void 
   chartWrap.appendChild(svg);
   container.appendChild(chartWrap);
   container.appendChild(detail);
-  select(points.length - 1);
+  select(points.length - 1, false);
 }
 
 

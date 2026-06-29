@@ -16,6 +16,7 @@ import {
   type TimedMinutes,
 } from './prefs';
 import { isOpponentTag } from './scout';
+import { recordMissedMove } from './forgotten-moves';
 import { buildEmptyState } from './empty-state';
 import { renderStarterOnboarding, ONBOARDING_GOAL } from './onboarding-starter';
 import { createFilterBar, type FilterSelection } from './filters';
@@ -1018,6 +1019,8 @@ function runItem(
     // Collect the position for the end-of-session "Try your mistakes again".
     const preFen = idx <= 0 ? START_FEN : copyMoves[idx - 1].fen;
     addMistake(stats.mistakes, stats.mistakeKeys, preFen, node);
+    // Feed the "most forgotten move this week" card on Statistics.
+    recordMissedMove(preFen, node.san, lineCopy.colour);
   }
 
   startDrill(lineCopy, {
@@ -1154,7 +1157,10 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
           const wasMissed = missed.has(expected.id);
           if (wasMissed) {
             const pos = positions.find(p => p.expected === expected);
-            if (pos) addMistake(mistakes, mistakeKeys, pos.preFen, expected);
+            if (pos) {
+              addMistake(mistakes, mistakeKeys, pos.preFen, expected);
+              recordMissedMove(pos.preFen, expected.san, line.colour);
+            }
           }
           const quality = qualityFromMisses(wasMissed ? 1 : 0);
           expected.review = gradeReview(expected.review ?? newReview(now), quality, now);

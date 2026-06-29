@@ -10685,6 +10685,60 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   min-height: 1.1em;
 }
 
+/* New-line marker: a small accent dot beneath a day's column (and in the legend),
+   flagging the days fresh lines were added. */
+.stats-rf-added {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-active);
+  margin: 0.2rem auto 0;
+}
+.stats-rf-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+  font-size: 0.72rem;
+  color: var(--text-faint);
+}
+.stats-rf-legend .stats-rf-added { margin: 0; }
+
+/* Most-forgotten-move card: a board beside the move and a "drill it" button. */
+.stats-forgotten {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+.stats-forgotten-board {
+  flex: 0 0 auto;
+  width: clamp(76px, 26vw, 104px);
+  border-radius: 8px;
+}
+.stats-forgotten-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+}
+.stats-forgotten-move {
+  font-size: 1.15rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.stats-forgotten-meta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.stats-forgotten-btn {
+  margin-top: 0.2rem;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.82rem;
+}
+
 /* Month/All axis ticks — evenly spaced, free to size (never clipped). */
 .stats-rf-ticks {
   display: flex;
@@ -10887,6 +10941,8 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   gap: 0.5rem;
 }
 .pz-stat-row--three { grid-template-columns: 1fr 1fr 1fr; }
+/* Four read-only boxes: rating · best run · solved · accuracy. Two-up on a phone. */
+.pz-stat-row--four { grid-template-columns: 1fr 1fr; }
 .stats-quick-cell--readonly { cursor: default; }
 .pz-theme-line {
   display: flex;
@@ -11062,6 +11118,14 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   align-items: center;
   gap: 0.1rem;
   margin: var(--space-md) 0;
+}
+/* "New best run" note on the puzzle results, under the headline. */
+.pz-best-streak {
+  margin-top: 0.4rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--success);
+  text-align: center;
 }
 .pz-rating-delta {
   font-size: 1.5rem;
