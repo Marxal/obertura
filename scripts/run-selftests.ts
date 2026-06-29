@@ -20,7 +20,6 @@ import { runTreeSelfTest } from '../src/tree.selftest';
 import { runEngineSelfTest } from '../src/engine.selftest';
 import { runPuzzlesSelfTest } from '../src/puzzles.selftest';
 import { runPuzzleRatingSelfTest } from '../src/puzzle-rating.selftest';
-import { runExplainSelfTest } from '../src/explain.selftest';
 import { runWinprobSelfTest } from '../src/winprob.selftest';
 import { runReviewSelfTest } from '../src/review.selftest';
 
@@ -41,7 +40,6 @@ const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'engine', run: runEngineSelfTest },
   { suite: 'puzzles', run: runPuzzlesSelfTest },
   { suite: 'puzzle-rating', run: runPuzzleRatingSelfTest },
-  { suite: 'explain', run: runExplainSelfTest },
   { suite: 'winprob', run: runWinprobSelfTest },
   { suite: 'review', run: runReviewSelfTest },
 ];
