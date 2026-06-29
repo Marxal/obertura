@@ -30,6 +30,12 @@ export type EvalCallback = (result: EvalResult) => void;
 const MAX_DEPTH = 20;
 const LICHESS_CLOUD = 'https://lichess.org/api/cloud-eval';
 
+// If the live Engine's worker goes this long without any output after a search
+// was issued, treat it as wedged and rebuild it (see Engine.recoverWorker).
+const ENGINE_WATCHDOG_MS = 6000;
+// Cap a single review search so one stuck position can't stall the whole chain.
+const REVIEW_TIMEOUT_MS = 6000;
+
 // Cloud-eval works anonymously, but a Lichess token raises the rate limit and
 // keeps working if Lichess tightens anonymous access. The app injects a token
 // getter at boot (see setCloudAuthToken); headless self-tests never set one, so
@@ -335,9 +341,11 @@ function analyseOnce(fen: string, depth: number, baseUrl: string): Promise<MoveE
       if (!worker) { resolve([]); return; }
       const multiPv = new Map<number, { uci: string; cp?: number; mate?: number; pv: string[] }>();
       let settled = false;
+      let timer: ReturnType<typeof setTimeout> | null = null;
       const finish = () => {
         if (settled) return;
         settled = true;
+        if (timer) clearTimeout(timer);
         inflightFinish = null;
         resolve(evalsFromMultiPv(fen, multiPv));
       };
@@ -351,6 +359,13 @@ function analyseOnce(fen: string, depth: number, baseUrl: string): Promise<MoveE
       };
       worker.postMessage(`position fen ${fen}`);
       worker.postMessage(`go depth ${depth}`);
+      // A wedged search would otherwise hang this promise forever and block every
+      // later review call (they're serialised on reviewChain). Cap it: stop the
+      // worker and resolve with whatever depth we reached.
+      timer = setTimeout(() => {
+        if (reviewWorker && reviewReady) reviewWorker.postMessage('stop');
+        finish();
+      }, REVIEW_TIMEOUT_MS);
     })();
   });
 }
@@ -380,6 +395,15 @@ export class Engine {
   private currentFen = '';
   private multiPv = new Map<number, { uci: string; cp?: number; mate?: number; depth: number; pv: string[] }>();
   private abortCtrl: AbortController | null = null;
+  // Bumped on every evaluate(). A call that awaited the cloud fetch checks this
+  // on resume and bails if a newer evaluate() has superseded it — without this,
+  // a stale call fires `go` on the worker for an old position, overlapping the
+  // live search and wedging Stockfish (AUDIT 1.3 / the intermittent freeze).
+  private gen = 0;
+  // Self-heal: if a search produces no output for ENGINE_WATCHDOG_MS the worker
+  // is assumed wedged and rebuilt. `lastRecover` debounces against a hot loop.
+  private watchdog: ReturnType<typeof setTimeout> | null = null;
+  private lastRecover = 0;
   private _enabled: boolean;
   private cb: EvalCallback;
   private baseUrl: string;
@@ -413,7 +437,7 @@ export class Engine {
     try {
       this.worker = new Worker(url);
       this.worker.onmessage = (e: MessageEvent<string>) => this.onMsg(e.data);
-      this.worker.onerror = (e) => console.error('[engine] worker error', e);
+      this.worker.onerror = (e) => { console.error('[engine] worker error', e); this.recoverWorker(); };
       // UCI handshake — setoption before isready is fine; engine queues commands.
       this.worker.postMessage('uci');
       this.worker.postMessage('setoption name MultiPV value 3');
@@ -433,11 +457,40 @@ export class Engine {
       return;
     }
     if (msg.startsWith('info') && msg.includes('multipv') && msg.includes(' pv ')) {
+      this.armWatchdog();  // progress — worker is alive, keep waiting
       this.parseInfo(msg);
     }
     if (msg.startsWith('bestmove')) {
+      this.clearWatchdog();  // search finished
       this.emit();
     }
+  }
+
+  // Search-liveness watchdog: re-armed on each `info`, cleared on `bestmove`. If
+  // it ever fires, no output arrived in time → rebuild the worker and re-search.
+  private armWatchdog() {
+    this.clearWatchdog();
+    this.watchdog = setTimeout(() => this.recoverWorker(), ENGINE_WATCHDOG_MS);
+  }
+
+  private clearWatchdog() {
+    if (this.watchdog) { clearTimeout(this.watchdog); this.watchdog = null; }
+  }
+
+  // Tear down a wedged/crashed worker and rebuild it, re-issuing the current
+  // search once it's ready so the eval panel heals without a page reload. Debounced
+  // so a worker that errors on construction can't spin in a tight loop.
+  private recoverWorker() {
+    this.clearWatchdog();
+    const now = Date.now();
+    if (now - this.lastRecover < 3000) return;
+    this.lastRecover = now;
+    this.worker?.terminate();
+    this.worker = null;
+    this.workerReady = false;
+    if (!this._enabled || !this.currentFen) return;
+    this.pendingFen = this.currentFen;  // runs when the rebuilt worker signals readyok
+    this.initWorker();
   }
 
   private parseInfo(line: string) {
@@ -467,11 +520,14 @@ export class Engine {
 
   async evaluate(fen: string) {
     if (!this._enabled) return;
+    const myGen = ++this.gen;
     this.cancel();
     this.currentFen = fen;
     this.multiPv.clear();
 
     const lichessResult = await this.tryLichess(fen);
+    if (myGen !== this.gen) return;  // a newer evaluate() superseded us mid-fetch
+
     if (lichessResult) {
       this.cb(lichessResult);
       return;
@@ -522,6 +578,7 @@ export class Engine {
   private cancel() {
     this.abortCtrl?.abort();
     this.abortCtrl = null;
+    this.clearWatchdog();
     if (this.worker && this.workerReady) {
       this.worker.postMessage('stop');
     }
@@ -530,8 +587,12 @@ export class Engine {
 
   private runSF(fen: string) {
     this.multiPv.clear();
+    // `stop` first so a stray previous search can't overlap the new one — one
+    // worker searches one position at a time (mirrors spar.ts's SuggestEngine).
+    this.worker!.postMessage('stop');
     this.worker!.postMessage(`position fen ${fen}`);
     this.worker!.postMessage(`go depth ${MAX_DEPTH}`);
+    this.armWatchdog();
   }
 
   destroy() {
