@@ -335,10 +335,24 @@ function moveSpan(node: MoveNode, activeId: string): HTMLElement {
   return span;
 }
 
+// The move list is mirrored under several carousel slides — the Line tab plus
+// the Engine / Library / My-lines panels (item 2). One render fills them all, so
+// game-review colours show wherever you are without leaving the panel.
+const MOVE_LIST_MOUNTS = ['move-list', 'move-list-engine', 'move-list-library', 'move-list-games'];
+
 function renderMoveList() {
+  for (const id of MOVE_LIST_MOUNTS) {
+    const el = document.getElementById(id);
+    if (el) renderMoveListInto(el);
+  }
+  updateMoveNavButtons();
+  refreshReviewButtonState();
+  refreshLineAnalysis();
+}
+
+function renderMoveListInto(el: HTMLElement): void {
   const moves = mainline();
   const activeId = getCurrentNode().id;
-  const el = document.getElementById('move-list')!;
   el.innerHTML = '';
 
   for (let i = 0; i < moves.length; i += 2) {
@@ -366,10 +380,6 @@ function renderMoveList() {
   } else {
     el.scrollLeft = 0;
   }
-
-  updateMoveNavButtons();
-  refreshReviewButtonState();
-  refreshLineAnalysis();
 }
 
 // The Analyse button has three looks: default (idle), lit (--on, a review is
@@ -591,13 +601,31 @@ function drawEngineArrows(result: EvalResult | null): void {
 // are off, on the root, on an un-graded move, or while the Engine tab owns the
 // board (it draws arrows there instead).
 function refreshBoardBadge(): void {
-  if (!cg || activeSlide === ENGINE_SLIDE) return;
+  if (!cg) return;
   const node = getCurrentNode();
-  if (getShowMoveClassifications() && node.id !== 'root' && node.classification && node.uci) {
-    cg.setAutoShapes([{ orig: node.uci.slice(2, 4) as Key, customSvg: classBoardSvg(node.classification) }]);
+  const show = activeSlide !== ENGINE_SLIDE && getShowMoveClassifications()
+    && node.id !== 'root' && !!node.classification && !!node.uci;
+  if (show) {
+    const sq = node.uci.slice(2, 4) as Key;
+    // The corner badge rides above the piece (a customSvg autoshape); the square
+    // wash sits BELOW the piece (a square highlight) so the piece itself never
+    // changes colour — only its square does.
+    cg.setAutoShapes([{ orig: sq, customSvg: classBoardSvg(node.classification!) }]);
+    setReviewSquare(sq, node.classification!);
   } else {
-    cg.setAutoShapes([]);
+    // Engine slide owns the autoshapes (its arrows) — leave them; just drop the
+    // review wash. Off the engine slide, clear both.
+    if (activeSlide !== ENGINE_SLIDE) cg.setAutoShapes([]);
+    setReviewSquare(null);
   }
+}
+
+// Paint (or clear) the review wash on a single square via chessground's custom
+// square highlights, which style the <square> element underneath the pieces.
+function setReviewSquare(sq: Key | null, cls?: string): void {
+  const custom = new Map<Key, string>();
+  if (sq && cls) custom.set(sq, `review-sq review-sq--${cls}`);
+  cg.set({ highlight: { custom } });
 }
 
 // Show or hide the builder's Scouting tab (and its slide) to match the Settings
@@ -2286,8 +2314,8 @@ maybeShowGate(() => requestAnimationFrame(() => {
   // The Library / Games carousel slides — they read the live builder position
   // and play a tapped continuation straight onto the line.
   builderPanels = createBuilderPanels({
-    libraryEl: document.getElementById('slide-library')!,
-    gamesEl: document.getElementById('slide-games')!,
+    libraryEl: document.getElementById('slide-library-content')!,
+    gamesEl: document.getElementById('slide-games-content')!,
     scoutingEl: document.getElementById('slide-scouting')!,
     getSans: currentPathSans,
     getUcis: currentPathUcis,

@@ -1463,7 +1463,8 @@ cg-board square.move-dest.oc {
    reads top-to-bottom with the rest of the line's details, rather than being a
    separate horizontal strip under the board. A recessed parchment panel sets it
    apart from the title and notes above it. */
-#move-list {
+#move-list,
+.move-list--panel {
   width: 100%;
   min-width: 0;
   font-family: 'Courier New', Courier, monospace;
@@ -1481,7 +1482,26 @@ cg-board square.move-dest.oc {
 }
 
 /* Before any move is played, the empty list collapses out of the way. */
-#move-list:empty {
+#move-list:empty,
+.move-list--panel:empty {
+  display: none;
+}
+
+/* The mirrored move list at the bottom of the Engine / Library / My-lines
+   panels — a labelled block, hidden whole when there are no moves yet. */
+.panel-moves {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-card);
+}
+.panel-moves-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.55;
+  margin-bottom: 5px;
+}
+.panel-moves:has(.move-list--panel:empty) {
   display: none;
 }
 
@@ -1906,6 +1926,18 @@ cg-board square.move-dest.oc {
   background: color-mix(in srgb, #c93636 22%, transparent);
 }
 
+/* The game-review square wash. Applied to the <square> element underneath the
+   pieces (via chessground's custom highlights), so the move's square reads in
+   its grade colour while the piece on it keeps its own colour. */
+cg-board square.review-sq--great      { background: color-mix(in srgb, #5c8bb0 48%, transparent); }
+cg-board square.review-sq--best       { background: color-mix(in srgb, #5a9e3f 48%, transparent); }
+cg-board square.review-sq--excellent  { background: color-mix(in srgb, #7fb05f 48%, transparent); }
+cg-board square.review-sq--good       { background: color-mix(in srgb, #a6c08a 50%, transparent); }
+cg-board square.review-sq--book       { background: color-mix(in srgb, #9c7248 48%, transparent); }
+cg-board square.review-sq--inaccuracy { background: color-mix(in srgb, #e6b23a 50%, transparent); }
+cg-board square.review-sq--mistake    { background: color-mix(in srgb, #e0822f 50%, transparent); }
+cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 52%, transparent); }
+
 /* The bottom-bar Analyse icon: lit (--on) while a review runs, then a quieter
    passive look (--done) once the line on the board has been graded. */
 .bar-btn--on {
@@ -1956,42 +1988,45 @@ cg-board square.move-dest.oc {
   vector-effect: non-scaling-stroke;
 }
 
-/* The condensed summary: a label column then one column per grade. Scrolls
-   sideways on a narrow phone rather than squashing the columns. */
+/* The condensed summary, laid out vertically: one row per grade (icon + name),
+   a column per player so the names get the room. */
 .la-summary {
   display: grid;
-  gap: 2px 6px;
+  gap: 4px 10px;
   align-items: center;
-  overflow-x: auto;
   font-size: 12px;
 }
 .la-cell {
-  text-align: center;
   white-space: nowrap;
 }
-.la-head {
-  font-size: 9px;
-  line-height: 1.05;
-  white-space: normal;
-  opacity: 0.7;
-}
+/* Player-name column headers — right-aligned over their count columns, with
+   enough room to read and an ellipsis only as a last resort. */
 .la-player {
-  text-align: left;
+  text-align: right;
   font-weight: 600;
-  padding-right: 6px;
-  max-width: 9ch;
+  max-width: 12ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.85;
+}
+.la-grade {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.la-grade span {
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .la-count {
+  text-align: right;
+  min-width: 2ch;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
 }
 .la-count--zero {
   opacity: 0.3;
-}
-.la-icon {
-  line-height: 0;
 }
 
 /* The review progress bar, pinned across the top of the builder dock. It floats

@@ -167,17 +167,16 @@ export function classIcon(cls: MoveClass, size = 14): SVGSVGElement {
 }
 
 // The board badge for chessground's customSvg, drawn in the square's 0..100
-// space (so 0,0 is its top-left corner, 100,100 the bottom-right). Two parts:
-//   1. a whole-square colour wash, so a blunder square reads red at a glance;
-//   2. a small disc tucked into the top-right corner with the class glyph,
-//      kept small so the piece underneath stays visible.
+// space (so 0,0 is its top-left corner, 100,100 the bottom-right): a small disc
+// tucked into the top-right corner with the class glyph, kept small so the piece
+// underneath stays visible. The square's colour wash is drawn separately as a
+// square highlight (below the pieces) so the piece's own colour never changes.
 export function classBoardSvg(cls: MoveClass): { html: string; center: 'orig' } {
   const color = CLASS_COLOR[cls];
   const cx = 79, cy = 21, r = 16;
   return {
     center: 'orig',
     html:
-      `<rect x="0" y="0" width="100" height="100" fill="${color}" opacity="0.5"/>` +
       `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}" stroke="#fff" stroke-width="2.5"/>` +
       classGlyphMarkup(cls, cx, cy, r),
   };
