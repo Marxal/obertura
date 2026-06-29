@@ -4,7 +4,7 @@ import type { Key } from 'chessground/types';
 import 'chessground/assets/chessground.base.css';
 import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
-import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, loadTree, removeLastMove, truncateAfterCurrent } from './tree';
+import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, loadTree, removeLastMove, truncateAfterCurrent, setTreeMode, rootNode } from './tree';
 import type { Annotation, MoveNode } from './tree';
 import { saveLine, getAllLines } from './storage';
 import { nameForPath } from './openings';
@@ -351,23 +351,13 @@ function renderMoveList() {
 }
 
 function renderMoveListInto(el: HTMLElement): void {
-  const moves = mainline();
   const activeId = getCurrentNode().id;
   el.innerHTML = '';
-
-  for (let i = 0; i < moves.length; i += 2) {
-    const white = moves[i];
-    const black = moves[i + 1];
-    const num = i / 2 + 1;
-
-    const numSpan = document.createElement('span');
-    numSpan.className = 'move-num';
-    numSpan.textContent = `${num}.`;
-    el.appendChild(numSpan);
-
-    el.appendChild(moveSpan(white, activeId));
-    if (black) el.appendChild(moveSpan(black, activeId));
-  }
+  // Walk the tree from the root: the main line renders inline, and any branch
+  // (a node with more than one child) renders its alternatives as parenthesised
+  // variations — PGN style. In single-path builder mode there are no branches, so
+  // this produces the same flat list as before.
+  renderContinuation(el, rootNode(), 1, activeId, true);
 
   // Keep the active move centred in the horizontally-scrolling strip. We adjust
   // the strip's own scrollLeft (not scrollIntoView) so it never drags an
@@ -380,6 +370,47 @@ function renderMoveListInto(el: HTMLElement): void {
   } else {
     el.scrollLeft = 0;
   }
+}
+
+// Render `parent`'s main continuation (children[0]) into `container`, then any
+// sibling variations (children[1..]) as "(…)" blocks, then recurse down the main
+// line. `ply` is the 1-based ply of the move being rendered; `forceNumber` makes
+// a black move show its number too (line start / right after a variation).
+function renderContinuation(
+  container: HTMLElement, parent: MoveNode, ply: number, activeId: string, forceNumber: boolean,
+): void {
+  if (parent.children.length === 0) return;
+  const main = parent.children[0];
+  emitMove(container, main, ply, forceNumber, activeId);
+
+  let nextForce = false;
+  if (parent.children.length > 1) {
+    for (let i = 1; i < parent.children.length; i++) {
+      const v = parent.children[i];
+      const wrap = document.createElement('span');
+      wrap.className = 'move-var';
+      wrap.appendChild(document.createTextNode('('));
+      emitMove(wrap, v, ply, true, activeId);          // variation's first move: numbered
+      renderContinuation(wrap, v, ply + 1, activeId, false);
+      wrap.appendChild(document.createTextNode(')'));
+      container.appendChild(wrap);
+    }
+    nextForce = true; // the main line resumes after the variations — re-number it
+  }
+  renderContinuation(container, main, ply + 1, activeId, nextForce);
+}
+
+function emitMove(
+  container: HTMLElement, node: MoveNode, ply: number, force: boolean, activeId: string,
+): void {
+  const white = ply % 2 === 1;
+  if (white || force) {
+    const num = document.createElement('span');
+    num.className = 'move-num';
+    num.textContent = white ? `${Math.ceil(ply / 2)}.` : `${Math.ceil(ply / 2)}…`;
+    container.appendChild(num);
+  }
+  container.appendChild(moveSpan(node, activeId));
 }
 
 // The Analyse button has three looks: default (idle), lit (--on, a review is
@@ -396,30 +427,26 @@ function refreshReviewButtonState(): void {
 
 // ── Move navigation (plain step arrows, not engine arrows) ──────────────────
 // The cursor's index within the mainline, or -1 when sitting at the root.
-function moveIndex(): number {
-  const id = getCurrentNode().id;
-  return mainline().findIndex(n => n.id === id);
-}
-
+// Navigation follows the ACTIVE path (root → cursor), so the arrows work inside
+// a variation too: back = the cursor's parent, forward = its main continuation.
 function stepBack(): void {
-  const idx = moveIndex();
-  if (idx <= 0) { goToStart(); return; }
-  handleMoveClick(mainline()[idx - 1].id);
+  const cur = getCurrentNode();
+  if (cur.id === 'root') return;
+  const path = pathTo(cur.id); // excludes root
+  if (path.length <= 1) { goToStart(); return; }
+  handleMoveClick(path[path.length - 2].id);
 }
 
 function stepForward(): void {
-  const moves = mainline();
-  const idx = moveIndex();
-  if (idx >= moves.length - 1) return;
-  handleMoveClick(moves[idx + 1].id);
+  const next = getCurrentNode().children[0];
+  if (next) handleMoveClick(next.id);
 }
 
-// Grey out the step arrows at the ends of the line.
+// Grey out the step arrows at the ends of the active path.
 function updateMoveNavButtons(): void {
-  const moves = mainline();
-  const idx = moveIndex();
-  const atStart = idx < 0;
-  const atEnd = moves.length === 0 || idx === moves.length - 1;
+  const cur = getCurrentNode();
+  const atStart = cur.id === 'root';
+  const atEnd = cur.children.length === 0;
   const set = (id: string, disabled: boolean) => {
     const b = document.getElementById(id) as HTMLButtonElement | null;
     if (b) b.disabled = disabled;
@@ -448,7 +475,7 @@ function openMyGamesImport(): void {
 // Open a game on the board and start its analysis straight away (the game
 // analyser's behaviour). Used by the My games list and the import flow.
 function openGameForAnalysis(ucis: string[], colour: 'white' | 'black', description?: string): void {
-  buildFromUcis(ucis, colour, [], description ? { description } : {});
+  buildFromUcis(ucis, colour, [], { description, analyser: true });
   const btn = document.getElementById('builder-review') as HTMLButtonElement | null;
   if (btn && !reviewAbort) void runGameReview(btn);
 }
@@ -1107,6 +1134,11 @@ function playUci(uci: string): void {
 
 let saveColour: 'white' | 'black' = 'white';
 
+// 'builder' edits a repertoire line (Save line); 'analyser' explores an imported
+// game (Save game, opponent in the title, deviations become variations). Set when
+// a game is opened; reset to 'builder' on every fresh/loaded line.
+let builderMode: 'builder' | 'analyser' = 'builder';
+
 // When a line is loaded from My Lines, stash its id and createdAt so
 // a subsequent Save updates the same line instead of creating a duplicate.
 let loadedLineId: string | null = null;
@@ -1200,7 +1232,13 @@ function goToStart(): void {
 // and "Save line" for a fresh one — standard create-vs-edit wording.
 function updateSaveButtonLabel(): void {
   const label = document.getElementById('header-save-label');
-  if (label) label.textContent = loadedLineId ? 'Save changes' : 'Save line';
+  if (label) {
+    label.textContent = builderMode === 'analyser' ? 'Save game'
+      : loadedLineId ? 'Save changes' : 'Save line';
+  }
+  // The "save this line to my repertoire" action only makes sense in the analyser.
+  const saveLineBtn = document.getElementById('save-line-btn');
+  if (saveLineBtn) saveLineBtn.hidden = builderMode !== 'analyser';
 }
 
 // ── Navigation ────────────────────────────────────────────────────────────────
@@ -1250,6 +1288,7 @@ function clearBuilder(colour: 'white' | 'black' = 'white'): void {
   detectedName = '';
   builderDesc = '';
   builderEngine = 'none';
+  builderMode = 'builder';
   renderTitle();
   renderBuilderTags();
   renderBuilderDesc();
@@ -1300,11 +1339,12 @@ function buildFromUcis(
   ucis: string[],
   colour: 'white' | 'black',
   tags: string[] = [],
-  opts: { description?: string } = {},
+  opts: { description?: string; analyser?: boolean } = {},
 ): void {
   clearBuilder(colour);
   currentTags = [...tags];
   builderDesc = opts.description ?? '';
+  // Lay the game's moves down as a single main line first…
   for (const uci of ucis) {
     const from = uci.slice(0, 2);
     const to = uci.slice(2, 4);
@@ -1313,6 +1353,10 @@ function buildFromUcis(
     if (!result) break; // stop on an illegal move rather than corrupt the tree
     addMove(result.san, from + to + (result.promotion ?? ''), chess.fen());
   }
+  // …then, for the analyser, switch the tree to variation mode so any move the
+  // user plays off the main line is kept as a branch rather than overwriting it.
+  builderMode = opts.analyser ? 'analyser' : 'builder';
+  setTreeMode(opts.analyser ? 'variations' : 'single');
   const last = mainline()[mainline().length - 1];
   cg.set({
     fen: chess.fen(),
@@ -1328,6 +1372,7 @@ function buildFromUcis(
   renderBuilderTags();
   renderBuilderDesc();
   updateOpeningName();
+  updateSaveButtonLabel();
   evalPanel.clear();
   refreshBoardBadge();
   engine.evaluate(chess.fen());
@@ -1540,7 +1585,8 @@ function updateHeaderTitle(): void {
   if (!el) return;
   const onTab = !BACK_VIEWS.has(currentView);
   el.textContent =
-    currentView === 'builder' ? (currentTitle() || 'New line')
+    currentView === 'builder'
+      ? (builderMode === 'analyser' ? (builderDesc || 'Unknown') : (currentTitle() || 'New line'))
     : currentView === 'settings' ? 'Settings'
     : 'Obertura';
   el.classList.toggle('header-title--screen', !onTab);
@@ -1968,6 +2014,26 @@ async function persistCurrentLine(): Promise<{ line: Line; isNew: boolean } | nu
   return { line, isNew };
 }
 
+// Game analyser: "Save game" persists the whole analysed tree (main line +
+// variations + notes) as one line, skipping the builder's single-path save
+// nudges (trim/partial), and stays on the board.
+async function saveGame(): Promise<void> {
+  const r = await persistCurrentLine();
+  if (r) showToast('Game saved ✓');
+}
+
+// Game analyser: "Save line" extracts the CURRENT path (root → the move on the
+// board) as a fresh repertoire line in My Lines, leaving the game untouched.
+async function saveLineFromCurrentPath(): Promise<void> {
+  const ucis = pathTo(getCurrentNode().id).map(n => n.uci);
+  if (!ucis.length) { showToast('Step to a move first'); return; }
+  const line = lineFromUcis(ucis, saveColour);
+  if (!line) { showToast('Couldn’t build a line here'); return; }
+  await saveLine(line);
+  builderPanels?.reloadLines();
+  showToast('Saved to My Lines ✓');
+}
+
 // Surface a saved line on My Lines, highlighted so it's easy to find.
 function goToSavedLine(id: string): void {
   focusSavedLine(id);
@@ -2137,7 +2203,11 @@ async function finishSave(): Promise<void> {
 
 function setupSaveButton() {
   document.getElementById('header-save')!.addEventListener('click', () => {
-    void saveCurrentLine();
+    if (builderMode === 'analyser') void saveGame();
+    else void saveCurrentLine();
+  });
+  document.getElementById('save-line-btn')?.addEventListener('click', () => {
+    void saveLineFromCurrentPath();
   });
 }
 

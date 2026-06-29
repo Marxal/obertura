@@ -45,20 +45,37 @@ const root: MoveNode = {
 
 let current: MoveNode = root;
 
-// The builder edits a single line, not a branching tree. Playing the move that
-// already continues from the cursor (children[0]) just advances along it. Playing
-// ANY other move from mid-line is an edit: the new move REPLACES everything from
-// here on — it becomes the node's sole child and the old continuation is dropped
-// immediately. This keeps the tree a single path, so mainline() always equals the
-// visible line and serialise() stores exactly one line (no stray sibling branches).
+// How the tree grows when a move is played from mid-line:
+//   • 'single'     — the builder edits ONE line. A deviating move REPLACES the
+//                    continuation (becomes the node's sole child), so the tree
+//                    stays a single path and serialise() stores exactly one line.
+//   • 'variations' — the game analyser. A deviating move is ADDED as a new
+//                    sibling branch, keeping the original main line (children[0])
+//                    intact, so you can explore "what if" lines as variations.
+export type TreeMode = 'single' | 'variations';
+let treeMode: TreeMode = 'single';
+
+export function setTreeMode(mode: TreeMode): void {
+  treeMode = mode;
+}
+
+export function getTreeMode(): TreeMode {
+  return treeMode;
+}
+
+// Play a move from the cursor. If a child already continues with this move (the
+// main line OR an existing variation), just advance onto it. Otherwise add it —
+// replacing the continuation in 'single' mode, or appending a new variation in
+// 'variations' mode (main line preserved).
 export function addMove(san: string, uci: string, fen: string): MoveNode {
-  const next = current.children[0];
-  if (next && next.san === san) {
-    current = next;
-    return next;
+  const existing = current.children.find(c => c.san === san);
+  if (existing) {
+    current = existing;
+    return existing;
   }
   const node: MoveNode = { id: `n${++idCounter}`, san, uci, fen, children: [] };
-  current.children = [node];
+  if (treeMode === 'variations') current.children.push(node);
+  else current.children = [node];
   current = node;
   return node;
 }
@@ -124,6 +141,11 @@ export function getCurrentNode(): MoveNode {
   return current;
 }
 
+// The live tree root, for renderers that need to walk variations (read-only).
+export function rootNode(): MoveNode {
+  return root;
+}
+
 // UCI moves from the start to the given node, ready for an opening lookup.
 // Defaults to the current node. Root is excluded by pathTo, so this is just
 // each node's uci in order.
@@ -146,6 +168,7 @@ export function reset(): void {
   root.children = [];
   current = root;
   idCounter = 0;
+  treeMode = 'single';
 }
 
 // Load a previously serialised tree into the module, replacing the current
@@ -162,6 +185,7 @@ export function loadTree(data: MoveNode): void {
   root.children = structuredClone(data.children);
   current = root;
   idCounter = scanMaxId(root);
+  treeMode = 'single';
 }
 
 function scanMaxId(node: MoveNode): number {
