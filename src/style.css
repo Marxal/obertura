@@ -983,6 +983,93 @@ main {
   opacity: 0.6;
 }
 
+/* ── Daily challenge card (top of Train, above the tabs) ──────────────────────── */
+/* Two bite-sized tasks for today — remember a few lines, solve a few rated
+   puzzles — with the streak alongside. Once both are done it shrinks to a quiet
+   "done for today" line. Visual but compact; copy stays short. */
+
+.daily-host { margin: 0.75rem 1rem 0; }
+
+.daily-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 0.85rem 0.9rem;
+  background: linear-gradient(135deg, var(--accent-soft), var(--bg-card) 75%);
+  border: 1px solid var(--border-card);
+}
+
+.daily-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.daily-card-title {
+  font-weight: 800;
+  font-size: 0.98rem;
+  letter-spacing: 0.01em;
+}
+
+.daily-card-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.daily-task {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border-card);
+  border-radius: 11px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+.daily-task:active { filter: brightness(0.97); }
+
+.daily-task-icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-active);
+}
+
+.daily-task-label { flex: 1 1 auto; min-width: 0; }
+
+/* A finished task: ticked, calm, and no longer tappable. */
+.daily-task--done {
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: default;
+}
+.daily-task--done .daily-task-icon { color: #5a9e3f; }
+.daily-task--done .daily-task-label { text-decoration: line-through; opacity: 0.8; }
+
+.daily-card-note {
+  font-size: 0.76rem;
+  color: var(--text-faint);
+}
+
+/* Both halves done — the card is now a slim success line. */
+.daily-card--done {
+  gap: 0.5rem;
+  padding: 0.7rem 0.9rem;
+}
+.daily-card-done-msg {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #5a9e3f;
+}
+
 #board-wrap {
   width: 100vw;
   height: 100vw;
@@ -10598,6 +10685,60 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   min-height: 1.1em;
 }
 
+/* New-line marker: a small accent dot beneath a day's column (and in the legend),
+   flagging the days fresh lines were added. */
+.stats-rf-added {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-active);
+  margin: 0.2rem auto 0;
+}
+.stats-rf-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+  font-size: 0.72rem;
+  color: var(--text-faint);
+}
+.stats-rf-legend .stats-rf-added { margin: 0; }
+
+/* Most-forgotten-move card: a board beside the move and a "drill it" button. */
+.stats-forgotten {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+.stats-forgotten-board {
+  flex: 0 0 auto;
+  width: clamp(76px, 26vw, 104px);
+  border-radius: 8px;
+}
+.stats-forgotten-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+}
+.stats-forgotten-move {
+  font-size: 1.15rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.stats-forgotten-meta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.stats-forgotten-btn {
+  margin-top: 0.2rem;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.82rem;
+}
+
 /* Month/All axis ticks — evenly spaced, free to size (never clipped). */
 .stats-rf-ticks {
   display: flex;
@@ -10800,6 +10941,8 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   gap: 0.5rem;
 }
 .pz-stat-row--three { grid-template-columns: 1fr 1fr 1fr; }
+/* Four read-only boxes: rating · best run · solved · accuracy. Two-up on a phone. */
+.pz-stat-row--four { grid-template-columns: 1fr 1fr; }
 .stats-quick-cell--readonly { cursor: default; }
 .pz-theme-line {
   display: flex;
@@ -10975,6 +11118,14 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   align-items: center;
   gap: 0.1rem;
   margin: var(--space-md) 0;
+}
+/* "New best run" note on the puzzle results, under the headline. */
+.pz-best-streak {
+  margin-top: 0.4rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--success);
+  text-align: center;
 }
 .pz-rating-delta {
   font-size: 1.5rem;

@@ -27,7 +27,7 @@ import { burstConfetti, celebratePawn } from './confetti';
 import { puzzleSetup, type Puzzle } from './puzzles';
 import { showDialog } from './dialog';
 import { wasRecentlySeen, recordSeenPuzzle } from './puzzle-log';
-import { getPuzzleRating, nextRating, commitRating } from './puzzle-rating';
+import { getPuzzleRating, nextRating, commitRating, recordCleanResult } from './puzzle-rating';
 import { countUp } from './count-up';
 
 // One puzzle plus the opening it was drawn for (so stats and retry know its
@@ -113,6 +113,9 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   // bank it after every puzzle, so an early exit still keeps what was earned.
   const ratingBefore = getPuzzleRating();
   let liveRating = ratingBefore;
+  // The clean-solve best run, if it improved during this rated session (shown once
+  // on the results screen).
+  let newBestStreak: number | null = null;
 
   // ── Overlay scaffold (mirrors drill.ts) ──────────────────────────────────────
   const overlay = document.createElement('div');
@@ -530,6 +533,9 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
       points = updated - liveRating;
       liveRating = updated;
       commitRating(liveRating);
+      // Track the clean-solve best run; remember it if it just improved.
+      const streak = recordCleanResult(clean);
+      if (streak.improved) newBestStreak = streak.best;
     }
     entries.push({ draw: cur, clean, points });
 
@@ -649,6 +655,15 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
       head.appendChild(card);
       // Let the panel settle, then tick the total up to its new value.
       setTimeout(() => { if (!isCleaned) countUp(totalEl, liveRating, { from: ratingBefore, durationMs: 950 }); }, 320);
+    }
+
+    // A new best clean-solve run beats everything else for a "well done" — call it
+    // out right under the headline.
+    if (newBestStreak !== null) {
+      const best = document.createElement('div');
+      best.className = 'pz-best-streak';
+      best.textContent = `New best run — ${newBestStreak} in a row! 🔥`;
+      head.appendChild(best);
     }
 
     // Per-puzzle review list: green for clean, red for missed/hinted. Scrolls

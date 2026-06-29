@@ -16,6 +16,7 @@ import {
   type TimedMinutes,
 } from './prefs';
 import { isOpponentTag } from './scout';
+import { recordMissedMove } from './forgotten-moves';
 import { buildEmptyState } from './empty-state';
 import { renderStarterOnboarding, ONBOARDING_GOAL } from './onboarding-starter';
 import { createFilterBar, type FilterSelection } from './filters';
@@ -29,7 +30,6 @@ import {
   qualityFromMisses,
   lineConfidence,
   lineBucket,
-  isReviewDue,
   dueLines,
   nextDue,
   describeDue,
@@ -38,8 +38,6 @@ import {
 } from './scheduler';
 import {
   recordTrainingDay,
-  currentStreak,
-  trainedToday,
   recordReviewed,
   reviewedToday,
   recordReviewOutcome,
@@ -193,48 +191,11 @@ async function doRender(
     }
   }
 
-  renderTrainHead(container);
+  // The streak now lives on the daily-challenge card above the tabs, so Train's
+  // own head is gone — the hero (when anything's due) is the top of this pane.
   renderHero(container, due, trainingLines);
   renderModeCards(container, trainingLines, allLines);
   renderCardList(container, trainingLines, allLines.filter(l => !l.inTraining));
-}
-
-// ── Train header (daily streak pill) ──────────────────────────────────────────
-//
-// The streak pill lives here now — Train is the app's home, so this is the
-// daily face of the streak. (The Statistics screen keeps its own streak hero.)
-
-function renderTrainHead(container: HTMLElement): void {
-  const head = document.createElement('div');
-  head.className = 'train-head';
-  head.appendChild(buildStreakPill());
-  container.appendChild(head);
-}
-
-function buildStreakPill(): HTMLElement {
-  const streak = currentStreak();
-  const pill = document.createElement('div');
-  pill.className = 'streak-pill' + (streak === 0 ? ' streak-pill--cold' : '');
-
-  const flame = document.createElement('span');
-  flame.className = 'streak-pill-flame';
-  flame.setAttribute('aria-hidden', 'true');
-  flame.textContent = '🔥';
-  pill.appendChild(flame);
-
-  const label = document.createElement('span');
-  label.className = 'streak-pill-label';
-  if (streak === 0) {
-    label.textContent = 'Start a streak';
-    pill.setAttribute('aria-label', 'No training streak yet — train today to start one');
-  } else {
-    label.textContent = `${streak}-day streak`;
-    const todayNote = trainedToday() ? ' Trained today.' : ' Train today to keep it going.';
-    pill.setAttribute('aria-label', `${streak}-day training streak.${todayNote}`);
-  }
-  pill.appendChild(label);
-
-  return pill;
 }
 
 // The ordered list of lines that "Start training" drills, per the default-mode
@@ -305,8 +266,12 @@ const ROUND_SIZE = 5;            // full lines per round
 const ROUND_SIZE_POSITIONS = 10; // single moves per round (quicker, so a bigger chunk)
 
 function renderHero(container: HTMLElement, due: Line[], allTraining: Line[]): void {
+  // Nothing due now → no hero at all. The card only earns its space when there's
+  // something to review; "all caught up" is implied by its absence.
+  if (due.length === 0) return;
+
   const hero = document.createElement('div');
-  hero.className = 'card train-hero' + (due.length === 0 ? ' train-hero--clear' : '');
+  hero.className = 'card train-hero';
 
   // Two stats in a row: "Due now" and "Reviewed today". Numbers above, labels
   // beneath, each at roughly half the old single big count.
@@ -342,14 +307,9 @@ function renderHero(container: HTMLElement, due: Line[], allTraining: Line[]): v
   const start = document.createElement('button');
   start.type = 'button';
   start.className = 'btn-primary train-hero-start';
-  if (due.length > 0) {
-    start.textContent = 'Start training';
-    start.addEventListener('click', () =>
-      startRounds(dueLines(allTraining), container, { explicit: true }));
-  } else {
-    start.textContent = 'All caught up ✓';
-    start.disabled = true;
-  }
+  start.textContent = 'Start training';
+  start.addEventListener('click', () =>
+    startRounds(dueLines(allTraining), container, { explicit: true }));
   hero.appendChild(start);
 
   container.appendChild(hero);
@@ -397,27 +357,26 @@ function renderModeCards(container: HTMLElement, allTraining: Line[], allLines: 
   label.textContent = 'Practise';
   section.appendChild(label);
 
-  // Fix mistakes — the count of due individual moves. Tappable as long as there's
-  // anything deep enough to drill (the mode falls back to weak/upcoming moves).
-  const duePositions = countDuePositions(allTraining);
+  // Time attack leads the list — three timed runs, each with its own personal
+  // best. Always playable when there's any saved position anywhere (it falls back
+  // to shallow and paused lines); only disabled when nothing is saved at all.
+  const timedReady = selectTimedPositions(allLines, { max: 80 }).length > 0;
+  section.appendChild(buildTimedCard(container, allLines, timedReady));
+
+  // Review missed moves — single moves you've missed. Tappable as long as there's
+  // anything deep enough to drill (the mode falls back to weak/upcoming moves). No
+  // due-count badge: the daily challenge and hero already carry the "what's due"
+  // signal, so this stays a clean entry point.
   const hasPositions = selectIndividualPositions(allTraining).length > 0;
   section.appendChild(buildModeCard({
     accent: MODE_ACCENT.fix,
     icon: Icons.zap(20),
     name: 'Review missed moves',
     sub: 'single moves you’ve missed',
-    stat: duePositions,
-    statLabel: duePositions === 1 ? 'due move' : 'due moves',
     disabled: !hasPositions,
     disabledReason: 'Train a little more to unlock single-move drills',
     onClick: () => runIndividual(container, allTraining),
   }));
-
-  // Time attack — three timed runs, each with its own personal best. Always
-  // playable when there's any saved position anywhere (it falls back to shallow
-  // and paused lines); only disabled when nothing is saved at all.
-  const timedReady = selectTimedPositions(allLines, { max: 80 }).length > 0;
-  section.appendChild(buildTimedCard(container, allLines, timedReady));
 
   // Fresh lines — full runs of the newest lines first.
   section.appendChild(buildModeCard({
@@ -456,18 +415,6 @@ function renderModeCards(container: HTMLElement, allTraining: Line[], allLines: 
   }
 
   container.appendChild(section);
-}
-
-// How many individual user-moves are due across the training lines — the live
-// stat behind "Fix mistakes".
-function countDuePositions(lines: Line[], now: Date = new Date()): number {
-  let due = 0;
-  for (const line of lines) {
-    for (const node of userMoveNodes(line.tree, line.colour)) {
-      if (isReviewDue(node.review, now)) due++;
-    }
-  }
-  return due;
 }
 
 function buildModeCard(o: {
@@ -980,12 +927,15 @@ interface RoundRunner {
   roundNo: number;     // 1-based current round
   totalRounds: number;
   stats: SessionStats;
+  // Fires once the whole sitting reaches the final session-complete screen (not
+  // between rounds). Used by the daily challenge to mark its lines half done.
+  onComplete?: () => void;
 }
 
 function startRounds(
   lines: Line[],
   container: HTMLElement,
-  opts: { explicit?: boolean } = {},
+  opts: { explicit?: boolean; onComplete?: () => void } = {},
 ): void {
   const runner: RoundRunner = {
     lines,
@@ -994,8 +944,20 @@ function startRounds(
     roundNo: 0,
     totalRounds: Math.max(1, Math.ceil(lines.length / ROUND_SIZE)),
     stats: makeStats(),
+    onComplete: opts.onComplete,
   };
   runRound(runner, container);
+}
+
+// Run a full-line training session over a specific, already-ordered set of lines,
+// calling back when the whole sitting finishes. The daily challenge uses this to
+// drill its three lines and learn when they're done.
+export function startLineSession(
+  lines: Line[],
+  container: HTMLElement,
+  onComplete?: () => void,
+): void {
+  startRounds(lines, container, { explicit: true, onComplete });
 }
 
 function runRound(runner: RoundRunner, container: HTMLElement): void {
@@ -1014,6 +976,7 @@ function runRound(runner: RoundRunner, container: HTMLElement): void {
   runSession(session, container, runner.stats, () => {
     if (runner.index >= runner.lines.length) {
       renderSessionComplete(container, runner.stats);
+      runner.onComplete?.();
     } else {
       renderRoundComplete(container, runner, before);
     }
@@ -1056,6 +1019,8 @@ function runItem(
     // Collect the position for the end-of-session "Try your mistakes again".
     const preFen = idx <= 0 ? START_FEN : copyMoves[idx - 1].fen;
     addMistake(stats.mistakes, stats.mistakeKeys, preFen, node);
+    // Feed the "most forgotten move this week" card on Statistics.
+    recordMissedMove(preFen, node.san, lineCopy.colour);
   }
 
   startDrill(lineCopy, {
@@ -1154,7 +1119,7 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
   const lineByNode = new Map(positions.map(p => [p.expected, cloneById.get(p.lineId)!]));
 
   const missed = new Set<string>();
-  const stats = { reviewed: 0, missed: 0 };
+  const stats = { reviewed: 0, missed: 0, openings: new Map<string, OpeningTally>() };
   const mistakes: Mistake[] = [];
   const mistakeKeys = new Set<string>();
 
@@ -1192,7 +1157,10 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
           const wasMissed = missed.has(expected.id);
           if (wasMissed) {
             const pos = positions.find(p => p.expected === expected);
-            if (pos) addMistake(mistakes, mistakeKeys, pos.preFen, expected);
+            if (pos) {
+              addMistake(mistakes, mistakeKeys, pos.preFen, expected);
+              recordMissedMove(pos.preFen, expected.san, line.colour);
+            }
           }
           const quality = qualityFromMisses(wasMissed ? 1 : 0);
           expected.review = gradeReview(expected.review ?? newReview(now), quality, now);
@@ -1202,6 +1170,7 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
           recordReviewed(1);
           // One move graded: one entry on the remembered-vs-failed bar.
           recordReviewOutcome(wasMissed ? 0 : 1, wasMissed ? 1 : 0);
+          bumpOpening(stats.openings, line.openingName || line.name, wasMissed ? 0 : 1, wasMissed ? 1 : 0);
           stats.reviewed++;
           if (wasMissed) stats.missed++;
         },
@@ -1231,7 +1200,7 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
 
 function renderIndividualComplete(
   container: HTMLElement,
-  stats: { reviewed: number; missed: number },
+  stats: { reviewed: number; missed: number; openings: Map<string, OpeningTally> },
   mistakes: Mistake[],
 ): void {
   if (stats.reviewed > 0) recordTrainingDay();
@@ -1243,7 +1212,6 @@ function renderIndividualComplete(
     'Positions cleared ✓',
     `${stats.reviewed} position${stats.reviewed === 1 ? '' : 's'} drilled`,
   );
-  head.classList.add('pz-results-head--fill');
   appendStatsRow(head, correct, stats.missed, 'missed', 'first try');
 
   const reschedNote = document.createElement('div');
@@ -1252,7 +1220,20 @@ function renderIndividualComplete(
     ? 'Missed positions are scheduled to come back sooner.'
     : 'Clean run — every position remembered!';
   head.appendChild(reschedNote);
-  panel.appendChild(head);
+
+  // Per-opening recap (same style as the puzzle results).
+  const openingRows = reviewedOpeningRows(stats.openings);
+  if (openingRows.length > 0) {
+    const sectionHead = document.createElement('div');
+    sectionHead.className = 'summary-needs-work-head';
+    sectionHead.textContent = 'Openings reviewed';
+    head.appendChild(sectionHead);
+    panel.appendChild(head);
+    panel.appendChild(completionList(openingRows));
+  } else {
+    head.classList.add('pz-results-head--fill');
+    panel.appendChild(head);
+  }
 
   const actions = completionActions();
   appendReviewActions(actions, container, mistakes, close, dismiss);
@@ -1395,6 +1376,71 @@ function appendStatsRow(
   wrap.appendChild(statsRow);
 }
 
+// ── Reviewed-openings list (every mode) ───────────────────────────────────────
+//
+// A per-opening recap in the puzzle-results style: one row per opening you just
+// reviewed, a ✓ when nothing was missed in it and a ✕ when something was, plus a
+// "correct/total" tally on the right. Worst-first so the spots needing work lead.
+// Built from a small tally each mode fills as it grades.
+
+interface OpeningTally { name: string; correct: number; incorrect: number; }
+
+function bumpOpening(tally: Map<string, OpeningTally>, name: string, correct: number, incorrect: number): void {
+  const key = name || 'Untitled';
+  const cur = tally.get(key) ?? { name: key, correct: 0, incorrect: 0 };
+  cur.correct += correct;
+  cur.incorrect += incorrect;
+  tally.set(key, cur);
+}
+
+// Fold the line-session per-line stats into the same opening tally shape.
+function tallyFromLineStats(lineStats: Map<string, LineSessionStat>): Map<string, OpeningTally> {
+  const tally = new Map<string, OpeningTally>();
+  for (const s of lineStats.values()) {
+    bumpOpening(tally, s.openingName || s.lineName, s.totalMoves - s.misses, s.misses);
+  }
+  return tally;
+}
+
+function reviewedOpeningRows(tally: Map<string, OpeningTally>): HTMLElement[] {
+  const ordered = [...tally.values()].sort((a, b) => {
+    const total = (o: OpeningTally): number => o.correct + o.incorrect;
+    const rateA = total(a) ? a.incorrect / total(a) : 0;
+    const rateB = total(b) ? b.incorrect / total(b) : 0;
+    return rateB !== rateA ? rateB - rateA : b.incorrect - a.incorrect;
+  });
+  return ordered.map((o) => {
+    const total = o.correct + o.incorrect;
+    const clean = o.incorrect === 0;
+    const row = document.createElement('div');
+    row.className = 'pz-result-row ' + (clean ? 'pz-result-row--solved' : 'pz-result-row--missed');
+
+    const dot = document.createElement('span');
+    dot.className = 'pz-result-dot';
+    dot.textContent = clean ? '✓' : '✕';
+    row.appendChild(dot);
+
+    const main = document.createElement('div');
+    main.className = 'pz-result-main';
+    const name = document.createElement('div');
+    name.className = 'pz-result-name';
+    name.textContent = o.name;
+    main.appendChild(name);
+    const meta = document.createElement('div');
+    meta.className = 'pz-result-meta';
+    meta.textContent = clean ? 'all remembered' : `${o.incorrect} missed`;
+    main.appendChild(meta);
+    row.appendChild(main);
+
+    const tallyEl = document.createElement('span');
+    tallyEl.className = 'pz-result-rating';
+    tallyEl.textContent = `${o.correct}/${total}`;
+    row.appendChild(tallyEl);
+
+    return row;
+  });
+}
+
 // ── Round-complete panel ─────────────────────────────────────────────────────
 //
 // Shown between rounds (only when material remains). Light by design: this
@@ -1494,61 +1540,32 @@ function renderSessionComplete(container: HTMLElement, stats: SessionStats): voi
   );
   appendStatsRow(head, correctMoves, stats.movesMissed, 'missed');
 
-  // Lines with misses become a faded, scrollable "Needs most work" list (the
-  // same affordance the puzzle results use); a clean run gets a one-line cheer.
-  let needsWorkRows: HTMLElement[] = [];
+  // A clean run still gets its one-line cheer above the list.
   if (stats.movesMissed === 0 && stats.linesReviewed > 0) {
     const cleanEl = document.createElement('div');
     cleanEl.className = 'summary-clean-run';
     cleanEl.textContent = 'Clean run — all moves remembered!';
     head.appendChild(cleanEl);
-  } else if (stats.movesMissed > 0) {
-    const needsWork = Array.from(stats.lineStats.values())
-      .filter(s => s.misses > 0)
-      .sort((a, b) => {
-        const rateA = a.misses / a.totalMoves;
-        const rateB = b.misses / b.totalMoves;
-        return rateB !== rateA ? rateB - rateA : b.misses - a.misses;
-      });
-
-    needsWorkRows = needsWork.map(ls => {
-      const row = document.createElement('div');
-      row.className = 'summary-line-row';
-
-      const nameEl = document.createElement('div');
-      nameEl.className = 'summary-line-name';
-      nameEl.textContent = ls.openingName || ls.lineName;
-
-      const missRate = document.createElement('div');
-      missRate.className = 'summary-line-miss-rate';
-      missRate.textContent = `${ls.misses} of ${ls.totalMoves} missed`;
-
-      const barWrap = document.createElement('div');
-      barWrap.className = 'summary-line-bar-wrap';
-      const barFill = document.createElement('div');
-      barFill.className = 'summary-line-bar-fill';
-      barFill.style.width = `${Math.round((ls.misses / ls.totalMoves) * 100)}%`;
-      barWrap.appendChild(barFill);
-
-      row.appendChild(nameEl);
-      row.appendChild(missRate);
-      row.appendChild(barWrap);
-      return row;
-    });
   }
 
-  if (needsWorkRows.length > 0) {
+  // Every reviewed opening, recapped with correct/incorrect in the puzzle-results
+  // style (worst-first). The same faded, scrollable affordance keeps it to one
+  // screen.
+  const openingRows = reviewedOpeningRows(tallyFromLineStats(stats.lineStats));
+  if (openingRows.length > 0) {
     const sectionHead = document.createElement('div');
     sectionHead.className = 'summary-needs-work-head';
-    sectionHead.textContent = 'Needs most work';
+    sectionHead.textContent = 'Openings reviewed';
     head.appendChild(sectionHead);
     panel.appendChild(head);
-    panel.appendChild(completionList(needsWorkRows));
+    panel.appendChild(completionList(openingRows));
 
-    const reschedNote = document.createElement('div');
-    reschedNote.className = 'train-all-done train-all-done--pinned';
-    reschedNote.textContent = 'Missed moves are scheduled to come back sooner.';
-    panel.appendChild(reschedNote);
+    if (stats.movesMissed > 0) {
+      const reschedNote = document.createElement('div');
+      reschedNote.className = 'train-all-done train-all-done--pinned';
+      reschedNote.textContent = 'Missed moves are scheduled to come back sooner.';
+      panel.appendChild(reschedNote);
+    }
   } else {
     head.classList.add('pz-results-head--fill');
     panel.appendChild(head);
@@ -1665,8 +1682,13 @@ function runTimed(container: HTMLElement, allLines: Line[], minutes: TimedMinute
   const positions = selectTimedPositions(clones, { max: 80 });
   if (positions.length === 0) { void doRender(container); return; }
 
+  // Map each quizzed move back to its opening, so the recap can group by opening.
+  const openingByLineId = new Map(clones.map(c => [c.id, c.openingName || c.name]));
+  const nodeOpening = new Map(positions.map(p => [p.expected, openingByLineId.get(p.lineId) ?? 'Untitled']));
+
   const mistakes: Mistake[] = [];
   const mistakeKeys = new Set<string>();
+  const openings = new Map<string, OpeningTally>();
   let correct = 0;
   let wrong = 0;
 
@@ -1686,8 +1708,9 @@ function runTimed(container: HTMLElement, allLines: Line[], minutes: TimedMinute
           wrong++;
           addMistake(mistakes, mistakeKeys, pos.preFen, pos.expected);
         }
+        bumpOpening(openings, nodeOpening.get(pos.expected) ?? 'Untitled', ok ? 1 : 0, ok ? 0 : 1);
       },
-      onComplete: () => renderTimedComplete(container, allLines, minutes, correct, wrong, mistakes),
+      onComplete: () => renderTimedComplete(container, allLines, minutes, correct, wrong, mistakes, openings),
       onCancel: () => void doRender(container),
     },
   );
@@ -1700,6 +1723,7 @@ function renderTimedComplete(
   correct: number,
   wrong: number,
   mistakes: Mistake[],
+  openings: Map<string, OpeningTally>,
 ): void {
   if (correct > 0 || wrong > 0) recordTrainingDay();
 
@@ -1712,7 +1736,6 @@ function renderTimedComplete(
     "Time's up ⏱",
     `${correct} correct in ${minutes} minute${minutes === 1 ? '' : 's'}`,
   );
-  head.classList.add('pz-results-head--fill');
   appendStatsRow(head, correct, wrong, 'mistakes');
 
   // Personal best line.
@@ -1727,7 +1750,20 @@ function renderTimedComplete(
       : 'Answer one to set your first personal best!';
   }
   head.appendChild(pb);
-  panel.appendChild(head);
+
+  // Per-opening recap (same style as the puzzle results).
+  const openingRows = reviewedOpeningRows(openings);
+  if (openingRows.length > 0) {
+    const sectionHead = document.createElement('div');
+    sectionHead.className = 'summary-needs-work-head';
+    sectionHead.textContent = 'Openings reviewed';
+    head.appendChild(sectionHead);
+    panel.appendChild(head);
+    panel.appendChild(completionList(openingRows));
+  } else {
+    head.classList.add('pz-results-head--fill');
+    panel.appendChild(head);
+  }
 
   // Actions: retry mistakes (teaching drill), play again, close.
   const actions = completionActions();

@@ -56,6 +56,7 @@ import { getAutoRefreshEnabled, setAutoRefreshEnabled, getLastGamesRefresh } fro
 import { clearTrainingDays, clearReviewedToday, clearReviewLog } from './streak';
 import { clearPuzzleLog } from './puzzle-log';
 import { clearPuzzleRating } from './puzzle-rating';
+import { clearForgottenMoves } from './forgotten-moves';
 import { clearPuzzleRepeat } from './puzzle-repeat';
 import { clearTaBest } from './puzzles-screen';
 import { renderBackupSection, exportBackupNow } from './backup';
@@ -999,6 +1000,7 @@ function buildDataGroup(): HTMLElement {
           clearReviewLog();
           clearPuzzleLog();
           clearPuzzleRating();
+          clearForgottenMoves();
           clearPuzzleRepeat();
           clearTaBest();
           clearTimedBest();

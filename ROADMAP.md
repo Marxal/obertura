@@ -82,8 +82,28 @@ is the restore point for the round.
   row. Added `overscroll-behavior` to stop pull-to-refresh reloads, a boot splash
   (app icon) that replaces the first-paint "Loading…", and widened the puzzle
   seen-ring + retry count so puzzles repeat far less often.
-- 🔜 **Session 2 — Train redesign, daily challenge, success screens.**
-- 🔜 **Session 3 — Statistics overhaul.**
+- ✅ **Session 2 — Train redesign, daily challenge, success screens.**
+  The Train screen drops its day-streak pill (the streak now lives on the new
+  card), leads its mode list with Time attack, drops the due-count badge from
+  Review missed moves, and hides the "due now" hero entirely when nothing's due.
+  A new **daily challenge** card sits above the Openings/Puzzles tabs: two tasks
+  — 3 lines to remember (due-first, topped up) and 5 rated puzzles (the Daily
+  Rated Mix engine, capped at 5) — with the streak alongside; once both are done
+  it shrinks to a "done — keep training ✓" line. Every training mode's success
+  screen now lists the **openings reviewed** with correct/incorrect in the
+  puzzle-results style (faded, one screen).
+- ✅ **Session 3 — Statistics overhaul.**
+  The training region is now titled **Openings**. A new **most-forgotten-move**
+  card shows a board for the move you've missed most this week (fed by a small
+  device-local miss log written during line and single-move drills). The puzzle
+  rating block gains a 4th **Best run** box (longest clean rated streak), and
+  **tapping a day** on the rating line now swaps the rating / solved / accuracy
+  boxes to that day. Beating your best clean run is announced on the puzzle
+  results screen. The remembered-moves graph overlays a small **"lines added"**
+  marker per day (with a legend), so a recall dip reads as fresh material rather
+  than real forgetting.
+
+_Restore point: tag `v0.4`. In progress on `claude/games-training-ui-improvements-wblxc7`._
 
 ---
 
