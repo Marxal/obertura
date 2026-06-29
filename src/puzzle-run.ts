@@ -364,7 +364,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     // Skip puzzles whose data won't replay, and (unless retrying) puzzles seen
     // recently. Give up after a few misses so a backend hiccup can't spin forever.
     let setup = null;
-    for (let tries = 0; tries < 6 && !isCleaned; tries++) {
+    for (let tries = 0; tries < 10 && !isCleaned; tries++) {
       const d = await opts.nextPuzzle({ solved: solvedCount });
       if (isCleaned) return;
       if (!d) break;

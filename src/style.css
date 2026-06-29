@@ -250,6 +250,12 @@
   padding: 0;
 }
 
+html, body {
+  /* Stop the browser's pull-to-refresh (and overscroll bounce) from reloading the
+     app when you swipe up/down past the top of a screen. */
+  overscroll-behavior-y: none;
+}
+
 body {
   font-family: system-ui, -apple-system, sans-serif;
   color: var(--text);
@@ -259,6 +265,35 @@ body {
 #app {
   display: flex;
   flex-direction: column;
+}
+
+/* Boot splash — the app icon centred on the page background, covering the screen
+   until main.ts has the first view's data, then fading out. Uses the theme's page
+   colour (already applied before paint by the inline head script) so there's no
+   flash of the wrong shade. */
+#app-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-page);
+  transition: opacity 0.3s ease;
+}
+#app-splash img {
+  width: 96px;
+  height: 96px;
+  border-radius: 22%;
+  animation: app-splash-pulse 1.2s ease-in-out infinite;
+}
+#app-splash.app-splash--hide {
+  opacity: 0;
+  pointer-events: none;
+}
+@keyframes app-splash-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(0.96); }
+  50% { opacity: 1; transform: scale(1); }
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -2685,6 +2720,7 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   gap: 0.6rem;
 }
 .mygames-card {
+  position: relative;
   display: flex;
   align-items: stretch;
   width: 100%;
@@ -2700,21 +2736,26 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   display: flex;
   align-items: center;
   gap: 0.7rem;
-  padding: 0.55rem 0.65rem;
+  /* Extra right padding leaves room for the corner delete button. */
+  padding: 0.6rem 2.1rem 0.6rem 0.65rem;
   border: none;
   background: transparent;
   text-align: left;
   cursor: pointer;
 }
 .mygames-card-open:active { filter: brightness(0.97); }
+/* Delete: a small icon button tucked into the top-right corner. */
 .mygames-card-del {
-  flex: 0 0 auto;
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
+  width: 32px;
+  height: 32px;
   border: none;
-  border-left: 1px solid var(--border-card);
+  border-radius: 8px;
   background: transparent;
   color: var(--text-faint);
   cursor: pointer;
@@ -2723,11 +2764,17 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   background: var(--bg-elevated);
   color: #c93636;
 }
+/* The miniature matches the My Lines cards and carries a thin result border. */
 .mygames-card-mini {
   flex: 0 0 auto;
-  width: 52px;
-  border-radius: 6px;
+  width: clamp(88px, 30vw, 116px);
+  border-radius: 7px;
+  border: 2px solid transparent;
+  box-sizing: border-box;
 }
+.mygames-card-mini--win { border-color: #5a9e3f; }
+.mygames-card-mini--loss { border-color: #c93636; }
+.mygames-card-mini--draw { border-color: var(--border-card); }
 .mygames-card-text {
   flex: 1 1 auto;
   min-width: 0;
@@ -2757,6 +2804,13 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 .mygames-card-sub--win { color: #5a9e3f; }
 .mygames-card-sub--loss { color: #c93636; }
+/* The game date on its own row, numeric (23/06/2026). */
+.mygames-card-date {
+  font-size: 0.74rem;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+  margin-top: 0.05rem;
+}
 .mygames-card-analysed {
   color: var(--accent);
   font-weight: 600;
@@ -3086,9 +3140,9 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   gap: 0.5rem;
 }
 
-/* The eye is a quiet, right-aligned twin of the title tap — same "open in
-   builder" action, just a visible affordance for it. */
-.dline-eye {
+/* The edit pencil is a quiet, right-aligned twin of the title — opens the
+   rename sheet. */
+.dline-edit {
   flex: 0 0 auto;
 }
 

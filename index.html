@@ -50,6 +50,11 @@
     </script>
   </head>
   <body>
+    <!-- Boot splash: the app icon, shown until the first screen's data is ready so
+         the launch never flashes a bare "Loading…" line. Removed by main.ts. -->
+    <div id="app-splash" aria-hidden="true">
+      <img src="icons/icon-192.png" alt="" width="96" height="96" />
+    </div>
     <div id="app">
       <header>
         <div class="header-top">
