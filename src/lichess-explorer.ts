@@ -38,6 +38,18 @@ const ALL_RATINGS = '0,1000,1200,1400,1600,1800,2000,2200,2500';
 const cache = new Map<string, Map<string, ExplorerCounts>>();
 let inflight: AbortController | null = null;
 
+// Drop everything cached this session and abort any in-flight request. Called on
+// connect AND disconnect (see lichess-auth.ts): the cache is NOT keyed by token,
+// so an auth-state change must reset it — otherwise an entry fetched in the wrong
+// auth state lingers until a full page reload. (Reconnecting used to be the only
+// thing that cleared it, because the OAuth redirect reloads the page; that's why
+// the library appeared to "come back" only after a disconnect/reconnect.)
+export function clearExplorerCache(): void {
+  cache.clear();
+  inflight?.abort();
+  inflight = null;
+}
+
 export async function fetchExplorer(
   fen: string,
   db: ExplorerDb = 'lichess',
@@ -70,7 +82,12 @@ export async function fetchExplorer(
     for (const m of data.moves ?? []) {
       map.set(m.uci, { white: m.white, draws: m.draws, black: m.black });
     }
-    cache.set(key, map);
+    // Only cache a non-empty answer. An empty map means "reached, no games here"
+    // (a deep position) — cheap to re-ask, and NOT caching it means a one-off
+    // blocked/flaky response can't poison this position for the whole session.
+    // The empty map is still RETURNED, so the caller can tell it apart from a
+    // null (couldn't reach live) and degrade gracefully either way.
+    if (map.size) cache.set(key, map);
     return map;
   } catch {
     return null; // offline / aborted / CORS / parse error — caller falls back

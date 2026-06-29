@@ -16,6 +16,7 @@
 // handle gracefully in lichess-explorer.ts.
 
 import { OAuth2AuthCodePKCE } from '@bity/oauth2-auth-code-pkce';
+import { clearExplorerCache } from './lichess-explorer';
 
 const LICHESS = 'https://lichess.org';
 
@@ -65,6 +66,9 @@ export async function tryCallback(): Promise<boolean> {
     if (await client().isReturningFromAuthServer()) {
       await client().getAccessToken();
       justConnected = isConnected();
+      // Fresh auth state: drop any explorer entries fetched anonymously before
+      // this connect, so the first authorised fetch isn't served a stale miss.
+      if (justConnected) clearExplorerCache();
     }
   } catch { /* user denied, stale state, network — leave disconnected */ }
   return justConnected;
@@ -109,4 +113,7 @@ export async function getAccessToken(): Promise<string | null> {
 // Forget the token on this device.
 export function disconnect(): void {
   try { client().reset(); } catch { /* nothing to reset */ }
+  // Clear cached explorer answers fetched while connected, so they don't keep
+  // showing after the token is gone (and so a later reconnect starts clean).
+  clearExplorerCache();
 }

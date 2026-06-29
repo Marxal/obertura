@@ -114,17 +114,24 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   // no login). When the user has connected their Lichess account, we additionally
   // try the live explorer (more current, every position) and prefer it when it
   // answers — otherwise we degrade silently to the bundled data.
+  // `moves` is the stats to render (live when it answered, else bundled), or null
+  // if the position moved on while awaiting. `liveFailed` is true only when we're
+  // connected and the live fetch couldn't be reached (null = error/abort/blocked,
+  // NOT an empty "reached, no games" answer) — the caller shows a subtle note so
+  // a silent degrade to built-in data is no longer invisible.
   function resolveStats(
     fen: string, db: ExplorerDb, allowLive: boolean,
-  ): Promise<Map<string, ExplorerCounts> | null> {
+  ): Promise<{ moves: Map<string, ExplorerCounts> | null; liveFailed: boolean }> {
     return bundledStats(fen, db).then(async bundled => {
       if (allowLive && isConnected()) {
         const token = await getAccessToken();
-        if (deps.getFen() !== fen) return null;        // moved on while awaiting
+        if (deps.getFen() !== fen) return { moves: null, liveFailed: false }; // moved on
         const live = await fetchExplorer(fen, db, token);
-        if (live && live.size) return live;
+        if (live === null) return { moves: bundled, liveFailed: true };  // couldn't reach
+        if (live.size) return { moves: live, liveFailed: false };
+        // live empty: reached, no games here — fall through to bundled, no failure.
       }
-      return bundled;
+      return { moves: bundled, liveFailed: false };
     });
   }
 
@@ -197,7 +204,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     // Win/draw/loss + games count overlaid on each book move. Bundled is instant;
     // live is only tried when the slide is actually showing, so we don't hit the
     // network on every move. Applied only if the position hasn't moved on.
-    resolveStats(fen, explorerDb, activeSlide === LIBRARY_SLIDE).then(moves => {
+    resolveStats(fen, explorerDb, activeSlide === LIBRARY_SLIDE).then(({ moves, liveFailed }) => {
       if (!moves || deps.getFen() !== fen) return;
       const colour = deps.getColour();
       for (const [uci, slot] of statSlots) {
@@ -208,13 +215,14 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
         slot.className = 'lib-bx-wdl';
         slot.replaceChildren(wdlScoreRow(counts, compactCount(counts.games)));
       }
+      if (liveFailed) el.appendChild(liveUnavailableNote());
     }).catch(() => { /* keep the plain counts */ });
   }
 
   // The off-book continuations: every move the stats database (or live Lichess)
   // plays from here, busiest first, each a tappable My-games-style W/D/L row.
   function renderStatMoves(el: HTMLElement, fen: string): void {
-    resolveStats(fen, explorerDb, activeSlide === LIBRARY_SLIDE).then(moves => {
+    resolveStats(fen, explorerDb, activeSlide === LIBRARY_SLIDE).then(({ moves, liveFailed }) => {
       if (deps.getFen() !== fen) return;       // position moved on; drop this
       const colour = deps.getColour();
       const chess = new Chess(fen);
@@ -224,6 +232,9 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
         .filter(r => r.counts.games > 0)
         .sort((a, b) => b.counts.games - a.counts.games);
       if (!rows.length) {
+        // Live fetch couldn't be reached: say so plainly rather than implying the
+        // position is unexplored ("New territory") when we simply didn't ask.
+        if (liveFailed) { el.appendChild(liveUnavailableNote()); return; }
         // The games run out here — past the reach of the database. Frame it as a
         // discovery rather than a dead end. Connected, that's genuinely new
         // territory; disconnected, it may just be past the bundled set.
@@ -252,7 +263,17 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
         row.appendChild(wdlScoreRow(r.counts, compactCount(r.counts.games)));
         el.appendChild(row);
       }
+      if (liveFailed) el.appendChild(liveUnavailableNote());
     }).catch(() => { /* graceful — bundled empty and live unavailable */ });
+  }
+
+  // A discreet note for when we're connected but the live explorer couldn't be
+  // reached (CORS, rate limit, network) and we've fallen back to the bundled
+  // book. Styled like the off-book frontier note so it stays unobtrusive.
+  function liveUnavailableNote(): HTMLElement {
+    const note = emptyNote('Showing built-in data — couldn’t reach Lichess.');
+    note.classList.add('bx-frontier');
+    return note;
   }
 
   // The Library slide's top bar, on a single row:
