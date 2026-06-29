@@ -1868,45 +1868,47 @@ cg-board square.move-dest.oc {
 }
 
 /* ── Game-review move classifications ────────────────────────────────────────
-   A coloured row tint + a small badge per move, Chess.com style. Colours here
-   mirror CLASS_COLOR in icons.ts (board badge) — keep the two in sync. */
+   The move-list badge disc (.class-badge) and the notation colour markers.
+   Colours here mirror CLASS_COLOR in icons.ts (board badge) — keep in sync. */
 .class-badge { vertical-align: middle; }
 .class-badge circle { fill: currentColor; }
 .class-badge text { fill: #fff; }
 
-.class-badge--brilliant { color: #1baca6; }
 .class-badge--great     { color: #5c8bb0; }
-.class-badge--best      { color: #7ca64d; }
-.class-badge--excellent { color: #7ca64d; }
-.class-badge--good      { color: #9bb068; }
-.class-badge--book      { color: #a88865; }
+.class-badge--best      { color: #5a9e3f; }
+.class-badge--excellent { color: #7fb05f; }
+.class-badge--good      { color: #a6c08a; }
+.class-badge--book      { color: #9c7248; }
 .class-badge--inaccuracy{ color: #e6b23a; }
 .class-badge--mistake   { color: #e0822f; }
 .class-badge--blunder   { color: #c93636; }
-.class-badge--forced    { color: #9aa0a6; }
 
-.move-class-badge {
-  margin-left: 3px;
-  vertical-align: -0.16em;
+/* Notation markers — only the error moves are flagged, by colouring the move
+   text (plus a faint wash), and only when it isn't the active (accent) move so
+   the selection keeps its strong highlight. No icons in the notation. */
+.move-san.class--inaccuracy:not(.active) {
+  color: #b88a1f;
+  background: color-mix(in srgb, #e6b23a 16%, transparent);
+}
+.move-san.class--mistake:not(.active) {
+  color: #c4701f;
+  background: color-mix(in srgb, #e0822f 18%, transparent);
+}
+.move-san.class--blunder:not(.active) {
+  color: #c93636;
+  font-weight: 600;
+  background: color-mix(in srgb, #c93636 20%, transparent);
 }
 
-/* Row tint — subtle, and only when the move isn't the active (accent) one, so
-   the selected move keeps its strong highlight. */
-.move-san.class--brilliant:not(.active)  { background: color-mix(in srgb, #1baca6 20%, transparent); }
-.move-san.class--great:not(.active)      { background: color-mix(in srgb, #5c8bb0 20%, transparent); }
-.move-san.class--best:not(.active)       { background: color-mix(in srgb, #7ca64d 18%, transparent); }
-.move-san.class--excellent:not(.active)  { background: color-mix(in srgb, #7ca64d 14%, transparent); }
-.move-san.class--good:not(.active)       { background: color-mix(in srgb, #9bb068 14%, transparent); }
-.move-san.class--book:not(.active)       { background: color-mix(in srgb, #a88865 16%, transparent); }
-.move-san.class--inaccuracy:not(.active) { background: color-mix(in srgb, #e6b23a 22%, transparent); }
-.move-san.class--mistake:not(.active)    { background: color-mix(in srgb, #e0822f 22%, transparent); }
-.move-san.class--blunder:not(.active)    { background: color-mix(in srgb, #c93636 24%, transparent); }
-.move-san.class--forced:not(.active)     { background: color-mix(in srgb, #9aa0a6 18%, transparent); }
-
-/* The bottom-bar Review icon, lit while a review is running. */
+/* The bottom-bar Analyse icon: lit (--on) while a review runs, then a quieter
+   passive look (--done) once the line on the board has been graded. */
 .bar-btn--on {
   color: var(--accent);
   background: var(--accent-soft);
+}
+.bar-btn--done {
+  color: var(--accent);
+  opacity: 0.55;
 }
 
 /* Annotation marks live in the note sheet: a row of picker chips above the

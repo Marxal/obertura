@@ -79,9 +79,10 @@ export const Icons = {
   sparkles: (s?: number) => svg(`<path d="M9.94 14.06A2 2 0 0 0 8.5 12.6l-5.2-1.35a.5.5 0 0 1 0-.96L8.5 8.94A2 2 0 0 0 9.94 7.5l1.35-5.2a.5.5 0 0 1 .96 0l1.35 5.2a2 2 0 0 0 1.44 1.44l5.2 1.35a.5.5 0 0 1 0 .96l-5.2 1.35a2 2 0 0 0-1.44 1.44l-1.35 5.2a.5.5 0 0 1-.96 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/>`, s),
   gamepad:  (s?: number) => svg(`<line x1="6" x2="10" y1="11" y2="11"/><line x1="8" x2="8" y1="9" y2="13"/><line x1="15" x2="15.01" y1="12" y2="12"/><line x1="18" x2="18.01" y1="10" y2="10"/><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.152A4 4 0 0 0 17.32 5z"/>`, s),
 
-  // The Game-Review icon in the builder bottom bar — a clipboard with a check,
-  // reading as "review / analysed".
-  review:   (s?: number) => svg(`<path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="m9 14 2 2 4-4"/>`, s),
+  // The Game-Review icon in the builder bottom bar — a magnifying glass with
+  // sparkles, reading as "AI analysis". The sparkles are filled (overriding the
+  // stroke-only default) so they read as little stars next to the lens.
+  review:   (s?: number) => svg(`<circle cx="10" cy="11.5" r="6"/><path d="m14.3 15.8 3.7 3.7"/><path d="M18 2l.95 2.25 2.25.95-2.25.95L18 8.4l-.95-2.25-2.25-.95 2.25-.95z" fill="currentColor" stroke="none"/><path d="M21.4 9.3l.5 1.2 1.2.5-1.2.5-.5 1.2-.5-1.2-1.2-.5 1.2-.5z" fill="currentColor" stroke="none"/>`, s),
 };
 
 // ── Move-classification badges (Game Review) ─────────────────────────────────
@@ -90,34 +91,34 @@ export const Icons = {
 // (classBoardSvg). Colours live here and are mirrored in style.css for the
 // move-list row tint — keep the two palettes in sync.
 
+// "book" carries no text symbol — it's drawn as a little book glyph (see
+// classGlyphMarkup), so its entry here is unused but kept for completeness.
 const CLASS_SYMBOL: Record<MoveClass, string> = {
-  brilliant: '‼',
   great: '!',
   best: '★',
   excellent: '✓',
   good: '✓',
-  book: 'B',
+  book: '',
   inaccuracy: '?!',
   mistake: '?',
   blunder: '??',
-  forced: '□', // the chess notation mark for "only move"
 };
 
+// Two distinct greens for the quality moves: best is a vivid green, good a
+// clearly less-saturated one, with excellent sitting between them. Book is a
+// warm brown (opening theory). Keep these in sync with style.css.
 export const CLASS_COLOR: Record<MoveClass, string> = {
-  brilliant: '#1baca6',
   great: '#5c8bb0',
-  best: '#7ca64d',
-  excellent: '#7ca64d',
-  good: '#9bb068',
-  book: '#a88865',
+  best: '#5a9e3f',
+  excellent: '#7fb05f',
+  good: '#a6c08a',
+  book: '#9c7248',
   inaccuracy: '#e6b23a',
   mistake: '#e0822f',
   blunder: '#c93636',
-  forced: '#9aa0a6',
 };
 
 export const CLASS_LABEL: Record<MoveClass, string> = {
-  brilliant: 'Brilliant',
   great: 'Great move',
   best: 'Best move',
   excellent: 'Excellent',
@@ -126,13 +127,34 @@ export const CLASS_LABEL: Record<MoveClass, string> = {
   inaccuracy: 'Inaccuracy',
   mistake: 'Mistake',
   blunder: 'Blunder',
-  forced: 'Forced',
 };
 
 const BADGE_FONT = 'system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
 
+// The white symbol inside a class disc, centred on (cx,cy). Most classes get a
+// text glyph; "book" gets a little two-page book drawn at a scale tied to the
+// disc radius `r`, so it stays centred with padding at any badge size.
+function classGlyphMarkup(cls: MoveClass, cx: number, cy: number, r: number): string {
+  if (cls === 'book') {
+    // Book path is authored in a ±3-unit box; scale it to ~0.6× the radius.
+    const s = (r * 0.62) / 3;
+    return (
+      `<g transform="translate(${cx} ${cy}) scale(${s})" fill="#fff" stroke="none">` +
+      `<path d="M-0.18 -1.05C-1.05 -1.62 -2.2 -1.7 -3 -1.5V1.02C-2.2 0.82 -1.05 0.9 -0.18 1.46Z"/>` +
+      `<path d="M0.18 -1.05C1.05 -1.62 2.2 -1.7 3 -1.5V1.02C2.2 0.82 1.05 0.9 0.18 1.46Z"/>` +
+      `</g>`
+    );
+  }
+  const sym = CLASS_SYMBOL[cls];
+  const fs = sym.length > 1 ? r : r * 1.25;
+  return (
+    `<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" ` +
+    `font-size="${fs}" font-weight="800" fill="#fff" font-family='${BADGE_FONT}'>${sym}</text>`
+  );
+}
+
 // A small filled badge for the move list. Colour comes from CSS
-// (.class-badge--<cls>); the symbol is drawn in white.
+// (.class-badge--<cls>) for the disc; the symbol is drawn in white.
 export function classIcon(cls: MoveClass, size = 14): SVGSVGElement {
   const el = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   el.setAttribute('viewBox', '0 0 24 24');
@@ -140,27 +162,23 @@ export function classIcon(cls: MoveClass, size = 14): SVGSVGElement {
   el.setAttribute('height', String(size));
   el.setAttribute('aria-hidden', 'true');
   el.classList.add('class-badge', `class-badge--${cls}`);
-  const sym = CLASS_SYMBOL[cls];
-  const fs = sym.length > 1 ? 12 : 15;
-  el.innerHTML =
-    `<circle cx="12" cy="12" r="12"/>` +
-    `<text x="12" y="13" text-anchor="middle" dominant-baseline="central" ` +
-    `font-size="${fs}" font-weight="800" font-family='${BADGE_FONT}'>${sym}</text>`;
+  el.innerHTML = `<circle cx="12" cy="12" r="12"/>` + classGlyphMarkup(cls, 12, 12, 12);
   return el;
 }
 
-// The board badge for chessground's customSvg: a corner disc on the move's
-// destination square. The inner viewBox 0..100 maps to exactly one square (see
-// the cg-custom-svgs "-3.5 -3.5 8 8" viewBox), so (74,26) is the top-right corner.
+// The board badge for chessground's customSvg, drawn in the square's 0..100
+// space (so 0,0 is its top-left corner, 100,100 the bottom-right). Two parts:
+//   1. a whole-square colour wash, so a blunder square reads red at a glance;
+//   2. a small disc tucked into the top-right corner with the class glyph,
+//      kept small so the piece underneath stays visible.
 export function classBoardSvg(cls: MoveClass): { html: string; center: 'orig' } {
-  const sym = CLASS_SYMBOL[cls];
-  const fs = sym.length > 1 ? 26 : 34;
   const color = CLASS_COLOR[cls];
+  const cx = 79, cy = 21, r = 16;
   return {
     center: 'orig',
     html:
-      `<circle cx="74" cy="26" r="22" fill="${color}" stroke="#fff" stroke-width="3"/>` +
-      `<text x="74" y="28" text-anchor="middle" dominant-baseline="central" ` +
-      `font-size="${fs}" font-weight="800" fill="#fff" font-family='${BADGE_FONT}'>${sym}</text>`,
+      `<rect x="0" y="0" width="100" height="100" fill="${color}" opacity="0.34"/>` +
+      `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}" stroke="#fff" stroke-width="2.5"/>` +
+      classGlyphMarkup(cls, cx, cy, r),
   };
 }

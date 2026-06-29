@@ -23,15 +23,15 @@ export function runReviewSelfTest(): TestResult[] {
   ];
 
   // Played the best move, not in book → best.
-  const best = gradeMove({ parentTop: top, playedUci: 'e2e4', playedCp: 30, inBook: false, isSacrifice: false });
+  const best = gradeMove({ parentTop: top, playedUci: 'e2e4', playedCp: 30, inBook: false });
   check('played best → best', best?.classification === 'best' && best.cpLoss === 0, JSON.stringify(best));
 
   // Same, but it's book theory → book.
-  const book = gradeMove({ parentTop: top, playedUci: 'e2e4', playedCp: 30, inBook: true, isSacrifice: false });
+  const book = gradeMove({ parentTop: top, playedUci: 'e2e4', playedCp: 30, inBook: true });
   check('best + book → book', book?.classification === 'book', JSON.stringify(book));
 
   // A move that throws the game away → blunder, with a real cpLoss.
-  const blunder = gradeMove({ parentTop: top, playedUci: 'a2a3', playedCp: -350, inBook: false, isSacrifice: false });
+  const blunder = gradeMove({ parentTop: top, playedUci: 'a2a3', playedCp: -350, inBook: false });
   check(
     'huge eval drop → blunder',
     blunder?.classification === 'blunder' && blunder.cpLoss === 380,
@@ -39,21 +39,16 @@ export function runReviewSelfTest(): TestResult[] {
   );
 
   // playedCp omitted but the move is in the top list → grader looks it up.
-  const lookup = gradeMove({ parentTop: top, playedUci: 'd2d4', playedCp: null, inBook: false, isSacrifice: false });
+  const lookup = gradeMove({ parentTop: top, playedUci: 'd2d4', playedCp: null, inBook: false });
   check('null playedCp falls back to top list', lookup?.classification === 'excellent', JSON.stringify(lookup));
 
-  // Forced: every alternative is far worse, and the best move was played.
-  const forcedTop = [{ uci: 'g1f3', cp: 40 }, { uci: 'a2a3', cp: -400 }];
-  const forced = gradeMove({ parentTop: forcedTop, playedUci: 'g1f3', playedCp: 40, inBook: false, isSacrifice: false });
-  check('only-move played → forced', forced?.classification === 'forced', JSON.stringify(forced));
-
-  // Brilliant: a sound sacrifice that's also the best move, position stays good.
-  const sacTop = [{ uci: 'c1h6', cp: 60 }, { uci: 'a2a3', cp: 50 }];
-  const brilliant = gradeMove({ parentTop: sacTop, playedUci: 'c1h6', playedCp: 60, inBook: false, isSacrifice: true });
-  check('best + sacrifice → brilliant', brilliant?.classification === 'brilliant', JSON.stringify(brilliant));
+  // The best move is far ahead of every alternative, and the player found it → great.
+  const greatTop = [{ uci: 'g1f3', cp: 40 }, { uci: 'a2a3', cp: -400 }];
+  const great = gradeMove({ parentTop: greatTop, playedUci: 'g1f3', playedCp: 40, inBook: false });
+  check('standout move played → great', great?.classification === 'great', JSON.stringify(great));
 
   // No data → null.
-  const none = gradeMove({ parentTop: [], playedUci: 'e2e4', playedCp: 10, inBook: false, isSacrifice: false });
+  const none = gradeMove({ parentTop: [], playedUci: 'e2e4', playedCp: 10, inBook: false });
   check('empty top → null', none === null, JSON.stringify(none));
 
   return results;

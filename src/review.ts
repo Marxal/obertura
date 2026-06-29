@@ -14,7 +14,6 @@ import { bundledStats } from './explorer-stats';
 import type { ExplorerDb } from './lichess-explorer';
 import { cpToWin, flattenCp, classifyMove } from './winprob';
 import type { MoveClass } from './winprob';
-import { isSacrifice } from './sacrifice';
 import type { MoveNode } from './tree';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -37,7 +36,6 @@ export interface GradeArgs {
   // or the negated child eval). When null, gradeMove tries the parent list.
   playedCp: number | null;
   inBook: boolean;
-  isSacrifice: boolean;
 }
 
 // Grade one move from already-fetched evals. Pure → unit-tested. Returns null
@@ -68,9 +66,6 @@ export function gradeMove(a: GradeArgs): { classification: MoveClass; cpLoss: nu
     inBook: a.inBook,
     winLoss,
     secondBestGap,
-    isSacrifice: a.isSacrifice,
-    bestWin,
-    playedWin,
   });
   return { classification, cpLoss: Math.max(0, Math.round(bestCp - playedCp)) };
 }
@@ -176,11 +171,8 @@ export async function reviewLine(nodes: MoveNode[], opts: ReviewOptions): Promis
       }
 
       const inBook = (await bundledStats(parentFen, db))?.has(node.uci) ?? false;
-      // Sacrifice only matters for a best move that might be "Brilliant".
-      const isBest = parentTop[0].uci === node.uci;
-      const isSac = isBest && playedCp !== null ? isSacrifice(parentFen, node.uci) : false;
 
-      const graded = gradeMove({ parentTop, playedUci: node.uci, playedCp, inBook, isSacrifice: isSac });
+      const graded = gradeMove({ parentTop, playedUci: node.uci, playedCp, inBook });
       if (graded) {
         node.classification = graded.classification;
         node.cpLoss = graded.cpLoss;
