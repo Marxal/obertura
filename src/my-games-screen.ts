@@ -25,6 +25,9 @@ const RESULT_LABEL: Record<ImportedGame['result'], string> = {
   win: 'Won', draw: 'Drew', loss: 'Lost',
 };
 
+// How many cards to render per batch (see the IntersectionObserver below).
+const BATCH = 24;
+
 // Replay the stored moves to the position they reach, for the card miniature.
 function fenAfter(ucis: string[]): string {
   const ch = new Chess();
@@ -72,8 +75,32 @@ export async function renderMyGamesScreen(host: HTMLElement, deps: MyGamesDeps):
 
   const list = document.createElement('div');
   list.className = 'mygames-list';
-  for (const g of games) list.appendChild(gameCard(g, deps));
   root.appendChild(list);
+
+  // Render in batches and grow on scroll, so a big library doesn't build
+  // hundreds of mini-boards (each a chess.js replay + SVG) up front. A sentinel
+  // below the list pulls in the next batch as it nears the viewport.
+  let shown = 0;
+  const renderBatch = (): void => {
+    const slice = games.slice(shown, shown + BATCH);
+    const frag = document.createDocumentFragment();
+    for (const g of slice) frag.appendChild(gameCard(g, deps));
+    list.appendChild(frag);
+    shown += slice.length;
+  };
+  renderBatch();
+
+  if (shown < games.length) {
+    const sentinel = document.createElement('div');
+    sentinel.className = 'mygames-sentinel';
+    root.appendChild(sentinel);
+    const io = new IntersectionObserver(entries => {
+      if (!entries.some(e => e.isIntersecting)) return;
+      renderBatch();
+      if (shown >= games.length) { io.disconnect(); sentinel.remove(); }
+    }, { rootMargin: '500px' });
+    io.observe(sentinel);
+  }
 }
 
 function gameCard(g: ImportedGame, deps: MyGamesDeps): HTMLElement {
@@ -108,6 +135,13 @@ function gameCard(g: ImportedGame, deps: MyGamesDeps): HTMLElement {
   const sub = document.createElement('div');
   sub.className = `mygames-card-sub mygames-card-sub--${g.result}`;
   sub.textContent = `${RESULT_LABEL[g.result]} · ${g.timeClass}`;
+  if (g.analysis) {
+    const tag = document.createElement('span');
+    tag.className = 'mygames-card-analysed';
+    tag.textContent = 'Analysed';
+    sub.appendChild(document.createTextNode(' · '));
+    sub.appendChild(tag);
+  }
   text.appendChild(sub);
 
   card.appendChild(text);

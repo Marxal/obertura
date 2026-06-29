@@ -14,6 +14,7 @@
 // the result — and all the counting/capping — is identical for both.
 
 import { Chess } from 'chess.js';
+import type { MoveNode } from './tree';
 
 // Opening depth we retain per game. 60 plies = 30 full moves — deep enough to
 // feed the maps' "Go deeper" view (30 moves) entirely from stored data.
@@ -104,6 +105,15 @@ export interface ImportedGame {
   sans: string[];                        // opening moves in SAN, capped
   ucis: string[];                        // same moves in UCI ("e2e4"), capped
   plyCount: number;                      // total plies in the *full* game
+  // Saved game-analyser state, written by "Save game". Absent until analysed +
+  // saved; restoring it reopens the game with its variations and review intact.
+  analysis?: GameAnalysis;
+}
+
+export interface GameAnalysis {
+  tree: MoveNode;                        // the analysed move tree (main line + variations)
+  engine: 'lichess' | 'local' | 'mixed' | 'none'; // which engine reviewed it
+  reviewedAt: number;                    // unix ms when it was last saved
 }
 
 // ── NormalisedGame → compact ImportedGame ──────────────────────────────────────
