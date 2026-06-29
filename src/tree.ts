@@ -18,6 +18,10 @@ export interface MoveNode {
   // replaces the node outright, so a grade can never outlive the move it scored.
   classification?: MoveClass;
   cpLoss?: number; // centipawns behind the engine's best, for display
+  // Engine evaluation AFTER this move, in WHITE's perspective (centipawns;
+  // mate maps to a large signed sentinel). Written by the reviewer and used by
+  // the Line-tab eval graph. Absent on un-reviewed / old data.
+  evalCp?: number;
   review?: {
     ease: number;
     interval: number;

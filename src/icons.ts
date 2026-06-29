@@ -177,7 +177,7 @@ export function classBoardSvg(cls: MoveClass): { html: string; center: 'orig' } 
   return {
     center: 'orig',
     html:
-      `<rect x="0" y="0" width="100" height="100" fill="${color}" opacity="0.34"/>` +
+      `<rect x="0" y="0" width="100" height="100" fill="${color}" opacity="0.5"/>` +
       `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}" stroke="#fff" stroke-width="2.5"/>` +
       classGlyphMarkup(cls, cx, cy, r),
   };
