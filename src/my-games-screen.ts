@@ -11,14 +11,25 @@
 // storage (cards show the position the capped opening moves reach).
 
 import { Chess } from 'chess.js';
-import { getAllGames } from './storage';
+import { getAllGames, deleteGame } from './storage';
 import type { ImportedGame } from './import-games';
 import { buildMiniBoard } from './board-mini';
 import { openingFamily } from './analysis';
 import { createFilterBar } from './filters';
 import { renderGroups } from './line-groups';
+import { showDialog } from './dialog';
+import { showToast } from './toast';
 import { Icons } from './icons';
 import { renderLoadError } from './load-error';
+
+// A short, locale-aware game date ("12 Mar 2024") from the stored unix seconds.
+// Shared with the analyser's "vs <opponent>" line. Empty when the date is unknown.
+export function formatGameDate(endTimeSec: number | undefined): string {
+  if (!endTimeSec) return '';
+  return new Date(endTimeSec * 1000).toLocaleDateString(undefined, {
+    day: 'numeric', month: 'short', year: 'numeric',
+  });
+}
 
 // Which opening families are expanded in the grouped view. Module-level so the
 // open/closed state survives re-renders (filter changes, reopening the tab).
@@ -59,6 +70,9 @@ export async function renderMyGamesScreen(host: HTMLElement, deps: MyGamesDeps):
   const root = document.createElement('div');
   root.className = 'mygames-screen';
   host.appendChild(root);
+
+  // Re-render the whole screen (after a delete) so counts and groups update.
+  const refresh = (): void => { void renderMyGamesScreen(host, deps); };
 
   // ── Import action ───────────────────────────────────────────────────────────
   const importBtn = document.createElement('button');
@@ -149,7 +163,7 @@ export async function renderMyGamesScreen(host: HTMLElement, deps: MyGamesDeps):
     if (sel.group) {
       // Collapsible opening-family accordion (same as My Lines). Collapsed groups
       // don't build their cards, so this stays cheap even for a big library.
-      renderGroups(list, gs, g => openingFamily(g.opening), g => gameCard(g, deps), expandedFamilies);
+      renderGroups(list, gs, g => openingFamily(g.opening), g => gameCard(g, deps, refresh), expandedFamilies);
       return;
     }
 
@@ -158,7 +172,7 @@ export async function renderMyGamesScreen(host: HTMLElement, deps: MyGamesDeps):
     const renderBatch = (): void => {
       const slice = gs.slice(shown, shown + BATCH);
       const frag = document.createDocumentFragment();
-      for (const g of slice) frag.appendChild(gameCard(g, deps));
+      for (const g of slice) frag.appendChild(gameCard(g, deps, refresh));
       list.appendChild(frag);
       shown += slice.length;
     };
@@ -180,15 +194,20 @@ export async function renderMyGamesScreen(host: HTMLElement, deps: MyGamesDeps):
   apply();
 }
 
-function gameCard(g: ImportedGame, deps: MyGamesDeps): HTMLElement {
-  const card = document.createElement('button');
-  card.type = 'button';
-  card.className = 'mygames-card';
-  card.addEventListener('click', () => deps.onOpenGame(g));
+function gameCard(g: ImportedGame, deps: MyGamesDeps, refresh: () => void): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'mygames-card';
+
+  // The big tap target opens the game; a separate trash button deletes it (two
+  // siblings, so no invalid button-in-button nesting).
+  const open = document.createElement('button');
+  open.type = 'button';
+  open.className = 'mygames-card-open';
+  open.addEventListener('click', () => deps.onOpenGame(g));
 
   const mini = buildMiniBoard(fenAfter(g.ucis), g.colour);
   mini.classList.add('mygames-card-mini');
-  card.appendChild(mini);
+  open.appendChild(mini);
 
   const text = document.createElement('div');
   text.className = 'mygames-card-text';
@@ -216,7 +235,8 @@ function gameCard(g: ImportedGame, deps: MyGamesDeps): HTMLElement {
 
   const sub = document.createElement('div');
   sub.className = `mygames-card-sub mygames-card-sub--${g.result}`;
-  sub.textContent = `${RESULT_LABEL[g.result]} · ${g.timeClass}`;
+  const date = formatGameDate(g.endTime);
+  sub.textContent = `${RESULT_LABEL[g.result]} · ${g.timeClass}${date ? ' · ' + date : ''}`;
   if (g.analysis) {
     const tag = document.createElement('span');
     tag.className = 'mygames-card-analysed';
@@ -235,10 +255,30 @@ function gameCard(g: ImportedGame, deps: MyGamesDeps): HTMLElement {
     text.appendChild(tags);
   }
 
-  card.appendChild(text);
-
+  open.appendChild(text);
   const chev = Icons.chevronRight(18);
   chev.classList.add('mygames-card-chev');
-  card.appendChild(chev);
-  return card;
+  open.appendChild(chev);
+  wrap.appendChild(open);
+
+  const del = document.createElement('button');
+  del.type = 'button';
+  del.className = 'mygames-card-del';
+  del.setAttribute('aria-label', `Delete game vs ${g.opponent}`);
+  del.appendChild(Icons.trash(16));
+  del.addEventListener('click', () => {
+    showDialog({
+      title: 'Delete this game?',
+      body: `Remove your game vs ${g.opponent} from My games? This can’t be undone.`,
+      buttons: [
+        { label: 'Delete', variant: 'danger', onClick: () => {
+          void deleteGame(g.id).then(() => { showToast('Game deleted'); refresh(); });
+        } },
+        { label: 'Cancel', variant: 'secondary' },
+      ],
+    });
+  });
+  wrap.appendChild(del);
+
+  return wrap;
 }

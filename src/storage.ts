@@ -134,6 +134,12 @@ export async function clearGames(): Promise<void> {
   await promisify(s.clear());
 }
 
+// Remove one game by id (the My games card's delete action).
+export async function deleteGame(id: string): Promise<void> {
+  const s = await gamesStore('readwrite');
+  await promisify(s.delete(id));
+}
+
 // ── Scouted opponents ──────────────────────────────────────────────────────────
 //
 // Each opponent is one self-contained record (their imported games plus the two

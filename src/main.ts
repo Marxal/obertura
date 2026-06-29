@@ -16,7 +16,7 @@ import { startPretrainingRun, enrolLineDirectly } from './pretraining';
 import { renderTrainScreen } from './train-screen';
 import { renderExploreScreen } from './explore-screen';
 import { renderPuzzlesScreen } from './puzzles-screen';
-import { renderMyGamesScreen } from './my-games-screen';
+import { renderMyGamesScreen, formatGameDate } from './my-games-screen';
 import { opponentTag } from './scout';
 import { renderSettingsScreen } from './settings-screen';
 import { Engine, setCloudAuthToken, type EvalResult } from './engine';
@@ -172,8 +172,10 @@ let builderDesc = '';
 function renderBuilderDesc(): void {
   const el = document.getElementById('builder-desc')!;
   const text = builderDesc.trim();
-  el.textContent = text;
-  el.hidden = text.length === 0;
+  // In the analyser, show the game date next to "vs <opponent>".
+  const full = text && builderGameDate ? `${text} · ${builderGameDate}` : (text || builderGameDate);
+  el.textContent = full;
+  el.hidden = full.length === 0;
 }
 
 // The edit lightbox — now focused: the pencil opens it on the NAME only, the tag
@@ -467,8 +469,8 @@ function setupMoveNav(): void {
 // import icon was removed.
 function openMyGamesImport(): void {
   openBuilderImport({
-    onLoadGame: (ucis, colour, description, gameId) =>
-      openImportedGame(ucis, colour, description, gameId),
+    onLoadGame: (ucis, colour, description, gameId, endTime) =>
+      openImportedGame(ucis, colour, description, gameId, endTime),
     onGamesChanged: () => { builderPanels?.reload(); },
   });
 }
@@ -479,11 +481,11 @@ function openMyGamesImport(): void {
 function openGameForAnalysis(game: ImportedGame): void {
   const tags = game.tags ?? [];
   if (game.analysis?.tree) {
-    buildFromTree(game.analysis.tree, game.colour, `vs ${game.opponent}`, tags);
+    buildFromTree(game.analysis.tree, game.colour, `vs ${game.opponent}`, tags, game.endTime);
     builderEngine = game.analysis.engine;
     renderMoveList(); // repaint so the restored review's engine tag shows
   } else {
-    buildFromUcis(game.ucis, game.colour, tags, { description: `vs ${game.opponent}`, analyser: true });
+    buildFromUcis(game.ucis, game.colour, tags, { description: `vs ${game.opponent}`, analyser: true, gameDate: game.endTime });
     autoReview();
   }
   analyserGameId = game.id; // after build — clearBuilder resets it to null
@@ -492,8 +494,8 @@ function openGameForAnalysis(game: ImportedGame): void {
 // Open a freshly imported/pasted game (no saved analysis yet) in the analyser and
 // review it. gameId is set when the game is in the store (so a later Save can
 // attach the analysis); a pasted PGN has none.
-function openImportedGame(ucis: string[], colour: 'white' | 'black', description?: string, gameId?: string): void {
-  buildFromUcis(ucis, colour, [], { description, analyser: true });
+function openImportedGame(ucis: string[], colour: 'white' | 'black', description?: string, gameId?: string, endTime?: number): void {
+  buildFromUcis(ucis, colour, [], { description, analyser: true, gameDate: endTime });
   analyserGameId = gameId ?? null; // after build — clearBuilder resets it
   autoReview();
 }
@@ -1165,6 +1167,8 @@ let builderMode: 'builder' | 'analyser' = 'builder';
 // The stored game currently open in the analyser, so "Save game" writes the
 // analysed tree back onto that record. null when not analysing a saved game.
 let analyserGameId: string | null = null;
+// The open game's date, shown next to "vs <opponent>" under the board.
+let builderGameDate = '';
 
 // When a line is loaded from My Lines, stash its id and createdAt so
 // a subsequent Save updates the same line instead of creating a duplicate.
@@ -1317,6 +1321,7 @@ function clearBuilder(colour: 'white' | 'black' = 'white'): void {
   builderEngine = 'none';
   builderMode = 'builder';
   analyserGameId = null;
+  builderGameDate = '';
   renderTitle();
   renderBuilderTags();
   renderBuilderDesc();
@@ -1367,11 +1372,12 @@ function buildFromUcis(
   ucis: string[],
   colour: 'white' | 'black',
   tags: string[] = [],
-  opts: { description?: string; analyser?: boolean } = {},
+  opts: { description?: string; analyser?: boolean; gameDate?: number } = {},
 ): void {
   clearBuilder(colour);
   currentTags = [...tags];
   builderDesc = opts.description ?? '';
+  builderGameDate = formatGameDate(opts.gameDate);
   // Lay the game's moves down as a single main line first…
   for (const uci of ucis) {
     const from = uci.slice(0, 2);
@@ -1410,9 +1416,10 @@ function buildFromUcis(
 // Restore a previously-analysed game: load its saved move tree (main line +
 // variations + review) straight into the analyser, cursor at the start. Mirrors
 // buildFromUcis but from a tree rather than a flat move list.
-function buildFromTree(tree: MoveNode, colour: 'white' | 'black', description: string, tags: string[] = []): void {
+function buildFromTree(tree: MoveNode, colour: 'white' | 'black', description: string, tags: string[] = [], gameDate?: number): void {
   clearBuilder(colour);
   builderDesc = description;
+  builderGameDate = formatGameDate(gameDate);
   currentTags = [...tags];
   loadTree(tree);
   builderMode = 'analyser';
@@ -2097,11 +2104,30 @@ async function saveGame(): Promise<void> {
 async function saveLineFromCurrentPath(): Promise<void> {
   const ucis = pathTo(getCurrentNode().id).map(n => n.uci);
   if (!ucis.length) { showToast('Step to a move first'); return; }
-  const line = lineFromUcis(ucis, saveColour);
-  if (!line) { showToast('Couldn’t build a line here'); return; }
-  await saveLine(line);
-  builderPanels?.reloadLines();
-  showToast('Saved to My Lines ✓');
+
+  const doSave = async (): Promise<void> => {
+    const line = lineFromUcis(ucis, saveColour);
+    if (!line) { showToast('Couldn’t build a line here'); return; }
+    await saveLine(line);
+    builderPanels?.reloadLines();
+    showToast('Saved to My Lines ✓');
+  };
+
+  // A line is the opening you want to drill, not the whole game. If the cursor is
+  // deep in the game, nudge the user to step back to the move they want to end on
+  // rather than saving 40-move "lines".
+  if (ucis.length > LONG_LINE_PLIES) {
+    showDialog({
+      title: 'Save the whole game as a line?',
+      body: `You're at move ${Math.ceil(ucis.length / 2)} — that's most of the game. Lines work best as short openings: step back to the move you want the line to end on, then Save line.`,
+      buttons: [
+        { label: 'Step back first', variant: 'primary' },
+        { label: 'Save it anyway', variant: 'secondary', onClick: () => { void doSave(); } },
+      ],
+    });
+    return;
+  }
+  void doSave();
 }
 
 // Surface a saved line on My Lines, highlighted so it's easy to find.

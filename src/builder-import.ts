@@ -23,7 +23,7 @@ export interface BuilderImportDeps {
   // hint (e.g. "vs alice") shown under the title. `gameId` is the stored game's
   // id when there is one (last game / browse), so a later save can attach its
   // analysis; a pasted PGN has none.
-  onLoadGame: (ucis: string[], colour: 'white' | 'black', description?: string, gameId?: string) => void;
+  onLoadGame: (ucis: string[], colour: 'white' | 'black', description?: string, gameId?: string, endTime?: number) => void;
   // A game just landed in storage (import-last saves it) — refresh the slides.
   onGamesChanged: () => void;
 }
@@ -60,10 +60,10 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
   sheet.appendChild(body);
 
   // Seed the builder and dismiss the sheet.
-  const load = (ucis: string[], colour: 'white' | 'black', description?: string, gameId?: string): void => {
+  const load = (ucis: string[], colour: 'white' | 'black', description?: string, gameId?: string, endTime?: number): void => {
     if (!ucis.length) { showToast('No moves found to load.'); return; }
     close();
-    deps.onLoadGame(ucis, colour, description, gameId);
+    deps.onLoadGame(ucis, colour, description, gameId, endTime);
   };
 
   // ── a) Import my last game ──────────────────────────────────────────────────
@@ -74,7 +74,7 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
       const game = await importLastGame();
       if (!game) { showToast('No recent game found to import.'); btn.disabled = false; return; }
       deps.onGamesChanged();
-      load(game.ucis, game.colour, `vs ${game.opponent}`, game.id);
+      load(game.ucis, game.colour, `vs ${game.opponent}`, game.id, game.endTime);
     } catch {
       showToast('Couldn’t reach your account — check your connection.');
       btn.disabled = false;
@@ -119,7 +119,7 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
     const row = document.createElement('button');
     row.type = 'button';
     row.className = 'bimport-game';
-    row.addEventListener('click', () => load(g.ucis, g.colour, `vs ${g.opponent}`, g.id));
+    row.addEventListener('click', () => load(g.ucis, g.colour, `vs ${g.opponent}`, g.id, g.endTime));
 
     const pip = document.createElement('span');
     pip.className = `colour-pip colour-pip--${g.colour}`;
