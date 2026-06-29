@@ -15,6 +15,7 @@ import { startPretrainingRun, enrolLineDirectly } from './pretraining';
 import { renderTrainScreen } from './train-screen';
 import { renderExploreScreen } from './explore-screen';
 import { renderPuzzlesScreen } from './puzzles-screen';
+import { renderMyGamesScreen } from './my-games-screen';
 import { opponentTag } from './scout';
 import { renderSettingsScreen } from './settings-screen';
 import { Engine, setCloudAuthToken, type EvalResult } from './engine';
@@ -434,14 +435,22 @@ function setupMoveNav(): void {
 
 // The bar's import icon (next to Flip): open the "Import a game" popup — last
 // game / browse recent / paste PGN — and load whatever's chosen onto the board.
-function setupBuilderImportButton(): void {
-  document.getElementById('builder-import')?.addEventListener('click', () => {
-    openBuilderImport({
-      onLoadGame: (ucis, colour, description) =>
-        buildFromUcis(ucis, colour, [], description ? { description } : {}),
-      onGamesChanged: () => { builderPanels?.reload(); },
-    });
+// Imports now live on the My games tab (see openMyGamesImport); the builder's own
+// import icon was removed.
+function openMyGamesImport(): void {
+  openBuilderImport({
+    onLoadGame: (ucis, colour, description) =>
+      openGameForAnalysis(ucis, colour, description),
+    onGamesChanged: () => { builderPanels?.reload(); },
   });
+}
+
+// Open a game on the board and start its analysis straight away (the game
+// analyser's behaviour). Used by the My games list and the import flow.
+function openGameForAnalysis(ucis: string[], colour: 'white' | 'black', description?: string): void {
+  buildFromUcis(ucis, colour, [], description ? { description } : {});
+  const btn = document.getElementById('builder-review') as HTMLButtonElement | null;
+  if (btn && !reviewAbort) void runGameReview(btn);
 }
 
 // ── Game Review (the bottom-bar Review icon) ────────────────────────────────
@@ -1200,7 +1209,7 @@ function updateSaveButtonLabel(): void {
 // "train" is the start view and back-navigation root; "explore" is a v1.2
 // placeholder; "builder" shows a chessboard, so it counts as a board screen
 // (see BACK_VIEWS below).
-type ViewName = 'train' | 'lines' | 'explore' | 'puzzles' | 'progress' | 'builder' | 'settings';
+type ViewName = 'train' | 'lines' | 'explore' | 'games' | 'progress' | 'builder' | 'settings';
 let currentView: ViewName = 'train';
 
 // The global FAB (mounted at boot). Shown on the four main tabs, hidden on the
@@ -1537,6 +1546,69 @@ function updateHeaderTitle(): void {
   el.classList.toggle('header-title--screen', !onTab);
 }
 
+// The Train screen now has two top tabs (My Lines style): Openings (the training
+// home) and Puzzles (what used to be its own bottom-nav tab). The active pane is
+// rendered lazily so each screen's render side effects only run when shown.
+type TrainTab = 'openings' | 'puzzles';
+let trainTab: TrainTab = 'openings';
+
+function renderTrainTabbed(host: HTMLElement): void {
+  host.innerHTML = '';
+
+  const tabs = document.createElement('div');
+  tabs.className = 'lines-tabs';
+  const mkTab = (tab: TrainTab, label: string, icon: SVGElement): HTMLButtonElement => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'lines-tab';
+    btn.dataset.tab = tab;
+    icon.classList.add('lines-tab-icon');
+    btn.appendChild(icon);
+    const span = document.createElement('span');
+    span.className = 'lines-tab-label';
+    span.textContent = label;
+    btn.appendChild(span);
+    btn.addEventListener('click', () => { if (trainTab !== tab) { trainTab = tab; paint(); } });
+    return btn;
+  };
+  tabs.appendChild(mkTab('openings', 'Openings', Icons.zap(18)));
+  tabs.appendChild(mkTab('puzzles', 'Puzzles', Icons.puzzlePiece(18)));
+
+  const openingsPane = document.createElement('div');
+  const puzzlesPane = document.createElement('div');
+  host.append(tabs, openingsPane, puzzlesPane);
+
+  const paint = (): void => {
+    tabs.querySelectorAll<HTMLElement>('.lines-tab').forEach(b => {
+      const on = b.dataset.tab === trainTab;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-current', on ? 'true' : 'false');
+    });
+    openingsPane.hidden = trainTab !== 'openings';
+    puzzlesPane.hidden = trainTab !== 'puzzles';
+    if (trainTab === 'openings') {
+      renderTrainScreen(openingsPane, {
+        focusLineId: pendingTrainLineId ?? undefined,
+        onOpenLine,
+        onBuildLine: () => startNewLine('white'),
+        onImportGames: () => showView('games'),
+        onAddStarterLine: addStarterLine,
+        onBrowseLibrary: () => openBuilderTab(LIBRARY_SLIDE, { fresh: true, colour: 'white' }),
+        onBuildWithEngine: () => openBuilderTab(ENGINE_SLIDE, { fresh: true, colour: 'white' }),
+        onSetFabVisible: (visible) => fabController?.setVisible(visible),
+      });
+      pendingTrainLineId = null;
+    } else {
+      void renderPuzzlesScreen(puzzlesPane, {
+        onImportGames: () => showView('games'),
+        onBuildLine: () => startNewLine('white'),
+        onConnectLichess: () => void lichessConnect(),
+      });
+    }
+  };
+  paint();
+}
+
 function showView(view: ViewName): void {
   // Entering a full screen (builder/settings) from a tab: remember it so the back
   // arrow returns there.
@@ -1555,7 +1627,7 @@ function showView(view: ViewName): void {
   const builderEl = document.getElementById('view-builder')!;
   const linesEl = document.getElementById('view-lines')!;
   const exploreEl = document.getElementById('view-explore')!;
-  const puzzlesEl = document.getElementById('view-puzzles')!;
+  const gamesEl = document.getElementById('view-games')!;
   const trainEl = document.getElementById('view-train')!;
   const progressEl = document.getElementById('view-progress')!;
   const settingsEl = document.getElementById('view-settings')!;
@@ -1563,7 +1635,7 @@ function showView(view: ViewName): void {
   builderEl.toggleAttribute('hidden', view !== 'builder');
   linesEl.toggleAttribute('hidden', view !== 'lines');
   exploreEl.toggleAttribute('hidden', view !== 'explore');
-  puzzlesEl.toggleAttribute('hidden', view !== 'puzzles');
+  gamesEl.toggleAttribute('hidden', view !== 'games');
   trainEl.toggleAttribute('hidden', view !== 'train');
   progressEl.toggleAttribute('hidden', view !== 'progress');
   settingsEl.toggleAttribute('hidden', view !== 'settings');
@@ -1597,28 +1669,15 @@ function showView(view: ViewName): void {
     renderExploreScreen(exploreEl, exploreScreenDeps());
   }
 
-  if (view === 'puzzles') {
-    void renderPuzzlesScreen(puzzlesEl, {
-      onImportGames: () => openImportPanel({ onImported: () => showView('puzzles') }),
-      onBuildLine: () => startNewLine('white'),
-      onConnectLichess: () => void lichessConnect(),
+  if (view === 'games') {
+    void renderMyGamesScreen(gamesEl, {
+      onImport: openMyGamesImport,
+      onOpenGame: (g) => openGameForAnalysis(g.ucis, g.colour, `vs ${g.opponent}`),
     });
   }
 
   if (view === 'train') {
-    renderTrainScreen(trainEl, {
-      focusLineId: pendingTrainLineId ?? undefined,
-      onOpenLine,
-      onBuildLine: () => startNewLine('white'),
-      onImportGames: () => openImportPanel({ onImported: () => showView('train') }),
-      onAddStarterLine: addStarterLine,
-      // Onboarding's quieter routes: the opening-library browser (seeds the
-      // builder) and the Explore screen, home of "play the engine" sparring.
-      onBrowseLibrary: () => openBuilderTab(LIBRARY_SLIDE, { fresh: true, colour: 'white' }),
-      onBuildWithEngine: () => openBuilderTab(ENGINE_SLIDE, { fresh: true, colour: 'white' }),
-      onSetFabVisible: (visible) => fabController?.setVisible(visible),
-    });
-    pendingTrainLineId = null;
+    renderTrainTabbed(trainEl);
   }
 
   if (view === 'progress') {
@@ -2301,7 +2360,6 @@ maybeShowGate(() => requestAnimationFrame(() => {
   setupTitleControls();
   setupNoteBlock();
   setupMoveNav();
-  setupBuilderImportButton();
   setupBuilderReviewButton();
   setupBuilderCarousel();
   setupBuilderPanelHandle();
