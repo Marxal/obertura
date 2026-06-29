@@ -128,14 +128,16 @@ function countByClass(nodes: MoveNode[], even: boolean): Map<MoveClass, number> 
 function buildSummary(nodes: MoveNode[], opts: LineAnalysisOpts): HTMLElement {
   const white = countByClass(nodes, true);
   const black = countByClass(nodes, false);
-  const cols = ORDER.filter(c => (white.get(c) ?? 0) + (black.get(c) ?? 0) > 0);
+  const rows = ORDER.filter(c => (white.get(c) ?? 0) + (black.get(c) ?? 0) > 0);
 
   const table = document.createElement('div');
   table.className = 'la-summary';
-  if (!cols.length) { table.hidden = true; return table; }
+  if (!rows.length) { table.hidden = true; return table; }
 
-  // CSS grid: a leading label column (won't collapse) + one per grade.
-  table.style.gridTemplateColumns = `minmax(52px, auto) repeat(${cols.length}, minmax(40px, 1fr))`;
+  // Vertical layout: one ROW per grade (icon + name), and a column for each
+  // player — so the player names get the full column width to breathe.
+  // Columns: grade label (flexes) | White | Black.
+  table.style.gridTemplateColumns = '1fr auto auto';
 
   const cell = (cls: string, content?: Node | string): HTMLElement => {
     const el = document.createElement('div');
@@ -145,35 +147,28 @@ function buildSummary(nodes: MoveNode[], opts: LineAnalysisOpts): HTMLElement {
     return el;
   };
 
-  // Row 1 — grade names.
-  table.appendChild(cell('la-cell la-corner'));
-  for (const c of cols) table.appendChild(cell('la-cell la-head', CLASS_LABEL[c]));
+  const count = (n: number, c: MoveClass): HTMLElement => {
+    const el = cell('la-cell la-count', String(n));
+    el.style.color = CLASS_COLOR[c];
+    if (!n) el.classList.add('la-count--zero');
+    return el;
+  };
 
-  // Row 2 — White counts.
+  // Header row — the two player names.
+  table.appendChild(cell('la-cell la-corner'));
   table.appendChild(cell('la-cell la-player', opts.whiteName));
-  for (const c of cols) {
-    const n = white.get(c) ?? 0;
-    const el = cell('la-cell la-count', String(n));
-    el.style.color = CLASS_COLOR[c];
-    if (!n) el.classList.add('la-count--zero');
-    table.appendChild(el);
-  }
-
-  // Row 3 — the grade icons.
-  table.appendChild(cell('la-cell la-corner'));
-  for (const c of cols) {
-    const icon = classIcon(c, 18);
-    table.appendChild(cell('la-cell la-icon', icon));
-  }
-
-  // Row 4 — Black counts.
   table.appendChild(cell('la-cell la-player', opts.blackName));
-  for (const c of cols) {
-    const n = black.get(c) ?? 0;
-    const el = cell('la-cell la-count', String(n));
-    el.style.color = CLASS_COLOR[c];
-    if (!n) el.classList.add('la-count--zero');
-    table.appendChild(el);
+
+  // One row per grade: icon + name, then each player's count.
+  for (const c of rows) {
+    const label = cell('la-cell la-grade');
+    label.appendChild(classIcon(c, 18));
+    const name = document.createElement('span');
+    name.textContent = CLASS_LABEL[c];
+    label.appendChild(name);
+    table.appendChild(label);
+    table.appendChild(count(white.get(c) ?? 0, c));
+    table.appendChild(count(black.get(c) ?? 0, c));
   }
 
   return table;
