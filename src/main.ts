@@ -6,7 +6,8 @@ import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
 import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, loadTree, removeLastMove, truncateAfterCurrent, setTreeMode, rootNode } from './tree';
 import type { Annotation, MoveNode } from './tree';
-import { saveLine, getAllLines } from './storage';
+import { saveLine, getAllLines, getGame, saveGames } from './storage';
+import type { ImportedGame } from './import-games';
 import { nameForPath } from './openings';
 import type { Line } from './types';
 import { renderLinesScreen, focusSavedLine } from './lines-screen';
@@ -466,16 +467,37 @@ function setupMoveNav(): void {
 // import icon was removed.
 function openMyGamesImport(): void {
   openBuilderImport({
-    onLoadGame: (ucis, colour, description) =>
-      openGameForAnalysis(ucis, colour, description),
+    onLoadGame: (ucis, colour, description, gameId) =>
+      openImportedGame(ucis, colour, description, gameId),
     onGamesChanged: () => { builderPanels?.reload(); },
   });
 }
 
-// Open a game on the board and start its analysis straight away (the game
-// analyser's behaviour). Used by the My games list and the import flow.
-function openGameForAnalysis(ucis: string[], colour: 'white' | 'black', description?: string): void {
+// Open a SAVED game (from the My games list) in the analyser. If it already has
+// a saved analysis, restore it (variations + review intact) and skip the review;
+// otherwise lay its moves down and analyse from scratch.
+function openGameForAnalysis(game: ImportedGame): void {
+  if (game.analysis?.tree) {
+    buildFromTree(game.analysis.tree, game.colour, `vs ${game.opponent}`);
+    builderEngine = game.analysis.engine;
+    renderMoveList(); // repaint so the restored review's engine tag shows
+  } else {
+    buildFromUcis(game.ucis, game.colour, [], { description: `vs ${game.opponent}`, analyser: true });
+    autoReview();
+  }
+  analyserGameId = game.id; // after build — clearBuilder resets it to null
+}
+
+// Open a freshly imported/pasted game (no saved analysis yet) in the analyser and
+// review it. gameId is set when the game is in the store (so a later Save can
+// attach the analysis); a pasted PGN has none.
+function openImportedGame(ucis: string[], colour: 'white' | 'black', description?: string, gameId?: string): void {
   buildFromUcis(ucis, colour, [], { description, analyser: true });
+  analyserGameId = gameId ?? null; // after build — clearBuilder resets it
+  autoReview();
+}
+
+function autoReview(): void {
   const btn = document.getElementById('builder-review') as HTMLButtonElement | null;
   if (btn && !reviewAbort) void runGameReview(btn);
 }
@@ -1139,6 +1161,10 @@ let saveColour: 'white' | 'black' = 'white';
 // a game is opened; reset to 'builder' on every fresh/loaded line.
 let builderMode: 'builder' | 'analyser' = 'builder';
 
+// The stored game currently open in the analyser, so "Save game" writes the
+// analysed tree back onto that record. null when not analysing a saved game.
+let analyserGameId: string | null = null;
+
 // When a line is loaded from My Lines, stash its id and createdAt so
 // a subsequent Save updates the same line instead of creating a duplicate.
 let loadedLineId: string | null = null;
@@ -1289,6 +1315,7 @@ function clearBuilder(colour: 'white' | 'black' = 'white'): void {
   builderDesc = '';
   builderEngine = 'none';
   builderMode = 'builder';
+  analyserGameId = null;
   renderTitle();
   renderBuilderTags();
   renderBuilderDesc();
@@ -1366,6 +1393,35 @@ function buildFromUcis(
     lastMove: last
       ? [last.uci.slice(0, 2) as Key, last.uci.slice(2, 4) as Key]
       : undefined,
+  });
+  renderMoveList();
+  renderMoveDetails();
+  renderBuilderTags();
+  renderBuilderDesc();
+  updateOpeningName();
+  updateSaveButtonLabel();
+  evalPanel.clear();
+  refreshBoardBadge();
+  engine.evaluate(chess.fen());
+  showView('builder');
+}
+
+// Restore a previously-analysed game: load its saved move tree (main line +
+// variations + review) straight into the analyser, cursor at the start. Mirrors
+// buildFromUcis but from a tree rather than a flat move list.
+function buildFromTree(tree: MoveNode, colour: 'white' | 'black', description: string): void {
+  clearBuilder(colour);
+  builderDesc = description;
+  loadTree(tree);
+  builderMode = 'analyser';
+  setTreeMode('variations');
+  chess.reset();
+  cg.set({
+    fen: chess.fen(),
+    orientation: colour,
+    turnColor: 'white',
+    movable: { color: 'both', dests: legalDests() },
+    lastMove: undefined,
   });
   renderMoveList();
   renderMoveDetails();
@@ -1718,7 +1774,7 @@ function showView(view: ViewName): void {
   if (view === 'games') {
     void renderMyGamesScreen(gamesEl, {
       onImport: openMyGamesImport,
-      onOpenGame: (g) => openGameForAnalysis(g.ucis, g.colour, `vs ${g.opponent}`),
+      onOpenGame: (g) => openGameForAnalysis(g),
     });
   }
 
@@ -2014,10 +2070,21 @@ async function persistCurrentLine(): Promise<{ line: Line; isNew: boolean } | nu
   return { line, isNew };
 }
 
-// Game analyser: "Save game" persists the whole analysed tree (main line +
-// variations + notes) as one line, skipping the builder's single-path save
-// nudges (trim/partial), and stays on the board.
+// Game analyser: "Save game" stores the whole analysed tree (main line +
+// variations + notes + review) back onto the game's record in the games store, so
+// reopening it from My games restores the analysis. Falls back to saving as a
+// line when there's no backing game record (e.g. a pasted PGN).
 async function saveGame(): Promise<void> {
+  if (analyserGameId) {
+    const game = await getGame(analyserGameId);
+    if (game) {
+      game.analysis = { tree: serialise(), engine: builderEngine, reviewedAt: Date.now() };
+      await saveGames([game]);
+      savedSnapshot = builderSnapshot();
+      showToast('Game saved ✓');
+      return;
+    }
+  }
   const r = await persistCurrentLine();
   if (r) showToast('Game saved ✓');
 }

@@ -116,6 +116,12 @@ export async function getAllGames(): Promise<ImportedGame[]> {
   return promisify(s.getAll());
 }
 
+// One stored game by id (e.g. to attach/restore its saved analysis).
+export async function getGame(id: string): Promise<ImportedGame | undefined> {
+  const s = await gamesStore('readonly');
+  return promisify(s.get(id));
+}
+
 // How many games are stored — used by the import readout without loading them all.
 export async function countGames(): Promise<number> {
   const s = await gamesStore('readonly');

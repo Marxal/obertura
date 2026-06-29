@@ -20,8 +20,10 @@ import { importGames, type ImportedGame } from './import-games';
 
 export interface BuilderImportDeps {
   // Seed the builder with a move list, oriented to `colour`, with an optional
-  // hint (e.g. "vs alice") shown under the title.
-  onLoadGame: (ucis: string[], colour: 'white' | 'black', description?: string) => void;
+  // hint (e.g. "vs alice") shown under the title. `gameId` is the stored game's
+  // id when there is one (last game / browse), so a later save can attach its
+  // analysis; a pasted PGN has none.
+  onLoadGame: (ucis: string[], colour: 'white' | 'black', description?: string, gameId?: string) => void;
   // A game just landed in storage (import-last saves it) — refresh the slides.
   onGamesChanged: () => void;
 }
@@ -58,10 +60,10 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
   sheet.appendChild(body);
 
   // Seed the builder and dismiss the sheet.
-  const load = (ucis: string[], colour: 'white' | 'black', description?: string): void => {
+  const load = (ucis: string[], colour: 'white' | 'black', description?: string, gameId?: string): void => {
     if (!ucis.length) { showToast('No moves found to load.'); return; }
     close();
-    deps.onLoadGame(ucis, colour, description);
+    deps.onLoadGame(ucis, colour, description, gameId);
   };
 
   // ── a) Import my last game ──────────────────────────────────────────────────
@@ -72,7 +74,7 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
       const game = await importLastGame();
       if (!game) { showToast('No recent game found to import.'); btn.disabled = false; return; }
       deps.onGamesChanged();
-      load(game.ucis, game.colour, `vs ${game.opponent}`);
+      load(game.ucis, game.colour, `vs ${game.opponent}`, game.id);
     } catch {
       showToast('Couldn’t reach your account — check your connection.');
       btn.disabled = false;
@@ -117,7 +119,7 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
     const row = document.createElement('button');
     row.type = 'button';
     row.className = 'bimport-game';
-    row.addEventListener('click', () => load(g.ucis, g.colour, `vs ${g.opponent}`));
+    row.addEventListener('click', () => load(g.ucis, g.colour, `vs ${g.opponent}`, g.id));
 
     const pip = document.createElement('span');
     pip.className = `colour-pip colour-pip--${g.colour}`;
