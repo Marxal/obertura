@@ -1992,6 +1992,13 @@ function setupNav(): void {
     guardBuilderLeave(() => showView('settings'));
   });
 
+  // Tapping the "Obertura" wordmark reloads the app — a quick way to pull the
+  // latest deploy. Only active on the main tabs (where it shows the wordmark), so
+  // it never bypasses the builder's unsaved-work guard.
+  document.getElementById('header-title')!.addEventListener('click', () => {
+    if (!BACK_VIEWS.has(currentView)) location.reload();
+  });
+
   // Show your Chess.com picture on the settings button when connected, and keep
   // it in step with every import / auto-refresh.
   applyNavSettingsAvatar();
