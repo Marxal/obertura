@@ -21,6 +21,9 @@ import { showDialog } from './dialog';
 import { showToast } from './toast';
 import { Icons } from './icons';
 import { renderLoadError } from './load-error';
+import { getGamesSource } from './import-panel';
+import { refreshGamesNow } from './auto-refresh';
+import { openAddGameForm } from './manual-game';
 
 // A short, locale-aware game date ("12 Mar 2024") from the stored unix seconds.
 // Shared with the analyser's "vs <opponent>" line. Empty when the date is unknown.
@@ -79,7 +82,7 @@ export async function renderMyGamesScreen(host: HTMLElement, deps: MyGamesDeps):
   // Re-render the whole screen (after a delete) so counts and groups update.
   const refresh = (): void => { void renderMyGamesScreen(host, deps); };
 
-  // ── Import action ───────────────────────────────────────────────────────────
+  // ── Import / refresh / add actions ────────────────────────────────────────────
   const importBtn = document.createElement('button');
   importBtn.type = 'button';
   importBtn.className = 'mygames-import';
@@ -87,6 +90,49 @@ export async function renderMyGamesScreen(host: HTMLElement, deps: MyGamesDeps):
   importBtn.appendChild(Object.assign(document.createElement('span'), { textContent: 'Import a game' }));
   importBtn.addEventListener('click', deps.onImport);
   root.appendChild(importBtn);
+
+  // Discrete secondary row: Refresh (fetch latest from the saved account) and
+  // Add a game manually. Refresh only appears once an account has been imported.
+  const subActions = document.createElement('div');
+  subActions.className = 'mygames-subactions';
+
+  if (getGamesSource()) {
+    const refreshBtn = document.createElement('button');
+    refreshBtn.type = 'button';
+    refreshBtn.className = 'mygames-action';
+    refreshBtn.appendChild(Icons.reset(15));
+    refreshBtn.appendChild(Object.assign(document.createElement('span'), { textContent: 'Refresh' }));
+    refreshBtn.addEventListener('click', async () => {
+      if (refreshBtn.disabled) return;
+      refreshBtn.disabled = true;
+      refreshBtn.classList.add('mygames-action--busy');
+      showToast('Checking for new games…');
+      try {
+        const n = await refreshGamesNow();
+        if (n > 0) {
+          showToast(`${n} new game${n === 1 ? '' : 's'} added ✓`, { variant: 'success' });
+          refresh();
+          return; // re-render replaces this button; nothing left to re-enable
+        }
+        showToast('No new games.');
+      } catch {
+        showToast('Couldn’t refresh — check your connection.');
+      }
+      refreshBtn.disabled = false;
+      refreshBtn.classList.remove('mygames-action--busy');
+    });
+    subActions.appendChild(refreshBtn);
+  }
+
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'mygames-action';
+  addBtn.appendChild(Icons.plus(15));
+  addBtn.appendChild(Object.assign(document.createElement('span'), { textContent: 'Add a game' }));
+  addBtn.addEventListener('click', () => openAddGameForm({ onAdded: refresh }));
+  subActions.appendChild(addBtn);
+
+  root.appendChild(subActions);
 
   let games: ImportedGame[];
   try {

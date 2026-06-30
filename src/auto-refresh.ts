@@ -46,6 +46,31 @@ function allowedTimeClasses(existing: ImportedGame[]): Set<TimeClass> {
   return present.size ? present : new Set(DEFAULT_TIME_CLASSES);
 }
 
+// Pull the latest games right now — the My-games "Refresh" button — bypassing
+// the weekly gate and the enabled flag. Returns how many genuinely new games
+// were merged. Throws 'no-source' when no username is saved yet (the button
+// should be hidden then) and rethrows fetch failures so the caller can report
+// them. Always merges (even an empty batch) so the refresh date advances.
+export async function refreshGamesNow(): Promise<number> {
+  const source = getGamesSource();
+  if (!source) throw new Error('no-source');
+
+  // Cover everything since the last refresh; fall back to a 3-month window when
+  // there's no recorded baseline yet.
+  const lastIso = getLastGamesRefresh();
+  const months = lastIso ? monthsSince(lastIso) : 3;
+
+  const result = await importGames(source.platform, source.username, { months });
+  const existing = await getAllGames();
+  const allowed = allowedTimeClasses(existing);
+  const existingIds = new Set(existing.map((g) => g.id));
+  const fresh = result.games.filter(
+    (g) => allowed.has(g.timeClass) && !existingIds.has(g.id),
+  );
+  await mergeRefreshedGames(fresh); // also advances the refresh date
+  return fresh.length;
+}
+
 // Run the weekly refresh if it's due. Returns how many genuinely new games were
 // merged (0 when off, not connected, not yet due, or on any failure). Never
 // throws — the caller can fire-and-forget it after the first paint.

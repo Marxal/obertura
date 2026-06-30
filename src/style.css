@@ -2800,6 +2800,82 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   cursor: pointer;
 }
 .mygames-import:active { filter: brightness(0.96); }
+
+/* Discrete secondary actions under the import button: Refresh + Add a game. */
+.mygames-subactions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.mygames-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  flex: 1 1 0;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mygames-action:active { filter: brightness(0.97); }
+.mygames-action:disabled { opacity: 0.6; cursor: default; }
+.mygames-action--busy svg { animation: mygames-spin 0.9s linear infinite; }
+@keyframes mygames-spin { to { transform: rotate(360deg); } }
+
+/* Discrete delete control at the foot of the Line panel (game review / builder).
+   Quiet by default; reads as danger on press. */
+.line-delete {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  align-self: flex-start;
+  margin-top: 0.9rem;
+  padding: 0.3rem 0.2rem;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.line-delete:active { color: var(--danger, #d2453f); }
+
+/* ── Add-a-game manual form ──────────────────────────────────────────────────── */
+.manual-game-player {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+.manual-game-name { flex: 1 1 auto; }
+.manual-game-me {
+  flex: 0 0 auto;
+  padding: 0 0.7rem;
+  min-height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-page);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.manual-game-me:active { filter: brightness(0.97); }
+.manual-game-pgn { resize: vertical; }
+.manual-game-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.8rem;
+}
+.manual-game-actions > button { flex: 1 1 0; }
+
 .mygames-empty {
   margin: 1rem 0;
   text-align: center;
