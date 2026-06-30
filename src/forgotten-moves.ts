@@ -1,7 +1,9 @@
-// Tracks which exact moves you miss in training, so Statistics can surface the
-// single "most forgotten move this week" with a board. Device-local, mirroring
-// streak.ts / puzzle-log.ts. Keyed by position + move, with a small per-day tally
-// so the "this week" window is a simple sum over the last seven day keys.
+// Tracks which exact moves you miss in training, so the Openings screen can
+// surface the single most-forgotten move per time window (today / this week /
+// all time) with a board. Device-local, mirroring streak.ts / puzzle-log.ts.
+// Keyed by position + move, with a small per-day tally so the "today" and "this
+// week" windows are a simple sum over the recent day keys, plus a never-pruned
+// `all` running total for the all-time window.
 
 const KEY = 'obertura.forgottenMoves';
 const MAX_MOVES = 120;     // cap distinct moves so the store can't grow unbounded
@@ -11,7 +13,18 @@ interface StoredMove {
   fen: string;                       // the position before the user's move (to show)
   san: string;                       // the move they kept missing
   colour: 'white' | 'black';         // board orientation for the miniature
-  days: Record<string, number>;      // miss count per "YYYY-MM-DD"
+  days: Record<string, number>;      // miss count per "YYYY-MM-DD" (recent window)
+  all?: number;                      // running all-time total (never pruned)
+}
+
+// The all-time count for an entry. Old data (saved before `all` existed) has no
+// running total, so fall back to whatever recent day tallies survive — a floor,
+// not the true history, but honest and never negative.
+function allTimeOf(m: StoredMove): number {
+  if (typeof m.all === 'number') return m.all;
+  let n = 0;
+  for (const c of Object.values(m.days)) n += c;
+  return n;
 }
 
 function dayKey(d: Date): string {
@@ -71,23 +84,27 @@ export function recordMissedMove(
 
   let entry = moves.find((m) => m.fen === fen && m.san === san);
   if (!entry) {
-    entry = { fen, san, colour, days: {} };
+    entry = { fen, san, colour, days: {}, all: 0 };
     moves.push(entry);
   }
   entry.colour = colour;
   entry.days[today] = (entry.days[today] ?? 0) + 1;
+  entry.all = allTimeOf(entry) + 1;
 
-  // Prune stale day tallies, then drop any entry left with nothing recent.
+  // Prune stale day tallies (the all-time total is kept untouched).
   for (const m of moves) {
     for (const day of Object.keys(m.days)) {
       if (day < keep) delete m.days[day];
     }
   }
-  let live = moves.filter((m) => Object.keys(m.days).length > 0);
+  // Keep any move that's still alive in either window: a recent miss OR an
+  // all-time tally — so the "all time" board survives a quiet stretch.
+  let live = moves.filter((m) => Object.keys(m.days).length > 0 || allTimeOf(m) > 0);
 
-  // Cap: keep the most-missed-recently moves.
+  // Cap: keep the moves that matter most, ranked by all-time then recent misses.
   if (live.length > MAX_MOVES) {
-    live.sort((a, b) => recentTotal(b, keep) - recentTotal(a, keep));
+    live.sort((a, b) =>
+      (allTimeOf(b) - allTimeOf(a)) || (recentTotal(b, keep) - recentTotal(a, keep)));
     live = live.slice(0, MAX_MOVES);
   }
   save(live);
@@ -97,16 +114,31 @@ export interface ForgottenMove {
   fen: string;
   san: string;
   colour: 'white' | 'black';
-  count: number; // misses in the last 7 days
+  count: number; // misses inside the chosen window
 }
 
-// The single most-forgotten move over the last seven days, or null when nothing
-// has been missed in that window.
-export function mostForgottenThisWeek(now: Date = new Date()): ForgottenMove | null {
-  const from = cutoff(6, now); // today + previous 6 days
+// Which slice of history a query looks at: just today, the last seven days, or
+// everything ever recorded.
+export type ForgottenWindow = 'day' | 'week' | 'all';
+
+// How many misses an entry has inside the given window.
+function windowCount(m: StoredMove, window: ForgottenWindow, now: Date): number {
+  switch (window) {
+    case 'day':  return recentTotal(m, cutoff(0, now)); // today only
+    case 'week': return recentTotal(m, cutoff(6, now)); // today + previous 6 days
+    case 'all':  return allTimeOf(m);
+  }
+}
+
+// The single most-forgotten move inside a window, or null when nothing has been
+// missed there. Ties resolve to the first seen — stable enough for one board.
+export function mostForgotten(
+  window: ForgottenWindow,
+  now: Date = new Date(),
+): ForgottenMove | null {
   let best: ForgottenMove | null = null;
   for (const m of load()) {
-    const count = recentTotal(m, from);
+    const count = windowCount(m, window, now);
     if (count > 0 && (!best || count > best.count)) {
       best = { fen: m.fen, san: m.san, colour: m.colour, count };
     }

@@ -2776,6 +2776,19 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .mini-light { fill: var(--board-light); }
 .mini-dark { fill: var(--board-dark); }
 
+/* Move arrow drawn over a miniature (board-mini.ts: buildMiniBoard arrow arg).
+   Warm accent, semi-transparent so the pieces beneath stay legible. */
+.mini-arrow {
+  stroke: var(--mini-arrow, #ff9b21);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  opacity: 0.92;
+}
+.mini-arrow-head {
+  fill: var(--mini-arrow, #ff9b21);
+  opacity: 0.92;
+}
+
 /* ── My games screen ─────────────────────────────────────────────────────────
    Import action on top, then a card per saved game (mini board + who/opening). */
 .mygames-screen {
@@ -10775,38 +10788,152 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 
 /* New-line marker: a small accent dot beneath a day's column (and in the legend),
    flagging the days fresh lines were added. */
-/* Most-forgotten-move card: a board beside the move and a "drill it" button. */
-.stats-forgotten {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-}
-.stats-forgotten-board {
-  flex: 0 0 auto;
-  width: clamp(76px, 26vw, 104px);
-  border-radius: 8px;
-}
-.stats-forgotten-body {
-  flex: 1 1 auto;
-  min-width: 0;
+/* ── Forgotten-moves carousel (Openings screen, below Practise) ───────────────
+   A swipeable carousel: one slide per time window (Today / This week / All time),
+   each a full-width board with the move arrowed on it, then the move details and
+   a "Fix it" button. The board spans the section's content width (it honours the
+   .section padding as its margins). */
+.forgotten-section {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 0.3rem;
+  gap: var(--space-md);
 }
-.stats-forgotten-move {
-  font-size: 1.15rem;
+
+/* Window tabs — also the carousel indicator. */
+.forgotten-tabs {
+  display: flex;
+  gap: 0.4rem;
+}
+.forgotten-tab {
+  flex: 0 0 auto;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: var(--fill-faint);
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.forgotten-tab--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* The swipe track: each slide snaps to fill the width. */
+.forgotten-track {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  gap: 0;
+}
+.forgotten-track::-webkit-scrollbar { display: none; }
+
+.forgotten-slide {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  /* A hair of inset so neighbouring slides don't peek at the snap edges. */
+  padding: 0 1px;
+}
+
+/* The board fills the slide (so, the section's content width). */
+.forgotten-board {
+  width: 100%;
+  border-radius: 10px;
+}
+
+.forgotten-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  text-align: center;
+}
+.forgotten-move {
+  font-size: 1.4rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
-.stats-forgotten-meta {
-  font-size: 0.78rem;
+.forgotten-opening {
+  font-size: 0.88rem;
   color: var(--text-muted);
 }
-.stats-forgotten-btn {
-  margin-top: 0.2rem;
-  padding: 0.4rem 0.8rem;
-  font-size: 0.82rem;
+.forgotten-meta {
+  font-size: 0.76rem;
+  color: var(--text-faint);
+}
+.forgotten-fix-btn {
+  margin-top: 0.5rem;
+  align-self: stretch;
+  padding: 0.6rem 1rem;
+  font-size: 0.95rem;
+}
+
+/* ── "Fix it" playful repeat drill (fix-it.ts) ───────────────────────────────
+   Reuses the drill overlay shell (.pt-overlay etc). Extras: rep pips, a board
+   fade-out, and the big written-move reveal shown over the faded board. */
+.fixit-pips {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+.fixit-pip {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--hairline);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.fixit-pip--done {
+  background: var(--accent);
+  transform: scale(1.15);
+}
+
+.fixit-board {
+  transition: opacity 0.45s ease;
+}
+.fixit-board--faded {
+  opacity: 0.12;
+  pointer-events: none;
+}
+
+/* The written-move reveal: centred over the (faded) board for a beat. */
+.fixit-reveal {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  pointer-events: none;
+  animation: fixit-reveal-in 0.3s ease;
+}
+.fixit-reveal[hidden] { display: none; }
+@keyframes fixit-reveal-in {
+  from { opacity: 0; transform: scale(0.8); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.fixit-reveal-move {
+  font-size: clamp(3rem, 18vw, 5rem);
+  font-weight: 800;
+  line-height: 1;
+  color: var(--accent);
+}
+.fixit-reveal-sub {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 /* Month/All axis ticks — evenly spaced, free to size (never clipped). */
