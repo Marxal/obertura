@@ -73,16 +73,13 @@ export async function isGoodAlternative(
     };
     if (!data.pvs?.length) return false;
 
-    const side = sideToMove(fen);
-
-    // Normalise a Lichess pv entry to a white-perspective centipawn value.
+    // Lichess pv cp/mate are already WHITE-perspective. Since this only compares
+    // the GAP between two moves at the same position, perspective doesn't change
+    // the result — but keep it white so the values mean what they say.
     // Mate scores become ±10000 sentinel values.
     const pvCp = (pv: { cp?: number; mate?: number }): number | null => {
-      if (pv.mate !== undefined) {
-        const winsForSide = pv.mate > 0;
-        return (side === 'w') === winsForSide ? 10000 : -10000;
-      }
-      if (pv.cp !== undefined) return normCp(pv.cp, side);
+      if (pv.mate !== undefined) return pv.mate > 0 ? 10000 : -10000;
+      if (pv.cp !== undefined) return pv.cp;
       return null;
     };
 
@@ -137,11 +134,12 @@ export async function cloudLine(fen: string): Promise<CloudLine | null> {
   }
   if (uciLine.length === 0) return null;
 
-  const side = sideToMove(fen);
   return {
     bestUci: uciLine[0],
-    cp: pv.cp !== undefined ? normCp(pv.cp, side) : undefined,
-    mate: pv.mate !== undefined ? normCp(pv.mate, side) : undefined,
+    // Lichess cloud cp/mate are already WHITE-perspective (+ = White better),
+    // which is exactly what CloudLine promises — pass them straight through.
+    cp: pv.cp,
+    mate: pv.mate,
     sanLine,
     uciLine,
   };
@@ -151,16 +149,23 @@ interface CloudEval {
   pvs?: Array<{ moves?: string; cp?: number; mate?: number }>;
 }
 
-// The cloud's top moves from a position, in order (best first), with cp/mate left
-// in Lichess's side-to-move (mover) perspective — handy for explaining a move
-// from the mover's point of view. Null when the position isn't in the cloud.
+// The cloud's top moves from a position, in order (best first), with cp/mate in
+// the side-to-move (mover) perspective — handy for explaining a move from the
+// mover's point of view. Null when the position isn't in the cloud.
 export interface CloudTopMove { uci: string; cp?: number; mate?: number }
 
 export async function cloudTopMoves(fen: string): Promise<CloudTopMove[] | null> {
   const data = await cloudEval(fen);
   if (!data?.pvs?.length) return null;
+  // Lichess reports cp/mate from WHITE's perspective; flip to the mover's so the
+  // grader (which reasons in "good/bad for whoever just moved") stays correct.
+  const side = sideToMove(fen);
   return data.pvs
-    .map(pv => ({ uci: pv.moves?.trim().split(/\s+/)[0] ?? '', cp: pv.cp, mate: pv.mate }))
+    .map(pv => ({
+      uci: pv.moves?.trim().split(/\s+/)[0] ?? '',
+      cp: pv.cp !== undefined ? normCp(pv.cp, side) : undefined,
+      mate: pv.mate !== undefined ? normCp(pv.mate, side) : undefined,
+    }))
     .filter(m => m.uci);
 }
 
@@ -555,7 +560,6 @@ export class Engine {
       };
       if (!data.pvs?.length) return null;
 
-      const side = sideToMove(fen);
       const moves: MoveEval[] = data.pvs.slice(0, 3).map(pv => {
         const all = pv.moves?.trim().split(/\s+/) ?? [];
         const rawUci = all[0] ?? '';
@@ -563,8 +567,12 @@ export class Engine {
         return {
           uci: r?.uci ?? rawUci,
           san: r?.san ?? rawUci,
-          cp: pv.cp !== undefined ? normCp(pv.cp, side) : undefined,
-          mate: pv.mate !== undefined ? normCp(pv.mate, side) : undefined,
+          // Lichess cloud cp/mate are already WHITE-perspective — exactly what
+          // MoveEval wants — so pass them through without the normCp flip. The
+          // old flip double-negated Black-to-move evals, making the bar swing
+          // the wrong way on every ply.
+          cp: pv.cp,
+          mate: pv.mate,
           sanLine: uciLineToSan(fen, all, PV_DISPLAY_PLIES),
         };
       });
