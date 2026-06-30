@@ -3280,16 +3280,24 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   background: rgba(160, 48, 48, 0.1);
 }
 
-.dline-due {
+/* "New" chip on the line you just saved (fades with the card highlight). */
+.dline-new-badge {
   flex: 0 0 auto;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
+  margin-left: 0.4rem;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: #fff;
-  background: var(--warn);
-  padding: 0.12rem 0.45rem;
+  background: var(--accent);
+  padding: 0.1rem 0.42rem;
   border-radius: 10px;
+  animation: dline-new-badge 3.6s ease-out forwards;
+}
+
+@keyframes dline-new-badge {
+  0%, 70% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.9); }
 }
 
 /* "Played N× in your games" badge on a saved-line row. */
@@ -8139,17 +8147,17 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 
 /* ── Just-saved line highlight (My Lines) ───────────────────────────────────── */
 .dline-card--highlight {
-  animation: dline-flash 2.2s ease-out;
+  animation: dline-flash 3.6s ease-out;
 }
 
 @keyframes dline-flash {
   0% {
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-card);
+    box-shadow: 0 0 0 4px var(--accent-soft), var(--shadow-card);
   }
-  60% {
+  70% {
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-card);
+    box-shadow: 0 0 0 4px var(--accent-soft), var(--shadow-card);
   }
   100% {
     border-color: var(--border-card);
@@ -10693,11 +10701,14 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
    flagging the days fresh lines were added. */
 .stats-rf-added {
   display: inline-block;
-  width: 6px;
-  height: 6px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   background: var(--accent-active);
-  margin: 0.2rem auto 0;
+  /* A contrasting ring lifts the dot off the bars so "new material" days are
+     easy to spot at a glance. */
+  box-shadow: 0 0 0 2px var(--bg-card), 0 0 0 3px var(--accent-active);
+  margin: 0.28rem auto 0;
 }
 .stats-rf-legend {
   display: flex;

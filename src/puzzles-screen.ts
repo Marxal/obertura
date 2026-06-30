@@ -346,9 +346,9 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
     start.type = 'button';
     start.className = 'btn-primary train-hero-start pz-hero-start';
     start.appendChild(Icons.sparkles(18));
-    start.appendChild(document.createTextNode('Daily Rated Mix'));
+    start.appendChild(document.createTextNode('Puzzle rated mix'));
     start.addEventListener('click', () =>
-      startSession(allEntries, 'Daily Rated Mix', { kind: 'count', count: DAILY_COUNT, rated: true }));
+      startSession(allEntries, 'Puzzle rated mix', { kind: 'count', count: DAILY_COUNT, rated: true }));
     hero.appendChild(start);
 
     const note = document.createElement('div');

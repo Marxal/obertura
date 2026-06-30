@@ -1927,6 +1927,11 @@ function onOpenLine(line: Line, atFen?: string): void {
   manualTitle = line.name;
   detectedName = '';
   builderDesc = '';
+  // Opening a saved line is always builder mode. Without this, coming straight
+  // from a game (analyser mode) leaves builderMode stale, so the header falls
+  // back to "Unknown" and the analyser-only "Save line" button lingers until a
+  // reload re-derives state.
+  builderMode = 'builder';
   renderTitle();
   renderBuilderTags();
   renderBuilderDesc();
@@ -2180,7 +2185,10 @@ async function saveLineFromCurrentPath(): Promise<void> {
     if (!line) { showToast('Couldn’t build a line here'); return; }
     await saveLine(line);
     builderPanels?.reloadLines();
-    showToast('Saved to My Lines ✓');
+    // Surface the new line on My Lines (highlighted) so the save is unmistakable,
+    // then bounce back to the game so more lines can be extracted from it.
+    focusSavedLine(line.id);
+    showToast('Saved to My Lines ✓', { variant: 'success' });
   };
 
   // A line is the opening you want to drill, not the whole game. If the cursor is
@@ -2358,7 +2366,7 @@ async function finishSave(): Promise<void> {
   const result = await persistCurrentLine();
   if (!result) return;
   const { line, isNew } = result;
-  showToast(isNew ? 'Line saved ✓' : 'Changes saved ✓');
+  showToast(isNew ? 'Line saved ✓' : 'Changes saved ✓', { variant: 'success' });
   // Already enrolled — no point asking; just surface it on My Lines.
   if (line.inTraining) {
     goToSavedLine(line.id);
