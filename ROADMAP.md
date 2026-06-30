@@ -103,6 +103,17 @@ is the restore point for the round.
   marker per day (with a legend), so a recall dip reads as fresh material rather
   than real forgetting.
 
+- ✅ **Forgotten-moves carousel + "Fix it" drill.**
+  The most-forgotten-move board moved off Statistics and onto the **Openings**
+  screen, below Practise, as a swipeable **carousel** with a slide per time
+  window — **Today / This week / All time** (fed by the device-local miss log,
+  now with an all-time tally). Each slide is a full-width board (honouring the
+  section margins) with an **arrow on the move**, then the move, its opening, the
+  miss count, and a **Fix it** button. Fix it runs a playful repeat drill: load
+  the board, play the opponent's move in, you play the move, the board fades and
+  the move shows in big written notation, repeated **three times**, then "now
+  play the full line" chains into the full line when the move belongs to one.
+
 _Restore point: tag `v0.4`. In progress on `claude/games-training-ui-improvements-wblxc7`._
 
 ---

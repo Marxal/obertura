@@ -38,8 +38,6 @@ import {
 } from './stats';
 import { getPuzzleDays, getPuzzlesByOpening } from './puzzle-log';
 import { getPuzzleRating, getRatingHistory, getBestCleanStreak, type RatingPoint } from './puzzle-rating';
-import { mostForgottenThisWeek } from './forgotten-moves';
-import { buildMiniBoard } from './board-mini';
 import { Icons } from './icons';
 import { colourPip, buildPositionCard, lineFinalFen, fenFromUcis } from './card-position';
 import { userAvatar } from './avatar';
@@ -386,51 +384,9 @@ function buildMonthCalendar(now: Date, trainingDays: Set<string>): HTMLElement {
 function renderTrainingRegion(container: HTMLElement, lines: Line[], cb: ProgressCallbacks): void {
   regionTitle(container, 'Openings');
   renderQuickStats(container, lines, cb);
-  renderForgottenMove(container, cb);
+  // The most-forgotten-move board now lives on the Openings (training) screen,
+  // as a per-window carousel with a "Fix it" drill.
   if (getShowActivitySection()) renderRememberedFailed(container);
-}
-
-// ── Most forgotten move this week ────────────────────────────────────────────
-//
-// A single board: the position where you've missed the same move most often over
-// the last seven days. A focused "drill this next" nudge — only shown when there's
-// a miss to show.
-function renderForgottenMove(container: HTMLElement, cb: ProgressCallbacks): void {
-  const move = mostForgottenThisWeek();
-  if (!move) return;
-
-  const section = statsSection('Most forgotten this week');
-
-  const card = document.createElement('div');
-  card.className = 'stats-forgotten';
-
-  const board = buildMiniBoard(move.fen, move.colour);
-  board.classList.add('stats-forgotten-board');
-  card.appendChild(board);
-
-  const body = document.createElement('div');
-  body.className = 'stats-forgotten-body';
-
-  const moveEl = document.createElement('div');
-  moveEl.className = 'stats-forgotten-move';
-  moveEl.textContent = formatMove(move.san);
-  body.appendChild(moveEl);
-
-  const meta = document.createElement('div');
-  meta.className = 'stats-forgotten-meta';
-  meta.textContent = `Missed ${move.count}× this week`;
-  body.appendChild(meta);
-
-  const drill = document.createElement('button');
-  drill.type = 'button';
-  drill.className = 'btn-secondary stats-forgotten-btn';
-  drill.textContent = 'Review missed moves';
-  drill.addEventListener('click', () => cb.onStartTraining());
-  body.appendChild(drill);
-
-  card.appendChild(body);
-  section.appendChild(card);
-  container.appendChild(section);
 }
 
 // ── Puzzles region ───────────────────────────────────────────────────────────

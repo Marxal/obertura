@@ -16,7 +16,11 @@ import {
   type TimedMinutes,
 } from './prefs';
 import { isOpponentTag } from './scout';
-import { recordMissedMove } from './forgotten-moves';
+import { recordMissedMove, mostForgotten, type ForgottenWindow } from './forgotten-moves';
+import { buildMiniBoard } from './board-mini';
+import { startFixIt } from './fix-it';
+import { formatMove } from './notation';
+import { Chess } from 'chess.js';
 import { buildEmptyState } from './empty-state';
 import { renderStarterOnboarding, ONBOARDING_GOAL } from './onboarding-starter';
 import { createFilterBar, type FilterSelection } from './filters';
@@ -195,6 +199,7 @@ async function doRender(
   // own head is gone — the hero (when anything's due) is the top of this pane.
   renderHero(container, due, trainingLines);
   renderModeCards(container, trainingLines, allLines);
+  renderForgottenCarousel(container, allLines);
   renderCardList(container, trainingLines, allLines.filter(l => !l.inTraining));
 }
 
@@ -554,6 +559,195 @@ function buildTimedCard(
   card.appendChild(chips);
 
   return card;
+}
+
+// ── Forgotten-moves carousel ──────────────────────────────────────────────────
+//
+// Below Practise: the single move you keep missing, per time window (Today /
+// This week / All time), as a swipeable carousel. Each slide shows a full-width
+// board with an arrow on the move, then the move, its opening, how often you've
+// missed it, and a "Fix it" button that runs the playful repeat-it-three-times
+// drill. Only windows with a miss to show get a slide; with none, no section.
+
+const FORGOTTEN_WINDOWS: { key: ForgottenWindow; label: string }[] = [
+  { key: 'day', label: 'Today' },
+  { key: 'week', label: 'This week' },
+  { key: 'all', label: 'All time' },
+];
+
+// Find the move in the user's lines: returns the line it belongs to (for the
+// opening name + full-line finish) and the opponent's move that leads into the
+// position (to animate in during the drill). Null when no saved line plays it.
+interface ForgottenLocation {
+  line: Line;
+  prelude?: { uci: string; fromFen: string };
+}
+function locateForgotten(fen: string, san: string, lines: Line[]): ForgottenLocation | null {
+  for (const line of lines) {
+    const moves = mainlineOf(line.tree);
+    for (let i = 0; i < moves.length; i++) {
+      const preFen = i === 0 ? START_FEN : moves[i - 1].fen;
+      if (preFen === fen && moves[i].san === san) {
+        // The opponent's move into this position, if there is one (it's the
+        // previous ply), played from the position two moves back.
+        const prelude = i >= 1
+          ? { uci: moves[i - 1].uci, fromFen: i >= 2 ? moves[i - 2].fen : START_FEN }
+          : undefined;
+        return { line, prelude };
+      }
+    }
+  }
+  return null;
+}
+
+// The from/to squares of a SAN move at a position, for the board arrow. Null if
+// it doesn't resolve (stale data) — the board just renders without an arrow.
+function squaresOf(fen: string, san: string): { from: string; to: string } | undefined {
+  try {
+    const chess = new Chess(fen);
+    const m = chess.moves({ verbose: true }).find(mv => mv.san === san);
+    return m ? { from: m.from, to: m.to } : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function renderForgottenCarousel(container: HTMLElement, allLines: Line[]): void {
+  const slides = FORGOTTEN_WINDOWS
+    .map(w => ({ ...w, move: mostForgotten(w.key) }))
+    .filter((s): s is { key: ForgottenWindow; label: string; move: NonNullable<typeof s.move> } => !!s.move);
+  if (slides.length === 0) return;
+
+  const section = document.createElement('div');
+  section.className = 'section forgotten-section';
+
+  const label = document.createElement('div');
+  label.className = 'section-title';
+  label.textContent = 'Forgotten moves';
+  section.appendChild(label);
+
+  // Window tabs double as the carousel indicator: tap to scroll to that slide,
+  // and the active one tracks the scroll position.
+  const tabs = document.createElement('div');
+  tabs.className = 'forgotten-tabs';
+  const track = document.createElement('div');
+  track.className = 'forgotten-track';
+
+  const tabEls: HTMLButtonElement[] = [];
+  const slideEls: HTMLElement[] = [];
+
+  slides.forEach((s, i) => {
+    const tab = document.createElement('button');
+    tab.type = 'button';
+    tab.className = 'forgotten-tab' + (i === 0 ? ' forgotten-tab--active' : '');
+    tab.textContent = s.label;
+    tab.addEventListener('click', () => {
+      track.scrollTo({ left: track.clientWidth * i, behavior: 'smooth' });
+    });
+    tabEls.push(tab);
+    tabs.appendChild(tab);
+
+    const slide = buildForgottenSlide(s.move, s.label, container, allLines);
+    slideEls.push(slide);
+    track.appendChild(slide);
+  });
+
+  // Keep the active tab in sync as the track is swiped.
+  let raf = 0;
+  track.addEventListener('scroll', () => {
+    if (raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      const idx = Math.round(track.scrollLeft / (track.clientWidth || 1));
+      tabEls.forEach((t, i) => t.classList.toggle('forgotten-tab--active', i === idx));
+    });
+  }, { passive: true });
+
+  section.appendChild(tabs);
+  section.appendChild(track);
+  container.appendChild(section);
+}
+
+function buildForgottenSlide(
+  move: NonNullable<ReturnType<typeof mostForgotten>>,
+  windowLabel: string,
+  container: HTMLElement,
+  allLines: Line[],
+): HTMLElement {
+  const slide = document.createElement('div');
+  slide.className = 'forgotten-slide';
+
+  const located = locateForgotten(move.fen, move.san, allLines);
+
+  const board = buildMiniBoard(move.fen, move.colour, squaresOf(move.fen, move.san));
+  board.classList.add('forgotten-board');
+  slide.appendChild(board);
+
+  const body = document.createElement('div');
+  body.className = 'forgotten-body';
+
+  const moveEl = document.createElement('div');
+  moveEl.className = 'forgotten-move';
+  moveEl.textContent = formatMove(move.san);
+  body.appendChild(moveEl);
+
+  const opening = document.createElement('div');
+  opening.className = 'forgotten-opening';
+  opening.textContent = located?.line.openingName || located?.line.name || 'Unknown opening';
+  body.appendChild(opening);
+
+  const meta = document.createElement('div');
+  meta.className = 'forgotten-meta';
+  meta.textContent = `Missed ${move.count}× · ${windowLabel.toLowerCase()}`;
+  body.appendChild(meta);
+
+  const fix = document.createElement('button');
+  fix.type = 'button';
+  fix.className = 'btn-primary forgotten-fix-btn';
+  fix.textContent = 'Fix it';
+  fix.addEventListener('click', () => startForgottenFix(move, located, container));
+  body.appendChild(fix);
+
+  slide.appendChild(body);
+  return slide;
+}
+
+// Launch the playful three-rep "Fix it" drill, then — when the move belongs to a
+// saved line — chain into the full line so it lands back in context.
+function startForgottenFix(
+  move: NonNullable<ReturnType<typeof mostForgotten>>,
+  located: ForgottenLocation | null,
+  container: HTMLElement,
+): void {
+  startFixIt(
+    {
+      preFen: move.fen,
+      san: move.san,
+      colour: move.colour,
+      count: move.count,
+      openingName: located?.line.openingName,
+      prelude: located?.prelude,
+    },
+    {
+      playFullLine: !!located,
+      onComplete: () => {
+        if (located) {
+          startDrill(located.line, {
+            wrongMoveMode: 'full',
+            modeLabel: 'Fix it',
+            completeMessage: 'Fixed! 🎉',
+            celebrateOnComplete: true,
+            backLabel: 'Done',
+            onComplete: () => void doRender(container),
+            onCancel: () => void doRender(container),
+          });
+        } else {
+          void doRender(container);
+        }
+      },
+      onCancel: () => void doRender(container),
+    },
+  );
 }
 
 // ── "In training" list (filter + sort + rows) ────────────────────────────────────
