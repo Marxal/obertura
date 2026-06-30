@@ -387,7 +387,7 @@ function renderTrainingRegion(container: HTMLElement, lines: Line[], cb: Progres
   regionTitle(container, 'Openings');
   renderQuickStats(container, lines, cb);
   renderForgottenMove(container, cb);
-  if (getShowActivitySection()) renderRememberedFailed(container, lines);
+  if (getShowActivitySection()) renderRememberedFailed(container);
 }
 
 // ── Most forgotten move this week ────────────────────────────────────────────
@@ -768,21 +768,7 @@ function openNeedsWorkSheet(cb: ProgressCallbacks, moves: NeedsWorkMove[]): void
 
 // ── Remembered vs failed (per-day two-tone bar, Week / Month / All) ──────────
 
-// Count, per local day, how many lines were created — so the recall chart can mark
-// the days new material landed (a dip in recall right after often just means fresh
-// lines, not real forgetting).
-function linesAddedByDay(lines: Line[]): Map<string, number> {
-  const map = new Map<string, number>();
-  for (const l of lines) {
-    if (!l.createdAt) continue;
-    const key = localDateKey(new Date(l.createdAt));
-    map.set(key, (map.get(key) ?? 0) + 1);
-  }
-  return map;
-}
-
-function renderRememberedFailed(container: HTMLElement, lines: Line[]): void {
-  const addedByDay = linesAddedByDay(lines);
+function renderRememberedFailed(container: HTMLElement): void {
   const section = document.createElement('div');
   section.className = 'section';
 
@@ -822,7 +808,7 @@ function renderRememberedFailed(container: HTMLElement, lines: Line[]): void {
     const r = bars.reduce((n, b) => n + b.remembered, 0);
     const f = bars.reduce((n, b) => n + b.failed, 0);
     renderRfTotals(totals, r, f);
-    renderRfChart(chartEl, detailEl, bars, range, (bar) => renderRfTotals(totals, bar.remembered, bar.failed), addedByDay);
+    renderRfChart(chartEl, detailEl, bars, range, (bar) => renderRfTotals(totals, bar.remembered, bar.failed));
   }
   rebuild();
 
@@ -868,14 +854,12 @@ function renderRfChart(
   bars: DayBar[],
   range: StatsRange,
   onPick: (bar: DayBar) => void,
-  addedByDay: Map<string, number> = new Map(),
 ): void {
   chartEl.innerHTML = '';
   detailEl.textContent = '';
 
   const grand = bars.reduce((n, b) => n + b.remembered + b.failed, 0);
-  const anyAdded = bars.some((b) => (addedByDay.get(b.day) ?? 0) > 0);
-  if (grand === 0 && !anyAdded) {
+  if (grand === 0) {
     const note = document.createElement('p');
     note.className = 'stats-rf-empty';
     note.textContent = 'No training recorded in this range yet. Your drilled moves show up here from now on.';
@@ -890,12 +874,11 @@ function renderRfChart(
   chart.style.setProperty('--rf-count', String(bars.length));
 
   let selected: HTMLElement | null = null;
-  const select = (col: HTMLElement, bar: DayBar, added = 0) => {
+  const select = (col: HTMLElement, bar: DayBar) => {
     if (selected) selected.classList.remove('stats-rf-col--sel');
     selected = col;
     col.classList.add('stats-rf-col--sel');
-    const addedNote = added > 0 ? ` · +${added} line${added === 1 ? '' : 's'} added` : '';
-    detailEl.textContent = rfDetailText(bar) + addedNote;
+    detailEl.textContent = rfDetailText(bar);
   };
 
   for (const b of bars) {
@@ -924,16 +907,6 @@ function renderRfChart(
     }
     col.appendChild(stack);
 
-    // A small dot marks days new lines were added — so a recall dip right after
-    // reads as "fresh material", not real forgetting.
-    const added = addedByDay.get(b.day) ?? 0;
-    if (added > 0) {
-      const mark = document.createElement('span');
-      mark.className = 'stats-rf-added';
-      mark.title = `${added} line${added === 1 ? '' : 's'} added`;
-      col.appendChild(mark);
-    }
-
     // Week shows a weekday letter under each column; month/all use a sparse tick
     // row instead (per-column labels clip in narrow columns).
     if (range === 'week') {
@@ -943,27 +916,16 @@ function renderRfChart(
       col.appendChild(ax);
     }
 
-    col.addEventListener('click', () => { select(col, b, added); onPick(b); });
+    col.addEventListener('click', () => { select(col, b); onPick(b); });
     chart.appendChild(col);
   }
   chartEl.appendChild(chart);
 
   if (range !== 'week') chartEl.appendChild(buildRfTicks(bars));
 
-  // A one-line legend, only when there's at least one new-line marker on screen.
-  if (anyAdded) {
-    const legend = document.createElement('div');
-    legend.className = 'stats-rf-legend';
-    const dot = document.createElement('span');
-    dot.className = 'stats-rf-added';
-    legend.appendChild(dot);
-    legend.appendChild(document.createTextNode('lines added that day'));
-    chartEl.appendChild(legend);
-  }
-
   // Default the detail to today (the last bar).
   const lastIdx = bars.length - 1;
-  select(chart.children[lastIdx] as HTMLElement, bars[lastIdx], addedByDay.get(bars[lastIdx].day) ?? 0);
+  select(chart.children[lastIdx] as HTMLElement, bars[lastIdx]);
 }
 
 // A handful of evenly-spaced day-of-month ticks under a month/all chart, each
@@ -1261,8 +1223,9 @@ function renderRatingTrend(
 
   const dots: SVGCircleElement[] = [];
   const select = (i: number, userTap: boolean): void => {
-    dots.forEach((d) => d.classList.remove('stats-trend-dot--sel'));
+    dots.forEach((d) => { d.classList.remove('stats-trend-dot--sel'); d.setAttribute('r', '3.4'); });
     dots[i].classList.add('stats-trend-dot--sel');
+    dots[i].setAttribute('r', '5'); // a touch larger so the chosen point stands out
     detail.textContent = `${points[i].day} · ${points[i].rating}`;
     // Only a real tap drives the stat boxes; the initial auto-select leaves them
     // showing the range aggregate.

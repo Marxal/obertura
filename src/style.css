@@ -10775,27 +10775,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 
 /* New-line marker: a small accent dot beneath a day's column (and in the legend),
    flagging the days fresh lines were added. */
-.stats-rf-added {
-  display: inline-block;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--accent-active);
-  /* A contrasting ring lifts the dot off the bars so "new material" days are
-     easy to spot at a glance. */
-  box-shadow: 0 0 0 2px var(--bg-card), 0 0 0 3px var(--accent-active);
-  margin: 0.28rem auto 0;
-}
-.stats-rf-legend {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  margin-top: 0.45rem;
-  font-size: 0.72rem;
-  color: var(--text-faint);
-}
-.stats-rf-legend .stats-rf-added { margin: 0; }
-
 /* Most-forgotten-move card: a board beside the move and a "drill it" button. */
 .stats-forgotten {
   display: flex;
@@ -10875,6 +10854,17 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .stats-trend-dot--sel {
   stroke: var(--accent);
   stroke-width: 2;
+}
+
+/* The Puzzle-rating chart's selected point: green fill with a contrasting
+   outline that sits OUTSIDE the dot (paint-order: stroke), so the chosen day
+   clearly stands out. Scoped to the rating chart so the win-rate trend (which
+   shares .stats-trend-dot--sel) is untouched. */
+.pz-rating-chart .stats-trend-dot--sel {
+  fill: var(--success);
+  stroke: var(--bg-card);
+  stroke-width: 2;
+  paint-order: stroke;
 }
 
 /* Scoring tabs (Most played / Best / Worst) — the chip look, own spacing. */
