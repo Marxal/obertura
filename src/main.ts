@@ -44,7 +44,7 @@ import { showOnboardingWizard, wizardStepPending } from './onboarding-wizard';
 import { maybeAutoRefreshGames } from './auto-refresh';
 import { maybeShowGate } from './gate';
 import { showToast } from './toast';
-import { Icons, classBoardSvg, CLASS_LABEL } from './icons';
+import { Icons, classBoardSvg, classIcon, CLASS_LABEL } from './icons';
 import { mountFab, type FabItem, type FabController } from './fab';
 import { importLastGame, hasConnectedAccount, connectedAccount } from './import-last';
 import { openBuilderImport } from './builder-import';
@@ -323,12 +323,14 @@ function moveSpan(node: MoveNode, activeId: string): HTMLElement {
   span.className = `move-san${node.id === activeId ? ' active' : ''}`;
   span.addEventListener('click', () => handleMoveClick(node.id));
   span.textContent = formatMove(node.san);
-  // Game-review grade in the notation: a colour marker, no icon. Every graded
-  // move is tinted in its class colour (the full glyphs live on the board
-  // badge); the error moves get a stronger marker so mistakes still stand out.
+  // Game-review / live-analysis grade in the notation: the class colour tint
+  // PLUS the little Chess.com-style badge glyph after the SAN, so the move list
+  // shows what each move was graded as without having to step onto its square.
+  // The error moves keep a stronger wash so mistakes still stand out.
   if (node.classification && getShowMoveClassifications()) {
     span.classList.add(`class--${node.classification}`);
     span.title = CLASS_LABEL[node.classification];
+    span.appendChild(classIcon(node.classification, 13));
   }
   if (node.annotation) {
     const chip = document.createElement('span');

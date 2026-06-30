@@ -2031,6 +2031,9 @@ cg-board square.move-dest.oc {
 .class-badge { vertical-align: middle; }
 .class-badge circle { fill: currentColor; }
 .class-badge text { fill: #fff; }
+/* The badge sits just after the SAN in the move strip — a hair of breathing
+   room and a baseline nudge so the disc lines up with the move text. */
+.move-san .class-badge { margin-left: 4px; vertical-align: -2px; }
 
 .class-badge--great     { color: #5c8bb0; }
 .class-badge--best      { color: #5a9e3f; }
@@ -2043,8 +2046,9 @@ cg-board square.move-dest.oc {
 
 /* Notation markers — every graded move is tinted in its class colour (text +
    faint wash), and only when it isn't the active (accent) move so the selection
-   keeps its strong highlight. No icons in the notation. The error moves carry a
-   stronger wash so mistakes and blunders still jump out of the list. */
+   keeps its strong highlight. The grade badge glyph is appended alongside (see
+   .move-san .class-badge). The error moves carry a stronger wash so mistakes
+   and blunders still jump out of the list. */
 .move-san.class--great:not(.active)      { color: #4d7a9c; background: color-mix(in srgb, #5c8bb0 14%, transparent); }
 .move-san.class--best:not(.active)       { color: #4f8a37; background: color-mix(in srgb, #5a9e3f 14%, transparent); }
 .move-san.class--excellent:not(.active)  { color: #5f9142; background: color-mix(in srgb, #7fb05f 14%, transparent); }
