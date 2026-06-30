@@ -16,11 +16,12 @@ import {
   type TimedMinutes,
 } from './prefs';
 import { isOpponentTag } from './scout';
-import { recordMissedMove, mostForgotten, type ForgottenWindow } from './forgotten-moves';
-import { buildMiniBoard } from './board-mini';
+import { recordMissedMove, mostForgotten, clearForgottenMove, type ForgottenWindow } from './forgotten-moves';
 import { startFixIt } from './fix-it';
 import { formatMove } from './notation';
 import { Chess } from 'chess.js';
+import { Chessground } from 'chessground';
+import type { Key } from 'chessground/types';
 import { buildEmptyState } from './empty-state';
 import { renderStarterOnboarding, ONBOARDING_GOAL } from './onboarding-starter';
 import { createFilterBar, type FilterSelection } from './filters';
@@ -679,9 +680,27 @@ function buildForgottenSlide(
 
   const located = locateForgotten(move.fen, move.san, allLines);
 
-  const board = buildMiniBoard(move.fen, move.colour, squaresOf(move.fen, move.san));
-  board.classList.add('forgotten-board');
+  // A real (view-only) chessground so the board follows the user's chosen piece
+  // set and board-colour theme, with the move drawn as a native arrow. Patterns
+  // mirror drill.ts. Three of these (one per window) is well within budget.
+  const board = document.createElement('div');
+  board.className = 'forgotten-board cg-wrap';
   slide.appendChild(board);
+
+  const cg = Chessground(board, {
+    fen: move.fen,
+    orientation: move.colour,
+    viewOnly: true,
+    coordinates: false,
+    animation: { enabled: false },
+    drawable: { enabled: false, visible: true },
+  });
+  cg.state.drawable.brushes['accent'] = { key: 'accent', color: '#ff9b21', opacity: 0.9, lineWidth: 10 };
+  const sq = squaresOf(move.fen, move.san);
+  if (sq) cg.setAutoShapes([{ orig: sq.from as Key, dest: sq.to as Key, brush: 'accent' }]);
+  // The slide may be laid out off-screen in the carousel; nudge a redraw once
+  // the browser has sized it so the pieces and arrow place correctly.
+  requestAnimationFrame(() => cg.redrawAll());
 
   const body = document.createElement('div');
   body.className = 'forgotten-body';
@@ -707,6 +726,12 @@ function buildForgottenSlide(
   fix.textContent = 'Fix it';
   fix.addEventListener('click', () => startForgottenFix(move, located, container));
   body.appendChild(fix);
+
+  // A quiet one-liner explaining what "Fix it" does.
+  const hint = document.createElement('div');
+  hint.className = 'forgotten-hint';
+  hint.textContent = 'Play the move 3× then replay the full line.';
+  body.appendChild(hint);
 
   slide.appendChild(body);
   return slide;
@@ -738,10 +763,12 @@ function startForgottenFix(
             completeMessage: 'Fixed! 🎉',
             celebrateOnComplete: true,
             backLabel: 'Done',
-            onComplete: () => void doRender(container),
+            // Fixed: drop it from the log so the next-worst move surfaces.
+            onComplete: () => { clearForgottenMove(move.fen, move.san); void doRender(container); },
             onCancel: () => void doRender(container),
           });
         } else {
+          clearForgottenMove(move.fen, move.san);
           void doRender(container);
         }
       },

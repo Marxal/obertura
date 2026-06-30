@@ -52,73 +52,9 @@ function rect(x: number, y: number, cls: string): SVGRectElement {
   return r;
 }
 
-// The centre of a square (e.g. "f3"), in viewBox units, honouring orientation —
-// so an arrow drawn on a flipped Black board lands on the right squares.
-function squareCentre(square: string, orientation: 'white' | 'black'): { x: number; y: number } {
-  const file = square.charCodeAt(0) - 97; // 'a' → 0 … 'h' → 7
-  const rank = Number(square[1]);          // 1 … 8
-  const gridRow = 8 - rank;                // rank 8 → row 0 (top)
-  const gridCol = file;
-  const dr = orientation === 'white' ? gridRow : 7 - gridRow;
-  const dc = orientation === 'white' ? gridCol : 7 - gridCol;
-  return { x: dc * S + S / 2, y: dr * S + S / 2 };
-}
-
-// Unique per arrow so each miniature's marker can't collide with another's.
-let arrowSeq = 0;
-
-// Draw a single move arrow (from → to) over the board, with a filled arrowhead.
-// Colour comes from CSS (.mini-arrow / .mini-arrow-head) so it tracks the theme.
-function drawArrow(
-  svg: SVGSVGElement,
-  from: string,
-  to: string,
-  orientation: 'white' | 'black',
-): void {
-  const a = squareCentre(from, orientation);
-  const b = squareCentre(to, orientation);
-
-  const id = `mini-arrow-${++arrowSeq}`;
-  const defs = document.createElementNS(SVG_NS, 'defs');
-  const marker = document.createElementNS(SVG_NS, 'marker');
-  marker.setAttribute('id', id);
-  marker.setAttribute('viewBox', '0 0 10 10');
-  marker.setAttribute('refX', '7');
-  marker.setAttribute('refY', '5');
-  marker.setAttribute('markerWidth', '3.2');
-  marker.setAttribute('markerHeight', '3.2');
-  marker.setAttribute('orient', 'auto-start-reverse');
-  const head = document.createElementNS(SVG_NS, 'path');
-  head.setAttribute('d', 'M0,1 L9,5 L0,9 z');
-  head.setAttribute('class', 'mini-arrow-head');
-  marker.appendChild(head);
-  defs.appendChild(marker);
-  svg.appendChild(defs);
-
-  // Pull the line's end back from the destination centre so the head sits over
-  // the square rather than overshooting it.
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const len = Math.hypot(dx, dy) || 1;
-  const back = S * 0.34;
-  const line = document.createElementNS(SVG_NS, 'line');
-  line.setAttribute('x1', String(a.x));
-  line.setAttribute('y1', String(a.y));
-  line.setAttribute('x2', String(b.x - (dx / len) * back));
-  line.setAttribute('y2', String(b.y - (dy / len) * back));
-  line.setAttribute('class', 'mini-arrow');
-  line.setAttribute('marker-end', `url(#${id})`);
-  svg.appendChild(line);
-}
-
 // Build the miniature for a position, oriented from the given side (Black lines
-// show from Black's side, so a black miniature is flipped). An optional arrow
-// (from/to squares, e.g. {from:'g1',to:'f3'}) is drawn over the board.
-export function buildMiniBoard(
-  fen: string,
-  orientation: 'white' | 'black',
-  arrow?: { from: string; to: string },
-): SVGSVGElement {
+// show from Black's side, so a black miniature is flipped).
+export function buildMiniBoard(fen: string, orientation: 'white' | 'black'): SVGSVGElement {
   const grid = parsePlacement(fen);
 
   const svg = document.createElementNS(SVG_NS, 'svg');
@@ -162,8 +98,6 @@ export function buildMiniBoard(
       svg.appendChild(t);
     }
   }
-
-  if (arrow) drawArrow(svg, arrow.from, arrow.to, orientation);
 
   return svg;
 }
