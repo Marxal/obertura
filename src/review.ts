@@ -103,6 +103,62 @@ export interface ReviewOptions {
   onProgress?: (index: number, node: MoveNode) => void;
   // Which bundled book to check for "Book" moves. Defaults to the broad lichess one.
   db?: ExplorerDb;
+  // Skip nodes that are already graded (live analysis re-runs): only fill in the
+  // gaps, never re-grade. Off (default) grades every node passed in.
+  skipGraded?: boolean;
+  // A caller-owned eval cache to share across runs (live analysis keeps one alive
+  // for the whole session so incremental grades reuse earlier lookups). When
+  // omitted, the run uses a fresh cache.
+  cache?: Map<string, CloudTopMove[] | null>;
+}
+
+// Grade a single node in place from its parent position — the per-move unit the
+// batch loop runs, exposed so live analysis can grade one freshly-played move
+// without re-walking the line. Writes classification + cpLoss + evalCp on a
+// successful grade. `source` names the engine that answered the PARENT lookup
+// (for the "analysed with…" tag); `hitCloud` is true when any network call went
+// out (so the caller can pace itself).
+export async function gradeNode(
+  node: MoveNode,
+  parentFen: string,
+  cache: Map<string, CloudTopMove[] | null>,
+  opts: { useEngineFallback: boolean; db?: ExplorerDb; signal?: AbortSignal },
+): Promise<{ graded: boolean; source: 'cloud' | 'local' | null; hitCloud: boolean }> {
+  const db = opts.db ?? 'lichess';
+
+  const parent = await topMovesFor(parentFen, cache, opts.useEngineFallback);
+  if (opts.signal?.aborted) return { graded: false, source: parent.source, hitCloud: parent.hitCloud };
+  const parentTop = parent.top;
+  if (!parentTop || !parentTop.length) return { graded: false, source: parent.source, hitCloud: parent.hitCloud };
+
+  // The played move's mover-perspective cp: from the parent list when it's a top
+  // candidate, otherwise the negated best eval of the resulting position.
+  let playedCp: number | null = null;
+  let hitCloudChild = false;
+  const mine = parentTop.find(m => m.uci === node.uci);
+  if (mine) {
+    playedCp = flattenCp(mine);
+  } else {
+    const child = await topMovesFor(node.fen, cache, opts.useEngineFallback);
+    if (opts.signal?.aborted) return { graded: false, source: parent.source, hitCloud: parent.hitCloud || child.hitCloud };
+    hitCloudChild = child.hitCloud;
+    const c = child.top && child.top.length ? flattenCp(child.top[0]) : null;
+    if (c !== null) playedCp = -c; // opponent's best, flipped to our side
+  }
+
+  const inBook = (await bundledStats(parentFen, db))?.has(node.uci) ?? false;
+
+  const graded = gradeMove({ parentTop, playedUci: node.uci, playedCp, inBook });
+  if (graded) {
+    node.classification = graded.classification;
+    node.cpLoss = graded.cpLoss;
+    // Eval after the move, flipped from the mover's perspective to White's so the
+    // graph reads "+ = White ahead" regardless of whose move it was.
+    if (playedCp !== null) {
+      node.evalCp = blackToMove(parentFen) ? -playedCp : playedCp;
+    }
+  }
+  return { graded: !!graded, source: parent.source, hitCloud: parent.hitCloud || hitCloudChild };
 }
 
 // Top moves for a position (mover perspective, normalised ucis), cloud first then
@@ -156,8 +212,7 @@ function engineFrom(cloud: number, local: number): ReviewSummary['engine'] {
 // node. Walks sequentially; safe to abort via opts.signal (also stops the local
 // engine). Returns which engine(s) actually answered.
 export async function reviewLine(nodes: MoveNode[], opts: ReviewOptions): Promise<ReviewSummary> {
-  const db = opts.db ?? 'lichess';
-  const cache = new Map<string, CloudTopMove[] | null>();
+  const cache = opts.cache ?? new Map<string, CloudTopMove[] | null>();
   const onAbort = () => cancelLocalAnalysis();
   opts.signal?.addEventListener('abort', onAbort, { once: true });
   let cloudUses = 0, localUses = 0;
@@ -166,45 +221,22 @@ export async function reviewLine(nodes: MoveNode[], opts: ReviewOptions): Promis
     for (let i = 0; i < nodes.length; i++) {
       if (opts.signal?.aborted) break;
       const node = nodes[i];
-      const parentFen = i === 0 ? START_FEN : nodes[i - 1].fen;
 
-      const parent = await topMovesFor(parentFen, cache, opts.useEngineFallback);
-      if (opts.signal?.aborted) break;
-      if (parent.source === 'cloud') cloudUses++;
-      else if (parent.source === 'local') localUses++;
-      const parentTop = parent.top;
-      if (!parentTop || !parentTop.length) continue; // can't judge → leave ungraded
-
-      // The played move's mover-perspective cp: from the parent list when it's a
-      // top candidate, otherwise the negated best eval of the resulting position.
-      let playedCp: number | null = null;
-      let hitCloudChild = false;
-      const mine = parentTop.find(m => m.uci === node.uci);
-      if (mine) {
-        playedCp = flattenCp(mine);
-      } else {
-        const child = await topMovesFor(node.fen, cache, opts.useEngineFallback);
-        if (opts.signal?.aborted) break;
-        hitCloudChild = child.hitCloud;
-        const c = child.top && child.top.length ? flattenCp(child.top[0]) : null;
-        if (c !== null) playedCp = -c; // opponent's best, flipped to our side
-      }
-
-      const inBook = (await bundledStats(parentFen, db))?.has(node.uci) ?? false;
-
-      const graded = gradeMove({ parentTop, playedUci: node.uci, playedCp, inBook });
-      if (graded) {
-        node.classification = graded.classification;
-        node.cpLoss = graded.cpLoss;
-        // Eval after the move, flipped from the mover's perspective to White's so
-        // the graph reads "+ = White ahead" regardless of whose move it was.
-        if (playedCp !== null) {
-          node.evalCp = blackToMove(parentFen) ? -playedCp : playedCp;
-        }
+      // Live re-runs only fill the gaps — a node we've already graded just
+      // advances the progress bar.
+      if (opts.skipGraded && node.classification) {
         opts.onProgress?.(i, node);
+        continue;
       }
 
-      if (parent.hitCloud || hitCloudChild) await sleep(CLOUD_DELAY_MS, opts.signal);
+      const parentFen = i === 0 ? START_FEN : nodes[i - 1].fen;
+      const r = await gradeNode(node, parentFen, cache, opts);
+      if (opts.signal?.aborted) break;
+      if (r.source === 'cloud') cloudUses++;
+      else if (r.source === 'local') localUses++;
+      if (r.graded) opts.onProgress?.(i, node);
+
+      if (r.hitCloud) await sleep(CLOUD_DELAY_MS, opts.signal);
     }
   } finally {
     opts.signal?.removeEventListener('abort', onAbort);

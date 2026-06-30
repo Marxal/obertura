@@ -1246,15 +1246,6 @@ function renderIndividualComplete(
 // the top, and a staggered entrance for everything beneath it. Call this once
 // the panel's content is built (the pawn is prepended, so it leads the stagger).
 // Shared by every completion screen so they all feel of a piece.
-function celebrate(wrap: HTMLElement): void {
-  // The FAB's ＋ would sit right over the finish panel — hide it for the
-  // celebration. doRender() (every exit that stays in Train) restores it, and
-  // the router restores it on any navigation away.
-  setFabVisible?.(false);
-  wrap.prepend(celebratePawn());
-  wrap.classList.add('train-completion--enter');
-}
-
 // ── Full-screen completion overlay ───────────────────────────────────────────
 //
 // The final completion screens (session / positions / mistakes / timed) take
@@ -1458,47 +1449,46 @@ function renderRoundScreen(
     onNext: () => void;
   },
 ): void {
-  container.innerHTML = '';
+  // Mount as a full-screen overlay (like the session-complete screen) rather than
+  // inline in the openings pane — otherwise the daily-challenge card and tabs
+  // rendered above the pane stay visible behind this between-round recap.
+  const { panel, close, dismiss } = mountCompletionOverlay(container);
 
-  const wrap = document.createElement('div');
-  wrap.className = 'section train-completion';
-
-  const doneEl = document.createElement('div');
-  doneEl.className = 'train-completion-done';
-  doneEl.textContent = `Round ${opts.roundNo} done ✓`;
-  wrap.appendChild(doneEl);
-
-  const sub = document.createElement('div');
-  sub.className = 'train-completion-name';
-  sub.textContent = `Round ${opts.roundNo} of ${opts.totalRounds}`;
-  wrap.appendChild(sub);
-
-  appendStatsRow(wrap, opts.correct, opts.missed, 'missed');
+  const head = completionHead(
+    `Round ${opts.roundNo} done ✓`,
+    `Round ${opts.roundNo} of ${opts.totalRounds}`,
+  );
+  head.classList.add('pz-results-head--fill');
+  appendStatsRow(head, opts.correct, opts.missed, 'missed');
 
   const note = document.createElement('div');
   note.className = 'train-all-done';
   note.textContent = opts.remainingLabel;
-  wrap.appendChild(note);
+  head.appendChild(note);
+  panel.appendChild(head);
+
+  const actions = completionActions();
 
   const next = document.createElement('button');
   next.type = 'button';
   next.className = 'btn-primary train-next-btn';
   next.textContent = 'Next round →';
-  next.addEventListener('click', opts.onNext);
-  wrap.appendChild(next);
+  // Dismiss this overlay, then start the next round (which mounts its own
+  // full-screen drill overlay) — the pane is never exposed in between.
+  next.addEventListener('click', () => { dismiss(); opts.onNext(); });
+  actions.appendChild(next);
 
-  const close = document.createElement('button');
-  close.type = 'button';
-  close.className = 'btn-secondary train-done-btn';
-  close.textContent = 'Save & close';
-  close.addEventListener('click', () => void doRender(container));
-  wrap.appendChild(close);
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.className = 'btn-secondary train-done-btn';
+  closeBtn.textContent = 'Save & close';
+  closeBtn.addEventListener('click', close);
+  actions.appendChild(closeBtn);
 
-  celebrate(wrap);
-  container.appendChild(wrap);
+  panel.appendChild(actions);
 
   // A gentle reward — lighter than the finish-line confetti.
-  starfall(wrap);
+  starfall(panel);
 }
 
 // The line-rounds round screen: this round's move tally + lines remaining. The

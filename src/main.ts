@@ -6,7 +6,7 @@ import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
 import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, loadTree, removeLastMove, truncateAfterCurrent, setTreeMode, rootNode } from './tree';
 import type { Annotation, MoveNode } from './tree';
-import { saveLine, getAllLines, getGame, saveGames } from './storage';
+import { saveLine, getAllLines, getGame, saveGames, deleteLine, deleteGame } from './storage';
 import type { ImportedGame } from './import-games';
 import { nameForPath } from './openings';
 import type { Line } from './types';
@@ -26,13 +26,13 @@ import {
 import { renderMyGamesScreen, formatGameDate } from './my-games-screen';
 import { opponentTag } from './scout';
 import { renderSettingsScreen } from './settings-screen';
-import { Engine, setCloudAuthToken, type EvalResult } from './engine';
+import { Engine, setCloudAuthToken, type EvalResult, type CloudTopMove } from './engine';
 import { EvalPanel } from './eval-panel';
 import { createBuilderPanels, type BuilderPanels } from './builder-panels';
 import { initTheme } from './theme';
 import { initAppearance } from './appearance';
 import { watchSpeedMs, getConfirmRunBeforeTraining, getScoutingEnabled, getShowEngineArrows, setShowEngineArrows, getShowMoveClassifications } from './prefs';
-import { reviewLine, clearClassifications, type ReviewSummary } from './review';
+import { reviewLine, gradeNode, type ReviewSummary } from './review';
 import { renderLineAnalysis, hasReview } from './line-analysis';
 import { createPawnProgress, type PawnProgress } from './import-progress';
 import { initBackNav, setViewBack, pushBack } from './back-nav';
@@ -430,9 +430,12 @@ function emitMove(
 function refreshReviewButtonState(): void {
   const btn = document.getElementById('builder-review');
   if (!btn) return;
-  if (reviewAbort) { btn.classList.remove('bar-btn--done'); return; }
+  // Lit while live analysis is active (a running pass or the live toggle held on);
+  // the passive "done" look is for a graded line with live analysis switched off.
+  const active = liveAnalysis || !!reviewAbort;
+  btn.classList.toggle('bar-btn--on', active);
   const analysed = mainline().some(n => n.classification);
-  btn.classList.toggle('bar-btn--done', analysed);
+  btn.classList.toggle('bar-btn--done', !active && analysed);
 }
 
 // ── Move navigation (plain step arrows, not engine arrows) ──────────────────
@@ -514,15 +517,24 @@ function openImportedGame(ucis: string[], colour: 'white' | 'black', description
 }
 
 function autoReview(): void {
-  const btn = document.getElementById('builder-review') as HTMLButtonElement | null;
-  if (btn && !reviewAbort) void runGameReview(btn);
+  const btn = document.getElementById('builder-review');
+  if (btn && !reviewAbort) void runGameReview();
 }
 
-// ── Game Review (the bottom-bar Review icon) ────────────────────────────────
-// Runs a Chess.com-style review over the line currently on the board — works the
-// same for a hand-built line and an imported game (both live on this one board).
-// Grades paint in as each move resolves; a second tap cancels a run in progress.
+// ── Game Review / live analysis (the bottom-bar Analyse icon) ───────────────
+// The Analyse button is a live toggle. Turned on, it grades every move on the
+// board — an initial gap-filling pass over the moves already there, then each new
+// move as it's played — and stays on until tapped again. It never re-grades a
+// move it already judged, so flipping it back on for an analysed game is instant.
+// Works the same for a hand-built line and an imported game (both live on this
+// one board). A tap while the initial pass is mid-flight stops it and turns off.
 let reviewAbort: AbortController | null = null;
+// Whether live analysis is currently on (grades new moves as they're played).
+let liveAnalysis = false;
+// A session-long eval cache shared by the initial pass and the per-move live
+// grades, so incremental lookups reuse the cloud/engine answers already fetched.
+// Cleared in clearBuilder when a fresh line/game loads.
+const liveCache = new Map<string, CloudTopMove[] | null>();
 // Which engine the last review used, for the Line-tab "analysed with…" tag.
 // 'none' = not analysed yet (the tag is hidden).
 let builderEngine: ReviewSummary['engine'] = 'none';
@@ -540,41 +552,76 @@ function reviewBar(): PawnProgress {
 }
 
 function setupBuilderReviewButton(): void {
-  document.getElementById('builder-review')?.addEventListener('click', (e) => {
-    void runGameReview(e.currentTarget as HTMLButtonElement);
+  document.getElementById('builder-review')?.addEventListener('click', () => {
+    void runGameReview();
   });
 }
 
-async function runGameReview(btn: HTMLButtonElement): Promise<void> {
-  // A second tap while running cancels.
+function setLiveAnalysis(on: boolean): void {
+  liveAnalysis = on;
+  refreshReviewButtonState();
+}
+
+// Combine the engine an earlier grade used with a later one's, for the Line-tab
+// "analysed with…" tag. 'none' means "nothing new", so it never downgrades a tag.
+function mergeReviewEngine(
+  a: ReviewSummary['engine'],
+  b: ReviewSummary['engine'],
+): ReviewSummary['engine'] {
+  if (b === 'none') return a;
+  if (a === 'none') return b;
+  return a === b ? a : 'mixed';
+}
+
+async function runGameReview(): Promise<void> {
+  // A tap while the initial pass is mid-flight stops it and turns live off.
   if (reviewAbort) {
     reviewAbort.abort();
     reviewAbort = null;
-    btn.classList.remove('bar-btn--on');
-    showToast('Review stopped.');
+    setLiveAnalysis(false);
+    showToast('Analysis paused.');
+    return;
+  }
+  // On and idle → turn it off (the grades we have are kept).
+  if (liveAnalysis) {
+    setLiveAnalysis(false);
+    showToast('Live analysis off.');
+    return;
+  }
+  // Off → turn it on and grade whatever isn't graded yet.
+  setLiveAnalysis(true);
+  await runReviewPass();
+}
+
+// Grade every not-yet-graded move on the board — the initial pass when live
+// analysis is switched on. A fully-graded line returns at once; live analysis
+// stays on either way so moves played afterwards are graded as they land.
+async function runReviewPass(): Promise<void> {
+  const nodes = mainline();
+  // Nothing to grade yet (empty board) or everything already graded: live
+  // analysis is on, so just confirm it — new moves get graded as they're played.
+  if (!nodes.length || nodes.every((n) => n.classification)) {
+    showToast('Live analysis on — new moves will be analysed.');
+    renderMoveList();
+    refreshBoardBadge();
     return;
   }
 
-  const nodes = mainline();
-  if (!nodes.length) { showToast('No moves to review yet.'); return; }
-
   const ctrl = new AbortController();
   reviewAbort = ctrl;
-  builderEngine = 'none';
-  btn.classList.add('bar-btn--on');
-  clearClassifications(nodes);
-  renderMoveList();
-  refreshBoardBadge();
+  refreshReviewButtonState();
   const total = nodes.length;
   const bar = reviewBar();
   bar.start();
   showToast(getShowMoveClassifications()
-    ? 'Reviewing game…'
-    : 'Reviewing game… (turn on move highlights in Settings to see it)');
+    ? 'Analysing game…'
+    : 'Analysing game… (turn on move highlights in Settings to see it)');
 
   try {
     const summary = await reviewLine(nodes, {
       useEngineFallback: true,
+      skipGraded: true,
+      cache: liveCache,
       signal: ctrl.signal,
       onProgress: (i) => {
         bar.set(total ? (i + 1) / total : 1);
@@ -582,18 +629,37 @@ async function runGameReview(btn: HTMLButtonElement): Promise<void> {
         refreshBoardBadge();
       },
     });
-    builderEngine = summary.engine;
-    if (!ctrl.signal.aborted) showToast('Game review complete.');
+    builderEngine = mergeReviewEngine(builderEngine, summary.engine);
+    if (!ctrl.signal.aborted) showToast('Analysis complete — new moves keep analysing.');
   } catch {
-    if (!ctrl.signal.aborted) showToast('Couldn’t finish the review.');
+    if (!ctrl.signal.aborted) showToast('Couldn’t finish analysing.');
   } finally {
     if (reviewAbort === ctrl) reviewAbort = null;
-    btn.classList.remove('bar-btn--on');
     bar.done();
     bar.hide();
+    refreshReviewButtonState();
     renderMoveList();
     refreshBoardBadge();
+    refreshLineAnalysis();
   }
+}
+
+// Grade one freshly-played move when live analysis is on. The board move handlers
+// call this so a variation you try gets a grade as soon as you play it. Stale or
+// ungradable results are silently dropped — a later toggle fills any gaps.
+async function gradeLiveMove(node: MoveNode, parentFen: string): Promise<void> {
+  if (!liveAnalysis || node.classification) return;
+  try {
+    const r = await gradeNode(node, parentFen, liveCache, { useEngineFallback: true });
+    if (!r.graded) return;
+    builderEngine = mergeReviewEngine(
+      builderEngine,
+      r.source === 'cloud' ? 'lichess' : r.source === 'local' ? 'local' : 'none',
+    );
+    renderMoveList();
+    refreshBoardBadge();
+    refreshLineAnalysis();
+  } catch { /* leave it ungraded */ }
 }
 
 // The Line-tab analysis block (eval graph + move-type summary + engine tag).
@@ -1151,11 +1217,12 @@ function playUci(uci: string): void {
   const from = uci.slice(0, 2);
   const to = uci.slice(2, 4);
   const promotion = (uci[4] as 'q' | 'r' | 'b' | 'n') || 'q';
+  const parentFen = chess.fen(); // position before the move, for live grading
   const result = chess.move({ from, to, promotion });
   if (!result) return;
 
   const fullUci = from + to + (result.promotion ?? '');
-  addMove(result.san, fullUci, chess.fen());
+  const node = addMove(result.san, fullUci, chess.fen());
   cg.set({
     fen: chess.fen(),
     turnColor: turnColor(),
@@ -1168,6 +1235,7 @@ function playUci(uci: string): void {
   updateOpeningName();
   evalPanel.clear();
   engine.evaluate(chess.fen());
+  void gradeLiveMove(node, parentFen);
 }
 
 let saveColour: 'white' | 'black' = 'white';
@@ -1294,6 +1362,61 @@ function updateSaveButtonLabel(): void {
   // The "save this line to my repertoire" action only makes sense in the analyser.
   const saveLineBtn = document.getElementById('save-line-btn');
   if (saveLineBtn) saveLineBtn.hidden = builderMode !== 'analyser';
+
+  // Delete sits at the foot of the Line panel: removes the saved game (analyser)
+  // or the saved line (builder). Hidden for a brand-new, never-saved line — there
+  // is nothing to delete yet.
+  const deleteBtn = document.getElementById('line-delete');
+  if (deleteBtn) {
+    const canDelete = builderMode === 'analyser' ? !!analyserGameId : !!loadedLineId;
+    deleteBtn.hidden = !canDelete;
+    const lbl = deleteBtn.querySelector('.line-delete-label');
+    if (lbl) lbl.textContent = builderMode === 'analyser' ? 'Delete game' : 'Delete line';
+  }
+}
+
+// The Line-panel delete control: confirm, then remove the saved game (analyser
+// mode) or the saved line (builder mode) and leave the builder for the matching
+// list. Marking the snapshot clean first keeps the unsaved-edits guard quiet.
+function deleteCurrentLineOrGame(): void {
+  if (builderMode === 'analyser' && analyserGameId) {
+    const id = analyserGameId;
+    showDialog({
+      title: 'Delete this game?',
+      body: 'This game and its saved analysis will be permanently removed from My games. This can’t be undone.',
+      buttons: [
+        { label: 'Delete', variant: 'danger', onClick: () => {
+          void deleteGame(id).then(() => {
+            stopPlayback();
+            savedSnapshot = builderSnapshot();
+            showToast('Game deleted');
+            showView('games');
+          });
+        } },
+        { label: 'Cancel', variant: 'secondary' },
+      ],
+    });
+    return;
+  }
+  if (builderMode === 'builder' && loadedLineId) {
+    const id = loadedLineId;
+    const label = currentTitle() || 'this line';
+    showDialog({
+      title: 'Delete this line?',
+      body: `“${label}” and all of its training data — confidence, review history and schedule — will be permanently deleted. This can’t be undone.`,
+      buttons: [
+        { label: 'Delete', variant: 'danger', onClick: () => {
+          void deleteLine(id).then(() => {
+            stopPlayback();
+            savedSnapshot = builderSnapshot();
+            showToast('Line deleted');
+            showView('lines');
+          });
+        } },
+        { label: 'Cancel', variant: 'secondary' },
+      ],
+    });
+  }
 }
 
 // ── Navigation ────────────────────────────────────────────────────────────────
@@ -1346,6 +1469,9 @@ function clearBuilder(colour: 'white' | 'black' = 'white'): void {
   builderMode = 'builder';
   analyserGameId = null;
   builderGameDate = '';
+  // A fresh line/game starts with live analysis off and an empty eval cache.
+  liveAnalysis = false;
+  liveCache.clear();
   renderTitle();
   renderBuilderTags();
   renderBuilderDesc();
@@ -1927,6 +2053,11 @@ function onOpenLine(line: Line, atFen?: string): void {
   manualTitle = line.name;
   detectedName = '';
   builderDesc = '';
+  // Opening a saved line is always builder mode. Without this, coming straight
+  // from a game (analyser mode) leaves builderMode stale, so the header falls
+  // back to "Unknown" and the analyser-only "Save line" button lingers until a
+  // reload re-derives state.
+  builderMode = 'builder';
   renderTitle();
   renderBuilderTags();
   renderBuilderDesc();
@@ -2180,7 +2311,10 @@ async function saveLineFromCurrentPath(): Promise<void> {
     if (!line) { showToast('Couldn’t build a line here'); return; }
     await saveLine(line);
     builderPanels?.reloadLines();
-    showToast('Saved to My Lines ✓');
+    // Surface the new line on My Lines (highlighted) so the save is unmistakable,
+    // then bounce back to the game so more lines can be extracted from it.
+    focusSavedLine(line.id);
+    showToast('Saved to My Lines ✓', { variant: 'success' });
   };
 
   // A line is the opening you want to drill, not the whole game. If the cursor is
@@ -2358,7 +2492,7 @@ async function finishSave(): Promise<void> {
   const result = await persistCurrentLine();
   if (!result) return;
   const { line, isNew } = result;
-  showToast(isNew ? 'Line saved ✓' : 'Changes saved ✓');
+  showToast(isNew ? 'Line saved ✓' : 'Changes saved ✓', { variant: 'success' });
   // Already enrolled — no point asking; just surface it on My Lines.
   if (line.inTraining) {
     goToSavedLine(line.id);
@@ -2375,6 +2509,14 @@ function setupSaveButton() {
   document.getElementById('save-line-btn')?.addEventListener('click', () => {
     void saveLineFromCurrentPath();
   });
+  const deleteBtn = document.getElementById('line-delete');
+  if (deleteBtn) {
+    deleteBtn.appendChild(Icons.trash(15));
+    const lbl = document.createElement('span');
+    lbl.className = 'line-delete-label';
+    deleteBtn.appendChild(lbl);
+    deleteBtn.addEventListener('click', deleteCurrentLineOrGame);
+  }
 }
 
 // ── Playback controls ─────────────────────────────────────────────────────────
@@ -2511,10 +2653,11 @@ maybeShowGate(() => requestAnimationFrame(() => {
     },
     events: {
       move(from, to) {
+        const parentFen = chess.fen(); // position before the move, for live grading
         const result = chess.move({ from, to, promotion: 'q' });
         if (!result) return;
         const uci = from + to + (result.promotion ?? '');
-        addMove(result.san, uci, chess.fen());
+        const node = addMove(result.san, uci, chess.fen());
         cg.set({
           turnColor: turnColor(),
           movable: {
@@ -2528,6 +2671,7 @@ maybeShowGate(() => requestAnimationFrame(() => {
         evalPanel.clear();
         cg.setAutoShapes([]);
         engine.evaluate(chess.fen());
+        void gradeLiveMove(node, parentFen);
       },
     },
   });

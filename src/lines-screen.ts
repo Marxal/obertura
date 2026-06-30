@@ -8,7 +8,6 @@ import {
 } from './storage';
 import { buildPositionCard, colourPip, lineFinalFen, fenFromUcis } from './card-position';
 import { getShowQuickView } from './prefs';
-import { lineIsDue } from './scheduler';
 import { Icons } from './icons';
 import { userAvatar } from './avatar';
 import { pushBack } from './back-nav';
@@ -539,8 +538,6 @@ function buildDetailCard(
   refresh: () => void,
   playCount: number
 ): HTMLElement {
-  const due = line.inTraining && lineIsDue(line);
-
   // Shared position-card scaffold: title row on top, a larger miniature on the
   // left of row 2 with the info + actions on the right.
   const { card, titleRow: titleRowWrap, content } = buildPositionCard({
@@ -551,7 +548,8 @@ function buildDetailCard(
   });
 
   // Just saved from the builder: draw attention and scroll it into view.
-  if (line.id === highlightLineId) {
+  const justSaved = line.id === highlightLineId;
+  if (justSaved) {
     card.classList.add('dline-card--highlight');
     highlightLineId = null;
     requestAnimationFrame(() =>
@@ -568,6 +566,13 @@ function buildDetailCard(
   nameEl.className = 'pcard-name';
   nameEl.textContent = line.name || line.openingName || 'Untitled line';
   titleRow.appendChild(nameEl);
+  // A short-lived "New" chip on the line you just saved, so it's easy to spot.
+  if (justSaved) {
+    const newBadge = document.createElement('span');
+    newBadge.className = 'dline-new-badge';
+    newBadge.textContent = 'New';
+    titleRow.appendChild(newBadge);
+  }
   titleRow.addEventListener('click', () => deps.onOpenLine(line));
   titleRowWrap.appendChild(titleRow);
 
@@ -665,14 +670,6 @@ function buildDetailCard(
     refresh();
   });
   footerLeft.appendChild(toggleBtn);
-
-  // Due tag sits right next to the training switch.
-  if (due) {
-    const dueBadge = document.createElement('span');
-    dueBadge.className = 'dline-due';
-    dueBadge.textContent = 'Due';
-    footerLeft.appendChild(dueBadge);
-  }
 
   footer.appendChild(footerLeft);
 
