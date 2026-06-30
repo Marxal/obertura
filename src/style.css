@@ -2776,19 +2776,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .mini-light { fill: var(--board-light); }
 .mini-dark { fill: var(--board-dark); }
 
-/* Move arrow drawn over a miniature (board-mini.ts: buildMiniBoard arrow arg).
-   Warm accent, semi-transparent so the pieces beneath stay legible. */
-.mini-arrow {
-  stroke: var(--mini-arrow, #ff9b21);
-  stroke-width: 2.4;
-  stroke-linecap: round;
-  opacity: 0.92;
-}
-.mini-arrow-head {
-  fill: var(--mini-arrow, #ff9b21);
-  opacity: 0.92;
-}
-
 /* ── My games screen ─────────────────────────────────────────────────────────
    Import action on top, then a card per saved game (mini board + who/opening). */
 .mygames-screen {
@@ -10799,14 +10786,16 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   gap: var(--space-md);
 }
 
-/* Window tabs — also the carousel indicator. */
+/* Window tabs — also the carousel indicator. A full-width segmented control, so
+   the three windows carry the same visual weight as the board below. */
 .forgotten-tabs {
   display: flex;
   gap: 0.4rem;
 }
 .forgotten-tab {
-  flex: 0 0 auto;
-  padding: 0.3rem 0.7rem;
+  flex: 1 1 0;
+  text-align: center;
+  padding: 0.35rem 0.5rem;
   border: 1px solid var(--hairline);
   border-radius: 999px;
   background: var(--fill-faint);
@@ -10837,6 +10826,9 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .forgotten-slide {
   flex: 0 0 100%;
   scroll-snap-align: start;
+  /* Settle on every slide, even on a fast flick, so one swipe moves one window
+     (Today → This week → All time) instead of skipping straight to the end. */
+  scroll-snap-stop: always;
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
@@ -10844,10 +10836,13 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   padding: 0 1px;
 }
 
-/* The board fills the slide (so, the section's content width). */
+/* The board fills the slide (so, the section's content width). It's a real
+   view-only chessground (.cg-wrap), so a square aspect-ratio gives it height. */
 .forgotten-board {
   width: 100%;
+  aspect-ratio: 1 / 1;
   border-radius: 10px;
+  overflow: hidden;
 }
 
 .forgotten-body {
@@ -10875,6 +10870,11 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   align-self: stretch;
   padding: 0.6rem 1rem;
   font-size: 0.95rem;
+}
+.forgotten-hint {
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+  color: var(--text-faint);
 }
 
 /* ── "Fix it" playful repeat drill (fix-it.ts) ───────────────────────────────

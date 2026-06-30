@@ -146,6 +146,14 @@ export function mostForgotten(
   return best;
 }
 
+// Forget one move — called after a "Fix it" drill completes, so that move drops
+// out of the carousel (every window) and the next-worst surfaces. It only comes
+// back if it's missed again in training.
+export function clearForgottenMove(fen: string, san: string): void {
+  const moves = load().filter((m) => !(m.fen === fen && m.san === san));
+  save(moves);
+}
+
 // Forget everything — part of "Reset progress" in Settings.
 export function clearForgottenMoves(): void {
   try {
