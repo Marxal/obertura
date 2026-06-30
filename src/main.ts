@@ -1,6 +1,7 @@
 import { Chess } from 'chess.js';
 import { Chessground } from 'chessground';
 import type { Key } from 'chessground/types';
+import type { DrawShape } from 'chessground/draw';
 import 'chessground/assets/chessground.base.css';
 import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
@@ -605,7 +606,7 @@ async function runReviewPass(): Promise<void> {
   if (!nodes.length || nodes.every((n) => n.classification)) {
     showToast('Live analysis on — new moves will be analysed.');
     renderMoveList();
-    refreshBoardBadge();
+    refreshBoardShapes();
     return;
   }
 
@@ -628,7 +629,7 @@ async function runReviewPass(): Promise<void> {
       onProgress: (i) => {
         bar.set(total ? (i + 1) / total : 1);
         renderMoveList();
-        refreshBoardBadge();
+        refreshBoardShapes();
       },
     });
     builderEngine = mergeReviewEngine(builderEngine, summary.engine);
@@ -641,7 +642,7 @@ async function runReviewPass(): Promise<void> {
     bar.hide();
     refreshReviewButtonState();
     renderMoveList();
-    refreshBoardBadge();
+    refreshBoardShapes();
     refreshLineAnalysis();
   }
 }
@@ -659,7 +660,7 @@ async function gradeLiveMove(node: MoveNode, parentFen: string): Promise<void> {
       r.source === 'cloud' ? 'lichess' : r.source === 'local' ? 'local' : 'none',
     );
     renderMoveList();
-    refreshBoardBadge();
+    refreshBoardShapes();
     refreshLineAnalysis();
   } catch { /* leave it ungraded */ }
 }
@@ -714,51 +715,45 @@ function onActiveSlide(index: number): void {
   // The engine runs only while its tab is showing: on when you land on it, off
   // when you leave. There's no on/off toggle — the tab IS the switch.
   if (evalPanel) evalPanel.setEnabled(index === ENGINE_SLIDE);
-  // Suggested-move arrows are an Engine-tab-only thing — leaving the tab swaps
-  // them for the move's game-review badge (if any) rather than waiting on the
-  // engine to wind down.
-  if (index !== ENGINE_SLIDE && cg) refreshBoardBadge();
+  // Repaint the board overlays for the new slide: the move's grade badge shows
+  // on every tab, and the engine arrows ride alongside it on the Engine tab.
+  if (cg) refreshBoardShapes();
 }
 
-// Draw arrows for the engine's top 3 candidates on the board — gated on the
-// Engine tab being the one showing (so they can't linger while you're editing
-// a different slide), the engine actually being on, the arrows toggle, and the
-// result still matching the live position (engine replies can lag a move).
-function drawEngineArrows(result: EvalResult | null): void {
-  if (!result || !showEngineArrows || activeSlide !== ENGINE_SLIDE || !engine.isEnabled || result.fen !== chess.fen()) {
-    cg.setAutoShapes([]);
-    return;
-  }
-  const brushes = ['eng1', 'eng2', 'eng3'];
-  cg.setAutoShapes(result.moves.slice(0, 3).map((m, i) => ({
-    orig: m.uci.slice(0, 2) as Key,
-    dest: m.uci.slice(2, 4) as Key,
-    brush: brushes[i],
-  })));
-}
-
-// Show the active move's game-review badge on its destination square — the
-// non-engine-slide counterpart of the engine arrows. Cleared when classifications
-// are off, on the root, on an un-graded move, or while the Engine tab owns the
-// board (it draws arrows there instead).
-function refreshBoardBadge(): void {
+// Repaint the analyser's board overlays in ONE pass: the active move's
+// game-review badge AND, on the Engine tab, the engine's top-3 candidate
+// arrows. Both live in chessground's single autoshapes list, so they must be
+// drawn together — doing them in separate setAutoShapes calls made the last one
+// wipe the other, which is why the Engine tab used to lose its move badge to the
+// arrows. The badge disc rides ABOVE the piece (a customSvg autoshape); its
+// square wash sits BELOW the piece (a custom highlight) so the piece keeps its
+// own colour.
+function refreshBoardShapes(): void {
   if (!cg) return;
+  const shapes: DrawShape[] = [];
+
+  // 1. The active move's grade badge — shown on every slide now, the Engine tab
+  //    included, so live analysis still tells you how the played move graded.
   const node = getCurrentNode();
-  const show = activeSlide !== ENGINE_SLIDE && getShowMoveClassifications()
+  const showBadge = getShowMoveClassifications()
     && node.id !== 'root' && !!node.classification && !!node.uci;
-  if (show) {
-    const sq = node.uci.slice(2, 4) as Key;
-    // The corner badge rides above the piece (a customSvg autoshape); the square
-    // wash sits BELOW the piece (a square highlight) so the piece itself never
-    // changes colour — only its square does.
-    cg.setAutoShapes([{ orig: sq, customSvg: classBoardSvg(node.classification!) }]);
-    setReviewSquare(sq, node.classification!);
-  } else {
-    // Engine slide owns the autoshapes (its arrows) — leave them; just drop the
-    // review wash. Off the engine slide, clear both.
-    if (activeSlide !== ENGINE_SLIDE) cg.setAutoShapes([]);
-    setReviewSquare(null);
+  const washSq = showBadge ? (node.uci.slice(2, 4) as Key) : null;
+  if (washSq) shapes.push({ orig: washSq, customSvg: classBoardSvg(node.classification!) });
+
+  // 2. The engine's candidate arrows — only on the Engine tab, with the engine
+  //    on, the arrows toggle on, and a result that still matches the live
+  //    position (engine replies can lag a move behind).
+  const result = lastEngineResult;
+  if (showEngineArrows && activeSlide === ENGINE_SLIDE && engine && engine.isEnabled
+      && result && result.fen === chess.fen()) {
+    const brushes = ['eng1', 'eng2', 'eng3'];
+    result.moves.slice(0, 3).forEach((m, i) => {
+      shapes.push({ orig: m.uci.slice(0, 2) as Key, dest: m.uci.slice(2, 4) as Key, brush: brushes[i] });
+    });
   }
+
+  cg.setAutoShapes(shapes);
+  setReviewSquare(washSq, washSq ? node.classification! : undefined);
 }
 
 // Paint (or clear) the review wash on a single square via chessground's custom
@@ -1209,7 +1204,7 @@ function handleMoveClick(nodeId: string) {
   renderMoveDetails();
   updateOpeningName();
   evalPanel.clear();
-  refreshBoardBadge();
+  refreshBoardShapes();
   engine.evaluate(chess.fen());
 }
 
@@ -1560,7 +1555,7 @@ function buildFromUcis(
   updateOpeningName();
   updateSaveButtonLabel();
   evalPanel.clear();
-  refreshBoardBadge();
+  refreshBoardShapes();
   engine.evaluate(chess.fen());
   showView('builder');
 }
@@ -1591,7 +1586,7 @@ function buildFromTree(tree: MoveNode, colour: 'white' | 'black', description: s
   updateOpeningName();
   updateSaveButtonLabel();
   evalPanel.clear();
-  refreshBoardBadge();
+  refreshBoardShapes();
   engine.evaluate(chess.fen());
   showView('builder');
 }
@@ -2688,10 +2683,9 @@ maybeShowGate(() => requestAnimationFrame(() => {
   engine = new Engine(import.meta.env.BASE_URL, (result) => {
     evalPanel.update(result, chess.fen());
     lastEngineResult = result;
-    // On the Engine tab the result drives the suggestion arrows; elsewhere it
-    // must not wipe the move's review badge, so just keep the badge in sync.
-    if (activeSlide === ENGINE_SLIDE) drawEngineArrows(result);
-    else refreshBoardBadge();
+    // One repaint keeps the move's grade badge and the engine arrows in sync,
+    // whichever tab is showing — neither can wipe the other now.
+    refreshBoardShapes();
   });
   evalPanel = new EvalPanel(
     document.getElementById('eval-bar-top')!,
@@ -2731,7 +2725,7 @@ maybeShowGate(() => requestAnimationFrame(() => {
     showEngineArrows = !showEngineArrows;
     setShowEngineArrows(showEngineArrows);
     arrowsToggleBtn.textContent = showEngineArrows ? 'Hide arrows' : 'Show arrows';
-    drawEngineArrows(lastEngineResult);
+    refreshBoardShapes();
   });
   evalSourceEl.insertAdjacentElement('afterend', arrowsToggleBtn);
 
