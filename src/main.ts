@@ -34,6 +34,7 @@ import { EvalPanel } from './eval-panel';
 import { createBuilderPanels, type BuilderPanels } from './builder-panels';
 import { initTheme } from './theme';
 import { initAppearance } from './appearance';
+import { initDriveAutoBackup } from './drive-backup';
 import { watchSpeedMs, getConfirmRunBeforeTraining, getScoutingEnabled, getShowEngineArrows, setShowEngineArrows, getShowMoveClassifications } from './prefs';
 import { reviewLine, gradeNode, type ReviewSummary } from './review';
 import { renderLineAnalysis, hasReview } from './line-analysis';
@@ -2667,6 +2668,9 @@ const boardEl = document.getElementById('board') as HTMLElement;
 initTheme();
 initAppearance();
 setupNav();
+// Cloud backup: from now on every repertoire write schedules a debounced
+// upload to Drive (inert until connected in Settings — see drive-backup.ts).
+initDriveAutoBackup();
 
 // If we've just returned from "Connect to Lichess", complete the OAuth token
 // exchange and clean the URL. On a fresh connect we toast and, once the app has

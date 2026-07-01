@@ -59,7 +59,7 @@ import { clearPuzzleRating } from './puzzle-rating';
 import { clearForgottenMoves } from './forgotten-moves';
 import { clearPuzzleRepeat } from './puzzle-repeat';
 import { clearTaBest } from './puzzles-screen';
-import { renderBackupSection, exportBackupNow } from './backup';
+import { renderBackupSection, renderCloudBackupSection, exportBackupNow } from './backup';
 import { Icons } from './icons';
 import { userAvatar } from './avatar';
 import { pushBack } from './back-nav';
@@ -80,6 +80,7 @@ import { runSchedulerSelfTest } from './scheduler.selftest';
 import { runAnalysisSelfTest } from './analysis.selftest';
 import { runStatsSelfTest } from './stats.selftest';
 import { runEngineSelfTest } from './engine.selftest';
+import { runDriveSelfTest } from './drive.selftest';
 
 export function renderSettingsScreen(container: HTMLElement): void {
   container.innerHTML = '';
@@ -149,6 +150,7 @@ function buildDiagnosticsGroup(): HTMLElement {
   appendSelfTest(sec, 'Run analysis self-test', runAnalysisSelfTest, '[analysis self-test]');
   appendSelfTest(sec, 'Run statistics self-test', runStatsSelfTest, '[stats self-test]');
   appendSelfTest(sec, 'Run engine castling self-test', runEngineSelfTest, '[engine self-test]');
+  appendSelfTest(sec, 'Run Drive backup self-test', runDriveSelfTest, '[drive self-test]');
 
   return sec;
 }
@@ -971,6 +973,9 @@ function buildDataGroup(): HTMLElement {
 
   // Export / import — the existing backup section does both.
   sec.appendChild(renderBackupSection(() => { /* nothing else on this screen depends on it */ }));
+
+  // Cloud backup — the same file, kept in the user's Google Drive automatically.
+  sec.appendChild(renderCloudBackupSection(() => { /* nothing else on this screen depends on it */ }));
 
   // Reset progress — destructive, so it's set apart and confirmed.
   const resetBtn = document.createElement('button');

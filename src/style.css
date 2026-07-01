@@ -8366,6 +8366,30 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   font-size: 0.8rem;
   font-weight: 600;
 }
+
+/* Cloud backup (Google Drive) — same card as the local section, plus its own
+   auto-backup pref row (keeps the standard hairline as a separator) and a
+   quiet disconnect link. */
+.backup-section--cloud .pref-row {
+  margin-top: 0.85rem;
+  padding-bottom: 0;
+}
+
+.backup-disconnect {
+  display: block;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.backup-disconnect:hover { color: var(--danger); }
 .backup-status--ok { color: var(--success); }
 .backup-status--error { color: var(--danger); }
 .backup-status--info { color: var(--text-muted); }

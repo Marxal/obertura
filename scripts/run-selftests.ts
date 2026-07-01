@@ -24,6 +24,7 @@ import { runWinprobSelfTest } from '../src/winprob.selftest';
 import { runReviewSelfTest } from '../src/review.selftest';
 import { runMoveFactsSelfTest } from '../src/move-facts.selftest';
 import { runAccuracySelfTest } from '../src/accuracy.selftest';
+import { runDriveSelfTest } from '../src/drive.selftest';
 
 interface TestResult { name: string; pass: boolean; detail: string }
 
@@ -46,6 +47,7 @@ const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'review', run: runReviewSelfTest },
   { suite: 'move-facts', run: runMoveFactsSelfTest },
   { suite: 'accuracy', run: runAccuracySelfTest },
+  { suite: 'drive', run: runDriveSelfTest },
 ];
 
 let total = 0;
