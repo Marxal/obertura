@@ -1,5 +1,5 @@
 // The builder's "Import a game" popup, opened from the import icon next to Flip
-// in the bottom bar. Three ways to get a game onto the board:
+// in the bottom bar. Four ways to get a game in:
 //
 //   a) Import my last game  — the single newest game from the connected account
 //                             (saved with my games, deduped), opened on the board.
@@ -7,6 +7,10 @@
 //                             the result); tap one to load it on the board.
 //   c) Paste PGN            — paste PGN text or pick a .pgn file; the mainline is
 //                             parsed and opened on the board.
+//   d) Add a game manually   — hands off to the manual-entry form (manual-game.ts)
+//                             for an OTB game or one played without a connected
+//                             account; it saves straight to My games rather than
+//                             opening the board.
 //
 // Loading a game just seeds the builder via `onLoadGame` — the caller decides
 // what that means (it reuses buildFromUcis, so a Save makes a new line from it).
@@ -17,6 +21,7 @@ import { Icons } from './icons';
 import { showToast } from './toast';
 import { connectedAccount, importLastGame } from './import-last';
 import { importGames, type ImportedGame } from './import-games';
+import { openAddGameForm } from './manual-game';
 
 export interface BuilderImportDeps {
   // Seed the builder with a move list, oriented to `colour`, with an optional
@@ -26,6 +31,9 @@ export interface BuilderImportDeps {
   onLoadGame: (ucis: string[], colour: 'white' | 'black', description?: string, gameId?: string, endTime?: number) => void;
   // A game just landed in storage (import-last saves it) — refresh the slides.
   onGamesChanged: () => void;
+  // A game was added manually (no board opened) — refresh whatever list is
+  // showing (e.g. My games). Optional: only the My-games caller needs it.
+  onManualAdd?: () => void;
 }
 
 const PLATFORM_LABEL = { chesscom: 'Chess.com', lichess: 'Lichess' } as const;
@@ -213,6 +221,15 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
       Icons.note(20), 'Paste PGN',
       'Paste PGN text or choose a .pgn file',
       () => showPgn(),
+    ));
+
+    body.appendChild(menuOption(
+      Icons.plus(20), 'Add a game manually',
+      'Log an OTB game, or one without a connected account',
+      () => {
+        close();
+        openAddGameForm({ onAdded: () => deps.onManualAdd?.() });
+      },
     ));
   }
 

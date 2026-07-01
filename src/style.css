@@ -2788,12 +2788,18 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   flex-direction: column;
   gap: 0.75rem;
 }
+/* Import a game + Refresh games, side by side. */
+.mygames-top-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
 .mygames-import {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  width: 100%;
+  flex: 1 1 auto;
   padding: 0.7rem 1rem;
   border: none;
   border-radius: 12px;
@@ -2805,18 +2811,13 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 .mygames-import:active { filter: brightness(0.96); }
 
-/* Discrete secondary actions under the import button: Refresh + Add a game. */
-.mygames-subactions {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-}
+/* Discrete secondary action next to Import: Refresh games. */
 .mygames-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
-  flex: 1 1 0;
+  flex: 0 0 auto;
   padding: 0.5rem 0.7rem;
   border: 1px solid var(--border-card);
   border-radius: 10px;
@@ -2832,14 +2833,25 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .mygames-action--busy svg { animation: mygames-spin 0.9s linear infinite; }
 @keyframes mygames-spin { to { transform: rotate(360deg); } }
 
+/* Foot of the Line panel: the training toggle (builder mode, saved lines
+   only) on the left, delete on the right. Either side can be hidden on its
+   own (fresh line: neither; analyser: delete only), so this stays a plain
+   flex row rather than a justified pair. */
+.line-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+}
+
 /* Discrete delete control at the foot of the Line panel (game review / builder).
    Quiet by default; reads as danger on press. */
 .line-delete {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  align-self: flex-start;
-  margin-top: 0.9rem;
+  margin-left: auto;
   padding: 0.3rem 0.2rem;
   border: none;
   background: transparent;
@@ -2962,25 +2974,56 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Up to 2 lines, but ALWAYS reserves 2 lines of height (even a 1-line or empty
+   name) so every card in the list is the same height regardless of how long
+   its opening name is. */
 .mygames-card-opening {
   font-size: 0.85rem;
+  line-height: 1.25;
+  min-height: 2.5em;
   color: var(--text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+}
+/* Result badge + time-class (left) and the date (right), one row. */
+.mygames-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.15rem;
+}
+.mygames-card-meta-left {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  font-size: 0.78rem;
+  color: var(--text-faint);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.mygames-card-sub {
-  font-size: 0.78rem;
-  color: var(--text-faint);
+/* The result word, as a rounded pill rather than plain coloured text. */
+.mygames-card-badge {
+  flex: 0 0 auto;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
 }
-.mygames-card-sub--win { color: #5a9e3f; }
-.mygames-card-sub--loss { color: #c93636; }
-/* The game date on its own row, numeric (23/06/2026). */
+.mygames-card-badge--win { background: rgba(90, 158, 63, 0.16); color: #5a9e3f; }
+.mygames-card-badge--loss { background: rgba(201, 54, 54, 0.14); color: #c93636; }
+.mygames-card-badge--draw { background: var(--bg-elevated); color: var(--text-faint); }
+/* The game date, numeric (23/06/2026), right-aligned on the meta row. */
 .mygames-card-date {
+  flex: 0 0 auto;
   font-size: 0.74rem;
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
-  margin-top: 0.05rem;
 }
 .mygames-card-analysed {
   color: var(--accent);
@@ -4950,6 +4993,14 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   text-transform: uppercase;
   letter-spacing: 0.08em;
   text-align: center;
+}
+
+/* Discrete caption under the stats row ("lines to refresh") — quieter than
+   the stat labels above it, no uppercase/letter-spacing. */
+.train-hero-caption {
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  margin-top: -0.15rem;
 }
 
 /* Size/width modifiers only — chrome from .btn-primary in HTML. */
@@ -11480,6 +11531,41 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
+
+/* A row that opens its position on tap (every mode) reads as tappable. */
+.pz-result-row--linked { cursor: pointer; }
+.pz-result-row--linked:active { filter: brightness(0.97); }
+
+/* The scheduler's own stats for this move/line — failed/streak/due. */
+.pz-result-stats {
+  font-size: 0.7rem;
+  color: var(--text-faint);
+  margin-top: 0.1rem;
+}
+
+/* Timed-mode-only row controls: Add note / Turn off / Edit. */
+.pz-result-controls {
+  flex: none;
+  display: flex;
+  gap: 0.1rem;
+}
+.pz-result-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.pz-result-control:active { background: var(--bg-elevated); }
+.pz-result-control:disabled { opacity: 0.4; cursor: default; }
+
+/* After "Turn off" succeeds, the row reads as no-longer-active. */
+.pz-result-row--offline { opacity: 0.6; }
 
 /* Statistics: the big puzzle-rating number above its trend line. */
 .pz-rating-stat {

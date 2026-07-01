@@ -12,7 +12,7 @@
 
 import { Chess } from 'chess.js';
 import { getAllGames, deleteGame } from './storage';
-import type { ImportedGame } from './import-games';
+import { TIME_CLASS_LABELS, type ImportedGame } from './import-games';
 import { buildMiniBoard } from './board-mini';
 import { openingFamily } from './analysis';
 import { createFilterBar } from './filters';
@@ -23,7 +23,6 @@ import { Icons } from './icons';
 import { renderLoadError } from './load-error';
 import { getGamesSource } from './import-panel';
 import { refreshGamesNow } from './auto-refresh';
-import { openAddGameForm } from './manual-game';
 
 // A short, locale-aware game date ("12 Mar 2024") from the stored unix seconds.
 // Shared with the analyser's "vs <opponent>" line. Empty when the date is unknown.
@@ -59,6 +58,19 @@ const RESULT_LABEL: Record<ImportedGame['result'], string> = {
   win: 'Won', draw: 'Drew', loss: 'Lost',
 };
 
+const PLATFORM_LABEL = { chesscom: 'Chess.com', lichess: 'Lichess' } as const;
+
+// Tags shown/filtered on for a game: the user's own tags plus the platform and
+// time control, derived on the fly rather than written into the stored `tags`
+// array — so they can never duplicate or get clobbered across re-imports, and
+// stay in sync automatically if timeClass/platform data ever changes shape.
+function effectiveTags(g: ImportedGame): string[] {
+  const derived: string[] = [];
+  if (g.platform) derived.push(PLATFORM_LABEL[g.platform]);
+  derived.push(TIME_CLASS_LABELS[g.timeClass]);
+  return [...(g.tags ?? []), ...derived];
+}
+
 // How many list items (cards / group headers) to render per batch.
 const BATCH = 24;
 
@@ -82,26 +94,27 @@ export async function renderMyGamesScreen(host: HTMLElement, deps: MyGamesDeps):
   // Re-render the whole screen (after a delete) so counts and groups update.
   const refresh = (): void => { void renderMyGamesScreen(host, deps); };
 
-  // ── Import / refresh / add actions ────────────────────────────────────────────
+  // ── Import / refresh actions ──────────────────────────────────────────────────
+  // Import and Refresh sit side by side. "Add a game" (manual entry) now lives
+  // inside the import lightbox itself, reached via its "add manually" link.
+  const topRow = document.createElement('div');
+  topRow.className = 'mygames-top-row';
+
   const importBtn = document.createElement('button');
   importBtn.type = 'button';
   importBtn.className = 'mygames-import';
   importBtn.appendChild(Icons.download(18));
   importBtn.appendChild(Object.assign(document.createElement('span'), { textContent: 'Import a game' }));
   importBtn.addEventListener('click', deps.onImport);
-  root.appendChild(importBtn);
+  topRow.appendChild(importBtn);
 
-  // Discrete secondary row: Refresh (fetch latest from the saved account) and
-  // Add a game manually. Refresh only appears once an account has been imported.
-  const subActions = document.createElement('div');
-  subActions.className = 'mygames-subactions';
-
+  // Refresh only appears once an account has been imported.
   if (getGamesSource()) {
     const refreshBtn = document.createElement('button');
     refreshBtn.type = 'button';
     refreshBtn.className = 'mygames-action';
     refreshBtn.appendChild(Icons.reset(15));
-    refreshBtn.appendChild(Object.assign(document.createElement('span'), { textContent: 'Refresh' }));
+    refreshBtn.appendChild(Object.assign(document.createElement('span'), { textContent: 'Refresh games' }));
     refreshBtn.addEventListener('click', async () => {
       if (refreshBtn.disabled) return;
       refreshBtn.disabled = true;
@@ -121,18 +134,10 @@ export async function renderMyGamesScreen(host: HTMLElement, deps: MyGamesDeps):
       refreshBtn.disabled = false;
       refreshBtn.classList.remove('mygames-action--busy');
     });
-    subActions.appendChild(refreshBtn);
+    topRow.appendChild(refreshBtn);
   }
 
-  const addBtn = document.createElement('button');
-  addBtn.type = 'button';
-  addBtn.className = 'mygames-action';
-  addBtn.appendChild(Icons.plus(15));
-  addBtn.appendChild(Object.assign(document.createElement('span'), { textContent: 'Add a game' }));
-  addBtn.addEventListener('click', () => openAddGameForm({ onAdded: refresh }));
-  subActions.appendChild(addBtn);
-
-  root.appendChild(subActions);
+  root.appendChild(topRow);
 
   let games: ImportedGame[];
   try {
@@ -157,7 +162,7 @@ export async function renderMyGamesScreen(host: HTMLElement, deps: MyGamesDeps):
     black: games.filter(g => g.colour === 'black').length,
   };
   const tagCounts = new Map<string, number>();
-  for (const g of games) for (const t of g.tags ?? []) tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
+  for (const g of games) for (const t of effectiveTags(g)) tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
   const allTags = [...tagCounts.keys()].sort((a, b) => a.localeCompare(b));
 
   // ── Filter bar + list ───────────────────────────────────────────────────────
@@ -189,7 +194,7 @@ export async function renderMyGamesScreen(host: HTMLElement, deps: MyGamesDeps):
 
     let gs = games.slice();
     if (sel.colour !== 'all') gs = gs.filter(g => g.colour === sel.colour);
-    if (sel.tags.length > 0) gs = gs.filter(g => sel.tags.some(t => (g.tags ?? []).includes(t)));
+    if (sel.tags.length > 0) gs = gs.filter(g => sel.tags.some(t => effectiveTags(g).includes(t)));
     gs.sort((a, b) => b.endTime - a.endTime); // always newest-first
 
     if (!gs.length) {
@@ -271,38 +276,47 @@ function gameCard(g: ImportedGame, deps: MyGamesDeps, refresh: () => void): HTML
   }
   text.appendChild(opp);
 
-  if (g.opening) {
-    const op = document.createElement('div');
-    op.className = 'mygames-card-opening';
-    op.textContent = g.opening;
-    text.appendChild(op);
-  }
+  // Reserved 2-line height regardless of the actual name length, so every card
+  // matches height whether the opening wraps or not (see .mygames-card-opening).
+  const op = document.createElement('div');
+  op.className = 'mygames-card-opening';
+  op.textContent = g.opening ?? '';
+  text.appendChild(op);
 
-  const sub = document.createElement('div');
-  sub.className = `mygames-card-sub mygames-card-sub--${g.result}`;
-  sub.textContent = `${RESULT_LABEL[g.result]} · ${g.timeClass}`;
+  // Result badge + time-class on the left, date pushed to the right — one row.
+  const meta = document.createElement('div');
+  meta.className = 'mygames-card-meta';
+
+  const metaLeft = document.createElement('div');
+  metaLeft.className = 'mygames-card-meta-left';
+  const badge = document.createElement('span');
+  badge.className = `mygames-card-badge mygames-card-badge--${g.result}`;
+  badge.textContent = RESULT_LABEL[g.result];
+  metaLeft.appendChild(badge);
+  metaLeft.appendChild(document.createTextNode(g.timeClass));
   if (g.analysis) {
     const tag = document.createElement('span');
     tag.className = 'mygames-card-analysed';
     tag.textContent = 'Analysed';
-    sub.appendChild(document.createTextNode(' · '));
-    sub.appendChild(tag);
+    metaLeft.appendChild(document.createTextNode(' · '));
+    metaLeft.appendChild(tag);
   }
-  text.appendChild(sub);
+  meta.appendChild(metaLeft);
 
-  // The date gets its own row, numeric (23/06/2026).
   const date = formatGameDateNumeric(g.endTime);
   if (date) {
-    const dateEl = document.createElement('div');
+    const dateEl = document.createElement('span');
     dateEl.className = 'mygames-card-date';
     dateEl.textContent = date;
-    text.appendChild(dateEl);
+    meta.appendChild(dateEl);
   }
+  text.appendChild(meta);
 
-  if (g.tags && g.tags.length) {
+  const cardTags = effectiveTags(g);
+  if (cardTags.length) {
     const tags = document.createElement('div');
     tags.className = 'mygames-card-tags';
-    for (const t of g.tags) {
+    for (const t of cardTags) {
       tags.appendChild(Object.assign(document.createElement('span'), { className: 'mygames-tag', textContent: t }));
     }
     text.appendChild(tags);

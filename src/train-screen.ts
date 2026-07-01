@@ -51,6 +51,7 @@ import { renderLoadError } from './load-error';
 import { buildPositionCard, colourPip, lineFinalFen } from './card-position';
 import { burstConfetti, starfall, celebratePawn } from './confetti';
 import { pushBack } from './back-nav';
+import { showToast } from './toast';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -310,10 +311,16 @@ function renderHero(container: HTMLElement, due: Line[], allTraining: Line[]): v
 
   hero.appendChild(stats);
 
+  const caption = document.createElement('div');
+  caption.className = 'train-hero-caption';
+  caption.textContent = 'lines to refresh';
+  hero.appendChild(caption);
+
   const start = document.createElement('button');
   start.type = 'button';
   start.className = 'btn-primary train-hero-start';
-  start.textContent = 'Start training';
+  start.appendChild(Icons.zap(18));
+  start.appendChild(document.createTextNode('Start training'));
   start.addEventListener('click', () =>
     startRounds(dueLines(allTraining), container, { explicit: true }));
   hero.appendChild(start);
@@ -1086,6 +1093,9 @@ function applySwitchLabel(toggle: HTMLElement, inTraining: boolean): void {
 // ── Driving a session ───────────────────────────────────────────────────────────
 
 interface LineSessionStat {
+  // The graded, saved clone — reflects the line's post-session review state
+  // (used to open it in the builder and to show its up-to-date stats).
+  line: Line;
   lineName: string;
   openingName: string | null;
   misses: number;
@@ -1179,6 +1189,79 @@ export function startLineSession(
   onComplete?: () => void,
 ): void {
   startRounds(lines, container, { explicit: true, onComplete });
+}
+
+// Run a short, fixed-size individual-positions session (the daily challenge's
+// "N positions to refresh"), calling back only once the set is actually
+// reviewed and closed — not on a cancel. A stripped-down sibling of
+// runIndividual below: same per-position grading/persist logic, but no
+// round-chunking (the daily count is always small) and a caller-supplied
+// completion hook instead of always landing on the mode-card flow.
+export function startPositionsSession(
+  lines: Line[],
+  container: HTMLElement,
+  count: number,
+  onComplete: () => void,
+): void {
+  const trainingLines = lines.filter(l => l.inTraining);
+  const clones = trainingLines.map(l => ({ ...l, tree: structuredClone(l.tree) }));
+  const positions = selectIndividualPositions(clones, { max: count });
+  if (positions.length === 0) {
+    void doRender(container);
+    return;
+  }
+
+  const cloneById = new Map(clones.map(c => [c.id, c]));
+  const lineByNode = new Map(positions.map(p => [p.expected, cloneById.get(p.lineId)!]));
+
+  const missed = new Set<string>();
+  const stats = { reviewed: 0, missed: 0, openings: new Map<string, OpeningTally>() };
+  const mistakes: Mistake[] = [];
+  const mistakeKeys = new Set<string>();
+
+  startPositionsDrill(
+    positions.map(p => ({ preFen: p.preFen, expected: p.expected, prevUci: p.prevUci, prevFen: p.prevFen })),
+    {
+      wrongMoveMode: 'full',
+      confirmAbandon: true,
+      modeLabel: 'Positions to refresh',
+      playPrelude: true,
+      celebrateOnComplete: true,
+      completeMessage: 'Positions cleared ✓',
+      recordMiss: (node) => { missed.add(node.id); },
+      onStepComplete: (expected) => {
+        const line = lineByNode.get(expected);
+        if (!line) return;
+        const pos = positions.find(p => p.expected === expected);
+        const now = new Date();
+        const wasMissed = missed.has(expected.id);
+        if (wasMissed && pos) {
+          addMistake(mistakes, mistakeKeys, pos.preFen, expected);
+          recordMissedMove(pos.preFen, expected.san, line.colour);
+        }
+        const quality = qualityFromMisses(wasMissed ? 1 : 0);
+        expected.review = gradeReview(expected.review ?? newReview(now), quality, now);
+        line.lastTrained = now.toISOString();
+        line.confidence = lineConfidence(line);
+        void saveLine(line);
+        recordReviewed(1);
+        // One move graded: one entry on the remembered-vs-failed bar.
+        recordReviewOutcome(wasMissed ? 0 : 1, wasMissed ? 1 : 0);
+        bumpOpening(
+          stats.openings, `${line.id}:${expected.id}`, line.openingName || line.name,
+          wasMissed ? 0 : 1, wasMissed ? 1 : 0,
+          { onOpen: () => onViewLine?.(line, pos?.preFen), statsLine: reviewStatsLine(expected.review) },
+        );
+        stats.reviewed++;
+        if (wasMissed) stats.missed++;
+      },
+      onComplete: () => {
+        renderIndividualComplete(container, stats, mistakes);
+        onComplete();
+      },
+      onCancel: () => void doRender(container),
+    },
+  );
 }
 
 function runRound(runner: RoundRunner, container: HTMLElement): void {
@@ -1303,8 +1386,10 @@ function runItem(
       if (prev) {
         prev.misses += missed.size;
         prev.totalMoves += userNodes.length;
+        prev.line = lineCopy; // keep the freshest graded state
       } else {
         stats.lineStats.set(line.id, {
+          line: lineCopy,
           lineName: line.name || 'Untitled',
           openingName: line.openingName,
           misses: missed.size,
@@ -1374,14 +1459,12 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
         onStepComplete: (expected) => {
           const line = lineByNode.get(expected);
           if (!line) return;
+          const pos = positions.find(p => p.expected === expected);
           const now = new Date();
           const wasMissed = missed.has(expected.id);
-          if (wasMissed) {
-            const pos = positions.find(p => p.expected === expected);
-            if (pos) {
-              addMistake(mistakes, mistakeKeys, pos.preFen, expected);
-              recordMissedMove(pos.preFen, expected.san, line.colour);
-            }
+          if (wasMissed && pos) {
+            addMistake(mistakes, mistakeKeys, pos.preFen, expected);
+            recordMissedMove(pos.preFen, expected.san, line.colour);
           }
           const quality = qualityFromMisses(wasMissed ? 1 : 0);
           expected.review = gradeReview(expected.review ?? newReview(now), quality, now);
@@ -1391,7 +1474,11 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
           recordReviewed(1);
           // One move graded: one entry on the remembered-vs-failed bar.
           recordReviewOutcome(wasMissed ? 0 : 1, wasMissed ? 1 : 0);
-          bumpOpening(stats.openings, line.openingName || line.name, wasMissed ? 0 : 1, wasMissed ? 1 : 0);
+          bumpOpening(
+            stats.openings, `${line.id}:${expected.id}`, line.openingName || line.name,
+            wasMissed ? 0 : 1, wasMissed ? 1 : 0,
+            { onOpen: () => onViewLine?.(line, pos?.preFen), statsLine: reviewStatsLine(expected.review) },
+          );
           stats.reviewed++;
           if (wasMissed) stats.missed++;
         },
@@ -1594,22 +1681,76 @@ function appendStatsRow(
 // reviewed, a ✓ when nothing was missed in it and a ✕ when something was, plus a
 // "correct/total" tally on the right. Worst-first so the spots needing work lead.
 // Built from a small tally each mode fills as it grades.
+//
+// Every row links back to its position (onOpen) and shows what the scheduler
+// already knows about it (statsLine). Timed-mode rows additionally carry
+// `controls` (Add note / Turn off / Edit) — the other modes only need the row
+// tap itself. Rows are keyed per-line (session-complete) or per-quizzed-move
+// (timed/individual/positions), never merged across different lines sharing an
+// opening name, so onOpen always points at one real position.
 
-interface OpeningTally { name: string; correct: number; incorrect: number; }
+interface OpeningTally {
+  name: string;
+  correct: number;
+  incorrect: number;
+  onOpen?: () => void;
+  statsLine?: string;
+  controls?: { onNote: () => void; onTurnOff: () => void; onEdit: () => void };
+}
 
-function bumpOpening(tally: Map<string, OpeningTally>, name: string, correct: number, incorrect: number): void {
-  const key = name || 'Untitled';
-  const cur = tally.get(key) ?? { name: key, correct: 0, incorrect: 0 };
+function bumpOpening(
+  tally: Map<string, OpeningTally>,
+  key: string,
+  name: string,
+  correct: number,
+  incorrect: number,
+  extras?: Pick<OpeningTally, 'onOpen' | 'statsLine' | 'controls'>,
+): void {
+  const cur = tally.get(key) ?? { name: name || 'Untitled', correct: 0, incorrect: 0, ...extras };
   cur.correct += correct;
   cur.incorrect += incorrect;
   tally.set(key, cur);
 }
 
-// Fold the line-session per-line stats into the same opening tally shape.
+// A one-line caption from what the scheduler already stores on a move: lifetime
+// misses, the current clean-recall streak, and when it's next due.
+function reviewStatsLine(review: MoveNode['review'] | undefined): string {
+  const parts: string[] = [];
+  if (review) {
+    parts.push(`Failed ${review.lapses}×`);
+    parts.push(`${review.reps} in a row`);
+  }
+  parts.push(describeDue(review?.due ?? null));
+  return parts.join(' · ');
+}
+
+// The same caption for a whole line: its weakest user-move (shortest interval /
+// soonest due) decides, mirroring how lineBucket() already picks the weakest
+// move to bucket a line as due/learning/solid.
+function lineStatsLine(line: Line): string | undefined {
+  const nodes = userMoveNodes(line.tree, line.colour);
+  if (nodes.length === 0) return undefined;
+  let weakest = nodes[0];
+  let weakestInterval = weakest.review?.interval ?? -1;
+  for (const n of nodes) {
+    const iv = n.review?.interval ?? -1;
+    if (iv < weakestInterval) { weakest = n; weakestInterval = iv; }
+  }
+  return reviewStatsLine(weakest.review);
+}
+
+// One row per reviewed line, keyed by line.id so two different lines never
+// merge even if they share a detected opening name.
 function tallyFromLineStats(lineStats: Map<string, LineSessionStat>): Map<string, OpeningTally> {
   const tally = new Map<string, OpeningTally>();
-  for (const s of lineStats.values()) {
-    bumpOpening(tally, s.openingName || s.lineName, s.totalMoves - s.misses, s.misses);
+  for (const [id, s] of lineStats) {
+    tally.set(id, {
+      name: s.openingName || s.lineName,
+      correct: s.totalMoves - s.misses,
+      incorrect: s.misses,
+      onOpen: () => onViewLine?.(s.line),
+      statsLine: lineStatsLine(s.line),
+    });
   }
   return tally;
 }
@@ -1625,7 +1766,16 @@ function reviewedOpeningRows(tally: Map<string, OpeningTally>): HTMLElement[] {
     const total = o.correct + o.incorrect;
     const clean = o.incorrect === 0;
     const row = document.createElement('div');
-    row.className = 'pz-result-row ' + (clean ? 'pz-result-row--solved' : 'pz-result-row--missed');
+    row.className = 'pz-result-row ' + (clean ? 'pz-result-row--solved' : 'pz-result-row--missed')
+      + (o.onOpen ? ' pz-result-row--linked' : '');
+
+    if (o.onOpen) {
+      const onOpen = o.onOpen;
+      row.setAttribute('role', 'button');
+      row.tabIndex = 0;
+      row.addEventListener('click', () => onOpen());
+      row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } });
+    }
 
     const dot = document.createElement('span');
     dot.className = 'pz-result-dot';
@@ -1642,6 +1792,12 @@ function reviewedOpeningRows(tally: Map<string, OpeningTally>): HTMLElement[] {
     meta.className = 'pz-result-meta';
     meta.textContent = clean ? 'all remembered' : `${o.incorrect} missed`;
     main.appendChild(meta);
+    if (o.statsLine) {
+      const stats = document.createElement('div');
+      stats.className = 'pz-result-stats';
+      stats.textContent = o.statsLine;
+      main.appendChild(stats);
+    }
     row.appendChild(main);
 
     const tallyEl = document.createElement('span');
@@ -1649,8 +1805,109 @@ function reviewedOpeningRows(tally: Map<string, OpeningTally>): HTMLElement[] {
     tallyEl.textContent = `${o.correct}/${total}`;
     row.appendChild(tallyEl);
 
+    if (o.controls) {
+      const { onNote, onTurnOff, onEdit } = o.controls;
+      const controls = document.createElement('div');
+      controls.className = 'pz-result-controls';
+
+      const stop = (e: Event): void => e.stopPropagation();
+      controls.addEventListener('click', stop);
+
+      const noteBtn = resultControlBtn(Icons.note(16), 'Add note', onNote);
+      controls.appendChild(noteBtn);
+
+      const turnOffBtn = resultControlBtn(Icons.toggleOff(16), 'Turn off', () => {
+        onTurnOff();
+        turnOffBtn.disabled = true;
+        noteBtn.disabled = true;
+        editBtn.disabled = true;
+        row.classList.add('pz-result-row--offline');
+      });
+      controls.appendChild(turnOffBtn);
+
+      const editBtn = resultControlBtn(Icons.pencil(16), 'Edit', onEdit);
+      controls.appendChild(editBtn);
+
+      row.appendChild(controls);
+    }
+
     return row;
   });
+}
+
+function resultControlBtn(icon: SVGElement, label: string, onClick: () => void): HTMLButtonElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'pz-result-control';
+  btn.setAttribute('aria-label', label);
+  btn.title = label;
+  btn.appendChild(icon);
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+
+// A minimal, self-contained note editor for a specific line's move — used by
+// the results screen's timed-mode row controls, where the move being noted
+// isn't the currently-open builder line. Mirrors the builder's own note sheet
+// (main.ts openNoteSheet) but writes straight to the given line/node pair.
+function openQuickNoteSheet(line: Line, node: MoveNode): void {
+  const overlay = document.createElement('div');
+  overlay.className = 'edit-overlay';
+  const sheet = document.createElement('div');
+  sheet.className = 'edit-sheet';
+
+  const h = document.createElement('h3');
+  h.className = 'edit-sheet-title';
+  h.textContent = `Note for ${formatMove(node.san)}`;
+  sheet.appendChild(h);
+
+  const textarea = document.createElement('textarea');
+  textarea.className = 'prompt-sheet-textarea';
+  textarea.rows = 3;
+  textarea.value = node.note ?? '';
+  textarea.placeholder = 'Reminder or plan for this move…';
+  sheet.appendChild(textarea);
+
+  const btnRow = document.createElement('div');
+  btnRow.className = 'dialog-btn-row';
+
+  let closed = false;
+  const close = (): void => {
+    if (closed) return;
+    closed = true;
+    overlay.remove();
+    removeBack();
+  };
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'dialog-btn btn-secondary';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', () => close());
+
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.className = 'dialog-btn btn-primary';
+  saveBtn.textContent = 'Save';
+  saveBtn.addEventListener('click', () => {
+    const value = textarea.value.trim();
+    node.note = value ? value : undefined;
+    close();
+    void saveLine(line);
+    showToast('Note saved ✓');
+  });
+
+  btnRow.appendChild(cancelBtn);
+  btnRow.appendChild(saveBtn);
+  sheet.appendChild(btnRow);
+
+  const removeBack = pushBack(() => close());
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+
+  overlay.appendChild(sheet);
+  document.body.appendChild(overlay);
+  textarea.focus();
+  textarea.setSelectionRange(textarea.value.length, textarea.value.length);
 }
 
 // ── Round-complete panel ─────────────────────────────────────────────────────
@@ -1893,9 +2150,12 @@ function runTimed(container: HTMLElement, allLines: Line[], minutes: TimedMinute
   const positions = selectTimedPositions(clones, { max: 80 });
   if (positions.length === 0) { void doRender(container); return; }
 
-  // Map each quizzed move back to its opening, so the recap can group by opening.
-  const openingByLineId = new Map(clones.map(c => [c.id, c.openingName || c.name]));
-  const nodeOpening = new Map(positions.map(p => [p.expected, openingByLineId.get(p.lineId) ?? 'Untitled']));
+  // Map each quizzed move back to its line — used for the recap's opening
+  // name, its link back to the position, and its Add note/Turn off/Edit
+  // controls. Timed mode never grades (it's a scored sprint, not spaced
+  // repetition), so a position's review here is whatever it already was.
+  const cloneById = new Map(clones.map(c => [c.id, c]));
+  const lineByNode = new Map(positions.map(p => [p.expected, cloneById.get(p.lineId)!]));
 
   const mistakes: Mistake[] = [];
   const mistakeKeys = new Set<string>();
@@ -1919,7 +2179,24 @@ function runTimed(container: HTMLElement, allLines: Line[], minutes: TimedMinute
           wrong++;
           addMistake(mistakes, mistakeKeys, pos.preFen, pos.expected);
         }
-        bumpOpening(openings, nodeOpening.get(pos.expected) ?? 'Untitled', ok ? 1 : 0, ok ? 0 : 1);
+        const line = lineByNode.get(pos.expected);
+        bumpOpening(
+          openings, line ? `${line.id}:${pos.expected.id}` : pos.expected.id,
+          line ? (line.openingName || line.name) : 'Untitled',
+          ok ? 1 : 0, ok ? 0 : 1,
+          line ? {
+            onOpen: () => onViewLine?.(line, pos.preFen),
+            statsLine: reviewStatsLine(pos.expected.review),
+            controls: {
+              onNote: () => openQuickNoteSheet(line, pos.expected),
+              onTurnOff: () => {
+                void saveLine({ ...line, inTraining: false });
+                showToast('Line turned off, continue training');
+              },
+              onEdit: () => onViewLine?.(line, pos.preFen),
+            },
+          } : undefined,
+        );
       },
       onComplete: () => renderTimedComplete(container, allLines, minutes, correct, wrong, mistakes, openings),
       onCancel: () => void doRender(container),

@@ -9,14 +9,16 @@ import { currentStreak } from './streak';
 import { Icons } from './icons';
 
 export const DAILY_LINE_GOAL = 3;
-export const DAILY_PUZZLE_GOAL = 5;
+export const DAILY_PUZZLE_GOAL = 3;
+export const DAILY_POSITION_GOAL = 3;
 
 const KEY = 'obertura.dailyChallenge';
 
 interface DailyState {
   day: string;        // "YYYY-MM-DD" local
-  lines: boolean;     // the lines half is done
-  puzzles: boolean;   // the puzzles half is done
+  lines: boolean;     // the lines third is done
+  puzzles: boolean;   // the puzzles third is done
+  positions: boolean; // the positions third is done
 }
 
 function todayKey(d: Date = new Date()): string {
@@ -27,14 +29,14 @@ function todayKey(d: Date = new Date()): string {
 }
 
 function load(): DailyState {
-  const fresh: DailyState = { day: todayKey(), lines: false, puzzles: false };
+  const fresh: DailyState = { day: todayKey(), lines: false, puzzles: false, positions: false };
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return fresh;
     const obj = JSON.parse(raw) as Partial<DailyState>;
     // A new day wipes the slate — yesterday's done state never carries over.
     if (obj.day !== fresh.day) return fresh;
-    return { day: fresh.day, lines: !!obj.lines, puzzles: !!obj.puzzles };
+    return { day: fresh.day, lines: !!obj.lines, puzzles: !!obj.puzzles, positions: !!obj.positions };
   } catch {
     return fresh;
   }
@@ -64,9 +66,15 @@ export function markPuzzlesDone(): void {
   save(s);
 }
 
+export function markPositionsDone(): void {
+  const s = load();
+  s.positions = true;
+  save(s);
+}
+
 export function isDailyDone(): boolean {
   const s = load();
-  return s.lines && s.puzzles;
+  return s.lines && s.puzzles && s.positions;
 }
 
 // Today's three lines: due ones first, then topped up with the newest and then the
@@ -91,10 +99,12 @@ export function pickDailyLines(allLines: Line[], goal = DAILY_LINE_GOAL): Line[]
 }
 
 export interface DailyChallengeDeps {
-  // The lines to drill for today's lines half (already picked), or [] when none.
+  // The lines to drill for today's lines third (already picked), or [] when none.
   lines: Line[];
   onTrainLines: (lines: Line[]) => void;
   onSolvePuzzles: () => void;
+  // Drill today's few individual positions to refresh (due moves, not whole lines).
+  onRefreshPositions: () => void;
 }
 
 // Build the daily-challenge card. Returns null when there's nothing to offer (no
@@ -103,7 +113,7 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
   if (deps.lines.length === 0) return null;
 
   const state = getDaily();
-  const done = state.lines && state.puzzles;
+  const done = state.lines && state.puzzles && state.positions;
 
   const card = document.createElement('div');
   card.className = 'card daily-card' + (done ? ' daily-card--done' : '');
@@ -133,6 +143,12 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
     label: `${DAILY_LINE_GOAL} lines to remember`,
     done: state.lines,
     onClick: () => deps.onTrainLines(deps.lines),
+  }));
+  tasks.appendChild(buildTask({
+    icon: Icons.target(18),
+    label: `${DAILY_POSITION_GOAL} positions to refresh`,
+    done: state.positions,
+    onClick: () => deps.onRefreshPositions(),
   }));
   tasks.appendChild(buildTask({
     icon: Icons.puzzlePiece(18),

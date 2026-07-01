@@ -14,7 +14,7 @@ import type { Line } from './types';
 import { renderLinesScreen, focusSavedLine } from './lines-screen';
 import { renderProgressScreen } from './progress-screen';
 import { startPretrainingRun, enrolLineDirectly } from './pretraining';
-import { renderTrainScreen, startLineSession } from './train-screen';
+import { renderTrainScreen, startLineSession, startPositionsSession } from './train-screen';
 import { renderExploreScreen } from './explore-screen';
 import { renderPuzzlesScreen, startDailyPuzzles } from './puzzles-screen';
 import {
@@ -22,7 +22,9 @@ import {
   pickDailyLines,
   markLinesDone,
   markPuzzlesDone,
+  markPositionsDone,
   DAILY_PUZZLE_GOAL,
+  DAILY_POSITION_GOAL,
 } from './daily-challenge';
 import { renderMyGamesScreen, formatGameDate } from './my-games-screen';
 import { opponentTag } from './scout';
@@ -476,15 +478,16 @@ function setupMoveNav(): void {
   document.getElementById('move-next')!.addEventListener('click', stepForward);
 }
 
-// The bar's import icon (next to Flip): open the "Import a game" popup — last
-// game / browse recent / paste PGN — and load whatever's chosen onto the board.
-// Imports now live on the My games tab (see openMyGamesImport); the builder's own
-// import icon was removed.
-function openMyGamesImport(): void {
+// The My games tab's import icon: open the "Import a game" popup — last game /
+// browse recent / paste PGN / add manually — and load whatever's chosen onto
+// the board (or, for a manual add, save it straight to My games and call
+// onManualAdd so the still-visible list refreshes).
+function openMyGamesImport(onManualAdd?: () => void): void {
   openBuilderImport({
     onLoadGame: (ucis, colour, description, gameId, endTime) =>
       openImportedGame(ucis, colour, description, gameId, endTime),
     onGamesChanged: () => { builderPanels?.reload(); },
+    onManualAdd,
   });
 }
 
@@ -1258,6 +1261,11 @@ let loadedLineInTraining = false;
 // schedule, inTraining) when re-saving an existing line.
 let currentTrainingLine: Line | null = null;
 
+// The uci path "Save line" (analyser) last saved a new line for, so tapping it
+// again at the same unchanged position doesn't create a duplicate. Reset
+// whenever the builder loads a different game/line.
+let lastSavedLinePath: string | null = null;
+
 // A snapshot of the builder's state as last saved/loaded, for the unsaved-edits
 // leave guard. null means "fresh line" — dirty as soon as it has any move. We
 // compare a fingerprint of the editable state (name, tags, colour, tree) rather
@@ -1360,6 +1368,11 @@ function updateSaveButtonLabel(): void {
   const saveLineBtn = document.getElementById('save-line-btn');
   if (saveLineBtn) saveLineBtn.hidden = builderMode !== 'analyser';
 
+  // Renaming a repertoire line makes sense in builder mode; renaming a game's
+  // extracted-line title in the analyser doesn't, so it's builder-only.
+  const renameBtn = document.getElementById('rename-btn');
+  if (renameBtn) renameBtn.hidden = builderMode === 'analyser';
+
   // Delete sits at the foot of the Line panel: removes the saved game (analyser)
   // or the saved line (builder). Hidden for a brand-new, never-saved line — there
   // is nothing to delete yet.
@@ -1370,6 +1383,40 @@ function updateSaveButtonLabel(): void {
     const lbl = deleteBtn.querySelector('.line-delete-label');
     if (lbl) lbl.textContent = builderMode === 'analyser' ? 'Delete game' : 'Delete line';
   }
+
+  // Training toggle sits next to Delete: builder mode only (a game has no
+  // inTraining concept) and only for a line that's been saved at least once —
+  // there's nothing to schedule before that.
+  const trainingToggle = document.getElementById('line-training-toggle');
+  if (trainingToggle) {
+    trainingToggle.hidden = !(builderMode === 'builder' && !!loadedLineId);
+    applyLineTrainingToggleState();
+  }
+}
+
+// Reflect loadedLineInTraining onto the switch's visual state (on/off colour,
+// knob position, label text).
+function applyLineTrainingToggleState(): void {
+  const btn = document.getElementById('line-training-toggle');
+  if (!btn) return;
+  btn.classList.toggle('dline-toggle--on', loadedLineInTraining);
+  btn.setAttribute('aria-checked', String(loadedLineInTraining));
+  const lbl = btn.querySelector('.dline-toggle-label');
+  if (lbl) lbl.textContent = `Training ${loadedLineInTraining ? 'ON' : 'OFF'}`;
+}
+
+// Flip inTraining on the loaded, saved line immediately — no need to hit
+// header Save first. Mirrors the same on/off switch used in My Lines
+// (lines-screen.ts); only reachable when a saved line is loaded (see the
+// visibility guard in updateSaveButtonLabel above).
+async function toggleLineTraining(): Promise<void> {
+  if (!currentTrainingLine || !loadedLineId) return;
+  const next = !loadedLineInTraining;
+  const line = { ...currentTrainingLine, inTraining: next };
+  await saveLine(line);
+  currentTrainingLine = line;
+  loadedLineInTraining = next;
+  applyLineTrainingToggleState();
 }
 
 // The Line-panel delete control: confirm, then remove the saved game (analyser
@@ -1454,6 +1501,7 @@ function clearBuilder(colour: 'white' | 'black' = 'white'): void {
   loadedLineCreatedAt = undefined;
   loadedLineInTraining = false;
   currentTrainingLine = null;
+  lastSavedLinePath = null;
   currentTags = [];
   saveColour = colour;
   // Fresh, empty line — no snapshot, so it only counts as dirty once a move lands.
@@ -1662,14 +1710,15 @@ async function buildFabActions(): Promise<FabItem[]> {
 }
 
 // FAB "Import last game": fetch the newest game from the connected account, file
-// it with my games (deduped), and open it on the board to save as a line.
+// it with my games (deduped, done inside importLastGame), and open it straight
+// into Game Review — the same auto-analysing entry point a My Games import uses
+// — rather than the plain empty-board builder.
 async function runImportLastGame(): Promise<void> {
   showToast('Fetching your last game…');
   try {
     const game = await importLastGame();
     if (!game) { showToast('No recent game found to import.'); return; }
-    // Surface who the game was against, mirroring scouting's "vs <name>".
-    buildFromUcis(game.ucis, game.colour, [], { description: `vs ${game.opponent}` });
+    openImportedGame(game.ucis, game.colour, `vs ${game.opponent}`, game.id, game.endTime);
   } catch {
     showToast('Couldn’t reach your account — check your connection.');
   }
@@ -1854,10 +1903,18 @@ function renderTrainTabbed(host: HTMLElement): void {
     const card = renderDailyChallenge({
       lines: pickDailyLines(allLines),
       onTrainLines: (lines) => {
-        // Drill today's lines on the Openings pane; mark the half done when the
+        // Drill today's lines on the Openings pane; mark that third done when the
         // whole sitting finishes, then refresh the card behind the overlay.
         if (trainTab !== 'openings') { trainTab = 'openings'; paint(); }
         startLineSession(lines, openingsPane, () => { markLinesDone(); void renderDaily(); });
+      },
+      onRefreshPositions: () => {
+        // Same pane, but a stream of single due positions rather than whole lines.
+        if (trainTab !== 'openings') { trainTab = 'openings'; paint(); }
+        startPositionsSession(allLines, openingsPane, DAILY_POSITION_GOAL, () => {
+          markPositionsDone();
+          void renderDaily();
+        });
       },
       onSolvePuzzles: () => {
         void startDailyPuzzles(DAILY_PUZZLE_GOAL, () => { markPuzzlesDone(); void renderDaily(); });
@@ -1960,7 +2017,7 @@ function showView(view: ViewName): void {
 
   if (view === 'games') {
     void renderMyGamesScreen(gamesEl, {
-      onImport: openMyGamesImport,
+      onImport: () => openMyGamesImport(() => showView('games')),
       onOpenGame: (g) => openGameForAnalysis(g),
     });
   }
@@ -2302,16 +2359,38 @@ async function saveGame(): Promise<void> {
 async function saveLineFromCurrentPath(): Promise<void> {
   const ucis = pathTo(getCurrentNode().id).map(n => n.uci);
   if (!ucis.length) { showToast('Step to a move first'); return; }
+  const path = ucis.join(',');
+
+  // Tapping Save line again at the exact same, unchanged position would create
+  // a genuine duplicate (lineFromUcis always mints a fresh id) — skip it rather
+  // than silently doubling the line.
+  if (path === lastSavedLinePath) {
+    showToast('Already saved ✓');
+    return;
+  }
+
+  const saveBtn = document.getElementById('save-line-btn') as HTMLButtonElement | null;
 
   const doSave = async (): Promise<void> => {
-    const line = lineFromUcis(ucis, saveColour);
-    if (!line) { showToast('Couldn’t build a line here'); return; }
-    await saveLine(line);
-    builderPanels?.reloadLines();
-    // Surface the new line on My Lines (highlighted) so the save is unmistakable,
-    // then bounce back to the game so more lines can be extracted from it.
-    focusSavedLine(line.id);
-    showToast('Saved to My Lines ✓', { variant: 'success' });
+    // In-flight guard: a rapid double-tap can't fire a second save before this
+    // one resolves.
+    if (saveBtn) {
+      if (saveBtn.disabled) return;
+      saveBtn.disabled = true;
+    }
+    try {
+      const line = lineFromUcis(ucis, saveColour);
+      if (!line) { showToast('Couldn’t build a line here'); return; }
+      await saveLine(line);
+      lastSavedLinePath = path;
+      builderPanels?.reloadLines();
+      // Surface the new line on My Lines (highlighted) so the save is unmistakable,
+      // then bounce back to the game so more lines can be extracted from it.
+      focusSavedLine(line.id);
+      showToast('Saved to My Lines ✓', { variant: 'success' });
+    } finally {
+      if (saveBtn) saveBtn.disabled = false;
+    }
   };
 
   // A line is the opening you want to drill, not the whole game. If the cursor is
@@ -2514,6 +2593,9 @@ function setupSaveButton() {
     deleteBtn.appendChild(lbl);
     deleteBtn.addEventListener('click', deleteCurrentLineOrGame);
   }
+  document.getElementById('line-training-toggle')?.addEventListener('click', () => {
+    void toggleLineTraining();
+  });
 }
 
 // ── Playback controls ─────────────────────────────────────────────────────────
