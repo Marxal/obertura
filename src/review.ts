@@ -10,8 +10,9 @@
 
 import { cloudTopMoves, analysePosition, cancelLocalAnalysis, resolveUci } from './engine';
 import type { CloudTopMove, MoveEval } from './engine';
-import { bundledStats } from './explorer-stats';
-import type { ExplorerDb } from './lichess-explorer';
+import { isBookMove } from './book-check';
+import { moveFacts, SEE_MATERIAL_MARGIN } from './move-facts';
+import type { MoveFacts } from './move-facts';
 import { cpToWin, flattenCp, classifyMove } from './winprob';
 import type { MoveClass } from './winprob';
 import type { MoveNode } from './tree';
@@ -36,6 +37,9 @@ export interface GradeArgs {
   // or the negated child eval). When null, gradeMove tries the parent list.
   playedCp: number | null;
   inBook: boolean;
+  // Board facts (forced? recapture? sacrifice?) from move-facts.ts. Optional so
+  // the classifier degrades gracefully when a caller can't supply them.
+  facts?: MoveFacts | null;
 }
 
 // Grade one move from already-fetched evals. Pure → unit-tested. Returns null
@@ -61,11 +65,18 @@ export function gradeMove(a: GradeArgs): { classification: MoveClass; cpLoss: nu
 
   const isBest = a.parentTop[0].uci === a.playedUci;
 
+  const seeNet = a.facts?.seeNet ?? null;
   const classification = classifyMove({
     isBest,
     inBook: a.inBook,
     winLoss,
     secondBestGap,
+    onlyMove: a.facts?.onlyMove,
+    trivialRecapture: a.facts?.trivialRecapture,
+    sacrifice: seeNet !== null && seeNet <= -SEE_MATERIAL_MARGIN,
+    freeCapture: seeNet !== null && seeNet >= SEE_MATERIAL_MARGIN,
+    playedWin,
+    bestWin,
   });
   return { classification, cpLoss: Math.max(0, Math.round(bestCp - playedCp)) };
 }
@@ -101,8 +112,6 @@ export interface ReviewOptions {
   signal?: AbortSignal;
   // Called after each move is graded, so the UI can paint badges incrementally.
   onProgress?: (index: number, node: MoveNode) => void;
-  // Which bundled book to check for "Book" moves. Defaults to the broad lichess one.
-  db?: ExplorerDb;
   // Skip nodes that are already graded (live analysis re-runs): only fill in the
   // gaps, never re-grade. Off (default) grades every node passed in.
   skipGraded?: boolean;
@@ -122,10 +131,17 @@ export async function gradeNode(
   node: MoveNode,
   parentFen: string,
   cache: Map<string, CloudTopMove[] | null>,
-  opts: { useEngineFallback: boolean; db?: ExplorerDb; signal?: AbortSignal },
+  opts: {
+    useEngineFallback: boolean;
+    signal?: AbortSignal;
+    // Every SAN from the game start up to AND INCLUDING this move — the opening
+    // library is line-shaped, so book detection needs the whole path. Without
+    // it, only named positions (transpositions) count as book.
+    sanPath?: string[];
+    // The opponent's previous move, for spotting routine recaptures.
+    prevUci?: string;
+  },
 ): Promise<{ graded: boolean; source: 'cloud' | 'local' | null; hitCloud: boolean }> {
-  const db = opts.db ?? 'lichess';
-
   const parent = await topMovesFor(parentFen, cache, opts.useEngineFallback);
   if (opts.signal?.aborted) return { graded: false, source: parent.source, hitCloud: parent.hitCloud };
   const parentTop = parent.top;
@@ -146,9 +162,10 @@ export async function gradeNode(
     if (c !== null) playedCp = -c; // opponent's best, flipped to our side
   }
 
-  const inBook = (await bundledStats(parentFen, db))?.has(node.uci) ?? false;
+  const inBook = await isBookMove(opts.sanPath ?? [], node.fen);
+  const facts = moveFacts(parentFen, node.uci, opts.prevUci);
 
-  const graded = gradeMove({ parentTop, playedUci: node.uci, playedCp, inBook });
+  const graded = gradeMove({ parentTop, playedUci: node.uci, playedCp, inBook, facts });
   if (graded) {
     node.classification = graded.classification;
     node.cpLoss = graded.cpLoss;
@@ -216,11 +233,13 @@ export async function reviewLine(nodes: MoveNode[], opts: ReviewOptions): Promis
   const onAbort = () => cancelLocalAnalysis();
   opts.signal?.addEventListener('abort', onAbort, { once: true });
   let cloudUses = 0, localUses = 0;
+  const sans: string[] = []; // SAN path from the start, grown as we walk
 
   try {
     for (let i = 0; i < nodes.length; i++) {
       if (opts.signal?.aborted) break;
       const node = nodes[i];
+      sans.push(node.san);
 
       // Live re-runs only fill the gaps — a node we've already graded just
       // advances the progress bar.
@@ -230,7 +249,11 @@ export async function reviewLine(nodes: MoveNode[], opts: ReviewOptions): Promis
       }
 
       const parentFen = i === 0 ? START_FEN : nodes[i - 1].fen;
-      const r = await gradeNode(node, parentFen, cache, opts);
+      const r = await gradeNode(node, parentFen, cache, {
+        ...opts,
+        sanPath: sans,
+        prevUci: i > 0 ? nodes[i - 1].uci : undefined,
+      });
       if (opts.signal?.aborted) break;
       if (r.source === 'cloud') cloudUses++;
       else if (r.source === 'local') localUses++;

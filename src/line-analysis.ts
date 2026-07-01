@@ -9,6 +9,7 @@
 import type { MoveNode } from './tree';
 import type { MoveClass } from './winprob';
 import { classIcon, CLASS_LABEL, CLASS_COLOR } from './icons';
+import { gameAccuracy } from './accuracy';
 import type { ReviewSummary } from './review';
 
 export interface LineAnalysisOpts {
@@ -20,12 +21,12 @@ export interface LineAnalysisOpts {
 // Grades in display order, best → worst. The summary table and the graph legend
 // both walk this, so a column never jumps around between games.
 const ORDER: MoveClass[] = [
-  'great', 'best', 'excellent', 'good', 'book', 'inaccuracy', 'mistake', 'blunder',
+  'brilliant', 'great', 'best', 'excellent', 'good', 'book', 'inaccuracy', 'mistake', 'blunder',
 ];
 
-// Only dramatic swings get a dot on the graph (item 5: "only blunders and great
-// moves"), so the curve stays readable.
-const KEY_MOMENTS = new Set<MoveClass>(['blunder', 'great']);
+// Only dramatic swings get a dot on the graph (blunders and the brilliant/great
+// finds), so the curve stays readable.
+const KEY_MOMENTS = new Set<MoveClass>(['blunder', 'great', 'brilliant']);
 
 const ENGINE_LABEL: Record<ReviewSummary['engine'], string> = {
   lichess: 'Lichess cloud (Stockfish)',
@@ -158,6 +159,17 @@ function buildSummary(nodes: MoveNode[], opts: LineAnalysisOpts): HTMLElement {
   table.appendChild(cell('la-cell la-corner'));
   table.appendChild(cell('la-cell la-player', opts.whiteName));
   table.appendChild(cell('la-cell la-player', opts.blackName));
+
+  // Accuracy row (Lichess model, computed from the stored evals) — first, so
+  // the headline number sits right under each player's name.
+  const acc = gameAccuracy(nodes.map(n => n.evalCp));
+  if (acc.white !== null || acc.black !== null) {
+    table.appendChild(cell('la-cell la-grade la-accuracy-label', 'Accuracy'));
+    const accCell = (v: number | null): HTMLElement =>
+      cell('la-cell la-count la-accuracy', v === null ? '—' : v.toFixed(1));
+    table.appendChild(accCell(acc.white));
+    table.appendChild(accCell(acc.black));
+  }
 
   // One row per grade: icon + name, then each player's count.
   for (const c of rows) {

@@ -47,7 +47,7 @@ import { showOnboardingWizard, wizardStepPending } from './onboarding-wizard';
 import { maybeAutoRefreshGames } from './auto-refresh';
 import { maybeShowGate } from './gate';
 import { showToast } from './toast';
-import { Icons, classBoardSvg, classIcon, CLASS_LABEL } from './icons';
+import { Icons, classBoardSvg, CLASS_LABEL } from './icons';
 import { mountFab, type FabItem, type FabController } from './fab';
 import { importLastGame, hasConnectedAccount, connectedAccount } from './import-last';
 import { openBuilderImport } from './builder-import';
@@ -326,14 +326,13 @@ function moveSpan(node: MoveNode, activeId: string): HTMLElement {
   span.className = `move-san${node.id === activeId ? ' active' : ''}`;
   span.addEventListener('click', () => handleMoveClick(node.id));
   span.textContent = formatMove(node.san);
-  // Game-review / live-analysis grade in the notation: the class colour tint
-  // PLUS the little Chess.com-style badge glyph after the SAN, so the move list
-  // shows what each move was graded as without having to step onto its square.
+  // Game-review / live-analysis grade in the notation: just the class colour
+  // tint (no badge glyph — icons in the strip made the moves read too far
+  // apart; the badge still shows on the board square and in the summary table).
   // The error moves keep a stronger wash so mistakes still stand out.
   if (node.classification && getShowMoveClassifications()) {
     span.classList.add(`class--${node.classification}`);
     span.title = CLASS_LABEL[node.classification];
-    span.appendChild(classIcon(node.classification, 13));
   }
   if (node.annotation) {
     const chip = document.createElement('span');
@@ -656,7 +655,15 @@ async function runReviewPass(): Promise<void> {
 async function gradeLiveMove(node: MoveNode, parentFen: string): Promise<void> {
   if (!liveAnalysis || node.classification) return;
   try {
-    const r = await gradeNode(node, parentFen, liveCache, { useEngineFallback: true });
+    // The SAN path from the start (pathTo excludes the root, so the last entry
+    // is this move) — book detection is line-shaped, and the previous move
+    // feeds the recapture check.
+    const path = pathTo(node.id);
+    const r = await gradeNode(node, parentFen, liveCache, {
+      useEngineFallback: true,
+      sanPath: path.map(n => n.san),
+      prevUci: path.length > 1 ? path[path.length - 2].uci : undefined,
+    });
     if (!r.graded) return;
     builderEngine = mergeReviewEngine(
       builderEngine,

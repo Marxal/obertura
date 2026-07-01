@@ -99,6 +99,7 @@ export const Icons = {
 // "book" carries no text symbol — it's drawn as a little book glyph (see
 // classGlyphMarkup), so its entry here is unused but kept for completeness.
 const CLASS_SYMBOL: Record<MoveClass, string> = {
+  brilliant: '!!',
   great: '!',
   best: '★',
   excellent: '✓',
@@ -110,13 +111,15 @@ const CLASS_SYMBOL: Record<MoveClass, string> = {
 };
 
 // Two distinct greens for the quality moves: best is a vivid green, good a
-// clearly less-saturated one, with excellent sitting between them. Book is a
-// warm brown (opening theory). Keep these in sync with style.css.
+// clearly muted, desaturated one, with excellent sitting between them.
+// Brilliant is teal (set apart from great's steel blue), book a warm brown
+// (opening theory). Keep these in sync with style.css.
 export const CLASS_COLOR: Record<MoveClass, string> = {
+  brilliant: '#1d9e8f',
   great: '#5c8bb0',
   best: '#5a9e3f',
   excellent: '#7fb05f',
-  good: '#a6c08a',
+  good: '#a9b28f',
   book: '#9c7248',
   inaccuracy: '#e6b23a',
   mistake: '#e0822f',
@@ -124,6 +127,7 @@ export const CLASS_COLOR: Record<MoveClass, string> = {
 };
 
 export const CLASS_LABEL: Record<MoveClass, string> = {
+  brilliant: 'Brilliant',
   great: 'Great move',
   best: 'Best move',
   excellent: 'Excellent',

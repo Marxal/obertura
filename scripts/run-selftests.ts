@@ -22,6 +22,8 @@ import { runPuzzlesSelfTest } from '../src/puzzles.selftest';
 import { runPuzzleRatingSelfTest } from '../src/puzzle-rating.selftest';
 import { runWinprobSelfTest } from '../src/winprob.selftest';
 import { runReviewSelfTest } from '../src/review.selftest';
+import { runMoveFactsSelfTest } from '../src/move-facts.selftest';
+import { runAccuracySelfTest } from '../src/accuracy.selftest';
 
 interface TestResult { name: string; pass: boolean; detail: string }
 
@@ -42,6 +44,8 @@ const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'puzzle-rating', run: runPuzzleRatingSelfTest },
   { suite: 'winprob', run: runWinprobSelfTest },
   { suite: 'review', run: runReviewSelfTest },
+  { suite: 'move-facts', run: runMoveFactsSelfTest },
+  { suite: 'accuracy', run: runAccuracySelfTest },
 ];
 
 let total = 0;

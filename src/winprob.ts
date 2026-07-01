@@ -12,15 +12,18 @@
 // (positive = good for the side that is about to move). The reviewer (review.ts)
 // is responsible for getting evals into that perspective before calling in.
 
-// The eight classes, strongest to worst (book sits outside the quality axis).
-// "Brilliant" and "forced" were removed deliberately: the brilliant detector
-// fired too randomly to trust, and "forced" added noise without teaching much.
+// The classes, strongest to worst (book sits outside the quality axis).
+// "Brilliant" is back, but on a much stricter basis than the old detector that
+// fired randomly: it now requires a genuine material sacrifice (a chess.js
+// exchange check in move-facts.ts) on top of being the engine's #1 — so it
+// errs toward missing a quiet brilliancy rather than inventing one.
 export type MoveClass =
+  | 'brilliant'   // a sound material sacrifice, and the engine's #1 (!!)
   | 'great'       // the one strong move in a sharp spot (!)
   | 'best'        // the engine's #1 move
   | 'excellent'   // not #1, but essentially as good
   | 'good'        // a small, harmless inaccuracy in eval
-  | 'book'        // known opening theory (from the bundled book)
+  | 'book'        // known opening theory (from the bundled openings library)
   | 'inaccuracy'  // a noticeable slip (?!)
   | 'mistake'     // a real error (?)
   | 'blunder';    // a serious error (??)
@@ -38,9 +41,16 @@ const MISTAKE_MAX = 0.20;     // < 20% → mistake, ≥ 20% → blunder
 const BOOK_MAX_LOSS = 0.10;
 
 // "Great": the best move is clearly ahead of the rest — the one move that holds
-// or wins a sharp position. (No "forced" band any more; a wide gap just reads
-// as a great find when the player makes it.)
-const GREAT_GAP = 0.10;
+// or wins a sharp position. Kept honest by the exclusions in classifyMove:
+// forced moves, routine recaptures and simply taking hung material all have a
+// big gap without being a find.
+const GREAT_GAP = 0.12;
+
+// "Brilliant": a real sacrifice that works. The mover must still be OK after
+// the move (not sacrificing while lost) and must not have been completely
+// winning already (a sac when totally winning isn't daring, it's showing off).
+const BRILLIANT_MIN_WIN_AFTER = 0.45;
+const BRILLIANT_MAX_WIN_BEFORE = 0.90;
 
 // Logistic centipawn → win% for the side to move. The constant is Lichess's
 // accuracy-model fit; cp is clamped implicitly by the mate sentinels below, so
@@ -62,19 +72,43 @@ export function flattenCp(e: { cp?: number; mate?: number }): number | null {
 
 export interface ClassifyInput {
   isBest: boolean;          // the played move is the engine's #1
-  inBook: boolean;          // present in the bundled opening book at this position
+  inBook: boolean;          // the move follows the bundled openings library
   winLoss: number;          // 0..1 expected-points drop vs the best move
   secondBestGap: number;    // win% the best move leads the 2nd best by (≥ 0)
+  // Board facts from move-facts.ts (optional — absent means "unknown", which
+  // disables the grades that depend on them rather than mis-firing).
+  onlyMove?: boolean;         // the mover had exactly one legal move
+  trivialRecapture?: boolean; // a capture on the square the opponent just moved to
+  freeCapture?: boolean;      // just taking hung material (exchange clearly wins)
+  sacrifice?: boolean;        // the move genuinely gives up material
+  playedWin?: number;         // mover win% after the played move (0..1)
+  bestWin?: number;           // mover win% of the best move (0..1)
 }
 
 // The grade. First match wins, so order encodes priority.
 export function classifyMove(i: ClassifyInput): MoveClass {
-  // Great: the standout move in a sharp position — best, and clearly ahead of
-  // every alternative. Only when the player actually found it (isBest).
-  if (i.isBest && i.secondBestGap >= GREAT_GAP) return 'great';
-
-  // Book theory — but never let "book" hide a genuine error.
+  // Book theory first — an opening-library move is theory, not a "find", even
+  // when it's also the engine's standout (or a known trap sacrifice). But never
+  // let "book" hide a genuine error in this exact position.
   if (i.inBook && i.winLoss < BOOK_MAX_LOSS) return 'book';
+
+  // Brilliant: the engine's #1 AND a real material sacrifice that keeps the
+  // mover OK — checked before "great" because a sound sac usually also carries
+  // a wide gap. Forced sacs don't count: there was nothing to find.
+  if (
+    i.isBest && i.sacrifice && !i.onlyMove &&
+    (i.playedWin ?? 0) >= BRILLIANT_MIN_WIN_AFTER &&
+    (i.bestWin ?? 1) <= BRILLIANT_MAX_WIN_BEFORE
+  ) return 'brilliant';
+
+  // Great: the standout move in a sharp position — best, and clearly ahead of
+  // every alternative. Excludes the moves that carry a wide gap without being
+  // a find: the only legal move, a routine recapture, or simply taking a piece
+  // the opponent hung.
+  if (
+    i.isBest && i.secondBestGap >= GREAT_GAP &&
+    !i.onlyMove && !i.trivialRecapture && !i.freeCapture
+  ) return 'great';
 
   if (i.isBest) return 'best';
 
