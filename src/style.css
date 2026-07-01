@@ -2947,12 +2947,12 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   background: var(--bg-elevated);
   color: #c93636;
 }
-/* The miniature matches the My Lines cards and carries a thin result border. */
+/* The miniature matches the My Lines cards and carries a result border. */
 .mygames-card-mini {
   flex: 0 0 auto;
   width: clamp(88px, 30vw, 116px);
   border-radius: 7px;
-  border: 2px solid transparent;
+  border: 3px solid transparent;
   box-sizing: border-box;
 }
 .mygames-card-mini--win { border-color: #5a9e3f; }
@@ -3025,10 +3025,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
 }
-.mygames-card-analysed {
-  color: var(--accent);
-  font-weight: 600;
-}
 .mygames-sentinel { height: 1px; }
 
 .mygames-list-wrap { display: block; }
@@ -3040,9 +3036,10 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   color: var(--text-faint);
 }
 
-/* User tags on a card. */
+/* User tags on a card, plus the analysed icon (when present) leading the row. */
 .mygames-card-tags {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 0.25rem;
   margin-top: 0.2rem;
@@ -3052,6 +3049,12 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   padding: 0.05rem 0.4rem;
   border-radius: 999px;
   background: var(--accent-soft);
+  color: var(--accent);
+}
+.mygames-card-analysed {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--accent);
 }
 .mygames-card-chev {
@@ -11543,29 +11546,45 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   margin-top: 0.1rem;
 }
 
-/* Timed-mode-only row controls: Add note / Turn off / Edit. */
-.pz-result-controls {
-  flex: none;
+/* Position-peek popup (openPositionPeek, train-screen.ts): a view-only board
+   at the tapped row's position, plus whichever of Hint/Add note/Turn off
+   apply, and an Edit button that's the only thing that leaves for the
+   Board Builder. */
+.peek-sheet {
   display: flex;
-  gap: 0.1rem;
+  flex-direction: column;
+  gap: 0.75rem;
 }
-.pz-result-control {
-  display: inline-flex;
-  align-items: center;
+.peek-board {
+  width: 100%;
+  max-width: 280px;
+  margin: 0 auto;
+  aspect-ratio: 1 / 1;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.peek-actions {
+  display: flex;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  gap: 0.4rem;
+}
+.peek-action {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  flex: 1 1 0;
+  padding: 0.5rem 0.3rem;
   border: none;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--text-faint);
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.72rem;
   cursor: pointer;
 }
-.pz-result-control:active { background: var(--bg-elevated); }
-.pz-result-control:disabled { opacity: 0.4; cursor: default; }
-
-/* After "Turn off" succeeds, the row reads as no-longer-active. */
-.pz-result-row--offline { opacity: 0.6; }
+.peek-action:active { filter: brightness(0.96); }
+.peek-action:disabled { opacity: 0.5; cursor: default; }
 
 /* Statistics: the big puzzle-rating number above its trend line. */
 .pz-rating-stat {
