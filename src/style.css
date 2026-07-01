@@ -1640,7 +1640,9 @@ cg-board square.move-dest.oc {
 
 .move-num {
   color: var(--text-faint);
-  margin: 0 0.1em 0 0.25em;
+  /* No gap after the number — it hugs its move so each "12. Nf3" reads as one
+     unit; the small left margin separates it from the previous move instead. */
+  margin: 0 0 0 0.2em;
   user-select: none;
 }
 
@@ -1650,7 +1652,7 @@ cg-board square.move-dest.oc {
 
 .move-san {
   cursor: pointer;
-  padding: 0.1em 0.35em;
+  padding: 0.1em 0.25em;
   border-radius: 3px;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.12s;
@@ -2031,14 +2033,12 @@ cg-board square.move-dest.oc {
 .class-badge { vertical-align: middle; }
 .class-badge circle { fill: currentColor; }
 .class-badge text { fill: #fff; }
-/* The badge sits just after the SAN in the move strip — a hair of breathing
-   room and a baseline nudge so the disc lines up with the move text. */
-.move-san .class-badge { margin-left: 4px; vertical-align: -2px; }
 
+.class-badge--brilliant { color: #1d9e8f; }
 .class-badge--great     { color: #5c8bb0; }
 .class-badge--best      { color: #5a9e3f; }
 .class-badge--excellent { color: #7fb05f; }
-.class-badge--good      { color: #a6c08a; }
+.class-badge--good      { color: #a9b28f; }
 .class-badge--book      { color: #9c7248; }
 .class-badge--inaccuracy{ color: #e6b23a; }
 .class-badge--mistake   { color: #e0822f; }
@@ -2046,13 +2046,14 @@ cg-board square.move-dest.oc {
 
 /* Notation markers — every graded move is tinted in its class colour (text +
    faint wash), and only when it isn't the active (accent) move so the selection
-   keeps its strong highlight. The grade badge glyph is appended alongside (see
-   .move-san .class-badge). The error moves carry a stronger wash so mistakes
-   and blunders still jump out of the list. */
+   keeps its strong highlight. No badge glyphs in the list — colour only, so the
+   moves stay tight. Brilliant and the error moves carry more weight/wash so the
+   moments that matter still jump out. */
+.move-san.class--brilliant:not(.active)  { color: #177f73; font-weight: 600; background: color-mix(in srgb, #1d9e8f 16%, transparent); }
 .move-san.class--great:not(.active)      { color: #4d7a9c; background: color-mix(in srgb, #5c8bb0 14%, transparent); }
 .move-san.class--best:not(.active)       { color: #4f8a37; background: color-mix(in srgb, #5a9e3f 14%, transparent); }
 .move-san.class--excellent:not(.active)  { color: #5f9142; background: color-mix(in srgb, #7fb05f 14%, transparent); }
-.move-san.class--good:not(.active)       { color: #6f8a52; background: color-mix(in srgb, #a6c08a 16%, transparent); }
+.move-san.class--good:not(.active)       { color: #7c855f; background: color-mix(in srgb, #a9b28f 16%, transparent); }
 .move-san.class--book:not(.active)       { color: #8a6440; background: color-mix(in srgb, #9c7248 16%, transparent); }
 .move-san.class--inaccuracy:not(.active) {
   color: #b88a1f;
@@ -2071,10 +2072,11 @@ cg-board square.move-dest.oc {
 /* The game-review square wash. Applied to the <square> element underneath the
    pieces (via chessground's custom highlights), so the move's square reads in
    its grade colour while the piece on it keeps its own colour. */
+cg-board square.review-sq--brilliant  { background: color-mix(in srgb, #1d9e8f 48%, transparent); }
 cg-board square.review-sq--great      { background: color-mix(in srgb, #5c8bb0 48%, transparent); }
 cg-board square.review-sq--best       { background: color-mix(in srgb, #5a9e3f 48%, transparent); }
 cg-board square.review-sq--excellent  { background: color-mix(in srgb, #7fb05f 48%, transparent); }
-cg-board square.review-sq--good       { background: color-mix(in srgb, #a6c08a 50%, transparent); }
+cg-board square.review-sq--good       { background: color-mix(in srgb, #a9b28f 50%, transparent); }
 cg-board square.review-sq--book       { background: color-mix(in srgb, #9c7248 48%, transparent); }
 cg-board square.review-sq--inaccuracy { background: color-mix(in srgb, #e6b23a 50%, transparent); }
 cg-board square.review-sq--mistake    { background: color-mix(in srgb, #e0822f 50%, transparent); }
@@ -2094,9 +2096,10 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 /* ── Line-tab analysis (eval graph + move-type summary) ──────────────────────
    Shown only for a reviewed, imported game. */
 .line-analysis {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border, rgba(128, 128, 128, 0.25));
+  /* Sits ABOVE the move list now, so the separator hangs below it. */
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border, rgba(128, 128, 128, 0.25));
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -2169,6 +2172,15 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 .la-count--zero {
   opacity: 0.3;
+}
+/* The accuracy row — the headline number right under each player's name,
+   in the neutral text colour (it isn't a move grade). */
+.la-accuracy-label {
+  font-weight: 600;
+  opacity: 0.75;
+}
+.la-count.la-accuracy {
+  color: var(--text);
 }
 
 /* The review progress bar, pinned across the top of the builder dock. It floats

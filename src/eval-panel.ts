@@ -188,15 +188,18 @@ export class EvalPanel {
 
   // Render a SAN line with move numbers, seeded from the position's fen so the
   // first move gets the right number and "." / "…" for white / black to move.
+  // The number is glued to its move ("1.e4", not "1. e4") so each move reads as
+  // one tight unit, matching the main move list.
   private formatLine(sanLine: string[], fen: string): string {
     const parts = fen.split(' ');
     let moveNo = parseInt(parts[5] ?? '1') || 1;
     let white = (parts[1] ?? 'w') === 'w';
     const out: string[] = [];
     for (let i = 0; i < sanLine.length; i++) {
-      if (white) out.push(`${moveNo}.`);
-      else if (i === 0) out.push(`${moveNo}…`);
-      out.push(formatMove(sanLine[i]));
+      const san = formatMove(sanLine[i]);
+      if (white) out.push(`${moveNo}.${san}`);
+      else if (i === 0) out.push(`${moveNo}…${san}`);
+      else out.push(san);
       if (!white) moveNo++;
       white = !white;
     }

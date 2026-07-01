@@ -47,6 +47,36 @@ export function runReviewSelfTest(): TestResult[] {
   const great = gradeMove({ parentTop: greatTop, playedUci: 'g1f3', playedCp: 40, inBook: false });
   check('standout move played → great', great?.classification === 'great', JSON.stringify(great));
 
+  // Same standout gap, but the board facts say it was just taking a hung piece
+  // (or the only legal reply) → best, not great.
+  const factsBase = { onlyMove: false, trivialRecapture: false, seeNet: 0 };
+  const hung = gradeMove({
+    parentTop: greatTop, playedUci: 'g1f3', playedCp: 40, inBook: false,
+    facts: { ...factsBase, seeNet: 9 },
+  });
+  check('hung-piece grab → best, not great', hung?.classification === 'best', JSON.stringify(hung));
+  const recap = gradeMove({
+    parentTop: greatTop, playedUci: 'g1f3', playedCp: 40, inBook: false,
+    facts: { ...factsBase, trivialRecapture: true },
+  });
+  check('recapture → best, not great', recap?.classification === 'best', JSON.stringify(recap));
+
+  // A genuine sacrifice that keeps a healthy eval → brilliant.
+  const sac = gradeMove({
+    parentTop: [{ uci: 'd3h7', cp: 150 }, { uci: 'a2a3', cp: 60 }],
+    playedUci: 'd3h7', playedCp: 150, inBook: false,
+    facts: { ...factsBase, seeNet: -2 },
+  });
+  check('sound sac → brilliant', sac?.classification === 'brilliant', JSON.stringify(sac));
+
+  // The same sac while dead lost stays a plain best move.
+  const desperado = gradeMove({
+    parentTop: [{ uci: 'd3h7', cp: -400 }, { uci: 'a2a3', cp: -700 }],
+    playedUci: 'd3h7', playedCp: -400, inBook: false,
+    facts: { ...factsBase, seeNet: -2 },
+  });
+  check('sac while losing → best', desperado?.classification === 'best', JSON.stringify(desperado));
+
   // No data → null.
   const none = gradeMove({ parentTop: [], playedUci: 'e2e4', playedCp: 10, inBook: false });
   check('empty top → null', none === null, JSON.stringify(none));

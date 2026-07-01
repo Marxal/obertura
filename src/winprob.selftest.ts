@@ -50,18 +50,71 @@ export function runWinprobSelfTest(): TestResult[] {
     classifyMove({ isBest: true, inBook: true, winLoss: 0, secondBestGap: 0 }) === 'book',
   );
   check(
+    'book beats great (theory is not a find)',
+    classifyMove({ isBest: true, inBook: true, winLoss: 0, secondBestGap: 0.25 }) === 'book',
+  );
+  check(
     'book never hides a blunder',
     classifyMove({ isBest: false, inBook: true, winLoss: 0.30, secondBestGap: 0 }) === 'blunder',
   );
 
   // ── great gap ────────────────────────────────────────────────────────────────
+  const greatBase = { isBest: true, inBook: false, winLoss: 0, secondBestGap: 0.12 };
+  check('great move (best, clearly ahead of the rest)', classifyMove(greatBase) === 'great');
   check(
-    'great move (best, clearly ahead of the rest)',
-    classifyMove({ isBest: true, inBook: false, winLoss: 0, secondBestGap: 0.12 }) === 'great',
+    'gap just under the bar → best, not great',
+    classifyMove({ ...greatBase, secondBestGap: 0.11 }) === 'best',
+  );
+  check(
+    'forced move is never great',
+    classifyMove({ ...greatBase, onlyMove: true }) === 'best',
+  );
+  check(
+    'routine recapture is never great',
+    classifyMove({ ...greatBase, trivialRecapture: true }) === 'best',
+  );
+  check(
+    'taking hung material is never great',
+    classifyMove({ ...greatBase, freeCapture: true }) === 'best',
   );
   check(
     'ignoring the standout move is still a real error',
     classifyMove({ isBest: false, inBook: false, winLoss: 0.30, secondBestGap: 0.25 }) === 'blunder',
+  );
+
+  // ── brilliant (sound sacrifice) ──────────────────────────────────────────────
+  const sacBase = {
+    isBest: true, inBook: false, winLoss: 0, secondBestGap: 0,
+    sacrifice: true, playedWin: 0.60, bestWin: 0.60,
+  };
+  check('sound sacrifice → brilliant', classifyMove(sacBase) === 'brilliant');
+  check(
+    'brilliant beats great (sac with a wide gap)',
+    classifyMove({ ...sacBase, secondBestGap: 0.25 }) === 'brilliant',
+  );
+  check(
+    'sac while losing is not brilliant',
+    classifyMove({ ...sacBase, playedWin: 0.30, bestWin: 0.30 }) === 'best',
+  );
+  check(
+    'sac when already crushing is not brilliant',
+    classifyMove({ ...sacBase, playedWin: 0.95, bestWin: 0.95 }) === 'best',
+  );
+  check(
+    'forced sac is not brilliant',
+    classifyMove({ ...sacBase, onlyMove: true }) === 'best',
+  );
+  check(
+    'book sac reads as theory',
+    classifyMove({ ...sacBase, inBook: true }) === 'book',
+  );
+  check(
+    'a sac that is not the top move falls to the bands',
+    classifyMove({ ...sacBase, isBest: false, winLoss: 0.01 }) === 'excellent',
+  );
+  check(
+    'no facts → never brilliant',
+    classifyMove({ isBest: true, inBook: false, winLoss: 0, secondBestGap: 0 }) === 'best',
   );
 
   return results;
