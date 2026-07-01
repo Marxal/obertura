@@ -100,7 +100,13 @@
                 <div id="note-block" class="note-block" hidden>
                   <p id="note-display" class="note-display" hidden></p>
                 </div>
-                <button id="line-delete" class="line-delete" type="button" hidden></button>
+                <div class="line-footer">
+                  <button id="line-training-toggle" type="button" class="dline-toggle" role="switch" aria-checked="false" hidden>
+                    <span class="dline-switch" aria-hidden="true"><span class="dline-switch-knob"></span></span>
+                    <span class="dline-toggle-label">Training OFF</span>
+                  </button>
+                  <button id="line-delete" class="line-delete" type="button" hidden></button>
+                </div>
               </div>
             </section>
             <section class="builder-slide builder-slide--engine" id="slide-engine" aria-label="Engine">

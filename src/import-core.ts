@@ -92,6 +92,9 @@ export interface ImportedGame {
   id: string;
   url: string;
   endTime: number;
+  // Which platform this game was imported from. Absent for manually-added
+  // games (manual-game.ts), which have no source account.
+  platform?: Platform;
   timeClass: TimeClass;
   timeControl: string;
   rated: boolean;
@@ -245,8 +248,10 @@ export async function runImport(
       }
       fetched++;
       const g = parseNormalised(raw, username);
-      if (g) parsed.push(g);
-      else skipped++;
+      if (g) {
+        g.platform = platform;
+        parsed.push(g);
+      } else skipped++;
     }
     if (parsed.length) {
       games.push(...parsed);

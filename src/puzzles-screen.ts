@@ -353,7 +353,7 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
 
     const note = document.createElement('div');
     note.className = 'pz-hero-note';
-    note.textContent = `${DAILY_COUNT} mixed puzzles from your repertoire and games · the only rated run`;
+    note.textContent = `${DAILY_COUNT} puzzles based on your repertoire and games`;
     hero.appendChild(note);
 
     return hero;
