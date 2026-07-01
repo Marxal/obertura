@@ -294,13 +294,6 @@ function gameCard(g: ImportedGame, deps: MyGamesDeps, refresh: () => void): HTML
   badge.textContent = RESULT_LABEL[g.result];
   metaLeft.appendChild(badge);
   metaLeft.appendChild(document.createTextNode(g.timeClass));
-  if (g.analysis) {
-    const tag = document.createElement('span');
-    tag.className = 'mygames-card-analysed';
-    tag.textContent = 'Analysed';
-    metaLeft.appendChild(document.createTextNode(' · '));
-    metaLeft.appendChild(tag);
-  }
   meta.appendChild(metaLeft);
 
   const date = formatGameDateNumeric(g.endTime);
@@ -313,9 +306,17 @@ function gameCard(g: ImportedGame, deps: MyGamesDeps, refresh: () => void): HTML
   text.appendChild(meta);
 
   const cardTags = effectiveTags(g);
-  if (cardTags.length) {
+  if (cardTags.length || g.analysis) {
     const tags = document.createElement('div');
     tags.className = 'mygames-card-tags';
+    if (g.analysis) {
+      const analysedIcon = document.createElement('span');
+      analysedIcon.className = 'mygames-card-analysed';
+      analysedIcon.setAttribute('aria-label', 'Analysed');
+      analysedIcon.title = 'Analysed';
+      analysedIcon.appendChild(Icons.review(14));
+      tags.appendChild(analysedIcon);
+    }
     for (const t of cardTags) {
       tags.appendChild(Object.assign(document.createElement('span'), { className: 'mygames-tag', textContent: t }));
     }

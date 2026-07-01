@@ -1250,7 +1250,17 @@ export function startPositionsSession(
         bumpOpening(
           stats.openings, `${line.id}:${expected.id}`, line.openingName || line.name,
           wasMissed ? 0 : 1, wasMissed ? 1 : 0,
-          { onOpen: () => onViewLine?.(line, pos?.preFen), statsLine: reviewStatsLine(expected.review) },
+          {
+            onOpen: () => openPositionPeek({
+              fen: pos?.preFen ?? expected.fen,
+              orientation: line.colour,
+              hintUci: expected.uci,
+              onNote: () => openQuickNoteSheet(line, expected),
+              onTurnOff: () => { void saveLine({ ...line, inTraining: false }); },
+              onEdit: () => onViewLine?.(line, pos?.preFen),
+            }),
+            statsLine: reviewStatsLine(expected.review),
+          },
         );
         stats.reviewed++;
         if (wasMissed) stats.missed++;
@@ -1477,7 +1487,17 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
           bumpOpening(
             stats.openings, `${line.id}:${expected.id}`, line.openingName || line.name,
             wasMissed ? 0 : 1, wasMissed ? 1 : 0,
-            { onOpen: () => onViewLine?.(line, pos?.preFen), statsLine: reviewStatsLine(expected.review) },
+            {
+              onOpen: () => openPositionPeek({
+                fen: pos?.preFen ?? expected.fen,
+                orientation: line.colour,
+                hintUci: expected.uci,
+                onNote: () => openQuickNoteSheet(line, expected),
+                onTurnOff: () => { void saveLine({ ...line, inTraining: false }); },
+                onEdit: () => onViewLine?.(line, pos?.preFen),
+              }),
+              statsLine: reviewStatsLine(expected.review),
+            },
           );
           stats.reviewed++;
           if (wasMissed) stats.missed++;
@@ -1682,12 +1702,12 @@ function appendStatsRow(
 // "correct/total" tally on the right. Worst-first so the spots needing work lead.
 // Built from a small tally each mode fills as it grades.
 //
-// Every row links back to its position (onOpen) and shows what the scheduler
-// already knows about it (statsLine). Timed-mode rows additionally carry
-// `controls` (Add note / Turn off / Edit) — the other modes only need the row
-// tap itself. Rows are keyed per-line (session-complete) or per-quizzed-move
-// (timed/individual/positions), never merged across different lines sharing an
-// opening name, so onOpen always points at one real position.
+// Every row links back to its position (onOpen — opens the position-peek
+// popup in place, see openPositionPeek below) and shows what the scheduler
+// already knows about it (statsLine). Rows are keyed per-line (session-
+// complete) or per-quizzed-move (timed/individual/positions), never merged
+// across different lines sharing an opening name, so onOpen always points at
+// one real position.
 
 interface OpeningTally {
   name: string;
@@ -1695,7 +1715,6 @@ interface OpeningTally {
   incorrect: number;
   onOpen?: () => void;
   statsLine?: string;
-  controls?: { onNote: () => void; onTurnOff: () => void; onEdit: () => void };
 }
 
 function bumpOpening(
@@ -1704,7 +1723,7 @@ function bumpOpening(
   name: string,
   correct: number,
   incorrect: number,
-  extras?: Pick<OpeningTally, 'onOpen' | 'statsLine' | 'controls'>,
+  extras?: Pick<OpeningTally, 'onOpen' | 'statsLine'>,
 ): void {
   const cur = tally.get(key) ?? { name: name || 'Untitled', correct: 0, incorrect: 0, ...extras };
   cur.correct += correct;
@@ -1748,7 +1767,18 @@ function tallyFromLineStats(lineStats: Map<string, LineSessionStat>): Map<string
       name: s.openingName || s.lineName,
       correct: s.totalMoves - s.misses,
       incorrect: s.misses,
-      onOpen: () => onViewLine?.(s.line),
+      // A finished line has no single "next move" to hint at, so no hintUci —
+      // just the end position, with a note on its last move.
+      onOpen: () => {
+        const moves = mainlineOf(s.line.tree);
+        openPositionPeek({
+          fen: lineFinalFen(s.line.tree),
+          orientation: s.line.colour,
+          onNote: () => openQuickNoteSheet(s.line, moves[moves.length - 1]),
+          onTurnOff: () => { void saveLine({ ...s.line, inTraining: false }); },
+          onEdit: () => onViewLine?.(s.line),
+        });
+      },
       statsLine: lineStatsLine(s.line),
     });
   }
@@ -1805,50 +1835,13 @@ function reviewedOpeningRows(tally: Map<string, OpeningTally>): HTMLElement[] {
     tallyEl.textContent = `${o.correct}/${total}`;
     row.appendChild(tallyEl);
 
-    if (o.controls) {
-      const { onNote, onTurnOff, onEdit } = o.controls;
-      const controls = document.createElement('div');
-      controls.className = 'pz-result-controls';
-
-      const stop = (e: Event): void => e.stopPropagation();
-      controls.addEventListener('click', stop);
-
-      const noteBtn = resultControlBtn(Icons.note(16), 'Add note', onNote);
-      controls.appendChild(noteBtn);
-
-      const turnOffBtn = resultControlBtn(Icons.toggleOff(16), 'Turn off', () => {
-        onTurnOff();
-        turnOffBtn.disabled = true;
-        noteBtn.disabled = true;
-        editBtn.disabled = true;
-        row.classList.add('pz-result-row--offline');
-      });
-      controls.appendChild(turnOffBtn);
-
-      const editBtn = resultControlBtn(Icons.pencil(16), 'Edit', onEdit);
-      controls.appendChild(editBtn);
-
-      row.appendChild(controls);
-    }
-
     return row;
   });
 }
 
-function resultControlBtn(icon: SVGElement, label: string, onClick: () => void): HTMLButtonElement {
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'pz-result-control';
-  btn.setAttribute('aria-label', label);
-  btn.title = label;
-  btn.appendChild(icon);
-  btn.addEventListener('click', onClick);
-  return btn;
-}
-
 // A minimal, self-contained note editor for a specific line's move — used by
-// the results screen's timed-mode row controls, where the move being noted
-// isn't the currently-open builder line. Mirrors the builder's own note sheet
+// the results screen's position-peek popup, where the move being noted isn't
+// the currently-open builder line. Mirrors the builder's own note sheet
 // (main.ts openNoteSheet) but writes straight to the given line/node pair.
 function openQuickNoteSheet(line: Line, node: MoveNode): void {
   const overlay = document.createElement('div');
@@ -1908,6 +1901,101 @@ function openQuickNoteSheet(line: Line, node: MoveNode): void {
   document.body.appendChild(overlay);
   textarea.focus();
   textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+}
+
+// A results-screen row, tapped: show the position right here rather than
+// leaving training for the Board Builder. A view-only board (mirrors
+// buildForgottenSlide's Chessground setup above — same pattern, just mounted
+// in a popup instead of a carousel slide) plus whichever of Hint/Add note/
+// Turn off apply to this row, and one explicit Edit button — the only action
+// that actually leaves for the Board Builder, so navigating away is always a
+// deliberate tap, never a surprise from tapping the row itself.
+function openPositionPeek(opts: {
+  fen: string;
+  orientation: 'white' | 'black';
+  hintUci?: string;
+  onNote?: () => void;
+  onTurnOff?: () => void;
+  onEdit: () => void;
+}): void {
+  const overlay = document.createElement('div');
+  overlay.className = 'edit-overlay';
+  const sheet = document.createElement('div');
+  sheet.className = 'edit-sheet peek-sheet';
+
+  let closed = false;
+  const close = (): void => {
+    if (closed) return;
+    closed = true;
+    overlay.remove();
+    removeBack();
+  };
+
+  const board = document.createElement('div');
+  board.className = 'peek-board cg-wrap';
+  sheet.appendChild(board);
+
+  const cg = Chessground(board, {
+    fen: opts.fen,
+    orientation: opts.orientation,
+    viewOnly: true,
+    coordinates: false,
+    animation: { enabled: false },
+    drawable: { enabled: false, visible: true },
+  });
+  cg.state.drawable.brushes['accent'] = { key: 'accent', color: '#ff9b21', opacity: 0.9, lineWidth: 10 };
+  // Mounted into a transient popup, so nudge a redraw once it's actually sized.
+  requestAnimationFrame(() => cg.redrawAll());
+
+  const btnRow = document.createElement('div');
+  btnRow.className = 'peek-actions';
+
+  if (opts.hintUci) {
+    const hintBtn = peekActionBtn(Icons.bulb(18), 'Hint', () => {
+      const orig = opts.hintUci!.slice(0, 2) as Key;
+      const dest = opts.hintUci!.slice(2, 4) as Key;
+      cg.setAutoShapes([{ orig, dest, brush: 'accent' }]);
+    });
+    btnRow.appendChild(hintBtn);
+  }
+
+  if (opts.onNote) {
+    const onNote = opts.onNote;
+    btnRow.appendChild(peekActionBtn(Icons.note(18), 'Add note', onNote));
+  }
+
+  if (opts.onTurnOff) {
+    const onTurnOff = opts.onTurnOff;
+    const turnOffBtn = peekActionBtn(Icons.toggleOff(18), 'Turn off', () => {
+      onTurnOff();
+      turnOffBtn.disabled = true;
+      showToast('Line turned off, continue training');
+    });
+    btnRow.appendChild(turnOffBtn);
+  }
+
+  const editBtn = peekActionBtn(Icons.pencil(18), 'Edit', () => { close(); opts.onEdit(); });
+  btnRow.appendChild(editBtn);
+
+  sheet.appendChild(btnRow);
+
+  const removeBack = pushBack(() => close());
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+
+  overlay.appendChild(sheet);
+  document.body.appendChild(overlay);
+}
+
+function peekActionBtn(icon: SVGElement, label: string, onClick: () => void): HTMLButtonElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'peek-action';
+  btn.appendChild(icon);
+  const lbl = document.createElement('span');
+  lbl.textContent = label;
+  btn.appendChild(lbl);
+  btn.addEventListener('click', onClick);
+  return btn;
 }
 
 // ── Round-complete panel ─────────────────────────────────────────────────────
@@ -2185,16 +2273,15 @@ function runTimed(container: HTMLElement, allLines: Line[], minutes: TimedMinute
           line ? (line.openingName || line.name) : 'Untitled',
           ok ? 1 : 0, ok ? 0 : 1,
           line ? {
-            onOpen: () => onViewLine?.(line, pos.preFen),
-            statsLine: reviewStatsLine(pos.expected.review),
-            controls: {
+            onOpen: () => openPositionPeek({
+              fen: pos.preFen,
+              orientation: line.colour,
+              hintUci: pos.expected.uci,
               onNote: () => openQuickNoteSheet(line, pos.expected),
-              onTurnOff: () => {
-                void saveLine({ ...line, inTraining: false });
-                showToast('Line turned off, continue training');
-              },
+              onTurnOff: () => { void saveLine({ ...line, inTraining: false }); },
               onEdit: () => onViewLine?.(line, pos.preFen),
-            },
+            }),
+            statsLine: reviewStatsLine(pos.expected.review),
           } : undefined,
         );
       },
