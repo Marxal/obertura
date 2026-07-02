@@ -14,7 +14,7 @@ import { exportBackup, parseBackup, onLinesChanged, type BackupFile } from './st
 
 // The OAuth client ID from Google Cloud — see DRIVE-SETUP.md for the
 // click-by-click setup. Empty string = cloud backup not set up in this build.
-export const DRIVE_CLIENT_ID = '';
+export const DRIVE_CLIENT_ID = '156412696655-6k13gspbu9t76ek9r2iq8cdnk077tp3j.apps.googleusercontent.com';
 
 // Only the hidden per-app folder — the narrowest Drive scope Google offers.
 // The consent popup describes it as the app's "own configuration data".
