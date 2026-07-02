@@ -1670,8 +1670,12 @@ cg-board square.move-dest.oc {
 
 /* A parenthesised variation in the analyser's move list (PGN style). Muted and
    slightly smaller than the main line, but its moves stay clickable and keep any
-   game-review colour. Nested variations indent naturally through the parens. */
+   game-review colour. Nested variations indent naturally through the parens.
+   display:contents dissolves the wrapper so each move inside the parens becomes
+   its own flex item of the wrapping list — without it a long variation is one
+   unbreakable run that overflows the box and drags in horizontal scroll. */
 .move-var {
+  display: contents;
   color: var(--text-faint);
   font-size: 0.86em;
 }
@@ -4039,6 +4043,25 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   gap: 0.4rem;
 }
 
+/* The "Your tags" block on the tags sheet — every tag you've already created,
+   tappable, separated from the fixed suggestions by a hairline. */
+.edit-chips--own {
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--hairline);
+  max-height: 8.5rem;
+  overflow-y: auto;
+}
+
+.edit-chips-label {
+  flex: 1 0 100%;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
 .tag-chip {
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 0.8rem;
@@ -4228,6 +4251,56 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   flex-direction: column;
   overflow-y: auto;
 }
+
+/* Each training mode's exercise screen carries a whisper of its accent —
+   set --pt-tint on the overlay (openings = the app accent, puzzles bronze,
+   mistake retry ember). Subtle by design: identity, not decoration. */
+.pt-overlay--tinted {
+  background: color-mix(in srgb, var(--pt-tint, transparent) 5%, var(--bg-sheet));
+}
+
+/* The Train screen's panes get the same whisper behind the active mode, fading
+   out down the page so cards and lists stay on clean chrome. */
+#view-train[data-train-mode] {
+  transition: background 0.35s ease;
+}
+#view-train[data-train-mode='openings'] {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, transparent), transparent 360px);
+}
+#view-train[data-train-mode='puzzles'] {
+  background: linear-gradient(180deg, color-mix(in srgb, #8a5a20 7%, transparent), transparent 360px);
+}
+#view-train[data-train-mode='mistakes'] {
+  background: linear-gradient(180deg, color-mix(in srgb, #a3492e 7%, transparent), transparent 360px);
+}
+#view-train[data-train-mode='endgame'] {
+  background: linear-gradient(180deg, color-mix(in srgb, #33677a 7%, transparent), transparent 360px);
+}
+
+/* The "Back to training" chip floated under the top bar while a training
+   session is suspended behind the full analyser. Tapping it (or the builder's
+   back arrow, which also lands on Train) resumes the session in place. */
+.session-return-chip {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 3.3rem);
+  right: 0.75rem;
+  z-index: 150;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.45rem 0.85rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.session-return-chip:active { filter: brightness(0.95); }
 
 .pt-header {
   display: flex;
@@ -5104,14 +5177,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   text-transform: uppercase;
   letter-spacing: 0.08em;
   text-align: center;
-}
-
-/* Discrete caption under the stats row ("lines to refresh") — quieter than
-   the stat labels above it, no uppercase/letter-spacing. */
-.train-hero-caption {
-  font-size: 0.72rem;
-  color: var(--text-faint);
-  margin-top: -0.15rem;
 }
 
 /* Size/width modifiers only — chrome from .btn-primary in HTML. */
@@ -11742,70 +11807,96 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
    game review (move strip + stepper + eval readout).
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* The story under the "vs opponent" line: "You played Qxb2 here and …". */
-.mr-intro {
-  max-width: 34ch;
+/* The compact top block: opponent, then the opening (quiet), then the one-line
+   story. Tight gaps so board + prompt + actions all fit one phone screen. */
+.mr-top {
+  gap: 0.1rem;
+  padding-top: 0.45rem;
+  padding-bottom: 0.4rem;
+}
+
+.mr-opponent {
+  font-size: 0.95rem;
+}
+
+/* The opening played — its own small, discrete row under the opponent. */
+.mr-opening {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-faint);
+  font-size: 0.72rem;
   text-align: center;
+}
+
+/* "You played [♛xe8 ??] here and blundered." — kept to one line; wraps only
+   as a last resort on very narrow screens. */
+.mr-intro {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 100%;
+  margin-top: 0.2rem;
+  white-space: nowrap;
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   line-height: 1.35;
 }
 
-/* Post-answer block: continuations card + the Review/Next buttons. */
+/* The played move on its class-coloured chip, annotation symbol included. */
+.mr-played {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.08rem 0.42rem;
+  border-radius: 6px;
+  color: #fff;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.mr-played--blunder { background: #c93636; }
+.mr-played--mistake { background: #e0822f; }
+
+/* Status + the discrete hide-the-red-arrow toggle share one row. */
+.mr-status-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding-right: 0.9rem;
+}
+.mr-status-row .pt-status {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.mr-arrow-toggle {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 30px;
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-faint);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.mr-arrow-toggle--off {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border-card));
+}
+.mr-arrow-toggle[hidden] { display: none; }
+
+/* Post-answer block: eval bar + your analysis moves + the two actions. */
 .mr-after {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
   padding: 0 1rem 1rem;
-}
-
-.mr-continuations {
-  border: 1px solid var(--border-card);
-  border-radius: 12px;
-  background: var(--bg-card);
-  padding: 0.6rem 0.75rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.mr-conts-title {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-}
-
-.mr-cont-row {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  min-width: 0;
-  font-size: 0.88rem;
-}
-
-.mr-cont-move {
-  font-weight: 700;
-  flex: none;
-}
-
-.mr-cont-eval {
-  flex: none;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.8rem;
-}
-
-/* The rest of the line, one row, fading out instead of wrapping. */
-.mr-cont-line {
-  flex: 1 1 0;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-faint);
-  font-size: 0.8rem;
 }
 
 .mr-after-actions {
@@ -11815,86 +11906,73 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 
 .mr-after-actions > button { flex: 1 1 0; }
 
-/* ── Inline game review ── */
-.mr-review {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-  padding: 0.6rem 1rem 1rem;
-}
+/* ── Post-answer analysis ── */
 
-/* One horizontal, finger-scrollable row of move chips. */
-.mr-review-strip {
-  display: flex;
-  gap: 0.3rem;
-  overflow-x: auto;
-  padding: 0.15rem 0.1rem 0.35rem;
-  scrollbar-width: none;
-}
-.mr-review-strip::-webkit-scrollbar { display: none; }
-
-.mr-move-chip {
-  flex: none;
-  padding: 0.3rem 0.55rem;
-  border: 1px solid var(--border-card);
-  border-radius: 999px;
-  background: var(--bg-card);
-  color: var(--text-muted);
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.mr-move-chip--current {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #fff;
-}
-
-/* The ply the scan flagged — always visibly red, even when current. */
-.mr-move-chip--mistake {
-  border-color: var(--danger);
-  color: var(--danger);
-}
-.mr-move-chip--mistake.mr-move-chip--current {
-  background: var(--danger);
-  color: #fff;
-}
-
-.mr-review-controls {
+/* A slim horizontal eval bar (left share = White's winning chances) with the
+   "+0.3 · best ♞f3" readout beside it. */
+.mr-eval-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
 }
 
-.mr-step-btn {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  min-height: 40px;
-  border: 1px solid var(--border-card);
-  border-radius: 10px;
-  background: var(--bg-card);
-  color: var(--text-muted);
-  cursor: pointer;
-}
-.mr-step-btn:active { background: var(--bg-elevated); }
-.mr-step-btn--fwd svg { transform: rotate(180deg); }
-
-/* "+0.3 · best Nf3" — one quiet centred line between the steppers. */
-.mr-eval-readout {
+.mr-eval-bar {
   flex: 1 1 0;
-  text-align: center;
+  height: 9px;
+  border-radius: 999px;
+  background: #3b3733;
+  border: 1px solid var(--border-card);
+  overflow: hidden;
+}
+
+.mr-eval-bar-fill {
+  height: 100%;
+  background: #f2efe9;
+  transition: width 0.4s ease;
+}
+
+.mr-eval-readout {
+  flex: 0 0 auto;
+  max-width: 55%;
   color: var(--text-muted);
   font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The moves you try after answering — same notation dress as the builder's
+   move list (its .move-num/.move-san/.move-var pieces are reused), wrapping
+   inside its own parchment panel. */
+.mr-an-moves {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 0.1em;
+  min-height: 2em;
+  padding: 0.3rem 0.55rem;
+  background: var(--bg-parchment);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.9rem;
+  line-height: 1.8;
+  max-height: 5.6em;
+  overflow-y: auto;
+}
+.mr-an-moves:empty { display: none; }
+.mr-an-moves .move-san {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15em;
+}
+
+/* The results popup's one-line meta under the board. */
+.mr-peek-meta {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
 }
 
 /* ── Mistake retry pane (the Train tab body) ── */

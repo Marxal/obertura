@@ -11,9 +11,9 @@ import { renderLoadError } from './load-error';
 import { Icons } from './icons';
 import { countUp } from './count-up';
 import { pushBack } from './back-nav';
-import { createPawnProgress } from './import-progress';
+import { createPawnProgress, createFactsTicker } from './import-progress';
 import { buildModeCard } from './train-screen';
-import { startMistakeSession, CATEGORY_LABEL } from './mistake-run';
+import { startMistakeSession, CATEGORY_LABEL, type OpenGameCtx } from './mistake-run';
 import {
   scanGames,
   collectSpots,
@@ -53,8 +53,9 @@ const CATEGORIES: MistakeCategory[] = ['opening-blunder', 'punish-opening', 'mis
 export interface MistakesScreenDeps {
   onImportGames: () => void;
   // Open a game in the full analyser (builder view) — the session's "Open full
-  // analysis" route, wired from main.ts exactly like My games' onOpenGame.
-  onOpenGame: (game: ImportedGame) => void;
+  // analysis" route. The ctx carries the position to open at plus the
+  // resume/discard hooks for the suspended session (see main.ts).
+  onOpenGame: (game: ImportedGame, ctx?: OpenGameCtx) => void;
 }
 
 export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScreenDeps): Promise<void> {
@@ -218,8 +219,13 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
 
     const note = document.createElement('p');
     note.className = 'mr-scan-note';
-    note.textContent = 'Known positions come from the Lichess cloud in a blink; fresh ones run the local engine. Stop anytime — every game finished is saved.';
+    note.textContent = 'This can take a while — known positions come from the Lichess cloud in a blink, fresh ones run the local engine. Stop anytime — every game finished is saved.';
     card.appendChild(note);
+
+    // The same looping "things about the app" ticker the import wait uses, so
+    // there's something to read while the engine works.
+    const facts = createFactsTicker();
+    card.appendChild(facts.el);
 
     const stop = document.createElement('button');
     stop.type = 'button';
@@ -243,6 +249,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       await scanGames({ signal: ctrl.signal, onProgress });
       pawn.done();
     } finally {
+      facts.stop();
       removeBack();
       overlay.remove();
       rerender();

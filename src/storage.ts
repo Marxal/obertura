@@ -204,36 +204,66 @@ export async function countOpponents(): Promise<number> {
 
 // ── Backup & restore ─────────────────────────────────────────────────────────
 //
-// One self-contained JSON file holding the whole repertoire — every line with
-// its move tree, notes, tags, confidence and review/scheduler stats. This is
-// the safety net: all the data lives only in this browser, so a backup file
-// (kept in Drive or email) is the only way to survive a cleared browser or a
-// new device. Imported Chess.com games are intentionally NOT included — they're
-// re-fetchable from chess.com, so leaving them out keeps the file small and
-// focused on the irreplaceable hand-built data.
+// One self-contained JSON file holding everything that lives only on this
+// device: the repertoire (every line with its move tree, notes, tags,
+// confidence and review/scheduler stats), the imported games (they carry the
+// mistake-scan spots and any saved analyses — training state that can't be
+// re-fetched), and an app-state snapshot of the localStorage keys where the
+// streaks, statistics, puzzle ratings and preferences live. Restoring a backup
+// puts the app back exactly where it was left. Scouted opponents are the one
+// deliberate omission — pure re-fetchable cache, and by far the bulkiest data.
 
 // The exported file's shape. Versioned and tagged so a bad/foreign file is
-// caught on import, and a future format change can be told apart from v1.
+// caught on import, and a format change can be told apart from older files.
+// v1 files (lines only) still restore fine — the extras are optional.
 export interface BackupFile {
   format: 'obertura-backup';
   version: number;
   exportedAt: string;
   lines: Line[];
+  games?: ImportedGame[];
+  // localStorage snapshot: streaks, stats, puzzle ratings, prefs (v2+).
+  local?: Record<string, string>;
 }
 
 const BACKUP_FORMAT = 'obertura-backup';
-const BACKUP_VERSION = 1;
+const BACKUP_VERSION = 2;
 
-// Gather the whole repertoire into a plain object ready to serialise. Lines come
-// straight from IndexedDB; JSON.stringify turns each move's `review.due` Date
-// into an ISO string, which parseBackup() revives on the way back in.
+// Which localStorage keys belong in a backup. Everything the app writes starts
+// with "obertura" (both the dot and dash spellings) except the engine toggle.
+// Device/session-specific keys are excluded: the Drive connection (restoring
+// "connected" onto a fresh device would lie) and the OAuth return-path crumb.
+function backupLocalKey(key: string): boolean {
+  if (key === 'engineEnabled' || key === 'sparEngineEnabled') return true;
+  if (!key.startsWith('obertura')) return false;
+  if (key.startsWith('obertura.drive.')) return false;
+  if (key === 'obertura.lichessReturnTo') return false;
+  return true;
+}
+
+function snapshotLocalData(): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || !backupLocalKey(key)) continue;
+    const value = localStorage.getItem(key);
+    if (value !== null) out[key] = value;
+  }
+  return out;
+}
+
+// Gather everything into a plain object ready to serialise. Lines and games
+// come straight from IndexedDB; JSON.stringify turns each move's `review.due`
+// Date into an ISO string, which parseBackup() revives on the way back in.
 export async function exportBackup(): Promise<BackupFile> {
-  const lines = await getAllLines();
+  const [lines, games] = await Promise.all([getAllLines(), getAllGames()]);
   return {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
     lines,
+    games,
+    local: snapshotLocalData(),
   };
 }
 
@@ -263,7 +293,59 @@ export function parseBackup(text: string): BackupFile {
     version: typeof obj.version === 'number' ? obj.version : 1,
     exportedAt: typeof obj.exportedAt === 'string' ? obj.exportedAt : '',
     lines,
+    games: validateGames(obj.games),
+    local: validateLocal(obj.local),
   };
+}
+
+// The games ride along as-is (their shape is whatever the importer stored) —
+// just make sure each is an object with a usable id, and drop anything that
+// isn't rather than failing the whole file over re-fetchable data.
+function validateGames(raw: unknown): ImportedGame[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const games = raw.filter(
+    (g): g is ImportedGame =>
+      !!g && typeof g === 'object' && typeof (g as { id?: unknown }).id === 'string',
+  );
+  return games.length > 0 ? games : undefined;
+}
+
+// The localStorage snapshot: keep only string→string entries on the app's own
+// keys (backupLocalKey guards restore too, so a doctored file can't plant
+// foreign keys).
+function validateLocal(raw: unknown): Record<string, string> | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof v === 'string' && backupLocalKey(k)) out[k] = v;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+// Apply a whole backup in one call — the single restore path for the manual
+// import and the Drive restore alike. Lines merge/replace as chosen; games
+// always merge by id (replace additionally clears first); the localStorage
+// snapshot simply overwrites its keys (stats/streaks aren't meaningfully
+// mergeable, and the file is the state being restored).
+export async function restoreBackup(backup: BackupFile, mode: 'merge' | 'replace'): Promise<void> {
+  if (mode === 'replace') await replaceAllLines(backup.lines);
+  else await mergeLines(backup.lines);
+  if (backup.games && backup.games.length > 0) {
+    if (mode === 'replace') await clearGames();
+    await saveGames(backup.games);
+  }
+  if (backup.local) {
+    for (const [k, v] of Object.entries(backup.local)) {
+      try { localStorage.setItem(k, v); } catch { /* quota — keep restoring the rest */ }
+    }
+  }
+}
+
+// Does this backup carry more than lines? Drives the "reload after restore"
+// choice — modules cache localStorage state in memory, so a page reload is the
+// reliable way to make a restored snapshot take everywhere.
+export function backupHasExtras(backup: BackupFile): boolean {
+  return !!(backup.games?.length || (backup.local && Object.keys(backup.local).length));
 }
 
 // Check one line has the shape we expect and return a normalised copy. A single

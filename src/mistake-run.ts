@@ -1,15 +1,17 @@
 // The Mistake Retry drill — a puzzle-style overlay (same .pt-* chrome as
 // puzzle-run.ts) over positions from YOUR OWN games where the scan caught a
 // mistake. Each spot loads the position as you had it, shows the move you
-// actually played as a red arrow, and asks for a better one.
+// actually played as a red arrow (with a quiet per-position hide toggle), and
+// asks for a better one.
 //
 // Differences from the puzzle loop, by design:
 //   • one move per position (the engine's best, or anything within a whisker
 //     of it — checked against the stored top-3 first, live engine as backup),
-//   • after answering you can stay and dig: the engine's three continuations
-//     are laid out, and "Review game" opens the whole game right there (move
-//     strip + board stepping + a small eval readout), with a jump into the
-//     full analyser — you tap "Next position" when you're done.
+//   • after answering the board opens up: keep playing either side and analyse
+//     right there — an eval bar, a branching move list (variations included)
+//     and a Game-Review grade on every move you try — or jump into the full
+//     analyser ("Open full analysis" suspends the session; a "Back to
+//     training" chip in the top bar brings you straight back to this spot).
 //
 // Results are persisted per spot the moment it's answered (recordSpotResult),
 // so an abandoned session still counts what it fixed.
@@ -19,16 +21,18 @@ import { Chessground } from 'chessground';
 import type { Api } from 'chessground/api';
 import type { Key } from 'chessground/types';
 import type { DrawShape } from 'chessground/draw';
-import { Icons, classBoardSvg } from './icons';
+import { Icons, classIcon, classBoardSvg } from './icons';
 import { playFeedback } from './sound';
 import { pushBack } from './back-nav';
 import { burstConfetti, celebratePawn } from './confetti';
 import { showDialog } from './dialog';
 import { formatMove } from './notation';
 import { isGoodAlternative, analysePosition, cloudTopLines } from './engine';
-import type { MoveEval } from './engine';
-import { flattenCp } from './winprob';
-import { replayGame, recordSpotResult, GOOD_ALT_CP } from './mistake-scan';
+import type { MoveEval, CloudTopMove } from './engine';
+import { gradeMove } from './review';
+import { cpToWin, flattenCp } from './winprob';
+import type { MoveClass } from './winprob';
+import { recordSpotResult, GOOD_ALT_CP } from './mistake-scan';
 import type { SpotRef, MistakeCategory } from './mistake-scan';
 import type { ImportedGame } from './import-core';
 
@@ -40,13 +44,32 @@ export const CATEGORY_LABEL: Record<MistakeCategory, string> = {
   'blunder': 'Blunders',
 };
 
-// The story line per category: "You played Qxb2 here and …".
+// The story line per category — short on purpose, so "You played ♛xe8 here
+// and …" stays on one line on a phone.
 const CATEGORY_PHRASE: Record<MistakeCategory, string> = {
   'opening-blunder': 'blundered the opening',
-  'punish-opening': 'let your opponent off the hook',
-  'missed-win': 'threw away a winning position',
+  'punish-opening': 'let them off the hook',
+  'missed-win': 'threw the win away',
   'blunder': 'blundered',
 };
+
+// How the played move reads on its red chip: the review palette's class (chip
+// colour) and the annotation symbol shown beside the move.
+const CATEGORY_BADGE: Record<MistakeCategory, { cls: MoveClass; sym: string }> = {
+  'opening-blunder': { cls: 'blunder', sym: '??' },
+  'punish-opening': { cls: 'mistake', sym: '?' },
+  'missed-win': { cls: 'blunder', sym: '??' },
+  'blunder': { cls: 'blunder', sym: '??' },
+};
+
+// Passed to onOpenGame so the analyser can open AT the drill position and the
+// app can bring the user back to this exact session state afterwards (or drop
+// it cleanly if they wander somewhere else instead).
+export interface OpenGameCtx {
+  atFen?: string;
+  onReturn: () => void;
+  onDiscard: () => void;
+}
 
 export interface MistakeSessionOptions {
   refs: SpotRef[];                 // the spots to drill, in order (≤ 5 usually)
@@ -54,8 +77,9 @@ export interface MistakeSessionOptions {
   // Fired once when the results screen comes up.
   onComplete?: (summary: { solved: number; completed: number }) => void;
   onPlayAgain?: () => void;
-  // Open this game in the full analyser (ends the session first).
-  onOpenGame?: (game: ImportedGame) => void;
+  // Open this game in the full analyser. The session suspends itself first and
+  // hands over resume/discard hooks via ctx.
+  onOpenGame?: (game: ImportedGame, ctx?: OpenGameCtx) => void;
   // Daily challenge: the results screen's primary jumps to the next task.
   nextAction?: { label: string; run: () => void };
   modeLabel?: string;              // e.g. a category label or "Daily challenge"
@@ -64,6 +88,17 @@ export interface MistakeSessionOptions {
 interface SessionEntry {
   ref: SpotRef;
   clean: boolean;
+}
+
+// One node of the post-answer analysis tree. children[0] is the "main" branch;
+// later siblings render as parenthesised variations, PGN style.
+interface ANode {
+  san: string;
+  uci: string;
+  fen: string;
+  parent: ANode | null;
+  children: ANode[];
+  cls?: MoveClass;
 }
 
 export function startMistakeSession(opts: MistakeSessionOptions): void {
@@ -79,9 +114,14 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
   let answered = false;              // the better move has been found
   let failedThisSpot = false;        // wrong try or hint used
   let hintStage = 0;                 // 0 none, 1 piece highlighted, 2 arrow
+  let arrowHidden = false;           // the red played-move arrow, per position
   let inputLocked = true;
   let checkToken = 0;                // invalidates an in-flight live check
   let sessionOver = false;
+
+  // Post-answer analysis state.
+  let anRoot: ANode | null = null;
+  let anCur: ANode | null = null;
 
   // Session tallies.
   let completed = 0;
@@ -90,7 +130,10 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
 
   // ── Overlay scaffold (mirrors puzzle-run.ts) ────────────────────────────────
   const overlay = document.createElement('div');
-  overlay.className = 'pt-overlay pt-overlay--puzzle';
+  overlay.className = 'pt-overlay pt-overlay--puzzle pt-overlay--tinted';
+  // The Mistake retry ember, as a whisper behind the exercise — same hue as
+  // its Train tab.
+  overlay.style.setProperty('--pt-tint', '#a3492e');
 
   const headerEl = document.createElement('div');
   headerEl.className = 'pt-header';
@@ -115,16 +158,16 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
   trackEl.appendChild(sessionFillEl);
   sessionBarEl.appendChild(trackEl);
 
+  // The compact top block: opponent, then the opening (small and quiet), then
+  // the one-line story with the played move on its red chip.
   const topEl = document.createElement('div');
-  topEl.className = 'pt-top';
-  const modeEl = document.createElement('div');
-  modeEl.className = 'pt-mode-title';
-  modeEl.textContent = opts.modeLabel ?? 'Mistake retry';
-  topEl.appendChild(modeEl);
+  topEl.className = 'pt-top mr-top';
   const nameEl = document.createElement('div');
-  nameEl.className = 'pt-line-name';
+  nameEl.className = 'pt-line-name mr-opponent';
   topEl.appendChild(nameEl);
-  // The story: "You played Qxb2 here and blundered — find a better move."
+  const openingEl = document.createElement('div');
+  openingEl.className = 'mr-opening';
+  topEl.appendChild(openingEl);
   const introEl = document.createElement('div');
   introEl.className = 'mr-intro';
   topEl.appendChild(introEl);
@@ -137,9 +180,27 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
 
   const bottomEl = document.createElement('div');
   bottomEl.className = 'pt-bottom';
+
+  // Status + the discrete "hide the red arrow" toggle share one row.
+  const statusRow = document.createElement('div');
+  statusRow.className = 'mr-status-row';
   const statusEl = document.createElement('div');
   statusEl.className = 'pt-status';
   statusEl.setAttribute('aria-live', 'polite');
+  statusRow.appendChild(statusEl);
+  const arrowBtn = document.createElement('button');
+  arrowBtn.type = 'button';
+  arrowBtn.className = 'mr-arrow-toggle';
+  arrowBtn.title = 'Hide the played-move arrow';
+  arrowBtn.setAttribute('aria-label', 'Hide the played-move arrow');
+  arrowBtn.appendChild(eyeOffIcon(15));
+  arrowBtn.addEventListener('click', () => {
+    arrowHidden = !arrowHidden;
+    arrowBtn.classList.toggle('mr-arrow-toggle--off', arrowHidden);
+    arrowBtn.title = arrowHidden ? 'Show the played-move arrow' : 'Hide the played-move arrow';
+    repaintPrompt();
+  });
+  statusRow.appendChild(arrowBtn);
 
   const hintBtn = document.createElement('button');
   hintBtn.type = 'button';
@@ -149,21 +210,40 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
   hintBtn.hidden = true;
   hintBtn.addEventListener('click', () => useHint());
 
-  // The post-answer block: the engine's continuations + Review game / Next.
+  // The post-answer block: eval bar + your analysis moves + the two actions.
   const afterEl = document.createElement('div');
   afterEl.className = 'mr-after';
   afterEl.hidden = true;
-  const contsEl = document.createElement('div');
-  contsEl.className = 'mr-continuations';
-  afterEl.appendChild(contsEl);
+
+  const evalRow = document.createElement('div');
+  evalRow.className = 'mr-eval-row';
+  const evalBar = document.createElement('div');
+  evalBar.className = 'mr-eval-bar';
+  const evalFill = document.createElement('div');
+  evalFill.className = 'mr-eval-bar-fill';
+  evalBar.appendChild(evalFill);
+  evalRow.appendChild(evalBar);
+  const evalText = document.createElement('div');
+  evalText.className = 'mr-eval-readout';
+  evalRow.appendChild(evalText);
+  afterEl.appendChild(evalRow);
+
+  const anMovesEl = document.createElement('div');
+  anMovesEl.className = 'mr-an-moves';
+  afterEl.appendChild(anMovesEl);
+
   const afterActions = document.createElement('div');
   afterActions.className = 'mr-after-actions';
-  const reviewBtn = document.createElement('button');
-  reviewBtn.type = 'button';
-  reviewBtn.className = 'btn-secondary mr-review-btn';
-  reviewBtn.textContent = 'Review game';
-  reviewBtn.addEventListener('click', () => enterReview());
-  afterActions.appendChild(reviewBtn);
+  let analyseBtn: HTMLButtonElement | null = null;
+  if (opts.onOpenGame) {
+    analyseBtn = document.createElement('button');
+    analyseBtn.type = 'button';
+    analyseBtn.className = 'btn-secondary';
+    analyseBtn.textContent = 'Open full analysis';
+    analyseBtn.addEventListener('click', () =>
+      suspendForAnalysis(current.game, anCur?.fen ?? current.spot.preFen));
+    afterActions.appendChild(analyseBtn);
+  }
   const nextBtn = document.createElement('button');
   nextBtn.type = 'button';
   nextBtn.className = 'btn-primary pz-next-btn';
@@ -172,15 +252,9 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
   afterActions.appendChild(nextBtn);
   afterEl.appendChild(afterActions);
 
-  bottomEl.appendChild(statusEl);
+  bottomEl.appendChild(statusRow);
   bottomEl.appendChild(hintBtn);
   bottomEl.appendChild(afterEl);
-
-  // The inline game review block (hidden until "Review game").
-  const reviewEl = document.createElement('div');
-  reviewEl.className = 'mr-review';
-  reviewEl.hidden = true;
-  bottomEl.appendChild(reviewEl);
 
   overlay.appendChild(headerEl);
   if (opts.refs.length >= 2) overlay.appendChild(sessionBarEl);
@@ -271,11 +345,11 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
   }
 
   // All board decorations live in ONE setAutoShapes call — the danger arrow,
-  // any hint shape and the solved badge share the single autoshape list, so
+  // any hint shape and a class badge share the single autoshape list, so
   // painting them separately would wipe each other.
-  function paintShapes(o: { hint?: 'piece' | 'arrow'; badgeAt?: Key } = {}): void {
+  function paintShapes(o: { hint?: 'piece' | 'arrow'; badge?: { at: Key; cls: MoveClass } } = {}): void {
     const shapes: DrawShape[] = [];
-    if (!answered) {
+    if (!answered && !arrowHidden) {
       const { from, to } = uciParts(current.spot.playedUci);
       shapes.push({ orig: from, dest: to, brush: 'danger' });
     }
@@ -286,10 +360,17 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
       const { from, to } = uciParts(best.uci);
       shapes.push({ orig: from, dest: to, brush: 'accent' });
     }
-    if (o.badgeAt) {
-      shapes.push({ orig: o.badgeAt, customSvg: classBoardSvg('best') });
+    if (o.badge) {
+      shapes.push({ orig: o.badge.at, customSvg: classBoardSvg(o.badge.cls) });
     }
     requestAnimationFrame(() => { if (!isCleaned) cg.setAutoShapes(shapes); });
+  }
+
+  // Re-draw the pre-answer shapes with the current hint stage (used by the
+  // arrow toggle so hiding the red arrow never loses an active hint).
+  function repaintPrompt(): void {
+    if (answered) return;
+    paintShapes(hintStage === 1 ? { hint: 'piece' } : hintStage === 2 ? { hint: 'arrow' } : {});
   }
 
   // ── Spot lifecycle ──────────────────────────────────────────────────────────
@@ -298,19 +379,27 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
     answered = false;
     failedThisSpot = false;
     hintStage = 0;
+    arrowHidden = false;
+    arrowBtn.classList.remove('mr-arrow-toggle--off');
+    arrowBtn.title = 'Hide the played-move arrow';
+    arrowBtn.hidden = false;
+    anRoot = null;
+    anCur = null;
     hintBtn.replaceChildren(Icons.bulb(16), document.createTextNode('Hint'));
     hintBtn.hidden = true;
     afterEl.hidden = true;
-    reviewEl.hidden = true;
-    reviewEl.innerHTML = '';
-    boardWrap.hidden = false;
+    anMovesEl.innerHTML = '';
     renderSessionBar();
 
     const { game, spot } = current;
-    nameEl.textContent = `vs ${game.opponent}` + (game.opening ? ` · ${game.opening}` : '');
-    introEl.textContent =
-      `You played ${formatMove(spot.playedSan)} here and ${CATEGORY_PHRASE[spot.category]}.`;
+    nameEl.textContent = `vs ${game.opponent}`;
+    openingEl.textContent = game.opening ?? '';
+    openingEl.hidden = !game.opening;
+    renderIntro();
     setStatus('Find a better move', 'pt-status--prompt');
+    // Seed the eval cache with the stored top-3, so the answer position's bar
+    // and the first grades come back instantly.
+    evalCache.set(spot.preFen, Promise.resolve(spot.best));
 
     chess.load(spot.preFen);
     cg.set({
@@ -326,6 +415,20 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
       handToSolver();
       requestAnimationFrame(() => { if (!isCleaned) cg.redrawAll(); });
     }, 360);
+  }
+
+  // "You played [♛xe8 ??] here and blundered." — the move on a red chip with
+  // its annotation symbol, the phrase kept short enough for one line.
+  function renderIntro(): void {
+    const { spot } = current;
+    const badge = CATEGORY_BADGE[spot.category];
+    introEl.replaceChildren();
+    introEl.appendChild(document.createTextNode('You played '));
+    const chip = document.createElement('span');
+    chip.className = `mr-played mr-played--${badge.cls}`;
+    chip.textContent = `${formatMove(spot.playedSan)} ${badge.sym}`;
+    introEl.appendChild(chip);
+    introEl.appendChild(document.createTextNode(` here and ${CATEGORY_PHRASE[spot.category]}.`));
   }
 
   function useHint(): void {
@@ -374,7 +477,8 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
   }
 
   async function onUserMove(from: Key, to: Key): Promise<void> {
-    if (inputLocked || answered) return;
+    if (answered) { analysisMove(from, to); return; }
+    if (inputLocked) return;
     const { spot } = current;
     const best = spot.best[0];
     if (!best) return;
@@ -410,15 +514,15 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
     cg.set({ fen: chess.fen(), turnColor: cgTurn(), movable: { color: current.game.colour, dests: legalDests() } });
     inputLocked = false;
     if (hintStage !== 2) hintBtn.hidden = false;
-    if (hintStage === 1) paintShapes({ hint: 'piece' });
-    else if (hintStage === 2) paintShapes({ hint: 'arrow' });
+    repaintPrompt();
   }
 
   // A better move was found (kind: the engine's #1, or a good alternative).
+  // The board then opens up for free analysis from the answered position.
   function solve(uci: string, kind: 'best' | 'alt'): void {
     answered = true;
-    lockBoard();
     hintBtn.hidden = true;
+    arrowBtn.hidden = true;
     completed++;
     const clean = !failedThisSpot;
     if (clean) solvedCount++;
@@ -426,52 +530,37 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
     void recordSpotResult(current.game.id, current.spot.id, clean);
 
     const { from, to, promotion } = uciParts(uci);
+    let san = uci;
     try {
-      chess.move({ from, to, promotion });
+      san = chess.move({ from, to, promotion }).san;
     } catch { /* stored uci should always replay; the board still shows the try */ }
-    cg.set({ fen: chess.fen(), turnColor: cgTurn(), lastMove: [from, to], movable: { color: undefined, dests: new Map() } });
-    paintShapes({ badgeAt: to });
+
+    // Root the analysis tree at the drill position, with the found move as its
+    // first (graded) node.
+    anRoot = { san: '', uci: '', fen: current.spot.preFen, parent: null, children: [] };
+    const first: ANode = {
+      san,
+      uci,
+      fen: chess.fen(),
+      parent: anRoot,
+      children: [],
+      cls: kind === 'best' ? 'best' : 'excellent',
+    };
+    anRoot.children.push(first);
+    anCur = first;
 
     playFeedback('correct');
     if (clean) {
-      setStatus(kind === 'best' ? 'The engine’s move ✓' : 'A strong move — just as good ✓', 'pt-status--success');
+      setStatus(kind === 'best' ? 'The engine’s move ✓ — keep exploring' : 'A strong move — just as good ✓', 'pt-status--success');
       burstConfetti(boardWrap);
     } else {
-      setStatus('Found it — take a look at why', 'pt-status--reveal');
+      setStatus('Found it — play on to see why', 'pt-status--reveal');
     }
     renderSessionBar();
-    renderContinuations();
     nextBtn.textContent = completed >= opts.refs.length ? 'See results' : 'Next position';
-    reviewBtn.hidden = !opts.onOpenGame && !current.game.sans.length && !current.game.ucis.length;
     afterEl.hidden = false;
-  }
-
-  // The engine's three continuations at the mistake position, best first.
-  function renderContinuations(): void {
-    contsEl.innerHTML = '';
-    const heading = document.createElement('div');
-    heading.className = 'mr-conts-title';
-    heading.textContent = 'The engine’s picks here';
-    contsEl.appendChild(heading);
-    for (const m of current.spot.best.slice(0, 3)) {
-      const row = document.createElement('div');
-      row.className = 'mr-cont-row';
-      const move = document.createElement('span');
-      move.className = 'mr-cont-move';
-      move.textContent = formatMove(m.san);
-      row.appendChild(move);
-      const ev = document.createElement('span');
-      ev.className = 'mr-cont-eval';
-      ev.textContent = fmtEval(m);
-      row.appendChild(ev);
-      if (m.sanLine && m.sanLine.length > 1) {
-        const line = document.createElement('span');
-        line.className = 'mr-cont-line';
-        line.textContent = m.sanLine.slice(1).map(s => formatMove(s)).join(' ');
-        row.appendChild(line);
-      }
-      contsEl.appendChild(row);
-    }
+    inputLocked = false;
+    showNode(first);
   }
 
   function onNextTap(): void {
@@ -480,157 +569,203 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
     loadSpot();
   }
 
-  // ── Inline game review ──────────────────────────────────────────────────────
-  // The whole game on the same board: a move-chip strip (the mistake ply marked
-  // red), prev/next stepping, a small eval readout per position, and a jump
-  // into the full analyser. Board input stays off — this is for looking.
-  let viewIndex = 0;
-  let evalToken = 0;
-  let evalTimer: ReturnType<typeof setTimeout> | undefined;
-  const evalCache = new Map<string, MoveEval[] | null>();
-  let replayFens: string[] = [];
-  let replayUcis: string[] = [];
-  let chipEls: HTMLElement[] = [];
-  let evalReadout: HTMLElement | null = null;
+  // ── Post-answer free analysis ───────────────────────────────────────────────
+  // Both sides playable; each move is added to the little tree (revisiting an
+  // earlier position and playing something new opens a variation), graded like
+  // the Game Review grades it, and reflected in the eval bar.
 
-  function enterReview(): void {
-    const { game, spot } = current;
-    const replay = replayGame(game);
-    if (!replay) return;
-    replayFens = replay.fens;
-    replayUcis = game.ucis.length ? game.ucis : replay.sans.map((_, i) => uciAt(replay.fens[i], replay.sans[i]) ?? '');
-    evalCache.set(spot.preFen, spot.best);
-
-    afterEl.hidden = true;
-    reviewEl.hidden = false;
-    reviewEl.innerHTML = '';
-    cg.setAutoShapes([]);
-
-    // Move strip.
-    const strip = document.createElement('div');
-    strip.className = 'mr-review-strip';
-    chipEls = [];
-    for (let i = 0; i < replay.sans.length; i++) {
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'mr-move-chip' + (i === spot.ply ? ' mr-move-chip--mistake' : '');
-      chip.textContent = i % 2 === 0
-        ? `${i / 2 + 1}.${formatMove(replay.sans[i])}`
-        : formatMove(replay.sans[i]);
-      chip.addEventListener('click', () => setView(i + 1));
-      chipEls.push(chip);
-      strip.appendChild(chip);
-    }
-    reviewEl.appendChild(strip);
-
-    // Eval readout + stepper row.
-    const controls = document.createElement('div');
-    controls.className = 'mr-review-controls';
-    const prev = document.createElement('button');
-    prev.type = 'button';
-    prev.className = 'btn-quiet mr-step-btn';
-    prev.appendChild(Icons.back(16));
-    prev.setAttribute('aria-label', 'Previous move');
-    prev.addEventListener('click', () => setView(viewIndex - 1));
-    controls.appendChild(prev);
-    evalReadout = document.createElement('div');
-    evalReadout.className = 'mr-eval-readout';
-    controls.appendChild(evalReadout);
-    const next = document.createElement('button');
-    next.type = 'button';
-    next.className = 'btn-quiet mr-step-btn mr-step-btn--fwd';
-    next.appendChild(Icons.back(16));
-    next.setAttribute('aria-label', 'Next move');
-    next.addEventListener('click', () => setView(viewIndex + 1));
-    controls.appendChild(next);
-    reviewEl.appendChild(controls);
-
-    // Back to the drill / open the full analyser.
-    const actions = document.createElement('div');
-    actions.className = 'mr-after-actions';
-    if (opts.onOpenGame) {
-      const open = document.createElement('button');
-      open.type = 'button';
-      open.className = 'btn-secondary';
-      open.textContent = 'Open full analysis';
-      open.addEventListener('click', () => {
-        const fn = opts.onOpenGame!;
-        const game2 = current.game;
-        cleanup();
-        fn(game2);
-      });
-      actions.appendChild(open);
-    }
-    const back = document.createElement('button');
-    back.type = 'button';
-    back.className = 'btn-primary';
-    back.textContent = 'Back to position';
-    back.addEventListener('click', () => exitReview());
-    actions.appendChild(back);
-    reviewEl.appendChild(actions);
-
-    setView(spot.ply);
-  }
-
-  function exitReview(): void {
-    if (evalTimer) clearTimeout(evalTimer);
-    evalToken++;
-    reviewEl.hidden = true;
-    reviewEl.innerHTML = '';
-    afterEl.hidden = false;
-    // Restore the answered position (chess still holds preFen + the found move).
-    const hist = chess.history({ verbose: true });
-    const last = hist[hist.length - 1];
-    cg.set({
-      fen: chess.fen(),
-      lastMove: last ? [last.from as Key, last.to as Key] : undefined,
-      movable: { color: undefined, dests: new Map() },
-    });
-    paintShapes({ badgeAt: last ? (last.to as Key) : undefined });
-  }
-
-  function setView(i: number): void {
-    viewIndex = Math.max(0, Math.min(replayFens.length - 1, i));
-    const fen = replayFens[viewIndex];
-    const uci = viewIndex > 0 ? replayUcis[viewIndex - 1] : '';
-    const parts = uci ? uciParts(uci) : null;
-    cg.set({
-      fen,
-      lastMove: parts ? [parts.from, parts.to] : undefined,
-      movable: { color: undefined, dests: new Map() },
-    });
-    for (let c = 0; c < chipEls.length; c++) {
-      chipEls[c].classList.toggle('mr-move-chip--current', c === viewIndex - 1);
-    }
-    const cur = chipEls[viewIndex - 1];
-    cur?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
-    scheduleEval(fen);
-  }
-
-  // The eval readout: stored/cached instantly, otherwise a debounced one-shot
-  // lookup (cloud first, quick local search as backup) so stepping stays snappy.
-  function scheduleEval(fen: string): void {
-    if (!evalReadout) return;
-    const cached = evalCache.get(fen);
-    if (cached !== undefined) { renderEval(cached); return; }
-    evalReadout.textContent = '…';
-    if (evalTimer) clearTimeout(evalTimer);
-    const myToken = ++evalToken;
-    evalTimer = setTimeout(() => {
-      void (async () => {
-        const evals = (await cloudTopLines(fen)) ?? (await analysePosition(fen, 10));
-        const top = evals && evals.length ? evals : null;
-        evalCache.set(fen, top);
-        if (isCleaned || myToken !== evalToken) return;
-        renderEval(top);
+  // Session-wide eval lookup, promise-cached so the bar and the grader share
+  // one fetch per position: cloud first, local depth-12 fallback.
+  const evalCache = new Map<string, Promise<MoveEval[] | null>>();
+  function topEvals(fen: string): Promise<MoveEval[] | null> {
+    let p = evalCache.get(fen);
+    if (!p) {
+      p = (async () => {
+        const cloud = await cloudTopLines(fen);
+        if (cloud && cloud.length) return cloud;
+        const local = await analysePosition(fen, 12);
+        return local.length ? local : null;
       })();
-    }, 300);
+      evalCache.set(fen, p);
+    }
+    return p;
   }
 
-  function renderEval(top: MoveEval[] | null): void {
-    if (!evalReadout) return;
-    if (!top || !top.length) { evalReadout.textContent = '—'; return; }
-    evalReadout.textContent = `${fmtEval(top[0])} · best ${formatMove(top[0].san)}`;
+  function analysisMove(from: Key, to: Key): void {
+    if (!anCur || inputLocked) return;
+    let mv;
+    try {
+      mv = chess.move({ from: from as string, to: to as string, promotion: 'q' });
+    } catch {
+      // Shouldn't happen (dests are legal) — resync the board and move on.
+      cg.set({ fen: chess.fen(), turnColor: cgTurn(), movable: { color: 'both', dests: legalDests() } });
+      return;
+    }
+    const uci = mv.from + mv.to + (mv.promotion ?? '');
+    // Re-playing a move that's already in the tree just follows it.
+    const existing = anCur.children.find(c => c.uci === uci);
+    if (existing) {
+      showNode(existing);
+      return;
+    }
+    const node: ANode = { san: mv.san, uci, fen: chess.fen(), parent: anCur, children: [] };
+    anCur.children.push(node);
+    anCur = node;
+    syncAnalysisBoard();
+    renderAnMoves();
+    scheduleEvalBar(node.fen);
+    void gradeAnalysisNode(node);
+  }
+
+  // Jump the board (and the chess instance) to a node of the analysis tree.
+  function showNode(node: ANode): void {
+    anCur = node;
+    chess.load(node.fen);
+    syncAnalysisBoard();
+    renderAnMoves();
+    scheduleEvalBar(node.fen);
+  }
+
+  function syncAnalysisBoard(): void {
+    if (!anCur) return;
+    const parts = anCur.parent ? uciParts(anCur.uci) : null;
+    cg.set({
+      fen: anCur.fen,
+      turnColor: cgTurn(),
+      lastMove: parts ? [parts.from, parts.to] : undefined,
+      movable: { color: 'both', dests: legalDests() },
+    });
+    if (parts && anCur.cls) paintShapes({ badge: { at: parts.to, cls: anCur.cls } });
+    else paintShapes();
+  }
+
+  // Grade one analysis move exactly like the Game Review does: the engine's
+  // top moves at the parent (mover-perspective) + the played move's eval.
+  async function gradeAnalysisNode(node: ANode): Promise<void> {
+    const parentFen = node.parent?.fen;
+    if (!parentFen) return;
+    const parentTop = await topEvals(parentFen);
+    if (isCleaned || !parentTop || parentTop.length === 0) return;
+    const moverIsBlack = parentFen.split(' ')[1] === 'b';
+    const flip = (v: number | undefined): number | undefined =>
+      v === undefined ? undefined : (moverIsBlack ? -v : v);
+    const top: CloudTopMove[] = parentTop.map(e => ({ uci: e.uci, cp: flip(e.cp), mate: flip(e.mate) }));
+
+    let playedCp: number | null = null;
+    const mine = top.find(m => m.uci.slice(0, 4) === node.uci.slice(0, 4));
+    if (mine) playedCp = flattenCp(mine);
+    if (playedCp === null) {
+      const childTop = await topEvals(node.fen);
+      if (isCleaned) return;
+      const childW = childTop && childTop.length ? flattenCp(childTop[0]) : null;
+      if (childW !== null) playedCp = moverIsBlack ? -childW : childW;
+    }
+    if (playedCp === null) return;
+
+    const grade = gradeMove({ parentTop: top, playedUci: node.uci, playedCp, inBook: false });
+    if (!grade || isCleaned) return;
+    node.cls = grade.classification;
+    if (anCur === node) syncAnalysisBoard();
+    renderAnMoves();
+  }
+
+  // ── The analysis move list (variations parenthesised, PGN style) ────────────
+  function renderAnMoves(): void {
+    anMovesEl.innerHTML = '';
+    if (!anRoot) return;
+    // A quiet head chip jumps back to the drill position itself, so other
+    // first moves can be tried there too (they open as variations).
+    const rootChip = document.createElement('span');
+    rootChip.className = 'move-san mr-an-root' + (anCur === anRoot ? ' active' : '');
+    rootChip.textContent = '⟲';
+    rootChip.title = 'Back to the position';
+    rootChip.addEventListener('click', () => showNode(anRoot!));
+    anMovesEl.appendChild(rootChip);
+    // 1-based ply of the first analysis move = the flagged ply + 1.
+    renderAnCont(anMovesEl, anRoot, current.spot.ply + 1, true);
+  }
+
+  function renderAnCont(container: HTMLElement, parent: ANode, ply: number, forceNumber: boolean): void {
+    if (parent.children.length === 0) return;
+    const main = parent.children[0];
+    emitAnMove(container, main, ply, forceNumber);
+
+    let nextForce = false;
+    if (parent.children.length > 1) {
+      for (let i = 1; i < parent.children.length; i++) {
+        const v = parent.children[i];
+        const wrap = document.createElement('span');
+        wrap.className = 'move-var';
+        wrap.appendChild(document.createTextNode('('));
+        emitAnMove(wrap, v, ply, true);
+        renderAnCont(wrap, v, ply + 1, false);
+        wrap.appendChild(document.createTextNode(')'));
+        container.appendChild(wrap);
+      }
+      nextForce = true;
+    }
+    renderAnCont(container, main, ply + 1, nextForce);
+  }
+
+  function emitAnMove(container: HTMLElement, node: ANode, ply: number, force: boolean): void {
+    const white = ply % 2 === 1;
+    if (white || force) {
+      const num = document.createElement('span');
+      num.className = 'move-num';
+      num.textContent = white ? `${Math.ceil(ply / 2)}.` : `${Math.ceil(ply / 2)}…`;
+      container.appendChild(num);
+    }
+    const span = document.createElement('span');
+    span.className = 'move-san' + (node === anCur ? ' active' : '');
+    span.textContent = formatMove(node.san);
+    if (node.cls) {
+      span.classList.add(`class--${node.cls}`);
+      span.appendChild(classIcon(node.cls, 12));
+    }
+    span.addEventListener('click', () => showNode(node));
+    container.appendChild(span);
+  }
+
+  // ── Eval bar ────────────────────────────────────────────────────────────────
+  let evalToken = 0;
+  function scheduleEvalBar(fen: string): void {
+    const myToken = ++evalToken;
+    evalText.textContent = '…';
+    void topEvals(fen).then((top) => {
+      if (isCleaned || myToken !== evalToken) return;
+      if (!top || !top.length) {
+        evalText.textContent = '—';
+        return;
+      }
+      const whiteCp = flattenCp(top[0]);
+      if (whiteCp !== null) {
+        evalFill.style.width = `${Math.round(cpToWin(whiteCp) * 100)}%`;
+      }
+      evalText.textContent = `${fmtEval(top[0])} · best ${formatMove(top[0].san)}`;
+    });
+  }
+
+  // ── Suspend for the full analyser ───────────────────────────────────────────
+  // The overlay hides (session state intact) while the analyser opens at the
+  // position on the board; the app's "Back to training" chip resumes it, and
+  // navigating anywhere else discards it cleanly.
+  function suspendForAnalysis(game: ImportedGame, atFen: string): void {
+    if (!opts.onOpenGame) return;
+    removeBack();
+    removeBack = () => {};
+    overlay.hidden = true;
+    opts.onOpenGame(game, {
+      atFen,
+      onReturn: () => {
+        if (isCleaned) return;
+        overlay.hidden = false;
+        removeBack = pushBack(exitViaBackGesture);
+        requestAnimationFrame(() => { if (!isCleaned) cg.redrawAll(); });
+      },
+      onDiscard: () => {
+        if (!isCleaned) cleanup();
+      },
+    });
   }
 
   // ── Results screen (mirrors puzzle-run's) ───────────────────────────────────
@@ -716,9 +851,19 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
     overlay.appendChild(wrap);
   }
 
+  // One results row — tappable: pops the position up right here, with a jump
+  // into the full analyser for that game.
   function resultRow(e: SessionEntry): HTMLElement {
     const row = document.createElement('div');
-    row.className = 'pz-result-row ' + (e.clean ? 'pz-result-row--solved' : 'pz-result-row--missed');
+    row.className = 'pz-result-row pz-result-row--linked '
+      + (e.clean ? 'pz-result-row--solved' : 'pz-result-row--missed');
+    row.setAttribute('role', 'button');
+    row.tabIndex = 0;
+    const open = (): void => openSpotPeek(e.ref);
+    row.addEventListener('click', open);
+    row.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(); }
+    });
 
     const dot = document.createElement('span');
     dot.className = 'pz-result-dot';
@@ -740,6 +885,87 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
     return row;
   }
 
+  // The results-row popup: the position as you had it (played move in red, the
+  // engine's answer in orange) plus "Analyse game" into the full analyser.
+  function openSpotPeek(ref: SpotRef): void {
+    const ov = document.createElement('div');
+    ov.className = 'edit-overlay';
+    const sheet = document.createElement('div');
+    sheet.className = 'edit-sheet peek-sheet';
+
+    let closed = false;
+    const close = (): void => {
+      if (closed) return;
+      closed = true;
+      ov.remove();
+      removePeekBack();
+    };
+
+    const board = document.createElement('div');
+    board.className = 'peek-board cg-wrap';
+    sheet.appendChild(board);
+
+    const pcg = Chessground(board, {
+      fen: ref.spot.preFen,
+      orientation: ref.game.colour,
+      viewOnly: true,
+      coordinates: false,
+      animation: { enabled: false },
+      drawable: { enabled: false, visible: true },
+    });
+    pcg.state.drawable.brushes['accent'] = { key: 'accent', color: '#ff9b21', opacity: 0.9, lineWidth: 10 };
+    pcg.state.drawable.brushes['danger'] = { key: 'danger', color: '#c93636', opacity: 0.8, lineWidth: 10 };
+    const shapes: DrawShape[] = [];
+    const played = uciParts(ref.spot.playedUci);
+    shapes.push({ orig: played.from, dest: played.to, brush: 'danger' });
+    const best = ref.spot.best[0];
+    if (best) {
+      const b = uciParts(best.uci);
+      shapes.push({ orig: b.from, dest: b.to, brush: 'accent' });
+    }
+    pcg.setAutoShapes(shapes);
+    requestAnimationFrame(() => pcg.redrawAll());
+
+    const meta = document.createElement('div');
+    meta.className = 'mr-peek-meta';
+    meta.textContent =
+      `${formatMove(ref.spot.playedSan)} → ${formatMove(best?.san ?? '?')} · vs ${ref.game.opponent}`;
+    sheet.appendChild(meta);
+
+    const btnRow = document.createElement('div');
+    btnRow.className = 'peek-actions';
+    if (opts.onOpenGame) {
+      const analyse = document.createElement('button');
+      analyse.type = 'button';
+      analyse.className = 'peek-action';
+      analyse.appendChild(Icons.review(18));
+      const lbl = document.createElement('span');
+      lbl.textContent = 'Analyse game';
+      analyse.appendChild(lbl);
+      analyse.addEventListener('click', () => {
+        close();
+        suspendForAnalysis(ref.game, ref.spot.preFen);
+      });
+      btnRow.appendChild(analyse);
+    }
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'peek-action';
+    closeBtn.appendChild(Icons.back(18));
+    const closeLbl = document.createElement('span');
+    closeLbl.textContent = 'Close';
+    closeBtn.appendChild(closeLbl);
+    closeBtn.addEventListener('click', close);
+    btnRow.appendChild(closeBtn);
+    sheet.appendChild(btnRow);
+
+    const removePeekBack = pushBack(close);
+    ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+
+    ov.appendChild(sheet);
+    document.body.appendChild(ov);
+  }
+
   function doExit(): void {
     cleanup();
     opts.onExit();
@@ -748,7 +974,6 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
     isCleaned = true;
     checkToken++;
     evalToken++;
-    if (evalTimer) clearTimeout(evalTimer);
     ro.disconnect();
     overlay.remove();
     removeBack();
@@ -766,13 +991,23 @@ function fmtEval(m: MoveEval): string {
   return `${sign}${Math.abs(pawns).toFixed(1)}`;
 }
 
-// One SAN → UCI against a fen (for SAN-only stored games in the review strip).
-function uciAt(fen: string, san: string): string | null {
-  try {
-    const ch = new Chess(fen);
-    const m = ch.move(san);
-    return m.from + m.to + (m.promotion ?? '');
-  } catch {
-    return null;
-  }
+// The eye-off mark for the arrow toggle (Lucide eye-off, drawn inline like the
+// Icons set but local to this file — the only place it's used).
+function eyeOffIcon(size: number): SVGSVGElement {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  el.setAttribute('viewBox', '0 0 24 24');
+  el.setAttribute('width', String(size));
+  el.setAttribute('height', String(size));
+  el.setAttribute('fill', 'none');
+  el.setAttribute('stroke', 'currentColor');
+  el.setAttribute('stroke-width', '2');
+  el.setAttribute('stroke-linecap', 'round');
+  el.setAttribute('stroke-linejoin', 'round');
+  el.setAttribute('aria-hidden', 'true');
+  el.innerHTML =
+    '<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/>' +
+    '<path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/>' +
+    '<path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/>' +
+    '<line x1="2" x2="22" y1="2" y2="22"/>';
+  return el;
 }
