@@ -169,6 +169,29 @@ export async function cloudTopMoves(fen: string): Promise<CloudTopMove[] | null>
     .filter(m => m.uci);
 }
 
+// The cloud's top lines as white-perspective MoveEval[] — the same shape the
+// local analysePosition() returns, so a caller can treat the two sources
+// interchangeably (the mistake scan and its drill do). Null on a cloud miss.
+export async function cloudTopLines(fen: string): Promise<MoveEval[] | null> {
+  const data = await cloudEval(fen);
+  if (!data?.pvs?.length) return null;
+  const moves = data.pvs.slice(0, 3).flatMap<MoveEval>(pv => {
+    const all = pv.moves?.trim().split(/\s+/) ?? [];
+    const rawUci = all[0];
+    if (!rawUci) return [];
+    const r = resolveUci(fen, rawUci); // normalises Lichess king-to-rook castling
+    return [{
+      uci: r?.uci ?? rawUci,
+      san: r?.san ?? rawUci,
+      // Lichess cloud cp/mate are already WHITE-perspective — MoveEval's contract.
+      cp: pv.cp,
+      mate: pv.mate,
+      sanLine: uciLineToSan(fen, all, PV_DISPLAY_PLIES),
+    }];
+  });
+  return moves.length ? moves : null;
+}
+
 // Single multiPv=3 cloud-eval request, shared by the graders. Resolves to the
 // parsed body or null on any failure.
 async function cloudEval(fen: string): Promise<CloudEval | null> {

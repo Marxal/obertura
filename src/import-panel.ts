@@ -44,7 +44,7 @@ import {
   getUsername as getLichessUser,
   setUsername as setLichessUser,
 } from './lichess';
-import { clearGames, saveGames, countGames } from './storage';
+import { clearGames, saveGames, countGames, getAllGames } from './storage';
 import { pushBack } from './back-nav';
 import { createImportLoader, approxScanFraction, type ImportLoader } from './import-progress';
 import { userAvatar } from './avatar';
@@ -188,14 +188,17 @@ export async function saveMyGames(
 
 // Add this import to whatever's already stored, without clearing — the "Add to
 // existing" choice. Lets a Chess.com library and a Lichess library live side by
-// side. saveGames() dedupes by id, so re-importing overlapping games is safe.
+// side. A game the library already holds is kept AS STORED (put() would replace
+// the whole record, wiping any saved analysis / tags / mistake-scan data the
+// fresh parse doesn't carry) — only genuinely new ids are written.
 // The source card follows the most-recent import but with the combined count.
 export async function addMyGames(
   games: ImportedGame[],
   meta: { platform: Platform; username: string; avatarUrl?: string },
 ): Promise<void> {
   const now = new Date().toISOString();
-  await saveGames(games); // put() dedupes by id
+  const existing = new Set((await getAllGames()).map(g => g.id));
+  await saveGames(games.filter(g => !existing.has(g.id)));
   setGamesSource({
     platform: meta.platform,
     username: meta.username,
