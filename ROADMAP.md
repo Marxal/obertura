@@ -303,6 +303,43 @@ _In progress on `claude/app-backup-sync-publish-90talj`. Restore point: `v0.4`._
 
 ---
 
+## v0.7 — mistake retry round 🔜
+
+Training leaves the repertoire and reaches into your own games: Train becomes
+a 2×2 grid of game modes, and the new Mistake Retry mode drills the exact
+positions where your imported games went wrong.
+
+- ✅ **Train tab grid** — the Train screen's two tabs become a 2×2 grid of
+  taller, game-mode style buttons (icon tile on top, per-mode accent colour
+  when active, cyan halo in Gamer): Openings, Puzzles, Mistake retry, End
+  game. End game is a "coming soon" placeholder card for a later round.
+- ✅ **The mistake scan** — a user-triggered "Analyse my games" pass (newest
+  first, cancellable, resumable — every finished game is saved) walks each
+  game with the Lichess cloud first and the local engine on misses, grades
+  your moves with the same win-probability model as Game Review, re-checks
+  candidates at the analyser's depth and stores the engine's top-3
+  continuations on the game record. Four categories: opening blunders (lost
+  the game in the opening), punish the opening (chances the opponent handed
+  you), missed wins (~+2.5 thrown away), and plain game-losing blunders from
+  level positions. Re-imports no longer overwrite stored games (this used to
+  silently wipe saved analysis/tags — now the stored copy always wins).
+- ✅ **The retry drill** — puzzle-style sessions of 5: the position as you had
+  it, your actual move as a red arrow, "You played … here and …", a two-stage
+  hint, instant checking against the stored top-3 (live engine as backup),
+  badge + confetti on a clean find. You advance by hand: before "Next
+  position" the engine's three continuations are laid out, and "Review game"
+  steps through the whole game inline (move strip, eval readout, jump to the
+  full analyser). Answered spots persist immediately; the pane shows spots
+  found / fixed / games analysed and per-category cards with to-fix counts.
+- ✅ **Daily challenge, task four** — "3 mistakes to fix" (a mixed pick) joins
+  the card once spots exist, and every daily task's success screen now leads
+  with "Next task →" so the whole daily runs in one sitting; "Close session"
+  stays beneath.
+
+_In progress on `claude/mistake-retry-training-vn7p3y`. Restore point: `v0.4`._
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on
