@@ -430,7 +430,9 @@ function renderModeCards(container: HTMLElement, allTraining: Line[], allLines: 
   container.appendChild(section);
 }
 
-function buildModeCard(o: {
+// Exported: the Mistake retry pane builds its category cards with the same
+// chrome (mistakes-screen.ts).
+export function buildModeCard(o: {
   accent: string;
   icon: SVGElement;
   name: string;

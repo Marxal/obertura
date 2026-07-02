@@ -11734,3 +11734,233 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 /* Rating graph sits between the big number and the range chips. */
 .pz-rating-chart { margin: 0.5rem 0 0.6rem; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MISTAKE RETRY — the drill overlay's own pieces (mr-*). It rides the shared
+   .pt-* overlay chrome and the pz-* hint/next buttons; below is only what the
+   mode adds: the story line, the post-answer continuations, and the inline
+   game review (move strip + stepper + eval readout).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* The story under the "vs opponent" line: "You played Qxb2 here and …". */
+.mr-intro {
+  max-width: 34ch;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+/* Post-answer block: continuations card + the Review/Next buttons. */
+.mr-after {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0 1rem 1rem;
+}
+
+.mr-continuations {
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  background: var(--bg-card);
+  padding: 0.6rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.mr-conts-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.mr-cont-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
+  font-size: 0.88rem;
+}
+
+.mr-cont-move {
+  font-weight: 700;
+  flex: none;
+}
+
+.mr-cont-eval {
+  flex: none;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+}
+
+/* The rest of the line, one row, fading out instead of wrapping. */
+.mr-cont-line {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-faint);
+  font-size: 0.8rem;
+}
+
+.mr-after-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.mr-after-actions > button { flex: 1 1 0; }
+
+/* ── Inline game review ── */
+.mr-review {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.6rem 1rem 1rem;
+}
+
+/* One horizontal, finger-scrollable row of move chips. */
+.mr-review-strip {
+  display: flex;
+  gap: 0.3rem;
+  overflow-x: auto;
+  padding: 0.15rem 0.1rem 0.35rem;
+  scrollbar-width: none;
+}
+.mr-review-strip::-webkit-scrollbar { display: none; }
+
+.mr-move-chip {
+  flex: none;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid var(--border-card);
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mr-move-chip--current {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+/* The ply the scan flagged — always visibly red, even when current. */
+.mr-move-chip--mistake {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.mr-move-chip--mistake.mr-move-chip--current {
+  background: var(--danger);
+  color: #fff;
+}
+
+.mr-review-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mr-step-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  min-height: 40px;
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.mr-step-btn:active { background: var(--bg-elevated); }
+.mr-step-btn--fwd svg { transform: rotate(180deg); }
+
+/* "+0.3 · best Nf3" — one quiet centred line between the steppers. */
+.mr-eval-readout {
+  flex: 1 1 0;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Mistake retry pane (the Train tab body) ── */
+.mistakes-screen {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: var(--space-xl);
+}
+
+.mistakes-hero {
+  margin: var(--space-lg) var(--space-lg) 0;
+}
+
+.mistakes-hero-note {
+  margin-top: 0.5rem;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.mistakes-hero-note--done { color: var(--success); font-weight: 600; }
+
+/* ── The scan progress overlay ── */
+.mr-scan-overlay {
+  justify-content: center;
+  align-items: center;
+  padding: var(--space-lg);
+}
+
+.mr-scan-card {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding: var(--space-xl) var(--space-lg);
+  border: 1px solid var(--border-card);
+  border-radius: 14px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card);
+  text-align: center;
+}
+
+.mr-scan-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.mr-scan-status {
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.mr-scan-opp {
+  min-height: 1.1em;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.mr-scan-note {
+  margin: 0;
+  color: var(--text-faint);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.mr-scan-stop { width: 100%; }
