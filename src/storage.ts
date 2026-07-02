@@ -69,10 +69,30 @@ async function store(mode: IDBTransactionMode): Promise<IDBObjectStore> {
   return db.transaction(STORE, mode).objectStore(STORE);
 }
 
+// ── Repertoire change notifications ──────────────────────────────────────────
+//
+// Lets interested modules (today: the Drive auto-backup in drive-backup.ts)
+// react to repertoire writes without this module importing them back — that
+// would be a circular dependency. Listeners fire after the write committed.
+// eraseAllData deliberately does NOT notify: auto-uploading an empty
+// repertoire right after an erase would destroy the cloud copy the user may
+// still want to restore from.
+
+const linesListeners: (() => void)[] = [];
+
+export function onLinesChanged(listener: () => void): void {
+  linesListeners.push(listener);
+}
+
+function notifyLinesChanged(): void {
+  for (const listener of linesListeners) listener();
+}
+
 // Insert or overwrite a line by its id. Returns the saved line.
 export async function saveLine(line: Line): Promise<Line> {
   const s = await store('readwrite');
   await promisify(s.put(line));
+  notifyLinesChanged();
   return line;
 }
 
@@ -92,6 +112,7 @@ export async function getLine(id: string): Promise<Line | undefined> {
 export async function deleteLine(id: string): Promise<void> {
   const s = await store('readwrite');
   await promisify(s.delete(id));
+  notifyLinesChanged();
 }
 
 // ── Imported Chess.com games ───────────────────────────────────────────────────
@@ -307,6 +328,7 @@ export async function replaceAllLines(lines: Line[]): Promise<void> {
   s.clear();
   for (const line of lines) s.put(line);
   await txnDone(s.transaction);
+  notifyLinesChanged();
 }
 
 // Merge the backup into what's already here: a line whose id matches an
@@ -316,6 +338,7 @@ export async function mergeLines(lines: Line[]): Promise<void> {
   const s = await store('readwrite');
   for (const line of lines) s.put(line);
   await txnDone(s.transaction);
+  notifyLinesChanged();
 }
 
 // ── Reset progress ─────────────────────────────────────────────────────────────
@@ -342,6 +365,7 @@ export async function resetAllProgress(): Promise<void> {
     s.put(line);
   }
   await txnDone(s.transaction);
+  notifyLinesChanged();
 }
 
 // ── Erase everything ─────────────────────────────────────────────────────────

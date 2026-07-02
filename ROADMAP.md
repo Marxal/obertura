@@ -273,6 +273,36 @@ _Restore point: tag `v1.3`. Shipped._
 
 ---
 
+## v0.6 — cloud backup & publishing groundwork 🔜
+
+The first "leave the device" round: the existing backup file learns to keep
+itself in the user's own Google Drive, and the publishing question (stores,
+one-time payment, desktop) is answered in writing. Still no server anywhere.
+
+- ✅ **Google Drive cloud backup** — a "Cloud backup — Google Drive" section in
+  Settings → Data: connect (OAuth popup, hidden app-data folder — the app can
+  never see the user's real files), Back up now, Restore from Drive (the usual
+  merge-vs-replace chooser), an auto-backup toggle (debounced upload ~30s after
+  any repertoire change, wired via a storage-layer change notifier), and a
+  last-backed-up caption with a "pending" state when an upload fails quietly.
+  Connecting on a fresh device offers to restore an existing cloud backup
+  before anything is uploaded. Inert until a (free) Google OAuth client ID is
+  pasted in — the click-by-click setup is `DRIVE-SETUP.md`. This also gives
+  manual cross-device sync (back up on the phone, restore on the desktop PWA).
+- ✅ **Publishing guide** — `PUBLISHING.md`: the full options analysis (Google
+  Play via a Trusted Web Activity as the recommended paid one-time-payment
+  route, Microsoft Store as an optional desktop storefront, Apple deferred with
+  its honest cost/rejection caveats, web-only sale as the fallback), the
+  free-web-vs-paid-app pricing stance, the step-by-step Play checklist with its
+  gotchas (12-testers/14-days closed test, root `assetlinks.json` repo,
+  free-can-never-become-paid), and the design note for true automatic sync
+  (per-line `updatedAt` + deletion tombstones) so a later round starts from a
+  design rather than from scratch.
+
+_In progress on `claude/app-backup-sync-publish-90talj`. Restore point: `v0.4`._
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on
@@ -289,8 +319,9 @@ the phone.
 
 Deliberately deferred. Revisited once the app has had more real use on the phone.
 
-- 💤 Accounts / sync (Google Drive sync for the repertoire backup, etc.)
-- 💤 Monetization build-out
+- 💤 True automatic sync (Drive *backup* shipped in v0.6; auto two-device sync
+  needs per-line `updatedAt` + deletion tombstones — design note in `PUBLISHING.md`)
+- 💤 Monetization build-out (options and recommended path now in `PUBLISHING.md`)
 - 💤 Offline support (service worker / installable cache)
 - 💤 Deeper engine features and richer explanations
 - 💤 More opening-database coverage and naming

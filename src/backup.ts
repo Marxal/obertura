@@ -14,6 +14,19 @@ import {
   getAllLines,
   type BackupFile,
 } from './storage';
+import {
+  DRIVE_CHANGE_EVENT,
+  isDriveConfigured,
+  isDriveConnected,
+  connectDrive,
+  disconnectDrive,
+  uploadBackupToDrive,
+  downloadBackupFromDrive,
+  getDriveAutoBackup,
+  setDriveAutoBackup,
+  getLastDriveBackup,
+  isDriveBackupPending,
+} from './drive-backup';
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
 
@@ -147,6 +160,263 @@ function downloadBackup(data: BackupFile): void {
   a.remove();
   // Give the download a moment to start before releasing the URL.
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ── Cloud backup (Google Drive) ───────────────────────────────────────────────
+//
+// The same backup file, kept in the app's hidden folder in the user's Google
+// Drive instead of a manual download. Connect once; from then on every change
+// is backed up automatically (~30s after the last edit — see drive-backup.ts),
+// and any device that connects to the same Google account can restore. All the
+// Drive plumbing lives in drive-backup.ts; this is just the Settings section.
+export function renderCloudBackupSection(onRestored: () => void): HTMLElement {
+  const section = document.createElement('section');
+  section.className = 'backup-section backup-section--cloud';
+
+  const render = (): void => {
+    section.replaceChildren();
+
+    const heading = document.createElement('h2');
+    heading.className = 'backup-title';
+    heading.textContent = 'Cloud backup — Google Drive';
+    section.appendChild(heading);
+
+    // Not wired to a Google project yet: say so honestly instead of showing
+    // buttons that can't work. The setup steps live in DRIVE-SETUP.md.
+    if (!isDriveConfigured()) {
+      const note = document.createElement('p');
+      note.className = 'backup-blurb';
+      note.textContent =
+        'Almost ready — this build isn’t linked to a Google project yet, so ' +
+        'cloud backup is switched off. Manual export/import above works as always.';
+      section.appendChild(note);
+      return;
+    }
+
+    if (!isDriveConnected()) {
+      renderDisconnected();
+      return;
+    }
+    renderConnected();
+  };
+
+  // Shared status line, rebuilt with the section on every render.
+  let setStatus: (msg: string, kind?: 'ok' | 'error' | 'info') => void = () => {};
+  const addStatusLine = (): void => {
+    const status = document.createElement('p');
+    status.className = 'backup-status';
+    status.setAttribute('aria-live', 'polite');
+    status.hidden = true;
+    section.appendChild(status);
+    setStatus = (msg, kind = 'info') => {
+      status.textContent = msg;
+      status.hidden = false;
+      status.className = `backup-status backup-status--${kind}`;
+    };
+  };
+
+  function renderDisconnected(): void {
+    const blurb = document.createElement('p');
+    blurb.className = 'backup-blurb';
+    blurb.textContent =
+      'Keep a copy of your repertoire in your own Google Drive, updated ' +
+      'automatically. It’s stored in a hidden app folder — Obertura can never ' +
+      'see your files — and any device signed into the same account can restore it.';
+    section.appendChild(blurb);
+
+    const row = document.createElement('div');
+    row.className = 'backup-row';
+    const connectBtn = document.createElement('button');
+    connectBtn.type = 'button';
+    connectBtn.className = 'backup-btn';
+    connectBtn.appendChild(Icons.link(16));
+    connectBtn.appendChild(document.createTextNode('Connect Google Drive'));
+    row.appendChild(connectBtn);
+    section.appendChild(row);
+    addStatusLine();
+
+    connectBtn.addEventListener('click', async () => {
+      connectBtn.disabled = true;
+      setStatus('Opening Google sign-in…');
+      try {
+        await connectDrive();
+        await afterConnect();
+      } catch (err) {
+        setStatus((err as Error).message, 'error');
+        connectBtn.disabled = false;
+        return;
+      }
+      render();
+    });
+  }
+
+  // First moments after connecting. Order matters: on a fresh device the user
+  // wants their old backup BACK, so we look before we ever upload — an eager
+  // first upload would overwrite the cloud copy with an empty repertoire.
+  async function afterConnect(): Promise<void> {
+    const remote = await downloadBackupFromDrive();
+    if (remote && remote.lines.length > 0) {
+      const existing = (await getAllLines()).length;
+      openImportChooser(remote, existing, async (mode) => {
+        if (mode === 'replace') await replaceAllLines(remote.lines);
+        else await mergeLines(remote.lines);
+        onRestored();
+        // The restore itself re-uploads via auto-backup; nothing else to do.
+      });
+      return;
+    }
+    // No backup in Drive yet (or an empty one): seed it with what's here.
+    await uploadBackupToDrive();
+  }
+
+  function renderConnected(): void {
+    const caption = document.createElement('p');
+    caption.className = 'backup-blurb';
+    caption.textContent = lastBackupCaption();
+    section.appendChild(caption);
+
+    const row = document.createElement('div');
+    row.className = 'backup-row';
+
+    const backupBtn = document.createElement('button');
+    backupBtn.type = 'button';
+    backupBtn.className = 'backup-btn';
+    backupBtn.appendChild(Icons.upload(16));
+    backupBtn.appendChild(document.createTextNode('Back up now'));
+
+    const restoreBtn = document.createElement('button');
+    restoreBtn.type = 'button';
+    restoreBtn.className = 'backup-btn';
+    restoreBtn.appendChild(Icons.download(16));
+    restoreBtn.appendChild(document.createTextNode('Restore from Drive'));
+
+    row.appendChild(backupBtn);
+    row.appendChild(restoreBtn);
+    section.appendChild(row);
+
+    // Auto-backup switch, in the shared .pref-row style used across Settings.
+    const autoRow = document.createElement('div');
+    autoRow.className = 'pref-row pref-row--switch';
+    const head = document.createElement('div');
+    head.className = 'pref-row-head';
+    const title = document.createElement('div');
+    title.className = 'pref-row-title';
+    title.textContent = 'Back up automatically';
+    const ctrl = document.createElement('div');
+    ctrl.className = 'pref-row-control';
+    ctrl.appendChild(switchControl(getDriveAutoBackup(), (on) => setDriveAutoBackup(on)));
+    head.appendChild(title);
+    head.appendChild(ctrl);
+    autoRow.appendChild(head);
+    const desc = document.createElement('div');
+    desc.className = 'pref-row-desc';
+    desc.textContent = 'Uploads a fresh backup about half a minute after you change your lines.';
+    autoRow.appendChild(desc);
+    section.appendChild(autoRow);
+
+    const disconnectBtn = document.createElement('button');
+    disconnectBtn.type = 'button';
+    disconnectBtn.className = 'backup-disconnect';
+    disconnectBtn.textContent = 'Disconnect Google Drive';
+    section.appendChild(disconnectBtn);
+
+    addStatusLine();
+
+    backupBtn.addEventListener('click', async () => {
+      backupBtn.disabled = true;
+      setStatus('Backing up…');
+      try {
+        const n = await uploadBackupToDrive();
+        setStatus(`Backed up ${n} line${n === 1 ? '' : 's'} to Drive ✓`, 'ok');
+      } catch (err) {
+        setStatus(`Backup failed — ${(err as Error).message}`, 'error');
+      } finally {
+        backupBtn.disabled = false;
+      }
+    });
+
+    restoreBtn.addEventListener('click', async () => {
+      restoreBtn.disabled = true;
+      setStatus('Fetching your backup…');
+      let remote: BackupFile | null;
+      try {
+        remote = await downloadBackupFromDrive();
+      } catch (err) {
+        setStatus(`Couldn’t fetch the backup — ${(err as Error).message}`, 'error');
+        restoreBtn.disabled = false;
+        return;
+      }
+      restoreBtn.disabled = false;
+      if (!remote) {
+        setStatus('No backup in Drive yet — tap “Back up now” first.', 'info');
+        return;
+      }
+      const existing = (await getAllLines()).length;
+      openImportChooser(remote, existing, async (mode) => {
+        try {
+          if (mode === 'replace') await replaceAllLines(remote.lines);
+          else await mergeLines(remote.lines);
+          const n = remote.lines.length;
+          setStatus(
+            mode === 'replace'
+              ? `Restored ${n} line${n === 1 ? '' : 's'} from Drive ✓`
+              : `Merged in ${n} line${n === 1 ? '' : 's'} from Drive ✓`,
+            'ok',
+          );
+          onRestored();
+        } catch (err) {
+          setStatus(`Restore failed — ${(err as Error).message}`, 'error');
+        }
+      });
+    });
+
+    disconnectBtn.addEventListener('click', () => {
+      disconnectDrive();
+      render();
+    });
+  }
+
+  // Keep the caption honest while the section is on screen (auto-backups land
+  // in the background); the listener detaches itself once the section is gone.
+  const onChange = (): void => {
+    if (!section.isConnected) {
+      window.removeEventListener(DRIVE_CHANGE_EVENT, onChange);
+      return;
+    }
+    render();
+  };
+  window.addEventListener(DRIVE_CHANGE_EVENT, onChange);
+
+  render();
+  return section;
+}
+
+// "Last backed up: …" with the pending state taking priority — pending means
+// the repertoire changed but the upload hasn't succeeded yet.
+function lastBackupCaption(): string {
+  if (isDriveBackupPending()) return 'Backup pending — it’ll upload automatically, or tap “Back up now”.';
+  const iso = getLastDriveBackup();
+  if (!iso) return 'Not backed up yet.';
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  if (!Number.isFinite(days) || days <= 0) return 'Last backed up: today.';
+  if (days === 1) return 'Last backed up: yesterday.';
+  return `Last backed up: ${days} days ago.`;
+}
+
+// The same .switch markup Settings uses for its toggles (settings-screen.ts),
+// rebuilt here so this module stays free of a settings-screen import.
+function switchControl(current: boolean, onChange: (v: boolean) => void): HTMLElement {
+  const label = document.createElement('label');
+  label.className = 'switch';
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  input.checked = current;
+  input.addEventListener('change', () => onChange(input.checked));
+  const track = document.createElement('span');
+  track.className = 'switch-track';
+  label.appendChild(input);
+  label.appendChild(track);
+  return label;
 }
 
 type ImportMode = 'merge' | 'replace';
