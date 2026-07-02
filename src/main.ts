@@ -7,7 +7,7 @@ import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
 import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, loadTree, removeLastMove, truncateAfterCurrent, setTreeMode, rootNode } from './tree';
 import type { Annotation, MoveNode } from './tree';
-import { saveLine, getAllLines, getGame, saveGames, deleteLine, deleteGame } from './storage';
+import { saveLine, getAllLines, getAllGames, getGame, saveGames, deleteLine, deleteGame } from './storage';
 import type { ImportedGame } from './import-games';
 import { nameForPath } from './openings';
 import type { Line } from './types';
@@ -21,12 +21,19 @@ import { renderMistakesScreen } from './mistakes-screen';
 import {
   renderDailyChallenge,
   pickDailyLines,
+  getDaily,
+  nextDailyTask,
   markLinesDone,
   markPuzzlesDone,
   markPositionsDone,
+  markMistakesDone,
   DAILY_PUZZLE_GOAL,
   DAILY_POSITION_GOAL,
+  DAILY_MISTAKE_GOAL,
+  type DailyTaskId,
 } from './daily-challenge';
+import { collectSpots, pickSpots, type SpotRef } from './mistake-scan';
+import { startMistakeSession } from './mistake-run';
 import { renderMyGamesScreen, formatGameDate } from './my-games-screen';
 import { opponentTag } from './scout';
 import { renderSettingsScreen } from './settings-screen';
@@ -1914,35 +1921,76 @@ function renderTrainTabbed(host: HTMLElement): void {
   host.append(dailyHost, tabs, openingsPane, puzzlesPane, mistakesPane, endgamePane);
 
   // (Re)render the daily card from current lines + done state. Called on first
-  // paint and after either half completes.
+  // paint and after any task completes.
   const renderDaily = async (): Promise<void> => {
     let allLines: Line[];
+    let spotRefs: SpotRef[];
     try {
-      allLines = await getAllLines();
+      const [lines, games] = await Promise.all([getAllLines(), getAllGames()]);
+      allLines = lines;
+      spotRefs = collectSpots(games);
     } catch {
       dailyHost.innerHTML = '';
       return;
     }
     dailyHost.innerHTML = '';
-    const card = renderDailyChallenge({
-      lines: pickDailyLines(allLines),
-      onTrainLines: (lines) => {
-        // Drill today's lines on the Openings pane; mark that third done when the
+
+    // Each task as a named launcher so the success screens' "Next task →" can
+    // chain into any of them. The next task is resolved at CLICK time (the
+    // completion screen mounts before the finished task's done flag is set).
+    const nextFor = (current: DailyTaskId): { label: string; run: () => void } | undefined => {
+      // Offer the button only when some OTHER task would still be open once
+      // this one is done — a "Next task" that closes into nothing misleads.
+      const pretend = { ...getDaily(), [current]: true };
+      if (!nextDailyTask(pretend, spotRefs.length > 0)) return undefined;
+      return {
+        label: 'Next task →',
+        run: () => {
+          const next = nextDailyTask(getDaily(), spotRefs.length > 0);
+          if (next) launchers[next]();
+        },
+      };
+    };
+
+    const launchers: Record<DailyTaskId, () => void> = {
+      lines: () => {
+        // Drill today's lines on the Openings pane; mark that task done when the
         // whole sitting finishes, then refresh the card behind the overlay.
         if (trainTab !== 'openings') { trainTab = 'openings'; paint(); }
-        startLineSession(lines, openingsPane, () => { markLinesDone(); void renderDaily(); });
+        startLineSession(pickDailyLines(allLines), openingsPane,
+          () => { markLinesDone(); void renderDaily(); }, nextFor('lines'));
       },
-      onRefreshPositions: () => {
+      positions: () => {
         // Same pane, but a stream of single due positions rather than whole lines.
         if (trainTab !== 'openings') { trainTab = 'openings'; paint(); }
-        startPositionsSession(allLines, openingsPane, DAILY_POSITION_GOAL, () => {
-          markPositionsDone();
-          void renderDaily();
+        startPositionsSession(allLines, openingsPane, DAILY_POSITION_GOAL,
+          () => { markPositionsDone(); void renderDaily(); }, nextFor('positions'));
+      },
+      puzzles: () => {
+        void startDailyPuzzles(DAILY_PUZZLE_GOAL,
+          () => { markPuzzlesDone(); void renderDaily(); }, nextFor('puzzles'));
+      },
+      mistakes: () => {
+        // A short mixed set from the scanned spots — runs as its own overlay,
+        // so no tab switch is needed.
+        startMistakeSession({
+          refs: pickSpots(spotRefs, null, DAILY_MISTAKE_GOAL),
+          modeLabel: 'Daily challenge',
+          onComplete: () => { markMistakesDone(); void renderDaily(); },
+          onExit: () => { if (trainTab === 'mistakes') paint(); },
+          onOpenGame: (game) => { openGameForAnalysis(game); showView('builder'); },
+          nextAction: nextFor('mistakes'),
         });
       },
-      onSolvePuzzles: () => {
-        void startDailyPuzzles(DAILY_PUZZLE_GOAL, () => { markPuzzlesDone(); void renderDaily(); });
-      },
+    };
+
+    const card = renderDailyChallenge({
+      lines: pickDailyLines(allLines),
+      onTrainLines: () => launchers.lines(),
+      onRefreshPositions: () => launchers.positions(),
+      onSolvePuzzles: () => launchers.puzzles(),
+      mistakeSpotCount: spotRefs.length,
+      onFixMistakes: () => launchers.mistakes(),
     });
     if (card) dailyHost.appendChild(card);
   };

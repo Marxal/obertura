@@ -1153,6 +1153,10 @@ function runSession(
 // end-of-session mistakes review cover everything; the round screen shows just
 // that round's delta.
 
+// A completion screen's optional extra primary — the daily challenge passes
+// "Next task →" so a finished task chains straight into the next one.
+type NextAction = { label: string; run: () => void };
+
 interface RoundRunner {
   lines: Line[];
   explicit: boolean;
@@ -1161,14 +1165,15 @@ interface RoundRunner {
   totalRounds: number;
   stats: SessionStats;
   // Fires once the whole sitting reaches the final session-complete screen (not
-  // between rounds). Used by the daily challenge to mark its lines half done.
+  // between rounds). Used by the daily challenge to mark its lines task done.
   onComplete?: () => void;
+  nextAction?: NextAction;
 }
 
 function startRounds(
   lines: Line[],
   container: HTMLElement,
-  opts: { explicit?: boolean; onComplete?: () => void } = {},
+  opts: { explicit?: boolean; onComplete?: () => void; nextAction?: NextAction } = {},
 ): void {
   const runner: RoundRunner = {
     lines,
@@ -1178,6 +1183,7 @@ function startRounds(
     totalRounds: Math.max(1, Math.ceil(lines.length / ROUND_SIZE)),
     stats: makeStats(),
     onComplete: opts.onComplete,
+    nextAction: opts.nextAction,
   };
   runRound(runner, container);
 }
@@ -1189,8 +1195,9 @@ export function startLineSession(
   lines: Line[],
   container: HTMLElement,
   onComplete?: () => void,
+  nextAction?: NextAction,
 ): void {
-  startRounds(lines, container, { explicit: true, onComplete });
+  startRounds(lines, container, { explicit: true, onComplete, nextAction });
 }
 
 // Run a short, fixed-size individual-positions session (the daily challenge's
@@ -1204,6 +1211,7 @@ export function startPositionsSession(
   container: HTMLElement,
   count: number,
   onComplete: () => void,
+  nextAction?: NextAction,
 ): void {
   const trainingLines = lines.filter(l => l.inTraining);
   const clones = trainingLines.map(l => ({ ...l, tree: structuredClone(l.tree) }));
@@ -1268,7 +1276,7 @@ export function startPositionsSession(
         if (wasMissed) stats.missed++;
       },
       onComplete: () => {
-        renderIndividualComplete(container, stats, mistakes);
+        renderIndividualComplete(container, stats, mistakes, nextAction);
         onComplete();
       },
       onCancel: () => void doRender(container),
@@ -1291,7 +1299,7 @@ function runRound(runner: RoundRunner, container: HTMLElement): void {
   const session = new TrainingSession(slice, { explicit: runner.explicit });
   runSession(session, container, runner.stats, () => {
     if (runner.index >= runner.lines.length) {
-      renderSessionComplete(container, runner.stats);
+      renderSessionComplete(container, runner.stats, runner.nextAction);
       runner.onComplete?.();
     } else {
       renderRoundComplete(container, runner, before);
@@ -1532,6 +1540,7 @@ function renderIndividualComplete(
   container: HTMLElement,
   stats: { reviewed: number; missed: number; openings: Map<string, OpeningTally> },
   mistakes: Mistake[],
+  nextAction?: NextAction,
 ): void {
   if (stats.reviewed > 0) recordTrainingDay();
 
@@ -1566,7 +1575,7 @@ function renderIndividualComplete(
   }
 
   const actions = completionActions();
-  appendReviewActions(actions, container, mistakes, close, dismiss);
+  appendReviewActions(actions, container, mistakes, close, dismiss, nextAction);
   panel.appendChild(actions);
 
   if (stats.reviewed > 0) burstConfetti(panel);
@@ -2084,7 +2093,7 @@ function renderRoundComplete(
 
 // ── Session-complete panel ──────────────────────────────────────────────────────
 
-function renderSessionComplete(container: HTMLElement, stats: SessionStats): void {
+function renderSessionComplete(container: HTMLElement, stats: SessionStats, nextAction?: NextAction): void {
   // A session that reviewed at least one line counts as today's training for
   // the Home-screen streak.
   if (stats.linesReviewed > 0) recordTrainingDay();
@@ -2130,7 +2139,7 @@ function renderSessionComplete(container: HTMLElement, stats: SessionStats): voi
   }
 
   const actions = completionActions();
-  appendReviewActions(actions, container, stats.mistakes, close, dismiss);
+  appendReviewActions(actions, container, stats.mistakes, close, dismiss, nextAction);
   panel.appendChild(actions);
 
   // Celebrate a genuinely-finished session (at least one line reviewed) with the
@@ -2151,11 +2160,23 @@ function appendReviewActions(
   mistakes: Mistake[],
   close: () => void,
   dismiss: () => void,
+  nextAction?: NextAction,
 ): void {
+  // Daily challenge: the chain to the next task leads, and the mistake retry
+  // steps down to a secondary so there's exactly one green action.
+  if (nextAction) {
+    const next = document.createElement('button');
+    next.type = 'button';
+    next.className = 'btn-primary train-next-btn';
+    next.textContent = nextAction.label;
+    next.addEventListener('click', () => { dismiss(); nextAction.run(); });
+    actions.appendChild(next);
+  }
+
   if (mistakes.length > 0) {
     const retry = document.createElement('button');
     retry.type = 'button';
-    retry.className = 'btn-primary train-next-btn';
+    retry.className = nextAction ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
     retry.textContent = `Try your mistakes again (${mistakes.length})`;
     retry.addEventListener('click', () => { dismiss(); runMistakesReview(container, mistakes); });
     actions.appendChild(retry);

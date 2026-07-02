@@ -1,7 +1,9 @@
-// The daily challenge — the dynamic card at the top of the Train screen. Two
-// bite-sized tasks for today: remember a few lines and solve a few rated puzzles.
-// When both are done the card shrinks to a quiet "done for today" state. State is
-// device-local (localStorage), reset each calendar day, mirroring streak.ts.
+// The daily challenge — the dynamic card at the top of the Train screen. A few
+// bite-sized tasks for today: remember some lines, refresh some positions, solve
+// some rated puzzles and (once games have been scanned) fix a few of your own
+// mistakes. When everything's done the card shrinks to a quiet "done for today"
+// state. State is device-local (localStorage), reset each calendar day,
+// mirroring streak.ts.
 
 import type { Line } from './types';
 import { dueLines, recentlyAddedLines, weakestLines } from './scheduler';
@@ -11,14 +13,17 @@ import { Icons } from './icons';
 export const DAILY_LINE_GOAL = 3;
 export const DAILY_PUZZLE_GOAL = 3;
 export const DAILY_POSITION_GOAL = 3;
+export const DAILY_MISTAKE_GOAL = 3;
 
 const KEY = 'obertura.dailyChallenge';
 
-interface DailyState {
+export interface DailyState {
   day: string;        // "YYYY-MM-DD" local
-  lines: boolean;     // the lines third is done
-  puzzles: boolean;   // the puzzles third is done
-  positions: boolean; // the positions third is done
+  lines: boolean;     // the lines task is done
+  puzzles: boolean;   // the puzzles task is done
+  positions: boolean; // the positions task is done
+  mistakes: boolean;  // the mistake-retry task is done (only offered when
+                      // scanned spots exist — see renderDailyChallenge)
 }
 
 function todayKey(d: Date = new Date()): string {
@@ -29,14 +34,15 @@ function todayKey(d: Date = new Date()): string {
 }
 
 function load(): DailyState {
-  const fresh: DailyState = { day: todayKey(), lines: false, puzzles: false, positions: false };
+  const fresh: DailyState = { day: todayKey(), lines: false, puzzles: false, positions: false, mistakes: false };
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return fresh;
     const obj = JSON.parse(raw) as Partial<DailyState>;
     // A new day wipes the slate — yesterday's done state never carries over.
     if (obj.day !== fresh.day) return fresh;
-    return { day: fresh.day, lines: !!obj.lines, puzzles: !!obj.puzzles, positions: !!obj.positions };
+    // !! also covers state saved before the mistakes task existed.
+    return { day: fresh.day, lines: !!obj.lines, puzzles: !!obj.puzzles, positions: !!obj.positions, mistakes: !!obj.mistakes };
   } catch {
     return fresh;
   }
@@ -72,9 +78,35 @@ export function markPositionsDone(): void {
   save(s);
 }
 
-export function isDailyDone(): boolean {
+export function markMistakesDone(): void {
   const s = load();
-  return s.lines && s.puzzles && s.positions;
+  s.mistakes = true;
+  save(s);
+}
+
+// `mistakesAvailable` = there are scanned spots to train (the task is only
+// offered then, so without any it never blocks "done").
+export function isDailyDone(mistakesAvailable = false): boolean {
+  const s = load();
+  return s.lines && s.puzzles && s.positions && (!mistakesAvailable || s.mistakes);
+}
+
+// ── The next-task chain ───────────────────────────────────────────────────────
+// A finished daily task's success screen offers "Next task →"; this names the
+// task it should jump to. Pure (state passed in) so it's self-testable. Order
+// mirrors the card: lines, positions, puzzles, mistakes.
+
+export type DailyTaskId = 'lines' | 'positions' | 'puzzles' | 'mistakes';
+
+export function nextDailyTask(
+  state: Pick<DailyState, 'lines' | 'positions' | 'puzzles' | 'mistakes'>,
+  mistakesAvailable: boolean,
+): DailyTaskId | null {
+  if (!state.lines) return 'lines';
+  if (!state.positions) return 'positions';
+  if (!state.puzzles) return 'puzzles';
+  if (mistakesAvailable && !state.mistakes) return 'mistakes';
+  return null;
 }
 
 // Today's three lines: due ones first, then topped up with the newest and then the
@@ -99,12 +131,16 @@ export function pickDailyLines(allLines: Line[], goal = DAILY_LINE_GOAL): Line[]
 }
 
 export interface DailyChallengeDeps {
-  // The lines to drill for today's lines third (already picked), or [] when none.
+  // The lines to drill for today's lines task (already picked), or [] when none.
   lines: Line[];
   onTrainLines: (lines: Line[]) => void;
   onSolvePuzzles: () => void;
   // Drill today's few individual positions to refresh (due moves, not whole lines).
   onRefreshPositions: () => void;
+  // How many mistake-retry spots the scan has found (0 = task not offered yet).
+  mistakeSpotCount: number;
+  // Fix a few of today's mistake-retry spots.
+  onFixMistakes: () => void;
 }
 
 // Build the daily-challenge card. Returns null when there's nothing to offer (no
@@ -113,7 +149,8 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
   if (deps.lines.length === 0) return null;
 
   const state = getDaily();
-  const done = state.lines && state.puzzles && state.positions;
+  const withMistakes = deps.mistakeSpotCount > 0;
+  const done = state.lines && state.puzzles && state.positions && (!withMistakes || state.mistakes);
 
   const card = document.createElement('div');
   card.className = 'card daily-card' + (done ? ' daily-card--done' : '');
@@ -156,11 +193,23 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
     done: state.puzzles,
     onClick: () => deps.onSolvePuzzles(),
   }));
+  // Only once the mistake scan has found something — a task that can't run is
+  // just clutter.
+  if (withMistakes) {
+    tasks.appendChild(buildTask({
+      icon: Icons.reset(18),
+      label: `${DAILY_MISTAKE_GOAL} mistakes to fix`,
+      done: state.mistakes,
+      onClick: () => deps.onFixMistakes(),
+    }));
+  }
   card.appendChild(tasks);
 
   const note = document.createElement('div');
   note.className = 'daily-card-note';
-  note.textContent = 'A few lines and rated puzzles, picked for you.';
+  note.textContent = withMistakes
+    ? 'Lines, puzzles and your own mistakes, picked for you.'
+    : 'A few lines and rated puzzles, picked for you.';
   card.appendChild(note);
 
   return card;

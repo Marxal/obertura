@@ -72,6 +72,9 @@ export interface PuzzleSessionOptions {
   // Skip puzzles seen recently (default true); a retry session turns this off so
   // the missed puzzles are deliberately repeated.
   dedup?: boolean;
+  // Daily challenge: an extra leading primary on the results screen that chains
+  // straight into the next task ("Next task →").
+  nextAction?: { label: string; run: () => void };
 }
 
 // One finished puzzle, kept for the end-of-session review list.
@@ -683,14 +686,24 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     }
 
     // Actions, matching the training success screen: a green primary + white
-    // secondaries, all full width.
+    // secondaries, all full width. With a daily-challenge nextAction, the chain
+    // to the next task takes the green and everything else steps down.
     const actions = document.createElement('div');
     actions.className = 'pz-results-actions';
+
+    if (opts.nextAction) {
+      const next = document.createElement('button');
+      next.type = 'button';
+      next.className = 'btn-primary train-next-btn';
+      next.textContent = opts.nextAction.label;
+      next.addEventListener('click', () => { const fn = opts.nextAction!.run; cleanup(); fn(); });
+      actions.appendChild(next);
+    }
 
     if (opts.onPlayAgain) {
       const again = document.createElement('button');
       again.type = 'button';
-      again.className = 'btn-primary train-next-btn';
+      again.className = opts.nextAction ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
       again.textContent = 'Play again';
       again.addEventListener('click', () => { const fn = opts.onPlayAgain!; cleanup(); fn(); });
       actions.appendChild(again);
@@ -707,8 +720,8 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
 
     const doneBtn = document.createElement('button');
     doneBtn.type = 'button';
-    // Without a "Play again" there's no green action, so promote this one.
-    doneBtn.className = opts.onPlayAgain ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
+    // Without any other green action, promote the close.
+    doneBtn.className = (opts.onPlayAgain || opts.nextAction) ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
     doneBtn.textContent = 'End session';
     doneBtn.addEventListener('click', () => doExit());
     actions.appendChild(doneBtn);

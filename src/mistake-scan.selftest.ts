@@ -13,6 +13,7 @@ import {
   MAX_SPOTS_PER_GAME,
 } from './mistake-scan';
 import type { MistakeSpot, SpotRef, CategoriseCtx } from './mistake-scan';
+import { nextDailyTask } from './daily-challenge';
 import { flattenCp } from './winprob';
 import type { ImportedGame, GameResult } from './import-core';
 
@@ -157,6 +158,18 @@ export function runMistakeScanSelfTest(): TestResult[] {
     JSON.stringify(fools?.sans));
   check('replay falls back to SAN', replayGame({ ucis: [], sans: ['e4', 'e5'] })?.fens.length === 3);
   check('garbage moves → null', replayGame({ ucis: ['e2e5'], sans: [] }) === null);
+
+  // ── nextDailyTask (the daily "Next task →" chain) ───────────────────────────
+  const day = (over: Partial<Record<'lines' | 'positions' | 'puzzles' | 'mistakes', boolean>>) =>
+    ({ lines: false, positions: false, puzzles: false, mistakes: false, ...over });
+  check('fresh day starts with lines', nextDailyTask(day({}), true) === 'lines');
+  check('card order holds', nextDailyTask(day({ lines: true }), true) === 'positions');
+  check('puzzles after positions', nextDailyTask(day({ lines: true, positions: true }), false) === 'puzzles');
+  check('mistakes only when available',
+    nextDailyTask(day({ lines: true, positions: true, puzzles: true }), false) === null);
+  check('mistakes close the chain',
+    nextDailyTask(day({ lines: true, positions: true, puzzles: true }), true) === 'mistakes');
+  check('all done → null', nextDailyTask(day({ lines: true, positions: true, puzzles: true, mistakes: true }), true) === null);
 
   return results;
 }
