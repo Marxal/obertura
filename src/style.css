@@ -3148,6 +3148,102 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   border-color: var(--primary);
 }
 
+/* ── Train tabs — the 2×2 mode grid ─────────────────────────────────────────
+   The Train screen's four modes (Openings / Puzzles / Mistake retry / End
+   game) share the .lines-tab chrome but stack icon-over-label in a two-column
+   grid of taller, chunkier "game mode" buttons. Scoped under .train-tabs so
+   the My Lines / Explore tab rows keep their compact single-row look. Each
+   button may carry a --tab-accent (set inline in main.ts) so the active mode
+   reads in that mode's own colour rather than one global green; Openings has
+   none and falls back to --primary. */
+.train-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+
+.train-tabs .lines-tab {
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 76px;
+  padding: 0.7rem 0.4rem 0.6rem;
+  font-size: 0.8rem;
+  border-radius: 14px;
+}
+
+/* The glyph sits in its own little tile above the label — the "game mode
+   button" read. .lines-tab-icon is the <svg> itself, so the tile is padding
+   on the svg box. Inactive: the mode's accent on a faint chip (decorative —
+   the label carries the meaning). Active: white glyph on a white-glass chip. */
+.train-tabs .lines-tab-icon {
+  box-sizing: border-box;
+  width: 36px;
+  height: 36px;
+  padding: 7px;
+  border-radius: 10px;
+  background: var(--fill-faint);
+  color: var(--tab-accent, var(--primary));
+  transition: background 0.14s, color 0.14s;
+}
+
+.train-tabs .lines-tab.active {
+  background: var(--tab-accent, var(--primary));
+  border-color: var(--tab-accent, var(--primary));
+}
+
+.train-tabs .lines-tab.active .lines-tab-icon {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
+/* ── End game — the coming-soon placeholder pane ── */
+.train-soon-card {
+  margin: var(--space-xl) var(--space-lg);
+  padding: 44px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+  background: var(--fill-faint);
+}
+
+.train-soon-icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  color: var(--text-muted);
+}
+
+.train-soon-title {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.train-soon-badge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.train-soon-body {
+  margin: 2px 0 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
 /* The quick-view carousel above bleeds to the screen edges, so #view-lines
    carries no page inset of its own. Everything in the tab body (filter bar,
    games refresh row + intro) must pick up the page margin here, or it sits flush
@@ -9852,6 +9948,12 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 [data-theme="gamer"] .move-san.active,
 [data-theme="gamer"] .lib-move--current {
   box-shadow: 0 0 14px rgba(39, 224, 255, 0.5), 0 0 4px rgba(39, 224, 255, 0.6);
+}
+
+/* The Train 2×2 mode tabs — the active mode gets the house cyan halo (its fill
+   is the mode's own accent, so the glow, not the fill, is what says "gamer"). */
+[data-theme="gamer"] .train-tabs .lines-tab.active {
+  box-shadow: 0 0 14px rgba(39, 224, 255, 0.45), 0 0 4px rgba(39, 224, 255, 0.55);
 }
 
 /* Bottom-nav active tab — cyan text, glowing icon + label (text-shadow only). */
