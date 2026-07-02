@@ -1,8 +1,8 @@
 // "Import my last game" — the FAB shortcut that fetches the single most recent
 // game from the connected Lichess / Chess.com account, files it with the rest of
-// my imported games (idempotently — the store is keyed by id, so a game a bulk
-// import or the weekly auto-refresh already holds is overwritten, never doubled),
-// and hands it back so the caller can open it on the board to save as a line.
+// my imported games (idempotently — a game the library already holds is returned
+// as stored, never re-written, so its analysis/tags/scan data survive), and
+// hands it back so the caller can open it on the board to save as a line.
 //
 // "Connected" here just means a username is on the device (saved by any earlier
 // import). There's no OAuth — the public games APIs need no token.
@@ -11,7 +11,7 @@ import { importGames, type ImportedGame, type Platform } from './import-games';
 import { getUsername as getChesscomUser } from './chesscom';
 import { getUsername as getLichessUser } from './lichess';
 import { getGamesSource } from './import-panel';
-import { saveGames } from './storage';
+import { getGame, saveGames } from './storage';
 
 export interface ConnectedAccount {
   platform: Platform;
@@ -47,6 +47,11 @@ export async function importLastGame(): Promise<ImportedGame | null> {
   const result = await importGames(account.platform, account.username, { months: 12, maxGames: 1 });
   const game = result.games[0];
   if (!game) return null;
+
+  // Already in the library? Keep the STORED copy — it may carry saved analysis,
+  // tags or mistake-scan data that a fresh parse of the same game doesn't have.
+  const stored = await getGame(game.id);
+  if (stored) return stored;
 
   await saveGames([game]);
   return game;

@@ -182,7 +182,13 @@ function runMixedPuzzleSession(
   entries: OpeningEntry[],
   label: string,
   mode: PuzzleMode,
-  hooks: { taSource?: TaSource; onExit: () => void; onPlayAgain?: () => void; onComplete?: () => void },
+  hooks: {
+    taSource?: TaSource;
+    onExit: () => void;
+    onPlayAgain?: () => void;
+    onComplete?: () => void;
+    nextAction?: { label: string; run: () => void };
+  },
 ): void {
   if (entries.length === 0) return;
   const taSource = hooks.taSource ?? 'openings';
@@ -242,6 +248,7 @@ function runMixedPuzzleSession(
     },
     onExit: hooks.onExit,
     onPlayAgain: hooks.onPlayAgain,
+    nextAction: hooks.nextAction,
   });
 }
 
@@ -249,7 +256,11 @@ function runMixedPuzzleSession(
 // pool as the Daily Rated Mix, just a smaller count). `onComplete` fires when the
 // run reaches its results — i.e. the half is done. Resolves to false when there's
 // nothing to draw from (no openings in the repertoire/games yet).
-export async function startDailyPuzzles(count: number, onComplete: () => void): Promise<boolean> {
+export async function startDailyPuzzles(
+  count: number,
+  onComplete: () => void,
+  nextAction?: { label: string; run: () => void },
+): Promise<boolean> {
   let lines: Awaited<ReturnType<typeof getAllLines>>;
   let games: Awaited<ReturnType<typeof getAllGames>>;
   try {
@@ -267,6 +278,7 @@ export async function startDailyPuzzles(count: number, onComplete: () => void): 
   runMixedPuzzleSession(allEntries, 'Daily challenge', { kind: 'count', count, rated: true }, {
     onExit: () => { /* the daily card refreshes itself via onComplete */ },
     onComplete,
+    nextAction,
   });
   return true;
 }

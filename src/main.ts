@@ -7,7 +7,7 @@ import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
 import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, loadTree, removeLastMove, truncateAfterCurrent, setTreeMode, rootNode } from './tree';
 import type { Annotation, MoveNode } from './tree';
-import { saveLine, getAllLines, getGame, saveGames, deleteLine, deleteGame } from './storage';
+import { saveLine, getAllLines, getAllGames, getGame, saveGames, deleteLine, deleteGame } from './storage';
 import type { ImportedGame } from './import-games';
 import { nameForPath } from './openings';
 import type { Line } from './types';
@@ -17,15 +17,23 @@ import { startPretrainingRun, enrolLineDirectly } from './pretraining';
 import { renderTrainScreen, startLineSession, startPositionsSession } from './train-screen';
 import { renderExploreScreen } from './explore-screen';
 import { renderPuzzlesScreen, startDailyPuzzles } from './puzzles-screen';
+import { renderMistakesScreen } from './mistakes-screen';
 import {
   renderDailyChallenge,
   pickDailyLines,
+  getDaily,
+  nextDailyTask,
   markLinesDone,
   markPuzzlesDone,
   markPositionsDone,
+  markMistakesDone,
   DAILY_PUZZLE_GOAL,
   DAILY_POSITION_GOAL,
+  DAILY_MISTAKE_GOAL,
+  type DailyTaskId,
 } from './daily-challenge';
+import { collectSpots, pickSpots, type SpotRef } from './mistake-scan';
+import { startMistakeSession } from './mistake-run';
 import { renderMyGamesScreen, formatGameDate } from './my-games-screen';
 import { opponentTag } from './scout';
 import { renderSettingsScreen } from './settings-screen';
@@ -1861,22 +1869,33 @@ function updateHeaderTitle(): void {
   el.classList.toggle('header-title--screen', !onTab);
 }
 
-// The Train screen now has two top tabs (My Lines style): Openings (the training
-// home) and Puzzles (what used to be its own bottom-nav tab). The active pane is
+// The Train screen's four modes as a 2×2 grid of chunky tabs: Openings (the
+// training home), Puzzles, Mistake retry (positions from your own games) and
+// End game (a placeholder until that round happens). The active pane is
 // rendered lazily so each screen's render side effects only run when shown.
-type TrainTab = 'openings' | 'puzzles';
+type TrainTab = 'openings' | 'puzzles' | 'mistakes' | 'endgame';
 let trainTab: TrainTab = 'openings';
+
+// Each mode's colour, used as the active tab fill (white label — all four hues
+// keep it readable) and the inactive icon tint. Static across themes, like the
+// Practise cards' MODE_ACCENT palette.
+const TRAIN_TAB_ACCENT: Record<Exclude<TrainTab, 'openings'>, string> = {
+  puzzles: '#8a5a20',  // bronze — the puzzle gold family
+  mistakes: '#a3492e', // ember — corrective, kin to the review reds
+  endgame: '#33677a',  // deep teal — the long game
+};
 
 function renderTrainTabbed(host: HTMLElement): void {
   host.innerHTML = '';
 
   const tabs = document.createElement('div');
-  tabs.className = 'lines-tabs';
-  const mkTab = (tab: TrainTab, label: string, icon: SVGElement): HTMLButtonElement => {
+  tabs.className = 'lines-tabs train-tabs';
+  const mkTab = (tab: TrainTab, label: string, icon: SVGElement, accent?: string): HTMLButtonElement => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'lines-tab';
     btn.dataset.tab = tab;
+    if (accent) btn.style.setProperty('--tab-accent', accent);
     icon.classList.add('lines-tab-icon');
     btn.appendChild(icon);
     const span = document.createElement('span');
@@ -1886,47 +1905,92 @@ function renderTrainTabbed(host: HTMLElement): void {
     btn.addEventListener('click', () => { if (trainTab !== tab) { trainTab = tab; paint(); } });
     return btn;
   };
-  tabs.appendChild(mkTab('openings', 'Openings', Icons.zap(18)));
-  tabs.appendChild(mkTab('puzzles', 'Puzzles', Icons.puzzlePiece(18)));
+  tabs.appendChild(mkTab('openings', 'Openings', Icons.zap(22)));
+  tabs.appendChild(mkTab('puzzles', 'Puzzles', Icons.puzzlePiece(22), TRAIN_TAB_ACCENT.puzzles));
+  tabs.appendChild(mkTab('mistakes', 'Mistake retry', Icons.reset(22), TRAIN_TAB_ACCENT.mistakes));
+  tabs.appendChild(mkTab('endgame', 'End game', Icons.flag(22), TRAIN_TAB_ACCENT.endgame));
 
-  // The daily-challenge card sits above the tabs — it spans both halves (lines and
-  // puzzles), so it's the shared daily face of the Train screen.
+  // The daily-challenge card sits above the tabs — it spans all the modes, so
+  // it's the shared daily face of the Train screen.
   const dailyHost = document.createElement('div');
   dailyHost.className = 'daily-host';
   const openingsPane = document.createElement('div');
   const puzzlesPane = document.createElement('div');
-  host.append(dailyHost, tabs, openingsPane, puzzlesPane);
+  const mistakesPane = document.createElement('div');
+  const endgamePane = document.createElement('div');
+  host.append(dailyHost, tabs, openingsPane, puzzlesPane, mistakesPane, endgamePane);
 
   // (Re)render the daily card from current lines + done state. Called on first
-  // paint and after either half completes.
+  // paint and after any task completes.
   const renderDaily = async (): Promise<void> => {
     let allLines: Line[];
+    let spotRefs: SpotRef[];
     try {
-      allLines = await getAllLines();
+      const [lines, games] = await Promise.all([getAllLines(), getAllGames()]);
+      allLines = lines;
+      spotRefs = collectSpots(games);
     } catch {
       dailyHost.innerHTML = '';
       return;
     }
     dailyHost.innerHTML = '';
-    const card = renderDailyChallenge({
-      lines: pickDailyLines(allLines),
-      onTrainLines: (lines) => {
-        // Drill today's lines on the Openings pane; mark that third done when the
+
+    // Each task as a named launcher so the success screens' "Next task →" can
+    // chain into any of them. The next task is resolved at CLICK time (the
+    // completion screen mounts before the finished task's done flag is set).
+    const nextFor = (current: DailyTaskId): { label: string; run: () => void } | undefined => {
+      // Offer the button only when some OTHER task would still be open once
+      // this one is done — a "Next task" that closes into nothing misleads.
+      const pretend = { ...getDaily(), [current]: true };
+      if (!nextDailyTask(pretend, spotRefs.length > 0)) return undefined;
+      return {
+        label: 'Next task →',
+        run: () => {
+          const next = nextDailyTask(getDaily(), spotRefs.length > 0);
+          if (next) launchers[next]();
+        },
+      };
+    };
+
+    const launchers: Record<DailyTaskId, () => void> = {
+      lines: () => {
+        // Drill today's lines on the Openings pane; mark that task done when the
         // whole sitting finishes, then refresh the card behind the overlay.
         if (trainTab !== 'openings') { trainTab = 'openings'; paint(); }
-        startLineSession(lines, openingsPane, () => { markLinesDone(); void renderDaily(); });
+        startLineSession(pickDailyLines(allLines), openingsPane,
+          () => { markLinesDone(); void renderDaily(); }, nextFor('lines'));
       },
-      onRefreshPositions: () => {
+      positions: () => {
         // Same pane, but a stream of single due positions rather than whole lines.
         if (trainTab !== 'openings') { trainTab = 'openings'; paint(); }
-        startPositionsSession(allLines, openingsPane, DAILY_POSITION_GOAL, () => {
-          markPositionsDone();
-          void renderDaily();
+        startPositionsSession(allLines, openingsPane, DAILY_POSITION_GOAL,
+          () => { markPositionsDone(); void renderDaily(); }, nextFor('positions'));
+      },
+      puzzles: () => {
+        void startDailyPuzzles(DAILY_PUZZLE_GOAL,
+          () => { markPuzzlesDone(); void renderDaily(); }, nextFor('puzzles'));
+      },
+      mistakes: () => {
+        // A short mixed set from the scanned spots — runs as its own overlay,
+        // so no tab switch is needed.
+        startMistakeSession({
+          refs: pickSpots(spotRefs, null, DAILY_MISTAKE_GOAL),
+          modeLabel: 'Daily challenge',
+          onComplete: () => { markMistakesDone(); void renderDaily(); },
+          onExit: () => { if (trainTab === 'mistakes') paint(); },
+          onOpenGame: (game) => { openGameForAnalysis(game); showView('builder'); },
+          nextAction: nextFor('mistakes'),
         });
       },
-      onSolvePuzzles: () => {
-        void startDailyPuzzles(DAILY_PUZZLE_GOAL, () => { markPuzzlesDone(); void renderDaily(); });
-      },
+    };
+
+    const card = renderDailyChallenge({
+      lines: pickDailyLines(allLines),
+      onTrainLines: () => launchers.lines(),
+      onRefreshPositions: () => launchers.positions(),
+      onSolvePuzzles: () => launchers.puzzles(),
+      mistakeSpotCount: spotRefs.length,
+      onFixMistakes: () => launchers.mistakes(),
     });
     if (card) dailyHost.appendChild(card);
   };
@@ -1940,6 +2004,8 @@ function renderTrainTabbed(host: HTMLElement): void {
     });
     openingsPane.hidden = trainTab !== 'openings';
     puzzlesPane.hidden = trainTab !== 'puzzles';
+    mistakesPane.hidden = trainTab !== 'mistakes';
+    endgamePane.hidden = trainTab !== 'endgame';
     if (trainTab === 'openings') {
       renderTrainScreen(openingsPane, {
         focusLineId: pendingTrainLineId ?? undefined,
@@ -1952,15 +2018,55 @@ function renderTrainTabbed(host: HTMLElement): void {
         onSetFabVisible: (visible) => fabController?.setVisible(visible),
       });
       pendingTrainLineId = null;
-    } else {
+    } else if (trainTab === 'puzzles') {
       void renderPuzzlesScreen(puzzlesPane, {
         onImportGames: () => showView('games'),
         onBuildLine: () => startNewLine('white'),
         onConnectLichess: () => void lichessConnect(),
       });
+    } else if (trainTab === 'mistakes') {
+      void renderMistakesScreen(mistakesPane, {
+        onImportGames: () => showView('games'),
+        onOpenGame: (game) => {
+          openGameForAnalysis(game);
+          showView('builder');
+        },
+      });
+    } else {
+      renderEndgameComingSoon(endgamePane);
     }
   };
   paint();
+}
+
+// The End game tab is a promise, not a product yet — a quiet placeholder card
+// until the endgame-training round happens.
+function renderEndgameComingSoon(host: HTMLElement): void {
+  host.innerHTML = '';
+  const card = document.createElement('div');
+  card.className = 'train-soon-card';
+
+  const icon = document.createElement('div');
+  icon.className = 'train-soon-icon';
+  icon.appendChild(Icons.flag(26));
+  card.appendChild(icon);
+
+  const title = document.createElement('div');
+  title.className = 'train-soon-title';
+  title.textContent = 'End game training';
+  card.appendChild(title);
+
+  const badge = document.createElement('span');
+  badge.className = 'train-soon-badge';
+  badge.textContent = 'Coming soon';
+  card.appendChild(badge);
+
+  const body = document.createElement('p');
+  body.className = 'train-soon-body';
+  body.textContent = 'Training the endings your games actually reach.';
+  card.appendChild(body);
+
+  host.appendChild(card);
 }
 
 function showView(view: ViewName): void {
