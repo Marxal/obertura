@@ -33,7 +33,7 @@ import {
   type DailyTaskId,
 } from './daily-challenge';
 import { collectSpots, pickSpots, type SpotRef } from './mistake-scan';
-import { startMistakeSession } from './mistake-run';
+import { startMistakeSession, type OpenGameCtx } from './mistake-run';
 import { renderMyGamesScreen, formatGameDate } from './my-games-screen';
 import { opponentTag } from './scout';
 import { renderSettingsScreen } from './settings-screen';
@@ -225,9 +225,11 @@ function openEditSheet(focus: 'name' | 'tags' = 'name'): void {
     sheet.appendChild(nameInput);
   }
 
-  // Tags (tag icon): suggested chips + freeform field.
+  // Tags (tag icon): suggested chips + your existing tags + freeform field.
   let chipRow: HTMLElement | null = null;
   let freeInput: HTMLInputElement | null = null;
+  // The existing-tags row, once loaded — Done reads its toggled chips too.
+  let ownRows: HTMLElement | null = null;
   if (focus === 'tags') {
     const tagsLabel = document.createElement('label');
     tagsLabel.className = 'edit-label';
@@ -236,24 +238,61 @@ function openEditSheet(focus: 'name' | 'tags' = 'name'): void {
 
     chipRow = document.createElement('div');
     chipRow.className = 'edit-chips';
-    for (const tag of SUGGESTED_TAGS) {
+    const addChip = (tag: string): void => {
       const chip = document.createElement('button');
       chip.type = 'button';
       chip.className = 'tag-chip';
       chip.textContent = tag;
       if (currentTags.includes(tag)) chip.classList.add('tag-chip--on');
       chip.addEventListener('click', () => chip.classList.toggle('tag-chip--on'));
-      chipRow.appendChild(chip);
-    }
+      chipRow!.appendChild(chip);
+    };
+    for (const tag of SUGGESTED_TAGS) addChip(tag);
     sheet.appendChild(chipRow);
+
+    // Every tag you've already created on any line, as tappable chips — so
+    // reusing a tag is a tap, not retyping it (and no near-duplicate spellings).
+    // Loaded async; the row only appears when there's something to show.
+    const ownRow = document.createElement('div');
+    ownRow.className = 'edit-chips edit-chips--own';
+    ownRow.hidden = true;
+    sheet.appendChild(ownRow);
+    void getAllLines().then((lines) => {
+      const known = new Set<string>(SUGGESTED_TAGS);
+      const own: string[] = [];
+      for (const l of lines) {
+        for (const t of l.tags) {
+          if (!known.has(t)) { known.add(t); own.push(t); }
+        }
+      }
+      // Tags on THIS line that aren't stored anywhere yet still belong here —
+      // they'd otherwise only live in the freeform field.
+      for (const t of currentTags) {
+        if (!known.has(t)) { known.add(t); own.push(t); }
+      }
+      if (own.length === 0) return;
+      own.sort((a, b) => a.localeCompare(b));
+      const ownLabel = document.createElement('div');
+      ownLabel.className = 'edit-chips-label';
+      ownLabel.textContent = 'Your tags';
+      ownRow.appendChild(ownLabel);
+      for (const t of own) {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'tag-chip';
+        chip.textContent = t;
+        if (currentTags.includes(t)) chip.classList.add('tag-chip--on');
+        chip.addEventListener('click', () => chip.classList.toggle('tag-chip--on'));
+        ownRow.appendChild(chip);
+      }
+      ownRow.hidden = false;
+      ownRows = ownRow;
+    });
 
     freeInput = document.createElement('input');
     freeInput.type = 'text';
     freeInput.className = 'edit-input';
-    freeInput.placeholder = 'your own tags, comma, separated';
-    freeInput.value = currentTags
-      .filter(t => !SUGGESTED_TAGS.includes(t as typeof SUGGESTED_TAGS[number]))
-      .join(', ');
+    freeInput.placeholder = 'or type a new tag (comma separated)';
     sheet.appendChild(freeInput);
   }
 
@@ -268,8 +307,13 @@ function openEditSheet(focus: 'name' | 'tags' = 'name'): void {
       const selected = [...chipRow.querySelectorAll('.tag-chip--on')].map(
         c => (c as HTMLElement).textContent!.trim()
       );
+      // If the existing-tags row hasn't loaded yet, keep the line's own custom
+      // tags as-is rather than silently dropping them.
+      const own = ownRows
+        ? [...ownRows.querySelectorAll('.tag-chip--on')].map(c => (c as HTMLElement).textContent!.trim())
+        : currentTags.filter(t => !SUGGESTED_TAGS.includes(t as typeof SUGGESTED_TAGS[number]));
       const custom = freeInput.value.split(',').map(t => t.trim()).filter(Boolean);
-      currentTags = [...new Set([...selected, ...custom])];
+      currentTags = [...new Set([...selected, ...own, ...custom])];
       renderBuilderTags();
     }
     if (nameInput) {
@@ -501,8 +545,10 @@ function openMyGamesImport(onManualAdd?: () => void): void {
 
 // Open a SAVED game (from the My games list) in the analyser. If it already has
 // a saved analysis, restore it (variations + review intact) and skip the review;
-// otherwise lay its moves down and analyse from scratch.
-function openGameForAnalysis(game: ImportedGame): void {
+// otherwise lay its moves down and analyse from scratch. An optional atFen
+// jumps the cursor to that position (the mistake drill opens a game AT the
+// drilled spot); an unmatched fen simply stays at the start.
+function openGameForAnalysis(game: ImportedGame, atFen?: string): void {
   const tags = game.tags ?? [];
   if (game.analysis?.tree) {
     buildFromTree(game.analysis.tree, game.colour, `vs ${game.opponent}`, tags, game.endTime);
@@ -517,6 +563,47 @@ function openGameForAnalysis(game: ImportedGame): void {
   // it dirty (the auto-review's classifications are stripped from the snapshot), so
   // an untouched game closes without the save prompt.
   savedSnapshot = builderSnapshot();
+  if (atFen) {
+    const target = mainline().find(n => n.fen === atFen);
+    if (target) handleMoveClick(target.id);
+  }
+}
+
+// ── Training-session hand-off to the analyser ────────────────────────────────
+// The mistake drill's "Open full analysis" suspends its overlay and routes
+// here: open the game at the drilled position, then float a "Back to training"
+// chip in the top bar. Tapping it (or the builder's own back arrow, which
+// lands on Train) resumes the session exactly where it was; navigating
+// anywhere else discards it cleanly so a hidden overlay can never leak.
+let suspendedSession: { resume: () => void; discard: () => void } | null = null;
+let sessionReturnChip: HTMLElement | null = null;
+
+function clearSuspendedSession(): void {
+  sessionReturnChip?.remove();
+  sessionReturnChip = null;
+  suspendedSession = null;
+}
+
+function openGameFromSession(game: ImportedGame, ctx?: OpenGameCtx): void {
+  openGameForAnalysis(game, ctx?.atFen);
+  showView('builder');
+  if (ctx) {
+    suspendedSession = { resume: ctx.onReturn, discard: ctx.onDiscard };
+    mountSessionReturnChip();
+  }
+}
+
+function mountSessionReturnChip(): void {
+  sessionReturnChip?.remove();
+  const chip = document.createElement('button');
+  chip.type = 'button';
+  chip.className = 'session-return-chip';
+  chip.appendChild(Icons.back(14));
+  chip.appendChild(document.createTextNode('Back to training'));
+  // Landing on Train is what resumes the session (see showView).
+  chip.addEventListener('click', () => showView('train'));
+  document.body.appendChild(chip);
+  sessionReturnChip = chip;
 }
 
 // Open a freshly imported/pasted game (no saved analysis yet) in the analyser and
@@ -1905,7 +1992,7 @@ function renderTrainTabbed(host: HTMLElement): void {
     btn.addEventListener('click', () => { if (trainTab !== tab) { trainTab = tab; paint(); } });
     return btn;
   };
-  tabs.appendChild(mkTab('openings', 'Openings', Icons.zap(22)));
+  tabs.appendChild(mkTab('openings', 'Openings', Icons.pawn(22)));
   tabs.appendChild(mkTab('puzzles', 'Puzzles', Icons.puzzlePiece(22), TRAIN_TAB_ACCENT.puzzles));
   tabs.appendChild(mkTab('mistakes', 'Mistake retry', Icons.reset(22), TRAIN_TAB_ACCENT.mistakes));
   tabs.appendChild(mkTab('endgame', 'End game', Icons.flag(22), TRAIN_TAB_ACCENT.endgame));
@@ -1978,7 +2065,7 @@ function renderTrainTabbed(host: HTMLElement): void {
           modeLabel: 'Daily challenge',
           onComplete: () => { markMistakesDone(); void renderDaily(); },
           onExit: () => { if (trainTab === 'mistakes') paint(); },
-          onOpenGame: (game) => { openGameForAnalysis(game); showView('builder'); },
+          onOpenGame: openGameFromSession,
           nextAction: nextFor('mistakes'),
         });
       },
@@ -1997,6 +2084,9 @@ function renderTrainTabbed(host: HTMLElement): void {
   void renderDaily();
 
   const paint = (): void => {
+    // A very subtle background wash in the active mode's colour, so each pane
+    // carries a hint of its identity (see #view-train[data-train-mode] in CSS).
+    host.dataset.trainMode = trainTab;
     tabs.querySelectorAll<HTMLElement>('.lines-tab').forEach(b => {
       const on = b.dataset.tab === trainTab;
       b.classList.toggle('active', on);
@@ -2027,10 +2117,7 @@ function renderTrainTabbed(host: HTMLElement): void {
     } else if (trainTab === 'mistakes') {
       void renderMistakesScreen(mistakesPane, {
         onImportGames: () => showView('games'),
-        onOpenGame: (game) => {
-          openGameForAnalysis(game);
-          showView('builder');
-        },
+        onOpenGame: openGameFromSession,
       });
     } else {
       renderEndgameComingSoon(endgamePane);
@@ -2070,6 +2157,17 @@ function renderEndgameComingSoon(host: HTMLElement): void {
 }
 
 function showView(view: ViewName): void {
+  // A training session suspended behind the analyser: landing back on Train
+  // resumes it (after the view has rendered, below); landing anywhere else
+  // discards it so its hidden overlay can't linger under a different screen.
+  let resumeSuspended: (() => void) | null = null;
+  if (suspendedSession && view !== 'builder') {
+    const s = suspendedSession;
+    clearSuspendedSession();
+    if (view === 'train') resumeSuspended = s.resume;
+    else s.discard();
+  }
+
   // Entering a full screen (builder/settings) from a tab: remember it so the back
   // arrow returns there.
   if (BACK_VIEWS.has(view) && !BACK_VIEWS.has(currentView)) {
@@ -2193,6 +2291,9 @@ function showView(view: ViewName): void {
     // Leaving the builder for any other screen: stop the engine it was running.
     evalPanel.setEnabled(false);
   }
+
+  // Un-hide the suspended session's overlay only once its home screen is back.
+  resumeSuspended?.();
 }
 
 function onOpenLine(line: Line, atFen?: string): void {

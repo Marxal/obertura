@@ -9,8 +9,8 @@
 import {
   exportBackup,
   parseBackup,
-  mergeLines,
-  replaceAllLines,
+  restoreBackup,
+  backupHasExtras,
   getAllLines,
   type BackupFile,
 } from './storage';
@@ -44,9 +44,9 @@ export function renderBackupSection(onRestored: () => void): HTMLElement {
   const blurb = document.createElement('p');
   blurb.className = 'backup-blurb';
   blurb.textContent =
-    'Your lines live only on this device. Export a backup file to keep in Drive ' +
-    'or email — it’s the only way to get your repertoire back if this browser is ' +
-    'cleared or you switch phones.';
+    'Everything lives only on this device. A backup file carries your lines, ' +
+    'imported games, statistics and streaks — restore it and the app picks up ' +
+    'exactly where you left it, on this phone or a new one.';
   section.appendChild(blurb);
 
   const row = document.createElement('div');
@@ -116,8 +116,7 @@ export function renderBackupSection(onRestored: () => void): HTMLElement {
     const existing = (await getAllLines()).length;
     openImportChooser(backup, existing, async (mode) => {
       try {
-        if (mode === 'replace') await replaceAllLines(backup.lines);
-        else await mergeLines(backup.lines);
+        await restoreBackup(backup, mode);
         const n = backup.lines.length;
         setStatus(
           mode === 'replace'
@@ -126,6 +125,7 @@ export function renderBackupSection(onRestored: () => void): HTMLElement {
           'ok',
         );
         onRestored();
+        reloadAfterRestore(backup, setStatus);
       } catch (err) {
         setStatus(`Import failed — ${(err as Error).message}`, 'error');
       }
@@ -133,6 +133,18 @@ export function renderBackupSection(onRestored: () => void): HTMLElement {
   });
 
   return section;
+}
+
+// A backup that carries stats/streaks/games needs a reload to take everywhere —
+// several modules cache their localStorage state in memory at boot. Give the
+// status line a beat to be read, then refresh into the restored state.
+function reloadAfterRestore(
+  backup: BackupFile,
+  setStatus: (msg: string, kind?: 'ok' | 'error' | 'info') => void,
+): void {
+  if (!backupHasExtras(backup)) return;
+  setStatus('Everything restored ✓ — reloading…', 'ok');
+  setTimeout(() => window.location.reload(), 1200);
 }
 
 // Run the export immediately: gather the whole repertoire and hand the browser
@@ -258,10 +270,10 @@ export function renderCloudBackupSection(onRestored: () => void): HTMLElement {
     if (remote && remote.lines.length > 0) {
       const existing = (await getAllLines()).length;
       openImportChooser(remote, existing, async (mode) => {
-        if (mode === 'replace') await replaceAllLines(remote.lines);
-        else await mergeLines(remote.lines);
+        await restoreBackup(remote, mode);
         onRestored();
         // The restore itself re-uploads via auto-backup; nothing else to do.
+        reloadAfterRestore(remote, setStatus);
       });
       return;
     }
@@ -354,8 +366,7 @@ export function renderCloudBackupSection(onRestored: () => void): HTMLElement {
       const existing = (await getAllLines()).length;
       openImportChooser(remote, existing, async (mode) => {
         try {
-          if (mode === 'replace') await replaceAllLines(remote.lines);
-          else await mergeLines(remote.lines);
+          await restoreBackup(remote, mode);
           const n = remote.lines.length;
           setStatus(
             mode === 'replace'
@@ -364,6 +375,7 @@ export function renderCloudBackupSection(onRestored: () => void): HTMLElement {
             'ok',
           );
           onRestored();
+          reloadAfterRestore(remote, setStatus);
         } catch (err) {
           setStatus(`Restore failed — ${(err as Error).message}`, 'error');
         }
@@ -446,8 +458,15 @@ function openImportChooser(
   const summary = document.createElement('p');
   summary.className = 'backup-import-summary';
   const when = backup.exportedAt ? ` from ${backup.exportedAt.slice(0, 10)}` : '';
+  const parts = [`${n} line${n === 1 ? '' : 's'}`];
+  const g = backup.games?.length ?? 0;
+  if (g > 0) parts.push(`${g} game${g === 1 ? '' : 's'}`);
+  if (backup.local) parts.push('your stats & settings');
+  const has = parts.length > 1
+    ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
+    : parts[0];
   summary.textContent =
-    `This file has ${n} line${n === 1 ? '' : 's'}${when}. ` +
+    `This backup${when} has ${has}. ` +
     `You currently have ${existingCount} line${existingCount === 1 ? '' : 's'} on this device.`;
   sheet.appendChild(summary);
 

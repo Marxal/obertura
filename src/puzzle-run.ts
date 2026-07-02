@@ -122,7 +122,10 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
 
   // ── Overlay scaffold (mirrors drill.ts) ──────────────────────────────────────
   const overlay = document.createElement('div');
-  overlay.className = 'pt-overlay pt-overlay--puzzle';
+  overlay.className = 'pt-overlay pt-overlay--puzzle pt-overlay--tinted';
+  // The Puzzles mode's bronze, as a whisper behind the whole exercise — the
+  // same hue as its Train tab, so the mode reads consistently.
+  overlay.style.setProperty('--pt-tint', '#8a5a20');
 
   const headerEl = document.createElement('div');
   headerEl.className = 'pt-header';

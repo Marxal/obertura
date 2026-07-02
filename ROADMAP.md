@@ -340,6 +340,48 @@ _In progress on `claude/mistake-retry-training-vn7p3y`. Restore point: `v0.4`._
 
 ---
 
+## v0.8 — general fixes round 🔜
+
+A grab-bag of fixes and polish across the app, driven by real phone use.
+
+- ✅ **Retry drill: analyse right there** — after answering, the board opens up:
+  play either side freely, every move graded with its Game-Review icon (badge
+  on the board + icon in a branching move list with parenthesised variations),
+  a slim eval bar underneath. The old "engine's picks / Review game" screens
+  are gone — just "Open full analysis" and "Next position". Full analysis opens
+  the game *at the drilled position* and suspends the session; a "Back to
+  training" chip in the top bar (or the builder's own back arrow) resumes it
+  exactly where it was.
+- ✅ **Retry drill: compact one-screen layout** — opponent on top, the opening
+  as its own small quiet row, and a one-line story ("You played ♞f6 ?? here and
+  blundered.") with the played move on a red chip carrying its ?? / ? symbol.
+  A discrete eye toggle beside the prompt hides the red arrow for the current
+  position only.
+- ✅ **Retry results: tappable rows** — each row of the session-complete list
+  pops the position up (played move red, engine's answer orange) with an
+  "Analyse game" button into the full analyser.
+- ✅ **Faster game scan** — the trail pass now runs MultiPV 1 (≈3× less local
+  search), stops asking the Lichess cloud after 3 consecutive misses (the game
+  has left known territory — no more wasted round-trip + politeness delay per
+  middlegame ply), and caps the scan at 80 plies. The scan overlay reuses the
+  import wait's facts ticker and says up front it can take a while.
+- ✅ **Full backup** — backup files (manual and Drive alike, format v2) now
+  carry the imported games (with their scan spots and saved analyses) plus the
+  stats/streaks/puzzle-rating/preferences snapshot, and restoring one reloads
+  the app exactly where it was left. Old v1 files still restore.
+- ✅ **Mode identity** — each Train tab washes the pane background with a very
+  subtle tint of its accent, and the exercise overlays follow (openings =
+  accent, puzzles bronze, mistakes ember). Openings tab icon is now the pawn;
+  the due-now card's button is "Refresh lines" with a brain icon (caption
+  dropped).
+- ✅ **Tags: reuse what exists** — the tags sheet lists every tag you've
+  already created as tappable chips (suggested chips stay), so reusing a tag
+  never means retyping it.
+- ✅ **Notation fix** — parenthesised variations in the analyser's move list
+  now wrap like the main line instead of forcing horizontal scroll.
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

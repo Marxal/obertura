@@ -311,16 +311,11 @@ function renderHero(container: HTMLElement, due: Line[], allTraining: Line[]): v
 
   hero.appendChild(stats);
 
-  const caption = document.createElement('div');
-  caption.className = 'train-hero-caption';
-  caption.textContent = 'lines to refresh';
-  hero.appendChild(caption);
-
   const start = document.createElement('button');
   start.type = 'button';
   start.className = 'btn-primary train-hero-start';
-  start.appendChild(Icons.zap(18));
-  start.appendChild(document.createTextNode('Start training'));
+  start.appendChild(Icons.brain(18));
+  start.appendChild(document.createTextNode('Refresh lines'));
   start.addEventListener('click', () =>
     startRounds(dueLines(allTraining), container, { explicit: true }));
   hero.appendChild(start);

@@ -362,11 +362,15 @@ function getReviewWorker(baseUrl: string): Promise<Worker | null> {
   });
 }
 
-function analyseOnce(fen: string, depth: number, baseUrl: string): Promise<MoveEval[]> {
+function analyseOnce(fen: string, depth: number, baseUrl: string, pvCount: number): Promise<MoveEval[]> {
   return new Promise((resolve) => {
     void (async () => {
       const worker = await getReviewWorker(baseUrl);
       if (!worker) { resolve([]); return; }
+      // Callers that only need the position's eval (the mistake scan's trail
+      // pass) run MultiPV 1 — roughly a third of the search work of the
+      // default 3. Set per call, since the worker keeps the last value.
+      worker.postMessage(`setoption name MultiPV value ${pvCount}`);
       const multiPv = new Map<number, { uci: string; cp?: number; mate?: number; pv: string[] }>();
       let settled = false;
       let timer: ReturnType<typeof setTimeout> | null = null;
@@ -402,8 +406,9 @@ export function analysePosition(
   fen: string,
   depth = 12,
   baseUrl: string = import.meta.env.BASE_URL,
+  multiPv = 3,
 ): Promise<MoveEval[]> {
-  const run = reviewChain.then(() => analyseOnce(fen, depth, baseUrl));
+  const run = reviewChain.then(() => analyseOnce(fen, depth, baseUrl, multiPv));
   // Keep the chain alive even if a call rejects, so the next one still runs.
   reviewChain = run.catch(() => {});
   return run;

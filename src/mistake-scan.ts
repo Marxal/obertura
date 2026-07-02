@@ -50,6 +50,14 @@ export const SCAN_DETECT_DEPTH = 8;   // cheap trail pass (cloud misses only)
 export const SCAN_VERIFY_DEPTH = 12;  // candidate re-check = analyser's depth
 export const GOOD_ALT_CP = 30;        // drill: an alternative within this of best is fine
 export const MIN_GAME_PLIES = 10;     // shorter games teach nothing — skip
+// Scan-speed guards. The trail only covers the first SCAN_MAX_PLIES plies (40
+// moves) — this is an openings trainer, and long endgames are where a scan
+// drowns in local-engine time for positions the cloud never has. And once the
+// cloud misses CLOUD_MISS_STREAK positions in a row the game has left known
+// territory, so the rest of its trail skips the cloud round-trip (and its
+// politeness delay) entirely and goes straight to the local engine.
+export const SCAN_MAX_PLIES = 80;
+export const CLOUD_MISS_STREAK = 3;
 
 // A small breather after cloud lookups so a long scan doesn't burst the Lichess
 // rate limit (mirrors review.ts).
@@ -334,11 +342,17 @@ async function scanOneGame(
   if (!replay || replay.sans.length < MIN_GAME_PLIES) return [];
 
   // The cheap pass: one eval per position. Opening plies mostly come straight
-  // from the cloud; the rest fall back to a shallow local search.
+  // from the cloud; the rest fall back to a shallow local search. Once the
+  // cloud misses a few positions in a row we stop asking it for this game —
+  // a cache hit doesn't touch the streak, so repeated openings stay cheap.
   const trail: (number | null)[] = [];
-  for (const fen of replay.fens) {
+  let cloudMisses = 0;
+  for (const fen of replay.fens.slice(0, SCAN_MAX_PLIES + 1)) {
     if (signal.aborted) return [];
-    trail.push(await positionCp(fen, cache, signal));
+    const r = await positionCp(fen, cache, signal, cloudMisses < CLOUD_MISS_STREAK);
+    if (r.cloud === 'miss') cloudMisses++;
+    else if (r.cloud === 'hit') cloudMisses = 0;
+    trail.push(r.cp);
   }
 
   const candidates = detectSpots({ colour: game.colour, result: game.result, trail });
@@ -351,32 +365,43 @@ async function scanOneGame(
   return spots;
 }
 
-// WHITE-perspective cp of a position (its best move's eval), cloud first, local
-// depth-8 fallback, cached across the whole scan run. Null when neither source
-// answers — the detector skips such plies.
+// WHITE-perspective cp of a position (its best move's eval), cloud first (when
+// `tryCloud`), local depth-8 MultiPV-1 fallback, cached across the whole scan
+// run. `cloud` tells the caller whether the cloud was asked and answered, so it
+// can drive the per-game miss streak. cp null = neither source answered — the
+// detector skips such plies.
 async function positionCp(
   fen: string,
   cache: Map<string, number | null>,
   signal: AbortSignal,
-): Promise<number | null> {
+  tryCloud: boolean,
+): Promise<{ cp: number | null; cloud: 'hit' | 'miss' | 'skipped' }> {
   const cached = cache.get(fen);
-  if (cached !== undefined) return cached;
-  if (signal.aborted) return null;
+  if (cached !== undefined) return { cp: cached, cloud: 'skipped' };
+  if (signal.aborted) return { cp: null, cloud: 'skipped' };
 
   let whiteCp: number | null = null;
-  const cloud = await cloudTopMoves(fen); // mover-perspective
-  if (cloud && cloud.length) {
-    const mover = flattenCp(cloud[0]);
-    whiteCp = mover === null ? null : (blackToMove(fen) ? -mover : mover);
-  } else if (!signal.aborted) {
-    const evals = await analysePosition(fen, SCAN_DETECT_DEPTH); // white-perspective
+  let cloud: 'hit' | 'miss' | 'skipped' = 'skipped';
+  if (tryCloud) {
+    const top = await cloudTopMoves(fen); // mover-perspective
+    cloud = top && top.length ? 'hit' : 'miss';
+    if (top && top.length) {
+      const mover = flattenCp(top[0]);
+      whiteCp = mover === null ? null : (blackToMove(fen) ? -mover : mover);
+    }
+  }
+  if (cloud !== 'hit' && !signal.aborted) {
+    // The trail only needs the position's eval, so MultiPV 1 — about a third
+    // of the search work of the default 3.
+    const evals = await analysePosition(fen, SCAN_DETECT_DEPTH, undefined, 1); // white-perspective
     whiteCp = evals.length ? flattenCp(evals[0]) : null;
   }
   // An aborted search resolves early with junk — return without caching it.
-  if (signal.aborted) return null;
+  if (signal.aborted) return { cp: null, cloud };
   cache.set(fen, whiteCp);
-  await sleep(CLOUD_DELAY_MS, signal); // pace the cloud (a request just went out)
-  return whiteCp;
+  // Pace the cloud only when a request actually went out.
+  if (cloud !== 'skipped') await sleep(CLOUD_DELAY_MS, signal);
+  return { cp: whiteCp, cloud };
 }
 
 // Re-check one candidate at the analyser's depth and enrich it into a stored
