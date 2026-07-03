@@ -545,10 +545,13 @@ function openMyGamesImport(onManualAdd?: () => void): void {
 
 // Open a SAVED game (from the My games list) in the analyser. If it already has
 // a saved analysis, restore it (variations + review intact) and skip the review;
-// otherwise lay its moves down and analyse from scratch. An optional atFen
-// jumps the cursor to that position (the mistake drill opens a game AT the
-// drilled spot); an unmatched fen simply stays at the start.
-function openGameForAnalysis(game: ImportedGame, atFen?: string): void {
+// otherwise lay its moves down and (unless review:false) analyse from scratch.
+// An optional atFen jumps the cursor to that position (the mistake drill opens
+// a game AT the drilled spot); an unmatched fen simply stays at the start.
+function openGameForAnalysis(
+  game: ImportedGame,
+  o: { atFen?: string; review?: boolean } = {},
+): void {
   const tags = game.tags ?? [];
   if (game.analysis?.tree) {
     buildFromTree(game.analysis.tree, game.colour, `vs ${game.opponent}`, tags, game.endTime);
@@ -556,25 +559,27 @@ function openGameForAnalysis(game: ImportedGame, atFen?: string): void {
     renderMoveList(); // repaint so the restored review's engine tag shows
   } else {
     buildFromUcis(game.ucis, game.colour, tags, { description: `vs ${game.opponent}`, analyser: true, gameDate: game.endTime });
-    autoReview();
+    if (o.review !== false) autoReview();
   }
   analyserGameId = game.id; // after build — clearBuilder resets it to null
   // The just-loaded game matches what's stored — only *your* variations/notes make
   // it dirty (the auto-review's classifications are stripped from the snapshot), so
   // an untouched game closes without the save prompt.
   savedSnapshot = builderSnapshot();
-  if (atFen) {
-    const target = mainline().find(n => n.fen === atFen);
+  if (o.atFen) {
+    const target = mainline().find(n => n.fen === o.atFen);
     if (target) handleMoveClick(target.id);
   }
 }
 
 // ── Training-session hand-off to the analyser ────────────────────────────────
 // The mistake drill's "Open full analysis" suspends its overlay and routes
-// here: open the game at the drilled position, then float a "Back to training"
-// chip in the top bar. Tapping it (or the builder's own back arrow, which
-// lands on Train) resumes the session exactly where it was; navigating
-// anywhere else discards it cleanly so a hidden overlay can never leak.
+// here: open the game at the drilled position (no auto-review — the user taps
+// Analyse if they want grades), swap the header's Save button for "Back to
+// train" and blank the opponent name from the title, keeping the top bar
+// clean. Tapping the button (or the builder's own back arrow, which lands on
+// Train) resumes the session exactly where it was; navigating anywhere else
+// discards it cleanly so a hidden overlay can never leak.
 let suspendedSession: { resume: () => void; discard: () => void } | null = null;
 let sessionReturnChip: HTMLElement | null = null;
 
@@ -585,24 +590,28 @@ function clearSuspendedSession(): void {
 }
 
 function openGameFromSession(game: ImportedGame, ctx?: OpenGameCtx): void {
-  openGameForAnalysis(game, ctx?.atFen);
+  // Set the flag BEFORE the view swap: showView/updateHeaderTitle read it to
+  // hide the Save button and keep the title clean.
+  if (ctx) suspendedSession = { resume: ctx.onReturn, discard: ctx.onDiscard };
+  openGameForAnalysis(game, { atFen: ctx?.atFen, review: !ctx });
   showView('builder');
-  if (ctx) {
-    suspendedSession = { resume: ctx.onReturn, discard: ctx.onDiscard };
-    mountSessionReturnChip();
-  }
+  if (ctx) mountSessionReturnChip();
 }
 
+// "Back to train" in the top bar, exactly where Save normally sits (Save is
+// hidden while a session is suspended — see showView).
 function mountSessionReturnChip(): void {
   sessionReturnChip?.remove();
   const chip = document.createElement('button');
   chip.type = 'button';
   chip.className = 'session-return-chip';
   chip.appendChild(Icons.back(14));
-  chip.appendChild(document.createTextNode('Back to training'));
+  chip.appendChild(document.createTextNode('Back to train'));
   // Landing on Train is what resumes the session (see showView).
   chip.addEventListener('click', () => showView('train'));
-  document.body.appendChild(chip);
+  const save = document.getElementById('header-save');
+  if (save && save.parentElement) save.parentElement.insertBefore(chip, save);
+  else document.body.appendChild(chip);
   sessionReturnChip = chip;
 }
 
@@ -1950,7 +1959,11 @@ function updateHeaderTitle(): void {
   const onTab = !BACK_VIEWS.has(currentView);
   el.textContent =
     currentView === 'builder'
-      ? (builderMode === 'analyser' ? (builderDesc || 'Unknown') : (currentTitle() || 'New line'))
+      // Opened from a training session: no opponent name — the top bar stays
+      // clean, with just the "Back to train" button on the right.
+      ? (suspendedSession ? ''
+        : builderMode === 'analyser' ? (builderDesc || 'Unknown')
+        : (currentTitle() || 'New line'))
     : currentView === 'settings' ? 'Settings'
     : 'Obertura';
   el.classList.toggle('header-title--screen', !onTab);
@@ -2207,9 +2220,11 @@ function showView(view: ViewName): void {
   fabController?.setVisible(!onBack);
 
   // The builder puts Save in the top-right; the settings icon is hidden on both
-  // the builder (Save takes its place) and the Settings screen itself.
+  // the builder (Save takes its place) and the Settings screen itself. While a
+  // training session is suspended behind the analyser, "Back to train" takes
+  // Save's spot instead.
   const onBuilder = view === 'builder';
-  document.getElementById('header-save')!.toggleAttribute('hidden', !onBuilder);
+  document.getElementById('header-save')!.toggleAttribute('hidden', !onBuilder || !!suspendedSession);
   document.getElementById('nav-settings')!.toggleAttribute('hidden', onBuilder || view === 'settings');
 
   document.querySelectorAll<HTMLElement>('#bottom-nav .tab-item').forEach(btn => {

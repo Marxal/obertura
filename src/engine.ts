@@ -36,6 +36,48 @@ const ENGINE_WATCHDOG_MS = 6000;
 // Cap a single review search so one stuck position can't stall the whole chain.
 const REVIEW_TIMEOUT_MS = 6000;
 
+// ── Cloud health (circuit breaker) ───────────────────────────────────────────
+// A batch job (game review, mistake scan) asks the cloud about every position.
+// When Lichess starts refusing us — rate limit (429), outage, or a dead
+// network — each position would otherwise burn a full fetch timeout before
+// falling back to the local engine, turning a seconds-long review into
+// minutes. So track consecutive FAILURES (a 404 "position not in cloud" is a
+// healthy answer, not a failure) and open the breaker for a cooldown: while
+// open, every cloud helper returns null instantly and callers go straight to
+// the local engine. A 429 opens it immediately — Lichess asks for a full
+// minute of silence after one.
+const CLOUD_FAIL_STREAK = 3;
+const CLOUD_COOLDOWN_MS = 60_000;
+const CLOUD_429_COOLDOWN_MS = 90_000;
+let cloudFailStreak = 0;
+let cloudBlockedUntil = 0;
+
+function cloudOpen(): boolean {
+  return Date.now() >= cloudBlockedUntil;
+}
+
+function noteCloudSuccess(): void {
+  cloudFailStreak = 0;
+}
+
+function noteCloudFailure(status?: number): void {
+  if (status === 404) { noteCloudSuccess(); return; } // healthy miss
+  if (status === 429) {
+    cloudBlockedUntil = Date.now() + CLOUD_429_COOLDOWN_MS;
+    cloudFailStreak = 0;
+    return;
+  }
+  cloudFailStreak++;
+  if (cloudFailStreak >= CLOUD_FAIL_STREAK) {
+    cloudBlockedUntil = Date.now() + CLOUD_COOLDOWN_MS;
+    cloudFailStreak = 0;
+  }
+}
+
+// A cloud miss costs its whole timeout before the local fallback can start, so
+// keep it tight — the cloud usually answers well under a second when healthy.
+const CLOUD_FETCH_TIMEOUT_MS = 2500;
+
 // Cloud-eval works anonymously, but a Lichess token raises the rate limit and
 // keeps working if Lichess tightens anonymous access. The app injects a token
 // getter at boot (see setCloudAuthToken); headless self-tests never set one, so
@@ -63,10 +105,15 @@ export async function isGoodAlternative(
   userUci: string,
   threshold = 30
 ): Promise<boolean> {
+  if (!cloudOpen()) return false;
   try {
     const url = `${LICHESS_CLOUD}?fen=${encodeURIComponent(fen)}&multiPv=3`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(4000), headers: await cloudAuthHeaders() });
-    if (!res.ok) return false;
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(CLOUD_FETCH_TIMEOUT_MS),
+      headers: await cloudAuthHeaders(),
+    });
+    if (!res.ok) { noteCloudFailure(res.status); return false; }
+    noteCloudSuccess();
 
     const data = await res.json() as {
       pvs?: Array<{ moves?: string; cp?: number; mate?: number }>;
@@ -193,14 +240,22 @@ export async function cloudTopLines(fen: string): Promise<MoveEval[] | null> {
 }
 
 // Single multiPv=3 cloud-eval request, shared by the graders. Resolves to the
-// parsed body or null on any failure.
+// parsed body or null on any failure. Feeds the circuit breaker: while it's
+// open (recent failures / a 429), returns null instantly so batch callers go
+// straight to the local engine instead of burning a timeout per position.
 async function cloudEval(fen: string): Promise<CloudEval | null> {
+  if (!cloudOpen()) return null;
   try {
     const url = `${LICHESS_CLOUD}?fen=${encodeURIComponent(fen)}&multiPv=3`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(4000), headers: await cloudAuthHeaders() });
-    if (!res.ok) return null;
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(CLOUD_FETCH_TIMEOUT_MS),
+      headers: await cloudAuthHeaders(),
+    });
+    if (!res.ok) { noteCloudFailure(res.status); return null; }
+    noteCloudSuccess();
     return await res.json() as CloudEval;
   } catch {
+    noteCloudFailure(); // network error or timeout
     return null;
   }
 }
@@ -362,15 +417,23 @@ function getReviewWorker(baseUrl: string): Promise<Worker | null> {
   });
 }
 
-function analyseOnce(fen: string, depth: number, baseUrl: string, pvCount: number): Promise<MoveEval[]> {
+// Options for a one-shot local analysis. multiPv 1 (vs the default 3) is
+// roughly a third of the search work — right for callers that only need the
+// position's eval. movetimeMs puts a hard time budget on the search: the
+// engine stops at `depth` or the budget, whichever comes first, so a batch
+// job's worst-case per-position cost is bounded on slow phones too.
+export interface AnalyseOptions {
+  multiPv?: number;
+  movetimeMs?: number;
+}
+
+function analyseOnce(fen: string, depth: number, baseUrl: string, opts: AnalyseOptions): Promise<MoveEval[]> {
   return new Promise((resolve) => {
     void (async () => {
       const worker = await getReviewWorker(baseUrl);
       if (!worker) { resolve([]); return; }
-      // Callers that only need the position's eval (the mistake scan's trail
-      // pass) run MultiPV 1 — roughly a third of the search work of the
-      // default 3. Set per call, since the worker keeps the last value.
-      worker.postMessage(`setoption name MultiPV value ${pvCount}`);
+      // Set per call, since the worker keeps the last value.
+      worker.postMessage(`setoption name MultiPV value ${opts.multiPv ?? 3}`);
       const multiPv = new Map<number, { uci: string; cp?: number; mate?: number; pv: string[] }>();
       let settled = false;
       let timer: ReturnType<typeof setTimeout> | null = null;
@@ -390,7 +453,9 @@ function analyseOnce(fen: string, depth: number, baseUrl: string, pvCount: numbe
         if (p) multiPv.set(p.pvNum, { uci: p.uci, cp: p.cp, mate: p.mate, pv: p.pv });
       };
       worker.postMessage(`position fen ${fen}`);
-      worker.postMessage(`go depth ${depth}`);
+      worker.postMessage(
+        `go depth ${depth}` + (opts.movetimeMs ? ` movetime ${opts.movetimeMs}` : ''),
+      );
       // A wedged search would otherwise hang this promise forever and block every
       // later review call (they're serialised on reviewChain). Cap it: stop the
       // worker and resolve with whatever depth we reached.
@@ -406,9 +471,9 @@ export function analysePosition(
   fen: string,
   depth = 12,
   baseUrl: string = import.meta.env.BASE_URL,
-  multiPv = 3,
+  opts: AnalyseOptions = {},
 ): Promise<MoveEval[]> {
-  const run = reviewChain.then(() => analyseOnce(fen, depth, baseUrl, multiPv));
+  const run = reviewChain.then(() => analyseOnce(fen, depth, baseUrl, opts));
   // Keep the chain alive even if a call rejects, so the next one still runs.
   reviewChain = run.catch(() => {});
   return run;
@@ -576,11 +641,13 @@ export class Engine {
   }
 
   private async tryLichess(fen: string): Promise<EvalResult | null> {
+    if (!cloudOpen()) return null;
     this.abortCtrl = new AbortController();
     try {
       const url = `${LICHESS_CLOUD}?fen=${encodeURIComponent(fen)}&multiPv=3`;
       const res = await fetch(url, { signal: this.abortCtrl.signal, headers: await cloudAuthHeaders() });
-      if (!res.ok) return null;
+      if (!res.ok) { noteCloudFailure(res.status); return null; }
+      noteCloudSuccess();
 
       const data = await res.json() as {
         depth?: number;
@@ -607,6 +674,9 @@ export class Engine {
 
       return { fen, source: 'lichess', depth: data.depth ?? 0, moves };
     } catch {
+      // A user-driven abort (a newer evaluate() superseded us) isn't a cloud
+      // failure — only count real network errors against the breaker.
+      if (!this.abortCtrl?.signal.aborted) noteCloudFailure();
       return null;
     }
   }

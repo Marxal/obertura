@@ -22,6 +22,11 @@ const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 // Depth for the local-engine fallback — shallow on purpose: enough to rank the
 // candidate moves, cheap enough to grade a whole game without melting the phone.
 const ENGINE_DEPTH = 12;
+// Hard per-position time budget for that fallback. On a slow phone a depth-12
+// MultiPV-3 middlegame search can take many seconds — across a whole game that
+// is the difference between a seconds-long review and a minutes-long one. The
+// engine stops at depth 12 or this budget, whichever comes first.
+const ENGINE_MOVETIME_MS = 1500;
 // A small breather between positions so a 30-move review doesn't burst the cloud
 // rate limit. Only paced when a cloud call was actually made.
 const CLOUD_DELAY_MS = 120;
@@ -197,7 +202,7 @@ async function topMovesFor(
     top = normaliseTop(cloud, fen);
     source = 'cloud';
   } else if (useEngine) {
-    const evals = await analysePosition(fen, ENGINE_DEPTH);
+    const evals = await analysePosition(fen, ENGINE_DEPTH, undefined, { movetimeMs: ENGINE_MOVETIME_MS });
     if (evals.length) { top = toMoverTop(evals, fen); source = 'local'; }
   }
   cache.set(fen, top);

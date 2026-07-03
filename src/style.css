@@ -4277,26 +4277,26 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   background: linear-gradient(180deg, color-mix(in srgb, #33677a 7%, transparent), transparent 360px);
 }
 
-/* The "Back to training" chip floated under the top bar while a training
-   session is suspended behind the full analyser. Tapping it (or the builder's
-   back arrow, which also lands on Train) resumes the session in place. */
+/* "Back to train" in the top bar while a training session is suspended behind
+   the full analyser — it takes the Save button's spot (Save is hidden).
+   Tapping it (or the builder's back arrow, which also lands on Train) resumes
+   the session in place. Dressed like .header-save so the header reads the
+   same, just in the accent. */
 .session-return-chip {
-  position: fixed;
-  top: calc(env(safe-area-inset-top, 0px) + 3.3rem);
-  right: 0.75rem;
-  z-index: 150;
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.45rem 0.85rem;
-  border: none;
-  border-radius: 999px;
-  background: var(--accent);
+  gap: 0.35rem;
+  padding: 0.45rem 0.95rem;
+  min-height: 36px;
+  flex-shrink: 0;
+  background-color: var(--accent);
+  background-image: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 55%, rgba(0,0,0,0.06) 100%);
   color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
   font-family: system-ui, -apple-system, sans-serif;
-  font-size: 0.8rem;
-  font-weight: 700;
-  box-shadow: var(--shadow-card);
+  font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
@@ -11891,7 +11891,7 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 .mr-arrow-toggle[hidden] { display: none; }
 
-/* Post-answer block: eval bar + your analysis moves + the two actions. */
+/* Post-answer block: just the two actions. */
 .mr-after {
   display: flex;
   flex-direction: column;
@@ -11905,68 +11905,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 
 .mr-after-actions > button { flex: 1 1 0; }
-
-/* ── Post-answer analysis ── */
-
-/* A slim horizontal eval bar (left share = White's winning chances) with the
-   "+0.3 · best ♞f3" readout beside it. */
-.mr-eval-row {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-
-.mr-eval-bar {
-  flex: 1 1 0;
-  height: 9px;
-  border-radius: 999px;
-  background: #3b3733;
-  border: 1px solid var(--border-card);
-  overflow: hidden;
-}
-
-.mr-eval-bar-fill {
-  height: 100%;
-  background: #f2efe9;
-  transition: width 0.4s ease;
-}
-
-.mr-eval-readout {
-  flex: 0 0 auto;
-  max-width: 55%;
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  font-variant-numeric: tabular-nums;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* The moves you try after answering — same notation dress as the builder's
-   move list (its .move-num/.move-san/.move-var pieces are reused), wrapping
-   inside its own parchment panel. */
-.mr-an-moves {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0 0.1em;
-  min-height: 2em;
-  padding: 0.3rem 0.55rem;
-  background: var(--bg-parchment);
-  border: 1px solid var(--border-card);
-  border-radius: 10px;
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 0.9rem;
-  line-height: 1.8;
-  max-height: 5.6em;
-  overflow-y: auto;
-}
-.mr-an-moves:empty { display: none; }
-.mr-an-moves .move-san {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.15em;
-}
 
 /* The results popup's one-line meta under the board. */
 .mr-peek-meta {
