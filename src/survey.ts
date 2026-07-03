@@ -18,6 +18,7 @@ import { deviceLabel } from './feedback';
 import { pushBack } from './back-nav';
 import { Icons } from './icons';
 import { celebratePawn } from './confetti';
+import { confirmDialog } from './settings-screen';
 
 const ACCESS_KEY = '07647d12-a144-4031-a14c-2c8cc3145650';
 const ENDPOINT = 'https://api.web3forms.com/submit';
@@ -26,6 +27,11 @@ const SENT_KEY = 'obertura.survey.sent';               // '1' once submitted
 const DISMISS_KEY = 'obertura.survey.dismissedSession'; // session-only flag
 const DRAFT_KEY = 'obertura.survey.draft';             // JSON of in-progress answers + step
 const DUE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
+// Testers already running the app before this change shipped get the survey
+// immediately next time they open it — no reason to make them wait when they've
+// already had days of real use. Anyone installing fresh after this date still
+// waits the normal week.
+const EARLY_ACCESS_CUTOFF = Date.parse('2026-07-03');
 
 // Dispatched by the thank-you screen's "Back to train" button; main.ts listens
 // for it and shows the Train tab.
@@ -40,7 +46,8 @@ export function maybeShowSurveyBanner(): void {
   if (sessionStorage.getItem(DISMISS_KEY) === '1') return;     // dismissed this session
   const installedAt = Number(localStorage.getItem(INSTALL_KEY));
   if (!installedAt) return;                                     // no install date yet
-  if (Date.now() - installedAt < DUE_AFTER_MS) return;         // not a week in yet
+  const dueAfter = installedAt < EARLY_ACCESS_CUTOFF ? 0 : DUE_AFTER_MS;
+  if (Date.now() - installedAt < dueAfter) return;              // not due yet
   if (document.querySelector('.survey-banner')) return;        // already showing
 
   const banner = document.createElement('div');
@@ -426,7 +433,7 @@ export function openSurvey(): void {
   function armBack(): void {
     removeBack = pushBack(() => {
       removeBack = null;
-      if (submitted || current <= 0) close();
+      if (submitted || current <= 0) confirmExit();
       else { current -= 1; render(); persistDraft(); armBack(); }
     });
   }
@@ -437,6 +444,16 @@ export function openSurvey(): void {
     removeBack = null;
     overlay.remove();
   }
+  function confirmExit(): void {
+    if (submitted) { close(); return; } // nothing left to lose after a successful submit
+    confirmDialog({
+      title: 'Exit the survey?',
+      body: 'Your answers are saved on this device so you can pick up where you left '
+        + 'off — but nothing is sent to me until you finish and submit.',
+      confirmLabel: 'Exit',
+      onConfirm: close,
+    });
+  }
 
   // ── Top bar ──
   const header = document.createElement('div');
@@ -446,7 +463,7 @@ export function openSurvey(): void {
   backBtn.className = 'survey-back';
   backBtn.setAttribute('aria-label', 'Back');
   backBtn.appendChild(Icons.back(22));
-  backBtn.addEventListener('click', () => { if (submitted || current <= 0) close(); else { current -= 1; render(); persistDraft(); } });
+  backBtn.addEventListener('click', () => { if (submitted || current <= 0) confirmExit(); else { current -= 1; render(); persistDraft(); } });
   const prog = document.createElement('div');
   prog.className = 'survey-progress';
   const track = document.createElement('div');
@@ -513,8 +530,7 @@ export function openSurvey(): void {
       { v: 'Other', e: '💬' },
     ])));
   qsteps.push(oneFieldStep('You & chess', multi('q04_other_apps', 'Which opening or training tools have you used before?', [
-    { v: 'Lotus Chess', e: '🪷' }, { v: 'Chessbook', e: '📘' }, { v: 'ChessReps', e: '🔁' }, { v: 'Aimchess', e: '🎯' },
-    { v: 'Chesstempo', e: '⏱️' }, { v: 'RepertoLab', e: '🧪' }, { v: 'None', e: '🚫' }, { v: 'Other', e: '💬' },
+    'Lotus Chess', 'Chessbase', 'Chessbook', 'ChessReps', 'Aimchess', 'Chesstempo', 'RepertoLab', 'None', 'Other',
   ], PICK_MANY)));
 
   // Your week with Obertura
@@ -530,10 +546,13 @@ export function openSurvey(): void {
     { v: 'Importing my games', e: '⬇️' },
     { v: 'Preparing against an opponent', e: '🎯' },
     { v: 'Building with the engine', e: '🤖' },
+    { v: 'Using a curated pack', e: '📦' },
+    { v: 'Using the recommendation tool', e: '✨' },
   ])));
   qsteps.push(oneFieldStep('Your week with Obertura', single('q08_top_mode', 'Which training mode did you use most?', [
-    { v: 'Due Queue', e: '⏳' }, { v: 'Quick Fixes', e: '🔧' }, { v: 'Time Attack', e: '⏱️' },
-    { v: 'Fresh Lines', e: '🌱' }, { v: 'Trouble Spots', e: '⚠️' }, { v: "I didn't train", e: '🙈' },
+    { v: 'Due now', e: '⏳' }, { v: 'Review missed moves', e: '🔧' }, { v: 'Drill new lines', e: '🌱' },
+    { v: 'Target weak areas', e: '⚠️' }, { v: 'Time attack', e: '⏱️' }, { v: 'Prep', e: '🎯' },
+    { v: "I didn't train", e: '🙈' },
   ])));
 
   // The learning experience

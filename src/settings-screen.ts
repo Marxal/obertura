@@ -1264,8 +1264,9 @@ function wipeOberturaLocalStorage(): void {
 
 // ── Confirm dialog ───────────────────────────────────────────────────────────
 // Reuses the edit-overlay / edit-sheet look from the builder for consistency.
+// Exported so other screens (e.g. survey.ts's exit confirmation) can reuse it.
 
-function confirmDialog(opts: {
+export function confirmDialog(opts: {
   title: string;
   body: string;
   confirmLabel: string;

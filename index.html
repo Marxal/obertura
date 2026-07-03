@@ -3,6 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <!-- No service worker yet, so this is what keeps the app shell from going
+         stale: every open re-fetches this page instead of using a cached copy,
+         which always points at whichever hashed JS/CSS Vite built last. -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>Obertura</title>
     <meta name="description" content="Personal chess openings trainer" />
     <meta name="theme-color" content="#f3ead7" />
