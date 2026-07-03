@@ -1203,9 +1203,12 @@ cg-board square.selected {
   background-color: rgba(227, 178, 90, 0.75) !important;
 }
 
+/* Legal-move hints: a soft black dot on an empty square, a black ring around a
+   capturable piece. Kept at low opacity so they read as gentle guides rather
+   than the loud green they used to be. */
 cg-board square.move-dest {
   background: radial-gradient(
-    rgba(20, 85, 30, 0.5) 22%,
+    rgba(0, 0, 0, 0.16) 22%,
     rgba(0, 0, 0, 0) 0
   ) !important;
 }
@@ -1214,13 +1217,18 @@ cg-board square.move-dest.oc {
   background: radial-gradient(
     transparent 0%,
     transparent 79%,
-    rgba(20, 85, 30, 0.5) 80%
+    rgba(0, 0, 0, 0.2) 80%
   ) !important;
 }
 
-/* Coordinates — inside the board, top-left for ranks, bottom-right for files */
+/* Coordinates — inside the board, top-left for ranks, bottom-right for files.
+   Hidden entirely when the Settings toggle turns them off (data-coords="off"). */
 .cg-wrap coords {
   font-size: 7px;
+}
+
+html[data-coords="off"] .cg-wrap coords {
+  display: none;
 }
 
 /* Ranks: move inside board (base has top:-20px which clips above viewport) */
@@ -1233,16 +1241,77 @@ cg-board square.move-dest.oc {
   transform: none; /* base translateY(39%) shifts them out; reset to top of each slot */
 }
 
-/* Files: move inside board (base has bottom:-4px which clips below viewport) */
+/* Files: pinned to the very bottom-right corner of each file's column (base
+   bottom:-4px clips below viewport, and a small inset used to float them up). */
 .cg-wrap coords.files {
-  bottom: 2px;
+  bottom: 0;
   left: 0;
   text-align: right;
 }
 
 .cg-wrap coords.files coord {
   padding-right: 2px;
-  padding-bottom: 2px;
+  padding-bottom: 0;
+}
+
+/* ── Pawn-promotion picker ───────────────────────────────────────────────────
+   A dimming backdrop over the board with a column of four piece choices dropped
+   over the destination file (see promotion.ts). It lives inside .cg-wrap so its
+   <piece> elements pick up the active piece-set images. */
+.promotion-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background: rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+}
+
+.promotion-column {
+  position: absolute;
+  width: 12.5%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Promotion at the board's bottom edge: cascade the choices upward, queen still
+   nearest the pawn. */
+.promotion-column--up {
+  flex-direction: column-reverse;
+}
+
+.promotion-choice {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  padding: 0;
+  border: none;
+  cursor: pointer;
+  background: rgba(245, 245, 245, 0.96);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+  transition: background 0.12s ease;
+}
+
+.promotion-choice:first-child { border-radius: 8px 8px 0 0; }
+.promotion-choice:last-child  { border-radius: 0 0 8px 8px; }
+.promotion-column--up .promotion-choice:first-child { border-radius: 0 0 8px 8px; }
+.promotion-column--up .promotion-choice:last-child  { border-radius: 8px 8px 0 0; }
+
+.promotion-choice:hover,
+.promotion-choice:focus-visible {
+  background: #fff;
+  outline: none;
+}
+
+/* Override the chessground base piece rule (absolute, 12.5%, cover) so the piece
+   fills the choice button instead. */
+.promotion-choice piece {
+  position: static;
+  width: 100%;
+  height: 100%;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  pointer-events: none;
 }
 
 /* Line panel */

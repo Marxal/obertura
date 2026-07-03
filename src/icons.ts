@@ -187,9 +187,19 @@ export function classIcon(cls: MoveClass, size = 14): SVGSVGElement {
 export function classBoardSvg(cls: MoveClass): { html: string; center: 'orig' } {
   const color = CLASS_COLOR[cls];
   const cx = 79, cy = 21, r = 16;
+  // Brilliant moves get a subtle pulsing halo — a ring that expands and fades on
+  // a loop behind the badge disc, so the best find on the board quietly draws the
+  // eye without any extra colour on the piece.
+  const halo = cls === 'brilliant'
+    ? `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="2.5" opacity="0.55">` +
+      `<animate attributeName="r" values="${r};${r + 10};${r}" dur="1.8s" repeatCount="indefinite"/>` +
+      `<animate attributeName="opacity" values="0.55;0;0.55" dur="1.8s" repeatCount="indefinite"/>` +
+      `</circle>`
+    : '';
   return {
     center: 'orig',
     html:
+      halo +
       `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}" stroke="#fff" stroke-width="2.5"/>` +
       classGlyphMarkup(cls, cx, cy, r),
   };

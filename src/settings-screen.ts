@@ -10,6 +10,8 @@ import {
   setBoardColour,
   getPieceSet,
   setPieceSet,
+  getShowCoordinates,
+  setShowCoordinates,
   boardTextureUrl,
   type BoardColour,
   type PieceSet,
@@ -651,6 +653,12 @@ function buildAppearanceGroup(): HTMLElement {
       (v) => setMoveNotation(v),
     ),
     { sub: 'How moves are written everywhere: plain letters (Nf3, Bxf7) or piece symbols (♞f3, ♝xf7).' },
+  ));
+
+  sec.appendChild(row(
+    'Board coordinates',
+    toggle(getShowCoordinates(), (on) => setShowCoordinates(on)),
+    { sub: 'The a–h and 1–8 labels tucked into the board corners.' },
   ));
 
   sec.appendChild(row(
