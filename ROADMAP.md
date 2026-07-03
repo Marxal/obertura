@@ -392,6 +392,57 @@ A grab-bag of fixes and polish across the app, driven by real phone use.
 
 ---
 
+## v0.9 — retry analysis & organisation round 🔜
+
+Thirteen fixes/features from phone use: smarter analysis reuse, clearer engine
+status, and denser list organisation.
+
+- ✅ **Retry drill after-buttons** — "Open full analysis" is now "Analyse" with
+  the analysis icon, and both post-answer buttons share one height/shape.
+- ✅ **Scan: live Lichess status** — the analyse-games overlay shows whether the
+  Lichess cloud is answering (green), rate-limited (amber — the on-device
+  engine covers for a minute) or unreachable (red).
+- ✅ **Scan reuses saved analyses** — games already reviewed in the analyser
+  seed the scan's eval cache from their stored per-move evals, so analysed
+  games (and openings they share) scan far faster.
+- ✅ **Analyser: auto-stored reviews** — a finished review writes itself onto
+  the game record (reopening restores it, and the mistake scan reuses it);
+  "Save game" now greys out until there's something of *yours* to save
+  (variations, notes, tags).
+- ✅ **Facts ticker** — sentences type and hold noticeably slower, and the
+  import parser now yields to the UI so the ticker no longer freezes
+  mid-sentence during a big import (it only ever worked smoothly on the
+  mistake scan, whose heavy work lives off the main thread).
+- ✅ **Latest mistakes carousel** — the Mistake retry pane gets a forgotten-
+  moves-style board carousel: the newest unfixed spot per category, played
+  move as a red arrow + red chip story line, "Fix it" (drills exactly that
+  position) with a quiet "find the best move" hint. Nav is four icon-only
+  tabs with the category name below.
+- ✅ **Train list: collapsible + branch pause** — "In training" collapses
+  behind its header (collapsed by default), and grouped views carry a pause
+  control per branch header that takes the whole family out of rotation
+  (with a confirm).
+- ✅ **Compact grouping everywhere** — the group toggle now cycles flat → by
+  opening family → compact (by full variation name, narrower buckets), on
+  Train, My Lines and My games alike.
+- ✅ **Puzzles → analyser** — after a puzzle, a discrete "Analyse position"
+  (analysis icon) opens the game + solution in the analyser, landing straight
+  on the Engine tab at the puzzle position, with the same "Back to train"
+  suspended-session hand-off as the mistake drill.
+- ✅ **Daily puzzles ladder** — the daily challenge's three puzzles now run
+  easy → medium → hard, one Lichess difficulty band below / at / above your
+  rating's own band.
+- ✅ **Game tags** — the tags sheet now offers tags you've used on games, not
+  just on lines.
+- ✅ **Stats carousels** — "Remembered moves over time" and "Puzzle rating"
+  swipe horizontally between Week / Month / All (the chips stay as the
+  indicator).
+- ✅ **Drive popup fix** — background auto-backup no longer triggers the Google
+  sign-in screen mid-app: it only uploads while a session token is live, and
+  otherwise stays quietly "pending" until Settings is opened.
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

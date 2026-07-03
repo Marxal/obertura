@@ -257,6 +257,10 @@ export async function runImport(
         g.platform = platform;
         parsed.push(g);
       } else skipped++;
+      // Parsing a big archive is heavy synchronous chess.js work — yield to the
+      // event loop every few games so the loader's status line and facts ticker
+      // keep animating instead of freezing mid-sentence.
+      if (fetched % 20 === 0) await yieldToUi();
     }
     if (parsed.length) {
       games.push(...parsed);
@@ -279,6 +283,12 @@ export async function runImport(
     truncated,
     tally: tallyTimeClasses(games),
   };
+}
+
+// A macrotask breather — lets pending timers (the loader's typewriter) and a
+// paint happen between synchronous parse chunks.
+function yieldToUi(): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, 0));
 }
 
 // ── Tally + filter ─────────────────────────────────────────────────────────────

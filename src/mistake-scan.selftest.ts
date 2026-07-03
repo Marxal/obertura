@@ -10,6 +10,7 @@ import {
   countRetry,
   unscannedCount,
   replayGame,
+  seedCacheFromAnalyses,
   MAX_SPOTS_PER_GAME,
 } from './mistake-scan';
 import type { MistakeSpot, SpotRef, CategoriseCtx } from './mistake-scan';
@@ -151,6 +152,32 @@ export function runMistakeScanSelfTest(): TestResult[] {
   check('counts: per-category unfixed', counts.unfixedByCategory['blunder'] === 1
     && counts.unfixedByCategory['missed-win'] === 1, JSON.stringify(counts.unfixedByCategory));
   check('unscannedCount', unscannedCount([gOld, gMid, gNew, gUnscanned]) === 1);
+
+  // ── seedCacheFromAnalyses (reusing the analyser's saved evals) ──────────────
+  const analysedGame = {
+    analysis: {
+      tree: {
+        id: 'root', san: '', uci: '', fen: 'startfen',
+        children: [{
+          id: 'a', san: 'e4', uci: 'e2e4', fen: 'fen-1', evalCp: 30,
+          children: [
+            { id: 'b', san: 'e5', uci: 'e7e5', fen: 'fen-2', evalCp: 25, children: [] },
+            // A variation (children[1]) — the seed walks the MAINLINE only.
+            { id: 'v', san: 'c5', uci: 'c7c5', fen: 'fen-var', evalCp: 40, children: [] },
+          ],
+        }],
+      },
+      engine: 'lichess' as const,
+      reviewedAt: 1,
+    },
+  };
+  const seedCache = new Map<string, number | null>([['fen-2', -999]]);
+  const seeded = seedCacheFromAnalyses([analysedGame, {}], seedCache);
+  check('seed: mainline evals land in the cache', seeded === 1 && seedCache.get('fen-1') === 30,
+    `seeded=${seeded}`);
+  check('seed: existing cache entries win', seedCache.get('fen-2') === -999);
+  check('seed: variations and eval-less nodes are skipped',
+    !seedCache.has('fen-var') && !seedCache.has('startfen'));
 
   // ── replayGame ──────────────────────────────────────────────────────────────
   const fools = replayGame({ ucis: ['f2f3', 'e7e5', 'g2g4', 'd8h4'], sans: [] });

@@ -54,10 +54,26 @@ export interface PuzzleResult {
   family?: string; // friendly opening name, for the repeat queue
 }
 
+// What "Analyse position" hands the app: the puzzle's game + solution as a UCI
+// list for the analyser board, the position the solver faced (to open at, with
+// the Engine tab up), and the resume/discard hooks for the suspended session —
+// the same shape as the mistake drill's OpenGameCtx hand-off.
+export interface AnalyseRequest {
+  ucis: string[];
+  colour: 'white' | 'black';
+  atFen: string;
+  label: string;
+  onReturn: () => void;
+  onDiscard: () => void;
+}
+
 export interface PuzzleSessionOptions {
   // Draw the next puzzle to present, or null when none is available. Receives the
   // running solved count so the caller can ramp difficulty (Time Attack).
   nextPuzzle: (ctx: { solved: number }) => Promise<PuzzleDraw | null>;
+  // Open the finished puzzle in the full analyser (Engine tab). When set, a
+  // discrete "Analyse position" appears under Next once a puzzle is done.
+  onAnalysePosition?: (req: AnalyseRequest) => void;
   // How the session ends.
   mode: PuzzleMode;
   // Fired once per puzzle when it's finished (solved or failed).
@@ -231,9 +247,20 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   nextBtn.hidden = true;
   nextBtn.addEventListener('click', () => onNextTap());
 
+  // A quiet "open this one in the full analyser" under Next — count mode only,
+  // shown once the puzzle is finished.
+  const analyseBtn = document.createElement('button');
+  analyseBtn.type = 'button';
+  analyseBtn.className = 'pz-analyse-btn';
+  analyseBtn.appendChild(Icons.review(15));
+  analyseBtn.appendChild(document.createTextNode('Analyse position'));
+  analyseBtn.hidden = true;
+  analyseBtn.addEventListener('click', () => suspendForAnalysis());
+
   bottomEl.appendChild(statusEl);
   if (!timed) bottomEl.appendChild(hintBtn);
   bottomEl.appendChild(nextBtn);
+  if (!timed && opts.onAnalysePosition) bottomEl.appendChild(analyseBtn);
 
   overlay.appendChild(headerEl);
   if (sessionFillEl) overlay.appendChild(sessionBarEl);
@@ -367,6 +394,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     setStatus('Loading puzzle…', 'pt-status--prompt');
     themesEl.hidden = true;
     nextBtn.hidden = true;
+    analyseBtn.hidden = true;
     cg.setAutoShapes([]);
     renderSessionBar();
 
@@ -590,6 +618,33 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     }
     nextBtn.textContent = completed >= total ? 'See results' : 'Next puzzle';
     nextBtn.hidden = false;
+    analyseBtn.hidden = !opts.onAnalysePosition;
+  }
+
+  // ── Suspend for the full analyser (mirrors mistake-run's hand-off) ──────────
+  // The overlay hides with the session state intact while the analyser opens on
+  // the Engine tab at the puzzle position; "Back to train" resumes right here,
+  // navigating anywhere else discards the session cleanly.
+  function suspendForAnalysis(): void {
+    if (!opts.onAnalysePosition || !draw) return;
+    const moves = analyseMovesFor(draw.puzzle);
+    if (!moves) return;
+    removeBack();
+    removeBack = () => {};
+    overlay.hidden = true;
+    opts.onAnalysePosition({
+      ...moves,
+      label: `Puzzle · rating ${draw.puzzle.rating}`,
+      onReturn: () => {
+        if (isCleaned) return;
+        overlay.hidden = false;
+        removeBack = pushBack(exitViaBackGesture);
+        requestAnimationFrame(() => { if (!isCleaned) cg.redrawAll(); });
+      },
+      onDiscard: () => {
+        if (!isCleaned) cleanup();
+      },
+    });
   }
 
   // The Next/See-results button in count mode.
@@ -784,6 +839,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
       onExit: opts.onExit,
       modeLabel: 'Retry mistakes',
       dedup: false,
+      onAnalysePosition: opts.onAnalysePosition,
     });
   }
 
@@ -804,6 +860,38 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   renderMistakes();
   if (timed) startTimer();
   void loadNext();
+}
+
+// The analyser board's moves for a puzzle: the game up to the position the
+// solver faced (the pgn is truncated to end on the opponent's blunder) plus the
+// full solution, so the whole tactic is there to step through with the engine.
+// Null when the data won't replay (corrupt puzzle) — the button just no-ops.
+function analyseMovesFor(puzzle: Puzzle): { ucis: string[]; colour: 'white' | 'black'; atFen: string } | null {
+  try {
+    const game = new Chess();
+    game.loadPgn(puzzle.pgn);
+    const history = game.history({ verbose: true });
+
+    const board = new Chess();
+    const plies = Math.min(puzzle.initialPly + 1, history.length);
+    const ucis: string[] = [];
+    for (let i = 0; i < plies; i++) {
+      ucis.push(board.move(history[i].san).lan);
+    }
+    const atFen = board.fen();
+    const colour: 'white' | 'black' = board.turn() === 'w' ? 'white' : 'black';
+    for (const uci of puzzle.solution) {
+      const m = board.move({
+        from: uci.slice(0, 2),
+        to: uci.slice(2, 4),
+        promotion: (uci[4] as 'q' | 'r' | 'b' | 'n') || undefined,
+      });
+      ucis.push(m.lan);
+    }
+    return { ucis, colour, atFen };
+  } catch {
+    return null;
+  }
 }
 
 // "mateIn2" → "Mate in 2", "kingsideAttack" → "Kingside attack".

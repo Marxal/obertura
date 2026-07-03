@@ -34,6 +34,7 @@ import {
 } from './daily-challenge';
 import { collectSpots, pickSpots, type SpotRef } from './mistake-scan';
 import { startMistakeSession, type OpenGameCtx } from './mistake-run';
+import type { AnalyseRequest as PuzzleAnalyseRequest } from './puzzle-run';
 import { renderMyGamesScreen, formatGameDate } from './my-games-screen';
 import { opponentTag } from './scout';
 import { renderSettingsScreen } from './settings-screen';
@@ -171,6 +172,7 @@ function renderBuilderTags(): void {
   el.replaceChildren();
   if (currentTags.length === 0) {
     el.hidden = true;
+    refreshSaveButtonState();
     return;
   }
   el.hidden = false;
@@ -180,6 +182,8 @@ function renderBuilderTags(): void {
     chip.textContent = t;
     el.appendChild(chip);
   }
+  // Tag edits change what Save would write — re-derive its enabled state.
+  refreshSaveButtonState();
 }
 
 // A transient one-line hint shown under the title/actions — used when the builder
@@ -250,18 +254,24 @@ function openEditSheet(focus: 'name' | 'tags' = 'name'): void {
     for (const tag of SUGGESTED_TAGS) addChip(tag);
     sheet.appendChild(chipRow);
 
-    // Every tag you've already created on any line, as tappable chips — so
-    // reusing a tag is a tap, not retyping it (and no near-duplicate spellings).
-    // Loaded async; the row only appears when there's something to show.
+    // Every tag you've already created — on any line OR any game — as tappable
+    // chips, so reusing a tag is a tap, not retyping it (and no near-duplicate
+    // spellings). Loaded async; the row only appears when there's something to
+    // show.
     const ownRow = document.createElement('div');
     ownRow.className = 'edit-chips edit-chips--own';
     ownRow.hidden = true;
     sheet.appendChild(ownRow);
-    void getAllLines().then((lines) => {
+    void Promise.all([getAllLines(), getAllGames()]).then(([lines, games]) => {
       const known = new Set<string>(SUGGESTED_TAGS);
       const own: string[] = [];
       for (const l of lines) {
         for (const t of l.tags) {
+          if (!known.has(t)) { known.add(t); own.push(t); }
+        }
+      }
+      for (const g of games) {
+        for (const t of g.tags ?? []) {
           if (!known.has(t)) { known.add(t); own.push(t); }
         }
       }
@@ -414,7 +424,17 @@ function renderMoveList() {
   }
   updateMoveNavButtons();
   refreshReviewButtonState();
+  refreshSaveButtonState();
   refreshLineAnalysis();
+}
+
+// Analyser only: Save game greys out while there's nothing of yours to save —
+// the review itself is stored automatically, so Save is for YOUR variations,
+// notes and tag edits. Builder mode (repertoire lines) keeps Save always live.
+function refreshSaveButtonState(): void {
+  const btn = document.getElementById('header-save') as HTMLButtonElement | null;
+  if (!btn) return;
+  btn.disabled = builderMode === 'analyser' && !!analyserGameId && !isBuilderDirty();
 }
 
 function renderMoveListInto(el: HTMLElement): void {
@@ -566,6 +586,7 @@ function openGameForAnalysis(
   // it dirty (the auto-review's classifications are stripped from the snapshot), so
   // an untouched game closes without the save prompt.
   savedSnapshot = builderSnapshot();
+  refreshSaveButtonState();
   if (o.atFen) {
     const target = mainline().find(n => n.fen === o.atFen);
     if (target) handleMoveClick(target.id);
@@ -615,6 +636,22 @@ function mountSessionReturnChip(): void {
   sessionReturnChip = chip;
 }
 
+// A puzzle's "Analyse position" (puzzle-run) routes here: lay the puzzle's game
+// plus its full solution on the analyser board, land straight on the Engine tab
+// at the position the solver faced, and suspend the puzzle session behind the
+// "Back to train" chip exactly like the mistake drill's hand-off.
+function openPuzzleFromSession(req: PuzzleAnalyseRequest): void {
+  suspendedSession = { resume: req.onReturn, discard: req.onDiscard };
+  buildFromUcis(req.ucis, req.colour, [], { description: req.label, analyser: true });
+  analyserGameId = null; // no backing game record — Save falls back to Save line
+  savedSnapshot = builderSnapshot();
+  pendingBuilderSlide = ENGINE_SLIDE;
+  showView('builder');
+  mountSessionReturnChip();
+  const target = mainline().find(n => n.fen === req.atFen);
+  if (target) handleMoveClick(target.id);
+}
+
 // Open a freshly imported/pasted game (no saved analysis yet) in the analyser and
 // review it. gameId is set when the game is in the store (so a later Save can
 // attach the analysis); a pasted PGN has none.
@@ -624,6 +661,7 @@ function openImportedGame(ucis: string[], colour: 'white' | 'black', description
   autoReview();
   // Baseline the freshly-opened game so only your own edits trigger the save guard.
   savedSnapshot = builderSnapshot();
+  refreshSaveButtonState();
 }
 
 function autoReview(): void {
@@ -740,7 +778,13 @@ async function runReviewPass(): Promise<void> {
       },
     });
     builderEngine = mergeReviewEngine(builderEngine, summary.engine);
-    if (!ctrl.signal.aborted) showToast('Analysis complete — new moves keep analysing.');
+    if (!ctrl.signal.aborted) {
+      showToast('Analysis complete — new moves keep analysing.');
+      // A finished review stores itself on the game record, so reopening the
+      // game restores the grades without a re-run. Save game stays the way to
+      // save YOUR variations, notes and tags.
+      void autoStoreAnalysis();
+    }
   } catch {
     if (!ctrl.signal.aborted) showToast('Couldn’t finish analysing.');
   } finally {
@@ -751,6 +795,22 @@ async function runReviewPass(): Promise<void> {
     renderMoveList();
     refreshBoardShapes();
     refreshLineAnalysis();
+  }
+}
+
+// Quietly persist the current review onto the open game's record (analyser
+// only). Reads the fresh record first so a concurrent write (the mistake scan)
+// keeps its data; the builder's dirty state is untouched — classifications are
+// derived, so this never silently "saves" the user's unsaved edits as theirs.
+async function autoStoreAnalysis(): Promise<void> {
+  if (builderMode !== 'analyser' || !analyserGameId) return;
+  try {
+    const game = await getGame(analyserGameId);
+    if (!game) return;
+    game.analysis = { tree: serialise(), engine: builderEngine, reviewedAt: Date.now() };
+    await saveGames([game]);
+  } catch {
+    /* storage hiccup — Save game still covers it */
   }
 }
 
@@ -2068,7 +2128,8 @@ function renderTrainTabbed(host: HTMLElement): void {
       },
       puzzles: () => {
         void startDailyPuzzles(DAILY_PUZZLE_GOAL,
-          () => { markPuzzlesDone(); void renderDaily(); }, nextFor('puzzles'));
+          () => { markPuzzlesDone(); void renderDaily(); }, nextFor('puzzles'),
+          openPuzzleFromSession);
       },
       mistakes: () => {
         // A short mixed set from the scanned spots — runs as its own overlay,
@@ -2126,6 +2187,7 @@ function renderTrainTabbed(host: HTMLElement): void {
         onImportGames: () => showView('games'),
         onBuildLine: () => startNewLine('white'),
         onConnectLichess: () => void lichessConnect(),
+        onAnalysePosition: openPuzzleFromSession,
       });
     } else if (trainTab === 'mistakes') {
       void renderMistakesScreen(mistakesPane, {
@@ -2576,6 +2638,7 @@ async function saveGame(): Promise<void> {
       game.analysis = { tree: serialise(), engine: builderEngine, reviewedAt: Date.now() };
       await saveGames([game]);
       savedSnapshot = builderSnapshot();
+      refreshSaveButtonState();
       showToast('Game saved ✓');
       return;
     }

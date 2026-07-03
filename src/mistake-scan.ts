@@ -29,6 +29,7 @@ import type { MoveEval } from './engine';
 import { cpToWin, flattenCp } from './winprob';
 import { getAllGames, getGame, saveGames } from './storage';
 import type { ImportedGame, GameResult } from './import-core';
+import type { MoveNode } from './tree';
 
 // ── Tunable thresholds (one place to adjust the whole feel) ──────────────────
 // All cp values are USER-perspective (positive = good for you), mate-flattened
@@ -294,6 +295,30 @@ export function unscannedCount(games: ImportedGame[]): number {
   return games.filter(g => !g.retry).length;
 }
 
+// Reuse the analyser's saved work: a game reviewed in the game analyser already
+// carries an eval per mainline move (analysis.tree → evalCp — WHITE-perspective,
+// mate-flattened, exactly the trail's scale). Seeding the scan cache with those
+// positions means an already-analysed game (and any opening it shares with the
+// rest) scans with far fewer cloud/engine lookups. Returns how many positions
+// were seeded (for the self-test).
+export function seedCacheFromAnalyses(
+  games: Pick<ImportedGame, 'analysis'>[],
+  cache: Map<string, number | null>,
+): number {
+  let seeded = 0;
+  for (const game of games) {
+    let node: MoveNode | undefined = game.analysis?.tree;
+    while (node) {
+      if (node.evalCp !== undefined && node.fen && !cache.has(node.fen)) {
+        cache.set(node.fen, node.evalCp);
+        seeded++;
+      }
+      node = node.children[0];
+    }
+  }
+  return seeded;
+}
+
 // Scan every unscanned game, newest first. Each game's result is persisted the
 // moment it finishes, so aborting keeps all completed work (resume = just run
 // again). The shared position cache spans games — openings repeat, so later
@@ -308,6 +333,8 @@ export async function scanGames(opts: {
   opts.signal.addEventListener('abort', onAbort, { once: true });
 
   const cache = new Map<string, number | null>();
+  // Analysed games' stored evals answer their positions instantly.
+  seedCacheFromAnalyses(all, cache);
   let scanned = 0;
   let spotsFound = 0;
   try {

@@ -51,6 +51,11 @@ const CLOUD_COOLDOWN_MS = 60_000;
 const CLOUD_429_COOLDOWN_MS = 90_000;
 let cloudFailStreak = 0;
 let cloudBlockedUntil = 0;
+// Why the breaker is (or was last) open, and whether the cloud has answered at
+// all yet — feeds cloudHealth() so batch UIs (the mistake scan) can tell the
+// user live whether Lichess is answering, rate-limited, or unreachable.
+let cloudBlockCause: 'limited' | 'down' = 'down';
+let cloudEverAnswered = false;
 
 function cloudOpen(): boolean {
   return Date.now() >= cloudBlockedUntil;
@@ -58,20 +63,35 @@ function cloudOpen(): boolean {
 
 function noteCloudSuccess(): void {
   cloudFailStreak = 0;
+  cloudEverAnswered = true;
 }
 
 function noteCloudFailure(status?: number): void {
   if (status === 404) { noteCloudSuccess(); return; } // healthy miss
   if (status === 429) {
     cloudBlockedUntil = Date.now() + CLOUD_429_COOLDOWN_MS;
+    cloudBlockCause = 'limited';
     cloudFailStreak = 0;
     return;
   }
   cloudFailStreak++;
   if (cloudFailStreak >= CLOUD_FAIL_STREAK) {
     cloudBlockedUntil = Date.now() + CLOUD_COOLDOWN_MS;
+    cloudBlockCause = 'down';
     cloudFailStreak = 0;
   }
+}
+
+// The Lichess cloud's live health, for status lines in batch UIs.
+//   untested — no request has been answered yet this session
+//   ok       — answering normally (a 404 "position unknown" counts as healthy)
+//   limited  — rate-limited (429): backing off, local engine covers meanwhile
+//   down     — repeated failures (offline / outage): local engine covers
+export type CloudHealth = 'untested' | 'ok' | 'limited' | 'down';
+
+export function cloudHealth(): CloudHealth {
+  if (Date.now() < cloudBlockedUntil) return cloudBlockCause;
+  return cloudEverAnswered ? 'ok' : 'untested';
 }
 
 // A cloud miss costs its whole timeout before the local fallback can start, so

@@ -20,12 +20,18 @@ export type ColourFilter = 'all' | 'white' | 'black';
 // status options (the line statuses by default, or e.g. won/lost/drew for games).
 export type StatusFilter = string;
 
+// How the list is grouped: flat (false), by opening family ('family'), or the
+// compact view — by full variation name ('variation'), which cuts each family
+// into smaller, narrower buckets. Old saved selections stored a boolean; true
+// maps to 'family' on load. `if (sel.group)` still reads "grouped at all".
+export type GroupMode = false | 'family' | 'variation';
+
 export interface FilterSelection {
   colour: ColourFilter;
   sort: string;
   status: StatusFilter;
   tags: string[];
-  group: boolean;
+  group: GroupMode;
 }
 
 export interface FilterConfig {
@@ -102,7 +108,12 @@ function loadSelection(config: FilterConfig): FilterSelection {
   const fallbackSort = config.defaultSort ?? sorts[0]?.key ?? '';
   const sort = typeof saved.sort === 'string' && sortKeys.has(saved.sort) ? saved.sort : fallbackSort;
   const tags = Array.isArray(saved.tags) ? saved.tags.filter(t => known.has(t)) : [];
-  const group = !!config.group && saved.group === true;
+  // Boolean true = the old "group by opening"; strings pass through when valid.
+  const savedGroup = saved.group as GroupMode | true | undefined;
+  const group: GroupMode = !config.group ? false
+    : savedGroup === true || savedGroup === 'family' ? 'family'
+    : savedGroup === 'variation' ? 'variation'
+    : false;
 
   return { colour, sort, status, tags, group };
 }
@@ -213,23 +224,45 @@ function buildSortMenu(config: FilterConfig, sel: FilterSelection, commit: () =>
   return wrap;
 }
 
-// The "group by opening" icon toggle — sits beside sort on row 1. Active when on.
+// The grouping toggle — sits beside sort on row 1. Cycles through three views:
+// flat → by opening family → compact (by variation, narrower buckets) → flat.
+// The compact state carries a small "2" pip on the icon so the two grouped
+// looks are tellable apart.
+const GROUP_TITLES: Record<'off' | 'family' | 'variation', string> = {
+  off: 'Group by opening',
+  family: 'Compact view (group by variation)',
+  variation: 'Flat list',
+};
+
 function buildGroupToggle(sel: FilterSelection, commit: () => void): HTMLElement {
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.className = 'dgroup' + (sel.group ? ' active' : '');
-  btn.title = 'Group by opening';
-  btn.setAttribute('aria-label', 'Group by opening');
-  btn.setAttribute('aria-pressed', String(sel.group));
+  btn.className = 'dgroup';
 
   const icon = Icons.tree(18);
   icon.classList.add('dgroup-icon');
   btn.appendChild(icon);
 
+  const pip = document.createElement('span');
+  pip.className = 'dgroup-pip';
+  pip.textContent = '2';
+  pip.setAttribute('aria-hidden', 'true');
+  btn.appendChild(pip);
+
+  const paint = (): void => {
+    btn.classList.toggle('active', !!sel.group);
+    btn.classList.toggle('dgroup--deep', sel.group === 'variation');
+    // The title names the NEXT state (what a tap does), like a play/pause button.
+    const title = GROUP_TITLES[sel.group === false ? 'off' : sel.group];
+    btn.title = title;
+    btn.setAttribute('aria-label', title);
+    btn.setAttribute('aria-pressed', String(!!sel.group));
+  };
+  paint();
+
   btn.addEventListener('click', () => {
-    sel.group = !sel.group;
-    btn.classList.toggle('active', sel.group);
-    btn.setAttribute('aria-pressed', String(sel.group));
+    sel.group = sel.group === false ? 'family' : sel.group === 'family' ? 'variation' : false;
+    paint();
     commit();
   });
   return btn;

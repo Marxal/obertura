@@ -12,6 +12,12 @@ import type { Line } from './types';
 import { openingFamily } from './analysis';
 import { Icons } from './icons';
 
+// Optional per-group extras: a control rendered on the group header, after the
+// count (Train uses it for the "pause this whole branch" switch).
+export interface GroupOptions<T> {
+  headExtra?: (family: string, items: T[]) => HTMLElement | null;
+}
+
 // The line-list flavour (My Lines / Train / Scout): families come from each
 // line's opening name.
 export function renderFamilyGroups(
@@ -19,8 +25,22 @@ export function renderFamilyGroups(
   lines: Line[],
   card: (line: Line) => HTMLElement,
   expanded: Set<string>,
+  opts?: GroupOptions<Line>,
 ): void {
-  renderGroups(host, lines, l => openingFamily(l.openingName), card, expanded);
+  renderGroups(host, lines, l => openingFamily(l.openingName), card, expanded, opts);
+}
+
+// The compact flavour: group by the FULL variation name ("Sicilian Defense:
+// Najdorf Variation") rather than the family, so each bucket is narrower and a
+// big family splits into its branches.
+export function renderVariationGroups(
+  host: HTMLElement,
+  lines: Line[],
+  card: (line: Line) => HTMLElement,
+  expanded: Set<string>,
+  opts?: GroupOptions<Line>,
+): void {
+  renderGroups(host, lines, l => l.openingName || l.name || 'Unnamed opening', card, expanded, opts);
 }
 
 // The generic flavour: group ANY item list into collapsible families. Families
@@ -32,6 +52,7 @@ export function renderGroups<T>(
   familyOf: (item: T) => string,
   card: (item: T) => HTMLElement,
   expanded: Set<string>,
+  opts?: GroupOptions<T>,
 ): void {
   const groups = new Map<string, T[]>();
   for (const item of items) {
@@ -41,7 +62,7 @@ export function renderGroups<T>(
     bucket.push(item);
   }
   for (const [family, fitems] of groups) {
-    host.appendChild(buildFamilyGroup(family, fitems, card, expanded));
+    host.appendChild(buildFamilyGroup(family, fitems, card, expanded, opts));
   }
 }
 
@@ -50,6 +71,7 @@ function buildFamilyGroup<T>(
   flines: T[],
   card: (line: T) => HTMLElement,
   expanded: Set<string>,
+  opts?: GroupOptions<T>,
 ): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'lines-fam';
@@ -98,7 +120,18 @@ function buildFamilyGroup<T>(
     setOpen(open);
   });
 
-  wrap.appendChild(head);
+  // A caller-supplied control rides NEXT TO the header button (a button can't
+  // nest inside a button), sharing one row.
+  const extra = opts?.headExtra?.(family, flines);
+  if (extra) {
+    const row = document.createElement('div');
+    row.className = 'lines-fam-headrow';
+    row.appendChild(head);
+    row.appendChild(extra);
+    wrap.appendChild(row);
+  } else {
+    wrap.appendChild(head);
+  }
   wrap.appendChild(body);
   return wrap;
 }
