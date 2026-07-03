@@ -12,7 +12,7 @@ import { Icons } from './icons';
 import { userAvatar } from './avatar';
 import { pushBack } from './back-nav';
 import { analyseGames, countGamesPerLine, openingFamily, TOP_N, type Analysis, type OpeningStat } from './analysis';
-import { renderFamilyGroups } from './line-groups';
+import { renderFamilyGroups, renderVariationGroups } from './line-groups';
 import { openImportPanel, getGamesSource } from './import-panel';
 import { isOpponentTag } from './scout';
 import { buildEmptyState } from './empty-state';
@@ -508,12 +508,17 @@ function renderSavedTab(
       return;
     }
     if (filter.selection.group) {
+      const deep = filter.selection.group === 'variation';
       // Open the just-saved line's family so its highlighted card shows.
       if (highlightLineId) {
         const hit = shown.find(l => l.id === highlightLineId);
-        if (hit) expandedFamilies.add(openingFamily(hit.openingName));
+        if (hit) {
+          expandedFamilies.add(deep
+            ? (hit.openingName || hit.name || 'Unnamed opening')
+            : openingFamily(hit.openingName));
+        }
       }
-      renderFamilyGroups(
+      (deep ? renderVariationGroups : renderFamilyGroups)(
         list,
         shown,
         line => buildDetailCard(line, deps, container, refresh, counts.get(line.id) ?? 0),

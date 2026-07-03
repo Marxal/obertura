@@ -199,6 +199,34 @@ function buildSegmented<T extends string>(
   return row;
 }
 
+// Make a chart browse like a carousel: a horizontal swipe on `el` steps the
+// Week / Month / All chips (which stay put as the indicator, like the
+// forgotten-moves tabs). Swiping left moves to the next, wider range; the
+// chips' own click handlers do the actual switch, so tap and swipe can never
+// disagree.
+function attachRangeSwipe(el: HTMLElement, chipRow: HTMLElement): void {
+  let x0: number | null = null;
+  let y0 = 0;
+  el.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) { x0 = null; return; }
+    x0 = e.touches[0].clientX;
+    y0 = e.touches[0].clientY;
+  }, { passive: true });
+  el.addEventListener('touchend', (e) => {
+    if (x0 === null) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - x0;
+    const dy = t.clientY - y0;
+    x0 = null;
+    // A deliberate horizontal swipe only — vertical scrolling passes through.
+    if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.6) return;
+    const chips = [...chipRow.querySelectorAll<HTMLElement>('.stats-range-chip')];
+    const i = chips.findIndex(c => c.classList.contains('stats-range-chip--on'));
+    const next = i + (dx < 0 ? 1 : -1);
+    if (i >= 0 && next >= 0 && next < chips.length) chips[next].click();
+  }, { passive: true });
+}
+
 // ── 1. Streak hero (+ month-calendar accordion) ─────────────────────────────
 
 function renderStreakHero(container: HTMLElement): void {
@@ -451,13 +479,16 @@ function renderPuzzlesRegion(container: HTMLElement): void {
     chartHost.className = 'pz-rating-chart';
     section.appendChild(chartHost);
 
-    // Range chips sit at the bottom (like "Remembered moves over time").
+    // Range chips sit at the bottom (like "Remembered moves over time"); the
+    // chart itself swipes between ranges like a carousel.
     let range = getPzStatsRange();
-    section.appendChild(buildSegmented<PzStatsRange>(
+    const rangeChips = buildSegmented<PzStatsRange>(
       [['week', 'Week'], ['month', 'Month'], ['all', 'All']],
       range,
       (r) => { range = r; setPzStatsRange(r); fill(); },
-    ));
+    );
+    section.appendChild(rangeChips);
+    attachRangeSwipe(chartHost, rangeChips);
 
     const setCellValue = (cell: HTMLElement, value: string): void => {
       const num = cell.querySelector('.stats-quick-num');
@@ -751,12 +782,15 @@ function renderRememberedFailed(container: HTMLElement): void {
   section.appendChild(detailEl);
 
   // Range chips sit below the chart + caption: they drive only this chart, not
-  // the four quick boxes above.
-  section.appendChild(buildSegmented<StatsRange>(
+  // the four quick boxes above. The chart itself also swipes between ranges,
+  // carousel-style.
+  const rangeChips = buildSegmented<StatsRange>(
     [['week', 'Week'], ['month', 'Month'], ['all', 'All']],
     range,
     r => { range = r; setStatsRange(r); rebuild(); },
-  ));
+  );
+  section.appendChild(rangeChips);
+  attachRangeSwipe(chartEl, rangeChips);
 
   function rebuild(): void {
     const bars = reviewBars(getReviewLog(), range);

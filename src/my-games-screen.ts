@@ -210,9 +210,14 @@ export async function renderMyGamesScreen(host: HTMLElement, deps: MyGamesDeps):
     listWrap.appendChild(list);
 
     if (sel.group) {
-      // Collapsible opening-family accordion (same as My Lines). Collapsed groups
-      // don't build their cards, so this stays cheap even for a big library.
-      renderGroups(list, gs, g => openingFamily(g.opening), g => gameCard(g, deps, refresh), expandedFamilies);
+      // Collapsible opening-family accordion (same as My Lines). The compact
+      // mode groups by the full variation name instead, so a big family splits
+      // into its branches. Collapsed groups don't build their cards, so this
+      // stays cheap even for a big library.
+      const famOf = sel.group === 'variation'
+        ? (g: ImportedGame): string => g.opening || openingFamily(g.opening)
+        : (g: ImportedGame): string => openingFamily(g.opening);
+      renderGroups(list, gs, famOf, g => gameCard(g, deps, refresh), expandedFamilies);
       return;
     }
 

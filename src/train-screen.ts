@@ -25,7 +25,8 @@ import type { Key } from 'chessground/types';
 import { buildEmptyState } from './empty-state';
 import { renderStarterOnboarding, ONBOARDING_GOAL } from './onboarding-starter';
 import { createFilterBar, type FilterSelection } from './filters';
-import { renderFamilyGroups } from './line-groups';
+import { renderFamilyGroups, renderVariationGroups } from './line-groups';
+import { showDialog } from './dialog';
 import { TrainingSession, type SessionItem } from './session';
 import { countUp } from './count-up';
 import {
@@ -828,9 +829,13 @@ function trainedTime(line: Line): number {
   return line.lastTrained ? new Date(line.lastTrained).getTime() : 0;
 }
 
+// Whether the "In training" list is expanded — collapsed by default so the
+// Train hub stays short; the choice persists across visits.
+const TRAIN_LIST_OPEN_KEY = 'obertura.train.listOpen';
+
 function renderCardList(container: HTMLElement, trainingLines: Line[], pausedLines: Line[]): void {
   const section = document.createElement('div');
-  section.className = 'section';
+  section.className = 'section train-list-section';
 
   // Paused lines (out of training) show by default, dimmed with their switch
   // off; a quiet header toggle hides them. Pausing/resuming flips a card in
@@ -838,18 +843,48 @@ function renderCardList(container: HTMLElement, trainingLines: Line[], pausedLin
   // class on the list, so it never re-renders either. State persists.
   let showPaused = getShowPausedLines();
 
-  const head = document.createElement('div');
-  head.className = 'section-head';
-  const heading = document.createElement('h2');
-  heading.className = 'section-title';
+  // The whole section collapses behind its header (chevron + title + count),
+  // exactly like a family group. Everything below lives in `body`.
+  let openList = localStorage.getItem(TRAIN_LIST_OPEN_KEY) === '1';
+
+  const head = document.createElement('button');
+  head.type = 'button';
+  head.className = 'train-collapse';
+  const chev = document.createElement('span');
+  chev.className = 'lines-fam-chev';
+  chev.setAttribute('aria-hidden', 'true');
+  chev.appendChild(Icons.chevronRight(18));
+  head.appendChild(chev);
+  const heading = document.createElement('span');
+  heading.className = 'section-title train-collapse-title';
   heading.textContent = 'In training';
   head.appendChild(heading);
+  const countBadge = document.createElement('span');
+  countBadge.className = 'lines-fam-count';
+  countBadge.textContent = String(trainingLines.length);
+  head.appendChild(countBadge);
+  section.appendChild(head);
+
+  const body = document.createElement('div');
+  body.className = 'train-collapse-body';
+  section.appendChild(body);
+
+  const setListOpen = (o: boolean): void => {
+    openList = o;
+    head.classList.toggle('train-collapse--open', o);
+    head.setAttribute('aria-expanded', String(o));
+    body.hidden = !o;
+    try { localStorage.setItem(TRAIN_LIST_OPEN_KEY, o ? '1' : '0'); } catch { /* non-critical */ }
+  };
+  head.addEventListener('click', () => setListOpen(!openList));
 
   // The list itself; paused rows live in it always, shown/hidden via CSS.
   const listEl = document.createElement('div');
   listEl.className = 'train-lines group' + (showPaused ? '' : ' train-lines--hide-paused');
 
   if (pausedLines.length > 0) {
+    const tools = document.createElement('div');
+    tools.className = 'train-list-tools';
     const toggle = document.createElement('button');
     toggle.type = 'button';
     toggle.className = 'train-show-paused';
@@ -868,9 +903,9 @@ function renderCardList(container: HTMLElement, trainingLines: Line[], pausedLin
       // list's contents change, so the page doesn't jump.
       rebuildList();
     });
-    head.appendChild(toggle);
+    tools.appendChild(toggle);
+    body.appendChild(tools);
   }
-  section.appendChild(head);
 
   // The shared two-row filter bar (filters.ts). It owns and persists the
   // selection; we read filter.selection on every rebuild and do the filtering
@@ -909,18 +944,56 @@ function renderCardList(container: HTMLElement, trainingLines: Line[], pausedLin
       return;
     }
     // In-training rows first; paused rows follow, dimmed with their switch off.
+    // Grouped views carry a per-branch pause control on each family header.
     if (filter.selection.group) {
-      renderFamilyGroups(listEl, inTraining, line => buildTrainRow(line, container), trainExpanded);
+      const renderGrouped = filter.selection.group === 'variation' ? renderVariationGroups : renderFamilyGroups;
+      renderGrouped(listEl, inTraining, line => buildTrainRow(line, container), trainExpanded, {
+        headExtra: (family, lines) => buildBranchPause(family, lines, container),
+      });
     } else {
       for (const line of inTraining) listEl.appendChild(buildTrainRow(line, container));
     }
     for (const line of paused) listEl.appendChild(buildTrainRow(line, container));
   }
 
-  section.appendChild(filter.element);
+  body.appendChild(filter.element);
   rebuildList();
-  section.appendChild(listEl);
+  body.appendChild(listEl);
+  setListOpen(openList);
   container.appendChild(section);
+}
+
+// The "pause this whole branch" control on a group header: one tap (plus a
+// confirm) takes every line of the family out of the training rotation. The
+// per-line switches — and the paused rows below — are the way back.
+const PAUSE_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" stroke="none" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
+
+function buildBranchPause(family: string, lines: Line[], container: HTMLElement): HTMLElement | null {
+  const active = lines.filter(l => l.inTraining);
+  if (active.length === 0) return null;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'lines-fam-pause';
+  btn.title = 'Pause this whole branch';
+  btn.setAttribute('aria-label', `Pause training for ${family}`);
+  btn.innerHTML = PAUSE_SVG;
+  btn.addEventListener('click', () => {
+    showDialog({
+      title: 'Pause this whole branch?',
+      body: `${active.length === 1 ? 'One line leaves' : `${active.length} lines leave`} the training rotation — “${family}” stops coming up until you switch its lines back on.`,
+      buttons: [
+        { label: 'Pause branch', variant: 'danger', onClick: () => { void pauseBranch(active, container); } },
+        { label: 'Keep training', variant: 'secondary' },
+      ],
+    });
+  });
+  return btn;
+}
+
+async function pauseBranch(lines: Line[], container: HTMLElement): Promise<void> {
+  for (const line of lines) await saveLine({ ...line, inTraining: false });
+  showToast('Branch paused — resume any line with its switch.');
+  void doRender(container);
 }
 
 // Every distinct opponent tag ("vs <name>") across the training lines, sorted.

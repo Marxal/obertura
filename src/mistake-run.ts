@@ -43,8 +43,9 @@ export const CATEGORY_LABEL: Record<MistakeCategory, string> = {
 };
 
 // The story line per category — short on purpose, so "You played ♛xe8 here
-// and …" stays on one line on a phone.
-const CATEGORY_PHRASE: Record<MistakeCategory, string> = {
+// and …" stays on one line on a phone. Shared with the pane's latest-mistakes
+// carousel so the board cards read exactly like the drill.
+export const CATEGORY_PHRASE: Record<MistakeCategory, string> = {
   'opening-blunder': 'blundered the opening',
   'punish-opening': 'let them off the hook',
   'missed-win': 'threw the win away',
@@ -53,7 +54,7 @@ const CATEGORY_PHRASE: Record<MistakeCategory, string> = {
 
 // How the played move reads on its red chip: the review palette's class (chip
 // colour) and the annotation symbol shown beside the move.
-const CATEGORY_BADGE: Record<MistakeCategory, { cls: MoveClass; sym: string }> = {
+export const CATEGORY_BADGE: Record<MistakeCategory, { cls: MoveClass; sym: string }> = {
   'opening-blunder': { cls: 'blunder', sym: '??' },
   'punish-opening': { cls: 'mistake', sym: '?' },
   'missed-win': { cls: 'blunder', sym: '??' },
@@ -202,8 +203,9 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
   if (opts.onOpenGame) {
     const analyseBtn = document.createElement('button');
     analyseBtn.type = 'button';
-    analyseBtn.className = 'btn-secondary';
-    analyseBtn.textContent = 'Open full analysis';
+    analyseBtn.className = 'btn-secondary mr-after-btn';
+    analyseBtn.appendChild(Icons.review(16));
+    analyseBtn.appendChild(document.createTextNode('Analyse'));
     // Opens at the drill position — the same one the spot showed.
     analyseBtn.addEventListener('click', () =>
       suspendForAnalysis(current.game, current.spot.preFen));
@@ -211,7 +213,7 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
   }
   const nextBtn = document.createElement('button');
   nextBtn.type = 'button';
-  nextBtn.className = 'btn-primary pz-next-btn';
+  nextBtn.className = 'btn-primary pz-next-btn mr-after-btn';
   nextBtn.textContent = 'Next position';
   nextBtn.addEventListener('click', () => onNextTap());
   afterActions.appendChild(nextBtn);

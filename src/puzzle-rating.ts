@@ -41,6 +41,17 @@ export function difficultyForRating(rating: number): Difficulty {
   return 'hardest';
 }
 
+// The Lichess difficulty bands in order — for stepping one band up or down.
+const DIFFICULTY_ORDER: Difficulty[] = ['easiest', 'easier', 'normal', 'harder', 'hardest'];
+
+// One band easier (-1), your own band (0), or one band harder (+1) than the
+// rating's adaptive difficulty, clamped at the ends. The daily challenge's
+// easy → medium → hard ladder, still anchored to YOUR rating.
+export function difficultyStep(rating: number, step: -1 | 0 | 1): Difficulty {
+  const i = DIFFICULTY_ORDER.indexOf(difficultyForRating(rating));
+  return DIFFICULTY_ORDER[Math.max(0, Math.min(DIFFICULTY_ORDER.length - 1, i + step))];
+}
+
 // Adaptive difficulty for Time Attack: start gentle and ramp up as the solved
 // count rises, so the warm-up is quick and the finish is spicy.
 export function difficultyForStreak(solved: number): Difficulty {

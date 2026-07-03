@@ -14,12 +14,12 @@
 // the Statistics page, so we still nudge.
 
 import { getAllLines, getAllGames } from './storage';
-import { fetchNextPuzzle, toAngleKey } from './puzzles';
+import { fetchNextPuzzle, toAngleKey, type Difficulty } from './puzzles';
 import { openingFamily } from './analysis';
-import { startPuzzleSession, type PuzzleMode, type PuzzleDraw } from './puzzle-run';
+import { startPuzzleSession, type PuzzleMode, type PuzzleDraw, type AnalyseRequest } from './puzzle-run';
 import { recordPuzzleResult, getPuzzleDays, getPuzzlesByOpening } from './puzzle-log';
 import { reviewResult, takeDueRepeat } from './puzzle-repeat';
-import { getPuzzleRating, difficultyForRating, difficultyForStreak, targetRatingForStreak } from './puzzle-rating';
+import { getPuzzleRating, difficultyForRating, difficultyForStreak, difficultyStep, targetRatingForStreak } from './puzzle-rating';
 import { countUp } from './count-up';
 import { renderLoadError } from './load-error';
 import { buildEmptyState, type EmptyStateAction } from './empty-state';
@@ -30,6 +30,9 @@ export interface PuzzlesScreenDeps {
   onImportGames: () => void;
   onBuildLine: () => void;
   onConnectLichess: () => void;
+  // Open a finished puzzle in the full analyser (Engine tab) — wired from
+  // main.ts, which owns the builder + the suspended-session hand-off.
+  onAnalysePosition?: (req: AnalyseRequest) => void;
 }
 
 type Source = 'repertoire' | 'games';
@@ -188,6 +191,10 @@ function runMixedPuzzleSession(
     onPlayAgain?: () => void;
     onComplete?: () => void;
     nextAction?: { label: string; run: () => void };
+    onAnalysePosition?: (req: AnalyseRequest) => void;
+    // Count modes: override the adaptive difficulty per puzzle ordinal (0-based
+    // draw index) — the daily challenge's easy → medium → hard ladder.
+    difficultyFor?: (ordinal: number) => Difficulty;
   },
 ): void {
   if (entries.length === 0) return;
@@ -199,8 +206,10 @@ function runMixedPuzzleSession(
   const angleSet = new Set(entries.map((e) => e.angle));
   const servedRepeats = new Set<string>();
   let repeatsServed = 0;
+  // How many puzzles this session has drawn — feeds hooks.difficultyFor.
+  let drawn = 0;
 
-  const drawFresh = async (ctx: { solved: number }): Promise<PuzzleDraw | null> => {
+  const drawFresh = async (ctx: { solved: number }, ordinal: number): Promise<PuzzleDraw | null> => {
     const pick = entries[Math.floor(Math.random() * entries.length)];
     // Time Attack: keep the level climbing. Fetch a few candidates and take the
     // first at/above a rising floor, so ratings trend up instead of bouncing.
@@ -216,18 +225,24 @@ function runMixedPuzzleSession(
       }
       return best;
     }
-    // Count modes (Daily Mix / Practice): difficulty tracks your rating.
-    const puzzle = await fetchNextPuzzle(pick.angle, { difficulty: difficultyForRating(getPuzzleRating()), colour: pick.colour });
+    // Count modes (Daily Mix / Practice): difficulty tracks your rating, unless
+    // the caller ladders it per ordinal (daily challenge).
+    const difficulty = hooks.difficultyFor?.(ordinal) ?? difficultyForRating(getPuzzleRating());
+    const puzzle = await fetchNextPuzzle(pick.angle, { difficulty, colour: pick.colour });
     return puzzle ? { puzzle, angle: pick.angle, family: pick.family } : null;
   };
 
   startPuzzleSession({
     modeLabel: label,
     mode,
+    onAnalysePosition: hooks.onAnalysePosition,
     nextPuzzle: async (ctx) => {
+      const ordinal = drawn++;
       if (mode.kind === 'count') {
         const cap = Math.floor(mode.count / 3);
-        if (repeatsServed < cap) {
+        // A laddered session (daily challenge) skips the repeat queue — every
+        // slot has a deliberate difficulty.
+        if (!hooks.difficultyFor && repeatsServed < cap) {
           const due = takeDueRepeat(servedRepeats, angleSet);
           if (due) {
             servedRepeats.add(due.puzzle.id);
@@ -236,7 +251,7 @@ function runMixedPuzzleSession(
           }
         }
       }
-      return drawFresh(ctx);
+      return drawFresh(ctx, ordinal);
     },
     onResult: (r) => {
       recordPuzzleResult(r.angle, r.solved);
@@ -260,6 +275,7 @@ export async function startDailyPuzzles(
   count: number,
   onComplete: () => void,
   nextAction?: { label: string; run: () => void },
+  onAnalysePosition?: (req: AnalyseRequest) => void,
 ): Promise<boolean> {
   let lines: Awaited<ReturnType<typeof getAllLines>>;
   let games: Awaited<ReturnType<typeof getAllGames>>;
@@ -275,10 +291,21 @@ export async function startDailyPuzzles(
   const allEntries = entriesFrom(items);
   if (allEntries.length === 0) return false;
 
+  // Easy → medium → hard, anchored to your rating: one band below it, your own
+  // band, one band above. Extra slots (a bigger goal) stay at the top band.
+  const rating = getPuzzleRating();
+  const ladder: Difficulty[] = [
+    difficultyStep(rating, -1),
+    difficultyStep(rating, 0),
+    difficultyStep(rating, 1),
+  ];
+
   runMixedPuzzleSession(allEntries, 'Daily challenge', { kind: 'count', count, rated: true }, {
     onExit: () => { /* the daily card refreshes itself via onComplete */ },
     onComplete,
     nextAction,
+    onAnalysePosition,
+    difficultyFor: (ordinal) => ladder[Math.min(ordinal, ladder.length - 1)],
   });
   return true;
 }
@@ -313,6 +340,7 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
       taSource,
       onExit: () => { rebuild(); }, // refresh the "today" hero + performance on return
       onPlayAgain: () => startSession(entries, label, mode, taSource),
+      onAnalysePosition: deps.onAnalysePosition,
     });
   }
 

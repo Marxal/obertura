@@ -877,6 +877,16 @@ header h1.header-title--screen {
   display: none;
 }
 
+/* Analyser: nothing of yours to save (the review stores itself) — the button
+   stays visible but reads inactive until you add a variation, note or tag. */
+.header-save:disabled {
+  filter: none;
+  opacity: 0.45;
+  cursor: default;
+  box-shadow: none;
+  transform: none;
+}
+
 .header-save:hover {
   filter: brightness(1.1);
 }
@@ -3905,6 +3915,41 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 /* "Hide paused" drops the paused rows out of the list entirely. */
 .train-lines--hide-paused .train-row--paused {
   display: none;
+}
+
+/* The "In training" list collapses behind its header (collapsed by default) —
+   the header mirrors the family-group look: chevron + title + count. */
+.train-collapse {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 2px;
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.train-collapse .lines-fam-chev {
+  transition: transform 0.15s ease;
+}
+.train-collapse--open .lines-fam-chev {
+  transform: rotate(90deg);
+}
+.train-collapse-title {
+  flex: 1 1 auto;
+  margin: 0;
+}
+.train-collapse-body[hidden] { display: none; }
+
+/* The show-paused toggle rides in a right-aligned tools row inside the body. */
+.train-list-tools {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.3rem;
 }
 
 /* A quiet text-toggle beside the "In training" heading. */
@@ -10308,6 +10353,26 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   border-color: var(--primary);
   color: #fff;
 }
+/* Third grouping state — compact (by variation): the tree icon carries a tiny
+   "2" pip so the two grouped looks read differently at a glance. */
+.dgroup { position: relative; }
+.dgroup-pip {
+  display: none;
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+}
+.dgroup--deep .dgroup-pip { display: block; }
 
 /* Collapsible opening-family groups (Italian Game (3) ▸) — used by My Lines, the
    Train in-training list and Scout prep via line-groups.ts. */
@@ -10331,6 +10396,34 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   text-align: left;
   cursor: pointer;
 }
+/* A header row that pairs the collapse button with an extra control (the
+   Train list's per-branch pause) — buttons can't nest, so they sit side by
+   side and the head button flexes to fill. */
+.lines-fam-headrow {
+  display: flex;
+  align-items: center;
+}
+.lines-fam-headrow .lines-fam-head {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.lines-fam-pause {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-right: 10px;
+  border: 1px solid var(--border-card);
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--text-faint);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.lines-fam-pause:active { filter: brightness(0.95); }
+
 .lines-fam-chev {
   flex: 0 0 auto;
   display: inline-flex;
@@ -11403,6 +11496,27 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   border-radius: 10px;
 }
 
+/* A discrete "open this in the full analyser" under Next — quiet text + icon,
+   same voice as the hint button. */
+.pz-analyse-btn {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+  padding: 0.3rem 0.9rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.pz-analyse-btn[hidden] { display: none; }
+
 /* Puzzles region on the Statistics page. */
 .pz-stat-row {
   display: grid;
@@ -11904,7 +12018,20 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   gap: 0.5rem;
 }
 
-.mr-after-actions > button { flex: 1 1 0; }
+/* Both post-answer actions share one height and shape — the secondary Analyse
+   (icon + label) must never read shorter than the primary Next. */
+.mr-after-actions > button {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 48px;
+  margin-top: 0;
+  width: auto;
+  max-width: none;
+  border-radius: 10px;
+}
 
 /* The results popup's one-line meta under the board. */
 .mr-peek-meta {
@@ -11970,6 +12097,58 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   min-height: 1.1em;
   color: var(--text-muted);
   font-size: 0.85rem;
+}
+
+/* Live Lichess-cloud status under the scan progress: green when answering,
+   amber while rate-limited, red when unreachable. */
+.mr-scan-cloud {
+  min-height: 1.1em;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-faint);
+}
+.mr-scan-cloud--ok { color: var(--success); }
+.mr-scan-cloud--limited { color: #d8961f; }
+.mr-scan-cloud--down { color: var(--danger); }
+
+/* ── "Latest mistakes" carousel (mistakes-screen.ts) ─────────────────────────
+   Reuses the forgotten-moves track/slide/board scaffold; only the nav differs:
+   four icon-only tabs (one per category, tinted with its accent) with the
+   active category's name reading below the row. */
+.mrc-tabs {
+  display: flex;
+  gap: 0.4rem;
+}
+.mrc-tab {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: var(--fill-faint);
+  color: var(--text-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.mrc-tab--active {
+  background: var(--mrc-accent, var(--accent));
+  border-color: var(--mrc-accent, var(--accent));
+  color: #fff;
+}
+.mrc-tab-title {
+  margin-top: 0.45rem;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.mrc-intro {
+  white-space: normal;
+  justify-content: flex-start;
+  text-align: left;
+  margin-top: 0;
 }
 
 .mr-scan-note {

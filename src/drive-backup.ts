@@ -173,6 +173,13 @@ async function getToken(): Promise<string> {
   return requestToken();
 }
 
+// Whether an upload could run right now without any Google UI. Background work
+// must check this: requestToken() opens the Google sign-in popup, which is fine
+// behind a Settings tap but must never appear on its own mid-app.
+function hasLiveToken(): boolean {
+  return !!cachedToken && cachedToken.expiresAt > Date.now();
+}
+
 // ── Connect / disconnect ──────────────────────────────────────────────────────
 
 // Run the OAuth popup and remember the connection. Deliberately does NOT
@@ -360,6 +367,11 @@ async function runAutoBackup(): Promise<void> {
     autoDirty = true; // an upload is in flight; redo once it finishes
     return;
   }
+  // No live token → uploading would pop the Google sign-in screen over whatever
+  // the user is doing (the "sync screen jumps up mid-app" bug). Stay silent:
+  // PENDING_KEY is already set, Settings shows "backup pending", and the next
+  // visit to Settings (a real tap) can run the popup legitimately.
+  if (!hasLiveToken()) return;
   autoBusy = true;
   try {
     await uploadBackupToDrive();
