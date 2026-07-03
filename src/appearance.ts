@@ -7,6 +7,7 @@
 const BOARD_KEY = 'obertura.boardColour';
 const BOARD_MANUAL_KEY = 'obertura.boardColourManual';
 const PIECE_KEY = 'obertura.pieceSet';
+const COORDS_KEY = 'obertura.showCoordinates';
 
 // "wood" is the original/default scheme's internal value (shown to the user as
 // "Brown" — see settings-screen.ts). The rest are vendored from lichess:
@@ -195,11 +196,30 @@ export function applyThemeDefaultBoardColour(theme: NamedTheme): void {
   applyBoardColour(colour);
 }
 
-// Apply both at boot (theme.ts handles light/dark separately). The piece set may
-// need to fetch its on-demand stylesheet; that resolves asynchronously, so a
+// ── Board coordinates ──────────────────────────────────────────────────────────
+// Whether the a–h / 1–8 labels show inside the board. Default ON. Applied via a
+// data attribute on <html> that a style.css rule keys off, so the toggle hides
+// (or shows) coordinates on every board at once without recreating any of them.
+export function getShowCoordinates(): boolean {
+  return localStorage.getItem(COORDS_KEY) !== 'off';
+}
+
+export function setShowCoordinates(on: boolean): void {
+  localStorage.setItem(COORDS_KEY, on ? 'on' : 'off');
+  applyCoordinates(on);
+}
+
+export function applyCoordinates(on: boolean = getShowCoordinates()): void {
+  if (on) delete document.documentElement.dataset.coords;
+  else document.documentElement.dataset.coords = 'off';
+}
+
+// Apply all three at boot (theme.ts handles light/dark separately). The piece set
+// may need to fetch its on-demand stylesheet; that resolves asynchronously, so a
 // non-default set can briefly show as cburnett on a cold open until its
 // (browser-cached) chunk lands.
 export function initAppearance(): void {
   applyBoardColour();
+  applyCoordinates();
   void applyPieceSet();
 }

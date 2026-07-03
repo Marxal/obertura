@@ -1,4 +1,4 @@
-import { Chess } from 'chess.js';
+import { Chess, type Square } from 'chess.js';
 import { Chessground } from 'chessground';
 import type { Key } from 'chessground/types';
 import type { DrawShape } from 'chessground/draw';
@@ -48,6 +48,7 @@ import { watchSpeedMs, getConfirmRunBeforeTraining, getScoutingEnabled, getShowE
 import { reviewLine, gradeNode, type ReviewSummary } from './review';
 import { renderLineAnalysis, hasReview } from './line-analysis';
 import { createPawnProgress, type PawnProgress } from './import-progress';
+import { askPromotion } from './promotion';
 import { initBackNav, setViewBack, pushBack } from './back-nav';
 import { showDialog } from './dialog';
 import { openImportPanel, getGamesSource, IDENTITY_CHANGED_EVENT } from './import-panel';
@@ -912,8 +913,9 @@ function refreshBoardShapes(): void {
   const node = getCurrentNode();
   const showBadge = getShowMoveClassifications()
     && node.id !== 'root' && !!node.classification && !!node.uci;
-  const washSq = showBadge ? (node.uci.slice(2, 4) as Key) : null;
-  if (washSq) shapes.push({ orig: washSq, customSvg: classBoardSvg(node.classification!) });
+  const fromSq = showBadge ? (node.uci.slice(0, 2) as Key) : null;
+  const toSq = showBadge ? (node.uci.slice(2, 4) as Key) : null;
+  if (toSq) shapes.push({ orig: toSq, customSvg: classBoardSvg(node.classification!) });
 
   // 2. The engine's candidate arrows — only on the Engine tab, with the engine
   //    on, the arrows toggle on, and a result that still matches the live
@@ -928,14 +930,18 @@ function refreshBoardShapes(): void {
   }
 
   cg.setAutoShapes(shapes);
-  setReviewSquare(washSq, washSq ? node.classification! : undefined);
+  setReviewSquares(fromSq, toSq, showBadge ? node.classification! : undefined);
 }
 
-// Paint (or clear) the review wash on a single square via chessground's custom
-// square highlights, which style the <square> element underneath the pieces.
-function setReviewSquare(sq: Key | null, cls?: string): void {
+// Paint (or clear) the review wash on BOTH squares of the graded move — its from
+// and to squares — via chessground's custom square highlights, which style the
+// <square> element underneath the pieces so the piece keeps its own colour.
+function setReviewSquares(from: Key | null, to: Key | null, cls?: string): void {
   const custom = new Map<Key, string>();
-  if (sq && cls) custom.set(sq, `review-sq review-sq--${cls}`);
+  if (cls) {
+    if (from) custom.set(from, `review-sq review-sq--${cls}`);
+    if (to) custom.set(to, `review-sq review-sq--${cls}`);
+  }
   cg.set({ highlight: { custom } });
 }
 
@@ -1408,6 +1414,57 @@ function playUci(uci: string): void {
   evalPanel.clear();
   engine.evaluate(chess.fen());
   void gradeLiveMove(node, parentFen);
+}
+
+// Commit a board move the user made by dragging: run it through chess.js, add the
+// node, and resync the board. Crucially it sets `fen` from chess.js, which is what
+// makes en-passant captures and promotions render correctly — chessground only
+// slides the dragged piece, so without this the taken pawn would linger and a
+// promoted pawn would still look like a pawn.
+function commitBoardMove(from: string, to: string, promotion: 'q' | 'r' | 'b' | 'n'): void {
+  const parentFen = chess.fen(); // position before the move, for live grading
+  const result = chess.move({ from, to, promotion });
+  if (!result) return;
+  const uci = from + to + (result.promotion ?? '');
+  const node = addMove(result.san, uci, chess.fen());
+  cg.set({
+    fen: chess.fen(),
+    turnColor: turnColor(),
+    movable: { color: 'both', dests: legalDests() },
+    lastMove: [from as Key, to as Key],
+  });
+  renderMoveList();
+  renderMoveDetails();
+  updateOpeningName();
+  evalPanel.clear();
+  cg.setAutoShapes([]);
+  engine.evaluate(chess.fen());
+  void gradeLiveMove(node, parentFen);
+}
+
+// Snap the board back to the current chess.js position — used when a promotion is
+// cancelled, since chessground has already slid the pawn to the last rank but no
+// move has actually been made.
+function revertBoard(): void {
+  const cur = getCurrentNode();
+  const lm = cur.id !== 'root' && cur.uci
+    ? [cur.uci.slice(0, 2) as Key, cur.uci.slice(2, 4) as Key] as [Key, Key]
+    : undefined;
+  cg.set({
+    fen: chess.fen(),
+    turnColor: turnColor(),
+    movable: { color: 'both', dests: legalDests() },
+    lastMove: lm,
+  });
+}
+
+// A pawn reached the last rank: ask which piece it becomes, then commit (or snap
+// back if cancelled). Awaits the picker, so the board sits with the pawn on the
+// last rank until the user chooses.
+async function handleBoardPromotion(from: Key, to: Key, colour: 'white' | 'black'): Promise<void> {
+  const role = await askPromotion(boardEl, colour, to, cg.state.orientation);
+  if (!role) { revertBoard(); return; }
+  commitBoardMove(from, to, role);
 }
 
 let saveColour: 'white' | 'black' = 'white';
@@ -3028,25 +3085,16 @@ maybeShowGate(() => requestAnimationFrame(() => {
     },
     events: {
       move(from, to) {
-        const parentFen = chess.fen(); // position before the move, for live grading
-        const result = chess.move({ from, to, promotion: 'q' });
-        if (!result) return;
-        const uci = from + to + (result.promotion ?? '');
-        const node = addMove(result.san, uci, chess.fen());
-        cg.set({
-          turnColor: turnColor(),
-          movable: {
-            color: 'both',
-            dests: legalDests(),
-          },
-        });
-        renderMoveList();
-        renderMoveDetails();
-        updateOpeningName();
-        evalPanel.clear();
-        cg.setAutoShapes([]);
-        engine.evaluate(chess.fen());
-        void gradeLiveMove(node, parentFen);
+        // A pawn landing on the last rank opens the promotion picker instead of
+        // silently queening; everything else commits straight away.
+        const piece = chess.get(from as Square);
+        const promoting = !!piece && piece.type === 'p'
+          && ((piece.color === 'w' && to[1] === '8') || (piece.color === 'b' && to[1] === '1'));
+        if (promoting) {
+          void handleBoardPromotion(from as Key, to as Key, piece!.color === 'w' ? 'white' : 'black');
+        } else {
+          commitBoardMove(from, to, 'q');
+        }
       },
     },
   });
