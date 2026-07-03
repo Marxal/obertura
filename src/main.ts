@@ -18,6 +18,7 @@ import { renderTrainScreen, startLineSession, startPositionsSession } from './tr
 import { renderExploreScreen } from './explore-screen';
 import { renderPuzzlesScreen, startDailyPuzzles } from './puzzles-screen';
 import { renderMistakesScreen } from './mistakes-screen';
+import { renderEndgameScreen } from './endgame-screen';
 import {
   renderDailyChallenge,
   pickDailyLines,
@@ -2252,40 +2253,10 @@ function renderTrainTabbed(host: HTMLElement): void {
         onOpenGame: openGameFromSession,
       });
     } else {
-      renderEndgameComingSoon(endgamePane);
+      renderEndgameScreen(endgamePane, { onAnalysePosition: openPuzzleFromSession });
     }
   };
   paint();
-}
-
-// The End game tab is a promise, not a product yet — a quiet placeholder card
-// until the endgame-training round happens.
-function renderEndgameComingSoon(host: HTMLElement): void {
-  host.innerHTML = '';
-  const card = document.createElement('div');
-  card.className = 'train-soon-card';
-
-  const icon = document.createElement('div');
-  icon.className = 'train-soon-icon';
-  icon.appendChild(Icons.flag(26));
-  card.appendChild(icon);
-
-  const title = document.createElement('div');
-  title.className = 'train-soon-title';
-  title.textContent = 'End game training';
-  card.appendChild(title);
-
-  const badge = document.createElement('span');
-  badge.className = 'train-soon-badge';
-  badge.textContent = 'Coming soon';
-  card.appendChild(badge);
-
-  const body = document.createElement('p');
-  body.className = 'train-soon-body';
-  body.textContent = 'Training the endings your games actually reach.';
-  card.appendChild(body);
-
-  host.appendChild(card);
 }
 
 function showView(view: ViewName): void {

@@ -1,0 +1,132 @@
+[
+  {
+    "id": "kq-vs-k",
+    "category": "mates",
+    "level": "essential",
+    "name": "Queen mate",
+    "fen": "4k3/8/8/8/8/8/8/3QK3 w - - 0 1",
+    "youPlay": "white",
+    "goal": "win",
+    "idea": "Walk the lone king to the edge with the queen a knight's-move away, then bring your king up to mate. Watch for stalemate."
+  },
+  {
+    "id": "kr-vs-k",
+    "category": "mates",
+    "level": "essential",
+    "name": "Rook mate",
+    "fen": "4k3/8/8/8/8/8/8/R3K3 w - - 0 1",
+    "youPlay": "white",
+    "goal": "win",
+    "idea": "Box the king with the rook, take the opposition with your king, then cut down a rank. The classic ladder mate."
+  },
+  {
+    "id": "krr-vs-k",
+    "category": "mates",
+    "level": "essential",
+    "name": "Two-rook mate",
+    "fen": "8/8/8/3k4/8/8/7R/R6K w - - 0 1",
+    "youPlay": "white",
+    "goal": "win",
+    "idea": "The lawnmower: rooks cut off ranks one after another, driving the king to the edge. Your own king isn't even needed."
+  },
+  {
+    "id": "kbb-vs-k",
+    "category": "mates",
+    "level": "intermediate",
+    "name": "Two-bishop mate",
+    "fen": "8/8/8/4k3/8/8/8/2B1KB2 w - - 0 1",
+    "youPlay": "white",
+    "goal": "win",
+    "idea": "Two bishops on adjacent diagonals build a wall. Push the king to a corner with the king's help to finish."
+  },
+  {
+    "id": "kbn-vs-k",
+    "category": "mates",
+    "level": "advanced",
+    "name": "Bishop + knight mate",
+    "fen": "8/8/8/4k3/8/8/8/4KBN1 w - - 0 1",
+    "youPlay": "white",
+    "goal": "win",
+    "idea": "The hardest basic mate. Drive the king to a corner the SAME colour as your bishop; the knight covers the escape. Mind the 50-move rule."
+  },
+  {
+    "id": "pawn-king-front-sixth",
+    "category": "pawn",
+    "level": "essential",
+    "name": "King in front on the sixth",
+    "fen": "4k3/8/4K3/4P3/8/8/8/8 w - - 0 1",
+    "youPlay": "white",
+    "goal": "win",
+    "idea": "With your king ahead of the pawn on the sixth rank, it wins for any pawn but a rook pawn. Lead with the king, push the pawn last."
+  },
+  {
+    "id": "pawn-two-connected",
+    "category": "pawn",
+    "level": "essential",
+    "name": "Connected passed pawns",
+    "fen": "4k3/8/8/4PP2/8/8/8/4K3 w - - 0 1",
+    "youPlay": "white",
+    "goal": "win",
+    "idea": "Two connected passers defend each other. Advance them side by side so the enemy king can never take one for free."
+  },
+  {
+    "id": "pawn-defend-opposition",
+    "category": "pawn",
+    "level": "intermediate",
+    "name": "Hold with the opposition",
+    "fen": "8/8/8/2k5/8/2K5/2P5/8 b - - 0 1",
+    "youPlay": "black",
+    "goal": "draw",
+    "idea": "Defending in front of the pawn: step straight back and take the opposition when the enemy king advances. The pawn can't break through."
+  },
+  {
+    "id": "pawn-rook-pawn-draw",
+    "category": "pawn",
+    "level": "intermediate",
+    "name": "The rook-pawn draw",
+    "fen": "8/1k6/8/PK6/8/8/8/8 b - - 0 1",
+    "youPlay": "black",
+    "goal": "draw",
+    "idea": "Rook pawns are magic for the defender: reach the corner and shuffle there. With no room to outflank on the edge, it's a draw."
+  },
+  {
+    "id": "rook-lucena",
+    "category": "rook",
+    "level": "intermediate",
+    "name": "Lucena — building a bridge",
+    "fen": "1K6/1P2k3/8/8/8/8/r7/3R4 w - - 0 1",
+    "youPlay": "white",
+    "goal": "win",
+    "idea": "The most important winning rook ending. Put your rook on the fourth rank to build a bridge that shields your king from checks, then queen."
+  },
+  {
+    "id": "rook-philidor",
+    "category": "rook",
+    "level": "intermediate",
+    "name": "Philidor — third-rank defence",
+    "fen": "8/4k3/r7/4K3/4P3/8/8/7R b - - 0 1",
+    "youPlay": "black",
+    "goal": "draw",
+    "idea": "Hold your rook on the sixth rank to keep the enemy king off it. The moment the pawn advances, switch to checking from behind."
+  },
+  {
+    "id": "queen-vs-pawn",
+    "category": "queen",
+    "level": "advanced",
+    "name": "Queen vs a pawn on the seventh",
+    "fen": "6QK/8/8/8/8/8/3pk3/8 w - - 0 1",
+    "youPlay": "white",
+    "goal": "win",
+    "idea": "Check, then hop the queen closer while the enemy king is forced in front of its own pawn. A centre pawn always loses — bring your king up."
+  },
+  {
+    "id": "minor-wrong-bishop",
+    "category": "minor",
+    "level": "intermediate",
+    "name": "The wrong bishop",
+    "fen": "2k5/8/P1K5/8/8/8/8/2B5 b - - 0 1",
+    "youPlay": "black",
+    "goal": "draw",
+    "idea": "The bishop is the wrong colour for the a8 corner, so it can never control the queening square. Run your king to the corner and hold."
+  }
+]

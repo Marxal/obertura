@@ -26,6 +26,8 @@ import { runMoveFactsSelfTest } from '../src/move-facts.selftest';
 import { runAccuracySelfTest } from '../src/accuracy.selftest';
 import { runDriveSelfTest } from '../src/drive.selftest';
 import { runMistakeScanSelfTest } from '../src/mistake-scan.selftest';
+import { runEndgameCatalogSelfTest } from '../src/endgame-catalog.selftest';
+import { runEndgameProgressSelfTest } from '../src/endgame-progress.selftest';
 
 interface TestResult { name: string; pass: boolean; detail: string }
 
@@ -50,6 +52,8 @@ const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'accuracy', run: runAccuracySelfTest },
   { suite: 'drive', run: runDriveSelfTest },
   { suite: 'mistake-scan', run: runMistakeScanSelfTest },
+  { suite: 'endgame-catalog', run: runEndgameCatalogSelfTest },
+  { suite: 'endgame-progress', run: runEndgameProgressSelfTest },
 ];
 
 let total = 0;

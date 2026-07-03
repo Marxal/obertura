@@ -443,6 +443,36 @@ status, and denser list organisation.
 
 ---
 
+## v0.10 — end game training round 🔜
+
+The End game tab stops being a placeholder. First round of a multi-part module:
+the two pillars that stand on their own (no imported games needed), leaning on
+Lichess's free endgame data.
+
+- ✅ **Endgame puzzles** — rated Lichess puzzles filtered to endgame themes
+  (All / Rook / Pawn / Queen / Minor piece → the `endgame`, `rookEndgame`,
+  `pawnEndgame`, `queenEndgame`, `bishopEndgame`/`knightEndgame` angles),
+  reusing the whole puzzle-solving engine. They ride their OWN rating ladder,
+  separate from the openings puzzle rating (a `scope` on `puzzle-rating.ts`),
+  so endgame skill is tracked on its own.
+- ✅ **Classic endgames** — a curated, bundled list of the fundamentals (basic
+  mates, key pawn / rook / queen / minor endings) grouped by theme and level.
+  Load one and play it out against the local Stockfish engine. The Lichess
+  7-piece **tablebase** is the ground-truth judge: it reads the position's true
+  result up front (your target), refuses any move that throws it, and feeds the
+  engine the optimal defence so the technique is really tested. Everything fails
+  soft — offline (or in the build container, where the tablebase host is
+  blocked) you simply play it out and the final result is judged. Progress is
+  ticked per position; "Reset progress" and backups cover it.
+- 🔜 **From your games** (later round) — mine the endgame phase from imported
+  games and surface the ones you drifted in, forgotten-moves style.
+- 🔜 **Annotated studies** (later round) — pull endgame studies via the Lichess
+  study-export API for real commentary.
+
+_On `claude/endgame-training-module-tm2n1n`. Restore point: `v0.4`._
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

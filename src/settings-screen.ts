@@ -61,6 +61,7 @@ import { clearPuzzleRating } from './puzzle-rating';
 import { clearForgottenMoves } from './forgotten-moves';
 import { clearPuzzleRepeat } from './puzzle-repeat';
 import { clearTaBest } from './puzzles-screen';
+import { clearEndgameProgress } from './endgame-progress';
 import { renderBackupSection, renderCloudBackupSection, exportBackupNow } from './backup';
 import { Icons } from './icons';
 import { userAvatar } from './avatar';
@@ -1017,6 +1018,7 @@ function buildDataGroup(): HTMLElement {
           clearPuzzleRepeat();
           clearTaBest();
           clearTimedBest();
+          clearEndgameProgress();
           status.textContent = 'Progress reset ✓ — every line is due again.';
         } catch (err) {
           status.textContent = `Reset failed — ${(err as Error).message}`;
