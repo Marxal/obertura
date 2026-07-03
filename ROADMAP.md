@@ -344,14 +344,16 @@ _In progress on `claude/mistake-retry-training-vn7p3y`. Restore point: `v0.4`._
 
 A grab-bag of fixes and polish across the app, driven by real phone use.
 
-- ✅ **Retry drill: analyse right there** — after answering, the board opens up:
-  play either side freely, every move graded with its Game-Review icon (badge
-  on the board + icon in a branching move list with parenthesised variations),
-  a slim eval bar underneath. The old "engine's picks / Review game" screens
-  are gone — just "Open full analysis" and "Next position". Full analysis opens
-  the game *at the drilled position* and suspends the session; a "Back to
-  training" chip in the top bar (or the builder's own back arrow) resumes it
-  exactly where it was.
+- ✅ **Retry drill: instant answers, lean after-screen** — answers are judged
+  on the spot against the stored top-3 (any of the three counts; a non-#1 gets
+  "Good move ✓ — even stronger: ♞f3" with the #1 drawn as an orange arrow) —
+  no live engine call, so feedback is immediate. After answering: just "Open
+  full analysis" and "Next position" (the second-pass revision dropped the
+  in-drill eval bar / move list / free play as too much). Full analysis opens
+  the game *at the drilled position*, without auto-starting a review; the
+  header swaps Save for a "Back to train" button and drops the opponent name,
+  and that button (or the builder's back arrow) resumes the session exactly
+  where it was.
 - ✅ **Retry drill: compact one-screen layout** — opponent on top, the opening
   as its own small quiet row, and a one-line story ("You played ♞f6 ?? here and
   blundered.") with the played move on a red chip carrying its ?? / ? symbol.
@@ -365,6 +367,14 @@ A grab-bag of fixes and polish across the app, driven by real phone use.
   has left known territory — no more wasted round-trip + politeness delay per
   middlegame ply), and caps the scan at 80 plies. The scan overlay reuses the
   import wait's facts ticker and says up front it can take a while.
+- ✅ **Faster game analysis (the "seconds → minutes" regression)** — two
+  engine-wide guards: a Lichess-cloud circuit breaker (three consecutive
+  failures or one 429 rate-limit pause all cloud calls for a cooldown, so a
+  throttled connection no longer burns a fetch timeout on every single
+  position before falling back), and a hard 1.5 s time budget on each local
+  fallback search (a phone's depth-12 middlegame search could eat 6 s per
+  ply). Cloud fetch timeout tightened 4 s → 2.5 s. Applies to the Game
+  Review, the mistake scan and the eval panel alike.
 - ✅ **Full backup** — backup files (manual and Drive alike, format v2) now
   carry the imported games (with their scan spots and saved analyses) plus the
   stats/streaks/puzzle-rating/preferences snapshot, and restoring one reloads

@@ -392,8 +392,12 @@ async function positionCp(
   }
   if (cloud !== 'hit' && !signal.aborted) {
     // The trail only needs the position's eval, so MultiPV 1 — about a third
-    // of the search work of the default 3.
-    const evals = await analysePosition(fen, SCAN_DETECT_DEPTH, undefined, 1); // white-perspective
+    // of the search work of the default 3 — and a tight time budget so a slow
+    // phone can't sink seconds into a single ply.
+    const evals = await analysePosition(fen, SCAN_DETECT_DEPTH, undefined, {
+      multiPv: 1,
+      movetimeMs: 700,
+    }); // white-perspective
     whiteCp = evals.length ? flattenCp(evals[0]) : null;
   }
   // An aborted search resolves early with junk — return without caching it.
@@ -473,7 +477,7 @@ async function topLines(fen: string, signal: AbortSignal): Promise<MoveEval[] | 
   await sleep(CLOUD_DELAY_MS, signal);
   if (cloud && cloud.length) return cloud;
   if (signal.aborted) return null;
-  const local = await analysePosition(fen, SCAN_VERIFY_DEPTH);
+  const local = await analysePosition(fen, SCAN_VERIFY_DEPTH, undefined, { movetimeMs: 1500 });
   return local.length ? local : null;
 }
 
