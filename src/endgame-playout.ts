@@ -22,9 +22,9 @@ import type { Key } from 'chessground/types';
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
 import { playFeedback } from './sound';
-import { burstConfetti } from './confetti';
+import { burstConfetti, celebratePawn } from './confetti';
 import type { Endgame } from './endgame-catalog';
-import { recordEndgameResult } from './endgame-progress';
+import { recordEndgameResult, getEndgameRecord } from './endgame-progress';
 import {
   probeTablebase, bestMove as tbBestMove, outcomeOf, inTablebaseRange,
   type TbOutcome,
@@ -41,6 +41,12 @@ const MAX_USER_MOVES = 60;
 export interface EndgamePlayoutOptions {
   onExit: () => void;             // back to the list (so it can refresh the ticks)
   onNext?: () => void;            // optional "Next endgame" chaining
+}
+
+// A clock reading as m:ss.
+function formatTime(ms: number): string {
+  const s = Math.round(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
 function invert(o: TbOutcome): TbOutcome {
@@ -133,6 +139,24 @@ export function startEndgamePlayout(endgame: Endgame, opts: EndgamePlayoutOption
   backBtn.addEventListener('click', () => doExit());
   headerEl.appendChild(backBtn);
 
+  // Live timer at the top-right (Fix 3), and an info button beside it that reveals
+  // the teaching note as a popover (so revealing text never nudges the board).
+  const timerEl = document.createElement('span');
+  timerEl.className = 'pt-timer eg-timer';
+  timerEl.appendChild(Icons.clock(14));
+  const timerText = document.createElement('span');
+  timerText.className = 'eg-timer-text';
+  timerText.textContent = '0:00';
+  timerEl.appendChild(timerText);
+  headerEl.appendChild(timerEl);
+  const infoBtn = document.createElement('button');
+  infoBtn.type = 'button';
+  infoBtn.className = 'eg-play-info';
+  infoBtn.appendChild(Icons.info(16));
+  infoBtn.setAttribute('aria-label', 'Show the idea');
+  infoBtn.setAttribute('aria-expanded', 'false');
+  headerEl.appendChild(infoBtn);
+
   const topEl = document.createElement('div');
   topEl.className = 'pt-top';
   const modeEl = document.createElement('div');
@@ -143,10 +167,18 @@ export function startEndgamePlayout(endgame: Endgame, opts: EndgamePlayoutOption
   goalChip.className = `eg-goal-chip eg-goal-chip--${endgame.goal}`;
   goalChip.textContent = endgame.goal === 'win' ? 'You must win' : 'You must draw';
   topEl.appendChild(goalChip);
-  const ideaEl = document.createElement('div');
-  ideaEl.className = 'pt-line-name eg-idea';
-  ideaEl.textContent = endgame.idea;
-  topEl.appendChild(ideaEl);
+
+  // The idea, tucked into an absolutely-positioned popover so toggling it never
+  // reflows the board (Fix 3). Anchored under the header by CSS.
+  const ideaPop = document.createElement('div');
+  ideaPop.className = 'eg-idea-pop';
+  ideaPop.textContent = endgame.idea;
+  ideaPop.hidden = true;
+  infoBtn.addEventListener('click', () => {
+    ideaPop.hidden = !ideaPop.hidden;
+    infoBtn.setAttribute('aria-expanded', String(!ideaPop.hidden));
+  });
+  headerEl.appendChild(ideaPop); // absolute child of the header → anchored below it
 
   const boardWrap = document.createElement('div');
   boardWrap.className = 'pt-board-wrap';
@@ -172,6 +204,20 @@ export function startEndgamePlayout(endgame: Endgame, opts: EndgamePlayoutOption
   document.body.appendChild(overlay);
 
   const removeBack = pushBack(() => doExit());
+
+  // ── Timer ────────────────────────────────────────────────────────────────────
+  let timerInterval: ReturnType<typeof setInterval> | undefined;
+  function tickTimer(): void {
+    if (startedAt > 0) timerText.textContent = formatTime(Date.now() - startedAt);
+  }
+  function startTimer(): void {
+    if (timerInterval) return;
+    tickTimer();
+    timerInterval = setInterval(tickTimer, 250);
+  }
+  function stopTimer(): void {
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = undefined; }
+  }
 
   function setStatus(text: string, variant = ''): void {
     statusEl.textContent = text;
@@ -217,7 +263,7 @@ export function startEndgamePlayout(endgame: Endgame, opts: EndgamePlayoutOption
     cg.set({ movable: { color: undefined, dests: new Map() } });
   }
   function handToUser(): void {
-    if (startedAt === 0) startedAt = Date.now(); // start the clock on your first move
+    if (startedAt === 0) { startedAt = Date.now(); startTimer(); } // start the clock on your first move
     cg.set({ turnColor: cgTurn(), movable: { color: you, dests: legalDests() } });
     setStatus('Your move', 'pt-status--prompt');
   }
@@ -358,29 +404,93 @@ export function startEndgamePlayout(endgame: Endgame, opts: EndgamePlayoutOption
   function finish(success: boolean, message: string): void {
     if (finished) return;
     finished = true;
+    stopTimer();
     lockBoard();
     cg.setAutoShapes([]);
     const clean = success && mistakes === 0 && hintsUsed === 0;
     // Bank the time on a successful solve (Fix 4); a miss records no time.
     const elapsedMs = success && startedAt > 0 ? Date.now() - startedAt : undefined;
+    const prevBest = getEndgameRecord(endgame.id)?.bestMs;
     recordEndgameResult(endgame.id, success, elapsedMs);
-    if (success) burstConfetti(boardWrap);
-    setStatus(
-      clean ? `${message} Flawless.` : message,
-      success ? 'pt-status--success' : 'pt-status--error',
-    );
-    // Results actions.
-    actionsEl.innerHTML = '';
-    actionsEl.appendChild(mkButton('Try again', 'btn-ghost', () => { cleanup(); startEndgamePlayout(endgame, opts); }, Icons.reset(16)));
-    if (success && opts.onNext) {
-      actionsEl.appendChild(mkButton('Next endgame', 'btn-primary', () => { cleanup(); opts.onNext!(); }, Icons.chevronRight(16)));
-    } else {
-      actionsEl.appendChild(mkButton('Done', 'btn-primary', () => { doExit(); }));
+    const isBest = success && elapsedMs !== undefined && (prevBest === undefined || elapsedMs < prevBest);
+    showCompletion({ success, message, clean, elapsedMs, isBest, prevBest });
+  }
+
+  // A full success screen (Fix 4), swapping the play chrome for the shared
+  // .train-completion panel — same look as the puzzle / training results.
+  function showCompletion(r: {
+    success: boolean; message: string; clean: boolean;
+    elapsedMs?: number; isBest: boolean; prevBest?: number;
+  }): void {
+    headerEl.remove();
+    ideaPop.remove();
+    topEl.remove();
+    boardWrap.remove();
+    bottomEl.remove();
+
+    const wrap = document.createElement('div');
+    wrap.className = 'train-completion train-completion--enter eg-complete';
+
+    if (r.success) { wrap.appendChild(celebratePawn()); burstConfetti(wrap); }
+
+    const done = document.createElement('div');
+    done.className = 'train-completion-done' + (r.success ? '' : ' eg-complete-done--fail');
+    done.textContent = r.message;
+    wrap.appendChild(done);
+
+    const name = document.createElement('div');
+    name.className = 'train-completion-name';
+    name.textContent = endgame.name;
+    wrap.appendChild(name);
+
+    if (r.success && r.elapsedMs !== undefined) {
+      const timeEl = document.createElement('div');
+      timeEl.className = 'eg-complete-time';
+      timeEl.appendChild(Icons.clock(20));
+      const t = document.createElement('span');
+      t.textContent = formatTime(r.elapsedMs);
+      timeEl.appendChild(t);
+      wrap.appendChild(timeEl);
+
+      const bestLine = document.createElement('div');
+      bestLine.className = 'timed-best' + (r.isBest ? ' timed-best--new' : '');
+      bestLine.textContent = r.isBest
+        ? (r.prevBest === undefined ? 'Your first time — the mark to beat!' : 'New best time! 🔥')
+        : `Your best: ${formatTime(r.prevBest ?? r.elapsedMs)}`;
+      wrap.appendChild(bestLine);
+
+      if (r.clean) {
+        const flaw = document.createElement('div');
+        flaw.className = 'eg-complete-flawless';
+        flaw.textContent = 'Flawless — no hints, no slips.';
+        wrap.appendChild(flaw);
+      }
     }
+
+    // Actions: Try again, End session, and (when there's one) the next exercise.
+    const actions = document.createElement('div');
+    actions.className = 'eg-complete-actions';
+    const hasNext = !!opts.onNext;
+
+    const btn = (label: string, primary: boolean, onClick: () => void): HTMLButtonElement =>
+      mkButton(label, primary ? 'btn-primary train-next-btn' : 'btn-secondary train-done-btn', onClick);
+
+    if (r.success && hasNext) {
+      actions.appendChild(btn('Next endgame', true, () => { cleanup(); opts.onNext!(); }));
+      actions.appendChild(btn('Try again', false, () => { cleanup(); startEndgamePlayout(endgame, opts); }));
+    } else {
+      actions.appendChild(btn('Try again', true, () => { cleanup(); startEndgamePlayout(endgame, opts); }));
+      if (hasNext) actions.appendChild(btn('Next endgame', false, () => { cleanup(); opts.onNext!(); }));
+    }
+    actions.appendChild(btn('End session', false, () => doExit()));
+
+    wrap.appendChild(actions);
+    overlay.appendChild(wrap);
   }
 
   function cleanup(): void {
     isCleaned = true;
+    stopTimer();
     if (autoTimer) clearTimeout(autoTimer);
     ro.disconnect();
     engine?.destroy();

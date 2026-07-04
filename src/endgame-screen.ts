@@ -31,6 +31,7 @@ import {
 } from './endgame-scan';
 import { createPawnProgress, createFactsTicker } from './import-progress';
 import { pushBack } from './back-nav';
+import { Chessground } from 'chessground';
 
 export interface EndgameScreenDeps {
   // Open a finished puzzle in the full analyser (Engine tab) — wired from main.ts.
@@ -55,6 +56,9 @@ const SPECIFIC_THEMES: { theme: Exclude<PuzzleTheme, 'all'>; symbol: string }[] 
   { theme: 'minor', symbol: '♞' + VS },
 ];
 const PUZZLE_COUNT = 8;
+// Cap the "From your games" carousel so a big library doesn't spin up dozens of
+// boards; the most instructive (let-slip first, then recent) lead.
+const FROM_GAMES_MAX = 10;
 
 // Resolve a theme to the angle for one fetch (minor alternates each draw).
 function angleFor(theme: PuzzleTheme): string {
@@ -92,13 +96,26 @@ function formatTime(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-// A best-time chip for a card's title row (only shown once a time exists).
+// A best-time chip (only shown once a time exists).
 function bestTimeChip(ms: number): HTMLElement {
   const chip = document.createElement('span');
   chip.className = 'eg-best';
   chip.appendChild(Icons.clock(13));
-  chip.appendChild(document.createTextNode(formatTime(ms)));
+  const t = document.createElement('span');
+  t.textContent = `Best ${formatTime(ms)}`;
+  chip.appendChild(t);
   chip.setAttribute('aria-label', `Best time ${formatTime(ms)}`);
+  return chip;
+}
+
+// A muted stand-in shown before any time is set — an invitation to race.
+function placeholderBest(): HTMLElement {
+  const chip = document.createElement('span');
+  chip.className = 'eg-best eg-best--none';
+  chip.appendChild(Icons.clock(13));
+  const t = document.createElement('span');
+  t.textContent = 'Not timed';
+  chip.appendChild(t);
   return chip;
 }
 
@@ -136,8 +153,8 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
   const rebuild = (): void => {
     root.innerHTML = '';
     root.appendChild(renderPuzzles(firstRender));
-    root.appendChild(renderClassics());
     root.appendChild(renderFromGames());
+    root.appendChild(renderClassics());
     firstRender = false;
   };
 
@@ -240,15 +257,14 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
     wrap.appendChild(desc);
 
     const progress = getEndgameProgress();
-    const groups = endgamesByCategory();
-    groups.forEach((group, i) => wrap.appendChild(renderGroup(group, progress, i === 0)));
+    // Accordions start closed, so the classic list is a short, scannable stack.
+    for (const group of endgamesByCategory()) wrap.appendChild(renderGroup(group, progress));
     return wrap;
   }
 
-  function renderGroup(group: EndgameGroup, progress: EndgameProgress, open: boolean): HTMLElement {
+  function renderGroup(group: EndgameGroup, progress: EndgameProgress): HTMLElement {
     const details = document.createElement('details');
     details.className = 'section section--acc eg-acc';
-    if (open) details.open = true;
 
     const summary = document.createElement('summary');
     summary.className = 'section-title section-summary';
@@ -299,30 +315,41 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
     level.className = `eg-level eg-level--${eg.level}`;
     level.textContent = LEVEL_META[eg.level].label;
     titleRow.appendChild(level);
-    if (bestMs) titleRow.appendChild(bestTimeChip(bestMs));
 
-    const row = document.createElement('div');
-    row.className = 'eg-card-actions';
+    // Content column beside the board: Win/Draw and best time each on their own
+    // row (Fix 2), so the play button below can stand out.
+    const goalRow = document.createElement('div');
+    goalRow.className = 'eg-card-row';
     const goal = document.createElement('span');
     goal.className = `eg-goal-chip eg-goal-chip--${eg.goal}`;
     goal.textContent = eg.goal === 'win' ? 'Win' : 'Draw';
-    row.appendChild(goal);
+    goalRow.appendChild(goal);
+    content.appendChild(goalRow);
+
+    const bestRow = document.createElement('div');
+    bestRow.className = 'eg-card-row eg-card-best-row';
+    if (bestMs) bestRow.appendChild(bestTimeChip(bestMs));
+    else bestRow.appendChild(placeholderBest());
+    content.appendChild(bestRow);
+
+    // A prominent, full-width play button spanning the whole card (Fix 2).
     const play = document.createElement('button');
     play.type = 'button';
-    play.className = 'btn-primary eg-play-btn';
+    play.className = 'btn-primary eg-card-play';
     play.appendChild(Icons.play(16));
     play.appendChild(document.createTextNode('Play'));
     play.addEventListener('click', onPlay);
-    row.appendChild(play);
-    content.appendChild(row);
+    card.appendChild(play);
 
     return card;
   }
 
   // ── From your games ───────────────────────────────────────────────────────────
+  // A swipeable carousel — one endgame at a time, like the Latest-mistakes and
+  // Forgotten-moves carousels (Fix 1). Sits above the Classic endgames.
   function renderFromGames(): HTMLElement {
     const section = document.createElement('div');
-    section.className = 'section eg-fromgames';
+    section.className = 'section forgotten-section eg-fg-section';
 
     const title = document.createElement('div');
     title.className = 'section-title section-title--icon';
@@ -355,11 +382,6 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
       section.appendChild(cta);
       return section;
     }
-
-    const desc = document.createElement('p');
-    desc.className = 'pz-ta-desc';
-    desc.textContent = 'Endgames you reached in your own games — the ones you let slip come first.';
-    section.appendChild(desc);
 
     const unscanned = unscannedEndgameCount(gs);
     if (unscanned > 0) {
@@ -396,12 +418,45 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
       return section;
     }
 
-    const list = document.createElement('div');
-    list.className = 'eg-list';
-    spots.forEach((ref, i) => {
-      list.appendChild(renderSpotCard(ref, progress, () => launchSpot(spots, i)));
+    // The swipe track: one board per slide (capped), plus dot indicators that
+    // stay in sync with the scroll position.
+    const shown = spots.slice(0, FROM_GAMES_MAX);
+    const track = document.createElement('div');
+    track.className = 'forgotten-track eg-fg-track';
+    const dots = document.createElement('div');
+    dots.className = 'eg-fg-dots';
+    const dotEls: HTMLButtonElement[] = [];
+
+    shown.forEach((ref, i) => {
+      track.appendChild(buildSpotSlide(ref, progress, () => launchSpot(shown, i)));
+      const dot = document.createElement('button');
+      dot.type = 'button';
+      dot.className = 'eg-fg-dot' + (i === 0 ? ' eg-fg-dot--active' : '');
+      dot.setAttribute('aria-label', `Endgame ${i + 1} of ${shown.length}`);
+      dot.addEventListener('click', () => track.scrollTo({ left: track.clientWidth * i, behavior: 'smooth' }));
+      dotEls.push(dot);
+      dots.appendChild(dot);
     });
-    section.appendChild(list);
+
+    let raf = 0;
+    track.addEventListener('scroll', () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        const idx = Math.min(shown.length - 1,
+          Math.max(0, Math.round(track.scrollLeft / (track.clientWidth || 1))));
+        dotEls.forEach((d, i) => d.classList.toggle('eg-fg-dot--active', i === idx));
+      });
+    }, { passive: true });
+
+    section.appendChild(track);
+    if (shown.length > 1) section.appendChild(dots);
+    if (spots.length > shown.length) {
+      const more = document.createElement('p');
+      more.className = 'eg-fg-more';
+      more.textContent = `Showing ${shown.length} of ${spots.length} — the most instructive first.`;
+      section.appendChild(more);
+    }
     return section;
   }
 
@@ -433,47 +488,62 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
     });
   }
 
-  function renderSpotCard(ref: EndgameSpotRef, progress: EndgameProgress, onPlay: () => void): HTMLElement {
+  // One carousel slide: a full-width board of the position, then who it was
+  // against, the result you could have reached, and a "Play it out" button.
+  function buildSpotSlide(ref: EndgameSpotRef, progress: EndgameProgress, onPlay: () => void): HTMLElement {
     const { game, spot } = ref;
+    const slide = document.createElement('div');
+    slide.className = 'forgotten-slide eg-fg-slide';
 
-    const { card, titleRow, content } = buildPositionCard({
+    const board = document.createElement('div');
+    board.className = 'forgotten-board cg-wrap';
+    slide.appendChild(board);
+    const cg = Chessground(board, {
       fen: spot.fen,
       orientation: spot.youPlay,
-      className: 'eg-card eg-game-card',
-      onMiniClick: onPlay,
-      miniLabel: `Play your endgame vs ${game.opponent}`,
+      viewOnly: true,
+      coordinates: false,
+      animation: { enabled: false },
+      drawable: { enabled: false, visible: false },
     });
+    requestAnimationFrame(() => cg.redrawAll());
 
-    titleRow.appendChild(colourPip(spot.youPlay));
-    const name = document.createElement('span');
-    name.className = 'pcard-title eg-card-name';
-    name.textContent = `vs ${game.opponent}`;
-    titleRow.appendChild(name);
+    const body = document.createElement('div');
+    body.className = 'forgotten-body eg-fg-body';
+
+    const who = document.createElement('div');
+    who.className = 'eg-fg-who';
+    who.appendChild(colourPip(spot.youPlay));
+    const whoName = document.createElement('span');
+    whoName.textContent = `vs ${game.opponent}`;
+    who.appendChild(whoName);
+    body.appendChild(who);
+
+    const meta = document.createElement('div');
+    meta.className = 'eg-fg-meta';
+    const goal = document.createElement('span');
+    goal.className = `eg-goal-chip eg-goal-chip--${spot.outcome}`;
+    goal.textContent = spot.outcome === 'win' ? 'Win was there' : 'Draw was there';
+    meta.appendChild(goal);
     if (!spot.converted) {
       const slip = document.createElement('span');
       slip.className = 'eg-slip';
       slip.textContent = 'Let slip';
-      titleRow.appendChild(slip);
+      meta.appendChild(slip);
     }
     const best = progress[spotId(ref)]?.bestMs;
-    if (best) titleRow.appendChild(bestTimeChip(best));
+    if (best) meta.appendChild(bestTimeChip(best));
+    body.appendChild(meta);
 
-    const row = document.createElement('div');
-    row.className = 'eg-card-actions';
-    const goal = document.createElement('span');
-    goal.className = `eg-goal-chip eg-goal-chip--${spot.outcome}`;
-    goal.textContent = spot.outcome === 'win' ? 'Win' : 'Draw';
-    row.appendChild(goal);
     const play = document.createElement('button');
     play.type = 'button';
-    play.className = 'btn-primary eg-play-btn';
-    play.appendChild(Icons.play(16));
-    play.appendChild(document.createTextNode('Play'));
+    play.className = 'btn-primary forgotten-fix-btn';
+    play.textContent = spot.outcome === 'win' ? 'Convert it' : 'Hold the draw';
     play.addEventListener('click', onPlay);
-    row.appendChild(play);
-    content.appendChild(row);
+    body.appendChild(play);
 
-    return card;
+    slide.appendChild(body);
+    return slide;
   }
 
   // ── The scan run + its progress overlay (mirrors mistakes-screen.ts) ──────────

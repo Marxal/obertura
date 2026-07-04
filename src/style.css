@@ -12260,21 +12260,29 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 /* Piece-symbol shortcuts to each specific theme, one row under the wide button. */
 .eg-piece-row {
   display: flex;
-  gap: var(--space-sm);
-  margin-top: var(--space-sm);
+  justify-content: center;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
 }
+/* Circular piece-symbol buttons (Fix 5) — read clearly as tappable buttons. */
 .eg-piece-btn {
-  flex: 1;
-  min-height: 46px;
+  width: 52px;
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid var(--border-card);
-  border-radius: 10px;
+  border-radius: 50%;
   background: var(--bg-card);
   color: var(--text);
   font-size: 1.5rem;
   line-height: 1;
+  box-shadow: var(--shadow-card);
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s ease, background 0.12s ease;
 }
-.eg-piece-btn:active { background: var(--bg-elevated); }
+.eg-piece-btn:active { transform: translateY(1px); background: var(--bg-elevated); }
 
 /* Classic endgames — a heading + (i) toggle, then per-theme accordions. */
 .eg-classics { display: flex; flex-direction: column; gap: var(--space-sm); }
@@ -12313,26 +12321,40 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .eg-list { display: flex; flex-direction: column; gap: var(--space-sm); }
 
 .eg-card-name { font-weight: 600; }
-.eg-card-actions {
+
+/* Classic card layout (Fix 2): Win/Draw and best time each on their own row in
+   the content column, then a prominent full-width play button under the card. */
+.eg-card-row {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
 }
-.eg-play-btn { margin-left: auto; padding-inline: 1rem; }
-.eg-play-btn svg { flex: none; }
-
-/* Best-time mark (Fix 4) — pushed to the right of a card's title row. */
-.eg-best {
-  margin-left: auto;
+.eg-card-best-row { min-height: 1.15rem; }
+.eg-card-play {
+  width: 100%;
+  min-height: 46px;
+  border-radius: 10px;
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 0.74rem;
+  justify-content: center;
+  gap: 0.4rem;
+  font-size: 0.98rem;
+  font-weight: 650;
+}
+.eg-card-play svg { flex: none; }
+
+/* Best-time mark (Fix 4). */
+.eg-best {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.76rem;
   font-weight: 650;
   font-variant-numeric: tabular-nums;
   color: var(--eg-accent);
 }
 .eg-best svg { flex: none; }
+.eg-best--none { color: var(--text-faint); font-weight: 600; }
 
 /* Level + goal chips */
 .eg-level {
@@ -12376,7 +12398,49 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   line-height: 1.35;
   color: var(--danger);
 }
-.eg-fromgames .eg-list { margin-top: var(--space-md); }
+
+/* From-your-games carousel (Fix 1) — one endgame at a time, reusing the
+   forgotten-moves track/slide/board scaffold, with dot indicators. */
+.eg-fg-body { gap: 0.5rem; }
+.eg-fg-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+.eg-fg-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.eg-fg-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+}
+.eg-fg-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--hairline);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.eg-fg-dot--active { background: var(--eg-accent); transform: scale(1.2); }
+.eg-fg-more {
+  margin: 0;
+  text-align: center;
+  font-size: 0.74rem;
+  color: var(--text-faint);
+}
+.eg-fromgames-none { margin: 0; }
+
 /* "Let slip" tag on a from-games card — you had the result and didn't keep it. */
 .eg-slip {
   font-size: 0.66rem;
@@ -12406,3 +12470,67 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 .eg-actions svg { flex: none; }
 .endgame-overlay .eg-goal-chip { align-self: center; margin-top: 0.2rem; }
+
+/* Timer at the top-right of the play-out header (Fix 3). */
+.endgame-overlay .pt-header { position: relative; }
+.eg-timer {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--text);
+}
+.eg-timer svg { flex: none; color: var(--pt-tint, var(--accent)); }
+.eg-timer-text { font-variant-numeric: tabular-nums; min-width: 3ch; }
+
+/* Info button + idea popover — the popover is an absolute child of the header, so
+   revealing it never nudges the board (Fix 3). */
+.eg-play-info {
+  display: inline-flex;
+  padding: 0.3rem;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.eg-play-info svg { flex: none; }
+.eg-play-info[aria-expanded="true"] { color: var(--pt-tint, var(--accent)); }
+.eg-idea-pop {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: var(--space-md);
+  left: var(--space-md);
+  z-index: 6;
+  background: var(--bg-card);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  padding: 0.7rem 0.9rem;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--text);
+}
+.eg-idea-pop[hidden] { display: none; }
+
+/* Success screen (Fix 4) — reuses .train-completion; adds the time + best line. */
+.eg-complete { width: 100%; padding: var(--space-xl) var(--space-lg) var(--space-lg); }
+.eg-complete-done--fail { color: var(--danger); }
+.eg-complete-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 2.1rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.eg-complete-time svg { flex: none; color: var(--pt-tint, var(--accent)); }
+.eg-complete-flawless { font-size: 0.85rem; font-weight: 600; color: var(--success); }
+.eg-complete-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+}
