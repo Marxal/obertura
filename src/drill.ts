@@ -1,4 +1,5 @@
 import { Chess } from 'chess.js';
+import { registerBrushes } from './board-brushes';
 import { Chessground } from 'chessground';
 import type { Key } from 'chessground/types';
 import type { Line } from './types';
@@ -619,9 +620,13 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     },
   });
 
-  // Register brushes for hint arrows after the instance exists.
-  cg.state.drawable.brushes['accent'] = { key: 'accent', color: '#ff9b21', opacity: 0.85, lineWidth: 10 };
-  cg.state.drawable.brushes['alt'] = { key: 'alt', color: '#708151', opacity: 0.85, lineWidth: 10 };
+  // Register brushes for hint arrows after the instance exists. Unique keys per
+  // board so the arrowhead markers never collide with another board's (see
+  // board-brushes.ts — collisions drop the arrowhead, leaving a headless line).
+  registerBrushes(cg, {
+    accent: { color: '#ff9b21', opacity: 0.85, lineWidth: 10 },
+    alt: { color: '#708151', opacity: 0.85, lineWidth: 10 },
+  });
 
   const ro = new ResizeObserver(() => cg.redrawAll());
   ro.observe(boardEl);

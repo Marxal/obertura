@@ -1,4 +1,5 @@
 import { Chess, type Square } from 'chess.js';
+import { registerBrushes } from './board-brushes';
 import { Chessground } from 'chessground';
 import type { Key } from 'chessground/types';
 import type { DrawShape } from 'chessground/draw';
@@ -45,7 +46,7 @@ import { createBuilderPanels, type BuilderPanels } from './builder-panels';
 import { initTheme } from './theme';
 import { initAppearance } from './appearance';
 import { initDriveAutoBackup } from './drive-backup';
-import { watchSpeedMs, getConfirmRunBeforeTraining, getScoutingEnabled, getShowEngineArrows, setShowEngineArrows, getShowMoveClassifications } from './prefs';
+import { watchSpeedMs, getConfirmRunBeforeTraining, getScoutingEnabled, getShowEngineArrows, setShowEngineArrows, getEngineEverywhere, setEngineEverywhere, getShowMoveClassifications } from './prefs';
 import { reviewLine, gradeNode, type ReviewSummary } from './review';
 import { renderLineAnalysis, hasReview } from './line-analysis';
 import { createPawnProgress, type PawnProgress } from './import-progress';
@@ -78,6 +79,9 @@ let engine!: Engine;
 let evalPanel!: EvalPanel;
 let builderPanels: BuilderPanels | null = null;
 let showEngineArrows = getShowEngineArrows();
+// The dock's engine toggle: when on, the engine runs on every tab and its top-3
+// arrows are drawn regardless of which tab is showing (not just the Engine tab).
+let engineEverywhere = getEngineEverywhere();
 let lastEngineResult: EvalResult | null = null;
 
 function legalDests(): Map<Key, Key[]> {
@@ -889,9 +893,10 @@ function onActiveSlide(index: number): void {
   if (index === activeSlide) return;
   activeSlide = index;
   builderPanels?.setActiveSlide(index);
-  // The engine runs only while its tab is showing: on when you land on it, off
-  // when you leave. There's no on/off toggle — the tab IS the switch.
-  if (evalPanel) evalPanel.setEnabled(index === ENGINE_SLIDE);
+  // The engine runs while its tab is showing OR while the dock's "engine
+  // everywhere" toggle is on — the latter keeps it live on every tab so its
+  // arrows never go stale when you leave the Engine tab.
+  if (evalPanel) evalPanel.setEnabled(index === ENGINE_SLIDE || engineEverywhere);
   // Repaint the board overlays for the new slide: the move's grade badge shows
   // on every tab, and the engine arrows ride alongside it on the Engine tab.
   if (cg) refreshBoardShapes();
@@ -918,11 +923,14 @@ function refreshBoardShapes(): void {
   const toSq = showBadge ? (node.uci.slice(2, 4) as Key) : null;
   if (toSq) shapes.push({ orig: toSq, customSvg: classBoardSvg(node.classification!) });
 
-  // 2. The engine's candidate arrows — only on the Engine tab, with the engine
-  //    on, the arrows toggle on, and a result that still matches the live
-  //    position (engine replies can lag a move behind).
+  // 2. The engine's candidate arrows. Shown when the engine is on and its result
+  //    still matches the live position (engine replies can lag a move behind).
+  //    Scope: the whole board when the dock's "engine everywhere" toggle is on;
+  //    otherwise just the Engine tab, and only if its arrows toggle is on.
   const result = lastEngineResult;
-  if (showEngineArrows && activeSlide === ENGINE_SLIDE && engine && engine.isEnabled
+  const wantEngineArrows = engineEverywhere
+    || (activeSlide === ENGINE_SLIDE && showEngineArrows);
+  if (wantEngineArrows && engine && engine.isEnabled
       && result && result.fen === chess.fen()) {
     const brushes = ['eng1', 'eng2', 'eng3'];
     result.moves.slice(0, 3).forEach((m, i) => {
@@ -1360,6 +1368,19 @@ function setupNoteBlock(): void {
   document.getElementById('note-btn')!.addEventListener('click', openNoteSheet);
 }
 
+// Re-run the engine for the position now on the board. Every path that changes
+// the position calls this: it clears the old eval, DROPS the stale result so its
+// arrows can't linger a move behind (they blank until the fresh result lands),
+// repaints the board overlays (the current move's grade badge), then evaluates.
+// Nulling lastEngineResult matters now that arrows show on every tab — a stale
+// result would otherwise keep drawing the previous move's arrows.
+function reevaluate(): void {
+  evalPanel.clear();
+  lastEngineResult = null;
+  refreshBoardShapes();
+  engine.evaluate(chess.fen());
+}
+
 function handleMoveClick(nodeId: string) {
   goTo(nodeId);
   const path = pathTo(nodeId);
@@ -1385,9 +1406,7 @@ function handleMoveClick(nodeId: string) {
   renderMoveList();
   renderMoveDetails();
   updateOpeningName();
-  evalPanel.clear();
-  refreshBoardShapes();
-  engine.evaluate(chess.fen());
+  reevaluate();
 }
 
 // Play a move given as UCI (e.g. from a clicked engine recommendation) at the
@@ -1412,8 +1431,7 @@ function playUci(uci: string): void {
   renderMoveList();
   renderMoveDetails();
   updateOpeningName();
-  evalPanel.clear();
-  engine.evaluate(chess.fen());
+  reevaluate();
   void gradeLiveMove(node, parentFen);
 }
 
@@ -1437,9 +1455,7 @@ function commitBoardMove(from: string, to: string, promotion: 'q' | 'r' | 'b' | 
   renderMoveList();
   renderMoveDetails();
   updateOpeningName();
-  evalPanel.clear();
-  cg.setAutoShapes([]);
-  engine.evaluate(chess.fen());
+  reevaluate();
   void gradeLiveMove(node, parentFen);
 }
 
@@ -1582,8 +1598,7 @@ function goToStart(): void {
   });
   renderMoveList();
   renderMoveDetails();
-  evalPanel.clear();
-  engine.evaluate(chess.fen());
+  reevaluate();
 }
 
 // The header save button reads "Save changes" when editing an existing line,
@@ -1760,8 +1775,7 @@ function clearBuilder(colour: 'white' | 'black' = 'white'): void {
   renderMoveList();
   renderMoveDetails();
   updateSaveButtonLabel();
-  evalPanel.clear();
-  engine.evaluate(chess.fen());
+  reevaluate();
   builderPanels?.render(); // reset to the start position's continuations
 }
 
@@ -1832,9 +1846,7 @@ function buildFromUcis(
   renderBuilderDesc();
   updateOpeningName();
   updateSaveButtonLabel();
-  evalPanel.clear();
-  refreshBoardShapes();
-  engine.evaluate(chess.fen());
+  reevaluate();
   showView('builder');
 }
 
@@ -1863,9 +1875,7 @@ function buildFromTree(tree: MoveNode, colour: 'white' | 'black', description: s
   renderBuilderDesc();
   updateOpeningName();
   updateSaveButtonLabel();
-  evalPanel.clear();
-  refreshBoardShapes();
-  engine.evaluate(chess.fen());
+  reevaluate();
   showView('builder');
 }
 
@@ -3074,10 +3084,14 @@ maybeShowGate(() => requestAnimationFrame(() => {
   });
 
   // Decreasing-opacity arrows for the engine's top 3 candidates — same brushes
-  // as the spar overlay's "build with engine" mode (spar.ts).
-  cg.state.drawable.brushes['eng1'] = { key: 'eng1', color: '#3a9a5c', opacity: 0.9, lineWidth: 11 };
-  cg.state.drawable.brushes['eng2'] = { key: 'eng2', color: '#3a9a5c', opacity: 0.55, lineWidth: 9 };
-  cg.state.drawable.brushes['eng3'] = { key: 'eng3', color: '#3a9a5c', opacity: 0.38, lineWidth: 8 };
+  // as the spar overlay's "build with engine" mode (spar.ts). Unique keys per
+  // board (board-brushes.ts) keep each arrow's head from colliding with another
+  // board's marker id, which otherwise drops the arrowhead on hidden-view boards.
+  registerBrushes(cg, {
+    eng1: { color: '#3a9a5c', opacity: 0.9, lineWidth: 11 },
+    eng2: { color: '#3a9a5c', opacity: 0.55, lineWidth: 9 },
+    eng3: { color: '#3a9a5c', opacity: 0.38, lineWidth: 8 },
+  });
 
   // Engine + eval panel — must come after cg is available so evaluate() can read chess.fen().
   engine = new Engine(import.meta.env.BASE_URL, (result) => {
@@ -3108,7 +3122,33 @@ maybeShowGate(() => requestAnimationFrame(() => {
     },
     (uci) => playUci(uci),
   );
-  if (engine.isEnabled) {
+  // The dock's engine toggle (the chip icon next to Analyse). Flips "engine
+  // everywhere": the engine runs on every tab and its top-3 arrows are drawn no
+  // matter which tab is showing — not just the Engine tab. Present in both the
+  // board builder and the game analyser (they share this dock).
+  const engineDockBtn = document.getElementById('builder-engine') as HTMLButtonElement | null;
+  const updateEngineDockBtn = (): void => {
+    if (!engineDockBtn) return;
+    engineDockBtn.classList.toggle('bar-btn--on', engineEverywhere);
+    engineDockBtn.setAttribute('aria-pressed', String(engineEverywhere));
+  };
+  engineDockBtn?.addEventListener('click', () => {
+    engineEverywhere = !engineEverywhere;
+    setEngineEverywhere(engineEverywhere);
+    updateEngineDockBtn();
+    // Turning it on keeps the engine live off-tab; turning it off drops the
+    // engine unless the Engine tab is showing (that tab drives it on its own).
+    evalPanel.setEnabled(engineEverywhere || activeSlide === ENGINE_SLIDE);
+    if (engineEverywhere) engine.evaluate(chess.fen());
+    refreshBoardShapes();
+  });
+  updateEngineDockBtn();
+
+  // Boot the engine if it was left enabled, or the dock toggle keeps it live on
+  // every tab. setEnabled syncs the eval panel's checkbox/bar; the evaluate seeds
+  // the first result so arrows appear without waiting for a move.
+  if (engine.isEnabled || engineEverywhere) {
+    evalPanel.setEnabled(true);
     engine.enable();
     engine.evaluate(chess.fen());
   }

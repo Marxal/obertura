@@ -18,6 +18,7 @@
 // so an abandoned session still counts what it fixed.
 
 import { Chess } from 'chess.js';
+import { registerBrushes } from './board-brushes';
 import { Chessground } from 'chessground';
 import type { Api } from 'chessground/api';
 import type { Key } from 'chessground/types';
@@ -237,9 +238,12 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
     animation: { enabled: true, duration: 200 },
     events: { move(from, to) { onUserMove(from as Key, to as Key); } },
   });
-  cg.state.drawable.brushes['accent'] = { key: 'accent', color: '#ff9b21', opacity: 0.85, lineWidth: 10 };
-  // The played mistake — drawn in the review palette's blunder red.
-  cg.state.drawable.brushes['danger'] = { key: 'danger', color: '#c93636', opacity: 0.8, lineWidth: 10 };
+  // The played mistake is drawn in the review palette's blunder red. Unique
+  // brush keys per board (board-brushes.ts) so arrowheads never collide.
+  registerBrushes(cg, {
+    accent: { color: '#ff9b21', opacity: 0.85, lineWidth: 10 },
+    danger: { color: '#c93636', opacity: 0.8, lineWidth: 10 },
+  });
   const ro = new ResizeObserver(() => cg.redrawAll());
   ro.observe(boardEl);
 
@@ -672,8 +676,10 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
       animation: { enabled: false },
       drawable: { enabled: false, visible: true },
     });
-    pcg.state.drawable.brushes['accent'] = { key: 'accent', color: '#ff9b21', opacity: 0.9, lineWidth: 10 };
-    pcg.state.drawable.brushes['danger'] = { key: 'danger', color: '#c93636', opacity: 0.8, lineWidth: 10 };
+    registerBrushes(pcg, {
+      accent: { color: '#ff9b21', opacity: 0.9, lineWidth: 10 },
+      danger: { color: '#c93636', opacity: 0.8, lineWidth: 10 },
+    });
     const shapes: DrawShape[] = [];
     const played = uciParts(ref.spot.playedUci);
     shapes.push({ orig: played.from, dest: played.to, brush: 'danger' });

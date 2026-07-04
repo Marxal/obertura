@@ -510,7 +510,15 @@ export class Engine {
   private worker: Worker | null = null;
   private workerReady = false;
   private pendingFen: string | null = null;
+  // The position we WANT evaluated (set the instant evaluate() is called).
   private currentFen = '';
+  // The position the worker is ACTUALLY searching (set when `go` is issued).
+  // These diverge while evaluate() awaits the cloud: worker output arriving in
+  // that window is for the OLD position, so results are stamped with searchFen —
+  // not currentFen — and a stale one then carries the old fen and is filtered by
+  // the caller's `result.fen === live fen` guard instead of drawing arrows for
+  // the previous move on the new position (the "arrows stuck a move behind" bug).
+  private searchFen = '';
   private multiPv = new Map<number, { uci: string; cp?: number; mate?: number; depth: number; pv: string[] }>();
   private abortCtrl: AbortController | null = null;
   // Bumped on every evaluate(). A call that awaited the cloud fetch checks this
@@ -612,7 +620,7 @@ export class Engine {
   }
 
   private parseInfo(line: string) {
-    const p = parseMultiPvLine(line, this.currentFen);
+    const p = parseMultiPvLine(line, this.searchFen);
     if (!p) return;
     this.multiPv.set(p.pvNum, { uci: p.uci, cp: p.cp, mate: p.mate, depth: p.depth, pv: p.pv });
     // Emit progressive updates once we have a decent depth.
@@ -623,17 +631,22 @@ export class Engine {
     if (!this.multiPv.size) return;
     const entries = [...this.multiPv.entries()].sort(([a], [b]) => a - b);
     const maxDepth = Math.max(...entries.map(([, v]) => v.depth));
-    const moves: MoveEval[] = entries.map(([, v]) => {
-      const r = resolveUci(this.currentFen, v.uci);
-      return {
-        uci: r?.uci ?? v.uci,
-        san: r?.san ?? v.uci,
+    // Resolve against the searched position; drop any move that isn't legal there
+    // (a leftover from a superseded search) so a stale line can't draw a bogus
+    // arrow on the current board.
+    const moves: MoveEval[] = entries.flatMap(([, v]) => {
+      const r = resolveUci(this.searchFen, v.uci);
+      if (!r) return [];
+      return [{
+        uci: r.uci,
+        san: r.san,
         cp: v.cp,
         mate: v.mate,
-        sanLine: uciLineToSan(this.currentFen, v.pv, PV_DISPLAY_PLIES),
-      };
+        sanLine: uciLineToSan(this.searchFen, v.pv, PV_DISPLAY_PLIES),
+      }];
     });
-    this.cb({ fen: this.currentFen, source: 'stockfish', depth: maxDepth, targetDepth: MAX_DEPTH, moves });
+    if (!moves.length) return;
+    this.cb({ fen: this.searchFen, source: 'stockfish', depth: maxDepth, targetDepth: MAX_DEPTH, moves });
   }
 
   async evaluate(fen: string) {
@@ -713,6 +726,7 @@ export class Engine {
 
   private runSF(fen: string) {
     this.multiPv.clear();
+    this.searchFen = fen;  // from here, worker output belongs to `fen`
     // `stop` first so a stray previous search can't overlap the new one — one
     // worker searches one position at a time (mirrors spar.ts's SuggestEngine).
     this.worker!.postMessage('stop');

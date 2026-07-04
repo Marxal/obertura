@@ -1,4 +1,5 @@
 import { Chess } from 'chess.js';
+import { registerBrushes } from './board-brushes';
 import { Chessground } from 'chessground';
 import type { Key } from 'chessground/types';
 import { Icons } from './icons';
@@ -123,7 +124,7 @@ export function openExplorer(
     animation: { enabled: true, duration: 200 },
     events: { move(from, to) { onMove(from, to); } },
   });
-  cg.state.drawable.brushes['alt'] = { key: 'alt', color: GREEN, opacity: 0.85, lineWidth: 10 };
+  registerBrushes(cg, { alt: { color: GREEN, opacity: 0.85, lineWidth: 10 } });
 
   const ro = new ResizeObserver(() => cg.redrawAll());
   ro.observe(boardEl);

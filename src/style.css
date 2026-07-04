@@ -1286,9 +1286,22 @@ html[data-coords="off"] .cg-wrap coords {
   padding: 0;
   border: none;
   cursor: pointer;
+  /* Backdrop is set per promoting side below — a white glyph on a near-white
+     tile was invisible (the reported bug). */
   background: rgba(245, 245, 245, 0.96);
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
   transition: background 0.12s ease;
+}
+
+/* A LIGHT tile behind BLACK pieces, a DARK tile behind WHITE pieces, so both the
+   glyph's fill and its outline read clearly whichever side is promoting. */
+.promotion-column--black .promotion-choice {
+  background: rgba(245, 245, 245, 0.97);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.14);
+}
+.promotion-column--white .promotion-choice {
+  background: rgba(38, 40, 46, 0.97);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
 }
 
 .promotion-choice:first-child { border-radius: 8px 8px 0 0; }
@@ -1296,15 +1309,19 @@ html[data-coords="off"] .cg-wrap coords {
 .promotion-column--up .promotion-choice:first-child { border-radius: 0 0 8px 8px; }
 .promotion-column--up .promotion-choice:last-child  { border-radius: 8px 8px 0 0; }
 
-.promotion-choice:hover,
-.promotion-choice:focus-visible {
-  background: #fff;
-  outline: none;
-}
+.promotion-column--black .promotion-choice:hover,
+.promotion-column--black .promotion-choice:focus-visible { background: #fff; outline: none; }
+.promotion-column--white .promotion-choice:hover,
+.promotion-column--white .promotion-choice:focus-visible { background: #33363f; outline: none; }
 
 /* Override the chessground base piece rule (absolute, 12.5%, cover) so the piece
-   fills the choice button instead. */
+   fills the choice button instead. `display: block` is essential: chessground
+   only blockifies pieces via `position: absolute`, so once we make them static a
+   <piece> (an unknown element → inline by default) would ignore width/height and
+   collapse to 0×0 — the picker's glyphs vanished, leaving bare tiles. The
+   drop-shadow lifts the glyph off its tile so its edges stay crisp on either. */
 .promotion-choice piece {
+  display: block;
   position: static;
   width: 100%;
   height: 100%;
@@ -1312,6 +1329,7 @@ html[data-coords="off"] .cg-wrap coords {
   background-repeat: no-repeat;
   background-position: center;
   pointer-events: none;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
 }
 
 /* Line panel */
@@ -2154,16 +2172,21 @@ html[data-coords="off"] .cg-wrap coords {
 
 /* The game-review square wash. Applied to the <square> element underneath the
    pieces (via chessground's custom highlights), so the move's square reads in
-   its grade colour while the piece on it keeps its own colour. */
-cg-board square.review-sq--brilliant  { background: color-mix(in srgb, #1d9e8f 48%, transparent); }
-cg-board square.review-sq--great      { background: color-mix(in srgb, #5c8bb0 48%, transparent); }
-cg-board square.review-sq--best       { background: color-mix(in srgb, #5a9e3f 48%, transparent); }
-cg-board square.review-sq--excellent  { background: color-mix(in srgb, #7fb05f 48%, transparent); }
-cg-board square.review-sq--good       { background: color-mix(in srgb, #a9b28f 50%, transparent); }
-cg-board square.review-sq--book       { background: color-mix(in srgb, #9c7248 48%, transparent); }
-cg-board square.review-sq--inaccuracy { background: color-mix(in srgb, #e6b23a 50%, transparent); }
-cg-board square.review-sq--mistake    { background: color-mix(in srgb, #e0822f 50%, transparent); }
-cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 52%, transparent); }
+   its grade colour while the piece on it keeps its own colour. The graded move
+   is also the last move, so its square already carries chessground's yellow
+   last-move highlight (`background-color … !important`, above). These come later
+   in the sheet and are also `!important`, so at equal specificity they win — the
+   square shows its grade colour (green for good, blue for great …) instead of
+   yellow. Kept semi-transparent so the change reads as a tint, not a repaint. */
+cg-board square.review-sq--brilliant  { background: color-mix(in srgb, #1d9e8f 48%, transparent) !important; }
+cg-board square.review-sq--great      { background: color-mix(in srgb, #5c8bb0 48%, transparent) !important; }
+cg-board square.review-sq--best       { background: color-mix(in srgb, #5a9e3f 48%, transparent) !important; }
+cg-board square.review-sq--excellent  { background: color-mix(in srgb, #7fb05f 48%, transparent) !important; }
+cg-board square.review-sq--good       { background: color-mix(in srgb, #a9b28f 50%, transparent) !important; }
+cg-board square.review-sq--book       { background: color-mix(in srgb, #9c7248 48%, transparent) !important; }
+cg-board square.review-sq--inaccuracy { background: color-mix(in srgb, #e6b23a 50%, transparent) !important; }
+cg-board square.review-sq--mistake    { background: color-mix(in srgb, #e0822f 50%, transparent) !important; }
+cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 52%, transparent) !important; }
 
 /* The bottom-bar Analyse icon: lit (--on) while a review runs, then a quieter
    passive look (--done) once the line on the board has been graded. */

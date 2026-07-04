@@ -1,4 +1,5 @@
 import type { Line } from './types';
+import { registerBrushes } from './board-brushes';
 import type { MoveNode } from './tree';
 import { getAllLines, saveLine, countGames } from './storage';
 import { startDrill, startPositionsDrill, startTimedDrill } from './drill';
@@ -700,7 +701,7 @@ function buildForgottenSlide(
     animation: { enabled: false },
     drawable: { enabled: false, visible: true },
   });
-  cg.state.drawable.brushes['accent'] = { key: 'accent', color: '#ff9b21', opacity: 0.9, lineWidth: 10 };
+  registerBrushes(cg, { accent: { color: '#ff9b21', opacity: 0.9, lineWidth: 10 } });
   const sq = squaresOf(move.fen, move.san);
   if (sq) cg.setAutoShapes([{ orig: sq.from as Key, dest: sq.to as Key, brush: 'accent' }]);
   // The slide may be laid out off-screen in the carousel; nudge a redraw once
@@ -2022,7 +2023,7 @@ function openPositionPeek(opts: {
     animation: { enabled: false },
     drawable: { enabled: false, visible: true },
   });
-  cg.state.drawable.brushes['accent'] = { key: 'accent', color: '#ff9b21', opacity: 0.9, lineWidth: 10 };
+  registerBrushes(cg, { accent: { color: '#ff9b21', opacity: 0.9, lineWidth: 10 } });
   // Mounted into a transient popup, so nudge a redraw once it's actually sized.
   requestAnimationFrame(() => cg.redrawAll());
 
