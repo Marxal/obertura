@@ -12230,3 +12230,115 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 
 .mr-scan-stop { width: 100%; }
+
+/* ── End game screen ─────────────────────────────────────────────────────────
+   Two pillars: rated endgame puzzles (a train-hero card) and the Classic
+   endgames list (grouped position cards). Deep teal accent, matching the tab. */
+.eg-screen { --eg-accent: #33677a; }
+[data-theme="dark"] .eg-screen,
+[data-theme="game"] .eg-screen,
+[data-theme="gamer"] .eg-screen { --eg-accent: #6fa8bd; }
+
+.eg-hero .train-hero-stats { justify-content: center; gap: var(--space-lg); }
+.eg-theme-row { margin-top: var(--space-sm); flex-wrap: wrap; }
+.eg-hero-start { margin-top: var(--space-md); }
+.eg-hero-start svg { flex: none; }
+
+/* Classic endgames list */
+.eg-classics { margin-top: var(--space-lg); }
+.eg-group { margin-top: var(--space-md); }
+.eg-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+.eg-group-name { font-weight: 650; font-size: 0.98rem; color: var(--text); }
+.eg-group-count {
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+}
+.eg-group-count--all { color: var(--eg-accent); font-weight: 650; }
+.eg-group-blurb {
+  margin: 0.1rem 0 var(--space-sm);
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+.eg-list { display: flex; flex-direction: column; gap: var(--space-sm); }
+
+.eg-card-name { font-weight: 600; }
+.eg-card--solved { border-color: color-mix(in srgb, var(--eg-accent) 45%, var(--border-card)); }
+.eg-card-idea {
+  margin: 0 0 var(--space-sm);
+  font-size: 0.84rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+.eg-card-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.eg-play-btn { margin-left: auto; padding-inline: 1rem; }
+.eg-play-btn svg { flex: none; }
+
+/* Level + goal chips */
+.eg-level {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 0.12rem 0.4rem;
+  border-radius: 999px;
+  color: var(--text-faint);
+  background: var(--bg-elevated);
+}
+.eg-level--essential { color: #3f7d52; background: rgba(63, 125, 82, 0.14); }
+.eg-level--intermediate { color: #b07a1e; background: rgba(176, 122, 30, 0.14); }
+.eg-level--advanced { color: #a3492e; background: rgba(163, 73, 46, 0.14); }
+.eg-tick { color: var(--eg-accent); display: inline-flex; margin-left: auto; }
+.eg-tick svg { flex: none; }
+
+.eg-goal-chip {
+  font-size: 0.72rem;
+  font-weight: 650;
+  padding: 0.16rem 0.5rem;
+  border-radius: 999px;
+}
+.eg-goal-chip--win { color: #3f7d52; background: rgba(63, 125, 82, 0.14); }
+.eg-goal-chip--draw { color: #4a6b86; background: rgba(74, 107, 134, 0.16); }
+
+/* Footer teaser for the next round */
+.eg-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: var(--space-lg);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md, 12px);
+  background: var(--bg-elevated);
+  color: var(--text-faint);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+.eg-footer svg { flex: none; color: var(--eg-accent); }
+
+/* Play-out overlay (endgame-playout.ts) */
+.eg-idea { font-size: 0.86rem; line-height: 1.35; }
+.eg-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.eg-actions .btn-primary,
+.eg-actions .btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.eg-actions svg { flex: none; }
+.endgame-overlay .eg-goal-chip { align-self: center; margin-top: 0.2rem; }

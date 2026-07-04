@@ -10,9 +10,25 @@
 
 import type { Difficulty } from './puzzles';
 
-const RATING_KEY = 'obertura.puzzleRating';
-const HISTORY_KEY = 'obertura.puzzleRatingHistory';
-const STREAK_KEY = 'obertura.puzzleStreak';
+// The rating is namespaced by SCOPE so the End game trainer keeps its own puzzle
+// ladder, separate from the openings-puzzle ladder. 'openings' keeps the original
+// keys, so existing data — and every existing caller (all default to 'openings') —
+// is untouched.
+export type RatingScope = 'openings' | 'endgame';
+
+const KEYS: Record<RatingScope, { rating: string; history: string; streak: string }> = {
+  openings: {
+    rating: 'obertura.puzzleRating',
+    history: 'obertura.puzzleRatingHistory',
+    streak: 'obertura.puzzleStreak',
+  },
+  endgame: {
+    rating: 'obertura.endgamePuzzleRating',
+    history: 'obertura.endgamePuzzleRatingHistory',
+    streak: 'obertura.endgamePuzzleStreak',
+  },
+};
+
 export const START_RATING = 1000;
 const K = 24;             // Elo step size — brisk but not jumpy.
 const MAX_HISTORY = 120;  // cap the stored series, like the day log.
@@ -73,9 +89,9 @@ export function targetRatingForStreak(solved: number): number {
 
 // ── Storage ───────────────────────────────────────────────────────────────────
 
-export function getPuzzleRating(): number {
+export function getPuzzleRating(scope: RatingScope = 'openings'): number {
   try {
-    const raw = localStorage.getItem(RATING_KEY);
+    const raw = localStorage.getItem(KEYS[scope].rating);
     if (!raw) return START_RATING;
     const n = Number(raw);
     return Number.isFinite(n) ? Math.round(n) : START_RATING;
@@ -96,9 +112,9 @@ function dayKey(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-function loadHistory(): RatingPoint[] {
+function loadHistory(scope: RatingScope): RatingPoint[] {
   try {
-    const raw = localStorage.getItem(HISTORY_KEY);
+    const raw = localStorage.getItem(KEYS[scope].history);
     if (!raw) return [];
     const arr = JSON.parse(raw) as unknown;
     if (!Array.isArray(arr)) return [];
@@ -108,24 +124,24 @@ function loadHistory(): RatingPoint[] {
   }
 }
 
-export function getRatingHistory(): RatingPoint[] {
-  return loadHistory();
+export function getRatingHistory(scope: RatingScope = 'openings'): RatingPoint[] {
+  return loadHistory(scope);
 }
 
 // Store the new rating and record it in the history series. One point per day —
 // a later run the same day overwrites it, so the graph reads as a clean daily
 // line. Capped to the most recent MAX_HISTORY days.
-export function commitRating(newRating: number, now: Date = new Date()): void {
+export function commitRating(newRating: number, scope: RatingScope = 'openings', now: Date = new Date()): void {
   const rating = Math.round(newRating);
-  const history = loadHistory();
+  const history = loadHistory(scope);
   const dk = dayKey(now);
   const last = history[history.length - 1];
   if (last && last.day === dk) last.rating = rating;
   else history.push({ day: dk, rating });
   if (history.length > MAX_HISTORY) history.splice(0, history.length - MAX_HISTORY);
   try {
-    localStorage.setItem(RATING_KEY, String(rating));
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    localStorage.setItem(KEYS[scope].rating, String(rating));
+    localStorage.setItem(KEYS[scope].history, JSON.stringify(history));
   } catch {
     /* storage unavailable/full — the rating is a nicety, never block on it. */
   }
@@ -139,9 +155,9 @@ export function commitRating(newRating: number, now: Date = new Date()): void {
 
 interface StreakState { current: number; best: number; }
 
-function loadStreak(): StreakState {
+function loadStreak(scope: RatingScope): StreakState {
   try {
-    const raw = localStorage.getItem(STREAK_KEY);
+    const raw = localStorage.getItem(KEYS[scope].streak);
     if (!raw) return { current: 0, best: 0 };
     const obj = JSON.parse(raw) as Partial<StreakState>;
     return {
@@ -153,15 +169,15 @@ function loadStreak(): StreakState {
   }
 }
 
-export function getBestCleanStreak(): number {
-  return loadStreak().best;
+export function getBestCleanStreak(scope: RatingScope = 'openings'): number {
+  return loadStreak(scope).best;
 }
 
 // Fold one rated result into the streak. A clean first-try solve extends the run;
 // anything else resets it. Returns the new best and whether it just improved (so
 // the caller can celebrate it once, at the end of the session).
-export function recordCleanResult(solvedFirstTry: boolean): { best: number; improved: boolean } {
-  const s = loadStreak();
+export function recordCleanResult(solvedFirstTry: boolean, scope: RatingScope = 'openings'): { best: number; improved: boolean } {
+  const s = loadStreak(scope);
   let improved = false;
   if (solvedFirstTry) {
     s.current += 1;
@@ -170,20 +186,25 @@ export function recordCleanResult(solvedFirstTry: boolean): { best: number; impr
     s.current = 0;
   }
   try {
-    localStorage.setItem(STREAK_KEY, JSON.stringify(s));
+    localStorage.setItem(KEYS[scope].streak, JSON.stringify(s));
   } catch {
     /* storage unavailable/full — the streak is a nicety, never block on it. */
   }
   return { best: s.best, improved };
 }
 
-// Forget the rating and its history — part of "Reset progress" in Settings.
-export function clearPuzzleRating(): void {
-  try {
-    localStorage.removeItem(RATING_KEY);
-    localStorage.removeItem(HISTORY_KEY);
-    localStorage.removeItem(STREAK_KEY);
-  } catch {
-    /* storage unavailable — nothing to clear. */
+// Forget the rating and its history — part of "Reset progress" in Settings. With
+// no scope it clears EVERY ladder (openings + endgame), so the single reset button
+// wipes them all; pass a scope to clear just one.
+export function clearPuzzleRating(scope?: RatingScope): void {
+  const scopes: RatingScope[] = scope ? [scope] : ['openings', 'endgame'];
+  for (const sc of scopes) {
+    try {
+      localStorage.removeItem(KEYS[sc].rating);
+      localStorage.removeItem(KEYS[sc].history);
+      localStorage.removeItem(KEYS[sc].streak);
+    } catch {
+      /* storage unavailable — nothing to clear. */
+    }
   }
 }

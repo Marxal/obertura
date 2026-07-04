@@ -27,7 +27,7 @@ import { burstConfetti, celebratePawn } from './confetti';
 import { puzzleSetup, type Puzzle } from './puzzles';
 import { showDialog } from './dialog';
 import { wasRecentlySeen, recordSeenPuzzle } from './puzzle-log';
-import { getPuzzleRating, nextRating, commitRating, recordCleanResult } from './puzzle-rating';
+import { getPuzzleRating, nextRating, commitRating, recordCleanResult, type RatingScope } from './puzzle-rating';
 import { countUp } from './count-up';
 
 // One puzzle plus the opening it was drawn for (so stats and retry know its
@@ -91,6 +91,10 @@ export interface PuzzleSessionOptions {
   // Daily challenge: an extra leading primary on the results screen that chains
   // straight into the next task ("Next task →").
   nextAction?: { label: string; run: () => void };
+  // Which rating ladder a rated session moves. Defaults to the openings puzzle
+  // rating; the End game trainer passes 'endgame' so its rated runs keep a
+  // separate ladder (and never disturb the openings one).
+  ratingScope?: RatingScope;
 }
 
 // One finished puzzle, kept for the end-of-session review list.
@@ -130,7 +134,8 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
 
   // Rating (rated count mode only). We evolve a live rating across the run and
   // bank it after every puzzle, so an early exit still keeps what was earned.
-  const ratingBefore = getPuzzleRating();
+  const ratingScope: RatingScope = opts.ratingScope ?? 'openings';
+  const ratingBefore = getPuzzleRating(ratingScope);
   let liveRating = ratingBefore;
   // The clean-solve best run, if it improved during this rated session (shown once
   // on the results screen).
@@ -566,9 +571,9 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
       const updated = nextRating(liveRating, cur.puzzle.rating, clean);
       points = updated - liveRating;
       liveRating = updated;
-      commitRating(liveRating);
+      commitRating(liveRating, ratingScope);
       // Track the clean-solve best run; remember it if it just improved.
-      const streak = recordCleanResult(clean);
+      const streak = recordCleanResult(clean, ratingScope);
       if (streak.improved) newBestStreak = streak.best;
     }
     entries.push({ draw: cur, clean, points });
