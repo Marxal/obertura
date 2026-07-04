@@ -114,6 +114,9 @@ export function startEndgamePlayout(endgame: Endgame, opts: EndgamePlayoutOption
   let finished = false;
   let isCleaned = false;
   let autoTimer: ReturnType<typeof setTimeout> | undefined;
+  // Beat-the-clock: the wall-clock stamp of when you first got the move (after the
+  // opening tablebase read), so a successful solve can bank its time (Fix 4).
+  let startedAt = 0;
 
   // ── Overlay scaffold (mirrors fix-it.ts) ─────────────────────────────────────
   const overlay = document.createElement('div');
@@ -214,6 +217,7 @@ export function startEndgamePlayout(endgame: Endgame, opts: EndgamePlayoutOption
     cg.set({ movable: { color: undefined, dests: new Map() } });
   }
   function handToUser(): void {
+    if (startedAt === 0) startedAt = Date.now(); // start the clock on your first move
     cg.set({ turnColor: cgTurn(), movable: { color: you, dests: legalDests() } });
     setStatus('Your move', 'pt-status--prompt');
   }
@@ -344,7 +348,8 @@ export function startEndgamePlayout(endgame: Endgame, opts: EndgamePlayoutOption
 
   function renderHintButton(): void {
     actionsEl.innerHTML = '';
-    actionsEl.appendChild(mkButton('Hint', 'btn-ghost eg-hint-btn', () => {
+    // Same look as the other training modes' hint (Fix 3): the shared .pz-hint-btn.
+    actionsEl.appendChild(mkButton('Hint', 'pz-hint-btn', () => {
       cg.setAutoShapes([]);
       void showHintArrow(true);
     }, Icons.bulb(16)));
@@ -356,7 +361,9 @@ export function startEndgamePlayout(endgame: Endgame, opts: EndgamePlayoutOption
     lockBoard();
     cg.setAutoShapes([]);
     const clean = success && mistakes === 0 && hintsUsed === 0;
-    recordEndgameResult(endgame.id, success);
+    // Bank the time on a successful solve (Fix 4); a miss records no time.
+    const elapsedMs = success && startedAt > 0 ? Date.now() - startedAt : undefined;
+    recordEndgameResult(endgame.id, success, elapsedMs);
     if (success) burstConfetti(boardWrap);
     setStatus(
       clean ? `${message} Flawless.` : message,

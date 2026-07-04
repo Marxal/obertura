@@ -33,5 +33,21 @@ export function runEndgameProgressSelfTest(): TestResult[] {
   check('solved latches through a later miss', c.solved === true);
   check('later miss still counts', c.attempts === 3, `got ${c.attempts}`);
 
+  // Best time: a successful solve records its elapsed; a miss records nothing.
+  const t1 = foldResult(undefined, true, 1000, 40_000);
+  check('first solve sets bestMs', t1.bestMs === 40_000, `got ${t1.bestMs}`);
+  const miss = foldResult(undefined, false, 1000, 5_000);
+  check('a miss never sets bestMs', miss.bestMs === undefined, `got ${miss.bestMs}`);
+
+  // A slower later solve leaves the best alone; a faster one lowers it.
+  const t2 = foldResult(t1, true, 2000, 55_000);
+  check('slower solve keeps the old best', t2.bestMs === 40_000, `got ${t2.bestMs}`);
+  const t3 = foldResult(t2, true, 3000, 22_500);
+  check('faster solve lowers the best', t3.bestMs === 22_500, `got ${t3.bestMs}`);
+
+  // A later miss can't erase or worsen an existing best.
+  const t4 = foldResult(t3, false, 4000, 1_000);
+  check('a miss keeps the standing best', t4.bestMs === 22_500, `got ${t4.bestMs}`);
+
   return results;
 }

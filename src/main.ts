@@ -2253,7 +2253,10 @@ function renderTrainTabbed(host: HTMLElement): void {
         onOpenGame: openGameFromSession,
       });
     } else {
-      renderEndgameScreen(endgamePane, { onAnalysePosition: openPuzzleFromSession });
+      renderEndgameScreen(endgamePane, {
+        onAnalysePosition: openPuzzleFromSession,
+        onImportGames: () => showView('games'),
+      });
     }
   };
   paint();

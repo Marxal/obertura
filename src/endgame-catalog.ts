@@ -25,12 +25,15 @@ export interface Endgame {
 // positions within a category from gentlest to hardest.
 export const CATEGORY_ORDER: EndgameCategory[] = ['mates', 'pawn', 'rook', 'queen', 'minor'];
 
-export const CATEGORY_META: Record<EndgameCategory, { label: string; blurb: string }> = {
-  mates: { label: 'Basic checkmates', blurb: 'Force mate with the pieces up.' },
-  pawn: { label: 'Pawn endings', blurb: 'Opposition, key squares and the rook-pawn draw.' },
-  rook: { label: 'Rook endings', blurb: 'The two you must know: Lucena and Philidor.' },
-  queen: { label: 'Queen endings', blurb: 'Convert the queen against a lone pawn.' },
-  minor: { label: 'Minor-piece endings', blurb: 'Bishops, knights and the wrong-bishop draw.' },
+// A trailing U+FE0E asks phones for the text (not emoji) glyph, so the symbol
+// honours our colour — same trick as the board miniatures (board-mini.ts).
+const VS = String.fromCharCode(0xfe0e);
+export const CATEGORY_META: Record<EndgameCategory, { label: string; blurb: string; symbol: string }> = {
+  mates: { label: 'Basic checkmates', blurb: 'Force mate with the pieces up.', symbol: '♚' + VS },
+  pawn: { label: 'Pawn endings', blurb: 'Opposition, key squares and the rook-pawn draw.', symbol: '♟' + VS },
+  rook: { label: 'Rook endings', blurb: 'The two you must know: Lucena and Philidor.', symbol: '♜' + VS },
+  queen: { label: 'Queen endings', blurb: 'Convert the queen against a lone pawn.', symbol: '♛' + VS },
+  minor: { label: 'Minor-piece endings', blurb: 'Bishops, knights and the wrong-bishop draw.', symbol: '♞' + VS },
 };
 
 export const LEVEL_META: Record<EndgameLevel, { label: string; rank: number }> = {
@@ -53,6 +56,7 @@ export interface EndgameGroup {
   category: EndgameCategory;
   label: string;
   blurb: string;
+  symbol: string;
   items: Endgame[];
 }
 
@@ -68,7 +72,7 @@ export function endgamesByCategory(): EndgameGroup[] {
         LEVEL_META[a.level].rank - LEVEL_META[b.level].rank || a.name.localeCompare(b.name));
     if (items.length) {
       const meta = CATEGORY_META[category];
-      groups.push({ category, label: meta.label, blurb: meta.blurb, items });
+      groups.push({ category, label: meta.label, blurb: meta.blurb, symbol: meta.symbol, items });
     }
   }
   return groups;

@@ -128,5 +128,55 @@
     "youPlay": "black",
     "goal": "draw",
     "idea": "The bishop is the wrong colour for the a8 corner, so it can never control the queening square. Run your king to the corner and hold."
+  },
+  {
+    "id": "pawn-king-two-ahead",
+    "category": "pawn",
+    "level": "essential",
+    "name": "The king leads the pawn",
+    "fen": "4k3/8/4K3/8/4P3/8/8/8 w - - 0 1",
+    "youPlay": "white",
+    "goal": "win",
+    "idea": "The king does the work, not the pawn. With your king two ranks ahead, take the opposition and outflank; only push the pawn once the king has cleared its path."
+  },
+  {
+    "id": "pawn-reti",
+    "category": "pawn",
+    "level": "advanced",
+    "name": "Réti's drawing king",
+    "fen": "7K/8/k1P5/7p/8/8/8/8 w - - 0 1",
+    "youPlay": "white",
+    "goal": "draw",
+    "idea": "The famous save. Your king looks too far from either pawn — march it diagonally toward the corner so it threatens to catch the h-pawn AND shoulder your own c-pawn home. A drawn miracle."
+  },
+  {
+    "id": "queen-vs-knight-pawn",
+    "category": "queen",
+    "level": "intermediate",
+    "name": "Queen beats a knight's pawn",
+    "fen": "6QK/8/8/8/8/8/1pk5/8 w - - 0 1",
+    "youPlay": "white",
+    "goal": "win",
+    "idea": "Only rook and bishop pawns draw — a knight's pawn loses. Check to force the king in front of its pawn, use that free tempo to march your king closer, and repeat until you win it."
+  },
+  {
+    "id": "minor-right-bishop",
+    "category": "minor",
+    "level": "intermediate",
+    "name": "The right bishop and rook pawn",
+    "fen": "1k6/8/K7/3B4/P7/8/8/8 w - - 0 1",
+    "youPlay": "white",
+    "goal": "win",
+    "idea": "Unlike the wrong bishop, this one guards the queening square. Because it covers a8 the enemy king can't blockade the corner, so just escort your rook pawn home."
+  },
+  {
+    "id": "minor-two-knights",
+    "category": "minor",
+    "level": "advanced",
+    "name": "Two knights can't mate",
+    "fen": "7k/8/8/2N2K2/1N6/8/8/8 b - - 0 1",
+    "youPlay": "black",
+    "goal": "draw",
+    "idea": "Two knights cannot force mate against a lone king. Keep your king out of the corners and off the edge, give the knights nothing to trap, and the game is drawn."
   }
 ]
