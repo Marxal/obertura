@@ -16,6 +16,7 @@
 import { Chess } from 'chess.js';
 import type { MoveNode } from './tree';
 import type { GameRetry } from './mistake-scan';
+import type { GameEndgame } from './endgame-scan';
 
 // Opening-map depth: how many plies the opponent-scouting / repertoire maps walk.
 // 60 plies = 30 full moves. Games now store their FULL move list (so the game
@@ -118,6 +119,10 @@ export interface ImportedGame {
   // been engine-scanned for trainable mistakes. Absent until scanned; the
   // spots carry their own training state.
   retry?: GameRetry;
+  // Endgame scan result, written by endgame-scan.ts once this game has been
+  // checked for a playable endgame position (the "From your games" section).
+  // Absent until scanned.
+  endgame?: GameEndgame;
 }
 
 export interface GameAnalysis {

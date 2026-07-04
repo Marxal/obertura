@@ -1,13 +1,13 @@
-// The End game tab. Two pillars, replacing the old "Coming soon" placeholder:
+// The End game tab. Three pillars, top to bottom:
 //   • Endgame puzzles — rated Lichess puzzles filtered to endgame themes, on their
-//     OWN rating ladder (separate from the openings puzzle rating). Reuses the
-//     whole puzzle-run engine; we just feed it endgame angles and a rating scope.
+//     OWN rating ladder. A wide "all endgames" button plus a row of piece-symbol
+//     shortcuts (rook / pawn / queen / minor). Reuses the whole puzzle-run engine.
 //   • Classic endgames — a curated list of fundamentals (endgame-catalog.ts) you
 //     play out against the engine, judged by the Lichess tablebase
-//     (endgame-playout.ts). Grouped by theme, ticked as you master them.
-//
-// "Endgames from your own games" is a later round (see ROADMAP); a quiet teaser
-// footer points at it.
+//     (endgame-playout.ts). Grouped by theme in collapsible accordions; each solve
+//     banks a best time, so the list is a beat-the-clock ladder.
+//   • From your games — endgames you actually reached, found by a scan over your
+//     imported games (endgame-scan.ts) and played out the same way.
 
 import { Icons } from './icons';
 import { fetchNextPuzzle } from './puzzles';
@@ -18,15 +18,25 @@ import { getPuzzleRating, getBestCleanStreak, difficultyForRating } from './puzz
 import { buildPositionCard, colourPip } from './card-position';
 import { countUp } from './count-up';
 import {
-  endgamesByCategory, allEndgames, LEVEL_META,
-  type Endgame, type EndgameGroup,
+  endgamesByCategory, type Endgame, type EndgameGroup, type EndgameCategory,
+  LEVEL_META,
 } from './endgame-catalog';
-import { getEndgameProgress, isEndgameSolved, solvedCount } from './endgame-progress';
+import { getEndgameProgress, type EndgameProgress } from './endgame-progress';
 import { startEndgamePlayout } from './endgame-playout';
+import { getAllGames } from './storage';
+import type { ImportedGame } from './import-core';
+import {
+  scanEndgames, collectEndgameSpots, unscannedEndgameCount,
+  type EndgameSpotRef, type EndgameScanProgress,
+} from './endgame-scan';
+import { createPawnProgress, createFactsTicker } from './import-progress';
+import { pushBack } from './back-nav';
 
 export interface EndgameScreenDeps {
   // Open a finished puzzle in the full analyser (Engine tab) — wired from main.ts.
   onAnalysePosition?: (req: AnalyseRequest) => void;
+  // Send the user to the Games screen to import (the "From your games" empty state).
+  onImportGames: () => void;
 }
 
 // A puzzle-theme filter → a Lichess "angle". 'minor' alternates bishop/knight so
@@ -35,17 +45,16 @@ type PuzzleTheme = 'all' | 'rook' | 'pawn' | 'queen' | 'minor';
 const THEME_LABEL: Record<PuzzleTheme, string> = {
   all: 'All endgames', rook: 'Rook', pawn: 'Pawn', queen: 'Queen', minor: 'Minor piece',
 };
-const THEME_ORDER: PuzzleTheme[] = ['all', 'rook', 'pawn', 'queen', 'minor'];
-const THEME_KEY = 'obertura.endgame.puzzleTheme';
+// The specific themes, as piece-symbol shortcuts under the wide "all" button. A
+// trailing U+FE0E asks for the text (not emoji) glyph — same trick as board-mini.
+const VS = String.fromCharCode(0xfe0e);
+const SPECIFIC_THEMES: { theme: Exclude<PuzzleTheme, 'all'>; symbol: string }[] = [
+  { theme: 'rook', symbol: '♜' + VS },
+  { theme: 'pawn', symbol: '♟' + VS },
+  { theme: 'queen', symbol: '♛' + VS },
+  { theme: 'minor', symbol: '♞' + VS },
+];
 const PUZZLE_COUNT = 8;
-
-function getTheme(): PuzzleTheme {
-  const v = localStorage.getItem(THEME_KEY) as PuzzleTheme | null;
-  return v && THEME_ORDER.includes(v) ? v : 'all';
-}
-function setTheme(t: PuzzleTheme): void {
-  try { localStorage.setItem(THEME_KEY, t); } catch { /* non-critical */ }
-}
 
 // Resolve a theme to the angle for one fetch (minor alternates each draw).
 function angleFor(theme: PuzzleTheme): string {
@@ -77,6 +86,32 @@ function runEndgamePuzzles(theme: PuzzleTheme, deps: EndgameScreenDeps, onExit: 
   });
 }
 
+// A best-time mark as m:ss.
+function formatTime(ms: number): string {
+  const s = Math.round(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+// A best-time chip for a card's title row (only shown once a time exists).
+function bestTimeChip(ms: number): HTMLElement {
+  const chip = document.createElement('span');
+  chip.className = 'eg-best';
+  chip.appendChild(Icons.clock(13));
+  chip.appendChild(document.createTextNode(formatTime(ms)));
+  chip.setAttribute('aria-label', `Best time ${formatTime(ms)}`);
+  return chip;
+}
+
+// Best guess at a from-games position's category (for the synthesized Endgame).
+function guessCategory(fen: string): EndgameCategory {
+  const board = fen.split(' ')[0];
+  if (/[Qq]/.test(board)) return 'queen';
+  if (/[Rr]/.test(board)) return 'rook';
+  if (/[BbNn]/.test(board)) return 'minor';
+  if (/[Pp]/.test(board)) return 'pawn';
+  return 'mates';
+}
+
 export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps): void {
   host.innerHTML = '';
   const root = document.createElement('div');
@@ -84,22 +119,32 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
   host.appendChild(root);
 
   let firstRender = true;
+  // Imported games for the "From your games" section, loaded once (null = loading).
+  let games: ImportedGame[] | null = null;
+  let loadingGames = false;
+  // Set when a scan bailed because the tablebase was unreachable — a gentle nudge.
+  let lastScanUnreachable = false;
+
+  function ensureGames(): void {
+    if (games !== null || loadingGames) return;
+    loadingGames = true;
+    void getAllGames()
+      .then((g) => { games = g; loadingGames = false; rebuild(); })
+      .catch(() => { games = []; loadingGames = false; rebuild(); });
+  }
 
   const rebuild = (): void => {
     root.innerHTML = '';
     root.appendChild(renderPuzzles(firstRender));
     root.appendChild(renderClassics());
-    root.appendChild(renderFooter());
+    root.appendChild(renderFromGames());
     firstRender = false;
   };
 
   // ── Endgame puzzles ─────────────────────────────────────────────────────────
   function renderPuzzles(animate: boolean): HTMLElement {
-    const section = document.createElement('div');
-    section.className = 'section eg-puzzles';
-
     const hero = document.createElement('div');
-    hero.className = 'card train-hero eg-hero';
+    hero.className = 'card train-hero eg-hero pz-hero';
 
     const stats = document.createElement('div');
     stats.className = 'train-hero-stats';
@@ -107,42 +152,35 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
     stats.appendChild(heroStat('run', getBestCleanStreak('endgame'), 'Best run', animate));
     hero.appendChild(stats);
 
-    // Theme chips.
-    let theme = getTheme();
-    const chips = document.createElement('div');
-    chips.className = 'stats-range pz-segmented eg-theme-row';
-    chips.setAttribute('role', 'tablist');
-    const chipEls: HTMLButtonElement[] = [];
-    for (const t of THEME_ORDER) {
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'stats-range-chip' + (t === theme ? ' stats-range-chip--on' : '');
-      chip.textContent = THEME_LABEL[t];
-      chip.addEventListener('click', () => {
-        theme = t; setTheme(t);
-        for (const c of chipEls) c.classList.remove('stats-range-chip--on');
-        chip.classList.add('stats-range-chip--on');
-      });
-      chipEls.push(chip);
-      chips.appendChild(chip);
-    }
-    hero.appendChild(chips);
-
+    // The wide "all endgames" button.
     const start = document.createElement('button');
     start.type = 'button';
     start.className = 'btn-primary train-hero-start eg-hero-start';
     start.appendChild(Icons.puzzlePiece(18));
     start.appendChild(document.createTextNode('Solve endgame puzzles'));
-    start.addEventListener('click', () => runEndgamePuzzles(theme, deps, rebuild));
+    start.addEventListener('click', () => runEndgamePuzzles('all', deps, rebuild));
     hero.appendChild(start);
+
+    // Piece-symbol shortcuts to each specific theme, on one row.
+    const pieces = document.createElement('div');
+    pieces.className = 'eg-piece-row';
+    for (const { theme, symbol } of SPECIFIC_THEMES) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'eg-piece-btn';
+      btn.textContent = symbol;
+      btn.setAttribute('aria-label', `${THEME_LABEL[theme]} endgames`);
+      btn.addEventListener('click', () => runEndgamePuzzles(theme, deps, rebuild));
+      pieces.appendChild(btn);
+    }
+    hero.appendChild(pieces);
 
     const note = document.createElement('div');
     note.className = 'pz-hero-note';
     note.textContent = `${PUZZLE_COUNT} rated puzzles — a ladder just for endgames`;
     hero.appendChild(note);
 
-    section.appendChild(hero);
-    return section;
+    return hero;
   }
 
   function heroStat(kind: string, value: number, label: string, animate: boolean): HTMLElement {
@@ -161,78 +199,94 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
   }
 
   // ── Classic endgames ────────────────────────────────────────────────────────
-  // Launch a position, chaining "Next endgame" to the next unsolved one anywhere.
-  function launch(eg: Endgame): void {
-    startEndgamePlayout(eg, {
+  // Play a classic, chaining "Next endgame" through the group's items in order.
+  function launchClassic(items: Endgame[], index: number): void {
+    const next = items[index + 1];
+    startEndgamePlayout(items[index], {
       onExit: rebuild,
-      onNext: () => {
-        const next = nextUnsolved();
-        if (next) launch(next); else rebuild();
-      },
+      onNext: next ? () => launchClassic(items, index + 1) : undefined,
     });
-  }
-  function nextUnsolved(): Endgame | undefined {
-    return allEndgames().find((e) => !isEndgameSolved(e.id));
   }
 
   function renderClassics(): HTMLElement {
     const wrap = document.createElement('div');
-    wrap.className = 'section eg-classics';
+    wrap.className = 'eg-classics';
 
+    // Header: title + an (i) toggle that reveals the intro text (Fix 5).
+    const head = document.createElement('div');
+    head.className = 'eg-section-head';
     const title = document.createElement('div');
     title.className = 'section-title section-title--icon';
     title.appendChild(Icons.flag(16));
     title.appendChild(document.createTextNode('Classic endgames'));
-    wrap.appendChild(title);
+    head.appendChild(title);
+    const info = document.createElement('button');
+    info.type = 'button';
+    info.className = 'eg-info-btn';
+    info.appendChild(Icons.info(16));
+    info.setAttribute('aria-label', 'About classic endgames');
+    info.setAttribute('aria-expanded', 'false');
+    head.appendChild(info);
+    wrap.appendChild(head);
 
     const desc = document.createElement('p');
-    desc.className = 'pz-ta-desc';
-    desc.textContent = 'The fundamentals every player should know. Load one and play it out against the engine.';
+    desc.className = 'pz-ta-desc eg-info-text';
+    desc.textContent = 'The fundamentals every player should know. Load one and play it out against the engine — then race your own best time.';
+    desc.hidden = true;
+    info.addEventListener('click', () => {
+      desc.hidden = !desc.hidden;
+      info.setAttribute('aria-expanded', String(!desc.hidden));
+    });
     wrap.appendChild(desc);
 
     const progress = getEndgameProgress();
-    for (const group of endgamesByCategory()) {
-      wrap.appendChild(renderGroup(group, progress));
-    }
+    const groups = endgamesByCategory();
+    groups.forEach((group, i) => wrap.appendChild(renderGroup(group, progress, i === 0)));
     return wrap;
   }
 
-  function renderGroup(group: EndgameGroup, progress: ReturnType<typeof getEndgameProgress>): HTMLElement {
-    const sec = document.createElement('div');
-    sec.className = 'eg-group';
+  function renderGroup(group: EndgameGroup, progress: EndgameProgress, open: boolean): HTMLElement {
+    const details = document.createElement('details');
+    details.className = 'section section--acc eg-acc';
+    if (open) details.open = true;
 
-    const head = document.createElement('div');
-    head.className = 'eg-group-head';
-    const name = document.createElement('div');
-    name.className = 'eg-group-name';
-    name.textContent = group.label;
-    head.appendChild(name);
-    const done = solvedCount(group.items.map((e) => e.id));
-    const count = document.createElement('span');
-    count.className = 'eg-group-count';
-    count.textContent = `${done} / ${group.items.length}`;
-    if (done === group.items.length) count.classList.add('eg-group-count--all');
-    head.appendChild(count);
-    sec.appendChild(head);
+    const summary = document.createElement('summary');
+    summary.className = 'section-title section-summary';
+    const left = document.createElement('span');
+    left.className = 'section-summary-left eg-acc-left';
+    const sym = document.createElement('span');
+    sym.className = 'eg-acc-symbol';
+    sym.textContent = group.symbol;
+    sym.setAttribute('aria-hidden', 'true');
+    left.appendChild(sym);
+    const label = document.createElement('span');
+    label.textContent = group.label;
+    left.appendChild(label);
+    summary.appendChild(left);
+    summary.appendChild(Icons.chevronRight(16));
+    details.appendChild(summary);
 
     const blurb = document.createElement('div');
     blurb.className = 'eg-group-blurb';
     blurb.textContent = group.blurb;
-    sec.appendChild(blurb);
+    details.appendChild(blurb);
 
     const list = document.createElement('div');
     list.className = 'eg-list';
-    for (const eg of group.items) list.appendChild(renderCard(eg, progress[eg.id]?.solved === true));
-    sec.appendChild(list);
-    return sec;
+    // Chain "Next endgame" through this group's items in order.
+    group.items.forEach((eg, i) => {
+      list.appendChild(renderCard(eg, progress[eg.id]?.bestMs, () => launchClassic(group.items, i)));
+    });
+    details.appendChild(list);
+    return details;
   }
 
-  function renderCard(eg: Endgame, solved: boolean): HTMLElement {
+  function renderCard(eg: Endgame, bestMs: number | undefined, onPlay: () => void): HTMLElement {
     const { card, titleRow, content } = buildPositionCard({
       fen: eg.fen,
       orientation: eg.youPlay,
-      className: 'eg-card' + (solved ? ' eg-card--solved' : ''),
-      onMiniClick: () => launch(eg),
+      className: 'eg-card',
+      onMiniClick: onPlay,
       miniLabel: `Play ${eg.name}`,
     });
 
@@ -245,18 +299,7 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
     level.className = `eg-level eg-level--${eg.level}`;
     level.textContent = LEVEL_META[eg.level].label;
     titleRow.appendChild(level);
-    if (solved) {
-      const tick = document.createElement('span');
-      tick.className = 'eg-tick';
-      tick.appendChild(Icons.checkCircle(18));
-      tick.setAttribute('aria-label', 'Solved');
-      titleRow.appendChild(tick);
-    }
-
-    const idea = document.createElement('p');
-    idea.className = 'eg-card-idea';
-    idea.textContent = eg.idea;
-    content.appendChild(idea);
+    if (bestMs) titleRow.appendChild(bestTimeChip(bestMs));
 
     const row = document.createElement('div');
     row.className = 'eg-card-actions';
@@ -268,23 +311,236 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
     play.type = 'button';
     play.className = 'btn-primary eg-play-btn';
     play.appendChild(Icons.play(16));
-    play.appendChild(document.createTextNode(solved ? 'Play again' : 'Play'));
-    play.addEventListener('click', () => launch(eg));
+    play.appendChild(document.createTextNode('Play'));
+    play.addEventListener('click', onPlay);
     row.appendChild(play);
     content.appendChild(row);
 
     return card;
   }
 
-  // ── Teaser for the next round ─────────────────────────────────────────────────
-  function renderFooter(): HTMLElement {
-    const foot = document.createElement('div');
-    foot.className = 'eg-footer';
-    foot.appendChild(Icons.sparkles(15));
-    const txt = document.createElement('span');
-    txt.textContent = 'Coming later: endgames pulled from the games you actually play.';
-    foot.appendChild(txt);
-    return foot;
+  // ── From your games ───────────────────────────────────────────────────────────
+  function renderFromGames(): HTMLElement {
+    const section = document.createElement('div');
+    section.className = 'section eg-fromgames';
+
+    const title = document.createElement('div');
+    title.className = 'section-title section-title--icon';
+    title.appendChild(Icons.sparkles(16));
+    title.appendChild(document.createTextNode('From your games'));
+    section.appendChild(title);
+
+    ensureGames();
+    const gs = games; // narrow the mutable closure var once
+
+    if (gs === null) {
+      const loading = document.createElement('p');
+      loading.className = 'pz-ta-desc';
+      loading.textContent = 'Loading your games…';
+      section.appendChild(loading);
+      return section;
+    }
+
+    if (gs.length === 0) {
+      const msg = document.createElement('p');
+      msg.className = 'pz-ta-desc';
+      msg.textContent = 'Import your games and this finds the endgames you actually reached — play them out against the engine.';
+      section.appendChild(msg);
+      const cta = document.createElement('button');
+      cta.type = 'button';
+      cta.className = 'btn-primary eg-scan-btn';
+      cta.appendChild(Icons.play(16));
+      cta.appendChild(document.createTextNode('Import games'));
+      cta.addEventListener('click', () => deps.onImportGames());
+      section.appendChild(cta);
+      return section;
+    }
+
+    const desc = document.createElement('p');
+    desc.className = 'pz-ta-desc';
+    desc.textContent = 'Endgames you reached in your own games — the ones you let slip come first.';
+    section.appendChild(desc);
+
+    const unscanned = unscannedEndgameCount(gs);
+    if (unscanned > 0) {
+      const scan = document.createElement('button');
+      scan.type = 'button';
+      scan.className = 'btn-primary eg-scan-btn';
+      scan.appendChild(Icons.sparkles(16));
+      scan.appendChild(document.createTextNode(`Scan my games (${unscanned})`));
+      scan.addEventListener('click', () => { void runScan(); });
+      section.appendChild(scan);
+    }
+
+    if (lastScanUnreachable) {
+      const warn = document.createElement('p');
+      warn.className = 'eg-scan-warn';
+      warn.textContent = 'Couldn’t reach the endgame tablebase — connect to the internet and scan again.';
+      section.appendChild(warn);
+    }
+
+    // Ordered spots: the ones you didn't convert first, then most-recent games.
+    const progress = getEndgameProgress();
+    const spots = collectEndgameSpots(gs).sort((a, b) => {
+      if (a.spot.converted !== b.spot.converted) return a.spot.converted ? 1 : -1;
+      return b.game.endTime - a.game.endTime;
+    });
+
+    if (spots.length === 0) {
+      if (unscanned === 0 && !lastScanUnreachable) {
+        const none = document.createElement('p');
+        none.className = 'pz-ta-desc eg-fromgames-none';
+        none.textContent = 'No playable endgames found in your games yet.';
+        section.appendChild(none);
+      }
+      return section;
+    }
+
+    const list = document.createElement('div');
+    list.className = 'eg-list';
+    spots.forEach((ref, i) => {
+      list.appendChild(renderSpotCard(ref, progress, () => launchSpot(spots, i)));
+    });
+    section.appendChild(list);
+    return section;
+  }
+
+  function spotId(ref: EndgameSpotRef): string {
+    return `game:${ref.game.id}:${ref.spot.ply}`;
+  }
+
+  function spotToEndgame(ref: EndgameSpotRef): Endgame {
+    const { game, spot } = ref;
+    return {
+      id: spotId(ref),
+      category: guessCategory(spot.fen),
+      level: spot.outcome === 'win' ? 'intermediate' : 'advanced',
+      name: `vs ${game.opponent}`,
+      fen: spot.fen,
+      youPlay: spot.youPlay,
+      goal: spot.outcome,
+      idea: spot.outcome === 'win'
+        ? 'You had a winning endgame here — can you convert it against best defence?'
+        : 'This was holdable — draw it against best play.',
+    };
+  }
+
+  function launchSpot(ordered: EndgameSpotRef[], index: number): void {
+    const next = ordered[index + 1];
+    startEndgamePlayout(spotToEndgame(ordered[index]), {
+      onExit: rebuild,
+      onNext: next ? () => launchSpot(ordered, index + 1) : undefined,
+    });
+  }
+
+  function renderSpotCard(ref: EndgameSpotRef, progress: EndgameProgress, onPlay: () => void): HTMLElement {
+    const { game, spot } = ref;
+
+    const { card, titleRow, content } = buildPositionCard({
+      fen: spot.fen,
+      orientation: spot.youPlay,
+      className: 'eg-card eg-game-card',
+      onMiniClick: onPlay,
+      miniLabel: `Play your endgame vs ${game.opponent}`,
+    });
+
+    titleRow.appendChild(colourPip(spot.youPlay));
+    const name = document.createElement('span');
+    name.className = 'pcard-title eg-card-name';
+    name.textContent = `vs ${game.opponent}`;
+    titleRow.appendChild(name);
+    if (!spot.converted) {
+      const slip = document.createElement('span');
+      slip.className = 'eg-slip';
+      slip.textContent = 'Let slip';
+      titleRow.appendChild(slip);
+    }
+    const best = progress[spotId(ref)]?.bestMs;
+    if (best) titleRow.appendChild(bestTimeChip(best));
+
+    const row = document.createElement('div');
+    row.className = 'eg-card-actions';
+    const goal = document.createElement('span');
+    goal.className = `eg-goal-chip eg-goal-chip--${spot.outcome}`;
+    goal.textContent = spot.outcome === 'win' ? 'Win' : 'Draw';
+    row.appendChild(goal);
+    const play = document.createElement('button');
+    play.type = 'button';
+    play.className = 'btn-primary eg-play-btn';
+    play.appendChild(Icons.play(16));
+    play.appendChild(document.createTextNode('Play'));
+    play.addEventListener('click', onPlay);
+    row.appendChild(play);
+    content.appendChild(row);
+
+    return card;
+  }
+
+  // ── The scan run + its progress overlay (mirrors mistakes-screen.ts) ──────────
+  async function runScan(): Promise<void> {
+    const ctrl = new AbortController();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'pt-overlay mr-scan-overlay';
+    const card = document.createElement('div');
+    card.className = 'mr-scan-card';
+    overlay.appendChild(card);
+
+    const title = document.createElement('div');
+    title.className = 'mr-scan-title';
+    title.textContent = 'Finding your endgames';
+    card.appendChild(title);
+
+    const pawn = createPawnProgress();
+    card.appendChild(pawn.el);
+
+    const status = document.createElement('div');
+    status.className = 'mr-scan-status';
+    status.textContent = 'Reading your games…';
+    card.appendChild(status);
+
+    const opp = document.createElement('div');
+    opp.className = 'mr-scan-opp';
+    card.appendChild(opp);
+
+    const note = document.createElement('p');
+    note.className = 'mr-scan-note';
+    note.textContent = 'Each game is checked against the Lichess endgame tablebase. Stop anytime — every game finished is saved.';
+    card.appendChild(note);
+
+    const facts = createFactsTicker();
+    card.appendChild(facts.el);
+
+    const stop = document.createElement('button');
+    stop.type = 'button';
+    stop.className = 'btn-secondary mr-scan-stop';
+    stop.textContent = 'Stop & keep progress';
+    stop.addEventListener('click', () => ctrl.abort());
+    card.appendChild(stop);
+
+    document.body.appendChild(overlay);
+    pawn.start();
+    const removeBack = pushBack(() => ctrl.abort());
+
+    const onProgress = (p: EndgameScanProgress): void => {
+      pawn.set(p.gamesDone / Math.max(1, p.gamesTotal));
+      status.textContent =
+        `Game ${p.gamesDone} of ${p.gamesTotal} · ${p.found} ${p.found === 1 ? 'endgame' : 'endgames'} found`;
+      opp.textContent = `vs ${p.opponent}`;
+    };
+
+    try {
+      const result = await scanEndgames({ signal: ctrl.signal, onProgress });
+      lastScanUnreachable = result.unreachable;
+      pawn.done();
+    } finally {
+      facts.stop();
+      removeBack();
+      overlay.remove();
+      // Reload the games so freshly-scanned results show, then repaint.
+      games = null;
+      rebuild();
+    }
   }
 
   rebuild();

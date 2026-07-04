@@ -12234,34 +12234,78 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 /* ── End game screen ─────────────────────────────────────────────────────────
    Two pillars: rated endgame puzzles (a train-hero card) and the Classic
    endgames list (grouped position cards). Deep teal accent, matching the tab. */
-.eg-screen { --eg-accent: #33677a; }
+.eg-screen {
+  --eg-accent: #33677a;
+  /* Match the other training modes: the page pads + gaps itself (like .pz-screen),
+     instead of leaning on the shared .section inset margins (Fix 1). */
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
 [data-theme="dark"] .eg-screen,
 [data-theme="game"] .eg-screen,
 [data-theme="gamer"] .eg-screen { --eg-accent: #6fa8bd; }
 
+/* Neutralise the inset margins .section / .train-hero carry, so the screen's own
+   padding + gap set the frame (mirrors .pz-screen). */
+.eg-screen > .section,
+.eg-screen > .train-hero { margin: 0; }
+
+/* Puzzles hero */
 .eg-hero .train-hero-stats { justify-content: center; gap: var(--space-lg); }
-.eg-theme-row { margin-top: var(--space-sm); flex-wrap: wrap; }
-.eg-hero-start { margin-top: var(--space-md); }
+.eg-hero-start { margin-top: var(--space-md); width: 100%; }
 .eg-hero-start svg { flex: none; }
 
-/* Classic endgames list */
-.eg-classics { margin-top: var(--space-lg); }
-.eg-group { margin-top: var(--space-md); }
-.eg-group-head {
+/* Piece-symbol shortcuts to each specific theme, one row under the wide button. */
+.eg-piece-row {
   display: flex;
-  align-items: baseline;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+.eg-piece-btn {
+  flex: 1;
+  min-height: 46px;
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.eg-piece-btn:active { background: var(--bg-elevated); }
+
+/* Classic endgames — a heading + (i) toggle, then per-theme accordions. */
+.eg-classics { display: flex; flex-direction: column; gap: var(--space-sm); }
+.eg-section-head {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
 }
-.eg-group-name { font-weight: 650; font-size: 0.98rem; color: var(--text); }
-.eg-group-count {
-  font-size: 0.8rem;
-  font-variant-numeric: tabular-nums;
+.eg-info-btn {
+  display: inline-flex;
+  padding: 0.25rem;
+  border: none;
+  background: none;
   color: var(--text-faint);
+  cursor: pointer;
 }
-.eg-group-count--all { color: var(--eg-accent); font-weight: 650; }
+.eg-info-btn svg { flex: none; }
+.eg-info-btn[aria-expanded="true"] { color: var(--eg-accent); }
+.eg-info-text { margin: 0; }
+
+/* Theme accordions: card chrome + accordion padding come from .section--acc; drop
+   the outer .section margin so the .eg-classics flex gap does the spacing. */
+.eg-acc { margin: 0; }
+.eg-acc-symbol {
+  font-size: 1.15rem;
+  line-height: 1;
+  color: var(--eg-accent);
+}
 .eg-group-blurb {
-  margin: 0.1rem 0 var(--space-sm);
+  margin: 0 0 var(--space-sm);
   font-size: 0.82rem;
   color: var(--text-muted);
   line-height: 1.35;
@@ -12269,13 +12313,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .eg-list { display: flex; flex-direction: column; gap: var(--space-sm); }
 
 .eg-card-name { font-weight: 600; }
-.eg-card--solved { border-color: color-mix(in srgb, var(--eg-accent) 45%, var(--border-card)); }
-.eg-card-idea {
-  margin: 0 0 var(--space-sm);
-  font-size: 0.84rem;
-  line-height: 1.4;
-  color: var(--text-muted);
-}
 .eg-card-actions {
   display: flex;
   align-items: center;
@@ -12283,6 +12320,19 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 .eg-play-btn { margin-left: auto; padding-inline: 1rem; }
 .eg-play-btn svg { flex: none; }
+
+/* Best-time mark (Fix 4) — pushed to the right of a card's title row. */
+.eg-best {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.74rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--eg-accent);
+}
+.eg-best svg { flex: none; }
 
 /* Level + goal chips */
 .eg-level {
@@ -12298,8 +12348,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .eg-level--essential { color: #3f7d52; background: rgba(63, 125, 82, 0.14); }
 .eg-level--intermediate { color: #b07a1e; background: rgba(176, 122, 30, 0.14); }
 .eg-level--advanced { color: #a3492e; background: rgba(163, 73, 46, 0.14); }
-.eg-tick { color: var(--eg-accent); display: inline-flex; margin-left: auto; }
-.eg-tick svg { flex: none; }
 
 .eg-goal-chip {
   font-size: 0.72rem;
@@ -12310,20 +12358,36 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .eg-goal-chip--win { color: #3f7d52; background: rgba(63, 125, 82, 0.14); }
 .eg-goal-chip--draw { color: #4a6b86; background: rgba(74, 107, 134, 0.16); }
 
-/* Footer teaser for the next round */
-.eg-footer {
-  display: flex;
+/* From your games (Fix 9) */
+.eg-scan-btn {
+  width: 100%;
+  margin-top: var(--space-sm);
+  min-height: 48px;
+  border-radius: 10px;
+  display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  margin-top: var(--space-lg);
-  padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-md, 12px);
-  background: var(--bg-elevated);
-  color: var(--text-faint);
+  justify-content: center;
+  gap: 0.5rem;
+}
+.eg-scan-btn svg { flex: none; }
+.eg-scan-warn {
+  margin: var(--space-sm) 0 0;
   font-size: 0.8rem;
   line-height: 1.35;
+  color: var(--danger);
 }
-.eg-footer svg { flex: none; color: var(--eg-accent); }
+.eg-fromgames .eg-list { margin-top: var(--space-md); }
+/* "Let slip" tag on a from-games card — you had the result and didn't keep it. */
+.eg-slip {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 0.12rem 0.4rem;
+  border-radius: 999px;
+  color: #a3492e;
+  background: rgba(163, 73, 46, 0.14);
+}
 
 /* Play-out overlay (endgame-playout.ts) */
 .eg-idea { font-size: 0.86rem; line-height: 1.35; }
