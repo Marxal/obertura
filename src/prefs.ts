@@ -114,6 +114,20 @@ export function setShowEngineArrows(on: boolean): void {
   localStorage.setItem(SHOW_ENGINE_ARROWS_KEY, on ? 'on' : 'off');
 }
 
+// The builder/analyser "engine everywhere" toggle (the dock's engine icon). When
+// on, the engine runs on every tab — not just the Engine tab — and its top-3
+// candidate arrows are drawn on the board no matter which tab is showing. OFF by
+// default: it keeps the worker (and battery) busy, so it's an opt-in.
+const ENGINE_EVERYWHERE_KEY = 'obertura.builder.engineEverywhere';
+
+export function getEngineEverywhere(): boolean {
+  return localStorage.getItem(ENGINE_EVERYWHERE_KEY) === 'on';
+}
+
+export function setEngineEverywhere(on: boolean): void {
+  localStorage.setItem(ENGINE_EVERYWHERE_KEY, on ? 'on' : 'off');
+}
+
 // Whether the builder shows Game-Review move classifications — the per-move
 // colour + icon in the move list and the badge on the board. ON by default; the
 // Settings toggle hides them everywhere without discarding the stored grades, so

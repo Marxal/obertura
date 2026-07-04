@@ -13,6 +13,7 @@
 // then a quiet "out of book" indicator stays put.
 
 import { Chess } from 'chess.js';
+import { registerBrushes } from './board-brushes';
 import { Chessground } from 'chessground';
 import type { Key } from 'chessground/types';
 import { Icons } from './icons';
@@ -435,10 +436,12 @@ export function openSpar(opts: SparOptions): void {
 
   // Candidate-arrow brushes: the engine's best line in solid green, the next
   // two progressively fainter; the suggest flash in the accent orange.
-  cg.state.drawable.brushes['eng1'] = { key: 'eng1', color: '#3a9a5c', opacity: 0.9, lineWidth: 11 };
-  cg.state.drawable.brushes['eng2'] = { key: 'eng2', color: '#3a9a5c', opacity: 0.55, lineWidth: 9 };
-  cg.state.drawable.brushes['eng3'] = { key: 'eng3', color: '#3a9a5c', opacity: 0.38, lineWidth: 8 };
-  cg.state.drawable.brushes['flash'] = { key: 'flash', color: '#ff9b21', opacity: 0.95, lineWidth: 12 };
+  registerBrushes(cg, {
+    eng1: { color: '#3a9a5c', opacity: 0.9, lineWidth: 11 },
+    eng2: { color: '#3a9a5c', opacity: 0.55, lineWidth: 9 },
+    eng3: { color: '#3a9a5c', opacity: 0.38, lineWidth: 8 },
+    flash: { color: '#ff9b21', opacity: 0.95, lineWidth: 12 },
+  });
 
   // ── Engine analysis (toggle) + suggest ─────────────────────────────────────
   // The analysis engine drives the eval bar/panel and the candidate arrows. It

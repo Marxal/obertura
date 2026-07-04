@@ -41,7 +41,9 @@ export function askPromotion(
     overlay.className = 'promotion-overlay';
 
     const column = document.createElement('div');
-    column.className = 'promotion-column';
+    // The side class drives each tile's backdrop (dark behind white pieces, light
+    // behind black) so the glyph never washes out against a same-colour tile.
+    column.className = `promotion-column promotion-column--${colour}`;
     column.style.left = `${visualCol * 12.5}%`;
     if (down) column.style.top = '0';
     else { column.style.bottom = '0'; column.classList.add('promotion-column--up'); }

@@ -17,6 +17,7 @@
 // "Play again", "Retry mistakes" and "Done".
 
 import { Chess } from 'chess.js';
+import { registerBrushes } from './board-brushes';
 import { Chessground } from 'chessground';
 import type { Api } from 'chessground/api';
 import type { Key } from 'chessground/types';
@@ -281,7 +282,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     animation: { enabled: true, duration: 200 },
     events: { move(from, to) { onUserMove(from as Key, to as Key); } },
   });
-  cg.state.drawable.brushes['accent'] = { key: 'accent', color: '#ff9b21', opacity: 0.85, lineWidth: 10 };
+  registerBrushes(cg, { accent: { color: '#ff9b21', opacity: 0.85, lineWidth: 10 } });
   const ro = new ResizeObserver(() => cg.redrawAll());
   ro.observe(boardEl);
 

@@ -5,6 +5,7 @@
 // solving overlay in mistake-run.ts.
 
 import { Chessground } from 'chessground';
+import { registerBrushes } from './board-brushes';
 import type { Key } from 'chessground/types';
 import type { ImportedGame } from './import-core';
 import { getAllGames } from './storage';
@@ -294,7 +295,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       animation: { enabled: false },
       drawable: { enabled: false, visible: true },
     });
-    cg.state.drawable.brushes['danger'] = { key: 'danger', color: '#c93636', opacity: 0.8, lineWidth: 10 };
+    registerBrushes(cg, { danger: { color: '#c93636', opacity: 0.8, lineWidth: 10 } });
     cg.setAutoShapes([{
       orig: spot.playedUci.slice(0, 2) as Key,
       dest: spot.playedUci.slice(2, 4) as Key,
