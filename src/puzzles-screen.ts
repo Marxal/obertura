@@ -30,7 +30,7 @@ export interface PuzzlesScreenDeps {
   onImportGames: () => void;
   onBuildLine: () => void;
   onConnectLichess: () => void;
-  // Open a finished puzzle in the full analyser (Engine tab) — wired from
+  // Open a finished puzzle in the full analyser (engine on) — wired from
   // main.ts, which owns the builder + the suspended-session hand-off.
   onAnalysePosition?: (req: AnalyseRequest) => void;
 }

@@ -5877,21 +5877,30 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 
 /* ── Engine eval panel ───────────────────────────────────────────────────────── */
 
-/* The builder's eval bar lives at the top of the Engine slide, so it only shows
-   on that tab. Blended (no boxed strip); collapses when the engine is off. */
+/* The builder/analyser eval bar is DOCKED: it lives inside #builder-dock, just
+   above the control bar, and shows only while the engine is on. The dock grows to
+   make room and the sheet above is anchored to the dock's height, so the board
+   never shifts. A subtle slide-up + fade plays each time it appears. */
+.builder-eval {
+  padding: 6px 12px 4px;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+.builder-eval[hidden] { display: none; }
+.builder-eval--enter {
+  animation: builder-eval-in 0.26s ease both;
+}
+@keyframes builder-eval-in {
+  from { opacity: 0; transform: translateY(9px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Blended (no boxed strip); collapses when the engine is off. */
 #eval-bar-top {
   background: transparent;
-  padding: 2px 2px 8px;
+  padding: 0 0 6px;
 }
 #eval-bar-top:empty,
 #eval-bar-top:has(#eval-bar-wrap[hidden]) {
-  display: none;
-}
-
-/* The Engine tab itself is the on/off switch, so the explicit toggle + label
-   are hidden — only the eval bar, lines and source badge remain. */
-#eval-controls .engine-toggle,
-#eval-controls .engine-label {
   display: none;
 }
 
@@ -6002,52 +6011,20 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   color: var(--text-muted);
 }
 
-/* Builder Engine slide: the source badge ("cloud · d38") gets its own row above
-   the lines, and each of the 3 lines is bigger with its full variation
-   horizontally scrollable rather than truncated with an ellipsis. */
+/* Docked controls row: the 3 best moves fill the left, the source badge and the
+   show/hide-arrows icon sit on the right — all on one line to keep the dock slim. */
 #eval-controls .eval-row {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 6px;
+  gap: 8px;
 }
-#eval-controls .eval-right {
-  order: -1;            /* source badge above the lines */
-  justify-content: flex-start;
+#eval-controls .eval-moves--compact {
+  gap: 5px;
 }
-/* Each candidate reads as its own small, packed card: a recessed surface with
-   the score chip pinned left and the variation scrolling horizontally beside
-   it. Packing them as cards (rather than bare rows) makes the engine's choices
-   more glanceable. */
-#eval-controls .eval-line {
-  align-items: center;
-  gap: 10px;
-  padding: 7px 10px;
+/* Each best move reads as a small tappable card. */
+#eval-controls .eval-move {
   background: var(--bg-parchment);
   border: 1px solid var(--border-card);
-  border-radius: 9px;
-  box-shadow: var(--shadow-card);
+  padding: 3px 5px;
 }
-#eval-controls .eval-line:active {
-  background: var(--accent-soft);
-  transform: translateY(1px);
-}
-#eval-controls .eval-line-score {
-  font-size: 0.9rem;
-  min-width: 3.4em;
-  padding: 1px 7px;
-  border-radius: 999px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  text-align: center;
-}
-#eval-controls .eval-line-pv {
-  font-size: 0.92rem;
-  overflow-x: auto;
-  text-overflow: clip;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-#eval-controls .eval-line-pv::-webkit-scrollbar { display: none; }
 
 /* Move chips: a compact [move][score] column, used for the spar overlay's
    one-row "3 best moves" display (see .eval-moves--compact above). */
@@ -6125,21 +6102,33 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 
 /* Discrete "Show arrows / Hide arrows" toggle, builder Engine tab only. */
+/* Show/hide-arrows control — a compact icon button. Dim when arrows are hidden,
+   lit in the engine's arrow green when they're shown. */
 .eval-arrows-toggle {
-  font-size: 0.6rem;
-  font-weight: 500;
-  color: var(--text-faint);
-  white-space: nowrap;
-  padding: 1px 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: 6px;
   background: none;
+  color: var(--text-faint);
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
 }
 
 .eval-arrows-toggle:hover {
   color: var(--text-muted);
   border-color: var(--text-faint);
+}
+
+.eval-arrows-toggle.is-on {
+  color: #3a9a5c;
+  border-color: #3a9a5c;
+  background: rgba(58, 154, 92, 0.12);
 }
 
 .engine-label {

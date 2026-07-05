@@ -1,9 +1,21 @@
 import type { EvalResult, MoveEval } from './engine';
 import { formatMove } from './notation';
 
+export interface EvalPanelOpts {
+  // Show just the 3 best moves in one fixed-height row (no principal variation)
+  // rather than the richer stacked-PV view. Used by the spar overlay and the
+  // builder's docked eval bar so a longer line can never grow the panel taller
+  // and nudge the board out from under an in-progress drag.
+  compact?: boolean;
+  // Render the on/off switch in the controls row. The builder's docked eval bar
+  // is switched by the dock's engine icon instead, so it hides this (false); the
+  // spar overlay keeps its own inline toggle (the default).
+  showToggle?: boolean;
+}
+
 // The eval display is split across two mount points:
-//   barEl       — the horizontal eval bar + score, sits ABOVE the board.
-//   controlsEl  — the recommended moves + engine toggle, sit BELOW the board.
+//   barEl       — the horizontal eval bar + score.
+//   controlsEl  — the recommended moves (+ optional engine toggle).
 // Clicking a recommended move calls onPlayMove(uci) so it's played on the board.
 export class EvalPanel {
   private barEl: HTMLElement;
@@ -11,11 +23,8 @@ export class EvalPanel {
   private _enabled: boolean;
   private onToggle: (enabled: boolean) => void;
   private onPlayMove: (uci: string) => void;
-  // Compact mounts (e.g. the spar overlay) show just the 3 best moves in one
-  // fixed-height row — no principal variation — so a longer line can never grow
-  // the panel taller and nudge the board out from under an in-progress drag.
-  // The full builder Engine tab keeps the richer stacked-PV view.
   private compact: boolean;
+  private showToggle: boolean;
 
   constructor(
     barEl: HTMLElement,
@@ -23,14 +32,15 @@ export class EvalPanel {
     enabled: boolean,
     onToggle: (enabled: boolean) => void,
     onPlayMove: (uci: string) => void,
-    compact = false,
+    opts: EvalPanelOpts = {},
   ) {
     this.barEl = barEl;
     this.controlsEl = controlsEl;
     this._enabled = enabled;
     this.onToggle = onToggle;
     this.onPlayMove = onPlayMove;
-    this.compact = compact;
+    this.compact = opts.compact ?? false;
+    this.showToggle = opts.showToggle ?? true;
     this.build();
   }
 
@@ -44,22 +54,25 @@ export class EvalPanel {
         <span class="eval-score" id="eval-score">0.0</span>
       </div>`;
 
-    // Bottom: candidate moves on the left, toggle + label on the right.
+    // Bottom: candidate moves on the left, source badge (+ optional toggle) right.
+    const toggle = this.showToggle
+      ? `<label class="engine-toggle" title="Engine analysis">
+            <input type="checkbox" id="engine-cb" ${this._enabled ? 'checked' : ''}>
+            <span class="engine-toggle-track"></span>
+          </label>
+          <span class="engine-label" id="engine-label"></span>`
+      : '';
     this.controlsEl.innerHTML = `
       <div class="eval-row">
         <div class="eval-moves${this.compact ? ' eval-moves--compact' : ''}" id="eval-moves"></div>
         <div class="eval-right">
           <span class="eval-source" id="eval-source"></span>
-          <label class="engine-toggle" title="Engine analysis">
-            <input type="checkbox" id="engine-cb" ${this._enabled ? 'checked' : ''}>
-            <span class="engine-toggle-track"></span>
-          </label>
-          <span class="engine-label" id="engine-label"></span>
+          ${toggle}
         </div>
       </div>`;
 
-    this.controlsEl.querySelector<HTMLInputElement>('#engine-cb')!
-      .addEventListener('change', e => {
+    this.controlsEl.querySelector<HTMLInputElement>('#engine-cb')
+      ?.addEventListener('change', e => {
         this._enabled = (e.target as HTMLInputElement).checked;
         this.syncVisibility();
         this.onToggle(this._enabled);
@@ -94,9 +107,9 @@ export class EvalPanel {
     const barWrap = this.barEl.querySelector<HTMLElement>('#eval-bar-wrap')!;
     const movesEl = this.controlsEl.querySelector<HTMLElement>('#eval-moves')!;
     const sourceEl = this.controlsEl.querySelector<HTMLElement>('#eval-source')!;
-    const labelEl = this.controlsEl.querySelector<HTMLElement>('#engine-label')!;
+    const labelEl = this.controlsEl.querySelector<HTMLElement>('#engine-label');
     barWrap.hidden = !this._enabled;
-    labelEl.textContent = this._enabled ? 'Engine on' : 'Turn on engine';
+    if (labelEl) labelEl.textContent = this._enabled ? 'Engine on' : 'Turn on engine';
     if (!this._enabled) {
       movesEl.innerHTML = '';
       sourceEl.textContent = '';

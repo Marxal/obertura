@@ -79,9 +79,11 @@ let engine!: Engine;
 let evalPanel!: EvalPanel;
 let builderPanels: BuilderPanels | null = null;
 let showEngineArrows = getShowEngineArrows();
-// The dock's engine toggle: when on, the engine runs on every tab and its top-3
-// arrows are drawn regardless of which tab is showing (not just the Engine tab).
-let engineEverywhere = getEngineEverywhere();
+// The dock's engine toggle (the chip icon in the builder/analyser bottom bar).
+// When on, the engine runs, the docked eval bar shows above the bottom bar with
+// the top-3 candidate moves, its arrows are drawn on the board, and the played
+// moves get their game-review marks. Persisted so it survives a reload.
+let engineOn = getEngineEverywhere();
 let lastEngineResult: EvalResult | null = null;
 
 function legalDests(): Map<Key, Key[]> {
@@ -398,8 +400,9 @@ function moveSpan(node: MoveNode, activeId: string): HTMLElement {
   // Game-review / live-analysis grade in the notation: just the class colour
   // tint (no badge glyph — icons in the strip made the moves read too far
   // apart; the badge still shows on the board square and in the summary table).
-  // The error moves keep a stronger wash so mistakes still stand out.
-  if (node.classification && getShowMoveClassifications()) {
+  // The error moves keep a stronger wash so mistakes still stand out. Shown when
+  // the Settings toggle is on, or whenever the engine is on (it's analysing anyway).
+  if (node.classification && (getShowMoveClassifications() || engineOn)) {
     span.classList.add(`class--${node.classification}`);
     span.title = CLASS_LABEL[node.classification];
   }
@@ -419,9 +422,9 @@ function moveSpan(node: MoveNode, activeId: string): HTMLElement {
 }
 
 // The move list is mirrored under several carousel slides — the Line tab plus
-// the Engine / Library / My-lines panels (item 2). One render fills them all, so
-// game-review colours show wherever you are without leaving the panel.
-const MOVE_LIST_MOUNTS = ['move-list', 'move-list-engine', 'move-list-library', 'move-list-games'];
+// the Library / My-lines panels. One render fills them all, so game-review
+// colours show wherever you are without leaving the panel.
+const MOVE_LIST_MOUNTS = ['move-list', 'move-list-library', 'move-list-games'];
 
 function renderMoveList() {
   for (const id of MOVE_LIST_MOUNTS) {
@@ -643,15 +646,15 @@ function mountSessionReturnChip(): void {
 }
 
 // A puzzle's "Analyse position" (puzzle-run) routes here: lay the puzzle's game
-// plus its full solution on the analyser board, land straight on the Engine tab
-// at the position the solver faced, and suspend the puzzle session behind the
-// "Back to train" chip exactly like the mistake drill's hand-off.
+// plus its full solution on the analyser board with the engine on (eval bar +
+// candidate arrows) at the position the solver faced, and suspend the puzzle
+// session behind the "Back to train" chip exactly like the mistake drill's hand-off.
 function openPuzzleFromSession(req: PuzzleAnalyseRequest): void {
   suspendedSession = { resume: req.onReturn, discard: req.onDiscard };
   buildFromUcis(req.ucis, req.colour, [], { description: req.label, analyser: true });
   analyserGameId = null; // no backing game record — Save falls back to Save line
   savedSnapshot = builderSnapshot();
-  pendingBuilderSlide = ENGINE_SLIDE;
+  pendingEngineOn = true;
   showView('builder');
   mountSessionReturnChip();
   const target = mainline().find(n => n.fen === req.atFen);
@@ -853,7 +856,7 @@ function refreshLineAnalysis(): void {
   if (!host) return;
   const nodes = mainline();
   const isImportedGame = builderDesc.startsWith('vs ');
-  if (!isImportedGame || !getShowMoveClassifications() || !hasReview(nodes)) {
+  if (!isImportedGame || !(getShowMoveClassifications() || engineOn) || !hasReview(nodes)) {
     host.hidden = true;
     host.innerHTML = '';
     return;
@@ -872,18 +875,22 @@ function refreshLineAnalysis(): void {
 // and jumps to one on tap. The board sits ABOVE the carousel and is a fixed
 // square, so swiping slides never moves it.
 
-// Carousel slide indices: 0 Line, 1 Engine, 2 Library, 3 My games, 4 Scouting.
-const LIBRARY_SLIDE = 2;
-const ENGINE_SLIDE = 1;
-const SCOUTING_SLIDE = 4;
+// Carousel slide indices: 0 Line, 1 Library, 2 My games, 3 Scouting. (The engine
+// is no longer a tab — it's the dock's engine icon and its docked eval bar.)
+const LIBRARY_SLIDE = 1;
+const SCOUTING_SLIDE = 3;
 let activeSlide = 0;
 // When opening the builder from an external link, the tab to land on (and an
 // opponent to preselect on the Scouting tab). Consumed in showView('builder').
 let pendingBuilderSlide: number | null = null;
 let pendingScoutOpponentId: string | null = null;
+// When opening the builder to analyse (e.g. a puzzle's "Analyse position", or
+// Train's "Build with engine"), turn the engine on once we've landed.
+let pendingEngineOn = false;
 
-// React to the active slide changing (by tap or swipe): repaint the tabs and,
-// on the Engine slide, turn the engine on by default so it's ready without a tap.
+// React to the active slide changing (by tap or swipe): repaint the tabs. The
+// engine is no longer tied to a tab — it follows the dock's engine toggle
+// (engineOn), so switching slides never starts or stops it.
 function onActiveSlide(index: number): void {
   document.querySelectorAll<HTMLElement>('#builder-slide-tabs .slide-tab').forEach(tab => {
     const on = Number(tab.dataset.slide) === index;
@@ -893,43 +900,40 @@ function onActiveSlide(index: number): void {
   if (index === activeSlide) return;
   activeSlide = index;
   builderPanels?.setActiveSlide(index);
-  // The engine runs while its tab is showing OR while the dock's "engine
-  // everywhere" toggle is on — the latter keeps it live on every tab so its
-  // arrows never go stale when you leave the Engine tab.
-  if (evalPanel) evalPanel.setEnabled(index === ENGINE_SLIDE || engineEverywhere);
-  // Repaint the board overlays for the new slide: the move's grade badge shows
-  // on every tab, and the engine arrows ride alongside it on the Engine tab.
+  // Keep the engine (and its docked eval bar) in sync with the persistent toggle
+  // — it was stopped when we left the builder, so re-arm it on the way back in.
+  if (evalPanel) evalPanel.setEnabled(engineOn);
+  // Repaint the board overlays for the new slide (the active move's grade badge,
+  // plus the engine arrows when the engine is on).
   if (cg) refreshBoardShapes();
 }
 
 // Repaint the analyser's board overlays in ONE pass: the active move's
-// game-review badge AND, on the Engine tab, the engine's top-3 candidate
-// arrows. Both live in chessground's single autoshapes list, so they must be
-// drawn together — doing them in separate setAutoShapes calls made the last one
-// wipe the other, which is why the Engine tab used to lose its move badge to the
-// arrows. The badge disc rides ABOVE the piece (a customSvg autoshape); its
+// game-review badge AND, while the engine is on, its top-3 candidate arrows.
+// Both live in chessground's single autoshapes list, so they must be drawn
+// together — doing them in separate setAutoShapes calls made the last one wipe
+// the other. The badge disc rides ABOVE the piece (a customSvg autoshape); its
 // square wash sits BELOW the piece (a custom highlight) so the piece keeps its
 // own colour.
 function refreshBoardShapes(): void {
   if (!cg) return;
   const shapes: DrawShape[] = [];
 
-  // 1. The active move's grade badge — shown on every slide now, the Engine tab
-  //    included, so live analysis still tells you how the played move graded.
+  // 1. The active move's grade badge — shown whenever the Settings toggle is on
+  //    or the engine is on (it's analysing anyway), so a played move's grade is
+  //    visible on any slide.
   const node = getCurrentNode();
-  const showBadge = getShowMoveClassifications()
+  const showBadge = (getShowMoveClassifications() || engineOn)
     && node.id !== 'root' && !!node.classification && !!node.uci;
   const fromSq = showBadge ? (node.uci.slice(0, 2) as Key) : null;
   const toSq = showBadge ? (node.uci.slice(2, 4) as Key) : null;
   if (toSq) shapes.push({ orig: toSq, customSvg: classBoardSvg(node.classification!) });
 
-  // 2. The engine's candidate arrows. Shown when the engine is on and its result
-  //    still matches the live position (engine replies can lag a move behind).
-  //    Scope: the whole board when the dock's "engine everywhere" toggle is on;
-  //    otherwise just the Engine tab, and only if its arrows toggle is on.
+  // 2. The engine's candidate arrows. Shown when the engine is on, its arrows
+  //    toggle is on, and its result still matches the live position (engine
+  //    replies can lag a move behind).
   const result = lastEngineResult;
-  const wantEngineArrows = engineEverywhere
-    || (activeSlide === ENGINE_SLIDE && showEngineArrows);
+  const wantEngineArrows = engineOn && showEngineArrows;
   if (wantEngineArrows && engine && engine.isEnabled
       && result && result.fen === chess.fen()) {
     const brushes = ['eng1', 'eng2', 'eng3'];
@@ -940,6 +944,35 @@ function refreshBoardShapes(): void {
 
   cg.setAutoShapes(shapes);
   setReviewSquares(fromSq, toSq, showBadge ? node.classification! : undefined);
+}
+
+// Reflect the engine toggle's state on the dock's engine icon (highlighted +
+// aria-pressed when on).
+function updateEngineDockBtn(): void {
+  const btn = document.getElementById('builder-engine');
+  if (!btn) return;
+  btn.classList.toggle('bar-btn--on', engineOn);
+  btn.setAttribute('aria-pressed', String(engineOn));
+}
+
+// Turn the engine on/off from the dock's engine icon. On: reveal the docked eval
+// bar (top-3 moves + arrows) with its entrance animation, and — since the engine
+// is analysing anyway — grade the moves so their game-review marks show. Off:
+// hide the eval bar and stop live grading (the grades we have are kept). The
+// choice is persisted so it survives leaving the builder and reloading.
+function setEngineOn(on: boolean): void {
+  engineOn = on;
+  setEngineEverywhere(on);
+  updateEngineDockBtn();
+  evalPanel.setEnabled(on);            // fires the eval panel's onToggle (engine + eval bar)
+  if (on) {
+    engine.evaluate(chess.fen());
+    if (!liveAnalysis) void runGameReview();  // grade ungraded moves; idempotent if all graded
+  } else if (liveAnalysis) {
+    if (reviewAbort) { reviewAbort.abort(); reviewAbort = null; }
+    setLiveAnalysis(false);
+  }
+  refreshBoardShapes();
 }
 
 // Paint (or clear) the review wash on BOTH squares of the graded move — its from
@@ -955,13 +988,12 @@ function setReviewSquares(from: Key | null, to: Key | null, cls?: string): void 
 }
 
 // Show or hide the builder's Scouting tab (and its slide) to match the Settings
-// toggle. With scouting off the carousel has four tabs — Line / Library / My
-// games / Engine — and the other slides keep their indices, so nothing else
-// shifts. Opponents stay in storage; flipping the toggle back brings the tab
-// straight back.
+// toggle. With scouting off the carousel has three tabs — Line / Library / My
+// games — and the other slides keep their indices, so nothing else shifts.
+// Opponents stay in storage; flipping the toggle back brings the tab straight back.
 function syncScoutingTab(): void {
   const enabled = getScoutingEnabled();
-  const tab = document.querySelector<HTMLElement>('#builder-slide-tabs .slide-tab[data-slide="4"]');
+  const tab = document.querySelector<HTMLElement>('#builder-slide-tabs .slide-tab[data-slide="3"]');
   const slide = document.getElementById('slide-scouting');
   if (tab) tab.hidden = !enabled;
   if (slide) slide.hidden = !enabled;
@@ -1787,10 +1819,14 @@ function startNewLine(colour: 'white' | 'black'): void {
 
 // Open the builder on a specific carousel tab (e.g. an external "browse the
 // opening library" link lands straight on the Library tab). `fresh` starts a new
-// empty line of `colour` first.
-function openBuilderTab(slide: number, opts: { fresh?: boolean; colour?: 'white' | 'black' } = {}): void {
+// empty line of `colour` first; `engine` turns the engine on once landed.
+function openBuilderTab(
+  slide: number,
+  opts: { fresh?: boolean; colour?: 'white' | 'black'; engine?: boolean } = {},
+): void {
   if (opts.fresh) clearBuilder(opts.colour ?? 'white');
   pendingBuilderSlide = slide;
+  if (opts.engine) pendingEngineOn = true;
   showView('builder');
 }
 
@@ -2246,7 +2282,7 @@ function renderTrainTabbed(host: HTMLElement): void {
         onImportGames: () => showView('games'),
         onAddStarterLine: addStarterLine,
         onBrowseLibrary: () => openBuilderTab(LIBRARY_SLIDE, { fresh: true, colour: 'white' }),
-        onBuildWithEngine: () => openBuilderTab(ENGINE_SLIDE, { fresh: true, colour: 'white' }),
+        onBuildWithEngine: () => openBuilderTab(0, { fresh: true, colour: 'white', engine: true }),
         onSetFabVisible: (visible) => fabController?.setVisible(visible),
       });
       pendingTrainLineId = null;
@@ -2392,6 +2428,9 @@ function showView(view: ViewName): void {
     if (track) track.scrollLeft = slide * track.clientWidth;
     activeSlide = -1;
     onActiveSlide(slide);
+    // A hand-off that asked to analyse (a puzzle's "Analyse position", Train's
+    // "Build with engine") turns the engine on now that the board is up.
+    if (pendingEngineOn) { pendingEngineOn = false; setEngineOn(true); }
     // Always land with the board in view and the sheet collapsed to default — a
     // prior visit may have left it pulled up over the board.
     window.scrollTo(0, 0);
@@ -3103,10 +3142,11 @@ maybeShowGate(() => requestAnimationFrame(() => {
   });
   evalPanel = new EvalPanel(
     document.getElementById('eval-bar-top')!,
-    // Eval bar + engine lines both live in the Engine slide, so they only show
-    // on that tab. The engine is driven by the tab (no on/off toggle here).
     document.getElementById('eval-controls')!,
-    engine.isEnabled,
+    // Starts disabled: the engine is armed by the dock icon (setEngineOn) or, on
+    // a builder that opens with it already on, by onActiveSlide — both go through
+    // setEnabled, whose onToggle reveals the docked eval bar.
+    false,
     (enabled) => {
       if (enabled) {
         engine.enable();
@@ -3115,56 +3155,53 @@ maybeShowGate(() => requestAnimationFrame(() => {
         engine.disable();
         evalPanel.clear();
       }
-      // The eval bar shows/hides with the engine inside the slide; re-sync
-      // chessground's bounds and re-fit the sheet just in case.
+      // Reveal / hide the docked eval bar (it sits above the bottom bar). A subtle
+      // entrance animation replays each time it appears — restarted by forcing a
+      // reflow between removing and re-adding the class.
+      const dock = document.getElementById('builder-eval');
+      if (dock) {
+        dock.hidden = !enabled;
+        if (enabled) {
+          dock.classList.remove('builder-eval--enter');
+          void dock.offsetWidth;
+          dock.classList.add('builder-eval--enter');
+        }
+      }
+      // The dock's height changed, so re-sync chessground's bounds and re-fit the
+      // sheet (its height is anchored to the dock's height).
       cg.redrawAll();
       requestAnimationFrame(layoutBuilderSheet);
     },
     (uci) => playUci(uci),
+    { compact: true, showToggle: false },
   );
-  // The dock's engine toggle (the chip icon next to Analyse). Flips "engine
-  // everywhere": the engine runs on every tab and its top-3 arrows are drawn no
-  // matter which tab is showing — not just the Engine tab. Present in both the
+
+  // The dock's engine icon is the one on/off switch for the engine, in both the
   // board builder and the game analyser (they share this dock).
   const engineDockBtn = document.getElementById('builder-engine') as HTMLButtonElement | null;
-  const updateEngineDockBtn = (): void => {
-    if (!engineDockBtn) return;
-    engineDockBtn.classList.toggle('bar-btn--on', engineEverywhere);
-    engineDockBtn.setAttribute('aria-pressed', String(engineEverywhere));
-  };
-  engineDockBtn?.addEventListener('click', () => {
-    engineEverywhere = !engineEverywhere;
-    setEngineEverywhere(engineEverywhere);
-    updateEngineDockBtn();
-    // Turning it on keeps the engine live off-tab; turning it off drops the
-    // engine unless the Engine tab is showing (that tab drives it on its own).
-    evalPanel.setEnabled(engineEverywhere || activeSlide === ENGINE_SLIDE);
-    if (engineEverywhere) engine.evaluate(chess.fen());
-    refreshBoardShapes();
-  });
+  engineDockBtn?.addEventListener('click', () => setEngineOn(!engineOn));
   updateEngineDockBtn();
 
-  // Boot the engine if it was left enabled, or the dock toggle keeps it live on
-  // every tab. setEnabled syncs the eval panel's checkbox/bar; the evaluate seeds
-  // the first result so arrows appear without waiting for a move.
-  if (engine.isEnabled || engineEverywhere) {
-    evalPanel.setEnabled(true);
-    engine.enable();
-    engine.evaluate(chess.fen());
-  }
-
-  // Discrete "Show arrows / Hide arrows" toggle, sat right next to the source
-  // badge (e.g. "local · d20"). The engine itself is switched on/off by the tab;
-  // this only controls whether its top-3 suggestions are drawn on the board.
+  // Discrete show/hide-arrows toggle, sat right next to the source badge (e.g.
+  // "local · d20"). An icon (rather than a text button) keeps the docked row
+  // roomy. It only controls whether the engine's top-3 arrows are drawn.
   const evalSourceEl = document.getElementById('eval-source')!;
   const arrowsToggleBtn = document.createElement('button');
   arrowsToggleBtn.type = 'button';
   arrowsToggleBtn.className = 'eval-arrows-toggle';
-  arrowsToggleBtn.textContent = showEngineArrows ? 'Hide arrows' : 'Show arrows';
+  arrowsToggleBtn.appendChild(Icons.moveArrow(15));
+  const syncArrowsBtn = (): void => {
+    arrowsToggleBtn.classList.toggle('is-on', showEngineArrows);
+    arrowsToggleBtn.setAttribute('aria-pressed', String(showEngineArrows));
+    const label = showEngineArrows ? 'Hide engine arrows' : 'Show engine arrows';
+    arrowsToggleBtn.setAttribute('aria-label', label);
+    arrowsToggleBtn.title = label;
+  };
+  syncArrowsBtn();
   arrowsToggleBtn.addEventListener('click', () => {
     showEngineArrows = !showEngineArrows;
     setShowEngineArrows(showEngineArrows);
-    arrowsToggleBtn.textContent = showEngineArrows ? 'Hide arrows' : 'Show arrows';
+    syncArrowsBtn();
     refreshBoardShapes();
   });
   evalSourceEl.insertAdjacentElement('afterend', arrowsToggleBtn);

@@ -464,7 +464,7 @@ export function openSpar(opts: SparOptions): void {
       cg.redrawAll();
     },
     (uci) => { playMyMove(uci); },
-    true, // compact: one row of best moves, no PV — see eval-panel.ts
+    { compact: true }, // one row of best moves, no PV — see eval-panel.ts
   );
 
   let suggestEngine: SuggestEngine | null = null; // created lazily on first use

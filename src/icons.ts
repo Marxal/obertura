@@ -46,6 +46,8 @@ export const Icons = {
   chevronRight: (s?: number) => svg(`<path d="m9 18 6-6-6-6"/>`, s),
   chevronDown: (s?: number) => svg(`<path d="m6 9 6 6 6-6"/>`, s),
   eye:      (s?: number) => svg(`<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>`, s),
+  // Show/hide the engine's suggestion arrows — a single up-right move arrow.
+  moveArrow: (s?: number) => svg(`<path d="M7 17 17 7"/><path d="M8 7h9v9"/>`, s),
   flip:     (s?: number) => svg(`<path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/>`, s),
   download: (s?: number) => svg(`<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>`, s),
   // The "connect" mark — Lucide link-2 (a broken chain rejoining).

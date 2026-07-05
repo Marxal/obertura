@@ -8,8 +8,8 @@
 //   Games   — what the user actually played next in their imported games, with
 //             the W/D/L split, drawn with the same wdl row as the board browser.
 //
-// The Engine slide is handled elsewhere: it's the EvalPanel's controls mounted
-// into #slide-engine, so it needs nothing here.
+// The engine is no longer a carousel slide — it's the dock's engine icon and a
+// docked eval bar (see main.ts), so it needs nothing here.
 
 import { Chess } from 'chess.js';
 import { nameForFen } from './openings';
@@ -59,8 +59,8 @@ export interface BuilderPanels {
   setActiveSlide(index: number): void; // which carousel slide is showing
 }
 
-const LIBRARY_SLIDE = 2;
-const SCOUTING_SLIDE = 4;
+const LIBRARY_SLIDE = 1;
+const SCOUTING_SLIDE = 3;
 
 export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   let book: BookNode | null = null;

@@ -57,7 +57,7 @@ export interface PuzzleResult {
 
 // What "Analyse position" hands the app: the puzzle's game + solution as a UCI
 // list for the analyser board, the position the solver faced (to open at, with
-// the Engine tab up), and the resume/discard hooks for the suspended session —
+// the engine on), and the resume/discard hooks for the suspended session —
 // the same shape as the mistake drill's OpenGameCtx hand-off.
 export interface AnalyseRequest {
   ucis: string[];
@@ -72,7 +72,7 @@ export interface PuzzleSessionOptions {
   // Draw the next puzzle to present, or null when none is available. Receives the
   // running solved count so the caller can ramp difficulty (Time Attack).
   nextPuzzle: (ctx: { solved: number }) => Promise<PuzzleDraw | null>;
-  // Open the finished puzzle in the full analyser (Engine tab). When set, a
+  // Open the finished puzzle in the full analyser (engine on). When set, a
   // discrete "Analyse position" appears under Next once a puzzle is done.
   onAnalysePosition?: (req: AnalyseRequest) => void;
   // How the session ends.
@@ -628,8 +628,8 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   }
 
   // ── Suspend for the full analyser (mirrors mistake-run's hand-off) ──────────
-  // The overlay hides with the session state intact while the analyser opens on
-  // the Engine tab at the puzzle position; "Back to train" resumes right here,
+  // The overlay hides with the session state intact while the analyser opens at
+  // the puzzle position with the engine on; "Back to train" resumes right here,
   // navigating anywhere else discards the session cleanly.
   function suspendForAnalysis(): void {
     if (!opts.onAnalysePosition || !draw) return;
