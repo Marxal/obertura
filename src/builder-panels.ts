@@ -33,16 +33,20 @@ import { isConnected, connect, disconnect, getAccessToken, stashReturn } from '.
 import { getExplorerDb, setExplorerDb } from './prefs';
 import { showDialog } from './dialog';
 import { platformLabel } from './board-explorer';
+import { createContentPanel } from './content-panel';
 import type { ImportedGame } from './import-core';
 
 export interface BuilderPanelsDeps {
   libraryEl: HTMLElement;
   gamesEl: HTMLElement;
   scoutingEl: HTMLElement;
+  contentEl: HTMLElement;           // the Learn slide's section
   getSans: () => string[];          // SAN path to the current cursor node
   getUcis: () => string[];          // UCI path to the current cursor node
+  getFens: () => string[];          // FEN of every position along that path
   getFen: () => string;             // FEN of the current position
   getColour: () => 'white' | 'black';
+  isAnalyser: () => boolean;        // analyser mode (flips the Learn tab's copy)
   onPlay: (uci: string) => void;    // play this move onto the line
   onImportGames: () => void;        // My games empty state → import your games
   onImportOpponent: () => void;     // Scouting → import a new opponent
@@ -60,7 +64,8 @@ export interface BuilderPanels {
 }
 
 const LIBRARY_SLIDE = 1;
-const SCOUTING_SLIDE = 3;
+const CONTENT_SLIDE = 3;
+const SCOUTING_SLIDE = 4;
 
 export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   let book: BookNode | null = null;
@@ -69,6 +74,16 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   let opponents: Opponent[] | null = null;
   let selectedOppId: string | null = null;       // null → show the opponents list
   let activeSlide = 0;
+  // The Learn slide is its own small component: it tracks dirty/active state
+  // internally so the every-move render() can never trigger network chatter
+  // while it's hidden.
+  const contentPanel = createContentPanel({
+    el: deps.contentEl,
+    getSans: deps.getSans,
+    getFens: deps.getFens,
+    getFen: deps.getFen,
+    isAnalyser: deps.isAnalyser,
+  });
   // Which Lichess explorer database the Library slide draws its stats from.
   // Remembered across sessions; the toggle at the top of the slide flips it.
   let explorerDb: ExplorerDb = getExplorerDb();
@@ -645,7 +660,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   }
 
   return {
-    render() { renderLibrary(); renderGames(); renderScouting(); },
+    render() { renderLibrary(); renderGames(); renderScouting(); contentPanel.render(); },
     reload() { loadGames(); },
     reloadLines() { loadLines(); },
     reloadOpponents() { loadOpponents(); },
@@ -656,6 +671,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
       // Entering the Library slide: repaint so its explorer bars fetch now.
       if (index === LIBRARY_SLIDE) renderLibrary();
       if (index === SCOUTING_SLIDE) renderScouting();
+      contentPanel.setActive(index === CONTENT_SLIDE);
     },
   };
 }

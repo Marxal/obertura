@@ -899,10 +899,12 @@ function refreshLineAnalysis(): void {
 // and jumps to one on tap. The board sits ABOVE the carousel and is a fixed
 // square, so swiping slides never moves it.
 
-// Carousel slide indices: 0 Line, 1 Library, 2 My games, 3 Scouting. (The engine
-// is no longer a tab — it's the dock's engine icon and its docked eval bar.)
+// Carousel slide indices: 0 Line, 1 Library, 2 My games, 3 Learn, 4 Scouting.
+// (The engine is no longer a tab — it's the dock's engine icon and its docked
+// eval bar.) Scouting must stay LAST: it's the one slide Settings can hide, and
+// the scroll-position→index math only tolerates hiding the final slide.
 const LIBRARY_SLIDE = 1;
-const SCOUTING_SLIDE = 3;
+const SCOUTING_SLIDE = 4;
 let activeSlide = 0;
 // When opening the builder from an external link, the tab to land on (and an
 // opponent to preselect on the Scouting tab). Consumed in showView('builder').
@@ -920,6 +922,9 @@ function onActiveSlide(index: number): void {
     const on = Number(tab.dataset.slide) === index;
     tab.classList.toggle('slide-tab--on', on);
     tab.setAttribute('aria-selected', String(on));
+    // With five tabs the strip can overflow on narrow phones — keep the active
+    // one in view. block:'nearest' stops the page itself from jumping.
+    if (on) tab.scrollIntoView({ inline: 'nearest', block: 'nearest' });
   });
   if (index === activeSlide) return;
   activeSlide = index;
@@ -1013,12 +1018,15 @@ function setReviewSquares(from: Key | null, to: Key | null, cls?: string): void 
 }
 
 // Show or hide the builder's Scouting tab (and its slide) to match the Settings
-// toggle. With scouting off the carousel has three tabs — Line / Library / My
-// games — and the other slides keep their indices, so nothing else shifts.
+// toggle. With scouting off the carousel has four tabs — Line / Library / My
+// games / Learn — and the other slides keep their indices, so nothing else
+// shifts (this only works because Scouting is the LAST slide).
 // Opponents stay in storage; flipping the toggle back brings the tab straight back.
 function syncScoutingTab(): void {
   const enabled = getScoutingEnabled();
-  const tab = document.querySelector<HTMLElement>('#builder-slide-tabs .slide-tab[data-slide="3"]');
+  const tab = document.querySelector<HTMLElement>(
+    `#builder-slide-tabs .slide-tab[data-slide="${SCOUTING_SLIDE}"]`,
+  );
   const slide = document.getElementById('slide-scouting');
   if (tab) tab.hidden = !enabled;
   if (slide) slide.hidden = !enabled;
@@ -3261,10 +3269,13 @@ maybeShowGate(() => requestAnimationFrame(() => {
     libraryEl: document.getElementById('slide-library-content')!,
     gamesEl: document.getElementById('slide-games-content')!,
     scoutingEl: document.getElementById('slide-scouting')!,
+    contentEl: document.getElementById('slide-learn')!,
     getSans: currentPathSans,
     getUcis: currentPathUcis,
+    getFens: currentPathFens,
     getFen: () => chess.fen(),
     getColour: () => saveColour,
+    isAnalyser: () => builderMode === 'analyser',
     onPlay: (uci) => playUci(uci),
     // My games empty-state import button.
     onImportGames: () => openImportPanel({

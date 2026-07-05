@@ -1,0 +1,4 @@
+{
+  "_readme": "Hand-picked learning content, pinned first in the builder's Learn tab and in Explore → Learn. Add entries by telling Claude Code e.g. 'pin this video to the Sicilian: <link>'. match: an opening name or family prefix, case-insensitive — the longest matching entry wins. videos: YouTube {id, title, channel}. studies: Lichess {url, title}. note: one short line shown above the pins.",
+  "families": []
+}

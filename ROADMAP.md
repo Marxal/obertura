@@ -473,6 +473,39 @@ _On `claude/endgame-training-module-tm2n1n`. Restore point: `v0.4`._
 
 ---
 
+## v0.11 — learn-the-opening round 🔜
+
+Content for the opening on the board, everywhere you build or review. Research
+first confirmed what's free and browser-callable: Wikibooks' *Chess Opening
+Theory* (the book Lichess shows, CORS-friendly), Lichess study search and
+opening pages (deep links only — no JSON API), and YouTube (deep link keyless,
+Data API v3 behind an optional free key). Dead ends checked and skipped:
+Lichess's video library (empty), study topic pages, keyless YouTube APIs.
+
+- ✅ **Learn tab in the builder & analyser** — a new carousel slide (before
+  Scouting; one shared implementation since both modes are one carousel). Names
+  the opening via the offline database, falling back to the deepest *named*
+  position when the line runs past theory, with an honest "named theory ends at
+  move N" note. Shows the Wikibooks theory text for the exact move path
+  (ancestor-batched lookup, transposition redirects honoured, CC BY-SA credit,
+  fails soft offline), plus one-tap links: search YouTube, search Lichess
+  studies, open the Lichess opening page — and a permanent **"this exact
+  position"** row (Lichess analysis at the FEN + searches built from the
+  numbered moves). Strict fetch discipline: nothing fires while the slide is
+  hidden; visible, it debounces to at most one Wikibooks request per pause.
+- ✅ **Explore → Learn** — your saved lines grouped by opening family, each with
+  the same content shortcuts; hand-picked pins from `src/content-curated.json`
+  (fed via chat, pinned first in both surfaces).
+- ✅ **Optional YouTube previews** — paste a free referrer-locked API key in
+  Settings → Learning content (guide: `YOUTUBE-SETUP.md`) and the Videos
+  section upgrades to in-app thumbnail cards; without a key (or on any
+  error/quota) it stays a one-tap search button. Results cached a week per
+  opening name, so the ~100/day free quota never bites.
+
+_On `claude/board-content-tab-uu55k7`. Restore point: `v0.4`._
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on
