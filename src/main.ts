@@ -53,6 +53,7 @@ import { createPawnProgress, type PawnProgress } from './import-progress';
 import { askPromotion } from './promotion';
 import { initBackNav, setViewBack, pushBack } from './back-nav';
 import { showDialog } from './dialog';
+import { platformLabel } from './board-explorer';
 import { openImportPanel, getGamesSource, IDENTITY_CHANGED_EVENT } from './import-panel';
 import { maybeShowIntro } from './onboarding';
 import { openStarterPackPicker } from './onboarding-starter';
@@ -202,11 +203,29 @@ let builderDesc = '';
 
 function renderBuilderDesc(): void {
   const el = document.getElementById('builder-desc')!;
+  el.replaceChildren();
   const text = builderDesc.trim();
-  // In the analyser, show the game date next to "vs <opponent>".
-  const full = text && builderGameDate ? `${text} · ${builderGameDate}` : (text || builderGameDate);
-  el.textContent = full;
-  el.hidden = full.length === 0;
+  // In the analyser, "vs <opponent>" gains the opponent's rating (if known) and
+  // the game date: "vs Magnus (2830) · 5 Jan 2026".
+  const head = text && builderGameRating ? `${text} (${builderGameRating})` : text;
+  const meta = [head, builderGameDate].filter(Boolean).join(' · ');
+  if (meta) {
+    const span = document.createElement('span');
+    span.className = 'builder-desc-meta';
+    span.textContent = meta;
+    el.appendChild(span);
+  }
+  // A link back to the original game on its platform (chess.com / lichess).
+  if (builderGameUrl) {
+    const a = document.createElement('a');
+    a.className = 'builder-desc-link';
+    a.href = builderGameUrl;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.textContent = `View on ${platformLabel(builderGameUrl)} ↗`;
+    el.appendChild(a);
+  }
+  el.hidden = !meta && !builderGameUrl;
 }
 
 // The edit lightbox — now focused: the pencil opens it on the NAME only, the tag
@@ -509,19 +528,23 @@ function emitMove(
   container.appendChild(moveSpan(node, activeId));
 }
 
-// The Analyse button has three looks: default (idle), lit (--on, a review is
-// running) and passive (--done, the line on the board has already been graded).
-// Driven from renderMoveList so it tracks every board change — editing a move
-// adds an ungraded node, which drops the passive look automatically.
+// The "Analyse game" button (Game tab, analyser only) has three states: idle
+// ("Analyse game"), running ("Analysing…", disabled) and done ("Game analysed",
+// disabled — every mainline move already graded). Driven from renderMoveList so
+// it tracks every board change: editing/adding a move drops the done state.
 function refreshReviewButtonState(): void {
-  const btn = document.getElementById('builder-review');
+  const btn = document.getElementById('analyse-game-btn') as HTMLButtonElement | null;
   if (!btn) return;
-  // Lit while live analysis is active (a running pass or the live toggle held on);
-  // the passive "done" look is for a graded line with live analysis switched off.
-  const active = liveAnalysis || !!reviewAbort;
-  btn.classList.toggle('bar-btn--on', active);
-  const analysed = mainline().some(n => n.classification);
-  btn.classList.toggle('bar-btn--done', !active && analysed);
+  btn.hidden = builderMode !== 'analyser';
+  if (btn.hidden) return;
+  const running = !!reviewAbort;
+  const nodes = mainline();
+  const analysed = nodes.length > 0 && nodes.every(n => n.classification);
+  btn.disabled = running || analysed;
+  btn.classList.toggle('is-analysing', running);
+  btn.classList.toggle('is-analysed', !running && analysed);
+  const lbl = btn.querySelector('.analyse-game-label');
+  if (lbl) lbl.textContent = running ? 'Analysing…' : analysed ? 'Game analysed' : 'Analyse game';
 }
 
 // ── Move navigation (plain step arrows, not engine arrows) ──────────────────
@@ -573,13 +596,13 @@ function openMyGamesImport(onManualAdd?: () => void): void {
 }
 
 // Open a SAVED game (from the My games list) in the analyser. If it already has
-// a saved analysis, restore it (variations + review intact) and skip the review;
-// otherwise lay its moves down and (unless review:false) analyse from scratch.
-// An optional atFen jumps the cursor to that position (the mistake drill opens
-// a game AT the drilled spot); an unmatched fen simply stays at the start.
+// a saved analysis, restore it (variations + review intact); otherwise just lay
+// its moves down — grading is on demand now, via the Game tab's "Analyse game"
+// button (no automatic review). An optional atFen jumps the cursor to that
+// position (the mistake drill opens a game AT the drilled spot).
 function openGameForAnalysis(
   game: ImportedGame,
-  o: { atFen?: string; review?: boolean } = {},
+  o: { atFen?: string } = {},
 ): void {
   const tags = game.tags ?? [];
   if (game.analysis?.tree) {
@@ -588,9 +611,12 @@ function openGameForAnalysis(
     renderMoveList(); // repaint so the restored review's engine tag shows
   } else {
     buildFromUcis(game.ucis, game.colour, tags, { description: `vs ${game.opponent}`, analyser: true, gameDate: game.endTime });
-    if (o.review !== false) autoReview();
   }
   analyserGameId = game.id; // after build — clearBuilder resets it to null
+  // The opponent's rating and the source link for the Game tab's "vs" line.
+  builderGameRating = game.opponentRating;
+  builderGameUrl = game.url || undefined;
+  renderBuilderDesc();
   // The just-loaded game matches what's stored — only *your* variations/notes make
   // it dirty (the auto-review's classifications are stripped from the snapshot), so
   // an untouched game closes without the save prompt.
@@ -623,7 +649,7 @@ function openGameFromSession(game: ImportedGame, ctx?: OpenGameCtx): void {
   // Set the flag BEFORE the view swap: showView/updateHeaderTitle read it to
   // hide the Save button and keep the title clean.
   if (ctx) suspendedSession = { resume: ctx.onReturn, discard: ctx.onDiscard };
-  openGameForAnalysis(game, { atFen: ctx?.atFen, review: !ctx });
+  openGameForAnalysis(game, { atFen: ctx?.atFen });
   showView('builder');
   if (ctx) mountSessionReturnChip();
 }
@@ -661,30 +687,34 @@ function openPuzzleFromSession(req: PuzzleAnalyseRequest): void {
   if (target) handleMoveClick(target.id);
 }
 
-// Open a freshly imported/pasted game (no saved analysis yet) in the analyser and
-// review it. gameId is set when the game is in the store (so a later Save can
-// attach the analysis); a pasted PGN has none.
+// Open a freshly imported/pasted game (no saved analysis yet) in the analyser.
+// Grading is on demand — the Game tab's "Analyse game" button. gameId is set when
+// the game is in the store (so a later Save can attach the analysis, and so we can
+// read its rating/link for the "vs" line); a pasted PGN has none.
 function openImportedGame(ucis: string[], colour: 'white' | 'black', description?: string, gameId?: string, endTime?: number): void {
   buildFromUcis(ucis, colour, [], { description, analyser: true, gameDate: endTime });
   analyserGameId = gameId ?? null; // after build — clearBuilder resets it
-  autoReview();
+  // A stored game carries the opponent rating + source link for the "vs" line.
+  builderGameRating = undefined;
+  builderGameUrl = undefined;
+  if (gameId) void getGame(gameId).then(g => {
+    if (!g || analyserGameId !== gameId) return; // moved on to another game
+    builderGameRating = g.opponentRating;
+    builderGameUrl = g.url || undefined;
+    renderBuilderDesc();
+  }).catch(() => { /* leave the plain "vs" line */ });
   // Baseline the freshly-opened game so only your own edits trigger the save guard.
   savedSnapshot = builderSnapshot();
   refreshSaveButtonState();
 }
 
-function autoReview(): void {
-  const btn = document.getElementById('builder-review');
-  if (btn && !reviewAbort) void runGameReview();
-}
-
-// ── Game Review / live analysis (the bottom-bar Analyse icon) ───────────────
-// The Analyse button is a live toggle. Turned on, it grades every move on the
-// board — an initial gap-filling pass over the moves already there, then each new
-// move as it's played — and stays on until tapped again. It never re-grades a
-// move it already judged, so flipping it back on for an analysed game is instant.
-// Works the same for a hand-built line and an imported game (both live on this
-// one board). A tap while the initial pass is mid-flight stops it and turns off.
+// ── Game review / live analysis ─────────────────────────────────────────────
+// Grading happens two ways now:
+//   • "Analyse game" (the Game tab button) runs a one-off pass over the moves
+//     already on the board — the analyser's on-demand grade.
+//   • Live analysis grades each new move as it's played; it's switched on with
+//     the engine (setEngineOn), so exploring a variation with the engine up
+//     grades it. It never re-grades a move it already judged.
 let reviewAbort: AbortController | null = null;
 // Whether live analysis is currently on (grades new moves as they're played).
 let liveAnalysis = false;
@@ -708,9 +738,9 @@ function reviewBar(): PawnProgress {
   return reviewProgress;
 }
 
-function setupBuilderReviewButton(): void {
-  document.getElementById('builder-review')?.addEventListener('click', () => {
-    void runGameReview();
+function setupAnalyseGameButton(): void {
+  document.getElementById('analyse-game-btn')?.addEventListener('click', () => {
+    void analyseGame();
   });
 }
 
@@ -730,35 +760,24 @@ function mergeReviewEngine(
   return a === b ? a : 'mixed';
 }
 
-async function runGameReview(): Promise<void> {
-  // A tap while the initial pass is mid-flight stops it and turns live off.
+// The Game tab's "Analyse game" action: grade the moves on the board now. A tap
+// while a pass is mid-flight cancels it (the grades so far are kept).
+async function analyseGame(): Promise<void> {
   if (reviewAbort) {
     reviewAbort.abort();
     reviewAbort = null;
-    setLiveAnalysis(false);
+    refreshReviewButtonState();
     showToast('Analysis paused.');
     return;
   }
-  // On and idle → turn it off (the grades we have are kept).
-  if (liveAnalysis) {
-    setLiveAnalysis(false);
-    showToast('Live analysis off.');
-    return;
-  }
-  // Off → turn it on and grade whatever isn't graded yet.
-  setLiveAnalysis(true);
   await runReviewPass();
 }
 
-// Grade every not-yet-graded move on the board — the initial pass when live
-// analysis is switched on. A fully-graded line returns at once; live analysis
-// stays on either way so moves played afterwards are graded as they land.
+// Grade every not-yet-graded move on the board. A fully-graded line (or an empty
+// one) returns at once; otherwise it walks the mainline, filling in grades.
 async function runReviewPass(): Promise<void> {
   const nodes = mainline();
-  // Nothing to grade yet (empty board) or everything already graded: live
-  // analysis is on, so just confirm it — new moves get graded as they're played.
   if (!nodes.length || nodes.every((n) => n.classification)) {
-    showToast('Live analysis on — new moves will be analysed.');
     renderMoveList();
     refreshBoardShapes();
     return;
@@ -770,7 +789,7 @@ async function runReviewPass(): Promise<void> {
   const total = nodes.length;
   const bar = reviewBar();
   bar.start();
-  showToast(getShowMoveClassifications()
+  showToast(getShowMoveClassifications() || engineOn
     ? 'Analysing game…'
     : 'Analysing game… (turn on move highlights in Settings to see it)');
 
@@ -788,7 +807,7 @@ async function runReviewPass(): Promise<void> {
     });
     builderEngine = mergeReviewEngine(builderEngine, summary.engine);
     if (!ctrl.signal.aborted) {
-      showToast('Analysis complete — new moves keep analysing.');
+      showToast('Analysis complete.');
       // A finished review stores itself on the game record, so reopening the
       // game restores the grades without a re-run. Save game stays the way to
       // save YOUR variations, notes and tags.
@@ -956,10 +975,11 @@ function updateEngineDockBtn(): void {
 }
 
 // Turn the engine on/off from the dock's engine icon. On: reveal the docked eval
-// bar (top-3 moves + arrows) with its entrance animation, and — since the engine
-// is analysing anyway — grade the moves so their game-review marks show. Off:
-// hide the eval bar and stop live grading (the grades we have are kept). The
-// choice is persisted so it survives leaving the builder and reloading.
+// bar (top-3 moves + arrows) with its entrance animation, and switch on live
+// analysis so the moves you play get their game-review marks (the engine is
+// analysing anyway). It does NOT bulk-analyse an existing game — that stays the
+// Game tab's "Analyse game" button. Off: hide the eval bar and stop live grading
+// (the grades we have are kept). Persisted, so it survives leaving/reloading.
 function setEngineOn(on: boolean): void {
   engineOn = on;
   setEngineEverywhere(on);
@@ -967,7 +987,7 @@ function setEngineOn(on: boolean): void {
   evalPanel.setEnabled(on);            // fires the eval panel's onToggle (engine + eval bar)
   if (on) {
     engine.evaluate(chess.fen());
-    if (!liveAnalysis) void runGameReview();  // grade ungraded moves; idempotent if all graded
+    setLiveAnalysis(true);             // grade moves you play from here (no bulk review)
   } else if (liveAnalysis) {
     if (reviewAbort) { reviewAbort.abort(); reviewAbort = null; }
     setLiveAnalysis(false);
@@ -1528,6 +1548,10 @@ let builderMode: 'builder' | 'analyser' = 'builder';
 let analyserGameId: string | null = null;
 // The open game's date, shown next to "vs <opponent>" under the board.
 let builderGameDate = '';
+// The open game's opponent rating and source URL (chess.com / lichess), shown in
+// the Game tab's "vs <opponent>" line. Undefined for a pasted/manual game.
+let builderGameRating: number | undefined;
+let builderGameUrl: string | undefined;
 
 // When a line is loaded from My Lines, stash its id and createdAt so
 // a subsequent Save updates the same line instead of creating a duplicate.
@@ -1636,14 +1660,28 @@ function goToStart(): void {
 // The header save button reads "Save changes" when editing an existing line,
 // and "Save line" for a fresh one — standard create-vs-edit wording.
 function updateSaveButtonLabel(): void {
+  const analyser = builderMode === 'analyser';
   const label = document.getElementById('header-save-label');
   if (label) {
-    label.textContent = builderMode === 'analyser' ? 'Save game'
+    label.textContent = analyser ? 'Save game'
       : loadedLineId ? 'Save changes' : 'Save line';
   }
+
+  // The first carousel tab is "Game" for the analyser, "Line" for the builder.
+  const firstTab = document.querySelector('#builder-slide-tabs .slide-tab[data-slide="0"]');
+  if (firstTab) firstTab.textContent = analyser ? 'Game' : 'Line';
+
+  // The opening-name title makes sense for a repertoire line, not for a game —
+  // the game's identity ("vs <opponent>") already shows in the header and below.
+  const titleRow = document.querySelector<HTMLElement>('.line-title-row');
+  if (titleRow) titleRow.hidden = analyser;
+
+  // The "Analyse game" button is the analyser's manual grade trigger.
+  refreshReviewButtonState();
+
   // The "save this line to my repertoire" action only makes sense in the analyser.
   const saveLineBtn = document.getElementById('save-line-btn');
-  if (saveLineBtn) saveLineBtn.hidden = builderMode !== 'analyser';
+  if (saveLineBtn) saveLineBtn.hidden = !analyser;
 
   // Renaming a repertoire line makes sense in builder mode; renaming a game's
   // extracted-line title in the analyser doesn't, so it's builder-only.
@@ -1791,8 +1829,11 @@ function clearBuilder(colour: 'white' | 'black' = 'white'): void {
   builderMode = 'builder';
   analyserGameId = null;
   builderGameDate = '';
-  // A fresh line/game starts with live analysis off and an empty eval cache.
-  liveAnalysis = false;
+  builderGameRating = undefined;
+  builderGameUrl = undefined;
+  // A fresh line/game starts with an empty eval cache. Live grading follows the
+  // engine toggle: moves you play get marks while the engine is on.
+  liveAnalysis = engineOn;
   liveCache.clear();
   renderTitle();
   renderBuilderTags();
@@ -3233,7 +3274,7 @@ maybeShowGate(() => requestAnimationFrame(() => {
   setupTitleControls();
   setupNoteBlock();
   setupMoveNav();
-  setupBuilderReviewButton();
+  setupAnalyseGameButton();
   setupBuilderCarousel();
   setupBuilderPanelHandle();
 

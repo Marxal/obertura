@@ -1678,9 +1678,54 @@ html[data-coords="off"] .cg-wrap coords {
    the trap's idea travels across without crowding the card. */
 .builder-desc {
   margin-top: 0.4rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.6rem;
   font-size: 0.8rem;
   line-height: 1.4;
   color: var(--text-muted);
+}
+/* The link back to the game on chess.com / lichess, beside the "vs …" meta. */
+.builder-desc-link {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.builder-desc-link:active { filter: brightness(0.9); }
+
+/* The Game tab's primary action: grade the whole game on demand (analyser only).
+   Full-width and accented as a clear CTA, with idle / analysing / done looks. */
+.analyse-game-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: var(--shadow-card);
+  transition: filter 0.12s, opacity 0.12s;
+}
+.analyse-game-btn svg { flex-shrink: 0; }
+.analyse-game-btn:active { filter: brightness(0.95); }
+.analyse-game-btn.is-analysing { opacity: 0.85; cursor: default; }
+/* Done — the game's already graded: a quiet, muted confirmation, not a CTA. */
+.analyse-game-btn.is-analysed {
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border-color: var(--border-card);
+  box-shadow: none;
+  cursor: default;
 }
 
 /* The move list now lives inside the Line tab as a linear, wrapping list — it
