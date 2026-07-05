@@ -12100,6 +12100,9 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 .mr-played--blunder { background: #c93636; }
 .mr-played--mistake { background: #e0822f; }
+/* Brilliant/great finds — the celebratory flip side (Brilliant-moves drill). */
+.mr-played--brilliant { background: #1d9e8f; }
+.mr-played--great { background: #5c8bb0; }
 
 /* Status + the discrete hide-the-red-arrow toggle share one row. */
 .mr-status-row {

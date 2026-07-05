@@ -26,6 +26,7 @@ import { runMoveFactsSelfTest } from '../src/move-facts.selftest';
 import { runAccuracySelfTest } from '../src/accuracy.selftest';
 import { runDriveSelfTest } from '../src/drive.selftest';
 import { runMistakeScanSelfTest } from '../src/mistake-scan.selftest';
+import { runBrilliantSelfTest } from '../src/brilliant.selftest';
 import { runEndgameCatalogSelfTest } from '../src/endgame-catalog.selftest';
 import { runEndgameProgressSelfTest } from '../src/endgame-progress.selftest';
 import { runEndgameScanSelfTest } from '../src/endgame-scan.selftest';
@@ -53,6 +54,7 @@ const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'accuracy', run: runAccuracySelfTest },
   { suite: 'drive', run: runDriveSelfTest },
   { suite: 'mistake-scan', run: runMistakeScanSelfTest },
+  { suite: 'brilliant', run: runBrilliantSelfTest },
   { suite: 'endgame-catalog', run: runEndgameCatalogSelfTest },
   { suite: 'endgame-progress', run: runEndgameProgressSelfTest },
   { suite: 'endgame-scan', run: runEndgameScanSelfTest },

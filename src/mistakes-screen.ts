@@ -11,7 +11,7 @@ import type { ImportedGame } from './import-core';
 import { getAllGames } from './storage';
 import { buildEmptyState } from './empty-state';
 import { renderLoadError } from './load-error';
-import { Icons } from './icons';
+import { Icons, classIcon, CLASS_LABEL, CLASS_COLOR } from './icons';
 import { countUp } from './count-up';
 import { pushBack } from './back-nav';
 import { formatMove } from './notation';
@@ -33,6 +33,13 @@ import {
   unscannedCount,
 } from './mistake-scan';
 import type { MistakeCategory, ScanProgress, SpotRef } from './mistake-scan';
+import { startBrilliantSession } from './brilliant-run';
+import {
+  collectBrilliantSpots,
+  pickBrilliantSpots,
+  latestBrilliant,
+  type BrilliantRef,
+} from './brilliant';
 
 // Session size for a category card tap — five positions, like a puzzle run.
 const SESSION_SIZE = 5;
@@ -98,6 +105,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   const rerender = (): void => { void renderMistakesScreen(host, deps); };
   const counts = countRetry(games);
   const refs = collectSpots(games);
+  const brilliantRefs = collectBrilliantSpots(games);
   const newGames = unscannedCount(games);
 
   root.appendChild(renderHero());
@@ -169,7 +177,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
 
     const label = document.createElement('div');
     label.className = 'section-title';
-    label.textContent = 'Retry your mistakes';
+    label.textContent = 'From your games';
     section.appendChild(label);
 
     for (const cat of CATEGORIES) {
@@ -190,7 +198,31 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       }));
     }
 
+    // Your brilliant moves — the flip side of the mistake cards: find again the
+    // best moves you already found. Sourced from analysed games (the review's
+    // brilliant/great grades), not the mistake scan.
+    section.appendChild(buildModeCard({
+      accent: CLASS_COLOR.brilliant,
+      icon: classIcon('brilliant', 20),
+      name: 'Your brilliant moves',
+      sub: 'find your best moves again',
+      stat: brilliantRefs.length > 0 ? brilliantRefs.length : undefined,
+      statLabel: brilliantRefs.length > 0 ? 'to find' : undefined,
+      disabled: brilliantRefs.length === 0,
+      disabledReason: 'Analyse your games to find your brilliant moves',
+      onClick: () => startBrilliant(brilliantRefs),
+    }));
+
     return section;
+  }
+
+  function startBrilliant(pool: BrilliantRef[]): void {
+    startBrilliantSession({
+      refs: pickBrilliantSpots(pool, SESSION_SIZE),
+      onExit: rerender,
+      onPlayAgain: () => startBrilliant(pool),
+      onOpenGame: deps.onOpenGame,
+    });
   }
 
   function startSession(pool: SpotRef[], cat: MistakeCategory): void {
@@ -209,9 +241,15 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   // "Fix it" that drills exactly that position. The nav is icon-only (all four
   // fit in a row); the active category's name reads below the icons.
   function renderLatestMistakes(): HTMLElement | null {
-    const slides = CATEGORIES
-      .map(cat => ({ cat, ref: latestUnfixed(cat) }))
-      .filter((s): s is { cat: MistakeCategory; ref: SpotRef } => !!s.ref);
+    const slides: CarouselSlide[] = [];
+    for (const cat of CATEGORIES) {
+      const ref = latestUnfixed(cat);
+      if (ref) slides.push({ kind: 'mistake', cat, ref });
+    }
+    // The newest brilliant/great find, one celebratory slide alongside the
+    // mistakes (the move stays hidden — finding it is the exercise).
+    const bRef = latestBrilliant(brilliantRefs);
+    if (bRef) slides.push({ kind: 'brilliant', ref: bRef });
     if (slides.length === 0) return null;
 
     const section = document.createElement('div');
@@ -219,13 +257,13 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
 
     const label = document.createElement('div');
     label.className = 'section-title';
-    label.textContent = 'Latest mistakes';
+    label.textContent = 'Latest games';
     section.appendChild(label);
 
     const tabs = document.createElement('div');
     tabs.className = 'mrc-tabs';
-    // The active category's name, under the icon row (not inside the buttons, so
-    // all four icons fit side by side).
+    // The active slide's name, under the icon row (not inside the buttons, so
+    // all the icons fit side by side).
     const tabTitle = document.createElement('div');
     tabTitle.className = 'mrc-tab-title';
     const track = document.createElement('div');
@@ -236,18 +274,20 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       const tab = document.createElement('button');
       tab.type = 'button';
       tab.className = 'mrc-tab' + (i === 0 ? ' mrc-tab--active' : '');
-      tab.style.setProperty('--mrc-accent', CATEGORY_ACCENT[s.cat]);
-      tab.setAttribute('aria-label', CATEGORY_LABEL[s.cat]);
-      tab.title = CATEGORY_LABEL[s.cat];
-      tab.appendChild(CATEGORY_ICON[s.cat]());
+      tab.style.setProperty('--mrc-accent', slideAccent(s));
+      tab.setAttribute('aria-label', slideLabel(s));
+      tab.title = slideLabel(s);
+      tab.appendChild(slideIcon(s));
       tab.addEventListener('click', () => {
         track.scrollTo({ left: track.clientWidth * i, behavior: 'smooth' });
       });
       tabEls.push(tab);
       tabs.appendChild(tab);
-      track.appendChild(buildMistakeSlide(s.cat, s.ref));
+      track.appendChild(s.kind === 'brilliant'
+        ? buildBrilliantSlide(s.ref)
+        : buildMistakeSlide(s.cat, s.ref));
     });
-    tabTitle.textContent = CATEGORY_LABEL[slides[0].cat];
+    tabTitle.textContent = slideLabel(slides[0]);
 
     // Keep the active tab + title in sync as the track is swiped.
     let raf = 0;
@@ -258,7 +298,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
         const idx = Math.min(slides.length - 1,
           Math.max(0, Math.round(track.scrollLeft / (track.clientWidth || 1))));
         tabEls.forEach((t, i) => t.classList.toggle('mrc-tab--active', i === idx));
-        tabTitle.textContent = CATEGORY_LABEL[slides[idx].cat];
+        tabTitle.textContent = slideLabel(slides[idx]);
       });
     }, { passive: true });
 
@@ -266,6 +306,79 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     section.appendChild(tabTitle);
     section.appendChild(track);
     return section;
+  }
+
+  // One carousel slide: either the newest unfixed mistake in a category, or the
+  // newest brilliant/great find. Each carries its own tab icon, accent and name.
+  type CarouselSlide =
+    | { kind: 'mistake'; cat: MistakeCategory; ref: SpotRef }
+    | { kind: 'brilliant'; ref: BrilliantRef };
+
+  function slideIcon(s: CarouselSlide): SVGElement {
+    return s.kind === 'brilliant' ? classIcon('brilliant', 20) : CATEGORY_ICON[s.cat]();
+  }
+  function slideAccent(s: CarouselSlide): string {
+    return s.kind === 'brilliant' ? CLASS_COLOR.brilliant : CATEGORY_ACCENT[s.cat];
+  }
+  function slideLabel(s: CarouselSlide): string {
+    return s.kind === 'brilliant' ? 'Your brilliant moves' : CATEGORY_LABEL[s.cat];
+  }
+
+  // A brilliant/great find as a carousel slide — the board sits at the position
+  // before your move with NOTHING drawn (the move is the answer), and "Find it
+  // again" drills that single position.
+  function buildBrilliantSlide(ref: BrilliantRef): HTMLElement {
+    const slide = document.createElement('div');
+    slide.className = 'forgotten-slide mrc-slide';
+
+    const { spot, game } = ref;
+
+    const board = document.createElement('div');
+    board.className = 'forgotten-board cg-wrap';
+    slide.appendChild(board);
+    const cg = Chessground(board, {
+      fen: spot.preFen,
+      orientation: game.colour,
+      viewOnly: true,
+      coordinates: false,
+      animation: { enabled: false },
+      drawable: { enabled: false, visible: false },
+    });
+    requestAnimationFrame(() => cg.redrawAll());
+
+    const body = document.createElement('div');
+    body.className = 'forgotten-body';
+
+    const intro = document.createElement('div');
+    intro.className = 'mr-intro mrc-intro';
+    intro.appendChild(document.createTextNode('You played a '));
+    const chip = document.createElement('span');
+    chip.className = `mr-played mr-played--${spot.cls}`;
+    chip.textContent = CLASS_LABEL[spot.cls];
+    intro.appendChild(chip);
+    intro.appendChild(document.createTextNode(' move here.'));
+    body.appendChild(intro);
+
+    const fix = document.createElement('button');
+    fix.type = 'button';
+    fix.className = 'btn-primary forgotten-fix-btn';
+    fix.textContent = 'Find it again';
+    fix.addEventListener('click', () => {
+      startBrilliantSession({
+        refs: [ref],
+        onExit: rerender,
+        onOpenGame: deps.onOpenGame,
+      });
+    });
+    body.appendChild(fix);
+
+    const hint = document.createElement('div');
+    hint.className = 'forgotten-hint';
+    hint.textContent = 'find your best move';
+    body.appendChild(hint);
+
+    slide.appendChild(body);
+    return slide;
   }
 
   // The newest unfixed spot in a category (the freshest thing worth fixing).

@@ -49,6 +49,7 @@ import { initDriveAutoBackup } from './drive-backup';
 import { watchSpeedMs, getConfirmRunBeforeTraining, getScoutingEnabled, getShowEngineArrows, setShowEngineArrows, getEngineEverywhere, setEngineEverywhere, getShowMoveClassifications } from './prefs';
 import { reviewLine, gradeNode, type ReviewSummary } from './review';
 import { renderLineAnalysis, hasReview } from './line-analysis';
+import { applyBrilliantTag } from './brilliant';
 import { createPawnProgress, type PawnProgress } from './import-progress';
 import { askPromotion } from './promotion';
 import { initBackNav, setViewBack, pushBack } from './back-nav';
@@ -836,6 +837,10 @@ async function autoStoreAnalysis(): Promise<void> {
     const game = await getGame(analyserGameId);
     if (!game) return;
     game.analysis = { tree: serialise(), engine: builderEngine, reviewedAt: Date.now() };
+    // A brilliant move of your own earns the game an automatic "brilliant" tag,
+    // so it surfaces in the My games filters (and feeds the Brilliant-moves
+    // exercise). Applied to the fresh record, not the builder's tag set.
+    applyBrilliantTag(game);
     await saveGames([game]);
   } catch {
     /* storage hiccup — Save game still covers it */
@@ -2212,7 +2217,7 @@ function renderTrainTabbed(host: HTMLElement): void {
   };
   tabs.appendChild(mkTab('openings', 'Openings', Icons.pawn(22)));
   tabs.appendChild(mkTab('puzzles', 'Puzzles', Icons.puzzlePiece(22), TRAIN_TAB_ACCENT.puzzles));
-  tabs.appendChild(mkTab('mistakes', 'Mistake retry', Icons.reset(22), TRAIN_TAB_ACCENT.mistakes));
+  tabs.appendChild(mkTab('mistakes', 'Middle game', Icons.swords(22), TRAIN_TAB_ACCENT.mistakes));
   tabs.appendChild(mkTab('endgame', 'End game', Icons.flag(22), TRAIN_TAB_ACCENT.endgame));
 
   // The daily-challenge card sits above the tabs — it spans all the modes, so
@@ -2757,6 +2762,9 @@ async function saveGame(): Promise<void> {
     if (game) {
       game.tags = [...currentTags];
       game.analysis = { tree: serialise(), engine: builderEngine, reviewedAt: Date.now() };
+      // Auto-tag a game that contains a brilliant move of your own (see
+      // autoStoreAnalysis) — added on top of your saved tags.
+      applyBrilliantTag(game);
       await saveGames([game]);
       savedSnapshot = builderSnapshot();
       refreshSaveButtonState();
