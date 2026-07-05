@@ -81,10 +81,9 @@
             <button id="builder-panel-handle" class="builder-panel-handle" type="button" aria-label="Expand panel" aria-expanded="false" title="Drag up for more room"></button>
             <div id="builder-slide-tabs" class="builder-slide-tabs" role="tablist" aria-label="Builder panels">
               <button class="slide-tab slide-tab--on" data-slide="0" type="button" role="tab" aria-selected="true">Line</button>
-              <button class="slide-tab" data-slide="1" type="button" role="tab" aria-selected="false">Engine</button>
-              <button class="slide-tab" data-slide="2" type="button" role="tab" aria-selected="false">Library</button>
-              <button class="slide-tab" data-slide="3" type="button" role="tab" aria-selected="false">My lines</button>
-              <button class="slide-tab" data-slide="4" type="button" role="tab" aria-selected="false">Scouting</button>
+              <button class="slide-tab" data-slide="1" type="button" role="tab" aria-selected="false">Library</button>
+              <button class="slide-tab" data-slide="2" type="button" role="tab" aria-selected="false">My lines</button>
+              <button class="slide-tab" data-slide="3" type="button" role="tab" aria-selected="false">Scouting</button>
             </div>
             <div id="builder-carousel" class="builder-carousel">
             <section class="builder-slide" id="slide-line" aria-label="This line">
@@ -115,11 +114,6 @@
                 </div>
               </div>
             </section>
-            <section class="builder-slide builder-slide--engine" id="slide-engine" aria-label="Engine">
-              <div id="eval-bar-top"></div>
-              <div id="eval-controls"></div>
-              <div class="panel-moves"><div class="panel-moves-label">Moves</div><div id="move-list-engine" class="move-list move-list--panel"></div></div>
-            </section>
             <section class="builder-slide builder-slide--list" id="slide-library" aria-label="Opening library">
               <div id="slide-library-content"></div>
               <div class="panel-moves"><div class="panel-moves-label">Moves</div><div id="move-list-library" class="move-list move-list--panel"></div></div>
@@ -132,11 +126,15 @@
             </div>
           </div>
           <div id="builder-dock" class="builder-dock">
+            <div id="builder-eval" class="builder-eval" hidden>
+              <div id="eval-bar-top"></div>
+              <div id="eval-controls"></div>
+            </div>
             <div id="builder-bar" class="builder-bar">
               <div class="builder-bar-group">
                 <button id="board-flip" type="button" class="bar-btn" aria-label="Flip board view" title="Flip board"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg></button>
                 <button id="builder-review" type="button" class="bar-btn" aria-label="Analyse the game" title="Analyse the game"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="11.5" r="6"/><path d="m14.3 15.8 3.7 3.7"/><path d="M18 2l.95 2.25 2.25.95-2.25.95L18 8.4l-.95-2.25-2.25-.95 2.25-.95z" fill="currentColor" stroke="none"/><path d="M21.4 9.3l.5 1.2 1.2.5-1.2.5-.5 1.2-.5-1.2-1.2-.5 1.2-.5z" fill="currentColor" stroke="none"/></svg></button>
-                <button id="builder-engine" type="button" class="bar-btn" aria-label="Engine arrows" title="Engine arrows on every tab"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></svg></button>
+                <button id="builder-engine" type="button" class="bar-btn" aria-label="Engine" title="Engine" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></svg></button>
               </div>
               <div class="builder-bar-group">
                 <button id="watch-btn" type="button" class="bar-btn bar-btn--step watch-btn" aria-label="Watch line" title="Watch line"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" stroke="none" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>

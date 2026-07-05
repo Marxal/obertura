@@ -34,7 +34,7 @@ import { pushBack } from './back-nav';
 import { Chessground } from 'chessground';
 
 export interface EndgameScreenDeps {
-  // Open a finished puzzle in the full analyser (Engine tab) — wired from main.ts.
+  // Open a finished puzzle in the full analyser (engine on) — wired from main.ts.
   onAnalysePosition?: (req: AnalyseRequest) => void;
   // Send the user to the Games screen to import (the "From your games" empty state).
   onImportGames: () => void;

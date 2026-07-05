@@ -101,9 +101,9 @@ export function setShowLineMiniatures(on: boolean): void {
   localStorage.setItem(SHOW_MINIATURES_KEY, on ? 'on' : 'off');
 }
 
-// Whether the builder's Engine tab draws arrows on the board for its top 3
-// suggested moves. ON by default; the discrete toggle next to the source
-// badge can switch it off if the arrows get in the way.
+// Whether the engine draws arrows on the board for its top 3 suggested moves.
+// ON by default; the icon toggle next to the source badge in the docked eval bar
+// can switch it off if the arrows get in the way.
 const SHOW_ENGINE_ARROWS_KEY = 'obertura.builder.showEngineArrows';
 
 export function getShowEngineArrows(): boolean {
@@ -114,10 +114,11 @@ export function setShowEngineArrows(on: boolean): void {
   localStorage.setItem(SHOW_ENGINE_ARROWS_KEY, on ? 'on' : 'off');
 }
 
-// The builder/analyser "engine everywhere" toggle (the dock's engine icon). When
-// on, the engine runs on every tab — not just the Engine tab — and its top-3
-// candidate arrows are drawn on the board no matter which tab is showing. OFF by
-// default: it keeps the worker (and battery) busy, so it's an opt-in.
+// The builder/analyser engine toggle (the dock's engine icon). When on, the
+// engine runs, the docked eval bar shows above the bottom bar, its top-3 arrows
+// are drawn, and moves get their game-review marks. OFF by default: it keeps the
+// worker (and battery) busy, so it's an opt-in. (Key kept from when this was the
+// "engine everywhere" toggle, to preserve the saved state.)
 const ENGINE_EVERYWHERE_KEY = 'obertura.builder.engineEverywhere';
 
 export function getEngineEverywhere(): boolean {
