@@ -1,9 +1,12 @@
-// The Explore tab — three top-level pillars, tabbed exactly like My Lines:
+// The Explore tab — four top-level pillars, tabbed exactly like My Lines:
 //   1. Recommended — openings you play a lot but score poorly in, built from
 //                    your imported games. Build a solid line and train it.
 //   2. Packs       — the curated library: starter packs and traps, both
 //                    filterable by colour and by tag (skill level, or "Traps").
-//   3. Scouting    — scout imported opponents; tapping one opens a full-screen
+//   3. Learn       — content for the openings in your repertoire (videos,
+//                    studies, theory shortcuts + hand-picked pins). Body lives
+//                    in content-explore.ts.
+//   4. Scouting    — scout imported opponents; tapping one opens a full-screen
 //                    DETAIL view with their most-played openings per colour and
 //                    their auto-built opening maps. "Add opponent" and a
 //                    per-opponent "Refresh" reuse the one import panel, pointed
@@ -38,6 +41,7 @@ import {
 } from './scout';
 import { loadTraps, trapCard } from './traps-screen';
 import { trapsForPairs, type TrapPack } from './traps';
+import { buildLearnTab } from './content-explore';
 import { loadPacks, type Pack } from './onboarding-starter';
 import { wdlBlock, wdlScoreRow } from './wdl-bar';
 import { buildMoveStats } from './move-stats';
@@ -174,17 +178,18 @@ async function buildScreen(container: HTMLElement): Promise<void> {
 }
 
 
-// ── Explore tabs (Recommended | Packs | Scouting) ────────────────────────────
+// ── Explore tabs (Recommended | Packs | Learn | Scouting) ────────────────────
 
 // Which tab is showing. Module-level so it survives the screen's rebuilds.
-type ExploreTab = 'recommended' | 'packs' | 'scouting';
+type ExploreTab = 'recommended' | 'packs' | 'learn' | 'scouting';
 let exploreTab: ExploreTab | null = null;
 
-// One block with the three pillars, laid out exactly like the My Lines screen
+// One block with the pillars, laid out exactly like the My Lines screen
 // (the same .lines-tabs switcher + padded .lines-tab-content body, so the side
 // margins line up): Recommended picks from your games, the curated Packs library
-// (starter packs + traps, filterable), and Scouting — hidden entirely when
-// scouting is off in Settings. No section title: Explore leads straight with this.
+// (starter packs + traps, filterable), Learn (content for your openings), and
+// Scouting — hidden entirely when scouting is off in Settings. No section
+// title: Explore leads straight with this.
 function exploreTabsSection(
   games: ImportedGame[],
   lines: Line[],
@@ -214,6 +219,9 @@ function exploreTabsSection(
   const tabEl = (tab: ExploreTab): HTMLElement => {
     if (tab === 'recommended') return recommended.el;
     if (tab === 'packs') return packsTab;
+    if (tab === 'learn') {
+      return buildLearnTab(lines, () => exploreDeps?.onOpenInBuilder([], 'white'));
+    }
     return buildScoutingTab(opponents, container);
   };
 
@@ -248,6 +256,7 @@ function exploreTabsSection(
 
   tabs.appendChild(makeTab('recommended', 'Recommended', Icons.sparkles(18)));
   tabs.appendChild(makeTab('packs', 'Packs', Icons.build(18)));
+  tabs.appendChild(makeTab('learn', 'Learn', Icons.bulb(18)));
   if (scoutingOn) tabs.appendChild(makeTab('scouting', 'Scouting', Icons.target(18)));
   wrap.appendChild(tabs);
   wrap.appendChild(content);

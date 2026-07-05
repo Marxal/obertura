@@ -32,9 +32,21 @@ export function nameForFen(fen: string): string | null {
  * the deepest position the database recognises.
  */
 export function nameForPath(fens: string[]): string | null {
+  return openingForPath(fens)?.name ?? null;
+}
+
+/**
+ * Like nameForPath, but also says WHERE the name matched: `ply` is the 1-based
+ * half-move of the deepest named position. The Learn tab uses it to tell
+ * "the board is past named theory" (fens.length > ply) and to anchor its
+ * Wikibooks lookup on the named position.
+ */
+export interface PathOpening { name: string; ply: number }
+
+export function openingForPath(fens: string[]): PathOpening | null {
   for (let i = fens.length - 1; i >= 0; i--) {
     const name = nameForFen(fens[i]);
-    if (name) return name;
+    if (name) return { name, ply: i + 1 };
   }
   return null;
 }

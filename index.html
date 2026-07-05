@@ -83,7 +83,8 @@
               <button class="slide-tab slide-tab--on" data-slide="0" type="button" role="tab" aria-selected="true">Line</button>
               <button class="slide-tab" data-slide="1" type="button" role="tab" aria-selected="false">Library</button>
               <button class="slide-tab" data-slide="2" type="button" role="tab" aria-selected="false">My lines</button>
-              <button class="slide-tab" data-slide="3" type="button" role="tab" aria-selected="false">Scouting</button>
+              <button class="slide-tab" data-slide="3" type="button" role="tab" aria-selected="false">Learn</button>
+              <button class="slide-tab" data-slide="4" type="button" role="tab" aria-selected="false">Scouting</button>
             </div>
             <div id="builder-carousel" class="builder-carousel">
             <section class="builder-slide" id="slide-line" aria-label="This line">
@@ -123,6 +124,11 @@
               <div id="slide-games-content"></div>
               <div class="panel-moves"><div class="panel-moves-label">Moves</div><div id="move-list-games" class="move-list move-list--panel"></div></div>
             </section>
+            <!-- Slides map to tabs purely by DOM order; a slide may only be
+                 hidden (Settings' scouting toggle) if it's the LAST one, or the
+                 scroll-position→index math breaks. Keep Learn before Scouting
+                 and always visible. -->
+            <section class="builder-slide builder-slide--list" id="slide-learn" aria-label="Learn this opening"></section>
             <section class="builder-slide builder-slide--list" id="slide-scouting" aria-label="Scouting"></section>
             </div>
           </div>

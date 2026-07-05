@@ -22,7 +22,9 @@ understand concepts, not syntax. I direct; you build; I test on my phone.
 - Board UI: chessground.
 - Chess rules / move validation / PGN: chess.js.
 - Storage: IndexedDB on the device (use a thin wrapper). NO backend.
-- Opening names: free Lichess opening explorer API (explorer.lichess.org).
+- Opening names: bundled offline table (CC0 lichess-org/chess-openings dataset,
+  `src/openings.ts`). The live explorer API is login-gated nowadays — it's only
+  an optional logged-in overlay on the Library slide, never a dependency.
 - Engine (Phase 4 only): Stockfish lite WASM in a Web Worker, behind a toggle.
 - Hosting / preview: GitHub Pages serving the built static app.
 
