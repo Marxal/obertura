@@ -17,7 +17,7 @@ import {
   type TimedMinutes,
 } from './prefs';
 import { isOpponentTag } from './scout';
-import { recordMissedMove, mostForgotten, clearForgottenMove, type ForgottenWindow } from './forgotten-moves';
+import { recordMissedMove, mostForgotten, forgottenSlides, clearForgottenMove, type ForgottenWindow } from './forgotten-moves';
 import { startFixIt } from './fix-it';
 import { formatMove } from './notation';
 import { Chess } from 'chess.js';
@@ -90,10 +90,14 @@ let setFabVisible: ((visible: boolean) => void) | null = null;
 const trainExpanded = new Set<string>();
 
 // One missed spot worth revisiting at the end of a session: the position to
-// show and the move that should have been played there.
+// show, the move that should have been played there, and the opponent's move
+// that led into it (so the mistakes-retry drill can replay it, matching how the
+// individual-moves drill shows the position in context).
 interface Mistake {
   preFen: string;
   expected: MoveNode;
+  prevUci?: string;   // the opponent's move into preFen
+  prevFen?: string;   // the position the opponent moved from
 }
 
 // Add a missed position to the review list, de-duplicated by position + answer
@@ -104,11 +108,12 @@ function addMistake(
   keys: Set<string>,
   preFen: string,
   expected: MoveNode,
+  prelude?: { prevUci?: string; prevFen?: string },
 ): void {
   const key = preFen + ' ' + expected.uci;
   if (keys.has(key)) return;
   keys.add(key);
-  list.push({ preFen, expected });
+  list.push({ preFen, expected, prevUci: prelude?.prevUci, prevFen: prelude?.prevFen });
 }
 
 // ── Screen entry point ──────────────────────────────────────────────────────────
@@ -576,11 +581,11 @@ function buildTimedCard(
 // missed it, and a "Fix it" button that runs the playful repeat-it-three-times
 // drill. Only windows with a miss to show get a slide; with none, no section.
 
-const FORGOTTEN_WINDOWS: { key: ForgottenWindow; label: string }[] = [
-  { key: 'day', label: 'Today' },
-  { key: 'week', label: 'This week' },
-  { key: 'all', label: 'All time' },
-];
+const FORGOTTEN_LABEL: Record<ForgottenWindow, string> = {
+  day: 'Today',
+  week: 'This week',
+  all: 'All time',
+};
 
 // Find the move in the user's lines: returns the line it belongs to (for the
 // opening name + full-line finish) and the opponent's move that leads into the
@@ -620,9 +625,10 @@ function squaresOf(fen: string, san: string): { from: string; to: string } | und
 }
 
 function renderForgottenCarousel(container: HTMLElement, allLines: Line[]): void {
-  const slides = FORGOTTEN_WINDOWS
-    .map(w => ({ ...w, move: mostForgotten(w.key) }))
-    .filter((s): s is { key: ForgottenWindow; label: string; move: NonNullable<typeof s.move> } => !!s.move);
+  // One DISTINCT move per window — the same position is usually the worst in
+  // more than one window, so forgottenSlides() de-duplicates across them.
+  const slides = forgottenSlides()
+    .map(s => ({ key: s.window, label: FORGOTTEN_LABEL[s.window], move: s.move }));
   if (slides.length === 0) return;
 
   const section = document.createElement('div');
@@ -1409,9 +1415,14 @@ function runItem(
     const idx = copyMoves.findIndex(m => m.id === node.id);
     if (idx >= 0) copyMoves[idx].missedThisSession = true;
     missed.add(node.id);
-    // Collect the position for the end-of-session "Try your mistakes again".
+    // Collect the position for the end-of-session "Try your mistakes again",
+    // along with the opponent's move into it (the previous ply) so the retry
+    // drill can replay it — otherwise the position reads without its last move.
     const preFen = idx <= 0 ? START_FEN : copyMoves[idx - 1].fen;
-    addMistake(stats.mistakes, stats.mistakeKeys, preFen, node);
+    const prelude = idx >= 1
+      ? { prevUci: copyMoves[idx - 1].uci, prevFen: idx >= 2 ? copyMoves[idx - 2].fen : START_FEN }
+      : undefined;
+    addMistake(stats.mistakes, stats.mistakeKeys, preFen, node, prelude);
     // Feed the "most forgotten move this week" card on Statistics.
     recordMissedMove(preFen, node.san, lineCopy.colour);
   }
@@ -1552,7 +1563,7 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
           const now = new Date();
           const wasMissed = missed.has(expected.id);
           if (wasMissed && pos) {
-            addMistake(mistakes, mistakeKeys, pos.preFen, expected);
+            addMistake(mistakes, mistakeKeys, pos.preFen, expected, { prevUci: pos.prevUci, prevFen: pos.prevFen });
             recordMissedMove(pos.preFen, expected.san, line.colour);
           }
           const quality = qualityFromMisses(wasMissed ? 1 : 0);
@@ -2267,10 +2278,13 @@ function runMistakesReview(container: HTMLElement, mistakes: Mistake[]): void {
   const stillMissed = new Set<MoveNode>();
 
   startPositionsDrill(
-    mistakes.map(m => ({ preFen: m.preFen, expected: m.expected })),
+    mistakes.map(m => ({ preFen: m.preFen, expected: m.expected, prevUci: m.prevUci, prevFen: m.prevFen })),
     {
       wrongMoveMode: 'full',
       modeLabel: 'Your mistakes',
+      // Replay the opponent's last move into each position so it reads in
+      // context (matches the individual-moves drill) instead of appearing cold.
+      playPrelude: true,
       celebrateOnComplete: true,
       completeMessage: 'Mistakes reviewed ✓',
       // Strict training: no checkAlternative/onExplore — only the stored move
@@ -2357,7 +2371,10 @@ function runTimed(container: HTMLElement, allLines: Line[], minutes: TimedMinute
           correct++;
         } else {
           wrong++;
-          addMistake(mistakes, mistakeKeys, pos.preFen, pos.expected);
+          // The drill's result position drops the prelude; recover it from the
+          // source pool so a later mistakes-retry can replay the opponent's move.
+          const src = positions.find(p => p.expected === pos.expected);
+          addMistake(mistakes, mistakeKeys, pos.preFen, pos.expected, { prevUci: src?.prevUci, prevFen: src?.prevFen });
         }
         const line = lineByNode.get(pos.expected);
         bumpOpening(

@@ -25,6 +25,7 @@ import { renderLoadError } from './load-error';
 import { buildEmptyState, type EmptyStateAction } from './empty-state';
 import { isConnected, LICHESS_CONNECT_BLURB } from './lichess-auth';
 import { Icons } from './icons';
+import { PUZZLE_THEME_GROUPS, type PuzzleTheme, type PuzzleThemeGroup } from './puzzle-themes';
 
 export interface PuzzlesScreenDeps {
   onImportGames: () => void;
@@ -56,6 +57,8 @@ const TA_TIME_KEY = 'obertura.puzzles.taTime';
 const DAILY_COUNT = 10;
 // Practice-by-opening runs a shorter, focused set than the Daily Rated Mix.
 const PRACTICE_COUNT = 5;
+// A themed run (Practice by theme) — a focused, rated set on one Lichess theme.
+const THEME_COUNT = 8;
 
 interface OpeningEntry {
   angle: string;             // Lichess opening key
@@ -195,6 +198,10 @@ function runMixedPuzzleSession(
     // Count modes: override the adaptive difficulty per puzzle ordinal (0-based
     // draw index) — the daily challenge's easy → medium → hard ladder.
     difficultyFor?: (ordinal: number) => Difficulty;
+    // Let due repeats from ANY angle weave back in, not just this session's
+    // openings. The rated mix + daily challenge set this so theme puzzles you've
+    // practised resurface too — variety even with a thin repertoire.
+    repeatAllAngles?: boolean;
   },
 ): void {
   if (entries.length === 0) return;
@@ -243,7 +250,7 @@ function runMixedPuzzleSession(
         // A laddered session (daily challenge) skips the repeat queue — every
         // slot has a deliberate difficulty.
         if (!hooks.difficultyFor && repeatsServed < cap) {
-          const due = takeDueRepeat(servedRepeats, angleSet);
+          const due = takeDueRepeat(servedRepeats, hooks.repeatAllAngles ? null : angleSet);
           if (due) {
             servedRepeats.add(due.puzzle.id);
             repeatsServed++;
@@ -305,6 +312,7 @@ export async function startDailyPuzzles(
     onComplete,
     nextAction,
     onAnalysePosition,
+    repeatAllAngles: true,
     difficultyFor: (ordinal) => ladder[Math.min(ordinal, ladder.length - 1)],
   });
   return true;
@@ -335,11 +343,17 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
   // Launch a session over a set of angle entries; one entry = a single opening,
   // many = a "Mixed" rotation. Wraps the shared runner with this screen's hooks:
   // replay restarts the same session, and exiting refreshes the screen.
-  function startSession(entries: OpeningEntry[], label: string, mode: PuzzleMode, taSource: TaSource = 'openings'): void {
+  function startSession(
+    entries: OpeningEntry[],
+    label: string,
+    mode: PuzzleMode,
+    opts: { taSource?: TaSource; repeatAllAngles?: boolean } = {},
+  ): void {
     runMixedPuzzleSession(entries, label, mode, {
-      taSource,
+      taSource: opts.taSource ?? 'openings',
+      repeatAllAngles: opts.repeatAllAngles,
       onExit: () => { rebuild(); }, // refresh the "today" hero + performance on return
-      onPlayAgain: () => startSession(entries, label, mode, taSource),
+      onPlayAgain: () => startSession(entries, label, mode, opts),
       onAnalysePosition: deps.onAnalysePosition,
     });
   }
@@ -352,15 +366,19 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
   const rebuild = (): void => {
     root.innerHTML = '';
 
-    // No openings at all on either source → a single empty state.
+    // No openings at all on either source → the empty state for the opening-based
+    // modes, but the theme accordion still works (it needs no repertoire), so
+    // offer it below so there's always something to solve.
     if (allEntries.length === 0) {
       root.appendChild(emptyState(hasGames, deps));
+      root.appendChild(renderThemes());
       return;
     }
 
     root.appendChild(renderHero(firstRender));
     root.appendChild(renderTimeAttack());
     root.appendChild(renderPractice());
+    root.appendChild(renderThemes());
     firstRender = false;
   };
 
@@ -388,7 +406,8 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
     start.appendChild(Icons.sparkles(18));
     start.appendChild(document.createTextNode('Puzzle rated mix'));
     start.addEventListener('click', () =>
-      startSession(allEntries, 'Puzzle rated mix', { kind: 'count', count: DAILY_COUNT, rated: true }));
+      startSession(allEntries, 'Puzzle rated mix', { kind: 'count', count: DAILY_COUNT, rated: true },
+        { repeatAllAngles: true }));
     hero.appendChild(start);
 
     const note = document.createElement('div');
@@ -530,9 +549,9 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
         // One synthetic entry pointed at the Lichess `opening` theme — no opening
         // family/colour, so it works even with an empty repertoire.
         const trapEntry: OpeningEntry = { angle: TRAP_ANGLE, family: 'Opening trap', weight: 1 };
-        startSession([trapEntry], 'Time Attack — Traps', mode, 'traps');
+        startSession([trapEntry], 'Time Attack — Traps', mode, { taSource: 'traps' });
       } else {
-        startSession(allEntries, 'Time Attack — Openings', mode, 'openings');
+        startSession(allEntries, 'Time Attack — Openings', mode, { taSource: 'openings' });
       }
     });
     section.appendChild(start);
@@ -609,6 +628,83 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
     }
     section.appendChild(list);
     return section;
+  }
+
+  // ── Practice by theme (Lichess puzzle themes) ────────────────────────────────
+  // An accordion of rated theme runs — mate-in-X, the mating patterns, tactical
+  // motifs, length and goal buckets — each a Lichess puzzle theme. Rated on the
+  // general puzzle ladder (like the mix), so solving them moves your rating and
+  // feeds the repeat queue. Mirrors the End game screen's classic-endgame
+  // accordion, so the two screens read the same.
+  function renderThemes(): HTMLElement {
+    const section = document.createElement('div');
+    section.className = 'section pz-themes';
+
+    const title = document.createElement('div');
+    title.className = 'section-title section-title--icon';
+    title.appendChild(Icons.puzzlePiece(16));
+    title.appendChild(document.createTextNode('Practice by theme'));
+    section.appendChild(title);
+
+    const desc = document.createElement('p');
+    desc.className = 'pz-ta-desc';
+    desc.textContent = 'Rated puzzles on a single theme, straight from Lichess — they move your puzzle rating and mix into your rated runs.';
+    section.appendChild(desc);
+
+    for (const group of PUZZLE_THEME_GROUPS) section.appendChild(renderThemeGroup(group));
+    return section;
+  }
+
+  function renderThemeGroup(group: PuzzleThemeGroup): HTMLElement {
+    const details = document.createElement('details');
+    details.className = 'section section--acc pz-theme-acc';
+
+    const summary = document.createElement('summary');
+    summary.className = 'section-title section-summary';
+    const left = document.createElement('span');
+    left.className = 'section-summary-left';
+    left.appendChild(group.icon());
+    const label = document.createElement('span');
+    label.textContent = group.label;
+    left.appendChild(label);
+    summary.appendChild(left);
+    summary.appendChild(Icons.chevronRight(16));
+    details.appendChild(summary);
+
+    const blurb = document.createElement('div');
+    blurb.className = 'eg-group-blurb';
+    blurb.textContent = group.blurb;
+    details.appendChild(blurb);
+
+    const list = document.createElement('div');
+    list.className = 'pz-list pz-theme-list';
+    for (const theme of group.themes) list.appendChild(themeRow(theme));
+    details.appendChild(list);
+    return details;
+  }
+
+  function themeRow(theme: PuzzleTheme): HTMLElement {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'pz-opening-row pz-theme-row';
+    const name = document.createElement('span');
+    name.className = 'pz-opening-name';
+    name.textContent = theme.label;
+    row.appendChild(name);
+    const go = document.createElement('span');
+    go.className = 'pz-theme-go';
+    go.setAttribute('aria-hidden', 'true');
+    go.appendChild(Icons.play(13));
+    row.appendChild(go);
+    // A rated run on this one theme — general ladder, so it counts toward your
+    // puzzle rating and joins the repeat pool the rated mix draws from.
+    row.addEventListener('click', () =>
+      startSession(
+        [{ angle: theme.angle, family: theme.label, weight: 1 }],
+        theme.label,
+        { kind: 'count', count: THEME_COUNT, rated: true },
+      ));
+    return row;
   }
 
   rebuild();

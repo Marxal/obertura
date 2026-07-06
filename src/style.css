@@ -1858,7 +1858,9 @@ html[data-coords="off"] .cg-wrap coords {
   border-top: 1px solid var(--border-card);
   border-radius: 16px 16px 0 0;
   box-shadow: 0 -6px 20px rgba(28, 22, 16, 0.12);
-  transition: height 0.28s ease;
+  /* `bottom` is anchored to the dock height; animating it (alongside height) lets
+     the sheet slide in step with the eval bar sliding open/closed under it. */
+  transition: height 0.28s ease, bottom 0.28s ease;
 }
 /* While dragging we follow the finger frame-by-frame — no transition. */
 .builder-sheet--dragging { transition: none; }
@@ -3110,6 +3112,15 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   background: var(--bg-elevated);
   color: #c93636;
 }
+/* The left column: the miniature, plus (for analysed games) the review tally
+   stacked beneath it. The column sizes to the mini's width, so the tally lines
+   up under the board. */
+.mygames-card-mini-col {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
 /* The miniature matches the My Lines cards and carries a result border. */
 .mygames-card-mini {
   flex: 0 0 auto;
@@ -3117,6 +3128,39 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   border-radius: 7px;
   border: 3px solid transparent;
   box-sizing: border-box;
+}
+
+/* The game-review tally: a 2×2 grid of tiny stat tiles (accuracy · good ·
+   mistakes · blunders) that fills the column width under the board. */
+.mygames-card-review {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+}
+.mgr-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 2px 2px;
+  border-radius: 6px;
+  background: var(--fill-faint);
+  line-height: 1.05;
+}
+.mgr-val {
+  font-weight: 700;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.mgr-val--zero { color: var(--text-faint); }
+.mgr-lbl {
+  margin-top: 1px;
+  font-size: 0.52rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
 }
 .mygames-card-mini--win { border-color: #5a9e3f; }
 .mygames-card-mini--loss { border-color: #c93636; }
@@ -4446,22 +4490,37 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   background: color-mix(in srgb, var(--pt-tint, transparent) 5%, var(--bg-sheet));
 }
 
-/* The Train screen's panes get the same whisper behind the active mode, fading
-   out down the page so cards and lists stay on clean chrome. */
+/* The Train screen's panes carry the active mode's colour: a background wash that
+   tints the whole pane (more than a whisper, so the mode is unmistakable) plus a
+   published --train-accent that the pane's own primary buttons + accents adopt,
+   so switching tabs recolours the pane while keeping every other style intact.
+   Openings clears --train-accent (set in main.ts) and falls back to the app
+   green. The wash reads --train-accent too, so it tracks the mode automatically. */
 #view-train[data-train-mode] {
   transition: background 0.35s ease;
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--train-accent, var(--accent)) 15%, transparent),
+      color-mix(in srgb, var(--train-accent, var(--accent)) 4%, transparent) 300px,
+      transparent 560px);
 }
-#view-train[data-train-mode='openings'] {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, transparent), transparent 360px);
+
+/* Recolour the pane's primary buttons in the active mode's colour — same shape,
+   sheen and shadow, just the mode's hue (Openings keeps the green fallback). The
+   sheen gradient (background-image) stays; only the base colour swaps. */
+#view-train[data-train-mode] .btn-primary {
+  background-color: var(--train-accent, var(--primary));
 }
-#view-train[data-train-mode='puzzles'] {
-  background: linear-gradient(180deg, color-mix(in srgb, #8a5a20 7%, transparent), transparent 360px);
+/* Selected chips/pills inside the pane (time lengths, source toggles, range
+   segments) take the mode colour too, so the whole pane reads as one hue. Each
+   keeps its own fill model — the tinted timed chip, the solid range pill. */
+#view-train[data-train-mode] .timed-chip--on {
+  border-color: var(--train-accent, var(--accent));
+  background: color-mix(in srgb, var(--train-accent, var(--accent)) 14%, var(--bg-card));
 }
-#view-train[data-train-mode='mistakes'] {
-  background: linear-gradient(180deg, color-mix(in srgb, #a3492e 7%, transparent), transparent 360px);
-}
-#view-train[data-train-mode='endgame'] {
-  background: linear-gradient(180deg, color-mix(in srgb, #33677a 7%, transparent), transparent 360px);
+#view-train[data-train-mode] .stats-range-chip--on {
+  background: var(--train-accent, var(--accent));
+  border-color: var(--train-accent, var(--accent));
 }
 
 /* "Back to train" in the top bar while a training session is suspended behind
@@ -5932,16 +5991,18 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
    make room and the sheet above is anchored to the dock's height, so the board
    never shifts. A subtle slide-up + fade plays each time it appears. */
 .builder-eval {
+  box-sizing: border-box;
   padding: 6px 12px 4px;
   border-bottom: 1px solid var(--hairline-soft);
+  /* Height is animated in JS (animateEvalDock): the bar slides open/closed and
+     the dock grows/shrinks smoothly, so nothing above it jumps. overflow:hidden
+     keeps the content clipped as it slides. */
+  overflow: hidden;
+  transition: height 0.28s ease;
 }
 .builder-eval[hidden] { display: none; }
-.builder-eval--enter {
-  animation: builder-eval-in 0.26s ease both;
-}
-@keyframes builder-eval-in {
-  from { opacity: 0; transform: translateY(9px); }
-  to   { opacity: 1; transform: translateY(0); }
+@media (prefers-reduced-motion: reduce) {
+  .builder-eval { transition: none; }
 }
 
 /* Blended (no boxed strip); collapses when the engine is off. */
@@ -11734,6 +11795,32 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 /* Practice by opening. */
 .pz-practice-source { margin: var(--space-sm) 0 var(--space-md); }
 .pz-practice .pz-list { margin-top: var(--space-sm); }
+
+/* ── Daily-challenge preferences (Settings) ────────────────────────────────── */
+/* The count picker sits just under each task's title + switch. */
+.daily-count-seg { margin-top: var(--space-sm); }
+
+/* ── Practice by theme (accordion of Lichess puzzle themes) ─────────────────── */
+.pz-themes { margin-top: var(--space-md); }
+/* Stack the theme accordions tightly, like the End game classic-endgame list. */
+.pz-theme-acc { margin-bottom: 0.4rem; }
+.pz-theme-list { margin-top: var(--space-xs); }
+/* Each theme row ends with a quiet play chip — the go affordance. */
+.pz-theme-go {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--fill-faint);
+  color: var(--text-muted);
+}
+.pz-theme-row:active .pz-theme-go {
+  background: color-mix(in srgb, var(--train-accent, var(--accent)) 22%, var(--fill-faint));
+  color: var(--train-accent, var(--accent));
+}
 
 /* Opening rows now end with a performance pill (no target icon). */
 .pz-perf {

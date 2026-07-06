@@ -125,7 +125,9 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     stats.className = 'train-hero-stats';
     stats.appendChild(heroStat('found', counts.spots, 'Spots found'));
     stats.appendChild(heroStat('fixed', counts.fixed, 'Fixed'));
-    stats.appendChild(heroStat('scanned', `${counts.scanned}/${counts.total}`, 'Games analysed'));
+    // Just the count of games actually analysed — not "scanned/total", which
+    // read as if the whole library were being added up.
+    stats.appendChild(heroStat('scanned', counts.scanned, 'Games analysed'));
     hero.appendChild(stats);
 
     if (newGames > 0) {

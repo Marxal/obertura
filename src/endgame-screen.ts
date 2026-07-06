@@ -105,6 +105,33 @@ function runEndgamePuzzles(theme: PuzzleTheme, deps: EndgameScreenDeps, onExit: 
   });
 }
 
+// The daily challenge's endgame half: a short rated endgame-puzzle run (the same
+// pool + ladder as the End game tab, just a caller-set count). `onComplete` fires
+// when it reaches its results — i.e. the half is done. Mirrors startDailyPuzzles
+// (puzzles-screen.ts), but on the endgame rating ladder.
+export function startDailyEndgamePuzzles(
+  count: number,
+  onComplete: () => void,
+  nextAction?: { label: string; run: () => void },
+  onAnalysePosition?: (req: AnalyseRequest) => void,
+): void {
+  startPuzzleSession({
+    modeLabel: 'Daily challenge — endgames',
+    mode: { kind: 'count', count, rated: true },
+    ratingScope: 'endgame',
+    onAnalysePosition,
+    nextPuzzle: async (): Promise<PuzzleDraw | null> => {
+      const angle = angleFor('all');
+      const difficulty = difficultyForRating(getPuzzleRating('endgame'));
+      const puzzle = await fetchNextPuzzle(angle, { difficulty });
+      return puzzle ? { puzzle, angle } : null;
+    },
+    onComplete: () => onComplete(),
+    onExit: () => { /* the daily card refreshes itself via onComplete */ },
+    nextAction,
+  });
+}
+
 // A best-time mark as m:ss.
 function formatTime(ms: number): string {
   const s = Math.round(ms / 1000);

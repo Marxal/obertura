@@ -40,6 +40,45 @@ export function hasReview(nodes: MoveNode[]): boolean {
   return nodes.some(n => n.classification);
 }
 
+// ── Game-card review summary ─────────────────────────────────────────────────
+// A tiny at-a-glance tally for the My-games card: YOUR side's good moves,
+// mistakes and blunders plus your accuracy. Pure, so the card can call it while
+// building — no DOM here.
+
+export interface CardReviewSummary {
+  accuracy: number | null; // your side's game accuracy (Lichess model), or null
+  good: number;            // your moves graded good-or-better
+  mistakes: number;
+  blunders: number;
+}
+
+// "Good move" = graded at least "good". Book moves are neutral theory, so they
+// count for neither side of the tally.
+const GOOD_CLASSES = new Set<MoveClass>(['brilliant', 'great', 'best', 'excellent', 'good']);
+
+// Summarise a stored game's analysed tree (its main line) for the card. Returns
+// null when nothing is graded yet (unanalysed) so the card shows no summary.
+export function summariseReview(tree: MoveNode, colour: 'white' | 'black'): CardReviewSummary | null {
+  const nodes: MoveNode[] = [];
+  let node: MoveNode | undefined = tree.children[0];
+  while (node) { nodes.push(node); node = node.children[0]; }
+  if (!nodes.some(n => n.classification)) return null;
+
+  const mine = colour === 'white'; // White's moves are the even plies (index 0, 2, 4…)
+  let good = 0, mistakes = 0, blunders = 0;
+  nodes.forEach((n, i) => {
+    const c = n.classification;
+    if (!c) return;
+    if ((i % 2 === 0) !== mine) return;
+    if (c === 'blunder') blunders++;
+    else if (c === 'mistake') mistakes++;
+    else if (GOOD_CLASSES.has(c)) good++;
+  });
+
+  const acc = gameAccuracy(nodes.map(n => n.evalCp));
+  return { accuracy: colour === 'white' ? acc.white : acc.black, good, mistakes, blunders };
+}
+
 // Render the whole block into `host` (cleared first). Caller decides when to
 // show it (imported game + reviewed); this just paints.
 export function renderLineAnalysis(host: HTMLElement, nodes: MoveNode[], opts: LineAnalysisOpts): void {

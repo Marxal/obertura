@@ -23,6 +23,9 @@ import { Icons } from './icons';
 import { renderLoadError } from './load-error';
 import { getGamesSource } from './import-panel';
 import { refreshGamesNow } from './auto-refresh';
+import { summariseReview } from './line-analysis';
+import { CLASS_COLOR } from './icons';
+import type { MoveNode } from './tree';
 
 // A short, locale-aware game date ("12 Mar 2024") from the stored unix seconds.
 // Shared with the analyser's "vs <opponent>" line. Empty when the date is unknown.
@@ -259,10 +262,19 @@ function gameCard(g: ImportedGame, deps: MyGamesDeps, refresh: () => void): HTML
   open.className = 'mygames-card-open';
   open.addEventListener('click', () => deps.onOpenGame(g));
 
-  // The miniature carries a thin result border: green won, red lost, neutral drew.
+  // The miniature carries a thin result border: green won, red lost, neutral
+  // drew. When the game's been analysed, a compact review tally stacks beneath it
+  // (2×2: accuracy, good moves, mistakes, blunders — your side).
+  const miniCol = document.createElement('div');
+  miniCol.className = 'mygames-card-mini-col';
   const mini = buildMiniBoard(fenAfter(g.ucis), g.colour);
   mini.classList.add('mygames-card-mini', `mygames-card-mini--${g.result}`);
-  open.appendChild(mini);
+  miniCol.appendChild(mini);
+  if (g.analysis) {
+    const review = buildReviewSummary(g.analysis.tree, g.colour);
+    if (review) miniCol.appendChild(review);
+  }
+  open.appendChild(miniCol);
 
   const text = document.createElement('div');
   text.className = 'mygames-card-text';
@@ -353,4 +365,36 @@ function gameCard(g: ImportedGame, deps: MyGamesDeps, refresh: () => void): HTML
   wrap.appendChild(del);
 
   return wrap;
+}
+
+// The 2×2 review tally under an analysed game's miniature: accuracy, good moves,
+// mistakes and blunders for the side you played. Null when the game carries no
+// grades (so the caller shows nothing). Colours match the game-review palette;
+// zero counts read muted so a clean game stays calm.
+function buildReviewSummary(tree: MoveNode, colour: 'white' | 'black'): HTMLElement | null {
+  const s = summariseReview(tree, colour);
+  if (!s) return null;
+
+  const grid = document.createElement('div');
+  grid.className = 'mygames-card-review';
+
+  const cell = (value: string, label: string, colour?: string): HTMLElement => {
+    const c = document.createElement('div');
+    c.className = 'mgr-cell';
+    const v = document.createElement('span');
+    v.className = 'mgr-val' + (value === '0' ? ' mgr-val--zero' : '');
+    v.textContent = value;
+    if (colour && value !== '0') v.style.color = colour;
+    const l = document.createElement('span');
+    l.className = 'mgr-lbl';
+    l.textContent = label;
+    c.append(v, l);
+    return c;
+  };
+
+  grid.appendChild(cell(s.accuracy === null ? '—' : `${Math.round(s.accuracy)}%`, 'Accuracy'));
+  grid.appendChild(cell(String(s.good), 'Good', CLASS_COLOR.good));
+  grid.appendChild(cell(String(s.mistakes), 'Mistakes', CLASS_COLOR.mistake));
+  grid.appendChild(cell(String(s.blunders), 'Blunders', CLASS_COLOR.blunder));
+  return grid;
 }
