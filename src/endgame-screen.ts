@@ -46,6 +46,15 @@ type PuzzleTheme = 'all' | 'rook' | 'pawn' | 'queen' | 'minor';
 const THEME_LABEL: Record<PuzzleTheme, string> = {
   all: 'All endgames', rook: 'Rook', pawn: 'Pawn', queen: 'Queen', minor: 'Minor piece',
 };
+// The main button's title tracks the chosen theme — pick a piece, then launch.
+// Kept short so it always sits on one line inside the full-width button.
+const START_LABEL: Record<PuzzleTheme, string> = {
+  all: 'All endgame puzzles',
+  rook: 'Rook endgame puzzles',
+  pawn: 'Pawn endgame puzzles',
+  queen: 'Queen endgame puzzles',
+  minor: 'Minor endgame puzzles',
+};
 // The specific themes, as piece-symbol shortcuts under the wide "all" button. A
 // trailing U+FE0E asks for the text (not emoji) glyph — same trick as board-mini.
 const VS = String.fromCharCode(0xfe0e);
@@ -55,10 +64,16 @@ const SPECIFIC_THEMES: { theme: Exclude<PuzzleTheme, 'all'>; symbol: string }[] 
   { theme: 'queen', symbol: '♛' + VS },
   { theme: 'minor', symbol: '♞' + VS },
 ];
+// The round selector buttons: an "All" circle (selected by default) then the
+// piece shortcuts. Choosing one only sets the theme; the main button launches.
+const ROUND_THEMES: { theme: PuzzleTheme; symbol: string }[] = [
+  { theme: 'all', symbol: 'All' },
+  ...SPECIFIC_THEMES,
+];
 const PUZZLE_COUNT = 8;
-// Cap the "From your games" carousel so a big library doesn't spin up dozens of
-// boards; the most instructive (let-slip first, then recent) lead.
-const FROM_GAMES_MAX = 10;
+// Cap the "From your games" carousel to a handful; once you've played them, the
+// ones you've done rotate to the back so fresh spots surface (up to this many).
+const FROM_GAMES_MAX = 6;
 
 // Resolve a theme to the angle for one fetch (minor alternates each draw).
 function angleFor(theme: PuzzleTheme): string {
@@ -169,27 +184,44 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
     stats.appendChild(heroStat('run', getBestCleanStreak('endgame'), 'Best run', animate));
     hero.appendChild(stats);
 
-    // The wide "all endgames" button.
+    // Which theme the round buttons have selected — "All" by default. Picking a
+    // round button only sets this; the main button below launches the run.
+    let selected: PuzzleTheme = 'all';
+
+    // The wide launch button — its title names the chosen theme (Fix: pick
+    // first, then start), and stays on one line inside the full-width button.
     const start = document.createElement('button');
     start.type = 'button';
     start.className = 'btn-primary train-hero-start eg-hero-start';
-    start.appendChild(Icons.puzzlePiece(18));
-    start.appendChild(document.createTextNode('Solve endgame puzzles'));
-    start.addEventListener('click', () => runEndgamePuzzles('all', deps, rebuild));
+    const paintStart = (): void => {
+      start.replaceChildren(Icons.puzzlePiece(18), document.createTextNode(START_LABEL[selected]));
+    };
+    paintStart();
+    start.addEventListener('click', () => runEndgamePuzzles(selected, deps, rebuild));
     hero.appendChild(start);
 
-    // Piece-symbol shortcuts to each specific theme, on one row.
+    // The round selector: an "All" circle plus the piece shortcuts, one row.
     const pieces = document.createElement('div');
     pieces.className = 'eg-piece-row';
-    for (const { theme, symbol } of SPECIFIC_THEMES) {
+    const roundBtns: { theme: PuzzleTheme; el: HTMLButtonElement }[] = [];
+    const syncActive = (): void => {
+      for (const { theme, el } of roundBtns) {
+        const on = theme === selected;
+        el.classList.toggle('eg-piece-btn--active', on);
+        el.setAttribute('aria-pressed', String(on));
+      }
+    };
+    for (const { theme, symbol } of ROUND_THEMES) {
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'eg-piece-btn';
+      btn.className = 'eg-piece-btn' + (theme === 'all' ? ' eg-piece-btn--all' : '');
       btn.textContent = symbol;
       btn.setAttribute('aria-label', `${THEME_LABEL[theme]} endgames`);
-      btn.addEventListener('click', () => runEndgamePuzzles(theme, deps, rebuild));
+      btn.addEventListener('click', () => { selected = theme; syncActive(); paintStart(); });
+      roundBtns.push({ theme, el: btn });
       pieces.appendChild(btn);
     }
+    syncActive();
     hero.appendChild(pieces);
 
     const note = document.createElement('div');
@@ -306,25 +338,27 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
       miniLabel: `Play ${eg.name}`,
     });
 
+    // Row 1 is the title on its own: pip + name, nothing crowding it.
     titleRow.appendChild(colourPip(eg.youPlay));
     const name = document.createElement('span');
     name.className = 'pcard-title eg-card-name';
     name.textContent = eg.name;
     titleRow.appendChild(name);
-    const level = document.createElement('span');
-    level.className = `eg-level eg-level--${eg.level}`;
-    level.textContent = LEVEL_META[eg.level].label;
-    titleRow.appendChild(level);
 
-    // Content column beside the board: Win/Draw and best time each on their own
-    // row (Fix 2), so the play button below can stand out.
-    const goalRow = document.createElement('div');
-    goalRow.className = 'eg-card-row';
+    // Everything else lives in the content column beside the board: Win/Draw and
+    // the level chip share one row, the best time sits under them, and the play
+    // button rounds out the column right next to the board.
+    const metaRow = document.createElement('div');
+    metaRow.className = 'eg-card-row eg-card-meta';
     const goal = document.createElement('span');
     goal.className = `eg-goal-chip eg-goal-chip--${eg.goal}`;
     goal.textContent = eg.goal === 'win' ? 'Win' : 'Draw';
-    goalRow.appendChild(goal);
-    content.appendChild(goalRow);
+    metaRow.appendChild(goal);
+    const level = document.createElement('span');
+    level.className = `eg-level eg-level--${eg.level}`;
+    level.textContent = LEVEL_META[eg.level].label;
+    metaRow.appendChild(level);
+    content.appendChild(metaRow);
 
     const bestRow = document.createElement('div');
     bestRow.className = 'eg-card-row eg-card-best-row';
@@ -332,14 +366,13 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
     else bestRow.appendChild(placeholderBest());
     content.appendChild(bestRow);
 
-    // A prominent, full-width play button spanning the whole card (Fix 2).
     const play = document.createElement('button');
     play.type = 'button';
     play.className = 'btn-primary eg-card-play';
     play.appendChild(Icons.play(16));
     play.appendChild(document.createTextNode('Play'));
     play.addEventListener('click', onPlay);
-    card.appendChild(play);
+    content.appendChild(play);
 
     return card;
   }
@@ -401,9 +434,19 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
       section.appendChild(warn);
     }
 
-    // Ordered spots: the ones you didn't convert first, then most-recent games.
+    // Ordered spots. Ones you haven't played yet lead, so a big library keeps
+    // rotating in fresh endgames: after you play a spot it sinks to the back
+    // (oldest play-out first), and among the unplayed the ones you let slip come
+    // before recent games. Only the first FROM_GAMES_MAX are shown.
     const progress = getEndgameProgress();
+    const playedAt = (ref: EndgameSpotRef): number => {
+      const rec = progress[spotId(ref)];
+      return rec && rec.attempts > 0 ? rec.lastTrained : 0;
+    };
     const spots = collectEndgameSpots(gs).sort((a, b) => {
+      const pa = playedAt(a), pb = playedAt(b);
+      if ((pa > 0) !== (pb > 0)) return pa > 0 ? 1 : -1;   // unplayed first
+      if (pa > 0) return pa - pb;                          // both played: oldest back first
       if (a.spot.converted !== b.spot.converted) return a.spot.converted ? 1 : -1;
       return b.game.endTime - a.game.endTime;
     });

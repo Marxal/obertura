@@ -36,10 +36,10 @@ import type { MistakeCategory, ScanProgress, SpotRef } from './mistake-scan';
 import { startBrilliantSession } from './brilliant-run';
 import {
   collectBrilliantSpots,
-  pickBrilliantSpots,
-  latestBrilliant,
+  orderBrilliant,
   type BrilliantRef,
 } from './brilliant';
+import { brilliantDueMap } from './brilliant-log';
 
 // Session size for a category card tap — five positions, like a puzzle run.
 const SESSION_SIZE = 5;
@@ -105,7 +105,10 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   const rerender = (): void => { void renderMistakesScreen(host, deps); };
   const counts = countRetry(games);
   const refs = collectSpots(games);
-  const brilliantRefs = collectBrilliantSpots(games);
+  // Order the brilliant finds so the carousel + session loop through them:
+  // freshly-solved gems rest a while, then resurface (brilliant-log.ts).
+  const dueMap = brilliantDueMap();
+  const brilliantRefs = orderBrilliant(collectBrilliantSpots(games), id => dueMap[id] ?? 0);
   const newGames = unscannedCount(games);
 
   root.appendChild(renderHero());
@@ -217,8 +220,9 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   }
 
   function startBrilliant(pool: BrilliantRef[]): void {
+    // pool is already ordered (available gems first); take a session's worth.
     startBrilliantSession({
-      refs: pickBrilliantSpots(pool, SESSION_SIZE),
+      refs: pool.slice(0, SESSION_SIZE),
       onExit: rerender,
       onPlayAgain: () => startBrilliant(pool),
       onOpenGame: deps.onOpenGame,
@@ -243,13 +247,13 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   function renderLatestMistakes(): HTMLElement | null {
     const slides: CarouselSlide[] = [];
     for (const cat of CATEGORIES) {
-      const ref = latestUnfixed(cat);
-      if (ref) slides.push({ kind: 'mistake', cat, ref });
+      const pool = unfixedPool(cat);
+      if (pool.length) slides.push({ kind: 'mistake', cat, pool });
     }
-    // The newest brilliant/great find, one celebratory slide alongside the
-    // mistakes (the move stays hidden — finding it is the exercise).
-    const bRef = latestBrilliant(brilliantRefs);
-    if (bRef) slides.push({ kind: 'brilliant', ref: bRef });
+    // The brilliant/great finds, one slide leading with the next one to re-find
+    // (the move stays hidden — finding it is the exercise). Tapping in chains
+    // through the rest so a solve rolls straight on to the next.
+    if (brilliantRefs.length) slides.push({ kind: 'brilliant', pool: brilliantRefs });
     if (slides.length === 0) return null;
 
     const section = document.createElement('div');
@@ -284,8 +288,8 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       tabEls.push(tab);
       tabs.appendChild(tab);
       track.appendChild(s.kind === 'brilliant'
-        ? buildBrilliantSlide(s.ref)
-        : buildMistakeSlide(s.cat, s.ref));
+        ? buildBrilliantSlide(s.pool)
+        : buildMistakeSlide(s.cat, s.pool));
     });
     tabTitle.textContent = slideLabel(slides[0]);
 
@@ -311,8 +315,8 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   // One carousel slide: either the newest unfixed mistake in a category, or the
   // newest brilliant/great find. Each carries its own tab icon, accent and name.
   type CarouselSlide =
-    | { kind: 'mistake'; cat: MistakeCategory; ref: SpotRef }
-    | { kind: 'brilliant'; ref: BrilliantRef };
+    | { kind: 'mistake'; cat: MistakeCategory; pool: SpotRef[] }
+    | { kind: 'brilliant'; pool: BrilliantRef[] };
 
   function slideIcon(s: CarouselSlide): SVGElement {
     return s.kind === 'brilliant' ? classIcon('brilliant', 20) : CATEGORY_ICON[s.cat]();
@@ -326,8 +330,10 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
 
   // A brilliant/great find as a carousel slide — the board sits at the position
   // before your move with NOTHING drawn (the move is the answer), and "Find it
-  // again" drills that single position.
-  function buildBrilliantSlide(ref: BrilliantRef): HTMLElement {
+  // again" drills it, then chains on through the rest of the finds so a solve
+  // rolls straight to the next one (never forcing an End session after one).
+  function buildBrilliantSlide(pool: BrilliantRef[]): HTMLElement {
+    const ref = pool[0];
     const slide = document.createElement('div');
     slide.className = 'forgotten-slide mrc-slide';
 
@@ -365,7 +371,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     fix.textContent = 'Find it again';
     fix.addEventListener('click', () => {
       startBrilliantSession({
-        refs: [ref],
+        refs: pool.slice(0, SESSION_SIZE),
         onExit: rerender,
         onOpenGame: deps.onOpenGame,
       });
@@ -381,15 +387,16 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     return slide;
   }
 
-  // The newest unfixed spot in a category (the freshest thing worth fixing).
-  function latestUnfixed(cat: MistakeCategory): SpotRef | null {
-    const pool = refs
+  // The unfixed spots in a category, newest first — the lead is the freshest
+  // thing worth fixing, and the rest chain behind it for "Next position".
+  function unfixedPool(cat: MistakeCategory): SpotRef[] {
+    return refs
       .filter(r => r.spot.category === cat && !r.spot.fixed)
       .sort((a, b) => b.game.endTime - a.game.endTime);
-    return pool[0] ?? null;
   }
 
-  function buildMistakeSlide(cat: MistakeCategory, ref: SpotRef): HTMLElement {
+  function buildMistakeSlide(cat: MistakeCategory, pool: SpotRef[]): HTMLElement {
+    const ref = pool[0];
     const slide = document.createElement('div');
     slide.className = 'forgotten-slide mrc-slide';
 
@@ -437,7 +444,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     fix.textContent = 'Fix it';
     fix.addEventListener('click', () => {
       startMistakeSession({
-        refs: [ref],
+        refs: pool.slice(0, SESSION_SIZE),
         modeLabel: CATEGORY_LABEL[cat],
         onExit: rerender,
         onOpenGame: deps.onOpenGame,

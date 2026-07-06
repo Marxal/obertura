@@ -23,6 +23,7 @@ import { showDialog } from './dialog';
 import { formatMove } from './notation';
 import type { ImportedGame } from './import-core';
 import type { BrilliantRef } from './brilliant';
+import { recordBrilliantSolved } from './brilliant-log';
 import type { OpenGameCtx } from './mistake-run';
 
 export interface BrilliantSessionOptions {
@@ -345,6 +346,9 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
     completed++;
     const clean = !failedThisSpot;
     if (clean) solvedCount++;
+    // A clean re-find rests this gem for a while so the carousel loops on to the
+    // next one; it resurfaces later (brilliant-log.ts).
+    if (clean) recordBrilliantSolved(current.spot.id);
     entries.push({ ref: current, clean });
 
     const { from, to, promotion } = uciParts(current.spot.playedUci);
