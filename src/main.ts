@@ -40,7 +40,7 @@ import type { AnalyseRequest as PuzzleAnalyseRequest } from './puzzle-run';
 import { renderMyGamesScreen, formatGameDate } from './my-games-screen';
 import { opponentTag } from './scout';
 import { renderSettingsScreen } from './settings-screen';
-import { Engine, setCloudAuthToken, type EvalResult, type CloudTopMove } from './engine';
+import { Engine, setCloudAuthToken, retryCloudNow, type EvalResult, type CloudTopMove } from './engine';
 import { EvalPanel } from './eval-panel';
 import { createBuilderPanels, type BuilderPanels } from './builder-panels';
 import { initTheme } from './theme';
@@ -3284,7 +3284,13 @@ maybeShowGate(() => requestAnimationFrame(() => {
       animateEvalDock(enabled);
     },
     (uci) => playUci(uci),
-    { compact: true, showToggle: false },
+    {
+      compact: true,
+      showToggle: false,
+      // The docked bar's "Lichess off" warning: reset the cloud breaker and
+      // re-ask about the position on the board.
+      onRetryCloud: () => { retryCloudNow(); void engine.evaluate(chess.fen()); },
+    },
   );
 
   // The dock's engine icon is the one on/off switch for the engine, in both the

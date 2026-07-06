@@ -6103,6 +6103,28 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   display: none;
 }
 
+/* Discreet "can't reach Lichess" warning + retry, swapped in for the source
+   badge (same slot, same height) while the cloud engine is unreachable. */
+.eval-cloud-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.6rem;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  padding: 1px 5px;
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--warn);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.eval-cloud-warn:active { background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.eval-cloud-warn[hidden] { display: none; }
+.eval-cloud-warn svg { flex: none; }
+
 /* Discrete "Show arrows / Hide arrows" toggle, builder Engine tab only. */
 /* Show/hide-arrows control — a compact icon button. Dim when arrows are hidden,
    lit in the engine's arrow green when they're shown. */

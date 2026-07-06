@@ -19,7 +19,7 @@ import type { Key } from 'chessground/types';
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
 import { isOutOfBook, nameForPath } from './openings';
-import { Engine, type EvalResult } from './engine';
+import { Engine, retryCloudNow, type EvalResult } from './engine';
 import { EvalPanel } from './eval-panel';
 
 // Where the engine's opening comes from: a random book line, a line sampled from
@@ -464,7 +464,10 @@ export function openSpar(opts: SparOptions): void {
       cg.redrawAll();
     },
     (uci) => { playMyMove(uci); },
-    { compact: true }, // one row of best moves, no PV — see eval-panel.ts
+    {
+      compact: true, // one row of best moves, no PV — see eval-panel.ts
+      onRetryCloud: () => { retryCloudNow(); refreshAnalysis(); },
+    },
   );
 
   let suggestEngine: SuggestEngine | null = null; // created lazily on first use
