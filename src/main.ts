@@ -46,7 +46,7 @@ import { createBuilderPanels, type BuilderPanels } from './builder-panels';
 import { initTheme } from './theme';
 import { initAppearance } from './appearance';
 import { initDriveAutoBackup } from './drive-backup';
-import { watchSpeedMs, getConfirmRunBeforeTraining, getScoutingEnabled, getShowEngineArrows, setShowEngineArrows, getShowMoveClassifications } from './prefs';
+import { watchSpeedMs, getConfirmRunBeforeTraining, getShowEngineArrows, setShowEngineArrows, getShowMoveClassifications } from './prefs';
 import { reviewLine, gradeNode, type ReviewSummary } from './review';
 import { renderLineAnalysis, hasReview } from './line-analysis';
 import { applyBrilliantTag } from './brilliant';
@@ -1017,21 +1017,6 @@ function setReviewSquares(from: Key | null, to: Key | null, cls?: string): void 
     if (to) custom.set(to, `review-sq review-sq--${cls}`);
   }
   cg.set({ highlight: { custom } });
-}
-
-// Show or hide the builder's Scouting tab (and its slide) to match the Settings
-// toggle. With scouting off the carousel has four tabs — Line / Library / My
-// games / Learn — and the other slides keep their indices, so nothing else
-// shifts (this only works because Scouting is the LAST slide).
-// Opponents stay in storage; flipping the toggle back brings the tab straight back.
-function syncScoutingTab(): void {
-  const enabled = getScoutingEnabled();
-  const tab = document.querySelector<HTMLElement>(
-    `#builder-slide-tabs .slide-tab[data-slide="${SCOUTING_SLIDE}"]`,
-  );
-  const slide = document.getElementById('slide-scouting');
-  if (tab) tab.hidden = !enabled;
-  if (slide) slide.hidden = !enabled;
 }
 
 // ── Builder sheet (draggable Google-Maps-style panel) ───────────────────────
@@ -2550,15 +2535,11 @@ function showView(view: ViewName): void {
   }
 
   if (view === 'builder') {
-    // Reflect the scouting toggle before we land on a slide, so a hidden
-    // Scouting tab can't be the target.
-    syncScoutingTab();
     // Land on the Line tab by default (engine off); an external link can request
     // a different tab via pendingBuilderSlide. Forcing activeSlide to a sentinel
     // makes onActiveSlide run fully (so the engine state is set correctly).
-    let slide = pendingBuilderSlide ?? 0;
+    const slide = pendingBuilderSlide ?? 0;
     pendingBuilderSlide = null;
-    if (slide === SCOUTING_SLIDE && !getScoutingEnabled()) slide = 0;
     if (pendingScoutOpponentId) {
       builderPanels?.selectOpponent(pendingScoutOpponentId);
       pendingScoutOpponentId = null;

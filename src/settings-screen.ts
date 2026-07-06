@@ -1,5 +1,5 @@
 // The Settings screen — every device-local preference in one place, grouped into
-// Appearance, Training, Statistics, Add your games, Data, Diagnostics and
+// Appearance, Training, Daily challenge, Add your games, Backup and
 // Feedback & about. Each control writes straight to the pref the matching feature
 // already reads (theme.ts, appearance.ts, prefs.ts, sound.ts, chesscom.ts), so a
 // change takes effect the next time that feature runs.
@@ -38,16 +38,8 @@ import {
   getConfirmRunBeforeTraining,
   setConfirmRunBeforeTraining,
   clearTimedBest,
-  getShowQuickView,
-  setShowQuickView,
   getShowLineMiniatures,
   setShowLineMiniatures,
-  getShowStreakSection,
-  setShowStreakSection,
-  getShowActivitySection,
-  setShowActivitySection,
-  getScoutingEnabled,
-  setScoutingEnabled,
   getIncludeSecondPlatform,
   setIncludeSecondPlatform,
   getShowMoveClassifications,
@@ -74,25 +66,12 @@ import { renderBackupSection, renderCloudBackupSection, exportBackupNow } from '
 import { Icons } from './icons';
 import { userAvatar } from './avatar';
 import { pushBack } from './back-nav';
-import { appendSelfTest } from './selftest-panel';
 import { openFeedbackSheet } from './feedback';
 import { openSurvey } from './survey';
 import { showIntro } from './onboarding';
 import { showOnboardingWizard } from './onboarding-wizard';
 import { isConnected, connect, disconnect, LICHESS_CONNECT_BLURB } from './lichess-auth';
 import { buildSupportSection } from './support';
-import { runStorageSelfTest } from './storage.selftest';
-import { runOpeningsSelfTest } from './openings.selftest';
-import { runSparSelfTest } from './spar.selftest';
-import { runImportSelfTest } from './import.selftest';
-import { runTreeSelfTest } from './tree.selftest';
-import { runMoveStatsSelfTest } from './move-stats.selftest';
-import { runSchedulerSelfTest } from './scheduler.selftest';
-import { runAnalysisSelfTest } from './analysis.selftest';
-import { runStatsSelfTest } from './stats.selftest';
-import { runEngineSelfTest } from './engine.selftest';
-import { runDriveSelfTest } from './drive.selftest';
-import { runYoutubeSelfTest } from './youtube.selftest';
 
 export function renderSettingsScreen(container: HTMLElement): void {
   container.innerHTML = '';
@@ -119,10 +98,7 @@ export function renderSettingsScreen(container: HTMLElement): void {
   screen.appendChild(buildAppearanceGroup());
   screen.appendChild(buildTrainingGroup());
   screen.appendChild(buildDailyChallengeGroup());
-  screen.appendChild(buildStatisticsGroup());
-  screen.appendChild(buildExploreGroup());
-  screen.appendChild(buildDataGroup());
-  screen.appendChild(buildDiagnosticsGroup());
+  screen.appendChild(buildBackupGroup());
   if (isConnected()) screen.appendChild(buildLichessGroup(refresh));
   screen.appendChild(buildAboutGroup());
 
@@ -131,58 +107,6 @@ export function renderSettingsScreen(container: HTMLElement): void {
   void countGames().then((count) => {
     userSlot.appendChild(buildUserGroup(count, () => renderSettingsScreen(container)));
   });
-}
-
-// ── Diagnostics ──────────────────────────────────────────────────────────────
-// Offline self-tests for the data layer, runnable right on the phone — now the
-// single home for every self-test in the app. They tuck behind an "Advanced"
-// disclosure (closed by default) so day-to-day Settings stays uncluttered.
-// Storage hits the real IndexedDB; openings checks the bundled name database; the
-// import parser checks Chess.com PGN parsing; the move-tree, move-stats,
-// scheduler and analysis tests cover the pure-logic layers. The scheduler and
-// analysis tests used to live inline on the Train and Lines screens — those
-// links are gone, and these are the only copies now.
-
-function buildDiagnosticsGroup(): HTMLElement {
-  // The whole group is now a collapsed accordion panel, so the old nested
-  // "Advanced" disclosure is gone — the self-tests sit directly inside.
-  const sec = group('Diagnostics', Icons.search(16));
-
-  const blurb = document.createElement('p');
-  blurb.className = 'section-desc';
-  blurb.textContent = 'Offline self-tests. Tap one to run it and see pass/fail.';
-  sec.appendChild(blurb);
-
-  appendSelfTest(sec, 'Run storage self-test', runStorageSelfTest, '[storage self-test]');
-  appendSelfTest(sec, 'Run openings lookup self-test', runOpeningsSelfTest, '[openings self-test]');
-  appendSelfTest(sec, 'Run out-of-book self-test', runSparSelfTest, '[spar self-test]');
-  appendSelfTest(sec, 'Run import parser self-test', runImportSelfTest, '[import self-test]');
-  appendSelfTest(sec, 'Run move-tree self-test', runTreeSelfTest, '[tree self-test]');
-  appendSelfTest(sec, 'Run move-stats self-test', runMoveStatsSelfTest, '[move-stats self-test]');
-  appendSelfTest(sec, 'Run scheduler self-test', runSchedulerSelfTest, '[scheduler self-test]');
-  appendSelfTest(sec, 'Run analysis self-test', runAnalysisSelfTest, '[analysis self-test]');
-  appendSelfTest(sec, 'Run learn-videos self-test', runYoutubeSelfTest, '[youtube self-test]');
-  appendSelfTest(sec, 'Run statistics self-test', runStatsSelfTest, '[stats self-test]');
-  appendSelfTest(sec, 'Run engine castling self-test', runEngineSelfTest, '[engine self-test]');
-  appendSelfTest(sec, 'Run Drive backup self-test', runDriveSelfTest, '[drive self-test]');
-
-  return sec;
-}
-
-// ── Explore ──────────────────────────────────────────────────────────────────
-// A small home for Explore-related preferences. For now just the scouting
-// switch, which gates the whole opponent-scouting feature.
-
-function buildExploreGroup(): HTMLElement {
-  const sec = group('Explore', Icons.compass(16));
-
-  sec.appendChild(row(
-    'Scouting',
-    toggle(getScoutingEnabled(), (on) => setScoutingEnabled(on)),
-    { sub: 'Scout opponents from their games, on the Explore tab and in the board builder. Off hides it from both — your scouted opponents are kept.' },
-  ));
-
-  return sec;
 }
 
 // ── Feedback & About ─────────────────────────────────────────────────────────
@@ -674,13 +598,7 @@ function buildAppearanceGroup(): HTMLElement {
   ));
 
   sec.appendChild(row(
-    'Quick-view carousels',
-    toggle(getShowQuickView(), (on) => setShowQuickView(on)),
-    { sub: 'The swipe-through board rows at the top of My Lines. Off shows quick add-line buttons instead.' },
-  ));
-
-  sec.appendChild(row(
-    'Line position miniatures',
+    'Board miniatures',
     toggle(getShowLineMiniatures(), (on) => setShowLineMiniatures(on)),
     { sub: 'A tiny board on every saved-line and suggestion card, showing where the line ends up.' },
   ));
@@ -828,28 +746,6 @@ function dailyTaskRow(id: DailyTaskId, onToggle: () => void): HTMLElement {
   }
 
   return r;
-}
-
-// ── Statistics ───────────────────────────────────────────────────────────────
-// Two switches for the Statistics screen's optional sections. The Train-header
-// streak pill is independent of both — it always shows.
-
-function buildStatisticsGroup(): HTMLElement {
-  const sec = group('Statistics', Icons.barChart(16));
-
-  sec.appendChild(row(
-    'Show streak on Statistics',
-    toggle(getShowStreakSection(), (on) => setShowStreakSection(on)),
-    { sub: 'The big streak counter, 7-day strip and the monthly calendar. The Train-screen streak pill stays either way.' },
-  ));
-
-  sec.appendChild(row(
-    'Show training activity',
-    toggle(getShowActivitySection(), (on) => setShowActivitySection(on)),
-    { sub: 'The remembered-vs-failed bar.' },
-  ));
-
-  return sec;
 }
 
 // ── Add your games ───────────────────────────────────────────────────────────
@@ -1044,7 +940,7 @@ function relativeDate(iso: string): string {
   return iso.slice(0, 10);
 }
 
-// ── Data ─────────────────────────────────────────────────────────────────────
+// ── Backup ───────────────────────────────────────────────────────────────────
 
 // The quiet line under "Auto-refresh games": "Last refreshed N days ago", or
 // "never" before any games have been pulled.
@@ -1057,8 +953,8 @@ function lastRefreshCaption(): string {
   return `Last refreshed: ${days} days ago`;
 }
 
-function buildDataGroup(): HTMLElement {
-  const sec = group('Data', Icons.save(16));
+function buildBackupGroup(): HTMLElement {
+  const sec = group('Backup', Icons.save(16));
 
   // Auto-refresh games — the weekly check. Only does anything once a username
   // has been saved by a previous import (see auto-refresh.ts); the caption

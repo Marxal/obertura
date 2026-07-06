@@ -46,8 +46,6 @@ import { buildEmptyState } from './empty-state';
 import { pushBack } from './back-nav';
 import { formatMove } from './notation';
 import {
-  getShowStreakSection,
-  getShowActivitySection,
   getStatsRange,
   setStatsRange,
   getCalendarExpanded,
@@ -96,9 +94,8 @@ async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<
     return;
   }
 
-  // 1. Streak hero (kept as it computed; Settings can hide it). The month calendar
-  //    rides inside it as a collapsible row.
-  if (getShowStreakSection()) renderStreakHero(container);
+  // 1. Streak hero. The month calendar rides inside it as a collapsible row.
+  renderStreakHero(container);
 
   // 2. Training region — always shown.
   renderTrainingRegion(container, lines, cb);
@@ -414,7 +411,7 @@ function renderTrainingRegion(container: HTMLElement, lines: Line[], cb: Progres
   renderQuickStats(container, lines, cb);
   // The most-forgotten-move board now lives on the Openings (training) screen,
   // as a per-window carousel with a "Fix it" drill.
-  if (getShowActivitySection()) renderRememberedFailed(container);
+  renderRememberedFailed(container);
 }
 
 // ── Puzzles region ───────────────────────────────────────────────────────────

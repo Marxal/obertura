@@ -7,11 +7,8 @@ const DEFAULT_MODE_KEY = 'obertura.defaultTrainingMode';
 const CONFIRM_RUN_KEY = 'obertura.confirmRunBeforeTraining';
 
 // My Lines view options.
-//   quick view   → the swipe-through board carousels at the top of My Lines.
-//                  OFF by default (a focused list beats carousels for most).
-//   miniatures   → the tiny position board on each saved-line / suggestion card.
-//                  ON by default.
-const SHOW_QUICKVIEW_KEY = 'obertura.lines.showQuickView';
+//   miniatures   → the tiny position board on each saved-line / suggestion card
+//                  ("Board miniatures" in Settings). ON by default.
 const SHOW_MINIATURES_KEY = 'obertura.lines.showMiniatures';
 
 // The Train hub's line-list filters & sort now live in the shared filter bar
@@ -81,17 +78,6 @@ export function setOnboardingComplete(): void {
 
 // ── My Lines view options ────────────────────────────────────────────────────
 
-// The quick-view carousels at the top of My Lines. OFF by default; ON shows the
-// swipe-through board rows. When off, the screen surfaces inline "add line"
-// buttons instead.
-export function getShowQuickView(): boolean {
-  return localStorage.getItem(SHOW_QUICKVIEW_KEY) === 'on';
-}
-
-export function setShowQuickView(on: boolean): void {
-  localStorage.setItem(SHOW_QUICKVIEW_KEY, on ? 'on' : 'off');
-}
-
 // The tiny position board on each saved-line and suggestion card. ON by default.
 export function getShowLineMiniatures(): boolean {
   return localStorage.getItem(SHOW_MINIATURES_KEY) !== 'off';
@@ -143,34 +129,13 @@ export function setShowMoveClassifications(on: boolean): void {
   localStorage.setItem(SHOW_CLASSIFICATIONS_KEY, on ? 'on' : 'off');
 }
 
-// ── Statistics screen sections ───────────────────────────────────────────────
+// ── Statistics screen ────────────────────────────────────────────────────────
 //
-// Two device-local toggles that hide whole sections of the Statistics screen,
-// plus the 28-day activity grid's remembered open/closed state. The streak and
-// activity sections both default ON; the grid itself defaults COLLAPSED.
-const SHOW_STREAK_KEY = 'obertura.stats.showStreak';
-const SHOW_ACTIVITY_KEY = 'obertura.stats.showActivity';
+// The range selector's remembered choice plus the monthly calendar's remembered
+// open/closed state. (The old show-streak / show-activity switches are gone —
+// the Statistics screen always shows every section now.)
 const STATS_RANGE_KEY = 'obertura.stats.range';
 const CALENDAR_EXPANDED_KEY = 'obertura.stats.calendarExpanded';
-
-// Whether the streak hero (big streak + 7-day strip) shows on Statistics. The
-// Train-header streak pill is separate and unaffected by this.
-export function getShowStreakSection(): boolean {
-  return localStorage.getItem(SHOW_STREAK_KEY) !== 'off';
-}
-
-export function setShowStreakSection(on: boolean): void {
-  localStorage.setItem(SHOW_STREAK_KEY, on ? 'on' : 'off');
-}
-
-// Whether the Training Activity section shows on Statistics at all.
-export function getShowActivitySection(): boolean {
-  return localStorage.getItem(SHOW_ACTIVITY_KEY) !== 'off';
-}
-
-export function setShowActivitySection(on: boolean): void {
-  localStorage.setItem(SHOW_ACTIVITY_KEY, on ? 'on' : 'off');
-}
 
 // The Statistics → Training time selector (Week / Month / All). Drives the
 // remembered-vs-failed bar's range; the last choice is remembered across visits.
@@ -195,22 +160,6 @@ export function getCalendarExpanded(): boolean {
 
 export function setCalendarExpanded(on: boolean): void {
   localStorage.setItem(CALENDAR_EXPANDED_KEY, on ? 'on' : 'off');
-}
-
-// ── Explore / scouting ───────────────────────────────────────────────────────
-
-// Whether opponent scouting is available at all. Default ON. When off, the
-// Scout-opponents section disappears from Explore and the Scouting tab is
-// removed from the board builder's carousel. Scouted opponents stay in storage,
-// so turning it back on restores everything.
-const SCOUTING_KEY = 'obertura.scoutingEnabled';
-
-export function getScoutingEnabled(): boolean {
-  return localStorage.getItem(SCOUTING_KEY) !== 'off';
-}
-
-export function setScoutingEnabled(on: boolean): void {
-  localStorage.setItem(SCOUTING_KEY, on ? 'on' : 'off');
 }
 
 // A discreet opt-in: surface your *other* platform (the one you're not currently

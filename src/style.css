@@ -2785,35 +2785,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   padding: 0.25rem 0 0.75rem;
 }
 
-/* ── My Lines carousel ──────────────────────────────────────────────────────── */
-
-/* No outer box: the mini-boards float directly on the page. The section spans
-   full width (no side margins) so the track can bleed off the right edge — the
-   peeking next board IS the only scroll hint. */
-.carousel-section {
-  margin: var(--space-xl) 0 0;
-}
-
-/* Heading row: colour pip + name on the left, Add button on the right. Padded
-   to the page margin now that the section no longer pads its children. */
-.carousel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  padding: 0 var(--space-lg);
-  margin-bottom: var(--space-md);
-}
-
-.carousel-head-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--text);
-}
-
 .colour-pip {
   width: 16px;
   height: 16px;
@@ -2829,104 +2800,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .colour-pip--black {
   background: #2b241d;
   border: 1px solid #4a3d2e;
-}
-
-.lines-add-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.45rem 0.7rem;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  font-family: system-ui, -apple-system, sans-serif;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-card);
-  transition: filter 0.12s, transform 0.12s;
-}
-
-.lines-add-btn:active { filter: brightness(0.92); transform: translateY(1px); }
-
-.lines-add-btn--white {
-  background: #f4ede0;
-  color: #2a2118;
-  border-color: #cdbfa8;
-}
-
-.lines-add-btn--black {
-  background: #2b241d;
-  color: #f1ece1;
-  border-color: #4a3d2e;
-}
-
-/* Horizontal scroller. Edge spacing lives on the first/last cards (margins on
-   flex children are honoured at both scroll extremes, unlike a scroll
-   container's own end padding), so both ends get a clean page-margin inset. */
-.carousel-track {
-  display: flex;
-  gap: var(--space-sm);
-  padding: var(--space-xs) 0 var(--space-sm);
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-
-.carousel-track::-webkit-scrollbar { display: none; }
-
-/* The board floats free — no card box around it — with its title underneath.
-   The track's sizing lets the next board peek in from the right edge. */
-/* Sized so three cards plus ~15% of the fourth fit a 390px viewport (16px left
-   inset, 8px gaps): (390 − 16 − 3×8) / 3.15 ≈ 111px ≈ 28.5vw. That sliver of
-   the fourth board peeking past the right edge is the scroll hint. */
-.carousel-card {
-  flex: 0 0 auto;
-  width: 28.5vw;
-  max-width: 132px;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  padding: 0;
-  border: none;
-  background: transparent;
-  box-shadow: none;
-  cursor: pointer;
-  scroll-snap-align: start;
-  -webkit-tap-highlight-color: transparent;
-  font-family: system-ui, -apple-system, sans-serif;
-}
-
-.carousel-card:active { transform: translateY(1px); }
-
-/* Page-margin inset at each end of the track (see .carousel-track). */
-.carousel-card:first-child { margin-left: var(--space-lg); }
-.carousel-card:last-child { margin-right: var(--space-lg); }
-
-/* Static mini-board — square, gently rounded, non-interactive. overflow clips
-   the chessground board to the rounded corners. */
-.carousel-board {
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  border-radius: 7px;
-  overflow: hidden;
-  box-shadow: var(--shadow-card);
-  pointer-events: none;
-}
-
-.carousel-card-title {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text);
-  line-height: 1.25;
-  text-align: left;
-  padding: 0 0.1rem;
-  /* Clamp to two lines so cards stay even. */
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 /* ── Static position miniatures (saved-line + suggestion cards) ───────────────
@@ -3285,14 +3158,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   paint-order: stroke;
 }
 
-/* Quick add-line buttons shown when the quick view is off. */
-.lines-add-row {
-  display: flex;
-  gap: var(--space-sm);
-}
-
-.lines-add-row .lines-add-btn { flex: 1 1 0; justify-content: center; }
-
 /* ── My Lines tabs (Saved lines | From my games) ────────────────────────────── */
 
 /* Two prominent, equally-weighted tab buttons, side by side. */
@@ -3444,10 +3309,9 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   font-size: 0.9rem;
 }
 
-/* The quick-view carousel above bleeds to the screen edges, so #view-lines
-   carries no page inset of its own. Everything in the tab body (filter bar,
-   games refresh row + intro) must pick up the page margin here, or it sits flush
-   to the screen edge instead of lining up with the cards. */
+/* #view-lines carries no page inset of its own. Everything in the tab body
+   (filter bar, games refresh row + intro) must pick up the page margin here, or
+   it sits flush to the screen edge instead of lining up with the cards. */
 .lines-tab-content {
   padding: 0.1rem var(--space-lg) 0;
 }
