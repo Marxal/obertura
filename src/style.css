@@ -2955,8 +2955,8 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
-  align-items: center;
-  gap: 0.7rem;
+  flex-direction: column;
+  gap: 0.55rem;
   /* Extra right padding leaves room for the corner delete button. */
   padding: 0.6rem 2.1rem 0.6rem 0.65rem;
   border: none;
@@ -2985,14 +2985,12 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   background: var(--bg-elevated);
   color: #c93636;
 }
-/* The left column: the miniature, plus (for analysed games) the review tally
-   stacked beneath it. The column sizes to the mini's width, so the tally lines
-   up under the board. */
-.mygames-card-mini-col {
-  flex: 0 0 auto;
+/* The main row: miniature beside the text column. */
+.mygames-card-main {
   display: flex;
-  flex-direction: column;
-  gap: 5px;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
 }
 /* The miniature matches the My Lines cards and carries a result border. */
 .mygames-card-mini {
@@ -3003,38 +3001,59 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   box-sizing: border-box;
 }
 
-/* The game-review tally: a 2×2 grid of tiny stat tiles (accuracy · good ·
-   mistakes · blunders) that fills the column width under the board. */
+/* The game-review strip: full card width, one column per graded move class plus
+   the leading accuracy column. Three rows — White's counts, the class icons,
+   Black's counts — laid out by grid auto-flow, so the columns always line up. */
 .mygames-card-review {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 3px;
-}
-.mgr-cell {
-  display: flex;
-  flex-direction: column;
+  grid-template-columns: auto repeat(var(--mgr-cols, 5), 1fr);
   align-items: center;
-  justify-content: center;
-  padding: 3px 2px 2px;
-  border-radius: 6px;
+  justify-items: center;
+  row-gap: 3px;
+  column-gap: 2px;
+  padding: 5px 7px;
+  border-radius: 8px;
   background: var(--fill-faint);
-  line-height: 1.05;
 }
 .mgr-val {
   font-weight: 700;
   font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
   color: var(--text);
+  line-height: 1;
 }
-.mgr-val--zero { color: var(--text-faint); }
-.mgr-lbl {
-  margin-top: 1px;
-  font-size: 0.52rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+.mgr-val--zero { color: var(--text-fainter); font-weight: 600; }
+.mgr-icon { display: flex; align-items: center; }
+/* The accuracy column leads each row: side pip + the percentage. */
+.mgr-acc {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 800;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  line-height: 1;
+  padding-right: 6px;
+}
+.mgr-acc-label {
+  justify-self: start;
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--text-faint);
+  color: var(--text-fainter);
+  padding-left: 14px; /* clear the pips above/below so the label centres on the numbers */
 }
+.mgr-pip {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+.mgr-pip--white { background: #f4ede0; border: 1px solid #b9a988; }
+.mgr-pip--black { background: #2b241d; border: 1px solid #4a3d2e; }
 .mygames-card-mini--win { border-color: #5a9e3f; }
 .mygames-card-mini--loss { border-color: #c93636; }
 .mygames-card-mini--draw { border-color: var(--border-card); }

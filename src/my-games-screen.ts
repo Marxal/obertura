@@ -23,8 +23,9 @@ import { Icons } from './icons';
 import { renderLoadError } from './load-error';
 import { getGamesSource } from './import-panel';
 import { refreshGamesNow } from './auto-refresh';
-import { summariseReview } from './line-analysis';
-import { CLASS_COLOR } from './icons';
+import { reviewStripData } from './line-analysis';
+import { classIcon, CLASS_COLOR, CLASS_LABEL } from './icons';
+import type { MoveClass } from './winprob';
 import type { MoveNode } from './tree';
 
 // A short, locale-aware game date ("12 Mar 2024") from the stored unix seconds.
@@ -256,25 +257,22 @@ function gameCard(g: ImportedGame, deps: MyGamesDeps, refresh: () => void): HTML
   wrap.className = 'mygames-card';
 
   // The big tap target opens the game; a separate trash button deletes it (two
-  // siblings, so no invalid button-in-button nesting).
+  // siblings, so no invalid button-in-button nesting). It stacks two rows: the
+  // main row (miniature + text) and, for analysed games, a full-width review
+  // strip beneath the board.
   const open = document.createElement('button');
   open.type = 'button';
   open.className = 'mygames-card-open';
   open.addEventListener('click', () => deps.onOpenGame(g));
 
-  // The miniature carries a thin result border: green won, red lost, neutral
-  // drew. When the game's been analysed, a compact review tally stacks beneath it
-  // (2×2: accuracy, good moves, mistakes, blunders — your side).
-  const miniCol = document.createElement('div');
-  miniCol.className = 'mygames-card-mini-col';
+  const main = document.createElement('div');
+  main.className = 'mygames-card-main';
+  open.appendChild(main);
+
+  // The miniature carries a thin result border: green won, red lost, neutral drew.
   const mini = buildMiniBoard(fenAfter(g.ucis), g.colour);
   mini.classList.add('mygames-card-mini', `mygames-card-mini--${g.result}`);
-  miniCol.appendChild(mini);
-  if (g.analysis) {
-    const review = buildReviewSummary(g.analysis.tree, g.colour);
-    if (review) miniCol.appendChild(review);
-  }
-  open.appendChild(miniCol);
+  main.appendChild(mini);
 
   const text = document.createElement('div');
   text.className = 'mygames-card-text';
@@ -340,7 +338,11 @@ function gameCard(g: ImportedGame, deps: MyGamesDeps, refresh: () => void): HTML
     text.appendChild(tags);
   }
 
-  open.appendChild(text);
+  main.appendChild(text);
+  if (g.analysis) {
+    const strip = buildReviewStrip(g.analysis.tree);
+    if (strip) open.appendChild(strip);
+  }
   wrap.appendChild(open);
 
   // Delete tucks into the top-right corner (overlaid on the card) so it no longer
@@ -367,34 +369,63 @@ function gameCard(g: ImportedGame, deps: MyGamesDeps, refresh: () => void): HTML
   return wrap;
 }
 
-// The 2×2 review tally under an analysed game's miniature: accuracy, good moves,
-// mistakes and blunders for the side you played. Null when the game carries no
-// grades (so the caller shows nothing). Colours match the game-review palette;
-// zero counts read muted so a clean game stays calm.
-function buildReviewSummary(tree: MoveNode, colour: 'white' | 'black'): HTMLElement | null {
-  const s = summariseReview(tree, colour);
-  if (!s) return null;
+// The full-width review strip under an analysed game's board: one column per
+// graded move class, three rows — White's counts, the class icons, Black's
+// counts — with each side's accuracy leading its row. No class-name titles:
+// the icon column headers carry the identity (each icon keeps a title/aria
+// label). Null when the game carries no grades (so the caller shows nothing).
+function buildReviewStrip(tree: MoveNode): HTMLElement | null {
+  const s = reviewStripData(tree);
+  if (!s || s.classes.length === 0) return null;
 
   const grid = document.createElement('div');
   grid.className = 'mygames-card-review';
+  grid.style.setProperty('--mgr-cols', String(s.classes.length));
 
-  const cell = (value: string, label: string, colour?: string): HTMLElement => {
-    const c = document.createElement('div');
-    c.className = 'mgr-cell';
+  const countCell = (n: number, cls: MoveClass): HTMLElement => {
     const v = document.createElement('span');
-    v.className = 'mgr-val' + (value === '0' ? ' mgr-val--zero' : '');
-    v.textContent = value;
-    if (colour && value !== '0') v.style.color = colour;
-    const l = document.createElement('span');
-    l.className = 'mgr-lbl';
-    l.textContent = label;
-    c.append(v, l);
-    return c;
+    v.className = 'mgr-val' + (n === 0 ? ' mgr-val--zero' : '');
+    v.textContent = String(n);
+    if (n > 0) v.style.color = CLASS_COLOR[cls];
+    return v;
   };
 
-  grid.appendChild(cell(s.accuracy === null ? '—' : `${Math.round(s.accuracy)}%`, 'Accuracy'));
-  grid.appendChild(cell(String(s.good), 'Good', CLASS_COLOR.good));
-  grid.appendChild(cell(String(s.mistakes), 'Mistakes', CLASS_COLOR.mistake));
-  grid.appendChild(cell(String(s.blunders), 'Blunders', CLASS_COLOR.blunder));
+  // Accuracy column first: White's number on top, the label between, Black's
+  // number below — mirroring the per-class columns beside it. A tiny colour pip
+  // marks which side each row belongs to.
+  const accCell = (v: number | null, side: 'white' | 'black'): HTMLElement => {
+    const el = document.createElement('span');
+    el.className = 'mgr-acc';
+    const pip = document.createElement('span');
+    pip.className = `mgr-pip mgr-pip--${side}`;
+    pip.setAttribute('aria-hidden', 'true');
+    el.appendChild(pip);
+    el.appendChild(document.createTextNode(v === null ? '—' : `${Math.round(v)}%`));
+    el.setAttribute('aria-label', `${side} accuracy ${v === null ? 'unknown' : Math.round(v) + '%'}`);
+    return el;
+  };
+  const accLabel = document.createElement('span');
+  accLabel.className = 'mgr-acc-label';
+  accLabel.textContent = 'Acc';
+
+  // Row 1 — White's numbers.
+  grid.appendChild(accCell(s.accWhite, 'white'));
+  for (const c of s.classes) grid.appendChild(countCell(s.white.get(c) ?? 0, c));
+
+  // Row 2 — the class icons (no text titles).
+  grid.appendChild(accLabel);
+  for (const c of s.classes) {
+    const icon = document.createElement('span');
+    icon.className = 'mgr-icon';
+    icon.title = CLASS_LABEL[c];
+    icon.setAttribute('aria-label', CLASS_LABEL[c]);
+    icon.appendChild(classIcon(c, 15));
+    grid.appendChild(icon);
+  }
+
+  // Row 3 — Black's numbers.
+  grid.appendChild(accCell(s.accBlack, 'black'));
+  for (const c of s.classes) grid.appendChild(countCell(s.black.get(c) ?? 0, c));
+
   return grid;
 }
