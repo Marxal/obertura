@@ -3986,22 +3986,30 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   display: none;
 }
 
-/* The "In training" list collapses behind its header (collapsed by default) —
-   the header mirrors the family-group look: chevron + title + count. */
+/* The "Lines in training" list collapses behind its header (collapsed by
+   default). The header reads as a proper card — box, border, shadow — with
+   chevron + title + count inside; the expanded body below it is untouched. */
 .train-collapse {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 12px 2px;
-  background: none;
-  border: none;
+  padding: 14px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
   font: inherit;
   color: inherit;
   text-align: left;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: box-shadow 0.12s ease;
 }
+.train-collapse:active { box-shadow: var(--shadow-card-hover); }
+/* Expanded: the header card stays exactly as it is (the body simply shows
+   below it), so opening never restyles what you tapped. */
+.train-collapse--open { margin-bottom: 0.5rem; }
 .train-collapse .lines-fam-chev {
   transition: transform 0.15s ease;
 }
