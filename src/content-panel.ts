@@ -15,10 +15,12 @@
 
 import { openingForPath } from './openings';
 import {
-  searchYoutube, peekYoutube, videoQuery, youtubeSearchUrl, type VideoHit,
+  fetchPage, peekPage, videoQuery, movesQuery, youtubeSearchUrl,
 } from './youtube';
 import { curatedForOpening } from './content-explore';
-import { extLink, linksRow, learnNote, learnSection, videoRow } from './content-ui';
+import { extLink, linksRow, learnNote, learnSection, videoRow, videoList } from './content-ui';
+import { isHidden } from './video-lib';
+import { Icons } from './icons';
 
 export interface ContentPanelDeps {
   el: HTMLElement;                  // the #slide-learn section
@@ -34,7 +36,6 @@ export interface ContentPanel {
 }
 
 const NET_DEBOUNCE_MS = 350;
-const MAX_VIDEOS = 5;
 
 export function createContentPanel(deps: ContentPanelDeps): ContentPanel {
   let active = false;
@@ -86,6 +87,20 @@ export function createContentPanel(deps: ContentPanelDeps): ContentPanel {
 
     const opening = openingForPath(deps.getFens());
 
+    // ── A discrete "search this exact position" escape hatch at the very top:
+    //    the per-opening list below is broad; this deep-links to a YouTube
+    //    search for the precise move order on the board.
+    const exact = document.createElement('a');
+    exact.className = 'learn-exact';
+    exact.href = youtubeSearchUrl(movesQuery(sans));
+    exact.target = '_blank';
+    exact.rel = 'noopener noreferrer';
+    exact.appendChild(Icons.search(14));
+    const exactText = document.createElement('span');
+    exactText.textContent = 'Search this exact position ↗';
+    exact.appendChild(exactText);
+    el.appendChild(exact);
+
     // ── Header: what we're finding videos for ──
     const head = document.createElement('div');
     head.className = 'learn-head';
@@ -109,33 +124,29 @@ export function createContentPanel(deps: ContentPanelDeps): ContentPanel {
     el.appendChild(learnSection(`Videos for ${deps.getColour()}`));
     const curated = curatedForOpening(opening.name);
     if (curated?.note) el.appendChild(learnNote(curated.note));
-    for (const v of curated?.videos ?? []) el.appendChild(videoRow(v));
+    for (const v of curated?.videos ?? []) {
+      if (!isHidden(v.id)) el.appendChild(videoRow(v));
+    }
 
     const slot = document.createElement('div');
     el.appendChild(slot);
 
     const query = videoQuery(opening.name, deps.getColour());
-    const cached = peekYoutube(query);
+    const cached = peekPage(query);
     if (cached !== undefined) {
-      renderHits(slot, cached, query);
+      videoList(slot, query, cached);
       return;
     }
     slot.appendChild(learnNote('Loading videos…'));
     netTimer = window.setTimeout(() => {
       netTimer = null;
-      void searchYoutube(query).then(hits => {
+      void fetchPage(query).then(page => {
         if (!active || currentQuery() !== query) return; // moved on meanwhile
-        if (hits === null) renderFallback(slot, query);
-        else renderHits(slot, hits, query);
+        slot.innerHTML = '';
+        if (page === null) renderFallback(slot, query);
+        else videoList(slot, query, page);
       });
     }, NET_DEBOUNCE_MS);
-  }
-
-  function renderHits(slot: HTMLElement, hits: VideoHit[], query: string): void {
-    slot.innerHTML = '';
-    if (!hits.length) { renderFallback(slot, query); return; }
-    for (const hit of hits.slice(0, MAX_VIDEOS)) slot.appendChild(videoRow(hit));
-    slot.appendChild(linksRow([extLink('More on YouTube', youtubeSearchUrl(query))]));
   }
 
   function renderFallback(slot: HTMLElement, query: string): void {

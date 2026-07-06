@@ -12678,17 +12678,68 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   white-space: nowrap;
 }
 .learn-link:active { background: var(--accent-soft); }
-/* A tappable video: thumbnail + two-line title + channel. */
+/* A "Show more" pill under a growing video list. */
+.learn-more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.25rem 0.1rem;
+}
+.learn-more-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.42rem 0.8rem;
+  border: 1px solid var(--hairline-soft);
+  border-radius: 999px;
+  background: none;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+.learn-more-btn:active { background: var(--accent-soft); }
+.learn-more-btn:disabled { opacity: 0.6; }
+/* A tappable video row: the link (thumbnail + title + channel) plus its actions. */
 .learn-video-row {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.4rem 0.25rem;
+  gap: 0.2rem;
   border-bottom: 1px solid var(--hairline-soft);
+}
+.learn-video-link {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: 1;
+  min-width: 0;
+  padding: 0.4rem 0.25rem;
   text-decoration: none;
   color: inherit;
 }
-.learn-video-row:active { background: var(--accent-soft); }
+.learn-video-link:active { background: var(--accent-soft); }
+/* Favourite (★) + "not interested" (⊘) buttons at the right of a video row. */
+.learn-video-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
+  flex: none;
+}
+.learn-video-act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.learn-video-act:active { background: var(--accent-soft); }
+.learn-video-act.is-fav { color: #e0a72f; }
+.learn-video-act.is-fav .learn-video-act-icon { fill: #e0a72f; }
 .learn-video-thumb {
   width: 96px;
   height: 54px;
@@ -12735,6 +12786,30 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 .learn-family-count {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   font-size: 0.72rem;
   color: var(--text-muted);
 }
+.learn-family-count .colour-pip {
+  width: 12px;
+  height: 12px;
+}
+/* Favourites / Watched shelves at the top & bottom of Explore → Learn. */
+.learn-shelf { margin-bottom: 0.6rem; }
+/* The discrete "search this exact position" link atop the board Learn tab. */
+.learn-exact {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0.1rem 0.25rem 0.15rem;
+  padding: 0.28rem 0.6rem;
+  border: 1px solid var(--hairline-soft);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.learn-exact:active { background: var(--accent-soft); }

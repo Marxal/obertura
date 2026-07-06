@@ -10,10 +10,14 @@ import type { Line } from './types';
 import { openingFamily } from './analysis';
 import { Icons } from './icons';
 import { buildEmptyState } from './empty-state';
+import { colourPip } from './card-position';
 import {
-  searchYoutube, peekYoutube, videoQuery, youtubeSearchUrl, type VideoHit,
+  fetchPage, peekPage, videoQuery, youtubeSearchUrl,
 } from './youtube';
-import { extLink, linksRow, learnNote, videoRow } from './content-ui';
+import {
+  extLink, linksRow, learnNote, learnSection, videoRow, videoList, type ShelfKind,
+} from './content-ui';
+import { isHidden, listFavourites, listSeen, type SavedVideo } from './video-lib';
 
 export interface CuratedVideo { id: string; title: string; channel?: string }
 export interface CuratedEntry {
@@ -23,9 +27,6 @@ export interface CuratedEntry {
 }
 
 const CURATED: CuratedEntry[] = (curatedData as { families: CuratedEntry[] }).families;
-
-// Keep Explore's cards short — the builder's Learn slide is the deep view.
-const MAX_CARD_VIDEOS = 3;
 
 /**
  * The hand-picked entry for an opening name or family — the LONGEST `match`
@@ -53,7 +54,10 @@ export function buildLearnTab(lines: Line[], onBuildLine: () => void): HTMLEleme
   wrap.className = 'learn-tab';
 
   const named = lines.filter(l => l.openingName);
-  if (!named.length) {
+  const favs = listFavourites();
+  const seen = listSeen();
+
+  if (!named.length && !favs.length && !seen.length) {
     wrap.appendChild(buildEmptyState({
       icon: Icons.bulb(44),
       line: 'Save a line and its opening shows up here.',
@@ -62,6 +66,9 @@ export function buildLearnTab(lines: Line[], onBuildLine: () => void): HTMLEleme
     }));
     return wrap;
   }
+
+  // Your saved shelf leads, so favourites are one tap away.
+  if (favs.length) wrap.appendChild(videoShelf('Favourites', favs, 'fav'));
 
   // Group by family: line count + which colour you play it as (majority).
   const groups = new Map<string, { count: number; white: number }>();
@@ -80,7 +87,30 @@ export function buildLearnTab(lines: Line[], onBuildLine: () => void): HTMLEleme
     const colour: 'white' | 'black' = g.white * 2 >= g.count ? 'white' : 'black';
     wrap.appendChild(familyCard(family, g.count, colour));
   }
+
+  // …and the history archive trails at the bottom.
+  if (seen.length) wrap.appendChild(videoShelf('Watched', seen, 'history'));
   return wrap;
+}
+
+// A titled shelf of saved / watched videos. Rows drop themselves as they're
+// un-saved or marked not-interested; when the last one goes, the shelf follows.
+// (Favourites are an explicit save, so they show even if hidden elsewhere; the
+// Watched archive never holds hidden videos — hiding one forgets it.)
+function videoShelf(title: string, videos: SavedVideo[], shelf: ShelfKind): HTMLElement {
+  const box = document.createElement('div');
+  box.className = 'learn-shelf';
+  box.appendChild(learnSection(title));
+  const list = document.createElement('div');
+  let remaining = videos.length;
+  for (const v of videos) {
+    list.appendChild(videoRow(v, {
+      shelf,
+      onRemove: () => { if (--remaining <= 0) box.remove(); },
+    }));
+  }
+  box.appendChild(list);
+  return box;
 }
 
 function familyCard(family: string, count: number, colour: 'white' | 'black'): HTMLElement {
@@ -95,41 +125,40 @@ function familyCard(family: string, count: number, colour: 'white' | 'black'): H
   head.appendChild(name);
   const tally = document.createElement('div');
   tally.className = 'learn-family-count';
-  tally.textContent = `${count === 1 ? '1 line' : `${count} lines`} · ${colour}`;
+  // The colour pip we use on every other card, plus the line count.
+  tally.appendChild(colourPip(colour));
+  const tallyText = document.createElement('span');
+  tallyText.textContent = count === 1 ? '1 line' : `${count} lines`;
+  tally.appendChild(tallyText);
   head.appendChild(tally);
   card.appendChild(head);
 
-  // Hand-picked pins first, when this family has any.
+  // Hand-picked pins first, when this family has any (skipping any you've hidden).
   const curated = curatedForOpening(family);
   if (curated?.note) card.appendChild(learnNote(curated.note));
-  for (const v of curated?.videos ?? []) card.appendChild(videoRow(v));
+  for (const v of curated?.videos ?? []) {
+    if (!isHidden(v.id)) card.appendChild(videoRow(v));
+  }
 
   // The auto miniatures — cached weekly per query, so reopening the tab is free.
   const slot = document.createElement('div');
   card.appendChild(slot);
   const query = videoQuery(family, colour);
-  const cached = peekYoutube(query);
+  const cached = peekPage(query);
   if (cached !== undefined) {
-    renderCardHits(slot, cached, query);
+    videoList(slot, query, cached);
   } else {
     slot.appendChild(learnNote('Loading videos…'));
-    void searchYoutube(query).then(hits => {
+    void fetchPage(query).then(page => {
       if (!slot.isConnected) return; // the tab was rebuilt meanwhile
-      if (hits === null || !hits.length) renderCardFallback(slot, query);
-      else renderCardHits(slot, hits, query);
+      slot.innerHTML = '';
+      if (page === null) {
+        slot.appendChild(linksRow([extLink('Search on YouTube', youtubeSearchUrl(query))]));
+      } else {
+        videoList(slot, query, page);
+      }
     });
   }
 
   return card;
-}
-
-function renderCardHits(slot: HTMLElement, hits: VideoHit[], query: string): void {
-  slot.innerHTML = '';
-  if (!hits.length) { renderCardFallback(slot, query); return; }
-  for (const hit of hits.slice(0, MAX_CARD_VIDEOS)) slot.appendChild(videoRow(hit));
-}
-
-function renderCardFallback(slot: HTMLElement, query: string): void {
-  slot.innerHTML = '';
-  slot.appendChild(linksRow([extLink('Search on YouTube', youtubeSearchUrl(query))]));
 }
