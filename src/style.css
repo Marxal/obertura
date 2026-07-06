@@ -11667,17 +11667,24 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   gap: 0.35rem;
 }
 .pz-ta-source-chip svg { flex: none; }
-.pz-ta-start,
-.pz-practice .pz-segmented { width: 100%; }
 .pz-ta-start {
+  width: 100%;
   margin-top: var(--space-md);
   min-height: 48px;
   border-radius: 10px;
 }
 
-/* Practice by opening. */
-.pz-practice-source { margin: var(--space-sm) 0 var(--space-md); }
-.pz-practice .pz-list { margin-top: var(--space-sm); }
+/* Practice by opening — the source tabs inside the "Your openings" accordion.
+   Two evenly-split pills, full width, so the longer labels wrap cleanly. */
+.pz-practice-source {
+  width: 100%;
+  margin: var(--space-sm) 0 var(--space-xs);
+}
+.pz-practice-source .stats-range-chip {
+  flex: 1 1 0;
+  white-space: normal;
+  line-height: 1.2;
+}
 
 /* ── Daily-challenge preferences (Settings) ────────────────────────────────── */
 /* The count picker sits just under each task's title + switch. */

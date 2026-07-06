@@ -377,7 +377,6 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
 
     root.appendChild(renderHero(firstRender));
     root.appendChild(renderTimeAttack());
-    root.appendChild(renderPractice());
     root.appendChild(renderThemes());
     firstRender = false;
   };
@@ -559,75 +558,98 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
     return section;
   }
 
-  // ── Practice by opening ──────────────────────────────────────────────────────
-  function renderPractice(): HTMLElement {
-    const section = document.createElement('div');
-    section.className = 'section pz-practice';
+  // ── Practice by opening (now a group inside Practice by theme) ───────────────
+  // The opening drills live as the first accordion of the theme section, with two
+  // tabs for where the openings come from: your repertoire or your games.
+  function renderOpeningsGroup(): HTMLElement {
+    const details = document.createElement('details');
+    details.className = 'section section--acc pz-theme-acc';
 
-    const title = document.createElement('div');
-    title.className = 'section-title';
-    title.appendChild(document.createTextNode('Practice by opening'));
-    section.appendChild(title);
+    const summary = document.createElement('summary');
+    summary.className = 'section-title section-summary';
+    const left = document.createElement('span');
+    left.className = 'section-summary-left';
+    left.appendChild(Icons.pawn(16));
+    const label = document.createElement('span');
+    label.textContent = 'Your openings';
+    left.appendChild(label);
+    summary.appendChild(left);
+    summary.appendChild(Icons.chevronRight(16));
+    details.appendChild(summary);
+
+    const blurb = document.createElement('div');
+    blurb.className = 'eg-group-blurb';
+    blurb.textContent = 'Drill the tactics of one opening at a time; each row shows your accuracy there.';
+    details.appendChild(blurb);
 
     let source = getPracticeSource();
     if (source === 'games' && !hasGames) source = 'repertoire';
 
-    // Source toggle only when there are games to switch to.
+    const listWrap = document.createElement('div');
+
+    // Source tabs only when there are games to switch to. Switching only
+    // re-fills the list, so the open accordion never snaps shut.
     if (hasGames) {
       const toggle = segmented<Source>(
-        [['repertoire', 'My repertoire'], ['games', 'My games']],
+        [['repertoire', 'Based on my repertoire'], ['games', 'Based on my games']],
         source,
-        (s) => { setPracticeSource(s); rebuild(); },
+        (s) => { source = s; setPracticeSource(s); fillList(); },
       );
       toggle.classList.add('pz-practice-source');
-      section.appendChild(toggle);
+      details.appendChild(toggle);
     }
+    details.appendChild(listWrap);
 
-    const entries = source === 'repertoire' ? repEntries : gameEntries;
-    if (entries.length === 0) {
-      const msg = document.createElement('p');
-      msg.className = 'pz-ta-desc';
-      msg.textContent = source === 'games'
-        ? 'None of your games’ openings have a Lichess puzzle set yet.'
-        : 'Save some opening lines first to practise their puzzles.';
-      section.appendChild(msg);
-      return section;
-    }
-
-    // Accuracy per opening (from past app puzzle results), for the performance pill.
-    const perf = new Map<string, { pct: number; attempts: number }>();
-    for (const o of getPuzzlesByOpening()) {
-      const attempts = o.solved + o.failed;
-      perf.set(o.angle, { pct: attempts ? Math.round((100 * o.solved) / attempts) : 0, attempts });
-    }
-
-    const list = document.createElement('div');
-    list.className = 'pz-list';
-    for (const e of entries) {
-      const row = document.createElement('button');
-      row.type = 'button';
-      row.className = 'pz-opening-row';
-      if (e.colour) row.appendChild(colourPip(e.colour));
-      const name = document.createElement('span');
-      name.className = 'pz-opening-name';
-      name.textContent = e.family;
-      row.appendChild(name);
-      // How many puzzles you've done here (hidden until you've played some).
-      const attempts = perf.get(e.angle)?.attempts ?? 0;
-      if (attempts > 0) {
-        const count = document.createElement('span');
-        count.className = 'pz-opening-count';
-        count.textContent = `${attempts} done`;
-        row.appendChild(count);
+    const fillList = (): void => {
+      listWrap.innerHTML = '';
+      const entries = source === 'repertoire' ? repEntries : gameEntries;
+      if (entries.length === 0) {
+        const msg = document.createElement('p');
+        msg.className = 'pz-ta-desc';
+        msg.textContent = source === 'games'
+          ? 'None of your games’ openings have a Lichess puzzle set yet.'
+          : 'Save some opening lines first to practise their puzzles.';
+        listWrap.appendChild(msg);
+        return;
       }
-      // Performance pill (or a hint to play it) replaces the old target icon.
-      row.appendChild(perfPill(perf.get(e.angle)));
-      row.addEventListener('click', () =>
-        startSession([e], e.family, { kind: 'count', count: PRACTICE_COUNT }));
-      list.appendChild(row);
-    }
-    section.appendChild(list);
-    return section;
+
+      // Accuracy per opening (from past app puzzle results), for the performance pill.
+      const perf = new Map<string, { pct: number; attempts: number }>();
+      for (const o of getPuzzlesByOpening()) {
+        const attempts = o.solved + o.failed;
+        perf.set(o.angle, { pct: attempts ? Math.round((100 * o.solved) / attempts) : 0, attempts });
+      }
+
+      const list = document.createElement('div');
+      list.className = 'pz-list pz-theme-list';
+      for (const e of entries) {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'pz-opening-row';
+        if (e.colour) row.appendChild(colourPip(e.colour));
+        const name = document.createElement('span');
+        name.className = 'pz-opening-name';
+        name.textContent = e.family;
+        row.appendChild(name);
+        // How many puzzles you've done here (hidden until you've played some).
+        const attempts = perf.get(e.angle)?.attempts ?? 0;
+        if (attempts > 0) {
+          const count = document.createElement('span');
+          count.className = 'pz-opening-count';
+          count.textContent = `${attempts} done`;
+          row.appendChild(count);
+        }
+        // Performance pill (or a hint to play it) replaces the old target icon.
+        row.appendChild(perfPill(perf.get(e.angle)));
+        row.addEventListener('click', () =>
+          startSession([e], e.family, { kind: 'count', count: PRACTICE_COUNT }));
+        list.appendChild(row);
+      }
+      listWrap.appendChild(list);
+    };
+    fillList();
+
+    return details;
   }
 
   // ── Practice by theme (Lichess puzzle themes) ────────────────────────────────
@@ -635,7 +657,8 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
   // motifs, length and goal buckets — each a Lichess puzzle theme. Rated on the
   // general puzzle ladder (like the mix), so solving them moves your rating and
   // feeds the repeat queue. Mirrors the End game screen's classic-endgame
-  // accordion, so the two screens read the same.
+  // accordion, so the two screens read the same. Your own openings lead the
+  // section as its first group.
   function renderThemes(): HTMLElement {
     const section = document.createElement('div');
     section.className = 'section pz-themes';
@@ -651,6 +674,7 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
     desc.textContent = 'Rated puzzles on a single theme, straight from Lichess — they move your puzzle rating and mix into your rated runs.';
     section.appendChild(desc);
 
+    if (allEntries.length > 0) section.appendChild(renderOpeningsGroup());
     for (const group of PUZZLE_THEME_GROUPS) section.appendChild(renderThemeGroup(group));
     return section;
   }
