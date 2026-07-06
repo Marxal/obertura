@@ -10,6 +10,7 @@ import {
   collectBrilliantSpots,
   pickBrilliantSpots,
   latestBrilliant,
+  orderBrilliant,
   BRILLIANT_TAG,
 } from './brilliant';
 import type { ImportedGame } from './import-core';
@@ -111,6 +112,25 @@ export function runBrilliantSelfTest(): TestResult[] {
   const latest = latestBrilliant(all);
   check('latest is from the newest game', latest?.game.id === 'new', latest?.game.id);
   check('latestBrilliant null on empty', latestBrilliant([]) === null);
+
+  // ── orderBrilliant: loop, resting solved gems ───────────────────────────────
+  const now = 1_000_000;
+  // Nothing suppressed → brilliancies lead (both from 'new'), then the great.
+  const openOrder = orderBrilliant(all, () => 0, now);
+  check('order leads with brilliancies', openOrder[0].spot.cls === 'brilliant' && openOrder[1].spot.cls === 'brilliant',
+    JSON.stringify(openOrder.map(r => r.spot.cls)));
+  check('order sinks the great last', openOrder[2].spot.cls === 'great');
+
+  // Rest both brilliancies (the 'new' spots) → the available great leads instead.
+  const suppressed = new Set(['new#b0', 'new#b2']);
+  const restOrder = orderBrilliant(all, id => suppressed.has(id) ? now + 5000 : 0, now);
+  check('order surfaces the still-available find first', restOrder[0].game.id === 'old' && restOrder[0].spot.cls === 'great',
+    restOrder[0].spot.id);
+
+  // All rested → the one coming back soonest leads.
+  const dueById: Record<string, number> = { 'new#b0': now + 300, 'new#b2': now + 100, 'old#b0': now + 200 };
+  const allRested = orderBrilliant(all, id => dueById[id] ?? 0, now);
+  check('all rested → soonest-back leads', allRested[0].spot.id === 'new#b2', allRested[0].spot.id);
 
   return results;
 }

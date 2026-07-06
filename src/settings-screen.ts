@@ -60,6 +60,7 @@ import { clearPuzzleLog } from './puzzle-log';
 import { clearPuzzleRating } from './puzzle-rating';
 import { clearForgottenMoves } from './forgotten-moves';
 import { clearPuzzleRepeat } from './puzzle-repeat';
+import { clearBrilliantLog } from './brilliant-log';
 import { clearTaBest } from './puzzles-screen';
 import { clearEndgameProgress } from './endgame-progress';
 import { renderBackupSection, renderCloudBackupSection, exportBackupNow } from './backup';
@@ -1018,6 +1019,7 @@ function buildDataGroup(): HTMLElement {
           clearPuzzleRating();
           clearForgottenMoves();
           clearPuzzleRepeat();
+          clearBrilliantLog();
           clearTaBest();
           clearTimedBest();
           clearEndgameProgress();

@@ -115,3 +115,24 @@ export function latestBrilliant(refs: BrilliantRef[]): BrilliantRef | null {
   const pool = refs.slice().sort((a, b) => b.game.endTime - a.game.endTime);
   return pool[0] ?? null;
 }
+
+// Order the finds for the carousel + a session so the exercise loops instead of
+// repeating one gem. `dueAt` gives the epoch ms a spot resurfaces after a clean
+// re-find (0 = available now — see brilliant-log.ts). Available spots lead
+// (brilliancies first, then newest game); already-solved ones sink, ordered by
+// which comes back soonest — so once you've cleared them all the nearest-due one
+// is still what shows next.
+export function orderBrilliant(
+  refs: BrilliantRef[],
+  dueAt: (id: string) => number,
+  now: number = Date.now(),
+): BrilliantRef[] {
+  const rank = (r: BrilliantRef): number => (r.spot.cls === 'brilliant' ? 0 : 1);
+  return refs.slice().sort((a, b) => {
+    const da = dueAt(a.spot.id), db = dueAt(b.spot.id);
+    const sa = da > now, sb = db > now; // suppressed (resting) ?
+    if (sa !== sb) return sa ? 1 : -1;  // available before suppressed
+    if (sa) return da - db;             // both resting: soonest back leads
+    return rank(a) - rank(b) || b.game.endTime - a.game.endTime;
+  });
+}

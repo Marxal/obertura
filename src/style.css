@@ -12319,17 +12319,24 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 
 /* Puzzles hero */
 .eg-hero .train-hero-stats { justify-content: center; gap: var(--space-lg); }
-.eg-hero-start { margin-top: var(--space-md); width: 100%; }
+/* The title names the chosen theme, so keep it on one line inside the button. */
+.eg-hero-start {
+  margin-top: var(--space-md);
+  width: 100%;
+  white-space: nowrap;
+  font-size: clamp(0.9rem, 4.2vw, 1rem);
+}
 .eg-hero-start svg { flex: none; }
 
-/* Piece-symbol shortcuts to each specific theme, one row under the wide button. */
+/* Round theme selector: an "All" circle + the piece shortcuts, one row under the
+   wide launch button. Pick one to arm the button, then start. */
 .eg-piece-row {
   display: flex;
   justify-content: center;
   gap: var(--space-md);
   margin-top: var(--space-md);
 }
-/* Circular piece-symbol buttons (Fix 5) — read clearly as tappable buttons. */
+/* Circular selector buttons (Fix 5) — read clearly as tappable buttons. */
 .eg-piece-btn {
   width: 52px;
   height: 52px;
@@ -12345,9 +12352,20 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   box-shadow: var(--shadow-card);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.12s ease, background 0.12s ease;
+  transition: transform 0.12s ease, background 0.12s ease,
+    border-color 0.12s ease, color 0.12s ease;
 }
 .eg-piece-btn:active { transform: translateY(1px); background: var(--bg-elevated); }
+/* The "All" circle carries a word, not a glyph — size it to fit the ring. */
+.eg-piece-btn--all { font-size: 0.95rem; font-weight: 700; }
+/* The armed selection — a filled accent ring so it's clear what will launch. */
+.eg-piece-btn--active {
+  border-color: var(--eg-accent);
+  color: #fff;
+  background: var(--eg-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--eg-accent) 22%, transparent);
+}
+.eg-piece-btn--active:active { background: var(--eg-accent); }
 
 /* Classic endgames — a heading + (i) toggle, then per-theme accordions. */
 .eg-classics { display: flex; flex-direction: column; gap: var(--space-sm); }
@@ -12386,24 +12404,30 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .eg-list { display: flex; flex-direction: column; gap: var(--space-sm); }
 
 .eg-card-name { font-weight: 600; }
+/* Stretch the content column to the board's height so the play button (with its
+   margin-top:auto) settles at the bottom, level with the board. */
+.eg-card.pcard--hasboard .pcard-body { align-items: stretch; }
 
-/* Classic card layout (Fix 2): Win/Draw and best time each on their own row in
-   the content column, then a prominent full-width play button under the card. */
+/* Classic card layout: the title gets its own row; then, in the content column
+   beside the board, Win/Draw and the level chip share a row, the best time sits
+   under them, and the play button rounds out the column next to the board. */
 .eg-card-row {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
 }
+.eg-card-meta { flex-wrap: wrap; }
 .eg-card-best-row { min-height: 1.15rem; }
 .eg-card-play {
   width: 100%;
-  min-height: 46px;
+  min-height: 42px;
+  margin-top: auto;
   border-radius: 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  font-size: 0.98rem;
+  font-size: 0.95rem;
   font-weight: 650;
 }
 .eg-card-play svg { flex: none; }
