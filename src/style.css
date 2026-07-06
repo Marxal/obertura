@@ -3285,8 +3285,13 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 
 /* In Explore the tab switcher leads the screen (no carousel above it), so drop
    the divider that separates it from the My Lines carousel and give it a little
-   breathing room under the app header. */
+   breathing room under the app header. Explore also carries FOUR pillars —
+   too many for one flex row on a phone — so its instance lays out as a 2×2
+   grid of buttons (2+1 when Scouting is off). My Lines / Train keep the flex
+   row from the base rule. */
 .lines-try .lines-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   border-top: none;
   padding-top: 0.75rem;
 }
@@ -12649,20 +12654,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   white-space: nowrap;
 }
 .learn-link:active { background: var(--accent-soft); }
-/* Wikibooks extract + its CC BY-SA credit. */
-.learn-theory {
-  padding: 0.15rem 0.25rem;
-  font-size: 0.85rem;
-  line-height: 1.45;
-  color: var(--text);
-  white-space: pre-line;
-}
-.learn-attrib {
-  padding: 0.15rem 0.25rem 0.4rem;
-  font-size: 0.72rem;
-  color: var(--text-faint);
-}
-.learn-attrib a { color: var(--text-muted); }
 /* A tappable video: thumbnail + two-line title + channel. */
 .learn-video-row {
   display: flex;
@@ -12723,20 +12714,3 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   font-size: 0.72rem;
   color: var(--text-muted);
 }
-/* Settings → Learning content: the YouTube-key field. */
-.yt-key-field {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.3rem 0 0.15rem;
-}
-.yt-key-input {
-  flex: 1;
-  min-width: 0;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--hairline-soft);
-  border-radius: 10px;
-  background: transparent;
-  color: var(--text);
-  font-size: 0.85rem;
-}
-.yt-key-field .btn-secondary { flex: none; }

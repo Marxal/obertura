@@ -228,26 +228,6 @@ export function setIncludeSecondPlatform(on: boolean): void {
   localStorage.setItem(SECOND_PLATFORM_KEY, on ? 'on' : 'off');
 }
 
-// ── Learning content ─────────────────────────────────────────────────────────
-
-// Optional YouTube Data API key for the Learn tab's in-app video previews.
-// Free, created by the user (YOUTUBE-SETUP.md) and referrer-locked to the app's
-// origin, so it lives ONLY in this browser's storage — never in the repo. With
-// no key the Videos section falls back to a one-tap YouTube search link.
-const YOUTUBE_KEY_KEY = 'obertura.youtubeApiKey';
-
-export function getYoutubeApiKey(): string | null {
-  const v = localStorage.getItem(YOUTUBE_KEY_KEY);
-  const trimmed = v?.trim();
-  return trimmed ? trimmed : null;
-}
-
-export function setYoutubeApiKey(key: string | null): void {
-  const trimmed = key?.trim();
-  if (trimmed) localStorage.setItem(YOUTUBE_KEY_KEY, trimmed);
-  else localStorage.removeItem(YOUTUBE_KEY_KEY);
-}
-
 // Which Lichess opening-explorer database the builder's Library slide shows its
 // real-game stats from. Both are free and anonymous (no login):
 //   'lichess'  → every rated Lichess game (default; the biggest sample).

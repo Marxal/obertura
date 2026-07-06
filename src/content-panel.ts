@@ -1,26 +1,22 @@
-// The builder/analyser Learn slide — learning content for the opening on the
-// board. Serves BOTH modes (one shared carousel): the header names the opening
-// via the offline database, falling back to the deepest NAMED position when the
-// line runs past theory (openingForPath); Wikibooks supplies position-exact
-// theory text; everything else is one-tap deep links, so the whole panel except
-// the theory/video fetches works in airplane mode.
+// The builder/analyser Learn slide — YouTube videos for the opening on the
+// board, searched from the side the user is playing (a White repertoire gets
+// "… for white" videos; flip the board and the search flips too). The header
+// names the opening via the offline database, falling back to the deepest
+// NAMED position when the line runs past theory, with an honest note. On any
+// fetch failure the list degrades to a one-tap "Search on YouTube" link —
+// never an error.
 //
 // Render discipline — builderPanels.render() fires on EVERY move, so:
 //   • while the slide is hidden, render() only marks the panel dirty (no DOM,
 //     no network); entering the slide paints it once.
-//   • while it's showing, each move repaints the offline parts immediately and
-//     debounces the network work, so stepping through a line fires at most one
-//     Wikibooks request per pause (plus at most one YouTube search per opening
-//     NAME — see youtube.ts's week-long cache).
-// Every fetch fails soft: a section with no data simply isn't there.
+//   • while it's showing, each move repaints instantly and debounces the
+//     search; the query is per opening NAME, so stepping around inside one
+//     opening hits the week-long cache instead of the API.
 
 import { openingForPath } from './openings';
 import {
-  fetchWikibooksTheory, peekWikibooksTheory, type TheoryExtract,
-  lichessOpeningUrl, lichessAnalysisUrl, lichessStudySearchUrl,
-  youtubeSearchUrl, openingQuery, exactQuery,
-} from './content-sources';
-import { hasYoutubeKey, searchYoutube, peekYoutube, type VideoHit } from './youtube';
+  searchYoutube, peekYoutube, videoQuery, youtubeSearchUrl, type VideoHit,
+} from './youtube';
 import { curatedForOpening } from './content-explore';
 import { extLink, linksRow, learnNote, learnSection, videoRow } from './content-ui';
 
@@ -28,7 +24,7 @@ export interface ContentPanelDeps {
   el: HTMLElement;                  // the #slide-learn section
   getSans: () => string[];          // SAN path to the current cursor node
   getFens: () => string[];          // FEN of every position along that path
-  getFen: () => string;             // FEN of the current position
+  getColour: () => 'white' | 'black'; // the side this line/game is built for
   isAnalyser: () => boolean;        // analyser mode — flips the hint copy
 }
 
@@ -38,6 +34,7 @@ export interface ContentPanel {
 }
 
 const NET_DEBOUNCE_MS = 350;
+const MAX_VIDEOS = 5;
 
 export function createContentPanel(deps: ContentPanelDeps): ContentPanel {
   let active = false;
@@ -59,14 +56,20 @@ export function createContentPanel(deps: ContentPanelDeps): ContentPanel {
     if (!on) {
       // Leaving — or merely scrolling PAST: the carousel's smooth scroll
       // reports intermediate slides, so an entry can arrive as on/off/on.
-      // Cancel the pending network work and mark dirty, so the next entry
-      // repaints and reschedules it; without the dirty mark that entry would
-      // sit on a stale "Loading…" slot with no fetch coming.
+      // Cancel the pending fetch and mark dirty, so the next entry repaints
+      // and reschedules it.
       cancelNet();
       dirty = true;
       return;
     }
     if (dirty) paint();
+  }
+
+  // The query the CURRENT board position wants — also the stale-guard: a
+  // resolved fetch only renders if this still matches.
+  function currentQuery(): string | null {
+    const opening = openingForPath(deps.getFens());
+    return opening ? videoQuery(opening.name, deps.getColour()) : null;
   }
 
   function paint(): void {
@@ -76,20 +79,17 @@ export function createContentPanel(deps: ContentPanelDeps): ContentPanel {
     el.innerHTML = '';
 
     const sans = deps.getSans();
-    const fens = deps.getFens();
-
     if (!sans.length) {
-      el.appendChild(learnNote('Play a move to see learning content for the opening on the board.'));
+      el.appendChild(learnNote('Play a move to see videos for the opening on the board.'));
       return;
     }
 
-    const opening = openingForPath(fens);
-    const name = opening?.name ?? null;
+    const opening = openingForPath(deps.getFens());
 
-    // ── Header: what we're finding content for ──
+    // ── Header: what we're finding videos for ──
     const head = document.createElement('div');
     head.className = 'learn-head';
-    head.textContent = name ?? 'Off-book position';
+    head.textContent = opening?.name ?? 'Off-book position';
     el.appendChild(head);
     if (opening && sans.length > opening.ply) {
       const endMove = Math.ceil(opening.ply / 2);
@@ -99,128 +99,46 @@ export function createContentPanel(deps: ContentPanelDeps): ContentPanel {
         ? `This game left named theory at move ${endMove}.`
         : `Named theory ends at move ${endMove} — the moves after it are your own prep.`;
       el.appendChild(hint);
-    } else if (!opening) {
-      el.appendChild(learnNote('No named opening reaches this position — the exact-position links below still work.'));
     }
-
-    // ── Theory (Wikibooks) — async slot, hidden until it answers ──
-    const theorySlot = document.createElement('div');
-    el.appendChild(theorySlot);
-    const cachedTheory = peekWikibooksTheory(sans);
-    if (cachedTheory !== undefined) {
-      renderTheory(theorySlot, cachedTheory, sans.length);
-    } else {
-      theorySlot.appendChild(learnNote('Loading theory…'));
+    if (!opening) {
+      el.appendChild(learnNote('No named opening reaches this position yet — step back into theory to see videos.'));
+      return;
     }
 
     // ── Videos ──
-    let videoQuery: string | null = null;
-    if (name) {
-      el.appendChild(learnSection('Videos'));
-      const curated = curatedForOpening(name);
-      if (curated?.note) el.appendChild(learnNote(curated.note));
-      for (const v of curated?.videos ?? []) el.appendChild(videoRow(v));
-      if (curated?.studies?.length) {
-        el.appendChild(linksRow(curated.studies.map(s => extLink(s.title, s.url))));
-      }
+    el.appendChild(learnSection(`Videos for ${deps.getColour()}`));
+    const curated = curatedForOpening(opening.name);
+    if (curated?.note) el.appendChild(learnNote(curated.note));
+    for (const v of curated?.videos ?? []) el.appendChild(videoRow(v));
 
-      videoQuery = openingQuery(name);
-      const videoSlot = document.createElement('div');
-      videoSlot.dataset.role = 'videos';
-      el.appendChild(videoSlot);
-      if (!hasYoutubeKey()) {
-        renderVideoFallback(videoSlot, videoQuery);
-        videoQuery = null; // nothing to fetch
-      } else {
-        const cachedHits = peekYoutube(videoQuery);
-        if (cachedHits !== undefined) {
-          renderVideoHits(videoSlot, cachedHits, videoQuery);
-          videoQuery = null; // already answered
-        } else {
-          videoSlot.appendChild(learnNote('Loading videos…'));
-        }
-      }
+    const slot = document.createElement('div');
+    el.appendChild(slot);
 
-      // ── On Lichess ──
-      el.appendChild(learnSection('On Lichess'));
-      const links: HTMLElement[] = [];
-      const openingPage = lichessOpeningUrl(name);
-      if (openingPage) links.push(extLink('Opening page', openingPage));
-      links.push(extLink('Search studies', lichessStudySearchUrl(openingQuery(name))));
-      el.appendChild(linksRow(links));
+    const query = videoQuery(opening.name, deps.getColour());
+    const cached = peekYoutube(query);
+    if (cached !== undefined) {
+      renderHits(slot, cached, query);
+      return;
     }
-
-    // ── This exact position — permanent, fully offline-computed ──
-    el.appendChild(learnSection('This exact position'));
-    const exact = exactQuery(sans, name);
-    el.appendChild(linksRow([
-      extLink('Analyse on Lichess', lichessAnalysisUrl(deps.getFen())),
-      extLink('YouTube', youtubeSearchUrl(exact)),
-      extLink('Studies', lichessStudySearchUrl(exact)),
-    ]));
-
-    // ── The debounced network work for whatever wasn't cached ──
-    const needsTheory = cachedTheory === undefined;
-    const ytQuery = videoQuery;
-    if (needsTheory || ytQuery) {
-      const pathKey = sans.join(' ');
-      netTimer = window.setTimeout(() => {
-        netTimer = null;
-        if (needsTheory) {
-          void fetchWikibooksTheory(sans, opening?.ply).then(theory => {
-            if (!active || deps.getSans().join(' ') !== pathKey) return; // moved on
-            renderTheory(theorySlot, theory, sans.length);
-          });
-        }
-        if (ytQuery) {
-          void searchYoutube(ytQuery).then(hits => {
-            if (!active || deps.getSans().join(' ') !== pathKey) return;
-            const slot = el.querySelector<HTMLElement>('[data-role="videos"]');
-            if (!slot) return;
-            if (hits === null) renderVideoFallback(slot, ytQuery);
-            else renderVideoHits(slot, hits, ytQuery);
-          });
-        }
-      }, NET_DEBOUNCE_MS);
-    }
+    slot.appendChild(learnNote('Loading videos…'));
+    netTimer = window.setTimeout(() => {
+      netTimer = null;
+      void searchYoutube(query).then(hits => {
+        if (!active || currentQuery() !== query) return; // moved on meanwhile
+        if (hits === null) renderFallback(slot, query);
+        else renderHits(slot, hits, query);
+      });
+    }, NET_DEBOUNCE_MS);
   }
 
-  // The theory block: deepest existing Wikibooks page for this path, with the
-  // CC BY-SA credit linking the exact page quoted. null → the section is gone.
-  function renderTheory(slot: HTMLElement, theory: TheoryExtract | null, pathLen: number): void {
+  function renderHits(slot: HTMLElement, hits: VideoHit[], query: string): void {
     slot.innerHTML = '';
-    if (!theory || !theory.text) return;
-    const coversAll = theory.plies >= pathLen;
-    slot.appendChild(learnSection(coversAll
-      ? 'Theory'
-      : `Theory · up to move ${Math.ceil(theory.plies / 2)}`));
-    const text = document.createElement('div');
-    text.className = 'learn-theory';
-    text.textContent = theory.text;
-    slot.appendChild(text);
-
-    const attrib = document.createElement('div');
-    attrib.className = 'learn-attrib';
-    const a = document.createElement('a');
-    a.href = theory.url;
-    a.target = '_blank';
-    a.rel = 'noopener noreferrer';
-    a.textContent = 'Continue on Wikibooks ↗';
-    attrib.appendChild(a);
-    attrib.appendChild(document.createTextNode(' · From “Chess Opening Theory” (CC BY-SA)'));
-    slot.appendChild(attrib);
-  }
-
-  function renderVideoHits(slot: HTMLElement, hits: VideoHit[], query: string): void {
-    slot.innerHTML = '';
-    if (!hits.length) { renderVideoFallback(slot, query); return; }
-    for (const hit of hits) slot.appendChild(videoRow(hit));
+    if (!hits.length) { renderFallback(slot, query); return; }
+    for (const hit of hits.slice(0, MAX_VIDEOS)) slot.appendChild(videoRow(hit));
     slot.appendChild(linksRow([extLink('More on YouTube', youtubeSearchUrl(query))]));
   }
 
-  // The query is the opening named in the header right above — repeating it in
-  // the label just clips on a phone, so the pill stays short.
-  function renderVideoFallback(slot: HTMLElement, query: string): void {
+  function renderFallback(slot: HTMLElement, query: string): void {
     slot.innerHTML = '';
     slot.appendChild(linksRow([extLink('Search on YouTube', youtubeSearchUrl(query))]));
   }
