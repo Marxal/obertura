@@ -81,7 +81,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     el: deps.contentEl,
     getSans: deps.getSans,
     getFens: deps.getFens,
-    getFen: deps.getFen,
+    getColour: deps.getColour,
     isAnalyser: deps.isAnalyser,
   });
   // Which Lichess explorer database the Library slide draws its stats from.

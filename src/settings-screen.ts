@@ -45,10 +45,7 @@ import {
   setIncludeSecondPlatform,
   getShowMoveClassifications,
   setShowMoveClassifications,
-  getYoutubeApiKey,
-  setYoutubeApiKey,
 } from './prefs';
-import { showToast } from './toast';
 import type { Platform } from './import-games';
 import { getFeedbackSound, setFeedbackSound, previewFeedback } from './sound';
 import {
@@ -87,7 +84,7 @@ import { runAnalysisSelfTest } from './analysis.selftest';
 import { runStatsSelfTest } from './stats.selftest';
 import { runEngineSelfTest } from './engine.selftest';
 import { runDriveSelfTest } from './drive.selftest';
-import { runContentSelfTest } from './content-sources.selftest';
+import { runYoutubeSelfTest } from './youtube.selftest';
 
 export function renderSettingsScreen(container: HTMLElement): void {
   container.innerHTML = '';
@@ -115,7 +112,6 @@ export function renderSettingsScreen(container: HTMLElement): void {
   screen.appendChild(buildTrainingGroup());
   screen.appendChild(buildStatisticsGroup());
   screen.appendChild(buildExploreGroup());
-  screen.appendChild(buildLearnGroup());
   screen.appendChild(buildDataGroup());
   screen.appendChild(buildDiagnosticsGroup());
   if (isConnected()) screen.appendChild(buildLichessGroup(refresh));
@@ -156,7 +152,7 @@ function buildDiagnosticsGroup(): HTMLElement {
   appendSelfTest(sec, 'Run move-stats self-test', runMoveStatsSelfTest, '[move-stats self-test]');
   appendSelfTest(sec, 'Run scheduler self-test', runSchedulerSelfTest, '[scheduler self-test]');
   appendSelfTest(sec, 'Run analysis self-test', runAnalysisSelfTest, '[analysis self-test]');
-  appendSelfTest(sec, 'Run learn-content self-test', runContentSelfTest, '[content self-test]');
+  appendSelfTest(sec, 'Run learn-videos self-test', runYoutubeSelfTest, '[youtube self-test]');
   appendSelfTest(sec, 'Run statistics self-test', runStatsSelfTest, '[stats self-test]');
   appendSelfTest(sec, 'Run engine castling self-test', runEngineSelfTest, '[engine self-test]');
   appendSelfTest(sec, 'Run Drive backup self-test', runDriveSelfTest, '[drive self-test]');
@@ -176,63 +172,6 @@ function buildExploreGroup(): HTMLElement {
     toggle(getScoutingEnabled(), (on) => setScoutingEnabled(on)),
     { sub: 'Scout opponents from their games, on the Explore tab and in the board builder. Off hides it from both — your scouted opponents are kept.' },
   ));
-
-  return sec;
-}
-
-// ── Learning content ─────────────────────────────────────────────────────────
-// The Learn tab (builder + Explore) needs no setup — its search buttons always
-// work. This group holds the one optional upgrade: a free, referrer-locked
-// YouTube API key that turns the Videos section into in-app previews. The key
-// stays in this browser's storage only (like the Lichess token) — never in code.
-
-function buildLearnGroup(): HTMLElement {
-  const sec = group('Learning content', Icons.bulb(16));
-
-  const blurb = document.createElement('p');
-  blurb.className = 'section-desc';
-  blurb.textContent = 'The Learn tab always works — one-tap searches on YouTube and Lichess. '
-    + 'Add a free YouTube API key to preview videos inside the app instead.';
-  sec.appendChild(blurb);
-
-  const field = document.createElement('div');
-  field.className = 'yt-key-field';
-
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.className = 'yt-key-input';
-  input.placeholder = 'Paste YouTube API key (AIza…)';
-  input.autocomplete = 'off';
-  input.spellcheck = false;
-  input.value = getYoutubeApiKey() ?? '';
-  field.appendChild(input);
-
-  const status = document.createElement('div');
-  status.className = 'pref-row-desc';
-  const syncStatus = (): void => {
-    status.textContent = getYoutubeApiKey()
-      ? 'Key saved — video previews are on.'
-      : 'No key — the Videos section shows a search button.';
-  };
-  syncStatus();
-
-  const save = document.createElement('button');
-  save.type = 'button';
-  save.className = 'btn-secondary';
-  save.textContent = 'Save';
-  save.addEventListener('click', () => {
-    const value = input.value.trim();
-    setYoutubeApiKey(value || null);
-    showToast(value ? 'YouTube key saved' : 'YouTube key removed', { variant: 'success' });
-    syncStatus();
-  });
-  field.appendChild(save);
-
-  sec.appendChild(field);
-  sec.appendChild(status);
-  sec.appendChild(linkRow('How to get a free key', () => {
-    window.open('https://github.com/Marxal/obertura/blob/main/YOUTUBE-SETUP.md', '_blank', 'noopener,noreferrer');
-  }, Icons.info(18)));
 
   return sec;
 }

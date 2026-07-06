@@ -1,12 +1,17 @@
-// Optional in-app YouTube search for the Learn tab. Entirely gated on a free,
-// referrer-locked Data API key the user pastes into Settings (see
-// YOUTUBE-SETUP.md) — without one, or on ANY error (bad key, quota spent,
-// offline), searchYoutube answers null and the panel falls back to its
-// keyless "Search on YouTube" deep link. Results are cached hard (memory +
-// localStorage, 7 days) because queries are per OPENING NAME, not per move:
-// the ~100-searches/day free quota is never a real limit that way.
-
-import { getYoutubeApiKey } from './prefs';
+// In-app YouTube search for the Learn tab, plus the query and deep-link
+// builders it shares with the fallback pill. ONE key serves every user of the
+// app. Committing it here is safe by design: in Google's console the key is
+// restricted to this app's origin (Application restrictions → Websites →
+// https://marxal.github.io/*) and to the YouTube Data API v3 only, so outside
+// the deployed app it's dead weight. All users share its free quota (roughly
+// 100 searches/day); queries are per OPENING NAME (not per move) and cached
+// for a week (memory + localStorage), which keeps real usage far under the
+// cap. On ANY failure — quota spent, offline, blocked network — searchYoutube
+// answers null and callers degrade to a one-tap YouTube search link, so
+// nothing ever breaks.
+//
+// To rotate the key: create a new one in the console (same two restrictions),
+// replace the constant below, redeploy.
 
 export interface VideoHit {
   id: string;      // YouTube video id
@@ -14,6 +19,7 @@ export interface VideoHit {
   channel: string;
 }
 
+const API_KEY = 'AIzaSyC5vT68-SVEj6BUYJiZZXLFdorz6GmbH_k';
 const API_URL = 'https://www.googleapis.com/youtube/v3/search';
 const MAX_RESULTS = 5;
 const FETCH_TIMEOUT_MS = 6000;
@@ -22,10 +28,26 @@ const LS_KEY = 'obertura.ytCache.v1';
 const TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_LS_ENTRIES = 30;
 
-const memory = new Map<string, VideoHit[]>();
+// ── Queries and deep links ────────────────────────────────────────────────────
 
-export function hasYoutubeKey(): boolean {
-  return getYoutubeApiKey() !== null;
+// The opening name flattened for a search box: "Sicilian Defense: Najdorf
+// Variation, English Attack" → "Sicilian Defense Najdorf Variation English Attack".
+export function openingQuery(name: string): string {
+  return name.replace(/[:,]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+// THE search the Learn tab runs: the opening plus the side the user is
+// building it for — "Sicilian Defense Najdorf Variation chess opening for
+// black". Creators title repertoire videos exactly this way, "chess opening"
+// keeps ambiguous names (English Opening, Catalan, Bird) on the board, and
+// the colour keeps a White repertoire from surfacing play-it-as-Black videos.
+export function videoQuery(name: string, colour: 'white' | 'black'): string {
+  return `${openingQuery(name)} chess opening for ${colour}`;
+}
+
+/** The same search on youtube.com — the keyless fallback and "More" link. */
+export function youtubeSearchUrl(query: string): string {
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
 }
 
 /** Keyless thumbnail for any known video id (320×180, always available). */
@@ -36,6 +58,10 @@ export function thumbUrl(id: string): string {
 export function watchUrl(id: string): string {
   return `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`;
 }
+
+// ── Cached search ─────────────────────────────────────────────────────────────
+
+const memory = new Map<string, VideoHit[]>();
 
 type LsCache = Record<string, { at: number; hits: VideoHit[] }>;
 
@@ -67,24 +93,23 @@ export function peekYoutube(query: string): VideoHit[] | undefined {
 }
 
 /**
- * Top videos for a query, from cache or one API call. null = no key or the
- * call failed (the caller shows its keyless fallback); [] = a real "no results".
+ * Top videos for a query, from cache or one API call. null = the call failed
+ * (quota, offline — the caller shows its search-link fallback); [] = a real
+ * "no results".
  */
 export async function searchYoutube(query: string): Promise<VideoHit[] | null> {
-  const key = getYoutubeApiKey();
-  if (!key) return null;
   const cached = peekYoutube(query);
   if (cached) return cached;
 
   try {
     const params = new URLSearchParams({
       part: 'snippet', type: 'video', maxResults: String(MAX_RESULTS),
-      q: query, key,
+      q: query, key: API_KEY,
     });
     const res = await fetch(`${API_URL}?${params}`, {
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
-    if (!res.ok) return null; // bad key, quota out, blocked — all downgrade
+    if (!res.ok) return null; // quota out, blocked — all downgrade silently
     const data = await res.json() as {
       items?: Array<{ id?: { videoId?: string }; snippet?: { title?: string; channelTitle?: string } }>;
     };
