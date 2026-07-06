@@ -645,7 +645,7 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
 
     const note = document.createElement('p');
     note.className = 'mr-scan-note';
-    note.textContent = 'Each game is checked against the Lichess endgame tablebase. Stop anytime — every game finished is saved.';
+    note.textContent = 'Each endgame is judged by the Lichess tablebase, or by the engine when it has more than 7 pieces. Stop anytime — every game finished is saved.';
     card.appendChild(note);
 
     const facts = createFactsTicker();
