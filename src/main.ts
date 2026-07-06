@@ -19,19 +19,19 @@ import { renderTrainScreen, startLineSession, startPositionsSession } from './tr
 import { renderExploreScreen } from './explore-screen';
 import { renderPuzzlesScreen, startDailyPuzzles } from './puzzles-screen';
 import { renderMistakesScreen } from './mistakes-screen';
-import { renderEndgameScreen } from './endgame-screen';
+import { renderEndgameScreen, startDailyEndgamePuzzles } from './endgame-screen';
 import {
   renderDailyChallenge,
   pickDailyLines,
   getDaily,
+  getDailyConfig,
+  activeDailyTasks,
   nextDailyTask,
   markLinesDone,
   markPuzzlesDone,
   markPositionsDone,
+  markEndgamesDone,
   markMistakesDone,
-  DAILY_PUZZLE_GOAL,
-  DAILY_POSITION_GOAL,
-  DAILY_MISTAKE_GOAL,
   type DailyTaskId,
 } from './daily-challenge';
 import { collectSpots, pickSpots, type SpotRef } from './mistake-scan';
@@ -46,7 +46,7 @@ import { createBuilderPanels, type BuilderPanels } from './builder-panels';
 import { initTheme } from './theme';
 import { initAppearance } from './appearance';
 import { initDriveAutoBackup } from './drive-backup';
-import { watchSpeedMs, getConfirmRunBeforeTraining, getScoutingEnabled, getShowEngineArrows, setShowEngineArrows, getEngineEverywhere, setEngineEverywhere, getShowMoveClassifications } from './prefs';
+import { watchSpeedMs, getConfirmRunBeforeTraining, getScoutingEnabled, getShowEngineArrows, setShowEngineArrows, getShowMoveClassifications } from './prefs';
 import { reviewLine, gradeNode, type ReviewSummary } from './review';
 import { renderLineAnalysis, hasReview } from './line-analysis';
 import { applyBrilliantTag } from './brilliant';
@@ -84,8 +84,11 @@ let showEngineArrows = getShowEngineArrows();
 // The dock's engine toggle (the chip icon in the builder/analyser bottom bar).
 // When on, the engine runs, the docked eval bar shows above the bottom bar with
 // the top-3 candidate moves, its arrows are drawn on the board, and the played
-// moves get their game-review marks. Persisted so it survives a reload.
-let engineOn = getEngineEverywhere();
+// moves get their game-review marks. Always starts OFF on a fresh load (the
+// engine keeps the worker + battery busy, so it's a deliberate opt-in each
+// session); within a session the state is kept in this module var, so leaving
+// the builder and coming back preserves it.
+let engineOn = false;
 let lastEngineResult: EvalResult | null = null;
 
 function legalDests(): Map<Key, Key[]> {
@@ -992,7 +995,6 @@ function updateEngineDockBtn(): void {
 // (the grades we have are kept). Persisted, so it survives leaving/reloading.
 function setEngineOn(on: boolean): void {
   engineOn = on;
-  setEngineEverywhere(on);
   updateEngineDockBtn();
   evalPanel.setEnabled(on);            // fires the eval panel's onToggle (engine + eval bar)
   if (on) {
@@ -1046,10 +1048,13 @@ let sheetState: SheetState = 'default';
 // How much of the board stays visible at the top in the FULL state.
 const SHEET_PEEK = 0.15;
 
-function sheetMetrics(): { barH: number; defaultH: number; fullH: number } {
+function sheetMetrics(dockHOverride?: number): { barH: number; defaultH: number; fullH: number } {
   const board = document.getElementById('board-wrap');
   const dock = document.getElementById('builder-dock');
-  const barH = dock?.offsetHeight ?? 56;
+  // The eval dock animates its own height (animateEvalDock); during that beat the
+  // caller passes the FINAL height so the sheet lands where the dock is heading,
+  // not on the intermediate frame.
+  const barH = dockHOverride ?? dock?.offsetHeight ?? 56;
   const rect = board?.getBoundingClientRect();
   const boardTop = rect?.top ?? 0;
   const boardH = rect?.height ?? 0;
@@ -1064,17 +1069,75 @@ function sheetMetrics(): { barH: number; defaultH: number; fullH: number } {
 }
 
 // Position the sheet for the given height (bottom-anchored above the bar).
-function applySheetHeight(h: number): void {
+function applySheetHeight(h: number, dockH?: number): void {
   const sheet = document.getElementById('builder-sheet');
   if (!sheet) return;
-  sheet.style.bottom = `${sheetMetrics().barH}px`;
+  sheet.style.bottom = `${dockH ?? sheetMetrics().barH}px`;
   sheet.style.height = `${h}px`;
 }
 
-function layoutBuilderSheet(): void {
+function layoutBuilderSheet(dockH?: number): void {
   if (currentView !== 'builder') return;
-  const m = sheetMetrics();
-  applySheetHeight(sheetState === 'full' ? m.fullH : m.defaultH);
+  const m = sheetMetrics(dockH);
+  applySheetHeight(sheetState === 'full' ? m.fullH : m.defaultH, dockH);
+}
+
+// Slide the docked eval bar open/closed by animating its OWN height, and hand the
+// sheet above it its final layout in the same beat (the sheet's CSS bottom+height
+// transition then animates it in step). Measuring the eval's natural box height
+// with transitions suppressed lets us compute the dock's final height up front —
+// so the whole dock grows/shrinks smoothly instead of the old instant reveal that
+// shoved the bar (and everything above it) up. The eval's content has just been
+// cleared by the time we close, so the open height is remembered for that case.
+let lastEvalOpenH = 0;
+let evalDockSettle: (() => void) | null = null;
+function animateEvalDock(open: boolean): void {
+  const evalEl = document.getElementById('builder-eval');
+  const dockEl = document.getElementById('builder-dock');
+  if (!evalEl || !dockEl) { layoutBuilderSheet(); cg?.redrawAll(); return; }
+
+  evalDockSettle?.(); // settle any in-flight toggle before starting a new one
+
+  evalEl.hidden = false;
+  evalEl.style.transition = 'none';
+
+  const openH = open
+    ? (evalEl.style.height = 'auto', lastEvalOpenH = evalEl.offsetHeight)
+    : (lastEvalOpenH || evalEl.offsetHeight);
+
+  // Dock height at the END state → the sheet's final position, set now.
+  evalEl.style.height = open ? `${openH}px` : '0px';
+  const finalDockH = dockEl.offsetHeight;
+  // Commit the START state (the opposite), then restore the CSS transition.
+  evalEl.style.height = open ? '0px' : `${openH}px`;
+  void evalEl.offsetHeight;
+  evalEl.style.transition = '';
+
+  layoutBuilderSheet(finalDockH);
+  cg.redrawAll();
+
+  requestAnimationFrame(() => { evalEl.style.height = open ? `${openH}px` : '0px'; });
+
+  const settle = (): void => {
+    clearTimeout(timer);
+    evalEl.removeEventListener('transitionend', onEnd);
+    evalDockSettle = null;
+    if (open) {
+      evalEl.style.height = 'auto'; // let a longer principal variation reflow freely
+    } else {
+      evalEl.hidden = true;
+      evalEl.style.height = '';
+    }
+    layoutBuilderSheet();
+    cg.redrawAll();
+  };
+  const onEnd = (e: TransitionEvent): void => {
+    if (e.target === evalEl && e.propertyName === 'height') settle();
+  };
+  // A fallback in case transitionend never fires (e.g. a zero-height change).
+  const timer = window.setTimeout(settle, 400);
+  evalEl.addEventListener('transitionend', onEnd);
+  evalDockSettle = settle;
 }
 
 function setSheetState(state: SheetState, animate = true): void {
@@ -1242,7 +1305,7 @@ function setupBuilderCarousel(): void {
     });
   }, { passive: true });
 
-  window.addEventListener('resize', layoutBuilderSheet);
+  window.addEventListener('resize', () => layoutBuilderSheet());
 }
 
 // ── Annotation marks ─────────────────────────────────────────────────────────
@@ -2198,7 +2261,7 @@ let trainTab: TrainTab = 'openings';
 // keep it readable) and the inactive icon tint. Static across themes, like the
 // Practise cards' MODE_ACCENT palette.
 const TRAIN_TAB_ACCENT: Record<Exclude<TrainTab, 'openings'>, string> = {
-  puzzles: '#8a5a20',  // bronze — the puzzle gold family
+  puzzles: '#c4741d',  // warm orange — the puzzle gold family, pushed toward orange
   mistakes: '#a3492e', // ember — corrective, kin to the review reds
   endgame: '#33677a',  // deep teal — the long game
 };
@@ -2253,18 +2316,25 @@ function renderTrainTabbed(host: HTMLElement): void {
     }
     dailyHost.innerHTML = '';
 
+    // The daily config (which tasks + how many of each) and which are actually
+    // runnable right now decide the card — and the "Next task →" chain.
+    const config = getDailyConfig();
+    const dailyLines = pickDailyLines(allLines, config.tasks.lines.count);
+    const avail = { hasLines: dailyLines.length > 0, mistakesAvailable: spotRefs.length > 0 };
+    const active = activeDailyTasks(config, avail);
+
     // Each task as a named launcher so the success screens' "Next task →" can
     // chain into any of them. The next task is resolved at CLICK time (the
     // completion screen mounts before the finished task's done flag is set).
     const nextFor = (current: DailyTaskId): { label: string; run: () => void } | undefined => {
-      // Offer the button only when some OTHER task would still be open once
+      // Offer the button only when some OTHER active task would still be open once
       // this one is done — a "Next task" that closes into nothing misleads.
       const pretend = { ...getDaily(), [current]: true };
-      if (!nextDailyTask(pretend, spotRefs.length > 0)) return undefined;
+      if (!nextDailyTask(pretend, active)) return undefined;
       return {
         label: 'Next task →',
         run: () => {
-          const next = nextDailyTask(getDaily(), spotRefs.length > 0);
+          const next = nextDailyTask(getDaily(), active);
           if (next) launchers[next]();
         },
       };
@@ -2275,25 +2345,32 @@ function renderTrainTabbed(host: HTMLElement): void {
         // Drill today's lines on the Openings pane; mark that task done when the
         // whole sitting finishes, then refresh the card behind the overlay.
         if (trainTab !== 'openings') { trainTab = 'openings'; paint(); }
-        startLineSession(pickDailyLines(allLines), openingsPane,
+        startLineSession(dailyLines, openingsPane,
           () => { markLinesDone(); void renderDaily(); }, nextFor('lines'));
       },
       positions: () => {
         // Same pane, but a stream of single due positions rather than whole lines.
         if (trainTab !== 'openings') { trainTab = 'openings'; paint(); }
-        startPositionsSession(allLines, openingsPane, DAILY_POSITION_GOAL,
+        startPositionsSession(allLines, openingsPane, config.tasks.positions.count,
           () => { markPositionsDone(); void renderDaily(); }, nextFor('positions'));
       },
       puzzles: () => {
-        void startDailyPuzzles(DAILY_PUZZLE_GOAL,
+        void startDailyPuzzles(config.tasks.puzzles.count,
           () => { markPuzzlesDone(); void renderDaily(); }, nextFor('puzzles'),
+          openPuzzleFromSession);
+      },
+      endgames: () => {
+        // Rated endgame puzzles (the End game ladder) — its own overlay, no tab
+        // switch needed.
+        startDailyEndgamePuzzles(config.tasks.endgames.count,
+          () => { markEndgamesDone(); void renderDaily(); }, nextFor('endgames'),
           openPuzzleFromSession);
       },
       mistakes: () => {
         // A short mixed set from the scanned spots — runs as its own overlay,
         // so no tab switch is needed.
         startMistakeSession({
-          refs: pickSpots(spotRefs, null, DAILY_MISTAKE_GOAL),
+          refs: pickSpots(spotRefs, null, config.tasks.mistakes.count),
           modeLabel: 'Daily challenge',
           onComplete: () => { markMistakesDone(); void renderDaily(); },
           onExit: () => { if (trainTab === 'mistakes') paint(); },
@@ -2304,10 +2381,13 @@ function renderTrainTabbed(host: HTMLElement): void {
     };
 
     const card = renderDailyChallenge({
-      lines: pickDailyLines(allLines),
+      config,
+      active,
+      lines: dailyLines,
       onTrainLines: () => launchers.lines(),
       onRefreshPositions: () => launchers.positions(),
       onSolvePuzzles: () => launchers.puzzles(),
+      onSolveEndgames: () => launchers.endgames(),
       mistakeSpotCount: spotRefs.length,
       onFixMistakes: () => launchers.mistakes(),
     });
@@ -2316,9 +2396,14 @@ function renderTrainTabbed(host: HTMLElement): void {
   void renderDaily();
 
   const paint = (): void => {
-    // A very subtle background wash in the active mode's colour, so each pane
-    // carries a hint of its identity (see #view-train[data-train-mode] in CSS).
+    // A background wash in the active mode's colour, so each pane carries its
+    // identity (see #view-train[data-train-mode] in CSS). The same colour is
+    // published as --train-accent so the pane's primary buttons and accents pick
+    // it up too — Openings clears it and falls back to the app green.
     host.dataset.trainMode = trainTab;
+    const paneAccent = trainTab === 'openings' ? null : TRAIN_TAB_ACCENT[trainTab];
+    if (paneAccent) host.style.setProperty('--train-accent', paneAccent);
+    else host.style.removeProperty('--train-accent');
     tabs.querySelectorAll<HTMLElement>('.lines-tab').forEach(b => {
       const on = b.dataset.tab === trainTab;
       b.classList.toggle('active', on);
@@ -3212,22 +3297,10 @@ maybeShowGate(() => requestAnimationFrame(() => {
         engine.disable();
         evalPanel.clear();
       }
-      // Reveal / hide the docked eval bar (it sits above the bottom bar). A subtle
-      // entrance animation replays each time it appears — restarted by forcing a
-      // reflow between removing and re-adding the class.
-      const dock = document.getElementById('builder-eval');
-      if (dock) {
-        dock.hidden = !enabled;
-        if (enabled) {
-          dock.classList.remove('builder-eval--enter');
-          void dock.offsetWidth;
-          dock.classList.add('builder-eval--enter');
-        }
-      }
-      // The dock's height changed, so re-sync chessground's bounds and re-fit the
-      // sheet (its height is anchored to the dock's height).
-      cg.redrawAll();
-      requestAnimationFrame(layoutBuilderSheet);
+      // Slide the docked eval bar (it sits above the bottom bar) open or closed by
+      // animating its height, keeping the sheet above it in step — so nothing
+      // jumps when it appears; it just slides up, and slides back down when off.
+      animateEvalDock(enabled);
     },
     (uci) => playUci(uci),
     { compact: true, showToggle: false },

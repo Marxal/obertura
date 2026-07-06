@@ -19,6 +19,13 @@ import {
 import { PIECE_PREVIEWS } from './pieces/previews';
 import { getMoveNotation, setMoveNotation, type MoveNotation } from './notation';
 import {
+  getDailyConfig,
+  setDailyConfig,
+  DAILY_TASK_IDS,
+  DAILY_COUNT_RANGE,
+  type DailyTaskId,
+} from './daily-challenge';
+import {
   getRetriesBeforeReveal,
   setRetriesBeforeReveal,
   type Retries,
@@ -111,6 +118,7 @@ export function renderSettingsScreen(container: HTMLElement): void {
 
   screen.appendChild(buildAppearanceGroup());
   screen.appendChild(buildTrainingGroup());
+  screen.appendChild(buildDailyChallengeGroup());
   screen.appendChild(buildStatisticsGroup());
   screen.appendChild(buildExploreGroup());
   screen.appendChild(buildDataGroup());
@@ -737,6 +745,89 @@ function buildTrainingGroup(): HTMLElement {
   ));
 
   return sec;
+}
+
+// ── Daily challenge ──────────────────────────────────────────────────────────
+// Turn the whole daily challenge on/off, and pick which tasks it includes and
+// how many of each (default: all on, three each). Mirrors the card's task order.
+
+const DAILY_TASK_LABEL: Record<DailyTaskId, string> = {
+  lines: 'Lines to remember',
+  positions: 'Positions to refresh',
+  puzzles: 'Puzzles to solve',
+  endgames: 'Endgame puzzles',
+  mistakes: 'Mistakes to fix',
+};
+
+function buildDailyChallengeGroup(): HTMLElement {
+  const sec = group('Daily challenge', Icons.checkCircle(16));
+
+  // Cheap to rebuild (a handful of rows), so any change re-renders the group in
+  // place — the per-task rows hide when the challenge is off, and each row reads
+  // fresh config so writes never clobber a sibling's change.
+  const rebuild = (): void => {
+    while (sec.childNodes.length > 1) sec.removeChild(sec.lastChild!);
+    const config = getDailyConfig();
+
+    sec.appendChild(row(
+      'Show daily challenge',
+      toggle(config.enabled, (on) => {
+        const cur = getDailyConfig();
+        setDailyConfig({ ...cur, enabled: on });
+        rebuild();
+      }),
+      { sub: 'A few bite-sized tasks at the top of Train each day. Off hides the card.' },
+    ));
+
+    if (!config.enabled) return;
+
+    const blurb = document.createElement('p');
+    blurb.className = 'section-desc';
+    blurb.textContent = 'Choose which tasks to include and how many of each.';
+    sec.appendChild(blurb);
+
+    for (const id of DAILY_TASK_IDS) sec.appendChild(dailyTaskRow(id, rebuild));
+  };
+  rebuild();
+  return sec;
+}
+
+// One task's row: a title + on/off switch, with a 1–5 count picker below when on.
+function dailyTaskRow(id: DailyTaskId, onToggle: () => void): HTMLElement {
+  const config = getDailyConfig();
+  const task = config.tasks[id];
+
+  const r = document.createElement('div');
+  r.className = 'pref-row daily-pref-row';
+
+  const head = document.createElement('div');
+  head.className = 'pref-row-head';
+  const title = document.createElement('div');
+  title.className = 'pref-row-title';
+  title.textContent = DAILY_TASK_LABEL[id];
+  head.appendChild(title);
+  head.appendChild(toggle(task.on, (on) => {
+    const cur = getDailyConfig();
+    setDailyConfig({ ...cur, tasks: { ...cur.tasks, [id]: { ...cur.tasks[id], on } } });
+    onToggle(); // hide/show the count picker
+  }));
+  r.appendChild(head);
+
+  if (task.on) {
+    const counts: { value: string; label: string }[] = [];
+    for (let n = DAILY_COUNT_RANGE.min; n <= DAILY_COUNT_RANGE.max; n++) {
+      counts.push({ value: String(n), label: String(n) });
+    }
+    const seg = segmented<string>(counts, String(task.count), (v) => {
+      const cur = getDailyConfig();
+      setDailyConfig({ ...cur, tasks: { ...cur.tasks, [id]: { ...cur.tasks[id], count: Number(v) } } });
+      // Count change needs no re-render — the segmented tracks its own highlight.
+    });
+    seg.classList.add('daily-count-seg');
+    r.appendChild(seg);
+  }
+
+  return r;
 }
 
 // ── Statistics ───────────────────────────────────────────────────────────────

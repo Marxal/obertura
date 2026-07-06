@@ -14,7 +14,7 @@ import {
   MAX_SPOTS_PER_GAME,
 } from './mistake-scan';
 import type { MistakeSpot, SpotRef, CategoriseCtx } from './mistake-scan';
-import { nextDailyTask } from './daily-challenge';
+import { nextDailyTask, type DailyTaskId } from './daily-challenge';
 import { flattenCp } from './winprob';
 import type { ImportedGame, GameResult } from './import-core';
 
@@ -187,16 +187,21 @@ export function runMistakeScanSelfTest(): TestResult[] {
   check('garbage moves → null', replayGame({ ucis: ['e2e5'], sans: [] }) === null);
 
   // ── nextDailyTask (the daily "Next task →" chain) ───────────────────────────
-  const day = (over: Partial<Record<'lines' | 'positions' | 'puzzles' | 'mistakes', boolean>>) =>
-    ({ lines: false, positions: false, puzzles: false, mistakes: false, ...over });
-  check('fresh day starts with lines', nextDailyTask(day({}), true) === 'lines');
-  check('card order holds', nextDailyTask(day({ lines: true }), true) === 'positions');
-  check('puzzles after positions', nextDailyTask(day({ lines: true, positions: true }), false) === 'puzzles');
-  check('mistakes only when available',
-    nextDailyTask(day({ lines: true, positions: true, puzzles: true }), false) === null);
+  const day = (over: Partial<Record<DailyTaskId, boolean>>) =>
+    ({ lines: false, positions: false, puzzles: false, endgames: false, mistakes: false, ...over });
+  const ALL: DailyTaskId[] = ['lines', 'positions', 'puzzles', 'endgames', 'mistakes'];
+  const NO_MISTAKES: DailyTaskId[] = ['lines', 'positions', 'puzzles', 'endgames'];
+  check('fresh day starts with lines', nextDailyTask(day({}), ALL) === 'lines');
+  check('card order holds', nextDailyTask(day({ lines: true }), ALL) === 'positions');
+  check('puzzles after positions', nextDailyTask(day({ lines: true, positions: true }), ALL) === 'puzzles');
+  check('endgames after puzzles',
+    nextDailyTask(day({ lines: true, positions: true, puzzles: true }), ALL) === 'endgames');
   check('mistakes close the chain',
-    nextDailyTask(day({ lines: true, positions: true, puzzles: true }), true) === 'mistakes');
-  check('all done → null', nextDailyTask(day({ lines: true, positions: true, puzzles: true, mistakes: true }), true) === null);
+    nextDailyTask(day({ lines: true, positions: true, puzzles: true, endgames: true }), ALL) === 'mistakes');
+  check('inactive tasks are skipped',
+    nextDailyTask(day({ lines: true, positions: true, puzzles: true, endgames: true }), NO_MISTAKES) === null);
+  check('all done → null',
+    nextDailyTask(day({ lines: true, positions: true, puzzles: true, endgames: true, mistakes: true }), ALL) === null);
 
   return results;
 }

@@ -136,14 +136,44 @@ export function mostForgotten(
   window: ForgottenWindow,
   now: Date = new Date(),
 ): ForgottenMove | null {
+  return mostForgottenExcluding(window, new Set(), now);
+}
+
+// Like mostForgotten, but skips any move already claimed by an earlier window
+// (keyed by fen+san). Used to fill the carousel with DISTINCT moves.
+function mostForgottenExcluding(
+  window: ForgottenWindow,
+  used: Set<string>,
+  now: Date,
+): ForgottenMove | null {
   let best: ForgottenMove | null = null;
   for (const m of load()) {
+    if (used.has(m.fen + ' ' + m.san)) continue;
     const count = windowCount(m, window, now);
     if (count > 0 && (!best || count > best.count)) {
       best = { fen: m.fen, san: m.san, colour: m.colour, count };
     }
   }
   return best;
+}
+
+// One move per window (Today / This week / All time) for the carousel, with no
+// position repeated across windows: the same move is usually the worst in more
+// than one window, so each window claims the top move not already shown by an
+// earlier one. Windows with no distinct move left are simply dropped.
+export function forgottenSlides(
+  now: Date = new Date(),
+): { window: ForgottenWindow; move: ForgottenMove }[] {
+  const used = new Set<string>();
+  const out: { window: ForgottenWindow; move: ForgottenMove }[] = [];
+  for (const window of ['day', 'week', 'all'] as ForgottenWindow[]) {
+    const move = mostForgottenExcluding(window, used, now);
+    if (move) {
+      used.add(move.fen + ' ' + move.san);
+      out.push({ window, move });
+    }
+  }
+  return out;
 }
 
 // Forget one move — called after a "Fix it" drill completes, so that move drops

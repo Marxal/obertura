@@ -10,21 +10,83 @@ import { dueLines, recentlyAddedLines, weakestLines } from './scheduler';
 import { currentStreak } from './streak';
 import { Icons } from './icons';
 
+// Default per-task goals (used when the user hasn't customised the daily config).
 export const DAILY_LINE_GOAL = 3;
 export const DAILY_PUZZLE_GOAL = 3;
 export const DAILY_POSITION_GOAL = 3;
+export const DAILY_ENDGAME_GOAL = 3;
 export const DAILY_MISTAKE_GOAL = 3;
 
 const KEY = 'obertura.dailyChallenge';
+const CONFIG_KEY = 'obertura.dailyChallenge.config';
+
+// The five daily tasks, in the order they appear on the card — the "Next task →"
+// chain follows this same order.
+export type DailyTaskId = 'lines' | 'positions' | 'puzzles' | 'endgames' | 'mistakes';
+export const DAILY_TASK_IDS: DailyTaskId[] = ['lines', 'positions', 'puzzles', 'endgames', 'mistakes'];
 
 export interface DailyState {
   day: string;        // "YYYY-MM-DD" local
   lines: boolean;     // the lines task is done
-  puzzles: boolean;   // the puzzles task is done
   positions: boolean; // the positions task is done
+  puzzles: boolean;   // the puzzles task is done
+  endgames: boolean;  // the endgame-puzzles task is done
   mistakes: boolean;  // the mistake-retry task is done (only offered when
                       // scanned spots exist — see renderDailyChallenge)
 }
+
+// ── Config (Preferences) ──────────────────────────────────────────────────────
+// Which tasks the daily challenge includes and how many of each. Device-local,
+// like the done-state. Default: every task on, three each.
+
+const DEFAULT_COUNT = 3;
+const COUNT_MIN = 1;
+const COUNT_MAX = 5;
+export const DAILY_COUNT_RANGE = { min: COUNT_MIN, max: COUNT_MAX, default: DEFAULT_COUNT };
+
+export interface DailyTaskConfig { on: boolean; count: number; }
+export interface DailyConfig {
+  enabled: boolean;
+  tasks: Record<DailyTaskId, DailyTaskConfig>;
+}
+
+function clampCount(n: unknown): number {
+  const v = Math.round(Number(n));
+  if (!Number.isFinite(v)) return DEFAULT_COUNT;
+  return Math.max(COUNT_MIN, Math.min(COUNT_MAX, v));
+}
+
+function defaultConfig(): DailyConfig {
+  const tasks = {} as Record<DailyTaskId, DailyTaskConfig>;
+  for (const id of DAILY_TASK_IDS) tasks[id] = { on: true, count: DEFAULT_COUNT };
+  return { enabled: true, tasks };
+}
+
+export function getDailyConfig(): DailyConfig {
+  const base = defaultConfig();
+  try {
+    const raw = localStorage.getItem(CONFIG_KEY);
+    if (!raw) return base;
+    const obj = JSON.parse(raw) as Partial<DailyConfig>;
+    for (const id of DAILY_TASK_IDS) {
+      const t = obj.tasks?.[id];
+      if (t) base.tasks[id] = { on: t.on !== false, count: clampCount(t.count) };
+    }
+    return { enabled: obj.enabled !== false, tasks: base.tasks };
+  } catch {
+    return base;
+  }
+}
+
+export function setDailyConfig(config: DailyConfig): void {
+  try {
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+  } catch {
+    /* storage unavailable — the daily config is a nicety, never block on it. */
+  }
+}
+
+// ── Done-state (resets each calendar day) ─────────────────────────────────────
 
 function todayKey(d: Date = new Date()): string {
   const y = d.getFullYear();
@@ -34,15 +96,24 @@ function todayKey(d: Date = new Date()): string {
 }
 
 function load(): DailyState {
-  const fresh: DailyState = { day: todayKey(), lines: false, puzzles: false, positions: false, mistakes: false };
+  const fresh: DailyState = {
+    day: todayKey(), lines: false, positions: false, puzzles: false, endgames: false, mistakes: false,
+  };
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return fresh;
     const obj = JSON.parse(raw) as Partial<DailyState>;
     // A new day wipes the slate — yesterday's done state never carries over.
     if (obj.day !== fresh.day) return fresh;
-    // !! also covers state saved before the mistakes task existed.
-    return { day: fresh.day, lines: !!obj.lines, puzzles: !!obj.puzzles, positions: !!obj.positions, mistakes: !!obj.mistakes };
+    // !! also covers state saved before a task existed (endgames, mistakes).
+    return {
+      day: fresh.day,
+      lines: !!obj.lines,
+      positions: !!obj.positions,
+      puzzles: !!obj.puzzles,
+      endgames: !!obj.endgames,
+      mistakes: !!obj.mistakes,
+    };
   } catch {
     return fresh;
   }
@@ -60,52 +131,52 @@ export function getDaily(): DailyState {
   return load();
 }
 
-export function markLinesDone(): void {
+function markDone(id: DailyTaskId): void {
   const s = load();
-  s.lines = true;
+  s[id] = true;
   save(s);
 }
 
-export function markPuzzlesDone(): void {
-  const s = load();
-  s.puzzles = true;
-  save(s);
+export function markLinesDone(): void { markDone('lines'); }
+export function markPositionsDone(): void { markDone('positions'); }
+export function markPuzzlesDone(): void { markDone('puzzles'); }
+export function markEndgamesDone(): void { markDone('endgames'); }
+export function markMistakesDone(): void { markDone('mistakes'); }
+
+// ── Which tasks are active, and the next one ──────────────────────────────────
+
+export interface DailyAvailability {
+  hasLines: boolean;           // any in-training lines (lines + positions need these)
+  mistakesAvailable: boolean;  // the mistake scan has found spots
 }
 
-export function markPositionsDone(): void {
-  const s = load();
-  s.positions = true;
-  save(s);
+// The active tasks, in card order: switched on in the config AND actually
+// runnable (lines/positions need a repertoire; mistakes needs scanned spots).
+export function activeDailyTasks(config: DailyConfig, avail: DailyAvailability): DailyTaskId[] {
+  return DAILY_TASK_IDS.filter((id) => {
+    if (!config.tasks[id].on) return false;
+    if ((id === 'lines' || id === 'positions') && !avail.hasLines) return false;
+    if (id === 'mistakes' && !avail.mistakesAvailable) return false;
+    return true;
+  });
 }
 
-export function markMistakesDone(): void {
+// Whether every active task is done.
+export function isDailyDone(config: DailyConfig, avail: DailyAvailability): boolean {
   const s = load();
-  s.mistakes = true;
-  save(s);
-}
-
-// `mistakesAvailable` = there are scanned spots to train (the task is only
-// offered then, so without any it never blocks "done").
-export function isDailyDone(mistakesAvailable = false): boolean {
-  const s = load();
-  return s.lines && s.puzzles && s.positions && (!mistakesAvailable || s.mistakes);
+  return activeDailyTasks(config, avail).every((id) => s[id]);
 }
 
 // ── The next-task chain ───────────────────────────────────────────────────────
 // A finished daily task's success screen offers "Next task →"; this names the
-// task it should jump to. Pure (state passed in) so it's self-testable. Order
-// mirrors the card: lines, positions, puzzles, mistakes.
-
-export type DailyTaskId = 'lines' | 'positions' | 'puzzles' | 'mistakes';
+// task it should jump to. Pure (active list passed in) so it's self-testable;
+// the list is already in card order.
 
 export function nextDailyTask(
-  state: Pick<DailyState, 'lines' | 'positions' | 'puzzles' | 'mistakes'>,
-  mistakesAvailable: boolean,
+  state: Pick<DailyState, DailyTaskId>,
+  active: DailyTaskId[],
 ): DailyTaskId | null {
-  if (!state.lines) return 'lines';
-  if (!state.positions) return 'positions';
-  if (!state.puzzles) return 'puzzles';
-  if (mistakesAvailable && !state.mistakes) return 'mistakes';
+  for (const id of active) if (!state[id]) return id;
   return null;
 }
 
@@ -131,26 +202,48 @@ export function pickDailyLines(allLines: Line[], goal = DAILY_LINE_GOAL): Line[]
 }
 
 export interface DailyChallengeDeps {
+  config: DailyConfig;
+  active: DailyTaskId[];
   // The lines to drill for today's lines task (already picked), or [] when none.
   lines: Line[];
   onTrainLines: (lines: Line[]) => void;
-  onSolvePuzzles: () => void;
-  // Drill today's few individual positions to refresh (due moves, not whole lines).
   onRefreshPositions: () => void;
-  // How many mistake-retry spots the scan has found (0 = task not offered yet).
+  onSolvePuzzles: () => void;
+  // Solve today's few rated endgame puzzles.
+  onSolveEndgames: () => void;
+  // How many mistake-retry spots the scan has found (for the card note only).
   mistakeSpotCount: number;
-  // Fix a few of today's mistake-retry spots.
   onFixMistakes: () => void;
 }
 
-// Build the daily-challenge card. Returns null when there's nothing to offer (no
-// lines in training yet) so the caller can simply skip it.
+// Each task's card face: an icon and a label that folds in the configured count.
+const TASK_META: Record<DailyTaskId, { icon: () => SVGElement; label: (n: number) => string }> = {
+  lines:     { icon: () => Icons.tree(18),        label: (n) => `${n} line${n === 1 ? '' : 's'} to remember` },
+  positions: { icon: () => Icons.target(18),      label: (n) => `${n} position${n === 1 ? '' : 's'} to refresh` },
+  puzzles:   { icon: () => Icons.puzzlePiece(18), label: (n) => `${n} puzzle${n === 1 ? '' : 's'} to solve` },
+  endgames:  { icon: () => Icons.flag(18),        label: (n) => `${n} endgame puzzle${n === 1 ? '' : 's'}` },
+  mistakes:  { icon: () => Icons.reset(18),       label: (n) => `${n} mistake${n === 1 ? '' : 's'} to fix` },
+};
+
+function runDailyTask(id: DailyTaskId, deps: DailyChallengeDeps): void {
+  switch (id) {
+    case 'lines': deps.onTrainLines(deps.lines); break;
+    case 'positions': deps.onRefreshPositions(); break;
+    case 'puzzles': deps.onSolvePuzzles(); break;
+    case 'endgames': deps.onSolveEndgames(); break;
+    case 'mistakes': deps.onFixMistakes(); break;
+  }
+}
+
+// Build the daily-challenge card. Returns null when it's switched off, nothing is
+// active, or there's no repertoire yet (the lines/positions tasks need one — this
+// keeps first-run onboarding clean).
 export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | null {
-  if (deps.lines.length === 0) return null;
+  const { config, active } = deps;
+  if (!config.enabled || active.length === 0 || deps.lines.length === 0) return null;
 
   const state = getDaily();
-  const withMistakes = deps.mistakeSpotCount > 0;
-  const done = state.lines && state.puzzles && state.positions && (!withMistakes || state.mistakes);
+  const done = active.every((id) => state[id]);
 
   const card = document.createElement('div');
   card.className = 'card daily-card' + (done ? ' daily-card--done' : '');
@@ -174,42 +267,22 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
 
   const tasks = document.createElement('div');
   tasks.className = 'daily-card-tasks';
-
-  tasks.appendChild(buildTask({
-    icon: Icons.tree(18),
-    label: `${DAILY_LINE_GOAL} lines to remember`,
-    done: state.lines,
-    onClick: () => deps.onTrainLines(deps.lines),
-  }));
-  tasks.appendChild(buildTask({
-    icon: Icons.target(18),
-    label: `${DAILY_POSITION_GOAL} positions to refresh`,
-    done: state.positions,
-    onClick: () => deps.onRefreshPositions(),
-  }));
-  tasks.appendChild(buildTask({
-    icon: Icons.puzzlePiece(18),
-    label: `${DAILY_PUZZLE_GOAL} puzzles to solve`,
-    done: state.puzzles,
-    onClick: () => deps.onSolvePuzzles(),
-  }));
-  // Only once the mistake scan has found something — a task that can't run is
-  // just clutter.
-  if (withMistakes) {
+  for (const id of active) {
+    const meta = TASK_META[id];
     tasks.appendChild(buildTask({
-      icon: Icons.reset(18),
-      label: `${DAILY_MISTAKE_GOAL} mistakes to fix`,
-      done: state.mistakes,
-      onClick: () => deps.onFixMistakes(),
+      icon: meta.icon(),
+      label: meta.label(config.tasks[id].count),
+      done: state[id],
+      onClick: () => runDailyTask(id, deps),
     }));
   }
   card.appendChild(tasks);
 
   const note = document.createElement('div');
   note.className = 'daily-card-note';
-  note.textContent = withMistakes
+  note.textContent = active.includes('mistakes')
     ? 'Lines, puzzles and your own mistakes, picked for you.'
-    : 'A few lines and rated puzzles, picked for you.';
+    : 'A daily mix of lines, puzzles and endgames, picked for you.';
   card.appendChild(note);
 
   return card;
