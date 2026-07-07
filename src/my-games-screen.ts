@@ -320,18 +320,12 @@ function gameCard(g: ImportedGame, deps: MyGamesDeps, refresh: () => void): HTML
   }
   text.appendChild(meta);
 
+  // No "analysed" icon here — the review strip beneath the board already says
+  // the game has been analysed.
   const cardTags = effectiveTags(g);
-  if (cardTags.length || g.analysis) {
+  if (cardTags.length) {
     const tags = document.createElement('div');
     tags.className = 'mygames-card-tags';
-    if (g.analysis) {
-      const analysedIcon = document.createElement('span');
-      analysedIcon.className = 'mygames-card-analysed';
-      analysedIcon.setAttribute('aria-label', 'Analysed');
-      analysedIcon.title = 'Analysed';
-      analysedIcon.appendChild(Icons.review(14));
-      tags.appendChild(analysedIcon);
-    }
     for (const t of cardTags) {
       tags.appendChild(Object.assign(document.createElement('span'), { className: 'mygames-tag', textContent: t }));
     }

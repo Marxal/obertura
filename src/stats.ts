@@ -13,7 +13,7 @@
 
 import type { Line } from './types';
 import type { ImportedGame } from './chesscom';
-import { mainlineNodes } from './scheduler';
+import { mainlineNodes, userMoveNodes } from './scheduler';
 import {
   openingFamily,
   UNKNOWN_FAMILY,
@@ -68,6 +68,69 @@ export function needsWorkMoves(lines: Line[], limit = 24): NeedsWorkMove[] {
   }
   out.sort((a, b) => b.lapses - a.lapses || a.lineName.localeCompare(b.lineName));
   return out.slice(0, limit);
+}
+
+// ── Move memory ──────────────────────────────────────────────────────────────
+//
+// How well the moves in my lines are remembered RIGHT NOW, straight from each
+// user-move's SM-2 review block. The scheduler doesn't keep a lifetime success
+// count (reps resets on a miss), so the honest read is the move's latest state:
+//
+//   solid   – has a review and reps > 0 (the last drill was clean)
+//   shaky   – has a review but reps = 0 (the last drill was a miss)
+//   untrained – no review yet (never drilled)
+//
+// recallPct = solid / trained — the share of drilled moves currently remembered.
+
+export interface MoveMemory {
+  total: number;      // user moves across the lines' mainlines
+  trained: number;    // of those, drilled at least once
+  solid: number;      // remembered at the last drill
+  shaky: number;      // missed at the last drill
+  recallPct: number | null; // null until anything is trained
+}
+
+function emptyMemory(): MoveMemory {
+  return { total: 0, trained: 0, solid: 0, shaky: 0, recallPct: null };
+}
+
+function tallyMemory(m: MoveMemory, line: Line): void {
+  for (const node of userMoveNodes(line.tree, line.colour)) {
+    m.total++;
+    if (!node.review) continue;
+    m.trained++;
+    if (node.review.reps > 0) m.solid++;
+    else m.shaky++;
+  }
+}
+
+function finishMemory(m: MoveMemory): MoveMemory {
+  m.recallPct = m.trained > 0 ? Math.round((100 * m.solid) / m.trained) : null;
+  return m;
+}
+
+// The whole repertoire in one tally.
+export function moveMemory(lines: Line[]): MoveMemory {
+  const m = emptyMemory();
+  for (const line of lines) tallyMemory(m, line);
+  return finishMemory(m);
+}
+
+// Per opening family + colour (the same join key the games analysis uses), so
+// the win-rate-by-opening cards can put memory beside the real score. Lines
+// with no recognised opening can't join and are skipped, matching winRateByOpening.
+export function memoryByOpening(lines: Line[]): Map<string, MoveMemory> {
+  const map = new Map<string, MoveMemory>();
+  for (const line of lines) {
+    const fam = openingFamily(line.openingName);
+    if (fam === UNKNOWN_FAMILY) continue;
+    const key = `${fam}|${line.colour}`;
+    let m = map.get(key);
+    if (!m) { m = emptyMemory(); map.set(key, m); }
+    tallyMemory(m, line);
+  }
+  for (const m of map.values()) finishMemory(m);
+  return map;
 }
 
 // ── Remembered-vs-failed day series ──────────────────────────────────────────
@@ -213,6 +276,7 @@ export interface OpeningTrainingRow {
   lineCount: number;         // my saved lines in this opening
   masteredCount: number;     // of those, how many are mastered
   avgConfidence: number;     // 0–5 mean confidence across them (0 if none)
+  memory: MoveMemory;        // how the opening's moves are remembered (zeroed when no lines)
 }
 
 export function winRateByOpening(stats: OpeningStat[], lines: Line[], max = 8): OpeningTrainingRow[] {
@@ -228,6 +292,7 @@ export function winRateByOpening(stats: OpeningStat[], lines: Line[], max = 8): 
     if (line.confidence >= MASTERY_CONFIDENCE) a.mastered++;
     training.set(key, a);
   }
+  const memories = memoryByOpening(lines);
 
   const rows: OpeningTrainingRow[] = stats
     .filter(s => s.family !== UNKNOWN_FAMILY)
@@ -245,6 +310,7 @@ export function winRateByOpening(stats: OpeningStat[], lines: Line[], max = 8): 
         lineCount: t?.count ?? 0,
         masteredCount: t?.mastered ?? 0,
         avgConfidence: t && t.count > 0 ? Math.round(t.confSum / t.count) : 0,
+        memory: memories.get(`${s.family}|${s.colour}`) ?? emptyMemory(),
       };
     });
 

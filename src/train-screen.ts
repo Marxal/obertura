@@ -208,8 +208,10 @@ async function doRender(
   // own head is gone — the hero (when anything's due) is the top of this pane.
   renderHero(container, due, trainingLines);
   renderModeCards(container, trainingLines, allLines);
-  renderForgottenCarousel(container, allLines);
+  // Lines in training rides directly under Practise; the forgotten-moves
+  // carousel closes the pane.
   renderCardList(container, trainingLines, allLines.filter(l => !l.inTraining));
+  renderForgottenCarousel(container, allLines);
 }
 
 // The ordered list of lines that "Start training" drills, per the default-mode
