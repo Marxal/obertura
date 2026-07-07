@@ -57,6 +57,12 @@ let cloudBlockedUntil = 0;
 let cloudBlockCause: 'limited' | 'down' = 'down';
 let cloudEverAnswered = false;
 
+// Whether the most recent real cloud attempt FAILED (a 404 "position not in
+// the cloud" is a healthy answer, not a failure). Drives the eval panel's
+// discreet "can't reach Lichess" warning — unlike the breaker, this is live
+// from the very first failure, not only once the breaker opens.
+let lastCloudAttemptFailed = false;
+
 function cloudOpen(): boolean {
   return Date.now() >= cloudBlockedUntil;
 }
@@ -64,10 +70,12 @@ function cloudOpen(): boolean {
 function noteCloudSuccess(): void {
   cloudFailStreak = 0;
   cloudEverAnswered = true;
+  lastCloudAttemptFailed = false;
 }
 
 function noteCloudFailure(status?: number): void {
   if (status === 404) { noteCloudSuccess(); return; } // healthy miss
+  lastCloudAttemptFailed = true;
   if (status === 429) {
     cloudBlockedUntil = Date.now() + CLOUD_429_COOLDOWN_MS;
     cloudBlockCause = 'limited';
@@ -80,6 +88,20 @@ function noteCloudFailure(status?: number): void {
     cloudBlockCause = 'down';
     cloudFailStreak = 0;
   }
+}
+
+// True while the panel should warn that Lichess can't be reached: the last real
+// attempt failed, or the breaker is holding requests back after failures.
+export function cloudLooksOffline(): boolean {
+  return lastCloudAttemptFailed || Date.now() < cloudBlockedUntil;
+}
+
+// Reset the circuit breaker so the very NEXT request tries Lichess again — the
+// eval panel's retry tap. Doesn't fire a request itself; the caller re-evaluates
+// right after.
+export function retryCloudNow(): void {
+  cloudBlockedUntil = 0;
+  cloudFailStreak = 0;
 }
 
 // The Lichess cloud's live health, for status lines in batch UIs.

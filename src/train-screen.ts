@@ -864,7 +864,7 @@ function renderCardList(container: HTMLElement, trainingLines: Line[], pausedLin
   head.appendChild(chev);
   const heading = document.createElement('span');
   heading.className = 'section-title train-collapse-title';
-  heading.textContent = 'In training';
+  heading.textContent = 'Lines in training';
   head.appendChild(heading);
   const countBadge = document.createElement('span');
   countBadge.className = 'lines-fam-count';

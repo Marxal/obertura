@@ -41,13 +41,21 @@ import { getPuzzleRating, getRatingHistory, getBestCleanStreak, type RatingPoint
 import { Icons } from './icons';
 import { colourPip, buildPositionCard, lineFinalFen, fenFromUcis } from './card-position';
 import { userAvatar } from './avatar';
-import { getGamesSource, openImportPanel } from './import-panel';
+import { getGamesSource, openImportPanel, platformLabel } from './import-panel';
 import { buildEmptyState } from './empty-state';
 import { pushBack } from './back-nav';
 import { formatMove } from './notation';
+import { renderLineChart, renderRecordStrip, type ChartPoint } from './stats-charts';
 import {
-  getShowStreakSection,
-  getShowActivitySection,
+  getLiveRatings, cachedLiveRatings, fetchLichessRatingHistory, ratingSeriesFromGames,
+  dominantTimeClass, clipHistory, TIME_CLASS_ORDER,
+  type LiveRatings, type RatingHistoryPoint,
+} from './rating-stats';
+import { TIME_CLASS_LABELS, type TimeClass } from './import-core';
+import { endgamesByCategory } from './endgame-catalog';
+import { getEndgameProgress } from './endgame-progress';
+import { collectEndgameSpots } from './endgame-scan';
+import {
   getStatsRange,
   setStatsRange,
   getCalendarExpanded,
@@ -96,9 +104,8 @@ async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<
     return;
   }
 
-  // 1. Streak hero (kept as it computed; Settings can hide it). The month calendar
-  //    rides inside it as a collapsible row.
-  if (getShowStreakSection()) renderStreakHero(container);
+  // 1. Streak hero. The month calendar rides inside it as a collapsible row.
+  renderStreakHero(container);
 
   // 2. Training region — always shown.
   renderTrainingRegion(container, lines, cb);
@@ -106,6 +113,11 @@ async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<
   // 2b. Puzzles region — only when there's something to show (local activity or a
   //     connected Lichess account), so a never-used feature doesn't add zeroes.
   renderPuzzlesRegion(container);
+
+  // 2c. Endgames region — the endgame-puzzle ladder, the classics you've
+  //     mastered and the endgames mined from your games. Skipped until any of
+  //     those has data.
+  renderEndgamesRegion(container, games);
 
   // 3. Your games region — only when games exist, else one quiet import card.
   if (games.length === 0) {
@@ -130,6 +142,20 @@ function localDateKey(d: Date): string {
 function formatDay(dayKey: string): string {
   const d = new Date(`${dayKey}T00:00:00`);
   return `${WEEKDAY[d.getDay()]} ${d.getDate()} ${MONTH[d.getMonth()]}`;
+}
+
+// "12 Mar" from a "YYYY-MM-DD" key — the compact x-axis form.
+function shortDay(dayKey: string): string {
+  const d = new Date(`${dayKey}T00:00:00`);
+  return `${d.getDate()} ${MONTH[d.getMonth()]}`;
+}
+
+// First / middle / last x-labels for a series — all a small line chart needs.
+function sparseTicks(labels: string[]): { i: number; text: string }[] {
+  const n = labels.length;
+  if (n < 2) return [];
+  const idxs = n > 4 ? [0, Math.floor(n / 2), n - 1] : [0, n - 1];
+  return [...new Set(idxs)].map(i => ({ i, text: labels[i] }));
 }
 
 function confidenceDots(c: number): string {
@@ -414,7 +440,7 @@ function renderTrainingRegion(container: HTMLElement, lines: Line[], cb: Progres
   renderQuickStats(container, lines, cb);
   // The most-forgotten-move board now lives on the Openings (training) screen,
   // as a per-window carousel with a "Fix it" drill.
-  if (getShowActivitySection()) renderRememberedFailed(container);
+  renderRememberedFailed(container);
 }
 
 // ── Puzzles region ───────────────────────────────────────────────────────────
@@ -512,7 +538,12 @@ function renderPuzzlesRegion(container: HTMLElement): void {
       chartHost.innerHTML = '';
       const pts = cutoff ? history.filter((p) => p.day >= cutoff) : history;
       if (pts.length >= 2) {
-        renderRatingTrend(chartHost, pts, onSelectDay);
+        renderLineChart(chartHost, pts.map((p) => ({ value: p.rating, label: shortDay(p.day) })), {
+          ariaLabel: 'Puzzle rating over time',
+          xTicks: sparseTicks(pts.map((p) => shortDay(p.day))),
+          detailFor: (i) => `${formatDay(pts[i].day)} · rated ${pts[i].rating}`,
+          onSelect: (i, userTap) => { if (userTap) onSelectDay(pts[i]); },
+        });
       } else {
         const note = document.createElement('p');
         note.className = 'stats-no-games';
@@ -568,6 +599,113 @@ function renderPuzzlesRegion(container: HTMLElement): void {
     }
     container.appendChild(section);
   }
+}
+
+// ── Endgames region ───────────────────────────────────────────────────────────
+//
+// Three endgame stories in one region: the endgame-puzzle rating ladder (its
+// own Elo, separate from the openings-puzzle one), the classic-endgames
+// checklist, and the endgames mined from your imported games. Skipped entirely
+// until any of them has data.
+
+function renderEndgamesRegion(container: HTMLElement, games: ImportedGame[]): void {
+  const history = getRatingHistory('endgame');
+  const progress = getEndgameProgress();
+  const spots = collectEndgameSpots(games);
+  const hasLadder = history.length > 0;
+  const hasPractice = Object.keys(progress).length > 0;
+  if (!hasLadder && !hasPractice && spots.length === 0) return;
+
+  regionTitle(container, 'Endgames');
+
+  // Endgame puzzles: rating + best run tiles, and the rating line underneath.
+  if (hasLadder) {
+    const section = statsSection('Endgame puzzles');
+    const tiles = document.createElement('div');
+    tiles.className = 'pz-stat-row';
+    tiles.appendChild(puzzleStatCell(Icons.flag(18), String(getPuzzleRating('endgame')), 'Endgame rating'));
+    tiles.appendChild(puzzleStatCell(Icons.zap(18), String(getBestCleanStreak('endgame')), 'Best run'));
+    section.appendChild(tiles);
+
+    if (history.length >= 2) {
+      const chartHost = document.createElement('div');
+      chartHost.className = 'pz-rating-chart';
+      renderLineChart(chartHost, history.map(p => ({ value: p.rating, label: shortDay(p.day) })), {
+        ariaLabel: 'Endgame puzzle rating over time',
+        xTicks: sparseTicks(history.map(p => shortDay(p.day))),
+        detailFor: i => `${formatDay(history[i].day)} · rated ${history[i].rating}`,
+      });
+      section.appendChild(chartHost);
+    }
+    container.appendChild(section);
+  }
+
+  // Practice: the classics checklist as a meter, and the from-your-games tally.
+  const classicIds = endgamesByCategory().flatMap(g => g.items.map(item => item.id));
+  const classicsSolved = classicIds.filter(id => progress[id]?.solved).length;
+  const playedSpots = spots.filter(ref =>
+    (progress[`game:${ref.game.id}:${ref.spot.ply}`]?.attempts ?? 0) > 0).length;
+  const slipped = spots.filter(ref => !ref.spot.converted).length;
+
+  if (classicsSolved > 0 || spots.length > 0) {
+    const section = statsSection('Endgame practice');
+
+    if (classicIds.length > 0) {
+      section.appendChild(meterRow(
+        'Classic endgames',
+        classicsSolved,
+        classicIds.length,
+        `${classicsSolved} of ${classicIds.length} solved`,
+      ));
+    }
+    if (spots.length > 0) {
+      section.appendChild(meterRow(
+        'From your games',
+        playedSpots,
+        spots.length,
+        `${playedSpots} of ${spots.length} played out`,
+      ));
+      const cap = document.createElement('p');
+      cap.className = 'stats-trend-caption';
+      cap.textContent = slipped > 0
+        ? `${slipped} of those endgames had a result you let slip in the game — the best ones to replay.`
+        : 'You converted every endgame the scan found — nothing was let slip.';
+      section.appendChild(cap);
+    }
+    container.appendChild(section);
+  }
+}
+
+// A labelled progress meter: name + count on one line, the fill bar beneath.
+// The track is a lighter step of the same accent, so the state reads across
+// the whole bar.
+function meterRow(label: string, done: number, total: number, caption: string): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'stats-meter';
+
+  const head = document.createElement('div');
+  head.className = 'stats-meter-head';
+  const name = document.createElement('span');
+  name.className = 'stats-meter-label';
+  name.textContent = label;
+  head.appendChild(name);
+  const meta = document.createElement('span');
+  meta.className = 'stats-meter-meta';
+  meta.textContent = caption;
+  head.appendChild(meta);
+  wrap.appendChild(head);
+
+  const track = document.createElement('div');
+  track.className = 'stats-meter-track';
+  track.setAttribute('role', 'img');
+  track.setAttribute('aria-label', `${label}: ${caption}`);
+  const fill = document.createElement('div');
+  fill.className = 'stats-meter-fill';
+  fill.style.width = `${total > 0 ? Math.round((100 * done) / total) : 0}%`;
+  track.appendChild(fill);
+  wrap.appendChild(track);
+
+  return wrap;
 }
 
 // A display-only stat cell, sharing the training quick-box look but holding a
@@ -963,9 +1101,178 @@ function renderGamesRegion(container: HTMLElement, games: ImportedGame[], lines:
 
   const analysis = analyseGames(games, lines);
 
+  renderRatingSection(container, games);
+  renderRecordSection(container, games);
   renderWinRateByOpening(container, analysis.stats, lines, cb);
   renderWinRateOverTime(container, games, analysis.stats);
   renderScoringTabs(container, analysis.stats);
+}
+
+// ── Your rating (current + over time, per time class) ─────────────────────────
+//
+// Live current ratings come from the account's platform (Chess.com stats API /
+// Lichess user API), cached so the screen paints instantly and works offline
+// with the last-seen numbers. The history line uses Lichess's rating-history
+// API when the account is a Lichess one; for Chess.com it's built from the
+// ratings your imported games carry (each refresh extends it).
+
+// Rating-chart range — remembered like the other selectors.
+type RatingRange = '3m' | 'year' | 'all';
+const RATING_RANGE_KEY = 'obertura.stats.ratingRange';
+const RATING_RANGE_DAYS: Record<RatingRange, number | null> = { '3m': 92, year: 366, all: null };
+function getRatingRange(): RatingRange {
+  const v = localStorage.getItem(RATING_RANGE_KEY);
+  return v === '3m' || v === 'all' ? v : 'year';
+}
+function setRatingRange(r: RatingRange): void {
+  try { localStorage.setItem(RATING_RANGE_KEY, r); } catch { /* non-critical */ }
+}
+
+// "12 Mar" (or "Mar ’25" once a series spans years) from an epoch-ms day.
+function historyLabel(ms: number, spanDays: number): string {
+  const d = new Date(ms);
+  return spanDays > 330
+    ? `${MONTH[d.getMonth()]} ’${String(d.getFullYear() % 100).padStart(2, '0')}`
+    : `${d.getDate()} ${MONTH[d.getMonth()]}`;
+}
+
+// Chip labels for the time classes ("Classical / Daily" is too long for a chip).
+const SHORT_CLASS_LABEL: Record<TimeClass, string> = {
+  bullet: 'Bullet', blitz: 'Blitz', rapid: 'Rapid', daily: 'Daily',
+};
+
+function renderRatingSection(container: HTMLElement, games: ImportedGame[]): void {
+  const source = getGamesSource();
+  const cachedLive = source ? cachedLiveRatings(source.platform, source.username) : null;
+
+  // Which time classes are worth a chip: any with imported games or a live rating.
+  const classesWithGames = new Set(games.map(g => g.timeClass));
+  const chipClasses = TIME_CLASS_ORDER.filter(tc =>
+    classesWithGames.has(tc) || cachedLive?.classes[tc]);
+  if (chipClasses.length === 0) return;
+
+  const section = statsSection('Your rating', source ? `on ${platformLabel(source.platform)}` : '');
+
+  let tc: TimeClass = dominantTimeClass(games, cachedLive);
+  if (!chipClasses.includes(tc)) tc = chipClasses[0];
+  let live: LiveRatings | null = cachedLive;
+  let lichessHistory: Partial<Record<TimeClass, RatingHistoryPoint[]>> | null = null;
+  let range = getRatingRange();
+
+  // Time-class chips (only when there's a choice to make).
+  if (chipClasses.length > 1) {
+    section.appendChild(buildSegmented<TimeClass>(
+      chipClasses.map(c => [c, SHORT_CLASS_LABEL[c]] as [TimeClass, string]),
+      tc,
+      c => { tc = c; fill(); },
+    ));
+  }
+
+  // Three tiles: current rating · peak · games played (site numbers when the
+  // platform provides them, your imported games otherwise).
+  const tiles = document.createElement('div');
+  tiles.className = 'pz-stat-row pz-stat-row--rating';
+  const currentCell = puzzleStatCell(Icons.trending(18), '—', 'Current rating');
+  const peakCell = puzzleStatCell(Icons.star(18), '—', 'Peak');
+  const gamesCell = puzzleStatCell(Icons.grid2x2(18), '—', 'Games');
+  tiles.appendChild(currentCell);
+  tiles.appendChild(peakCell);
+  tiles.appendChild(gamesCell);
+  section.appendChild(tiles);
+
+  const chartHost = document.createElement('div');
+  chartHost.className = 'stats-rating-chart';
+  section.appendChild(chartHost);
+
+  const rangeChips = buildSegmented<RatingRange>(
+    [['3m', '3 months'], ['year', 'Year'], ['all', 'All']],
+    range,
+    r => { range = r; setRatingRange(r); fill(); },
+  );
+  section.appendChild(rangeChips);
+  attachRangeSwipe(chartHost, rangeChips);
+
+  const setCell = (cell: HTMLElement, value: string): void => {
+    const num = cell.querySelector('.stats-quick-num');
+    if (num) num.textContent = value;
+  };
+
+  // The full series for the active class, before range clipping: Lichess's API
+  // history when we have it, else the imported games' own ratings.
+  const seriesFor = (c: TimeClass): RatingHistoryPoint[] => {
+    const fromApi = lichessHistory?.[c];
+    if (fromApi && fromApi.length >= 2) return fromApi;
+    return ratingSeriesFromGames(games, c);
+  };
+
+  const fill = (): void => {
+    const liveClass = live?.classes[tc];
+    const full = seriesFor(tc);
+    const clipped = clipHistory(full, RATING_RANGE_DAYS[range]);
+
+    // Tiles: live numbers when the platform gave them, series fallbacks otherwise.
+    const latest = full.length ? full[full.length - 1].rating : undefined;
+    const current = liveClass?.rating ?? latest;
+    setCell(currentCell, current !== undefined ? String(current) : '—');
+    const seriesPeak = full.length ? Math.max(...full.map(p => p.rating)) : undefined;
+    const peak = liveClass?.best ?? (seriesPeak !== undefined && current !== undefined
+      ? Math.max(seriesPeak, current) : seriesPeak);
+    setCell(peakCell, peak !== undefined ? String(peak) : '—');
+    const playedHere = games.filter(g => g.timeClass === tc).length;
+    setCell(gamesCell, String(liveClass?.games ?? playedHere));
+
+    // The chart.
+    chartHost.innerHTML = '';
+    if (clipped.length >= 2) {
+      const spanDays = (clipped[clipped.length - 1].ms - clipped[0].ms) / 86_400_000;
+      const pts: ChartPoint[] = clipped.map(p => ({ value: p.rating, label: historyLabel(p.ms, spanDays) }));
+      renderLineChart(chartHost, pts, {
+        ariaLabel: `${TIME_CLASS_LABELS[tc]} rating over time`,
+        xTicks: sparseTicks(pts.map(p => p.label)),
+        detailFor: i => `${historyLabel(clipped[i].ms, 0)} ${new Date(clipped[i].ms).getFullYear()} · rated ${clipped[i].rating}`,
+      });
+    } else {
+      const note = document.createElement('p');
+      note.className = 'stats-no-games';
+      note.textContent = source?.platform === 'lichess'
+        ? 'Not enough rating history here yet to chart a trend.'
+        : 'Ratings ride along with imported games — refresh (or re-import) your games to fill this chart.';
+      chartHost.appendChild(note);
+    }
+  };
+  fill();
+
+  // Freshen the live numbers + (for Lichess) the full history in the background;
+  // repaint in place when they land. Both fail soft to what's already painted.
+  if (source) {
+    void getLiveRatings(source.platform, source.username).then(l => {
+      if (l && section.isConnected) { live = l; fill(); }
+    });
+    if (source.platform === 'lichess') {
+      void fetchLichessRatingHistory(source.username).then(h => {
+        if (h && section.isConnected) { lichessHistory = h; fill(); }
+      });
+    }
+  }
+
+  container.appendChild(section);
+}
+
+// ── Record (W-D-L across the imported games) ──────────────────────────────────
+function renderRecordSection(container: HTMLElement, games: ImportedGame[]): void {
+  let wins = 0, draws = 0, losses = 0;
+  for (const g of games) {
+    if (g.result === 'win') wins++;
+    else if (g.result === 'draw') draws++;
+    else losses++;
+  }
+  if (wins + draws + losses === 0) return;
+
+  const section = statsSection('Record', `${games.length} imported game${games.length === 1 ? '' : 's'}`);
+  const host = document.createElement('div');
+  renderRecordStrip(host, { wins, draws, losses });
+  section.appendChild(host);
+  container.appendChild(section);
 }
 
 // A discreet account strip: avatar + "username on Platform" + a Refresh button
@@ -1150,113 +1457,29 @@ function renderWinRateOverTime(container: HTMLElement, games: ImportedGame[], st
   const chartWrap = document.createElement('div');
   section.appendChild(chartWrap);
 
-  const detail = document.createElement('div');
-  detail.className = 'stats-trend-detail';
-  section.appendChild(detail);
-
   const cap = document.createElement('p');
   cap.className = 'stats-trend-caption';
-  cap.textContent = 'Monthly score across your imported games. (First-trained dates aren’t tracked, so the line carries no start marker.)';
+  cap.textContent = 'Monthly score across your imported games — tap the line for any month’s record.';
   section.appendChild(cap);
 
   function rebuild(): void {
     let gs = games;
     if (colour !== 'all') gs = gs.filter(g => g.colour === colour);
     if (opening !== 'all') gs = gs.filter(g => openingFamily(g.opening) === opening);
-    renderTrendChart(chartWrap, detail, winRateOverTime(gs));
+    renderTrendChart(chartWrap, winRateOverTime(gs));
   }
   rebuild();
 
   container.appendChild(section);
 }
 
-const SVG_NS = 'http://www.w3.org/2000/svg';
-
-// Puzzle rating over time — a small inline-SVG line (same look as the win-rate
-// trend, but the y-axis is the rating value rather than a percentage). Reuses the
-// .stats-trend classes. Assumes ≥2 points (the caller gates on that).
-function renderRatingTrend(
-  container: HTMLElement,
-  points: RatingPoint[],
-  onUserSelect?: (p: RatingPoint) => void,
-): void {
-  const W = 300, H = 110, padX = 10, padTop = 10, padBottom = 20;
-  const innerW = W - padX * 2;
-  const innerH = H - padTop - padBottom;
-
-  const ratings = points.map((p) => p.rating);
-  let lo = Math.min(...ratings);
-  let hi = Math.max(...ratings);
-  if (hi === lo) { hi += 1; lo -= 1; } // avoid a flat divide-by-zero
-  const pad = (hi - lo) * 0.15;
-  lo -= pad; hi += pad;
-
-  const svg = document.createElementNS(SVG_NS, 'svg');
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  svg.setAttribute('class', 'stats-trend');
-  svg.setAttribute('preserveAspectRatio', 'none');
-  svg.setAttribute('role', 'img');
-  svg.setAttribute('aria-label', 'Puzzle rating over time');
-
-  const x = (i: number): number => padX + (i / (points.length - 1)) * innerW;
-  const y = (r: number): number => padTop + (1 - (r - lo) / (hi - lo)) * innerH;
-
-  const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(p.rating).toFixed(1)}`).join(' ');
-  const poly = document.createElementNS(SVG_NS, 'path');
-  poly.setAttribute('d', path);
-  poly.setAttribute('class', 'stats-trend-path');
-  poly.setAttribute('fill', 'none');
-  svg.appendChild(poly);
-
-  const detail = document.createElement('div');
-  detail.className = 'stats-trend-detail';
-
-  const dots: SVGCircleElement[] = [];
-  const select = (i: number, userTap: boolean): void => {
-    dots.forEach((d) => { d.classList.remove('stats-trend-dot--sel'); d.setAttribute('r', '3.4'); });
-    dots[i].classList.add('stats-trend-dot--sel');
-    dots[i].setAttribute('r', '5'); // a touch larger so the chosen point stands out
-    detail.textContent = `${points[i].day} · ${points[i].rating}`;
-    // Only a real tap drives the stat boxes; the initial auto-select leaves them
-    // showing the range aggregate.
-    if (userTap) onUserSelect?.(points[i]);
-  };
-
-  points.forEach((p, i) => {
-    const dot = document.createElementNS(SVG_NS, 'circle');
-    dot.setAttribute('cx', x(i).toFixed(1));
-    dot.setAttribute('cy', y(p.rating).toFixed(1));
-    dot.setAttribute('r', '3.4');
-    dot.setAttribute('class', 'stats-trend-dot');
-    dots.push(dot);
-    svg.appendChild(dot);
-
-    const hit = document.createElementNS(SVG_NS, 'circle');
-    hit.setAttribute('cx', x(i).toFixed(1));
-    hit.setAttribute('cy', y(p.rating).toFixed(1));
-    hit.setAttribute('r', '12');
-    hit.setAttribute('fill', 'transparent');
-    hit.style.cursor = 'pointer';
-    hit.addEventListener('click', () => select(i, true));
-    svg.appendChild(hit);
-  });
-
-  const chartWrap = document.createElement('div');
-  chartWrap.appendChild(svg);
-  container.appendChild(chartWrap);
-  container.appendChild(detail);
-  select(points.length - 1, false);
-}
-
-
 function trendDetailText(p: TrendPoint): string {
   const year = new Date(p.startMs).getFullYear();
   return `${p.label} ${year} · ${p.games} game${p.games !== 1 ? 's' : ''} · ${p.wins}-${p.draws}-${p.losses} · ${p.scorePct}%`;
 }
 
-function renderTrendChart(chartWrap: HTMLElement, detailEl: HTMLElement, points: TrendPoint[]): void {
+function renderTrendChart(chartWrap: HTMLElement, points: TrendPoint[]): void {
   chartWrap.innerHTML = '';
-  detailEl.textContent = '';
 
   if (points.length < 2) {
     const note = document.createElement('p');
@@ -1266,80 +1489,20 @@ function renderTrendChart(chartWrap: HTMLElement, detailEl: HTMLElement, points:
     return;
   }
 
-  const W = 300, H = 120, padX = 10, padTop = 8, padBottom = 22;
-  const innerW = W - padX * 2;
-  const innerH = H - padTop - padBottom;
+  // Fit the axis to the data but always keep the 50% break-even line in view —
+  // the one reference that makes a win-rate line readable at a glance.
+  const pcts = points.map(p => p.scorePct);
+  const lo = Math.max(0, Math.min(...pcts, 45) - 6);
+  const hi = Math.min(100, Math.max(...pcts, 55) + 6);
 
-  const svg = document.createElementNS(SVG_NS, 'svg');
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  svg.setAttribute('class', 'stats-trend');
-  svg.setAttribute('preserveAspectRatio', 'none');
-  svg.setAttribute('role', 'img');
-  svg.setAttribute('aria-label', 'Win rate over time');
-
-  const x = (i: number) => padX + (i / (points.length - 1)) * innerW;
-  const y = (pct: number) => padTop + (1 - pct / 100) * innerH;
-
-  const mid = document.createElementNS(SVG_NS, 'line');
-  mid.setAttribute('x1', String(padX));
-  mid.setAttribute('x2', String(W - padX));
-  mid.setAttribute('y1', String(y(50)));
-  mid.setAttribute('y2', String(y(50)));
-  mid.setAttribute('class', 'stats-trend-mid');
-  svg.appendChild(mid);
-
-  const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(p.scorePct).toFixed(1)}`).join(' ');
-  const poly = document.createElementNS(SVG_NS, 'path');
-  poly.setAttribute('d', path);
-  poly.setAttribute('class', 'stats-trend-path');
-  poly.setAttribute('fill', 'none');
-  svg.appendChild(poly);
-
-  // Point radius scales with that month's game volume.
-  const vols = points.map(p => p.games);
-  const minV = Math.min(...vols), maxV = Math.max(...vols);
-  const radius = (g: number) => maxV === minV ? 3.6 : 2.4 + ((g - minV) / (maxV - minV)) * 3.1;
-
-  const labelEvery = points.length > 8 ? 2 : 1;
-  const dots: SVGCircleElement[] = [];
-  const select = (i: number) => {
-    dots.forEach(d => d.classList.remove('stats-trend-dot--sel'));
-    dots[i].classList.add('stats-trend-dot--sel');
-    detailEl.textContent = trendDetailText(points[i]);
-  };
-
-  points.forEach((p, i) => {
-    const dot = document.createElementNS(SVG_NS, 'circle');
-    dot.setAttribute('cx', x(i).toFixed(1));
-    dot.setAttribute('cy', y(p.scorePct).toFixed(1));
-    dot.setAttribute('r', radius(p.games).toFixed(1));
-    dot.setAttribute('class', 'stats-trend-dot');
-    dots.push(dot);
-    svg.appendChild(dot);
-
-    // A larger transparent hit target so taps are comfortable.
-    const hit = document.createElementNS(SVG_NS, 'circle');
-    hit.setAttribute('cx', x(i).toFixed(1));
-    hit.setAttribute('cy', y(p.scorePct).toFixed(1));
-    hit.setAttribute('r', '12');
-    hit.setAttribute('fill', 'transparent');
-    hit.style.cursor = 'pointer';
-    hit.addEventListener('click', () => select(i));
-    svg.appendChild(hit);
-
-    if (i % labelEvery === 0) {
-      const lbl = document.createElementNS(SVG_NS, 'text');
-      lbl.setAttribute('x', x(i).toFixed(1));
-      lbl.setAttribute('y', String(H - 6));
-      lbl.setAttribute('text-anchor', 'middle');
-      lbl.setAttribute('class', 'stats-trend-label');
-      lbl.textContent = p.label;
-      svg.appendChild(lbl);
-    }
+  renderLineChart(chartWrap, points.map(p => ({ value: p.scorePct, label: p.label })), {
+    ariaLabel: 'Win rate over time',
+    domain: [lo, hi],
+    baseline: 50,
+    yFmt: v => `${Math.round(v)}%`,
+    xTicks: sparseTicks(points.map(p => p.label)),
+    detailFor: i => trendDetailText(points[i]),
   });
-
-  chartWrap.appendChild(svg);
-  select(points.length - 1);
 }
 
 // Most played / Best scoring / Worst scoring — one tabbed ranked list.

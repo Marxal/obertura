@@ -1,4 +1,4 @@
-import type { EvalResult, MoveEval } from './engine';
+import { cloudLooksOffline, type EvalResult, type MoveEval } from './engine';
 import { formatMove } from './notation';
 
 export interface EvalPanelOpts {
@@ -11,7 +11,20 @@ export interface EvalPanelOpts {
   // is switched by the dock's engine icon instead, so it hides this (false); the
   // spar overlay keeps its own inline toggle (the default).
   showToggle?: boolean;
+  // Tapped from the discreet "can't reach Lichess" warning that replaces the
+  // source badge while the cloud is unreachable. The caller resets the cloud
+  // breaker and re-evaluates the current position. Without it (or while the
+  // cloud answers) the warning never shows.
+  onRetryCloud?: () => void;
 }
+
+// A small warning-triangle mark for the cloud warning, inlined so this module
+// stays free of the icon set.
+const WARN_SVG =
+  '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" ' +
+  'stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M10.3 3.3 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0z"/>' +
+  '<path d="M12 9v4"/><path d="M12 17h.01"/></svg>';
 
 // The eval display is split across two mount points:
 //   barEl       — the horizontal eval bar + score.
@@ -25,6 +38,8 @@ export class EvalPanel {
   private onPlayMove: (uci: string) => void;
   private compact: boolean;
   private showToggle: boolean;
+  private onRetryCloud?: () => void;
+  private retrying = false;
 
   constructor(
     barEl: HTMLElement,
@@ -41,6 +56,7 @@ export class EvalPanel {
     this.onPlayMove = onPlayMove;
     this.compact = opts.compact ?? false;
     this.showToggle = opts.showToggle ?? true;
+    this.onRetryCloud = opts.onRetryCloud;
     this.build();
   }
 
@@ -66,6 +82,11 @@ export class EvalPanel {
       <div class="eval-row">
         <div class="eval-moves${this.compact ? ' eval-moves--compact' : ''}" id="eval-moves"></div>
         <div class="eval-right">
+          <button class="eval-cloud-warn" id="eval-cloud-warn" type="button" hidden
+                  title="Couldn’t reach the Lichess engine — running locally. Tap to retry."
+                  aria-label="Couldn’t reach the Lichess engine — tap to retry">
+            ${WARN_SVG}<span id="eval-cloud-warn-text">Lichess off</span>
+          </button>
           <span class="eval-source" id="eval-source"></span>
           ${toggle}
         </div>
@@ -76,6 +97,18 @@ export class EvalPanel {
         this._enabled = (e.target as HTMLInputElement).checked;
         this.syncVisibility();
         this.onToggle(this._enabled);
+      });
+
+    // The cloud warning doubles as its own retry button. The tap resets the
+    // breaker and re-evaluates (via onRetryCloud); the label flips to
+    // "retrying…" until the next result lands and settles it either way.
+    this.controlsEl.querySelector<HTMLButtonElement>('#eval-cloud-warn')
+      ?.addEventListener('click', () => {
+        if (this.retrying || !this.onRetryCloud) return;
+        this.retrying = true;
+        const text = this.controlsEl.querySelector<HTMLElement>('#eval-cloud-warn-text');
+        if (text) text.textContent = 'retrying…';
+        this.onRetryCloud();
       });
 
     // Delegated click: play the first move of whichever line was tapped.
@@ -166,6 +199,27 @@ export class EvalPanel {
     // (collapsing to "local · d20" once it lands).
     const sourceEl = this.controlsEl.querySelector<HTMLElement>('#eval-source')!;
     sourceEl.textContent = this.badgeText(result);
+    this.syncCloudWarning(result);
+  }
+
+  // Show the discreet cloud warning whenever a local result arrived because
+  // Lichess couldn't be reached (not the healthy "position not in the cloud"
+  // miss). It REPLACES the source badge in the same slot, so the row — and the
+  // whole docked panel — never changes height.
+  private syncCloudWarning(result: EvalResult): void {
+    const warn = this.controlsEl.querySelector<HTMLButtonElement>('#eval-cloud-warn');
+    const sourceEl = this.controlsEl.querySelector<HTMLElement>('#eval-source');
+    if (!warn || !sourceEl) return;
+    // Any fresh result settles a pending retry: evaluate() concludes the cloud
+    // attempt before local output starts, so this result IS the retry's outcome.
+    this.retrying = false;
+    const offline = !!this.onRetryCloud && result.source === 'stockfish' && cloudLooksOffline();
+    warn.hidden = !offline;
+    sourceEl.hidden = offline;
+    if (offline) {
+      const text = this.controlsEl.querySelector<HTMLElement>('#eval-cloud-warn-text');
+      if (text) text.textContent = 'Lichess off';
+    }
   }
 
   clear() {
@@ -176,7 +230,10 @@ export class EvalPanel {
     const moves = this.controlsEl.querySelector<HTMLElement>('#eval-moves');
     if (moves) moves.innerHTML = this._enabled ? '<span class="eval-waiting">Analyzing…</span>' : '';
     const source = this.controlsEl.querySelector<HTMLElement>('#eval-source');
-    if (source) source.textContent = '';
+    if (source) { source.textContent = ''; source.hidden = false; }
+    const warn = this.controlsEl.querySelector<HTMLButtonElement>('#eval-cloud-warn');
+    if (warn) warn.hidden = true;
+    this.retrying = false;
   }
 
   // Maps white-perspective centipawns to a 0–100% fill (white fills from the

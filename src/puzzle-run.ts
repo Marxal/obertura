@@ -220,7 +220,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   // block is content-independent in height (see .pt-overlay--puzzle .pt-top in
   // style.css), so it overflows upward rather than shifting the board or bottom.
   const themesEl = document.createElement('div');
-  themesEl.className = 'pz-themes';
+  themesEl.className = 'pz-run-themes';
   themesEl.hidden = true;
   topEl.appendChild(themesEl);
 

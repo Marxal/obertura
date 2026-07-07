@@ -59,13 +59,22 @@ export function buildLearnTab(lines: Line[], onBuildLine: () => void): HTMLEleme
 
   if (!named.length && !favs.length && !seen.length) {
     wrap.appendChild(buildEmptyState({
-      icon: Icons.bulb(44),
+      icon: Icons.video(44),
       line: 'Save a line and its opening shows up here.',
       body: 'Videos for every opening in your repertoire, from the side you play it.',
       cta: { label: 'Build a line', onClick: onBuildLine },
     }));
     return wrap;
   }
+
+  // A one-line orientation so the tab explains itself: what these videos are
+  // and where they come from.
+  const intro = document.createElement('p');
+  intro.className = 'section-desc';
+  intro.textContent =
+    'Videos to study your openings — one shelf per opening in your repertoire, ' +
+    'searched from the side you play it. Favourites you save stay on top.';
+  wrap.appendChild(intro);
 
   // Your saved shelf leads, so favourites are one tap away.
   if (favs.length) wrap.appendChild(videoShelf('Favourites', favs, 'fav'));

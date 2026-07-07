@@ -2785,35 +2785,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   padding: 0.25rem 0 0.75rem;
 }
 
-/* ── My Lines carousel ──────────────────────────────────────────────────────── */
-
-/* No outer box: the mini-boards float directly on the page. The section spans
-   full width (no side margins) so the track can bleed off the right edge — the
-   peeking next board IS the only scroll hint. */
-.carousel-section {
-  margin: var(--space-xl) 0 0;
-}
-
-/* Heading row: colour pip + name on the left, Add button on the right. Padded
-   to the page margin now that the section no longer pads its children. */
-.carousel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  padding: 0 var(--space-lg);
-  margin-bottom: var(--space-md);
-}
-
-.carousel-head-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--text);
-}
-
 .colour-pip {
   width: 16px;
   height: 16px;
@@ -2829,104 +2800,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .colour-pip--black {
   background: #2b241d;
   border: 1px solid #4a3d2e;
-}
-
-.lines-add-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.45rem 0.7rem;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  font-family: system-ui, -apple-system, sans-serif;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-card);
-  transition: filter 0.12s, transform 0.12s;
-}
-
-.lines-add-btn:active { filter: brightness(0.92); transform: translateY(1px); }
-
-.lines-add-btn--white {
-  background: #f4ede0;
-  color: #2a2118;
-  border-color: #cdbfa8;
-}
-
-.lines-add-btn--black {
-  background: #2b241d;
-  color: #f1ece1;
-  border-color: #4a3d2e;
-}
-
-/* Horizontal scroller. Edge spacing lives on the first/last cards (margins on
-   flex children are honoured at both scroll extremes, unlike a scroll
-   container's own end padding), so both ends get a clean page-margin inset. */
-.carousel-track {
-  display: flex;
-  gap: var(--space-sm);
-  padding: var(--space-xs) 0 var(--space-sm);
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-
-.carousel-track::-webkit-scrollbar { display: none; }
-
-/* The board floats free — no card box around it — with its title underneath.
-   The track's sizing lets the next board peek in from the right edge. */
-/* Sized so three cards plus ~15% of the fourth fit a 390px viewport (16px left
-   inset, 8px gaps): (390 − 16 − 3×8) / 3.15 ≈ 111px ≈ 28.5vw. That sliver of
-   the fourth board peeking past the right edge is the scroll hint. */
-.carousel-card {
-  flex: 0 0 auto;
-  width: 28.5vw;
-  max-width: 132px;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  padding: 0;
-  border: none;
-  background: transparent;
-  box-shadow: none;
-  cursor: pointer;
-  scroll-snap-align: start;
-  -webkit-tap-highlight-color: transparent;
-  font-family: system-ui, -apple-system, sans-serif;
-}
-
-.carousel-card:active { transform: translateY(1px); }
-
-/* Page-margin inset at each end of the track (see .carousel-track). */
-.carousel-card:first-child { margin-left: var(--space-lg); }
-.carousel-card:last-child { margin-right: var(--space-lg); }
-
-/* Static mini-board — square, gently rounded, non-interactive. overflow clips
-   the chessground board to the rounded corners. */
-.carousel-board {
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  border-radius: 7px;
-  overflow: hidden;
-  box-shadow: var(--shadow-card);
-  pointer-events: none;
-}
-
-.carousel-card-title {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text);
-  line-height: 1.25;
-  text-align: left;
-  padding: 0 0.1rem;
-  /* Clamp to two lines so cards stay even. */
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 /* ── Static position miniatures (saved-line + suggestion cards) ───────────────
@@ -3082,8 +2955,8 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
-  align-items: center;
-  gap: 0.7rem;
+  flex-direction: column;
+  gap: 0.55rem;
   /* Extra right padding leaves room for the corner delete button. */
   padding: 0.6rem 2.1rem 0.6rem 0.65rem;
   border: none;
@@ -3112,14 +2985,12 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   background: var(--bg-elevated);
   color: #c93636;
 }
-/* The left column: the miniature, plus (for analysed games) the review tally
-   stacked beneath it. The column sizes to the mini's width, so the tally lines
-   up under the board. */
-.mygames-card-mini-col {
-  flex: 0 0 auto;
+/* The main row: miniature beside the text column. */
+.mygames-card-main {
   display: flex;
-  flex-direction: column;
-  gap: 5px;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
 }
 /* The miniature matches the My Lines cards and carries a result border. */
 .mygames-card-mini {
@@ -3130,38 +3001,59 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   box-sizing: border-box;
 }
 
-/* The game-review tally: a 2×2 grid of tiny stat tiles (accuracy · good ·
-   mistakes · blunders) that fills the column width under the board. */
+/* The game-review strip: full card width, one column per graded move class plus
+   the leading accuracy column. Three rows — White's counts, the class icons,
+   Black's counts — laid out by grid auto-flow, so the columns always line up. */
 .mygames-card-review {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 3px;
-}
-.mgr-cell {
-  display: flex;
-  flex-direction: column;
+  grid-template-columns: auto repeat(var(--mgr-cols, 5), 1fr);
   align-items: center;
-  justify-content: center;
-  padding: 3px 2px 2px;
-  border-radius: 6px;
+  justify-items: center;
+  row-gap: 3px;
+  column-gap: 2px;
+  padding: 5px 7px;
+  border-radius: 8px;
   background: var(--fill-faint);
-  line-height: 1.05;
 }
 .mgr-val {
   font-weight: 700;
   font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
   color: var(--text);
+  line-height: 1;
 }
-.mgr-val--zero { color: var(--text-faint); }
-.mgr-lbl {
-  margin-top: 1px;
-  font-size: 0.52rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+.mgr-val--zero { color: var(--text-fainter); font-weight: 600; }
+.mgr-icon { display: flex; align-items: center; }
+/* The accuracy column leads each row: side pip + the percentage. */
+.mgr-acc {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 800;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  line-height: 1;
+  padding-right: 6px;
+}
+.mgr-acc-label {
+  justify-self: start;
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--text-faint);
+  color: var(--text-fainter);
+  padding-left: 14px; /* clear the pips above/below so the label centres on the numbers */
 }
+.mgr-pip {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+.mgr-pip--white { background: #f4ede0; border: 1px solid #b9a988; }
+.mgr-pip--black { background: #2b241d; border: 1px solid #4a3d2e; }
 .mygames-card-mini--win { border-color: #5a9e3f; }
 .mygames-card-mini--loss { border-color: #c93636; }
 .mygames-card-mini--draw { border-color: var(--border-card); }
@@ -3284,14 +3176,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   stroke-width: 0.35;
   paint-order: stroke;
 }
-
-/* Quick add-line buttons shown when the quick view is off. */
-.lines-add-row {
-  display: flex;
-  gap: var(--space-sm);
-}
-
-.lines-add-row .lines-add-btn { flex: 1 1 0; justify-content: center; }
 
 /* ── My Lines tabs (Saved lines | From my games) ────────────────────────────── */
 
@@ -3444,10 +3328,9 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   font-size: 0.9rem;
 }
 
-/* The quick-view carousel above bleeds to the screen edges, so #view-lines
-   carries no page inset of its own. Everything in the tab body (filter bar,
-   games refresh row + intro) must pick up the page margin here, or it sits flush
-   to the screen edge instead of lining up with the cards. */
+/* #view-lines carries no page inset of its own. Everything in the tab body
+   (filter bar, games refresh row + intro) must pick up the page margin here, or
+   it sits flush to the screen edge instead of lining up with the cards. */
 .lines-tab-content {
   padding: 0.1rem var(--space-lg) 0;
 }
@@ -4103,22 +3986,30 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   display: none;
 }
 
-/* The "In training" list collapses behind its header (collapsed by default) —
-   the header mirrors the family-group look: chevron + title + count. */
+/* The "Lines in training" list collapses behind its header (collapsed by
+   default). The header reads as a proper card — box, border, shadow — with
+   chevron + title + count inside; the expanded body below it is untouched. */
 .train-collapse {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 12px 2px;
-  background: none;
-  border: none;
+  padding: 14px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
   font: inherit;
   color: inherit;
   text-align: left;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: box-shadow 0.12s ease;
 }
+.train-collapse:active { box-shadow: var(--shadow-card-hover); }
+/* Expanded: the header card stays exactly as it is (the body simply shows
+   below it), so opening never restyles what you tapped. */
+.train-collapse--open { margin-bottom: 0.5rem; }
 .train-collapse .lines-fam-chev {
   transition: transform 0.15s ease;
 }
@@ -6211,6 +6102,28 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .eval-source:empty {
   display: none;
 }
+
+/* Discreet "can't reach Lichess" warning + retry, swapped in for the source
+   badge (same slot, same height) while the cloud engine is unreachable. */
+.eval-cloud-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.6rem;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  padding: 1px 5px;
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--warn);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.eval-cloud-warn:active { background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.eval-cloud-warn[hidden] { display: none; }
+.eval-cloud-warn svg { flex: none; }
 
 /* Discrete "Show arrows / Hide arrows" toggle, builder Engine tab only. */
 /* Show/hide-arrows control — a compact icon button. Dim when arrows are hidden,
@@ -11107,6 +11020,143 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   font-style: italic;
 }
 
+/* ── The shared Statistics line chart (stats-charts.ts) ────────────────────────
+   Single-series: the line, its area wash and the marks all wear the accent;
+   grid, ticks and labels stay in the recessive text/hairline tokens. */
+.stats-lc {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin-top: 0.4rem;
+  color: var(--accent); /* currentColor feeds the area gradient */
+  touch-action: pan-y;  /* taps select; vertical scrolling stays native */
+}
+.stats-lc-line {
+  stroke: var(--accent);
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.stats-lc-grid {
+  stroke: var(--hairline);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.stats-lc-baseline {
+  stroke: var(--text-fainter);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.7;
+  vector-effect: non-scaling-stroke;
+}
+.stats-lc-ylabel,
+.stats-lc-xlabel {
+  fill: var(--text-fainter);
+  font-size: 8.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.stats-lc-dot {
+  fill: var(--accent);
+  stroke: var(--bg-card);
+  stroke-width: 1.4;
+}
+.stats-lc-enddot {
+  fill: var(--accent);
+  stroke: var(--bg-card);
+  stroke-width: 2;
+}
+.stats-lc-cross {
+  stroke: var(--text-fainter);
+  stroke-width: 1;
+  opacity: 0.65;
+  vector-effect: non-scaling-stroke;
+}
+.stats-lc-seldot {
+  fill: var(--accent);
+  stroke: var(--bg-card);
+  stroke-width: 2;
+}
+
+/* Your-rating section bits. Three tiles across: current · peak · games. */
+.stats-rating-chart { margin-top: 0.5rem; }
+.pz-stat-row--rating {
+  grid-template-columns: 1fr 1fr 1fr;
+  margin-top: 0.6rem;
+}
+
+/* ── W-D-L record strip ──────────────────────────────────────────────────────
+   One part-to-whole bar (2px surface gaps between segments) with the counts
+   spelled out beside swatches below — identity never rides on colour alone. */
+.stats-wdl-bar {
+  display: flex;
+  gap: 2px;
+  height: 18px;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-top: 0.55rem;
+}
+.stats-wdl-seg { flex: 0 1 auto; min-width: 3px; }
+.stats-wdl-seg--win { background: var(--success); }
+.stats-wdl-seg--draw { background: var(--text-fainter); }
+.stats-wdl-seg--loss { background: var(--danger); }
+.stats-wdl-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  margin-top: 0.5rem;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.stats-wdl-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.stats-wdl-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: none;
+}
+
+/* ── Progress meters (Endgames region) ───────────────────────────────────────
+   The unfilled track is a lighter step of the accent, so the whole bar reads
+   as one state. */
+.stats-meter { margin-top: 0.7rem; }
+.stats-meter:first-of-type { margin-top: 0.35rem; }
+.stats-meter-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.stats-meter-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.stats-meter-meta {
+  font-size: 0.74rem;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.stats-meter-track {
+  margin-top: 0.3rem;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  overflow: hidden;
+}
+.stats-meter-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
 /* Where you leave theory — cards with a "Drill this" action. */
 .stats-theory-card {
   display: flex;
@@ -11667,8 +11717,10 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 .pz-opening-go { color: var(--text-muted); display: inline-flex; flex: none; }
 
-/* Solver overlay extras (the rest is shared with .pt-* in the drill). */
-.pz-themes {
+/* Solver overlay extras (the rest is shared with .pt-* in the drill).
+   NOTE: renamed from .pz-themes — that name now belongs to the Puzzles screen's
+   Practice-by-theme SECTION, and this rule's nowrap was leaking onto it. */
+.pz-run-themes {
   margin-top: 0.5rem;
   font-size: 0.82rem;
   color: var(--text-muted);
@@ -11784,17 +11836,24 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   gap: 0.35rem;
 }
 .pz-ta-source-chip svg { flex: none; }
-.pz-ta-start,
-.pz-practice .pz-segmented { width: 100%; }
 .pz-ta-start {
+  width: 100%;
   margin-top: var(--space-md);
   min-height: 48px;
   border-radius: 10px;
 }
 
-/* Practice by opening. */
-.pz-practice-source { margin: var(--space-sm) 0 var(--space-md); }
-.pz-practice .pz-list { margin-top: var(--space-sm); }
+/* Practice by opening — the source tabs inside the "Your openings" accordion.
+   Two evenly-split pills, full width, so the longer labels wrap cleanly. */
+.pz-practice-source {
+  width: 100%;
+  margin: var(--space-sm) 0 var(--space-xs);
+}
+.pz-practice-source .stats-range-chip {
+  flex: 1 1 0;
+  white-space: normal;
+  line-height: 1.2;
+}
 
 /* ── Daily-challenge preferences (Settings) ────────────────────────────────── */
 /* The count picker sits just under each task's title + switch. */

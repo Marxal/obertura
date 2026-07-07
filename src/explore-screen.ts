@@ -49,7 +49,6 @@ import { createFilterBar, type FilterSelection } from './filters';
 import { renderFamilyGroups } from './line-groups';
 import { buildEmptyState } from './empty-state';
 import { pushBack } from './back-nav';
-import { getScoutingEnabled } from './prefs';
 import { formatSanLine } from './notation';
 
 const PLATFORM_LABEL = { chesscom: 'Chess.com', lichess: 'Lichess' } as const;
@@ -162,18 +161,16 @@ async function buildScreen(container: HTMLElement): Promise<void> {
 
   // A "Full report" tap from the builder's Scouting tab asks us to open straight
   // into one opponent's detail — force the Scouting tab active for it.
-  if (pendingOpponentId && getScoutingEnabled()) exploreTab = 'scouting';
+  if (pendingOpponentId) exploreTab = 'scouting';
 
   container.appendChild(
     exploreTabsSection(games, lines, trapPacks, starterPacks, opponents, container),
   );
 
-  if (pendingOpponentId && getScoutingEnabled()) {
+  if (pendingOpponentId) {
     const id = pendingOpponentId;
     pendingOpponentId = null;
     openDetail(id, container);
-  } else {
-    pendingOpponentId = null;
   }
 }
 
@@ -201,13 +198,11 @@ function exploreTabsSection(
   const wrap = document.createElement('div');
   wrap.className = 'lines-try';
 
-  const scoutingOn = getScoutingEnabled();
   const recommended = buildRecommendedTab(games, lines, container);
   const packsTab = buildPacksTab(starterPacks, trapPacks, games, lines);
 
-  // Default to Recommended when it has real picks, else Packs (always
-  // populated). Fall back off Scouting if it's no longer available.
-  if (exploreTab === null || (exploreTab === 'scouting' && !scoutingOn)) {
+  // Default to Recommended when it has real picks, else Packs (always populated).
+  if (exploreTab === null) {
     exploreTab = recommended.hasContent ? 'recommended' : 'packs';
   }
 
@@ -256,8 +251,8 @@ function exploreTabsSection(
 
   tabs.appendChild(makeTab('recommended', 'Recommended', Icons.sparkles(18)));
   tabs.appendChild(makeTab('packs', 'Packs', Icons.build(18)));
-  tabs.appendChild(makeTab('learn', 'Learn', Icons.bulb(18)));
-  if (scoutingOn) tabs.appendChild(makeTab('scouting', 'Scouting', Icons.target(18)));
+  tabs.appendChild(makeTab('learn', 'Learn', Icons.video(18)));
+  tabs.appendChild(makeTab('scouting', 'Scouting', Icons.target(18)));
   wrap.appendChild(tabs);
   wrap.appendChild(content);
   render();

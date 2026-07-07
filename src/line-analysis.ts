@@ -41,42 +41,31 @@ export function hasReview(nodes: MoveNode[]): boolean {
 }
 
 // ── Game-card review summary ─────────────────────────────────────────────────
-// A tiny at-a-glance tally for the My-games card: YOUR side's good moves,
-// mistakes and blunders plus your accuracy. Pure, so the card can call it while
-// building — no DOM here.
+// The full per-side tally for the My-games card strip: each graded move class
+// with White's and Black's counts, plus both accuracies. Pure, so the card can
+// call it while building — no DOM here.
 
-export interface CardReviewSummary {
-  accuracy: number | null; // your side's game accuracy (Lichess model), or null
-  good: number;            // your moves graded good-or-better
-  mistakes: number;
-  blunders: number;
+export interface ReviewStripData {
+  classes: MoveClass[];               // display order; only classes either side used
+  white: Map<MoveClass, number>;
+  black: Map<MoveClass, number>;
+  accWhite: number | null;            // game accuracy (Lichess model), per side
+  accBlack: number | null;
 }
 
-// "Good move" = graded at least "good". Book moves are neutral theory, so they
-// count for neither side of the tally.
-const GOOD_CLASSES = new Set<MoveClass>(['brilliant', 'great', 'best', 'excellent', 'good']);
-
 // Summarise a stored game's analysed tree (its main line) for the card. Returns
-// null when nothing is graded yet (unanalysed) so the card shows no summary.
-export function summariseReview(tree: MoveNode, colour: 'white' | 'black'): CardReviewSummary | null {
+// null when nothing is graded yet (unanalysed) so the card shows no strip.
+export function reviewStripData(tree: MoveNode): ReviewStripData | null {
   const nodes: MoveNode[] = [];
   let node: MoveNode | undefined = tree.children[0];
   while (node) { nodes.push(node); node = node.children[0]; }
   if (!nodes.some(n => n.classification)) return null;
 
-  const mine = colour === 'white'; // White's moves are the even plies (index 0, 2, 4…)
-  let good = 0, mistakes = 0, blunders = 0;
-  nodes.forEach((n, i) => {
-    const c = n.classification;
-    if (!c) return;
-    if ((i % 2 === 0) !== mine) return;
-    if (c === 'blunder') blunders++;
-    else if (c === 'mistake') mistakes++;
-    else if (GOOD_CLASSES.has(c)) good++;
-  });
-
+  const white = countByClass(nodes, true);
+  const black = countByClass(nodes, false);
+  const classes = ORDER.filter(c => (white.get(c) ?? 0) + (black.get(c) ?? 0) > 0);
   const acc = gameAccuracy(nodes.map(n => n.evalCp));
-  return { accuracy: colour === 'white' ? acc.white : acc.black, good, mistakes, blunders };
+  return { classes, white, black, accWhite: acc.white, accBlack: acc.black };
 }
 
 // Render the whole block into `host` (cleared first). Caller decides when to

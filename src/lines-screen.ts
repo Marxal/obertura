@@ -7,7 +7,6 @@ import {
   getAllGames,
 } from './storage';
 import { buildPositionCard, colourPip, lineFinalFen, fenFromUcis } from './card-position';
-import { getShowQuickView } from './prefs';
 import { Icons } from './icons';
 import { userAvatar } from './avatar';
 import { pushBack } from './back-nav';
@@ -62,10 +61,6 @@ function confidenceDots(c: number): string {
   return '●'.repeat(n) + '○'.repeat(5 - n);
 }
 
-function byLatest(lines: Line[]): Line[] {
-  return [...lines].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
-}
-
 type SortMode = 'latest' | 'weakest' | 'strongest' | 'name';
 
 function sortLines(lines: Line[], mode: SortMode): Line[] {
@@ -110,10 +105,6 @@ interface LinesDeps {
   // Open the starter-pack picker (the curated quick-start route).
   onPickStarterPack: () => void;
 }
-
-// Pending mini-boards: built first, mounted after the layout exists so
-// chessground can read real pixel bounds and place pieces correctly.
-type Pending = { el: HTMLElement; fen: string; orientation: 'white' | 'black' };
 
 // Persistence keys for the shared two-row filter bar (filters.ts). Each list
 // keeps its own remembered selection, device-local.
@@ -184,33 +175,12 @@ async function doRender(container: HTMLElement, deps: LinesDeps): Promise<void> 
 
   const hasGames = games.length > 0;
 
-  const pending: Pending[] = [];
-
-  // Jump to the "From my games" tab (the empty-state carousels offer it as the
-  // quieter alternative to building a line by hand).
+  // Jump to the "From my games" tab (empty states offer it as the quieter
+  // alternative to building a line by hand).
   const goToGamesTab = () => {
     activeTab = 'games';
     void doRender(container, deps);
   };
-
-  // Quick view: one carousel of mini-boards per colour, title-only cards, each
-  // with its own "Add new line" button in the head. When it's switched off in
-  // Settings, no add row appears here — the FAB's "New line" (White | Black) is
-  // the way in, so a fresh line is still one tap away.
-  if (getShowQuickView()) {
-    for (const colour of ['white', 'black'] as const) {
-      container.appendChild(
-        buildCarouselSection(
-          colour,
-          allLines.filter(l => l.colour === colour),
-          deps,
-          pending,
-          goToGamesTab,
-          hasGames
-        )
-      );
-    }
-  }
 
   // Two prominent tabs: SAVED LINES | FROM MY GAMES.
   const content = document.createElement('section');
@@ -237,13 +207,8 @@ async function doRender(container: HTMLElement, deps: LinesDeps): Promise<void> 
   updateTabButtons(tabs);
   renderActive();
 
-  // Backup & restore now lives in Settings → Data (a device-wide action), so it's
-  // no longer duplicated here.
-
-  // Mount the static boards once the sections are in the (visible) DOM.
-  requestAnimationFrame(() => {
-    for (const b of pending) mountMiniBoard(b.el, b.fen, b.orientation);
-  });
+  // Backup & restore now lives in Settings → Backup (a device-wide action), so
+  // it's no longer duplicated here.
 }
 
 // ── Tab switcher (the two important buttons, side by side) ───────────────────
@@ -282,105 +247,6 @@ function updateTabButtons(tabs: HTMLElement): void {
     btn.classList.toggle('active', active);
     btn.setAttribute('aria-current', active ? 'true' : 'false');
   });
-}
-
-// ── Quick view: carousel ─────────────────────────────────────────────────────
-
-function buildCarouselSection(
-  colour: 'white' | 'black',
-  lines: Line[],
-  deps: LinesDeps,
-  pending: Pending[],
-  goToGamesTab: () => void,
-  hasGames: boolean
-): HTMLElement {
-  const section = document.createElement('section');
-  section.className = 'carousel-section';
-
-  // Heading row: colour pip + name, with the Add button beside it.
-  const head = document.createElement('div');
-  head.className = 'carousel-head';
-
-  const title = document.createElement('div');
-  title.className = 'carousel-head-title';
-  const pip = document.createElement('span');
-  pip.className = `colour-pip colour-pip--${colour}`;
-  pip.setAttribute('aria-hidden', 'true');
-  const name = document.createElement('span');
-  name.textContent = colour === 'white' ? 'White' : 'Black';
-  title.appendChild(pip);
-  title.appendChild(name);
-  head.appendChild(title);
-
-  const colourName = colour === 'white' ? 'White' : 'Black';
-
-  // Empty colour: drop the bare note (and the head's small Add button) for the
-  // shared empty-state pattern — its CTA is the way in, so no duplicate button.
-  if (lines.length === 0) {
-    section.appendChild(head);
-    section.appendChild(buildEmptyState({
-      line: `No ${colourName} lines yet.`,
-      // Importing your games is the fastest way to a repertoire that's actually
-      // yours, so it leads; building by hand and the starter packs sit below.
-      cta: { label: 'Import my games', onClick: () => deps.onImportGames() },
-      secondaryActions: [
-        { label: 'Build a line myself', onClick: () => deps.onAddLine(colour) },
-        { label: 'Pick a starter pack', onClick: () => deps.onPickStarterPack() },
-      ],
-      // Once games are imported the games tab shows suggestions, not an import
-      // prompt — so point there with matching wording.
-      ...(hasGames
-        ? { link: { label: 'or see suggestions from your games', onClick: goToGamesTab } }
-        : {}),
-    }));
-    return section;
-  }
-
-  // "+ Add new line" — the only entry into the builder for a fresh line.
-  const addBtn = document.createElement('button');
-  addBtn.type = 'button';
-  addBtn.className = `lines-add-btn lines-add-btn--${colour}`;
-  addBtn.appendChild(Icons.plus(15));
-  addBtn.appendChild(document.createTextNode('Add new line'));
-  addBtn.addEventListener('click', () => deps.onAddLine(colour));
-  head.appendChild(addBtn);
-
-  section.appendChild(head);
-
-  // Horizontally-scrolling track of mini-board cards.
-  const carousel = document.createElement('div');
-  carousel.className = 'carousel-track';
-  for (const line of byLatest(lines)) {
-    carousel.appendChild(buildMiniCard(line, deps, pending));
-  }
-  section.appendChild(carousel);
-
-  return section;
-}
-
-function buildMiniCard(
-  line: Line,
-  deps: LinesDeps,
-  pending: Pending[]
-): HTMLElement {
-  const card = document.createElement('button');
-  card.type = 'button';
-  card.className = 'carousel-card';
-  card.dataset.lineId = line.id;
-  // Tapping a mini-board opens that individual line in the builder.
-  card.addEventListener('click', () => deps.onOpenLine(line));
-
-  const board = document.createElement('div');
-  board.className = 'carousel-board';
-  card.appendChild(board);
-  pending.push({ el: board, fen: lineFinalFen(line.tree), orientation: line.colour });
-
-  const titleEl = document.createElement('div');
-  titleEl.className = 'carousel-card-title';
-  titleEl.textContent = line.name || line.openingName || 'Untitled line';
-  card.appendChild(titleEl);
-
-  return card;
 }
 
 // A static, non-interactive chessground board at the given position.
@@ -589,14 +455,7 @@ function buildDetailCard(
   editBtn.title = 'Edit name';
   editBtn.appendChild(Icons.pencil(16));
   editBtn.addEventListener('click', () =>
-    openRenameSheet(line, newName => {
-      // Keep the carousel title in sync without re-mounting boards.
-      const carouselTitle = container.querySelector<HTMLElement>(
-        `.carousel-card[data-line-id="${line.id}"] .carousel-card-title`
-      );
-      if (carouselTitle) carouselTitle.textContent = newName;
-      refresh();
-    })
+    openRenameSheet(line, () => refresh())
   );
   titleRowWrap.appendChild(editBtn);
 
@@ -689,11 +548,7 @@ function buildDetailCard(
   deleteBtn.title = 'Delete';
   deleteBtn.appendChild(Icons.trash(16));
   deleteBtn.addEventListener('click', () =>
-    openDeletePopup(line, () => {
-      // Drop the matching carousel card too.
-      container.querySelector(`.carousel-card[data-line-id="${line.id}"]`)?.remove();
-      refresh();
-    })
+    openDeletePopup(line, () => refresh())
   );
   iconRow.appendChild(deleteBtn);
 
