@@ -593,6 +593,31 @@ _On `claude/opening-stats-ui-polish-dd7qrf`. Restore point: `v0.4`._
 
 ---
 
+## v0.14 — memory-join & engine-pref fixes round 🔜
+
+Fixes to the games × memory join, plus two small behaviour changes.
+
+- ✅ **Memory ring finds your lines** — the games × memory cards said "No line
+  yet" for openings you HAD lines on (Pirc, Queen's Gambit…). Two name-format
+  mismatches broke the join: the bundled dataset names lines "Pirc Defense:
+  Classical Variation" (the colon hid the family from `openingFamily`), and
+  chess.com game names come from URL slugs that drop apostrophes ("Queens
+  Gambit" vs "Queen's Gambit"). `openingFamily` now cuts at the colon, and a
+  new normalised `familyKey` (analysis.ts) joins line and game families
+  regardless of source. Self-tested with cross-format fixtures.
+- ✅ **Opening cards get breathing room** — the games × memory cards now carry
+  the same 0.6rem gap as every other card stack (they sat flush, edge to edge).
+- ✅ **Lines-in-training accordion starts closed** — the Train hub's list no
+  longer remembers open/closed across visits; it always loads collapsed and
+  only stays open within the visit.
+- ✅ **"Engine always on" preference** (Settings → Appearance, off by default) —
+  when on, the engine starts running every time the board opens; the board's
+  engine button still switches it on or off at any moment.
+
+_On `claude/openings-memory-ui-fixes-mtxrg1`. Restore point: `v0.4`._
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

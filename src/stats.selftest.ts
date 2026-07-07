@@ -6,7 +6,7 @@ import { Chess } from 'chess.js';
 import type { ImportedGame } from './chesscom';
 import type { Line } from './types';
 import type { MoveNode } from './tree';
-import { analyseGames } from './analysis';
+import { analyseGames, familyKey } from './analysis';
 import {
   masteredLines,
   needsWorkMoves,
@@ -210,11 +210,30 @@ export function runStatsSelfTest(): TestResult[] {
     `${memUntrained.total} moves, recall ${String(memUntrained.recallPct)}`,
   );
   const byFam = memoryByOpening([memLineA, memLineB]);
-  const kp = byFam.get("King's Pawn Game|white");
+  const kp = byFam.get(`${familyKey("King's Pawn Game")}|white`);
   check(
-    'memoryByOpening keys family|colour and tallies per opening',
+    'memoryByOpening keys normalised family|colour and tallies per opening',
     byFam.size === 2 && !!kp && kp.total === 2 && kp.solid === 1 && kp.recallPct === 50,
     kp ? `KP white: ${kp.solid}/${kp.trained} solid of ${kp.total}` : 'no bucket',
+  );
+
+  // 5b-bis. The join survives the two sources naming the opening differently:
+  //     the saved line carries the bundled dataset's colon format ("Pirc
+  //     Defense: Classical Variation"), the game the chess.com slug format
+  //     (no colon, apostrophes dropped). The memory ring must still find the line.
+  const pircLine = line('black', 'e4 d6 d4 Nf6', { openingName: 'Pirc Defense: Classical Variation' });
+  const pircGames = [game('Pirc Defense Classical Variation', 'black', 'win', 'e4 d6 d4 Nf6', mar)];
+  const pircRows = winRateByOpening(analyseGames(pircGames, [pircLine]).stats, [pircLine]);
+  const pirc = pircRows.find(r => r.colour === 'black');
+  const qgdLine = line('white', 'd4 d5 c4 e6', { openingName: "Queen's Gambit Declined: Exchange Variation" });
+  const qgdGames = [game('Queens Gambit Declined Exchange Variation', 'white', 'win', 'd4 d5 c4 e6', mar)];
+  const qgdRows = winRateByOpening(analyseGames(qgdGames, [qgdLine]).stats, [qgdLine]);
+  const qgd = qgdRows.find(r => r.colour === 'white');
+  check(
+    'winRateByOpening joins across colon / slug / apostrophe name formats',
+    !!pirc && pirc.lineCount === 1 && pirc.memory.total > 0 &&
+      !!qgd && qgd.lineCount === 1 && qgd.memory.total > 0,
+    `Pirc ${pirc?.lineCount ?? 0} lines · ${pirc?.memory.total ?? 0} moves; QGD ${qgd?.lineCount ?? 0} lines · ${qgd?.memory.total ?? 0} moves`,
   );
 
   // 5c. winRateByOpening carries the opening's memory tally along.

@@ -46,7 +46,7 @@ import { createBuilderPanels, type BuilderPanels } from './builder-panels';
 import { initTheme } from './theme';
 import { initAppearance } from './appearance';
 import { initDriveAutoBackup } from './drive-backup';
-import { watchSpeedMs, getConfirmRunBeforeTraining, getShowEngineArrows, setShowEngineArrows, getShowMoveClassifications } from './prefs';
+import { watchSpeedMs, getConfirmRunBeforeTraining, getShowEngineArrows, setShowEngineArrows, getShowMoveClassifications, getEngineAlwaysOn } from './prefs';
 import { reviewLine, gradeNode, type ReviewSummary } from './review';
 import { renderLineAnalysis, hasReview } from './line-analysis';
 import { applyBrilliantTag } from './brilliant';
@@ -2549,8 +2549,10 @@ function showView(view: ViewName): void {
     activeSlide = -1;
     onActiveSlide(slide);
     // A hand-off that asked to analyse (a puzzle's "Analyse position", Train's
-    // "Build with engine") turns the engine on now that the board is up.
-    if (pendingEngineOn) { pendingEngineOn = false; setEngineOn(true); }
+    // "Build with engine") turns the engine on now that the board is up — and so
+    // does the Settings "Engine always on" preference. The dock's engine button
+    // still switches it off for the visit.
+    if (pendingEngineOn || getEngineAlwaysOn()) { pendingEngineOn = false; setEngineOn(true); }
     // Always land with the board in view and the sheet collapsed to default — a
     // prior visit may have left it pulled up over the board.
     window.scrollTo(0, 0);

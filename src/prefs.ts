@@ -100,18 +100,18 @@ export function setShowEngineArrows(on: boolean): void {
   localStorage.setItem(SHOW_ENGINE_ARROWS_KEY, on ? 'on' : 'off');
 }
 
-// The builder/analyser engine toggle (the dock's engine icon). When on, the
-// engine runs, the docked eval bar shows above the bottom bar, its top-3 arrows
-// are drawn, and moves get their game-review marks. OFF by default: it keeps the
-// worker (and battery) busy, so it's an opt-in. (Key kept from when this was the
-// "engine everywhere" toggle, to preserve the saved state.)
+// Settings → Appearance: "Engine always on". When on, the engine starts running
+// every time the board (builder/analyser) opens; the board's engine button still
+// switches it on or off at any moment — this only sets how it STARTS. OFF by
+// default: the engine keeps the worker (and battery) busy, so it's an opt-in.
+// (Key kept from the old "engine everywhere" toggle, to preserve saved state.)
 const ENGINE_EVERYWHERE_KEY = 'obertura.builder.engineEverywhere';
 
-export function getEngineEverywhere(): boolean {
+export function getEngineAlwaysOn(): boolean {
   return localStorage.getItem(ENGINE_EVERYWHERE_KEY) === 'on';
 }
 
-export function setEngineEverywhere(on: boolean): void {
+export function setEngineAlwaysOn(on: boolean): void {
   localStorage.setItem(ENGINE_EVERYWHERE_KEY, on ? 'on' : 'off');
 }
 

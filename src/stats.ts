@@ -15,7 +15,7 @@ import type { Line } from './types';
 import type { ImportedGame } from './chesscom';
 import { mainlineNodes, userMoveNodes } from './scheduler';
 import {
-  openingFamily,
+  familyKey,
   UNKNOWN_FAMILY,
   MIN_GAMES_WEAK,
   type OpeningStat,
@@ -116,13 +116,15 @@ export function moveMemory(lines: Line[]): MoveMemory {
   return finishMemory(m);
 }
 
-// Per opening family + colour (the same join key the games analysis uses), so
-// the win-rate-by-opening cards can put memory beside the real score. Lines
-// with no recognised opening can't join and are skipped, matching winRateByOpening.
+// Per opening family + colour, keyed by the NORMALISED family (familyKey) so a
+// line named from the bundled dataset ("Queen's Gambit Declined: …") still finds
+// game stats whose names came from a chess.com URL slug ("Queens Gambit …").
+// Lines with no recognised opening can't join and are skipped, matching
+// winRateByOpening.
 export function memoryByOpening(lines: Line[]): Map<string, MoveMemory> {
   const map = new Map<string, MoveMemory>();
   for (const line of lines) {
-    const fam = openingFamily(line.openingName);
+    const fam = familyKey(line.openingName);
     if (fam === UNKNOWN_FAMILY) continue;
     const key = `${fam}|${line.colour}`;
     let m = map.get(key);
@@ -283,7 +285,7 @@ export function winRateByOpening(stats: OpeningStat[], lines: Line[], max = 8): 
   interface Agg { count: number; mastered: number; confSum: number; }
   const training = new Map<string, Agg>();
   for (const line of lines) {
-    const fam = openingFamily(line.openingName);
+    const fam = familyKey(line.openingName);
     if (fam === UNKNOWN_FAMILY) continue;
     const key = `${fam}|${line.colour}`;
     const a = training.get(key) ?? { count: 0, mastered: 0, confSum: 0 };
@@ -297,7 +299,7 @@ export function winRateByOpening(stats: OpeningStat[], lines: Line[], max = 8): 
   const rows: OpeningTrainingRow[] = stats
     .filter(s => s.family !== UNKNOWN_FAMILY)
     .map(s => {
-      const t = training.get(`${s.family}|${s.colour}`);
+      const t = training.get(`${familyKey(s.family)}|${s.colour}`);
       return {
         family: s.family,
         colour: s.colour,
@@ -310,7 +312,7 @@ export function winRateByOpening(stats: OpeningStat[], lines: Line[], max = 8): 
         lineCount: t?.count ?? 0,
         masteredCount: t?.mastered ?? 0,
         avgConfidence: t && t.count > 0 ? Math.round(t.confSum / t.count) : 0,
-        memory: memories.get(`${s.family}|${s.colour}`) ?? emptyMemory(),
+        memory: memories.get(`${familyKey(s.family)}|${s.colour}`) ?? emptyMemory(),
       };
     });
 

@@ -19,7 +19,7 @@ import type { ImportedGame } from './chesscom';
 import { getAllGames, getAllLines } from './storage';
 import { renderLoadError } from './load-error';
 import { currentStreak, trainedToday, getTrainingDays, getReviewLog } from './streak';
-import { analyseGames, openingFamily, UNKNOWN_FAMILY, type OpeningStat } from './analysis';
+import { analyseGames, openingFamily, familyKey, UNKNOWN_FAMILY, type OpeningStat } from './analysis';
 import {
   masteredLines,
   needsWorkMoves,
@@ -1485,7 +1485,7 @@ function donutCell(
 function openingCard(row: OpeningTrainingRow, lines: Line[], cb: ProgressCallbacks): HTMLElement {
   // My best (most-confident) saved line for this opening, if any.
   const mine = lines
-    .filter(l => l.colour === row.colour && openingFamily(l.openingName) === row.family)
+    .filter(l => l.colour === row.colour && familyKey(l.openingName) === familyKey(row.family))
     .sort((a, b) => b.confidence - a.confidence);
   const best = mine[0] ?? null;
 

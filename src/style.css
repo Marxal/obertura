@@ -11194,9 +11194,12 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   margin-top: 0.35rem;
 }
 
-/* Openings: games × memory cards — the dual-donut per-opening card. */
+/* Openings: games × memory cards — the dual-donut per-opening card. The list
+   is a bare .group (no section box), so each card carries its own gap below,
+   like the saved-line cards do — without it the cards sit flush, edge to edge. */
 .stats-op-card {
   padding: 0.8rem 0.9rem;
+  margin-bottom: 0.6rem;
 }
 
 .stats-op-title {

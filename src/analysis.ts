@@ -90,13 +90,28 @@ const HEAD_WORDS = new Set([
 
 export function openingFamily(name: string | null): string {
   if (!name) return UNKNOWN_FAMILY;
-  const words = name.split(/\s+/).filter(Boolean);
+  // The bundled lichess dataset writes "Family: Variation" — everything after
+  // the colon is variation detail, and the colon glued to the last family word
+  // ("Defense:") used to hide it from the head-word scan below.
+  const head = name.split(':')[0];
+  const words = head.split(/\s+/).filter(Boolean);
   if (words.length === 0) return UNKNOWN_FAMILY;
   for (let i = 0; i < words.length; i++) {
     if (HEAD_WORDS.has(words[i])) return words.slice(0, i + 1).join(' ');
   }
   // No structural head word (e.g. "Ruy Lopez", "Bird's") — first two words.
   return words.slice(0, Math.min(2, words.length)).join(' ');
+}
+
+// Join key for matching a family across data sources. Chess.com opening names
+// come from URL slugs, which drop apostrophes ("Queens Gambit"), while the
+// bundled dataset keeps them ("Queen's Gambit") — and British/American
+// spellings differ. Comparing keys instead of display names lets a saved line
+// find its opening's game stats regardless of where each name came from.
+export function familyKey(name: string | null): string {
+  const family = openingFamily(name);
+  if (family === UNKNOWN_FAMILY) return UNKNOWN_FAMILY;
+  return family.toLowerCase().replace(/['’]/g, '').replace(/defence/g, 'defense');
 }
 
 function scorePct(wins: number, draws: number, games: number): number {

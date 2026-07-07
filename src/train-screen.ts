@@ -838,9 +838,10 @@ function trainedTime(line: Line): number {
   return line.lastTrained ? new Date(line.lastTrained).getTime() : 0;
 }
 
-// Whether the "In training" list is expanded — collapsed by default so the
-// Train hub stays short; the choice persists across visits.
-const TRAIN_LIST_OPEN_KEY = 'obertura.train.listOpen';
+// Whether the "In training" list is expanded — ALWAYS collapsed on page load so
+// the Train hub stays short. Session-only (not localStorage): re-renders within
+// a visit (pausing a line, flipping a switch) keep the state, a reload resets it.
+let trainListOpen = false;
 
 function renderCardList(container: HTMLElement, trainingLines: Line[], pausedLines: Line[]): void {
   const section = document.createElement('div');
@@ -854,7 +855,7 @@ function renderCardList(container: HTMLElement, trainingLines: Line[], pausedLin
 
   // The whole section collapses behind its header (chevron + title + count),
   // exactly like a family group. Everything below lives in `body`.
-  let openList = localStorage.getItem(TRAIN_LIST_OPEN_KEY) === '1';
+  let openList = trainListOpen;
 
   const head = document.createElement('button');
   head.type = 'button';
@@ -880,10 +881,10 @@ function renderCardList(container: HTMLElement, trainingLines: Line[], pausedLin
 
   const setListOpen = (o: boolean): void => {
     openList = o;
+    trainListOpen = o;
     head.classList.toggle('train-collapse--open', o);
     head.setAttribute('aria-expanded', String(o));
     body.hidden = !o;
-    try { localStorage.setItem(TRAIN_LIST_OPEN_KEY, o ? '1' : '0'); } catch { /* non-critical */ }
   };
   head.addEventListener('click', () => setListOpen(!openList));
 
