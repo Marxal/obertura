@@ -24,6 +24,7 @@ import {
   masteredLines,
   needsWorkMoves,
   reviewBars,
+  moveMemory,
   winRateByOpening,
   winRateOverTime,
   mostPlayedOpenings,
@@ -33,19 +34,20 @@ import {
   puzzleAccuracyByOpening,
   type NeedsWorkMove,
   type DayBar,
+  type MoveMemory,
   type OpeningTrainingRow,
   type TrendPoint,
 } from './stats';
 import { getPuzzleDays, getPuzzlesByOpening } from './puzzle-log';
 import { getPuzzleRating, getRatingHistory, getBestCleanStreak, type RatingPoint } from './puzzle-rating';
 import { Icons } from './icons';
-import { colourPip, buildPositionCard, lineFinalFen, fenFromUcis } from './card-position';
+import { colourPip } from './card-position';
 import { userAvatar } from './avatar';
 import { getGamesSource, openImportPanel, platformLabel } from './import-panel';
 import { buildEmptyState } from './empty-state';
 import { pushBack } from './back-nav';
 import { formatMove } from './notation';
-import { renderLineChart, renderRecordStrip, type ChartPoint } from './stats-charts';
+import { renderLineChart, renderRecordStrip, renderDonut, type ChartPoint, type DonutSegment } from './stats-charts';
 import {
   getLiveRatings, cachedLiveRatings, fetchLichessRatingHistory, ratingSeriesFromGames,
   dominantTimeClass, clipHistory, TIME_CLASS_ORDER,
@@ -194,12 +196,24 @@ function statsSection(title: string, meta = ''): HTMLElement {
   return wrap;
 }
 
+// Carousel-style slide-in for a chart whose range just changed: the new content
+// enters from the side you swiped towards. Removing + re-adding the class (with
+// a reflow between) restarts the animation on rapid taps.
+function slideSwap(el: HTMLElement, dir: 'fwd' | 'back'): void {
+  el.classList.remove('stats-slide-fwd', 'stats-slide-back');
+  void el.offsetWidth; // reflow so the animation restarts
+  el.classList.add(dir === 'fwd' ? 'stats-slide-fwd' : 'stats-slide-back');
+}
+
 // A reusable segmented pill row (range selector, colour toggle, scoring tabs).
+// Pass `slideEl` to slide that element's content sideways on every switch —
+// forward (enter from the right) when moving to a later chip, back otherwise.
 function buildSegmented<T extends string>(
   opts: [T, string][],
   current: T,
   onChange: (v: T) => void,
   className = 'stats-range',
+  slideEl?: HTMLElement,
 ): HTMLElement {
   const row = document.createElement('div');
   row.className = className;
@@ -212,7 +226,12 @@ function buildSegmented<T extends string>(
     chip.setAttribute('aria-pressed', String(key === current));
     chip.addEventListener('click', () => {
       if (chip.classList.contains('stats-range-chip--on')) return;
-      row.querySelectorAll('.stats-range-chip').forEach(c => {
+      const chips = [...row.querySelectorAll('.stats-range-chip')];
+      if (slideEl) {
+        const oldI = chips.findIndex(c => c.classList.contains('stats-range-chip--on'));
+        slideSwap(slideEl, chips.indexOf(chip) > oldI ? 'fwd' : 'back');
+      }
+      chips.forEach(c => {
         c.classList.remove('stats-range-chip--on');
         c.setAttribute('aria-pressed', 'false');
       });
@@ -438,9 +457,83 @@ function buildMonthCalendar(now: Date, trainingDays: Set<string>): HTMLElement {
 function renderTrainingRegion(container: HTMLElement, lines: Line[], cb: ProgressCallbacks): void {
   regionTitle(container, 'Openings');
   renderQuickStats(container, lines, cb);
+  renderMoveMemory(container, lines);
   // The most-forgotten-move board now lives on the Openings (training) screen,
   // as a per-window carousel with a "Fix it" drill.
   renderRememberedFailed(container);
+}
+
+// ── Move memory (repertoire-wide recall donut) ───────────────────────────────
+//
+// One circle graph over every move I play in my saved lines: solid (remembered
+// at the last drill), slipping (missed at the last drill) and not-yet-trained,
+// with the recall share of trained moves in the hole. All straight from the
+// per-move SM-2 review blocks — nothing invented.
+
+// A legend row beside a donut: swatch + count + label, so identity never rides
+// on colour alone.
+function donutLegendRow(kind: string, count: string, label: string): HTMLElement {
+  const row = document.createElement('span');
+  row.className = 'stats-donut-item';
+  const sw = document.createElement('span');
+  sw.className = `stats-donut-swatch stats-donut-swatch--${kind}`;
+  sw.setAttribute('aria-hidden', 'true');
+  row.appendChild(sw);
+  const num = document.createElement('span');
+  num.className = 'stats-donut-item-num';
+  num.textContent = count;
+  row.appendChild(num);
+  const lbl = document.createElement('span');
+  lbl.className = 'stats-donut-item-label';
+  lbl.textContent = label;
+  row.appendChild(lbl);
+  return row;
+}
+
+// The solid / shaky / untrained segments for a memory tally, in fixed order.
+function memorySegments(m: MoveMemory): DonutSegment[] {
+  return [
+    { value: m.solid, kind: 'solid' },
+    { value: m.shaky, kind: 'shaky' },
+    { value: m.total - m.trained, kind: 'untrained' },
+  ];
+}
+
+function renderMoveMemory(container: HTMLElement, lines: Line[]): void {
+  const mem = moveMemory(lines);
+  if (mem.total === 0) return;
+
+  const section = statsSection('Move memory', `${mem.total} moves in your lines`);
+
+  const row = document.createElement('div');
+  row.className = 'stats-mem-row';
+
+  const donutHost = document.createElement('div');
+  donutHost.className = 'stats-donut-host stats-donut-host--big';
+  renderDonut(donutHost, memorySegments(mem), {
+    ariaLabel: `Move memory: ${mem.solid} solid, ${mem.shaky} slipping, ${mem.total - mem.trained} not trained yet`,
+    centre: mem.recallPct === null ? '—' : `${mem.recallPct}%`,
+    caption: 'recall',
+  });
+  row.appendChild(donutHost);
+
+  const legend = document.createElement('div');
+  legend.className = 'stats-donut-legend';
+  legend.appendChild(donutLegendRow('solid', String(mem.solid), 'solid'));
+  legend.appendChild(donutLegendRow('shaky', String(mem.shaky), 'slipping'));
+  legend.appendChild(donutLegendRow('untrained', String(mem.total - mem.trained), 'not trained yet'));
+  row.appendChild(legend);
+
+  section.appendChild(row);
+
+  const cap = document.createElement('p');
+  cap.className = 'stats-trend-caption';
+  cap.textContent = mem.trained === 0
+    ? 'Start drilling and this ring fills in as your moves are graded.'
+    : 'Every move you play across your lines. Recall is the share of drilled moves you remembered last time.';
+  section.appendChild(cap);
+
+  container.appendChild(section);
 }
 
 // ── Puzzles region ───────────────────────────────────────────────────────────
@@ -512,6 +605,8 @@ function renderPuzzlesRegion(container: HTMLElement): void {
       [['week', 'Week'], ['month', 'Month'], ['all', 'All']],
       range,
       (r) => { range = r; setPzStatsRange(r); fill(); },
+      'stats-range',
+      chartHost,
     );
     section.appendChild(rangeChips);
     attachRangeSwipe(chartHost, rangeChips);
@@ -892,6 +987,11 @@ function openNeedsWorkSheet(cb: ProgressCallbacks, moves: NeedsWorkMove[]): void
 }
 
 // ── Remembered vs failed (per-day two-tone bar, Week / Month / All) ──────────
+//
+// A recall donut + spelled-out counts lead the section; the per-day stacked bar
+// sits beneath with its tap-for-detail line. The whole body slides sideways
+// (carousel-style) when the Week / Month / All range changes, whether by chip
+// tap or by swiping the block itself.
 
 function renderRememberedFailed(container: HTMLElement): void {
   const section = document.createElement('div');
@@ -907,65 +1007,83 @@ function renderRememberedFailed(container: HTMLElement): void {
 
   let range = getStatsRange();
 
+  // Everything that changes with the range lives in `body`, so the slide (and
+  // the swipe surface) covers the header numbers and the chart as one unit.
+  const body = document.createElement('div');
+  body.className = 'stats-rf-body';
+  section.appendChild(body);
+
   const totals = document.createElement('div');
-  totals.className = 'stats-rf-totals';
-  section.appendChild(totals);
+  totals.className = 'stats-rf-head';
+  body.appendChild(totals);
 
   const chartEl = document.createElement('div');
   chartEl.className = 'stats-rf-chart';
-  section.appendChild(chartEl);
+  body.appendChild(chartEl);
 
   const detailEl = document.createElement('div');
   detailEl.className = 'stats-rf-detail';
-  section.appendChild(detailEl);
+  body.appendChild(detailEl);
 
   // Range chips sit below the chart + caption: they drive only this chart, not
   // the four quick boxes above. The chart itself also swipes between ranges,
-  // carousel-style.
+  // carousel-style, with the slide following the direction of travel.
   const rangeChips = buildSegmented<StatsRange>(
     [['week', 'Week'], ['month', 'Month'], ['all', 'All']],
     range,
     r => { range = r; setStatsRange(r); rebuild(); },
+    'stats-range',
+    body,
   );
   section.appendChild(rangeChips);
-  attachRangeSwipe(chartEl, rangeChips);
+  attachRangeSwipe(body, rangeChips);
 
   function rebuild(): void {
     const bars = reviewBars(getReviewLog(), range);
-    // The pills default to the whole range; tapping a day swaps them to that day.
+    // The header defaults to the whole range; tapping a day swaps it to that day.
     const r = bars.reduce((n, b) => n + b.remembered, 0);
     const f = bars.reduce((n, b) => n + b.failed, 0);
-    renderRfTotals(totals, r, f);
-    renderRfChart(chartEl, detailEl, bars, range, (bar) => renderRfTotals(totals, bar.remembered, bar.failed));
+    const activeDays = bars.filter(b => b.remembered + b.failed > 0).length;
+    renderRfTotals(totals, r, f, `trained ${activeDays} of ${bars.length} days`);
+    renderRfChart(chartEl, detailEl, bars, range, (bar) =>
+      renderRfTotals(totals, bar.remembered, bar.failed,
+        bar.isToday ? 'today' : formatDay(bar.day)));
   }
   rebuild();
 
   container.appendChild(section);
 }
 
-// The remembered / failed / recall pills. Shows whatever counts it's handed — the
-// range aggregate by default, or a single tapped day's numbers.
-function renderRfTotals(el: HTMLElement, remembered: number, failed: number): void {
+// The recall donut + counts header. Shows whatever counts it's handed — the
+// range aggregate by default, or a single tapped day's numbers — with a small
+// scope line ("trained 9 of 30 days" / the tapped day) under the counts.
+function renderRfTotals(el: HTMLElement, remembered: number, failed: number, scope: string): void {
   el.innerHTML = '';
   const total = remembered + failed;
-  const recall = total ? Math.round((remembered / total) * 100) : 0;
-  el.appendChild(rfPill('remembered', String(remembered), 'remembered'));
-  el.appendChild(rfPill('failed', String(failed), 'failed'));
-  el.appendChild(rfPill('recall', `${recall}%`, 'recall'));
-}
+  const recall = total ? Math.round((remembered / total) * 100) : null;
 
-function rfPill(kind: 'remembered' | 'failed' | 'recall', value: string, label: string): HTMLElement {
-  const pill = document.createElement('span');
-  pill.className = `stats-rf-pill stats-rf-pill--${kind}`;
-  const num = document.createElement('span');
-  num.className = 'stats-rf-pill-num';
-  num.textContent = value;
-  pill.appendChild(num);
-  const lbl = document.createElement('span');
-  lbl.className = 'stats-rf-pill-label';
-  lbl.textContent = label;
-  pill.appendChild(lbl);
-  return pill;
+  const donutHost = document.createElement('div');
+  donutHost.className = 'stats-donut-host';
+  renderDonut(donutHost, [
+    { value: remembered, kind: 'remembered' },
+    { value: failed, kind: 'failed' },
+  ], {
+    ariaLabel: `${remembered} remembered, ${failed} failed`,
+    centre: recall === null ? '—' : `${recall}%`,
+    caption: 'recall',
+    empty: total === 0,
+  });
+  el.appendChild(donutHost);
+
+  const legend = document.createElement('div');
+  legend.className = 'stats-donut-legend';
+  legend.appendChild(donutLegendRow('remembered', String(remembered), 'remembered'));
+  legend.appendChild(donutLegendRow('failed', String(failed), 'failed'));
+  const scopeEl = document.createElement('span');
+  scopeEl.className = 'stats-rf-scope';
+  scopeEl.textContent = scope;
+  legend.appendChild(scopeEl);
+  el.appendChild(legend);
 }
 
 function rfDetailText(bar: DayBar): string {
@@ -1188,6 +1306,8 @@ function renderRatingSection(container: HTMLElement, games: ImportedGame[]): voi
     [['3m', '3 months'], ['year', 'Year'], ['all', 'All']],
     range,
     r => { range = r; setRatingRange(r); fill(); },
+    'stats-range',
+    chartHost,
   );
   section.appendChild(rangeChips);
   attachRangeSwipe(chartHost, rangeChips);
@@ -1315,16 +1435,17 @@ function renderGamesIdentity(container: HTMLElement, cb: ProgressCallbacks): voi
   container.appendChild(row);
 }
 
-// Win rate by opening, beside my training mastery — each row a position card
-// with a miniature and an open/build action.
+// Openings: games × memory — one card per opening family, your real score from
+// games as a W/D/L ring beside how well you remember that opening's moves in
+// training. Board miniatures are gone; the two circle graphs carry the story.
 function renderWinRateByOpening(container: HTMLElement, stats: OpeningStat[], lines: Line[], cb: ProgressCallbacks): void {
   const rows = winRateByOpening(stats, lines);
   if (rows.length === 0) return;
 
-  const section = statsSection('Win rate by opening', 'vs your training');
+  const section = statsSection('Openings: games × memory');
   const intro = document.createElement('p');
   intro.className = 'stats-detail-intro';
-  intro.textContent = 'Your real win rate beside how mastered that opening is in training:';
+  intro.textContent = 'Your real score in each opening beside how well you remember its moves:';
   section.appendChild(intro);
 
   // .group drops the section box so the cards stand on their own.
@@ -1336,6 +1457,31 @@ function renderWinRateByOpening(container: HTMLElement, stats: OpeningStat[], li
   container.appendChild(section);
 }
 
+// One dual-donut cell: a small heading, the ring, and a spelled-out meta line
+// beneath (so the numbers never ride on colour alone).
+function donutCell(
+  heading: string,
+  segments: DonutSegment[],
+  donut: { ariaLabel: string; centre: string; caption?: string; empty?: boolean },
+  meta: string,
+): HTMLElement {
+  const cell = document.createElement('div');
+  cell.className = 'stats-op-cell';
+  const h = document.createElement('span');
+  h.className = 'stats-op-cell-title';
+  h.textContent = heading;
+  cell.appendChild(h);
+  const host = document.createElement('div');
+  host.className = 'stats-donut-host';
+  renderDonut(host, segments, donut);
+  cell.appendChild(host);
+  const m = document.createElement('span');
+  m.className = 'stats-op-cell-meta';
+  m.textContent = meta;
+  cell.appendChild(m);
+  return cell;
+}
+
 function openingCard(row: OpeningTrainingRow, lines: Line[], cb: ProgressCallbacks): HTMLElement {
   // My best (most-confident) saved line for this opening, if any.
   const mine = lines
@@ -1343,48 +1489,87 @@ function openingCard(row: OpeningTrainingRow, lines: Line[], cb: ProgressCallbac
     .sort((a, b) => b.confidence - a.confidence);
   const best = mine[0] ?? null;
 
-  const fen = best ? lineFinalFen(best.tree) : (row.repUcis.length > 0 ? fenFromUcis(row.repUcis) : null);
   const openLabel = best ? 'Open line' : 'Build line';
   const open = () => { if (best) cb.onOpenLine(best); else cb.onBuildFromMoves(row.repUcis, row.colour); };
 
-  const { card, titleRow, content } = buildPositionCard({
-    fen,
-    orientation: row.colour,
-    className: 'stats-otr-card',
-    ...(fen && { onMiniClick: open, miniLabel: openLabel }),
-  });
+  const card = document.createElement('div');
+  card.className = 'card stats-op-card';
 
+  const titleRow = document.createElement('div');
+  titleRow.className = 'stats-op-title';
   titleRow.appendChild(colourPip(row.colour));
   const name = document.createElement('span');
   name.className = 'pcard-name';
   name.textContent = row.family;
   titleRow.appendChild(name);
+  const gamesMeta = document.createElement('span');
+  gamesMeta.className = 'stats-op-games';
+  gamesMeta.textContent = `${row.games} game${row.games === 1 ? '' : 's'}`;
+  titleRow.appendChild(gamesMeta);
+  card.appendChild(titleRow);
 
-  content.appendChild(otrLine('Games', winBar(row.scorePct), `${row.scorePct}% · ${row.games}g`));
+  const rings = document.createElement('div');
+  rings.className = 'stats-op-rings';
 
-  const train = document.createElement('div');
-  train.className = 'stats-otr-line';
-  const tTag = document.createElement('span');
-  tTag.className = 'stats-otr-tag';
-  tTag.textContent = 'Training';
-  train.appendChild(tTag);
-  const tVal = document.createElement('span');
-  tVal.className = 'stats-otr-train';
+  // Games ring: W/D/L slices, the score in the hole (the same green/neutral/
+  // brick trio as the Record strip), counts spelled out beneath.
+  rings.appendChild(donutCell(
+    'Games',
+    [
+      { value: row.wins, kind: 'win' },
+      { value: row.draws, kind: 'draw' },
+      { value: row.losses, kind: 'loss' },
+    ],
+    {
+      ariaLabel: `${row.family}: ${row.wins} won, ${row.draws} drawn, ${row.losses} lost — ${row.scorePct}% score`,
+      centre: `${row.scorePct}%`,
+      caption: 'score',
+    },
+    `${row.wins}W · ${row.draws}D · ${row.losses}L`,
+  ));
+
+  // Memory ring: this opening's moves as solid / slipping / untrained, recall in
+  // the hole. A dashed placeholder when the opening isn't in my lines yet.
+  const mem = row.memory;
+  const hasLine = row.lineCount > 0 && mem.total > 0;
+  rings.appendChild(donutCell(
+    'Memory',
+    memorySegments(mem),
+    {
+      ariaLabel: hasLine
+        ? `${row.family} memory: ${mem.solid} of ${mem.trained} drilled moves solid`
+        : `${row.family}: not in your lines yet`,
+      centre: hasLine && mem.recallPct !== null ? `${mem.recallPct}%` : '—',
+      caption: 'recall',
+      empty: !hasLine,
+    },
+    hasLine
+      ? `${mem.solid}/${mem.total} moves solid`
+      : 'No line yet',
+  ));
+
+  card.appendChild(rings);
+
+  // Footer: training mastery on the left, the open/build action on the right.
+  const foot = document.createElement('div');
+  foot.className = 'stats-op-foot';
+  const train = document.createElement('span');
+  train.className = 'stats-otr-train';
   if (row.lineCount === 0) {
-    tVal.classList.add('stats-otr-train--none');
-    tVal.textContent = 'Not in your lines yet';
+    train.classList.add('stats-otr-train--none');
+    train.textContent = 'Not in your lines yet';
   } else {
-    tVal.textContent = `${confidenceDots(row.avgConfidence)}  ${row.masteredCount}/${row.lineCount} mastered`;
+    train.textContent = `${confidenceDots(row.avgConfidence)}  ${row.masteredCount}/${row.lineCount} mastered`;
   }
-  train.appendChild(tVal);
-  content.appendChild(train);
+  foot.appendChild(train);
 
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'btn-secondary stat-card-btn';
   btn.textContent = openLabel;
   btn.addEventListener('click', e => { e.stopPropagation(); open(); });
-  content.appendChild(btn);
+  foot.appendChild(btn);
+  card.appendChild(foot);
 
   return card;
 }
@@ -1524,6 +1709,7 @@ function renderScoringTabs(container: HTMLElement, stats: OpeningStat[]): void {
     active,
     key => { active = key; renderList(); },
     'stats-tabs',
+    listWrap,
   );
   section.appendChild(tabRow);
   section.appendChild(listWrap);

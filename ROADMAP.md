@@ -559,6 +559,40 @@ _On `claude/app-ui-stats-improvements-1j241p`. Restore point: `v0.4`._
 
 ---
 
+## v0.13 — circle-graph statistics round 🔜
+
+Visual, data-rich opening statistics built on circle graphs, plus small fixes.
+
+- ✅ **Donut chart engine** — `renderDonut` in `stats-charts.ts`: one SVG ring
+  gauge for every part-to-whole stat, themed via CSS (the record strip's
+  green/neutral/brick trio), 2px surface gaps between segments, the headline
+  number in the hole, counts always spelled out beside it.
+- ✅ **Move memory** (Openings region) — a repertoire-wide ring over every move
+  you play in your lines: solid (remembered at the last drill) / slipping
+  (missed last time) / not trained yet, with recall % in the centre. Straight
+  from each move's SM-2 review block (`moveMemory` in stats.ts, self-tested).
+- ✅ **Openings: games × memory** — the win-rate-by-opening cards rebuilt
+  without board miniatures: per opening, a Games ring (W/D/L slices, score in
+  the hole) beside a Memory ring (that opening's moves as solid/slipping/
+  untrained, recall in the hole), with mastery dots and the Open/Build action
+  kept. A dashed placeholder ring marks openings not in your lines yet.
+- ✅ **Remembered moves over time, reshaped** — a recall donut + spelled-out
+  remembered/failed counts and a "trained X of Y days" line lead the section;
+  the per-day bar and tap-for-detail stay. Tapping a day swaps the header to
+  that day's numbers.
+- ✅ **Sliding carousel effect** — every range-swiped chart (remembered moves,
+  puzzle rating, your rating, the Most played/Best/Worst tabs) now slides its
+  content in from the direction of travel on chip tap or swipe (CSS only,
+  honours reduced-motion).
+- ✅ **Train hub order** — Lines in training now sits directly after Practise;
+  the forgotten-moves carousel closes the pane.
+- ✅ **My games cards** — the "analysed" icon next to the tags is gone; the
+  review strip under the board already says a game was analysed.
+
+_On `claude/opening-stats-ui-polish-dd7qrf`. Restore point: `v0.4`._
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

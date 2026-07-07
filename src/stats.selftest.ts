@@ -11,6 +11,8 @@ import {
   masteredLines,
   needsWorkMoves,
   reviewBars,
+  moveMemory,
+  memoryByOpening,
   winRateByOpening,
   winRateOverTime,
   mostPlayedOpenings,
@@ -183,6 +185,44 @@ export function runStatsSelfTest(): TestResult[] {
     !!italian && italian.games === 2 && italian.scorePct === 50 &&
       italian.lineCount === 1 && italian.masteredCount === 1,
     italian ? `${italian.scorePct}% · ${italian.masteredCount}/${italian.lineCount} mastered` : 'no row',
+  );
+
+  // 5b. Move memory: user moves only, split by latest review state. White line
+  //     e4 e5 Nf3 → user moves are e4 and Nf3 (2 of 3 plies). Stamp e4 as solid
+  //     (reps > 0) and Nf3 as shaky (a graded miss: reps 0, lapses 1); a second
+  //     line with no reviews adds 2 untrained user moves.
+  const memLineA = line('white', 'e4 e5 Nf3', { openingName: "King's Pawn Game" });
+  const memNodes = [memLineA.tree.children[0], memLineA.tree.children[0].children[0].children[0]];
+  memNodes[0].review = { ease: 2.5, interval: 6, reps: 2, lapses: 0, due: new Date() };
+  memNodes[1].review = { ease: 2.1, interval: 1, reps: 0, lapses: 1, due: new Date() };
+  const memLineB = line('black', 'd4 d5 c4 e6', { openingName: "Queen's Gambit Declined" });
+  const mem = moveMemory([memLineA, memLineB]);
+  check(
+    'moveMemory splits user moves into solid / shaky / untrained + recall',
+    mem.total === 4 && mem.trained === 2 && mem.solid === 1 && mem.shaky === 1 &&
+      mem.recallPct === 50,
+    `${mem.solid} solid, ${mem.shaky} shaky, ${mem.total - mem.trained} untrained, recall ${mem.recallPct}%`,
+  );
+  const memUntrained = moveMemory([memLineB]);
+  check(
+    'moveMemory with nothing trained keeps recall null',
+    memUntrained.total === 2 && memUntrained.trained === 0 && memUntrained.recallPct === null,
+    `${memUntrained.total} moves, recall ${String(memUntrained.recallPct)}`,
+  );
+  const byFam = memoryByOpening([memLineA, memLineB]);
+  const kp = byFam.get("King's Pawn Game|white");
+  check(
+    'memoryByOpening keys family|colour and tallies per opening',
+    byFam.size === 2 && !!kp && kp.total === 2 && kp.solid === 1 && kp.recallPct === 50,
+    kp ? `KP white: ${kp.solid}/${kp.trained} solid of ${kp.total}` : 'no bucket',
+  );
+
+  // 5c. winRateByOpening carries the opening's memory tally along.
+  const italianMem = rows.find(r => r.family === 'Italian Game')?.memory;
+  check(
+    'winRateByOpening joins the memory tally onto each row',
+    !!italianMem && italianMem.total === 3 && italianMem.trained === 0,
+    italianMem ? `${italianMem.total} moves, ${italianMem.trained} trained` : 'no memory',
   );
 
   // 6. Most-played leads with the bigger bucket; best-scoring needs enough games.

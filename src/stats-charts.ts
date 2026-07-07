@@ -257,6 +257,92 @@ export function renderLineChart(host: HTMLElement, points: ChartPoint[], opts: L
   select(points.length - 1, false);
 }
 
+// ── Donut / ring gauge ────────────────────────────────────────────────────────
+// One circle graph for every part-to-whole stat on the Statistics screen (win
+// rate by opening, move memory, remembered-vs-failed). Pure SVG, themed through
+// CSS classes; each segment is a stroked circle offset along a pathLength=100
+// track, with a 2.5-unit surface gap between visible segments (identity is
+// carried by the legend text the caller places beside it, never colour alone).
+
+export interface DonutSegment {
+  value: number;
+  // Suffix for the segment class: stats-donut-seg--<kind> (win/draw/loss/
+  // solid/shaky/untrained/remembered/failed …).
+  kind: string;
+}
+
+export interface DonutOpts {
+  ariaLabel: string;
+  centre: string;    // the big value in the hole ("62%", "—")
+  caption?: string;  // a tiny word under it ("score", "recall")
+  // Renders a dashed placeholder ring (used when there's no data to slice).
+  empty?: boolean;
+}
+
+export function renderDonut(host: HTMLElement, segments: DonutSegment[], opts: DonutOpts): void {
+  host.innerHTML = '';
+  const R = 40;                    // ring radius in the 100×100 viewBox
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 100 100');
+  svg.setAttribute('class', 'stats-donut');
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', opts.ariaLabel);
+
+  const ring = (cls: string): SVGCircleElement => {
+    const c = document.createElementNS(SVG_NS, 'circle');
+    c.setAttribute('cx', '50');
+    c.setAttribute('cy', '50');
+    c.setAttribute('r', String(R));
+    c.setAttribute('fill', 'none');
+    c.setAttribute('pathLength', '100');
+    c.setAttribute('class', cls);
+    return c;
+  };
+
+  // The faint full track always renders, so a thin slice still reads as part
+  // of a whole (and the empty state is just the track, dashed).
+  svg.appendChild(ring('stats-donut-track' + (opts.empty ? ' stats-donut-track--empty' : '')));
+
+  const visible = segments.filter(s => s.value > 0);
+  const total = visible.reduce((n, s) => n + s.value, 0);
+  if (!opts.empty && total > 0) {
+    const GAP = visible.length > 1 ? 2.5 : 0; // surface gap between segments
+    const avail = 100 - GAP * visible.length;
+    let offset = 0;
+    for (const s of visible) {
+      const len = (s.value / total) * avail;
+      const seg = ring(`stats-donut-seg stats-donut-seg--${s.kind}`);
+      seg.setAttribute('stroke-dasharray', `${len.toFixed(2)} ${(100 - len).toFixed(2)}`);
+      seg.setAttribute('stroke-dashoffset', String((-offset).toFixed(2)));
+      // Start at 12 o'clock (dasharray starts at 3 o'clock by default).
+      seg.setAttribute('transform', 'rotate(-90 50 50)');
+      svg.appendChild(seg);
+      offset += len + GAP;
+    }
+  }
+
+  const num = document.createElementNS(SVG_NS, 'text');
+  num.setAttribute('x', '50');
+  num.setAttribute('y', opts.caption ? '48' : '50');
+  num.setAttribute('text-anchor', 'middle');
+  num.setAttribute('dominant-baseline', 'central');
+  num.setAttribute('class', 'stats-donut-num');
+  num.textContent = opts.centre;
+  svg.appendChild(num);
+
+  if (opts.caption) {
+    const cap = document.createElementNS(SVG_NS, 'text');
+    cap.setAttribute('x', '50');
+    cap.setAttribute('y', '64');
+    cap.setAttribute('text-anchor', 'middle');
+    cap.setAttribute('class', 'stats-donut-cap');
+    cap.textContent = opts.caption;
+    svg.appendChild(cap);
+  }
+
+  host.appendChild(svg);
+}
+
 // ── W-D-L record strip ────────────────────────────────────────────────────────
 // A single part-to-whole bar: wins · draws · losses, with a 2px surface gap
 // between segments and the counts spelled out beside a swatch underneath (so

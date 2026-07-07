@@ -3150,12 +3150,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   background: var(--accent-soft);
   color: var(--accent);
 }
-.mygames-card-analysed {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--accent);
-}
 .mygames-card-chev {
   flex: 0 0 auto;
   color: var(--text-faint);
@@ -10770,29 +10764,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 
 /* Remembered-vs-failed two-tone stacked bar. */
-.stats-rf-legend {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 0.6rem;
-}
-
-.stats-rf-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.72rem;
-  color: var(--text-faint);
-}
-
-.stats-rf-swatch {
-  width: 11px;
-  height: 11px;
-  border-radius: 3px;
-}
-
-.stats-rf-swatch--remembered { background: var(--success); }
-.stats-rf-swatch--failed { background: var(--danger); }
-
 .stats-rf-empty {
   font-size: 0.82rem;
   color: var(--text-faint);
@@ -11122,6 +11093,169 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   flex: none;
 }
 
+/* ── Donut / ring gauges (stats-charts.ts renderDonut) ───────────────────────
+   Circle graphs for part-to-whole stats: W/D/L score per opening, move memory,
+   remembered-vs-failed recall. Segments wear the same palette as the record
+   strip (identity is spelled out in the legend text beside each ring, never
+   colour alone); the centre number wears the text tokens. */
+.stats-donut-host {
+  flex: none;
+  width: 84px;
+}
+
+.stats-donut-host--big { width: 104px; }
+
+.stats-donut {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.stats-donut-track,
+.stats-donut-seg {
+  stroke-width: 13;
+}
+
+.stats-donut-track { stroke: var(--bg-elevated); }
+/* No data at all → a thin dashed placeholder ring instead of the fat track. */
+.stats-donut-track--empty {
+  stroke: var(--border);
+  stroke-width: 2;
+  stroke-dasharray: 3 3;
+}
+
+.stats-donut-seg--win,
+.stats-donut-seg--solid,
+.stats-donut-seg--remembered { stroke: var(--success); }
+.stats-donut-seg--loss,
+.stats-donut-seg--shaky,
+.stats-donut-seg--failed { stroke: var(--danger); }
+.stats-donut-seg--draw { stroke: var(--text-fainter); }
+.stats-donut-seg--untrained { stroke: var(--border); }
+
+.stats-donut-num {
+  fill: var(--text);
+  font-size: 21px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-donut-cap {
+  fill: var(--text-fainter);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* The legend column beside a donut: swatch + count + label rows. */
+.stats-donut-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.stats-donut-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.stats-donut-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: none;
+}
+
+.stats-donut-swatch--solid,
+.stats-donut-swatch--remembered { background: var(--success); }
+.stats-donut-swatch--shaky,
+.stats-donut-swatch--failed { background: var(--danger); }
+.stats-donut-swatch--untrained { background: var(--border); }
+
+.stats-donut-item-num {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  min-width: 1.6em;
+}
+
+.stats-donut-item-label { min-width: 0; }
+
+/* Move memory (Openings region): the big repertoire ring + its legend. */
+.stats-mem-row {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  margin-top: 0.35rem;
+}
+
+/* Openings: games × memory cards — the dual-donut per-opening card. */
+.stats-op-card {
+  padding: 0.8rem 0.9rem;
+}
+
+.stats-op-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.stats-op-title .colour-pip {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+}
+
+.stats-op-games {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  color: var(--text-fainter);
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-op-rings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  margin-top: 0.7rem;
+}
+
+.stats-op-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.stats-op-cell-title {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-fainter);
+}
+
+.stats-op-cell-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.stats-op-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+
 /* ── Progress meters (Endgames region) ───────────────────────────────────────
    The unfilled track is a lighter step of the accent, so the whole bar reads
    as one state. */
@@ -11314,39 +11448,41 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 /* The month calendar now rides inside the streak-hero accordion. */
 .stats-cal { margin-top: 0.7rem; }
 
-/* Remembered-vs-failed: coloured total pills under the title. */
-.stats-rf-totals {
+/* Remembered-vs-failed header: the recall donut on the left, the spelled-out
+   remembered / failed counts and a scope line ("trained 9 of 30 days" or the
+   tapped day) stacked beside it. */
+.stats-rf-head {
   display: flex;
-  gap: 0.5rem;
-  margin: 0.1rem 0 0.2rem;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.2rem 0 0.2rem;
 }
 
-.stats-rf-pill {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.3rem;
-  padding: 0.25rem 0.6rem;
-  border-radius: 999px;
-  color: #fff;
-}
-
-.stats-rf-pill--remembered { background: var(--success); }
-.stats-rf-pill--failed { background: var(--danger); }
-/* Recall % rides along in a neutral, outlined chip so it reads as a summary, not
-   a third category. */
-.stats-rf-pill--recall {
-  background: transparent;
-  color: var(--text-faint);
-  border: 1px solid var(--border);
-}
-
-.stats-rf-pill-num {
-  font-size: 1rem;
-  font-weight: 800;
+.stats-rf-scope {
+  font-size: 0.72rem;
+  color: var(--text-fainter);
   font-variant-numeric: tabular-nums;
 }
 
-.stats-rf-pill-label { font-size: 0.7rem; font-weight: 600; opacity: 0.92; }
+/* The range-swiped charts slide like a carousel: content enters from the side
+   you're moving towards. Applied by slideSwap() on every range switch. */
+.stats-slide-fwd { animation: stats-slide-fwd 0.28s cubic-bezier(0.2, 0.7, 0.3, 1); }
+.stats-slide-back { animation: stats-slide-back 0.28s cubic-bezier(0.2, 0.7, 0.3, 1); }
+
+@keyframes stats-slide-fwd {
+  from { transform: translateX(32px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+@keyframes stats-slide-back {
+  from { transform: translateX(-32px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stats-slide-fwd,
+  .stats-slide-back { animation: none; }
+}
 
 /* Day columns are tappable buttons (tap → the detail readout below). */
 .stats-rf-col {
@@ -11373,7 +11509,7 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 
 /* New-line marker: a small accent dot beneath a day's column (and in the legend),
    flagging the days fresh lines were added. */
-/* ── Forgotten-moves carousel (Openings screen, below Practise) ───────────────
+/* ── Forgotten-moves carousel (Openings screen, closing the pane) ─────────────
    A swipeable carousel: one slide per time window (Today / This week / All time),
    each a full-width board with the move arrowed on it, then the move details and
    a "Fix it" button. The board spans the section's content width (it honours the
