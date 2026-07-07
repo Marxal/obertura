@@ -44,6 +44,8 @@ import {
   setIncludeSecondPlatform,
   getShowMoveClassifications,
   setShowMoveClassifications,
+  getEngineAlwaysOn,
+  setEngineAlwaysOn,
 } from './prefs';
 import type { Platform } from './import-games';
 import { getFeedbackSound, setFeedbackSound, previewFeedback } from './sound';
@@ -607,6 +609,12 @@ function buildAppearanceGroup(): HTMLElement {
     'Move classifications',
     toggle(getShowMoveClassifications(), (on) => setShowMoveClassifications(on)),
     { sub: 'After a game review, mark mistakes and blunders in the move list and show a grade badge (Best, Book, Blunder…) on the board.' },
+  ));
+
+  sec.appendChild(row(
+    'Engine always on',
+    toggle(getEngineAlwaysOn(), (on) => setEngineAlwaysOn(on)),
+    { sub: 'Start the engine automatically whenever you open the board. Either way, the engine button on the board turns it on or off at any time.' },
   ));
 
   return sec;

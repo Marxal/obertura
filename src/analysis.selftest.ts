@@ -5,7 +5,7 @@
 // phone, offline.
 
 import { Chess } from 'chess.js';
-import { analyseGames, openingFamily, UNKNOWN_FAMILY } from './analysis';
+import { analyseGames, openingFamily, familyKey, UNKNOWN_FAMILY } from './analysis';
 import type { ImportedGame } from './chesscom';
 import type { Line } from './types';
 import type { MoveNode } from './tree';
@@ -76,6 +76,28 @@ export function runAnalysisSelfTest(): TestResult[] {
       openingFamily('Ruy Lopez') === 'Ruy Lopez' &&
       openingFamily(null) === UNKNOWN_FAMILY,
     `${openingFamily('Sicilian Defense Najdorf Variation')} / ${openingFamily('Ruy Lopez')} / ${openingFamily(null)}`,
+  );
+
+  // 1b. Colon names (the bundled dataset's "Family: Variation" format) fold to
+  //     the same family as their colon-free chess.com counterparts.
+  check(
+    'colon-format names fold to the same family',
+    openingFamily('Pirc Defense: Classical Variation') === 'Pirc Defense' &&
+      openingFamily('Sicilian Defense: Najdorf Variation') === 'Sicilian Defense' &&
+      openingFamily("Queen's Gambit Declined: Exchange Variation") === "Queen's Gambit" &&
+      openingFamily('Ruy Lopez: Berlin Defense') === 'Ruy Lopez',
+    `${openingFamily('Pirc Defense: Classical Variation')} / ${openingFamily('Ruy Lopez: Berlin Defense')}`,
+  );
+
+  // 1c. familyKey joins across sources: apostrophes dropped by chess.com URL
+  //     slugs and Defence/Defense spellings land on the same key.
+  check(
+    'familyKey joins slug and dataset names',
+    familyKey('Queens Gambit Declined Exchange Variation') ===
+      familyKey("Queen's Gambit Declined: Exchange Variation") &&
+      familyKey('Caro-Kann Defence') === familyKey('Caro-Kann Defense: Advance Variation') &&
+      familyKey(null) === UNKNOWN_FAMILY,
+    `${familyKey('Queens Gambit Declined')} / ${familyKey('Caro-Kann Defence')}`,
   );
 
   // 2. Grouping + scoring: 3 Italian games (2 wins, 1 loss) as White → one
