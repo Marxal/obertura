@@ -104,6 +104,10 @@ export interface ImportedGame {
   result: GameResult;                    // from your perspective
   opponent: string;
   opponentRating?: number;               // the opponent's rating, if the platform gave one
+  // YOUR rating at the game, if the platform gave one. Feeds the Statistics
+  // rating-over-time chart; games imported before this field existed simply
+  // don't carry it (a refresh / re-import fills it in).
+  myRating?: number;
   eco: string | null;                    // ECO code (e.g. "C50"), if present
   opening: string | null;                // readable opening name
   sans: string[];                        // the game's moves in SAN (full game)
@@ -165,6 +169,7 @@ export function parseNormalised(raw: NormalisedGame, username: string): Imported
   // Prefer the platform's ECO hint; otherwise read the PGN's [ECO] tag.
   const eco = raw.eco ?? chess.getHeaders().ECO ?? null;
   const opponentRating = iAmWhite ? raw.blackRating : raw.whiteRating;
+  const myRating = iAmWhite ? raw.whiteRating : raw.blackRating;
 
   return {
     id: raw.id,
@@ -177,6 +182,7 @@ export function parseNormalised(raw: NormalisedGame, username: string): Imported
     result: resultFromWinner(raw.winner, colour),
     opponent: iAmWhite ? raw.black : raw.white,
     ...(opponentRating !== undefined ? { opponentRating } : {}),
+    ...(myRating !== undefined ? { myRating } : {}),
     eco,
     opening: raw.opening,
     sans: verbose.map(m => m.san),

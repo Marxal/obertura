@@ -510,6 +510,55 @@ _On `claude/board-content-tab-uu55k7`. Restore point: `v0.4`._
 
 ---
 
+## v0.12 — statistics & general fixes round 🔜
+
+Richer Statistics as the centrepiece, plus a sweep of fixes across the app.
+
+- ✅ **Your rating on Statistics** — a new block in Your games: current rating,
+  peak and games played per time class (Bullet/Blitz/Rapid/Daily chips), live
+  from Chess.com/Lichess (free public APIs, cached 6 h, offline falls back to
+  the last-seen numbers), over a proper rating-over-time chart. Lichess
+  accounts get their full history instantly (the rating-history API);
+  Chess.com history builds from the ratings games now carry on import
+  (`ImportedGame.myRating` — a refresh/re-import fills it in).
+- ✅ **One shared chart engine** (`src/stats-charts.ts`) — every Statistics
+  trend (game rating, puzzle rating, endgame rating, win rate) now draws the
+  same way: monotone curve over a soft area wash, hairline y-gridlines with
+  clean tick values, tap anywhere for a crosshair + exact read-out, and an
+  end-dot on the newest value. Win rate keeps its 50% break-even line.
+- ✅ **Record strip** — one W-D-L bar across the imported games with counts and
+  percentages spelled out.
+- ✅ **Endgames region on Statistics** — the endgame-puzzle rating + best run
+  with its own trend, plus progress meters for Classic endgames solved and
+  from-your-games endgames played out (with a "let slip" count).
+- ✅ **Settings slimmed** — quick-view carousels removed (feature + pref);
+  "Board miniatures" naming; Statistics/Explore/Diagnostics groups gone
+  (their features simply always-on; self-tests stay via `npm run selftest`);
+  Data → **Backup**.
+- ✅ **My games: full-width review strip** — analysed cards show accuracy +
+  per-class move counts under the board across the whole card: White's row,
+  the class icons, Black's row, accuracy leading each side.
+- ✅ **Puzzles: openings inside Practice by theme** — the old Practice-by-opening
+  section now lives as the first accordion there ("Your openings") with two
+  tabs: Based on my repertoire / Based on my games. Also fixed a class-name
+  collision that stopped that section's descriptions from wrapping.
+- ✅ **Wider endgame scan** — "From your games" now detects endgames at ≤10
+  pieces (was 7): tablebase judges ≤7 exactly, the local engine judges 8–10
+  with conservative thresholds and falls back to the 7-piece tablebase check
+  when unclear, so nothing the old scan found is lost. Scan version bumped so
+  empty v1 scans re-run.
+- ✅ **Train hub** — "In training" renamed **Lines in training**, its header now
+  a proper card (expanded content untouched).
+- ✅ **Explore → Learn** — a one-line intro explaining the tab, and a
+  video-camera icon in place of the bulb.
+- ✅ **Engine cloud warning** — when Lichess cloud eval can't be reached, the
+  docked eval bar swaps its source badge for a discreet "Lichess off" warning
+  that's also the retry button — same slot, so the panel never changes height.
+
+_On `claude/app-ui-stats-improvements-1j241p`. Restore point: `v0.4`._
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

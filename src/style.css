@@ -11020,6 +11020,143 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   font-style: italic;
 }
 
+/* ── The shared Statistics line chart (stats-charts.ts) ────────────────────────
+   Single-series: the line, its area wash and the marks all wear the accent;
+   grid, ticks and labels stay in the recessive text/hairline tokens. */
+.stats-lc {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin-top: 0.4rem;
+  color: var(--accent); /* currentColor feeds the area gradient */
+  touch-action: pan-y;  /* taps select; vertical scrolling stays native */
+}
+.stats-lc-line {
+  stroke: var(--accent);
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.stats-lc-grid {
+  stroke: var(--hairline);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.stats-lc-baseline {
+  stroke: var(--text-fainter);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.7;
+  vector-effect: non-scaling-stroke;
+}
+.stats-lc-ylabel,
+.stats-lc-xlabel {
+  fill: var(--text-fainter);
+  font-size: 8.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.stats-lc-dot {
+  fill: var(--accent);
+  stroke: var(--bg-card);
+  stroke-width: 1.4;
+}
+.stats-lc-enddot {
+  fill: var(--accent);
+  stroke: var(--bg-card);
+  stroke-width: 2;
+}
+.stats-lc-cross {
+  stroke: var(--text-fainter);
+  stroke-width: 1;
+  opacity: 0.65;
+  vector-effect: non-scaling-stroke;
+}
+.stats-lc-seldot {
+  fill: var(--accent);
+  stroke: var(--bg-card);
+  stroke-width: 2;
+}
+
+/* Your-rating section bits. Three tiles across: current · peak · games. */
+.stats-rating-chart { margin-top: 0.5rem; }
+.pz-stat-row--rating {
+  grid-template-columns: 1fr 1fr 1fr;
+  margin-top: 0.6rem;
+}
+
+/* ── W-D-L record strip ──────────────────────────────────────────────────────
+   One part-to-whole bar (2px surface gaps between segments) with the counts
+   spelled out beside swatches below — identity never rides on colour alone. */
+.stats-wdl-bar {
+  display: flex;
+  gap: 2px;
+  height: 18px;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-top: 0.55rem;
+}
+.stats-wdl-seg { flex: 0 1 auto; min-width: 3px; }
+.stats-wdl-seg--win { background: var(--success); }
+.stats-wdl-seg--draw { background: var(--text-fainter); }
+.stats-wdl-seg--loss { background: var(--danger); }
+.stats-wdl-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  margin-top: 0.5rem;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.stats-wdl-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.stats-wdl-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: none;
+}
+
+/* ── Progress meters (Endgames region) ───────────────────────────────────────
+   The unfilled track is a lighter step of the accent, so the whole bar reads
+   as one state. */
+.stats-meter { margin-top: 0.7rem; }
+.stats-meter:first-of-type { margin-top: 0.35rem; }
+.stats-meter-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.stats-meter-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.stats-meter-meta {
+  font-size: 0.74rem;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.stats-meter-track {
+  margin-top: 0.3rem;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  overflow: hidden;
+}
+.stats-meter-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
 /* Where you leave theory — cards with a "Drill this" action. */
 .stats-theory-card {
   display: flex;
@@ -11580,8 +11717,10 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 .pz-opening-go { color: var(--text-muted); display: inline-flex; flex: none; }
 
-/* Solver overlay extras (the rest is shared with .pt-* in the drill). */
-.pz-themes {
+/* Solver overlay extras (the rest is shared with .pt-* in the drill).
+   NOTE: renamed from .pz-themes — that name now belongs to the Puzzles screen's
+   Practice-by-theme SECTION, and this rule's nowrap was leaking onto it. */
+.pz-run-themes {
   margin-top: 0.5rem;
   font-size: 0.82rem;
   color: var(--text-muted);
