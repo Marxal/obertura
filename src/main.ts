@@ -868,7 +868,10 @@ async function gradeLiveMove(node: MoveNode, parentFen: string): Promise<void> {
     if (!r.graded) return;
     builderEngine = mergeReviewEngine(
       builderEngine,
-      r.source === 'cloud' ? 'lichess' : r.source === 'local' ? 'local' : 'none',
+      r.source === 'cloud' ? 'lichess'
+        : r.source === 'remote' ? 'remote'
+        : r.source === 'local' ? 'local'
+        : 'none',
     );
     renderMoveList();
     refreshBoardShapes();
