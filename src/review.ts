@@ -10,6 +10,7 @@
 
 import { cloudTopMoves, analysePosition, cancelLocalAnalysis, resolveUci } from './engine';
 import type { CloudTopMove, MoveEval } from './engine';
+import { remoteEngineEnabled, remoteTopLines } from './remote-engine';
 import { isBookMove } from './book-check';
 import { moveFacts, SEE_MATERIAL_MARGIN } from './move-facts';
 import type { MoveFacts } from './move-facts';
@@ -28,8 +29,14 @@ const ENGINE_DEPTH = 12;
 // engine stops at depth 12 or this budget, whichever comes first.
 const ENGINE_MOVETIME_MS = 1500;
 // A small breather between positions so a 30-move review doesn't burst the cloud
-// rate limit. Only paced when a cloud call was actually made.
+// rate limit. Only paced when a network call was actually made.
 const CLOUD_DELAY_MS = 120;
+// Once the cloud misses this many positions in a row the game has left known
+// theory, and later positions won't be in the cloud either — stop asking for
+// the rest of the line and go straight to the deeper tiers (same cutoff the
+// mistake scan uses). Saves a round-trip per position on the whole out-of-book
+// tail, and keeps 60 pointless requests from nudging the rate limit.
+const CLOUD_MISS_STREAK = 3;
 
 // ── Pure scoring ─────────────────────────────────────────────────────────────
 
@@ -126,12 +133,29 @@ export interface ReviewOptions {
   cache?: Map<string, CloudTopMove[] | null>;
 }
 
+// One position lookup's outcome, summed across a grade's one-or-two lookups so
+// the batch loop can pace itself (hitNetwork) and run the cloud miss-streak
+// cutoff (cloudHits/cloudMisses).
+interface LookupStats {
+  hitNetwork: boolean;
+  cloudHits: number;
+  cloudMisses: number;
+}
+
+function addLookup(s: LookupStats, l: { cloud: 'hit' | 'miss' | 'skipped'; source: EngineSource | null }): void {
+  if (l.cloud !== 'skipped' || l.source === 'remote') s.hitNetwork = true;
+  if (l.cloud === 'hit') s.cloudHits++;
+  if (l.cloud === 'miss') s.cloudMisses++;
+}
+
+type EngineSource = 'cloud' | 'remote' | 'local';
+
 // Grade a single node in place from its parent position — the per-move unit the
 // batch loop runs, exposed so live analysis can grade one freshly-played move
 // without re-walking the line. Writes classification + cpLoss + evalCp on a
 // successful grade. `source` names the engine that answered the PARENT lookup
-// (for the "analysed with…" tag); `hitCloud` is true when any network call went
-// out (so the caller can pace itself).
+// (for the "analysed with…" tag); the LookupStats fields tell the batch loop
+// whether any network call went out and how the cloud answered.
 export async function gradeNode(
   node: MoveNode,
   parentFen: string,
@@ -145,24 +169,30 @@ export async function gradeNode(
     sanPath?: string[];
     // The opponent's previous move, for spotting routine recaptures.
     prevUci?: string;
+    // Ask the Lichess cloud at all? The batch loop turns this off once the line
+    // has clearly left book (the miss-streak cutoff). Default on.
+    tryCloud?: boolean;
   },
-): Promise<{ graded: boolean; source: 'cloud' | 'local' | null; hitCloud: boolean }> {
-  const parent = await topMovesFor(parentFen, cache, opts.useEngineFallback);
-  if (opts.signal?.aborted) return { graded: false, source: parent.source, hitCloud: parent.hitCloud };
+): Promise<{ graded: boolean; source: EngineSource | null } & LookupStats> {
+  const stats: LookupStats = { hitNetwork: false, cloudHits: 0, cloudMisses: 0 };
+  const tryCloud = opts.tryCloud !== false;
+
+  const parent = await topMovesFor(parentFen, cache, opts.useEngineFallback, tryCloud);
+  addLookup(stats, parent);
+  if (opts.signal?.aborted) return { graded: false, source: parent.source, ...stats };
   const parentTop = parent.top;
-  if (!parentTop || !parentTop.length) return { graded: false, source: parent.source, hitCloud: parent.hitCloud };
+  if (!parentTop || !parentTop.length) return { graded: false, source: parent.source, ...stats };
 
   // The played move's mover-perspective cp: from the parent list when it's a top
   // candidate, otherwise the negated best eval of the resulting position.
   let playedCp: number | null = null;
-  let hitCloudChild = false;
   const mine = parentTop.find(m => m.uci === node.uci);
   if (mine) {
     playedCp = flattenCp(mine);
   } else {
-    const child = await topMovesFor(node.fen, cache, opts.useEngineFallback);
-    if (opts.signal?.aborted) return { graded: false, source: parent.source, hitCloud: parent.hitCloud || child.hitCloud };
-    hitCloudChild = child.hitCloud;
+    const child = await topMovesFor(node.fen, cache, opts.useEngineFallback, tryCloud);
+    addLookup(stats, child);
+    if (opts.signal?.aborted) return { graded: false, source: parent.source, ...stats };
     const c = child.top && child.top.length ? flattenCp(child.top[0]) : null;
     if (c !== null) playedCp = -c; // opponent's best, flipped to our side
   }
@@ -180,33 +210,45 @@ export async function gradeNode(
       node.evalCp = blackToMove(parentFen) ? -playedCp : playedCp;
     }
   }
-  return { graded: !!graded, source: parent.source, hitCloud: parent.hitCloud || hitCloudChild };
+  return { graded: !!graded, source: parent.source, ...stats };
 }
 
-// Top moves for a position (mover perspective, normalised ucis), cloud first then
-// the local engine. Caches per run — a move's child FEN is usually the next
-// move's parent FEN, which roughly halves the requests. `source` names where the
-// answer came from (for the "analysed with…" tag); null on a cached/empty result.
+// Top moves for a position (mover perspective, normalised ucis), best source
+// first: Lichess cloud (when `tryCloud`), then chess-api.com when its Settings
+// toggle is on, then the local engine. Caches per run — a move's child FEN is
+// usually the next move's parent FEN, which roughly halves the requests.
+// `source` names where the answer came from (for the "analysed with…" tag);
+// null on a cached/empty result. `cloud` says how Lichess answered, feeding the
+// batch loop's miss-streak cutoff.
 async function topMovesFor(
   fen: string,
   cache: Map<string, CloudTopMove[] | null>,
   useEngine: boolean,
-): Promise<{ top: CloudTopMove[] | null; hitCloud: boolean; source: 'cloud' | 'local' | null }> {
-  if (cache.has(fen)) return { top: cache.get(fen)!, hitCloud: false, source: null };
+  tryCloud: boolean,
+): Promise<{ top: CloudTopMove[] | null; cloud: 'hit' | 'miss' | 'skipped'; source: EngineSource | null }> {
+  if (cache.has(fen)) return { top: cache.get(fen)!, cloud: 'skipped', source: null };
 
   let top: CloudTopMove[] | null = null;
-  let source: 'cloud' | 'local' | null = null;
-  const cloud = await cloudTopMoves(fen);
-  const hitCloud = true; // a request went out (success or miss)
-  if (cloud && cloud.length) {
-    top = normaliseTop(cloud, fen);
-    source = 'cloud';
-  } else if (useEngine) {
+  let source: EngineSource | null = null;
+  let cloud: 'hit' | 'miss' | 'skipped' = 'skipped';
+  if (tryCloud) {
+    const c = await cloudTopMoves(fen);
+    cloud = c && c.length ? 'hit' : 'miss';
+    if (c && c.length) {
+      top = normaliseTop(c, fen);
+      source = 'cloud';
+    }
+  }
+  if (!top && remoteEngineEnabled()) {
+    const remote = await remoteTopLines(fen); // white-perspective
+    if (remote && remote.length) { top = toMoverTop(remote, fen); source = 'remote'; }
+  }
+  if (!top && useEngine) {
     const evals = await analysePosition(fen, ENGINE_DEPTH, undefined, { movetimeMs: ENGINE_MOVETIME_MS });
     if (evals.length) { top = toMoverTop(evals, fen); source = 'local'; }
   }
   cache.set(fen, top);
-  return { top, hitCloud, source };
+  return { top, cloud, source };
 }
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
@@ -220,12 +262,14 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 // What a finished (or aborted) review used to judge the game — drives the
 // discrete "analysed with…" tag on the Line tab.
 export interface ReviewSummary {
-  engine: 'lichess' | 'local' | 'mixed' | 'none';
+  engine: 'lichess' | 'remote' | 'local' | 'mixed' | 'none';
 }
 
-function engineFrom(cloud: number, local: number): ReviewSummary['engine'] {
-  if (cloud && local) return 'mixed';
+function engineFrom(cloud: number, remote: number, local: number): ReviewSummary['engine'] {
+  const used = [cloud, remote, local].filter(n => n > 0).length;
+  if (used > 1) return 'mixed';
   if (cloud) return 'lichess';
+  if (remote) return 'remote';
   if (local) return 'local';
   return 'none';
 }
@@ -237,7 +281,10 @@ export async function reviewLine(nodes: MoveNode[], opts: ReviewOptions): Promis
   const cache = opts.cache ?? new Map<string, CloudTopMove[] | null>();
   const onAbort = () => cancelLocalAnalysis();
   opts.signal?.addEventListener('abort', onAbort, { once: true });
-  let cloudUses = 0, localUses = 0;
+  let cloudUses = 0, remoteUses = 0, localUses = 0;
+  // Consecutive cloud misses so far — at CLOUD_MISS_STREAK the line has left
+  // book and the cloud isn't asked again (a hit resets it, mirroring the scan).
+  let cloudMisses = 0;
   const sans: string[] = []; // SAN path from the start, grown as we walk
 
   try {
@@ -258,18 +305,22 @@ export async function reviewLine(nodes: MoveNode[], opts: ReviewOptions): Promis
         ...opts,
         sanPath: sans,
         prevUci: i > 0 ? nodes[i - 1].uci : undefined,
+        tryCloud: cloudMisses < CLOUD_MISS_STREAK,
       });
       if (opts.signal?.aborted) break;
+      if (r.cloudHits) cloudMisses = 0;
+      else cloudMisses += r.cloudMisses;
       if (r.source === 'cloud') cloudUses++;
+      else if (r.source === 'remote') remoteUses++;
       else if (r.source === 'local') localUses++;
       if (r.graded) opts.onProgress?.(i, node);
 
-      if (r.hitCloud) await sleep(CLOUD_DELAY_MS, opts.signal);
+      if (r.hitNetwork) await sleep(CLOUD_DELAY_MS, opts.signal);
     }
   } finally {
     opts.signal?.removeEventListener('abort', onAbort);
   }
-  return { engine: engineFrom(cloudUses, localUses) };
+  return { engine: engineFrom(cloudUses, remoteUses, localUses) };
 }
 
 // Strip grades from a line (e.g. before a fresh review). Mutates in place.

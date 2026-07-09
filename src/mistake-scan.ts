@@ -26,6 +26,7 @@ import {
   cancelLocalAnalysis,
 } from './engine';
 import type { MoveEval } from './engine';
+import { remoteEngineEnabled, remoteTopLines } from './remote-engine';
 import { cpToWin, flattenCp } from './winprob';
 import { getAllGames, getGame, saveGames } from './storage';
 import type { ImportedGame, GameResult } from './import-core';
@@ -497,13 +498,20 @@ async function verifyCandidate(
 }
 
 // Top-3 lines (white-perspective MoveEval[]) for the verify pass: cloud first,
-// local SCAN_VERIFY_DEPTH fallback.
+// then chess-api.com when its Settings toggle is on (deeper than the local
+// fallback and far faster on a phone), local SCAN_VERIFY_DEPTH as the floor.
 async function topLines(fen: string, signal: AbortSignal): Promise<MoveEval[] | null> {
   if (signal.aborted) return null;
   const cloud = await cloudTopLines(fen);
   await sleep(CLOUD_DELAY_MS, signal);
   if (cloud && cloud.length) return cloud;
   if (signal.aborted) return null;
+  if (remoteEngineEnabled()) {
+    const remote = await remoteTopLines(fen);
+    await sleep(CLOUD_DELAY_MS, signal);
+    if (remote && remote.length) return remote;
+    if (signal.aborted) return null;
+  }
   const local = await analysePosition(fen, SCAN_VERIFY_DEPTH, undefined, { movetimeMs: 1500 });
   return local.length ? local : null;
 }

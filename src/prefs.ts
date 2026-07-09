@@ -115,6 +115,23 @@ export function setEngineAlwaysOn(on: boolean): void {
   localStorage.setItem(ENGINE_EVERYWHERE_KEY, on ? 'on' : 'off');
 }
 
+// Settings → Appearance: "Deeper reviews online". When on, game reviews send
+// positions the Lichess cloud doesn't know to chess-api.com (a free public
+// Stockfish service) instead of straight to the slower on-device engine —
+// deeper (depth 18 vs 12) and much faster on a phone. OFF by default: it ships
+// positions from your games to a third-party service, so it's an explicit
+// opt-in; when the service can't answer, reviews fall back to the device as
+// before.
+const REMOTE_ENGINE_KEY = 'obertura.remoteEngine';
+
+export function getUseRemoteEngine(): boolean {
+  return localStorage.getItem(REMOTE_ENGINE_KEY) === 'on';
+}
+
+export function setUseRemoteEngine(on: boolean): void {
+  localStorage.setItem(REMOTE_ENGINE_KEY, on ? 'on' : 'off');
+}
+
 // Whether the builder shows Game-Review move classifications — the per-move
 // colour + icon in the move list and the badge on the board. ON by default; the
 // Settings toggle hides them everywhere without discarding the stored grades, so

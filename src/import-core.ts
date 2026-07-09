@@ -131,7 +131,7 @@ export interface ImportedGame {
 
 export interface GameAnalysis {
   tree: MoveNode;                        // the analysed move tree (main line + variations)
-  engine: 'lichess' | 'local' | 'mixed' | 'none'; // which engine reviewed it
+  engine: 'lichess' | 'remote' | 'local' | 'mixed' | 'none'; // which engine reviewed it
   reviewedAt: number;                    // unix ms when it was last saved
 }
 

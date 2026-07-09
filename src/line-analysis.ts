@@ -30,8 +30,9 @@ const KEY_MOMENTS = new Set<MoveClass>(['blunder', 'great', 'brilliant']);
 
 const ENGINE_LABEL: Record<ReviewSummary['engine'], string> = {
   lichess: 'Lichess cloud (Stockfish)',
+  remote: 'chess-api.com (Stockfish, depth 18)',
   local: 'Stockfish (on device)',
-  mixed: 'Lichess cloud + Stockfish',
+  mixed: 'a mix of engines (all Stockfish)',
   none: 'the engine',
 };
 

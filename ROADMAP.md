@@ -618,6 +618,34 @@ _On `claude/openings-memory-ui-fixes-mtxrg1`. Restore point: `v0.4`._
 
 ---
 
+## v0.15 — faster & deeper game reviews 🔜
+
+Why reviews "fall to the local engine" so often: the Lichess cloud is a cache
+of already-analysed positions (essentially opening theory, ~the first 8–15
+moves), not an on-demand engine — everything after book was always going to be
+computed on the device. This round makes that tail faster and, optionally,
+deeper.
+
+- ✅ **Reviews stop knocking on the cloud once out of book** — after 3 cloud
+  misses in a row the rest of the game skips the Lichess request entirely
+  (the same cutoff the mistake scan already used). Saves a round-trip per
+  position across the whole out-of-book tail and stops ~60 pointless requests
+  per game from nudging the anonymous rate limit (one 429 = 90 s of forced
+  local-only, even for book positions).
+- ✅ **"Deeper reviews online"** (Settings → Appearance, OFF by default) — an
+  opt-in middle tier between the Lichess cloud and the on-device engine:
+  chess-api.com, a free public Stockfish service, analyses out-of-book
+  positions at depth 18 (vs 12 locally) and far faster than a phone can.
+  Game reviews and the mistake scan's verify pass both use it. Own circuit
+  breaker (60 s after repeated failures, 90 s after a rate limit) so an
+  outage degrades to the local engine once instead of stalling every
+  position; positions are sent to that third-party service only while the
+  toggle is on. The "analysed with…" tag names it.
+
+_On `claude/lichess-engine-limits-ay1fnw`. Restore point: `v0.4`._
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

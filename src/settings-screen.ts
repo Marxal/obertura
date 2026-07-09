@@ -46,6 +46,8 @@ import {
   setShowMoveClassifications,
   getEngineAlwaysOn,
   setEngineAlwaysOn,
+  getUseRemoteEngine,
+  setUseRemoteEngine,
 } from './prefs';
 import type { Platform } from './import-games';
 import { getFeedbackSound, setFeedbackSound, previewFeedback } from './sound';
@@ -615,6 +617,12 @@ function buildAppearanceGroup(): HTMLElement {
     'Engine always on',
     toggle(getEngineAlwaysOn(), (on) => setEngineAlwaysOn(on)),
     { sub: 'Start the engine automatically whenever you open the board. Either way, the engine button on the board turns it on or off at any time.' },
+  ));
+
+  sec.appendChild(row(
+    'Deeper reviews online',
+    toggle(getUseRemoteEngine(), (on) => setUseRemoteEngine(on)),
+    { sub: 'Game reviews and mistake scans use chess-api.com — a free online Stockfish — for positions the Lichess cloud doesn\'t know: deeper and faster than this phone. Sends those positions to that service; falls back to the on-device engine whenever it can\'t answer.' },
   ));
 
   return sec;
