@@ -2141,6 +2141,20 @@ html[data-coords="off"] .cg-wrap coords {
 .bimport-file input { display: none; }
 .bimport-pgn-go { width: 100%; }
 
+/* Lichess-study import: URL field, colour toggle row, chapter rows. */
+.bimport-study-url { font-family: inherit; resize: none; }
+.bimport-study-colour {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  margin: 0.2rem 0 0.5rem;
+}
+.bimport-study-colour .bimport-note { margin: 0; }
+.bimport-chapter { cursor: default; }
+.bimport-chapter:active { filter: none; transform: none; }
+.bimport-chapter-save { flex: 0 0 auto; white-space: nowrap; }
+
 /* ── Annotation marks ────────────────────────────────────────────────────────
    The six standard symbols as coloured chips: sage for the strong marks,
    gold for the speculative middle, brick for the blunders. Used as tiny chips

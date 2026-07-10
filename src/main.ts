@@ -592,11 +592,27 @@ function setupMoveNav(): void {
 // onManualAdd so the still-visible list refreshes).
 function openMyGamesImport(onManualAdd?: () => void): void {
   openBuilderImport({
-    onLoadGame: (ucis, colour, description, gameId, endTime) =>
-      openImportedGame(ucis, colour, description, gameId, endTime),
+    onLoadGame: (ucis, colour, description, gameId, endTime, notes) =>
+      openImportedGame(ucis, colour, description, gameId, endTime, notes),
     onGamesChanged: () => { builderPanels?.reload(); },
     onManualAdd,
+    onSaveLines: saveImportedLines,
   });
+}
+
+// Save study chapters (or other seeds) straight to My Lines as un-enrolled
+// lines. Skips seeds that can't build a legal line; resolves with the count
+// actually saved.
+async function saveImportedLines(seeds: LineSeed[], colour: 'white' | 'black'): Promise<number> {
+  let saved = 0;
+  for (const seed of seeds) {
+    const line = lineFromUcis(seed, colour);
+    if (!line) continue;
+    await saveLine(line);
+    saved++;
+  }
+  if (saved > 0) builderPanels?.reloadLines();
+  return saved;
 }
 
 // Open a SAVED game (from the My games list) in the analyser. If it already has
@@ -695,8 +711,8 @@ function openPuzzleFromSession(req: PuzzleAnalyseRequest): void {
 // Grading is on demand — the Game tab's "Analyse game" button. gameId is set when
 // the game is in the store (so a later Save can attach the analysis, and so we can
 // read its rating/link for the "vs" line); a pasted PGN has none.
-function openImportedGame(ucis: string[], colour: 'white' | 'black', description?: string, gameId?: string, endTime?: number): void {
-  buildFromUcis(ucis, colour, [], { description, analyser: true, gameDate: endTime });
+function openImportedGame(ucis: string[], colour: 'white' | 'black', description?: string, gameId?: string, endTime?: number, notes?: Record<number, string>): void {
+  buildFromUcis(ucis, colour, [], { description, analyser: true, gameDate: endTime, notes });
   analyserGameId = gameId ?? null; // after build — clearBuilder resets it
   // A stored game carries the opponent rating + source link for the "vs" line.
   builderGameRating = undefined;
