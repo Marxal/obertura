@@ -10363,6 +10363,23 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   font-size: 0.74rem;
   color: var(--text-fainter);
   margin-top: 2px;
+  /* Pack rows put the line's middlegame plan here — clamp it so a wordy plan
+     doesn't swallow the picker (the full text shows on the final move's note). */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Small "N move notes" marker on annotated pack lines. */
+.onb-line-notes {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin-top: 3px;
 }
 .onb-add {
   align-self: flex-start;

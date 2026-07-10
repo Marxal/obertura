@@ -447,10 +447,12 @@ function packLineRow(
   deps: StarterDeps,
   repaint: () => void,
 ): HTMLElement {
+  const noteCount = Object.keys(line.notes ?? {}).length;
   return lineRow({
     name: line.name,
     moves: formatSanLine(line.sans),
     sub: line.plan,
+    noteCount,
     fen: fenFromUcis(line.ucis),
     colour,
     added: isLineAdded(existing, colour, line.ucis),
@@ -482,6 +484,7 @@ function lineRow(o: {
   name: string;
   moves: string;
   sub?: string;
+  noteCount?: number;
   fen: string;
   colour: Colour;
   added: boolean;
@@ -512,6 +515,13 @@ function lineRow(o: {
     subEl.className = 'onb-line-sub';
     subEl.textContent = o.sub;
     content.appendChild(subEl);
+  }
+
+  if (o.noteCount) {
+    const notesEl = document.createElement('div');
+    notesEl.className = 'onb-line-notes';
+    notesEl.textContent = `✎ ${o.noteCount} move note${o.noteCount === 1 ? '' : 's'}`;
+    content.appendChild(notesEl);
   }
 
   if (o.added) {
