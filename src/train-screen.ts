@@ -24,7 +24,7 @@ import { Chess } from 'chess.js';
 import { Chessground } from 'chessground';
 import type { Key } from 'chessground/types';
 import { buildEmptyState } from './empty-state';
-import { renderStarterOnboarding, ONBOARDING_GOAL } from './onboarding-starter';
+import { renderStarterOnboarding, ONBOARDING_GOAL, type LineSeed } from './onboarding-starter';
 import { createFilterBar, type FilterSelection } from './filters';
 import { renderFamilyGroups, renderVariationGroups } from './line-groups';
 import { showDialog } from './dialog';
@@ -72,7 +72,7 @@ let onImportGames: (() => void) | null = null;
 // lineFromUcis + addLineToTraining). learn=true runs the watch-then-play confirm
 // run; false enrols directly. Module scope, like the routes above.
 let onAddStarterLine:
-  | ((ucis: string[], colour: 'white' | 'black', learn: boolean, onDone: () => void, onCancel: () => void) => void)
+  | ((seed: LineSeed, colour: 'white' | 'black', learn: boolean, onDone: () => void, onCancel: () => void) => void)
   | null = null;
 // Onboarding's quieter routes: browse the opening library / build by playing the
 // engine. Module scope, wired from main.ts like the others.
@@ -127,7 +127,7 @@ export function renderTrainScreen(
     onBuildLine?: () => void;
     onImportGames?: () => void;
     onAddStarterLine?: (
-      ucis: string[],
+      seed: LineSeed,
       colour: 'white' | 'black',
       learn: boolean,
       onDone: () => void,
@@ -242,8 +242,8 @@ function renderEmpty(container: HTMLElement, hasGames: boolean): void {
   if (onAddStarterLine) {
     renderStarterOnboarding(container, {
       hasGames,
-      onAddLine: (ucis, colour, learn, onDone, onCancel) =>
-        onAddStarterLine!(ucis, colour, learn, onDone, onCancel),
+      onAddLine: (seed, colour, learn, onDone, onCancel) =>
+        onAddStarterLine!(seed, colour, learn, onDone, onCancel),
       // Leaving onboarding re-renders Train; once the goal is reached it lands on
       // the normal hub instead of here.
       onFinish: () => void doRender(container),

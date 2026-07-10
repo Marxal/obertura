@@ -1,13 +1,18 @@
 // The builder's "Import a game" popup, opened from the import icon next to Flip
-// in the bottom bar. Four ways to get a game in:
+// in the bottom bar. Five ways to get a game in:
 //
 //   a) Import my last game  — the single newest game from the connected account
 //                             (saved with my games, deduped), opened on the board.
 //   b) Browse my last games — a list of my last 10 games (with who I played and
 //                             the result); tap one to load it on the board.
 //   c) Paste PGN            — paste PGN text or pick a .pgn file; the mainline is
-//                             parsed and opened on the board.
-//   d) Add a game manually   — hands off to the manual-entry form (manual-game.ts)
+//                             parsed (comments become move notes) and opened on
+//                             the board. A pasted Lichess study link, or a PGN
+//                             holding several games, routes to the chapter list.
+//   d) Lichess study        — paste a study link; each chapter becomes a line
+//                             (author comments preserved as move notes), saved
+//                             straight to My Lines.
+//   e) Add a game manually   — hands off to the manual-entry form (manual-game.ts)
 //                             for an OTB game or one played without a connected
 //                             account; it saves straight to My games rather than
 //                             opening the board.
@@ -15,25 +20,36 @@
 // Loading a game just seeds the builder via `onLoadGame` — the caller decides
 // what that means (it reuses buildFromUcis, so a Save makes a new line from it).
 
-import { Chess } from 'chess.js';
 import { pushBack } from './back-nav';
 import { Icons } from './icons';
 import { showToast } from './toast';
 import { connectedAccount, importLastGame } from './import-last';
 import { importGames, type ImportedGame } from './import-games';
 import { openAddGameForm } from './manual-game';
+import {
+  parseStudyUrl, parseAnnotatedPgn, parseStudyPgn, fetchStudyPgn,
+  type StudyChapter,
+} from './study-import';
+import type { LineSeed } from './onboarding-starter';
 
 export interface BuilderImportDeps {
   // Seed the builder with a move list, oriented to `colour`, with an optional
   // hint (e.g. "vs alice") shown under the title. `gameId` is the stored game's
   // id when there is one (last game / browse), so a later save can attach its
-  // analysis; a pasted PGN has none.
-  onLoadGame: (ucis: string[], colour: 'white' | 'black', description?: string, gameId?: string, endTime?: number) => void;
+  // analysis; a pasted PGN has none. `notes` carries PGN comments per ply.
+  onLoadGame: (
+    ucis: string[], colour: 'white' | 'black', description?: string,
+    gameId?: string, endTime?: number, notes?: Record<number, string>,
+  ) => void;
   // A game just landed in storage (import-last saves it) — refresh the slides.
   onGamesChanged: () => void;
   // A game was added manually (no board opened) — refresh whatever list is
   // showing (e.g. My games). Optional: only the My-games caller needs it.
   onManualAdd?: () => void;
+  // Save a batch of lines (study chapters) straight to My Lines, oriented to
+  // `colour`. Resolves with how many were saved. Optional: without it the
+  // study option is hidden.
+  onSaveLines?: (seeds: LineSeed[], colour: 'white' | 'black') => Promise<number>;
 }
 
 const PLATFORM_LABEL = { chesscom: 'Chess.com', lichess: 'Lichess' } as const;
@@ -68,10 +84,13 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
   sheet.appendChild(body);
 
   // Seed the builder and dismiss the sheet.
-  const load = (ucis: string[], colour: 'white' | 'black', description?: string, gameId?: string, endTime?: number): void => {
+  const load = (
+    ucis: string[], colour: 'white' | 'black', description?: string,
+    gameId?: string, endTime?: number, notes?: Record<number, string>,
+  ): void => {
     if (!ucis.length) { showToast('No moves found to load.'); return; }
     close();
-    deps.onLoadGame(ucis, colour, description, gameId, endTime);
+    deps.onLoadGame(ucis, colour, description, gameId, endTime, notes);
   };
 
   // ── a) Import my last game ──────────────────────────────────────────────────
@@ -189,10 +208,153 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
   }
 
   function loadFromPgn(pgn: string): void {
-    const moves = pgnToMoves(pgn);
-    if (!moves) { showToast('Couldn’t read that PGN.'); return; }
+    // A pasted Lichess study link routes to the study flow.
+    if (deps.onSaveLines && parseStudyUrl(pgn)) { showStudy(pgn.trim()); return; }
+    // A PGN holding several games (e.g. a downloaded study) → chapter list.
+    const chapters = parseStudyPgn(pgn);
+    if (chapters.length > 1 && deps.onSaveLines) { showChapters(chapters, () => showPgn()); return; }
+    const game = parseAnnotatedPgn(pgn);
+    if (!game) { showToast('Couldn’t read that PGN.'); return; }
     // A pasted game has no "me" — orient to White and let the user flip.
-    load(moves, 'white');
+    load(game.ucis, 'white', undefined, undefined, undefined, game.notes);
+  }
+
+  // ── d) Import a Lichess study ───────────────────────────────────────────────
+  function showStudy(prefill?: string): void {
+    body.innerHTML = '';
+    body.appendChild(backLink(() => renderMenu()));
+
+    const hint = document.createElement('p');
+    hint.className = 'bimport-note';
+    hint.textContent = 'Paste a public Lichess study link — each chapter becomes a line, with the author’s comments as move notes. (Side variations inside a chapter aren’t imported; deviations work best as separate chapters.)';
+    body.appendChild(hint);
+
+    const input = document.createElement('input');
+    input.type = 'url';
+    input.className = 'bimport-pgn bimport-study-url';
+    input.placeholder = 'https://lichess.org/study/…';
+    if (prefill) input.value = prefill;
+    body.appendChild(input);
+
+    const go = document.createElement('button');
+    go.type = 'button';
+    go.className = 'btn-primary bimport-pgn-go';
+    go.textContent = 'Fetch study';
+    go.addEventListener('click', () => { void fetchAndList(); });
+    body.appendChild(go);
+
+    async function fetchAndList(): Promise<void> {
+      const ref = parseStudyUrl(input.value);
+      if (!ref) { showToast('That doesn’t look like a Lichess study link.'); return; }
+      go.disabled = true;
+      go.textContent = 'Fetching…';
+      try {
+        const pgn = await fetchStudyPgn(ref);
+        const chapters = parseStudyPgn(pgn);
+        if (closed) return;
+        if (!chapters.length) { showToast('No readable chapters in that study.'); return; }
+        showChapters(chapters, () => showStudy(input.value));
+      } catch (e) {
+        showToast(e instanceof Error ? e.message : 'Couldn’t fetch that study.');
+      } finally {
+        go.disabled = false;
+        go.textContent = 'Fetch study';
+      }
+    }
+
+    if (prefill) void fetchAndList();
+  }
+
+  // The fetched study's chapters: pick your colour once, then save chapters as
+  // lines (each with its notes). Lines land in My Lines un-enrolled — training
+  // stays opt-in via the normal flow.
+  function showChapters(chapters: StudyChapter[], onBack: () => void): void {
+    body.innerHTML = '';
+    body.appendChild(backLink(onBack));
+    let colour: 'white' | 'black' = 'white';
+    const saved = new Set<number>();
+
+    const colourRow = document.createElement('div');
+    colourRow.className = 'bimport-study-colour';
+    const lbl = document.createElement('span');
+    lbl.className = 'bimport-note';
+    lbl.textContent = 'Train these lines as:';
+    colourRow.appendChild(lbl);
+    const seg = document.createElement('div');
+    seg.className = 'seg-control';
+    const mkSeg = (c: 'white' | 'black', label: string): HTMLButtonElement => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'seg-btn' + (c === colour ? ' active' : '');
+      b.textContent = label;
+      b.addEventListener('click', () => {
+        colour = c;
+        seg.querySelectorAll('.seg-btn').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+      });
+      return b;
+    };
+    seg.appendChild(mkSeg('white', '○ White'));
+    seg.appendChild(mkSeg('black', '● Black'));
+    colourRow.appendChild(seg);
+    body.appendChild(colourRow);
+
+    const seedOf = (c: StudyChapter): LineSeed => ({
+      ucis: c.ucis,
+      notes: Object.keys(c.notes).length ? c.notes : undefined,
+      name: c.name,
+    });
+
+    const list = document.createElement('div');
+    list.className = 'bimport-game-list';
+    chapters.forEach((c, i) => {
+      const row = document.createElement('div');
+      row.className = 'bimport-game bimport-chapter';
+
+      const text = document.createElement('span');
+      text.className = 'bimport-game-text';
+      const name = document.createElement('span');
+      name.className = 'bimport-game-name';
+      name.textContent = c.name;
+      text.appendChild(name);
+      const sub = document.createElement('span');
+      sub.className = 'bimport-game-sub';
+      const noteCount = Object.keys(c.notes).length;
+      sub.textContent = `${c.ucis.length} moves${noteCount ? ` · ${noteCount} note${noteCount === 1 ? '' : 's'}` : ''}`;
+      text.appendChild(sub);
+      row.appendChild(text);
+
+      const save = document.createElement('button');
+      save.type = 'button';
+      save.className = 'btn-secondary bimport-chapter-save';
+      save.textContent = 'Save as line';
+      save.addEventListener('click', () => {
+        save.disabled = true;
+        void deps.onSaveLines!([seedOf(c)], colour).then(n => {
+          if (n > 0) { saved.add(i); save.textContent = '✓ Saved'; }
+          else { save.disabled = false; showToast('Couldn’t save that chapter.'); }
+        });
+      });
+      row.appendChild(save);
+      list.appendChild(row);
+    });
+    body.appendChild(list);
+
+    if (chapters.length > 1) {
+      const all = document.createElement('button');
+      all.type = 'button';
+      all.className = 'btn-primary bimport-pgn-go';
+      all.textContent = `Save all ${chapters.length} as lines`;
+      all.addEventListener('click', () => {
+        all.disabled = true;
+        const pending = chapters.filter((_, i) => !saved.has(i));
+        void deps.onSaveLines!(pending.map(seedOf), colour).then(n => {
+          showToast(`Saved ${n} line${n === 1 ? '' : 's'} to My Lines ✓`, { variant: 'success' });
+          close();
+        });
+      });
+      body.appendChild(all);
+    }
   }
 
   // ── The menu ────────────────────────────────────────────────────────────────
@@ -222,6 +384,14 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
       'Paste PGN text or choose a .pgn file',
       () => showPgn(),
     ));
+
+    if (deps.onSaveLines) {
+      body.appendChild(menuOption(
+        Icons.link(20), 'Import a Lichess study',
+        'Each chapter becomes a line, with its notes',
+        () => showStudy(),
+      ));
+    }
 
     body.appendChild(menuOption(
       Icons.plus(20), 'Add a game manually',
@@ -274,18 +444,6 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
 const RESULT_LABEL: Record<ImportedGame['result'], string> = {
   win: 'Won', draw: 'Drew', loss: 'Lost',
 };
-
-// Parse a PGN's mainline into a UCI list (chess.js `lan` is UCI), or null when
-// it can't be read or holds no moves. strict:false tolerates clock comments and
-// header quirks, matching the importer.
-function pgnToMoves(pgn: string): string[] | null {
-  if (!pgn.trim()) return null;
-  const ch = new Chess();
-  try { ch.loadPgn(pgn, { strict: false }); } catch { return null; }
-  const verbose = ch.history({ verbose: true });
-  if (!verbose.length) return null;
-  return verbose.map(m => m.lan);
-}
 
 function span(cls: string, text: string): HTMLSpanElement {
   const s = document.createElement('span');

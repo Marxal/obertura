@@ -57,7 +57,7 @@ import { showDialog } from './dialog';
 import { platformLabel } from './board-explorer';
 import { openImportPanel, getGamesSource, IDENTITY_CHANGED_EVENT } from './import-panel';
 import { maybeShowIntro } from './onboarding';
-import { openStarterPackPicker } from './onboarding-starter';
+import { openStarterPackPicker, type LineSeed } from './onboarding-starter';
 import { showOnboardingWizard, wizardStepPending } from './onboarding-wizard';
 import { maybeAutoRefreshGames } from './auto-refresh';
 import { maybeShowGate } from './gate';
@@ -592,11 +592,27 @@ function setupMoveNav(): void {
 // onManualAdd so the still-visible list refreshes).
 function openMyGamesImport(onManualAdd?: () => void): void {
   openBuilderImport({
-    onLoadGame: (ucis, colour, description, gameId, endTime) =>
-      openImportedGame(ucis, colour, description, gameId, endTime),
+    onLoadGame: (ucis, colour, description, gameId, endTime, notes) =>
+      openImportedGame(ucis, colour, description, gameId, endTime, notes),
     onGamesChanged: () => { builderPanels?.reload(); },
     onManualAdd,
+    onSaveLines: saveImportedLines,
   });
+}
+
+// Save study chapters (or other seeds) straight to My Lines as un-enrolled
+// lines. Skips seeds that can't build a legal line; resolves with the count
+// actually saved.
+async function saveImportedLines(seeds: LineSeed[], colour: 'white' | 'black'): Promise<number> {
+  let saved = 0;
+  for (const seed of seeds) {
+    const line = lineFromUcis(seed, colour);
+    if (!line) continue;
+    await saveLine(line);
+    saved++;
+  }
+  if (saved > 0) builderPanels?.reloadLines();
+  return saved;
 }
 
 // Open a SAVED game (from the My games list) in the analyser. If it already has
@@ -695,8 +711,8 @@ function openPuzzleFromSession(req: PuzzleAnalyseRequest): void {
 // Grading is on demand — the Game tab's "Analyse game" button. gameId is set when
 // the game is in the store (so a later Save can attach the analysis, and so we can
 // read its rating/link for the "vs" line); a pasted PGN has none.
-function openImportedGame(ucis: string[], colour: 'white' | 'black', description?: string, gameId?: string, endTime?: number): void {
-  buildFromUcis(ucis, colour, [], { description, analyser: true, gameDate: endTime });
+function openImportedGame(ucis: string[], colour: 'white' | 'black', description?: string, gameId?: string, endTime?: number, notes?: Record<number, string>): void {
+  buildFromUcis(ucis, colour, [], { description, analyser: true, gameDate: endTime, notes });
   analyserGameId = gameId ?? null; // after build — clearBuilder resets it
   // A stored game carries the opponent rating + source link for the "vs" line.
   builderGameRating = undefined;
@@ -1952,20 +1968,23 @@ function buildFromUcis(
   ucis: string[],
   colour: 'white' | 'black',
   tags: string[] = [],
-  opts: { description?: string; analyser?: boolean; gameDate?: number } = {},
+  opts: { description?: string; analyser?: boolean; gameDate?: number; notes?: Record<number, string> } = {},
 ): void {
   clearBuilder(colour);
   currentTags = [...tags];
   builderDesc = opts.description ?? '';
   builderGameDate = formatGameDate(opts.gameDate);
   // Lay the game's moves down as a single main line first…
+  let ply = 0;
   for (const uci of ucis) {
     const from = uci.slice(0, 2);
     const to = uci.slice(2, 4);
     const promotion = (uci[4] as 'q' | 'r' | 'b' | 'n') || 'q';
     const result = chess.move({ from, to, promotion });
     if (!result) break; // stop on an illegal move rather than corrupt the tree
-    addMove(result.san, from + to + (result.promotion ?? ''), chess.fen());
+    const node = addMove(result.san, from + to + (result.promotion ?? ''), chess.fen());
+    const note = opts.notes?.[ply++];
+    if (note) node.note = note;
   }
   // …then, for the analyser, switch the tree to variation mode so any move the
   // user plays off the main line is kept as a branch rather than overwriting it.
@@ -2037,7 +2056,7 @@ function exploreScreenDeps() {
     onOpenInBuilder: (
       ucis: string[],
       colour: 'white' | 'black',
-      opts?: { description?: string },
+      opts?: { description?: string; notes?: Record<number, string> },
     ) => buildFromUcis(ucis, colour, [], opts),
     // The opponent "board browser" now opens the builder's Scouting tab.
     onScoutInBuilder: (opponentId: string) => scoutInBuilder(opponentId),
@@ -2114,19 +2133,20 @@ async function runImportLastGame(): Promise<void> {
 // watch-then-play confirm run; otherwise enrol directly). Shared by the Train
 // onboarding and the starter-pack picker opened from My Lines.
 function addStarterLine(
-  ucis: string[],
+  seed: LineSeed,
   colour: 'white' | 'black',
   learn: boolean,
   onDone: () => void,
   onCancel: () => void,
 ): void {
-  const line = lineFromUcis(ucis, colour);
+  const line = lineFromUcis(seed, colour);
   if (!line) { onCancel(); return; }
   if (learn) addLineToTraining(line, onDone, onCancel);
   else void enrolLineDirectly(line).then(onDone);
 }
 
-function lineFromUcis(ucis: string[], colour: 'white' | 'black'): Line | null {
+function lineFromUcis(seed: LineSeed | string[], colour: 'white' | 'black'): Line | null {
+  const { ucis, notes, plan, name } = Array.isArray(seed) ? { ucis: seed } as LineSeed : seed;
   const ch = new Chess();
   const root: MoveNode = { id: 'root', san: '', uci: '', fen: ch.fen(), children: [] };
   let cursor = root;
@@ -2144,14 +2164,19 @@ function lineFromUcis(ucis: string[], colour: 'white' | 'black'): Line | null {
     const node: MoveNode = {
       id: `n${++i}`, san: move.san, uci: from + to + (move.promotion ?? ''), fen, children: [],
     };
+    const note = notes?.[i - 1]; // note indices are 0-based plies
+    if (note) node.note = note;
     cursor.children.push(node);
     cursor = node;
   }
   if (root.children.length === 0) return null;
+  // The middlegame plan rides on the final move's note — the note card and the
+  // line's note sheet already surface it right where the line runs out.
+  if (plan) cursor.note = cursor.note ? `${cursor.note}\n\nPlan: ${plan}` : `Plan: ${plan}`;
   const opening = nameForPath(fens);
   return {
     id: crypto.randomUUID(),
-    name: opening ?? 'Untitled line',
+    name: name ?? opening ?? 'Untitled line',
     tags: [],
     colour,
     openingName: opening ?? null,

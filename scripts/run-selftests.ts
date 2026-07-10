@@ -30,6 +30,7 @@ import { runBrilliantSelfTest } from '../src/brilliant.selftest';
 import { runEndgameCatalogSelfTest } from '../src/endgame-catalog.selftest';
 import { runEndgameProgressSelfTest } from '../src/endgame-progress.selftest';
 import { runEndgameScanSelfTest } from '../src/endgame-scan.selftest';
+import { runStudyImportSelfTest } from '../src/study-import.selftest';
 
 interface TestResult { name: string; pass: boolean; detail: string }
 
@@ -58,6 +59,7 @@ const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'endgame-catalog', run: runEndgameCatalogSelfTest },
   { suite: 'endgame-progress', run: runEndgameProgressSelfTest },
   { suite: 'endgame-scan', run: runEndgameScanSelfTest },
+  { suite: 'study-import', run: runStudyImportSelfTest },
 ];
 
 let total = 0;
