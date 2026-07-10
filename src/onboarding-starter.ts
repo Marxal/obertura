@@ -107,7 +107,7 @@ export interface StarterDeps {
 let packsPromise: Promise<Pack[]> | null = null;
 export function loadPacks(): Promise<Pack[]> {
   if (!packsPromise) {
-    packsPromise = import('./starter-packs.json').then(m => (m.default ?? m) as Pack[]);
+    packsPromise = import('./starter-packs.json').then(m => (m.default ?? m) as unknown as Pack[]);
   }
   return packsPromise;
 }
@@ -400,7 +400,7 @@ function packCard(
   }
   body.appendChild(list);
 
-  const pending = pack.lines.filter(l => !isLineAdded(existing, l.ucis));
+  const pending = pack.lines.filter(l => !isLineAdded(existing, pack.colour, l.ucis));
   if (pending.length > 1) {
     const addAll = document.createElement('button');
     addAll.type = 'button';
@@ -410,7 +410,7 @@ function packCard(
       addAll.disabled = true;
       addAll.textContent = 'Adding…';
       void addSequentially(pending, pack.colour, deps).then(() => {
-        for (const l of pending) existing.push(l.ucis.join(' '));
+        for (const l of pending) existing.push(lineKey(pack.colour, l.ucis));
         repaint();
       });
     });
@@ -453,9 +453,9 @@ function packLineRow(
     sub: line.plan,
     fen: fenFromUcis(line.ucis),
     colour,
-    added: isLineAdded(existing, line.ucis),
+    added: isLineAdded(existing, colour, line.ucis),
     onAdd: () => deps.onAddLine(seedFromPackLine(line), colour, true, () => {
-      existing.push(line.ucis.join(' '));
+      existing.push(lineKey(colour, line.ucis));
       repaint();
     }, repaint),
   });
@@ -473,7 +473,7 @@ function suggestionRow(
     sub: `${stat.games} game${stat.games === 1 ? '' : 's'} · ${stat.scorePct}% score`,
     fen: fenFromUcis(stat.repUcis),
     colour: stat.colour,
-    added: isLineAdded(existing, stat.repUcis),
+    added: isLineAdded(existing, stat.colour, stat.repUcis),
     onAdd: () => deps.onAddLine({ ucis: stat.repUcis }, stat.colour, true, repaint, repaint),
   });
 }
@@ -571,17 +571,25 @@ function mainlineUcis(tree: MoveNode): string[] {
 }
 
 // "Is this line already in my repertoire?" — a curated/suggested line counts as
-// added when one line's mainline is a ply-prefix of the other (so depths can
-// differ). Full-length prefix matching (not a fixed-ply signature) keeps two
-// pack lines that diverge deep in the line from shadowing each other. The
-// `+ ' '` guard makes it a whole-ply prefix, never a mid-UCI string prefix.
-export function isLineAdded(existing: string[], ucis: string[]): boolean {
-  const s = ucis.join(' ');
-  if (!s) return false;
+// added when a saved line OF THE SAME COLOUR has a mainline that is a ply-prefix
+// of it (or vice versa — depths can differ). Full-length prefix matching (not a
+// fixed-ply signature) keeps two pack lines that diverge deep in the line from
+// shadowing each other; the colour key keeps the same moves in a White and a
+// Black pack from shadowing each other. The `+ ' '` guard makes it a whole-ply
+// prefix, never a mid-UCI string prefix.
+export function lineKey(colour: Colour, ucis: string[]): string {
+  return `${colour}:${ucis.join(' ')}`;
+}
+
+export function isLineAdded(existing: string[], colour: Colour, ucis: string[]): boolean {
+  if (ucis.length === 0) return false;
+  const s = lineKey(colour, ucis);
   return existing.some(e => e === s || e.startsWith(s + ' ') || s.startsWith(e + ' '));
 }
 
-// The saved lines' mainlines as joined-UCI strings, for isLineAdded.
-export function existingMainlines(lines: { tree: MoveNode }[]): string[] {
-  return lines.map(l => mainlineUcis(l.tree).join(' ')).filter(s => s.length > 0);
+// The saved lines' mainlines as colour-keyed joined-UCI strings, for isLineAdded.
+export function existingMainlines(lines: { colour: Colour; tree: MoveNode }[]): string[] {
+  return lines
+    .filter(l => mainlineUcis(l.tree).length > 0)
+    .map(l => lineKey(l.colour, mainlineUcis(l.tree)));
 }
