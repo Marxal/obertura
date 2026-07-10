@@ -42,7 +42,7 @@ import {
 import { loadTraps, trapCard } from './traps-screen';
 import { trapsForPairs, type TrapPack } from './traps';
 import { buildLearnTab } from './content-explore';
-import { loadPacks, type Pack } from './onboarding-starter';
+import { loadPacks, type Pack, type PackLine } from './onboarding-starter';
 import { wdlBlock, wdlScoreRow } from './wdl-bar';
 import { buildMoveStats } from './move-stats';
 import { createFilterBar, type FilterSelection } from './filters';
@@ -87,7 +87,7 @@ export interface ExploreDeps {
   onOpenInBuilder: (
     ucis: string[],
     colour: 'white' | 'black',
-    opts?: { description?: string },
+    opts?: { description?: string; notes?: Record<number, string> },
   ) => void;
   // Open the builder's Scouting tab on this opponent (the new "board browser").
   onScoutInBuilder: (opponentId: string) => void;
@@ -388,8 +388,11 @@ function buildPacksTab(
   return wrap;
 }
 
-function packLineCard(pack: Pack, line: { name: string; sans: string[]; ucis: string[] }): HTMLElement {
-  const build = () => exploreDeps?.onOpenInBuilder(line.ucis, pack.colour, { description: pack.blurb });
+function packLineCard(pack: Pack, line: PackLine): HTMLElement {
+  const build = () => exploreDeps?.onOpenInBuilder(line.ucis, pack.colour, {
+    description: line.plan ?? pack.blurb,
+    notes: line.notes as Record<number, string> | undefined,
+  });
 
   const { card, titleRow, content } = buildPositionCard({
     fen: fenFromUcis(line.ucis),
@@ -409,6 +412,13 @@ function packLineCard(pack: Pack, line: { name: string; sans: string[]; ucis: st
   movesEl.className = 'review-moves stat-card-note';
   movesEl.textContent = formatSanLine(line.sans);
   content.appendChild(movesEl);
+
+  if (line.plan) {
+    const planEl = document.createElement('div');
+    planEl.className = 'stat-card-note';
+    planEl.textContent = line.plan;
+    content.appendChild(planEl);
+  }
 
   const btn = document.createElement('button');
   btn.type = 'button';

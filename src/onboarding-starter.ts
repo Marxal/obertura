@@ -37,6 +37,12 @@ export interface PackLine {
   name: string;
   sans: string[];
   ucis: string[];
+  // Sparse per-move explanations: 0-based ply index (as a JSON string key) →
+  // note text. Shown as note cards during learn/drill.
+  notes?: Record<string, string>;
+  // One-paragraph middlegame plan for the line — what to do once the moves run
+  // out. Lands on the final move's note when the line is added.
+  plan?: string;
 }
 export interface Pack {
   id: string;
@@ -48,14 +54,36 @@ export interface Pack {
   lines: PackLine[];
 }
 
+// Everything needed to turn a move sequence into a saved Line: the moves, plus
+// optional per-ply notes, a middlegame plan, and a display name. The shared
+// currency between pack/suggestion pickers and main.ts's lineFromUcis.
+export interface LineSeed {
+  ucis: string[];
+  notes?: Record<number, string>; // 0-based ply index → note
+  plan?: string;
+  name?: string;
+}
+
+// A pack line as a LineSeed, ready for onAddLine. (JSON object keys are always
+// strings; numeric indexing works on them at runtime, so the cast is safe.)
+export function seedFromPackLine(line: PackLine): LineSeed {
+  return {
+    ucis: line.ucis,
+    notes: line.notes as Record<number, string> | undefined,
+    plan: line.plan,
+    name: line.name,
+  };
+}
+
 export interface StarterDeps {
   // Whether any games have been imported (decides which path leads).
   hasGames: boolean;
-  // Add a line's moves to training. learn=true takes the normal add path (a
-  // watch-then-play confirm run under the default pref); learn=false enrols it
-  // straight away. onDone fires once it's in; onCancel if the run was abandoned.
+  // Add a line (moves + optional notes/plan) to training. learn=true takes the
+  // normal add path (a watch-then-play confirm run under the default pref);
+  // learn=false enrols it straight away. onDone fires once it's in; onCancel if
+  // the run was abandoned.
   onAddLine: (
-    ucis: string[],
+    seed: LineSeed,
     colour: Colour,
     learn: boolean,
     onDone: () => void,
@@ -134,7 +162,7 @@ export function renderStarterOnboarding(container: HTMLElement, deps: StarterDep
 async function paint(root: HTMLElement, deps: StarterDeps): Promise<void> {
   const lines = await getAllLines();
   const inTraining = lines.filter(l => l.inTraining).length;
-  const existing = new Set(lines.map(l => sig(mainlineUcis(l.tree))));
+  const existing = existingMainlines(lines);
 
   // Games-based suggestions (only when there are games to learn from).
   let suggestions: OpeningStat[] = [];
@@ -239,7 +267,7 @@ export async function openStarterPackPicker(
   onAddLine: StarterDeps['onAddLine'],
 ): Promise<void> {
   const [packs, lines] = await Promise.all([loadPacks(), getAllLines()]);
-  const existing = new Set(lines.map(l => sig(mainlineUcis(l.tree))));
+  const existing = existingMainlines(lines);
   const deps: StarterDeps = {
     hasGames: false,
     onAddLine,
@@ -261,7 +289,7 @@ export async function openStarterPackPicker(
 // stays in sync across repaints without re-querying storage.
 function openPackPicker(
   packs: Pack[],
-  existing: Set<string>,
+  existing: string[],
   deps: StarterDeps,
   onAdded: () => void,
 ): void {
@@ -327,7 +355,7 @@ interface PackCtrl {
 
 function packCard(
   pack: Pack,
-  existing: Set<string>,
+  existing: string[],
   deps: StarterDeps,
   repaint: () => void,
 ): PackCtrl {
@@ -372,7 +400,7 @@ function packCard(
   }
   body.appendChild(list);
 
-  const pending = pack.lines.filter(l => !existing.has(sig(l.ucis)));
+  const pending = pack.lines.filter(l => !isLineAdded(existing, l.ucis));
   if (pending.length > 1) {
     const addAll = document.createElement('button');
     addAll.type = 'button';
@@ -382,7 +410,7 @@ function packCard(
       addAll.disabled = true;
       addAll.textContent = 'Adding…';
       void addSequentially(pending, pack.colour, deps).then(() => {
-        for (const l of pending) existing.add(sig(l.ucis));
+        for (const l of pending) existing.push(l.ucis.join(' '));
         repaint();
       });
     });
@@ -405,7 +433,7 @@ function packCard(
 // Add a batch of lines straight to training (no walkthrough), one after another.
 function addSequentially(lines: PackLine[], colour: Colour, deps: StarterDeps): Promise<void> {
   return lines.reduce(
-    (chain, l) => chain.then(() => new Promise<void>(res => deps.onAddLine(l.ucis, colour, false, res, res))),
+    (chain, l) => chain.then(() => new Promise<void>(res => deps.onAddLine(seedFromPackLine(l), colour, false, res, res))),
     Promise.resolve(),
   );
 }
@@ -415,18 +443,19 @@ function addSequentially(lines: PackLine[], colour: Colour, deps: StarterDeps): 
 function packLineRow(
   line: PackLine,
   colour: Colour,
-  existing: Set<string>,
+  existing: string[],
   deps: StarterDeps,
   repaint: () => void,
 ): HTMLElement {
   return lineRow({
     name: line.name,
     moves: formatSanLine(line.sans),
+    sub: line.plan,
     fen: fenFromUcis(line.ucis),
     colour,
-    added: existing.has(sig(line.ucis)),
-    onAdd: () => deps.onAddLine(line.ucis, colour, true, () => {
-      existing.add(sig(line.ucis));
+    added: isLineAdded(existing, line.ucis),
+    onAdd: () => deps.onAddLine(seedFromPackLine(line), colour, true, () => {
+      existing.push(line.ucis.join(' '));
       repaint();
     }, repaint),
   });
@@ -434,7 +463,7 @@ function packLineRow(
 
 function suggestionRow(
   stat: OpeningStat,
-  existing: Set<string>,
+  existing: string[],
   deps: StarterDeps,
   repaint: () => void,
 ): HTMLElement {
@@ -444,8 +473,8 @@ function suggestionRow(
     sub: `${stat.games} game${stat.games === 1 ? '' : 's'} · ${stat.scorePct}% score`,
     fen: fenFromUcis(stat.repUcis),
     colour: stat.colour,
-    added: existing.has(sig(stat.repUcis)),
-    onAdd: () => deps.onAddLine(stat.repUcis, stat.colour, true, repaint, repaint),
+    added: isLineAdded(existing, stat.repUcis),
+    onAdd: () => deps.onAddLine({ ucis: stat.repUcis }, stat.colour, true, repaint, repaint),
   });
 }
 
@@ -541,9 +570,18 @@ function mainlineUcis(tree: MoveNode): string[] {
   return out;
 }
 
-// A stable signature for "is this line already in my repertoire": the opening's
-// first several plies. Matches a curated/suggested line against a saved one even
-// if one runs a little deeper than the other.
-function sig(ucis: string[]): string {
-  return ucis.slice(0, 8).join(' ');
+// "Is this line already in my repertoire?" — a curated/suggested line counts as
+// added when one line's mainline is a ply-prefix of the other (so depths can
+// differ). Full-length prefix matching (not a fixed-ply signature) keeps two
+// pack lines that diverge deep in the line from shadowing each other. The
+// `+ ' '` guard makes it a whole-ply prefix, never a mid-UCI string prefix.
+export function isLineAdded(existing: string[], ucis: string[]): boolean {
+  const s = ucis.join(' ');
+  if (!s) return false;
+  return existing.some(e => e === s || e.startsWith(s + ' ') || s.startsWith(e + ' '));
+}
+
+// The saved lines' mainlines as joined-UCI strings, for isLineAdded.
+export function existingMainlines(lines: { tree: MoveNode }[]): string[] {
+  return lines.map(l => mainlineUcis(l.tree).join(' ')).filter(s => s.length > 0);
 }
