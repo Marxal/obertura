@@ -83,8 +83,9 @@ export interface DrillOptions {
   sessionProgress?: { completed: number; total: number };
 }
 
-// A single ply to auto-play (animated) between the user's moves.
-interface Ply { uci: string; fen: string; }
+// A single ply to auto-play (animated) between the user's moves. `note` rides
+// along so the watch-first pass can show the move's explanation as it plays.
+interface Ply { uci: string; fen: string; note?: string; }
 
 // One thing the user has to play: the board sits at `preFen`, they must play
 // `expected`. `replies` are the plies auto-played afterwards (line mode keeps
@@ -154,7 +155,7 @@ export function startDrill(line: Line, opts: DrillOptions): void {
 
   const userColour = line.colour;
   const isUser = (i: number) => (userColour === 'white' ? i % 2 === 0 : i % 2 === 1);
-  const ply = (n: MoveNode): Ply => ({ uci: n.uci, fen: n.fen });
+  const ply = (n: MoveNode): Ply => ({ uci: n.uci, fen: n.fen, note: n.note });
 
   // Leading opponent moves before the user gets to play (a Black line opens
   // with White's move).
@@ -1044,12 +1045,19 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
 
   // Auto-play a run of plies (opponent replies / opening lead-in / watch-first
   // warm-up), animated. `delay` is the gap before each move (default 700 ms);
-  // the watch-first pass passes the user's watch-speed instead.
-  function animatePlies(plies: Ply[], done: () => void, delay = 700): void {
+  // the watch-first pass passes the user's watch-speed instead. With
+  // `showNotes` (watch-first only), a ply's note pops up as its move plays —
+  // the teaching moment — and the next move waits long enough to read it.
+  function animatePlies(plies: Ply[], done: () => void, delay = 700, showNotes = false): void {
     let k = 0;
+    let readingTime = 0; // extra hold after a ply that showed a note
     function step(): void {
       if (isCleaned) return;
-      if (k >= plies.length) { done(); return; }
+      if (k >= plies.length) {
+        if (readingTime > 0) { autoTimer = setTimeout(() => { if (!isCleaned) done(); }, readingTime); }
+        else done();
+        return;
+      }
       const p = plies[k++];
       autoTimer = setTimeout(() => {
         if (isCleaned) return;
@@ -1062,8 +1070,17 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
           movable: { color: undefined, dests: new Map() },
           lastMove: [from, to],
         });
+        if (showNotes) {
+          if (p.note) {
+            showNoteCard(p.note);
+            readingTime = Math.min(3500, 900 + p.note.length * 25);
+          } else {
+            hideNoteCard();
+            readingTime = 0;
+          }
+        }
         step();
-      }, delay);
+      }, delay + readingTime);
     }
     step();
   }
@@ -1175,9 +1192,11 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     });
     setStatus('Watch the line once', 'pt-status--prompt');
     animatePlies(watchPlies, () => {
-      // Hold on the final position for a beat, then reset and start the quiz.
+      // Hold on the final position for a beat (animatePlies already added
+      // reading time when the last move carried a note), then reset and start
+      // the quiz.
       autoTimer = setTimeout(() => { if (!isCleaned) beginRun(); }, opts.watchFirstMs! + 300);
-    }, opts.watchFirstMs);
+    }, opts.watchFirstMs, true);
   } else {
     beginRun();
   }
