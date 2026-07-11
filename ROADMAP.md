@@ -646,6 +646,58 @@ _On `claude/lichess-engine-limits-ay1fnw`. Restore point: `v0.4`._
 
 ---
 
+## v0.16 — engine un-sticking & Lichess studies in Packs 🔜
+
+The "Analyzing… forever" fix, a study browser inside Packs, and a scannable
+Packs layout.
+
+- ✅ **Engine can't get stuck on "Analyzing…" any more** — browsing moves could
+  leave the eval panel waiting forever until the engine was toggled off/on.
+  Four holes closed in `engine.ts`: the Lichess cloud request now has a hard
+  2.5 s timeout (a mobile connection that dies silently used to hang the
+  fetch — and the whole evaluation — indefinitely); a superseded search's
+  `bestmove` can no longer clear the watchdog guarding the LIVE search (it
+  re-arms while any search is still owed an answer); a failed worker rebuild
+  inside the debounce window is now deferred instead of dropped (dropping it
+  stranded a dead worker that every later evaluation queued behind forever);
+  and a worker that never finishes booting gets its own 20 s deadline. Plus:
+  finished positions (a trap line's final checkmate) now show "Checkmate" /
+  "Draw" instead of analysing a position with no moves, and a superseded
+  cloud request can't be miscounted as a cloud failure.
+- ✅ **Lichess studies inside Packs** — a "Lichess studies" section on the
+  Packs tab: search popular opening studies and get **"Recommended for your
+  repertoire"** picks ranked from your saved lines' openings (weight 3) and
+  your imported games' apertures (weight 1). Lichess has no CORS-enabled
+  study-search API, so search runs over a bundled index of the most-liked
+  studies per opening family (~250 studies, 57 KB, lazy-loaded), built by
+  `npm run build-study-index` — which also probes every entry's PGN export
+  and drops author-locked studies. Importing fetches the study live and opens
+  the chapter sheet; any study not in the catalogue still imports by link
+  from the board's Import menu, as before.
+- ✅ **Study parser survives real-world chapters** — two Lichess-export quirks
+  used to silently kill whole chapters in the existing import-by-link flow
+  (chess.js accepts neither ADJACENT comment blocks — `{ prose } { [%csl … ] }`
+  — nor blank lines inside a comment; 6 of the 7 chapters of the most popular
+  Caro-Kann study failed). Both are normalised away before parsing, with
+  selftests pinned on them.
+- ✅ **Study chapters import tagged and annotated** — chapters now save tagged
+  with the study's title (shortened at a word boundary to ≤28 chars, emoji
+  wrapping stripped) so they group under one chip in My Lines; the author's
+  intro comment (the text before move one) shows at the top of the import
+  sheet above the chapter/moves list and rides into the first move's note;
+  chapter names use the export's ChapterName header. One shared chapter sheet
+  (`study-sheet.ts`) now serves both the board's Import menu and the Packs
+  browser.
+- ✅ **Packs tab reads as a list, not a wall** — each starter pack is a
+  collapsed accordion card (colour pip, title, level · style · line count);
+  traps collapse into one "Traps" card with relevance-sorted contents. Line
+  cards only render when a pack is opened, which also cuts the tab's initial
+  render cost (no more building every board miniature up front).
+
+_On `claude/engine-lichess-study-features-2lwmtb`. Restore point: `v0.4`._
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

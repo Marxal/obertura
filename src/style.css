@@ -13129,3 +13129,90 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   text-decoration: none;
 }
 .learn-exact:active { background: var(--accent-soft); }
+
+/* ── Packs tab: collapsed pack accordions + Lichess study browser ─────────── */
+/* The pack accordions reuse the onboarding picker's .onb-pack look; only the
+   layout glue and the study browser need their own rules. */
+.packs-list { margin-top: 0.6rem; }
+.onb-pack-title { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
+.onb-pack-title .colour-pip { flex: 0 0 auto; width: 12px; height: 12px; }
+.packs-studies-title { margin-top: 1.4rem; }
+
+.study-search {
+  width: 100%;
+  margin: 0.5rem 0 0.7rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  background: var(--bg-card);
+  color: inherit;
+  font: inherit;
+  font-size: 0.9rem;
+}
+.study-search:focus { outline: none; border-color: var(--accent); }
+.study-list-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0.2rem 0 0.5rem;
+}
+.study-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  background: var(--bg-card);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.study-card:active { background: var(--accent-soft); }
+.study-card-text { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 1px; }
+.study-card-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.study-card-sub { font-size: 0.78rem; color: var(--text-faint); }
+.study-card-family { font-size: 0.74rem; color: var(--text-muted); }
+.study-card-chev { flex: 0 0 auto; color: var(--text-faint); }
+.study-foot-note {
+  margin-top: 0.7rem;
+  font-size: 0.74rem;
+  color: var(--text-faint);
+  line-height: 1.45;
+}
+
+/* Study import sheet: intro comments and the grouping-tag note. */
+.bimport-study-intro {
+  margin: 0 0 0.35rem;
+  padding: 0.55rem 0.7rem;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  background: var(--accent-soft);
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  white-space: pre-line;
+}
+.bimport-chapter-intro {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+.bimport-tag-note { margin: 0.15rem 0 0; font-size: 0.76rem; }

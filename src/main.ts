@@ -2060,6 +2060,8 @@ function exploreScreenDeps() {
     ) => buildFromUcis(ucis, colour, [], opts),
     // The opponent "board browser" now opens the builder's Scouting tab.
     onScoutInBuilder: (opponentId: string) => scoutInBuilder(opponentId),
+    // The Packs tab's Lichess-study browser saves chapters straight to My Lines.
+    onSaveLines: saveImportedLines,
   };
 }
 
@@ -2146,7 +2148,7 @@ function addStarterLine(
 }
 
 function lineFromUcis(seed: LineSeed | string[], colour: 'white' | 'black'): Line | null {
-  const { ucis, notes, plan, name } = Array.isArray(seed) ? { ucis: seed } as LineSeed : seed;
+  const { ucis, notes, plan, name, tags } = Array.isArray(seed) ? { ucis: seed } as LineSeed : seed;
   const ch = new Chess();
   const root: MoveNode = { id: 'root', san: '', uci: '', fen: ch.fen(), children: [] };
   let cursor = root;
@@ -2177,7 +2179,7 @@ function lineFromUcis(seed: LineSeed | string[], colour: 'white' | 'black'): Lin
   return {
     id: crypto.randomUUID(),
     name: name ?? opening ?? 'Untitled line',
-    tags: [],
+    tags: tags ?? [],
     colour,
     openingName: opening ?? null,
     confidence: 0,

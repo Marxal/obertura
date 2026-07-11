@@ -717,8 +717,9 @@ function explorerCounts(c: ExplorerCounts, colour: 'white' | 'black'): WdlCounts
 }
 
 // Compact a games total so big Lichess counts fit the row: 276500000 → "276M",
-// 12400 → "12.4K". Keeps small counts (masters, deep lines) exact.
-function compactCount(n: number): string {
+// 12400 → "12.4K". Keeps small counts (masters, deep lines) exact. Also used
+// for study like-counts in the Packs browser (study-browser.ts).
+export function compactCount(n: number): string {
   if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
   if (n >= 1e4) return (n / 1e3).toFixed(0) + 'K';
   if (n >= 1e3) return (n / 1e3).toFixed(1).replace(/\.0$/, '') + 'K';

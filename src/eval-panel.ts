@@ -154,6 +154,28 @@ export class EvalPanel {
   update(result: EvalResult, fen: string) {
     if (!this._enabled || result.fen !== fen) return;
 
+    // A finished position: no candidate moves exist, so say so instead of
+    // leaving "Analyzing…" up. Checkmate pins the bar to the winner (the side
+    // NOT to move); a draw/stalemate centres it.
+    if (result.gameOver) {
+      const mate = result.gameOver === 'checkmate';
+      const whiteWins = mate && fen.split(' ')[1] === 'b';
+      this.barEl.querySelector<HTMLElement>('#eval-bar-fill')!.style.width =
+        mate ? (whiteWins ? '100%' : '0%') : '50%';
+      this.barEl.querySelector<HTMLElement>('#eval-score')!.textContent = mate ? '#' : '½';
+      this.controlsEl.querySelector<HTMLElement>('#eval-moves')!.innerHTML =
+        `<span class="eval-waiting">${mate ? 'Checkmate' : 'Draw'}</span>`;
+      const sourceEl = this.controlsEl.querySelector<HTMLElement>('#eval-source')!;
+      sourceEl.textContent = '';
+      // Settle any cloud-warning state too — this result ends the evaluation,
+      // so a lingering "retrying…" chip must not sit on top of "Checkmate".
+      sourceEl.hidden = false;
+      const warn = this.controlsEl.querySelector<HTMLButtonElement>('#eval-cloud-warn');
+      if (warn) warn.hidden = true;
+      this.retrying = false;
+      return;
+    }
+
     const top = result.moves[0];
     if (!top) return;
 
