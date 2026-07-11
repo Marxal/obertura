@@ -108,10 +108,18 @@ export function openingFamily(name: string | null): string {
 // bundled dataset keeps them ("Queen's Gambit") — and British/American
 // spellings differ. Comparing keys instead of display names lets a saved line
 // find its opening's game stats regardless of where each name came from.
+// The bare normalisation step of familyKey, shared with the study catalogue's
+// free-text search (study-catalog.ts) so "what counts as the same family name"
+// lives in exactly one place. scripts/build-study-index.mjs mirrors it (plain
+// Node, can't import TS) — keep the two in step.
+export function normalizeFamilyText(s: string): string {
+  return s.toLowerCase().replace(/['’]/g, '').replace(/defence/g, 'defense');
+}
+
 export function familyKey(name: string | null): string {
   const family = openingFamily(name);
   if (family === UNKNOWN_FAMILY) return UNKNOWN_FAMILY;
-  return family.toLowerCase().replace(/['’]/g, '').replace(/defence/g, 'defense');
+  return normalizeFamilyText(family);
 }
 
 function scorePct(wins: number, draws: number, games: number): number {

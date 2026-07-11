@@ -42,7 +42,8 @@ import {
 import { loadTraps, trapCard } from './traps-screen';
 import { trapsForPairs, type TrapPack } from './traps';
 import { buildLearnTab } from './content-explore';
-import { loadPacks, type Pack, type PackLine } from './onboarding-starter';
+import { loadPacks, type Pack, type PackLine, type LineSeed } from './onboarding-starter';
+import { buildStudySection } from './study-browser';
 import { wdlBlock, wdlScoreRow } from './wdl-bar';
 import { buildMoveStats } from './move-stats';
 import { createFilterBar, type FilterSelection } from './filters';
@@ -91,6 +92,9 @@ export interface ExploreDeps {
   ) => void;
   // Open the builder's Scouting tab on this opponent (the new "board browser").
   onScoutInBuilder: (opponentId: string) => void;
+  // Save imported study chapters straight to My Lines (the Packs tab's Lichess
+  // study browser). Resolves with how many were actually saved.
+  onSaveLines: (seeds: LineSeed[], colour: 'white' | 'black') => Promise<number>;
 }
 
 let exploreDeps: ExploreDeps | null = null;
@@ -199,7 +203,10 @@ function exploreTabsSection(
   wrap.className = 'lines-try';
 
   const recommended = buildRecommendedTab(games, lines, container);
-  const packsTab = buildPacksTab(starterPacks, trapPacks, games, lines);
+  // Built on first visit, then reused: the Packs body is heavy enough (traps
+  // relevance analysis + the lazily-fetched study catalogue) that it shouldn't
+  // pay its cost when Explore opens onto Recommended and never leaves it.
+  let packsTab: HTMLElement | null = null;
 
   // Default to Recommended when it has real picks, else Packs (always populated).
   if (exploreTab === null) {
@@ -213,7 +220,7 @@ function exploreTabsSection(
 
   const tabEl = (tab: ExploreTab): HTMLElement => {
     if (tab === 'recommended') return recommended.el;
-    if (tab === 'packs') return packsTab;
+    if (tab === 'packs') return (packsTab ??= buildPacksTab(starterPacks, trapPacks, games, lines));
     if (tab === 'learn') {
       return buildLearnTab(lines, () => exploreDeps?.onOpenInBuilder([], 'white'));
     }
@@ -312,13 +319,18 @@ function normalizePackLevel(level: string): string {
   return level === 'Easy to learn' ? 'Beginner' : level;
 }
 
-// The Packs tab body: curated starter packs (themed sets, each its own titled
-// group) plus curated traps (a flat, relevance-sorted pool) — behind one
-// All / White / Black + tag filter bar. Tags are skill level (Beginner /
-// Intermediate / Advanced) plus a "Traps" content-type tag, OR-matched like
-// every other tag filter in the app. Traps in the families you play float to
-// the top within their group (best-effort relevance); building a trap carries
-// its bait/idea into the builder as a description.
+// The Packs tab body, three scannable layers:
+//   1. Curated starter packs — one COLLAPSED accordion card per pack (title,
+//      colour, level · style · line count at a glance; the line cards only
+//      render when a pack is opened, so the tab reads as a short list instead
+//      of a wall of every line in every pack).
+//   2. Traps — one accordion card holding the flat, relevance-sorted pool
+//      (traps in the families you play float to the top).
+//   3. Lichess studies — the offline study catalogue: search + picks for your
+//      repertoire, imported live as tagged lines (study-browser.ts).
+// Packs and traps sit behind the All / White / Black + tag filter bar. Tags
+// are skill level (Beginner / Intermediate / Advanced) plus a "Traps"
+// content-type tag, OR-matched like every other tag filter in the app.
 function buildPacksTab(
   starterPacks: Pack[],
   trapPacks: TrapPack[],
@@ -328,7 +340,7 @@ function buildPacksTab(
   const wrap = document.createElement('div');
   const desc = document.createElement('p');
   desc.className = 'section-desc';
-  desc.textContent = 'Curated packs and traps — pick one and build a line from it.';
+  desc.textContent = 'Curated packs and traps — open one and build a line from it.';
   wrap.appendChild(desc);
 
   const buildTrap = (ucis: string[], colour: 'white' | 'black', description: string) =>
@@ -351,7 +363,7 @@ function buildPacksTab(
   );
 
   const list = document.createElement('div');
-  list.className = 'group';
+  list.className = 'onb-packs packs-list';
 
   const renderList = (sel: FilterSelection): void => {
     list.innerHTML = '';
@@ -370,10 +382,32 @@ function buildPacksTab(
       return;
     }
     for (const pack of matchingPacks) {
-      list.appendChild(reportGroup(pack.title, pack.lines.map(line => packLineCard(pack, line))));
+      list.appendChild(packAccordion({
+        title: pack.title,
+        meta: `${normalizePackLevel(pack.level)} · ${pack.style} · ${pack.lines.length} lines`,
+        colour: pack.colour,
+        buildBody: () => {
+          const blurb = document.createElement('p');
+          blurb.className = 'onb-pack-blurb';
+          blurb.textContent = pack.blurb;
+          const cards = document.createElement('div');
+          cards.className = 'group';
+          for (const line of pack.lines) cards.appendChild(packLineCard(pack, line));
+          return [blurb, cards];
+        },
+      }));
     }
     if (matchingTraps.length > 0) {
-      list.appendChild(reportGroup('Traps', matchingTraps.map(x => trapCard(x.trap, x.colour, buildTrap))));
+      list.appendChild(packAccordion({
+        title: 'Traps',
+        meta: `${matchingTraps.length} sneaky wins — ones in your openings first`,
+        buildBody: () => {
+          const cards = document.createElement('div');
+          cards.className = 'group';
+          for (const x of matchingTraps) cards.appendChild(trapCard(x.trap, x.colour, buildTrap));
+          return [cards];
+        },
+      }));
     }
   };
 
@@ -385,7 +419,79 @@ function buildPacksTab(
   wrap.appendChild(filter.element);
   wrap.appendChild(list);
   renderList(filter.selection);
+
+  // Lichess studies — its own titled section under the curated material. Not
+  // part of the colour/level filter: studies are per-opening, not per-colour.
+  const studiesTitle = document.createElement('div');
+  studiesTitle.className = 'section-title packs-studies-title';
+  studiesTitle.textContent = 'Lichess studies';
+  wrap.appendChild(studiesTitle);
+  wrap.appendChild(buildStudySection({
+    lines,
+    games,
+    onSaveLines: (seeds, colour) =>
+      exploreDeps ? exploreDeps.onSaveLines(seeds, colour) : Promise.resolve(0),
+  }));
+
   return wrap;
+}
+
+// One collapsed, tappable card for the Packs list — title + one meta line to
+// scan; the body only renders on first open (each pack holds several position
+// cards with board miniatures, so building them all up front made the tab a
+// heavy wall). Reuses the onboarding pack-picker's accordion look.
+function packAccordion(o: {
+  title: string;
+  meta: string;
+  colour?: 'white' | 'black';
+  buildBody: () => HTMLElement[];
+}): HTMLElement {
+  const card = document.createElement('div');
+  card.className = 'onb-pack';
+
+  const head = document.createElement('button');
+  head.type = 'button';
+  head.className = 'onb-pack-head';
+  head.setAttribute('aria-expanded', 'false');
+
+  const titles = document.createElement('span');
+  titles.className = 'onb-pack-titles';
+  const title = document.createElement('span');
+  title.className = 'onb-pack-title';
+  if (o.colour) title.appendChild(colourPip(o.colour));
+  title.appendChild(document.createTextNode(o.title));
+  titles.appendChild(title);
+  const meta = document.createElement('span');
+  meta.className = 'onb-pack-meta';
+  meta.textContent = o.meta;
+  titles.appendChild(meta);
+  head.appendChild(titles);
+
+  const chev = document.createElement('span');
+  chev.className = 'onb-pack-chev';
+  chev.setAttribute('aria-hidden', 'true');
+  chev.appendChild(Icons.chevronRight(18));
+  head.appendChild(chev);
+
+  const body = document.createElement('div');
+  body.className = 'onb-pack-body';
+  body.hidden = true;
+
+  let built = false;
+  head.addEventListener('click', () => {
+    const open = body.hidden;
+    if (open && !built) {
+      built = true;
+      for (const el of o.buildBody()) body.appendChild(el);
+    }
+    body.hidden = !open;
+    head.classList.toggle('onb-pack-head--open', open);
+    head.setAttribute('aria-expanded', String(open));
+  });
+
+  card.appendChild(head);
+  card.appendChild(body);
+  return card;
 }
 
 function packLineCard(pack: Pack, line: PackLine): HTMLElement {

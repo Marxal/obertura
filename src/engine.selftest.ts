@@ -7,7 +7,7 @@
 // runtime exactly, as in openings.selftest.ts.
 
 import { Chess } from 'chess.js';
-import { resolveUci } from './engine';
+import { resolveUci, gameOverResult } from './engine';
 import type { TestResult } from './selftest-panel';
 
 function fenAfter(sans: string[]): string {
@@ -59,6 +59,16 @@ export function runEngineSelfTest(): TestResult[] {
   //    position) must NOT be conjured into a phantom O-O — it returns null.
   const r5 = resolveUci(START, 'e1h1');
   check('a blocked king-to-rook move is not a phantom castle', r5 === null, String(r5));
+
+  // 6. Finished positions synthesise a result instead of searching (the panel
+  //    used to wait on "Analyzing…" forever at the end of a mating line).
+  const mate = fenAfter(['f3', 'e5', 'g4', 'Qh4#']); // fool's mate — White is mated
+  const over = gameOverResult(mate);
+  check('checkmate yields a game-over result', over?.gameOver === 'checkmate' && over.moves.length === 0, JSON.stringify(over));
+  const stale = new Chess('7k/5Q2/6K1/8/8/8/8/8 b - - 0 1'); // stalemate, Black to move
+  const drawn = gameOverResult(stale.fen());
+  check('stalemate yields a draw result', drawn?.gameOver === 'draw', JSON.stringify(drawn));
+  check('a live position yields null', gameOverResult(START) === null, 'null expected');
 
   return results;
 }

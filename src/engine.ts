@@ -23,6 +23,10 @@ export interface EvalResult {
   // badge can show "local · d14…d20" while it works.
   targetDepth?: number;
   moves: MoveEval[];
+  // Set when the position is FINISHED (mating lines end on one): there are no
+  // moves to search, so this result is synthesised instead of engine output —
+  // without it the panel waited on "Analyzing…" forever at a mate.
+  gameOver?: 'checkmate' | 'draw';
 }
 
 export type EvalCallback = (result: EvalResult) => void;
@@ -33,6 +37,14 @@ const LICHESS_CLOUD = 'https://lichess.org/api/cloud-eval';
 // If the live Engine's worker goes this long without any output after a search
 // was issued, treat it as wedged and rebuild it (see Engine.recoverWorker).
 const ENGINE_WATCHDOG_MS = 6000;
+// How long a fresh worker gets to finish its UCI handshake (downloading +
+// compiling the WASM on a slow phone) before it's declared stuck and rebuilt.
+const ENGINE_BOOT_MS = 20000;
+// Debounce between worker rebuilds, and how many consecutive rebuilds to try
+// before giving up until the next evaluate() (so a permanently missing engine
+// file can't spin a rebuild loop in the background forever).
+const RECOVER_DEBOUNCE_MS = 3000;
+const MAX_RECOVER_ATTEMPTS = 5;
 // Cap a single review search so one stuck position can't stall the whole chain.
 const REVIEW_TIMEOUT_MS = 6000;
 
@@ -306,6 +318,24 @@ function sideToMove(fen: string): 'w' | 'b' {
   return fen.split(' ')[1] as 'w' | 'b';
 }
 
+// A synthesised EvalResult for a position with no game left in it, or null
+// while play continues (or the FEN can't be read — let the engine try).
+export function gameOverResult(fen: string): EvalResult | null {
+  try {
+    const ch = new Chess(fen);
+    if (!ch.isGameOver()) return null;
+    return {
+      fen,
+      source: 'stockfish',
+      depth: 0,
+      moves: [],
+      gameOver: ch.isCheckmate() ? 'checkmate' : 'draw',
+    };
+  } catch {
+    return null;
+  }
+}
+
 // Normalise a UCI side-to-move centipawn value to white's perspective.
 function normCp(cp: number, side: 'w' | 'b'): number {
   return side === 'w' ? cp : -cp;
@@ -549,9 +579,23 @@ export class Engine {
   // live search and wedging Stockfish (AUDIT 1.3 / the intermittent freeze).
   private gen = 0;
   // Self-heal: if a search produces no output for ENGINE_WATCHDOG_MS the worker
-  // is assumed wedged and rebuilt. `lastRecover` debounces against a hot loop.
+  // is assumed wedged and rebuilt. `lastRecover` debounces against a hot loop;
+  // `recoverTimer` holds a deferred recovery scheduled inside the debounce
+  // window (dropping it outright used to strand a dead worker forever — every
+  // later evaluate() parked on pendingFen waiting for a readyok that could
+  // never come, and only toggling the engine off/on kicked it loose).
   private watchdog: ReturnType<typeof setTimeout> | null = null;
   private lastRecover = 0;
+  private recoverTimer: ReturnType<typeof setTimeout> | null = null;
+  private recoverAttempts = 0;
+  // The UCI handshake gets its own deadline: a worker that never says readyok
+  // (stalled WASM download, crashed compile) would otherwise hold pendingFen
+  // hostage with no watchdog running, since runSF() hasn't armed one yet.
+  private bootTimer: ReturnType<typeof setTimeout> | null = null;
+  // How many `go` commands haven't produced their `bestmove` yet. A superseded
+  // search's bestmove (its reply to our `stop`) must not clear the watchdog
+  // that guards the LIVE search — with the counter we re-arm instead.
+  private awaitedBestmoves = 0;
   private _enabled: boolean;
   private cb: EvalCallback;
   private baseUrl: string;
@@ -571,6 +615,7 @@ export class Engine {
   enable() {
     this._enabled = true;
     localStorage.setItem(this.storageKey, 'true');
+    this.recoverAttempts = 0; // a fresh toggle earns a fresh set of rebuild tries
     if (!this.worker) this.initWorker();
   }
 
@@ -584,20 +629,32 @@ export class Engine {
     const url = `${this.baseUrl}engine/stockfish.js`;
     try {
       this.worker = new Worker(url);
+      this.awaitedBestmoves = 0;
       this.worker.onmessage = (e: MessageEvent<string>) => this.onMsg(e.data);
       this.worker.onerror = (e) => { console.error('[engine] worker error', e); this.recoverWorker(); };
       // UCI handshake — setoption before isready is fine; engine queues commands.
       this.worker.postMessage('uci');
       this.worker.postMessage('setoption name MultiPV value 3');
       this.worker.postMessage('isready');
+      this.clearBootTimer();
+      this.bootTimer = setTimeout(() => this.recoverWorker(), ENGINE_BOOT_MS);
     } catch (err) {
       console.error('[engine] failed to start worker', err);
     }
   }
 
+  private clearBootTimer() {
+    if (this.bootTimer) { clearTimeout(this.bootTimer); this.bootTimer = null; }
+  }
+
   private onMsg(msg: string) {
     if (msg === 'readyok') {
       this.workerReady = true;
+      this.clearBootTimer();
+      // A recovery deferred inside the debounce window is now moot — the
+      // worker just proved itself; letting it fire would tear down a healthy
+      // worker mid-search for no reason.
+      if (this.recoverTimer) { clearTimeout(this.recoverTimer); this.recoverTimer = null; }
       if (this.pendingFen) {
         this.runSF(this.pendingFen);
         this.pendingFen = null;
@@ -605,11 +662,21 @@ export class Engine {
       return;
     }
     if (msg.startsWith('info') && msg.includes('multipv') && msg.includes(' pv ')) {
+      // Real search output is the health signal that refunds the rebuild
+      // budget. (Resetting on readyok instead let a worker that handshakes
+      // fine but wedges on every `go` bypass MAX_RECOVER_ATTEMPTS and rebuild
+      // in a loop forever.)
+      this.recoverAttempts = 0;
       this.armWatchdog();  // progress — worker is alive, keep waiting
       this.parseInfo(msg);
     }
     if (msg.startsWith('bestmove')) {
-      this.clearWatchdog();  // search finished
+      this.awaitedBestmoves = Math.max(0, this.awaitedBestmoves - 1);
+      // Only the LAST outstanding search's bestmove means "done". An earlier
+      // search that we stopped answers with its own bestmove too; clearing the
+      // watchdog on it would leave the live search unguarded, so keep it armed.
+      if (this.awaitedBestmoves === 0) this.clearWatchdog();
+      else this.armWatchdog();
       this.emit();
     }
   }
@@ -626,17 +693,34 @@ export class Engine {
   }
 
   // Tear down a wedged/crashed worker and rebuild it, re-issuing the current
-  // search once it's ready so the eval panel heals without a page reload. Debounced
-  // so a worker that errors on construction can't spin in a tight loop.
+  // search once it's ready so the eval panel heals without a page reload.
+  // Rebuilds are debounced, but a recovery landing inside the window is
+  // DEFERRED, not dropped — dropping it left a dead worker (non-null,
+  // never-ready) that every later evaluate() parked pendingFen on forever.
+  // Consecutive failed rebuilds are capped; the next evaluate()/enable()
+  // resets the budget, so retries stay user-paced instead of looping.
   private recoverWorker() {
     this.clearWatchdog();
+    this.clearBootTimer();
     const now = Date.now();
-    if (now - this.lastRecover < 3000) return;
+    const wait = this.lastRecover + RECOVER_DEBOUNCE_MS - now;
+    if (wait > 0) {
+      if (!this.recoverTimer) {
+        this.recoverTimer = setTimeout(() => {
+          this.recoverTimer = null;
+          this.recoverWorker();
+        }, wait);
+      }
+      return;
+    }
     this.lastRecover = now;
     this.worker?.terminate();
     this.worker = null;
     this.workerReady = false;
+    this.awaitedBestmoves = 0;
     if (!this._enabled || !this.currentFen) return;
+    if (this.recoverAttempts >= MAX_RECOVER_ATTEMPTS) return;
+    this.recoverAttempts++;
     this.pendingFen = this.currentFen;  // runs when the rebuilt worker signals readyok
     this.initWorker();
   }
@@ -677,6 +761,17 @@ export class Engine {
     this.cancel();
     this.currentFen = fen;
     this.multiPv.clear();
+    this.recoverAttempts = 0; // fresh user intent → fresh rebuild budget
+
+    // A finished position (checkmate / stalemate / dead draw) has nothing to
+    // search — neither the cloud nor Stockfish will ever answer it. Drop any
+    // position still parked for a booting worker too: the user has moved on.
+    const over = gameOverResult(fen);
+    if (over) {
+      this.pendingFen = null;
+      this.cb(over);
+      return;
+    }
 
     const lichessResult = await this.tryLichess(fen);
     if (myGen !== this.gen) return;  // a newer evaluate() superseded us mid-fetch
@@ -697,17 +792,28 @@ export class Engine {
 
   private async tryLichess(fen: string): Promise<EvalResult | null> {
     if (!cloudOpen()) return null;
-    this.abortCtrl = new AbortController();
+    // One controller per attempt, captured locally: cancel() aborts it when a
+    // newer evaluate() supersedes this one, and the timer aborts a HUNG fetch.
+    // Without the timer, a mobile connection that silently dies mid-request
+    // left this await pending forever — the panel stuck on "Analyzing…" until
+    // the engine was toggled off and on (which aborted and retried).
+    const ctrl = new AbortController();
+    this.abortCtrl = ctrl;
+    let timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; ctrl.abort(); }, CLOUD_FETCH_TIMEOUT_MS);
     try {
       const url = `${LICHESS_CLOUD}?fen=${encodeURIComponent(fen)}&multiPv=3`;
-      const res = await fetch(url, { signal: this.abortCtrl.signal, headers: await cloudAuthHeaders() });
+      const res = await fetch(url, { signal: ctrl.signal, headers: await cloudAuthHeaders() });
       if (!res.ok) { noteCloudFailure(res.status); return null; }
-      noteCloudSuccess();
 
       const data = await res.json() as {
         depth?: number;
         pvs?: Array<{ moves?: string; cp?: number; mate?: number }>;
       };
+      // Only a fully-read, parsed body counts as a success — a 200 whose body
+      // dies mid-read (flaky mobile link) lands in the catch as ONE failure,
+      // not a success-then-failure double booking.
+      noteCloudSuccess();
       if (!data.pvs?.length) return null;
 
       const moves: MoveEval[] = data.pvs.slice(0, 3).map(pv => {
@@ -730,9 +836,13 @@ export class Engine {
       return { fen, source: 'lichess', depth: data.depth ?? 0, moves };
     } catch {
       // A user-driven abort (a newer evaluate() superseded us) isn't a cloud
-      // failure — only count real network errors against the breaker.
-      if (!this.abortCtrl?.signal.aborted) noteCloudFailure();
+      // failure; a timeout is. Checking OUR controller — not this.abortCtrl,
+      // which a newer attempt may already have replaced — keeps a superseded
+      // fetch's rejection from being miscounted and tripping the breaker.
+      if (timedOut || !ctrl.signal.aborted) noteCloudFailure();
       return null;
+    } finally {
+      clearTimeout(timer);
     }
   }
 
@@ -740,7 +850,10 @@ export class Engine {
     this.abortCtrl?.abort();
     this.abortCtrl = null;
     this.clearWatchdog();
-    if (this.worker && this.workerReady) {
+    // Only interrupt a search that's actually outstanding. A `stop` on an idle
+    // engine is at best noise — and were a build ever to answer it with a
+    // "bestmove (none)", it would desync the awaitedBestmoves count.
+    if (this.worker && this.workerReady && this.awaitedBestmoves > 0) {
       this.worker.postMessage('stop');
     }
     this.multiPv.clear();
@@ -751,16 +864,20 @@ export class Engine {
     this.searchFen = fen;  // from here, worker output belongs to `fen`
     // `stop` first so a stray previous search can't overlap the new one — one
     // worker searches one position at a time (mirrors spar.ts's SuggestEngine).
-    this.worker!.postMessage('stop');
+    if (this.awaitedBestmoves > 0) this.worker!.postMessage('stop');
     this.worker!.postMessage(`position fen ${fen}`);
     this.worker!.postMessage(`go depth ${MAX_DEPTH}`);
+    this.awaitedBestmoves++;
     this.armWatchdog();
   }
 
   destroy() {
     this.cancel();
+    this.clearBootTimer();
+    if (this.recoverTimer) { clearTimeout(this.recoverTimer); this.recoverTimer = null; }
     this.worker?.terminate();
     this.worker = null;
     this.workerReady = false;
+    this.awaitedBestmoves = 0;
   }
 }

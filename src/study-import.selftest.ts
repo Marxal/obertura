@@ -2,7 +2,10 @@
 // multi-chapter splitting, comment→ply mapping, and Lichess command-tag
 // stripping — all against a canned two-chapter study PGN.
 
-import { parseStudyUrl, splitPgnGames, parseAnnotatedPgn, parseStudyPgn } from './study-import';
+import {
+  parseStudyUrl, splitPgnGames, parseAnnotatedPgn, parseStudyPgn,
+  studyNameFromPgn, shortStudyTag,
+} from './study-import';
 
 export interface TestResult {
   name: string;
@@ -58,6 +61,41 @@ export function runStudyImportSelfTest(): TestResult[] {
   // Whole-study helper
   const all = parseStudyPgn(STUDY_PGN);
   check('parseStudyPgn returns every chapter', all.length === 2 && all[0].name === 'Italian mainline', `${all.length} chapters`);
+
+  // Intro comment (before move one) → chapter intro, not a move note
+  check('intro comment captured', ch1?.intro === 'Intro comment before move one.', ch1?.intro ?? 'missing');
+  check('intro does not leak into move notes', ch1 !== null && !Object.values(ch1.notes).includes('Intro comment before move one.'), JSON.stringify(ch1?.notes));
+  check('chapter without intro has none', ch2 !== null && ch2.intro === undefined, ch2?.intro ?? 'undefined');
+
+  // Study title extraction: Event prefix here; StudyName header wins when present
+  check('study name from Event prefix', studyNameFromPgn(STUDY_PGN) === 'My Repertoire', studyNameFromPgn(STUDY_PGN) ?? 'null');
+  const withHeader = `[Event "Old style: Ch 1"]\n[StudyName "Proper Study Title"]\n\n1. e4 *`;
+  check('StudyName header wins', studyNameFromPgn(withHeader) === 'Proper Study Title', studyNameFromPgn(withHeader) ?? 'null');
+  check('no title → null', studyNameFromPgn('1. e4 e5 *') === null, 'null expected');
+
+  // ChapterName header wins over the Event tail when present
+  const chNamed = parseAnnotatedPgn(`[Event "S: wrong"]\n[ChapterName "Right name"]\n\n1. e4 *`);
+  check('ChapterName header names the chapter', chNamed?.name === 'Right name', chNamed?.name ?? 'null');
+
+  // Short study tags
+  check('short title kept whole', shortStudyTag('Caro-Kann Basics') === 'Caro-Kann Basics', shortStudyTag('Caro-Kann Basics'));
+  const long = shortStudyTag('The Complete Caro-Kann Repertoire for Club Players and Beyond');
+  check('long title cut at a word boundary with ellipsis', long.length <= 29 && long.endsWith('…') && !long.includes('Repertoire for'), long);
+  check('decorative wrapping trimmed', shortStudyTag('⭐ Sicilian Defense ⭐') === 'Sicilian Defense', shortStudyTag('⭐ Sicilian Defense ⭐'));
+  check('empty title falls back', shortStudyTag('★★★') === 'Lichess study', shortStudyTag('★★★'));
+  check('same title → same tag', shortStudyTag(' Caro-Kann  Basics ') === shortStudyTag('Caro-Kann Basics'), 'stable expected');
+
+  // Lichess-export quirks that used to kill whole chapters (chess.js accepts
+  // neither adjacent comment blocks nor blank lines inside a comment):
+  // "{ prose } { [%csl … ] }" on one move, and a multi-paragraph intro.
+  const quirky = parseAnnotatedPgn(
+    '[Event "Q: Real-world chapter"]\n\n' +
+    '{ First paragraph.\n\nSecond paragraph after a blank line. }\n' +
+    '1. e4 { King pawn. } { [%csl Ge4][%cal Ge2e4] } e5 2. Nf3 *',
+  );
+  check('multi-paragraph intro comment parses', quirky?.intro === 'First paragraph. Second paragraph after a blank line.', quirky?.intro ?? 'null');
+  check('adjacent comment blocks merge onto the move', quirky?.notes[0] === 'King pawn.', JSON.stringify(quirky?.notes ?? null));
+  check('quirky chapter keeps all its moves', quirky?.sans.join(' ') === 'e4 e5 Nf3', quirky?.sans.join(' ') ?? 'null');
 
   // Garbage in
   check('unreadable PGN → null', parseAnnotatedPgn('not a pgn at all []') === null, 'null expected');

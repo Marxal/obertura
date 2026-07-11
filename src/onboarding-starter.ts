@@ -62,6 +62,9 @@ export interface LineSeed {
   notes?: Record<number, string>; // 0-based ply index → note
   plan?: string;
   name?: string;
+  // Tags stamped onto the saved line — a study import passes its (shortened)
+  // study title here so all chapters group under one chip.
+  tags?: string[];
 }
 
 // A pack line as a LineSeed, ready for onAddLine. (JSON object keys are always

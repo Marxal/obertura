@@ -27,9 +27,10 @@ import { connectedAccount, importLastGame } from './import-last';
 import { importGames, type ImportedGame } from './import-games';
 import { openAddGameForm } from './manual-game';
 import {
-  parseStudyUrl, parseAnnotatedPgn, parseStudyPgn, fetchStudyPgn,
+  parseStudyUrl, parseAnnotatedPgn, parseStudyPgn, fetchStudyPgn, studyNameFromPgn,
   type StudyChapter,
 } from './study-import';
+import { renderChapterList } from './study-sheet';
 import type { LineSeed } from './onboarding-starter';
 
 export interface BuilderImportDeps {
@@ -212,7 +213,10 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
     if (deps.onSaveLines && parseStudyUrl(pgn)) { showStudy(pgn.trim()); return; }
     // A PGN holding several games (e.g. a downloaded study) → chapter list.
     const chapters = parseStudyPgn(pgn);
-    if (chapters.length > 1 && deps.onSaveLines) { showChapters(chapters, () => showPgn()); return; }
+    if (chapters.length > 1 && deps.onSaveLines) {
+      showChapters(chapters, studyNameFromPgn(pgn), () => showPgn());
+      return;
+    }
     const game = parseAnnotatedPgn(pgn);
     if (!game) { showToast('Couldn’t read that PGN.'); return; }
     // A pasted game has no "me" — orient to White and let the user flip.
@@ -253,7 +257,7 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
         const chapters = parseStudyPgn(pgn);
         if (closed) return;
         if (!chapters.length) { showToast('No readable chapters in that study.'); return; }
-        showChapters(chapters, () => showStudy(input.value));
+        showChapters(chapters, studyNameFromPgn(pgn), () => showStudy(input.value));
       } catch (e) {
         showToast(e instanceof Error ? e.message : 'Couldn’t fetch that study.');
       } finally {
@@ -265,96 +269,19 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
     if (prefill) void fetchAndList();
   }
 
-  // The fetched study's chapters: pick your colour once, then save chapters as
-  // lines (each with its notes). Lines land in My Lines un-enrolled — training
-  // stays opt-in via the normal flow.
-  function showChapters(chapters: StudyChapter[], onBack: () => void): void {
+  // The fetched study's chapters — the shared chapter list (study-sheet.ts):
+  // colour picker, intro comments up top, per-chapter save + save-all, lines
+  // tagged with the study's title. Lines land in My Lines un-enrolled —
+  // training stays opt-in via the normal flow.
+  function showChapters(chapters: StudyChapter[], studyName: string | null, onBack: () => void): void {
     body.innerHTML = '';
     body.appendChild(backLink(onBack));
-    let colour: 'white' | 'black' = 'white';
-    const saved = new Set<number>();
-
-    const colourRow = document.createElement('div');
-    colourRow.className = 'bimport-study-colour';
-    const lbl = document.createElement('span');
-    lbl.className = 'bimport-note';
-    lbl.textContent = 'Train these lines as:';
-    colourRow.appendChild(lbl);
-    const seg = document.createElement('div');
-    seg.className = 'seg-control';
-    const mkSeg = (c: 'white' | 'black', label: string): HTMLButtonElement => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'seg-btn' + (c === colour ? ' active' : '');
-      b.textContent = label;
-      b.addEventListener('click', () => {
-        colour = c;
-        seg.querySelectorAll('.seg-btn').forEach(x => x.classList.remove('active'));
-        b.classList.add('active');
-      });
-      return b;
-    };
-    seg.appendChild(mkSeg('white', '○ White'));
-    seg.appendChild(mkSeg('black', '● Black'));
-    colourRow.appendChild(seg);
-    body.appendChild(colourRow);
-
-    const seedOf = (c: StudyChapter): LineSeed => ({
-      ucis: c.ucis,
-      notes: Object.keys(c.notes).length ? c.notes : undefined,
-      name: c.name,
+    renderChapterList(body, {
+      chapters,
+      studyName,
+      onSaveLines: deps.onSaveLines!,
+      onAllSaved: close,
     });
-
-    const list = document.createElement('div');
-    list.className = 'bimport-game-list';
-    chapters.forEach((c, i) => {
-      const row = document.createElement('div');
-      row.className = 'bimport-game bimport-chapter';
-
-      const text = document.createElement('span');
-      text.className = 'bimport-game-text';
-      const name = document.createElement('span');
-      name.className = 'bimport-game-name';
-      name.textContent = c.name;
-      text.appendChild(name);
-      const sub = document.createElement('span');
-      sub.className = 'bimport-game-sub';
-      const noteCount = Object.keys(c.notes).length;
-      sub.textContent = `${c.ucis.length} moves${noteCount ? ` · ${noteCount} note${noteCount === 1 ? '' : 's'}` : ''}`;
-      text.appendChild(sub);
-      row.appendChild(text);
-
-      const save = document.createElement('button');
-      save.type = 'button';
-      save.className = 'btn-secondary bimport-chapter-save';
-      save.textContent = 'Save as line';
-      save.addEventListener('click', () => {
-        save.disabled = true;
-        void deps.onSaveLines!([seedOf(c)], colour).then(n => {
-          if (n > 0) { saved.add(i); save.textContent = '✓ Saved'; }
-          else { save.disabled = false; showToast('Couldn’t save that chapter.'); }
-        });
-      });
-      row.appendChild(save);
-      list.appendChild(row);
-    });
-    body.appendChild(list);
-
-    if (chapters.length > 1) {
-      const all = document.createElement('button');
-      all.type = 'button';
-      all.className = 'btn-primary bimport-pgn-go';
-      all.textContent = `Save all ${chapters.length} as lines`;
-      all.addEventListener('click', () => {
-        all.disabled = true;
-        const pending = chapters.filter((_, i) => !saved.has(i));
-        void deps.onSaveLines!(pending.map(seedOf), colour).then(n => {
-          showToast(`Saved ${n} line${n === 1 ? '' : 's'} to My Lines ✓`, { variant: 'success' });
-          close();
-        });
-      });
-      body.appendChild(all);
-    }
   }
 
   // ── The menu ────────────────────────────────────────────────────────────────
