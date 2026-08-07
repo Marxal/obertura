@@ -14321,3 +14321,161 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   STATISTICS — DESKTOP DASHBOARD GRID
+   Above $desktop-nav (960px — mirrors DESKTOP_NAV_BREAKPOINT in main.ts) the
+   Statistics screen stops being one long scroll and becomes a dashboard:
+
+     • the streak hero stays full width as the masthead (its own internals
+       re-arrange so a 3.2rem number and a 7-dot strip don't drift a metre
+       apart),
+     • every region below it (Openings / Puzzles / Endgames / Your games — the
+       .stats-region wrappers built by statsRegion() in progress-screen.ts)
+       grids its widgets 2 across, 3 from 1360px, with the region heading
+       banding the full row so the groupings still read as groups,
+     • a region that isn't rendered (no games imported, no puzzles solved) is
+       simply not in the DOM, so nothing has to collapse and no gap is left.
+
+   WIDGET WIDTH IS CAPPED, DELIBERATELY. Every chart on this screen is an svg
+   with preserveAspectRatio="none" and height:auto (see the caveat at the top of
+   stats-charts.ts), so a chart host that gets twice the width gets twice the
+   height and twice-as-big labels — the wider the box, the more the chart drifts
+   from the proportions it was drawn for. Two caps keep that from getting worse
+   than the phone it was designed on:
+     1. the dashboard column itself tops out — the grid never exceeds 1240px, so
+        a three-column row settles at ~370–400px a widget, which IS phone width;
+     2. every chart host inside a widget is capped at 460px and centred, which
+        bounds the two-column band (960–1360px, where a cell can reach ~530px)
+        and anything else that ends up wider than expected.
+
+   Below the breakpoint NOTHING here applies — the phone screen is untouched. */
+
+@media (min-width: 960px) {
+  /* The screen keeps its own scroll + FAB clearance (see #view-progress above);
+     only the side inset is new, replacing the 1rem margins each widget carried.
+     The max-width lives on the hero and the regions rather than here so the
+     scrollbar stays at the edge of the screen, not at the edge of the grid. */
+  .stats-screen {
+    padding-inline: var(--space-lg);
+  }
+
+  .stats-screen > .stats-streak-hero,
+  .stats-screen > .stats-region {
+    max-width: 1240px;
+    margin-inline: auto;
+  }
+
+  /* ── Masthead ──
+     Full width, but laid out as one: the streak reading on the left, the
+     rolling 7-day strip beside it (capped, or seven dots would each be 150px
+     wide), and the month-calendar accordion across the bottom. */
+  .stats-screen > .stats-streak-hero {
+    margin-block: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 420px);
+    column-gap: var(--space-xl);
+    align-items: center;
+  }
+  .stats-screen > .stats-streak-hero > .stats-streak-main {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: end;
+    margin-bottom: 0;
+  }
+  .stats-screen > .stats-streak-hero > .stats-week-grid {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    margin-bottom: 0;
+  }
+  .stats-screen > .stats-streak-hero > .stats-streak-sub {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: start;
+  }
+  .stats-screen > .stats-streak-hero > .stats-activity {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+  /* The row itself reads across the hero (its rule is the hero's own divider),
+     but the calendar under it must not: its cells are aspect-ratio 1, so a
+     full-width month would be seven 160px squares — a wall, not a calendar. */
+  .stats-screen > .stats-streak-hero .stats-cal {
+    max-width: 420px;
+  }
+
+  /* ── The widget grid, one per region ── */
+  .stats-region {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: var(--space-xl);
+    /* One widget in here spans the full row (below). At three columns that
+       would otherwise strand an empty cell beside the widget before it, so
+       later one-column widgets are allowed to back-fill it. The widgets are
+       independent read-outs, so a widget rising a row costs nothing; DOM order
+       — which is what a screen reader follows — is untouched. */
+    grid-auto-flow: dense;
+  }
+
+  /* The heading bands the whole row — with its rule above it, that's what keeps
+     Openings / Puzzles / Endgames / Your games reading as distinct groups. */
+  .stats-region > .stats-region-title {
+    grid-column: 1 / -1;
+    margin: var(--space-xl) 0 0;
+  }
+
+  /* `gap` does the spacing now, so the widgets drop the margins they carry on
+     the phone (where they're a plain vertical stack). */
+  .stats-region > .section,
+  .stats-region > .stats-quick-row,
+  .stats-region > .games-refresh-row,
+  .stats-region > .stats-games-empty {
+    margin: 0;
+  }
+
+  /* Not widgets: the account strip and the import prompt are one-line pieces of
+     region furniture, so they read across it rather than sitting in a cell. */
+  .stats-region > .games-refresh-row,
+  .stats-region > .stats-games-empty {
+    grid-column: 1 / -1;
+  }
+
+  /* Openings × memory holds up to eight opening cards. In one column it would
+     tower over everything beside it and drag the whole row's height with it, so
+     it spans the row and grids its own cards instead. */
+  .stats-region > .stats-widget--wide {
+    grid-column: 1 / -1;
+  }
+  .stats-widget--wide > .group {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: var(--space-md);
+  }
+  .stats-widget--wide > .group > .stats-op-card {
+    margin-bottom: 0;
+  }
+
+  /* Cap 2 (see the note above): no chart host stretches past 460px, whatever
+     the cell around it does. Centred, so a wide card doesn't look lopsided. */
+  .stats-rating-chart,
+  .pz-rating-chart,
+  .stats-trend-chart,
+  .stats-rf-chart {
+    max-width: 460px;
+    margin-inline: auto;
+  }
+}
+
+@media (min-width: 1360px) {
+  /* Three across only once a column can still hold a chart at something close
+     to phone width (~350px here, ~400px at the 1240px cap) — at 1280 three
+     columns would squeeze every chart below the size it was drawn for. */
+  .stats-region {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .stats-widget--wide > .group {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
