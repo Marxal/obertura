@@ -1052,6 +1052,13 @@ let sheetState: SheetState = 'default';
 // How much of the board stays visible at the top in the FULL state.
 const SHEET_PEEK = 0.15;
 
+// The default sheet never shrinks below this. The board is now sized (in CSS) to
+// leave room for the sheet, but don't assume that held on every viewport shape:
+// on a very short/landscape screen the board can still be tall relative to the
+// space, and we'd rather cover the bottom of the board a little than collapse the
+// sheet to just its handle.
+const SHEET_DEFAULT_MIN = 120;
+
 function sheetMetrics(dockHOverride?: number): { barH: number; defaultH: number; fullH: number } {
   const board = document.getElementById('board-wrap');
   const dock = document.getElementById('builder-dock');
@@ -1062,9 +1069,12 @@ function sheetMetrics(dockHOverride?: number): { barH: number; defaultH: number;
   const rect = board?.getBoundingClientRect();
   const boardTop = rect?.top ?? 0;
   const boardH = rect?.height ?? 0;
-  const barTop = window.innerHeight - barH;
+  const barTop = window.innerHeight - barH;             // y of the dock's top edge
   const fullTop = boardTop + boardH * SHEET_PEEK;       // ~15% of the board peeks
-  const defaultTop = boardTop + boardH;                 // board fully shown
+  // Default state: the sheet sits just under the board. Clamp to the board's
+  // bottom OR to a line that keeps a usable minimum sheet — whichever is higher —
+  // so an unexpectedly tall board can't push the default sheet down to nothing.
+  const defaultTop = Math.min(boardTop + boardH, barTop - SHEET_DEFAULT_MIN);
   return {
     barH,
     defaultH: Math.max(96, barTop - defaultTop),
