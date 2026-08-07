@@ -273,7 +273,10 @@ function buildRecommendedTab(
   lines: Line[],
   container: HTMLElement,
 ): { el: HTMLElement; hasContent: boolean } {
+  // The marker CSS needs to give the two colour groups a column each above the
+  // desktop breakpoint (see .explore-recommended in style.css).
   const wrap = document.createElement('div');
+  wrap.className = 'explore-recommended';
   const desc = document.createElement('p');
   desc.className = 'section-desc';
   desc.textContent =
@@ -391,7 +394,7 @@ function buildPacksTab(
           blurb.className = 'onb-pack-blurb';
           blurb.textContent = pack.blurb;
           const cards = document.createElement('div');
-          cards.className = 'group';
+          cards.className = 'group packs-pack-lines';
           for (const line of pack.lines) cards.appendChild(packLineCard(pack, line));
           return [blurb, cards];
         },
@@ -403,7 +406,7 @@ function buildPacksTab(
         meta: `${matchingTraps.length} sneaky wins — ones in your openings first`,
         buildBody: () => {
           const cards = document.createElement('div');
-          cards.className = 'group';
+          cards.className = 'group packs-pack-lines';
           for (const x of matchingTraps) cards.appendChild(trapCard(x.trap, x.colour, buildTrap));
           return [cards];
         },
@@ -580,8 +583,10 @@ function buildScoutingTab(opponents: Opponent[], container: HTMLElement): HTMLEl
   addBtn.addEventListener('click', () => addOpponent(container));
   wrap.appendChild(addBtn);
 
+  // The roster grids into columns above the desktop breakpoint (see
+  // .scout-opponents in style.css); the head and Add button stay full width.
   const list = document.createElement('div');
-  list.className = 'group';
+  list.className = 'group scout-opponents';
   for (const opp of opponents) list.appendChild(opponentCard(opp, container));
   wrap.appendChild(list);
 

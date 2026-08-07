@@ -110,7 +110,10 @@ function videoShelf(title: string, videos: SavedVideo[], shelf: ShelfKind): HTML
   const box = document.createElement('div');
   box.className = 'learn-shelf';
   box.appendChild(learnSection(title));
+  // The rows grid across the full tab width on desktop (see .learn-shelf-list
+  // in style.css); on a phone this class draws nothing.
   const list = document.createElement('div');
+  list.className = 'learn-shelf-list';
   let remaining = videos.length;
   for (const v of videos) {
     list.appendChild(videoRow(v, {
