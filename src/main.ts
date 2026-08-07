@@ -40,6 +40,8 @@ import type { AnalyseRequest as PuzzleAnalyseRequest } from './puzzle-run';
 import { renderMyGamesScreen, formatGameDate } from './my-games-screen';
 import { opponentTag } from './scout';
 import { renderSettingsScreen } from './settings-screen';
+import { openSettingsLightbox, isSettingsLightboxOpen, closeSettingsLightbox } from './settings-lightbox';
+import { userAvatar } from './avatar';
 import { Engine, setCloudAuthToken, retryCloudNow, type EvalResult, type CloudTopMove } from './engine';
 import { EvalPanel } from './eval-panel';
 import { createBuilderPanels, type BuilderPanels } from './builder-panels';
@@ -2771,8 +2773,24 @@ const SIDE_NAV_ITEMS: ReadonlyArray<{ view: ViewName; label: string; icon: () =>
   { view: 'progress', label: 'Statistics', icon: () => Icons.barChart(22) },
 ];
 
+// The sidebar carries the app's identity at desktop width, so the header can
+// disappear entirely on the five tab screens: the wordmark sits at the top, the
+// five destinations in the middle, and the user/settings entry is pinned to the
+// bottom.
 function buildSideNav(): void {
   const nav = document.getElementById('side-nav')!;
+
+  // Wordmark — same lower-case "bito chess" the header shows, same font (see
+  // .side-brand in style.css). Static text, not a control: the header wordmark's
+  // tap-to-reload is a phone gesture, and a stray desktop click reloading the
+  // app would be a nasty surprise.
+  const brand = document.createElement('div');
+  brand.className = 'side-brand';
+  brand.textContent = 'bito chess';
+  nav.appendChild(brand);
+
+  const items = document.createElement('div');
+  items.className = 'side-nav-items';
   for (const item of SIDE_NAV_ITEMS) {
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -2782,15 +2800,73 @@ function buildSideNav(): void {
     const label = document.createElement('span');
     label.textContent = item.label;
     btn.appendChild(label);
-    nav.appendChild(btn);
+    items.appendChild(btn);
   }
+  nav.appendChild(items);
+
+  nav.appendChild(buildSideUser());
+}
+
+// The bottom entry: avatar + label, opening Settings. There are no accounts yet
+// (nothing in the app stores a display name — the only identity we hold is the
+// connected games source), so the label is simply "Settings" and the avatar
+// falls back to a generic user icon. The shape is the one an account would want
+// though: when names land, sideUserLabel() returns the account name and the
+// existing "Settings" text moves to a sub-label under it — no restructuring.
+function buildSideUser(): HTMLElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'side-user';
+  btn.id = 'side-user';
+  btn.appendChild(userAvatar(getGamesSource()?.avatarUrl, 28));
+  const label = document.createElement('span');
+  label.className = 'side-user-label';
+  label.textContent = sideUserLabel();
+  btn.appendChild(label);
+  return btn;
+}
+
+// What the sidebar's bottom entry is called. No account system exists, so it's
+// the destination's name; a later round returns the signed-in name here.
+function sideUserLabel(): string {
+  return 'Settings';
+}
+
+// Keep the sidebar entry's avatar in step with the connected games source (the
+// same picture the header's settings button shows), rebuilding just the avatar.
+function applySideUserAvatar(): void {
+  const btn = document.getElementById('side-user');
+  if (!btn) return;
+  btn.firstChild?.remove();
+  btn.prepend(userAvatar(getGamesSource()?.avatarUrl, 28));
+}
+
+// Settings has two shapes. At desktop width the sidebar owns the app's identity
+// and there's no header to title a full screen, so Settings opens as a centred
+// lightbox over the current tab (see settings-lightbox.ts). Below the
+// breakpoint it stays exactly what it has always been: a swapped-in full-screen
+// view with the back arrow.
+function openSettings(): void {
+  if (desktopNavQuery.matches) openSettingsLightbox();
+  else showView('settings');
 }
 
 function setupNav(): void {
   buildSideNav();
   // desktopNavQuery.matches flips on a live resize without a view change
   // (e.g. dragging a window wider), so re-run the same swap showView() does.
-  desktopNavQuery.addEventListener('change', syncNavVisibility);
+  desktopNavQuery.addEventListener('change', () => {
+    // Dropping below the breakpoint with the desktop lightbox open: hand over
+    // to the full-screen view, so we never sit in a modal on a phone-width
+    // screen. (Widening the other way leaves an already-open full-screen
+    // Settings alone — it still has its header and back arrow.)
+    if (!desktopNavQuery.matches && isSettingsLightboxOpen()) {
+      closeSettingsLightbox();
+      showView('settings');
+      return;
+    }
+    syncNavVisibility();
+  });
 
   document.querySelectorAll<HTMLElement>('#bottom-nav .tab-item, #side-nav .side-item').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -2804,9 +2880,13 @@ function setupNav(): void {
     guardBuilderLeave(() => { stopPlayback(); showView(returnView); });
   });
 
-  // The header user icon opens Settings.
+  // The header user icon (phones) and the sidebar's bottom entry (desktop) both
+  // open Settings — as a full screen or a lightbox, whichever the width calls for.
   document.getElementById('nav-settings')!.addEventListener('click', () => {
-    guardBuilderLeave(() => showView('settings'));
+    guardBuilderLeave(openSettings);
+  });
+  document.getElementById('side-user')!.addEventListener('click', () => {
+    guardBuilderLeave(openSettings);
   });
 
   // Tapping the "bito chess" wordmark reloads the app — a quick way to pull the
@@ -2819,7 +2899,11 @@ function setupNav(): void {
   // Show your Chess.com picture on the settings button when connected, and keep
   // it in step with every import / auto-refresh.
   applyNavSettingsAvatar();
-  window.addEventListener(IDENTITY_CHANGED_EVENT, applyNavSettingsAvatar);
+  applySideUserAvatar();
+  window.addEventListener(IDENTITY_CHANGED_EVENT, () => {
+    applyNavSettingsAvatar();
+    applySideUserAvatar();
+  });
 
   // The survey's "Back to train" button lands the user on the Train tab.
   window.addEventListener('obertura:gototrain', () => showView('train'));

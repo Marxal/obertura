@@ -44,6 +44,8 @@ export const Icons = {
   back:     (s?: number) => svg(`<path d="m15 18-6-6 6-6"/>`, s),
   reply:    (s?: number) => svg(`<polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/>`, s),
   chevronRight: (s?: number) => svg(`<path d="m9 18 6-6-6-6"/>`, s),
+  // Dismiss — the X on the desktop Settings lightbox.
+  close:    (s?: number) => svg(`<path d="M18 6 6 18"/><path d="m6 6 12 12"/>`, s),
   chevronDown: (s?: number) => svg(`<path d="m6 9 6 6 6-6"/>`, s),
   eye:      (s?: number) => svg(`<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>`, s),
   // "Not interested" / hide a video — Lucide eye-off (an eye with a slash).
