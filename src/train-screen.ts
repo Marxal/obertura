@@ -204,14 +204,31 @@ async function doRender(
     }
   }
 
+  // The pane's blocks are split into two groups by what they're FOR: the things
+  // to do next (the due hero + the Practise menu) and the state you've built up
+  // (what's enrolled, what you keep forgetting). On a phone the two groups are
+  // `display: contents` — the DOM order below is exactly the old single column,
+  // unchanged. Above $desktop-nav they become the pane's two columns, so the
+  // extra width carries state alongside the actions instead of stretching one
+  // column (see .train-pane-openings in style.css).
+  //
+  // Each renderer takes (host, container): `host` is the column it draws into,
+  // `container` stays the pane itself — every re-render and drill launch has to
+  // rebuild the WHOLE pane, not just one column.
+  const doNext = document.createElement('div');
+  doNext.className = 'train-col train-col--do';
+  const state = document.createElement('div');
+  state.className = 'train-col train-col--state';
+  container.append(doNext, state);
+
   // The streak now lives on the daily-challenge card above the tabs, so Train's
   // own head is gone — the hero (when anything's due) is the top of this pane.
-  renderHero(container, due, trainingLines);
-  renderModeCards(container, trainingLines, allLines);
+  renderHero(doNext, container, due, trainingLines);
+  renderModeCards(doNext, container, trainingLines, allLines);
   // Lines in training rides directly under Practise; the forgotten-moves
   // carousel closes the pane.
-  renderCardList(container, trainingLines, allLines.filter(l => !l.inTraining));
-  renderForgottenCarousel(container, allLines);
+  renderCardList(state, container, trainingLines, allLines.filter(l => !l.inTraining));
+  renderForgottenCarousel(state, container, allLines);
 }
 
 // The ordered list of lines that "Start training" drills, per the default-mode
@@ -281,7 +298,7 @@ const PICKER_SESSION_CAP = 12;
 const ROUND_SIZE = 5;            // full lines per round
 const ROUND_SIZE_POSITIONS = 10; // single moves per round (quicker, so a bigger chunk)
 
-function renderHero(container: HTMLElement, due: Line[], allTraining: Line[]): void {
+function renderHero(host: HTMLElement, container: HTMLElement, due: Line[], allTraining: Line[]): void {
   // Nothing due now → no hero at all. The card only earns its space when there's
   // something to review; "all caught up" is implied by its absence.
   if (due.length === 0) return;
@@ -329,7 +346,7 @@ function renderHero(container: HTMLElement, due: Line[], allTraining: Line[]): v
     startRounds(dueLines(allTraining), container, { explicit: true }));
   hero.appendChild(start);
 
-  container.appendChild(hero);
+  host.appendChild(hero);
 }
 
 // One column of the hero pair: a big-ish number stacked over its label.
@@ -365,7 +382,7 @@ const MODE_ACCENT = {
   prep:   '#3f7d8a', // teal — strategy against an opponent
 } as const;
 
-function renderModeCards(container: HTMLElement, allTraining: Line[], allLines: Line[]): void {
+function renderModeCards(host: HTMLElement, container: HTMLElement, allTraining: Line[], allLines: Line[]): void {
   const section = document.createElement('div');
   section.className = 'section mode-cards';
 
@@ -431,7 +448,7 @@ function renderModeCards(container: HTMLElement, allTraining: Line[], allLines: 
     }));
   }
 
-  container.appendChild(section);
+  host.appendChild(section);
 }
 
 // Exported: the Mistake retry pane builds its category cards with the same
@@ -626,7 +643,7 @@ function squaresOf(fen: string, san: string): { from: string; to: string } | und
   }
 }
 
-function renderForgottenCarousel(container: HTMLElement, allLines: Line[]): void {
+function renderForgottenCarousel(host: HTMLElement, container: HTMLElement, allLines: Line[]): void {
   // One DISTINCT move per window — the same position is usually the worst in
   // more than one window, so forgottenSlides() de-duplicates across them.
   const slides = forgottenSlides()
@@ -680,7 +697,7 @@ function renderForgottenCarousel(container: HTMLElement, allLines: Line[]): void
 
   section.appendChild(tabs);
   section.appendChild(track);
-  container.appendChild(section);
+  host.appendChild(section);
 }
 
 function buildForgottenSlide(
@@ -843,7 +860,7 @@ function trainedTime(line: Line): number {
 // a visit (pausing a line, flipping a switch) keep the state, a reload resets it.
 let trainListOpen = false;
 
-function renderCardList(container: HTMLElement, trainingLines: Line[], pausedLines: Line[]): void {
+function renderCardList(host: HTMLElement, container: HTMLElement, trainingLines: Line[], pausedLines: Line[]): void {
   const section = document.createElement('div');
   section.className = 'section train-list-section';
 
@@ -970,7 +987,7 @@ function renderCardList(container: HTMLElement, trainingLines: Line[], pausedLin
   rebuildList();
   body.appendChild(listEl);
   setListOpen(openList);
-  container.appendChild(section);
+  host.appendChild(section);
 }
 
 // The "pause this whole branch" control on a group header: one tap (plus a

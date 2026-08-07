@@ -2372,7 +2372,10 @@ function renderTrainTabbed(host: HTMLElement): void {
   // it's the shared daily face of the Train screen.
   const dailyHost = document.createElement('div');
   dailyHost.className = 'daily-host';
+  // The Openings pane carries a class so CSS can give it its own desktop layout
+  // (two columns above $desktop-nav — see .train-pane-openings in style.css).
   const openingsPane = document.createElement('div');
+  openingsPane.className = 'train-pane-openings';
   const puzzlesPane = document.createElement('div');
   const mistakesPane = document.createElement('div');
   const endgamePane = document.createElement('div');

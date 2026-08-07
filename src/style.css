@@ -4950,6 +4950,75 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   border-color: var(--train-accent, var(--accent));
 }
 
+/* ── Openings pane: two-column desktop layout ────────────────────────────────
+   The daily-challenge card and the four-mode grid stay full-width above the
+   pane (they span every mode, and the daily card is the screen's entry point).
+   Inside the Openings pane, the blocks split by what they're FOR — train-
+   screen.ts wraps them in two .train-col groups:
+
+       ┌─────────────────────────────────────┐
+       │ .daily-host   (full width, above)   │
+       │ .train-tabs   (full width, above)   │
+       ├──────────────────┬──────────────────┤
+       │ .train-hero      │ .train-list-     │  col 1 — what to do next:
+       │ ("Due now" +     │  section         │   the due count and the primary
+       │  Refresh lines)  │  ("Lines in      │   Start, then the Practise menu.
+       │                  │   training")     │
+       │ .mode-cards      ├──────────────────┤  col 2 — the state behind it:
+       │ (Practise)       │ .forgotten-      │   what's enrolled, and what you
+       │                  │  section         │   keep forgetting.
+       └──────────────────┴──────────────────┘
+
+   Below $desktop-nav (960px — mirrors DESKTOP_NAV_BREAKPOINT in main.ts; keep
+   every copy in sync) NOTHING here applies: the groups are `display: contents`,
+   so the pane is byte-for-byte the old single column.
+
+   Guarded by :has(> .train-col) so the onboarding/empty state — which renders
+   straight into the pane with no groups — keeps the plain column, and by
+   :not([hidden]) so switching to another mode still hides the pane (a class
+   `display: grid` would otherwise beat the UA's [hidden] rule). */
+.train-col {
+  display: contents;
+}
+
+@media (min-width: 960px) {
+  .train-pane-openings:not([hidden]):has(> .train-col) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    /* No column-gap: the blocks' own var(--space-lg) side margins already meet
+       in the middle, giving an inner gutter of exactly twice the outer inset —
+       the same rhythm the rest of the app uses. */
+    align-items: start;
+  }
+
+  .train-col {
+    display: block;
+    min-width: 0;
+  }
+
+  /* The hero and the sections carry different top margins (--space-lg vs
+     --space-xl), which reads as a wobble once they head two columns side by
+     side. Level the tops; everything below keeps its own spacing. */
+  .train-col > :first-child {
+    margin-top: var(--space-lg);
+  }
+
+  /* The carousel board is sized from its slide, which was the full phone width.
+     Half of a desktop pane is far wider than a board wants to be — cap it and
+     centre it in the slide. The slide itself stays 100%-wide, so the scroll
+     snapping (which steps by track width) is untouched. */
+  .train-col .forgotten-board {
+    width: min(100%, 340px);
+    margin-inline: auto;
+  }
+
+  /* Match the board: the Fix-it button stops stretching the full column width. */
+  .train-col .forgotten-fix-btn {
+    align-self: center;
+    min-width: 220px;
+  }
+}
+
 /* "Back to train" in the top bar while a training session is suspended behind
    the full analyser — it takes the Save button's spot (Save is hidden).
    Tapping it (or the builder's back arrow, which also lands on Train) resumes
