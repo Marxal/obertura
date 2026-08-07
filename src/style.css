@@ -779,13 +779,14 @@ header {
   background: var(--accent-soft);
 }
 
-/* Wordmark — Chakra Petch (weight 400, fallback monospace). Only the wordmark
-   uses it, and the name is always written in lower case ("bito chess") in this
-   font, matching the HTML source rather than a text-transform. */
+/* Wordmark — Chakra Petch (bold, fallback monospace). Only the wordmark and the
+   sidebar's .side-brand use it, and the name is always written in lower case
+   ("bito chess") in this font, matching the HTML source rather than a
+   text-transform. The 700 weight is loaded in index.html — keep both in sync. */
 header h1 {
   font-family: 'Chakra Petch', monospace;
   font-size: 1.6rem;
-  font-weight: 400;
+  font-weight: 700;
   letter-spacing: 0.01em;
   color: var(--accent);
   white-space: nowrap;
@@ -977,6 +978,67 @@ main {
   display: none;
 }
 
+/* The wordmark at the top of the sidebar — the app's identity, in the same
+   Chakra Petch as the header's (lower case, matching the text in JS rather than
+   a text-transform). At desktop width the header is gone on the tab screens, so
+   this is the only place the name appears. */
+.side-brand {
+  padding: 0.25rem 0.9rem 0.9rem;
+  font-family: 'Chakra Petch', monospace;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+/* The five destinations, between the wordmark and the pinned user entry. */
+.side-nav-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* The user / settings entry, pinned to the bottom of the sidebar (the flex
+   filler above it is .side-nav-items' margin-bottom: auto — see the media
+   query). Avatar + label, laid out like a .side-item but with a rule above it
+   marking it off from the destinations. */
+.side-user {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  margin-top: var(--space-sm);
+  border: none;
+  border-top: 1px solid var(--hairline-soft);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.12s, background-color 0.12s;
+}
+
+.side-user:hover,
+.side-user:focus-visible {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.side-user-label {
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .side-item {
   display: flex;
   align-items: center;
@@ -1021,6 +1083,28 @@ main {
     z-index: 2;
   }
 
+  /* On the five sidebar-covered tab screens the header has nothing left to do:
+     the sidebar carries the wordmark, and its bottom entry carries Settings. So
+     it goes entirely, and the screens start at the top of the viewport. The
+     inner full screens (builder / analyser, and Settings if a resize lands you
+     on it) KEEP the header — they hide both navs, so it's the only place their
+     back arrow and Save button can live. data-view is stamped on <html> by
+     showView(). */
+  :root[data-view="train"] header,
+  :root[data-view="lines"] header,
+  :root[data-view="explore"] header,
+  :root[data-view="games"] header,
+  :root[data-view="progress"] header {
+    display: none;
+  }
+
+  /* Settings-as-a-view only happens here after a resize (desktop opens the
+     lightbox instead). It hides both navs, so reclaim the sidebar gutter the
+     way the builder does. */
+  :root[data-view="settings"] main {
+    padding-left: 0;
+  }
+
   #bottom-nav {
     display: none;
   }
@@ -1030,12 +1114,14 @@ main {
     padding-left: 240px;
   }
 
+  /* Full height: the sidebar is only ever visible on the five tab screens
+     (syncNavVisibility hides it on the inner full screens), and those have no
+     header above it any more. */
   .side-nav:not([hidden]) {
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
     position: fixed;
-    top: var(--app-header-h);
+    top: 0;
     left: 0;
     bottom: 0;
     width: 240px;
@@ -1044,6 +1130,21 @@ main {
     border-right: 1px solid var(--border-card);
     overflow-y: auto;
     z-index: 50;
+  }
+
+  /* Pushes the user entry to the bottom, whatever the destinations' height. */
+  .side-nav:not([hidden]) .side-nav-items {
+    margin-bottom: auto;
+  }
+
+  /* The header used to provide the top gap on the tab screens; without it their
+     first element would touch the viewport edge. */
+  :root[data-view="train"] main,
+  :root[data-view="lines"] main,
+  :root[data-view="explore"] main,
+  :root[data-view="games"] main,
+  :root[data-view="progress"] main {
+    padding-top: var(--space-md);
   }
 }
 
@@ -2638,6 +2739,77 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   font-weight: 700;
   color: var(--text);
   margin: var(--space-lg) var(--space-lg) 0;
+}
+
+/* ── Settings lightbox (desktop) ───────────────────────────────────────────
+   At desktop width Settings isn't a screen — the sidebar's bottom entry opens
+   it as a centred modal over the current tab (see settings-lightbox.ts). Same
+   content, different container: a fixed head with the title and the X, over a
+   body that scrolls on its own. Reuses .edit-overlay for the backdrop, with the
+   bottom-sheet alignment replaced by centring. */
+.settings-lightbox-overlay {
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+}
+
+.settings-lightbox {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 560px;
+  max-height: min(85vh, 760px);
+  background: var(--bg-page);
+  border: 1px solid var(--border-card);
+  border-radius: 14px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+  overflow: hidden;
+}
+
+.settings-lightbox-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+  padding: 0.85rem 0.9rem 0.85rem 1.15rem;
+  border-bottom: 1px solid var(--hairline-soft);
+  background: var(--bg-card);
+}
+
+.settings-lightbox-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.settings-lightbox-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.settings-lightbox-close:hover,
+.settings-lightbox-close:focus-visible {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+/* The scrolling half. Bottom padding so the last group clears the rounded
+   corner the way #view-settings' does on a phone. */
+.settings-lightbox-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: var(--space-lg);
 }
 
 /* ── Segmented control ───────────────────────────────────────────────────── */
