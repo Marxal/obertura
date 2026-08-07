@@ -12,7 +12,11 @@
 //
 // One svg text-size caveat: like the app's earlier charts this stretches to the
 // container (preserveAspectRatio none), so labels distort a little on very wide
-// screens — acceptable on the phones this is built for.
+// screens — acceptable on the phones this is built for. The Statistics screen's
+// desktop dashboard is why that stayed acceptable: above 960px it caps both the
+// grid (so a widget settles near phone width) and every chart host at 460px, so
+// no chart there runs past ~1.4× the 320-unit viewBox. Anything NEW that hosts
+// this chart at an uncapped width owes itself the same max-width.
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 

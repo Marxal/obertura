@@ -13,6 +13,15 @@
 // Game numbers come from analysis.ts + stats.ts; nothing is invented. Where a
 // figure isn't tracked (a "first trained this opening" date), the section shows
 // an honest empty state instead of a guess.
+//
+// LAYOUT. On a phone that list is exactly what it says: one column, scrolled.
+// Above the desktop breakpoint the same DOM becomes a dashboard — the hero is a
+// full-width masthead and each region (Openings / Puzzles / Endgames / Your
+// games) grids its widgets 2–3 across. That is why every region is wrapped in
+// its own `.stats-region` (see statsRegion below) instead of the headings and
+// widgets being flat siblings: the grid is per region, so the groupings survive
+// and a region that isn't rendered at all simply takes no room. All of it lives
+// in CSS — nothing here branches on screen width.
 
 import type { Line } from './types';
 import type { ImportedGame } from './chesscom';
@@ -93,6 +102,8 @@ async function doRender(container: HTMLElement, cb: ProgressCallbacks): Promise<
     return;
   }
   container.innerHTML = '';
+  // Marks the screen for the desktop dashboard rules (harmless on a phone).
+  container.classList.add('stats-screen');
 
   // Truly fresh — no lines and no games — has no numbers to show yet. One clean
   // empty state beats a wall of zeroes.
@@ -170,11 +181,20 @@ function scoreColour(pct: number): string {
   return pct >= 55 ? '#708151' : pct >= 45 ? '#d8961f' : '#b4533a';
 }
 
-function regionTitle(container: HTMLElement, text: string): void {
+// Opens a region: its heading plus the wrapper every widget in it goes into.
+// On a phone the wrapper is a plain block, so the page reads exactly as before
+// (heading, then widgets, stacked). Above the desktop breakpoint the wrapper is
+// the widget grid and the heading bands across the whole row — see
+// ".stats-region" in style.css. Returns the element to append widgets to.
+function statsRegion(container: HTMLElement, text: string, kind: string): HTMLElement {
+  const region = document.createElement('section');
+  region.className = `stats-region stats-region--${kind}`;
   const h = document.createElement('h2');
   h.className = 'stats-region-title';
   h.textContent = text;
-  container.appendChild(h);
+  region.appendChild(h);
+  container.appendChild(region);
+  return region;
 }
 
 function statsSection(title: string, meta = ''): HTMLElement {
@@ -455,12 +475,12 @@ function buildMonthCalendar(now: Date, trainingDays: Set<string>): HTMLElement {
 // ── 2. Training region ──────────────────────────────────────────────────────
 
 function renderTrainingRegion(container: HTMLElement, lines: Line[], cb: ProgressCallbacks): void {
-  regionTitle(container, 'Openings');
-  renderQuickStats(container, lines, cb);
-  renderMoveMemory(container, lines);
+  const region = statsRegion(container, 'Openings', 'openings');
+  renderQuickStats(region, lines, cb);
+  renderMoveMemory(region, lines);
   // The most-forgotten-move board now lives on the Openings (training) screen,
   // as a per-window carousel with a "Fix it" drill.
-  renderRememberedFailed(container);
+  renderRememberedFailed(region);
 }
 
 // ── Move memory (repertoire-wide recall donut) ───────────────────────────────
@@ -571,7 +591,7 @@ function renderPuzzlesRegion(container: HTMLElement): void {
   // Nothing solved yet → no region at all.
   if (days.length === 0 && history.length === 0) return;
 
-  regionTitle(container, 'Puzzles');
+  const region = statsRegion(container, 'Puzzles', 'puzzles');
 
   // Puzzle rating with its evolution over time, plus the solved/accuracy totals —
   // one integrated block sharing a single Week / Month / 90 days / All filter. The
@@ -660,7 +680,7 @@ function renderPuzzlesRegion(container: HTMLElement): void {
     };
     fill();
 
-    container.appendChild(section);
+    region.appendChild(section);
   } else if (days.length > 0) {
     // No rated history yet (casual play only) — just the solved totals, as before.
     let range: StatsRange = getStatsRange();
@@ -682,7 +702,7 @@ function renderPuzzlesRegion(container: HTMLElement): void {
     };
     fillTotals();
     section.appendChild(body);
-    container.appendChild(section);
+    region.appendChild(section);
   }
 
   // Accuracy by opening — which trained openings you're sharp or shaky in.
@@ -692,7 +712,7 @@ function renderPuzzlesRegion(container: HTMLElement): void {
     for (const r of opRows.slice(0, 8)) {
       section.appendChild(otrLine(r.family, winBar(r.accuracyPct), `${r.accuracyPct}% · ${r.attempts}`));
     }
-    container.appendChild(section);
+    region.appendChild(section);
   }
 }
 
@@ -711,7 +731,7 @@ function renderEndgamesRegion(container: HTMLElement, games: ImportedGame[]): vo
   const hasPractice = Object.keys(progress).length > 0;
   if (!hasLadder && !hasPractice && spots.length === 0) return;
 
-  regionTitle(container, 'Endgames');
+  const region = statsRegion(container, 'Endgames', 'endgames');
 
   // Endgame puzzles: rating + best run tiles, and the rating line underneath.
   if (hasLadder) {
@@ -732,7 +752,7 @@ function renderEndgamesRegion(container: HTMLElement, games: ImportedGame[]): vo
       });
       section.appendChild(chartHost);
     }
-    container.appendChild(section);
+    region.appendChild(section);
   }
 
   // Practice: the classics checklist as a meter, and the from-your-games tally.
@@ -767,7 +787,7 @@ function renderEndgamesRegion(container: HTMLElement, games: ImportedGame[]): vo
         : 'You converted every endgame the scan found — nothing was let slip.';
       section.appendChild(cap);
     }
-    container.appendChild(section);
+    region.appendChild(section);
   }
 }
 
@@ -1193,7 +1213,7 @@ function buildRfTicks(bars: DayBar[]): HTMLElement {
 // ── 3. Your games region ────────────────────────────────────────────────────
 
 function renderGamesEmpty(container: HTMLElement, cb: ProgressCallbacks): void {
-  regionTitle(container, 'Your games');
+  const region = statsRegion(container, 'Your games', 'games');
   const card = document.createElement('div');
   card.className = 'stats-games-empty';
 
@@ -1210,20 +1230,22 @@ function renderGamesEmpty(container: HTMLElement, cb: ProgressCallbacks): void {
   btn.addEventListener('click', () => cb.onImportGames());
   card.appendChild(btn);
 
-  container.appendChild(card);
+  region.appendChild(card);
 }
 
 function renderGamesRegion(container: HTMLElement, games: ImportedGame[], lines: Line[], cb: ProgressCallbacks): void {
-  regionTitle(container, 'Your games');
-  renderGamesIdentity(container, cb);
+  const region = statsRegion(container, 'Your games', 'games');
+  // The identity strip re-renders the WHOLE screen after a refresh, so it keeps
+  // the screen container as well as the region it paints into.
+  renderGamesIdentity(region, container, cb);
 
   const analysis = analyseGames(games, lines);
 
-  renderRatingSection(container, games);
-  renderRecordSection(container, games);
-  renderWinRateByOpening(container, analysis.stats, lines, cb);
-  renderWinRateOverTime(container, games, analysis.stats);
-  renderScoringTabs(container, analysis.stats);
+  renderRatingSection(region, games);
+  renderRecordSection(region, games);
+  renderWinRateByOpening(region, analysis.stats, lines, cb);
+  renderWinRateOverTime(region, games, analysis.stats);
+  renderScoringTabs(region, analysis.stats);
 }
 
 // ── Your rating (current + over time, per time class) ─────────────────────────
@@ -1397,7 +1419,7 @@ function renderRecordSection(container: HTMLElement, games: ImportedGame[]): voi
 
 // A discreet account strip: avatar + "username on Platform" + a Refresh button
 // that reopens the import flow prefilled and re-renders on success.
-function renderGamesIdentity(container: HTMLElement, cb: ProgressCallbacks): void {
+function renderGamesIdentity(host: HTMLElement, container: HTMLElement, cb: ProgressCallbacks): void {
   const source = getGamesSource();
   const row = document.createElement('div');
   row.className = 'games-refresh-row stats-games-identity';
@@ -1432,7 +1454,7 @@ function renderGamesIdentity(container: HTMLElement, cb: ProgressCallbacks): voi
   }
   row.appendChild(status);
 
-  container.appendChild(row);
+  host.appendChild(row);
 }
 
 // Openings: games × memory — one card per opening family, your real score from
@@ -1443,6 +1465,10 @@ function renderWinRateByOpening(container: HTMLElement, stats: OpeningStat[], li
   if (rows.length === 0) return;
 
   const section = statsSection('Openings: games × memory');
+  // Up to eight opening cards: squeezed into one dashboard column they'd tower
+  // over every widget beside them, so on desktop this one spans the whole row
+  // and grids its own cards instead (.stats-widget--wide in style.css).
+  section.classList.add('stats-widget--wide');
   const intro = document.createElement('p');
   intro.className = 'stats-detail-intro';
   intro.textContent = 'Your real score in each opening beside how well you remember its moves:';
@@ -1640,6 +1666,8 @@ function renderWinRateOverTime(container: HTMLElement, games: ImportedGame[], st
   section.appendChild(controls);
 
   const chartWrap = document.createElement('div');
+  // Classed so the desktop rules can cap its width like the other chart hosts.
+  chartWrap.className = 'stats-trend-chart';
   section.appendChild(chartWrap);
 
   const cap = document.createElement('p');
