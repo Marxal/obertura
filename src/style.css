@@ -2043,6 +2043,126 @@ html[data-coords="off"] .cg-wrap coords {
   gap: 0.5rem;
 }
 
+/* ── Builder / analyser: two-column desktop layout ───────────────────────────
+   $desktop-board: at and above this width the draggable sheet stops being a
+   sheet. Mirrors DESKTOP_NAV_BREAKPOINT in main.ts (the same constant the
+   sidebar uses) — keep both in sync when this changes.
+
+   Below the breakpoint NOTHING here applies: the board sits in flow with the
+   fixed sheet overlaying it and the fixed dock pinned to the bottom, exactly as
+   the rules above describe. At/above it, #view-builder becomes a grid:
+
+       ┌──────────────┬──────────────────┐
+       │ #board-wrap  │                  │  col 1 rows 1-2: the board and the
+       ├──────────────┤  #builder-sheet  │  controls that act ON it
+       │ #builder-dock│   (col 2, full   │
+       ├──────────────┤    height, own   │  col 1 row 3: filler, so the panel
+       │  (filler)    │    scroll)       │  is full height even when the board
+       └──────────────┴──────────────────┘  column is shorter
+
+   The sheet keeps its id and its slide/tab markup — only its presentation
+   changes. No handle, no drag, no snap states exist at this width; main.ts's
+   layoutBuilderSheet() strips the inline height/bottom it writes on phones so
+   nothing here has to fight an inline style. */
+@media (min-width: 960px) {
+  /* The builder hides BOTH navs (it's a full screen with a back arrow), so the
+     240px sidebar gutter `main` reserves in the desktop-nav block above is dead
+     space here — reclaim it for the two columns. data-view is stamped on <html>
+     by showView(). */
+  :root[data-view="builder"] main {
+    padding-left: 0;
+  }
+
+  #view-builder:not([hidden]) {
+    display: grid;
+    grid-template-columns: auto minmax(320px, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
+    gap: var(--space-md);
+    box-sizing: border-box;
+    height: calc(100dvh - var(--app-header-h));
+    padding: var(--space-md);
+  }
+
+  /* Board sizing itself is untouched (--builder-board-size above); it just
+     stops centring, since it now owns a column of its own. */
+  #view-builder:not([hidden]) #board-wrap {
+    grid-column: 1;
+    grid-row: 1;
+    margin-inline: 0;
+  }
+
+  /* The dock's controls act on the BOARD, so they ride under it in the left
+     column rather than pinning to the bottom of the viewport. */
+  #view-builder:not([hidden]) #builder-dock {
+    grid-column: 1;
+    grid-row: 2;
+    position: static;
+    border: 1px solid var(--border-card);
+    border-radius: 0 0 12px 12px;
+  }
+
+  /* No safe-area inset to respect once the bar isn't at the screen edge. */
+  #view-builder:not([hidden]) .builder-bar {
+    padding-bottom: 0.3rem;
+  }
+
+  /* The sheet becomes a plain right-hand panel: in flow, full height, its own
+     internal scroll, none of the fixed/animated sheet chrome. */
+  #view-builder:not([hidden]) #builder-sheet {
+    grid-column: 2;
+    grid-row: 1 / -1;
+    position: static;
+    height: auto;
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    box-shadow: none;
+    overflow: hidden;
+    transition: none;
+  }
+
+  /* The grabber is drag-only affordance — there's nothing to drag here. */
+  #view-builder:not([hidden]) #builder-panel-handle {
+    display: none;
+  }
+
+  /* The tab strip stays the switcher, but the carousel stops being a paged
+     horizontal strip: only the active slide renders (main.ts's onActiveSlide
+     stamps .builder-slide--active). Same slide index, different presentation. */
+  #view-builder:not([hidden]) .builder-carousel {
+    flex-direction: column;
+    overflow-x: hidden;
+    scroll-snap-type: none;
+  }
+
+  #view-builder:not([hidden]) .builder-slide {
+    display: none;
+  }
+
+  #view-builder:not([hidden]) .builder-slide--active {
+    display: block;
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
+    overflow-y: auto;
+    /* A persistent panel earns a real scrollbar — the phone sheet hides it. */
+    scrollbar-width: thin;
+  }
+  #view-builder:not([hidden]) .builder-slide--active::-webkit-scrollbar {
+    display: block;
+    width: 8px;
+  }
+
+  /* Room to breathe now that the strip isn't squeezed into a phone width. */
+  #view-builder:not([hidden]) .slide-tab {
+    font-size: 0.82rem;
+    padding: 0.6rem 0.9rem;
+  }
+
+  #view-builder:not([hidden]) .builder-slide--list {
+    padding: 0.5rem 0.75rem;
+  }
+}
+
 /* Quiet icon buttons: no fill or border, colour only — same treatment as
    .btn-quiet, sized as square touch targets. */
 .bar-btn {

@@ -948,6 +948,13 @@ function onActiveSlide(index: number): void {
     // one in view. block:'nearest' stops the page itself from jumping.
     if (on) tab.scrollIntoView({ inline: 'nearest', block: 'nearest' });
   });
+  // Mark which slide is showing. Below the desktop breakpoint this class has no
+  // styling at all (the carousel pages horizontally, as always); at/above it,
+  // it's what the two-column panel shows instead of paging — same slide index,
+  // different presentation. See the $desktop-board block in style.css.
+  document.querySelectorAll<HTMLElement>('#builder-carousel .builder-slide').forEach((slide, i) => {
+    slide.classList.toggle('builder-slide--active', i === index);
+  });
   if (index === activeSlide) return;
   activeSlide = index;
   builderPanels?.setActiveSlide(index);
@@ -1082,8 +1089,17 @@ function sheetMetrics(dockHOverride?: number): { barH: number; defaultH: number;
   };
 }
 
+// Above DESKTOP_NAV_BREAKPOINT the sheet isn't a sheet — it's the static
+// right-hand column of the builder's two-column grid (see the $desktop-board
+// block in style.css). Every drag/snap/layout path below checks this and bows
+// out, so none of that machinery ever runs at desktop width.
+function isDesktopBoard(): boolean {
+  return desktopNavQuery.matches;
+}
+
 // Position the sheet for the given height (bottom-anchored above the bar).
 function applySheetHeight(h: number, dockH?: number): void {
+  if (isDesktopBoard()) return;
   const sheet = document.getElementById('builder-sheet');
   if (!sheet) return;
   sheet.style.bottom = `${dockH ?? sheetMetrics().barH}px`;
@@ -1092,6 +1108,15 @@ function applySheetHeight(h: number, dockH?: number): void {
 
 function layoutBuilderSheet(dockH?: number): void {
   if (currentView !== 'builder') return;
+  // At desktop width the grid owns the sheet's box. Drop any inline height /
+  // bottom a previous (narrower) layout wrote, so the CSS can take over — this
+  // is the ONE place that normalises it, which is why every entry point
+  // (showView, setSheetState, animateEvalDock, resize) routes through here.
+  if (isDesktopBoard()) {
+    const sheet = document.getElementById('builder-sheet');
+    if (sheet) { sheet.style.height = ''; sheet.style.bottom = ''; }
+    return;
+  }
   const m = sheetMetrics(dockH);
   applySheetHeight(sheetState === 'full' ? m.fullH : m.defaultH, dockH);
 }
@@ -1186,6 +1211,7 @@ function setupBuilderPanelHandle(): void {
   // Handle drag / tap.
   let dragging = false, startY = 0, startH = 0, moved = 0, m = sheetMetrics();
   handle.addEventListener('pointerdown', e => {
+    if (isDesktopBoard()) return;
     dragging = true; startY = e.clientY; moved = 0;
     m = sheetMetrics(); startH = sheet.offsetHeight;
     sheet.classList.add('builder-sheet--dragging');
@@ -1222,7 +1248,7 @@ function setupBuilderPanelHandle(): void {
       tm = sheetMetrics(); intercept = false;
     }, { passive: true });
     track.addEventListener('touchmove', e => {
-      if (e.touches.length !== 1) return;
+      if (e.touches.length !== 1 || isDesktopBoard()) return;
       const dy = sY - e.touches[0].clientY; // up positive
       const dx = sX - e.touches[0].clientX;
       if (!intercept) {
@@ -1267,7 +1293,7 @@ function setupBuilderPanelHandle(): void {
       tmt = sheetMetrics(); tDrag = false;
     }, { passive: true });
     tabs.addEventListener('touchmove', e => {
-      if (e.touches.length !== 1) return;
+      if (e.touches.length !== 1 || isDesktopBoard()) return;
       const dy = tY - e.touches[0].clientY; // up positive
       const dx = tX - e.touches[0].clientX;
       if (!tDrag) {
@@ -1290,8 +1316,9 @@ function setupBuilderPanelHandle(): void {
   }
 
   // Tap the peeking board (only reachable in full) to drop back to default.
+  // Nothing overlays the board at desktop width, so there's nothing to drop.
   document.getElementById('board-wrap')?.addEventListener('click', () => {
-    if (sheetState === 'full') setSheetState('default');
+    if (!isDesktopBoard() && sheetState === 'full') setSheetState('default');
   });
 }
 
@@ -1307,10 +1334,13 @@ function setupBuilderCarousel(): void {
     }));
 
   // Swipe the strip → keep the active tab in sync. rAF-throttled so the scroll
-  // stays smooth.
+  // stays smooth. Above the breakpoint the strip isn't the switcher (only the
+  // active slide renders, and the track can't scroll horizontally) — and the
+  // browser forcing scrollLeft to 0 as the layout changes would otherwise fire
+  // this and snap the panel back to the first tab.
   let ticking = false;
   track.addEventListener('scroll', () => {
-    if (ticking) return;
+    if (ticking || isDesktopBoard()) return;
     ticking = true;
     requestAnimationFrame(() => {
       const index = Math.round(track.scrollLeft / track.clientWidth);
@@ -1320,6 +1350,19 @@ function setupBuilderCarousel(): void {
   }, { passive: true });
 
   window.addEventListener('resize', () => layoutBuilderSheet());
+
+  // Dragging a desktop window across the breakpoint swaps the builder between
+  // the two-column grid and the phone sheet without a view change, so redo the
+  // bits that only run on entry: re-lay-out the sheet (which also strips or
+  // restores its inline height), re-seat the carousel at the active slide —
+  // the paged strip is at scrollLeft 0 while desktop CSS hides it — and tell
+  // chessground its bounds moved.
+  desktopNavQuery.addEventListener('change', () => {
+    if (currentView !== 'builder') return;
+    layoutBuilderSheet();
+    if (!isDesktopBoard()) track.scrollLeft = activeSlide * track.clientWidth;
+    cg?.redrawAll();
+  });
 }
 
 // ── Annotation marks ─────────────────────────────────────────────────────────
@@ -2512,6 +2555,10 @@ function showView(view: ViewName): void {
     returnView = currentView;
   }
   currentView = view;
+  // A CSS hook for rules that must reach OUTSIDE the view's own element — the
+  // builder's desktop grid needs `main` to drop the sidebar gutter it reserves,
+  // and `main` is the parent. Same discipline as data-theme / data-board.
+  document.documentElement.dataset.view = view;
   updateHeaderTitle();
 
   // The builder owns a back-layer while it's on screen, so the system back
