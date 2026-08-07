@@ -4535,6 +4535,28 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   color: var(--text);
 }
 
+/* ── Edit sheet: centred desktop modal ────────────────────────────────────────
+   Above $desktop-nav (960px — mirrors DESKTOP_NAV_BREAKPOINT in main.ts) every
+   plain edit-overlay/edit-sheet becomes a centred dialog instead of a bottom
+   sheet: the backdrop centres its content and the sheet gets a sensible
+   max-width and rounded corners all round. `--full` steps (import review,
+   onboarding wizard, survey) are excluded on purpose — they're whole-screen
+   flows, not auxiliary dialogs, so they keep the phone treatment at every
+   width. Below the breakpoint NOTHING here applies. */
+@media (min-width: 960px) {
+  .edit-overlay:not(.edit-overlay--full) {
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-lg);
+  }
+  .edit-sheet:not(.edit-sheet--full) {
+    width: 100%;
+    max-width: 480px;
+    max-height: min(85vh, 760px);
+    border-radius: 16px;
+  }
+}
+
 .edit-label {
   display: block;
   font-size: 0.8rem;
@@ -8471,6 +8493,22 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   box-shadow: 0 4px 16px rgba(0,0,0,0.12);
 }
 
+/* Above $desktop-nav (960px) the panel floats as a rounded card near the top
+   of the tree area instead of spanning it edge to edge. Below the breakpoint
+   NOTHING here applies. */
+@media (min-width: 960px) {
+  .rmap-pos-panel {
+    left: 50%;
+    right: auto;
+    top: var(--space-lg);
+    transform: translateX(-50%);
+    width: min(560px, calc(100% - 2 * var(--space-lg)));
+    border-radius: 14px;
+    border: 1px solid var(--border-card);
+    border-bottom: 1px solid var(--border-card);
+  }
+}
+
 /* Board column — fills half the panel width and is square */
 .rmap-pos-board-col {
   flex: 0 0 50%;
@@ -9248,6 +9286,35 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   overflow-y: auto;
 }
 
+/* ── Opponent detail: centred desktop modal ──────────────────────────────────
+   Above $desktop-nav (960px) the overlay becomes a dimmed backdrop and
+   .scout-detail-box (the header + scrolling body — see explore-screen.ts)
+   becomes the centred card, mirroring the Settings lightbox. Below the
+   breakpoint NOTHING here applies: the box is a 100% passthrough. */
+.scout-detail-box {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+@media (min-width: 960px) {
+  .scout-detail {
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-lg);
+    background: rgba(0, 0, 0, 0.45);
+  }
+  .scout-detail-box {
+    width: min(640px, 100%);
+    height: min(85vh, 760px);
+    border-radius: 14px;
+    border: 1px solid var(--border-card);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+    background: var(--bg-page);
+    overflow: hidden;
+  }
+}
+
 /* Round avatar for a scouted player — their Chess.com picture, or a faintly
    ringed fallback user icon. Used on the opponent card and in the detail header. */
 .scout-avatar {
@@ -9674,6 +9741,46 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   text-align: center;
   font-size: 0.9rem;
   padding: 0.7rem;
+}
+
+/* ── Library browse list: centred desktop modal ──────────────────────────────
+   Above $desktop-nav (960px) openLibrary()'s outer overlay becomes a dimmed
+   backdrop and .lib-overlay-box (everything else mounts into it — see
+   library.ts) becomes the centred card, mirroring the Settings lightbox.
+   .lib-detail below is a DIFFERENT overlay (the per-opening board+moves view)
+   and keeps its own two-column full-bleed treatment — it needs the width.
+   Below the breakpoint NOTHING here applies: the box is a 100% passthrough. */
+.lib-overlay-box {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+@media (min-width: 960px) {
+  .lib-overlay {
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-lg);
+    background: rgba(0, 0, 0, 0.45);
+  }
+  .lib-overlay-box {
+    width: min(640px, 100%);
+    height: min(85vh, 760px);
+    border-radius: 14px;
+    border: 1px solid var(--border-card);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+    background: var(--bg-page);
+    overflow: hidden;
+  }
+
+  /* Board mode's board sizes itself from 100vw, assuming the full-bleed screen
+     board-explorer.ts gives it (that overlay stays full-bleed on purpose — see
+     its own two-column layout below). Inside the centred card that assumption
+     breaks, so cap it to the card's own width instead. */
+  .lib-overlay-box .bx-board-wrap {
+    width: min(100%, 50vh);
+    height: min(100%, 50vh);
+  }
 }
 
 /* ── Library detail: two-column desktop layout ───────────────────────────────

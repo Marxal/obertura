@@ -1019,6 +1019,13 @@ function openDetail(id: string, container: HTMLElement): void {
 
     const overlay = document.createElement('div');
     overlay.className = 'rmap-overlay scout-detail';
+    // Header + body mount into this box rather than the overlay directly, so
+    // that above the desktop breakpoint the overlay can become a dimmed
+    // backdrop and the box a centred card — see .scout-detail/.scout-detail-box
+    // in style.css. Below the breakpoint the box is just a 100% passthrough.
+    const box = document.createElement('div');
+    box.className = 'scout-detail-box';
+    overlay.appendChild(box);
 
     let closed = false;
     function close(): void {
@@ -1028,6 +1035,9 @@ function openDetail(id: string, container: HTMLElement): void {
       removeBack();
     }
     const removeBack = pushBack(close);
+    // Backdrop tap only does anything once the overlay is a dimmed backdrop
+    // (desktop, ≥960px) — harmless no-op below that, since the box fills it.
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
 
     // Header.
     const header = document.createElement('div');
@@ -1048,7 +1058,7 @@ function openDetail(id: string, container: HTMLElement): void {
     header.appendChild(buildAvatar(opp, 32));
     header.appendChild(titleEl);
     header.appendChild(badge);
-    overlay.appendChild(header);
+    box.appendChild(header);
 
     // Scrollable body.
     const bodyWrap = document.createElement('div');
@@ -1148,7 +1158,7 @@ function openDetail(id: string, container: HTMLElement): void {
     //    filter (mirrors My Lines), rather than two split colour sections.
     bodyWrap.appendChild(openingsSection(opp, stats, prepare));
 
-    overlay.appendChild(bodyWrap);
+    box.appendChild(bodyWrap);
     document.body.appendChild(overlay);
   })();
 }

@@ -103,6 +103,13 @@ function setLibMode(mode: LibMode): void {
 export function openLibrary(onOpenInBuilder: (ucis: string[], colour: 'white' | 'black') => void): void {
   const overlay = document.createElement('div');
   overlay.className = 'rmap-overlay lib-overlay';
+  // Everything else mounts into this box rather than the overlay directly, so
+  // that above the desktop breakpoint the overlay can become a dimmed backdrop
+  // and the box a centred card — see .lib-overlay/.lib-overlay-box in style.css.
+  // Below the breakpoint the box is just a 100%-sized passthrough.
+  const box = document.createElement('div');
+  box.className = 'lib-overlay-box';
+  overlay.appendChild(box);
 
   let closed = false;
   // Built lazily the first time Board mode is shown; torn down on close.
@@ -115,6 +122,9 @@ export function openLibrary(onOpenInBuilder: (ucis: string[], colour: 'white' | 
     removeBack();
   }
   const removeBack = pushBack(close);
+  // Backdrop tap only does anything once the overlay is a dimmed backdrop
+  // (desktop, ≥960px) — harmless no-op below that, since the box fills it.
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
 
   // Opening a line in the builder must also dismiss the library overlay itself —
   // it's a full-screen opaque overlay (z-index 200), so without this the builder
@@ -144,7 +154,7 @@ export function openLibrary(onOpenInBuilder: (ucis: string[], colour: 'white' | 
   header.appendChild(back);
   header.appendChild(titleEl);
   header.appendChild(countBadge);
-  overlay.appendChild(header);
+  box.appendChild(header);
 
   // Mode toggle — Board (interactive board) / List (search list) / Moves (family
   // tree). Remembered; Board is the default.
@@ -182,7 +192,7 @@ export function openLibrary(onOpenInBuilder: (ucis: string[], colour: 'white' | 
     return b;
   });
   modeBar.appendChild(seg);
-  overlay.appendChild(modeBar);
+  box.appendChild(modeBar);
 
   // Search field (Stacked only — hidden in Visual mode).
   const searchWrap = document.createElement('div');
@@ -199,7 +209,7 @@ export function openLibrary(onOpenInBuilder: (ucis: string[], colour: 'white' | 
   input.spellcheck = false;
   searchWrap.appendChild(searchIcon);
   searchWrap.appendChild(input);
-  overlay.appendChild(searchWrap);
+  box.appendChild(searchWrap);
 
   // Results.
   const results = document.createElement('div');
@@ -208,7 +218,7 @@ export function openLibrary(onOpenInBuilder: (ucis: string[], colour: 'white' | 
   loading.className = 'lib-status';
   loading.textContent = 'Loading library…';
   results.appendChild(loading);
-  overlay.appendChild(results);
+  box.appendChild(results);
 
   document.body.appendChild(overlay);
 
@@ -235,7 +245,7 @@ export function openLibrary(onOpenInBuilder: (ucis: string[], colour: 'white' | 
       if (mode === 'board') {
         if (!explorer) {
           explorer = createLibraryExplorer(entries, openInBuilder);
-          overlay.appendChild(explorer.el);
+          box.appendChild(explorer.el);
         }
         // The board needs a layout pass before chessground can size itself, so
         // redraw once it's actually visible.
