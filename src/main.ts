@@ -65,7 +65,7 @@ import { maybeAutoRefreshGames } from './auto-refresh';
 import { maybeShowGate } from './gate';
 import { showToast } from './toast';
 import { Icons, classBoardSvg, CLASS_LABEL } from './icons';
-import { mountFab, type FabItem, type FabController } from './fab';
+import { mountFab, type FabItem, type FabAction, type FabSplit, type FabController } from './fab';
 import { importLastGame, hasConnectedAccount, connectedAccount } from './import-last';
 import { openBuilderImport } from './builder-import';
 import { openEngineSpar, openExploreOpponent, importOpponentFlow } from './explore-screen';
@@ -2804,7 +2804,95 @@ function buildSideNav(): void {
   }
   nav.appendChild(items);
 
+  nav.appendChild(buildSideCreate());
+  void refreshSideCreate();
+
   nav.appendChild(buildSideUser());
+}
+
+// Desktop's stand-in for the FAB: the same speed-dial actions (buildFabActions),
+// laid out as plain always-visible buttons instead of a popover, since there's
+// no bottom-right corner to float over on a sidebar layout. Sits between the
+// five destinations and the settings entry. Rebuilt fresh each time (same as
+// the FAB menu) so "Import last game" reflects the live connected-account
+// state; see refreshSideCreate().
+function buildSideCreate(): HTMLElement {
+  const section = document.createElement('div');
+  section.className = 'side-create';
+  section.id = 'side-create';
+
+  const title = document.createElement('div');
+  title.className = 'side-create-title';
+  title.textContent = 'Create a new line';
+  section.appendChild(title);
+
+  const list = document.createElement('div');
+  list.className = 'side-create-items';
+  list.id = 'side-create-items';
+  section.appendChild(list);
+
+  return section;
+}
+
+// Rebuild #side-create-items from buildFabActions() — the exact same list,
+// same onClick handlers, the FAB's speed-dial offers. Called on mount and
+// whenever the connected-account state might have changed (mirrors
+// applySideUserAvatar's IDENTITY_CHANGED_EVENT hook).
+async function refreshSideCreate(): Promise<void> {
+  const list = document.getElementById('side-create-items');
+  if (!list) return;
+  const items = await buildFabActions();
+  list.innerHTML = '';
+  for (const item of items) {
+    list.appendChild(item.kind === 'split' ? sideCreateSplitRow(item) : sideCreateActionRow(item));
+  }
+}
+
+function sideCreateActionRow(item: FabAction): HTMLElement {
+  const row = document.createElement('button');
+  row.type = 'button';
+  row.className = 'side-create-item';
+  const ic = document.createElement('span');
+  ic.className = 'side-create-icon' + (item.iconFrame ? ` side-create-icon--token-${item.iconFrame}` : '');
+  ic.appendChild(item.icon);
+  row.appendChild(ic);
+  row.appendChild(sideCreateText(item.label, item.sublabel));
+  row.addEventListener('click', item.onClick);
+  return row;
+}
+
+function sideCreateSplitRow(item: FabSplit): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'side-create-item side-create-item--split';
+  row.appendChild(sideCreateText(item.label));
+  const split = document.createElement('span');
+  split.className = 'side-create-split';
+  for (const [side, cls] of [[item.left, 'side-create-split-white'], [item.right, 'side-create-split-black']] as const) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'side-create-split-btn ' + cls;
+    b.textContent = side.label;
+    b.addEventListener('click', side.onClick);
+    split.appendChild(b);
+  }
+  row.appendChild(split);
+  return row;
+}
+
+function sideCreateText(label: string, sublabel?: string): HTMLElement {
+  const text = document.createElement('span');
+  text.className = 'side-create-text';
+  const main = document.createElement('span');
+  main.className = 'side-create-label';
+  main.textContent = label;
+  text.appendChild(main);
+  if (sublabel) {
+    const sub = document.createElement('span');
+    sub.className = 'side-create-sub';
+    sub.textContent = sublabel;
+    text.appendChild(sub);
+  }
+  return text;
 }
 
 // The bottom entry: avatar + label, opening Settings. There are no accounts yet
@@ -2903,6 +2991,7 @@ function setupNav(): void {
   window.addEventListener(IDENTITY_CHANGED_EVENT, () => {
     applyNavSettingsAvatar();
     applySideUserAvatar();
+    void refreshSideCreate();
   });
 
   // The survey's "Back to train" button lands the user on the Train tab.
