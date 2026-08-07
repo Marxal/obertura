@@ -11375,6 +11375,51 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   padding: 0 10px 10px;
 }
 
+/* ── My Lines / My games: desktop card grid ───────────────────────────────────
+   Above $desktop-nav (960px — mirrors DESKTOP_NAV_BREAKPOINT in main.ts) the
+   filter bar stays full width, but the card list reflows from one long column
+   into a responsive grid: 2 columns from 960px, 3 from 1280px. This applies
+   at the top level (flat cards, or — when grouped — the family accordions
+   themselves) AND inside each opened family/variation group's own
+   .lines-fam-body, so a grouped view reflows into columns too once a family
+   is expanded. `.lines-grid` marks the two card lists on the Lines screen
+   (Saved lines + From my games); `.mygames-list` is already unique to the My
+   games screen so it needs no extra marker. Below the breakpoint nothing
+   here applies — the phone layout (one column, unboxed) is untouched. */
+@media (min-width: 960px) {
+  .lines-grid,
+  .mygames-list,
+  .lines-grid .lines-fam-body,
+  .mygames-list .lines-fam-body {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    align-items: start;
+    gap: var(--space-md);
+  }
+  .lines-grid > .pcard,
+  .lines-grid > .lines-fam,
+  .lines-grid .lines-fam-body > .pcard {
+    margin-bottom: 0;
+  }
+  /* An open family would otherwise be squeezed into a single top-level grid
+     column, leaving its own nested card grid almost no room. Once expanded it
+     breaks out to span the full row width, so .lines-fam-body's grid gets the
+     same width as the top-level list. */
+  .lines-grid > .lines-fam:has(.lines-fam-head--open),
+  .mygames-list > .lines-fam:has(.lines-fam-head--open) {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 1280px) {
+  .lines-grid,
+  .mygames-list,
+  .lines-grid .lines-fam-body,
+  .mygames-list .lines-fam-body {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 /* ── Floating action button (FAB) ─────────────────────────────────────────────
    Bottom-right speed dial on the four main tabs. Sits above the bottom-nav
    (z 50) but below the full-screen overlays (z 200) and dialogs (z 300). */

@@ -348,7 +348,7 @@ function renderSavedTab(
   const sec = document.createElement('div');
   sec.className = 'section';
   const list = document.createElement('div');
-  list.className = 'group';
+  list.className = 'group lines-grid';
   sec.appendChild(list);
   content.appendChild(sec);
 
@@ -653,7 +653,7 @@ function renderGamesTab(
   const sec = document.createElement('div');
   sec.className = 'section';
   const list = document.createElement('div');
-  list.className = 'group';
+  list.className = 'group lines-grid';
   // Keep the top-6 cap, but reveal the rest inline behind a "Show all".
   suggestions.forEach((stat, i) => {
     const card = suggestionCard(stat, deps);
