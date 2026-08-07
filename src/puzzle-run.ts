@@ -26,6 +26,9 @@ import { playFeedback } from './sound';
 import { pushBack } from './back-nav';
 import { burstConfetti, celebratePawn } from './confetti';
 import { puzzleSetup, type Puzzle } from './puzzles';
+import { checkPuzzleAlternate, isPromotionMove } from './puzzle-alt';
+import { resolveUci } from './engine';
+import { formatMove } from './notation';
 import { showDialog } from './dialog';
 import { wasRecentlySeen, recordSeenPuzzle } from './puzzle-log';
 import { getPuzzleRating, nextRating, commitRating, recordCleanResult, type RatingScope } from './puzzle-rating';
@@ -103,6 +106,7 @@ interface SessionEntry {
   draw: PuzzleDraw;
   clean: boolean;   // solved first try, no hint
   points?: number;  // rated mode: the rating change this puzzle earned (+/-)
+  alt?: boolean;    // finished with a verified alternative, not the puzzle's move
 }
 
 export function startPuzzleSession(opts: PuzzleSessionOptions): void {
@@ -118,12 +122,18 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   // Per-puzzle state.
   let draw: PuzzleDraw | null = null;
   let solution: string[] = [];
-  let solIndex = 1;             // next solution move the solver owes (1, 3, 5…)
+  let solIndex = 0;             // next solution move the solver owes (0, 2, 4…)
   let solverColour: 'white' | 'black' = 'white';
   let failedThisPuzzle = false; // a wrong move or hint was used on this puzzle
   let hintStage = 0;            // 0 none, 1 piece highlighted, 2 arrow shown
   let inputLocked = true;       // board frozen during loads / animations
   let sessionOver = false;      // results shown — back exits without confirming
+  // Alternate-move check (puzzle-alt.ts): true while the engine is deciding
+  // whether a non-solution move is just as good, and — once one is accepted —
+  // the puzzle's own move in SAN, for the "different way" message.
+  let checkingAlt = false;
+  let altSolve = false;
+  let altOfficialSan: string | null = null;
 
   // Session tallies.
   let completed = 0;           // puzzles finished so far
@@ -430,6 +440,9 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     solIndex = 0;            // the solver plays solution[0] first
     failedThisPuzzle = false;
     hintStage = 0;
+    checkingAlt = false;
+    altSolve = false;
+    altOfficialSan = null;
     hintBtn.replaceChildren(Icons.bulb(16), document.createTextNode('Hint'));
 
     chess.load(setup.fen);
@@ -504,7 +517,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   }
 
   function onUserMove(from: Key, to: Key): void {
-    if (inputLocked) return;
+    if (inputLocked || checkingAlt) return;
     const expected = solution[solIndex];
     if (!expected) return;
     const { from: eFrom, to: eTo } = uciParts(expected);
@@ -519,7 +532,22 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
       return;
     }
 
-    // Wrong move.
+    // Not the puzzle's move — but plenty of positions have a second move that's
+    // just as good (an equally fast mate, or another move that doesn't blunder).
+    // Ask the local engine before calling it a mistake. Once per puzzle only, and
+    // never once they've already slipped or taken a hint: the check costs a
+    // search, and after a miss the puzzle is unclean anyway.
+    const preFen = chess.fen();
+    if (!failedThisPuzzle && hintStage === 0 && !isPromotionMove(preFen, from, to)) {
+      void tryAlternate(from, to, expected, preFen);
+      return;
+    }
+    registerWrong();
+  }
+
+  // The wrong-move outcome — also the fallback whenever the alternate check can't
+  // verify a move, so an unverifiable move behaves exactly as it always did.
+  function registerWrong(): void {
     failedThisPuzzle = true;
     flashError();
     if (timed) {
@@ -532,8 +560,80 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     // there if they're stuck). If a hint is already showing, keep the arrow up.
     setStatus('Not quite — try again', 'pt-status--error');
     cg.set({ fen: chess.fen(), turnColor: cgTurn(), movable: { color: solverColour, dests: legalDests() } });
+    if (hintStage < 2) hintBtn.hidden = false;
     if (hintStage === 1) showPieceHighlight();
     else if (hintStage === 2) showArrow();
+  }
+
+  // ── Alternate-move check ────────────────────────────────────────────────────
+  // Mirrors drill.ts's checkAlternative: freeze the board while the engine
+  // decides, then either accept the move or fall through to the normal wrong-move
+  // path. The piece is left where it was dropped during the wait — if it's
+  // accepted it's already home, and a rejection snaps it back with the usual flash.
+  async function tryAlternate(from: Key, to: Key, expected: string, preFen: string): Promise<void> {
+    checkingAlt = true;
+    const startedAt = Date.now();
+    lockBoard();
+    setStatus('Checking that move…', 'pt-status--alt');
+
+    let ok = false;
+    try {
+      ok = await checkPuzzleAlternate({
+        fen: preFen,
+        userUci: from + to,
+        officialUci: expected,
+        themes: draw?.puzzle.themes ?? [],
+      });
+    } catch {
+      ok = false;
+    }
+    if (isCleaned) return;
+    checkingAlt = false;
+    // Time Attack runs on a wall clock: give back whatever the check just cost.
+    if (timed) deadline += Date.now() - startedAt;
+
+    if (ok) { acceptAlternate(from, to, expected, preFen); return; }
+    inputLocked = false;
+    registerWrong();
+  }
+
+  // A verified alternative ends the puzzle as solved, there and then. The rest of
+  // solution[] assumed the puzzle's own move was played — the scripted reply after
+  // a different move is usually illegal and always unmotivated — so rather than
+  // force the remaining line we stop here and count it. "Analyse position" is
+  // right below for anyone who wants to see how the official line finished.
+  function acceptAlternate(from: Key, to: Key, expected: string, preFen: string): void {
+    cg.setAutoShapes([]);
+    playFeedback('correct');
+    altSolve = true;
+    altOfficialSan = resolveUci(preFen, expected)?.san ?? null;
+    try {
+      chess.move({ from, to, promotion: 'q' });
+    } catch { /* the engine just ranked this move, so it's legal */ }
+    cg.set({
+      fen: chess.fen(),
+      turnColor: cgTurn(),
+      lastMove: [from, to],
+      movable: { color: undefined, dests: new Map() },
+    });
+    setAlternateStatus();
+    finish();
+    // Show the puzzle's own move alongside yours, the way the mistake drill nudges
+    // toward the engine's first choice. Drawn after finish(), which clears shapes.
+    const { from: eFrom, to: eTo } = uciParts(expected);
+    requestAnimationFrame(() => {
+      if (!isCleaned) cg.setAutoShapes([{ orig: eFrom, dest: eTo, brush: 'accent' }]);
+    });
+  }
+
+  // "Good move ✓ — a different way!", with the puzzle's own move underneath.
+  function setAlternateStatus(): void {
+    setStatus('Good move ✓ — a different way!', 'pt-status--success');
+    if (!altOfficialSan) return;
+    const line = document.createElement('span');
+    line.className = 'pz-alt-official';
+    line.textContent = `The puzzle played ${formatMove(altOfficialSan)}`;
+    statusEl.appendChild(line);
   }
 
   // After the solver's correct move: auto-play the opponent's reply, then either
@@ -577,7 +677,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
       const streak = recordCleanResult(clean, ratingScope);
       if (streak.improved) newBestStreak = streak.best;
     }
-    entries.push({ draw: cur, clean, points });
+    entries.push({ draw: cur, clean, points, alt: altSolve });
 
     if (timed) {
       if (!clean) { mistakes++; renderMistakes(); }
@@ -617,7 +717,9 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
       ratingEl.textContent = `Rating ${cur.puzzle.rating}`;
     }
     if (clean) {
-      setStatus('Solved!', 'pt-status--success');
+      // An alternate solve has already said its piece ("a different way!") — don't
+      // overwrite it with the plain "Solved!".
+      if (!altSolve) setStatus('Solved!', 'pt-status--success');
       burstConfetti(boardWrap);
     } else {
       setStatus('Got it — no points this time', 'pt-status--reveal');
@@ -821,7 +923,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     const meta = document.createElement('div');
     meta.className = 'pz-result-meta';
     const theme = e.draw.puzzle.themes.length ? prettyTheme(e.draw.puzzle.themes[0]) : 'Tactic';
-    meta.textContent = theme;
+    meta.textContent = e.alt ? `${theme} · your own way` : theme;
     main.appendChild(meta);
     row.appendChild(main);
 

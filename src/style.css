@@ -12111,6 +12111,16 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .pz-hint-btn svg { flex: none; }
 .pz-hint-btn:active { background: var(--bg-elevated); }
 
+/* Second line under "Good move ✓ — a different way!": which move the puzzle
+   itself played, quiet enough not to compete with the verdict above it. */
+.pz-alt-official {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--text-faint);
+  font-size: 0.85em;
+  font-weight: 500;
+}
+
 /* ── Results screen: rating delta + per-puzzle review list ─────────────────── */
 .pz-rating-result {
   display: flex;
