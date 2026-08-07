@@ -18,6 +18,17 @@
   --board-dark: #b58863;
   --board-lastmove: #e3b25a;
 
+  /* ── Layout chrome heights ─────────────────────────────────────────────────
+     Reference heights used to size the builder board (#board-wrap) so the
+     header, the full 8-rank board, the docked control bar, and a usable default
+     sheet strip all fit the viewport. Deliberately generous estimates: they only
+     ever bite on a WIDE or SHORT viewport, where an uncapped 100vw board would
+     otherwise be taller than the screen. On a tall phone the board stays capped
+     at 100vw and these are never reached — so phone layout is unchanged. */
+  --app-header-h: 58px;
+  --builder-dock-h: 56px;
+  --builder-sheet-min: 180px;
+
   /* Surfaces */
   --bg-page: #f1ece1;
   --bg-card: #faf8f5;
@@ -1083,9 +1094,19 @@ main {
   color: #5a9e3f;
 }
 
+/* The builder board is a TRUE SQUARE. On a phone it's the full width (100vw);
+   on a wider or shorter viewport it's capped to the height left after the header,
+   the docked control bar, and a default sheet strip — so all 8 ranks stay visible
+   ABOVE the sheet instead of the board running off the bottom of the screen. When
+   the square is narrower than the viewport (desktop) it centres. */
 #board-wrap {
-  width: 100vw;
-  height: 100vw;
+  --builder-board-size: min(
+    100vw,
+    calc(100dvh - var(--app-header-h) - var(--builder-dock-h) - var(--builder-sheet-min))
+  );
+  width: var(--builder-board-size);
+  height: var(--builder-board-size);
+  margin-inline: auto;
 }
 
 #board {
@@ -4610,9 +4631,12 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .pt-rating-delta--down { color: var(--danger); }
 
 .pt-board-wrap {
-  width: 100vw;
-  /* Cap at ~58 vh so status + note/alt card are always visible without scrolling. */
+  /* Square: cap at ~58 vh so status + note/alt card are always visible without
+     scrolling, and mirror that cap on the width so a wide viewport gets a centred
+     square instead of a stretched rectangle. */
+  width: min(100vw, 58vh);
   height: min(100vw, 58vh);
+  margin-inline: auto;
   flex-shrink: 0;
   position: relative; /* anchor for the error-flash overlay */
 }
@@ -9197,8 +9221,10 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 /* ── Library detail (board + step-through) ─────────────────────────────────── */
 
 .lib-board-wrap {
-  width: 100vw;
+  /* Square + centred (mirror the height cap onto the width). */
+  width: min(100vw, 52vh);
   height: min(100vw, 52vh);
+  margin-inline: auto;
   flex-shrink: 0;
 }
 .lib-board {
@@ -9280,8 +9306,10 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 /* ── Board explorer ─────────────────────────────────────────────────────────── */
 
 .bx-board-wrap {
-  width: 100vw;
+  /* Square + centred (mirror the height cap onto the width). */
+  width: min(100vw, 50vh);
   height: min(100vw, 50vh);
+  margin-inline: auto;
   flex-shrink: 0;
 }
 .bx-board { width: 100%; height: 100%; }
