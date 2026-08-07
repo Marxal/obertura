@@ -1887,6 +1887,13 @@ let fabController: FabController | null = null;
 // Watch run in their own full-screen overlay with its own back button.)
 const BACK_VIEWS: ReadonlySet<ViewName> = new Set<ViewName>(['builder', 'settings']);
 
+// At/above this width the left sidebar (#side-nav) replaces the bottom tab
+// bar (#bottom-nav) — see syncNavVisibility. Kept in sync with the
+// $desktop-nav media query in style.css; same discipline as theme.ts /
+// index.html's pre-paint script — update both on change.
+const DESKTOP_NAV_BREAKPOINT = 960;
+const desktopNavQuery = window.matchMedia(`(min-width: ${DESKTOP_NAV_BREAKPOINT}px)`);
+
 // The tab to return to when the back arrow exits a full screen. Builder is
 // conceptually opened from My Lines; Settings remembers wherever you came from.
 let returnView: ViewName = 'lines';
@@ -2472,6 +2479,21 @@ function renderTrainTabbed(host: HTMLElement): void {
   paint();
 }
 
+// Shows #bottom-nav below DESKTOP_NAV_BREAKPOINT and #side-nav at or above it;
+// both stay hidden on full-screen views (builder/settings), where the back
+// arrow takes over. Called from showView() on every navigation, and from the
+// matchMedia listener in setupNav() so a live resize across the breakpoint
+// (not just a view change) swaps the two.
+function syncNavVisibility(): void {
+  const onBack = BACK_VIEWS.has(currentView);
+  const isDesktop = desktopNavQuery.matches;
+  document.getElementById('bottom-nav')!.toggleAttribute('hidden', onBack || isDesktop);
+  document.getElementById('side-nav')!.toggleAttribute('hidden', onBack || !isDesktop);
+  // The FAB rides along with whichever nav is showing: visible on the five
+  // main tabs, hidden on the full-screen builder/settings.
+  fabController?.setVisible(!onBack);
+}
+
 function showView(view: ViewName): void {
   // A training session suspended behind the analyser: landing back on Train
   // resumes it (after the view has rendered, below); landing anywhere else
@@ -2514,13 +2536,11 @@ function showView(view: ViewName): void {
   progressEl.toggleAttribute('hidden', view !== 'progress');
   settingsEl.toggleAttribute('hidden', view !== 'settings');
 
-  // Full screens swap the bottom tab bar for a back arrow.
+  // Full screens swap the primary nav (bottom tab bar, or the sidebar at
+  // desktop width) for a back arrow.
   const onBack = BACK_VIEWS.has(view);
-  document.getElementById('bottom-nav')!.toggleAttribute('hidden', onBack);
   document.getElementById('nav-back')!.toggleAttribute('hidden', !onBack);
-  // The FAB rides along with the bottom nav: on the four main tabs, not the
-  // full-screen builder/settings.
-  fabController?.setVisible(!onBack);
+  syncNavVisibility();
 
   // The builder puts Save in the top-right; the settings icon is hidden on both
   // the builder (Save takes its place) and the Settings screen itself. While a
@@ -2530,7 +2550,7 @@ function showView(view: ViewName): void {
   document.getElementById('header-save')!.toggleAttribute('hidden', !onBuilder || !!suspendedSession);
   document.getElementById('nav-settings')!.toggleAttribute('hidden', onBuilder || view === 'settings');
 
-  document.querySelectorAll<HTMLElement>('#bottom-nav .tab-item').forEach(btn => {
+  document.querySelectorAll<HTMLElement>('#bottom-nav .tab-item, #side-nav .side-item').forEach(btn => {
     const active = btn.dataset.view === view;
     btn.classList.toggle('active', active);
     if (active) btn.setAttribute('aria-current', 'page');
@@ -2693,8 +2713,39 @@ function applyNavSettingsAvatar(): void {
   btn.appendChild(img);
 }
 
+// The desktop sidebar's five destinations — same views, order and icons as
+// #bottom-nav's static markup in index.html, built here (rather than
+// hardcoded HTML) so it can reuse Icons.
+const SIDE_NAV_ITEMS: ReadonlyArray<{ view: ViewName; label: string; icon: () => SVGSVGElement }> = [
+  { view: 'train', label: 'Train', icon: () => Icons.zap(22) },
+  { view: 'lines', label: 'My Lines', icon: () => Icons.pawn(22) },
+  { view: 'explore', label: 'Explore', icon: () => Icons.compass(22) },
+  { view: 'games', label: 'My games', icon: () => Icons.build(22) },
+  { view: 'progress', label: 'Statistics', icon: () => Icons.barChart(22) },
+];
+
+function buildSideNav(): void {
+  const nav = document.getElementById('side-nav')!;
+  for (const item of SIDE_NAV_ITEMS) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'side-item';
+    btn.dataset.view = item.view;
+    btn.appendChild(item.icon());
+    const label = document.createElement('span');
+    label.textContent = item.label;
+    btn.appendChild(label);
+    nav.appendChild(btn);
+  }
+}
+
 function setupNav(): void {
-  document.querySelectorAll<HTMLElement>('#bottom-nav .tab-item').forEach(btn => {
+  buildSideNav();
+  // desktopNavQuery.matches flips on a live resize without a view change
+  // (e.g. dragging a window wider), so re-run the same swap showView() does.
+  desktopNavQuery.addEventListener('change', syncNavVisibility);
+
+  document.querySelectorAll<HTMLElement>('#bottom-nav .tab-item, #side-nav .side-item').forEach(btn => {
     btn.addEventListener('click', () => {
       const view = btn.dataset.view as ViewName | undefined;
       if (view) guardBuilderLeave(() => showView(view));
