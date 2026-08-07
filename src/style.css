@@ -718,6 +718,7 @@ body {
    ════════════════════════════════════════════════════════════════════════════ */
 
 .tab-item svg,
+.side-item svg,
 .btn-icon svg {
   flex-shrink: 0;
 }
@@ -964,6 +965,86 @@ header h1.header-title--screen {
 /* Keep page content clear of the fixed bottom bar. */
 main {
   padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+}
+
+/* ── Desktop sidebar ────────────────────────────────────────────────────────
+   Same five destinations as the bottom tab bar above, as a vertical list
+   instead — shown at and above the $desktop-nav breakpoint below (mirrors
+   DESKTOP_NAV_BREAKPOINT in main.ts; keep both in sync). Built by main.ts's
+   buildSideNav(). Hidden unconditionally here so nothing changes below the
+   breakpoint, even before JS has run. */
+.side-nav {
+  display: none;
+}
+
+.side-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.65rem 0.9rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-faint);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.12s, background-color 0.12s;
+}
+
+.side-item span {
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.side-item:hover,
+.side-item:focus-visible {
+  background: var(--accent-soft);
+}
+
+.side-item.active {
+  color: var(--accent);
+}
+
+/* $desktop-nav: at/above this width the sidebar (.side-nav) replaces the
+   bottom tab bar. Mirrors DESKTOP_NAV_BREAKPOINT in main.ts — keep both in
+   sync when this changes. */
+@media (min-width: 960px) {
+  /* Own stacking context so the fixed sidebar (below) can never paint over
+     it, however their heights round. */
+  header {
+    position: relative;
+    z-index: 2;
+  }
+
+  #bottom-nav {
+    display: none;
+  }
+
+  main {
+    padding-bottom: 0;
+    padding-left: 240px;
+  }
+
+  .side-nav:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    position: fixed;
+    top: var(--app-header-h);
+    left: 0;
+    bottom: 0;
+    width: 240px;
+    padding: var(--space-md) var(--space-sm);
+    background: var(--bg-card);
+    border-right: 1px solid var(--border-card);
+    overflow-y: auto;
+    z-index: 50;
+  }
 }
 
 /* ── Train screen header (daily streak pill) ───────────────────────────────── */
