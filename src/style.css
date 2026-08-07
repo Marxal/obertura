@@ -1039,6 +1039,119 @@ main {
   text-overflow: ellipsis;
 }
 
+/* Desktop's stand-in for the FAB — the same speed-dial actions as plain,
+   always-visible rows, between the five destinations and the user entry.
+   Hidden unconditionally here (with the rest of .side-nav) below the
+   $desktop-nav breakpoint. */
+.side-create {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0.7rem 0.25rem;
+  margin-top: var(--space-sm);
+  border-top: 1px solid var(--hairline-soft);
+}
+
+.side-create-title {
+  padding: 0 0.2rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.side-create-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.side-create-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  border: none;
+  border-radius: 8px;
+  padding: 0.4rem 0.2rem;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.12s;
+}
+.side-create-item:hover,
+.side-create-item:focus-visible {
+  background: var(--accent-soft);
+}
+
+.side-create-icon {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  color: var(--accent);
+  border: 1px solid var(--border-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.side-create-icon--token-white {
+  background: #f3f1ea;
+  color: #2a2a2a;
+  border-color: rgba(0, 0, 0, 0.18);
+}
+.side-create-icon--token-black {
+  background: #2a2a2a;
+  color: #f3f1ea;
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.side-create-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.side-create-label {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.2;
+}
+.side-create-sub {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+
+/* "New line" split row, if ever used here — same White | Black shape as the
+   FAB's .fab-split. */
+.side-create-item--split {
+  cursor: default;
+}
+.side-create-split {
+  flex: none;
+  display: flex;
+  border-radius: 16px;
+  overflow: hidden;
+  margin-left: auto;
+}
+.side-create-split-btn {
+  border: none;
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 0 10px;
+  height: 32px;
+}
+.side-create-split-white { background: #f3f1ea; color: #2a2a2a; }
+.side-create-split-black { background: #2a2a2a; color: #f3f1ea; }
+.side-create-split-btn:active { filter: brightness(0.92); }
+
 .side-item {
   display: flex;
   align-items: center;
@@ -11203,6 +11316,12 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   z-index: 60;
 }
 .fab-root[hidden] { display: none; }
+
+/* Above $desktop-nav (960px — mirrors DESKTOP_NAV_BREAKPOINT in main.ts) the
+   sidebar's "Create a new line" section (below) replaces the FAB outright. */
+@media (min-width: 960px) {
+  .fab-root { display: none; }
+}
 
 /* Keep the end of every main tab clear of the FAB (which floats up to ~126px
    above the viewport bottom — taller than the bottom-nav `main` already clears)
