@@ -1,4 +1,4 @@
-# Publishing Obertura — options, costs and the recommended path
+# Publishing Bito Chess — options, costs and the recommended path
 
 The goal, in Marçal's words: sell the app with a **one-time payment**, without
 being tied to a server. This document is the full decision guide: what's
@@ -7,7 +7,7 @@ things in. Nothing here is started until you say go.
 
 ## Where we stand
 
-Obertura is a PWA (an installable web app) served free at
+Bito Chess is a PWA (an installable web app) served free at
 `https://marxal.github.io/obertura/`. All data lives on the device; with the
 new cloud backup (see `DRIVE-SETUP.md`) it can also live in the user's own
 Google Drive. There is no server, and none of the options below adds one —

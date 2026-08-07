@@ -767,16 +767,15 @@ header {
   background: var(--accent-soft);
 }
 
-/* Wordmark — the pixel font Silkscreen (weight 400, fallback monospace). Only
-   the wordmark uses it. Silkscreen's glyphs sit small inside the em, so the size
-   is bumped from the old 1.4rem to land at roughly the same optical cap height. */
+/* Wordmark — Chakra Petch (weight 400, fallback monospace). Only the wordmark
+   uses it, and the name is always written in lower case ("bito chess") in this
+   font, matching the HTML source rather than a text-transform. */
 header h1 {
-  font-family: 'Silkscreen', monospace;
+  font-family: 'Chakra Petch', monospace;
   font-size: 1.6rem;
   font-weight: 400;
   letter-spacing: 0.01em;
   color: var(--accent);
-  text-transform: uppercase;
   white-space: nowrap;
   /* The wordmark is tappable on the main tabs — it reloads the app. */
   cursor: pointer;
@@ -7185,37 +7184,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   min-height: 3.5rem;
   font-family: system-ui, -apple-system, sans-serif;
 }
-
-/* Name ratings — name on the left, five tappable stars on the right. */
-.survey-name-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.3rem 0.8rem;
-  padding: 0.5rem 0.1rem;
-  border-bottom: 1px solid var(--hairline);
-}
-.survey-name {
-  font-size: 1.02rem;
-  font-weight: 600;
-  color: var(--text);
-}
-.survey-stars {
-  display: inline-flex;
-  gap: 0.12rem;
-}
-.survey-star {
-  background: none;
-  border: none;
-  padding: 2px 3px;
-  font-size: 1.7rem;
-  line-height: 1;
-  color: var(--text-faint);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.survey-star--on { color: var(--accent); }
 
 /* Footer — the primary action, with a quiet Skip beneath it. */
 .survey-footer {

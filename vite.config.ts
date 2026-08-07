@@ -8,7 +8,7 @@ const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 
 export default defineConfig({
   base: '/obertura/',
   define: {
-    __APP_NAME__: JSON.stringify('Obertura'),
+    __APP_NAME__: JSON.stringify('Bito Chess'),
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
 });

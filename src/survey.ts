@@ -72,7 +72,7 @@ export function maybeShowSurveyBanner(): void {
 
   const text = document.createElement('div');
   text.textContent =
-    "You've used Obertura for a week — mind answering a few questions? It really helps.";
+    "You've used Bito Chess for a week — mind answering a few questions? It really helps.";
   text.style.fontSize = '0.9rem';
   text.style.lineHeight = '1.35';
 
@@ -305,49 +305,6 @@ function buildMulti(id: string, label: string, opts: Opt[], onChange: () => void
   };
 }
 
-// A five-star rating row — name on the left, stars on the right. value() is 0–5,
-// where 0 means "not rated"; tapping the current rating clears it.
-function buildStars(id: string, name: string, onChange: () => void): Field {
-  const wrap = document.createElement('div');
-  wrap.className = 'survey-name-row';
-  const nameEl = document.createElement('span');
-  nameEl.className = 'survey-name';
-  nameEl.textContent = name;
-
-  const row = document.createElement('div');
-  row.className = 'survey-stars';
-  row.setAttribute('role', 'group');
-  row.setAttribute('aria-label', `Rate ${name}`);
-
-  let rating = 0;
-  const stars: HTMLButtonElement[] = [];
-  const reflect = () => stars.forEach((s, i) => {
-    const on = i < rating;
-    s.textContent = on ? '★' : '☆';
-    s.classList.toggle('survey-star--on', on);
-    s.setAttribute('aria-pressed', String(on));
-  });
-  for (let i = 1; i <= 5; i++) {
-    const s = document.createElement('button');
-    s.type = 'button';
-    s.className = 'survey-star';
-    s.textContent = '☆';
-    s.setAttribute('aria-label', `${i} star${i === 1 ? '' : 's'}`);
-    s.addEventListener('click', () => { rating = rating === i ? 0 : i; reflect(); onChange(); });
-    stars.push(s);
-    row.appendChild(s);
-  }
-  reflect();
-  wrap.append(nameEl, row);
-
-  return {
-    id, el: wrap,
-    value: () => rating,
-    serialize: () => rating,
-    restore(v) { rating = Number(v) || 0; reflect(); },
-  };
-}
-
 // A free-text answer.
 function buildText(
   id: string,
@@ -533,14 +490,14 @@ export function openSurvey(): void {
     'Lotus Chess', 'Chessbase', 'Chessbook', 'ChessReps', 'Aimchess', 'Chesstempo', 'RepertoLab', 'None', 'Other',
   ], PICK_MANY)));
 
-  // Your week with Obertura
-  qsteps.push(oneFieldStep('Your week with Obertura', single('q05_frequency', 'How often did you use Obertura this week?', [
+  // Your week with Bito Chess
+  qsteps.push(oneFieldStep('Your week with Bito Chess', single('q05_frequency', 'How often did you use Bito Chess this week?', [
     { v: 'Most days', e: '🔥' }, { v: 'A few times', e: '🙂' }, { v: 'Once or twice', e: '🤏' }, { v: 'Almost never', e: '😴' },
   ])));
-  qsteps.push(oneFieldStep('Your week with Obertura', single('q06_lines_added', 'Roughly how many lines did you add?', [
+  qsteps.push(oneFieldStep('Your week with Bito Chess', single('q06_lines_added', 'Roughly how many lines did you add?', [
     { v: '0-5', e: '🌱' }, { v: '5-10', e: '📈' }, { v: '10-20', e: '💪' }, { v: 'More than 20', e: '🚀' },
   ])));
-  qsteps.push(oneFieldStep('Your week with Obertura', single('q07_best_add_method', 'How did you usually add new lines?', [
+  qsteps.push(oneFieldStep('Your week with Bito Chess', single('q07_best_add_method', 'How did you usually add new lines?', [
     { v: 'Manually on the board', e: '✋' },
     { v: 'Browsing the opening library', e: '📚' },
     { v: 'Importing my games', e: '⬇️' },
@@ -549,7 +506,7 @@ export function openSurvey(): void {
     { v: 'Using a curated pack', e: '📦' },
     { v: 'Using the recommendation tool', e: '✨' },
   ])));
-  qsteps.push(oneFieldStep('Your week with Obertura', single('q08_top_mode', 'Which training mode did you use most?', [
+  qsteps.push(oneFieldStep('Your week with Bito Chess', single('q08_top_mode', 'Which training mode did you use most?', [
     { v: 'Due now', e: '⏳' }, { v: 'Review missed moves', e: '🔧' }, { v: 'Drill new lines', e: '🌱' },
     { v: 'Target weak areas', e: '⚠️' }, { v: 'Time attack', e: '⏱️' }, { v: 'Prep', e: '🎯' },
     { v: "I didn't train", e: '🙈' },
@@ -560,7 +517,7 @@ export function openSurvey(): void {
     single('q09_loop_made_sense', 'Did that workflow make sense?', [
       { v: 'Yes, immediately', e: '✅' }, { v: 'It took a little while', e: '🐢' }, { v: 'Not really', e: '🤔' },
     ]),
-    'Obertura is built around a simple cycle: build a line → play it → review it later.'));
+    'Bito Chess is built around a simple cycle: build a line → play it → review it later.'));
   qsteps.push(oneFieldStep('The learning experience', single('q10_training_useful', 'Did your training sessions feel useful?', [
     { v: 'Almost always', e: '🎯' }, { v: 'Most of the time', e: '👍' }, { v: 'About half the time', e: '⚖️' }, { v: 'Rarely', e: '😕' },
   ])));
@@ -581,7 +538,7 @@ export function openSurvey(): void {
     { v: 'Maybe, alongside building my own', e: '🤝' },
     { v: "No, I'd rather build everything myself", e: '🛠️' },
   ])));
-  qsteps.push(oneFieldStep('Future directions', single('q13_browser_desktop', 'Would you use Obertura on a computer?', [
+  qsteps.push(oneFieldStep('Future directions', single('q13_browser_desktop', 'Would you use Bito Chess on a computer?', [
     { v: 'Yes, regularly', e: '💻' }, { v: 'Sometimes', e: '🙂' }, { v: 'Probably not', e: '🙅' },
   ])));
   qsteps.push(oneFieldStep('Future directions',
@@ -592,7 +549,7 @@ export function openSurvey(): void {
       { v: 'Other', e: '💬' },
     ]),
     'Currently, your repertoire is stored only on this device.'));
-  qsteps.push(oneFieldStep('Future directions', single('q15_payment_preference', 'If Obertura became a paid product, what would feel most reasonable?', [
+  qsteps.push(oneFieldStep('Future directions', single('q15_payment_preference', 'If Bito Chess became a paid product, what would feel most reasonable?', [
     { v: 'One-time purchase', e: '💰' },
     { v: 'Monthly subscription', e: '🔁' },
     { v: 'Free with ads', e: '📺' },
@@ -611,28 +568,6 @@ export function openSurvey(): void {
     { v: 'Curated repertoires with explanations', e: '📖' },
     { v: 'Other', e: '💬' },
   ])));
-
-  // The name — five ratings plus a free-text suggestion, all on one screen.
-  {
-    const el = document.createElement('div');
-    el.className = 'survey-step';
-    el.appendChild(sectionHeader('The name'));
-    el.appendChild(questionLabel('How do you feel about these possible names?'));
-    const fields: Field[] = [];
-    for (const [id, name] of [
-      ['name_obertura', 'Obertura'], ['name_zugzwang', 'Zugzwang'], ['name_kaissa', 'Kaissa'],
-      ['name_movely', 'Movely'], ['name_lumo', 'Lumo'],
-    ] as const) {
-      const f = buildStars(id, name, onChange);
-      fields.push(f);
-      el.appendChild(f.el);
-    }
-    const other = buildText('name_other', "Is there another name you'd prefer? I'm always open to ideas!", onChange,
-      { rows: 2, placeholder: 'Your suggestion…' });
-    fields.push(other);
-    el.appendChild(other.el);
-    qsteps.push({ el, fields });
-  }
 
   // Before you go — any other feedback, then optional contact.
   {
@@ -658,11 +593,11 @@ export function openSurvey(): void {
   introEl.className = 'survey-intro-screen';
   const lead = document.createElement('p');
   lead.className = 'survey-intro-lead';
-  lead.textContent = 'Thanks for testing Obertura 🙌';
+  lead.textContent = 'Thanks for testing Bito Chess 🙌';
   const text = document.createElement('p');
   text.className = 'survey-intro-text';
   text.textContent =
-    "About 4 minutes, one question at a time. I want to see whether Obertura fits " +
+    "About 4 minutes, one question at a time. I want to see whether Bito Chess fits " +
     "into your week — and whether it's worth growing into something bigger. There " +
     'are no wrong answers, and you can skip anything.';
   const fine = document.createElement('p');
@@ -750,8 +685,8 @@ export function openSurvey(): void {
 
     const payload: Record<string, unknown> = {
       access_key: ACCESS_KEY,
-      subject: 'Obertura survey response',
-      from_name: 'Obertura survey',
+      subject: 'Bito Chess survey response',
+      from_name: 'Bito Chess survey',
       botcheck: honeypot.value, // honeypot — must stay empty for a real person
       app_version: __APP_VERSION__,
       device: deviceLabel(),
@@ -797,7 +732,7 @@ export function openSurvey(): void {
     h.textContent = 'Thank you! 🎉';
     const p = document.createElement('p');
     p.className = 'survey-thanks-body';
-    p.textContent = 'Your answers are on their way. This genuinely helps shape where Obertura goes next.';
+    p.textContent = 'Your answers are on their way. This genuinely helps shape where Bito Chess goes next.';
     wrap.append(h, p);
     body.appendChild(wrap);
     animateIn(wrap);

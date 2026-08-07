@@ -1,6 +1,6 @@
 # Beta access — owner notes
 
-Obertura is behind a small code gate so only people I invite can open it. This
+Bito Chess is behind a small code gate so only people I invite can open it. This
 is everything I need to run the private beta. (The gate lives in
 `src/gate.ts`.)
 
@@ -54,7 +54,7 @@ stores nothing about who's testing**: no emails, no accounts, no analytics.
      screen shows manual steps — browser menu (⋮) → **Install** / **Add to Home
      screen** (and a nudge to use Chrome for the smoothest install).
    - **iPhone (Safari):** taps the **Share** button → **Add to Home Screen**.
-3. An **Obertura icon** appears on their home screen. Opening it launches the
+3. A **Bito Chess icon** appears on their home screen. Opening it launches the
    app full-screen, and it **updates automatically** from the URL — no
    reinstalling when I push new builds.
 

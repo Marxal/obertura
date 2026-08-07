@@ -191,7 +191,7 @@ function buildPage(step: number, importedCount: number | null, actions: StepActi
     const primary = document.createElement('button');
     primary.type = 'button';
     primary.className = 'btn-primary survey-next';
-    primary.textContent = step === ALLSET_STEP ? 'Start with Obertura' : 'Continue';
+    primary.textContent = step === ALLSET_STEP ? 'Start with Bito Chess' : 'Continue';
     primary.addEventListener('click', step === ALLSET_STEP ? actions.onFinish : actions.onNext);
     footer.appendChild(primary);
   }

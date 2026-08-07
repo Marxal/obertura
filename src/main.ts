@@ -2245,7 +2245,7 @@ function handleStartTraining(line: Line): void {
   );
 }
 
-// The header text: the "Obertura" wordmark on the four main tabs, the screen's
+// The header text: the "bito chess" wordmark on the four main tabs, the screen's
 // own title on the inner full screens. The builder shows the line's name (or
 // "New line" before it's named); Settings shows "Settings". A modifier class
 // swaps the pixel wordmark font for a plain heading on the inner screens.
@@ -2261,7 +2261,7 @@ function updateHeaderTitle(): void {
         : builderMode === 'analyser' ? (builderDesc || 'Unknown')
         : (currentTitle() || 'New line'))
     : currentView === 'settings' ? 'Settings'
-    : 'Obertura';
+    : 'bito chess';
   el.classList.toggle('header-title--screen', !onTab);
 }
 
@@ -2701,7 +2701,7 @@ function setupNav(): void {
     guardBuilderLeave(() => showView('settings'));
   });
 
-  // Tapping the "Obertura" wordmark reloads the app — a quick way to pull the
+  // Tapping the "bito chess" wordmark reloads the app — a quick way to pull the
   // latest deploy. Only active on the main tabs (where it shows the wordmark), so
   // it never bypasses the builder's unsaved-work guard.
   document.getElementById('header-title')!.addEventListener('click', () => {
