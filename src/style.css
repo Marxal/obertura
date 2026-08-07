@@ -14151,3 +14151,173 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   -webkit-box-orient: vertical;
 }
 .bimport-tag-note { margin: 0.15rem 0 0; font-size: 0.76rem; }
+
+/* ══ Explore: desktop layout, one shape per pillar ═══════════════════════════
+   Above $desktop-nav (960px — mirrors DESKTOP_NAV_BREAKPOINT in main.ts; keep
+   every copy in sync) the four pillars each spend the extra width in the way
+   their own content wants, NOT one blanket grid:
+
+     • the pillar switcher   → one row of four instead of the phone 2×2;
+     • Recommended           → the As White / As Black groups take a column each
+                               (a colour comparison, not a longer list);
+     • Packs                 → accordion heads grid, an OPEN pack breaks out to
+                               the full row so its line cards grid inside it,
+                               and the study list grids too;
+     • Learn                 → one family shelf per column, with the Favourites
+                               and Watched shelves spanning the full width and
+                               gridding their own rows;
+     • Scouting              → the opponent roster grids like My Lines. The
+                               DOSSIER is deliberately excluded — it is already a
+                               centred card (.scout-detail, above) and stays one
+                               focused column, and the opponent map stays the
+                               full-bleed pan/zoom canvas it needs to be.
+
+   Below the breakpoint NOTHING here applies — the phone layout is untouched. */
+
+/* ── The four-pillar switcher ── */
+@media (min-width: 960px) {
+  /* Column flow rather than a fixed repeat(4): the row stays one line whatever
+     number of pillars is rendered. A little more padding so four tabs across
+     a wide screen still read as substantial targets, not a thin strip. */
+  .lines-try .lines-tabs {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+  }
+  .lines-try .lines-tab {
+    padding: 0.85rem 0.6rem;
+    font-size: 0.86rem;
+  }
+}
+
+/* ── Recommended: a column per colour ── */
+@media (min-width: 960px) {
+  /* Only when BOTH colours produced picks — with one group there is no second
+     column to fill, so the wrap stays a plain block (below). */
+  .explore-recommended:has(.scout-report-group + .scout-report-group) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-lg);
+    align-items: start;
+  }
+  .explore-recommended:has(.scout-report-group + .scout-report-group) > .section-desc {
+    grid-column: 1 / -1;
+  }
+  /* The group heading already sits at the top of its own column — level the two
+     so "AS WHITE" and "AS BLACK" line up. */
+  .explore-recommended:has(.scout-report-group + .scout-report-group) > .scout-report-group {
+    margin-top: var(--space-md);
+    min-width: 0;
+  }
+  /* One colour only: no second column to fill, so the CARDS grid instead — the
+     group keeps the full width and its picks sit two across. (In the two-column
+     case above each group is a plain stack, cards keeping their own margin.) */
+  .explore-recommended:not(:has(.scout-report-group + .scout-report-group)) .scout-report-group .group {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: var(--space-md);
+  }
+  .explore-recommended:not(:has(.scout-report-group + .scout-report-group)) .scout-report-group .group > .pcard {
+    margin-bottom: 0;
+  }
+}
+
+/* ── Packs: accordion grid, open pack spans the row ── */
+@media (min-width: 960px) {
+  /* .onb-packs (the shared accordion stack) is a flex column; the same element
+     carries .packs-list here, so this rule re-declares the display. */
+  .packs-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: var(--space-md);
+  }
+  /* An open pack squeezed into one column would leave its own card grid almost
+     no room — same break-out the My Lines family groups use. */
+  .packs-list > .onb-pack:has(.onb-pack-head--open) {
+    grid-column: 1 / -1;
+  }
+  .packs-pack-lines {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: var(--space-md);
+  }
+  .packs-pack-lines > .pcard {
+    margin-bottom: 0;
+  }
+  /* Uniform chrome, variable text — stretch keeps a row of study cards level
+     instead of ragged, which `start` would give them. */
+  .study-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: var(--space-sm);
+  }
+}
+
+@media (min-width: 1280px) {
+  .packs-list,
+  .packs-pack-lines,
+  .study-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* ── Learn: one shelf per column, the saved shelves full width ── */
+@media (min-width: 960px) {
+  /* Not the fixed 2-then-3 the card lists use: a video row is a thumbnail, a
+     two-line title and its two actions, and it stops being readable under
+     roughly 420px. So the column COUNT is derived from that minimum instead of
+     from the breakpoint — two columns on a laptop, more only on a screen with
+     the room for them. Both grids share the track so a shelf's rows line up
+     with the family cards beneath it. */
+  .learn-tab {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+    align-items: start;
+    column-gap: var(--space-lg);
+  }
+  /* The intro, the empty state and the Favourites / Watched bookends are not
+     per-opening shelves — they read across the whole tab. */
+  .learn-tab > .section-desc,
+  .learn-tab > .empty-state,
+  .learn-tab > .learn-shelf {
+    grid-column: 1 / -1;
+  }
+  /* …and being full width, their own rows grid instead of running as one long
+     column of near-empty lines. */
+  .learn-shelf-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+    align-items: start;
+    column-gap: var(--space-lg);
+  }
+  /* Gap does the spacing between the family cards now. Their content loads
+     async (video thumbnails), so the row heights differ — align-items: start
+     above keeps a short card from stretching to its neighbour's height. */
+  .learn-tab > .learn-family-card {
+    margin-bottom: var(--space-md);
+    min-width: 0;
+  }
+}
+
+/* ── Scouting: the opponent roster ── */
+@media (min-width: 960px) {
+  .scout-opponents {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: var(--space-md);
+  }
+  .scout-opponents > .pcard {
+    margin-bottom: 0;
+  }
+}
+
+@media (min-width: 1280px) {
+  .scout-opponents {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
