@@ -1,4 +1,4 @@
-# Obertura — roadmap
+# Bito Chess — roadmap
 
 A personal chess-openings trainer (a focused Lotus-style clone, openings only),
 built as an installable PWA. See `CLAUDE.md` for the project guide and the

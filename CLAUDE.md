@@ -1,4 +1,7 @@
-# Obertura — project guide for Claude Code
+# Bito Chess — project guide for Claude Code
+
+Public product name is "Bito Chess"; the GitHub repo stays "obertura" as an
+internal codename (folders, keys, and internal identifiers keep the old name).
 
 A personal chess-openings trainer (a focused Lotus-style clone, openings only).
 Built as an installable PWA. Personal use first; zero budget; slow-burn side project.

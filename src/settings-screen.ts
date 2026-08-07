@@ -1144,7 +1144,7 @@ function buildEraseStep1(
   const body = document.createElement('p');
   body.className = 'section-desc';
   body.textContent =
-    'This permanently deletes everything Obertura keeps on this device: all your ' +
+    'This permanently deletes everything Bito Chess keeps on this device: all your ' +
     'lines, every training score and your streak, imported games, scouted ' +
     'opponents, and all preferences. The app returns to a brand-new state.';
   sheet.appendChild(body);

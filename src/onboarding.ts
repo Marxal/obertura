@@ -55,7 +55,7 @@ const SLIDES: Slide[] = [
   {
     icon: () => appMark(),
     mark: true,
-    heading: 'Welcome to Obertura',
+    heading: 'Welcome to Bito Chess',
     body: 'Your personal opening library. Master your repertoire, analyze your play, and never forget a line.',
   },
   {
@@ -96,7 +96,7 @@ export function showIntro(opts: IntroOptions = {}): void {
   const overlay = document.createElement('div');
   overlay.className = 'intro-overlay';
   overlay.setAttribute('role', 'dialog');
-  overlay.setAttribute('aria-label', 'Welcome to Obertura');
+  overlay.setAttribute('aria-label', 'Welcome to Bito Chess');
 
   let closed = false;
   const close = () => {

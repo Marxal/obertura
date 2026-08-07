@@ -59,7 +59,7 @@ function openDB(): Promise<IDBDatabase> {
     // leave every data screen stuck on "Loading…". Reject with a clear message
     // the screens' load-error panels can show.
     request.onblocked = () =>
-      reject(new Error('Another tab has Obertura open. Close it and reload.'));
+      reject(new Error('Another tab has Bito Chess open. Close it and reload.'));
   });
   return dbPromise;
 }
@@ -278,11 +278,11 @@ export function parseBackup(text: string): BackupFile {
     throw new Error('That file isn’t valid JSON.');
   }
   if (!data || typeof data !== 'object') {
-    throw new Error('This doesn’t look like an Obertura backup.');
+    throw new Error('This doesn’t look like a Bito Chess backup.');
   }
   const obj = data as Record<string, unknown>;
   if (obj.format !== BACKUP_FORMAT) {
-    throw new Error('This doesn’t look like an Obertura backup.');
+    throw new Error('This doesn’t look like a Bito Chess backup.');
   }
   if (!Array.isArray(obj.lines)) {
     throw new Error('Backup is missing its lines.');

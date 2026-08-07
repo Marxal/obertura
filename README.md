@@ -1,8 +1,8 @@
-# Obertura
+# Bito Chess
 
 **Learn chess openings your way. Build your own repertoire, train it, and let spaced repetition help you remember.**
 
-Obertura is a phone-first chess opening trainer, installable as a PWA. Build a
+Bito Chess is a phone-first chess opening trainer, installable as a PWA. Build a
 repertoire that's genuinely yours, drill it, and let spaced repetition bring your
 mistakes back until they stick.
 
@@ -28,7 +28,7 @@ mistakes back until they stick.
 
 ## A personal note
 
-I'm a passionate chess player — not a very good one. I built Obertura to improve
+I'm a passionate chess player — not a very good one. I built Bito Chess to improve
 my openings after never being satisfied with the tools out there, and now I hope
 it helps other players too.
 
@@ -48,7 +48,7 @@ live at `…/obertura/docs/`. Pages stays in "GitHub Actions" source mode.
 
 ## Open source / licences
 
-Obertura ships third-party software and data. The full list is maintained in the
+Bito Chess ships third-party software and data. The full list is maintained in the
 in-app About sheet (`src/about.ts`):
 
 | Component | Licence |
@@ -64,7 +64,7 @@ in-app About sheet (`src/about.ts`):
 
 ## Not affiliated
 
-Obertura is a personal project and is **not affiliated with, endorsed by, or
+Bito Chess is a personal project and is **not affiliated with, endorsed by, or
 connected to Chess.com or Lichess.** It simply imports public game data from
 their APIs.
 

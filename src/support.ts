@@ -12,7 +12,7 @@ const SWISH_DEEPLINK = (() => {
     version: 1,
     payee: { value: '+46761899199', editable: false },
     amount: { value: 50, editable: true },
-    message: { value: 'Obertura', editable: true },
+    message: { value: 'Bito Chess', editable: true },
   };
   return `swish://payment?data=${encodeURIComponent(JSON.stringify(data))}`;
 })();

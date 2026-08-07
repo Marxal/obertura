@@ -232,7 +232,7 @@ export function renderCloudBackupSection(onRestored: () => void): HTMLElement {
     blurb.className = 'backup-blurb';
     blurb.textContent =
       'Keep a copy of your repertoire in your own Google Drive, updated ' +
-      'automatically. It’s stored in a hidden app folder — Obertura can never ' +
+      'automatically. It’s stored in a hidden app folder — Bito Chess can never ' +
       'see your files — and any device signed into the same account can restore it.';
     section.appendChild(blurb);
 

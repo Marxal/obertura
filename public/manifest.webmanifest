@@ -1,6 +1,6 @@
 {
-  "name": "Obertura",
-  "short_name": "Obertura",
+  "name": "Bito Chess",
+  "short_name": "Bito Chess",
   "description": "Personal chess openings trainer",
   "start_url": ".",
   "display": "standalone",

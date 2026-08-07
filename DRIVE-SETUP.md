@@ -2,7 +2,7 @@
 
 The app's cloud backup needs one thing it can't create for itself: a free
 Google "OAuth client ID". It's how Google knows the sign-in popup belongs to
-Obertura. Creating it is a ~15-minute clicking exercise in Google's console,
+Bito Chess. Creating it is a ~15-minute clicking exercise in Google's console,
 done once, and costs nothing. Until it's done, Settings shows the cloud
 section as "not set up" and everything else keeps working.
 
@@ -20,7 +20,7 @@ there is no secret anywhere in this setup).
    credit card.
 
 2. **Create a project.** Click the project picker at the top (it may say
-   "Select a project") → **New project**. Name it `Obertura`, leave
+   "Select a project") → **New project**. Name it `Bito Chess`, leave
    organisation empty, **Create**, then make sure it's selected in the picker.
 
 3. **Enable the Drive API.** In the left menu (or the top search bar) find
@@ -30,7 +30,7 @@ there is no secret anywhere in this setup).
 4. **Set up the consent screen** (the popup users see). Go to
    **APIs & Services → OAuth consent screen** (Google sometimes calls this
    "Google Auth Platform — Branding"). Choose **External**, then fill in:
-   - App name: `Obertura`
+   - App name: `Bito Chess`
    - User support email: your email
    - Developer contact email: your email
    - Everything else can stay empty. Save through the steps.
@@ -43,7 +43,7 @@ there is no secret anywhere in this setup).
 6. **Create the client ID.** Go to **APIs & Services → Credentials** →
    **Create credentials → OAuth client ID**:
    - Application type: **Web application**
-   - Name: `Obertura web`
+   - Name: `Bito Chess web`
    - **Authorized JavaScript origins** — add these two, exactly:
      - `https://marxal.github.io`
      - `http://localhost:5173` (lets local development builds connect too)

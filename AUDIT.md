@@ -1,4 +1,4 @@
-# Obertura — code audit (v1.2, task 1.1)
+# Bito Chess — code audit (v1.2, task 1.1)
 
 Read-only pass over the whole `src/` tree, `index.html`, `style.css`, the Vite
 config and the three build scripts. No app code was changed in this session;

@@ -105,7 +105,7 @@ export function openFeedbackSheet(): void {
   const message = document.createElement('textarea');
   message.className = 'edit-input feedback-message';
   message.rows = 4;
-  message.placeholder = 'What happened, or what would make Obertura better?';
+  message.placeholder = 'What happened, or what would make Bito Chess better?';
   sheet.appendChild(message);
 
   // ── Optional reply email ──
@@ -171,8 +171,8 @@ export function openFeedbackSheet(): void {
     const replyEmail = email.value.trim();
     const payload: Record<string, unknown> = {
       access_key: ACCESS_KEY,
-      subject: `Obertura feedback — ${category}`,
-      from_name: 'Obertura feedback',
+      subject: `Bito Chess feedback — ${category}`,
+      from_name: 'Bito Chess feedback',
       category,
       message: text,
       app_version: __APP_VERSION__,

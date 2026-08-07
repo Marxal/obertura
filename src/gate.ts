@@ -137,7 +137,7 @@ function reassureNote(): HTMLParagraphElement {
   const note = document.createElement('p');
   note.className = 'gate-reassure';
   note.textContent =
-    'It’s yours to keep — use Obertura on your phone for as long as you like, ' +
+    'It’s yours to keep — use Bito Chess on your phone for as long as you like, ' +
     'and all your data stays on your device.';
   return note;
 }
@@ -173,7 +173,7 @@ function showInstalled(overlay: HTMLDivElement, onPass: () => void): void {
   const body = document.createElement('p');
   body.className = 'gate-body';
   body.textContent =
-    'Obertura is now installed. Open it from your phone’s home screen — that’s ' +
+    'Bito Chess is now installed. Open it from your phone’s home screen — that’s ' +
     'where you’ll use it from now on.';
   card.appendChild(body);
 
@@ -198,7 +198,7 @@ function showWelcome(overlay: HTMLDivElement, onPass: () => void): void {
 
   const h = document.createElement('h1');
   h.className = 'gate-heading';
-  h.textContent = 'Welcome to the Obertura beta';
+  h.textContent = 'Welcome to the Bito Chess beta';
   card.appendChild(h);
 
   const lead = document.createElement('p');
@@ -210,7 +210,7 @@ function showWelcome(overlay: HTMLDivElement, onPass: () => void): void {
 
   if (deferredInstallPrompt) {
     // Android / Chrome: a real install button driven by the captured event.
-    lead.textContent = 'Install Obertura to your home screen for an app-like, full-screen experience.';
+    lead.textContent = 'Install Bito Chess to your home screen for an app-like, full-screen experience.';
 
     const installBtn = document.createElement('button');
     installBtn.type = 'button';
@@ -234,7 +234,7 @@ function showWelcome(overlay: HTMLDivElement, onPass: () => void): void {
     card.appendChild(installBtn);
   } else if (isIos()) {
     // iPhone / Safari: no programmatic prompt — show the manual gesture.
-    lead.textContent = 'Add Obertura to your home screen for an app-like, full-screen experience.';
+    lead.textContent = 'Add Bito Chess to your home screen for an app-like, full-screen experience.';
 
     const steps = document.createElement('div');
     steps.className = 'gate-steps';
@@ -248,7 +248,7 @@ function showWelcome(overlay: HTMLDivElement, onPass: () => void): void {
     // Android, but no install event — e.g. Firefox, which doesn't fire
     // `beforeinstallprompt`. Chromium browsers (Chrome, Edge, Samsung, Brave,
     // Opera) take the install-button branch above; this is the manual fallback.
-    lead.textContent = 'Add Obertura to your home screen for an app-like, full-screen experience.';
+    lead.textContent = 'Add Bito Chess to your home screen for an app-like, full-screen experience.';
 
     const steps = document.createElement('div');
     steps.className = 'gate-steps';
@@ -291,7 +291,7 @@ function showCodeEntry(overlay: HTMLDivElement, onPass: () => void): void {
 
   const body = document.createElement('p');
   body.className = 'gate-body';
-  body.textContent = 'Obertura is in a private beta. Enter the code you were given to continue.';
+  body.textContent = 'Bito Chess is in a private beta. Enter the code you were given to continue.';
   card.appendChild(body);
 
   const form = document.createElement('form');
