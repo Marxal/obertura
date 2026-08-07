@@ -9504,6 +9504,71 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   padding: 0.7rem;
 }
 
+/* ── Library detail: two-column desktop layout ───────────────────────────────
+   The builder's split, applied to the detail view ($desktop-board, 960px —
+   mirrors DESKTOP_NAV_BREAKPOINT in main.ts; keep every copy in sync). Below
+   the breakpoint NOTHING here applies and the overlay stays the phone column.
+
+       ┌───────────────────────────────┐
+       │ .rmap-header    (both columns)│
+       ├──────────────┬────────────────┤
+       │ .lib-board-  │ .lib-movelist  │  col 1: the board and the step
+       │  wrap        │  (spans both   │  controls that act ON it.
+       ├──────────────┤   board rows)  │
+       │ .lib-controls│                │  col 2: the move sequence as a plain
+       ├──────────────┼────────────────┤  always-visible panel, with "Open in
+       │  (filler)    │ .lib-open-btn  │  builder" under it.
+       └──────────────┴────────────────┘ */
+@media (min-width: 960px) {
+  .lib-detail {
+    display: grid;
+    grid-template-columns: auto minmax(320px, 1fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    column-gap: var(--space-lg);
+  }
+
+  .lib-detail .rmap-header { grid-column: 1 / -1; grid-row: 1; }
+
+  .lib-detail .lib-board-wrap {
+    grid-column: 1;
+    grid-row: 2;
+    margin: var(--space-md) 0 var(--space-md) var(--space-lg);
+  }
+
+  .lib-detail .lib-controls {
+    grid-column: 1;
+    grid-row: 3;
+    padding: 0 0 0 var(--space-lg);
+  }
+
+  /* On a phone the move list is a one-line sideways scroller sitting under the
+     board. With a column of its own it wraps and reads as a whole sequence,
+     filling the board's height as a panel and scrolling inside it once a line
+     is long enough to need it. */
+  .lib-detail .lib-movelist {
+    grid-column: 2;
+    grid-row: 2 / 4;
+    align-content: flex-start;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.3rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    margin: var(--space-md) var(--space-lg) 0 0;
+    padding: var(--space-md);
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+  }
+
+  .lib-detail .lib-open-btn {
+    grid-column: 2;
+    grid-row: 4;
+    align-self: start;
+    margin: var(--space-md) var(--space-lg) 0 0;
+  }
+}
+
 /* ── Board explorer ─────────────────────────────────────────────────────────── */
 
 .bx-board-wrap {
@@ -9664,6 +9729,73 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   text-align: center;
   font-size: 0.9rem;
   padding: 0.7rem;
+}
+
+/* ── Board explorer: two-column desktop layout ───────────────────────────────
+   The builder's split again ($desktop-board, 960px — mirrors
+   DESKTOP_NAV_BREAKPOINT in main.ts; keep every copy in sync). Below the
+   breakpoint NOTHING here applies and the overlay stays the phone column.
+
+       ┌───────────────────────────────┐
+       │ .rmap-header    (both columns)│
+       ├───────────────────────────────┤
+       │ .rmap-colour-toggle    (both) │
+       ├──────────────┬────────────────┤
+       │ player strip │                │  col 1: the board with the context
+       │ .bx-board-   │  .bx-list      │  that describes THIS position — the
+       │  wrap        │  (rows 3-·,    │  player strips, opening name, full-
+       │ player strip │   own scroll)  │  game link — and the step controls.
+       │ .bx-opening  │                │
+       │ .bx-full-game│                │  col 2: the per-move stats list as a
+       │ .bx-controls │                │  plain always-visible panel.
+       ├──────────────┤                │
+       │  (filler)    │                │
+       └──────────────┴────────────────┘
+
+   Every child is placed by class, so the optional ones (toggles, player strips,
+   the full-game link) just leave an empty zero-height row when absent — hence
+   no row gap. Column 1 is the board's own square rather than `auto`: the
+   opening name and player names are nowrap-ellipsis text, and an auto track
+   would size itself to their full untruncated width. */
+@media (min-width: 960px) {
+  .bx-overlay {
+    /* Keep this formula in sync with .bx-board-wrap above. */
+    --bx-board-col: min(100vw, 50vh);
+    display: grid;
+    grid-template-columns: calc(var(--bx-board-col) + var(--space-lg)) minmax(320px, 1fr);
+    grid-template-rows: auto auto auto auto auto auto auto auto minmax(0, 1fr);
+    column-gap: var(--space-lg);
+  }
+
+  .bx-overlay .rmap-header { grid-column: 1 / -1; grid-row: 1; }
+  .bx-overlay .rmap-colour-toggle { grid-column: 1 / -1; grid-row: 2; }
+
+  .bx-overlay .bx-player { grid-column: 1; grid-row: 3; }
+  .bx-overlay .bx-board-wrap {
+    grid-column: 1;
+    grid-row: 4;
+    margin-inline: var(--space-lg) 0;
+  }
+  .bx-overlay .bx-player--you { grid-column: 1; grid-row: 5; }
+  .bx-overlay .bx-opening { grid-column: 1; grid-row: 6; }
+  .bx-overlay .bx-full-game { grid-column: 1; grid-row: 7; }
+  .bx-overlay .bx-controls {
+    grid-column: 1;
+    grid-row: 8;
+    padding-bottom: var(--space-md);
+  }
+
+  .bx-overlay .bx-list {
+    grid-column: 2;
+    grid-row: 3 / -1;
+    margin: var(--space-md) var(--space-lg) var(--space-lg) 0;
+    padding: var(--space-sm) var(--space-md);
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    /* A persistent panel earns a real scrollbar — the phone overlay hides it. */
+    scrollbar-width: thin;
+  }
 }
 
 /* ── Spar with the engine ──────────────────────────────────────────────────── */
@@ -12289,6 +12421,90 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .pt-overlay--puzzle .pt-bottom {
   flex: 1 1 0;
   min-height: 0;
+}
+
+/* ── Puzzle runner: two-column desktop layout ────────────────────────────────
+   The same split the builder uses ($desktop-board, 960px — mirrors
+   DESKTOP_NAV_BREAKPOINT in main.ts; keep every copy in sync).
+
+   Below the breakpoint NOTHING here applies: the overlay stays the phone flex
+   column with the top/bottom blocks sharing the spare height around the board,
+   exactly as the rules above describe. At/above it the overlay becomes a grid:
+
+       ┌───────────────────────────────┐
+       │ .pt-header      (both columns)│
+       ├───────────────────────────────┤
+       │ .pt-session-bar (both columns)│
+       ├──────────────┬────────────────┤
+       │              │ .pt-top        │  col 2: the story text (mode, rating,
+       │ .pt-board-   ├────────────────┤  themes) over an always-visible panel
+       │  wrap        │ .pt-bottom     │  with the status, Hint, Next puzzle
+       │  (col 1,     │  (fills the    │  and Analyse position — no sheet, no
+       │   rows 3-·)  │   rest)        │  drag, no snap states.
+       └──────────────┴────────────────┘
+
+   Scoped to .pz-run (set by puzzle-run.ts) rather than .pt-overlay--puzzle,
+   which the mistake and brilliant runners share — those keep the phone layout
+   at every width. */
+@media (min-width: 960px) {
+  .pz-run {
+    display: grid;
+    grid-template-columns: auto minmax(320px, 1fr);
+    /* header · session bar · story · panel. Row gap stays 0 so an absent
+       session bar costs nothing; the blocks carry their own padding. */
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    column-gap: var(--space-lg);
+    overflow: hidden;
+  }
+
+  .pz-run .pt-header { grid-column: 1 / -1; grid-row: 1; }
+  .pz-run .pt-session-bar { grid-column: 1 / -1; grid-row: 2; }
+
+  /* The board owns the left column top to bottom — it keeps its own square size
+     (unchanged) and simply stops centring, since the column is its own now. */
+  .pz-run .pt-board-wrap {
+    grid-column: 1;
+    grid-row: 3 / -1;
+    align-self: start;
+    margin-inline: var(--space-lg) 0;
+    margin-top: var(--space-md);
+  }
+
+  /* Nothing shares the board's height any more, so the two blocks stop splitting
+     the spare space between them: the story sits at the top of the panel column
+     and the actions fill what's left. */
+  .pz-run .pt-top {
+    grid-column: 2;
+    grid-row: 3;
+    margin-right: var(--space-lg);
+    justify-content: flex-start;
+  }
+
+  /* Hugs its content rather than filling the column — the status and the two or
+     three actions are all it ever holds, and a full-height empty box would read
+     as a loading state. */
+  .pz-run .pt-bottom {
+    grid-column: 2;
+    grid-row: 4;
+    align-self: start;
+    max-height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    margin: 0 var(--space-lg) var(--space-lg) 0;
+    padding-bottom: var(--space-md);
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    /* A persistent panel earns a real scrollbar — the phone overlay hides it. */
+    scrollbar-width: thin;
+  }
+
+  /* The results screen removes every block above and appends its own panel —
+     give it the whole grid rather than letting it land in a single cell. */
+  .pz-run .pz-results {
+    grid-column: 1 / -1;
+    grid-row: 1 / -1;
+  }
 }
 
 /* ── Time Attack HUD: countdown + mistake dots, centred above the title ─────── */
