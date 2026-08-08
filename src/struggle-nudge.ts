@@ -25,22 +25,16 @@ export interface StruggleNudgeOptions {
 // How far a drag must travel before release counts as "throw it away".
 const DISMISS_PX = 72;
 
-// If the line ends while the nudge is still up we hold the results screen for
-// it — but never longer than this, so an abandoned phone still finishes the run.
-const HOLD_MS = 25_000;
-
 export interface StruggleNudge {
   el: HTMLElement;
-  /** Resolves once the box has been written, closed, flicked away or timed out. */
-  settled: Promise<void>;
+  /** See it off from outside — the caller's cue that the moment has passed. */
+  dismiss: () => void;
+  /** Tear it down silently, without counting as an offer made. */
   destroy: () => void;
 }
 
 export function createStruggleNudge(opts: StruggleNudgeOptions): StruggleNudge {
   const { node } = opts;
-
-  let resolveSettled!: () => void;
-  const settled = new Promise<void>((res) => { resolveSettled = res; });
 
   const el = document.createElement('div');
   el.className = 'pt-nudge';
@@ -178,29 +172,19 @@ export function createStruggleNudge(opts: StruggleNudgeOptions): StruggleNudge {
   function exit(dir: 'left' | 'right' | 'down'): void {
     if (done) return;
     done = true;
-    if (holdTimer) clearTimeout(holdTimer);
     el.classList.add(`pt-nudge--exit-${dir}`);
     el.style.transform = '';
     el.style.opacity = '';
     exitTimer = setTimeout(() => el.remove(), 240);
     opts.onDismiss();
-    resolveSettled();
   }
-
-  // The line can finish while this is still on screen — most obviously when the
-  // move you keep missing IS the line's last move. Rather than yanking the box
-  // away with the drill, the caller waits on `settled`; this cap stops that wait
-  // being forever if the phone is simply put down.
-  let holdTimer: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
-    if (!done) exit('down');
-  }, HOLD_MS);
 
   function destroy(): void {
     if (exitTimer) clearTimeout(exitTimer);
-    if (holdTimer) clearTimeout(holdTimer);
     el.remove();
-    resolveSettled();
   }
 
-  return { el, settled, destroy };
+  // Playing the highlighted move is the usual way this ends: the offer was made
+  // and passed over, which counts the same as waving it away.
+  return { el, dismiss: () => exit('down'), destroy };
 }

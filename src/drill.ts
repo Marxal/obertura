@@ -287,10 +287,8 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   let checkingAlternative = false;
   let isCleaned = false;
 
-  // Chronic-miss state (see DrillOptions.struggle). `strugglePending` holds the
-  // move whose reveal armed the write-a-note prompt, waiting for the user to
-  // replay it; `struggleUsed` spends the one offer this run is allowed.
-  let strugglePending: MoveNode | null = null;
+  // Chronic-miss state (see DrillOptions.struggle). `struggleUsed` spends the
+  // one offer this run is allowed.
   let struggleUsed = false;
   let struggleNudge: StruggleNudge | null = null;
 
@@ -747,9 +745,6 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
       onDismiss: () => s.onNoteDismissed(node, count),
     });
     statusEl.insertAdjacentElement('afterend', struggleNudge.el);
-    // The board is frozen on their move while this is up, so say so rather than
-    // leaving the last status ("Your move") contradicting a dead board.
-    setStatus('');
     return struggleNudge;
   }
 
@@ -886,11 +881,11 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     awaitingCorrectReplay = true;
     setStatus(expected.note ? '' : 'Play the highlighted move', 'pt-status--reveal');
 
-    // The moment a miss has hardened into a reveal: if this is a move the user
-    // keeps forgetting, either offer the drill (it has a note to act on) or arm
-    // the write-a-note nudge for once they've replayed it. At most once a run.
+    // The moment a miss has hardened into a reveal: the answer is on the board
+    // and you're looking straight at the move you keep forgetting. That's when
+    // to say why — so the nudge rides in with the arrow, and playing the
+    // highlighted move sees it off. At most one offer per run.
     const offer = struggleAvailable() ? opts.struggle!.offerFor(expected) : null;
-    if (offer === 'note') strugglePending = expected;
 
     // Deferred to the next frame so it always runs after chessground's own
     // pending render, avoiding a shapes-clearing race condition.
@@ -902,6 +897,9 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
       if (expected.note) {
         showNoteCard(expected.note);
         if (offer === 'fix') appendFixItButton(expected);
+      } else if (offer === 'note') {
+        struggleUsed = true;
+        showStruggleNudge(expected);
       }
     });
   }
@@ -975,6 +973,9 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
         hideNoteCard();
         awaitingCorrectReplay = false;
       }
+      // Playing the move is how you move past the nudge: the offer was made and
+      // you chose to carry on, which counts the same as waving it away.
+      struggleNudge?.dismiss();
       if (awaitingAlternativePlay) {
         cg.setAutoShapes([]);
         hideAltCard();
@@ -991,19 +992,6 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
         movable: { color: undefined, dests: new Map() },
         lastMove: [from, to],
       });
-
-      // A chronic move with no note yet: the reveal armed the nudge, and the
-      // user has just replayed the move correctly. Hold the board exactly here —
-      // their move played and highlighted, the opponent yet to answer — and
-      // slide the box in underneath. The line resumes once the box is gone
-      // (it sees itself off if you never touch it).
-      if (strugglePending === expected) {
-        strugglePending = null;
-        struggleUsed = true;
-        const nudge = showStruggleNudge(expected);
-        void nudge.settled.then(() => { if (!isCleaned) advanceAfterCorrect(); });
-        return;
-      }
 
       advanceAfterCorrect();
       return;

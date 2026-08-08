@@ -206,6 +206,37 @@ is the restore point for the round.
   segmented row, sheet — moved to `stats-ui.ts` so neither has to import the
   other.
 
+- ✅ **Ask at the arrow; give every number a denominator.**
+
+  **The nudge moved to the reveal.** It used to wait until you'd replayed the
+  move; it now arrives *with the arrow*, on the second miss — you're looking
+  straight at the move you keep forgetting, which is the moment to say why. Write
+  a note if you want, then play the highlighted move to carry on; playing it is
+  what sees the box off. Nothing is frozen or held any more, because the drill is
+  already waiting for you at that point.
+
+  **Attempts, everywhere.** A miss count alone can't be read: 9 misses out of 9
+  is a different move from 9 out of 40. Every move row now says
+  **"missed 9 of 24"**, and its bar is **green (recalled) / red (missed)** in
+  proportion — the same language the Lines view already used. Nothing records
+  attempts directly, so `moveAttempts` takes the larger of two floors: the line's
+  run count (a full run asks every user move once) and the move's own
+  `reps + lapses` (which also catches single-position drills, that grade a move
+  without touching the line count). It can never read fewer attempts than misses.
+
+  *Caveat worth knowing:* on a line drilled before `timesTrained` existed, both
+  floors are conservative, so a much-missed move can read "9 of 9 · 0% recall"
+  when the truth was kinder. It self-corrects as you train — from this release the
+  run count is exact.
+
+  **The move lightbox got the rest of what we know:** four figures — *recall*,
+  *misses*, *asked*, and *in a row* (clean recalls right now, the one
+  forward-looking number: is it recovering, or still going) — plus a footnote
+  with the opening and when it next comes round, above the note and the
+  Fix it / Drill line actions. The figure row is shared with the line popup.
+
+  The rows lost their red left stripe; the bars carry the warning now.
+
 _Restore point: tag `v0.4`. In progress on `claude/games-training-ui-improvements-wblxc7`._
 
 ---

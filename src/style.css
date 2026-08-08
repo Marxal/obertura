@@ -14689,7 +14689,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .stats-forgotten-row {
   align-items: center;
   gap: 0.65rem;
-  border-left: 3px solid var(--warn);
 }
 
 .stats-forgotten-mini {
@@ -14722,23 +14721,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 
 .stats-recall-pct { color: var(--accent); }
-
-/* Miss bar — one move against the worst move on the list. */
-.stats-miss-bar {
-  display: block;
-  width: 100%;
-  height: 4px;
-  margin: 0.25rem 0 0.15rem;
-  border-radius: 999px;
-  background: var(--fill-faint);
-  overflow: hidden;
-}
-.stats-miss-fill {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: var(--danger);
-}
 
 /* Memory bar — solid / slipping / untrained, in the Move-memory donut's order
    and colours, so one glance carries across both. */
@@ -14797,40 +14779,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
    seeing where a line leaks, not for editing it. */
 .lpeek-sheet { gap: 0.6rem; }
 
-.lpeek-stats {
-  display: flex;
-  gap: 0.4rem;
-  flex-shrink: 0;
-}
-
-.lpeek-stat {
-  flex: 1 1 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.1rem;
-  padding: 0.45rem 0.3rem;
-  border-radius: 10px;
-  background: var(--bg-elevated);
-}
-
-.lpeek-stat-value {
-  font-size: 1.15rem;
-  font-weight: 800;
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-  line-height: 1.1;
-}
-.lpeek-stat--ok  .lpeek-stat-value { color: var(--success); }
-.lpeek-stat--mid .lpeek-stat-value { color: var(--warn); }
-.lpeek-stat--low .lpeek-stat-value { color: var(--danger); }
-
-.lpeek-stat-label {
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-faint);
-}
 
 .lpeek-step {
   display: flex;
@@ -14939,3 +14887,53 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 
 .lpeek-note { font-size: 0.8rem; }
+
+/* ── Peek figures ────────────────────────────────────────────────────────────
+   The row of numbers above a peek's board, shared by the move popup and the
+   line popup. Tone colours the value so a bad figure reads as bad before the
+   label is parsed. */
+.peek-stats {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.peek-stat {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.45rem 0.25rem;
+  border-radius: 10px;
+  background: var(--bg-elevated);
+}
+
+.peek-stat-value {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.peek-stat--ok  .peek-stat-value { color: var(--success); }
+.peek-stat--mid .peek-stat-value { color: var(--warn); }
+.peek-stat--low .peek-stat-value { color: var(--danger); }
+
+.peek-stat-label {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* The quiet line at the foot of a move peek: opening, and when it next comes
+   round. */
+.peek-foot {
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--text-faint);
+}
