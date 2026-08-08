@@ -6,7 +6,7 @@ import {
   isChronicMiss,
   shouldAskForNote,
   shouldOfferFix,
-  markNoteAsked,
+  markNoteAskedAt,
 } from './struggle';
 
 // Pure checks of the chronic-miss policy — the threshold, the in-flight +1, and
@@ -82,9 +82,23 @@ export function runStruggleSelfTest(): TestResult[] {
   // ── The snooze: dismissed at 6, quiet until 10 ─────────────────────────────
 
   const snoozed = move(5);
-  markNoteAsked(snoozed, true);           // dismissed on the sixth miss
-  check('markNoteAsked stamps the current count', snoozed.noteAskedAtLapses === 6,
+  markNoteAskedAt(snoozed, chronicCount(snoozed, true));   // waved away on the sixth
+  check('markNoteAskedAt stamps the count it was given', snoozed.noteAskedAtLapses === 6,
     String(snoozed.noteAskedAtLapses));
+
+  // The nudge outlives the move that raised it: grading at line completion bumps
+  // review.lapses before the box is dismissed. Stamping the count the user was
+  // SHOWN (6) rather than recomputing it (which would read 7 post-grading) keeps
+  // the next ask at 10 instead of quietly slipping to 11.
+  const graded = move(6);                                  // 5 -> 6 at completion
+  markNoteAskedAt(graded, 6);                              // the count on the box
+  check(
+    'a stamp survives grading without drifting a session',
+    graded.noteAskedAtLapses === 6
+      && !shouldAskForNote(move(8, { noteAskedAtLapses: 6 }), true)   // count 9
+      && shouldAskForNote(move(9, { noteAskedAtLapses: 6 }), true),   // count 10
+    String(graded.noteAskedAtLapses),
+  );
 
   const at = (lapses: number): MoveNode => move(lapses, { noteAskedAtLapses: 6 });
   check('snooze holds at the seventh', !shouldAskForNote(at(6), true), 'count=7');
@@ -94,7 +108,7 @@ export function runStruggleSelfTest(): TestResult[] {
 
   // Re-stamping at the tenth pushes the next ask out to fourteen.
   const restamped = at(9);
-  markNoteAsked(restamped, true);
+  markNoteAskedAt(restamped, chronicCount(restamped, true));
   check(
     're-asking pushes the next one out again',
     restamped.noteAskedAtLapses === 10
@@ -106,9 +120,9 @@ export function runStruggleSelfTest(): TestResult[] {
   // Stamping twice at the same count is a no-op, so a double-fire can't shift
   // the snooze window.
   const twice = move(5);
-  markNoteAsked(twice, true);
-  markNoteAsked(twice, true);
-  check('markNoteAsked is idempotent', twice.noteAskedAtLapses === 6,
+  markNoteAskedAt(twice, chronicCount(twice, true));
+  markNoteAskedAt(twice, chronicCount(twice, true));
+  check('markNoteAskedAt is idempotent', twice.noteAskedAtLapses === 6,
     String(twice.noteAskedAtLapses));
 
   // ── Offering the Fix it drill ──────────────────────────────────────────────

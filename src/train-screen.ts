@@ -29,9 +29,10 @@ import {
   chronicCount,
   shouldAskForNote,
   shouldOfferFix,
-  markNoteAsked,
+  markNoteAskedAt,
 } from './struggle';
 import { openMoveNoteSheet } from './note-sheet';
+import { openPositionPeek, type PeekAction } from './position-peek';
 import { formatMove } from './notation';
 import { Chess } from 'chess.js';
 import { Chessground } from 'chessground';
@@ -1374,7 +1375,7 @@ export function startPositionsSession(
           stats.openings, `${line.id}:${expected.id}`, line.openingName || line.name,
           wasMissed ? 0 : 1, wasMissed ? 1 : 0,
           {
-            onOpen: () => openPositionPeek({
+            onOpen: () => openTrainingPeek({
               fen: pos?.preFen ?? expected.fen,
               orientation: line.colour,
               hintUci: expected.uci,
@@ -1531,31 +1532,24 @@ function runItem(
     // A note added/edited during the drill: persist the clone (its tree, where
     // the note lives) so it survives even if the line isn't finished.
     onNoteEdit: () => { void saveLine(lineCopy); },
-    // A move you keep forgetting (see struggle.ts). With no note, we ask for one
-    // the moment you've fixed it; with a note, the reveal offers the Fix it drill.
+    // A move you keep forgetting (see struggle.ts). With no note, a quiet nudge
+    // slides in below the board once you've fixed it; with a note, the reveal
+    // offers the Fix it drill.
     struggle: {
       // Two different bars, because the two offers are not equally pushy: the
-      // write prompt honours its snooze, the Fix it button only needs a note.
-      isChronic: (node) => {
-        if (struggleUsed) return false;
+      // write nudge honours its snooze, the Fix it button only needs a note.
+      offerFor: (node) => {
+        if (struggleUsed) return null;
         const missedNow = missed.has(node.id);
-        return node.note ? shouldOfferFix(node, missedNow) : shouldAskForNote(node, missedNow);
+        if (shouldOfferFix(node, missedNow)) return 'fix';
+        if (shouldAskForNote(node, missedNow)) return 'note';
+        return null;
       },
-      askForNote: (node) => {
-        struggleUsed = true;
-        const count = chronicCount(node, missed.has(node.id));
-        const persist = (): void => { markNoteAsked(node, missed.has(node.id)); void saveLine(lineCopy); };
-        return openMoveNoteSheet({
-          node,
-          title: 'You keep missing this move',
-          subtitle: `${formatMove(node.san)} · missed ${count}×`,
-          intro: "Write a note. It'll show up the next time you slip.",
-          placeholder: 'Knight before bishop — the pin is coming',
-          saveLabel: 'Save note',
-          skipLabel: 'Not now',
-          onSave: persist,
-          onSkip: persist,
-        });
+      missCount: (node) => chronicCount(node, missed.has(node.id)),
+      onNoteChanged: () => { void saveLine(lineCopy); },
+      onNoteDismissed: (node, count) => {
+        markNoteAskedAt(node, count);
+        void saveLine(lineCopy);
       },
       startFix: (node, preFen) => { struggleUsed = true; runStruggleFix(node, preFen); },
     },
@@ -1679,7 +1673,7 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
             stats.openings, `${line.id}:${expected.id}`, line.openingName || line.name,
             wasMissed ? 0 : 1, wasMissed ? 1 : 0,
             {
-              onOpen: () => openPositionPeek({
+              onOpen: () => openTrainingPeek({
                 fen: pos?.preFen ?? expected.fen,
                 orientation: line.colour,
                 hintUci: expected.uci,
@@ -1963,7 +1957,7 @@ function tallyFromLineStats(lineStats: Map<string, LineSessionStat>): Map<string
       // just the end position, with a note on its last move.
       onOpen: () => {
         const moves = mainlineOf(s.line.tree);
-        openPositionPeek({
+        openTrainingPeek({
           fen: lineFinalFen(s.line.tree),
           orientation: s.line.colour,
           onNote: () => openQuickNoteSheet(s.line, moves[moves.length - 1]),
@@ -2045,13 +2039,11 @@ function openQuickNoteSheet(line: Line, node: MoveNode): void {
 }
 
 // A results-screen row, tapped: show the position right here rather than
-// leaving training for the Board Builder. A view-only board (mirrors
-// buildForgottenSlide's Chessground setup above — same pattern, just mounted
-// in a popup instead of a carousel slide) plus whichever of Hint/Add note/
-// Turn off apply to this row, and one explicit Edit button — the only action
-// that actually leaves for the Board Builder, so navigating away is always a
-// deliberate tap, never a surprise from tapping the row itself.
-function openPositionPeek(opts: {
+// leaving training for the Board Builder. The popup itself lives in
+// position-peek.ts (shared with Statistics); this wires the training-specific
+// actions — Add note / Turn off, plus one explicit Edit, the only action that
+// leaves for the Board Builder, so navigating away is always a deliberate tap.
+function openTrainingPeek(opts: {
   fen: string;
   orientation: 'white' | 'black';
   hintUci?: string;
@@ -2059,84 +2051,36 @@ function openPositionPeek(opts: {
   onTurnOff?: () => void;
   onEdit: () => void;
 }): void {
-  const overlay = document.createElement('div');
-  overlay.className = 'edit-overlay';
-  const sheet = document.createElement('div');
-  sheet.className = 'edit-sheet peek-sheet';
-
-  let closed = false;
-  const close = (): void => {
-    if (closed) return;
-    closed = true;
-    overlay.remove();
-    removeBack();
-  };
-
-  const board = document.createElement('div');
-  board.className = 'peek-board cg-wrap';
-  sheet.appendChild(board);
-
-  const cg = Chessground(board, {
-    fen: opts.fen,
-    orientation: opts.orientation,
-    viewOnly: true,
-    coordinates: false,
-    animation: { enabled: false },
-    drawable: { enabled: false, visible: true },
-  });
-  registerBrushes(cg, { accent: { color: '#ff9b21', opacity: 0.9, lineWidth: 10 } });
-  // Mounted into a transient popup, so nudge a redraw once it's actually sized.
-  requestAnimationFrame(() => cg.redrawAll());
-
-  const btnRow = document.createElement('div');
-  btnRow.className = 'peek-actions';
-
-  if (opts.hintUci) {
-    const hintBtn = peekActionBtn(Icons.bulb(18), 'Hint', () => {
-      const orig = opts.hintUci!.slice(0, 2) as Key;
-      const dest = opts.hintUci!.slice(2, 4) as Key;
-      cg.setAutoShapes([{ orig, dest, brush: 'accent' }]);
-    });
-    btnRow.appendChild(hintBtn);
-  }
+  const actions: PeekAction[] = [];
 
   if (opts.onNote) {
     const onNote = opts.onNote;
-    btnRow.appendChild(peekActionBtn(Icons.note(18), 'Add note', onNote));
+    actions.push({ icon: Icons.note(18), label: 'Add note', onClick: () => onNote() });
   }
-
   if (opts.onTurnOff) {
     const onTurnOff = opts.onTurnOff;
-    const turnOffBtn = peekActionBtn(Icons.toggleOff(18), 'Turn off', () => {
-      onTurnOff();
-      turnOffBtn.disabled = true;
-      showToast('Line turned off, continue training');
+    actions.push({
+      icon: Icons.toggleOff(18),
+      label: 'Turn off',
+      onClick: ({ disable }) => {
+        onTurnOff();
+        disable();
+        showToast('Line turned off, continue training');
+      },
     });
-    btnRow.appendChild(turnOffBtn);
   }
+  actions.push({
+    icon: Icons.pencil(18),
+    label: 'Edit',
+    onClick: ({ close }) => { close(); opts.onEdit(); },
+  });
 
-  const editBtn = peekActionBtn(Icons.pencil(18), 'Edit', () => { close(); opts.onEdit(); });
-  btnRow.appendChild(editBtn);
-
-  sheet.appendChild(btnRow);
-
-  const removeBack = pushBack(() => close());
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-
-  overlay.appendChild(sheet);
-  document.body.appendChild(overlay);
-}
-
-function peekActionBtn(icon: SVGElement, label: string, onClick: () => void): HTMLButtonElement {
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'peek-action';
-  btn.appendChild(icon);
-  const lbl = document.createElement('span');
-  lbl.textContent = label;
-  btn.appendChild(lbl);
-  btn.addEventListener('click', onClick);
-  return btn;
+  openPositionPeek({
+    fen: opts.fen,
+    orientation: opts.orientation,
+    hintUci: opts.hintUci,
+    actions,
+  });
 }
 
 // ── Round-complete panel ─────────────────────────────────────────────────────
@@ -2432,7 +2376,7 @@ function runTimed(container: HTMLElement, allLines: Line[], minutes: TimedMinute
           line ? (line.openingName || line.name) : 'Untitled',
           ok ? 1 : 0, ok ? 0 : 1,
           line ? {
-            onOpen: () => openPositionPeek({
+            onOpen: () => openTrainingPeek({
               fen: pos.preFen,
               orientation: line.colour,
               hintUci: pos.expected.uci,

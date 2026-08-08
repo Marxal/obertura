@@ -14480,6 +14480,132 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   }
 }
 
+/* ── Chronic misses: the nudge below the board ───────────────────────────────
+   Deliberately quiet. It sits under the status line, never over the board, and
+   slides up on arrival. Flick it sideways to throw it away (touch-action keeps
+   the overlay's own vertical scroll working while we claim horizontal drags). */
+@keyframes pt-nudge-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+.pt-nudge {
+  box-sizing: border-box;
+  margin: 0.15rem 1rem 0.5rem;
+  padding: 0.55rem 0.6rem 0.55rem 0.7rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-left: 3px solid var(--warn);
+  border-radius: 10px;
+  box-shadow: var(--shadow-card);
+  animation: pt-nudge-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+  touch-action: pan-y;
+  cursor: grab;
+  will-change: transform, opacity;
+}
+
+/* While a finger is down the box tracks it 1:1 — no transition to fight. */
+.pt-nudge--dragging { transition: none; cursor: grabbing; }
+.pt-nudge:not(.pt-nudge--dragging) { transition: transform 0.2s ease, opacity 0.2s ease; }
+
+.pt-nudge--exit-left  { transform: translateX(-120%) !important; opacity: 0 !important; }
+.pt-nudge--exit-right { transform: translateX(120%) !important;  opacity: 0 !important; }
+.pt-nudge--exit-down  { transform: translateY(16px) !important;  opacity: 0 !important; }
+
+.pt-nudge-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.pt-nudge-row[hidden] { display: none; }
+
+.pt-nudge-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  color: var(--warn);
+}
+
+.pt-nudge-text { flex: 1; min-width: 0; }
+
+.pt-nudge-head {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.pt-nudge-sub {
+  font-size: 0.7rem;
+  color: var(--text-faint);
+}
+
+.pt-nudge-write {
+  flex-shrink: 0;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.pt-nudge-write:active { background: var(--accent-soft); }
+
+.pt-nudge-close {
+  flex-shrink: 0;
+  display: inline-flex;
+  padding: 0.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--text-fainter);
+  cursor: pointer;
+}
+
+/* The writing state, only built once you ask for it. */
+.pt-nudge--writing { cursor: default; }
+
+.pt-nudge-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.pt-nudge-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.pt-nudge-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-page);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.85rem;
+  resize: vertical;
+}
+.pt-nudge-input:focus { outline: none; border-color: var(--accent); }
+
+.pt-nudge-done {
+  align-self: flex-end;
+  padding: 0.35rem 1rem;
+  font-size: 0.8rem;
+}
+
+/* ── The note card's arrival ─────────────────────────────────────────────────
+   The note showing up IS the teaching moment, so it should read as arriving. */
+@keyframes pt-note-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+.pt-note-card--enter { animation: pt-note-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
 /* ── Chronic misses: the "Fix it" offer on the drill's note card ─────────────
    When a move you keep forgetting is revealed, its note card carries the drill
    as an opt-in button. Mirrors .forgotten-fix-btn / .forgotten-hint on the
@@ -14553,25 +14679,77 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   vertical-align: 0.05em;
 }
 
-.stats-recall-bar {
+/* A forgotten-moves row: position miniature, then the text column (title, bar,
+   caption), then the figure. The board says WHERE, the bar says HOW BAD next to
+   the worst on the list — so the ranking reads before any number does. */
+.stats-forgotten-row {
+  align-items: center;
+  gap: 0.65rem;
+  border-left: 3px solid var(--warn);
+}
+
+.stats-forgotten-mini {
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  border-radius: 6px;
+  overflow: hidden;
+  display: block;
+}
+.stats-forgotten-mini .mini-board {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.stats-forgotten-row .stats-sheet-name {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.stats-miss-count {
+  flex-shrink: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--danger);
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-recall-pct { color: var(--accent); }
+
+/* Miss bar — one move against the worst move on the list. */
+.stats-miss-bar {
   display: block;
   width: 100%;
   height: 4px;
-  margin: 0.15rem 0;
+  margin: 0.25rem 0 0.15rem;
   border-radius: 999px;
   background: var(--fill-faint);
   overflow: hidden;
 }
-
-.stats-recall-fill {
+.stats-miss-fill {
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: var(--success);
+  background: var(--danger);
 }
 
-.stats-recall-fill--mid { background: var(--warn); }
-.stats-recall-fill--low { background: var(--danger); }
+/* Memory bar — solid / slipping / untrained, in the Move-memory donut's order
+   and colours, so one glance carries across both. */
+.stats-mem-bar {
+  display: flex;
+  width: 100%;
+  height: 5px;
+  margin: 0.25rem 0 0.15rem;
+  border-radius: 999px;
+  background: var(--fill-faint);
+  overflow: hidden;
+}
+.stats-mem-seg { display: block; height: 100%; }
+.stats-mem-seg--solid { background: var(--success); }
+.stats-mem-seg--shaky { background: var(--danger); }
+.stats-mem-seg--untrained { background: var(--border); }
 
 .stats-see-all {
   align-self: flex-end;
@@ -14584,3 +14762,171 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* ── Position peek: heading, caption and the move's note ─────────────────────
+   The peek is now shared between the training results rows (quizzing, move
+   hidden behind Hint) and Statistics (reviewing, arrow drawn on open). */
+.peek-title { margin-bottom: 0.1rem; }
+
+.peek-sub {
+  margin-bottom: 0.2rem;
+  font-size: 0.78rem;
+  color: var(--text-faint);
+}
+
+.peek-note {
+  padding: 0.5rem 0.7rem;
+  background: var(--bg-elevated);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-style: italic;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+.peek-note[hidden] { display: none; }
+
+/* ── Line peek: the whole line, its figures, and a steppable move list ───────
+   Opened from Statistics → Forgotten moves → Lines. Read-only: this is for
+   seeing where a line leaks, not for editing it. */
+.lpeek-sheet { gap: 0.6rem; }
+
+.lpeek-stats {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.lpeek-stat {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.45rem 0.3rem;
+  border-radius: 10px;
+  background: var(--bg-elevated);
+}
+
+.lpeek-stat-value {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.lpeek-stat--ok  .lpeek-stat-value { color: var(--success); }
+.lpeek-stat--mid .lpeek-stat-value { color: var(--warn); }
+.lpeek-stat--low .lpeek-stat-value { color: var(--danger); }
+
+.lpeek-stat-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+}
+
+.lpeek-step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.lpeek-step-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  padding: 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.lpeek-step-btn:disabled { opacity: 0.35; cursor: default; }
+
+.lpeek-caption {
+  flex: 1;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.lpeek-list {
+  max-height: 34vh;
+  overflow-y: auto;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+}
+
+.lpeek-row {
+  display: grid;
+  grid-template-columns: 2.1rem 1fr 1fr;
+  align-items: stretch;
+  gap: 0.25rem;
+  padding: 0.15rem 0.35rem;
+}
+.lpeek-row:nth-child(odd) { background: var(--fill-faint); }
+
+.lpeek-num {
+  align-self: center;
+  font-size: 0.72rem;
+  color: var(--text-fainter);
+  font-variant-numeric: tabular-nums;
+}
+
+.lpeek-move {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.4rem;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lpeek-san {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.lpeek-move--theirs .lpeek-san { font-weight: 400; color: var(--text-faint); }
+
+.lpeek-move--on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.lpeek-notedot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.lpeek-misses {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--danger);
+  font-variant-numeric: tabular-nums;
+}
+
+.lpeek-bar {
+  flex: 1 0 100%;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--fill-faint);
+  overflow: hidden;
+}
+.lpeek-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--danger);
+}
+
+.lpeek-note { font-size: 0.8rem; }

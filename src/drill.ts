@@ -12,6 +12,7 @@ import { showDialog } from './dialog';
 import { showToast } from './toast';
 import { burstConfetti } from './confetti';
 import { formatMove } from './notation';
+import { createStruggleNudge, type StruggleNudge } from './struggle-nudge';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -82,16 +83,22 @@ export interface DrillOptions {
   // the session started with.
   sessionProgress?: { completed: number; total: number };
   // Full-line, non-timed training only. Chronic-miss handling (see struggle.ts):
-  // the caller decides which moves qualify and owns both flows, the drill only
-  // picks the moment. Fires at most once per run, so a line never nags twice.
-  //  isChronic  — has this move been missed often enough to act on?
-  //  askForNote — it has no note: ask for one. The drill pauses on the promise
-  //    before advancing, so the sheet lands while the move is still on screen.
-  //  startFix   — the user tapped "Fix it" on the note card. The drill has
-  //    already torn itself down (overlay + back-nav layer) when this fires.
+  // the caller decides which moves qualify and what each offer means, the drill
+  // only picks the moment. Fires at most once per run, so a line never nags twice.
+  //  offerFor      — 'note' to nudge for one, 'fix' to offer the drill, null for
+  //    nothing. Called when a miss hardens into a reveal.
+  //  missCount     — lifetime misses, for the nudge's one-liner.
+  //  onNoteChanged — the nudge's note was edited; persist it.
+  //  onNoteDismissed — the nudge was closed or flicked away; stamp the snooze.
+  //    Carries the miss count the nudge was BUILT with, because grading at line
+  //    completion may have moved it on since.
+  //  startFix      — "Fix it" was tapped on the note card. The drill has already
+  //    torn itself down (overlay + back-nav layer) when this fires.
   struggle?: {
-    isChronic: (node: MoveNode) => boolean;
-    askForNote: (node: MoveNode, preFen: string) => Promise<void>;
+    offerFor: (node: MoveNode) => 'note' | 'fix' | null;
+    missCount: (node: MoveNode) => number;
+    onNoteChanged: (node: MoveNode) => void;
+    onNoteDismissed: (node: MoveNode, count: number) => void;
     startFix: (node: MoveNode, preFen: string) => void;
   };
 }
@@ -285,6 +292,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   // replay it; `struggleUsed` spends the one offer this run is allowed.
   let strugglePending: MoveNode | null = null;
   let struggleUsed = false;
+  let struggleNudge: StruggleNudge | null = null;
 
   // Wrong attempts on the *current* task; reset when we advance.
   let wrongAttempts = 0;
@@ -704,6 +712,11 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     noteCardEl.classList.remove('pt-note-card--edit', 'pt-note-card--fix');
     noteCardEl.textContent = note;
     noteCardEl.removeAttribute('hidden');
+    // Restart the entrance each time it's shown: the note arriving is the point
+    // of the moment, so it should read as arriving, not as having been there.
+    noteCardEl.classList.remove('pt-note-card--enter');
+    void noteCardEl.offsetWidth; // reflow, so the animation replays
+    noteCardEl.classList.add('pt-note-card--enter');
   }
 
   function hideNoteCard(): void {
@@ -717,6 +730,23 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   // never grades, so a move can't go chronic there in the first place.
   function struggleAvailable(): boolean {
     return !!opts.struggle && isLineDrill && !timed && !struggleUsed;
+  }
+
+  // Slide the nudge in under the board, between the status line and the control
+  // row — never over the board, and never in the way of the next move.
+  function showStruggleNudge(node: MoveNode): void {
+    const s = opts.struggle!;
+    struggleNudge?.destroy();
+    // Read the count once, here: it's what the box says, and what the snooze is
+    // stamped with when the box goes away — even if grading has moved on since.
+    const count = s.missCount(node);
+    struggleNudge = createStruggleNudge({
+      node,
+      count,
+      onNoteChanged: () => { s.onNoteChanged(node); updateNoteButton(node); },
+      onDismiss: () => s.onNoteDismissed(node, count),
+    });
+    statusEl.insertAdjacentElement('afterend', struggleNudge.el);
   }
 
   // The note control: open an editor for the current move's note (closing it if
@@ -854,9 +884,9 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
 
     // The moment a miss has hardened into a reveal: if this is a move the user
     // keeps forgetting, either offer the drill (it has a note to act on) or arm
-    // the write-a-note prompt for once they've replayed it. At most once a run.
-    const chronic = struggleAvailable() && opts.struggle!.isChronic(expected);
-    if (chronic && !expected.note) strugglePending = expected;
+    // the write-a-note nudge for once they've replayed it. At most once a run.
+    const offer = struggleAvailable() ? opts.struggle!.offerFor(expected) : null;
+    if (offer === 'note') strugglePending = expected;
 
     // Deferred to the next frame so it always runs after chessground's own
     // pending render, avoiding a shapes-clearing race condition.
@@ -867,7 +897,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
       cg.setAutoShapes([{ orig, dest, brush: 'accent' }]);
       if (expected.note) {
         showNoteCard(expected.note);
-        if (chronic) appendFixItButton(expected);
+        if (offer === 'fix') appendFixItButton(expected);
       }
     });
   }
@@ -958,19 +988,13 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
         lastMove: [from, to],
       });
 
-      // A chronic move with no note yet: the reveal armed the prompt, and the
-      // user has just replayed the move correctly. Hold the line here — the
-      // position is still on the board — and only advance once the sheet closes.
+      // A chronic move with no note yet: the reveal armed the nudge, and the
+      // user has just replayed the move correctly. Slide the box in below the
+      // board — the line carries straight on, so this interrupts nothing.
       if (strugglePending === expected) {
         strugglePending = null;
         struggleUsed = true;
-        const preFen = tasks[taskIndex].preFen;
-        void opts.struggle!.askForNote(expected, preFen).then(() => {
-          if (isCleaned) return;
-          updateNoteButton(expected);
-          advanceAfterCorrect();
-        });
-        return;
+        showStruggleNudge(expected);
       }
 
       advanceAfterCorrect();
@@ -1220,13 +1244,21 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     // Single-move modes: top the bar off — every position is behind us now.
     if (showPositionBar) renderPositionBar(tasks.length);
     if (opts.celebrateOnComplete) burstConfetti(boardWrap);
-    setTimeout(() => { cleanup(); opts.onComplete(); }, 1500);
+
+    // A nudge can still be on screen — most obviously when the move you keep
+    // missing IS the line's last move. Let it have its moment before the results
+    // screen takes the drill away; it settles itself if you never touch it.
+    if (struggleNudge && !isCleaned) await struggleNudge.settled;
+    if (isCleaned) return;
+
+    setTimeout(() => { cleanup(); opts.onComplete(); }, struggleNudge ? 400 : 1500);
   }
 
   function cleanup(): void {
     isCleaned = true;
     if (autoTimer) clearTimeout(autoTimer);
     if (tickTimer) clearTimeout(tickTimer);
+    struggleNudge?.destroy();
     ro.disconnect();
     overlay.remove();
     removeBack();
