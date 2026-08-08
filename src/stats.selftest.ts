@@ -11,6 +11,7 @@ import {
   masteredLines,
   needsWorkMoves,
   lineRecall,
+  lineTrainingCount,
   reviewBars,
   moveMemory,
   memoryByOpening,
@@ -178,6 +179,25 @@ export function runStatsSelfTest(): TestResult[] {
       && recall[1].lineName === 'Solid' && recall[1].memory.recallPct === 100
       && recall[1].lapses === 0,
     recall.map(r => `${r.lineName}:${r.memory.recallPct}%:${r.lapses}x`).join(' '),
+  );
+
+  // 2d. Times trained: the stored counter wins; without one we fall back to a
+  //     FLOOR from the review blocks (max of reps + lapses across user moves),
+  //     so a line drilled before the counter existed doesn't read as zero.
+  const counted = line('white', 'e4 e5 Nf3', { reps: [2, undefined, 1] });
+  counted.timesTrained = 9;
+  const estimated = line('white', 'e4 e5 Nf3', { reps: [2, undefined, 0], lapses: [1, 0, 4] });
+  check(
+    'lineTrainingCount prefers the counter, else a review-derived floor',
+    lineTrainingCount(counted) === 9
+      && lineTrainingCount(estimated) === 4          // Nf3: reps 0 + lapses 4
+      && lineTrainingCount(line('white', 'e4 e5')) === 0,  // never drilled
+    `${lineTrainingCount(counted)} / ${lineTrainingCount(estimated)} / ${lineTrainingCount(line('white', 'e4 e5'))}`,
+  );
+  check(
+    'lineRecall carries the training count',
+    lineRecall([counted])[0]?.timesTrained === 9,
+    String(lineRecall([counted])[0]?.timesTrained),
   );
 
   // 3. The day series fills the range with zeroes and marks today; a logged day

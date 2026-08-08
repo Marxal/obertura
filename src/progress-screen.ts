@@ -32,7 +32,6 @@ import { analyseGames, openingFamily, familyKey, UNKNOWN_FAMILY, type OpeningSta
 import {
   masteredLines,
   needsWorkMoves,
-  lineRecall,
   reviewBars,
   moveMemory,
   winRateByOpening,
@@ -43,7 +42,6 @@ import {
   puzzleTotals,
   puzzleAccuracyByOpening,
   type NeedsWorkMove,
-  type LineRecall,
   type DayBar,
   type MoveMemory,
   type OpeningTrainingRow,
@@ -52,16 +50,13 @@ import {
 import { getPuzzleDays, getPuzzlesByOpening } from './puzzle-log';
 import { getPuzzleRating, getRatingHistory, getBestCleanStreak, type RatingPoint } from './puzzle-rating';
 import { Icons } from './icons';
-import { colourPip, lineFinalFen } from './card-position';
-import { buildMiniBoard } from './board-mini';
-import { mainlineNodes } from './scheduler';
-import { openPositionPeek } from './position-peek';
-import { openLinePeek } from './line-peek';
+import { colourPip } from './card-position';
+import { openMovesSheet, type ForgottenCallbacks } from './forgotten-section';
+import { statsSection, slideSwap, buildSegmented, openSheet } from './stats-ui';
 import { userAvatar } from './avatar';
 import { getGamesSource, openImportPanel, platformLabel } from './import-panel';
 import { buildEmptyState } from './empty-state';
 import { pushBack } from './back-nav';
-import { formatMove } from './notation';
 import { renderLineChart, renderRecordStrip, renderDonut, type ChartPoint, type DonutSegment } from './stats-charts';
 import {
   getLiveRatings, cachedLiveRatings, fetchLichessRatingHistory, ratingSeriesFromGames,
@@ -79,14 +74,6 @@ import {
   setCalendarExpanded,
   type StatsRange,
 } from './prefs';
-
-const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-
-// A move in the usual written form: "8. ♞f3" for White, "8… c6" for Black — the
-// ellipsis is how notation says "this is Black's half of move 8".
-function moveLabel(m: NeedsWorkMove): string {
-  return `${m.moveNumber}${m.colour === 'white' ? '.' : '…'} ${formatMove(m.san)}`;
-}
 
 export interface ProgressCallbacks {
   onTrainLine: (lineId: string, inTraining: boolean) => void;
@@ -215,72 +202,8 @@ function statsRegion(container: HTMLElement, text: string, kind: string): HTMLEl
   return region;
 }
 
-function statsSection(title: string, meta = ''): HTMLElement {
-  const wrap = document.createElement('div');
-  wrap.className = 'section';
-  const head = document.createElement('div');
-  head.className = 'section-head';
-  const h = document.createElement('h3');
-  h.className = 'section-title';
-  h.textContent = title;
-  head.appendChild(h);
-  if (meta) {
-    const m = document.createElement('span');
-    m.className = 'section-meta';
-    m.textContent = meta;
-    head.appendChild(m);
-  }
-  wrap.appendChild(head);
-  return wrap;
-}
 
-// Carousel-style slide-in for a chart whose range just changed: the new content
-// enters from the side you swiped towards. Removing + re-adding the class (with
-// a reflow between) restarts the animation on rapid taps.
-function slideSwap(el: HTMLElement, dir: 'fwd' | 'back'): void {
-  el.classList.remove('stats-slide-fwd', 'stats-slide-back');
-  void el.offsetWidth; // reflow so the animation restarts
-  el.classList.add(dir === 'fwd' ? 'stats-slide-fwd' : 'stats-slide-back');
-}
 
-// A reusable segmented pill row (range selector, colour toggle, scoring tabs).
-// Pass `slideEl` to slide that element's content sideways on every switch —
-// forward (enter from the right) when moving to a later chip, back otherwise.
-function buildSegmented<T extends string>(
-  opts: [T, string][],
-  current: T,
-  onChange: (v: T) => void,
-  className = 'stats-range',
-  slideEl?: HTMLElement,
-): HTMLElement {
-  const row = document.createElement('div');
-  row.className = className;
-  row.setAttribute('role', 'tablist');
-  for (const [key, label] of opts) {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'stats-range-chip' + (key === current ? ' stats-range-chip--on' : '');
-    chip.textContent = label;
-    chip.setAttribute('aria-pressed', String(key === current));
-    chip.addEventListener('click', () => {
-      if (chip.classList.contains('stats-range-chip--on')) return;
-      const chips = [...row.querySelectorAll('.stats-range-chip')];
-      if (slideEl) {
-        const oldI = chips.findIndex(c => c.classList.contains('stats-range-chip--on'));
-        slideSwap(slideEl, chips.indexOf(chip) > oldI ? 'fwd' : 'back');
-      }
-      chips.forEach(c => {
-        c.classList.remove('stats-range-chip--on');
-        c.setAttribute('aria-pressed', 'false');
-      });
-      chip.classList.add('stats-range-chip--on');
-      chip.setAttribute('aria-pressed', 'true');
-      onChange(key);
-    });
-    row.appendChild(chip);
-  }
-  return row;
-}
 
 // Make a chart browse like a carousel: a horizontal swipe on `el` steps the
 // Week / Month / All chips (which stay put as the indicator, like the
@@ -496,289 +419,12 @@ function renderTrainingRegion(container: HTMLElement, lines: Line[], cb: Progres
   const region = statsRegion(container, 'Openings', 'openings');
   renderQuickStats(region, lines, cb);
   renderMoveMemory(region, lines);
-  // The most-forgotten-move BOARD lives on the Openings (training) screen, as a
-  // per-window carousel with a "Fix it" drill. This is the numbers version of
-  // the same story: which moves, and which lines, keep slipping.
-  renderForgottenMoves(region, lines, cb);
+  // "Forgotten moves" — the worst moves and weakest lines — lives on the Train
+  // screen's Openings pane, where you can act on it. The "Needs work" box above
+  // opens the same list.
   renderRememberedFailed(region);
 }
 
-// ── Forgotten moves (most-missed moves · weakest lines) ──────────────────────
-//
-// Two views of the same problem behind one segmented control: the individual
-// moves you keep missing, and the lines whose recall has sagged. Both read
-// straight from the per-move SM-2 blocks — `lapses` for the misses, `reps` for
-// whether a move was remembered at its last drill.
-//
-// On "accuracy": the scheduler keeps no lifetime attempt count (reps resets to
-// zero on every miss), so a true accuracy percentage isn't in the data. What the
-// Lines tab shows is RECALL — the share of a line's drilled moves remembered
-// last time — and the caption says exactly that rather than overclaiming.
-
-const FORGOTTEN_PREVIEW = 5;
-
-type ForgottenTab = 'moves' | 'lines';
-
-function renderForgottenMoves(container: HTMLElement, lines: Line[], cb: ProgressCallbacks): void {
-  const moves = needsWorkMoves(lines, 50);
-  const recall = lineRecall(lines, 50);
-  // Nothing has ever been missed — no section at all, rather than an empty card.
-  if (moves.length === 0 && recall.length === 0) return;
-
-  const section = statsSection('Forgotten moves', `${moves.length} to work on`);
-
-  const body = document.createElement('div');
-  body.className = 'stats-forgotten-body';
-
-  let tab: ForgottenTab = moves.length > 0 ? 'moves' : 'lines';
-
-  const paint = (): void => {
-    body.innerHTML = '';
-    if (tab === 'moves') paintForgottenMoves(body, moves, lines, cb);
-    else paintForgottenLines(body, recall, lines, cb);
-  };
-
-  section.appendChild(buildSegmented<ForgottenTab>(
-    [['moves', 'Moves'], ['lines', 'Lines']],
-    tab,
-    (v) => { tab = v; paint(); },
-    'stats-range stats-forgotten-tabs',
-    body,
-  ));
-  section.appendChild(body);
-  paint();
-
-  const cap = document.createElement('p');
-  cap.className = 'stats-trend-caption';
-  cap.textContent = 'Misses are lifetime totals. Recall is the share of a line’s '
-    + 'drilled moves you remembered last time.';
-  section.appendChild(cap);
-
-  container.appendChild(section);
-}
-
-// One row per move: which move, in which line, how often it's gone, and whether
-// you've written yourself a note about it. Tapping drills exactly that move.
-function paintForgottenMoves(
-  body: HTMLElement,
-  moves: NeedsWorkMove[],
-  lines: Line[],
-  cb: ProgressCallbacks,
-): void {
-  if (moves.length === 0) {
-    body.appendChild(buildEmptyState({
-      line: 'No missed moves yet — clean run.',
-      cta: { label: 'Start training', onClick: cb.onStartTraining },
-    }));
-    return;
-  }
-  // Scale every bar against the most-forgotten move in the WHOLE list, not just
-  // the preview, so "See all" doesn't silently rescale what you were looking at.
-  const worst = Math.max(1, ...moves.map(m => m.lapses));
-  for (const m of moves.slice(0, FORGOTTEN_PREVIEW)) {
-    body.appendChild(forgottenMoveRow(m, worst, lines, cb));
-  }
-  if (moves.length > FORGOTTEN_PREVIEW) {
-    body.appendChild(seeAllRow(`See all ${moves.length}`, () => openNeedsWorkSheet(cb, moves, lines)));
-  }
-}
-
-// One row per forgotten move. The position miniature and the miss bar do the
-// talking: the board says WHERE, the bar says how bad this one is next to the
-// worst move on the list, so the ranking reads without parsing any numbers.
-function forgottenMoveRow(
-  m: NeedsWorkMove,
-  worst: number,
-  lines: Line[],
-  cb: ProgressCallbacks,
-): HTMLElement {
-  const card = document.createElement('button');
-  card.type = 'button';
-  card.className = 'stats-sheet-card stats-forgotten-row';
-
-  const mini = document.createElement('span');
-  mini.className = 'stats-forgotten-mini';
-  mini.appendChild(buildMiniBoard(m.preFen, m.colour));
-  card.appendChild(mini);
-
-  const text = document.createElement('span');
-  text.className = 'stats-sheet-text';
-
-  const name = document.createElement('span');
-  name.className = 'stats-sheet-name';
-  name.appendChild(colourPip(m.colour));
-  name.appendChild(document.createTextNode(moveLabel(m)));
-  if (m.hasNote) {
-    const badge = document.createElement('span');
-    badge.className = 'stats-note-badge';
-    badge.textContent = 'note';
-    name.appendChild(badge);
-  }
-  text.appendChild(name);
-
-  const meta = document.createElement('span');
-  meta.className = 'stats-sheet-meta';
-  meta.textContent = m.lineName;
-  text.appendChild(meta);
-
-  // The bar, scaled against the most-forgotten move on the list.
-  const bar = document.createElement('span');
-  bar.className = 'stats-miss-bar';
-  const fill = document.createElement('span');
-  fill.className = 'stats-miss-fill';
-  fill.style.width = `${Math.round((m.lapses / Math.max(1, worst)) * 100)}%`;
-  bar.appendChild(fill);
-  text.appendChild(bar);
-
-  card.appendChild(text);
-
-  const count = document.createElement('span');
-  count.className = 'stats-miss-count';
-  count.textContent = `${m.lapses}×`;
-  card.appendChild(count);
-
-  // Tapping opens the position rather than launching straight into a drill —
-  // you usually want to SEE what you keep missing before drilling it.
-  card.addEventListener('click', () => openForgottenMovePeek(m, lines, cb));
-  return card;
-}
-
-// The tapped move, on a board, with its arrow already drawn and its note (if
-// any) underneath. Fix it and Drill line are the ways forward.
-function openForgottenMovePeek(m: NeedsWorkMove, lines: Line[], cb: ProgressCallbacks): void {
-  const line = lines.find(l => l.id === m.lineId);
-  openPositionPeek({
-    fen: m.preFen,
-    orientation: m.colour,
-    revealUci: m.uci,
-    title: moveLabel(m),
-    subtitle: `${m.lineName} · missed ${m.lapses}×`,
-    note: line ? noteForMove(line, m) : undefined,
-    actions: [
-      {
-        icon: Icons.target(18),
-        label: 'Fix it',
-        onClick: ({ close }) => { close(); cb.onFixMove(m, lines); },
-      },
-      {
-        icon: Icons.zap(18),
-        label: 'Drill line',
-        onClick: ({ close }) => { close(); cb.onTrainLine(m.lineId, true); },
-      },
-    ],
-  });
-}
-
-// The written note on the exact move this row points at, matched by position +
-// move so a repeated SAN elsewhere in the line can't pick up the wrong one.
-function noteForMove(line: Line, m: NeedsWorkMove): string | undefined {
-  const main = mainlineNodes(line.tree);
-  for (let i = 0; i < main.length; i++) {
-    const preFen = i === 0 ? START_FEN : main[i - 1].fen;
-    if (preFen === m.preFen && main[i].san === m.san) return main[i].note;
-  }
-  return undefined;
-}
-
-// One row per line: how much of it still sticks, and how many misses it has cost.
-function paintForgottenLines(
-  body: HTMLElement,
-  recall: LineRecall[],
-  lines: Line[],
-  cb: ProgressCallbacks,
-): void {
-  if (recall.length === 0) {
-    body.appendChild(buildEmptyState({
-      line: 'Nothing drilled yet — train a line and it shows up here.',
-      cta: { label: 'Start training', onClick: cb.onStartTraining },
-    }));
-    return;
-  }
-  for (const r of recall.slice(0, FORGOTTEN_PREVIEW)) {
-    body.appendChild(forgottenLineRow(r, lines, cb));
-  }
-  if (recall.length > FORGOTTEN_PREVIEW) {
-    body.appendChild(seeAllRow(`See all ${recall.length}`, () => openLineRecallSheet(cb, recall, lines)));
-  }
-}
-
-function forgottenLineRow(r: LineRecall, lines: Line[], cb: ProgressCallbacks): HTMLElement {
-  const card = document.createElement('button');
-  card.type = 'button';
-  card.className = 'stats-sheet-card stats-forgotten-row';
-
-  const line = lines.find(l => l.id === r.lineId);
-  if (line) {
-    const mini = document.createElement('span');
-    mini.className = 'stats-forgotten-mini';
-    mini.appendChild(buildMiniBoard(lineFinalFen(line.tree), r.colour));
-    card.appendChild(mini);
-  }
-
-  const text = document.createElement('span');
-  text.className = 'stats-sheet-text';
-
-  const name = document.createElement('span');
-  name.className = 'stats-sheet-name';
-  name.appendChild(colourPip(r.colour));
-  name.appendChild(document.createTextNode(r.lineName));
-  text.appendChild(name);
-
-  text.appendChild(memoryBar(r.memory));
-
-  const meta = document.createElement('span');
-  meta.className = 'stats-sheet-meta';
-  meta.textContent = `${r.memory.solid} solid · ${r.memory.shaky} slipping`
-    + (r.lapses > 0 ? ` · missed ${r.lapses}×` : '');
-  text.appendChild(meta);
-  card.appendChild(text);
-
-  const pct = document.createElement('span');
-  pct.className = 'stats-miss-count stats-recall-pct';
-  pct.textContent = r.memory.recallPct === null ? '—' : `${r.memory.recallPct}%`;
-  card.appendChild(pct);
-
-  card.addEventListener('click', () => {
-    if (!line) { cb.onTrainLine(r.lineId, true); return; }
-    openLinePeek({
-      line,
-      onDrill: () => cb.onTrainLine(r.lineId, true),
-      onOpen: (l) => cb.onOpenLine(l),
-    });
-  });
-  return card;
-}
-
-// A segmented memory meter: solid / slipping / not-yet-trained, in the same
-// order and colours as the Move memory donut, so one glance carries across
-// both. Zero-width segments are skipped rather than drawn as slivers.
-function memoryBar(m: MoveMemory): HTMLElement {
-  const bar = document.createElement('span');
-  bar.className = 'stats-mem-bar';
-  const total = Math.max(1, m.total);
-  const segs: [number, string][] = [
-    [m.solid, 'solid'],
-    [m.shaky, 'shaky'],
-    [m.total - m.trained, 'untrained'],
-  ];
-  for (const [value, kind] of segs) {
-    if (value <= 0) continue;
-    const seg = document.createElement('span');
-    seg.className = `stats-mem-seg stats-mem-seg--${kind}`;
-    seg.style.width = `${(value / total) * 100}%`;
-    bar.appendChild(seg);
-  }
-  return bar;
-}
-
-function seeAllRow(label: string, onClick: () => void): HTMLElement {
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'stats-see-all';
-  btn.textContent = `${label} →`;
-  btn.addEventListener('click', onClick);
-  return btn;
-}
 
 // ── Move memory (repertoire-wide recall donut) ───────────────────────────────
 //
@@ -1191,37 +837,6 @@ function quickBox(kind: string, icon: SVGElement, n: number, label: string, onCl
 
 // ── Quick-stat lightbox sheets ──────────────────────────────────────────────
 
-function openSheet(title: string, fill: (body: HTMLElement, close: () => void) => void): void {
-  const overlay = document.createElement('div');
-  overlay.className = 'edit-overlay';
-  const sheet = document.createElement('div');
-  sheet.className = 'edit-sheet';
-
-  const h = document.createElement('h3');
-  h.className = 'edit-sheet-title';
-  h.textContent = title;
-  sheet.appendChild(h);
-
-  const body = document.createElement('div');
-  body.className = 'stats-sheet-list';
-  sheet.appendChild(body);
-
-  let closed = false;
-  const close = () => {
-    if (closed) return;
-    closed = true;
-    overlay.remove();
-    removeBack();
-  };
-  const removeBack = pushBack(close);
-  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-
-  fill(body, close);
-
-  overlay.appendChild(sheet);
-  document.body.appendChild(overlay);
-}
-
 function openLinesSheet(
   cb: ProgressCallbacks,
   title: string,
@@ -1265,41 +880,20 @@ function openLinesSheet(
   });
 }
 
+// The "Needs work" quick-stat box opens the shared forgotten-moves list, so the
+// rows (miniature, miss bar, tap-for-position) behave exactly as they do on the
+// Train screen. Only the callback shapes differ, hence the adapter.
 function openNeedsWorkSheet(cb: ProgressCallbacks, moves: NeedsWorkMove[], lines: Line[]): void {
-  openSheet('Needs work', (body, close) => {
-    if (moves.length === 0) {
-      body.appendChild(buildEmptyState({
-        line: 'No missed moves yet — clean run.',
-        cta: { label: 'Start training', onClick: () => { close(); cb.onStartTraining(); } },
-      }));
-      return;
-    }
-    const worst = Math.max(1, ...moves.map(m => m.lapses));
-    for (const m of moves) {
-      const card = forgottenMoveRow(m, worst, lines, cb);
-      // The row's own handler fires too; close the sheet first so the position
-      // popup opens over the Statistics page, not over a stacked sheet.
-      card.addEventListener('click', () => close(), { capture: true });
-      body.appendChild(card);
-    }
-  });
+  openMovesSheet(moves, lines, forgottenCallbacks(cb), 'Needs work');
 }
 
-function openLineRecallSheet(cb: ProgressCallbacks, recall: LineRecall[], lines: Line[]): void {
-  openSheet('Line recall', (body, close) => {
-    if (recall.length === 0) {
-      body.appendChild(buildEmptyState({
-        line: 'Nothing drilled yet.',
-        cta: { label: 'Start training', onClick: () => { close(); cb.onStartTraining(); } },
-      }));
-      return;
-    }
-    for (const r of recall) {
-      const card = forgottenLineRow(r, lines, cb);
-      card.addEventListener('click', () => close(), { capture: true });
-      body.appendChild(card);
-    }
-  });
+function forgottenCallbacks(cb: ProgressCallbacks): ForgottenCallbacks {
+  return {
+    onFixMove: (m, ls) => cb.onFixMove(m, ls),
+    onDrillLine: (line) => cb.onTrainLine(line.id, true),
+    onOpenLine: (line) => cb.onOpenLine(line),
+    onStartTraining: () => cb.onStartTraining(),
+  };
 }
 
 // ── Remembered vs failed (per-day two-tone bar, Week / Month / All) ──────────

@@ -14,4 +14,9 @@ export interface Line {
   inTraining: boolean;
   tree: MoveNode;
   createdAt?: number;
+  // How many times this line has been drilled start-to-finish. Gives the recall
+  // percentage a denominator — 50% over two runs reads very differently from
+  // 50% over twenty. Optional and only counted from the release that added it,
+  // so older lines fall back to an estimate (see stats.lineTrainingCount).
+  timesTrained?: number;
 }
