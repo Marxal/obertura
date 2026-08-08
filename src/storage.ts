@@ -434,6 +434,9 @@ export async function mergeLines(lines: Line[]): Promise<void> {
 function stripReviewData(node: MoveNode): void {
   delete node.review;
   delete node.missedThisSession;
+  // The chronic-miss prompt's snooze is a score, not work — a move with no
+  // lapses left must be able to ask again if it starts slipping afresh.
+  delete node.noteAskedAtLapses;
   for (const child of node.children) stripReviewData(child);
 }
 

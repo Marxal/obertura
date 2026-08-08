@@ -114,6 +114,31 @@ is the restore point for the round.
   the move shows in big written notation, repeated **three times**, then "now
   play the full line" chains into the full line when the move belongs to one.
 
+- ✅ **Chronic-miss notes + forgotten-move statistics.**
+  Closing the loop on moves that never stick. Once a user move has been missed
+  **six times** (`review.lapses`, so timed mode — which never grades — can't
+  trigger it), full-line training makes one offer, and only one per line:
+
+  - **No note yet.** You miss it, the arrow reveals it, you replay it — and only
+    then does a sheet slide up: _"You keep missing this move · ♞f3 · missed 6× ·
+    Write a note. It'll show up the next time you slip."_ with **Not now** /
+    **Save note**. Dismissing stamps a snooze on the move, so the next ask waits
+    four more misses (6 → 10 → 14) rather than returning next session.
+  - **A note exists.** The reveal already showed it; now the note card also
+    carries **Fix it**, which runs the three-rep drill and then replays the whole
+    line from move 1. Opt-in, so ignoring it costs nothing.
+
+  Statistics gains a **Forgotten moves** section in the Openings region, with two
+  tabs: **Moves** (most-missed moves, each with its miss count, a note marker and
+  its own Fix it) and **Lines** (per-line recall, weakest first). Recall — not
+  "accuracy": the scheduler keeps no lifetime attempt count, so the honest figure
+  is the share of a line's drilled moves remembered at their last drill, and the
+  caption says so.
+
+  New pure module `struggle.ts` owns the threshold and the snooze (self-tested);
+  the note sheet was lifted out of `train-screen.ts` into a shared `note-sheet.ts`
+  rather than duplicated.
+
 _Restore point: tag `v0.4`. In progress on `claude/games-training-ui-improvements-wblxc7`._
 
 ---

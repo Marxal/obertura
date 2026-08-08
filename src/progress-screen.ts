@@ -32,6 +32,7 @@ import { analyseGames, openingFamily, familyKey, UNKNOWN_FAMILY, type OpeningSta
 import {
   masteredLines,
   needsWorkMoves,
+  lineRecall,
   reviewBars,
   moveMemory,
   winRateByOpening,
@@ -42,6 +43,7 @@ import {
   puzzleTotals,
   puzzleAccuracyByOpening,
   type NeedsWorkMove,
+  type LineRecall,
   type DayBar,
   type MoveMemory,
   type OpeningTrainingRow,
@@ -85,6 +87,10 @@ export interface ProgressCallbacks {
   onBuildFromMoves: (ucis: string[], colour: 'white' | 'black') => void;
   // Open the import flow (the Your-games empty card links here).
   onImportGames: () => void;
+  // Drill one forgotten move: three reps of it, then the full line it lives in.
+  // `lines` is passed through so the launcher can find that line without a
+  // second read of the store.
+  onFixMove: (move: NeedsWorkMove, lines: Line[]) => void;
 }
 
 export function renderProgressScreen(container: HTMLElement, cb: ProgressCallbacks): void {
@@ -478,9 +484,197 @@ function renderTrainingRegion(container: HTMLElement, lines: Line[], cb: Progres
   const region = statsRegion(container, 'Openings', 'openings');
   renderQuickStats(region, lines, cb);
   renderMoveMemory(region, lines);
-  // The most-forgotten-move board now lives on the Openings (training) screen,
-  // as a per-window carousel with a "Fix it" drill.
+  // The most-forgotten-move BOARD lives on the Openings (training) screen, as a
+  // per-window carousel with a "Fix it" drill. This is the numbers version of
+  // the same story: which moves, and which lines, keep slipping.
+  renderForgottenMoves(region, lines, cb);
   renderRememberedFailed(region);
+}
+
+// ── Forgotten moves (most-missed moves · weakest lines) ──────────────────────
+//
+// Two views of the same problem behind one segmented control: the individual
+// moves you keep missing, and the lines whose recall has sagged. Both read
+// straight from the per-move SM-2 blocks — `lapses` for the misses, `reps` for
+// whether a move was remembered at its last drill.
+//
+// On "accuracy": the scheduler keeps no lifetime attempt count (reps resets to
+// zero on every miss), so a true accuracy percentage isn't in the data. What the
+// Lines tab shows is RECALL — the share of a line's drilled moves remembered
+// last time — and the caption says exactly that rather than overclaiming.
+
+const FORGOTTEN_PREVIEW = 5;
+
+type ForgottenTab = 'moves' | 'lines';
+
+function renderForgottenMoves(container: HTMLElement, lines: Line[], cb: ProgressCallbacks): void {
+  const moves = needsWorkMoves(lines, 50);
+  const recall = lineRecall(lines, 50);
+  // Nothing has ever been missed — no section at all, rather than an empty card.
+  if (moves.length === 0 && recall.length === 0) return;
+
+  const section = statsSection('Forgotten moves', `${moves.length} to work on`);
+
+  const body = document.createElement('div');
+  body.className = 'stats-forgotten-body';
+
+  let tab: ForgottenTab = moves.length > 0 ? 'moves' : 'lines';
+
+  const paint = (): void => {
+    body.innerHTML = '';
+    if (tab === 'moves') paintForgottenMoves(body, moves, lines, cb);
+    else paintForgottenLines(body, recall, cb);
+  };
+
+  section.appendChild(buildSegmented<ForgottenTab>(
+    [['moves', 'Moves'], ['lines', 'Lines']],
+    tab,
+    (v) => { tab = v; paint(); },
+    'stats-range stats-forgotten-tabs',
+    body,
+  ));
+  section.appendChild(body);
+  paint();
+
+  const cap = document.createElement('p');
+  cap.className = 'stats-trend-caption';
+  cap.textContent = 'Misses are lifetime totals. Recall is the share of a line’s '
+    + 'drilled moves you remembered last time.';
+  section.appendChild(cap);
+
+  container.appendChild(section);
+}
+
+// One row per move: which move, in which line, how often it's gone, and whether
+// you've written yourself a note about it. Tapping drills exactly that move.
+function paintForgottenMoves(
+  body: HTMLElement,
+  moves: NeedsWorkMove[],
+  lines: Line[],
+  cb: ProgressCallbacks,
+): void {
+  if (moves.length === 0) {
+    body.appendChild(buildEmptyState({
+      line: 'No missed moves yet — clean run.',
+      cta: { label: 'Start training', onClick: cb.onStartTraining },
+    }));
+    return;
+  }
+  for (const m of moves.slice(0, FORGOTTEN_PREVIEW)) {
+    body.appendChild(forgottenMoveRow(m, lines, cb));
+  }
+  if (moves.length > FORGOTTEN_PREVIEW) {
+    body.appendChild(seeAllRow(`See all ${moves.length}`, () => openNeedsWorkSheet(cb, moves, lines)));
+  }
+}
+
+function forgottenMoveRow(m: NeedsWorkMove, lines: Line[], cb: ProgressCallbacks): HTMLElement {
+  const card = document.createElement('button');
+  card.type = 'button';
+  card.className = 'stats-sheet-card stats-sheet-card--needs';
+  card.appendChild(colourPip(m.colour));
+
+  const text = document.createElement('span');
+  text.className = 'stats-sheet-text';
+
+  const name = document.createElement('span');
+  name.className = 'stats-sheet-name';
+  name.textContent = `${m.moveNumber}. ${formatMove(m.san)} — ${m.lineName}`;
+  text.appendChild(name);
+
+  const meta = document.createElement('span');
+  meta.className = 'stats-sheet-meta';
+  meta.textContent = `Missed ${m.lapses}×`;
+  if (m.hasNote) {
+    const badge = document.createElement('span');
+    badge.className = 'stats-note-badge';
+    badge.textContent = 'note';
+    meta.appendChild(badge);
+  }
+  text.appendChild(meta);
+  card.appendChild(text);
+
+  const tag = document.createElement('span');
+  tag.className = 'stats-sheet-action';
+  tag.textContent = 'Fix it';
+  card.appendChild(tag);
+
+  // Three reps of this exact move, then the full line it belongs to.
+  card.addEventListener('click', () => cb.onFixMove(m, lines));
+  return card;
+}
+
+// One row per line: how much of it still sticks, and how many misses it has cost.
+function paintForgottenLines(body: HTMLElement, recall: LineRecall[], cb: ProgressCallbacks): void {
+  if (recall.length === 0) {
+    body.appendChild(buildEmptyState({
+      line: 'Nothing drilled yet — train a line and it shows up here.',
+      cta: { label: 'Start training', onClick: cb.onStartTraining },
+    }));
+    return;
+  }
+  for (const r of recall.slice(0, FORGOTTEN_PREVIEW)) {
+    body.appendChild(forgottenLineRow(r, cb));
+  }
+  if (recall.length > FORGOTTEN_PREVIEW) {
+    body.appendChild(seeAllRow(`See all ${recall.length}`, () => openLineRecallSheet(cb, recall)));
+  }
+}
+
+function forgottenLineRow(r: LineRecall, cb: ProgressCallbacks): HTMLElement {
+  const card = document.createElement('button');
+  card.type = 'button';
+  card.className = 'stats-sheet-card stats-sheet-card--recall';
+  card.appendChild(colourPip(r.colour));
+
+  const text = document.createElement('span');
+  text.className = 'stats-sheet-text';
+
+  const name = document.createElement('span');
+  name.className = 'stats-sheet-name';
+  name.textContent = r.lineName;
+  text.appendChild(name);
+
+  const pct = r.memory.recallPct ?? 0;
+  text.appendChild(recallBar(pct));
+
+  const meta = document.createElement('span');
+  meta.className = 'stats-sheet-meta';
+  meta.textContent = `${pct}% recall · ${r.memory.trained} of ${r.memory.total} moves drilled`
+    + (r.lapses > 0 ? ` · missed ${r.lapses}×` : '');
+  text.appendChild(meta);
+  card.appendChild(text);
+
+  const tag = document.createElement('span');
+  tag.className = 'stats-sheet-action';
+  tag.textContent = 'Drill';
+  card.appendChild(tag);
+
+  card.addEventListener('click', () => cb.onTrainLine(r.lineId, true));
+  return card;
+}
+
+// A slim recall meter. Colour tracks the same solid/shaky language the Move
+// memory donut uses, so a red bar here and a red wedge there mean one thing.
+function recallBar(pct: number): HTMLElement {
+  const bar = document.createElement('span');
+  bar.className = 'stats-recall-bar';
+  const fill = document.createElement('span');
+  fill.className = 'stats-recall-fill';
+  fill.style.width = `${Math.max(2, pct)}%`;
+  if (pct < 50) fill.classList.add('stats-recall-fill--low');
+  else if (pct < 80) fill.classList.add('stats-recall-fill--mid');
+  bar.appendChild(fill);
+  return bar;
+}
+
+function seeAllRow(label: string, onClick: () => void): HTMLElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'stats-see-all';
+  btn.textContent = `${label} →`;
+  btn.addEventListener('click', onClick);
+  return btn;
 }
 
 // ── Move memory (repertoire-wide recall donut) ───────────────────────────────
@@ -862,7 +1056,7 @@ function renderQuickStats(container: HTMLElement, lines: Line[], cb: ProgressCal
     () => openLinesSheet(cb, 'Mastered lines', mastered, 'Nothing mastered yet — keep drilling.', cb.onStartTraining)));
 
   row.appendChild(quickBox('needs', Icons.alert(18), needs.length, 'Needs work',
-    () => openNeedsWorkSheet(cb, needs)));
+    () => openNeedsWorkSheet(cb, needs, lines)));
 
   container.appendChild(row);
 }
@@ -968,7 +1162,7 @@ function openLinesSheet(
   });
 }
 
-function openNeedsWorkSheet(cb: ProgressCallbacks, moves: NeedsWorkMove[]): void {
+function openNeedsWorkSheet(cb: ProgressCallbacks, moves: NeedsWorkMove[], lines: Line[]): void {
   openSheet('Needs work', (body, close) => {
     if (moves.length === 0) {
       body.appendChild(buildEmptyState({
@@ -978,29 +1172,27 @@ function openNeedsWorkSheet(cb: ProgressCallbacks, moves: NeedsWorkMove[]): void
       return;
     }
     for (const m of moves) {
-      const card = document.createElement('button');
-      card.type = 'button';
-      card.className = 'stats-sheet-card stats-sheet-card--needs';
-      card.appendChild(colourPip(m.colour));
+      const card = forgottenMoveRow(m, lines, cb);
+      // The row's own handler fires too; close the sheet first so the drill
+      // opens over the Statistics page, not over a stacked sheet.
+      card.addEventListener('click', () => close(), { capture: true });
+      body.appendChild(card);
+    }
+  });
+}
 
-      const text = document.createElement('span');
-      text.className = 'stats-sheet-text';
-      const name = document.createElement('span');
-      name.className = 'stats-sheet-name';
-      name.textContent = `${m.moveNumber}. ${formatMove(m.san)} — ${m.lineName}`;
-      text.appendChild(name);
-      const meta = document.createElement('span');
-      meta.className = 'stats-sheet-meta';
-      meta.textContent = `Missed ${m.lapses}×`;
-      text.appendChild(meta);
-      card.appendChild(text);
-
-      const tag = document.createElement('span');
-      tag.className = 'stats-sheet-action';
-      tag.textContent = 'Drill';
-      card.appendChild(tag);
-
-      card.addEventListener('click', () => { close(); cb.onTrainLine(m.lineId, true); });
+function openLineRecallSheet(cb: ProgressCallbacks, recall: LineRecall[]): void {
+  openSheet('Line recall', (body, close) => {
+    if (recall.length === 0) {
+      body.appendChild(buildEmptyState({
+        line: 'Nothing drilled yet.',
+        cta: { label: 'Start training', onClick: () => { close(); cb.onStartTraining(); } },
+      }));
+      return;
+    }
+    for (const r of recall) {
+      const card = forgottenLineRow(r, cb);
+      card.addEventListener('click', () => close(), { capture: true });
       body.appendChild(card);
     }
   });

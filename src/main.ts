@@ -15,7 +15,7 @@ import type { Line } from './types';
 import { renderLinesScreen, focusSavedLine } from './lines-screen';
 import { renderProgressScreen } from './progress-screen';
 import { startPretrainingRun, enrolLineDirectly } from './pretraining';
-import { renderTrainScreen, startLineSession, startPositionsSession } from './train-screen';
+import { renderTrainScreen, startLineSession, startPositionsSession, startMoveFix } from './train-screen';
 import { renderExploreScreen } from './explore-screen';
 import { renderPuzzlesScreen, startDailyPuzzles } from './puzzles-screen';
 import { renderMistakesScreen } from './mistakes-screen';
@@ -2639,6 +2639,13 @@ function showView(view: ViewName): void {
       onBuildFromMoves: (ucis, colour) => buildFromUcis(ucis, colour),
       // The Your-games empty card opens the shared import flow, returning here.
       onImportGames: () => openImportPanel({ onImported: () => showView('progress') }),
+      // A forgotten-move row: three reps of that move, then the full line, then
+      // back to a freshly-read Statistics so the counts reflect the drill.
+      onFixMove: (move, lines) => startMoveFix(
+        { preFen: move.preFen, san: move.san, colour: move.colour, count: move.lapses },
+        lines,
+        () => showView('progress'),
+      ),
     });
   }
 

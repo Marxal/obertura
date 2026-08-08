@@ -14479,3 +14479,108 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+/* ── Chronic misses: the "Fix it" offer on the drill's note card ─────────────
+   When a move you keep forgetting is revealed, its note card carries the drill
+   as an opt-in button. Mirrors .forgotten-fix-btn / .forgotten-hint on the
+   Openings carousel, sized down to sit inside the card. */
+.pt-note-card--fix {
+  font-style: normal;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  border-left-color: var(--warn);
+}
+
+.pt-note-fix-btn {
+  align-self: stretch;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.85rem;
+}
+
+.pt-note-fix-hint {
+  align-self: center;
+  font-size: 0.7rem;
+  font-style: normal;
+  color: var(--text-faint);
+}
+
+/* ── The shared move-note sheet (note-sheet.ts) ──────────────────────────────
+   Two optional lines above the textarea: the move being noted, and one line of
+   framing. Only the chronic-miss prompt uses them; the quick editor has neither. */
+.note-sheet-sub {
+  margin: -0.25rem 0 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--warn);
+}
+
+.note-sheet-intro {
+  margin: 0 0 0.6rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+/* ── Statistics → Forgotten moves ────────────────────────────────────────────
+   Two tabs over one list body: the moves you keep missing, and how much of each
+   line still sticks. Rows reuse .stats-sheet-card, so this only adds the tab
+   spacing, the note badge, the recall meter and the "see all" link. */
+.stats-forgotten-tabs {
+  margin-bottom: 0.6rem;
+}
+
+.stats-forgotten-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.stats-sheet-card--recall { border-left: 3px solid var(--accent); }
+
+.stats-note-badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  vertical-align: 0.05em;
+}
+
+.stats-recall-bar {
+  display: block;
+  width: 100%;
+  height: 4px;
+  margin: 0.15rem 0;
+  border-radius: 999px;
+  background: var(--fill-faint);
+  overflow: hidden;
+}
+
+.stats-recall-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--success);
+}
+
+.stats-recall-fill--mid { background: var(--warn); }
+.stats-recall-fill--low { background: var(--danger); }
+
+.stats-see-all {
+  align-self: flex-end;
+  padding: 0.3rem 0.1rem;
+  background: none;
+  border: 0;
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
