@@ -81,6 +81,19 @@ export interface DrillOptions {
   // the session. `completed` = lines finished before this one; `total` = lines
   // the session started with.
   sessionProgress?: { completed: number; total: number };
+  // Full-line, non-timed training only. Chronic-miss handling (see struggle.ts):
+  // the caller decides which moves qualify and owns both flows, the drill only
+  // picks the moment. Fires at most once per run, so a line never nags twice.
+  //  isChronic  — has this move been missed often enough to act on?
+  //  askForNote — it has no note: ask for one. The drill pauses on the promise
+  //    before advancing, so the sheet lands while the move is still on screen.
+  //  startFix   — the user tapped "Fix it" on the note card. The drill has
+  //    already torn itself down (overlay + back-nav layer) when this fires.
+  struggle?: {
+    isChronic: (node: MoveNode) => boolean;
+    askForNote: (node: MoveNode, preFen: string) => Promise<void>;
+    startFix: (node: MoveNode, preFen: string) => void;
+  };
 }
 
 // A single ply to auto-play (animated) between the user's moves. `note` rides
@@ -266,6 +279,12 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   // True while an async engine check is in progress — blocks board input.
   let checkingAlternative = false;
   let isCleaned = false;
+
+  // Chronic-miss state (see DrillOptions.struggle). `strugglePending` holds the
+  // move whose reveal armed the write-a-note prompt, waiting for the user to
+  // replay it; `struggleUsed` spends the one offer this run is allowed.
+  let strugglePending: MoveNode | null = null;
+  let struggleUsed = false;
 
   // Wrong attempts on the *current* task; reset when we advance.
   let wrongAttempts = 0;
@@ -682,15 +701,22 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   // ── Note card (mistake hints + the note control's view/add editor) ──────────
 
   function showNoteCard(note: string): void {
-    noteCardEl.classList.remove('pt-note-card--edit');
+    noteCardEl.classList.remove('pt-note-card--edit', 'pt-note-card--fix');
     noteCardEl.textContent = note;
     noteCardEl.removeAttribute('hidden');
   }
 
   function hideNoteCard(): void {
     noteCardEl.setAttribute('hidden', '');
-    noteCardEl.classList.remove('pt-note-card--edit');
+    noteCardEl.classList.remove('pt-note-card--edit', 'pt-note-card--fix');
     noteCardEl.textContent = '';
+  }
+
+  // The one chronic-miss offer per run is reserved for full-line, non-timed
+  // training: positions modes have no line to replay afterwards, and timed mode
+  // never grades, so a move can't go chronic there in the first place.
+  function struggleAvailable(): boolean {
+    return !!opts.struggle && isLineDrill && !timed && !struggleUsed;
   }
 
   // The note control: open an editor for the current move's note (closing it if
@@ -826,6 +852,12 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     awaitingCorrectReplay = true;
     setStatus(expected.note ? '' : 'Play the highlighted move', 'pt-status--reveal');
 
+    // The moment a miss has hardened into a reveal: if this is a move the user
+    // keeps forgetting, either offer the drill (it has a note to act on) or arm
+    // the write-a-note prompt for once they've replayed it. At most once a run.
+    const chronic = struggleAvailable() && opts.struggle!.isChronic(expected);
+    if (chronic && !expected.note) strugglePending = expected;
+
     // Deferred to the next frame so it always runs after chessground's own
     // pending render, avoiding a shapes-clearing race condition.
     requestAnimationFrame(() => {
@@ -833,8 +865,34 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
       const orig = expected.uci.slice(0, 2) as Key;
       const dest = expected.uci.slice(2, 4) as Key;
       cg.setAutoShapes([{ orig, dest, brush: 'accent' }]);
-      if (expected.note) showNoteCard(expected.note);
+      if (expected.note) {
+        showNoteCard(expected.note);
+        if (chronic) appendFixItButton(expected);
+      }
     });
+  }
+
+  // The "Fix it" offer, tacked onto the note card of a move that keeps being
+  // missed. Opt-in: ignoring it costs nothing, you just play the arrow and go on.
+  function appendFixItButton(expected: MoveNode): void {
+    noteCardEl.classList.add('pt-note-card--fix');
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn-primary pt-note-fix-btn';
+    btn.textContent = 'Fix it';
+    btn.addEventListener('click', () => {
+      struggleUsed = true;
+      const preFen = tasks[taskIndex].preFen;
+      cleanup();
+      opts.struggle!.startFix(expected, preFen);
+    });
+    noteCardEl.appendChild(btn);
+
+    const hint = document.createElement('div');
+    hint.className = 'pt-note-fix-hint';
+    hint.textContent = 'Play the move 3× then replay the full line.';
+    noteCardEl.appendChild(hint);
   }
 
   // ── Good-alternative sequence ─────────────────────────────────────────────
@@ -899,6 +957,21 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
         movable: { color: undefined, dests: new Map() },
         lastMove: [from, to],
       });
+
+      // A chronic move with no note yet: the reveal armed the prompt, and the
+      // user has just replayed the move correctly. Hold the line here — the
+      // position is still on the board — and only advance once the sheet closes.
+      if (strugglePending === expected) {
+        strugglePending = null;
+        struggleUsed = true;
+        const preFen = tasks[taskIndex].preFen;
+        void opts.struggle!.askForNote(expected, preFen).then(() => {
+          if (isCleaned) return;
+          updateNoteButton(expected);
+          advanceAfterCorrect();
+        });
+        return;
+      }
 
       advanceAfterCorrect();
       return;

@@ -10,6 +10,7 @@ import { analyseGames, familyKey } from './analysis';
 import {
   masteredLines,
   needsWorkMoves,
+  lineRecall,
   reviewBars,
   moveMemory,
   memoryByOpening,
@@ -57,13 +58,22 @@ function game(
   };
 }
 
-// Build a single-mainline Line, optionally stamping per-move lapses (one entry
-// per ply, in order) so needsWorkMoves has something to rank.
+// Build a single-mainline Line, optionally stamping per-move review state (one
+// entry per ply, in order) so needsWorkMoves and lineRecall have something to
+// rank: `lapses` is the lifetime miss count, `reps` the consecutive clean
+// recalls (>0 = remembered last time), `notes` a written reminder.
 let lineSeq = 0;
 function line(
   colour: 'white' | 'black',
   sanLine: string,
-  opts: { name?: string; openingName?: string | null; confidence?: number; lapses?: number[] } = {},
+  opts: {
+    name?: string;
+    openingName?: string | null;
+    confidence?: number;
+    lapses?: number[];
+    reps?: (number | undefined)[];   // holes = opponent plies, left untrained
+    notes?: (string | undefined)[];
+  } = {},
 ): Line {
   const chess = new Chess();
   const root: MoveNode = { id: 'root', san: '', uci: '', fen: chess.fen(), children: [] };
@@ -76,10 +86,15 @@ function line(
       id: `n${++n}`, san: m.san, uci: m.from + m.to + (m.promotion ?? ''),
       fen: chess.fen(), children: [],
     };
-    const lapses = opts.lapses?.[i];
-    if (lapses && lapses > 0) {
-      node.review = { ease: 2.5, interval: 1, reps: 0, lapses, due: new Date() };
+    const lapses = opts.lapses?.[i] ?? 0;
+    const reps = opts.reps?.[i];
+    // A review block means "drilled at least once" — stamp one whenever either
+    // figure is given, so a clean-but-trained move (reps > 0, no lapses) exists.
+    if (lapses > 0 || reps !== undefined) {
+      node.review = { ease: 2.5, interval: 1, reps: reps ?? 0, lapses, due: new Date() };
     }
+    const note = opts.notes?.[i];
+    if (note) node.note = note;
     cursor.children.push(node);
     cursor = node;
   });
@@ -121,6 +136,48 @@ export function runStatsSelfTest(): TestResult[] {
     nw.length === 2 && nw[0].lapses === 3 && nw[1].lapses === 1 &&
       nw.every(m => m.colour === 'white'),
     nw.map(m => `${m.san}:${m.lapses}`).join(' '),
+  );
+
+  // 2b. Each needs-work row carries what a board / Fix it drill needs: the
+  //     position BEFORE the move, its uci, and whether a note has been written.
+  //     White's first move starts from the initial position.
+  const nwDetail = needsWorkMoves([
+    line('white', 'e4 e5 Nf3', { lapses: [2, 0, 4], notes: [undefined, undefined, 'develop first'] }),
+  ]);
+  const first = nwDetail.find(m => m.san === 'e4');
+  const third = nwDetail.find(m => m.san === 'Nf3');
+  check(
+    'needsWorkMoves carries preFen, uci and the note flag',
+    !!first && !!third
+      && first.preFen.startsWith('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w')
+      && first.uci === 'e2e4' && first.hasNote === false
+      && third.uci === 'g1f3' && third.hasNote === true
+      && third.preFen.includes(' w '),
+    nwDetail.map(m => `${m.san}:${m.uci}:${m.hasNote}`).join(' '),
+  );
+
+  // 2c. lineRecall ranks the weakest line first and skips untrained ones.
+  //     White line, user moves at plies 0, 2, 4.
+  //     Shaky line   — two of three user moves missed at their last drill → 33%.
+  //     Solid line   — all three remembered → 100%.
+  //     Untrained    — no review blocks at all → not listed.
+  const recall = lineRecall([
+    line('white', 'e4 e5 Nf3 Nc6 Bc4', {
+      name: 'Shaky', reps: [0, undefined, 0, undefined, 2], lapses: [3, 0, 5, 0, 0],
+    }),
+    line('white', 'd4 d5 c4 e6 Nc3', {
+      name: 'Solid', reps: [4, undefined, 3, undefined, 2],
+    }),
+    line('white', 'c4 e5 g3', { name: 'Untrained' }),
+  ]);
+  check(
+    'lineRecall ranks weakest first and skips untrained lines',
+    recall.length === 2
+      && recall[0].lineName === 'Shaky' && recall[0].memory.recallPct === 33
+      && recall[0].memory.trained === 3 && recall[0].lapses === 8
+      && recall[1].lineName === 'Solid' && recall[1].memory.recallPct === 100
+      && recall[1].lapses === 0,
+    recall.map(r => `${r.lineName}:${r.memory.recallPct}%:${r.lapses}x`).join(' '),
   );
 
   // 3. The day series fills the range with zeroes and marks today; a logged day

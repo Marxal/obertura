@@ -43,9 +43,14 @@ export interface NeedsWorkMove {
   openingName: string | null;
   colour: 'white' | 'black';
   san: string;
+  uci: string;
+  preFen: string;       // the position before the move, for a board / Fix it drill
   moveNumber: number;   // 1-based full-move number
   lapses: number;       // lifetime misses on this move
+  hasNote: boolean;     // whether a reminder has been written for it
 }
+
+const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
 export function needsWorkMoves(lines: Line[], limit = 24): NeedsWorkMove[] {
   const out: NeedsWorkMove[] = [];
@@ -61,8 +66,11 @@ export function needsWorkMoves(lines: Line[], limit = 24): NeedsWorkMove[] {
         openingName: line.openingName,
         colour: line.colour,
         san: node.san,
+        uci: node.uci,
+        preFen: i === 0 ? START_FEN : main[i - 1].fen,
         moveNumber: Math.floor(i / 2) + 1,
         lapses,
+        hasNote: !!node.note,
       });
     });
   }
@@ -114,6 +122,52 @@ export function moveMemory(lines: Line[]): MoveMemory {
   const m = emptyMemory();
   for (const line of lines) tallyMemory(m, line);
   return finishMemory(m);
+}
+
+// ── Per-line recall ──────────────────────────────────────────────────────────
+//
+// The same tally as moveMemory, scoped to one line, so Statistics can rank the
+// lines that keep slipping. NOT an accuracy figure: the scheduler stores no
+// lifetime attempt count (reps resets to 0 on every miss), so the honest number
+// is recall — the share of the line's drilled moves remembered at their last
+// drill — carried alongside the lifetime miss total.
+
+export interface LineRecall {
+  lineId: string;
+  lineName: string;
+  openingName: string | null;
+  colour: 'white' | 'black';
+  memory: MoveMemory;   // solid / shaky / trained / total + recallPct
+  lapses: number;       // lifetime misses across the line's user moves
+}
+
+// Weakest first: lowest recall, then most misses. Lines with nothing drilled yet
+// are skipped — a 0% built from no data would be a lie, not a warning.
+export function lineRecall(lines: Line[], limit = 24): LineRecall[] {
+  const out: LineRecall[] = [];
+  for (const line of lines) {
+    const m = emptyMemory();
+    tallyMemory(m, line);
+    finishMemory(m);
+    if (m.trained === 0) continue;
+    let lapses = 0;
+    for (const node of userMoveNodes(line.tree, line.colour)) {
+      lapses += node.review?.lapses ?? 0;
+    }
+    out.push({
+      lineId: line.id,
+      lineName: line.name || line.openingName || 'Untitled line',
+      openingName: line.openingName,
+      colour: line.colour,
+      memory: m,
+      lapses,
+    });
+  }
+  out.sort((a, b) =>
+    (a.memory.recallPct ?? 0) - (b.memory.recallPct ?? 0)
+    || b.lapses - a.lapses
+    || a.lineName.localeCompare(b.lineName));
+  return out.slice(0, limit);
 }
 
 // Per opening family + colour, keyed by the NORMALISED family (familyKey) so a

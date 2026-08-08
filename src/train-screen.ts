@@ -2,7 +2,7 @@ import type { Line } from './types';
 import { registerBrushes } from './board-brushes';
 import type { MoveNode } from './tree';
 import { getAllLines, saveLine, countGames } from './storage';
-import { startDrill, startPositionsDrill, startTimedDrill } from './drill';
+import { startDrill, startPositionsDrill, startTimedDrill, type DrillOptions } from './drill';
 import { selectIndividualPositions, selectTimedPositions } from './individual';
 import { Icons } from './icons';
 import {
@@ -17,8 +17,21 @@ import {
   type TimedMinutes,
 } from './prefs';
 import { isOpponentTag } from './scout';
-import { recordMissedMove, mostForgotten, forgottenSlides, clearForgottenMove, type ForgottenWindow } from './forgotten-moves';
+import {
+  recordMissedMove,
+  forgottenSlides,
+  clearForgottenMove,
+  type ForgottenWindow,
+  type ForgottenMove,
+} from './forgotten-moves';
 import { startFixIt } from './fix-it';
+import {
+  chronicCount,
+  shouldAskForNote,
+  shouldOfferFix,
+  markNoteAsked,
+} from './struggle';
+import { openMoveNoteSheet } from './note-sheet';
 import { formatMove } from './notation';
 import { Chess } from 'chess.js';
 import { Chessground } from 'chessground';
@@ -701,7 +714,7 @@ function renderForgottenCarousel(host: HTMLElement, container: HTMLElement, allL
 }
 
 function buildForgottenSlide(
-  move: NonNullable<ReturnType<typeof mostForgotten>>,
+  move: ForgottenMove,
   windowLabel: string,
   container: HTMLElement,
   allLines: Line[],
@@ -755,7 +768,11 @@ function buildForgottenSlide(
   fix.type = 'button';
   fix.className = 'btn-primary forgotten-fix-btn';
   fix.textContent = 'Fix it';
-  fix.addEventListener('click', () => startForgottenFix(move, located, container));
+  fix.addEventListener('click', () => startMoveFix(
+    { preFen: move.fen, san: move.san, colour: move.colour, count: move.count },
+    allLines,
+    () => void doRender(container),
+  ));
   body.appendChild(fix);
 
   // A quiet one-liner explaining what "Fix it" does.
@@ -768,16 +785,22 @@ function buildForgottenSlide(
   return slide;
 }
 
-// Launch the playful three-rep "Fix it" drill, then — when the move belongs to a
-// saved line — chain into the full line so it lands back in context.
-function startForgottenFix(
-  move: NonNullable<ReturnType<typeof mostForgotten>>,
-  located: ForgottenLocation | null,
-  container: HTMLElement,
+// One move you keep forgetting: the playful three-rep "Fix it" drill, then —
+// when the move belongs to a saved line — the full line, so it lands back in
+// context. Shared by the Openings carousel and the Statistics forgotten-moves
+// list; `onDone` re-renders whichever screen launched it.
+export function startMoveFix(
+  move: { preFen: string; san: string; colour: 'white' | 'black'; count: number },
+  lines: Line[],
+  onDone: () => void,
 ): void {
+  const located = locateForgotten(move.preFen, move.san, lines);
+  // Fixed: drop it from the log so the next-worst move surfaces on the carousel.
+  const clear = (): void => clearForgottenMove(move.preFen, move.san);
+
   startFixIt(
     {
-      preFen: move.fen,
+      preFen: move.preFen,
       san: move.san,
       colour: move.colour,
       count: move.count,
@@ -787,23 +810,18 @@ function startForgottenFix(
     {
       playFullLine: !!located,
       onComplete: () => {
-        if (located) {
-          startDrill(located.line, {
-            wrongMoveMode: 'full',
-            modeLabel: 'Fix it',
-            completeMessage: 'Fixed! 🎉',
-            celebrateOnComplete: true,
-            backLabel: 'Done',
-            // Fixed: drop it from the log so the next-worst move surfaces.
-            onComplete: () => { clearForgottenMove(move.fen, move.san); void doRender(container); },
-            onCancel: () => void doRender(container),
-          });
-        } else {
-          clearForgottenMove(move.fen, move.san);
-          void doRender(container);
-        }
+        if (!located) { clear(); onDone(); return; }
+        startDrill(located.line, {
+          wrongMoveMode: 'full',
+          modeLabel: 'Fix it',
+          completeMessage: 'Fixed! 🎉',
+          celebrateOnComplete: true,
+          backLabel: 'Done',
+          onComplete: () => { clear(); onDone(); },
+          onCancel: onDone,
+        });
       },
-      onCancel: () => void doRender(container),
+      onCancel: onDone,
     },
   );
 }
@@ -1429,25 +1447,58 @@ function runItem(
 
   // Track which user-moves were missed on this pass (one entry per node).
   const missed = new Set<string>();
+  // The chronic-miss offer is spent once per LINE, not per drill run — a Fix it
+  // replays the line from move 1, and that replay must not prompt again.
+  let struggleUsed = false;
+
+  // Where a move sits in the line: the position before it, plus the opponent's
+  // move into that position (the previous ply), which the retry and Fix it
+  // drills replay so the position doesn't read without its last move.
+  function locate(node: MoveNode): { preFen: string; prevUci?: string; prevFen?: string } {
+    const idx = copyMoves.findIndex(m => m.id === node.id);
+    return {
+      preFen: idx <= 0 ? START_FEN : copyMoves[idx - 1].fen,
+      prevUci: idx >= 1 ? copyMoves[idx - 1].uci : undefined,
+      prevFen: idx >= 1 ? (idx >= 2 ? copyMoves[idx - 2].fen : START_FEN) : undefined,
+    };
+  }
 
   function recordMiss(node: MoveNode): void {
     // drill.ts fires this once per node (first wrong attempt) in 'full' mode.
     const idx = copyMoves.findIndex(m => m.id === node.id);
     if (idx >= 0) copyMoves[idx].missedThisSession = true;
+    // A Fix it replays the line, so the same move can be missed twice in one
+    // sitting. The mistake list and the forgotten-moves tally should still count
+    // it once — `missed` is a Set, and this guard covers the tally.
+    const firstMiss = !missed.has(node.id);
     missed.add(node.id);
-    // Collect the position for the end-of-session "Try your mistakes again",
-    // along with the opponent's move into it (the previous ply) so the retry
-    // drill can replay it — otherwise the position reads without its last move.
-    const preFen = idx <= 0 ? START_FEN : copyMoves[idx - 1].fen;
-    const prelude = idx >= 1
-      ? { prevUci: copyMoves[idx - 1].uci, prevFen: idx >= 2 ? copyMoves[idx - 2].fen : START_FEN }
-      : undefined;
+    const { preFen, prevUci, prevFen } = locate(node);
+    const prelude = prevUci ? { prevUci, prevFen: prevFen! } : undefined;
     addMistake(stats.mistakes, stats.mistakeKeys, preFen, node, prelude);
     // Feed the "most forgotten move this week" card on Statistics.
-    recordMissedMove(preFen, node.san, lineCopy.colour);
+    if (firstMiss) recordMissedMove(preFen, node.san, lineCopy.colour);
   }
 
-  startDrill(lineCopy, {
+  // Three reps of the move you keep forgetting, then the whole line again from
+  // move 1 so it lands back in context. The clone and its `missed` set survive
+  // the restart, so grading at the end stays honest about this sitting.
+  function runStruggleFix(node: MoveNode, preFen: string): void {
+    const { prevUci, prevFen } = locate(node);
+    const replay = (): void => startDrill(lineCopy, drillOpts);
+    startFixIt(
+      {
+        preFen,
+        san: node.san,
+        colour: lineCopy.colour,
+        count: chronicCount(node, missed.has(node.id)),
+        openingName: lineCopy.openingName,
+        prelude: prevUci ? { uci: prevUci, fromFen: prevFen! } : undefined,
+      },
+      { playFullLine: true, onComplete: replay, onCancel: replay },
+    );
+  }
+
+  const drillOpts: DrillOptions = {
     wrongMoveMode: 'full',
     confirmAbandon: true,
     modeLabel: 'Training',
@@ -1480,6 +1531,34 @@ function runItem(
     // A note added/edited during the drill: persist the clone (its tree, where
     // the note lives) so it survives even if the line isn't finished.
     onNoteEdit: () => { void saveLine(lineCopy); },
+    // A move you keep forgetting (see struggle.ts). With no note, we ask for one
+    // the moment you've fixed it; with a note, the reveal offers the Fix it drill.
+    struggle: {
+      // Two different bars, because the two offers are not equally pushy: the
+      // write prompt honours its snooze, the Fix it button only needs a note.
+      isChronic: (node) => {
+        if (struggleUsed) return false;
+        const missedNow = missed.has(node.id);
+        return node.note ? shouldOfferFix(node, missedNow) : shouldAskForNote(node, missedNow);
+      },
+      askForNote: (node) => {
+        struggleUsed = true;
+        const count = chronicCount(node, missed.has(node.id));
+        const persist = (): void => { markNoteAsked(node, missed.has(node.id)); void saveLine(lineCopy); };
+        return openMoveNoteSheet({
+          node,
+          title: 'You keep missing this move',
+          subtitle: `${formatMove(node.san)} · missed ${count}×`,
+          intro: "Write a note. It'll show up the next time you slip.",
+          placeholder: 'Knight before bishop — the pin is coming',
+          saveLabel: 'Save note',
+          skipLabel: 'Not now',
+          onSave: persist,
+          onSkip: persist,
+        });
+      },
+      startFix: (node, preFen) => { struggleUsed = true; runStruggleFix(node, preFen); },
+    },
     onBeforeComplete: async () => {
       const now = new Date();
       for (const node of userNodes) {
@@ -1518,7 +1597,9 @@ function runItem(
       }
       runSession(session, container, stats, onEmpty);
     },
-  });
+  };
+
+  startDrill(lineCopy, drillOpts);
 }
 
 // ── Individual-moves mode ─────────────────────────────────────────────────────────
@@ -1950,68 +2031,17 @@ function reviewedOpeningRows(tally: Map<string, OpeningTally>): HTMLElement[] {
   });
 }
 
-// A minimal, self-contained note editor for a specific line's move — used by
-// the results screen's position-peek popup, where the move being noted isn't
-// the currently-open builder line. Mirrors the builder's own note sheet
-// (main.ts openNoteSheet) but writes straight to the given line/node pair.
+// A minimal note editor for a specific line's move — used by the results
+// screen's position-peek popup, where the move being noted isn't the
+// currently-open builder line. The sheet itself lives in note-sheet.ts (shared
+// with the chronic-miss prompt); this just supplies the copy and the save.
 function openQuickNoteSheet(line: Line, node: MoveNode): void {
-  const overlay = document.createElement('div');
-  overlay.className = 'edit-overlay';
-  const sheet = document.createElement('div');
-  sheet.className = 'edit-sheet';
-
-  const h = document.createElement('h3');
-  h.className = 'edit-sheet-title';
-  h.textContent = `Note for ${formatMove(node.san)}`;
-  sheet.appendChild(h);
-
-  const textarea = document.createElement('textarea');
-  textarea.className = 'prompt-sheet-textarea';
-  textarea.rows = 3;
-  textarea.value = node.note ?? '';
-  textarea.placeholder = 'Reminder or plan for this move…';
-  sheet.appendChild(textarea);
-
-  const btnRow = document.createElement('div');
-  btnRow.className = 'dialog-btn-row';
-
-  let closed = false;
-  const close = (): void => {
-    if (closed) return;
-    closed = true;
-    overlay.remove();
-    removeBack();
-  };
-
-  const cancelBtn = document.createElement('button');
-  cancelBtn.type = 'button';
-  cancelBtn.className = 'dialog-btn btn-secondary';
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.addEventListener('click', () => close());
-
-  const saveBtn = document.createElement('button');
-  saveBtn.type = 'button';
-  saveBtn.className = 'dialog-btn btn-primary';
-  saveBtn.textContent = 'Save';
-  saveBtn.addEventListener('click', () => {
-    const value = textarea.value.trim();
-    node.note = value ? value : undefined;
-    close();
-    void saveLine(line);
-    showToast('Note saved ✓');
+  void openMoveNoteSheet({
+    node,
+    title: `Note for ${formatMove(node.san)}`,
+    placeholder: 'Reminder or plan for this move…',
+    onSave: () => { void saveLine(line); },
   });
-
-  btnRow.appendChild(cancelBtn);
-  btnRow.appendChild(saveBtn);
-  sheet.appendChild(btnRow);
-
-  const removeBack = pushBack(() => close());
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-
-  overlay.appendChild(sheet);
-  document.body.appendChild(overlay);
-  textarea.focus();
-  textarea.setSelectionRange(textarea.value.length, textarea.value.length);
 }
 
 // A results-screen row, tapped: show the position right here rather than

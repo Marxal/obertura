@@ -12,6 +12,11 @@ export interface MoveNode {
   note?: string;
   annotation?: Annotation;
   missedThisSession?: boolean;
+  // The lifetime miss count when training last offered to write a note for this
+  // move (see struggle.ts). Keeps a dismissed prompt quiet until the move has
+  // been missed several more times. Optional and serialisable — absent on old
+  // data, no migration needed.
+  noteAskedAtLapses?: number;
   // Game-review grade for the move INTO this node, judged from the parent
   // position. Optional and serialisable, so it persists if the line is saved and
   // is simply absent on un-reviewed / old data (no migration). A divergent edit
