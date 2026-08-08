@@ -1,6 +1,12 @@
-// Tracks which exact moves you miss in training, so the Openings screen can
-// surface the single most-forgotten move per time window (today / this week /
-// all time) with a board. Device-local, mirroring streak.ts / puzzle-log.ts.
+// Tracks which exact moves you miss in training, per time window (today / this
+// week / all time). Device-local, mirroring streak.ts / puzzle-log.ts.
+//
+// STATUS: currently write-only. The Openings carousel that read it was replaced
+// by the "Forgotten moves" section (forgotten-section.ts), which ranks by the
+// per-move SM-2 `lapses` instead. The log is kept recording because it holds the
+// one thing `lapses` cannot answer — WHEN a move was missed — so a recency view
+// ("worst this week") can still be built without starting from zero. Nothing
+// reads mostForgotten/forgottenSlides today.
 // Keyed by position + move, with a small per-day tally so the "today" and "this
 // week" windows are a simple sum over the recent day keys, plus a never-pruned
 // `all` running total for the all-time window.

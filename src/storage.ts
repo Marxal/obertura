@@ -447,6 +447,7 @@ export async function resetAllProgress(): Promise<void> {
     stripReviewData(line.tree);
     line.confidence = 0;
     line.lastTrained = null;
+    line.timesTrained = 0;
     s.put(line);
   }
   await txnDone(s.transaction);

@@ -16,6 +16,7 @@ import { registerBrushes } from './board-brushes';
 import type { Line } from './types';
 import type { MoveNode } from './tree';
 import { mainlineNodes } from './scheduler';
+import { lineTrainingCount } from './stats';
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
 import { formatMove } from './notation';
@@ -25,6 +26,8 @@ const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
 export interface LinePeekOptions {
   line: Line;
+  /** Full runs of this line — the denominator the recall figure is read against. */
+  timesTrained?: number;
   /** Jump straight to this move index (0-based ply) when opening. */
   focusPly?: number;
   onDrill?: (line: Line) => void;
@@ -90,12 +93,17 @@ export function openLinePeek(opts: LinePeekOptions): void {
 
   // ── The line's own numbers, as three plain figures ─────────────────────────
 
+  // Recall is only meaningful next to how often the line has actually been run,
+  // so "trained" sits right beside it rather than being buried in a caption.
+  const times = opts.timesTrained ?? lineTrainingCount(line);
+
   const statRow = document.createElement('div');
   statRow.className = 'lpeek-stats';
   statRow.appendChild(lpeekStat(
     recallPct === null ? '—' : `${recallPct}%`, 'recall',
     recallPct !== null && recallPct < 50 ? 'low' : recallPct !== null && recallPct < 80 ? 'mid' : 'ok',
   ));
+  statRow.appendChild(lpeekStat(String(times), times === 1 ? 'run' : 'runs'));
   statRow.appendChild(lpeekStat(`${drilled}/${userPlies.length}`, 'drilled'));
   statRow.appendChild(lpeekStat(String(totalMisses), totalMisses === 1 ? 'miss' : 'misses',
     totalMisses > 0 ? 'low' : undefined));

@@ -13263,6 +13263,10 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   aspect-ratio: 1 / 1;
   border-radius: 10px;
   overflow: hidden;
+  /* The sheet is a flex column capped at 85vh, so a long move list underneath
+     would otherwise SHRINK the board off its aspect ratio — chessground then
+     lays pieces out on a non-square grid and the position reads as broken. */
+  flex-shrink: 0;
 }
 .peek-actions {
   display: flex;
@@ -14689,9 +14693,10 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 
 .stats-forgotten-mini {
+  /* Same size as the miniatures on the saved-line cards (.pcard-mini), so a
+     board is a board wherever it appears. */
   flex-shrink: 0;
-  width: 46px;
-  height: 46px;
+  width: clamp(88px, 30vw, 116px);
   border-radius: 6px;
   overflow: hidden;
   display: block;
@@ -14795,6 +14800,7 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .lpeek-stats {
   display: flex;
   gap: 0.4rem;
+  flex-shrink: 0;
 }
 
 .lpeek-stat {
@@ -14852,6 +14858,9 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 
 .lpeek-list {
+  /* The board holds its size; this is what gives way on a short screen. */
+  flex: 0 1 auto;
+  min-height: 4rem;
   max-height: 34vh;
   overflow-y: auto;
   border: 1px solid var(--hairline);

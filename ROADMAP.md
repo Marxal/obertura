@@ -170,6 +170,42 @@ is the restore point for the round.
   with the training results rows — quizzing hides the move behind Hint, reviewing
   draws it at once) and `line-peek.ts`.
 
+- ✅ **Forgotten moves lands on Openings; the board holds still.** The tidy-up
+  round.
+
+  **The board stops for the nudge.** It no longer plays the opponent's reply
+  underneath the box: the position freezes exactly as you left it — your move
+  played and still highlighted — and the line resumes only once the box is gone.
+  That also retired the special case for a chronic move landing on a line's last
+  move, since the advance itself now waits.
+
+  **The section moved to Train → Openings**, replacing the old per-window
+  (Today / This week / All time) board carousel, and left Statistics. The
+  "Needs work" quick-stat box there opens the same list, so the rows behave
+  identically in both places. `forgotten-moves.ts` keeps recording — it holds the
+  one thing `lapses` can't answer, WHEN a move was missed — but nothing reads it
+  today; a recency view can be rebuilt later without starting from zero.
+
+  **Times trained.** A recall percentage needs a denominator: 50% over two runs
+  is not 50% over twenty. `Line.timesTrained` counts full runs (line completion
+  only — the positions modes grade single moves, not lines) and shows as a
+  **runs** figure in the line popup and "trained N×" on each row. Lines drilled
+  before the counter existed fall back to a floor derived from their review
+  blocks rather than reading a flat zero.
+
+  **Two bugs fixed.** The line popup's board rendered *squashed* — an
+  aspect-ratio child inside a `max-height: 85vh` flex column, so a long move list
+  shrank it off square (measured 280×258) and chessground laid the pieces on a
+  non-square grid. And the run counter double-counted its own run when falling
+  back to the estimate, because grading moves the very review blocks the estimate
+  reads.
+
+  Board miniatures on the rows now match the saved-line cards
+  (`clamp(88px, 30vw, 116px)`), and honour the same "show line miniatures"
+  Settings toggle. The shared furniture both screens draw — section card,
+  segmented row, sheet — moved to `stats-ui.ts` so neither has to import the
+  other.
+
 _Restore point: tag `v0.4`. In progress on `claude/games-training-ui-improvements-wblxc7`._
 
 ---

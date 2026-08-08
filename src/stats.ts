@@ -139,6 +139,26 @@ export interface LineRecall {
   colour: 'white' | 'black';
   memory: MoveMemory;   // solid / shaky / trained / total + recallPct
   lapses: number;       // lifetime misses across the line's user moves
+  timesTrained: number; // full runs of the line (estimated on pre-counter data)
+}
+
+// How many times a line has been drilled start to finish.
+//
+// `Line.timesTrained` is the real counter, but it only exists from the release
+// that introduced it. For a line trained before then it's absent, and reporting
+// zero would be a plain lie next to a recall percentage built from real drills.
+// So we fall back to a FLOOR derived from the review blocks: for any one move,
+// `reps + lapses` is the least number of gradings that could have produced its
+// current state (clean runs before a lapse are not recoverable — `reps` resets),
+// and the line was drilled at least as often as its most-graded move.
+export function lineTrainingCount(line: Line): number {
+  if (typeof line.timesTrained === 'number') return line.timesTrained;
+  let floor = 0;
+  for (const node of userMoveNodes(line.tree, line.colour)) {
+    if (!node.review) continue;
+    floor = Math.max(floor, node.review.reps + node.review.lapses);
+  }
+  return floor;
 }
 
 // Weakest first: lowest recall, then most misses. Lines with nothing drilled yet
@@ -161,6 +181,7 @@ export function lineRecall(lines: Line[], limit = 24): LineRecall[] {
       colour: line.colour,
       memory: m,
       lapses,
+      timesTrained: lineTrainingCount(line),
     });
   }
   out.sort((a, b) =>

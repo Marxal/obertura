@@ -734,7 +734,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
 
   // Slide the nudge in under the board, between the status line and the control
   // row — never over the board, and never in the way of the next move.
-  function showStruggleNudge(node: MoveNode): void {
+  function showStruggleNudge(node: MoveNode): StruggleNudge {
     const s = opts.struggle!;
     struggleNudge?.destroy();
     // Read the count once, here: it's what the box says, and what the snooze is
@@ -747,6 +747,10 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
       onDismiss: () => s.onNoteDismissed(node, count),
     });
     statusEl.insertAdjacentElement('afterend', struggleNudge.el);
+    // The board is frozen on their move while this is up, so say so rather than
+    // leaving the last status ("Your move") contradicting a dead board.
+    setStatus('');
+    return struggleNudge;
   }
 
   // The note control: open an editor for the current move's note (closing it if
@@ -989,12 +993,16 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
       });
 
       // A chronic move with no note yet: the reveal armed the nudge, and the
-      // user has just replayed the move correctly. Slide the box in below the
-      // board — the line carries straight on, so this interrupts nothing.
+      // user has just replayed the move correctly. Hold the board exactly here —
+      // their move played and highlighted, the opponent yet to answer — and
+      // slide the box in underneath. The line resumes once the box is gone
+      // (it sees itself off if you never touch it).
       if (strugglePending === expected) {
         strugglePending = null;
         struggleUsed = true;
-        showStruggleNudge(expected);
+        const nudge = showStruggleNudge(expected);
+        void nudge.settled.then(() => { if (!isCleaned) advanceAfterCorrect(); });
+        return;
       }
 
       advanceAfterCorrect();
@@ -1244,14 +1252,9 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     // Single-move modes: top the bar off — every position is behind us now.
     if (showPositionBar) renderPositionBar(tasks.length);
     if (opts.celebrateOnComplete) burstConfetti(boardWrap);
-
-    // A nudge can still be on screen — most obviously when the move you keep
-    // missing IS the line's last move. Let it have its moment before the results
-    // screen takes the drill away; it settles itself if you never touch it.
-    if (struggleNudge && !isCleaned) await struggleNudge.settled;
-    if (isCleaned) return;
-
-    setTimeout(() => { cleanup(); opts.onComplete(); }, struggleNudge ? 400 : 1500);
+    // Nothing to wait on here: a live nudge holds the advance that leads to this
+    // point, so by the time we complete it has already been dealt with.
+    setTimeout(() => { cleanup(); opts.onComplete(); }, 1500);
   }
 
   function cleanup(): void {

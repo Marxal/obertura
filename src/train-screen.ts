@@ -1,5 +1,4 @@
 import type { Line } from './types';
-import { registerBrushes } from './board-brushes';
 import type { MoveNode } from './tree';
 import { getAllLines, saveLine, countGames } from './storage';
 import { startDrill, startPositionsDrill, startTimedDrill, type DrillOptions } from './drill';
@@ -17,13 +16,7 @@ import {
   type TimedMinutes,
 } from './prefs';
 import { isOpponentTag } from './scout';
-import {
-  recordMissedMove,
-  forgottenSlides,
-  clearForgottenMove,
-  type ForgottenWindow,
-  type ForgottenMove,
-} from './forgotten-moves';
+import { recordMissedMove, clearForgottenMove } from './forgotten-moves';
 import { startFixIt } from './fix-it';
 import {
   chronicCount,
@@ -33,10 +26,10 @@ import {
 } from './struggle';
 import { openMoveNoteSheet } from './note-sheet';
 import { openPositionPeek, type PeekAction } from './position-peek';
+import { renderForgottenSection } from './forgotten-section';
+import { lineTrainingCount } from './stats';
 import { formatMove } from './notation';
 import { Chess } from 'chess.js';
-import { Chessground } from 'chessground';
-import type { Key } from 'chessground/types';
 import { buildEmptyState } from './empty-state';
 import { renderStarterOnboarding, ONBOARDING_GOAL, type LineSeed } from './onboarding-starter';
 import { createFilterBar, type FilterSelection } from './filters';
@@ -239,10 +232,19 @@ async function doRender(
   // own head is gone — the hero (when anything's due) is the top of this pane.
   renderHero(doNext, container, due, trainingLines);
   renderModeCards(doNext, container, trainingLines, allLines);
-  // Lines in training rides directly under Practise; the forgotten-moves
-  // carousel closes the pane.
+  // Lines in training rides directly under Practise; what keeps slipping —
+  // the worst moves and the weakest lines — closes the pane.
   renderCardList(state, container, trainingLines, allLines.filter(l => !l.inTraining));
-  renderForgottenCarousel(state, container, allLines);
+  renderForgottenSection(state, allLines, {
+    onFixMove: (m, lines) => startMoveFix(
+      { preFen: m.preFen, san: m.san, colour: m.colour, count: m.lapses },
+      lines,
+      () => void doRender(container),
+    ),
+    onDrillLine: (line) => startRounds([line], container, { explicit: true }),
+    onOpenLine: onViewLine ? (line) => onViewLine!(line) : undefined,
+    onStartTraining: () => void doRender(container),
+  });
 }
 
 // The ordered list of lines that "Start training" drills, per the default-mode
@@ -606,23 +608,11 @@ function buildTimedCard(
   return card;
 }
 
-// ── Forgotten-moves carousel ──────────────────────────────────────────────────
+// ── Locating a forgotten move ─────────────────────────────────────────────────
 //
-// Below Practise: the single move you keep missing, per time window (Today /
-// This week / All time), as a swipeable carousel. Each slide shows a full-width
-// board with an arrow on the move, then the move, its opening, how often you've
-// missed it, and a "Fix it" button that runs the playful repeat-it-three-times
-// drill. Only windows with a miss to show get a slide; with none, no section.
+// The "Fix it" drill needs to know which saved line a bare position+move belongs
+// to, so it can name the opening and replay the whole line afterwards.
 
-const FORGOTTEN_LABEL: Record<ForgottenWindow, string> = {
-  day: 'Today',
-  week: 'This week',
-  all: 'All time',
-};
-
-// Find the move in the user's lines: returns the line it belongs to (for the
-// opening name + full-line finish) and the opponent's move that leads into the
-// position (to animate in during the drill). Null when no saved line plays it.
 interface ForgottenLocation {
   line: Line;
   prelude?: { uci: string; fromFen: string };
@@ -647,144 +637,6 @@ function locateForgotten(fen: string, san: string, lines: Line[]): ForgottenLoca
 
 // The from/to squares of a SAN move at a position, for the board arrow. Null if
 // it doesn't resolve (stale data) — the board just renders without an arrow.
-function squaresOf(fen: string, san: string): { from: string; to: string } | undefined {
-  try {
-    const chess = new Chess(fen);
-    const m = chess.moves({ verbose: true }).find(mv => mv.san === san);
-    return m ? { from: m.from, to: m.to } : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function renderForgottenCarousel(host: HTMLElement, container: HTMLElement, allLines: Line[]): void {
-  // One DISTINCT move per window — the same position is usually the worst in
-  // more than one window, so forgottenSlides() de-duplicates across them.
-  const slides = forgottenSlides()
-    .map(s => ({ key: s.window, label: FORGOTTEN_LABEL[s.window], move: s.move }));
-  if (slides.length === 0) return;
-
-  const section = document.createElement('div');
-  section.className = 'section forgotten-section';
-
-  const label = document.createElement('div');
-  label.className = 'section-title';
-  label.textContent = 'Forgotten moves';
-  section.appendChild(label);
-
-  // Window tabs double as the carousel indicator: tap to scroll to that slide,
-  // and the active one tracks the scroll position.
-  const tabs = document.createElement('div');
-  tabs.className = 'forgotten-tabs';
-  const track = document.createElement('div');
-  track.className = 'forgotten-track';
-
-  const tabEls: HTMLButtonElement[] = [];
-  const slideEls: HTMLElement[] = [];
-
-  slides.forEach((s, i) => {
-    const tab = document.createElement('button');
-    tab.type = 'button';
-    tab.className = 'forgotten-tab' + (i === 0 ? ' forgotten-tab--active' : '');
-    tab.textContent = s.label;
-    tab.addEventListener('click', () => {
-      track.scrollTo({ left: track.clientWidth * i, behavior: 'smooth' });
-    });
-    tabEls.push(tab);
-    tabs.appendChild(tab);
-
-    const slide = buildForgottenSlide(s.move, s.label, container, allLines);
-    slideEls.push(slide);
-    track.appendChild(slide);
-  });
-
-  // Keep the active tab in sync as the track is swiped.
-  let raf = 0;
-  track.addEventListener('scroll', () => {
-    if (raf) return;
-    raf = requestAnimationFrame(() => {
-      raf = 0;
-      const idx = Math.round(track.scrollLeft / (track.clientWidth || 1));
-      tabEls.forEach((t, i) => t.classList.toggle('forgotten-tab--active', i === idx));
-    });
-  }, { passive: true });
-
-  section.appendChild(tabs);
-  section.appendChild(track);
-  host.appendChild(section);
-}
-
-function buildForgottenSlide(
-  move: ForgottenMove,
-  windowLabel: string,
-  container: HTMLElement,
-  allLines: Line[],
-): HTMLElement {
-  const slide = document.createElement('div');
-  slide.className = 'forgotten-slide';
-
-  const located = locateForgotten(move.fen, move.san, allLines);
-
-  // A real (view-only) chessground so the board follows the user's chosen piece
-  // set and board-colour theme, with the move drawn as a native arrow. Patterns
-  // mirror drill.ts. Three of these (one per window) is well within budget.
-  const board = document.createElement('div');
-  board.className = 'forgotten-board cg-wrap';
-  slide.appendChild(board);
-
-  const cg = Chessground(board, {
-    fen: move.fen,
-    orientation: move.colour,
-    viewOnly: true,
-    coordinates: false,
-    animation: { enabled: false },
-    drawable: { enabled: false, visible: true },
-  });
-  registerBrushes(cg, { accent: { color: '#ff9b21', opacity: 0.9, lineWidth: 10 } });
-  const sq = squaresOf(move.fen, move.san);
-  if (sq) cg.setAutoShapes([{ orig: sq.from as Key, dest: sq.to as Key, brush: 'accent' }]);
-  // The slide may be laid out off-screen in the carousel; nudge a redraw once
-  // the browser has sized it so the pieces and arrow place correctly.
-  requestAnimationFrame(() => cg.redrawAll());
-
-  const body = document.createElement('div');
-  body.className = 'forgotten-body';
-
-  const moveEl = document.createElement('div');
-  moveEl.className = 'forgotten-move';
-  moveEl.textContent = formatMove(move.san);
-  body.appendChild(moveEl);
-
-  const opening = document.createElement('div');
-  opening.className = 'forgotten-opening';
-  opening.textContent = located?.line.openingName || located?.line.name || 'Unknown opening';
-  body.appendChild(opening);
-
-  const meta = document.createElement('div');
-  meta.className = 'forgotten-meta';
-  meta.textContent = `Missed ${move.count}× · ${windowLabel.toLowerCase()}`;
-  body.appendChild(meta);
-
-  const fix = document.createElement('button');
-  fix.type = 'button';
-  fix.className = 'btn-primary forgotten-fix-btn';
-  fix.textContent = 'Fix it';
-  fix.addEventListener('click', () => startMoveFix(
-    { preFen: move.fen, san: move.san, colour: move.colour, count: move.count },
-    allLines,
-    () => void doRender(container),
-  ));
-  body.appendChild(fix);
-
-  // A quiet one-liner explaining what "Fix it" does.
-  const hint = document.createElement('div');
-  hint.className = 'forgotten-hint';
-  hint.textContent = 'Play the move 3× then replay the full line.';
-  body.appendChild(hint);
-
-  slide.appendChild(body);
-  return slide;
-}
 
 // One move you keep forgetting: the playful three-rep "Fix it" drill, then —
 // when the move belongs to a saved line — the full line, so it lands back in
@@ -1555,6 +1407,11 @@ function runItem(
     },
     onBeforeComplete: async () => {
       const now = new Date();
+      // Read the run count BEFORE grading. On a line with no stored counter yet
+      // the count is derived from the review blocks (reps + lapses), and grading
+      // is about to move those — reading after would fold this very run into the
+      // estimate and then add it again below.
+      const runsBefore = lineTrainingCount(lineCopy);
       for (const node of userNodes) {
         const misses = missed.has(node.id) ? 1 : 0;
         const quality = qualityFromMisses(misses);
@@ -1563,6 +1420,9 @@ function runItem(
       }
       lineCopy.lastTrained = now.toISOString();
       lineCopy.confidence = lineConfidence(lineCopy);
+      // One full run of the line — the denominator behind its recall figure.
+      // Counted only here: the positions modes grade single moves, not lines.
+      lineCopy.timesTrained = runsBefore + 1;
       await saveLine(lineCopy);
       recordReviewed(userNodes.length);
       // Feed the Statistics remembered-vs-failed bar: this line's moves split
