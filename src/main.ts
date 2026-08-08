@@ -3501,24 +3501,29 @@ function maybeRestoreLichessReturn(): void {
   buildFromUcis(ucis, colour);
 }
 
-// Fade out and remove the boot splash once the first screen's data is ready. Tied
-// to getAllLines (the Train screen's gating read); a fallback timeout guarantees
-// the splash can never get stuck if that read ever hangs.
-function hideAppSplashWhenReady(): void {
+// Fade out and remove the boot splash. Safe to call any number of times from
+// anywhere — the first call wins, the rest are no-ops. Every path that puts
+// something on screen (the app booting, or the beta gate rendering) calls this,
+// so the splash can never outlive the thing it was covering.
+let appSplashHidden = false;
+function hideAppSplash(): void {
+  if (appSplashHidden) return;
+  appSplashHidden = true;
   const splash = document.getElementById('app-splash');
   if (!splash) return;
-  let done = false;
-  const reveal = (): void => {
-    if (done) return;
-    done = true;
-    // One more frame so the populated screen has painted under the splash.
-    requestAnimationFrame(() => {
-      splash.classList.add('app-splash--hide');
-      setTimeout(() => splash.remove(), 320);
-    });
-  };
-  void getAllLines().then(reveal, reveal);
-  setTimeout(reveal, 3000); // safety net
+  // One more frame so whatever is underneath has painted before we fade.
+  requestAnimationFrame(() => {
+    splash.classList.add('app-splash--hide');
+    setTimeout(() => splash.remove(), 320);
+  });
+}
+
+// The app-boot trigger: drop the splash once the first screen's data is ready.
+// Tied to getAllLines (the Train screen's gating read); a fallback timeout
+// guarantees the splash can never get stuck if that read ever hangs.
+function hideAppSplashWhenReady(): void {
+  void getAllLines().then(hideAppSplash, hideAppSplash);
+  setTimeout(hideAppSplash, 3000); // safety net
 }
 
 // Stamp the install date on the very first launch — the beta survey banner
@@ -3531,6 +3536,10 @@ if (!localStorage.getItem('obertura.installedAt')) {
 // shown before the app boots. Skips itself when already unlocked or installed,
 // so this is a no-op pass-through on every normal launch. Everything below runs
 // only once the gate calls back.
+//
+// The second argument runs instead, the moment the gate puts itself on screen:
+// the gate is then the first thing the user sees, so the splash must clear right
+// there rather than waiting on a pass that may never happen.
 maybeShowGate(() => requestAnimationFrame(() => {
   cg = Chessground(boardEl, {
     movable: {
@@ -3722,4 +3731,4 @@ maybeShowGate(() => requestAnimationFrame(() => {
     showToast(`Games refreshed · ${newCount} new`);
     if (currentView !== 'builder') showView(currentView);
   });
-}));
+}), hideAppSplash);
