@@ -61,10 +61,15 @@ export function shouldOfferFix(node: MoveNode, missedNow: boolean): boolean {
   return missedNow && !!node.note && isChronicMiss(node, missedNow);
 }
 
-// Remember that we asked, so the snooze can hold. Called whether the sheet was
-// saved or dismissed — a saved note stops the asks by itself (shouldAskForNote
-// bails on `node.note`), and the stamp keeps that true if the note is later
-// cleared.
-export function markNoteAsked(node: MoveNode, missedNow: boolean): void {
-  node.noteAskedAtLapses = chronicCount(node, missedNow);
+// Remember that we asked, so the snooze can hold. Called whether the note was
+// written or waved away — a saved note stops the asks by itself
+// (shouldAskForNote bails on `node.note`), and the stamp keeps that true if the
+// note is later cleared.
+//
+// Takes the count EXPLICITLY rather than recomputing it: the nudge outlives the
+// move that raised it, and grading at line completion bumps `review.lapses` in
+// between. Recomputing there would stamp one miss too many and push the next
+// ask out a session further than intended. Pass the count the user was shown.
+export function markNoteAskedAt(node: MoveNode, count: number): void {
+  node.noteAskedAtLapses = count;
 }

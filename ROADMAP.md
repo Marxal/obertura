@@ -139,6 +139,37 @@ is the restore point for the round.
   the note sheet was lifted out of `train-screen.ts` into a shared `note-sheet.ts`
   rather than duplicated.
 
+- ✅ **Making it discrete, and the statistics visual.** The follow-up round on
+  the above, after the first cut proved too pushy.
+
+  **The nudge, not a dialog.** The write-a-note prompt was a sheet over the board
+  with an auto-focused textarea. It's now a quiet strip that slides in *below*
+  the board (`struggle-nudge.ts`): it never covers the position, never opens the
+  keyboard on its own, and the drill carries straight on underneath it — no
+  pause. **Flick it sideways** to throw it away, or tap ×; either stamps the
+  snooze. Tapping **Note** swaps in the textarea, and only then does the keyboard
+  appear. If the move you keep missing is the line's *last* move, the results
+  screen waits for the box rather than yanking it away (capped, so a
+  put-down phone still finishes). The note card itself now animates in on reveal —
+  the note arriving is the moment, so it should read as arriving.
+
+  **Statistics you can see.** Both tabs went from text rows to visual ones: every
+  forgotten move carries a **position miniature** and a **miss bar** scaled
+  against the worst move on the list, so the ranking reads before any number
+  does; every line carries a **segmented memory bar** (solid / slipping /
+  untrained) in the Move-memory donut's own colours.
+
+  **And you can open them.** Tapping a move opens the **position** on a board
+  with its arrow drawn and its note underneath (Fix it · Drill line). Tapping a
+  line opens the **whole line**: its recall / drilled / misses figures, a board
+  you step through, and the full move list where each of your moves shows its
+  miss count and a bar — the opponent's replies stay muted, because only your
+  moves are ever scheduled. It opens on the worst move in the line.
+
+  Two popups were extracted rather than duplicated: `position-peek.ts` (shared
+  with the training results rows — quizzing hides the move behind Hint, reviewing
+  draws it at once) and `line-peek.ts`.
+
 _Restore point: tag `v0.4`. In progress on `claude/games-training-ui-improvements-wblxc7`._
 
 ---
