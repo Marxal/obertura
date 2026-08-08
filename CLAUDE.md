@@ -62,3 +62,17 @@ Confirm scope before starting new work.
 This repo is built by Claude Code on the web and previewed via GitHub Pages.
 After meaningful changes: build the static site and push so the live URL
 updates. Keep a .gitignore (never commit node_modules or secrets).
+
+## Hosting targets
+The same repo and build produce two different output shapes, picked by the
+`DEPLOY_TARGET` env var (`vite.config.ts`):
+- `DEPLOY_TARGET=github` (or unset, the default) — the trainer builds to the
+  `dist/` root with base `/obertura/`, exactly as before. The GitHub Actions
+  workflow then copies `docs/` to `dist/docs/` itself, unchanged.
+- `DEPLOY_TARGET=cloudflare` — the trainer builds under `dist/app/` with base
+  `/app/`, and `docs/index.html` (the marketing landing page) is copied to the
+  `dist/` root instead, so it serves at the bitochess.com domain root while
+  the trainer lives at bitochess.com/app/. Set this one env var in the
+  Cloudflare Pages dashboard; no other config differs.
+`public/manifest.webmanifest` is shared by both targets unchanged — its
+`start_url: "."` is relative, so it resolves correctly under either base.
