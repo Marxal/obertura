@@ -1,0 +1,13 @@
+{
+  // Presence of this file stops Cloudflare's build system from auto-detecting
+  // Vite and trying to wire up its Cloudflare Vite plugin integration (which
+  // requires Vite 6+ — we're not upgrading just to satisfy that autoconfig).
+  "name": "bitochess",
+  "compatibility_date": "2026-08-08",
+  // Static-assets-only Worker for now — no "main" entry, no server code yet.
+  // Points at the DEPLOY_TARGET=cloudflare build output root: dist/index.html
+  // is the landing page, dist/app/ is the trainer (see vite.config.ts).
+  "assets": {
+    "directory": "./dist"
+  }
+}
