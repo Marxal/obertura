@@ -157,6 +157,28 @@ export function runStatsSelfTest(): TestResult[] {
     nwDetail.map(m => `${m.san}:${m.uci}:${m.hasNote}`).join(' '),
   );
 
+  // 2b-ii. Attempts: the larger of the line's run count and the move's own
+  //     reps + lapses floor, so a single-position drill (which never bumps the
+  //     line count) still can't make a move read as asked fewer times than it
+  //     has been missed.
+  const attLine = line('white', 'e4 e5 Nf3', { reps: [1, undefined, 0], lapses: [2, 0, 9] });
+  attLine.timesTrained = 5;
+  const att = needsWorkMoves([attLine]);
+  const byName = (san: string) => att.find(m => m.san === san);
+  check(
+    'attempts take the larger of line runs and the move floor',
+    byName('e4')?.attempts === 5        // line runs 5 beats floor 1+2=3
+      && byName('Nf3')?.attempts === 9  // floor 0+9=9 beats line runs 5
+      && byName('Nf3')!.attempts >= byName('Nf3')!.lapses,
+    att.map(m => `${m.san}:${m.lapses}/${m.attempts}`).join(' '),
+  );
+  check(
+    'needsWorkMoves carries the streak and the due date',
+    byName('e4')?.reps === 1 && byName('Nf3')?.reps === 0
+      && byName('e4')?.due instanceof Date,
+    `${byName('e4')?.reps} / ${byName('Nf3')?.reps}`,
+  );
+
   // 2c. lineRecall ranks the weakest line first and skips untrained ones.
   //     White line, user moves at plies 0, 2, 4.
   //     Shaky line   — two of three user moves missed at their last drill → 33%.

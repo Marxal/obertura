@@ -21,9 +21,22 @@ export interface PeekAction {
   onClick: (ctx: { close: () => void; disable: () => void }) => void;
 }
 
+// One figure in the row above the board: a big number and its label. `tone`
+// colours the number — 'ok' green, 'mid' amber, 'low' red — so a bad figure
+// reads as bad without needing the label.
+export interface PeekStat {
+  value: string;
+  label: string;
+  tone?: 'ok' | 'mid' | 'low';
+}
+
 export interface PositionPeekOptions {
   fen: string;
   orientation: 'white' | 'black';
+  /** Figures above the board — misses, attempts, recall, streak… */
+  stats?: PeekStat[];
+  /** One quiet line under the actions (scheduling, opening, whatever fits). */
+  footnote?: string;
   /** Heading above the board (e.g. "8. ♞f3 — Italian Game"). */
   title?: string;
   /** One quiet line under the heading (e.g. "Missed 9× · failed 3 in a row"). */
@@ -63,6 +76,8 @@ export function openPositionPeek(opts: PositionPeekOptions): void {
     sub.textContent = opts.subtitle;
     sheet.appendChild(sub);
   }
+
+  if (opts.stats?.length) sheet.appendChild(buildStatRow(opts.stats));
 
   const board = document.createElement('div');
   board.className = 'peek-board cg-wrap';
@@ -110,11 +125,41 @@ export function openPositionPeek(opts: PositionPeekOptions): void {
 
   if (btnRow.childElementCount > 0) sheet.appendChild(btnRow);
 
+  if (opts.footnote) {
+    const foot = document.createElement('div');
+    foot.className = 'peek-foot';
+    foot.textContent = opts.footnote;
+    sheet.appendChild(foot);
+  }
+
   const removeBack = pushBack(() => close());
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
 
   overlay.appendChild(sheet);
   document.body.appendChild(overlay);
+}
+
+// The row of figures. Shared with the line popup so a stat cell looks the same
+// wherever it appears.
+export function buildStatRow(stats: PeekStat[]): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'peek-stats';
+  for (const s of stats) row.appendChild(buildStatCell(s));
+  return row;
+}
+
+export function buildStatCell(s: PeekStat): HTMLElement {
+  const cell = document.createElement('div');
+  cell.className = 'peek-stat' + (s.tone ? ` peek-stat--${s.tone}` : '');
+  const v = document.createElement('span');
+  v.className = 'peek-stat-value';
+  v.textContent = s.value;
+  cell.appendChild(v);
+  const l = document.createElement('span');
+  l.className = 'peek-stat-label';
+  l.textContent = s.label;
+  cell.appendChild(l);
+  return cell;
 }
 
 export function peekActionBtn(icon: SVGElement, label: string, onClick: () => void): HTMLButtonElement {

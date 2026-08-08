@@ -20,7 +20,7 @@ import { lineTrainingCount } from './stats';
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
 import { formatMove } from './notation';
-import { peekActionBtn } from './position-peek';
+import { peekActionBtn, buildStatRow, type PeekStat } from './position-peek';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -97,17 +97,22 @@ export function openLinePeek(opts: LinePeekOptions): void {
   // so "trained" sits right beside it rather than being buried in a caption.
   const times = opts.timesTrained ?? lineTrainingCount(line);
 
-  const statRow = document.createElement('div');
-  statRow.className = 'lpeek-stats';
-  statRow.appendChild(lpeekStat(
-    recallPct === null ? '—' : `${recallPct}%`, 'recall',
-    recallPct !== null && recallPct < 50 ? 'low' : recallPct !== null && recallPct < 80 ? 'mid' : 'ok',
-  ));
-  statRow.appendChild(lpeekStat(String(times), times === 1 ? 'run' : 'runs'));
-  statRow.appendChild(lpeekStat(`${drilled}/${userPlies.length}`, 'drilled'));
-  statRow.appendChild(lpeekStat(String(totalMisses), totalMisses === 1 ? 'miss' : 'misses',
-    totalMisses > 0 ? 'low' : undefined));
-  sheet.appendChild(statRow);
+  const stats: PeekStat[] = [
+    {
+      value: recallPct === null ? '—' : `${recallPct}%`,
+      label: 'recall',
+      tone: recallPct === null ? undefined
+        : recallPct < 50 ? 'low' : recallPct < 80 ? 'mid' : 'ok',
+    },
+    { value: String(times), label: times === 1 ? 'run' : 'runs' },
+    { value: `${drilled}/${userPlies.length}`, label: 'drilled' },
+    {
+      value: String(totalMisses),
+      label: totalMisses === 1 ? 'miss' : 'misses',
+      tone: totalMisses > 0 ? 'low' : undefined,
+    },
+  ];
+  sheet.appendChild(buildStatRow(stats));
 
   // ── Board ──────────────────────────────────────────────────────────────────
 
@@ -290,16 +295,3 @@ function stepBtn(label: string, icon: SVGElement, onClick: () => void): HTMLButt
   return btn;
 }
 
-function lpeekStat(value: string, label: string, tone?: string): HTMLElement {
-  const cell = document.createElement('div');
-  cell.className = 'lpeek-stat' + (tone ? ` lpeek-stat--${tone}` : '');
-  const v = document.createElement('span');
-  v.className = 'lpeek-stat-value';
-  v.textContent = value;
-  cell.appendChild(v);
-  const l = document.createElement('span');
-  l.className = 'lpeek-stat-label';
-  l.textContent = label;
-  cell.appendChild(l);
-  return cell;
-}

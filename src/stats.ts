@@ -12,6 +12,7 @@
 // honest empty state rather than guessing.
 
 import type { Line } from './types';
+import type { MoveNode } from './tree';
 import type { ImportedGame } from './chesscom';
 import { mainlineNodes, userMoveNodes } from './scheduler';
 import {
@@ -47,15 +48,36 @@ export interface NeedsWorkMove {
   preFen: string;       // the position before the move, for a board / Fix it drill
   moveNumber: number;   // 1-based full-move number
   lapses: number;       // lifetime misses on this move
+  attempts: number;     // times it has been asked (see moveAttempts)
+  reps: number;         // clean recalls in a row right now — is it recovering?
+  due: Date | null;     // when it next comes round; null when never drilled
   hasNote: boolean;     // whether a reminder has been written for it
 }
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
+// How many times a move has been ASKED — the denominator that turns a bare miss
+// count into a rate. Nothing records it directly, so we take the larger of two
+// lower bounds:
+//
+//   • the line's run count — a full run asks every one of its user moves once;
+//   • the move's own `reps + lapses` — the least number of gradings that could
+//     have produced its current state, which also picks up single-position
+//     drills (those grade a move without touching the line's run count).
+//
+// Both are floors, so the result is a floor too, and never below the misses it
+// is quoted against.
+export function moveAttempts(node: MoveNode, lineRuns: number): number {
+  const r = node.review;
+  if (!r) return 0;
+  return Math.max(lineRuns, r.reps + r.lapses);
+}
+
 export function needsWorkMoves(lines: Line[], limit = 24): NeedsWorkMove[] {
   const out: NeedsWorkMove[] = [];
   for (const line of lines) {
     const main = mainlineNodes(line.tree);
+    const runs = lineTrainingCount(line);
     main.forEach((node, i) => {
       const isUser = line.colour === 'white' ? i % 2 === 0 : i % 2 === 1;
       const lapses = node.review?.lapses ?? 0;
@@ -70,6 +92,9 @@ export function needsWorkMoves(lines: Line[], limit = 24): NeedsWorkMove[] {
         preFen: i === 0 ? START_FEN : main[i - 1].fen,
         moveNumber: Math.floor(i / 2) + 1,
         lapses,
+        attempts: moveAttempts(node, runs),
+        reps: node.review?.reps ?? 0,
+        due: node.review ? new Date(node.review.due) : null,
         hasNote: !!node.note,
       });
     });

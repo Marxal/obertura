@@ -3,9 +3,8 @@
 //
 // Two views behind one segmented control:
 //   Moves — the individual moves you keep missing, worst first. Each row is a
-//     position miniature, the move, and a bar scaled against the worst move on
-//     the list, so the ranking reads before any number does. Tapping opens the
-//     position on a board.
+//     position miniature, the move, and a green/red bar of recalled-vs-missed
+//     over every time it has been asked. Tapping opens the position on a board.
 //   Lines — the same question one level up: how much of each line still sticks.
 //     Tapping opens the whole line, steppable, with per-move miss counts.
 //
@@ -28,7 +27,7 @@ import {
   type LineRecall,
   type MoveMemory,
 } from './stats';
-import { mainlineNodes } from './scheduler';
+import { mainlineNodes, describeDue } from './scheduler';
 import { statsSection, buildSegmented, openSheet } from './stats-ui';
 import { buildEmptyState } from './empty-state';
 import { colourPip, lineFinalFen } from './card-position';
@@ -76,10 +75,18 @@ export function renderForgottenSection(host: HTMLElement, lines: Line[], cb: For
 
   let tab: Tab = moves.length > 0 ? 'moves' : 'lines';
 
+  // The caption explains whichever bar you're looking at, so it changes with
+  // the tab rather than trying to describe both at once.
+  const cap = document.createElement('p');
+  cap.className = 'stats-trend-caption';
+
   const paint = (): void => {
     body.innerHTML = '';
     if (tab === 'moves') paintMoves(body, moves, lines, cb);
     else paintLines(body, recall, lines, cb);
+    cap.textContent = tab === 'moves'
+      ? 'Green is recalled, red missed, over every time the move has been asked.'
+      : 'Recall is the share of a line’s drilled moves you remembered last time.';
   };
 
   section.appendChild(buildSegmented<Tab>(
@@ -92,10 +99,6 @@ export function renderForgottenSection(host: HTMLElement, lines: Line[], cb: For
   section.appendChild(body);
   paint();
 
-  const cap = document.createElement('p');
-  cap.className = 'stats-trend-caption';
-  cap.textContent = 'Misses are lifetime totals. Recall is the share of a line’s '
-    + 'drilled moves you remembered last time.';
   section.appendChild(cap);
 
   host.appendChild(section);
@@ -111,16 +114,13 @@ function paintMoves(body: HTMLElement, moves: NeedsWorkMove[], lines: Line[], cb
     }));
     return;
   }
-  // Scale every bar against the most-forgotten move in the WHOLE list, not just
-  // the preview, so "See all" doesn't silently rescale what you were looking at.
-  const worst = Math.max(1, ...moves.map(m => m.lapses));
-  for (const m of moves.slice(0, PREVIEW)) body.appendChild(moveRow(m, worst, lines, cb));
+  for (const m of moves.slice(0, PREVIEW)) body.appendChild(moveRow(m, lines, cb));
   if (moves.length > PREVIEW) {
     body.appendChild(seeAllRow(`See all ${moves.length}`, () => openMovesSheet(moves, lines, cb)));
   }
 }
 
-function moveRow(m: NeedsWorkMove, worst: number, lines: Line[], cb: ForgottenCallbacks): HTMLElement {
+function moveRow(m: NeedsWorkMove, lines: Line[], cb: ForgottenCallbacks): HTMLElement {
   const card = document.createElement('button');
   card.type = 'button';
   card.className = 'stats-sheet-card stats-forgotten-row';
@@ -142,18 +142,15 @@ function moveRow(m: NeedsWorkMove, worst: number, lines: Line[], cb: ForgottenCa
   }
   text.appendChild(name);
 
+  // Recalled vs missed over every time the move has been asked — the same
+  // green/red language the Lines view uses, so a leaky move looks leaky
+  // whichever list you're in.
+  text.appendChild(splitBar(Math.max(0, m.attempts - m.lapses), m.lapses));
+
   const meta = document.createElement('span');
   meta.className = 'stats-sheet-meta';
-  meta.textContent = m.lineName;
+  meta.textContent = `${m.lineName} · missed ${m.lapses} of ${m.attempts}`;
   text.appendChild(meta);
-
-  const bar = document.createElement('span');
-  bar.className = 'stats-miss-bar';
-  const fill = document.createElement('span');
-  fill.className = 'stats-miss-fill';
-  fill.style.width = `${Math.round((m.lapses / Math.max(1, worst)) * 100)}%`;
-  bar.appendChild(fill);
-  text.appendChild(bar);
 
   card.appendChild(text);
 
@@ -168,16 +165,47 @@ function moveRow(m: NeedsWorkMove, worst: number, lines: Line[], cb: ForgottenCa
   return card;
 }
 
-// The tapped move, on a board, with its arrow already drawn and its note (if
-// any) underneath. Fix it and Drill line are the ways forward.
+// The tapped move, on a board, with its arrow already drawn, everything the
+// app actually knows about how it's going, and its note underneath.
+//
+// Four figures, chosen because each answers a different question:
+//   recall  — how often you get it, over every time it's been asked;
+//   missed  — the raw count, so the rate has its numerator;
+//   asked   — the denominator, so 3-of-4 can't masquerade as 3-of-40;
+//   streak  — clean recalls in a row RIGHT NOW, the only forward-looking one:
+//             it says whether the move is recovering or still going.
+// The footnote carries the opening and when it next comes round.
 function openMovePeek(m: NeedsWorkMove, lines: Line[], cb: ForgottenCallbacks): void {
   const line = lines.find(l => l.id === m.lineId);
+  const recalled = Math.max(0, m.attempts - m.lapses);
+  const pct = m.attempts > 0 ? Math.round((100 * recalled) / m.attempts) : null;
+
+  const foot = [
+    m.openingName ?? m.lineName,
+    m.due ? describeDue(m.due) : 'not scheduled yet',
+  ].join(' · ');
+
   openPositionPeek({
     fen: m.preFen,
     orientation: m.colour,
     revealUci: m.uci,
     title: moveLabel(m),
-    subtitle: `${m.lineName} · missed ${m.lapses}×`,
+    subtitle: m.lineName,
+    stats: [
+      {
+        value: pct === null ? '—' : `${pct}%`,
+        label: 'recall',
+        tone: pct === null ? undefined : pct < 50 ? 'low' : pct < 80 ? 'mid' : 'ok',
+      },
+      { value: String(m.lapses), label: m.lapses === 1 ? 'miss' : 'misses', tone: 'low' },
+      { value: String(m.attempts), label: 'asked' },
+      {
+        value: String(m.reps),
+        label: 'in a row',
+        tone: m.reps > 0 ? 'ok' : 'low',
+      },
+    ],
+    footnote: foot,
     note: line ? noteForMove(line, m) : undefined,
     actions: [
       { icon: Icons.target(18), label: 'Fix it', onClick: ({ close }) => { close(); cb.onFixMove(m, lines); } },
@@ -272,14 +300,22 @@ export function trainedLabel(times: number): string {
 // order and colours as the Move memory donut, so one glance carries across
 // both. Zero-width segments are skipped rather than drawn as slivers.
 function memoryBar(m: MoveMemory): HTMLElement {
-  const bar = document.createElement('span');
-  bar.className = 'stats-mem-bar';
-  const total = Math.max(1, m.total);
-  const segs: [number, string][] = [
+  return segmentBar([
     [m.solid, 'solid'],
     [m.shaky, 'shaky'],
     [m.total - m.trained, 'untrained'],
-  ];
+  ]);
+}
+
+// The move-level version: how often you got it against how often you didn't.
+function splitBar(recalled: number, missed: number): HTMLElement {
+  return segmentBar([[recalled, 'solid'], [missed, 'shaky']]);
+}
+
+function segmentBar(segs: [number, string][]): HTMLElement {
+  const bar = document.createElement('span');
+  bar.className = 'stats-mem-bar';
+  const total = Math.max(1, segs.reduce((n, [v]) => n + v, 0));
   for (const [value, kind] of segs) {
     if (value <= 0) continue;
     const seg = document.createElement('span');
@@ -327,9 +363,8 @@ export function openMovesSheet(
       }));
       return;
     }
-    const worst = Math.max(1, ...moves.map(m => m.lapses));
     for (const m of moves) {
-      const card = moveRow(m, worst, lines, cb);
+      const card = moveRow(m, lines, cb);
       // The row's own handler fires too; close the sheet first so the popup
       // opens over the screen, not over a stacked sheet.
       card.addEventListener('click', () => close(), { capture: true });
