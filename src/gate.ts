@@ -352,11 +352,17 @@ function showCodeEntry(overlay: HTMLDivElement, onPass: () => void): void {
 // Public entry point. Call at the very top of boot, before app init. Skips the
 // gate (boots immediately) when already unlocked or already installed; otherwise
 // shows the code screen and only calls onPass once the user is through.
-export function maybeShowGate(onPass: () => void): void {
+//
+// onGateShown fires as soon as the gate is actually on screen — and only on that
+// branch. The caller uses it to clear its own boot splash: the gate IS the first
+// screen in that case, so nothing may wait on onPass (which may never come) to
+// get out of the way.
+export function maybeShowGate(onPass: () => void, onGateShown?: () => void): void {
   if (isUnlocked() || isStandalone()) {
     onPass();
     return;
   }
   const overlay = makeOverlay();
   showCodeEntry(overlay, onPass);
+  onGateShown?.();
 }
