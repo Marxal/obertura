@@ -571,6 +571,29 @@ body {
   font-size: 0.78rem;
 }
 
+/* The shared coaching-cap notice (entitlement.ts buildCapNotice) — Mistake
+   Retry, endgames-from-your-games, Scouting. A discreet inline line, never a
+   blocking overlay: sits in the flow of whatever section it's appended to. */
+.entitlement-cap-note {
+  margin: 6px 0 0;
+  font-size: 0.78rem;
+}
+.entitlement-cap-link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.entitlement-cap-link:hover,
+.entitlement-cap-link:focus-visible {
+  text-decoration: underline;
+}
+
 /* SETTINGS ACCORDION — each preference group is a collapsed <details> that
    shares one `name`, so only one opens at a time. Collapsed, it's just a title
    row; the chevron rotates down when the panel opens. Keeps the .section border

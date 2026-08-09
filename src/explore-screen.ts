@@ -31,8 +31,8 @@ import {
 import { buildPositionCard, colourPip, fenFromUcis } from './card-position';
 import {
   getAllLines, getAllGames, getAllOpponents, getOpponent, saveOpponent, deleteOpponent, deleteLine,
-  countOpponents,
 } from './storage';
+import { isEntitled, buildCapNotice, showTrainingCapDialog, FREE_SCOUT_OPPONENTS } from './entitlement';
 import {
   MAX_OPPONENTS, makeOpponent, opponentLine, colourGameCount, opponentTag, isOpponentTag,
   opponentSummary, buildOpponentTree, opponentReachPlies, MIN_REPORT_GAMES,
@@ -104,18 +104,66 @@ let exploreDeps: ExploreDeps | null = null;
 let pendingOpponentId: string | null = null;
 export function openExploreOpponent(id: string): void { pendingOpponentId = id; }
 
+// Whether a new opponent may be added right now, and if not, tries to clear
+// the way. Three cases:
+//   • Under the applicable cap (MAX_OPPONENTS entitled, FREE_SCOUT_OPPONENTS
+//     free) → proceed straight away.
+//   • Free tier with EXACTLY one saved opponent → offer to REPLACE it (not a
+//     refusal): confirming deletes it and proceeds.
+//   • Anyone else at/over their cap (entitled at MAX_OPPONENTS, or a free
+//     account grandfathered with more than one from before this cap existed)
+//     → the existing refusal. Never auto-delete a user's pre-existing state —
+//     they choose what goes, same as the entitled "delete one" flow.
+async function ensureRoomForOpponent(): Promise<'proceed' | 'blocked'> {
+  const entitled = isEntitled();
+  const existing = await getAllOpponents();
+  const cap = entitled ? MAX_OPPONENTS : FREE_SCOUT_OPPONENTS;
+  if (existing.length < cap) return 'proceed';
+
+  if (entitled || existing.length > FREE_SCOUT_OPPONENTS) {
+    return new Promise(resolve => {
+      showDialog({
+        title: 'Opponent limit reached',
+        body: entitled
+          ? `You can scout up to ${MAX_OPPONENTS} opponents. Delete one to make room first.`
+          : `Free accounts scout ${FREE_SCOUT_OPPONENTS} opponent at a time. Delete one to make room first, `
+            + `or unlock full access to scout up to ${MAX_OPPONENTS}.`,
+        buttons: entitled
+          ? [{ label: 'OK', variant: 'primary', onClick: () => resolve('blocked') }]
+          : [
+            { label: 'Not now', variant: 'secondary', onClick: () => resolve('blocked') },
+            { label: 'Unlock full access', variant: 'primary', onClick: () => { showTrainingCapDialog(); resolve('blocked'); } },
+          ],
+        onDismiss: () => resolve('blocked'),
+      });
+    });
+  }
+
+  // Free tier, exactly one saved opponent — offer the swap.
+  const current = existing[0];
+  return new Promise(resolve => {
+    showDialog({
+      title: `Replace ${current.name}?`,
+      body: `Free accounts scout ${FREE_SCOUT_OPPONENTS} opponent at a time. Scouting someone new replaces `
+        + `${current.name}.`,
+      buttons: [
+        { label: 'Cancel', variant: 'secondary', onClick: () => resolve('blocked') },
+        {
+          label: `Replace ${current.name}`,
+          variant: 'primary',
+          onClick: () => { void deleteOpponent(current.id).then(() => resolve('proceed')); },
+        },
+      ],
+      onDismiss: () => resolve('blocked'),
+    });
+  });
+}
+
 // Import a new opponent without the Explore screen — used by the builder's
 // Scouting tab. Imports + saves, then calls onDone (e.g. to refresh the list).
 export function importOpponentFlow(onDone: () => void): void {
   void (async () => {
-    if (await countOpponents() >= MAX_OPPONENTS) {
-      showDialog({
-        title: 'Opponent limit reached',
-        body: `You can scout up to ${MAX_OPPONENTS} opponents. Delete one to make room first.`,
-        buttons: [{ label: 'OK', variant: 'primary' }],
-      });
-      return;
-    }
+    if ((await ensureRoomForOpponent()) === 'blocked') return;
     openImportPanel({
       title: 'Scout an opponent',
       username: '',
@@ -570,9 +618,19 @@ function buildScoutingTab(opponents: Opponent[], container: HTMLElement): HTMLEl
   head.appendChild(desc);
   const meta = document.createElement('span');
   meta.className = 'section-meta';
-  meta.textContent = `${opponents.length} / ${MAX_OPPONENTS}`;
+  const entitled = isEntitled();
+  // Silent above the free cap too (a grandfathered tester keeps every saved
+  // opponent, same as the Train screen's line cap): once there are more than
+  // FREE_SCOUT_OPPONENTS, the meta line reads against MAX_OPPONENTS like an
+  // entitled account's, and the discreet notice below goes quiet with it.
+  const overFreeCap = !entitled && opponents.length > FREE_SCOUT_OPPONENTS;
+  meta.textContent = `${opponents.length} / ${entitled || overFreeCap ? MAX_OPPONENTS : FREE_SCOUT_OPPONENTS}`;
   head.appendChild(meta);
   wrap.appendChild(head);
+
+  if (!entitled && opponents.length === FREE_SCOUT_OPPONENTS) {
+    wrap.appendChild(buildCapNotice(`Scouting ${FREE_SCOUT_OPPONENTS} opponent`));
+  }
 
   // Add-opponent button.
   const addBtn = document.createElement('button');
@@ -956,14 +1014,7 @@ function opponentCard(opp: Opponent, container: HTMLElement): HTMLElement {
 
 function addOpponent(container: HTMLElement): void {
   void (async () => {
-    if (await countOpponents() >= MAX_OPPONENTS) {
-      showDialog({
-        title: 'Opponent limit reached',
-        body: `You can scout up to ${MAX_OPPONENTS} opponents. Delete one to make room first.`,
-        buttons: [{ label: 'OK', variant: 'primary' }],
-      });
-      return;
-    }
+    if ((await ensureRoomForOpponent()) === 'blocked') return;
     let addedId: string | null = null;
     openImportPanel({
       title: 'Scout an opponent',

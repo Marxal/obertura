@@ -31,6 +31,7 @@ import {
   pieceCount, TABLEBASE_MAX_PIECES, probeTablebase, outcomeOf,
 } from './lichess-tablebase';
 import { analysePosition, type MoveEval } from './engine';
+import { getEndgameProgress, type EndgameProgress } from './endgame-progress';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 // Give up a scan run after this many games in a row whose tablebase probe fails —
@@ -84,6 +85,13 @@ export const ENDGAME_SCAN_VERSION = 2;
 export interface EndgameSpotRef {
   game: ImportedGame;
   spot: EndgameSpot;
+}
+
+// The id endgame-progress.ts (localStorage play-out records) keys spots by.
+// Centralised here so the scan's own free-tier capping and the screen's
+// carousel can never drift apart on the format.
+export function endgameSpotId(gameId: string, ply: number): string {
+  return `game:${gameId}:${ply}`;
 }
 
 // ── Pure detection core (self-tested) ────────────────────────────────────────
@@ -173,11 +181,71 @@ export interface EndgameScanResult {
   found: number;
   aborted: boolean;
   unreachable: boolean; // bailed because the tablebase couldn't be reached
+  capped: boolean;      // stopped early because the free-tier rolling cap was hit
+}
+
+// Free-tier scan limit — same shape as mistake-scan.ts's ScanCap: only the
+// `windowGames` most recent games are ever considered, and the run stops
+// (before touching the tablebase/engine at all, if already true) once the
+// window's rolling unplayed count reaches `maxUnplayed`.
+export interface EndgameScanCap {
+  windowGames: number;
+  maxUnplayed: number;
 }
 
 // How many games still wait for an endgame scan — drives the section's button.
 export function unscannedEndgameCount(games: ImportedGame[]): number {
   return games.filter(needsEndgameScan).length;
+}
+
+// ── Free-tier view cap (pure but reads localStorage play state) ─────────────
+//
+// Mirrors mistake-scan.ts's capMistakeGamesForTier: a display-side backstop
+// that windows to the most recent games and keeps a ROLLING cap of unplayed
+// positions, treating "played at least once" (endgame-progress.ts) the same
+// way the mistake cap treats "fixed" — always visible, never counted against
+// the cap. Guaranteed non-mutating for the same reason: a trimmed game is
+// rebuilt as { ...game, endgame: { ...game.endgame, spots: <new array> } },
+// so the original game's `endgame.spots` array is never touched; an untrimmed
+// game is returned by reference.
+export interface EndgameGameCapResult {
+  games: ImportedGame[];
+  capped: boolean;
+}
+
+export function capEndgameGamesForTier(
+  games: ImportedGame[],
+  windowGames: number,
+  maxUnplayed: number,
+  progress: EndgameProgress = getEndgameProgress(),
+): EndgameGameCapResult {
+  const sorted = [...games].sort((a, b) => b.endTime - a.endTime);
+  const windowed = sorted.slice(0, windowGames);
+  const truncatedByWindow = sorted.length > windowed.length;
+
+  const isUnplayed = (gameId: string, ply: number): boolean => {
+    const rec = progress[endgameSpotId(gameId, ply)];
+    return !rec || rec.attempts === 0;
+  };
+
+  const unplayedIds: string[] = [];
+  for (const game of windowed) {
+    for (const spot of game.endgame?.spots ?? []) {
+      if (isUnplayed(game.id, spot.ply)) unplayedIds.push(endgameSpotId(game.id, spot.ply));
+    }
+  }
+  const keep = new Set(unplayedIds.slice(0, maxUnplayed));
+  const droppedUnplayed = unplayedIds.length > keep.size;
+
+  const cappedGames = windowed.map(game => {
+    if (!game.endgame) return game;
+    const spots = game.endgame.spots.filter(spot =>
+      !isUnplayed(game.id, spot.ply) || keep.has(endgameSpotId(game.id, spot.ply)));
+    if (spots.length === game.endgame.spots.length) return game;
+    return { ...game, endgame: { ...game.endgame, spots } };
+  });
+
+  return { games: cappedGames, capped: truncatedByWindow || droppedUnplayed };
 }
 
 // Flatten every scanned game's spots into screen-ready refs.
@@ -268,39 +336,69 @@ async function scanOneGame(
 export async function scanEndgames(opts: {
   signal: AbortSignal;
   onProgress?: (p: EndgameScanProgress) => void;
+  cap?: EndgameScanCap;
 }): Promise<EndgameScanResult> {
   const all = await getAllGames();
-  const pending = all.filter(needsEndgameScan).sort((a, b) => b.endTime - a.endTime);
+  // Free tier: only the window's most recent games are ever fetched from the
+  // tablebase/engine — an older game outside it is never scanned, cap or no cap.
+  const windowed = opts.cap
+    ? [...all].sort((a, b) => b.endTime - a.endTime).slice(0, opts.cap.windowGames)
+    : all;
+  const pending = windowed.filter(needsEndgameScan).sort((a, b) => b.endTime - a.endTime);
 
   const cache = new Map<string, 'win' | 'draw' | 'loss' | 'unknown'>();
   let scanned = 0;
   let found = 0;
   let unreachableStreak = 0;
   let unreachable = false;
+  // A freshly-found spot can't already have a play-out record (its id didn't
+  // exist before the scan found it), so seeding from what's already scanned in
+  // the window and then adding 1 per newly-found spot is exact, no localStorage
+  // lookup needed mid-loop.
+  let unplayed = opts.cap ? countUnplayedInWindow(windowed) : 0;
+  let capped = opts.cap ? unplayed >= opts.cap.maxUnplayed : false;
 
-  for (const game of pending) {
-    if (opts.signal.aborted) break;
-    const r = await scanOneGame(game, cache, opts.signal);
-    if (opts.signal.aborted) break;
+  if (!capped) {
+    for (const game of pending) {
+      if (opts.signal.aborted) break;
+      const r = await scanOneGame(game, cache, opts.signal);
+      if (opts.signal.aborted) break;
 
-    if (r.kind === 'unreachable') {
-      if (++unreachableStreak >= UNREACHABLE_STREAK) { unreachable = true; break; }
-      continue; // leave this game unscanned for a later online run
+      if (r.kind === 'unreachable') {
+        if (++unreachableStreak >= UNREACHABLE_STREAK) { unreachable = true; break; }
+        continue; // leave this game unscanned for a later online run
+      }
+      unreachableStreak = 0;
+
+      // Re-fetch before writing so a concurrent save isn't clobbered; skip silently
+      // if the game was deleted mid-scan. A v1 re-scan that found nothing again
+      // just gets its version stamped forward.
+      const fresh = await getGame(game.id);
+      if (fresh) {
+        fresh.endgame = { scannedAt: Date.now(), version: ENDGAME_SCAN_VERSION, spots: r.spots };
+        await saveGames([fresh]);
+      }
+      scanned++;
+      found += r.spots.length;
+      opts.onProgress?.({ gamesDone: scanned, gamesTotal: pending.length, found, opponent: game.opponent });
+      if (opts.cap) {
+        unplayed += r.spots.length;
+        if (unplayed >= opts.cap.maxUnplayed) { capped = true; break; }
+      }
     }
-    unreachableStreak = 0;
-
-    // Re-fetch before writing so a concurrent save isn't clobbered; skip silently
-    // if the game was deleted mid-scan. A v1 re-scan that found nothing again
-    // just gets its version stamped forward.
-    const fresh = await getGame(game.id);
-    if (fresh) {
-      fresh.endgame = { scannedAt: Date.now(), version: ENDGAME_SCAN_VERSION, spots: r.spots };
-      await saveGames([fresh]);
-    }
-    scanned++;
-    found += r.spots.length;
-    opts.onProgress?.({ gamesDone: scanned, gamesTotal: pending.length, found, opponent: game.opponent });
   }
 
-  return { scanned, found, aborted: opts.signal.aborted, unreachable };
+  return { scanned, found, aborted: opts.signal.aborted, unreachable, capped };
+}
+
+function countUnplayedInWindow(games: ImportedGame[]): number {
+  const progress = getEndgameProgress();
+  let n = 0;
+  for (const game of games) {
+    for (const spot of game.endgame?.spots ?? []) {
+      const rec = progress[endgameSpotId(game.id, spot.ply)];
+      if (!rec || rec.attempts === 0) n++;
+    }
+  }
+  return n;
 }

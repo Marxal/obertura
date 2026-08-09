@@ -193,6 +193,57 @@ export function detectSpots(input: DetectInput): SpotCandidate[] {
   return out.slice(0, MAX_SPOTS_PER_GAME);
 }
 
+// ── Free-tier view cap (pure, no I/O) ────────────────────────────────────────
+//
+// The scan itself (scanGames, below) already limits what a free account's
+// games ever accumulate. This is the display-side backstop: it also has to
+// hold for spots accumulated before this cap existed (an old scan, or an
+// account that lost entitlement after scanning more than the window/cap
+// allow) — WITHOUT ever touching storage. It only ever narrows what a render
+// reads; it must never be mistaken for a save path.
+//
+// Guaranteed non-mutating: every game whose spots are trimmed is rebuilt as a
+// fresh { ...game, retry: { ...game.retry, spots: <new array> } } — `.filter`
+// always allocates a new array, and the new game/retry objects are shallow
+// clones, so the original game's `retry.spots` array (the one storage holds a
+// reference to) is never touched. A game that needs no trimming is returned
+// BY REFERENCE (nothing to protect), so don't rely on every entry being a
+// fresh object — only on the source never being mutated.
+export interface MistakeGameCapResult {
+  games: ImportedGame[];
+  capped: boolean; // true when the cap is actually hiding something right now
+}
+
+export function capMistakeGamesForTier(
+  games: ImportedGame[],
+  windowGames: number,
+  maxUnfixed: number,
+): MistakeGameCapResult {
+  const sorted = [...games].sort((a, b) => b.endTime - a.endTime);
+  const windowed = sorted.slice(0, windowGames);
+  const truncatedByWindow = sorted.length > windowed.length;
+
+  // Every unfixed spot in the window, newest game first (ties keep each
+  // game's own spot order — detectSpots already sorts by severity).
+  const unfixedIds: string[] = [];
+  for (const game of windowed) {
+    for (const spot of game.retry?.spots ?? []) {
+      if (!spot.fixed) unfixedIds.push(spot.id);
+    }
+  }
+  const keep = new Set(unfixedIds.slice(0, maxUnfixed));
+  const droppedUnfixed = unfixedIds.length > keep.size;
+
+  const cappedGames = windowed.map(game => {
+    if (!game.retry) return game;
+    const spots = game.retry.spots.filter(s => s.fixed || keep.has(s.id));
+    if (spots.length === game.retry.spots.length) return game;
+    return { ...game, retry: { ...game.retry, spots } };
+  });
+
+  return { games: cappedGames, capped: truncatedByWindow || droppedUnfixed };
+}
+
 // Flatten every scanned game's spots into session-ready refs.
 export function collectSpots(games: ImportedGame[]): SpotRef[] {
   const out: SpotRef[] = [];
@@ -289,6 +340,16 @@ export interface ScanResult {
   scanned: number;
   spots: number;
   aborted: boolean;
+  capped: boolean; // stopped early because the free-tier rolling cap was hit
+}
+
+// Free-tier scan limit: only the `windowGames` most recent games are ever
+// considered, and the run stops the moment the WINDOW's rolling unfixed
+// count reaches `maxUnfixed` — including stopping before scanning anything
+// at all when that's already true. Omit for unlimited (entitled) scanning.
+export interface ScanCap {
+  windowGames: number;
+  maxUnfixed: number;
 }
 
 // How many games still wait for a scan — drives the pane's button label.
@@ -327,9 +388,15 @@ export function seedCacheFromAnalyses(
 export async function scanGames(opts: {
   signal: AbortSignal;
   onProgress?: (p: ScanProgress) => void;
+  cap?: ScanCap;
 }): Promise<ScanResult> {
   const all = await getAllGames();
-  const pending = all.filter(g => !g.retry).sort((a, b) => b.endTime - a.endTime);
+  // Free tier: only the window's most recent games are ever fetched from the
+  // cloud/engine — an older game outside it is never scanned, cap or no cap.
+  const windowed = opts.cap
+    ? [...all].sort((a, b) => b.endTime - a.endTime).slice(0, opts.cap.windowGames)
+    : all;
+  const pending = windowed.filter(g => !g.retry).sort((a, b) => b.endTime - a.endTime);
   const onAbort = (): void => cancelLocalAnalysis();
   opts.signal.addEventListener('abort', onAbort, { once: true });
 
@@ -338,27 +405,53 @@ export async function scanGames(opts: {
   seedCacheFromAnalyses(all, cache);
   let scanned = 0;
   let spotsFound = 0;
+  // Rolling unfixed count within the window, seeded from what's already there
+  // so a resumed run (or a run right after a fix freed a slot) starts from the
+  // real position, not zero.
+  let unfixed = opts.cap ? countUnfixedInWindow(windowed) : 0;
+  // Already at the cap before touching the network/engine at all — the common
+  // case once a free account has settled in, and the whole point of checking
+  // BEFORE the loop is that this costs zero cloud calls.
+  let capped = opts.cap ? unfixed >= opts.cap.maxUnfixed : false;
   try {
-    for (const game of pending) {
-      if (opts.signal.aborted) break;
-      const spots = await scanOneGame(game, cache, opts.signal);
-      // An aborted game is half-judged — drop it rather than persisting junk.
-      if (opts.signal.aborted) break;
-      // Re-fetch before writing so a concurrent save (e.g. the analyser's Save
-      // game) isn't clobbered; skip silently if the game was deleted mid-scan.
-      const fresh = await getGame(game.id);
-      if (fresh) {
-        fresh.retry = { scannedAt: Date.now(), version: RETRY_VERSION, spots };
-        await saveGames([fresh]);
+    if (!capped) {
+      for (const game of pending) {
+        if (opts.signal.aborted) break;
+        const spots = await scanOneGame(game, cache, opts.signal);
+        // An aborted game is half-judged — drop it rather than persisting junk.
+        if (opts.signal.aborted) break;
+        // Re-fetch before writing so a concurrent save (e.g. the analyser's Save
+        // game) isn't clobbered; skip silently if the game was deleted mid-scan.
+        const fresh = await getGame(game.id);
+        if (fresh) {
+          fresh.retry = { scannedAt: Date.now(), version: RETRY_VERSION, spots };
+          await saveGames([fresh]);
+        }
+        scanned++;
+        spotsFound += spots.length;
+        opts.onProgress?.({ gamesDone: scanned, gamesTotal: pending.length, spotsFound, opponent: game.opponent });
+        // Every spot just found is unfixed by construction (it didn't exist
+        // a moment ago). Stop the instant the window's rolling cap is met —
+        // the same safe checkpoint the abort check above already uses: this
+        // game is fully persisted, the next one is never touched.
+        if (opts.cap) {
+          unfixed += spots.length;
+          if (unfixed >= opts.cap.maxUnfixed) { capped = true; break; }
+        }
       }
-      scanned++;
-      spotsFound += spots.length;
-      opts.onProgress?.({ gamesDone: scanned, gamesTotal: pending.length, spotsFound, opponent: game.opponent });
     }
   } finally {
     opts.signal.removeEventListener('abort', onAbort);
   }
-  return { scanned, spots: spotsFound, aborted: opts.signal.aborted };
+  return { scanned, spots: spotsFound, aborted: opts.signal.aborted, capped };
+}
+
+function countUnfixedInWindow(games: ImportedGame[]): number {
+  let n = 0;
+  for (const game of games) {
+    for (const spot of game.retry?.spots ?? []) if (!spot.fixed) n++;
+  }
+  return n;
 }
 
 async function scanOneGame(
