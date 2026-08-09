@@ -4,3 +4,6 @@ public/engine/
 scripts/out/
 .DS_Store
 *.local
+.env
+.env.*
+!.env.example
