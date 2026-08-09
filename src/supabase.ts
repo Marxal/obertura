@@ -49,9 +49,18 @@ export const supabase: SupabaseClient = createClient(
       // relaunched constantly on a phone.
       persistSession: true,
       autoRefreshToken: true,
-      // The app has no OAuth redirect handling yet. Once sign-in links or
-      // social providers land, this becomes `true` so the client picks the
-      // session out of the returning URL.
+      // PKCE, not the library's default. supabase-js still defaults to the
+      // *implicit* flow, which hands the tokens back in the URL fragment
+      // (`#access_token=…&refresh_token=…`) — they land in the address bar and
+      // the browser's history. PKCE instead returns a short-lived `?code=` that
+      // only this device can redeem, which is both safer and the shape auth.ts
+      // is built to read.
+      flowType: 'pkce',
+      // We claim the returning `?code=` ourselves, in auth.ts, rather than
+      // letting supabase-js do it. "Connect to Lichess" comes back to the same
+      // URL with its own `?code=`, and auth.ts knows how to tell the two apart
+      // (see the notes there); supabase-js, left to run first, has no such
+      // knowledge. Keep this false as long as both flows share a redirect URL.
       detectSessionInUrl: false,
       // Namespaced like every other key we own, so the Settings "erase
       // everything" sweep can clear it alongside the rest.
