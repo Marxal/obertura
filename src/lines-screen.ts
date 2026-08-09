@@ -6,6 +6,7 @@ import {
   deleteLine,
   getAllGames,
 } from './storage';
+import { requestTrainingSlot } from './entitlement';
 import { buildPositionCard, colourPip, lineFinalFen, fenFromUcis } from './card-position';
 import { Icons } from './icons';
 import { userAvatar } from './avatar';
@@ -529,8 +530,12 @@ function buildDetailCard(
   toggleLabel.textContent = `Training ${line.inTraining ? 'ON' : 'OFF'}`;
   toggleBtn.appendChild(sw);
   toggleBtn.appendChild(toggleLabel);
+  // Only switching ON meets the free-tier cap; switching off is always allowed
+  // and frees the slot immediately, so a free user can rotate their ten freely.
   toggleBtn.addEventListener('click', async () => {
-    await saveLine({ ...line, inTraining: !line.inTraining });
+    const next = !line.inTraining;
+    if (next && !(await requestTrainingSlot())) return;
+    await saveLine({ ...line, inTraining: next });
     refresh();
   });
   footerLeft.appendChild(toggleBtn);

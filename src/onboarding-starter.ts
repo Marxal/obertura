@@ -25,6 +25,7 @@ import { burstConfetti } from './confetti';
 import { formatSanLine } from './notation';
 import { showDialog } from './dialog';
 import { pushBack } from './back-nav';
+import { freeTrainingSlots, showBulkCapToast } from './entitlement';
 
 // Lines in training needed to unlock the Train hub. The Train screen reads this
 // for its gate; onboarding shows progress toward it. Lowered from 6 → 5 to make
@@ -78,17 +79,26 @@ export function seedFromPackLine(line: PackLine): LineSeed {
   };
 }
 
+// What adding a starter/suggested line should actually do:
+//   'learn'  — the normal add-to-training path, gated by the "Confirm run before
+//              training" pref (a watch-then-play run under the default). This is
+//              a single, deliberate add, so it's also the one that meets the
+//              free-tier cap dialog.
+//   'enrol'  — straight into training, no run. The bulk "add all" path.
+//   'save'   — save the line to My Lines but leave it OUT of training. What a
+//              bulk add falls back to once the free tier's slots are used up, so
+//              the lines are still there to rotate in later.
+export type AddLineMode = 'learn' | 'enrol' | 'save';
+
 export interface StarterDeps {
   // Whether any games have been imported (decides which path leads).
   hasGames: boolean;
-  // Add a line (moves + optional notes/plan) to training. learn=true takes the
-  // normal add path (a watch-then-play confirm run under the default pref);
-  // learn=false enrols it straight away. onDone fires once it's in; onCancel if
-  // the run was abandoned.
+  // Add a line (moves + optional notes/plan), per AddLineMode above. onDone
+  // fires once it's in; onCancel if the run was abandoned.
   onAddLine: (
     seed: LineSeed,
     colour: Colour,
-    learn: boolean,
+    mode: AddLineMode,
     onDone: () => void,
     onCancel: () => void,
   ) => void;
@@ -434,11 +444,22 @@ function packCard(
 }
 
 // Add a batch of lines straight to training (no walkthrough), one after another.
-function addSequentially(lines: PackLine[], colour: Colour, deps: StarterDeps): Promise<void> {
-  return lines.reduce(
-    (chain, l) => chain.then(() => new Promise<void>(res => deps.onAddLine(seedFromPackLine(l), colour, false, res, res))),
-    Promise.resolve(),
-  );
+//
+// The free tier caps how many lines TRAIN at once, so a batch bigger than the
+// remaining slots enrols as many as fit and saves the rest to My Lines unenrolled
+// — nothing is lost, and the user rotates them in whenever they like. The
+// leftover is reported with a quiet toast rather than the upsell dialog: a batch
+// add is usually the first thing someone does, and a price tag in the first
+// minute is the wrong first impression.
+async function addSequentially(lines: PackLine[], colour: Colour, deps: StarterDeps): Promise<void> {
+  const slots = await freeTrainingSlots(); // Infinity when entitled
+  let enrolled = 0;
+  for (const l of lines) {
+    const mode: AddLineMode = enrolled < slots ? 'enrol' : 'save';
+    await new Promise<void>(res => deps.onAddLine(seedFromPackLine(l), colour, mode, res, res));
+    if (mode === 'enrol') enrolled++;
+  }
+  if (enrolled < lines.length) showBulkCapToast(enrolled, lines.length);
 }
 
 // ── Rows (shared position-card look, with a board miniature) ────────────────────
@@ -459,7 +480,7 @@ function packLineRow(
     fen: fenFromUcis(line.ucis),
     colour,
     added: isLineAdded(existing, colour, line.ucis),
-    onAdd: () => deps.onAddLine(seedFromPackLine(line), colour, true, () => {
+    onAdd: () => deps.onAddLine(seedFromPackLine(line), colour, 'learn', () => {
       existing.push(lineKey(colour, line.ucis));
       repaint();
     }, repaint),
@@ -479,7 +500,7 @@ function suggestionRow(
     fen: fenFromUcis(stat.repUcis),
     colour: stat.colour,
     added: isLineAdded(existing, stat.colour, stat.repUcis),
-    onAdd: () => deps.onAddLine({ ucis: stat.repUcis }, stat.colour, true, repaint, repaint),
+    onAdd: () => deps.onAddLine({ ucis: stat.repUcis }, stat.colour, 'learn', repaint, repaint),
   });
 }
 

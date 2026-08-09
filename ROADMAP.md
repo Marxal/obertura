@@ -821,6 +821,57 @@ _On `claude/engine-lichess-study-features-2lwmtb`. Restore point: `v0.4`._
 
 ---
 
+## v0.17 — free tier: the training cap 🔜
+
+The first real entitlement work. One thing gets capped and one thing only: how
+many lines are **in training** at once. Everything else stays wide open —
+building and saving lines is unlimited, and so are the library, packs, traps,
+studies, import, puzzles, endgames, engine, sparring, analyser, statistics and
+sync.
+
+- ✅ **Free tier trains 10 lines at a time** — `entitlement.ts` owns the rule
+  (`FREE_TRAINING_LINES = 10`), reading `profiles.entitled` from Supabase once
+  per sign-in and holding it in memory so the dozens of cap checks the UI makes
+  never touch the network. Entitled accounts, and any build without Supabase
+  configured (the internal GitHub Pages channel), are uncapped. Signed-out use
+  takes the same capped path rather than a special case of its own.
+- ✅ **Every enrolment point enforces it** — the five places that could ever set
+  `inTraining = true` now funnel through one guard: the post-save "Start
+  training this line?" prompt, the My Lines switch, the Train hub switch, the
+  builder's Line-panel switch, the Progress screen's Drill, and onboarding's
+  one-at-a-time adds. A single deliberate add over the cap gets the upsell
+  dialog (€10 once); a bulk add — "Add all 12 without the walkthrough" —
+  enrols what fits, saves the rest to My Lines unenrolled, and says so with a
+  quiet toast. No price tag in the first minute.
+- ✅ **Nothing is ever auto-paused** — existing users sitting over the cap (early
+  testers with dozens enrolled) keep every line enrolled and scheduled. Only the
+  ON direction of a switch is guarded, so pausing always works and frees its
+  slot immediately: a free user rotates their ten freely.
+- ✅ **The ceiling is visible before it's hit** — the Train hub's "Lines in
+  training" card shows "7 of 10 lines in training" from 7 upward, free tier
+  only. Entitled users see no counter, no dialog, no cap.
+- ✅ **Entitlement is a cache of server truth, never a grant** —
+  `entitlement-cache.ts` mirrors the last server answer to localStorage purely
+  so an offline paid user isn't locked out. Every successful fetch overwrites
+  it in both directions; the cache is keyed to the Supabase user id so a second
+  account on a shared device can't inherit the first one's access, and
+  sign-out clears it. It's excluded from backups **and** from the Supabase sync
+  blob (which reuses the same BackupFile shape), so an entitled user's copy can
+  never grant access to the phone that restores it.
+- ✅ **`entitled` is enforced in the database, not the bundle** — the profiles
+  table's update policy is row-scoped, so on its own it would let any signed-in
+  user flip their own flag from the browser. `SUPABASE-SYNC.md` now revokes
+  UPDATE on the column and re-grants it only on the two sync columns.
+
+_On `claude/free-tier-training-cap-avhhfs`. Restore point: `v0.4`._
+
+Not in this round, by design: the buy flow (the "Unlock full access" button is a
+no-op stub), and the beta-code gate in `gate.ts` — its local unlock flag is left
+completely untouched so a later migration session can read it to grandfather
+existing testers.
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

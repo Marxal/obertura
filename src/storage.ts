@@ -236,11 +236,19 @@ const BACKUP_VERSION = 2;
 // account-sync state (restoring either onto a fresh device would lie — and the
 // sync blob IS a backup, so carrying "last synced" inside it is circular), plus
 // the OAuth return-path crumb.
+//
+// The entitlement cache is excluded for a sharper reason than "it would lie": it
+// describes an ACCOUNT's plan, and this blob travels. It's what an export
+// downloads, what Drive stores, and what the Supabase sync pushes to every other
+// device — so carrying it would let an entitled user's backup grant full access
+// to whatever phone restored it. Entitlement is only ever read back from the
+// server (entitlement.ts); it must never arrive in a file.
 function backupLocalKey(key: string): boolean {
   if (key === 'engineEnabled' || key === 'sparEngineEnabled') return true;
   if (!key.startsWith('obertura')) return false;
   if (key.startsWith('obertura.drive.')) return false;
   if (key.startsWith('obertura.sync.')) return false;
+  if (key === 'obertura.entitled') return false;
   if (key === 'obertura.lichessReturnTo') return false;
   return true;
 }

@@ -559,6 +559,18 @@ body {
   margin-bottom: var(--space-sm);
 }
 
+/* Free-tier training-cap counter, under the "Lines in training" header. Only
+   ever rendered for a non-entitled user at 7+ of 10 (see train-screen.ts), so
+   the ceiling is visible before it's reached. Sits tight under the header row
+   rather than carrying .section-desc's full paragraph spacing. */
+.train-cap-note {
+  /* Reads as a caption under the header card (.train-collapse owns the card
+     border), so it sits just below it and lines up with the card's inner edge. */
+  margin: 6px 0 0;
+  padding-left: 14px;
+  font-size: 0.78rem;
+}
+
 /* SETTINGS ACCORDION — each preference group is a collapsed <details> that
    shares one `name`, so only one opens at a time. Collapsed, it's just a title
    row; the chevron rotates down when the panel opens. Keeps the .section border
