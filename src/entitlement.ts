@@ -43,6 +43,31 @@ import { showToast } from './toast';
 // How many lines a free account may have in training at once.
 export const FREE_TRAINING_LINES = 10;
 
+// ── The coaching caps: Mistake Retry, endgames-from-your-games, Scouting ─────
+//
+// These three all read YOUR imported games and burn the app's heaviest
+// resources doing it (cloud eval calls, tablebase probes, local engine time).
+// A free account gets a real, always-fresh taste of each rather than either
+// an empty tab or an untouched full history:
+//   • Mistake Retry only considers the FREE_MISTAKE_GAME_WINDOW most recent
+//     games, and keeps a ROLLING top FREE_MISTAKE_SPOTS unfixed spots — fixing
+//     one frees a slot for the next; importing a newer game can push the
+//     window forward. Fixed spots are never hidden; only the unfixed list is
+//     capped.
+//   • Endgames from your games: same game window, ROLLING top
+//     FREE_ENDGAME_SPOTS unplayed positions (played-out ones stay visible).
+//   • Scouting: FREE_SCOUT_OPPONENTS saved opponent instead of MAX_OPPONENTS
+//     (scout.ts) — adding a new one offers to REPLACE the existing one rather
+//     than refusing, as long as there's exactly one to replace. A user who
+//     already holds more (grandfathered from being entitled, or an early
+//     tester) gets the same "delete one to make room" refusal an entitled
+//     user over MAX_OPPONENTS would — nothing is ever auto-deleted.
+export const FREE_MISTAKE_GAME_WINDOW = 50;
+export const FREE_MISTAKE_SPOTS = 10;
+export const FREE_ENDGAME_GAME_WINDOW = 50;
+export const FREE_ENDGAME_SPOTS = 3;
+export const FREE_SCOUT_OPPONENTS = 1;
+
 // Where the counter starts appearing on the Train hub, so the ceiling is visible
 // before it's hit rather than a surprise at line eleven.
 export const TRAINING_COUNT_VISIBLE_FROM = 7;
@@ -142,6 +167,25 @@ export function showTrainingCapDialog(): void {
       },
     ],
   });
+}
+
+// A discreet inline line for wherever a coaching cap is actively hiding
+// something ("Showing your 10 most recent mistakes"). Not a dialog, not a
+// toast — sits in the flow of the screen, so it's visible but never blocks.
+// Its action opens the SAME upsell dialog as the training cap (it already
+// pitches "coaching from your own games", which is exactly what these caps
+// gate) rather than a bespoke dialog per feature.
+export function buildCapNotice(message: string): HTMLElement {
+  const note = document.createElement('div');
+  note.className = 'section-desc entitlement-cap-note';
+  note.appendChild(document.createTextNode(`${message} · `));
+  const link = document.createElement('button');
+  link.type = 'button';
+  link.className = 'entitlement-cap-link';
+  link.textContent = 'Unlock full access';
+  link.addEventListener('click', () => showTrainingCapDialog());
+  note.appendChild(link);
+  return note;
 }
 
 // The bulk-add message. A batch (a starter pack, an "add all") enrols as many as

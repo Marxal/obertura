@@ -18,6 +18,10 @@ import { formatMove } from './notation';
 import { cloudHealth, type CloudHealth } from './engine';
 import { createPawnProgress, createFactsTicker } from './import-progress';
 import { buildModeCard } from './train-screen';
+import { showToast } from './toast';
+import {
+  isEntitled, buildCapNotice, FREE_MISTAKE_GAME_WINDOW, FREE_MISTAKE_SPOTS,
+} from './entitlement';
 import {
   startMistakeSession,
   CATEGORY_LABEL,
@@ -31,8 +35,9 @@ import {
   pickSpots,
   countRetry,
   unscannedCount,
+  capMistakeGamesForTier,
 } from './mistake-scan';
-import type { MistakeCategory, ScanProgress, SpotRef } from './mistake-scan';
+import type { MistakeCategory, RetryCounts, ScanProgress, SpotRef } from './mistake-scan';
 import { startBrilliantSession } from './brilliant-run';
 import {
   collectBrilliantSpots,
@@ -82,9 +87,9 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   root.className = 'mistakes-screen';
   host.appendChild(root);
 
-  let games: ImportedGame[];
+  let allGames: ImportedGame[];
   try {
-    games = await getAllGames();
+    allGames = await getAllGames();
   } catch (err) {
     renderLoadError(host, err, () => { void renderMistakesScreen(host, deps); });
     return;
@@ -92,7 +97,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
 
   // Everything here trains from your own games, so without an import there is
   // nothing to scan yet — point at the games screen.
-  if (games.length === 0) {
+  if (allGames.length === 0) {
     root.appendChild(buildEmptyState({
       icon: Icons.reset(28),
       line: 'Train the exact positions where your games went wrong.',
@@ -102,8 +107,23 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     return;
   }
 
+  const entitled = isEntitled();
+  // Free tier: a view-only cap (games/spots on disk are never touched) — the
+  // 50 most recent games, and a rolling top 10 unfixed spots (fixed spots are
+  // never hidden). `games` below drives every stat, card and carousel, so the
+  // cap holds everywhere with no further branching.
+  const capResult = entitled
+    ? { games: allGames, capped: false }
+    : capMistakeGamesForTier(allGames, FREE_MISTAKE_GAME_WINDOW, FREE_MISTAKE_SPOTS);
+  const games = capResult.games;
+
   const rerender = (): void => { void renderMistakesScreen(host, deps); };
-  const counts = countRetry(games);
+  // "Games analysed" stays the TRUE lifetime count (never windowed) so an
+  // existing tester's history never reads as having vanished; only the spot
+  // counts/cards/carousel below are capped.
+  const spotCounts = countRetry(games);
+  const { scanned, total } = entitled ? spotCounts : countRetry(allGames);
+  const counts: RetryCounts = { ...spotCounts, scanned, total };
   const refs = collectSpots(games);
   // Order the brilliant finds so the carousel + session loop through them:
   // freshly-solved gems rest a while, then resurface (brilliant-log.ts).
@@ -143,7 +163,9 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       const note = document.createElement('div');
       note.className = 'mistakes-hero-note';
       note.textContent = counts.scanned === 0
-        ? `The engine looks through your ${counts.total === 1 ? 'game' : `${counts.total} games`} for mistakes worth retrying. Stop anytime — progress is saved.`
+        ? entitled
+          ? `The engine looks through your ${counts.total === 1 ? 'game' : `${counts.total} games`} for mistakes worth retrying. Stop anytime — progress is saved.`
+          : `The engine looks through your ${Math.min(counts.total, FREE_MISTAKE_GAME_WINDOW)} most recent games for mistakes worth retrying. Stop anytime — progress is saved.`
         : 'Newest first, stop anytime — progress is saved.';
       hero.appendChild(note);
     } else {
@@ -151,6 +173,10 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       done.className = 'mistakes-hero-note mistakes-hero-note--done';
       done.textContent = 'All games analysed ✓ — new imports show up here.';
       hero.appendChild(done);
+    }
+
+    if (capResult.capped) {
+      hero.appendChild(buildCapNotice(`Showing your ${FREE_MISTAKE_SPOTS} most recent mistakes`));
     }
 
     return hero;
@@ -538,7 +564,17 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     };
 
     try {
-      await scanGames({ signal: ctrl.signal, onProgress });
+      const result = await scanGames({
+        signal: ctrl.signal,
+        onProgress,
+        cap: entitled ? undefined : { windowGames: FREE_MISTAKE_GAME_WINDOW, maxUnfixed: FREE_MISTAKE_SPOTS },
+      });
+      // A cap already met before scanning anything burns zero cloud calls, but
+      // that also looks like the button did nothing — say so explicitly rather
+      // than silently closing the overlay.
+      if (result.capped && result.scanned === 0 && !result.aborted) {
+        showToast(`You're at ${FREE_MISTAKE_SPOTS} mistakes — fix some to find more, or unlock full history.`);
+      }
       pawn.done();
     } finally {
       clearInterval(cloudTimer);

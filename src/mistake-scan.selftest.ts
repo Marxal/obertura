@@ -11,6 +11,7 @@ import {
   unscannedCount,
   replayGame,
   seedCacheFromAnalyses,
+  capMistakeGamesForTier,
   MAX_SPOTS_PER_GAME,
 } from './mistake-scan';
 import type { MistakeSpot, SpotRef, CategoriseCtx } from './mistake-scan';
@@ -185,6 +186,53 @@ export function runMistakeScanSelfTest(): TestResult[] {
     JSON.stringify(fools?.sans));
   check('replay falls back to SAN', replayGame({ ucis: [], sans: ['e4', 'e5'] })?.fens.length === 3);
   check('garbage moves → null', replayGame({ ucis: ['e2e5'], sans: [] }) === null);
+
+  // ── capMistakeGamesForTier (the free-tier view cap) ─────────────────────────
+  {
+    // gA is newest with two unfixed spots, gB is older with one unfixed spot.
+    const gA = mkGame('a', 3000, [mkSpot('a#1', 'blunder'), mkSpot('a#2', 'blunder')]);
+    const gB = mkGame('b', 2000, [mkSpot('b#1', 'blunder')]);
+    const beforeSnapshot = JSON.stringify([gA, gB]);
+    const originalASpots = gA.retry!.spots;
+    const originalBSpots = gB.retry!.spots;
+
+    const capped = capMistakeGamesForTier([gA, gB], 50, 2);
+    const visibleIds = capped.games.flatMap(g => g.retry!.spots.map(s => s.id));
+    check('cap keeps only the N most recent unfixed spots',
+      visibleIds.length === 2 && visibleIds.includes('a#1') && visibleIds.includes('a#2'),
+      JSON.stringify(visibleIds));
+    check('the oldest game\'s spot is the one hidden', !visibleIds.includes('b#1'));
+    check('capped=true once something is actually hidden', capped.capped === true);
+
+    // Clone safety: the source games and their spot arrays are byte-for-byte
+    // unchanged, and a trimmed game's spots array is a NEW array, never the
+    // one storage holds a reference to.
+    check('source games are never mutated', JSON.stringify([gA, gB]) === beforeSnapshot);
+    check('gA needed no trimming → returned by reference (nothing to protect)',
+      capped.games[0] === gA && capped.games[0].retry!.spots === originalASpots);
+    check('gB WAS trimmed → a new game object with a new spots array',
+      capped.games[1] !== gB && capped.games[1].retry!.spots !== originalBSpots);
+    check('the original gB.retry.spots array is untouched', gB.retry!.spots === originalBSpots
+      && gB.retry!.spots.length === 1, JSON.stringify(gB.retry!.spots));
+
+    // Rolling: fixing the newest game's spot frees a slot, and the previously
+    // hidden spot (b#1) surfaces on the next render — no re-scan needed.
+    gA.retry!.spots[0].fixed = true; // simulates a real drill fix (mutates the fixture, not the cap's output)
+    const afterFix = capMistakeGamesForTier([gA, gB], 50, 2);
+    const unfixedAfterFix = afterFix.games.flatMap(g => g.retry!.spots.filter(s => !s.fixed).map(s => s.id));
+    check('fixing a spot frees a slot for the next one in line',
+      unfixedAfterFix.includes('b#1'), JSON.stringify(unfixedAfterFix));
+    check('the fixed spot itself stays visible (fixed spots are never hidden)',
+      afterFix.games.flatMap(g => g.retry!.spots.map(s => s.id)).includes('a#1'));
+    check('cap goes quiet once nothing is left to hide', afterFix.capped === false);
+
+    // The 50-game window itself: a third, much older game beyond the window
+    // is dropped entirely and trips `capped` even with room to spare on spots.
+    const gOldWindow = mkGame('old-window', 1, [mkSpot('old-window#1', 'blunder', { fixed: true })]);
+    const windowed = capMistakeGamesForTier([gA, gB, gOldWindow], 2, 10);
+    check('games outside the window are dropped', windowed.games.every(g => g.id !== 'old-window'));
+    check('window truncation alone marks capped=true', windowed.capped === true);
+  }
 
   // ── nextDailyTask (the daily "Next task →" chain) ───────────────────────────
   const day = (over: Partial<Record<DailyTaskId, boolean>>) =>
