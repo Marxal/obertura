@@ -872,6 +872,58 @@ existing testers.
 
 ---
 
+## v0.18 — the sync stops re-uploading your whole game library 🔜
+
+A sizing round, not a feature round. The account sync shipped pushing one blob
+holding everything; measuring a heavy user showed why that doesn't scale.
+
+- ✅ **Games sync in their own column** — `profiles` gains `games` +
+  `games_updated_at`; `repertoire` keeps the lines and the app-state snapshot.
+  Measured on a synthetic heavy library: a bare imported game is ~1.3 KB, one
+  carrying a saved analysis ~18 KB, so 1000 games runs 2.5–20 MB against
+  0.2–1.3 MB for the lines-and-settings half. Editing one move used to re-upload
+  every game you own, over mobile data, rewriting the whole TOASTed value in
+  Postgres each time. Now an edit sends the small half and games go up only when
+  games change. The migration is additive — a row still carrying its games
+  inside the old blob keeps working and moves them across on its next push.
+- ✅ **Games changes actually trigger a sync** — `onLinesChanged` was the only
+  trigger, and `saveGames`/`deleteGame`/`clearGames` never fired it, so an
+  import of 300 games only reached the account if you happened to touch a line
+  afterwards. A second notifier (`onGamesChanged`) fixes it, and the two share
+  one 30s debounce and one upsert.
+- ✅ **Unchanged data isn't re-sent** — each half carries a content fingerprint
+  of what was last pushed, taken over the lines/games/snapshot and deliberately
+  NOT over `exportedAt` (restamped every export, so including it would make
+  every payload look new). It also makes the retry-everything sweep on app
+  launch free, and stops a restore from immediately re-uploading the megabytes
+  it just downloaded.
+- ✅ **Closing the app pushes on the way out** — `pagehide` and
+  `visibilitychange` flush a pending change instead of leaving it owed until the
+  next launch. Best-effort by nature (Android kills PWAs without warning), which
+  is why the pending flag still survives in localStorage.
+- ✅ **The erase-can't-clobber-the-cloud property is preserved** — verified end
+  to end: `eraseAllData` still doesn't notify, the new games notifier is equally
+  exempt, and the localStorage sweep takes the sync's account claim and the
+  Supabase session with it, so there is nothing to push and no session to push
+  with.
+- ✅ **Selftested** — the pure half moved to `sync-core.ts` (status-flag
+  precedence, two-column reassembly including the pre-split migration case, the
+  fingerprint) so it runs under plain Node without dragging in the Supabase
+  client. 27 new checks.
+
+Still last-write-wins, deliberately: two devices editing in the same window
+means one overwrites the other. Per-line `updatedAt` + deletion tombstones stay
+parked in `PUBLISHING.md`.
+
+Unmeasured and flagged rather than guessed: Supabase publishes no request-body
+limit for the REST API, and this container has no outbound network to test one.
+`npm run probe-sync-limit <url> <anon-key>` measures it from a desktop — it
+writes nothing, since RLS rejects every probe by design.
+
+_On `claude/supabase-app-data-sync-eyuv0g`. Restore point: `v0.4`._
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

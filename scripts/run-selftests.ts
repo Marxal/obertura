@@ -34,6 +34,7 @@ import { runEndgameProgressSelfTest } from '../src/endgame-progress.selftest';
 import { runEndgameScanSelfTest } from '../src/endgame-scan.selftest';
 import { runStudyImportSelfTest } from '../src/study-import.selftest';
 import { runStudyCatalogSelfTest } from '../src/study-catalog.selftest';
+import { runRepertoireSyncSelfTest } from '../src/repertoire-sync.selftest';
 
 interface TestResult { name: string; pass: boolean; detail: string }
 
@@ -66,6 +67,7 @@ const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'endgame-scan', run: runEndgameScanSelfTest },
   { suite: 'study-import', run: runStudyImportSelfTest },
   { suite: 'study-catalog', run: runStudyCatalogSelfTest },
+  { suite: 'account-sync', run: runRepertoireSyncSelfTest },
 ];
 
 let total = 0;
