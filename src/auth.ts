@@ -16,11 +16,11 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { showToast } from './toast';
 import type { AuthError, User } from '@supabase/supabase-js';
 
-// How many lines a free account gets. Shown on the Account card; nothing
-// enforces it yet — entitlement logic lands in a later session.
-export const FREE_LINE_LIMIT = 3;
-
-export type Entitlement = 'full' | 'free';
+// ENTITLEMENT LIVES IN entitlement.ts, not here. This module used to carry a
+// placeholder (a FREE_LINE_LIMIT constant and a getEntitlement that read a JWT
+// claim nothing ever set); it's gone, so there is exactly one answer to "is this
+// user entitled?" and it comes from the `profiles.entitled` column. auth.ts's
+// job is the session and nothing else.
 
 // ── The OAuth return leg ─────────────────────────────────────────────────────
 // Supabase's PKCE flow comes back to the app as `?code=…`, and so does the
@@ -144,22 +144,6 @@ export function isSignedIn(): boolean {
 export function onAuthChange(fn: () => void): () => void {
   listeners.add(fn);
   return () => listeners.delete(fn);
-}
-
-// The user's plan. PLACEHOLDER: it reads a flag Supabase may put on the account
-// and otherwise says "free". Nothing sets that flag yet and nothing enforces the
-// limit — real entitlement (and the purchase that grants it) is a later session.
-// This exists only so the Account card can show an honest status today.
-export function getEntitlement(): Entitlement {
-  const user = currentUser;
-  if (!user) return 'free';
-  const fromApp = (user.app_metadata as Record<string, unknown> | undefined)?.entitlement;
-  const fromUser = (user.user_metadata as Record<string, unknown> | undefined)?.entitlement;
-  return fromApp === 'full' || fromUser === 'full' ? 'full' : 'free';
-}
-
-export function entitlementLabel(): string {
-  return getEntitlement() === 'full' ? 'Full access' : `Free — ${FREE_LINE_LIMIT} lines`;
 }
 
 // ── Boot ─────────────────────────────────────────────────────────────────────

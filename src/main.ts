@@ -15,6 +15,7 @@ import type { Line } from './types';
 import { renderLinesScreen, focusSavedLine } from './lines-screen';
 import { renderProgressScreen } from './progress-screen';
 import { startPretrainingRun, enrolLineDirectly } from './pretraining';
+import { initEntitlement, requestTrainingSlot } from './entitlement';
 import { renderTrainScreen, startLineSession, startPositionsSession, startMoveFix } from './train-screen';
 import { renderExploreScreen } from './explore-screen';
 import { renderPuzzlesScreen, startDailyPuzzles } from './puzzles-screen';
@@ -59,7 +60,7 @@ import { showDialog } from './dialog';
 import { platformLabel } from './board-explorer';
 import { openImportPanel, getGamesSource, IDENTITY_CHANGED_EVENT } from './import-panel';
 import { maybeShowIntro } from './onboarding';
-import { openStarterPackPicker, type LineSeed } from './onboarding-starter';
+import { openStarterPackPicker, type LineSeed, type AddLineMode } from './onboarding-starter';
 import { showOnboardingWizard, wizardStepPending } from './onboarding-wizard';
 import { maybeAutoRefreshGames } from './auto-refresh';
 import { maybeShowGate } from './gate';
@@ -1865,6 +1866,9 @@ function applyLineTrainingToggleState(): void {
 async function toggleLineTraining(): Promise<void> {
   if (!currentTrainingLine || !loadedLineId) return;
   const next = !loadedLineInTraining;
+  // Switching ON meets the free-tier cap; switching off never does, and frees
+  // the slot straight away.
+  if (next && !(await requestTrainingSlot())) return;
   const line = { ...currentTrainingLine, inTraining: next };
   await saveLine(line);
   currentTrainingLine = line;
@@ -2202,13 +2206,18 @@ async function runImportLastGame(): Promise<void> {
 function addStarterLine(
   seed: LineSeed,
   colour: 'white' | 'black',
-  learn: boolean,
+  mode: AddLineMode,
   onDone: () => void,
   onCancel: () => void,
 ): void {
   const line = lineFromUcis(seed, colour);
   if (!line) { onCancel(); return; }
-  if (learn) addLineToTraining(line, onDone, onCancel);
+  // 'save' is the bulk path's overflow: the line still lands in My Lines, just
+  // not in the training rotation. lineFromUcis already builds it un-enrolled, so
+  // there is nothing to switch off — and nothing here can ever pause a line that
+  // was already in training.
+  if (mode === 'save') { void saveLine(line).then(onDone); return; }
+  if (mode === 'learn') addLineToTraining(line, onDone, onCancel);
   else void enrolLineDirectly(line).then(onDone);
 }
 
@@ -2272,12 +2281,22 @@ function linesScreenDeps(): Parameters<typeof renderLinesScreen>[1] {
 // ON (default): run the pre-training confirm drill, enrolling on a clean run.
 // OFF: enrol instantly, with no run. The manual add-to-training paths and the
 // post-save prompt all funnel through here, so they skip the gate identically.
+//
+// This is also THE chokepoint for the free tier's training cap. Every deliberate
+// single-line add arrives here — the post-save prompt, My Lines, the Progress
+// screen's Drill, and onboarding's one-at-a-time adds — so one check covers them
+// all. requestTrainingSlot shows the upsell itself when it says no; we just take
+// the cancel path, leaving the line saved and untouched. Bulk adds do NOT come
+// through here (see addSequentially): they get a toast, not a price tag.
 function addLineToTraining(line: Line, onDone: () => void, onCancel: () => void = () => {}): void {
-  if (getConfirmRunBeforeTraining()) {
-    startPretrainingRun(line, onDone, onCancel);
-  } else {
-    void enrolLineDirectly(line).then(onDone);
-  }
+  void requestTrainingSlot().then((allowed) => {
+    if (!allowed) { onCancel(); return; }
+    if (getConfirmRunBeforeTraining()) {
+      startPretrainingRun(line, onDone, onCancel);
+    } else {
+      void enrolLineDirectly(line).then(onDone);
+    }
+  });
 }
 
 // Drill or enrol a single line by id, from the Progress screen. An in-training
@@ -3494,8 +3513,11 @@ initDriveAutoBackup();
 //
 // Sync registers FIRST: it listens for the sign-in that initAuth is about to
 // report, and a listener added afterwards would miss it. It is its own no-op on
-// a build without Supabase (see repertoire-sync.ts).
+// a build without Supabase (see repertoire-sync.ts). Entitlement listens for the
+// same event — it fetches the account's plan once per sign-in — so it registers
+// alongside, before initAuth, for exactly the same reason.
 initRepertoireSync();
+initEntitlement();
 if (isSupabaseConfigured) void initAuth();
 
 // If we've just returned from "Connect to Lichess", complete the OAuth token

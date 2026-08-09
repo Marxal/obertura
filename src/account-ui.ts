@@ -18,9 +18,8 @@ import {
   signInWithPassword,
   signInWithGoogle,
   signOut,
-  entitlementLabel,
-  getEntitlement,
 } from './auth';
+import { entitlementLabel, isEntitled, ENTITLEMENT_CHANGE_EVENT } from './entitlement';
 import { showToast } from './toast';
 import { showDialog } from './dialog';
 import { Icons } from './icons';
@@ -48,9 +47,15 @@ export function buildAccountGroup(): HTMLElement {
   };
 
   // Sign-in and sign-out both land here — including the one that completes on
-  // the next page load, after the Google redirect.
+  // the next page load, after the Google redirect. The plan pill also has to
+  // repaint when the entitlement fetch lands, which is a moment after sign-in.
   dropPreviousListener?.();
-  dropPreviousListener = onAuthChange(render);
+  const dropAuth = onAuthChange(render);
+  window.addEventListener(ENTITLEMENT_CHANGE_EVENT, render);
+  dropPreviousListener = () => {
+    dropAuth();
+    window.removeEventListener(ENTITLEMENT_CHANGE_EVENT, render);
+  };
 
   render();
   return sec;
@@ -79,7 +84,7 @@ function signedInBody(refresh: () => void): HTMLElement {
   status.className = 'account-status';
   const pill = document.createElement('span');
   pill.className = 'account-pill'
-    + (getEntitlement() === 'full' ? ' account-pill--full' : ' account-pill--free');
+    + (isEntitled() ? ' account-pill--full' : ' account-pill--free');
   pill.textContent = entitlementLabel();
   status.appendChild(pill);
   card.appendChild(status);

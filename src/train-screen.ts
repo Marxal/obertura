@@ -1,6 +1,12 @@
 import type { Line } from './types';
 import type { MoveNode } from './tree';
 import { getAllLines, saveLine, countGames } from './storage';
+import {
+  requestTrainingSlot,
+  isEntitled,
+  FREE_TRAINING_LINES,
+  TRAINING_COUNT_VISIBLE_FROM,
+} from './entitlement';
 import { startDrill, startPositionsDrill, startTimedDrill, type DrillOptions } from './drill';
 import { selectIndividualPositions, selectTimedPositions } from './individual';
 import { Icons } from './icons';
@@ -31,7 +37,7 @@ import { lineTrainingCount } from './stats';
 import { formatMove } from './notation';
 import { Chess } from 'chess.js';
 import { buildEmptyState } from './empty-state';
-import { renderStarterOnboarding, ONBOARDING_GOAL, type LineSeed } from './onboarding-starter';
+import { renderStarterOnboarding, ONBOARDING_GOAL, type LineSeed, type AddLineMode } from './onboarding-starter';
 import { createFilterBar, type FilterSelection } from './filters';
 import { renderFamilyGroups, renderVariationGroups } from './line-groups';
 import { showDialog } from './dialog';
@@ -76,10 +82,10 @@ let onViewLine: ((line: Line, atFen?: string) => void) | null = null;
 let onBuildLine: (() => void) | null = null;
 let onImportGames: (() => void) | null = null;
 // Add a starter/suggested line to training (wired from main.ts, which owns
-// lineFromUcis + addLineToTraining). learn=true runs the watch-then-play confirm
-// run; false enrols directly. Module scope, like the routes above.
+// lineFromUcis + addLineToTraining). See AddLineMode for what each mode does.
+// Module scope, like the routes above.
 let onAddStarterLine:
-  | ((seed: LineSeed, colour: 'white' | 'black', learn: boolean, onDone: () => void, onCancel: () => void) => void)
+  | ((seed: LineSeed, colour: 'white' | 'black', mode: AddLineMode, onDone: () => void, onCancel: () => void) => void)
   | null = null;
 // Onboarding's quieter routes: browse the opening library / build by playing the
 // engine. Module scope, wired from main.ts like the others.
@@ -136,7 +142,7 @@ export function renderTrainScreen(
     onAddStarterLine?: (
       seed: LineSeed,
       colour: 'white' | 'black',
-      learn: boolean,
+      mode: AddLineMode,
       onDone: () => void,
       onCancel: () => void,
     ) => void;
@@ -275,8 +281,8 @@ function renderEmpty(container: HTMLElement, hasGames: boolean): void {
   if (onAddStarterLine) {
     renderStarterOnboarding(container, {
       hasGames,
-      onAddLine: (seed, colour, learn, onDone, onCancel) =>
-        onAddStarterLine!(seed, colour, learn, onDone, onCancel),
+      onAddLine: (seed, colour, mode, onDone, onCancel) =>
+        onAddStarterLine!(seed, colour, mode, onDone, onCancel),
       // Leaving onboarding re-renders Train; once the goal is reached it lands on
       // the normal hub instead of here.
       onFinish: () => void doRender(container),
@@ -763,6 +769,21 @@ function renderCardList(host: HTMLElement, container: HTMLElement, trainingLines
   head.appendChild(countBadge);
   section.appendChild(head);
 
+  // Free tier only: show the ceiling once it's close, so it's never a surprise
+  // at line eleven. Entitled users see nothing at all. Sits outside `body` so it
+  // stays visible when the section is collapsed.
+  //
+  // Deliberately silent ABOVE the cap: grandfathered users (early testers with
+  // dozens enrolled) keep every line, and "14 of 10" would be nonsense. They
+  // find out where the ceiling is if they ever try to add one more.
+  const count = trainingLines.length;
+  if (!isEntitled() && count >= TRAINING_COUNT_VISIBLE_FROM && count <= FREE_TRAINING_LINES) {
+    const cap = document.createElement('p');
+    cap.className = 'section-desc train-cap-note';
+    cap.textContent = `${count} of ${FREE_TRAINING_LINES} lines in training`;
+    section.appendChild(cap);
+  }
+
   const body = document.createElement('div');
   body.className = 'train-collapse-body';
   section.appendChild(body);
@@ -1035,8 +1056,12 @@ function buildTrainingSwitch(line: Line, row: HTMLElement): HTMLElement {
 
 // Flip a line in/out of the drill pool, updating its card in place — no
 // re-render, so the page keeps its scroll position (matching My Lines).
+//
+// Only the OFF→ON direction meets the free-tier cap; pausing is always allowed
+// and frees its slot straight away, so a free user can rotate their ten freely.
 async function toggleTraining(line: Line, row: HTMLElement, toggle: HTMLElement): Promise<void> {
   const next = !line.inTraining;
+  if (next && !(await requestTrainingSlot())) return;
   await saveLine({ ...line, inTraining: next });
   line.inTraining = next; // keep the in-memory line in step for repeat flicks
   applySwitchState(toggle, row, next);

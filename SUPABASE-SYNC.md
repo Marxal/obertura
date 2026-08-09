@@ -18,6 +18,20 @@ A table called `profiles`, one row per user, with:
 | `id`                    | `uuid`        | the user's auth id (the row's key)               |
 | `repertoire`            | `jsonb`       | the whole backup blob — same JSON as an export    |
 | `repertoire_updated_at` | `timestamptz` | when that blob was last pushed                    |
+| `entitled`              | `boolean`     | has this account paid? Gates the training cap     |
+
+`entitled` is the free tier's switch: false (the default) caps the account at 10
+lines in training at once, true lifts the cap. The app only ever READS it. You
+set it by hand in the dashboard today; the buy flow will set it from a
+server-side webhook later.
+
+**It needs a column-level revoke, not just RLS.** The update policy below is
+row-scoped, not column-scoped — on its own it lets a signed-in user update *any*
+column of their own row, `entitled` included, straight from the browser with the
+public anon key. Postgres column privileges are what actually stop that, so the
+SQL revokes UPDATE on `entitled` and re-grants it only on the two sync columns.
+Same honest caveat as the beta gate: this is the real enforcement point, so it
+belongs in the database and not in the bundle.
 
 ## Step by step
 
@@ -34,8 +48,13 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   repertoire jsonb,
   repertoire_updated_at timestamptz,
+  entitled boolean not null default false,
   created_at timestamptz not null default now()
 );
+
+-- Safe to re-run on a project made before `entitled` existed.
+alter table public.profiles
+  add column if not exists entitled boolean not null default false;
 
 -- Row-level security: without this, the public anon key in the app bundle
 -- would let anyone read everyone's rows. With it, every query is silently
@@ -55,7 +74,22 @@ create policy "own profile: update"
   on public.profiles for update
   using (auth.uid() = id)
   with check (auth.uid() = id);
+
+-- The policy above is row-scoped, not column-scoped: without the next three
+-- lines it would let any signed-in user flip their own `entitled` to true from
+-- the browser. Column privileges are the fix — take UPDATE away wholesale, then
+-- hand it back only on the two columns the sync actually writes. Reading
+-- `entitled` is untouched (that's SELECT), and so is the app's upsert.
+revoke update on public.profiles from anon, authenticated;
+grant update (repertoire, repertoire_updated_at) on public.profiles to authenticated;
+grant insert (id, repertoire, repertoire_updated_at) on public.profiles to authenticated;
 ```
+
+## Turning on full access for an account
+
+Table Editor → `profiles` → find the row by `id` → tick `entitled` → save. The
+app picks it up on the next launch or sign-in (it re-reads the flag once per
+sign-in, then caches it for offline use).
 
 No delete policy on purpose: the app never deletes a row, and neither should a
 stray request. Removing the account removes the row (`on delete cascade`).
