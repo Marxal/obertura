@@ -24,10 +24,14 @@ export type Entitlement = 'full' | 'free';
 
 // ── The OAuth return leg ─────────────────────────────────────────────────────
 // Supabase's PKCE flow comes back to the app as `?code=…`, and so does the
-// Lichess connect flow (lichess-auth.ts). If we let supabase-js pick codes out
-// of the URL by itself (`detectSessionInUrl: true`) it would swallow Lichess's
-// code and strip it from the URL before that library ever saw it, quietly
-// breaking "Connect to Lichess".
+// Lichess connect flow (lichess-auth.ts). PKCE is requested explicitly in
+// supabase.ts: supabase-js still defaults to the *implicit* flow, which comes
+// back as a `#access_token=…` fragment instead — a shape nothing below reads.
+//
+// If we let supabase-js pick codes out of the URL by itself
+// (`detectSessionInUrl: true`) it would swallow Lichess's code and strip it
+// from the URL before that library ever saw it, quietly breaking "Connect to
+// Lichess".
 //
 // So the client keeps `detectSessionInUrl: false` and we claim the code
 // ourselves — but ONLY when we know it's ours. Two things have to agree:
@@ -45,6 +49,19 @@ const OAUTH_PENDING_MAX_AGE_MS = 10 * 60 * 1000;
 
 interface OAuthReturn {
   code?: string;
+  // Supabase files each PKCE attempt's code-verifier under a per-flow id, and
+  // exchangeCodeForSession() finds it again by reading `sb_flow_id` off the
+  // LIVE url. We clean the url before calling it, so the id would be gone by
+  // then — hence carrying it across here and passing it explicitly.
+  //
+  // Today this is belt-and-braces: supabase-js only puts `sb_flow_id` on the
+  // redirect when the opt-in `experimental.appendPkceFlowIdToRedirects` flag is
+  // set (we don't set it — it appends a query param to the redirect URL, which
+  // has to keep matching the dashboard's allow-list exactly). Without the
+  // param, the verifier is found via a legacy fixed storage key that mirrors
+  // the most recent flow. That fallback is on a documented deprecation path,
+  // so wiring the id through now means nothing breaks when it goes.
+  flowId?: string;
   errorDescription?: string;
 }
 
@@ -84,8 +101,11 @@ function captureOAuthReturn(): OAuthReturn | null {
   if (params.has('state')) return null;
   if (!takeOAuthPending()) return null;
 
+  // Read everything we need BEFORE the URL is tidied below — `sb_flow_id`
+  // especially, since stripping it is exactly what would otherwise lose it.
   const result: OAuthReturn = {
     code: params.get('code') ?? undefined,
+    flowId: params.get('sb_flow_id') ?? undefined,
     errorDescription: params.get('error_description') ?? params.get('error') ?? undefined,
   };
 
@@ -162,7 +182,10 @@ export async function initAuth(): Promise<void> {
     showToast(`Google sign-in failed — ${oauthReturn.errorDescription}`);
   } else if (oauthReturn?.code) {
     try {
-      const { error } = await supabase.auth.exchangeCodeForSession(oauthReturn.code);
+      const { error } = await supabase.auth.exchangeCodeForSession(
+        oauthReturn.code,
+        oauthReturn.flowId ? { flowId: oauthReturn.flowId } : undefined,
+      );
       if (error) showToast(friendlyAuthError(error));
       else showToast('Signed in', { variant: 'success' });
     } catch (err) {
