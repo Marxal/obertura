@@ -15070,3 +15070,14 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   color: var(--text-muted);
   background: color-mix(in srgb, var(--text-muted) 10%, transparent);
 }
+
+/* Live sync caption under the card: quiet by default, only loud on failure. */
+.account-sync {
+  margin: 0.55rem 0 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.account-sync--error {
+  color: var(--danger);
+}

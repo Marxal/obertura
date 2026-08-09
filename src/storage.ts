@@ -71,8 +71,9 @@ async function store(mode: IDBTransactionMode): Promise<IDBObjectStore> {
 
 // ── Repertoire change notifications ──────────────────────────────────────────
 //
-// Lets interested modules (today: the Drive auto-backup in drive-backup.ts)
-// react to repertoire writes without this module importing them back — that
+// Lets interested modules (the Drive auto-backup in drive-backup.ts, and the
+// account sync in repertoire-sync.ts) react to repertoire writes without this
+// module importing them back — that
 // would be a circular dependency. Listeners fire after the write committed.
 // eraseAllData deliberately does NOT notify: auto-uploading an empty
 // repertoire right after an erase would destroy the cloud copy the user may
@@ -231,12 +232,15 @@ const BACKUP_VERSION = 2;
 
 // Which localStorage keys belong in a backup. Everything the app writes starts
 // with "obertura" (both the dot and dash spellings) except the engine toggle.
-// Device/session-specific keys are excluded: the Drive connection (restoring
-// "connected" onto a fresh device would lie) and the OAuth return-path crumb.
+// Device/session-specific keys are excluded: the Drive connection and the
+// account-sync state (restoring either onto a fresh device would lie — and the
+// sync blob IS a backup, so carrying "last synced" inside it is circular), plus
+// the OAuth return-path crumb.
 function backupLocalKey(key: string): boolean {
   if (key === 'engineEnabled' || key === 'sparEngineEnabled') return true;
   if (!key.startsWith('obertura')) return false;
   if (key.startsWith('obertura.drive.')) return false;
+  if (key.startsWith('obertura.sync.')) return false;
   if (key === 'obertura.lichessReturnTo') return false;
   return true;
 }
