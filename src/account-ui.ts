@@ -25,6 +25,7 @@ import { showToast } from './toast';
 import { showDialog } from './dialog';
 import { Icons } from './icons';
 import { group } from './settings-screen';
+import { SYNC_CHANGE_EVENT, getSyncState, getLastSync } from './repertoire-sync';
 
 // Which of the two forms is showing. Kept per-instance, not persisted — every
 // visit starts on Sign in, which is what a returning user wants.
@@ -85,11 +86,14 @@ function signedInBody(refresh: () => void): HTMLElement {
 
   wrap.appendChild(card);
 
+  wrap.appendChild(syncRow());
+
   const note = document.createElement('p');
   note.className = 'settings-note';
   note.textContent =
-    'Your lines and training still live on this device. Signing in doesn’t move ' +
-    'anything yet — syncing comes later.';
+    'Your lines and training live on this device, and a copy is kept in your ' +
+    'account so a new phone can pick them up. Signing in on another device ' +
+    'asks whether to merge or replace what’s there.';
   wrap.appendChild(note);
 
   const outBtn = document.createElement('button');
@@ -111,6 +115,66 @@ function signedInBody(refresh: () => void): HTMLElement {
   wrap.appendChild(actions);
 
   return wrap;
+}
+
+// ── Sync status ──────────────────────────────────────────────────────────────
+//
+// One live caption, in the same voice as the Drive section's ("Last backed
+// up: …" / "Backup pending"). Syncing happens in the background — a debounced
+// push ~30s after the last edit — so this is how the user ever knows it's
+// working. The listener detaches itself once the row leaves the DOM, exactly
+// like the cloud-backup section's.
+function syncRow(): HTMLElement {
+  const row = document.createElement('p');
+  row.setAttribute('aria-live', 'polite');
+
+  const paint = (): void => {
+    const state = getSyncState();
+    row.className = 'account-sync' + (state === 'failed' ? ' account-sync--error' : '');
+    row.textContent = syncCaption();
+  };
+
+  const onChange = (): void => {
+    if (!row.isConnected) {
+      window.removeEventListener(SYNC_CHANGE_EVENT, onChange);
+      return;
+    }
+    paint();
+  };
+  window.addEventListener(SYNC_CHANGE_EVENT, onChange);
+
+  paint();
+  return row;
+}
+
+function syncCaption(): string {
+  switch (getSyncState()) {
+    case 'failed':
+      return 'Sync failed — will retry.';
+    case 'pending':
+      return 'Pending — your latest changes go up in a moment.';
+    case 'synced':
+      return `Synced ${agoLabel(getLastSync())}.`;
+    default:
+      // 'never' — signed in, nothing up from this device yet. ('off' can't
+      // reach here: this row only exists inside the signed-in body.)
+      return 'Nothing synced yet.';
+  }
+}
+
+// "just now" / "12 minutes ago" / "3 hours ago" / "2 days ago". Finer-grained
+// than the Drive caption's days, because a sync you triggered seconds ago
+// showing "today" would read as broken.
+function agoLabel(iso: string | null): string {
+  if (!iso) return 'just now';
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 90_000) return 'just now';
+  const minutes = Math.round(ms / 60_000);
+  if (minutes < 60) return `${minutes} minutes ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
 }
 
 // ── Signed out ───────────────────────────────────────────────────────────────

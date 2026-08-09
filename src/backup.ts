@@ -438,7 +438,10 @@ type ImportMode = 'merge' | 'replace';
 // current repertoire and restores exactly the file, for a clean restore onto a
 // cleared or fresh browser. The chooser shows the counts so the choice is
 // informed.
-function openImportChooser(
+//
+// Exported so account sync (repertoire-sync.ts) asks the question the same way
+// a manual import does — one chooser, whatever the copy arrived from.
+export function openImportChooser(
   backup: BackupFile,
   existingCount: number,
   onChoose: (mode: ImportMode) => void,

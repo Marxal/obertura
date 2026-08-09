@@ -74,6 +74,7 @@ import { maybeShowSurveyBanner } from './survey';
 import { tryCallback as lichessTryCallback, takeReturn as lichessTakeReturn, getAccessToken as lichessAccessToken, connect as lichessConnect } from './lichess-auth';
 import { isSupabaseConfigured } from './supabase';
 import { initAuth } from './auth';
+import { initRepertoireSync } from './repertoire-sync';
 
 // Cloud-eval (engine.ts) uses the Lichess token when connected for higher rate
 // limits. Wire the getter once, here, so engine.ts needn't import the OAuth code.
@@ -3490,6 +3491,11 @@ initDriveAutoBackup();
 // already signed in. Only ever runs on a build with Supabase configured — the
 // internal GitHub Pages build has no env vars, so this is skipped entirely and
 // nothing about that build changes. Never blocks boot, never throws.
+//
+// Sync registers FIRST: it listens for the sign-in that initAuth is about to
+// report, and a listener added afterwards would miss it. It is its own no-op on
+// a build without Supabase (see repertoire-sync.ts).
+initRepertoireSync();
 if (isSupabaseConfigured) void initAuth();
 
 // If we've just returned from "Connect to Lichess", complete the OAuth token
