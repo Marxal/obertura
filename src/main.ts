@@ -72,6 +72,8 @@ import { openEngineSpar, openExploreOpponent, importOpponentFlow } from './explo
 import { formatMove } from './notation';
 import { maybeShowSurveyBanner } from './survey';
 import { tryCallback as lichessTryCallback, takeReturn as lichessTakeReturn, getAccessToken as lichessAccessToken, connect as lichessConnect } from './lichess-auth';
+import { isSupabaseConfigured } from './supabase';
+import { initAuth } from './auth';
 
 // Cloud-eval (engine.ts) uses the Lichess token when connected for higher rate
 // limits. Wire the getter once, here, so engine.ts needn't import the OAuth code.
@@ -3482,6 +3484,13 @@ setupNav();
 // Cloud backup: from now on every repertoire write schedules a debounced
 // upload to Drive (inert until connected in Settings — see drive-backup.ts).
 initDriveAutoBackup();
+
+// Accounts: pick up an existing session (and finish a Google sign-in if this
+// load is the return leg of one) so Settings can render the Account section
+// already signed in. Only ever runs on a build with Supabase configured — the
+// internal GitHub Pages build has no env vars, so this is skipped entirely and
+// nothing about that build changes. Never blocks boot, never throws.
+if (isSupabaseConfigured) void initAuth();
 
 // If we've just returned from "Connect to Lichess", complete the OAuth token
 // exchange and clean the URL. On a fresh connect we toast and, once the app has
