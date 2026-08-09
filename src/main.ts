@@ -75,7 +75,7 @@ import { maybeShowSurveyBanner } from './survey';
 import { tryCallback as lichessTryCallback, takeReturn as lichessTakeReturn, getAccessToken as lichessAccessToken, connect as lichessConnect } from './lichess-auth';
 import { isSupabaseConfigured } from './supabase';
 import { initAuth } from './auth';
-import { initRepertoireSync } from './repertoire-sync';
+import { initAccountSync } from './repertoire-sync';
 
 // Cloud-eval (engine.ts) uses the Lichess token when connected for higher rate
 // limits. Wire the getter once, here, so engine.ts needn't import the OAuth code.
@@ -3516,7 +3516,7 @@ initDriveAutoBackup();
 // a build without Supabase (see repertoire-sync.ts). Entitlement listens for the
 // same event — it fetches the account's plan once per sign-in — so it registers
 // alongside, before initAuth, for exactly the same reason.
-initRepertoireSync();
+initAccountSync();
 initEntitlement();
 if (isSupabaseConfigured) void initAuth();
 

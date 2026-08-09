@@ -7,6 +7,7 @@
     "dev": "node scripts/copy-engine.mjs && vite",
     "build": "node scripts/copy-engine.mjs && tsc && vite build",
     "selftest": "node --experimental-strip-types --import ./scripts/register-ts.mjs scripts/run-selftests.ts",
+    "probe-sync-limit": "node scripts/probe-sync-limit.mjs",
     "preview": "vite preview",
     "generate-icons": "node scripts/generate-icons.mjs",
     "build-openings": "node scripts/build-openings.mjs",

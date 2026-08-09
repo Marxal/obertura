@@ -89,6 +89,28 @@ function notifyLinesChanged(): void {
   for (const listener of linesListeners) listener();
 }
 
+// The same idea for the games store, kept as a SEPARATE channel because the two
+// have wildly different weights: the lines + app-state snapshot is a few hundred
+// KB, while a thousand games carrying saved analysis is measured in megabytes.
+// The account sync pushes them to different columns off these two notifiers, so
+// editing a line doesn't drag the games blob along with it (see
+// repertoire-sync.ts). Drive doesn't subscribe — it stores one whole file, so
+// notifyLinesChanged is all the trigger it needs.
+//
+// Same erase exemption as above, for the same reason: eraseAllData clears the
+// games store through its own transaction and never calls the helpers below, so
+// wiping the device can't push an empty games list over the account's copy.
+
+const gamesListeners: (() => void)[] = [];
+
+export function onGamesChanged(listener: () => void): void {
+  gamesListeners.push(listener);
+}
+
+function notifyGamesChanged(): void {
+  for (const listener of gamesListeners) listener();
+}
+
 // Insert or overwrite a line by its id. Returns the saved line.
 export async function saveLine(line: Line): Promise<Line> {
   const s = await store('readwrite');
@@ -130,6 +152,7 @@ export async function saveGames(games: ImportedGame[]): Promise<void> {
   if (games.length === 0) return;
   const s = await gamesStore('readwrite');
   await Promise.all(games.map(g => promisify(s.put(g))));
+  notifyGamesChanged();
 }
 
 // Every stored game.
@@ -154,12 +177,14 @@ export async function countGames(): Promise<number> {
 export async function clearGames(): Promise<void> {
   const s = await gamesStore('readwrite');
   await promisify(s.clear());
+  notifyGamesChanged();
 }
 
 // Remove one game by id (the My games card's delete action).
 export async function deleteGame(id: string): Promise<void> {
   const s = await gamesStore('readwrite');
   await promisify(s.delete(id));
+  notifyGamesChanged();
 }
 
 // ── Scouted opponents ──────────────────────────────────────────────────────────
@@ -268,13 +293,22 @@ function snapshotLocalData(): Record<string, string> {
 // come straight from IndexedDB; JSON.stringify turns each move's `review.due`
 // Date into an ISO string, which parseBackup() revives on the way back in.
 export async function exportBackup(): Promise<BackupFile> {
-  const [lines, games] = await Promise.all([getAllLines(), getAllGames()]);
+  const [core, games] = await Promise.all([exportCore(), getAllGames()]);
+  return { ...core, games };
+}
+
+// Everything EXCEPT the imported games: the lines and the localStorage
+// snapshot. A valid BackupFile in its own right (`games` is optional), and the
+// half the account sync pushes on every edit — measured at a few hundred KB
+// against several megabytes for the games, which is the entire reason the two
+// are separable. Reading the games out of IndexedDB just to throw them away
+// would defeat the point, so this deliberately never opens that store.
+export async function exportCore(): Promise<BackupFile> {
   return {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
-    lines,
-    games,
+    lines: await getAllLines(),
     local: snapshotLocalData(),
   };
 }
