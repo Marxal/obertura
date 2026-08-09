@@ -14937,3 +14937,136 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   font-size: 0.72rem;
   color: var(--text-faint);
 }
+
+/* ── Account (Settings → Account) ─────────────────────────────────────────────
+   Only ever on screen on a build with Supabase configured; the GitHub Pages
+   build never renders the section, so none of this applies there. */
+
+.account-auth {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* Sign in / Sign up — a two-way switch above the shared form. */
+.account-tabs {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.2rem;
+  border-radius: 10px;
+  background: var(--hairline-soft);
+  border: 1px solid var(--border);
+}
+
+.account-tab {
+  flex: 1;
+  min-height: 38px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.account-tab.active {
+  background: var(--bg-card);
+  color: var(--text);
+  box-shadow: var(--shadow-card);
+}
+
+.account-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.account-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.account-field-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.account-input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0.6rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 1rem;
+}
+.account-input::placeholder { color: var(--text-faint); }
+.account-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.account-submit { width: 100%; }
+
+/* "or" with a rule either side. */
+.account-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.78rem;
+  color: var(--text-faint);
+}
+.account-divider::before,
+.account-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.account-google {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+/* Signed in: the email, then the plan pill. */
+.account-email {
+  overflow-wrap: anywhere;
+}
+
+.account-status {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.account-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.account-pill--full {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 45%, transparent);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+}
+
+.account-pill--free {
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--text-muted) 10%, transparent);
+}

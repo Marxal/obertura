@@ -76,6 +76,8 @@ import { showIntro } from './onboarding';
 import { showOnboardingWizard } from './onboarding-wizard';
 import { isConnected, connect, disconnect, LICHESS_CONNECT_BLURB } from './lichess-auth';
 import { buildSupportSection } from './support';
+import { isSupabaseConfigured } from './supabase';
+import { buildAccountGroup } from './account-ui';
 
 export function renderSettingsScreen(container: HTMLElement): void {
   container.innerHTML = '';
@@ -92,6 +94,14 @@ export function renderSettingsScreen(container: HTMLElement): void {
   // which only after a quick async count, so build a placeholder now and fill it.
   const userSlot = document.createElement('div');
   screen.appendChild(userSlot);
+
+  // Account (sign in / sign up / sign out) — the first accordion, because it's
+  // about who you are rather than how the app behaves. Built ONLY on a build
+  // that has a Supabase project configured. The internal GitHub Pages build has
+  // no env vars, so `isSupabaseConfigured` is false there and this section is
+  // simply absent — no disabled row, no placeholder. That build keeps its
+  // beta-code gate (gate.ts) and looks exactly as it does today.
+  if (isSupabaseConfigured) screen.appendChild(buildAccountGroup());
 
   const refresh = () => renderSettingsScreen(container);
   // Connecting Lichess unlocks a lot, so until you do it leads the screen as a
@@ -165,7 +175,7 @@ function linkRow(label: string, onClick: () => void, leading?: SVGElement): HTML
 // They all start closed, so Settings opens as a short, scannable list of titles.
 // Each header carries an icon (left) and a chevron (right); rows append straight
 // onto the returned <details>, after the summary.
-function group(titleText: string, icon: SVGElement): HTMLElement {
+export function group(titleText: string, icon: SVGElement): HTMLElement {
   const sec = document.createElement('details');
   sec.className = 'section section--acc';
   sec.setAttribute('name', 'settings-acc');
