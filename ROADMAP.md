@@ -924,6 +924,53 @@ _On `claude/supabase-app-data-sync-eyuv0g`. Restore point: `v0.4`._
 
 ---
 
+## v0.19 — the guest-first first run 🔜
+
+The old first run was an install-an-app pattern: beta code → five intro slides →
+a five-step setup wizard → "add 5 lines to unlock training". That's a lot to ask
+of a stranger who has just landed on a web page. This round replaces it with a
+web-visitor pattern — sixty seconds from arriving to a saved, scheduled line,
+with no account and nothing to unlock.
+
+- ✅ **Guests are first-class** — the public Cloudflare build skips the beta gate
+  entirely (`DEPLOY_TARGET` is now visible to the app, not just to Vite); the
+  internal GitHub Pages build keeps it unchanged. Nothing else needed unblocking:
+  storage never knew about user ids, the entitlement check already treated
+  signed-out as the ordinary free tier, and the account sync was already inert
+  without a session. A guest gets exactly what a free signed-in user gets — the
+  same 10-lines-in-training cap — so signing in only ever adds sync. Claiming
+  local data on first sign-in already worked too, via `reconcile()` and
+  `backup.ts`'s merge chooser; no new merge code.
+- ✅ **The picker replaces the slides and the wizard** — one screen: colour,
+  depth (3 / 5 / 7 moves), and a 2×2 grid of style cards, each with a mini board
+  at that line's final position. Changing colour or level cross-fades the four
+  cards. Fits 412×915 without scrolling. Black cards say "against 1.e4".
+- ✅ **Eight curated lines** (`onboarding-lines.json`) — Italian, Scotch, Ruy
+  López, Polish for White; Caro-Kann, Najdorf, French Classical, Owen for Black.
+  Every cut ends on the user's own move and resolves an opening name, asserted by
+  a new self-test (84 checks) so editing the JSON can't quietly break a card.
+- ✅ **The guided first line** — the builder opens with the line laid down and
+  plays it in using the builder's OWN Watch playback (lifted out of the button
+  handler rather than reimplemented), then a three-beat coach strip that lives in
+  the bottom dock, so it can never cover the board. Any move the user plays jumps
+  to the last beat.
+- ✅ **Straight into the confirm run** — saving from guided mode skips the "start
+  training this line?" dialog and goes directly into the existing pre-training
+  run, finishing on "It's in training. It'll come back tomorrow, before you
+  forget it."
+- ✅ **One ask, after the win** — the sign-up sheet appears only after that first
+  clean run, and reuses Settings' own auth form rather than a second copy of it.
+  "Not now" is remembered for good. `?auth=signup` opens it directly.
+- ✅ **The wizard's questions, re-timed** — notation, theme and Lichess come back
+  as dismissible cards on Train once a line exists, built from the Settings
+  controls themselves. The intro and the wizard stay replayable from Settings.
+- ✅ **`ONBOARDING_GOAL` 5 → 1**, and the boot splash dropped below the overlay
+  tier so a first-run screen is never invisible underneath it.
+
+_On `claude/first-run-experience-rebuild-xfwdpa`. Restore point: `v0.4`._
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

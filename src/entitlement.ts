@@ -13,9 +13,11 @@
 //     it as free-tier would cap the test channel. It is fully entitled instead.
 //   • Signed in, profiles.entitled = true  → no cap.
 //   • Signed in, anything else             → capped.
-//   • Signed out                           → capped, via the same code path.
-//     (Short-lived: a later session replaces gate.ts with a required sign-in, at
-//     which point signed-out use isn't reachable.)
+//   • Signed out (a guest)                 → capped, via the same code path.
+//     This is deliberate and permanent. The public build lets anyone build and
+//     train without an account, and a guest gets exactly the free tier a free
+//     signed-in user gets — so signing in only ever ADDS sync, and can never
+//     look like it took a restriction away.
 //
 // HOW THE FLAG IS READ
 // `profiles.entitled` is fetched ONCE per sign-in and held in a module-level

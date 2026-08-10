@@ -38,6 +38,7 @@ import { formatMove } from './notation';
 import { Chess } from 'chess.js';
 import { buildEmptyState } from './empty-state';
 import { renderStarterOnboarding, ONBOARDING_GOAL, type LineSeed, type AddLineMode } from './onboarding-starter';
+import { renderTrainCards } from './train-cards';
 import { createFilterBar, type FilterSelection } from './filters';
 import { renderFamilyGroups, renderVariationGroups } from './line-groups';
 import { showDialog } from './dialog';
@@ -81,6 +82,8 @@ let onViewLine: ((line: Line, atFen?: string) => void) | null = null;
 // Module scope for the same reason as onViewLine.
 let onBuildLine: (() => void) | null = null;
 let onImportGames: (() => void) | null = null;
+// "Connect Lichess", from the contextual card below the training list.
+let onConnectLichess: (() => void) | null = null;
 // Add a starter/suggested line to training (wired from main.ts, which owns
 // lineFromUcis + addLineToTraining). See AddLineMode for what each mode does.
 // Module scope, like the routes above.
@@ -148,12 +151,14 @@ export function renderTrainScreen(
     ) => void;
     onBrowseLibrary?: () => void;
     onBuildWithEngine?: () => void;
+    onConnectLichess?: () => void;
     onSetFabVisible?: (visible: boolean) => void;
   } = {},
 ): void {
   onViewLine = opts.onOpenLine ?? null;
   onBuildLine = opts.onBuildLine ?? null;
   onImportGames = opts.onImportGames ?? null;
+  onConnectLichess = opts.onConnectLichess ?? null;
   onAddStarterLine = opts.onAddStarterLine ?? null;
   onBrowseLibrary = opts.onBrowseLibrary ?? null;
   onBuildWithEngine = opts.onBuildWithEngine ?? null;
@@ -233,6 +238,20 @@ async function doRender(
   const state = document.createElement('div');
   state.className = 'train-col train-col--state';
   container.append(doNext, state);
+
+  // The three offers the setup wizard used to make on first launch — import,
+  // Lichess, appearance — now that there's a line for them to be about. Each
+  // dismisses for good, so this is empty for anyone who's dealt with them.
+  // Gated on actually having a line: someone who skipped the first run lands
+  // here with nothing saved, and offering to restyle an empty repertoire is the
+  // same mistimed question the wizard used to ask.
+  if (allLines.length > 0) {
+    renderTrainCards(state, {
+      onImportGames: () => onImportGames?.(),
+      onConnectLichess: () => onConnectLichess?.(),
+      onChanged: () => void doRender(container),
+    });
+  }
 
   // The streak now lives on the daily-challenge card above the tabs, so Train's
   // own head is gone — the hero (when anything's due) is the top of this pane.

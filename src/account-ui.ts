@@ -184,16 +184,44 @@ function agoLabel(iso: string | null): string {
 
 // ── Signed out ───────────────────────────────────────────────────────────────
 
-function signedOutBody(mode: Mode, setMode: (m: Mode) => void): HTMLElement {
+// The sign-in / sign-up form, on its own. Exported so the post-onboarding
+// "Save your progress" sheet (onboarding-signup.ts) shows the SAME form rather
+// than a second implementation of it — one place to fix a bug in, one place
+// where the wording lives. The sheet passes its own blurb (it has already made
+// the pitch in its title) and opens on Sign up rather than Sign in.
+export function buildAuthForm(opts: {
+  initialMode?: Mode;
+  // Replacement for the standing blurb. Pass '' to drop it entirely, which is
+  // what the sheet does — its title has already made the pitch.
+  blurb?: string;
+} = {}): HTMLElement {
+  const host = document.createElement('div');
+  let mode: Mode = opts.initialMode ?? 'signin';
+  const render = (): void => {
+    host.replaceChildren(signedOutBody(mode, (m) => { mode = m; render(); }, opts.blurb));
+  };
+  render();
+  return host;
+}
+
+function signedOutBody(
+  mode: Mode,
+  setMode: (m: Mode) => void,
+  blurbText?: string,
+): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'account-auth';
 
-  const blurb = document.createElement('p');
-  blurb.className = 'section-desc';
-  blurb.textContent =
-    'An account is how you’ll keep your repertoire when you change phone. ' +
-    'Everything works without one for now.';
-  wrap.appendChild(blurb);
+  const copy = blurbText ?? (
+    'An account is how you’ll keep your repertoire when you change phone. '
+    + 'Everything works without one for now.'
+  );
+  if (copy) {
+    const blurb = document.createElement('p');
+    blurb.className = 'section-desc';
+    blurb.textContent = copy;
+    wrap.appendChild(blurb);
+  }
 
   // Sign in / Sign up, as a two-way switch above the shared form. Deliberately
   // not the `segmented` control from Settings: this picks which form you're

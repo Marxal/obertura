@@ -28,9 +28,15 @@ import { pushBack } from './back-nav';
 import { freeTrainingSlots, showBulkCapToast } from './entitlement';
 
 // Lines in training needed to unlock the Train hub. The Train screen reads this
-// for its gate; onboarding shows progress toward it. Lowered from 6 → 5 to make
-// the climb feel a little shorter.
-export const ONBOARDING_GOAL = 5;
+// for its gate; onboarding shows progress toward it.
+//
+// Now 1. It was 6, then 5, on the theory that a repertoire needs a bit of bulk
+// before training makes sense — but that made "unlock training" a chore bar the
+// user had to grind out before seeing what they'd come for. One line IS a
+// repertoire: it's due tomorrow, it comes back, the loop works. The first-run
+// picker (onboarding-picker.ts) gets them that line in under a minute, and the
+// hub takes it from there.
+export const ONBOARDING_GOAL = 1;
 
 type Colour = 'white' | 'black';
 

@@ -35,6 +35,7 @@ import { runEndgameScanSelfTest } from '../src/endgame-scan.selftest';
 import { runStudyImportSelfTest } from '../src/study-import.selftest';
 import { runStudyCatalogSelfTest } from '../src/study-catalog.selftest';
 import { runRepertoireSyncSelfTest } from '../src/repertoire-sync.selftest';
+import { runOnboardingLinesSelfTest } from '../src/onboarding-lines.selftest';
 
 interface TestResult { name: string; pass: boolean; detail: string }
 
@@ -68,6 +69,7 @@ const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'study-import', run: runStudyImportSelfTest },
   { suite: 'study-catalog', run: runStudyCatalogSelfTest },
   { suite: 'account-sync', run: runRepertoireSyncSelfTest },
+  { suite: 'onboarding-lines', run: runOnboardingLinesSelfTest },
 ];
 
 let total = 0;

@@ -32,7 +32,12 @@ function mainlineOf(tree: MoveNode): MoveNode[] {
 export function startPretrainingRun(
   line: Line,
   onComplete: () => void,
-  onCancel: () => void
+  onCancel: () => void,
+  // The guided first run replaces the closing line with one that says what
+  // happens NEXT ("it'll come back tomorrow"), because at that point the user
+  // has never seen a review land and "added to training" doesn't yet mean
+  // anything to them.
+  opts: { completeMessage?: string } = {},
 ): void {
   // Deep-clone so lapse edits don't mutate the caller's copy in memory.
   const lineCopy: Line = { ...line, tree: structuredClone(line.tree) };
@@ -51,7 +56,7 @@ export function startPretrainingRun(
     // No backLabel override: the in-session exit control reads "End session"
     // everywhere (the default), with the header chevron as its icon.
     modeLabel: 'Confirm line',
-    completeMessage: 'Line confirmed — added to training',
+    completeMessage: opts.completeMessage ?? 'Line confirmed — added to training',
     // Watch the line through once first, at the user's chosen watch speed.
     watchFirstMs: watchSpeedMs(),
     // A wrong move draws the correct-move arrow and requires the replay — the
