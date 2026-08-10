@@ -1,0 +1,79 @@
+{
+  "_comment": [
+    "The eight lines the first-run picker offers — four styles × two colours.",
+    "`moves` is the full line in SAN. `cuts` says how many of THE USER'S OWN",
+    "moves each level keeps: the picker truncates to that many, which always",
+    "lands on the user's own move (White = odd ply, Black = even ply) so a saved",
+    "line ends on a move they have to remember, matching the app's convention.",
+    "Cuts are 3 / 5 / 7 wherever the line is long enough, and capped at the",
+    "line's own length where it isn't — Polish stops at 6, Owen at 4.",
+    "Every line and every cut is checked by openings.selftest.ts: each must be",
+    "legal, must end on the user's move, and must resolve an opening name."
+  ],
+  "lines": [
+    {
+      "style": "solid",
+      "colour": "white",
+      "name": "Italian Game",
+      "blurb": "Natural, safe, and it never goes out of fashion.",
+      "moves": ["e4", "e5", "Nf3", "Nc6", "Bc4", "Bc5", "c3", "Nf6", "d3", "d6", "O-O", "O-O", "Nbd2"],
+      "cuts": { "beginner": 3, "intermediate": 5, "advanced": 7 }
+    },
+    {
+      "style": "sharp",
+      "colour": "white",
+      "name": "Scotch Game",
+      "blurb": "Rips the centre open early and keeps the initiative.",
+      "moves": ["e4", "e5", "Nf3", "Nc6", "d4", "exd4", "Nxd4", "Bc5", "Nb3", "Bb6", "Nc3", "Nf6", "Be3"],
+      "cuts": { "beginner": 3, "intermediate": 5, "advanced": 7 }
+    },
+    {
+      "style": "classical",
+      "colour": "white",
+      "name": "Ruy López",
+      "blurb": "The Spanish. Played at the top for four hundred years.",
+      "moves": ["e4", "e5", "Nf3", "Nc6", "Bb5", "a6", "Ba4", "Nf6", "O-O", "Be7", "Re1", "b5", "Bb3"],
+      "cuts": { "beginner": 3, "intermediate": 5, "advanced": 7 }
+    },
+    {
+      "style": "wild",
+      "colour": "white",
+      "name": "Polish Opening",
+      "blurb": "Nobody expects 1.b4. That's rather the point.",
+      "moves": ["b4", "e5", "Bb2", "Bxb4", "Bxe5", "Nf6", "Nf3", "Nc6", "Bb2", "d5", "e3"],
+      "cuts": { "beginner": 3, "intermediate": 5, "advanced": 6 }
+    },
+    {
+      "style": "solid",
+      "colour": "black",
+      "name": "Caro-Kann",
+      "blurb": "Tough to crack. Very hard to lose quickly.",
+      "moves": ["e4", "c6", "d4", "d5", "Nc3", "dxe4", "Nxe4", "Bf5", "Ng3", "Bg6", "h4", "h6", "Nf3", "Nd7"],
+      "cuts": { "beginner": 3, "intermediate": 5, "advanced": 7 }
+    },
+    {
+      "style": "sharp",
+      "colour": "black",
+      "name": "Sicilian, Najdorf",
+      "blurb": "Black fights for the win from move one.",
+      "moves": ["e4", "c5", "Nf3", "d6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3", "a6", "Be3", "e5", "Nb3", "Be7"],
+      "cuts": { "beginner": 3, "intermediate": 5, "advanced": 7 }
+    },
+    {
+      "style": "classical",
+      "colour": "black",
+      "name": "French, Classical",
+      "blurb": "Solid, strategic, and full of ideas.",
+      "moves": ["e4", "e6", "d4", "d5", "Nc3", "Nf6", "e5", "Nfd7", "f4", "c5", "Nf3", "Nc6", "Be3", "Qb6"],
+      "cuts": { "beginner": 3, "intermediate": 5, "advanced": 7 }
+    },
+    {
+      "style": "wild",
+      "colour": "black",
+      "name": "Owen's Defence",
+      "blurb": "Straight out to the long diagonal. Cheeky, and sound.",
+      "moves": ["e4", "b6", "d4", "Bb7", "Bd3", "e6", "Nf3", "c5"],
+      "cuts": { "beginner": 3, "intermediate": 4, "advanced": 4 }
+    }
+  ]
+}

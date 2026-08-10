@@ -282,10 +282,18 @@ body {
    until main.ts has the first view's data, then fading out. Uses the theme's page
    colour (already applied before paint by the inline head script) so there's no
    flash of the wrong shade. */
+/* z-index 150 puts the splash above the app itself but BELOW the full-screen
+   overlay tier (200: the intro, the first-run picker; 300: sheets; 400: the beta
+   gate). It used to sit at 1000, above everything, which made "has the splash
+   been dismissed yet?" a load-bearing question for every first-run screen: any
+   screen that mounted before the splash faded was simply invisible underneath
+   it. Now a first-run screen covers it regardless, and hideAppSplash() is belt
+   and braces rather than the only thing standing between the user and a blank
+   page. */
 #app-splash {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: 150;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -15115,4 +15123,413 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 
 .account-sync--error {
   color: var(--danger);
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   FIRST-RUN PICKER  (onboarding-picker.ts)
+
+   One screen, three choices: colour, depth, style. Built to fit a 412×915 phone
+   without scrolling — the whole thing is a flex column where only the card grid
+   flexes, so the head, the two controls and the footer keep their natural size
+   and the cards absorb whatever height is left. It still scrolls if it has to
+   (a short landscape window); it just shouldn't need to.
+
+   Sits at z-index 200, the full-screen-overlay tier the intro uses, so the
+   shared import sheet (.edit-overlay, 300) opens cleanly on top of it.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+.picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: calc(1.1rem + env(safe-area-inset-top)) 0.9rem
+           calc(0.9rem + env(safe-area-inset-bottom));
+  background: var(--bg-page);
+  overflow-y: auto;
+}
+
+.picker-head {
+  flex: 0 0 auto;
+  text-align: center;
+}
+
+/* Same Chakra Petch wordmark as the app header and the desktop sidebar — the
+   name is always written lower case in the markup, never text-transformed. */
+.picker-brand {
+  font-family: 'Chakra Petch', monospace;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--accent);
+}
+
+.picker-lead {
+  margin: 0.35rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.picker-controls {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* The stage holds one card layer in flow (which sets its height) and, during a
+   change, the outgoing layer lifted on top of it. */
+.picker-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Rows hug their content and the pair sits centred in whatever height is left,
+   rather than each card stretching to fill its row — a stretched card leaves a
+   pool of dead space under its blurb, which reads as a rendering bug. */
+.picker-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-rows: min-content;
+  align-content: center;
+  gap: 0.6rem;
+  height: 100%;
+}
+
+/* The crossfade. The outgoing layer is taken out of flow so the incoming one
+   keeps the stage exactly where it was — no reflow, no jump, just a dissolve.
+   Deliberately unhurried: this is the moment the picker earns its keep. */
+.picker-cards--out {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 320ms ease, transform 320ms ease;
+}
+.picker-cards--out.is-gone {
+  opacity: 0;
+  transform: scale(0.985);
+}
+
+.picker-cards--enter {
+  opacity: 0;
+  transform: scale(1.015);
+}
+.picker-cards:not(.picker-cards--out) {
+  transition: opacity 320ms ease, transform 320ms ease;
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .picker-cards,
+  .picker-cards--out {
+    transition: none;
+  }
+}
+
+.picker-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-height: 0;
+  padding: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-card);
+  color: var(--text);
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.15s, transform 0.1s;
+}
+
+.picker-card:active {
+  transform: scale(0.98);
+  border-color: var(--accent);
+}
+
+@media (hover: hover) {
+  .picker-card:hover { border-color: var(--accent); }
+}
+
+/* The miniature caps its own width so a wide (desktop) card doesn't turn into a
+   giant board with three lines of text beside it. */
+.picker-card-board {
+  width: 100%;
+  max-width: 128px;
+  margin: 0 auto;
+  flex: 0 0 auto;
+}
+
+.picker-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-height: 0;
+}
+
+.picker-card-style {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.picker-card-name {
+  font-size: 0.86rem;
+  font-weight: 650;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+/* "against 1.e4" — a Black repertoire is an answer, and the move list alone
+   (which opens with White's move) doesn't say so. */
+.picker-card-against {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.picker-card-moves {
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+  word-break: break-word;
+}
+
+.picker-card-blurb {
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: var(--text-muted);
+  opacity: 0.85;
+}
+
+.picker-foot {
+  flex: 0 0 auto;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.picker-import-link {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Desktop: the picker is a centred column rather than a full-bleed sheet, and
+   the cards get room to breathe instead of stretching to a 1440px grid. */
+@media (min-width: 900px) {
+  .picker-overlay {
+    align-items: center;
+    justify-content: center;
+    gap: 1.1rem;
+    padding: 2rem 1rem;
+  }
+  .picker-head,
+  .picker-controls,
+  .picker-stage,
+  .picker-foot {
+    width: 100%;
+    max-width: 640px;
+  }
+  .picker-stage {
+    flex: 0 1 auto;
+  }
+  .picker-brand { font-size: 1.9rem; }
+  .picker-lead { font-size: 1.25rem; }
+  .picker-card-board { max-width: 150px; }
+}
+
+/* ── Guided first line: the coach strip (onboarding-guide.ts) ─────────────────
+   Rides inside #builder-dock, above the eval bar and the button row. The dock
+   is the one part of the builder that's already allowed to change height (the
+   eval bar slides open there), so the sheet re-lays out around this for free —
+   and because it's in the dock, it can never cover the board. */
+.guide-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border-card);
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-card));
+}
+
+.guide-strip-text {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+/* Each new beat fades up in place, so a change is noticed without the strip
+   moving anything around it. */
+.guide-strip--in .guide-strip-text {
+  animation: guide-beat-in 0.28s ease;
+}
+
+@keyframes guide-beat-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.guide-strip-skip {
+  flex: 0 0 auto;
+  padding: 0.2rem 0.1rem;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: underline;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The closing beat points at Save; this is what it points with. */
+.guide-attention {
+  animation: guide-attention-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes guide-attention-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); }
+  50%      { box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 0%, transparent); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guide-strip--in .guide-strip-text { animation: none; }
+  .guide-attention {
+    animation: none;
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+}
+
+/* ── "Save your progress" sheet (onboarding-signup.ts) ────────────────────────
+   The shared bottom-sheet chrome (.edit-overlay / .edit-sheet) wrapped around
+   Settings' own auth form, so there is exactly one sign-up form in the app. */
+.signup-sheet {
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+.signup-sheet-lead {
+  margin: 0 0 0.9rem;
+  font-size: 0.86rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.signup-sheet-dismiss {
+  display: block;
+  width: 100%;
+  margin-top: 1rem;
+  padding: 0.6rem;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── Contextual cards on Train (train-cards.ts) ───────────────────────────────
+   What the setup wizard used to ask on first launch, offered instead once the
+   user has a line and the offer means something. Each dismisses for good. */
+.train-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0.75rem 0;
+}
+
+.train-card {
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  background: var(--bg-card);
+}
+
+.train-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.train-card-icon {
+  display: inline-flex;
+  color: var(--accent);
+}
+
+.train-card-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.92rem;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.train-card-close {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-right: -0.3rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) {
+  .train-card-close:hover { background: var(--bg-page); color: var(--text); }
+}
+
+.train-card-body {
+  margin: 0.35rem 0 0.65rem;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.train-card-btn {
+  width: 100%;
+}
+
+/* The "Make it yours" panel: Settings' own controls, inlined. */
+.train-card-panel {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-card);
+}
+
+.train-card-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
 }

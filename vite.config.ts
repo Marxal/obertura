@@ -36,5 +36,9 @@ export default defineConfig({
   define: {
     __APP_NAME__: JSON.stringify('Bito Chess'),
     __APP_VERSION__: JSON.stringify(pkg.version),
+    // The app itself needs to know which host it was built for: the public
+    // Cloudflare build is open to anonymous visitors and skips the beta gate,
+    // while the internal GitHub Pages build keeps it (see gate.ts / main.ts).
+    __DEPLOY_TARGET__: JSON.stringify(target),
   },
 });

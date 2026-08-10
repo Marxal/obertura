@@ -49,7 +49,7 @@ import { createBuilderPanels, type BuilderPanels } from './builder-panels';
 import { initTheme } from './theme';
 import { initAppearance } from './appearance';
 import { initDriveAutoBackup } from './drive-backup';
-import { watchSpeedMs, getConfirmRunBeforeTraining, getShowEngineArrows, setShowEngineArrows, getShowMoveClassifications, getEngineAlwaysOn } from './prefs';
+import { watchSpeedMs, getConfirmRunBeforeTraining, getShowEngineArrows, setShowEngineArrows, getShowMoveClassifications, getEngineAlwaysOn, setOnboardingComplete } from './prefs';
 import { reviewLine, gradeNode, type ReviewSummary } from './review';
 import { renderLineAnalysis, hasReview } from './line-analysis';
 import { applyBrilliantTag } from './brilliant';
@@ -59,9 +59,12 @@ import { initBackNav, setViewBack, pushBack } from './back-nav';
 import { showDialog } from './dialog';
 import { platformLabel } from './board-explorer';
 import { openImportPanel, getGamesSource, IDENTITY_CHANGED_EVENT } from './import-panel';
-import { maybeShowIntro } from './onboarding';
 import { openStarterPackPicker, type LineSeed, type AddLineMode } from './onboarding-starter';
 import { showOnboardingWizard, wizardStepPending } from './onboarding-wizard';
+import { showOnboardingPicker, shouldShowFirstRun } from './onboarding-picker';
+import { mountFirstLineGuide, type GuideHandle } from './onboarding-guide';
+import { maybeAskToSignUp, handleAuthUrlParam } from './onboarding-signup';
+import type { LineCut } from './onboarding-lines';
 import { maybeAutoRefreshGames } from './auto-refresh';
 import { maybeShowGate } from './gate';
 import { showToast } from './toast';
@@ -1623,6 +1626,7 @@ function playUci(uci: string): void {
   renderMoveDetails();
   updateOpeningName();
   reevaluate();
+  noteGuidedUserMove();
   void gradeLiveMove(node, parentFen);
 }
 
@@ -1647,6 +1651,7 @@ function commitBoardMove(from: string, to: string, promotion: 'q' | 'r' | 'b' | 
   renderMoveDetails();
   updateOpeningName();
   reevaluate();
+  noteGuidedUserMove();
   void gradeLiveMove(node, parentFen);
 }
 
@@ -1764,6 +1769,11 @@ function setWatchPlaying(playing: boolean): void {
   btn.title = label;
 }
 
+// Fires once when a playback reaches the end of its line under its own steam —
+// not when it's paused, and not when it's abandoned. The guided first run uses
+// it to start coaching only once the line has finished playing itself in.
+let playbackDone: (() => void) | null = null;
+
 // Pause playback but keep the queue, so the button can resume from here.
 function pausePlayback(): void {
   if (playbackTimer !== undefined) {
@@ -1778,7 +1788,40 @@ function stopPlayback(): void {
   pausePlayback();
   playbackMoves = [];
   playbackIndex = 0;
+  playbackDone = null;
   setWatchPlaying(false);
+}
+
+// Play the next queued move, then schedule the one after at the current speed.
+function playStep(): void {
+  if (playbackIndex >= playbackMoves.length) {
+    // Grab the callback before stopPlayback clears it — reaching the end is the
+    // one path that's allowed to fire it.
+    const done = playbackDone;
+    stopPlayback();
+    done?.();
+    return;
+  }
+  playbackTimer = setTimeout(() => {
+    handleMoveClick(playbackMoves[playbackIndex].id);
+    playbackIndex++;
+    playStep();
+  }, watchSpeedMs());
+}
+
+// Rewind to the start of the current line and watch it through. This is the
+// Watch button's own behaviour, lifted out so the guided first run can play its
+// line in exactly the same way — same speed pref, same stepping, same pause
+// button — rather than growing a second animation loop beside it.
+function startPlaybackFromStart(onDone?: () => void): void {
+  const moves = mainline();
+  if (moves.length === 0) { onDone?.(); return; }
+  playbackMoves = moves;
+  playbackIndex = 0;
+  playbackDone = onDone ?? null;
+  goToStart();
+  setWatchPlaying(true);
+  playStep();
 }
 
 function goToStart(): void {
@@ -2005,6 +2048,54 @@ function clearBuilder(colour: 'white' | 'black' = 'white'): void {
 function startNewLine(colour: 'white' | 'black'): void {
   clearBuilder(colour);
   showView('builder');
+}
+
+// ── The guided first line (first run only) ───────────────────────────────────
+//
+// Picked a style card → the builder opens with that line already laid down,
+// plays it in, and a coach strip says three short things. From here on it is an
+// ORDINARY builder session: the tree is a normal single-mode tree, a divergent
+// move truncates exactly as it always does, Save is the same Save. The only
+// difference is that the save routes straight into the confirm run instead of
+// asking whether you'd like to train it.
+let guide: GuideHandle | null = null;
+let guidedActive = false;
+
+function startGuidedLine(cut: LineCut): void {
+  // Lays the whole line down and opens the builder with the cursor at its end —
+  // the same call "From my games" uses.
+  buildFromUcis(cut.ucis, cut.line.colour);
+  guidedActive = true;
+
+  // Then rewind and watch it play itself in, using the builder's own Watch
+  // playback (so it honours the watch-speed pref and can be paused mid-flight).
+  startPlaybackFromStart(() => {
+    if (!guidedActive) return;
+    guide = mountFirstLineGuide({
+      // The curated name, for the same reason the card uses it: "This is the
+      // French Defense: Steinitz Variation, Boleslavsky Variation" is not a
+      // sentence anyone wants read to them on their first minute.
+      openingName: cut.line.name,
+      ownMoves: cut.ownMoves,
+      onSkip: () => { endGuided(); showView('train'); },
+      // The strip lives in the dock, which changes the dock's height — the same
+      // re-measure the eval bar's toggle does.
+      onLayoutChange: () => { layoutBuilderSheet(); cg?.redrawAll(); },
+    });
+  });
+}
+
+function endGuided(): void {
+  guidedActive = false;
+  guide?.destroy();
+  guide = null;
+}
+
+// A move the user played themselves (dragged on the board, or tapped from a
+// panel) means they've started making the line their own — the coach stops
+// telling them they're allowed to.
+function noteGuidedUserMove(): void {
+  guide?.noteUserMove();
 }
 
 // Open the builder on a specific carousel tab (e.g. an external "browse the
@@ -2288,11 +2379,16 @@ function linesScreenDeps(): Parameters<typeof renderLinesScreen>[1] {
 // all. requestTrainingSlot shows the upsell itself when it says no; we just take
 // the cancel path, leaving the line saved and untouched. Bulk adds do NOT come
 // through here (see addSequentially): they get a toast, not a price tag.
-function addLineToTraining(line: Line, onDone: () => void, onCancel: () => void = () => {}): void {
+function addLineToTraining(
+  line: Line,
+  onDone: () => void,
+  onCancel: () => void = () => {},
+  opts: { forceConfirmRun?: boolean; completeMessage?: string } = {},
+): void {
   void requestTrainingSlot().then((allowed) => {
     if (!allowed) { onCancel(); return; }
-    if (getConfirmRunBeforeTraining()) {
-      startPretrainingRun(line, onDone, onCancel);
+    if (opts.forceConfirmRun || getConfirmRunBeforeTraining()) {
+      startPretrainingRun(line, onDone, onCancel, { completeMessage: opts.completeMessage });
     } else {
       void enrolLineDirectly(line).then(onDone);
     }
@@ -2524,6 +2620,7 @@ function renderTrainTabbed(host: HTMLElement): void {
         onAddStarterLine: addStarterLine,
         onBrowseLibrary: () => openBuilderTab(LIBRARY_SLIDE, { fresh: true, colour: 'white' }),
         onBuildWithEngine: () => openBuilderTab(0, { fresh: true, colour: 'white', engine: true }),
+        onConnectLichess: () => void lichessConnect(),
         onSetFabVisible: (visible) => fabController?.setVisible(visible),
       });
       pendingTrainLineId = null;
@@ -3415,7 +3512,40 @@ async function finishSave(): Promise<void> {
     goToSavedLine(line.id);
     return;
   }
+  // The guided first line goes STRAIGHT into the confirm run. No "start training
+  // this line?" dialog: they were told to save it two beats ago, and a modal
+  // asking whether they meant it is exactly the friction this first run exists
+  // to remove. Everything else still gets the prompt.
+  if (guidedActive) {
+    finishGuidedSave(line);
+    return;
+  }
   promptAddToTraining(line);
+}
+
+// Save → confirm run → "it's in training" → the one sign-up ask. The whole
+// point of the guided run is that this happens in one unbroken movement.
+function finishGuidedSave(line: Line): void {
+  endGuided();
+  addLineToTraining(
+    line,
+    () => {
+      showView('train');
+      // The first thing we ever ask for, and only now: straight after something
+      // that went well. maybeAskToSignUp no-ops if there are no accounts to
+      // make, if they're already signed in, or if they've said no before.
+      maybeAskToSignUp();
+    },
+    // Cancelled the run (or the cap said no): the line is saved either way, so
+    // land on it rather than dropping them somewhere they didn't ask for.
+    () => goToSavedLine(line.id),
+    {
+      // The confirm run IS the payoff here, so it runs even for someone who has
+      // turned it off in Settings — which on a true first visit is nobody.
+      forceConfirmRun: true,
+      completeMessage: 'It’s in training. It’ll come back tomorrow, before you forget it.',
+    },
+  );
 }
 
 function setupSaveButton() {
@@ -3459,19 +3589,6 @@ function setupPlaybackControls(): void {
     showToast(`This line will now save as ${saveColour === 'white' ? 'White' : 'Black'}`);
   });
 
-  // Play the next queued move, then schedule the one after at the current speed.
-  function playStep(): void {
-    if (playbackIndex >= playbackMoves.length) {
-      stopPlayback();
-      return;
-    }
-    playbackTimer = setTimeout(() => {
-      handleMoveClick(playbackMoves[playbackIndex].id);
-      playbackIndex++;
-      playStep();
-    }, watchSpeedMs());
-  }
-
   watchBtn.addEventListener('click', () => {
     // Already playing → pause (keeps position for a later resume).
     if (playbackTimer !== undefined) {
@@ -3481,14 +3598,11 @@ function setupPlaybackControls(): void {
 
     // Fresh start (or restart after a finished run): load the line from the top.
     if (playbackMoves.length === 0 || playbackIndex >= playbackMoves.length) {
-      const moves = mainline();
-      if (moves.length === 0) return;
-      playbackMoves = moves;
-      playbackIndex = 0;
-      goToStart();
+      startPlaybackFromStart();
+      return;
     }
-    // Otherwise we're resuming a paused line from playbackIndex.
 
+    // Otherwise we're resuming a paused line from playbackIndex.
     setWatchPlaying(true);
     playStep();
   });
@@ -3752,16 +3866,42 @@ maybeShowGate(() => requestAnimationFrame(() => {
   // (shown once per session until they submit — see survey.ts).
   maybeShowSurveyBanner();
 
-  // First launch: play the intro, then the setup wizard, landing back on Train
-  // when both are done (an import there refreshes Train's view). The intro shows
-  // once — see onboarding.ts. If the app rebooted mid-wizard (a Lichess OAuth
-  // redirect away and back from the wizard's Connect step), skip straight to
-  // resuming the wizard at its stashed step instead of replaying the intro.
+  // A "Sign up" link from the marketing site (?auth=signup) opens the sheet
+  // directly, whatever else is going on.
+  handleAuthUrlParam();
+
+  // FIRST VISIT: the picker. One screen — colour, depth, style — and then the
+  // guided first line. No beta code, no carousel, no setup wizard, no account:
+  // a visitor should be looking at their own saved line inside a minute.
+  //
+  // It only appears on a genuinely empty install (no lines AND onboarding never
+  // finished), so an existing user sees none of this. The intro and the setup
+  // wizard both still exist and are replayable from Settings; they're just no
+  // longer in anybody's way.
+  //
+  // The one exception is a wizard resumed mid-flight: if the app rebooted during
+  // the wizard's Lichess connect step (an OAuth redirect away and back), finish
+  // what was started rather than dropping the user into a first-run screen.
   if (wizardStepPending()) {
     showOnboardingWizard({ onFinish: () => showView('train') });
   } else {
-    maybeShowIntro({
-      onFinish: () => showOnboardingWizard({ onFinish: () => showView('train') }),
+    void shouldShowFirstRun().then((show) => {
+      if (!show) return;
+      showOnboardingPicker({
+        onPick: (cut) => startGuidedLine(cut),
+        onImport: (close) => openImportPanel({
+          onImported: () => {
+            // Importing games IS a first line's worth of intent — the picker has
+            // done its job, so it steps aside and Train takes over.
+            setOnboardingComplete();
+            close();
+            showView('train');
+          },
+        }),
+        // The picker is the first screen on a first visit, so it clears the boot
+        // splash itself rather than depending on the boot order to have done it.
+        onShown: hideAppSplash,
+      });
     });
   }
 

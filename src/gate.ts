@@ -358,6 +358,14 @@ function showCodeEntry(overlay: HTMLDivElement, onPass: () => void): void {
 // screen in that case, so nothing may wait on onPass (which may never come) to
 // get out of the way.
 export function maybeShowGate(onPass: () => void, onGateShown?: () => void): void {
+  // The public build has no gate at all. bitochess.com is a website a stranger
+  // can land on, and an access-code wall is the wrong first thing to show them —
+  // they get the guest-first first run instead (onboarding-picker.ts). The
+  // internal GitHub Pages build keeps the gate exactly as it always was.
+  if (__DEPLOY_TARGET__ === 'cloudflare') {
+    onPass();
+    return;
+  }
   if (isUnlocked() || isStandalone()) {
     onPass();
     return;
