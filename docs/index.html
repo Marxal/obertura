@@ -1,1009 +1,969 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-GB">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bito Chess — learn chess openings your way</title>
-  <meta name="description" content="Build your own chess opening repertoire, train it with spaced repetition, and remember your openings when it matters. No subscriptions, no cloud lock-in." />
-  <meta name="theme-color" content="#f1ece1" id="theme-color-meta" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Open Graph / sharing -->
-  <meta property="og:type" content="website" />
-  <meta property="og:title" content="Bito Chess — learn chess openings your way" />
-  <meta property="og:description" content="Build your own opening repertoire, train it with spaced repetition, and remember your openings when it matters." />
-  <meta property="og:url" content="https://bitochess.com/" />
-  <meta property="og:image" content="https://bitochess.com/app-icon.png" />
+<!--
+  ════════════════════════════════════════════════════════════════════════════
+  Bito Chess — marketing landing page (bitochess.com root)
 
-  <!-- Resolve the theme before first paint (default: the phone's preference;
-       fallback: light). Mirrors the app's own pre-paint theme script. -->
-  <script>
-    (function () {
-      var root = document.documentElement;
-      try {
-        var saved = localStorage.getItem('obertura-landing-theme');
-        var t = saved || (window.matchMedia &&
-          window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-        root.setAttribute('data-theme', t);
-        root.classList.add('js');
-      } catch (e) {
-        root.setAttribute('data-theme', 'light');
-      }
-    })();
-  </script>
+  Standalone. No build step, no framework, no libraries. Everything is inline
+  so the page is a single request plus fonts. Copy lives in LANDING-COPY.md —
+  edit there first, then mirror it here.
 
-  <!-- Chakra Petch — used ONLY for the "bito chess" wordmark, as in the app. -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400&display=swap" />
+  WHERE THIS FILE IS SERVED (see vite.config.ts):
+    DEPLOY_TARGET=cloudflare → copied to dist/index.html, i.e. bitochess.com/
+                               and the trainer sits at bitochess.com/app/
+    DEPLOY_TARGET unset      → NOT part of the vite build at all; the GitHub
+                               Actions workflow copies docs/ to dist/docs/, so
+                               this previews at <pages-url>/obertura/docs/ with
+                               the app at <pages-url>/obertura/. The CTA script
+                               below rewrites /app/ hrefs for that mirror.
 
-  <style>
-    /* ── Design tokens — mirrored from the app (Obertura_Style_Guide.html).
-       Light is the default :root; dark is applied via [data-theme="dark"], which
-       the pre-paint script sets from the phone's preference. Board squares
-       (#eecfa1 / #b58863) NEVER change between themes. ── */
-    :root {
-      --bg-page: #f1ece1;
-      --bg-card: #faf4e6;
-      --text: #3c3225;
-      --text-muted: #6b5638;
-      --text-faint: #9c7a5a;
-      --border-card: #e0d0b8;
-      --hairline: rgba(156, 107, 67, 0.18);
-      --accent: #ff9b21;
-      --accent-active: #e08800;
-      --accent-soft: rgba(255, 155, 33, 0.14);
-      /* Wordmark + pawn only. Warmer than --accent in light mode. */
-      --brand: #c17a2a;
-      --primary: #3e6650;
-      --primary-active: #345646;
-      --primary-sheen: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, transparent 55%, rgba(0,0,0,0.06) 100%);
-      --board-light: #eecfa1;
-      --board-dark: #b58863;
-      --shadow-card: 0 1px 3px rgba(28, 22, 16, 0.07), 0 1px 2px rgba(28, 22, 16, 0.04);
-      --paper-speckle: rgba(120, 90, 50, 0.035);
-      color-scheme: light;
-    }
+  DELIBERATE DIVERGENCE FROM THE APP — DO NOT "FIX" THIS:
+  The app uses system-ui throughout (src/style.css) with Chakra Petch for the
+  wordmark only. This page uses Fraunces for display and Spline Sans for body
+  on purpose: it is an editorial page, not app chrome. Continuity with the app
+  comes from colour, warm shadow and paper texture, NOT from type. Swapping
+  these back to system-ui would flatten the page for no gain.
 
-    [data-theme="dark"] {
-      --bg-page: #1a1512;
-      --bg-card: #241d18;
-      --text: #e8dcc8;
-      --text-muted: #c2b39a;
-      --text-faint: #9a8870;
-      --border-card: #3a2e22;
-      --hairline: rgba(232, 220, 200, 0.12);
-      --accent: #ff9b21;
-      --accent-active: #e08800;
-      --accent-soft: rgba(255, 155, 33, 0.18);
-      /* In dark mode the wordmark + pawn keep the original orange. */
-      --brand: var(--accent);
-      --primary: #527d63;
-      --primary-active: #466b54;
-      --primary-sheen: none;
-      --shadow-card: none;
-      --paper-speckle: rgba(255, 240, 214, 0.02);
-      color-scheme: dark;
-    }
+  LIGHT ONLY. There is no dark theme here and nothing responds to
+  prefers-color-scheme — that is a decision, not an oversight. The art
+  direction is paper.
+  ════════════════════════════════════════════════════════════════════════════
+-->
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+<title>Bito Chess — learn your openings once, remember them for good</title>
+<meta name="description" content="Build your own chess opening repertoire, drill it with spaced repetition, and stop forgetting your prep on move six. Free to use, pay once if you want more, no subscription." />
+<meta name="theme-color" content="#f1ece1" />
+<meta name="color-scheme" content="light" />
 
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      color: var(--text);
-      background-color: var(--bg-page);
-      /* The same subtle paper texture used by the app, page-background only. */
-      background-image:
-        radial-gradient(var(--paper-speckle) 1px, transparent 1.4px),
-        radial-gradient(var(--paper-speckle) 1px, transparent 1.4px);
-      background-size: 24px 24px, 37px 37px;
-      background-position: 0 0, 12px 19px;
-      background-attachment: fixed;
-      line-height: 1.6;
-      -webkit-font-smoothing: antialiased;
-    }
+<!-- Open Graph / sharing. og-image.png does not exist yet — supply a
+     1200×630 PNG at the site root and this starts working with no code
+     change. Until then the tag simply 404s, which is harmless. -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Bito Chess" />
+<meta property="og:title" content="Bito Chess — learn your openings once, remember them for good" />
+<meta property="og:description" content="Build your own repertoire, drill it with spaced repetition, and stop forgetting your prep on move six." />
+<meta property="og:url" content="https://bitochess.com/" />
+<meta property="og:image" content="https://bitochess.com/og-image.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta name="twitter:card" content="summary_large_image" />
 
-    .wrap { max-width: 720px; margin: 0 auto; padding: 0 1.25rem; }
+<link rel="icon" href="app-icon.png" />
+<link rel="apple-touch-icon" href="app-icon.png" />
 
-    /* ── Shared button ──────────────────────────────────────────────────── */
-    .btn-primary {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 48px;
-      padding: 0.85rem 1.7rem;
-      border-radius: 8px;
-      border: 1px solid transparent;
-      background-color: var(--primary);
-      background-image: var(--primary-sheen);
-      color: #fff;
-      font-size: 1rem;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-      text-decoration: none;
-      cursor: pointer;
-      box-shadow: 0 2px 5px rgba(62,102,80,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
-      text-shadow: 0 1px 1px rgba(0,0,0,0.18);
-      transition: filter 0.12s;
-    }
-    .btn-primary:hover { filter: brightness(1.1); }
-    .btn-primary:active { filter: brightness(0.88); }
-    [data-theme="dark"] .btn-primary { box-shadow: none; text-shadow: none; }
+<!-- Marks the document as JS-capable BEFORE first paint. Every animation in
+     this file is gated on html.js, so with JS off the page renders at its
+     final state instead of staying invisible. This mirrors the convention the
+     app already uses. -->
+<script>document.documentElement.className += ' js';</script>
 
-    /* ── Theme toggle (top-right) ───────────────────────────────────────── */
-    .theme-toggle {
-      position: fixed;
-      top: 0.9rem;
-      right: 0.9rem;
-      z-index: 50;
-      width: 44px;
-      height: 44px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      border: 1px solid var(--border-card);
-      border-radius: 999px;
-      background: var(--bg-card);
-      color: var(--text-muted);
-      cursor: pointer;
-      box-shadow: var(--shadow-card);
-      -webkit-tap-highlight-color: transparent;
-      transition: color 0.12s, border-color 0.12s;
-    }
-    .theme-toggle:hover { color: var(--text); border-color: var(--accent); }
-    .theme-toggle svg { width: 22px; height: 22px; }
-    /* Show the icon for the mode you'll switch TO. */
-    [data-theme="dark"] .theme-toggle .icon-moon { display: none; }
-    [data-theme="light"] .theme-toggle .icon-sun { display: none; }
+<!-- Fonts. Preconnect both hosts, then preload the stylesheet itself.
+     We deliberately do NOT preload the .woff2 binaries directly: those
+     fonts.gstatic.com URLs are rotated by Google without notice, and a stale
+     hardcoded one fails silently and wastes a round trip. Preloading the CSS
+     gets the same head start without the fragility. font-display:swap means
+     text is readable immediately in the fallback face either way. -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@700&family=Fraunces:opsz,wght@9..144,400..900&family=Spline+Sans:wght@400..600&display=swap" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@700&family=Fraunces:opsz,wght@9..144,400..900&family=Spline+Sans:wght@400..600&display=swap" />
 
-    /* ── Hero (fills the viewport so nothing peeks below the scroll arrow) ── */
-    .hero {
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 4rem 1.25rem 2.5rem;
-    }
+<style>
+/* ══════════════════════════════════════════════════════════════════════════
+   DESIGN TOKENS
+   Copied by hand from src/style.css :root on 2026-08-10 (app v0.4). There is
+   no import mechanism — this file is standalone and served from the site
+   root, so tokens have to be duplicated. The previous version of this page
+   had drifted badly from the app (wrong --text, wrong --accent); if you touch
+   the app palette, re-copy this block rather than patching values one by one.
 
-    .app-icon {
-      display: block;
-      width: 104px;
-      height: 104px;
-      margin: 1rem auto 0.85rem;
-      border-radius: 23px;
-      box-shadow: var(--shadow-card), 0 6px 22px rgba(28, 22, 16, 0.12);
-      border: 1px solid var(--hairline);
-      animation: icon-float 6s ease-in-out infinite;
-    }
-    [data-theme="dark"] .app-icon { box-shadow: 0 6px 22px rgba(0, 0, 0, 0.4); }
+   Only the light theme exists here. The board colours are NOT used as UI
+   colour anywhere on this page — they appear only inside actual boards and
+   screenshots, exactly as in the app.
+   ══════════════════════════════════════════════════════════════════════════ */
+:root {
+  color-scheme: light;
 
-    .wordmark {
-      font-family: 'Chakra Petch', monospace;
-      font-weight: 400;
-      font-size: clamp(1.7rem, 6vw, 1.95rem);
-      letter-spacing: 0.01em;
-      color: var(--brand);
-      line-height: 1;
-      margin-bottom: 2rem;
-    }
+  /* Surfaces */
+  --bg-page: #f1ece1;
+  --bg-card: #faf8f5;
+  --bg-parchment: #f8f3ea;
 
-    .hero h1 {
-      font-weight: 700;
-      line-height: 1.08;
-      margin-bottom: 0.9rem;
-    }
-    /* First line on one row even on a ~360px phone (fluid + nowrap). */
-    .hero h1 .hero-lead {
-      display: block;
-      font-size: clamp(1.7rem, 6.8vw, 2.4rem);
-      white-space: nowrap;
-    }
-    /* "your way." is the biggest type on the page. */
-    .hero h1 .hero-yourway {
-      display: block;
-      font-size: clamp(2.3rem, 11vw, 3.4rem);
-      font-weight: 800;
-      line-height: 1;
-      margin-top: 0.1rem;
-    }
+  /* Text — contrast on --bg-page / --bg-parchment:
+     text 15.2 / 16.2 · muted 7.3 / 7.8 · faint 4.8 / 5.1. All clear 4.5:1. */
+  --text: #1c1610;
+  --text-muted: #5c4838;
+  --text-faint: #7a6353;
 
-    .hero-sub {
-      font-size: clamp(1.05rem, 4.2vw, 1.25rem);
-      font-weight: 500;
-      max-width: 34ch;
-      margin: 0 auto 1rem;
-      color: var(--text);
-    }
+  /* Borders. The app has no --border-soft; this page defines it as an alias
+     of the app's --hairline so the naming in the design brief resolves. */
+  --hairline: rgba(28, 22, 16, 0.09);
+  --border-soft: rgba(28, 22, 16, 0.09);
+  --border-card: #e2dcd2;
 
-    .hero-promise {
-      font-size: 0.82rem;
-      color: var(--text-faint);
-      max-width: 40ch;
-      margin: 1.75rem auto 0;
-    }
+  /* Accent — brass. 2.94:1 on --bg-page, so it is DECORATIVE ONLY: rules,
+     underlines, marks. Never set copy in it at any size. */
+  --accent: #c07a2a;
 
-    /* ── Scroll cue (first load only) ───────────────────────────────────── */
-    .scroll-cue {
-      display: flex;
-      justify-content: center;
-      margin-top: 2.25rem;
-      color: var(--brand);
-      transition: opacity 0.5s ease;
-    }
-    .scroll-cue.hide { opacity: 0; pointer-events: none; }
-    .scroll-cue svg {
-      width: 30px;
-      height: 30px;
-      animation: scroll-bob 1.6s ease-in-out infinite;
-    }
+  /* Felt green — the app's primary, and every primary CTA here.
+     White on it measures 6.5:1. */
+  --primary: #3e6650;
+  --primary-active: #345646;
 
-    /* ── Section frame ──────────────────────────────────────────────────── */
-    section { padding: 2.75rem 0; }
+  /* Warm shadows only — brown-black, never grey. */
+  --shadow-card: 0 1px 3px rgba(28, 22, 16, 0.07), 0 1px 2px rgba(28, 22, 16, 0.04);
+  --shadow-lift: 0 10px 30px rgba(28, 22, 16, 0.10), 0 3px 8px rgba(28, 22, 16, 0.06);
+  --shadow-frame: 0 18px 44px rgba(28, 22, 16, 0.13), 0 4px 12px rgba(28, 22, 16, 0.07);
 
-    .section-eyebrow {
-      font-size: 0.76rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--accent-active);
-      margin-bottom: 0.75rem;
-    }
-    [data-theme="dark"] .section-eyebrow { color: var(--accent); }
+  /* Board — screenshots and boards only. Present for reference; not used as
+     page chrome anywhere in this file. */
+  --board-light: #eecfa1;
+  --board-dark: #b58863;
 
-    h2 {
-      font-size: clamp(1.4rem, 6vw, 1.9rem);
-      font-weight: 700;
-      line-height: 1.2;
-      margin-bottom: 1.25rem;
-    }
+  /* Page furniture */
+  --radius: 22px;
+  --measure: 60ch;
+  --pad-block: 96px;   /* section rhythm, mobile */
+  --gutter: 22px;
+  --paper-speckle: rgba(120, 90, 50, 0.035);
+}
 
-    /* ── Story (a comic speech bubble, with the speaker below it) ───────── */
-    .story-block { display: flex; flex-direction: column; align-items: center; }
-    .story {
-      position: relative;
-      width: 100%;
-      background: var(--bg-card);
-      border: 1px solid var(--border-card);
-      border-radius: 18px;
-      padding: 1.6rem 1.75rem 1.9rem;
-      box-shadow: var(--shadow-card);
-      margin-bottom: 26px; /* room for the tail + the avatar overlap below */
-    }
-    /* Tail pointing down toward the avatar — border triangle + fill. */
-    .story::before {
-      content: "";
-      position: absolute;
-      left: 50%;
-      bottom: -10px;
-      transform: translateX(-50%);
-      border-width: 10px 8px 0;
-      border-style: solid;
-      border-color: var(--border-card) transparent transparent;
-    }
-    .story::after {
-      content: "";
-      position: absolute;
-      left: 50%;
-      bottom: -8px;
-      transform: translateX(-50%);
-      border-width: 9px 7px 0;
-      border-style: solid;
-      border-color: var(--bg-card) transparent transparent;
-    }
-    .story p { font-size: 1.06rem; color: var(--text); text-align: left; }
-    .story p + p { margin-top: 0.9rem; }
-    .story-avatar {
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
-      background: var(--accent-soft);
-      border: 1px solid var(--border-card);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.8rem;
-      line-height: 1;
-      position: relative;
-      z-index: 1;
-      animation: avatar-glow 2.6s ease-in-out infinite;
-    }
+@media (min-width: 900px) {
+  :root { --pad-block: 140px; --gutter: 40px; }
+}
 
-    /* ── Pillars (Everything you need) ──────────────────────────────────── */
-    .pillars { display: grid; grid-template-columns: 1fr; gap: 1rem; }
-    .pillar {
-      background: var(--bg-card);
-      border: 1px solid var(--border-card);
-      border-radius: 14px;
-      padding: 1.4rem 1.5rem;
-      box-shadow: var(--shadow-card);
-      transition: transform 0.18s ease, box-shadow 0.18s ease;
-    }
-    @media (hover: hover) {
-      .pillar:hover {
-        transform: translateY(-3px);
-        box-shadow: var(--shadow-card), 0 8px 22px rgba(28, 22, 16, 0.10);
-      }
-    }
-    [data-theme="dark"] .pillar:hover { box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35); }
-    .pillar h3 {
-      font-size: 1.15rem;
-      font-weight: 700;
-      margin-bottom: 0.6rem;
-      display: flex;
-      align-items: center;
-      gap: 0.7rem;
-    }
-    .pillar h3 .ic {
-      flex: none;
-      width: 40px;
-      height: 40px;
-      border-radius: 11px;
-      background: var(--accent-soft);
-      color: var(--accent-active);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-    [data-theme="dark"] .pillar h3 .ic { color: var(--accent); }
-    .pillar h3 .ic svg { width: 22px; height: 22px; }
-    .pillar p { color: var(--text-muted); font-size: 0.98rem; }
-    .pillar p + p { margin-top: 0.6rem; }
-    .pillar .lead { color: var(--text); }
+/* ══════════════════════════════════════════════════════════════════════════
+   BASE
+   ══════════════════════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; padding: 0; }
 
-    .pillar ul { list-style: none; margin: 0.75rem 0 0; padding: 0; }
-    .pillar ul li {
-      position: relative;
-      padding-left: 1.5rem;
-      margin-bottom: 0.45rem;
-      color: var(--text-muted);
-      font-size: 0.98rem;
-    }
-    .pillar ul li::before {
-      content: "";
-      position: absolute;
-      left: 0;
-      top: 0.62em;
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--accent);
-    }
-    .pillar .aside { margin-top: 0.7rem; font-weight: 600; color: var(--text); }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
-    /* ── Included (checklist) ───────────────────────────────────────────── */
-    .included { display: grid; grid-template-columns: 1fr; gap: 0.55rem 1.5rem; }
-    @media (min-width: 520px) { .included { grid-template-columns: 1fr 1fr; } }
-    .included li {
-      list-style: none;
-      position: relative;
-      padding-left: 1.85rem;
-      color: var(--text);
-      font-size: 0.98rem;
-    }
-    .included li::before {
-      content: "✓";
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 1.35rem;
-      height: 1.35rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 50%;
-      background: var(--accent-soft);
-      color: var(--accent-active);
-      font-size: 0.8rem;
-      font-weight: 800;
-    }
-    [data-theme="dark"] .included li::before { color: var(--accent); }
+body {
+  font-family: 'Spline Sans', system-ui, -apple-system, sans-serif;
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--text);
+  background-color: var(--bg-page);
+  /* The same faint paper speckle the app uses on its page background. */
+  background-image:
+    radial-gradient(var(--paper-speckle) 1px, transparent 1.4px),
+    radial-gradient(var(--paper-speckle) 1px, transparent 1.4px);
+  background-size: 24px 24px, 37px 37px;
+  background-position: 0 0, 12px 19px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
 
-    /* ── "And many more features" — its own breathing section ───────────── */
-    .horizon {
-      text-align: center;
-      padding: 4.5rem 0;
-    }
-    .horizon .more-to-come {
-      font-size: clamp(1.7rem, 7.5vw, 2.5rem);
-      font-weight: 700;
-      line-height: 1.18;
-      color: var(--text);
-      text-wrap: balance;
-      max-width: 18ch;
-      margin: 0 auto 1.6rem;
-    }
-    .horizon .more-to-come .glow { color: var(--accent); }
-    /* A faint glowing horizon line with a small sparkle — "the road ahead". */
-    .horizon-line {
-      position: relative;
-      height: 1px;
-      max-width: 240px;
-      margin: 0 auto;
-      background: linear-gradient(90deg, transparent, var(--accent), transparent);
-      opacity: 0.55;
-    }
-    .horizon-line::after {
-      content: "✨";
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -55%);
-      font-size: 1.1rem;
-      animation: sparkle 2.8s ease-in-out infinite;
-    }
+@media (min-width: 900px) { body { font-size: 18px; } }
 
-    /* ── Screenshots ────────────────────────────────────────────────────── */
-    .shots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.85rem; }
-    @media (min-width: 560px) { .shots { grid-template-columns: repeat(4, 1fr); } }
-    .shot {
-      aspect-ratio: 9 / 19;
-      border-radius: 14px;
-      border: 1px solid var(--border-card);
-      background: var(--bg-card);
-      overflow: hidden;
-      box-shadow: var(--shadow-card);
-      transition: transform 0.18s ease, box-shadow 0.18s ease;
-    }
-    .shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .shot { cursor: zoom-in; }
-    @media (hover: hover) {
-      .shot:hover {
-        transform: translateY(-4px);
-        box-shadow: var(--shadow-card), 0 10px 24px rgba(28, 22, 16, 0.12);
-      }
-    }
-    [data-theme="dark"] .shot:hover { box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4); }
+img { max-width: 100%; display: block; }
 
-    /* ── Screenshot lightbox (click a shot to open; drag/swipe to navigate) ── */
-    .lightbox {
-      position: fixed;
-      inset: 0;
-      z-index: 200;
-      background: rgba(10, 8, 6, 0.92);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0;
-      visibility: hidden;
-      transition: opacity 0.2s ease;
-    }
-    .lightbox.open { opacity: 1; visibility: visible; }
-    .lightbox-stage {
-      width: min(86vw, 380px);
-      aspect-ratio: 9 / 19;
-      overflow: hidden;
-      border-radius: 16px;
-      touch-action: pan-y;
-      cursor: grab;
-    }
-    .lightbox-stage:active { cursor: grabbing; }
-    .lightbox-img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-      user-select: none;
-      -webkit-user-drag: none;
-    }
-    .lightbox-close,
-    .lightbox-nav {
-      position: absolute;
-      border: none;
-      background: rgba(255, 255, 255, 0.1);
-      color: #fff;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 999px;
-      transition: background 0.12s;
-    }
-    .lightbox-close:hover,
-    .lightbox-nav:hover { background: rgba(255, 255, 255, 0.2); }
-    .lightbox-close {
-      top: 1rem;
-      right: 1rem;
-      width: 40px;
-      height: 40px;
-      font-size: 1.5rem;
-      line-height: 1;
-    }
-    .lightbox-nav {
-      top: 50%;
-      transform: translateY(-50%);
-      width: 44px;
-      height: 44px;
-      font-size: 1.6rem;
-    }
-    .lightbox-prev { left: 0.75rem; }
-    .lightbox-next { right: 0.75rem; }
+::selection { background: rgba(62, 102, 80, 0.18); }
 
-    /* ── Feedback form (posts to the same Web3Forms destination as the app) ── */
-    .feedback {
-      background: var(--bg-card);
-      border: 1px solid var(--border-card);
-      border-radius: 16px;
-      padding: 1.75rem;
-      box-shadow: var(--shadow-card);
-    }
-    .feedback > p { color: var(--text-muted); margin-bottom: 0.5rem; }
-    .feedback label {
-      display: block;
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      margin: 0.9rem 0 0.35rem;
-    }
-    .feedback textarea,
-    .feedback input[type="email"] {
-      width: 100%;
-      padding: 0.7rem 0.8rem;
-      border: 1px solid var(--border-card);
-      border-radius: 8px;
-      background: var(--bg-page);
-      color: var(--text);
-      font: inherit;
-      font-size: 1rem;
-    }
-    .feedback textarea:focus,
-    .feedback input:focus { outline: none; border-color: var(--accent); }
-    .feedback textarea { resize: vertical; min-height: 92px; }
-    .feedback .honeypot { position: absolute; left: -9999px; opacity: 0; }
-    .feedback .send-row { margin-top: 1rem; }
-    .feedback-status { margin-top: 0.75rem; font-size: 0.88rem; color: var(--text-faint); }
+/* Skip link — keyboard users land here first. */
+.skip {
+  position: absolute; left: -9999px; top: 0; z-index: 100;
+  background: var(--primary); color: #fff;
+  padding: 14px 22px; border-radius: 0 0 var(--radius) 0;
+  font-weight: 600; text-decoration: none;
+}
+.skip:focus { left: 0; }
 
-    /* ── Final CTA (tall, calm close) + footer + pawn mascot ────────────── */
-    .final-cta {
-      min-height: 72vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      gap: 2rem;
-    }
-    .final-cta .final-cta-heading {
-      font-size: clamp(1.5rem, 6.5vw, 2.1rem);
-      font-weight: 700;
-      line-height: 1.2;
-      text-wrap: balance;
-      max-width: 16ch;
-    }
-    .final-cta .btn-primary { padding: 1rem 2.2rem; font-size: 1.08rem; }
+/* ══════════════════════════════════════════════════════════════════════════
+   TYPE
+   Fraunces carries the page. Its optical-size axis is set per role: display
+   sizes get a high opsz (tighter, more contrast, the "titling" cut), smaller
+   headings get a lower one so they stay sturdy at text sizes.
+   ══════════════════════════════════════════════════════════════════════════ */
+h1, h2, h3 {
+  font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+  font-weight: 900;
+  color: var(--text);
+  text-wrap: balance;
+}
 
-    footer {
-      border-top: 1px solid var(--hairline);
-      padding: 2rem 0 2.5rem;
-      text-align: center;
-    }
-    .pawn-mascot { color: var(--brand); line-height: 0; display: flex; justify-content: center; }
-    .pawn-flip { display: inline-block; transform-origin: center; animation: pawn-flip 5.25s ease-in-out infinite; }
-    .pawn-svg {
-      display: block;
-      width: 46px;
-      height: 52px;
-      shape-rendering: crispEdges;
-      transform-origin: bottom center;
-      animation: pawn-hop 1.05s cubic-bezier(0.3, 0, 0.35, 1) infinite;
-    }
-    .pawn-svg rect { fill: currentColor; }
+h1 {
+  font-size: clamp(34px, 8vw, 76px);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  font-variation-settings: 'opsz' 144, 'SOFT' 0, 'WONK' 1;
+}
 
-    .footer-made { font-size: 0.85rem; color: var(--text-faint); }
-    .footer-made a { color: var(--text-faint); }
+h2 {
+  font-size: clamp(26px, 4.5vw, 44px);
+  line-height: 1.08;
+  letter-spacing: -0.015em;
+  font-variation-settings: 'opsz' 72, 'SOFT' 0, 'WONK' 1;
+}
 
-    /* ════════════════ MOTION ════════════════
-       Hero rises in on load; sections rise in as they scroll into view. Only
-       enabled when JS is present (so no-JS / failed-JS still shows everything),
-       and fully disabled under prefers-reduced-motion. */
-    html.js .hero > * { opacity: 0; animation: rise 0.65s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
-    html.js .hero > *:nth-child(1) { animation-delay: 0.05s; }
-    html.js .hero > *:nth-child(2) { animation-delay: 0.14s; }
-    html.js .hero > *:nth-child(3) { animation-delay: 0.23s; }
-    html.js .hero > *:nth-child(4) { animation-delay: 0.32s; }
-    html.js .hero > *:nth-child(5) { animation-delay: 0.41s; }
-    html.js .hero > *:nth-child(6) { animation-delay: 0.7s; }
+h3 {
+  font-size: clamp(19px, 2.4vw, 23px);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  font-variation-settings: 'opsz' 24;
+}
 
-    html.js .reveal {
-      opacity: 0;
-      transform: translateY(22px);
-      transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.2, 0.7, 0.3, 1);
-    }
-    html.js .reveal.in { opacity: 1; transform: none; }
-    /* Stagger the four pillars as the group reveals. */
-    html.js .pillars .pillar:nth-child(2) { transition-delay: 0.08s; }
-    html.js .pillars .pillar:nth-child(3) { transition-delay: 0.16s; }
-    html.js .pillars .pillar:nth-child(4) { transition-delay: 0.24s; }
+p { max-width: var(--measure); }
 
-    /* Included checklist: each item rises in with a subtle stagger once the
-       list (the .reveal parent) scrolls into view. */
-    html.js .included li {
-      opacity: 0;
-      transform: translateY(14px);
-      transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.2, 0.7, 0.3, 1);
-    }
-    html.js .included.in li { opacity: 1; transform: none; }
-    html.js .included.in li:nth-child(1)  { transition-delay: 0.00s; }
-    html.js .included.in li:nth-child(2)  { transition-delay: 0.05s; }
-    html.js .included.in li:nth-child(3)  { transition-delay: 0.10s; }
-    html.js .included.in li:nth-child(4)  { transition-delay: 0.15s; }
-    html.js .included.in li:nth-child(5)  { transition-delay: 0.20s; }
-    html.js .included.in li:nth-child(6)  { transition-delay: 0.25s; }
-    html.js .included.in li:nth-child(7)  { transition-delay: 0.30s; }
-    html.js .included.in li:nth-child(8)  { transition-delay: 0.35s; }
-    html.js .included.in li:nth-child(9)  { transition-delay: 0.40s; }
-    html.js .included.in li:nth-child(10) { transition-delay: 0.45s; }
-    html.js .included.in li:nth-child(11) { transition-delay: 0.50s; }
+strong { font-weight: 600; color: var(--text); }
 
-    @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-    @keyframes pawn-hop {
-      0%, 100% { transform: translateY(0) scaleY(1)    scaleX(1); }
-      12%      { transform: translateY(0) scaleY(0.88) scaleX(1.1); }
-      40%      { transform: translateY(-15px) scaleY(1.08) scaleX(0.94); }
-      68%      { transform: translateY(0) scaleY(0.9)  scaleX(1.08); }
-      82%      { transform: translateY(0) scaleY(1)    scaleX(1); }
-    }
-    @keyframes pawn-flip { 0%, 80% { transform: rotate(0); } 96%, 100% { transform: rotate(360deg); } }
-    @keyframes icon-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
-    @keyframes scroll-bob { 0%, 100% { transform: translateY(0); opacity: 0.7; } 50% { transform: translateY(7px); opacity: 1; } }
-    @keyframes sparkle { 0%, 100% { opacity: 0.5; transform: translate(-50%, -55%) scale(0.9); } 50% { opacity: 1; transform: translate(-50%, -55%) scale(1.15); } }
-    @keyframes avatar-glow {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(255, 155, 33, 0); }
-      50% { box-shadow: 0 0 0 8px rgba(255, 155, 33, 0.18); }
-    }
+.wordmark {
+  font-family: 'Chakra Petch', ui-monospace, monospace;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--primary);
+  text-transform: lowercase;
+}
 
-    @media (prefers-reduced-motion: reduce) {
-      html.js .hero > *,
-      html.js .reveal,
-      html.js .included li { opacity: 1 !important; transform: none !important; animation: none !important; transition: none !important; }
-      .pawn-svg, .pawn-flip, .app-icon, .scroll-cue svg,
-      .horizon-line::after, .story-avatar { animation: none !important; }
-    }
-  </style>
+/* The one accent typographic device: step numbers set as chess move numbers,
+   monospace, in felt green. Used in "How it works" and nowhere else. */
+.movenum {
+  font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 700;
+  font-size: clamp(21px, 3vw, 27px);
+  line-height: 1;
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  position: relative;
+  display: inline-block;
+  padding-bottom: 8px;
+}
+/* The quiet brass underline. Final state by default so a no-JS page shows it
+   drawn; html.js collapses it and the reveal draws it left-to-right. */
+.movenum::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 2px;
+  background: var(--accent);
+  transform: scaleX(1);
+  transform-origin: left center;
+}
+
+.lede {
+  font-size: clamp(18px, 2.4vw, 21px);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.quiet { color: var(--text-muted); }
+.faint { font-size: 15px; color: var(--text-faint); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   BANDS + LAYOUT
+   Full-bleed alternating bands, cream → parchment → cream, so scrolling feels
+   like turning pages. Never two identical adjacent.
+   ══════════════════════════════════════════════════════════════════════════ */
+.band {
+  position: relative;
+  padding: var(--pad-block) 0;
+}
+.band--parchment { background: var(--bg-parchment); }
+
+/* Clips the watermark board below, which deliberately hangs off the corner. */
+.band--texture { overflow: hidden; }
+
+.inner {
+  width: 100%;
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+  position: relative;
+  z-index: 1;
+}
+
+/* ONE 8×8 board, used as a watermark — not a repeating tile. Tiling it across
+   the whole band made it read as wallpaper; a single contained board at 3%
+   reads the way a printed board does on book paper. background-size: 25%
+   gives four 2×2 conic tiles across, i.e. exactly eight squares. It hangs off
+   the right edge so it never sits squarely behind a column of text.
+   Applied to exactly two bands (How it works, Why). */
+.band--texture::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  width: min(440px, 62vw);
+  aspect-ratio: 1 / 1;
+  /* Anchored to the bottom-right and hanging off both edges, so it settles
+     into the dead corner every one of these sections has instead of sitting
+     behind a heading. The band clips the overhang. */
+  right: -56px;
+  bottom: -72px;
+  opacity: 0.03;
+  background-image: repeating-conic-gradient(var(--text) 0% 25%, transparent 0% 50%);
+  background-size: 25% 25%;
+}
+
+/* Feature sections: heading in one column, body in the other, and the two
+   swap sides down the page. Asymmetric by construction, stacked on mobile. */
+.feature { display: grid; gap: 26px; }
+
+@media (min-width: 900px) {
+  .feature {
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    gap: 0 clamp(48px, 6vw, 100px);
+    align-items: start;
+  }
+  .feature__head { grid-column: 1; grid-row: 1; }
+  .feature__body { grid-column: 2; grid-row: 1; }
+  .feature--flip .feature__head { grid-column: 2; }
+  .feature--flip .feature__body { grid-column: 1; }
+}
+
+.feature__body > * + * { margin-top: 20px; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   BUTTONS
+   ══════════════════════════════════════════════════════════════════════════ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 54px;
+  padding: 15px 32px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;                       /* 6.5:1 on felt green */
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(62, 102, 80, 0.26);
+  transition: background-color 160ms ease, box-shadow 160ms ease, transform 120ms ease;
+}
+.btn:hover { background: var(--primary-active); box-shadow: 0 6px 18px rgba(62, 102, 80, 0.30); }
+.btn:active { transform: scale(0.98); box-shadow: 0 1px 3px rgba(62, 102, 80, 0.28); }
+
+/* Visible keyboard focus everywhere — dark ink ring, legible on cream,
+   parchment and on the green button itself. */
+a:focus-visible,
+button:focus-visible {
+  outline: 3px solid var(--text);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.btn:focus-visible { border-radius: 999px; }
+
+.cta-block { margin-top: 34px; }
+.cta-block .trust { margin-top: 16px; font-size: 15px; color: var(--text-faint); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   HERO
+   ══════════════════════════════════════════════════════════════════════════ */
+.hero { padding-top: clamp(56px, 12vw, 96px); padding-bottom: var(--pad-block); }
+
+.hero .wordmark {
+  font-size: clamp(19px, 2.6vw, 23px);
+  margin-bottom: clamp(28px, 7vw, 52px);
+}
+
+.hero h1 { margin-bottom: 0; }
+.h1-break { display: none; }
+@media (min-width: 900px) { .h1-break { display: block; } }
+
+.hero__cols { margin-top: clamp(30px, 5vw, 44px); display: grid; gap: clamp(38px, 7vw, 56px); }
+
+@media (min-width: 900px) {
+  .hero__cols {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr);
+    gap: clamp(48px, 6vw, 88px);
+    /* start, not center: the text column is much shorter than the square
+       board, and centring it opened a dead gap under the H1. Hanging both
+       from the same top line reads as a title page and lets the board fall
+       past the text, which is the asymmetry we want. */
+    align-items: start;
+  }
+}
+
+.hero .lede { max-width: 34ch; }
+
+/* PLACEHOLDER. An interactive board widget replaces this in a later session —
+   do not substitute a static image in the meantime, the empty frame is the
+   honest state. Square, because a chessboard is square. */
+.board-ph {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  color: var(--text-faint);
+  font-size: 15px;
+  letter-spacing: 0.01em;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   HOW IT WORKS
+   ══════════════════════════════════════════════════════════════════════════ */
+.steps { margin-top: clamp(40px, 6vw, 64px); display: grid; gap: clamp(34px, 5vw, 46px); }
+
+@media (min-width: 900px) {
+  .steps { grid-template-columns: repeat(3, 1fr); gap: clamp(40px, 4vw, 60px); }
+}
+
+.step__n { margin-bottom: 18px; }
+.step p { max-width: 40ch; color: var(--text-muted); }
+.step p strong { color: var(--text); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LISTS — real hanging indents, no bullet dots. A felt-green en dash sits in
+   the hanging position and wrapped lines align to the text, not under it.
+   ══════════════════════════════════════════════════════════════════════════ */
+.hang { list-style: none; max-width: var(--measure); }
+.hang li {
+  position: relative;
+  padding-left: 1.35em;
+  color: var(--text-muted);
+}
+.hang li + li { margin-top: 15px; }
+.hang li::before {
+  content: "–";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SCREENSHOTS — scrolling row on mobile, staggered grid on desktop.
+   ══════════════════════════════════════════════════════════════════════════ */
+.shots-wrap { margin-top: clamp(38px, 5vw, 56px); }
+
+.shots {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  /* Bleed past the gutter so the row runs off both screen edges. */
+  margin: 0 calc(var(--gutter) * -1);
+  padding: 6px var(--gutter) 20px;
+}
+.shots::-webkit-scrollbar { display: none; }
+
+.shot {
+  flex: 0 0 62%;
+  max-width: 244px;
+  scroll-snap-align: center;
+}
+
+@media (min-width: 900px) {
+  .shots {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: clamp(16px, 2vw, 26px);
+    overflow: visible;
+    /* Wider than the 1140px text column, so the frames overlap the section
+       edge and the layout stops feeling boxed. */
+    margin: 0 auto;
+    padding: 20px 0 40px;
+    width: min(1320px, 100%);
+  }
+  .shot { flex: none; max-width: none; }
+  /* Quiet vertical rhythm — alternate frames drop, like a contact sheet. */
+  .shot:nth-child(even) { transform: translateY(30px); }
+}
+
+.shot__frame {
+  aspect-ratio: 1080 / 2400;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-frame);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  text-align: center;
+}
+.shot__frame img { width: 100%; height: 100%; object-fit: cover; }
+
+/* PLACEHOLDER STATE. To ship a real screenshot, replace the two <span>s
+   inside .shot__frame with:  <img src="shot-train.png" alt="The Train hub" />
+   Supply each at 1080×2400. Nothing else needs to change — the frame already
+   holds that aspect ratio. */
+.shot__label {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 900;
+  font-variation-settings: 'opsz' 24;
+  font-size: 16px;
+  line-height: 1.2;
+  color: var(--text-muted);
+}
+.shot__spec {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+.shot__cap { margin-top: 12px; font-size: 14px; color: var(--text-faint); text-align: center; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PRICE — two restrained blocks. Deliberately not a pricing table: no
+   buttons, no tick lists, no "most popular" badge.
+   ══════════════════════════════════════════════════════════════════════════ */
+.tiers { margin-top: clamp(38px, 5vw, 56px); display: grid; gap: 20px; }
+@media (min-width: 900px) { .tiers { grid-template-columns: 1fr 1fr; gap: 28px; } }
+
+.tier {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: clamp(26px, 4vw, 38px);
+}
+.tier p { max-width: none; color: var(--text-muted); }
+.tier strong {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 900;
+  font-variation-settings: 'opsz' 36;
+  font-size: clamp(21px, 2.6vw, 26px);
+  letter-spacing: -0.01em;
+  display: inline;
+}
+.tier .amt { color: var(--primary); font-weight: 600; white-space: nowrap; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   WHY + FINAL CTA + FOOTER
+   ══════════════════════════════════════════════════════════════════════════ */
+.why__body > * + * { margin-top: 20px; }
+.why__body p { color: var(--text-muted); }
+.why__body p:first-child {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 400;
+  font-variation-settings: 'opsz' 48;
+  font-size: clamp(21px, 3vw, 28px);
+  line-height: 1.35;
+  color: var(--text);
+  max-width: 30ch;
+}
+
+.final { text-align: center; }
+.final h2 { margin: 0 auto; max-width: 16ch; }
+.final .cta-block { display: flex; flex-direction: column; align-items: center; }
+.final .trust { max-width: none; }
+
+.foot {
+  background: var(--bg-parchment);
+  border-top: 1px solid var(--border-soft);
+  padding: 44px 0 calc(44px + env(safe-area-inset-bottom, 0px));
+  text-align: center;
+}
+.foot .wordmark { font-size: 17px; display: block; margin-bottom: 8px; }
+.foot p { max-width: none; font-size: 14px; color: var(--text-faint); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   STICKY MOBILE CTA BAR
+   Mobile only, and only once the hero has scrolled away. JS-gated: with JS
+   off it never renders at all, which is correct — the in-page CTAs work fine.
+   ══════════════════════════════════════════════════════════════════════════ */
+.cta-bar { display: none; }
+
+@media (max-width: 899px) {
+  html.js .cta-bar {
+    display: block;
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 40;
+    padding: 12px var(--gutter) calc(12px + env(safe-area-inset-bottom, 0px));
+    /* Fully opaque on purpose: at 96% the copy underneath showed through and
+       read as muddy, and blurring it would be glassmorphism. */
+    background: var(--bg-parchment);
+    border-top: 1px solid var(--border-soft);
+    box-shadow: 0 -6px 20px rgba(28, 22, 16, 0.09);
+    transform: translateY(110%);
+    transition: transform 240ms ease-out;
+  }
+  html.js .cta-bar.show { transform: translateY(0); }
+  .cta-bar .btn { width: 100%; }
+  /* Room so the bar never sits over the footer. */
+  html.js .foot { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   MOTION — exactly four things, all gated on html.js so the page is complete
+   without JavaScript, and all collapsed to their final state under
+   prefers-reduced-motion (an existing convention in this repo).
+     1. scroll reveal   2. button press/hover   3. CTA bar   4. underline draw
+   ══════════════════════════════════════════════════════════════════════════ */
+html.js .reveal {
+  opacity: 0;
+  transform: translateY(10px);
+  transition:
+    opacity 320ms ease-out var(--d, 0ms),
+    transform 320ms ease-out var(--d, 0ms);
+}
+html.js .reveal.in { opacity: 1; transform: none; }
+
+html.js .movenum::after {
+  transform: scaleX(0);
+  transition: transform 480ms ease-out calc(var(--d, 0ms) + 140ms);
+}
+html.js .reveal.in .movenum::after { transform: scaleX(1); }
+
+@media (prefers-reduced-motion: reduce) {
+  html.js .reveal,
+  html.js .reveal.in {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  html.js .movenum::after,
+  html.js .reveal.in .movenum::after {
+    transform: scaleX(1) !important;
+    transition: none !important;
+  }
+  html.js .cta-bar { transition: none !important; }
+  .btn { transition: none !important; }
+  .btn:active { transform: none !important; }
+  .shot:nth-child(even) { transform: none; }
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
+}
+</style>
 </head>
 <body>
 
-  <!-- Light / dark toggle -->
-  <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle light or dark mode">
-    <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
-    <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
-  </button>
+<a class="skip" href="#main">Skip to content</a>
 
-  <!-- ═══════════════════ HERO ═══════════════════ -->
-  <header class="hero">
-    <img class="app-icon" src="app-icon.png" width="104" height="104"
-         alt="Bito Chess app icon" />
-    <div class="wordmark">bito chess</div>
-    <h1>
-      <span class="hero-lead">Learn chess openings</span>
-      <span class="hero-yourway">your way</span>
-    </h1>
-    <p class="hero-sub">
-      Build your own repertoire, train it with spaced repetition, and remember your
-      openings when it matters.
-    </p>
-    <p class="hero-promise">
-      No subscriptions. No cloud lock-in. Your repertoire stays on your device.
-    </p>
-    <div class="scroll-cue" id="scroll-cue" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+<!-- ─────────────────────────────── HERO ─────────────────────────────── -->
+<header class="band hero" id="hero">
+  <div class="inner">
+    <p class="wordmark reveal">Bito</p>
+    <h1 class="reveal">Learn your openings once.<span class="h1-break"></span> Remember them for good.</h1>
+
+    <div class="hero__cols">
+      <div class="hero__text">
+        <p class="lede reveal">Build your own repertoire, drill it with spaced repetition, and stop forgetting your prep on move six.</p>
+        <div class="cta-block reveal">
+          <!-- Hero CTA: no query string. Only the FINAL CTA carries
+               ?auth=signup (see below). -->
+          <a class="btn js-app" href="/app/">Try it — no account needed</a>
+          <p class="trust">Free to use. Pay once if you want more. No subscription, ever.</p>
+        </div>
+      </div>
+      <div class="hero__board reveal">
+        <div class="board-ph">hero board widget goes here</div>
+      </div>
     </div>
-  </header>
+  </div>
+</header>
 
-  <main class="wrap">
+<main id="main">
 
-    <!-- ═══════════════════ EVERYTHING YOU NEED ═══════════════════ -->
-    <section>
-      <h2 class="reveal">Everything you need to learn openings.</h2>
-      <div class="pillars">
-
-        <div class="pillar reveal">
-          <h3>
-            <span class="ic"><!-- My Lines piece (bottom-nav icon) -->
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="4.5" r="2.5"/><path d="M9.5 8.5h5"/><path d="M9.5 8.5c0 2.5-1 3.5-2 6.5h9c-1-3-2-4-2-6.5"/><path d="M6 19c.5-2.5 1.5-3 1.5-4h9c0 1 1 1.5 1.5 4z"/></svg>
-            </span>Build your repertoire
-          </h3>
-          <p class="lead">Create your opening repertoire however you prefer:</p>
-          <ul>
-            <li>Enter moves directly on the board</li>
-            <li>Start from the built-in opening library</li>
-            <li>Import lines from your own games</li>
-            <li>Use engine suggestions</li>
-            <li>Add ideas discovered while preparing for an opponent</li>
-          </ul>
+  <!-- ───────────────────────── HOW IT WORKS ───────────────────────── -->
+  <section class="band band--parchment band--texture">
+    <div class="inner">
+      <h2 class="reveal">How it works</h2>
+      <div class="steps">
+        <div class="step reveal">
+          <p class="step__n"><span class="movenum">1.</span></p>
+          <p><strong>Build a line.</strong> Play it out on the board, or pull it from the library, a study, or one of your own games.</p>
         </div>
-
-        <div class="pillar reveal">
-          <h3>
-            <span class="ic"><!-- Train bolt (bottom-nav icon) -->
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-            </span>Train with purpose
-          </h3>
-          <p>Spaced repetition focuses on the moves you forget and reviews them until
-            they become automatic.</p>
-          <p class="aside">No random drills. No wasted time.</p>
+        <div class="step reveal">
+          <p class="step__n"><span class="movenum">2.</span></p>
+          <p><strong>Confirm it once.</strong> Walk through it, then play it back. That’s what puts it into training.</p>
         </div>
-
-        <div class="pillar reveal">
-          <h3>
-            <span class="ic"><!-- scouting / search -->
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-            </span>Prepare for real games
-          </h3>
-          <p>Import games from Chess.com and Lichess, explore millions of online
-            games, and scout opponents to see what they actually play.</p>
-          <p class="aside">Build lines for the positions you're actually likely to
-            face.</p>
+        <div class="step reveal">
+          <p class="step__n"><span class="movenum">3.</span></p>
+          <p><strong>It comes back before you forget.</strong> Spaced repetition tracks every move you play and returns the ones you’re losing.</p>
         </div>
-
-        <div class="pillar reveal">
-          <h3>
-            <span class="ic"><!-- bar chart (matches the app's Statistics tab) -->
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg>
-            </span>Know where you stand
-          </h3>
-          <p>Follow your progress over time.</p>
-          <p>See which openings you're mastering, which lines need attention, and
-            where your training is paying off. Clear insights help you spend less
-            time guessing and more time improving.</p>
-        </div>
-
       </div>
-    </section>
-
-    <!-- ═══════════════════ A LOOK INSIDE (SCREENSHOTS) ═══════════════════ -->
-    <section class="reveal">
-      <div class="section-eyebrow">A look inside</div>
-      <div class="shots">
-        <div class="shot"><img src="shot-train.png" alt="The Train hub" /></div>
-        <div class="shot"><img src="shot-build.png" alt="The repertoire builder" /></div>
-        <div class="shot"><img src="shot-tree.png" alt="The repertoire tree" /></div>
-        <div class="shot"><img src="shot-stats.png" alt="The Statistics screen" /></div>
-      </div>
-    </section>
-
-    <!-- ═══════════════════ INCLUDED ═══════════════════ -->
-    <section>
-      <div class="section-eyebrow reveal">Included</div>
-      <ul class="included reveal">
-        <li>Automatic opening recognition</li>
-        <li>Visual repertoire tree</li>
-        <li>Engine evaluation on any position</li>
-        <li>Opening trap library</li>
-        <li>Position notes and tags</li>
-        <li>Timed training modes</li>
-        <li>Progress statistics and streaks</li>
-        <li>Backup and restore</li>
-        <li>Light and dark themes</li>
-        <li>Multiple piece sets</li>
-        <li>Installable on your phone</li>
-      </ul>
-    </section>
-
-    <!-- ═══════════════════ AND MANY MORE FEATURES ═══════════════════ -->
-    <section class="horizon reveal">
-      <p class="more-to-come">And <span class="glow">many more features</span> on&nbsp;the&nbsp;way.</p>
-      <div class="horizon-line" aria-hidden="true"></div>
-    </section>
-
-    <!-- ═══════════════════ WHY I MADE BITO CHESS (STORY) ═══════════════════ -->
-    <section class="reveal">
-      <div class="section-eyebrow">Why I made Bito Chess</div>
-      <div class="story-block">
-        <div class="story">
-          <p>I'm a passionate chess player, not a particularly strong one 🥹</p>
-          <p>After trying countless opening trainers, I always felt something was
-            missing. Most were either too rigid, too complicated, or didn't match the
-            way I wanted to study.</p>
-          <p>So I built Bito Chess for myself.</p>
-          <p>A place to build my own repertoire, train it efficiently, and prepare for
-            real opponents. If it helps other players improve too, even better. 🙌</p>
-        </div>
-        <div class="story-avatar" aria-hidden="true">🤓</div>
-      </div>
-    </section>
-
-    <!-- ═══════════════════ FEEDBACK ═══════════════════ -->
-    <section id="feedback" class="reveal">
-      <div class="section-eyebrow">Feedback</div>
-      <h2>Found a bug or have an idea?</h2>
-      <form class="feedback" id="feedback-form">
-        <p>Bito Chess is a personal project and is still evolving. I'd love to hear what
-          works, what doesn't, and what you'd like to see next.</p>
-        <!-- Posts to the same Web3Forms destination as the in-app feedback form. -->
-        <input type="hidden" name="access_key" value="07647d12-a144-4031-a14c-2c8cc3145650" />
-        <input type="hidden" name="subject" value="Bito Chess feedback — landing page" />
-        <input type="hidden" name="from_name" value="Bito Chess landing" />
-        <!-- Honeypot: must stay empty; bots fill it and Web3Forms rejects them. -->
-        <input type="text" name="botcheck" class="honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
-
-        <label for="fb-message">Message</label>
-        <textarea id="fb-message" name="message" required
-          placeholder="What works, what doesn't, or what you'd like to see next?"></textarea>
-
-        <label for="fb-email">Your email (optional)</label>
-        <input type="email" id="fb-email" name="email" autocomplete="email" placeholder="So I can reply" />
-
-        <div class="send-row">
-          <button type="submit" class="btn-primary">Send feedback</button>
-        </div>
-        <p class="feedback-status" id="feedback-status" aria-live="polite"></p>
-      </form>
-    </section>
-
-  </main>
-
-  <!-- ═══════════════════ FINAL CTA (tall, calm close) ═══════════════════ -->
-  <section class="final-cta wrap reveal">
-    <!-- The pixel-pawn mascot from the after-training success screen. -->
-    <div class="pawn-mascot" aria-hidden="true">
-      <span class="pawn-flip">
-        <svg class="pawn-svg" viewBox="0 0 16 18" focusable="false">
-          <rect x="5" y="0" width="6" height="3"/>
-          <rect x="4" y="3" width="8" height="3"/>
-          <rect x="6" y="6" width="4" height="2"/>
-          <rect x="4" y="8" width="8" height="2"/>
-          <rect x="3" y="10" width="10" height="2"/>
-          <rect x="5" y="12" width="6" height="2"/>
-          <rect x="2" y="14" width="12" height="2"/>
-          <rect x="2" y="16" width="5" height="2"/>
-          <rect x="9" y="16" width="5" height="2"/>
-        </svg>
-      </span>
     </div>
-    <p class="final-cta-heading">Ready to build your repertoire?</p>
-    <a class="btn-primary" href="/app/">Open the app</a>
   </section>
 
-  <!-- ═══════════════════ FOOTER ═══════════════════ -->
-  <footer>
-    <p class="footer-made">Made by <a href="https://marxal.net" target="_blank" rel="noopener noreferrer">marxal</a></p>
-  </footer>
-
-  <!-- ═══════════════════ SCREENSHOT LIGHTBOX ═══════════════════ -->
-  <div class="lightbox" id="lightbox" aria-hidden="true">
-    <button class="lightbox-close" id="lightbox-close" type="button" aria-label="Close">&times;</button>
-    <button class="lightbox-nav lightbox-prev" id="lightbox-prev" type="button" aria-label="Previous screenshot">&lsaquo;</button>
-    <div class="lightbox-stage" id="lightbox-stage">
-      <img class="lightbox-img" id="lightbox-img" alt="" draggable="false" />
+  <!-- ─────────────────────────── BUILD ─────────────────────────── -->
+  <section class="band">
+    <div class="inner feature">
+      <div class="feature__head reveal"><h2>Your repertoire, built your way</h2></div>
+      <div class="feature__body">
+        <p class="lede reveal">Not everyone learns an opening the same way, so there are five ways in:</p>
+        <ul class="hang reveal">
+          <li>Enter moves straight on the board</li>
+          <li>Browse a built-in library of ~3,700 named openings, offline</li>
+          <li>Import your own games from Chess.com and Lichess</li>
+          <li>Start from a curated opening pack, a Lichess study, or a famous trap</li>
+          <li>Watch a video on the position you’re looking at, without leaving the board</li>
+        </ul>
+      </div>
     </div>
-    <button class="lightbox-nav lightbox-next" id="lightbox-next" type="button" aria-label="Next screenshot">&rsaquo;</button>
+  </section>
+
+  <!-- ─────────────────────────── TRAIN ─────────────────────────── -->
+  <section class="band band--parchment">
+    <div class="inner feature feature--flip">
+      <div class="feature__head reveal"><h2>Focused practice, not random drills</h2></div>
+      <div class="feature__body">
+        <p class="lede reveal">Every move you learn carries its own memory score. The app brings back what’s slipping and leaves alone what’s solid.</p>
+        <p class="quiet reveal">Drill a full line, practise single positions, race a timed session, or go straight at your weakest moves. You always know why you’re being shown a move.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── YOUR GAMES ───────────────────────── -->
+  <section class="band">
+    <div class="inner feature">
+      <div class="feature__head reveal"><h2>Prepare for the games you actually play</h2></div>
+      <div class="feature__body">
+        <p class="lede reveal">Import from Chess.com or Lichess and the app reads your history back to you: which openings you lose in, the mistakes you keep repeating, the winning positions you let slip.</p>
+        <p class="quiet reveal">Scout an opponent before a club match and see what they really play — then build the lines you’ll actually face, not the ones in the book.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────────────── BEYOND OPENINGS ─────────────────────── -->
+  <section class="band band--parchment">
+    <div class="inner feature feature--flip">
+      <div class="feature__head reveal"><h2>There’s more than openings in here</h2></div>
+      <div class="feature__body">
+        <ul class="hang reveal">
+          <li>Rated puzzles, matched to your level and your own openings</li>
+          <li>Replay and fix real mistakes from your games</li>
+          <li>Rediscover the brilliant moves you’ve already played</li>
+          <li>Endgame training, judged against a tablebase</li>
+          <li>Casual games against Stockfish, from any position</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ────────────────────────── PROGRESS ────────────────────────── -->
+  <section class="band">
+    <div class="inner feature">
+      <div class="feature__head reveal"><h2>See whether it’s working</h2></div>
+      <div class="feature__body">
+        <p class="lede reveal">Memory strength across your whole repertoire, training streaks, puzzle rating, win rate by opening, and how your results move over time.</p>
+        <p class="quiet reveal">Less wondering what to study. More time actually studying.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── SCREENSHOTS ───────────────────────── -->
+  <section class="band band--parchment">
+    <div class="inner">
+      <h2 class="reveal">A look inside</h2>
+    </div>
+    <div class="inner shots-wrap">
+      <!-- PLACEHOLDER FRAMES. Supply five PNGs at 1080×2400 and swap each
+           pair of <span>s for an <img>; the frame already holds the ratio. -->
+      <div class="shots reveal">
+        <figure class="shot">
+          <div class="shot__frame">
+            <span class="shot__label">Train hub</span>
+            <span class="shot__spec">1080 × 2400</span>
+          </div>
+          <figcaption class="shot__cap">Train</figcaption>
+        </figure>
+        <figure class="shot">
+          <div class="shot__frame">
+            <span class="shot__label">My Lines</span>
+            <span class="shot__spec">1080 × 2400</span>
+          </div>
+          <figcaption class="shot__cap">Your repertoire</figcaption>
+        </figure>
+        <figure class="shot">
+          <div class="shot__frame">
+            <span class="shot__label">The builder</span>
+            <span class="shot__spec">1080 × 2400</span>
+          </div>
+          <figcaption class="shot__cap">Building a line</figcaption>
+        </figure>
+        <figure class="shot">
+          <div class="shot__frame">
+            <span class="shot__label">My games</span>
+            <span class="shot__spec">1080 × 2400</span>
+          </div>
+          <figcaption class="shot__cap">Your games</figcaption>
+        </figure>
+        <figure class="shot">
+          <div class="shot__frame">
+            <span class="shot__label">Statistics</span>
+            <span class="shot__spec">1080 × 2400</span>
+          </div>
+          <figcaption class="shot__cap">Progress</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── PRICE ─────────────────────────── -->
+  <section class="band">
+    <div class="inner">
+      <h2 class="reveal">One price. Once.</h2>
+      <div class="tiers">
+        <div class="tier reveal">
+          <p><strong>Free</strong> — build as many lines as you want, train ten of them at a time, and use everything else: puzzles, game import, analysis, endgames, statistics.</p>
+        </div>
+        <div class="tier reveal">
+          <p><strong>Full access</strong> — <span class="amt">99 SEK, once</span> — train your whole repertoire, no cap. No subscription, no renewal, no ads.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ──────────────────────────── WHY ──────────────────────────── -->
+  <section class="band band--parchment band--texture">
+    <div class="inner feature feature--flip">
+      <div class="feature__head reveal"><h2>Why I made Bito Chess</h2></div>
+      <div class="feature__body why__body">
+        <p class="reveal">I’m a passionate chess player and not a particularly strong one 🥹</p>
+        <p class="reveal">I tried a lot of opening trainers. They were too rigid, too complicated, or just didn’t match how I wanted to learn — so I built the one I wanted.</p>
+        <p class="reveal">If it helps other players enjoy studying chess as much as I do, even better.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── FINAL CTA ───────────────────────── -->
+  <section class="band final" id="final-cta">
+    <div class="inner">
+      <h2 class="reveal">Ready to build your first line?</h2>
+      <div class="cta-block reveal">
+        <!-- ?auth=signup is on the FINAL CTA only, by design. The app does not
+             read this parameter yet — wiring it up to open the sign-up sheet
+             is a later session. It is harmless until then. -->
+        <a class="btn js-app" href="/app/?auth=signup">Try it — no account needed</a>
+        <p class="trust">Free to use. Pay once if you want more. No subscription, ever.</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <div class="inner">
+    <span class="wordmark">Bito</span>
+    <p>© 2026 Bito Chess</p>
   </div>
+</footer>
 
-  <script>
-    // ── Theme toggle ──
-    (function () {
-      var root = document.documentElement;
-      var meta = document.getElementById('theme-color-meta');
-      var btn = document.getElementById('theme-toggle');
-      function paint(t) { if (meta) meta.setAttribute('content', t === 'dark' ? '#1a1512' : '#f1ece1'); }
-      paint(root.getAttribute('data-theme'));
-      if (btn) btn.addEventListener('click', function () {
-        var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-        root.setAttribute('data-theme', next);
-        paint(next);
-        try { localStorage.setItem('obertura-landing-theme', next); } catch (e) {}
-      });
-    })();
+<!-- Sticky mobile CTA. Rendered but hidden until the hero leaves the viewport;
+     display is JS-gated in CSS so it never appears without JavaScript. -->
+<div class="cta-bar" id="cta-bar">
+  <a class="btn js-app" href="/app/">Try it — no account needed</a>
+</div>
 
-    // ── Scroll cue: hint to scroll on first load, hide once they do ──
-    (function () {
-      var cue = document.getElementById('scroll-cue');
-      if (!cue) return;
-      function hide() { cue.classList.add('hide'); window.removeEventListener('scroll', onScroll); }
-      function onScroll() { if (window.scrollY > 40) hide(); }
-      window.addEventListener('scroll', onScroll, { passive: true });
-      setTimeout(hide, 6000);
-    })();
+<script>
+/* ══════════════════════════════════════════════════════════════════════════
+   All of this is enhancement. The page is complete and usable with JS off.
+   ══════════════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
 
-    // ── Scroll-reveal entrance ──
-    (function () {
-      var els = document.querySelectorAll('.reveal');
-      if (!('IntersectionObserver' in window)) {
-        els.forEach(function (el) { el.classList.add('in'); });
-        return;
+  var ctas = Array.prototype.slice.call(document.querySelectorAll('.js-app'));
+
+  /* ── 1. App href, corrected for the GitHub Pages mirror ──────────────────
+     The markup carries /app/, which is correct on bitochess.com and keeps
+     working with JS disabled. On GitHub Pages the landing page is copied to
+     <pages>/obertura/docs/ while the app sits at <pages>/obertura/, so an
+     absolute /app/ would 404 there. Rewriting the prefix to ../ fixes the
+     preview mirror and preserves any query string (?auth=signup) untouched. */
+  if (location.pathname.indexOf('/obertura/docs/') !== -1) {
+    ctas.forEach(function (a) {
+      a.setAttribute('href', a.getAttribute('href').replace(/^\/app\//, '../'));
+    });
+  }
+
+  /* ── 2. Signed-in? Relabel the CTAs ──────────────────────────────────────
+     Two keys are checked. 'obertura.supabase.auth' is the real one: the app
+     overrides supabase-js's default storageKey in src/supabase.ts so the
+     Settings "erase everything" sweep can find it. The sb-*-auth-token
+     pattern is supabase-js's default, checked as a fallback in case that
+     override is ever dropped. The Supabase library is NOT loaded here — this
+     is a plain localStorage sniff and nothing more. */
+  try {
+    var signedIn = false;
+    if (localStorage.getItem('obertura.supabase.auth')) {
+      signedIn = true;
+    } else {
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf('sb-') === 0 && /-auth-token$/.test(k)) { signedIn = true; break; }
       }
-      var io = new IntersectionObserver(function (entries) {
-        entries.forEach(function (en) {
-          if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
-        });
-      }, { rootMargin: '0px 0px -8% 0px', threshold: 0.12 });
-      els.forEach(function (el) { io.observe(el); });
-    })();
+    }
+    if (signedIn) {
+      ctas.forEach(function (a) { a.textContent = 'Open Bito Chess →'; });
+    }
+  } catch (e) { /* storage disabled — leave the default label */ }
 
-    // ── Screenshot lightbox: click a shot to open, drag/swipe or arrows to browse ──
-    (function () {
-      var shotImgs = Array.prototype.slice.call(document.querySelectorAll('.shots .shot img'));
-      var lb = document.getElementById('lightbox');
-      if (!shotImgs.length || !lb) return;
-      var stage = document.getElementById('lightbox-stage');
-      var lbImg = document.getElementById('lightbox-img');
-      var idx = 0;
+  /* ── 3. Scroll reveal ────────────────────────────────────────────────────
+     Siblings stagger by 60ms via a --d custom property the CSS reads. Fires
+     once per element. If IntersectionObserver is missing, everything is shown
+     immediately rather than left hidden. */
+  var reveals = Array.prototype.slice.call(document.querySelectorAll('.reveal'));
 
-      function show(i) {
-        idx = (i + shotImgs.length) % shotImgs.length;
-        lbImg.src = shotImgs[idx].src;
-        lbImg.alt = shotImgs[idx].alt;
-        lbImg.style.transform = '';
-      }
-      function open(i) {
-        show(i);
-        lb.classList.add('open');
-        lb.setAttribute('aria-hidden', 'false');
-        document.body.style.overflow = 'hidden';
-      }
-      function close() {
-        lb.classList.remove('open');
-        lb.setAttribute('aria-hidden', 'true');
-        document.body.style.overflow = '';
-      }
+  if (!('IntersectionObserver' in window)) {
+    reveals.forEach(function (el) { el.classList.add('in'); });
+  } else {
+    reveals.forEach(function (el) {
+      var sibs = Array.prototype.filter.call(el.parentNode.children, function (c) {
+        return c.classList && c.classList.contains('reveal');
+      });
+      var idx = sibs.indexOf(el);
+      if (idx > 0) el.style.setProperty('--d', (Math.min(idx, 6) * 60) + 'ms');
+    });
 
-      shotImgs.forEach(function (img, i) {
-        img.closest('.shot').addEventListener('click', function () { open(i); });
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        en.target.classList.add('in');
+        io.unobserve(en.target);
       });
-      document.getElementById('lightbox-close').addEventListener('click', close);
-      document.getElementById('lightbox-prev').addEventListener('click', function () { show(idx - 1); });
-      document.getElementById('lightbox-next').addEventListener('click', function () { show(idx + 1); });
-      lb.addEventListener('click', function (e) { if (e.target === lb) close(); });
-      document.addEventListener('keydown', function (e) {
-        if (!lb.classList.contains('open')) return;
-        if (e.key === 'Escape') close();
-        if (e.key === 'ArrowLeft') show(idx - 1);
-        if (e.key === 'ArrowRight') show(idx + 1);
-      });
+    }, { rootMargin: '0px 0px -8% 0px', threshold: 0.1 });
 
-      // Simple drag/swipe navigation via Pointer Events.
-      var dragging = false, startX = 0, dx = 0;
-      stage.addEventListener('pointerdown', function (e) {
-        dragging = true;
-        startX = e.clientX;
-        dx = 0;
-        lbImg.style.transition = 'none';
-      });
-      stage.addEventListener('pointermove', function (e) {
-        if (!dragging) return;
-        dx = e.clientX - startX;
-        lbImg.style.transform = 'translateX(' + dx + 'px)';
-      });
-      function endDrag() {
-        if (!dragging) return;
-        dragging = false;
-        lbImg.style.transition = 'transform 0.2s ease';
-        if (dx > 60) show(idx - 1);
-        else if (dx < -60) show(idx + 1);
-        else lbImg.style.transform = '';
-      }
-      stage.addEventListener('pointerup', endDrag);
-      stage.addEventListener('pointerleave', endDrag);
-    })();
+    reveals.forEach(function (el) { io.observe(el); });
+  }
 
-    // ── Feedback → Web3Forms (no backend), same destination as the app ──
-    (function () {
-      var form = document.getElementById('feedback-form');
-      var status = document.getElementById('feedback-status');
-      if (!form) return;
-      form.addEventListener('submit', async function (e) {
-        e.preventDefault();
-        var btn = form.querySelector('button[type="submit"]');
-        var data = Object.fromEntries(new FormData(form).entries());
-        if (!String(data.message || '').trim()) { status.textContent = 'Add a message first.'; return; }
-        btn.disabled = true;
-        status.textContent = 'Sending…';
-        try {
-          var res = await fetch('https://api.web3forms.com/submit', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify(data),
-          });
-          var json = await res.json().catch(function () { return {}; });
-          if (res.ok && json.success) { form.reset(); status.textContent = 'Thanks — your feedback is on its way.'; }
-          else { status.textContent = 'Couldn’t send — please try again.'; btn.disabled = false; }
-        } catch (err) {
-          status.textContent = 'Couldn’t send — you may be offline. Please try again.';
-          btn.disabled = false;
-        }
-      });
-    })();
-  </script>
+  /* ── 4. Sticky mobile CTA bar ────────────────────────────────────────────
+     Shows once the hero has scrolled away, and hides again over the final CTA
+     so the same button is never offered twice at once. */
+  var bar = document.getElementById('cta-bar');
+  var hero = document.getElementById('hero');
+  var finalCta = document.getElementById('final-cta');
+
+  if (bar && hero && 'IntersectionObserver' in window) {
+    var heroGone = false;
+    var atFinal = false;
+
+    var sync = function () { bar.classList.toggle('show', heroGone && !atFinal); };
+
+    new IntersectionObserver(function (entries) {
+      heroGone = !entries[0].isIntersecting;
+      sync();
+    }, { threshold: 0 }).observe(hero);
+
+    if (finalCta) {
+      new IntersectionObserver(function (entries) {
+        atFinal = entries[0].isIntersecting;
+        sync();
+      }, { threshold: 0 }).observe(finalCta);
+    }
+  }
+})();
+</script>
+
 </body>
 </html>
