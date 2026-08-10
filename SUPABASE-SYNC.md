@@ -21,6 +21,7 @@ A table called `profiles`, one row per user, with:
 | `games`                 | `jsonb`       | your imported games, with their analyses and scans   |
 | `games_updated_at`      | `timestamptz` | when the games were last pushed                      |
 | `entitled`              | `boolean`     | has this account paid? Gates the training cap        |
+| `entitled_at`           | `timestamptz` | when the purchase webhook granted it (a record only)  |
 
 **`repertoire` is badly named and it's staying that way.** It was drafted when
 lines were the only thing that synced; it now carries the lines *plus* the
@@ -38,9 +39,12 @@ saved analysis, a scan. Neither half is re-sent when its contents haven't
 changed at all (the app keeps a fingerprint of what it last pushed).
 
 `entitled` is the free tier's switch: false (the default) caps the account at 10
-lines in training at once, true lifts the cap. The app only ever READS it. You
-set it by hand in the dashboard today; the buy flow will set it from a
-server-side webhook later.
+lines in training at once, true lifts the cap. The app only ever READS it. Two
+things write it: your own hand in the dashboard, and the Lemon Squeezy purchase
+webhook (`worker/lemonsqueezy-webhook.ts`, set up in LEMONSQUEEZY-SETUP.md),
+which sets it together with `entitled_at`. Nothing reads `entitled_at` — it is
+there so a row can answer "when did this account get access, and did a purchase
+or a human do it?" without digging through the Lemon Squeezy dashboard.
 
 **It needs a column-level revoke, not just RLS.** The update policy below is
 row-scoped, not column-scoped — on its own it lets a signed-in user update *any*
@@ -72,12 +76,18 @@ create table if not exists public.profiles (
   games jsonb,
   games_updated_at timestamptz,
   entitled boolean not null default false,
+  entitled_at timestamptz,
   created_at timestamptz not null default now()
 );
 
 -- Safe to re-run on a project made before `entitled` existed.
 alter table public.profiles
   add column if not exists entitled boolean not null default false;
+
+-- The purchase webhook stamps this alongside `entitled`. Nullable on purpose:
+-- accounts entitled by hand before the buy flow existed simply have no date.
+alter table public.profiles
+  add column if not exists entitled_at timestamptz;
 
 -- THE MIGRATION, for a project created before games moved to their own column.
 -- Adding them empty is all that's needed: any row still carrying its games
@@ -118,6 +128,11 @@ create policy "own profile: update"
 -- browser. Column privileges are the fix — take UPDATE away wholesale, then hand
 -- it back only on the four columns the sync actually writes. Reading `entitled`
 -- is untouched (that's SELECT), and so is the app's upsert.
+--
+-- This revoke is also exactly why the purchase webhook needs the service_role
+-- key rather than the anon key: `service_role` is not named here, so it keeps
+-- its UPDATE on `entitled` and bypasses RLS entirely. The browser can never
+-- write the flag; only the server can.
 revoke update on public.profiles from anon, authenticated;
 grant update (repertoire, repertoire_updated_at, games, games_updated_at)
   on public.profiles to authenticated;

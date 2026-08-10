@@ -7,3 +7,5 @@ scripts/out/
 .env
 .env.*
 !.env.example
+.dev.vars
+.wrangler/
