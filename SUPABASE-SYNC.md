@@ -154,6 +154,25 @@ sign-in, then caches it for offline use).
 No delete policy on purpose: the app never deletes a row, and neither should a
 stray request. Removing the account removes the row (`on delete cascade`).
 
+## Keeping the free project awake
+
+Supabase pauses a free project after about a week with no activity, and only a
+click in the dashboard brings it back. `.github/workflows/supabase-keepalive.yml`
+prevents that: every three days it asks the REST API for one row of `profiles`
+and throws the answer away. Row-level security means the anon key sees nothing —
+that's the point, the query itself is the heartbeat.
+
+It needs two repository secrets, under **Settings → Secrets and variables →
+Actions** on GitHub:
+
+- `SUPABASE_URL` — `https://<project-ref>.supabase.co`
+- `SUPABASE_ANON_KEY` — the public anon key, the same one the app ships. Never
+  the `service_role` key.
+
+Nothing else depends on this workflow, so a failed ping breaks nothing; GitHub
+emails you about the failed run, which is all the alerting it needs. Run it by
+hand any time from **Actions → Supabase keepalive → Run workflow**.
+
 ## How the sync behaves
 
 - **Reads always come from the phone.** IndexedDB stays the source of truth;
