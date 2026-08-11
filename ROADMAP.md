@@ -971,6 +971,63 @@ _On `claude/first-run-experience-rebuild-xfwdpa`. Restore point: `v0.4`._
 
 ---
 
+## v0.20 — the first-user round 🔜
+
+The v0.19 guest-first run answered "how does a stranger get their first line?".
+This round answers the two questions after it: what if they *skip* that screen,
+and what does the app ask of them once they're inside. Phone review drove all of
+it.
+
+- ✅ **The picker is a board, a tag and a title** — the first screen now opens on
+  the real installed **app icon**, and each style card lost its move list and its
+  blurb (both survive in the card's accessible name; the moves are one tap away
+  in the builder). The cards were also *overlapping* the level chooser and the
+  "Rather start from your own games?" link on a phone: `.picker-cards` was
+  `height: 100%` with `align-content: center`, so anything taller than the stage
+  spilled out of it in both directions. It's `min-height` now, the stage is the
+  only scrolling part of the screen, and the head/controls/footer are pinned.
+- ✅ **A "Get started" checklist for anyone who skipped** — a deliberately loud
+  accent-bordered panel above the Train tabs, shown while fewer than **5 lines**
+  are saved (it takes the daily challenge's slot; the daily card returns at
+  five). It carries a progress bar to the line goal with the three routes to
+  moving it (**Starter packs · Build a line · With the engine**), then a
+  checklist: **Import your games**, **Connect Lichess** and — where accounts
+  exist — **Create an account**, each ticking off on its own. Honest about the
+  numbers: one line already unlocks training, five make a repertoire.
+- ✅ **Lichess and sign-in have a home** — both were only ever offered where they
+  happened to be needed (Puzzles, the explorer, the post-win sheet). They're now
+  standing items in the checklist, each saying what it unlocks. Preferences stay
+  open to signed-out users, deliberately: a guest is a full free user, so an
+  account only ever ADDS sync.
+- ✅ **Train's first-run gate is gone** — the screen used to swap itself for a
+  full-page "Build your first lines" view until a line was in training, so a user
+  who backed out of the picker got a *second* onboarding screen instead of the
+  app. The hub always renders now, with the checklist above it. What's left of
+  `onboarding-starter.ts` is the pack data and its picker sheet.
+- ✅ **Practise tells the truth when it's empty** — "Drill new lines" and "Target
+  weak areas" stayed live with an empty rotation and started sessions with
+  nothing in them. All four modes now grey out together, with a reason that
+  distinguishes "nothing saved" from "nothing enrolled". Time attack also read as
+  a *different* disabled state, because its card and its chips each applied 0.5
+  opacity (0.25 together) — the chips no longer dim inside an already-dim card.
+- ✅ **Import loses a step, and lands where it's needed** — "How far back"
+  (1m/3m/12m/All) is gone; every scan now reaches the whole history, newest
+  first, and the hard cap stops it. And the panel's first step is now shown
+  **inline, boxed**, on the six screens that are useless without games —
+  Train → Middle game, Train → End game, My Lines → From my games,
+  Explore → Recommended, My games and Statistics → Your games. Filling it in
+  scans immediately (`autoScan`), so a button-then-form round trip is gone from
+  all six.
+- ✅ **Signed out imports 50 games at a time** — `FREE_GUEST_IMPORT`. The 500 and
+  All slices still show, padlocked, and open the sign-up sheet; signing up
+  unlocks them **in place**, against the scan already in hand, rather than making
+  the user start over. The rules are pure and self-tested (`import-tier.ts`,
+  28 checks) so the cap can't drift.
+
+_On `claude/onboarding-first-user-experience-3v8dam`. Restore point: `v0.4`._
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

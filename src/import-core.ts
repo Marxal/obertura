@@ -30,8 +30,10 @@ export const OPENING_PLIES = 60;
 export const HARD_CAP = 1000;
 
 // How many games each count choice keeps from the scan (newest-first). 'all'
-// keeps everything the scan held, which is already ≤ HARD_CAP.
-export type CountChoice = 100 | 500 | 'all';
+// keeps everything the scan held, which is already ≤ HARD_CAP. 50 is the
+// signed-out ceiling (see FREE_GUEST_IMPORT in import-panel.ts) — enough to see
+// what you play, small enough to leave a reason to make an account.
+export type CountChoice = 50 | 100 | 500 | 'all';
 
 // Keep the most recent N games for a count choice. The scan hands these back
 // newest-first, so a plain head-slice IS "the last N". 'all' keeps the lot.

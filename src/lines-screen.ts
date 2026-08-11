@@ -16,6 +16,7 @@ import { renderFamilyGroups, renderVariationGroups } from './line-groups';
 import { openImportPanel, getGamesSource } from './import-panel';
 import { isOpponentTag } from './scout';
 import { buildEmptyState } from './empty-state';
+import { buildInlineImport } from './import-inline';
 import { createFilterBar, type FilterSelection } from './filters';
 import type { ImportedGame } from './chesscom';
 import { renderLoadError } from './load-error';
@@ -101,8 +102,6 @@ interface LinesDeps {
   onStartTraining?: (line: Line) => void;
   // Seed the builder with these UCI moves for the given colour, then open it.
   onBuildLine?: (ucis: string[], colour: 'white' | 'black') => void;
-  // Open the import-your-games flow (the leading "get your openings in" action).
-  onImportGames: () => void;
   // Open the starter-pack picker (the curated quick-start route).
   onPickStarterPack: () => void;
 }
@@ -593,17 +592,18 @@ function renderGamesTab(
   content.innerHTML = '';
 
   if (games.length === 0) {
-    // No games yet: the explanation stays, but Import is the prominent green
-    // action — with the same two quick-start routes as the Saved tab below it.
+    // No games yet: the import form lands here directly rather than behind a
+    // button, with the same two quick-start routes underneath it.
+    content.appendChild(buildInlineImport({
+      title: 'Import your games',
+      body: 'Pull your games from Chess.com or Lichess to see which openings you ' +
+        'actually play — this tab then suggests the ones you haven’t saved yet.',
+      onImported: () => fullRefresh(),
+    }));
     content.appendChild(buildEmptyState({
-      icon: Icons.download(28),
-      line: 'No games imported yet',
-      body: 'Pull your recent games from Chess.com or Lichess to see which ' +
-        'openings you actually play — then this tab suggests the ones you haven’t ' +
-        'saved yet.',
-      cta: { label: 'Import my games', onClick: () => deps.onImportGames() },
+      line: 'Or start from scratch',
+      cta: { label: 'Build a line myself', onClick: () => deps.onAddLine('white') },
       secondaryActions: [
-        { label: 'Build a line myself', onClick: () => deps.onAddLine('white') },
         { label: 'Pick a starter pack', onClick: () => deps.onPickStarterPack() },
       ],
     }));

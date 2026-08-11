@@ -49,6 +49,7 @@ import { buildMoveStats } from './move-stats';
 import { createFilterBar, type FilterSelection } from './filters';
 import { renderFamilyGroups } from './line-groups';
 import { buildEmptyState } from './empty-state';
+import { buildInlineImport } from './import-inline';
 import { pushBack } from './back-nav';
 import { formatSanLine } from './notation';
 
@@ -340,13 +341,12 @@ function buildRecommendedTab(
   }
 
   if (games.length === 0) {
-    wrap.appendChild(buildEmptyState({
-      icon: Icons.sparkles(28),
-      line: 'Import your games to get tailored picks — openings you play a lot but score poorly in.',
-      cta: {
-        label: 'Import your games',
-        onClick: () => openImportPanel({ onImported: () => renderExploreScreen(container) }),
-      },
+    // Nothing here can be recommended without games, so the import form itself
+    // is the section's content rather than a button that goes and gets one.
+    wrap.appendChild(buildInlineImport({
+      title: 'Import your games',
+      body: 'Then this picks out the openings you play a lot but score poorly in — the ones worth preparing first.',
+      onImported: () => renderExploreScreen(container),
     }));
     return { el: wrap, hasContent: false };
   }

@@ -24,6 +24,7 @@ import {
 import { getEndgameProgress, type EndgameProgress } from './endgame-progress';
 import { startEndgamePlayout } from './endgame-playout';
 import { getAllGames } from './storage';
+import { buildInlineImport } from './import-inline';
 import type { ImportedGame } from './import-core';
 import {
   scanEndgames, collectEndgameSpots, unscannedEndgameCount, capEndgameGamesForTier, endgameSpotId,
@@ -40,8 +41,6 @@ import {
 export interface EndgameScreenDeps {
   // Open a finished puzzle in the full analyser (engine on) — wired from main.ts.
   onAnalysePosition?: (req: AnalyseRequest) => void;
-  // Send the user to the Games screen to import (the "From your games" empty state).
-  onImportGames: () => void;
 }
 
 // A puzzle-theme filter → a Lichess "angle". 'minor' alternates bishop/knight so
@@ -433,17 +432,13 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
     }
 
     if (gsAll.length === 0) {
-      const msg = document.createElement('p');
-      msg.className = 'pz-ta-desc';
-      msg.textContent = 'Import your games and this finds the endgames you actually reached — play them out against the engine.';
-      section.appendChild(msg);
-      const cta = document.createElement('button');
-      cta.type = 'button';
-      cta.className = 'btn-primary eg-scan-btn';
-      cta.appendChild(Icons.play(16));
-      cta.appendChild(document.createTextNode('Import games'));
-      cta.addEventListener('click', () => deps.onImportGames());
-      section.appendChild(cta);
+      // The form itself, not a button that opens one — this section can't do
+      // anything at all until games are in.
+      section.appendChild(buildInlineImport({
+        title: 'Import your games',
+        body: 'This then finds the endgames you actually reached, and you play them out against the engine.',
+        onImported: () => { games = null; rebuild(); },
+      }));
       return section;
     }
 
