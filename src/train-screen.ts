@@ -1,6 +1,6 @@
 import type { Line } from './types';
 import type { MoveNode } from './tree';
-import { getAllLines, saveLine, countGames } from './storage';
+import { getAllLines, saveLine } from './storage';
 import {
   requestTrainingSlot,
   isEntitled,
@@ -16,7 +16,6 @@ import {
   getDefaultTrainingMode,
   getShowPausedLines,
   setShowPausedLines,
-  isOnboardingComplete,
   setOnboardingComplete,
   TIMED_DURATIONS,
   type TimedMinutes,
@@ -36,8 +35,8 @@ import { renderForgottenSection } from './forgotten-section';
 import { lineTrainingCount } from './stats';
 import { formatMove } from './notation';
 import { Chess } from 'chess.js';
-import { buildEmptyState } from './empty-state';
-import { renderStarterOnboarding, ONBOARDING_GOAL, type LineSeed, type AddLineMode } from './onboarding-starter';
+import { ONBOARDING_GOAL } from './onboarding-starter';
+import { GOAL_LINES } from './first-steps';
 import { renderTrainCards } from './train-cards';
 import { createFilterBar, type FilterSelection } from './filters';
 import { renderFamilyGroups, renderVariationGroups } from './line-groups';
@@ -84,16 +83,6 @@ let onBuildLine: (() => void) | null = null;
 let onImportGames: (() => void) | null = null;
 // "Connect Lichess", from the contextual card below the training list.
 let onConnectLichess: (() => void) | null = null;
-// Add a starter/suggested line to training (wired from main.ts, which owns
-// lineFromUcis + addLineToTraining). See AddLineMode for what each mode does.
-// Module scope, like the routes above.
-let onAddStarterLine:
-  | ((seed: LineSeed, colour: 'white' | 'black', mode: AddLineMode, onDone: () => void, onCancel: () => void) => void)
-  | null = null;
-// Onboarding's quieter routes: browse the opening library / build by playing the
-// engine. Module scope, wired from main.ts like the others.
-let onBrowseLibrary: (() => void) | null = null;
-let onBuildWithEngine: (() => void) | null = null;
 
 // Show/hide the global FAB (wired from main.ts, which owns the controller). The
 // finish screens hide it so its ＋ doesn't sit over the celebration; the train
@@ -142,15 +131,6 @@ export function renderTrainScreen(
     onOpenLine?: (line: Line, atFen?: string) => void;
     onBuildLine?: () => void;
     onImportGames?: () => void;
-    onAddStarterLine?: (
-      seed: LineSeed,
-      colour: 'white' | 'black',
-      mode: AddLineMode,
-      onDone: () => void,
-      onCancel: () => void,
-    ) => void;
-    onBrowseLibrary?: () => void;
-    onBuildWithEngine?: () => void;
     onConnectLichess?: () => void;
     onSetFabVisible?: (visible: boolean) => void;
   } = {},
@@ -159,9 +139,6 @@ export function renderTrainScreen(
   onBuildLine = opts.onBuildLine ?? null;
   onImportGames = opts.onImportGames ?? null;
   onConnectLichess = opts.onConnectLichess ?? null;
-  onAddStarterLine = opts.onAddStarterLine ?? null;
-  onBrowseLibrary = opts.onBrowseLibrary ?? null;
-  onBuildWithEngine = opts.onBuildWithEngine ?? null;
   setFabVisible = opts.onSetFabVisible ?? null;
   void doRender(container, opts.focusLineId, opts.autoStart);
 }
@@ -186,14 +163,16 @@ async function doRender(
 
   const trainingLines = allLines.filter(l => l.inTraining);
 
-  // First-run gate: keep the onboarding flow up (no streak head — it reads as a
-  // clean first run) until there are ONBOARDING_GOAL lines in training. Once the
-  // user has ever reached the goal, the flag keeps them on the hub for good, even
-  // if they later pause lines below it.
-  if (!isOnboardingComplete() && trainingLines.length < ONBOARDING_GOAL) {
-    renderEmpty(container, (await countGames()) > 0);
-    return;
-  }
+  // No first-run gate any more. This screen used to swap itself for a full-page
+  // onboarding view until ONBOARDING_GOAL lines were in training, which meant
+  // anyone who backed out of the first-run picker never saw the app at all —
+  // they got a second onboarding screen instead. The Get-started checklist
+  // (first-steps.ts, above the tabs) now does that job while the real hub stays
+  // visible underneath it, with every Practise mode honestly greyed out until
+  // there's something to drill.
+  //
+  // The completion flag is still stamped once the goal is reached, because
+  // shouldShowFirstRun() reads it to decide whether the picker has had its turn.
   if (trainingLines.length >= ONBOARDING_GOAL) setOnboardingComplete();
 
   // Arrived here from a "Drill" button on another screen: skip the list and
@@ -242,10 +221,13 @@ async function doRender(
   // The three offers the setup wizard used to make on first launch — import,
   // Lichess, appearance — now that there's a line for them to be about. Each
   // dismisses for good, so this is empty for anyone who's dealt with them.
-  // Gated on actually having a line: someone who skipped the first run lands
-  // here with nothing saved, and offering to restyle an empty repertoire is the
-  // same mistimed question the wizard used to ask.
-  if (allLines.length > 0) {
+  //
+  // They wait until the Get-started panel above the tabs has stepped aside
+  // (GOAL_LINES saved). Two of the three are the same offer that panel is
+  // already making, and asking twice on one screen reads as a bug; the third
+  // (appearance) is the mistimed question the wizard used to ask, so it can
+  // wait for a repertoire to restyle.
+  if (allLines.length >= GOAL_LINES) {
     renderTrainCards(state, {
       onImportGames: () => onImportGames?.(),
       onConnectLichess: () => onConnectLichess?.(),
@@ -289,38 +271,6 @@ function linesForDefaultMode(trainingLines: Line[], due: Line[]): Line[] | null 
     default:
       return due.length > 0 ? due : null;
   }
-}
-
-// ── Empty state ───────────────────────────────────────────────────────────────
-
-function renderEmpty(container: HTMLElement, hasGames: boolean): void {
-  // The onboarding flow (starter packs / game-based suggestions) needs a way to
-  // add lines; the app always wires it. Fall back to the bare empty state only if
-  // it's somehow missing, so this never becomes a dead end.
-  if (onAddStarterLine) {
-    renderStarterOnboarding(container, {
-      hasGames,
-      onAddLine: (seed, colour, mode, onDone, onCancel) =>
-        onAddStarterLine!(seed, colour, mode, onDone, onCancel),
-      // Leaving onboarding re-renders Train; once the goal is reached it lands on
-      // the normal hub instead of here.
-      onFinish: () => void doRender(container),
-      onBuildManually: () => onBuildLine?.(),
-      onImportGames: () => onImportGames?.(),
-      onBrowseLibrary: () => onBrowseLibrary?.(),
-      onBuildWithEngine: () => onBuildWithEngine?.(),
-    });
-    return;
-  }
-
-  container.appendChild(buildEmptyState({
-    icon: Icons.zap(28),
-    line: 'Nothing in training yet.',
-    cta: { label: 'Build a line', onClick: () => onBuildLine?.() },
-    // The "import your games" nudge belongs only before anything's imported;
-    // once games are in, drop it (the user already has them).
-    ...(hasGames ? {} : { link: { label: 'or import your games', onClick: () => onImportGames?.() } }),
-  }));
 }
 
 // ── Hero: "Due now" · "Reviewed today" ────────────────────────────────────────
@@ -432,6 +382,15 @@ function renderModeCards(host: HTMLElement, container: HTMLElement, allTraining:
   label.textContent = 'Practise';
   section.appendChild(label);
 
+  // Why a mode is greyed out. With nothing saved at all, EVERY card here is a
+  // dead end and the honest answer is the same one: go and make a line. Once
+  // lines exist but none are enrolled, the answer changes — the material is
+  // there, it just isn't in the rotation.
+  const nothingSaved = allLines.length === 0;
+  const noLinesReason = nothingSaved
+    ? 'Save a line first — then there’s something to drill'
+    : 'Switch a line on under “Lines in training” to drill it';
+
   // Time attack leads the list — three timed runs, each with its own personal
   // best. Always playable when there's any saved position anywhere (it falls back
   // to shallow and paused lines); only disabled when nothing is saved at all.
@@ -449,28 +408,37 @@ function renderModeCards(host: HTMLElement, container: HTMLElement, allTraining:
     name: 'Review missed moves',
     sub: 'single moves you’ve missed',
     disabled: !hasPositions,
-    disabledReason: 'Train a little more to unlock single-move drills',
+    // "Train a little more" is only true once there IS something to train.
+    disabledReason: nothingSaved
+      ? noLinesReason
+      : 'Train a little more to unlock single-move drills',
     onClick: () => runIndividual(container, allTraining),
   }));
 
-  // Fresh lines — full runs of the newest lines first.
+  // Fresh lines — full runs of the newest lines first. Both this and Target
+  // weak areas below used to stay live with an empty rotation and start a
+  // session with nothing in it; they now grey out like the two above.
+  const freshLines = recentlyAddedLines(allTraining).slice(0, PICKER_SESSION_CAP);
   section.appendChild(buildModeCard({
     accent: MODE_ACCENT.fresh,
     icon: Icons.plus(20),
     name: 'Drill new lines',
     sub: 'full runs of your newest lines',
-    onClick: () => startRounds(
-      recentlyAddedLines(allTraining).slice(0, PICKER_SESSION_CAP), container, { explicit: true }),
+    disabled: freshLines.length === 0,
+    disabledReason: noLinesReason,
+    onClick: () => startRounds(freshLines, container, { explicit: true }),
   }));
 
   // Weak spots — full runs of the weakest lines first.
+  const weakLines = weakestLines(allTraining).slice(0, PICKER_SESSION_CAP);
   section.appendChild(buildModeCard({
     accent: MODE_ACCENT.weak,
     icon: Icons.trending(20),
     name: 'Target weak areas',
     sub: 'full runs of your weakest lines',
-    onClick: () => startRounds(
-      weakestLines(allTraining).slice(0, PICKER_SESSION_CAP), container, { explicit: true }),
+    disabled: weakLines.length === 0,
+    disabledReason: noLinesReason,
+    onClick: () => startRounds(weakLines, container, { explicit: true }),
   }));
 
   // Prep — full runs of lines prepared against a scouted opponent. Only shown

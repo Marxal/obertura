@@ -27,6 +27,7 @@ import type { Line } from './types';
 import type { ImportedGame } from './chesscom';
 import { getAllGames, getAllLines } from './storage';
 import { renderLoadError } from './load-error';
+import { buildInlineImport } from './import-inline';
 import { currentStreak, trainedToday, getTrainingDays, getReviewLog } from './streak';
 import { analyseGames, openingFamily, familyKey, UNKNOWN_FAMILY, type OpeningStat } from './analysis';
 import {
@@ -84,7 +85,7 @@ export interface ProgressCallbacks {
   // Seed the builder with a UCI move list (used by win-rate-by-opening when I
   // don't yet have a saved line for that opening — build from a representative game).
   onBuildFromMoves: (ucis: string[], colour: 'white' | 'black') => void;
-  // Open the import flow (the Your-games empty card links here).
+  // Open the import flow (the "Import my games" refresh-row button links here).
   onImportGames: () => void;
   // Drill one forgotten move: three reps of it, then the full line it lives in.
   // `lines` is passed through so the launcher can find that line without a
@@ -1104,23 +1105,16 @@ function buildRfTicks(bars: DayBar[]): HTMLElement {
 
 function renderGamesEmpty(container: HTMLElement, cb: ProgressCallbacks): void {
   const region = statsRegion(container, 'Your games', 'games');
-  const card = document.createElement('div');
-  card.className = 'stats-games-empty';
-
-  const text = document.createElement('p');
-  text.className = 'stats-games-empty-text';
-  text.textContent = 'Import your games to see how your repertoire performs.';
-  card.appendChild(text);
-
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'btn-primary stats-games-empty-btn';
-  btn.appendChild(Icons.download(15));
-  btn.appendChild(document.createTextNode('Import your games'));
-  btn.addEventListener('click', () => cb.onImportGames());
-  card.appendChild(btn);
-
-  region.appendChild(card);
+  // Half of Statistics is about games; without any there is nothing to plot, so
+  // the region carries the import form itself rather than a button to one.
+  region.appendChild(buildInlineImport({
+    title: 'Import your games',
+    body: 'Then this fills in with your rating over time, your win rate and how each opening actually performs for you.',
+    // Re-read and repaint in place — cb.onImportGames() opens the panel, which
+    // would put the sheet straight back up on top of the import that just
+    // finished.
+    onImported: () => void doRender(container, cb),
+  }));
 }
 
 function renderGamesRegion(container: HTMLElement, games: ImportedGame[], lines: Line[], cb: ProgressCallbacks): void {

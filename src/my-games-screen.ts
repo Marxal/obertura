@@ -22,6 +22,7 @@ import { showToast } from './toast';
 import { Icons } from './icons';
 import { renderLoadError } from './load-error';
 import { getGamesSource } from './import-panel';
+import { buildInlineImport } from './import-inline';
 import { refreshGamesNow } from './auto-refresh';
 import { reviewStripData } from './line-analysis';
 import { classIcon, CLASS_COLOR, CLASS_LABEL } from './icons';
@@ -152,10 +153,19 @@ export async function renderMyGamesScreen(host: HTMLElement, deps: MyGamesDeps):
   }
 
   if (!games.length) {
-    const empty = document.createElement('p');
-    empty.className = 'mygames-empty';
-    empty.textContent = 'No games yet. Import your games to analyse them here.';
-    root.appendChild(empty);
+    // This screen IS the games list, so an empty one has exactly one thing to
+    // offer: the import form, in place, rather than a sentence about it.
+    root.appendChild(buildInlineImport({
+      title: 'Import your games',
+      body: 'Pull your games from Chess.com or Lichess — they land here, ready to review, tag and analyse.',
+      onImported: () => { void renderMyGamesScreen(host, deps); },
+    }));
+    // Adding ONE game (a PGN, a link, the last game played) is a different and
+    // much smaller errand. It stays available, but it moves below the form and
+    // stops being green — two full-width primary buttons at the top of an empty
+    // screen just makes the user pick between them blind.
+    topRow.classList.add('mygames-top-row--secondary');
+    root.appendChild(topRow); // appendChild MOVES it below the form
     return;
   }
 

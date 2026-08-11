@@ -1432,6 +1432,201 @@ main {
   color: #5a9e3f;
 }
 
+/* ── "Get started" panel (first-steps.ts) ─────────────────────────────────────
+   Takes the daily challenge's slot at the top of Train until five lines are
+   saved. Deliberately LOUDER than the daily card it replaces — a full accent
+   wash, a 2px accent border and a progress bar — because someone who reaches
+   this screen with an empty repertoire has already missed one set of
+   instructions and shouldn't be able to miss these. */
+
+.first-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding: 0.9rem;
+  background: linear-gradient(135deg, var(--accent-soft), var(--bg-card) 85%);
+  border: 2px solid var(--accent);
+}
+
+.first-steps-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.first-steps-title {
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: 0.01em;
+  color: var(--text);
+}
+
+.first-steps-tally {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent-active);
+}
+
+/* ── The line goal ── */
+
+.first-steps-goal {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.75rem 0.8rem;
+  border: 1px solid var(--border-card);
+  border-radius: 11px;
+  background: var(--bg-card);
+}
+
+.first-steps-goal-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.first-steps-goal-title {
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.first-steps-goal-count {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  font-size: 0.92rem;
+  color: var(--accent-active);
+}
+
+.first-steps-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  overflow: hidden;
+}
+
+.first-steps-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.35s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .first-steps-bar-fill { transition: none; }
+}
+
+.first-steps-goal-note {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+/* The three ways to get a line. They wrap to two rows on a narrow phone rather
+   than shrinking their labels to nothing. */
+.first-steps-routes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.15rem;
+}
+
+.first-steps-route {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 1 1 auto;
+  justify-content: center;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--accent-active);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.first-steps-route:active { filter: brightness(0.96); }
+
+/* ── The checklist rows ── */
+
+.first-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.first-steps-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid var(--border-card);
+  border-radius: 11px;
+  background: var(--bg-card);
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.first-steps-step:active { filter: brightness(0.97); }
+
+.first-steps-step-icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.05rem;
+  color: var(--accent-active);
+}
+
+.first-steps-step-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+}
+
+.first-steps-step-title {
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+.first-steps-step-body {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+.first-steps-step-chev {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  align-self: center;
+  color: var(--text-faint);
+}
+
+/* Ticked off: still tappable (importing more games is fair), just quiet. */
+.first-steps-step--done {
+  background: var(--bg-elevated);
+}
+.first-steps-step--done .first-steps-step-icon { color: #5a9e3f; }
+.first-steps-step--done .first-steps-step-title {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+.first-steps-step--done .first-steps-step-body { opacity: 0.75; }
+
 /* The builder board is a TRUE SQUARE. On a phone it's the full width (100vw);
    on a wider or shorter viewport it's capped to the height left after the header,
    the docked control bar, and a default sheet strip — so all 8 ranks stay visible
@@ -3411,6 +3606,15 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   cursor: pointer;
 }
 .mygames-import:active { filter: brightness(0.96); }
+
+/* On an empty My games, the inline bulk-import form leads and "Import a game"
+   (one PGN / the last game played) drops to a quiet outline below it. */
+.mygames-top-row--secondary .mygames-import {
+  background: transparent;
+  border: 1px solid var(--border-card);
+  color: var(--text-muted);
+  font-weight: 600;
+}
 
 /* Discrete secondary action next to Import: Refresh games. */
 .mygames-action {
@@ -6169,6 +6373,10 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   opacity: 0.5;
   cursor: default;
 }
+/* …but not when the whole card is already greyed out. The card is at 0.5 and
+   the chips would land at 0.25 inside it, so Time attack read as a harder,
+   different kind of disabled than the other Practise cards beside it. */
+.mode-card--disabled .timed-chip:disabled { opacity: 1; }
 /* Puzzle Time Attack reuses these chips to PICK a duration (Start is separate),
    so the chosen length keeps a persistent highlight. */
 .timed-chip--on {
@@ -7100,11 +7308,47 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   flex: 1;
 }
 
-/* Range + time-control chips share the wrap row look. */
+/* Count + time-control chips share the wrap row look. */
 .import-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
+}
+
+/* A count slice an account would unlock. Dashed, quiet, padlocked — clearly not
+   the same kind of thing as the chip beside it that you CAN press. */
+.tag-chip--locked {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-style: dashed;
+  color: var(--text-faint);
+  opacity: 0.9;
+}
+.tag-chip-lock { flex: 0 0 auto; }
+
+.import-guest-note {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.import-guest-link {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* The line that replaced the "How far back" chips in step 1. */
+.import-reach-note {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-faint);
 }
 
 .import-scan-btn,
@@ -7272,6 +7516,85 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   background: color-mix(in srgb, var(--wrong, #c0531f) 12%, transparent);
   border-radius: 8px;
   padding: 0.55rem 0.7rem;
+}
+
+/* ── Inline import form (import-inline.ts) ────────────────────────────────────
+   The panel's first step, boxed and dropped straight into an empty state so the
+   screen asks its question instead of offering a button that asks it. Accent
+   border + tinted ground so it reads as the one live thing on an otherwise
+   empty screen. */
+
+.inline-import {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0.75rem 0;
+  padding: 0.9rem;
+  border: 2px solid var(--accent);
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--accent-soft), var(--bg-card) 85%);
+}
+
+.inline-import-head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.inline-import-icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-active);
+}
+
+.inline-import-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.inline-import-body {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.inline-import-platform {
+  display: flex;
+}
+.inline-import-platform .seg-btn {
+  flex: 1;
+}
+
+/* Username and Scan side by side — two controls, one row. The input takes the
+   slack; Scan keeps its label's width. */
+.inline-import-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.inline-import-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.inline-import-go {
+  flex: 0 0 auto;
+  width: auto;
+  padding-inline: 1.1rem;
+  white-space: nowrap;
+}
+
+.inline-import-error {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--wrong, #c0531f);
 }
 
 /* ── Full-screen import loader (import scan, see import-progress.ts) ─────────── */
@@ -11058,68 +11381,10 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   box-shadow: 0 0 0 3px rgba(39, 224, 255, 0.35), 0 0 14px rgba(39, 224, 255, 0.4);
 }
 
-/* ── First-run onboarding (Train empty state) ──────────────────────────────────
-   The starter-packs / game-suggestion flow that gets a new user to their first
-   trainable lines. Built from the shared tokens so it rides every theme. */
-.onb-head {
-  text-align: center;
-  padding: 8px 4px 4px;
-}
-.onb-head-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: var(--accent-soft);
-  color: var(--accent);
-  margin-bottom: 8px;
-}
-.onb-title {
-  margin: 0 0 4px;
-  font-size: 1.25rem;
-}
-.onb-sub {
-  margin: 0 auto;
-  max-width: 42ch;
-  color: var(--text-muted);
-  font-size: 0.9rem;
-  line-height: 1.45;
-}
-
-/* Progress toward the soft "enough to train" goal. */
-.onb-progress {
-  margin: 16px 0 4px;
-}
-.onb-bar {
-  height: 8px;
-  border-radius: 999px;
-  background: var(--bg-elevated);
-  overflow: hidden;
-}
-.onb-bar-fill {
-  height: 100%;
-  border-radius: 999px;
-  background: var(--accent);
-  transition: width 0.4s ease;
-}
-.onb-progress-label {
-  margin-top: 6px;
-  text-align: center;
-  font-size: 0.8rem;
-  color: var(--text-faint);
-}
-.onb-start {
-  width: 100%;
-  margin: 12px 0 4px;
-}
-
-.onb-section-title {
-  margin-top: 18px;
-}
-
-/* Pack cards — collapsible mini-repertoires. */
+/* ── Starter-pack picker ───────────────────────────────────────────────────────
+   The pack lightbox opened from the Get-started checklist, My Lines and Explore.
+   (The first-run onboarding SCREEN this shared its styles with is gone — see
+   onboarding-starter.ts.) Built from the shared tokens so it rides every theme. */
 .onb-packs {
   display: flex;
   flex-direction: column;
@@ -11246,23 +11511,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   color: var(--text-fainter);
   cursor: default;
   text-decoration: none;
-}
-
-.onb-foot {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 22px;
-}
-.onb-foot-btn {
-  width: 100%;
-}
-.onb-foot-discrete {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 18px;
-  margin-top: 2px;
 }
 
 /* ── Opening trap cards ──────────────────────────────────────────────────────────
@@ -15148,12 +15396,25 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   padding: calc(1.1rem + env(safe-area-inset-top)) 0.9rem
            calc(0.9rem + env(safe-area-inset-bottom));
   background: var(--bg-page);
-  overflow-y: auto;
+  /* The overlay itself never scrolls — only .picker-stage does. That's what
+     keeps the head, the two chooser rows and the footer link permanently on
+     screen, however tall the four boards end up. */
+  overflow: hidden;
 }
 
 .picker-head {
   flex: 0 0 auto;
   text-align: center;
+}
+
+/* The installed app icon, as the home screen draws it. */
+.picker-mark {
+  display: block;
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 0.5rem;
+  border-radius: 18px;
+  box-shadow: 0 2px 10px rgb(0 0 0 / 0.16);
 }
 
 /* Same Chakra Petch wordmark as the app header and the desktop sidebar — the
@@ -15182,23 +15443,30 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 
 /* The stage holds one card layer in flow (which sets its height) and, during a
-   change, the outgoing layer lifted on top of it. */
+   change, the outgoing layer lifted on top of it. It's also the only scrolling
+   part of the picker, so on a short screen the cards scroll under a head and
+   footer that stay put. */
 .picker-stage {
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /* Rows hug their content and the pair sits centred in whatever height is left,
    rather than each card stretching to fill its row — a stretched card leaves a
-   pool of dead space under its blurb, which reads as a rendering bug. */
+   pool of dead space under its name, which reads as a rendering bug.
+   min-height (not height): with a fixed 100% the grid overflowed its box in
+   BOTH directions when the cards were taller than the stage, so the boards
+   spilled over the level chooser above and the import link below. */
 .picker-cards {
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-auto-rows: min-content;
   align-content: center;
   gap: 0.6rem;
-  height: 100%;
+  min-height: 100%;
 }
 
 /* The crossfade. The outgoing layer is taken out of flow so the incoming one
@@ -15290,28 +15558,12 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   color: var(--text);
 }
 
-/* "against 1.e4" — a Black repertoire is an answer, and the move list alone
-   (which opens with White's move) doesn't say so. */
+/* "against 1.e4" — a Black repertoire is an answer to something, and with the
+   move list gone nothing else on the card says so. */
 .picker-card-against {
   font-size: 0.7rem;
   font-weight: 600;
   color: var(--text-muted);
-}
-
-.picker-card-moves {
-  margin-top: 0.15rem;
-  font-size: 0.72rem;
-  line-height: 1.35;
-  color: var(--text-muted);
-  word-break: break-word;
-}
-
-.picker-card-blurb {
-  margin-top: 0.15rem;
-  font-size: 0.72rem;
-  line-height: 1.3;
-  color: var(--text-muted);
-  opacity: 0.85;
 }
 
 .picker-foot {
@@ -15354,6 +15606,15 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   .picker-brand { font-size: 1.9rem; }
   .picker-lead { font-size: 1.25rem; }
   .picker-card-board { max-width: 150px; }
+  .picker-mark { width: 88px; height: 88px; }
+}
+
+/* A short window (a phone in landscape, a small laptop) has no room for the app
+   tile on top of everything else — the four cards are the point of the screen,
+   so the mark is what gives way. */
+@media (max-height: 680px) {
+  .picker-mark { display: none; }
+  .picker-overlay { gap: 0.6rem; }
 }
 
 /* ── Guided first line: the coach strip (onboarding-guide.ts) ─────────────────

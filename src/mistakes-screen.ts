@@ -9,7 +9,7 @@ import { registerBrushes } from './board-brushes';
 import type { Key } from 'chessground/types';
 import type { ImportedGame } from './import-core';
 import { getAllGames } from './storage';
-import { buildEmptyState } from './empty-state';
+import { buildInlineImport } from './import-inline';
 import { renderLoadError } from './load-error';
 import { Icons, classIcon, CLASS_LABEL, CLASS_COLOR } from './icons';
 import { countUp } from './count-up';
@@ -74,7 +74,6 @@ const CATEGORY_ICON: Record<MistakeCategory, () => SVGElement> = {
 const CATEGORIES: MistakeCategory[] = ['opening-blunder', 'punish-opening', 'missed-win', 'blunder'];
 
 export interface MistakesScreenDeps {
-  onImportGames: () => void;
   // Open a game in the full analyser (builder view) — the session's "Open full
   // analysis" route. The ctx carries the position to open at plus the
   // resume/discard hooks for the suspended session (see main.ts).
@@ -96,13 +95,17 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   }
 
   // Everything here trains from your own games, so without an import there is
-  // nothing to scan yet — point at the games screen.
+  // nothing to scan yet — and the import form itself is what the screen shows,
+  // rather than a button that opens one.
   if (allGames.length === 0) {
-    root.appendChild(buildEmptyState({
-      icon: Icons.reset(28),
-      line: 'Train the exact positions where your games went wrong.',
-      body: 'Import your games first — the scan then finds your blunders and missed wins.',
-      cta: { label: 'Import my games', onClick: deps.onImportGames },
+    const line = document.createElement('p');
+    line.className = 'empty-state-line';
+    line.textContent = 'Train the exact positions where your games went wrong.';
+    root.appendChild(line);
+    root.appendChild(buildInlineImport({
+      title: 'Import your games',
+      body: 'The scan then finds your blunders, your missed wins and the chances your opponents handed you.',
+      onImported: () => { void renderMistakesScreen(host, deps); },
     }));
     return;
   }

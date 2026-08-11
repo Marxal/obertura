@@ -36,12 +36,14 @@ import { runStudyImportSelfTest } from '../src/study-import.selftest';
 import { runStudyCatalogSelfTest } from '../src/study-catalog.selftest';
 import { runRepertoireSyncSelfTest } from '../src/repertoire-sync.selftest';
 import { runOnboardingLinesSelfTest } from '../src/onboarding-lines.selftest';
+import { runImportTierSelfTest } from '../src/import-tier.selftest';
 
 interface TestResult { name: string; pass: boolean; detail: string }
 
 const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'openings', run: runOpeningsSelfTest },
   { suite: 'import', run: runImportSelfTest },
+  { suite: 'import-tier', run: runImportTierSelfTest },
   { suite: 'scheduler', run: runSchedulerSelfTest },
   { suite: 'analysis', run: runAnalysisSelfTest },
   { suite: 'spar', run: runSparSelfTest },

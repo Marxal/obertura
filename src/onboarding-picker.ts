@@ -12,8 +12,15 @@
 // the caller, which opens it in the builder (see main.ts's guided flow).
 //
 // Sizing note: this is built to fit a 412×915 phone without scrolling, which is
-// why the copy is short and the cards are compact. It scrolls if it has to (a
-// small phone in landscape), it just shouldn't need to.
+// why the copy is short and the cards are compact. The head (app mark +
+// wordmark + one line), the two segmented controls and the footer are PINNED —
+// only the card grid ever scrolls, so a tall board can never push the level
+// chooser or "Rather start from your own games?" off the screen.
+//
+// A card is a board, a style tag and a name, and nothing else. It used to carry
+// the move list and a one-line blurb too, which made each card tall enough that
+// four of them crowded the controls out; the moves and the pitch belong in the
+// builder, which is one tap away.
 
 import {
   LEVELS,
@@ -25,7 +32,6 @@ import {
   type OnboardingLevel,
 } from './onboarding-lines';
 import { buildMiniBoard } from './board-mini';
-import { formatSanLine } from './notation';
 import { segmented } from './settings-screen';
 import { getAllLines } from './storage';
 import { isOnboardingComplete } from './prefs';
@@ -89,9 +95,10 @@ export function showOnboardingPicker(deps: PickerDeps): void {
   // it just doesn't pick anything. There's nothing behind it but Train.
   const removeBack = pushBack(close);
 
-  // ── Head: wordmark + the one line of copy ──
+  // ── Head: the app mark, the wordmark, and the one line of copy ──
   const head = document.createElement('div');
   head.className = 'picker-head';
+  head.appendChild(appMark());
 
   const brand = document.createElement('div');
   brand.className = 'picker-brand';
@@ -187,6 +194,21 @@ export function showOnboardingPicker(deps: PickerDeps): void {
   deps.onShown?.();
 }
 
+// The real installed app icon (public/icons/icon-192.png) — the same art Android
+// puts on the home screen, so the very first screen opens on the actual brand
+// mark rather than a wordmark alone. Served from public/ under the app's base
+// path; drawn as a rounded app tile (.picker-mark in style.css).
+function appMark(): HTMLImageElement {
+  const img = document.createElement('img');
+  img.src = `${import.meta.env.BASE_URL}icons/icon-192.png`;
+  img.width = 72;
+  img.height = 72;
+  img.alt = '';
+  img.setAttribute('aria-hidden', 'true');
+  img.className = 'picker-mark';
+  return img;
+}
+
 // ── One layer of four cards ──────────────────────────────────────────────────
 
 function buildCardLayer(
@@ -236,8 +258,8 @@ function styleCard(cut: LineCut, onPick: (cut: LineCut) => void): HTMLElement {
   name.textContent = cut.line.name;
   body.appendChild(name);
 
-  // A Black repertoire is an ANSWER to what White chose, and that isn't obvious
-  // from a move list that opens with White's move. Say so on every black card.
+  // A Black repertoire is an ANSWER to what White chose, and with the move list
+  // gone there is nothing else on the card that says so. Two words, kept.
   if (cut.line.colour === 'black') {
     const against = document.createElement('span');
     against.className = 'picker-card-against';
@@ -245,18 +267,10 @@ function styleCard(cut: LineCut, onPick: (cut: LineCut) => void): HTMLElement {
     body.appendChild(against);
   }
 
-  const moves = document.createElement('span');
-  moves.className = 'picker-card-moves';
-  moves.textContent = formatSanLine(cut.sans);
-  body.appendChild(moves);
-
-  const blurb = document.createElement('span');
-  blurb.className = 'picker-card-blurb';
-  blurb.textContent = cut.line.blurb;
-  body.appendChild(blurb);
-
   card.appendChild(body);
 
+  // The blurb and the move count left the card face, but they're still the best
+  // description of what tapping it does — so they stay in the accessible name.
   card.setAttribute(
     'aria-label',
     `${STYLE_LABELS[cut.line.style]} — ${cut.line.name}, `

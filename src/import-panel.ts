@@ -2,23 +2,33 @@
 // ("Refresh my games" in Settings and on the From-my-games tab today; the
 // onboarding import and opponent scouting later). It owns the whole flow:
 //
-//   STEP 1 — pick a platform (Chess.com / Lichess), a username, and how far back
-//            to look (1m / 3m / 12m / All), then Scan.
+//   STEP 1 — pick a platform (Chess.com / Lichess) and a username, then Scan.
 //   STEP 2 — step 1 collapses (an "Edit search" link brings it back) so the
 //            focus is the import itself: the source echoed (@user · platform),
-//            "Found N games", a how-many chooser (Last 100 / Last 500 / All,
-//            defaulting to 500 once there's more than that), a row of
+//            "Found N games", a how-many chooser (Last 50 / Last 100 / Last 500
+//            / All, defaulting to 500 once there's more than that), a row of
 //            time-control toggles each showing its count (bullet OFF by
 //            default), an amber alert when a big "All" import is chosen, an
 //            Import button that always shows the resulting count, and the
 //            White/Black split of exactly what will land.
 //
-// The scan always pulls every speed and caps at 1000 newest-first (import-core).
+// THERE IS NO "HOW FAR BACK" ANY MORE. It used to be step 1's third field
+// (1m / 3m / 12m / All, defaulting to 12m), and it was a question nobody could
+// answer usefully before seeing a single number — the honest default is "look at
+// everything and let me choose afterwards", which is exactly what step 2 already
+// does far better. The scan now always reaches back as far as the platform goes,
+// stopping at the 1000-game hard cap (import-core), newest first.
+//
 // The how-many chooser slices the most recent N off that; the time-control
 // toggles are a local filter on top of whichever slice — so you decide what
 // lands on the device. On import the panel persists the chosen games (replacing
 // what's stored) and records the source, then hands control back so the caller
 // can re-run its analysis and refresh badges/suggestions.
+//
+// SIGNED OUT, the slice is capped at FREE_GUEST_IMPORT (50). The bigger slices
+// are still shown, with a padlock, and tapping one opens the sign-up sheet —
+// visible but locked beats hidden, because the point is to say what an account
+// is FOR.
 
 import {
   importGames,
@@ -51,6 +61,13 @@ import { userAvatar } from './avatar';
 import { Icons } from './icons';
 import { wdlBlock } from './wdl-bar';
 import { showToast } from './toast';
+import { isSupabaseConfigured } from './supabase';
+import { getAuthUser, onAuthChange } from './auth';
+import {
+  countOptionsFor,
+  defaultCountFor,
+  FREE_GUEST_IMPORT,
+} from './import-tier';
 
 // ── Remembered choices (device-local) ────────────────────────────────────────
 
@@ -210,21 +227,14 @@ export async function addMyGames(
   announceIdentityChange();
 }
 
-// ── Range chooser ─────────────────────────────────────────────────────────────
+// ── How far back the scan reaches ─────────────────────────────────────────────
 
-type RangeChoice = 1 | 3 | 12 | 'all';
-const RANGE_OPTIONS: { value: RangeChoice; label: string }[] = [
-  { value: 1, label: '1m' },
-  { value: 3, label: '3m' },
-  { value: 12, label: '12m' },
-  { value: 'all', label: 'All' },
-];
-const DEFAULT_RANGE_CHOICE: RangeChoice = 12;
-// "All" reaches ~100 years back; the 500-game cap stops the fetch early anyway.
+// Every scan reaches as far back as the platform will go (~100 years of monthly
+// archives for Chess.com, the matching `since` for Lichess). The HARD_CAP stops
+// the fetch long before that on any real account, since both fetchers emit
+// newest-first — so this is "everything, most recent first", not "a hundred
+// years of requests".
 const ALL_MONTHS = 1200;
-function rangeMonths(r: RangeChoice): number {
-  return r === 'all' ? ALL_MONTHS : r;
-}
 
 // Order the time-control toggles are shown in.
 const TC_ORDER: TimeClass[] = ['bullet', 'blitz', 'rapid', 'daily'];
@@ -236,21 +246,29 @@ const TC_ORDER: TimeClass[] = ['bullet', 'blitz', 'rapid', 'daily'];
 // is always offered and is already ≤ HARD_CAP.
 const DEFAULT_COUNT: CountChoice = 'all';
 
-// Default the how-many chooser to a phone-friendly 500 once there's more than
-// that to choose from; otherwise keep everything the scan held. Big imports
-// (All, up to the 1000 cap) noticeably slow the map and the board browser on a
-// phone, so we don't reach for them by default — the user can opt up.
-function defaultCountFor(total: number): CountChoice {
-  return total > 500 ? 500 : 'all';
+// Is this import capped at FREE_GUEST_IMPORT? Only where accounts exist at all:
+// the internal GitHub Pages build ships without Supabase, so there is nobody to
+// sign in as and nothing to gate. The rules themselves live in import-tier.ts.
+function guestCapped(): boolean {
+  return isSupabaseConfigured && !getAuthUser();
 }
 
-function countOptionsFor(total: number, truncated: boolean): { value: CountChoice; label: string }[] {
-  const opts: { value: CountChoice; label: string }[] = [];
-  if (total > 100) opts.push({ value: 100, label: 'Last 100' });
-  if (total > 500) opts.push({ value: 500, label: 'Last 500' });
-  // When the hard cap bit, "All" is the most recent HARD_CAP — spell it out.
-  opts.push({ value: 'all', label: truncated ? `All (${HARD_CAP.toLocaleString()})` : 'All' });
-  return opts;
+// The sign-up sheet, loaded on demand. A static import would close a cycle
+// (import-panel → onboarding-signup → account-ui → settings-screen →
+// import-panel); it's also a sheet a signed-in user never opens, so keeping it
+// out of this module's graph is the right shape anyway.
+//
+// `onSignedIn` fires once, if and when an account actually appears — so the
+// padlocked chips the user just tapped can unlock in place instead of making
+// them scan all over again to see the difference.
+function openSignUp(onSignedIn?: () => void): void {
+  void import('./onboarding-signup').then(m => m.openSignUpSheet());
+  if (!onSignedIn) return;
+  const drop = onAuthChange(() => {
+    if (!getAuthUser()) return;
+    drop();
+    onSignedIn();
+  });
 }
 
 // ── The panel ─────────────────────────────────────────────────────────────────
@@ -269,11 +287,15 @@ export interface ImportPanelOptions {
   save?: (games: ImportedGame[], meta: { platform: Platform; username: string; avatarUrl?: string }) => Promise<void>;
   // Run after a successful import (games already saved): re-render badges etc.
   onImported?: (count: number) => void;
+  // Start scanning the moment the panel opens, instead of showing step 1 and
+  // waiting for a tap. Set by the inline forms (import-inline.ts), which have
+  // ALREADY asked for the platform and the username — re-presenting the same two
+  // fields inside the sheet would make the user fill them in twice.
+  autoScan?: boolean;
 }
 
 export function openImportPanel(opts: ImportPanelOptions = {}): void {
   let platform: Platform = opts.platform ?? getLastPlatform();
-  let range: RangeChoice = DEFAULT_RANGE_CHOICE;
   let scan: ImportResult | null = null;
   let count: CountChoice = DEFAULT_COUNT;
   const selected = new Set<TimeClass>();
@@ -392,28 +414,13 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
   userInput.addEventListener('input', resetScan);
   step1.appendChild(field('Username', userInput));
 
-  // Range chips (single choice).
-  const rangeRow = document.createElement('div');
-  rangeRow.className = 'import-chips';
-  const rangeChips: HTMLButtonElement[] = [];
-  for (const opt of RANGE_OPTIONS) {
-    const c = document.createElement('button');
-    c.type = 'button';
-    c.className = 'tag-chip';
-    c.textContent = opt.label;
-    c.addEventListener('click', () => {
-      range = opt.value;
-      reflectRange();
-      resetScan();
-    });
-    rangeChips.push(c);
-    rangeRow.appendChild(c);
-  }
-  const reflectRange = () => {
-    rangeChips.forEach((c, i) => c.classList.toggle('tag-chip--on', RANGE_OPTIONS[i].value === range));
-  };
-  reflectRange();
-  step1.appendChild(field('How far back', rangeRow));
+  // A quiet line where the range chips used to be, so it's clear the scan isn't
+  // quietly limiting itself to the last few months.
+  const reachNote = document.createElement('p');
+  reachNote.className = 'import-reach-note';
+  reachNote.textContent = 'We’ll look at your whole history, newest games first. '
+    + 'You choose how many to keep on the next screen.';
+  step1.appendChild(reachNote);
 
   // Scan button — the progress itself takes over the whole screen (the import
   // loader, mounted in runScan) rather than living inline in the sheet.
@@ -504,7 +511,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
 
     try {
       const result = await importGames(platform, user, {
-        months: rangeMonths(range),
+        months: ALL_MONTHS,
         onProgress: (p) => {
           loader?.setStatus(p.monthsTotal > 1
             ? `Scanning ${p.label} (${p.monthsDone}/${p.monthsTotal}) — ${p.gamesSoFar} games so far…`
@@ -536,21 +543,27 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
   function buildStep2(result: ImportResult): void {
     step2.innerHTML = '';
     const total = result.games.length; // newest-first, already ≤ HARD_CAP
-    count = defaultCountFor(total);
+    count = defaultCountFor(total, guestCapped());
     selected.clear();
     // A my-games import shows "your results"; a scout (rememberUser: false) is
     // the opponent's games, so the same graph reads "their results".
     const isMine = opts.rememberUser !== false;
 
-    // Step 2 takes over the whole screen: hide step 1 (platform / username /
-    // range) and switch the shell to full-screen so the review reads cleanly.
+    // Signed up from one of the padlocked count chips: rebuild this screen so
+    // the bigger slices are simply selectable now, with the scan we already
+    // have. Guarded on the panel still being open — the listener can also fire
+    // long after the user closed it.
+    const unlock = (): void => { if (!closed) buildStep2(result); };
+
+    // Step 2 takes over the whole screen: hide step 1 (platform / username)
+    // and switch the shell to full-screen so the review reads cleanly.
     // The big Scan button goes with it; "Edit search" brings step 1 back.
     step1.hidden = true;
     scanBtn.hidden = true;
     setFullScreen(true);
 
     // Header: the step heading + an "Edit search" link that reveals step 1 again
-    // (to change platform, username or range, then Scan afresh).
+    // (to change platform or username, then Scan afresh).
     const head = document.createElement('div');
     head.className = 'import-step2-head';
     const heading = document.createElement('h4');
@@ -589,19 +602,19 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     source.textContent = `@${userInput.value.trim()} · ${PLATFORM_LABELS[result.platform]}`;
     body.appendChild(source);
 
-    // "Found N games" — the true count in range. If the hard cap bit, there are
-    // genuinely more than HARD_CAP and we say so.
+    // "Found N games" — everything the platform gave us. If the hard cap bit,
+    // there are genuinely more than HARD_CAP and we say so.
     const found = document.createElement('p');
     found.className = 'import-found';
     found.textContent = result.truncated
-      ? `Found more than ${HARD_CAP.toLocaleString()} games in this range.`
+      ? `Found more than ${HARD_CAP.toLocaleString()} games.`
       : `Found ${total.toLocaleString()} game${total === 1 ? '' : 's'}.`;
     body.appendChild(found);
 
     if (total === 0) {
       const none = document.createElement('p');
       none.className = 'import-status';
-      none.textContent = 'Nothing to import in this range — try a longer range.';
+      none.textContent = 'No games found for that username — check the spelling, or try the other platform.';
       body.appendChild(none);
       step2.hidden = false;
       return;
@@ -620,8 +633,8 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       if (fullTally.byTimeClass[tc] > 0 && DEFAULT_TIME_CLASSES.includes(tc)) selected.add(tc);
     }
 
-    // ── How many to import (Last 100 / Last 500 / All) ──
-    const countOpts = countOptionsFor(total, result.truncated);
+    // ── How many to import (Last 50 / Last 100 / Last 500 / All) ──
+    const countOpts = countOptionsFor(total, result.truncated, guestCapped());
     if (countOpts.length > 1) {
       const countLabel = document.createElement('div');
       countLabel.className = 'edit-label';
@@ -634,17 +647,43 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       countOpts.forEach((opt) => {
         const c = document.createElement('button');
         c.type = 'button';
-        c.className = 'tag-chip' + (opt.value === count ? ' tag-chip--on' : '');
-        c.textContent = opt.label;
-        c.addEventListener('click', () => {
-          count = opt.value;
-          countChips.forEach((b, i) => b.classList.toggle('tag-chip--on', countOpts[i].value === count));
-          renderSlice();
-        });
+        c.className = 'tag-chip'
+          + (!opt.locked && opt.value === count ? ' tag-chip--on' : '')
+          + (opt.locked ? ' tag-chip--locked' : '');
+        if (opt.locked) {
+          c.appendChild(lockIcon());
+          c.appendChild(document.createTextNode(opt.label));
+          c.setAttribute('aria-label', `${opt.label} — sign in to unlock`);
+          // A locked chip never changes the slice; it makes the offer instead.
+          c.addEventListener('click', () => openSignUp(unlock));
+        } else {
+          c.textContent = opt.label;
+          c.addEventListener('click', () => {
+            count = opt.value;
+            countChips.forEach((b, i) => b.classList.toggle(
+              'tag-chip--on', !countOpts[i].locked && countOpts[i].value === count));
+            renderSlice();
+          });
+        }
         countChips.push(c);
         countRow.appendChild(c);
       });
       body.appendChild(countRow);
+
+      // Say why the big slices are padlocked, right under the chips.
+      if (countOpts.some(o => o.locked)) {
+        const note = document.createElement('p');
+        note.className = 'import-guest-note';
+        note.appendChild(document.createTextNode(
+          `Without an account you can import ${FREE_GUEST_IMPORT} games at a time. `));
+        const link = document.createElement('button');
+        link.type = 'button';
+        link.className = 'import-guest-link';
+        link.textContent = 'Sign up — it’s free';
+        link.addEventListener('click', () => openSignUp(unlock));
+        note.appendChild(link);
+        body.appendChild(note);
+      }
     }
 
     // ── Large-import warning (rebuilt per slice — only shown for big "All") ──
@@ -813,8 +852,34 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
 
   document.body.appendChild(overlay);
   overlay.appendChild(sheet);
+
+  // Opened from an inline form: the platform and username came with it, so go
+  // straight to scanning rather than showing the user the fields they just
+  // filled in. Anything missing falls back to the normal step 1.
+  if (opts.autoScan && userInput.value.trim()) {
+    void runScan();
+    return;
+  }
+
   // Focus the username if it's empty so the keyboard is ready.
   if (!userInput.value) setTimeout(() => userInput.focus(), 50);
+}
+
+// A small padlock for the count slices an account would unlock.
+function lockIcon(): SVGSVGElement {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('width', '12');
+  svg.setAttribute('height', '12');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '2');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.classList.add('tag-chip-lock');
+  svg.innerHTML = '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>';
+  return svg;
 }
 
 // Ask whether a "my games" import should replace the games already on the device

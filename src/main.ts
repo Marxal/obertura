@@ -63,7 +63,8 @@ import { openStarterPackPicker, type LineSeed, type AddLineMode } from './onboar
 import { showOnboardingWizard, wizardStepPending } from './onboarding-wizard';
 import { showOnboardingPicker, shouldShowFirstRun } from './onboarding-picker';
 import { mountFirstLineGuide, type GuideHandle } from './onboarding-guide';
-import { maybeAskToSignUp, handleAuthUrlParam } from './onboarding-signup';
+import { maybeAskToSignUp, handleAuthUrlParam, openSignUpSheet } from './onboarding-signup';
+import { renderFirstSteps, shouldShowFirstSteps } from './first-steps';
 import type { LineCut } from './onboarding-lines';
 import { maybeAutoRefreshGames } from './auto-refresh';
 import { maybeShowGate } from './gate';
@@ -2363,7 +2364,6 @@ function linesScreenDeps(): Parameters<typeof renderLinesScreen>[1] {
     onAddLine: startNewLine,
     onStartTraining: handleStartTraining,
     onBuildLine: buildFromUcis,
-    onImportGames: () => openImportPanel({ onImported: () => showView('lines') }),
     onPickStarterPack: () => void openStarterPackPicker(addStarterLine),
   };
 }
@@ -2504,15 +2504,40 @@ function renderTrainTabbed(host: HTMLElement): void {
   const renderDaily = async (): Promise<void> => {
     let allLines: Line[];
     let spotRefs: SpotRef[];
+    let gameCount: number;
     try {
       const [lines, games] = await Promise.all([getAllLines(), getAllGames()]);
       allLines = lines;
+      gameCount = games.length;
       spotRefs = collectSpots(games);
     } catch {
       dailyHost.innerHTML = '';
       return;
     }
     dailyHost.innerHTML = '';
+
+    // Before there's a repertoire to have a daily challenge ABOUT, this slot
+    // carries the Get-started checklist instead (first-steps.ts). The two never
+    // show together — one card at the top of Train, and it's whichever one has
+    // something useful to say.
+    if (shouldShowFirstSteps(allLines.length)) {
+      dailyHost.appendChild(renderFirstSteps({
+        lineCount: allLines.length,
+        gameCount,
+        // Adding from a pack repaints the picker itself; showView('train')
+        // rebuilds this card and the pane behind it so the bar climbs too.
+        onPickStarterPack: () => void openStarterPackPicker(
+          (seed, colour, mode, onDone, onCancel) => addStarterLine(
+            seed, colour, mode, () => { onDone(); showView('train'); }, onCancel),
+        ),
+        onBuildLine: () => startNewLine('white'),
+        onBuildWithEngine: () => openBuilderTab(0, { fresh: true, colour: 'white', engine: true }),
+        onImportGames: () => openImportPanel({ onImported: () => showView('train') }),
+        onConnectLichess: () => void lichessConnect(),
+        onSignIn: () => openSignUpSheet(),
+      }));
+      return;
+    }
 
     // The daily config (which tasks + how many of each) and which are actually
     // runnable right now decide the card — and the "Next task →" chain.
@@ -2617,9 +2642,6 @@ function renderTrainTabbed(host: HTMLElement): void {
         onOpenLine,
         onBuildLine: () => startNewLine('white'),
         onImportGames: () => showView('games'),
-        onAddStarterLine: addStarterLine,
-        onBrowseLibrary: () => openBuilderTab(LIBRARY_SLIDE, { fresh: true, colour: 'white' }),
-        onBuildWithEngine: () => openBuilderTab(0, { fresh: true, colour: 'white', engine: true }),
         onConnectLichess: () => void lichessConnect(),
         onSetFabVisible: (visible) => fabController?.setVisible(visible),
       });
@@ -2633,13 +2655,11 @@ function renderTrainTabbed(host: HTMLElement): void {
       });
     } else if (trainTab === 'mistakes') {
       void renderMistakesScreen(mistakesPane, {
-        onImportGames: () => showView('games'),
         onOpenGame: openGameFromSession,
       });
     } else {
       renderEndgameScreen(endgamePane, {
         onAnalysePosition: openPuzzleFromSession,
-        onImportGames: () => showView('games'),
       });
     }
   };
