@@ -14,13 +14,6 @@
 // The bubbles sit ON the real screen instead — the tabs light up while the
 // sentence about the tabs is being read, and matching is not the user's job.
 //
-// WHY IT REPLACED THE COACH STRIP. There used to be a second teaching device: a
-// strip in the builder's dock that cycled three sentences on a timer and ended
-// with a Save button. Two systems saying overlapping things in different voices,
-// one of which moved on whether or not you'd read it. The strip is gone; its
-// job — the save decision — is the walkthrough's last step, which arrives after
-// the line has played in and offers both answers as buttons.
-//
 // HOW THE SPOTLIGHT WORKS. One scrim element, positioned over the target's rect
 // and given an enormous `box-shadow` spread in the scrim colour. The element
 // itself is transparent, so the shadow paints everything AROUND it — a cut-out
@@ -30,25 +23,43 @@
 // shows the real screen at full strength whatever stacking contexts the app's
 // own layout creates around the target.
 //
+// THE EDGE INSET. A phone board is the full width of the screen, so a spotlight
+// drawn exactly on its rect puts its ring off-screen on both sides and the
+// "highlight" reads as no highlight at all. Every spot is therefore clamped to
+// sit at least EDGE_INSET inside the viewport: on a full-bleed target the ring
+// lands just inside the screen edge, where it can actually be seen.
+//
+// A STEP CAN BE LIVE. `interactive` drops the overlay's own pointer capture so
+// taps reach the app underneath, and `watch` lets a step advance on something
+// the user DID (a move played on the board, the next tab tapped) rather than
+// only on the Next button. That's the difference between a slideshow about the
+// screen and a walkthrough of it.
+//
 // It never blocks the app: every exit runs the caller's callback, the back
 // gesture included, so a walkthrough can't strand anyone.
 
 import { isBuilderTourSeen, setBuilderTourSeen } from './prefs';
 import { pushBack } from './back-nav';
 
-// Gap between the spotlight and the bubble, and how far the spotlight is
-// inflated past the target's own box.
+// Gap between the spotlight and the bubble, how far the spotlight is inflated
+// past the target's own box, and how far inside the viewport a spot edge is
+// always kept (so a full-bleed target still shows its ring).
 const BUBBLE_GAP = 12;
 const SPOT_PAD = 6;
+const EDGE_INSET = 9;
 
 // One button on a bubble. When `actions` is omitted a step gets the default
 // Next / Got it, which advances or ends the sequence.
 export interface CoachAction {
   label: string;
-  // 'primary' fills with the accent; 'quiet' is a plain text button. Both end
-  // the sequence when clicked, after running onClick.
+  // 'primary' fills with the accent; 'quiet' is a plain text button.
   variant?: 'primary' | 'quiet';
   onClick?: () => void;
+  // Carry on through the sequence: the next step, or — on the LAST step — the
+  // ordinary end, which runs onDone. Without it an action is an exit that
+  // REPLACES onDone, which is what a "this ends the walkthrough and starts
+  // something else" button (Save the line, Import games) wants.
+  advance?: boolean;
 }
 
 export interface CoachStep {
@@ -60,9 +71,19 @@ export interface CoachStep {
   // Extra room around this target (a small header button wants a bit so the
   // ring doesn't crowd it; a full-width board wants none).
   pad?: number;
-  // Replaces the default Next / Got it. Only meaningful on the LAST step —
-  // a step with actions ends the sequence whichever one is pressed.
+  // Replaces the default Next / Got it. An action without `advance` ends the
+  // sequence whichever step it's on.
   actions?: CoachAction[];
+  // Run when the step becomes the current one — used to put the screen in the
+  // state the step describes (switch the builder to the panel being named).
+  onEnter?: () => void;
+  // Subscribe to something in the app that should advance this step: a move
+  // played on the board, the next tab tapped. Return the unsubscribe.
+  watch?: (advance: () => void) => () => void;
+  // Let taps through to the app underneath. The bubble stays clickable; the
+  // rest of the screen is live, so the thing being described can be used while
+  // it's being described.
+  interactive?: boolean;
 }
 
 // Show a sequence of coach-marks. `onDone` fires once, on whatever exit
@@ -114,10 +135,18 @@ export function showCoachMarks(steps: CoachStep[], onDone: () => void = () => {}
     return d;
   });
 
+  // The current step's `watch` subscription, dropped whenever the step changes.
+  let unwatch: (() => void) | null = null;
+  function dropWatch(): void {
+    unwatch?.();
+    unwatch = null;
+  }
+
   let finished = false;
   function teardown(): void {
     if (finished) return;
     finished = true;
+    dropWatch();
     window.removeEventListener('resize', reposition);
     window.removeEventListener('orientationchange', reposition);
     overlay.remove();
@@ -130,10 +159,26 @@ export function showCoachMarks(steps: CoachStep[], onDone: () => void = () => {}
   }
   const removeBack = pushBack(finish);
 
+  // Next step, or the end of the sequence. The one path every advance goes
+  // through — the Next button, a custom advancing action, and `watch`.
+  function advance(): void {
+    if (finished) return;
+    if (index >= all.length - 1) { finish(); return; }
+    index++;
+    paint();
+  }
+
   function paint(): void {
     const step = all[index];
     const target = findTarget(step);
     if (!target) { finish(); return; }
+
+    dropWatch();
+    step.onEnter?.();
+
+    // A live step lets taps reach the app; the bubble keeps its own pointer
+    // events so its buttons still work (see the CSS).
+    overlay.classList.toggle('tour-overlay--live', !!step.interactive);
 
     title.textContent = step.title;
     body.textContent = step.body;
@@ -142,15 +187,17 @@ export function showCoachMarks(steps: CoachStep[], onDone: () => void = () => {}
     // Rebuild the foot: dots (only when there's a sequence to track), then the
     // step's own actions or the default Skip / Next pair.
     foot.replaceChildren();
+    foot.classList.toggle('tour-foot--single', all.length === 1);
     if (all.length > 1) foot.appendChild(dots);
-    else foot.classList.add('tour-foot--single');
 
     if (step.actions?.length) {
-      // An action REPLACES onDone rather than running alongside it: the whole
-      // point of a custom action is that this exit means something specific.
-      // onDone stays the fallback for a back gesture or a vanished target.
+      // An exiting action REPLACES onDone rather than running alongside it: the
+      // whole point of a custom action is that this exit means something
+      // specific. onDone stays the fallback for a back gesture or a vanished
+      // target. An advancing action just runs and moves on.
       for (const a of step.actions) {
         foot.appendChild(actionButton(a.label, a.variant ?? 'primary', () => {
+          if (a.advance) { a.onClick?.(); advance(); return; }
           teardown();
           a.onClick?.();
         }));
@@ -158,11 +205,18 @@ export function showCoachMarks(steps: CoachStep[], onDone: () => void = () => {}
     } else {
       const last = index >= all.length - 1;
       if (!last) foot.appendChild(actionButton('Skip', 'quiet', finish));
-      foot.appendChild(actionButton(last ? 'Got it' : 'Next', 'primary', () => {
-        if (last) { finish(); return; }
-        index++;
-        paint();
-      }));
+      foot.appendChild(actionButton(last ? 'Got it' : 'Next', 'primary', advance));
+    }
+
+    // Whatever the step watches for (a move, a tab tap) advances it too. A short
+    // beat first, so the thing the user just did finishes animating before the
+    // bubble moves off it.
+    if (step.watch) {
+      const stepIndex = index;
+      unwatch = step.watch(() => {
+        if (finished || index !== stepIndex) return;
+        setTimeout(() => { if (!finished && index === stepIndex) advance(); }, 400);
+      });
     }
 
     reposition();
@@ -184,12 +238,20 @@ export function showCoachMarks(steps: CoachStep[], onDone: () => void = () => {}
 
     const pad = step.pad ?? SPOT_PAD;
     const r = target.getBoundingClientRect();
-    const top = r.top - pad;
-    const height = r.height + pad * 2;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    // Clamped into the viewport, so a full-bleed target (the board on a phone)
+    // still has both of its rings on screen.
+    const left = Math.max(EDGE_INSET, r.left - pad);
+    const right = Math.min(vw - EDGE_INSET, r.right + pad);
+    const top = Math.max(EDGE_INSET, r.top - pad);
+    const bottom = Math.min(vh - EDGE_INSET, r.bottom + pad);
+    const height = Math.max(0, bottom - top);
 
     spot.style.top = `${top}px`;
-    spot.style.left = `${r.left - pad}px`;
-    spot.style.width = `${r.width + pad * 2}px`;
+    spot.style.left = `${left}px`;
+    spot.style.width = `${Math.max(0, right - left)}px`;
     spot.style.height = `${height}px`;
 
     placeBubble(top, height);
@@ -236,27 +298,84 @@ function actionButton(label: string, variant: 'primary' | 'quiet', onClick: () =
 }
 
 // The first selector in the list that resolves to something actually visible.
+//
+// Measured, not `offsetParent`: the builder's panel sheet is position:fixed, and
+// a fixed element's offsetParent is null however plainly visible it is — which
+// silently dropped every panel step from the walkthrough. A box with area is on
+// screen; a hidden one (or one under a `display: none` ancestor) has none.
 function findTarget(step: CoachStep): HTMLElement | null {
   for (const sel of step.selector) {
     const el = document.querySelector<HTMLElement>(sel);
-    if (el && el.offsetParent !== null) return el;
+    if (!el) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden') return el;
   }
   return null;
+}
+
+// ── Watching the app ─────────────────────────────────────────────────────────
+
+// Fired by the builder whenever the USER plays a move into the line by hand (on
+// the board, or by tapping a suggested continuation). Not fired for moves the
+// app lays down itself — a line playing itself in isn't the user doing anything.
+export const BUILDER_MOVE_EVENT = 'bito:builder-move';
+
+export function notifyBuilderMove(): void {
+  document.dispatchEvent(new Event(BUILDER_MOVE_EVENT));
+}
+
+function onBuilderMove(advance: () => void): () => void {
+  document.addEventListener(BUILDER_MOVE_EVENT, advance);
+  return () => document.removeEventListener(BUILDER_MOVE_EVENT, advance);
+}
+
+// Advance when the user taps the tab the NEXT step is about — so "or tap
+// Library" is a real instruction, not a description of a button we've disabled.
+function onTabTap(slide: number): (advance: () => void) => () => void {
+  return (advance) => {
+    const el = document.querySelector<HTMLElement>(`#builder-slide-tabs .slide-tab[data-slide="${slide}"]`);
+    if (!el) return () => {};
+    el.addEventListener('click', advance);
+    return () => el.removeEventListener('click', advance);
+  };
 }
 
 // ── The builder walkthrough ──────────────────────────────────────────────────
 //
 // Split in two around the line playing itself in, because the two halves are
 // about different things. Before: what this screen IS — the board you build on,
-// and the panels beside it. After: the decision the user now has to make, with a
-// finished line sitting in front of them.
+// then the panels beside it, one at a time. After: the decision the user now has
+// to make, with a finished line sitting in front of them.
 
-export interface TourLine {
-  // The opening's curated name and how many moves the user has to remember.
-  // Absent when the tour fronts an EMPTY builder ("an empty board"), where there
-  // is no line to describe yet.
-  name: string;
-  ownMoves: number;
+// Carousel slide indices the walkthrough drives (main.ts owns the real list).
+const LINE_SLIDE = 0;
+const LIBRARY_SLIDE = 1;
+const MYLINES_SLIDE = 2;
+
+// Where to resume the walkthrough after a Lichess connect, which redirects the
+// whole page away and back. Same shape (and the same 10-minute staleness window)
+// as lichess-auth's own stashReturn / takeReturn.
+const RESUME_KEY = 'obertura.tourResume';
+
+function stashTourStep(step: number): void {
+  try {
+    localStorage.setItem(RESUME_KEY, JSON.stringify({ step, t: Date.now() }));
+  } catch { /* storage off — we simply won't resume the walkthrough */ }
+}
+
+// Consume the stashed step (once). Null if there is none, it's malformed, or
+// it's stale (a leftover from a connect the user abandoned).
+export function takeTourResume(): number | null {
+  try {
+    const raw = localStorage.getItem(RESUME_KEY);
+    if (!raw) return null;
+    localStorage.removeItem(RESUME_KEY);
+    const v = JSON.parse(raw) as { step?: number; t?: number };
+    if (typeof v.step !== 'number' || Date.now() - (v.t ?? 0) > 600_000) return null;
+    return Math.max(0, v.step);
+  } catch {
+    return null;
+  }
 }
 
 // Is the walkthrough still owed on this device? Callers check before deciding
@@ -269,37 +388,104 @@ export function markBuilderTourSeen(): void {
   setBuilderTourSeen();
 }
 
-// Part one: the board, then the panels. Runs BEFORE the line plays in.
-export function showBuilderIntro(line: TourLine | undefined, onDone: () => void): void {
-  showCoachMarks([
-    {
-      selector: ['#board'],
-      title: line ? 'Build your line here' : 'Your line starts here',
-      body: line
-        ? `This is the ${line.name}. Play moves on the board to change it, add to `
-          + 'it, or take it somewhere else — then save it, and the app drills you '
-          + 'on it until you know it cold.'
-        : 'Play moves on the board and they become your line, move by move. When '
-          + 'it looks right you save it, and the app drills you on it until you '
-          + 'know it cold.',
-    },
-    {
-      selector: ['#builder-slide-tabs'],
-      title: 'Three panels to build from',
-      // Named one by one, because "the tabs" is the thing nobody finds. Learn
-      // and Scouting are deliberately left out — they're for later, and a
-      // walkthrough that lists five things teaches none of them.
-      body: 'Line — every move you\'ve played, tap one to jump back to it. '
-        + 'Library — what strong players actually play from this position, with '
-        + 'the win rates. My lines — your own repertoire, to copy from or check '
-        + 'against.',
-      pad: 4,
-    },
-  ], onDone);
+export interface BuilderIntroDeps {
+  // Fires on whatever exit happens — the last step, Skip, or the back gesture.
+  onDone: () => void;
+  // Show a builder carousel slide, so each panel step opens the panel it names.
+  showSlide: (index: number) => void;
+  // "Connect Lichess" on the Library step. Redirects the page away and back;
+  // the walkthrough stashes where it was first, so it resumes here on return.
+  onConnectLichess: () => void;
+  // "Import my games" on the My lines step — the Chess.com / Lichess username
+  // import, which is what fills that panel.
+  onImportGames: () => void;
+  isLichessConnected: () => boolean;
+  // Start partway in (2 = the Library step) — how the walkthrough picks itself
+  // back up after the Lichess round-trip.
+  startStep?: number;
 }
 
-// Part two: the save decision. Runs AFTER the line has played itself in, so the
-// user is looking at a finished line when they're asked what to do with it.
+// Part one: the board, then the three panels one at a time. Runs BEFORE the line
+// plays in.
+//
+// The panels used to be a single step that listed all three in one paragraph. A
+// bubble that names three things teaches none of them, and the panel it was
+// pointing at was whichever one happened to be showing. Now each panel gets its
+// own step, its own panel actually open behind it, and — where the panel is only
+// half a feature without one — its own connect.
+export function showBuilderIntro(deps: BuilderIntroDeps): void {
+  const steps: CoachStep[] = [
+    {
+      selector: ['#board'],
+      title: 'Build your line',
+      // Short on purpose. This is the first bubble a stranger ever reads, and
+      // the whole product fits in one sentence.
+      body: 'Play the line you want to save, save it, and train it on Bito Chess.',
+      pad: 0,
+      // Live, and it advances on a move: the fastest way to learn that the board
+      // is yours to play on is to play on it.
+      interactive: true,
+      watch: onBuilderMove,
+    },
+    {
+      selector: ['#builder-sheet'],
+      title: 'Line',
+      body: 'Every move you\'ve played. Tap one to jump back to it, rename the '
+        + 'line, add tags, or leave a note on a move to help you remember it.',
+      pad: 4,
+      interactive: true,
+      onEnter: () => deps.showSlide(LINE_SLIDE),
+      watch: onTabTap(LIBRARY_SLIDE),
+    },
+    {
+      selector: ['#builder-sheet'],
+      title: 'Library',
+      body: deps.isLichessConnected()
+        ? 'What strong players actually play from here, with the win rates. '
+          + 'You\'re connected to Lichess, so it answers for every position.'
+        : 'What strong players actually play from here, with the win rates. '
+          + 'Connect Lichess and it answers for every position, live.',
+      pad: 4,
+      interactive: true,
+      onEnter: () => deps.showSlide(LIBRARY_SLIDE),
+      watch: onTabTap(MYLINES_SLIDE),
+      actions: deps.isLichessConnected() ? undefined : [
+        {
+          label: 'Connect Lichess',
+          variant: 'quiet',
+          // Come back to THIS step: the redirect reloads the app, and landing
+          // back at the start of the walkthrough (or at no walkthrough at all)
+          // is how a connect turns into a dead end.
+          onClick: () => { stashTourStep(2); deps.onConnectLichess(); },
+        },
+        { label: 'Next', variant: 'primary', advance: true },
+      ],
+    },
+    {
+      selector: ['#builder-sheet'],
+      title: 'My lines',
+      body: 'The lines you\'ve already saved from this position — and, once you '
+        + 'import from Chess.com or Lichess, the moves you actually face in '
+        + 'your own games.',
+      pad: 4,
+      interactive: true,
+      onEnter: () => deps.showSlide(MYLINES_SLIDE),
+      actions: [
+        // Import EXITS the walkthrough (the sheet needs the screen) and hands
+        // the continuation to that sheet's onClose — see builderIntroDeps in
+        // main.ts. "Got it" is the ordinary end.
+        { label: 'Import games', variant: 'quiet', onClick: deps.onImportGames },
+        { label: 'Got it', variant: 'primary', advance: true },
+      ],
+    },
+  ];
+
+  showCoachMarks(steps.slice(deps.startStep ?? 0), deps.onDone);
+}
+
+// Part two: the save decision. Runs AFTER the line has played itself in (or, on
+// an empty board, once a few moves are down), so the user is looking at a line
+// when they're asked what to do with it.
 //
 // Not a "nothing is saved until you press this" warning any more — that framing
 // tells a first-time user the app is fragile, which is both unfriendly and
@@ -328,10 +514,11 @@ export function showTrainerIntro(onStart: () => void): void {
     {
       selector: ['.pt-board', '.pt-board-wrap'],
       title: 'Saved. Now learn it.',
-      body: 'First the board plays your line through once. Then it\'s your turn, '
-        + 'from memory — get one wrong and it shows you. One clean run and the '
-        + 'line joins your training.',
-      actions: [{ label: 'Watch it', variant: 'primary', onClick: onStart }],
+      body: 'The board plays your line once. Then it\'s your turn, from memory — '
+        + 'two tries before the move is shown. Bito Chess keeps what you miss '
+        + 'and brings it back until it sticks.',
+      pad: 0,
+      actions: [{ label: 'Start training', variant: 'primary', onClick: onStart }],
     },
   ], onStart);
 }

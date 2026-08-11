@@ -159,6 +159,15 @@ export function showOnboardingPicker(deps: PickerDeps): void {
   lead.textContent = 'Let’s build your first line.';
   overlay.appendChild(lead);
 
+  // ── One card, three fields, one button ──
+  // Colour, depth, style and the commit button used to be four things floating
+  // on the page at four different weights, which made the last field and the
+  // button read as unrelated to the two above them. They're one form, so they
+  // sit on one surface, with the button as its last row.
+  const card = document.createElement('div');
+  card.className = 'picker-card';
+  overlay.appendChild(card);
+
   // ── The form: colour, then depth ──
   const form = document.createElement('div');
   form.className = 'picker-form';
@@ -179,7 +188,7 @@ export function showOnboardingPicker(deps: PickerDeps): void {
     { fullWidth: true },
   )));
 
-  overlay.appendChild(form);
+  card.appendChild(form);
 
   // ── The four styles, on a stage so one layer can cross-fade over another ──
   // They SELECT rather than commit. Tapping a tile used to launch the builder
@@ -190,11 +199,11 @@ export function showOnboardingPicker(deps: PickerDeps): void {
   const stylesLabel = document.createElement('div');
   stylesLabel.className = 'picker-field-label picker-styles-label';
   stylesLabel.textContent = 'Pick a style';
-  overlay.appendChild(stylesLabel);
+  card.appendChild(stylesLabel);
 
   const stage = document.createElement('div');
   stage.className = 'picker-stage';
-  overlay.appendChild(stage);
+  card.appendChild(stage);
 
   let selected: OnboardingStyle | null = null;
 
@@ -268,11 +277,13 @@ export function showOnboardingPicker(deps: PickerDeps): void {
     close();
     deps.onPick(cut);
   });
-  overlay.appendChild(start);
+  card.appendChild(start);
 
   // ── The two ways out ──
   // Introduced, not just present: a labelled rule turns them from two mystery
-  // buttons under a primary into the alternatives they are.
+  // buttons under a primary into the alternatives they are. They're quiet by
+  // design — text links, not framed buttons — because they're the answer to
+  // "what if none of this is me", not a third thing to weigh up.
   const or = document.createElement('div');
   or.className = 'picker-or';
   const orText = document.createElement('span');

@@ -1144,9 +1144,15 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
 
   // Auto-play a run of plies (opponent replies / opening lead-in / watch-first
   // warm-up), animated. `delay` is the gap before each move (default 700 ms);
-  // the watch-first pass passes the user's watch-speed instead. With
-  // `showNotes` (watch-first only), a ply's note pops up as its move plays —
-  // the teaching moment — and the next move waits long enough to read it.
+  // the watch-first pass passes the user's watch-speed instead.
+  //
+  // `showNotes` used to be on for the watch-first pass: each ply's note popped
+  // up as its move played, and the next move waited up to 3.5s so the note could
+  // be read. It turned a ten-second watch into a stop-start minute, and the
+  // watch is the one part of the run where the user is meant to just SEE the
+  // shape of the line. Notes still show where they teach — on a miss, and on the
+  // note control — so nothing was lost but the waiting. The parameter stays
+  // because a caller may yet want an annotated replay.
   function animatePlies(plies: Ply[], done: () => void, delay = 700, showNotes = false): void {
     let k = 0;
     let readingTime = 0; // extra hold after a ply that showed a note
@@ -1297,11 +1303,9 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     const playIn = (): void => {
       if (isCleaned) return;
       animatePlies(watchPlies, () => {
-        // Hold on the final position for a beat (animatePlies already added
-        // reading time when the last move carried a note), then reset and start
-        // the quiz.
+        // Hold on the final position for a beat, then reset and start the quiz.
         autoTimer = setTimeout(() => { if (!isCleaned) beginRun(); }, opts.watchFirstMs! + 300);
-      }, opts.watchFirstMs, true);
+      }, opts.watchFirstMs);
     };
 
     // The board is already mounted and set to the start position at this point,

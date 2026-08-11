@@ -293,6 +293,11 @@ export interface ImportPanelOptions {
   save?: (games: ImportedGame[], meta: { platform: Platform; username: string; avatarUrl?: string }) => Promise<void>;
   // Run after a successful import (games already saved): re-render badges etc.
   onImported?: (count: number) => void;
+  // Run when the panel goes away, whatever the reason (imported, dismissed, back
+  // gesture) and always after onImported. For a caller that had something of its
+  // own on screen and needs to pick it back up — the builder walkthrough, whose
+  // last step offers this import.
+  onClose?: () => void;
   // Start scanning the moment the panel opens, instead of showing step 1 and
   // waiting for a tap. Set by the inline forms (import-inline.ts), which have
   // ALREADY asked for the platform and the username — re-presenting the same two
@@ -354,6 +359,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     vv?.removeEventListener('scroll', syncKeyboardInset);
     overlay.remove();
     removeBack();
+    opts.onClose?.();
   }
   const removeBack = pushBack(close);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
@@ -826,12 +832,14 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
           username: userInput.value.trim(),
           avatarUrl: scannedAvatarUrl,
         });
-        close();
         showToast(
           `Imported ${games.length.toLocaleString()} game${games.length === 1 ? '' : 's'}`,
           { variant: 'success' },
         );
+        // onImported first, then the panel goes away — so onClose is reliably
+        // the LAST thing an import fires, whichever way the panel ended.
         opts.onImported?.(games.length);
+        close();
       } catch (err) {
         showError(`Couldn’t save your games — ${(err as Error).message}`);
         importBtn.disabled = false;

@@ -68,8 +68,12 @@ import {
   showTrainerIntro,
   isBuilderTourOwed,
   markBuilderTourSeen,
+  notifyBuilderMove,
+  takeTourResume,
+  BUILDER_MOVE_EVENT,
+  type BuilderIntroDeps,
 } from './onboarding-tour';
-import { maybeAskToSignUp, handleAuthUrlParam, openSignUpSheet } from './onboarding-signup';
+import { showFirstLineSuccess, handleAuthUrlParam, openSignUpSheet } from './onboarding-signup';
 import {
   renderFirstSteps,
   shouldShowFirstSteps,
@@ -87,7 +91,14 @@ import { openBuilderImport } from './builder-import';
 import { openEngineSpar, openExploreOpponent, importOpponentFlow } from './explore-screen';
 import { formatMove } from './notation';
 import { maybeShowSurveyBanner } from './survey';
-import { tryCallback as lichessTryCallback, takeReturn as lichessTakeReturn, getAccessToken as lichessAccessToken, connect as lichessConnect } from './lichess-auth';
+import {
+  tryCallback as lichessTryCallback,
+  takeReturn as lichessTakeReturn,
+  getAccessToken as lichessAccessToken,
+  connect as lichessConnect,
+  stashReturn as lichessStashReturn,
+  isConnected as isLichessConnected,
+} from './lichess-auth';
 import { isSupabaseConfigured } from './supabase';
 import { initAuth } from './auth';
 import { initAccountSync } from './repertoire-sync';
@@ -1343,16 +1354,23 @@ function setupBuilderPanelHandle(): void {
   });
 }
 
+// Page the carousel to a slide, as tapping its tab would. Lifted out of the tab
+// handler so the builder walkthrough can open the panel each of its steps is
+// about — a bubble naming the Library while the Line panel is showing teaches
+// the user to distrust the bubbles.
+function goToBuilderSlide(index: number): void {
+  const track = document.getElementById('builder-carousel');
+  if (!track) return;
+  track.scrollTo({ left: index * track.clientWidth, behavior: 'smooth' });
+  onActiveSlide(index);
+}
+
 function setupBuilderCarousel(): void {
   const track = document.getElementById('builder-carousel')!;
 
   // Tap a tab → page to that slide.
   document.querySelectorAll<HTMLButtonElement>('#builder-slide-tabs .slide-tab')
-    .forEach(tab => tab.addEventListener('click', () => {
-      const index = Number(tab.dataset.slide);
-      track.scrollTo({ left: index * track.clientWidth, behavior: 'smooth' });
-      onActiveSlide(index);
-    }));
+    .forEach(tab => tab.addEventListener('click', () => goToBuilderSlide(Number(tab.dataset.slide))));
 
   // Swipe the strip → keep the active tab in sync. rAF-throttled so the scroll
   // stays smooth. Above the breakpoint the strip isn't the switcher (only the
@@ -1432,7 +1450,11 @@ function renderNoteBlock(): void {
     return;
   }
   btn.hidden = false;
-  const note = node.note?.trim();
+  // Not while the line is playing itself through. A note appearing and vanishing
+  // under a board that's moving on its own re-lays the panel out on every ply —
+  // the watch is for seeing the SHAPE of the line, and the notes are still one
+  // tap away the moment it stops.
+  const note = playbackTimer ? undefined : node.note?.trim();
   if (note) {
     display.textContent = note;
     display.hidden = false;
@@ -1638,6 +1660,7 @@ function playUci(uci: string): void {
   renderMoveDetails();
   updateOpeningName();
   reevaluate();
+  notifyBuilderMove();
   void gradeLiveMove(node, parentFen);
 }
 
@@ -1662,6 +1685,7 @@ function commitBoardMove(from: string, to: string, promotion: 'q' | 'r' | 'b' | 
   renderMoveDetails();
   updateOpeningName();
   reevaluate();
+  notifyBuilderMove();
   void gradeLiveMove(node, parentFen);
 }
 
@@ -1791,6 +1815,9 @@ function pausePlayback(): void {
     playbackTimer = undefined;
   }
   setWatchPlaying(false);
+  // Playback suppresses the note block (see renderNoteBlock); the moves have
+  // stopped, so put the current move's note back.
+  renderMoveDetails();
 }
 
 // Fully stop and forget the queue (used when leaving the board / loading a line).
@@ -2071,7 +2098,8 @@ function startNewLine(colour: 'white' | 'black'): void {
 //
 // THE SEQUENCE, which is most of the design:
 //   1. the builder opens with the line laid down,
-//   2. (first device visit only) coach-marks name the board and the panels,
+//   2. (first device visit only) coach-marks name the board, then each of the
+//      three panels in turn — with that panel actually open behind the bubble,
 //   3. the line PLAYS ITSELF IN, so the user watches it before anything is
 //      asked of them,
 //   4. a coach-mark on Save offers the decision — keep editing, or save it.
@@ -2081,6 +2109,32 @@ function startNewLine(colour: 'white' | 'black'): void {
 // different voices, one of which moved on whether or not you'd read it. It's
 // gone; the bubble does its job, in one voice, and waits.
 let guidedActive = false;
+
+// The walkthrough's shared wiring: which panel each step opens, and the two
+// connects it offers (Lichess on the Library step, the games import on My
+// lines). `after` is the caller's continuation — it runs on whatever exit the
+// walkthrough takes, and exactly once, including the exit that goes via the
+// import sheet (which is why it waits for that sheet to close).
+function builderIntroDeps(after: () => void, startStep?: number): BuilderIntroDeps {
+  let ran = false;
+  const once = (): void => { if (!ran) { ran = true; after(); } };
+  return {
+    onDone: once,
+    showSlide: goToBuilderSlide,
+    isLichessConnected: isLichessConnected,
+    // Stash where the builder is before the OAuth redirect, so the reload lands
+    // back on this position (the walkthrough stashes its own step separately).
+    onConnectLichess: () => {
+      lichessStashReturn(currentPathUcis(), saveColour);
+      void lichessConnect();
+    },
+    onImportGames: () => openImportPanel({
+      onImported: () => { builderPanels?.reload(); builderPanels?.render(); },
+      onClose: once,
+    }),
+    startStep,
+  };
+}
 
 // One curated line, opened guided. `cut`-shaped rather than LineCut-shaped so
 // starter-pack lines (which have no level and no cut arithmetic) can use it too.
@@ -2117,8 +2171,30 @@ function startGuidedLine(line: GuidedLine): void {
     showSaveStep({ onSave: () => { void saveCurrentLine(); } });
   });
 
-  if (tourOwed) showBuilderIntro({ name: line.name, ownMoves: line.ownMoves }, playIn);
+  if (tourOwed) showBuilderIntro(builderIntroDeps(playIn));
   else playIn();
+}
+
+// How many moves an EMPTY-board first line waits before the save prompt shows
+// up. Someone who opted out of the curated lines has nothing to watch play in,
+// so there's no "the line has landed" moment to hang the prompt on — three moves
+// down is the point where there is visibly a line on the board to save.
+const EMPTY_BOARD_SAVE_AFTER = 3;
+
+// The empty-board first line: no line to watch, so the save step waits for the
+// user to put a few moves down themselves. It's the same guided ending as a
+// curated line — save routes straight into the confirm run — because it's the
+// same first line.
+function armEmptyBoardSaveStep(): void {
+  const check = (): void => {
+    if (!guidedActive || mainline().length < EMPTY_BOARD_SAVE_AFTER) return;
+    document.removeEventListener(BUILDER_MOVE_EVENT, check);
+    showSaveStep({ onSave: () => { void saveCurrentLine(); } });
+  };
+  document.addEventListener(BUILDER_MOVE_EVENT, check);
+  // The walkthrough is playable while it's on screen, so the three moves may
+  // already be down by the time it ends.
+  check();
 }
 
 // A starter-pack (or suggested) line, opened the same way the first-run line is:
@@ -3669,10 +3745,12 @@ function finishGuidedSave(line: Line): void {
     line,
     () => {
       showView('train');
-      // The first thing we ever ask for, and only now: straight after something
-      // that went well. maybeAskToSignUp no-ops if there are no accounts to
-      // make, if they're already signed in, or if they've said no before.
-      maybeAskToSignUp();
+      // Land on the hub, then mark the moment: a centred success card with the
+      // celebrating pawn, what to do next, and — only here, straight after
+      // something that went well — the one account ask we ever make. It no-ops
+      // into a plain well-done card when there are no accounts to make or the
+      // user is already signed in.
+      showFirstLineSuccess();
     },
     // Cancelled the run (or the cap said no): the line is saved either way, so
     // land on it rather than dropping them somewhere they didn't ask for.
@@ -3813,6 +3891,25 @@ function maybeRestoreLichessReturn(): void {
   // Land back on the Library tab — where Connect lives — at the same position.
   pendingBuilderSlide = LIBRARY_SLIDE;
   buildFromUcis(ucis, colour);
+
+  // Connected from inside the first-run walkthrough: pick it back up where it
+  // was, on the Library step, which now reads as connected. Without this a
+  // connect mid-walkthrough would silently end the walkthrough — and with it the
+  // guided first line, which is why the continuation is restored too.
+  const resumeStep = takeTourResume();
+  if (resumeStep === null) return;
+  // A walkthrough only runs on the first line, so picking one back up means we
+  // are still in it — including the guided save that ends it.
+  guidedActive = true;
+  const after = (): void => {
+    // Empty-board first line: nothing to play in, so wait for the moves as the
+    // unbroken run would have. Otherwise watch the restored line through.
+    if (mainline().length === 0) { armEmptyBoardSaveStep(); return; }
+    startPlaybackFromStart(() => {
+      if (guidedActive) showSaveStep({ onSave: () => { void saveCurrentLine(); } });
+    });
+  };
+  setTimeout(() => showBuilderIntro(builderIntroDeps(after, resumeStep)), 450);
 }
 
 // Fade out and remove the boot splash. Safe to call any number of times from
@@ -4068,14 +4165,17 @@ maybeShowGate(() => requestAnimationFrame(() => {
         // "An empty board" — someone who opts out of the curated lines needs the
         // walkthrough MORE than someone who was handed a line to look at, so the
         // coach-marks still run. They point at live controls, so they wait for
-        // the builder to have laid itself out.
+        // the builder to have laid itself out. It's still a guided first line:
+        // three moves in, the save prompt arrives, and the save routes into the
+        // confirm run exactly as a curated line's does.
         onBuildOwn: (colour) => {
           setOnboardingComplete();
           startNewLine(colour);
+          guidedActive = true;
           setTimeout(() => {
-            if (!isBuilderTourOwed()) return;
+            if (!isBuilderTourOwed()) { armEmptyBoardSaveStep(); return; }
             markBuilderTourSeen();
-            showBuilderIntro(undefined, () => {});
+            showBuilderIntro(builderIntroDeps(armEmptyBoardSaveStep));
           }, 450);
         },
         // Only where accounts exist — in the internal build the button would be

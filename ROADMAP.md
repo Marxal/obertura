@@ -1185,7 +1185,53 @@ single line in it.
   **And a margin:** Statistics → Your games had the same edge-to-edge import box
   Middle game did. Now inset to match its region heading exactly.
 
-_On `claude/chess-onboarding-flow-5gpcdn`. Restore point: `v0.4`._
+- ✅ **Fourth pass: the walkthrough teaches one thing at a time, and the first
+  line ends on a win.**
+
+  **The start screen is one object.** Colour, depth, style and the CTA were four
+  things floating at four weights; they're one **card** now, with the button as
+  its last row and the two escape hatches demoted to text links under it. The
+  card hugs its contents (a card with 300px of empty floor between the last tile
+  and the button reads as a bug) and the slack goes below it as margin. The lead
+  scales with the room there actually is — a proper headline on a tall phone,
+  trimmed on a short window.
+
+  **You can't see a highlight you can't see the edges of.** A phone board is the
+  full width of the screen, so the spotlight's ring was off-screen on both sides
+  and "the board is highlighted" read as "the app went dark". Every spot is now
+  clamped to sit just inside the viewport, and the ring breathes. The bubbles
+  went up a notch too: darker scrim, an accent hairline, and a shadow deep enough
+  to read on a dimmed screen.
+
+  **The board step is live.** *Build your line* is one sentence — play the line,
+  save it, train it — and the overlay lets taps through, so **playing a move on
+  the board** is what advances it. From an **empty board** the save prompt now
+  arrives on its own after three moves, and the save routes into the confirm run
+  exactly as a curated line's does: it's the same first line.
+
+  **Three panels became three steps.** *Line*, *Library* and *My lines* each get
+  their own bubble with **that panel actually open behind it** — and tapping the
+  next tab advances, so the instruction is real. Library offers **Connect
+  Lichess** and comes back to the same step after the OAuth round-trip (the
+  walkthrough stashes its step alongside the position); My lines offers the
+  **games import**, and picks the guided line back up when that sheet closes.
+
+  **The watch stopped stopping.** A note popping up mid-replay held the next move
+  for up to 3.5s, turning a ten-second watch into a stop-start minute — in the
+  trainer's watch-first pass and, as a re-laid-out panel, in the builder's own
+  playback. Notes still show where they teach: on a miss, and on the note
+  control. *Saved. Now learn it* says what the run actually does (two tries, then
+  the move is shown, and your misses come back) and its button says **Start
+  training**.
+
+  **The first line ends on a card, not a form.** Finishing used to hand the user
+  a bare sign-up sheet. Now the hub comes up behind a centred **"Your first line
+  is in"** — the training finish's hopping pawn, a confetti burst, what happens
+  next, and about-five-lines as friendly advice — with the account offer under a
+  hairline and a quiet **Not now**. Without accounts configured it's the same
+  card minus the ask.
+
+_On `claude/walkthrough-ui-refinements-aet12d`. Restore point: `v0.4`._
 
 ---
 
