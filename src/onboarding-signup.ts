@@ -5,6 +5,14 @@
 // Nothing before that point mentions an account, because nothing before that
 // point has earned the right to.
 //
+// AND IT ARRIVES INSIDE A CELEBRATION, not on its own. The first line finishing
+// is the end of the whole first run — the one moment the app has to say "that
+// worked, here's what it was for". Dropping a bare sign-up form on the user
+// there answers a question they hadn't asked yet and skips the answer to the one
+// they had. So the ask now rides on a success card (showFirstLineSuccess): the
+// celebrating pawn from the training finish, what just happened, what to do
+// next, then the account offer and a quiet "Not now".
+//
 // The form itself is account-ui.ts's, unchanged — the same one in Settings, just
 // opened on Sign up and dropped into a sheet. "Not now" means not now: it's
 // remembered for the session AND persisted, so the post-win ask happens once in
@@ -14,6 +22,7 @@ import { buildAuthForm } from './account-ui';
 import { isSupabaseConfigured } from './supabase';
 import { getAuthUser, onAuthChange } from './auth';
 import { pushBack } from './back-nav';
+import { celebratePawn, burstConfetti } from './confetti';
 
 // Asked once ever (persisted), and never twice in one session even if the flag
 // write fails on a locked-down browser.
@@ -30,15 +39,89 @@ function alreadyAsked(): boolean {
   try { return localStorage.getItem(ASKED_KEY) === '1'; } catch { return false; }
 }
 
-// The post-win ask. Silently does nothing when there are no accounts to make
-// (the internal build), when the user is already signed in, or when they've
-// already said "not now" — so the caller can fire it unconditionally.
-export function maybeAskToSignUp(): void {
-  if (!isSupabaseConfigured) return;
-  if (getAuthUser()) return;
-  if (alreadyAsked()) return;
-  markAsked();
-  openSignUpSheet();
+// ── The first line is done ───────────────────────────────────────────────────
+//
+// A centred card on the hub, shown once the first line has been saved AND
+// learned. It does three things in the order they matter: says the first step is
+// finished, says what a repertoire looks like from here, and — only if there's
+// an account to be made — offers one. "Not now" is deliberately quiet: the user
+// has just finished something, and the last impression of a first run shouldn't
+// be a wall.
+export function showFirstLineSuccess(): void {
+  const canAsk = isSupabaseConfigured && !getAuthUser() && !alreadyAsked();
+  if (canAsk) markAsked();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'edit-overlay firstwin-overlay';
+
+  const card = document.createElement('div');
+  card.className = 'firstwin-card';
+
+  // The same pawn the training finish screens use — this IS a training finish,
+  // it just happens to be the first one.
+  const pawn = celebratePawn();
+  pawn.classList.add('firstwin-pawn');
+  card.appendChild(pawn);
+
+  const title = document.createElement('h3');
+  title.className = 'firstwin-title';
+  title.textContent = 'Your first line is in.';
+  card.appendChild(title);
+
+  const lead = document.createElement('p');
+  lead.className = 'firstwin-lead';
+  lead.textContent = 'It comes back tomorrow, before you forget it. Add about five '
+    + 'lines when you have a minute and you\'ve got a repertoire worth training every day.';
+  card.appendChild(lead);
+
+  let closed = false;
+  function close(): void {
+    if (closed) return;
+    closed = true;
+    dropAuth();
+    overlay.remove();
+    removeBack();
+  }
+  const removeBack = pushBack(close);
+  const dropAuth = onAuthChange(() => { if (getAuthUser()) close(); });
+
+  if (canAsk) {
+    const ask = document.createElement('p');
+    ask.className = 'firstwin-ask';
+    ask.textContent = 'Create a free account and your lines and progress follow you to any phone.';
+    card.appendChild(ask);
+
+    const cta = document.createElement('button');
+    cta.type = 'button';
+    cta.className = 'btn-primary firstwin-cta';
+    cta.textContent = 'Create a free account';
+    cta.addEventListener('click', () => { close(); openSignUpSheet(); });
+    card.appendChild(cta);
+
+    card.appendChild(dismissButton('Not now', close));
+  } else {
+    const cta = document.createElement('button');
+    cta.type = 'button';
+    cta.className = 'btn-primary firstwin-cta';
+    cta.textContent = 'Keep going';
+    cta.addEventListener('click', close);
+    card.appendChild(cta);
+  }
+
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+  // One burst on arrival, from the card itself.
+  requestAnimationFrame(() => burstConfetti(card));
+}
+
+function dismissButton(label: string, onClick: () => void): HTMLElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'signup-sheet-dismiss';
+  btn.textContent = label;
+  btn.addEventListener('click', onClick);
+  return btn;
 }
 
 // The sheet itself. Also the target of ?auth=signup, which opens it directly
