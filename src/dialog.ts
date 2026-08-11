@@ -17,6 +17,11 @@ export interface DialogButton {
 export interface DialogOptions {
   title: string;
   body?: string;
+  // A numbered "here's what happens" list under the body. Each row is a badge,
+  // a bold label and one line of detail — the shape a user scans instead of
+  // reads. Prose paragraphs that start "① Watch it — the board plays…" carry
+  // exactly the same words and get read by nobody.
+  steps?: Array<{ label: string; detail: string }>;
   // Discrete "learn more" links shown as a small row under the body. Open in a
   // new tab; purely informational (no effect on the dialog).
   links?: Array<{ label: string; href: string }>;
@@ -45,6 +50,36 @@ export function showDialog(opts: DialogOptions): void {
       p.textContent = para;
       sheet.appendChild(p);
     }
+  }
+
+  if (opts.steps?.length) {
+    const list = document.createElement('ol');
+    list.className = 'dialog-steps';
+    opts.steps.forEach((s, i) => {
+      const li = document.createElement('li');
+      li.className = 'dialog-step';
+
+      const badge = document.createElement('span');
+      badge.className = 'dialog-step-num';
+      badge.setAttribute('aria-hidden', 'true');
+      badge.textContent = String(i + 1);
+      li.appendChild(badge);
+
+      const text = document.createElement('span');
+      text.className = 'dialog-step-text';
+      const label = document.createElement('span');
+      label.className = 'dialog-step-label';
+      label.textContent = s.label;
+      text.appendChild(label);
+      const detail = document.createElement('span');
+      detail.className = 'dialog-step-detail';
+      detail.textContent = s.detail;
+      text.appendChild(detail);
+      li.appendChild(text);
+
+      list.appendChild(li);
+    });
+    sheet.appendChild(list);
   }
 
   if (opts.links?.length) {

@@ -1096,6 +1096,50 @@ single line in it.
   no padding of its own, so the accent-bordered import box was running edge to
   edge while everything around it was inset.
 
+- ✅ **The refinement pass, after a second phone review.** Same round, second
+  session — mostly about where things happen rather than what they say.
+
+  **The walkthrough moved onto the builder.** Three cards on an empty screen
+  named "the tabs under the board" while there were no tabs on screen, which asks
+  the user to hold a description in their head and match it later. It's now
+  **coach-marks**: a bubble anchored beside the thing it's describing, everything
+  else dimmed, one step each for the board, the tab strip and Save. The scrim is
+  a single element with a 9999px `box-shadow` spread, so the hole shows the real
+  screen at full strength with no re-stacking and no clipping at the edges. And
+  it runs in the right place in the sequence now: the line **plays itself in
+  first**, then the bubbles, then the coach strip's decision — which after a
+  walkthrough opens straight on its call to action instead of repeating the two
+  beats the bubbles just delivered. The strip's closing line names both ways
+  forward: *keep playing with it, or save it and train it*.
+
+  **The trainer explains itself on the trainer.** The watch/play card used to sit
+  over the builder, asking the user to agree to go somewhere they hadn't seen.
+  The trainer screen now mounts first — board and all — and the card explains it
+  with the thing itself behind it; a new `beforeWatch` hook on the drill holds
+  the moves at the start position until **Got it** (one button; nothing is being
+  decided). The two steps are a numbered list with a badge and a bold label
+  (`steps` on the shared dialog) rather than ①/② buried in prose.
+
+  **The start screen is a form all the way down.** The four styles are a **2×2
+  grid that selects**, and a single **"Start building the …"** button commits,
+  disabled until something is chosen and naming the choice once there is one.
+  Tapping a tile used to launch the builder on the spot, which made the last
+  field behave unlike the two above it — colour and depth were changeable, style
+  was a trapdoor. The two ways out sit under a labelled **"or start from"** rule,
+  so they read as alternatives rather than two unexplained buttons.
+
+  **Install actually installs.** The row is now offered only when gate.ts is
+  holding a real `beforeinstallprompt` — so there's no instructions card behind
+  it, and no row at all on browsers that can't do it. The event lands after boot,
+  so Train repaints when it arrives (`onInstallAvailable`).
+
+  **Weights and copy.** Build a line and Starter packs are equal peers; the
+  engine drops to a discrete link under them. The import cap reads "you can
+  import 100 games" flat, with the sign-up as a **button** instead of an
+  underlined word at the end of the sentence. And the account ask stopped saying
+  the same thing twice — "Save your progress" over "Create an account to save
+  your progress" is now **"Create a free account"** over what it actually buys.
+
 _On `claude/chess-onboarding-flow-5gpcdn`. Restore point: `v0.4`._
 
 ---

@@ -36,8 +36,9 @@ export function startPretrainingRun(
   // The guided first run replaces the closing line with one that says what
   // happens NEXT ("it'll come back tomorrow"), because at that point the user
   // has never seen a review land and "added to training" doesn't yet mean
-  // anything to them.
-  opts: { completeMessage?: string } = {},
+  // anything to them. It also introduces itself: `beforeWatch` holds the moves
+  // on a mounted board while a card explains what the next twenty seconds are.
+  opts: { completeMessage?: string; beforeWatch?: (start: () => void) => void } = {},
 ): void {
   // Deep-clone so lapse edits don't mutate the caller's copy in memory.
   const lineCopy: Line = { ...line, tree: structuredClone(line.tree) };
@@ -59,6 +60,7 @@ export function startPretrainingRun(
     completeMessage: opts.completeMessage ?? 'Line confirmed — added to training',
     // Watch the line through once first, at the user's chosen watch speed.
     watchFirstMs: watchSpeedMs(),
+    beforeWatch: opts.beforeWatch,
     // A wrong move draws the correct-move arrow and requires the replay — the
     // same hint mechanism training uses.
     wrongMoveMode: 'full',

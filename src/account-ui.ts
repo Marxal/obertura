@@ -185,7 +185,7 @@ function agoLabel(iso: string | null): string {
 // ── Signed out ───────────────────────────────────────────────────────────────
 
 // The sign-in / sign-up form, on its own. Exported so the post-onboarding
-// "Save your progress" sheet (onboarding-signup.ts) shows the SAME form rather
+// The sign-up sheet (onboarding-signup.ts) shows the SAME form rather
 // than a second implementation of it — one place to fix a bug in, one place
 // where the wording lives. The sheet passes its own blurb (it has already made
 // the pitch in its title) and opens on Sign up rather than Sign in.

@@ -68,7 +68,7 @@ import { maybeAskToSignUp, handleAuthUrlParam, openSignUpSheet } from './onboard
 import { renderFirstSteps, shouldShowFirstSteps, TRAINING_UNLOCK_LINES } from './first-steps';
 import type { LineCut } from './onboarding-lines';
 import { maybeAutoRefreshGames } from './auto-refresh';
-import { maybeShowGate, promptInstallApp } from './gate';
+import { maybeShowGate, promptInstallApp, onInstallAvailable } from './gate';
 import { showToast } from './toast';
 import { Icons, classBoardSvg, CLASS_LABEL } from './icons';
 import { mountFab, type FabItem, type FabAction, type FabSplit, type FabController } from './fab';
@@ -2077,13 +2077,16 @@ interface GuidedLine {
   notes?: Record<number, string>;
 }
 
+// The order here is the whole design, so it's worth spelling out:
+//   1. the builder opens with the line already laid down,
+//   2. the line PLAYS ITSELF IN, so the user watches it before anything is
+//      asked of them,
+//   3. the walkthrough's coach-marks name the board, the tabs and Save — over
+//      the real screen, with the real line on it (once per device),
+//   4. the coach strip offers the decision: keep playing, or save and train.
+// The walkthrough used to come first, on an empty screen, which meant naming
+// controls that weren't visible yet.
 function startGuidedLine(line: GuidedLine): void {
-  // The walkthrough first, on an empty screen — then the line. It no-ops (and
-  // runs its callback straight away) for anyone who has already been through it.
-  runBuilderTour(() => openGuidedBuilder(line));
-}
-
-function openGuidedBuilder(line: GuidedLine): void {
   // Lays the whole line down and opens the builder with the cursor at its end —
   // the same call "From my games" uses.
   buildFromUcis(line.ucis, line.colour, [], { notes: line.notes });
@@ -2092,19 +2095,25 @@ function openGuidedBuilder(line: GuidedLine): void {
   renderTitle();
   guidedActive = true;
 
-  // Then rewind and watch it play itself in, using the builder's own Watch
-  // playback (so it honours the watch-speed pref and can be paused mid-flight).
+  // Rewind and watch it play itself in, using the builder's own Watch playback
+  // (so it honours the watch-speed pref and can be paused mid-flight).
   startPlaybackFromStart(() => {
     if (!guidedActive) return;
-    guide = mountFirstLineGuide({
-      openingName: line.name,
-      ownMoves: line.ownMoves,
-      onSkip: () => { endGuided(); showView('train'); },
-      onSave: () => { void saveCurrentLine(); },
-      // The strip lives in the dock, which changes the dock's height — the same
-      // re-measure the eval bar's toggle does.
-      onLayoutChange: () => { layoutBuilderSheet(); cg?.redrawAll(); },
-    });
+    runBuilderTour((toured) => {
+      if (!guidedActive) return;
+      guide = mountFirstLineGuide({
+        openingName: line.name,
+        ownMoves: line.ownMoves,
+        // After the walkthrough, the strip's first two beats are things the
+        // bubbles just said — go straight to the decision.
+        startAtCta: toured,
+        onSkip: () => { endGuided(); showView('train'); },
+        onSave: () => { void saveCurrentLine(); },
+        // The strip lives in the dock, which changes the dock's height — the
+        // same re-measure the eval bar's toggle does.
+        onLayoutChange: () => { layoutBuilderSheet(); cg?.redrawAll(); },
+      });
+    }, { name: line.name, ownMoves: line.ownMoves });
   });
 }
 
@@ -2322,19 +2331,15 @@ async function buildFabActions(): Promise<FabItem[]> {
   return items;
 }
 
-// The Get-started checklist's "Install the app". Chromium on Android hands us a
-// real install prompt (captured at boot in gate.ts) — one tap, the system dialog,
-// done. Anywhere the event never fired (Firefox, or a prompt already spent) the
-// only thing anyone can do is use the browser's menu, so we say so in one line
-// and leave the phrasing to the browser's own wording.
+// The Get-started checklist's "Install the app". One tap, the browser's own
+// install dialog, done — the row is only ever shown when gate.ts is holding a
+// real prompt to fire (canInstallApp), so there is no instructions fallback to
+// write. Either outcome re-renders Train: accepted means the row has served its
+// purpose, dismissed means the prompt is spent and can't be offered again.
 function installApp(): void {
-  void promptInstallApp().then((shown) => {
-    if (shown) return;
-    showDialog({
-      title: 'Install Bito Chess',
-      body: 'Open your browser’s menu and choose “Install app” (or “Add to Home screen”).',
-      buttons: [{ label: 'Got it', variant: 'primary' }],
-    });
+  void promptInstallApp().then((outcome) => {
+    if (outcome === 'accepted') showToast('Installed ✓', { variant: 'success' });
+    showView('train');
   });
 }
 
@@ -2454,12 +2459,19 @@ function addLineToTraining(
   line: Line,
   onDone: () => void,
   onCancel: () => void = () => {},
-  opts: { forceConfirmRun?: boolean; completeMessage?: string } = {},
+  opts: {
+    forceConfirmRun?: boolean;
+    completeMessage?: string;
+    beforeWatch?: (start: () => void) => void;
+  } = {},
 ): void {
   void requestTrainingSlot().then((allowed) => {
     if (!allowed) { onCancel(); return; }
     if (opts.forceConfirmRun || getConfirmRunBeforeTraining()) {
-      startPretrainingRun(line, onDone, onCancel, { completeMessage: opts.completeMessage });
+      startPretrainingRun(line, onDone, onCancel, {
+        completeMessage: opts.completeMessage,
+        beforeWatch: opts.beforeWatch,
+      });
     } else {
       void enrolLineDirectly(line).then(onDone);
     }
@@ -3633,10 +3645,17 @@ async function finishSave(): Promise<void> {
 // run auto-plays the line and then silently waits for the user to play it back;
 // with no warning, that pause reads as the app having frozen. One card that says
 // "watch it, then play it" turns the same twenty seconds into a game.
+//
+// The card shows ON THE TRAINER, not before it. It used to sit over the builder
+// and ask the user to agree to go somewhere they hadn't seen — an abstract
+// yes/no. Now the trainer screen mounts first, board and all, and the card
+// explains it with the thing itself behind it; `beforeWatch` holds the moves at
+// the start position until "Got it". Nothing is decided on that card, so it has
+// one button.
 function finishGuidedSave(line: Line): void {
   endGuided();
 
-  const run = (): void => { void getAllLines().then(all => addLineToTraining(
+  void getAllLines().then(all => addLineToTraining(
     line,
     () => {
       showView('train');
@@ -3655,24 +3674,20 @@ function finishGuidedSave(line: Line): void {
       // Don't promise a review tomorrow that the training lock won't deliver:
       // below the unlock, the true next step is more lines.
       completeMessage: trainingUnlockedMessage(all.length),
+      beforeWatch: (start) => showDialog({
+        title: 'Saved. Now learn it.',
+        body: 'The trainer runs your line twice over.',
+        steps: [
+          { label: 'Watch it', detail: 'The board plays the line through on its own.' },
+          { label: 'Play it', detail: 'Your turn, from memory. Get one wrong and it shows you.' },
+        ],
+        buttons: [{ label: 'Got it', variant: 'primary', onClick: start }],
+        // Backdrop tap or back gesture: they've seen the card, so get on with
+        // it rather than leaving a mounted trainer frozen behind an empty screen.
+        onDismiss: start,
+      }),
     },
-  )); };
-
-  showDialog({
-    title: 'Saved. Now learn it.',
-    body: 'The trainer runs your line twice over.\n\n'
-      + '① Watch it — the board plays the moves through once, on its own.\n\n'
-      + '② Play it — your turn, from memory. Get one wrong and it shows you.\n\n'
-      + 'One clean run and the line joins your training: back tomorrow, then '
-      + 'further and further apart.',
-    buttons: [
-      { label: 'Watch it', variant: 'primary', onClick: run },
-      // "Later" still leaves the line saved — it just isn't in the rotation yet,
-      // and My Lines can switch it on any time.
-      { label: 'Later', variant: 'secondary', onClick: () => goToSavedLine(line.id) },
-    ],
-    onDismiss: () => goToSavedLine(line.id),
-  });
+  ));
 }
 
 // What the confirm run says when it lands, given how many lines are now saved.
@@ -3994,6 +4009,12 @@ maybeShowGate(() => requestAnimationFrame(() => {
   // then reveals a populated screen. A short fallback guarantees it never sticks.
   hideAppSplashWhenReady();
 
+  // Chrome decides whether the app is installable a beat after boot, so the
+  // Get-started checklist's install row is usually asked for BEFORE the answer
+  // is yes. Repaint Train when the prompt lands, rather than making the user
+  // navigate away and back to see the row appear.
+  onInstallAvailable(() => { if (currentView === 'train') showView('train'); });
+
   // Now that cg/builder exist, replay a "Connect to Lichess" return if one is
   // pending (the OAuth callback may have resolved before boot finished). This
   // overrides the Train landing above, dropping the user back in the builder.
@@ -4041,12 +4062,14 @@ maybeShowGate(() => requestAnimationFrame(() => {
             showView('train');
           },
         }),
-        // "Build my own line" — an empty board of the colour they chose, with
-        // the walkthrough first: someone who opts out of the curated lines needs
-        // the builder's tour MORE than someone who was handed a line to look at.
+        // "An empty board" — someone who opts out of the curated lines needs the
+        // walkthrough MORE than someone who was handed a line to look at, so the
+        // coach-marks still run. They point at live controls, so they wait for
+        // the builder to have laid itself out.
         onBuildOwn: (colour) => {
           setOnboardingComplete();
-          runBuilderTour(() => startNewLine(colour));
+          startNewLine(colour);
+          setTimeout(() => runBuilderTour(() => {}), 450);
         },
         // The picker is the first screen on a first visit, so it clears the boot
         // splash itself rather than depending on the boot order to have done it.

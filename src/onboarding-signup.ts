@@ -1,4 +1,4 @@
-// "Save your progress" — the sign-up ask, and the only one the first run makes.
+// "Create a free account" — the sign-up ask, and the only one the first run makes.
 //
 // It appears in exactly one place: after the user's FIRST clean confirm run, so
 // the first thing we ever ask for comes straight after something that went well.
@@ -53,18 +53,18 @@ export function openSignUpSheet(): void {
   const sheet = document.createElement('div');
   sheet.className = 'edit-sheet signup-sheet';
 
+  // The title and the line under it used to say the same thing twice — "Save
+  // your progress" over "Create an account to save your progress". The title now
+  // states the ask (and that it costs nothing, which is the objection worth
+  // answering first); the line says what it buys.
   const title = document.createElement('h3');
   title.className = 'edit-sheet-title';
-  title.textContent = 'Save your progress';
+  title.textContent = 'Create a free account';
   sheet.appendChild(title);
 
-  // One line, and only the line that changes the user's decision. It used to
-  // explain where the data lives and what a copy is for — three clauses of
-  // storage architecture in front of someone who just wants to keep what they
-  // made. They already know what an account is.
   const lead = document.createElement('p');
   lead.className = 'signup-sheet-lead';
-  lead.textContent = 'Create an account to save your progress.';
+  lead.textContent = 'Your lines and progress follow you to any phone you sign in on.';
   sheet.appendChild(lead);
 
   sheet.appendChild(buildAuthForm({ initialMode: 'signup', blurb: '' }));

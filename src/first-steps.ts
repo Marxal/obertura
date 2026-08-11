@@ -17,8 +17,9 @@
 //
 // WHAT IT ASKS FOR. The line goal is not one item among four — it is the whole
 // point, and everything else is optional. So it gets the top of the card, the
-// bar, and a full-width primary button ("Build a line"); the rest are quiet
-// checklist rows underneath:
+// bar, and the two real routes to a line as a pair of equally-weighted buttons
+// (Build a line · Starter packs) with the engine as a discrete link under them;
+// the rest are quiet checklist rows underneath:
 //   · install    — Android only, and only in a browser tab. One tap, no
 //                  explanation: people know what installing an app is.
 //   · games      — import from Chess.com / Lichess; feeds suggestions, the
@@ -36,7 +37,7 @@ import { Icons } from './icons';
 import { isConnected as lichessIsConnected } from './lichess-auth';
 import { isSupabaseConfigured } from './supabase';
 import { getAuthUser } from './auth';
-import { canInstallApp, isAppInstalled } from './gate';
+import { canInstallApp } from './gate';
 
 // The number of SAVED lines that unlocks training, and the goal this panel's bar
 // counts toward. They're deliberately the same number.
@@ -91,9 +92,10 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
   const steps: Step[] = [];
 
   // Install first, when it applies — it's the shortest row here and the only one
-  // that changes how the app itself behaves. Never shown once installed, and
-  // never on a browser that can't do it (see canInstallApp).
-  if (canInstallApp() && !isAppInstalled()) {
+  // that changes how the app itself behaves. Only shown when there's a real
+  // install prompt in hand (see canInstallApp), so tapping it always installs;
+  // there is no instructions fallback behind this row.
+  if (canInstallApp()) {
     steps.push({
       icon: Icons.download(18),
       title: 'Install the app',
@@ -124,8 +126,8 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
   if (isSupabaseConfigured) {
     steps.push({
       icon: Icons.userCircle(18),
-      title: getAuthUser() ? 'Account created' : 'Create an account',
-      body: 'Saves your progress, so it survives this phone.',
+      title: getAuthUser() ? 'Account created' : 'Create a free account',
+      body: 'Your lines and progress follow you to any phone you sign in on.',
       done: !!getAuthUser(),
       onClick: deps.onSignIn,
     });
@@ -195,21 +197,26 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
       : `${left} more lines and training unlocks.`;
   goal.appendChild(goalNote);
 
-  // The big one. Building a line by hand is the thing this app IS, so it's the
-  // full-width primary; the other two ways in sit under it as quiet chips.
-  const build = document.createElement('button');
-  build.type = 'button';
-  build.className = 'btn-primary first-steps-build';
-  build.appendChild(Icons.plus(18));
-  build.appendChild(document.createTextNode('Build a line'));
-  build.addEventListener('click', deps.onBuildLine);
-  goal.appendChild(build);
-
+  // The two real routes to a line, side by side and equally weighted: building
+  // one by hand is what the app IS, and taking a starter pack is the fastest way
+  // to clear the training lock. Neither is the recommendation.
   const routes = document.createElement('div');
   routes.className = 'first-steps-routes';
-  routes.appendChild(routeButton('Starter packs', Icons.build(16), deps.onPickStarterPack));
-  routes.appendChild(routeButton('Play the engine', Icons.gamepad(16), deps.onBuildWithEngine));
+  routes.appendChild(routeButton('Build a line', Icons.plus(18), deps.onBuildLine));
+  routes.appendChild(routeButton('Starter packs', Icons.build(18), deps.onPickStarterPack));
   goal.appendChild(routes);
+
+  // Sparring the engine is a third way in, but it's a game first and a line
+  // second — a discrete link under the pair rather than a peer of them.
+  const engine = document.createElement('button');
+  engine.type = 'button';
+  engine.className = 'first-steps-engine';
+  engine.appendChild(Icons.gamepad(15));
+  const engineLabel = document.createElement('span');
+  engineLabel.textContent = 'Or build one against the engine';
+  engine.appendChild(engineLabel);
+  engine.addEventListener('click', deps.onBuildWithEngine);
+  goal.appendChild(engine);
 
   card.appendChild(goal);
 

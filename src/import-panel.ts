@@ -29,6 +29,12 @@
 // are still shown, with a padlock, and tapping one opens the sign-up sheet —
 // visible but locked beats hidden, because the point is to say what an account
 // is FOR.
+//
+// The copy says "you can import 100 games", flat. Mechanically it's 100 PER
+// IMPORT (each import replaces what's stored, so a guest can re-scan as often as
+// they like) — but "100 at a time" invites the reader to work out what the catch
+// is, and there isn't one worth the sentence. The simple number is the honest
+// summary of what a guest gets.
 
 import {
   importGames,
@@ -670,19 +676,26 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       });
       body.appendChild(countRow);
 
-      // Say why the big slices are padlocked, right under the chips.
+      // Say why the big slices are padlocked, right under the chips — then give
+      // the way out its own button. It used to be an underlined word at the end
+      // of the sentence, which reads as a footnote rather than the offer it is.
       if (countOpts.some(o => o.locked)) {
+        const guest = document.createElement('div');
+        guest.className = 'import-guest';
+
         const note = document.createElement('p');
         note.className = 'import-guest-note';
-        note.appendChild(document.createTextNode(
-          `Without an account you can import ${FREE_GUEST_IMPORT} games at a time. `));
+        note.textContent = `Without an account you can import ${FREE_GUEST_IMPORT} games.`;
+        guest.appendChild(note);
+
         const link = document.createElement('button');
         link.type = 'button';
-        link.className = 'import-guest-link';
-        link.textContent = 'Sign up — it’s free';
+        link.className = 'import-guest-btn';
+        link.textContent = 'Create a free account';
         link.addEventListener('click', () => openSignUp(unlock));
-        note.appendChild(link);
-        body.appendChild(note);
+        guest.appendChild(link);
+
+        body.appendChild(guest);
       }
     }
 
