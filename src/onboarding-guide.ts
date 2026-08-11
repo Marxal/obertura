@@ -42,6 +42,11 @@ export interface GuideDeps {
   onSkip: () => void;
   // The strip's own Save button. Runs the builder's normal save.
   onSave: () => void;
+  // Skip the two informational beats and open on the closing call to action.
+  // Set when the walkthrough (onboarding-tour.ts) has just run: it named the
+  // line and said you can change it, so repeating both here is nine seconds of
+  // the user being told what they were told.
+  startAtCta?: boolean;
   // Called after the strip mounts or unmounts, so the builder can re-measure
   // the dock and re-lay the sheet (same thing the eval bar's toggle does).
   onLayoutChange: () => void;
@@ -65,11 +70,14 @@ export function mountFirstLineGuide(deps: GuideDeps): GuideHandle {
     `This is the ${deps.openingName}. `
       + `${deps.ownMoves} move${deps.ownMoves === 1 ? '' : 's'} for you to remember.`,
     'Play a different move any time to make it yours.',
-    'Happy with it? Save it and it’s yours.',
+    // Names BOTH ways forward. The strip is the moment the line stops being
+    // something that happened to the user and starts being a decision, and
+    // "keep playing" is a real answer — the board stays live behind it.
+    'Keep playing with it, or save it and train it.',
   ];
   const lastBeat = beats.length - 1;
 
-  let index = 0;
+  let index = deps.startAtCta ? lastBeat : 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let destroyed = false;
 

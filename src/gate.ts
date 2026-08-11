@@ -41,10 +41,23 @@ interface InstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 let deferredInstallPrompt: InstallPromptEvent | null = null;
+// Screens that offer an install button need to know when one becomes possible.
+// The event can land AFTER the Train screen has painted (Chrome fires it once
+// the service worker and manifest have both been checked), so a screen that
+// asked "can I install?" at paint time and got "no" would be wrong a second
+// later — and the row would never appear until the user navigated away and back.
+const installListeners = new Set<() => void>();
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault(); // stop Chrome's mini-infobar; we trigger it from our button
   deferredInstallPrompt = e as InstallPromptEvent;
+  for (const fn of [...installListeners]) fn();
 });
+
+// Subscribe to "an install prompt is now available". Returns an unsubscribe.
+export function onInstallAvailable(fn: () => void): () => void {
+  installListeners.add(fn);
+  return () => installListeners.delete(fn);
+}
 
 function isUnlocked(): boolean {
   try {
@@ -79,16 +92,21 @@ function isAndroid(): boolean {
 }
 
 // ── Install, offered outside the gate ────────────────────────────────────────
-// The Get-started checklist (first-steps.ts) offers an "Install the app" row on
-// Android. It has to ask THIS module, because the `beforeinstallprompt` event
-// fires once, early, and only this module is listening when it does.
+// The Get-started checklist (first-steps.ts) offers an "Install the app" row.
+// It has to ask THIS module, because the `beforeinstallprompt` event fires once,
+// early, and only this module is listening when it does.
 
-// Is an install worth offering here at all? Android only — iOS has no
-// programmatic prompt (its route is Share → Add to Home Screen, which the gate
-// screen explains with a diagram and a checklist row can't), and on desktop the
-// browser's own address-bar affordance is better placed than ours.
+// Is there a REAL install to offer? A captured prompt, and not already running
+// from the home screen — nothing else.
+//
+// Deliberately not "is this Android?". A button that can't install and instead
+// opens a card explaining where the browser's own menu item lives is not an
+// install button, it's a help page wearing one; it also can't tell whether the
+// user already installed the app from that menu, so it nags forever. Where no
+// prompt exists (Firefox, iOS Safari) the row simply isn't offered — the gate's
+// install screen still covers those routes on first open, with the diagram.
 export function canInstallApp(): boolean {
-  return isAndroid();
+  return deferredInstallPrompt !== null && !isStandalone();
 }
 
 // Already running from the home screen — nothing to install.
@@ -96,19 +114,18 @@ export function isAppInstalled(): boolean {
   return isStandalone();
 }
 
-// Fire the real install prompt. Resolves true if the browser accepted the
-// gesture and showed its own dialog, false when there's no captured prompt to
-// fire (Firefox, or Chrome having already used it) — the caller then falls back
-// to telling the user where the menu item lives.
-export async function promptInstallApp(): Promise<boolean> {
+// Fire the real install prompt. Resolves 'accepted' / 'dismissed' from the
+// browser's own dialog, or 'unavailable' when there was no prompt to fire (which
+// canInstallApp has already ruled out for anything that shows a button).
+export async function promptInstallApp(): Promise<'accepted' | 'dismissed' | 'unavailable'> {
   const prompt = deferredInstallPrompt;
-  if (!prompt) return false;
-  // A captured prompt is single-use; drop it whatever the user chooses, so a
-  // second tap takes the manual-instructions path instead of failing silently.
+  if (!prompt) return 'unavailable';
+  // A captured prompt is single-use; drop it whatever the user chooses, so
+  // canInstallApp stops advertising an install we can no longer perform.
   deferredInstallPrompt = null;
   await prompt.prompt();
-  await prompt.userChoice;
-  return true;
+  const { outcome } = await prompt.userChoice;
+  return outcome;
 }
 
 async function sha256Hex(text: string): Promise<string> {

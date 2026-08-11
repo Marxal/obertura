@@ -18,11 +18,18 @@
 // beige squares to someone who hasn't played the line, they pushed the controls
 // off a short screen, and they made a three-second decision look like homework.
 // A style is a WORD — "solid", "sharp" — so the choice is now a word, an icon
-// and the opening's name. The board arrives one tap later, full size, playing
-// itself in.
+// and the opening's name, in a 2×2 grid. The board arrives one tap later, full
+// size, playing itself in.
 //
-// The two ways out — import your games, or start from an empty board — are
-// buttons of their own at the foot, not a sentence with a link buried in it.
+// IT'S A FORM, ALL THE WAY DOWN. The style tiles SELECT; a single "Start
+// building the …" button at the bottom commits, and stays disabled until
+// something is chosen. Tapping a tile used to launch the builder on the spot,
+// which made the last field behave unlike the two above it — colour and depth
+// were changeable, style was a trapdoor.
+//
+// The two ways out — import your games, or start from an empty board — sit
+// under a labelled "or start from" rule, so they read as alternatives rather
+// than as two unexplained buttons below a primary.
 
 import {
   LEVELS,
@@ -55,8 +62,9 @@ const STYLE_ICONS: Record<OnboardingStyle, (size?: number) => SVGElement> = {
 };
 
 export interface PickerDeps {
-  // A style was tapped: open this cut in the builder, guided. The picker has
-  // already closed itself by the time this runs — the builder replaces it.
+  // "Start building this line": open the selected cut in the builder, guided.
+  // The picker has already closed itself by the time this runs — the builder
+  // replaces it.
   onPick: (cut: LineCut) => void;
   // "Import my games". Handed a callback that closes the picker, so it stays up
   // behind the import sheet and only goes away if the import actually happens —
@@ -150,6 +158,11 @@ export function showOnboardingPicker(deps: PickerDeps): void {
   overlay.appendChild(form);
 
   // ── The four styles, on a stage so one layer can cross-fade over another ──
+  // They SELECT rather than commit. Tapping a tile used to launch the builder
+  // immediately, which makes the last field of a form behave unlike the two
+  // above it: you can change your mind about colour and depth, but not about the
+  // style — the one choice you'd most want to compare before committing. Now all
+  // three settle, and one button at the bottom does the committing.
   const stylesLabel = document.createElement('div');
   stylesLabel.className = 'picker-field-label picker-styles-label';
   stylesLabel.textContent = 'Pick a style';
@@ -159,20 +172,49 @@ export function showOnboardingPicker(deps: PickerDeps): void {
   stage.className = 'picker-stage';
   overlay.appendChild(stage);
 
-  const pick = (cut: LineCut): void => { close(); deps.onPick(cut); };
+  let selected: OnboardingStyle | null = null;
 
-  let currentLayer = buildStyleLayer(colour, level, pick);
+  const select = (style: OnboardingStyle): void => {
+    selected = style;
+    reflectSelection();
+  };
+
+  function reflectSelection(): void {
+    for (const tile of overlay.querySelectorAll<HTMLElement>('.picker-style')) {
+      const on = tile.dataset.style === selected;
+      tile.classList.toggle('picker-style--on', on);
+      tile.setAttribute('aria-pressed', String(on));
+    }
+    start.disabled = selected === null;
+    // Name the choice on the button once there is one, so the CTA confirms what
+    // it's about to do rather than repeating a generic instruction.
+    const cut = selectedCut();
+    start.textContent = cut ? `Start building the ${cut.line.name}` : 'Start building this line';
+  }
+
+  // The cut the CTA would open: the selected style, at the current colour and
+  // depth. Null while nothing is selected.
+  function selectedCut(): LineCut | null {
+    if (!selected) return null;
+    const line = linesFor(colour).find(l => l.style === selected);
+    return line ? cutFor(line, level) : null;
+  }
+
+  let currentLayer = buildStyleLayer(colour, level, select);
   stage.appendChild(currentLayer);
 
-  // Replace the four rows with a crossfade: the outgoing layer is lifted out of
+  // Replace the four tiles with a crossfade: the outgoing layer is lifted out of
   // flow and faded out while the incoming one (which keeps the stage's height)
-  // fades in underneath it. Reduced motion swaps outright.
+  // fades in underneath it. Reduced motion swaps outright. The SELECTION rides
+  // through a swap — the style is still whatever they picked, it's just a
+  // different opening now, and the button's label says so.
   function swapStyles(): void {
-    const next = buildStyleLayer(colour, level, pick);
+    const next = buildStyleLayer(colour, level, select);
 
     if (prefersReducedMotion()) {
       currentLayer.replaceWith(next);
       currentLayer = next;
+      reflectSelection();
       return;
     }
 
@@ -189,18 +231,41 @@ export function showOnboardingPicker(deps: PickerDeps): void {
     });
 
     setTimeout(() => outgoing.remove(), CROSSFADE_MS + 40);
+    reflectSelection();
   }
 
-  // ── The two ways out, as buttons rather than fine print ──
+  // ── Commit ──
+  const start = document.createElement('button');
+  start.type = 'button';
+  start.className = 'btn-primary picker-start';
+  start.addEventListener('click', () => {
+    const cut = selectedCut();
+    if (!cut) return;
+    close();
+    deps.onPick(cut);
+  });
+  overlay.appendChild(start);
+
+  // ── The two ways out ──
+  // Introduced, not just present: a labelled rule turns them from two mystery
+  // buttons under a primary into the alternatives they are.
+  const or = document.createElement('div');
+  or.className = 'picker-or';
+  const orText = document.createElement('span');
+  orText.textContent = 'or start from';
+  or.appendChild(orText);
+  overlay.appendChild(or);
+
   const foot = document.createElement('div');
   foot.className = 'picker-foot';
-  foot.appendChild(footButton('Import my games', Icons.download(17), () => deps.onImport(close)));
-  foot.appendChild(footButton('Build my own line', Icons.plus(17), () => {
+  foot.appendChild(footButton('My own games', Icons.download(17), () => deps.onImport(close)));
+  foot.appendChild(footButton('An empty board', Icons.plus(17), () => {
     close();
     deps.onBuildOwn(colour);
   }));
   overlay.appendChild(foot);
 
+  reflectSelection();
   document.body.appendChild(overlay);
   deps.onShown?.();
 }
@@ -285,35 +350,36 @@ function colourChooser(
 function buildStyleLayer(
   colour: OnboardingColour,
   level: OnboardingLevel,
-  onPick: (cut: LineCut) => void,
+  onSelect: (style: OnboardingStyle) => void,
 ): HTMLElement {
-  const list = document.createElement('div');
-  list.className = 'picker-styles';
+  const grid = document.createElement('div');
+  grid.className = 'picker-styles';
 
   for (const line of linesFor(colour)) {
-    list.appendChild(styleButton(cutFor(line, level), onPick));
+    grid.appendChild(styleTile(cutFor(line, level), onSelect));
   }
-  return list;
+  return grid;
 }
 
-function styleButton(cut: LineCut, onPick: (cut: LineCut) => void): HTMLElement {
+function styleTile(cut: LineCut, onSelect: (style: OnboardingStyle) => void): HTMLElement {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = `picker-style picker-style--${cut.line.style}`;
+  btn.dataset.style = cut.line.style;
+  // A selector, so it announces as one: pressed/not, rather than a link that
+  // navigates.
+  btn.setAttribute('aria-pressed', 'false');
 
   const icon = document.createElement('span');
   icon.className = 'picker-style-icon';
   icon.setAttribute('aria-hidden', 'true');
-  icon.appendChild(STYLE_ICONS[cut.line.style](20));
+  icon.appendChild(STYLE_ICONS[cut.line.style](22));
   btn.appendChild(icon);
-
-  const text = document.createElement('span');
-  text.className = 'picker-style-text';
 
   const style = document.createElement('span');
   style.className = 'picker-style-name';
   style.textContent = STYLE_LABELS[cut.line.style];
-  text.appendChild(style);
+  btn.appendChild(style);
 
   // The CURATED name, not the book name openings.ts resolves. The book is
   // precise to a fault — the same cut comes back as "Sicilian: Najdorf, 6.Be3 e5
@@ -323,29 +389,19 @@ function styleButton(cut: LineCut, onPick: (cut: LineCut) => void): HTMLElement 
   // exists at every cut), not as copy.
   const opening = document.createElement('span');
   opening.className = 'picker-style-opening';
-  // A Black repertoire is an ANSWER to what White chose, and nothing else on the
-  // row says so. Three words, kept.
-  opening.textContent = cut.line.colour === 'black'
-    ? `${cut.line.name} · against 1.e4`
-    : cut.line.name;
-  text.appendChild(opening);
+  opening.textContent = cut.line.name;
+  btn.appendChild(opening);
 
-  btn.appendChild(text);
-
-  const chev = document.createElement('span');
-  chev.className = 'picker-style-chev';
-  chev.setAttribute('aria-hidden', 'true');
-  chev.appendChild(Icons.chevronRight(18));
-  btn.appendChild(chev);
-
-  // The blurb and the move count aren't on the row, but they're still the best
-  // description of what tapping it does — so they stay in the accessible name.
+  // The blurb, the move count and (for Black) what the line answers don't fit a
+  // tile, but they're still the best description of what it holds — so they stay
+  // in the accessible name.
   btn.setAttribute(
     'aria-label',
-    `${STYLE_LABELS[cut.line.style]} — ${cut.line.name}, `
-    + `${cut.ownMoves} moves. ${cut.line.blurb}`,
+    `${STYLE_LABELS[cut.line.style]} — ${cut.line.name}`
+    + (cut.line.colour === 'black' ? ', against 1.e4' : '')
+    + `, ${cut.ownMoves} moves. ${cut.line.blurb}`,
   );
-  btn.addEventListener('click', () => onPick(cut));
+  btn.addEventListener('click', () => onSelect(cut.line.style));
   return btn;
 }
 

@@ -39,6 +39,12 @@ export interface DrillOptions {
   // interval (ms between moves) before the user is asked to play it — a "watch it
   // once, then do it yourself" warm-up. Use watchSpeedMs() to honour the pref.
   watchFirstMs?: number;
+  // Watch-first mode only. Called once the board is mounted and sitting at the
+  // start position, INSTEAD of playing the line in — the drill then waits until
+  // the callback's `start` is invoked. For introducing the run over a live board
+  // ("watch it, then play it") rather than over the screen the user just left.
+  // Never called when there's no watch pass to hold.
+  beforeWatch?: (start: () => void) => void;
   // Fire a brief confetti burst when the run is completed.
   celebrateOnComplete?: boolean;
   // If provided (full mode only), the engine checks whether a wrong move is
@@ -1287,12 +1293,23 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
       movable: { color: undefined, dests: new Map() },
     });
     setStatus('Watch the line once', 'pt-status--prompt');
-    animatePlies(watchPlies, () => {
-      // Hold on the final position for a beat (animatePlies already added
-      // reading time when the last move carried a note), then reset and start
-      // the quiz.
-      autoTimer = setTimeout(() => { if (!isCleaned) beginRun(); }, opts.watchFirstMs! + 300);
-    }, opts.watchFirstMs, true);
+
+    const playIn = (): void => {
+      if (isCleaned) return;
+      animatePlies(watchPlies, () => {
+        // Hold on the final position for a beat (animatePlies already added
+        // reading time when the last move carried a note), then reset and start
+        // the quiz.
+        autoTimer = setTimeout(() => { if (!isCleaned) beginRun(); }, opts.watchFirstMs! + 300);
+      }, opts.watchFirstMs, true);
+    };
+
+    // The board is already mounted and set to the start position at this point,
+    // so a caller that wants to say something first (the guided first run's
+    // "watch it, then play it" card) can hold the moves without the user
+    // staring at an empty screen while it does.
+    if (opts.beforeWatch) opts.beforeWatch(playIn);
+    else playIn();
   } else {
     beginRun();
   }
