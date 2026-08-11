@@ -1,26 +1,28 @@
-// The first-run picker — one screen, three choices, and out.
+// The first-run picker — one screen, a small form, and out.
 //
 // This replaces the old install-an-app first run (intro carousel → 5-step setup
 // wizard → "add 5 lines to unlock training") with a web-visitor one: a stranger
 // who lands on bitochess.com should be looking at their own saved line inside a
 // minute, with no account, no code and no questionnaire.
 //
-// The three choices are colour, depth and style, and nothing else. Everything
-// the wizard used to ask — rating, notation, theme, Lichess, import — either has
-// a sane default or comes back later as a dismissible card on Train (see
-// train-screen.ts's first-line cards). Tapping a style card hands a LineCut to
-// the caller, which opens it in the builder (see main.ts's guided flow).
+// WHAT THE SCREEN ASKS. Three things and nothing else: which colour, how deep,
+// and which style. Everything the wizard used to ask — rating, notation, theme,
+// Lichess, import — either has a sane default or comes back later as a row in
+// the Get-started checklist. Tapping a style hands a LineCut to the caller,
+// which walks the user through the builder and opens it (see main.ts's guided
+// flow).
 //
-// Sizing note: this is built to fit a 412×915 phone without scrolling, which is
-// why the copy is short and the cards are compact. The head (app mark +
-// wordmark + one line), the two segmented controls and the footer are PINNED —
-// only the card grid ever scrolls, so a tall board can never push the level
-// chooser or "Rather start from your own games?" off the screen.
+// NO BOARDS. The four choices used to be cards with a miniature board on each,
+// showing the position the line ends on. It was the prettiest thing in the app
+// and it was the wrong thing: four boards at thumbnail size are four grids of
+// beige squares to someone who hasn't played the line, they pushed the controls
+// off a short screen, and they made a three-second decision look like homework.
+// A style is a WORD — "solid", "sharp" — so the choice is now a word, an icon
+// and the opening's name. The board arrives one tap later, full size, playing
+// itself in.
 //
-// A card is a board, a style tag and a name, and nothing else. It used to carry
-// the move list and a one-line blurb too, which made each card tall enough that
-// four of them crowded the controls out; the moves and the pitch belong in the
-// builder, which is one tap away.
+// The two ways out — import your games, or start from an empty board — are
+// buttons of their own at the foot, not a sentence with a link buried in it.
 
 import {
   LEVELS,
@@ -30,26 +32,39 @@ import {
   type LineCut,
   type OnboardingColour,
   type OnboardingLevel,
+  type OnboardingStyle,
 } from './onboarding-lines';
-import { buildMiniBoard } from './board-mini';
+import { Icons } from './icons';
 import { segmented } from './settings-screen';
 import { getAllLines } from './storage';
 import { isOnboardingComplete } from './prefs';
 import { pushBack } from './back-nav';
 
-// How long the card crossfade runs. Long enough to read as a dissolve rather
-// than a flicker — this is the one moment in the picker that should feel like
-// something, so it's deliberately slower than a normal UI transition.
+// How long the style-list crossfade runs. Long enough to read as a dissolve
+// rather than a flicker — this is the one moment in the picker that should feel
+// like something, so it's deliberately slower than a normal UI transition.
 const CROSSFADE_MS = 320;
 
+// One glyph per style. They carry no information the label doesn't; they're
+// there so the four rows scan as four distinct things rather than a list.
+const STYLE_ICONS: Record<OnboardingStyle, (size?: number) => SVGElement> = {
+  solid: Icons.flag,       // ground held
+  sharp: Icons.zap,        // a line with teeth
+  classical: Icons.star,   // the time-honoured choice
+  wild: Icons.swords,      // both kings in trouble
+};
+
 export interface PickerDeps {
-  // A style card was tapped: open this cut in the builder, guided. The picker
-  // has already closed itself by the time this runs — the builder replaces it.
+  // A style was tapped: open this cut in the builder, guided. The picker has
+  // already closed itself by the time this runs — the builder replaces it.
   onPick: (cut: LineCut) => void;
-  // The quiet "start from your own games" escape hatch. Handed a callback that
-  // closes the picker, so it stays up behind the import sheet and only goes
-  // away if the import actually happens — a cancelled import comes back here.
+  // "Import my games". Handed a callback that closes the picker, so it stays up
+  // behind the import sheet and only goes away if the import actually happens —
+  // a cancelled import comes back here.
   onImport: (close: () => void) => void;
+  // "Build my own line" — an empty board of the chosen colour. Closes the picker
+  // itself, like a style pick does.
+  onBuildOwn: (colour: OnboardingColour) => void;
   // Fires once the picker is actually on screen, so the caller can drop the
   // boot splash. The picker IS the first screen on a first visit, and the splash
   // sits above everything, so this must not wait on anything else.
@@ -91,8 +106,8 @@ export function showOnboardingPicker(deps: PickerDeps): void {
     overlay.remove();
     removeBack();
   };
-  // The system back gesture closes the picker the same way a card tap does —
-  // it just doesn't pick anything. There's nothing behind it but Train.
+  // The system back gesture closes the picker the same way a pick does — it just
+  // doesn't pick anything. There's nothing behind it but Train.
   const removeBack = pushBack(close);
 
   // ── Head: the app mark, the wordmark, and the one line of copy ──
@@ -112,48 +127,48 @@ export function showOnboardingPicker(deps: PickerDeps): void {
 
   overlay.appendChild(head);
 
-  // ── The two segmented controls ──
-  const controls = document.createElement('div');
-  controls.className = 'picker-controls';
+  // ── The form: colour, then depth ──
+  const form = document.createElement('div');
+  form.className = 'picker-form';
 
-  controls.appendChild(segmented<OnboardingColour>(
-    [
-      { value: 'white', label: 'White' },
-      { value: 'black', label: 'Black' },
-    ],
-    colour,
-    (v) => { colour = v; swapCards(); },
-    { fullWidth: true },
-  ));
+  form.appendChild(field('I play as', colourChooser(colour, (v) => {
+    colour = v;
+    swapStyles();
+  })));
 
-  controls.appendChild(segmented<OnboardingLevel>(
+  form.appendChild(field('How much to learn', segmented<OnboardingLevel>(
     LEVELS.map(l => ({
       value: l.value,
       label: l.label,
       sublabel: `${l.moves} moves`,
     })),
     level,
-    (v) => { level = v; swapCards(); },
+    (v) => { level = v; swapStyles(); },
     { fullWidth: true },
-  ));
+  )));
 
-  overlay.appendChild(controls);
+  overlay.appendChild(form);
 
-  // ── The 2×2 card grid, on a stage so one layer can cross-fade over another ──
+  // ── The four styles, on a stage so one layer can cross-fade over another ──
+  const stylesLabel = document.createElement('div');
+  stylesLabel.className = 'picker-field-label picker-styles-label';
+  stylesLabel.textContent = 'Pick a style';
+  overlay.appendChild(stylesLabel);
+
   const stage = document.createElement('div');
   stage.className = 'picker-stage';
   overlay.appendChild(stage);
 
   const pick = (cut: LineCut): void => { close(); deps.onPick(cut); };
 
-  let currentLayer = buildCardLayer(colour, level, pick);
+  let currentLayer = buildStyleLayer(colour, level, pick);
   stage.appendChild(currentLayer);
 
-  // Replace the four cards with a crossfade: the outgoing layer is lifted out of
+  // Replace the four rows with a crossfade: the outgoing layer is lifted out of
   // flow and faded out while the incoming one (which keeps the stage's height)
   // fades in underneath it. Reduced motion swaps outright.
-  function swapCards(): void {
-    const next = buildCardLayer(colour, level, pick);
+  function swapStyles(): void {
+    const next = buildStyleLayer(colour, level, pick);
 
     if (prefersReducedMotion()) {
       currentLayer.replaceWith(next);
@@ -162,32 +177,28 @@ export function showOnboardingPicker(deps: PickerDeps): void {
     }
 
     const outgoing = currentLayer;
-    outgoing.classList.add('picker-cards--out');
-    next.classList.add('picker-cards--enter');
+    outgoing.classList.add('picker-styles--out');
+    next.classList.add('picker-styles--enter');
     stage.appendChild(next);
     currentLayer = next;
 
     // One frame with the start styles applied, then run both halves together.
     requestAnimationFrame(() => {
       outgoing.classList.add('is-gone');
-      next.classList.remove('picker-cards--enter');
+      next.classList.remove('picker-styles--enter');
     });
 
     setTimeout(() => outgoing.remove(), CROSSFADE_MS + 40);
   }
 
-  // ── The quiet way out ──
+  // ── The two ways out, as buttons rather than fine print ──
   const foot = document.createElement('div');
   foot.className = 'picker-foot';
-  const footText = document.createElement('span');
-  footText.textContent = 'Rather start from your own games? ';
-  foot.appendChild(footText);
-  const importLink = document.createElement('button');
-  importLink.type = 'button';
-  importLink.className = 'picker-import-link';
-  importLink.textContent = 'Import them';
-  importLink.addEventListener('click', () => deps.onImport(close));
-  foot.appendChild(importLink);
+  foot.appendChild(footButton('Import my games', Icons.download(17), () => deps.onImport(close)));
+  foot.appendChild(footButton('Build my own line', Icons.plus(17), () => {
+    close();
+    deps.onBuildOwn(colour);
+  }));
   overlay.appendChild(foot);
 
   document.body.appendChild(overlay);
@@ -201,81 +212,153 @@ export function showOnboardingPicker(deps: PickerDeps): void {
 function appMark(): HTMLImageElement {
   const img = document.createElement('img');
   img.src = `${import.meta.env.BASE_URL}icons/icon-192.png`;
-  img.width = 72;
-  img.height = 72;
+  img.width = 64;
+  img.height = 64;
   img.alt = '';
   img.setAttribute('aria-hidden', 'true');
   img.className = 'picker-mark';
   return img;
 }
 
-// ── One layer of four cards ──────────────────────────────────────────────────
+// A labelled row of the form.
+function field(label: string, control: HTMLElement): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'picker-field';
+  const lbl = document.createElement('div');
+  lbl.className = 'picker-field-label';
+  lbl.textContent = label;
+  wrap.appendChild(lbl);
+  wrap.appendChild(control);
+  return wrap;
+}
 
-function buildCardLayer(
+// ── Colour ───────────────────────────────────────────────────────────────────
+// Not the shared segmented control: this one wants a real white pawn on a light
+// disc and a real black pawn on a dark one, which says "colour" faster than the
+// words do — and is the same token the FAB's new-line rows use.
+
+function colourChooser(
+  current: OnboardingColour,
+  onChange: (v: OnboardingColour) => void,
+): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'picker-colours';
+  wrap.setAttribute('role', 'group');
+  wrap.setAttribute('aria-label', 'Colour');
+
+  const buttons: HTMLButtonElement[] = [];
+  const reflect = (active: OnboardingColour): void => {
+    for (const b of buttons) {
+      const on = b.dataset.value === active;
+      b.classList.toggle('picker-colour--on', on);
+      b.setAttribute('aria-pressed', String(on));
+    }
+  };
+
+  for (const value of ['white', 'black'] as OnboardingColour[]) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'picker-colour';
+    btn.dataset.value = value;
+
+    const token = document.createElement('span');
+    token.className = `picker-colour-token picker-colour-token--${value}`;
+    token.setAttribute('aria-hidden', 'true');
+    token.appendChild(Icons.pawn(22));
+    btn.appendChild(token);
+
+    const label = document.createElement('span');
+    label.className = 'picker-colour-label';
+    label.textContent = value === 'white' ? 'White' : 'Black';
+    btn.appendChild(label);
+
+    btn.addEventListener('click', () => { reflect(value); onChange(value); });
+    buttons.push(btn);
+    wrap.appendChild(btn);
+  }
+  reflect(current);
+  return wrap;
+}
+
+// ── One layer of four style buttons ──────────────────────────────────────────
+
+function buildStyleLayer(
   colour: OnboardingColour,
   level: OnboardingLevel,
   onPick: (cut: LineCut) => void,
 ): HTMLElement {
-  const grid = document.createElement('div');
-  grid.className = 'picker-cards';
+  const list = document.createElement('div');
+  list.className = 'picker-styles';
 
   for (const line of linesFor(colour)) {
-    grid.appendChild(styleCard(cutFor(line, level), onPick));
+    list.appendChild(styleButton(cutFor(line, level), onPick));
   }
-  return grid;
+  return list;
 }
 
-function styleCard(cut: LineCut, onPick: (cut: LineCut) => void): HTMLElement {
-  const card = document.createElement('button');
-  card.type = 'button';
-  card.className = 'picker-card';
+function styleButton(cut: LineCut, onPick: (cut: LineCut) => void): HTMLElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = `picker-style picker-style--${cut.line.style}`;
 
-  // The miniature shows the position the line ACTUALLY ends on at this level, so
-  // switching level visibly changes the board, not just the move list. Oriented
-  // from the user's side.
-  const board = document.createElement('div');
-  board.className = 'picker-card-board';
-  board.appendChild(buildMiniBoard(cut.finalFen, cut.line.colour));
-  card.appendChild(board);
+  const icon = document.createElement('span');
+  icon.className = 'picker-style-icon';
+  icon.setAttribute('aria-hidden', 'true');
+  icon.appendChild(STYLE_ICONS[cut.line.style](20));
+  btn.appendChild(icon);
 
-  const body = document.createElement('div');
-  body.className = 'picker-card-body';
+  const text = document.createElement('span');
+  text.className = 'picker-style-text';
 
   const style = document.createElement('span');
-  style.className = 'picker-card-style';
+  style.className = 'picker-style-name';
   style.textContent = STYLE_LABELS[cut.line.style];
-  body.appendChild(style);
+  text.appendChild(style);
 
   // The CURATED name, not the book name openings.ts resolves. The book is
   // precise to a fault — the same cut comes back as "Sicilian: Najdorf, 6.Be3 e5
   // 7.Nb3" or "French Defense: Steinitz Variation, Boleslavsky Variation", which
-  // is three lines of jargon on a card meant to be chosen from in a glance. The
+  // is three lines of jargon under a word meant to be chosen in a glance. The
   // resolved name still matters, but as a data check (the self-test asserts one
-  // exists at every cut), not as copy. The real name lands on the line at save
-  // time, from the builder's normal naming.
-  const name = document.createElement('span');
-  name.className = 'picker-card-name';
-  name.textContent = cut.line.name;
-  body.appendChild(name);
+  // exists at every cut), not as copy.
+  const opening = document.createElement('span');
+  opening.className = 'picker-style-opening';
+  // A Black repertoire is an ANSWER to what White chose, and nothing else on the
+  // row says so. Three words, kept.
+  opening.textContent = cut.line.colour === 'black'
+    ? `${cut.line.name} · against 1.e4`
+    : cut.line.name;
+  text.appendChild(opening);
 
-  // A Black repertoire is an ANSWER to what White chose, and with the move list
-  // gone there is nothing else on the card that says so. Two words, kept.
-  if (cut.line.colour === 'black') {
-    const against = document.createElement('span');
-    against.className = 'picker-card-against';
-    against.textContent = 'against 1.e4';
-    body.appendChild(against);
-  }
+  btn.appendChild(text);
 
-  card.appendChild(body);
+  const chev = document.createElement('span');
+  chev.className = 'picker-style-chev';
+  chev.setAttribute('aria-hidden', 'true');
+  chev.appendChild(Icons.chevronRight(18));
+  btn.appendChild(chev);
 
-  // The blurb and the move count left the card face, but they're still the best
+  // The blurb and the move count aren't on the row, but they're still the best
   // description of what tapping it does — so they stay in the accessible name.
-  card.setAttribute(
+  btn.setAttribute(
     'aria-label',
     `${STYLE_LABELS[cut.line.style]} — ${cut.line.name}, `
     + `${cut.ownMoves} moves. ${cut.line.blurb}`,
   );
-  card.addEventListener('click', () => onPick(cut));
-  return card;
+  btn.addEventListener('click', () => onPick(cut));
+  return btn;
+}
+
+// ── The footer's two escape hatches ──────────────────────────────────────────
+
+function footButton(label: string, icon: SVGElement, onClick: () => void): HTMLElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'picker-foot-btn';
+  btn.appendChild(icon);
+  const text = document.createElement('span');
+  text.textContent = label;
+  btn.appendChild(text);
+  btn.addEventListener('click', onClick);
+  return btn;
 }

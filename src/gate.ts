@@ -78,6 +78,39 @@ function isAndroid(): boolean {
   return /android/i.test(navigator.userAgent);
 }
 
+// ── Install, offered outside the gate ────────────────────────────────────────
+// The Get-started checklist (first-steps.ts) offers an "Install the app" row on
+// Android. It has to ask THIS module, because the `beforeinstallprompt` event
+// fires once, early, and only this module is listening when it does.
+
+// Is an install worth offering here at all? Android only — iOS has no
+// programmatic prompt (its route is Share → Add to Home Screen, which the gate
+// screen explains with a diagram and a checklist row can't), and on desktop the
+// browser's own address-bar affordance is better placed than ours.
+export function canInstallApp(): boolean {
+  return isAndroid();
+}
+
+// Already running from the home screen — nothing to install.
+export function isAppInstalled(): boolean {
+  return isStandalone();
+}
+
+// Fire the real install prompt. Resolves true if the browser accepted the
+// gesture and showed its own dialog, false when there's no captured prompt to
+// fire (Firefox, or Chrome having already used it) — the caller then falls back
+// to telling the user where the menu item lives.
+export async function promptInstallApp(): Promise<boolean> {
+  const prompt = deferredInstallPrompt;
+  if (!prompt) return false;
+  // A captured prompt is single-use; drop it whatever the user chooses, so a
+  // second tap takes the manual-instructions path instead of failing silently.
+  deferredInstallPrompt = null;
+  await prompt.prompt();
+  await prompt.userChoice;
+  return true;
+}
+
 async function sha256Hex(text: string): Promise<string> {
   const bytes = new TextEncoder().encode(text);
   const digest = await crypto.subtle.digest('SHA-256', bytes);

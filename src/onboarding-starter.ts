@@ -79,15 +79,19 @@ export function seedFromPackLine(line: PackLine): LineSeed {
 }
 
 // What adding a starter/suggested line should actually do:
+//   'build'  — open the line in the BUILDER, laid out and played in, and let the
+//              builder's own Save carry it the rest of the way. The default for
+//              a single pack line: same route the first-run line takes, so a
+//              pack line is something you look at and adjust before it's yours,
+//              not something that drops you straight into a drill.
 //   'learn'  — the normal add-to-training path, gated by the "Confirm run before
-//              training" pref (a watch-then-play run under the default). This is
-//              a single, deliberate add, so it's also the one that meets the
-//              free-tier cap dialog.
+//              training" pref (a watch-then-play run under the default). Still
+//              used by callers that add without a builder detour.
 //   'enrol'  — straight into training, no run. The bulk "add all" path.
 //   'save'   — save the line to My Lines but leave it OUT of training. What a
 //              bulk add falls back to once the free tier's slots are used up, so
 //              the lines are still there to rotate in later.
-export type AddLineMode = 'learn' | 'enrol' | 'save';
+export type AddLineMode = 'build' | 'learn' | 'enrol' | 'save';
 
 // Add a line (moves + optional notes/plan), per AddLineMode above. onDone fires
 // once it's in; onCancel if the confirm run was abandoned. main.ts owns the real
@@ -121,10 +125,19 @@ export async function openStarterPackPicker(onAddLine: AddLineFn): Promise<void>
 // ── Starter-pack lightbox ────────────────────────────────────────────────────
 // "Pick a starter pack" opens this instead of an inline accordion — a focused
 // sheet, titled and dismissible like the rest of the app's edit-overlays.
-// Adding a line repaints the onboarding view underneath (the progress bar
-// climbs) without closing the sheet, so several packs/lines can be added in one
-// sitting; `existing` is mutated in place so this sheet's own "✓ Added" state
-// stays in sync across repaints without re-querying storage.
+//
+// Picking a line CLOSES the sheet, because picking a line now opens the builder
+// behind it (mode 'build'): leaving a full-screen overlay up over the thing the
+// tap just did is how you get "I pressed it and nothing happened". Only the bulk
+// "add all" path repaints in place, and it restores whichever pack was open.
+//
+// `existing` is mutated in place so the sheet's own "✓ Added" state stays in
+// sync across repaints without re-querying storage.
+//
+// There's no Close button: the sheet tops out at 85vh, so the backdrop above it
+// is always tappable, and the system back gesture closes it too. A footer button
+// that only repeats what the backdrop already does is a row of dead space at the
+// bottom of every pack list.
 function openPackPicker(
   packs: Pack[],
   existing: string[],
@@ -134,7 +147,10 @@ function openPackPicker(
   const overlay = document.createElement('div');
   overlay.className = 'edit-overlay';
 
+  let closed = false;
   function close(): void {
+    if (closed) return;
+    closed = true;
     overlay.remove();
     removeBack();
   }
@@ -142,6 +158,10 @@ function openPackPicker(
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) close();
   });
+
+  // Which pack is expanded, held here rather than in the card so a repaint
+  // doesn't snap every accordion shut under the user.
+  let openPackId: string | null = null;
 
   function render(): void {
     overlay.innerHTML = '';
@@ -157,23 +177,20 @@ function openPackPicker(
 
     const packsWrap = document.createElement('div');
     packsWrap.className = 'onb-packs';
-    const ctrls = packs.map(pack => packCard(pack, existing, onAddLine, repaint));
-    ctrls.forEach(pc => {
+    const ctrls = packs.map(pack => packCard(pack, existing, onAddLine, repaint, close));
+    ctrls.forEach((pc, i) => {
       pc.headBtn.addEventListener('click', () => {
         const willOpen = !pc.isOpen();
         ctrls.forEach(c => c.setOpen(false));
         pc.setOpen(willOpen);
+        openPackId = willOpen ? packs[i].id : null;
       });
       packsWrap.appendChild(pc.card);
+      // Restore the expanded pack after a repaint — with no transition, since
+      // it was already open as far as the user is concerned.
+      if (packs[i].id === openPackId) pc.setOpen(true, { animate: false });
     });
     sheet.appendChild(packsWrap);
-
-    const cancel = document.createElement('button');
-    cancel.type = 'button';
-    cancel.className = 'edit-cancel-btn';
-    cancel.textContent = 'Close';
-    cancel.addEventListener('click', close);
-    sheet.appendChild(cancel);
 
     overlay.appendChild(sheet);
   }
@@ -187,7 +204,7 @@ function openPackPicker(
 interface PackCtrl {
   card: HTMLElement;
   headBtn: HTMLButtonElement;
-  setOpen: (open: boolean) => void;
+  setOpen: (open: boolean, opts?: { animate?: boolean }) => void;
   isOpen: () => boolean;
 }
 
@@ -196,6 +213,7 @@ function packCard(
   existing: string[],
   onAddLine: AddLineFn,
   repaint: () => void,
+  closeSheet: () => void,
 ): PackCtrl {
   const card = document.createElement('div');
   card.className = 'onb-pack';
@@ -222,19 +240,28 @@ function packCard(
   chev.appendChild(Icons.chevronRight(18));
   headBtn.appendChild(chev);
 
+  // The expanding half is three nested elements on purpose: the PANEL animates
+  // its grid row from 0fr to 1fr (the one way to transition to "however tall the
+  // content is" in CSS), the CLIP has the overflow hidden, and only the innermost
+  // body carries padding — padding on a collapsing box never reaches zero, which
+  // is what makes naive max-height accordions leave a stripe behind.
+  //
+  // The pack's blurb used to lead the body. It's gone: the sheet is a list of
+  // LINES to pick, and a paragraph of pitch above each list pushed the actual
+  // choices below the fold on a phone.
+  const panel = document.createElement('div');
+  panel.className = 'onb-pack-panel';
+  const clip = document.createElement('div');
+  clip.className = 'onb-pack-clip';
   const body = document.createElement('div');
   body.className = 'onb-pack-body';
-  body.hidden = true;
-
-  const blurb = document.createElement('p');
-  blurb.className = 'onb-pack-blurb';
-  blurb.textContent = pack.blurb;
-  body.appendChild(blurb);
+  clip.appendChild(body);
+  panel.appendChild(clip);
 
   const list = document.createElement('div');
   list.className = 'onb-lines';
   for (const line of pack.lines) {
-    list.appendChild(packLineRow(line, pack.colour, existing, onAddLine, repaint));
+    list.appendChild(packLineRow(line, pack.colour, existing, onAddLine, closeSheet));
   }
   body.appendChild(list);
 
@@ -243,7 +270,7 @@ function packCard(
     const addAll = document.createElement('button');
     addAll.type = 'button';
     addAll.className = 'onb-addall';
-    addAll.textContent = `Add all ${pending.length} without the walkthrough`;
+    addAll.textContent = `Add all ${pending.length} without opening them`;
     addAll.addEventListener('click', () => {
       addAll.disabled = true;
       addAll.textContent = 'Adding…';
@@ -256,19 +283,29 @@ function packCard(
   }
 
   card.appendChild(headBtn);
-  card.appendChild(body);
+  card.appendChild(panel);
 
-  const setOpen = (open: boolean): void => {
-    body.hidden = !open;
-    headBtn.classList.toggle('onb-pack-head--open', open);
-    headBtn.setAttribute('aria-expanded', String(open));
+  let open = false;
+  // `animate: false` is for restoring state after a repaint — the pack was
+  // already open, so sliding it open again would look like a glitch.
+  const setOpen = (next: boolean, opts: { animate?: boolean } = {}): void => {
+    open = next;
+    panel.classList.toggle('onb-pack-panel--instant', opts.animate === false);
+    panel.classList.toggle('onb-pack-panel--open', next);
+    headBtn.classList.toggle('onb-pack-head--open', next);
+    headBtn.setAttribute('aria-expanded', String(next));
+    // A closed panel is zero-height but still in the tree, so hide its contents
+    // from the reading order and from tab stops the way `hidden` used to.
+    clip.setAttribute('aria-hidden', String(!next));
+    clip.toggleAttribute('inert', !next);
   };
-  setOpen(false);
+  setOpen(false, { animate: false });
 
-  return { card, headBtn, setOpen, isOpen: () => !body.hidden };
+  return { card, headBtn, setOpen, isOpen: () => open };
 }
 
-// Add a batch of lines straight to training (no walkthrough), one after another.
+// Add a batch of lines straight to training (without opening any of them in the
+// builder), one after another.
 //
 // The free tier caps how many lines TRAIN at once, so a batch bigger than the
 // remaining slots enrols as many as fit and saves the rest to My Lines unenrolled
@@ -294,7 +331,7 @@ function packLineRow(
   colour: Colour,
   existing: string[],
   onAddLine: AddLineFn,
-  repaint: () => void,
+  closeSheet: () => void,
 ): HTMLElement {
   const noteCount = Object.keys(line.notes ?? {}).length;
   return lineRow({
@@ -305,10 +342,14 @@ function packLineRow(
     fen: fenFromUcis(line.ucis),
     colour,
     added: isLineAdded(existing, colour, line.ucis),
-    onAdd: () => onAddLine(seedFromPackLine(line), colour, 'learn', () => {
-      existing.push(lineKey(colour, line.ucis));
-      repaint();
-    }, repaint),
+    // Close FIRST, then open the line in the builder: the sheet is the thing in
+    // the way of seeing what the tap did. From there it's an ordinary builder
+    // session — look at the line, change what you don't like, Save — which is
+    // the same route the first-run line takes.
+    onAdd: () => {
+      closeSheet();
+      onAddLine(seedFromPackLine(line), colour, 'build', () => {}, () => {});
+    },
   });
 }
 

@@ -76,6 +76,21 @@ export function setOnboardingComplete(): void {
   localStorage.setItem(ONBOARDING_DONE_KEY, '1');
 }
 
+// The builder walkthrough (onboarding-tour.ts) — the three cards that name the
+// board, the tabs and Save before the first line opens. Once through it (or
+// once skipped) it never shows again; it's a separate flag from the onboarding
+// gate above because the tour also fronts a pack line opened months later, on a
+// device where onboarding is long finished.
+const TOUR_SEEN_KEY = 'obertura.builderTourSeen';
+
+export function isBuilderTourSeen(): boolean {
+  try { return localStorage.getItem(TOUR_SEEN_KEY) === '1'; } catch { return true; }
+}
+
+export function setBuilderTourSeen(): void {
+  try { localStorage.setItem(TOUR_SEEN_KEY, '1'); } catch { /* storage off */ }
+}
+
 // ── My Lines view options ────────────────────────────────────────────────────
 
 // The tiny position board on each saved-line and suggestion card. ON by default.
