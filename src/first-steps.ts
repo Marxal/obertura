@@ -9,17 +9,26 @@
 // deliberately the loudest thing on the screen: an accent-washed card with a
 // progress bar, above the tabs, where the daily challenge normally sits.
 //
-// It shows while fewer than TRAINING_UNLOCK_LINES lines are saved and disappears
-// on its own at three — the same number that unlocks training, so the panel and
-// the lock tell one story instead of two. There's no dismiss button, because
-// there is nothing to dismiss it INTO: a user with no lines has no other use for
-// the screen.
+// TWO PHASES. Under TRAINING_UNLOCK_LINES saved lines it's the GOAL panel: it
+// takes the daily challenge's slot outright, because a user with no repertoire
+// has no use for a daily challenge, and it leads with the line goal, its bar and
+// the routes to moving it. At three lines the goal block drops away, the daily
+// card takes its slot back, and what's left — the checklist — rides underneath
+// it. The remaining items are the ones that matter most and are easiest to put
+// off, so they don't get to vanish just because the training lock opened.
 //
-// WHAT IT ASKS FOR. The line goal is not one item among four — it is the whole
-// point, and everything else is optional. So it gets the top of the card, the
-// bar, and the two real routes to a line as a pair of equally-weighted buttons
-// (Build a line · Starter packs) with the engine as a discrete link under them;
-// the rest are quiet checklist rows underneath:
+// HOW IT ENDS. Two ways, and neither is "after N lines":
+//   · A discrete × hides it FOR THIS SESSION (sessionStorage). Offered only in
+//     the second phase — in the first there is nothing to dismiss it into.
+//   · It retires for good once the user has an account or has installed the app.
+//     Those are the two steps that actually change what the app can do for them;
+//     past either one, a to-do list is nagging.
+//
+// WHAT IT ASKS FOR. In the goal phase the line goal is not one item among four —
+// it is the whole point, and everything else is optional. So it gets the top of
+// the card, the bar, and the two real routes to a line as a pair of primary
+// buttons (Build a line · Starter packs) with the engine as a discrete link
+// under them; the rest are quiet checklist rows underneath:
 //   · install    — Android only, and only in a browser tab. One tap, no
 //                  explanation: people know what installing an app is.
 //   · games      — import from Chess.com / Lichess; feeds suggestions, the
@@ -37,7 +46,8 @@ import { Icons } from './icons';
 import { isConnected as lichessIsConnected } from './lichess-auth';
 import { isSupabaseConfigured } from './supabase';
 import { getAuthUser } from './auth';
-import { canInstallApp } from './gate';
+import { canInstallApp, isAppInstalled } from './gate';
+import { isEntitled } from './entitlement';
 
 // The number of SAVED lines that unlocks training, and the goal this panel's bar
 // counts toward. They're deliberately the same number.
@@ -70,11 +80,42 @@ export interface FirstStepsDeps {
   onConnectLichess: () => void;
   onSignIn: () => void;
   onInstallApp: () => void;
+  onGoPro: () => void;
+  // The × was tapped: the caller re-renders, and shouldShowFirstSteps now says
+  // no for the rest of the session.
+  onHide: () => void;
+}
+
+// Hidden for THIS browsing session only. sessionStorage, deliberately: closing
+// the app and coming back is a new session and a fair moment to ask again, but
+// tapping through the app in one sitting shouldn't bring the panel back.
+const HIDDEN_KEY = 'obertura.firstStepsHidden';
+
+function hiddenThisSession(): boolean {
+  try { return sessionStorage.getItem(HIDDEN_KEY) === '1'; } catch { return false; }
+}
+
+export function hideFirstSteps(): void {
+  try { sessionStorage.setItem(HIDDEN_KEY, '1'); } catch { /* storage off */ }
+}
+
+// Retired for good: the user has an account or has installed the app. Both are
+// steps that change what the app can actually do for them, and past either one a
+// standing to-do list is nagging rather than helping.
+function retired(): boolean {
+  return !!getAuthUser() || isAppInstalled();
 }
 
 // Whether the panel belongs on screen at all. Exported so the caller can decide
 // between this and the daily-challenge card without building either first.
-export function shouldShowFirstSteps(lineCount: number): boolean {
+export function shouldShowFirstSteps(): boolean {
+  return !retired() && !hiddenThisSession();
+}
+
+// Does it take the daily challenge's slot outright, or ride underneath it? The
+// goal phase owns the slot; past the unlock the daily card comes back and this
+// becomes a compact checklist below it.
+export function firstStepsOwnsSlot(lineCount: number): boolean {
   return lineCount < TRAINING_UNLOCK_LINES;
 }
 
@@ -133,6 +174,10 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
     });
   }
 
+  // Which phase: the goal panel, or the compact checklist that rides under the
+  // daily card once training has unlocked.
+  const showGoal = firstStepsOwnsSlot(lines);
+
   // The line goal counts as one step, done or not, so the "N of M" in the header
   // matches the rows the user can actually see.
   const total = steps.length + 1;
@@ -140,9 +185,10 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
     + (lines >= TRAINING_UNLOCK_LINES ? 1 : 0);
 
   const card = document.createElement('div');
-  card.className = 'card first-steps';
+  card.className = 'card first-steps' + (showGoal ? '' : ' first-steps--compact');
 
-  // ── Head: the title and how far through the list they are ──
+  // ── Head: the title, how far through the list they are, and (past the goal)
+  //    the way out ──
   const head = document.createElement('div');
   head.className = 'first-steps-head';
 
@@ -156,9 +202,23 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
   tally.textContent = `${doneCount} of ${total} done`;
   head.appendChild(tally);
 
+  // Deliberately tiny, and only in the second phase — in the first there is
+  // nothing to dismiss the panel INTO. Hiding lasts for the session; the panel
+  // only goes for good once there's an account or an install (see retired()).
+  if (!showGoal) {
+    const hide = document.createElement('button');
+    hide.type = 'button';
+    hide.className = 'first-steps-hide';
+    hide.setAttribute('aria-label', 'Hide until next time');
+    hide.title = 'Hide for now';
+    hide.appendChild(Icons.close(15));
+    hide.addEventListener('click', () => { hideFirstSteps(); deps.onHide(); });
+    head.appendChild(hide);
+  }
+
   card.appendChild(head);
 
-  // ── The line goal: the hero of this card ──
+  // ── The line goal: the hero of the first phase ──
   const goal = document.createElement('div');
   goal.className = 'first-steps-goal';
 
@@ -218,7 +278,7 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
   engine.addEventListener('click', deps.onBuildWithEngine);
   goal.appendChild(engine);
 
-  card.appendChild(goal);
+  if (showGoal) card.appendChild(goal);
 
   // ── The remaining steps, as a checklist ──
   const list = document.createElement('div');
@@ -226,13 +286,28 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
   for (const step of steps) list.appendChild(buildStep(step));
   card.appendChild(list);
 
+  // ── Go pro ──
+  // Last, and only for someone who isn't already entitled. It's an offer, not a
+  // to-do, so it isn't a checklist row and never counts toward the tally.
+  if (!isEntitled()) {
+    const pro = document.createElement('button');
+    pro.type = 'button';
+    pro.className = 'first-steps-pro';
+    pro.appendChild(Icons.sparkles(16));
+    const proLabel = document.createElement('span');
+    proLabel.textContent = 'Go pro';
+    pro.appendChild(proLabel);
+    pro.addEventListener('click', deps.onGoPro);
+    card.appendChild(pro);
+  }
+
   return card;
 }
 
 function routeButton(label: string, icon: SVGElement, onClick: () => void): HTMLElement {
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.className = 'first-steps-route';
+  btn.className = 'btn-primary first-steps-route';
   btn.appendChild(icon);
   const text = document.createElement('span');
   text.textContent = label;

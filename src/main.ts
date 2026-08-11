@@ -15,7 +15,7 @@ import type { Line } from './types';
 import { renderLinesScreen, focusSavedLine } from './lines-screen';
 import { renderProgressScreen } from './progress-screen';
 import { startPretrainingRun, enrolLineDirectly } from './pretraining';
-import { initEntitlement, requestTrainingSlot } from './entitlement';
+import { initEntitlement, requestTrainingSlot, showGoProDialog } from './entitlement';
 import { renderTrainScreen, startLineSession, startPositionsSession, startMoveFix } from './train-screen';
 import { renderExploreScreen } from './explore-screen';
 import { renderPuzzlesScreen, startDailyPuzzles } from './puzzles-screen';
@@ -62,10 +62,20 @@ import { openImportPanel, getGamesSource, IDENTITY_CHANGED_EVENT } from './impor
 import { openStarterPackPicker, type LineSeed, type AddLineMode } from './onboarding-starter';
 import { showOnboardingWizard, wizardStepPending } from './onboarding-wizard';
 import { showOnboardingPicker, shouldShowFirstRun } from './onboarding-picker';
-import { mountFirstLineGuide, type GuideHandle } from './onboarding-guide';
-import { runBuilderTour } from './onboarding-tour';
+import {
+  showBuilderIntro,
+  showSaveStep,
+  showTrainerIntro,
+  isBuilderTourOwed,
+  markBuilderTourSeen,
+} from './onboarding-tour';
 import { maybeAskToSignUp, handleAuthUrlParam, openSignUpSheet } from './onboarding-signup';
-import { renderFirstSteps, shouldShowFirstSteps, TRAINING_UNLOCK_LINES } from './first-steps';
+import {
+  renderFirstSteps,
+  shouldShowFirstSteps,
+  firstStepsOwnsSlot,
+  TRAINING_UNLOCK_LINES,
+} from './first-steps';
 import type { LineCut } from './onboarding-lines';
 import { maybeAutoRefreshGames } from './auto-refresh';
 import { maybeShowGate, promptInstallApp, onInstallAvailable } from './gate';
@@ -1628,7 +1638,6 @@ function playUci(uci: string): void {
   renderMoveDetails();
   updateOpeningName();
   reevaluate();
-  noteGuidedUserMove();
   void gradeLiveMove(node, parentFen);
 }
 
@@ -1653,7 +1662,6 @@ function commitBoardMove(from: string, to: string, promotion: 'q' | 'r' | 'b' | 
   renderMoveDetails();
   updateOpeningName();
   reevaluate();
-  noteGuidedUserMove();
   void gradeLiveMove(node, parentFen);
 }
 
@@ -2054,14 +2062,24 @@ function startNewLine(colour: 'white' | 'black'): void {
 
 // ── The guided line ──────────────────────────────────────────────────────────
 //
-// Picked a style card (or a starter-pack line) → the walkthrough names the
-// builder's furniture, then the builder opens with that line already laid down,
-// plays it in, and a coach strip says three short things. From here on it is an
-// ORDINARY builder session: the tree is a normal single-mode tree, a divergent
-// move truncates exactly as it always does, Save is the same Save. The only
-// difference is that the save routes straight into the confirm run instead of
-// asking whether you'd like to train it.
-let guide: GuideHandle | null = null;
+// Picked a style card (or a starter-pack line) → the builder opens with that
+// line already laid down. From here on it is an ORDINARY builder session: the
+// tree is a normal single-mode tree, a divergent move truncates exactly as it
+// always does, Save is the same Save. The only difference is that the save
+// routes straight into the confirm run instead of asking whether you'd like to
+// train it.
+//
+// THE SEQUENCE, which is most of the design:
+//   1. the builder opens with the line laid down,
+//   2. (first device visit only) coach-marks name the board and the panels,
+//   3. the line PLAYS ITSELF IN, so the user watches it before anything is
+//      asked of them,
+//   4. a coach-mark on Save offers the decision — keep editing, or save it.
+//
+// Step 4 used to be a "coach strip" in the builder's dock that cycled three
+// sentences on a timer. Two teaching devices saying overlapping things in
+// different voices, one of which moved on whether or not you'd read it. It's
+// gone; the bubble does its job, in one voice, and waits.
 let guidedActive = false;
 
 // One curated line, opened guided. `cut`-shaped rather than LineCut-shaped so
@@ -2069,7 +2087,7 @@ let guidedActive = false;
 interface GuidedLine {
   ucis: string[];
   colour: 'white' | 'black';
-  // What to CALL it in the coach strip and on the saved line: the curated name,
+  // What to CALL it in the walkthrough and on the saved line: the curated name,
   // not the book's. "This is the French Defense: Steinitz Variation, Boleslavsky
   // Variation" is not a sentence anyone wants read to them on their first minute.
   name: string;
@@ -2077,15 +2095,6 @@ interface GuidedLine {
   notes?: Record<number, string>;
 }
 
-// The order here is the whole design, so it's worth spelling out:
-//   1. the builder opens with the line already laid down,
-//   2. the line PLAYS ITSELF IN, so the user watches it before anything is
-//      asked of them,
-//   3. the walkthrough's coach-marks name the board, the tabs and Save — over
-//      the real screen, with the real line on it (once per device),
-//   4. the coach strip offers the decision: keep playing, or save and train.
-// The walkthrough used to come first, on an empty screen, which meant naming
-// controls that weren't visible yet.
 function startGuidedLine(line: GuidedLine): void {
   // Lays the whole line down and opens the builder with the cursor at its end —
   // the same call "From my games" uses.
@@ -2095,26 +2104,21 @@ function startGuidedLine(line: GuidedLine): void {
   renderTitle();
   guidedActive = true;
 
+  const tourOwed = isBuilderTourOwed();
+  if (tourOwed) markBuilderTourSeen();
+
   // Rewind and watch it play itself in, using the builder's own Watch playback
-  // (so it honours the watch-speed pref and can be paused mid-flight).
-  startPlaybackFromStart(() => {
+  // (so it honours the watch-speed pref and can be paused mid-flight), then ask
+  // what to do with it. The save step runs on EVERY guided line, not just the
+  // first: it's what replaced the coach strip, and a pack line opened months
+  // later needs the prompt just as much.
+  const playIn = (): void => startPlaybackFromStart(() => {
     if (!guidedActive) return;
-    runBuilderTour((toured) => {
-      if (!guidedActive) return;
-      guide = mountFirstLineGuide({
-        openingName: line.name,
-        ownMoves: line.ownMoves,
-        // After the walkthrough, the strip's first two beats are things the
-        // bubbles just said — go straight to the decision.
-        startAtCta: toured,
-        onSkip: () => { endGuided(); showView('train'); },
-        onSave: () => { void saveCurrentLine(); },
-        // The strip lives in the dock, which changes the dock's height — the
-        // same re-measure the eval bar's toggle does.
-        onLayoutChange: () => { layoutBuilderSheet(); cg?.redrawAll(); },
-      });
-    }, { name: line.name, ownMoves: line.ownMoves });
+    showSaveStep({ onSave: () => { void saveCurrentLine(); } });
   });
+
+  if (tourOwed) showBuilderIntro({ name: line.name, ownMoves: line.ownMoves }, playIn);
+  else playIn();
 }
 
 // A starter-pack (or suggested) line, opened the same way the first-run line is:
@@ -2147,15 +2151,6 @@ function withPlanNote(seed: LineSeed): Record<number, string> | undefined {
 
 function endGuided(): void {
   guidedActive = false;
-  guide?.destroy();
-  guide = null;
-}
-
-// A move the user played themselves (dragged on the board, or tapped from a
-// panel) means they've started making the line their own — the coach stops
-// telling them they're allowed to.
-function noteGuidedUserMove(): void {
-  guide?.noteUserMove();
 }
 
 // Open the builder on a specific carousel tab (e.g. an external "browse the
@@ -2599,12 +2594,12 @@ function renderTrainTabbed(host: HTMLElement): void {
     }
     dailyHost.innerHTML = '';
 
-    // Before there's a repertoire to have a daily challenge ABOUT, this slot
-    // carries the Get-started checklist instead (first-steps.ts). The two never
-    // show together — one card at the top of Train, and it's whichever one has
-    // something useful to say.
-    if (shouldShowFirstSteps(allLines.length)) {
-      dailyHost.appendChild(renderFirstSteps({
+    // The Get-started checklist (first-steps.ts) has two positions in this slot.
+    // Before there's a repertoire to have a daily challenge ABOUT it takes the
+    // slot outright; past the training unlock the daily card comes back and the
+    // checklist rides underneath it, compact, until it's hidden or retired.
+    const showSteps = shouldShowFirstSteps();
+    const buildSteps = (): HTMLElement => renderFirstSteps({
         lineCount: allLines.length,
         gameCount,
         // Adding from a pack repaints the picker itself; showView('train')
@@ -2631,9 +2626,18 @@ function renderTrainTabbed(host: HTMLElement): void {
         onConnectLichess: () => void lichessConnect(),
         onSignIn: () => openSignUpSheet(),
         onInstallApp: installApp,
-      }));
+        // The same offer the training cap makes, asked for rather than run
+        // into. One pitch, one price, one place to wire the checkout.
+        onGoPro: () => showGoProDialog(),
+        onHide: () => showView('train'),
+    });
+
+    if (showSteps && firstStepsOwnsSlot(allLines.length)) {
+      dailyHost.appendChild(buildSteps());
       return;
     }
+    // Past the unlock the checklist is appended AFTER the daily card is built,
+    // at the end of this function — see the append below.
 
     // The daily config (which tasks + how many of each) and which are actually
     // runnable right now decide the card — and the "Next task →" chain.
@@ -2711,6 +2715,13 @@ function renderTrainTabbed(host: HTMLElement): void {
       onFixMistakes: () => launchers.mistakes(),
     });
     if (card) dailyHost.appendChild(card);
+
+    // Past the training unlock the checklist keeps its place, under the daily
+    // card rather than instead of it: import, Lichess, an account and installing
+    // are the easiest things in the app to put off forever, and clearing the
+    // line goal is no reason for them to vanish. It goes when the user hides it
+    // or when they've done one of the two that matter — see first-steps.ts.
+    if (showSteps) dailyHost.appendChild(buildSteps());
   };
   void renderDaily();
 
@@ -3646,12 +3657,11 @@ async function finishSave(): Promise<void> {
 // with no warning, that pause reads as the app having frozen. One card that says
 // "watch it, then play it" turns the same twenty seconds into a game.
 //
-// The card shows ON THE TRAINER, not before it. It used to sit over the builder
-// and ask the user to agree to go somewhere they hadn't seen — an abstract
-// yes/no. Now the trainer screen mounts first, board and all, and the card
-// explains it with the thing itself behind it; `beforeWatch` holds the moves at
-// the start position until "Got it". Nothing is decided on that card, so it has
-// one button.
+// It shows ON THE TRAINER, not before it, and as a coach-mark on the board
+// rather than a card in the middle of the screen: the trainer mounts first,
+// board and all, and `beforeWatch` holds the moves at the start position until
+// the bubble's one button is pressed. Nothing is being decided there, so there
+// is nothing to decline.
 function finishGuidedSave(line: Line): void {
   endGuided();
 
@@ -3674,18 +3684,11 @@ function finishGuidedSave(line: Line): void {
       // Don't promise a review tomorrow that the training lock won't deliver:
       // below the unlock, the true next step is more lines.
       completeMessage: trainingUnlockedMessage(all.length),
-      beforeWatch: (start) => showDialog({
-        title: 'Saved. Now learn it.',
-        body: 'The trainer runs your line twice over.',
-        steps: [
-          { label: 'Watch it', detail: 'The board plays the line through on its own.' },
-          { label: 'Play it', detail: 'Your turn, from memory. Get one wrong and it shows you.' },
-        ],
-        buttons: [{ label: 'Got it', variant: 'primary', onClick: start }],
-        // Backdrop tap or back gesture: they've seen the card, so get on with
-        // it rather than leaving a mounted trainer frozen behind an empty screen.
-        onDismiss: start,
-      }),
+      // A coach-mark on the board, not a card in the middle of the screen: a
+      // card explains the app, a bubble on the board explains THE BOARD — which
+      // is the thing about to move. Any exit starts the run, so a back gesture
+      // can't leave a mounted trainer frozen.
+      beforeWatch: showTrainerIntro,
     },
   ));
 }
@@ -4069,8 +4072,15 @@ maybeShowGate(() => requestAnimationFrame(() => {
         onBuildOwn: (colour) => {
           setOnboardingComplete();
           startNewLine(colour);
-          setTimeout(() => runBuilderTour(() => {}), 450);
+          setTimeout(() => {
+            if (!isBuilderTourOwed()) return;
+            markBuilderTourSeen();
+            showBuilderIntro(undefined, () => {});
+          }, 450);
         },
+        // Only where accounts exist — in the internal build the button would be
+        // a dead end, so the picker's top bar simply doesn't grow one.
+        onSignIn: isSupabaseConfigured ? () => openSignUpSheet() : undefined,
         // The picker is the first screen on a first visit, so it clears the boot
         // splash itself rather than depending on the boot order to have done it.
         onShown: hideAppSplash,

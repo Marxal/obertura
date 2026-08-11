@@ -150,10 +150,24 @@ export async function requestTrainingSlot(): Promise<boolean> {
 // quieter toast below). A paywall in the first minute, before the user has
 // drilled anything, is the wrong first impression.
 export function showTrainingCapDialog(): void {
+  openUpgradeDialog(`You've got ${FREE_TRAINING_LINES} lines in training`);
+}
+
+// The same offer, asked for rather than run into: the Get-started panel's "Go
+// pro". It needs its own title because the cap dialog's leads with a number the
+// user hasn't reached — someone with two lines being told they've got ten is
+// just wrong.
+export function showGoProDialog(): void {
+  openUpgradeDialog('Go pro');
+}
+
+// One pitch, one price, one place to wire the checkout.
+function openUpgradeDialog(title: string): void {
   showDialog({
-    title: `You've got ${FREE_TRAINING_LINES} lines in training`,
-    body: 'That’s the free tier — unlock unlimited lines, plus coaching from '
-      + 'your own games, for €10 once.',
+    title,
+    body: 'The free tier trains ' + FREE_TRAINING_LINES + ' lines at a time. '
+      + 'Going pro lifts that to unlimited, and opens up coaching from your own '
+      + 'games — for €10 once, not a subscription.',
     // Secondary on the left, primary on the right — the same order as the
     // post-save "Start training this line?" prompt.
     buttons: [
@@ -161,10 +175,11 @@ export function showTrainingCapDialog(): void {
       {
         label: 'Unlock full access',
         variant: 'primary',
-        // TODO(buy-flow): wire this to the purchase. Deliberately a no-op for
-        // now — the checkout, the webhook that sets profiles.entitled, and the
-        // post-purchase refresh (call refreshEntitlement() on success) are the
-        // next phase. Until then the button closes the dialog and nothing else.
+        // TODO(buy-flow): wire this to the Lemon Squeezy checkout. Deliberately
+        // a no-op for now — the checkout, the webhook that sets
+        // profiles.entitled, and the post-purchase refresh (call
+        // refreshEntitlement() on success) are the next phase. Until then the
+        // button closes the dialog and nothing else.
         onClick: () => { /* no-op — see TODO above */ },
       },
     ],
