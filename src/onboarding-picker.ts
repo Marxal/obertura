@@ -73,6 +73,10 @@ export interface PickerDeps {
   // "Build my own line" — an empty board of the chosen colour. Closes the picker
   // itself, like a style pick does.
   onBuildOwn: (colour: OnboardingColour) => void;
+  // "Sign in", top right. Absent in a build with no accounts (the internal
+  // GitHub Pages one), where the button would be a dead end — so the top bar
+  // simply doesn't grow it.
+  onSignIn?: () => void;
   // Fires once the picker is actually on screen, so the caller can drop the
   // boot splash. The picker IS the first screen on a first visit, and the splash
   // sits above everything, so this must not wait on anything else.
@@ -118,22 +122,42 @@ export function showOnboardingPicker(deps: PickerDeps): void {
   // doesn't pick anything. There's nothing behind it but Train.
   const removeBack = pushBack(close);
 
-  // ── Head: the app mark, the wordmark, and the one line of copy ──
-  const head = document.createElement('div');
-  head.className = 'picker-head';
-  head.appendChild(appMark());
+  // ── Top bar: identity on the left, the returning user's way in on the right ──
+  // The brand used to be a stacked, centred block — a 72px app tile over a
+  // wordmark over the lead — which is three rows of chrome above the first thing
+  // the user can act on. On a phone browser the URL bar takes another ~110px of
+  // that budget, and the footer buttons fell off the bottom. Identity is a job
+  // for one line at the top; the space it gives back goes to the lead.
+  const bar = document.createElement('div');
+  bar.className = 'picker-bar';
 
-  const brand = document.createElement('div');
+  const brandRow = document.createElement('div');
+  brandRow.className = 'picker-brandrow';
+  brandRow.appendChild(appMark());
+  const brand = document.createElement('span');
   brand.className = 'picker-brand';
   brand.textContent = 'bito chess';
-  head.appendChild(brand);
+  brandRow.appendChild(brand);
+  bar.appendChild(brandRow);
+
+  // Someone who already has an account is on this screen by accident (a new
+  // device, cleared storage). Without a way in they'd have to build a line
+  // first, then find sign-in in Settings, to get their own repertoire back.
+  if (deps.onSignIn) {
+    const signIn = document.createElement('button');
+    signIn.type = 'button';
+    signIn.className = 'picker-signin';
+    signIn.textContent = 'Sign in';
+    signIn.addEventListener('click', () => deps.onSignIn?.());
+    bar.appendChild(signIn);
+  }
+
+  overlay.appendChild(bar);
 
   const lead = document.createElement('h1');
   lead.className = 'picker-lead';
-  lead.textContent = 'Let’s build your first opening line.';
-  head.appendChild(lead);
-
-  overlay.appendChild(head);
+  lead.textContent = 'Let’s build your first line.';
+  overlay.appendChild(lead);
 
   // ── The form: colour, then depth ──
   const form = document.createElement('div');
@@ -272,13 +296,13 @@ export function showOnboardingPicker(deps: PickerDeps): void {
 
 // The real installed app icon (public/icons/icon-192.png) — the same art Android
 // puts on the home screen, so the very first screen opens on the actual brand
-// mark rather than a wordmark alone. Served from public/ under the app's base
-// path; drawn as a rounded app tile (.picker-mark in style.css).
+// mark. Small and inline beside the wordmark now: at 64px centred it was the
+// largest thing on a screen whose job is to get a line built.
 function appMark(): HTMLImageElement {
   const img = document.createElement('img');
   img.src = `${import.meta.env.BASE_URL}icons/icon-192.png`;
-  img.width = 64;
-  img.height = 64;
+  img.width = 28;
+  img.height = 28;
   img.alt = '';
   img.setAttribute('aria-hidden', 'true');
   img.className = 'picker-mark';

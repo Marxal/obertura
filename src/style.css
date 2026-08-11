@@ -1469,6 +1469,60 @@ main {
   color: var(--accent-active);
 }
 
+/* The way out, once the goal is cleared. Deliberately the quietest control on
+   the card — it hides a to-do list for a session, it isn't a decision. */
+.first-steps-hide {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin: -0.25rem -0.3rem -0.25rem 0;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (hover: hover) {
+  .first-steps-hide:hover { background: var(--bg-page); color: var(--text); }
+}
+
+/* Second phase: the goal block is gone and this rides UNDER the daily card, so
+   it stops shouting — plain card chrome instead of the accent wash and the
+   2px accent border. */
+.first-steps--compact {
+  gap: 0.6rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+}
+.first-steps--compact .first-steps-title { font-size: 0.95rem; }
+
+/* Go pro. An offer, not a to-do: outlined, full width, under the checklist,
+   never counted in the tally. */
+.first-steps-pro {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  min-height: 42px;
+  padding: 0.5rem 0.9rem;
+  border: 1.5px solid var(--accent);
+  border-radius: 10px;
+  background: none;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--accent-active);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.first-steps-pro:active { background: var(--accent-soft); }
+
 /* ── The line goal ── */
 
 .first-steps-goal {
@@ -1536,27 +1590,18 @@ main {
   margin-top: 0.35rem;
 }
 
+/* Both are .btn-primary — these are the two things the card is asking for, and
+   an outlined chip reads as optional. The flex overrides let them stack rather
+   than squeeze their labels on a narrow phone. */
 .first-steps-route {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.3rem;
   flex: 1 1 8rem;
+  flex-direction: column;
+  gap: 0.25rem;
   min-height: 62px;
   padding: 0.6rem;
-  border: 1.5px solid var(--accent);
-  border-radius: 12px;
-  background: var(--accent-soft);
-  color: var(--accent-active);
-  font: inherit;
   font-size: 0.85rem;
-  font-weight: 700;
   text-align: center;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
 }
-.first-steps-route:active { filter: brightness(0.96); }
 
 /* The engine, third and quieter: a game first, a line second. */
 .first-steps-engine {
@@ -12172,6 +12217,13 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   box-shadow: 0 0 0 2px var(--accent);
 }
 
+/* The Your-games empty state's inline import form. .stats-region carries no side
+   padding on a phone (its heading and every widget bring their own), so this
+   brings the same 1rem gutter the heading above it uses. */
+.stats-region-import {
+  margin: 0.4rem 1rem 0;
+}
+
 /* Your-games empty card — the quiet single-card collapse. */
 .stats-games-empty {
   margin: 0.4rem 1rem 0;
@@ -14871,6 +14923,7 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   .stats-region > .section,
   .stats-region > .stats-quick-row,
   .stats-region > .games-refresh-row,
+  .stats-region > .stats-region-import,
   .stats-region > .stats-games-empty {
     margin: 0;
   }
@@ -14878,6 +14931,7 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   /* Not widgets: the account strip and the import prompt are one-line pieces of
      region furniture, so they read across it rather than sitting in a cell. */
   .stats-region > .games-refresh-row,
+  .stats-region > .stats-region-import,
   .stats-region > .stats-games-empty {
     grid-column: 1 / -1;
   }
@@ -15542,46 +15596,77 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   z-index: 200;
   display: flex;
   flex-direction: column;
-  gap: 0.8rem;
-  padding: calc(1.1rem + env(safe-area-inset-top)) 0.9rem
-           calc(0.9rem + env(safe-area-inset-bottom));
+  gap: 0.65rem;
+  padding: calc(0.7rem + env(safe-area-inset-top)) 0.9rem
+           calc(0.7rem + env(safe-area-inset-bottom));
   background: var(--bg-page);
   /* The overlay itself never scrolls — only .picker-stage does. That's what
-     keeps the head, the form and the footer permanently on screen, however
-     tall the style list ends up. */
+     keeps the bar, the lead, the form and the footer permanently on screen. */
   overflow: hidden;
 }
 
-.picker-head {
+/* ── Top bar: identity left, the returning user's way in right ── */
+/* One line, not a stacked block. On a phone BROWSER the URL bar already takes
+   ~110px off the viewport, and the old centred tile + wordmark + lead was three
+   rows of chrome before anything actionable. */
+.picker-bar {
   flex: 0 0 auto;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
 }
 
-/* The installed app icon, as the home screen draws it. */
+.picker-brandrow {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
 .picker-mark {
-  display: block;
-  width: 64px;
-  height: 64px;
-  margin: 0 auto 0.4rem;
-  border-radius: 16px;
-  box-shadow: 0 2px 10px rgb(0 0 0 / 0.16);
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
 }
 
 /* Same Chakra Petch wordmark as the app header and the desktop sidebar — the
    name is always written lower case in the markup, never text-transformed. */
 .picker-brand {
   font-family: 'Chakra Petch', monospace;
-  font-size: 1.45rem;
+  font-size: 1.05rem;
   font-weight: 700;
   letter-spacing: 0.01em;
   color: var(--accent);
+  white-space: nowrap;
 }
 
+.picker-signin {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0.35rem 0.85rem;
+  border: 1px solid var(--border-card);
+  border-radius: 999px;
+  background: none;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.picker-signin:active { background: var(--bg-card); }
+
+/* The lead gets the room the brand block gave back — it's the only sentence on
+   the screen, so it may as well be a headline. */
 .picker-lead {
-  margin: 0.3rem 0 0;
-  font-size: 1.02rem;
-  font-weight: 600;
-  line-height: 1.3;
+  flex: 0 0 auto;
+  margin: 0.15rem 0 0;
+  font-size: 1.45rem;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
   color: var(--text);
 }
 
@@ -15591,17 +15676,17 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+  gap: 0.55rem;
 }
 
 .picker-field {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.25rem;
 }
 
 .picker-field-label {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -15610,7 +15695,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 
 .picker-styles-label {
   flex: 0 0 auto;
-  margin-top: 0.1rem;
 }
 
 /* Colour: two wide buttons, each carrying a real pawn on a disc of its own
@@ -15626,15 +15710,15 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  min-height: 52px;
-  padding: 0.5rem 0.6rem;
+  gap: 0.45rem;
+  min-height: 46px;
+  padding: 0.4rem 0.6rem;
   border: 1.5px solid var(--border-card);
   border-radius: 12px;
   background: var(--bg-card);
   color: var(--text);
   font: inherit;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   font-weight: 700;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -15653,8 +15737,8 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
 }
 
@@ -15692,7 +15776,7 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .picker-styles {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
+  gap: 0.45rem;
 }
 
 /* The crossfade. The outgoing layer is taken out of flow so the incoming one
@@ -15732,8 +15816,8 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.3rem;
-  padding: 0.85rem 0.6rem;
+  gap: 0.2rem;
+  padding: 0.6rem 0.55rem;
   border: 1.5px solid var(--border-card);
   border-radius: 13px;
   background: var(--bg-card);
@@ -15767,25 +15851,25 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
   background: var(--accent-soft);
   color: var(--accent-active, var(--accent));
   transition: background 0.15s, color 0.15s;
 }
 
 .picker-style-name {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 750;
-  line-height: 1.2;
+  line-height: 1.15;
   color: var(--text);
 }
 
 .picker-style-opening {
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   font-weight: 500;
-  line-height: 1.25;
+  line-height: 1.2;
   color: var(--text-muted);
 }
 
@@ -15838,8 +15922,8 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
-  min-height: 44px;
-  padding: 0.5rem 0.6rem;
+  min-height: 40px;
+  padding: 0.4rem 0.6rem;
   border: 1px solid var(--border-card);
   border-radius: 999px;
   background: none;
@@ -15858,10 +15942,11 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   .picker-overlay {
     align-items: center;
     justify-content: center;
-    gap: 1.1rem;
+    gap: 0.9rem;
     padding: 2rem 1rem;
   }
-  .picker-head,
+  .picker-bar,
+  .picker-lead,
   .picker-form,
   .picker-styles-label,
   .picker-stage,
@@ -15874,156 +15959,38 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   .picker-stage {
     flex: 0 1 auto;
   }
-  .picker-brand { font-size: 1.9rem; }
+  .picker-brand { font-size: 1.3rem; }
+  .picker-lead { font-size: 1.8rem; }
+  .picker-mark { width: 36px; height: 36px; }
+}
+
+/* A SHORT window — which on a phone browser is the normal case, not the edge
+   one: the URL bar and the system bars take ~150px off a 915px screen, and the
+   whole point of this screen is that nothing on it needs scrolling to. Trim the
+   lead and the tiles rather than let the footer fall off the bottom. */
+@media (max-height: 720px) {
+  .picker-overlay { gap: 0.45rem; }
   .picker-lead { font-size: 1.25rem; }
-  .picker-mark { width: 88px; height: 88px; }
+  .picker-colour { min-height: 42px; }
+  .picker-style { padding: 0.45rem 0.5rem; }
+  .picker-style-icon { width: 28px; height: 28px; border-radius: 9px; }
 }
 
-/* A short window (a phone in landscape, a small laptop) has no room for the app
-   tile on top of everything else — the four styles are the point of the screen,
-   so the mark is what gives way. */
-@media (max-height: 680px) {
+/* Shorter still (landscape, a small laptop window): the style tiles drop to a
+   single row of icon + name, and the stage scrolls if it must. */
+@media (max-height: 600px) {
   .picker-mark { display: none; }
-  .picker-overlay { gap: 0.55rem; }
-  .picker-style { padding: 0.6rem 0.75rem; }
+  .picker-lead { font-size: 1.1rem; }
+  .picker-style-opening { display: none; }
 }
 
-/* ── Guided first line: the coach strip (onboarding-guide.ts) ─────────────────
-   Rides inside #builder-dock, above the eval bar and the button row. The dock
-   is the one part of the builder that's already allowed to change height (the
-   eval bar slides open there), so the sheet re-lays out around this for free —
-   and because it's in the dock, it can never cover the board. */
-.guide-strip {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid var(--border-card);
-  background: color-mix(in srgb, var(--accent) 10%, var(--bg-card));
-}
-
-.guide-strip-text {
-  flex: 1;
-  min-width: 0;
-  margin: 0;
-  font-size: 0.82rem;
-  font-weight: 600;
-  line-height: 1.3;
-  color: var(--text);
-}
-
-/* Each new beat fades up in place, so a change is noticed without the strip
-   moving anything around it. */
-.guide-strip--in .guide-strip-text {
-  animation: guide-beat-in 0.28s ease;
-}
-
-@keyframes guide-beat-in {
-  from { opacity: 0; transform: translateY(3px); }
-  to   { opacity: 1; transform: none; }
-}
-
-.guide-strip-skip {
-  flex: 0 0 auto;
-  padding: 0.2rem 0.1rem;
-  border: none;
-  background: none;
-  font: inherit;
-  font-size: 0.76rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-decoration: underline;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-/* ── The closing beat: the strip becomes a call to action ──────────────────────
-   Everything up to here is a caption in a tinted bar. The last beat is the only
-   thing standing between the user and a saved line, so the bar fills with the
-   accent, the text goes solid, and a real Save button appears in it — no hunting
-   for the header. */
-.guide-strip--cta {
-  flex-wrap: wrap;
-  padding: 0.65rem 0.75rem;
-  background: var(--accent);
-  border-bottom-color: var(--accent);
-  animation: guide-cta-in 0.32s cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-.guide-strip--cta .guide-strip-text {
-  flex: 1 1 100%;
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--on-accent, #fff);
-}
-
-.guide-strip--cta .guide-strip-skip {
-  color: color-mix(in srgb, var(--on-accent, #fff) 75%, transparent);
-}
-
-.guide-strip-save {
-  flex: 1 1 auto;
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 10px;
-  background: var(--bg-card);
-  font: inherit;
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: var(--accent-active, var(--accent));
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  /* Three beats, then it settles. An infinite pulse on the one button the user
-     is meant to press stops being a pointer and starts being a nag — and it
-     never lets the layout come to rest. */
-  animation: guide-save-pop 1.9s ease-in-out 3;
-}
-
-.guide-strip-save:active { transform: scale(0.97); }
-
-@keyframes guide-cta-in {
-  from { transform: translateY(6px); opacity: 0.4; }
-  to   { transform: none; opacity: 1; }
-}
-
-/* The button breathes rather than flashes — enough to catch the eye at the
-   bottom of the screen without turning into a nag. */
-@keyframes guide-save-pop {
-  0%, 100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--on-accent) 55%, transparent);
-  }
-  50% {
-    transform: scale(1.035);
-    box-shadow: 0 0 0 7px color-mix(in srgb, var(--on-accent) 0%, transparent);
-  }
-}
-
-/* The closing beat also points at the header/panel Save, for anyone who looks
-   up; this is what it points with. */
-.guide-attention {
-  animation: guide-attention-pulse 1.6s ease-in-out infinite;
-}
-
-@keyframes guide-attention-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); }
-  50%      { box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 0%, transparent); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .guide-strip--in .guide-strip-text { animation: none; }
-  .guide-strip--cta { animation: none; }
-  .guide-strip-save { animation: none; }
-  .guide-attention {
-    animation: none;
-    box-shadow: 0 0 0 2px var(--accent);
-  }
-}
-
-/* ── The builder walkthrough (onboarding-tour.ts) ──────────────────────────────
-   Coach-marks over the REAL builder, not a stack of cards on an empty screen:
-   each step dims everything except the thing it's describing, so the tabs light
-   up while the sentence about the tabs is being read. */
+/* ── Coach-marks (onboarding-tour.ts) ─────────────────────────────────────────
+   A bubble anchored beside the thing it's describing, with everything else
+   dimmed — so the tabs light up while the sentence about the tabs is being read.
+   The builder walkthrough is built from these, and so is the trainer's one-card
+   introduction. (They also replaced a "coach strip" that lived in the builder's
+   dock and cycled sentences on a timer; two teaching devices in two voices, one
+   of which moved on whether or not you'd finished reading.) */
 
 /* The overlay itself is transparent and only catches taps — the dimming is done
    by .tour-spot's box-shadow, so there is exactly one scrim and it always has a
@@ -16130,6 +16097,15 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   flex: 1 1 auto;
   display: flex;
   gap: 0.35rem;
+}
+
+/* A single-step bubble has no dots to hold the left edge, so its buttons take
+   the row themselves — two of them (Keep editing / Save the line) share it. */
+.tour-foot--single {
+  justify-content: flex-end;
+}
+.tour-foot--single .tour-next {
+  flex: 1 1 auto;
 }
 
 .tour-dot {

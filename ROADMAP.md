@@ -1140,6 +1140,51 @@ single line in it.
   the same thing twice — "Save your progress" over "Create an account to save
   your progress" is now **"Create a free account"** over what it actually buys.
 
+- ✅ **Third pass: one screen, one teaching voice, one standing to-do list.**
+
+  **The start screen fits a phone browser.** The centred app tile over a wordmark
+  over the lead was three rows of chrome before anything actionable, and a phone
+  browser's URL bar takes another ~110px — the footer fell off the bottom.
+  Identity is now a **top bar**: small mark and wordmark on the left, **Sign in**
+  on the right (for someone who already has an account and landed here by
+  accident). The room that frees goes to the lead, which is a proper headline
+  now; the style tiles lost some height. Verified with no scrolling at 412×720
+  and again at 412×600.
+
+  **The coach strip is gone.** It cycled three sentences on a timer in the
+  builder's dock while the walkthrough talked about the same screen in a
+  different voice — two teaching devices, one of which moved on whether or not
+  you'd read it. Its job (the save decision) is now the walkthrough's last step,
+  and `onboarding-guide.ts` is deleted.
+
+  **The walkthrough is split around the line playing in**, and says more:
+  *Build your line here* explains that you play the line on the board and save
+  it; *Three panels to build from* names **Line**, **Library** and **My lines**
+  one by one (Learn and Scouting are left for later — a walkthrough that lists
+  five things teaches none of them); and then, once the line has played itself
+  in, *Ready when you are* on the Save button, with **Keep editing** and **Save
+  the line** as the two answers. That last step runs on every guided line, not
+  just the first — it's what replaced the strip. The old "nothing is saved until
+  you press this, so there's nothing to break" is gone: telling a first-time
+  user the app is fragile is neither friendly nor true.
+
+  **"Saved. Now learn it" became a coach-mark too**, on the trainer's board
+  rather than a card in the middle of the screen — a card explains the app, a
+  bubble on the board explains the board. Coach-marks are a general component
+  now (`showCoachMarks`), with per-step actions.
+
+  **The Get-started banner stops disappearing at three lines.** Past the unlock
+  the daily card takes its slot back and the checklist rides underneath it,
+  compact — import, Lichess, install and the account are the easiest things in
+  the app to put off forever. A **discrete ×** hides it for the session
+  (sessionStorage), and it retires for good once there's an account or an
+  install. It also grew a **Go pro** button (wired to the shared upgrade dialog;
+  the Lemon Squeezy checkout is still the TODO), and Build a line / Starter packs
+  are `btn-primary` rather than outlined chips.
+
+  **And a margin:** Statistics → Your games had the same edge-to-edge import box
+  Middle game did. Now inset to match its region heading exactly.
+
 _On `claude/chess-onboarding-flow-5gpcdn`. Restore point: `v0.4`._
 
 ---

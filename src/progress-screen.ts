@@ -1107,7 +1107,13 @@ function renderGamesEmpty(container: HTMLElement, cb: ProgressCallbacks): void {
   const region = statsRegion(container, 'Your games', 'games');
   // Half of Statistics is about games; without any there is nothing to plot, so
   // the region carries the import form itself rather than a button to one.
-  region.appendChild(buildInlineImport({
+  //
+  // Wrapped, because .stats-region has no side padding of its own on a phone —
+  // its heading brings its own gutter and so does every widget. Without this the
+  // accent-bordered import box ran edge to edge under an inset heading.
+  const inset = document.createElement('div');
+  inset.className = 'stats-region-import';
+  inset.appendChild(buildInlineImport({
     title: 'Import your games',
     body: 'Then this fills in with your rating over time, your win rate and how each opening actually performs for you.',
     // Re-read and repaint in place — cb.onImportGames() opens the panel, which
@@ -1115,6 +1121,7 @@ function renderGamesEmpty(container: HTMLElement, cb: ProgressCallbacks): void {
     // finished.
     onImported: () => void doRender(container, cb),
   }));
+  region.appendChild(inset);
 }
 
 function renderGamesRegion(container: HTMLElement, games: ImportedGame[], lines: Line[], cb: ProgressCallbacks): void {
