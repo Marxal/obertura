@@ -98,15 +98,21 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   // nothing to scan yet — and the import form itself is what the screen shows,
   // rather than a button that opens one.
   if (allGames.length === 0) {
+    // .mistakes-screen has no side padding of its own — every block inside it
+    // brings its own gutter (see .mistakes-hero). So does this one, otherwise
+    // the import box runs edge to edge while everything else on Train is inset.
+    const empty = document.createElement('div');
+    empty.className = 'mistakes-empty';
     const line = document.createElement('p');
     line.className = 'empty-state-line';
     line.textContent = 'Train the exact positions where your games went wrong.';
-    root.appendChild(line);
-    root.appendChild(buildInlineImport({
+    empty.appendChild(line);
+    empty.appendChild(buildInlineImport({
       title: 'Import your games',
       body: 'The scan then finds your blunders, your missed wins and the chances your opponents handed you.',
       onImported: () => { void renderMistakesScreen(host, deps); },
     }));
+    root.appendChild(empty);
     return;
   }
 

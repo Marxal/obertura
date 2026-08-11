@@ -30,7 +30,9 @@ export function runImportTierSelfTest(): TestResult[] {
   const MEMBER = false;
 
   // ── The guest cap ──────────────────────────────────────────────────────────
-  for (const total of [0, 1, 49, 50, 51, 120, 640, 1000]) {
+  // Spread across the cap: below it, on it, just over, and well over.
+  const CAP = FREE_GUEST_IMPORT;
+  for (const total of [0, 1, CAP - 1, CAP, CAP + 1, CAP * 6, 640, 1000]) {
     const opts = countOptionsFor(total, false, GUEST);
     const pick = selectable(opts);
     check(
@@ -52,15 +54,15 @@ export function runImportTierSelfTest(): TestResult[] {
   // would quietly hand over the whole library.
   check(
     r,
-    'guest default is 50 once there are more than 50 games',
-    defaultCountFor(51, GUEST) === FREE_GUEST_IMPORT,
-    String(defaultCountFor(51, GUEST)),
+    `guest default is ${CAP} once there are more than ${CAP} games`,
+    defaultCountFor(CAP + 1, GUEST) === FREE_GUEST_IMPORT,
+    String(defaultCountFor(CAP + 1, GUEST)),
   );
   check(
     r,
-    'guest default is "all" when the scan held 50 or fewer',
-    defaultCountFor(50, GUEST) === 'all' && defaultCountFor(3, GUEST) === 'all',
-    `${defaultCountFor(50, GUEST)} / ${defaultCountFor(3, GUEST)}`,
+    `guest default is "all" when the scan held ${CAP} or fewer`,
+    defaultCountFor(CAP, GUEST) === 'all' && defaultCountFor(3, GUEST) === 'all',
+    `${defaultCountFor(CAP, GUEST)} / ${defaultCountFor(3, GUEST)}`,
   );
 
   // ── What the guest is SHOWN ────────────────────────────────────────────────

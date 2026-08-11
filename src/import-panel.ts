@@ -25,7 +25,7 @@
 // what's stored) and records the source, then hands control back so the caller
 // can re-run its analysis and refresh badges/suggestions.
 //
-// SIGNED OUT, the slice is capped at FREE_GUEST_IMPORT (50). The bigger slices
+// SIGNED OUT, the slice is capped at FREE_GUEST_IMPORT (100). The bigger slices
 // are still shown, with a padlock, and tapping one opens the sign-up sheet —
 // visible but locked beats hidden, because the point is to say what an account
 // is FOR.

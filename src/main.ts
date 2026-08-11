@@ -63,11 +63,12 @@ import { openStarterPackPicker, type LineSeed, type AddLineMode } from './onboar
 import { showOnboardingWizard, wizardStepPending } from './onboarding-wizard';
 import { showOnboardingPicker, shouldShowFirstRun } from './onboarding-picker';
 import { mountFirstLineGuide, type GuideHandle } from './onboarding-guide';
+import { runBuilderTour } from './onboarding-tour';
 import { maybeAskToSignUp, handleAuthUrlParam, openSignUpSheet } from './onboarding-signup';
-import { renderFirstSteps, shouldShowFirstSteps } from './first-steps';
+import { renderFirstSteps, shouldShowFirstSteps, TRAINING_UNLOCK_LINES } from './first-steps';
 import type { LineCut } from './onboarding-lines';
 import { maybeAutoRefreshGames } from './auto-refresh';
-import { maybeShowGate } from './gate';
+import { maybeShowGate, promptInstallApp } from './gate';
 import { showToast } from './toast';
 import { Icons, classBoardSvg, CLASS_LABEL } from './icons';
 import { mountFab, type FabItem, type FabAction, type FabSplit, type FabController } from './fab';
@@ -2051,9 +2052,10 @@ function startNewLine(colour: 'white' | 'black'): void {
   showView('builder');
 }
 
-// ── The guided first line (first run only) ───────────────────────────────────
+// ── The guided line ──────────────────────────────────────────────────────────
 //
-// Picked a style card → the builder opens with that line already laid down,
+// Picked a style card (or a starter-pack line) → the walkthrough names the
+// builder's furniture, then the builder opens with that line already laid down,
 // plays it in, and a coach strip says three short things. From here on it is an
 // ORDINARY builder session: the tree is a normal single-mode tree, a divergent
 // move truncates exactly as it always does, Save is the same Save. The only
@@ -2062,10 +2064,32 @@ function startNewLine(colour: 'white' | 'black'): void {
 let guide: GuideHandle | null = null;
 let guidedActive = false;
 
-function startGuidedLine(cut: LineCut): void {
+// One curated line, opened guided. `cut`-shaped rather than LineCut-shaped so
+// starter-pack lines (which have no level and no cut arithmetic) can use it too.
+interface GuidedLine {
+  ucis: string[];
+  colour: 'white' | 'black';
+  // What to CALL it in the coach strip and on the saved line: the curated name,
+  // not the book's. "This is the French Defense: Steinitz Variation, Boleslavsky
+  // Variation" is not a sentence anyone wants read to them on their first minute.
+  name: string;
+  ownMoves: number;
+  notes?: Record<number, string>;
+}
+
+function startGuidedLine(line: GuidedLine): void {
+  // The walkthrough first, on an empty screen — then the line. It no-ops (and
+  // runs its callback straight away) for anyone who has already been through it.
+  runBuilderTour(() => openGuidedBuilder(line));
+}
+
+function openGuidedBuilder(line: GuidedLine): void {
   // Lays the whole line down and opens the builder with the cursor at its end —
   // the same call "From my games" uses.
-  buildFromUcis(cut.ucis, cut.line.colour);
+  buildFromUcis(line.ucis, line.colour, [], { notes: line.notes });
+  // Keep the curated name rather than letting the book rename it on save.
+  manualTitle = line.name;
+  renderTitle();
   guidedActive = true;
 
   // Then rewind and watch it play itself in, using the builder's own Watch
@@ -2073,17 +2097,43 @@ function startGuidedLine(cut: LineCut): void {
   startPlaybackFromStart(() => {
     if (!guidedActive) return;
     guide = mountFirstLineGuide({
-      // The curated name, for the same reason the card uses it: "This is the
-      // French Defense: Steinitz Variation, Boleslavsky Variation" is not a
-      // sentence anyone wants read to them on their first minute.
-      openingName: cut.line.name,
-      ownMoves: cut.ownMoves,
+      openingName: line.name,
+      ownMoves: line.ownMoves,
       onSkip: () => { endGuided(); showView('train'); },
+      onSave: () => { void saveCurrentLine(); },
       // The strip lives in the dock, which changes the dock's height — the same
       // re-measure the eval bar's toggle does.
       onLayoutChange: () => { layoutBuilderSheet(); cg?.redrawAll(); },
     });
   });
+}
+
+// A starter-pack (or suggested) line, opened the same way the first-run line is:
+// walkthrough if it's owed, then the builder, then the builder's own Save. The
+// pack sheet closes itself before calling this — see onboarding-starter.ts.
+function openSeedInBuilder(seed: LineSeed, colour: 'white' | 'black'): void {
+  startGuidedLine({
+    ucis: seed.ucis,
+    colour,
+    name: seed.name ?? 'New line',
+    // The moves the USER has to remember: their own half of the line.
+    ownMoves: colour === 'white'
+      ? Math.ceil(seed.ucis.length / 2)
+      : Math.floor(seed.ucis.length / 2),
+    notes: withPlanNote(seed),
+  });
+}
+
+// A pack line's middlegame plan rides on the final move's note — the same place
+// lineFromUcis puts it, so a line opened in the builder carries exactly what a
+// line added straight to training would have.
+function withPlanNote(seed: LineSeed): Record<number, string> | undefined {
+  if (!seed.plan || seed.ucis.length === 0) return seed.notes;
+  const last = seed.ucis.length - 1;
+  const notes = { ...(seed.notes ?? {}) };
+  const existing = notes[last];
+  notes[last] = existing ? `${existing}\n\nPlan: ${seed.plan}` : `Plan: ${seed.plan}`;
+  return notes;
 }
 
 function endGuided(): void {
@@ -2272,6 +2322,22 @@ async function buildFabActions(): Promise<FabItem[]> {
   return items;
 }
 
+// The Get-started checklist's "Install the app". Chromium on Android hands us a
+// real install prompt (captured at boot in gate.ts) — one tap, the system dialog,
+// done. Anywhere the event never fired (Firefox, or a prompt already spent) the
+// only thing anyone can do is use the browser's menu, so we say so in one line
+// and leave the phrasing to the browser's own wording.
+function installApp(): void {
+  void promptInstallApp().then((shown) => {
+    if (shown) return;
+    showDialog({
+      title: 'Install Bito Chess',
+      body: 'Open your browser’s menu and choose “Install app” (or “Add to Home screen”).',
+      buttons: [{ label: 'Got it', variant: 'primary' }],
+    });
+  });
+}
+
 // FAB "Import last game": fetch the newest game from the connected account, file
 // it with my games (deduped, done inside importLastGame), and open it straight
 // into Game Review — the same auto-analysing entry point a My Games import uses
@@ -2302,6 +2368,11 @@ function addStarterLine(
   onDone: () => void,
   onCancel: () => void,
 ): void {
+  // 'build' never touches storage here: it hands the moves to the BUILDER and
+  // lets the builder's own Save create the line, exactly as the first-run line
+  // does. Anything else would save it twice.
+  if (mode === 'build') { openSeedInBuilder(seed, colour); onDone(); return; }
+
   const line = lineFromUcis(seed, colour);
   if (!line) { onCancel(); return; }
   // 'save' is the bulk path's overflow: the line still lands in My Lines, just
@@ -2528,13 +2599,26 @@ function renderTrainTabbed(host: HTMLElement): void {
         // rebuilds this card and the pane behind it so the bar climbs too.
         onPickStarterPack: () => void openStarterPackPicker(
           (seed, colour, mode, onDone, onCancel) => addStarterLine(
-            seed, colour, mode, () => { onDone(); showView('train'); }, onCancel),
+            seed, colour, mode,
+            () => {
+              onDone();
+              // A 'build' add has just moved the user INTO the builder — coming
+              // back here would throw them straight out of it again. Every other
+              // mode leaves them on Train, where the bar needs to climb.
+              if (mode !== 'build') showView('train');
+            },
+            onCancel),
         ),
         onBuildLine: () => startNewLine('white'),
-        onBuildWithEngine: () => openBuilderTab(0, { fresh: true, colour: 'white', engine: true }),
+        // "Play the engine" is the engine BUILDER — a game against Stockfish you
+        // can hand to the builder at any point (the same flow the FAB and Explore
+        // open). It used to open an ordinary empty builder with the eval bar
+        // switched on, which is an analysis aid, not a way to get a line.
+        onBuildWithEngine: () => { void openEngineSpar(exploreScreenDeps()); },
         onImportGames: () => openImportPanel({ onImported: () => showView('train') }),
         onConnectLichess: () => void lichessConnect(),
         onSignIn: () => openSignUpSheet(),
+        onInstallApp: installApp,
       }));
       return;
     }
@@ -2641,8 +2725,6 @@ function renderTrainTabbed(host: HTMLElement): void {
         focusLineId: pendingTrainLineId ?? undefined,
         onOpenLine,
         onBuildLine: () => startNewLine('white'),
-        onImportGames: () => showView('games'),
-        onConnectLichess: () => void lichessConnect(),
         onSetFabVisible: (visible) => fabController?.setVisible(visible),
       });
       pendingTrainLineId = null;
@@ -3543,11 +3625,18 @@ async function finishSave(): Promise<void> {
   promptAddToTraining(line);
 }
 
-// Save → confirm run → "it's in training" → the one sign-up ask. The whole
-// point of the guided run is that this happens in one unbroken movement.
+// Save → "here's what the trainer does" → confirm run → "it's in training" →
+// the one sign-up ask. The whole point of the guided run is that this happens in
+// one unbroken movement.
+//
+// The one thing that IS interrupted is the hand-off to the trainer. The confirm
+// run auto-plays the line and then silently waits for the user to play it back;
+// with no warning, that pause reads as the app having frozen. One card that says
+// "watch it, then play it" turns the same twenty seconds into a game.
 function finishGuidedSave(line: Line): void {
   endGuided();
-  addLineToTraining(
+
+  const run = (): void => { void getAllLines().then(all => addLineToTraining(
     line,
     () => {
       showView('train');
@@ -3563,9 +3652,38 @@ function finishGuidedSave(line: Line): void {
       // The confirm run IS the payoff here, so it runs even for someone who has
       // turned it off in Settings — which on a true first visit is nobody.
       forceConfirmRun: true,
-      completeMessage: 'It’s in training. It’ll come back tomorrow, before you forget it.',
+      // Don't promise a review tomorrow that the training lock won't deliver:
+      // below the unlock, the true next step is more lines.
+      completeMessage: trainingUnlockedMessage(all.length),
     },
-  );
+  )); };
+
+  showDialog({
+    title: 'Saved. Now learn it.',
+    body: 'The trainer runs your line twice over.\n\n'
+      + '① Watch it — the board plays the moves through once, on its own.\n\n'
+      + '② Play it — your turn, from memory. Get one wrong and it shows you.\n\n'
+      + 'One clean run and the line joins your training: back tomorrow, then '
+      + 'further and further apart.',
+    buttons: [
+      { label: 'Watch it', variant: 'primary', onClick: run },
+      // "Later" still leaves the line saved — it just isn't in the rotation yet,
+      // and My Lines can switch it on any time.
+      { label: 'Later', variant: 'secondary', onClick: () => goToSavedLine(line.id) },
+    ],
+    onDismiss: () => goToSavedLine(line.id),
+  });
+}
+
+// What the confirm run says when it lands, given how many lines are now saved.
+// Below the training lock the honest next step is more lines, not "see you
+// tomorrow" — Train won't have a session for them tomorrow either way.
+function trainingUnlockedMessage(lineCount: number): string {
+  const left = TRAINING_UNLOCK_LINES - lineCount;
+  if (left <= 0) return 'It’s in training. It’ll come back tomorrow, before you forget it.';
+  return left === 1
+    ? 'Learned. One more line and your daily training opens up.'
+    : `Learned. ${left} more lines and your daily training opens up.`;
 }
 
 function setupSaveButton() {
@@ -3908,7 +4026,12 @@ maybeShowGate(() => requestAnimationFrame(() => {
     void shouldShowFirstRun().then((show) => {
       if (!show) return;
       showOnboardingPicker({
-        onPick: (cut) => startGuidedLine(cut),
+        onPick: (cut) => startGuidedLine({
+          ucis: cut.ucis,
+          colour: cut.line.colour,
+          name: cut.line.name,
+          ownMoves: cut.ownMoves,
+        }),
         onImport: (close) => openImportPanel({
           onImported: () => {
             // Importing games IS a first line's worth of intent — the picker has
@@ -3918,6 +4041,13 @@ maybeShowGate(() => requestAnimationFrame(() => {
             showView('train');
           },
         }),
+        // "Build my own line" — an empty board of the colour they chose, with
+        // the walkthrough first: someone who opts out of the curated lines needs
+        // the builder's tour MORE than someone who was handed a line to look at.
+        onBuildOwn: (colour) => {
+          setOnboardingComplete();
+          runBuilderTour(() => startNewLine(colour));
+        },
         // The picker is the first screen on a first visit, so it clears the boot
         // splash itself rather than depending on the boot order to have done it.
         onShown: hideAppSplash,

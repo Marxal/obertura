@@ -1526,8 +1526,17 @@ main {
   color: var(--text-muted);
 }
 
-/* The three ways to get a line. They wrap to two rows on a narrow phone rather
-   than shrinking their labels to nothing. */
+/* Building a line by hand is what the app IS, so it's a full-width primary
+   rather than a third chip in the row below. */
+.first-steps-build {
+  width: 100%;
+  margin-top: 0.35rem;
+  gap: 0.4rem;
+  font-size: 0.95rem;
+}
+
+/* The other two ways to get a line. They wrap to two rows on a narrow phone
+   rather than shrinking their labels to nothing. */
 .first-steps-routes {
   display: flex;
   flex-wrap: wrap;
@@ -11431,6 +11440,47 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .onb-pack-head--open .onb-pack-chev {
   transform: rotate(90deg);
 }
+
+/* The expanding panel (onboarding-starter.ts's sheet). A grid row animated from
+   0fr to 1fr is the only way to transition to "as tall as the content is"
+   without measuring in JS; the clip owns the overflow, and the padding lives on
+   the innermost body so a collapsed pack really is zero pixels tall. */
+.onb-pack-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 260ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.onb-pack-panel--open {
+  grid-template-rows: 1fr;
+}
+/* Restoring a pack that was already open after a repaint — no slide. */
+.onb-pack-panel--instant {
+  transition: none;
+}
+.onb-pack-clip {
+  min-height: 0;
+  overflow: hidden;
+}
+/* The rows fade in a touch behind the height, so a fast open doesn't read as
+   content being shoved out of a slot. */
+.onb-pack-clip > .onb-pack-body {
+  opacity: 0;
+  transition: opacity 200ms ease 60ms;
+}
+.onb-pack-panel--open .onb-pack-body {
+  opacity: 1;
+}
+.onb-pack-panel--instant .onb-pack-body {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onb-pack-panel,
+  .onb-pack-clip > .onb-pack-body {
+    transition: none;
+  }
+}
+
 .onb-pack-body {
   padding: 0 14px 12px;
 }
@@ -13733,6 +13783,17 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   margin: var(--space-lg) var(--space-lg) 0;
 }
 
+/* The no-games empty state (the lead line + the inline import form). The screen
+   itself is unpadded, so this carries the same side gutter as .mistakes-hero —
+   without it the accent-bordered import box sat flush against both edges. */
+.mistakes-empty {
+  padding: var(--space-md) var(--space-lg) 0;
+}
+.mistakes-empty .empty-state-line {
+  max-width: none;
+  margin: 0;
+}
+
 .mistakes-hero-note {
   margin-top: 0.5rem;
   text-align: center;
@@ -15377,10 +15438,14 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
    FIRST-RUN PICKER  (onboarding-picker.ts)
 
    One screen, three choices: colour, depth, style. Built to fit a 412×915 phone
-   without scrolling — the whole thing is a flex column where only the card grid
-   flexes, so the head, the two controls and the footer keep their natural size
-   and the cards absorb whatever height is left. It still scrolls if it has to
-   (a short landscape window); it just shouldn't need to.
+   without scrolling — the whole thing is a flex column where only the style list
+   flexes, so the head, the form and the footer keep their natural size and the
+   list absorbs whatever height is left. It still scrolls if it has to (a short
+   landscape window); it just shouldn't need to.
+
+   There are no boards on this screen. Four thumbnail boards of positions the
+   user hasn't played yet carry no information, and they cost the height the
+   controls need — see the module header in onboarding-picker.ts.
 
    Sits at z-index 200, the full-screen-overlay tier the intro uses, so the
    shared import sheet (.edit-overlay, 300) opens cleanly on top of it.
@@ -15392,13 +15457,13 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   z-index: 200;
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 0.8rem;
   padding: calc(1.1rem + env(safe-area-inset-top)) 0.9rem
            calc(0.9rem + env(safe-area-inset-bottom));
   background: var(--bg-page);
   /* The overlay itself never scrolls — only .picker-stage does. That's what
-     keeps the head, the two chooser rows and the footer link permanently on
-     screen, however tall the four boards end up. */
+     keeps the head, the form and the footer permanently on screen, however
+     tall the style list ends up. */
   overflow: hidden;
 }
 
@@ -15410,10 +15475,10 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 /* The installed app icon, as the home screen draws it. */
 .picker-mark {
   display: block;
-  width: 72px;
-  height: 72px;
-  margin: 0 auto 0.5rem;
-  border-radius: 18px;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 0.4rem;
+  border-radius: 16px;
   box-shadow: 0 2px 10px rgb(0 0 0 / 0.16);
 }
 
@@ -15421,30 +15486,110 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
    name is always written lower case in the markup, never text-transformed. */
 .picker-brand {
   font-family: 'Chakra Petch', monospace;
-  font-size: 1.5rem;
+  font-size: 1.45rem;
   font-weight: 700;
   letter-spacing: 0.01em;
   color: var(--accent);
 }
 
 .picker-lead {
-  margin: 0.35rem 0 0;
-  font-size: 1.05rem;
+  margin: 0.3rem 0 0;
+  font-size: 1.02rem;
   font-weight: 600;
   line-height: 1.3;
   color: var(--text);
 }
 
-.picker-controls {
+/* ── The form: colour, then depth ── */
+
+.picker-form {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
+  gap: 0.7rem;
+}
+
+.picker-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.picker-field-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.picker-styles-label {
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+}
+
+/* Colour: two wide buttons, each carrying a real pawn on a disc of its own
+   colour — the same token the FAB's new-line rows use. The word alone made
+   "White / Black" read as a pair of tabs; the pawn makes it read as a side. */
+.picker-colours {
+  display: flex;
   gap: 0.5rem;
 }
 
-/* The stage holds one card layer in flow (which sets its height) and, during a
+.picker-colour {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 52px;
+  padding: 0.5rem 0.6rem;
+  border: 1.5px solid var(--border-card);
+  border-radius: 12px;
+  background: var(--bg-card);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.picker-colour--on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.picker-colour:active { transform: scale(0.99); }
+
+.picker-colour-token {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+}
+
+.picker-colour-token--white {
+  background: #f3f1ea;
+  color: #2a2a2a;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+}
+
+.picker-colour-token--black {
+  background: #2a2a2a;
+  color: #f3f1ea;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+/* ── The style list ── */
+
+/* The stage holds one style layer in flow (which sets its height) and, during a
    change, the outgoing layer lifted on top of it. It's also the only scrolling
-   part of the picker, so on a short screen the cards scroll under a head and
+   part of the picker, so on a short screen the styles scroll under a head and
    footer that stay put. */
 .picker-stage {
   position: relative;
@@ -15452,63 +15597,59 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* Top-aligned, deliberately. Centring the four rows in the leftover height
+     reads better in isolation but tears the "PICK A STYLE" label away from the
+     list it labels — the slack belongs at the bottom, above the footer, where
+     it's just breathing room. */
 }
 
-/* Rows hug their content and the pair sits centred in whatever height is left,
-   rather than each card stretching to fill its row — a stretched card leaves a
-   pool of dead space under its name, which reads as a rendering bug.
-   min-height (not height): with a fixed 100% the grid overflowed its box in
-   BOTH directions when the cards were taller than the stage, so the boards
-   spilled over the level chooser above and the import link below. */
-.picker-cards {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-auto-rows: min-content;
-  align-content: center;
-  gap: 0.6rem;
-  min-height: 100%;
+.picker-styles {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 /* The crossfade. The outgoing layer is taken out of flow so the incoming one
    keeps the stage exactly where it was — no reflow, no jump, just a dissolve.
    Deliberately unhurried: this is the moment the picker earns its keep. */
-.picker-cards--out {
+.picker-styles--out {
   position: absolute;
   inset: 0;
   pointer-events: none;
   opacity: 1;
   transition: opacity 320ms ease, transform 320ms ease;
 }
-.picker-cards--out.is-gone {
+.picker-styles--out.is-gone {
   opacity: 0;
   transform: scale(0.985);
 }
 
-.picker-cards--enter {
+.picker-styles--enter {
   opacity: 0;
   transform: scale(1.015);
 }
-.picker-cards:not(.picker-cards--out) {
+.picker-styles:not(.picker-styles--out) {
   transition: opacity 320ms ease, transform 320ms ease;
   opacity: 1;
   transform: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .picker-cards,
-  .picker-cards--out {
+  .picker-styles,
+  .picker-styles--out {
     transition: none;
   }
 }
 
-.picker-card {
+.picker-style {
   display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-  min-height: 0;
-  padding: 0.6rem;
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.75rem 0.8rem;
+  border: 1.5px solid var(--border-card);
+  border-radius: 13px;
   background: var(--bg-card);
   color: var(--text);
   text-align: left;
@@ -15518,74 +15659,86 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   transition: border-color 0.15s, transform 0.1s;
 }
 
-.picker-card:active {
-  transform: scale(0.98);
+.picker-style:active {
+  transform: scale(0.99);
   border-color: var(--accent);
 }
 
 @media (hover: hover) {
-  .picker-card:hover { border-color: var(--accent); }
+  .picker-style:hover { border-color: var(--accent); }
 }
 
-/* The miniature caps its own width so a wide (desktop) card doesn't turn into a
-   giant board with three lines of text beside it. */
-.picker-card-board {
-  width: 100%;
-  max-width: 128px;
-  margin: 0 auto;
+.picker-style-icon {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: var(--accent-soft);
+  color: var(--accent-active, var(--accent));
 }
 
-.picker-card-body {
+.picker-style-text {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.12rem;
-  min-height: 0;
+  gap: 0.1rem;
 }
 
-.picker-card-style {
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-
-.picker-card-name {
-  font-size: 0.86rem;
-  font-weight: 650;
+.picker-style-name {
+  font-size: 0.95rem;
+  font-weight: 750;
   line-height: 1.2;
   color: var(--text);
 }
 
-/* "against 1.e4" — a Black repertoire is an answer to something, and with the
-   move list gone nothing else on the card says so. */
-.picker-card-against {
-  font-size: 0.7rem;
-  font-weight: 600;
+.picker-style-opening {
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.25;
   color: var(--text-muted);
 }
 
+.picker-style-chev {
+  flex: 0 0 auto;
+  display: inline-flex;
+  color: var(--text-faint);
+}
+
+/* ── The two ways out ── */
+/* Buttons, not a sentence with a link in it: someone who came to import their
+   games shouldn't have to read a question to find the door. */
 .picker-foot {
   flex: 0 0 auto;
-  text-align: center;
-  font-size: 0.8rem;
-  color: var(--text-muted);
+  display: flex;
+  gap: 0.5rem;
 }
 
-.picker-import-link {
-  padding: 0;
-  border: none;
+.picker-foot-btn {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 44px;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border-card);
+  border-radius: 999px;
   background: none;
   font: inherit;
-  color: var(--accent);
-  font-weight: 600;
-  text-decoration: underline;
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: var(--text-muted);
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
+.picker-foot-btn:active { background: var(--bg-card); }
 
 /* Desktop: the picker is a centred column rather than a full-bleed sheet, and
-   the cards get room to breathe instead of stretching to a 1440px grid. */
+   the styles get room to breathe instead of stretching to a 1440px row. */
 @media (min-width: 900px) {
   .picker-overlay {
     align-items: center;
@@ -15594,27 +15747,28 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
     padding: 2rem 1rem;
   }
   .picker-head,
-  .picker-controls,
+  .picker-form,
+  .picker-styles-label,
   .picker-stage,
   .picker-foot {
     width: 100%;
-    max-width: 640px;
+    max-width: 560px;
   }
   .picker-stage {
     flex: 0 1 auto;
   }
   .picker-brand { font-size: 1.9rem; }
   .picker-lead { font-size: 1.25rem; }
-  .picker-card-board { max-width: 150px; }
   .picker-mark { width: 88px; height: 88px; }
 }
 
 /* A short window (a phone in landscape, a small laptop) has no room for the app
-   tile on top of everything else — the four cards are the point of the screen,
+   tile on top of everything else — the four styles are the point of the screen,
    so the mark is what gives way. */
 @media (max-height: 680px) {
   .picker-mark { display: none; }
-  .picker-overlay { gap: 0.6rem; }
+  .picker-overlay { gap: 0.55rem; }
+  .picker-style { padding: 0.6rem 0.75rem; }
 }
 
 /* ── Guided first line: the coach strip (onboarding-guide.ts) ─────────────────
@@ -15666,7 +15820,70 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   -webkit-tap-highlight-color: transparent;
 }
 
-/* The closing beat points at Save; this is what it points with. */
+/* ── The closing beat: the strip becomes a call to action ──────────────────────
+   Everything up to here is a caption in a tinted bar. The last beat is the only
+   thing standing between the user and a saved line, so the bar fills with the
+   accent, the text goes solid, and a real Save button appears in it — no hunting
+   for the header. */
+.guide-strip--cta {
+  flex-wrap: wrap;
+  padding: 0.65rem 0.75rem;
+  background: var(--accent);
+  border-bottom-color: var(--accent);
+  animation: guide-cta-in 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.guide-strip--cta .guide-strip-text {
+  flex: 1 1 100%;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--on-accent, #fff);
+}
+
+.guide-strip--cta .guide-strip-skip {
+  color: color-mix(in srgb, var(--on-accent, #fff) 75%, transparent);
+}
+
+.guide-strip-save {
+  flex: 1 1 auto;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 10px;
+  background: var(--bg-card);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--accent-active, var(--accent));
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  /* Three beats, then it settles. An infinite pulse on the one button the user
+     is meant to press stops being a pointer and starts being a nag — and it
+     never lets the layout come to rest. */
+  animation: guide-save-pop 1.9s ease-in-out 3;
+}
+
+.guide-strip-save:active { transform: scale(0.97); }
+
+@keyframes guide-cta-in {
+  from { transform: translateY(6px); opacity: 0.4; }
+  to   { transform: none; opacity: 1; }
+}
+
+/* The button breathes rather than flashes — enough to catch the eye at the
+   bottom of the screen without turning into a nag. */
+@keyframes guide-save-pop {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--on-accent) 55%, transparent);
+  }
+  50% {
+    transform: scale(1.035);
+    box-shadow: 0 0 0 7px color-mix(in srgb, var(--on-accent) 0%, transparent);
+  }
+}
+
+/* The closing beat also points at the header/panel Save, for anyone who looks
+   up; this is what it points with. */
 .guide-attention {
   animation: guide-attention-pulse 1.6s ease-in-out infinite;
 }
@@ -15678,10 +15895,119 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 
 @media (prefers-reduced-motion: reduce) {
   .guide-strip--in .guide-strip-text { animation: none; }
+  .guide-strip--cta { animation: none; }
+  .guide-strip-save { animation: none; }
   .guide-attention {
     animation: none;
     box-shadow: 0 0 0 2px var(--accent);
   }
+}
+
+/* ── The builder walkthrough (onboarding-tour.ts) ──────────────────────────────
+   Three cards on a dimmed screen, before the first line opens. Deliberately not
+   a bottom sheet: it isn't answering a question the user asked, it's the only
+   thing on screen, so it sits centred with room to breathe. */
+.tour-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 320;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(1.2rem + env(safe-area-inset-top)) 1.1rem
+           calc(1.2rem + env(safe-area-inset-bottom));
+  background: var(--bg-page);
+}
+
+.tour-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 420px;
+  padding: 1.5rem 1.35rem 1.1rem;
+  border: 1px solid var(--border-card);
+  border-radius: 18px;
+  background: var(--bg-card);
+  text-align: center;
+}
+
+.tour-card--in {
+  animation: tour-card-in 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes tour-card-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.tour-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: var(--accent-soft);
+  color: var(--accent-active, var(--accent));
+}
+
+.tour-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text);
+}
+
+.tour-body {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.tour-dots {
+  display: flex;
+  gap: 0.4rem;
+  margin: 0.25rem 0 0.35rem;
+}
+
+.tour-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border-card);
+  transition: background 0.2s, width 0.2s;
+}
+
+.tour-dot--on {
+  width: 20px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.tour-next {
+  width: 100%;
+}
+
+.tour-skip {
+  padding: 0.4rem;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: underline;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-card--in { animation: none; }
+  .tour-dot { transition: none; }
 }
 
 /* ── "Save your progress" sheet (onboarding-signup.ts) ────────────────────────
@@ -15714,83 +16040,3 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ── Contextual cards on Train (train-cards.ts) ───────────────────────────────
-   What the setup wizard used to ask on first launch, offered instead once the
-   user has a line and the offer means something. Each dismisses for good. */
-.train-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-  margin: 0.75rem 0;
-}
-
-.train-card {
-  padding: 0.75rem 0.85rem;
-  border: 1px solid var(--border-card);
-  border-radius: 12px;
-  background: var(--bg-card);
-}
-
-.train-card-head {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.train-card-icon {
-  display: inline-flex;
-  color: var(--accent);
-}
-
-.train-card-title {
-  flex: 1;
-  min-width: 0;
-  font-size: 0.92rem;
-  font-weight: 650;
-  color: var(--text);
-}
-
-.train-card-close {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  margin-right: -0.3rem;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-@media (hover: hover) {
-  .train-card-close:hover { background: var(--bg-page); color: var(--text); }
-}
-
-.train-card-body {
-  margin: 0.35rem 0 0.65rem;
-  font-size: 0.82rem;
-  line-height: 1.4;
-  color: var(--text-muted);
-}
-
-.train-card-btn {
-  width: 100%;
-}
-
-/* The "Make it yours" panel: Settings' own controls, inlined. */
-.train-card-panel {
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--border-card);
-}
-
-.train-card-settings {
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
-}

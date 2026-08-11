@@ -1,16 +1,26 @@
 // The coach strip for the guided first line.
 //
-// Three short beats, and then it gets out of the way. It rides INSIDE the
-// builder's bottom dock (#builder-dock), which is the one place in the builder
-// that is already allowed to change height — the engine's eval bar slides open
-// there and the sheet re-lays out around it. Sitting in the dock means the strip
-// works unchanged in both builder layouts (fixed to the bottom of the phone
-// screen, docked under the board on desktop) and, crucially, never covers the
-// board. A coach that can swallow a move is worse than no coach.
+// Three short beats, and then it stops talking — but it does NOT get out of the
+// way, because the last beat is the one that matters: the line only becomes real
+// when it's saved, and a user who never presses Save leaves with nothing.
+//
+// It rides INSIDE the builder's bottom dock (#builder-dock), which is the one
+// place in the builder that is already allowed to change height — the engine's
+// eval bar slides open there and the sheet re-lays out around it. Sitting in the
+// dock means the strip works unchanged in both builder layouts (fixed to the
+// bottom of the phone screen, docked under the board on desktop) and, crucially,
+// never covers the board. A coach that can swallow a move is worse than no coach.
 //
 // The beats advance on a timer, but ANY move the user plays jumps straight to
 // the last one — someone who has already started editing doesn't need to be told
 // they're allowed to.
+//
+// THE LAST BEAT is a call to action, not a caption. It used to be the sentence
+// "Happy with it? Save the line." in the same quiet grey as the other two, with
+// a faint pulse on a Save button somewhere off in the header — which is to say,
+// invisible. Now the strip itself turns accent-coloured and grows its OWN Save
+// button, right where the user's thumb already is. The header pulse stays as a
+// second pointer, for anyone who looks up.
 
 import { setOnboardingComplete } from './prefs';
 
@@ -30,6 +40,8 @@ export interface GuideDeps {
   ownMoves: number;
   // "Skip this" — leave for Train, onboarding done.
   onSkip: () => void;
+  // The strip's own Save button. Runs the builder's normal save.
+  onSave: () => void;
   // Called after the strip mounts or unmounts, so the builder can re-measure
   // the dock and re-lay the sheet (same thing the eval bar's toggle does).
   onLayoutChange: () => void;
@@ -53,8 +65,9 @@ export function mountFirstLineGuide(deps: GuideDeps): GuideHandle {
     `This is the ${deps.openingName}. `
       + `${deps.ownMoves} move${deps.ownMoves === 1 ? '' : 's'} for you to remember.`,
     'Play a different move any time to make it yours.',
-    'Happy with it? Save the line.',
+    'Happy with it? Save it and it’s yours.',
   ];
+  const lastBeat = beats.length - 1;
 
   let index = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -68,6 +81,16 @@ export function mountFirstLineGuide(deps: GuideDeps): GuideHandle {
   const text = document.createElement('p');
   text.className = 'guide-strip-text';
   strip.appendChild(text);
+
+  // The closing beat's own Save. Hidden until then — an "are you done?" button
+  // offered before the user has looked at the line is just noise.
+  const save = document.createElement('button');
+  save.type = 'button';
+  save.className = 'guide-strip-save';
+  save.textContent = 'Save the line';
+  save.hidden = true;
+  save.addEventListener('click', () => deps.onSave());
+  strip.appendChild(save);
 
   const skip = document.createElement('button');
   skip.type = 'button';
@@ -88,11 +111,19 @@ export function mountFirstLineGuide(deps: GuideDeps): GuideHandle {
 
   function paint(): void {
     text.textContent = beats[index];
+    const closing = index === lastBeat;
     // Re-trigger the entry animation on each new beat.
     strip.classList.remove('guide-strip--in');
     void strip.offsetWidth;
     strip.classList.add('guide-strip--in');
-    if (index === beats.length - 1) highlightSave(true);
+    strip.classList.toggle('guide-strip--cta', closing);
+    save.hidden = !closing;
+    if (closing) {
+      highlightSave(true);
+      // The dock just grew a button row — the sheet has to be re-measured, the
+      // same way it is when the strip first mounts.
+      deps.onLayoutChange();
+    }
   }
 
   function schedule(): void {
@@ -106,9 +137,9 @@ export function mountFirstLineGuide(deps: GuideDeps): GuideHandle {
   }
 
   function goToLastBeat(): void {
-    if (destroyed || index === beats.length - 1) return;
+    if (destroyed || index === lastBeat) return;
     if (timer) clearTimeout(timer);
-    index = beats.length - 1;
+    index = lastBeat;
     paint();
   }
 

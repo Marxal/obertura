@@ -1028,6 +1028,78 @@ _On `claude/onboarding-first-user-experience-3v8dam`. Restore point: `v0.4`._
 
 ---
 
+## v0.21 — the onboarding flow round 🔜
+
+Phone review of the v0.20 first run. The pieces were all there; the *order* was
+wrong. A stranger met a screen of four chessboards before they knew what the app
+was, got dropped into a dense builder with no idea what any of it did, and then —
+if they made it that far — was handed straight to a drill with no warning. This
+round is mostly about sequencing, plus a lock so training isn't first met with a
+single line in it.
+
+- ✅ **The start screen loses its boards** — four thumbnail positions of lines the
+  user hasn't played are four grids of beige squares, and they cost the height
+  the controls needed. The picker is now a small **form** (colour, then depth)
+  over four **style rows** — a word, an icon and the opening's name. Colour is
+  two wide buttons carrying a real white pawn on a light disc and a black pawn on
+  a dark one (the FAB's token), because a pawn says "side" faster than the word
+  does. The two ways out are **buttons** now — *Import my games* and *Build my own
+  line* — not a sentence with a link inside it. Fits a 412×640 window without
+  scrolling.
+- ✅ **A builder walkthrough, before the line** (`onboarding-tour.ts`) — three
+  cards on an empty screen naming the board, the **Line · Library · My lines ·
+  Learn** tabs and Save, then the picked line opens. Skippable from any card, and
+  shown once ever (its own flag, so it also fronts a pack line opened months
+  later). It deliberately doesn't anchor callouts to live elements: the builder
+  isn't mounted yet, and three sentences don't justify a coach-mark rig.
+- ✅ **The save prompt is a button, not a caption** — the coach strip's closing
+  beat used to be grey text pointing at a faint pulse on a Save button somewhere
+  in the header. The strip now fills with the accent and grows its **own "Save
+  the line"** button under the user's thumb (the header pulse stays as a second
+  pointer, and settles after three beats rather than pulsing forever).
+- ✅ **The trainer explains itself** — saving used to hand the user straight to the
+  confirm run, which auto-plays the line and then silently waits. With no warning
+  that pause reads as a freeze. One card now says what's about to happen —
+  **① watch it · ② play it**, one clean run and it's in training — with *Later*
+  leaving the line saved but out of the rotation.
+- ✅ **Starter packs open in the builder** — "Add & learn" fired the trainer
+  directly from a sheet that then stayed up over it, so the tap looked like it
+  had done nothing. It now **closes the sheet** and opens the line in the builder,
+  played in, exactly like the first-run line; the builder's own Save carries it
+  the rest of the way (new `'build'` mode in `AddLineMode`; the line's notes and
+  its middlegame plan ride along). The sheet also lost its **Close** button (the
+  backdrop and the back gesture already close it) and the per-pack blurb, and its
+  accordions now **animate open** (a `0fr → 1fr` grid row, so a collapsed pack is
+  genuinely zero pixels).
+- ✅ **Training locks until 3 saved lines** — a session built from one line shows
+  you the thing you just learned and declares you finished, which teaches the
+  wrong lesson about the loop. Every Practise mode greys out below three with the
+  count still to go, the due hero stays away, and the confirm run's closing line
+  stops promising a review tomorrow that won't come. `TRAINING_UNLOCK_LINES` is
+  the same number the Get-started bar counts to, so the panel and the lock tell
+  one story.
+- ✅ **Get started, re-weighted** — the line goal is the whole point, so it gets a
+  full-width **"Build a line"** primary; Starter packs and *Play the engine* drop
+  to chips beneath it, and import / Lichess / account become quiet checklist rows.
+  "With the engine" used to open an empty builder with the eval bar switched on
+  (an analysis aid) — it now opens the **engine builder**: a game against
+  Stockfish you can hand to the builder at any point. Android gets an **Install
+  the app** row, which fires the real prompt captured at boot.
+- ✅ **Guests import 100 games** (was 50) — fifty is a thin sample once it's split
+  by colour and time control. `FREE_GUEST_IMPORT`, still self-tested, now
+  cap-relative so the number can move again without editing assertions.
+- ✅ **Two removals and a margin** — Train's three contextual cards (import,
+  Lichess, make it yours) are gone: two repeated the checklist above them and the
+  third asked about theme, which nobody visits Train to answer. The sign-up
+  sheet's lead is one line instead of three clauses about where data lives. And
+  Train → Middle game's empty state got its side gutter back — the screen carries
+  no padding of its own, so the accent-bordered import box was running edge to
+  edge while everything around it was inset.
+
+_On `claude/chess-onboarding-flow-5gpcdn`. Restore point: `v0.4`._
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

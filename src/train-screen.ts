@@ -36,8 +36,7 @@ import { lineTrainingCount } from './stats';
 import { formatMove } from './notation';
 import { Chess } from 'chess.js';
 import { ONBOARDING_GOAL } from './onboarding-starter';
-import { GOAL_LINES } from './first-steps';
-import { renderTrainCards } from './train-cards';
+import { TRAINING_UNLOCK_LINES, trainingLockReason } from './first-steps';
 import { createFilterBar, type FilterSelection } from './filters';
 import { renderFamilyGroups, renderVariationGroups } from './line-groups';
 import { showDialog } from './dialog';
@@ -77,12 +76,9 @@ const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 // keep working.
 let onViewLine: ((line: Line, atFen?: string) => void) | null = null;
 
-// The empty-state routes (open the builder; open the import-your-games flow).
-// Module scope for the same reason as onViewLine.
+// The empty-state route: open the builder on a fresh line. Module scope for the
+// same reason as onViewLine.
 let onBuildLine: (() => void) | null = null;
-let onImportGames: (() => void) | null = null;
-// "Connect Lichess", from the contextual card below the training list.
-let onConnectLichess: (() => void) | null = null;
 
 // Show/hide the global FAB (wired from main.ts, which owns the controller). The
 // finish screens hide it so its ＋ doesn't sit over the celebration; the train
@@ -130,15 +126,11 @@ export function renderTrainScreen(
     autoStart?: boolean;
     onOpenLine?: (line: Line, atFen?: string) => void;
     onBuildLine?: () => void;
-    onImportGames?: () => void;
-    onConnectLichess?: () => void;
     onSetFabVisible?: (visible: boolean) => void;
   } = {},
 ): void {
   onViewLine = opts.onOpenLine ?? null;
   onBuildLine = opts.onBuildLine ?? null;
-  onImportGames = opts.onImportGames ?? null;
-  onConnectLichess = opts.onConnectLichess ?? null;
   setFabVisible = opts.onSetFabVisible ?? null;
   void doRender(container, opts.focusLineId, opts.autoStart);
 }
@@ -175,6 +167,18 @@ async function doRender(
   // shouldShowFirstRun() reads it to decide whether the picker has had its turn.
   if (trainingLines.length >= ONBOARDING_GOAL) setOnboardingComplete();
 
+  // TRAINING IS LOCKED until TRAINING_UNLOCK_LINES lines are saved. A session
+  // built from one line isn't a session — it shows you the thing you just
+  // learned, declares you finished, and teaches the user that the loop they came
+  // for is trivial. So the Practise menu greys out and the due hero stays away
+  // until there's a rotation worth rotating; the Get-started panel above the tabs
+  // (which shows over exactly the same range) says how many are left.
+  //
+  // What is NOT locked: the confirm run a line goes through when it's saved, and
+  // the Drill button on a specific line elsewhere in the app. Both are "run this
+  // one line", asked for by name — the lock is about the hub offering a session.
+  const trainingLocked = allLines.length < TRAINING_UNLOCK_LINES;
+
   // Arrived here from a "Drill" button on another screen: skip the list and
   // drill that one line straight away. When it finishes, the completion panel's
   // "Back to training" returns to the normal (unfocused) Train screen.
@@ -193,7 +197,7 @@ async function doRender(
   // built from the user's default training mode (Settings), rather than showing
   // the list first. Falls through to the list when the chosen mode has nothing to
   // drill (e.g. "Due now" with nothing due — so the "all caught up" header shows).
-  if (autoStart) {
+  if (autoStart && !trainingLocked) {
     const lines = linesForDefaultMode(trainingLines, due);
     if (lines) {
       startRounds(lines, container, { explicit: true });
@@ -218,27 +222,16 @@ async function doRender(
   state.className = 'train-col train-col--state';
   container.append(doNext, state);
 
-  // The three offers the setup wizard used to make on first launch — import,
-  // Lichess, appearance — now that there's a line for them to be about. Each
-  // dismisses for good, so this is empty for anyone who's dealt with them.
-  //
-  // They wait until the Get-started panel above the tabs has stepped aside
-  // (GOAL_LINES saved). Two of the three are the same offer that panel is
-  // already making, and asking twice on one screen reads as a bug; the third
-  // (appearance) is the mistimed question the wizard used to ask, so it can
-  // wait for a repertoire to restyle.
-  if (allLines.length >= GOAL_LINES) {
-    renderTrainCards(state, {
-      onImportGames: () => onImportGames?.(),
-      onConnectLichess: () => onConnectLichess?.(),
-      onChanged: () => void doRender(container),
-    });
-  }
+  // (The three contextual cards that used to sit here — import your games,
+  // connect Lichess, make it yours — are gone. Two of them repeated the
+  // Get-started checklist above the tabs, and the third asked about theme and
+  // notation, which nobody comes to Train to answer. Settings still has all
+  // three, which is where someone looking for them would look.)
 
   // The streak now lives on the daily-challenge card above the tabs, so Train's
   // own head is gone — the hero (when anything's due) is the top of this pane.
-  renderHero(doNext, container, due, trainingLines);
-  renderModeCards(doNext, container, trainingLines, allLines);
+  if (!trainingLocked) renderHero(doNext, container, due, trainingLines);
+  renderModeCards(doNext, container, trainingLines, allLines, trainingLocked);
   // Lines in training rides directly under Practise; what keeps slipping —
   // the worst moves and the weakest lines — closes the pane.
   renderCardList(state, container, trainingLines, allLines.filter(l => !l.inTraining));
@@ -373,7 +366,15 @@ const MODE_ACCENT = {
   prep:   '#3f7d8a', // teal — strategy against an opponent
 } as const;
 
-function renderModeCards(host: HTMLElement, container: HTMLElement, allTraining: Line[], allLines: Line[]): void {
+function renderModeCards(
+  host: HTMLElement,
+  container: HTMLElement,
+  allTraining: Line[],
+  allLines: Line[],
+  // Under TRAINING_UNLOCK_LINES saved lines: every mode is off, with the count
+  // still to go as the reason.
+  locked: boolean,
+): void {
   const section = document.createElement('div');
   section.className = 'section mode-cards';
 
@@ -382,26 +383,29 @@ function renderModeCards(host: HTMLElement, container: HTMLElement, allTraining:
   label.textContent = 'Practise';
   section.appendChild(label);
 
-  // Why a mode is greyed out. With nothing saved at all, EVERY card here is a
-  // dead end and the honest answer is the same one: go and make a line. Once
-  // lines exist but none are enrolled, the answer changes — the material is
-  // there, it just isn't in the rotation.
+  // Why a mode is greyed out. Under the unlock, every card here says the same
+  // thing and says it first — the answer is "go and save more lines", whatever
+  // else is or isn't in the rotation. Above it, the old reasons apply: with
+  // nothing saved at all every card is a dead end; once lines exist but none are
+  // enrolled, the material is there, it just isn't in the rotation.
   const nothingSaved = allLines.length === 0;
-  const noLinesReason = nothingSaved
-    ? 'Save a line first — then there’s something to drill'
-    : 'Switch a line on under “Lines in training” to drill it';
+  const noLinesReason = locked
+    ? trainingLockReason(allLines.length)
+    : nothingSaved
+      ? 'Save a line first — then there’s something to drill'
+      : 'Switch a line on under “Lines in training” to drill it';
 
   // Time attack leads the list — three timed runs, each with its own personal
   // best. Always playable when there's any saved position anywhere (it falls back
   // to shallow and paused lines); only disabled when nothing is saved at all.
-  const timedReady = selectTimedPositions(allLines, { max: 80 }).length > 0;
-  section.appendChild(buildTimedCard(container, allLines, timedReady));
+  const timedReady = !locked && selectTimedPositions(allLines, { max: 80 }).length > 0;
+  section.appendChild(buildTimedCard(container, allLines, timedReady, locked ? noLinesReason : undefined));
 
   // Review missed moves — single moves you've missed. Tappable as long as there's
   // anything deep enough to drill (the mode falls back to weak/upcoming moves). No
   // due-count badge: the daily challenge and hero already carry the "what's due"
   // signal, so this stays a clean entry point.
-  const hasPositions = selectIndividualPositions(allTraining).length > 0;
+  const hasPositions = !locked && selectIndividualPositions(allTraining).length > 0;
   section.appendChild(buildModeCard({
     accent: MODE_ACCENT.fix,
     icon: Icons.zap(20),
@@ -409,7 +413,7 @@ function renderModeCards(host: HTMLElement, container: HTMLElement, allTraining:
     sub: 'single moves you’ve missed',
     disabled: !hasPositions,
     // "Train a little more" is only true once there IS something to train.
-    disabledReason: nothingSaved
+    disabledReason: locked || nothingSaved
       ? noLinesReason
       : 'Train a little more to unlock single-move drills',
     onClick: () => runIndividual(container, allTraining),
@@ -424,7 +428,7 @@ function renderModeCards(host: HTMLElement, container: HTMLElement, allTraining:
     icon: Icons.plus(20),
     name: 'Drill new lines',
     sub: 'full runs of your newest lines',
-    disabled: freshLines.length === 0,
+    disabled: locked || freshLines.length === 0,
     disabledReason: noLinesReason,
     onClick: () => startRounds(freshLines, container, { explicit: true }),
   }));
@@ -436,7 +440,7 @@ function renderModeCards(host: HTMLElement, container: HTMLElement, allTraining:
     icon: Icons.trending(20),
     name: 'Target weak areas',
     sub: 'full runs of your weakest lines',
-    disabled: weakLines.length === 0,
+    disabled: locked || weakLines.length === 0,
     disabledReason: noLinesReason,
     onClick: () => startRounds(weakLines, container, { explicit: true }),
   }));
@@ -444,7 +448,7 @@ function renderModeCards(host: HTMLElement, container: HTMLElement, allTraining:
   // Prep — full runs of lines prepared against a scouted opponent. Only shown
   // when any opponent-tagged lines are in training.
   const prepLines = allTraining.filter(l => l.tags.some(isOpponentTag));
-  if (prepLines.length > 0) {
+  if (prepLines.length > 0 && !locked) {
     section.appendChild(buildModeCard({
       accent: MODE_ACCENT.prep,
       icon: Icons.target(20),
@@ -537,6 +541,9 @@ function buildTimedCard(
   container: HTMLElement,
   allLines: Line[],
   enabled: boolean,
+  // Overrides the default "save a line first" note — the training lock has its
+  // own count to report.
+  reason?: string,
 ): HTMLElement {
   const card = document.createElement('div');
   card.className = 'mode-card mode-card--timed' + (enabled ? '' : ' mode-card--disabled');
@@ -558,9 +565,9 @@ function buildTimedCard(
   sub.textContent = 'beat your best in 1, 3 or 5 minutes';
   text.appendChild(name);
   text.appendChild(sub);
-  // Only ever greyed when there's nothing saved at all — say so.
+  // Greyed either by the training lock or by having nothing saved at all.
   if (!enabled) {
-    text.appendChild(buildModeReason('Save a line first to play Time attack'));
+    text.appendChild(buildModeReason(reason ?? 'Save a line first to play Time attack'));
   }
   head.appendChild(text);
   card.appendChild(head);

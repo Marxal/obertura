@@ -12,7 +12,13 @@ import { HARD_CAP, type CountChoice } from './import-core';
 // What a signed-out visitor may take in one import. Enough to see which openings
 // they actually play (which is the whole pitch), small enough that the full
 // library stays a reason to make an account.
-export const FREE_GUEST_IMPORT = 50;
+//
+// Raised from 50 to 100: fifty games is a thin sample once it's split by colour
+// and time control — half a dozen games per opening, which is not enough for the
+// map, the suggestions or the mistake scan to say anything confident. A hundred
+// is where a guest's first look starts being worth having, and the 500 / All
+// slices are still the account's job.
+export const FREE_GUEST_IMPORT = 100;
 
 // One chip in the how-many row. A `locked` chip can't be selected: it opens the
 // sign-up sheet instead.

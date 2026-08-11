@@ -58,11 +58,13 @@ export function openSignUpSheet(): void {
   title.textContent = 'Save your progress';
   sheet.appendChild(title);
 
+  // One line, and only the line that changes the user's decision. It used to
+  // explain where the data lives and what a copy is for — three clauses of
+  // storage architecture in front of someone who just wants to keep what they
+  // made. They already know what an account is.
   const lead = document.createElement('p');
   lead.className = 'signup-sheet-lead';
-  lead.textContent =
-    'Your lines live on this phone. An account keeps a copy, so they follow you '
-    + 'to any device you sign in on.';
+  lead.textContent = 'Create an account to save your progress.';
   sheet.appendChild(lead);
 
   sheet.appendChild(buildAuthForm({ initialMode: 'signup', blurb: '' }));
