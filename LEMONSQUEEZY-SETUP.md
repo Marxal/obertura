@@ -94,10 +94,32 @@ red in the Lemon Squeezy dashboard — deliberately, so a purchase that cannot b
 matched to an account is loud rather than silent. Fix it by ticking `entitled`
 by hand for that person, then fixing the link.
 
-> The app does not build this URL yet. `showTrainingCapDialog()` in
-> `src/entitlement.ts` still has a no-op "Unlock full access" button, with a
-> `TODO(buy-flow)` marking the spot. Wiring the button, and calling
-> `refreshEntitlement()` when the buyer returns, is the next round.
+The app builds this URL for you — `src/lemonsqueezy.ts` takes the bare buy link
+from `VITE_LEMONSQUEEZY_CHECKOUT_URL` and appends the signed-in user's id. So
+the only thing to do here is **set that variable** (see `.env.example`): once in
+your local `.env`, and once in Cloudflare Pages → Settings → Environment
+variables, because Vite bakes it in at build time. Paste the bare link — no
+query string.
+
+Unlike the three secrets above, this one IS a `VITE_` variable, and that is
+correct: it is a public store page, not a key.
+
+## Step 5 — what the buyer actually sees
+
+The checkout opens as an **overlay on top of the app** (Lemon.js), not a
+redirect, so an installed PWA never loses the user to a browser tab. The buy
+button appears in two places, and only when someone is signed in and not
+already entitled:
+
+- Settings → Account, under the plan pill: "Buy full access — 99 kr"
+- the upgrade dialog you hit at the training cap: "Unlock full access"
+
+When the payment clears, Lemon.js fires a `Checkout.Success` event in the
+browser. The app closes the overlay, says "Purchase received — activating your
+account…", and then re-reads `profiles.entitled` a few times over ~10 seconds,
+because the webhook above runs separately and usually lands a second or three
+later. If it hasn't landed by then the app says access can take a minute rather
+than claiming success — the webhook retries on its own, so it resolves itself.
 
 ## Testing it
 

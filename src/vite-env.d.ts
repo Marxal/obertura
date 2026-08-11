@@ -14,6 +14,9 @@ declare const __DEPLOY_TARGET__: 'github' | 'cloudflare';
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL?: string;
   readonly VITE_SUPABASE_ANON_KEY?: string;
+  // The Lemon Squeezy buy link — see src/lemonsqueezy.ts. Optional too: with no
+  // checkout configured the buy buttons simply don't render.
+  readonly VITE_LEMONSQUEEZY_CHECKOUT_URL?: string;
 }
 
 interface ImportMeta {

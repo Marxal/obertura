@@ -41,6 +41,7 @@ import { getAllLines } from './storage';
 import { getCachedEntitled, setCachedEntitled, clearCachedEntitled } from './entitlement-cache';
 import { showDialog } from './dialog';
 import { showToast } from './toast';
+import { openCheckout, isCheckoutConfigured } from './lemonsqueezy';
 
 // How many lines a free account may have in training at once.
 export const FREE_TRAINING_LINES = 10;
@@ -162,27 +163,42 @@ export function showGoProDialog(): void {
 }
 
 // One pitch, one price, one place to wire the checkout.
+//
+// The buy button only appears for a signed-in user in a build that has a
+// checkout URL. Both conditions should always hold when this dialog opens — a
+// guest is capped too, though, and the whole purchase hangs on carrying that
+// user's Supabase id to the webhook, so a checkout with nobody attached is
+// refused here rather than producing a payment that can't be matched to an
+// account. A guest gets the pitch and a line telling them what to do first.
 function openUpgradeDialog(title: string): void {
+  const user = getAuthUser();
+  const canBuy = Boolean(user) && isCheckoutConfigured;
+
+  const pitch = 'The free tier trains ' + FREE_TRAINING_LINES + ' lines at a time. '
+    + 'Going pro lifts that to unlimited, and opens up coaching from your own '
+    + 'games — for €10 once, not a subscription.';
+
   showDialog({
     title,
-    body: 'The free tier trains ' + FREE_TRAINING_LINES + ' lines at a time. '
-      + 'Going pro lifts that to unlimited, and opens up coaching from your own '
-      + 'games — for €10 once, not a subscription.',
+    body: canBuy
+      ? pitch
+      : pitch + '\n\nBuying needs an account, so your access follows you to a '
+        + 'new phone. Sign in under Settings → Account first.',
     // Secondary on the left, primary on the right — the same order as the
     // post-save "Start training this line?" prompt.
-    buttons: [
-      { label: 'Not now', variant: 'secondary' },
-      {
-        label: 'Unlock full access',
-        variant: 'primary',
-        // TODO(buy-flow): wire this to the Lemon Squeezy checkout. Deliberately
-        // a no-op for now — the checkout, the webhook that sets
-        // profiles.entitled, and the post-purchase refresh (call
-        // refreshEntitlement() on success) are the next phase. Until then the
-        // button closes the dialog and nothing else.
-        onClick: () => { /* no-op — see TODO above */ },
-      },
-    ],
+    buttons: canBuy
+      ? [
+          { label: 'Not now', variant: 'secondary' },
+          {
+            label: 'Unlock full access',
+            variant: 'primary',
+            // The overlay checkout — the user stays inside the app, and the
+            // success event starts the wait for the webhook. See
+            // src/lemonsqueezy.ts.
+            onClick: () => { void openCheckout(user!.id); },
+          },
+        ]
+      : [{ label: 'Got it', variant: 'primary' }],
   });
 }
 

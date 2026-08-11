@@ -20,6 +20,7 @@ import {
   signOut,
 } from './auth';
 import { entitlementLabel, isEntitled, ENTITLEMENT_CHANGE_EVENT } from './entitlement';
+import { openCheckout, isCheckoutConfigured } from './lemonsqueezy';
 import { showToast } from './toast';
 import { showDialog } from './dialog';
 import { Icons } from './icons';
@@ -90,6 +91,28 @@ function signedInBody(refresh: () => void): HTMLElement {
   card.appendChild(status);
 
   wrap.appendChild(card);
+
+  // The buy button sits directly under the plan pill it answers: the pill says
+  // "Free — 10 lines in training", and the next thing your eye lands on is the
+  // way out of that. Only for a signed-in, non-entitled user in a build that
+  // has a checkout URL — an entitled user has nothing to buy, and an
+  // unconfigured build would be offering a button that cannot work.
+  if (!isEntitled() && isCheckoutConfigured) {
+    const buyBtn = document.createElement('button');
+    buyBtn.type = 'button';
+    buyBtn.className = 'btn-primary';
+    buyBtn.textContent = 'Buy full access — 99 kr';
+    // The overlay opens over the app; nothing navigates away, so there is no
+    // "returning from the checkout" state to restore. On success the poll in
+    // lemonsqueezy.ts fires ENTITLEMENT_CHANGE_EVENT, which re-renders this
+    // whole body — pill, button and all.
+    buyBtn.addEventListener('click', () => { void openCheckout(user.id); });
+
+    const buyRow = document.createElement('div');
+    buyRow.className = 'settings-actions';
+    buyRow.appendChild(buyBtn);
+    wrap.appendChild(buyRow);
+  }
 
   wrap.appendChild(syncRow());
 
