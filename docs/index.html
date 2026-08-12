@@ -35,7 +35,7 @@
 -->
 
 <title>Bito Chess — improve your next move</title>
-<meta name="description" content="Build your own chess opening repertoire, drill it with spaced repetition, and stop forgetting your prep on move six. Free to use, 89 kr once if you want the whole thing, no subscription." />
+<meta name="description" content="Build your own chess opening repertoire, drill it with spaced repetition, and stop forgetting your prep on move six. Free to use, €9 once if you want the whole thing, no subscription." />
 <meta name="color-scheme" content="light dark" />
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f1ece1" />
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#211c16" />
@@ -1367,13 +1367,13 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
       <div class="tiers">
         <div class="tier reveal">
           <p class="tier__name">Free</p>
-          <p class="tier__price">0 kr</p>
+          <p class="tier__price">€0</p>
           <p>Build as many lines as you want, train ten of them at a time, and use everything else: puzzles, game import, analysis, endgames, statistics.</p>
           <a class="btn btn--ghost js-app" href="/app/">Start free</a>
         </div>
         <div class="tier tier--paid reveal">
           <p class="tier__name">Full access</p>
-          <p class="tier__price">89 kr <span>once</span></p>
+          <p class="tier__price">€9 <span>once</span></p>
           <p>Train your whole repertoire, no cap. No subscription, no renewal, no ads — you pay once and that’s the end of it.</p>
           <button type="button" class="btn btn--buy" id="buy">Buy full access</button>
           <p class="faint" id="buy-note">Secure checkout. You’ll sign in first so the unlock lands on your account.</p>
@@ -1476,21 +1476,23 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
 (function () {
   'use strict';
 
-  /* ── 0. THE ONE THING TO EDIT ────────────────────────────────────────────
-     Paste the Lemon Squeezy buy link for the 89 kr product between the quotes,
-     e.g. 'https://bitochess.lemonsqueezy.com/buy/0000-aaaa-1111'. Nothing else
-     on this page needs to change.
-
-     Until it is filled in, the Buy button sends people into the app's own
-     upgrade path instead of nowhere. Once it is filled in:
+  /* ── 0. THE LEMON SQUEEZY PRODUCT ────────────────────────────────────────
+     The €9 unlock. Behaviour:
        · signed in  → straight to checkout, carrying the Supabase user id as
                       checkout[custom][user_id], which is what the webhook in
                       worker/lemonsqueezy-webhook.ts needs to know who paid
                       (see LEMONSQUEEZY-SETUP.md, step 4). Without it a real
                       payment cannot be matched to an account.
-       · signed out → the app's sign-up sheet first, then they come back here.
+       · signed out → the app's sign-up sheet first, which continues straight
+                      to this same checkout once the account exists. An account
+                      is not optional: the webhook has no way to reach a guest.
+
+     The price is written in three places that cannot import from each other —
+     here (the tier card below), src/entitlement.ts's PRO_PRICE, and the Lemon
+     Squeezy product itself. The store is the one that takes the money, so if
+     they ever disagree, the store is right and the other two are the bug.
      ────────────────────────────────────────────────────────────────────── */
-  var CHECKOUT_URL = '';
+  var CHECKOUT_URL = 'https://bitochess.lemonsqueezy.com/checkout/buy/8f39bf24-f731-4c65-870b-8b843b0e2311';
 
   var ctas = Array.prototype.slice.call(document.querySelectorAll('.js-app'));
 
@@ -1724,7 +1726,11 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
         return;
       }
       if (!session || !session.id) {
-        location.href = appUrl('/app/?auth=signup');
+        /* No account yet. `buy=1` rides along so the app knows this person came
+           here to PAY, not to sign up — it opens the checkout itself the moment
+           the account exists, instead of dropping them on the Train screen with
+           their intent quietly discarded. */
+        location.href = appUrl('/app/?auth=signup&buy=1');
         return;
       }
       var join = CHECKOUT_URL.indexOf('?') === -1 ? '?' : '&';

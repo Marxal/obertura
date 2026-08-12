@@ -125,8 +125,20 @@ export function renderSettingsScreen(container: HTMLElement): void {
 
 // ── Go pro ───────────────────────────────────────────────────────────────────
 // A plain offer button, leading the whole screen for anyone not yet entitled —
-// the same upgrade dialog the Get-started panel's "Go pro" opens.
+// the same upgrade dialog the Get-started panel's "Go pro" opens — with a
+// quiet "Already paid?" underneath it.
+//
+// THAT SECOND LINK IS THE SAFETY NET FOR THE WHOLE BUY FLOW. Access is granted
+// by a webhook the phone never sees: if it is slow, or fails and is retried, or
+// the purchase was made on a different device, the app can sit there showing a
+// price to somebody who has already paid. Every automatic route to noticing
+// (checkout.ts) can miss; this one is the user asking directly, and it always
+// answers. It costs eight lines and it is the difference between a stranger
+// solving their own problem in three seconds and a stranger emailing me.
 function buildGoProCta(): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'settings-gopro';
+
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'first-steps-pro settings-gopro-btn';
@@ -135,7 +147,33 @@ function buildGoProCta(): HTMLElement {
   label.textContent = 'Go pro';
   btn.appendChild(label);
   btn.addEventListener('click', () => showGoProDialog());
-  return btn;
+  wrap.appendChild(btn);
+
+  const restore = document.createElement('button');
+  restore.type = 'button';
+  restore.className = 'settings-gopro-restore';
+  restore.textContent = 'Already paid? Check again';
+  restore.addEventListener('click', () => {
+    restore.disabled = true;
+    restore.textContent = 'Checking…';
+    void import('./checkout')
+      .then(m => m.checkForPurchase())
+      .then((found) => {
+        // Found: the screen is about to be rebuilt without this whole card, so
+        // there is nothing to restore. Not found: checkForPurchase has already
+        // said so in a toast, and the button goes back to being offerable.
+        if (found) return;
+        restore.disabled = false;
+        restore.textContent = 'Already paid? Check again';
+      })
+      .catch(() => {
+        restore.disabled = false;
+        restore.textContent = 'Already paid? Check again';
+      });
+  });
+  wrap.appendChild(restore);
+
+  return wrap;
 }
 
 // ── Feedback & About ─────────────────────────────────────────────────────────

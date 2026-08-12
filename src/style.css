@@ -1533,15 +1533,43 @@ main {
 
 /* Settings' own Go-pro CTA — the same button, standing on its own at the very
    top of the screen rather than inside a card, so it needs the outer margins
-   a .section would otherwise supply. `display: flex` (block-level, unlike the
-   inline-flex it overrides) makes `width: auto` fill what's left after the
-   margins, the same sizing a .section gets — plain `width: 100%` here would
-   add the margins on top and overflow. */
-.settings-gopro-btn {
-  display: flex;
-  width: auto;
+   a .section would otherwise supply. Those margins live on the wrapper now
+   that an "Already paid?" link shares them. */
+.settings-gopro {
   margin: var(--space-xl) var(--space-lg) 0;
 }
+
+/* `width: 100%` fills the wrapper exactly, because the wrapper carries the
+   margins and no padding of its own.
+
+   This used to read `display: flex; width: auto`, on the theory that a
+   block-level flex container fills its parent the way a .section does. It does
+   not, and never did: a <button> is a form control, so `width: auto` resolves
+   to fit-content whatever its display type, and the CTA rendered as a 73px
+   stub against a 384px column. Don't put `auto` back. */
+.settings-gopro-btn {
+  display: flex;
+  width: 100%;
+  margin: 0;
+}
+
+/* The safety net under the offer: quiet on purpose. Anyone who needs it is
+   looking for it, and anyone who doesn't shouldn't be invited to wonder
+   whether their purchase went through. */
+.settings-gopro-restore {
+  display: block;
+  margin: 8px auto 0;
+  padding: 4px;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--text-faint);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.settings-gopro-restore:hover { color: var(--accent); }
+.settings-gopro-restore:disabled { color: var(--text-faint); cursor: default; }
 
 /* ── The line goal ── */
 
