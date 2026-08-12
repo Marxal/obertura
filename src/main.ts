@@ -2358,6 +2358,14 @@ function placeGuidedCursor(fromEnd: 1 | 2): string | null {
   return line[ply].uci;
 }
 
+// The move the guided line wants next from wherever the cursor is sitting: the
+// mainline child of the current node, or null once the line has been played out
+// to its end. The walkthrough rings this move in the Explore panel, and the last
+// board step uses it to tell whether there's still a move to ask for.
+function guidedNextUci(): string | null {
+  return getCurrentNode().children[0]?.uci ?? null;
+}
+
 // Show (or clear) the walkthrough's cue: the board rewinds to just before the
 // move being asked for, with an arrow on it.
 function setGuidedBoardCue(cue: 'second-last' | 'last' | null): void {
@@ -2398,6 +2406,8 @@ function builderIntroDeps(
     setBoardCue: setGuidedBoardCue,
     settleAfterOwnMove: settleAfterGuidedMove,
     setEngine: setEngineOn,
+    setExploreCue: (uci) => explorePanel?.setHighlight(uci),
+    nextScriptedUci: guidedNextUci,
     goToLineEnd: endGuidedWalkthrough,
     onSave: () => { void saveCurrentLine(); },
     // Back off the first bubble: there's nothing behind the builder on a first

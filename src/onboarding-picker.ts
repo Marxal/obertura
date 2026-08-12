@@ -385,11 +385,10 @@ function colourChooser(
 }
 
 // ── Depth ────────────────────────────────────────────────────────────────────
-// The same button as colour, with the move count in the token's place. The
-// question is "how much to learn", so the ANSWER is a number of moves — "5
-// moves" is the option being picked, and "Club player" is a caption on it rather
-// than the choice itself. Someone who doesn't know whether they're a club player
-// still knows whether they want to learn three moves or seven.
+// The same button as colour: the level's name is the title, and what it costs
+// you — "5 moves" — sits under it in small type. There was a bare number in a
+// disc above both for a while, which said the same thing twice and made a "3"
+// the largest object on a tile whose actual choice is a word.
 
 function levelChooser(onChange: (v: OnboardingLevel) => void): HTMLElement {
   const wrap = document.createElement('div');
@@ -405,23 +404,17 @@ function levelChooser(onChange: (v: OnboardingLevel) => void): HTMLElement {
     btn.dataset.value = l.value;
     btn.setAttribute('aria-pressed', 'false');
 
-    const token = document.createElement('span');
-    token.className = 'picker-colour-token picker-level-token';
-    token.setAttribute('aria-hidden', 'true');
-    token.textContent = String(l.moves);
-    btn.appendChild(token);
-
     const label = document.createElement('span');
     label.className = 'picker-colour-label';
-    label.textContent = `${l.moves} moves`;
+    label.textContent = l.label;
     btn.appendChild(label);
 
     const caption = document.createElement('span');
     caption.className = 'picker-level-caption';
-    caption.textContent = l.label;
+    caption.textContent = `${l.moves} moves`;
     btn.appendChild(caption);
 
-    btn.setAttribute('aria-label', `${l.moves} moves — ${l.label}`);
+    btn.setAttribute('aria-label', `${l.label}, ${l.moves} moves`);
     btn.addEventListener('click', () => {
       for (const b of buttons) {
         const on = b === btn;

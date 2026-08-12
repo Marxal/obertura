@@ -354,13 +354,37 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
     const ordered = [...byUci.values()]
       .sort((a, b) => rank[a.source] - rank[b.source] || b.weight - a.weight);
 
-    // The walkthrough's scripted move must be one of the three even if the
-    // sources rank it fourth — the bubble is about to point at it.
+    // The walkthrough's scripted move leads the three even if the sources rank
+    // it fourth, or don't know it at all — the bubble is about to point at it,
+    // and "tap the ringed move" has to be possible.
     if (highlightUci) {
       const at = ordered.findIndex(c => c.uci === highlightUci);
       if (at > 0) ordered.unshift(...ordered.splice(at, 1));
+      else if (at < 0) {
+        const own = scriptedCandidate(highlightUci);
+        if (own) ordered.unshift(own);
+      }
     }
     return ordered.slice(0, SUGGESTIONS);
+  }
+
+  // A candidate for a move none of the sources offered — only ever the
+  // walkthrough's own next move, which is by definition the right answer here.
+  function scriptedCandidate(uci: string): Candidate | null {
+    try {
+      const chess = new Chess(deps.getFen());
+      const m = chess.move({
+        from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci.slice(4) || undefined,
+      });
+      if (!m) return null;
+      return {
+        uci, san: m.san, source: 'library',
+        detail: 'The next move of the line you’re building',
+        weight: Number.MAX_SAFE_INTEGER,
+      };
+    } catch {
+      return null;   // not legal here — the cue is stale, so drop it
+    }
   }
 
   // ── Drawing ───────────────────────────────────────────────────────────────

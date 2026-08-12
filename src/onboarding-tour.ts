@@ -77,7 +77,10 @@ export interface CoachStep {
   // missing is dropped rather than pointed at nothing.
   selector: string[];
   title: string;
-  body: string;
+  // A function when the sentence depends on what the user has done by the time
+  // the bubble is painted — the last board step asks for a move that may already
+  // have been played from the Explore panel.
+  body: string | (() => string);
   // Extra room around this target (a small header button wants a bit so the
   // ring doesn't crowd it; a full-width board wants none).
   pad?: number;
@@ -264,7 +267,7 @@ export function showCoachMarks(
 
     overlay.setAttribute('aria-label', step.title);
     title.textContent = step.title;
-    body.textContent = step.body;
+    body.textContent = typeof step.body === 'function' ? step.body() : step.body;
     dotEls.forEach((d, i) => d.classList.toggle('tour-dot--on', i === index));
 
     // The step's big ask, or the pill that says it's already done.
@@ -485,12 +488,15 @@ function onBuilderMove(advance: () => void): () => void {
 // the move they have to make, and the walkthrough waits.
 //
 //   1. the board — play your second-to-last move,
-//   2. Explore — the three curated moves, and that a tap plays one,
+//   2. Explore — the three curated moves, with the line's own next move ringed:
+//      tapping it plays it, so the panel teaches itself by being used,
 //   3. Library — what strong players play here (and connect Lichess),
 //   4. My lines — what you've saved here (and import your games),
-//   5. Engine — the Engine tab, switched on for the step that describes it,
-//   6. the board again — play the last move of the line,
-//   7. Save.
+//   5. Line info — the notes, priority and stats a saved line carries,
+//   6. Engine — the Engine tab, switched on for the step that describes it,
+//   7. the board again — the last move, if the Explore step didn't already get
+//      it played,
+//   8. Save.
 
 // The panels the walkthrough drives, by name (main.ts owns the real ordering).
 export type TourSlide = 'explore' | 'library' | 'mylines' | 'line' | 'engine';
@@ -501,15 +507,17 @@ const STEP_BOARD = 0;
 const STEP_EXPLORE = 1;
 const STEP_LIBRARY = 2;
 const STEP_MYLINES = 3;
-const STEP_ENGINE = 4;
+const STEP_LINEINFO = 4;
+const STEP_ENGINE = 5;
 
-// Which walkthrough step each panel tab belongs to. Line info isn't in the
-// walkthrough — a line you haven't finished has nothing to review yet — so its
-// tab is switched off while the walkthrough runs.
+// Which walkthrough step each panel tab belongs to. Every tab has a bubble now,
+// so nothing is locked out — tapping any tab moves the walkthrough to the step
+// that explains it.
 const TAB_STEPS: Partial<Record<TourSlide, number>> = {
   explore: STEP_EXPLORE,
   library: STEP_LIBRARY,
   mylines: STEP_MYLINES,
+  line: STEP_LINEINFO,
   engine: STEP_ENGINE,
 };
 
@@ -586,6 +594,13 @@ export interface BuilderIntroDeps {
   settleAfterOwnMove: () => void;
   // The engine toggle in the dock, driven by the engine step.
   setEngine: (on: boolean) => void;
+  // Ring the line's own next move among the Explore suggestions (and pin it into
+  // the three), so the bubble that says "tap one to add it to your line" has
+  // something to point at. Null clears it.
+  setExploreCue: (uci: string | null) => void;
+  // The move the guided line wants next from where the cursor is, or null when
+  // the line has been played out to its end.
+  nextScriptedUci: () => string | null;
   // Put the cursor at the end of the line, for the save step: saving from the
   // middle of a line raises the builder's "save up to here?" nudge, which is a
   // question about an edit the user hasn't made.
@@ -683,8 +698,8 @@ function buildSteps(
     {
       selector: ['#board'],
       title: 'Enter your line',
-      body: 'Make your moves on the board to build this line so you can train it '
-        + 'after. Play the move on the board.',
+      body: 'Make your moves on the board to build a line you can train after. '
+        + 'Play the move!',
       pad: 0,
       // Live, and it advances on a move: the fastest way to learn that the board
       // is yours to play on is to play on it. Next plays the move for you.
@@ -697,11 +712,14 @@ function buildSteps(
     {
       selector: ['#builder-sheet'],
       title: 'Explore',
-      body: 'Three moves worth playing here, picked from your own games, the '
-        + 'master library and the engine. Each one says where it came from — tap '
-        + 'one to add it to your line.',
+      body: 'See suggested moves from your games, the library, or the engine. '
+        + 'Tap to add to your line.',
       pad: 4,
       interactive: true,
+      // The panel teaches itself by being used: the line's own next move is
+      // ringed among the three, and tapping it plays it — the same thing the
+      // board step asked for, done the other way.
+      watch: onBuilderMove,
       onEnter: () => {
         // Whichever way the user left the board step — playing the move or
         // pressing Next — the opponent's reply comes in here, so the panels
@@ -709,6 +727,7 @@ function buildSteps(
         deps.setBoardCue(null);
         deps.settleAfterOwnMove();
         deps.showSlide('explore');
+        deps.setExploreCue(deps.nextScriptedUci());
       },
     },
     {
@@ -718,7 +737,7 @@ function buildSteps(
         + 'Lichess account to analyze any position.',
       pad: 4,
       interactive: true,
-      onEnter: () => deps.showSlide('library'),
+      onEnter: () => { deps.setExploreCue(null); deps.showSlide('library'); },
       mainDone: connected ? 'Lichess connected' : undefined,
       mainAction: connected ? undefined : {
         label: 'Connect Lichess',
@@ -739,13 +758,11 @@ function buildSteps(
     {
       selector: ['#builder-sheet'],
       title: 'My lines',
-      body: 'Your saved lines from this position, the moves you played here in '
-        + 'your own games, and any opponent you’ve scouted. Line info — next '
-        + 'door — is where a saved line’s notes, training priority and stats '
-        + 'live.',
+      body: 'See your saved lines, moves you’ve played in your games, and '
+        + 'scouted opponents here.',
       pad: 4,
       interactive: true,
-      onEnter: () => deps.showSlide('mylines'),
+      onEnter: () => { deps.setExploreCue(null); deps.showSlide('mylines'); },
       mainAction: {
         label: 'Import my games',
         onClick: () => {
@@ -757,22 +774,28 @@ function buildSteps(
       },
     },
     {
+      selector: ['#builder-sheet'],
+      title: 'Line info',
+      body: 'See notes, training priority, and live stats for any saved line.',
+      pad: 4,
+      interactive: true,
+      onEnter: () => { deps.setExploreCue(null); deps.showSlide('line'); },
+    },
+    {
       // The Engine TAB, not the dock's engine icon: the icon is the quick
       // glance, and pointing the bubble at it taught the smaller of the two
-      // surfaces. The tab is where the depth, the eval bar and the three full
-      // lines live, so that's what gets the bubble — and it's opened underneath
-      // it, with the engine switched on, so there's something to look at.
+      // surfaces. Opening the tab switches the engine on by itself, so there's
+      // something to look at while the bubble describes it.
       selector: ['#builder-sheet'],
       title: 'Engine',
-      body: 'Stockfish on the position in front of you: the evaluation bar, the '
-        + 'search depth, and the three strongest lines. Tap any move in a line to '
-        + 'play it out on the board.',
+      body: 'See Stockfish evaluations and the three strongest lines, then tap '
+        + 'any move to play it.',
       pad: 4,
       // Live like every other step: the tab strip has to stay tappable all the
       // way through, or "tap Library to go back to Library" is only true on some
       // of the bubbles.
       interactive: true,
-      onEnter: () => { deps.setEngine(true); deps.showSlide('engine'); },
+      onEnter: () => { deps.setExploreCue(null); deps.showSlide('engine'); },
     },
   ];
 
@@ -782,13 +805,19 @@ function buildSteps(
     {
       selector: ['#board'],
       title: 'Finish the line',
-      body: 'Play the last move of your line on the board.',
+      // The Explore step offers the same move, so by the time this bubble is
+      // painted the line may already be complete. Say whichever is true.
+      body: () => deps.nextScriptedUci()
+        ? 'Play the last move of your line on the board.'
+        : 'That’s your line. Keep playing moves to take it further, or save it '
+          + 'as it is.',
       pad: 0,
       interactive: true,
       watch: onBuilderMove,
       onEnter: () => {
         // The engine has had its step; the board is the subject again.
         deps.setEngine(false);
+        deps.setExploreCue(null);
         deps.setBoardCue('last');
       },
     },

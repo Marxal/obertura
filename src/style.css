@@ -2089,9 +2089,12 @@ html[data-coords="off"] .cg-wrap coords {
 /* The same three moves again, with the reason each is on the list. A grid so the
    disclosure chevron can sit against the head row while the expanded record
    spans the full width underneath it. */
+/* minmax(0, …) rather than 1fr: a grid column's automatic minimum is its
+   content's min-content width, so a long opening name pushed the whole card past
+   the panel's edge instead of ellipsing inside it. */
 .explore-card {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   border: 1px solid var(--border-card);
   border-left: 3px solid var(--border-card);
@@ -2107,6 +2110,7 @@ html[data-coords="off"] .cg-wrap coords {
   display: flex;
   align-items: center;
   gap: 0.55rem;
+  min-width: 0;
   padding: 0.45rem 0.5rem;
   border: none;
   background: transparent;
@@ -2139,6 +2143,9 @@ html[data-coords="off"] .cg-wrap coords {
   gap: 0.35rem;
   min-width: 0;
 }
+/* The name is the only part allowed to give: the chip is fixed-size and says
+   what the row IS. */
+.explore-card-chiprow .explore-card-opening { min-width: 0; flex: 0 1 auto; }
 .explore-card-detail {
   font-size: 0.72rem;
   color: var(--text-muted);
@@ -16248,45 +16255,35 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   gap: 0.4rem;
 }
 
-/* The depth tiles carry three things now (number, "N moves", the skill word),
-   so the type comes down to keep all three on one tile at phone width without
-   the row growing taller than the colour row above it. */
+/* The depth tiles are a name over its cost — "Club player" / "5 moves" — with
+   no disc above them: the number was in the tile twice, and at token size it was
+   the largest thing on a tile whose choice is a word. Losing it lets the tile be
+   shorter than the colour row above it as well as quieter. */
 .picker-level {
   flex-direction: column;
-  gap: 0.15rem;
-  min-height: 68px;
-  padding: 0.45rem 0.25rem;
-  font-size: 0.72rem;
-  line-height: 1.15;
+  gap: 0.1rem;
+  min-height: 0;
+  padding: 0.5rem 0.25rem;
+  line-height: 1.2;
   text-align: center;
 }
 
-.picker-level .picker-colour-label { font-size: 0.72rem; }
+.picker-level .picker-colour-label {
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
 
 .picker-level-caption {
-  font-size: 0.6rem;
+  font-size: 0.64rem;
   font-weight: 600;
   letter-spacing: 0.01em;
   color: var(--text-faint);
   white-space: nowrap;
 }
 .picker-colour--on .picker-level-caption { color: var(--text-muted); }
-
-.picker-level-token {
-  width: 22px;
-  height: 22px;
-  background: var(--fill-faint);
-  border: 1px solid var(--border-card);
-  color: var(--text-muted);
-  font-size: 0.7rem;
-  font-weight: 800;
-}
-
-.picker-colour--on .picker-level-token {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
-}
 
 /* ── The style grid ── */
 
