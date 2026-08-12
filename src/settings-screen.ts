@@ -737,9 +737,9 @@ function buildDailyChallengeGroup(): HTMLElement {
   return sec;
 }
 
-// One task's row: a title, then a 0–5 (or Custom) count picker — 0 IS off, so
-// there's no separate switch. Custom reveals a capped number field, so nobody
-// can type 50 or 100 into it.
+// One task's row: a title, then an Off/1/2/3/Custom count picker — Off IS a
+// count of zero, so there's no separate switch. Custom reveals a capped number
+// field, so nobody can type 50 or 100 into it.
 function dailyTaskRow(id: DailyTaskId, onChange: () => void): HTMLElement {
   const config = getDailyConfig();
   const task = config.tasks[id];
@@ -752,25 +752,33 @@ function dailyTaskRow(id: DailyTaskId, onChange: () => void): HTMLElement {
   return r;
 }
 
-// The 0..stepMax + "Custom" segmented picker.
+// The Off/1/2/3/Custom segmented picker — five short labels, so it still fits
+// one line on a phone (the 0-through-5-plus-Custom row it replaced didn't).
 function dailyCountControl(id: DailyTaskId, count: number, onChange: () => void): HTMLElement {
   const options: { value: string; label: string }[] = [];
   for (let n = DAILY_COUNT_RANGE.min; n <= DAILY_COUNT_RANGE.stepMax; n++) {
-    options.push({ value: String(n), label: String(n) });
+    options.push({ value: String(n), label: n === 0 ? 'Off' : String(n) });
   }
   options.push({ value: 'custom', label: 'Custom' });
 
   const isCustom = count > DAILY_COUNT_RANGE.stepMax;
-  const seg = segmented<string>(options, isCustom ? 'custom' : String(count), (v) => {
-    const cur = getDailyConfig();
-    const nextCount = v === 'custom'
-      // Stepping into Custom keeps whatever custom value was already set;
-      // otherwise it starts just past the preset row.
-      ? Math.max(DAILY_COUNT_RANGE.stepMax + 1, cur.tasks[id].count)
-      : Number(v);
-    setDailyConfig({ ...cur, tasks: { ...cur.tasks, [id]: { count: nextCount } } });
-    onChange(); // show/hide the custom field
-  });
+  const seg = segmented<string>(
+    options,
+    isCustom ? 'custom' : String(count),
+    (v) => {
+      const cur = getDailyConfig();
+      const nextCount = v === 'custom'
+        // Stepping into Custom keeps whatever custom value was already set;
+        // otherwise it starts just past the preset row.
+        ? Math.max(DAILY_COUNT_RANGE.stepMax + 1, cur.tasks[id].count)
+        : Number(v);
+      setDailyConfig({ ...cur, tasks: { ...cur.tasks, [id]: { count: nextCount } } });
+      onChange(); // show/hide the custom field
+    },
+    // Full width, equal columns — five short labels that always fit one line,
+    // rather than the natural sizing that made the old 0-through-5 row wrap.
+    { fullWidth: true },
+  );
   seg.classList.add('daily-count-seg');
   return seg;
 }
@@ -810,12 +818,17 @@ function dailyCustomInput(id: DailyTaskId, count: number, onChange: () => void):
 // ── Add your games ───────────────────────────────────────────────────────────
 
 // This group has two faces. Before any games are imported it's a prominent
-// call-to-action (and leads the whole Settings screen). Once connected it shows
-// the account you're synced with, when it last synced, how many games are on the
-// device, and a quiet Refresh — all driven by the shared import panel.
+// call-to-action (and leads the whole Settings screen, wide open). Once
+// imported there's nothing left to act on, so — like Lichess connection — it
+// folds into a quiet, collapsed accordion: the account you're synced with,
+// when it last synced, how many games are on the device, and a quiet Refresh,
+// all driven by the shared import panel.
 function buildUserGroup(gameCount: number, refresh: () => void): HTMLElement {
-  const sec = staticGroup('Add your games', Icons.download(16));
   const source = getGamesSource();
+  const imported = gameCount > 0 && !!source;
+  const sec = imported
+    ? group('Add your games', Icons.download(16))
+    : staticGroup('Add your games', Icons.download(16));
 
   // Open the panel pre-filled with the connected account (or the last-used one),
   // then re-render Settings so the connected card and counts update.
@@ -825,7 +838,7 @@ function buildUserGroup(gameCount: number, refresh: () => void): HTMLElement {
     onImported: () => refresh(),
   });
 
-  if (gameCount === 0 || !source) {
+  if (!imported || !source) {
     // ── Not connected — make it pop ──
     const card = document.createElement('div');
     card.className = 'settings-connect-card';
