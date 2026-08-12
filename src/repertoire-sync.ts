@@ -1,18 +1,14 @@
 // Account sync — the cross-device copy of everything, kept in Supabase.
 //
-// This is drive-backup.ts's pattern pointed at a different destination. Same
-// shape: IndexedDB stays the one source of truth for every read, every write
+// IndexedDB stays the one source of truth for every read; every write
 // schedules a debounced upload (~30s after the last edit, so an editing burst is
 // one request), a "pending" flag survives a failed attempt, and connecting looks
 // for a remote copy BEFORE it ever uploads — so a fresh phone restores instead
-// of clobbering. What changes is the destination and the trigger: Drive uploads
-// a file after you tap "Connect"; this uploads a row after you sign in, with no
-// extra step to take.
+// of clobbering. It uploads a row after you sign in, with no extra step to take.
 //
-// The payload is a BackupFile — the same JSON "Export backup" downloads and
-// Drive stores — so the same parseBackup/restoreBackup path validates and
-// applies it, and the same merge-vs-replace chooser asks what to do. One format,
-// three transports.
+// The payload is a BackupFile — the same JSON "Export backup" downloads — so
+// the same parseBackup/restoreBackup path validates and applies it, and the
+// same merge-vs-replace chooser asks what to do. One format, two transports.
 //
 // ── THE COLUMN NAMES LIE A LITTLE, AND IT MATTERS ───────────────────────────
 // `profiles.repertoire` is NOT just the repertoire. The name is a leftover from

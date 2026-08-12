@@ -638,6 +638,14 @@ body {
   transform: rotate(90deg);
 }
 
+/* Signed-out Account group: the same accent border/shadow weight as the other
+   "you haven't done this yet" cards (.settings-connect-card), so it stands out
+   from the ordinary accordions around it while staying the same shape. */
+.section--acc-highlight {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-card);
+}
+
 /* Header icon + title — shared by the accordion summaries and the two static
    group <h2>s, so every group leads with a mark in the same spot. The icon
    inherits the muted .section-title colour. */
@@ -1522,6 +1530,18 @@ main {
   -webkit-tap-highlight-color: transparent;
 }
 .first-steps-pro:active { background: var(--accent-soft); }
+
+/* Settings' own Go-pro CTA — the same button, standing on its own at the very
+   top of the screen rather than inside a card, so it needs the outer margins
+   a .section would otherwise supply. `display: flex` (block-level, unlike the
+   inline-flex it overrides) makes `width: auto` fill what's left after the
+   margins, the same sizing a .section gets — plain `width: 100%` here would
+   add the margins on top and overflow. */
+.settings-gopro-btn {
+  display: flex;
+  width: auto;
+  margin: var(--space-xl) var(--space-lg) 0;
+}
 
 /* ── The line goal ── */
 
@@ -8582,12 +8602,13 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   flex: 1;
 }
 
-/* ── Beta survey (survey.ts) ─────────────────────────────────────────────────
-   A focused, one-question-at-a-time form on its own full-screen page. A top bar
-   carries a back arrow and a progress bar; the body shows a single step; a
-   footer carries the primary action (and a quiet Skip). Answers — and the
-   current step — autosave to a localStorage draft, so closing the app never
-   loses progress. */
+/* ── Beta survey (styles kept, module removed) ───────────────────────────────
+   The old beta survey (survey.ts) is gone and no longer shown — these styles
+   are kept on purpose so a future survey can be built on the same shape
+   without redesigning it: a focused, one-question-at-a-time form on its own
+   full-screen page. A top bar carries a back arrow and a progress bar; the
+   body shows a single step; a footer carries the primary action (and a quiet
+   Skip). */
 .survey-page {
   padding: 0;
   gap: 0;
@@ -13805,8 +13826,35 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 
 /* ── Daily-challenge preferences (Settings) ────────────────────────────────── */
-/* The count picker sits just under each task's title + switch. */
+/* The count picker sits just under each task's title. */
 .daily-count-seg { margin-top: var(--space-sm); }
+
+/* The capped number field revealed once "Custom" is picked. */
+.daily-custom-count {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+.daily-custom-input {
+  width: 4.5em;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: center;
+}
+.daily-custom-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.daily-custom-suffix {
+  font-size: 0.8rem;
+  color: var(--text-faint);
+}
 
 /* ── Practice by theme (accordion of Lichess puzzle themes) ─────────────────── */
 .pz-themes { margin-top: var(--space-md); }

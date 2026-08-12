@@ -9,9 +9,9 @@
 // and VITE_SUPABASE_ANON_KEY — set in `.env` locally and in the Cloudflare
 // Pages dashboard for the deployed build (see .env.example). Vite inlines
 // anything prefixed `VITE_` into the bundle, so both values end up visible in
-// the shipped JavaScript. That is fine and intended: the anon key is a *public*
-// key, exactly like the Google client ID in drive-backup.ts. It grants only
-// what Supabase's row-level security policies allow, so the real protection
+// the shipped JavaScript. That is fine and intended: the anon key is a
+// *public* key. It grants only what Supabase's row-level security policies
+// allow, so the real protection
 // lives in those policies, never in hiding this string. The service-role key is
 // the secret one and must never come anywhere near this file.
 //

@@ -71,10 +71,9 @@ async function store(mode: IDBTransactionMode): Promise<IDBObjectStore> {
 
 // ── Repertoire change notifications ──────────────────────────────────────────
 //
-// Lets interested modules (the Drive auto-backup in drive-backup.ts, and the
-// account sync in repertoire-sync.ts) react to repertoire writes without this
-// module importing them back — that
-// would be a circular dependency. Listeners fire after the write committed.
+// Lets interested modules (the account sync in repertoire-sync.ts) react to
+// repertoire writes without this module importing them back — that would be a
+// circular dependency. Listeners fire after the write committed.
 // eraseAllData deliberately does NOT notify: auto-uploading an empty
 // repertoire right after an erase would destroy the cloud copy the user may
 // still want to restore from.

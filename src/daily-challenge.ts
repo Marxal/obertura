@@ -40,11 +40,21 @@ export interface DailyState {
 // like the done-state. Default: every task on, three each.
 
 const DEFAULT_COUNT = 3;
-const COUNT_MIN = 1;
-const COUNT_MAX = 5;
-export const DAILY_COUNT_RANGE = { min: COUNT_MIN, max: COUNT_MAX, default: DEFAULT_COUNT };
+const COUNT_MIN = 0;
+// The last preset button before "Custom" — 0..5 as one-tap picks.
+const COUNT_STEP_MAX = 5;
+// A custom count is still capped, so nobody can type 50 or 100 into the field.
+const COUNT_CUSTOM_MAX = 20;
+export const DAILY_COUNT_RANGE = {
+  min: COUNT_MIN,
+  stepMax: COUNT_STEP_MAX,
+  max: COUNT_CUSTOM_MAX,
+  default: DEFAULT_COUNT,
+};
 
-export interface DailyTaskConfig { on: boolean; count: number; }
+// A task is included in the day's challenge whenever its count is above zero —
+// there's no separate on/off switch, 0 IS off.
+export interface DailyTaskConfig { count: number; }
 export interface DailyConfig {
   enabled: boolean;
   tasks: Record<DailyTaskId, DailyTaskConfig>;
@@ -53,12 +63,12 @@ export interface DailyConfig {
 function clampCount(n: unknown): number {
   const v = Math.round(Number(n));
   if (!Number.isFinite(v)) return DEFAULT_COUNT;
-  return Math.max(COUNT_MIN, Math.min(COUNT_MAX, v));
+  return Math.max(COUNT_MIN, Math.min(COUNT_CUSTOM_MAX, v));
 }
 
 function defaultConfig(): DailyConfig {
   const tasks = {} as Record<DailyTaskId, DailyTaskConfig>;
-  for (const id of DAILY_TASK_IDS) tasks[id] = { on: true, count: DEFAULT_COUNT };
+  for (const id of DAILY_TASK_IDS) tasks[id] = { count: DEFAULT_COUNT };
   return { enabled: true, tasks };
 }
 
@@ -67,10 +77,17 @@ export function getDailyConfig(): DailyConfig {
   try {
     const raw = localStorage.getItem(CONFIG_KEY);
     if (!raw) return base;
-    const obj = JSON.parse(raw) as Partial<DailyConfig>;
+    const obj = JSON.parse(raw) as {
+      enabled?: boolean;
+      tasks?: Record<string, { on?: boolean; count?: number }>;
+    };
     for (const id of DAILY_TASK_IDS) {
       const t = obj.tasks?.[id];
-      if (t) base.tasks[id] = { on: t.on !== false, count: clampCount(t.count) };
+      if (t) {
+        // Back-compat with the old on/off switch: an explicit "off" now means
+        // a count of zero, whatever count was stored alongside it.
+        base.tasks[id] = { count: t.on === false ? 0 : clampCount(t.count) };
+      }
     }
     return { enabled: obj.enabled !== false, tasks: base.tasks };
   } catch {
@@ -154,7 +171,7 @@ export interface DailyAvailability {
 // runnable (lines/positions need a repertoire; mistakes needs scanned spots).
 export function activeDailyTasks(config: DailyConfig, avail: DailyAvailability): DailyTaskId[] {
   return DAILY_TASK_IDS.filter((id) => {
-    if (!config.tasks[id].on) return false;
+    if (config.tasks[id].count <= 0) return false;
     if ((id === 'lines' || id === 'positions') && !avail.hasLines) return false;
     if (id === 'mistakes' && !avail.mistakesAvailable) return false;
     return true;

@@ -1,5 +1,5 @@
 // The Settings screen — every device-local preference in one place, grouped into
-// Appearance, Training, Daily challenge, Add your games, Backup and
+// Account, Add your games, Appearance, Training, Daily challenge, Data and
 // Feedback & about. Each control writes straight to the pref the matching feature
 // already reads (theme.ts, appearance.ts, prefs.ts, sound.ts, chesscom.ts), so a
 // change takes effect the next time that feature runs.
@@ -42,12 +42,8 @@ import {
   setShowLineMiniatures,
   getIncludeSecondPlatform,
   setIncludeSecondPlatform,
-  getShowMoveClassifications,
-  setShowMoveClassifications,
   getEngineAlwaysOn,
   setEngineAlwaysOn,
-  getUseRemoteEngine,
-  setUseRemoteEngine,
 } from './prefs';
 import type { Platform } from './import-games';
 import { getFeedbackSound, setFeedbackSound, previewFeedback } from './sound';
@@ -66,18 +62,16 @@ import { clearPuzzleRepeat } from './puzzle-repeat';
 import { clearBrilliantLog } from './brilliant-log';
 import { clearTaBest } from './puzzles-screen';
 import { clearEndgameProgress } from './endgame-progress';
-import { renderBackupSection, renderCloudBackupSection, exportBackupNow } from './backup';
+import { renderBackupSection, exportBackupNow } from './backup';
 import { Icons } from './icons';
 import { userAvatar } from './avatar';
 import { pushBack } from './back-nav';
 import { openFeedbackSheet } from './feedback';
-import { openSurvey } from './survey';
-import { showIntro } from './onboarding';
-import { showOnboardingWizard } from './onboarding-wizard';
+import { REPLAY_WALKTHROUGH_EVENT } from './onboarding-tour';
 import { isConnected, connect, disconnect, LICHESS_CONNECT_BLURB } from './lichess-auth';
-import { buildSupportSection } from './support';
 import { isSupabaseConfigured } from './supabase';
 import { buildAccountGroup } from './account-ui';
+import { isEntitled, showGoProDialog } from './entitlement';
 
 export function renderSettingsScreen(container: HTMLElement): void {
   container.innerHTML = '';
@@ -88,25 +82,31 @@ export function renderSettingsScreen(container: HTMLElement): void {
   // The screen title now lives in the app header (set in showView), so it's not
   // repeated here.
 
-  // "Add your games" always leads the screen — getting your games in is the first
-  // thing a new install wants, and the synced account stays handy afterwards. It
-  // pops (an accent CTA card) until you've imported, then turns discreet. We learn
-  // which only after a quick async count, so build a placeholder now and fill it.
+  // A free account gets a plain CTA at the very top, above everything else —
+  // the offer to unlock, before any of the things it unlocks.
+  if (!isEntitled()) screen.appendChild(buildGoProCta());
+
+  // Account (sign in / sign up / sign out) — leads the screen: it's about who
+  // you are, before how the app behaves. Signed out, it stays open and stands
+  // out (see account-ui.ts); signed in, there's nothing to act on, so it folds
+  // into a quiet accordion. Built ONLY on a build that has a Supabase project
+  // configured. The internal GitHub Pages build has no env vars, so
+  // `isSupabaseConfigured` is false there and this section is simply absent —
+  // no disabled row, no placeholder. That build keeps its beta-code gate
+  // (gate.ts) and looks exactly as it does today.
+  if (isSupabaseConfigured) screen.appendChild(buildAccountGroup());
+
+  // "Add your games" — getting your games in is the next thing a new install
+  // wants. It pops (an accent CTA card) until you've imported, then turns
+  // discreet. We learn which only after a quick async count, so build a
+  // placeholder now and fill it.
   const userSlot = document.createElement('div');
   screen.appendChild(userSlot);
 
-  // Account (sign in / sign up / sign out) — the first accordion, because it's
-  // about who you are rather than how the app behaves. Built ONLY on a build
-  // that has a Supabase project configured. The internal GitHub Pages build has
-  // no env vars, so `isSupabaseConfigured` is false there and this section is
-  // simply absent — no disabled row, no placeholder. That build keeps its
-  // beta-code gate (gate.ts) and looks exactly as it does today.
-  if (isSupabaseConfigured) screen.appendChild(buildAccountGroup());
-
   const refresh = () => renderSettingsScreen(container);
-  // Connecting Lichess unlocks a lot, so until you do it leads the screen as a
-  // prominent card. Once connected there's nothing to act on, so it collapses
-  // into a quiet accordion lower down (built inside buildLichessGroup).
+  // Connecting Lichess unlocks a lot, so until you do it leads the rest of the
+  // screen as a prominent card. Once connected there's nothing to act on, so it
+  // collapses into a quiet accordion lower down (built inside buildLichessGroup).
   if (!isConnected()) screen.appendChild(buildLichessGroup(refresh));
 
   screen.appendChild(buildAppearanceGroup());
@@ -123,27 +123,40 @@ export function renderSettingsScreen(container: HTMLElement): void {
   });
 }
 
+// ── Go pro ───────────────────────────────────────────────────────────────────
+// A plain offer button, leading the whole screen for anyone not yet entitled —
+// the same upgrade dialog the Get-started panel's "Go pro" opens.
+function buildGoProCta(): HTMLElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'first-steps-pro settings-gopro-btn';
+  btn.appendChild(Icons.sparkles(16));
+  const label = document.createElement('span');
+  label.textContent = 'Go pro';
+  btn.appendChild(label);
+  btn.addEventListener('click', () => showGoProDialog());
+  return btn;
+}
+
 // ── Feedback & About ─────────────────────────────────────────────────────────
-// The closing group: a way to write to me, and an About sheet with credits,
-// support links and the version. About sits at the very bottom of Settings.
+// The closing group: a way to write to me, and an About sheet with credits and
+// the version. About sits at the very bottom of Settings.
 
 function buildAboutGroup(): HTMLElement {
   const sec = staticGroup('Feedback & about', Icons.smile(16));
 
   sec.appendChild(linkRow('Send feedback', openFeedbackSheet, Icons.note(18)));
-  sec.appendChild(linkRow('Beta survey', openSurvey, Icons.list(18)));
-  // Replay the first-launch intro on demand — the seen-flag stays set, so it
-  // doesn't reappear on its own afterwards.
-  sec.appendChild(linkRow('Replay intro', () => showIntro(), Icons.play(18)));
-  // Replay the setup wizard (notation, theme, Lichess, import) on demand — it
-  // doesn't gate anything, so re-running it never resets a choice you've made.
-  sec.appendChild(linkRow('Replay setup', () => showOnboardingWizard({ onFinish: () => {} }), Icons.settings(18)));
+  // Replay the builder walkthrough on demand — the coach-marks that teach the
+  // panels by using them. It doesn't gate anything, so re-running it never
+  // resets a choice you've made.
+  sec.appendChild(linkRow(
+    'Replay walkthrough',
+    () => window.dispatchEvent(new Event(REPLAY_WALKTHROUGH_EVENT)),
+    Icons.play(18),
+  ));
   sec.appendChild(linkRow('About', () => {
     window.open('https://marxal.github.io/obertura/docs/', '_blank', 'noopener,noreferrer');
   }, Icons.info(18)));
-
-  // Buy me a coffee — Swish / Card, right below.
-  sec.appendChild(buildSupportSection());
 
   return sec;
 }
@@ -618,21 +631,18 @@ function buildAppearanceGroup(): HTMLElement {
   ));
 
   sec.appendChild(row(
-    'Move classifications',
-    toggle(getShowMoveClassifications(), (on) => setShowMoveClassifications(on)),
-    { sub: 'After a game review, mark mistakes and blunders in the move list and show a grade badge (Best, Book, Blunder…) on the board.' },
-  ));
-
-  sec.appendChild(row(
     'Engine always on',
     toggle(getEngineAlwaysOn(), (on) => setEngineAlwaysOn(on)),
     { sub: 'Start the engine automatically whenever you open the board. Either way, the engine button on the board turns it on or off at any time.' },
   ));
 
   sec.appendChild(row(
-    'Deeper reviews online',
-    toggle(getUseRemoteEngine(), (on) => setUseRemoteEngine(on)),
-    { sub: 'Game reviews and mistake scans use chess-api.com — a free online Stockfish — for positions the Lichess cloud doesn\'t know: deeper and faster than this phone. Sends those positions to that service; falls back to the on-device engine whenever it can\'t answer.' },
+    'Feedback sound',
+    toggle(getFeedbackSound(), (on) => {
+      setFeedbackSound(on);
+      if (on) previewFeedback();
+    }),
+    { sub: 'A soft tone on right and wrong moves while training.' },
   ));
 
   return sec;
@@ -667,15 +677,6 @@ function buildTrainingGroup(): HTMLElement {
       (v) => setWatchSpeed(v),
     ),
     { sub: 'How fast the play button auto-plays a line.' },
-  ));
-
-  sec.appendChild(row(
-    'Feedback sound',
-    toggle(getFeedbackSound(), (on) => {
-      setFeedbackSound(on);
-      if (on) previewFeedback();
-    }),
-    { sub: 'A soft tone on right and wrong moves while training.' },
   ));
 
   sec.appendChild(row(
@@ -736,42 +737,74 @@ function buildDailyChallengeGroup(): HTMLElement {
   return sec;
 }
 
-// One task's row: a title + on/off switch, with a 1–5 count picker below when on.
-function dailyTaskRow(id: DailyTaskId, onToggle: () => void): HTMLElement {
+// One task's row: a title, then a 0–5 (or Custom) count picker — 0 IS off, so
+// there's no separate switch. Custom reveals a capped number field, so nobody
+// can type 50 or 100 into it.
+function dailyTaskRow(id: DailyTaskId, onChange: () => void): HTMLElement {
   const config = getDailyConfig();
   const task = config.tasks[id];
+  const isCustom = task.count > DAILY_COUNT_RANGE.stepMax;
 
-  const r = document.createElement('div');
-  r.className = 'pref-row daily-pref-row';
+  const r = row(DAILY_TASK_LABEL[id], dailyCountControl(id, task.count, onChange));
 
-  const head = document.createElement('div');
-  head.className = 'pref-row-head';
-  const title = document.createElement('div');
-  title.className = 'pref-row-title';
-  title.textContent = DAILY_TASK_LABEL[id];
-  head.appendChild(title);
-  head.appendChild(toggle(task.on, (on) => {
-    const cur = getDailyConfig();
-    setDailyConfig({ ...cur, tasks: { ...cur.tasks, [id]: { ...cur.tasks[id], on } } });
-    onToggle(); // hide/show the count picker
-  }));
-  r.appendChild(head);
-
-  if (task.on) {
-    const counts: { value: string; label: string }[] = [];
-    for (let n = DAILY_COUNT_RANGE.min; n <= DAILY_COUNT_RANGE.max; n++) {
-      counts.push({ value: String(n), label: String(n) });
-    }
-    const seg = segmented<string>(counts, String(task.count), (v) => {
-      const cur = getDailyConfig();
-      setDailyConfig({ ...cur, tasks: { ...cur.tasks, [id]: { ...cur.tasks[id], count: Number(v) } } });
-      // Count change needs no re-render — the segmented tracks its own highlight.
-    });
-    seg.classList.add('daily-count-seg');
-    r.appendChild(seg);
-  }
+  if (isCustom) r.appendChild(dailyCustomInput(id, task.count, onChange));
 
   return r;
+}
+
+// The 0..stepMax + "Custom" segmented picker.
+function dailyCountControl(id: DailyTaskId, count: number, onChange: () => void): HTMLElement {
+  const options: { value: string; label: string }[] = [];
+  for (let n = DAILY_COUNT_RANGE.min; n <= DAILY_COUNT_RANGE.stepMax; n++) {
+    options.push({ value: String(n), label: String(n) });
+  }
+  options.push({ value: 'custom', label: 'Custom' });
+
+  const isCustom = count > DAILY_COUNT_RANGE.stepMax;
+  const seg = segmented<string>(options, isCustom ? 'custom' : String(count), (v) => {
+    const cur = getDailyConfig();
+    const nextCount = v === 'custom'
+      // Stepping into Custom keeps whatever custom value was already set;
+      // otherwise it starts just past the preset row.
+      ? Math.max(DAILY_COUNT_RANGE.stepMax + 1, cur.tasks[id].count)
+      : Number(v);
+    setDailyConfig({ ...cur, tasks: { ...cur.tasks, [id]: { count: nextCount } } });
+    onChange(); // show/hide the custom field
+  });
+  seg.classList.add('daily-count-seg');
+  return seg;
+}
+
+// The capped custom-count field, shown only once "Custom" is picked.
+function dailyCustomInput(id: DailyTaskId, count: number, onChange: () => void): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'daily-custom-count';
+
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.inputMode = 'numeric';
+  input.className = 'daily-custom-input';
+  input.min = String(DAILY_COUNT_RANGE.stepMax + 1);
+  input.max = String(DAILY_COUNT_RANGE.max);
+  input.value = String(count);
+  input.addEventListener('change', () => {
+    const clamped = Math.max(
+      DAILY_COUNT_RANGE.stepMax + 1,
+      Math.min(DAILY_COUNT_RANGE.max, Math.round(Number(input.value)) || DAILY_COUNT_RANGE.stepMax + 1),
+    );
+    input.value = String(clamped);
+    const cur = getDailyConfig();
+    setDailyConfig({ ...cur, tasks: { ...cur.tasks, [id]: { count: clamped } } });
+    onChange();
+  });
+  wrap.appendChild(input);
+
+  const suffix = document.createElement('span');
+  suffix.className = 'daily-custom-suffix';
+  suffix.textContent = `per day (max ${DAILY_COUNT_RANGE.max})`;
+  wrap.appendChild(suffix);
+
+  return wrap;
 }
 
 // ── Add your games ───────────────────────────────────────────────────────────
@@ -980,7 +1013,7 @@ function lastRefreshCaption(): string {
 }
 
 function buildBackupGroup(): HTMLElement {
-  const sec = group('Backup', Icons.save(16));
+  const sec = group('Data', Icons.save(16));
 
   // Auto-refresh games — the weekly check. Only does anything once a username
   // has been saved by a previous import (see auto-refresh.ts); the caption
@@ -998,9 +1031,6 @@ function buildBackupGroup(): HTMLElement {
 
   // Export / import — the existing backup section does both.
   sec.appendChild(renderBackupSection(() => { /* nothing else on this screen depends on it */ }));
-
-  // Cloud backup — the same file, kept in the user's Google Drive automatically.
-  sec.appendChild(renderCloudBackupSection(() => { /* nothing else on this screen depends on it */ }));
 
   // Reset progress — destructive, so it's set apart and confirmed.
   const resetBtn = document.createElement('button');
@@ -1283,7 +1313,7 @@ function wipeOberturaLocalStorage(): void {
 
 // ── Confirm dialog ───────────────────────────────────────────────────────────
 // Reuses the edit-overlay / edit-sheet look from the builder for consistency.
-// Exported so other screens (e.g. survey.ts's exit confirmation) can reuse it.
+// Exported so other screens can reuse it.
 
 export function confirmDialog(opts: {
   title: string;
