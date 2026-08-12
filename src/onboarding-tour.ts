@@ -83,8 +83,13 @@ export interface CoachStep {
   pad?: number;
   // Replaces the whole footer. An action without `advance` ends the sequence
   // whichever step it's on. Used by the one-off bubbles (the trainer intro),
-  // not by the walkthrough itself.
+  // not by the walkthrough itself. An EMPTY array is meaningful: it means "this
+  // bubble defines its own footer, and it hasn't got one" — the way a step whose
+  // only controls are a mainAction and a corner Skip gets rid of Back/Next.
   actions?: CoachAction[];
+  // The quiet way out, in the bubble's top-right corner. The walkthrough puts
+  // one on every step but its last; a one-off bubble asks for it here.
+  cornerSkip?: () => void;
   // The one thing this step is really asking for — Connect Lichess, Import my
   // games, Save line — as a full-width button above the Back/Next row. It EXITS
   // the walkthrough, because what it opens takes the screen; bringing the
@@ -171,8 +176,11 @@ export function showCoachMarks(
   foot.className = 'tour-foot';
   bubble.appendChild(foot);
 
-  // Skip sits under everything, quiet and on its own line: it's the way out, not
-  // one of the three controls the walkthrough is actually offering.
+  // Skip sits in the bubble's top-right corner, as a bare word. On its own line
+  // under the footer it was a third full-width control competing with Back and
+  // Next — three ways out of a bubble whose whole job is to move you to the next
+  // one. In the corner it's where a dismiss always is: findable, and not part of
+  // the decision.
   const skipRow = document.createElement('div');
   skipRow.className = 'tour-skiprow';
   bubble.appendChild(skipRow);
@@ -288,7 +296,11 @@ export function showCoachMarks(
     skipRow.replaceChildren();
     const last = index >= all.length - 1;
 
-    if (step.actions?.length) {
+    // The step's own corner Skip wins; otherwise the walkthrough puts one on
+    // every bubble but the last, where there is nothing left to skip.
+    if (step.cornerSkip) skipRow.appendChild(cornerSkip(() => { teardown(); step.cornerSkip!(); }));
+
+    if (step.actions) {
       foot.classList.add('tour-foot--actions');
       // An exiting action REPLACES onDone rather than running alongside it: the
       // whole point of a custom action is that this exit means something
@@ -315,11 +327,7 @@ export function showCoachMarks(
       if (all.length > 1) foot.appendChild(dots);
       foot.appendChild(actionButton(step.nextLabel ?? (last ? 'Got it' : 'Next'), 'primary', advance));
       // Nothing left to skip on the last bubble.
-      if (!last) {
-        const skip = actionButton('Skip the walkthrough', 'quiet', finish);
-        skip.classList.add('tour-skip--link');
-        skipRow.appendChild(skip);
-      }
+      if (!last && !step.cornerSkip) skipRow.appendChild(cornerSkip(finish));
     }
 
     // Whatever the step watches for (a move, a tab tap) advances it too. A short
@@ -415,6 +423,19 @@ export function showCoachMarks(
   return { teardown, goToStep, currentStep: () => index, stepCount: all.length };
 }
 
+// The bubble's way out: one quiet word in the top-right corner. Shared by the
+// walkthrough and the one-off bubbles, so "Skip" is in the same place whichever
+// coach-mark is on screen.
+function cornerSkip(onClick: () => void): HTMLElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'tour-skip tour-skip--corner';
+  btn.textContent = 'Skip';
+  btn.setAttribute('aria-label', 'Skip');
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+
 function actionButton(label: string, variant: 'primary' | 'quiet', onClick: () => void): HTMLElement {
   const btn = document.createElement('button');
   btn.type = 'button';
@@ -464,31 +485,32 @@ function onBuilderMove(advance: () => void): () => void {
 // the move they have to make, and the walkthrough waits.
 //
 //   1. the board — play your second-to-last move,
-//   2. Line — the move list and what you can do to it,
+//   2. Explore — the three curated moves, and that a tap plays one,
 //   3. Library — what strong players play here (and connect Lichess),
 //   4. My lines — what you've saved here (and import your games),
-//   5. the engine — switched on for the step that describes it,
+//   5. Engine — the Engine tab, switched on for the step that describes it,
 //   6. the board again — play the last move of the line,
 //   7. Save.
 
-// Carousel slide indices the walkthrough drives (main.ts owns the real list).
-const LINE_SLIDE = 0;
-const LIBRARY_SLIDE = 1;
-const MYLINES_SLIDE = 2;
+// The panels the walkthrough drives, by name (main.ts owns the real ordering).
+export type TourSlide = 'explore' | 'library' | 'mylines' | 'line' | 'engine';
 
 // Step indices, so a tab tap can jump to the step that describes that tab and a
 // Lichess round-trip can come back to the one it left from.
 const STEP_BOARD = 0;
-const STEP_LINE = 1;
+const STEP_EXPLORE = 1;
 const STEP_LIBRARY = 2;
 const STEP_MYLINES = 3;
+const STEP_ENGINE = 4;
 
-// Which walkthrough step each panel tab belongs to. Learn and Scouting aren't in
-// the walkthrough at all — they're switched off while it runs.
-const TAB_STEPS: Record<number, number> = {
-  [LINE_SLIDE]: STEP_LINE,
-  [LIBRARY_SLIDE]: STEP_LIBRARY,
-  [MYLINES_SLIDE]: STEP_MYLINES,
+// Which walkthrough step each panel tab belongs to. Line info isn't in the
+// walkthrough — a line you haven't finished has nothing to review yet — so its
+// tab is switched off while the walkthrough runs.
+const TAB_STEPS: Partial<Record<TourSlide, number>> = {
+  explore: STEP_EXPLORE,
+  library: STEP_LIBRARY,
+  mylines: STEP_MYLINES,
+  engine: STEP_ENGINE,
 };
 
 // Where to resume the walkthrough after a Lichess connect, which redirects the
@@ -550,7 +572,7 @@ export interface BuilderIntroDeps {
   // Fires on whatever exit happens — the last step, Skip, or the back gesture.
   onDone: () => void;
   // Show a builder carousel slide, so each panel step opens the panel it names.
-  showSlide: (index: number) => void;
+  showSlide: (id: TourSlide) => void;
   // Back off the FIRST bubble: there's nothing behind it in the builder, so it
   // goes right back to the screen the line was chosen on.
   onRestart?: () => void;
@@ -622,15 +644,13 @@ export function showBuilderIntro(deps: BuilderIntroDeps): void {
   launch(deps.startStep ?? 0);
 }
 
-// Learn and Scouting aren't part of the first line and can't be reached from the
-// walkthrough — switch them off while it runs rather than letting a tap land on
-// a panel the bubbles never explain.
+// Any tab the walkthrough has no bubble for is switched off while it runs,
+// rather than letting a tap land on a panel the bubbles never explain.
 function setSideTabsDisabled(disabled: boolean): void {
-  for (const slide of [3, 4]) {
-    const tab = document.querySelector<HTMLButtonElement>(
-      `#builder-slide-tabs .slide-tab[data-slide="${slide}"]`,
-    );
-    if (!tab) continue;
+  const tabs = document.querySelectorAll<HTMLButtonElement>('#builder-slide-tabs .slide-tab');
+  for (const tab of tabs) {
+    const id = tab.dataset.slideId as TourSlide | undefined;
+    if (id && TAB_STEPS[id] !== undefined) continue;
     tab.disabled = disabled;
     tab.classList.toggle('slide-tab--locked', disabled);
   }
@@ -642,7 +662,7 @@ function watchTabTaps(go: (step: number) => void): () => void {
   const onClick = (e: Event): void => {
     const tab = (e.target as HTMLElement).closest<HTMLElement>('.slide-tab');
     if (!tab) return;
-    const step = TAB_STEPS[Number(tab.dataset.slide)];
+    const step = TAB_STEPS[tab.dataset.slideId as TourSlide];
     if (step === undefined) return;
     // After the panel has actually swapped, so the bubble lands on the panel
     // it's describing.
@@ -676,9 +696,10 @@ function buildSteps(
     },
     {
       selector: ['#builder-sheet'],
-      title: 'Line Overview',
-      body: 'Tap any move to jump back to that position, rename the line, add '
-        + 'tags, or leave notes that help you remember.',
+      title: 'Explore',
+      body: 'Three moves worth playing here, picked from your own games, the '
+        + 'master library and the engine. Each one says where it came from — tap '
+        + 'one to add it to your line.',
       pad: 4,
       interactive: true,
       onEnter: () => {
@@ -687,7 +708,7 @@ function buildSteps(
         // describe a real position and the last move is still to come.
         deps.setBoardCue(null);
         deps.settleAfterOwnMove();
-        deps.showSlide(LINE_SLIDE);
+        deps.showSlide('explore');
       },
     },
     {
@@ -697,7 +718,7 @@ function buildSteps(
         + 'Lichess account to analyze any position.',
       pad: 4,
       interactive: true,
-      onEnter: () => deps.showSlide(LIBRARY_SLIDE),
+      onEnter: () => deps.showSlide('library'),
       mainDone: connected ? 'Lichess connected' : undefined,
       mainAction: connected ? undefined : {
         label: 'Connect Lichess',
@@ -718,11 +739,13 @@ function buildSteps(
     {
       selector: ['#builder-sheet'],
       title: 'My lines',
-      body: 'View your saved lines for this position and your actual game moves '
-        + 'after importing from Chess.com or Lichess.',
+      body: 'Your saved lines from this position, the moves you played here in '
+        + 'your own games, and any opponent you’ve scouted. Line info — next '
+        + 'door — is where a saved line’s notes, training priority and stats '
+        + 'live.',
       pad: 4,
       interactive: true,
-      onEnter: () => deps.showSlide(MYLINES_SLIDE),
+      onEnter: () => deps.showSlide('mylines'),
       mainAction: {
         label: 'Import my games',
         onClick: () => {
@@ -734,16 +757,22 @@ function buildSteps(
       },
     },
     {
-      selector: ['#builder-engine'],
+      // The Engine TAB, not the dock's engine icon: the icon is the quick
+      // glance, and pointing the bubble at it taught the smaller of the two
+      // surfaces. The tab is where the depth, the eval bar and the three full
+      // lines live, so that's what gets the bubble — and it's opened underneath
+      // it, with the engine switched on, so there's something to look at.
+      selector: ['#builder-sheet'],
       title: 'Engine',
-      body: 'Turn on Stockfish to evaluate the position on the board and see the '
-        + 'three strongest continuations from here.',
-      pad: 8,
+      body: 'Stockfish on the position in front of you: the evaluation bar, the '
+        + 'search depth, and the three strongest lines. Tap any move in a line to '
+        + 'play it out on the board.',
+      pad: 4,
       // Live like every other step: the tab strip has to stay tappable all the
-      // way through, or "tap Line to go back to Line" is only true on some of
-      // the bubbles.
+      // way through, or "tap Library to go back to Library" is only true on some
+      // of the bubbles.
       interactive: true,
-      onEnter: () => deps.setEngine(true),
+      onEnter: () => { deps.setEngine(true); deps.showSlide('engine'); },
     },
   ];
 
@@ -821,7 +850,10 @@ export function showTrainerIntro(o: { onStart: () => void; onSkip: () => void })
         + 'so you can master them.',
       pad: 0,
       mainAction: { label: 'Start training', onClick: o.onStart },
-      actions: [{ label: 'Skip this time', variant: 'quiet', onClick: o.onSkip }],
+      // One thing to do and one quiet way out of it, in the same corner the
+      // walkthrough's Skip sits in — so "Skip" is in one place in the app.
+      actions: [],
+      cornerSkip: o.onSkip,
     },
   ], o.onStart);
 }

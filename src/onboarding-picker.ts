@@ -62,6 +62,9 @@ import { pushBack } from './back-nav';
 // like something, so it's deliberately slower than a normal UI transition.
 const CROSSFADE_MS = 320;
 
+// Where the brand mark points. The marketing page, not the app.
+const BITO_CHESS_URL = 'https://bitochess.com';
+
 // One glyph per style. They carry no information the label doesn't; they're
 // there so the four rows scan as four distinct things rather than a list.
 const STYLE_ICONS: Record<OnboardingStyle, (size?: number) => SVGElement> = {
@@ -141,8 +144,15 @@ export function showOnboardingPicker(deps: PickerDeps): void {
   const bar = document.createElement('div');
   bar.className = 'picker-bar';
 
-  const brandRow = document.createElement('div');
+  // The brand is a link out to the product page. A stranger who has landed on
+  // the app itself has no other way back to "what is this?", and the mark in the
+  // corner is where everyone looks for it.
+  const brandRow = document.createElement('a');
   brandRow.className = 'picker-brandrow';
+  brandRow.href = BITO_CHESS_URL;
+  brandRow.target = '_blank';
+  brandRow.rel = 'noopener noreferrer';
+  brandRow.setAttribute('aria-label', 'Bito Chess — about the app');
   brandRow.appendChild(appMark());
   const brand = document.createElement('span');
   brand.className = 'picker-brand';
@@ -375,9 +385,11 @@ function colourChooser(
 }
 
 // ── Depth ────────────────────────────────────────────────────────────────────
-// The same button as colour, with the move count in the token's place: "5" over
-// "moves" says what "Club player" costs you, which is the part of the choice
-// that's actually being made.
+// The same button as colour, with the move count in the token's place. The
+// question is "how much to learn", so the ANSWER is a number of moves — "5
+// moves" is the option being picked, and "Club player" is a caption on it rather
+// than the choice itself. Someone who doesn't know whether they're a club player
+// still knows whether they want to learn three moves or seven.
 
 function levelChooser(onChange: (v: OnboardingLevel) => void): HTMLElement {
   const wrap = document.createElement('div');
@@ -401,10 +413,15 @@ function levelChooser(onChange: (v: OnboardingLevel) => void): HTMLElement {
 
     const label = document.createElement('span');
     label.className = 'picker-colour-label';
-    label.textContent = l.label;
+    label.textContent = `${l.moves} moves`;
     btn.appendChild(label);
 
-    btn.setAttribute('aria-label', `${l.label}, ${l.moves} moves`);
+    const caption = document.createElement('span');
+    caption.className = 'picker-level-caption';
+    caption.textContent = l.label;
+    btn.appendChild(caption);
+
+    btn.setAttribute('aria-label', `${l.moves} moves — ${l.label}`);
     btn.addEventListener('click', () => {
       for (const b of buttons) {
         const on = b === btn;

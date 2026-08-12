@@ -79,6 +79,11 @@ export const Icons = {
   // Fallback avatar for a scouted player with no profile picture.
   userCircle: (s?: number) => svg(`<circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M6.2 18.6a6 6 0 0 1 11.6 0"/>`, s),
   info:     (s?: number) => svg(`<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>`, s),
+  // The opening-library mark — an open book. Used on the Explore slide's source
+  // chips, where every suggestion has to say what put it there.
+  book:     (s?: number) => svg(`<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>`, s),
+  // The engine mark — the same chip the builder dock's engine button draws.
+  cpu:      (s?: number) => svg(`<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/>`, s),
   pause:    (s?: number) => svg(`<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>`, s),
   // A toggle switch in its "off" position — circle sitting on the left.
   toggleOff: (s?: number) => svg(`<rect width="20" height="12" x="2" y="6" rx="6" ry="6"/><circle cx="8" cy="12" r="2"/>`, s),
