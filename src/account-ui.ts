@@ -40,10 +40,16 @@ export function buildAccountGroup(): HTMLElement {
 
   let mode: Mode = 'signin';
 
-  // Swap everything after the <summary> for the current state's body.
+  // Swap everything after the <summary> for the current state's body. Signed
+  // out, the group stands out and stays open — it leads the whole screen, and
+  // there's a real decision to make here. Signed in, there's nothing left to
+  // act on, so it folds back into an ordinary accordion.
   const render = (): void => {
     while (sec.childNodes.length > 1) sec.removeChild(sec.lastChild!);
-    sec.appendChild(getAuthUser() ? signedInBody(render) : signedOutBody(mode, (m) => { mode = m; render(); }));
+    const signedIn = !!getAuthUser();
+    sec.classList.toggle('section--acc-highlight', !signedIn);
+    if (!signedIn) sec.setAttribute('open', '');
+    sec.appendChild(signedIn ? signedInBody(render) : signedOutBody(mode, (m) => { mode = m; render(); }));
   };
 
   // Sign-in and sign-out both land here — including the one that completes on

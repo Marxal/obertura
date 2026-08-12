@@ -52,8 +52,7 @@ import { createExplorePanel, type ExplorePanel } from './explore-panel';
 import { createEnginePanel, type EnginePanel } from './engine-panel';
 import { initTheme } from './theme';
 import { initAppearance } from './appearance';
-import { initDriveAutoBackup } from './drive-backup';
-import { watchSpeedMs, getConfirmRunBeforeTraining, getShowEngineArrows, setShowEngineArrows, getShowMoveClassifications, getEngineAlwaysOn, setOnboardingComplete } from './prefs';
+import { watchSpeedMs, getConfirmRunBeforeTraining, getShowEngineArrows, setShowEngineArrows, getEngineAlwaysOn, setOnboardingComplete } from './prefs';
 import { reviewLine, gradeNode, type ReviewSummary } from './review';
 import { renderLineAnalysis, hasReview } from './line-analysis';
 import { applyBrilliantTag } from './brilliant';
@@ -64,7 +63,6 @@ import { showDialog } from './dialog';
 import { platformLabel } from './board-explorer';
 import { openImportPanel, getGamesSource, IDENTITY_CHANGED_EVENT } from './import-panel';
 import { openStarterPackPicker, type LineSeed, type AddLineMode } from './onboarding-starter';
-import { showOnboardingWizard, wizardStepPending } from './onboarding-wizard';
 import { showOnboardingPicker, shouldShowFirstRun } from './onboarding-picker';
 import {
   showBuilderIntro,
@@ -76,6 +74,7 @@ import {
   notifyBuilderMove,
   takeTourResume,
   BUILDER_MOVE_EVENT,
+  REPLAY_WALKTHROUGH_EVENT,
   type BuilderIntroDeps,
 } from './onboarding-tour';
 import { showFirstLineSuccess, handleAuthUrlParam, openSignUpSheet } from './onboarding-signup';
@@ -95,7 +94,6 @@ import { importLastGame, hasConnectedAccount, connectedAccount } from './import-
 import { openBuilderImport } from './builder-import';
 import { openEngineSpar, openExploreOpponent, importOpponentFlow } from './explore-screen';
 import { formatMove } from './notation';
-import { maybeShowSurveyBanner } from './survey';
 import {
   tryCallback as lichessTryCallback,
   takeReturn as lichessTakeReturn,
@@ -466,9 +464,8 @@ function moveSpan(node: MoveNode, activeId: string): HTMLElement {
   // Game-review / live-analysis grade in the notation: just the class colour
   // tint (no badge glyph — icons in the strip made the moves read too far
   // apart; the badge still shows on the board square and in the summary table).
-  // The error moves keep a stronger wash so mistakes still stand out. Shown when
-  // the Settings toggle is on, or whenever the engine is on (it's analysing anyway).
-  if (node.classification && (getShowMoveClassifications() || engineOn)) {
+  // The error moves keep a stronger wash so mistakes still stand out.
+  if (node.classification) {
     span.classList.add(`class--${node.classification}`);
     span.title = CLASS_LABEL[node.classification];
   }
@@ -853,9 +850,7 @@ async function runReviewPass(): Promise<void> {
   const total = nodes.length;
   const bar = reviewBar();
   bar.start();
-  showToast(getShowMoveClassifications() || engineOn
-    ? 'Analysing game…'
-    : 'Analysing game… (turn on move highlights in Settings to see it)');
+  showToast('Analysing game…');
 
   try {
     const summary = await reviewLine(nodes, {
@@ -946,7 +941,7 @@ function refreshLineAnalysis(): void {
   if (!host) return;
   const nodes = mainline();
   const isImportedGame = builderDesc.startsWith('vs ');
-  if (!isImportedGame || !(getShowMoveClassifications() || engineOn) || !hasReview(nodes)) {
+  if (!isImportedGame || !hasReview(nodes)) {
     host.hidden = true;
     host.innerHTML = '';
     return;
@@ -1114,12 +1109,10 @@ function refreshBoardShapes(): void {
   if (!cg) return;
   const shapes: DrawShape[] = [];
 
-  // 1. The active move's grade badge — shown whenever the Settings toggle is on
-  //    or the engine is on (it's analysing anyway), so a played move's grade is
-  //    visible on any slide.
+  // 1. The active move's grade badge — shown whenever a played move has one, so
+  //    it's visible on any slide.
   const node = getCurrentNode();
-  const showBadge = (getShowMoveClassifications() || engineOn)
-    && node.id !== 'root' && !!node.classification && !!node.uci;
+  const showBadge = node.id !== 'root' && !!node.classification && !!node.uci;
   const fromSq = showBadge ? (node.uci.slice(0, 2) as Key) : null;
   const toSq = showBadge ? (node.uci.slice(2, 4) as Key) : null;
   if (toSq) shapes.push({ orig: toSq, customSvg: classBoardSvg(node.classification!) });
@@ -2580,6 +2573,19 @@ function showFirstRunPicker(): void {
   });
 }
 
+// Settings → Feedback & about → "Replay walkthrough": the same guided
+// empty-board first line "Build my own" starts, minus the picker — a fresh
+// line, forced straight into the coach-marks rather than gated on whether the
+// walkthrough has already been shown.
+function replayBuilderWalkthrough(): void {
+  startNewLine('white');
+  guidedActive = true;
+  setTimeout(() => {
+    markBuilderTourSeen();
+    showBuilderIntro(builderIntroDeps(endEmptyBoardWalkthrough, { hasScript: false }));
+  }, 450);
+}
+
 // A starter-pack (or suggested) line, opened the same way the first-run line is:
 // walkthrough if it's owed, then the builder, then the builder's own Save. The
 // pack sheet closes itself before calling this — see onboarding-starter.ts.
@@ -3703,8 +3709,10 @@ function setupNav(): void {
     void refreshSideCreate();
   });
 
-  // The survey's "Back to train" button lands the user on the Train tab.
-  window.addEventListener('obertura:gototrain', () => showView('train'));
+  // Settings → Feedback & about → "Replay walkthrough": open the builder on a
+  // fresh line and force the coach-marks, the same way "Build my own" does for
+  // a first-time visitor.
+  window.addEventListener(REPLAY_WALKTHROUGH_EVENT, () => replayBuilderWalkthrough());
 
   // The system back gesture steps back through the app (closing any open sheet
   // first) instead of closing the PWA. Overlays register their own steps; this
@@ -4240,9 +4248,6 @@ const boardEl = document.getElementById('board') as HTMLElement;
 initTheme();
 initAppearance();
 setupNav();
-// Cloud backup: from now on every repertoire write schedules a debounced
-// upload to Drive (inert until connected in Settings — see drive-backup.ts).
-initDriveAutoBackup();
 
 // Accounts: pick up an existing session (and finish a Google sign-in if this
 // load is the return leg of one) so Settings can render the Account section
@@ -4344,12 +4349,6 @@ function hideAppSplash(): void {
 function hideAppSplashWhenReady(): void {
   void getAllLines().then(hideAppSplash, hideAppSplash);
   setTimeout(hideAppSplash, 3000); // safety net
-}
-
-// Stamp the install date on the very first launch — the beta survey banner
-// (survey.ts) waits a week from this timestamp before it first appears.
-if (!localStorage.getItem('obertura.installedAt')) {
-  localStorage.setItem('obertura.installedAt', String(Date.now()));
 }
 
 // Beta access gate (gate.ts) — a self-contained invitation gate + install screen
@@ -4566,10 +4565,6 @@ maybeShowGate(() => requestAnimationFrame(() => {
   appBooted = true;
   maybeRestoreLichessReturn();
 
-  // A week after install, invite beta testers to the survey with a slim banner
-  // (shown once per session until they submit — see survey.ts).
-  maybeShowSurveyBanner();
-
   // A "Sign up" link from the marketing site (?auth=signup) opens the sheet
   // directly, whatever else is going on.
   handleAuthUrlParam();
@@ -4579,20 +4574,10 @@ maybeShowGate(() => requestAnimationFrame(() => {
   // a visitor should be looking at their own saved line inside a minute.
   //
   // It only appears on a genuinely empty install (no lines AND onboarding never
-  // finished), so an existing user sees none of this. The intro and the setup
-  // wizard both still exist and are replayable from Settings; they're just no
-  // longer in anybody's way.
-  //
-  // The one exception is a wizard resumed mid-flight: if the app rebooted during
-  // the wizard's Lichess connect step (an OAuth redirect away and back), finish
-  // what was started rather than dropping the user into a first-run screen.
-  if (wizardStepPending()) {
-    showOnboardingWizard({ onFinish: () => showView('train') });
-  } else {
-    void shouldShowFirstRun().then((show) => {
-      if (show) showFirstRunPicker();
-    });
-  }
+  // finished), so an existing user sees none of this.
+  void shouldShowFirstRun().then((show) => {
+    if (show) showFirstRunPicker();
+  });
 
   // Weekly games auto-refresh: runs after the first view has rendered, never
   // blocks launch, and stays silent on zero or on failure. New games trigger a

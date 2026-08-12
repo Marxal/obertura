@@ -471,6 +471,11 @@ function findTarget(step: CoachStep): HTMLElement | null {
 // app lays down itself — a line playing itself in isn't the user doing anything.
 export const BUILDER_MOVE_EVENT = 'bito:builder-move';
 
+// Fired by Settings → Feedback & about → "Replay walkthrough". main.ts owns the
+// actual builder state (the line, the board, the panels), so a leaf screen asks
+// for this by event rather than importing main.ts back.
+export const REPLAY_WALKTHROUGH_EVENT = 'obertura:replaywalkthrough';
+
 export function notifyBuilderMove(): void {
   document.dispatchEvent(new Event(BUILDER_MOVE_EVENT));
 }

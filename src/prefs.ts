@@ -154,19 +154,8 @@ export function setUseRemoteEngine(on: boolean): void {
   localStorage.setItem(REMOTE_ENGINE_KEY, on ? 'on' : 'off');
 }
 
-// Whether the builder shows Game-Review move classifications — the per-move
-// colour + icon in the move list and the badge on the board. ON by default; the
-// Settings toggle hides them everywhere without discarding the stored grades, so
-// flipping it back shows them again instantly (no re-review needed).
-const SHOW_CLASSIFICATIONS_KEY = 'obertura.builder.showMoveClassifications';
-
-export function getShowMoveClassifications(): boolean {
-  return localStorage.getItem(SHOW_CLASSIFICATIONS_KEY) !== 'off';
-}
-
-export function setShowMoveClassifications(on: boolean): void {
-  localStorage.setItem(SHOW_CLASSIFICATIONS_KEY, on ? 'on' : 'off');
-}
+// The old "show move classifications" switch is gone — Game-Review grades (the
+// per-move colour in the move list and the badge on the board) always show now.
 
 // ── Statistics screen ────────────────────────────────────────────────────────
 //
