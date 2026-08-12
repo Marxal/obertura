@@ -7,7 +7,7 @@ import 'chessground/assets/chessground.base.css';
 import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
 import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, loadTree, removeLastMove, truncateAfterCurrent, setTreeMode, rootNode } from './tree';
-import { mainlineNodes } from './scheduler';
+import { mainlineNodes, DEFAULT_PRIORITY } from './scheduler';
 import type { Annotation, MoveNode } from './tree';
 import { saveLine, getAllLines, getAllGames, getGame, saveGames, deleteLine, deleteGame } from './storage';
 import type { ImportedGame } from './import-games';
@@ -47,7 +47,7 @@ import { userAvatar } from './avatar';
 import { Engine, setCloudAuthToken, retryCloudNow, type EvalResult, type CloudTopMove } from './engine';
 import { EvalPanel } from './eval-panel';
 import { createBuilderPanels, type BuilderPanels } from './builder-panels';
-import { renderLinePriority, renderLineStats, linePriority } from './line-info';
+import { renderLinePriority, renderLineStats, renderLineStatsEmpty, linePriority } from './line-info';
 import { createExplorePanel, type ExplorePanel } from './explore-panel';
 import { createEnginePanel, type EnginePanel } from './engine-panel';
 import { initTheme } from './theme';
@@ -487,11 +487,11 @@ function moveSpan(node: MoveNode, activeId: string): HTMLElement {
   return span;
 }
 
-// The move list is drawn twice: the persistent strip under the tab bar, which
-// is on screen whatever tab you're on, and the full list on the Line info tab.
-// The panels used to carry a copy each — that was the same list three times on
-// one screen, and it cost every list panel a footer's worth of height.
-const MOVE_LIST_MOUNTS = ['move-list-strip', 'move-list'];
+// The move list is drawn ONCE, into the persistent strip under the tab bar,
+// which is on screen whatever tab you're on. It used to be copied into the foot
+// of every list panel and again onto Line info — the same list four times on one
+// screen, each copy costing a panel a chunk of its height.
+const MOVE_LIST_MOUNTS = ['move-list-strip'];
 
 function renderMoveList() {
   for (const id of MOVE_LIST_MOUNTS) {
@@ -1084,10 +1084,20 @@ function onActiveSlide(index: number): void {
   activeSlide = index;
   const id = slideIdAt(index);
   if (id) builderPanels?.setActiveSlide(id);
+  explorePanel?.setActive(id === 'explore');
   enginePanel?.setActive(id === 'engine');
+
+  // The Engine tab owns the engine while it's showing: it switches it on, and
+  // the docked quick engine goes away underneath it. The dock is the same bar
+  // and the same three moves in miniature — two copies of one answer on one
+  // screen, one of them costing the board its pixels. Set the flag BEFORE
+  // enabling, so the dock never animates open just to be closed again.
+  quickEngineHidden = id === 'engine';
+  if (id === 'engine' && !engineOn) setEngineOn(true);
   // Keep the engine (and its docked eval bar) in sync with the persistent toggle
   // — it was stopped when we left the builder, so re-arm it on the way back in.
   if (evalPanel) evalPanel.setEnabled(engineOn);
+  syncEvalDock();
   // Repaint the board overlays for the new slide (the active move's grade badge,
   // plus the engine arrows when the engine is on).
   if (cg) refreshBoardShapes();
@@ -1272,6 +1282,17 @@ function layoutBuilderSheet(dockH?: number): void {
 // cleared by the time we close, so the open height is remembered for that case.
 let lastEvalOpenH = 0;
 let evalDockSettle: (() => void) | null = null;
+// True while the Engine tab is showing: the docked quick engine is suppressed
+// even though the engine itself is running.
+let quickEngineHidden = false;
+
+// Bring the docked eval bar into line with "is the engine on, and are we allowed
+// to show it here?" — the one call every path that could change either goes
+// through.
+function syncEvalDock(): void {
+  animateEvalDock(engineOn && !quickEngineHidden);
+}
+
 function animateEvalDock(open: boolean): void {
   const evalEl = document.getElementById('builder-eval');
   const dockEl = document.getElementById('builder-dock');
@@ -1324,11 +1345,7 @@ function animateEvalDock(open: boolean): void {
 function setSheetState(state: SheetState, animate = true): void {
   sheetState = state;
   const sheet = document.getElementById('builder-sheet');
-  const handle = document.getElementById('builder-panel-handle');
   if (!animate) sheet?.classList.add('builder-sheet--dragging');
-  handle?.classList.toggle('expanded', state === 'full');
-  handle?.setAttribute('aria-expanded', String(state === 'full'));
-  handle?.setAttribute('aria-label', state === 'full' ? 'Collapse panel' : 'Expand panel');
   layoutBuilderSheet();
   // Re-enable the height transition after this frame so the next snap animates.
   if (!animate) requestAnimationFrame(() => sheet?.classList.remove('builder-sheet--dragging'));
@@ -1342,38 +1359,14 @@ function snapSheet(metrics: { defaultH: number; fullH: number }): void {
   setSheetState(h >= mid ? 'full' : 'default');
 }
 
-// Wire the handle (drag/tap), an overscroll on the slide content, and a tap on
-// the peeking board to drop back to default.
-function setupBuilderPanelHandle(): void {
+// The sheet's gestures. There is no grabber to drag any more — it cost a row of
+// pixels at the top of the panel to say something the panel already does when
+// you swipe it, and those pixels come off the board. The sheet grows when you
+// run out of list and keep pulling, when you swipe up on the tab strip, and
+// collapses on a tap of the peeking board.
+function setupBuilderSheetGestures(): void {
   const sheet = document.getElementById('builder-sheet');
-  const handle = document.getElementById('builder-panel-handle');
-  if (!sheet || !handle) return;
-  const TAP_SLOP = 6; // movement under this counts as a tap, not a drag
-
-  // Handle drag / tap.
-  let dragging = false, startY = 0, startH = 0, moved = 0, m = sheetMetrics();
-  handle.addEventListener('pointerdown', e => {
-    if (isDesktopBoard()) return;
-    dragging = true; startY = e.clientY; moved = 0;
-    m = sheetMetrics(); startH = sheet.offsetHeight;
-    sheet.classList.add('builder-sheet--dragging');
-    handle.setPointerCapture(e.pointerId);
-  });
-  handle.addEventListener('pointermove', e => {
-    if (!dragging) return;
-    moved = startY - e.clientY; // up positive
-    applySheetHeight(Math.max(m.defaultH, Math.min(m.fullH, startH + moved)));
-  });
-  const endHandle = (e: PointerEvent) => {
-    if (!dragging) return;
-    dragging = false;
-    try { handle.releasePointerCapture(e.pointerId); } catch { /* already released */ }
-    sheet.classList.remove('builder-sheet--dragging');
-    if (Math.abs(moved) <= TAP_SLOP) setSheetState(sheetState === 'full' ? 'default' : 'full');
-    else snapSheet(m);
-  };
-  handle.addEventListener('pointerup', endHandle);
-  handle.addEventListener('pointercancel', endHandle);
+  if (!sheet) return;
 
   // Content scroll vs. sheet expand. The panel content scrolls independently —
   // a swipe just browses the list without moving the sheet. The sheet only grows
@@ -1856,7 +1849,16 @@ let builderGameUrl: string | undefined;
 // a subsequent Save updates the same line instead of creating a duplicate.
 let loadedLineId: string | null = null;
 let loadedLineCreatedAt: number | undefined;
-let loadedLineInTraining = false;
+// On a SAVED line this mirrors line.inTraining. On an unsaved one it's an
+// INTENT: the Line info toggle is on by default for a new line, and what it says
+// at save time decides whether the line goes straight into the enrolment path.
+// A new line is never written with inTraining already true — enrolment has to go
+// through addLineToTraining, which is where the free-tier cap and the confirm
+// run live.
+let loadedLineInTraining = true;
+// The priority the Line info control is showing. Working state, so it can be set
+// on a line that hasn't been saved yet; buildCurrentLine stamps it on the save.
+let workingPriority: LinePriority = DEFAULT_PRIORITY;
 
 // The currently loaded/saved line — used to preserve training data (confidence,
 // schedule, inTraining) when re-saving an existing line.
@@ -2040,11 +2042,12 @@ function updateSaveButtonLabel(): void {
   }
 
   // Training toggle sits next to Delete: builder mode only (a game has no
-  // inTraining concept) and only for a line that's been saved at least once —
-  // there's nothing to schedule before that.
+  // inTraining concept), but shown from the very first move rather than only
+  // once the line is saved — deciding how a line will be trained is part of
+  // building it, not an afterthought a modal asks about later.
   const trainingToggle = document.getElementById('line-training-toggle');
   if (trainingToggle) {
-    trainingToggle.hidden = !(builderMode === 'builder' && !!loadedLineId);
+    trainingToggle.hidden = builderMode !== 'builder';
     applyLineTrainingToggleState();
   }
 
@@ -2052,47 +2055,51 @@ function updateSaveButtonLabel(): void {
 }
 
 // The Line info tab's two extra blocks — training priority, and how the line has
-// actually been going. Both need a SAVED line: a priority on a line that isn't
-// in the scheduler yet schedules nothing, and statistics about a line that has
-// never been trained or played are four zeros pretending to be information.
+// actually been going. Both are shown from the first move: setting up how a line
+// will be trained belongs with building it, not with a modal afterwards. On an
+// unsaved line the stats block shows what it will hold rather than four zeros
+// pretending to be measurements.
 function refreshLineInfoBlocks(): void {
   const prioEl = document.getElementById('line-priority');
   const statsEl = document.getElementById('line-stats');
-  const line = builderMode === 'builder' && loadedLineId ? currentTrainingLine : null;
+  const building = builderMode === 'builder';
+  const line = building && loadedLineId ? currentTrainingLine : null;
 
   if (prioEl) {
-    prioEl.hidden = !line;
-    if (line) {
+    prioEl.hidden = !building;
+    if (building) {
       renderLinePriority(prioEl, {
-        priority: linePriority(line),
+        priority: workingPriority,
         onChange: (p) => { void setLinePriority(p); },
       });
     }
   }
 
-  if (statsEl) {
-    statsEl.hidden = !line;
-    if (line) {
-      const target = line;
-      // The games are read lazily and only for this panel — the stats block is
-      // the only thing in the builder that needs the whole imported set.
-      void getAllGames().then(games => {
-        // The user may have moved on to another line while the read was in
-        // flight; only paint if this is still the line on screen.
-        if (currentTrainingLine?.id !== target.id) return;
-        renderLineStats(statsEl, {
-          line: target,
-          games,
-          onGoToMove: (m) => goToMoveByUci(m.uci),
-        });
-      }).catch(() => { /* no games: the block simply reports zero faced */ });
-    }
-  }
+  if (!statsEl) return;
+  statsEl.hidden = !building;
+  if (!building) return;
+  if (!line) { renderLineStatsEmpty(statsEl); return; }
+
+  const target = line;
+  // The games are read lazily and only for this panel — the stats block is the
+  // only thing in the builder that needs the whole imported set.
+  void getAllGames().then(games => {
+    // The user may have moved on to another line while the read was in flight;
+    // only paint if this is still the line on screen.
+    if (currentTrainingLine?.id !== target.id) return;
+    renderLineStats(statsEl, {
+      line: target,
+      games,
+      onGoToMove: (m) => goToMoveByUci(m.uci),
+    });
+  }).catch(() => { /* no games: the block simply reports zero faced */ });
 }
 
-// Persist a priority change straight away — like the training toggle beside it,
-// there's no reason to make the user hit Save for a scheduling preference.
+// Set the priority. On a saved line it's persisted straight away — like the
+// training toggle beside it, there's no reason to make the user hit Save for a
+// scheduling preference. On an unsaved one it's held until the save stamps it.
 async function setLinePriority(priority: LinePriority): Promise<void> {
+  workingPriority = priority;
   if (!currentTrainingLine || !loadedLineId) return;
   const line = { ...currentTrainingLine, priority };
   await saveLine(line);
@@ -2111,14 +2118,18 @@ function goToMoveByUci(uci: string): void {
 }
 
 // Reflect loadedLineInTraining onto the switch's visual state (on/off colour,
-// knob position, label text).
+// knob position, label text). On an unsaved line the switch states an INTENT
+// rather than a fact, and says so — "Training ON" on a line that isn't in
+// training yet would be a small lie.
 function applyLineTrainingToggleState(): void {
   const btn = document.getElementById('line-training-toggle');
   if (!btn) return;
   btn.classList.toggle('dline-toggle--on', loadedLineInTraining);
   btn.setAttribute('aria-checked', String(loadedLineInTraining));
   const lbl = btn.querySelector('.dline-toggle-label');
-  if (lbl) lbl.textContent = `Training ${loadedLineInTraining ? 'ON' : 'OFF'}`;
+  if (!lbl) return;
+  if (loadedLineId) lbl.textContent = `Training ${loadedLineInTraining ? 'ON' : 'OFF'}`;
+  else lbl.textContent = loadedLineInTraining ? 'Train after saving' : 'Just save it';
 }
 
 // Flip inTraining on the loaded, saved line immediately — no need to hit
@@ -2126,7 +2137,14 @@ function applyLineTrainingToggleState(): void {
 // (lines-screen.ts); only reachable when a saved line is loaded (see the
 // visibility guard in updateSaveButtonLabel above).
 async function toggleLineTraining(): Promise<void> {
-  if (!currentTrainingLine || !loadedLineId) return;
+  // Not saved yet: the switch is an intent, so flipping it writes nothing and
+  // costs no training slot. The cap is checked when the line is actually
+  // enrolled, at the end of the save.
+  if (!currentTrainingLine || !loadedLineId) {
+    loadedLineInTraining = !loadedLineInTraining;
+    applyLineTrainingToggleState();
+    return;
+  }
   const next = !loadedLineInTraining;
   // Switching ON meets the free-tier cap; switching off never does, and frees
   // the slot straight away.
@@ -2225,7 +2243,10 @@ function clearBuilder(colour: 'white' | 'black' = 'white'): void {
   chess.reset();
   loadedLineId = null;
   loadedLineCreatedAt = undefined;
-  loadedLineInTraining = false;
+  // A line you sat down to build is a line you mean to learn, so the toggle
+  // starts on and the priority control is live before the first save.
+  loadedLineInTraining = true;
+  workingPriority = DEFAULT_PRIORITY;
   currentTrainingLine = null;
   lastSavedLinePath = null;
   currentTags = [];
@@ -3365,6 +3386,7 @@ function onOpenLine(line: Line, atFen?: string): void {
   loadedLineId = line.id;
   loadedLineCreatedAt = line.createdAt;
   loadedLineInTraining = line.inTraining;
+  workingPriority = linePriority(line);
 
   // Keep the loaded line so a re-save preserves its training data.
   currentTrainingLine = line;
@@ -3789,7 +3811,9 @@ function buildCurrentLine(): Line {
     // rebuilding the line from the board must not reset how often it comes
     // round, or how many times it has been drilled.
     timesTrained: isNew ? undefined : currentTrainingLine?.timesTrained,
-    priority: isNew ? undefined : currentTrainingLine?.priority,
+    // The Line info control is live before the first save, so its value is the
+    // source of truth for both a new line and an edited one.
+    priority: workingPriority,
   };
 }
 
@@ -3813,6 +3837,7 @@ async function persistCurrentLine(): Promise<{ line: Line; isNew: boolean } | nu
   loadedLineId = line.id;
   loadedLineCreatedAt = line.createdAt;
   loadedLineInTraining = line.inTraining;
+  workingPriority = linePriority(line);
   currentTrainingLine = line;
   // A line that has just been saved for the first time gains the controls that
   // only make sense on a saved line — the training toggle, the priority, the
@@ -3909,37 +3934,6 @@ function goToSavedLine(id: string): void {
   showView('lines');
 }
 
-// After saving, offer to add the line to training. The primary action depends on
-// the "Confirm run before training" pref: a confirm run when ON, an instant
-// enrol when OFF. [Just save it] drops the user on My Lines without enrolling.
-// A line that's already in training skips the prompt entirely.
-function promptAddToTraining(line: Line): void {
-  const confirmRun = getConfirmRunBeforeTraining();
-  showDialog({
-    title: 'Start training this line?',
-    body: confirmRun
-      ? 'Play it once to confirm the line, then it joins your training.'
-      : 'Add this line straight into your training rotation.',
-    // Save-only on the left, the primary action on the right (the expected spot).
-    buttons: [
-      {
-        label: 'Just save it',
-        variant: 'secondary',
-        onClick: () => goToSavedLine(line.id),
-      },
-      {
-        label: confirmRun ? 'Play it once first' : 'Add to training',
-        variant: 'primary',
-        onClick: () => addLineToTraining(
-          line,
-          () => goToSavedLine(line.id),
-          () => goToSavedLine(line.id),
-        ),
-      },
-    ],
-    onDismiss: () => goToSavedLine(line.id),
-  });
-}
 
 // True when the line's last mainline move was the OPPONENT's, not mine. We drill
 // the user's moves, so a line ideally finishes on one of theirs — see the save
@@ -4051,13 +4045,17 @@ function afterEndNudge(): void {
 function detachAsNewLine(): void {
   loadedLineId = null;
   loadedLineCreatedAt = undefined;
-  loadedLineInTraining = false;
+  // A branched-off line is a new line: same default intent as any other.
+  loadedLineInTraining = true;
   currentTrainingLine = null;
 }
 
 // Persist + confirm + offer training. Split out so the save nudge can route here
 // after the user picks trim / keep.
 async function finishSave(): Promise<void> {
+  // The Line info toggle's answer, read BEFORE the save — persisting a new line
+  // resets the flag to the stored (false) value, and it's the intent we want.
+  const wantsTraining = loadedLineInTraining;
   const result = await persistCurrentLine();
   if (!result) return;
   const { line, isNew } = result;
@@ -4070,12 +4068,20 @@ async function finishSave(): Promise<void> {
   // The guided first line goes STRAIGHT into the confirm run. No "start training
   // this line?" dialog: they were told to save it two beats ago, and a modal
   // asking whether they meant it is exactly the friction this first run exists
-  // to remove. Everything else still gets the prompt.
+  // to remove.
   if (guidedActive) {
     finishGuidedSave(line);
     return;
   }
-  promptAddToTraining(line);
+  // Everyone else answered the question on the panel while they were building.
+  // Off means off; on goes straight into the enrolment path, which is where the
+  // free-tier cap and the confirm run live. The old "Start training this line?"
+  // dialog asked something that had already been decided.
+  if (!wantsTraining) {
+    goToSavedLine(line.id);
+    return;
+  }
+  addLineToTraining(line, () => goToSavedLine(line.id), () => goToSavedLine(line.id));
 }
 
 // Save → "here's what the trainer does" → confirm run → "it's in training" →
@@ -4421,7 +4427,8 @@ maybeShowGate(() => requestAnimationFrame(() => {
       // Slide the docked eval bar (it sits above the bottom bar) open or closed by
       // animating its height, keeping the sheet above it in step — so nothing
       // jumps when it appears; it just slides up, and slides back down when off.
-      animateEvalDock(enabled);
+      // It stays shut on the Engine tab, which shows the same thing full size.
+      animateEvalDock(enabled && !quickEngineHidden);
     },
     (uci) => playUci(uci),
     {
@@ -4442,10 +4449,7 @@ maybeShowGate(() => requestAnimationFrame(() => {
     el: document.getElementById('slide-engine')!,
     getFen: () => chess.fen(),
     isOn: () => engineOn,
-    setOn: (on) => setEngineOn(on),
     onPlayLine: (ucis) => { for (const u of ucis) playUci(u); },
-    getDepth: () => engine.depth,
-    setDepth: (d) => { engine.setDepth(d); enginePanel?.render(); },
     onRetryCloud: () => { retryCloudNow(); void engine.evaluate(chess.fen()); },
   });
 
@@ -4520,7 +4524,7 @@ maybeShowGate(() => requestAnimationFrame(() => {
   setupMoveNav();
   setupAnalyseGameButton();
   setupBuilderCarousel();
-  setupBuilderPanelHandle();
+  setupBuilderSheetGestures();
 
   // Mount the global FAB before the first showView, so its initial visibility is
   // set correctly when we land on Train.

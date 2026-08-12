@@ -102,6 +102,36 @@ export function renderLinePriority(host: HTMLElement, opts: LinePriorityOpts): v
   reflect(opts.priority);
 }
 
+// The same block on a line that hasn't been saved yet: the four boxes with
+// dashes in them, and a sentence saying what will fill them. Showing the shape
+// of the answer beats hiding the block until it exists — the panel doesn't
+// rearrange itself the moment you hit Save, and the figures explain themselves
+// before there are any.
+export function renderLineStatsEmpty(host: HTMLElement): void {
+  host.replaceChildren();
+
+  const head = document.createElement('div');
+  head.className = 'lineinfo-head';
+  head.appendChild(spanEl('lineinfo-head-title', 'How this line is going'));
+  head.appendChild(spanEl('lineinfo-head-meta', 'Not saved yet'));
+  host.appendChild(head);
+
+  const row = document.createElement('div');
+  row.className = 'stats-quick-row lineinfo-quick lineinfo-quick--empty';
+  row.appendChild(statBox('faced', Icons.grid2x2(18), '—', 'Faced in games'));
+  row.appendChild(statBox('recall', Icons.brain(18), '—', 'Recalled'));
+  row.appendChild(statBox('runs', Icons.reset(18), '—', 'Full runs'));
+  row.appendChild(statBox('reviews', Icons.zap(18), '—', 'Reviews'));
+  host.appendChild(row);
+
+  const note = document.createElement('p');
+  note.className = 'lineinfo-note';
+  note.textContent = 'Save the line and these fill in as you train it: how often '
+    + 'it turns up in your imported games, how much of it you remember, and which '
+    + 'move keeps breaking.';
+  host.appendChild(note);
+}
+
 export interface LineStatsOpts {
   line: Line;
   games: ImportedGame[];
