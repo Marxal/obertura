@@ -38,7 +38,12 @@ export function startPretrainingRun(
   // has never seen a review land and "added to training" doesn't yet mean
   // anything to them. It also introduces itself: `beforeWatch` holds the moves
   // on a mounted board while a card explains what the next twenty seconds are.
-  opts: { completeMessage?: string; beforeWatch?: (start: () => void) => void } = {},
+  opts: {
+    completeMessage?: string;
+    beforeWatch?: (start: () => void, skip: () => void) => void;
+    // The guided first line names its first move and draws it — see DrillOptions.
+    firstMoveHint?: string;
+  } = {},
 ): void {
   // Deep-clone so lapse edits don't mutate the caller's copy in memory.
   const lineCopy: Line = { ...line, tree: structuredClone(line.tree) };
@@ -61,6 +66,7 @@ export function startPretrainingRun(
     // Watch the line through once first, at the user's chosen watch speed.
     watchFirstMs: watchSpeedMs(),
     beforeWatch: opts.beforeWatch,
+    firstMoveHint: opts.firstMoveHint,
     // A wrong move draws the correct-move arrow and requires the replay — the
     // same hint mechanism training uses.
     wrongMoveMode: 'full',

@@ -12,6 +12,17 @@
 // which walks the user through the builder and opens it (see main.ts's guided
 // flow).
 //
+// IT ARRIVES IN TWO STEPS. Colour and depth first, and only once a depth has
+// been chosen do the four styles appear underneath. The whole form at once was
+// three fields and a button on a phone screen — a small questionnaire, which is
+// exactly what this screen was built to stop being. Two of the three fields fit
+// above the fold, the third arrives when it's earned, and the screen is never
+// taller than the decision in front of you.
+//
+// Colour has a default (White, because most people play a first line as White)
+// and depth deliberately does NOT: it's the choice that decides how long the
+// line is, and a pre-picked answer to it gets accepted without being read.
+//
 // NO BOARDS. The four choices used to be cards with a miniature board on each,
 // showing the position the line ends on. It was the prettiest thing in the app
 // and it was the wrong thing: four boards at thumbnail size are four grids of
@@ -19,13 +30,13 @@
 // off a short screen, and they made a three-second decision look like homework.
 // A style is a WORD — "solid", "sharp" — so the choice is now a word, an icon
 // and the opening's name, in a 2×2 grid. The board arrives one tap later, full
-// size, playing itself in.
+// size, with the walkthrough on it.
 //
-// IT'S A FORM, ALL THE WAY DOWN. The style tiles SELECT; a single "Start
-// building the …" button at the bottom commits, and stays disabled until
-// something is chosen. Tapping a tile used to launch the builder on the spot,
-// which made the last field behave unlike the two above it — colour and depth
-// were changeable, style was a trapdoor.
+// AND THE STYLE COMMITS. There was a "Start building the …" button under the
+// tiles for a while, on the theory that a form's last field should behave like
+// its first two. It cost every user an extra tap to confirm a choice they'd
+// already made, on a screen whose whole point is speed — and the choice is
+// undoable anyway: Back on the walkthrough's first bubble comes right back here.
 //
 // The two ways out — import your games, or start from an empty board — sit
 // under a labelled "or start from" rule, so they read as alternatives rather
@@ -42,7 +53,6 @@ import {
   type OnboardingStyle,
 } from './onboarding-lines';
 import { Icons } from './icons';
-import { segmented } from './settings-screen';
 import { getAllLines } from './storage';
 import { isOnboardingComplete } from './prefs';
 import { pushBack } from './back-nav';
@@ -62,15 +72,14 @@ const STYLE_ICONS: Record<OnboardingStyle, (size?: number) => SVGElement> = {
 };
 
 export interface PickerDeps {
-  // "Start building this line": open the selected cut in the builder, guided.
-  // The picker has already closed itself by the time this runs — the builder
-  // replaces it.
+  // A style was tapped: open that cut in the builder, guided. The picker has
+  // already closed itself by the time this runs — the builder replaces it.
   onPick: (cut: LineCut) => void;
   // "Import my games". Handed a callback that closes the picker, so it stays up
   // behind the import sheet and only goes away if the import actually happens —
   // a cancelled import comes back here.
   onImport: (close: () => void) => void;
-  // "Build my own line" — an empty board of the chosen colour. Closes the picker
+  // "Build my own" — an empty board of the chosen colour. Closes the picker
   // itself, like a style pick does.
   onBuildOwn: (colour: OnboardingColour) => void;
   // "Sign in", top right. Absent in a build with no accounts (the internal
@@ -104,7 +113,8 @@ export async function shouldShowFirstRun(): Promise<boolean> {
 
 export function showOnboardingPicker(deps: PickerDeps): void {
   let colour: OnboardingColour = 'white';
-  let level: OnboardingLevel = 'intermediate';
+  // No default: picking a depth is what opens the second half of the screen.
+  let level: OnboardingLevel | null = null;
 
   const overlay = document.createElement('div');
   overlay.className = 'picker-overlay';
@@ -159,16 +169,11 @@ export function showOnboardingPicker(deps: PickerDeps): void {
   lead.textContent = 'Let’s build your first line.';
   overlay.appendChild(lead);
 
-  // ── One card, three fields, one button ──
-  // Colour, depth, style and the commit button used to be four things floating
-  // on the page at four different weights, which made the last field and the
-  // button read as unrelated to the two above them. They're one form, so they
-  // sit on one surface, with the button as its last row.
+  // ── One card, two fields, then four tiles ──
   const card = document.createElement('div');
   card.className = 'picker-card';
   overlay.appendChild(card);
 
-  // ── The form: colour, then depth ──
   const form = document.createElement('div');
   form.className = 'picker-form';
 
@@ -177,77 +182,69 @@ export function showOnboardingPicker(deps: PickerDeps): void {
     swapStyles();
   })));
 
-  form.appendChild(field('How much to learn', segmented<OnboardingLevel>(
-    LEVELS.map(l => ({
-      value: l.value,
-      label: l.label,
-      sublabel: `${l.moves} moves`,
-    })),
-    level,
-    (v) => { level = v; swapStyles(); },
-    { fullWidth: true },
-  )));
+  // Depth wears the same clothes as colour — two rows of the same big, tappable
+  // choice — rather than the app's segmented control. They're the same KIND of
+  // question, asked one after the other, and a form that changes control style
+  // between two adjacent rows reads as two unrelated settings.
+  form.appendChild(field('How much to learn', levelChooser((v) => {
+    const first = level === null;
+    level = v;
+    revealStyles(first);
+  })));
 
   card.appendChild(form);
 
   // ── The four styles, on a stage so one layer can cross-fade over another ──
-  // They SELECT rather than commit. Tapping a tile used to launch the builder
-  // immediately, which makes the last field of a form behave unlike the two
-  // above it: you can change your mind about colour and depth, but not about the
-  // style — the one choice you'd most want to compare before committing. Now all
-  // three settle, and one button at the bottom does the committing.
+  // Hidden until a depth is chosen, then they arrive — the second half of the
+  // screen, and the last thing asked.
+  const stylesBlock = document.createElement('div');
+  stylesBlock.className = 'picker-styles-block';
+  stylesBlock.hidden = true;
+
   const stylesLabel = document.createElement('div');
   stylesLabel.className = 'picker-field-label picker-styles-label';
   stylesLabel.textContent = 'Pick a style';
-  card.appendChild(stylesLabel);
+  stylesBlock.appendChild(stylesLabel);
 
   const stage = document.createElement('div');
   stage.className = 'picker-stage';
-  card.appendChild(stage);
+  stylesBlock.appendChild(stage);
+  card.appendChild(stylesBlock);
 
-  let selected: OnboardingStyle | null = null;
+  let currentLayer: HTMLElement | null = null;
 
+  // A style tap IS the commit — no confirming button under it.
   const select = (style: OnboardingStyle): void => {
-    selected = style;
-    reflectSelection();
+    const cut = cutFor2(colour, level, style);
+    if (!cut) return;
+    close();
+    deps.onPick(cut);
   };
 
-  function reflectSelection(): void {
-    for (const tile of overlay.querySelectorAll<HTMLElement>('.picker-style')) {
-      const on = tile.dataset.style === selected;
-      tile.classList.toggle('picker-style--on', on);
-      tile.setAttribute('aria-pressed', String(on));
-    }
-    start.disabled = selected === null;
-    // Name the choice on the button once there is one, so the CTA confirms what
-    // it's about to do rather than repeating a generic instruction.
-    const cut = selectedCut();
-    start.textContent = cut ? `Start building the ${cut.line.name}` : 'Start building this line';
+  // First depth pick: grow the tiles in. Later ones just swap the four openings
+  // under the same four words.
+  function revealStyles(first: boolean): void {
+    if (!first) { swapStyles(); return; }
+    stylesBlock.hidden = false;
+    currentLayer = buildStyleLayer(colour, level!, select);
+    stage.appendChild(currentLayer);
+    if (prefersReducedMotion()) return;
+    stylesBlock.classList.add('picker-styles-block--in');
+    // The card just got taller than the screen on a short phone — bring the new
+    // half into view rather than leaving it below the fold.
+    setTimeout(() => stylesBlock.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 60);
   }
-
-  // The cut the CTA would open: the selected style, at the current colour and
-  // depth. Null while nothing is selected.
-  function selectedCut(): LineCut | null {
-    if (!selected) return null;
-    const line = linesFor(colour).find(l => l.style === selected);
-    return line ? cutFor(line, level) : null;
-  }
-
-  let currentLayer = buildStyleLayer(colour, level, select);
-  stage.appendChild(currentLayer);
 
   // Replace the four tiles with a crossfade: the outgoing layer is lifted out of
   // flow and faded out while the incoming one (which keeps the stage's height)
-  // fades in underneath it. Reduced motion swaps outright. The SELECTION rides
-  // through a swap — the style is still whatever they picked, it's just a
-  // different opening now, and the button's label says so.
+  // fades in underneath it. Reduced motion swaps outright.
   function swapStyles(): void {
+    if (!currentLayer || level === null) return;
     const next = buildStyleLayer(colour, level, select);
 
     if (prefersReducedMotion()) {
       currentLayer.replaceWith(next);
       currentLayer = next;
-      reflectSelection();
       return;
     }
 
@@ -264,20 +261,7 @@ export function showOnboardingPicker(deps: PickerDeps): void {
     });
 
     setTimeout(() => outgoing.remove(), CROSSFADE_MS + 40);
-    reflectSelection();
   }
-
-  // ── Commit ──
-  const start = document.createElement('button');
-  start.type = 'button';
-  start.className = 'btn-primary picker-start';
-  start.addEventListener('click', () => {
-    const cut = selectedCut();
-    if (!cut) return;
-    close();
-    deps.onPick(cut);
-  });
-  card.appendChild(start);
 
   // ── The two ways out ──
   // Introduced, not just present: a labelled rule turns them from two mystery
@@ -293,16 +277,26 @@ export function showOnboardingPicker(deps: PickerDeps): void {
 
   const foot = document.createElement('div');
   foot.className = 'picker-foot';
-  foot.appendChild(footButton('My own games', Icons.download(17), () => deps.onImport(close)));
-  foot.appendChild(footButton('An empty board', Icons.plus(17), () => {
+  foot.appendChild(footButton('Import my games', Icons.download(17), () => deps.onImport(close)));
+  foot.appendChild(footButton('Build my own', Icons.plus(17), () => {
     close();
     deps.onBuildOwn(colour);
   }));
   overlay.appendChild(foot);
 
-  reflectSelection();
   document.body.appendChild(overlay);
   deps.onShown?.();
+}
+
+// The cut a tap means: this style, at the chosen colour and depth.
+function cutFor2(
+  colour: OnboardingColour,
+  level: OnboardingLevel | null,
+  style: OnboardingStyle,
+): LineCut | null {
+  if (!level) return null;
+  const line = linesFor(colour).find(l => l.style === style);
+  return line ? cutFor(line, level) : null;
 }
 
 // The real installed app icon (public/icons/icon-192.png) — the same art Android
@@ -380,6 +374,51 @@ function colourChooser(
   return wrap;
 }
 
+// ── Depth ────────────────────────────────────────────────────────────────────
+// The same button as colour, with the move count in the token's place: "5" over
+// "moves" says what "Club player" costs you, which is the part of the choice
+// that's actually being made.
+
+function levelChooser(onChange: (v: OnboardingLevel) => void): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'picker-colours picker-levels';
+  wrap.setAttribute('role', 'group');
+  wrap.setAttribute('aria-label', 'How much to learn');
+
+  const buttons: HTMLButtonElement[] = [];
+  for (const l of LEVELS) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'picker-colour picker-level';
+    btn.dataset.value = l.value;
+    btn.setAttribute('aria-pressed', 'false');
+
+    const token = document.createElement('span');
+    token.className = 'picker-colour-token picker-level-token';
+    token.setAttribute('aria-hidden', 'true');
+    token.textContent = String(l.moves);
+    btn.appendChild(token);
+
+    const label = document.createElement('span');
+    label.className = 'picker-colour-label';
+    label.textContent = l.label;
+    btn.appendChild(label);
+
+    btn.setAttribute('aria-label', `${l.label}, ${l.moves} moves`);
+    btn.addEventListener('click', () => {
+      for (const b of buttons) {
+        const on = b === btn;
+        b.classList.toggle('picker-colour--on', on);
+        b.setAttribute('aria-pressed', String(on));
+      }
+      onChange(l.value);
+    });
+    buttons.push(btn);
+    wrap.appendChild(btn);
+  }
+  return wrap;
+}
+
 // ── One layer of four style buttons ──────────────────────────────────────────
 
 function buildStyleLayer(
@@ -401,9 +440,6 @@ function styleTile(cut: LineCut, onSelect: (style: OnboardingStyle) => void): HT
   btn.type = 'button';
   btn.className = `picker-style picker-style--${cut.line.style}`;
   btn.dataset.style = cut.line.style;
-  // A selector, so it announces as one: pressed/not, rather than a link that
-  // navigates.
-  btn.setAttribute('aria-pressed', 'false');
 
   const icon = document.createElement('span');
   icon.className = 'picker-style-icon';

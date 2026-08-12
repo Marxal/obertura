@@ -43,8 +43,14 @@ export interface DrillOptions {
   // start position, INSTEAD of playing the line in — the drill then waits until
   // the callback's `start` is invoked. For introducing the run over a live board
   // ("watch it, then play it") rather than over the screen the user just left.
+  // `skip` tears the drill down and runs onCancel, for an introduction that
+  // offers a way past the run entirely.
   // Never called when there's no watch pass to hold.
-  beforeWatch?: (start: () => void) => void;
+  beforeWatch?: (start: () => void, skip: () => void) => void;
+  // Line mode. Shown as the status line on the FIRST move of the run, with the
+  // move drawn on the board as an arrow. For the guided first line, where there
+  // is nothing to remember yet and the point is to show what "your move" means.
+  firstMoveHint?: string;
   // Fire a brief confetti burst when the run is completed.
   celebrateOnComplete?: boolean;
   // If provided (full mode only), the engine checks whether a wrong move is
@@ -1236,6 +1242,18 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     // mode) or starts clean.
     cg.set(task.continuous ? base : { ...base, lastMove: task.lastMove ?? undefined });
     promptYourMove();
+    maybeHintFirstMove(idx, task);
+  }
+
+  // The guided first line's opening prompt: name the move that's wanted and draw
+  // it. Only ever the first task of the run, and only when the caller asked for
+  // it — everywhere else the arrow is something you earn by getting it wrong.
+  function maybeHintFirstMove(idx: number, task: Task): void {
+    if (idx !== 0 || !opts.firstMoveHint) return;
+    setStatus(opts.firstMoveHint, 'pt-status--prompt');
+    const orig = task.expected.uci.slice(0, 2) as Key;
+    const dest = task.expected.uci.slice(2, 4) as Key;
+    cg.setAutoShapes([{ orig, dest, brush: 'accent' }]);
   }
 
   async function completeRun(): Promise<void> {
@@ -1312,7 +1330,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     // so a caller that wants to say something first (the guided first run's
     // "watch it, then play it" card) can hold the moves without the user
     // staring at an empty screen while it does.
-    if (opts.beforeWatch) opts.beforeWatch(playIn);
+    if (opts.beforeWatch) opts.beforeWatch(playIn, doExit);
     else playIn();
   } else {
     beginRun();
