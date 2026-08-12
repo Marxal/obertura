@@ -113,16 +113,19 @@ Less wondering what to study. More time actually studying.
 
 **H2:** One price. Once.
 
-**Free — 0 kr.** Build as many lines as you want, train ten of them at a time, and use everything else: puzzles, game import, analysis, endgames, statistics. · *Start free*
+**Free — €0.** Build as many lines as you want, train ten of them at a time, and use everything else: puzzles, game import, analysis, endgames, statistics. · *Start free*
 
-**Full access — 89 kr once.** Train your whole repertoire, no cap. No subscription, no renewal, no ads — you pay once and that's the end of it. · *Buy full access*
+**Full access — €9 once.** Train your whole repertoire, no cap. No subscription, no renewal, no ads — you pay once and that's the end of it. · *Buy full access*
 
 **Under the buy button:** Secure checkout. You'll sign in first so the unlock
 lands on your account. *(Signed in: "…the unlock lands on the account you're
 signed in to.")*
 
-> 89 kr is also the price quoted inside the app (`src/entitlement.ts`). Change
-> both together.
+> €9 lives in three places that can't import from one another: this page
+> (`docs/index.html`), the app's `PRO_PRICE` (`src/entitlement.ts`), and the
+> Lemon Squeezy product. Change all three together — and note the store is the
+> one that actually charges, so if they disagree it is right and the others are
+> the bug.
 
 ---
 

@@ -1456,6 +1456,64 @@ _On `claude/bitrochess-landing-redesign-xcm0on`. Restore point: `v0.4`._
 
 ---
 
+## v0.24 — the buy flow actually sells 🔜
+
+The round that connected the price to the payment. Everything below it already
+existed — the cap, the webhook, the database column, the landing page's tier
+card — and none of it was reachable, because both "Unlock full access" buttons
+were dead ends.
+
+- ✅ **The app's buy button works.** `src/checkout.ts` is the whole flow: it
+  opens the Lemon Squeezy checkout as an **overlay** via their lemon.js rather
+  than navigating away, because sending an installed PWA to another origin
+  hands the user to a Custom Tab and the way back lands somewhere unpredictable.
+  If the script doesn't load, the same URL opens as an ordinary redirect —
+  somebody trying to pay is never told to come back later.
+
+- ✅ **An account is required, and asked for at the right moment.** The webhook
+  matches a payment to a Supabase user id, so a guest cannot be credited. The
+  sign-up sheet now takes a `lead` and an `onSignedIn`, so the buy flow explains
+  *why* it's asking ("your unlock is tied to your account") and continues
+  straight to the checkout once the account exists, instead of dropping the user
+  on the Train screen with their intent thrown away.
+
+- ✅ **The landing page keeps the intent too.** Signed out, "Buy full access"
+  now goes to `/app/?auth=signup&buy=1`, and the app finishes the job. Signed
+  in, it goes straight to the checkout carrying `checkout[custom][user_id]`.
+
+- ✅ **Four ways to notice the unlock landed.** Access is granted by a webhook
+  the phone never sees, and it arrives a second or two *after* the payment, so
+  reading the flag once lands inside that gap about half the time and tells a
+  paying customer they haven't paid. The app polls on a backoff instead, started
+  by whichever of these fires first: lemon.js's success event, the app regaining
+  focus, `?purchased=1` on the URL, or **Settings → "Already paid? Check
+  again"** — the manual backstop, which always answers.
+
+- ✅ **The cap furniture repaints when the flag flips.** The Train hub counter,
+  the coaching-cap notices and the Go-pro CTA are drawn at render time, so an
+  entitlement change now repaints the current view. Without it the first thing a
+  new customer saw was still a price tag. (The builder is exempt — it holds
+  unsaved work in the DOM.)
+
+- ✅ **The price is €9, everywhere.** Was 89 kr in the app and on the landing
+  page, and a stale €10 in the webhook's comments. Lemon Squeezy has one
+  currency per store and does not localise it, so the store is the single source
+  of truth and the other copies are kept in step by hand.
+
+- 🐛 **The webhook was never going to fire.** It reads `SUPABASE_URL`; the
+  Cloudflare project only had `VITE_SUPABASE_URL`. Every delivery would have
+  answered `500 not configured` while the dashboard looked correct. It now falls
+  back to the `VITE_` name — same string, same project.
+
+- 🐛 **Settings' Go-pro CTA rendered as a 73px stub** against a 384px column.
+  `width: auto` on a `<button>` resolves to fit-content whatever its `display`,
+  so the `display: flex` trick it relied on never worked. Predates this round;
+  fixed here because the round put a second control next to it.
+
+_On `claude/go-pro-setup-payment-6lnmaa`. Restore point: `v0.4`._
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

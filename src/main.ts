@@ -16,7 +16,13 @@ import type { Line, LinePriority } from './types';
 import { renderLinesScreen, focusSavedLine } from './lines-screen';
 import { renderProgressScreen } from './progress-screen';
 import { startPretrainingRun, enrolLineDirectly } from './pretraining';
-import { initEntitlement, requestTrainingSlot, showGoProDialog } from './entitlement';
+import {
+  initEntitlement,
+  requestTrainingSlot,
+  showGoProDialog,
+  ENTITLEMENT_CHANGE_EVENT,
+} from './entitlement';
+import { handlePurchaseReturn } from './checkout';
 import { renderTrainScreen, startLineSession, startPositionsSession, startMoveFix } from './train-screen';
 import { renderExploreScreen } from './explore-screen';
 import { renderPuzzlesScreen, startDailyPuzzles } from './puzzles-screen';
@@ -4568,6 +4574,26 @@ maybeShowGate(() => requestAnimationFrame(() => {
   // A "Sign up" link from the marketing site (?auth=signup) opens the sheet
   // directly, whatever else is going on.
   handleAuthUrlParam();
+
+  // Coming back from a checkout (?purchased=1). The payment is already done by
+  // now, but the webhook that grants access may not have landed yet, so this
+  // starts a short poll rather than reading the flag once. Silent unless it
+  // finds something — a URL someone typed by hand shows nothing at all.
+  handlePurchaseReturn();
+
+  // The cap is drawn into screens at render time (the Train hub's "9 of 10"
+  // counter, the coaching-cap notices, the Go-pro CTA in Settings), so a flag
+  // that flips while a screen is already up leaves stale furniture behind —
+  // most visibly, a price tag in front of somebody who has just paid. Repaint
+  // the current view when the answer actually changes. The event only fires on
+  // a real change, so this is not a render loop.
+  window.addEventListener(ENTITLEMENT_CHANGE_EVENT, () => {
+    // The builder holds unsaved work in the DOM; re-rendering it under the user
+    // would be a far worse bug than a stale counter on a screen they aren't
+    // looking at. It shows no cap furniture anyway.
+    if (currentView === 'builder') return;
+    showView(currentView);
+  });
 
   // FIRST VISIT: the picker. One screen — colour, depth, style — and then the
   // guided first line. No beta code, no carousel, no setup wizard, no account:

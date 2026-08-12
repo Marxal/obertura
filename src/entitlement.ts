@@ -45,6 +45,20 @@ import { showToast } from './toast';
 // How many lines a free account may have in training at once.
 export const FREE_TRAINING_LINES = 10;
 
+// What the unlock costs, written once. The landing page (docs/index.html and
+// docs/LANDING-COPY.md) cannot import this — it is a standalone static page —
+// so those two are kept in step by eye, and the comment at the top of the
+// page's script says so. The Lemon Squeezy product's own price is the third
+// copy, and the only one that takes the money: if these ever disagree, the
+// store is right and this is a bug.
+//
+// It lives HERE rather than in checkout.ts because the imports only run one
+// way: checkout.ts imports this module, and this module reaches back for it
+// only dynamically (see the button handler below). Putting the price in
+// checkout.ts would need a static import in the other direction, which is
+// exactly the cycle that arrangement exists to avoid.
+export const PRO_PRICE = '€9';
+
 // ── The coaching caps: Mistake Retry, endgames-from-your-games, Scouting ─────
 //
 // These three all read YOUR imported games and burn the app's heaviest
@@ -161,15 +175,16 @@ export function showGoProDialog(): void {
   openUpgradeDialog('Go pro');
 }
 
-// One pitch, one price, one place to wire the checkout. The price here has to
-// match the one on the landing page (docs/index.html + docs/LANDING-COPY.md) —
-// two different numbers for the same unlock is the fastest way to lose a sale.
+// One pitch, one price, one place the checkout is opened from. The price is
+// PRO_PRICE in checkout.ts, and the landing page (docs/index.html +
+// docs/LANDING-COPY.md) has to say the same thing — two different numbers for
+// the same unlock is the fastest way to lose a sale.
 function openUpgradeDialog(title: string): void {
   showDialog({
     title,
     body: 'The free tier trains ' + FREE_TRAINING_LINES + ' lines at a time. '
       + 'Going pro lifts that to unlimited, and opens up coaching from your own '
-      + 'games — for 89 kr once, not a subscription.',
+      + 'games — for ' + PRO_PRICE + ' once, not a subscription.',
     // Secondary on the left, primary on the right — the same order as the
     // post-save "Start training this line?" prompt.
     buttons: [
@@ -177,12 +192,9 @@ function openUpgradeDialog(title: string): void {
       {
         label: 'Unlock full access',
         variant: 'primary',
-        // TODO(buy-flow): wire this to the Lemon Squeezy checkout. Deliberately
-        // a no-op for now — the checkout, the webhook that sets
-        // profiles.entitled, and the post-purchase refresh (call
-        // refreshEntitlement() on success) are the next phase. Until then the
-        // button closes the dialog and nothing else.
-        onClick: () => { /* no-op — see TODO above */ },
+        // Dynamic on purpose — checkout.ts imports this module, so a static
+        // import here would close the loop. See the note over PRO_PRICE.
+        onClick: () => { void import('./checkout').then(m => m.openCheckout()); },
       },
     ],
   });

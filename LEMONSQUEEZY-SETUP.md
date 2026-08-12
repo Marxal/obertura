@@ -1,19 +1,22 @@
 # The buy flow — Lemon Squeezy setup (no code)
 
 Someone pays, and their account gets full access without you touching the
-Supabase dashboard. The code half is done and deployed. This page is the other
-half: three secrets, one webhook, one checkout setting. Ten minutes.
+Supabase dashboard. **The code half is done and deployed, and so is the app half
+— the buttons are wired.** This page is what lives in dashboards instead.
 
 Nothing here is testable from the phone. The only real test is a purchase.
 
 ## The moving parts
 
 ```
-  phone: "Unlock full access"
-        │
-        ▼
+  phone: "Unlock full access"        landing page: "Buy full access"
+        │                                   │
+        │  no account? sign-up sheet,       │  no account? → /app/?auth=signup&buy=1
+        │  then straight on                 │  (the app finishes the job)
+        ▼                                   ▼
   Lemon Squeezy checkout  ──(carries your Supabase user id as custom data)
-        │
+        │                     in the app this opens as an OVERLAY (lemon.js),
+        │                     so an installed PWA never navigates away
         │  payment succeeds
         ▼
   Lemon Squeezy sends a signed webhook
@@ -25,8 +28,15 @@ Nothing here is testable from the phone. The only real test is a purchase.
   Supabase: profiles.entitled = true, entitled_at = now
         │
         ▼
-  the app re-reads the flag → cap lifted
+  the app polls profiles.entitled for ~20s after a checkout → cap lifted
 ```
+
+The last step is a POLL, not a single read, because the webhook usually lands a
+second or two after the payment does. Four separate things can start it
+(`src/checkout.ts` explains why four): lemon.js's success event, the app
+regaining focus, `?purchased=1` on the URL, and the **"Already paid? Check
+again"** link in Settings. That last one is the manual backstop for the day the
+other three all miss.
 
 The webhook is the only part that can grant access. The browser cannot: the SQL
 in SUPABASE-SYNC.md revokes the right to write `entitled` from every key the app
@@ -57,7 +67,16 @@ npx wrangler secret put SUPABASE_URL
 | ----------------------------- | -------------------------------------------------------------------- |
 | `LEMONSQUEEZY_WEBHOOK_SECRET` | you invent it in step 3, when you create the webhook                  |
 | `SUPABASE_SERVICE_ROLE_KEY`   | Supabase → Project Settings → API → **service_role**, the secret one   |
-| `SUPABASE_URL`                | the same project URL already in `.env` as `VITE_SUPABASE_URL`          |
+| `SUPABASE_URL`                | the same project URL already set as `VITE_SUPABASE_URL`                |
+
+> **`SUPABASE_URL` has a fallback, and you probably want to know why.** The
+> Cloudflare project already sets `VITE_SUPABASE_URL` for the browser build, and
+> it is the same string. A Worker can read any plain variable whatever its name,
+> so the webhook now reads `SUPABASE_URL` **or** `VITE_SUPABASE_URL`, in that
+> order. Without that fallback a project with only the `VITE_` one answers
+> `500 not configured` on every delivery while the dashboard looks perfectly
+> set up — which is exactly the state this project was in. Setting the
+> unprefixed name as well is still tidier; nothing breaks either way.
 
 The service_role key ignores every row-level security rule in the project. It
 belongs in exactly two places: the Supabase dashboard it came from, and this
@@ -94,10 +113,26 @@ red in the Lemon Squeezy dashboard — deliberately, so a purchase that cannot b
 matched to an account is loud rather than silent. Fix it by ticking `entitled`
 by hand for that person, then fixing the link.
 
-> The app does not build this URL yet. `showTrainingCapDialog()` in
-> `src/entitlement.ts` still has a no-op "Unlock full access" button, with a
-> `TODO(buy-flow)` marking the spot. Wiring the button, and calling
-> `refreshEntitlement()` when the buyer returns, is the next round.
+**The app builds this URL for you.** `src/checkout.ts` holds the product URL and
+appends the id; the landing page does the same in its own script
+(`CHECKOUT_URL`, near the top). Neither will open a checkout for somebody who
+isn't signed in — they ask for an account first and then carry on — so a
+purchase with no id shouldn't happen from either surface. The 422 is there for
+links you paste somewhere else by hand.
+
+## Step 5 — where the buyer lands afterwards
+
+Lemon Squeezy dashboard → the product → **Redirect to URL after purchase**:
+
+```
+https://bitochess.com/app/?purchased=1
+```
+
+`?purchased=1` is what tells the app a payment just happened, so it starts
+polling for the unlock instead of waiting for the next sign-in. Leave it unset
+and the overlay path still works (it has its own signal, and the focus watcher
+behind that), but anyone who went out to the full hosted checkout comes back to
+a page that has no idea what they just did.
 
 ## Testing it
 
@@ -114,8 +149,10 @@ npx wrangler tail
 
 Then buy something. You want to see `entitled <uuid> from order <id>`. In
 Supabase, the row's `entitled` flips to true and `entitled_at` gets a timestamp.
-On the phone, relaunch the app — the flag is re-read once per sign-in — and the
-Train hub's "10 lines" counter is gone.
+On the phone you shouldn't have to do anything: within a few seconds of the
+checkout closing the app says **"You're in"** and the Train hub's "10 lines"
+counter is gone. If it doesn't, Settings → **"Already paid? Check again"** is
+the same check on demand, and it always answers one way or the other.
 
 If a delivery fails, Lemon Squeezy retries it and the dashboard shows the status
 code. The webhook is deliberately noisy this way; see the long comment at the

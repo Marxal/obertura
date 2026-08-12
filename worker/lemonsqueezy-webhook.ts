@@ -33,8 +33,13 @@
 //                                that can write `entitled` at all, since the
 //                                SQL in SUPABASE-SYNC.md revokes UPDATE on
 //                                that column from anon and authenticated
-//   SUPABASE_URL                 not secret, but it lives here too because the
-//                                Worker can't read the app's build-time vars
+//   SUPABASE_URL                 not secret. Falls back to VITE_SUPABASE_URL,
+//                                which the Cloudflare project already sets for
+//                                the browser build — same project, same string,
+//                                and a Worker can read a plain variable whatever
+//                                its name. Without that fallback, a project that
+//                                has only the VITE_ one 500s on every delivery
+//                                while the dashboard looks perfectly configured.
 //
 // ── HOW THE SIGNATURE WORKS (verified against Lemon Squeezy's docs) ─────────
 // Every delivery carries an `X-Signature` header: an HMAC-SHA256 of the RAW
@@ -52,6 +57,8 @@ import { createClient } from '@supabase/supabase-js';
 export interface WebhookEnv {
   LEMONSQUEEZY_WEBHOOK_SECRET?: string;
   SUPABASE_URL?: string;
+  // The same value under the name the browser build uses. See the note above.
+  VITE_SUPABASE_URL?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
 }
 
@@ -59,7 +66,7 @@ const SIGNATURE_HEADER = 'x-signature';
 const TABLE = 'profiles';
 
 // The event that means "someone completed a one-time purchase". Bito Chess
-// sells a single €10 unlock, not a subscription, so this is the only event
+// sells a single €9 unlock, not a subscription, so this is the only event
 // that grants access. `status` is checked as well because an order can exist
 // before it is actually paid (`pending`, and later `refunded`).
 const PURCHASE_EVENT = 'order_created';
@@ -82,7 +89,7 @@ export async function handleLemonSqueezyWebhook(
   if (request.method !== 'POST') return problem(405, 'method not allowed');
 
   const secret = env.LEMONSQUEEZY_WEBHOOK_SECRET;
-  const supabaseUrl = env.SUPABASE_URL;
+  const supabaseUrl = env.SUPABASE_URL || env.VITE_SUPABASE_URL;
   const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
 
   // Missing configuration is a deployment mistake, not a bad request. 500 so
@@ -123,7 +130,7 @@ export async function handleLemonSqueezyWebhook(
 
   // Test-mode orders are honoured. They can only be produced from inside this
   // store, the signature proves they came from Lemon Squeezy, and being able
-  // to exercise the whole path without spending €10 is worth more than the
+  // to exercise the whole path without spending €9 is worth more than the
   // theoretical tidiness of rejecting them. Flip this to a 200 "ignored" if a
   // test purchase ever needs to stop granting access.
   if (payload?.meta?.test_mode) {

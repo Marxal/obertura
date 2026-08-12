@@ -133,7 +133,21 @@ function dismissButton(label: string, onClick: () => void): HTMLElement {
 // underneath can switch either way on its own, so this only decides which one
 // the visitor lands on. A "Sign in" link that opened a sign-up form would be a
 // small lie.
-export function openSignUpSheet(mode: 'signup' | 'signin' = 'signup'): void {
+//
+// `opts` exists for the buy flow (checkout.ts), which opens this sheet on the
+// way to a checkout rather than as an end in itself. It needs to say WHY it's
+// asking — "so your unlock follows you" answers a question the standard lead
+// doesn't — and it needs to know the moment the account exists so it can carry
+// on to the payment instead of dropping the user on whatever screen is behind.
+export function openSignUpSheet(
+  mode: 'signup' | 'signin' = 'signup',
+  opts: {
+    // Replaces the line under the title. Omit for the standard sync pitch.
+    lead?: string;
+    // Runs once, after an account exists and the sheet has closed itself.
+    onSignedIn?: () => void;
+  } = {},
+): void {
   if (!isSupabaseConfigured) return;
 
   const overlay = document.createElement('div');
@@ -153,9 +167,9 @@ export function openSignUpSheet(mode: 'signup' | 'signin' = 'signup'): void {
 
   const lead = document.createElement('p');
   lead.className = 'signup-sheet-lead';
-  lead.textContent = mode === 'signin'
+  lead.textContent = opts.lead ?? (mode === 'signin'
     ? 'Your lines and progress come back the moment you do.'
-    : 'Your lines and progress follow you to any phone you sign in on.';
+    : 'Your lines and progress follow you to any phone you sign in on.');
   sheet.appendChild(lead);
 
   sheet.appendChild(buildAuthForm({ initialMode: mode, blurb: '' }));
@@ -180,7 +194,17 @@ export function openSignUpSheet(mode: 'signup' | 'signin' = 'signup'): void {
   // Signing in (or finishing a sign-up that didn't need email confirmation)
   // makes the sheet pointless — close it rather than leave a form up behind the
   // "Signed in" toast.
-  const dropAuth = onAuthChange(() => { if (getAuthUser()) close(); });
+  //
+  // onSignedIn runs ONLY down this path, never from close() itself: "Not now"
+  // and a backdrop tap also close the sheet, and neither of them means the
+  // caller should carry on to whatever it wanted an account for. It runs after
+  // the close so the sheet is already out of the way when a checkout opens over
+  // the top of it.
+  const dropAuth = onAuthChange(() => {
+    if (!getAuthUser()) return;
+    close();
+    opts.onSignedIn?.();
+  });
 
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
 
@@ -191,6 +215,17 @@ export function openSignUpSheet(mode: 'signup' | 'signin' = 'signup'): void {
 // ?auth=signup / ?auth=signin → open the sheet in that mode and tidy the URL,
 // so a refresh doesn't reopen it. Called once at boot. Any other value is
 // ignored rather than guessed at.
+//
+// `&buy=1` rides along when the visitor came from the landing page's Buy
+// button without an account. It is what stops the buy intent evaporating at
+// the door: the landing page can't open a checkout for somebody who has no
+// user id yet, so it hands the intent over here, and this carries it through
+// the sign-up to the checkout on the other side. Someone who taps Buy should
+// end up at a payment page, not on the Train screen wondering what happened.
+//
+// Signed in already (a returning customer who tapped Buy in a browser that had
+// forgotten them, then turned out to be signed in inside the app): skip the
+// sheet entirely and go straight to the checkout.
 export function handleAuthUrlParam(): void {
   let params: URLSearchParams;
   try {
@@ -199,9 +234,12 @@ export function handleAuthUrlParam(): void {
     return;
   }
   const asked = params.get('auth');
-  if (asked !== 'signup' && asked !== 'signin') return;
+  const wantsCheckout = params.get('buy') === '1';
+  const validAuth = asked === 'signup' || asked === 'signin';
+  if (!validAuth && !wantsCheckout) return;
 
   params.delete('auth');
+  params.delete('buy');
   const query = params.toString();
   window.history.replaceState(
     {},
@@ -209,6 +247,27 @@ export function handleAuthUrlParam(): void {
     window.location.pathname + (query ? `?${query}` : '') + window.location.hash,
   );
 
-  if (getAuthUser()) return;
-  openSignUpSheet(asked);
+  const openCheckout = (): void => {
+    void import('./checkout').then(m => m.openCheckout());
+  };
+
+  if (getAuthUser()) {
+    if (wantsCheckout) openCheckout();
+    return;
+  }
+  if (!validAuth) {
+    // ?buy=1 on its own, with nobody signed in. The checkout needs an account,
+    // and openCheckout() asks for one itself — so hand it straight over rather
+    // than duplicating the sign-up sheet's wiring here.
+    openCheckout();
+    return;
+  }
+
+  openSignUpSheet(asked, wantsCheckout
+    ? {
+      lead: 'Your unlock is tied to your account, so it follows you to any '
+        + 'phone you sign in on — and comes back if you ever reinstall.',
+      onSignedIn: openCheckout,
+    }
+    : {});
 }
