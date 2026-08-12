@@ -1353,6 +1353,42 @@ the engine — the thing you reach for most — wasn't a tab at all.
   full-width control competing with Back and Next — and the *Saved. Now learn it*
   card gets the same treatment.
 
+- ✅ **Second pass: the panels stop explaining themselves.** Every tab was
+  right; several of them led with apparatus instead of with the answer.
+
+  **Explore leads with the moves.** Three tiles at the very top — the move and a
+  mark saying where it came from — and tapping one plays it. Under them the same
+  three with the number that earned each its place and, one tap further, the
+  record behind it. And three now means three: if your games and the book can't
+  fill the row the engine does, cloud first and the review worker after, which
+  runs **with the engine toggle off** — "turn the engine on first" is not an
+  answer to the question the slide exists to ask.
+
+  **The Engine tab owns the engine while it's showing** — it switches it on and
+  hides the docked quick engine, which was the same bar and the same three moves
+  in miniature. So the tab needs no controls: the power button, the
+  source-and-depth readout and the depth slider are gone, and each line is one
+  sideways-scrolling row on its own raised background.
+
+  **The grabber is gone**, because it advertised something the panel already does
+  when you swipe it, and those pixels come off the board.
+
+  **Line info sets training up instead of asking afterwards.** The move list goes
+  (the strip above it is the same list); the training toggle and the priority
+  control are live from the first move with the toggle **on by default**; the
+  stats block shows the shape of its four figures rather than hiding. On an
+  unsaved line the toggle states an intent and says so — *Train after saving* —
+  and the save honours it, straight into the enrolment path where the free-tier
+  cap and the confirm run live. The old *Start training this line?* modal asked
+  something already answered two taps earlier.
+
+  **The walkthrough teaches by using.** The Explore bubble rings the line's own
+  next move and tapping it plays it, so the last board step's sentence is
+  resolved when it's painted — *play the last move* or *that's your line*. Line
+  info gets a bubble too, so no tab is locked out any more. And the depth tiles
+  are words again: **Beginner / 3 moves**, not a number in a disc over a skill
+  word that said the same thing twice.
+
 _On `claude/builder-tab-structure-c1a7ko`. Restore point: `v0.4`._
 
 ---

@@ -2013,60 +2013,120 @@ html[data-coords="off"] .cg-wrap coords {
 .builder-slide-action { width: 100%; margin: 0.25rem 0 0.5rem; }
 
 /* ── Explore slide ───────────────────────────────────────────────────────────
-   Three cards, and the header that says what they're answering. Cards rather
-   than the Library's dense rows on purpose: three suggestions with a stated
-   reason each is a different kind of object from a scrolling table of every
-   legal continuation, and it should not look like one. */
-.explore-head {
-  padding: 0.5rem 0.25rem 0.4rem;
+   Three tiles at the very top, then the argument for them. The slide used to
+   open with a heading and a subheading, which put the thing you came to do below
+   two lines of prose; now the first thing under the tab bar is three buttons. */
+.explore-picks {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+  padding: 0.4rem 0 0.5rem;
 }
-.explore-head-title {
+
+.explore-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 52px;
+  padding: 0.4rem 0.2rem;
+  border: 1px solid var(--border-card);
+  /* The source reads off the top edge, so three tiles scan as three different
+     KINDS of reason before a single word is read. */
+  border-top: 3px solid var(--border-card);
+  border-radius: 10px;
+  background: var(--bg-card);
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s, border-color 0.12s;
+}
+.explore-pick:active { background: var(--bg-parchment); }
+.explore-pick--games { border-top-color: var(--accent); }
+.explore-pick--library { border-top-color: var(--success); }
+.explore-pick--engine { border-top-color: var(--text-muted); }
+
+.explore-pick-move {
+  font-family: 'Courier New', Courier, monospace;
   font-size: 0.95rem;
   font-weight: 700;
-  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
-.explore-head-sub {
-  margin-top: 2px;
-  font-size: 0.74rem;
-  color: var(--text-muted);
-  line-height: 1.35;
+.explore-pick-mark {
+  display: flex;
+  color: var(--text-faint);
+}
+.explore-pick--games .explore-pick-mark { color: var(--accent); }
+
+/* The walkthrough's scripted move: ringed, so the bubble saying "tap one" has
+   something to point at. */
+.explore-pick--cue {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.explore-head {
+  padding: 0.35rem 0.25rem 0.4rem;
+  border-top: 1px solid var(--hairline-soft);
+}
+.explore-head-title {
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.25;
 }
 
 .explore-rows {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.35rem;
   padding-bottom: 0.5rem;
 }
 
+/* The same three moves again, with the reason each is on the list. A grid so the
+   disclosure chevron can sit against the head row while the expanded record
+   spans the full width underneath it. */
+/* minmax(0, …) rather than 1fr: a grid column's automatic minimum is its
+   content's min-content width, so a long opening name pushed the whole card past
+   the panel's edge instead of ellipsing inside it. */
 .explore-card {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.6rem;
-  width: 100%;
-  padding: 0.5rem 0.55rem;
   border: 1px solid var(--border-card);
   border-left: 3px solid var(--border-card);
   border-radius: 10px;
   background: var(--bg-card);
-  text-align: left;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: background 0.12s, border-color 0.12s;
 }
-.explore-card:active { background: var(--bg-parchment); }
-
-/* The left edge is the source, colour-coded to match the chip inside — so the
-   three cards read as three DIFFERENT kinds of reason at a glance. */
 .explore-card--games { border-left-color: var(--accent); }
 .explore-card--library { border-left-color: var(--success); }
 .explore-card--engine { border-left-color: var(--text-muted); }
+.explore-card--cue { border-color: var(--accent); }
+
+.explore-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.45rem 0.5rem;
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.explore-card-head:active { background: var(--bg-parchment); }
 
 .explore-card-move {
   flex: 0 0 auto;
   min-width: 3.4em;
   font-family: 'Courier New', Courier, monospace;
-  font-size: 1rem;
+  font-size: 0.92rem;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -2077,33 +2137,77 @@ html[data-coords="off"] .cg-wrap coords {
   flex-direction: column;
   gap: 2px;
 }
+.explore-card-chiprow {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+/* The name is the only part allowed to give: the chip is fixed-size and says
+   what the row IS. */
+.explore-card-chiprow .explore-card-opening { min-width: 0; flex: 0 1 auto; }
 .explore-card-detail {
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
   line-height: 1.3;
 }
 .explore-card-opening {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   opacity: 0.7;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.explore-card-chev {
-  flex: 0 0 auto;
-  opacity: 0.4;
+
+/* A real target of its own, next to the row's own tap area — the row plays the
+   move, the chevron opens the record. */
+.explore-card-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  align-self: stretch;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.explore-card-chev { transition: transform 0.15s ease; }
+.explore-card-toggle[aria-expanded='true'] .explore-card-chev { transform: rotate(180deg); }
+
+.explore-card-more {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0.1rem 0.55rem 0.5rem;
+  border-top: 1px solid var(--hairline-soft);
+  margin-top: 0.1rem;
+  padding-top: 0.45rem;
+}
+.explore-more-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.explore-more-eval {
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
 }
 
-/* The "why is this here" badge. It is the whole reason the slide can be
-   trusted, so it comes first in the card body, above the number. */
+/* The "why is this here" badge. */
 .explore-chip {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  align-self: flex-start;
+  flex: 0 0 auto;
   padding: 1px 6px 1px 4px;
   border-radius: 999px;
-  font-size: 0.62rem;
+  font-size: 0.6rem;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -2116,62 +2220,16 @@ html[data-coords="off"] .cg-wrap coords {
 .explore-empty { padding: 0.25rem 0; }
 
 /* ── Engine tab ──────────────────────────────────────────────────────────────
-   The heavy engine surface: a full eval bar, what analysed it and how deep,
-   three walkable principal variations, and a depth control. */
+   The engine given a whole panel: an evaluation bar and the three strongest
+   lines, and deliberately nothing else. The power button, the source-and-depth
+   readout and the depth slider all went — the tab switches the engine on by
+   itself and hides the docked quick engine while it's showing, so what's left is
+   the answer rather than the apparatus around it. */
 .engine-tab {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
-  padding: 0.5rem 0.25rem 0.75rem;
-}
-
-.engine-tab-head {
-  display: flex;
-  align-items: center;
   gap: 0.5rem;
-  flex-wrap: wrap;
-}
-.engine-tab-power {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 0.3rem 0.6rem;
-  border: 1px solid var(--border-card);
-  border-radius: 999px;
-  background: var(--bg-card);
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.engine-tab-power--on {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-.engine-tab-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  flex-wrap: wrap;
-  min-width: 0;
-}
-.engine-tab-metabit {
-  font-size: 0.68rem;
-  color: var(--text-muted);
-}
-.engine-tab-metabit--depth {
-  font-variant-numeric: tabular-nums;
-  opacity: 0.8;
-}
-.engine-tab-retry {
-  padding: 1px 6px;
-  border: 1px solid var(--border-card);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 0.66rem;
-  cursor: pointer;
+  padding: 0.6rem 0.25rem 0.75rem;
 }
 
 /* The eval bar, at panel scale rather than dock scale. */
@@ -2212,102 +2270,88 @@ html[data-coords="off"] .cg-wrap coords {
   font-size: 0.78rem;
   color: var(--text-muted);
 }
-
-.engine-line {
-  padding: 0.4rem 0.5rem;
+.engine-tab-retry {
+  align-self: flex-start;
+  margin-top: 0.2rem;
+  padding: 0.25rem 0.55rem;
   border: 1px solid var(--border-card);
-  border-radius: 9px;
-  background: var(--bg-card);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.68rem;
+  cursor: pointer;
 }
-.engine-line-head {
+
+/* One line = ONE row, scrolling sideways. Wrapping made a long mating line three
+   rows tall and pushed the third variation off the screen, and a row that
+   reflows as the engine's depth climbs is a moving target for a thumb. The
+   elevated background is what separates these from the move strip up under the
+   tabs, which is the same shape and a completely different thing. */
+.engine-line {
   display: flex;
-  align-items: baseline;
-  gap: 0.45rem;
-  margin-bottom: 3px;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 9px;
+  background: var(--bg-elevated, var(--bg-parchment));
+  border: 1px solid var(--border-card);
 }
 .engine-line-rank {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 16px;
   height: 16px;
   border-radius: 4px;
-  background: var(--bg-parchment);
+  background: var(--bg-card);
   font-size: 0.6rem;
   font-weight: 700;
   color: var(--text-muted);
 }
 .engine-line-score {
+  flex: 0 0 auto;
+  min-width: 3.1em;
   font-variant-numeric: tabular-nums;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 700;
+  color: var(--text);
 }
-/* Which SIDE the number favours, not who it's good for — the engine has no
-   opinion about whose repertoire this is. */
-.engine-line-score--white { color: var(--text); }
-.engine-line-score--black { color: var(--text); }
-.engine-line-score--level { color: var(--text-muted); }
 
-/* Every move of the line is its own button: tapping the nth plays the first n
-   onto the board, which is the difference between reading a variation and
-   checking one. Wraps rather than scrolls — a line is short enough to fit two
-   rows, and a nested scroller inside a paged carousel is a trap for a thumb. */
 .engine-line-moves {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
-  flex-wrap: wrap;
-  gap: 2px 4px;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0 2px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
 }
+.engine-line-moves::-webkit-scrollbar { display: none; }
+
 .engine-line-move {
-  padding: 1px 5px;
+  flex: 0 0 auto;
+  padding: 1px 4px;
   border: none;
   border-radius: 5px;
   background: transparent;
   color: inherit;
   font-family: 'Courier New', Courier, monospace;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 .engine-line-move:hover,
-.engine-line-move:focus-visible { background: var(--bg-parchment); }
-.engine-line-move:active { background: var(--bg-parchment); }
+.engine-line-move:focus-visible,
+.engine-line-move:active { background: var(--bg-card); }
 
-.engine-depth {
-  margin-top: 0.1rem;
-  padding: 0.5rem 0.55rem;
-  border: 1px solid var(--border-card);
-  border-radius: 9px;
-  background: var(--bg-parchment);
-}
-.engine-depth-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-.engine-depth-label {
-  font-size: 0.74rem;
-  font-weight: 600;
-}
-.engine-depth-value {
-  font-variant-numeric: tabular-nums;
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--accent);
-}
-.engine-depth-slider {
-  width: 100%;
-  margin: 0.35rem 0 0.15rem;
-  accent-color: var(--accent);
-}
-.engine-depth-note {
-  margin: 0;
-  font-size: 0.66rem;
-  line-height: 1.4;
-  color: var(--text-muted);
-}
-
-/* Engine off: the panel stays put but recedes, so switching it on doesn't
+/* Engine off: the bar recedes rather than vanishing, so switching it on doesn't
    reflow everything under the user's thumb. */
 .engine-tab--off .engine-tab-barwrap { opacity: 0.35; }
 
@@ -2654,37 +2698,12 @@ html[data-coords="off"] .cg-wrap coords {
   cursor: default;
 }
 
-/* The move list now lives inside the Line tab as a linear, wrapping list — it
-   reads top-to-bottom with the rest of the line's details, rather than being a
-   separate horizontal strip under the board. A recessed parchment panel sets it
-   apart from the title and notes above it. */
-#move-list {
-  width: 100%;
-  min-width: 0;
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 0.95rem;
-  line-height: 1.9;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0 0.1em;
-  min-height: 2.2em;
-  padding: 0.35rem 0.55rem;
-  background: var(--bg-parchment);
-  border: 1px solid var(--border-card);
-  border-radius: 10px;
-}
-
-/* Before any move is played, the empty list collapses out of the way. */
-#move-list:empty {
-  display: none;
-}
-
 /* ── The persistent move strip ───────────────────────────────────────────────
    The moves of the sequence on the board, sitting directly under the tab bar on
-   EVERY tab. It replaced a copy of the move list at the foot of each list panel:
-   the same information three times over, each copy costing a panel a chunk of
-   its height, and none of them visible while you were on a different tab.
+   EVERY tab, and the only place the move list is drawn at all. It replaced a
+   copy at the foot of each list panel plus the full list on Line info: the same
+   information four times over, each copy costing a panel a chunk of its height,
+   and none of them visible while you were on a different tab.
 
    It is deliberately the shortest row in the app. One line, no wrapping, no
    label, scrolled horizontally with the active move kept centred (see
@@ -2811,34 +2830,6 @@ html[data-coords="off"] .cg-wrap coords {
 
 /* Grabber at the very top of the sheet — drag up/down to snap, tap to toggle.
    We own the vertical drag, so the browser must not also scroll the page. */
-.builder-panel-handle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  flex: 0 0 auto;
-  padding: 8px 0 6px;
-  border: none;
-  background: transparent;
-  cursor: grab;
-  touch-action: none;
-  -webkit-tap-highlight-color: transparent;
-}
-.builder-panel-handle::before {
-  content: '';
-  width: 34px;
-  height: 4px;
-  border-radius: 999px;
-  background: var(--text-faint);
-  opacity: 0.45;
-  transition: opacity 0.12s, width 0.12s;
-}
-.builder-panel-handle:active::before,
-.builder-panel-handle.expanded::before {
-  opacity: 0.7;
-  width: 44px;
-}
-
 /* The slide tabs now sit at the TOP of the sheet, directly below the board. They
    fill the width when there's room and scroll horizontally if ever cramped. */
 .builder-slide-tabs {
@@ -2969,11 +2960,6 @@ html[data-coords="off"] .cg-wrap coords {
     box-shadow: none;
     overflow: hidden;
     transition: none;
-  }
-
-  /* The grabber is drag-only affordance — there's nothing to drag here. */
-  #view-builder:not([hidden]) #builder-panel-handle {
-    display: none;
   }
 
   /* The tab strip stays the switcher, but the carousel stops being a paged
@@ -16269,45 +16255,35 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   gap: 0.4rem;
 }
 
-/* The depth tiles carry three things now (number, "N moves", the skill word),
-   so the type comes down to keep all three on one tile at phone width without
-   the row growing taller than the colour row above it. */
+/* The depth tiles are a name over its cost — "Club player" / "5 moves" — with
+   no disc above them: the number was in the tile twice, and at token size it was
+   the largest thing on a tile whose choice is a word. Losing it lets the tile be
+   shorter than the colour row above it as well as quieter. */
 .picker-level {
   flex-direction: column;
-  gap: 0.15rem;
-  min-height: 68px;
-  padding: 0.45rem 0.25rem;
-  font-size: 0.72rem;
-  line-height: 1.15;
+  gap: 0.1rem;
+  min-height: 0;
+  padding: 0.5rem 0.25rem;
+  line-height: 1.2;
   text-align: center;
 }
 
-.picker-level .picker-colour-label { font-size: 0.72rem; }
+.picker-level .picker-colour-label {
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
 
 .picker-level-caption {
-  font-size: 0.6rem;
+  font-size: 0.64rem;
   font-weight: 600;
   letter-spacing: 0.01em;
   color: var(--text-faint);
   white-space: nowrap;
 }
 .picker-colour--on .picker-level-caption { color: var(--text-muted); }
-
-.picker-level-token {
-  width: 22px;
-  height: 22px;
-  background: var(--fill-faint);
-  border: 1px solid var(--border-card);
-  color: var(--text-muted);
-  font-size: 0.7rem;
-  font-weight: 800;
-}
-
-.picker-colour--on .picker-level-token {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
-}
 
 /* ── The style grid ── */
 

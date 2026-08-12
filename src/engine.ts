@@ -31,15 +31,7 @@ export interface EvalResult {
 
 export type EvalCallback = (result: EvalResult) => void;
 
-// How deep the live builder engine searches by default, and the range the
-// Engine tab's depth control can move it through. Depth costs time roughly
-// exponentially, so the low end is there for a slow phone that wants an answer
-// now and the high end for a position worth waiting on.
 const MAX_DEPTH = 20;
-export const MIN_SEARCH_DEPTH = 12;
-export const MAX_SEARCH_DEPTH = 26;
-export const DEFAULT_SEARCH_DEPTH = MAX_DEPTH;
-
 const LICHESS_CLOUD = 'https://lichess.org/api/cloud-eval';
 
 // If the live Engine's worker goes this long without any output after a search
@@ -605,8 +597,6 @@ export class Engine {
   // that guards the LIVE search — with the counter we re-arm instead.
   private awaitedBestmoves = 0;
   private _enabled: boolean;
-  // The target depth of the local search — adjustable from the Engine tab.
-  private searchDepth = DEFAULT_SEARCH_DEPTH;
   private cb: EvalCallback;
   private baseUrl: string;
   // localStorage key the on/off state persists under. Defaults to the builder's
@@ -762,7 +752,7 @@ export class Engine {
       }];
     });
     if (!moves.length) return;
-    this.cb({ fen: this.searchFen, source: 'stockfish', depth: maxDepth, targetDepth: this.searchDepth, moves });
+    this.cb({ fen: this.searchFen, source: 'stockfish', depth: maxDepth, targetDepth: MAX_DEPTH, moves });
   }
 
   async evaluate(fen: string) {
@@ -876,21 +866,9 @@ export class Engine {
     // worker searches one position at a time (mirrors spar.ts's SuggestEngine).
     if (this.awaitedBestmoves > 0) this.worker!.postMessage('stop');
     this.worker!.postMessage(`position fen ${fen}`);
-    this.worker!.postMessage(`go depth ${this.searchDepth}`);
+    this.worker!.postMessage(`go depth ${MAX_DEPTH}`);
     this.awaitedBestmoves++;
     this.armWatchdog();
-  }
-
-  // How deep the local search goes. The Engine tab exposes this; everything else
-  // leaves it at the default. Changing it re-searches the current position, so
-  // the panel updates immediately rather than at the next move.
-  get depth(): number { return this.searchDepth; }
-
-  setDepth(depth: number): void {
-    const clamped = Math.max(MIN_SEARCH_DEPTH, Math.min(MAX_SEARCH_DEPTH, Math.round(depth)));
-    if (clamped === this.searchDepth) return;
-    this.searchDepth = clamped;
-    if (this._enabled && this.currentFen) void this.evaluate(this.currentFen);
   }
 
   destroy() {
