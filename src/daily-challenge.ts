@@ -41,8 +41,9 @@ export interface DailyState {
 
 const DEFAULT_COUNT = 3;
 const COUNT_MIN = 0;
-// The last preset button before "Custom" — 0..5 as one-tap picks.
-const COUNT_STEP_MAX = 5;
+// The last preset button before "Custom" — Off/1/2/3 as one-tap picks. Kept
+// short so the row fits one line on a phone; anything past it is Custom.
+const COUNT_STEP_MAX = 3;
 // A custom count is still capped, so nobody can type 50 or 100 into the field.
 const COUNT_CUSTOM_MAX = 20;
 export const DAILY_COUNT_RANGE = {
