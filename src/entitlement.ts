@@ -161,13 +161,15 @@ export function showGoProDialog(): void {
   openUpgradeDialog('Go pro');
 }
 
-// One pitch, one price, one place to wire the checkout.
+// One pitch, one price, one place to wire the checkout. The price here has to
+// match the one on the landing page (docs/index.html + docs/LANDING-COPY.md) —
+// two different numbers for the same unlock is the fastest way to lose a sale.
 function openUpgradeDialog(title: string): void {
   showDialog({
     title,
     body: 'The free tier trains ' + FREE_TRAINING_LINES + ' lines at a time. '
       + 'Going pro lifts that to unlimited, and opens up coaching from your own '
-      + 'games — for €10 once, not a subscription.',
+      + 'games — for 89 kr once, not a subscription.',
     // Secondary on the left, primary on the right — the same order as the
     // post-save "Start training this line?" prompt.
     buttons: [
