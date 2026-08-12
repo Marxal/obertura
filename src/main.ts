@@ -46,6 +46,8 @@ import { userAvatar } from './avatar';
 import { Engine, setCloudAuthToken, retryCloudNow, type EvalResult, type CloudTopMove } from './engine';
 import { EvalPanel } from './eval-panel';
 import { createBuilderPanels, type BuilderPanels } from './builder-panels';
+import { createExplorePanel, type ExplorePanel } from './explore-panel';
+import { createEnginePanel, type EnginePanel } from './engine-panel';
 import { initTheme } from './theme';
 import { initAppearance } from './appearance';
 import { initDriveAutoBackup } from './drive-backup';
@@ -113,6 +115,8 @@ let cg!: ReturnType<typeof Chessground>;
 let engine!: Engine;
 let evalPanel!: EvalPanel;
 let builderPanels: BuilderPanels | null = null;
+let explorePanel: ExplorePanel | null = null;
+let enginePanel: EnginePanel | null = null;
 let showEngineArrows = getShowEngineArrows();
 // The dock's engine toggle (the chip icon in the builder/analyser bottom bar).
 // When on, the engine runs, the docked eval bar shows above the bottom bar with
@@ -196,11 +200,15 @@ function renderTitle(): void {
 
 // Recompute the detected name for the cursor position and repaint the title.
 // Every position change runs through here, so it's also where the carousel's
-// Library/Games slides are refreshed for the new position.
+// position-driven slides are refreshed for the new position.
 function updateOpeningName(): void {
   detectedName = nameForPath(currentPathFens()) ?? '';
   renderTitle();
   builderPanels?.render();
+  explorePanel?.render();
+  // The engine's previous answer belongs to the previous position; drop it so
+  // the Engine tab says "analysing…" instead of showing a stale line.
+  enginePanel?.clear();
 }
 
 // ── Tags ────────────────────────────────────────────────────────────────────
@@ -477,10 +485,11 @@ function moveSpan(node: MoveNode, activeId: string): HTMLElement {
   return span;
 }
 
-// The move list is mirrored under several carousel slides — the Line tab plus
-// the Library / My-lines panels. One render fills them all, so game-review
-// colours show wherever you are without leaving the panel.
-const MOVE_LIST_MOUNTS = ['move-list', 'move-list-library', 'move-list-games'];
+// The move list is drawn twice: the persistent strip under the tab bar, which
+// is on screen whatever tab you're on, and the full list on the Line info tab.
+// The panels used to carry a copy each — that was the same list three times on
+// one screen, and it cost every list panel a footer's worth of height.
+const MOVE_LIST_MOUNTS = ['move-list-strip', 'move-list'];
 
 function renderMoveList() {
   for (const id of MOVE_LIST_MOUNTS) {
@@ -949,25 +958,106 @@ function refreshLineAnalysis(): void {
 }
 
 // ── Builder carousel (the panels below the board) ───────────────────────────
-// A paged, swipeable strip — Line / Book / Games / Engine — sharing the one
-// builder board. The tab strip above the step arrows mirrors the active slide
-// and jumps to one on tap. The board sits ABOVE the carousel and is a fixed
-// square, so swiping slides never moves it.
+// A paged, swipeable strip sharing the one builder board. The tab strip above
+// it mirrors the active slide and jumps to one on tap. The board sits ABOVE the
+// carousel and is a fixed square, so swiping slides never moves it.
+//
+// Slides are addressed by NAME, not by a hard-coded index, because the builder
+// and the analyser show a different set in a different order: the analyser puts
+// the game itself first and has no Explore tab (there is nothing to explore on a
+// game that has already been played). applyBuilderSlideOrder() reorders the DOM
+// to match, so "visual order" and "DOM order" stay the same thing and the
+// scroll-position→index maths needs to know nothing about any of this.
+type SlideId = 'explore' | 'library' | 'mylines' | 'line' | 'engine';
 
-// Carousel slide indices: 0 Line, 1 Library, 2 My games, 3 Learn, 4 Scouting.
-// (The engine is no longer a tab — it's the dock's engine icon and its docked
-// eval bar.) Scouting must stay LAST: it's the one slide Settings can hide, and
-// the scroll-position→index math only tolerates hiding the final slide.
-const LIBRARY_SLIDE = 1;
-const SCOUTING_SLIDE = 4;
+const SLIDE_ELEMENT: Record<SlideId, string> = {
+  explore: 'slide-explore',
+  library: 'slide-library',
+  mylines: 'slide-games',
+  line: 'slide-line',
+  engine: 'slide-engine',
+};
+
+const BUILDER_SLIDES: SlideId[] = ['explore', 'library', 'mylines', 'line', 'engine'];
+// The analyser keeps its game first and drops Explore — curated "what could you
+// play here" suggestions are for a line you're building, not a game you played.
+const ANALYSER_SLIDES: SlideId[] = ['line', 'library', 'mylines', 'engine'];
+
+let slideOrder: SlideId[] = BUILDER_SLIDES;
 let activeSlide = 0;
+
+// The visual (= DOM) index of a slide in the CURRENT order, or -1 when this mode
+// doesn't show it.
+function slideIndex(id: SlideId): number {
+  return slideOrder.indexOf(id);
+}
+
+function slideIdAt(index: number): SlideId | null {
+  return slideOrder[index] ?? null;
+}
+
 // When opening the builder from an external link, the tab to land on (and an
-// opponent to preselect on the Scouting tab). Consumed in showView('builder').
-let pendingBuilderSlide: number | null = null;
+// opponent to preselect in My lines → My opponents). Consumed in
+// showView('builder').
+let pendingBuilderSlide: SlideId | null = null;
 let pendingScoutOpponentId: string | null = null;
 // When opening the builder to analyse (e.g. a puzzle's "Analyse position", or
 // Train's "Build with engine"), turn the engine on once we've landed.
 let pendingEngineOn = false;
+
+// Put the slides — and the tab strip above them — into the order this mode
+// wants, hiding the ones it doesn't show. Reordering the real DOM nodes (rather
+// than juggling flex `order`) keeps every index the carousel computes from
+// scrollLeft honest, and the sections carry their own contents and listeners
+// with them.
+function applyBuilderSlideOrder(): void {
+  const order = builderMode === 'analyser' ? ANALYSER_SLIDES : BUILDER_SLIDES;
+  slideOrder = order;
+
+  const track = document.getElementById('builder-carousel');
+  const tabs = document.getElementById('builder-slide-tabs');
+  if (!track || !tabs) return;
+
+  // Every slide that isn't in this mode's order is hidden and parked at the end,
+  // so it can't take part in the scroll maths.
+  for (const id of Object.keys(SLIDE_ELEMENT) as SlideId[]) {
+    const el = document.getElementById(SLIDE_ELEMENT[id]);
+    if (el) el.hidden = !order.includes(id);
+  }
+  for (const id of order) {
+    const el = document.getElementById(SLIDE_ELEMENT[id]);
+    if (el) track.appendChild(el);
+  }
+  for (const id of Object.keys(SLIDE_ELEMENT) as SlideId[]) {
+    if (order.includes(id)) continue;
+    const el = document.getElementById(SLIDE_ELEMENT[id]);
+    if (el) track.appendChild(el);
+  }
+
+  tabs.replaceChildren();
+  order.forEach((id, i) => {
+    const tab = document.createElement('button');
+    tab.type = 'button';
+    tab.className = 'slide-tab' + (i === activeSlide ? ' slide-tab--on' : '');
+    tab.dataset.slide = String(i);
+    tab.dataset.slideId = id;
+    tab.setAttribute('role', 'tab');
+    tab.setAttribute('aria-selected', String(i === activeSlide));
+    tab.textContent = slideTabLabel(id);
+    tabs.appendChild(tab);
+  });
+}
+
+// The analyser's first tab names the game it's showing, not a repertoire line.
+function slideTabLabel(id: SlideId): string {
+  switch (id) {
+    case 'explore': return 'Explore';
+    case 'library': return 'Library';
+    case 'mylines': return 'My lines';
+    case 'line': return builderMode === 'analyser' ? 'Game' : 'Line info';
+    case 'engine': return 'Engine';
+  }
+}
 
 // React to the active slide changing (by tap or swipe): repaint the tabs. The
 // engine is no longer tied to a tab — it follows the dock's engine toggle
@@ -990,7 +1080,9 @@ function onActiveSlide(index: number): void {
   });
   if (index === activeSlide) return;
   activeSlide = index;
-  builderPanels?.setActiveSlide(index);
+  const id = slideIdAt(index);
+  if (id) builderPanels?.setActiveSlide(id);
+  enginePanel?.setActive(id === 'engine');
   // Keep the engine (and its docked eval bar) in sync with the persistent toggle
   // — it was stopped when we left the builder, so re-arm it on the way back in.
   if (evalPanel) evalPanel.setEnabled(engineOn);
@@ -1075,6 +1167,9 @@ function setEngineOn(on: boolean): void {
     if (reviewAbort) { reviewAbort.abort(); reviewAbort = null; }
     setLiveAnalysis(false);
   }
+  // The Engine tab shares the one switch with the dock icon, so it repaints
+  // whichever of the two was thrown.
+  if (on) enginePanel?.render(); else enginePanel?.clear();
   refreshBoardShapes();
 }
 
@@ -1378,12 +1473,23 @@ function goToBuilderSlide(index: number): void {
   onActiveSlide(index);
 }
 
+// Page to a slide by name. A slide this mode doesn't show is a no-op rather than
+// a jump to slide -1 (the analyser has no Explore tab).
+function showBuilderSlide(id: SlideId): void {
+  const index = slideIndex(id);
+  if (index >= 0) goToBuilderSlide(index);
+}
+
 function setupBuilderCarousel(): void {
   const track = document.getElementById('builder-carousel')!;
 
-  // Tap a tab → page to that slide.
-  document.querySelectorAll<HTMLButtonElement>('#builder-slide-tabs .slide-tab')
-    .forEach(tab => tab.addEventListener('click', () => goToBuilderSlide(Number(tab.dataset.slide))));
+  // Tap a tab → page to that slide. Delegated, because the strip is rebuilt
+  // whenever the slide order changes (builder ⇄ analyser).
+  document.getElementById('builder-slide-tabs')?.addEventListener('click', e => {
+    const tab = (e.target as HTMLElement).closest<HTMLElement>('.slide-tab');
+    if (!tab || (tab as HTMLButtonElement).disabled) return;
+    goToBuilderSlide(Number(tab.dataset.slide));
+  });
 
   // Swipe the strip → keep the active tab in sync. rAF-throttled so the scroll
   // stays smooth. Above the breakpoint the strip isn't the switcher (only the
@@ -1899,9 +2005,9 @@ function updateSaveButtonLabel(): void {
       : loadedLineId ? 'Save changes' : 'Save line';
   }
 
-  // The first carousel tab is "Game" for the analyser, "Line" for the builder.
-  const firstTab = document.querySelector('#builder-slide-tabs .slide-tab[data-slide="0"]');
-  if (firstTab) firstTab.textContent = analyser ? 'Game' : 'Line';
+  // The analyser and the builder show a different set of tabs, in a different
+  // order — rebuild the strip (and the slides under it) for this mode.
+  applyBuilderSlideOrder();
 
   // The opening-name title makes sense for a repertoire line, not for a game —
   // the game's identity ("vs <opponent>") already shows in the header and below.
@@ -2202,7 +2308,7 @@ function builderIntroDeps(
   const once = (): void => { if (!ran) { ran = true; after(); } };
   return {
     onDone: once,
-    showSlide: goToBuilderSlide,
+    showSlide: showBuilderSlide,
     isLichessConnected: isLichessConnected,
     hasScript: o.hasScript ?? mainline().length > 0,
     setBoardCue: setGuidedBoardCue,
@@ -2414,7 +2520,7 @@ function endGuided(): void {
 // opening library" link lands straight on the Library tab). `fresh` starts a new
 // empty line of `colour` first; `engine` turns the engine on once landed.
 function openBuilderTab(
-  slide: number,
+  slide: SlideId,
   opts: { fresh?: boolean; colour?: 'white' | 'black'; engine?: boolean } = {},
 ): void {
   if (opts.fresh) clearBuilder(opts.colour ?? 'white');
@@ -2423,12 +2529,12 @@ function openBuilderTab(
   showView('builder');
 }
 
-// Open the builder on the Scouting tab with an opponent preselected — the new
-// home for the opponent "board browser" (from the Explore opponent detail).
+// Open the builder on My lines → My opponents with an opponent preselected —
+// the home for the opponent "board browser" (from the Explore opponent detail).
 function scoutInBuilder(opponentId: string, colour: 'white' | 'black' = 'white'): void {
   clearBuilder(colour);
   pendingScoutOpponentId = opponentId;
-  pendingBuilderSlide = SCOUTING_SLIDE;
+  pendingBuilderSlide = 'mylines';
   showView('builder');
 }
 
@@ -3157,10 +3263,13 @@ function showView(view: ViewName): void {
   }
 
   if (view === 'builder') {
-    // Land on the Line tab by default (engine off); an external link can request
-    // a different tab via pendingBuilderSlide. Forcing activeSlide to a sentinel
-    // makes onActiveSlide run fully (so the engine state is set correctly).
-    const slide = pendingBuilderSlide ?? 0;
+    // Land on the first tab by default (Explore in the builder, Game in the
+    // analyser, engine off); an external link can request a different tab via
+    // pendingBuilderSlide. Forcing activeSlide to a sentinel makes onActiveSlide
+    // run fully (so the engine state is set correctly).
+    applyBuilderSlideOrder();
+    const requested = pendingBuilderSlide ? slideIndex(pendingBuilderSlide) : -1;
+    const slide = requested >= 0 ? requested : 0;
     pendingBuilderSlide = null;
     if (pendingScoutOpponentId) {
       builderPanels?.selectOpponent(pendingScoutOpponentId);
@@ -3187,6 +3296,9 @@ function showView(view: ViewName): void {
       if (track) track.scrollLeft = slide * track.clientWidth;
       builderPanels?.reload();
       builderPanels?.render();
+      explorePanel?.reload();
+      explorePanel?.render();
+      enginePanel?.render();
     });
   } else if (evalPanel && evalPanel.isEnabled) {
     // Leaving the builder for any other screen: stop the engine it was running.
@@ -4091,7 +4203,7 @@ function maybeRestoreLichessReturn(): void {
   const { ucis, colour } = lichessReturn;
   lichessReturn = null;
   // Land back on the Library tab — where Connect lives — at the same position.
-  pendingBuilderSlide = LIBRARY_SLIDE;
+  pendingBuilderSlide = 'library';
   buildFromUcis(ucis, colour);
 
   // Connected from inside the first-run walkthrough: pick it back up where it
@@ -4226,6 +4338,7 @@ maybeShowGate(() => requestAnimationFrame(() => {
   // Engine + eval panel — must come after cg is available so evaluate() can read chess.fen().
   engine = new Engine(import.meta.env.BASE_URL, (result) => {
     evalPanel.update(result, chess.fen());
+    enginePanel?.update(result);
     lastEngineResult = result;
     // One repaint keeps the move's grade badge and the engine arrows in sync,
     // whichever tab is showing — neither can wipe the other now.
@@ -4255,11 +4368,27 @@ maybeShowGate(() => requestAnimationFrame(() => {
     {
       compact: true,
       showToggle: false,
+      // No "cloud · d38" tag on the quick engine: three moves, an eval each and
+      // the bar. Where the number came from is the Engine tab's story.
+      showSource: false,
       // The docked bar's "Lichess off" warning: reset the cloud breaker and
       // re-ask about the position on the board.
       onRetryCloud: () => { retryCloudNow(); void engine.evaluate(chess.fen()); },
     },
   );
+
+  // The Engine tab — the same engine, given a whole panel: eval bar, depth
+  // readout, three walkable principal variations and a depth control.
+  enginePanel = createEnginePanel({
+    el: document.getElementById('slide-engine')!,
+    getFen: () => chess.fen(),
+    isOn: () => engineOn,
+    setOn: (on) => setEngineOn(on),
+    onPlayLine: (ucis) => { for (const u of ucis) playUci(u); },
+    getDepth: () => engine.depth,
+    setDepth: (d) => { engine.setDepth(d); enginePanel?.render(); },
+    onRetryCloud: () => { retryCloudNow(); void engine.evaluate(chess.fen()); },
+  });
 
   // The dock's engine icon is the one on/off switch for the engine, in both the
   // board builder and the game analyser (they share this dock).
@@ -4291,29 +4420,38 @@ maybeShowGate(() => requestAnimationFrame(() => {
   });
   evalSourceEl.insertAdjacentElement('afterend', arrowsToggleBtn);
 
-  // The Library / Games carousel slides — they read the live builder position
+  // The Library / My-lines carousel slides — they read the live builder position
   // and play a tapped continuation straight onto the line.
   builderPanels = createBuilderPanels({
     libraryEl: document.getElementById('slide-library-content')!,
     gamesEl: document.getElementById('slide-games-content')!,
-    scoutingEl: document.getElementById('slide-scouting')!,
-    contentEl: document.getElementById('slide-learn')!,
     getSans: currentPathSans,
     getUcis: currentPathUcis,
-    getFens: currentPathFens,
     getFen: () => chess.fen(),
     getColour: () => saveColour,
-    isAnalyser: () => builderMode === 'analyser',
     onPlay: (uci) => playUci(uci),
     // My games empty-state import button.
     onImportGames: () => openImportPanel({
-      onImported: () => { builderPanels?.reload(); builderPanels?.render(); },
+      onImported: () => { builderPanels?.reload(); builderPanels?.render(); explorePanel?.reload(); },
     }),
-    // Scouting: import a new opponent, and jump to an opponent's full report.
+    // My opponents: import a new opponent, and jump to an opponent's full report.
     onImportOpponent: () => importOpponentFlow(() => builderPanels?.reloadOpponents()),
     onOpenOpponentReport: (id: string) => { openExploreOpponent(id); showView('explore'); },
     // My lines "Show tree": open the tapped saved line in the builder.
     onOpenLine,
+  });
+
+  // The Explore slide — three curated moves for the position on the board.
+  explorePanel = createExplorePanel({
+    el: document.getElementById('slide-explore')!,
+    getSans: currentPathSans,
+    getUcis: currentPathUcis,
+    getFen: () => chess.fen(),
+    getColour: () => saveColour,
+    onPlay: (uci) => playUci(uci),
+    onImportGames: () => openImportPanel({
+      onImported: () => { builderPanels?.reload(); builderPanels?.render(); explorePanel?.reload(); },
+    }),
   });
 
   setupSaveButton();

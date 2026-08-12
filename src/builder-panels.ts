@@ -1,15 +1,18 @@
-// The builder's carousel slides that aren't the line itself: Library and Games.
-// Both read the builder's CURRENT position and list the continuations from here,
-// each tappable to play it straight onto the line being built. They share the
-// one builder board — there's no separate board here, just the move lists.
+// The builder's list slides: Library and My lines. Both read the builder's
+// CURRENT position and list the continuations from here, each tappable to play
+// it straight onto the line being built. They share the one builder board —
+// there's no separate board here, just the move lists.
 //
-//   Library — what the bundled opening book plays next (move, opening reached,
-//             how many named openings lie down that branch).
-//   Games   — what the user actually played next in their imported games, with
-//             the W/D/L split, drawn with the same wdl row as the board browser.
+//   Library  — what the bundled opening book plays next (move, opening reached,
+//              how many named openings lie down that branch).
+//   My lines — three stacked sections, all answering "what happens from here?"
+//              from a different source: your saved repertoire, your own imported
+//              games (W/D/L split, drawn with the board browser's wdl row), and
+//              My opponents — the scouted opponents' games, which used to be a
+//              tab of their own.
 //
-// The engine is no longer a carousel slide — it's the dock's engine icon and a
-// docked eval bar (see main.ts), so it needs nothing here.
+// Explore and Engine are their own modules (explore-panel.ts, engine-panel.ts);
+// the quick engine is the dock's engine icon and its docked eval bar (main.ts).
 
 import { Chess } from 'chess.js';
 import { nameForFen } from './openings';
@@ -26,31 +29,30 @@ import { openRepertoireMap } from './repertoire-map';
 import { userAvatar } from './avatar';
 import { Icons } from './icons';
 import { formatMove } from './notation';
-import { wdlScoreRow, type WdlCounts } from './wdl-bar';
-import { fetchExplorer, type ExplorerCounts, type ExplorerDb } from './lichess-explorer';
-import { bundledStats } from './explorer-stats';
-import { isConnected, connect, disconnect, getAccessToken, stashReturn } from './lichess-auth';
+import { wdlScoreRow } from './wdl-bar';
+import type { ExplorerDb } from './lichess-explorer';
+import { resolveExplorerStats, orientCounts } from './explorer-resolve';
+import { isConnected, connect, disconnect, stashReturn } from './lichess-auth';
 import { getExplorerDb, setExplorerDb } from './prefs';
 import { showDialog } from './dialog';
 import { platformLabel } from './board-explorer';
-import { createContentPanel } from './content-panel';
 import type { ImportedGame } from './import-core';
+
+// Which slide is showing. The builder addresses its panels by name (main.ts owns
+// the per-mode ordering), so nothing here depends on a slide's index.
+export type BuilderSlideId = 'explore' | 'library' | 'mylines' | 'line' | 'engine';
 
 export interface BuilderPanelsDeps {
   libraryEl: HTMLElement;
   gamesEl: HTMLElement;
-  scoutingEl: HTMLElement;
-  contentEl: HTMLElement;           // the Learn slide's section
   getSans: () => string[];          // SAN path to the current cursor node
   getUcis: () => string[];          // UCI path to the current cursor node
-  getFens: () => string[];          // FEN of every position along that path
   getFen: () => string;             // FEN of the current position
   getColour: () => 'white' | 'black';
-  isAnalyser: () => boolean;        // analyser mode (flips the Learn tab's copy)
   onPlay: (uci: string) => void;    // play this move onto the line
   onImportGames: () => void;        // My games empty state → import your games
-  onImportOpponent: () => void;     // Scouting → import a new opponent
-  onOpenOpponentReport: (id: string) => void; // Scouting → opponent's full report
+  onImportOpponent: () => void;     // My opponents → import a new opponent
+  onOpenOpponentReport: (id: string) => void; // My opponents → their full report
   onOpenLine: (line: Line) => void; // My lines "show tree" → open a saved line
 }
 
@@ -59,13 +61,9 @@ export interface BuilderPanels {
   reload(): void;                   // re-read games from storage (after an import)
   reloadLines(): void;              // re-read saved lines from storage (after a save)
   reloadOpponents(): void;          // re-read opponents from storage (after import)
-  selectOpponent(id: string): void; // preselect a Scouting opponent (board browser)
-  setActiveSlide(index: number): void; // which carousel slide is showing
+  selectOpponent(id: string): void; // preselect an opponent (the board browser)
+  setActiveSlide(id: BuilderSlideId): void; // which carousel slide is showing
 }
-
-const LIBRARY_SLIDE = 1;
-const CONTENT_SLIDE = 3;
-const SCOUTING_SLIDE = 4;
 
 export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   let book: BookNode | null = null;
@@ -73,17 +71,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   let lines: Line[] | null = null;
   let opponents: Opponent[] | null = null;
   let selectedOppId: string | null = null;       // null → show the opponents list
-  let activeSlide = 0;
-  // The Learn slide is its own small component: it tracks dirty/active state
-  // internally so the every-move render() can never trigger network chatter
-  // while it's hidden.
-  const contentPanel = createContentPanel({
-    el: deps.contentEl,
-    getSans: deps.getSans,
-    getFens: deps.getFens,
-    getColour: deps.getColour,
-    isAnalyser: deps.isAnalyser,
-  });
+  let activeSlide: BuilderSlideId = 'explore';
   // Which Lichess explorer database the Library slide draws its stats from.
   // Remembered across sessions; the toggle at the top of the slide flips it.
   let explorerDb: ExplorerDb = getExplorerDb();
@@ -113,7 +101,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
 
   function loadOpponents(): void {
     getAllOpponents()
-      .then(o => { opponents = o; oppStats.clear(); renderScouting(); })
+      .then(o => { opponents = o; oppStats.clear(); renderGames(); })
       .catch(() => { /* leave the loading note */ });
   }
 
@@ -126,28 +114,10 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
 
   // ── Library slide ─────────────────────────────────────────────────────────
   // Win/draw/loss stats come from the bundled stats database (instant, offline,
-  // no login). When the user has connected their Lichess account, we additionally
-  // try the live explorer (more current, every position) and prefer it when it
-  // answers — otherwise we degrade silently to the bundled data.
-  // `moves` is the stats to render (live when it answered, else bundled), or null
-  // if the position moved on while awaiting. `liveFailed` is true only when we're
-  // connected and the live fetch couldn't be reached (null = error/abort/blocked,
-  // NOT an empty "reached, no games" answer) — the caller shows a subtle note so
-  // a silent degrade to built-in data is no longer invisible.
-  function resolveStats(
-    fen: string, db: ExplorerDb, allowLive: boolean,
-  ): Promise<{ moves: Map<string, ExplorerCounts> | null; liveFailed: boolean }> {
-    return bundledStats(fen, db).then(async bundled => {
-      if (allowLive && isConnected()) {
-        const token = await getAccessToken();
-        if (deps.getFen() !== fen) return { moves: null, liveFailed: false }; // moved on
-        const live = await fetchExplorer(fen, db, token);
-        if (live === null) return { moves: bundled, liveFailed: true };  // couldn't reach
-        if (live.size) return { moves: live, liveFailed: false };
-        // live empty: reached, no games here — fall through to bundled, no failure.
-      }
-      return { moves: bundled, liveFailed: false };
-    });
+  // no login), overlaid with the live Lichess explorer when the user is
+  // connected — see explorer-resolve.ts for the layering rule.
+  function resolveStats(fen: string, db: ExplorerDb, allowLive: boolean) {
+    return resolveExplorerStats(fen, db, allowLive, () => deps.getFen() === fen);
   }
 
   function renderLibrary(): void {
@@ -219,13 +189,13 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     // Win/draw/loss + games count overlaid on each book move. Bundled is instant;
     // live is only tried when the slide is actually showing, so we don't hit the
     // network on every move. Applied only if the position hasn't moved on.
-    resolveStats(fen, explorerDb, activeSlide === LIBRARY_SLIDE).then(({ moves, liveFailed }) => {
+    resolveStats(fen, explorerDb, activeSlide === 'library').then(({ moves, liveFailed }) => {
       if (!moves || deps.getFen() !== fen) return;
       const colour = deps.getColour();
       for (const [uci, slot] of statSlots) {
         const c = moves.get(uci);
         if (!c) continue;
-        const counts = explorerCounts(c, colour);
+        const counts = orientCounts(c, colour);
         if (!counts.games) continue;
         slot.className = 'lib-bx-wdl';
         slot.replaceChildren(wdlScoreRow(counts, compactCount(counts.games)));
@@ -237,13 +207,13 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   // The off-book continuations: every move the stats database (or live Lichess)
   // plays from here, busiest first, each a tappable My-games-style W/D/L row.
   function renderStatMoves(el: HTMLElement, fen: string): void {
-    resolveStats(fen, explorerDb, activeSlide === LIBRARY_SLIDE).then(({ moves, liveFailed }) => {
+    resolveStats(fen, explorerDb, activeSlide === 'library').then(({ moves, liveFailed }) => {
       if (deps.getFen() !== fen) return;       // position moved on; drop this
       const colour = deps.getColour();
       const chess = new Chess(fen);
       const prefix = movePrefix(deps.getSans().length);
       const rows = [...(moves?.entries() ?? [])]
-        .map(([uci, c]) => ({ uci, counts: explorerCounts(c, colour) }))
+        .map(([uci, c]) => ({ uci, counts: orientCounts(c, colour) }))
         .filter(r => r.counts.games > 0)
         .sort((a, b) => b.counts.games - a.counts.games);
       if (!rows.length) {
@@ -376,18 +346,23 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   }
 
   // ── My lines slide ──────────────────────────────────────────────────────────
-  // Two stacked sections, each listing the continuations from the CURRENT
+  // Three stacked sections, each listing the continuations from the CURRENT
   // position and each topped by a discrete "Show tree" link that opens the full
   // tree for that source:
   //   • My saved lines — what your own saved repertoire plays from here. Always
   //     shown, even with no imported games, since it reads from your lines.
-  //   • My games — what you actually played from here in your imported games
-  //     (the old "My games" slide). Offers the import flow when empty.
+  //   • My games — what you actually played from here in your imported games.
+  //     Offers the import flow when empty.
+  //   • My opponents — what a scouted opponent plays from here. This was a tab
+  //     of its own until the tab strip was rebuilt around the five panels the
+  //     builder actually needs; it belongs here, next to your own games, because
+  //     it answers the same question from the other side of the board.
   function renderGames(): void {
     const el = deps.gamesEl;
     el.innerHTML = '';
     el.appendChild(savedLinesSection());
     el.appendChild(myGamesSection());
+    el.appendChild(opponentsSection());
   }
 
   // Section header: a title with a discrete "Show tree" link on the same row.
@@ -527,14 +502,24 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     });
   }
 
-  // ── Scouting slide ──────────────────────────────────────────────────────────
+  // ── My opponents section ────────────────────────────────────────────────────
   // Two states: no opponent selected → a tappable opponents list (+ import); an
   // opponent selected → their continuations from the current position, drawn
   // exactly like My games but from THEIR side (the opposite of your save colour).
-  function renderScouting(): void {
-    const el = deps.scoutingEl;
+  function opponentsSection(): HTMLElement {
+    const wrap = document.createElement('div');
+    wrap.className = 'mylines-section';
+    renderOpponents(wrap);
+    return wrap;
+  }
+
+  function renderOpponents(el: HTMLElement): void {
     el.innerHTML = '';
-    if (!opponents) { el.appendChild(emptyNote('Loading opponents…')); return; }
+    if (!opponents) {
+      el.appendChild(sectionHead('My opponents'));
+      el.appendChild(emptyNote('Loading opponents…'));
+      return;
+    }
 
     const selected = selectedOppId ? opponents.find(o => o.id === selectedOppId) ?? null : null;
     if (!selected) { renderOpponentList(el); return; }
@@ -551,7 +536,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     back.className = 'scout-back-btn';
     back.appendChild(span('scout-back-arrow', '‹'));
     back.appendChild(document.createTextNode(' Opponents'));
-    back.addEventListener('click', () => { selectedOppId = null; renderScouting(); });
+    back.addEventListener('click', () => { selectedOppId = null; renderOpponents(el); });
     header.appendChild(back);
     // Avatar + name + side kept together as one centered cluster.
     const id = document.createElement('div');
@@ -604,6 +589,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   }
 
   function renderOpponentList(el: HTMLElement): void {
+    el.appendChild(sectionHead('My opponents'));
     // "+ Add opponent" — the same pill the Explore scouting section uses, so the
     // two entry points read identically.
     const add = document.createElement('button');
@@ -629,7 +615,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
       const card = document.createElement('button');
       card.type = 'button';
       card.className = 'scout-opp-card';
-      card.addEventListener('click', () => { selectedOppId = opp.id; renderScouting(); });
+      card.addEventListener('click', () => { selectedOppId = opp.id; renderOpponents(el); });
       card.appendChild(userAvatar(opp.avatarUrl, 36));
 
       const text = document.createElement('span');
@@ -660,18 +646,17 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   }
 
   return {
-    render() { renderLibrary(); renderGames(); renderScouting(); contentPanel.render(); },
+    render() { renderLibrary(); renderGames(); },
     reload() { loadGames(); },
     reloadLines() { loadLines(); },
     reloadOpponents() { loadOpponents(); },
-    selectOpponent(id: string) { selectedOppId = id; renderScouting(); },
-    setActiveSlide(index: number) {
-      if (index === activeSlide) return;
-      activeSlide = index;
+    selectOpponent(id: string) { selectedOppId = id; renderGames(); },
+    setActiveSlide(id: BuilderSlideId) {
+      if (id === activeSlide) return;
+      activeSlide = id;
       // Entering the Library slide: repaint so its explorer bars fetch now.
-      if (index === LIBRARY_SLIDE) renderLibrary();
-      if (index === SCOUTING_SLIDE) renderScouting();
-      contentPanel.setActive(index === CONTENT_SLIDE);
+      if (id === 'library') renderLibrary();
+      if (id === 'mylines') renderGames();
     },
   };
 }
@@ -705,15 +690,6 @@ function savedLineReplies(
     }
   }
   return [...byUci.values()].sort((a, b) => b.count - a.count || a.san.localeCompare(b.san));
-}
-
-// Orient Lichess's white/draws/black to the line's own colour, with a score%.
-function explorerCounts(c: ExplorerCounts, colour: 'white' | 'black'): WdlCounts {
-  const wins = colour === 'white' ? c.white : c.black;
-  const losses = colour === 'white' ? c.black : c.white;
-  const games = wins + c.draws + losses;
-  const scorePct = games ? Math.round(((wins + c.draws / 2) / games) * 100) : 0;
-  return { wins, draws: c.draws, losses, scorePct, games };
 }
 
 // Compact a games total so big Lichess counts fit the row: 276500000 → "276M",

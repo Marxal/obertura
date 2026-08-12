@@ -1994,10 +1994,16 @@ html[data-coords="off"] .cg-wrap coords {
 }
 .builder-slide::-webkit-scrollbar { display: none; }
 
-/* The Library/My games slides host the explorer's row lists (.lib-bx-row /
-   .bx-row); the Engine slide hosts the EvalPanel controls (.eval-row). */
+/* A slide this mode doesn't show (the analyser has no Explore tab) is parked at
+   the end of the track and taken out of layout entirely, so the
+   scroll-position→index maths only ever sees the slides that are on. Explicit,
+   because the desktop block below sets `display: block` on the active slide and
+   the UA's [hidden] rule would lose to it. */
+.builder-slide[hidden] { display: none !important; }
+
+/* The Explore/Library/My-lines/Engine slides host row lists (.explore-card,
+   .lib-bx-row, .bx-row) and the Engine tab's own blocks. */
 .builder-slide--list { padding: 0.25rem 0.5rem; }
-.builder-slide--engine { padding: 0.5rem 0.75rem; }
 
 /* Thinner win/loss bars in both list slides (Library + My games). */
 .builder-slide--list .bx-row .wdl-bar,
@@ -2005,6 +2011,305 @@ html[data-coords="off"] .cg-wrap coords {
 
 /* A full-width action button inside the list slides (import games / opponent). */
 .builder-slide-action { width: 100%; margin: 0.25rem 0 0.5rem; }
+
+/* ── Explore slide ───────────────────────────────────────────────────────────
+   Three cards, and the header that says what they're answering. Cards rather
+   than the Library's dense rows on purpose: three suggestions with a stated
+   reason each is a different kind of object from a scrolling table of every
+   legal continuation, and it should not look like one. */
+.explore-head {
+  padding: 0.5rem 0.25rem 0.4rem;
+}
+.explore-head-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.explore-head-sub {
+  margin-top: 2px;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.explore-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding-bottom: 0.5rem;
+}
+
+.explore-card {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.5rem 0.55rem;
+  border: 1px solid var(--border-card);
+  border-left: 3px solid var(--border-card);
+  border-radius: 10px;
+  background: var(--bg-card);
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s, border-color 0.12s;
+}
+.explore-card:active { background: var(--bg-parchment); }
+
+/* The left edge is the source, colour-coded to match the chip inside — so the
+   three cards read as three DIFFERENT kinds of reason at a glance. */
+.explore-card--games { border-left-color: var(--accent); }
+.explore-card--library { border-left-color: var(--success); }
+.explore-card--engine { border-left-color: var(--text-muted); }
+
+.explore-card-move {
+  flex: 0 0 auto;
+  min-width: 3.4em;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.explore-card-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.explore-card-detail {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+.explore-card-opening {
+  font-size: 0.7rem;
+  opacity: 0.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.explore-card-chev {
+  flex: 0 0 auto;
+  opacity: 0.4;
+}
+
+/* The "why is this here" badge. It is the whole reason the slide can be
+   trusted, so it comes first in the card body, above the number. */
+.explore-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  align-self: flex-start;
+  padding: 1px 6px 1px 4px;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  background: var(--bg-parchment);
+  color: var(--text-muted);
+}
+.explore-chip svg { flex-shrink: 0; }
+.explore-chip--games { color: var(--accent); }
+
+.explore-empty { padding: 0.25rem 0; }
+
+/* ── Engine tab ──────────────────────────────────────────────────────────────
+   The heavy engine surface: a full eval bar, what analysed it and how deep,
+   three walkable principal variations, and a depth control. */
+.engine-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.5rem 0.25rem 0.75rem;
+}
+
+.engine-tab-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.engine-tab-power {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--border-card);
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.engine-tab-power--on {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.engine-tab-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.engine-tab-metabit {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+.engine-tab-metabit--depth {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+.engine-tab-retry {
+  padding: 1px 6px;
+  border: 1px solid var(--border-card);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  cursor: pointer;
+}
+
+/* The eval bar, at panel scale rather than dock scale. */
+.engine-tab-barwrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.engine-tab-bar {
+  flex: 1 1 auto;
+  height: 14px;
+  border-radius: 7px;
+  overflow: hidden;
+  background: #2a1a0a;
+}
+.engine-tab-bar-fill {
+  height: 100%;
+  background: #f5edd8;
+  transition: width 0.25s ease;
+}
+.engine-tab-score {
+  flex: 0 0 auto;
+  min-width: 3.2em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.engine-tab-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.engine-tab-note {
+  display: block;
+  padding: 0.6rem 0.2rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.engine-line {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border-card);
+  border-radius: 9px;
+  background: var(--bg-card);
+}
+.engine-line-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  margin-bottom: 3px;
+}
+.engine-line-rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: var(--bg-parchment);
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.engine-line-score {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+/* Which SIDE the number favours, not who it's good for — the engine has no
+   opinion about whose repertoire this is. */
+.engine-line-score--white { color: var(--text); }
+.engine-line-score--black { color: var(--text); }
+.engine-line-score--level { color: var(--text-muted); }
+
+/* Every move of the line is its own button: tapping the nth plays the first n
+   onto the board, which is the difference between reading a variation and
+   checking one. Wraps rather than scrolls — a line is short enough to fit two
+   rows, and a nested scroller inside a paged carousel is a trap for a thumb. */
+.engine-line-moves {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 4px;
+}
+.engine-line-move {
+  padding: 1px 5px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.82rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.engine-line-move:hover,
+.engine-line-move:focus-visible { background: var(--bg-parchment); }
+.engine-line-move:active { background: var(--bg-parchment); }
+
+.engine-depth {
+  margin-top: 0.1rem;
+  padding: 0.5rem 0.55rem;
+  border: 1px solid var(--border-card);
+  border-radius: 9px;
+  background: var(--bg-parchment);
+}
+.engine-depth-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.engine-depth-label {
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+.engine-depth-value {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+.engine-depth-slider {
+  width: 100%;
+  margin: 0.35rem 0 0.15rem;
+  accent-color: var(--accent);
+}
+.engine-depth-note {
+  margin: 0;
+  font-size: 0.66rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+/* Engine off: the panel stays put but recedes, so switching it on doesn't
+   reflow everything under the user's thumb. */
+.engine-tab--off .engine-tab-barwrap { opacity: 0.35; }
 
 /* Scouting slide: the selected-opponent header (back / name / full report). */
 .scout-slide-head {
@@ -2353,8 +2658,7 @@ html[data-coords="off"] .cg-wrap coords {
    reads top-to-bottom with the rest of the line's details, rather than being a
    separate horizontal strip under the board. A recessed parchment panel sets it
    apart from the title and notes above it. */
-#move-list,
-.move-list--panel {
+#move-list {
   width: 100%;
   min-width: 0;
   font-family: 'Courier New', Courier, monospace;
@@ -2372,28 +2676,47 @@ html[data-coords="off"] .cg-wrap coords {
 }
 
 /* Before any move is played, the empty list collapses out of the way. */
-#move-list:empty,
-.move-list--panel:empty {
+#move-list:empty {
   display: none;
 }
 
-/* The mirrored move list at the bottom of the Engine / Library / My-lines
-   panels — a labelled block, hidden whole when there are no moves yet. */
-.panel-moves {
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border-card);
+/* ── The persistent move strip ───────────────────────────────────────────────
+   The moves of the sequence on the board, sitting directly under the tab bar on
+   EVERY tab. It replaced a copy of the move list at the foot of each list panel:
+   the same information three times over, each copy costing a panel a chunk of
+   its height, and none of them visible while you were on a different tab.
+
+   It is deliberately the shortest row in the app. One line, no wrapping, no
+   label, scrolled horizontally with the active move kept centred (see
+   renderMoveListInto) — every pixel here comes off the board above it. */
+.builder-movestrip {
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--hairline-soft);
 }
-.panel-moves-label {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  opacity: 0.55;
-  margin-bottom: 5px;
+.move-list--strip {
+  width: 100%;
+  min-width: 0;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0 0.12em;
+  padding: 0.2rem 0.5rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
 }
-.panel-moves:has(.move-list--panel:empty) {
-  display: none;
-}
+.move-list--strip::-webkit-scrollbar { display: none; }
+/* Nothing played yet: the whole strip folds away rather than leaving an empty
+   rule under the tabs. */
+.builder-movestrip:has(.move-list--strip:empty) { display: none; }
+/* The strip is a single line, so a PGN variation block can't be allowed to wrap
+   or to grow the row. */
+.move-list--strip .move-var { white-space: nowrap; }
 
 .move-num,
 .move-san {
@@ -7009,11 +7332,26 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 #eval-controls .eval-moves--compact {
   gap: 5px;
 }
-/* Each best move reads as a small tappable card. */
+/* Each best move reads as a small tappable card. On the DOCK the move and its
+   eval sit side by side rather than stacked: the docked bar is the app's most
+   space-constrained row (every pixel here is a pixel off the board), and one
+   line of "Nf3 +0.3" is shorter than two lines of the same thing. The stacked
+   layout stays for the spar overlay, which has the room. */
 #eval-controls .eval-move {
   background: var(--bg-parchment);
   border: 1px solid var(--border-card);
   padding: 3px 5px;
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+}
+#eval-controls .eval-move-san { font-size: 0.8rem; }
+#eval-controls .eval-move-cp {
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+  flex-shrink: 0;
 }
 
 /* Move chips: a compact [move][score] column, used for the spar overlay's

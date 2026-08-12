@@ -79,15 +79,19 @@
           </div>
           <div id="builder-sheet" class="builder-sheet">
             <button id="builder-panel-handle" class="builder-panel-handle" type="button" aria-label="Expand panel" aria-expanded="false" title="Drag up for more room"></button>
-            <div id="builder-slide-tabs" class="builder-slide-tabs" role="tablist" aria-label="Builder panels">
-              <button class="slide-tab slide-tab--on" data-slide="0" type="button" role="tab" aria-selected="true">Line</button>
-              <button class="slide-tab" data-slide="1" type="button" role="tab" aria-selected="false">Library</button>
-              <button class="slide-tab" data-slide="2" type="button" role="tab" aria-selected="false">My lines</button>
-              <button class="slide-tab" data-slide="3" type="button" role="tab" aria-selected="false">Learn</button>
-              <button class="slide-tab" data-slide="4" type="button" role="tab" aria-selected="false">Scouting</button>
+            <!-- The tab strip is built in JS (applyBuilderSlideOrder), because
+                 the analyser and the builder show a different set of tabs in a
+                 different order. -->
+            <div id="builder-slide-tabs" class="builder-slide-tabs" role="tablist" aria-label="Builder panels"></div>
+            <!-- The persistent move strip: the moves of the sequence on the
+                 board, under the tabs, on every tab. Deliberately the shortest
+                 row the app has — every pixel here is a pixel off the board. -->
+            <div id="builder-movestrip" class="builder-movestrip">
+              <div id="move-list-strip" class="move-list move-list--strip"></div>
             </div>
             <div id="builder-carousel" class="builder-carousel">
-            <section class="builder-slide" id="slide-line" aria-label="This line">
+            <section class="builder-slide builder-slide--list" id="slide-explore" aria-label="Explore"></section>
+            <section class="builder-slide" id="slide-line" aria-label="Line info">
               <div id="line-panel">
                 <div class="line-actions">
                   <button id="rename-btn" type="button" class="line-action" aria-label="Edit name" title="Edit name"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg><span>Title</span></button>
@@ -114,22 +118,17 @@
                   </button>
                   <button id="line-delete" class="line-delete" type="button" hidden></button>
                 </div>
+                <div id="line-priority" class="line-priority" hidden></div>
+                <div id="line-stats" class="line-stats" hidden></div>
               </div>
             </section>
             <section class="builder-slide builder-slide--list" id="slide-library" aria-label="Opening library">
               <div id="slide-library-content"></div>
-              <div class="panel-moves"><div class="panel-moves-label">Moves</div><div id="move-list-library" class="move-list move-list--panel"></div></div>
             </section>
-            <section class="builder-slide builder-slide--list" id="slide-games" aria-label="Your games">
+            <section class="builder-slide builder-slide--list" id="slide-games" aria-label="My lines">
               <div id="slide-games-content"></div>
-              <div class="panel-moves"><div class="panel-moves-label">Moves</div><div id="move-list-games" class="move-list move-list--panel"></div></div>
             </section>
-            <!-- Slides map to tabs purely by DOM order; a slide may only be
-                 hidden (Settings' scouting toggle) if it's the LAST one, or the
-                 scroll-position→index math breaks. Keep Learn before Scouting
-                 and always visible. -->
-            <section class="builder-slide builder-slide--list" id="slide-learn" aria-label="Learn this opening"></section>
-            <section class="builder-slide builder-slide--list" id="slide-scouting" aria-label="Scouting"></section>
+            <section class="builder-slide builder-slide--list" id="slide-engine" aria-label="Engine"></section>
             </div>
           </div>
           <div id="builder-dock" class="builder-dock">

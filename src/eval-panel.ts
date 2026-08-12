@@ -11,6 +11,12 @@ export interface EvalPanelOpts {
   // is switched by the dock's engine icon instead, so it hides this (false); the
   // spar overlay keeps its own inline toggle (the default).
   showToggle?: boolean;
+  // Show the "cloud · d38" / "local · d20" source-and-depth badge. The builder's
+  // docked bar turns it off: the whole point of the quick engine is a glance at
+  // three moves and a bar, and the provenance of the eval is what the Engine tab
+  // is for. The unreachable-Lichess warning is NOT part of this — that's an
+  // actionable error, and it still shows.
+  showSource?: boolean;
   // Tapped from the discreet "can't reach Lichess" warning that replaces the
   // source badge while the cloud is unreachable. The caller resets the cloud
   // breaker and re-evaluates the current position. Without it (or while the
@@ -38,6 +44,7 @@ export class EvalPanel {
   private onPlayMove: (uci: string) => void;
   private compact: boolean;
   private showToggle: boolean;
+  private showSource: boolean;
   private onRetryCloud?: () => void;
   private retrying = false;
 
@@ -56,6 +63,7 @@ export class EvalPanel {
     this.onPlayMove = onPlayMove;
     this.compact = opts.compact ?? false;
     this.showToggle = opts.showToggle ?? true;
+    this.showSource = opts.showSource ?? true;
     this.onRetryCloud = opts.onRetryCloud;
     this.build();
   }
@@ -218,9 +226,10 @@ export class EvalPanel {
 
     // Source + depth badge: "cloud · d38" when Lichess answered, or
     // "local · d14…d20" while the bundled Stockfish climbs to its target
-    // (collapsing to "local · d20" once it lands).
+    // (collapsing to "local · d20" once it lands). Suppressed on the docked bar,
+    // where the provenance is the Engine tab's job.
     const sourceEl = this.controlsEl.querySelector<HTMLElement>('#eval-source')!;
-    sourceEl.textContent = this.badgeText(result);
+    sourceEl.textContent = this.showSource ? this.badgeText(result) : '';
     this.syncCloudWarning(result);
   }
 
