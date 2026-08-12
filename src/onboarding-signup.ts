@@ -124,10 +124,16 @@ function dismissButton(label: string, onClick: () => void): HTMLElement {
   return btn;
 }
 
-// The sheet itself. Also the target of ?auth=signup, which opens it directly
-// (from the marketing site's "Sign up" link) — that route deliberately does NOT
-// consult the asked-flag: an explicit request is not a nag.
-export function openSignUpSheet(): void {
+// The sheet itself. Also the target of ?auth=signup / ?auth=signin, which open
+// it directly (from the marketing site's "Sign in" link and its final CTA) —
+// that route deliberately does NOT consult the asked-flag: an explicit request
+// is not a nag.
+//
+// The two modes are the same sheet with a different opening line: the form
+// underneath can switch either way on its own, so this only decides which one
+// the visitor lands on. A "Sign in" link that opened a sign-up form would be a
+// small lie.
+export function openSignUpSheet(mode: 'signup' | 'signin' = 'signup'): void {
   if (!isSupabaseConfigured) return;
 
   const overlay = document.createElement('div');
@@ -142,15 +148,17 @@ export function openSignUpSheet(): void {
   // answering first); the line says what it buys.
   const title = document.createElement('h3');
   title.className = 'edit-sheet-title';
-  title.textContent = 'Create a free account';
+  title.textContent = mode === 'signin' ? 'Sign in' : 'Create a free account';
   sheet.appendChild(title);
 
   const lead = document.createElement('p');
   lead.className = 'signup-sheet-lead';
-  lead.textContent = 'Your lines and progress follow you to any phone you sign in on.';
+  lead.textContent = mode === 'signin'
+    ? 'Your lines and progress come back the moment you do.'
+    : 'Your lines and progress follow you to any phone you sign in on.';
   sheet.appendChild(lead);
 
-  sheet.appendChild(buildAuthForm({ initialMode: 'signup', blurb: '' }));
+  sheet.appendChild(buildAuthForm({ initialMode: mode, blurb: '' }));
 
   const notNow = document.createElement('button');
   notNow.type = 'button';
@@ -180,8 +188,9 @@ export function openSignUpSheet(): void {
   document.body.appendChild(overlay);
 }
 
-// ?auth=signup → open the sheet and tidy the URL, so a refresh doesn't reopen
-// it. Called once at boot.
+// ?auth=signup / ?auth=signin → open the sheet in that mode and tidy the URL,
+// so a refresh doesn't reopen it. Called once at boot. Any other value is
+// ignored rather than guessed at.
 export function handleAuthUrlParam(): void {
   let params: URLSearchParams;
   try {
@@ -189,7 +198,8 @@ export function handleAuthUrlParam(): void {
   } catch {
     return;
   }
-  if (params.get('auth') !== 'signup') return;
+  const asked = params.get('auth');
+  if (asked !== 'signup' && asked !== 'signin') return;
 
   params.delete('auth');
   const query = params.toString();
@@ -200,5 +210,5 @@ export function handleAuthUrlParam(): void {
   );
 
   if (getAuthUser()) return;
-  openSignUpSheet();
+  openSignUpSheet(asked);
 }

@@ -9,7 +9,7 @@
   Bito Chess — marketing landing page (bitochess.com root)
 
   Standalone. No build step, no framework, no libraries. Everything is inline
-  so the page is a single request plus fonts. Copy lives in LANDING-COPY.md —
+  so the page is a single request plus one font. Copy lives in LANDING-COPY.md —
   edit there first, then mirror it here.
 
   WHERE THIS FILE IS SERVED (see vite.config.ts):
@@ -21,31 +21,32 @@
                                the app at <pages-url>/obertura/. The CTA script
                                below rewrites /app/ hrefs for that mirror.
 
-  DELIBERATE DIVERGENCE FROM THE APP — DO NOT "FIX" THIS:
-  The app uses system-ui throughout (src/style.css) with Chakra Petch for the
-  wordmark only. This page uses Fraunces for display and Spline Sans for body
-  on purpose: it is an editorial page, not app chrome. Continuity with the app
-  comes from colour, warm shadow and paper texture, NOT from type. Swapping
-  these back to system-ui would flatten the page for no gain.
+  IT MATCHES THE APP NOW. The previous version deliberately diverged — Fraunces
+  and Spline Sans, light theme only, "the art direction is paper". That was
+  reversed on purpose in the v0.5 round: the page uses the app's own tokens
+  (copied from src/style.css), the app's type (system-ui, with Chakra Petch
+  reserved for the wordmark exactly as the app header does), and it follows the
+  visitor's light/dark browser preference. Someone who taps a CTA should land
+  somewhere that looks like where they came from.
 
-  LIGHT ONLY. There is no dark theme here and nothing responds to
-  prefers-color-scheme — that is a decision, not an oversight. The art
-  direction is paper.
+  BOARD COLOURS ARE NEVER THEMED, here or in the app — wood stays wood in both
+  schemes. Only the page chrome changes.
   ════════════════════════════════════════════════════════════════════════════
 -->
 
-<title>Bito Chess — learn your openings once, remember them for good</title>
-<meta name="description" content="Build your own chess opening repertoire, drill it with spaced repetition, and stop forgetting your prep on move six. Free to use, pay once if you want more, no subscription." />
-<meta name="theme-color" content="#f1ece1" />
-<meta name="color-scheme" content="light" />
+<title>Bito Chess — improve your next move</title>
+<meta name="description" content="Build your own chess opening repertoire, drill it with spaced repetition, and stop forgetting your prep on move six. Free to use, 89 kr once if you want the whole thing, no subscription." />
+<meta name="color-scheme" content="light dark" />
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f1ece1" />
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#211c16" />
 
 <!-- Open Graph / sharing. og-image.png does not exist yet — supply a
      1200×630 PNG at the site root and this starts working with no code
      change. Until then the tag simply 404s, which is harmless. -->
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Bito Chess" />
-<meta property="og:title" content="Bito Chess — learn your openings once, remember them for good" />
-<meta property="og:description" content="Build your own repertoire, drill it with spaced repetition, and stop forgetting your prep on move six." />
+<meta property="og:title" content="Bito Chess — improve your next move" />
+<meta property="og:description" content="Build your repertoire, train smarter, and play with confidence." />
 <meta property="og:url" content="https://bitochess.com/" />
 <meta property="og:image" content="https://bitochess.com/og-image.png" />
 <meta property="og:image:width" content="1200" />
@@ -61,29 +62,21 @@
      app already uses. -->
 <script>document.documentElement.className += ' js';</script>
 
-<!-- Fonts. Preconnect both hosts, then preload the stylesheet itself.
-     We deliberately do NOT preload the .woff2 binaries directly: those
-     fonts.gstatic.com URLs are rotated by Google without notice, and a stale
-     hardcoded one fails silently and wastes a round trip. Preloading the CSS
-     gets the same head start without the fragility. font-display:swap means
-     text is readable immediately in the fallback face either way. -->
+<!-- One font, the same one the app loads: Chakra Petch 700 for the wordmark.
+     Everything else is system-ui, exactly as in src/style.css — so the page
+     needs no webfont to render its body copy and never flashes. -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@700&family=Fraunces:opsz,wght@9..144,400..900&family=Spline+Sans:wght@400..600&display=swap" />
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@700&family=Fraunces:opsz,wght@9..144,400..900&family=Spline+Sans:wght@400..600&display=swap" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@700&display=swap" />
 
 <style>
 /* ══════════════════════════════════════════════════════════════════════════
    DESIGN TOKENS
-   Copied by hand from src/style.css :root on 2026-08-10 (app v0.4). There is
-   no import mechanism — this file is standalone and served from the site
-   root, so tokens have to be duplicated. The previous version of this page
-   had drifted badly from the app (wrong --text, wrong --accent); if you touch
-   the app palette, re-copy this block rather than patching values one by one.
-
-   Only the light theme exists here. The board colours are NOT used as UI
-   colour anywhere on this page — they appear only inside actual boards and
-   screenshots, exactly as in the app.
+   Copied by hand from src/style.css (app v0.4) — :root for light,
+   [data-theme="dark"] for dark. There is no import mechanism: this file is
+   standalone and served from the site root, so the tokens have to be
+   duplicated. If you touch the app palette, re-copy both blocks rather than
+   patching values one by one.
    ══════════════════════════════════════════════════════════════════════════ */
 :root {
   color-scheme: light;
@@ -92,48 +85,108 @@
   --bg-page: #f1ece1;
   --bg-card: #faf8f5;
   --bg-parchment: #f8f3ea;
+  --bg-elevated: #ede5d5;
 
-  /* Text — contrast on --bg-page / --bg-parchment:
-     text 15.2 / 16.2 · muted 7.3 / 7.8 · faint 4.8 / 5.1. All clear 4.5:1. */
+  /* Text */
   --text: #1c1610;
   --text-muted: #5c4838;
   --text-faint: #7a6353;
 
-  /* Borders. The app has no --border-soft; this page defines it as an alias
-     of the app's --hairline so the naming in the design brief resolves. */
-  --hairline: rgba(28, 22, 16, 0.09);
-  --border-soft: rgba(28, 22, 16, 0.09);
+  /* Borders */
+  --border: #d0c4b4;
   --border-card: #e2dcd2;
+  --hairline: rgba(28, 22, 16, 0.09);
 
-  /* Accent — brass. 2.94:1 on --bg-page, so it is DECORATIVE ONLY: rules,
-     underlines, marks. Never set copy in it at any size. */
+  /* Accent — brass. 2.94:1 on the page, so it is DECORATIVE + wordmark only.
+     Never set body copy in it. */
   --accent: #c07a2a;
+  --accent-active: #9f6220;
+  --accent-soft: rgba(192, 122, 42, 0.12);
+  --on-accent: #fff;
 
-  /* Felt green — the app's primary, and every primary CTA here.
-     White on it measures 6.5:1. */
+  /* Felt green — the app's primary, and every primary CTA here. */
   --primary: #3e6650;
   --primary-active: #345646;
+  --on-primary: #fff;                /* 6.5:1 on felt green */
 
   /* Warm shadows only — brown-black, never grey. */
   --shadow-card: 0 1px 3px rgba(28, 22, 16, 0.07), 0 1px 2px rgba(28, 22, 16, 0.04);
   --shadow-lift: 0 10px 30px rgba(28, 22, 16, 0.10), 0 3px 8px rgba(28, 22, 16, 0.06);
   --shadow-frame: 0 18px 44px rgba(28, 22, 16, 0.13), 0 4px 12px rgba(28, 22, 16, 0.07);
+  --shadow-bar: 0 2px 14px rgba(28, 22, 16, 0.08);
 
-  /* Board — screenshots and boards only. Present for reference; not used as
-     page chrome anywhere in this file. */
+  --fill-faint: rgba(28, 22, 16, 0.025);
+  --paper-speckle: rgba(120, 90, 50, 0.035);
+
+  /* The decorative 3D pieces (the sprite at the top of <body>). Wood in light,
+     a paler wood in dark so they stay readable against charcoal. */
+  --piece-a: #c99a5e;
+  --piece-b: #a2703a;
+  --piece-c: #5d3f21;
+  --piece-opacity: 0.13;
+
+  /* Board — identical in BOTH themes, exactly as in the app. Used only inside
+     the real board in the hero, never as page chrome. */
   --board-light: #eecfa1;
   --board-dark: #b58863;
+  --board-lastmove: #e3b25a;
+
+  /* The app's hint-arrow colour (see drill.ts / puzzle-run.ts). */
+  --arrow: #ff9b21;
 
   /* Page furniture */
-  --radius: 22px;
+  --radius: 20px;
+  --radius-sm: 14px;
   --measure: 60ch;
-  --pad-block: 96px;   /* section rhythm, mobile */
+  --pad-block: 84px;   /* section rhythm, mobile */
   --gutter: 22px;
-  --paper-speckle: rgba(120, 90, 50, 0.035);
+  --bar-h: 62px;       /* the fixed top bar */
+}
+
+/* Dark. Only the tokens change — not one rule below this block is theme-aware,
+   which is the same discipline src/style.css keeps. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --bg-page: #211c16;
+    --bg-card: #2c261e;
+    --bg-parchment: #2d271f;
+    --bg-elevated: #261e17;
+
+    --text: #efe6d6;
+    --text-muted: #c4b49c;
+    --text-faint: #a8957c;
+
+    --border: #47392c;
+    --border-card: #3d352a;
+    --hairline: rgba(239, 230, 214, 0.10);
+
+    --accent: #d4892c;
+    --accent-active: #b8721f;
+    --accent-soft: rgba(212, 137, 44, 0.22);
+
+    --primary: #527d63;
+    --primary-active: #466b54;
+
+    /* Shadows all but disappear on dark — borders do the job, as in the app. */
+    --shadow-card: none;
+    --shadow-lift: 0 10px 30px rgba(0, 0, 0, 0.35);
+    --shadow-frame: 0 18px 44px rgba(0, 0, 0, 0.45);
+    --shadow-bar: 0 2px 14px rgba(0, 0, 0, 0.35);
+
+    --fill-faint: rgba(239, 230, 214, 0.03);
+    --paper-speckle: rgba(239, 230, 214, 0.030);
+
+    --piece-a: #e2c496;
+    --piece-b: #b98a52;
+    --piece-c: #6b4a29;
+    --piece-opacity: 0.10;
+  }
 }
 
 @media (min-width: 900px) {
-  :root { --pad-block: 140px; --gutter: 40px; }
+  :root { --pad-block: 128px; --gutter: 40px; --bar-h: 72px; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -142,11 +195,18 @@
 *, *::before, *::after { box-sizing: border-box; }
 * { margin: 0; padding: 0; }
 
-html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+  /* The floating pieces hang off both edges on purpose. `clip` contains them
+     without making the root a scroll container, so the fixed top bar is
+     unaffected; browsers without it fall back to the body rule below. */
+  overflow-x: clip;
+}
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
 body {
-  font-family: 'Spline Sans', system-ui, -apple-system, sans-serif;
+  font-family: system-ui, -apple-system, sans-serif;
   font-size: 17px;
   line-height: 1.6;
   color: var(--text);
@@ -158,20 +218,20 @@ body {
   background-size: 24px 24px, 37px 37px;
   background-position: 0 0, 12px 19px;
   -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
   overflow-x: hidden;
+  overflow-x: clip;
+  padding-top: var(--bar-h);
 }
 
 @media (min-width: 900px) { body { font-size: 18px; } }
 
 img { max-width: 100%; display: block; }
 
-::selection { background: rgba(62, 102, 80, 0.18); }
+::selection { background: var(--accent-soft); }
 
-/* Skip link — keyboard users land here first. */
 .skip {
   position: absolute; left: -9999px; top: 0; z-index: 100;
-  background: var(--primary); color: #fff;
+  background: var(--primary); color: var(--on-primary);
   padding: 14px 22px; border-radius: 0 0 var(--radius) 0;
   font-weight: 600; text-decoration: none;
 }
@@ -179,52 +239,57 @@ img { max-width: 100%; display: block; }
 
 /* ══════════════════════════════════════════════════════════════════════════
    TYPE
-   Fraunces carries the page. Its optical-size axis is set per role: display
-   sizes get a high opsz (tighter, more contrast, the "titling" cut), smaller
-   headings get a lower one so they stay sturdy at text sizes.
+   system-ui throughout, like the app. Weight and tracking carry the display
+   sizes; Chakra Petch is reserved for the wordmark and the few monospace-ish
+   labels, which is exactly the division src/style.css makes.
    ══════════════════════════════════════════════════════════════════════════ */
-h1, h2, h3 {
-  font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
-  font-weight: 900;
-  color: var(--text);
-  text-wrap: balance;
-}
+h1, h2, h3 { color: var(--text); text-wrap: balance; letter-spacing: -0.02em; }
 
 h1 {
-  font-size: clamp(34px, 8vw, 76px);
-  line-height: 1.02;
-  letter-spacing: -0.02em;
-  font-variation-settings: 'opsz' 144, 'SOFT' 0, 'WONK' 1;
+  font-size: clamp(40px, 9vw, 78px);
+  line-height: 1.03;
+  font-weight: 800;
+  letter-spacing: -0.035em;
 }
 
 h2 {
-  font-size: clamp(26px, 4.5vw, 44px);
-  line-height: 1.08;
-  letter-spacing: -0.015em;
-  font-variation-settings: 'opsz' 72, 'SOFT' 0, 'WONK' 1;
+  font-size: clamp(27px, 4.4vw, 42px);
+  line-height: 1.12;
+  font-weight: 800;
+  letter-spacing: -0.03em;
 }
 
 h3 {
-  font-size: clamp(19px, 2.4vw, 23px);
-  line-height: 1.25;
-  letter-spacing: -0.01em;
-  font-variation-settings: 'opsz' 24;
+  font-size: clamp(18px, 2.2vw, 21px);
+  line-height: 1.3;
+  font-weight: 700;
+  letter-spacing: -0.015em;
 }
 
 p { max-width: var(--measure); }
-
-strong { font-weight: 600; color: var(--text); }
+strong { font-weight: 700; color: var(--text); }
 
 .wordmark {
   font-family: 'Chakra Petch', ui-monospace, monospace;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  color: var(--primary);
+  letter-spacing: 0.01em;
+  color: var(--accent);
   text-transform: lowercase;
+  text-decoration: none;
+  white-space: nowrap;
 }
 
-/* The one accent typographic device: step numbers set as chess move numbers,
-   monospace, in felt green. Used in "How it works" and nowhere else. */
+.eyebrow {
+  font-family: 'Chakra Petch', ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 18px;
+}
+
+/* Step numbers set as chess move numbers. Used in "How it works" only. */
 .movenum {
   font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
   font-weight: 700;
@@ -250,7 +315,7 @@ strong { font-weight: 600; color: var(--text); }
 }
 
 .lede {
-  font-size: clamp(18px, 2.4vw, 21px);
+  font-size: clamp(18px, 2.3vw, 21px);
   line-height: 1.5;
   color: var(--text-muted);
 }
@@ -259,8 +324,103 @@ strong { font-weight: 600; color: var(--text); }
 .faint { font-size: 15px; color: var(--text-faint); }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   TOP BAR
+   Fixed, constant height. The app icon is absolutely positioned inside it and
+   OVERHANGS the bar at rest — that is what lets it be big without the page
+   jumping when it shrinks. Sign-in sits to its left, vertically centred.
+   ══════════════════════════════════════════════════════════════════════════ */
+.topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 50;
+  height: var(--bar-h);
+  --logo: 78px;                  /* resting size, mobile */
+  background: transparent;
+  transition: background-color 240ms ease, box-shadow 240ms ease, border-color 240ms ease;
+  border-bottom: 1px solid transparent;
+}
+@media (min-width: 900px) { .topbar { --logo: 112px; } }
+
+/* Once the page has scrolled the bar becomes a real bar and the icon tucks
+   into it. Both are one class flip — see the sentinel observer in the script. */
+.topbar.is-scrolled {
+  --logo: 40px;
+  background: var(--bg-page);
+  border-bottom-color: var(--hairline);
+  box-shadow: var(--shadow-bar);
+}
+@media (min-width: 900px) { .topbar.is-scrolled { --logo: 46px; } }
+
+.topbar__inner {
+  height: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  position: relative;
+}
+
+.topbar .wordmark { font-size: 20px; }
+@media (min-width: 900px) { .topbar .wordmark { font-size: 23px; } }
+
+.topbar__right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  /* Room for the absolutely-positioned icon that follows it. */
+  padding-right: calc(var(--logo) + 12px);
+  transition: padding-right 260ms cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+.signin {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 7px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+.signin:hover { background: var(--bg-elevated); border-color: var(--text-faint); }
+
+/* The app icon. Anchored to the bar's top-right; it grows downward past the
+   bar's edge, so the bar's own height never changes. */
+.applogo {
+  position: absolute;
+  top: 8px;
+  right: var(--gutter);
+  display: block;
+  width: var(--logo);
+  height: var(--logo);
+  border-radius: 24%;
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-lift);
+  transition:
+    width 260ms cubic-bezier(0.2, 0.7, 0.3, 1),
+    height 260ms cubic-bezier(0.2, 0.7, 0.3, 1),
+    box-shadow 260ms ease;
+}
+.topbar.is-scrolled .applogo { top: 50%; transform: translateY(-50%); box-shadow: var(--shadow-card); }
+.applogo img { width: 100%; height: 100%; }
+
+@media (prefers-reduced-motion: reduce) {
+  .applogo, .topbar__right, .topbar { transition: none !important; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
    BANDS + LAYOUT
-   Full-bleed alternating bands, cream → parchment → cream, so scrolling feels
+   Full-bleed alternating bands, page → parchment → page, so scrolling feels
    like turning pages. Never two identical adjacent.
    ══════════════════════════════════════════════════════════════════════════ */
 .band {
@@ -268,9 +428,6 @@ strong { font-weight: 600; color: var(--text); }
   padding: var(--pad-block) 0;
 }
 .band--parchment { background: var(--bg-parchment); }
-
-/* Clips the watermark board below, which deliberately hangs off the corner. */
-.band--texture { overflow: hidden; }
 
 .inner {
   width: 100%;
@@ -281,32 +438,9 @@ strong { font-weight: 600; color: var(--text); }
   z-index: 1;
 }
 
-/* ONE 8×8 board, used as a watermark — not a repeating tile. Tiling it across
-   the whole band made it read as wallpaper; a single contained board at 3%
-   reads the way a printed board does on book paper. background-size: 25%
-   gives four 2×2 conic tiles across, i.e. exactly eight squares. It hangs off
-   the right edge so it never sits squarely behind a column of text.
-   Applied to exactly two bands (How it works, Why). */
-.band--texture::before {
-  content: "";
-  position: absolute;
-  z-index: 0;
-  pointer-events: none;
-  width: min(440px, 62vw);
-  aspect-ratio: 1 / 1;
-  /* Anchored to the bottom-right and hanging off both edges, so it settles
-     into the dead corner every one of these sections has instead of sitting
-     behind a heading. The band clips the overhang. */
-  right: -56px;
-  bottom: -72px;
-  opacity: 0.03;
-  background-image: repeating-conic-gradient(var(--text) 0% 25%, transparent 0% 50%);
-  background-size: 25% 25%;
-}
-
 /* Feature sections: heading in one column, body in the other, and the two
    swap sides down the page. Asymmetric by construction, stacked on mobile. */
-.feature { display: grid; gap: 26px; }
+.feature { display: grid; gap: 22px; }
 
 @media (min-width: 900px) {
   .feature {
@@ -316,11 +450,50 @@ strong { font-weight: 600; color: var(--text); }
   }
   .feature__head { grid-column: 1; grid-row: 1; }
   .feature__body { grid-column: 2; grid-row: 1; }
+  /* Flipping swaps the column WIDTHS as well as the contents, so the body is
+     always the wide side and the heading always the narrow one. */
+  .feature--flip { grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); }
   .feature--flip .feature__head { grid-column: 2; }
   .feature--flip .feature__body { grid-column: 1; }
 }
 
-.feature__body > * + * { margin-top: 20px; }
+.feature__body > * + * { margin-top: 18px; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   THE FLOATING 3D PIECES
+   Decorative only: aria-hidden, pointer-events off, and they drift on scroll
+   at their own speed (set per element in the markup, applied by the script as
+   --y). They straddle band edges deliberately — that overlap is what gives the
+   sections their separation without a rule or a wave.
+   ══════════════════════════════════════════════════════════════════════════ */
+.float {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  opacity: var(--piece-opacity);
+  width: var(--w, 220px);
+  transform: translate3d(0, var(--y, 0px), 0) rotate(var(--rot, 0deg));
+  will-change: transform;
+}
+.float svg { width: 100%; height: auto; display: block; }
+
+/* On a phone the same piece fills a third of the screen and stops being
+   texture, so it comes down in size and fades a little further. */
+@media (max-width: 700px) {
+  .float {
+    width: calc(var(--w) * 0.58);
+    opacity: calc(var(--piece-opacity) * 0.75);
+  }
+}
+
+/* Colours for the sprite's gradients, driven by the theme tokens above. */
+#piece-sprite-a-0 { stop-color: var(--piece-a); }
+#piece-sprite-a-1 { stop-color: var(--piece-b); }
+#piece-sprite-a-2 { stop-color: var(--piece-c); }
+
+@media (prefers-reduced-motion: reduce) {
+  .float { transform: rotate(var(--rot, 0deg)) !important; }
+}
 
 /* ══════════════════════════════════════════════════════════════════════════
    BUTTONS
@@ -329,16 +502,17 @@ strong { font-weight: 600; color: var(--text); }
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   min-height: 54px;
   padding: 15px 32px;
   border: 0;
   border-radius: 999px;
   background: var(--primary);
-  color: #fff;                       /* 6.5:1 on felt green */
+  color: var(--on-primary);
   font-family: inherit;
   font-size: 17px;
-  font-weight: 600;
-  letter-spacing: 0.005em;
+  font-weight: 700;
+  letter-spacing: -0.005em;
   text-decoration: none;
   cursor: pointer;
   box-shadow: 0 2px 6px rgba(62, 102, 80, 0.26);
@@ -347,8 +521,20 @@ strong { font-weight: 600; color: var(--text); }
 .btn:hover { background: var(--primary-active); box-shadow: 0 6px 18px rgba(62, 102, 80, 0.30); }
 .btn:active { transform: scale(0.98); box-shadow: 0 1px 3px rgba(62, 102, 80, 0.28); }
 
-/* Visible keyboard focus everywhere — dark ink ring, legible on cream,
-   parchment and on the green button itself. */
+/* The buy button — brass, so it never reads as "the same button again". */
+.btn--buy { background: var(--accent); color: var(--on-accent); box-shadow: 0 2px 6px rgba(192, 122, 42, 0.3); }
+.btn--buy:hover { background: var(--accent-active); box-shadow: 0 6px 18px rgba(192, 122, 42, 0.34); }
+
+.btn--ghost {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: none;
+  font-weight: 600;
+}
+.btn--ghost:hover { background: var(--fill-faint); border-color: var(--text-faint); box-shadow: none; }
+
+/* Visible keyboard focus everywhere — ink ring, legible on every surface. */
 a:focus-visible,
 button:focus-visible {
   outline: 3px solid var(--text);
@@ -357,77 +543,187 @@ button:focus-visible {
 }
 .btn:focus-visible { border-radius: 999px; }
 
-.cta-block { margin-top: 34px; }
-.cta-block .trust { margin-top: 16px; font-size: 15px; color: var(--text-faint); }
+.cta-block { margin-top: 30px; }
+.cta-block .trust { margin-top: 12px; font-size: 15px; color: var(--text-faint); }
 
 /* ══════════════════════════════════════════════════════════════════════════
    HERO
    ══════════════════════════════════════════════════════════════════════════ */
-.hero { padding-top: clamp(56px, 12vw, 96px); padding-bottom: var(--pad-block); }
-
-.hero .wordmark {
-  font-size: clamp(19px, 2.6vw, 23px);
-  margin-bottom: clamp(28px, 7vw, 52px);
+.hero {
+  /* Extra headroom so the overhanging app icon never lands on the H1. */
+  padding-top: clamp(46px, 12vw, 78px);
+  padding-bottom: var(--pad-block);
 }
 
-.hero h1 { margin-bottom: 0; }
-.h1-break { display: none; }
-@media (min-width: 900px) { .h1-break { display: block; } }
-
-.hero__cols { margin-top: clamp(30px, 5vw, 44px); display: grid; gap: clamp(38px, 7vw, 56px); }
+.hero__cols { display: grid; gap: clamp(34px, 6vw, 52px); }
 
 @media (min-width: 900px) {
   .hero__cols {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr);
-    gap: clamp(48px, 6vw, 88px);
-    /* start, not center: the text column is much shorter than the square
-       board, and centring it opened a dead gap under the H1. Hanging both
-       from the same top line reads as a title page and lets the board fall
-       past the text, which is the asymmetry we want. */
-    align-items: start;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.92fr);
+    gap: clamp(48px, 6vw, 84px);
+    align-items: center;
   }
 }
 
-.hero .lede { max-width: 34ch; }
+.hero h1 { margin-bottom: 18px; }
+.hero .lede { max-width: 30ch; }
 
-/* PLACEHOLDER. An interactive board widget replaces this in a later session —
-   do not substitute a static image in the meantime, the empty frame is the
-   honest state. Square, because a chessboard is square. */
-.board-ph {
+/* ══════════════════════════════════════════════════════════════════════════
+   THE PLAYABLE BOARD
+   A real board, three real moves, no chess engine: the line is scripted (see
+   SCRIPT in the page script) so the whole widget is ~120 lines of JS and no
+   dependency. The pieces are cburnett — the app's own default set, lifted from
+   chessground's stylesheet — so it looks like the app because it IS the app's
+   artwork.
+   ══════════════════════════════════════════════════════════════════════════ */
+.board-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-frame);
+  padding: 14px;
   width: 100%;
-  max-width: 420px;
+  max-width: 430px;
   margin: 0 auto;
+  position: relative;
+}
+
+.mini {
+  position: relative;
+  width: 100%;
   aspect-ratio: 1 / 1;
+  border-radius: 8px;
+  overflow: hidden;
+  touch-action: manipulation;
+  /* The board itself, in CSS. The 64 square buttons are built by the script and
+     sit on top of this; painting it here means there is never a frame where the
+     card is an empty box — and with JavaScript off it stays a board with a
+     position on it rather than a hole. 25% tiles = 2×2 squares each = 8 across. */
+  background: repeating-conic-gradient(var(--board-dark) 0% 25%, var(--board-light) 0% 50%) 0 0 / 25% 25%;
+}
+/* Nothing to play without the script, so the running commentary goes too. */
+html:not(.js) .mini__hint { display: none; }
+
+.mini__squares {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+}
+
+.mini__sq {
+  border: 0;
+  padding: 0;
+  background: var(--board-light);
+  cursor: pointer;
+  position: relative;
+  -webkit-tap-highlight-color: transparent;
+}
+.mini__sq.dark { background: var(--board-dark); }
+.mini__sq.last::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--board-lastmove);
+  opacity: 0.62;
+}
+.mini__sq.sel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(227, 178, 90, 0.75);
+}
+.mini__sq:focus-visible { outline: 3px solid var(--text); outline-offset: -3px; }
+
+.mini__pieces { position: absolute; inset: 0; pointer-events: none; }
+
+.pc {
+  position: absolute;
+  top: 0; left: 0;
+  width: 12.5%;
+  height: 12.5%;
+  background-size: cover;
+  background-repeat: no-repeat;
+  transform: translate(calc(var(--f) * 100%), calc(var(--r) * 100%));
+  transition: transform 260ms cubic-bezier(0.25, 0.8, 0.35, 1);
+}
+@media (prefers-reduced-motion: reduce) { .pc { transition: none; } }
+
+.mini__arrow { position: absolute; inset: 0; pointer-events: none; opacity: 0.88; }
+/* Keep these two apart: a stroke on the head would be drawn in viewBox units,
+   where the default width of 1 is a whole square. */
+.mini__arrow .shaft { fill: none; stroke: var(--arrow); }
+.mini__arrow .head { fill: var(--arrow); stroke: none; }
+html.js .mini__arrow { animation: arrow-breathe 2.4s ease-in-out infinite; }
+@keyframes arrow-breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+.mini.shake { animation: mini-shake 300ms ease; }
+@keyframes mini-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+.mini__hint {
+  margin: 12px 4px 2px;
+  max-width: none;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--text-muted);
+  min-height: 2.8em;
+}
+.mini__hint b { color: var(--text); font-weight: 700; }
+
+/* The finish panel, laid over the board once the third move lands. */
+.mini__done {
+  position: absolute;
+  inset: 14px;
+  border-radius: var(--radius-sm);
+  /* Nearly opaque: at 93% the pieces underneath showed through the copy. The
+     blur is there for the edges, not the middle. Solid first, so a browser
+     without color-mix gets a flat card rather than a transparent panel. */
+  background: var(--bg-card);
+  background: color-mix(in srgb, var(--bg-card) 97%, transparent);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 14px;
   text-align: center;
   padding: 24px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-card);
-  color: var(--text-faint);
+  z-index: 3;
+}
+.mini__done[hidden] { display: none; }
+.mini__done p { max-width: 26ch; color: var(--text-muted); }
+.mini__done .again {
+  border: 0;
+  background: none;
+  font: inherit;
   font-size: 15px;
-  letter-spacing: 0.01em;
+  color: var(--text-faint);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
    HOW IT WORKS
    ══════════════════════════════════════════════════════════════════════════ */
-.steps { margin-top: clamp(40px, 6vw, 64px); display: grid; gap: clamp(34px, 5vw, 46px); }
+.steps { margin-top: clamp(36px, 5vw, 56px); display: grid; gap: clamp(30px, 4vw, 44px); }
 
 @media (min-width: 900px) {
   .steps { grid-template-columns: repeat(3, 1fr); gap: clamp(40px, 4vw, 60px); }
 }
 
-.step__n { margin-bottom: 18px; }
+.step__n { margin-bottom: 16px; }
 .step p { max-width: 40ch; color: var(--text-muted); }
 .step p strong { color: var(--text); }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   LISTS — real hanging indents, no bullet dots. A felt-green en dash sits in
-   the hanging position and wrapped lines align to the text, not under it.
+   LISTS — real hanging indents, no bullet dots.
    ══════════════════════════════════════════════════════════════════════════ */
 .hang { list-style: none; max-width: var(--measure); }
 .hang li {
@@ -435,143 +731,244 @@ button:focus-visible {
   padding-left: 1.35em;
   color: var(--text-muted);
 }
-.hang li + li { margin-top: 15px; }
+.hang li + li { margin-top: 13px; }
 .hang li::before {
   content: "–";
   position: absolute;
   left: 0;
   top: 0;
   color: var(--primary);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   SCREENSHOTS — scrolling row on mobile, staggered grid on desktop.
+   THE CAROUSEL — "There's more than openings in here"
+   Scroll-snap track, one card at a time on a phone, two and a bit on a desktop.
+   The arrows and dots are enhancement: with JS off it is still a perfectly good
+   swipeable row.
    ══════════════════════════════════════════════════════════════════════════ */
-.shots-wrap { margin-top: clamp(38px, 5vw, 56px); }
+.carousel { margin-top: clamp(32px, 4vw, 48px); }
 
-.shots {
+.carousel__track {
   display: flex;
   gap: 16px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  /* Bleed past the gutter so the row runs off both screen edges. */
+  /* Bleed past the gutter so cards run off both screen edges. */
   margin: 0 calc(var(--gutter) * -1);
-  padding: 6px var(--gutter) 20px;
+  padding: 6px var(--gutter) 10px;
 }
-.shots::-webkit-scrollbar { display: none; }
+.carousel__track::-webkit-scrollbar { display: none; }
 
-.shot {
-  flex: 0 0 62%;
-  max-width: 244px;
+.mcard {
+  flex: 0 0 min(78%, 320px);
   scroll-snap-align: center;
-}
-
-@media (min-width: 900px) {
-  .shots {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: clamp(16px, 2vw, 26px);
-    overflow: visible;
-    /* Wider than the 1140px text column, so the frames overlap the section
-       edge and the layout stops feeling boxed. */
-    margin: 0 auto;
-    padding: 20px 0 40px;
-    width: min(1320px, 100%);
-  }
-  .shot { flex: none; max-width: none; }
-  /* Quiet vertical rhythm — alternate frames drop, like a contact sheet. */
-  .shot:nth-child(even) { transform: translateY(30px); }
-}
-
-.shot__frame {
-  aspect-ratio: 1080 / 2400;
-  border-radius: var(--radius);
-  overflow: hidden;
   background: var(--bg-card);
-  border: 1px solid var(--border-soft);
-  box-shadow: var(--shadow-frame);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: 24px 22px 26px;
   display: flex;
   flex-direction: column;
+  gap: 10px;
+}
+@media (min-width: 700px) { .mcard { flex-basis: 320px; } }
+
+.mcard__icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: grid;
+  place-items: center;
+  margin-bottom: 4px;
+}
+.mcard__icon svg { width: 24px; height: 24px; }
+.mcard p { max-width: none; color: var(--text-muted); font-size: 16px; }
+
+.carousel__nav {
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 16px;
-  text-align: center;
+  gap: 14px;
+  margin-top: 18px;
 }
-.shot__frame img { width: 100%; height: 100%; object-fit: cover; }
+.carousel__btn {
+  width: 42px; height: 42px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background-color 160ms ease, opacity 160ms ease;
+}
+.carousel__btn:hover { background: var(--bg-elevated); }
+.carousel__btn[disabled] { opacity: 0.35; cursor: default; }
+.carousel__btn svg { width: 20px; height: 20px; }
 
-/* PLACEHOLDER STATE. To ship a real screenshot, replace the two <span>s
-   inside .shot__frame with:  <img src="shot-train.png" alt="The Train hub" />
-   Supply each at 1080×2400. Nothing else needs to change — the frame already
-   holds that aspect ratio. */
-.shot__label {
-  font-family: 'Fraunces', Georgia, serif;
-  font-weight: 900;
-  font-variation-settings: 'opsz' 24;
-  font-size: 16px;
-  line-height: 1.2;
-  color: var(--text-muted);
+.carousel__dots { display: flex; gap: 8px; }
+.carousel__dot {
+  width: 8px; height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--border);
+  cursor: pointer;
+  transition: background-color 200ms ease, width 200ms ease;
 }
-.shot__spec {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  color: var(--text-faint);
-}
-.shot__cap { margin-top: 12px; font-size: 14px; color: var(--text-faint); text-align: center; }
+.carousel__dot.on { background: var(--accent); width: 22px; }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   PRICE — two restrained blocks. Deliberately not a pricing table: no
-   buttons, no tick lists, no "most popular" badge.
+   PRICE
    ══════════════════════════════════════════════════════════════════════════ */
-.tiers { margin-top: clamp(38px, 5vw, 56px); display: grid; gap: 20px; }
-@media (min-width: 900px) { .tiers { grid-template-columns: 1fr 1fr; gap: 28px; } }
+.tiers { margin-top: clamp(34px, 4vw, 50px); display: grid; gap: 18px; align-items: start; }
+@media (min-width: 900px) { .tiers { grid-template-columns: 1fr 1fr; gap: 26px; } }
 
 .tier {
   background: var(--bg-card);
-  border: 1px solid var(--border-soft);
+  border: 1px solid var(--border-card);
   border-radius: var(--radius);
   box-shadow: var(--shadow-card);
-  padding: clamp(26px, 4vw, 38px);
+  padding: clamp(24px, 3.4vw, 34px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 .tier p { max-width: none; color: var(--text-muted); }
-.tier strong {
-  font-family: 'Fraunces', Georgia, serif;
-  font-weight: 900;
-  font-variation-settings: 'opsz' 36;
-  font-size: clamp(21px, 2.6vw, 26px);
-  letter-spacing: -0.01em;
-  display: inline;
+.tier--paid { border-color: var(--accent); box-shadow: var(--shadow-lift); }
+
+.tier__name {
+  font-family: 'Chakra Petch', ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
 }
-.tier .amt { color: var(--primary); font-weight: 600; white-space: nowrap; }
+.tier__price {
+  font-size: clamp(34px, 5vw, 46px);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  color: var(--text);
+}
+.tier__price span { font-size: 17px; font-weight: 600; color: var(--text-faint); letter-spacing: 0; }
+.tier .btn { margin-top: 6px; align-self: start; }
+@media (max-width: 620px) { .tier .btn { align-self: stretch; } }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   WHY + FINAL CTA + FOOTER
+   WHY — a comic speech bubble, then who is behind it.
    ══════════════════════════════════════════════════════════════════════════ */
-.why__body > * + * { margin-top: 20px; }
-.why__body p { color: var(--text-muted); }
-.why__body p:first-child {
-  font-family: 'Fraunces', Georgia, serif;
-  font-weight: 400;
-  font-variation-settings: 'opsz' 48;
-  font-size: clamp(21px, 3vw, 28px);
+.bubble {
+  position: relative;
+  background: var(--bg-card);
+  border: 2px solid var(--text);
+  border-radius: 26px;
+  padding: clamp(24px, 3.4vw, 34px);
+  box-shadow: 6px 7px 0 var(--accent);
+  transform: rotate(-0.6deg);
+  max-width: 46ch;
+}
+.bubble > * + * { margin-top: 14px; }
+.bubble p { max-width: none; color: var(--text-muted); }
+.bubble p:first-child {
+  font-size: clamp(20px, 2.8vw, 25px);
   line-height: 1.35;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   color: var(--text);
-  max-width: 30ch;
+}
+/* The tail: two stacked triangles, the back one the border colour. */
+.bubble::before, .bubble::after {
+  content: "";
+  position: absolute;
+  left: 44px;
+  bottom: -26px;
+  width: 0; height: 0;
+  border-style: solid;
+}
+.bubble::before {
+  border-width: 26px 22px 0 0;
+  border-color: var(--text) transparent transparent transparent;
+}
+.bubble::after {
+  bottom: -21px;
+  left: 47px;
+  border-width: 21px 17px 0 0;
+  border-color: var(--bg-card) transparent transparent transparent;
 }
 
+.who {
+  margin-top: 42px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.who__avatar {
+  width: 52px; height: 52px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.who__avatar svg { width: 22px; height: 25px; shape-rendering: crispEdges; }
+.who__avatar svg rect { fill: currentColor; }
+.who__name { font-weight: 700; }
+.who__role { font-size: 15px; color: var(--text-faint); }
+
+.about {
+  margin-top: 28px;
+  background: var(--fill-faint);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+  max-width: 52ch;
+}
+.about h3 { font-size: 17px; margin-bottom: 12px; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   FINAL CTA + FOOTER
+   The hopping pixel pawn is the same mascot the app plays after every training
+   run (src/pixel-pawn.ts + the .celebrate-pawn rules in src/style.css) — the
+   markup and the keyframes are copied from there so the two stay identical.
+   ══════════════════════════════════════════════════════════════════════════ */
 .final { text-align: center; }
 .final h2 { margin: 0 auto; max-width: 16ch; }
 .final .cta-block { display: flex; flex-direction: column; align-items: center; }
 .final .trust { max-width: none; }
 
+.hop { color: var(--accent); line-height: 0; margin-bottom: 22px; display: flex; justify-content: center; }
+.hop__flip { display: inline-block; transform-origin: center; }
+.hop__svg { display: block; width: 34px; height: 38px; transform-origin: bottom center; shape-rendering: crispEdges; }
+.hop__svg rect { fill: currentColor; }
+
+html.js .hop { animation: hop-drop 420ms cubic-bezier(0.2, 0.7, 0.3, 1) backwards; }
+html.js .hop__flip { animation: hop-flip 5.25s ease-in-out 420ms infinite; }
+html.js .hop__svg { animation: hop-bounce 1.05s cubic-bezier(0.3, 0, 0.35, 1) 420ms infinite; }
+
+@keyframes hop-drop { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: none; } }
+@keyframes hop-bounce {
+  0%, 100% { transform: translateY(0) scaleY(1)    scaleX(1); }
+  12%      { transform: translateY(0) scaleY(0.88) scaleX(1.1); }
+  40%      { transform: translateY(-15px) scaleY(1.08) scaleX(0.94); }
+  68%      { transform: translateY(0) scaleY(0.9)  scaleX(1.08); }
+  82%      { transform: translateY(0) scaleY(1)    scaleX(1); }
+}
+@keyframes hop-flip { 0%, 80% { transform: rotate(0); } 96%, 100% { transform: rotate(360deg); } }
+
+/* Page colour, not parchment: the final CTA above it is parchment, and two
+   parchment blocks in a row would merge into one. */
 .foot {
-  background: var(--bg-parchment);
-  border-top: 1px solid var(--border-soft);
-  padding: 44px 0 calc(44px + env(safe-area-inset-bottom, 0px));
+  background: var(--bg-page);
+  border-top: 1px solid var(--hairline);
+  padding: 40px 0 calc(40px + env(safe-area-inset-bottom, 0px));
   text-align: center;
 }
 .foot .wordmark { font-size: 17px; display: block; margin-bottom: 8px; }
@@ -579,8 +976,6 @@ button:focus-visible {
 
 /* ══════════════════════════════════════════════════════════════════════════
    STICKY MOBILE CTA BAR
-   Mobile only, and only once the hero has scrolled away. JS-gated: with JS
-   off it never renders at all, which is correct — the in-page CTAs work fine.
    ══════════════════════════════════════════════════════════════════════════ */
 .cta-bar { display: none; }
 
@@ -591,25 +986,20 @@ button:focus-visible {
     left: 0; right: 0; bottom: 0;
     z-index: 40;
     padding: 12px var(--gutter) calc(12px + env(safe-area-inset-bottom, 0px));
-    /* Fully opaque on purpose: at 96% the copy underneath showed through and
-       read as muddy, and blurring it would be glassmorphism. */
     background: var(--bg-parchment);
-    border-top: 1px solid var(--border-soft);
+    border-top: 1px solid var(--hairline);
     box-shadow: 0 -6px 20px rgba(28, 22, 16, 0.09);
     transform: translateY(110%);
     transition: transform 240ms ease-out;
   }
   html.js .cta-bar.show { transform: translateY(0); }
   .cta-bar .btn { width: 100%; }
-  /* Room so the bar never sits over the footer. */
-  html.js .foot { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
+  html.js .foot { padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   MOTION — exactly four things, all gated on html.js so the page is complete
-   without JavaScript, and all collapsed to their final state under
-   prefers-reduced-motion (an existing convention in this repo).
-     1. scroll reveal   2. button press/hover   3. CTA bar   4. underline draw
+   MOTION — all gated on html.js so the page is complete without JavaScript,
+   and all collapsed to their final state under prefers-reduced-motion.
    ══════════════════════════════════════════════════════════════════════════ */
 html.js .reveal {
   opacity: 0;
@@ -639,44 +1029,200 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
     transition: none !important;
   }
   html.js .cta-bar { transition: none !important; }
+  html.js .hop, html.js .hop__flip, html.js .hop__svg { animation: none !important; }
+  html.js .mini__arrow { animation: none !important; }
   .btn { transition: none !important; }
   .btn:active { transform: none !important; }
-  .shot:nth-child(even) { transform: none; }
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PIECE ARTWORK — cburnett, the app's default set, lifted verbatim from
+   node_modules/chessground/assets/chessground.cburnett.css (the same file the
+   app ships). Base64 so the page stays a single request.
+   ══════════════════════════════════════════════════════════════════════════ */
+.pc-wp { background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PHBhdGggZD0iTTIyLjUgOWMtMi4yMSAwLTQgMS43OS00IDQgMCAuODkuMjkgMS43MS43OCAyLjM4QzE3LjMzIDE2LjUgMTYgMTguNTkgMTYgMjFjMCAyLjAzLjk0IDMuODQgMi40MSA1LjAzLTMgMS4wNi03LjQxIDUuNTUtNy40MSAxMy40N2gyM2MwLTcuOTItNC40MS0xMi40MS03LjQxLTEzLjQ3IDEuNDctMS4xOSAyLjQxLTMgMi40MS01LjAzIDAtMi40MS0xLjMzLTQuNS0zLjI4LTUuNjIuNDktLjY3Ljc4LTEuNDkuNzgtMi4zOCAwLTIuMjEtMS43OS00LTQtNHoiIGZpbGw9IiNmZmYiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjwvc3ZnPg=='); }
+.pc-wb { background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxnIGZpbGw9IiNmZmYiIHN0cm9rZS1saW5lY2FwPSJidXR0Ij48cGF0aCBkPSJNOSAzNmMzLjM5LS45NyAxMC4xMS40MyAxMy41LTIgMy4zOSAyLjQzIDEwLjExIDEuMDMgMTMuNSAyIDAgMCAxLjY1LjU0IDMgMi0uNjguOTctMS42NS45OS0zIC41LTMuMzktLjk3LTEwLjExLjQ2LTEzLjUtMS0zLjM5IDEuNDYtMTAuMTEuMDMtMTMuNSAxLTEuMzU0LjQ5LTIuMzIzLjQ3LTMtLjUgMS4zNTQtMS45NCAzLTIgMy0yeiIvPjxwYXRoIGQ9Ik0xNSAzMmMyLjUgMi41IDEyLjUgMi41IDE1IDAgLjUtMS41IDAtMiAwLTIgMC0yLjUtMi41LTQtMi41LTQgNS41LTEuNSA2LTExLjUtNS0xNS41LTExIDQtMTAuNSAxNC01IDE1LjUgMCAwLTIuNSAxLjUtMi41IDQgMCAwLS41LjUgMCAyeiIvPjxwYXRoIGQ9Ik0yNSA4YTIuNSAyLjUgMCAxIDEtNSAwIDIuNSAyLjUgMCAxIDEgNSAweiIvPjwvZz48cGF0aCBkPSJNMTcuNSAyNmgxME0xNSAzMGgxNW0tNy41LTE0LjV2NU0yMCAxOGg1IiBzdHJva2UtbGluZWpvaW49Im1pdGVyIi8+PC9nPjwvc3ZnPg=='); }
+.pc-wn { background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMiAxMGMxMC41IDEgMTYuNSA4IDE2IDI5SDE1YzAtOSAxMC02LjUgOC0yMSIgZmlsbD0iI2ZmZiIvPjxwYXRoIGQ9Ik0yNCAxOGMuMzggMi45MS01LjU1IDcuMzctOCA5LTMgMi0yLjgyIDQuMzQtNSA0LTEuMDQyLS45NCAxLjQxLTMuMDQgMC0zLTEgMCAuMTkgMS4yMy0xIDItMSAwLTQuMDAzIDEtNC00IDAtMiA2LTEyIDYtMTJzMS44OS0xLjkgMi0zLjVjLS43My0uOTk0LS41LTItLjUtMyAxLTEgMyAyLjUgMyAyLjVoMnMuNzgtMS45OTIgMi41LTNjMSAwIDEgMyAxIDMiIGZpbGw9IiNmZmYiLz48cGF0aCBkPSJNOS41IDI1LjVhLjUuNSAwIDEgMS0xIDAgLjUuNSAwIDEgMSAxIDB6bTUuNDMzLTkuNzVhLjUgMS41IDMwIDEgMS0uODY2LS41LjUgMS41IDMwIDEgMSAuODY2LjV6IiBmaWxsPSIjMDAwIi8+PC9nPjwvc3ZnPg=='); }
+.pc-wr { background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGcgZmlsbD0iI2ZmZiIgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik05IDM5aDI3di0zSDl2M3ptMy0zdi00aDIxdjRIMTJ6bS0xLTIyVjloNHYyaDVWOWg1djJoNVY5aDR2NSIgc3Ryb2tlLWxpbmVjYXA9ImJ1dHQiLz48cGF0aCBkPSJNMzQgMTRsLTMgM0gxNGwtMy0zIi8+PHBhdGggZD0iTTMxIDE3djEyLjVIMTRWMTciIHN0cm9rZS1saW5lY2FwPSJidXR0IiBzdHJva2UtbGluZWpvaW49Im1pdGVyIi8+PHBhdGggZD0iTTMxIDI5LjVsMS41IDIuNWgtMjBsMS41LTIuNSIvPjxwYXRoIGQ9Ik0xMSAxNGgyMyIgZmlsbD0ibm9uZSIgc3Ryb2tlLWxpbmVqb2luPSJtaXRlciIvPjwvZz48L3N2Zz4='); }
+.pc-wq { background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGcgZmlsbD0iI2ZmZiIgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik04IDEyYTIgMiAwIDEgMS00IDAgMiAyIDAgMSAxIDQgMHptMTYuNS00LjVhMiAyIDAgMSAxLTQgMCAyIDIgMCAxIDEgNCAwek00MSAxMmEyIDIgMCAxIDEtNCAwIDIgMiAwIDEgMSA0IDB6TTE2IDguNWEyIDIgMCAxIDEtNCAwIDIgMiAwIDEgMSA0IDB6TTMzIDlhMiAyIDAgMSAxLTQgMCAyIDIgMCAxIDEgNCAweiIvPjxwYXRoIGQ9Ik05IDI2YzguNS0xLjUgMjEtMS41IDI3IDBsMi0xMi03IDExVjExbC01LjUgMTMuNS0zLTE1LTMgMTUtNS41LTE0VjI1TDcgMTRsMiAxMnoiIHN0cm9rZS1saW5lY2FwPSJidXR0Ii8+PHBhdGggZD0iTTkgMjZjMCAyIDEuNSAyIDIuNSA0IDEgMS41IDEgMSAuNSAzLjUtMS41IDEtMS41IDIuNS0xLjUgMi41LTEuNSAxLjUuNSAyLjUuNSAyLjUgNi41IDEgMTYuNSAxIDIzIDAgMCAwIDEuNS0xIDAtMi41IDAgMCAuNS0xLjUtMS0yLjUtLjUtMi41LS41LTIgLjUtMy41IDEtMiAyLjUtMiAyLjUtNC04LjUtMS41LTE4LjUtMS41LTI3IDB6IiBzdHJva2UtbGluZWNhcD0iYnV0dCIvPjxwYXRoIGQ9Ik0xMS41IDMwYzMuNS0xIDE4LjUtMSAyMiAwTTEyIDMzLjVjNi0xIDE1LTEgMjEgMCIgZmlsbD0ibm9uZSIvPjwvZz48L3N2Zz4='); }
+.pc-wk { background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMi41IDExLjYzVjZNMjAgOGg1IiBzdHJva2UtbGluZWpvaW49Im1pdGVyIi8+PHBhdGggZD0iTTIyLjUgMjVzNC41LTcuNSAzLTEwLjVjMCAwLTEtMi41LTMtMi41cy0zIDIuNS0zIDIuNWMtMS41IDMgMyAxMC41IDMgMTAuNSIgZmlsbD0iI2ZmZiIgc3Ryb2tlLWxpbmVjYXA9ImJ1dHQiIHN0cm9rZS1saW5lam9pbj0ibWl0ZXIiLz48cGF0aCBkPSJNMTEuNSAzN2M1LjUgMy41IDE1LjUgMy41IDIxIDB2LTdzOS00LjUgNi0xMC41Yy00LTYuNS0xMy41LTMuNS0xNiA0VjI3di0zLjVjLTMuNS03LjUtMTMtMTAuNS0xNi00LTMgNiA1IDEwIDUgMTBWMzd6IiBmaWxsPSIjZmZmIi8+PHBhdGggZD0iTTExLjUgMzBjNS41LTMgMTUuNS0zIDIxIDBtLTIxIDMuNWM1LjUtMyAxNS41LTMgMjEgMG0tMjEgMy41YzUuNS0zIDE1LjUtMyAyMSAwIi8+PC9nPjwvc3ZnPg=='); }
+.pc-bp { background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PHBhdGggZD0iTTIyLjUgOWMtMi4yMSAwLTQgMS43OS00IDQgMCAuODkuMjkgMS43MS43OCAyLjM4QzE3LjMzIDE2LjUgMTYgMTguNTkgMTYgMjFjMCAyLjAzLjk0IDMuODQgMi40MSA1LjAzLTMgMS4wNi03LjQxIDUuNTUtNy40MSAxMy40N2gyM2MwLTcuOTItNC40MS0xMi40MS03LjQxLTEzLjQ3IDEuNDctMS4xOSAyLjQxLTMgMi40MS01LjAzIDAtMi40MS0xLjMzLTQuNS0zLjI4LTUuNjIuNDktLjY3Ljc4LTEuNDkuNzgtMi4zOCAwLTIuMjEtMS43OS00LTQtNHoiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjwvc3ZnPg=='); }
+.pc-bb { background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxnIGZpbGw9IiMwMDAiIHN0cm9rZS1saW5lY2FwPSJidXR0Ij48cGF0aCBkPSJNOSAzNmMzLjM5LS45NyAxMC4xMS40MyAxMy41LTIgMy4zOSAyLjQzIDEwLjExIDEuMDMgMTMuNSAyIDAgMCAxLjY1LjU0IDMgMi0uNjguOTctMS42NS45OS0zIC41LTMuMzktLjk3LTEwLjExLjQ2LTEzLjUtMS0zLjM5IDEuNDYtMTAuMTEuMDMtMTMuNSAxLTEuMzU0LjQ5LTIuMzIzLjQ3LTMtLjUgMS4zNTQtMS45NCAzLTIgMy0yeiIvPjxwYXRoIGQ9Ik0xNSAzMmMyLjUgMi41IDEyLjUgMi41IDE1IDAgLjUtMS41IDAtMiAwLTIgMC0yLjUtMi41LTQtMi41LTQgNS41LTEuNSA2LTExLjUtNS0xNS41LTExIDQtMTAuNSAxNC01IDE1LjUgMCAwLTIuNSAxLjUtMi41IDQgMCAwLS41LjUgMCAyeiIvPjxwYXRoIGQ9Ik0yNSA4YTIuNSAyLjUgMCAxIDEtNSAwIDIuNSAyLjUgMCAxIDEgNSAweiIvPjwvZz48cGF0aCBkPSJNMTcuNSAyNmgxME0xNSAzMGgxNW0tNy41LTE0LjV2NU0yMCAxOGg1IiBzdHJva2U9IiNlY2VjZWMiIHN0cm9rZS1saW5lam9pbj0ibWl0ZXIiLz48L2c+PC9zdmc+'); }
+.pc-bn { background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMiAxMGMxMC41IDEgMTYuNSA4IDE2IDI5SDE1YzAtOSAxMC02LjUgOC0yMSIgZmlsbD0iIzAwMCIvPjxwYXRoIGQ9Ik0yNCAxOGMuMzggMi45MS01LjU1IDcuMzctOCA5LTMgMi0yLjgyIDQuMzQtNSA0LTEuMDQyLS45NCAxLjQxLTMuMDQgMC0zLTEgMCAuMTkgMS4yMy0xIDItMSAwLTQuMDAzIDEtNC00IDAtMiA2LTEyIDYtMTJzMS44OS0xLjkgMi0zLjVjLS43My0uOTk0LS41LTItLjUtMyAxLTEgMyAyLjUgMyAyLjVoMnMuNzgtMS45OTIgMi41LTNjMSAwIDEgMyAxIDMiIGZpbGw9IiMwMDAiLz48cGF0aCBkPSJNOS41IDI1LjVhLjUuNSAwIDEgMS0xIDAgLjUuNSAwIDEgMSAxIDB6bTUuNDMzLTkuNzVhLjUgMS41IDMwIDEgMS0uODY2LS41LjUgMS41IDMwIDEgMSAuODY2LjV6IiBmaWxsPSIjZWNlY2VjIiBzdHJva2U9IiNlY2VjZWMiLz48cGF0aCBkPSJNMjQuNTUgMTAuNGwtLjQ1IDEuNDUuNS4xNWMzLjE1IDEgNS42NSAyLjQ5IDcuOSA2Ljc1UzM1Ljc1IDI5LjA2IDM1LjI1IDM5bC0uMDUuNWgyLjI1bC4wNS0uNWMuNS0xMC4wNi0uODgtMTYuODUtMy4yNS0yMS4zNC0yLjM3LTQuNDktNS43OS02LjY0LTkuMTktNy4xNmwtLjUxLS4xeiIgZmlsbD0iI2VjZWNlYyIgc3Ryb2tlPSJub25lIi8+PC9nPjwvc3ZnPg=='); }
+.pc-br { background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGcgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik05IDM5aDI3di0zSDl2M3ptMy41LTdsMS41LTIuNWgxN2wxLjUgMi41aC0yMHptLS41IDR2LTRoMjF2NEgxMnoiIHN0cm9rZS1saW5lY2FwPSJidXR0Ii8+PHBhdGggZD0iTTE0IDI5LjV2LTEzaDE3djEzSDE0eiIgc3Ryb2tlLWxpbmVjYXA9ImJ1dHQiIHN0cm9rZS1saW5lam9pbj0ibWl0ZXIiLz48cGF0aCBkPSJNMTQgMTYuNUwxMSAxNGgyM2wtMyAyLjVIMTR6TTExIDE0VjloNHYyaDVWOWg1djJoNVY5aDR2NUgxMXoiIHN0cm9rZS1saW5lY2FwPSJidXR0Ii8+PHBhdGggZD0iTTEyIDM1LjVoMjFtLTIwLTRoMTltLTE4LTJoMTdtLTE3LTEzaDE3TTExIDE0aDIzIiBmaWxsPSJub25lIiBzdHJva2U9IiNlY2VjZWMiIHN0cm9rZS13aWR0aD0iMSIgc3Ryb2tlLWxpbmVqb2luPSJtaXRlciIvPjwvZz48L3N2Zz4='); }
+.pc-bq { background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGcgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxnIHN0cm9rZT0ibm9uZSI+PGNpcmNsZSBjeD0iNiIgY3k9IjEyIiByPSIyLjc1Ii8+PGNpcmNsZSBjeD0iMTQiIGN5PSI5IiByPSIyLjc1Ii8+PGNpcmNsZSBjeD0iMjIuNSIgY3k9IjgiIHI9IjIuNzUiLz48Y2lyY2xlIGN4PSIzMSIgY3k9IjkiIHI9IjIuNzUiLz48Y2lyY2xlIGN4PSIzOSIgY3k9IjEyIiByPSIyLjc1Ii8+PC9nPjxwYXRoIGQ9Ik05IDI2YzguNS0xLjUgMjEtMS41IDI3IDBsMi41LTEyLjVMMzEgMjVsLS4zLTE0LjEtNS4yIDEzLjYtMy0xNC41LTMgMTQuNS01LjItMTMuNkwxNCAyNSA2LjUgMTMuNSA5IDI2eiIgc3Ryb2tlLWxpbmVjYXA9ImJ1dHQiLz48cGF0aCBkPSJNOSAyNmMwIDIgMS41IDIgMi41IDQgMSAxLjUgMSAxIC41IDMuNS0xLjUgMS0xLjUgMi41LTEuNSAyLjUtMS41IDEuNS41IDIuNS41IDIuNSA2LjUgMSAxNi41IDEgMjMgMCAwIDAgMS41LTEgMC0yLjUgMCAwIC41LTEuNS0xLTIuNS0uNS0yLjUtLjUtMiAuNS0zLjUgMS0yIDIuNS0yIDIuNS00LTguNS0xLjUtMTguNS0xLjUtMjcgMHoiIHN0cm9rZS1saW5lY2FwPSJidXR0Ii8+PHBhdGggZD0iTTExIDM4LjVhMzUgMzUgMSAwIDAgMjMgMCIgZmlsbD0ibm9uZSIgc3Ryb2tlLWxpbmVjYXA9ImJ1dHQiLz48cGF0aCBkPSJNMTEgMjlhMzUgMzUgMSAwIDEgMjMgMG0tMjEuNSAyLjVoMjBtLTIxIDNhMzUgMzUgMSAwIDAgMjIgMG0tMjMgM2EzNSAzNSAxIDAgMCAyNCAwIiBmaWxsPSJub25lIiBzdHJva2U9IiNlY2VjZWMiLz48L2c+PC9zdmc+'); }
+.pc-bk { background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMi41IDExLjYzVjYiIHN0cm9rZS1saW5lam9pbj0ibWl0ZXIiLz48cGF0aCBkPSJNMjIuNSAyNXM0LjUtNy41IDMtMTAuNWMwIDAtMS0yLjUtMy0yLjVzLTMgMi41LTMgMi41Yy0xLjUgMyAzIDEwLjUgMyAxMC41IiBmaWxsPSIjMDAwIiBzdHJva2UtbGluZWNhcD0iYnV0dCIgc3Ryb2tlLWxpbmVqb2luPSJtaXRlciIvPjxwYXRoIGQ9Ik0xMS41IDM3YzUuNSAzLjUgMTUuNSAzLjUgMjEgMHYtN3M5LTQuNSA2LTEwLjVjLTQtNi41LTEzLjUtMy41LTE2IDRWMjd2LTMuNWMtMy41LTcuNS0xMy0xMC41LTE2LTQtMyA2IDUgMTAgNSAxMFYzN3oiIGZpbGw9IiMwMDAiLz48cGF0aCBkPSJNMjAgOGg1IiBzdHJva2UtbGluZWpvaW49Im1pdGVyIi8+PHBhdGggZD0iTTMyIDI5LjVzOC41LTQgNi4wMy05LjY1QzM0LjE1IDE0IDI1IDE4IDIyLjUgMjQuNWwuMDEgMi4xLS4wMS0yLjFDMjAgMTggOS45MDYgMTQgNi45OTcgMTkuODVjLTIuNDk3IDUuNjUgNC44NTMgOSA0Ljg1MyA5IiBzdHJva2U9IiNlY2VjZWMiLz48cGF0aCBkPSJNMTEuNSAzMGM1LjUtMyAxNS41LTMgMjEgMG0tMjEgMy41YzUuNS0zIDE1LjUtMyAyMSAwbS0yMSAzLjVjNS41LTMgMTUuNS0zIDIxIDAiIHN0cm9rZT0iI2VjZWNlYyIvPjwvZz48L3N2Zz4='); }
 </style>
 </head>
 <body>
 
 <a class="skip" href="#main">Skip to content</a>
 
-<!-- ─────────────────────────────── HERO ─────────────────────────────── -->
-<header class="band hero" id="hero">
-  <div class="inner">
-    <p class="wordmark reveal">Bito</p>
-    <h1 class="reveal">Learn your openings once.<span class="h1-break"></span> Remember them for good.</h1>
+<!-- The observer target that flips the top bar into its scrolled state. Sits
+     at the very top of the document and is never visible. -->
+<div id="top" aria-hidden="true" style="position:absolute;top:0;height:1px;width:1px"></div>
 
-    <div class="hero__cols">
-      <div class="hero__text">
-        <p class="lede reveal">Build your own repertoire, drill it with spaced repetition, and stop forgetting your prep on move six.</p>
-        <div class="cta-block reveal">
-          <!-- Hero CTA: no query string. Only the FINAL CTA carries
-               ?auth=signup (see below). -->
-          <a class="btn js-app" href="/app/">Try it — no account needed</a>
-          <p class="trust">Free to use. Pay once if you want more. No subscription, ever.</p>
-        </div>
-      </div>
-      <div class="hero__board reveal">
-        <div class="board-ph">hero board widget goes here</div>
-      </div>
+<!-- ═══════════════════════ THE 3D PIECE SPRITE ═══════════════════════
+     Defined once, used by every .float. Hand-drawn (silhouette + gradient +
+     highlight), not a photo trace, so it stays a few kB. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="pieceBody" x1="0" y1="0" x2="1" y2="1">
+      <stop id="piece-sprite-a-0" offset="0" />
+      <stop id="piece-sprite-a-1" offset="0.45" />
+      <stop id="piece-sprite-a-2" offset="1" />
+    </linearGradient>
+    <linearGradient id="pieceHi" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff" stop-opacity=".55" />
+      <stop offset="0.4" stop-color="#fff" stop-opacity="0" />
+    </linearGradient>
+    <radialGradient id="pieceShadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#000" stop-opacity=".30" />
+      <stop offset="1" stop-color="#000" stop-opacity="0" />
+    </radialGradient>
+
+    <symbol id="pc3-pawn" viewBox="0 0 120 140">
+      <ellipse cx="62" cy="130" rx="42" ry="9" fill="url(#pieceShadow)"/>
+      <path d="M46 52h28c2 14 6 27 12 40H34c6-13 10-26 12-40z" fill="url(#pieceBody)"/>
+      <path d="M22 128c0-16 8-23 15-28 5-4 7-7 7-11h32c0 4 2 7 7 11 7 5 15 12 15 28z" fill="url(#pieceBody)"/>
+      <rect x="36" y="43" width="48" height="10" rx="5" fill="url(#pieceBody)"/>
+      <circle cx="60" cy="26" r="19" fill="url(#pieceBody)"/>
+      <path d="M22 128c0-16 8-23 15-28 5-4 7-7 7-11h9c0 6-3 11-9 15-7 5-13 13-13 24z" fill="url(#pieceHi)"/>
+      <path d="M46 52h9c-2 14-5 27-10 40h-11c6-13 10-26 12-40z" fill="url(#pieceHi)"/>
+      <circle cx="53" cy="20" r="7" fill="#fff" opacity=".28"/>
+    </symbol>
+
+    <symbol id="pc3-rook" viewBox="0 0 120 140">
+      <ellipse cx="62" cy="130" rx="44" ry="9" fill="url(#pieceShadow)"/>
+      <path d="M24 130c0-14 6-20 11-25h50c5 5 11 11 11 25z" fill="url(#pieceBody)"/>
+      <path d="M38 60h44l6 45H32z" fill="url(#pieceBody)"/>
+      <path d="M32 48h56l-7 13H39z" fill="url(#pieceBody)"/>
+      <path d="M26 16h15v9h13v-9h12v9h13v-9h15v32H26z" fill="url(#pieceBody)"/>
+      <path d="M24 130c0-14 6-20 11-25h10c-5 5-11 11-11 25z" fill="url(#pieceHi)"/>
+      <path d="M38 60h10l-6 45H32z" fill="url(#pieceHi)"/>
+      <path d="M26 16h15v9h5v23H26z" fill="url(#pieceHi)"/>
+    </symbol>
+
+    <symbol id="pc3-bishop" viewBox="0 0 120 140">
+      <ellipse cx="62" cy="130" rx="42" ry="9" fill="url(#pieceShadow)"/>
+      <path d="M22 130c0-14 7-20 13-25h50c6 5 13 11 13 25z" fill="url(#pieceBody)"/>
+      <path d="M42 72h36c2 12 6 22 11 33H31c5-11 9-21 11-33z" fill="url(#pieceBody)"/>
+      <rect x="36" y="63" width="48" height="10" rx="5" fill="url(#pieceBody)"/>
+      <path d="M60 14c15 15 23 28 23 39 0 8-10 14-23 14s-23-6-23-14c0-11 8-24 23-39z" fill="url(#pieceBody)"/>
+      <circle cx="60" cy="12" r="7" fill="url(#pieceBody)"/>
+      <path d="M60 30v26M50 43h20" stroke="#3a2411" stroke-width="4" stroke-linecap="round" opacity=".35"/>
+      <path d="M22 130c0-14 7-20 13-25h10c-6 5-13 11-13 25z" fill="url(#pieceHi)"/>
+      <path d="M60 14c-15 15-23 28-23 39 0 5 4 9 10 12-3-4-4-8-4-12 0-11 6-24 17-39z" fill="url(#pieceHi)"/>
+    </symbol>
+
+    <symbol id="pc3-knight" viewBox="0 0 120 140">
+      <ellipse cx="62" cy="130" rx="44" ry="9" fill="url(#pieceShadow)"/>
+      <g transform="translate(9 21) scale(0.84)">
+        <path d="M37 105c0-24 6-36 16-48 5-6 6-11 3-15l-16 14c-6 5-15 1-14-7 2-16 14-33 34-42l3-15 9 10 7-11c20 10 31 29 31 51 0 25-9 38-9 63z" fill="url(#pieceBody)"/>
+        <circle cx="76" cy="42" r="4" fill="#3a2411" opacity=".5"/>
+        <path d="M37 105c0-24 6-36 16-48 5-6 6-11 3-15l-8 7c1 4 0 7-3 11-10 12-16 24-16 45z" fill="url(#pieceHi)"/>
+        <path d="M87 26c8 9 12 21 12 33 0 25-9 38-9 63h-9c0-25 9-38 9-63 0-13-2-24-8-32z" fill="#000" opacity=".13"/>
+      </g>
+      <path d="M22 130c0-14 8-20 14-25h52c6 5 14 11 14 25z" fill="url(#pieceBody)"/>
+      <path d="M22 130c0-14 8-20 14-25h11c-6 5-14 11-14 25z" fill="url(#pieceHi)"/>
+    </symbol>
+
+    <symbol id="pc3-queen" viewBox="0 0 120 140">
+      <ellipse cx="62" cy="130" rx="46" ry="9" fill="url(#pieceShadow)"/>
+      <path d="M20 130c0-14 8-20 14-25h52c6 5 14 11 14 25z" fill="url(#pieceBody)"/>
+      <path d="M40 68h40c2 14 7 26 13 37H27c6-11 11-23 13-37z" fill="url(#pieceBody)"/>
+      <rect x="33" y="58" width="54" height="11" rx="5.5" fill="url(#pieceBody)"/>
+      <path d="M25 26l10 32h50l10-32-16 16-9-24-10 26-10-26-9 24z" fill="url(#pieceBody)"/>
+      <circle cx="25" cy="24" r="7" fill="url(#pieceBody)"/>
+      <circle cx="45" cy="16" r="7" fill="url(#pieceBody)"/>
+      <circle cx="60" cy="10" r="8" fill="url(#pieceBody)"/>
+      <circle cx="76" cy="16" r="7" fill="url(#pieceBody)"/>
+      <circle cx="95" cy="24" r="7" fill="url(#pieceBody)"/>
+      <path d="M20 130c0-14 8-20 14-25h11c-6 5-14 11-14 25z" fill="url(#pieceHi)"/>
+      <path d="M40 68h11c-2 14-6 26-11 37H27c6-11 11-23 13-37z" fill="url(#pieceHi)"/>
+    </symbol>
+
+    <symbol id="pc3-king" viewBox="0 0 120 140">
+      <ellipse cx="62" cy="130" rx="45" ry="9" fill="url(#pieceShadow)"/>
+      <path d="M21 130c0-14 8-20 14-25h52c6 5 14 11 14 25z" fill="url(#pieceBody)"/>
+      <path d="M39 70h42c2 14 7 24 13 35H26c6-11 11-21 13-35z" fill="url(#pieceBody)"/>
+      <path d="M28 44c8-8 22-8 32 2 10-10 24-10 32-2 8 8 6 20-4 26H32c-10-6-12-18-4-26z" fill="url(#pieceBody)"/>
+      <rect x="52" y="6" width="16" height="34" rx="4" fill="url(#pieceBody)"/>
+      <rect x="43" y="15" width="34" height="15" rx="4" fill="url(#pieceBody)"/>
+      <path d="M21 130c0-14 8-20 14-25h11c-6 5-14 11-14 25z" fill="url(#pieceHi)"/>
+      <path d="M28 44c8-8 22-8 32 2v18H32c-10-6-12-18-4-20z" fill="url(#pieceHi)"/>
+    </symbol>
+  </defs>
+</svg>
+
+<!-- ─────────────────────────────── TOP BAR ─────────────────────────────── -->
+<header class="topbar" id="topbar">
+  <div class="topbar__inner">
+    <a class="wordmark" href="#top" aria-label="Bito Chess, top of page">bito chess</a>
+    <div class="topbar__right">
+      <a class="signin js-app" id="signin" href="/app/?auth=signin">Sign in</a>
+      <a class="applogo js-app" href="/app/" aria-label="Open Bito Chess">
+        <img src="app-icon.png" alt="" width="512" height="512" />
+      </a>
     </div>
   </div>
 </header>
 
 <main id="main">
 
+  <!-- ─────────────────────────────── HERO ─────────────────────────────── -->
+  <section class="band hero" id="hero">
+    <div class="float" style="--w: 300px; --rot: -8deg; left: -90px; bottom: -60px" data-speed="34" aria-hidden="true">
+      <svg viewBox="0 0 120 140"><use href="#pc3-knight"/></svg>
+    </div>
+    <div class="inner">
+      <div class="hero__cols">
+        <div class="hero__text">
+          <p class="eyebrow reveal">Chess opening trainer</p>
+          <h1 class="reveal">Improve your next move</h1>
+          <p class="lede reveal">Build your repertoire, train smarter, and play with confidence.</p>
+          <div class="cta-block reveal">
+            <!-- Hero CTA: no query string. Only the FINAL CTA carries
+                 ?auth=signup (see below). -->
+            <a class="btn js-app" href="/app/">Try it for free</a>
+            <p class="trust">No signup required</p>
+          </div>
+        </div>
+
+        <div class="hero__board reveal">
+          <div class="board-card">
+            <div class="mini" id="mini" role="group" aria-label="Play the first three moves of the Italian Game">
+              <div class="mini__squares" id="mini-squares"></div>
+              <!-- The starting position, written out so the board is complete
+                   before the script runs (and stays complete without it). The
+                   script replaces these with its own copies on the first
+                   reset(); --f is the file, 0 = a, and --r the row, 0 = rank 8. -->
+              <div class="mini__pieces" id="mini-pieces">
+                <div class="pc pc-br" style="--f:0;--r:0"></div><div class="pc pc-bn" style="--f:1;--r:0"></div><div class="pc pc-bb" style="--f:2;--r:0"></div><div class="pc pc-bq" style="--f:3;--r:0"></div><div class="pc pc-bk" style="--f:4;--r:0"></div><div class="pc pc-bb" style="--f:5;--r:0"></div><div class="pc pc-bn" style="--f:6;--r:0"></div><div class="pc pc-br" style="--f:7;--r:0"></div>
+                <div class="pc pc-bp" style="--f:0;--r:1"></div><div class="pc pc-bp" style="--f:1;--r:1"></div><div class="pc pc-bp" style="--f:2;--r:1"></div><div class="pc pc-bp" style="--f:3;--r:1"></div><div class="pc pc-bp" style="--f:4;--r:1"></div><div class="pc pc-bp" style="--f:5;--r:1"></div><div class="pc pc-bp" style="--f:6;--r:1"></div><div class="pc pc-bp" style="--f:7;--r:1"></div>
+                <div class="pc pc-wp" style="--f:0;--r:6"></div><div class="pc pc-wp" style="--f:1;--r:6"></div><div class="pc pc-wp" style="--f:2;--r:6"></div><div class="pc pc-wp" style="--f:3;--r:6"></div><div class="pc pc-wp" style="--f:4;--r:6"></div><div class="pc pc-wp" style="--f:5;--r:6"></div><div class="pc pc-wp" style="--f:6;--r:6"></div><div class="pc pc-wp" style="--f:7;--r:6"></div>
+                <div class="pc pc-wr" style="--f:0;--r:7"></div><div class="pc pc-wn" style="--f:1;--r:7"></div><div class="pc pc-wb" style="--f:2;--r:7"></div><div class="pc pc-wq" style="--f:3;--r:7"></div><div class="pc pc-wk" style="--f:4;--r:7"></div><div class="pc pc-wb" style="--f:5;--r:7"></div><div class="pc pc-wn" style="--f:6;--r:7"></div><div class="pc pc-wr" style="--f:7;--r:7"></div>
+              </div>
+              <svg class="mini__arrow" id="mini-arrow" viewBox="0 0 8 8" aria-hidden="true"></svg>
+              <div class="mini__done" id="mini-done" hidden>
+                <p><strong>That’s the Italian Game.</strong> Three moves you now own — the app remembers the other forty for you.</p>
+                <a class="btn js-app" href="/app/">Try it for free</a>
+                <button type="button" class="again" id="mini-again">Play it again</button>
+              </div>
+            </div>
+            <p class="mini__hint" id="mini-hint" aria-live="polite">Your move. Follow the arrow: play <b>e4</b>.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ───────────────────────── HOW IT WORKS ───────────────────────── -->
-  <section class="band band--parchment band--texture">
+  <section class="band band--parchment">
+    <div class="float" style="--w: 210px; --rot: 6deg; right: -50px; top: -70px" data-speed="-28" aria-hidden="true">
+      <svg viewBox="0 0 120 140"><use href="#pc3-rook"/></svg>
+    </div>
     <div class="inner">
       <h2 class="reveal">How it works</h2>
       <div class="steps">
@@ -701,13 +1247,12 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
     <div class="inner feature">
       <div class="feature__head reveal"><h2>Your repertoire, built your way</h2></div>
       <div class="feature__body">
-        <p class="lede reveal">Not everyone learns an opening the same way, so there are five ways in:</p>
+        <p class="lede reveal">Not everyone learns an opening the same way, so there are four ways in:</p>
         <ul class="hang reveal">
           <li>Enter moves straight on the board</li>
           <li>Browse a built-in library of ~3,700 named openings, offline</li>
           <li>Import your own games from Chess.com and Lichess</li>
           <li>Start from a curated opening pack, a Lichess study, or a famous trap</li>
-          <li>Watch a video on the position you’re looking at, without leaving the board</li>
         </ul>
       </div>
     </div>
@@ -715,6 +1260,9 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
 
   <!-- ─────────────────────────── TRAIN ─────────────────────────── -->
   <section class="band band--parchment">
+    <div class="float" style="--w: 240px; --rot: -5deg; left: -70px; top: -90px" data-speed="30" aria-hidden="true">
+      <svg viewBox="0 0 120 140"><use href="#pc3-bishop"/></svg>
+    </div>
     <div class="inner feature feature--flip">
       <div class="feature__head reveal"><h2>Focused practice, not random drills</h2></div>
       <div class="feature__body">
@@ -737,16 +1285,63 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
 
   <!-- ─────────────────────── BEYOND OPENINGS ─────────────────────── -->
   <section class="band band--parchment">
-    <div class="inner feature feature--flip">
-      <div class="feature__head reveal"><h2>There’s more than openings in here</h2></div>
-      <div class="feature__body">
-        <ul class="hang reveal">
-          <li>Rated puzzles, matched to your level and your own openings</li>
-          <li>Replay and fix real mistakes from your games</li>
-          <li>Rediscover the brilliant moves you’ve already played</li>
-          <li>Endgame training, judged against a tablebase</li>
-          <li>Casual games against Stockfish, from any position</li>
-        </ul>
+    <div class="float" style="--w: 260px; --rot: 7deg; right: -80px; bottom: -80px" data-speed="-34" aria-hidden="true">
+      <svg viewBox="0 0 120 140"><use href="#pc3-queen"/></svg>
+    </div>
+    <div class="inner">
+      <h2 class="reveal">There’s more than openings in here</h2>
+      <div class="carousel reveal">
+        <div class="carousel__track" id="more-track" tabindex="0" role="group" aria-label="More than openings">
+          <article class="mcard">
+            <div class="mcard__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.439 7.85c-.049.322.059.648.289.878l1.568 1.568c.47.47.706 1.087.706 1.704s-.235 1.233-.706 1.704l-1.611 1.611a.98.98 0 0 1-.837.276c-.47-.07-.802-.48-.968-.925a2.501 2.501 0 1 0-3.214 3.214c.446.166.855.497.925.968a.979.979 0 0 1-.276.837l-1.61 1.61a2.404 2.404 0 0 1-1.705.707 2.402 2.402 0 0 1-1.704-.706l-1.568-1.568a1.026 1.026 0 0 0-.877-.29c-.493.074-.84.504-1.02.968a2.5 2.5 0 1 1-3.237-3.237c.464-.18.894-.527.967-1.02a1.026 1.026 0 0 0-.289-.877l-1.568-1.568A2.402 2.402 0 0 1 1.998 12c0-.617.236-1.234.706-1.704L4.23 8.77c.24-.24.581-.353.917-.303.515.077.877.528 1.073 1.01a2.5 2.5 0 1 0 3.259-3.259c-.482-.196-.933-.558-1.01-1.073-.05-.336.062-.676.303-.917l1.525-1.525A2.402 2.402 0 0 1 12 1.998c.617 0 1.234.236 1.704.706l1.568 1.568c.23.23.556.338.877.29.493-.074.84-.504 1.02-.968a2.5 2.5 0 1 1 3.237 3.237c-.464.18-.894.527-.967 1.02Z"/></svg>
+            </div>
+            <h3>Puzzles that fit you</h3>
+            <p>Rated tactics matched to your level — and, when you want, to the openings you actually play.</p>
+          </article>
+
+          <article class="mcard">
+            <div class="mcard__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+            </div>
+            <h3>Fix your real mistakes</h3>
+            <p>The app finds the blunders in your own games and hands them back as positions to play properly.</p>
+          </article>
+
+          <article class="mcard">
+            <div class="mcard__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.94 14.06A2 2 0 0 0 8.5 12.6l-5.2-1.35a.5.5 0 0 1 0-.96L8.5 8.94A2 2 0 0 0 9.94 7.5l1.35-5.2a.5.5 0 0 1 .96 0l1.35 5.2a2 2 0 0 0 1.44 1.44l5.2 1.35a.5.5 0 0 1 0 .96l-5.2 1.35a2 2 0 0 0-1.44 1.44l-1.35 5.2a.5.5 0 0 1-.96 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/></svg>
+            </div>
+            <h3>Your brilliant moves</h3>
+            <p>Rediscover the good moves you’ve already found. Most of them you never noticed at the time.</p>
+          </article>
+
+          <article class="mcard">
+            <div class="mcard__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg>
+            </div>
+            <h3>Endgames, judged properly</h3>
+            <p>Train the endings that decide games against a tablebase, which knows exactly how long it should take.</p>
+          </article>
+
+          <article class="mcard">
+            <div class="mcard__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></svg>
+            </div>
+            <h3>Play it out</h3>
+            <p>A casual game against Stockfish from any position on the board — including the one you just built.</p>
+          </article>
+        </div>
+
+        <div class="carousel__nav">
+          <button type="button" class="carousel__btn" id="car-prev" aria-label="Previous">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <div class="carousel__dots" id="car-dots"></div>
+          <button type="button" class="carousel__btn" id="car-next" aria-label="Next">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+        </div>
       </div>
     </div>
   </section>
@@ -762,91 +1357,99 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
     </div>
   </section>
 
-  <!-- ───────────────────────── SCREENSHOTS ───────────────────────── -->
-  <section class="band band--parchment">
-    <div class="inner">
-      <h2 class="reveal">A look inside</h2>
-    </div>
-    <div class="inner shots-wrap">
-      <!-- PLACEHOLDER FRAMES. Supply five PNGs at 1080×2400 and swap each
-           pair of <span>s for an <img>; the frame already holds the ratio. -->
-      <div class="shots reveal">
-        <figure class="shot">
-          <div class="shot__frame">
-            <span class="shot__label">Train hub</span>
-            <span class="shot__spec">1080 × 2400</span>
-          </div>
-          <figcaption class="shot__cap">Train</figcaption>
-        </figure>
-        <figure class="shot">
-          <div class="shot__frame">
-            <span class="shot__label">My Lines</span>
-            <span class="shot__spec">1080 × 2400</span>
-          </div>
-          <figcaption class="shot__cap">Your repertoire</figcaption>
-        </figure>
-        <figure class="shot">
-          <div class="shot__frame">
-            <span class="shot__label">The builder</span>
-            <span class="shot__spec">1080 × 2400</span>
-          </div>
-          <figcaption class="shot__cap">Building a line</figcaption>
-        </figure>
-        <figure class="shot">
-          <div class="shot__frame">
-            <span class="shot__label">My games</span>
-            <span class="shot__spec">1080 × 2400</span>
-          </div>
-          <figcaption class="shot__cap">Your games</figcaption>
-        </figure>
-        <figure class="shot">
-          <div class="shot__frame">
-            <span class="shot__label">Statistics</span>
-            <span class="shot__spec">1080 × 2400</span>
-          </div>
-          <figcaption class="shot__cap">Progress</figcaption>
-        </figure>
-      </div>
-    </div>
-  </section>
-
   <!-- ─────────────────────────── PRICE ─────────────────────────── -->
-  <section class="band">
+  <section class="band band--parchment" id="price">
+    <div class="float" style="--w: 230px; --rot: -6deg; left: -60px; bottom: -70px" data-speed="26" aria-hidden="true">
+      <svg viewBox="0 0 120 140"><use href="#pc3-king"/></svg>
+    </div>
     <div class="inner">
       <h2 class="reveal">One price. Once.</h2>
       <div class="tiers">
         <div class="tier reveal">
-          <p><strong>Free</strong> — build as many lines as you want, train ten of them at a time, and use everything else: puzzles, game import, analysis, endgames, statistics.</p>
+          <p class="tier__name">Free</p>
+          <p class="tier__price">0 kr</p>
+          <p>Build as many lines as you want, train ten of them at a time, and use everything else: puzzles, game import, analysis, endgames, statistics.</p>
+          <a class="btn btn--ghost js-app" href="/app/">Start free</a>
         </div>
-        <div class="tier reveal">
-          <p><strong>Full access</strong> — <span class="amt">99 SEK, once</span> — train your whole repertoire, no cap. No subscription, no renewal, no ads.</p>
+        <div class="tier tier--paid reveal">
+          <p class="tier__name">Full access</p>
+          <p class="tier__price">89 kr <span>once</span></p>
+          <p>Train your whole repertoire, no cap. No subscription, no renewal, no ads — you pay once and that’s the end of it.</p>
+          <button type="button" class="btn btn--buy" id="buy">Buy full access</button>
+          <p class="faint" id="buy-note">Secure checkout. You’ll sign in first so the unlock lands on your account.</p>
         </div>
       </div>
     </div>
   </section>
 
   <!-- ──────────────────────────── WHY ──────────────────────────── -->
-  <section class="band band--parchment band--texture">
+  <section class="band">
     <div class="inner feature feature--flip">
       <div class="feature__head reveal"><h2>Why I made Bito Chess</h2></div>
-      <div class="feature__body why__body">
-        <p class="reveal">I’m a passionate chess player and not a particularly strong one 🥹</p>
-        <p class="reveal">I tried a lot of opening trainers. They were too rigid, too complicated, or just didn’t match how I wanted to learn — so I built the one I wanted.</p>
-        <p class="reveal">If it helps other players enjoy studying chess as much as I do, even better.</p>
+      <div class="feature__body">
+        <div class="bubble reveal">
+          <p>I’m a passionate chess player and not a particularly strong one 🥹</p>
+          <p>I tried a lot of opening trainers. They were too rigid, too complicated, or just didn’t match how I wanted to learn — so I built the one I wanted.</p>
+          <p>If it helps other players enjoy studying chess as much as I do, even better.</p>
+        </div>
+
+        <div class="who reveal">
+          <span class="who__avatar" aria-hidden="true">
+            <svg viewBox="0 0 16 18" focusable="false">
+              <rect x="5" y="0" width="6" height="3"/>
+              <rect x="4" y="3" width="8" height="3"/>
+              <rect x="6" y="6" width="4" height="2"/>
+              <rect x="4" y="8" width="8" height="2"/>
+              <rect x="3" y="10" width="10" height="2"/>
+              <rect x="5" y="12" width="6" height="2"/>
+              <rect x="2" y="14" width="12" height="2"/>
+              <rect x="2" y="16" width="5" height="2"/>
+              <rect x="9" y="16" width="5" height="2"/>
+            </svg>
+          </span>
+          <span>
+            <span class="who__name">Marçal</span><br />
+            <span class="who__role">Designer, chess player, and the whole team behind Bito Chess.</span>
+          </span>
+        </div>
+
+        <div class="about reveal">
+          <h3>About the app</h3>
+          <ul class="hang">
+            <li>A one-person side project. No investors, no ads, no data to sell.</li>
+            <li>Your lines live on your phone. An account is optional and only syncs them.</li>
+            <li>It installs like an app, and it’s built and tested on a real phone, not a spec sheet.</li>
+          </ul>
+        </div>
       </div>
     </div>
   </section>
 
   <!-- ───────────────────────── FINAL CTA ───────────────────────── -->
-  <section class="band final" id="final-cta">
+  <section class="band band--parchment final" id="final-cta">
     <div class="inner">
+      <!-- The same pawn the app hops after every finished training run. -->
+      <div class="hop" aria-hidden="true">
+        <span class="hop__flip">
+          <svg class="hop__svg" viewBox="0 0 16 18" focusable="false">
+            <rect x="5" y="0" width="6" height="3"/>
+            <rect x="4" y="3" width="8" height="3"/>
+            <rect x="6" y="6" width="4" height="2"/>
+            <rect x="4" y="8" width="8" height="2"/>
+            <rect x="3" y="10" width="10" height="2"/>
+            <rect x="5" y="12" width="6" height="2"/>
+            <rect x="2" y="14" width="12" height="2"/>
+            <rect x="2" y="16" width="5" height="2"/>
+            <rect x="9" y="16" width="5" height="2"/>
+          </svg>
+        </span>
+      </div>
       <h2 class="reveal">Ready to build your first line?</h2>
       <div class="cta-block reveal">
-        <!-- ?auth=signup is on the FINAL CTA only, by design. The app does not
-             read this parameter yet — wiring it up to open the sign-up sheet
-             is a later session. It is harmless until then. -->
-        <a class="btn js-app" href="/app/?auth=signup">Try it — no account needed</a>
-        <p class="trust">Free to use. Pay once if you want more. No subscription, ever.</p>
+        <!-- ?auth=signup is on the FINAL CTA only, by design: someone who has
+             read the whole page is the one worth asking for an account. -->
+        <a class="btn js-app" href="/app/?auth=signup">Try it for free</a>
+        <p class="trust">No signup required</p>
       </div>
     </div>
   </section>
@@ -855,7 +1458,7 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
 
 <footer class="foot">
   <div class="inner">
-    <span class="wordmark">Bito</span>
+    <span class="wordmark">bito chess</span>
     <p>© 2026 Bito Chess</p>
   </div>
 </footer>
@@ -863,7 +1466,7 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
 <!-- Sticky mobile CTA. Rendered but hidden until the hero leaves the viewport;
      display is JS-gated in CSS so it never appears without JavaScript. -->
 <div class="cta-bar" id="cta-bar">
-  <a class="btn js-app" href="/app/">Try it — no account needed</a>
+  <a class="btn js-app" href="/app/">Try it for free</a>
 </div>
 
 <script>
@@ -873,6 +1476,22 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
 (function () {
   'use strict';
 
+  /* ── 0. THE ONE THING TO EDIT ────────────────────────────────────────────
+     Paste the Lemon Squeezy buy link for the 89 kr product between the quotes,
+     e.g. 'https://bitochess.lemonsqueezy.com/buy/0000-aaaa-1111'. Nothing else
+     on this page needs to change.
+
+     Until it is filled in, the Buy button sends people into the app's own
+     upgrade path instead of nowhere. Once it is filled in:
+       · signed in  → straight to checkout, carrying the Supabase user id as
+                      checkout[custom][user_id], which is what the webhook in
+                      worker/lemonsqueezy-webhook.ts needs to know who paid
+                      (see LEMONSQUEEZY-SETUP.md, step 4). Without it a real
+                      payment cannot be matched to an account.
+       · signed out → the app's sign-up sheet first, then they come back here.
+     ────────────────────────────────────────────────────────────────────── */
+  var CHECKOUT_URL = '';
+
   var ctas = Array.prototype.slice.call(document.querySelectorAll('.js-app'));
 
   /* ── 1. App href, corrected for the GitHub Pages mirror ──────────────────
@@ -880,36 +1499,71 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
      working with JS disabled. On GitHub Pages the landing page is copied to
      <pages>/obertura/docs/ while the app sits at <pages>/obertura/, so an
      absolute /app/ would 404 there. Rewriting the prefix to ../ fixes the
-     preview mirror and preserves any query string (?auth=signup) untouched. */
-  if (location.pathname.indexOf('/obertura/docs/') !== -1) {
+     preview mirror and preserves any query string untouched. */
+  var isMirror = location.pathname.indexOf('/obertura/docs/') !== -1;
+
+  function appUrl(path) {
+    return isMirror ? path.replace(/^\/app\//, '../') : path;
+  }
+
+  if (isMirror) {
     ctas.forEach(function (a) {
-      a.setAttribute('href', a.getAttribute('href').replace(/^\/app\//, '../'));
+      a.setAttribute('href', appUrl(a.getAttribute('href')));
     });
   }
 
-  /* ── 2. Signed-in? Relabel the CTAs ──────────────────────────────────────
-     Two keys are checked. 'obertura.supabase.auth' is the real one: the app
-     overrides supabase-js's default storageKey in src/supabase.ts so the
-     Settings "erase everything" sweep can find it. The sb-*-auth-token
-     pattern is supabase-js's default, checked as a fallback in case that
-     override is ever dropped. The Supabase library is NOT loaded here — this
-     is a plain localStorage sniff and nothing more. */
-  try {
-    var signedIn = false;
-    if (localStorage.getItem('obertura.supabase.auth')) {
-      signedIn = true;
-    } else {
-      for (var i = 0; i < localStorage.length; i++) {
-        var k = localStorage.key(i);
-        if (k && k.indexOf('sb-') === 0 && /-auth-token$/.test(k)) { signedIn = true; break; }
+  /* ── 2. Signed in? ───────────────────────────────────────────────────────
+     The landing page and the app share an origin, so they share localStorage.
+     'obertura.supabase.auth' is the real key: the app overrides supabase-js's
+     default storageKey in src/supabase.ts so the Settings "erase everything"
+     sweep can find it. The sb-*-auth-token pattern is supabase-js's default,
+     checked as a fallback in case that override is ever dropped. The Supabase
+     library is NOT loaded here — this is a plain localStorage read. */
+  function readSession() {
+    try {
+      var raw = localStorage.getItem('obertura.supabase.auth');
+      if (!raw) {
+        for (var i = 0; i < localStorage.length; i++) {
+          var k = localStorage.key(i);
+          if (k && k.indexOf('sb-') === 0 && /-auth-token$/.test(k)) {
+            raw = localStorage.getItem(k);
+            break;
+          }
+        }
       }
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      var user = parsed && (parsed.user || (parsed.currentSession && parsed.currentSession.user));
+      return { id: user && user.id ? String(user.id) : '' };
+    } catch (e) {
+      return null;                       /* storage disabled or shape changed */
     }
-    if (signedIn) {
-      ctas.forEach(function (a) { a.textContent = 'Open Bito Chess →'; });
-    }
-  } catch (e) { /* storage disabled — leave the default label */ }
+  }
 
-  /* ── 3. Scroll reveal ────────────────────────────────────────────────────
+  var session = readSession();
+
+  if (session) {
+    ctas.forEach(function (a) {
+      if (a.classList.contains('applogo')) return;      /* the icon has no label */
+      a.textContent = 'Open Bito Chess →';
+    });
+    var signin = document.getElementById('signin');
+    if (signin) { signin.textContent = 'Open app'; signin.setAttribute('href', appUrl('/app/')); }
+  }
+
+  /* ── 3. Top bar: shrink the app icon once the page moves ─────────────────
+     A sentinel at the top of the document rather than a scroll listener, so
+     there is no work on the main thread while scrolling. */
+  var bar = document.getElementById('topbar');
+  var sentinel = document.getElementById('top');
+
+  if (bar && sentinel && 'IntersectionObserver' in window) {
+    new IntersectionObserver(function (entries) {
+      bar.classList.toggle('is-scrolled', !entries[0].isIntersecting);
+    }, { threshold: 0 }).observe(sentinel);
+  }
+
+  /* ── 4. Scroll reveal ────────────────────────────────────────────────────
      Siblings stagger by 60ms via a --d custom property the CSS reads. Fires
      once per element. If IntersectionObserver is missing, everything is shown
      immediately rather than left hidden. */
@@ -937,18 +1591,17 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
     reveals.forEach(function (el) { io.observe(el); });
   }
 
-  /* ── 4. Sticky mobile CTA bar ────────────────────────────────────────────
+  /* ── 5. Sticky mobile CTA bar ────────────────────────────────────────────
      Shows once the hero has scrolled away, and hides again over the final CTA
      so the same button is never offered twice at once. */
-  var bar = document.getElementById('cta-bar');
+  var ctaBar = document.getElementById('cta-bar');
   var hero = document.getElementById('hero');
   var finalCta = document.getElementById('final-cta');
 
-  if (bar && hero && 'IntersectionObserver' in window) {
+  if (ctaBar && hero && 'IntersectionObserver' in window) {
     var heroGone = false;
     var atFinal = false;
-
-    var sync = function () { bar.classList.toggle('show', heroGone && !atFinal); };
+    var sync = function () { ctaBar.classList.toggle('show', heroGone && !atFinal); };
 
     new IntersectionObserver(function (entries) {
       heroGone = !entries[0].isIntersecting;
@@ -961,6 +1614,337 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
         sync();
       }, { threshold: 0 }).observe(finalCta);
     }
+  }
+
+  /* ── 6. The floating pieces ──────────────────────────────────────────────
+     One rAF-throttled scroll handler for all of them. Each piece declares its
+     own data-speed (px of travel per screen of scroll, sign = direction), and
+     the CSS reads the result as --y. Skipped entirely under reduced motion. */
+  var floats = Array.prototype.slice.call(document.querySelectorAll('.float'));
+  var calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (floats.length && !calm) {
+    var queued = false;
+
+    var place = function () {
+      queued = false;
+      var vh = window.innerHeight || 1;
+      floats.forEach(function (el) {
+        var r = el.getBoundingClientRect();
+        /* -1 when the piece is a screen below the middle, +1 a screen above. */
+        var d = (vh / 2 - (r.top + r.height / 2)) / vh;
+        var speed = parseFloat(el.getAttribute('data-speed')) || 0;
+        el.style.setProperty('--y', (d * speed).toFixed(1) + 'px');
+      });
+    };
+
+    var onScroll = function () {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(place);
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    place();
+  }
+
+  /* ── 7. The carousel ─────────────────────────────────────────────────────
+     Native scroll-snap does the scrolling; this only adds the arrows, the dots
+     and their state. */
+  var track = document.getElementById('more-track');
+
+  if (track) {
+    var cards = Array.prototype.slice.call(track.children);
+    var dotsBox = document.getElementById('car-dots');
+    var prev = document.getElementById('car-prev');
+    var next = document.getElementById('car-next');
+    var dots = [];
+
+    cards.forEach(function (card, i) {
+      var dot = document.createElement('button');
+      dot.type = 'button';
+      dot.className = 'carousel__dot';
+      dot.setAttribute('aria-label', 'Card ' + (i + 1) + ' of ' + cards.length);
+      dot.addEventListener('click', function () { goTo(i); });
+      dotsBox.appendChild(dot);
+      dots.push(dot);
+    });
+
+    function current() {
+      /* The card whose centre is nearest the track's centre. */
+      var mid = track.scrollLeft + track.clientWidth / 2;
+      var best = 0;
+      var bestD = Infinity;
+      cards.forEach(function (c, i) {
+        var d = Math.abs(c.offsetLeft + c.offsetWidth / 2 - mid);
+        if (d < bestD) { bestD = d; best = i; }
+      });
+      return best;
+    }
+
+    function goTo(i) {
+      var c = cards[Math.max(0, Math.min(cards.length - 1, i))];
+      track.scrollTo({
+        left: c.offsetLeft - (track.clientWidth - c.offsetWidth) / 2,
+        behavior: calm ? 'auto' : 'smooth'
+      });
+    }
+
+    function syncDots() {
+      var i = current();
+      dots.forEach(function (d, n) { d.classList.toggle('on', n === i); });
+      /* Disabled at the ends rather than wrapping — wrapping in a scroll
+         container fights the snap and reads as a glitch. */
+      prev.disabled = track.scrollLeft <= 2;
+      next.disabled = track.scrollLeft >= track.scrollWidth - track.clientWidth - 2;
+    }
+
+    prev.addEventListener('click', function () { goTo(current() - 1); });
+    next.addEventListener('click', function () { goTo(current() + 1); });
+
+    var scrollQueued = false;
+    track.addEventListener('scroll', function () {
+      if (scrollQueued) return;
+      scrollQueued = true;
+      requestAnimationFrame(function () { scrollQueued = false; syncDots(); });
+    }, { passive: true });
+
+    syncDots();
+  }
+
+  /* ── 8. The buy button ───────────────────────────────────────────────────
+     See CHECKOUT_URL at the top of this script for what each branch is for. */
+  var buy = document.getElementById('buy');
+
+  if (buy) {
+    buy.addEventListener('click', function () {
+      if (!CHECKOUT_URL) {
+        location.href = appUrl('/app/?auth=signup');
+        return;
+      }
+      if (!session || !session.id) {
+        location.href = appUrl('/app/?auth=signup');
+        return;
+      }
+      var join = CHECKOUT_URL.indexOf('?') === -1 ? '?' : '&';
+      location.href = CHECKOUT_URL + join
+        + 'checkout[custom][user_id]=' + encodeURIComponent(session.id);
+    });
+
+    if (session && session.id) {
+      var note = document.getElementById('buy-note');
+      if (note) note.textContent = 'Secure checkout. The unlock lands on the account you’re signed in to.';
+    }
+  }
+
+  /* ── 9. The playable board ───────────────────────────────────────────────
+     Three moves of the Italian Game, scripted. No rules engine: the only legal
+     move at each step is the one the arrow points at, which is the whole point
+     — this is a taste of the app, not a game.
+
+     Squares are indexed from the top-left as White sees the board: file 0 = a,
+     row 0 = rank 8. A piece's position is two CSS custom properties, so moving
+     it is one style write and the transition does the sliding. */
+  var mini = document.getElementById('mini');
+
+  if (mini) {
+    var FILES = 'abcdefgh';
+
+    var START = {
+      a8: 'br', b8: 'bn', c8: 'bb', d8: 'bq', e8: 'bk', f8: 'bb', g8: 'bn', h8: 'br',
+      a7: 'bp', b7: 'bp', c7: 'bp', d7: 'bp', e7: 'bp', f7: 'bp', g7: 'bp', h7: 'bp',
+      a2: 'wp', b2: 'wp', c2: 'wp', d2: 'wp', e2: 'wp', f2: 'wp', g2: 'wp', h2: 'wp',
+      a1: 'wr', b1: 'wn', c1: 'wb', d1: 'wq', e1: 'wk', f1: 'wb', g1: 'wn', h1: 'wr'
+    };
+
+    var SCRIPT = [
+      {
+        you: ['e2', 'e4'], san: 'e4',
+        ask: 'Your move. Follow the arrow: play <b>e4</b>.',
+        after: 'The centre is yours. Black answers <b>e5</b>.',
+        reply: ['e7', 'e5']
+      },
+      {
+        you: ['g1', 'f3'], san: 'Nf3',
+        ask: 'Now develop and hit that pawn: <b>Nf3</b>.',
+        after: 'Black defends with <b>Nc6</b>.',
+        reply: ['b8', 'c6']
+      },
+      {
+        you: ['f1', 'c4'], san: 'Bc4',
+        ask: 'One more. Point the bishop at f7: <b>Bc4</b>.',
+        after: 'Bishop out, eyes on f7 — the Italian Game.',
+        reply: null
+      }
+    ];
+
+    var squaresBox = document.getElementById('mini-squares');
+    var piecesBox = document.getElementById('mini-pieces');
+    var arrowSvg = document.getElementById('mini-arrow');
+    var hint = document.getElementById('mini-hint');
+    var done = document.getElementById('mini-done');
+    var again = document.getElementById('mini-again');
+
+    var squares = {};        /* square name → button */
+    var pieces = {};         /* square name → piece element (live positions) */
+    var step = 0;
+    var selected = null;
+    var busy = false;
+
+    function file(sq) { return FILES.indexOf(sq[0]); }
+    function row(sq) { return 8 - parseInt(sq[1], 10); }
+
+    /* Build the 64 squares once. Only the two squares the current move needs
+       are reachable by keyboard — 64 tab stops would be a wall. */
+    for (var r = 0; r < 8; r++) {
+      for (var f = 0; f < 8; f++) {
+        var name = FILES[f] + (8 - r);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'mini__sq' + ((f + r) % 2 ? ' dark' : '');
+        btn.setAttribute('aria-label', name);
+        btn.tabIndex = -1;
+        btn.dataset.sq = name;
+        squaresBox.appendChild(btn);
+        squares[name] = btn;
+      }
+    }
+
+    squaresBox.addEventListener('click', function (e) {
+      var el = e.target.closest ? e.target.closest('.mini__sq') : null;
+      if (el) tap(el.dataset.sq);
+    });
+
+    function reset() {
+      piecesBox.textContent = '';
+      pieces = {};
+      Object.keys(START).forEach(function (sq) {
+        var el = document.createElement('div');
+        el.className = 'pc pc-' + START[sq];
+        el.style.setProperty('--f', String(file(sq)));
+        el.style.setProperty('--r', String(row(sq)));
+        piecesBox.appendChild(el);
+        pieces[sq] = el;
+      });
+      Object.keys(squares).forEach(function (sq) {
+        squares[sq].classList.remove('last', 'sel');
+      });
+      step = 0;
+      selected = null;
+      busy = false;
+      done.hidden = true;
+      ask();
+    }
+
+    function move(from, to) {
+      var el = pieces[from];
+      if (!el) return;
+      if (pieces[to]) { pieces[to].remove(); }     /* never happens in this line */
+      delete pieces[from];
+      pieces[to] = el;
+      el.style.setProperty('--f', String(file(to)));
+      el.style.setProperty('--r', String(row(to)));
+
+      Object.keys(squares).forEach(function (sq) { squares[sq].classList.remove('last', 'sel'); });
+      squares[from].classList.add('last');
+      squares[to].classList.add('last');
+    }
+
+    /* The arrow, in the app's own colour and stroke weight: chessground draws
+       its shapes on an 8×8 viewBox and divides lineWidth by 64, so its
+       lineWidth 10 is a stroke-width of 0.156 here. */
+    function arrow(from, to) {
+      if (!from) { arrowSvg.textContent = ''; return; }
+      var ax = file(from) + 0.5, ay = row(from) + 0.5;
+      var bx = file(to) + 0.5, by = row(to) + 0.5;
+      var dx = bx - ax, dy = by - ay;
+      var len = Math.sqrt(dx * dx + dy * dy) || 1;
+      var ux = dx / len, uy = dy / len;
+      var px = -uy, py = ux;                          /* perpendicular */
+      var headLen = 0.34, headHalf = 0.18;
+
+      var sx = ax + ux * 0.3, sy = ay + uy * 0.3;      /* clear of the piece */
+      var hx = bx - ux * (headLen * 0.9), hy = by - uy * (headLen * 0.9);
+      var tipX = bx - ux * 0.08, tipY = by - uy * 0.08;
+
+      arrowSvg.innerHTML =
+        '<line class="shaft" x1="' + sx.toFixed(3) + '" y1="' + sy.toFixed(3) +
+        '" x2="' + hx.toFixed(3) + '" y2="' + hy.toFixed(3) +
+        '" stroke-width="0.156" stroke-linecap="round" />' +
+        '<polygon class="head" points="' +
+        tipX.toFixed(3) + ',' + tipY.toFixed(3) + ' ' +
+        (hx + px * headHalf).toFixed(3) + ',' + (hy + py * headHalf).toFixed(3) + ' ' +
+        (hx - px * headHalf).toFixed(3) + ',' + (hy - py * headHalf).toFixed(3) +
+        '" stroke="none" />';
+    }
+
+    function ask() {
+      var s = SCRIPT[step];
+      if (!s) return;
+      hint.innerHTML = s.ask;
+      arrow(s.you[0], s.you[1]);
+      /* Keyboard reaches exactly the two squares that matter right now. */
+      Object.keys(squares).forEach(function (sq) { squares[sq].tabIndex = -1; });
+      squares[s.you[0]].tabIndex = 0;
+      squares[s.you[1]].tabIndex = 0;
+    }
+
+    function tap(sq) {
+      if (busy) return;
+      var s = SCRIPT[step];
+      if (!s) return;
+
+      if (sq === s.you[0]) {
+        selected = sq;
+        squares[sq].classList.add('sel');
+        return;
+      }
+
+      /* Tapping the destination works with or without picking the piece up
+         first — on a phone, one tap is the kinder path. */
+      if (sq === s.you[1]) { play(); return; }
+
+      squares[s.you[0]].classList.remove('sel');
+      selected = null;
+      mini.classList.add('shake');
+      setTimeout(function () { mini.classList.remove('shake'); }, 320);
+    }
+
+    function play() {
+      var s = SCRIPT[step];
+      busy = true;
+      selected = null;
+      arrow(null);
+      move(s.you[0], s.you[1]);
+      hint.innerHTML = s.after;
+
+      if (s.reply) {
+        setTimeout(function () {
+          move(s.reply[0], s.reply[1]);
+          setTimeout(function () {
+            step++;
+            busy = false;
+            ask();
+          }, 320);
+        }, 520);
+      } else {
+        setTimeout(function () {
+          done.hidden = false;
+          Object.keys(squares).forEach(function (sq) { squares[sq].tabIndex = -1; });
+        }, 620);
+      }
+    }
+
+    if (again) {
+      again.addEventListener('click', function () {
+        reset();
+        var first = SCRIPT[0] && squares[SCRIPT[0].you[0]];
+        if (first) first.focus();
+      });
+    }
+
+    reset();
   }
 })();
 </script>

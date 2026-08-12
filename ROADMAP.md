@@ -1393,6 +1393,69 @@ _On `claude/builder-tab-structure-c1a7ko`. Restore point: `v0.4`._
 
 ---
 
+## v0.23 — the landing page round 🔜
+
+The landing page was a good editorial page for a different product. It used its
+own type, its own light-only palette and its own art direction, showed five
+empty screenshot frames, and had no way to buy anything. Rebuilt so that the
+page and the app are visibly the same thing.
+
+- ✅ **It looks like the app now.** The page takes the app's tokens verbatim
+  (`src/style.css` :root and the dark block), the app's type — system-ui, with
+  Chakra Petch reserved for the wordmark exactly as `header h1` does — and it
+  follows the browser's light/dark preference instead of being light-only.
+  Fraunces and Spline Sans are gone. The board colours stay unthemed in both
+  schemes, as in the app.
+
+- ✅ **A top bar with the app icon on it.** Fixed bar, wordmark left, **Sign in**
+  and the app icon right. The icon starts big and overhangs the bar, then
+  shrinks into it on the first scroll — it is absolutely positioned, so the
+  bar's height never changes and the page never jumps. Signed in, the link
+  becomes *Open app* and every CTA becomes *Open Bito Chess →*.
+
+- ✅ **A hero that asks for less and shows more.** *Improve your next move* over
+  *Build your repertoire, train smarter, and play with confidence*, then **Try
+  it for free** with *No signup required* under it.
+
+- ✅ **A board you can actually play.** Three scripted moves of the Italian Game
+  in the hero, with the app's own orange hint arrow and the app's own cburnett
+  pieces, then *That's the Italian Game* and the CTA. No chess engine and no
+  dependency: the only legal move at each step is the one the arrow points at.
+  The starting position is in the markup, so there is no empty frame before the
+  script runs and none without it.
+
+- ✅ **The five extras are a carousel.** *There's more than openings in here* is
+  five illustrated cards — puzzles, mistakes, brilliants, endgames, Stockfish —
+  on a scroll-snap track with arrows and dots, replacing a bare bullet list.
+  The five screenshot frames are gone (the PNGs stay in `docs/` for whenever
+  they come back), and so is the *watch a video* bullet: four ways in, not five.
+
+- ✅ **You can buy from the page.** 89 kr, once, with a **Buy full access**
+  button. Signed in it goes straight to the Lemon Squeezy checkout carrying
+  `checkout[custom][user_id]`, which is what the webhook needs to know who paid;
+  signed out it sends you to make an account first. One constant at the top of
+  the page script (`CHECKOUT_URL`) is the whole configuration — until it is
+  filled in the button routes into the app's own upgrade path rather than
+  nowhere. The in-app dialog's price moved from €10 to the same 89 kr.
+
+- ✅ **Why I made it, as a comic bubble** — with the signature under it and an
+  *About the app* box beside it (one person, lines on your phone, tested on a
+  real phone).
+
+- ✅ **Six 3D vector pieces drift behind the sections.** Hand-drawn (silhouette,
+  gradient, highlight — a few kB, no bitmap), straddling band edges and moving
+  at their own speed on one rAF-throttled scroll handler, so the sections
+  separate without a rule or a wave. They shrink and fade on a phone, and hold
+  still under `prefers-reduced-motion`. The final CTA gets the app's hopping
+  pixel pawn, the same one it plays after a training run.
+
+- ✅ **`?auth=signin` opens a sign-in sheet**, not a sign-up form — the page's
+  Sign in link and the onboarding picker's own *Sign in* button both use it.
+
+_On `claude/bitrochess-landing-redesign-xcm0on`. Restore point: `v0.4`._
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

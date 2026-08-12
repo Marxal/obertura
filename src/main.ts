@@ -2571,7 +2571,9 @@ function showFirstRunPicker(): void {
     },
     // Only where accounts exist — in the internal build the button would be a
     // dead end, so the picker's top bar simply doesn't grow one.
-    onSignIn: isSupabaseConfigured ? () => openSignUpSheet() : undefined,
+    // …and it opens the sheet in SIGN-IN mode, because the picker's button says
+    // "Sign in" and the person tapping it already has an account.
+    onSignIn: isSupabaseConfigured ? () => openSignUpSheet('signin') : undefined,
     // The picker is the first screen on a first visit, so it clears the boot
     // splash itself rather than depending on the boot order to have done it.
     onShown: hideAppSplash,
