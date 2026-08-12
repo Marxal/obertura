@@ -45,6 +45,7 @@ import { countUp } from './count-up';
 import {
   userMoveNodes,
   gradeReview,
+  lineSpacing,
   newReview,
   qualityFromMisses,
   lineConfidence,
@@ -1235,7 +1236,8 @@ export function startPositionsSession(
           recordMissedMove(pos.preFen, expected.san, line.colour);
         }
         const quality = qualityFromMisses(wasMissed ? 1 : 0);
-        expected.review = gradeReview(expected.review ?? newReview(now), quality, now);
+        expected.review = gradeReview(
+          expected.review ?? newReview(now), quality, now, lineSpacing(line));
         line.lastTrained = now.toISOString();
         line.confidence = lineConfidence(line);
         void saveLine(line);
@@ -1431,10 +1433,13 @@ function runItem(
       // is about to move those — reading after would fold this very run into the
       // estimate and then add it again below.
       const runsBefore = lineTrainingCount(lineCopy);
+      // The line's priority stretches or compresses every one of its moves'
+      // next-due dates by the same factor.
+      const spacing = lineSpacing(lineCopy);
       for (const node of userNodes) {
         const misses = missed.has(node.id) ? 1 : 0;
         const quality = qualityFromMisses(misses);
-        node.review = gradeReview(node.review ?? newReview(now), quality, now);
+        node.review = gradeReview(node.review ?? newReview(now), quality, now, spacing);
         node.missedThisSession = false;
       }
       lineCopy.lastTrained = now.toISOString();
@@ -1541,7 +1546,8 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
             recordMissedMove(pos.preFen, expected.san, line.colour);
           }
           const quality = qualityFromMisses(wasMissed ? 1 : 0);
-          expected.review = gradeReview(expected.review ?? newReview(now), quality, now);
+          expected.review = gradeReview(
+            expected.review ?? newReview(now), quality, now, lineSpacing(line));
           line.lastTrained = now.toISOString();
           line.confidence = lineConfidence(line);
           void saveLine(line);

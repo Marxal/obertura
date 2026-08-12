@@ -7,6 +7,9 @@ import {
   isReviewDue,
   dueLines,
   lineIsDue,
+  linePriority,
+  lineSpacing,
+  PRIORITY_SPACING,
   MIN_EASE,
 } from './scheduler';
 import { TrainingSession } from './session';
@@ -141,6 +144,70 @@ export function runSchedulerSelfTest(): TestResult[] {
     'session yields each line once, then ends',
     startCount === 2 && walked.length === 2 && walked[0] === 'L' && walked[1] === 'R' && session.isEmpty(),
     `walked: [${walked.join(', ')}]`
+  );
+
+  // 11. Priority defaults to standard, including for lines saved before the
+  //     field existed (and for a junk value that survived a bad sync).
+  const plain = makeLine([1], now);
+  const bogus = makeLine([1], now);
+  (bogus as { priority?: string }).priority = 'urgent';
+  const high = makeLine([1], now);
+  high.priority = 'high';
+  check(
+    'priority defaults to standard, and only known values are honoured',
+    linePriority(plain) === 'standard'
+      && linePriority(bogus) === 'standard'
+      && linePriority(high) === 'high'
+      && lineSpacing(high) === PRIORITY_SPACING.high,
+    `plain=${linePriority(plain)} bogus=${linePriority(bogus)} high=${linePriority(high)}`
+  );
+
+  // 12. Priority scales the WAIT, not the stored interval — the whole point of
+  //     applying it to the due date. A high-priority move on a 30-day rung is
+  //     due in 18 days but still records 30, so the Learning/Solid buckets
+  //     (which read `interval`) are untouched by a scheduling preference.
+  const settled = { ease: 2.5, interval: 12, reps: 3, lapses: 0, due: now };
+  const std = gradeReview(settled, 5, now, PRIORITY_SPACING.standard);
+  const hi = gradeReview(settled, 5, now, PRIORITY_SPACING.high);
+  const lo = gradeReview(settled, 5, now, PRIORITY_SPACING.low);
+  const days = (r: { due: Date }) => (r.due.getTime() - now.getTime()) / 86400000;
+  check(
+    'priority scales the wait and leaves the SM-2 interval alone',
+    std.interval === hi.interval && hi.interval === lo.interval
+      && Math.abs(days(hi) - days(std) * PRIORITY_SPACING.high) < 1e-6
+      && Math.abs(days(lo) - days(std) * PRIORITY_SPACING.low) < 1e-6
+      && days(hi) < days(std) && days(std) < days(lo),
+    `interval=${std.interval} · waits high=${days(hi).toFixed(1)}d std=${days(std).toFixed(1)}d low=${days(lo).toFixed(1)}d`
+  );
+
+  // 13. Repeated gradings must not COMPOUND the multiplier — the bug that made
+  //     the obvious "scale the interval" implementation unusable. After five
+  //     clean reps a high-priority move's wait is still exactly 0.6× the
+  //     standard one's, not 0.6^5 of it.
+  let hiChain = newReview(now);
+  let stdChain = newReview(now);
+  for (let i = 0; i < 5; i++) {
+    hiChain = gradeReview(hiChain, 5, now, PRIORITY_SPACING.high);
+    stdChain = gradeReview(stdChain, 5, now, PRIORITY_SPACING.standard);
+  }
+  check(
+    'the priority multiplier does not compound across reps',
+    hiChain.interval === stdChain.interval
+      && Math.abs(days(hiChain) / days(stdChain) - PRIORITY_SPACING.high) < 1e-6,
+    `after 5 reps: interval=${stdChain.interval} ratio=${(days(hiChain) / days(stdChain)).toFixed(3)}`
+  );
+
+  // 14. Due lines lead with the high-priority ones, and keep their input order
+  //     inside a band.
+  const a = makeLine([-1], now); a.id = 'A';
+  const b = makeLine([-1], now); b.id = 'B'; b.priority = 'low';
+  const c = makeLine([-1], now); c.id = 'C'; c.priority = 'high';
+  const d = makeLine([-1], now); d.id = 'D';
+  const ordered = dueLines([a, b, c, d], now).map(l => l.id).join('');
+  check(
+    'due lines are ordered high → standard → low, stable within a band',
+    ordered === 'CADB',
+    `order: ${ordered}`
   );
 
   return results;

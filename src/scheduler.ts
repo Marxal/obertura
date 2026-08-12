@@ -1,4 +1,4 @@
-import type { Line } from './types';
+import type { Line, LinePriority } from './types';
 import type { MoveNode } from './tree';
 
 // ── The spaced-repetition brain ─────────────────────────────────────────────────
@@ -30,6 +30,46 @@ export const DEFAULT_EASE = 2.5;
 export const MIN_EASE = 1.3;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// ── Line priority ───────────────────────────────────────────────────────────
+//
+// A per-line multiplier on the WAIT between reviews. High priority sees a line
+// at 60% of the gap SM-2 asked for, low priority at 170% of it.
+//
+// WHY IT MULTIPLIES THE WAIT AND NOT THE INTERVAL. The obvious implementation —
+// scale `interval` when it's written — compounds: the scaling lands on a number
+// that is itself the input to the next step's `interval × ease`, so after five
+// reps a "slightly more often" line is coming round twenty times more often
+// than intended, and a low-priority one has effectively left the rotation. So
+// `interval` stays the pure SM-2 ladder and the multiplier is applied once, to
+// the due DATE. The effect is exactly "this line is asked about 40% sooner,
+// every time", at every point on the ladder, and it can't run away.
+//
+// It also keeps `interval` meaning one thing. Everything else that reads it —
+// the Learning/Solid buckets, SETTLED_INTERVAL_DAYS — is asking "how well is
+// this known?", which is a fact about the user's memory and has nothing to do
+// with how often they've chosen to be asked.
+export const PRIORITY_SPACING: Record<LinePriority, number> = {
+  high: 0.6,
+  standard: 1,
+  low: 1.7,
+};
+
+// Order for "which of these due lines first?" — a high-priority line leads a
+// session it shares with standard ones.
+const PRIORITY_RANK: Record<LinePriority, number> = { high: 0, standard: 1, low: 2 };
+
+export const DEFAULT_PRIORITY: LinePriority = 'standard';
+
+// A line's priority, defaulting for the lines saved before the field existed.
+export function linePriority(line: Line): LinePriority {
+  const p = line.priority;
+  return p === 'high' || p === 'low' || p === 'standard' ? p : DEFAULT_PRIORITY;
+}
+
+export function lineSpacing(line: Line): number {
+  return PRIORITY_SPACING[linePriority(line)];
+}
+
 // A brand-new, never-trained review. `due` = now, so a fresh move is due
 // immediately (a never-trained line is always a due line).
 export function newReview(now: Date = new Date()): Review {
@@ -51,7 +91,13 @@ export function qualityFromMisses(misses: number): number {
 // Quality ≥ 3 advances the move (interval grows: 1 → 6 → interval×ease → …).
 // Quality < 3 is a lapse: reps reset, interval drops back to 1 day (so the move
 // returns in the very next session), and a lapse is banked.
-export function gradeReview(prev: Review, quality: number, now: Date = new Date()): Review {
+//
+// `spacing` is the line's priority multiplier (see PRIORITY_SPACING). It scales
+// the WAIT — the distance from now to the due date — and deliberately not the
+// stored interval, which stays the pure SM-2 ladder.
+export function gradeReview(
+  prev: Review, quality: number, now: Date = new Date(), spacing = 1,
+): Review {
   let { ease, interval, reps, lapses } = prev;
 
   if (quality >= 3) {
@@ -70,7 +116,10 @@ export function gradeReview(prev: Review, quality: number, now: Date = new Date(
   ease = ease + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
   if (ease < MIN_EASE) ease = MIN_EASE;
 
-  const due = new Date(now.getTime() + interval * DAY_MS);
+  // Clamped so a caller passing a nonsense multiplier can't park a move forever
+  // or make it permanently due.
+  const factor = Math.max(0.25, Math.min(4, spacing));
+  const due = new Date(now.getTime() + interval * factor * DAY_MS);
   return { ease, interval, reps, lapses, due };
 }
 
@@ -111,9 +160,17 @@ export function lineIsDue(line: Line, now: Date = new Date()): boolean {
   return userMoveNodes(line.tree, line.colour).some(n => isReviewDue(n.review, now));
 }
 
-// Every in-training line that has a due move, in the order given.
+// Every in-training line that has a due move, highest priority first (the input
+// order is kept within a priority band, so nothing else about the ordering
+// changes). A session that runs out of time should have spent it on the lines
+// that were marked as mattering most.
 export function dueLines(lines: Line[], now: Date = new Date()): Line[] {
-  return lines.filter(l => l.inTraining && lineIsDue(l, now));
+  return lines
+    .filter(l => l.inTraining && lineIsDue(l, now))
+    .map((line, i) => ({ line, i }))
+    .sort((a, b) =>
+      PRIORITY_RANK[linePriority(a.line)] - PRIORITY_RANK[linePriority(b.line)] || a.i - b.i)
+    .map(x => x.line);
 }
 
 // The soonest `due` across a line's user-moves — drives "Due in N days" labels.

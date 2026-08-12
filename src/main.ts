@@ -7,11 +7,12 @@ import 'chessground/assets/chessground.base.css';
 import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
 import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, loadTree, removeLastMove, truncateAfterCurrent, setTreeMode, rootNode } from './tree';
+import { mainlineNodes } from './scheduler';
 import type { Annotation, MoveNode } from './tree';
 import { saveLine, getAllLines, getAllGames, getGame, saveGames, deleteLine, deleteGame } from './storage';
 import type { ImportedGame } from './import-games';
 import { nameForPath } from './openings';
-import type { Line } from './types';
+import type { Line, LinePriority } from './types';
 import { renderLinesScreen, focusSavedLine } from './lines-screen';
 import { renderProgressScreen } from './progress-screen';
 import { startPretrainingRun, enrolLineDirectly } from './pretraining';
@@ -46,6 +47,7 @@ import { userAvatar } from './avatar';
 import { Engine, setCloudAuthToken, retryCloudNow, type EvalResult, type CloudTopMove } from './engine';
 import { EvalPanel } from './eval-panel';
 import { createBuilderPanels, type BuilderPanels } from './builder-panels';
+import { renderLinePriority, renderLineStats, linePriority } from './line-info';
 import { createExplorePanel, type ExplorePanel } from './explore-panel';
 import { createEnginePanel, type EnginePanel } from './engine-panel';
 import { initTheme } from './theme';
@@ -2045,6 +2047,67 @@ function updateSaveButtonLabel(): void {
     trainingToggle.hidden = !(builderMode === 'builder' && !!loadedLineId);
     applyLineTrainingToggleState();
   }
+
+  refreshLineInfoBlocks();
+}
+
+// The Line info tab's two extra blocks — training priority, and how the line has
+// actually been going. Both need a SAVED line: a priority on a line that isn't
+// in the scheduler yet schedules nothing, and statistics about a line that has
+// never been trained or played are four zeros pretending to be information.
+function refreshLineInfoBlocks(): void {
+  const prioEl = document.getElementById('line-priority');
+  const statsEl = document.getElementById('line-stats');
+  const line = builderMode === 'builder' && loadedLineId ? currentTrainingLine : null;
+
+  if (prioEl) {
+    prioEl.hidden = !line;
+    if (line) {
+      renderLinePriority(prioEl, {
+        priority: linePriority(line),
+        onChange: (p) => { void setLinePriority(p); },
+      });
+    }
+  }
+
+  if (statsEl) {
+    statsEl.hidden = !line;
+    if (line) {
+      const target = line;
+      // The games are read lazily and only for this panel — the stats block is
+      // the only thing in the builder that needs the whole imported set.
+      void getAllGames().then(games => {
+        // The user may have moved on to another line while the read was in
+        // flight; only paint if this is still the line on screen.
+        if (currentTrainingLine?.id !== target.id) return;
+        renderLineStats(statsEl, {
+          line: target,
+          games,
+          onGoToMove: (m) => goToMoveByUci(m.uci),
+        });
+      }).catch(() => { /* no games: the block simply reports zero faced */ });
+    }
+  }
+}
+
+// Persist a priority change straight away — like the training toggle beside it,
+// there's no reason to make the user hit Save for a scheduling preference.
+async function setLinePriority(priority: LinePriority): Promise<void> {
+  if (!currentTrainingLine || !loadedLineId) return;
+  const line = { ...currentTrainingLine, priority };
+  await saveLine(line);
+  currentTrainingLine = line;
+  builderPanels?.reloadLines();
+}
+
+// Jump the board to the position BEFORE a move in the current line, from the
+// "where it breaks" list. Matched on uci along the mainline — the stats rows
+// carry no node id.
+function goToMoveByUci(uci: string): void {
+  const nodes = mainlineNodes(rootNode());
+  const target = nodes.find(n => n.uci === uci);
+  if (!target) return;
+  handleMoveClick(target.id);
 }
 
 // Reflect loadedLineInTraining onto the switch's visual state (on/off colour,
@@ -3735,6 +3798,11 @@ function buildCurrentLine(): Line {
     inTraining: isNew ? false : loadedLineInTraining,
     tree: serialise(),
     createdAt: isNew ? Date.now() : (loadedLineCreatedAt ?? Date.now()),
+    // Preserve the run counter and the training priority across an edit —
+    // rebuilding the line from the board must not reset how often it comes
+    // round, or how many times it has been drilled.
+    timesTrained: isNew ? undefined : currentTrainingLine?.timesTrained,
+    priority: isNew ? undefined : currentTrainingLine?.priority,
   };
 }
 
@@ -3759,6 +3827,10 @@ async function persistCurrentLine(): Promise<{ line: Line; isNew: boolean } | nu
   loadedLineCreatedAt = line.createdAt;
   loadedLineInTraining = line.inTraining;
   currentTrainingLine = line;
+  // A line that has just been saved for the first time gains the controls that
+  // only make sense on a saved line — the training toggle, the priority, the
+  // stats — so the panel has to be told.
+  updateSaveButtonLabel();
   // The builder now matches storage — no unsaved edits.
   savedSnapshot = builderSnapshot();
   return { line, isNew };

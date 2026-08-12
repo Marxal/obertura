@@ -73,6 +73,16 @@ export function moveAttempts(node: MoveNode, lineRuns: number): number {
   return Math.max(lineRuns, r.reps + r.lapses);
 }
 
+// Every grading a line's user-moves have ever been through — the honest total
+// behind a recall percentage. `reps + lapses` is the LEAST number of gradings
+// that could have produced a move's current state (clean runs before a lapse
+// aren't recoverable, since reps resets), so this is a floor, summed across the
+// line. Quoted as "reviews", which is what it counts.
+export function lineReviewCount(line: Line): number {
+  return userMoveNodes(line.tree, line.colour)
+    .reduce((sum, n) => sum + (n.review ? n.review.reps + n.review.lapses : 0), 0);
+}
+
 export function needsWorkMoves(lines: Line[], limit = 24): NeedsWorkMove[] {
   const out: NeedsWorkMove[] = [];
   for (const line of lines) {

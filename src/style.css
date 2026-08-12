@@ -4049,6 +4049,134 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   margin-top: 0.9rem;
 }
 
+/* ── Line info: priority + inline statistics ─────────────────────────────────
+   The two blocks below the footer, shown only for a SAVED line. Both open with
+   the same small section head so the tab reads as a stack of sections rather
+   than as one long panel that keeps going. */
+.line-priority,
+.line-stats {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border-card);
+}
+.line-stats { padding-bottom: 0.5rem; }
+
+.lineinfo-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+.lineinfo-head:not(:first-child) { margin-top: 0.9rem; }
+.lineinfo-head-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.lineinfo-head-meta {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+/* Three settings, equal weight, one tap each — the same shape as the colour and
+   depth choosers on the first-run picker, because it's the same kind of
+   question: pick one of three, and the consequence is spelled out underneath. */
+.lprio-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+}
+.lprio-btn {
+  padding: 0.45rem 0.3rem;
+  border: 1px solid var(--border-card);
+  border-radius: 9px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+.lprio-btn--on {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--bg-parchment);
+}
+.lprio-blurb {
+  margin: 0.4rem 0 0;
+  font-size: 0.68rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+/* The four figures, in the Statistics screen's own boxes so a number means the
+   same thing in both places. Here they're read-only, so the tap affordance is
+   dropped. */
+.lineinfo-quick {
+  margin: 0;
+  gap: 0.4rem;
+}
+.lineinfo-quick .stats-quick-cell {
+  cursor: default;
+  box-shadow: none;
+  padding: 0.5rem 0.2rem 0.4rem;
+}
+.lineinfo-quick .stats-quick-cell:active { transform: none; }
+
+.lineinfo-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.68rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.lineinfo-fails {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.lineinfo-fail {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  background: var(--bg-card);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.lineinfo-fail-move {
+  flex: 0 0 auto;
+  min-width: 3.6em;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.lineinfo-fail-detail {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+.lineinfo-fail-state {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.lineinfo-fail-state--ok { background: rgba(112, 129, 81, 0.16); color: var(--success); }
+.lineinfo-fail-state--shaky { background: rgba(180, 83, 58, 0.14); color: var(--danger); }
+
 /* Discrete delete control at the foot of the Line panel (game review / builder).
    Quiet by default; reads as danger on press. */
 .line-delete {
