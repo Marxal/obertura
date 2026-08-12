@@ -16091,12 +16091,17 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   gap: 0.6rem;
 }
 
+/* A link out to the product page — styled as the plain brand lockup it was, so
+   it reads as identity rather than as a navigation item. */
 .picker-brandrow {
   display: flex;
   align-items: center;
   gap: 0.45rem;
   min-width: 0;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
 }
+.picker-brandrow:active { opacity: 0.7; }
 
 .picker-mark {
   flex: 0 0 auto;
@@ -16137,9 +16142,11 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
    actually is: on a tall phone it's a proper title, on a short window it shrinks
    (see the max-height blocks at the end of this section) rather than pushing the
    card off the bottom. */
+/* Room under the title before the form starts: the lead is a sentence, and a
+   sentence butting straight onto a labelled field reads as one block. */
 .picker-lead {
   flex: 0 0 auto;
-  margin: 0.15rem 0 0.1rem;
+  margin: 0.15rem 0 0.9rem;
   font-size: 1.5rem;
   font-weight: 800;
   line-height: 1.12;
@@ -16161,7 +16168,7 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 1.15rem;
   padding: 0.85rem;
   border: 1px solid var(--hairline);
   border-radius: 18px;
@@ -16170,17 +16177,20 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 
 /* ── The form: colour, then depth ── */
 
+/* Three questions asked one after another, so they get real gaps between them
+   rather than the tight rhythm of a settings list — at 0.55rem the depth row
+   read as a continuation of the colour row instead of the next question. */
 .picker-form {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 1.15rem;
 }
 
 .picker-field {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.4rem;
 }
 
 .picker-field-label {
@@ -16259,23 +16269,37 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   gap: 0.4rem;
 }
 
+/* The depth tiles carry three things now (number, "N moves", the skill word),
+   so the type comes down to keep all three on one tile at phone width without
+   the row growing taller than the colour row above it. */
 .picker-level {
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.15rem;
   min-height: 68px;
-  padding: 0.5rem 0.3rem;
-  font-size: 0.82rem;
+  padding: 0.45rem 0.25rem;
+  font-size: 0.72rem;
   line-height: 1.15;
   text-align: center;
 }
 
+.picker-level .picker-colour-label { font-size: 0.72rem; }
+
+.picker-level-caption {
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+.picker-colour--on .picker-level-caption { color: var(--text-muted); }
+
 .picker-level-token {
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   background: var(--fill-faint);
   border: 1px solid var(--border-card);
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   font-weight: 800;
 }
 
@@ -16300,7 +16324,7 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.4rem;
 }
 
 .picker-styles-block--in {
@@ -16659,6 +16683,8 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .tour-title {
   position: relative;
   margin: 0 0 0.35rem;
+  /* Clear of the corner Skip, so a long title wraps rather than running under it. */
+  padding-right: 2.6rem;
   font-size: 1.05rem;
   font-weight: 800;
   line-height: 1.25;
@@ -16752,15 +16778,29 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 
 /* Skip lives under everything, on its own line and deliberately faint: it's the
    way out, not a fourth thing to weigh up. */
+/* Skip now sits in the bubble's top-right corner rather than on a line of its
+   own under the footer, where it was a third full-width control competing with
+   Back and Next. The row is a zero-height positioning anchor, not a layout row.
+   The bubble gains a little right padding on its heading so a long title can't
+   run under the word. */
 .tour-skiprow {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.55rem;
   display: flex;
-  justify-content: center;
 }
 
-.tour-skip--link {
-  font-size: 0.76rem;
-  padding: 0.35rem 0.4rem 0;
+.tour-skip--corner {
+  padding: 0.2rem 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  opacity: 0.65;
 }
+.tour-skip--corner:active { opacity: 1; }
+
+/* An empty footer (a bubble whose only controls are its main action and the
+   corner Skip) must not leave its top margin behind. */
+.tour-foot:empty { display: none; }
 
 .tour-dot {
   width: 6px;

@@ -83,8 +83,13 @@ export interface CoachStep {
   pad?: number;
   // Replaces the whole footer. An action without `advance` ends the sequence
   // whichever step it's on. Used by the one-off bubbles (the trainer intro),
-  // not by the walkthrough itself.
+  // not by the walkthrough itself. An EMPTY array is meaningful: it means "this
+  // bubble defines its own footer, and it hasn't got one" — the way a step whose
+  // only controls are a mainAction and a corner Skip gets rid of Back/Next.
   actions?: CoachAction[];
+  // The quiet way out, in the bubble's top-right corner. The walkthrough puts
+  // one on every step but its last; a one-off bubble asks for it here.
+  cornerSkip?: () => void;
   // The one thing this step is really asking for — Connect Lichess, Import my
   // games, Save line — as a full-width button above the Back/Next row. It EXITS
   // the walkthrough, because what it opens takes the screen; bringing the
@@ -171,8 +176,11 @@ export function showCoachMarks(
   foot.className = 'tour-foot';
   bubble.appendChild(foot);
 
-  // Skip sits under everything, quiet and on its own line: it's the way out, not
-  // one of the three controls the walkthrough is actually offering.
+  // Skip sits in the bubble's top-right corner, as a bare word. On its own line
+  // under the footer it was a third full-width control competing with Back and
+  // Next — three ways out of a bubble whose whole job is to move you to the next
+  // one. In the corner it's where a dismiss always is: findable, and not part of
+  // the decision.
   const skipRow = document.createElement('div');
   skipRow.className = 'tour-skiprow';
   bubble.appendChild(skipRow);
@@ -288,7 +296,11 @@ export function showCoachMarks(
     skipRow.replaceChildren();
     const last = index >= all.length - 1;
 
-    if (step.actions?.length) {
+    // The step's own corner Skip wins; otherwise the walkthrough puts one on
+    // every bubble but the last, where there is nothing left to skip.
+    if (step.cornerSkip) skipRow.appendChild(cornerSkip(() => { teardown(); step.cornerSkip!(); }));
+
+    if (step.actions) {
       foot.classList.add('tour-foot--actions');
       // An exiting action REPLACES onDone rather than running alongside it: the
       // whole point of a custom action is that this exit means something
@@ -315,11 +327,7 @@ export function showCoachMarks(
       if (all.length > 1) foot.appendChild(dots);
       foot.appendChild(actionButton(step.nextLabel ?? (last ? 'Got it' : 'Next'), 'primary', advance));
       // Nothing left to skip on the last bubble.
-      if (!last) {
-        const skip = actionButton('Skip the walkthrough', 'quiet', finish);
-        skip.classList.add('tour-skip--link');
-        skipRow.appendChild(skip);
-      }
+      if (!last && !step.cornerSkip) skipRow.appendChild(cornerSkip(finish));
     }
 
     // Whatever the step watches for (a move, a tab tap) advances it too. A short
@@ -413,6 +421,19 @@ export function showCoachMarks(
   window.addEventListener('orientationchange', reposition);
 
   return { teardown, goToStep, currentStep: () => index, stepCount: all.length };
+}
+
+// The bubble's way out: one quiet word in the top-right corner. Shared by the
+// walkthrough and the one-off bubbles, so "Skip" is in the same place whichever
+// coach-mark is on screen.
+function cornerSkip(onClick: () => void): HTMLElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'tour-skip tour-skip--corner';
+  btn.textContent = 'Skip';
+  btn.setAttribute('aria-label', 'Skip');
+  btn.addEventListener('click', onClick);
+  return btn;
 }
 
 function actionButton(label: string, variant: 'primary' | 'quiet', onClick: () => void): HTMLElement {
@@ -829,7 +850,10 @@ export function showTrainerIntro(o: { onStart: () => void; onSkip: () => void })
         + 'so you can master them.',
       pad: 0,
       mainAction: { label: 'Start training', onClick: o.onStart },
-      actions: [{ label: 'Skip this time', variant: 'quiet', onClick: o.onSkip }],
+      // One thing to do and one quiet way out of it, in the same corner the
+      // walkthrough's Skip sits in — so "Skip" is in one place in the app.
+      actions: [],
+      cornerSkip: o.onSkip,
     },
   ], o.onStart);
 }
