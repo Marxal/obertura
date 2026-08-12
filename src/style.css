@@ -2548,6 +2548,14 @@ html[data-coords="off"] .cg-wrap coords {
   border-bottom-color: var(--accent);
 }
 
+/* Switched off while the first-run walkthrough is on screen: Learn and Scouting
+   aren't part of a first line, and a tap that lands on a panel the bubbles never
+   explain is a dead end with a coach-mark on top of it. */
+.slide-tab--locked {
+  opacity: 0.35;
+  cursor: default;
+}
+
 /* Flip + watch on the left, single-step move arrows on the right. Bottom padding
    respects the phone's gesture area. */
 .builder-bar {
@@ -15778,12 +15786,70 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
+/* Depth: the same button as colour, three across, with the move count where the
+   pawn sits. Same question shape, same control — a form that changes control
+   style between two adjacent rows reads as two unrelated settings. */
+.picker-levels {
+  gap: 0.4rem;
+}
+
+.picker-level {
+  flex-direction: column;
+  gap: 0.25rem;
+  min-height: 68px;
+  padding: 0.5rem 0.3rem;
+  font-size: 0.82rem;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.picker-level-token {
+  width: 26px;
+  height: 26px;
+  background: var(--fill-faint);
+  border: 1px solid var(--border-card);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.picker-colour--on .picker-level-token {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
 /* ── The style grid ── */
 
 /* The stage holds one style layer in flow (which sets its height) and, during a
    change, the outgoing layer lifted on top of it. It's also the only scrolling
    part of the picker, so on a short screen the styles scroll under a head and a
    commit button that stay put. */
+/* ── The second half of the screen ── */
+/* Hidden until a depth is picked, then it grows in: the styles are a question
+   that only makes sense once you've said how much you want to learn, and three
+   fields at once turned a thirty-second screen into a form. */
+.picker-styles-block {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.picker-styles-block--in {
+  animation: picker-reveal 0.34s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes picker-reveal {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .picker-styles-block--in { animation: none; }
+}
+
 .picker-stage {
   position: relative;
   flex: 1 1 auto;
@@ -15859,16 +15925,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   .picker-style:hover { border-color: var(--accent); }
 }
 
-/* Selected. The border and the ground carry it (not a tick), so the grid still
-   reads as four peers with one of them chosen. */
-.picker-style--on {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-.picker-style--on .picker-style-icon {
-  background: var(--accent);
-  color: var(--on-accent);
-}
 
 .picker-style-icon {
   flex: 0 0 auto;
@@ -15897,22 +15953,8 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   color: var(--text-muted);
 }
 
-/* ── Commit ── */
-/* Disabled until a style is chosen: the button is the only thing on this screen
-   that leaves it, so it should say plainly when it can't. It's the card's last
-   row, not a separate object under it. */
-.picker-start {
-  flex: 0 0 auto;
-  width: 100%;
-  margin-top: 0.15rem;
-}
-
-.picker-start:disabled {
-  opacity: 0.45;
-  cursor: default;
-  box-shadow: none;
-  filter: none;
-}
+/* Tapping a tile IS the commit — there's no button under the grid any more — so
+   a tile presses in and leaves rather than latching on. */
 
 /* ── The two ways out ── */
 /* A labelled rule introduces them, so they read as alternatives to the button
@@ -16113,7 +16155,10 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
               0 0 0 4px rgb(0 0 0 / 0.18);
 }
 
-/* The tail: a rotated square poking out of whichever edge faces the spotlight.
+/* The tail: a rotated square poking out of whichever edge faces the spotlight,
+   at the spotlight's own x (set inline in onboarding-tour.ts, clamped to the
+   bubble's corners) rather than always at the middle — a bubble that points at
+   the Save button in the top-right corner should point RIGHT.
    It carries the bubble's own border on the two sides that show. */
 .tour-tail {
   position: absolute;
@@ -16163,8 +16208,54 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   color: var(--text-muted);
 }
 
-/* Dots on the left, Skip and Next on the right — the progress and the controls
-   never swap places between steps. */
+/* The one thing a step is really asking for — Connect Lichess, Import my games,
+   Save line — full width above the nav row, so it can't be mistaken for one of
+   the three controls that walk the sequence. */
+.tour-main {
+  position: relative;
+  margin-top: 0.8rem;
+}
+
+.tour-main-btn {
+  display: block;
+  width: 100%;
+  min-height: 42px;
+  padding: 0.55rem 1rem;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 750;
+  color: var(--on-accent);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.tour-main-btn:active { filter: brightness(0.94); }
+
+/* Its done state: the same slot, so the step doesn't reflow when the user comes
+   back from a connect, but plainly finished rather than plainly tappable. */
+.tour-done {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 42px;
+  padding: 0.55rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 10px;
+  background: var(--accent-soft);
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--accent-active, var(--accent));
+}
+.tour-done::before {
+  content: "✓";
+  font-weight: 800;
+}
+
+/* Back on the left, the dots in the middle, Next on the right — the progress and
+   the controls never swap places between steps. */
 .tour-foot {
   position: relative;
   display: flex;
@@ -16173,19 +16264,36 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   margin-top: 0.85rem;
 }
 
+/* Holds Back's place on the first bubble of a sequence that has nowhere to go
+   back to, so the dots and Next don't slide across on the second one. */
+.tour-back-spacer {
+  flex: 0 0 auto;
+  width: 0;
+}
+
 .tour-dots {
   flex: 1 1 auto;
   display: flex;
+  justify-content: center;
   gap: 0.35rem;
 }
 
-/* A single-step bubble has no dots to hold the left edge, so its buttons take
-   the row themselves — two of them (Keep editing / Save the line) share it. */
-.tour-foot--single {
-  justify-content: flex-end;
+/* A one-off bubble (the trainer's introduction) has no sequence to walk, so its
+   own buttons take the row. */
+.tour-foot--actions {
+  justify-content: center;
 }
-.tour-foot--single .tour-next {
-  flex: 1 1 auto;
+
+/* Skip lives under everything, on its own line and deliberately faint: it's the
+   way out, not a fourth thing to weigh up. */
+.tour-skiprow {
+  display: flex;
+  justify-content: center;
+}
+
+.tour-skip--link {
+  font-size: 0.76rem;
+  padding: 0.35rem 0.4rem 0;
 }
 
 .tour-dot {
@@ -16275,22 +16383,32 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
    and this is the screen. The celebrating pawn is the training finish's, because
    that's exactly what just happened. The account offer rides at the bottom of it
    instead of arriving on its own. */
+/* The app is RIGHT THERE behind this card — the hub, with its own cards and its
+   own buttons — and a plain scrim wasn't enough to stop the two reading as one
+   screen. The background is blurred as well as dimmed, so the card is the only
+   thing in focus and the only thing to act on. */
 .firstwin-overlay {
   align-items: center;
   justify-content: center;
   padding: 1.1rem;
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  background: rgb(0 0 0 / 0.45);
 }
 
+/* And the card itself gets an accent hairline and a deeper shadow: lifted off
+   the blur rather than floating in it. */
 .firstwin-card {
   position: relative; /* the confetti layer fills it */
   width: min(360px, 100%);
   max-height: 88vh;
   overflow-y: auto;
   padding: 1.6rem 1.25rem 1.1rem;
-  border: 1px solid var(--border-card);
+  border: 1.5px solid color-mix(in srgb, var(--accent) 45%, transparent);
   border-radius: 20px;
   background: var(--bg-card);
-  box-shadow: 0 20px 50px rgb(0 0 0 / 0.35);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 0.5),
+              0 0 0 4px rgb(0 0 0 / 0.16);
   text-align: center;
 }
 

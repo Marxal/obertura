@@ -27,7 +27,10 @@
 // drawn exactly on its rect puts its ring off-screen on both sides and the
 // "highlight" reads as no highlight at all. Every spot is therefore clamped to
 // sit at least EDGE_INSET inside the viewport: on a full-bleed target the ring
-// lands just inside the screen edge, where it can actually be seen.
+// lands just inside the screen edge, where it can actually be seen. The padding
+// AROUND the target is trimmed symmetrically when that clamp bites, so a button
+// near the screen edge still gets a ring that looks centred on it rather than
+// one that bulges out on the roomy side.
 //
 // A STEP CAN BE LIVE. `interactive` drops the overlay's own pointer capture so
 // taps reach the app underneath, and `watch` lets a step advance on something
@@ -35,21 +38,28 @@
 // only on the Next button. That's the difference between a slideshow about the
 // screen and a walkthrough of it.
 //
+// IT GOES BOTH WAYS. Every bubble carries Back as well as Next, and a step's
+// `onEnter` is re-run on the way back — so the board rewinds, the right panel
+// reopens, the engine goes back off. Back on the FIRST bubble leaves the
+// walkthrough entirely and hands the user back to the screen they came from.
+//
 // It never blocks the app: every exit runs the caller's callback, the back
 // gesture included, so a walkthrough can't strand anyone.
 
-import { isBuilderTourSeen, setBuilderTourSeen } from './prefs';
+import { isBuilderTourSeen, setBuilderTourSeen, clearBuilderTourSeen } from './prefs';
 import { pushBack } from './back-nav';
 
 // Gap between the spotlight and the bubble, how far the spotlight is inflated
-// past the target's own box, and how far inside the viewport a spot edge is
-// always kept (so a full-bleed target still shows its ring).
+// past the target's own box, how far inside the viewport a spot edge is always
+// kept (so a full-bleed target still shows its ring), and how close to a corner
+// the tail is allowed to sit.
 const BUBBLE_GAP = 12;
 const SPOT_PAD = 6;
 const EDGE_INSET = 9;
+const TAIL_INSET = 24;
 
-// One button on a bubble. When `actions` is omitted a step gets the default
-// Next / Got it, which advances or ends the sequence.
+// One button on a bubble. When `actions` is omitted a step gets the standard
+// Back / Next pair, which walks the sequence.
 export interface CoachAction {
   label: string;
   // 'primary' fills with the accent; 'quiet' is a plain text button.
@@ -58,7 +68,7 @@ export interface CoachAction {
   // Carry on through the sequence: the next step, or — on the LAST step — the
   // ordinary end, which runs onDone. Without it an action is an exit that
   // REPLACES onDone, which is what a "this ends the walkthrough and starts
-  // something else" button (Save the line, Import games) wants.
+  // something else" button (Save the line) wants.
   advance?: boolean;
 }
 
@@ -71,12 +81,24 @@ export interface CoachStep {
   // Extra room around this target (a small header button wants a bit so the
   // ring doesn't crowd it; a full-width board wants none).
   pad?: number;
-  // Replaces the default Next / Got it. An action without `advance` ends the
-  // sequence whichever step it's on.
+  // Replaces the whole footer. An action without `advance` ends the sequence
+  // whichever step it's on. Used by the one-off bubbles (the trainer intro),
+  // not by the walkthrough itself.
   actions?: CoachAction[];
-  // Run when the step becomes the current one — used to put the screen in the
-  // state the step describes (switch the builder to the panel being named).
+  // The one thing this step is really asking for — Connect Lichess, Import my
+  // games, Save line — as a full-width button above the Back/Next row. It EXITS
+  // the walkthrough, because what it opens takes the screen; bringing the
+  // walkthrough back is the caller's job.
+  mainAction?: { label: string; onClick: () => void };
+  // Shown in the main action's place once its job is done ("Connected").
+  mainDone?: string;
+  // Run when the step becomes the current one — forwards OR backwards — so it's
+  // used to put the screen into the state the step describes (open the panel,
+  // rewind the board, switch the engine on).
   onEnter?: () => void;
+  // Label for the Next button (the last step's Next is an exit, and sometimes
+  // wants naming: "Add more moves").
+  nextLabel?: string;
   // Subscribe to something in the app that should advance this step: a move
   // played on the board, the next tab tapped. Return the unsubscribe.
   watch?: (advance: () => void) => () => void;
@@ -84,22 +106,40 @@ export interface CoachStep {
   // rest of the screen is live, so the thing being described can be used while
   // it's being described.
   interactive?: boolean;
+  // Back on the FIRST step, which has no bubble behind it: exits the sequence
+  // and hands control back (the first-run picker). Omitted → no Back button.
+  onBack?: () => void;
+}
+
+// A running sequence, so the caller can drive it from outside — the builder
+// walkthrough jumps between steps when the user taps a panel tab.
+export interface CoachHandle {
+  // Tear the overlay down WITHOUT firing onDone (a caller that's taking over).
+  teardown: () => void;
+  goToStep: (index: number) => void;
+  currentStep: () => number;
+  stepCount: number;
 }
 
 // Show a sequence of coach-marks. `onDone` fires once, on whatever exit
-// happens: the last step's button, Skip, or the back gesture. Returns a function
-// that tears the overlay down without firing onDone, for a caller that needs to
-// cancel (the builder being left mid-tour, say).
-export function showCoachMarks(steps: CoachStep[], onDone: () => void = () => {}): () => void {
+// happens: the last step's button, Skip, or the back gesture.
+export function showCoachMarks(
+  steps: CoachStep[],
+  onDone: () => void = () => {},
+  startAt = 0,
+): CoachHandle {
   const all = steps.filter(s => findTarget(s) !== null);
-  if (all.length === 0) { onDone(); return () => {}; }
+  if (all.length === 0) {
+    onDone();
+    return { teardown: () => {}, goToStep: () => {}, currentStep: () => 0, stepCount: 0 };
+  }
 
-  let index = 0;
+  let index = Math.min(Math.max(0, startAt), all.length - 1);
 
   const overlay = document.createElement('div');
   overlay.className = 'tour-overlay';
   overlay.setAttribute('role', 'dialog');
-  overlay.setAttribute('aria-label', all[0].title);
+  overlay.setAttribute('aria-label', all[index].title);
 
   // The cut-out. Transparent itself; its box-shadow paints the scrim.
   const spot = document.createElement('div');
@@ -122,9 +162,20 @@ export function showCoachMarks(steps: CoachStep[], onDone: () => void = () => {}
   body.className = 'tour-body';
   bubble.appendChild(body);
 
+  // The step's own big ask (Connect Lichess, Save line), above the nav row.
+  const main = document.createElement('div');
+  main.className = 'tour-main';
+  bubble.appendChild(main);
+
   const foot = document.createElement('div');
   foot.className = 'tour-foot';
   bubble.appendChild(foot);
+
+  // Skip sits under everything, quiet and on its own line: it's the way out, not
+  // one of the three controls the walkthrough is actually offering.
+  const skipRow = document.createElement('div');
+  skipRow.className = 'tour-skiprow';
+  bubble.appendChild(skipRow);
 
   const dots = document.createElement('div');
   dots.className = 'tour-dots';
@@ -168,6 +219,29 @@ export function showCoachMarks(steps: CoachStep[], onDone: () => void = () => {}
     paint();
   }
 
+  // Back one bubble. On the first step it's the sequence's own exit, if the
+  // caller gave it one.
+  function back(): void {
+    if (finished) return;
+    if (index === 0) {
+      const exit = all[0].onBack;
+      if (!exit) return;
+      teardown();
+      exit();
+      return;
+    }
+    index--;
+    paint();
+  }
+
+  function goToStep(target: number): void {
+    if (finished) return;
+    const next = Math.min(Math.max(0, target), all.length - 1);
+    if (next === index) return;
+    index = next;
+    paint();
+  }
+
   function paint(): void {
     const step = all[index];
     const target = findTarget(step);
@@ -180,17 +254,42 @@ export function showCoachMarks(steps: CoachStep[], onDone: () => void = () => {}
     // events so its buttons still work (see the CSS).
     overlay.classList.toggle('tour-overlay--live', !!step.interactive);
 
+    overlay.setAttribute('aria-label', step.title);
     title.textContent = step.title;
     body.textContent = step.body;
     dotEls.forEach((d, i) => d.classList.toggle('tour-dot--on', i === index));
 
-    // Rebuild the foot: dots (only when there's a sequence to track), then the
-    // step's own actions or the default Skip / Next pair.
+    // The step's big ask, or the pill that says it's already done.
+    main.replaceChildren();
+    main.hidden = true;
+    if (step.mainDone) {
+      const pill = document.createElement('div');
+      pill.className = 'tour-done';
+      pill.textContent = step.mainDone;
+      main.appendChild(pill);
+      main.hidden = false;
+    } else if (step.mainAction) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'tour-main-btn';
+      btn.textContent = step.mainAction.label;
+      btn.addEventListener('click', () => {
+        const run = step.mainAction!.onClick;
+        teardown();
+        run();
+      });
+      main.appendChild(btn);
+      main.hidden = false;
+    }
+
+    // Rebuild the foot: Back, the dots, then Next — or the step's own actions,
+    // for the one-off bubbles that aren't a sequence at all.
     foot.replaceChildren();
-    foot.classList.toggle('tour-foot--single', all.length === 1);
-    if (all.length > 1) foot.appendChild(dots);
+    skipRow.replaceChildren();
+    const last = index >= all.length - 1;
 
     if (step.actions?.length) {
+      foot.classList.add('tour-foot--actions');
       // An exiting action REPLACES onDone rather than running alongside it: the
       // whole point of a custom action is that this exit means something
       // specific. onDone stays the fallback for a back gesture or a vanished
@@ -203,9 +302,24 @@ export function showCoachMarks(steps: CoachStep[], onDone: () => void = () => {}
         }));
       }
     } else {
-      const last = index >= all.length - 1;
-      if (!last) foot.appendChild(actionButton('Skip', 'quiet', finish));
-      foot.appendChild(actionButton(last ? 'Got it' : 'Next', 'primary', advance));
+      foot.classList.remove('tour-foot--actions');
+      // Back on the left, always in the same place — including on the first
+      // bubble, where it leaves the walkthrough for the screen before it.
+      if (index > 0 || step.onBack) {
+        foot.appendChild(actionButton('Back', 'quiet', back));
+      } else {
+        const spacer = document.createElement('span');
+        spacer.className = 'tour-back-spacer';
+        foot.appendChild(spacer);
+      }
+      if (all.length > 1) foot.appendChild(dots);
+      foot.appendChild(actionButton(step.nextLabel ?? (last ? 'Got it' : 'Next'), 'primary', advance));
+      // Nothing left to skip on the last bubble.
+      if (!last) {
+        const skip = actionButton('Skip the walkthrough', 'quiet', finish);
+        skip.classList.add('tour-skip--link');
+        skipRow.appendChild(skip);
+      }
     }
 
     // Whatever the step watches for (a move, a tab tap) advances it too. A short
@@ -236,17 +350,22 @@ export function showCoachMarks(steps: CoachStep[], onDone: () => void = () => {}
     const target = findTarget(step);
     if (!target) return;
 
-    const pad = step.pad ?? SPOT_PAD;
+    const want = step.pad ?? SPOT_PAD;
     const r = target.getBoundingClientRect();
     const vw = window.innerWidth;
     const vh = window.innerHeight;
 
-    // Clamped into the viewport, so a full-bleed target (the board on a phone)
-    // still has both of its rings on screen.
-    const left = Math.max(EDGE_INSET, r.left - pad);
-    const right = Math.min(vw - EDGE_INSET, r.right + pad);
-    const top = Math.max(EDGE_INSET, r.top - pad);
-    const bottom = Math.min(vh - EDGE_INSET, r.bottom + pad);
+    // Trim the padding symmetrically when the target sits near an edge, so the
+    // ring stays centred on the thing rather than bulging out on the side that
+    // happens to have room. (The Save button lives in the top-right corner —
+    // padded blindly, its ring hung off to the left of the button.)
+    const padX = Math.max(0, Math.min(want, r.left - EDGE_INSET, vw - EDGE_INSET - r.right));
+    const padY = Math.max(0, Math.min(want, r.top - EDGE_INSET, vh - EDGE_INSET - r.bottom));
+
+    const left = Math.max(EDGE_INSET, r.left - padX);
+    const right = Math.min(vw - EDGE_INSET, r.right + padX);
+    const top = Math.max(EDGE_INSET, r.top - padY);
+    const bottom = Math.min(vh - EDGE_INSET, r.bottom + padY);
     const height = Math.max(0, bottom - top);
 
     spot.style.top = `${top}px`;
@@ -254,13 +373,13 @@ export function showCoachMarks(steps: CoachStep[], onDone: () => void = () => {}
     spot.style.width = `${Math.max(0, right - left)}px`;
     spot.style.height = `${height}px`;
 
-    placeBubble(top, height);
+    placeBubble(top, height, (left + right) / 2);
   }
 
   // Put the bubble on whichever side of the spotlight has more room, and point
   // the tail back at it. Measured, not guessed: the board is most of a phone
   // screen, so "always below" would push the bubble off the bottom.
-  function placeBubble(spotTop: number, spotHeight: number): void {
+  function placeBubble(spotTop: number, spotHeight: number, spotCentreX: number): void {
     const vh = window.innerHeight;
     const spotBottom = spotTop + spotHeight;
     const roomBelow = vh - spotBottom;
@@ -277,6 +396,14 @@ export function showCoachMarks(steps: CoachStep[], onDone: () => void = () => {}
       bubble.style.top = `${Math.max(spotTop - BUBBLE_GAP - h, 8)}px`;
       bubble.classList.add('tour-bubble--above');
     }
+
+    // The tail points AT the spotlight, not at the middle of the bubble: a
+    // corner button (Save) gets a tail over on its side, which is the whole
+    // reason a bubble has a tail.
+    const bubbleRect = bubble.getBoundingClientRect();
+    const x = spotCentreX - bubbleRect.left;
+    const clamped = Math.min(Math.max(x, TAIL_INSET), Math.max(TAIL_INSET, bubbleRect.width - TAIL_INSET));
+    tail.style.left = `${clamped}px`;
   }
 
   document.body.appendChild(overlay);
@@ -285,7 +412,7 @@ export function showCoachMarks(steps: CoachStep[], onDone: () => void = () => {}
   window.addEventListener('resize', reposition);
   window.addEventListener('orientationchange', reposition);
 
-  return teardown;
+  return { teardown, goToStep, currentStep: () => index, stepCount: all.length };
 }
 
 function actionButton(label: string, variant: 'primary' | 'quiet', onClick: () => void): HTMLElement {
@@ -329,50 +456,75 @@ function onBuilderMove(advance: () => void): () => void {
   return () => document.removeEventListener(BUILDER_MOVE_EVENT, advance);
 }
 
-// Advance when the user taps the tab the NEXT step is about — so "or tap
-// Library" is a real instruction, not a description of a button we've disabled.
-function onTabTap(slide: number): (advance: () => void) => () => void {
-  return (advance) => {
-    const el = document.querySelector<HTMLElement>(`#builder-slide-tabs .slide-tab[data-slide="${slide}"]`);
-    if (!el) return () => {};
-    el.addEventListener('click', advance);
-    return () => el.removeEventListener('click', advance);
-  };
-}
-
 // ── The builder walkthrough ──────────────────────────────────────────────────
 //
-// Split in two around the line playing itself in, because the two halves are
-// about different things. Before: what this screen IS — the board you build on,
-// then the panels beside it, one at a time. After: the decision the user now has
-// to make, with a finished line sitting in front of them.
+// One sequence now, from the first move to the save, rather than two halves with
+// the line playing itself in between them. The user is never a spectator: the
+// board opens two moves from the end of the line they picked, with an arrow on
+// the move they have to make, and the walkthrough waits.
+//
+//   1. the board — play your second-to-last move,
+//   2. Line — the move list and what you can do to it,
+//   3. Library — what strong players play here (and connect Lichess),
+//   4. My lines — what you've saved here (and import your games),
+//   5. the engine — switched on for the step that describes it,
+//   6. the board again — play the last move of the line,
+//   7. Save.
 
 // Carousel slide indices the walkthrough drives (main.ts owns the real list).
 const LINE_SLIDE = 0;
 const LIBRARY_SLIDE = 1;
 const MYLINES_SLIDE = 2;
 
+// Step indices, so a tab tap can jump to the step that describes that tab and a
+// Lichess round-trip can come back to the one it left from.
+const STEP_BOARD = 0;
+const STEP_LINE = 1;
+const STEP_LIBRARY = 2;
+const STEP_MYLINES = 3;
+
+// Which walkthrough step each panel tab belongs to. Learn and Scouting aren't in
+// the walkthrough at all — they're switched off while it runs.
+const TAB_STEPS: Record<number, number> = {
+  [LINE_SLIDE]: STEP_LINE,
+  [LIBRARY_SLIDE]: STEP_LIBRARY,
+  [MYLINES_SLIDE]: STEP_MYLINES,
+};
+
 // Where to resume the walkthrough after a Lichess connect, which redirects the
 // whole page away and back. Same shape (and the same 10-minute staleness window)
 // as lichess-auth's own stashReturn / takeReturn.
 const RESUME_KEY = 'obertura.tourResume';
 
-function stashTourStep(step: number): void {
+export interface TourResume {
+  step: number;
+  // Where the cursor was sitting in the line, so the board comes back on the
+  // same position and not at the end of it.
+  cursor?: number;
+  // The line's working title, which isn't part of the stashed move list.
+  name?: string;
+}
+
+function stashTourStep(state: TourResume): void {
   try {
-    localStorage.setItem(RESUME_KEY, JSON.stringify({ step, t: Date.now() }));
+    localStorage.setItem(RESUME_KEY, JSON.stringify({ ...state, t: Date.now() }));
   } catch { /* storage off — we simply won't resume the walkthrough */ }
 }
 
 // Consume the stashed step (once). Null if there is none, it's malformed, or
 // it's stale (a leftover from a connect the user abandoned).
-export function takeTourResume(): number | null {
+export function takeTourResume(): TourResume | null {
   try {
     const raw = localStorage.getItem(RESUME_KEY);
     if (!raw) return null;
     localStorage.removeItem(RESUME_KEY);
-    const v = JSON.parse(raw) as { step?: number; t?: number };
+    const v = JSON.parse(raw) as TourResume & { t?: number };
     if (typeof v.step !== 'number' || Date.now() - (v.t ?? 0) > 600_000) return null;
-    return Math.max(0, v.step);
+    return {
+      step: Math.max(0, v.step),
+      cursor: typeof v.cursor === 'number' ? v.cursor : undefined,
+      name: typeof v.name === 'string' ? v.name : undefined,
+    };
   } catch {
     return null;
   }
@@ -388,119 +540,265 @@ export function markBuilderTourSeen(): void {
   setBuilderTourSeen();
 }
 
+// Backing out to the first-run screen: the next pick has to bring the
+// walkthrough with it, so the "seen" flag this run set is handed back.
+export function unmarkBuilderTourSeen(): void {
+  clearBuilderTourSeen();
+}
+
 export interface BuilderIntroDeps {
   // Fires on whatever exit happens — the last step, Skip, or the back gesture.
   onDone: () => void;
   // Show a builder carousel slide, so each panel step opens the panel it names.
   showSlide: (index: number) => void;
+  // Back off the FIRST bubble: there's nothing behind it in the builder, so it
+  // goes right back to the screen the line was chosen on.
+  onRestart?: () => void;
+  // Put the board where a board step describes: just before the user's
+  // second-to-last (or last) own move, with an arrow on the move to play.
+  // `null` clears the cue.
+  setBoardCue: (cue: 'second-last' | 'last' | null) => void;
+  // Move the board on from the position the first board step left it: the
+  // opponent's reply, so the panel steps sit on a real position and the last
+  // board step has the last move to ask for.
+  settleAfterOwnMove: () => void;
+  // The engine toggle in the dock, driven by the engine step.
+  setEngine: (on: boolean) => void;
+  // Put the cursor at the end of the line, for the save step: saving from the
+  // middle of a line raises the builder's "save up to here?" nudge, which is a
+  // question about an edit the user hasn't made.
+  goToLineEnd: () => void;
+  // "Save line" on the last bubble.
+  onSave: () => void;
+  // Does the walkthrough have a curated line under it? An empty-board first line
+  // has no scripted moves, so the two board-script steps and the save step are
+  // left out and the caller arms its own save prompt.
+  hasScript: boolean;
+  // Where the cursor is in the line (ply count), stashed across a Lichess
+  // connect so the board comes back on the same position.
+  cursorPly?: () => number;
+  lineName?: () => string;
   // "Connect Lichess" on the Library step. Redirects the page away and back;
   // the walkthrough stashes where it was first, so it resumes here on return.
   onConnectLichess: () => void;
-  // "Import my games" on the My lines step — the Chess.com / Lichess username
-  // import, which is what fills that panel.
-  onImportGames: () => void;
+  // "Import my games" on the My lines step. The import takes the whole screen,
+  // so the walkthrough steps aside and the callback brings it back to this very
+  // step once the sheet closes — imported or not.
+  onImportGames: (resume: () => void) => void;
   isLichessConnected: () => boolean;
-  // Start partway in (2 = the Library step) — how the walkthrough picks itself
-  // back up after the Lichess round-trip.
+  // Start partway in (STEP_LIBRARY) — how the walkthrough picks itself back up
+  // after the Lichess round-trip.
   startStep?: number;
 }
 
-// Part one: the board, then the three panels one at a time. Runs BEFORE the line
-// plays in.
-//
-// The panels used to be a single step that listed all three in one paragraph. A
-// bubble that names three things teaches none of them, and the panel it was
-// pointing at was whichever one happened to be showing. Now each panel gets its
-// own step, its own panel actually open behind it, and — where the panel is only
-// half a feature without one — its own connect.
 export function showBuilderIntro(deps: BuilderIntroDeps): void {
+  let handle: CoachHandle | null = null;
+
+  const done = (): void => {
+    setSideTabsDisabled(false);
+    dropTabNav();
+    deps.onDone();
+  };
+
+  // Leave the walkthrough on screen but hand the screen to something else (the
+  // import sheet, the Lichess redirect). No onDone: it isn't over.
+  const stepAside = (): void => {
+    setSideTabsDisabled(false);
+    dropTabNav();
+  };
+
+  let dropTabNav: () => void = () => {};
+
+  const launch = (from: number): void => {
+    setSideTabsDisabled(true);
+    handle = showCoachMarks(buildSteps(deps, launch, stepAside), done, from);
+    // Tapping a panel tab moves the WALKTHROUGH to that tab's step — tapping
+    // Line goes back to the Line bubble, not just to the Line panel. So the
+    // walkthrough is navigable by its own buttons and by the tabs, and by
+    // nothing else.
+    dropTabNav = watchTabTaps((step) => handle?.goToStep(step));
+  };
+
+  launch(deps.startStep ?? 0);
+}
+
+// Learn and Scouting aren't part of the first line and can't be reached from the
+// walkthrough — switch them off while it runs rather than letting a tap land on
+// a panel the bubbles never explain.
+function setSideTabsDisabled(disabled: boolean): void {
+  for (const slide of [3, 4]) {
+    const tab = document.querySelector<HTMLButtonElement>(
+      `#builder-slide-tabs .slide-tab[data-slide="${slide}"]`,
+    );
+    if (!tab) continue;
+    tab.disabled = disabled;
+    tab.classList.toggle('slide-tab--locked', disabled);
+  }
+}
+
+function watchTabTaps(go: (step: number) => void): () => void {
+  const strip = document.getElementById('builder-slide-tabs');
+  if (!strip) return () => {};
+  const onClick = (e: Event): void => {
+    const tab = (e.target as HTMLElement).closest<HTMLElement>('.slide-tab');
+    if (!tab) return;
+    const step = TAB_STEPS[Number(tab.dataset.slide)];
+    if (step === undefined) return;
+    // After the panel has actually swapped, so the bubble lands on the panel
+    // it's describing.
+    setTimeout(() => go(step), 60);
+  };
+  strip.addEventListener('click', onClick);
+  return () => strip.removeEventListener('click', onClick);
+}
+
+function buildSteps(
+  deps: BuilderIntroDeps,
+  relaunch: (from: number) => void,
+  stepAside: () => void,
+): CoachStep[] {
+  const connected = deps.isLichessConnected();
+
   const steps: CoachStep[] = [
     {
       selector: ['#board'],
-      title: 'Build your line',
-      // Short on purpose. This is the first bubble a stranger ever reads, and
-      // the whole product fits in one sentence.
-      body: 'Play the line you want to save, save it, and train it on Bito Chess.',
+      title: 'Enter your line',
+      body: 'Make your moves on the board to build this line so you can train it '
+        + 'after. Play the move on the board.',
       pad: 0,
       // Live, and it advances on a move: the fastest way to learn that the board
-      // is yours to play on is to play on it.
+      // is yours to play on is to play on it. Next plays the move for you.
       interactive: true,
       watch: onBuilderMove,
+      onEnter: () => deps.setBoardCue(deps.hasScript ? 'second-last' : null),
+      nextLabel: 'Next',
+      onBack: deps.onRestart,
     },
     {
       selector: ['#builder-sheet'],
-      title: 'Line',
-      body: 'Every move you\'ve played. Tap one to jump back to it, rename the '
-        + 'line, add tags, or leave a note on a move to help you remember it.',
+      title: 'Line Overview',
+      body: 'Tap any move to jump back to that position, rename the line, add '
+        + 'tags, or leave notes that help you remember.',
       pad: 4,
       interactive: true,
-      onEnter: () => deps.showSlide(LINE_SLIDE),
-      watch: onTabTap(LIBRARY_SLIDE),
+      onEnter: () => {
+        // Whichever way the user left the board step — playing the move or
+        // pressing Next — the opponent's reply comes in here, so the panels
+        // describe a real position and the last move is still to come.
+        deps.setBoardCue(null);
+        deps.settleAfterOwnMove();
+        deps.showSlide(LINE_SLIDE);
+      },
     },
     {
       selector: ['#builder-sheet'],
-      title: 'Library',
-      body: deps.isLichessConnected()
-        ? 'What strong players actually play from here, with the win rates. '
-          + 'You\'re connected to Lichess, so it answers for every position.'
-        : 'What strong players actually play from here, with the win rates. '
-          + 'Connect Lichess and it answers for every position, live.',
+      title: 'Opening Library',
+      body: 'Get inspiration from Masters and Lichess players. Connect your free '
+        + 'Lichess account to analyze any position.',
       pad: 4,
       interactive: true,
       onEnter: () => deps.showSlide(LIBRARY_SLIDE),
-      watch: onTabTap(MYLINES_SLIDE),
-      actions: deps.isLichessConnected() ? undefined : [
-        {
-          label: 'Connect Lichess',
-          variant: 'quiet',
-          // Come back to THIS step: the redirect reloads the app, and landing
-          // back at the start of the walkthrough (or at no walkthrough at all)
-          // is how a connect turns into a dead end.
-          onClick: () => { stashTourStep(2); deps.onConnectLichess(); },
+      mainDone: connected ? 'Lichess connected' : undefined,
+      mainAction: connected ? undefined : {
+        label: 'Connect Lichess',
+        // Come back to THIS step: the redirect reloads the app, and landing
+        // back at the start of the walkthrough (or at no walkthrough at all)
+        // is how a connect turns into a dead end.
+        onClick: () => {
+          stashTourStep({
+            step: STEP_LIBRARY,
+            cursor: deps.cursorPly?.(),
+            name: deps.lineName?.(),
+          });
+          stepAside();
+          deps.onConnectLichess();
         },
-        { label: 'Next', variant: 'primary', advance: true },
-      ],
+      },
     },
     {
       selector: ['#builder-sheet'],
       title: 'My lines',
-      body: 'The lines you\'ve already saved from this position — and, once you '
-        + 'import from Chess.com or Lichess, the moves you actually face in '
-        + 'your own games.',
+      body: 'View your saved lines for this position and your actual game moves '
+        + 'after importing from Chess.com or Lichess.',
       pad: 4,
       interactive: true,
       onEnter: () => deps.showSlide(MYLINES_SLIDE),
-      actions: [
-        // Import EXITS the walkthrough (the sheet needs the screen) and hands
-        // the continuation to that sheet's onClose — see builderIntroDeps in
-        // main.ts. "Got it" is the ordinary end.
-        { label: 'Import games', variant: 'quiet', onClick: deps.onImportGames },
-        { label: 'Got it', variant: 'primary', advance: true },
-      ],
+      mainAction: {
+        label: 'Import my games',
+        onClick: () => {
+          stepAside();
+          // Imported or cancelled, the walkthrough comes back to this very
+          // bubble — the import sheet is a detour, not an exit.
+          deps.onImportGames(() => relaunch(STEP_MYLINES));
+        },
+      },
+    },
+    {
+      selector: ['#builder-engine'],
+      title: 'Engine',
+      body: 'Turn on Stockfish to evaluate the position on the board and see the '
+        + 'three strongest continuations from here.',
+      pad: 8,
+      // Live like every other step: the tab strip has to stay tappable all the
+      // way through, or "tap Line to go back to Line" is only true on some of
+      // the bubbles.
+      interactive: true,
+      onEnter: () => deps.setEngine(true),
     },
   ];
 
-  showCoachMarks(steps.slice(deps.startStep ?? 0), deps.onDone);
+  if (!deps.hasScript) return steps;
+
+  steps.push(
+    {
+      selector: ['#board'],
+      title: 'Finish the line',
+      body: 'Play the last move of your line on the board.',
+      pad: 0,
+      interactive: true,
+      watch: onBuilderMove,
+      onEnter: () => {
+        // The engine has had its step; the board is the subject again.
+        deps.setEngine(false);
+        deps.setBoardCue('last');
+      },
+    },
+    {
+      selector: ['#header-save', '#save-line-btn'],
+      title: 'Ready when you are',
+      body: 'Keep playing moves to make the line your own, or save it now to add '
+        + 'it to your training repertoire.',
+      pad: 8,
+      interactive: true,
+      onEnter: () => { deps.setBoardCue(null); deps.goToLineEnd(); },
+      // Next on the last bubble is the quiet way out: stay in the builder and
+      // carry on. Saving is the button above it.
+      nextLabel: 'Add more moves',
+      mainAction: { label: 'Save line', onClick: deps.onSave },
+    },
+  );
+
+  return steps;
 }
 
-// Part two: the save decision. Runs AFTER the line has played itself in (or, on
-// an empty board, once a few moves are down), so the user is looking at a line
-// when they're asked what to do with it.
+// The save decision on its own, for a line the walkthrough isn't running on: a
+// starter-pack line months later, or an empty-board first line that had no
+// script to walk through.
 //
-// Not a "nothing is saved until you press this" warning any more — that framing
-// tells a first-time user the app is fragile, which is both unfriendly and
-// untrue. It's a choice between two good outcomes, and both are buttons.
+// Not a "nothing is saved until you press this" warning — that framing tells a
+// first-time user the app is fragile, which is both unfriendly and untrue. It's
+// a choice between two good outcomes, and both are buttons.
 export function showSaveStep(o: { onSave: () => void; onKeepEditing?: () => void }): void {
   showCoachMarks([
     {
       selector: ['#header-save', '#save-line-btn'],
       title: 'Ready when you are',
-      body: 'Keep playing moves to make the line your own, or save it now — '
-        + 'saving is what puts it into training.',
+      body: 'Keep playing moves to make the line your own, or save it now to add '
+        + 'it to your training repertoire.',
       pad: 8,
       actions: [
-        { label: 'Keep editing', variant: 'quiet', onClick: o.onKeepEditing },
-        { label: 'Save the line', variant: 'primary', onClick: o.onSave },
+        { label: 'Add more moves', variant: 'quiet', onClick: o.onKeepEditing },
+        { label: 'Save line', variant: 'primary', onClick: o.onSave },
       ],
     },
   ]);
@@ -509,16 +807,21 @@ export function showSaveStep(o: { onSave: () => void; onKeepEditing?: () => void
 // The trainer's introduction, on the trainer, over the board it's about to play.
 // A coach-mark rather than the dialog this used to be: a card in the middle of
 // the screen explains the app, a bubble on the board explains THE BOARD.
-export function showTrainerIntro(onStart: () => void): void {
+//
+// "Skip this time" is deliberately quiet and deliberately there: someone who has
+// just saved their first line and wants to look around shouldn't have to sit
+// through a run to get into the app.
+export function showTrainerIntro(o: { onStart: () => void; onSkip: () => void }): void {
   showCoachMarks([
     {
       selector: ['.pt-board', '.pt-board-wrap'],
       title: 'Saved. Now learn it.',
-      body: 'The board plays your line once. Then it\'s your turn, from memory — '
-        + 'two tries before the move is shown. Bito Chess keeps what you miss '
-        + 'and brings it back until it sticks.',
+      body: 'Watch the line played once, then repeat it from memory. You get two '
+        + 'attempts before the move is revealed. Bito Chess tracks your mistakes '
+        + 'so you can master them.',
       pad: 0,
-      actions: [{ label: 'Start training', variant: 'primary', onClick: onStart }],
+      mainAction: { label: 'Start training', onClick: o.onStart },
+      actions: [{ label: 'Skip this time', variant: 'quiet', onClick: o.onSkip }],
     },
-  ], onStart);
+  ], o.onStart);
 }

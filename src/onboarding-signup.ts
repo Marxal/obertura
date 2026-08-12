@@ -65,13 +65,13 @@ export function showFirstLineSuccess(): void {
 
   const title = document.createElement('h3');
   title.className = 'firstwin-title';
-  title.textContent = 'Your first line is in.';
+  title.textContent = 'Your first line is set!';
   card.appendChild(title);
 
   const lead = document.createElement('p');
   lead.className = 'firstwin-lead';
-  lead.textContent = 'It comes back tomorrow, before you forget it. Add about five '
-    + 'lines when you have a minute and you\'ve got a repertoire worth training every day.';
+  lead.textContent = 'Add about five lines when you have a minute to build a repertoire '
+    + 'worth training every day. You can save as many lines as you like.';
   card.appendChild(lead);
 
   let closed = false;
@@ -88,7 +88,7 @@ export function showFirstLineSuccess(): void {
   if (canAsk) {
     const ask = document.createElement('p');
     ask.className = 'firstwin-ask';
-    ask.textContent = 'Create a free account and your lines and progress follow you to any phone.';
+    ask.textContent = 'Create a free account to sync your lines and progress across all your devices.';
     card.appendChild(ask);
 
     const cta = document.createElement('button');

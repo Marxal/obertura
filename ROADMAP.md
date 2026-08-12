@@ -1233,6 +1233,61 @@ single line in it.
 
 _On `claude/walkthrough-ui-refinements-aet12d`. Restore point: `v0.4`._
 
+- ✅ **Fifth pass: the first run stops being a slideshow.** The pieces were right;
+  the user was a spectator for most of them.
+
+  **The start screen asks two questions, then a third.** Colour and depth come
+  first — depth as three big buttons in the same clothes as *I play as*, with the
+  move count where the pawn sits, and deliberately nothing preselected. The four
+  styles arrive underneath once a depth is chosen, animated in, and **tapping one
+  commits**: the "Start building the …" button was an extra tap to confirm a
+  choice already made, on the one screen whose whole point is speed. The two ways
+  out are now **Import my games** / **Build my own**.
+
+  **The walkthrough is one sequence, and the user makes the moves.** The line no
+  longer plays itself in. The board **rewinds to the user's second-to-last move**
+  with an arrow on it and waits — play it, or press Next and it's played for you.
+  Then *Line Overview*, *Opening Library* and *My lines* (each with its panel
+  open behind it), a new **Engine** step that switches Stockfish on to talk about
+  it and off again after, a second board step for **the last move of the line**,
+  and Save. Seven bubbles, one thread.
+
+  **Back, everywhere, including out.** Every bubble carries Back beside Next,
+  with Skip demoted to a quiet link underneath; a step's setup re-runs on the way
+  back, so the board rewinds and the panels reopen. Back on the FIRST bubble
+  returns to the start screen — with the walkthrough owed again, so the next pick
+  brings it along.
+
+  **Navigation is the buttons and the tabs, and nothing else.** Tapping *Line*
+  goes back to the Line bubble, not just the Line panel. Learn and Scouting are
+  switched off for the duration rather than left as taps into panels the
+  walkthrough never explains.
+
+  **The two connects are main buttons now**, full-width above the nav row, because
+  on those two steps they're the point: **Connect Lichess** (which comes back to
+  the same bubble, showing *Lichess connected* in the button's place — and it's
+  the only Lichess connect in the app that redirects into the builder) and
+  **Import my games** (which comes back to the same bubble whether or not
+  anything was imported).
+
+  **Save is aimed at Save.** The spotlight's padding is trimmed symmetrically near
+  a screen edge, so the ring is centred on the button instead of bulging off to
+  its left, and the bubble's tail points at the spotlight rather than always at
+  the middle. *Keep editing* became **Add more moves**.
+
+  **The trainer says what it does, and lets you out.** *Watch the line played
+  once, then repeat it from memory* — two attempts before the move is revealed —
+  with a quiet **Skip this time** for someone who'd rather look around (the line
+  is saved and in training either way). After the watch pass the first move is
+  asked for by name and drawn on the board: the one place the answer is given
+  away, because there is nothing to remember yet.
+
+  **And the finish card stands apart from the app.** *Your first line is set!*
+  over a **blurred** hub rather than a dimmed one, with an accent hairline around
+  the card — the app's own cards and buttons were legible right behind it.
+
+_On `claude/boarding-experience-refinements-bss1mn`. Restore point: `v0.4`._
+
 ---
 
 ## v1.4 — seeds (parked) 💤

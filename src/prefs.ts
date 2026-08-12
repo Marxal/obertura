@@ -91,6 +91,13 @@ export function setBuilderTourSeen(): void {
   try { localStorage.setItem(TOUR_SEEN_KEY, '1'); } catch { /* storage off */ }
 }
 
+// Backing out of the walkthrough's first bubble puts the user back on the
+// first-run screen, where picking a line has to bring the walkthrough with it —
+// so the flag it set on the way in is cleared on the way out.
+export function clearBuilderTourSeen(): void {
+  try { localStorage.removeItem(TOUR_SEEN_KEY); } catch { /* storage off */ }
+}
+
 // ── My Lines view options ────────────────────────────────────────────────────
 
 // The tiny position board on each saved-line and suggestion card. ON by default.
