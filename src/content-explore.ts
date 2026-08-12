@@ -1,7 +1,7 @@
 // Explore → Learn: your saved lines grouped by opening family, each family a
 // clean card of YouTube miniatures searched from the side YOU play it (the
 // majority colour of that family's lines) — plus the shared hand-curated pins
-// from content-curated.json, which also lead the builder's Learn slide. The
+// from content-curated.json. The
 // auto list means the tab is never empty once a line is saved; on any fetch
 // failure a card degrades to a one-tap search link.
 

@@ -2579,19 +2579,6 @@ function endGuided(): void {
   guidedActive = false;
 }
 
-// Open the builder on a specific carousel tab (e.g. an external "browse the
-// opening library" link lands straight on the Library tab). `fresh` starts a new
-// empty line of `colour` first; `engine` turns the engine on once landed.
-function openBuilderTab(
-  slide: SlideId,
-  opts: { fresh?: boolean; colour?: 'white' | 'black'; engine?: boolean } = {},
-): void {
-  if (opts.fresh) clearBuilder(opts.colour ?? 'white');
-  pendingBuilderSlide = slide;
-  if (opts.engine) pendingEngineOn = true;
-  showView('builder');
-}
-
 // Open the builder on My lines → My opponents with an opponent preselected —
 // the home for the opponent "board browser" (from the Explore opponent detail).
 function scoutInBuilder(opponentId: string, colour: 'white' | 'black' = 'white'): void {
@@ -2699,7 +2686,7 @@ function exploreScreenDeps() {
       colour: 'white' | 'black',
       opts?: { description?: string; notes?: Record<number, string> },
     ) => buildFromUcis(ucis, colour, [], opts),
-    // The opponent "board browser" now opens the builder's Scouting tab.
+    // The opponent "board browser" opens the builder's My lines → My opponents.
     onScoutInBuilder: (opponentId: string) => scoutInBuilder(opponentId),
     // The Packs tab's Lichess-study browser saves chapters straight to My Lines.
     onSaveLines: saveImportedLines,

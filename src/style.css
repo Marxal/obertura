@@ -2311,7 +2311,7 @@ html[data-coords="off"] .cg-wrap coords {
    reflow everything under the user's thumb. */
 .engine-tab--off .engine-tab-barwrap { opacity: 0.35; }
 
-/* Scouting slide: the selected-opponent header (back / name / full report). */
+/* My opponents: the selected-opponent header (back / name / full report). */
 .scout-slide-head {
   display: flex;
   align-items: center;
@@ -2871,9 +2871,9 @@ html[data-coords="off"] .cg-wrap coords {
   border-bottom-color: var(--accent);
 }
 
-/* Switched off while the first-run walkthrough is on screen: Learn and Scouting
-   aren't part of a first line, and a tap that lands on a panel the bubbles never
-   explain is a dead end with a coach-mark on top of it. */
+/* Switched off while the first-run walkthrough is on screen — any tab it has no
+   bubble for. A tap that lands on a panel the bubbles never explain is a dead
+   end with a coach-mark on top of it. */
 .slide-tab--locked {
   opacity: 0.35;
   cursor: default;

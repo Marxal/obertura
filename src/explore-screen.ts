@@ -91,7 +91,7 @@ export interface ExploreDeps {
     colour: 'white' | 'black',
     opts?: { description?: string; notes?: Record<number, string> },
   ) => void;
-  // Open the builder's Scouting tab on this opponent (the new "board browser").
+  // Open the builder's My lines → My opponents on this opponent (the "board browser").
   onScoutInBuilder: (opponentId: string) => void;
   // Save imported study chapters straight to My Lines (the Packs tab's Lichess
   // study browser). Resolves with how many were actually saved.
@@ -161,7 +161,7 @@ async function ensureRoomForOpponent(): Promise<'proceed' | 'blocked'> {
 }
 
 // Import a new opponent without the Explore screen — used by the builder's
-// Scouting tab. Imports + saves, then calls onDone (e.g. to refresh the list).
+// Scouting section. Imports + saves, then calls onDone (e.g. to refresh the list).
 export function importOpponentFlow(onDone: () => void): void {
   void (async () => {
     if ((await ensureRoomForOpponent()) === 'blocked') return;
@@ -212,8 +212,8 @@ async function buildScreen(container: HTMLElement): Promise<void> {
   opponents.sort((a, b) => b.refreshedAt.localeCompare(a.refreshedAt));
   const [trapPacks, starterPacks] = await Promise.all([loadTraps(), loadPacks()]);
 
-  // A "Full report" tap from the builder's Scouting tab asks us to open straight
-  // into one opponent's detail — force the Scouting tab active for it.
+  // A "Full report" tap from the builder's My opponents section asks us to open
+  // straight into one opponent's detail — force the Scouting tab active for it.
   if (pendingOpponentId) exploreTab = 'scouting';
 
   container.appendChild(
@@ -1510,7 +1510,7 @@ function visualizeOpponentSection(opp: Opponent, prepare: PrepareFn, onBoardBrow
   const start: 'white' | 'black' = has('white') ? 'white' : 'black';
   const enabled = { white: has('white'), black: has('black') };
 
-  // Board browser — now opens the builder's Scouting tab on this opponent, where
+  // Board browser — opens the builder's My lines → My opponents on this opponent, where
   // you walk their games from the live position and play replies straight onto
   // the line you're building.
   entries.appendChild(mapEntryBtn(Icons.compass(24), 'Board browser',

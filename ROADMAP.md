@@ -1290,6 +1290,73 @@ _On `claude/boarding-experience-refinements-bss1mn`. Restore point: `v0.4`._
 
 ---
 
+## v0.22 — the builder tab round 🔜
+
+The builder had five tabs and the wrong five. Line, Library, My lines, Learn,
+Scouting: two of them were content shelves that had nothing to do with the line
+in front of you, one was the line's own metadata sitting in the first slot, and
+the engine — the thing you reach for most — wasn't a tab at all.
+
+- ✅ **Five tabs, and which five depends on what you're doing.** The strip is now
+  **Explore / Library / My lines / Line info / Engine**. Slides are addressed by
+  name rather than by index, so the analyser can put its **Game** tab first and
+  drop Explore — there is nothing to explore about a game already played — and
+  the scroll-position→index maths still needs to know nothing about any of it.
+  **Learn and Scouting are gone**; scouting comes back as My lines' third
+  section, **My opponents**, next to your own games, because it answers the same
+  question from the other side of the board.
+
+- ✅ **Explore: three curated moves, each saying why it's there.** Library
+  answers "what is playable here" exhaustively, which is the right tool once you
+  know what you're looking for and the wrong one when you don't. Explore asks a
+  narrower question: given your games, the master library and the engine, what
+  are the three moves worth having here? Priority order is **your own played (or
+  faced) moves first**, then the library's most popular continuation, then the
+  engine for positions the other two have run out on — and every card carries the
+  badge and the number that earned it. The header does the framing: *Possible
+  answers for 3.♝b5* on your move, *Prepare for the reply to 3.♝b5* on theirs.
+
+- ✅ **An Engine tab, and a quick engine that stops explaining itself.** The tab
+  gets the full eval bar, what analysed it and how deep, three principal
+  variations with **every move tappable to play the line out**, and a real
+  search-depth control. The docked strip loses its *cloud · d38* tag and puts the
+  move and its eval on one line instead of two — it's the app's most
+  space-constrained row, and provenance is now the tab's story.
+
+- ✅ **One move strip instead of three move lists.** The list used to be copied
+  into the foot of every list panel: the same information three times on one
+  screen, none of it visible from another tab. Now it's a single
+  horizontally-scrolling strip under the tab bar, on every tab, at the smallest
+  height it can be — with the full wrapping list kept only on Line info.
+
+- ✅ **Line info: a training priority, and how the line is actually going.** The
+  scheduler knows how well you remember a move and can't know how much it
+  matters. **High / Standard / Low** multiplies the *wait* between reviews (0.6× /
+  1× / 1.7×) rather than the stored interval, so it can't compound across reps
+  and the Learning/Solid buckets keep meaning "how well is this known?". Due
+  lines lead with the high-priority ones. Under it, four figures built from the
+  same stats module the Statistics screen uses — **faced in games, recalled, full
+  runs, reviews** — and the three most-missed moves, each tappable to put the
+  board on the position before it.
+
+- ✅ **The walkthrough teaches the new tabs.** Explore stands where the Line
+  bubble stood, My lines gained a sentence about its third section, and the
+  engine step opens the **Engine tab** with the engine running instead of
+  pointing at the dock icon. Which tabs get locked is derived from which tabs
+  have a bubble.
+
+- ✅ **Picker and Skip.** *How much to learn* asked for a self-assessment and
+  answered in numbers; the answer is now the option — **3, 5 or 7 moves**, with
+  the skill word as a caption. More air between the three questions, room under
+  the lead, and the brand mark links out to bitochess.com. **Skip** moves to the
+  bubble's top-right corner as one quiet word — under the footer it was a third
+  full-width control competing with Back and Next — and the *Saved. Now learn it*
+  card gets the same treatment.
+
+_On `claude/builder-tab-structure-c1a7ko`. Restore point: `v0.4`._
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on
