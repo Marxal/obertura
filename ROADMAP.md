@@ -1642,6 +1642,32 @@ documents finally exist, and the last third-party request on the site is gone.
   The next screen after that prompt belongs to Lemon Squeezy, and nobody should
   have to work out which of the two accounts they are being asked for.
 
+### Third pass, same round
+
+- ✅ **The two price boxes are centred again**, both of them. The second pass
+  tried a left-aligned "detail card" treatment for Free and Full Access; it read
+  as a settings panel rather than an offer, so both boxes are back to a centred
+  column that funnels down to one button — the shape that reads as a price card.
+  Only the Full Access checklist stays left-aligned inside the centred box.
+
+- ✅ **The "Prepare for the games you actually play" ink rule is gone.** The
+  section keeps its left-aligned, non-centred layout (that part was right) but
+  loses the 2px rule that ran across its top.
+
+- ✅ **The portrait is 150×150** (was 64px) and now a link, same as the name
+  beside it — to marxal.net.
+
+- ✅ **"About Bito Chess" is dressed up**: a brass rule down the left edge
+  (the same move `docs/legal.css`'s `.tldr` box makes on the privacy/terms
+  pages) and the app icon sitting above the heading, so the panel carries a
+  face instead of reading as a slab of plain text.
+
+- ✅ **Sign in sits on the icon's centre line too**, matching the wordmark.
+  Both used to centre on the bar's own middle; the icon overhangs the bar at
+  rest, so Sign in sat visibly higher than "bito chess" the instant the page
+  loaded at the top. Same offset expression as the wordmark, same collapse to
+  zero once the icon shrinks into the bar on scroll.
+
 _On `claude/bito-chess-ui-redesign-gh3dd2`. Restore point: `v0.4`._
 
 ---
