@@ -187,37 +187,70 @@ Build and save as many repertoire lines as you want. Explore the opening library
 “One payment” is written once now, next to the price where it belongs (not
 also in the headline — it repeated itself in an earlier draft).
 
-Want to train everything you’ve built? Bito Chess is a solo project — no ads, no investors, no subscriptions. Full Access unlocks unlimited training and helps fund what’s next.
+Want to train everything you’ve built? Full Access unlocks unlimited training and helps keep the project alive.
 
 - Unlimited active training rotation
 - One-time payment, no subscription ever
 
 **CTA:** Unlock full access →
 
-**Under the buy button:** Secure checkout via Lemon Squeezy. A Bito Chess
-account is required so your purchase can follow you across devices. *(Signed in:
-“Secure checkout via Lemon Squeezy. The unlock lands on the account you’re
-signed in to.”)*
+**Under the buy button:** Secure checkout. A Bito Chess account is required so
+your purchase can follow you across devices. *(Signed in: “Secure checkout. The
+unlock lands on the account you’re signed in to.”)*
+
+Lemon Squeezy is deliberately not named here — the visitor meets the name on the
+checkout page itself, and a payment processor they haven't heard of is not
+reassurance, it's a question.
 
 **“A Bito Chess account”, never just “an account”** — the next screen after this
 one belongs to Lemon Squeezy, and nobody should have to work out which of the
 two accounts they are being asked for. Same wording in `src/checkout.ts`.
 
-**Signed out, Unlock full access opens a card ON THIS PAGE first** — it used to
-navigate straight into the app with no warning. `#signup-overlay` in
-`docs/index.html`, styled to match this price card (same brass edge, same
-`.tier__name` label):
+### Signed out: the account card (`#auth-overlay`)
 
-> **FULL ACCESS**
-> ### Create your Bito Chess account first
-> Full Access is tied to your account, so it follows you to any device you sign
-> in on — and comes back if you ever reinstall. You’ll create it on the next
-> screen, then land straight back at checkout.
+A REAL sign-up / sign-in form on this page, not a hand-off into the app. The
+visitor never leaves bitochess.com between saying yes and reaching the payment
+page. Styled to match the price card above (brass edge, `.tier__name` label).
+
+**Step 1 — the form**
+
+> **FULL ACCESS · 9€**
+> ### Create your Bito Chess account   *(“Sign in to Bito Chess” on the other tab)*
+> Your unlock is tied to your account, so it follows you to any device you sign
+> in on — and comes back if you ever reinstall.
 >
-> **Create account →** · Not now
+> \[ **New account** | Sign in \]
+>
+> Email · Password *(“At least 6 characters.”, sign-up only)*
+>
+> **Create account & pay →** *(“Sign in & pay →” on the other tab)*
+>
+> Rather use Google? **Sign up in the app →** · Not now
 
-Only that card's own button makes the jump to `/app/?auth=signup&buy=1`.
-Signed in, the card never appears — straight to Lemon Squeezy, unchanged.
+**Step 2 — the follow-up**, only when Supabase is holding the session until the
+email is confirmed. Without it the flow dead-ends at “check your email” with
+nothing to press:
+
+> **ONE MORE STEP**
+> ### Confirm your email
+> We’ve sent a link to **you@example.com**. Open it, then come straight back
+> here — your checkout is waiting.
+>
+> **I’ve confirmed — continue →**
+>
+> Nothing arrived? Check spam, or *use a different email*.
+
+Error messages mirror `friendlyAuthError()` in `src/auth.ts` word for word, so
+the two front doors never explain the same failure differently.
+
+**Google is deliberately not reimplemented here** — it needs a PKCE round trip
+and a code exchange, which is exactly the part worth leaving to supabase-js. The
+card links out to the app for it.
+
+**Where the card does NOT appear:** signed in already (straight to checkout), or
+on a build with no Supabase project configured — the GitHub Pages mirror, where
+the two placeholders in `docs/index.html` are never substituted and the buy
+button hands the visitor to the app exactly as it used to.
 
 ---
 
@@ -225,7 +258,7 @@ Signed in, the card never appears — straight to Lemon Squeezy, unchanged.
 
 **H2:** Why I made Bito Chess
 
-I’m a chess player, but not a particularly strong one. 🥹
+I’m a passionate chess player, but not a particularly strong one. 🥹
 
 I tried a lot of opening trainers. They were too rigid, too complicated, or just didn’t match how I wanted to learn.
 
@@ -242,6 +275,12 @@ Both the name **and** the portrait link to **marxal.net**. The portrait is
 shadow, echoing the speech bubble — big enough to read as a real portrait, not
 an avatar. If that file is missing the page falls back to the pixel pawn rather
 than a broken image.
+
+**The speech bubble's tail points at the middle of the portrait.** Its size
+comes from the same `--avatar` token the portrait is sized from, so the two
+can't drift apart: half the avatar's width in on desktop (where `.who` is a row
+starting at the bubble's own left edge), dead centre on a phone (where `.who` is
+stacked and centred).
 
 **150×150 on desktop, 190×190 and stacked on a phone.** Below 900px the row
 (portrait beside two lines of text) doesn't have the width to spend — a bigger
