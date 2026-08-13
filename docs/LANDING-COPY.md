@@ -206,51 +206,32 @@ reassurance, it's a question.
 one belongs to Lemon Squeezy, and nobody should have to work out which of the
 two accounts they are being asked for. Same wording in `src/checkout.ts`.
 
-### Signed out: the account card (`#auth-overlay`)
+### Signed out: the account card (`#signup-overlay`)
 
-A REAL sign-up / sign-in form on this page, not a hand-off into the app. The
-visitor never leaves bitochess.com between saying yes and reaching the payment
-page. Styled to match the price card above (brass edge, `.tier__name` label).
+A ONE-STEP interstitial on this page, styled to match the price card above
+(brass edge, `.tier__name` label) — not a form, not a sign-in flow. It exists to
+answer "why am I being asked to sign up" before it's asked, and nothing more.
+Its own button is the only thing that navigates.
 
-**Step 1 — the form**
-
-> **FULL ACCESS · 9€**
-> ### Create your Bito Chess account   *(“Sign in to Bito Chess” on the other tab)*
-> Your unlock is tied to your account, so it follows you to any device you sign
-> in on — and comes back if you ever reinstall.
+> **FULL ACCESS**
+> ### Create your Bito Chess account first
+> Full Access is tied to your account, so it follows you to any device you sign
+> in on — and comes back if you ever reinstall. You’ll create it on the next
+> screen, then land straight back at checkout.
 >
-> \[ **New account** | Sign in \]
->
-> Email · Password *(“At least 6 characters.”, sign-up only)*
->
-> **Create account & pay →** *(“Sign in & pay →” on the other tab)*
->
-> Rather use Google? **Sign up in the app →** · Not now
+> **Create account →** · Not now
 
-**Step 2 — the follow-up**, only when Supabase is holding the session until the
-email is confirmed. Without it the flow dead-ends at “check your email” with
-nothing to press:
+Tapping **Create account →** navigates to `/app/?auth=signup&buy=1` — the
+app's own sign-up sheet, which continues straight to checkout once the account
+exists. **Not now**, Escape, and a backdrop tap all just close the card.
 
-> **ONE MORE STEP**
-> ### Confirm your email
-> We’ve sent a link to **you@example.com**. Open it, then come straight back
-> here — your checkout is waiting.
->
-> **I’ve confirmed — continue →**
->
-> Nothing arrived? Check spam, or *use a different email*.
+**A fuller version of this — a real email/password form running against
+Supabase's REST API directly from this page, so the visitor never touches the
+app at all — was tried and reverted.** It worked, but it read as more form than
+the moment called for. This one-step card is the deliberate choice: say why,
+then hand off.
 
-Error messages mirror `friendlyAuthError()` in `src/auth.ts` word for word, so
-the two front doors never explain the same failure differently.
-
-**Google is deliberately not reimplemented here** — it needs a PKCE round trip
-and a code exchange, which is exactly the part worth leaving to supabase-js. The
-card links out to the app for it.
-
-**Where the card does NOT appear:** signed in already (straight to checkout), or
-on a build with no Supabase project configured — the GitHub Pages mirror, where
-the two placeholders in `docs/index.html` are never substituted and the buy
-button hands the visitor to the app exactly as it used to.
+**Where the card does NOT appear:** signed in already — straight to checkout.
 
 ---
 

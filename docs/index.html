@@ -1236,17 +1236,18 @@ html.js .mini__arrow .head {
 .ticks svg { width: 19px; height: 19px; color: var(--accent); margin-top: 2px; }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   THE ACCOUNT STEP  (Unlock full access, signed out)
+   THE "CREATE AN ACCOUNT FIRST" STEP  (Unlock full access, signed out)
 
-   A real sign-up / sign-in form, not a "you're about to be asked to sign up"
-   interstitial and not a hand-off into the app. The visitor never leaves
-   bitochess.com between saying yes and reaching the payment page.
+   Unlock full access used to jump straight into the app — a hard page
+   navigation, no warning, and the FIRST thing that greeted a signed-out visitor
+   over there was a sign-up sheet they hadn't been told was coming. This card
+   is that warning, shown IN PLACE on bitochess.com before anything navigates
+   anywhere, so "why am I being asked to sign up" is answered before it's asked.
 
-   It borrows the price card's own shape — brass edge, brass label, the frame
-   shadow — so it reads as a continuation of the offer they just accepted rather
-   than as a new decision. Two steps live inside the one card (the form, and the
-   confirm-your-email follow-up); the script swaps which is [hidden]. */
-.auth-overlay {
+   It borrows the price card's own shape (brass edge, brass label, the frame
+   shadow) rather than a plain dialog box, so it reads as a continuation of the
+   offer the visitor just said yes to, not as a detour or a new decision. */
+.signup-overlay {
   position: fixed;
   inset: 0;
   z-index: 60;
@@ -1255,126 +1256,31 @@ html.js .mini__arrow .head {
   justify-content: center;
   padding: var(--gutter);
   background: rgba(28, 22, 16, 0.5);
-  overflow-y: auto;
 }
-@media (prefers-color-scheme: dark) { .auth-overlay { background: rgba(0, 0, 0, 0.6); } }
-.auth-overlay[hidden] { display: none; }
+@media (prefers-color-scheme: dark) { .signup-overlay { background: rgba(0, 0, 0, 0.6); } }
+.signup-overlay[hidden] { display: none; }
 
-.auth-card {
+.signup-card {
   width: 100%;
   max-width: 400px;
-  margin: auto;                    /* centres, and lets it scroll on a short screen */
   background: var(--bg-card);
   border: 1.5px solid var(--accent);
   border-radius: var(--radius);
   box-shadow: var(--shadow-frame);
-  padding: clamp(24px, 4vw, 32px);
+  padding: clamp(26px, 4vw, 34px);
   text-align: center;
 }
-.auth-card h3 {
+.signup-card h3 {
   margin-top: 8px;
   font-size: clamp(20px, 2.6vw, 24px);
   line-height: 1.25;
   letter-spacing: -0.02em;
-  text-wrap: balance;
 }
-/* Tighter than a section CTA: this button carries a longer label inside a much
-   narrower box, and the default 32px side padding pushes it onto two lines. */
-.auth-card .btn { padding-left: 18px; padding-right: 18px; font-size: 16px; }
-.auth-lead {
-  margin-top: 10px;
-  max-width: none;
-  color: var(--text-muted);
-  font-size: 15px;
-  line-height: 1.5;
-}
-.auth-card .btn { margin-top: 18px; width: 100%; }
-.auth-card .btn[disabled] { opacity: 0.6; cursor: default; }
-
-/* Two tabs, one control. Segmented rather than a "switch to sign in" link,
-   because a returning customer needs to find their way in as fast as a new one
-   and a link buried under a form is not that. */
-.auth-tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  margin-top: 20px;
-  padding: 4px;
-  border-radius: 999px;
-  background: var(--fill-faint);
-  border: 1px solid var(--hairline);
-}
-.auth-tab {
-  padding: 9px 8px;
-  border: 0;
-  border-radius: 999px;
-  background: none;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: background-color 160ms ease, color 160ms ease;
-  -webkit-tap-highlight-color: transparent;
-}
-.auth-tab.is-on { background: var(--bg-card); color: var(--text); box-shadow: var(--shadow-card); }
-
-.auth-form { margin-top: 18px; text-align: left; }
-.auth-label {
+.signup-card p { margin-top: 12px; max-width: none; color: var(--text-muted); font-size: 15px; line-height: 1.55; }
+.signup-card .btn { margin-top: 22px; width: 100%; }
+.signup-cancel {
   display: block;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-muted);
-  margin-bottom: 6px;
-}
-.auth-input {
-  width: 100%;
-  min-height: 46px;
-  padding: 11px 14px;
-  margin-bottom: 14px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--bg-page);
-  color: var(--text);
-  font: inherit;
-  font-size: 16px;              /* 16px stops iOS Safari zooming the page in */
-}
-.auth-input:focus-visible { outline: 3px solid var(--text); outline-offset: 2px; }
-.auth-input.is-bad { border-color: var(--bad); }
-.auth-hint { margin: -8px 0 0; font-size: 13px; color: var(--text-faint); }
-
-.auth-error {
-  margin-top: 14px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: var(--accent-soft);
-  color: var(--bad);
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-.auth-error[hidden] { display: none; }
-
-.auth-alt { margin-top: 14px; font-size: 14px; color: var(--text-faint); }
-.auth-alt a { color: var(--accent-active); font-weight: 600; }
-@media (prefers-color-scheme: dark) { .auth-alt a { color: var(--accent); } }
-
-.auth-linkbtn {
-  border: 0;
-  background: none;
-  padding: 0;
-  font: inherit;
-  font-weight: 600;
-  color: var(--accent-active);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
-}
-@media (prefers-color-scheme: dark) { .auth-linkbtn { color: var(--accent); } }
-
-.auth-cancel {
-  display: block;
-  margin: 14px auto 0;
+  margin: 12px auto 0;
   padding: 6px 10px;
   background: none;
   border: none;
@@ -1385,7 +1291,7 @@ html.js .mini__arrow .head {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.auth-cancel:hover { color: var(--text); }
+.signup-cancel:hover { color: var(--text); }
 
 /* ══════════════════════════════════════════════════════════════════════════
    THE CAROUSEL — "There's more than openings in here"
@@ -2419,58 +2325,18 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
   <a class="btn js-app" href="/app/">Try Bito Chess →</a>
 </div>
 
-<!-- The account step for the buy flow — a REAL sign-up / sign-in form, run
-     against Supabase's auth REST API from this page. Tapping Unlock full access
-     signed out opens this; finishing it goes straight to checkout without ever
-     loading the app. See step 8 in the script below for the whole flow, and why
-     it is a form here rather than a hand-off.
-
-     Hidden by default, and JS is what removes [hidden] — with JS off, or with no
-     Supabase project configured for this build, the buy button falls back to
-     handing the visitor to the app and none of this is ever shown. -->
-<div class="auth-overlay" id="auth-overlay" hidden>
-  <div class="auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-title">
-
-    <!-- Step 1: the form -->
-    <div id="auth-step-form">
-      <p class="tier__name">Full Access · 9€</p>
-      <h3 id="auth-title">Create your Bito Chess account</h3>
-      <p class="auth-lead">Your unlock is tied to your account, so it follows you to any device you sign in on — and comes back if you ever reinstall.</p>
-
-      <div class="auth-tabs" role="tablist" aria-label="Account">
-        <button type="button" class="auth-tab is-on" id="auth-tab-new" role="tab" aria-selected="true">New account</button>
-        <button type="button" class="auth-tab" id="auth-tab-have" role="tab" aria-selected="false">Sign in</button>
-      </div>
-
-      <form class="auth-form" id="auth-form" novalidate>
-        <label class="auth-label" for="auth-email">Email</label>
-        <input class="auth-input" id="auth-email" type="email" autocomplete="email" autocapitalize="none" spellcheck="false" required />
-
-        <label class="auth-label" for="auth-password">Password</label>
-        <input class="auth-input" id="auth-password" type="password" autocomplete="new-password" required />
-        <p class="auth-hint" id="auth-hint">At least 6 characters.</p>
-
-        <p class="auth-error" id="auth-error" role="alert" hidden></p>
-
-        <button type="submit" class="btn btn--buy" id="auth-submit">Create account &amp; pay →</button>
-      </form>
-
-      <p class="auth-alt">Rather use Google? <a class="js-app" href="/app/?auth=signup&amp;buy=1">Sign up in the app →</a></p>
-    </div>
-
-    <!-- Step 2: the follow-up, when Supabase wants the email confirmed before it
-         will hand out a session. Without this the flow would simply stop with no
-         way forward, which is the worst possible place to lose someone. -->
-    <div id="auth-step-confirm" hidden>
-      <p class="tier__name">One more step</p>
-      <h3>Confirm your email</h3>
-      <p class="auth-lead">We’ve sent a link to <strong id="auth-sent-to"></strong>. Open it, then come straight back here — your checkout is waiting.</p>
-      <p class="auth-error" id="auth-confirm-error" role="alert" hidden></p>
-      <button type="button" class="btn btn--buy" id="auth-confirmed">I’ve confirmed — continue →</button>
-      <p class="auth-alt">Nothing arrived? Check spam, or <button type="button" class="auth-linkbtn" id="auth-back">use a different email</button>.</p>
-    </div>
-
-    <button type="button" class="auth-cancel" id="auth-cancel">Not now</button>
+<!-- The "create an account first" step. Shown ON THIS PAGE, before the visitor
+     ever leaves it, when Unlock full access is tapped signed out — see step 8
+     in the script below. Hidden by default; JS is what removes [hidden], so
+     with JS off the button falls back to its plain link behaviour and this
+     markup is simply never shown. -->
+<div class="signup-overlay" id="signup-overlay" hidden>
+  <div class="signup-card" role="dialog" aria-modal="true" aria-labelledby="signup-title">
+    <p class="tier__name">Full Access</p>
+    <h3 id="signup-title">Create your Bito Chess account first</h3>
+    <p>Full Access is tied to your account, so it follows you to any device you sign in on — and comes back if you ever reinstall. You’ll create it on the next screen, then land straight back at checkout.</p>
+    <button type="button" class="btn btn--buy" id="signup-continue">Create account →</button>
+    <button type="button" class="signup-cancel" id="signup-cancel">Not now</button>
   </div>
 </div>
 
@@ -2482,16 +2348,15 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
   'use strict';
 
   /* ── 0. THE LEMON SQUEEZY PRODUCT ────────────────────────────────────────
-     The 9€ unlock. Behaviour:
+     The €9 unlock. Behaviour:
        · signed in  → straight to checkout, carrying the Supabase user id as
                       checkout[custom][user_id], which is what the webhook in
                       worker/lemonsqueezy-webhook.ts needs to know who paid
                       (see LEMONSQUEEZY-SETUP.md, step 4). Without it a real
                       payment cannot be matched to an account.
-       · signed out → the account card on THIS page (step 8), which creates the
-                      account here and then goes straight to the same checkout.
-                      An account is not optional: the webhook has no way to
-                      reach a guest.
+       · signed out → the app's sign-up sheet first, which continues straight
+                      to this same checkout once the account exists. An account
+                      is not optional: the webhook has no way to reach a guest.
 
      The price is written in three places that cannot import from each other —
      here (the tier card below), src/entitlement.ts's PRO_PRICE, and the Lemon
@@ -2499,24 +2364,6 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
      they ever disagree, the store is right and the other two are the bug.
      ────────────────────────────────────────────────────────────────────── */
   var CHECKOUT_URL = 'https://bitochess.lemonsqueezy.com/checkout/buy/8f39bf24-f731-4c65-870b-8b843b0e2311';
-
-  /* ── 0b. SUPABASE, for the account card ──────────────────────────────────
-     Substituted at build time by the cloudflare-landing-page plugin in
-     vite.config.ts — this file is standalone and never passes through Rollup,
-     so `import.meta.env` can't reach it. Both values are public: the anon key
-     is already inlined in the app's own bundle and shipped to every visitor
-     (see the top of src/supabase.ts). Row-level security is what protects the
-     data, never the secrecy of this string.
-
-     Left as literal placeholders on any build without the env vars — notably
-     the GitHub Pages mirror, which has no Supabase project at all. canSignUpHere
-     is then false and the buy button hands the visitor to the app instead, which
-     is exactly right there. */
-  var SUPABASE_URL = '__SUPABASE_URL__';
-  var SUPABASE_ANON_KEY = '__SUPABASE_ANON_KEY__';
-
-  function looksSubstituted(v) { return !!v && v.indexOf('__') !== 0; }
-  var canSignUpHere = looksSubstituted(SUPABASE_URL) && looksSubstituted(SUPABASE_ANON_KEY);
 
   var ctas = Array.prototype.slice.call(document.querySelectorAll('.js-app'));
 
@@ -2772,63 +2619,21 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
     syncDots();
   }
 
-  /* ── 8. The buy button, and the account card ─────────────────────────────
+  /* ── 8. The buy button ───────────────────────────────────────────────────
      See CHECKOUT_URL at the top of this script for what each branch is for.
 
-     THE WHOLE POINT: a signed-out visitor who taps Unlock full access should
-     reach a payment page without ever loading the app. They used to be thrown
-     into /app/?auth=signup&buy=1 — a hard navigation into a different product,
-     where a sign-up sheet they hadn't been warned about was the first thing on
-     screen. Now the account is created HERE, and the next page they see is the
-     checkout.
-
-     WHY THIS DOESN'T USE supabase-js. This file is a standalone static page
-     with no build step and no dependencies; pulling in the SDK would cost ~40kB
-     and a bundler. Supabase's auth API is plain REST, and the two calls needed
-     are one POST each. The session it returns is written to the exact
-     localStorage key the app reads (see readSession above), so signing up here
-     leaves the visitor signed in over there too.
-
-     THE THREE ROUTES OUT:
-       1. Session comes back  → straight to Lemon Squeezy with the user id.
-       2. Confirmation needed → step 2 of the card, with a "I've confirmed"
-          button that retries the sign-in. Without that follow-up the flow would
-          dead-end at "check your email" with nothing to press.
-       3. No Supabase configured, or JS/storage unavailable → hand off to the
-          app exactly as before. Nothing regresses; it just gets shorter when
-          the keys are there.
-
-     Google sign-in is deliberately NOT reimplemented here — it needs a PKCE
-     round trip and a code exchange, which is precisely the part worth leaving
-     to the SDK. The card links out to the app for it instead. */
+     Signed out, this used to navigate straight into the app — a hard page
+     load, with no warning that a sign-up sheet was the first thing waiting on
+     the other side. Now it shows the "create an account first" card ON THIS
+     PAGE (#signup-overlay, styled to match the price card it grew out of) and
+     ONLY that card's own button makes the jump. Signed in, nothing changes:
+     straight to Lemon Squeezy, same as always. */
   var buy = document.getElementById('buy');
-  var authOverlay = document.getElementById('auth-overlay');
-  var authForm = document.getElementById('auth-form');
-  var authEmail = document.getElementById('auth-email');
-  var authPassword = document.getElementById('auth-password');
-  var authSubmit = document.getElementById('auth-submit');
-  var authError = document.getElementById('auth-error');
-  var authHint = document.getElementById('auth-hint');
-  var authTitle = document.getElementById('auth-title');
-  var authTabNew = document.getElementById('auth-tab-new');
-  var authTabHave = document.getElementById('auth-tab-have');
-  var authStepForm = document.getElementById('auth-step-form');
-  var authStepConfirm = document.getElementById('auth-step-confirm');
-  var authSentTo = document.getElementById('auth-sent-to');
-  var authConfirmed = document.getElementById('auth-confirmed');
-  var authConfirmError = document.getElementById('auth-confirm-error');
-  var authBack = document.getElementById('auth-back');
-  var authCancel = document.getElementById('auth-cancel');
+  var signupOverlay = document.getElementById('signup-overlay');
+  var signupContinue = document.getElementById('signup-continue');
+  var signupCancel = document.getElementById('signup-cancel');
 
-  var authMode = 'signup';                       /* or 'signin' */
-  var authBusy = false;
-
-  /* Where the visitor lands after clicking the confirmation link in their
-     email. The app, not this page — by then the account exists and the app is
-     where they want to be. */
-  function appOrigin() { return location.origin + appUrl('/app/'); }
-
-  function goToSignupInApp() {
+  function goToSignup() {
     /* `buy=1` rides along so the app knows this person came here to PAY, not
        to sign up — it opens the checkout itself the moment the account
        exists, instead of dropping them on the Train screen with their intent
@@ -2836,231 +2641,10 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
     location.href = appUrl('/app/?auth=signup&buy=1');
   }
 
-  function goToCheckout(userId) {
-    var join = CHECKOUT_URL.indexOf('?') === -1 ? '?' : '&';
-    location.href = CHECKOUT_URL + join
-      + 'checkout[custom][user_id]=' + encodeURIComponent(userId);
-  }
-
-  /* One POST against GoTrue. Never throws: a network failure comes back as an
-     ok:false with a message, same shape as an API error. */
-  function authPost(path, body) {
-    return fetch(SUPABASE_URL.replace(/\/+$/, '') + '/auth/v1' + path, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: 'Bearer ' + SUPABASE_ANON_KEY
-      },
-      body: JSON.stringify(body)
-    }).then(function (res) {
-      return res.json().catch(function () { return {}; }).then(function (data) {
-        return { ok: res.ok, data: data || {} };
-      });
-    }).catch(function () {
-      return { ok: false, data: { message: 'network' } };
-    });
-  }
-
-  /* GoTrue has returned the session flat at the top level for years, but newer
-     builds nest it under `session` — accept either rather than break on an
-     upgrade nobody here would notice until a sale was lost. */
-  function sessionFrom(data) {
-    var s = data && data.access_token ? data
-      : (data && data.session && data.session.access_token ? data.session : null);
-    if (!s || !s.user || !s.user.id) return null;
-    if (!s.expires_at && s.expires_in) {
-      s.expires_at = Math.floor(Date.now() / 1000) + Number(s.expires_in);
-    }
-    return s;
-  }
-
-  /* Best-effort. A blocked localStorage (private mode, locked-down browser)
-     must NOT stop the purchase: the webhook matches the payment by the user id
-     in the checkout URL, not by anything stored here. The visitor just has to
-     sign in inside the app afterwards, which they were going to do anyway. */
-  function persistSession(s) {
-    try { localStorage.setItem('obertura.supabase.auth', JSON.stringify(s)); } catch (e) { /* storage off */ }
-  }
-
-  /* Mirrors friendlyAuthError() in src/auth.ts — same situations, same plain
-     language, so the two front doors never explain the same failure differently. */
-  function authMessage(data) {
-    var code = (data && data.error_code) || (data && data.code) || '';
-    var text = String((data && (data.msg || data.message || data.error_description || data.error)) || '');
-    if (code === 'invalid_credentials' || /invalid login credentials/i.test(text)) {
-      return 'That email and password don’t match an account.';
-    }
-    if (code === 'email_not_confirmed' || /email not confirmed/i.test(text)) {
-      return 'Confirm your email first — check your inbox for the link.';
-    }
-    if (code === 'user_already_exists' || code === 'email_exists' || /already registered|already been registered/i.test(text)) {
-      return 'There’s already an account with that email. Switch to “I already have one”.';
-    }
-    if (code === 'weak_password' || /password should be at least|weak.?password/i.test(text)) {
-      return 'That password is too short — use at least 6 characters.';
-    }
-    if (code === 'over_email_send_rate_limit' || code === 'over_request_rate_limit' || /rate limit|too many/i.test(text)) {
-      return 'Too many tries. Wait a minute and try again.';
-    }
-    if (code === 'validation_failed' || /unable to validate email|invalid format/i.test(text)) {
-      return 'Check the email address and try again.';
-    }
-    if (text === 'network' || /failed to fetch|network/i.test(text)) {
-      return 'Couldn’t reach the server — check your connection and try again.';
-    }
-    return 'Something went wrong. Try again, or sign up inside the app.';
-  }
-
-  function showAuthError(el, message) {
-    if (!el) return;
-    el.textContent = message;
-    el.hidden = false;
-  }
-
-  function clearAuthError() {
-    if (authError) authError.hidden = true;
-    if (authEmail) authEmail.classList.remove('is-bad');
-    if (authPassword) authPassword.classList.remove('is-bad');
-  }
-
-  function setAuthBusy(on, label) {
-    authBusy = on;
-    if (!authSubmit) return;
-    authSubmit.disabled = on;
-    authSubmit.textContent = on ? label
-      : (authMode === 'signup' ? 'Create account & pay →' : 'Sign in & pay →');
-  }
-
-  function setAuthMode(mode) {
-    authMode = mode;
-    clearAuthError();
-    var isNew = mode === 'signup';
-    if (authTabNew) { authTabNew.classList.toggle('is-on', isNew); authTabNew.setAttribute('aria-selected', String(isNew)); }
-    if (authTabHave) { authTabHave.classList.toggle('is-on', !isNew); authTabHave.setAttribute('aria-selected', String(!isNew)); }
-    if (authTitle) authTitle.textContent = isNew ? 'Create your Bito Chess account' : 'Sign in to Bito Chess';
-    if (authPassword) authPassword.setAttribute('autocomplete', isNew ? 'new-password' : 'current-password');
-    if (authHint) authHint.hidden = !isNew;
-    setAuthBusy(false);
-  }
-
-  function openAuthCard() {
-    if (!authOverlay) return;
-    if (authStepForm) authStepForm.hidden = false;
-    if (authStepConfirm) authStepConfirm.hidden = true;
-    setAuthMode('signup');
-    authOverlay.hidden = false;
-    requestAnimationFrame(function () { if (authEmail) authEmail.focus(); });
-  }
-
-  function closeAuthCard() {
-    if (!authOverlay) return;
-    authOverlay.hidden = true;
+  function closeSignupOverlay() {
+    if (!signupOverlay) return;
+    signupOverlay.hidden = true;
     if (buy) buy.focus();               /* back to the button that opened it */
-  }
-
-  /* Signed in, one way or another — persist and go and pay. */
-  function finishAuth(s) {
-    persistSession(s);
-    goToCheckout(s.user.id);
-  }
-
-  if (authForm) {
-    authForm.addEventListener('submit', function (e) {
-      e.preventDefault();
-      if (authBusy) return;
-      clearAuthError();
-
-      var email = (authEmail.value || '').trim();
-      var password = authPassword.value || '';
-
-      if (!email || email.indexOf('@') === -1) {
-        authEmail.classList.add('is-bad');
-        showAuthError(authError, 'Enter the email address you want on the account.');
-        authEmail.focus();
-        return;
-      }
-      if (authMode === 'signup' && password.length < 6) {
-        authPassword.classList.add('is-bad');
-        showAuthError(authError, 'That password is too short — use at least 6 characters.');
-        authPassword.focus();
-        return;
-      }
-      if (!password) {
-        authPassword.classList.add('is-bad');
-        showAuthError(authError, 'Enter your password.');
-        authPassword.focus();
-        return;
-      }
-
-      setAuthBusy(true, authMode === 'signup' ? 'Creating account…' : 'Signing in…');
-
-      var request = authMode === 'signup'
-        /* redirect_to is where the confirmation link lands: the app, since by
-           then the account exists and that's where they want to be. It has to
-           be on Supabase's allow-list, same as the app's own authRedirectUrl. */
-        ? authPost('/signup?redirect_to=' + encodeURIComponent(appOrigin()), { email: email, password: password })
-        : authPost('/token?grant_type=password', { email: email, password: password });
-
-      request.then(function (res) {
-        var s = sessionFrom(res.data);
-        if (res.ok && s) { finishAuth(s); return; }
-
-        if (res.ok && authMode === 'signup') {
-          /* Signed up, but Supabase is holding the session until the email is
-             confirmed. Step 2 picks it up from here. */
-          if (authSentTo) authSentTo.textContent = email;
-          if (authStepForm) authStepForm.hidden = true;
-          if (authStepConfirm) authStepConfirm.hidden = false;
-          if (authConfirmError) authConfirmError.hidden = true;
-          setAuthBusy(false);
-          requestAnimationFrame(function () { if (authConfirmed) authConfirmed.focus(); });
-          return;
-        }
-
-        setAuthBusy(false);
-        showAuthError(authError, authMessage(res.data));
-      });
-    });
-  }
-
-  if (authTabNew) authTabNew.addEventListener('click', function () { setAuthMode('signup'); });
-  if (authTabHave) authTabHave.addEventListener('click', function () { setAuthMode('signin'); });
-
-  /* Step 2's follow-up: they say they've clicked the link, so try the sign-in
-     that was blocked a moment ago. Same credentials — no retyping. */
-  if (authConfirmed) {
-    authConfirmed.addEventListener('click', function () {
-      if (authBusy) return;
-      authBusy = true;
-      if (authConfirmError) authConfirmError.hidden = true;
-      authConfirmed.disabled = true;
-      authConfirmed.textContent = 'Checking…';
-
-      authPost('/token?grant_type=password', {
-        email: (authEmail.value || '').trim(),
-        password: authPassword.value || ''
-      }).then(function (res) {
-        var s = sessionFrom(res.data);
-        if (res.ok && s) { finishAuth(s); return; }
-        authBusy = false;
-        authConfirmed.disabled = false;
-        authConfirmed.textContent = 'I’ve confirmed — continue →';
-        showAuthError(authConfirmError, /email not confirmed/i.test(String(res.data && (res.data.msg || res.data.message || '')))
-          ? 'Not confirmed yet — open the link in your email first.'
-          : authMessage(res.data));
-      });
-    });
-  }
-
-  if (authBack) {
-    authBack.addEventListener('click', function () {
-      if (authStepConfirm) authStepConfirm.hidden = true;
-      if (authStepForm) authStepForm.hidden = false;
-      setAuthMode('signup');
-      if (authEmail) { authEmail.value = ''; authEmail.focus(); }
-      if (authPassword) authPassword.value = '';
-    });
   }
 
   if (buy) {
@@ -3069,11 +2653,18 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
         location.href = appUrl('/app/?auth=signup');
         return;
       }
-      if (session && session.id) { goToCheckout(session.id); return; }
-      /* Signed out: the account card if this build can create one, the app's
-         own sign-up if it can't. */
-      if (canSignUpHere && authOverlay) openAuthCard();
-      else goToSignupInApp();
+      if (!session || !session.id) {
+        if (signupOverlay) {
+          signupOverlay.hidden = false;
+          requestAnimationFrame(function () { if (signupContinue) signupContinue.focus(); });
+        } else {
+          goToSignup();
+        }
+        return;
+      }
+      var join = CHECKOUT_URL.indexOf('?') === -1 ? '?' : '&';
+      location.href = CHECKOUT_URL + join
+        + 'checkout[custom][user_id]=' + encodeURIComponent(session.id);
     });
 
     if (session && session.id) {
@@ -3082,15 +2673,17 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
     }
   }
 
-  if (authOverlay) {
-    if (authCancel) authCancel.addEventListener('click', closeAuthCard);
-    authOverlay.addEventListener('click', function (e) {
-      if (e.target === authOverlay) closeAuthCard();
+  if (signupOverlay) {
+    if (signupContinue) signupContinue.addEventListener('click', goToSignup);
+    if (signupCancel) signupCancel.addEventListener('click', closeSignupOverlay);
+    signupOverlay.addEventListener('click', function (e) {
+      if (e.target === signupOverlay) closeSignupOverlay();
     });
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && !authOverlay.hidden && !authBusy) closeAuthCard();
+      if (e.key === 'Escape' && !signupOverlay.hidden) closeSignupOverlay();
     });
   }
+
 
   /* ── 9. The playable board ───────────────────────────────────────────────
      SIX scripted lines, one at a time. No rules engine: the only move that does
