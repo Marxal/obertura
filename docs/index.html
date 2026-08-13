@@ -1231,6 +1231,64 @@ html.js .mini__arrow .head {
 .ticks svg { width: 19px; height: 19px; color: var(--accent); margin-top: 2px; }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   THE "CREATE AN ACCOUNT FIRST" STEP  (Unlock full access, signed out)
+
+   Unlock full access used to jump straight into the app — a hard page
+   navigation, no warning, and the FIRST thing that greeted a signed-out visitor
+   over there was a sign-up sheet they hadn't been told was coming. This card
+   is that warning, shown IN PLACE on bitochess.com before anything navigates
+   anywhere, so "why am I being asked to sign up" is answered before it's asked.
+
+   It borrows the price card's own shape (brass edge, brass label, the frame
+   shadow) rather than a plain dialog box, so it reads as a continuation of the
+   offer the visitor just said yes to, not as a detour or a new decision. */
+.signup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--gutter);
+  background: rgba(28, 22, 16, 0.5);
+}
+@media (prefers-color-scheme: dark) { .signup-overlay { background: rgba(0, 0, 0, 0.6); } }
+.signup-overlay[hidden] { display: none; }
+
+.signup-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--bg-card);
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-frame);
+  padding: clamp(26px, 4vw, 34px);
+  text-align: center;
+}
+.signup-card h3 {
+  margin-top: 8px;
+  font-size: clamp(20px, 2.6vw, 24px);
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+.signup-card p { margin-top: 12px; max-width: none; color: var(--text-muted); font-size: 15px; line-height: 1.55; }
+.signup-card .btn { margin-top: 22px; width: 100%; }
+.signup-cancel {
+  display: block;
+  margin: 12px auto 0;
+  padding: 6px 10px;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-faint);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.signup-cancel:hover { color: var(--text); }
+
+/* ══════════════════════════════════════════════════════════════════════════
    THE CAROUSEL — "There's more than openings in here"
    Scroll-snap track, one card at a time on a phone, two and a bit on a desktop.
    The arrows and dots are enhancement: with JS off it is still a perfectly good
@@ -1406,6 +1464,19 @@ html.js .mini__arrow .head {
 .who__name a { color: inherit; text-decoration: none; border-bottom: 1.5px solid var(--accent); }
 .who__name a:hover { color: var(--accent-active); }
 .who__role { font-size: 15px; color: var(--text-faint); }
+
+/* Phone: bigger still, and stacked rather than side-by-side. A 190px circle
+   next to two lines of text in a ~350px-wide column leaves the text about
+   130px to work with — it would wrap into a ragged five-line strip. Centred
+   underneath the portrait is what an author card looks like at this size on a
+   narrow screen; the row layout stays for desktop, where the width is there
+   to spend. */
+@media (max-width: 899px) {
+  .who { flex-direction: column; text-align: center; gap: 20px; }
+  .who__avatar { width: 190px; height: 190px; }
+  .who__avatar svg { width: 76px; height: 87px; }
+  .who__role { max-width: 32ch; margin: 0 auto; }
+}
 
 /* ── THE COLOPHON — "About Bito Chess" ──────────────────────────────────────
    Its own band, immediately after "Why I made Bito Chess", and deliberately its
@@ -2097,7 +2168,7 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
         <div class="reveal">
           <div class="plan plan--pro">
             <p class="tier__name">Full Access</p>
-            <h3>Your whole repertoire. One payment.</h3>
+            <h3>Your whole repertoire.</h3>
             <p class="tier__price">9€ <span>one payment</span></p>
             <p>Want to train everything you’ve built? Bito Chess is a solo project — no ads, no investors, no subscriptions. Full Access unlocks unlimited training and helps fund what’s next.</p>
             <ul class="ticks">
@@ -2228,6 +2299,21 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
      display is JS-gated in CSS so it never appears without JavaScript. -->
 <div class="cta-bar" id="cta-bar">
   <a class="btn js-app" href="/app/">Try Bito Chess →</a>
+</div>
+
+<!-- The "create an account first" step. Shown ON THIS PAGE, before the visitor
+     ever leaves it, when Unlock full access is tapped signed out — see step 8
+     in the script below. Hidden by default; JS is what removes [hidden], so
+     with JS off the button falls back to its plain link behaviour and this
+     markup is simply never shown. -->
+<div class="signup-overlay" id="signup-overlay" hidden>
+  <div class="signup-card" role="dialog" aria-modal="true" aria-labelledby="signup-title">
+    <p class="tier__name">Full Access</p>
+    <h3 id="signup-title">Create your Bito Chess account first</h3>
+    <p>Full Access is tied to your account, so it follows you to any device you sign in on — and comes back if you ever reinstall. You’ll create it on the next screen, then land straight back at checkout.</p>
+    <button type="button" class="btn btn--buy" id="signup-continue">Create account →</button>
+    <button type="button" class="signup-cancel" id="signup-cancel">Not now</button>
+  </div>
 </div>
 
 <script>
@@ -2510,8 +2596,32 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
   }
 
   /* ── 8. The buy button ───────────────────────────────────────────────────
-     See CHECKOUT_URL at the top of this script for what each branch is for. */
+     See CHECKOUT_URL at the top of this script for what each branch is for.
+
+     Signed out, this used to navigate straight into the app — a hard page
+     load, with no warning that a sign-up sheet was the first thing waiting on
+     the other side. Now it shows the "create an account first" card ON THIS
+     PAGE (#signup-overlay, styled to match the price card it grew out of) and
+     ONLY that card's own button makes the jump. Signed in, nothing changes:
+     straight to Lemon Squeezy, same as always. */
   var buy = document.getElementById('buy');
+  var signupOverlay = document.getElementById('signup-overlay');
+  var signupContinue = document.getElementById('signup-continue');
+  var signupCancel = document.getElementById('signup-cancel');
+
+  function goToSignup() {
+    /* `buy=1` rides along so the app knows this person came here to PAY, not
+       to sign up — it opens the checkout itself the moment the account
+       exists, instead of dropping them on the Train screen with their intent
+       quietly discarded. */
+    location.href = appUrl('/app/?auth=signup&buy=1');
+  }
+
+  function closeSignupOverlay() {
+    if (!signupOverlay) return;
+    signupOverlay.hidden = true;
+    if (buy) buy.focus();               /* back to the button that opened it */
+  }
 
   if (buy) {
     buy.addEventListener('click', function () {
@@ -2520,11 +2630,12 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
         return;
       }
       if (!session || !session.id) {
-        /* No account yet. `buy=1` rides along so the app knows this person came
-           here to PAY, not to sign up — it opens the checkout itself the moment
-           the account exists, instead of dropping them on the Train screen with
-           their intent quietly discarded. */
-        location.href = appUrl('/app/?auth=signup&buy=1');
+        if (signupOverlay) {
+          signupOverlay.hidden = false;
+          requestAnimationFrame(function () { if (signupContinue) signupContinue.focus(); });
+        } else {
+          goToSignup();
+        }
         return;
       }
       var join = CHECKOUT_URL.indexOf('?') === -1 ? '?' : '&';
@@ -2536,6 +2647,17 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
       var note = document.getElementById('buy-note');
       if (note) note.textContent = 'Secure checkout via Lemon Squeezy. The unlock lands on the account you’re signed in to.';
     }
+  }
+
+  if (signupOverlay) {
+    if (signupContinue) signupContinue.addEventListener('click', goToSignup);
+    if (signupCancel) signupCancel.addEventListener('click', closeSignupOverlay);
+    signupOverlay.addEventListener('click', function (e) {
+      if (e.target === signupOverlay) closeSignupOverlay();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !signupOverlay.hidden) closeSignupOverlay();
+    });
   }
 
   /* ── 9. The playable board ───────────────────────────────────────────────

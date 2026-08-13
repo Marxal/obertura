@@ -180,9 +180,12 @@ Build and save as many repertoire lines as you want. Explore the opening library
 
 ### Box 2 — Full Access (brass edge, deeper shadow: the premium one)
 
-**FULL ACCESS** · **Your whole repertoire. One payment.**
+**FULL ACCESS** · **Your whole repertoire.**
 
 **9€** one payment
+
+“One payment” is written once now, next to the price where it belongs (not
+also in the headline — it repeated itself in an earlier draft).
 
 Want to train everything you’ve built? Bito Chess is a solo project — no ads, no investors, no subscriptions. Full Access unlocks unlimited training and helps fund what’s next.
 
@@ -199,6 +202,22 @@ signed in to.”)*
 **“A Bito Chess account”, never just “an account”** — the next screen after this
 one belongs to Lemon Squeezy, and nobody should have to work out which of the
 two accounts they are being asked for. Same wording in `src/checkout.ts`.
+
+**Signed out, Unlock full access opens a card ON THIS PAGE first** — it used to
+navigate straight into the app with no warning. `#signup-overlay` in
+`docs/index.html`, styled to match this price card (same brass edge, same
+`.tier__name` label):
+
+> **FULL ACCESS**
+> ### Create your Bito Chess account first
+> Full Access is tied to your account, so it follows you to any device you sign
+> in on — and comes back if you ever reinstall. You’ll create it on the next
+> screen, then land straight back at checkout.
+>
+> **Create account →** · Not now
+
+Only that card's own button makes the jump to `/app/?auth=signup&buy=1`.
+Signed in, the card never appears — straight to Lemon Squeezy, unchanged.
 
 ---
 
@@ -218,11 +237,16 @@ If it helps other players enjoy studying chess as much as I do, even better.
 
 **Signature:** Marçal — Designer, chess player, and the whole team behind Bito Chess.
 
-Both the name **and** the 150×150 portrait link to **marxal.net**. The portrait
-is `docs/marcal.png`, shown as a circle with a brass stroke and a hard offset
+Both the name **and** the portrait link to **marxal.net**. The portrait is
+`docs/marcal.png`, shown as a circle with a brass stroke and a hard offset
 shadow, echoing the speech bubble — big enough to read as a real portrait, not
 an avatar. If that file is missing the page falls back to the pixel pawn rather
 than a broken image.
+
+**150×150 on desktop, 190×190 and stacked on a phone.** Below 900px the row
+(portrait beside two lines of text) doesn't have the width to spend — a bigger
+circle next to a name and role would squeeze the text into a five-line ribbon —
+so the layout switches to portrait-above, name-and-role-below, both centred.
 
 ---
 
