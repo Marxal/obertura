@@ -1696,6 +1696,53 @@ documents finally exist, and the last third-party request on the site is gone.
   (30.5px in a 390px-wide viewport) both at rest and scrolled. The previous
   pass's fix already covered mobile; no separate mobile-only rule was needed.
 
+### Fifth pass — buying without leaving the page
+
+- ✅ **The account step is a real form now, run from the landing page.** The
+  fourth pass replaced a silent hand-off with a card that said "you're about to
+  be asked to sign up" — which is still a speed bump in front of the same
+  hand-off. A signed-out visitor who taps Unlock full access now creates the
+  account *here* and the next page they see is the checkout. They never load the
+  app to buy.
+
+  Supabase's auth API is plain REST, so this needed no SDK on a page that has no
+  build step: two POSTs (`/auth/v1/signup`, `/auth/v1/token`) and the returned
+  session written to `obertura.supabase.auth` — the same key the app reads — so
+  signing up on the website leaves you signed in inside the app too.
+
+  **The follow-up step matters as much as the form.** When Supabase holds the
+  session back until the email is confirmed, the card switches to "Confirm your
+  email… your checkout is waiting" with an *I've confirmed — continue* button
+  that retries the sign-in with the credentials already typed. Without it the
+  flow dead-ends at "check your inbox" with nothing to press, which is the worst
+  possible place to lose someone.
+
+  **Google is deliberately still a hand-off** — it needs a PKCE round trip and a
+  code exchange, exactly the part worth leaving to supabase-js. The card links
+  out to the app for it.
+
+  **Progressive enhancement, not a hard dependency.** `vite.config.ts`'s
+  cloudflare plugin substitutes two placeholders into the copied landing page;
+  with no `VITE_SUPABASE_*` env vars they stay as placeholders, `canSignUpHere`
+  is false, and the buy button hands over to the app exactly as before. That is
+  the GitHub Pages mirror's behaviour, where no Supabase project exists at all.
+  Both values are public — the anon key already ships inlined in the app bundle.
+
+- ✅ **The speech bubble's tail points at the portrait.** It was pinned at a
+  hard-coded 44px, which meant nothing on desktop and hung off into empty margin
+  on a phone once the signature became a stacked, centred column. Now derived
+  from the same `--avatar` token the portrait is sized from — half the avatar's
+  width in on desktop, dead centre on a phone — so resizing one can never leave
+  the tail aimed at nothing. Measured, not eyeballed: 0px off on a phone, 2px on
+  desktop (the bubble's own −0.6° tilt).
+
+- ✅ **Copy:** "I'm a **passionate** chess player…"; the Full Access box drops
+  the solo-project clause and now reads "Want to train everything you've built?
+  Full Access unlocks unlimited training and helps keep the project alive.";
+  and Lemon Squeezy is no longer named under the buy button — a payment
+  processor the reader hasn't heard of is a question, not reassurance, and they
+  meet the name on the checkout page anyway.
+
 _On `claude/bito-chess-ui-redesign-gh3dd2`. Restore point: `v0.4`._
 
 ---
