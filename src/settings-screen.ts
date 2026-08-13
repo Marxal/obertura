@@ -72,6 +72,7 @@ import { isConnected, connect, disconnect, LICHESS_CONNECT_BLURB } from './liche
 import { isSupabaseConfigured } from './supabase';
 import { buildAccountGroup } from './account-ui';
 import { isEntitled, showGoProDialog } from './entitlement';
+import { openDoc, LANDING_URL, PRIVACY_URL, TERMS_URL } from './legal';
 
 export function renderSettingsScreen(container: HTMLElement): void {
   container.innerHTML = '';
@@ -177,8 +178,16 @@ function buildGoProCta(): HTMLElement {
 }
 
 // ── Feedback & About ─────────────────────────────────────────────────────────
-// The closing group: a way to write to me, and an About sheet with credits and
-// the version. About sits at the very bottom of Settings.
+// The closing group: a way to write to me, the About page, and the two legal
+// documents. Sits at the very bottom of Settings.
+//
+// PRIVACY AND TERMS ARE ROWS HERE BECAUSE THIS IS WHERE PEOPLE LOOK FOR THEM.
+// They're also linked from the website footer, but someone who installed the
+// PWA may never see the website again — and "where's the privacy policy?" is a
+// question the answer to which should never be "open a browser and find it".
+// Both open the real documents in a new tab (src/legal.ts resolves the right
+// URL for whichever host this build targets) rather than a paraphrase in a
+// sheet, so there is exactly one copy of the wording.
 
 function buildAboutGroup(): HTMLElement {
   const sec = staticGroup('Feedback & about', Icons.smile(16));
@@ -192,9 +201,9 @@ function buildAboutGroup(): HTMLElement {
     () => window.dispatchEvent(new Event(REPLAY_WALKTHROUGH_EVENT)),
     Icons.play(18),
   ));
-  sec.appendChild(linkRow('About', () => {
-    window.open('https://marxal.github.io/obertura/docs/', '_blank', 'noopener,noreferrer');
-  }, Icons.info(18)));
+  sec.appendChild(linkRow('About', () => openDoc(LANDING_URL), Icons.info(18)));
+  sec.appendChild(linkRow('Privacy policy', () => openDoc(PRIVACY_URL), Icons.shield(18)));
+  sec.appendChild(linkRow('Terms of use', () => openDoc(TERMS_URL), Icons.file(18)));
 
   return sec;
 }

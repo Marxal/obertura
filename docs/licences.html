@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<!--
+  ════════════════════════════════════════════════════════════════════════════
+  Bito Chess — Licences
+
+  Both legal documents promise this page by name ("The licences page lists every
+  component, its licence, and where to get the source"), and the GPL components
+  the app ships make that promise a legal obligation rather than a courtesy.
+
+  KEEP IT IN STEP WITH src/about.ts. The LICENCES array there is the same list,
+  rendered inside the app's About sheet. Nothing generates one from the other —
+  add a dependency in one place and add it in the other by hand.
+
+  Served exactly like privacy.html — see the header comment there.
+  ════════════════════════════════════════════════════════════════════════════
+-->
+
+<title>Licences — Bito Chess</title>
+<meta name="description" content="Every open-source component Bito Chess ships, its licence, and where to get the source." />
+<meta name="color-scheme" content="light dark" />
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f1ece1" />
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#211c16" />
+
+<link rel="icon" href="app-icon.png" />
+<link rel="apple-touch-icon" href="app-icon.png" />
+<link rel="stylesheet" href="legal.css" />
+</head>
+<body>
+
+<a class="skip" href="#doc">Skip to content</a>
+
+<header class="topbar">
+  <div class="topbar__inner">
+    <a class="brand" href="./" aria-label="Bito Chess, home">
+      <span class="brand__mark"><img src="app-icon.png" alt="" width="512" height="512" /></span>
+      <span class="wordmark">bito chess</span>
+    </a>
+    <a class="topbar__link js-app" href="/app/">Open the app →</a>
+  </div>
+</header>
+
+<main class="doc" id="doc">
+
+  <h1>Licences</h1>
+  <p class="doc__meta"><strong>Bito Chess</strong> · bitochess.com · Last updated: 13 August 2026</p>
+
+  <div class="tldr">
+    <h2>The short version</h2>
+    <p>Bito Chess is built on other people’s open-source work, and its own source code is public. Everything it ships is listed below with its licence. Nothing on this page takes away a right one of those licences gives you.</p>
+  </div>
+
+  <h2>The app’s own source</h2>
+  <p>Bito Chess is developed in the open at <a href="https://github.com/Marxal/obertura" target="_blank" rel="noopener noreferrer">github.com/Marxal/obertura</a> (“obertura” is the repository’s original codename). The built app you use is produced from that repository with no closed additions.</p>
+
+  <h2>Software</h2>
+  <div class="doc__table">
+    <table>
+      <thead>
+        <tr><th>Component</th><th>Licence</th><th>Source</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>chessground</strong> — the board UI</td>
+          <td>GPL-3.0</td>
+          <td><a href="https://github.com/lichess-org/chessground" target="_blank" rel="noopener noreferrer">lichess-org/chessground</a></td>
+        </tr>
+        <tr>
+          <td><strong>Stockfish</strong> — the analysis engine</td>
+          <td>GPL-3.0</td>
+          <td><a href="https://github.com/official-stockfish/Stockfish" target="_blank" rel="noopener noreferrer">official-stockfish/Stockfish</a></td>
+        </tr>
+        <tr>
+          <td><strong>chess.js</strong> — move generation and rules</td>
+          <td>BSD-2-Clause</td>
+          <td><a href="https://github.com/jhlywa/chess.js" target="_blank" rel="noopener noreferrer">jhlywa/chess.js</a></td>
+        </tr>
+        <tr>
+          <td><strong>supabase-js</strong> — accounts and sync</td>
+          <td>MIT</td>
+          <td><a href="https://github.com/supabase/supabase-js" target="_blank" rel="noopener noreferrer">supabase/supabase-js</a></td>
+        </tr>
+        <tr>
+          <td><strong>@bity/oauth2-auth-code-pkce</strong> — the Lichess sign-in flow</td>
+          <td>Apache-2.0</td>
+          <td><a href="https://github.com/BitySA/oauth2-auth-code-pkce" target="_blank" rel="noopener noreferrer">BitySA/oauth2-auth-code-pkce</a></td>
+        </tr>
+        <tr>
+          <td><strong>Vite</strong> — the build tool (development only)</td>
+          <td>MIT</td>
+          <td><a href="https://github.com/vitejs/vite" target="_blank" rel="noopener noreferrer">vitejs/vite</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Data</h2>
+  <div class="doc__table">
+    <table>
+      <thead>
+        <tr><th>Component</th><th>Licence</th><th>Source</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Lichess chess-openings</strong> — the offline opening-name table</td>
+          <td>CC0-1.0 (public domain)</td>
+          <td><a href="https://github.com/lichess-org/chess-openings" target="_blank" rel="noopener noreferrer">lichess-org/chess-openings</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Artwork</h2>
+  <div class="doc__table">
+    <table>
+      <thead>
+        <tr><th>Piece set / texture</th><th>By</th><th>Licence</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>cburnett</td><td>Colin M.L. Burnett</td><td>GPL-2.0-or-later</td></tr>
+        <tr><td>Maestro</td><td>sadsnake1</td><td>CC-BY-NC-SA-4.0</td></tr>
+        <tr><td>California</td><td>Jerry S.</td><td>CC-BY-NC-SA-4.0</td></tr>
+        <tr><td>Mpchess</td><td>Maxime Chupin</td><td>GPL-3.0-or-later</td></tr>
+        <tr><td>Kiwen-Suwi</td><td>neverRare</td><td>CC-BY-4.0</td></tr>
+        <tr><td>Horsey</td><td>cham, michael1241</td><td>CC-BY-NC-SA-4.0</td></tr>
+        <tr><td>Gioco</td><td>sadsnake1</td><td>CC-BY-NC-SA-4.0</td></tr>
+        <tr><td>Tatiana</td><td>sadsnake1</td><td>CC-BY-NC-SA-4.0</td></tr>
+        <tr><td>Letter</td><td>usolando</td><td>AGPL-3.0-or-later</td></tr>
+        <tr><td>Anarcandy</td><td>caderek</td><td>CC-BY-NC-SA-4.0</td></tr>
+        <tr><td>Board textures</td><td>the lila authors, pirouetti</td><td>AGPL-3.0-or-later</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The piece sets and board textures come from <a href="https://github.com/lichess-org/lila" target="_blank" rel="noopener noreferrer">lichess-org/lila</a>, where each set’s own licence and author are recorded.</p>
+
+  <h2>Fonts</h2>
+  <p><strong>Chakra Petch</strong> (Cadson Demak), used for the wordmark, is licensed under the <a href="https://openfontlicense.org" target="_blank" rel="noopener noreferrer">SIL Open Font License 1.1</a> and is served from this site rather than from Google Fonts — see the <a href="privacy.html">privacy policy</a> for why. Everything else is your device’s own system typeface.</p>
+
+  <h2>Anything missing?</h2>
+  <p>If you believe something Bito Chess ships is listed wrongly or not listed at all, email <a href="mailto:creative@marxal.net">creative@marxal.net</a> and I’ll fix it.</p>
+
+  <a class="doc__cta js-app" href="/app/">Try Bito Chess →</a>
+
+</main>
+
+<footer class="foot">
+  <a class="wordmark" href="./">bito chess</a>
+  <nav class="foot__links" aria-label="Legal">
+    <a href="./">Home</a>
+    <a href="privacy.html">Privacy</a>
+    <a href="terms.html">Terms</a>
+    <a href="licences.html" aria-current="page">Licences</a>
+    <a href="mailto:creative@marxal.net">Contact</a>
+  </nav>
+  <p>© 2026 Bito Chess</p>
+</footer>
+
+<script>
+/* See privacy.html — the same /app/ href fix for the GitHub Pages mirror. */
+(function () {
+  if (location.pathname.indexOf('/obertura/docs/') === -1) return;
+  var links = document.querySelectorAll('.js-app');
+  for (var i = 0; i < links.length; i++) {
+    links[i].setAttribute('href', links[i].getAttribute('href').replace(/^\/app\//, '../'));
+  }
+})();
+</script>
+
+</body>
+</html>

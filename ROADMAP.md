@@ -1514,6 +1514,89 @@ _On `claude/go-pro-setup-payment-6lnmaa`. Restore point: `v0.4`._
 
 ---
 
+## v0.25 — the new copy, the legal pages, and no more Google 🔜
+
+The landing page said the right things about a smaller product. The new copy
+positions Bito as a training lab rather than an opening trainer, and the page
+had to change shape to carry it — eight bands of the same two-column block is
+not a page anyone reads to the end of. Alongside that: the privacy and terms
+documents finally exist, and the last third-party request on the site is gone.
+
+### The landing page
+
+- ✅ **All new copy, top to bottom.** *Your personal chess training lab* over
+  *Improve your next move*; four ways to build; four ways to train; a centred
+  argument about playing your own games; five things beyond openings; the
+  measures as tags; and the price split into two sections — **Start free** and
+  **Your whole repertoire. One payment.** `docs/LANDING-COPY.md` is rewritten as
+  the source of truth and now flags which blocks are duplicated in the app.
+
+- ✅ **Five new section shapes, no two alike.** A numbered ledger for the ways
+  in, a single bordered panel cut into rows for the training modes, a centred
+  narrow column for the argument, a tag row plus a pull quote for progress, and
+  two very different price treatments (a wide free card, then a centred
+  brass-edged slab). The repeated head/body block now appears three times
+  instead of eight.
+
+- ✅ **The app icon leads the top bar**, beside the wordmark, in that order —
+  the pairing a phone home screen shows. It keeps the scale trick: absolutely
+  positioned and overhanging at rest, shrinking into the bar on scroll, with the
+  wordmark's padding travelling with it so the lockup never breaks.
+
+- ✅ **The board breaks the layout on a desktop.** It is translated 88px below
+  its own grid row so it crosses into the band beneath, and the scroll handler
+  lags it a further 0–74px behind the page before letting go. The clamp is the
+  safety argument: drop + max pin is less than the next band's 128px of top
+  padding, so it can hang into empty space and can never reach the heading it
+  floats over. Untouched on a phone.
+
+- ✅ **"Play the move", with an arrow that moves.** A thin drawn curve into the
+  board, bobbing endlessly; the on-board arrowhead now pulses with the fade; and
+  the destination square breathes under it, which matters most on a phone where
+  a finger is covering the arrow.
+
+- ✅ **Six lines instead of one.** Italian, Ruy López, Scholar's Mate, Queen's
+  Gambit, London, and punishing the Damiano — with real captures (Qxf7#, Nxe5)
+  and ?? / ? marks on Black's worse ideas, in the app's own danger colours. A
+  discreet **Show another line** under the board, **Play another line** in the
+  finish panel, and confetti when a line completes.
+
+- ✅ **Desktop hover throughout**, gated on `hover: hover` so a touchscreen
+  never inherits a stuck :hover state — the board lifts, squares light up, cards
+  rise and take the accent border, chips and price boxes lift.
+
+- ✅ **The 3D pieces do more than slide.** One scroll position now drives three
+  properties — drift, a degree or two of rotation, and a breath of scale — with
+  a slow ambient drift on a child element underneath. Pieces that only translate
+  read as wallpaper; these read as objects passing.
+
+### Legal, and the last third-party request
+
+- ✅ **`docs/privacy.html` and `docs/terms.html`**, plus **`docs/licences.html`**
+  because both documents promise a licences page by name and the GPL components
+  make that an obligation, not a courtesy. One shared `docs/legal.css`. Linked
+  from the site footer and from **Settings → Feedback & about** in the app —
+  someone who installed the PWA may never see the website again.
+
+- ✅ **Chakra Petch is self-hosted.** The Google Fonts `<link>` in both
+  `index.html` and `docs/index.html` made every visitor's browser call Google
+  before first paint, handing over an IP and user-agent — which flatly
+  contradicted the privacy policy being published in the same round. The two
+  woff2 subsets (latin, latin-ext, ~19 kB) are committed and served from our own
+  origin. Verified: **zero external requests** on the landing page.
+
+### The app
+
+- ✅ **A real Full Access popup** (`src/pro-sheet.ts`), replacing the generic
+  title-body-two-buttons dialog. Centred at every width — the only overlay in
+  the app that is not a bottom sheet on a phone, because a sheet sliding up from
+  the bottom reads as a prompt to dismiss and this is a proposition to consider.
+  It carries the landing page's own price card and the landing page's own words.
+
+_On `claude/bito-chess-ui-redesign-gh3dd2`. Restore point: `v0.4`._
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on
