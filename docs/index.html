@@ -418,10 +418,22 @@ strong { font-weight: 700; color: var(--text); }
   text-decoration: none;
   min-width: 0;
 }
+/* The wordmark sits on the ICON'S centre line, not the bar's.
+   At rest the icon is much taller than the bar and hangs below it, so a
+   vertically-centred wordmark floats up near the icon's shoulder and the pair
+   stops reading as one lockup. This shifts it down by exactly the difference
+   between the two centres — icon centre (8px + half the logo) minus bar centre
+   (half the bar height) — which is one expression that stays correct at every
+   size because both terms are the same variables the icon itself uses.
+   Scrolled, the icon re-centres in the bar and the offset goes away. */
 .brand .wordmark {
   padding-left: calc(var(--logo) + 12px);
-  transition: padding-left 260ms cubic-bezier(0.2, 0.7, 0.3, 1);
+  transform: translateY(calc(8px + var(--logo) / 2 - var(--bar-h) / 2));
+  transition:
+    padding-left 260ms cubic-bezier(0.2, 0.7, 0.3, 1),
+    transform 260ms cubic-bezier(0.2, 0.7, 0.3, 1);
 }
+.topbar.is-scrolled .brand .wordmark { transform: none; }
 
 .signin {
   display: inline-flex;
@@ -636,6 +648,27 @@ button:focus-visible {
 
 .hero h1 { margin-bottom: 18px; }
 .hero .lede { max-width: 34ch; }
+
+/* ── Phone breathing room ───────────────────────────────────────────────────
+   The first screen is the one place where every element is competing: an
+   overhanging icon, an eyebrow, a display headline, a paragraph, a button, a
+   trust line, a pointing arrow and a chessboard, all inside about 700px of
+   phone. Loosened deliberately here rather than by relaxing the global scale,
+   because the desktop hero has twice the width to spend and did not need it. */
+@media (max-width: 899px) {
+  .hero { padding-top: clamp(66px, 15vw, 104px); }
+  .hero .eyebrow { margin-bottom: 22px; }
+  .hero h1 { margin-bottom: 22px; line-height: 1.06; }
+  .hero .lede { line-height: 1.55; }
+  .hero .cta-block { margin-top: 36px; }
+  .hero .cta-block .trust { margin-top: 15px; }
+  .hero__cols { gap: 48px; }
+  .hail { margin-bottom: 10px; }
+  .board-card { padding: 16px; }
+  .mini__name { margin-bottom: 13px; }
+  .mini__hint { margin-top: 15px; }
+  .mini__foot { margin-top: 9px; }
+}
 
 /* ── The board column: dropped out of the grid, then pinned ─────────────────
    On a desktop the board deliberately BREAKS the hero's own baseline: it is
@@ -1032,25 +1065,40 @@ html.js .mini__arrow .head {
 .result p { color: var(--text-muted); }
 .result strong { display: block; font-size: clamp(19px, 2.4vw, 23px); letter-spacing: -0.02em; }
 
-/* ── 3. THE CENTRED ARGUMENT — "Prepare for the games you actually play" ────
-   Every other band is left-aligned and asymmetric. This one is neither, which
-   is exactly why it registers as a change of voice. */
-.center { max-width: 62ch; margin: 0 auto; text-align: center; }
-.center h2 { margin: 0 auto; }
-.center p { max-width: none; margin-left: auto; margin-right: auto; }
-.center > * + * { margin-top: 18px; }
-
-.pull {
-  margin-top: clamp(28px, 4vw, 40px);
-  padding: clamp(22px, 3vw, 30px) 0;
-  border-top: 1px solid var(--hairline);
-  border-bottom: 1px solid var(--hairline);
-  font-size: clamp(21px, 3.1vw, 30px);
-  line-height: 1.26;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+/* ── 3. THE EDITORIAL BLOCK — "Prepare for the games you actually play" ─────
+   A heavy ink rule, an oversized opening line, and the detail set beside it in
+   the second column and pushed to the bottom. Nothing else on the page opens
+   with a 2px rule or sets a paragraph that large, which is what makes this land
+   as a change of voice — the previous attempt used centred text for that, and
+   centred body copy is hard to read and looks like a different website. */
+.editorial {
+  margin-top: 0;
+  border-top: 2px solid var(--text);
+  padding-top: clamp(24px, 3.4vw, 36px);
+}
+.editorial h2 { max-width: 20ch; }
+.editorial__lede {
+  margin-top: 18px;
+  font-size: clamp(19px, 2.5vw, 25px);
+  line-height: 1.35;
+  font-weight: 600;
+  letter-spacing: -0.02em;
   color: var(--text);
-  text-wrap: balance;
+  max-width: 26ch;
+}
+.editorial__body { margin-top: 22px; color: var(--text-muted); max-width: 48ch; }
+
+@media (min-width: 900px) {
+  .editorial {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: clamp(48px, 6vw, 96px);
+  }
+  .editorial h2 { grid-column: 1; grid-row: 1; }
+  .editorial__lede { grid-column: 1; grid-row: 2; }
+  /* Spans both rows and sits on the baseline of the lede, so the column ends
+     level instead of starting level — the asymmetry is the point. */
+  .editorial__body { grid-column: 2; grid-row: 1 / span 2; align-self: end; margin-top: 0; }
 }
 
 /* ── 4. TAGS — "Measure your progress" ──────────────────────────────────────
@@ -1093,30 +1141,53 @@ html.js .mini__arrow .head {
   max-width: 22ch;
 }
 
-/* ── 5a. THE FREE PLAN — a wide band-width card, not a column in a pair ────
-   The free tier is not one of two options on this page any more; it is its own
-   section, so it gets its own full-width shape. */
+/* ── 5. THE TWO PLANS — free and paid, one section, one column ─────────────
+   Both offers are the same object in two states, so they are the same box: the
+   same width, the same padding, the same corner, stacked one below the other.
+   They used to be a wide card and then a narrow centred slab in separate bands,
+   which made them look like two unrelated things rather than a choice.
+
+   Their heights are NOT forced to match. Stretching the shorter box to the
+   taller one's height only buys a stack of dead space inside it; what makes the
+   pair read as a matched set is the shared width, padding and corner, and those
+   are identical.
+
+   The paid one still pops: brass edge instead of a hairline, the frame shadow
+   instead of the flat card shadow, a brass label, and the price set large. That
+   difference is doing the whole job of "this is the premium one", so nothing
+   else needs to shout. */
+.plans {
+  margin: clamp(28px, 4vw, 44px) auto 0;
+  max-width: 620px;
+  display: grid;
+  gap: 20px;
+}
+
 .plan {
-  margin-top: clamp(28px, 4vw, 42px);
   background: var(--bg-card);
   border: 1px solid var(--border-card);
   border-radius: var(--radius);
   box-shadow: var(--shadow-card);
-  padding: clamp(24px, 3.4vw, 36px);
-  display: grid;
-  gap: 22px;
+  padding: clamp(26px, 3.4vw, 36px);
+  display: flex;
+  flex-direction: column;
   transition: transform 260ms cubic-bezier(0.2, 0.7, 0.3, 1), box-shadow 260ms ease;
 }
-@media (min-width: 820px) {
-  .plan { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: clamp(32px, 5vw, 64px); }
-}
 .plan p { max-width: none; color: var(--text-muted); }
-.plan .tier__name { margin-bottom: 10px; }
-.plan__side { text-align: left; }
-@media (min-width: 820px) { .plan__side { text-align: right; } }
-.plan .btn { margin-top: 14px; }
-@media (max-width: 619px) { .plan .btn { display: flex; } }
-.plan .trust { margin-top: 10px; font-size: 15px; color: var(--text-faint); }
+.plan h3 { margin-top: 10px; font-size: clamp(19px, 2.3vw, 23px); letter-spacing: -0.02em; }
+.plan h3 + p { margin-top: 10px; }
+/* Pins the CTA to the bottom of whichever box is the shorter one, so both
+   buttons sit on the same line as the boxes' lower edges. */
+.plan .btn { margin-top: auto; width: 100%; }
+.plan .plan__act { margin-top: auto; padding-top: 22px; }
+.plan .plan__act .btn { margin-top: 0; }
+.plan .trust { margin-top: 10px; font-size: 15px; color: var(--text-faint); text-align: center; }
+.plan .faint { margin-top: 12px; }
+
+.plan--pro {
+  border: 1.5px solid var(--accent);
+  box-shadow: var(--shadow-frame);
+}
 
 .tier__name {
   font-family: 'Chakra Petch', ui-monospace, monospace;
@@ -1126,45 +1197,25 @@ html.js .mini__arrow .head {
   text-transform: uppercase;
   color: var(--text-faint);
 }
+.plan--pro .tier__name { color: var(--accent); }
+
 .tier__price {
-  font-size: clamp(38px, 6vw, 56px);
+  margin-top: 14px;
+  font-size: clamp(38px, 6vw, 52px);
   font-weight: 800;
   letter-spacing: -0.04em;
   line-height: 1;
   color: var(--text);
 }
-.tier__price span { font-size: 17px; font-weight: 600; color: var(--text-faint); letter-spacing: 0; }
-
-/* ── 5b. THE PAID SLAB — "Your whole repertoire. One payment." ──────────────
-   Centred, brass-edged, and the only element on the page that is allowed to
-   look like a product box. It is the ask; it should not look like the section
-   above it. */
-.slab {
-  margin: clamp(28px, 4vw, 44px) auto 0;
-  max-width: 560px;
-  background: var(--bg-card);
-  border: 1.5px solid var(--accent);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-frame);
-  padding: clamp(26px, 4vw, 40px);
-  text-align: center;
-  transition: transform 260ms cubic-bezier(0.2, 0.7, 0.3, 1), box-shadow 260ms ease;
-}
-.slab p { max-width: none; }
-.slab .tier__price { margin-top: 4px; }
-.slab__plan { margin-top: 8px; font-weight: 700; color: var(--text); }
-.slab__desc { margin-top: 2px; color: var(--text-muted); font-size: 16px; }
-.slab .btn { margin-top: 22px; width: 100%; }
-.slab .faint { margin-top: 12px; }
+.tier__price span { font-size: 16px; font-weight: 600; color: var(--text-faint); letter-spacing: 0; margin-left: 4px; }
 
 .ticks {
   list-style: none;
-  margin-top: 22px;
-  padding-top: 20px;
+  margin-top: 20px;
+  padding-top: 18px;
   border-top: 1px solid var(--hairline);
   display: grid;
   gap: 11px;
-  text-align: left;
 }
 .ticks li {
   display: grid;
@@ -1304,31 +1355,74 @@ html.js .mini__arrow .head {
   margin-top: 42px;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
 }
+
+/* The portrait. A circle with a brass stroke and a hard offset shadow — the
+   same two moves the speech bubble above it makes, so the pair reads as one
+   drawing. Slightly larger than the pixel-pawn placeholder it replaces, because
+   a face at 52px is a smudge. */
 .who__avatar {
-  width: 52px; height: 52px;
+  position: relative;
+  width: 64px; height: 64px;
   border-radius: 999px;
+  border: 2.5px solid var(--accent);
+  box-shadow: 4px 5px 0 var(--accent-soft);
   background: var(--accent-soft);
   color: var(--accent);
   display: grid;
   place-items: center;
   flex: none;
+  overflow: hidden;
 }
-.who__avatar svg { width: 22px; height: 25px; shape-rendering: crispEdges; }
+.who__avatar svg { width: 26px; height: 30px; shape-rendering: crispEdges; }
 .who__avatar svg rect { fill: currentColor; }
+/* Sits over the pixel pawn and hides it. If the file is ever missing the <img>
+   removes itself (see the onerror in the markup) and the pawn shows through, so
+   the page never renders a broken-image icon. */
+.who__photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .who__name { font-weight: 700; }
+.who__name a { color: inherit; text-decoration: none; border-bottom: 1.5px solid var(--accent); }
+.who__name a:hover { color: var(--accent-active); }
 .who__role { font-size: 15px; color: var(--text-faint); }
 
-.about {
-  margin-top: 28px;
-  background: var(--fill-faint);
-  border: 1px solid var(--hairline);
+/* ── THE COLOPHON — "About Bito Chess" ──────────────────────────────────────
+   Its own band, immediately after "Why I made Bito Chess", and deliberately its
+   sober counterpart: the same subject stated as fact rather than as a story.
+   It used to be a small grey box tucked under the signature, where it read as a
+   footnote to the bubble rather than as its own answer to "who is behind this".
+   Heading left, statement right, one panel — a shape that appears nowhere else
+   on the page. */
+.colophon {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
   border-radius: var(--radius);
-  padding: 22px 24px;
-  max-width: 52ch;
+  box-shadow: var(--shadow-card);
+  padding: clamp(26px, 4vw, 46px);
+  display: grid;
+  gap: 16px;
 }
-.about h3 { font-size: 17px; margin-bottom: 12px; }
+@media (min-width: 820px) {
+  .colophon {
+    grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
+    column-gap: clamp(40px, 5vw, 80px);
+    align-items: start;
+  }
+}
+.colophon h2 { font-size: clamp(22px, 2.8vw, 30px); }
+.colophon p {
+  max-width: 52ch;
+  font-size: clamp(17px, 1.9vw, 19px);
+  line-height: 1.6;
+  color: var(--text-muted);
+}
 
 /* ══════════════════════════════════════════════════════════════════════════
    FINAL CTA + FOOTER
@@ -1452,7 +1546,8 @@ html.js .hop__svg { animation: hop-bounce 1.05s cubic-bezier(0.3, 0, 0.35, 1) 42
   .drill:hover { background: var(--fill-faint); }
   .chip:hover { border-color: var(--accent); transform: translateY(-2px); }
 
-  .plan:hover, .slab:hover { transform: translateY(-3px); box-shadow: var(--shadow-frame); }
+  .plan:hover { transform: translateY(-3px); box-shadow: var(--shadow-frame); }
+  .plan--pro:hover { box-shadow: 0 26px 60px rgba(28, 22, 16, 0.16), 0 6px 16px rgba(28, 22, 16, 0.09); }
 
   .hop:hover { cursor: default; }
 }
@@ -1497,7 +1592,7 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
   /* The board keeps its drop (it is layout, and the page is designed around the
      overlap) but never lags: --pin stays at its 0 default because the script
      skips the handler entirely. */
-  .hero__board, .board-card, .mcard, .chip, .plan, .slab { transition: none !important; }
+  .hero__board, .board-card, .mcard, .chip, .plan { transition: none !important; }
   .btn { transition: none !important; }
   .btn:active { transform: none !important; }
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
@@ -1843,16 +1938,16 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
   </section>
 
   <!-- ───────────────────────── YOUR GAMES ─────────────────────────
-       Layout: the centred argument (.center). The only band on the page that
-       is symmetrical, which is what makes it land as a change of voice. -->
+       Layout: the editorial block (.editorial) — an ink rule, an oversized
+       opening line, and the detail beside it. Short on purpose: this section
+       used to run to four paragraphs and a pull quote, which is more than the
+       point needs. -->
   <section class="band">
     <div class="inner">
-      <div class="center">
+      <div class="editorial">
         <h2 class="reveal">Prepare for the games you actually play</h2>
-        <p class="lede reveal">Chess study is much more useful when it starts with your own games.</p>
-        <p class="quiet reveal">Import your Chess.com, Lichess or enter your tournament games. Bito can show you where your opening play is working — and where it isn’t. Find the openings you keep struggling with. Discover mistakes that keep coming back. Turn those positions into things you can practise.</p>
-        <p class="quiet reveal">And when you’re preparing for an opponent, scout what they really play. See their favourite openings, their strongest and weakest areas, and build the lines you’ll actually face.</p>
-        <p class="pull reveal">Prepare for the board you’re going to sit down at — not a hypothetical one.</p>
+        <p class="editorial__lede reveal">Chess study is much more useful when it starts with your own games.</p>
+        <p class="editorial__body reveal">Import your Chess.com, Lichess or enter your tournament games. Bito can show you where your opening play is working — and where it isn’t. Find the openings you keep struggling with. Discover mistakes that keep coming back. Turn those positions into things you can practise.</p>
       </div>
     </div>
   </section>
@@ -1944,9 +2039,11 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
     </div>
   </section>
 
-  <!-- ─────────────────────────── START FREE ───────────────────────────
-       The free tier is its own section now, not one of two columns, so it gets
-       a full-width card rather than a half of a pair. -->
+  <!-- ────────────────────────── THE TWO PLANS ──────────────────────────
+       One section, one column, two boxes of the same size — free above, paid
+       below. They were two separate bands with two different shapes, which made
+       one offer in two states look like two unrelated products. The paid box
+       carries the same words the app's popup does (src/pro-sheet.ts). -->
   <section class="band band--parchment" id="price">
     <div class="float" style="--w: 230px; --rot: -6deg; left: -60px; bottom: -70px" data-speed="26" aria-hidden="true">
       <span class="float__in" style="--delay: -5s"><svg viewBox="0 0 120 140"><use href="#pc3-king"/></svg></span>
@@ -1954,59 +2051,48 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
     <div class="inner">
       <h2 class="reveal">Start free</h2>
       <p class="lede reveal">Use Bito Chess without an account — or sign up free to sync your repertoire across devices.</p>
-      <div class="reveal">
-        <div class="plan">
-          <div>
+
+      <div class="plans">
+        <div class="reveal">
+          <div class="plan">
             <p class="tier__name">Free</p>
+            <h3>Everything you need to get started.</h3>
             <p>Build and save as many repertoire lines as you want. Explore the opening library. Import games. Solve puzzles. Analyse positions. Train up to 10 lines at a time.</p>
-          </div>
-          <div class="plan__side">
-            <p class="tier__price">€0</p>
-            <p class="faint">Everything you need to get started.</p>
-            <a class="btn js-app" href="/app/">Try Bito Chess →</a>
-            <p class="trust">No signup required.</p>
+            <div class="plan__act">
+              <a class="btn js-app" href="/app/">Try Bito Chess →</a>
+              <p class="trust">No signup required.</p>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
-  </section>
 
-  <!-- ─────────────────────────── FULL ACCESS ───────────────────────────
-       The ask. Centred and brass-edged — the only element on the page allowed
-       to look like a product box. The app shows this same offer, in the same
-       words, in src/pro-sheet.ts. -->
-  <section class="band">
-    <div class="inner">
-      <div class="center">
-        <h2 class="reveal">Your whole repertoire. One payment.</h2>
-        <p class="lede reveal">Want to train everything you’ve built?</p>
-        <p class="quiet reveal">Bito Chess is a solo project — no ads, no investors, no subscriptions. Full Access unlocks unlimited training and helps fund what’s next.</p>
-      </div>
-      <div class="reveal">
-        <div class="slab">
-          <p class="tier__name">Full Access</p>
-          <p class="tier__price">€9 <span>once</span></p>
-          <p class="slab__plan">Full Access &amp; Project Support</p>
-          <p class="slab__desc">Your entire repertoire, always available for training.</p>
-          <ul class="ticks">
-            <li>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
-              <span>Unlimited active training rotation</span>
-            </li>
-            <li>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
-              <span>One-time payment, no subscription ever</span>
-            </li>
-          </ul>
-          <button type="button" class="btn btn--buy" id="buy">Unlock full access →</button>
-          <p class="faint" id="buy-note">Secure checkout via Lemon Squeezy. An account is required so your purchase can follow you across devices.</p>
+        <div class="reveal">
+          <div class="plan plan--pro">
+            <p class="tier__name">Full Access</p>
+            <h3>Your whole repertoire. One payment.</h3>
+            <p class="tier__price">9€ <span>one payment</span></p>
+            <p>Want to train everything you’ve built? Bito Chess is a solo project — no ads, no investors, no subscriptions. Full Access unlocks unlimited training and helps fund what’s next.</p>
+            <ul class="ticks">
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
+                <span>Unlimited active training rotation</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
+                <span>One-time payment, no subscription ever</span>
+              </li>
+            </ul>
+            <div class="plan__act">
+              <button type="button" class="btn btn--buy" id="buy">Unlock full access →</button>
+              <p class="faint" id="buy-note">Secure checkout via Lemon Squeezy. A Bito Chess account is required so your purchase can follow you across devices.</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </section>
 
   <!-- ──────────────────────────── WHY ──────────────────────────── -->
-  <section class="band band--parchment">
+  <section class="band">
     <div class="inner feature feature--flip">
       <div class="feature__head reveal"><h2>Why I made Bito Chess</h2></div>
       <div class="feature__body">
@@ -2019,8 +2105,11 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
         </div>
 
         <div class="who reveal">
-          <span class="who__avatar" aria-hidden="true">
-            <svg viewBox="0 0 16 18" focusable="false">
+          <span class="who__avatar">
+            <!-- The pixel pawn is the FALLBACK, not the picture. If marcal.png
+                 is ever missing the <img> deletes itself and the pawn shows
+                 through, so the page can never render a broken-image icon. -->
+            <svg viewBox="0 0 16 18" focusable="false" aria-hidden="true">
               <rect x="5" y="0" width="6" height="3"/>
               <rect x="4" y="3" width="8" height="3"/>
               <rect x="6" y="6" width="4" height="2"/>
@@ -2031,16 +2120,28 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
               <rect x="2" y="16" width="5" height="2"/>
               <rect x="9" y="16" width="5" height="2"/>
             </svg>
+            <img class="who__photo" src="marcal.png" alt="Marçal" width="600" height="600"
+                 onerror="this.remove()" />
           </span>
           <span>
-            <span class="who__name">Marçal</span><br />
+            <span class="who__name"><a href="https://marxal.net" target="_blank" rel="noopener noreferrer">Marçal</a></span><br />
             <span class="who__role">Designer, chess player, and the whole team behind Bito Chess.</span>
           </span>
         </div>
+      </div>
+    </div>
+  </section>
 
-        <div class="about reveal">
-          <h3>About Bito Chess</h3>
-          <p class="quiet">Bito Chess is a one-person project. There are no investors, no ads, and no business model based on selling your data. An account is strictly optional and is only used to sync your data across devices. Upgrading to Full Access helps keep the project alive.</p>
+  <!-- ──────────────────────── ABOUT BITO CHESS ────────────────────────
+       The sober counterpart to the section above it: the same subject stated as
+       fact rather than as a story. It used to be a small grey box under the
+       signature, where it read as a footnote to the speech bubble. -->
+  <section class="band band--parchment">
+    <div class="inner">
+      <div class="reveal">
+        <div class="colophon">
+          <h2>About Bito Chess</h2>
+          <p>Bito Chess is a one-person project. There are no investors, no ads, and no business model based on selling your data. An account is strictly optional and is only used to sync your data across devices. Upgrading to Full Access helps keep the project alive.</p>
         </div>
       </div>
     </div>

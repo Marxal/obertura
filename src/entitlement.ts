@@ -57,7 +57,11 @@ export const FREE_TRAINING_LINES = 10;
 // only dynamically (see the button handler below). Putting the price in
 // checkout.ts would need a static import in the other direction, which is
 // exactly the cycle that arrangement exists to avoid.
-export const PRO_PRICE = '€9';
+// Written symbol-after-number ("9€"), which is how it is set on the landing
+// page and how the audience this is priced for reads it. The Lemon Squeezy
+// checkout will show whatever format the store is configured with; that screen
+// is theirs, not ours.
+export const PRO_PRICE = '9€';
 
 // ── The coaching caps: Mistake Retry, endgames-from-your-games, Scouting ─────
 //
@@ -184,7 +188,6 @@ function openUpgradeDialog(eyebrow?: string): void {
   openProSheet({
     eyebrow,
     price: PRO_PRICE,
-    freeLines: FREE_TRAINING_LINES,
     // Dynamic on purpose — checkout.ts imports this module, so a static import
     // here would close the loop. See the note over PRO_PRICE.
     onBuy: () => { void import('./checkout').then(m => m.openCheckout()); },

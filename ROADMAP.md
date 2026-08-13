@@ -1593,6 +1593,55 @@ documents finally exist, and the last third-party request on the site is gone.
   the bottom reads as a prompt to dismiss and this is a proposition to consider.
   It carries the landing page's own price card and the landing page's own words.
 
+### Second pass, same round
+
+- ✅ **The wordmark sits on the icon's centre line**, not the bar's. At rest the
+  icon is much taller than the bar and hangs below it, so a vertically-centred
+  wordmark floated up by its shoulder and the pair stopped reading as one
+  lockup. One expression — icon centre minus bar centre, from the same variables
+  the icon uses — so it stays right at every size and collapses to zero when the
+  icon shrinks into the bar.
+
+- ✅ **"Prepare for the games you actually play" is shorter and no longer
+  centred.** The opponent-scouting paragraph and the pull quote are cut. Centred
+  body copy reads badly and looked like a different website; it is now an
+  editorial block — a 2px ink rule, an oversized opening line, and the detail
+  beside it in the second column, bottom-aligned.
+
+- ✅ **One price section instead of two.** Free above, Full Access below, same
+  width, same padding, same corner — they were a wide card and then a narrow
+  centred slab in separate bands, which made one offer in two states look like
+  two unrelated products. Heights are deliberately *not* forced to match:
+  stretching the shorter box only buys dead space inside it. No "€0" on the free
+  box. The paid one still pops on brass edge, frame shadow and a large price.
+
+- ✅ **A portrait next to the signature.** A circle with a brass stroke and a
+  hard offset shadow — the speech bubble's own two moves — a little larger than
+  the pixel pawn it replaces, because a face at 52px is a smudge. The pawn stays
+  underneath as the fallback: if `docs/marcal.png` is missing the `<img>` removes
+  itself rather than rendering a broken-image icon. The name links to marxal.net.
+
+- ✅ **"About Bito Chess" is its own band**, immediately after "Why I made Bito
+  Chess" and deliberately its sober counterpart — the same subject as fact
+  rather than as a story. It was a small grey box under the signature, where it
+  read as a footnote to the bubble.
+
+- ✅ **The phone hero has room to breathe.** Loosened only below 900px, where
+  an overhanging icon, an eyebrow, a display headline, a paragraph, a button, a
+  trust line, an arrow and a chessboard were all competing inside 700px. The
+  desktop hero has twice the width and did not need it.
+
+- ✅ **The Full Access popup is half the length.** The headline above the
+  question said the same thing twice and is gone; so are the solo-project
+  paragraph (the website has room for it, a popup asking for money does not) and
+  the free-rotation footnote. The price reads **9€ one payment**, symbol after
+  the number, and `PRO_PRICE` moved with it.
+
+- ✅ **"A Bito Chess account", never just "an account"** — in the popup, on the
+  landing page, and in the sign-up sheet the checkout opens (`src/checkout.ts`).
+  The next screen after that prompt belongs to Lemon Squeezy, and nobody should
+  have to work out which of the two accounts they are being asked for.
+
 _On `claude/bito-chess-ui-redesign-gh3dd2`. Restore point: `v0.4`._
 
 ---

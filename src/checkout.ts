@@ -180,8 +180,11 @@ export function openCheckout(): void {
 
   void import('./onboarding-signup').then((m) => {
     m.openSignUpSheet('signup', {
-      lead: 'Your unlock is tied to your account, so it follows you to any '
-        + 'phone you sign in on — and comes back if you ever reinstall.',
+      // "Bito Chess account", spelled out: the next screen after this one is
+      // Lemon Squeezy's, and nobody should have to work out which of the two
+      // accounts they are being asked for.
+      lead: 'Your unlock is tied to your Bito Chess account, so it follows you '
+        + 'to any phone you sign in on — and comes back if you ever reinstall.',
       onSignedIn: () => {
         const signedIn = getAuthUser();
         if (signedIn) goToCheckout(signedIn.id);
