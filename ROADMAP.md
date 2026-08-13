@@ -1642,6 +1642,60 @@ documents finally exist, and the last third-party request on the site is gone.
   The next screen after that prompt belongs to Lemon Squeezy, and nobody should
   have to work out which of the two accounts they are being asked for.
 
+### Third pass, same round
+
+- ✅ **The two price boxes are centred again**, both of them. The second pass
+  tried a left-aligned "detail card" treatment for Free and Full Access; it read
+  as a settings panel rather than an offer, so both boxes are back to a centred
+  column that funnels down to one button — the shape that reads as a price card.
+  Only the Full Access checklist stays left-aligned inside the centred box.
+
+- ✅ **The "Prepare for the games you actually play" ink rule is gone.** The
+  section keeps its left-aligned, non-centred layout (that part was right) but
+  loses the 2px rule that ran across its top.
+
+- ✅ **The portrait is 150×150** (was 64px) and now a link, same as the name
+  beside it — to marxal.net.
+
+- ✅ **"About Bito Chess" is dressed up**: a brass rule down the left edge
+  (the same move `docs/legal.css`'s `.tldr` box makes on the privacy/terms
+  pages) and the app icon sitting above the heading, so the panel carries a
+  face instead of reading as a slab of plain text.
+
+- ✅ **Sign in sits on the icon's centre line too**, matching the wordmark.
+  Both used to centre on the bar's own middle; the icon overhangs the bar at
+  rest, so Sign in sat visibly higher than "bito chess" the instant the page
+  loaded at the top. Same offset expression as the wordmark, same collapse to
+  zero once the icon shrinks into the bar on scroll.
+
+### Fourth pass, same round
+
+- ✅ **"Unlock full access" no longer jumps into the app unannounced when
+  signed out.** It used to be a hard navigation to `/app/?auth=signup&buy=1` —
+  the first thing a signed-out visitor saw over there was a sign-up sheet they
+  hadn't been told was coming. A "Create your Bito Chess account first" card
+  now appears ON THE LANDING PAGE itself (`#signup-overlay`), styled to match
+  the price card it grew out of (brass edge, `FULL ACCESS` label, frame
+  shadow), and only that card's own button makes the jump. Dismissible by
+  Escape, a backdrop click, or "Not now". Signed in, nothing changes — straight
+  to Lemon Squeezy.
+
+- ✅ **"One payment" stopped repeating itself** in the Full Access box — it was
+  in the headline ("Your whole repertoire. One payment.") and in the price line
+  ("9€ one payment") at once. The headline is now just "Your whole
+  repertoire."; the fact stays next to the number, where it's load-bearing.
+
+- ✅ **The portrait is bigger still on a phone — 190×190, up from 150 — and the
+  layout switches to stacked** (portrait above, name and role below, both
+  centred) below 900px. The side-by-side row doesn't have the width to spend at
+  that size: a 190px circle beside two lines of text would squeeze them into a
+  five-line ribbon.
+
+- ✅ **Verified the icon/wordmark/Sign-in alignment on a phone specifically** —
+  measured, not eyeballed: all three land on the exact same vertical centre
+  (30.5px in a 390px-wide viewport) both at rest and scrolled. The previous
+  pass's fix already covered mobile; no separate mobile-only rule was needed.
+
 _On `claude/bito-chess-ui-redesign-gh3dd2`. Restore point: `v0.4`._
 
 ---

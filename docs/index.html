@@ -435,6 +435,11 @@ strong { font-weight: 700; color: var(--text); }
 }
 .topbar.is-scrolled .brand .wordmark { transform: none; }
 
+/* Same vertical offset as .brand .wordmark, and for the same reason: at rest
+   everything else in the bar is centred on the OVERHANGING icon's centre line,
+   not the bar's, and Sign in is the one element that wasn't following. Without
+   this it sits noticeably higher than the wordmark beside it, most visibly the
+   instant the page loads at the very top. */
 .signin {
   display: inline-flex;
   align-items: center;
@@ -449,9 +454,11 @@ strong { font-weight: 700; color: var(--text); }
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
-  transition: background-color 160ms ease, border-color 160ms ease;
+  transform: translateY(calc(8px + var(--logo) / 2 - var(--bar-h) / 2));
+  transition: background-color 160ms ease, border-color 160ms ease, transform 260ms cubic-bezier(0.2, 0.7, 0.3, 1);
 }
 .signin:hover { background: var(--bg-elevated); border-color: var(--text-faint); }
+.topbar.is-scrolled .signin { transform: none; }
 
 /* The app icon. Anchored to the bar's top-LEFT; it grows downward past the
    bar's edge, so the bar's own height never changes. Once the page scrolls it
@@ -478,7 +485,7 @@ strong { font-weight: 700; color: var(--text); }
 .applogo img { width: 100%; height: 100%; transition: transform 260ms cubic-bezier(0.2, 0.7, 0.3, 1); }
 
 @media (prefers-reduced-motion: reduce) {
-  .applogo, .applogo img, .brand .wordmark, .topbar { transition: none !important; }
+  .applogo, .applogo img, .brand .wordmark, .signin, .topbar { transition: none !important; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -1066,16 +1073,12 @@ html.js .mini__arrow .head {
 .result strong { display: block; font-size: clamp(19px, 2.4vw, 23px); letter-spacing: -0.02em; }
 
 /* ── 3. THE EDITORIAL BLOCK — "Prepare for the games you actually play" ─────
-   A heavy ink rule, an oversized opening line, and the detail set beside it in
-   the second column and pushed to the bottom. Nothing else on the page opens
-   with a 2px rule or sets a paragraph that large, which is what makes this land
-   as a change of voice — the previous attempt used centred text for that, and
-   centred body copy is hard to read and looks like a different website. */
-.editorial {
-  margin-top: 0;
-  border-top: 2px solid var(--text);
-  padding-top: clamp(24px, 3.4vw, 36px);
-}
+   An oversized opening line, and the detail set beside it in the second column
+   and pushed to the bottom. Left-aligned and asymmetric, not centred: the
+   previous attempt used centred text for this section, and centred body copy
+   is hard to read and looks like a different website. (An ink rule ran across
+   the top of this block in an earlier draft — cut; the section reads as its own
+   change of voice without it.) */
 .editorial h2 { max-width: 20ch; }
 .editorial__lede {
   margin-top: 18px;
@@ -1144,13 +1147,13 @@ html.js .mini__arrow .head {
 /* ── 5. THE TWO PLANS — free and paid, one section, one column ─────────────
    Both offers are the same object in two states, so they are the same box: the
    same width, the same padding, the same corner, stacked one below the other.
-   They used to be a wide card and then a narrow centred slab in separate bands,
-   which made them look like two unrelated things rather than a choice.
 
-   Their heights are NOT forced to match. Stretching the shorter box to the
-   taller one's height only buys a stack of dead space inside it; what makes the
-   pair read as a matched set is the shared width, padding and corner, and those
-   are identical.
+   Centred content, on purpose, in both boxes. This is the second cut of this
+   section: the first tried a left-aligned "detail card" treatment here, and it
+   read as a settings panel rather than an offer. Centred is what makes a price
+   card look like a price card — everything reads as one column that funnels
+   down to the button, which is exactly what a "here's the deal, take it" box
+   should do.
 
    The paid one still pops: brass edge instead of a hairline, the frame shadow
    instead of the flat card shadow, a brass label, and the price set large. That
@@ -1158,7 +1161,7 @@ html.js .mini__arrow .head {
    else needs to shout. */
 .plans {
   margin: clamp(28px, 4vw, 44px) auto 0;
-  max-width: 620px;
+  max-width: 560px;
   display: grid;
   gap: 20px;
 }
@@ -1169,19 +1172,15 @@ html.js .mini__arrow .head {
   border-radius: var(--radius);
   box-shadow: var(--shadow-card);
   padding: clamp(26px, 3.4vw, 36px);
-  display: flex;
-  flex-direction: column;
+  text-align: center;
   transition: transform 260ms cubic-bezier(0.2, 0.7, 0.3, 1), box-shadow 260ms ease;
 }
-.plan p { max-width: none; color: var(--text-muted); }
+.plan p { max-width: none; margin-left: auto; margin-right: auto; color: var(--text-muted); }
 .plan h3 { margin-top: 10px; font-size: clamp(19px, 2.3vw, 23px); letter-spacing: -0.02em; }
 .plan h3 + p { margin-top: 10px; }
-/* Pins the CTA to the bottom of whichever box is the shorter one, so both
-   buttons sit on the same line as the boxes' lower edges. */
-.plan .btn { margin-top: auto; width: 100%; }
-.plan .plan__act { margin-top: auto; padding-top: 22px; }
-.plan .plan__act .btn { margin-top: 0; }
-.plan .trust { margin-top: 10px; font-size: 15px; color: var(--text-faint); text-align: center; }
+.plan .plan__act { margin-top: 22px; }
+.plan .btn { width: 100%; }
+.plan .trust { margin-top: 10px; font-size: 15px; color: var(--text-faint); }
 .plan .faint { margin-top: 12px; }
 
 .plan--pro {
@@ -1209,6 +1208,9 @@ html.js .mini__arrow .head {
 }
 .tier__price span { font-size: 16px; font-weight: 600; color: var(--text-faint); letter-spacing: 0; margin-left: 4px; }
 
+/* The checklist is the one thing in the box that stays left-aligned — a tick
+   list read centred loses its scan line down the left edge — inside a
+   container that is itself centred on the page. */
 .ticks {
   list-style: none;
   margin-top: 20px;
@@ -1216,6 +1218,7 @@ html.js .mini__arrow .head {
   border-top: 1px solid var(--hairline);
   display: grid;
   gap: 11px;
+  text-align: left;
 }
 .ticks li {
   display: grid;
@@ -1226,6 +1229,64 @@ html.js .mini__arrow .head {
   font-size: 16px;
 }
 .ticks svg { width: 19px; height: 19px; color: var(--accent); margin-top: 2px; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   THE "CREATE AN ACCOUNT FIRST" STEP  (Unlock full access, signed out)
+
+   Unlock full access used to jump straight into the app — a hard page
+   navigation, no warning, and the FIRST thing that greeted a signed-out visitor
+   over there was a sign-up sheet they hadn't been told was coming. This card
+   is that warning, shown IN PLACE on bitochess.com before anything navigates
+   anywhere, so "why am I being asked to sign up" is answered before it's asked.
+
+   It borrows the price card's own shape (brass edge, brass label, the frame
+   shadow) rather than a plain dialog box, so it reads as a continuation of the
+   offer the visitor just said yes to, not as a detour or a new decision. */
+.signup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--gutter);
+  background: rgba(28, 22, 16, 0.5);
+}
+@media (prefers-color-scheme: dark) { .signup-overlay { background: rgba(0, 0, 0, 0.6); } }
+.signup-overlay[hidden] { display: none; }
+
+.signup-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--bg-card);
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-frame);
+  padding: clamp(26px, 4vw, 34px);
+  text-align: center;
+}
+.signup-card h3 {
+  margin-top: 8px;
+  font-size: clamp(20px, 2.6vw, 24px);
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+.signup-card p { margin-top: 12px; max-width: none; color: var(--text-muted); font-size: 15px; line-height: 1.55; }
+.signup-card .btn { margin-top: 22px; width: 100%; }
+.signup-cancel {
+  display: block;
+  margin: 12px auto 0;
+  padding: 6px 10px;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-faint);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.signup-cancel:hover { color: var(--text); }
 
 /* ══════════════════════════════════════════════════════════════════════════
    THE CAROUSEL — "There's more than openings in here"
@@ -1355,27 +1416,35 @@ html.js .mini__arrow .head {
   margin-top: 42px;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 22px;
 }
 
 /* The portrait. A circle with a brass stroke and a hard offset shadow — the
    same two moves the speech bubble above it makes, so the pair reads as one
-   drawing. Slightly larger than the pixel-pawn placeholder it replaces, because
-   a face at 52px is a smudge. */
+   drawing. 150×150: big enough to read as a real portrait rather than an
+   avatar, which is the point of showing a face here at all. The whole thing is
+   a link (to marxal.net, same destination as the name beside it), so the stroke
+   gets a hover lift to say so. */
 .who__avatar {
   position: relative;
-  width: 64px; height: 64px;
+  display: block;
+  width: 150px; height: 150px;
   border-radius: 999px;
-  border: 2.5px solid var(--accent);
-  box-shadow: 4px 5px 0 var(--accent-soft);
+  border: 3px solid var(--accent);
+  box-shadow: 7px 8px 0 var(--accent-soft);
   background: var(--accent-soft);
   color: var(--accent);
-  display: grid;
-  place-items: center;
   flex: none;
   overflow: hidden;
+  transition: transform 200ms ease, box-shadow 200ms ease;
 }
-.who__avatar svg { width: 26px; height: 30px; shape-rendering: crispEdges; }
+.who__avatar svg {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 60px; height: 69px;
+  transform: translate(-50%, -50%);
+  shape-rendering: crispEdges;
+}
 .who__avatar svg rect { fill: currentColor; }
 /* Sits over the pixel pawn and hides it. If the file is ever missing the <img>
    removes itself (see the onerror in the markup) and the pawn shows through, so
@@ -1387,11 +1456,27 @@ html.js .mini__arrow .head {
   height: 100%;
   object-fit: cover;
 }
+@media (hover: hover) and (pointer: fine) {
+  .who__avatar:hover { transform: translate(-2px, -2px); box-shadow: 9px 10px 0 var(--accent-soft); }
+}
 
-.who__name { font-weight: 700; }
+.who__name { font-weight: 700; font-size: 17px; }
 .who__name a { color: inherit; text-decoration: none; border-bottom: 1.5px solid var(--accent); }
 .who__name a:hover { color: var(--accent-active); }
 .who__role { font-size: 15px; color: var(--text-faint); }
+
+/* Phone: bigger still, and stacked rather than side-by-side. A 190px circle
+   next to two lines of text in a ~350px-wide column leaves the text about
+   130px to work with — it would wrap into a ragged five-line strip. Centred
+   underneath the portrait is what an author card looks like at this size on a
+   narrow screen; the row layout stays for desktop, where the width is there
+   to spend. */
+@media (max-width: 899px) {
+  .who { flex-direction: column; text-align: center; gap: 20px; }
+  .who__avatar { width: 190px; height: 190px; }
+  .who__avatar svg { width: 76px; height: 87px; }
+  .who__role { max-width: 32ch; margin: 0 auto; }
+}
 
 /* ── THE COLOPHON — "About Bito Chess" ──────────────────────────────────────
    Its own band, immediately after "Why I made Bito Chess", and deliberately its
@@ -1399,15 +1484,20 @@ html.js .mini__arrow .head {
    It used to be a small grey box tucked under the signature, where it read as a
    footnote to the bubble rather than as its own answer to "who is behind this".
    Heading left, statement right, one panel — a shape that appears nowhere else
-   on the page. */
+   on the page.
+
+   Dressed the same way the legal pages' "short version" box is (docs/legal.css
+   .tldr): a brass rule down the left edge instead of an all-round hairline, and
+   the app icon sitting above the heading so the panel isn't just a slab of
+   text — it has the same face the top bar and every CTA carry. */
 .colophon {
   background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-card);
+  border-left: 4px solid var(--accent);
+  border-radius: 6px var(--radius) var(--radius) 6px;
+  box-shadow: var(--shadow-frame);
   padding: clamp(26px, 4vw, 46px);
   display: grid;
-  gap: 16px;
+  gap: 18px;
 }
 @media (min-width: 820px) {
   .colophon {
@@ -1416,6 +1506,16 @@ html.js .mini__arrow .head {
     align-items: start;
   }
 }
+.colophon__head { display: flex; flex-direction: column; gap: 14px; }
+.colophon__icon {
+  width: 52px; height: 52px;
+  border-radius: 24%;
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-card);
+  flex: none;
+}
+.colophon__icon img { width: 100%; height: 100%; display: block; }
 .colophon h2 { font-size: clamp(22px, 2.8vw, 30px); }
 .colophon p {
   max-width: 52ch;
@@ -2068,7 +2168,7 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
         <div class="reveal">
           <div class="plan plan--pro">
             <p class="tier__name">Full Access</p>
-            <h3>Your whole repertoire. One payment.</h3>
+            <h3>Your whole repertoire.</h3>
             <p class="tier__price">9€ <span>one payment</span></p>
             <p>Want to train everything you’ve built? Bito Chess is a solo project — no ads, no investors, no subscriptions. Full Access unlocks unlimited training and helps fund what’s next.</p>
             <ul class="ticks">
@@ -2105,7 +2205,7 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
         </div>
 
         <div class="who reveal">
-          <span class="who__avatar">
+          <a class="who__avatar" href="https://marxal.net" target="_blank" rel="noopener noreferrer" aria-label="Marçal, marxal.net">
             <!-- The pixel pawn is the FALLBACK, not the picture. If marcal.png
                  is ever missing the <img> deletes itself and the pawn shows
                  through, so the page can never render a broken-image icon. -->
@@ -2120,9 +2220,9 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
               <rect x="2" y="16" width="5" height="2"/>
               <rect x="9" y="16" width="5" height="2"/>
             </svg>
-            <img class="who__photo" src="marcal.png" alt="Marçal" width="600" height="600"
+            <img class="who__photo" src="marcal.png" alt="" width="600" height="600"
                  onerror="this.remove()" />
-          </span>
+          </a>
           <span>
             <span class="who__name"><a href="https://marxal.net" target="_blank" rel="noopener noreferrer">Marçal</a></span><br />
             <span class="who__role">Designer, chess player, and the whole team behind Bito Chess.</span>
@@ -2140,7 +2240,10 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
     <div class="inner">
       <div class="reveal">
         <div class="colophon">
-          <h2>About Bito Chess</h2>
+          <div class="colophon__head">
+            <span class="colophon__icon"><img src="app-icon.png" alt="" width="512" height="512" /></span>
+            <h2>About Bito Chess</h2>
+          </div>
           <p>Bito Chess is a one-person project. There are no investors, no ads, and no business model based on selling your data. An account is strictly optional and is only used to sync your data across devices. Upgrading to Full Access helps keep the project alive.</p>
         </div>
       </div>
@@ -2196,6 +2299,21 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
      display is JS-gated in CSS so it never appears without JavaScript. -->
 <div class="cta-bar" id="cta-bar">
   <a class="btn js-app" href="/app/">Try Bito Chess →</a>
+</div>
+
+<!-- The "create an account first" step. Shown ON THIS PAGE, before the visitor
+     ever leaves it, when Unlock full access is tapped signed out — see step 8
+     in the script below. Hidden by default; JS is what removes [hidden], so
+     with JS off the button falls back to its plain link behaviour and this
+     markup is simply never shown. -->
+<div class="signup-overlay" id="signup-overlay" hidden>
+  <div class="signup-card" role="dialog" aria-modal="true" aria-labelledby="signup-title">
+    <p class="tier__name">Full Access</p>
+    <h3 id="signup-title">Create your Bito Chess account first</h3>
+    <p>Full Access is tied to your account, so it follows you to any device you sign in on — and comes back if you ever reinstall. You’ll create it on the next screen, then land straight back at checkout.</p>
+    <button type="button" class="btn btn--buy" id="signup-continue">Create account →</button>
+    <button type="button" class="signup-cancel" id="signup-cancel">Not now</button>
+  </div>
 </div>
 
 <script>
@@ -2478,8 +2596,32 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
   }
 
   /* ── 8. The buy button ───────────────────────────────────────────────────
-     See CHECKOUT_URL at the top of this script for what each branch is for. */
+     See CHECKOUT_URL at the top of this script for what each branch is for.
+
+     Signed out, this used to navigate straight into the app — a hard page
+     load, with no warning that a sign-up sheet was the first thing waiting on
+     the other side. Now it shows the "create an account first" card ON THIS
+     PAGE (#signup-overlay, styled to match the price card it grew out of) and
+     ONLY that card's own button makes the jump. Signed in, nothing changes:
+     straight to Lemon Squeezy, same as always. */
   var buy = document.getElementById('buy');
+  var signupOverlay = document.getElementById('signup-overlay');
+  var signupContinue = document.getElementById('signup-continue');
+  var signupCancel = document.getElementById('signup-cancel');
+
+  function goToSignup() {
+    /* `buy=1` rides along so the app knows this person came here to PAY, not
+       to sign up — it opens the checkout itself the moment the account
+       exists, instead of dropping them on the Train screen with their intent
+       quietly discarded. */
+    location.href = appUrl('/app/?auth=signup&buy=1');
+  }
+
+  function closeSignupOverlay() {
+    if (!signupOverlay) return;
+    signupOverlay.hidden = true;
+    if (buy) buy.focus();               /* back to the button that opened it */
+  }
 
   if (buy) {
     buy.addEventListener('click', function () {
@@ -2488,11 +2630,12 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
         return;
       }
       if (!session || !session.id) {
-        /* No account yet. `buy=1` rides along so the app knows this person came
-           here to PAY, not to sign up — it opens the checkout itself the moment
-           the account exists, instead of dropping them on the Train screen with
-           their intent quietly discarded. */
-        location.href = appUrl('/app/?auth=signup&buy=1');
+        if (signupOverlay) {
+          signupOverlay.hidden = false;
+          requestAnimationFrame(function () { if (signupContinue) signupContinue.focus(); });
+        } else {
+          goToSignup();
+        }
         return;
       }
       var join = CHECKOUT_URL.indexOf('?') === -1 ? '?' : '&';
@@ -2504,6 +2647,17 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
       var note = document.getElementById('buy-note');
       if (note) note.textContent = 'Secure checkout via Lemon Squeezy. The unlock lands on the account you’re signed in to.';
     }
+  }
+
+  if (signupOverlay) {
+    if (signupContinue) signupContinue.addEventListener('click', goToSignup);
+    if (signupCancel) signupCancel.addEventListener('click', closeSignupOverlay);
+    signupOverlay.addEventListener('click', function (e) {
+      if (e.target === signupOverlay) closeSignupOverlay();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !signupOverlay.hidden) closeSignupOverlay();
+    });
   }
 
   /* ── 9. The playable board ───────────────────────────────────────────────

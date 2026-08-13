@@ -34,6 +34,11 @@ The icon and the wordmark are one lockup on the **left**, in that order, and the
 icon shrinks into the bar as the page scrolls. Signed in, the button becomes
 **Open app** and every CTA becomes **Open Bito Chess →**.
 
+**Sign in sits on the icon's centre line too**, same as the wordmark: at rest
+the icon overhangs the bar and everything beside it is centred on the icon's
+middle, not the bar's — Sign in used the bar's own centre until this pass and
+sat visibly higher than "bito chess" the moment the page loaded at the top.
+
 ---
 
 ## [HERO]
@@ -104,7 +109,11 @@ Confetti fires when a line completes. Black’s worse moves carry ?? / ? marks.
 
 ---
 
-## [YOUR GAMES] — an editorial block: ink rule, big opening line, detail beside it
+## [YOUR GAMES] — an editorial block: big opening line, detail beside it
+
+Left-aligned and asymmetric, never centred — that's the one section on the page
+this rule applies to; the two-plans section below is the opposite case (see
+below). No rule/divider across the top either — cut after the first draft.
 
 **H2:** Prepare for the games you actually play
 
@@ -142,7 +151,7 @@ Track your training streaks, move memory, puzzle rating, and win rates by openin
 
 ---
 
-## [THE TWO PLANS] — one section, two boxes of the same size, stacked
+## [THE TWO PLANS] — one section, two boxes of the same size, stacked, CENTRED
 
 > **The paid box is duplicated in the app** — `src/pro-sheet.ts` shows the same
 > offer in the upgrade popup, shorter. Change both.
@@ -150,6 +159,12 @@ Track your training streaks, move memory, puzzle rating, and win rates by openin
 > The price is written **9€**, symbol after the number, in both places.
 > There is deliberately no “€0” on the free box: a price of zero invites the
 > reader to price-compare something that isn’t for sale.
+>
+> Both boxes are CENTRED (heading, price, body copy) — this is the opposite
+> choice from [YOUR GAMES] above, and deliberately so: a price card reads as a
+> price card when everything funnels down to one button in the middle. Only the
+> Full Access checklist stays left-aligned inside the centred box — a tick list
+> read centred loses its scan line down the left edge.
 
 **H2:** Start free
 
@@ -165,9 +180,12 @@ Build and save as many repertoire lines as you want. Explore the opening library
 
 ### Box 2 — Full Access (brass edge, deeper shadow: the premium one)
 
-**FULL ACCESS** · **Your whole repertoire. One payment.**
+**FULL ACCESS** · **Your whole repertoire.**
 
 **9€** one payment
+
+“One payment” is written once now, next to the price where it belongs (not
+also in the headline — it repeated itself in an earlier draft).
 
 Want to train everything you’ve built? Bito Chess is a solo project — no ads, no investors, no subscriptions. Full Access unlocks unlimited training and helps fund what’s next.
 
@@ -184,6 +202,22 @@ signed in to.”)*
 **“A Bito Chess account”, never just “an account”** — the next screen after this
 one belongs to Lemon Squeezy, and nobody should have to work out which of the
 two accounts they are being asked for. Same wording in `src/checkout.ts`.
+
+**Signed out, Unlock full access opens a card ON THIS PAGE first** — it used to
+navigate straight into the app with no warning. `#signup-overlay` in
+`docs/index.html`, styled to match this price card (same brass edge, same
+`.tier__name` label):
+
+> **FULL ACCESS**
+> ### Create your Bito Chess account first
+> Full Access is tied to your account, so it follows you to any device you sign
+> in on — and comes back if you ever reinstall. You’ll create it on the next
+> screen, then land straight back at checkout.
+>
+> **Create account →** · Not now
+
+Only that card's own button makes the jump to `/app/?auth=signup&buy=1`.
+Signed in, the card never appears — straight to Lemon Squeezy, unchanged.
 
 ---
 
@@ -203,17 +237,26 @@ If it helps other players enjoy studying chess as much as I do, even better.
 
 **Signature:** Marçal — Designer, chess player, and the whole team behind Bito Chess.
 
-The name links to **marxal.net**. The portrait next to it is `docs/marcal.png`,
-shown as a circle with a brass stroke and a hard offset shadow, echoing the
-speech bubble. If that file is missing the page falls back to the pixel pawn
-rather than a broken image.
+Both the name **and** the portrait link to **marxal.net**. The portrait is
+`docs/marcal.png`, shown as a circle with a brass stroke and a hard offset
+shadow, echoing the speech bubble — big enough to read as a real portrait, not
+an avatar. If that file is missing the page falls back to the pixel pawn rather
+than a broken image.
+
+**150×150 on desktop, 190×190 and stacked on a phone.** Below 900px the row
+(portrait beside two lines of text) doesn't have the width to spend — a bigger
+circle next to a name and role would squeeze the text into a five-line ribbon —
+so the layout switches to portrait-above, name-and-role-below, both centred.
 
 ---
 
-## [ABOUT] — its own band, a single bordered panel: heading left, statement right
+## [ABOUT] — its own band, one panel with a brass rule: icon + heading left, statement right
 
 The sober counterpart to the section above it — the same subject as fact rather
-than as a story.
+than as a story. Dressed the way the legal pages' "short version" box is
+(`docs/legal.css` `.tldr`): a brass rule down the left edge, plus the app icon
+above the heading so the panel carries the same face as the top bar rather than
+reading as a slab of plain text.
 
 **H2:** About Bito Chess
 
