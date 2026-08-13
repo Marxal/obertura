@@ -1667,16 +1667,9 @@ main {
   text-wrap: balance;
 }
 
-.pro-lead {
-  margin-top: 12px;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text);
-}
-
 .pro-body {
-  margin-top: 8px;
-  font-size: 0.88rem;
+  margin-top: 10px;
+  font-size: 0.92rem;
   line-height: 1.55;
   color: var(--text-muted);
 }
@@ -1698,8 +1691,8 @@ main {
   color: var(--text);
 }
 .pro-price span {
-  margin-left: 6px;
-  font-size: 0.95rem;
+  margin-left: 8px;
+  font-size: 0.9rem;
   font-weight: 600;
   letter-spacing: 0;
   color: var(--text-faint);
@@ -1736,13 +1729,6 @@ main {
   color: var(--text);
 }
 .pro-points svg { color: var(--accent); flex: none; margin-top: 1px; }
-
-.pro-limit {
-  margin-top: var(--space-md);
-  font-size: 0.78rem;
-  line-height: 1.45;
-  color: var(--text-faint);
-}
 
 .pro-buy {
   margin-top: var(--space-lg);

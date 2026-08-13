@@ -10,12 +10,13 @@ generates it from this document, so the two only stay in sync by hand.
 One rendering note: the page sets apostrophes as typographic quotes (’) rather
 than straight quotes ('). The wording below is identical either way.
 
-**Two blocks below are also duplicated in the app**, and have to move together:
+**Two things below are also in the app**, and have to move together:
 
-- **[FULL ACCESS]** is the wording of the app's upgrade popup
-  (`src/pro-sheet.ts`). The app can't import from a static file in `docs/`, so
-  the strings are typed out in both places.
-- **€9** lives in three places that can't import from one another: this page,
+- The **Full Access box** in [THE TWO PLANS] is the wording of the app's upgrade
+  popup (`src/pro-sheet.ts`), which runs a shortened version of it. The app
+  can't import from a static file in `docs/`, so the strings are typed out in
+  both places.
+- **9€** lives in three places that can't import from one another: this page,
   the app's `PRO_PRICE` (`src/entitlement.ts`), and the Lemon Squeezy product.
   Change all three together — and note the store is the one that actually
   charges, so if they disagree it is right and the others are the bug.
@@ -103,17 +104,13 @@ Confetti fires when a line completes. Black’s worse moves carry ?? / ? marks.
 
 ---
 
-## [YOUR GAMES] — centred, the only symmetrical band on the page
+## [YOUR GAMES] — an editorial block: ink rule, big opening line, detail beside it
 
 **H2:** Prepare for the games you actually play
 
-Chess study is much more useful when it starts with your own games.
+**Opening line (set large):** Chess study is much more useful when it starts with your own games.
 
-Import your Chess.com, Lichess or enter your tournament games. Bito can show you where your opening play is working — and where it isn’t. Find the openings you keep struggling with. Discover mistakes that keep coming back. Turn those positions into things you can practise.
-
-And when you’re preparing for an opponent, scout what they really play. See their favourite openings, their strongest and weakest areas, and build the lines you’ll actually face.
-
-**Pull quote:** Prepare for the board you’re going to sit down at — not a hypothetical one.
+**Body:** Import your Chess.com, Lichess or enter your tournament games. Bito can show you where your opening play is working — and where it isn’t. Find the openings you keep struggling with. Discover mistakes that keep coming back. Turn those positions into things you can practise.
 
 ---
 
@@ -145,38 +142,48 @@ Track your training streaks, move memory, puzzle rating, and win rates by openin
 
 ---
 
-## [START FREE] — one full-width card
+## [THE TWO PLANS] — one section, two boxes of the same size, stacked
+
+> **The paid box is duplicated in the app** — `src/pro-sheet.ts` shows the same
+> offer in the upgrade popup, shorter. Change both.
+>
+> The price is written **9€**, symbol after the number, in both places.
+> There is deliberately no “€0” on the free box: a price of zero invites the
+> reader to price-compare something that isn’t for sale.
 
 **H2:** Start free
 
 **Intro:** Use Bito Chess without an account — or sign up free to sync your repertoire across devices.
 
-**Free — €0.** Build and save as many repertoire lines as you want. Explore the opening library. Import games. Solve puzzles. Analyse positions. Train up to 10 lines at a time. *Everything you need to get started.* · **Try Bito Chess →** · No signup required.
+### Box 1 — Free
 
----
+**FREE** · **Everything you need to get started.**
 
-## [FULL ACCESS] — a centred, brass-edged slab
+Build and save as many repertoire lines as you want. Explore the opening library. Import games. Solve puzzles. Analyse positions. Train up to 10 lines at a time.
 
-> **This section is duplicated in the app** — `src/pro-sheet.ts` shows the same
-> words in the upgrade popup. Change both.
+**Try Bito Chess →** · No signup required.
 
-**H2:** Your whole repertoire. One payment.
+### Box 2 — Full Access (brass edge, deeper shadow: the premium one)
 
-**Lead:** Want to train everything you’ve built?
+**FULL ACCESS** · **Your whole repertoire. One payment.**
 
-Bito Chess is a solo project — no ads, no investors, no subscriptions. Full Access unlocks unlimited training and helps fund what’s next.
+**9€** one payment
+
+Want to train everything you’ve built? Bito Chess is a solo project — no ads, no investors, no subscriptions. Full Access unlocks unlimited training and helps fund what’s next.
 
 - Unlimited active training rotation
 - One-time payment, no subscription ever
 
-**€9 once** · **Full Access & Project Support** · Your entire repertoire, always available for training.
-
 **CTA:** Unlock full access →
 
-**Under the buy button:** Secure checkout via Lemon Squeezy. An account is
-required so your purchase can follow you across devices. *(Signed in: “Secure
-checkout via Lemon Squeezy. The unlock lands on the account you’re signed in
-to.”)*
+**Under the buy button:** Secure checkout via Lemon Squeezy. A Bito Chess
+account is required so your purchase can follow you across devices. *(Signed in:
+“Secure checkout via Lemon Squeezy. The unlock lands on the account you’re
+signed in to.”)*
+
+**“A Bito Chess account”, never just “an account”** — the next screen after this
+one belongs to Lemon Squeezy, and nobody should have to work out which of the
+two accounts they are being asked for. Same wording in `src/checkout.ts`.
 
 ---
 
@@ -196,7 +203,19 @@ If it helps other players enjoy studying chess as much as I do, even better.
 
 **Signature:** Marçal — Designer, chess player, and the whole team behind Bito Chess.
 
-**About Bito Chess**
+The name links to **marxal.net**. The portrait next to it is `docs/marcal.png`,
+shown as a circle with a brass stroke and a hard offset shadow, echoing the
+speech bubble. If that file is missing the page falls back to the pixel pawn
+rather than a broken image.
+
+---
+
+## [ABOUT] — its own band, a single bordered panel: heading left, statement right
+
+The sober counterpart to the section above it — the same subject as fact rather
+than as a story.
+
+**H2:** About Bito Chess
 
 Bito Chess is a one-person project. There are no investors, no ads, and no business model based on selling your data. An account is strictly optional and is only used to sync your data across devices. Upgrading to Full Access helps keep the project alive.
 

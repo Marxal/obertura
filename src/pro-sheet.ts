@@ -1,13 +1,17 @@
-// The Full Access popup — the app's half of the "Your whole repertoire. One
-// payment." pitch on bitochess.com.
+// The Full Access popup — the app's half of the offer on bitochess.com.
 //
 // WHY THIS IS NOT showDialog(). The upgrade offer used to be a generic
 // title + one paragraph + two buttons, which is the right shape for "save or
 // discard?" and the wrong shape for the only screen in the app that asks
 // somebody for money. This one is centred at every width (not a bottom sheet on
-// a phone), leads with the price, and says the same four things the website
-// says, in the same words. Someone who read the landing page and then met a cap
-// three weeks later should recognise the offer, not re-evaluate it.
+// a phone), leads with the price, and says the same things the website says, in
+// the same words. Someone who read the landing page and then met a cap three
+// weeks later should recognise the offer, not re-evaluate it.
+//
+// KEEP IT SHORT. A popup that asks for money and then makes you read four
+// paragraphs first gets dismissed. The website has room to explain that this is
+// a solo project with no ads and no investors; here the question is just "do you
+// want this", so it opens on that question and everything else has been cut.
 //
 // THE WORDING IS THE LANDING PAGE'S WORDING, deliberately duplicated rather
 // than derived: docs/index.html is a standalone static file that cannot import
@@ -27,11 +31,8 @@ export interface ProSheetOptions {
   // user opened the offer themselves, where a number they haven't reached would
   // just be wrong.
   eyebrow?: string;
-  // '€9' — passed in so the price lives in exactly one constant (PRO_PRICE).
+  // '9€' — passed in so the price lives in exactly one constant (PRO_PRICE).
   price: string;
-  // How many lines the free tier trains at once, for the one line that has to
-  // state the actual limit.
-  freeLines: number;
   // Tapped "Unlock full access". The sheet closes first, then this runs.
   onBuy: () => void;
 }
@@ -76,21 +77,16 @@ export function openProSheet(opts: ProSheetOptions): void {
     sheet.appendChild(eyebrow);
   }
 
+  // The question IS the title. There used to be a headline above this one
+  // ("Your whole repertoire. One payment.") saying the same thing twice.
   const title = document.createElement('h3');
   title.className = 'pro-title';
-  title.textContent = 'Your whole repertoire. One payment.';
+  title.textContent = 'Want to train everything you’ve built?';
   sheet.appendChild(title);
-
-  const lead = document.createElement('p');
-  lead.className = 'pro-lead';
-  lead.textContent = 'Want to train everything you’ve built?';
-  sheet.appendChild(lead);
 
   const body = document.createElement('p');
   body.className = 'pro-body';
-  body.textContent =
-    'Bito Chess is a solo project — no ads, no investors, no subscriptions. '
-    + 'Full Access unlocks unlimited training and helps fund what’s next.';
+  body.textContent = 'Full Access unlocks unlimited training and helps fund what’s next.';
   sheet.appendChild(body);
 
   // ── The price card ──────────────────────────────────────────────────────────
@@ -101,7 +97,7 @@ export function openProSheet(opts: ProSheetOptions): void {
   price.className = 'pro-price';
   price.appendChild(document.createTextNode(opts.price));
   const once = document.createElement('span');
-  once.textContent = 'once';
+  once.textContent = 'one payment';
   price.appendChild(once);
   card.appendChild(price);
 
@@ -129,14 +125,6 @@ export function openProSheet(opts: ProSheetOptions): void {
 
   sheet.appendChild(card);
 
-  // The one line that states the actual limit being lifted. It sits under the
-  // card rather than in the pitch: the offer is what's on sale, this is the
-  // fact behind it.
-  const limit = document.createElement('p');
-  limit.className = 'pro-limit';
-  limit.textContent = `Free training rotation: ${opts.freeLines} lines at a time. Saving lines is unlimited either way.`;
-  sheet.appendChild(limit);
-
   let closed = false;
   function close(): void {
     if (closed) return;
@@ -154,9 +142,12 @@ export function openProSheet(opts: ProSheetOptions): void {
 
   const note = document.createElement('p');
   note.className = 'pro-note';
+  // "A Bito Chess account", not "an account" — at this point in the flow the
+  // reader has Lemon Squeezy on screen and no reason to know which of the two
+  // they are being asked to create.
   note.textContent =
-    'Secure checkout via Lemon Squeezy. An account is required so your purchase '
-    + 'can follow you across devices.';
+    'Secure checkout via Lemon Squeezy. A Bito Chess account is required so your '
+    + 'purchase can follow you across devices.';
   sheet.appendChild(note);
 
   const later = document.createElement('button');
