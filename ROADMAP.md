@@ -1696,37 +1696,18 @@ documents finally exist, and the last third-party request on the site is gone.
   (30.5px in a 390px-wide viewport) both at rest and scrolled. The previous
   pass's fix already covered mobile; no separate mobile-only rule was needed.
 
-### Fifth pass — buying without leaving the page
+### Fifth pass — buying without leaving the page (tried, then reverted — see sixth pass)
 
-- ✅ **The account step is a real form now, run from the landing page.** The
-  fourth pass replaced a silent hand-off with a card that said "you're about to
-  be asked to sign up" — which is still a speed bump in front of the same
-  hand-off. A signed-out visitor who taps Unlock full access now creates the
-  account *here* and the next page they see is the checkout. They never load the
-  app to buy.
-
-  Supabase's auth API is plain REST, so this needed no SDK on a page that has no
-  build step: two POSTs (`/auth/v1/signup`, `/auth/v1/token`) and the returned
-  session written to `obertura.supabase.auth` — the same key the app reads — so
-  signing up on the website leaves you signed in inside the app too.
-
-  **The follow-up step matters as much as the form.** When Supabase holds the
-  session back until the email is confirmed, the card switches to "Confirm your
-  email… your checkout is waiting" with an *I've confirmed — continue* button
-  that retries the sign-in with the credentials already typed. Without it the
-  flow dead-ends at "check your inbox" with nothing to press, which is the worst
-  possible place to lose someone.
-
-  **Google is deliberately still a hand-off** — it needs a PKCE round trip and a
-  code exchange, exactly the part worth leaving to supabase-js. The card links
-  out to the app for it.
-
-  **Progressive enhancement, not a hard dependency.** `vite.config.ts`'s
-  cloudflare plugin substitutes two placeholders into the copied landing page;
-  with no `VITE_SUPABASE_*` env vars they stay as placeholders, `canSignUpHere`
-  is false, and the buy button hands over to the app exactly as before. That is
-  the GitHub Pages mirror's behaviour, where no Supabase project exists at all.
-  Both values are public — the anon key already ships inlined in the app bundle.
+- ⏪ **The account step became a real form, run from the landing page** — two
+  Supabase REST calls (`/auth/v1/signup`, `/auth/v1/token`), an email-confirm
+  follow-up step, a session written straight to `obertura.supabase.auth`, all
+  driven from `vite.config.ts` substituting two build-time placeholders into the
+  static page. It worked end to end, but it read as more form than the moment
+  called for — a New account/Sign in tab strip, two labelled fields and a
+  submit button is a bigger ask than "buy this". **Reverted in the sixth pass**
+  back to the fourth pass's one-step interstitial. The code and the writeup stay
+  here as a record of what was tried and why it didn't stick — not a set of
+  instructions to re-apply.
 
 - ✅ **The speech bubble's tail points at the portrait.** It was pinned at a
   hard-coded 44px, which meant nothing on desktop and hung off into empty margin
@@ -1742,6 +1723,23 @@ documents finally exist, and the last third-party request on the site is gone.
   and Lemon Squeezy is no longer named under the buy button — a payment
   processor the reader hasn't heard of is a question, not reassurance, and they
   meet the name on the checkout page anyway.
+
+### Sixth pass — the account form reverted to the interstitial
+
+- ⏪ **Back to the one-step "create an account first" card.** The fifth pass's
+  form did the job but felt like too much friction in front of a €9 purchase —
+  a tab strip, two fields and a submit button where a single sentence and one
+  button used to be enough. `#signup-overlay` / `#signup-card` are back exactly
+  as the fourth pass shipped them: brass-edged card, one line explaining why an
+  account is needed, **Create account →** to `/app/?auth=signup&buy=1`, **Not
+  now** to dismiss. `vite.config.ts`'s Supabase placeholder substitution is
+  gone with it — the landing page needs nothing from the build beyond the
+  Lemon Squeezy checkout URL again.
+
+  Everything from the fifth pass that had nothing to do with the form stayed:
+  the bubble tail's `--avatar`-derived aim, "passionate chess player", the
+  shorter Full Access paragraph, and Lemon Squeezy dropped from the buy-note
+  copy.
 
 _On `claude/bito-chess-ui-redesign-gh3dd2`. Restore point: `v0.4`._
 
