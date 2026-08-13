@@ -49,6 +49,17 @@ scheme (old v1.x tags left intact; v1.0→v0.1 … v1.3→v0.3 conceptually). La
 rollback tag is `v0.4`. `ROADMAP.md` records every round phase by phase.
 Confirm scope before starting new work.
 
+## Public documents
+`docs/` holds four hand-written static pages, copied wholesale by both deploy
+targets: `index.html` (the landing page), `privacy.html`, `terms.html` and
+`licences.html`, sharing `legal.css`. Nothing generates them. The landing copy's
+source of truth is `docs/LANDING-COPY.md` — edit there first, then mirror.
+`src/legal.ts` resolves the right URL for each host so the app can link to them.
+
+No Google Fonts, anywhere. Chakra Petch is self-hosted (`src/fonts/` for the
+app, `docs/fonts/` for the static pages) because the privacy policy promises no
+third-party requests. Don't reintroduce the `<link>`.
+
 ## Data model (get right early)
 - Repertoire: "my White lines" or "my Black lines".
 - Line: belongs to a repertoire; has name, tags, openingName, colour,

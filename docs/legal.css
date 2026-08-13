@@ -1,0 +1,338 @@
+/* ════════════════════════════════════════════════════════════════════════════
+   Bito Chess — the document pages (privacy.html, terms.html, licences.html)
+
+   The landing page inlines everything because it is one screen someone lands on
+   cold and every extra request is a delay before the first paint. These three
+   are the opposite case: nobody arrives here first, they are read rather than
+   scanned, and there are three of them — so one shared stylesheet is both
+   cheaper and the only way the three stay identical.
+
+   TOKENS ARE COPIED FROM docs/index.html, which copied them from src/style.css.
+   There is no import mechanism (these are hand-written static files served from
+   the site root), so if the app palette moves, re-copy the whole :root block
+   rather than patching values one at a time.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* The same self-hosted wordmark font the landing page and the app use. No
+   Google Fonts request, which is the promise the privacy policy makes. */
+@font-face {
+  font-family: 'Chakra Petch';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('fonts/chakra-petch-700-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Chakra Petch';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('fonts/chakra-petch-700-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+:root {
+  color-scheme: light;
+
+  --bg-page: #f1ece1;
+  --bg-card: #faf8f5;
+  --bg-parchment: #f8f3ea;
+  --bg-elevated: #ede5d5;
+
+  --text: #1c1610;
+  --text-muted: #5c4838;
+  --text-faint: #7a6353;
+
+  --border: #d0c4b4;
+  --border-card: #e2dcd2;
+  --hairline: rgba(28, 22, 16, 0.09);
+
+  --accent: #c07a2a;
+  --accent-active: #9f6220;
+  --accent-soft: rgba(192, 122, 42, 0.12);
+
+  --primary: #3e6650;
+  --primary-active: #345646;
+  --on-primary: #fff;
+
+  --shadow-card: 0 1px 3px rgba(28, 22, 16, 0.07), 0 1px 2px rgba(28, 22, 16, 0.04);
+  --shadow-bar: 0 2px 14px rgba(28, 22, 16, 0.08);
+
+  --fill-faint: rgba(28, 22, 16, 0.025);
+  --paper-speckle: rgba(120, 90, 50, 0.035);
+
+  --radius: 20px;
+  --gutter: 22px;
+  --bar-h: 62px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --bg-page: #211c16;
+    --bg-card: #2c261e;
+    --bg-parchment: #2d271f;
+    --bg-elevated: #261e17;
+
+    --text: #efe6d6;
+    --text-muted: #c4b49c;
+    --text-faint: #a8957c;
+
+    --border: #47392c;
+    --border-card: #3d352a;
+    --hairline: rgba(239, 230, 214, 0.10);
+
+    --accent: #d4892c;
+    --accent-active: #b8721f;
+    --accent-soft: rgba(212, 137, 44, 0.22);
+
+    --primary: #527d63;
+    --primary-active: #466b54;
+
+    --shadow-card: none;
+    --shadow-bar: 0 2px 14px rgba(0, 0, 0, 0.35);
+
+    --fill-faint: rgba(239, 230, 214, 0.03);
+    --paper-speckle: rgba(239, 230, 214, 0.030);
+  }
+}
+
+@media (min-width: 900px) { :root { --gutter: 40px; --bar-h: 72px; } }
+
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; padding: 0; }
+
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 17px;
+  line-height: 1.65;
+  color: var(--text);
+  background-color: var(--bg-page);
+  background-image:
+    radial-gradient(var(--paper-speckle) 1px, transparent 1.4px),
+    radial-gradient(var(--paper-speckle) 1px, transparent 1.4px);
+  background-size: 24px 24px, 37px 37px;
+  background-position: 0 0, 12px 19px;
+  -webkit-font-smoothing: antialiased;
+  padding-top: var(--bar-h);
+}
+@media (min-width: 900px) { body { font-size: 18px; } }
+
+::selection { background: var(--accent-soft); }
+
+a { color: var(--accent-active); text-underline-offset: 3px; }
+a:hover { color: var(--accent); }
+@media (prefers-color-scheme: dark) { a { color: var(--accent); } }
+
+a:focus-visible, button:focus-visible {
+  outline: 3px solid var(--text);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.skip {
+  position: absolute; left: -9999px; top: 0; z-index: 100;
+  background: var(--primary); color: var(--on-primary);
+  padding: 14px 22px; border-radius: 0 0 var(--radius) 0;
+  font-weight: 600; text-decoration: none;
+}
+.skip:focus { left: 0; }
+
+.wordmark {
+  font-family: 'Chakra Petch', ui-monospace, monospace;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--accent);
+  text-transform: lowercase;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* ── Top bar ────────────────────────────────────────────────────────────────
+   Icon then wordmark, both on the left, matching the landing page's arrangement
+   exactly. Fixed and always in its "scrolled" state: these pages are documents,
+   so there is no hero for a transparent bar to sit over. */
+.topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 50;
+  height: var(--bar-h);
+  background: var(--bg-page);
+  border-bottom: 1px solid var(--hairline);
+  box-shadow: var(--shadow-bar);
+}
+.topbar__inner {
+  height: 100%;
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.brand { display: flex; align-items: center; gap: 11px; text-decoration: none; }
+.brand__mark {
+  width: 34px; height: 34px;
+  border-radius: 24%;
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-card);
+  flex: none;
+}
+.brand__mark img { width: 100%; height: 100%; display: block; }
+.brand .wordmark { font-size: 19px; }
+
+.topbar__link {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.topbar__link:hover { color: var(--text); }
+
+/* ── The document ─────────────────────────────────────────────────────────── */
+.doc {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: clamp(38px, 7vw, 72px) var(--gutter) 20px;
+}
+
+.doc h1 {
+  font-size: clamp(32px, 6vw, 48px);
+  line-height: 1.06;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.doc__meta {
+  margin-top: 12px;
+  font-size: 15px;
+  color: var(--text-faint);
+}
+
+/* The plain-English summary that opens both documents. Set apart so it reads as
+   what it is: the version most people will actually read. */
+.tldr {
+  margin-top: 30px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-left: 4px solid var(--accent);
+  border-radius: 6px var(--radius) var(--radius) 6px;
+  box-shadow: var(--shadow-card);
+  padding: clamp(20px, 3vw, 28px);
+}
+/* Overrides the section-heading rhythm below: this one opens its own box and
+   has nothing above it to be separated from. */
+.tldr h2 {
+  margin-top: 0;
+  font-size: 13px;
+  font-family: 'Chakra Petch', ui-monospace, monospace;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 12px;
+}
+.tldr p + p { margin-top: 12px; }
+
+.doc h2 {
+  font-size: clamp(21px, 3vw, 27px);
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  margin-top: clamp(38px, 5vw, 54px);
+  text-wrap: balance;
+}
+.doc h3 {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  margin-top: 30px;
+}
+.doc p { margin-top: 14px; color: var(--text-muted); }
+.doc h2 + p, .doc h3 + p { margin-top: 12px; }
+.doc strong { color: var(--text); font-weight: 700; }
+
+.doc ul { margin-top: 14px; list-style: none; }
+.doc li { position: relative; padding-left: 1.35em; color: var(--text-muted); }
+.doc li + li { margin-top: 10px; }
+.doc li::before {
+  content: "–";
+  position: absolute; left: 0; top: 0;
+  color: var(--primary);
+  font-weight: 700;
+}
+
+/* Tables scroll inside their own box rather than widening the page. */
+.doc__table {
+  margin-top: 18px;
+  overflow-x: auto;
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  background: var(--bg-card);
+}
+.doc table { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 15px; }
+.doc th, .doc td { text-align: left; padding: 11px 14px; vertical-align: top; }
+.doc th {
+  font-weight: 700;
+  color: var(--text);
+  border-bottom: 1px solid var(--border-card);
+  white-space: nowrap;
+}
+.doc td { color: var(--text-muted); border-top: 1px solid var(--hairline); }
+.doc tbody tr:first-child td { border-top: 0; }
+
+/* The one thing on these pages that is an action rather than a sentence. */
+.doc__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  margin-top: 34px;
+  padding: 12px 26px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 2px 6px rgba(62, 102, 80, 0.26);
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+.doc__cta:hover { background: var(--primary-active); color: var(--on-primary); box-shadow: 0 6px 18px rgba(62, 102, 80, 0.3); }
+
+/* ── Footer ───────────────────────────────────────────────────────────────── */
+.foot {
+  margin-top: clamp(48px, 7vw, 84px);
+  background: var(--bg-parchment);
+  border-top: 1px solid var(--hairline);
+  padding: 38px 0 calc(38px + env(safe-area-inset-bottom, 0px));
+  text-align: center;
+}
+.foot .wordmark { font-size: 17px; display: block; margin-bottom: 12px; }
+.foot__links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 18px;
+  margin-bottom: 12px;
+  font-size: 15px;
+}
+.foot__links a { color: var(--text-muted); text-decoration: none; }
+.foot__links a:hover { color: var(--text); text-decoration: underline; }
+.foot p { font-size: 14px; color: var(--text-faint); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}

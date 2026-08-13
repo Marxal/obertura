@@ -1,4 +1,44 @@
 /* ════════════════════════════════════════════════════════════════════════════
+   WEBFONT — Chakra Petch 700, SELF-HOSTED
+   Used by the wordmark only (the header, the desktop sidebar brand, and the
+   handful of monospace-ish labels further down); everything else is system-ui.
+
+   It used to come from fonts.googleapis.com. It doesn't any more, and that is
+   deliberate: a Google Fonts stylesheet makes every visitor's browser hit
+   Google servers, which hands them the visitor's IP and user-agent before the
+   page has painted. The privacy policy promises no third-party trackers and no
+   cookies, and this is the one request that could have contradicted it. The two
+   .woff2 files below are the exact ones Google was serving (Chakra Petch v13,
+   OFL-1.1), committed to src/fonts/ so Vite fingerprints them and serves them
+   from our own origin under whatever base the build targets.
+
+   Latin + Latin-Extended only, which is every character the app renders; the
+   Thai and Vietnamese subsets Google also offers are dropped. ~19 kB total.
+   `font-display: swap` keeps the system fallback visible while it loads, so the
+   wordmark never blocks first paint.
+   ════════════════════════════════════════════════════════════════════════════ */
+@font-face {
+  font-family: 'Chakra Petch';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./fonts/chakra-petch-700-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Chakra Petch';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./fonts/chakra-petch-700-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
    DESIGN TOKENS
    Every colour in the app resolves to one of these variables. The board
    squares are deliberately NOT themed — they stay identical in light and dark
@@ -1570,6 +1610,166 @@ main {
 }
 .settings-gopro-restore:hover { color: var(--accent); }
 .settings-gopro-restore:disabled { color: var(--text-faint); cursor: default; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   THE FULL ACCESS POPUP  (src/pro-sheet.ts)
+
+   The only screen in the app that asks for money, so it is the only overlay
+   that is CENTRED on a phone as well as on a desktop. Every other edit-overlay
+   is a bottom sheet below 960px; this one opts out (`--pro`) because a sheet
+   that slides up from the bottom edge reads as a system prompt to dismiss,
+   and this is a proposition to consider.
+
+   It carries the landing page's own price card — brass border, big number,
+   ticked promises — so the offer looks like the offer on bitochess.com.
+   ══════════════════════════════════════════════════════════════════════════ */
+.edit-overlay--pro {
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+}
+
+.pro-sheet {
+  width: 100%;
+  max-width: 400px;
+  border-radius: 20px;
+  padding: var(--space-xl);
+  gap: 0;                    /* every child sets its own top margin instead */
+  text-align: center;
+  align-items: stretch;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28), 0 4px 12px rgba(0, 0, 0, 0.14);
+}
+/* Desktop keeps the same box — the shared 960px rule would otherwise widen it
+   to 480px, which is far too wide for two short paragraphs. */
+@media (min-width: 960px) {
+  .edit-sheet.pro-sheet { max-width: 400px; border-radius: 20px; }
+}
+
+/* The context line, when the offer was run into rather than asked for. */
+.pro-eyebrow {
+  font-family: 'Chakra Petch', monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 10px;
+}
+
+.pro-title {
+  font-size: 1.32rem;
+  line-height: 1.18;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  text-wrap: balance;
+}
+
+.pro-lead {
+  margin-top: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.pro-body {
+  margin-top: 8px;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+/* ── The price card ── */
+.pro-card {
+  margin-top: var(--space-lg);
+  padding: var(--space-lg);
+  border-radius: 16px;
+  border: 1.5px solid var(--accent);
+  background: var(--accent-soft);
+}
+
+.pro-price {
+  font-size: 2.4rem;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--text);
+}
+.pro-price span {
+  margin-left: 6px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--text-faint);
+}
+
+.pro-plan {
+  margin-top: 8px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.pro-plan-desc {
+  margin-top: 2px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.pro-points {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--hairline);
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+.pro-points li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 0.86rem;
+  line-height: 1.4;
+  color: var(--text);
+}
+.pro-points svg { color: var(--accent); flex: none; margin-top: 1px; }
+
+.pro-limit {
+  margin-top: var(--space-md);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-faint);
+}
+
+.pro-buy {
+  margin-top: var(--space-lg);
+  width: 100%;
+}
+
+.pro-note {
+  margin-top: 10px;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  color: var(--text-faint);
+}
+
+.pro-later {
+  display: block;
+  margin: var(--space-md) auto 0;
+  padding: 6px 10px;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-faint);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.pro-later:hover { color: var(--text); }
 
 /* ── The line goal ── */
 

@@ -19,10 +19,11 @@
     <link rel="apple-touch-icon" href="icons/icon-192.png" />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" type="image/png" href="icons/icon-192.png" />
-    <!-- Google Fonts — Chakra Petch (weight 700) for the wordmark only. -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@700&display=swap" />
+    <!-- Chakra Petch 700 (the wordmark font) is SELF-HOSTED — see the @font-face
+         block at the top of src/style.css. No Google Fonts link here on purpose:
+         it would make every visitor's browser call fonts.googleapis.com before
+         first paint, which is exactly the third-party request the privacy policy
+         says the app doesn't make. -->
     <script>
       // Apply the saved (or system) theme before first paint so there's no
       // flash of the wrong theme. Mirrors src/theme.ts — keep the keys, the

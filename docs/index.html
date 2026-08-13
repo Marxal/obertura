@@ -62,14 +62,43 @@
      app already uses. -->
 <script>document.documentElement.className += ' js';</script>
 
-<!-- One font, the same one the app loads: Chakra Petch 700 for the wordmark.
-     Everything else is system-ui, exactly as in src/style.css — so the page
-     needs no webfont to render its body copy and never flashes. -->
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@700&display=swap" />
-
 <style>
+/* ══════════════════════════════════════════════════════════════════════════
+   WEBFONT — Chakra Petch 700, SELF-HOSTED
+
+   One font, the same one the app loads, and used for the same narrow job: the
+   wordmark and a few uppercase labels. Everything else is system-ui, exactly as
+   in src/style.css, so body copy needs no webfont and never flashes.
+
+   It used to be a <link> to fonts.googleapis.com. It isn't any more, and that
+   is the point: that stylesheet made every visitor's browser call Google before
+   the page painted, handing over an IP address and user-agent. The privacy
+   policy promises no third-party trackers and no cookies, and this was the one
+   request on the page that could have contradicted it. The two .woff2 files are
+   the exact ones Google was serving (Chakra Petch v13, OFL-1.1), committed to
+   docs/fonts/ and served from this origin. Latin + Latin-Extended only, ~19 kB.
+   ══════════════════════════════════════════════════════════════════════════ */
+@font-face {
+  font-family: 'Chakra Petch';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('fonts/chakra-petch-700-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Chakra Petch';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('fonts/chakra-petch-700-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    DESIGN TOKENS
    Copied by hand from src/style.css (app v0.4) — :root for light,
@@ -134,6 +163,11 @@
   /* The app's hint-arrow colour (see drill.ts / puzzle-run.ts). */
   --arrow: #ff9b21;
 
+  /* Move-quality marks on the demo board's commentary — the app's own --danger
+     and --warn, used for the ?? and ? it hangs on Black's worse ideas. */
+  --bad: #b4533a;
+  --dubious: #b8591a;
+
   /* Page furniture */
   --radius: 20px;
   --radius-sm: 14px;
@@ -182,6 +216,9 @@
     --piece-b: #b98a52;
     --piece-c: #6b4a29;
     --piece-opacity: 0.10;
+
+    --bad: #d4705a;
+    --dubious: #d4832c;
   }
 }
 
@@ -325,9 +362,15 @@ strong { font-weight: 700; color: var(--text); }
 
 /* ══════════════════════════════════════════════════════════════════════════
    TOP BAR
-   Fixed, constant height. The app icon is absolutely positioned inside it and
-   OVERHANGS the bar at rest — that is what lets it be big without the page
-   jumping when it shrinks. Sign-in sits to its left, vertically centred.
+   Fixed, constant height. The app icon leads, with the wordmark beside it —
+   icon then name, the way the phone's home screen shows the same two things.
+
+   THE ICON IS ABSOLUTELY POSITIONED and OVERHANGS the bar at rest. That is the
+   whole trick: it can be 112px tall over a 72px bar without the bar growing,
+   and shrinking it to 46px moves nothing else on the page. The wordmark keeps
+   clear of it with a transitioning padding-left of exactly the icon's width, so
+   the two travel together and the pair always reads as one lockup. Sign-in sits
+   at the far end.
    ══════════════════════════════════════════════════════════════════════════ */
 .topbar {
   position: fixed;
@@ -366,13 +409,18 @@ strong { font-weight: 700; color: var(--text); }
 .topbar .wordmark { font-size: 20px; }
 @media (min-width: 900px) { .topbar .wordmark { font-size: 23px; } }
 
-.topbar__right {
+/* The lockup: a plain link back to the top of the page. The icon inside it is
+   taken out of flow, so this element's own width is just the wordmark plus the
+   room it reserves for the icon. */
+.brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  /* Room for the absolutely-positioned icon that follows it. */
-  padding-right: calc(var(--logo) + 12px);
-  transition: padding-right 260ms cubic-bezier(0.2, 0.7, 0.3, 1);
+  text-decoration: none;
+  min-width: 0;
+}
+.brand .wordmark {
+  padding-left: calc(var(--logo) + 12px);
+  transition: padding-left 260ms cubic-bezier(0.2, 0.7, 0.3, 1);
 }
 
 .signin {
@@ -393,12 +441,13 @@ strong { font-weight: 700; color: var(--text); }
 }
 .signin:hover { background: var(--bg-elevated); border-color: var(--text-faint); }
 
-/* The app icon. Anchored to the bar's top-right; it grows downward past the
-   bar's edge, so the bar's own height never changes. */
+/* The app icon. Anchored to the bar's top-LEFT; it grows downward past the
+   bar's edge, so the bar's own height never changes. Once the page scrolls it
+   shrinks and re-centres itself inside the bar — one class flip drives both. */
 .applogo {
   position: absolute;
   top: 8px;
-  right: var(--gutter);
+  left: var(--gutter);
   display: block;
   width: var(--logo);
   height: var(--logo);
@@ -412,10 +461,12 @@ strong { font-weight: 700; color: var(--text); }
     box-shadow 260ms ease;
 }
 .topbar.is-scrolled .applogo { top: 50%; transform: translateY(-50%); box-shadow: var(--shadow-card); }
-.applogo img { width: 100%; height: 100%; }
+/* The lift lives on the <img>, not on .applogo — the scrolled state owns that
+   element's transform, and a hover rule fighting it would jump the icon. */
+.applogo img { width: 100%; height: 100%; transition: transform 260ms cubic-bezier(0.2, 0.7, 0.3, 1); }
 
 @media (prefers-reduced-motion: reduce) {
-  .applogo, .topbar__right, .topbar { transition: none !important; }
+  .applogo, .applogo img, .brand .wordmark, .topbar { transition: none !important; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -472,8 +523,24 @@ strong { font-weight: 700; color: var(--text); }
   pointer-events: none;
   opacity: var(--piece-opacity);
   width: var(--w, 220px);
-  transform: translate3d(0, var(--y, 0px), 0) rotate(var(--rot, 0deg));
+  /* Three things at once, all written by the script from one scroll position:
+     --y drifts the piece, --spin turns it a degree or two, --sc breathes it.
+     Rotation and scale are what stop this reading as a flat parallax layer —
+     the pieces look like objects passing rather than wallpaper sliding. */
+  transform:
+    translate3d(0, var(--y, 0px), 0)
+    rotate(calc(var(--rot, 0deg) + var(--spin, 0deg)))
+    scale(var(--sc, 1));
   will-change: transform;
+}
+/* The ambient drift lives on a CHILD, because the parent's transform is owned
+   by the scroll handler and a keyframe animation on the same element would win
+   outright and kill the parallax. */
+html.js .float__in { display: block; animation: float-drift 13s ease-in-out infinite alternate; }
+.float__in { animation-delay: var(--delay, 0s); }
+@keyframes float-drift {
+  from { transform: translate3d(0, 0, 0) rotate(0deg); }
+  to   { transform: translate3d(6px, -10px, 0) rotate(1.6deg); }
 }
 .float svg { width: 100%; height: auto; display: block; }
 
@@ -493,6 +560,7 @@ strong { font-weight: 700; color: var(--text); }
 
 @media (prefers-reduced-motion: reduce) {
   .float { transform: rotate(var(--rot, 0deg)) !important; }
+  html.js .float__in { animation: none !important; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -550,8 +618,9 @@ button:focus-visible {
    HERO
    ══════════════════════════════════════════════════════════════════════════ */
 .hero {
-  /* Extra headroom so the overhanging app icon never lands on the H1. */
-  padding-top: clamp(46px, 12vw, 78px);
+  /* Extra headroom so the overhanging app icon never lands on the eyebrow —
+     the icon is on the left now, directly over this column. */
+  padding-top: clamp(58px, 13vw, 96px);
   padding-bottom: var(--pad-block);
 }
 
@@ -566,7 +635,62 @@ button:focus-visible {
 }
 
 .hero h1 { margin-bottom: 18px; }
-.hero .lede { max-width: 30ch; }
+.hero .lede { max-width: 34ch; }
+
+/* ── The board column: dropped out of the grid, then pinned ─────────────────
+   On a desktop the board deliberately BREAKS the hero's own baseline: it is
+   translated down far enough to cross into the band below, so the two sections
+   overlap instead of sitting in tidy stacked boxes. The negative margin cancels
+   the drop for layout purposes, so nothing below it moves.
+
+   Then it is pinned. The script writes --pin from the scroll position, at about
+   a third of scroll speed and CLAMPED (see PIN_MAX), so the board hangs back as
+   the page moves and then lets go. The clamp is the important half: the next
+   band's top padding is 128px, the drop plus the maximum pin is less than that,
+   so the board can lag into empty space but can never reach the heading it is
+   floating over. On a phone none of this applies — the board is simply the next
+   thing down the page, and covering content there would be unforgivable. */
+.hero__board { position: relative; z-index: 3; }
+
+@media (min-width: 900px) {
+  .hero { padding-bottom: 56px; }
+  .hero__board {
+    --drop: 88px;
+    transform: translate3d(0, calc(var(--drop) + var(--pin, 0px)), 0);
+    margin-bottom: calc(var(--drop) * -1);
+    will-change: transform;
+  }
+}
+
+/* ── "Play the move" ────────────────────────────────────────────────────────
+   The one instruction on the page, sitting above the board with a thin drawn
+   arrow curving down into it. The arrow bobs — a couple of pixels, endlessly —
+   because a still arrow is furniture and a moving one is an invitation. Same on
+   both, phone and desktop; the brief asked for exactly that. */
+.hail {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  margin: 0 0 6px 6px;
+  color: var(--arrow);
+}
+.hail__text {
+  font-family: 'Chakra Petch', ui-monospace, monospace;
+  font-weight: 700;
+  font-size: clamp(15px, 1.8vw, 17px);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding-bottom: 10px;
+  white-space: nowrap;
+}
+.hail__arrow { width: clamp(72px, 9vw, 98px); height: auto; flex: none; }
+.hail__arrow path { fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+
+html.js .hail__arrow { animation: hail-bob 2.8s ease-in-out infinite; }
+@keyframes hail-bob {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  50%      { transform: translate(3px, 5px) rotate(3.5deg); }
+}
 
 /* ══════════════════════════════════════════════════════════════════════════
    THE PLAYABLE BOARD
@@ -586,7 +710,21 @@ button:focus-visible {
   max-width: 430px;
   margin: 0 auto;
   position: relative;
+  transition: transform 260ms cubic-bezier(0.2, 0.7, 0.3, 1), box-shadow 260ms ease;
 }
+
+/* The name of whatever line is loaded. It earns its place the moment there is
+   more than one line to load — see the "Show another line" button below. */
+.mini__name {
+  font-family: 'Chakra Petch', ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 0 4px 10px;
+}
+.mini__name b { color: var(--accent); font-weight: 700; }
 
 .mini {
   position: relative;
@@ -621,6 +759,16 @@ html:not(.js) .mini__hint { display: none; }
   -webkit-tap-highlight-color: transparent;
 }
 .mini__sq.dark { background: var(--board-dark); }
+
+/* The square the arrow points AT, breathing quietly. Drawn as an inset
+   box-shadow rather than a pseudo-element because ::after is already spoken for
+   by the last-move and selected states, and this has to be able to sit under
+   both of them at once. */
+html.js .mini__sq.goal { animation: goal-pulse 2.4s ease-in-out infinite; }
+@keyframes goal-pulse {
+  0%, 100% { box-shadow: inset 0 0 0 0 rgba(255, 155, 33, 0); }
+  50%      { box-shadow: inset 0 0 0 3px rgba(255, 155, 33, 0.55); }
+}
 .mini__sq.last::after {
   content: "";
   position: absolute;
@@ -650,13 +798,22 @@ html:not(.js) .mini__hint { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .pc { transition: none; } }
 
-.mini__arrow { position: absolute; inset: 0; pointer-events: none; opacity: 0.88; }
+.mini__arrow { position: absolute; inset: 0; pointer-events: none; opacity: 0.88; z-index: 2; }
 /* Keep these two apart: a stroke on the head would be drawn in viewBox units,
    where the default width of 1 is a whole square. */
 .mini__arrow .shaft { fill: none; stroke: var(--arrow); }
 .mini__arrow .head { fill: var(--arrow); stroke: none; }
 html.js .mini__arrow { animation: arrow-breathe 2.4s ease-in-out infinite; }
 @keyframes arrow-breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+/* The head nudges forward on the same beat as the fade — small enough to read
+   as breathing rather than as a second animation. fill-box makes the origin the
+   triangle's own centre instead of the 8×8 board viewBox. */
+html.js .mini__arrow .head {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: head-nudge 2.4s ease-in-out infinite;
+}
+@keyframes head-nudge { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
 
 .mini.shake { animation: mini-shake 300ms ease; }
 @keyframes mini-shake {
@@ -674,6 +831,58 @@ html.js .mini__arrow { animation: arrow-breathe 2.4s ease-in-out infinite; }
   min-height: 2.8em;
 }
 .mini__hint b { color: var(--text); font-weight: 700; }
+
+/* The annotation marks the commentary hangs on Black's worse ideas — the same
+   ?? and ? a human coach scribbles, in the app's own danger/warning colours.
+   Purely decorative: the sentence next to them already says what happened, so
+   nothing is lost to a screen reader that skips the punctuation. */
+.mini__hint .mk {
+  font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+}
+.mini__hint .mk--bad { color: var(--bad); }
+.mini__hint .mk--dubious { color: var(--dubious); }
+
+/* "Show another line" — deliberately the quietest control in the card. The
+   board's job is to be played, not browsed; this is for the person who has
+   finished one and wants another without waiting for the finish panel. */
+.mini__foot { display: flex; justify-content: center; margin-top: 6px; }
+.mini__another {
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text-faint);
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 160ms ease, background-color 160ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.mini__another:hover { color: var(--accent); background: var(--accent-soft); }
+.mini__another svg { width: 14px; height: 14px; vertical-align: -2px; margin-right: 5px; }
+
+/* ── Confetti ───────────────────────────────────────────────────────────────
+   The same celebration the app fires when you finish a run (src/confetti.ts),
+   rebuilt in ~20 lines here because this page imports nothing. Layered over the
+   finish panel, not under it. Never shown under prefers-reduced-motion — the
+   script doesn't even build it. */
+.confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 4; }
+.confetti i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 7px;
+  height: 11px;
+  border-radius: 1px;
+  opacity: 0;
+  animation: confetti-fly 1150ms cubic-bezier(0.15, 0.7, 0.35, 1) forwards;
+}
+@keyframes confetti-fly {
+  0%   { opacity: 1; transform: translate(-50%, -50%) rotate(0deg); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--rot)); }
+}
 
 /* The finish panel, laid over the board once the third move lands. */
 .mini__done {
@@ -708,6 +917,7 @@ html.js .mini__arrow { animation: arrow-breathe 2.4s ease-in-out infinite; }
   text-underline-offset: 3px;
   cursor: pointer;
 }
+.mini__done .again:hover { color: var(--accent); }
 
 /* ══════════════════════════════════════════════════════════════════════════
    HOW IT WORKS
@@ -740,6 +950,231 @@ html.js .mini__arrow { animation: arrow-breathe 2.4s ease-in-out infinite; }
   color: var(--primary);
   font-weight: 700;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SECTION SHAPES
+
+   Five distinct layouts below, and that is the point of them: this page is one
+   long scroll, and a reader who meets the same two-column head/body block eight
+   times in a row stops reading it by the fourth. Every band now gets a shape
+   that suits what it is saying — a ledger for a list of routes in, a stack of
+   rows for a list of drills, a narrow centred column for a paragraph that is
+   really an argument, tags for a list of measurements, and two very different
+   price treatments. Nothing here repeats.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. THE LEDGER — "Build your repertoire your way" ───────────────────────
+   Numbered rows separated by hairlines, two up on a wide screen. No cards: the
+   carousel further down is the page's card moment, and using them here would
+   flatten both. */
+.ways { margin-top: clamp(30px, 4vw, 46px); display: grid; }
+@media (min-width: 820px) {
+  .ways { grid-template-columns: 1fr 1fr; column-gap: clamp(40px, 5vw, 76px); }
+}
+.way {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 16px;
+  padding: 22px 0;
+  border-top: 1px solid var(--hairline);
+}
+.way__n {
+  font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  transition: color 160ms ease;
+}
+.way h3 { margin-bottom: 5px; }
+.way p { max-width: none; color: var(--text-muted); font-size: 16px; }
+
+/* ── 2. THE ROW STACK — "Train what you actually need" ──────────────────────
+   One bordered block cut into rows, each with a felt-green mark. Reads as a
+   panel of the app rather than as marketing cards. */
+.drills {
+  margin-top: clamp(28px, 4vw, 42px);
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.drill {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0 16px;
+  padding: 20px clamp(18px, 2.4vw, 26px);
+  transition: background-color 160ms ease;
+}
+.drill + .drill { border-top: 1px solid var(--hairline); }
+.drill__mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: var(--primary);
+  color: var(--on-primary);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.drill__mark svg { width: 18px; height: 18px; }
+.drill h3 { font-size: 17px; margin-bottom: 3px; }
+.drill p { max-width: none; color: var(--text-muted); font-size: 16px; }
+
+/* The closing line, set apart from the rows it concludes. */
+.result {
+  margin-top: 26px;
+  padding-left: 20px;
+  border-left: 3px solid var(--accent);
+}
+.result p { color: var(--text-muted); }
+.result strong { display: block; font-size: clamp(19px, 2.4vw, 23px); letter-spacing: -0.02em; }
+
+/* ── 3. THE CENTRED ARGUMENT — "Prepare for the games you actually play" ────
+   Every other band is left-aligned and asymmetric. This one is neither, which
+   is exactly why it registers as a change of voice. */
+.center { max-width: 62ch; margin: 0 auto; text-align: center; }
+.center h2 { margin: 0 auto; }
+.center p { max-width: none; margin-left: auto; margin-right: auto; }
+.center > * + * { margin-top: 18px; }
+
+.pull {
+  margin-top: clamp(28px, 4vw, 40px);
+  padding: clamp(22px, 3vw, 30px) 0;
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+  font-size: clamp(21px, 3.1vw, 30px);
+  line-height: 1.26;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  text-wrap: balance;
+}
+
+/* ── 4. TAGS — "Measure your progress" ──────────────────────────────────────
+   The four things the app actually measures, as objects rather than as a comma
+   list in a sentence. */
+.chips {
+  margin-top: 26px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  transition: border-color 160ms ease, transform 160ms ease;
+}
+.chip span {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  flex: none;
+}
+
+.quote {
+  margin-top: clamp(26px, 3.4vw, 38px);
+  font-size: clamp(20px, 2.8vw, 26px);
+  line-height: 1.3;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: var(--text);
+  max-width: 22ch;
+}
+
+/* ── 5a. THE FREE PLAN — a wide band-width card, not a column in a pair ────
+   The free tier is not one of two options on this page any more; it is its own
+   section, so it gets its own full-width shape. */
+.plan {
+  margin-top: clamp(28px, 4vw, 42px);
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: clamp(24px, 3.4vw, 36px);
+  display: grid;
+  gap: 22px;
+  transition: transform 260ms cubic-bezier(0.2, 0.7, 0.3, 1), box-shadow 260ms ease;
+}
+@media (min-width: 820px) {
+  .plan { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: clamp(32px, 5vw, 64px); }
+}
+.plan p { max-width: none; color: var(--text-muted); }
+.plan .tier__name { margin-bottom: 10px; }
+.plan__side { text-align: left; }
+@media (min-width: 820px) { .plan__side { text-align: right; } }
+.plan .btn { margin-top: 14px; }
+@media (max-width: 619px) { .plan .btn { display: flex; } }
+.plan .trust { margin-top: 10px; font-size: 15px; color: var(--text-faint); }
+
+.tier__name {
+  font-family: 'Chakra Petch', ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.tier__price {
+  font-size: clamp(38px, 6vw, 56px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--text);
+}
+.tier__price span { font-size: 17px; font-weight: 600; color: var(--text-faint); letter-spacing: 0; }
+
+/* ── 5b. THE PAID SLAB — "Your whole repertoire. One payment." ──────────────
+   Centred, brass-edged, and the only element on the page that is allowed to
+   look like a product box. It is the ask; it should not look like the section
+   above it. */
+.slab {
+  margin: clamp(28px, 4vw, 44px) auto 0;
+  max-width: 560px;
+  background: var(--bg-card);
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-frame);
+  padding: clamp(26px, 4vw, 40px);
+  text-align: center;
+  transition: transform 260ms cubic-bezier(0.2, 0.7, 0.3, 1), box-shadow 260ms ease;
+}
+.slab p { max-width: none; }
+.slab .tier__price { margin-top: 4px; }
+.slab__plan { margin-top: 8px; font-weight: 700; color: var(--text); }
+.slab__desc { margin-top: 2px; color: var(--text-muted); font-size: 16px; }
+.slab .btn { margin-top: 22px; width: 100%; }
+.slab .faint { margin-top: 12px; }
+
+.ticks {
+  list-style: none;
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid var(--hairline);
+  display: grid;
+  gap: 11px;
+  text-align: left;
+}
+.ticks li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 11px;
+  align-items: start;
+  color: var(--text);
+  font-size: 16px;
+}
+.ticks svg { width: 19px; height: 19px; color: var(--accent); margin-top: 2px; }
 
 /* ══════════════════════════════════════════════════════════════════════════
    THE CAROUSEL — "There's more than openings in here"
@@ -822,44 +1257,6 @@ html.js .mini__arrow { animation: arrow-breathe 2.4s ease-in-out infinite; }
   transition: background-color 200ms ease, width 200ms ease;
 }
 .carousel__dot.on { background: var(--accent); width: 22px; }
-
-/* ══════════════════════════════════════════════════════════════════════════
-   PRICE
-   ══════════════════════════════════════════════════════════════════════════ */
-.tiers { margin-top: clamp(34px, 4vw, 50px); display: grid; gap: 18px; align-items: start; }
-@media (min-width: 900px) { .tiers { grid-template-columns: 1fr 1fr; gap: 26px; } }
-
-.tier {
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-card);
-  padding: clamp(24px, 3.4vw, 34px);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.tier p { max-width: none; color: var(--text-muted); }
-.tier--paid { border-color: var(--accent); box-shadow: var(--shadow-lift); }
-
-.tier__name {
-  font-family: 'Chakra Petch', ui-monospace, monospace;
-  font-weight: 700;
-  font-size: 13px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-}
-.tier__price {
-  font-size: clamp(34px, 5vw, 46px);
-  font-weight: 800;
-  letter-spacing: -0.035em;
-  line-height: 1;
-  color: var(--text);
-}
-.tier__price span { font-size: 17px; font-weight: 600; color: var(--text-faint); letter-spacing: 0; }
-.tier .btn { margin-top: 6px; align-self: start; }
-@media (max-width: 620px) { .tier .btn { align-self: stretch; } }
 
 /* ══════════════════════════════════════════════════════════════════════════
    WHY — a comic speech bubble, then who is behind it.
@@ -963,16 +1360,34 @@ html.js .hop__svg { animation: hop-bounce 1.05s cubic-bezier(0.3, 0, 0.35, 1) 42
 }
 @keyframes hop-flip { 0%, 80% { transform: rotate(0); } 96%, 100% { transform: rotate(360deg); } }
 
-/* Page colour, not parchment: the final CTA above it is parchment, and two
-   parchment blocks in a row would merge into one. */
+/* Parchment, not page colour: the final CTA above it is page colour now, and
+   two identical surfaces in a row would merge into one block. */
 .foot {
-  background: var(--bg-page);
+  background: var(--bg-parchment);
   border-top: 1px solid var(--hairline);
   padding: 40px 0 calc(40px + env(safe-area-inset-bottom, 0px));
   text-align: center;
 }
-.foot .wordmark { font-size: 17px; display: block; margin-bottom: 8px; }
+.foot .wordmark { font-size: 17px; display: block; margin-bottom: 12px; }
 .foot p { max-width: none; font-size: 14px; color: var(--text-faint); }
+
+/* Privacy and Terms live here because this is the first place anyone looks for
+   them. They are also rows in the app's Settings → Feedback & about, since
+   somebody who installed the PWA may never see this page again. */
+.foot__links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 18px;
+  margin-bottom: 14px;
+  font-size: 15px;
+}
+.foot__links a {
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+.foot__links a:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
 
 /* ══════════════════════════════════════════════════════════════════════════
    STICKY MOBILE CTA BAR
@@ -995,6 +1410,51 @@ html.js .hop__svg { animation: hop-bounce 1.05s cubic-bezier(0.3, 0, 0.35, 1) 42
   html.js .cta-bar.show { transform: translateY(0); }
   .cta-bar .btn { width: 100%; }
   html.js .foot { padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DESKTOP HOVER
+
+   Gated on `hover: hover` and `pointer: fine` so a touchscreen never inherits
+   any of it — on a phone a :hover rule sticks after a tap and leaves an element
+   looking permanently pressed. Everything here is a small lift or a colour
+   shift; nothing moves far enough to reflow, and nothing here is the only cue
+   for anything (each element is legible and complete at rest).
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (hover: hover) and (pointer: fine) {
+  /* The board is the page's one interactive object, so it gets the clearest
+     "this is alive" response. */
+  .board-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 26px 60px rgba(28, 22, 16, 0.16), 0 6px 16px rgba(28, 22, 16, 0.09);
+  }
+  .mini__sq::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: transparent;
+    transition: background-color 130ms ease;
+  }
+  .mini__sq:hover::before { background: rgba(255, 255, 255, 0.18); }
+  .mini__sq.goal:hover::before { background: rgba(255, 155, 33, 0.28); }
+
+  .brand:hover .applogo img { transform: scale(1.06) rotate(-3deg); }
+
+  .mcard {
+    transition: transform 220ms cubic-bezier(0.2, 0.7, 0.3, 1),
+                box-shadow 220ms ease, border-color 220ms ease;
+  }
+  .mcard:hover { transform: translateY(-5px); box-shadow: var(--shadow-lift); border-color: var(--accent); }
+  .mcard:hover .mcard__icon { background: var(--accent); color: var(--on-accent); }
+  .mcard__icon { transition: background-color 220ms ease, color 220ms ease; }
+
+  .way:hover .way__n { color: var(--accent-active); }
+  .drill:hover { background: var(--fill-faint); }
+  .chip:hover { border-color: var(--accent); transform: translateY(-2px); }
+
+  .plan:hover, .slab:hover { transform: translateY(-3px); box-shadow: var(--shadow-frame); }
+
+  .hop:hover { cursor: default; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -1030,7 +1490,14 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
   }
   html.js .cta-bar { transition: none !important; }
   html.js .hop, html.js .hop__flip, html.js .hop__svg { animation: none !important; }
-  html.js .mini__arrow { animation: none !important; }
+  html.js .mini__arrow,
+  html.js .mini__arrow .head,
+  html.js .mini__sq.goal,
+  html.js .hail__arrow { animation: none !important; }
+  /* The board keeps its drop (it is layout, and the page is designed around the
+     overlap) but never lags: --pin stays at its 0 default because the script
+     skips the handler entirely. */
+  .hero__board, .board-card, .mcard, .chip, .plan, .slab { transition: none !important; }
   .btn { transition: none !important; }
   .btn:active { transform: none !important; }
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
@@ -1159,13 +1626,16 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
 <!-- ─────────────────────────────── TOP BAR ─────────────────────────────── -->
 <header class="topbar" id="topbar">
   <div class="topbar__inner">
-    <a class="wordmark" href="#top" aria-label="Bito Chess, top of page">bito chess</a>
-    <div class="topbar__right">
-      <a class="signin js-app" id="signin" href="/app/?auth=signin">Sign in</a>
-      <a class="applogo js-app" href="/app/" aria-label="Open Bito Chess">
-        <img src="app-icon.png" alt="" width="512" height="512" />
-      </a>
-    </div>
+    <!-- Icon then name, as one lockup, back to the top of the page. The icon is
+         absolutely positioned (see .applogo) and the wordmark reserves its width
+         as padding, which is what lets the icon shrink on scroll without the
+         name jumping. Deliberately NOT .js-app: this is "home", and the bar
+         already has a button that opens the app. -->
+    <a class="brand" href="#top" aria-label="Bito Chess, top of page">
+      <span class="applogo"><img src="app-icon.png" alt="" width="512" height="512" /></span>
+      <span class="wordmark">bito chess</span>
+    </a>
+    <a class="signin js-app" id="signin" href="/app/?auth=signin">Sign in</a>
   </div>
 </header>
 
@@ -1174,24 +1644,39 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
   <!-- ─────────────────────────────── HERO ─────────────────────────────── -->
   <section class="band hero" id="hero">
     <div class="float" style="--w: 300px; --rot: -8deg; left: -90px; bottom: -60px" data-speed="34" aria-hidden="true">
-      <svg viewBox="0 0 120 140"><use href="#pc3-knight"/></svg>
+      <span class="float__in"><svg viewBox="0 0 120 140"><use href="#pc3-knight"/></svg></span>
     </div>
     <div class="inner">
       <div class="hero__cols">
         <div class="hero__text">
-          <p class="eyebrow reveal">Chess opening trainer</p>
+          <p class="eyebrow reveal">Your personal chess training lab</p>
           <h1 class="reveal">Improve your next move</h1>
-          <p class="lede reveal">Build your repertoire, train smarter, and play with confidence.</p>
+          <p class="lede reveal">Build your lines, train the moves you forget, and prepare for the games you’ll actually play.</p>
           <div class="cta-block reveal">
             <!-- Hero CTA: no query string. Only the FINAL CTA carries
                  ?auth=signup (see below). -->
-            <a class="btn js-app" href="/app/">Try it for free</a>
-            <p class="trust">No signup required</p>
+            <a class="btn js-app" href="/app/">Try it for free →</a>
+            <p class="trust">No signup required.</p>
           </div>
         </div>
 
-        <div class="hero__board reveal">
+        <!-- The board column. On a desktop this is translated down out of the
+             grid and lags on scroll — see .hero__board in the stylesheet. -->
+        <div class="hero__board">
+          <div class="hail reveal" aria-hidden="true">
+            <span class="hail__text">Play the move</span>
+            <!-- A thin hand-drawn curve into the board. The head is a separate
+                 open "V" rather than a filled triangle: at this weight a solid
+                 arrowhead reads as a signpost, and this is meant to read as
+                 someone pointing. -->
+            <svg class="hail__arrow" viewBox="0 0 96 46" fill="none" aria-hidden="true" focusable="false">
+              <path d="M4 12C34 4 70 10 88 40" />
+              <path d="M75.5 32.5 88 40l-.6-14.7" />
+            </svg>
+          </div>
+          <div class="reveal">
           <div class="board-card">
+            <p class="mini__name" id="mini-name">Line <b>1</b> · Italian Game</p>
             <div class="mini" id="mini" role="group" aria-label="Play the first three moves of the Italian Game">
               <div class="mini__squares" id="mini-squares"></div>
               <!-- The starting position, written out so the board is complete
@@ -1206,12 +1691,18 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
               </div>
               <svg class="mini__arrow" id="mini-arrow" viewBox="0 0 8 8" aria-hidden="true"></svg>
               <div class="mini__done" id="mini-done" hidden>
-                <p><strong>That’s the Italian Game.</strong> Three moves you now own — the app remembers the other forty for you.</p>
-                <a class="btn js-app" href="/app/">Try it for free</a>
-                <button type="button" class="again" id="mini-again">Play it again</button>
+                <p id="mini-done-text"><strong>That’s the Italian Game.</strong> Three moves you now own — Bito remembers the other forty for you.</p>
+                <a class="btn js-app" href="/app/">Try it for free →</a>
+                <button type="button" class="again" id="mini-again">Play another line</button>
               </div>
             </div>
             <p class="mini__hint" id="mini-hint" aria-live="polite">Your move. Follow the arrow: play <b>e4</b>.</p>
+            <div class="mini__foot">
+              <button type="button" class="mini__another" id="mini-another">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>Show another line
+              </button>
+            </div>
+          </div>
           </div>
         </div>
       </div>
@@ -1221,39 +1712,71 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
   <!-- ───────────────────────── HOW IT WORKS ───────────────────────── -->
   <section class="band band--parchment">
     <div class="float" style="--w: 210px; --rot: 6deg; right: -50px; top: -70px" data-speed="-28" aria-hidden="true">
-      <svg viewBox="0 0 120 140"><use href="#pc3-rook"/></svg>
+      <span class="float__in" style="--delay: -3s"><svg viewBox="0 0 120 140"><use href="#pc3-rook"/></svg></span>
     </div>
     <div class="inner">
       <h2 class="reveal">How it works</h2>
       <div class="steps">
         <div class="step reveal">
           <p class="step__n"><span class="movenum">1.</span></p>
-          <p><strong>Build a line.</strong> Play it out on the board, or pull it from the library, a study, or one of your own games.</p>
+          <h3>Build your repertoire</h3>
+          <p>Create lines on the board. Pull inspiration from the opening library, curated starter packs, engine suggestions, or your own past games.</p>
         </div>
         <div class="step reveal">
           <p class="step__n"><span class="movenum">2.</span></p>
-          <p><strong>Confirm it once.</strong> Walk through it, then play it back. That’s what puts it into training.</p>
+          <h3>Confirm it once</h3>
+          <p>Play the line through once. That confirms what you want to learn and puts it into training mode.</p>
         </div>
         <div class="step reveal">
           <p class="step__n"><span class="movenum">3.</span></p>
-          <p><strong>It comes back before you forget.</strong> Spaced repetition tracks every move you play and returns the ones you’re losing.</p>
+          <h3>Remember it</h3>
+          <p>Bito keeps track of the moves you get right and the ones you forget. The moves that need work come back more often. The ones you know stay out of the way.</p>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ─────────────────────────── BUILD ─────────────────────────── -->
+  <!-- ─────────────────────────── BUILD ───────────────────────────
+       Layout: the numbered ledger (.ways). Four routes in, so they are
+       numbered rather than bulleted — a list of alternatives that happens to
+       have an order, not a set of features. -->
   <section class="band">
-    <div class="inner feature">
-      <div class="feature__head reveal"><h2>Your repertoire, built your way</h2></div>
-      <div class="feature__body">
-        <p class="lede reveal">Not everyone learns an opening the same way, so there are four ways in:</p>
-        <ul class="hang reveal">
-          <li>Enter moves straight on the board</li>
-          <li>Browse a built-in library of ~3,700 named openings, offline</li>
-          <li>Import your own games from Chess.com and Lichess</li>
-          <li>Start from a curated opening pack, a Lichess study, or a famous trap</li>
-        </ul>
+    <div class="inner">
+      <div class="feature">
+        <div class="feature__head reveal"><h2>Build your repertoire your way</h2></div>
+        <div class="feature__body">
+          <p class="lede reveal">Build exactly what you want to play.</p>
+        </div>
+      </div>
+      <div class="ways">
+        <div class="way reveal">
+          <p class="way__n">01</p>
+          <div>
+            <h3>Play it yourself</h3>
+            <p>Enter moves directly on the board and shape your own lines.</p>
+          </div>
+        </div>
+        <div class="way reveal">
+          <p class="way__n">02</p>
+          <div>
+            <h3>Explore the opening world</h3>
+            <p>Browse thousands of named openings, starter packs or famous traps.</p>
+          </div>
+        </div>
+        <div class="way reveal">
+          <p class="way__n">03</p>
+          <div>
+            <h3>Learn from your own games</h3>
+            <p>Import games from Chess.com or Lichess and turn the positions you actually played into training.</p>
+          </div>
+        </div>
+        <div class="way reveal">
+          <p class="way__n">04</p>
+          <div>
+            <h3>Use the engine</h3>
+            <p>Explore alternatives, find better moves and build lines around ideas you discover.</p>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -1261,24 +1784,75 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
   <!-- ─────────────────────────── TRAIN ─────────────────────────── -->
   <section class="band band--parchment">
     <div class="float" style="--w: 240px; --rot: -5deg; left: -70px; top: -90px" data-speed="30" aria-hidden="true">
-      <svg viewBox="0 0 120 140"><use href="#pc3-bishop"/></svg>
+      <span class="float__in" style="--delay: -7s"><svg viewBox="0 0 120 140"><use href="#pc3-bishop"/></svg></span>
     </div>
-    <div class="inner feature feature--flip">
-      <div class="feature__head reveal"><h2>Focused practice, not random drills</h2></div>
-      <div class="feature__body">
-        <p class="lede reveal">Every move you learn carries its own memory score. The app brings back what’s slipping and leaves alone what’s solid.</p>
-        <p class="quiet reveal">Drill a full line, practise single positions, race a timed session, or go straight at your weakest moves. You always know why you’re being shown a move.</p>
+    <div class="inner">
+      <div class="feature feature--flip">
+        <div class="feature__head reveal"><h2>Train what you actually need</h2></div>
+        <div class="feature__body">
+          <p class="lede reveal">Your training is driven by data, not random drills. Bito tracks your weak points and gives you multiple ways to fix them.</p>
+        </div>
+      </div>
+
+      <!-- Layout: the row stack (.drills). Four training modes as rows of one
+           panel, because that is how they appear in the app. -->
+      <div class="drills reveal">
+        <div class="drill">
+          <span class="drill__mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          </span>
+          <div>
+            <h3>Drill new lines</h3>
+            <p>Walk through complete variations until they become muscle memory.</p>
+          </div>
+        </div>
+        <div class="drill">
+          <span class="drill__mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+          </span>
+          <div>
+            <h3>Review missed moves</h3>
+            <p>Target the individual positions you have forgotten.</p>
+          </div>
+        </div>
+        <div class="drill">
+          <span class="drill__mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M9 2h6"/></svg>
+          </span>
+          <div>
+            <h3>Time attack</h3>
+            <p>Race against the clock through positions to beat your personal best.</p>
+          </div>
+        </div>
+        <div class="drill">
+          <span class="drill__mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/><path d="M11 8v6"/><path d="M8 11h6"/></svg>
+          </span>
+          <div>
+            <h3>Scout real opponents</h3>
+            <p>Import your tournament or online games to see what your opponents play, and build lines against their specific weaknesses.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="result reveal">
+        <p>The result is simple:</p>
+        <p><strong>Less wondering what to study.</strong> More time actually studying.</p>
       </div>
     </div>
   </section>
 
-  <!-- ───────────────────────── YOUR GAMES ───────────────────────── -->
+  <!-- ───────────────────────── YOUR GAMES ─────────────────────────
+       Layout: the centred argument (.center). The only band on the page that
+       is symmetrical, which is what makes it land as a change of voice. -->
   <section class="band">
-    <div class="inner feature">
-      <div class="feature__head reveal"><h2>Prepare for the games you actually play</h2></div>
-      <div class="feature__body">
-        <p class="lede reveal">Import from Chess.com or Lichess and the app reads your history back to you: which openings you lose in, the mistakes you keep repeating, the winning positions you let slip.</p>
-        <p class="quiet reveal">Scout an opponent before a club match and see what they really play — then build the lines you’ll actually face, not the ones in the book.</p>
+    <div class="inner">
+      <div class="center">
+        <h2 class="reveal">Prepare for the games you actually play</h2>
+        <p class="lede reveal">Chess study is much more useful when it starts with your own games.</p>
+        <p class="quiet reveal">Import your Chess.com, Lichess or enter your tournament games. Bito can show you where your opening play is working — and where it isn’t. Find the openings you keep struggling with. Discover mistakes that keep coming back. Turn those positions into things you can practise.</p>
+        <p class="quiet reveal">And when you’re preparing for an opponent, scout what they really play. See their favourite openings, their strongest and weakest areas, and build the lines you’ll actually face.</p>
+        <p class="pull reveal">Prepare for the board you’re going to sit down at — not a hypothetical one.</p>
       </div>
     </div>
   </section>
@@ -1286,10 +1860,11 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
   <!-- ─────────────────────── BEYOND OPENINGS ─────────────────────── -->
   <section class="band band--parchment">
     <div class="float" style="--w: 260px; --rot: 7deg; right: -80px; bottom: -80px" data-speed="-34" aria-hidden="true">
-      <svg viewBox="0 0 120 140"><use href="#pc3-queen"/></svg>
+      <span class="float__in" style="--delay: -11s"><svg viewBox="0 0 120 140"><use href="#pc3-queen"/></svg></span>
     </div>
     <div class="inner">
       <h2 class="reveal">There’s more than openings in here</h2>
+      <p class="lede reveal">Once your repertoire is built, keep sharpening the rest of your game.</p>
       <div class="carousel reveal">
         <div class="carousel__track" id="more-track" tabindex="0" role="group" aria-label="More than openings">
           <article class="mcard">
@@ -1297,7 +1872,7 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.439 7.85c-.049.322.059.648.289.878l1.568 1.568c.47.47.706 1.087.706 1.704s-.235 1.233-.706 1.704l-1.611 1.611a.98.98 0 0 1-.837.276c-.47-.07-.802-.48-.968-.925a2.501 2.501 0 1 0-3.214 3.214c.446.166.855.497.925.968a.979.979 0 0 1-.276.837l-1.61 1.61a2.404 2.404 0 0 1-1.705.707 2.402 2.402 0 0 1-1.704-.706l-1.568-1.568a1.026 1.026 0 0 0-.877-.29c-.493.074-.84.504-1.02.968a2.5 2.5 0 1 1-3.237-3.237c.464-.18.894-.527.967-1.02a1.026 1.026 0 0 0-.289-.877l-1.568-1.568A2.402 2.402 0 0 1 1.998 12c0-.617.236-1.234.706-1.704L4.23 8.77c.24-.24.581-.353.917-.303.515.077.877.528 1.073 1.01a2.5 2.5 0 1 0 3.259-3.259c-.482-.196-.933-.558-1.01-1.073-.05-.336.062-.676.303-.917l1.525-1.525A2.402 2.402 0 0 1 12 1.998c.617 0 1.234.236 1.704.706l1.568 1.568c.23.23.556.338.877.29.493-.074.84-.504 1.02-.968a2.5 2.5 0 1 1 3.237 3.237c-.464.18-.894.527-.967 1.02Z"/></svg>
             </div>
             <h3>Puzzles that fit you</h3>
-            <p>Rated tactics matched to your level — and, when you want, to the openings you actually play.</p>
+            <p>Rated tactics matched to your level, with puzzles that can also connect to the openings you actually play.</p>
           </article>
 
           <article class="mcard">
@@ -1305,31 +1880,31 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
             </div>
             <h3>Fix your real mistakes</h3>
-            <p>The app finds the blunders in your own games and hands them back as positions to play properly.</p>
+            <p>Bito finds mistakes in your own games and turns them into positions you can play again, this time finding the better move.</p>
           </article>
 
           <article class="mcard">
             <div class="mcard__icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.94 14.06A2 2 0 0 0 8.5 12.6l-5.2-1.35a.5.5 0 0 1 0-.96L8.5 8.94A2 2 0 0 0 9.94 7.5l1.35-5.2a.5.5 0 0 1 .96 0l1.35 5.2a2 2 0 0 0 1.44 1.44l5.2 1.35a.5.5 0 0 1 0 .96l-5.2 1.35a2 2 0 0 0-1.44 1.44l-1.35 5.2a.5.5 0 0 1-.96 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/></svg>
             </div>
-            <h3>Your brilliant moves</h3>
-            <p>Rediscover the good moves you’ve already found. Most of them you never noticed at the time.</p>
+            <h3>Rediscover your brilliant moves</h3>
+            <p>You’ve probably played better chess than you realised. Bito brings your great and brilliant moves back so you can recognise those ideas again.</p>
           </article>
 
           <article class="mcard">
             <div class="mcard__icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg>
             </div>
-            <h3>Endgames, judged properly</h3>
-            <p>Train the endings that decide games against a tablebase, which knows exactly how long it should take.</p>
+            <h3>Learn the endings that matter</h3>
+            <p>Practise classic endgames and positions from your own games. Play them out against the engine and test yourself against exact tablebase judgement where available.</p>
           </article>
 
           <article class="mcard">
             <div class="mcard__icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></svg>
             </div>
-            <h3>Play it out</h3>
-            <p>A casual game against Stockfish from any position on the board — including the one you just built.</p>
+            <h3>Analyse with the engine</h3>
+            <p>Play any position against Stockfish 18 lite to test ideas or explore alternatives.</p>
           </article>
         </div>
 
@@ -1346,50 +1921,100 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
     </div>
   </section>
 
-  <!-- ────────────────────────── PROGRESS ────────────────────────── -->
+  <!-- ────────────────────────── PROGRESS ──────────────────────────
+       Layout: the tag row (.chips) plus a quote. The four things the app
+       measures are objects here rather than a comma list inside a sentence,
+       which is the whole reason this band doesn't read like the last one. -->
   <section class="band">
-    <div class="inner feature">
-      <div class="feature__head reveal"><h2>See whether it’s working</h2></div>
+    <div class="inner feature feature--flip">
+      <div class="feature__head reveal">
+        <h2>Measure your progress</h2>
+        <p class="quote">“See how your moves improve.”</p>
+      </div>
       <div class="feature__body">
-        <p class="lede reveal">Memory strength across your whole repertoire, training streaks, puzzle rating, win rate by opening, and how your results move over time.</p>
-        <p class="quiet reveal">Less wondering what to study. More time actually studying.</p>
+        <p class="lede reveal">Your games and training sessions become a picture of your progress.</p>
+        <p class="quiet reveal">Track your training streaks, move memory, puzzle rating, and win rates by opening to see exactly what needs work.</p>
+        <div class="chips reveal">
+          <span class="chip"><span aria-hidden="true"></span>Training streaks</span>
+          <span class="chip"><span aria-hidden="true"></span>Move memory</span>
+          <span class="chip"><span aria-hidden="true"></span>Puzzle rating</span>
+          <span class="chip"><span aria-hidden="true"></span>Win rate by opening</span>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- ─────────────────────────── PRICE ─────────────────────────── -->
+  <!-- ─────────────────────────── START FREE ───────────────────────────
+       The free tier is its own section now, not one of two columns, so it gets
+       a full-width card rather than a half of a pair. -->
   <section class="band band--parchment" id="price">
     <div class="float" style="--w: 230px; --rot: -6deg; left: -60px; bottom: -70px" data-speed="26" aria-hidden="true">
-      <svg viewBox="0 0 120 140"><use href="#pc3-king"/></svg>
+      <span class="float__in" style="--delay: -5s"><svg viewBox="0 0 120 140"><use href="#pc3-king"/></svg></span>
     </div>
     <div class="inner">
-      <h2 class="reveal">One price. Once.</h2>
-      <div class="tiers">
-        <div class="tier reveal">
-          <p class="tier__name">Free</p>
-          <p class="tier__price">€0</p>
-          <p>Build as many lines as you want, train ten of them at a time, and use everything else: puzzles, game import, analysis, endgames, statistics.</p>
-          <a class="btn btn--ghost js-app" href="/app/">Start free</a>
+      <h2 class="reveal">Start free</h2>
+      <p class="lede reveal">Use Bito Chess without an account — or sign up free to sync your repertoire across devices.</p>
+      <div class="reveal">
+        <div class="plan">
+          <div>
+            <p class="tier__name">Free</p>
+            <p>Build and save as many repertoire lines as you want. Explore the opening library. Import games. Solve puzzles. Analyse positions. Train up to 10 lines at a time.</p>
+          </div>
+          <div class="plan__side">
+            <p class="tier__price">€0</p>
+            <p class="faint">Everything you need to get started.</p>
+            <a class="btn js-app" href="/app/">Try Bito Chess →</a>
+            <p class="trust">No signup required.</p>
+          </div>
         </div>
-        <div class="tier tier--paid reveal">
-          <p class="tier__name">Full access</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── FULL ACCESS ───────────────────────────
+       The ask. Centred and brass-edged — the only element on the page allowed
+       to look like a product box. The app shows this same offer, in the same
+       words, in src/pro-sheet.ts. -->
+  <section class="band">
+    <div class="inner">
+      <div class="center">
+        <h2 class="reveal">Your whole repertoire. One payment.</h2>
+        <p class="lede reveal">Want to train everything you’ve built?</p>
+        <p class="quiet reveal">Bito Chess is a solo project — no ads, no investors, no subscriptions. Full Access unlocks unlimited training and helps fund what’s next.</p>
+      </div>
+      <div class="reveal">
+        <div class="slab">
+          <p class="tier__name">Full Access</p>
           <p class="tier__price">€9 <span>once</span></p>
-          <p>Train your whole repertoire, no cap. No subscription, no renewal, no ads — you pay once and that’s the end of it.</p>
-          <button type="button" class="btn btn--buy" id="buy">Buy full access</button>
-          <p class="faint" id="buy-note">Secure checkout. You’ll sign in first so the unlock lands on your account.</p>
+          <p class="slab__plan">Full Access &amp; Project Support</p>
+          <p class="slab__desc">Your entire repertoire, always available for training.</p>
+          <ul class="ticks">
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
+              <span>Unlimited active training rotation</span>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
+              <span>One-time payment, no subscription ever</span>
+            </li>
+          </ul>
+          <button type="button" class="btn btn--buy" id="buy">Unlock full access →</button>
+          <p class="faint" id="buy-note">Secure checkout via Lemon Squeezy. An account is required so your purchase can follow you across devices.</p>
         </div>
       </div>
     </div>
   </section>
 
   <!-- ──────────────────────────── WHY ──────────────────────────── -->
-  <section class="band">
+  <section class="band band--parchment">
     <div class="inner feature feature--flip">
       <div class="feature__head reveal"><h2>Why I made Bito Chess</h2></div>
       <div class="feature__body">
         <div class="bubble reveal">
-          <p>I’m a passionate chess player and not a particularly strong one 🥹</p>
-          <p>I tried a lot of opening trainers. They were too rigid, too complicated, or just didn’t match how I wanted to learn — so I built the one I wanted.</p>
+          <p>I’m a chess player, but not a particularly strong one. 🥹</p>
+          <p>I tried a lot of opening trainers. They were too rigid, too complicated, or just didn’t match how I wanted to learn.</p>
+          <p>I wanted something where I could build and store my own repertoire, practise the things I actually forgot, learn from my own games, and prepare for real opponents.</p>
+          <p>So I built the tool I wanted to use — and I got +200 rating points in the first month!</p>
           <p>If it helps other players enjoy studying chess as much as I do, even better.</p>
         </div>
 
@@ -1414,19 +2039,15 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
         </div>
 
         <div class="about reveal">
-          <h3>About the app</h3>
-          <ul class="hang">
-            <li>A one-person side project. No investors, no ads, no data to sell.</li>
-            <li>Your lines live on your phone. An account is optional and only syncs them.</li>
-            <li>It installs like an app, and it’s built and tested on a real phone, not a spec sheet.</li>
-          </ul>
+          <h3>About Bito Chess</h3>
+          <p class="quiet">Bito Chess is a one-person project. There are no investors, no ads, and no business model based on selling your data. An account is strictly optional and is only used to sync your data across devices. Upgrading to Full Access helps keep the project alive.</p>
         </div>
       </div>
     </div>
   </section>
 
   <!-- ───────────────────────── FINAL CTA ───────────────────────── -->
-  <section class="band band--parchment final" id="final-cta">
+  <section class="band final" id="final-cta">
     <div class="inner">
       <!-- The same pawn the app hops after every finished training run. -->
       <div class="hop" aria-hidden="true">
@@ -1445,11 +2066,12 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
         </span>
       </div>
       <h2 class="reveal">Ready to build your first line?</h2>
+      <p class="lede reveal" style="margin: 14px auto 0; max-width: 26ch">Your next move starts here.</p>
       <div class="cta-block reveal">
         <!-- ?auth=signup is on the FINAL CTA only, by design: someone who has
              read the whole page is the one worth asking for an account. -->
-        <a class="btn js-app" href="/app/?auth=signup">Try it for free</a>
-        <p class="trust">No signup required</p>
+        <a class="btn js-app" href="/app/?auth=signup">Try Bito Chess →</a>
+        <p class="trust">No signup required.</p>
       </div>
     </div>
   </section>
@@ -1458,7 +2080,13 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
 
 <footer class="foot">
   <div class="inner">
-    <span class="wordmark">bito chess</span>
+    <a class="wordmark" href="#top">bito chess</a>
+    <nav class="foot__links" aria-label="Legal and contact">
+      <a href="privacy.html">Privacy</a>
+      <a href="terms.html">Terms</a>
+      <a href="licences.html">Licences</a>
+      <a href="mailto:creative@marxal.net">Contact</a>
+    </nav>
     <p>© 2026 Bito Chess</p>
   </div>
 </footer>
@@ -1466,7 +2094,7 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
 <!-- Sticky mobile CTA. Rendered but hidden until the hero leaves the viewport;
      display is JS-gated in CSS so it never appears without JavaScript. -->
 <div class="cta-bar" id="cta-bar">
-  <a class="btn js-app" href="/app/">Try it for free</a>
+  <a class="btn js-app" href="/app/">Try Bito Chess →</a>
 </div>
 
 <script>
@@ -1618,26 +2246,59 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
     }
   }
 
-  /* ── 6. The floating pieces ──────────────────────────────────────────────
-     One rAF-throttled scroll handler for all of them. Each piece declares its
-     own data-speed (px of travel per screen of scroll, sign = direction), and
-     the CSS reads the result as --y. Skipped entirely under reduced motion. */
+  /* ── 6. The floating pieces, and the hero board's pin ────────────────────
+     ONE rAF-throttled scroll handler for both, deliberately: two independent
+     scroll listeners doing layout reads is how a page starts dropping frames on
+     a mid-range phone.
+
+     THE PIECES. Each declares its own data-speed (px of travel per screen of
+     scroll, sign = direction). From one number the handler writes three custom
+     properties the CSS composes into a single transform — --y to drift, --spin
+     to turn a degree or two, --sc to breathe. The rotation and the scale are
+     what stop the set reading as a flat parallax layer: pieces that only slide
+     look like wallpaper, pieces that also turn look like objects passing.
+
+     THE BOARD. --pin lags the board behind the page at about a third of scroll
+     speed, up to PIN_MAX and no further. The clamp is the whole safety
+     argument: the drop (88px) plus PIN_MAX is less than the next band's 128px
+     of top padding, so the board can hang into empty space but can never reach
+     the heading it is floating over. Desktop only — on a phone the board is
+     just the next thing down the page and must not move at all.
+
+     Both are skipped entirely under reduced motion. */
   var floats = Array.prototype.slice.call(document.querySelectorAll('.float'));
   var calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var boardCol = document.querySelector('.hero__board');
+  var PIN_MAX = 74;
+  var PIN_FROM = 900;                    /* matches the CSS breakpoint exactly */
 
-  if (floats.length && !calm) {
+  if ((floats.length || boardCol) && !calm) {
     var queued = false;
 
     var place = function () {
       queued = false;
       var vh = window.innerHeight || 1;
+
       floats.forEach(function (el) {
         var r = el.getBoundingClientRect();
         /* -1 when the piece is a screen below the middle, +1 a screen above. */
         var d = (vh / 2 - (r.top + r.height / 2)) / vh;
         var speed = parseFloat(el.getAttribute('data-speed')) || 0;
         el.style.setProperty('--y', (d * speed).toFixed(1) + 'px');
+        /* A 34px-speed piece turns about 2° across a full screen of scroll. */
+        el.style.setProperty('--spin', (d * speed * 0.06).toFixed(2) + 'deg');
+        el.style.setProperty('--sc', (1 + d * 0.03).toFixed(3));
       });
+
+      if (boardCol) {
+        if (window.innerWidth < PIN_FROM) {
+          boardCol.style.setProperty('--pin', '0px');
+        } else {
+          var y = window.pageYOffset || document.documentElement.scrollTop || 0;
+          var pin = Math.max(0, Math.min(PIN_MAX, y * 0.34));
+          boardCol.style.setProperty('--pin', pin.toFixed(1) + 'px');
+        }
+      }
     };
 
     var onScroll = function () {
@@ -1740,18 +2401,28 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
 
     if (session && session.id) {
       var note = document.getElementById('buy-note');
-      if (note) note.textContent = 'Secure checkout. The unlock lands on the account you’re signed in to.';
+      if (note) note.textContent = 'Secure checkout via Lemon Squeezy. The unlock lands on the account you’re signed in to.';
     }
   }
 
   /* ── 9. The playable board ───────────────────────────────────────────────
-     Three moves of the Italian Game, scripted. No rules engine: the only legal
-     move at each step is the one the arrow points at, which is the whole point
-     — this is a taste of the app, not a game.
+     SIX scripted lines, one at a time. No rules engine: the only move that does
+     anything at each step is the one the arrow points at, which is the whole
+     point — this is a taste of the app, not a game. That constraint is also
+     what keeps the widget at ~150 lines and zero dependencies.
 
      Squares are indexed from the top-left as White sees the board: file 0 = a,
      row 0 = rank 8. A piece's position is two CSS custom properties, so moving
-     it is one style write and the transition does the sliding. */
+     it is one style write and the transition does the sliding. Captures work
+     (move() removes whatever was standing on the destination), which is what
+     lets Qxf7# and Nxe5 be in here at all.
+
+     WHY SIX AND NOT ONE. One line is a demo; six is a toy. The visitor who
+     plays the Italian and then wonders "what else" now has somewhere to go, and
+     Scholar's Mate in particular is the line everyone recognises — it earns the
+     second play. Black's worse moves carry the ?? and ? a coach would write, in
+     the app's own danger colours, because a line where the opponent blunders is
+     only satisfying if the page admits that's what happened. */
   var mini = document.getElementById('mini');
 
   if (mini) {
@@ -1764,24 +2435,65 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
       a1: 'wr', b1: 'wn', c1: 'wb', d1: 'wq', e1: 'wk', f1: 'wb', g1: 'wn', h1: 'wr'
     };
 
-    var SCRIPT = [
+    var BAD = '<span class="mk mk--bad">??</span>';
+    var DUBIOUS = '<span class="mk mk--dubious">?</span>';
+
+    var LINES = [
       {
-        you: ['e2', 'e4'], san: 'e4',
-        ask: 'Your move. Follow the arrow: play <b>e4</b>.',
-        after: 'The centre is yours. Black answers <b>e5</b>.',
-        reply: ['e7', 'e5']
+        name: 'Italian Game',
+        done: '<strong>That’s the Italian Game.</strong> Three moves you now own — Bito remembers the other forty for you.',
+        steps: [
+          { you: ['e2', 'e4'], ask: 'Your move. Follow the arrow: play <b>e4</b>.', after: 'The centre is yours. Black answers <b>e5</b>.', reply: ['e7', 'e5'] },
+          { you: ['g1', 'f3'], ask: 'Now develop, and hit that pawn: <b>Nf3</b>.', after: 'Black defends with <b>Nc6</b>.', reply: ['b8', 'c6'] },
+          { you: ['f1', 'c4'], ask: 'One more. Point the bishop at f7: <b>Bc4</b>.', after: 'Bishop out, eyes on f7 — the Italian Game.', reply: null }
+        ]
       },
       {
-        you: ['g1', 'f3'], san: 'Nf3',
-        ask: 'Now develop and hit that pawn: <b>Nf3</b>.',
-        after: 'Black defends with <b>Nc6</b>.',
-        reply: ['b8', 'c6']
+        name: 'Ruy López',
+        done: '<strong>The Ruy López.</strong> The oldest argument in chess, and it’s now in your repertoire.',
+        steps: [
+          { you: ['e2', 'e4'], ask: 'Start in the middle: play <b>e4</b>.', after: 'Black mirrors you — <b>e5</b>.', reply: ['e7', 'e5'] },
+          { you: ['g1', 'f3'], ask: 'Attack the pawn: <b>Nf3</b>.', after: 'And it’s defended — <b>Nc6</b>.', reply: ['b8', 'c6'] },
+          { you: ['f1', 'b5'], ask: 'Now go after the defender: <b>Bb5</b>.', after: 'Pressure on the knight that holds e5 — the Spanish.', reply: null }
+        ]
       },
       {
-        you: ['f1', 'c4'], san: 'Bc4',
-        ask: 'One more. Point the bishop at f7: <b>Bc4</b>.',
-        after: 'Bishop out, eyes on f7 — the Italian Game.',
-        reply: null
+        name: 'Scholar’s Mate',
+        done: '<strong>Checkmate in four.</strong> Everyone falls for this once. Learn it, then learn the answer to it.',
+        steps: [
+          { you: ['e2', 'e4'], ask: 'Open lines for the queen and the bishop: <b>e4</b>.', after: 'Black answers <b>e5</b>.', reply: ['e7', 'e5'] },
+          { you: ['f1', 'c4'], ask: 'Aim at f7, Black’s weakest square: <b>Bc4</b>.', after: 'Black develops — <b>Nc6</b>.', reply: ['b8', 'c6'] },
+          { you: ['d1', 'h5'], ask: 'Bring the queen out: <b>Qh5</b>. Now f7 is attacked twice.', after: 'Black guards the wrong square — <b>Nf6</b>' + BAD, reply: ['g8', 'f6'] },
+          { you: ['h5', 'f7'], ask: 'Nobody is defending f7. Take it: <b>Qxf7#</b>.', after: 'Checkmate. Four moves.', reply: null }
+        ]
+      },
+      {
+        name: 'Queen’s Gambit',
+        done: '<strong>The Queen’s Gambit.</strong> You’re not really giving the pawn away — that’s the whole joke.',
+        steps: [
+          { you: ['d2', 'd4'], ask: 'A different first move: <b>d4</b>.', after: 'Black claims the centre too — <b>d5</b>.', reply: ['d7', 'd5'] },
+          { you: ['c2', 'c4'], ask: 'Offer the pawn: <b>c4</b>.', after: 'Black declines and builds instead — <b>e6</b>.', reply: ['e7', 'e6'] },
+          { you: ['b1', 'c3'], ask: 'Add a third attacker to d5: <b>Nc3</b>.', after: 'Three pieces pointed at the centre — the Queen’s Gambit Declined.', reply: null }
+        ]
+      },
+      {
+        name: 'London System',
+        done: '<strong>The London System.</strong> One setup, almost any opponent. The lazy genius option.',
+        steps: [
+          { you: ['d2', 'd4'], ask: 'The same setup every game. Start with <b>d4</b>.', after: 'Black develops — <b>Nf6</b>.', reply: ['g8', 'f6'] },
+          { you: ['c1', 'f4'], ask: 'Get the bishop out before you block it in: <b>Bf4</b>.', after: 'Black takes the centre — <b>d5</b>.', reply: ['d7', 'd5'] },
+          { you: ['e2', 'e3'], ask: 'Now close the door behind it: <b>e3</b>.', after: 'Solid, repeatable, and you barely had to think.', reply: null }
+        ]
+      },
+      {
+        name: 'Punishing the Damiano',
+        done: '<strong>And that’s why nobody plays 2…f6.</strong> Two moves later Black’s king has nowhere safe to stand.',
+        steps: [
+          { you: ['e2', 'e4'], ask: 'Begin: <b>e4</b>.', after: 'Black replies <b>e5</b>.', reply: ['e7', 'e5'] },
+          { you: ['g1', 'f3'], ask: 'Attack the pawn: <b>Nf3</b>.', after: 'Black defends it with a pawn — <b>f6</b>' + BAD, reply: ['f7', 'f6'] },
+          { you: ['f3', 'e5'], ask: 'That opened the king. Take anyway: <b>Nxe5</b>.', after: 'Black grabs the knight — <b>fxe5</b>' + DUBIOUS, reply: ['f6', 'e5'] },
+          { you: ['d1', 'h5'], ask: 'Now the check that wins it back: <b>Qh5+</b>.', after: 'Check — and the e5 pawn falls next. Black is already lost.', reply: null }
+        ]
       }
     ];
 
@@ -1790,13 +2502,43 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
     var arrowSvg = document.getElementById('mini-arrow');
     var hint = document.getElementById('mini-hint');
     var done = document.getElementById('mini-done');
+    var doneText = document.getElementById('mini-done-text');
     var again = document.getElementById('mini-again');
+    var another = document.getElementById('mini-another');
+    var nameLabel = document.getElementById('mini-name');
 
     var squares = {};        /* square name → button */
     var pieces = {};         /* square name → piece element (live positions) */
+    var lineIx = 0;          /* which of LINES is loaded */
+    var SCRIPT = LINES[0].steps;
     var step = 0;
     var selected = null;
     var busy = false;
+
+    /* The celebration, ~20 lines because this page imports nothing. Mirrors
+       src/confetti.ts: a burst from the centre of a positioned container, and
+       nothing at all when the visitor asked for less motion. */
+    var CONFETTI_COLOURS = ['#c07a2a', '#2d7d3e', '#e8c14a', '#d4633f', '#5b8fb0', '#f5ede0'];
+
+    function confetti(target) {
+      if (calm) return;
+      var layer = document.createElement('div');
+      layer.className = 'confetti';
+      layer.setAttribute('aria-hidden', 'true');
+      for (var i = 0; i < 30; i++) {
+        var p = document.createElement('i');
+        var angle = Math.random() * Math.PI * 2;
+        var dist = 60 + Math.random() * 130;
+        p.style.setProperty('--dx', (Math.cos(angle) * dist).toFixed(0) + 'px');
+        p.style.setProperty('--dy', (Math.sin(angle) * dist - 40).toFixed(0) + 'px');
+        p.style.setProperty('--rot', (Math.random() * 720 - 360).toFixed(0) + 'deg');
+        p.style.background = CONFETTI_COLOURS[i % CONFETTI_COLOURS.length];
+        p.style.animationDelay = (Math.random() * 70).toFixed(0) + 'ms';
+        layer.appendChild(p);
+      }
+      target.appendChild(layer);
+      setTimeout(function () { layer.remove(); }, 1400);
+    }
 
     function file(sq) { return FILES.indexOf(sq[0]); }
     function row(sq) { return 8 - parseInt(sq[1], 10); }
@@ -1822,6 +2564,17 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
       if (el) tap(el.dataset.sq);
     });
 
+    /* Load a line by index and rewind the board to the starting position.
+       Everything that identifies WHICH line — the label, the finish text — is
+       written here, so there is exactly one place that knows how to switch. */
+    function load(ix) {
+      lineIx = ((ix % LINES.length) + LINES.length) % LINES.length;   /* wraps both ways */
+      SCRIPT = LINES[lineIx].steps;
+      nameLabel.innerHTML = 'Line <b>' + (lineIx + 1) + '</b> · ' + LINES[lineIx].name;
+      doneText.innerHTML = LINES[lineIx].done;
+      reset();
+    }
+
     function reset() {
       piecesBox.textContent = '';
       pieces = {};
@@ -1833,9 +2586,7 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
         piecesBox.appendChild(el);
         pieces[sq] = el;
       });
-      Object.keys(squares).forEach(function (sq) {
-        squares[sq].classList.remove('last', 'sel');
-      });
+      clearMarks();
       step = 0;
       selected = null;
       busy = false;
@@ -1843,16 +2594,23 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
       ask();
     }
 
+    function clearMarks() {
+      Object.keys(squares).forEach(function (sq) {
+        squares[sq].classList.remove('last', 'sel', 'goal');
+      });
+    }
+
     function move(from, to) {
       var el = pieces[from];
       if (!el) return;
-      if (pieces[to]) { pieces[to].remove(); }     /* never happens in this line */
+      /* Captures are real: Qxf7#, Nxe5 and fxe5 all land on an occupied square. */
+      if (pieces[to]) { pieces[to].remove(); }
       delete pieces[from];
       pieces[to] = el;
       el.style.setProperty('--f', String(file(to)));
       el.style.setProperty('--r', String(row(to)));
 
-      Object.keys(squares).forEach(function (sq) { squares[sq].classList.remove('last', 'sel'); });
+      clearMarks();
       squares[from].classList.add('last');
       squares[to].classList.add('last');
     }
@@ -1890,6 +2648,10 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
       if (!s) return;
       hint.innerHTML = s.ask;
       arrow(s.you[0], s.you[1]);
+      /* The destination square breathes under the arrowhead — the arrow says
+         where to go, this says "here", and on a phone the finger is usually
+         covering the arrow by the time it matters. */
+      squares[s.you[1]].classList.add('goal');
       /* Keyboard reaches exactly the two squares that matter right now. */
       Object.keys(squares).forEach(function (sq) { squares[sq].tabIndex = -1; });
       squares[s.you[0]].tabIndex = 0;
@@ -1937,20 +2699,36 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
       } else {
         setTimeout(function () {
           done.hidden = false;
+          confetti(mini);
           Object.keys(squares).forEach(function (sq) { squares[sq].tabIndex = -1; });
         }, 620);
       }
     }
 
-    if (again) {
-      again.addEventListener('click', function () {
-        reset();
-        var first = SCRIPT[0] && squares[SCRIPT[0].you[0]];
-        if (first) first.focus();
-      });
+    /* Both routes to the next line: the finish panel's button, and the quiet
+       one under the board for anyone who wants to move on mid-line. Only the
+       finish-panel route takes focus to the board, because only there has the
+       visitor just been playing it. */
+    function nextLine(focusBoard) {
+      load(lineIx + 1);
+      if (!focusBoard) return;
+      var first = SCRIPT[0] && squares[SCRIPT[0].you[0]];
+      if (first) first.focus();
     }
 
-    reset();
+    if (again) {
+      again.addEventListener('click', function () { nextLine(true); });
+    }
+
+    if (another) {
+      another.addEventListener('click', function () { nextLine(false); });
+    }
+
+    /* Always the Italian first — it is the gentlest introduction, and it is the
+       line written into the static markup above, so a visitor with JavaScript
+       disabled and a visitor with it enabled see the same first screen. The
+       other five are one tap away. */
+    load(0);
   }
 })();
 </script>

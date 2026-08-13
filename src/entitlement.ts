@@ -39,7 +39,7 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { getAuthUser, onAuthChange } from './auth';
 import { getAllLines } from './storage';
 import { getCachedEntitled, setCachedEntitled, clearCachedEntitled } from './entitlement-cache';
-import { showDialog } from './dialog';
+import { openProSheet } from './pro-sheet';
 import { showToast } from './toast';
 
 // How many lines a free account may have in training at once.
@@ -164,39 +164,30 @@ export async function requestTrainingSlot(): Promise<boolean> {
 // quieter toast below). A paywall in the first minute, before the user has
 // drilled anything, is the wrong first impression.
 export function showTrainingCapDialog(): void {
-  openUpgradeDialog(`You've got ${FREE_TRAINING_LINES} lines in training`);
+  openUpgradeDialog(`You’ve got ${FREE_TRAINING_LINES} lines in training`);
 }
 
 // The same offer, asked for rather than run into: the Get-started panel's "Go
-// pro". It needs its own title because the cap dialog's leads with a number the
-// user hasn't reached — someone with two lines being told they've got ten is
-// just wrong.
+// pro" and the Settings CTA. It carries no context line, because the cap
+// version's leads with a number this user hasn't reached — someone with two
+// lines being told they've got ten is just wrong.
 export function showGoProDialog(): void {
-  openUpgradeDialog('Go pro');
+  openUpgradeDialog();
 }
 
-// One pitch, one price, one place the checkout is opened from. The price is
-// PRO_PRICE in checkout.ts, and the landing page (docs/index.html +
-// docs/LANDING-COPY.md) has to say the same thing — two different numbers for
+// One pitch, one price, one place the checkout is opened from. The words are
+// the landing page's words (see pro-sheet.ts, and docs/LANDING-COPY.md for the
+// source of truth); the price is PRO_PRICE above, and the landing page and the
+// Lemon Squeezy product have to say the same thing — two different numbers for
 // the same unlock is the fastest way to lose a sale.
-function openUpgradeDialog(title: string): void {
-  showDialog({
-    title,
-    body: 'The free tier trains ' + FREE_TRAINING_LINES + ' lines at a time. '
-      + 'Going pro lifts that to unlimited, and opens up coaching from your own '
-      + 'games — for ' + PRO_PRICE + ' once, not a subscription.',
-    // Secondary on the left, primary on the right — the same order as the
-    // post-save "Start training this line?" prompt.
-    buttons: [
-      { label: 'Not now', variant: 'secondary' },
-      {
-        label: 'Unlock full access',
-        variant: 'primary',
-        // Dynamic on purpose — checkout.ts imports this module, so a static
-        // import here would close the loop. See the note over PRO_PRICE.
-        onClick: () => { void import('./checkout').then(m => m.openCheckout()); },
-      },
-    ],
+function openUpgradeDialog(eyebrow?: string): void {
+  openProSheet({
+    eyebrow,
+    price: PRO_PRICE,
+    freeLines: FREE_TRAINING_LINES,
+    // Dynamic on purpose — checkout.ts imports this module, so a static import
+    // here would close the loop. See the note over PRO_PRICE.
+    onBuy: () => { void import('./checkout').then(m => m.openCheckout()); },
   });
 }
 
