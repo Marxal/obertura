@@ -38,6 +38,13 @@
 // only on the Next button. That's the difference between a slideshow about the
 // screen and a walkthrough of it.
 //
+// AND A STEP CAN BE LOOK-ONLY. `lookOnly` is the middle setting between the two:
+// the app underneath stays live enough to read and scroll, but nothing in it can
+// be tapped except the panel tabs. The panel steps use it, because every one of
+// those panels has moves in it that PLAY when tapped — and a first-timer who
+// taps one has silently walked their line off the opening they just chose, three
+// bubbles before the walkthrough asks them to save it.
+//
 // IT GOES BOTH WAYS. Every bubble carries Back as well as Next, and a step's
 // `onEnter` is re-run on the way back — so the board rewinds, the right panel
 // reopens, the engine goes back off. Back on the FIRST bubble leaves the
@@ -46,7 +53,13 @@
 // It never blocks the app: every exit runs the caller's callback, the back
 // gesture included, so a walkthrough can't strand anyone.
 
-import { isBuilderTourSeen, setBuilderTourSeen, clearBuilderTourSeen } from './prefs';
+import {
+  isBuilderTourSeen,
+  setBuilderTourSeen,
+  clearBuilderTourSeen,
+  isBuilderTourDone,
+  setBuilderTourDone,
+} from './prefs';
 import { pushBack } from './back-nav';
 
 // Gap between the spotlight and the bubble, how far the spotlight is inflated
@@ -114,6 +127,12 @@ export interface CoachStep {
   // rest of the screen is live, so the thing being described can be used while
   // it's being described.
   interactive?: boolean;
+  // Live to LOOK at, not to use: taps reach the app (so the panel lists still
+  // scroll and the tab strip still switches panels) but every control inside the
+  // screen is inert. For a step whose panel is full of moves that play when
+  // tapped, this is the difference between reading about the panel and
+  // accidentally rewriting the line with it. Implies `interactive`.
+  lookOnly?: boolean;
   // Back on the FIRST step, which has no bubble behind it: exits the sequence
   // and hands control back (the first-run picker). Omitted → no Back button.
   onBack?: () => void;
@@ -209,6 +228,7 @@ export function showCoachMarks(
     if (finished) return;
     finished = true;
     dropWatch();
+    setLookOnly(false);
     window.removeEventListener('resize', reposition);
     window.removeEventListener('orientationchange', reposition);
     overlay.remove();
@@ -262,8 +282,10 @@ export function showCoachMarks(
     step.onEnter?.();
 
     // A live step lets taps reach the app; the bubble keeps its own pointer
-    // events so its buttons still work (see the CSS).
-    overlay.classList.toggle('tour-overlay--live', !!step.interactive);
+    // events so its buttons still work (see the CSS). A look-only step is live
+    // too — it just has the app's own controls switched off underneath it.
+    overlay.classList.toggle('tour-overlay--live', !!(step.interactive || step.lookOnly));
+    setLookOnly(!!step.lookOnly);
 
     overlay.setAttribute('aria-label', step.title);
     title.textContent = step.title;
@@ -426,6 +448,14 @@ export function showCoachMarks(
   return { teardown, goToStep, currentStep: () => index, stepCount: all.length };
 }
 
+// Look-only: one class on #app, and the CSS (see "Coach-marks" in style.css)
+// switches off the board, the dock, the header, the nav and every control inside
+// the panels — while leaving the panels themselves scrollable and the tab strip
+// tappable, which are the two things a look-only step still needs.
+function setLookOnly(on: boolean): void {
+  document.getElementById('app')?.classList.toggle('tour-lookonly', on);
+}
+
 // The bubble's way out: one quiet word in the top-right corner. Shared by the
 // walkthrough and the one-off bubbles, so "Skip" is in the same place whichever
 // coach-mark is on screen.
@@ -493,8 +523,9 @@ function onBuilderMove(advance: () => void): () => void {
 // the move they have to make, and the walkthrough waits.
 //
 //   1. the board — play your second-to-last move,
-//   2. Explore — the three curated moves, with the line's own next move ringed:
-//      tapping it plays it, so the panel teaches itself by being used,
+//   2. Explore — the three curated moves, with the line's own next move ringed.
+//      Look-only, like every panel step: the board is where the user acts, and
+//      the panels are what they're being shown,
 //   3. Library — what strong players play here (and connect Lichess),
 //   4. My lines — what you've saved here (and import your games),
 //   5. Line info — the notes, priority and stats a saved line carries,
@@ -567,12 +598,32 @@ export function takeTourResume(): TourResume | null {
 
 // Is the walkthrough still owed on this device? Callers check before deciding
 // how to sequence the builder, then call markBuilderTourSeen once it starts.
-export function isBuilderTourOwed(): boolean {
-  return !isBuilderTourSeen();
+//
+// `firstRun` is the second chance. On a genuine first run — the picker only
+// appears when there are no saved lines and onboarding was never finished —
+// someone who SKIPPED the walkthrough last time gets offered it again, because
+// "seen for four seconds and dismissed" is not the same as "had their turn".
+// Anywhere else (a starter-pack line months later) seen is enough: the
+// walkthrough is never forced on someone twice for the same reason.
+export function isBuilderTourOwed(o: { firstRun?: boolean } = {}): boolean {
+  if (!isBuilderTourSeen()) return true;
+  return !!o.firstRun && !isBuilderTourDone();
 }
 
 export function markBuilderTourSeen(): void {
   setBuilderTourSeen();
+}
+
+// Reached the last bubble — the walkthrough has actually been walked, so it
+// stops being offered even on a first run that comes round again.
+export function markBuilderTourDone(): void {
+  setBuilderTourDone();
+}
+
+// Has it ever been walked to the end? The Get-started checklist ticks its
+// "Take the walkthrough" row off this.
+export function isBuilderTourComplete(): boolean {
+  return isBuilderTourDone();
 }
 
 // Backing out to the first-run screen: the next pick has to bring the
@@ -653,7 +704,7 @@ export function showBuilderIntro(deps: BuilderIntroDeps): void {
 
   const launch = (from: number): void => {
     setSideTabsDisabled(true);
-    handle = showCoachMarks(buildSteps(deps, launch, stepAside), done, from);
+    handle = showCoachMarks(markDoneOnLastStep(buildSteps(deps, launch, stepAside)), done, from);
     // Tapping a panel tab moves the WALKTHROUGH to that tab's step — tapping
     // Line goes back to the Line bubble, not just to the Line panel. So the
     // walkthrough is navigable by its own buttons and by the tabs, and by
@@ -662,6 +713,19 @@ export function showBuilderIntro(deps: BuilderIntroDeps): void {
   };
 
   launch(deps.startStep ?? 0);
+}
+
+// "Done" is reaching the LAST bubble, not surviving to whatever exit fires
+// onDone — Skip and the back gesture end the walkthrough too, and neither means
+// the user has been through it. So the last step's onEnter records it.
+function markDoneOnLastStep(steps: CoachStep[]): CoachStep[] {
+  const last = steps[steps.length - 1];
+  if (!last) return steps;
+  const before = last.onEnter;
+  return [...steps.slice(0, -1), {
+    ...last,
+    onEnter: () => { before?.(); markBuilderTourDone(); },
+  }];
 }
 
 // Any tab the walkthrough has no bubble for is switched off while it runs,
@@ -717,14 +781,16 @@ function buildSteps(
     {
       selector: ['#builder-sheet'],
       title: 'Explore',
-      body: 'See suggested moves from your games, the library, or the engine. '
-        + 'Tap to add to your line.',
+      body: 'Suggested moves from your games, the library and the engine — your '
+        + 'line’s next move is ringed. Tapping one adds it to your line, after '
+        + 'the walkthrough.',
       pad: 4,
-      interactive: true,
-      // The panel teaches itself by being used: the line's own next move is
-      // ringed among the three, and tapping it plays it — the same thing the
-      // board step asked for, done the other way.
-      watch: onBuilderMove,
+      // Look-only, and the panel's own tiles are the reason. Every row here
+      // PLAYS when tapped, so the panel that used to teach itself by being used
+      // was also the fastest way to walk the line off the opening the user
+      // picked one screen earlier — a branch they didn't ask for, three bubbles
+      // before being asked to save it. The only ways on are Next and the tabs.
+      lookOnly: true,
       onEnter: () => {
         // Whichever way the user left the board step — playing the move or
         // pressing Next — the opponent's reply comes in here, so the panels
@@ -741,7 +807,9 @@ function buildSteps(
       body: 'Get inspiration from Masters and Lichess players. Connect your free '
         + 'Lichess account to analyze any position.',
       pad: 4,
-      interactive: true,
+      // Look-only for the same reason as Explore: every book move in this list
+      // plays onto the line when tapped.
+      lookOnly: true,
       onEnter: () => { deps.setExploreCue(null); deps.showSlide('library'); },
       mainDone: connected ? 'Lichess connected' : undefined,
       mainAction: connected ? undefined : {
@@ -766,7 +834,10 @@ function buildSteps(
       body: 'See your saved lines, moves you’ve played in your games, and '
         + 'scouted opponents here.',
       pad: 4,
-      interactive: true,
+      // Look-only. This panel doesn't just add moves — tapping a saved line
+      // OPENS it, which would throw away the line the walkthrough is in the
+      // middle of building.
+      lookOnly: true,
       onEnter: () => { deps.setExploreCue(null); deps.showSlide('mylines'); },
       mainAction: {
         label: 'Import my games',
@@ -783,7 +854,9 @@ function buildSteps(
       title: 'Line info',
       body: 'See notes, training priority, and live stats for any saved line.',
       pad: 4,
-      interactive: true,
+      // Look-only: this panel's row of actions includes Delete and the training
+      // toggle, neither of which belongs in a first minute.
+      lookOnly: true,
       onEnter: () => { deps.setExploreCue(null); deps.showSlide('line'); },
     },
     {
@@ -793,13 +866,13 @@ function buildSteps(
       // something to look at while the bubble describes it.
       selector: ['#builder-sheet'],
       title: 'Engine',
-      body: 'See Stockfish evaluations and the three strongest lines, then tap '
-        + 'any move to play it.',
+      body: 'See Stockfish evaluations and the three strongest lines. Tapping '
+        + 'one plays it onto your line, after the walkthrough.',
       pad: 4,
-      // Live like every other step: the tab strip has to stay tappable all the
-      // way through, or "tap Library to go back to Library" is only true on some
-      // of the bubbles.
-      interactive: true,
+      // Look-only like every other panel step — and live enough that the tab
+      // strip stays tappable all the way through, or "tap Library to go back to
+      // Library" is only true on some of the bubbles.
+      lookOnly: true,
       onEnter: () => { deps.setExploreCue(null); deps.showSlide('engine'); },
     },
   ];
