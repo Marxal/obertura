@@ -36,13 +36,16 @@
 
 <title>Bito Chess — improve your next move</title>
 <meta name="description" content="Build your own chess opening repertoire, drill it with spaced repetition, and stop forgetting your prep on move six. Free to use, €9 once if you want the whole thing, no subscription." />
+<meta name="robots" content="index, follow" />
+<link rel="canonical" href="https://bitochess.com/" />
 <meta name="color-scheme" content="light dark" />
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f1ece1" />
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#211c16" />
 
 <!-- Open Graph / sharing. og-image.png does not exist yet — supply a
-     1200×630 PNG at the site root and this starts working with no code
-     change. Until then the tag simply 404s, which is harmless. -->
+     1200×630 PNG at the site root (docs/og-image.png) and this starts
+     working with no code change. Until then the tag simply 404s, which is
+     harmless. -->
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Bito Chess" />
 <meta property="og:title" content="Bito Chess — improve your next move" />
@@ -51,10 +54,45 @@
 <meta property="og:image" content="https://bitochess.com/og-image.png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="Bito Chess — a chess opening repertoire trainer" />
+<meta property="og:locale" content="en_GB" />
 <meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Bito Chess — improve your next move" />
+<meta name="twitter:description" content="Build your repertoire, train smarter, and play with confidence." />
+<meta name="twitter:image" content="https://bitochess.com/og-image.png" />
+<meta name="twitter:image:alt" content="Bito Chess — a chess opening repertoire trainer" />
 
 <link rel="icon" href="app-icon.png" />
 <link rel="apple-touch-icon" href="app-icon.png" />
+
+<!-- Structured data — tells search engines what kind of thing this is
+     (a free-to-start web app) rather than leaving it to guess from prose. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Bito Chess",
+  "url": "https://bitochess.com/",
+  "description": "Build your own chess opening repertoire, drill it with spaced repetition, and stop forgetting your prep on move six.",
+  "applicationCategory": "GameApplication",
+  "operatingSystem": "Web, installable as a PWA on Android, iOS and desktop",
+  "image": "https://bitochess.com/og-image.png",
+  "offers": [
+    {
+      "@type": "Offer",
+      "name": "Free",
+      "price": "0",
+      "priceCurrency": "EUR"
+    },
+    {
+      "@type": "Offer",
+      "name": "Full Access",
+      "price": "9",
+      "priceCurrency": "EUR"
+    }
+  ]
+}
+</script>
 
 <!-- Marks the document as JS-capable BEFORE first paint. Every animation in
      this file is gated on html.js, so with JS off the page renders at its
