@@ -23,6 +23,17 @@
 // and depth deliberately does NOT: it's the choice that decides how long the
 // line is, and a pre-picked answer to it gets accepted without being read.
 //
+// SO DEPTH IS THE SCREEN'S ONE ACTION, AND IT LOOKS LIKE IT. Nothing else here
+// moves the user forward: colour is already answered, the styles don't exist
+// yet, and Sign in is for the handful of people who already have an account.
+// Three equal-looking controls left a first-timer's eye to find the "Sign in"
+// pill in the corner — the only thing on screen that looked like a button on a
+// website. So depth is marked "Start here", carries the accent, and pulses
+// once; colour is visibly quieter than it; and Sign in is a plain word rather
+// than a bordered pill. The moment a depth is picked all of that emphasis is
+// dropped and the styles arrive with it, so exactly one thing on the screen is
+// ever asking to be tapped.
+//
 // NO BOARDS. The four choices used to be cards with a miniature board on each,
 // showing the position the line ends on. It was the prettiest thing in the app
 // and it was the wrong thing: four boards at thumbnail size are four grids of
@@ -129,6 +140,7 @@ export function showOnboardingPicker(deps: PickerDeps): void {
     if (closed) return;
     closed = true;
     overlay.remove();
+    document.documentElement.classList.remove('picker-open');
     removeBack();
   };
   // The system back gesture closes the picker the same way a pick does — it just
@@ -187,20 +199,29 @@ export function showOnboardingPicker(deps: PickerDeps): void {
   const form = document.createElement('div');
   form.className = 'picker-form';
 
+  // Colour is answered before the user arrives (White), so it's the quiet row:
+  // same control, one size down, no accent. It's a confirmation, not a task.
   form.appendChild(field('I play as', colourChooser(colour, (v) => {
     colour = v;
     swapStyles();
-  })));
+  }), { quiet: true }));
 
-  // Depth wears the same clothes as colour — two rows of the same big, tappable
+  // Depth wears the same clothes as colour — rows of the same big, tappable
   // choice — rather than the app's segmented control. They're the same KIND of
   // question, asked one after the other, and a form that changes control style
-  // between two adjacent rows reads as two unrelated settings.
-  form.appendChild(field('How much to learn', levelChooser((v) => {
+  // between two adjacent rows reads as two unrelated settings. It's the LOUD
+  // row, though, and the only one carrying a "Start here": it's the unanswered
+  // question, and answering it is what opens the rest of the screen.
+  const depthField = field('How much to learn', levelChooser((v) => {
     const first = level === null;
     level = v;
+    // The ask has been answered — the emphasis comes off it and goes with the
+    // styles that just arrived.
+    depthField.classList.remove('picker-field--ask');
     revealStyles(first);
-  })));
+  }), { hint: 'Start here' });
+  depthField.classList.add('picker-field--ask');
+  form.appendChild(depthField);
 
   card.appendChild(form);
 
@@ -295,6 +316,12 @@ export function showOnboardingPicker(deps: PickerDeps): void {
   overlay.appendChild(foot);
 
   document.body.appendChild(overlay);
+  // Freeze the page behind the picker. The overlay is position:fixed, so the app
+  // underneath keeps its own scroll height: the document grows a scrollbar the
+  // picker can't use, a wheel or a swipe scrolls the Train screen behind it, and
+  // the whole screen reads as a panel floating over something you're not
+  // supposed to be able to move. Dropped again in close().
+  document.documentElement.classList.add('picker-open');
   deps.onShown?.();
 }
 
@@ -324,14 +351,31 @@ function appMark(): HTMLImageElement {
   return img;
 }
 
-// A labelled row of the form.
-function field(label: string, control: HTMLElement): HTMLElement {
+// A labelled row of the form. `hint` is the small accent chip beside the label
+// ("Start here") that points at the one row worth tapping; `quiet` marks a row
+// that's already answered and shouldn't compete with it.
+function field(
+  label: string,
+  control: HTMLElement,
+  o: { hint?: string; quiet?: boolean } = {},
+): HTMLElement {
   const wrap = document.createElement('div');
-  wrap.className = 'picker-field';
+  wrap.className = 'picker-field' + (o.quiet ? ' picker-field--quiet' : '');
+
+  const head = document.createElement('div');
+  head.className = 'picker-field-head';
   const lbl = document.createElement('div');
   lbl.className = 'picker-field-label';
   lbl.textContent = label;
-  wrap.appendChild(lbl);
+  head.appendChild(lbl);
+  if (o.hint) {
+    const chip = document.createElement('span');
+    chip.className = 'picker-field-hint';
+    chip.textContent = o.hint;
+    head.appendChild(chip);
+  }
+  wrap.appendChild(head);
+
   wrap.appendChild(control);
   return wrap;
 }

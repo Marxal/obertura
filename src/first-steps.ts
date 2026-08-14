@@ -37,6 +37,12 @@
 //                  dashboard and a stronger engine
 //   · an account — the only thing that survives losing the phone
 //
+//   · the walkthrough — the builder coach-marks, on demand. First in the list
+//                  and always there, ticked off once it's been walked: the
+//                  walkthrough is offered once during the first run, and someone
+//                  who skipped it then and came back later needs a way back to
+//                  it that isn't buried in Settings.
+//
 // The middle two come with genuine payoffs, which is why they're offered HERE
 // rather than sprung on the user at the moment they're needed. The account ask
 // is last and never nags: it's a row in a checklist, and it only exists in a
@@ -48,6 +54,7 @@ import { isSupabaseConfigured } from './supabase';
 import { getAuthUser } from './auth';
 import { canInstallApp, isAppInstalled } from './gate';
 import { isEntitled } from './entitlement';
+import { isBuilderTourComplete } from './onboarding-tour';
 
 // The number of SAVED lines that unlocks training, and the goal this panel's bar
 // counts toward. They're deliberately the same number.
@@ -81,6 +88,12 @@ export interface FirstStepsDeps {
   onSignIn: () => void;
   onInstallApp: () => void;
   onGoPro: () => void;
+  // "Take the walkthrough" — the builder coach-marks, on demand. The one row
+  // here that isn't a setup step: it's the second chance for whoever skipped the
+  // walkthrough on their first visit and came back later wondering what any of
+  // this is. (Settings → Feedback & about has the same thing, for after this
+  // panel has retired.)
+  onWalkthrough: () => void;
   // The × was tapped: the caller re-renders, and shouldShowFirstSteps now says
   // no for the rest of the session.
   onHide: () => void;
@@ -145,6 +158,20 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
       onClick: deps.onInstallApp,
     });
   }
+
+  // The walkthrough, first — before the connect-this, import-that rows. Someone
+  // still looking at this panel is someone the app hasn't explained itself to
+  // yet, and this is the row that does the explaining. It never disappears once
+  // taken; it just ticks off, because re-running it is a perfectly reasonable
+  // thing to want.
+  steps.push({
+    icon: Icons.play(18),
+    title: 'Take the walkthrough',
+    body: 'A guided tour of the builder — the board, the panels, and how a line '
+      + 'gets saved. About a minute.',
+    done: isBuilderTourComplete(),
+    onClick: deps.onWalkthrough,
+  });
 
   steps.push({
     icon: Icons.download(18),

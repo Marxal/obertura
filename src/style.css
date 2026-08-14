@@ -16416,6 +16416,17 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
    shared import sheet (.edit-overlay, 300) opens cleanly on top of it.
    ════════════════════════════════════════════════════════════════════════════ */
 
+/* While the picker is up the PAGE behind it is frozen. The overlay is fixed and
+   covers everything, but the app underneath still has its own scroll height —
+   which showed up as a scrollbar down the side of a screen that has nothing to
+   scroll, and as a Train screen sliding about behind a swipe. */
+html.picker-open,
+html.picker-open body {
+  overflow: hidden;
+  height: 100%;
+  overscroll-behavior: none;
+}
+
 .picker-overlay {
   position: fixed;
   inset: 0;
@@ -16473,21 +16484,30 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   white-space: nowrap;
 }
 
+/* A plain word, not a pill. Bordered, it was the only thing on the screen that
+   looked like a button on a website, sitting in the corner every website puts
+   its primary action in — so a first-timer's eye went to the one control that
+   is NOT for them. It still has to be findable (someone on a new phone has no
+   other way back to their repertoire), so it keeps its size and its underline;
+   it just stops competing with the question in the middle of the screen. */
 .picker-signin {
   flex: 0 0 auto;
   min-height: 34px;
-  padding: 0.35rem 0.85rem;
-  border: 1px solid var(--border-card);
-  border-radius: 999px;
+  padding: 0.35rem 0.4rem;
+  border: none;
+  border-radius: 8px;
   background: none;
   font: inherit;
   font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--text-muted);
+  font-weight: 600;
+  color: var(--text-faint);
+  text-decoration: underline;
+  text-decoration-color: var(--hairline);
+  text-underline-offset: 3px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.picker-signin:active { background: var(--bg-card); }
+.picker-signin:active { color: var(--text-muted); }
 
 /* The lead gets the room the brand block gave back — it's the only sentence on
    the screen, so it may as well be a headline. It scales with the room there
@@ -16545,12 +16565,81 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   gap: 0.4rem;
 }
 
+.picker-field-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
 .picker-field-label {
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--text-faint);
+}
+
+/* ── The one thing to tap ──────────────────────────────────────────────────
+   Depth is the screen's only real action: colour is already answered and the
+   styles don't exist until this is. Three identically-weighted rows made that
+   invisible, so the unanswered row gets a chip beside its label, the accent on
+   its buttons and one slow breath — and everything else on the screen gets
+   quieter. All of it comes off the moment a depth is picked. */
+
+.picker-field--ask .picker-field-label { color: var(--accent); }
+
+/* The chip exists only while the row is still the ask — it's a pointer, not a
+   label, and one still sitting beside an answered question is just noise. */
+.picker-field-hint { display: none; }
+
+.picker-field--ask .picker-field-hint {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.42rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-active, var(--accent));
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* The tiles themselves: accent-edged and lifted, so the row reads as live
+   rather than as a third set of options. */
+.picker-field--ask .picker-colour {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* One breath, not a loop that never stops — a control that pulses forever reads
+   as an error state by the third repeat. */
+.picker-field--ask .picker-levels {
+  animation: picker-ask-breathe 1.5s ease-in-out 2;
+}
+
+@keyframes picker-ask-breathe {
+  0%, 100% { transform: none; }
+  50% { transform: scale(1.018); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .picker-field--ask .picker-levels { animation: none; }
+}
+
+/* Already answered: same control, one size down and no accent. */
+.picker-field--quiet .picker-colour {
+  min-height: 40px;
+  font-size: 0.86rem;
+}
+.picker-field--quiet .picker-colour-token {
+  width: 24px;
+  height: 24px;
+}
+.picker-field--quiet .picker-colour-token svg {
+  width: 17px;
+  height: 17px;
 }
 
 .picker-styles-label {
@@ -16879,8 +16968,10 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   }
   .picker-card { padding: 1rem; gap: 0.7rem; }
   /* The controls take some of the extra height too — a tight card marooned in a
-     tall screen looks as wrong as a stretched one. */
+     tall screen looks as wrong as a stretched one. The already-answered colour
+     row stays a step behind the depth row it mustn't compete with. */
   .picker-colour { min-height: 52px; }
+  .picker-field--quiet .picker-colour { min-height: 44px; }
   .picker-style { padding: 0.85rem 0.55rem; }
 }
 
@@ -16926,6 +17017,33 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
    next tab can be tapped — while the bubble keeps its own buttons working. */
 .tour-overlay--live { pointer-events: none; }
 .tour-overlay--live .tour-bubble { pointer-events: auto; }
+
+/* A LOOK-ONLY step (onboarding-tour.ts's `lookOnly`) — the panel steps. The
+   screen stays live enough to read: the panel lists still scroll, and the tab
+   strip still switches panels, because the tabs ARE a walkthrough control. What
+   goes dead is everything that would CHANGE something — every move tile in the
+   panels (each one plays onto the line when tapped), the board, the dock, the
+   header's Save and Settings, and the nav bars that would leave the builder
+   mid-walkthrough.
+
+   Controls, not containers: killing pointer events on the carousel itself would
+   take its scrolling with it, and a panel you can't scroll is not one you can
+   look at. A tap on a pointer-events:none child still reaches the scrolling
+   parent, so the list scrolls and nothing in it fires. */
+#app.tour-lookonly #builder-carousel button,
+#app.tour-lookonly #builder-carousel a,
+#app.tour-lookonly #builder-carousel input,
+#app.tour-lookonly #builder-carousel select,
+#app.tour-lookonly #builder-carousel textarea,
+#app.tour-lookonly #builder-carousel [role="button"],
+#app.tour-lookonly #builder-movestrip,
+#app.tour-lookonly #board,
+#app.tour-lookonly #builder-dock,
+#app.tour-lookonly > header,
+#app.tour-lookonly #bottom-nav,
+#app.tour-lookonly #side-nav {
+  pointer-events: none;
+}
 
 /* The cut-out. Transparent, with a shadow spread big enough to cover any phone
    or desktop viewport — that shadow IS the scrim. Darker than it was: the

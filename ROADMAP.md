@@ -1789,6 +1789,50 @@ _On `claude/explore-tab-builder-improvements-n23goq`. Restore point: `v0.4`._
 
 ---
 
+## v0.27 — the onboarding tightening round 🔜
+
+Phone review of the first run as it stands. Three separate ways for a first
+minute to go wrong: a start screen where nothing said which control to touch, a
+walkthrough whose panels could be tapped straight off the line the user had just
+chosen, and no second chance for anyone who skipped.
+
+- ✅ **The start screen has one action, and it looks like it.** Depth is the only
+  unanswered question on the picker — colour has a default, the styles don't
+  exist until depth is picked — so it's now the only thing dressed as a live
+  control: an accent **START HERE** chip beside its label, accent-edged tiles
+  with a soft ring, and one slow breath (twice, not a loop — a control that
+  pulses forever reads as an error). Colour drops to a quieter, one-size-smaller
+  row, and **Sign in** loses its bordered pill for a plain underlined word: in
+  the corner every website puts its primary action, a pill was pulling
+  first-timers to the one control that isn't for them. All the emphasis comes off
+  the moment a depth is chosen and the styles arrive in its place.
+
+- ✅ **Nothing scrolls behind the picker.** The overlay is `position: fixed`, so
+  the app underneath kept its own scroll height — a scrollbar down the side of a
+  screen with nothing to scroll, and a Train screen sliding about behind a swipe.
+  `html.picker-open` freezes the page while the picker is up and releases it on
+  close; the import sheet still scrolls, because sheets scroll inside themselves.
+
+- ✅ **The walkthrough's panels are for looking at.** Every panel step (Explore,
+  Library, My lines, Line info, Engine) is now `lookOnly`: taps reach the app, so
+  the lists still scroll and the tab strip still switches panels, but every
+  control inside them is inert. The board, the dock, the header and the nav go
+  with them. It closes the hole the old live Explore step left — one tap on a
+  suggestion and a first-timer had silently walked their line off the opening
+  they picked one screen earlier, three bubbles before being asked to save it.
+  The only ways on are **Next**, **Back** and the tabs.
+
+- ✅ **Skipping isn't spending your turn.** The walkthrough now records *done*
+  (reached its last bubble) separately from *seen* (it opened). Someone who
+  skipped and comes back to a genuine first run — no saved lines, onboarding
+  unfinished — is offered it again, and a **Take the walkthrough** row sits at
+  the top of the Get-started checklist, ticked off once it's been walked, so
+  there's always a way back to it that isn't buried in Settings.
+
+_On `claude/onboarding-process-improvements-5wy3u1`. Restore point: `v0.4`._
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

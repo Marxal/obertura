@@ -2454,6 +2454,10 @@ interface GuidedLine {
   name: string;
   ownMoves: number;
   notes?: Record<number, string>;
+  // Straight off the first-run picker, which only appears with no saved lines
+  // and onboarding unfinished. It's what lets a walkthrough that was SKIPPED
+  // last time be offered once more (see isBuilderTourOwed).
+  firstRun?: boolean;
 }
 
 function startGuidedLine(line: GuidedLine): void {
@@ -2465,7 +2469,7 @@ function startGuidedLine(line: GuidedLine): void {
   renderTitle();
   guidedActive = true;
 
-  const tourOwed = isBuilderTourOwed();
+  const tourOwed = isBuilderTourOwed({ firstRun: line.firstRun });
   if (tourOwed) markBuilderTourSeen();
 
   // Rewind and watch it play itself in, using the builder's own Watch playback
@@ -2542,6 +2546,7 @@ function showFirstRunPicker(): void {
       colour: cut.line.colour,
       name: cut.line.name,
       ownMoves: cut.ownMoves,
+      firstRun: true,
     }),
     onImport: (close) => openImportPanel({
       onImported: () => {
@@ -2563,7 +2568,7 @@ function showFirstRunPicker(): void {
       startNewLine(colour);
       guidedActive = true;
       setTimeout(() => {
-        if (!isBuilderTourOwed()) { armEmptyBoardSaveStep(); return; }
+        if (!isBuilderTourOwed({ firstRun: true })) { armEmptyBoardSaveStep(); return; }
         markBuilderTourSeen();
         showBuilderIntro(builderIntroDeps(endEmptyBoardWalkthrough, { hasScript: false }));
       }, 450);
@@ -3084,6 +3089,9 @@ function renderTrainTabbed(host: HTMLElement): void {
         onBuildWithEngine: () => { void openEngineSpar(exploreScreenDeps()); },
         onImportGames: () => openImportPanel({ onImported: () => showView('train') }),
         onConnectLichess: () => void lichessConnect(),
+        // The same replay Settings offers, in the one place a user who skipped
+        // the walkthrough is actually looking.
+        onWalkthrough: () => replayBuilderWalkthrough(),
         onSignIn: () => openSignUpSheet(),
         onInstallApp: installApp,
         // The same offer the training cap makes, asked for rather than run

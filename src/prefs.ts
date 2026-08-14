@@ -76,11 +76,10 @@ export function setOnboardingComplete(): void {
   localStorage.setItem(ONBOARDING_DONE_KEY, '1');
 }
 
-// The builder walkthrough (onboarding-tour.ts) — the three cards that name the
-// board, the tabs and Save before the first line opens. Once through it (or
-// once skipped) it never shows again; it's a separate flag from the onboarding
-// gate above because the tour also fronts a pack line opened months later, on a
-// device where onboarding is long finished.
+// The builder walkthrough (onboarding-tour.ts) — the coach-marks that name the
+// board, the tabs and Save while the first line is being built. It's a separate
+// flag from the onboarding gate above because the tour also fronts a pack line
+// opened months later, on a device where onboarding is long finished.
 const TOUR_SEEN_KEY = 'obertura.builderTourSeen';
 
 export function isBuilderTourSeen(): boolean {
@@ -96,6 +95,22 @@ export function setBuilderTourSeen(): void {
 // so the flag it set on the way in is cleared on the way out.
 export function clearBuilderTourSeen(): void {
   try { localStorage.removeItem(TOUR_SEEN_KEY); } catch { /* storage off */ }
+}
+
+// SEEN is not the same as DONE. The flag above is set the moment the walkthrough
+// opens, so it can't run twice in one sitting; this one is set only when the
+// user reaches its last bubble. Someone who skipped on their first visit and
+// came back later has seen it and not done it — which is exactly the person the
+// walkthrough is for, so the first-run flow offers it again (see
+// isBuilderTourOwed) rather than deciding they've had their turn.
+const TOUR_DONE_KEY = 'obertura.builderTourDone';
+
+export function isBuilderTourDone(): boolean {
+  try { return localStorage.getItem(TOUR_DONE_KEY) === '1'; } catch { return true; }
+}
+
+export function setBuilderTourDone(): void {
+  try { localStorage.setItem(TOUR_DONE_KEY, '1'); } catch { /* storage off */ }
 }
 
 // ── My Lines view options ────────────────────────────────────────────────────
