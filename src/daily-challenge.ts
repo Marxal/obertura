@@ -8,7 +8,10 @@
 import type { Line } from './types';
 import { dueLines, recentlyAddedLines, weakestLines } from './scheduler';
 import { currentStreak } from './streak';
+import { recordDailyTask, type TaskOutcome } from './daily-recap';
 import { Icons } from './icons';
+
+export type { TaskOutcome } from './daily-recap';
 
 // Default per-task goals (used when the user hasn't customised the daily config).
 export const DAILY_LINE_GOAL = 3;
@@ -149,17 +152,23 @@ export function getDaily(): DailyState {
   return load();
 }
 
-function markDone(id: DailyTaskId): void {
+// Tick a task off for today and file how it went (right/wrong) in the recap log,
+// which is what the completion popup compares against yesterday.
+function markDone(id: DailyTaskId, outcome: TaskOutcome): void {
   const s = load();
+  const first = !s[id];
   s[id] = true;
   save(s);
+  // Only the first clearing of a task counts — replaying it later in the day
+  // shouldn't inflate (or dent) the day's figures.
+  if (first) recordDailyTask(id, outcome);
 }
 
-export function markLinesDone(): void { markDone('lines'); }
-export function markPositionsDone(): void { markDone('positions'); }
-export function markPuzzlesDone(): void { markDone('puzzles'); }
-export function markEndgamesDone(): void { markDone('endgames'); }
-export function markMistakesDone(): void { markDone('mistakes'); }
+export function markLinesDone(o: TaskOutcome): void { markDone('lines', o); }
+export function markPositionsDone(o: TaskOutcome): void { markDone('positions', o); }
+export function markPuzzlesDone(o: TaskOutcome): void { markDone('puzzles', o); }
+export function markEndgamesDone(o: TaskOutcome): void { markDone('endgames', o); }
+export function markMistakesDone(o: TaskOutcome): void { markDone('mistakes', o); }
 
 // ── Which tasks are active, and the next one ──────────────────────────────────
 
@@ -183,6 +192,22 @@ export function activeDailyTasks(config: DailyConfig, avail: DailyAvailability):
 export function isDailyDone(config: DailyConfig, avail: DailyAvailability): boolean {
   const s = load();
   return activeDailyTasks(config, avail).every((id) => s[id]);
+}
+
+// ── The perfect-day bar ───────────────────────────────────────────────────────
+//
+// A day with NOT ONE move wrong earns its own (rare, deliberately surprising)
+// celebration — see daily-celebration.ts. It only counts when the day was worth
+// winning: at least three tasks switched on, none of them set to a single item.
+// Someone running one task of one puzzle can still have a clean day; they just
+// don't get the fanfare.
+
+export const PERFECT_MIN_TASKS = 3;
+export const PERFECT_MIN_COUNT = 2;
+
+export function perfectDayEligible(config: DailyConfig, active: DailyTaskId[]): boolean {
+  if (active.length < PERFECT_MIN_TASKS) return false;
+  return active.every((id) => config.tasks[id].count >= PERFECT_MIN_COUNT);
 }
 
 // ── The next-task chain ───────────────────────────────────────────────────────

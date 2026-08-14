@@ -62,6 +62,7 @@ import {
   reviewedToday,
   recordReviewOutcome,
 } from './streak';
+import type { TaskOutcome } from './daily-recap';
 import { renderLoadError } from './load-error';
 import { buildPositionCard, colourPip, lineFinalFen } from './card-position';
 import { burstConfetti, starfall, celebratePawn } from './confetti';
@@ -1151,15 +1152,16 @@ interface RoundRunner {
   totalRounds: number;
   stats: SessionStats;
   // Fires once the whole sitting reaches the final session-complete screen (not
-  // between rounds). Used by the daily challenge to mark its lines task done.
-  onComplete?: () => void;
+  // between rounds). Used by the daily challenge to mark its lines task done —
+  // and to file how the sitting went, for the completion popup's recap.
+  onComplete?: (outcome: TaskOutcome) => void;
   nextAction?: NextAction;
 }
 
 function startRounds(
   lines: Line[],
   container: HTMLElement,
-  opts: { explicit?: boolean; onComplete?: () => void; nextAction?: NextAction } = {},
+  opts: { explicit?: boolean; onComplete?: (outcome: TaskOutcome) => void; nextAction?: NextAction } = {},
 ): void {
   const runner: RoundRunner = {
     lines,
@@ -1180,7 +1182,7 @@ function startRounds(
 export function startLineSession(
   lines: Line[],
   container: HTMLElement,
-  onComplete?: () => void,
+  onComplete?: (outcome: TaskOutcome) => void,
   nextAction?: NextAction,
 ): void {
   startRounds(lines, container, { explicit: true, onComplete, nextAction });
@@ -1196,7 +1198,7 @@ export function startPositionsSession(
   lines: Line[],
   container: HTMLElement,
   count: number,
-  onComplete: () => void,
+  onComplete: (outcome: TaskOutcome) => void,
   nextAction?: NextAction,
 ): void {
   const trainingLines = lines.filter(l => l.inTraining);
@@ -1264,7 +1266,7 @@ export function startPositionsSession(
       },
       onComplete: () => {
         renderIndividualComplete(container, stats, mistakes, nextAction);
-        onComplete();
+        onComplete({ right: stats.reviewed - stats.missed, wrong: stats.missed });
       },
       onCancel: () => void doRender(container),
     },
@@ -1287,7 +1289,10 @@ function runRound(runner: RoundRunner, container: HTMLElement): void {
   runSession(session, container, runner.stats, () => {
     if (runner.index >= runner.lines.length) {
       renderSessionComplete(container, runner.stats, runner.nextAction);
-      runner.onComplete?.();
+      runner.onComplete?.({
+        right: runner.stats.totalMoves - runner.stats.movesMissed,
+        wrong: runner.stats.movesMissed,
+      });
     } else {
       renderRoundComplete(container, runner, before);
     }

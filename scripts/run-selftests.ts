@@ -27,6 +27,7 @@ import { runReviewSelfTest } from '../src/review.selftest';
 import { runMoveFactsSelfTest } from '../src/move-facts.selftest';
 import { runAccuracySelfTest } from '../src/accuracy.selftest';
 import { runMistakeScanSelfTest } from '../src/mistake-scan.selftest';
+import { runDailyRecapSelfTest } from '../src/daily-recap.selftest';
 import { runBrilliantSelfTest } from '../src/brilliant.selftest';
 import { runEndgameCatalogSelfTest } from '../src/endgame-catalog.selftest';
 import { runEndgameProgressSelfTest } from '../src/endgame-progress.selftest';
@@ -62,6 +63,7 @@ const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'move-facts', run: runMoveFactsSelfTest },
   { suite: 'accuracy', run: runAccuracySelfTest },
   { suite: 'mistake-scan', run: runMistakeScanSelfTest },
+  { suite: 'daily-recap', run: runDailyRecapSelfTest },
   { suite: 'brilliant', run: runBrilliantSelfTest },
   { suite: 'endgame-catalog', run: runEndgameCatalogSelfTest },
   { suite: 'endgame-progress', run: runEndgameProgressSelfTest },

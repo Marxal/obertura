@@ -1831,6 +1831,28 @@ chosen, and no second chance for anyone who skipped.
 
 _On `claude/onboarding-process-improvements-5wy3u1`. Restore point: `v0.4`._
 
+### Daily challenge — the completion popup
+
+- ✅ **A reward at the end of the daily.** Clearing every task now lands a small
+  centred popup: the hopping pixel pawn, today's accuracy against yesterday's as
+  two bars with a delta chip, one line of encouragement, and three overall
+  figures — day streak (flagged when it's a personal best), challenges cleared
+  all-time, and lines mastered. It waits for the finishing task's own results
+  screen to close, so the two never stack, and the backdrop, the back gesture,
+  Escape or the button all get rid of it.
+
+- ✅ **Its own numbers.** Each task now reports how many moves it got right and
+  wrong; those go into a per-day daily-challenge log (`daily-recap.ts`) so today
+  is compared against a day of the same shape rather than against everything you
+  happened to do that day. Yesterday missing falls back to your last logged day,
+  labelled honestly.
+
+- ✅ **The perfect day.** A challenge finished without a single wrong move — on a
+  day with at least three tasks, none set below two — swaps the popup for a brass
+  one, and the pawn promotes: it hops, bursts, and comes back as a pixel queen.
+  Nothing anywhere else in the app hints that it's there.
+
+
 ---
 
 ## v1.4 — seeds (parked) 💤
