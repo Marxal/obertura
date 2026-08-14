@@ -2247,54 +2247,101 @@ html[data-coords="off"] .cg-wrap coords {
 .builder-slide-action { width: 100%; margin: 0.25rem 0 0.5rem; }
 
 /* ── Explore slide ───────────────────────────────────────────────────────────
-   Three tiles at the very top, then the argument for them. The slide used to
+   Three buttons at the very top, then the argument for them. The slide used to
    open with a heading and a subheading, which put the thing you came to do below
-   two lines of prose; now the first thing under the tab bar is three buttons. */
+   two lines of prose; now the first thing under the tab bar is three buttons —
+   raised, tinted by source, and plus-marked, so they read as things to press
+   rather than as three labels that happen to be tappable.
+
+   Under them, every card is fully open: the record used to sit behind a chevron,
+   which hid the interesting part exactly when you were choosing and made
+   comparing three moves a three-tap job. The stats block below is a two-column
+   grid, so the bars of all three cards line up down the panel and the whole
+   slide reads as one table. */
 .explore-picks {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.35rem;
-  padding: 0.4rem 0 0.5rem;
+  gap: 0.4rem;
+  padding: 0.5rem 0 0.55rem;
 }
 
+/* The source tint, set once per card and reused by every part of it (border,
+   surface, plus badge, source word). One variable per source keeps the three
+   kinds of reason distinguishable without three copies of every rule. */
+.explore-pick,
+.explore-card { --explore-tint: var(--text-muted); }
+.explore-pick--games,
+.explore-card--games { --explore-tint: var(--accent); }
+.explore-pick--library,
+.explore-card--library { --explore-tint: var(--success); }
+.explore-pick--engine,
+.explore-card--engine { --explore-tint: var(--text-muted); }
+
 .explore-pick {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  min-height: 52px;
-  padding: 0.4rem 0.2rem;
-  border: 1px solid var(--border-card);
-  /* The source reads off the top edge, so three tiles scan as three different
-     KINDS of reason before a single word is read. */
-  border-top: 3px solid var(--border-card);
-  border-radius: 10px;
-  background: var(--bg-card);
+  gap: 3px;
+  min-height: 62px;
+  padding: 0.5rem 0.3rem;
+  border: 1.5px solid color-mix(in srgb, var(--explore-tint) 42%, var(--border-card));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--explore-tint) 9%, var(--bg-card));
+  color: var(--text);
   font: inherit;
   cursor: pointer;
+  box-shadow: var(--shadow-card);
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.12s, border-color 0.12s;
+  transition: transform 0.1s ease, box-shadow 0.12s ease, background 0.12s;
 }
-.explore-pick:active { background: var(--bg-parchment); }
-.explore-pick--games { border-top-color: var(--accent); }
-.explore-pick--library { border-top-color: var(--success); }
-.explore-pick--engine { border-top-color: var(--text-muted); }
+/* Pressed: the tile sinks. On dark, --shadow-card is `none`, so the tint change
+   and the 1px drop carry the feedback on their own. */
+.explore-pick:active {
+  transform: translateY(1px);
+  box-shadow: none;
+  background: color-mix(in srgb, var(--explore-tint) 20%, var(--bg-card));
+}
+@media (hover: hover) {
+  .explore-pick:hover {
+    box-shadow: var(--shadow-card-hover);
+    border-color: color-mix(in srgb, var(--explore-tint) 60%, var(--border-card));
+  }
+}
 
 .explore-pick-move {
   font-family: 'Courier New', Courier, monospace;
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
 }
-.explore-pick-mark {
-  display: flex;
-  color: var(--text-faint);
+.explore-pick-src {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 100%;
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--explore-tint) 70%, var(--text-muted));
 }
-.explore-pick--games .explore-pick-mark { color: var(--accent); }
+.explore-pick-src svg { flex-shrink: 0; }
+
+/* The plus says what pressing does — this adds the move to the line. */
+.explore-pick-add {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  display: flex;
+  color: color-mix(in srgb, var(--explore-tint) 65%, transparent);
+}
 
 /* The walkthrough's scripted move: ringed, so the bubble saying "tap one" has
    something to point at. */
@@ -2316,28 +2363,19 @@ html[data-coords="off"] .cg-wrap coords {
 .explore-rows {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.4rem;
   padding-bottom: 0.5rem;
 }
 
-/* The same three moves again, with the reason each is on the list. A grid so the
-   disclosure chevron can sit against the head row while the expanded record
-   spans the full width underneath it. */
-/* minmax(0, …) rather than 1fr: a grid column's automatic minimum is its
-   content's min-content width, so a long opening name pushed the whole card past
-   the panel's edge instead of ellipsing inside it. */
+/* The same three moves again, each with its whole record under it. */
 .explore-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--border-card);
-  border-left: 3px solid var(--border-card);
+  border-left: 3px solid var(--explore-tint);
   border-radius: 10px;
   background: var(--bg-card);
 }
-.explore-card--games { border-left-color: var(--accent); }
-.explore-card--library { border-left-color: var(--success); }
-.explore-card--engine { border-left-color: var(--text-muted); }
 .explore-card--cue { border-color: var(--accent); }
 
 .explore-card-head {
@@ -2393,44 +2431,110 @@ html[data-coords="off"] .cg-wrap coords {
   white-space: nowrap;
 }
 
-/* A real target of its own, next to the row's own tap area — the row plays the
-   move, the chevron opens the record. */
-.explore-card-toggle {
+/* The card's own add button — same promise as the tile above, at the end of the
+   row you're reading. */
+.explore-card-add {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  align-self: stretch;
-  border: none;
-  background: transparent;
-  color: var(--text-faint);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--explore-tint) 14%, transparent);
+  color: color-mix(in srgb, var(--explore-tint) 85%, var(--text-muted));
 }
-.explore-card-chev { transition: transform 0.15s ease; }
-.explore-card-toggle[aria-expanded='true'] .explore-card-chev { transform: rotate(180deg); }
 
-.explore-card-more {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 0.1rem 0.55rem 0.5rem;
+/* Everything that used to hide behind the chevron. Two columns — label, then
+   the bar — so "you" and the database sit on the same grid and the comparison
+   is a glance rather than a calculation. */
+.explore-stats {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.3rem 0.5rem;
+  margin: 0 0.5rem;
+  padding: 0.45rem 0 0.55rem;
   border-top: 1px solid var(--hairline-soft);
-  margin-top: 0.1rem;
-  padding-top: 0.45rem;
 }
-.explore-more-label {
-  font-size: 0.62rem;
+.explore-stat-label {
+  font-size: 0.6rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text-faint);
+  white-space: nowrap;
 }
-.explore-more-eval {
-  font-size: 0.76rem;
-  font-variant-numeric: tabular-nums;
+.explore-stats .wdl-row { min-width: 0; }
+.explore-stats .wdl-bar { height: 9px; }
+
+/* Which way the comparison went, in words and in colour: sage when your own
+   score beats the database's, brick when it doesn't. Spans both columns. */
+.explore-compare {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.22rem 0.4rem;
+  border-radius: 7px;
+  font-size: 0.7rem;
+  line-height: 1.25;
+}
+.explore-compare--up {
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+  color: var(--success-active);
+}
+.explore-compare--down {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: var(--danger-active);
+}
+.explore-compare--level {
+  background: var(--bg-parchment);
   color: var(--text-muted);
+}
+/* On dark, the -active inks are too dark to sit on their own tint; lift them
+   toward the page's cream. */
+[data-theme="dark"] .explore-compare--up {
+  color: color-mix(in srgb, var(--success) 55%, var(--text));
+}
+[data-theme="dark"] .explore-compare--down {
+  color: color-mix(in srgb, var(--danger) 55%, var(--text));
+}
+.explore-compare-ico { flex: 0 0 auto; }
+.explore-compare--down .explore-compare-ico { transform: scaleY(-1); }
+.explore-compare-delta {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The loose numbers that don't deserve a bar. */
+.explore-facts {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+.explore-fact {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28rem;
+  padding: 2px 7px;
+  border: 1px solid var(--hairline-soft);
+  border-radius: 999px;
+  background: var(--bg-parchment);
+}
+.explore-fact-k {
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-fainter);
+}
+.explore-fact-v {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 /* The "why is this here" badge. */

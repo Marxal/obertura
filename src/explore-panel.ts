@@ -11,12 +11,20 @@
 //
 // THE THREE COME FIRST, AS THREE BUTTONS. The slide used to open with a heading
 // and a subheading, so the thing you came to do was below two lines of prose.
-// Now the top of the panel is a row of three tiles — the move and a mark saying
-// where it came from — and tapping one plays it. Everything under them is the
-// argument for them: the same three moves again, with the number that earned
-// each its place and, one tap further, the record behind it.
+// Now the top of the panel is a row of three raised, tinted, plus-marked tiles —
+// the move and where it came from — and tapping one plays it onto the line.
+// Everything under them is the argument for them: the same three moves again,
+// each with its whole record laid out.
 //
-// WHERE THEY COME FROM, IN ORDER OF PRIORITY:
+// NOTHING IS HIDDEN BEHIND A TAP. The record used to sit under a chevron, one
+// disclosure per card. That made the interesting part — how a move actually
+// scores — invisible exactly when you were deciding, and made comparing three
+// moves a three-tap job. Now every card shows the same fixed layout, so the
+// three cards read as a table: your win/draw/loss bar over the database's win/
+// draw/loss bar, aligned to the same grid, with one line saying which way the
+// comparison went and a row of facts (engine evaluation, popularity) underneath.
+//
+// WHERE THE THREE COME FROM, IN ORDER OF PRIORITY:
 //
 //   1. Your games      — a move you have actually played (or actually faced) in
 //                        an imported online game. Nothing beats this: a
@@ -32,6 +40,10 @@
 //                        the live Engine) runs a short shallow search. Three
 //                        suggestions is the promise of the slide, and "turn the
 //                        engine on first" is not an answer to a question.
+//
+// The cloud eval is now asked for at EVERY position the slide shows, not only
+// when the other two sources came up short — one cached GET per position, which
+// is what lets a card from any source carry an evaluation.
 //
 // THE HEADER IS THE FRAMING. On your move the question is "what do I play?" — the
 // rows are answers. On the opponent's move it's "what do they play?" — the rows
@@ -60,25 +72,46 @@ const SUGGESTIONS = 3;
 const LOCAL_DEPTH = 12;
 const LOCAL_MOVETIME_MS = 1200;
 
+// Below this many of your own games, "you score better than the book here" is
+// noise — one win out of one game is a 100% score. The two bars still both show;
+// only the verdict line waits for a sample worth reading.
+const COMPARE_MIN_GAMES = 3;
+
+// A score gap this small either way reads as "the same", because it is.
+const COMPARE_LEVEL_PTS = 3;
+
+// Cloud evals, kept per position for the life of the panel so re-rendering the
+// same position (a repaint when a slower source lands) costs nothing.
+const EVAL_CACHE_MAX = 80;
+
 export type ExploreSource = 'games' | 'library' | 'engine';
 
 interface Candidate {
   uci: string;
   san: string;
   source: ExploreSource;
-  // The number that earned this move its place, already phrased.
-  detail: string;
   // Sort key WITHIN a source: game count, explorer game count, engine rank.
   weight: number;
   // The opening this move reaches, when the book knows one — a name is the best
   // single hint about where a move leads.
   opening?: string;
-  // The record behind the move, when the source has one: how the games that
-  // played it actually went, from the line owner's side.
-  wdl?: WdlCounts;
-  // The engine's verdict, white-perspective like every other eval in the app.
-  cp?: number;
+  // An override for the headline, used only by the walkthrough's scripted move.
+  note?: string;
+
+  // ── your games ──
+  // How the games in which this move appeared actually went, from the line
+  // owner's side (so it reads the same whether you played the move or faced it).
+  mine?: WdlCounts;
+
+  // ── the database ──
+  db?: WdlCounts;          // the same, from the explorer's games
+  dbSharePct?: number;     // this move's share of the database's games here
+  dbLabel?: string;        // 'masters' | 'Lichess players'
+
+  // ── the engine ──
+  cp?: number;             // white-perspective, like every other eval in the app
   mate?: number;
+  engineRank?: number;     // 0 = the engine's first choice
 }
 
 export interface ExplorePanelDeps {
@@ -107,10 +140,7 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
   let active = false;
   let highlightUci: string | null = null;
   const statsByColour = new Map<'white' | 'black', StatNode>();
-  // Which rows the user has opened. Keyed by uci so it survives a repaint when
-  // the slower sources land, and cleared whenever the position changes.
-  let expanded = new Set<string>();
-  let expandedFen = '';
+  const evalCache = new Map<string, Promise<MoveEval[]>>();
 
   loadBookEntries()
     .then(entries => { book = buildBook(entries); render(); })
@@ -139,9 +169,6 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
     const el = deps.el;
     const fen = deps.getFen();
 
-    // A new position is a new question; nothing stays open across it.
-    if (fen !== expandedFen) { expanded = new Set(); expandedFen = fen; }
-
     el.replaceChildren();
 
     // The three tiles, at the very top — the reason the slide exists is one tap
@@ -167,19 +194,18 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
     if (!active) return;
 
     void (async () => {
-      const extra: Candidate[] = [];
       const lib = await libraryCandidates(fen);
       if (deps.getFen() !== fen) return;
-      extra.push(...lib);
-      paint(picks, rows, mergeCandidates([...instant, ...extra]), fen);
+      const known = mergeCandidates([...instant, ...lib]);
+      paint(picks, rows, known, fen);
 
-      // The engine is the last resort — and the guarantee. If your games and the
-      // book between them can't fill three rows, ask it, whether or not the
-      // user has the live engine switched on.
-      if (mergeCandidates([...instant, ...extra]).length >= SUGGESTIONS) return;
-      const eng = await engineCandidates(fen);
+      // The engine, always: its evaluation is a fact about every candidate, not
+      // just about the moves it had to supply itself. The cloud answers most
+      // opening positions instantly and for free; only when the other sources
+      // left an empty slot do we pay for a local search to fill it.
+      const eng = await engineCandidates(fen, known.length < SUGGESTIONS);
       if (deps.getFen() !== fen || !eng.length) return;
-      paint(picks, rows, mergeCandidates([...instant, ...extra, ...eng]), fen);
+      paint(picks, rows, mergeCandidates([...instant, ...lib, ...eng]), fen);
     })();
   }
 
@@ -214,7 +240,6 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
     if (!stats) return [];
     const node = statAt(stats, deps.getUcis());
     if (!node) return [];
-    const mine = myTurn();
     return [...node.children.values()]
       .filter(c => c.games > 0)
       .sort((a, b) => b.games - a.games)
@@ -222,11 +247,8 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
         uci: c.uci,
         san: c.san,
         source: 'games' as const,
-        detail: mine
-          ? `You played this in ${c.games} game${c.games === 1 ? '' : 's'}`
-          : `Faced in ${c.games} game${c.games === 1 ? '' : 's'}`,
         weight: c.games,
-        wdl: {
+        mine: {
           wins: c.wins, draws: c.draws, losses: c.losses,
           scorePct: statScorePct(c), games: c.games,
         },
@@ -253,7 +275,6 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
         uci,
         san,
         source: 'library',
-        detail: 'Main opening theory',
         weight: child.count,
         opening: child.name ?? undefined,
       });
@@ -290,35 +311,46 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
         uci,
         san,
         source: 'library',
-        detail: `${Math.round((100 * counts.games) / total)}% of ${label} play this`,
         weight: counts.games,
-        wdl: counts,
+        db: counts,
+        dbSharePct: Math.round((100 * counts.games) / total),
+        dbLabel: label,
       });
     }
     return out.sort((a, b) => b.weight - a.weight);
   }
 
-  // The engine's best moves, for positions the games and the book have both run
-  // out on. The Lichess cloud first — free, instant, and it knows most opening
-  // positions. Where it can't answer, the dedicated review worker runs a short
-  // shallow search: NOT the live Engine, so this works with the engine toggle
-  // off, which is the whole point of promising three suggestions.
-  async function engineCandidates(fen: string): Promise<Candidate[]> {
-    let lines: MoveEval[] | null = await cloudTopLines(fen);
-    if (!lines?.length) {
-      const local = await analysePosition(fen, LOCAL_DEPTH, undefined, {
+  // The engine's read on this position. The Lichess cloud first — free, cached
+  // per position, and it knows most opening positions. `allowLocal` is set only
+  // when the other sources left a slot empty: then the dedicated review worker
+  // runs a short shallow search, which is NOT the live Engine, so this still
+  // works with the engine toggle off. That's the whole point of promising three
+  // suggestions.
+  async function engineCandidates(fen: string, allowLocal: boolean): Promise<Candidate[]> {
+    // The cache holds the PROMISE, not the answer: render() runs several times
+    // per position (the book lands, the games land, the slide opens), and
+    // caching only the settled value would let three identical requests race
+    // out before the first one came back.
+    let pending = evalCache.get(fen);
+    if (!pending) {
+      if (evalCache.size >= EVAL_CACHE_MAX) evalCache.clear();
+      pending = cloudTopLines(fen).then(l => l ?? []).catch(() => []);
+      evalCache.set(fen, pending);
+    }
+    let lines: MoveEval[] = await pending;
+    if (!lines.length && allowLocal) {
+      lines = await analysePosition(fen, LOCAL_DEPTH, undefined, {
         multiPv: SUGGESTIONS, movetimeMs: LOCAL_MOVETIME_MS,
       });
-      lines = local.length ? local : null;
     }
-    if (!lines?.length) return [];
+    if (!lines.length) return [];
     return lines.slice(0, SUGGESTIONS).map((m, i) => ({
       uci: m.uci,
       san: m.san || m.uci,
       source: 'engine' as const,
-      detail: i === 0 ? 'The engine’s first choice here' : `The engine’s #${i + 1} choice here`,
       // Rank 0 is the strongest, so invert it into a descending weight.
       weight: SUGGESTIONS - i,
+      engineRank: i,
       cp: m.cp,
       mate: m.mate,
     }));
@@ -328,7 +360,9 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
 
   // One row per move, keeping the highest-priority source that suggested it (a
   // move you played AND masters play is listed as yours — that's the stronger
-  // reason), and carrying across whatever the other sources knew about it.
+  // reason), and carrying across everything the other sources knew about it. The
+  // carry-across is what fills a card: a "your games" move gets the database's
+  // bar and the engine's evaluation from the losing entries.
   function mergeCandidates(all: Candidate[]): Candidate[] {
     const rank: Record<ExploreSource, number> = { games: 0, library: 1, engine: 2 };
     const byUci = new Map<string, Candidate>();
@@ -338,15 +372,19 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
       // Keep the better source; either way, don't lose what the other one knew.
       const winner = rank[c.source] < rank[existing.source] ? { ...c } : existing;
       const loser = winner === existing ? c : existing;
-      winner.opening = winner.opening ?? loser.opening;
-      winner.wdl = winner.wdl ?? loser.wdl;
-      winner.cp = winner.cp ?? loser.cp;
-      winner.mate = winner.mate ?? loser.mate;
-      // Within the library source the explorer's real popularity beats the
-      // book's theory-count placeholder, so let a richer detail win.
-      if (winner === existing && c.source === existing.source && c.weight > existing.weight) {
-        winner.detail = c.detail;
-        winner.weight = c.weight;
+      winner.opening ??= loser.opening;
+      winner.note ??= loser.note;
+      winner.mine ??= loser.mine;
+      winner.db ??= loser.db;
+      winner.dbSharePct ??= loser.dbSharePct;
+      winner.dbLabel ??= loser.dbLabel;
+      winner.cp ??= loser.cp;
+      winner.mate ??= loser.mate;
+      winner.engineRank ??= loser.engineRank;
+      // Within the library source the explorer's real game counts beat the
+      // book's theory-count placeholder, so let the bigger number rank the row.
+      if (winner.source === loser.source && loser.weight > winner.weight) {
+        winner.weight = loser.weight;
       }
       byUci.set(c.uci, winner);
     }
@@ -379,7 +417,7 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
       if (!m) return null;
       return {
         uci, san: m.san, source: 'library',
-        detail: 'The next move of the line you’re building',
+        note: 'The next move of the line you’re building',
         weight: Number.MAX_SAFE_INTEGER,
       };
     } catch {
@@ -402,16 +440,18 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
     }
 
     const prefix = movePrefix(deps.getSans().length);
+    const faced = !myTurn();
     for (const c of list) {
-      picksHost.appendChild(pickTile(c, prefix));
-      rowsHost.appendChild(detailRow(c, prefix));
+      picksHost.appendChild(pickTile(c, prefix, faced));
+      rowsHost.appendChild(detailCard(c, prefix, faced));
     }
   }
 
-  // A quick pick: the move, and a mark saying where it came from. Nothing else —
-  // the whole row has to fit three of these across a phone, and the argument for
-  // each move is right underneath.
-  function pickTile(c: Candidate, prefix: string): HTMLElement {
+  // A quick pick, and it has to LOOK like the button it is: a raised, tinted,
+  // source-coloured tile with a plus in the corner saying what tapping does.
+  // Nothing else — the whole row has to fit three of these across a phone, and
+  // the argument for each move is right underneath.
+  function pickTile(c: Candidate, prefix: string, faced: boolean): HTMLElement {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = `explore-pick explore-pick--${c.source}`;
@@ -423,19 +463,27 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
     move.textContent = `${prefix} ${formatMove(c.san)}`;
     btn.appendChild(move);
 
-    const mark = document.createElement('span');
-    mark.className = 'explore-pick-mark';
-    mark.appendChild(sourceIcon(c.source, 13));
-    btn.appendChild(mark);
+    const src = document.createElement('span');
+    src.className = 'explore-pick-src';
+    src.appendChild(sourceIcon(c.source, 11));
+    src.appendChild(document.createTextNode(sourceName(c.source)));
+    btn.appendChild(src);
 
-    btn.setAttribute('aria-label', `${prefix} ${c.san} — ${c.detail}`);
-    btn.title = c.detail;
+    const add = document.createElement('span');
+    add.className = 'explore-pick-add';
+    add.appendChild(Icons.plus(13));
+    btn.appendChild(add);
+
+    const why = headline(c, faced);
+    btn.setAttribute('aria-label', `Add ${prefix} ${c.san} to the line — ${why}`);
+    btn.title = why;
     return btn;
   }
 
-  // The same move again, with the reason it's on the list and — one tap further
-  // — the record behind it.
-  function detailRow(c: Candidate, prefix: string): HTMLElement {
+  // The same move again, with everything we know about it laid out in the same
+  // order on every card: what it is, how you score with it, how the database
+  // scores with it, which way that comparison went, and the loose facts.
+  function detailCard(c: Candidate, prefix: string, faced: boolean): HTMLElement {
     const wrap = document.createElement('div');
     wrap.className = `explore-card explore-card--${c.source}`;
     if (c.uci === highlightUci) wrap.classList.add('explore-card--cue');
@@ -454,63 +502,103 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
     chipRow.appendChild(sourceChip(c.source));
     if (c.opening) chipRow.appendChild(span('explore-card-opening', c.opening));
     body.appendChild(chipRow);
-    body.appendChild(span('explore-card-detail', c.detail));
+    body.appendChild(span('explore-card-detail', headline(c, faced)));
     head.appendChild(body);
+
+    const add = document.createElement('span');
+    add.className = 'explore-card-add';
+    add.appendChild(Icons.plus(16));
+    head.appendChild(add);
+    head.setAttribute('aria-label', `Add ${prefix} ${c.san} to the line`);
     wrap.appendChild(head);
 
-    // Nothing more to say about an engine pick with no eval — don't grow a
-    // disclosure that opens onto nothing.
-    const hasMore = !!c.wdl || c.cp !== undefined || c.mate !== undefined;
-    if (!hasMore) return wrap;
-
-    const isOpen = expanded.has(c.uci);
-    const toggle = document.createElement('button');
-    toggle.type = 'button';
-    toggle.className = 'explore-card-toggle';
-    toggle.setAttribute('aria-expanded', String(isOpen));
-    toggle.setAttribute('aria-label', isOpen ? 'Hide the record' : 'Show the record');
-    const chev = Icons.chevronDown(18);
-    chev.classList.add('explore-card-chev');
-    toggle.appendChild(chev);
-    toggle.addEventListener('click', () => {
-      if (expanded.has(c.uci)) expanded.delete(c.uci); else expanded.add(c.uci);
-      render();
-    });
-    wrap.appendChild(toggle);
-
-    if (!isOpen) return wrap;
-
-    const more = document.createElement('div');
-    more.className = 'explore-card-more';
-    if (c.wdl) {
-      const caption = c.source === 'games' ? 'How those games went' : 'How this move scores';
-      more.appendChild(span('explore-more-label', caption));
-      more.appendChild(wdlScoreRow(c.wdl, compactCount(c.wdl.games)));
-    }
-    if (c.cp !== undefined || c.mate !== undefined) {
-      more.appendChild(span('explore-more-label', 'Engine evaluation'));
-      more.appendChild(span('explore-more-eval', formatEval(c.cp, c.mate)));
-    }
-    wrap.appendChild(more);
+    const stats = statsBlock(c);
+    if (stats) wrap.appendChild(stats);
     return wrap;
   }
 
-  function sourceIcon(source: ExploreSource, size: number): SVGElement {
-    return source === 'games' ? Icons.grid2x2(size)
-      : source === 'library' ? Icons.book(size)
-      : Icons.cpu(size);
+  // Everything that used to live behind the chevron, always open and always in
+  // the same places, so three cards can be read as one table.
+  function statsBlock(c: Candidate): HTMLElement | null {
+    const grid = document.createElement('div');
+    grid.className = 'explore-stats';
+
+    if (c.mine) {
+      grid.appendChild(span('explore-stat-label', 'You'));
+      grid.appendChild(wdlScoreRow(c.mine, gamesLabel(c.mine.games)));
+    }
+    if (c.db) {
+      grid.appendChild(span('explore-stat-label', dbShort(c.dbLabel)));
+      grid.appendChild(wdlScoreRow(c.db, `${compactCount(c.db.games)} games`));
+    }
+
+    const verdict = compareLine(c);
+    if (verdict) grid.appendChild(verdict);
+
+    const facts = factsRow(c);
+    if (facts) grid.appendChild(facts);
+
+    return grid.childElementCount ? grid : null;
   }
 
-  // The badge that says why a move is on the list. It's the whole reason the
-  // slide is trustworthy — a suggestion with no stated basis is just an opinion.
-  function sourceChip(source: ExploreSource): HTMLElement {
-    const chip = document.createElement('span');
-    chip.className = `explore-chip explore-chip--${source}`;
-    chip.appendChild(sourceIcon(source, 12));
-    chip.appendChild(document.createTextNode(
-      source === 'games' ? 'Your games' : source === 'library' ? 'Library' : 'Engine',
-    ));
-    return chip;
+  // The green/red line: your score against the database's, in words, so the two
+  // bars above it don't have to be eyeballed. Only once your own sample is big
+  // enough to mean anything.
+  function compareLine(c: Candidate): HTMLElement | null {
+    if (!c.mine || !c.db || !c.db.games) return null;
+    if (c.mine.games < COMPARE_MIN_GAMES) return null;
+
+    const delta = c.mine.scorePct - c.db.scorePct;
+    const kind = delta >= COMPARE_LEVEL_PTS ? 'up'
+      : delta <= -COMPARE_LEVEL_PTS ? 'down'
+      : 'level';
+    const label = c.dbLabel ?? 'the database';
+
+    const row = document.createElement('div');
+    row.className = `explore-compare explore-compare--${kind}`;
+
+    if (kind === 'level') {
+      row.appendChild(span('explore-compare-text',
+        `You score about the same as ${label} here`));
+      return row;
+    }
+
+    const ico = Icons.trending(13);
+    ico.classList.add('explore-compare-ico');
+    row.appendChild(ico);
+    row.appendChild(span('explore-compare-delta',
+      `${delta > 0 ? '+' : '−'}${Math.abs(delta)}`));
+    row.appendChild(span('explore-compare-text',
+      kind === 'up' ? `points better than ${label} here`
+        : `points worse than ${label} here`));
+    return row;
+  }
+
+  // The loose numbers that don't deserve a bar: the engine's verdict, and how
+  // popular the move is when the headline hasn't already said so.
+  function factsRow(c: Candidate): HTMLElement | null {
+    const row = document.createElement('div');
+    row.className = 'explore-facts';
+
+    if (c.cp !== undefined || c.mate !== undefined) {
+      const lean = evalLean(c.cp, c.mate);
+      const text = evalText(c.cp, c.mate);
+      const f = fact('Engine', lean ? `${text} · ${lean}` : text);
+      f.title = 'The engine’s evaluation after this move, from White’s side';
+      row.appendChild(f);
+    }
+    // A move of yours that is ALSO one of the engine's top three is the single
+    // most reassuring thing this card can say, so it gets its own fact. On an
+    // engine row the headline already said it.
+    if (c.source !== 'engine' && c.engineRank !== undefined) {
+      row.appendChild(fact('Engine pick', `#${c.engineRank + 1}`));
+    }
+    // For a library row the headline already IS the popularity — don't say it
+    // twice; for a move of yours or the engine's, it's news.
+    if (c.dbSharePct !== undefined && c.source !== 'library') {
+      row.appendChild(fact('Played by', `${c.dbSharePct}% of ${c.dbLabel ?? 'them'}`));
+    }
+    return row.childElementCount ? row : null;
   }
 
   function emptyState(): HTMLElement {
@@ -550,13 +638,72 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
   };
 }
 
+// ── the case for a move, in one line ─────────────────────────────────────────
+
+// Why this move is on the list at all — the sentence under the source chip.
+function headline(c: Candidate, faced: boolean): string {
+  if (c.note) return c.note;
+  if (c.source === 'games' && c.mine) {
+    const n = c.mine.games;
+    return faced
+      ? `You’ve faced this in ${n} game${n === 1 ? '' : 's'}`
+      : `You played this in ${n} game${n === 1 ? '' : 's'}`;
+  }
+  if (c.source === 'library') {
+    return c.dbSharePct !== undefined
+      ? `${c.dbSharePct}% of ${c.dbLabel ?? 'players'} play this`
+      : 'Main opening theory';
+  }
+  if (c.source === 'engine') {
+    return c.engineRank ? `The engine’s #${c.engineRank + 1} choice here`
+      : 'The engine’s first choice here';
+  }
+  return '';
+}
+
 // ── small helpers ────────────────────────────────────────────────────────────
+
+function sourceIcon(source: ExploreSource, size: number): SVGElement {
+  return source === 'games' ? Icons.grid2x2(size)
+    : source === 'library' ? Icons.book(size)
+    : Icons.cpu(size);
+}
+
+function sourceName(source: ExploreSource): string {
+  return source === 'games' ? 'Your games' : source === 'library' ? 'Library' : 'Engine';
+}
+
+// The badge that says why a move is on the list. It's the whole reason the
+// slide is trustworthy — a suggestion with no stated basis is just an opinion.
+function sourceChip(source: ExploreSource): HTMLElement {
+  const chip = document.createElement('span');
+  chip.className = `explore-chip explore-chip--${source}`;
+  chip.appendChild(sourceIcon(source, 12));
+  chip.appendChild(document.createTextNode(sourceName(source)));
+  return chip;
+}
+
+function fact(key: string, value: string): HTMLElement {
+  const f = document.createElement('span');
+  f.className = 'explore-fact';
+  f.appendChild(span('explore-fact-k', key));
+  f.appendChild(span('explore-fact-v', value));
+  return f;
+}
 
 function span(cls: string, text: string): HTMLElement {
   const el = document.createElement('span');
   el.className = cls;
   el.textContent = text;
   return el;
+}
+
+function gamesLabel(n: number): string {
+  return `${n} game${n === 1 ? '' : 's'}`;
+}
+
+function dbShort(label?: string): string {
+  return label === 'masters' ? 'Masters' : label ? 'Lichess' : 'Database';
 }
 
 function sideToMove(fen: string): 'white' | 'black' {
@@ -569,9 +716,18 @@ function movePrefix(ply: number): string {
 }
 
 // White-perspective, like every other eval in the app: "+0.35" is White better.
-function formatEval(cp?: number, mate?: number): string {
-  if (mate !== undefined) return mate > 0 ? `Mate in ${mate}` : `Mate in ${Math.abs(mate)} for Black`;
+function evalText(cp?: number, mate?: number): string {
+  if (mate !== undefined) return mate > 0 ? `#${mate}` : `#−${Math.abs(mate)}`;
   if (cp === undefined) return '—';
-  const s = `${cp >= 0 ? '+' : ''}${(cp / 100).toFixed(2)}`;
-  return `${s} — ${cp > 40 ? 'White is better' : cp < -40 ? 'Black is better' : 'about level'}`;
+  return `${cp >= 0 ? '+' : '−'}${(Math.abs(cp) / 100).toFixed(2)}`;
+}
+
+// Which way the evaluation leans, in three words or none. Empty when the
+// position is level, because "+0.12 · about level" is the number twice.
+function evalLean(cp?: number, mate?: number): string {
+  if (mate !== undefined) {
+    return mate > 0 ? `White mates in ${mate}` : `Black mates in ${Math.abs(mate)}`;
+  }
+  if (cp === undefined) return '';
+  return cp > 40 ? 'White better' : cp < -40 ? 'Black better' : '';
 }

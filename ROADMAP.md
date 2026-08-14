@@ -1745,6 +1745,50 @@ _On `claude/bito-chess-ui-redesign-gh3dd2`. Restore point: `v0.4`._
 
 ---
 
+## v0.26 — the Explore slide opens up 🔜
+
+The slide's three suggestions were right and its presentation was quiet: the
+tiles read as three labels that happened to be tappable, and the record behind
+each move — the part you actually decide on — sat folded behind a chevron.
+
+- ✅ **The three picks look like buttons.** Raised (`--shadow-card`), tinted by
+  source, a 1.5px border in the source's own colour, and a **＋ in the corner**
+  saying what pressing one does: it adds that move to the line. Pressed, the tile
+  sinks a pixel and darkens — which is also the whole affordance on dark, where
+  the shadow token is `none`. One `--explore-tint` variable per source drives the
+  border, the surface, the plus and the source word, so the three kinds of reason
+  stay distinguishable without three copies of every rule.
+
+- ✅ **No accordion — every card is fully open.** The chevron hid the interesting
+  part exactly when you were choosing, and made comparing three moves a three-tap
+  job. Each card now shows the same fixed layout in the same order, so the three
+  read as one table.
+
+- ✅ **Your games against the database, green and red, on one grid.** Two
+  win/draw/loss bars per card — **You** over **Masters**/**Lichess** — laid out
+  in a two-column grid so the bars line up down the whole panel, plus a line
+  saying which way it went: *+23 points better than Lichess players here* in
+  sage, worse in brick, and *about the same* when the gap is under 3 points. It
+  waits for **3 games of your own** before drawing a verdict, because one win out
+  of one game is a 100% score.
+
+- ✅ **The engine's evaluation, on every card that has one.** The cloud eval is
+  now asked for at every position the slide shows, not only when the other
+  sources came up short — one request per position, cached as a promise so the
+  three renders a position triggers can't race three identical requests out. So
+  an engine card carries **Engine +0.34**, and a move of your own that is also
+  one of the engine's top three says **Engine pick #1** — the most reassuring
+  thing the card can tell you. The local shallow search still runs only to fill
+  an empty slot.
+
+- ✅ **Popularity where it isn't already said.** A library card's headline is its
+  share of the database, so it doesn't repeat it; a card of yours or the
+  engine's gets **Played by 30% of Lichess players** as a fact instead.
+
+_On `claude/explore-tab-builder-improvements-n23goq`. Restore point: `v0.4`._
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on
