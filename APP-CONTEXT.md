@@ -348,6 +348,7 @@ in the Cloudflare project. No other configuration differs between the two.
 | `storage.ts` | IndexedDB wrapper (3 stores), backup export/parse/restore, `exportCore`, two change notifiers, reset progress, erase everything. |
 | `prefs.ts` | Device-local training/view prefs. |
 | `streak.ts` | Daily streak, per-day review log, reviewed-today counter. |
+| `daily-recap.ts` | Per-day daily-challenge results log + the recap maths behind the completion popup. |
 | `forgotten-moves.ts` | Per-move miss tally by day/week/all-time. |
 | `puzzle-log.ts`, `puzzle-rating.ts`, `puzzle-repeat.ts` | Puzzle history, Elo rating (scoped), repeat ladder. |
 | `endgame-progress.ts` | Classic-endgame solve records. |
@@ -1978,6 +1979,35 @@ success screen leads with **"Next task →"** (resolved at click time, and only 
 when another active task would still be open), so the whole daily runs in one sitting;
 "Close session" sits beneath. Once everything's done the card shrinks to a quiet
 "done — keep training ✓" line. The streak sits alongside.
+
+### The completion popup
+
+`src/daily-celebration.ts` (UI) + `src/daily-recap.ts` (state + maths).
+
+Every task hands back a `TaskOutcome { right, wrong }` when it finishes; `markXDone`
+files it in a rolling per-day log (`obertura.dailyChallenge.log`, 180 days,
+`{ r, w, t, d }`). Its own log rather than `streak.ts` / `puzzle-log.ts`, so today is
+compared against a day of the *same shape* — the challenge, not everything you happened
+to do that day. Cleared by "Reset progress".
+
+When the last active task lands, `celebrateDaily` (main.ts) stamps the day
+(`markDayComplete` — returns `true` only on the first stamp, so a replayed task can't
+pop it twice), builds the recap and hands it to `showWhenClear`, which waits on a
+MutationObserver until the finishing task's own `.pt-overlay` results screen is gone.
+Centred at every width (like the Full Access popup); backdrop, back gesture, Escape and
+the button all dismiss it.
+
+The everyday face shows today's accuracy with a delta chip, two bars (today vs
+**yesterday** — or the last logged day, labelled "Last time", when yesterday is
+missing), one line of encouragement, and three overall figures: day streak (flagged
+"BEST YET" when it matches the longest run in `getTrainingDays()`), challenges cleared
+all-time, and lines mastered / in training.
+
+**The perfect day** — `recap.perfect` (not one wrong all day) AND
+`perfectDayEligible(config, active)`: **≥ 3 active tasks, none set below 2**. Brass
+palette, and the pixel pawn promotes — it hops for 1.1s, then bursts and returns as
+`pixelQueenSvg` (pixel-pawn.ts). Confetti + starfall + a second burst on promotion.
+Nothing anywhere else in the app hints that it exists.
 
 ---
 

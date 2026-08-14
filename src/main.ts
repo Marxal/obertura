@@ -40,8 +40,15 @@ import {
   markPositionsDone,
   markEndgamesDone,
   markMistakesDone,
+  isDailyDone,
+  perfectDayEligible,
   type DailyTaskId,
+  type DailyConfig,
 } from './daily-challenge';
+import { buildRecap, getDailyLog, localDayKey, markDayComplete, type TaskOutcome } from './daily-recap';
+import { showDailyCelebration, showPerfectDayCelebration, showWhenClear } from './daily-celebration';
+import { currentStreak, getTrainingDays } from './streak';
+import { masteredLines } from './stats';
 import { collectSpots, pickSpots, type SpotRef } from './mistake-scan';
 import { startMistakeSession, type OpenGameCtx } from './mistake-run';
 import type { AnalyseRequest as PuzzleAnalyseRequest } from './puzzle-run';
@@ -3004,6 +3011,33 @@ const TRAIN_TAB_ACCENT: Record<Exclude<TrainTab, 'openings'>, string> = {
   endgame: '#33677a',  // deep teal — the long game
 };
 
+// Everything on today's daily challenge is done. Stamp the day, gather the recap
+// and show the celebration — once the finishing task's own results screen has
+// closed, so the two don't stack. A day without a single wrong move (on a
+// challenge big enough to be worth winning) gets the rare promotion popup
+// instead; nothing anywhere else hints at it, which is the whole point.
+function celebrateDaily(config: DailyConfig, active: DailyTaskId[], allLines: Line[]): void {
+  // Only the first completion of the day celebrates — replaying a finished task
+  // later on shouldn't pop it again.
+  if (!markDayComplete()) return;
+
+  const training = allLines.filter((l) => l.inTraining);
+  const recap = buildRecap({
+    log: getDailyLog(),
+    today: localDayKey(),
+    streak: currentStreak(),
+    trainingDays: getTrainingDays(),
+    linesMastered: masteredLines(training).length,
+    linesInTraining: training.length,
+  });
+  const perfect = recap.perfect && perfectDayEligible(config, active);
+
+  showWhenClear(() => {
+    if (perfect) showPerfectDayCelebration(recap);
+    else showDailyCelebration(recap);
+  });
+}
+
 function renderTrainTabbed(host: HTMLElement): void {
   host.innerHTML = '';
 
@@ -3131,39 +3165,47 @@ function renderTrainTabbed(host: HTMLElement): void {
       };
     };
 
+    // Every task ends the same way: tick it off (filing how it went), refresh the
+    // card behind the overlay, and — if that was the last one — celebrate.
+    const finish = (mark: (o: TaskOutcome) => void) => (outcome: TaskOutcome): void => {
+      mark(outcome);
+      void renderDaily();
+      if (isDailyDone(config, avail)) celebrateDaily(config, active, allLines);
+    };
+
     const launchers: Record<DailyTaskId, () => void> = {
       lines: () => {
         // Drill today's lines on the Openings pane; mark that task done when the
         // whole sitting finishes, then refresh the card behind the overlay.
         if (trainTab !== 'openings') { trainTab = 'openings'; paint(); }
-        startLineSession(dailyLines, openingsPane,
-          () => { markLinesDone(); void renderDaily(); }, nextFor('lines'));
+        startLineSession(dailyLines, openingsPane, finish(markLinesDone), nextFor('lines'));
       },
       positions: () => {
         // Same pane, but a stream of single due positions rather than whole lines.
         if (trainTab !== 'openings') { trainTab = 'openings'; paint(); }
         startPositionsSession(allLines, openingsPane, config.tasks.positions.count,
-          () => { markPositionsDone(); void renderDaily(); }, nextFor('positions'));
+          finish(markPositionsDone), nextFor('positions'));
       },
       puzzles: () => {
         void startDailyPuzzles(config.tasks.puzzles.count,
-          () => { markPuzzlesDone(); void renderDaily(); }, nextFor('puzzles'),
+          finish(markPuzzlesDone), nextFor('puzzles'),
           openPuzzleFromSession);
       },
       endgames: () => {
         // Rated endgame puzzles (the End game ladder) — its own overlay, no tab
         // switch needed.
         startDailyEndgamePuzzles(config.tasks.endgames.count,
-          () => { markEndgamesDone(); void renderDaily(); }, nextFor('endgames'),
+          finish(markEndgamesDone), nextFor('endgames'),
           openPuzzleFromSession);
       },
       mistakes: () => {
         // A short mixed set from the scanned spots — runs as its own overlay,
         // so no tab switch is needed.
+        const done = finish(markMistakesDone);
         startMistakeSession({
           refs: pickSpots(spotRefs, null, config.tasks.mistakes.count),
           modeLabel: 'Daily challenge',
-          onComplete: () => { markMistakesDone(); void renderDaily(); },
+          onComplete: (s) => done({ right: s.solved, wrong: Math.max(0, s.completed - s.solved) }),
           onExit: () => { if (trainTab === 'mistakes') paint(); },
           onOpenGame: openGameFromSession,
           nextAction: nextFor('mistakes'),

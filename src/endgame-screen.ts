@@ -22,6 +22,7 @@ import {
   LEVEL_META,
 } from './endgame-catalog';
 import { getEndgameProgress, type EndgameProgress } from './endgame-progress';
+import type { TaskOutcome } from './daily-recap';
 import { startEndgamePlayout } from './endgame-playout';
 import { getAllGames } from './storage';
 import { buildInlineImport } from './import-inline';
@@ -114,7 +115,7 @@ function runEndgamePuzzles(theme: PuzzleTheme, deps: EndgameScreenDeps, onExit: 
 // (puzzles-screen.ts), but on the endgame rating ladder.
 export function startDailyEndgamePuzzles(
   count: number,
-  onComplete: () => void,
+  onComplete: (outcome: TaskOutcome) => void,
   nextAction?: { label: string; run: () => void },
   onAnalysePosition?: (req: AnalyseRequest) => void,
 ): void {
@@ -129,7 +130,7 @@ export function startDailyEndgamePuzzles(
       const puzzle = await fetchNextPuzzle(angle, { difficulty });
       return puzzle ? { puzzle, angle } : null;
     },
-    onComplete: () => onComplete(),
+    onComplete: (s) => onComplete({ right: s.solved, wrong: Math.max(0, s.completed - s.solved) }),
     onExit: () => { /* the daily card refreshes itself via onComplete */ },
     nextAction,
   });

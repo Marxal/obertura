@@ -21,6 +21,7 @@ import { recordPuzzleResult, getPuzzleDays, getPuzzlesByOpening } from './puzzle
 import { reviewResult, takeDueRepeat } from './puzzle-repeat';
 import { getPuzzleRating, difficultyForRating, difficultyForStreak, difficultyStep, targetRatingForStreak } from './puzzle-rating';
 import { countUp } from './count-up';
+import type { TaskOutcome } from './daily-recap';
 import { renderLoadError } from './load-error';
 import { buildEmptyState, type EmptyStateAction } from './empty-state';
 import { isConnected, LICHESS_CONNECT_BLURB } from './lichess-auth';
@@ -192,7 +193,8 @@ function runMixedPuzzleSession(
     taSource?: TaSource;
     onExit: () => void;
     onPlayAgain?: () => void;
-    onComplete?: () => void;
+    // Handed the run's summary so the daily challenge can file how it went.
+    onComplete?: (summary: { solved: number; completed: number; timed: boolean }) => void;
     nextAction?: { label: string; run: () => void };
     onAnalysePosition?: (req: AnalyseRequest) => void;
     // Count modes: override the adaptive difficulty per puzzle ordinal (0-based
@@ -266,7 +268,7 @@ function runMixedPuzzleSession(
     },
     onComplete: (s) => {
       if (mode.kind === 'timed') recordTaBest(taSource, (mode.ms / 60_000) as TaMinutes, s.solved);
-      hooks.onComplete?.();
+      hooks.onComplete?.(s);
     },
     onExit: hooks.onExit,
     onPlayAgain: hooks.onPlayAgain,
@@ -280,7 +282,7 @@ function runMixedPuzzleSession(
 // nothing to draw from (no openings in the repertoire/games yet).
 export async function startDailyPuzzles(
   count: number,
-  onComplete: () => void,
+  onComplete: (outcome: TaskOutcome) => void,
   nextAction?: { label: string; run: () => void },
   onAnalysePosition?: (req: AnalyseRequest) => void,
 ): Promise<boolean> {
@@ -309,7 +311,7 @@ export async function startDailyPuzzles(
 
   runMixedPuzzleSession(allEntries, 'Daily challenge', { kind: 'count', count, rated: true }, {
     onExit: () => { /* the daily card refreshes itself via onComplete */ },
-    onComplete,
+    onComplete: (s) => onComplete({ right: s.solved, wrong: Math.max(0, s.completed - s.solved) }),
     nextAction,
     onAnalysePosition,
     repeatAllAngles: true,

@@ -17421,3 +17421,312 @@ html.picker-open body {
 
 .firstwin-card .signup-sheet-dismiss { margin-top: 0.35rem; }
 
+
+/* ══════════════════════════════════════════════════════════════════════════
+   THE DAILY-CHALLENGE CELEBRATION  (src/daily-celebration.ts)
+
+   Centred at EVERY width (like the Full Access popup, and unlike the app's
+   bottom sheets): it's a reward, not a system prompt, and it wants to land in
+   the middle of the screen with the finished Train screen dimmed behind it.
+
+   Two faces share the box — the everyday recap, and the rare perfect day,
+   which swaps the palette to brass and promotes the pawn to a queen.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.dc-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+  background: rgba(0, 0, 0, 0.5);
+  /* Above the training/puzzle overlays (200) and level with the edit sheets. */
+  z-index: 300;
+  animation: dc-fade 180ms ease-out;
+}
+
+.dc-pop {
+  position: relative; /* anchors the confetti + starfall layers */
+  overflow: hidden;
+  width: 100%;
+  max-width: 340px;
+  max-height: 88vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-xl) var(--space-lg) var(--space-lg);
+  text-align: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 20px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28), 0 4px 12px rgba(0, 0, 0, 0.14);
+  animation: dc-pop-in 320ms cubic-bezier(0.2, 0.8, 0.3, 1.15);
+}
+
+@keyframes dc-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes dc-pop-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.94); }
+  to   { opacity: 1; transform: none; }
+}
+
+.dc-pop-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.dc-pop-sub {
+  margin-top: calc(var(--space-md) * -1 + 2px); /* tuck under the title */
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.dc-pop-msg {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.dc-pop-btn {
+  width: 100%;
+  margin-top: var(--space-xs);
+}
+
+/* ── Today vs last time ───────────────────────────────────────────────────── */
+
+.dc-compare {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background: var(--fill-faint);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+}
+
+.dc-score-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.dc-score {
+  font-family: 'Chakra Petch', monospace;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text);
+}
+
+.dc-score-label {
+  font-size: 0.78rem;
+  color: var(--text-faint);
+}
+
+.dc-delta {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+}
+.dc-delta--up   { color: var(--success); background: rgba(112, 129, 81, 0.14); }
+.dc-delta--down { color: var(--warn);    background: rgba(184, 89, 26, 0.12); }
+
+.dc-bar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 0.72rem;
+  color: var(--text-faint);
+}
+
+.dc-bar-label {
+  flex: 0 0 4.5rem;
+  text-align: left;
+}
+
+.dc-bar-track {
+  flex: 1 1 auto;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--hairline);
+  overflow: hidden;
+}
+
+.dc-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--text-fainter);
+  /* Grows from 0 on mount (width is set on the next frame in JS). */
+  transition: width 620ms cubic-bezier(0.2, 0.7, 0.3, 1) 120ms;
+}
+
+.dc-bar-pct {
+  flex: 0 0 2.2rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Today's bar is the one that matters: primary fill, darker label. */
+.dc-bar-row--now { color: var(--text-muted); font-weight: 600; }
+.dc-bar-row--now .dc-bar-fill { background: var(--primary); }
+
+/* ── The overall strip ────────────────────────────────────────────────────── */
+
+.dc-strip {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-xs);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--hairline);
+}
+
+.dc-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.dc-tile-value {
+  font-family: 'Chakra Petch', monospace;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.dc-tile-label {
+  font-size: 0.68rem;
+  color: var(--text-faint);
+}
+
+.dc-tile-flag {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PERFECT DAY — every move right, all day.
+
+   Brass everything, and the pawn queens: it hops for a beat, bursts, and
+   returns as the pixel queen. Rare by design (see perfectDayEligible), so it
+   can afford to be loud.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.dc-pop--perfect {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 1px var(--accent-soft),
+    0 18px 44px rgba(0, 0, 0, 0.3),
+    0 0 34px rgba(192, 122, 42, 0.22);
+  background:
+    radial-gradient(120% 70% at 50% 0%, var(--accent-soft) 0%, transparent 62%),
+    var(--bg-card);
+}
+
+.dc-eyebrow {
+  font-family: 'Chakra Petch', monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+  animation: dc-eyebrow-glow 2.4s ease-in-out infinite;
+}
+
+@keyframes dc-eyebrow-glow {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+
+.dc-pop--perfect .dc-pop-sub { margin-top: 0; }
+
+/* The promotion stage: the pawn and the queen occupy the same slot, so the
+   swap happens in place rather than shunting the content below. */
+.dc-promote {
+  position: relative;
+  width: 100%;
+  height: 46px;
+}
+/* Both pieces are stretched across the stage and centre their own sprite, so
+   they overlap exactly and their scale/rotate animations pivot on the middle. */
+.dc-promote > * {
+  position: absolute;
+  inset: auto 0 0;
+  display: flex;
+  justify-content: center;
+}
+
+.dc-promote-pawn {
+  transition: opacity 220ms ease-out, transform 220ms ease-out;
+}
+.dc-promote-pawn--gone {
+  opacity: 0;
+  transform: translateY(-10px) scale(1.5);
+}
+
+.dc-queen {
+  color: var(--accent);
+  line-height: 0;
+  filter: drop-shadow(0 0 10px rgba(192, 122, 42, 0.5));
+}
+
+.dc-queen-svg {
+  display: block;
+  width: 40px;
+  height: 45px;
+  shape-rendering: crispEdges;
+}
+.dc-queen-svg rect { fill: currentColor; }
+
+/* Lands with a bounce, then keeps a slow regal sway. */
+.dc-queen--pop {
+  animation: dc-queen-pop 520ms cubic-bezier(0.2, 0.8, 0.3, 1.4) backwards;
+}
+.dc-queen--pop .dc-queen-svg {
+  transform-origin: bottom center;
+  animation: dc-queen-sway 2.6s ease-in-out 520ms infinite;
+}
+
+@keyframes dc-queen-pop {
+  0%   { opacity: 0; transform: scale(0.2) rotate(-25deg); }
+  60%  { opacity: 1; transform: scale(1.25) rotate(6deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+
+@keyframes dc-queen-sway {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  30%      { transform: translateY(-4px) rotate(-3deg); }
+  70%      { transform: translateY(-4px) rotate(3deg); }
+}
+
+.dc-strip--perfect { border-top-color: var(--accent-soft); }
+.dc-pop--perfect .dc-tile-value { color: var(--accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  /* Keep every figure and the queen (they're content); drop the motion. */
+  .dc-overlay,
+  .dc-pop,
+  .dc-eyebrow,
+  .dc-queen--pop,
+  .dc-queen--pop .dc-queen-svg {
+    animation: none;
+  }
+  .dc-bar-fill { transition: none; }
+}
