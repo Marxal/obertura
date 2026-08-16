@@ -7,8 +7,10 @@ and those behaviours have already been decided. This file is the decision record
 the code implements the parts marked *built*, and later sessions implement the
 rest without re-litigating them.
 
-Nothing in here is UI work that has shipped yet. `src/position-index.ts` and its
-self-test are the whole of it so far.
+**Shipped so far:** the index itself (`src/position-index.ts`), and the builder's
+save flow — §4, §5, §6 and §7, wired through `src/save-index.ts` and the save
+path in `main.ts`. Still to build: §8 (write-through), §9 (the drill divert) and
+§10 as it applies to statistics.
 
 ---
 
@@ -70,21 +72,42 @@ different lines and must never match.
 
 It works on an unsaved line, which is what the save button needs.
 
-## 4. An exact duplicate transforms the save button
+## 4. An exact duplicate transforms the save button — BUILT
 
 Saving a line whose moves and colour already exist must **not** create a second
 copy. The save button changes into an update of the existing line: it opens that
 line, keeps its training record, and says so. The user should never end up with
 two identical lines and no idea which one they have been drilling.
 
-## 5. A differing tag becomes "add tag to existing line"
+It **transforms**, it never greys out — a dead primary button is a dead end where
+the main action used to be. Label: "Already saved — open it".
+
+Two limits worth knowing before you touch it:
+
+- **Only on an exact whole-line match.** A line that is merely a PREFIX of a
+  stored one leaves the button completely alone. Mid-build is indistinguishable
+  from a prefix — every line you type is a prefix of something before it is
+  finished — and a primary button that changes its label on every move is
+  unusable. The prefix case is handled by §6 instead, after a save.
+- **Only when the builder isn't editing a saved line.** Editing line A into a
+  copy of line B and having the button offer to abandon your edits and open B
+  would hijack the control. The second-copy risk this rule exists to stop only
+  arises on a fresh build.
+
+The check hangs off `refreshSaveButtonState()` in `main.ts` — the one function
+both triggers already reach, every move (via `renderMoveList`) and every tag
+change (via `renderBuilderTags`). It is fingerprinted on moves + colour + tags,
+so it re-runs only when one of those actually changes, and a slow answer that
+arrives after another move is discarded rather than applied to the wrong line.
+
+## 5. A differing tag becomes "add tag to existing line" — BUILT
 
 If the only difference is metadata — the moves and colour match, but the new save
 carries a tag (or a name) the stored line lacks — the offer is **"add this tag to
 your existing line"**, not a new save. This is the direct consequence of tags
 being outside identity in §3.
 
-## 6. An extension gets a toast
+## 6. An extension gets a toast — BUILT
 
 When the new line *extends* a stored one (`extension-longer`), the save proceeds
 and a toast reports it: the stored line's moves are a prefix of what was just
@@ -93,7 +116,18 @@ longer stored line) is the same conversation from the other end. Neither blocks
 the save; both must be visible, because silently ending up with a line and a
 truncated copy of it is how a repertoire rots.
 
-## 7. New lines inherit training records for moves already known
+The two directions are deliberately not symmetrical. Where the new line CONTAINS
+an older one, the older one is now redundant and removing it is offered — behind
+a confirm, because it is a delete. Where the new line is contained BY a longer
+one, nothing is offered but the name and a way to open it: the longer line is the
+user's work and this code does not get to touch it. `divergent` and `identical`
+say nothing at all — neither is a problem.
+
+Both are toasts carrying one optional action (`toast.ts` gained `action` and a
+queue for this), because an extension is worth knowing about and never worth
+blocking on. They queue behind the save confirmation rather than replacing it.
+
+## 7. New lines inherit training records for moves already known — BUILT
 
 A newly saved line that passes through positions the user has already drilled in
 another line starts with those moves' review records, rather than as brand-new
@@ -101,6 +135,16 @@ material. You do not re-learn a move because you filed it under a second name.
 
 Inheritance is per move, keyed by position: a user move at a position where
 another line has a review record for **the same move** copies that record.
+
+It runs in `persistCurrentLine()` BEFORE the write, and therefore before the
+enrolment path, so the confirm run and the scheduler both see the inherited state
+rather than a line of brand-new moves. It only ever fills a node with NO record
+of its own, which makes it equally safe on an edited line. The copy is detached —
+two lines must not share a `review` object, since a later drill grades each
+independently. Where several lines disagree about the same move, §10 decides.
+
+The save toast then reports it — "6 of these 10 moves you already know." — and
+says nothing at all when the number is zero.
 
 ## 8. Write-through credits the same move in other lines
 
