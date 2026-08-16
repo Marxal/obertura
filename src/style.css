@@ -6416,6 +6416,85 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   display: none;
 }
 
+/* ── The divert strip (TRANSPOSITIONS.md §9) ────────────────────────────────── */
+/* Appears between the line name and the board ONLY after a played move turns
+   out to be another in-training line's move here. Deliberately calm — no red,
+   no alarm: nothing went wrong, there are simply two answers and the user gets
+   to say which one they meant. */
+.pt-divert {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 26rem;
+  margin: 0.35rem auto 0;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  box-shadow: var(--shadow-card);
+}
+
+.pt-divert[hidden] {
+  display: none;
+}
+
+.pt-divert-text {
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text);
+  text-align: center;
+  line-height: 1.3;
+}
+
+.pt-divert-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+/* Both chips are one tap and equally reversible, so neither shouts. The
+   continue chip carries the accent; going back stays quiet. */
+.pt-divert-chip {
+  flex: 0 1 auto;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 999px;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.12s, color 0.12s;
+}
+
+.pt-divert-chip:hover {
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.pt-divert-chip--go {
+  background: var(--accent);
+  border-color: transparent;
+  color: #fff;
+}
+
+.pt-divert-chip--go:hover {
+  color: #fff;
+  filter: brightness(1.05);
+}
+
 /* Once a puzzle is solved the rating is revealed in a calmer, neutral tone (it's
    no longer a live prompt). The Daily Rated Mix appends a +/- points delta. */
 .pt-rating--solved {
