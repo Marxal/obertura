@@ -47,4 +47,13 @@ export class TrainingSession {
   next(): SessionItem | null {
     return this.queue.shift() ?? null;
   }
+
+  // Drop a line from the queue. The drill's divert (TRANSPOSITIONS.md §9) walks
+  // a line here and now, out of turn; leaving it queued would drill it a second
+  // time in the same sitting. Returns true when it was actually queued.
+  remove(lineId: string): boolean {
+    const before = this.queue.length;
+    this.queue = this.queue.filter(it => it.line.id !== lineId);
+    return this.queue.length !== before;
+  }
 }

@@ -7,9 +7,10 @@ and those behaviours have already been decided. This file is the decision record
 the code implements the parts marked *built*, and later sessions implement the
 rest without re-litigating them.
 
-**Shipped so far:** the index itself (`src/position-index.ts`), and the builder's
+**Shipped so far:** the index itself (`src/position-index.ts`); the builder's
 save flow — §4, §5, §6 and §7, wired through `src/save-index.ts` and the save
-path in `main.ts`. Still to build: §8 (write-through), §9 (the drill divert) and
+path in `main.ts`; and training's half — §8 and §9, wired through
+`src/train-index.ts`, `src/drill.ts` and `src/train-screen.ts`. Still to build:
 §10 as it applies to statistics.
 
 ---
@@ -146,24 +147,78 @@ independently. Where several lines disagree about the same move, §10 decides.
 The save toast then reports it — "6 of these 10 moves you already know." — and
 says nothing at all when the number is zero.
 
-## 8. Write-through credits the same move in other lines
+## 8. Write-through credits the same move in other lines — BUILT
 
-The mirror of §7, and the reason entries hold live node references. Drilling a
-move updates the review record on **every** line that plays that same move from
-that same position — not only the line being drilled. `siblingAnswers(fen,
-excludeLineId)` returns exactly the candidates; filter to those whose `san`
-matches the move just played.
+The mirror of §7. Drilling a move updates the review record on **every** line
+that plays that same move from that same position — not only the line being
+drilled. `siblingCredits()` (`src/train-index.ts`) is the rule: `siblingAnswers`
+for the candidates, then filter to the move actually played.
 
 Without this, a move shared by six lines gets drilled six times over and its
 schedule is nonsense.
 
-## 9. The drill offers a divert only when the other line is in training
+Keyed on position AND move **together**, which is the part that is easy to get
+wrong: a different move from the same position is different knowledge, so
+drilling the Scandinavian main-line answer must never credit the surprise weapon
+filed at the same spot. There is no training filter — a parked line takes the
+record too, because it describes what the user knows, and switching that line
+back on later should not mean re-learning it.
+
+It runs wherever a review is written: `onBeforeComplete` for a full line (all its
+graded moves in one pass) and `onStepComplete` for the single-move modes. What
+it does NOT do is count: no streak, no "moves reviewed", no `lastTrained`, no
+`timesTrained` on the lines it credits. Crediting shared work **once** is the
+whole point, so the same move must not read as several reviews. It does refresh
+each credited line's `confidence`, which is a pure function of the records that
+just changed.
+
+Deliberately not written through the index's live nodes, despite §2. The index
+answers "which line, which ply"; the caller then re-reads that line from storage,
+writes the record and saves it. So a drill needs no `holdPositionIndex()`, and a
+write-through can never resurrect a stale copy of a line the session changed some
+other way (pausing it mid-drill, say). A ply whose move no longer matches is
+skipped rather than overwritten — the index is a snapshot and can disagree with
+storage. `queueWriteThrough` in `train-screen.ts` serialises the writes: two
+positions in one sitting can credit the same other line, and overlapping
+read-modify-writes would lose one.
+
+## 9. The drill offers a divert only when the other line is in training — BUILT
 
 When a drill reaches a position where another line plays a *different* move, it
 may offer to divert into that line — but **only if that line is in training**.
 Offering a divert into a line the user has parked is noise about work they
 explicitly chose not to do. `siblingAnswers` already sorts in-training lines
-first; the divert offer must also filter on `inTraining`.
+first; `divertTarget()` takes the first match, so the in-training line wins when
+several play the move.
+
+**Only in the full-line walk** (`startDrill`), and only after the move has
+actually been played — the app never announces in advance that a position has two
+answers. `startPositionsDrill`, `startTimedDrill` and pre-training's confirm run
+pass no `onDivert`, and the runtime gate (`isLineDrill && !timed && !!onDivert`)
+means they cannot reach it: a dialog with a clock running would be infuriating.
+
+The shape, once the played move is recognised:
+
+- **That line is in training.** No red flash, no miss. A strip above the board —
+  *That's your move from "X"* — with two chips: **Continue in "X"** and **Back to
+  this line**. Continuing credits X's move as a clean recall, drops X from the
+  session queue if it was waiting there (drilling it twice would be daft), and
+  walks X **from this position on** — the moves before it are auto-played as
+  context, and are NOT graded, because they were never asked. A run that starts
+  mid-line doesn't count as a run of the line either (`timesTrained` is left
+  alone). Going back simply resumes.
+  Either way the current line's node takes no penalty and no credit: nothing is
+  written for it, so it stays exactly as due as it was.
+- **That line is parked.** The normal correction — flash, retries, the arrow —
+  but the status names it: *That's your move from "X", which isn't in training
+  right now.* The app explains rather than just refusing.
+
+The judgement reuses `DrillOptions.checkAlternative`, which already existed for
+the engine's version of the same question ("is this wrong move actually fine?").
+It now returns a `WrongMoveVerdict` — `'good-alternative'` (the engine's answer,
+unchanged) or `'other-line'` (the index's, which is cheaper, certain, and can
+name the line) — rather than a bare boolean, so there is one wrong-move
+judgement path and not two.
 
 ## 10. Statistics take the best record
 

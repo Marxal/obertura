@@ -1896,6 +1896,44 @@ _On `claude/onboarding-process-improvements-5wy3u1`. Restore point: `v0.4`._
 
 ---
 
+## v0.28 — training learns the position index 🔜
+
+The index (`src/position-index.ts`) already knew which lines pass through which
+positions; only the save flow used it. Training now does too — see
+`TRANSPOSITIONS.md` §8 and §9, which this round implements.
+
+- ✅ **Shared work is credited once.** A move drilled in one line is the same move
+  in every other line that plays it from that position, so the record travels:
+  grading writes it through to all of them. Keyed on position **and** move
+  together — a different answer from the same position is different knowledge and
+  is left alone, so drilling a main line never credits the surprise weapon filed
+  beside it. Parked lines take it too (it describes what you know, not what's in
+  the rotation), and nothing about it counts as a second review: no streak, no
+  "moves reviewed", no last-trained on the lines it credits.
+
+- ✅ **A wrong-but-prepared move becomes a choice.** Play another of your
+  in-training lines' moves during a full-line run and there's no red flash — a
+  strip above the board names it (*That's your move from "X"*) with two chips:
+  **Continue in "X"** or **Back to this line**. Continuing credits that move,
+  drops X from the queue if it was waiting there, and walks X from the position
+  you're standing on rather than replaying what you just played (and grades only
+  what it actually asked). The line you left takes no penalty and no credit — it
+  stays exactly as due as it was. When the recognised line is parked, the normal
+  correction stands but says whose move it was, so the app explains rather than
+  just refusing.
+
+- ✅ **Never where it would nag.** Only the full-line walk. The single-move mode,
+  the timed sprint and the confirm run are structurally excluded — a dialog with
+  a clock running would be infuriating — and nothing ever announces in advance
+  that a position has two answers: the strip only exists after the move is
+  played. The judgement reuses the drill's existing `checkAlternative` slot
+  (the engine's version of the same question) rather than growing a second
+  wrong-move path.
+
+_On `claude/position-index-training-1fr7qh`. Restore point: `v0.4`._
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

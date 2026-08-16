@@ -1,13 +1,18 @@
 import type { Line } from './types';
 import type { MoveNode } from './tree';
-import { getAllLines, saveLine } from './storage';
+import { getAllLines, getLine, saveLine } from './storage';
 import {
   requestTrainingSlot,
   isEntitled,
   FREE_TRAINING_LINES,
   TRAINING_COUNT_VISIBLE_FROM,
 } from './entitlement';
-import { startDrill, startPositionsDrill, startTimedDrill, type DrillOptions } from './drill';
+import {
+  startDrill, startPositionsDrill, startTimedDrill,
+  type DrillOptions, type DivertChoice,
+} from './drill';
+import { positionIndex } from './position-index';
+import { siblingCredits, applyReviewAt, divertTarget } from './train-index';
 import { selectIndividualPositions, selectTimedPositions } from './individual';
 import { Icons } from './icons';
 import {
@@ -42,6 +47,7 @@ import { renderFamilyGroups, renderVariationGroups } from './line-groups';
 import { showDialog } from './dialog';
 import { TrainingSession, type SessionItem } from './session';
 import { countUp } from './count-up';
+import type { Review } from './scheduler';
 import {
   userMoveNodes,
   gradeReview,
@@ -117,6 +123,76 @@ function addMistake(
   if (keys.has(key)) return;
   keys.add(key);
   list.push({ preFen, expected, prevUci: prelude?.prevUci, prevFen: prelude?.prevFen });
+}
+
+// ── Credit shared work once (TRANSPOSITIONS.md §8) ──────────────────────────────
+//
+// A move is a move. If six of my lines all play 3.Bc4 in this position, drilling
+// it in one of them has trained it in all six — so the record that grading just
+// produced is copied to every other line playing THAT MOVE from THAT POSITION.
+// Without it the same move is drilled six times over and its schedule is
+// nonsense.
+//
+// Keyed on position AND move together: a different move from the same position
+// is different knowledge and is never touched (drilling the Scandinavian
+// main-line answer must not credit the surprise weapon filed at the same spot).
+// User moves only — an opponent reply carries no review record.
+//
+// The index is used purely as a lookup ("which line, which ply"); each credited
+// line is then re-read from storage, written and saved. Nothing is written
+// through the index's live nodes, so a drill needs no hold on it, and a
+// write-through can never resurrect a stale copy of a line the session changed
+// some other way (pausing it mid-drill, say).
+
+interface MoveCredit {
+  preFen: string;
+  uci: string;
+  review: Review;
+}
+
+async function writeThroughCredits(credits: MoveCredit[], fromLineId: string): Promise<void> {
+  if (credits.length === 0) return;
+  const index = await positionIndex();
+
+  // lineId → the writes it needs. One line can share several of these moves, and
+  // it should be read and saved once, not once per move.
+  const plan = new Map<string, { ply: number; uci: string; review: Review }[]>();
+  for (const c of credits) {
+    for (const e of siblingCredits(index, c.preFen, c.uci, fromLineId)) {
+      const write = { ply: e.ply, uci: e.uci, review: c.review };
+      const list = plan.get(e.lineId);
+      if (list) list.push(write);
+      else plan.set(e.lineId, [write]);
+    }
+  }
+
+  for (const [lineId, writes] of plan) {
+    const line = await getLine(lineId);
+    if (!line) continue;
+    let changed = false;
+    for (const w of writes) {
+      if (applyReviewAt(line, w.ply, w.uci, w.review)) changed = true;
+    }
+    if (!changed) continue; // the line moved on since the index was built
+    // Confidence is a pure function of the records we just changed, so leaving
+    // it stale would misreport a line that IS now known. lastTrained and
+    // timesTrained are deliberately NOT touched: the user didn't sit down with
+    // this line, and nothing here counts as a second review — that is the whole
+    // point of crediting shared work once.
+    line.confidence = lineConfidence(line);
+    await saveLine(line);
+  }
+}
+
+// Write-throughs run one at a time. Two positions in the same sitting can credit
+// the SAME other line, and two overlapping read-modify-writes would lose one.
+let creditChain: Promise<void> = Promise.resolve();
+
+function queueWriteThrough(credits: MoveCredit[], fromLineId: string): Promise<void> {
+  creditChain = creditChain
+    .then(() => writeThroughCredits(credits, fromLineId))
+    .catch(() => { /* a failed credit must never break the session */ });
+  return creditChain;
 }
 
 // ── Screen entry point ──────────────────────────────────────────────────────────
@@ -1243,6 +1319,11 @@ export function startPositionsSession(
         line.lastTrained = now.toISOString();
         line.confidence = lineConfidence(line);
         void saveLine(line);
+        // The same move in any other line is the same work (§8).
+        if (pos) {
+          void queueWriteThrough(
+            [{ preFen: pos.preFen, uci: expected.uci, review: expected.review }], line.id);
+        }
         recordReviewed(1);
         // One move graded: one entry on the remembered-vs-failed bar.
         recordReviewOutcome(wasMissed ? 0 : 1, wasMissed ? 1 : 0);
@@ -1315,6 +1396,9 @@ function runItem(
   container: HTMLElement,
   stats: SessionStats,
   onEmpty?: () => void,
+  // Set only by the divert (TRANSPOSITIONS.md §9): walk this line from the
+  // position the user already reached, rather than from move one.
+  startAtPly = 0,
 ): void {
   const { line } = item;
 
@@ -1323,6 +1407,11 @@ function runItem(
   const lineCopy: Line = { ...line, tree: structuredClone(line.tree) };
   const copyMoves = mainlineOf(lineCopy.tree);
   const userNodes = userMoveNodes(lineCopy.tree, lineCopy.colour);
+  // What this run actually tests. On a divert the earlier moves were auto-played
+  // as context, never asked — grading them as clean recalls would be a lie.
+  const gradedNodes = startAtPly > 0
+    ? userNodes.filter(n => copyMoves.findIndex(m => m.id === n.id) >= startAtPly)
+    : userNodes;
 
   // Track which user-moves were missed on this pass (one entry per node).
   const missed = new Set<string>();
@@ -1377,10 +1466,52 @@ function runItem(
     );
   }
 
+  // ── The divert (TRANSPOSITIONS.md §9) ──────────────────────────────────────
+  //
+  // "Continue in X": credit the move just played in X, take X out of the queue
+  // if it was waiting there (it is being drilled now, not twice), and walk X
+  // from this position on. The line we're leaving is graded not at all — it
+  // stays exactly as due as it was.
+  async function divertInto(choice: DivertChoice): Promise<void> {
+    const target = await getLine(choice.lineId);
+    const nodes = target ? mainlineOf(target.tree) : [];
+    const node = nodes[choice.ply - 1];
+    if (!target || !node || node.uci.slice(0, 4) !== choice.uci.slice(0, 4)) {
+      // The line changed since the index was built — there is nothing to divert
+      // into. Carry on with the rest of the session.
+      runSession(session, container, stats, onEmpty);
+      return;
+    }
+
+    const now = new Date();
+    node.review = gradeReview(
+      node.review ?? newReview(now), qualityFromMisses(0), now, lineSpacing(target));
+    target.lastTrained = now.toISOString();
+    target.confidence = lineConfidence(target);
+    await saveLine(target);
+    // Credited once, wherever else that move lives.
+    await queueWriteThrough(
+      [{ preFen: choice.preFen, uci: choice.uci, review: node.review }], target.id);
+
+    session.remove(target.id);
+
+    // Landed on the target's last move: nothing left to quiz there, so treat it
+    // as done and move the session on.
+    const isUserPly = (i: number) => (target.colour === 'white' ? i % 2 === 0 : i % 2 === 1);
+    const more = nodes.findIndex((_, i) => i >= choice.ply && isUserPly(i));
+    if (more < 0) {
+      runSession(session, container, stats, onEmpty);
+      return;
+    }
+
+    runItem({ line: target }, session, container, stats, onEmpty, choice.ply);
+  }
+
   const drillOpts: DrillOptions = {
     wrongMoveMode: 'full',
     confirmAbandon: true,
     modeLabel: 'Training',
+    startAtPly,
     // Session-level progress bar: lines completed so far out of the lines the
     // session started with. linesReviewed counts completions, so for the current
     // line this is "line linesReviewed+1 of total".
@@ -1390,9 +1521,16 @@ function runItem(
     },
     celebrateOnComplete: true,
     completeMessage: 'Line complete',
-    // Training is strict: only the move stored in the line is accepted. We
-    // deliberately do NOT pass checkAlternative/onExplore here — a sound but
-    // off-line move is treated as a plain miss (correct-move arrow as usual).
+    // Training stays strict about the ENGINE's opinion: no onExplore, and a
+    // merely sound move is still a miss. What it does recognise is the user's
+    // OWN work — the position index knows when the move just played is another
+    // of their lines' move from this very position (TRANSPOSITIONS.md §9).
+    // Asked only after a move is played, never announced in advance.
+    checkAlternative: async (preFen, userUci) => {
+      const target = divertTarget(await positionIndex(), preFen, userUci, line.id);
+      return target ? { kind: 'other-line' as const, ...target } : null;
+    },
+    onDivert: (choice) => { void divertInto(choice); },
     recordMiss,
     onCancel: () => void doRender(container),
     // Pause this line out of training mid-drill: persist inTraining=false, drop it
@@ -1441,33 +1579,39 @@ function runItem(
       // The line's priority stretches or compresses every one of its moves'
       // next-due dates by the same factor.
       const spacing = lineSpacing(lineCopy);
-      for (const node of userNodes) {
+      // Every graded move, with the position it was played from — the other
+      // lines that play the same move there get the same record (§8).
+      const credits: MoveCredit[] = [];
+      for (const node of gradedNodes) {
         const misses = missed.has(node.id) ? 1 : 0;
         const quality = qualityFromMisses(misses);
         node.review = gradeReview(node.review ?? newReview(now), quality, now, spacing);
         node.missedThisSession = false;
+        credits.push({ preFen: locate(node).preFen, uci: node.uci, review: node.review });
       }
       lineCopy.lastTrained = now.toISOString();
       lineCopy.confidence = lineConfidence(lineCopy);
       // One full run of the line — the denominator behind its recall figure.
       // Counted only here: the positions modes grade single moves, not lines.
-      lineCopy.timesTrained = runsBefore + 1;
+      // A diverted run walked only part of the line, so it isn't one.
+      if (startAtPly === 0) lineCopy.timesTrained = runsBefore + 1;
       await saveLine(lineCopy);
-      recordReviewed(userNodes.length);
+      await queueWriteThrough(credits, lineCopy.id);
+      recordReviewed(gradedNodes.length);
       // Feed the Statistics remembered-vs-failed bar: this line's moves split
       // into recalled-first-try vs missed.
-      recordReviewOutcome(userNodes.length - missed.size, missed.size);
+      recordReviewOutcome(gradedNodes.length - missed.size, missed.size);
     },
     onComplete: () => {
       stats.linesReviewed++;
       stats.movesMissed += missed.size;
-      stats.totalMoves += userNodes.length;
+      stats.totalMoves += gradedNodes.length;
       // Accumulate per-line stats; handles the same line appearing twice in
       // an explicit single-line drill session.
       const prev = stats.lineStats.get(line.id);
       if (prev) {
         prev.misses += missed.size;
-        prev.totalMoves += userNodes.length;
+        prev.totalMoves += gradedNodes.length;
         prev.line = lineCopy; // keep the freshest graded state
       } else {
         stats.lineStats.set(line.id, {
@@ -1475,7 +1619,7 @@ function runItem(
           lineName: line.name || 'Untitled',
           openingName: line.openingName,
           misses: missed.size,
-          totalMoves: userNodes.length,
+          totalMoves: gradedNodes.length,
         });
       }
       runSession(session, container, stats, onEmpty);
@@ -1556,6 +1700,11 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
           line.lastTrained = now.toISOString();
           line.confidence = lineConfidence(line);
           void saveLine(line);
+          // The same move in any other line is the same work (§8).
+          if (pos) {
+            void queueWriteThrough(
+              [{ preFen: pos.preFen, uci: expected.uci, review: expected.review }], line.id);
+          }
           recordReviewed(1);
           // One move graded: one entry on the remembered-vs-failed bar.
           recordReviewOutcome(wasMissed ? 0 : 1, wasMissed ? 1 : 0);

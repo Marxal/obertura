@@ -16,6 +16,36 @@ import { createStruggleNudge, type StruggleNudge } from './struggle-nudge';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
+// ── Judging a wrong move ─────────────────────────────────────────────────────
+//
+// A move that isn't this line's move is not always a mistake. Two callers can
+// say so, through the one checkAlternative slot:
+//
+//   'good-alternative' — the engine thinks the move is sound (see puzzle-alt.ts
+//     for the same shape). The drill says so and still asks for the saved move.
+//   'other-line'       — the position index KNOWS the move: it is what another
+//     of the user's own lines plays from this very position. Cheaper and far
+//     more certain than an engine verdict, and it can name the line.
+//
+// Null means an ordinary wrong move.
+
+/** Another of the user's lines, and what it plays from the position at hand. */
+export interface OtherLineMove {
+  lineId: string;
+  lineName: string;
+  inTraining: boolean;
+  /** 1-based half-move number of this move within that line. */
+  ply: number;
+}
+
+export type WrongMoveVerdict =
+  | { kind: 'good-alternative' }
+  | ({ kind: 'other-line' } & OtherLineMove)
+  | null;
+
+/** What a divert hands back: the line to continue in, and where we are in it. */
+export type DivertChoice = OtherLineMove & { preFen: string; uci: string };
+
 export interface DrillOptions {
   onComplete: () => void;
   onCancel: () => void;
@@ -53,9 +83,23 @@ export interface DrillOptions {
   firstMoveHint?: string;
   // Fire a brief confetti burst when the run is completed.
   celebrateOnComplete?: boolean;
-  // If provided (full mode only), the engine checks whether a wrong move is
-  // actually a good alternative before penalising it as a mistake.
-  checkAlternative?: (preFen: string, userUci: string) => Promise<boolean>;
+  // If provided (full mode only), a wrong move is judged before it is penalised
+  // as a mistake — by the engine ('good-alternative') or by the position index
+  // ('other-line'). See WrongMoveVerdict above.
+  checkAlternative?: (preFen: string, userUci: string) => Promise<WrongMoveVerdict>;
+  // Full-line mode only, and only alongside checkAlternative. When the played
+  // move is another IN-TRAINING line's move from this position, the drill offers
+  // to carry on in that line instead of correcting (TRANSPOSITIONS.md §9). This
+  // fires when the user takes the offer; the drill has already torn itself down
+  // (overlay + back-nav layer), exactly like onEditLine. Without it — positions
+  // and timed modes, pre-training — no divert is ever offered.
+  onDivert?: (choice: DivertChoice) => void;
+  // Full-line mode only. Begin the quiz this many half-moves in: everything
+  // before it is auto-played as the lead-in rather than tested. Used by the
+  // divert, which drops the user into another line AT THE POSITION they already
+  // reached — replaying the moves they just played would be a re-test of work
+  // that isn't in question.
+  startAtPly?: number;
   // If provided, the good-alternative card offers an "Explore this line" button
   // that opens the position AFTER the played move so the user can see where it
   // leads. The drill stays open underneath and resumes when the explorer closes.
@@ -190,8 +234,10 @@ export function startDrill(line: Line, opts: DrillOptions): void {
   const ply = (n: MoveNode): Ply => ({ uci: n.uci, fen: n.fen, note: n.note });
 
   // Leading opponent moves before the user gets to play (a Black line opens
-  // with White's move).
-  const firstUser = moves.findIndex((_, i) => isUser(i));
+  // with White's move) — and, on a divert, everything up to the position the
+  // user is already standing on. Both are context, auto-played, never tested.
+  const startAt = Math.max(0, Math.min(opts.startAtPly ?? 0, moves.length));
+  const firstUser = moves.findIndex((_, i) => i >= startAt && isUser(i));
   if (firstUser < 0) {
     opts.onCancel();
     return;
@@ -295,6 +341,9 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   let awaitingCorrectReplay = false;
   // True while the user must play the expected move after a good-alternative notice.
   let awaitingAlternativePlay = false;
+  // True while the divert strip is up and waiting for a chip — the board is
+  // frozen behind it, so nothing is being judged.
+  let awaitingDivertChoice = false;
   // True while an async engine check is in progress — blocks board input.
   let checkingAlternative = false;
   let isCleaned = false;
@@ -432,6 +481,14 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   titleEl.textContent = config.titleText;
   if (!config.titleText) titleEl.setAttribute('hidden', '');
   topEl.appendChild(titleEl);
+
+  // The divert strip (TRANSPOSITIONS.md §9). Sits between the line name and the
+  // board, empty and hidden until a played move turns out to belong to another
+  // line — the app never announces in advance that a position has two answers.
+  const divertEl = document.createElement('div');
+  divertEl.className = 'pt-divert';
+  divertEl.setAttribute('hidden', '');
+  topEl.appendChild(divertEl);
 
   function renderTimedScore(): void {
     scoreEl.textContent = `✓ ${timedCorrect}`;
@@ -594,6 +651,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   // an engine check is mid-flight.
   function showHint(): void {
     if (awaitingCorrectReplay || awaitingAlternativePlay || checkingAlternative) return;
+    if (awaitingDivertChoice) return;
     const expected = tasks[taskIndex]?.expected;
     if (!expected) return;
     const orig = expected.uci.slice(0, 2) as Key;
@@ -870,7 +928,11 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   // A wrong attempt in full mode. The first wrong attempt on a move records the
   // miss and reddens its dot (recordMiss fires once per node). Retries are
   // allowed up to the pref; after that, the correct-move arrow is revealed.
-  function registerWrongAttempt(expected: MoveNode): void {
+  //
+  // `note` replaces the generic "Not quite" line while retries remain — used to
+  // name the line a recognised-but-parked move belongs to, so the app explains
+  // rather than just refusing.
+  function registerWrongAttempt(expected: MoveNode, note?: string): void {
     if (wrongAttempts === 0) {
       opts.recordMiss?.(expected);
       markDot(taskIndex, 'wrong');
@@ -882,6 +944,8 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
 
     if (wrongAttempts > retriesAllowed) {
       revealCorrectMove(expected);
+    } else if (note) {
+      setStatus(note, 'pt-status--error');
     } else {
       const left = retriesAllowed - wrongAttempts + 1;
       setStatus(left === 1 ? 'Not quite — one more try' : 'Not quite — try again', 'pt-status--error');
@@ -966,11 +1030,89 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     });
   }
 
+  // ── The divert (TRANSPOSITIONS.md §9) ───────────────────────────────────────
+  //
+  // The played move isn't this line's move, but the position index says it IS
+  // another of the user's lines' move from this very position. That is not a
+  // mistake — it is prepared work filed under a different name — so when that
+  // line is in training the drill turns the correction into a choice.
+  //
+  // Only ever here, in the full-line walk. The positions and timed runners never
+  // pass onDivert (a dialog with a clock running would be infuriating), and
+  // neither does pre-training.
+  function canDivert(): boolean {
+    return isLineDrill && !timed && !!opts.onDivert;
+  }
+
+  function handleOtherLineMove(
+    v: OtherLineMove, expected: MoveNode, preFen: string, uci: string,
+  ): void {
+    if (!v.inTraining || !canDivert()) {
+      // Nothing to divert into: the normal correction, but naming the line the
+      // move came from, so the app explains rather than just refusing.
+      registerWrongAttempt(expected, v.inTraining
+        ? `That’s your move from “${v.lineName}”.`
+        : `That’s your move from “${v.lineName}”, which isn’t in training right now.`);
+      return;
+    }
+    showDivertStrip(v, preFen, uci);
+  }
+
+  // No red flash, no miss, no dot: this line's node takes neither penalty nor
+  // credit here, whichever chip is tapped. It simply stays due.
+  function showDivertStrip(v: OtherLineMove, preFen: string, uci: string): void {
+    awaitingDivertChoice = true;
+    setStatus('');
+    cg.setAutoShapes([]);
+    cg.set({ movable: { color: undefined, dests: new Map() } });
+
+    divertEl.innerHTML = '';
+
+    const textEl = document.createElement('div');
+    textEl.className = 'pt-divert-text';
+    textEl.textContent = `That’s your move from “${v.lineName}”`;
+    divertEl.appendChild(textEl);
+
+    const chips = document.createElement('div');
+    chips.className = 'pt-divert-chips';
+
+    const goBtn = document.createElement('button');
+    goBtn.type = 'button';
+    goBtn.className = 'pt-divert-chip pt-divert-chip--go';
+    goBtn.textContent = `Continue in “${v.lineName}”`;
+    goBtn.addEventListener('click', () => {
+      cleanup();
+      opts.onDivert!({ ...v, preFen, uci });
+    });
+    chips.appendChild(goBtn);
+
+    const stayBtn = document.createElement('button');
+    stayBtn.type = 'button';
+    stayBtn.className = 'pt-divert-chip';
+    stayBtn.textContent = 'Back to this line';
+    stayBtn.addEventListener('click', () => {
+      hideDivertStrip();
+      snapBack();
+      promptYourMove();
+    });
+    chips.appendChild(stayBtn);
+
+    divertEl.appendChild(chips);
+    divertEl.removeAttribute('hidden');
+  }
+
+  function hideDivertStrip(): void {
+    awaitingDivertChoice = false;
+    divertEl.setAttribute('hidden', '');
+    divertEl.innerHTML = '';
+  }
+
   // ── Move logic ────────────────────────────────────────────────────────────
 
   function onUserMove(from: Key, to: Key): void {
-    // Block input while an async engine check is running.
-    if (checkingAlternative) return;
+    // Block input while an async engine check is running, or while the divert
+    // strip is waiting for an answer.
+    if (checkingAlternative || awaitingDivertChoice) return;
 
     if (timed) { onTimedMove(from, to); return; }
 
@@ -1037,11 +1179,16 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
         });
 
         opts.checkAlternative(preFen, from + to)
-          .then(isAlt => {
+          .then(verdict => {
             if (isCleaned) return;
             checkingAlternative = false;
-            if (isAlt) handleGoodAlternative(expected, preFen, from + to);
-            else registerWrongAttempt(expected);
+            if (verdict?.kind === 'good-alternative') {
+              handleGoodAlternative(expected, preFen, from + to);
+            } else if (verdict?.kind === 'other-line') {
+              handleOtherLineMove(verdict, expected, preFen, from + to);
+            } else {
+              registerWrongAttempt(expected);
+            }
           })
           .catch(() => {
             if (isCleaned) return;
@@ -1209,6 +1356,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     cg.setAutoShapes([]);
     hideNoteCard();
     hideAltCard();
+    hideDivertStrip();
     updateNoteButton(task.expected);
 
     // Fix mistakes: animate the opponent's previous move INTO the position, so you

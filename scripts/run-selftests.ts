@@ -40,6 +40,7 @@ import { runImportTierSelfTest } from '../src/import-tier.selftest';
 import { runExplorerBandSelfTest } from '../src/explorer-band.selftest';
 import { runPositionIndexSelfTest } from '../src/position-index.selftest';
 import { runSaveIndexSelfTest } from '../src/save-index.selftest';
+import { runTrainIndexSelfTest } from '../src/train-index.selftest';
 
 interface TestResult { name: string; pass: boolean; detail: string }
 
@@ -60,6 +61,7 @@ const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'tree', run: runTreeSelfTest },
   { suite: 'position-index', run: runPositionIndexSelfTest },
   { suite: 'save-index', run: runSaveIndexSelfTest },
+  { suite: 'train-index', run: runTrainIndexSelfTest },
   { suite: 'engine', run: runEngineSelfTest },
   { suite: 'puzzles', run: runPuzzlesSelfTest },
   { suite: 'puzzle-rating', run: runPuzzleRatingSelfTest },
