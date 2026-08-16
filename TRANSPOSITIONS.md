@@ -187,9 +187,7 @@ read-modify-writes would lose one.
 When a drill reaches a position where another line plays a *different* move, it
 may offer to divert into that line — but **only if that line is in training**.
 Offering a divert into a line the user has parked is noise about work they
-explicitly chose not to do. `siblingAnswers` already sorts in-training lines
-first; `divertTarget()` takes the first match, so the in-training line wins when
-several play the move.
+explicitly chose not to do.
 
 **Only in the full-line walk** (`startDrill`), and only after the move has
 actually been played — the app never announces in advance that a position has two
@@ -197,28 +195,43 @@ answers. `startPositionsDrill`, `startTimedDrill` and pre-training's confirm run
 pass no `onDivert`, and the runtime gate (`isLineDrill && !timed && !!onDivert`)
 means they cannot reach it: a dialog with a clock running would be infuriating.
 
-The shape, once the played move is recognised:
+**The board never moves.** The first version of this put a strip of text above
+the board, between the line name and the board itself — which grows that flex
+block and pushes the board down a beat after the user's hand is already on the
+screen. Rebuilt so nothing in the layout changes size when a divert triggers:
 
-- **That line is in training.** No red flash, no miss. A strip above the board —
-  *That's your move from "X"* — with two chips: **Continue in "X"** and **Back to
-  this line**. Continuing credits X's move as a clean recall, drops X from the
-  session queue if it was waiting there (drilling it twice would be daft), and
-  walks X **from this position on** — the moves before it are auto-played as
-  context, and are NOT graded, because they were never asked. A run that starts
-  mid-line doesn't count as a run of the line either (`timesTrained` is left
-  alone). Going back simply resumes.
-  Either way the current line's node takes no penalty and no credit: nothing is
+- **That line is in training.** No red flash, no miss, no dialog. `judgeOtherLineMove()`
+  (`src/train-index.ts`) doesn't just answer the one move played — it returns
+  **every** distinct in-training move saved at this position, deduped by move
+  (`{kind:'in-training', candidates}`). The drill draws one arrow per candidate —
+  green (the same brush as a good-alternative) for the move *this* line is
+  training, blue (`sibling`) for each of the others — and widens the board's
+  legal destinations to exactly those squares, nothing else. A card appears
+  **below** the board, absolutely positioned exactly like the note/alt cards
+  (`.pt-divert-card`, `position:absolute; bottom:0` inside `.pt-bottom`), so it
+  overlays rather than pushing: it names what each colour is, nothing more —
+  no buttons.
+  The choice is made by **playing** one of the arrows. Playing the green one is
+  simply staying — graded as an ordinary correct move. Playing a blue one hands
+  off to that line via `onDivert`: it credits that move as a clean recall, drops
+  the line from the session queue if it was already waiting there (drilling it
+  twice would be daft), and walks it **from this position on** — the moves
+  before it are auto-played as context and are NOT graded, because they were
+  never asked. A run that starts mid-line doesn't count as a run of the line
+  either (`timesTrained` is left alone).
+  Either way the line being left takes no penalty and no credit: nothing is
   written for it, so it stays exactly as due as it was.
 - **That line is parked.** The normal correction — flash, retries, the arrow —
   but the status names it: *That's your move from "X", which isn't in training
-  right now.* The app explains rather than just refusing.
+  right now.* The app explains rather than just refusing. No arrows, no card:
+  there's nothing to divert into.
 
 The judgement reuses `DrillOptions.checkAlternative`, which already existed for
 the engine's version of the same question ("is this wrong move actually fine?").
 It now returns a `WrongMoveVerdict` — `'good-alternative'` (the engine's answer,
-unchanged) or `'other-line'` (the index's, which is cheaper, certain, and can
-name the line) — rather than a bare boolean, so there is one wrong-move
-judgement path and not two.
+unchanged), `'other-line'` (the index's set of in-training candidates), or
+`'parked-line'` (named, uncredited) — rather than a bare boolean, so there is one
+wrong-move judgement path and not two.
 
 ## 10. Statistics take the best record
 

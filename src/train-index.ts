@@ -92,39 +92,54 @@ export function applyReviewAt(line: Line, ply: number, uci: string, review: Revi
 
 // ── §9 The divert ────────────────────────────────────────────────────────────
 
-/** Another line's answer at a position — what the drill's divert strip names. */
-export interface DivertTarget {
+/** Another line's answer at a position — one of the drill's arrow choices. */
+export interface OtherLineMove {
   lineId: string;
   lineName: string;
-  inTraining: boolean;
+  uci: string;
   /** 1-based half-move number of this move within that line. */
   ply: number;
 }
 
+export type DivertVerdict =
+  // The played move is another IN-TRAINING line's move here. `candidates` is
+  // EVERY distinct in-training alternative saved at this position (deduped by
+  // move) — not only the one played — so the drill can show the full set of
+  // saved answers as arrows, one colour per line, rather than just the one hit.
+  | { kind: 'in-training'; candidates: OtherLineMove[] }
+  // The played move belongs only to a PARKED line — nothing to divert into.
+  | { kind: 'parked'; lineName: string };
+
 /**
- * The line whose move this is, when the user plays something that isn't this
- * line's move but IS another line's move from this position
- * (TRANSPOSITIONS.md §9). Null when no line of the user's plays it here — an
- * ordinary wrong move.
- *
- * In-training lines win: `siblingAnswers` sorts them first, and only they can
- * be diverted into. A parked line still comes back (with `inTraining: false`)
- * so the drill can NAME it while correcting, rather than just refusing.
+ * What the played move means, when it isn't this line's own move but IS
+ * another line's move from this position (TRANSPOSITIONS.md §9). Null when no
+ * line of the user's plays it here — an ordinary wrong move.
  */
-export function divertTarget(
+export function judgeOtherLineMove(
   index: PositionIndex,
   preFen: string,
   uci: string,
   currentLineId: string,
-): DivertTarget | null {
-  for (const e of index.siblingAnswers(preFen, currentLineId)) {
-    if (!sameMove(e.uci, uci)) continue;
-    return {
-      lineId: e.lineId,
-      lineName: e.lineName || 'Untitled line',
-      inTraining: e.inTraining,
-      ply: e.ply,
-    };
+): DivertVerdict | null {
+  const answers = index.siblingAnswers(preFen, currentLineId);
+  const matched = answers.find(e => sameMove(e.uci, uci));
+  if (!matched) return null;
+
+  if (!matched.inTraining) {
+    return { kind: 'parked', lineName: matched.lineName || 'Untitled line' };
   }
-  return null;
+
+  // Every distinct in-training move here, `siblingAnswers`' own in-training-first
+  // order kept so a tie between two lines sharing a move favours the same one
+  // consistently.
+  const seen = new Set<string>();
+  const candidates: OtherLineMove[] = [];
+  for (const e of answers) {
+    if (!e.inTraining) continue;
+    const key = e.uci.slice(0, 4);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    candidates.push({ lineId: e.lineId, lineName: e.lineName || 'Untitled line', uci: e.uci, ply: e.ply });
+  }
+  return { kind: 'in-training', candidates };
 }

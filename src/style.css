@@ -6416,83 +6416,87 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   display: none;
 }
 
-/* ── The divert strip (TRANSPOSITIONS.md §9) ────────────────────────────────── */
-/* Appears between the line name and the board ONLY after a played move turns
-   out to be another in-training line's move here. Deliberately calm — no red,
-   no alarm: nothing went wrong, there are simply two answers and the user gets
-   to say which one they meant. */
-.pt-divert {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.4rem;
+/* ── The divert card (TRANSPOSITIONS.md §9) ─────────────────────────────────── */
+/* Appears BELOW the board only after a played move turns out to be another
+   in-training line's move here — never announced in advance. Absolutely
+   positioned like .pt-note-card/.pt-alt-card just above, on the SAME reasoning:
+   it must overlay rather than push, so the board never shifts when it appears.
+   Purely informative — no buttons. The choice itself is made by playing one of
+   the coloured arrows drawn on the board; this card just says what they mean. */
+.pt-divert-card {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
   box-sizing: border-box;
-  width: 100%;
-  max-width: 26rem;
-  margin: 0.35rem auto 0;
-  padding: 0.5rem 0.75rem;
+  margin: 0 1rem 0.6rem;
+  padding: 0.6rem 0.875rem;
   background: var(--bg-card);
   border: 1px solid var(--border-card);
-  border-radius: 8px;
+  border-left: 3px solid var(--success);
+  border-radius: 0 8px 8px 0;
   box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
 }
 
-.pt-divert[hidden] {
+.pt-divert-card[hidden] {
   display: none;
 }
 
-.pt-divert-text {
-  font-size: 0.85rem;
-  font-weight: 600;
+.pt-divert-head {
+  font-size: 0.82rem;
+  font-weight: 700;
   font-family: system-ui, -apple-system, sans-serif;
   color: var(--text);
-  text-align: center;
   line-height: 1.3;
 }
 
-.pt-divert-chips {
+.pt-divert-list {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.4rem;
-  width: 100%;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
-/* Both chips are one tap and equally reversible, so neither shouts. The
-   continue chip carries the accent; going back stays quiet. */
-.pt-divert-chip {
-  flex: 0 1 auto;
-  max-width: 100%;
+.pt-divert-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text-muted);
+}
+
+.pt-divert-row-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  border-radius: 999px;
-  padding: 0.35rem 0.8rem;
-  font-size: 0.78rem;
-  font-weight: 600;
+}
+
+/* The dot colours match the board arrows exactly (see drill.ts's 'alt' and
+   'sibling' brushes) so the card and the board read as one system. */
+.pt-divert-dot {
+  flex-shrink: 0;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+}
+
+.pt-divert-dot--trained {
+  background: #708151;
+}
+
+.pt-divert-dot--sibling {
+  background: #4f7cac;
+}
+
+.pt-divert-hint {
+  font-size: 0.75rem;
   font-family: system-ui, -apple-system, sans-serif;
-  color: var(--text-muted);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: border-color 0.12s, color 0.12s;
-}
-
-.pt-divert-chip:hover {
-  border-color: var(--border);
-  color: var(--text);
-}
-
-.pt-divert-chip--go {
-  background: var(--accent);
-  border-color: transparent;
-  color: #fff;
-}
-
-.pt-divert-chip--go:hover {
-  color: #fff;
-  filter: brightness(1.05);
+  color: var(--text-faint);
+  line-height: 1.3;
 }
 
 /* Once a puzzle is solved the rating is revealed in a calmer, neutral tone (it's

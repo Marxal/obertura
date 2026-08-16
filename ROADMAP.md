@@ -1911,23 +1911,27 @@ positions; only the save flow used it. Training now does too — see
   the rotation), and nothing about it counts as a second review: no streak, no
   "moves reviewed", no last-trained on the lines it credits.
 
-- ✅ **A wrong-but-prepared move becomes a choice.** Play another of your
-  in-training lines' moves during a full-line run and there's no red flash — a
-  strip above the board names it (*That's your move from "X"*) with two chips:
-  **Continue in "X"** or **Back to this line**. Continuing credits that move,
-  drops X from the queue if it was waiting there, and walks X from the position
-  you're standing on rather than replaying what you just played (and grades only
-  what it actually asked). The line you left takes no penalty and no credit — it
-  stays exactly as due as it was. When the recognised line is parked, the normal
-  correction stands but says whose move it was, so the app explains rather than
-  just refusing.
+- ✅ **A wrong-but-prepared move becomes a choice — without moving the board.**
+  Play another of your in-training lines' moves during a full-line run and
+  there's no red flash: the board shows every saved answer here as an arrow —
+  green for the move the line you're training plays, blue for each of the
+  others — and an informative card appears *below* the board (never above it,
+  never shifting anything) naming which line each colour belongs to. You choose
+  by playing one of the arrows, not by tapping a button: the green one just
+  continues where you are; a blue one hands off to that line, credits it,
+  drops it from the queue if it was waiting there, and walks it from the
+  position you're standing on rather than replaying what you just played (and
+  grades only what it actually asked). The line you left takes no penalty and
+  no credit — it stays exactly as due as it was. When the recognised line is
+  parked, the normal correction stands but says whose move it was, so the app
+  explains rather than just refusing.
 
 - ✅ **Never where it would nag.** Only the full-line walk. The single-move mode,
   the timed sprint and the confirm run are structurally excluded — a dialog with
   a clock running would be infuriating — and nothing ever announces in advance
-  that a position has two answers: the strip only exists after the move is
-  played. The judgement reuses the drill's existing `checkAlternative` slot
-  (the engine's version of the same question) rather than growing a second
+  that a position has two answers: the arrows and the card only exist after the
+  move is played. The judgement reuses the drill's existing `checkAlternative`
+  slot (the engine's version of the same question) rather than growing a second
   wrong-move path.
 
 _On `claude/position-index-training-1fr7qh`. Restore point: `v0.4`._

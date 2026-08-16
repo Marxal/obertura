@@ -33,18 +33,23 @@ const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 export interface OtherLineMove {
   lineId: string;
   lineName: string;
-  inTraining: boolean;
+  uci: string;
   /** 1-based half-move number of this move within that line. */
   ply: number;
 }
 
 export type WrongMoveVerdict =
   | { kind: 'good-alternative' }
-  | ({ kind: 'other-line' } & OtherLineMove)
+  // Every IN-TRAINING alternative saved at this position (not only the one just
+  // played) — the drill shows all of them as arrows, not just the one hit.
+  | { kind: 'other-line'; candidates: OtherLineMove[] }
+  // The played move belongs to a line, but that line is parked — nothing to
+  // divert into, so the correction just names it.
+  | { kind: 'parked-line'; lineName: string }
   | null;
 
 /** What a divert hands back: the line to continue in, and where we are in it. */
-export type DivertChoice = OtherLineMove & { preFen: string; uci: string };
+export type DivertChoice = OtherLineMove & { preFen: string };
 
 export interface DrillOptions {
   onComplete: () => void;
@@ -341,9 +346,12 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   let awaitingCorrectReplay = false;
   // True while the user must play the expected move after a good-alternative notice.
   let awaitingAlternativePlay = false;
-  // True while the divert strip is up and waiting for a chip — the board is
-  // frozen behind it, so nothing is being judged.
+  // True while the board is showing divert candidates and waiting for the user
+  // to pick one by playing it — see the divert section below.
   let awaitingDivertChoice = false;
+  // The candidates on offer while awaitingDivertChoice is true (excludes this
+  // line's own expected move, which is offered too but isn't a "candidate").
+  let divertCandidates: OtherLineMove[] = [];
   // True while an async engine check is in progress — blocks board input.
   let checkingAlternative = false;
   let isCleaned = false;
@@ -482,14 +490,6 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   if (!config.titleText) titleEl.setAttribute('hidden', '');
   topEl.appendChild(titleEl);
 
-  // The divert strip (TRANSPOSITIONS.md §9). Sits between the line name and the
-  // board, empty and hidden until a played move turns out to belong to another
-  // line — the app never announces in advance that a position has two answers.
-  const divertEl = document.createElement('div');
-  divertEl.className = 'pt-divert';
-  divertEl.setAttribute('hidden', '');
-  topEl.appendChild(divertEl);
-
   function renderTimedScore(): void {
     scoreEl.textContent = `✓ ${timedCorrect}`;
   }
@@ -533,10 +533,20 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   altCardEl.className = 'pt-alt-card';
   altCardEl.setAttribute('hidden', '');
 
+  // Divert card (TRANSPOSITIONS.md §9) — purely informative, below the board.
+  // Absolutely positioned like noteCardEl/altCardEl so it overlays rather than
+  // pushing anything: the board must never move when this appears. It names
+  // what's on offer; the choice itself is made by playing one of the arrows
+  // drawn on the board, not by a button in here.
+  const divertCardEl = document.createElement('div');
+  divertCardEl.className = 'pt-divert-card';
+  divertCardEl.setAttribute('hidden', '');
+
   bottomEl.appendChild(progressEl);
   bottomEl.appendChild(statusEl);
   bottomEl.appendChild(noteCardEl);
   bottomEl.appendChild(altCardEl);
+  bottomEl.appendChild(divertCardEl);
 
   const isLineDrill = tasks[0].continuous;
 
@@ -721,7 +731,10 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   // board-brushes.ts — collisions drop the arrowhead, leaving a headless line).
   registerBrushes(cg, {
     accent: { color: '#ff9b21', opacity: 0.85, lineWidth: 10 },
+    // 'alt' also marks the divert's trained-line arrow (green = a known-good
+    // move) — the two never show at once, so one colour does both jobs.
     alt: { color: '#708151', opacity: 0.85, lineWidth: 10 },
+    sibling: { color: '#4f7cac', opacity: 0.85, lineWidth: 10 },
   });
 
   const ro = new ResizeObserver(() => cg.redrawAll());
@@ -1034,8 +1047,13 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   //
   // The played move isn't this line's move, but the position index says it IS
   // another of the user's lines' move from this very position. That is not a
-  // mistake — it is prepared work filed under a different name — so when that
-  // line is in training the drill turns the correction into a choice.
+  // mistake — it is prepared work filed under a different name. When that line
+  // is in training, the correction becomes a choice instead of a refusal: the
+  // board shows every saved answer here as an arrow — green for the move this
+  // line is training, blue for the others — and the user picks by PLAYING one
+  // of them. No dialog, no board movement: the informative card sits below the
+  // board and never shifts it, and nothing is announced before a move is
+  // actually played.
   //
   // Only ever here, in the full-line walk. The positions and timed runners never
   // pass onDivert (a dialog with a clock running would be infuriating), and
@@ -1044,110 +1062,182 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     return isLineDrill && !timed && !!opts.onDivert;
   }
 
-  function handleOtherLineMove(
-    v: OtherLineMove, expected: MoveNode, preFen: string, uci: string,
+  function handleOtherLineCandidates(
+    expected: MoveNode, preFen: string, candidates: OtherLineMove[],
   ): void {
-    if (!v.inTraining || !canDivert()) {
-      // Nothing to divert into: the normal correction, but naming the line the
-      // move came from, so the app explains rather than just refusing.
-      registerWrongAttempt(expected, v.inTraining
-        ? `That’s your move from “${v.lineName}”.`
-        : `That’s your move from “${v.lineName}”, which isn’t in training right now.`);
+    // A candidate matching this line's own move isn't an alternative at all
+    // (that's the ordinary write-through, §8) — it never reaches here in
+    // practice, but strip it defensively rather than draw a redundant arrow.
+    const others = candidates.filter(c => c.uci.slice(0, 4) !== expected.uci.slice(0, 4));
+    if (!canDivert() || others.length === 0) {
+      registerWrongAttempt(expected);
       return;
     }
-    showDivertStrip(v, preFen, uci);
+    showDivertChoice(expected, preFen, others);
   }
 
   // No red flash, no miss, no dot: this line's node takes neither penalty nor
-  // credit here, whichever chip is tapped. It simply stays due.
-  function showDivertStrip(v: OtherLineMove, preFen: string, uci: string): void {
+  // credit while the choice is open — it stays due either way.
+  function showDivertChoice(expected: MoveNode, preFen: string, candidates: OtherLineMove[]): void {
     awaitingDivertChoice = true;
+    divertCandidates = candidates;
     setStatus('');
-    cg.setAutoShapes([]);
-    cg.set({ movable: { color: undefined, dests: new Map() } });
+    hideNoteCard();
+    hideAltCard();
 
-    divertEl.innerHTML = '';
+    const dests = new Map<Key, Key[]>();
+    const addDest = (uci: string): void => {
+      const orig = uci.slice(0, 2) as Key;
+      const dest = uci.slice(2, 4) as Key;
+      const list = dests.get(orig) ?? [];
+      if (!list.includes(dest)) list.push(dest);
+      dests.set(orig, list);
+    };
+    addDest(expected.uci);
+    for (const c of candidates) addDest(c.uci);
 
-    const textEl = document.createElement('div');
-    textEl.className = 'pt-divert-text';
-    textEl.textContent = `That’s your move from “${v.lineName}”`;
-    divertEl.appendChild(textEl);
-
-    const chips = document.createElement('div');
-    chips.className = 'pt-divert-chips';
-
-    const goBtn = document.createElement('button');
-    goBtn.type = 'button';
-    goBtn.className = 'pt-divert-chip pt-divert-chip--go';
-    goBtn.textContent = `Continue in “${v.lineName}”`;
-    goBtn.addEventListener('click', () => {
-      cleanup();
-      opts.onDivert!({ ...v, preFen, uci });
+    // The board is already sitting at preFen (checkAlternative freezes it there
+    // while it asks) — just widen what's playable to exactly these squares.
+    cg.set({
+      fen: preFen,
+      turnColor: cgTurn(),
+      movable: { color: userColour, dests },
     });
-    chips.appendChild(goBtn);
 
-    const stayBtn = document.createElement('button');
-    stayBtn.type = 'button';
-    stayBtn.className = 'pt-divert-chip';
-    stayBtn.textContent = 'Back to this line';
-    stayBtn.addEventListener('click', () => {
-      hideDivertStrip();
-      snapBack();
-      promptYourMove();
+    const shapes = [
+      { orig: expected.uci.slice(0, 2) as Key, dest: expected.uci.slice(2, 4) as Key, brush: 'alt' },
+      ...candidates.map(c => (
+        { orig: c.uci.slice(0, 2) as Key, dest: c.uci.slice(2, 4) as Key, brush: 'sibling' }
+      )),
+    ];
+    requestAnimationFrame(() => {
+      if (isCleaned) return;
+      cg.setAutoShapes(shapes);
     });
-    chips.appendChild(stayBtn);
 
-    divertEl.appendChild(chips);
-    divertEl.removeAttribute('hidden');
+    showDivertCard(candidates);
   }
 
-  function hideDivertStrip(): void {
+  // Informative only — no buttons. Names what the coloured arrows mean; the
+  // user chooses by playing one of them.
+  function showDivertCard(candidates: OtherLineMove[]): void {
+    divertCardEl.innerHTML = '';
+
+    const head = document.createElement('div');
+    head.className = 'pt-divert-head';
+    head.textContent = 'This position is also in your repertoire elsewhere.';
+    divertCardEl.appendChild(head);
+
+    const list = document.createElement('div');
+    list.className = 'pt-divert-list';
+
+    const addRow = (name: string, dotClass: string): void => {
+      const row = document.createElement('div');
+      row.className = 'pt-divert-row';
+      const dot = document.createElement('span');
+      dot.className = `pt-divert-dot ${dotClass}`;
+      row.appendChild(dot);
+      const label = document.createElement('span');
+      label.className = 'pt-divert-row-label';
+      label.textContent = name;
+      row.appendChild(label);
+      list.appendChild(row);
+    };
+    addRow(`${config.titleText || 'This line'} (training)`, 'pt-divert-dot--trained');
+    for (const c of candidates) addRow(c.lineName, 'pt-divert-dot--sibling');
+    divertCardEl.appendChild(list);
+
+    const hint = document.createElement('div');
+    hint.className = 'pt-divert-hint';
+    hint.textContent = 'Play either move to continue in that line.';
+    divertCardEl.appendChild(hint);
+
+    divertCardEl.removeAttribute('hidden');
+  }
+
+  function hideDivertCard(): void {
     awaitingDivertChoice = false;
-    divertEl.setAttribute('hidden', '');
-    divertEl.innerHTML = '';
+    divertCandidates = [];
+    divertCardEl.setAttribute('hidden', '');
+    divertCardEl.innerHTML = '';
+  }
+
+  // The user answered the divert by playing one of the highlighted moves.
+  // Playing the trained line's own move (green) is simply "staying" — it's
+  // graded as a normal correct move. Playing a candidate (blue) hands off to
+  // that line via onDivert.
+  function onDivertMove(from: Key, to: Key): void {
+    const expected = tasks[taskIndex].expected;
+    const preFen = tasks[taskIndex].preFen;
+    const playedUci = from + to;
+    const candidates = divertCandidates;
+    hideDivertCard();
+    cg.setAutoShapes([]);
+
+    if (playedUci === expected.uci.slice(0, 4)) {
+      playCorrectMove(from, to);
+      return;
+    }
+    const choice = candidates.find(c => c.uci.slice(0, 4) === playedUci);
+    if (!choice) {
+      // Shouldn't happen — dests only ever offered these squares — but leave
+      // the board in a sane, playable state rather than stalling.
+      snapBack();
+      promptYourMove();
+      return;
+    }
+    cleanup();
+    opts.onDivert!({ ...choice, preFen });
   }
 
   // ── Move logic ────────────────────────────────────────────────────────────
 
+  // A correct move: clear any arrow (reveal, alternative, hint or divert),
+  // grade the dot, animate it in, and advance. Shared by the ordinary path and
+  // by picking the trained line's own move out of a divert choice.
+  function playCorrectMove(from: Key, to: Key): void {
+    cg.setAutoShapes([]);
+    if (awaitingCorrectReplay) {
+      hideNoteCard();
+      awaitingCorrectReplay = false;
+    }
+    // Playing the move is how you move past the nudge: the offer was made and
+    // you chose to carry on, which counts the same as waving it away.
+    struggleNudge?.dismiss();
+    if (awaitingAlternativePlay) {
+      cg.setAutoShapes([]);
+      hideAltCard();
+      awaitingAlternativePlay = false;
+    }
+    markDot(taskIndex, 'correct');
+    playFeedback('correct');
+    setStatus('');
+    chess.move({ from, to, promotion: 'q' });
+
+    cg.set({
+      fen: chess.fen(),
+      turnColor: cgTurn(),
+      movable: { color: undefined, dests: new Map() },
+      lastMove: [from, to],
+    });
+
+    advanceAfterCorrect();
+  }
+
   function onUserMove(from: Key, to: Key): void {
-    // Block input while an async engine check is running, or while the divert
-    // strip is waiting for an answer.
-    if (checkingAlternative || awaitingDivertChoice) return;
+    // Block input while an async engine check is running.
+    if (checkingAlternative) return;
 
     if (timed) { onTimedMove(from, to); return; }
+
+    if (awaitingDivertChoice) { onDivertMove(from, to); return; }
 
     const expected = tasks[taskIndex].expected;
     const eFrom = expected.uci.slice(0, 2);
     const eTo = expected.uci.slice(2, 4);
 
     if (from === eFrom && to === eTo) {
-      // Correct move — clear any arrow (reveal, alternative, or a peeked hint).
-      cg.setAutoShapes([]);
-      if (awaitingCorrectReplay) {
-        hideNoteCard();
-        awaitingCorrectReplay = false;
-      }
-      // Playing the move is how you move past the nudge: the offer was made and
-      // you chose to carry on, which counts the same as waving it away.
-      struggleNudge?.dismiss();
-      if (awaitingAlternativePlay) {
-        cg.setAutoShapes([]);
-        hideAltCard();
-        awaitingAlternativePlay = false;
-      }
-      markDot(taskIndex, 'correct');
-      playFeedback('correct');
-      setStatus('');
-      chess.move({ from, to, promotion: 'q' });
-
-      cg.set({
-        fen: chess.fen(),
-        turnColor: cgTurn(),
-        movable: { color: undefined, dests: new Map() },
-        lastMove: [from, to],
-      });
-
-      advanceAfterCorrect();
+      playCorrectMove(from, to);
       return;
     }
 
@@ -1185,7 +1275,13 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
             if (verdict?.kind === 'good-alternative') {
               handleGoodAlternative(expected, preFen, from + to);
             } else if (verdict?.kind === 'other-line') {
-              handleOtherLineMove(verdict, expected, preFen, from + to);
+              handleOtherLineCandidates(expected, preFen, verdict.candidates);
+            } else if (verdict?.kind === 'parked-line') {
+              // Nothing to divert into: the normal correction, but naming the
+              // line the move came from, so the app explains rather than just
+              // refusing.
+              registerWrongAttempt(
+                expected, `That’s your move from “${verdict.lineName}”, which isn’t in training right now.`);
             } else {
               registerWrongAttempt(expected);
             }
@@ -1356,7 +1452,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     cg.setAutoShapes([]);
     hideNoteCard();
     hideAltCard();
-    hideDivertStrip();
+    hideDivertCard();
     updateNoteButton(task.expected);
 
     // Fix mistakes: animate the opponent's previous move INTO the position, so you

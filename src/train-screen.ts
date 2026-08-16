@@ -12,7 +12,7 @@ import {
   type DrillOptions, type DivertChoice,
 } from './drill';
 import { positionIndex } from './position-index';
-import { siblingCredits, applyReviewAt, divertTarget } from './train-index';
+import { siblingCredits, applyReviewAt, judgeOtherLineMove } from './train-index';
 import { selectIndividualPositions, selectTimedPositions } from './individual';
 import { Icons } from './icons';
 import {
@@ -1527,8 +1527,11 @@ function runItem(
     // of their lines' move from this very position (TRANSPOSITIONS.md §9).
     // Asked only after a move is played, never announced in advance.
     checkAlternative: async (preFen, userUci) => {
-      const target = divertTarget(await positionIndex(), preFen, userUci, line.id);
-      return target ? { kind: 'other-line' as const, ...target } : null;
+      const verdict = judgeOtherLineMove(await positionIndex(), preFen, userUci, line.id);
+      if (!verdict) return null;
+      return verdict.kind === 'parked'
+        ? { kind: 'parked-line' as const, lineName: verdict.lineName }
+        : { kind: 'other-line' as const, candidates: verdict.candidates };
     },
     onDivert: (choice) => { void divertInto(choice); },
     recordMiss,
