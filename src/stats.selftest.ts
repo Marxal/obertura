@@ -343,6 +343,75 @@ export function runStatsSelfTest(): TestResult[] {
     italianMem ? `${italianMem.total} moves, ${italianMem.trained} trained` : 'no memory',
   );
 
+  // 5d. Deduplication: the same real knowledge — a move played from a given
+  //     position — must count once, however many lines it lives in (see
+  //     TRANSPOSITIONS.md §8/§10 and the groupUserMoves comment in stats.ts).
+
+  // A duplicated line: the Italian saved twice. Bc4's two copies disagree — one
+  // still struggling (short interval, five lapses), one recovered (a longer
+  // interval, fewer lapses) — the merged record must be the BETTER one, not a
+  // sum of the two and not whichever line happens to be first.
+  const italianA = line('white', 'e4 e5 Nf3 Nc6 Bc4', { name: 'Italian A' });
+  const italianB = line('white', 'e4 e5 Nf3 Nc6 Bc4', { name: 'Italian B' });
+  italianA.tree.children[0].children[0].children[0].children[0].children[0].review =
+    { ease: 2.0, interval: 1, reps: 0, lapses: 5, due: new Date() };
+  italianB.tree.children[0].children[0].children[0].children[0].children[0].review =
+    { ease: 2.6, interval: 10, reps: 3, lapses: 1, due: new Date() };
+  const dupMem = moveMemory([italianA, italianB]);
+  check(
+    'moveMemory dedupes an exact duplicate line to one count per move',
+    dupMem.total === 3 && dupMem.trained === 1 && dupMem.solid === 1 && dupMem.shaky === 0,
+    `total ${dupMem.total}, trained ${dupMem.trained}, solid ${dupMem.solid}, shaky ${dupMem.shaky}`,
+  );
+  const dupNeeds = needsWorkMoves([italianA, italianB]);
+  const bc4Row = dupNeeds.find(m => m.san === 'Bc4');
+  check(
+    "needsWorkMoves merges a duplicated position into one row, keyed to the best copy's record, naming both lines",
+    dupNeeds.length === 1 && bc4Row?.lapses === 1 && bc4Row?.reps === 3
+      && bc4Row.lineNames.length === 2
+      && bc4Row.lineNames.includes('Italian A') && bc4Row.lineNames.includes('Italian B'),
+    dupNeeds.map(m => `${m.san}: missed ${m.lapses}× (${m.lineNames.join(', ')})`).join(' '),
+  );
+
+  // A transposition: two lines reach an identical position by a different move
+  // order (1.c4 c5 2.Nf3 Nf6 3.Nc3 == 1.Nf3 Nf6 2.c4 c5 3.Nc3) and then both
+  // play the SAME third move from there — that shared move is one piece of
+  // knowledge, not two, however differently each line got to it. The earlier,
+  // genuinely different moves (c4 vs Nf3, first and second) must NOT merge —
+  // different moves from different positions are different knowledge.
+  const transA = line('white', 'c4 c5 Nf3 Nf6 Nc3', { name: 'Transposed A' });
+  const transB = line('white', 'Nf3 Nf6 c4 c5 Nc3', { name: 'Transposed B' });
+  transA.tree.children[0].children[0].children[0].children[0].children[0].review =
+    { ease: 2.5, interval: 8, reps: 4, lapses: 0, due: new Date() };
+  // transB's Nc3 is left untouched — never drilled from that line's own copy.
+  const transMem = moveMemory([transA, transB]);
+  const transNeeds = needsWorkMoves([transA, transB]);
+  check(
+    'moveMemory merges a transposed position + shared move, but keeps the differing openers apart',
+    transMem.total === 5 && transMem.trained === 1 && transMem.solid === 1,
+    `total ${transMem.total} (want 5: c4, Nf3, Nf3-after-c4c5, c4-after-Nf3Nf6, Nc3 merged), trained ${transMem.trained}`,
+  );
+  check(
+    'needsWorkMoves: nothing lapsed in the transposition scenario, so nothing to report',
+    transNeeds.length === 0,
+    `${transNeeds.length} rows`,
+  );
+
+  // One solid copy plus one untrained copy of the exact same move: the merged
+  // knowledge must read as KNOWN, not half-known — this is the "drill one
+  // copy and the ring reads ~50%" bug the dedup exists to fix.
+  const soloA = line('white', 'e4', { name: 'Solo A' });
+  const soloB = line('white', 'e4', { name: 'Solo B' });
+  soloA.tree.children[0].review = { ease: 2.5, interval: 12, reps: 5, lapses: 0, due: new Date() };
+  // soloB's e4 has no review at all.
+  const soloMem = moveMemory([soloA, soloB]);
+  check(
+    'moveMemory: one solid copy + one untrained copy of the same move reads as one known move, not half-known',
+    soloMem.total === 1 && soloMem.trained === 1 && soloMem.solid === 1 && soloMem.shaky === 0
+      && soloMem.recallPct === 100,
+    `total ${soloMem.total}, trained ${soloMem.trained}, solid ${soloMem.solid}, recall ${soloMem.recallPct}%`,
+  );
+
   // 6. Most-played leads with the bigger bucket; best-scoring needs enough games.
   const many = [
     ...Array.from({ length: 5 }, (_, i) => game('Sicilian Defense', 'white', 'win', 'e4 c5 Nf3 d6', mar + i * DAY)),

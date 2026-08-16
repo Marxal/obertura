@@ -15,6 +15,7 @@ import type { Line } from './types';
 import type { MoveNode } from './tree';
 import type { ImportedGame } from './chesscom';
 import { mainlineNodes, userMoveNodes } from './scheduler';
+import { epdKey } from './openings';
 import {
   familyKey,
   UNKNOWN_FAMILY,
@@ -33,14 +34,112 @@ export function masteredLines(lines: Line[]): Line[] {
   return lines.filter(l => l.confidence >= MASTERY_CONFIDENCE);
 }
 
+const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
+// ── Deduplicated knowledge ───────────────────────────────────────────────────
+//
+// The same real piece of knowledge — a move played from a given position — can
+// live in more than one saved line: a line saved twice, or two lines that
+// transpose into each other. Every function below that counts across more than
+// one line groups by POSITION + MOVE first — position-index.ts's identity for
+// "the same knowledge" (TRANSPOSITIONS.md §8) — so it counts once, not once per
+// line it happens to appear in. Where copies disagree (one drilled, one not; or
+// two records left over from before write-through existed), the group keeps
+// the BEST one — longest interval, then most reps — since the user demonstrably
+// knows the move and the weaker copy is a bookkeeping artefact, not evidence
+// (TRANSPOSITIONS.md §10).
+//
+// This is the ONE place that rule lives; moveMemory, needsWorkMoves and
+// memoryByOpening all read it, so Statistics, Line info and Forgotten moves can
+// never disagree about what counts as one piece of knowledge. Grouping a
+// single line is a safe no-op — nothing to merge — so Line info's use of these
+// same functions needs no separate rule of its own.
+
+interface MoveInstance {
+  lineId: string;
+  lineName: string;
+  openingName: string | null;
+  colour: 'white' | 'black';
+  san: string;
+  uci: string;
+  preFen: string;    // the position the move is played FROM
+  moveNumber: number;
+  lineRuns: number;  // that line's own training-count floor, for moveAttempts
+  node: MoveNode;    // the node the move arrives at — where the review lives
+}
+
+interface KnowledgeGroup {
+  best: MoveInstance;   // the strongest record among the members
+  members: MoveInstance[];
+}
+
+// Longest interval wins, then most reps — TRANSPOSITIONS.md §10.
+function betterInstance(a: MoveInstance, b: MoveInstance): boolean {
+  const ra = a.node.review;
+  const rb = b.node.review;
+  if (!ra) return false;
+  if (!rb) return true;
+  if (ra.interval !== rb.interval) return ra.interval > rb.interval;
+  return ra.reps > rb.reps;
+}
+
+// Every user move across `lines`, grouped by the position it's played from
+// (the shared FEN convention — TRANSPOSITIONS.md §1) plus the move itself.
+function groupUserMoves(lines: Line[]): Map<string, KnowledgeGroup> {
+  const groups = new Map<string, KnowledgeGroup>();
+  for (const line of lines) {
+    const main = mainlineNodes(line.tree);
+    const runs = lineTrainingCount(line);
+    main.forEach((node, i) => {
+      const isUser = line.colour === 'white' ? i % 2 === 0 : i % 2 === 1;
+      if (!isUser) return;
+      const preFen = i === 0 ? START_FEN : main[i - 1].fen;
+      const key = `${epdKey(preFen)}|${node.uci}`;
+      const instance: MoveInstance = {
+        lineId: line.id,
+        lineName: line.name || line.openingName || 'Untitled line',
+        openingName: line.openingName,
+        colour: line.colour,
+        san: node.san,
+        uci: node.uci,
+        preFen,
+        moveNumber: Math.floor(i / 2) + 1,
+        lineRuns: runs,
+        node,
+      };
+      const g = groups.get(key);
+      if (!g) groups.set(key, { best: instance, members: [instance] });
+      else {
+        g.members.push(instance);
+        if (betterInstance(instance, g.best)) g.best = instance;
+      }
+    });
+  }
+  return groups;
+}
+
+// The best line's name first, then every other distinct line name this same
+// position+move also lives in — so a merged row can say which lines it
+// belongs to, instead of naming only one of several.
+function groupLineNames(g: KnowledgeGroup): string[] {
+  const names = [g.best.lineName];
+  const seen = new Set(names);
+  for (const m of g.members) {
+    if (!seen.has(m.lineName)) { seen.add(m.lineName); names.push(m.lineName); }
+  }
+  return names;
+}
+
 // ── Needs-work moves ─────────────────────────────────────────────────────────
 //
 // Every trained user-move that's ever been missed, hardest (most-lapsed) first.
-// One entry per move; the lineId lets a tap drill the line it lives in.
+// One entry per DEDUPLICATED move; the lineId lets a tap drill the line whose
+// copy carried the best record.
 
 export interface NeedsWorkMove {
   lineId: string;
   lineName: string;
+  lineNames: string[];  // every line this position+move lives in, best first
   openingName: string | null;
   colour: 'white' | 'black';
   san: string;
@@ -53,8 +152,6 @@ export interface NeedsWorkMove {
   due: Date | null;     // when it next comes round; null when never drilled
   hasNote: boolean;     // whether a reminder has been written for it
 }
-
-const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
 // How many times a move has been ASKED — the denominator that turns a bare miss
 // count into a rate. Nothing records it directly, so we take the larger of two
@@ -85,28 +182,25 @@ export function lineReviewCount(line: Line): number {
 
 export function needsWorkMoves(lines: Line[], limit = 24): NeedsWorkMove[] {
   const out: NeedsWorkMove[] = [];
-  for (const line of lines) {
-    const main = mainlineNodes(line.tree);
-    const runs = lineTrainingCount(line);
-    main.forEach((node, i) => {
-      const isUser = line.colour === 'white' ? i % 2 === 0 : i % 2 === 1;
-      const lapses = node.review?.lapses ?? 0;
-      if (!isUser || lapses <= 0) return;
-      out.push({
-        lineId: line.id,
-        lineName: line.name || line.openingName || 'Untitled line',
-        openingName: line.openingName,
-        colour: line.colour,
-        san: node.san,
-        uci: node.uci,
-        preFen: i === 0 ? START_FEN : main[i - 1].fen,
-        moveNumber: Math.floor(i / 2) + 1,
-        lapses,
-        attempts: moveAttempts(node, runs),
-        reps: node.review?.reps ?? 0,
-        due: node.review ? new Date(node.review.due) : null,
-        hasNote: !!node.note,
-      });
+  for (const g of groupUserMoves(lines).values()) {
+    const node = g.best.node;
+    const lapses = node.review?.lapses ?? 0;
+    if (lapses <= 0) continue;
+    out.push({
+      lineId: g.best.lineId,
+      lineName: g.best.lineName,
+      lineNames: groupLineNames(g),
+      openingName: g.best.openingName,
+      colour: g.best.colour,
+      san: g.best.san,
+      uci: g.best.uci,
+      preFen: g.best.preFen,
+      moveNumber: g.best.moveNumber,
+      lapses,
+      attempts: moveAttempts(node, g.best.lineRuns),
+      reps: node.review?.reps ?? 0,
+      due: node.review ? new Date(node.review.due) : null,
+      hasNote: g.members.some(m => !!m.node.note),
     });
   }
   out.sort((a, b) => b.lapses - a.lapses || a.lineName.localeCompare(b.lineName));
@@ -137,12 +231,16 @@ function emptyMemory(): MoveMemory {
   return { total: 0, trained: 0, solid: 0, shaky: 0, recallPct: null };
 }
 
-function tallyMemory(m: MoveMemory, line: Line): void {
-  for (const node of userMoveNodes(line.tree, line.colour)) {
+// Tallies `lines` as one pool, deduplicated by position+move first (see
+// groupUserMoves above) — so a move shared by several of the given lines
+// counts once, using its best copy's record.
+function tallyMemory(m: MoveMemory, lines: Line[]): void {
+  for (const g of groupUserMoves(lines).values()) {
     m.total++;
-    if (!node.review) continue;
+    const review = g.best.node.review;
+    if (!review) continue;
     m.trained++;
-    if (node.review.reps > 0) m.solid++;
+    if (review.reps > 0) m.solid++;
     else m.shaky++;
   }
 }
@@ -155,7 +253,7 @@ function finishMemory(m: MoveMemory): MoveMemory {
 // The whole repertoire in one tally.
 export function moveMemory(lines: Line[]): MoveMemory {
   const m = emptyMemory();
-  for (const line of lines) tallyMemory(m, line);
+  tallyMemory(m, lines);
   return finishMemory(m);
 }
 
@@ -202,7 +300,7 @@ export function lineRecall(lines: Line[], limit = 24): LineRecall[] {
   const out: LineRecall[] = [];
   for (const line of lines) {
     const m = emptyMemory();
-    tallyMemory(m, line);
+    tallyMemory(m, [line]);
     finishMemory(m);
     if (m.trained === 0) continue;
     let lapses = 0;
@@ -232,16 +330,25 @@ export function lineRecall(lines: Line[], limit = 24): LineRecall[] {
 // Lines with no recognised opening can't join and are skipped, matching
 // winRateByOpening.
 export function memoryByOpening(lines: Line[]): Map<string, MoveMemory> {
-  const map = new Map<string, MoveMemory>();
+  // Bucket lines by family+colour first, then tally each bucket as one pool —
+  // so two copies of the same opening (or a transposition between them) in the
+  // same bucket dedupe together, exactly as moveMemory does for the whole
+  // repertoire.
+  const buckets = new Map<string, Line[]>();
   for (const line of lines) {
     const fam = familyKey(line.openingName);
     if (fam === UNKNOWN_FAMILY) continue;
     const key = `${fam}|${line.colour}`;
-    let m = map.get(key);
-    if (!m) { m = emptyMemory(); map.set(key, m); }
-    tallyMemory(m, line);
+    const bucket = buckets.get(key);
+    if (bucket) bucket.push(line);
+    else buckets.set(key, [line]);
   }
-  for (const m of map.values()) finishMemory(m);
+  const map = new Map<string, MoveMemory>();
+  for (const [key, bucketLines] of buckets) {
+    const m = emptyMemory();
+    tallyMemory(m, bucketLines);
+    map.set(key, finishMemory(m));
+  }
   return map;
 }
 
