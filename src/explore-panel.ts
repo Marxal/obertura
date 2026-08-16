@@ -57,6 +57,8 @@ import { MAP_MAX_PLIES } from './scout';
 import { formatMove } from './notation';
 import { Icons } from './icons';
 import { getExplorerDb } from './prefs';
+import { bandRangeLabel, explorerFilter } from './explorer-bands';
+import { activeBand, cachedMyLevel, resolveMyLevel, type MyLevel } from './explorer-level';
 import { resolveExplorerStats, orientCounts } from './explorer-resolve';
 import { cloudTopLines, analysePosition, type MoveEval } from './engine';
 import { wdlScoreRow, type WdlCounts } from './wdl-bar';
@@ -139,8 +141,18 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
   let games: ImportedGame[] | null = null;
   let active = false;
   let highlightUci: string | null = null;
+  // The user's playing strength, behind the "Around my level" band. Seeded from
+  // the cache so the first render already filters correctly, then refreshed;
+  // held in one place so every render builds its filter from the same value.
+  let myLevel: MyLevel | null = cachedMyLevel();
   const statsByColour = new Map<'white' | 'black', StatNode>();
   const evalCache = new Map<string, Promise<MoveEval[]>>();
+
+  void resolveMyLevel().then(found => {
+    if (!found) return;
+    myLevel = found;
+    render();
+  }).catch(() => { /* no level — the band stays All ratings */ });
 
   loadBookEntries()
     .then(entries => { book = buildBook(entries); render(); })
@@ -287,12 +299,26 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
   // the win/draw/loss record behind each move.
   async function libraryCandidates(fen: string): Promise<Candidate[]> {
     const db = getExplorerDb();
-    const { moves } = await resolveExplorerStats(fen, db, true, () => deps.getFen() === fen);
+    const { band } = activeBand(myLevel);
+    const filter = explorerFilter(db, band, myLevel?.rating ?? null);
+    const { moves, coverage } = await resolveExplorerStats(
+      fen, db, true, () => deps.getFen() === fen, filter,
+    );
     if (!moves) return [];
     const total = [...moves.values()]
       .reduce((sum, c) => sum + c.white + c.draws + c.black, 0);
     if (!total) return [];
-    const label = db === 'masters' ? 'masters' : 'Lichess players';
+    // The label carries the band, because these numbers are quoted in sentences
+    // — "62% of Lichess players play this", "+6 points better than them here" —
+    // and a claim about "players" that silently means "players near your rating"
+    // is a different claim. `coverage` (not the preference) decides, so a fetch
+    // that fell back to the bundled all-ratings set says so rather than
+    // inheriting the band's label.
+    const label = db === 'masters'
+      ? 'masters'
+      : coverage === 'band'
+        ? `Lichess players ${bandRangeLabel(band, myLevel?.rating ?? null)}`
+        : band === 'all' ? 'Lichess players' : 'Lichess players (all ratings)';
     const colour = deps.getColour();
     const chess = new Chess(fen);
     const out: Candidate[] = [];

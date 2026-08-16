@@ -1,6 +1,8 @@
 // Small device-local training preferences, kept in localStorage (tiny, never
 // synced). Mirrors the style of theme.ts / streak.ts.
 
+import { parseBand, type ExplorerBand } from './explorer-bands';
+
 const RETRIES_KEY = 'obertura.retriesBeforeReveal';
 const WATCH_SPEED_KEY = 'obertura.watchSpeed';
 const DEFAULT_MODE_KEY = 'obertura.defaultTrainingMode';
@@ -232,6 +234,41 @@ export function getExplorerDb(): 'masters' | 'lichess' {
 
 export function setExplorerDb(db: 'masters' | 'lichess'): void {
   localStorage.setItem(EXPLORER_DB_KEY, db);
+}
+
+// Which rating band those stats are filtered to (explorer-bands.ts maps it onto
+// the API's fixed buckets).
+//
+// NULL MEANS "NEVER CHOSEN", and that is not the same as "All ratings". An
+// explicit 'all' is the user saying they want the whole database; null lets the
+// app infer a band from their own rating and SAY SO (explorer-level.ts's
+// activeBand). Someone who never touches the control and has no rating we can
+// read gets null → 'all' → exactly the request the app has always sent.
+const EXPLORER_BAND_KEY = 'obertura.explorerBand';
+
+export function getExplorerBand(): ExplorerBand | null {
+  return parseBand(localStorage.getItem(EXPLORER_BAND_KEY));
+}
+
+// Passing null forgets the choice, handing the band back to inference.
+export function setExplorerBand(band: ExplorerBand | null): void {
+  if (band === null) localStorage.removeItem(EXPLORER_BAND_KEY);
+  else localStorage.setItem(EXPLORER_BAND_KEY, band);
+}
+
+// A rating the user typed in Settings, for "Around my level" when we have
+// nothing to infer from — no imported games and no Lichess account. Kept as a
+// plain number; null when unset.
+const EXPLORER_LEVEL_KEY = 'obertura.explorerManualLevel';
+
+export function getManualLevel(): number | null {
+  const n = Number(localStorage.getItem(EXPLORER_LEVEL_KEY));
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+}
+
+export function setManualLevel(rating: number | null): void {
+  if (rating === null) localStorage.removeItem(EXPLORER_LEVEL_KEY);
+  else localStorage.setItem(EXPLORER_LEVEL_KEY, String(Math.round(rating)));
 }
 
 // Saved lines always auto-name themselves from the bundled opening database on

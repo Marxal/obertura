@@ -2775,13 +2775,22 @@ html[data-coords="off"] .cg-wrap coords {
 }
 .lib-bx-wdl .wdl-row { flex: 1; }
 
-/* The Library slide's database toggle: a small segmented Masters / Lichess
-   control plus a tiny "i". Compact and left-aligned, not full width. */
+/* The Library slide's source controls: the segmented Masters / Lichess toggle,
+   the rating-band strip beside it, and a tiny "i". Compact and left-aligned, not
+   full width. The band's explanation line sits under the whole bar. */
+.lib-db-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
 .lib-db-bar {
   display: flex;
   align-items: center;
   gap: 0.35rem;
   padding: 0.1rem 0.25rem 0.35rem;
+  /* Two segmented controls plus the "i" don't fit a 412px phone on one line, so
+     the band strip drops to its own row rather than squeezing the labels. */
+  flex-wrap: wrap;
 }
 .lib-db-seg {
   display: inline-flex;
@@ -2805,6 +2814,44 @@ html[data-coords="off"] .cg-wrap coords {
   background: var(--accent);
   color: var(--accent-contrast, #fff);
 }
+/* The rating-band strip: the same pills as the database toggle, because it
+   answers the neighbouring question. Six labels overflow a phone, so it scrolls
+   sideways instead of shrinking below legibility. */
+.lib-band-seg {
+  max-width: 100%;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.lib-band-seg::-webkit-scrollbar { display: none; }
+.lib-band-seg .lib-db-opt {
+  flex: 0 0 auto;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+/* Masters: the filter doesn't exist there, so the strip reads as unavailable
+   rather than merely unselected. The reason rides in .lib-band-note. */
+.lib-band-seg.is-disabled {
+  opacity: 0.45;
+}
+.lib-band-seg.is-disabled .lib-db-opt {
+  cursor: default;
+}
+
+/* The quiet line under the bar: what the band covers, and — when the app worked
+   the level out rather than being told — where that came from. */
+.lib-band-note {
+  padding: 0 0.4rem 0.3rem;
+  font-size: 0.66rem;
+  line-height: 1.35;
+  color: var(--text-faint);
+}
+.lib-band-note--inferred {
+  font-style: italic;
+}
+
 .lib-db-info {
   display: flex;
   align-items: center;
@@ -14168,6 +14215,11 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .daily-custom-input:focus {
   outline: none;
   border-color: var(--accent);
+}
+/* The same field holding a four-digit rating rather than a one- or two-digit
+   task count — 4.5em clips "1650" once the number spinner takes its share. */
+.explorer-level-input {
+  width: 6.5em;
 }
 .daily-custom-suffix {
   font-size: 0.8rem;

@@ -37,6 +37,7 @@ import { runStudyCatalogSelfTest } from '../src/study-catalog.selftest';
 import { runRepertoireSyncSelfTest } from '../src/repertoire-sync.selftest';
 import { runOnboardingLinesSelfTest } from '../src/onboarding-lines.selftest';
 import { runImportTierSelfTest } from '../src/import-tier.selftest';
+import { runExplorerBandSelfTest } from '../src/explorer-band.selftest';
 
 interface TestResult { name: string; pass: boolean; detail: string }
 
@@ -50,6 +51,7 @@ const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'scout', run: runScoutSelfTest },
   { suite: 'traps', run: runTrapsSelfTest },
   { suite: 'move-stats', run: runMoveStatsSelfTest },
+  { suite: 'explorer-band', run: runExplorerBandSelfTest },
   { suite: 'progress', run: runProgressSelfTest },
   { suite: 'stats', run: runStatsSelfTest },
   { suite: 'struggle', run: runStruggleSelfTest },

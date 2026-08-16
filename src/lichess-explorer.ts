@@ -5,14 +5,19 @@
 //
 // Two public databases, both anonymous:
 //   'lichess'  — every rated Lichess game (the largest sample; hundreds of
-//                millions in early positions). We pass the full speed and rating
-//                range explicitly so the sample isn't narrowed by API defaults.
+//                millions in early positions). We pass the speed and rating
+//                range explicitly so the sample isn't narrowed by API defaults —
+//                and, when the user has picked a rating band, so it IS narrowed,
+//                deliberately (explorer-bands.ts).
 //   'masters'  — over-the-board games between strong titled players (cleaner
-//                theory, far smaller counts).
+//                theory, far smaller counts). Takes NO rating or speed filter;
+//                see the note on the filter argument below.
 //
 // Per continuation we return how those games went (white/draws/black). The games
 // total is the sum, so callers can show a count. Counts are Lichess's own,
 // unrelated to the bundled library's named-opening count.
+
+import { ALL_FILTER, type ExplorerFilter } from './explorer-bands';
 
 export type ExplorerDb = 'masters' | 'lichess';
 
@@ -27,16 +32,26 @@ const ENDPOINTS: Record<ExplorerDb, string> = {
   masters: 'https://explorer.lichess.org/masters',
 };
 
-// The full speed and rating-band ranges for the Lichess database. Sent
-// explicitly so we always get the widest sample (omitting them lets the API
-// apply narrower defaults, which makes positions look far emptier than they are).
-const ALL_SPEEDS = 'ultraBullet,bullet,blitz,rapid,classical,correspondence';
-const ALL_RATINGS = '0,1000,1200,1400,1600,1800,2000,2200,2500';
-
-// Per-database, per-FEN cache for the session, plus a single in-flight request
-// that newer positions abort — we only ever care about the current position.
+// Per-request cache for the session, plus a single in-flight request that newer
+// positions abort — we only ever care about the current position.
 const cache = new Map<string, Map<string, ExplorerCounts>>();
 let inflight: AbortController | null = null;
+
+// THE CACHE KEY IS BUILT FROM THE SAME VALUES THE URL IS.
+//
+// Keyed on the position alone, changing the rating band would serve the previous
+// band's numbers back for every position already visited — and it would look
+// like it worked, because the numbers are plausible either way. That is not a
+// bug you find by using the app.
+//
+// So the key is derived from exactly the fields that vary the RESPONSE: the
+// database, and the two filter strings that go into the query verbatim. Both
+// come from the one ExplorerFilter the caller passed, so the request and the key
+// cannot describe different things. Masters passes null and gets stable empty
+// segments, which keeps its existing entries valid.
+function cacheKey(fen: string, db: ExplorerDb, filter: ExplorerFilter | null): string {
+  return `${db}|${filter?.ratings ?? ''}|${filter?.speeds ?? ''}|${fen}`;
+}
 
 // Drop everything cached this session and abort any in-flight request. Called on
 // connect AND disconnect (see lichess-auth.ts): the cache is NOT keyed by token,
@@ -50,12 +65,24 @@ export function clearExplorerCache(): void {
   inflight = null;
 }
 
+// `filter` is the rating/speed narrowing, or null for "this database has no such
+// dimension". It is ONLY ever sent to the lichess database: /masters has no
+// `ratings` or `speeds` parameter, and — verified against the server — ignores
+// unknown query parameters instead of rejecting them, so sending a band there
+// would return HTTP 200 full of unfiltered numbers under a filtered label.
 export async function fetchExplorer(
   fen: string,
   db: ExplorerDb = 'lichess',
   token?: string | null,
+  filter: ExplorerFilter | null = null,
 ): Promise<Map<string, ExplorerCounts> | null> {
-  const key = `${db}|${fen}`;
+  // The lichess database always sends both parameters explicitly — omitting them
+  // lets the API apply narrower defaults, which makes positions look far emptier
+  // than they are. With no band chosen that's the full range, i.e. exactly the
+  // request this module has always made.
+  const effective = db === 'lichess' ? (filter ?? ALL_FILTER) : null;
+
+  const key = cacheKey(fen, db, effective);
   const cached = cache.get(key);
   if (cached) return cached;
 
@@ -64,9 +91,9 @@ export async function fetchExplorer(
   inflight = ctrl;
   try {
     let url = `${ENDPOINTS[db]}?topGames=0&moves=24&fen=${encodeURIComponent(fen)}`;
-    if (db === 'lichess') {
+    if (effective) {
       url += `&variant=standard&recentGames=0` +
-        `&speeds=${ALL_SPEEDS}&ratings=${ALL_RATINGS}`;
+        `&speeds=${effective.speeds}&ratings=${effective.ratings}`;
     }
     // Lichess now gates the explorer behind a login; an anonymous request is
     // blocked. The token (when connected) lets us through. Without one we still
