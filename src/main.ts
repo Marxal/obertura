@@ -4841,6 +4841,7 @@ maybeShowGate(() => requestAnimationFrame(() => {
     getUcis: currentPathUcis,
     getFen: () => chess.fen(),
     getColour: () => saveColour,
+    getEditingLineId: () => loadedLineId,
     onPlay: (uci) => playUci(uci),
     // My games empty-state import button.
     onImportGames: () => openImportPanel({

@@ -3510,6 +3510,25 @@ html[data-coords="off"] .cg-wrap coords {
   font-variant-numeric: tabular-nums;
 }
 
+/* Transposition / alternative-answer rows (TRANSPOSITIONS.md): same .bx-row
+   weight and tap behaviour as the continuations above them, just quieter text
+   and no move badge — they name a position match, not a move to play. */
+.mylines-xpos-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mylines-xpos-more {
+  display: block;
+  padding: 0.35rem 0.25rem;
+  font-size: 0.78rem;
+  color: var(--text-faint);
+}
+
 /* ── "Import a game" popup (the bar's import icon) ───────────────────────────── */
 .bimport-body { display: flex; flex-direction: column; gap: 0.5rem; }
 
