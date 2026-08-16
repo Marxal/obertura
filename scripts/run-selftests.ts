@@ -38,6 +38,8 @@ import { runRepertoireSyncSelfTest } from '../src/repertoire-sync.selftest';
 import { runOnboardingLinesSelfTest } from '../src/onboarding-lines.selftest';
 import { runImportTierSelfTest } from '../src/import-tier.selftest';
 import { runExplorerBandSelfTest } from '../src/explorer-band.selftest';
+import { runPositionIndexSelfTest } from '../src/position-index.selftest';
+import { runSaveIndexSelfTest } from '../src/save-index.selftest';
 
 interface TestResult { name: string; pass: boolean; detail: string }
 
@@ -56,6 +58,8 @@ const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'stats', run: runStatsSelfTest },
   { suite: 'struggle', run: runStruggleSelfTest },
   { suite: 'tree', run: runTreeSelfTest },
+  { suite: 'position-index', run: runPositionIndexSelfTest },
+  { suite: 'save-index', run: runSaveIndexSelfTest },
   { suite: 'engine', run: runEngineSelfTest },
   { suite: 'puzzles', run: runPuzzlesSelfTest },
   { suite: 'puzzle-rating', run: runPuzzleRatingSelfTest },

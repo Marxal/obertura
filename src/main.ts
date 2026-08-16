@@ -9,9 +9,11 @@ import './style.css';
 import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, loadTree, removeLastMove, truncateAfterCurrent, setTreeMode, rootNode } from './tree';
 import { mainlineNodes, DEFAULT_PRIORITY } from './scheduler';
 import type { Annotation, MoveNode } from './tree';
-import { saveLine, getAllLines, getAllGames, getGame, saveGames, deleteLine, deleteGame } from './storage';
+import { saveLine, getAllLines, getLine, getAllGames, getGame, saveGames, deleteLine, deleteGame } from './storage';
 import type { ImportedGame } from './import-games';
 import { nameForPath } from './openings';
+import { positionIndex, type DuplicateVerdict } from './position-index';
+import { inheritReviews, inheritanceNote, missingTags, type InheritResult } from './save-index';
 import type { Line, LinePriority } from './types';
 import { renderLinesScreen, focusSavedLine } from './lines-screen';
 import { renderProgressScreen } from './progress-screen';
@@ -517,10 +519,193 @@ function renderMoveList() {
 // Analyser only: Save game greys out while there's nothing of yours to save —
 // the review itself is stored automatically, so Save is for YOUR variations,
 // notes and tag edits. Builder mode (repertoire lines) keeps Save always live.
+//
+// This is also the one function BOTH save-button triggers already reach — every
+// move (via renderMoveList) and every tag change (via renderBuilderTags) — so
+// the duplicate check hangs off it rather than off either one.
 function refreshSaveButtonState(): void {
   const btn = document.getElementById('header-save') as HTMLButtonElement | null;
   if (!btn) return;
   btn.disabled = builderMode === 'analyser' && !!analyserGameId && !isBuilderDirty();
+  void refreshDuplicateState();
+}
+
+// ── "You already have this line" ─────────────────────────────────────────────
+//
+// TRANSPOSITIONS.md §4 and §5. When the line on the board already exists — same
+// moves, same colour — saving it would mint a second copy the user can't tell
+// apart from the first, and would split their training across the two. So the
+// save button TRANSFORMS into the thing they actually want: open the line they
+// already have, or, when the only difference is a tag they've just added (the
+// Prepare flow: the same line prepared "vs Anna", later "vs Erik"), add that tag
+// to it. It never greys out — a dead primary button is a dead end.
+//
+// EVALUATED ONLY ON AN EXACT WHOLE-LINE MATCH. A line that is merely a PREFIX of
+// a stored one leaves the button completely alone, because mid-build is
+// indistinguishable from a prefix: every line you type is a prefix of something
+// before it is finished, and a primary button that changes its label on every
+// move is unusable.
+
+interface SaveDuplicate {
+  // 'open'    — same moves, same colour, nothing new to add.
+  // 'add-tag' — same moves, same colour, but this build carries tags it lacks.
+  kind: 'open' | 'add-tag';
+  lineId: string;
+  lineName: string;
+  tags: string[]; // the missing ones, for 'add-tag'
+}
+
+let saveDuplicate: SaveDuplicate | null = null;
+// Fingerprint of the state the current answer was computed for, so the lookup is
+// skipped while nothing relevant has changed, and a slow answer that arrives
+// after another move can be discarded rather than applied to the wrong line.
+let saveDuplicateFor = '';
+
+// Cheap key over everything the check depends on: the moves, the colour and the
+// tags. Deliberately NOT the name — a rename must not re-run the check, and the
+// name is not part of line identity (TRANSPOSITIONS.md §3).
+function duplicateFingerprint(): string {
+  if (builderMode === 'analyser' || loadedLineId || isEmpty()) return '';
+  return `${saveColour}|${mainline().map(n => n.uci).join(' ')}|${[...currentTags].sort().join(',')}`;
+}
+
+async function refreshDuplicateState(): Promise<void> {
+  const fingerprint = duplicateFingerprint();
+  if (fingerprint === saveDuplicateFor) return;
+  saveDuplicateFor = fingerprint;
+
+  // Not a fresh build with moves on it (analyser, an existing line being edited,
+  // or an empty board) — the button behaves exactly as it always has.
+  if (!fingerprint) {
+    if (saveDuplicate) { saveDuplicate = null; applySaveButtonLabel(); }
+    return;
+  }
+
+  const index = await positionIndex();
+  // Another move landed while we were reading storage — that render owns the
+  // answer now, so drop this one.
+  if (duplicateFingerprint() !== fingerprint) return;
+
+  const line = buildCurrentLine();
+  const verdict = index.duplicatesOf(line);
+  // ONLY an exact whole-line match. extension-shorter is the prefix case and is
+  // pointedly ignored here; it gets a toast AFTER a save instead (§6).
+  const next = verdict?.relation === 'identical'
+    ? await duplicateFor(line, verdict)
+    : null;
+
+  // A second check after the await, for the same reason as the first.
+  if (duplicateFingerprint() !== fingerprint) return;
+  if (sameDuplicate(next, saveDuplicate)) return;
+  saveDuplicate = next;
+  applySaveButtonLabel();
+}
+
+async function duplicateFor(line: Line, verdict: DuplicateVerdict): Promise<SaveDuplicate | null> {
+  // Straight from storage rather than any cached list: the tags decide which of
+  // the two offers this is, and a stale copy would offer to add a tag the line
+  // already has.
+  const stored = await getLine(verdict.otherLineId);
+  if (!stored) return null;
+  const tags = missingTags(line, stored);
+  return {
+    kind: tags.length > 0 ? 'add-tag' : 'open',
+    lineId: stored.id,
+    lineName: stored.name || 'your saved line',
+    tags,
+  };
+}
+
+function sameDuplicate(a: SaveDuplicate | null, b: SaveDuplicate | null): boolean {
+  if (!a || !b) return a === b;
+  return a.kind === b.kind && a.lineId === b.lineId && a.tags.join() === b.tags.join();
+}
+
+// Fit a line's name inside a header button (or a toast) without it running away.
+// The CSS ellipsis is the backstop for the last pixel or two; this stops a truly
+// long name from squeezing the header title down to nothing first.
+function shortLineName(name: string): string {
+  return name.length > 22 ? `${name.slice(0, 21).trimEnd()}…` : name;
+}
+
+// The save button's text and icon for the current state. Split out of
+// updateSaveButtonLabel so the per-move duplicate check can repaint just this
+// — updateSaveButtonLabel also rebuilds the slide strip and five other controls.
+function applySaveButtonLabel(): void {
+  const label = document.getElementById('header-save-label');
+  const btn = document.getElementById('header-save');
+  if (!label) return;
+
+  const dup = builderMode === 'builder' ? saveDuplicate : null;
+  label.textContent =
+    builderMode === 'analyser' ? 'Save game'
+    : dup?.kind === 'open' ? 'Already saved — open it'
+    : dup?.kind === 'add-tag' ? `Add tag to “${shortLineName(dup.lineName)}”`
+    : loadedLineId ? 'Save changes' : 'Save line';
+
+  btn?.classList.toggle('header-save--alt', !!dup);
+  if (btn) setSaveButtonIcon(btn, dup?.kind ?? null);
+}
+
+// The disk icon is wrong on a button that no longer saves. Swap the glyph rather
+// than dropping it, so the control keeps the same shape as it changes meaning.
+const SAVE_ICON_PATHS: Record<'save' | 'open' | 'add-tag', string[]> = {
+  save: [
+    'M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z',
+    'M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7',
+    'M7 3v4a1 1 0 0 0 1 1h7',
+  ],
+  open: ['M15 3h6v6', 'M10 14 21 3', 'M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5'],
+  'add-tag': ['M12 5v14', 'M5 12h14'],
+};
+
+function setSaveButtonIcon(btn: HTMLElement, kind: 'open' | 'add-tag' | null): void {
+  const svg = btn.querySelector('svg');
+  if (!svg) return;
+  const want = kind ?? 'save';
+  if (svg.dataset.icon === want) return;
+  svg.dataset.icon = want;
+  svg.innerHTML = SAVE_ICON_PATHS[want].map(d => `<path d="${d}"/>`).join('');
+}
+
+// The transformed button's action. Returns true when it handled the tap, so the
+// normal save flow (and all three of its nudges) is skipped entirely.
+function handleDuplicateSaveTap(): boolean {
+  const dup = saveDuplicate;
+  if (!dup || builderMode !== 'builder') return false;
+
+  void (async () => {
+    const stored = await getLine(dup.lineId);
+    // Deleted from another screen since the check ran — fall back to a normal
+    // save rather than doing nothing, so the tap is never swallowed.
+    if (!stored) {
+      saveDuplicate = null;
+      saveDuplicateFor = '';
+      applySaveButtonLabel();
+      void saveCurrentLine();
+      return;
+    }
+
+    if (dup.kind === 'open') {
+      onOpenLine(stored);
+      showToast('You already have this line');
+      return;
+    }
+
+    // Add the missing tags to the line that already exists, then open it. No
+    // second copy, and no dialog — there is nothing here to decide.
+    stored.tags = [...stored.tags, ...dup.tags];
+    await saveLine(stored);
+    builderPanels?.reloadLines();
+    onOpenLine(stored);
+    showToast(
+      dup.tags.length === 1
+        ? `Added “${dup.tags[0]}” to “${stored.name}” ✓`
+        : `Added ${dup.tags.length} tags to “${stored.name}” ✓`,
+      { variant: 'success' },
+    );
+  })();
+  return true;
 }
 
 function renderMoveListInto(el: HTMLElement): void {
@@ -2009,11 +2194,10 @@ function goToStart(): void {
 // and "Save line" for a fresh one — standard create-vs-edit wording.
 function updateSaveButtonLabel(): void {
   const analyser = builderMode === 'analyser';
-  const label = document.getElementById('header-save-label');
-  if (label) {
-    label.textContent = analyser ? 'Save game'
-      : loadedLineId ? 'Save changes' : 'Save line';
-  }
+  // The label itself (including the "you already have this line" transform)
+  // lives in applySaveButtonLabel, so the per-move duplicate check can repaint
+  // it without dragging the rest of this function along.
+  applySaveButtonLabel();
 
   // The analyser and the builder show a different set of tabs, in a different
   // order — rebuild the strip (and the slides under it) for this mode.
@@ -3893,10 +4077,19 @@ function buildCurrentLine(): Line {
   };
 }
 
+// What the position index had to say about the line as it went in — computed
+// BEFORE the write, while the index still describes the repertoire without it.
+interface SaveIndexOutcome {
+  inherit: InheritResult;
+  overlap: DuplicateVerdict | null;
+}
+
 // Persist the builder's current state, leaving the builder "clean". Returns the
 // saved line (and whether it was newly created), or null when there's nothing to
 // save. Shared by the header Save and the leave-guard's Save.
-async function persistCurrentLine(): Promise<{ line: Line; isNew: boolean } | null> {
+async function persistCurrentLine(): Promise<
+  { line: Line; isNew: boolean; index: SaveIndexOutcome } | null
+> {
   if (isEmpty()) {
     showToast('Play a move first');
     return null;
@@ -3906,6 +4099,23 @@ async function persistCurrentLine(): Promise<{ line: Line; isNew: boolean } | nu
   // Lock in the auto-named title so it sticks as the manual name.
   manualTitle = line.name;
 
+  // Everything the index has to say, read while it still describes the
+  // repertoire WITHOUT this line, and applied before the write:
+  //
+  //  • inheritReviews gives every user move the training it has already had in
+  //    another line (TRANSPOSITIONS.md §7). It runs here, ahead of the write and
+  //    therefore ahead of the enrolment path, so the confirm run and the
+  //    scheduler both see the inherited state rather than a line of new moves.
+  //  • the overlap verdict is what the extension toast reports afterwards (§6).
+  const index = await positionIndex();
+  const outcome: SaveIndexOutcome = {
+    inherit: inheritReviews(line, index),
+    overlap: index.duplicatesOf(line),
+  };
+  // buildCurrentLine serialises a CLONE, so inheritReviews wrote onto the copy
+  // being stored and the builder's live tree is untouched — which is what we
+  // want: `line` is the object the enrolment path below receives, so the confirm
+  // run and the scheduler get the inherited records, and the board doesn't move.
   await saveLine(line);
   // The My-lines slide reads saved lines from storage; refresh it so a just-saved
   // line shows up in "My saved lines" without leaving the builder.
@@ -3921,7 +4131,7 @@ async function persistCurrentLine(): Promise<{ line: Line; isNew: boolean } | nu
   updateSaveButtonLabel();
   // The builder now matches storage — no unsaved edits.
   savedSnapshot = builderSnapshot();
-  return { line, isNew };
+  return { line, isNew, index: outcome };
 }
 
 // Game analyser: "Save game" stores the whole analysed tree (main line +
@@ -4134,8 +4344,18 @@ async function finishSave(): Promise<void> {
   const wantsTraining = loadedLineInTraining;
   const result = await persistCurrentLine();
   if (!result) return;
-  const { line, isNew } = result;
-  showToast(isNew ? 'Line saved ✓' : 'Changes saved ✓', { variant: 'success' });
+  const { line, isNew, index } = result;
+
+  // One toast for the save, carrying the inheritance sentence when there is one
+  // (TRANSPOSITIONS.md §7) — silent at zero, because "0 of these 10 moves you
+  // already know" is noise.
+  const note = inheritanceNote(index.inherit);
+  const saved = isNew ? 'Line saved ✓' : 'Changes saved ✓';
+  showToast(note ? `${saved} — ${note}` : saved, { variant: 'success' });
+
+  // …then, queued behind it, the overlap notice (§6). Both are toasts on
+  // purpose: an extension is worth knowing about and never worth blocking on.
+  showExtensionNotice(line, index.overlap);
   // Already enrolled — no point asking; just surface it on My Lines.
   if (line.inTraining) {
     goToSavedLine(line.id);
@@ -4158,6 +4378,60 @@ async function finishSave(): Promise<void> {
     return;
   }
   addLineToTraining(line, () => goToSavedLine(line.id), () => goToSavedLine(line.id));
+}
+
+// TRANSPOSITIONS.md §6 — the line just saved overlaps one already stored, and
+// silently keeping a line plus a truncated copy of it is how a repertoire rots.
+// Never blocks the save, and never blocks the enrolment behind it: it's a toast
+// with one optional action, queued behind the save confirmation.
+//
+// The two directions are deliberately not symmetrical. Where the new line
+// CONTAINS an older one, the older one is now redundant and removing it is
+// offered — behind a confirm, because it's a delete. Where the new line is
+// contained BY a longer one, nothing is offered but the name and a way to look
+// at it: the longer line is the user's work and this code doesn't get to touch
+// it. `divergent` and `identical` say nothing at all — neither is a problem.
+function showExtensionNotice(line: Line, overlap: DuplicateVerdict | null): void {
+  if (!overlap) return;
+
+  if (overlap.relation === 'extension-longer') {
+    const shorterId = overlap.otherLineId;
+    const shorter = overlap.otherLineName || 'an older line';
+    showToast(`This continues “${shortLineName(shorter)}”, which you already have.`, {
+      action: {
+        label: 'Remove it',
+        onClick: () => showDialog({
+          title: 'Remove the shorter line?',
+          body: `“${shorter}” is the first ${overlap.sharedPlies} half-moves of the line you just saved, so everything in it is now covered by “${line.name}”. Removing it also removes its training history.`,
+          buttons: [
+            {
+              label: 'Remove it', variant: 'danger', onClick: () => {
+                void deleteLine(shorterId).then(() => {
+                  builderPanels?.reloadLines();
+                  showToast(`Removed “${shorter}” ✓`, { variant: 'success' });
+                });
+              },
+            },
+            { label: 'Keep both', variant: 'secondary' },
+          ],
+        }),
+      },
+    });
+    return;
+  }
+
+  if (overlap.relation === 'extension-shorter') {
+    const longerId = overlap.otherLineId;
+    const longer = overlap.otherLineName || 'a longer line';
+    showToast(`“${shortLineName(longer)}” already contains this line.`, {
+      action: {
+        label: 'Open it',
+        onClick: () => {
+          void getLine(longerId).then(l => { if (l) onOpenLine(l); });
+        },
+      },
+    });
+  }
 }
 
 // Save → "here's what the trainer does" → confirm run → "it's in training" →
@@ -4239,8 +4513,13 @@ function trainingUnlockedMessage(lineCount: number): string {
 
 function setupSaveButton() {
   document.getElementById('header-save')!.addEventListener('click', () => {
-    if (builderMode === 'analyser') void saveGame();
-    else void saveCurrentLine();
+    if (builderMode === 'analyser') { void saveGame(); return; }
+    // The line on the board already exists: open it, or add the tag that's new.
+    // Handled here rather than inside saveCurrentLine so it short-circuits the
+    // whole save flow — none of the three nudges apply to a line we aren't
+    // saving. (TRANSPOSITIONS.md §4/§5.)
+    if (handleDuplicateSaveTap()) return;
+    void saveCurrentLine();
   });
   document.getElementById('save-line-btn')?.addEventListener('click', () => {
     void saveLineFromCurrentPath();
@@ -4275,6 +4554,9 @@ function setupPlaybackControls(): void {
     saveColour = saveColour === 'white' ? 'black' : 'white';
     renderTitle();
     builderPanels?.render();
+    // Colour is half of line identity, so flipping can make the line on the
+    // board stop (or start) matching one already saved.
+    refreshSaveButtonState();
     showToast(`This line will now save as ${saveColour === 'white' ? 'White' : 'Black'}`);
   });
 

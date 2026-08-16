@@ -980,6 +980,27 @@ header h1.header-title--screen {
   display: none;
 }
 
+/* The line on the board is already saved, so the button no longer saves — it
+   opens that line, or adds the tag that's new (TRANSPOSITIONS.md §4/§5). It
+   stays a live, tappable primary: greying it out would leave a dead end where
+   the main action used to be. The muted amber says "this is a different action"
+   without demoting it, and the longer label gets room by allowing a wrap-free
+   shrink of the header title beside it. */
+.header-save--alt {
+  background-color: var(--warn, #9a6b3f);
+  box-shadow: 0 2px 5px rgba(120, 84, 48, 0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+  padding-left: 0.7rem;
+  padding-right: 0.7rem;
+  /* The button now names the line, so the header title beside it is the
+     redundant half — it gets truncated first, not the label. */
+  max-width: 74vw;
+}
+.header-save--alt #header-save-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Analyser: nothing of yours to save (the review stores itself) — the button
    stays visible but reads inactive until you add a variation, note or tag. */
 .header-save:disabled {
@@ -9869,6 +9890,34 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   border: 1px solid var(--border-card);
   padding-left: 0.6rem;
 }
+/* A toast carrying one action ("Remove it", "Open it"). It has to be tappable,
+   so it opts back into pointer events — the plain pill stays click-through. */
+.toast--action {
+  pointer-events: auto;
+  padding-right: 0.35rem;
+}
+.toast-action {
+  flex: 0 0 auto;
+  margin-left: 0.15rem;
+  padding: 0.3rem 0.7rem;
+  min-height: 32px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent-soft, rgba(255,255,255,0.16));
+  color: inherit;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.toast:not(.toast--success) .toast-action {
+  background: rgba(255, 255, 255, 0.18);
+}
+.toast-action:active {
+  filter: brightness(0.9);
+}
+
 .toast-badge {
   display: inline-flex;
   align-items: center;
