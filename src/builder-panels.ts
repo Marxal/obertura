@@ -20,6 +20,7 @@ import { buildBook, bookNodeAt, loadBookEntries, type BookNode } from './book-tr
 import { getAllGames, getAllOpponents, getAllLines } from './storage';
 import type { Line } from './types';
 import type { MoveNode } from './tree';
+import { positionIndex, positionKey, type PositionIndex } from './position-index';
 import { buildMoveStats, statAt, statScorePct, gameAtPath, type StatNode } from './move-stats';
 import {
   MAP_MAX_PLIES, MAP_START_PLIES, MAP_STEP_PLIES,
@@ -53,11 +54,17 @@ export interface BuilderPanelsDeps {
   getUcis: () => string[];          // UCI path to the current cursor node
   getFen: () => string;             // FEN of the current position
   getColour: () => 'white' | 'black';
+  // The saved line currently loaded into the builder, if any — so a
+  // transposition/alternative-answer row never reports the line against itself.
+  // Null on a fresh, unsaved build.
+  getEditingLineId: () => string | null;
   onPlay: (uci: string) => void;    // play this move onto the line
   onImportGames: () => void;        // My games empty state → import your games
   onImportOpponent: () => void;     // My opponents → import a new opponent
   onOpenOpponentReport: (id: string) => void; // My opponents → their full report
-  onOpenLine: (line: Line) => void; // My lines "show tree" → open a saved line
+  // My lines "show tree" → open a saved line. `atFen`, when given, lands the
+  // builder on that position rather than the start.
+  onOpenLine: (line: Line, atFen?: string) => void;
 }
 
 export interface BuilderPanels {
@@ -570,19 +577,57 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     const replies = savedLineReplies(mine, deps.getUcis());
     if (!replies.length) {
       wrap.appendChild(emptyNote('No lines saved from here.'));
-      return wrap;
+    } else {
+      const prefix = movePrefix(deps.getUcis().length);
+      for (const r of replies) {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'bx-row bx-row--plain';
+        row.addEventListener('click', () => deps.onPlay(r.uci));
+        row.appendChild(span('bx-move', `${prefix} ${formatMove(r.san)}`));
+        row.appendChild(span('bx-line-count', `${r.count} line${r.count === 1 ? '' : 's'}`));
+        wrap.appendChild(row);
+      }
     }
-    const prefix = movePrefix(deps.getUcis().length);
-    for (const r of replies) {
-      const row = document.createElement('button');
-      row.type = 'button';
-      row.className = 'bx-row bx-row--plain';
-      row.addEventListener('click', () => deps.onPlay(r.uci));
-      row.appendChild(span('bx-move', `${prefix} ${formatMove(r.san)}`));
-      row.appendChild(span('bx-line-count', `${r.count} line${r.count === 1 ? '' : 's'}`));
-      wrap.appendChild(row);
-    }
+
+    appendTranspositionRows(wrap);
     return wrap;
+  }
+
+  // Quiet rows for what the primary continuations above can't see: another
+  // saved line reaching this SAME position by a different move order
+  // (TRANSPOSITIONS.md's "Transpositions" section). savedLineReplies walks each
+  // line's tree move-by-move, so a transposed line simply falls off that walk
+  // at the first ply where it diverges — the position index is what still
+  // knows it's the same position underneath.
+  //
+  // Async because the index is a lazily-rebuilt read from storage; the rows
+  // land a beat after the rest of the section and are dropped if the board
+  // moved on in the meantime. Never above the primary content — this is always
+  // appended last — and silent when there's nothing to say (no empty state).
+  function appendTranspositionRows(wrap: HTMLElement): void {
+    const fen = deps.getFen();
+    const colour = deps.getColour();
+    const ucis = deps.getUcis();
+    const excludeId = deps.getEditingLineId();
+
+    void positionIndex().then(index => {
+      if (deps.getFen() !== fen) return; // the board moved on; this answer is stale
+      const matches = transpositionMatches(index, lines ?? [], fen, colour, ucis, excludeId);
+      if (!matches.length) return;
+
+      const shown = matches.slice(0, 3);
+      for (const m of shown) {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'bx-row mylines-xpos-row';
+        row.addEventListener('click', () => deps.onOpenLine(m.line, m.atFen));
+        row.appendChild(span('mylines-xpos-text', m.text));
+        wrap.appendChild(row);
+      }
+      const rest = matches.length - shown.length;
+      if (rest > 0) wrap.appendChild(span('mylines-xpos-more', `and ${rest} more`));
+    }).catch(() => { /* a quiet feature stays quiet on failure too */ });
   }
 
   function myGamesSection(): HTMLElement {
@@ -863,6 +908,62 @@ function savedLineReplies(
     }
   }
   return [...byUci.values()].sort((a, b) => b.count - a.count || a.san.localeCompare(b.san));
+}
+
+interface TranspositionMatch {
+  line: Line;
+  atFen: string;
+  text: string;
+}
+
+// Every OTHER saved line (same colour, not the one being edited) that reaches
+// this exact position — by a different move order than `ucis` took to get
+// here. Two shapes, per TRANSPOSITIONS.md's decision: a line that still has a
+// move from here reports what it plays ("you play Nf3 here in Y"); a line
+// that ends exactly here just reports the convergence ("also reached by X").
+// Sorted by name for a stable order ahead of the three-row cap.
+function transpositionMatches(
+  index: PositionIndex, allLines: Line[], fen: string, colour: 'white' | 'black',
+  ucis: string[], excludeId: string | null,
+): TranspositionMatch[] {
+  const key = positionKey(fen);
+  const out: TranspositionMatch[] = [];
+  for (const other of index.lines.values()) {
+    if (other.colour !== colour || other.id === excludeId) continue;
+    const ply = other.keys.indexOf(key);
+    if (ply === -1) continue;
+    // Reached by the SAME road so far — a shared opening prefix, not a
+    // transposition (TRANSPOSITIONS.md's "Transpositions" section).
+    if (ucis.length === ply && ucis.every((u, i) => u === other.ucis[i])) continue;
+
+    const full = allLines.find(l => l.id === other.id);
+    if (!full) continue;
+    const atFen = fenAtPly(full, ply);
+
+    if (ply < other.ucis.length) {
+      const entry = (index.byPosition.get(key) ?? []).find(e => e.lineId === other.id);
+      if (!entry) continue;
+      out.push({ line: full, atFen, text: `you play ${formatMove(entry.san)} here in “${other.name}”` });
+    } else {
+      out.push({ line: full, atFen, text: `also reached by “${other.name}”` });
+    }
+  }
+  out.sort((a, b) => a.line.name.localeCompare(b.line.name));
+  return out;
+}
+
+// The FEN of a line's own node at `ply` half-moves in — walking the mainline
+// (children[0]) chain, the same convention position-index.ts builds its
+// `keys` from, so the ply lines up exactly. ply 0 is the root's own fen
+// (START_FEN, per tree.ts).
+function fenAtPly(line: Line, ply: number): string {
+  let node = line.tree;
+  for (let i = 0; i < ply; i++) {
+    const next = node.children[0];
+    if (!next) break;
+    node = next;
+  }
+  return node.fen;
 }
 
 // Compact a games total so big Lichess counts fit the row: 276500000 → "276M",
