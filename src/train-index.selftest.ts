@@ -10,7 +10,7 @@ import type { Line } from './types';
 import type { MoveNode } from './tree';
 import type { Review } from './scheduler';
 import { buildPositionIndex } from './position-index';
-import { siblingCredits, applyReviewAt, divertTarget } from './train-index';
+import { siblingCredits, applyReviewAt, judgeOtherLineMove } from './train-index';
 
 export interface TestResult {
   name: string;
@@ -247,42 +247,64 @@ export function runTrainIndexSelfTest(): TestResult[] {
     const bc4 = uciOf('e4 e5 Nf3 Nc6', 'Bc4');
     const h4 = uciOf('e4 e5 Nf3 Nc6', 'h4');
 
-    const toActive = divertTarget(idx, after, d4, 'cur');
+    const toActive = judgeOtherLineMove(idx, after, d4, 'cur');
     check(
-      'a move belonging to an in-training line offers that line',
-      toActive?.lineId === 'sc' && toActive.inTraining === true && toActive.ply === 5,
+      'a move belonging to an in-training line is judged in-training, naming that line',
+      toActive?.kind === 'in-training'
+        && toActive.candidates.length === 1
+        && toActive.candidates[0].lineId === 'sc' && toActive.candidates[0].ply === 5,
       JSON.stringify(toActive),
     );
-    const toParked = divertTarget(idx, after, bb5, 'cur');
+    const toParked = judgeOtherLineMove(idx, after, bb5, 'cur');
     check(
-      'a move belonging to a parked line is reported, marked not-in-training',
-      toParked?.lineId === 'sp' && toParked.inTraining === false,
+      'a move belonging to a parked line is judged parked, naming it',
+      toParked?.kind === 'parked' && toParked.lineName === 'Spanish',
       JSON.stringify(toParked),
     );
     check(
       'a move no line of mine plays here is an ordinary wrong move',
-      divertTarget(idx, after, h4, 'cur') === null,
-      JSON.stringify(divertTarget(idx, after, h4, 'cur')),
+      judgeOtherLineMove(idx, after, h4, 'cur') === null,
+      JSON.stringify(judgeOtherLineMove(idx, after, h4, 'cur')),
     );
     check(
       'the current line’s own move never offers a divert into itself',
-      divertTarget(idx, after, bc4, 'cur') === null,
-      JSON.stringify(divertTarget(idx, after, bc4, 'cur')),
+      judgeOtherLineMove(idx, after, bc4, 'cur') === null,
+      JSON.stringify(judgeOtherLineMove(idx, after, bc4, 'cur')),
     );
   }
 
-  // In-training wins when two lines play the same move here — only an
-  // in-training line can be diverted into, so it must be the one named.
+  // Multiple in-training alternatives at once: the judgement returns EVERY one
+  // of them, not just the move the user happened to play — the drill draws an
+  // arrow for each, so the reveal has to carry the whole set.
+  {
+    const current = line('cur', 'Italian', 'white', 'e4 e5 Nf3 Nc6 Bc4 Bc5');
+    const scotch = line('sc', 'Scotch', 'white', 'e4 e5 Nf3 Nc6 d4 exd4');
+    const spanish = line('sp', 'Spanish', 'white', 'e4 e5 Nf3 Nc6 Bb5 a6');
+    const idx = buildPositionIndex([current, scotch, spanish]);
+    const after = fenAfter('e4 e5 Nf3 Nc6');
+    const d4 = uciOf('e4 e5 Nf3 Nc6', 'd4');
+
+    const v = judgeOtherLineMove(idx, after, d4, 'cur');
+    check(
+      'playing ONE alternative surfaces ALL in-training alternatives here',
+      v?.kind === 'in-training'
+        && v.candidates.map(c => c.lineId).sort().join() === 'sc,sp',
+      JSON.stringify(v),
+    );
+  }
+
+  // In-training wins when two lines play the same move here — only in-training
+  // lines are offered as arrows, so a parked twin is filtered out of the set.
   {
     const current = line('cur', 'Italian', 'white', 'e4 e5 Nf3 Nc6 Bc4');
     const parked = line('p', 'Old Spanish notes', 'white', 'e4 e5 Nf3 Nc6 Bb5 a6 Ba4', false);
     const active = line('a', 'Spanish', 'white', 'e4 e5 Nf3 Nc6 Bb5 a6 Bxc6');
     const idx = buildPositionIndex([current, parked, active]);
-    const t = divertTarget(idx, fenAfter('e4 e5 Nf3 Nc6'), uciOf('e4 e5 Nf3 Nc6', 'Bb5'), 'cur');
+    const v = judgeOtherLineMove(idx, fenAfter('e4 e5 Nf3 Nc6'), uciOf('e4 e5 Nf3 Nc6', 'Bb5'), 'cur');
     check(
-      'when two lines play it, the in-training one is offered',
-      t?.lineId === 'a' && t.inTraining === true,
-      JSON.stringify(t),
+      'when two lines play it, only the in-training one becomes a candidate',
+      v?.kind === 'in-training' && v.candidates.length === 1 && v.candidates[0].lineId === 'a',
+      JSON.stringify(v),
     );
     check(
       'but the write-through still reaches both of them',
@@ -290,6 +312,21 @@ export function runTrainIndexSelfTest(): TestResult[] {
         .map(e => e.lineId).sort().join() === 'a,p',
       JSON.stringify(siblingCredits(
         idx, fenAfter('e4 e5 Nf3 Nc6'), uciOf('e4 e5 Nf3 Nc6', 'Bb5'), 'cur').map(e => e.lineId)),
+    );
+  }
+
+  // Two in-training lines sharing the SAME move are deduped to one candidate —
+  // there's only one arrow to draw, even though two lines would credit from it.
+  {
+    const current = line('cur', 'Italian', 'white', 'e4 e5 Nf3 Nc6 Bc4');
+    const spanishA = line('a', 'Spanish (file A)', 'white', 'e4 e5 Nf3 Nc6 Bb5 a6');
+    const spanishB = line('b', 'Spanish (file B)', 'white', 'e4 e5 Nf3 Nc6 Bb5 Nf6');
+    const idx = buildPositionIndex([current, spanishA, spanishB]);
+    const v = judgeOtherLineMove(idx, fenAfter('e4 e5 Nf3 Nc6'), uciOf('e4 e5 Nf3 Nc6', 'Bb5'), 'cur');
+    check(
+      'two lines sharing the same alternative move collapse to one candidate arrow',
+      v?.kind === 'in-training' && v.candidates.length === 1,
+      JSON.stringify(v),
     );
   }
 
@@ -304,7 +341,7 @@ export function runTrainIndexSelfTest(): TestResult[] {
     const c5 = uciOf('e4', 'c5');
     check(
       'an opponent-move match never offers a divert',
-      divertTarget(idx, fenAfter('e4'), c5, 'cur') === null,
+      judgeOtherLineMove(idx, fenAfter('e4'), c5, 'cur') === null,
       JSON.stringify(idx.entriesAt(fenAfter('e4')).map(e => [e.lineId, e.san, e.isUserMove])),
     );
   }
