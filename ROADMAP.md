@@ -237,6 +237,47 @@ is the restore point for the round.
 
   The rows lost their red left stripe; the bars carry the warning now.
 
+- ✅ **Opening-explorer rating band.** The Library slide's statistics can now be
+  filtered to the level you actually play at, with a segmented strip sitting
+  right beside the existing Masters / Lichess toggle: **All · <1400 ·
+  1400–1800 · 1800–2200 · 2200+ · My level**. It maps onto the Lichess
+  explorer's fixed `ratings` buckets (`0,1000,1200,…,2500`, each running to the
+  next, `2500` open-ended). *"My level"* is the bucket you're in plus one either
+  side — a real ±300 window rather than a hard edge that would put 1399 and 1401
+  in different worlds.
+
+  **Your level is worked out for you**, in order: a rating typed in Settings, the
+  median of your five most recent rated games in your most-played time class, or
+  your connected Lichess account (`GET /api/account` — **no new OAuth scope**;
+  the endpoint needs only a valid token, which the existing `puzzle:read`
+  connection already is). With none of those the band stays *All ratings* and the
+  request is byte-identical to the pre-band one, so a user who never touches this
+  sees no change at all. When the app picked the band rather than the user, it
+  says so under the control — *"Around my level · 1200–1799 · from your rapid
+  rating, 1520"*.
+
+  **Three things this feature can quietly get wrong, and what stops each:**
+  *The cache* — the per-session request cache is keyed on the database and the
+  filter strings that go into the query verbatim, both taken from one value, so a
+  band cannot reach the URL without also reaching the key. Keyed on position
+  alone, changing bands would serve the previous level's numbers back and look
+  entirely convincing. *An empty band* — a narrow band runs out long before the
+  database does, so "no games at this level" is its own state with a **Show all
+  ratings** button, never the "New territory" note. *The bundled set* — it has no
+  rating dimension whatsoever, so whenever it stands in for a failed live fetch
+  the numbers are labelled **all ratings**; the renderer reads what the data
+  actually is, never what was asked for.
+
+  **Masters takes no rating filter** — the API has no such parameter and *ignores
+  unknown ones rather than refusing them*, which would return unfiltered numbers
+  under a filtered label. So the strip is disabled there, with the reason on it,
+  and the parameters are never sent.
+
+  Settings → Lichess connection carries the same band plus a manual rating field,
+  for someone with no imported games. **No speeds control**: filtering by
+  something invisible is how numbers change for reasons the user can't see, and
+  a most-played time class flips after a single import.
+
 _Restore point: tag `v0.4`. In progress on `claude/games-training-ui-improvements-wblxc7`._
 
 ---

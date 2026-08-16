@@ -44,7 +44,13 @@ import {
   setIncludeSecondPlatform,
   getEngineAlwaysOn,
   setEngineAlwaysOn,
+  getExplorerBand,
+  setExplorerBand,
+  getManualLevel,
+  setManualLevel,
 } from './prefs';
+import { BANDS, bandLabel, bandShort, bandRangeLabel, type ExplorerBand } from './explorer-bands';
+import { activeBand, cachedMyLevel, resolveMyLevel, levelSourceLabel } from './explorer-level';
 import type { Platform } from './import-games';
 import { getFeedbackSound, setFeedbackSound, previewFeedback } from './sound';
 import {
@@ -1044,7 +1050,123 @@ function buildLichessGroup(refresh: () => void): HTMLElement {
   card.appendChild(who);
 
   sec.appendChild(card);
+  sec.appendChild(buildExplorerBandRow());
   return sec;
+}
+
+// ── Opening-statistics level ──────────────────────────────────────────────────
+//
+// The same band the Library slide carries, reachable for somebody who has no
+// imported games to infer a level from — and the only place a rating can be
+// typed in by hand.
+//
+// It lives inside the Lichess group because that is exactly its reach: the band
+// filters the LIVE explorer, which needs a connection. Disconnected, the group
+// is the connect card and this row isn't built, because there would be nothing
+// for it to filter.
+function buildExplorerBandRow(): HTMLElement {
+  const wrap = document.createElement('div');
+
+  const paint = (): void => {
+    wrap.replaceChildren();
+    const { band, inferred, level } = activeBand(cachedMyLevel());
+
+    const seg = segmented<ExplorerBand>(
+      BANDS.map(b => ({ value: b, label: bandShort(b) })),
+      band,
+      (next) => {
+        // Storing it even when it matches the inferred band is the point: it
+        // turns "we picked this for you" into "you picked this".
+        setExplorerBand(next);
+        paint();
+      },
+      { fullWidth: true },
+    );
+
+    const r = row('Opening statistics level', seg, {
+      sub: 'Filters the live opening statistics to games played at a rating band, '
+        + 'so the numbers describe the opponents you actually get.',
+    });
+
+    // What the band means right now, in numbers — never just a label.
+    const caption = document.createElement('div');
+    caption.className = 'pref-row-caption';
+    if (band === 'mine' && !level) {
+      caption.textContent = 'No rating found — set one below, or import your games.';
+    } else if (band === 'all') {
+      caption.textContent = 'Every rated Lichess game, whatever the level.';
+    } else {
+      const bits = [`${bandLabel(band)} · ${bandRangeLabel(band, level?.rating ?? null)}`];
+      if (band === 'mine' && level) bits.push(levelSourceLabel(level));
+      if (inferred) bits.push('chosen for you — tap a band to change it');
+      caption.textContent = bits.join(' · ');
+    }
+    r.appendChild(caption);
+
+    // The manual rating, shown while "My level" is the band. It's the fallback
+    // for anyone with nothing to infer from, and — since typing a number is a
+    // plainer statement of your level than any guess — it takes precedence over
+    // the inferred one while it's set.
+    if (band === 'mine') r.appendChild(manualLevelField(paint));
+
+    // A way back to letting the app decide, once a band has been chosen by hand.
+    if (getExplorerBand() !== null) {
+      const reset = document.createElement('button');
+      reset.type = 'button';
+      reset.className = 'empty-state-link';
+      reset.textContent = 'Choose automatically';
+      reset.addEventListener('click', () => { setExplorerBand(null); paint(); });
+      r.appendChild(reset);
+    }
+
+    wrap.appendChild(r);
+  };
+
+  paint();
+  // The level may need games or the Lichess account to resolve; repaint when it
+  // lands so the caption stops saying "no rating found" the moment there is one.
+  void resolveMyLevel().then(found => { if (found) paint(); }).catch(() => { /* stays manual */ });
+  return wrap;
+}
+
+function manualLevelField(onChange: () => void): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'daily-custom-count';
+
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.inputMode = 'numeric';
+  input.className = 'daily-custom-input explorer-level-input';
+  input.min = '400';
+  input.max = '3200';
+  input.placeholder = '1500';
+  const manual = getManualLevel();
+  if (manual !== null) input.value = String(manual);
+  input.setAttribute('aria-label', 'My rating');
+  input.addEventListener('change', () => {
+    const raw = Math.round(Number(input.value));
+    if (!Number.isFinite(raw) || raw <= 0) { setManualLevel(null); onChange(); return; }
+    const clamped = Math.max(400, Math.min(3200, raw));
+    input.value = String(clamped);
+    setManualLevel(clamped);
+    onChange();
+  });
+  wrap.appendChild(input);
+
+  const suffix = document.createElement('span');
+  suffix.className = 'daily-custom-suffix';
+  suffix.textContent = manual === null ? 'my rating (optional)' : 'my rating';
+  wrap.appendChild(suffix);
+
+  if (manual !== null) {
+    const clear = document.createElement('button');
+    clear.type = 'button';
+    clear.className = 'empty-state-link';
+    clear.textContent = 'Clear';
+    clear.addEventListener('click', () => { setManualLevel(null); onChange(); });
+    wrap.appendChild(clear);
+  }
+  return wrap;
 }
 
 // "synced 2 days ago" from an ISO timestamp.

@@ -32,8 +32,12 @@ import { formatMove } from './notation';
 import { wdlScoreRow } from './wdl-bar';
 import type { ExplorerDb } from './lichess-explorer';
 import { resolveExplorerStats, orientCounts } from './explorer-resolve';
+import {
+  BANDS, bandLabel, bandShort, bandRangeLabel, explorerFilter, isNarrowed, type ExplorerBand,
+} from './explorer-bands';
+import { activeBand, cachedMyLevel, resolveMyLevel, levelSourceLabel, type MyLevel } from './explorer-level';
 import { isConnected, connect, disconnect, stashReturn } from './lichess-auth';
-import { getExplorerDb, setExplorerDb } from './prefs';
+import { getExplorerDb, setExplorerDb, setExplorerBand } from './prefs';
 import { showDialog } from './dialog';
 import { platformLabel } from './board-explorer';
 import type { ImportedGame } from './import-core';
@@ -75,6 +79,34 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   // Which Lichess explorer database the Library slide draws its stats from.
   // Remembered across sessions; the toggle at the top of the slide flips it.
   let explorerDb: ExplorerDb = getExplorerDb();
+  // …and which rating band those stats are filtered to. Held here, next to the
+  // database, and passed DOWN into every resolve call — never re-read from prefs
+  // deeper in the stack, because a request built from one value and cached under
+  // another is precisely the bug the cache key was rewritten to make impossible.
+  // Seeded from the cache so the FIRST paint already knows the band. Passing an
+  // explicit null here instead would make every panel open on All ratings and
+  // then visibly flip once the level resolved.
+  let level: MyLevel | null = cachedMyLevel();
+  let band: ExplorerBand = 'all';
+  let bandInferred = false;
+  syncBand();
+
+  // Refresh the band from storage + whatever we know of the user's level. The
+  // level resolves asynchronously (it may read games or the Lichess account), so
+  // this runs once now for an instant first paint and again when it lands.
+  function syncBand(): void {
+    const active = activeBand(level);
+    band = active.band;
+    bandInferred = active.inferred;
+    level = active.level;
+  }
+
+  void resolveMyLevel().then(found => {
+    if (!found) return;
+    level = found;
+    syncBand();
+    renderLibrary();
+  }).catch(() => { /* no level — the band stays All ratings */ });
   const statsByColour = new Map<'white' | 'black', StatNode>();
   // Per-opponent stats trees (their side against you), cached by `id:colour`.
   const oppStats = new Map<string, StatNode>();
@@ -117,7 +149,11 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   // no login), overlaid with the live Lichess explorer when the user is
   // connected — see explorer-resolve.ts for the layering rule.
   function resolveStats(fen: string, db: ExplorerDb, allowLive: boolean) {
-    return resolveExplorerStats(fen, db, allowLive, () => deps.getFen() === fen);
+    // The filter is resolved HERE, from the slide's own band, and handed down.
+    // Masters gets null — it has no rating dimension and silently ignores the
+    // parameters rather than refusing them.
+    const filter = explorerFilter(db, band, level?.rating ?? null);
+    return resolveExplorerStats(fen, db, allowLive, () => deps.getFen() === fen, filter);
   }
 
   function renderLibrary(): void {
@@ -189,25 +225,40 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     // Win/draw/loss + games count overlaid on each book move. Bundled is instant;
     // live is only tried when the slide is actually showing, so we don't hit the
     // network on every move. Applied only if the position hasn't moved on.
-    resolveStats(fen, explorerDb, activeSlide === 'library').then(({ moves, liveFailed }) => {
-      if (!moves || deps.getFen() !== fen) return;
+    resolveStats(fen, explorerDb, activeSlide === 'library').then(({ moves, liveFailed, coverage, bandEmpty }) => {
+      if (deps.getFen() !== fen) return;    // position moved on; drop this
+      let painted = 0;
       const colour = deps.getColour();
       for (const [uci, slot] of statSlots) {
-        const c = moves.get(uci);
+        const c = moves?.get(uci);
         if (!c) continue;
         const counts = orientCounts(c, colour);
         if (!counts.games) continue;
         slot.className = 'lib-bx-wdl';
         slot.replaceChildren(wdlScoreRow(counts, compactCount(counts.games)));
+        painted++;
       }
-      if (liveFailed) el.appendChild(liveUnavailableNote());
+      // The book moves are still listed either way — they're theory, not
+      // statistics — but with no bars on them. Say why, rather than leaving rows
+      // that silently lost their numbers. This runs even when `moves` came back
+      // empty or null: a position the bundled set has never heard of is exactly
+      // where a failed fetch leaves nothing to show and most needs explaining.
+      //
+      // The note goes at the TOP, under the controls, not at the end of the
+      // list: it explains the rows below it, and appended to a long book list it
+      // would sit off the bottom of a phone screen — unread, which is the same
+      // as absent.
+      const note = bandEmpty ? bandEmptyNote()
+        : liveFailed ? liveUnavailableNote(coverage, painted > 0)
+        : null;
+      if (note) el.insertBefore(note, el.children[1] ?? null);
     }).catch(() => { /* keep the plain counts */ });
   }
 
   // The off-book continuations: every move the stats database (or live Lichess)
   // plays from here, busiest first, each a tappable My-games-style W/D/L row.
   function renderStatMoves(el: HTMLElement, fen: string): void {
-    resolveStats(fen, explorerDb, activeSlide === 'library').then(({ moves, liveFailed }) => {
+    resolveStats(fen, explorerDb, activeSlide === 'library').then(({ moves, liveFailed, coverage, bandEmpty }) => {
       if (deps.getFen() !== fen) return;       // position moved on; drop this
       const colour = deps.getColour();
       const chess = new Chess(fen);
@@ -217,9 +268,14 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
         .filter(r => r.counts.games > 0)
         .sort((a, b) => b.counts.games - a.counts.games);
       if (!rows.length) {
+        // No games AT THIS LEVEL is a fact about the band, not about the
+        // position — a narrow band runs out long before the database does. It
+        // must never read as "New territory", so it gets its own state and a way
+        // out of it.
+        if (bandEmpty) { el.appendChild(bandEmptyNote()); return; }
         // Live fetch couldn't be reached: say so plainly rather than implying the
         // position is unexplored ("New territory") when we simply didn't ask.
-        if (liveFailed) { el.appendChild(liveUnavailableNote()); return; }
+        if (liveFailed) { el.appendChild(liveUnavailableNote(coverage)); return; }
         // The games run out here — past the reach of the database. Frame it as a
         // discovery rather than a dead end. Connected, that's genuinely new
         // territory; disconnected, it may just be past the bundled set.
@@ -248,17 +304,61 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
         row.appendChild(wdlScoreRow(r.counts, compactCount(r.counts.games)));
         el.appendChild(row);
       }
-      if (liveFailed) el.appendChild(liveUnavailableNote());
+      if (liveFailed) el.appendChild(liveUnavailableNote(coverage));
     }).catch(() => { /* graceful — bundled empty and live unavailable */ });
   }
 
   // A discreet note for when we're connected but the live explorer couldn't be
   // reached (CORS, rate limit, network) and we've fallen back to the bundled
   // book. Styled like the off-book frontier note so it stays unobtrusive.
-  function liveUnavailableNote(): HTMLElement {
-    const note = emptyNote('Showing built-in data — couldn’t reach Lichess.');
+  //
+  // `coverage` is what the numbers on screen ACTUALLY describe, and it decides
+  // the wording. The bundled set has no rating dimension whatsoever, so when a
+  // band was asked for and this is what came back, the note has to say the
+  // numbers are unfiltered. Filtered-looking, unfiltered data is the single most
+  // misleading thing this slide could show.
+  function liveUnavailableNote(coverage: 'band' | 'all', hasNumbers = true): HTMLElement {
+    const note = emptyNote(
+      !hasNumbers
+        // Nothing to fall back ON: the bundled set doesn't reach this position
+        // either. Don't claim to be showing built-in data when there is none.
+        ? 'Couldn’t reach Lichess — no win rates for this position.'
+        : coverage !== 'band' && bandNarrowed()
+          ? 'Showing built-in data for ALL ratings — couldn’t reach Lichess.'
+          : 'Showing built-in data — couldn’t reach Lichess.',
+    );
     note.classList.add('bx-frontier');
     return note;
+  }
+
+  // Reached Lichess, asked for a band, and this position has no games at that
+  // level. Not a dead end and not a failure — an invitation to widen.
+  function bandEmptyNote(): HTMLElement {
+    const wrap = document.createElement('div');
+    const note = emptyNote(
+      `No games at this level here — nobody rated ${bandRangeLabel(band, level?.rating ?? null)} has reached this position.`,
+    );
+    note.classList.add('bx-frontier');
+    wrap.appendChild(note);
+    wrap.appendChild(actionButton('Show all ratings', () => chooseBand('all')));
+    return wrap;
+  }
+
+  // Is the current band actually narrowing anything? ('mine' with no known
+  // rating resolves to the full range, so it isn't; nor does masters.)
+  function bandNarrowed(): boolean {
+    return isNarrowed(explorerFilter(explorerDb, band, level?.rating ?? null));
+  }
+
+  // Picking a band is always an explicit choice, so it's STORED even when it
+  // matches what we'd have inferred — that's what turns the caption from "we
+  // guessed this" into "you chose this".
+  function chooseBand(next: ExplorerBand): void {
+    if (band === next && !bandInferred) return;
+    band = next;
+    bandInferred = false;
+    setExplorerBand(next);
+    renderLibrary();
   }
 
   // The Library slide's top bar, on a single row:
@@ -289,6 +389,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
       seg.appendChild(opt('masters', 'Masters'));
       seg.appendChild(opt('lichess', 'Lichess'));
       bar.appendChild(seg);
+      bar.appendChild(bandSeg());
     } else {
       const cta = document.createElement('button');
       cta.type = 'button';
@@ -307,7 +408,72 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     info.appendChild(Icons.info(16));
     info.addEventListener('click', showDbInfo);
     bar.appendChild(info);
-    return bar;
+
+    // The band's own quiet line sits UNDER the bar rather than in it: it's an
+    // explanation, not a control, and on a phone the bar has no room left.
+    const head = document.createElement('div');
+    head.className = 'lib-db-head';
+    head.appendChild(bar);
+    const note = bandNote();
+    if (note) head.appendChild(note);
+    return head;
+  }
+
+  // The rating-band strip, immediately after the Masters / Lichess toggle — the
+  // same segmented pill, because it answers the neighbouring question: these two
+  // together are "whose games am I looking at?". Six options don't fit a phone's
+  // width, so the strip scrolls sideways rather than shrinking to illegibility.
+  function bandSeg(): HTMLElement {
+    const seg = document.createElement('div');
+    seg.className = 'lib-db-seg lib-band-seg';
+    seg.setAttribute('role', 'group');
+    seg.setAttribute('aria-label', 'Rating level');
+
+    // Masters is over-the-board games between titled players: it carries no
+    // rating dimension at all, and the API quietly ignores the parameters rather
+    // than refusing them. A control that looks live and does nothing is worse
+    // than no control, so it's disabled with the reason on it.
+    const off = explorerDb === 'masters';
+    if (off) seg.classList.add('is-disabled');
+
+    for (const b of BANDS) {
+      // "Around my level" needs a level. Without one it would silently mean
+      // "all ratings", so it isn't offered.
+      if (b === 'mine' && !level) continue;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'lib-db-opt' + (!off && band === b ? ' is-active' : '');
+      btn.textContent = bandShort(b);
+      btn.setAttribute('aria-label', bandLabel(b));
+      if (off) {
+        btn.disabled = true;
+        btn.title = 'Masters games aren’t rating-filtered.';
+      } else {
+        btn.addEventListener('click', () => chooseBand(b));
+      }
+      seg.appendChild(btn);
+    }
+    return seg;
+  }
+
+  // One quiet line under the bar saying what the band means right now — the
+  // rating span it covers and, when the app worked the level out rather than
+  // being told, where that came from. An inferred band that never announced
+  // itself would be the app quietly changing the numbers behind the user's back.
+  function bandNote(): HTMLElement | null {
+    if (!isConnected()) return null;
+    if (explorerDb === 'masters') {
+      return span('lib-band-note', 'Masters games aren’t rating-filtered.');
+    }
+    // A fixed band's own button already says its range ("<1400", "2200+"), so
+    // repeating it here would be noise. Only "My level" needs explaining — it's
+    // the one whose numbers the user can't read off the control.
+    if (band !== 'mine') return null;
+    const parts = [`Around my level · ${bandRangeLabel(band, level?.rating ?? null)}`];
+    if (level) parts.push(levelSourceLabel(level));
+    const note = span('lib-band-note', parts.join(' · '));
+    if (bandInferred) note.classList.add('lib-band-note--inferred');
+    return note;
   }
 
   // Start the Lichess connect, first stashing the current position so the
@@ -325,10 +491,17 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
         'The bars under each move show how that position has scored across real ' +
         'games — so you can tell a solid main line from a shaky sideline at a glance.\n\n' +
         'Masters — over-the-board games between titled players: cleaner, established theory.\n\n' +
-        'Lichess — rated online games: what real opponents actually play.\n\n' +
+        'Lichess — rated online games: what real opponents actually play. The level buttons ' +
+        'filter those games to a rating band, so the numbers describe the opponents you ' +
+        'actually get. A band counts a game by the AVERAGE rating of both players, so ' +
+        '“1400–1800” means games played at that level rather than games somebody rated ' +
+        '1400–1800 happened to play. Masters games carry no rating band, so the buttons are ' +
+        'off there.\n\n' +
         'A built-in set of the most common positions works instantly and offline, with no ' +
-        'login. Connecting your Lichess account extends the stats to every position, live — ' +
-        'no personal data is read, so even a throwaway account works.',
+        'login. It has no rating dimension, so whenever it stands in for the live explorer ' +
+        'the numbers are for all ratings and say so. Connecting your Lichess account extends ' +
+        'the stats to every position, live — no personal data is read, so even a throwaway ' +
+        'account works.',
       links: [
         { label: 'Live opening explorer', href: 'https://lichess.org/analysis' },
         { label: 'About the game data', href: 'https://database.lichess.org' },
