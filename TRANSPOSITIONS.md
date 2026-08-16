@@ -9,9 +9,11 @@ rest without re-litigating them.
 
 **Shipped so far:** the index itself (`src/position-index.ts`); the builder's
 save flow — §4, §5, §6 and §7, wired through `src/save-index.ts` and the save
-path in `main.ts`; and training's half — §8 and §9, wired through
-`src/train-index.ts`, `src/drill.ts` and `src/train-screen.ts`. Still to build:
-§10 as it applies to statistics.
+path in `main.ts`; training's half — §8 and §9, wired through
+`src/train-index.ts`, `src/drill.ts` and `src/train-screen.ts`; and §10 as it
+applies to statistics, wired through `groupUserMoves` in `src/stats.ts` (feeding
+`moveMemory`, `needsWorkMoves` and `memoryByOpening`) and read unchanged by
+`src/line-info.ts` and `src/forgotten-section.ts`.
 
 ---
 

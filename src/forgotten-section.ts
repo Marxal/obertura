@@ -149,7 +149,9 @@ function moveRow(m: NeedsWorkMove, lines: Line[], cb: ForgottenCallbacks): HTMLE
 
   const meta = document.createElement('span');
   meta.className = 'stats-sheet-meta';
-  meta.textContent = `${m.lineName} · missed ${m.lapses} of ${m.attempts}`;
+  // A move can live in more than one line (a duplicate, or two that transpose
+  // into each other) — name all of them, not just the one with the best record.
+  meta.textContent = `${m.lineNames.join(', ')} · missed ${m.lapses} of ${m.attempts}`;
   text.appendChild(meta);
 
   card.appendChild(text);
