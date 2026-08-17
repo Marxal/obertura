@@ -2072,9 +2072,32 @@ data; a line is a view of it.** Decision record: `REPERTOIRE-REDESIGN.md`.
   reply", a line extracted from a game — deliberately still lay one line down in
   the old mode, and merge into the book when saved.
 
-**Still to do:** the My Lines → Repertoire screen (the selector, the tree as a
-first-class view, per-node branch actions), training's shared-prefix dedupe, the
-repertoire count gate, and routing the seeded flows through the book too.
+### Phase C — My Lines becomes a repertoire screen ✅
+
+- ✅ **A book selector**, above the filter bar and hidden until there is more than
+  one book to choose between. Behind it: make a repertoire, rename one, put one
+  aside (out of training without touching a line), delete one. Putting a book
+  aside is the reason `archived` beats pausing twenty lines by hand.
+- ✅ **Branch actions on any node of the tree view.** Pause or train the whole
+  branch, set how often it comes round, name it, tag it, build from it, remove
+  it — each one saying how many lines it is about to move, because a control that
+  silently changes twelve things is a control nobody trusts twice.
+- ✅ **The branch's answer replaces the lines'.** Training, priority and names set
+  on a branch clear that field on everything below, so a line set individually
+  months ago can't out-vote today's tap. Tags are the deliberate exception: they
+  accumulate. Verified — pausing 1.e4 e6 wrote ONE flag and paused exactly the
+  two French lines.
+- ✅ **The builder follows the book you're looking at.** A line built while "Blitz
+  — White" is selected lands in that book; opening a saved line opens the book it
+  actually lives in, never whichever one the list was filtered to.
+- ✅ **`FREE_REPERTOIRES = 3`** (the two defaults plus one extra) and a
+  whole-branch training check that refuses to enrol an arbitrary part of a branch
+  — a user who asked for the French and got seven of its twelve lines would have
+  no way of knowing which five were missing.
+
+**Still to do:** training's shared-prefix dedupe and the repertoire run (Phase D),
+routing the seeded single-line flows through the book, and transposition joins
+(Phase E).
 
 _On `claude/repertoire-system-redesign-ddz4in`. Restore point: `v0.5`._
 

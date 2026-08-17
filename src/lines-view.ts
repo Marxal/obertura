@@ -318,20 +318,31 @@ export function mergeRepertoireInto(into: Repertoire, from: Repertoire): void {
 // ── Bulk enrolment, the thing branch toggles need ────────────────────────────
 
 /**
- * Turn training on or off for a whole branch, in one explicit flag on that node.
+ * Set an inherited field for a whole branch, in one explicit value on that node.
  *
- * Deliberately CLEARS every explicit flag below it, so the branch toggle is the
- * answer for everything under it and the user's tap does what it looks like it
- * does. Without this, a leaf that was individually paused six months ago would
- * silently ignore "train the whole French".
+ * Deliberately CLEARS the field on every node BELOW it, so the branch's answer
+ * is the answer and the user's tap does what it looks like it does. Without
+ * this, a line someone set individually six months ago would silently out-vote
+ * "train the whole French", which reads as the control being broken.
+ *
+ * The value is only written when it differs from what the ancestors already
+ * give, so a branch that merely agrees with its parent leaves a clean node and
+ * keeps following it.
  */
-export function setBranchTraining(node: MoveNode, on: boolean, inherited: boolean): void {
+export function setBranchValue<K extends 'training' | 'priority' | 'label'>(
+  node: MoveNode, key: K, value: MoveNode[K], inherited: MoveNode[K],
+): void {
   const walk = (n: MoveNode): void => {
-    delete n.training;
+    delete n[key];
     for (const c of n.children) walk(c);
   };
   walk(node);
-  if (on !== inherited) node.training = on;
+  if (value !== undefined && value !== inherited) node[key] = value;
+}
+
+/** The training half of setBranchValue — "pause the whole French" in one call. */
+export function setBranchTraining(node: MoveNode, on: boolean, inherited: boolean): void {
+  setBranchValue(node, 'training', on, inherited);
 }
 
 /** The line ends under a node — how many lines a branch toggle is about to move. */

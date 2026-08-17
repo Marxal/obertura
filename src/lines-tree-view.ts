@@ -10,7 +10,7 @@
 
 import type { Line } from './types';
 import type { ColourFilter } from './filters';
-import { mountRepertoireMap, type MapHandle } from './repertoire-map';
+import { mountRepertoireMap, type MapHandle, type NodeActionContext } from './repertoire-map';
 
 // Which colour the tree is showing while the filter says "All". Module-level so
 // it survives the re-render a filter change causes.
@@ -29,12 +29,18 @@ export function disposeLinesTree(): void {
  * Draw the tree into `host` (which the caller has already cleared and which must
  * be in the DOM — the first centring measures it). `lines` are the lines the
  * filter bar has already selected; `colourSel` is that bar's colour choice.
+ *
+ * `nodeAction`, when given, replaces the preview's "Open in builder" with the
+ * caller's own control on EVERY node — which is how the branch actions (pause,
+ * name, tag, remove a whole part of the book) reach the tree without this module
+ * or the map knowing anything about repertoires.
  */
 export function renderLinesTree(
   host: HTMLElement,
   lines: Line[],
   colourSel: ColourFilter,
   onOpenLine: (line: Line) => void,
+  nodeAction?: { label: string; onAct: (ctx: NodeActionContext) => void },
 ): void {
   disposeLinesTree();
 
@@ -70,6 +76,7 @@ export function renderLinesTree(
 
   active = mountRepertoireMap(embed, lines, colour, onOpenLine, {
     merge: 'position',
+    ...(nodeAction ? { nodeAction } : {}),
     ...(showBoth ? {
       colourToggle: {
         current: colour,
@@ -77,7 +84,7 @@ export function renderLinesTree(
         onPick: (c) => {
           treeColour = c;
           host.innerHTML = '';
-          renderLinesTree(host, lines, colourSel, onOpenLine);
+          renderLinesTree(host, lines, colourSel, onOpenLine, nodeAction);
         },
       },
     } : {}),

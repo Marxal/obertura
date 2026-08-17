@@ -49,14 +49,20 @@ export function bookColour(): 'white' | 'black' {
 
 /**
  * Open a book and load its whole tree onto the board. `id` picks a specific
- * book; without one you get the default for that colour, created if the user
- * has none yet.
+ * book; without one — or with one of the wrong colour — you get the default for
+ * that colour, created if the user has none yet.
+ *
+ * The colour check matters because the id usually comes from whichever book the
+ * user last chose on My Lines. Building a White line while a Black book is
+ * selected must not file it in the Black book.
  */
 export async function openBook(
   colour: 'white' | 'black', id?: string,
 ): Promise<Repertoire> {
   const found = id ? await getRepertoire(id) : undefined;
-  const rep = found ?? await defaultRepertoireFor(colour);
+  const rep = found && found.colour === colour && !found.archived
+    ? found
+    : await defaultRepertoireFor(colour);
   book = rep;
   pending.clear();
   loadBookTree(rep.tree);

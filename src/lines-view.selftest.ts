@@ -18,7 +18,7 @@ import {
 import {
   projectLines, projectRepertoire, makeLineId, parseLineId, locateLine,
   applyLineWrite, spineNodes, mergeLineIntoRepertoire, mergeRepertoireInto,
-  setBranchTraining, endsUnder, notationName, linePriorityOf,
+  setBranchTraining, setBranchValue, endsUnder, notationName, linePriorityOf,
 } from './lines-view';
 
 export interface TestResult {
@@ -428,6 +428,68 @@ export function runLinesViewSelfTest(): TestResult[] {
       'the flag is written once, on the branch, not on every leaf',
       french.training === false && endsUnder(french).every(n => n.training === undefined),
       'one flag',
+    );
+  }
+
+  {
+    // Priority follows the same branch rule as training: one value on the
+    // branch, and whatever the lines below were each saying is replaced.
+    const rep = book('white', 'd4 d5 c4 c5', 'd4 d5 c4 e6', 'e4 e5');
+    const c4 = at(rep, 'd4 d5 c4')!;
+    at(rep, 'd4 d5 c4 c5')!.priority = 'high';   // set individually, long ago
+    setBranchValue(c4, 'priority', 'low', undefined);
+    const under = projectRepertoire(rep).filter(l => l.name !== undefined
+      && spineNodes(l.tree)[0].san === 'd4');
+    check(
+      'a branch priority replaces the per-line ones underneath it',
+      under.every(l => l.priority === 'low'),
+      under.map(l => String(l.priority)).join(', '),
+    );
+    check(
+      'and leaves the rest of the book alone',
+      projectRepertoire(rep).find(l => spineNodes(l.tree)[0].san === 'e4')?.priority === undefined,
+      'the e4 line is untouched',
+    );
+    check(
+      'the value lives on the branch, not on every leaf',
+      c4.priority === 'low' && endsUnder(c4).every(n => n.priority === undefined),
+      'one value',
+    );
+    setBranchValue(c4, 'priority', 'standard', 'standard');
+    check(
+      'a branch that merely agrees with what it inherits stores nothing',
+      c4.priority === undefined,
+      'cleared',
+    );
+  }
+
+  {
+    // Naming a branch has to REPLACE the names pinned on the lines below it —
+    // names resolve deepest-first, so leaving them would make the rename look
+    // like it did nothing. After a migration every line carries a pinned name,
+    // so this is the common case rather than the corner one.
+    const rep = book('black', 'e4 e6 d4 d5 Nc3', 'e4 e6 d4 d5 Nd2', 'e4 c5');
+    at(rep, 'e4 e6 d4 d5 Nc3')!.label = 'Winawer-ish';
+    at(rep, 'e4 e6 d4 d5 Nd2')!.label = 'Tarrasch-ish';
+    const french = at(rep, 'e4 e6')!;
+    setBranchValue(french, 'label', 'My French', undefined);
+    const named = projectRepertoire(rep).filter(l => spineNodes(l.tree)[1]?.san === 'e6');
+    check(
+      'naming a branch names every line under it',
+      named.length === 2 && named.every(l => l.name === 'My French'),
+      named.map(l => l.name).join(', '),
+    );
+    check(
+      'and leaves the lines outside it alone',
+      projectRepertoire(rep).find(l => spineNodes(l.tree)[1]?.san === 'c5')?.name !== 'My French',
+      'the Sicilian keeps its own name',
+    );
+    setBranchValue(french, 'label', undefined, undefined);
+    check(
+      'clearing a branch name hands its lines back to the automatic one',
+      projectRepertoire(rep).filter(l => spineNodes(l.tree)[1]?.san === 'e6')
+        .every(l => l.name === l.openingName),
+      'back to the detected openings',
     );
   }
 

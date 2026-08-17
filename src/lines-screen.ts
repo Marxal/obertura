@@ -19,6 +19,12 @@ import { buildEmptyState } from './empty-state';
 import { buildInlineImport } from './import-inline';
 import { createFilterBar, type FilterSelection } from './filters';
 import { renderLinesTree, disposeLinesTree } from './lines-tree-view';
+import {
+  renderRepertoirePicker, loadBookRows, lineInBook, selectedBookId,
+  setSelectedBookId, type BookRow,
+} from './repertoire-picker';
+import { openBranchSheet } from './branch-sheet';
+import { parseLineId } from './lines-view';
 import { renderCoverageLauncher, type CoverageSection } from './coverage-section';
 import { openCoverageScreen } from './coverage-screen';
 import type { ImportedGame } from './chesscom';
@@ -171,8 +177,9 @@ async function doRender(container: HTMLElement, deps: LinesDeps): Promise<void> 
   container.innerHTML = '<p class="lines-loading">Loading…</p>';
   let allLines: Line[];
   let games: ImportedGame[];
+  let books: BookRow[];
   try {
-    [allLines, games] = await Promise.all([getAllLines(), getAllGames()]);
+    [allLines, games, books] = await Promise.all([getAllLines(), getAllGames(), loadBookRows()]);
   } catch (err) {
     renderLoadError(container, err, () => void doRender(container, deps));
     return;
@@ -208,7 +215,7 @@ async function doRender(container: HTMLElement, deps: LinesDeps): Promise<void> 
     disposeLinesTree();
     disposeCoverageLauncher();
     if (activeTab === 'saved') {
-      renderSavedTab(content, allLines, games, deps, container, goToGamesTab, hasGames);
+      renderSavedTab(content, allLines, games, deps, container, goToGamesTab, hasGames, books);
     } else {
       renderGamesTab(content, games, allLines, deps, fullRefresh);
     }
@@ -324,23 +331,62 @@ function viewSavedLines(lines: Line[], sel: FilterSelection): Line[] {
   return sortLines(out, sel.sort as SortMode);
 }
 
+// The one book every one of these lines lives in, or null when they're spread
+// across several. Line ids carry their book (lines-view.makeLineId).
+function commonBookId(lines: Line[]): string | null {
+  let found: string | null = null;
+  for (const line of lines) {
+    const id = parseLineId(line.id)?.repertoireId;
+    if (!id) return null;
+    if (found === null) found = id;
+    else if (found !== id) return null;
+  }
+  return found;
+}
+
 function renderSavedTab(
   content: HTMLElement,
-  lines: Line[],
+  allLines: Line[],
   games: ImportedGame[],
   deps: LinesDeps,
   container: HTMLElement,
   goToGamesTab: () => void,
-  hasGames: boolean
+  hasGames: boolean,
+  books: BookRow[] = [],
 ): void {
   content.innerHTML = '';
+
+  // Which book is on screen. A selection pointing at a book that has since been
+  // deleted quietly falls back to all of them rather than showing an empty list
+  // with no way to understand why.
+  let bookId = selectedBookId();
+  if (bookId !== 'all' && !books.some(b => b.book.id === bookId)) {
+    bookId = 'all';
+    setSelectedBookId('all');
+  }
+  const lines = bookId === 'all' ? allLines : allLines.filter(l => lineInBook(l.id, bookId));
   const counts = cachedCounts(games, lines);
 
   // After a toggle/delete/rename, re-fetch lines and re-render this tab.
   const refresh = async () => {
-    const fresh = await getAllLines();
-    renderSavedTab(content, fresh, games, deps, container, goToGamesTab, hasGames);
+    const [fresh, freshBooks] = await Promise.all([getAllLines(), loadBookRows()]);
+    renderSavedTab(content, fresh, games, deps, container, goToGamesTab, hasGames, freshBooks);
   };
+
+  // Which book am I looking at — shown only once there is more than one to
+  // choose between (see repertoire-picker).
+  const pickerHost = document.createElement('div');
+  pickerHost.className = 'lines-book-picker';
+  content.appendChild(pickerHost);
+  renderRepertoirePicker(pickerHost, {
+    rows: books,
+    selected: bookId,
+    onSelect: (id) => {
+      setSelectedBookId(id);
+      void refresh();
+    },
+    onChanged: () => { void refresh(); },
+  });
 
   // The shared two-row filter bar (filters.ts): colour + sort on row 1, my own
   // tags then vs-opponent tags on row 2. No status here — the saved list has no
@@ -422,7 +468,29 @@ function renderSavedTab(
       // Nothing to highlight in a tree of positions — drop the pending mark so
       // it can't fire on a later switch back to one of the list views.
       highlightLineId = null;
-      renderLinesTree(list, shown, filter.selection.colour, deps.onOpenLine);
+      // Branch actions need to know WHICH book a node belongs to, and a node in
+      // a tree drawn from two books at once belongs to neither on its own. So
+      // they're offered when the drawn lines share one book — always true once a
+      // book is selected, and true of most repertoires under "All" too.
+      const book = commonBookId(shown.filter(l =>
+        filter.selection.colour === 'all' || l.colour === filter.selection.colour));
+      renderLinesTree(
+        list, shown, filter.selection.colour, deps.onOpenLine,
+        book ? {
+          label: 'Branch actions',
+          onAct: (ctx) => {
+            void openBranchSheet({
+              repertoireId: book,
+              ucis: ctx.ucis,
+              sans: ctx.sans,
+              onBuildFrom: deps.onPrepareGap
+                ? (ucis) => deps.onPrepareGap!(ucis, ctx.colour)
+                : undefined,
+              onChanged: () => { void refresh(); },
+            });
+          },
+        } : undefined,
+      );
       return;
     }
     if (filter.selection.group) {
