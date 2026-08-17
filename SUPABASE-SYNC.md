@@ -40,6 +40,19 @@ the small half, and games go up only when games actually change: an import, a
 saved analysis, a scan. Neither half is re-sent when its contents haven't
 changed at all (the app keeps a fingerprint of what it last pushed).
 
+**What the games column deliberately leaves out.** Saved analyses and
+mistake-scan results are stripped before upload, and only the most recent 500
+games go up at all. Both are size decisions with the same reasoning: an analysis
+tree and a scan's spots are engine *output*, recomputable on any device from the
+moves that do sync, and together they were ~80% of every games upload. They stay
+on the device that made them and in the manual backup file — a user-controlled
+export follows different rules from a shared, quota-bearing database row. Older
+games stay local too; a new phone wants your recent play, not your archive. The
+fingerprint is taken over the slimmed payload, so analysing or scanning a game
+now costs no upload at all. Whatever happens, no single column may exceed 4 MB:
+past that the push is refused and the Account section says the library is too
+large to sync rather than failing quietly. See `src/sync-core.ts`.
+
 `entitled` is the free tier's switch: false (the default) caps the account at 10
 lines in training at once, true lifts the cap. The app only ever READS it. Two
 things write it: your own hand in the dashboard, and the Stripe purchase webhook
@@ -245,17 +258,21 @@ With one person and one phone you'll never meet it, and the merge-or-replace
 question on a new device covers the case that actually bites.
 
 **How big does this get?** Measured on a synthetic heavy user: a bare imported
-game is ~1.3 KB, one carrying a saved analysis is ~18 KB, and the app-state
-snapshot is ~127 KB. So the lines-and-settings half is 0.2–1.3 MB, and a
-thousand games with a scattering of analyses is 3–5 MB, rising towards 20 MB if
-you saved an analysis on every single one. Storage isn't the concern (one row per
-user, and Postgres compresses jsonb); the concern was re-uploading megabytes of
-unchanged games over mobile data, which is what the split fixed.
+game is ~1.3 KB, one carrying a saved analysis is ~18 KB, its mistake scan ~1 KB,
+its endgame scan ~150 bytes, and the app-state snapshot is ~127 KB. So the
+lines-and-settings half is 0.2–1.3 MB. A thousand games would have been 7 MB
+(72% of it analyses, 8.5% mistake scans), rising towards 20 MB if you saved an
+analysis on every one — with the diet above it's ~0.7 MB, and it cannot grow past
+4 MB per column. Storage isn't the concern (one row per user, and Postgres
+compresses jsonb); the concern was one heavy library re-uploading megabytes of
+recomputable engine output over mobile data, at the egress quota's expense.
 
 **One thing still unmeasured:** Supabase publishes no request-body limit for the
-REST API, and the real limit comes from the gateway in front of it. If a very
-heavy games library ever fails to sync while the lines keep syncing fine, that's
-the suspect. `npm run probe-sync-limit <url> <anon-key>` answers it in a minute —
+REST API, and the real limit comes from the gateway in front of it. The 4 MB
+ceiling is set well below any plausible gateway limit, so this should now be
+unreachable; if a very heavy games library ever fails to sync while the lines
+keep syncing fine, it's still the suspect.
+`npm run probe-sync-limit <url> <anon-key>` answers it in a minute —
 it sends increasingly large bodies and reports where they start bouncing. It
 writes nothing (every request is rejected by row-level security by design), and
 the anon key it needs is the public one already in the app bundle.

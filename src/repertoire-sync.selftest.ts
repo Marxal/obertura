@@ -10,7 +10,12 @@
 //     where an older row still carries its games inside the core blob;
 //   • the change fingerprint (fingerprint / coreFingerprintOf) — in particular
 //     that it ignores `exportedAt`, since if it didn't, the "don't re-upload
-//     unchanged data" skip would never once fire.
+//     unchanged data" skip would never once fire;
+//   • the synced games' diet (gamesForSync) — that the derived engine output is
+//     really gone, that the 500-game cap keeps the RIGHT games, and above all
+//     that the fingerprint is taken over the slimmed payload, because a
+//     fingerprint that still noticed a saved analysis would re-upload the whole
+//     library after every scan and undo the point of the diet entirely.
 //
 // Run via `npm run selftest`.
 
@@ -21,6 +26,9 @@ import {
   fingerprint,
   coreFingerprintOf,
   gamesFingerprintOf,
+  gamesForSync,
+  payloadBytes,
+  SYNC_GAME_LIMIT,
   type SyncFlags,
 } from './sync-core';
 import { parseBackup, type BackupFile } from './storage';
@@ -60,6 +68,63 @@ function coreBlob(overrides: Partial<BackupFile> = {}): BackupFile {
     local: { 'obertura.puzzleRating': '1500' },
     ...overrides,
   };
+}
+
+// The derived extras the diet drops: engine output, stapled onto a game by the
+// analyser and the mistake scan.
+const ANALYSIS = {
+  tree: { id: 'root', san: '', uci: '', fen: 'startpos', children: [] },
+  engine: 'local',
+  reviewedAt: 1,
+};
+const RETRY = {
+  scannedAt: 1,
+  version: 1,
+  spots: [
+    {
+      id: 'g1#12',
+      ply: 12,
+      category: 'blunder',
+      preFen: 'startpos',
+      playedSan: 'Bxf7+',
+      playedUci: 'c4f7',
+      best: [],
+      evalBefore: 40,
+      evalAfter: -300,
+      fixed: true,
+      attempts: 3,
+    },
+  ],
+};
+// The endgame scan, by contrast, STAYS — it's ~1% of the payload.
+const ENDGAME = {
+  scannedAt: 1,
+  version: 2,
+  spots: [{ ply: 70, fen: 'startpos', youPlay: 'white', outcome: 'win', converted: false }],
+};
+
+// One stored game, with whatever extras a case needs bolted on.
+function gameRow(id: string, endTime: number, extras: Record<string, unknown> = {}) {
+  return {
+    id,
+    endTime,
+    url: `https://example.test/${id}`,
+    colour: 'white',
+    result: 'win',
+    opponent: 'someone',
+    sans: ['e4', 'e5'],
+    ucis: ['e2e4', 'e7e5'],
+    plyCount: 2,
+    ...extras,
+  };
+}
+
+// A library of `n` games, newest last (IndexedDB hands them back in id order,
+// not date order — which is exactly why gamesForSync sorts).
+function library(n: number, extras: (i: number) => Record<string, unknown> = () => ({})) {
+  return Array.from({ length: n }, (_, i) =>
+    gameRow(`g${String(i).padStart(4, '0')}`, 1_700_000_000 + i * 3600, extras(i)),
+  );
 }
 
 export function runRepertoireSyncSelfTest(): TestResult[] {
@@ -254,6 +319,157 @@ export function runRepertoireSyncSelfTest(): TestResult[] {
     gamesFingerprintOf([]) === gamesFingerprintOf([]) &&
       gamesFingerprintOf([]) !== gamesFingerprintOf([{ id: 'g1' }]),
     gamesFingerprintOf([]),
+  );
+
+  // ── The synced games' diet ────────────────────────────────────────────────
+
+  const fat = gameRow('g1', 1_700_000_000, { analysis: ANALYSIS, retry: RETRY, endgame: ENDGAME, tags: ['sharp'] });
+  const [slim] = gamesForSync([fat]) as Record<string, unknown>[];
+
+  check(
+    'a saved analysis is stripped from the synced copy',
+    !('analysis' in slim),
+    'analysis is derived — the engine can rebuild it from the moves',
+  );
+  check(
+    'a mistake scan is stripped from the synced copy',
+    !('retry' in slim),
+    'retry spots are derived too',
+  );
+  check(
+    'the endgame scan and the game itself survive',
+    'endgame' in slim &&
+      (slim.tags as string[])?.[0] === 'sharp' &&
+      (slim.sans as string[])?.length === 2 &&
+      slim.opponent === 'someone',
+    'only the two heavy derived fields go — nothing else',
+  );
+  check(
+    'stripping does not mutate the stored game',
+    'analysis' in fat && 'retry' in fat,
+    'the device keeps its analyses; only the upload loses them',
+  );
+  check(
+    'a game with no extras is passed through untouched',
+    gamesForSync([gameRow('g1', 1)])[0] !== undefined &&
+      JSON.stringify(gamesForSync([gameRow('g1', 1)])[0]) === JSON.stringify(gameRow('g1', 1)),
+    'no gratuitous copying for the common case',
+  );
+
+  // The cap keeps the RECENT games — dropping the wrong end would sync a
+  // decade-old archive and leave last week's play behind.
+  const many = gamesForSync(library(SYNC_GAME_LIMIT + 120)) as Record<string, unknown>[];
+  check(
+    `the synced games are capped at ${SYNC_GAME_LIMIT}`,
+    many.length === SYNC_GAME_LIMIT,
+    `${SYNC_GAME_LIMIT + 120} games in, ${many.length} out`,
+  );
+  check(
+    'the cap keeps the newest games, not the first ones stored',
+    many[0]?.id === 'g0619' && many[many.length - 1]?.id === 'g0120',
+    `newest kept: ${String(many[0]?.id)}, oldest kept: ${String(many[many.length - 1]?.id)}`,
+  );
+
+  // Order has to be a function of the CONTENT, not of the order IndexedDB
+  // happened to hand things back in — otherwise the fingerprint changes for no
+  // reason and every push re-uploads an unchanged library.
+  check(
+    'the same library in a different order fingerprints the same',
+    gamesFingerprintOf(library(20)) === gamesFingerprintOf([...library(20)].reverse()),
+    'sorted newest-first before hashing',
+  );
+  check(
+    'games sharing a timestamp still sort deterministically',
+    gamesFingerprintOf([gameRow('b', 5), gameRow('a', 5)]) ===
+      gamesFingerprintOf([gameRow('a', 5), gameRow('b', 5)]),
+    'the id tiebreak settles it',
+  );
+  check(
+    'slimming is idempotent',
+    JSON.stringify(gamesForSync(gamesForSync(library(5, () => ({ analysis: ANALYSIS }))))) ===
+      JSON.stringify(gamesForSync(library(5, () => ({ analysis: ANALYSIS })))),
+    'so a downloaded copy and a local library agree',
+  );
+
+  // ── The fingerprint after the diet ────────────────────────────────────────
+  //
+  // THE test of this whole round. Analysing a game rewrites it in IndexedDB and
+  // fires the games notifier, but changes nothing that syncs. If the fingerprint
+  // noticed, every analysis would re-upload the entire games column.
+  const plain = library(30);
+  check(
+    'saving an analysis does not change the games fingerprint',
+    gamesFingerprintOf(plain) ===
+      gamesFingerprintOf(library(30, (i) => (i === 3 ? { analysis: ANALYSIS } : {}))),
+    'the push is skipped, as it should be',
+  );
+  check(
+    'a mistake scan does not change the games fingerprint either',
+    gamesFingerprintOf(plain) ===
+      gamesFingerprintOf(library(30, (i) => (i === 7 ? { retry: RETRY } : {}))),
+    'scanning is free, sync-wise',
+  );
+  // …but everything that DOES sync must still register, or a real change would
+  // silently never leave the phone.
+  check(
+    'an endgame scan still changes the fingerprint',
+    gamesFingerprintOf(plain) !==
+      gamesFingerprintOf(library(30, (i) => (i === 7 ? { endgame: ENDGAME } : {}))),
+    'it is synced, so it counts as a change',
+  );
+  check(
+    'editing a game’s tags still changes the fingerprint',
+    gamesFingerprintOf(plain) !==
+      gamesFingerprintOf(library(30, (i) => (i === 2 ? { tags: ['sharp'] } : {}))),
+    'user data, therefore a change',
+  );
+  check(
+    'importing a game still changes the fingerprint',
+    gamesFingerprintOf(plain) !== gamesFingerprintOf(library(31)),
+    'a new game reaches the account',
+  );
+  // Beyond the cap, nothing is synced, so nothing can count as a change.
+  check(
+    'a change to a game past the cap is not a change to sync',
+    gamesFingerprintOf(library(SYNC_GAME_LIMIT + 5)) ===
+      gamesFingerprintOf(library(SYNC_GAME_LIMIT + 5, (i) => (i === 0 ? { tags: ['old'] } : {}))),
+    'old games stay local, so editing one costs no upload',
+  );
+
+  // After a `replace` restore the device holds exactly what the account holds —
+  // but re-analysed locally, it must STILL match, or the restore would be
+  // followed by a pointless full re-upload.
+  const remoteCopy = gamesForSync(library(40));
+  check(
+    'a restored copy matches the local library’s fingerprint',
+    gamesFingerprintOf(remoteCopy) === gamesFingerprintOf(library(40)),
+    'nothing goes back up after a replace',
+  );
+  check(
+    'and still matches once those games are analysed locally',
+    gamesFingerprintOf(remoteCopy) ===
+      gamesFingerprintOf(library(40, () => ({ analysis: ANALYSIS, retry: RETRY }))),
+    'local engine work never re-uploads the library',
+  );
+
+  // ── The ceiling ───────────────────────────────────────────────────────────
+
+  check(
+    'payloadBytes counts bytes, not characters',
+    payloadBytes('é') === 4 && payloadBytes('e') === 3 && payloadBytes({ a: 1 }) === 7,
+    `an accented character costs ${payloadBytes('é') - payloadBytes('e')} byte more than a plain one`,
+  );
+  check(
+    'payloadBytes survives undefined without inventing a size',
+    payloadBytes(undefined) === 0,
+    'JSON.stringify(undefined) is not the string "undefined" here',
+  );
+  // The diet's whole job is to keep a full library nowhere near the wall.
+  const fullBytes = payloadBytes(gamesForSync(library(SYNC_GAME_LIMIT, () => ({ analysis: ANALYSIS, retry: RETRY }))));
+  check(
+    'a full, heavily-analysed library stays far under the ceiling',
+    fullBytes < 1024 * 1024,
+    `${SYNC_GAME_LIMIT} slimmed games ≈ ${Math.round(fullBytes / 1024)} KB`,
   );
 
   return results;
