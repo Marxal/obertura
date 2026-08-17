@@ -1,8 +1,8 @@
 # The repertoire redesign — proposal
 
-**Status: proposal, nothing built.** This is the thinking round Marçal asked for.
-Read it, argue with it, then we cut it into phases and start. Restore point for
-whatever we do: `v0.5`.
+**Status: agreed, nothing built yet.** This is the thinking round Marçal asked
+for; §9 records the five decisions he made on it. Restore point for the build:
+`v0.5`.
 
 ---
 
@@ -58,8 +58,9 @@ interface Repertoire {
 }
 ```
 
-Two exist by default: **My White lines** and **My Black lines**. The user can add
-more (see §9, open question 1).
+Two exist by default: **My White lines** and **My Black lines**. More can be
+added — a book for blitz, one for a tournament, one for an opponent — with the
+free tier allowing one extra beyond the defaults and Pro unlimited (§9.1).
 
 ### What `MoveNode` gains
 
@@ -212,11 +213,13 @@ one needs a decision:
 - **"Individual moves" mode gets more honest.** It already trains moves rather
   than lines (`individual.ts`); on a tree it stops re-offering the same shared
   move under several line ids.
-- **The free-tier cap needs re-expressing.** It counts in-training lines
-  (`FREE_TRAINING_LINES = 10`). With branch-level toggles, flipping training on
-  at a high node could enrol thirty derived lines in one tap. The cap must count
-  **line ends**, and the toggle must say what it's about to do ("this turns on 12
-  lines — you have 4 free slots left"). Flagged as a decision, not assumed.
+- **The free-tier cap is re-expressed, not re-decided** (§9.2). It stays
+  `FREE_TRAINING_LINES = 10`, now counted as **line ends** whose resolved
+  `training` is on. What changes is honesty at the point of action: flipping
+  training on at a high node could enrol thirty lines in one tap, so the toggle
+  says what it is about to do before it does it. Keep the counting behind a
+  single function — whether the free tier should count *moves* rather than lines
+  is a later round, and the tree is what finally makes that measurable.
 
 ---
 
@@ -247,29 +250,41 @@ because it's the one failure here that loses work.
 
 ---
 
-## 9. Decisions I need from you
+## 9. Decisions — settled
 
-1. **Can there be several repertoires of the same colour?** I recommend yes —
-   colour is a property, not the identity, so "1.e4 main" and "London for blitz"
-   can coexist and be trained separately. It costs nothing now and is awkward to
-   retrofit.
-2. **Does the free tier stay "10 lines in training"?** With branch toggles it has
-   to count line ends and warn before a bulk enrolment. Same number, clearer
-   accounting — or a different rule if you'd rather.
-3. **Names.** Auto from the bundled openings table, with an optional pinned label
-   at a node? Or do manual names stay the primary identity the way they are in My
-   Lines today?
-4. **Migrate, or clean slate?** I recommend migrate (it's cheap and it protects
-   your own repertoire, which is the biggest one that exists).
-5. **Transpositions: tree, not graph.** A true position-graph (a DAG) would merge
-   transpositions structurally — but it has no unique path to a line end, which
-   is what training, notes and review records are all anchored to, and it can
-   cycle. I recommend we **stay a tree** and keep the position index for
-   awareness (the builder already reports "you reach this by another move order").
-   Later, an opt-in **join**: mark a leaf "from here, continue as in that branch"
-   and training follows the pointer. That gives you the "transpositions could join
-   specific lines" outcome without the graph's costs. Confirm you're happy with
-   opt-in joins as a later phase rather than structural merging now.
+All five answered by Marçal. Recorded here so later sessions don't re-litigate
+them.
+
+1. **Several repertoires of the same colour: YES.** Colour is a property, not the
+   identity. The purpose is books for different *situations* — one for blitz, one
+   for a tournament, one for an opponent — not just White and Black. So the
+   selector is a first-class control, not a colour switch, and training/stats
+   must be filterable by repertoire.
+   **Tiering:** the free tier gets the two defaults plus **one extra**; Pro gets
+   as many as you like. That's a new gate (`FREE_REPERTOIRES = 3`) and it belongs
+   with the other caps in `entitlement.ts`.
+2. **The free tier keeps FEELING the same for now.** Not a redesign of the
+   business model in this round. Concretely: keep the cap at **10 lines in
+   training**, counted as **line ends** whose resolved `training` is on. The one
+   thing that must change is honesty at the point of action — a branch toggle
+   that would enrol twelve lines has to say so *before* it fires ("this turns on
+   12 lines; you have 4 free slots left") rather than silently enrolling three
+   and dropping nine. Plus the repertoire count gate from §9.1.
+   **Explicitly left open for a later round:** whether the better free-tier line
+   is *moves saved* or *moves in training* rather than lines. The tree makes both
+   countable for the first time, which is exactly why it's worth deciding later
+   with real numbers instead of now by guesswork. Nothing in this round should
+   assume the current rule is permanent — keep the counting behind one function.
+3. **Names are automatic.** Derived from the bundled openings table, falling back
+   to notation. A pinned `label` on a node stays in the model as the override
+   (renaming a branch is how you get "Anti-Sicilian" onto twelve lines at once),
+   but nothing requires the user to name anything, and no save flow ever asks.
+4. **Migrate.** Per §8, including the automatic pre-migration backup and keeping
+   the old `lines` store as a one-version rollback.
+5. **Tree, not graph — confirmed.** Transpositions stay a matter of *awareness*
+   (the position index, the merged map view) rather than structure. Opt-in joins
+   ("from here, continue as in that branch") are Phase E, after the rest has had
+   real use on the phone.
 
 ---
 
