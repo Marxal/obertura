@@ -111,15 +111,29 @@ Stripe dashboard → **Product catalogue** → **+ Add product**
   would simply never appear.
 - **Price**: `9.00` **EUR**.
 
-Save it, then add the second currency. On the product page → the price → **Add
-another currency** (or **+ Add price** if that is what your dashboard shows):
+Save it, then add the second currency **as a second, fully separate price** — not
+via "Add a price by currency" on the price you just made. That option bundles the
+new currency as an alternate *inside the same Price object*, invisible to this
+code, which reads each currency from its own independent Price. The giveaway if
+you land there by mistake: the product's Pricing table shows only one row, marked
+"Default".
 
-- **99.00 SEK**, also one-off.
+The right button is on the **product page itself**, not the price's edit screen:
+the **`+`** next to the **Pricing** section header → **+ Add price**. That opens a
+blank price form, entirely separate from the one you just made:
+
+- **Pricing model**: **One-off**.
+- **Price**: `99.00` **SEK**.
 
 **Set the SEK amount by hand, as a round 99 kr — do not let Stripe convert.** A
 Swede should see a number that looks deliberate in Swedish, not `103,47 kr`
 picked by yesterday's exchange rate. `docs/terms.html` already quotes
 "€9 / 99 SEK".
+
+When you're done, the product's **Pricing** table should show **two rows** — one
+EUR, one SEK, each with its own price id. One row means the second currency ended
+up attached to the first price instead of standing on its own; go back and use
+**+ Add price** rather than the currency option on the existing one.
 
 Then copy two things down:
 
