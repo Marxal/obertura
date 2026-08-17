@@ -43,6 +43,9 @@ import { runSaveIndexSelfTest } from '../src/save-index.selftest';
 import { runTrainIndexSelfTest } from '../src/train-index.selftest';
 import { runMapMergeSelfTest } from '../src/map-merge.selftest';
 import { runCoverageGapsSelfTest } from '../src/coverage-gaps.selftest';
+import { runRepertoireSelfTest } from '../src/repertoire.selftest';
+import { runLinesViewSelfTest } from '../src/lines-view.selftest';
+import { runRepertoireMigrateSelfTest } from '../src/repertoire-migrate.selftest';
 
 interface TestResult { name: string; pass: boolean; detail: string }
 
@@ -66,6 +69,9 @@ const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'train-index', run: runTrainIndexSelfTest },
   { suite: 'map-merge', run: runMapMergeSelfTest },
   { suite: 'coverage-gaps', run: runCoverageGapsSelfTest },
+  { suite: 'repertoire', run: runRepertoireSelfTest },
+  { suite: 'lines-view', run: runLinesViewSelfTest },
+  { suite: 'repertoire-migrate', run: runRepertoireMigrateSelfTest },
   { suite: 'engine', run: runEngineSelfTest },
   { suite: 'puzzles', run: runPuzzlesSelfTest },
   { suite: 'puzzle-rating', run: runPuzzleRatingSelfTest },

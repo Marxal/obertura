@@ -2,18 +2,39 @@ import type { Line } from './types';
 import type { MoveNode } from './tree';
 import type { ImportedGame } from './chesscom';
 import type { Opponent } from './scout';
+import {
+  allNodes, DEFAULT_REPERTOIRE_NAMES, emptyTree, lineTailStart, removeSubtree,
+  type Repertoire,
+} from './repertoire';
+import {
+  applyLineWrite, locateLine, mergeLineIntoRepertoire, mergeRepertoireInto,
+  projectLines, projectRepertoire,
+} from './lines-view';
+import { migrateLines } from './repertoire-migrate';
 
 // Thin IndexedDB wrapper. IndexedDB's native API is event-based: every call
 // returns a request and you attach onsuccess / onerror handlers. This module
 // wraps those requests in Promises so the rest of the app can just `await`.
+//
+// WHAT IS STORED, since the redesign: repertoires. A repertoire is one book of
+// one colour holding ONE move tree, and a "line" is a path through it, derived
+// on read (see repertoire.ts / lines-view.ts / REPERTOIRE-REDESIGN.md).
+//
+// The line-shaped API below — getAllLines, getLine, saveLine, deleteLine — is
+// kept exactly as it was, and now projects out of the trees and writes back into
+// them. That is deliberate: fifty-odd modules consume Lines, and none of them
+// needed to change for the model underneath to.
 
 const DB_NAME = 'obertura';
 // v2 adds the 'games' store for Chess.com imports (see chesscom.ts).
 // v3 adds the 'opponents' store for Explore scouting (see scout.ts).
-const DB_VERSION = 3;
+// v4 adds the 'repertoires' store. The old 'lines' store is deliberately LEFT
+// IN PLACE and untouched after migration, as a rollback for one version.
+const DB_VERSION = 4;
 const STORE = 'lines';
 const GAMES_STORE = 'games';
 const OPPONENTS_STORE = 'opponents';
+const REPERTOIRES_STORE = 'repertoires';
 
 // Wrap a single IndexedDB request in a Promise (the core of "no onsuccess
 // handlers for callers"): resolve on success with its result, reject on error.
@@ -50,6 +71,13 @@ function openDB(): Promise<IDBDatabase> {
         // One self-contained record per scouted opponent (games + precomputed
         // maps), keyed by id so deleting one wipes everything stored for them.
         db.createObjectStore(OPPONENTS_STORE, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(REPERTOIRES_STORE)) {
+        // One record per book, holding its whole move tree. Populated from the
+        // old 'lines' store by ensureMigrated() on the first read, not here —
+        // an upgrade transaction is the wrong place to run a long merge, and
+        // doing it lazily means a fresh install pays nothing.
+        db.createObjectStore(REPERTOIRES_STORE, { keyPath: 'id' });
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -110,31 +138,216 @@ function notifyGamesChanged(): void {
   for (const listener of gamesListeners) listener();
 }
 
-// Insert or overwrite a line by its id. Returns the saved line.
-export async function saveLine(line: Line): Promise<Line> {
-  const s = await store('readwrite');
-  await promisify(s.put(line));
+// ── Repertoires ──────────────────────────────────────────────────────────────
+
+async function repStore(mode: IDBTransactionMode): Promise<IDBObjectStore> {
+  const db = await openDB();
+  return db.transaction(REPERTOIRES_STORE, mode).objectStore(REPERTOIRES_STORE);
+}
+
+// The one-time move from the old flat 'lines' store to trees. Runs lazily on the
+// first repertoire read rather than in the upgrade transaction: an upgrade is
+// the wrong place for a long merge, and a fresh install never pays for it.
+//
+// The promise is cached, so a burst of concurrent reads at boot (My Lines, the
+// Train hub and the position index all ask at once) migrates once.
+let migration: Promise<void> | null = null;
+
+let lastMigrationReport: ReturnType<typeof migrateLines>['report'] | null = null;
+
+/** What the migration did, for the notice the app shows once. Null if it didn't run. */
+export function takeMigrationReport(): typeof lastMigrationReport {
+  const r = lastMigrationReport;
+  lastMigrationReport = null;
+  return r;
+}
+
+function ensureMigrated(): Promise<void> {
+  if (!migration) migration = runMigration();
+  return migration;
+}
+
+async function runMigration(): Promise<void> {
+  const existing = await promisify((await repStore('readonly')).count());
+  if (existing > 0) return; // already migrated (or already using the new model)
+
+  const oldLines: Line[] = await promisify((await store('readonly')).getAll());
+  if (oldLines.length === 0) return; // fresh install: nothing to move
+
+  const { repertoires, report } = migrateLines(oldLines.map(reviveLine));
+  const s = await repStore('readwrite');
+  for (const rep of repertoires) s.put(rep);
+  await txnDone(s.transaction);
+  lastMigrationReport = report;
+  // The old store is left exactly as it was. It is the rollback for one
+  // version, and nothing reads it again unless a migration has to be re-run.
+}
+
+/** Every book, oldest first. Migrates on the first call if it needs to. */
+export async function getAllRepertoires(): Promise<Repertoire[]> {
+  await ensureMigrated();
+  const all: Repertoire[] = await promisify((await repStore('readonly')).getAll());
+  return all
+    .map(reviveRepertoire)
+    .sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
+}
+
+export async function getRepertoire(id: string): Promise<Repertoire | undefined> {
+  await ensureMigrated();
+  const rep: Repertoire | undefined = await promisify((await repStore('readonly')).get(id));
+  return rep ? reviveRepertoire(rep) : undefined;
+}
+
+export async function saveRepertoire(rep: Repertoire): Promise<Repertoire> {
+  const s = await repStore('readwrite');
+  await promisify(s.put(rep));
   notifyLinesChanged();
+  return rep;
+}
+
+/** Write several books in one transaction — a restore, a sync, a migration. */
+export async function saveRepertoires(reps: Repertoire[]): Promise<void> {
+  if (reps.length === 0) return;
+  const s = await repStore('readwrite');
+  for (const rep of reps) s.put(rep);
+  await txnDone(s.transaction);
+  notifyLinesChanged();
+}
+
+export async function deleteRepertoire(id: string): Promise<void> {
+  const s = await repStore('readwrite');
+  await promisify(s.delete(id));
+  notifyLinesChanged();
+}
+
+/** Replace every book with these — the clean-restore path. */
+export async function replaceAllRepertoires(reps: Repertoire[]): Promise<void> {
+  const s = await repStore('readwrite');
+  s.clear();
+  for (const rep of reps) s.put(rep);
+  await txnDone(s.transaction);
+  notifyLinesChanged();
+}
+
+/**
+ * The book a line of this colour belongs in when nothing said otherwise —
+ * the oldest non-archived one, or a freshly created default. Every path that
+ * saves a line without naming a repertoire (a starter pack, an import, the
+ * onboarding walkthrough) lands here.
+ */
+export async function defaultRepertoireFor(colour: 'white' | 'black'): Promise<Repertoire> {
+  const all = await getAllRepertoires();
+  const found = all.find(r => r.colour === colour && !r.archived);
+  if (found) return found;
+  const rep: Repertoire = {
+    id: `rep-${colour}`,
+    name: DEFAULT_REPERTOIRE_NAMES[colour],
+    colour,
+    tree: emptyTree(),
+    createdAt: Date.now(),
+  };
+  // A book with this id may already exist as an archived one; keep ids unique.
+  if (all.some(r => r.id === rep.id)) rep.id = `rep-${colour}-${Date.now().toString(36)}`;
+  await saveRepertoire(rep);
+  return rep;
+}
+
+// `review.due` is a Date. IndexedDB preserves Dates, but a record that arrived
+// through JSON (a restore, a sync payload) carries an ISO string instead, and
+// the scheduler compares it directly.
+function reviveRepertoire(rep: Repertoire): Repertoire {
+  reviveTree(rep.tree);
+  return rep;
+}
+
+function reviveLine(line: Line): Line {
+  reviveTree(line.tree);
   return line;
 }
 
-// Return every stored line.
+// ── Lines: the derived view ──────────────────────────────────────────────────
+//
+// Everything below projects out of the trees above. The signatures are the ones
+// the app has always used, so the fifty-odd modules that read lines are unaware
+// the model changed.
+
+/** Every derived line across every book. */
 export async function getAllLines(): Promise<Line[]> {
-  const s = await store('readonly');
-  return promisify(s.getAll());
+  return projectLines(await getAllRepertoires());
 }
 
-// Return one line by id, or undefined if it isn't stored.
+/** One derived line by id, or undefined when it no longer exists. */
 export async function getLine(id: string): Promise<Line | undefined> {
-  const s = await store('readonly');
-  return promisify(s.get(id));
+  const reps = await getAllRepertoires();
+  const found = locateLine(reps, id);
+  if (!found) return undefined;
+  return projectRepertoire(found.repertoire).find(l => l.id === id);
 }
 
-// Remove one line by id.
+/**
+ * Write a Line back.
+ *
+ * Two jobs, decided by whether the line still exists in a tree:
+ *
+ *  • KNOWN LINE — write its per-move records (this is how a drill's grading
+ *    lands) and its line-level metadata onto the nodes it came from. Its moves
+ *    are not re-read from the projection: changing a line's MOVES is the
+ *    builder's business and goes through the repertoire API, not through here.
+ *
+ *  • UNKNOWN LINE — a line built from scratch by something that predates the
+ *    redesign (a starter pack, a game import, the onboarding walkthrough).
+ *    Its path is MERGED into the default book for its colour, which is exactly
+ *    the no-duplicates behaviour: importing a line you already have adds nothing.
+ *
+ * Returns the line as it now exists — with its real id, which for a newly
+ * merged line is not the id it came in with.
+ */
+export async function saveLine(line: Line): Promise<Line> {
+  const reps = await getAllRepertoires();
+  const found = locateLine(reps, line.id);
+  if (found) {
+    applyLineWrite(reps, line);
+    await saveRepertoire(found.repertoire);
+    return projectRepertoire(found.repertoire).find(l => l.id === line.id) ?? line;
+  }
+  return mergeLineInto(await defaultRepertoireFor(line.colour), line);
+}
+
+/**
+ * Merge a line's moves into a book and carry its metadata onto the end node.
+ * Shared by saveLine's unknown-line path and the backup restore.
+ */
+export async function mergeLineInto(rep: Repertoire, line: Line): Promise<Line> {
+  const merged = mergeLineIntoRepertoire(rep, line);
+  if (!merged) return line; // no moves — nothing to store
+  await saveRepertoire(rep);
+  return merged;
+}
+
+/**
+ * Remove a line — which means removing the moves that belong to IT ALONE.
+ *
+ * The cut is the deepest ancestor whose subtree holds only this line (see
+ * repertoire.lineTailStart), so the moves it shares with its neighbours survive.
+ * That distinction is the one the flat-line model could not make: deleting a
+ * line there either took moves other lines still needed, or left the shared
+ * opening behind with nothing attached to it.
+ */
 export async function deleteLine(id: string): Promise<void> {
-  const s = await store('readwrite');
-  await promisify(s.delete(id));
-  notifyLinesChanged();
+  const reps = await getAllRepertoires();
+  const found = locateLine(reps, id);
+  if (!found) return;
+  // A line that ends INSIDE a longer one owns no moves of its own — it exists
+  // only as a mark, so deleting it is unmarking it. Cutting here would take the
+  // longer line's moves with it.
+  if (found.end.children.length > 0) {
+    delete found.end.endpoint;
+  } else {
+    const cut = lineTailStart(found.repertoire.tree, found.end.id);
+    if (!cut) return;
+    removeSubtree(found.repertoire.tree, cut.id);
+  }
+  await saveRepertoire(found.repertoire);
 }
 
 // ── Imported Chess.com games ───────────────────────────────────────────────────
@@ -245,14 +458,47 @@ export interface BackupFile {
   format: 'obertura-backup';
   version: number;
   exportedAt: string;
-  lines: Line[];
+  /**
+   * v3+: the books themselves. This is what the app writes now.
+   */
+  repertoires?: Repertoire[];
+  /**
+   * v1/v2: the old flat line list. Still READ (an old file, an old device's
+   * sync payload) and migrated on the way in, never written.
+   *
+   * It is not written alongside `repertoires` on purpose. The projection would
+   * carry a second copy of every review record, and this blob is what the
+   * account sync pushes on every edit — the round that put that payload on a
+   * diet is recent enough to respect.
+   */
+  lines?: Line[];
   games?: ImportedGame[];
   // localStorage snapshot: streaks, stats, puzzle ratings, prefs (v2+).
   local?: Record<string, string>;
 }
 
 const BACKUP_FORMAT = 'obertura-backup';
-const BACKUP_VERSION = 2;
+// v3 carries repertoires instead of lines. An older build reading one fails
+// loudly in parseBackup ("missing its lines") rather than applying half of it,
+// which is the safe direction for a format change to break in.
+const BACKUP_VERSION = 3;
+
+/**
+ * The books a backup describes, whichever era it comes from. An old file's flat
+ * lines are migrated through exactly the same code the one-time device
+ * migration uses, so a v1 file and a v1 device produce identical trees.
+ */
+export function repertoiresFrom(backup: BackupFile): Repertoire[] {
+  if (backup.repertoires?.length) return backup.repertoires.map(reviveRepertoire);
+  if (backup.lines?.length) return migrateLines(backup.lines.map(reviveLine)).repertoires;
+  return [];
+}
+
+/** How many lines a backup holds, for the "restored N lines" readouts. */
+export function backupLineCount(backup: BackupFile): number {
+  if (backup.repertoires?.length) return projectLines(backup.repertoires).length;
+  return backup.lines?.length ?? 0;
+}
 
 // Which localStorage keys belong in a backup. Everything the app writes starts
 // with "obertura" (both the dot and dash spellings) except the engine toggle.
@@ -312,7 +558,7 @@ export async function exportCore(): Promise<BackupFile> {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
-    lines: await getAllLines(),
+    repertoires: await getAllRepertoires(),
     local: snapshotLocalData(),
   };
 }
@@ -334,17 +580,48 @@ export function parseBackup(text: string): BackupFile {
   if (obj.format !== BACKUP_FORMAT) {
     throw new Error('This doesn’t look like a Bito Chess backup.');
   }
-  if (!Array.isArray(obj.lines)) {
-    throw new Error('Backup is missing its lines.');
+  // Either era is acceptable, but a file carrying neither is not a backup.
+  const hasReps = Array.isArray(obj.repertoires);
+  const hasLines = Array.isArray(obj.lines);
+  if (!hasReps && !hasLines) {
+    throw new Error('Backup is missing its repertoire.');
   }
-  const lines = obj.lines.map((l, i) => validateLine(l, i));
   return {
     format: BACKUP_FORMAT,
     version: typeof obj.version === 'number' ? obj.version : 1,
     exportedAt: typeof obj.exportedAt === 'string' ? obj.exportedAt : '',
-    lines,
+    repertoires: hasReps
+      ? (obj.repertoires as unknown[]).map((r, i) => validateRepertoire(r, i))
+      : undefined,
+    lines: hasLines ? (obj.lines as unknown[]).map((l, i) => validateLine(l, i)) : undefined,
     games: validateGames(obj.games),
     local: validateLocal(obj.local),
+  };
+}
+
+// One book, checked the way validateLine checks a line: a single bad record
+// aborts the whole import rather than half-restoring someone's repertoire.
+function validateRepertoire(raw: unknown, index: number): Repertoire {
+  if (!raw || typeof raw !== 'object') {
+    throw new Error(`Repertoire ${index + 1} is not an object.`);
+  }
+  const r = raw as Record<string, unknown>;
+  if (typeof r.id !== 'string' || !r.id) {
+    throw new Error(`Repertoire ${index + 1} is missing an id.`);
+  }
+  if (r.colour !== 'white' && r.colour !== 'black') {
+    throw new Error(`Repertoire ${index + 1} has an invalid colour.`);
+  }
+  if (!r.tree || typeof r.tree !== 'object' || !Array.isArray((r.tree as MoveNode).children)) {
+    throw new Error(`Repertoire ${index + 1} has no move tree.`);
+  }
+  return {
+    id: r.id,
+    name: typeof r.name === 'string' && r.name ? r.name : DEFAULT_REPERTOIRE_NAMES[r.colour],
+    colour: r.colour,
+    tree: reviveTree(r.tree as MoveNode),
+    createdAt: typeof r.createdAt === 'number' ? r.createdAt : Date.now(),
+    archived: r.archived === true ? true : undefined,
   };
 }
 
@@ -378,8 +655,9 @@ function validateLocal(raw: unknown): Record<string, string> | undefined {
 // snapshot simply overwrites its keys (stats/streaks aren't meaningfully
 // mergeable, and the file is the state being restored).
 export async function restoreBackup(backup: BackupFile, mode: 'merge' | 'replace'): Promise<void> {
-  if (mode === 'replace') await replaceAllLines(backup.lines);
-  else await mergeLines(backup.lines);
+  const incoming = repertoiresFrom(backup);
+  if (mode === 'replace') await replaceAllRepertoires(incoming);
+  else await mergeRepertoires(incoming);
   if (backup.games && backup.games.length > 0) {
     if (mode === 'replace') await clearGames();
     await saveGames(backup.games);
@@ -452,25 +730,32 @@ function txnDone(tx: IDBTransaction): Promise<void> {
   });
 }
 
-// Replace the entire repertoire with the backup's lines: wipe what's stored,
-// then write the file's lines. The result is exactly the file — the right
-// choice for a clean restore onto a cleared browser or fresh device.
-export async function replaceAllLines(lines: Line[]): Promise<void> {
-  const s = await store('readwrite');
-  s.clear();
-  for (const line of lines) s.put(line);
-  await txnDone(s.transaction);
-  notifyLinesChanged();
-}
+/**
+ * Merge incoming books into what's already here: a book with the same id has
+ * the incoming moves folded into its tree; a book we don't have is added whole.
+ * Nothing is ever removed, which is what makes merge the safe default.
+ *
+ * Merging by MOVE rather than by record is the part that got better with the
+ * redesign: restoring a backup over a device that has since added moves used to
+ * overwrite whole lines, and now the two sets of moves simply coexist in one
+ * tree, with the better review record surviving on any move both had.
+ */
+export async function mergeRepertoires(incoming: Repertoire[]): Promise<void> {
+  if (incoming.length === 0) return;
+  const existing = await getAllRepertoires();
+  const byId = new Map(existing.map(r => [r.id, r]));
+  const write: Repertoire[] = [];
 
-// Merge the backup into what's already here: a line whose id matches an
-// existing one overwrites it; new ids are added; untouched lines stay. Nothing
-// is ever deleted, which makes this the safe default.
-export async function mergeLines(lines: Line[]): Promise<void> {
-  const s = await store('readwrite');
-  for (const line of lines) s.put(line);
-  await txnDone(s.transaction);
-  notifyLinesChanged();
+  for (const rep of incoming) {
+    const target = byId.get(rep.id);
+    if (target) {
+      mergeRepertoireInto(target, rep);
+      write.push(target);
+    } else {
+      write.push(rep);
+    }
+  }
+  await saveRepertoires(write);
 }
 
 // ── Reset progress ─────────────────────────────────────────────────────────────
@@ -491,17 +776,18 @@ function stripReviewData(node: MoveNode): void {
 }
 
 export async function resetAllProgress(): Promise<void> {
-  const lines = await getAllLines();
-  const s = await store('readwrite');
-  for (const line of lines) {
-    stripReviewData(line.tree);
-    line.confidence = 0;
-    line.lastTrained = null;
-    line.timesTrained = 0;
-    s.put(line);
+  const reps = await getAllRepertoires();
+  for (const rep of reps) {
+    stripReviewData(rep.tree);
+    // Confidence is derived from the records just stripped, so it resets
+    // itself. The run counters and dates are recorded on the line ends and
+    // have to be cleared explicitly.
+    for (const node of allNodes(rep.tree)) {
+      delete node.timesTrained;
+      delete node.lastTrained;
+    }
   }
-  await txnDone(s.transaction);
-  notifyLinesChanged();
+  await saveRepertoires(reps);
 }
 
 // ── Erase everything ─────────────────────────────────────────────────────────
@@ -516,9 +802,15 @@ export async function resetAllProgress(): Promise<void> {
 
 export async function eraseAllData(): Promise<void> {
   const db = await openDB();
-  const tx = db.transaction([STORE, GAMES_STORE, OPPONENTS_STORE], 'readwrite');
+  const tx = db.transaction(
+    [STORE, GAMES_STORE, OPPONENTS_STORE, REPERTOIRES_STORE], 'readwrite',
+  );
   tx.objectStore(STORE).clear();
   tx.objectStore(GAMES_STORE).clear();
   tx.objectStore(OPPONENTS_STORE).clear();
+  tx.objectStore(REPERTOIRES_STORE).clear();
   await txnDone(tx);
+  // The old lines store is now empty too, so a later read must not try to
+  // migrate from it and must not hand back a cached "already migrated" answer.
+  migration = null;
 }

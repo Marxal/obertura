@@ -88,6 +88,7 @@ import {
   parseBackup,
   restoreBackup,
   backupHasExtras,
+  backupLineCount,
   getAllLines,
   onLinesChanged,
   onGamesChanged,
@@ -462,7 +463,7 @@ async function reconcile(userId: string): Promise<void> {
   // empty in practice (preferences alone fill it), so treating it as content
   // would put a merge-or-replace question in front of every genuinely-new
   // account. Stats-only rows lose to the seeding device; a deliberate line.
-  const hasRemoteData = !!remote && (remote.lines.length > 0 || (remote.games?.length ?? 0) > 0);
+  const hasRemoteData = !!remote && (backupLineCount(remote) > 0 || (remote.games?.length ?? 0) > 0);
 
   if (remote && hasRemoteData) {
     // Bound to a const so the callback below keeps the non-null narrowing.
@@ -481,7 +482,7 @@ async function reconcile(userId: string): Promise<void> {
       // flags through the two notifiers; push straight away rather than waiting
       // for the next edit, and let the fingerprints decide what's worth sending.
       claimAccount(userId);
-      const n = found.lines.length;
+      const n = backupLineCount(found);
       showToast(
         mode === 'replace'
           ? `Restored ${n} line${n === 1 ? '' : 's'} from your account`

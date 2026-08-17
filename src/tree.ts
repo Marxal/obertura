@@ -1,4 +1,5 @@
 import type { MoveClass } from './winprob';
+import type { LinePriority } from './types';
 
 // The six standard chess annotation marks, strongest to worst.
 export type Annotation = '!!' | '!' | '!?' | '?!' | '?' | '??';
@@ -34,6 +35,34 @@ export interface MoveNode {
     lapses: number;
     due: Date;
   };
+
+  // ── Repertoire fields (see repertoire.ts and REPERTOIRE-REDESIGN.md) ───────
+  //
+  // A repertoire is one tree and a "line" is a path through it, so everything a
+  // line used to carry as a record field now lives on a node. All optional, all
+  // serialisable, and absent on the overwhelming majority of nodes.
+  //
+  // The first four INHERIT: set on a node, they apply to everything below it
+  // unless a deeper node overrides. That is what turns "pause the whole French"
+  // into one toggle instead of twenty.
+
+  /** A name pinned here: "Anti-Sicilian", "Main line". Names every line below. */
+  label?: string;
+  /** Tags for this branch. They accumulate down the path rather than override. */
+  tags?: string[];
+  /** Explicit training on/off for this branch. Inherited; on by default. */
+  training?: boolean;
+  /** Explicit review spacing for this branch. Inherited; 'standard' by default. */
+  priority?: LinePriority;
+
+  /** Marks a line as ending here even though prepared moves continue past it. */
+  endpoint?: true;
+  /** When this move was added to the repertoire — the derived line's "Latest". */
+  createdAt?: number;
+  /** On a line end: full start-to-finish runs of the line ending here. */
+  timesTrained?: number;
+  /** On a line end: ISO date of the last full run. Drives "last trained" labels. */
+  lastTrained?: string;
 }
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';

@@ -196,8 +196,8 @@ export function runRepertoireSyncSelfTest(): TestResult[] {
   const splitParsed = split ? parseBackup(split) : null;
   check(
     'core + games columns reassemble into one valid backup',
-    splitParsed?.lines.length === 1 && splitParsed?.games?.length === 2,
-    `${splitParsed?.lines.length ?? 0} line(s), ${splitParsed?.games?.length ?? 0} game(s)`,
+    splitParsed?.lines?.length === 1 && splitParsed?.games?.length === 2,
+    `${splitParsed?.lines?.length ?? 0} line(s), ${splitParsed?.games?.length ?? 0} game(s)`,
   );
   check(
     'the app-state snapshot survives reassembly',
