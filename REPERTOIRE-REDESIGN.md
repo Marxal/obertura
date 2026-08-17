@@ -1,7 +1,7 @@
 # The repertoire redesign — proposal
 
-**Status: agreed, nothing built yet.** This is the thinking round Marçal asked
-for; §9 records the five decisions he made on it. Restore point for the build:
+**Status: Phases A and B are built.** §9 records the five decisions this was
+agreed on; §10 says which phases have shipped and which have not. Restore point:
 `v0.5`.
 
 ---
@@ -306,3 +306,31 @@ Each is a tagged restore point, each leaves the app shippable.
 
 Phase A carries almost all the risk and none of the reward; Phase B is where you
 feel the difference on the phone. Worth knowing that ordering up front.
+
+### What has shipped
+
+**Phase A ✅** — `repertoire.ts`, `lines-view.ts`, `repertoire-migrate.ts`,
+storage v4 with the migration, backup format v3. 143 new self-tests. Verified on
+a seeded device: five old lines became two books, white's eighteen stored moves
+collapsed to ten, and all five lines were still listed.
+
+**Phase B ✅** — the builder stands inside a book: walking prepared moves writes
+nothing, a new move is a draft, the header button says "Add N moves", and
+committing merges. Deleting a line quotes what it will actually cut. Verified at
+the real UI end to end.
+
+**Phase C, D, E — not started.** Specifically outstanding:
+
+- The My Lines → Repertoire screen: the book selector, the tree as a first-class
+  view, and per-node branch actions (name / tag / pause a whole branch). The
+  inheritance rules that make those one-tap actions are built and tested; the
+  controls that would drive them are not.
+- The repertoire count gate (`FREE_REPERTOIRES`) and the warning before a branch
+  toggle enrols a dozen lines at once. Until the Repertoire screen exists there
+  is no way to create a second book or toggle a branch, so neither can yet fire.
+- Training's shared-prefix dedupe and the "repertoire run" mode.
+- The seeded single-line flows (onboarding, "prepare a reply", a line pulled out
+  of a game) still lay ONE line down in the old single-path mode. They merge into
+  the book correctly when saved, so nothing duplicates — but they don't yet show
+  you the book while you work.
+- Transposition joins (Phase E), as agreed, after real use.

@@ -3179,6 +3179,19 @@ html[data-coords="off"] .cg-wrap coords {
   font-weight: 700;
 }
 
+/* A move played onto the board but not yet added to the repertoire. Dashed
+   rather than coloured: the strip already carries review classes and annotation
+   chips, and a draft is a state of the move, not a judgement about it. */
+.move-san--draft {
+  border: 1px dashed var(--accent);
+  padding: calc(0.1em - 1px) calc(0.25em - 1px);
+  font-style: italic;
+}
+
+.move-san--draft.active {
+  border-style: solid;
+}
+
 /* A parenthesised variation in the analyser's move list (PGN style). Muted and
    slightly smaller than the main line, but its moves stay clickable and keep any
    game-review colour. Nested variations indent naturally through the parens.

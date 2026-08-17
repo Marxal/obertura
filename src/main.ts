@@ -6,7 +6,13 @@ import type { DrawShape } from 'chessground/draw';
 import 'chessground/assets/chessground.base.css';
 import 'chessground/assets/chessground.cburnett.css';
 import './style.css';
-import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, loadTree, removeLastMove, truncateAfterCurrent, setTreeMode, rootNode } from './tree';
+import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serialise, loadTree, removeLastMove, truncateAfterCurrent, setTreeMode, rootNode, hasMove, currentLineNodes } from './tree';
+import {
+  openBook, closeBook, activeBook, notePending, pendingCount, hasPending,
+  isPending, discardPending, commitPending, currentLine as bookCurrentLine,
+  planLineRemoval, removeAndStore,
+} from './builder-book';
+import { parseLineId } from './lines-view';
 import { mainlineNodes, DEFAULT_PRIORITY } from './scheduler';
 import type { Annotation, MoveNode } from './tree';
 import { saveLine, getAllLines, getLine, getAllGames, getGame, saveGames, deleteLine, deleteGame } from './storage';
@@ -527,8 +533,13 @@ function renderMoveList() {
 function refreshSaveButtonState(): void {
   const btn = document.getElementById('header-save') as HTMLButtonElement | null;
   if (!btn) return;
-  btn.disabled = builderMode === 'analyser' && !!analyserGameId && !isBuilderDirty();
-  void refreshDuplicateState();
+  btn.disabled = inBook()
+    ? !hasPending()
+    : builderMode === 'analyser' && !!analyserGameId && !isBuilderDirty();
+  // The duplicate check exists to stop a second copy of a line being created.
+  // Inside a book that cannot happen, so it isn't asked.
+  if (!inBook()) void refreshDuplicateState();
+  else applySaveButtonLabel();
 }
 
 // ── "You already have this line" ─────────────────────────────────────────────
@@ -637,9 +648,16 @@ function applySaveButtonLabel(): void {
   const btn = document.getElementById('header-save');
   if (!label) return;
 
-  const dup = builderMode === 'builder' ? saveDuplicate : null;
+  // Inside a book the button counts what it is about to add, which is both
+  // honest and cheap — "Save line" would suggest a second copy of a line you are
+  // in the middle of. The duplicate transforms are meaningless here: adding a
+  // move you already have is walking onto it, so there is nothing to warn about.
+  const dup = builderMode === 'builder' && !inBook() ? saveDuplicate : null;
+  const pending = inBook() ? pendingCount() : 0;
   label.textContent =
     builderMode === 'analyser' ? 'Save game'
+    : inBook() ? (pending === 0 ? 'Nothing to add'
+      : pending === 1 ? 'Add 1 move' : `Add ${pending} moves`)
     : dup?.kind === 'open' ? 'Already saved — open it'
     : dup?.kind === 'add-tag' ? `Add tag to “${shortLineName(dup.lineName)}”`
     : loadedLineId ? 'Save changes' : 'Save line';
@@ -712,6 +730,21 @@ function handleDuplicateSaveTap(): boolean {
 function renderMoveListInto(el: HTMLElement): void {
   const activeId = getCurrentNode().id;
   el.innerHTML = '';
+  // A book is a tree of every line you have; drawing it PGN-style would put the
+  // whole repertoire in a strip. Inside a book the strip shows the LINE you are
+  // standing in — the path to the cursor, then straight on to where that line
+  // ends — with anything not yet added marked as a draft.
+  if (inBook()) {
+    const nodes = currentLineNodes();
+    nodes.forEach((node, i) => {
+      emitMove(el, node, i + 1, i === 0, activeId);
+      if (isPending(node.id)) {
+        el.lastElementChild?.classList.add('move-san--draft');
+      }
+    });
+    centreActive(el);
+    return;
+  }
   // Walk the tree from the root: the main line renders inline, and any branch
   // (a node with more than one child) renders its alternatives as parenthesised
   // variations — PGN style. In single-path builder mode there are no branches, so
@@ -721,14 +754,16 @@ function renderMoveListInto(el: HTMLElement): void {
   // Keep the active move centred in the horizontally-scrolling strip. We adjust
   // the strip's own scrollLeft (not scrollIntoView) so it never drags an
   // ancestor — that was snapping the carousel back to the Line tab after a move.
+  centreActive(el);
+}
+
+// Keep the active move centred in the horizontally-scrolling strip.
+function centreActive(el: HTMLElement): void {
   const activeEl = el.querySelector<HTMLElement>('.move-san.active');
-  if (activeEl) {
-    const elRect = el.getBoundingClientRect();
-    const aRect = activeEl.getBoundingClientRect();
-    el.scrollLeft += (aRect.left - elRect.left) - (el.clientWidth - aRect.width) / 2;
-  } else {
-    el.scrollLeft = 0;
-  }
+  if (!activeEl) { el.scrollLeft = 0; return; }
+  const elRect = el.getBoundingClientRect();
+  const aRect = activeEl.getBoundingClientRect();
+  el.scrollLeft += (aRect.left - elRect.left) - (el.clientWidth - aRect.width) / 2;
 }
 
 // Render `parent`'s main continuation (children[0]) into `container`, then any
@@ -1940,6 +1975,7 @@ function handleMoveClick(nodeId: string) {
   renderMoveList();
   renderMoveDetails();
   updateOpeningName();
+  refreshBuilderLineState();
   reevaluate();
 }
 
@@ -1954,7 +1990,9 @@ function playUci(uci: string): void {
   if (!result) return;
 
   const fullUci = from + to + (result.promotion ?? '');
+  const existed = hasMove(result.san);
   const node = addMove(result.san, fullUci, chess.fen());
+  if (!existed) notePending(node.id);
   cg.set({
     fen: chess.fen(),
     turnColor: turnColor(),
@@ -1980,7 +2018,9 @@ function commitBoardMove(from: string, to: string, promotion: 'q' | 'r' | 'b' | 
   const result = chess.move({ from, to, promotion });
   if (!result) return;
   const uci = from + to + (result.promotion ?? '');
+  const existed = hasMove(result.san);
   const node = addMove(result.san, uci, chess.fen());
+  if (!existed) notePending(node.id);
   cg.set({
     fen: chess.fen(),
     turnColor: turnColor(),
@@ -2021,6 +2061,73 @@ async function handleBoardPromotion(from: Key, to: Key, colour: 'white' | 'black
 }
 
 let saveColour: 'white' | 'black' = 'white';
+
+// ── Standing inside a repertoire ─────────────────────────────────────────────
+//
+// The builder loads a whole book (see builder-book.ts): moves you already have
+// are there to walk, and a move you don't have is an addition held as a draft
+// until you commit it. The seeded flows — the onboarding walkthrough, "prepare a
+// reply", a line extracted from a game — still lay ONE line down in the old
+// single-path mode and merge into the book when saved, so they are unaffected.
+// `inBook()` is what tells the two apart.
+function inBook(): boolean {
+  return builderMode === 'builder' && activeBook() !== null;
+}
+
+// Re-derive everything the builder shows ABOUT the current line from wherever
+// the cursor now stands. In a book the cursor moves between lines constantly, so
+// this runs on every board change rather than only when a line is loaded.
+function refreshBuilderLineState(): void {
+  if (!inBook()) return;
+  const line = bookCurrentLine();
+  currentTrainingLine = line;
+  loadedLineId = line?.id ?? null;
+  loadedLineCreatedAt = line?.createdAt;
+  // A line that isn't in the book yet states an INTENT to train, which is the
+  // same thing the toggle has always said before a first save.
+  loadedLineInTraining = line ? line.inTraining : true;
+  workingPriority = line?.priority ?? DEFAULT_PRIORITY;
+  currentTags = line ? [...line.tags] : [];
+  manualTitle = line?.name ?? null;
+  renderTitle();
+  renderBuilderTags();
+  applyLineTrainingToggleState();
+  refreshLineInfoBlocks();
+}
+
+// Open a book on the board and stand at the start (or wherever `then` puts us).
+async function enterBuilderBook(
+  colour: 'white' | 'black', then?: () => void,
+): Promise<void> {
+  await openBook(colour);
+  saveColour = colour;
+  builderMode = 'builder';
+  chess.reset();
+  cg.set({
+    fen: chess.fen(),
+    orientation: colour,
+    turnColor: 'white',
+    movable: { color: 'both', dests: legalDests() },
+    lastMove: undefined,
+  });
+  handleMoveClick('root');
+  then?.();
+  updateSaveButtonLabel();
+  builderPanels?.render();
+}
+
+// Commit the draft. The working tree is already the merged result — a move
+// played onto a branch you had became a child of the node that was there — so
+// this stores it rather than reconciling anything.
+async function commitBook(): Promise<void> {
+  const added = await commitPending();
+  if (added === 0) { showToast('Nothing new to add'); return; }
+  builderPanels?.reloadLines();
+  refreshBuilderLineState();
+  updateSaveButtonLabel();
+  renderMoveList();
+  showToast(added === 1 ? 'Added 1 move ✓' : `Added ${added} moves ✓`, { variant: 'success' });
+}
 
 // 'builder' edits a repertoire line (Save line); 'analyser' explores an imported
 // game (Save game, opponent in the title, deviations become variations). Set when
@@ -2089,6 +2196,9 @@ function stripDerived(node: MoveNode): MoveNode {
 
 // True when the builder holds moves that differ from the last saved state.
 function isBuilderDirty(): boolean {
+  // In a book, "dirty" is exactly the draft: walking around your own repertoire
+  // changes nothing, so only uncommitted moves count.
+  if (inBook()) return hasPending();
   if (isEmpty()) return false;             // nothing worth saving
   if (savedSnapshot === null) return true; // a fresh line that now has moves
   return builderSnapshot() !== savedSnapshot;
@@ -2370,6 +2480,32 @@ function deleteCurrentLineOrGame(): void {
     });
     return;
   }
+  if (inBook() && loadedLineId) {
+    const plan = planLineRemoval();
+    if (!plan) return;
+    const label = currentTitle() || 'this line';
+    // The honest number: only the moves that belong to THIS line go. The ones it
+    // shares with its neighbours stay, which is the thing the old flat model
+    // could not promise.
+    const moves = plan.moves === 1 ? '1 move' : `${plan.moves} moves`;
+    showDialog({
+      title: 'Delete this line?',
+      body: `This removes ${moves} from “${label}”, along with their review history. Moves it shares with your other lines stay. This can’t be undone.`,
+      buttons: [
+        { label: 'Delete', variant: 'danger', onClick: () => {
+          void removeAndStore(plan.from.id).then(() => {
+            stopPlayback();
+            builderPanels?.reloadLines();
+            handleMoveClick(getCurrentNode().id);
+            updateSaveButtonLabel();
+            showToast('Line deleted');
+          });
+        } },
+        { label: 'Cancel', variant: 'secondary' },
+      ],
+    });
+    return;
+  }
   if (builderMode === 'builder' && loadedLineId) {
     const id = loadedLineId;
     const label = currentTitle() || 'this line';
@@ -2450,6 +2586,11 @@ function clearBuilder(colour: 'white' | 'black' = 'white'): void {
   builderDesc = '';
   builderEngine = 'none';
   builderMode = 'builder';
+  // Whatever comes next re-opens the book if it wants one (enterBuilderBook).
+  // Leaving it closed here is what keeps the seeded single-line flows — the
+  // walkthrough, "prepare a reply", a line pulled out of a game — behaving
+  // exactly as they did.
+  closeBook();
   analyserGameId = null;
   builderGameDate = '';
   builderGameRating = undefined;
@@ -2479,6 +2620,9 @@ function clearBuilder(colour: 'white' | 'black' = 'white'): void {
 function startNewLine(colour: 'white' | 'black'): void {
   clearBuilder(colour);
   showView('builder');
+  // …and stand inside that colour's repertoire, so everything already prepared
+  // is there to walk rather than a blank board to start over on.
+  void enterBuilderBook(colour);
 }
 
 // ── The guided line ──────────────────────────────────────────────────────────
@@ -3653,6 +3797,27 @@ function showView(view: ViewName): void {
 
 function onOpenLine(line: Line, atFen?: string): void {
   stopPlayback();
+  // A saved line is a path through a book, so opening one means opening the book
+  // and standing at the end of that path — with every neighbouring line still
+  // there beside it, which is the whole difference from the old builder.
+  const endId = parseLineId(line.id)?.endNodeId;
+  if (endId) {
+    builderMode = 'builder';
+    manualTitle = line.name;
+    detectedName = '';
+    builderDesc = '';
+    renderBuilderDesc();
+    showView('builder');
+    void enterBuilderBook(line.colour, () => {
+      handleMoveClick(endId);
+      if (atFen) {
+        const target = currentLineNodes().find(n => n.fen === atFen);
+        if (target) handleMoveClick(target.id);
+      }
+    });
+    return;
+  }
+
   loadTree(line.tree);
   loadedLineId = line.id;
   loadedLineCreatedAt = line.createdAt;
@@ -4032,6 +4197,28 @@ function onBuilderBackGesture(): void {
 }
 
 function showSaveGuard(proceed: () => void): void {
+  // Inside a book there is no "this line" to save — there are N moves you have
+  // played and not yet added. Discard removes them from the working tree, so
+  // leaving really does leave the repertoire as it was.
+  if (inBook()) {
+    const n = pendingCount();
+    showDialog({
+      title: 'Add these moves?',
+      body: n === 1
+        ? 'You’ve played one move that isn’t in your repertoire yet.'
+        : `You’ve played ${n} moves that aren’t in your repertoire yet.`,
+      buttons: [
+        {
+          label: n === 1 ? 'Add it' : 'Add them',
+          variant: 'primary',
+          onClick: () => { void commitPending().then(() => proceed()); },
+        },
+        { label: 'Discard', variant: 'danger', onClick: () => { discardPending(); proceed(); } },
+        { label: 'Keep editing', variant: 'secondary' },
+      ],
+    });
+    return;
+  }
   // A game analyser ("vs <name>", backed by a game record) phrases this as saving
   // the analysis back onto the game; a hand-built line saves to My Lines.
   const isGame = analyserGameId !== null;
@@ -4527,6 +4714,7 @@ function trainingUnlockedMessage(lineCount: number): string {
 function setupSaveButton() {
   document.getElementById('header-save')!.addEventListener('click', () => {
     if (builderMode === 'analyser') { void saveGame(); return; }
+    if (inBook()) { void commitBook(); return; }
     // The line on the board already exists: open it, or add the tag that's new.
     // Handled here rather than inside saveCurrentLine so it short-circuits the
     // whole save flow — none of the three nudges apply to a line we aren't
