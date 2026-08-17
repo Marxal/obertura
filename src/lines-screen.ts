@@ -19,6 +19,8 @@ import { buildEmptyState } from './empty-state';
 import { buildInlineImport } from './import-inline';
 import { createFilterBar, type FilterSelection } from './filters';
 import { renderLinesTree, disposeLinesTree } from './lines-tree-view';
+import { renderCoverageLauncher, type CoverageSection } from './coverage-section';
+import { openCoverageScreen } from './coverage-screen';
 import type { ImportedGame } from './chesscom';
 import { renderLoadError } from './load-error';
 import { formatSanLine } from './notation';
@@ -43,6 +45,15 @@ function cachedCounts(games: ImportedGame[], lines: Line[]): Map<string, number>
     countsCache = { games, lines, result: countGamesPerLine(games, lines) };
   }
   return countsCache.result;
+}
+
+// The Coverage launcher's handle, so a re-render (tab switch, filter change,
+// refresh after a save) detaches the previous one before drawing a new row —
+// otherwise a pass still running would paint into a node that has gone.
+let coverageLauncher: CoverageSection | null = null;
+function disposeCoverageLauncher(): void {
+  coverageLauncher?.dispose();
+  coverageLauncher = null;
 }
 
 function relativeDate(isoStr: string): string {
@@ -103,6 +114,9 @@ interface LinesDeps {
   onStartTraining?: (line: Line) => void;
   // Seed the builder with these UCI moves for the given colour, then open it.
   onBuildLine?: (ucis: string[], colour: 'white' | 'black') => void;
+  // The Prepare flow, for a coverage gap's "build from here". Optional so the
+  // screen still renders in any host that hasn't wired it.
+  onPrepareGap?: (ucis: string[], answeringColour: 'white' | 'black', opponentName?: string) => void;
   // Open the starter-pack picker (the curated quick-start route).
   onPickStarterPack: () => void;
 }
@@ -192,6 +206,7 @@ async function doRender(container: HTMLElement, deps: LinesDeps): Promise<void> 
 
   const renderActive = () => {
     disposeLinesTree();
+    disposeCoverageLauncher();
     if (activeTab === 'saved') {
       renderSavedTab(content, allLines, games, deps, container, goToGamesTab, hasGames);
     } else {
@@ -348,6 +363,27 @@ function renderSavedTab(
     onChange: () => rebuildList(),
   });
   content.appendChild(filter.element);
+
+  // The way in to Coverage: one row carrying the positive figure, reading the
+  // same report the screen does (coverage-section.ts). Only once there are
+  // lines to have gaps in — on an empty repertoire it would be a 0% verdict on
+  // nothing. The colour follows the filter bar; with "All" showing, the bigger
+  // book wins, since the screen shows one book at a time either way.
+  if (lines.length > 0 && deps.onPrepareGap) {
+    disposeCoverageLauncher();
+    const launchHost = document.createElement('div');
+    launchHost.className = 'lines-coverage';
+    content.appendChild(launchHost);
+    const sel = filter.selection.colour;
+    const colour: 'white' | 'black' = sel === 'white' || sel === 'black'
+      ? sel
+      : lines.filter(l => l.colour === 'black').length > lines.filter(l => l.colour === 'white').length
+        ? 'black' : 'white';
+    coverageLauncher = renderCoverageLauncher(launchHost, {
+      colour,
+      onOpen: () => openCoverageScreen({ colour, onPrepare: deps.onPrepareGap! }),
+    });
+  }
 
   const sec = document.createElement('div');
   sec.className = 'section';

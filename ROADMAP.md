@@ -1977,6 +1977,56 @@ _On `claude/repertoire-tree-position-i9r6si`. Restore point: `v0.4`._
 
 ---
 
+## v0.30 — coverage gaps 🔜
+
+The opponent replies your repertoire has no answer to, ranked by how much they
+actually matter, one tap from preparing each. A gap is a position in your saved
+lines where it is the OPPONENT's move, a reply exists, and none of your lines
+answers it.
+
+- ✅ **The floors are the feature.** Every repertoire has infinite gaps at
+  sufficient depth, and an unbounded list reads as a verdict on your work. A
+  reply only counts once it clears one: **faced twice** in your own games, or
+  **≥8% at your rating band with ≥50 games** behind the position (the sample
+  floor is the important half — one game in three is not "33% at your level"),
+  or **played twice by a scouted opponent**. Capped at **12 plies** deep, **2
+  gaps per position**, 12 rows on the screen and 3 in the builder. Positions
+  where NOTHING is prepared are excluded outright: a line that simply ends is a
+  stopping point you chose, not a hole.
+
+- ✅ **Every row explains itself, and the sentence is the ranking.** "faced 3
+  times", "played 34% at your level", "Erik plays this" — in the app's
+  established source order (your games, then the library, then the scouts, the
+  same priority explore-panel.ts uses). A ranking the user can't explain to
+  themselves is noise.
+
+- ✅ **Coverage is shown as a positive.** "44% · 4 of 9 replies answered", with a
+  bar per opening family, above the list — from the same notable-reply set the
+  gaps come out of, so the two numbers cannot disagree.
+
+- ✅ **A bounded explorer budget, decided out loud.** The live explorer is asked
+  about at most **24 positions per computation, shallowest first, one at a
+  time** (lichess-explorer.ts aborts any in-flight request, so they cannot be
+  parallelised). Everything past the budget uses the bundled set and is labelled
+  all-ratings — the screen says how far the live check reached, and a bundled
+  answer never claims to be "at your level". The report is memoised per colour
+  (and per connection state) so the builder's per-move repaint costs nothing.
+
+- ✅ **One component, two homes.** `coverage-section.ts` renders the block; the
+  builder's My lines panel takes three rows of it and the Coverage screen
+  (`coverage-screen.ts`, the map viewer's overlay chrome) takes the lot plus the
+  family breakdown. "Build from here" seeds the builder at the position in the
+  answering colour through the EXISTING Prepare flow — with the "vs <name>" tag
+  when the gap came from a scouted opponent.
+
+- ✅ **Derived, never stored.** No new record, no field on `Line`, nothing in the
+  synced payload; recomputed on read. `coverage-gaps.ts` is pure (explorer
+  numbers arrive as data, not as a fetch) and covered by 23 self-tests.
+
+_On `claude/coverage-gaps-feature-6afe3b`. Restore point: `v0.4`._
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

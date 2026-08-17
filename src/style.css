@@ -3529,6 +3529,206 @@ html[data-coords="off"] .cg-wrap coords {
   color: var(--text-faint);
 }
 
+/* ── Coverage gaps ────────────────────────────────────────────────────────────
+   One component, two homes: the builder's My lines panel (three rows) and the
+   Coverage screen (the lot, plus the family breakdown). The styling is shared
+   for the same reason the component is — a block that looks like a summary in
+   one place and a report in the other is two things to keep in step.
+
+   The POSITIVE FIGURE leads. A list of holes with no denominator reads as a
+   verdict on your work, so the percentage and its bar come first and the rows
+   sit underneath them. */
+.cvg-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.15rem 0.25rem 0.45rem;
+}
+.cvg-summary-top {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+.cvg-pct {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.cvg-summary-text {
+  font-size: 0.78rem;
+  color: var(--text-faint);
+  line-height: 1.25;
+}
+
+/* The bar is the same number again, for whoever reads shapes faster than words.
+   Deliberately in the accent rather than a red/green pair: this is progress, not
+   a pass mark. */
+.cvg-bar {
+  display: block;
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--hairline);
+  overflow: hidden;
+}
+.cvg-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+.cvg-families {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.35rem 0.25rem 0.6rem;
+}
+.cvg-fam {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 84px auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+.cvg-fam-name {
+  font-size: 0.82rem;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cvg-fam-count {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A gap row. The WHOLE row is the button — its action is "prepare an answer to
+   this", and a row whose only target is a small button on the right is a row
+   most thumbs miss. */
+.cvg-list { display: flex; flex-direction: column; }
+.cvg-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  padding: 0.5rem 0.25rem;
+  border: none;
+  border-bottom: 1px solid var(--hairline-soft);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.cvg-row:active { background: var(--accent-soft); }
+.cvg-row-move {
+  flex: 0 0 auto;
+  min-width: 4.25rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.cvg-row-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+/* The sentence that ranked the row, with its source's icon. A ranking the user
+   can't explain to themselves is noise, so this line is never optional. */
+.cvg-row-why {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.cvg-row-why svg { flex: 0 0 auto; color: var(--text-faint); }
+.cvg-row--games .cvg-row-why svg { color: var(--accent); }
+.cvg-row-where {
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cvg-row-add {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.cvg-more {
+  display: block;
+  width: 100%;
+  padding: 0.4rem 0.25rem;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+/* How far the live check actually reached. It must never let bundled,
+   all-ratings numbers pass as "at your level". */
+.cvg-reach {
+  padding: 0.35rem 0.25rem 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--text-faint);
+}
+
+/* The one-row way in, on My Lines. */
+.lines-coverage { padding: 0 var(--space-lg) var(--space-sm); }
+.cvg-launch {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card);
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.cvg-launch:active { filter: brightness(0.96); }
+.cvg-launch-ico { flex: 0 0 auto; color: var(--accent); }
+.cvg-launch-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.cvg-launch-title { font-size: 0.88rem; font-weight: 700; color: var(--text); }
+.cvg-launch-sub { font-size: 0.75rem; color: var(--text-faint); }
+.cvg-launch-chev { flex: 0 0 auto; color: var(--text-faint); }
+
+/* The screen: the map viewer's chrome (.rmap-overlay), this body. */
+.cvg-screen {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-md) var(--space-lg) calc(env(safe-area-inset-bottom, 0px) + 2rem);
+  -webkit-overflow-scrolling: touch;
+}
+.cvg-colour-seg { margin: 0 0 0.75rem; width: 100%; }
+.cvg-colour-seg .lib-db-opt { flex: 1; }
+.cvg-foot {
+  margin: 1.25rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+
 /* ── "Import a game" popup (the bar's import icon) ───────────────────────────── */
 .bimport-body { display: flex; flex-direction: column; gap: 0.5rem; }
 

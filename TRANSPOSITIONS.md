@@ -15,7 +15,12 @@ applies to statistics, wired through `groupUserMoves` in `src/stats.ts` (feeding
 `moveMemory`, `needsWorkMoves` and `memoryByOpening`) and read unchanged by
 `src/line-info.ts` and `src/forgotten-section.ts`. The tree view in My Lines —
 §11 — is the one consumer that does NOT read the index: it re-derives the same
-position key over the saved trees, for the reason given there.
+position key over the saved trees, for the reason given there. Coverage gaps
+(`src/coverage-gaps.ts`) is the second: it needs the OPPONENT-to-move positions
+with the replies already prepared at each, which is a shape the index doesn't
+hold, and it must stay pure (no storage) to be self-tested. It uses the same
+`positionKey`, so two lines that transpose still meet on one position and a
+reply answered in either counts as answered.
 
 ---
 
