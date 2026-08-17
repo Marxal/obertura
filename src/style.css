@@ -10404,6 +10404,106 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 /* Keep the bar legible over the accent-filled selected node. */
 .rmap-node--selected > .rmap-wdl-track { fill: rgba(255, 255, 255, 0.35); }
 
+/* ── Position-merged tree marks (My Lines → tree view) ───────────────────────
+   Only the position merge draws these: a dashed edge is a SECOND move order
+   into a node that is already on the map, and the little numbered dot counts
+   the answers you have saved from that position. */
+
+.rmap-edge--alt {
+  stroke: var(--accent);
+  stroke-dasharray: 4 3;
+  stroke-width: 1.25;
+  opacity: 0.75;
+}
+/* A route back to a position already passed (a repetition, or two lines
+   crossing over) — quieter still, and never a branch you can walk. */
+.rmap-edge--back {
+  stroke: var(--text-fainter);
+  stroke-dasharray: 2 4;
+  opacity: 0.6;
+}
+
+/* A node several move orders arrive at. */
+.rmap-node--merged > .rmap-node-bg {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 2;
+}
+
+.rmap-answers-dot {
+  fill: var(--accent);
+  pointer-events: none;
+}
+.rmap-answers-text {
+  font-size: 9px;
+  font-weight: 700;
+  fill: #fff;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ── The embedded map (My Lines → tree view) ─────────────────────────────────
+   The same map as the overlay, dropped into the page: a fixed-height, rounded
+   card that owns its own pan/zoom. Phone first — tall enough to read a tree at
+   412px wide without swallowing the filter bar above it. */
+
+.rmap-embed {
+  display: flex;
+  flex-direction: column;
+  height: 62vh;
+  min-height: 320px;
+  max-height: 620px;
+  border: 1px solid var(--border-card);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--bg-card);
+}
+/* No safe-area padding inside a card that isn't at the bottom of the screen.
+   The right padding keeps the move arrows clear of the FAB, which floats over
+   this bar on a phone (the overlay map sits above the FAB and never met it). */
+.rmap-embed .rmap-controls {
+  padding: 0.4rem 0.6rem;
+  padding-right: 5rem;
+  background: transparent;
+}
+@media (min-width: 960px) {
+  .rmap-embed .rmap-controls { padding-right: 0.6rem; }
+}
+.rmap-embed .rmap-colour-toggle {
+  border-bottom: 1px solid var(--border);
+}
+
+.rmap-embed-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.9rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.68rem;
+  color: var(--text-faint);
+}
+.rmap-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.rmap-legend-dash {
+  width: 18px;
+  height: 0;
+  border-top: 1.5px dashed var(--accent);
+}
+.rmap-legend-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.58rem;
+  font-weight: 700;
+}
+
 /* ── Bottom controls bar ──────────────────────────────────────────────────────── */
 
 .rmap-controls {
@@ -12764,6 +12864,14 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 .dgroup--deep .dgroup-pip { display: block; }
 
+/* Fourth state — tree view (merged by position). It isn't another way of
+   grouping a list, so it gets its own glyph rather than another pip. */
+.dgroup--tree {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
 /* Collapsible opening-family groups (Italian Game (3) ▸) — used by My Lines, the
    Train in-training list and Scout prep via line-groups.ts. */
 .lines-fam {
@@ -12877,6 +12985,13 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   .mygames-list > .lines-fam:has(.lines-fam-head--open) {
     grid-column: 1 / -1;
   }
+  /* The tree view is one wide drawing, not a card — it takes the full row and
+     grows taller now that there is room for it. */
+  .lines-grid > .rmap-embed,
+  .lines-grid > .rmap-embed-legend {
+    grid-column: 1 / -1;
+  }
+  .rmap-embed { height: 70vh; max-height: 760px; }
 }
 
 @media (min-width: 1280px) {

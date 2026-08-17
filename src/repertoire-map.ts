@@ -1,13 +1,16 @@
 // Repertoire Map — full-colour view, zoomable tree, arrow navigation.
 //
-// openRepertoireMap(lines, colour, onOpenLine)
+// openRepertoireMap(lines, colour, onOpenLine)  — as a full-screen overlay
+// mountRepertoireMap(host, …)                   — embedded in a page (My Lines)
 //
 // Shows all lines for one colour merged into a tree from the start position.
 // Tap a node → position preview slides in at the top (two-column: board + info).
 // Arrow buttons (bottom) navigate the tree; ± buttons zoom.
+//
+// The merge itself (path- or position-keyed, and the loop guards the latter
+// needs) lives in map-merge.ts, DOM-free so it can be self-tested.
 
 import type { Line } from './types';
-import type { MoveNode } from './tree';
 import { Chessground } from 'chessground';
 import type { Api as CgApi } from 'chessground/api';
 import type { Key } from 'chessground/types';
@@ -19,8 +22,10 @@ import { wdlScoreRow } from './wdl-bar';
 import type { ImportedGame } from './import-core';
 import { getGamesSource } from './import-panel';
 import { formatMove } from './notation';
+import {
+  allNodes, buildMergedTree, movedBy, type MapNode, type MergeMode,
+} from './map-merge';
 
-const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 const NS = 'http://www.w3.org/2000/svg';
 
 // The moves reaching the tapped node, handed to a custom node action so a caller
@@ -90,6 +95,14 @@ export interface RepertoireMapOptions {
     you: 'white' | 'black';
     opponent?: { name: string; avatarUrl?: string };
   };
+  // How lines are merged into the tree (see map-merge.ts):
+  //   'path'     — the default. Two lines share a node only while they have not
+  //                parted, so a transposition draws as two separate branches.
+  //   'position' — nodes are keyed by POSITION, so two lines that transpose into
+  //                each other land on one node and continue once. Alternative
+  //                routes into a node draw as dashed edges, and nodes where you
+  //                have more than one answer are marked.
+  merge?: MergeMode;
 }
 
 export interface MapDepth {
@@ -126,28 +139,6 @@ const BAR_GAP = 3;           // gap from the box bottom up to the bar
 
 // ── Map node ──────────────────────────────────────────────────────────────────
 
-interface MapNode {
-  san: string;
-  uci: string;
-  fen: string;
-  lineIds: string[];
-  children: MapNode[];
-  parent: MapNode | null;
-  x: number;
-  y: number;
-  svgEl: SVGGElement | null; // set during SVG build
-  stats: StatNode | null;    // stamped by attachStats when a stats lookup is set
-}
-
-function buildMergedTree(lines: Line[], maxPlies = Infinity): MapNode {
-  const root: MapNode = {
-    san: '', uci: '', fen: START_FEN, lineIds: [],
-    children: [], parent: null, x: 0, y: 0, svgEl: null, stats: null,
-  };
-  for (const l of lines) mergeInto(root, l.tree, l.id, maxPlies);
-  return root;
-}
-
 // Stamp each MapNode with its W/D/L stats by descending both trees in lockstep
 // (one pass, O(nodes)). A node whose move never appears in the games is left
 // null — no bar, no preview stats. The root carries the colour totals.
@@ -176,24 +167,6 @@ function pruneByStats(root: MapNode): void {
     for (const c of n.children) walk(c);
   };
   walk(root);
-}
-
-// `depthLeft` is the plies still allowed below `parent`; at 0 we stop, which is
-// how "Go deeper" truncates a long line to the current render depth.
-function mergeInto(parent: MapNode, src: MoveNode, lineId: string, depthLeft: number): void {
-  if (depthLeft <= 0) return;
-  for (const sc of src.children) {
-    let ex = parent.children.find(c => c.uci === sc.uci);
-    if (!ex) {
-      ex = {
-        san: sc.san, uci: sc.uci, fen: sc.fen, lineIds: [],
-        children: [], parent, x: 0, y: 0, svgEl: null, stats: null,
-      };
-      parent.children.push(ex);
-    }
-    if (!ex.lineIds.includes(lineId)) ex.lineIds.push(lineId);
-    mergeInto(ex, sc, lineId, depthLeft - 1);
-  }
 }
 
 // ── Layout ────────────────────────────────────────────────────────────────────
@@ -233,16 +206,12 @@ function treeMaxX(n: MapNode): number {
   return m;
 }
 
-// FEN field 2: 'b' = black to move, meaning white just played.
-function movedBy(fen: string): 'white' | 'black' {
-  return fen.split(' ')[1] === 'b' ? 'white' : 'black';
-}
-
 // ── SVG ───────────────────────────────────────────────────────────────────────
 
 function buildSVG(
   root: MapNode,
   onTap: (n: MapNode) => void,
+  marks = false,
 ): SVGSVGElement {
   const h = subH(root);
   placeNodes(root, PAD, PAD, h);
@@ -258,8 +227,30 @@ function buildSVG(
 
   // Root is the start position (no SAN) — skip it, draw its children.
   drawEdges(svg, root, true);
-  drawNodes(svg, root, true, onTap);
+  if (marks) drawAltEdges(svg, root);
+  drawNodes(svg, root, true, onTap, marks);
   return svg;
+}
+
+// The position merge's second routes into a node: the dashed lines that say
+// "these two roads are the same position". Drawn from the already-placed
+// coordinates, so they cost no layout and — being outside `children` — no walk
+// ever follows them. Edges touching the invisible root (a line that repeats back
+// to the start) have nowhere to land, so they're left to the node's own marker.
+function drawAltEdges(svg: SVGElement, root: MapNode): void {
+  for (const n of allNodes(root)) {
+    if (!n.san) continue;
+    for (const e of n.altOut) {
+      if (!e.to.san) continue;
+      const x1 = n.x + NW / 2, y1 = n.y + NH / 2;
+      const x2 = e.to.x - NW / 2, y2 = e.to.y + NH / 2;
+      const mx = Math.max(Math.abs(x2 - x1) * 0.5, GEN_GAP);
+      const p = document.createElementNS(NS, 'path');
+      p.setAttribute('d', `M${x1},${y1} C${x1 + mx},${y1} ${x2 - mx},${y2} ${x2},${y2}`);
+      p.setAttribute('class', `rmap-edge rmap-edge--alt${e.back ? ' rmap-edge--back' : ''}`);
+      svg.appendChild(p);
+    }
+  }
 }
 
 // A thin three-segment win/draw/loss bar along the node's bottom edge. Colours
@@ -324,6 +315,7 @@ function drawNodes(
   n: MapNode,
   skip: boolean,
   onTap: (n: MapNode) => void,
+  marks = false,
 ): void {
   if (!skip) {
     const isFork = n.children.length > 1;
@@ -333,6 +325,7 @@ function drawNodes(
       'rmap-node',
       `rmap-node--${mover}`,
       isFork ? 'rmap-node--fork' : '',
+      marks && n.altIn > 0 ? 'rmap-node--merged' : '',
     ].filter(Boolean).join(' '));
 
     // Enlarged transparent hit area (≈44px tall for reliable taps).
@@ -365,6 +358,10 @@ function drawNodes(
     // No-ops when the node has no stats (e.g. repertoire moves never played).
     drawStatBar(g, n);
 
+    // More than one answer of mine from this position — the one thing a
+    // read-only tree can tell you that a list of lines can't.
+    if (marks && n.answers > 1) drawAnswerBadge(g, n);
+
     n.svgEl = g;
     g.addEventListener('click', e => {
       e.stopPropagation();
@@ -372,7 +369,27 @@ function drawNodes(
     });
     parent.appendChild(g);
   }
-  for (const c of n.children) drawNodes(parent, c, false, onTap);
+  for (const c of n.children) drawNodes(parent, c, false, onTap, marks);
+}
+
+// A small count pill on the node's top-right corner: "you have N answers here".
+function drawAnswerBadge(g: SVGGElement, n: MapNode): void {
+  const cx = n.x + NW / 2 - 2;
+  const cy = n.y + 1;
+  const c = document.createElementNS(NS, 'circle');
+  c.setAttribute('cx', String(cx));
+  c.setAttribute('cy', String(cy));
+  c.setAttribute('r', '7');
+  c.setAttribute('class', 'rmap-answers-dot');
+  g.appendChild(c);
+
+  const t = document.createElementNS(NS, 'text');
+  t.setAttribute('x', String(cx));
+  t.setAttribute('y', String(cy + 3.5));
+  t.setAttribute('text-anchor', 'middle');
+  t.setAttribute('class', 'rmap-answers-text');
+  t.textContent = String(n.answers);
+  g.appendChild(t);
 }
 
 // ── Position preview panel ────────────────────────────────────────────────────
@@ -548,6 +565,24 @@ function makePreview(
       v.className = 'rmap-pos-meta';
       v.textContent = `${n.children.length} variations`;
       infoCol.appendChild(v);
+    }
+
+    // Position-merged maps: say what the merge did to this node, since the SAN
+    // above is only the move that got here FIRST.
+    if (opts.merge === 'position') {
+      const meta = (text: string): void => {
+        const el = document.createElement('div');
+        el.className = 'rmap-pos-meta';
+        el.textContent = text;
+        infoCol.appendChild(el);
+      };
+      if (n.answers > 1) meta(`You have ${n.answers} answers here`);
+      if (n.altIn > 0) {
+        meta(n.altIn === 1
+          ? 'Also reached by another move order'
+          : `Also reached by ${n.altIn} other move orders`);
+      }
+      if (n.lineIds.length > 1) meta(`In ${n.lineIds.length} of your lines`);
     }
 
     if (opts.nodeAction) {
@@ -908,10 +943,9 @@ export function openRepertoireMap(
 
   // Closing the map (back button, opening a line, or the system back gesture)
   // all route through here so the back-navigation stack stays in sync.
-  // Set once initPanZoom runs (below); detaches the window drag listeners.
-  let disposePanZoom: (() => void) | null = null;
+  let mounted: MapHandle | null = null;
   function close(): void {
-    disposePanZoom?.();
+    mounted?.dispose();
     overlay.remove();
     removeBack();
   }
@@ -943,11 +977,42 @@ export function openRepertoireMap(
   header.appendChild(count);
   overlay.appendChild(header);
 
+  // In the DOM before the mount: the initial centring measures the tree area.
+  document.body.appendChild(overlay);
+  mounted = mountRepertoireMap(overlay, filtered, colour, onOpenLine, opts, close);
+}
+
+/** What an embedded map hands back — call dispose() when the host goes away. */
+export interface MapHandle {
+  dispose(): void;
+}
+
+/**
+ * The map itself, minus the overlay chrome: toggles, tree, controls, all
+ * appended to `host` (which must already be in the DOM, since the first centring
+ * measures it). `openRepertoireMap` wraps this in a full-screen overlay; My
+ * Lines' tree view drops it straight into the page.
+ *
+ * `requestClose` is what the map calls when an action takes the user elsewhere —
+ * the overlay closes itself; an embedded map just detaches its listeners.
+ */
+export function mountRepertoireMap(
+  host: HTMLElement,
+  lines: Line[],
+  colour: 'white' | 'black',
+  onOpenLine: (line: Line) => void,
+  opts: RepertoireMapOptions = {},
+  requestClose: () => void = () => { /* embedded: nothing to close */ },
+): MapHandle {
+  const filtered = lines.filter(l => l.colour === colour);
+  const close = requestClose;
+  let disposePanZoom: (() => void) | null = null;
+
   // Toggle bar (under the header): a prominent White/Black colour toggle plus,
   // when wired, a discrete Games/Repertoire source toggle. Picking any option
   // closes this map; the caller reopens it rebuilt for that choice.
   if (opts.colourToggle || opts.sourceToggle) {
-    overlay.appendChild(buildTopToggles(opts, close));
+    host.appendChild(buildTopToggles(opts, close));
   }
 
   // Tree area (relative-positioned so the preview panel can float inside it).
@@ -983,7 +1048,14 @@ export function openRepertoireMap(
   // so the map opens clean (the user can expand to "all replies").
   let viewMode: 'all' | 'frequent' = 'frequent';
 
-  let root = buildMergedTree(currentLines(), currentPlies);
+  // Position-keyed merge (the tree view) also gets the extra marks: dashed
+  // alternative routes and the "you have N answers here" badge.
+  const mergeMode: MergeMode = opts.merge ?? 'path';
+  const marks = mergeMode === 'position';
+  const makeTree = (): MapNode =>
+    buildMergedTree(currentLines(), currentPlies, mergeMode, colour);
+
+  let root = makeTree();
   attachStats(root, statsTree);
   if (statsTree && viewMode === 'frequent') pruneByStats(root);
 
@@ -992,9 +1064,8 @@ export function openRepertoireMap(
     empty.className = 'rmap-empty';
     empty.textContent = 'No lines saved yet.';
     treeArea.appendChild(empty);
-    overlay.appendChild(treeArea);
-    document.body.appendChild(overlay);
-    return;
+    host.appendChild(treeArea);
+    return { dispose: () => { /* nothing was wired up */ } };
   }
 
   // Navigation state.
@@ -1034,11 +1105,11 @@ export function openRepertoireMap(
     controls.update(n, forkChoice);
   }
 
-  let svg = buildSVG(root, selectNode);
+  let svg = buildSVG(root, selectNode, marks);
   inner.appendChild(svg);
   treeWrap.appendChild(inner);
   treeArea.appendChild(treeWrap);
-  overlay.appendChild(treeArea);
+  host.appendChild(treeArea);
 
   // Re-centre the view on the first move of the (possibly rebuilt) tree. With
   // the left → right layout we pin the first move near the left edge and centre
@@ -1070,10 +1141,10 @@ export function openRepertoireMap(
   // same move (by path) when one was selected, else re-centre on the first move.
   function rebuild(): void {
     const keepPath = selected ? nodePath(selected).ucis : null;
-    root = buildMergedTree(currentLines(), currentPlies);
+    root = makeTree();
     attachStats(root, statsTree);
     if (statsTree && viewMode === 'frequent') pruneByStats(root);
-    const newSvg = buildSVG(root, selectNode);
+    const newSvg = buildSVG(root, selectNode, marks);
     svg.replaceWith(newSvg);
     svg = newSvg;
     forkChoice.clear();
@@ -1247,8 +1318,7 @@ export function openRepertoireMap(
   // Zoom floats bottom-left of the tree area (outside the bar).
   treeArea.appendChild(controls.zoom);
 
-  overlay.appendChild(controls.container);
-  document.body.appendChild(overlay);
+  host.appendChild(controls.container);
 
   disposePanZoom = initPanZoom(treeWrap, inner, state, recentre);
 
@@ -1257,4 +1327,6 @@ export function openRepertoireMap(
   const target = opts.initialPath?.length ? findByUcis(opts.initialPath) : null;
   if (target) selectNode(target);
   else centreOnFirst();
+
+  return { dispose: () => disposePanZoom?.() };
 }

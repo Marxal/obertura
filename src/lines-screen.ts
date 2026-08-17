@@ -18,6 +18,7 @@ import { isOpponentTag } from './scout';
 import { buildEmptyState } from './empty-state';
 import { buildInlineImport } from './import-inline';
 import { createFilterBar, type FilterSelection } from './filters';
+import { renderLinesTree, disposeLinesTree } from './lines-tree-view';
 import type { ImportedGame } from './chesscom';
 import { renderLoadError } from './load-error';
 import { formatSanLine } from './notation';
@@ -190,6 +191,7 @@ async function doRender(container: HTMLElement, deps: LinesDeps): Promise<void> 
   const fullRefresh = () => doRender(container, deps);
 
   const renderActive = () => {
+    disposeLinesTree();
     if (activeTab === 'saved') {
       renderSavedTab(content, allLines, games, deps, container, goToGamesTab, hasGames);
     } else {
@@ -341,6 +343,8 @@ function renderSavedTab(
       tagCounts: countLinesByTag(colour === 'all' ? lines : lines.filter(l => l.colour === colour)),
     }),
     group: true,
+    // My Lines is the one list that can also draw its lines as a tree.
+    groupTree: true,
     onChange: () => rebuildList(),
   });
   content.appendChild(filter.element);
@@ -353,6 +357,9 @@ function renderSavedTab(
   content.appendChild(sec);
 
   function rebuildList(): void {
+    // The tree view holds window-level drag listeners; drop them before the
+    // list they belong to is thrown away.
+    disposeLinesTree();
     list.innerHTML = '';
     const shown = viewSavedLines(lines, filter.selection);
     if (shown.length === 0) {
@@ -371,6 +378,15 @@ function renderSavedTab(
       empty.className = 'lines-empty';
       empty.textContent = 'No lines here yet.';
       list.appendChild(empty);
+      return;
+    }
+    if (filter.selection.group === 'tree') {
+      // Same screen, same filtered lines — drawn as one position-merged map
+      // instead of a list, so lines that transpose meet on a single node.
+      // Nothing to highlight in a tree of positions — drop the pending mark so
+      // it can't fire on a later switch back to one of the list views.
+      highlightLineId = null;
+      renderLinesTree(list, shown, filter.selection.colour, deps.onOpenLine);
       return;
     }
     if (filter.selection.group) {

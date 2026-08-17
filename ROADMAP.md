@@ -1938,6 +1938,45 @@ _On `claude/position-index-training-1fr7qh`. Restore point: `v0.4`._
 
 ---
 
+## v0.29 — My Lines gets a tree 🔜
+
+A fourth stop on the grouping toggle in My Lines: the same screen, the same
+filter bar, the same remembered preference — but the filtered lines drawn as
+ONE map instead of a list, merged by **position** rather than by path. Two lines
+that transpose into each other stop being two branches that never touch and
+become one node that continues once.
+
+- ✅ **Merged by position, not by path.** `src/map-merge.ts` keys nodes by the
+  position key already shared with `openings.ts` and `position-index.ts`, so the
+  QGD reached by 1.d4 Nf6 2.c4 and by 1.c4 Nf6 2.d4 is one node carrying both
+  lines. The route that got there second is drawn as a dashed edge rather than a
+  second branch, and it keeps its own move — which is what makes the answer
+  count right.
+
+- ✅ **A position merge can loop; this one can't.** Path merging cannot produce a
+  cycle. Position merging can, two ways: a repetition (1.Nf3 Nf6 2.Ng1 Ng8 is the
+  start position again, exactly) and two lines crossing over each other. Guarded
+  three ways: one visited-key map, so a node joins the walked tree only in the
+  branch that creates it (child edges therefore always go one ply deeper); a hard
+  80-ply cap; and a severing pass that demotes any child edge that would revisit
+  a node. `map-merge.selftest.ts` drives a real repetition, a real cross-over and
+  240 plies of knight shuffle through all three.
+
+- ✅ **Where you have more than one answer is marked.** A small numbered dot on
+  every position where the saved lines give you a choice — counting the answers
+  that leave by a merge edge as well as the ones that leave as branches. Opponent
+  forks are not marked: several replies to face is not a decision you make.
+
+- ✅ **Read-only, and no new screen.** No editing, no dragging, no deleting —
+  authoring stays in the builder. The map viewer (`repertoire-map.ts`) grew a
+  `mountRepertoireMap` so it can be embedded in a page instead of only opened as
+  an overlay; the existing zoom, pan, arrows and position preview are reused
+  exactly as they are, with no new gestures.
+
+_On `claude/repertoire-tree-position-i9r6si`. Restore point: `v0.4`._
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

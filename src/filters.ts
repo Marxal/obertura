@@ -20,11 +20,14 @@ export type ColourFilter = 'all' | 'white' | 'black';
 // status options (the line statuses by default, or e.g. won/lost/drew for games).
 export type StatusFilter = string;
 
-// How the list is grouped: flat (false), by opening family ('family'), or the
+// How the list is grouped: flat (false), by opening family ('family'), the
 // compact view — by full variation name ('variation'), which cuts each family
-// into smaller, narrower buckets. Old saved selections stored a boolean; true
-// maps to 'family' on load. `if (sel.group)` still reads "grouped at all".
-export type GroupMode = false | 'family' | 'variation';
+// into smaller, narrower buckets — or 'tree', the whole repertoire drawn as one
+// position-merged map instead of a list. Old saved selections stored a boolean;
+// true maps to 'family' on load. `if (sel.group)` still reads "grouped at all",
+// so a caller that doesn't understand 'tree' never receives it: the mode is
+// offered only where `config.groupTree` asks for it.
+export type GroupMode = false | 'family' | 'variation' | 'tree';
 
 export interface FilterSelection {
   colour: ColourFilter;
@@ -65,6 +68,9 @@ export interface FilterConfig {
   // When true, draw a "group by opening" icon toggle on row 1; the caller reads
   // selection.group and renders its list grouped into families (or flat).
   group?: boolean;
+  // Adds 'tree' as a fourth stop on that toggle. Opt-in, because a caller that
+  // doesn't render a tree would silently land on a state it can't draw.
+  groupTree?: boolean;
   // Fired after every change, with the (already-persisted) selection.
   onChange: (sel: FilterSelection) => void;
 }
@@ -113,6 +119,9 @@ function loadSelection(config: FilterConfig): FilterSelection {
   const group: GroupMode = !config.group ? false
     : savedGroup === true || savedGroup === 'family' ? 'family'
     : savedGroup === 'variation' ? 'variation'
+    // A remembered 'tree' on a screen that no longer offers one falls back to
+    // the nearest grouped view rather than wedging the toggle.
+    : savedGroup === 'tree' ? (config.groupTree ? 'tree' : 'family')
     : false;
 
   return { colour, sort, status, tags, group };
@@ -162,7 +171,7 @@ function buildTopRow(config: FilterConfig, sel: FilterSelection, commit: () => v
   const tools = document.createElement('div');
   tools.className = 'fbar-tools';
   if ((config.sorts ?? []).length > 0) tools.appendChild(buildSortMenu(config, sel, commit));
-  if (config.group) tools.appendChild(buildGroupToggle(sel, commit));
+  if (config.group) tools.appendChild(buildGroupToggle(config, sel, commit));
   if (tools.childElementCount > 0) row.appendChild(tools);
   return row;
 }
@@ -224,17 +233,27 @@ function buildSortMenu(config: FilterConfig, sel: FilterSelection, commit: () =>
   return wrap;
 }
 
-// The grouping toggle — sits beside sort on row 1. Cycles through three views:
-// flat → by opening family → compact (by variation, narrower buckets) → flat.
-// The compact state carries a small "2" pip on the icon so the two grouped
-// looks are tellable apart.
-const GROUP_TITLES: Record<'off' | 'family' | 'variation', string> = {
+// The grouping toggle — sits beside sort on row 1. Cycles:
+// flat → by opening family → compact (by variation, narrower buckets) → [tree]
+// → flat. The compact state carries a small "2" pip on the icon so the two
+// grouped looks are tellable apart; the tree state swaps the glyph for a merge
+// mark, since it isn't a third way of grouping a list but a different drawing.
+const GROUP_TITLES: Record<'off' | 'family' | 'variation' | 'tree', string> = {
   off: 'Group by opening',
   family: 'Compact view (group by variation)',
   variation: 'Flat list',
+  tree: 'Flat list',
+};
+const GROUP_TITLES_TREE: Record<'off' | 'family' | 'variation' | 'tree', string> = {
+  ...GROUP_TITLES,
+  variation: 'Tree view (merged by position)',
 };
 
-function buildGroupToggle(sel: FilterSelection, commit: () => void): HTMLElement {
+function buildGroupToggle(
+  config: FilterConfig,
+  sel: FilterSelection,
+  commit: () => void,
+): HTMLElement {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'dgroup';
@@ -243,6 +262,11 @@ function buildGroupToggle(sel: FilterSelection, commit: () => void): HTMLElement
   icon.classList.add('dgroup-icon');
   btn.appendChild(icon);
 
+  // The tree state's own glyph, swapped in place of the grouping one.
+  const mergeIcon = Icons.merge(18);
+  mergeIcon.classList.add('dgroup-icon');
+  btn.appendChild(mergeIcon);
+
   const pip = document.createElement('span');
   pip.className = 'dgroup-pip';
   pip.textContent = '2';
@@ -250,10 +274,15 @@ function buildGroupToggle(sel: FilterSelection, commit: () => void): HTMLElement
   btn.appendChild(pip);
 
   const paint = (): void => {
+    const tree = sel.group === 'tree';
     btn.classList.toggle('active', !!sel.group);
     btn.classList.toggle('dgroup--deep', sel.group === 'variation');
+    btn.classList.toggle('dgroup--tree', tree);
+    icon.style.display = tree ? 'none' : '';
+    mergeIcon.style.display = tree ? '' : 'none';
     // The title names the NEXT state (what a tap does), like a play/pause button.
-    const title = GROUP_TITLES[sel.group === false ? 'off' : sel.group];
+    const titles = config.groupTree ? GROUP_TITLES_TREE : GROUP_TITLES;
+    const title = titles[sel.group === false ? 'off' : sel.group];
     btn.title = title;
     btn.setAttribute('aria-label', title);
     btn.setAttribute('aria-pressed', String(!!sel.group));
@@ -261,7 +290,11 @@ function buildGroupToggle(sel: FilterSelection, commit: () => void): HTMLElement
   paint();
 
   btn.addEventListener('click', () => {
-    sel.group = sel.group === false ? 'family' : sel.group === 'family' ? 'variation' : false;
+    sel.group =
+      sel.group === false ? 'family'
+      : sel.group === 'family' ? 'variation'
+      : sel.group === 'variation' && config.groupTree ? 'tree'
+      : false;
     paint();
     commit();
   });

@@ -30,6 +30,9 @@ export const Icons = {
   compass:  (s?: number) => svg(`<circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>`, s),
   barChart: (s?: number) => svg(`<line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/>`, s),
   tree:     (s?: number) => svg(`<circle cx="12" cy="19" r="2.5"/><circle cx="6" cy="5" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M18 7.5v2a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-2"/><path d="M12 11.5v5"/>`, s),
+  // Two roads meeting — the My Lines tree view, where lines that transpose join
+  // on one node instead of running side by side.
+  merge:    (s?: number) => svg(`<circle cx="6" cy="5" r="2.5"/><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="12" r="2.5"/><path d="M8.5 5.6c1.8 3 3.9 5.4 6.9 6.1"/><path d="M8.5 18.4c1.8-3 3.9-5.4 6.9-6.1"/>`, s),
   // The My Lines tab mark — a chess pawn drawn as a stroked outline (circle head,
   // collar ledge, bell body, flared base) to match the other nav glyphs.
   pawn:     (s?: number) => svg(`<circle cx="12" cy="4.5" r="2.5"/><path d="M9.5 8.5h5"/><path d="M9.5 8.5c0 2.5-1 3.5-2 6.5h9c-1-3-2-4-2-6.5"/><path d="M6 19c.5-2.5 1.5-3 1.5-4h9c0 1 1 1.5 1.5 4z"/>`, s),
