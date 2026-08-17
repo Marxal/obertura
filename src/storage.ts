@@ -273,6 +273,11 @@ function backupLocalKey(key: string): boolean {
   if (key.startsWith('obertura.drive.')) return false;
   if (key.startsWith('obertura.sync.')) return false;
   if (key === 'obertura.entitled') return false;
+  // The cached Stripe prices (pricing.ts). Excluded for a milder version of the
+  // entitlement reason: they are per-locale and cheap to re-fetch, so carrying
+  // them would quote a Swedish restore a Swedish price on a Spanish phone, for no
+  // gain at all.
+  if (key === 'obertura.pricing') return false;
   if (key === 'obertura.lichessReturnTo') return false;
   return true;
 }

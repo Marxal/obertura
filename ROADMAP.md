@@ -2027,6 +2027,63 @@ _On `claude/coverage-gaps-feature-6afe3b`. Restore point: `v0.4`._
 
 ---
 
+## Stripe migration — off Lemon Squeezy, on to being the merchant ✅
+
+The processor swap. **Not a product change:** it is still a one-time unlock, still
+"no subscription ever", and every existing customer keeps their access untouched
+(`profiles.entitled` is never rewritten by this round).
+
+The original brief asked for `mode: 'subscription'` with recurring prices. That was
+raised as a conflict before any code was written — the app, the landing page, the
+meta description, the JSON-LD and both legal pages all promise a single payment — and
+settled as **one-time**, with no Stripe Tax, and the hosted redirect rather than
+embedded Checkout.
+
+- ✅ **Three Worker endpoints**, not Supabase Edge Functions: this repo has no
+  `supabase/` directory, no CLI and no migrations, and the server already lived in a
+  Worker. `GET /api/stripe/prices`, `POST /api/stripe/checkout`,
+  `POST /api/stripe/webhook`, routed by hand in `worker/index.ts` as before.
+- ✅ **The account id comes from a verified JWT, never from the request body.** The
+  brief's "accepts `user.id`" would have let anyone POST a stranger's id and entitle
+  their account. `verifyUser()` asks Supabase to validate the bearer token and takes
+  the id *and* the email from it, which is also how `customer_email` gets pre-filled
+  without the app sending anything.
+- ✅ **The price id is validated too** — retrieved server-side and required to be
+  active, one-time and (with `STRIPE_PRODUCT_ID` set) this product's. Otherwise any
+  archived discount price in the account was sellable by anyone who could name it.
+  Auth is checked *first*, so an unauthenticated caller can't probe price ids.
+- ✅ **Dynamic EUR/SEK pricing** (`src/pricing.ts`). Locale → currency (`sv`, `sv-*`
+  or any `-SE` region → kronor). The paywall is built synchronously, so it paints from
+  a three-layer fallback (fetched → localStorage → built-in) and takes an
+  `onPriceChange` subscription to correct itself when the fetch lands. Only the first
+  two layers carry a price id, which is exactly what makes a fallback unsellable.
+- ✅ **Redirect, not overlay.** lemon.js used to dodge the installed-PWA return
+  journey; Stripe's hosted Checkout has no overlay to borrow, so the journey is
+  handled by the machinery that already existed — `?purchased=1`, the focus watcher,
+  the backoff poll, and Settings' "Already paid?". Two things got better: no
+  third-party script in the app at all, and wallets with no domain verification.
+- ✅ **Two events the brief didn't ask for, and one it did that can't happen.**
+  `checkout.session.async_payment_succeeded` (without it, a delayed payment method
+  means a customer pays and is never entitled) and `charge.refunded` → back to the
+  free tier, which is what `docs/terms.html` already promised and nothing enforced.
+  `customer.subscription.*` are answered with an explicit log line rather than
+  silently ignored. Full refunds only.
+- ✅ **Merchant of record moved to you.** EU VAT via OSS is now yours; prices are
+  VAT-inclusive and Stripe Tax is deliberately off (0.5% a transaction — flagged, not
+  assumed). `docs/terms.html` and `docs/privacy.html` rewritten to name you as the
+  seller and Stripe as the processor.
+- ✅ **The Worker is typechecked by the build now** (`tsconfig.worker.json`). It never
+  was — `tsc` covered `src` only, and wrangler found worker errors at deploy time.
+- ✅ Verified locally end to end with `wrangler dev`: `constructEventAsync` on workerd
+  accepts a correctly-signed event and rejects tampering, the wrong secret, a missing
+  header and a replayed timestamp; every event route and every guard returns what it
+  should.
+
+_Owner setup: `STRIPE-SETUP.md` (dashboard steps, secrets, decommissioning). Schema:
+re-run the SQL in `SUPABASE-SYNC.md`. Restore point: `v0.4`._
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

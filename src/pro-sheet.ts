@@ -18,10 +18,12 @@
 // from src/. docs/LANDING-COPY.md is the source of truth for both — change it
 // there first, then mirror it into the page and into this file.
 //
-// Nothing here knows about entitlement or checkout: the caller passes the price
-// and the free-tier size in, and passes the "what happens when they tap buy"
-// action in. That keeps this module out of the entitlement ⇄ checkout import
-// cycle that the note over PRO_PRICE describes.
+// Nothing here knows about entitlement, checkout or Stripe: the caller passes the
+// price in, passes the "what happens when they tap buy" action in, and — since
+// the price now comes off the network — passes a way to be told when it changes.
+// That keeps this module out of the entitlement ⇄ checkout import cycle that the
+// note in entitlement.ts describes, and keeps it ignorant of where a price comes
+// from.
 
 import { pushBack } from './back-nav';
 
@@ -31,8 +33,19 @@ export interface ProSheetOptions {
   // user opened the offer themselves, where a number they haven't reached would
   // just be wrong.
   eyebrow?: string;
-  // '9€' — passed in so the price lives in exactly one constant (PRO_PRICE).
+  // '9€' or '99 kr' — already formatted. The sheet is built synchronously, so
+  // this is whatever the caller has in hand right now, which may be a cached or
+  // built-in number rather than a freshly fetched one.
   price: string;
+  // Optional. Subscribe to later corrections of that price: called once with an
+  // `update` function, and must return an unsubscribe function, which the sheet
+  // calls when it closes.
+  //
+  // This exists because the price is fetched from Stripe and the sheet cannot
+  // wait for it. Showing a stale number for half a second and then correcting it
+  // is better than a spinner where the price should be — and better than a
+  // number that stays wrong.
+  onPriceChange?: (update: (price: string) => void) => () => void;
   // Tapped "Unlock full access". The sheet closes first, then this runs.
   onBuy: () => void;
 }
@@ -95,7 +108,10 @@ export function openProSheet(opts: ProSheetOptions): void {
 
   const price = document.createElement('p');
   price.className = 'pro-price';
-  price.appendChild(document.createTextNode(opts.price));
+  // Held as a node rather than set through textContent, so a late correction can
+  // replace just the number without rebuilding the "one payment" span beside it.
+  const priceText = document.createTextNode(opts.price);
+  price.appendChild(priceText);
   const once = document.createElement('span');
   once.textContent = 'one payment';
   price.appendChild(once);
@@ -125,10 +141,16 @@ export function openProSheet(opts: ProSheetOptions): void {
 
   sheet.appendChild(card);
 
+  // Corrections to the price, if the caller offered any. Unsubscribed on close so
+  // a dismissed sheet stops holding a listener and stops writing to a detached
+  // node.
+  const unsubscribePrice = opts.onPriceChange?.((next) => { priceText.data = next; });
+
   let closed = false;
   function close(): void {
     if (closed) return;
     closed = true;
+    unsubscribePrice?.();
     overlay.remove();
     removeBack();
   }
@@ -143,10 +165,10 @@ export function openProSheet(opts: ProSheetOptions): void {
   const note = document.createElement('p');
   note.className = 'pro-note';
   // "A Bito Chess account", not "an account" — at this point in the flow the
-  // reader has Lemon Squeezy on screen and no reason to know which of the two
-  // they are being asked to create.
+  // reader is one tap from Stripe's own screen and has no reason to know which of
+  // the two they are being asked to create.
   note.textContent =
-    'Secure checkout via Lemon Squeezy. A Bito Chess account is required so your '
+    'Secure checkout via Stripe. A Bito Chess account is required so your '
     + 'purchase can follow you across devices.';
   sheet.appendChild(note);
 

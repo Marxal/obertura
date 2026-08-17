@@ -16,10 +16,16 @@ than straight quotes ('). The wording below is identical either way.
   popup (`src/pro-sheet.ts`), which runs a shortened version of it. The app
   can't import from a static file in `docs/`, so the strings are typed out in
   both places.
-- **9€** lives in three places that can't import from one another: this page,
-  the app's `PRO_PRICE` (`src/entitlement.ts`), and the Lemon Squeezy product.
-  Change all three together — and note the store is the one that actually
-  charges, so if they disagree it is right and the others are the bug.
+- **The price** lives in three places that can't import from one another: this
+  page, the app's built-in fallback (`FALLBACK_AMOUNTS` in `src/pricing.ts`), and
+  the Stripe Price objects. Stripe is the one that actually charges, so if they
+  disagree it is right and the others are the bug.
+
+  Since the Stripe migration, both the landing page's price card and the app's
+  paywall FETCH the real number (`GET /api/stripe/prices`) and overwrite what was
+  typed in. The hard-coded 9€ in each is now a no-JS / offline fallback rather
+  than a second source of truth — so the copy below is the shape, and Stripe is
+  the number. A Swedish device is quoted in kronor instead (99 kr).
 
 The legal documents are separate hand-written pages, not part of this file:
 `docs/privacy.html`, `docs/terms.html`, `docs/licences.html`.
@@ -198,13 +204,15 @@ Want to train everything you’ve built? Full Access unlocks unlimited training 
 your purchase can follow you across devices. *(Signed in: “Secure checkout. The
 unlock lands on the account you’re signed in to.”)*
 
-Lemon Squeezy is deliberately not named here — the visitor meets the name on the
-checkout page itself, and a payment processor they haven't heard of is not
-reassurance, it's a question.
+Stripe IS named in the app's version of this note ("Secure checkout via
+Stripe", `src/pro-sheet.ts`) and deliberately not named here. The difference is
+where the reader is standing: on this page the word is one more unexplained
+brand between them and the thing they want, while in the app they have already
+decided to buy and the name is reassurance about the screen they're about to see.
 
 **“A Bito Chess account”, never just “an account”** — the next screen after this
-one belongs to Lemon Squeezy, and nobody should have to work out which of the
-two accounts they are being asked for. Same wording in `src/checkout.ts`.
+one belongs to Stripe, and nobody should have to work out which of the two
+accounts they are being asked for. Same wording in `src/checkout.ts`.
 
 ### Signed out: the account card (`#signup-overlay`)
 

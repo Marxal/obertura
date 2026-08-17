@@ -1,7 +1,7 @@
 // The Worker entry point — the only server-side code in the project.
 //
 // ── WHY THERE IS NO `functions/` FOLDER ─────────────────────────────────────
-// The obvious place to put a webhook on Cloudflare is `functions/api/foo.ts`,
+// The obvious place to put an endpoint on Cloudflare is `functions/api/foo.ts`,
 // which is automatically served at `/api/foo`. That is a Cloudflare PAGES
 // feature, and this project is not a Pages project — it is a Worker. The
 // giveaway is wrangler.jsonc plus a deploy command of `npx wrangler deploy`
@@ -10,7 +10,13 @@
 // Worker script before a Worker can use it, because Workers have no built-in
 // file-based routing. A `functions/` folder here would simply never run.
 //
-// So routing is done the Workers way: by hand, in this file. It is about six
+// The same answer applies to Supabase Edge Functions, which the Stripe migration
+// was originally sketched against: this repo has no `supabase/` directory, no
+// Supabase CLI and no migration history, and its server already lives here. Three
+// endpoints are not worth a second deploy target, a second secret store and a
+// second thing to remember to ship.
+//
+// So routing is done the Workers way: by hand, in this file. It is about ten
 // lines, and it is the entire cost of not being a Pages project.
 //
 // ── HOW A REQUEST FLOWS ─────────────────────────────────────────────────────
@@ -22,9 +28,25 @@
 //     requests unless the asset is missing, in which case it hands them back
 //     to the asset server via the ASSETS binding for its normal 404.
 //
-// Adding a second endpoint later means adding a branch here, nothing more.
+// ── THE THREE STRIPE ENDPOINTS ──────────────────────────────────────────────
+//   GET  /api/stripe/prices    what the unlock costs, per currency (stripe-prices.ts)
+//   POST /api/stripe/checkout  → a Stripe Checkout URL (stripe-checkout.ts)
+//   POST /api/stripe/webhook   Stripe → profiles.entitled (stripe-webhook.ts)
+//
+// No CORS headers anywhere, deliberately. All three are called from pages served
+// by this same Worker's assets — the landing page at the root and the trainer at
+// /app/ — so every call is same-origin and CORS never enters the picture. The
+// GitHub Pages mirror is a different origin and has no Worker at all; it is also
+// built without Supabase credentials, so it is fully entitled and has nothing to
+// buy (see src/entitlement.ts). Adding permissive CORS here would only make the
+// checkout endpoint callable from places that have no business calling it.
+//
+// Adding a fourth endpoint later means adding a branch here, nothing more.
 
-import { handleLemonSqueezyWebhook, type WebhookEnv } from './lemonsqueezy-webhook';
+import { handleStripePrices } from './stripe-prices';
+import { handleStripeCheckout } from './stripe-checkout';
+import { handleStripeWebhook } from './stripe-webhook';
+import type { StripeEnv } from './stripe-env';
 
 // The static-asset binding, declared as `assets.binding` in wrangler.jsonc.
 // Typed by hand rather than pulling in @cloudflare/workers-types: this is the
@@ -35,28 +57,30 @@ interface AssetFetcher {
   fetch(request: Request): Promise<Response>;
 }
 
-// WebhookEnv brings the three secrets with it, so they are declared in exactly
-// one place — next to the code that reads them.
-export interface Env extends WebhookEnv {
+// StripeEnv brings the secrets with it, so they are declared in exactly one
+// place — next to the code that reads them (worker/stripe-env.ts).
+export interface Env extends StripeEnv {
   ASSETS: AssetFetcher;
 }
 
-// Where Lemon Squeezy is pointed. Changing this means changing the URL in the
-// Lemon Squeezy dashboard too (LEMONSQUEEZY-SETUP.md).
-const LEMONSQUEEZY_WEBHOOK_PATH = '/api/lemonsqueezy/webhook';
+// Where Stripe is pointed. Changing the webhook path means changing the endpoint
+// URL in the Stripe dashboard too (STRIPE-SETUP.md).
+const PRICES_PATH = '/api/stripe/prices';
+const CHECKOUT_PATH = '/api/stripe/checkout';
+const WEBHOOK_PATH = '/api/stripe/webhook';
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const { pathname } = new URL(request.url);
 
-    if (pathname === LEMONSQUEEZY_WEBHOOK_PATH) {
-      return handleLemonSqueezyWebhook(request, env);
-    }
+    if (pathname === PRICES_PATH) return handleStripePrices(request, env);
+    if (pathname === CHECKOUT_PATH) return handleStripeCheckout(request, env);
+    if (pathname === WEBHOOK_PATH) return handleStripeWebhook(request, env);
 
     // An /api/ path we don't serve. Answered here rather than falling through
     // to the assets, so a typo'd webhook URL gets a plain 404 instead of the
-    // landing page's HTML with a 200 attached — which would look to Lemon
-    // Squeezy like a delivery that succeeded.
+    // landing page's HTML with a 200 attached — which would look to Stripe like
+    // a delivery that succeeded.
     if (pathname === '/api' || pathname.startsWith('/api/')) {
       return new Response('not found', {
         status: 404,

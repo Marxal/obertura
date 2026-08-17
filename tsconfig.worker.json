@@ -1,0 +1,35 @@
+{
+  // The Worker's own typecheck. The main tsconfig covers `src` only — the app —
+  // and the two run in different worlds: the Worker has no DOM and the app has no
+  // Cloudflare bindings, so one shared `lib` would let a `document` reference into
+  // server code and a Workers-only global into the bundle.
+  //
+  // `npm run build` runs both (see package.json). Before this file existed, the
+  // Worker was never typechecked by the build at all — wrangler bundles it at
+  // deploy time and reports its own errors there, which is a late place to find out.
+  //
+  // "WebWorker" is the lib rather than @cloudflare/workers-types, keeping the
+  // promise in worker/index.ts that this project pulls in no Workers dependency:
+  // it supplies fetch, Request/Response, crypto.subtle and the rest of what these
+  // files actually touch. The one Cloudflare-specific thing used — the ASSETS
+  // binding — is hand-typed in worker/index.ts.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "lib": ["ES2022", "WebWorker"],
+    "moduleResolution": "bundler",
+    // Same as the app's tsconfig, and needed for the same reason plus one more:
+    // @supabase/auth-js's own declarations reference DOM types (Storage,
+    // PublicKeyCredential, Window) that a WebWorker lib does not have. Those
+    // declarations describe browser-only APIs this code never calls, so checking
+    // them would be reporting errors in someone else's library about features we
+    // don't use.
+    "skipLibCheck": true,
+    "types": [],
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "strict": true
+  },
+  "include": ["worker"]
+}
