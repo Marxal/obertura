@@ -44,10 +44,24 @@ understand concepts, not syntax. I direct; you build; I test on my phone.
 - Phase 4+: engine, explanations, Chess.com import, polish. All later.
 
 ## Where we are now
-Shipped through v0.4 (the beta-polish round). The project uses a v0.x beta
-scheme (old v1.x tags left intact; v1.0→v0.1 … v1.3→v0.3 conceptually). Latest
-rollback tag is `v0.4`. `ROADMAP.md` records every round phase by phase.
-Confirm scope before starting new work.
+Latest rollback tag is `v0.5`. The project uses a v0.x beta scheme (old v1.x
+tags left intact; v1.0→v0.1 … v1.3→v0.3 conceptually). `v0.5` was cut to close
+a gap: everything from the "v0.5" ROADMAP.md round through the Stripe
+migration (~30 rounds) shipped on `main` without anyone cutting a tag or
+bumping `package.json`, so `v0.4` had been stale as a restore point for a long
+time. Going forward, cut a new tag (and bump `package.json`) before starting
+each risky round — see "Declaring a version" below. `ROADMAP.md` records every
+round phase by phase. Confirm scope before starting new work.
+
+### Declaring a version (before a risky round of changes)
+1. Make sure `main` is clean: `npm run selftest` and `npm run build` both pass.
+2. Bump the `version` field in `package.json` (e.g. `0.5.0` → `0.6.0`).
+3. Commit just that bump: `git commit -am "Bump version to 0.6.0"`.
+4. Tag it and push both: `git tag v0.6 && git push origin main && git push origin v0.6`.
+5. To roll back later: `git checkout v0.6 -- .` restores the files from that
+   tag into your working copy (review with `git status`/`git diff` before
+   committing), or `git reset --hard v0.6` throws away everything after it —
+   ask Claude Code to do this rather than typing raw git.
 
 ## Public documents
 `docs/` holds four hand-written static pages, copied wholesale by both deploy
