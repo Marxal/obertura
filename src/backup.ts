@@ -11,6 +11,7 @@ import {
   parseBackup,
   restoreBackup,
   backupHasExtras,
+  backupLineCount,
   getAllLines,
   type BackupFile,
 } from './storage';
@@ -104,7 +105,7 @@ export function renderBackupSection(onRestored: () => void): HTMLElement {
     openImportChooser(backup, existing, async (mode) => {
       try {
         await restoreBackup(backup, mode);
-        const n = backup.lines.length;
+        const n = backupLineCount(backup);
         setStatus(
           mode === 'replace'
             ? `Restored ${n} line${n === 1 ? '' : 's'} ✓`
@@ -141,7 +142,7 @@ function reloadAfterRestore(
 export async function exportBackupNow(): Promise<number> {
   const data = await exportBackup();
   downloadBackup(data);
-  return data.lines.length;
+  return backupLineCount(data);
 }
 
 // Serialise the backup and hand it to the browser as a dated download. Object
@@ -187,7 +188,7 @@ export function openImportChooser(
   title.textContent = 'Import backup';
   sheet.appendChild(title);
 
-  const n = backup.lines.length;
+  const n = backupLineCount(backup);
   const summary = document.createElement('p');
   summary.className = 'backup-import-summary';
   const when = backup.exportedAt ? ` from ${backup.exportedAt.slice(0, 10)}` : '';

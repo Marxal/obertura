@@ -2027,6 +2027,59 @@ _On `claude/coverage-gaps-feature-6afe3b`. Restore point: `v0.4`._
 
 ---
 
+## v0.6 — the repertoire redesign 🔜
+
+The model change the app had been working around for a year. **The tree is the
+data; a line is a view of it.** Decision record: `REPERTOIRE-REDESIGN.md`.
+
+### Phase A — the model, the projection, the migration ✅
+
+- ✅ **A repertoire is one move tree.** `repertoire.ts` holds the book and its
+  pure operations: merging a path (which creates only the moves that aren't
+  already there), line ends, the inherited `training`/`tags`/`priority`, and the
+  cut "delete this line" has to make so the moves it shares with its neighbours
+  survive — a distinction the flat-line model could not express at all.
+- ✅ **Lines are projected, so nothing downstream changed.** `lines-view.ts`
+  turns books into the same `Line[]` the app has always consumed. My Lines, the
+  Train hub, the drill, statistics, coverage, the map and the daily challenge
+  were not touched. Only the writers moved.
+- ✅ **The write-back refuses to stamp what a branch already says.** Writing a
+  line back never records an explicit `training` flag that merely repeats an
+  ancestor's — otherwise every drill would quietly leave stale per-leaf flags
+  that out-vote the next branch toggle.
+- ✅ **Migration, not a clean slate.** `repertoire-migrate.ts` merges the old
+  records by path, takes the better review record where two lines disagree
+  (TRANSPOSITIONS.md §10), and keeps a line that ends inside a longer one as a
+  line in its own right, so the line count a user sees is the one they had.
+  Verified on a seeded device: 5 old lines → 2 books, white's 18 stored moves
+  collapsed to 10, all 5 lines still listed.
+- ✅ **Storage v4**, with the old `lines` store left untouched as a one-version
+  rollback. Backup format v3 carries repertoires; v1/v2 files still restore.
+
+### Phase B — the builder stands inside the repertoire ✅
+
+- ✅ **Walking is not editing.** The builder loads the whole book, so every move
+  already prepared is there to navigate. Playing a move you have walks onto it
+  and writes nothing.
+- ✅ **A new move is a draft, and the button counts it.** "Add 3 moves", not
+  "Save line" — and committing MERGES, so extending a line stores the new moves
+  rather than a second copy of the line. The old duplicate machinery
+  (TRANSPOSITIONS.md §4/§5/§6) is skipped inside a book, because the second copy
+  it existed to prevent can no longer be created.
+- ✅ **Deleting quotes an honest number.** "This removes 3 moves… moves it shares
+  with your other lines stay."
+- ✅ The seeded single-line flows — the onboarding walkthrough, "prepare a
+  reply", a line extracted from a game — deliberately still lay one line down in
+  the old mode, and merge into the book when saved.
+
+**Still to do:** the My Lines → Repertoire screen (the selector, the tree as a
+first-class view, per-node branch actions), training's shared-prefix dedupe, the
+repertoire count gate, and routing the seeded flows through the book too.
+
+_On `claude/repertoire-system-redesign-ddz4in`. Restore point: `v0.5`._
+
+---
+
 ## Stripe migration — off Lemon Squeezy, on to being the merchant ✅
 
 The processor swap. **Not a product change:** it is still a one-time unlock, still

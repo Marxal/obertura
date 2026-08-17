@@ -1,4 +1,5 @@
 import type { MoveClass } from './winprob';
+import type { LinePriority } from './types';
 
 // The six standard chess annotation marks, strongest to worst.
 export type Annotation = '!!' | '!' | '!?' | '?!' | '?' | '??';
@@ -34,6 +35,34 @@ export interface MoveNode {
     lapses: number;
     due: Date;
   };
+
+  // ── Repertoire fields (see repertoire.ts and REPERTOIRE-REDESIGN.md) ───────
+  //
+  // A repertoire is one tree and a "line" is a path through it, so everything a
+  // line used to carry as a record field now lives on a node. All optional, all
+  // serialisable, and absent on the overwhelming majority of nodes.
+  //
+  // The first four INHERIT: set on a node, they apply to everything below it
+  // unless a deeper node overrides. That is what turns "pause the whole French"
+  // into one toggle instead of twenty.
+
+  /** A name pinned here: "Anti-Sicilian", "Main line". Names every line below. */
+  label?: string;
+  /** Tags for this branch. They accumulate down the path rather than override. */
+  tags?: string[];
+  /** Explicit training on/off for this branch. Inherited; on by default. */
+  training?: boolean;
+  /** Explicit review spacing for this branch. Inherited; 'standard' by default. */
+  priority?: LinePriority;
+
+  /** Marks a line as ending here even though prepared moves continue past it. */
+  endpoint?: true;
+  /** When this move was added to the repertoire — the derived line's "Latest". */
+  createdAt?: number;
+  /** On a line end: full start-to-finish runs of the line ending here. */
+  timesTrained?: number;
+  /** On a line end: ISO date of the last full run. Drives "last trained" labels. */
+  lastTrained?: string;
 }
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -51,14 +80,25 @@ const root: MoveNode = {
 let current: MoveNode = root;
 
 // How the tree grows when a move is played from mid-line:
-//   • 'single'     — the builder edits ONE line. A deviating move REPLACES the
-//                    continuation (becomes the node's sole child), so the tree
-//                    stays a single path and serialise() stores exactly one line.
+//   • 'single'     — one line, edited in isolation. A deviating move REPLACES
+//                    the continuation (becomes the node's sole child), so the
+//                    tree stays a single path.
 //   • 'variations' — the game analyser. A deviating move is ADDED as a new
 //                    sibling branch, keeping the original main line (children[0])
 //                    intact, so you can explore "what if" lines as variations.
-export type TreeMode = 'single' | 'variations';
+//   • 'repertoire' — the builder, since the redesign. The tree IS the whole book
+//                    and a deviating move is a SECOND ANSWER at that position, so
+//                    it is added as a sibling and nothing is destroyed. Same
+//                    growth rule as 'variations'; named separately because the
+//                    intent is different and the two screens read very
+//                    differently to a user.
+export type TreeMode = 'single' | 'variations' | 'repertoire';
 let treeMode: TreeMode = 'single';
+
+/** Does a deviating move branch, or replace what was there? */
+function branches(): boolean {
+  return treeMode === 'variations' || treeMode === 'repertoire';
+}
 
 export function setTreeMode(mode: TreeMode): void {
   treeMode = mode;
@@ -79,10 +119,67 @@ export function addMove(san: string, uci: string, fen: string): MoveNode {
     return existing;
   }
   const node: MoveNode = { id: `n${++idCounter}`, san, uci, fen, children: [] };
-  if (treeMode === 'variations') current.children.push(node);
+  if (branches()) current.children.push(node);
   else current.children = [node];
   current = node;
   return node;
+}
+
+// Was the node the last addMove returned newly created, or was it already in the
+// tree? The builder needs to know: a move it just created is an UNCOMMITTED
+// addition to the book, and a move that was already there is navigation.
+export function hasMove(uci: string): boolean {
+  return current.children.some(c => c.uci === uci);
+}
+
+/**
+ * Drop a node and everything under it, leaving the cursor on its parent. Used by
+ * the builder's "remove this move" and by discarding uncommitted additions.
+ * Returns how many moves went, so the confirm can quote an honest number.
+ */
+export function removeNode(nodeId: string): number {
+  const parent = findParent(root, nodeId);
+  if (!parent) return 0;
+  const idx = parent.children.findIndex(c => c.id === nodeId);
+  if (idx === -1) return 0;
+  const [gone] = parent.children.splice(idx, 1);
+  // The cursor cannot be left standing inside a subtree that no longer exists.
+  if (containsNode(gone, current.id)) current = parent;
+  return countNodes(gone);
+}
+
+function findParent(node: MoveNode, id: string): MoveNode | null {
+  for (const child of node.children) {
+    if (child.id === id) return node;
+    const found = findParent(child, id);
+    if (found) return found;
+  }
+  return null;
+}
+
+function containsNode(node: MoveNode, id: string): boolean {
+  if (node.id === id) return true;
+  return node.children.some(c => containsNode(c, id));
+}
+
+function countNodes(node: MoveNode): number {
+  return 1 + node.children.reduce((n, c) => n + countNodes(c), 0);
+}
+
+/**
+ * The line the cursor is standing in: the path from the root to the cursor, then
+ * straight on down the first continuation to where that line ends. In the
+ * builder this is "the line I am looking at", which is what the move strip
+ * draws and what the Line panel describes.
+ */
+export function currentLineNodes(): MoveNode[] {
+  const out = pathTo(current.id);
+  let node = current.children[0];
+  while (node) {
+    out.push(node);
+    node = node.children[0];
+  }
+  return out;
 }
 
 export function goTo(nodeId: string): void {
@@ -191,6 +288,12 @@ export function loadTree(data: MoveNode): void {
   current = root;
   idCounter = scanMaxId(root);
   treeMode = 'single';
+}
+
+/** Load a tree and stand in it as a whole book, rather than as one line. */
+export function loadBookTree(data: MoveNode): void {
+  loadTree(data);
+  treeMode = 'repertoire';
 }
 
 function scanMaxId(node: MoveNode): number {

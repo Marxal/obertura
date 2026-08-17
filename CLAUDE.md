@@ -75,13 +75,27 @@ app, `docs/fonts/` for the static pages) because the privacy policy promises no
 third-party requests. Don't reintroduce the `<link>`.
 
 ## Data model (get right early)
-- Repertoire: "my White lines" or "my Black lines".
-- Line: belongs to a repertoire; has name, tags, openingName, colour,
-  confidence, lastTrained, inTraining (bool). A line is a TREE of moves.
-- MoveNode: { san, uci, fen, children[], note?, review:{ease,interval,reps,
-  lapses,due} }.
+Read `REPERTOIRE-REDESIGN.md` before touching any of this.
+
+- **Repertoire — the stored thing.** One book of one colour holding ONE move
+  tree: `{ id, name, colour, tree, createdAt, archived? }`. Two by default
+  ("My White lines", "My Black lines"); more can be added.
+- **Line — derived, never stored.** The path from the root to a *line end* (a
+  leaf, or a node marked `endpoint`). Its name, tags, training state and
+  priority are resolved from the nodes along the path; its confidence and due
+  dates are computed from their review records. `lines-view.ts` does the
+  projection, and `storage.getAllLines()` still hands out `Line[]` exactly as
+  before — which is why ~50 modules never had to change.
+- **MoveNode**: `{ san, uci, fen, children[], note?, review:{…} }` plus the
+  repertoire fields — `label?`, `tags?`, `training?`, `priority?`, `endpoint?`,
+  `timesTrained?`, `lastTrained?`, `createdAt?`. The first four **inherit**: set
+  on a node they apply to the whole subtree unless a deeper node overrides.
+  That is what makes "pause the whole French" one toggle.
 - Scheduler tracks MoveNodes; training always walks a full line.
   A "due line" = any line containing a due move.
+- **The same moves are never stored twice.** Saving a longer version of a line
+  extends its branch; a second answer at a position is a second child. Anything
+  that writes moves goes through `repertoire.mergePath`, never through a copy.
 
 ## Deploy / preview loop
 This repo is built by Claude Code on the web and previewed via GitHub Pages.
