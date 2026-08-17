@@ -13,7 +13,9 @@ path in `main.ts`; training's half — §8 and §9, wired through
 `src/train-index.ts`, `src/drill.ts` and `src/train-screen.ts`; and §10 as it
 applies to statistics, wired through `groupUserMoves` in `src/stats.ts` (feeding
 `moveMemory`, `needsWorkMoves` and `memoryByOpening`) and read unchanged by
-`src/line-info.ts` and `src/forgotten-section.ts`.
+`src/line-info.ts` and `src/forgotten-section.ts`. The tree view in My Lines —
+§11 — is the one consumer that does NOT read the index: it re-derives the same
+position key over the saved trees, for the reason given there.
 
 ---
 
@@ -261,6 +263,43 @@ exist:
   line passes through, its final one included — so "my line ends where another is
   still going" is reported. The mirror case (their end meets my middle) is found
   by asking from their side. The relation is symmetric; the report is not.
+
+## 11. The tree view merges by position — BUILT
+
+The fourth stop on My Lines' grouping toggle draws the filtered lines as one map
+with nodes keyed by **position** instead of by path, so two lines that transpose
+meet on one node and continue once. `src/map-merge.ts` builds it,
+`repertoire-map.ts` draws it, `lines-tree-view.ts` embeds it.
+
+It uses the same position key (via `openings.epdKey`) but **not** the index. The
+index answers "which line, which ply"; the map needs a graph of positions with
+parent/child edges, which is a different shape, and it has to be rebuildable at a
+truncated depth for the map's own controls. Re-walking the saved trees costs the
+same as one index build and keeps the map out of the index's staleness rules.
+
+**A position merge can loop, and a path merge cannot.** That is the one genuinely
+new failure mode. A position is reachable again by a repetition (1.Nf3 Nf6 2.Ng1
+Ng8 is the start position, exactly: same board, side to move, castling rights and
+en passant) and by two lines crossing over each other. A naive walker then
+recurses until the stack blows. Three guards, and all three should stay:
+
+- **One visited-key map per build.** A node is pushed into `parent.children` only
+  in the branch that CREATES it, so every node has exactly one child-edge parent
+  and depth strictly increases along child edges. Any later route into an
+  existing position becomes an `altOut` edge — drawn dashed, counted towards the
+  answers, never followed by a walk.
+- **A hard 80-ply cap** on top of whatever depth the caller asks for.
+- **A severing pass** (`pruneCycles`) that re-walks the finished tree with an
+  on-path set and demotes any child edge that would revisit a node. It should
+  never fire; it is there so a later edit to the merge cannot reach the layout.
+
+The merge recursion itself walks each saved line's own tree, never the map graph,
+so it is bounded by that line's length regardless.
+
+Two consequences worth knowing before reading a tree: a node's SAN is the move
+that reached it FIRST (the other routes arrive by different moves, which is why
+those live on the edge), and a node's column is its distance from the start along
+that first route — not the ply it sits at in every line passing through it.
 
 ## Building and invalidating
 

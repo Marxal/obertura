@@ -41,6 +41,7 @@ import { runExplorerBandSelfTest } from '../src/explorer-band.selftest';
 import { runPositionIndexSelfTest } from '../src/position-index.selftest';
 import { runSaveIndexSelfTest } from '../src/save-index.selftest';
 import { runTrainIndexSelfTest } from '../src/train-index.selftest';
+import { runMapMergeSelfTest } from '../src/map-merge.selftest';
 
 interface TestResult { name: string; pass: boolean; detail: string }
 
@@ -62,6 +63,7 @@ const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'position-index', run: runPositionIndexSelfTest },
   { suite: 'save-index', run: runSaveIndexSelfTest },
   { suite: 'train-index', run: runTrainIndexSelfTest },
+  { suite: 'map-merge', run: runMapMergeSelfTest },
   { suite: 'engine', run: runEngineSelfTest },
   { suite: 'puzzles', run: runPuzzlesSelfTest },
   { suite: 'puzzle-rating', run: runPuzzleRatingSelfTest },
