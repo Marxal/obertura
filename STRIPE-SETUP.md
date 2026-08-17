@@ -1,14 +1,22 @@
 # The buy flow — Stripe setup (no code)
 
 Someone pays, and their account gets full access without you touching the
-Supabase dashboard. **The code half is done and deployed, and so is the app half
-— the buttons are wired.** This page is what lives in dashboards instead.
+Supabase dashboard. **The code is written and merged, and the app half is wired
+— the buttons work.** What's left is what always has to happen by hand: the
+dashboards, the secrets, and — easy to miss, so it gets its own step —
+**actually deploying the Worker.**
 
-Nothing here is testable from the phone. The only real test is a purchase (Stripe
-test mode makes that free — see the end).
+Nothing here is testable from the phone until Step 4 is done. The only real
+test after that is a purchase (Stripe test mode makes that free — see the end).
 
-Work through it in order. Steps 1–5 all have to be done before the first real
-payment; step 6 is the tidy-up of the old processor.
+Work through it in order. Steps 1–6 all have to be done before the first real
+payment; step 7 is the tidy-up of the old processor.
+
+> **If you've done the dashboard steps and the app still shows the old €9
+> fallback price, or "Couldn't reach the checkout" — you're almost certainly
+> missing Step 4.** Pushing code to GitHub does not deploy a Cloudflare
+> Worker. Nothing in this repo does that automatically; it's a command you run
+> by hand, every time the Worker's code changes.
 
 ## What changed, and what it means for you
 
@@ -153,7 +161,7 @@ npx wrangler secret put SUPABASE_ANON_KEY
 | name | where it comes from | required? |
 | ---- | ------------------- | --------- |
 | `STRIPE_SECRET_KEY` | Stripe → Developers → API keys → **Secret key** (`sk_live_…`, or `sk_test_…` while testing) | **yes** |
-| `STRIPE_WEBHOOK_SECRET` | Stripe gives it to you in step 4 (`whsec_…`) | **yes** |
+| `STRIPE_WEBHOOK_SECRET` | Stripe gives it to you in step 5 (`whsec_…`) | **yes** |
 | `STRIPE_PRODUCT_ID` | step 2 (`prod_…`) | strongly recommended — see below |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API → **service_role**, the secret one | **yes** |
 | `SUPABASE_URL` | the same project URL already set as `VITE_SUPABASE_URL` | falls back to the `VITE_` one |
@@ -184,7 +192,46 @@ Until the required ones are set the webhook answers `500 not configured`, which
 Stripe retries for up to three days — so deliveries that arrive before you finish
 here are not lost.
 
-## Step 4 — the webhook in Stripe
+## Step 4 — deploy the Worker
+
+**This is the step it's easiest to skip, because nothing prompts for it.**
+Merging this branch, or pulling it to your machine, does not put the new code
+anywhere Stripe or the app can reach. A Cloudflare Worker is deployed by
+running a command — there is no git integration doing it in the background for
+this project (check `wrangler.jsonc` if you want to see why: it deploys via
+`npx wrangler deploy`, not a connected build).
+
+From a checkout of the branch with this Stripe code (main, once merged):
+
+```
+DEPLOY_TARGET=cloudflare npm run build
+npx wrangler deploy
+```
+
+The first command builds the site into `dist/` with the trainer under `/app/`
+and the landing page at the root — the shape `wrangler.jsonc`'s `assets`
+binding expects. The second uploads `dist/` **and** the Worker code
+(`worker/*.ts`) together; `wrangler deploy` doesn't build anything itself, it
+just ships whatever's already in `dist/`, so the order matters.
+
+**Do this again every time `worker/*.ts` or anything under `src/` changes.**
+There's no CI step in this repo that does it for you.
+
+### Checking it actually took
+
+Open `https://bitochess.com/api/stripe/prices` directly in a browser (or
+`curl` it). You should get back JSON — `{"prices":[...]}` with your real
+prices, or `{"prices":[]}` if a secret is still missing. What you should
+**not** see is a 404, or nothing at all: either of those means the deploy
+above didn't happen or didn't include this code.
+
+Then run `npx wrangler tail` and reload the paywall or tap "Unlock full
+access". If nothing shows up in the tail output at all, the Worker being hit
+isn't running this code — deploy again. If you see a line like
+`stripe prices: STRIPE_SECRET_KEY is not set`, the deploy worked and Step 3
+needs another look.
+
+## Step 5 — the webhook in Stripe
 
 Stripe dashboard → Developers → **Webhooks** → **+ Add endpoint**
 
@@ -207,7 +254,7 @@ secrets.** Whichever mode's key is in `STRIPE_SECRET_KEY` is the mode you are
 testing, and the `whsec_…` has to match it. Getting this pair crossed is the
 single most common cause of `401 bad signature`.
 
-## Step 5 — where the buyer lands afterwards
+## Step 6 — where the buyer lands afterwards
 
 **Nothing to configure.** Unlike Lemon Squeezy, the return URLs are set per
 session by `worker/stripe-checkout.ts`, built from the origin the request came
@@ -220,7 +267,7 @@ from:
 polling for the unlock instead of waiting for the next sign-in. Deriving it from
 the request means a test purchase can never land on production and vice versa.
 
-## Step 6 — decommissioning Lemon Squeezy
+## Step 7 — decommissioning Lemon Squeezy
 
 Do this **after** a real Stripe purchase has worked end to end, not before. The
 old webhook path (`/api/lemonsqueezy/webhook`) no longer exists in the Worker, so
