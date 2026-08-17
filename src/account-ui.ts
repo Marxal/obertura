@@ -24,7 +24,7 @@ import { showToast } from './toast';
 import { showDialog } from './dialog';
 import { Icons } from './icons';
 import { group } from './settings-screen';
-import { SYNC_CHANGE_EVENT, getSyncState, getLastSync } from './repertoire-sync';
+import { SYNC_CHANGE_EVENT, getSyncState, getLastSync, getSyncError } from './repertoire-sync';
 
 // Which of the two forms is showing. Kept per-instance, not persisted — every
 // visit starts on Sign in, which is what a returning user wants.
@@ -161,7 +161,11 @@ function syncRow(): HTMLElement {
 function syncCaption(): string {
   switch (getSyncState()) {
     case 'failed':
-      return 'Sync failed — will retry.';
+      // Most failures are the network's fault and cure themselves, so the
+      // generic caption promises a retry. A failure the user could act on (the
+      // payload ceiling) explains itself instead — promising a retry there would
+      // be a lie, since the same data would be refused again.
+      return getSyncError() ?? 'Sync failed — will retry.';
     case 'pending':
       return 'Pending — your latest changes go up in a moment.';
     case 'synced':

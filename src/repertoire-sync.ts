@@ -10,6 +10,22 @@
 // the same parseBackup/restoreBackup path validates and applies it, and the
 // same merge-vs-replace chooser asks what to do. One format, two transports.
 //
+// ── BUT THE SYNCED COPY IS ON A DIET, AND THE BACKUP FILE ISN'T ─────────────
+// Same format, deliberately not the same contents. What goes up is
+// gamesForSync()'s output (sync-core.ts, where the WHY of each exclusion is
+// spelled out): the most recent 500 games, with each game's saved analysis tree
+// and mistake-scan spots stripped off. Those two are engine output, derived from
+// moves that ARE synced, and they were ~80% of every games upload.
+//
+// The manual backup file keeps all of it, and that difference is intentional
+// rather than an oversight. A backup is a user-controlled export of ONE device,
+// downloaded on purpose, stored wherever the user likes, and paid for by nobody
+// else; the account row is a shared, quota-bearing resource this app writes to
+// automatically on the user's behalf. So the file's rule is "lose nothing" and
+// the row's is "carry only what another device can't recompute". storage.ts's
+// exportBackup is therefore left exactly as it was — anything dropped here is
+// still one "Export backup" tap away.
+//
 // ── THE COLUMN NAMES LIE A LITTLE, AND IT MATTERS ───────────────────────────
 // `profiles.repertoire` is NOT just the repertoire. The name is a leftover from
 // when the schema was first drafted and lines were the only thing that synced;
@@ -21,7 +37,7 @@
 //
 // The games live next door in `profiles.games`, and the split is measured, not
 // aesthetic. A game carrying a saved analysis tree costs ~18 KB against ~1.3 KB
-// bare, so a heavy library (1000 games, some analysed) puts the full blob at
+// bare, so a heavy library (1000 games, some analysed) put the full blob at
 // 4–20 MB while the lines-plus-snapshot half stays at 0.2–1.3 MB. Pushing all of
 // it every time a line changed meant re-uploading megabytes of games that hadn't
 // changed — on mobile data, and rewriting the whole TOASTed value in Postgres
@@ -29,6 +45,12 @@
 // storage.ts) means an edit sends the small half and games go up only when games
 // actually change, which is rare and deliberate: an import, a saved analysis, a
 // scan run.
+//
+// With the diet on top, that same 1000-game library now pushes ~0.7 MB of games
+// instead of ~7 MB. Note what this does to the second half of that sentence: a
+// saved analysis or a scan run still fires onGamesChanged, but no longer changes
+// anything that syncs — the fingerprint comes out identical and the push is
+// skipped without a request. Analysing a game is now free, sync-wise.
 //
 // Scouted opponents stay out entirely, exactly as backup.ts has it — pure
 // re-fetchable cache, and by far the bulkiest thing on the device.
@@ -81,6 +103,10 @@ import {
   combineRemote,
   coreFingerprintOf,
   gamesFingerprintOf,
+  gamesForSync,
+  payloadBytes,
+  SYNC_PART_LIMIT_BYTES,
+  SYNC_TOO_LARGE_MESSAGE,
   type SyncState,
 } from './sync-core';
 
@@ -108,6 +134,10 @@ const ACCOUNT_KEY = 'obertura.sync.account';
 const LAST_KEY = 'obertura.sync.last';
 const PENDING_KEY = 'obertura.sync.pending';
 const FAILED_KEY = 'obertura.sync.failed';
+// Why the last push failed, when the reason is one the user can act on (today:
+// only the size ceiling). Absent for the ordinary offline/server failures, which
+// retry on their own and need no explaining. Read by the Account caption.
+const ERROR_KEY = 'obertura.sync.error';
 // Fingerprints of the two parts as last successfully pushed, so an unchanged
 // part costs nothing (see pushDirtyParts).
 const CORE_FP_KEY = 'obertura.sync.coreFingerprint';
@@ -164,13 +194,20 @@ function notifyChange(): void {
   window.dispatchEvent(new Event(SYNC_CHANGE_EVENT));
 }
 
+// The explanation behind a 'failed' state, or null when there isn't a useful
+// one. The Account section shows it in place of the generic caption.
+export function getSyncError(): string | null {
+  return readLocal(ERROR_KEY);
+}
+
 function markPending(): void {
   writeLocal(PENDING_KEY, '1');
   notifyChange();
 }
 
-function markFailed(): void {
+function markFailed(message: string | null): void {
   writeLocal(FAILED_KEY, '1');
+  writeLocal(ERROR_KEY, message);
   notifyChange();
 }
 
@@ -178,6 +215,7 @@ function markSynced(): void {
   writeLocal(LAST_KEY, new Date().toISOString());
   writeLocal(PENDING_KEY, null);
   writeLocal(FAILED_KEY, null);
+  writeLocal(ERROR_KEY, null);
   notifyChange();
 }
 
@@ -194,6 +232,7 @@ function forgetAccount(): void {
   writeLocal(ACCOUNT_KEY, null);
   writeLocal(PENDING_KEY, null);
   writeLocal(FAILED_KEY, null);
+  writeLocal(ERROR_KEY, null);
   writeLocal(LAST_KEY, null);
   writeLocal(CORE_FP_KEY, null);
   writeLocal(GAMES_FP_KEY, null);
@@ -249,6 +288,12 @@ function canPush(): boolean {
   return isSupabaseConfigured && isAccountClaimed();
 }
 
+// A push refused by the size ceiling rather than by the network. Distinct from
+// every other failure here because it will NOT fix itself by retrying, so the
+// caller swaps the generic "will retry" caption for something the user can act
+// on.
+class PayloadTooLargeError extends Error {}
+
 // Upload whichever parts are dirty, in ONE upsert — two columns of the same row,
 // so a burst that touched lines and games costs one request, not two. Throws on
 // failure; the caller decides whether that's a silent "pending" or visible.
@@ -268,24 +313,40 @@ async function pushDirtyParts(): Promise<void> {
   const now = new Date().toISOString();
   let nextCoreFp: string | null = null;
   let nextGamesFp: string | null = null;
+  // Parts the ceiling refused. Whatever fits still goes up in the same request —
+  // an unsyncably huge games library must never stop the lines syncing — but the
+  // push as a whole is then reported as failed, because part of it didn't happen.
+  let refusedCore = false;
+  let refusedGames = false;
 
   try {
     if (wantCore) {
       const core = await exportCore();
       const fp = coreFingerprintOf(core);
       if (fp !== readLocal(CORE_FP_KEY)) {
-        row[CORE_COLUMN] = core;
-        row[CORE_STAMP_COLUMN] = now;
-        nextCoreFp = fp;
+        if (payloadBytes(core) > SYNC_PART_LIMIT_BYTES) {
+          refusedCore = true;
+        } else {
+          row[CORE_COLUMN] = core;
+          row[CORE_STAMP_COLUMN] = now;
+          nextCoreFp = fp;
+        }
       }
     }
     if (wantGames) {
-      const games = await getAllGames();
+      // Slimmed and capped BEFORE anything else looks at it, so the size check,
+      // the fingerprint and the upload can't possibly disagree about what "the
+      // games" are.
+      const games = gamesForSync(await getAllGames());
       const fp = gamesFingerprintOf(games);
       if (fp !== readLocal(GAMES_FP_KEY)) {
-        row[GAMES_COLUMN] = games;
-        row[GAMES_STAMP_COLUMN] = now;
-        nextGamesFp = fp;
+        if (payloadBytes(games) > SYNC_PART_LIMIT_BYTES) {
+          refusedGames = true;
+        } else {
+          row[GAMES_COLUMN] = games;
+          row[GAMES_STAMP_COLUMN] = now;
+          nextGamesFp = fp;
+        }
       }
     }
 
@@ -308,6 +369,17 @@ async function pushDirtyParts(): Promise<void> {
 
   if (nextCoreFp) writeLocal(CORE_FP_KEY, nextCoreFp);
   if (nextGamesFp) writeLocal(GAMES_FP_KEY, nextGamesFp);
+
+  // A refused part stays dirty and stays unfingerprinted, so the state keeps
+  // telling the truth: it is still owed, and a later push retries it — which is
+  // what makes deleting some games (or the cap moving) fix it by itself. It
+  // can't spin, because runPush only chains after a clean success.
+  if (refusedCore || refusedGames) {
+    coreDirty = coreDirty || refusedCore;
+    gamesDirty = gamesDirty || refusedGames;
+    throw new PayloadTooLargeError(SYNC_TOO_LARGE_MESSAGE);
+  }
+
   markSynced();
 }
 
@@ -318,11 +390,14 @@ async function runPush(): Promise<void> {
   try {
     await pushDirtyParts();
     ok = true;
-  } catch {
+  } catch (err) {
     // Offline, RLS misconfigured, migration not run, Supabase down — none of it
     // is the user's problem mid-edit. The flags carry the retry; Settings shows
-    // the state.
-    markFailed();
+    // the state. The one exception is the size ceiling: retrying can't cure it,
+    // so it carries its own caption instead of "will retry" (never mind that the
+    // data is perfectly safe locally — the user has to be told it isn't
+    // leaving).
+    markFailed(err instanceof PayloadTooLargeError ? err.message : null);
   } finally {
     pushBusy = false;
   }
@@ -377,7 +452,7 @@ async function reconcile(userId: string): Promise<void> {
   } catch {
     // Unreachable, or a copy we can't read. Claim nothing, push nothing,
     // destroy nothing: the next auth event or app launch tries again.
-    markFailed();
+    markFailed(null);
     return;
   }
 

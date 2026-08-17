@@ -6,10 +6,11 @@
 // The self-test (repertoire-sync.selftest.ts) imports this file and runs under
 // plain Node.
 //
-// Three jobs, all of them things that fail silently rather than loudly:
+// Four jobs, all of them things that fail silently rather than loudly:
 // deciding what the Account section should say, reassembling the two synced
-// columns back into one backup, and answering "is this byte-for-byte what I last
-// pushed?" so unchanged data isn't re-uploaded.
+// columns back into one backup, trimming the games down to what's worth
+// uploading, and answering "is this byte-for-byte what I last pushed?" so
+// unchanged data isn't re-uploaded.
 
 import type { BackupFile } from './storage';
 
@@ -89,6 +90,105 @@ export function combineRemote(core: unknown, games: unknown): string | null {
   return JSON.stringify(base);
 }
 
+// ── The synced games' diet ───────────────────────────────────────────────────
+//
+// The account row is not a backup of the device; it's the copy another phone
+// restores from. Two things are therefore deliberately left out of it, and both
+// exclusions are about ONE heavy user not being able to fill the database or
+// burn the egress quota on data nobody needs across devices.
+//
+// Measured on a synthetic 1000-game library (the numbers behind SUPABASE-SYNC.md,
+// re-checked when this diet was written): a bare game is ~1.3 KB, its saved
+// analysis tree ~18 KB, its mistake scan ~1 KB. That library pushes ~7 MB, of
+// which the analyses are 72% and the mistake scans 8.5% — 80% of every games
+// upload is data the engine can regenerate from the moves it's stapled to.
+//
+// 1. SAVED ANALYSES (`analysis`) and MISTAKE SCANS (`retry`) are DERIVED. The
+//    game's moves are the input; a saved analysis tree and a scan's spots are
+//    what an engine produced from them, and re-running either on the new device
+//    reproduces them. Syncing them means paying for megabytes of engine output
+//    on every import, so they stay local — kept on the device that made them,
+//    and still written to the manual backup file, which is a user-controlled
+//    export of THIS device and follows different rules (storage.ts).
+//    The one real cost: a mistake spot carries a little training state
+//    (`fixed`/`attempts`/`lastTrained`) that a re-scan on another device starts
+//    fresh. Accepted knowingly — it's a per-spot counter, not a repertoire, and
+//    it isn't worth 8.5% of every upload. The endgame scan is NOT dropped: at
+//    ~150 bytes a game it's 1.2% of the payload, and dropping it would cost a
+//    tablebase/engine sweep to regain for no measurable saving.
+// 2. OLD GAMES. Only the most recent SYNC_GAME_LIMIT by date go up. A new phone
+//    wants your recent play, not a decade of it; older games stay on the device
+//    that imported them and in its backup file. Sorted newest-first with an id
+//    tiebreak so the cap is deterministic — an unstable order would change the
+//    fingerprint on every push and re-upload an unchanged library forever.
+//
+// Together these take that 1000-game library from ~7 MB to ~0.7 MB.
+
+// A game as this module needs to see it: a date to sort by and an id to break
+// ties on. Deliberately the bare minimum rather than ImportedGame — nothing here
+// needs to know what else a game carries, and asking for less lets the self-test
+// hand it plain little objects. Callers keep their own richer type; the helpers
+// below are generic in it so an ImportedGame[] goes in without a cast.
+export interface SyncGame {
+  id?: string;
+  endTime?: number;
+}
+
+// How many games the account row keeps. 500 recent games is ~0.7 MB slimmed —
+// comfortably inside any gateway limit, and more history than a restore needs.
+export const SYNC_GAME_LIMIT = 500;
+
+// Engine output, recomputable from the game itself. Dropped from the upload.
+const DERIVED_GAME_FIELDS = ['analysis', 'retry'];
+
+function slimGame(game: SyncGame): SyncGame {
+  if (!DERIVED_GAME_FIELDS.some((field) => field in game)) return game;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(game)) {
+    if (DERIVED_GAME_FIELDS.includes(key)) continue;
+    out[key] = value;
+  }
+  return out as SyncGame;
+}
+
+// Exactly what goes into the games column: newest first, capped, slimmed.
+// Idempotent by construction — running it on an already-slimmed array returns
+// the same array content — which is what lets the fingerprint below be taken
+// over either a local library or a copy just downloaded from the account.
+export function gamesForSync<T extends SyncGame>(games: readonly T[]): SyncGame[] {
+  return [...games]
+    .sort(
+      (a, b) =>
+        (b.endTime ?? 0) - (a.endTime ?? 0) || String(a.id ?? '').localeCompare(String(b.id ?? '')),
+    )
+    .slice(0, SYNC_GAME_LIMIT)
+    .map(slimGame);
+}
+
+// ── The hard ceiling ─────────────────────────────────────────────────────────
+//
+// The diet above is what a payload SHOULD be; this is the wall it may never go
+// through whatever happens. Nothing on the device is bounded — a repertoire can
+// hold any number of lines, each with notes — so without a ceiling one
+// pathological user can push a row of unbounded size, over and over, at the
+// database's and the egress quota's expense. 4 MB per column is roughly six
+// times the biggest payload the diet can produce and well under the gateway
+// limit scripts/probe-sync-limit.mjs exists to find, so it is a backstop, not a
+// budget: reaching it means something is wrong, and the user is told so rather
+// than watching a push fail forever in silence.
+export const SYNC_PART_LIMIT_BYTES = 4 * 1024 * 1024;
+
+// What the caption says when a part is refused. Local-first is the point: the
+// data is not lost, it simply isn't leaving this phone.
+export const SYNC_TOO_LARGE_MESSAGE =
+  'Too large to sync — everything still works on this phone, and “Export backup” saves it all.';
+
+// Serialised size in BYTES, not characters: a note full of accented text costs
+// more on the wire than its length suggests, and the wall is a byte limit.
+export function payloadBytes(value: unknown): number {
+  return new TextEncoder().encode(JSON.stringify(value) ?? '').length;
+}
+
 // A cheap content fingerprint, used only to answer "is this byte-for-byte what I
 // last pushed?". Two independent hashes plus the length, so a false match — the
 // one outcome that would matter, since it would skip a real push — needs a
@@ -117,7 +217,17 @@ export function coreFingerprintOf(backup: BackupFile): string {
   return fingerprint(JSON.stringify({ lines: backup.lines, local: backup.local ?? null }));
 }
 
-// The games half, fingerprinted over the array alone.
-export function gamesFingerprintOf(games: unknown[]): string {
-  return fingerprint(JSON.stringify(games));
+// The games half, fingerprinted over WHAT WOULD BE PUSHED rather than over
+// what's on the device — the slimmed, capped array, not the raw one. That
+// distinction is the whole reason the skip still works after the diet: saving an
+// analysis or running a mistake scan rewrites games in IndexedDB and fires the
+// games notifier, but changes nothing that syncs, so the fingerprint must come
+// out identical and cost no request at all. Fingerprinting the raw array would
+// re-upload the same 500 games after every scan.
+//
+// The same call answers "what does the account already hold?" for a copy just
+// downloaded (rememberRemoteFingerprints): that copy is already slim and capped,
+// and gamesForSync is idempotent, so both sides agree.
+export function gamesFingerprintOf<T extends SyncGame>(games: readonly T[]): string {
+  return fingerprint(JSON.stringify(gamesForSync(games)));
 }
