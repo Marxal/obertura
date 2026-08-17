@@ -101,14 +101,18 @@ The yearly fee alone means it should earn its keep.
 
 ## Option 4 — Sell from the web, no stores
 
-Payment links like **Gumroad** or **Lemon Squeezy** handle one-time payments
-and license keys with no server of yours (they take ~5–10% + fees). The buyer
-would get a license key the app checks against the provider's API. No store
-review, no 15% cut, no $25/$99 — but you'd be building license-gating code,
-installs stay manual ("open this URL, tap Add to Home Screen"), and
-discoverability is whatever marketing you do. This is the fallback if the
-Play route ever feels like too much process, or a complement later (sell
-desktop access directly).
+**This is what shipped, and it is no longer hypothetical** — see STRIPE-SETUP.md.
+Bito Chess sells the unlock directly through Stripe Checkout: no store review, no
+15% cut, no $25/$99. There is no license key to gate — access is a flag on the
+account (`profiles.entitled`), written by a signed webhook, which is both simpler
+and impossible to copy between devices.
+
+What it costs instead is the merchant-of-record job that a reseller like Gumroad
+or Lemon Squeezy absorbs: you are the seller, so EU VAT and receipts are yours.
+Stripe's own cut (~1.5% + fixed for European cards) is well under a reseller's
+~5–10%, and the difference is roughly the price of an accountant's opinion.
+Installs stay manual ("open this URL, tap Add to Home Screen") and discoverability
+is whatever marketing you do — the two real costs of not being in a store.
 
 ## Recommended sequence
 

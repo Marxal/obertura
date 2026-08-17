@@ -25,6 +25,7 @@ import {
   ENTITLEMENT_CHANGE_EVENT,
 } from './entitlement';
 import { handlePurchaseReturn } from './checkout';
+import { primePricing } from './pricing';
 import { renderTrainScreen, startLineSession, startPositionsSession, startMoveFix } from './train-screen';
 import { renderExploreScreen } from './explore-screen';
 import { renderPuzzlesScreen, startDailyPuzzles } from './puzzles-screen';
@@ -4613,6 +4614,14 @@ setupNav();
 initAccountSync();
 initEntitlement();
 if (isSupabaseConfigured) void initAuth();
+
+// Fetch what the unlock costs, once, in the background. Nothing waits on it: the
+// paywall paints from the cached or built-in number and corrects itself if this
+// lands later (pricing.ts). Doing it at boot rather than on the first paywall
+// open means the Stripe price id is almost always in hand before anyone taps buy,
+// which is the difference between a checkout that opens instantly and one that
+// makes a round trip first. Its own no-op on a build without Supabase.
+primePricing();
 
 // If we've just returned from "Connect to Lichess", complete the OAuth token
 // exchange and clean the URL. On a fresh connect we toast and, once the app has

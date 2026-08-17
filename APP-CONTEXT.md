@@ -29,7 +29,7 @@
 8. [Accounts: Supabase auth](#8-accounts-supabase-auth)
 9. [Account sync: the cross-device copy](#9-account-sync-the-cross-device-copy)
 10. [The pro plan: entitlement and the free tier](#10-the-pro-plan-entitlement-and-the-free-tier)
-11. [The buy flow: Lemon Squeezy](#11-the-buy-flow-lemon-squeezy)
+11. [The buy flow: Stripe](#11-the-buy-flow-stripe)
 12. [App shell, navigation and back handling](#12-app-shell-navigation-and-back-handling)
 13. [Data model](#13-data-model)
 14. [Storage layer](#14-storage-layer)
@@ -173,6 +173,7 @@ every round since has used it as its restore point.
 | **v0.22** | **The builder tab round** — Explore/Library/My lines/Line info/Engine, one move strip, line priority | ✅ |
 | **v0.23** | **The landing page round** — rebuilt on the app's tokens, playable hero board, buy button | ✅ |
 | **v0.24** | **The buy flow actually sells** — Lemon Squeezy checkout, four unlock signals, €9 everywhere | ✅ |
+| **v0.5** | **Stripe migration** — direct Stripe Checkout, EUR + SEK from Stripe, you as merchant of record | ✅ |
 | v1.4 / Later | Parked: 4th theme, map transpositions, true per-line sync, deeper engine adaptation, offline SW | 💤 |
 
 Rounds v0.17 onward each carry a branch name and `Restore point: v0.4` in the roadmap.
@@ -193,7 +194,7 @@ Rounds v0.17 onward each carry a branch name and `Restore point: v0.4` in the ro
 | Engine | **stockfish 18 lite (single-threaded WASM)**, in a Web Worker |
 | OAuth (Lichess) | `@bity/oauth2-auth-code-pkce` |
 | Accounts / sync | **`@supabase/supabase-js` 2.x** (auth + one Postgres table) |
-| Payments | **Lemon Squeezy** hosted checkout + lemon.js overlay |
+| Payments | **Stripe Checkout** (hosted, redirect), direct merchant · EUR + SEK |
 | Server | **One Cloudflare Worker** (`worker/`), for the purchase webhook only |
 | Local storage | **IndexedDB** (repertoire, games, opponents) + **localStorage** (prefs, stats, streaks, logs) |
 | Hosting | **Cloudflare Workers + static assets** (public) and **GitHub Pages** (internal) |
@@ -297,7 +298,10 @@ in the Cloudflare project. No other configuration differs between the two.
 ├── .claude/skills/verify/SKILL.md  repo skill: build + drive the app headlessly
 ├── worker/
 │   ├── index.ts                  the Worker entry: routes /api/*, else static assets
-│   └── lemonsqueezy-webhook.ts   signature check → Supabase `entitled = true`
+│   ├── stripe-env.ts             shared secrets, clients, JWT verify, responses
+│   ├── stripe-prices.ts          GET  active one-time prices, per currency
+│   ├── stripe-checkout.ts        POST verified JWT + price → a Checkout session
+│   └── stripe-webhook.ts         signature check → Supabase `entitled = true`
 ├── docs/                  the public landing page
 │   ├── index.html              ~98 KB hand-written standalone page
 │   ├── LANDING-COPY.md         the copy's source of truth (mirror by hand)
@@ -335,9 +339,10 @@ in the Cloudflare project. No other configuration differs between the two.
 | `account-ui.ts` | 383 | The Settings "Account" group and the shared auth form (`buildAuthForm`), plus the live sync caption. |
 | `repertoire-sync.ts` | 490 | The debounced two-column push, the sign-in reconcile, the pending/failed flags, `SYNC_CHANGE_EVENT`. |
 | `sync-core.ts` | 124 | The pure half: state precedence, two-column reassembly, content fingerprints. Self-tested under Node. |
-| `entitlement.ts` | 295 | The free tier: `FREE_TRAINING_LINES`, the coaching caps, `isEntitled()`, `requestTrainingSlot()`, the upsell dialogs, `PRO_PRICE`. |
+| `entitlement.ts` | 295 | The free tier: `FREE_TRAINING_LINES`, the coaching caps, `isEntitled()`, `requestTrainingSlot()`, the upsell dialogs. |
 | `entitlement-cache.ts` | 70 | The offline mirror of the server's last answer, keyed by user id. Never a grant. |
-| `checkout.ts` | 329 | The buy flow: lemon.js overlay, redirect fallback, the four unlock signals, the poll, `checkForPurchase()`. |
+| `checkout.ts` | 300 | The buy flow: POST for a session, the redirect, the four unlock signals, the poll, `checkForPurchase()`. |
+| `pricing.ts` | 300 | Dynamic prices from Stripe: locale → currency, the three fallback layers, `formatPrice()`, `sellablePrice()`. |
 | `import-tier.ts` | 71 | The pure guest-import rules (`FREE_GUEST_IMPORT = 100`, which chips are padlocked). |
 
 #### Data & storage
@@ -536,7 +541,9 @@ Pages project.
 
 ```
 request
-  ├─ /api/lemonsqueezy/webhook → handleLemonSqueezyWebhook()
+  ├─ GET  /api/stripe/prices   → handleStripePrices()
+  ├─ POST /api/stripe/checkout → handleStripeCheckout()
+  ├─ POST /api/stripe/webhook  → handleStripeWebhook()
   ├─ /api or /api/*            → plain 404 text
   └─ anything else             → env.ASSETS.fetch(request)   (static dist/)
 ```
@@ -547,11 +554,10 @@ every script and image — is served straight from static assets exactly as it w
 before any server code existed; the Worker only sees those on an asset miss.
 
 The `/api/*` 404 is deliberate: without it, a typo'd webhook URL would fall through to
-the landing page's HTML **with a 200**, which Lemon Squeezy would read as a successful
-delivery.
+the landing page's HTML **with a 200**, which Stripe would read as a successful delivery.
 
-`Env` extends `WebhookEnv`, so the three secrets are declared in exactly one place —
-next to the code that reads them. The `ASSETS` binding is typed by hand (four lines)
+`Env` extends `StripeEnv`, so the secrets are declared in exactly one place — next to
+the code that reads them (`worker/stripe-env.ts`). The `ASSETS` binding is typed by hand (four lines)
 rather than pulling in `@cloudflare/workers-types`.
 
 ---
@@ -933,75 +939,126 @@ so this is not a render loop.
 
 ---
 
-## 11. The buy flow: Lemon Squeezy
+## 11. The buy flow: Stripe
 
-Owner-facing setup guide: `LEMONSQUEEZY-SETUP.md`. Code: `src/checkout.ts` (app half)
-and `worker/lemonsqueezy-webhook.ts` (server half).
+Owner-facing setup guide: `STRIPE-SETUP.md`. Code: `src/checkout.ts` + `src/pricing.ts`
+(app half) and `worker/stripe-*.ts` (server half). This replaced Lemon Squeezy in the
+Stripe migration; the product did **not** change — it is still a one-time unlock, not a
+subscription.
+
+**What changed off-code, and it matters:** Lemon Squeezy was the *merchant of record*,
+so they were legally the seller and handled VAT for every buyer's country. Direct Stripe
+makes **you** the seller. EU VAT (the OSS scheme) is now yours. Stripe Tax would automate
+it at 0.5% a transaction and is deliberately **off**; prices are VAT-inclusive.
+`docs/terms.html` and `docs/privacy.html` say all of this.
 
 ### The shape of it
 
 ```
-phone: "Unlock full access"            landing page: "Buy full access"
+phone: "Unlock full access"            landing page: "Unlock full access"
       │                                       │
       │ no account? sign-up sheet,            │ no account? → /app/?auth=signup&buy=1
       │ then straight on                      │ (the app finishes the job)
       ▼                                       ▼
-  Lemon Squeezy checkout  ──(carries the Supabase user id as custom data)
-      │                     in the app it opens as an OVERLAY (lemon.js),
-      │                     so an installed PWA never navigates away
+  POST /api/stripe/checkout  ──(carries the Supabase ACCESS TOKEN, not a user id)
+      │                        the Worker VERIFIES it and takes id + email from it
+      ▼
+  Stripe Checkout on checkout.stripe.com    card · Apple Pay · Google Pay
       │  payment succeeds
-      ▼
-  Lemon Squeezy sends a signed webhook
-      ▼
-  bitochess.com/api/lemonsqueezy/webhook   ← worker/index.ts
-      │  verifies the HMAC, reads the user id
-      ▼
+      ├──────────────────────────────► browser returns to /app/?purchased=1
+      ▼                                      │  the app starts polling
+  Stripe sends a signed webhook               │
+      ▼                                      │
+  bitochess.com/api/stripe/webhook  ← worker/index.ts
+      │  verifies the signature, reads metadata.user_id
+      ▼                                      │
   Supabase: profiles.entitled = true, entitled_at = now
-      ▼
+      ▼                                      ▼
   the app polls profiles.entitled for ~20s after a checkout → cap lifted
 ```
 
+### Three endpoints (`worker/index.ts` routes them by hand)
+
+| endpoint | what it does |
+|---|---|
+| `GET /api/stripe/prices` | active one-time prices, per currency. Soft-fails to `{"prices":[]}`. |
+| `POST /api/stripe/checkout` | verifies the JWT, validates the price, returns a session `url`. |
+| `POST /api/stripe/webhook` | verifies the signature, writes `entitled`. **Fails loudly.** |
+
+**Not Supabase Edge Functions**, though the migration spec asked for them: this repo has
+no `supabase/` directory, no CLI and no migration history, and the server already lived
+in a Worker. Three endpoints don't justify a second deploy target and a second secret
+store. Same reasoning as the "why no `functions/` folder" note in `worker/index.ts`.
+
+**No CORS headers anywhere**, deliberately: every caller is a page this same Worker
+serves, so all three calls are same-origin. Adding permissive CORS would only make the
+checkout endpoint reachable from places with no business calling it.
+
+**The Stripe SDK on Workers.** `stripe` ships a separate build selected by the `workerd`
+export condition, initialised with `WebPlatformFunctions` — fetch instead of `node:http`,
+WebCrypto instead of `node:crypto`. Nothing to configure, but one thing to remember:
+webhook signatures **must** use `constructEventAsync()`, because WebCrypto is async. The
+synchronous `constructEvent()` throws an error saying exactly that. `apiVersion` is
+deliberately left unset so the SDK's pinned version and its TypeScript types can never
+drift apart.
+
+### Dynamic pricing (`src/pricing.ts`)
+
+**EUR and SEK**, two Price objects with amounts set by hand in Stripe (€9, and a round
+99 kr — not a converted amount; a Swede should see a number that looks deliberate in
+Swedish). Currency is picked from `navigator.languages`: `sv`, `sv-*` or any `-SE` region
+gets kronor, everyone else euros. Not from an IP address — that would be a third-party
+request the privacy policy rules out, and wrong for anyone travelling.
+
+**The paywall is built synchronously, so it cannot wait for a fetch.** Three layers:
+the quote fetched this session → the last quote in localStorage (`obertura.pricing`) →
+`FALLBACK_AMOUNTS`. Layers 1 and 2 carry the Stripe **price id**, which is what the buy
+button needs; layer 3 does not, which is exactly what makes a fallback unsellable. So
+`openProSheet()` paints immediately with whatever is in hand and takes an
+`onPriceChange` subscription to swap in the real number if the fetch lands a moment
+later. `primePricing()` runs at boot so the id is usually there before anyone taps.
+
+`obertura.pricing` is excluded from backups (`backupLocalKey()` in `storage.ts`),
+alongside the entitlement cache: a synced Swedish price on a Spanish phone would be
+wrong for no gain.
+
 ### App half (`src/checkout.ts`)
 
-**Why an overlay, not a redirect.** Bito Chess is an installed PWA. Sending it off to
-another origin hands the user to a Custom Tab, and the journey back very often lands
-in a *second* copy of the app in a browser tab, next to the installed one still
-showing the old capped state. lemon.js opens the checkout inside the app instead, so
-there is no journey back to get wrong.
-
-The overlay is an **enhancement, never a requirement**: the script is fetched only on
-an actual tap (nobody who never buys pays for it), with a 6 s timeout, and if it
-doesn't arrive — offline, a content blocker, a bad day at their CDN — the very same
-URL opens as a plain redirect. Someone trying to give you money is never told to come
-back later. A failed load isn't cached, so the next tap tries again.
+**Why a redirect now, and why that's fine.** The Lemon Squeezy overlay existed because
+sending an installed PWA to another origin is awkward — the journey back often lands in
+a *second* copy of the app in a browser tab, next to the installed one still showing the
+old capped state. Stripe's hosted Checkout is a redirect, so the return journey is
+*handled* rather than avoided — and the machinery for that already existed and is
+unchanged. Two things are genuinely better: **no third-party script** in the app at all
+(lemon.js was one), and **wallets work** with no domain verification. Stripe's embedded
+Checkout would restore the overlay feel at the cost of `js.stripe.com` inside the app,
+Apple Pay domain verification, and an iframe to keep alive across the PWA lifecycle —
+not worth it for a €9 sale whose return path is already built.
 
 **An account is required, and it's the one place in the app where that's true.** The
 webhook matches a payment to a Supabase user id and has no way to reach a guest. So
-`openCheckout()` opens the sign-up sheet with a `lead` explaining *why* ("your unlock
-is tied to your account, so it follows you to any phone you sign in on") and an
+`openCheckout()` opens the sign-up sheet with a `lead` explaining *why* ("your unlock is
+tied to your account, so it follows you to any phone you sign in on") and an
 `onSignedIn` that continues straight to the checkout — the user asked to buy, not to
 fill in a form.
 
-The URL is built as:
-
-```
-https://bitochess.lemonsqueezy.com/checkout/buy/<variant>?embed=1&checkout[custom][user_id]=<uuid>
-```
-
-`embed=1` is what makes it render as an overlay; it's left off the redirect fallback
-so that path gets the ordinary hosted page.
+Every failure before the redirect is a **toast and nothing charged**: no price id
+("check your connection"), no session token ("sign in again to buy"), a 401, a timeout,
+or a URL that isn't Stripe's. `isStripeCheckoutUrl()` checks the hostname before
+`location.href` — the URL comes from our own Worker, so it's belt-and-braces, but that
+line is exactly where an open redirect would live.
 
 **Four ways to notice the unlock landed.** Paying doesn't unlock anything by itself —
-the webhook does, and it arrives a second or two later. Reading the flag once would
-land inside that gap about half the time and tell a paying customer they hadn't paid.
-So the app **polls** on a front-loaded backoff (`[0, 1500, 3000, 5000, 8000, 12000,
-20000]` ms), started by whichever of these fires first:
+the webhook does, a second or two later. Reading the flag once would land inside that gap
+about half the time and tell a paying customer they hadn't paid. So the app **polls** on
+a front-loaded backoff (`[0, 1500, 3000, 5000, 8000, 12000, 20000]` ms), started by
+whichever of these fires first:
 
-1. lemon.js's `Checkout.Success` event (matched loosely on `/success/i`, so their
-   exact event names aren't a dependency),
-2. **the app regaining focus** (`visibilitychange` + `focus`) — the most reliable
-   signal, armed *before* the overlay opens,
-3. `?purchased=1` on the URL (`handlePurchaseReturn()`, read and stripped at boot),
+1. `?purchased=1` on the URL (`handlePurchaseReturn()`, read and stripped at boot) —
+   Stripe's `success_url`, the normal path,
+2. **the app regaining focus** (`visibilitychange` + `focus`) — armed *before* leaving,
+   so a checkout abandoned with the back gesture is still noticed,
+3. a checkout started in this session, noticed on the way back,
 4. **Settings → "Already paid? Check again"** (`checkForPurchase()`) — the manual
    backstop, and the only one that *always* answers, in either direction.
 
@@ -1013,77 +1070,101 @@ Success shows a **dialog**, not a toast: *"You're in — full access is on your 
 `entitlement.ts` reaches back only through a dynamic `import()` inside a button
 handler. Both sides only touch each other from inside functions, so a cycle would work
 today — right up until someone adds a module-scope read and gets an `undefined` that
-only appears in the built bundle.
+only appears in the built bundle. `pricing.ts` is safe to import statically from either,
+because it depends only on `supabase.ts`.
 
-### Server half (`worker/lemonsqueezy-webhook.ts`)
+### Checkout endpoint (`worker/stripe-checkout.ts`)
+
+**The account id comes from the token, never from the body.** This is the whole security
+model: the session's `metadata.user_id` decides whose `entitled` gets flipped, so a
+`user_id` field in the request body would be a stranger's account one curl away. It is
+read out of a Supabase-validated JWT (`verifyUser()`) and nowhere else. `getUser(jwt)`
+asks Supabase to validate rather than decoding locally — a Worker holding the project's
+signing secret is a Worker that can mint sessions. The email for `customer_email` comes
+from the same verified source, which is why the app sends nothing but a price id.
+
+**The price is validated too.** It arrives from a browser, and a browser can name any of
+the account's price ids — an archived launch-discount price, a €0 comp. So it's retrieved
+and must be active, one-time, and (when `STRIPE_PRODUCT_ID` is set) attached to the right
+product. Note the ordering: **auth is checked first**, so an unauthenticated caller can't
+probe which price ids are valid.
+
+Session options worth knowing: `mode: 'payment'` (not `subscription`),
+`customer_creation: 'always'` (Stripe's default for one-off payments is *not* to make a
+Customer, and without one there's no `stripe_customer_id` to store),
+`billing_address_collection: 'auto'` (as little as the payment method demands — a full
+address form is a conversion drop on a €9 sale), and `payment_intent_data.metadata`
+carrying the same user id, because a charge inherits its intent's metadata and that is
+the *only* thing that makes a refund traceable back to an account.
+
+`success_url` / `cancel_url` are built from the **request's own origin**, so a test
+purchase can never land on production and vice versa. Nothing to configure in the Stripe
+dashboard.
+
+### Server half (`worker/stripe-webhook.ts`)
 
 **This file deliberately fails loudly, and that is the whole point.** Everywhere else
 the rule is fail-soft. A webhook has no user watching it: swallow an error and return
-200, and Lemon Squeezy marks the delivery successful, never retries, and a customer who
-really did pay is silently left on the free tier. So every verification failure and
-every processing error returns a non-200, which is the signal to retry *and* shows red
-in the store's webhook log where it can be noticed. **Do not "fix" this to fail soft.**
+200, and Stripe marks the delivery succeeded, stops retrying, and a customer who really
+did pay is silently left on the free tier. So every verification failure and every
+processing error returns a non-200, which is the signal to retry *and* shows the endpoint
+as failing in the dashboard where it can be noticed. Stripe retries with backoff for up
+to three days, so a Supabase outage or a missing secret resolves itself once fixed.
+**Do not "fix" this to fail soft.**
 
 The one thing that *does* return 200 is a properly signed event we simply don't act on.
 
-Signature verification, per Lemon Squeezy's docs: `X-Signature` is an HMAC-SHA256 of
-the **raw** request body, hex-encoded. The body is read as text and only parsed after
-the check passes — parse-then-reserialise would change the bytes and break the hash.
-The comparison uses `crypto.subtle.verify` (constant time, and false on a wrong-length
-signature) rather than a string `===`, so it can't leak the expected signature a byte
-at a time. Hex decoding is strict: anything that isn't an even-length run of hex
-digits is rejected outright.
+Signature verification: `Stripe-Signature` is a timestamp plus an HMAC-SHA256 of
+`timestamp.rawBody`. The body is read as **text** and handed to Stripe's own verifier —
+parse-then-reserialise would change the bytes and break the hash. The verifier also
+enforces a timestamp tolerance, which is what stops a captured delivery being replayed.
 
-Acted on: `order_created` **with** `status === 'paid'`. Test-mode orders are honoured
-(they can only come from your own store, they're signature-checked like any other, and
-exercising the whole path for free is worth more than the tidiness of refusing them);
-the Worker logs `TEST MODE` when it sees one.
+**No event-id ledger, on purpose.** Every write is idempotent — an upsert of the same
+flags to the same row — so processing one event twice produces exactly the state
+processing it once does. Stripe retries and occasionally double-delivers; both are
+harmless.
 
-The user id comes from `meta.custom_data.user_id`, checked against a UUID regex before
-it's used. The write is an **upsert** on `id` — a user can pay before their first sync
-has created their row, and an `update` would quietly match zero rows. On an existing
-row Postgres only overwrites the two named columns, so a repertoire already there is
-untouched.
+Events acted on:
 
-Status codes (and what they mean to the owner):
-
-| status | meaning |
+| event | what happens |
 |---|---|
-| `200 ok` | access granted |
-| `200 ignored` | genuine event, not a paid order (a refund, a pending order) |
-| `400 bad payload` | signed, but the body wasn't JSON |
-| `401 bad signature` | the secret in Cloudflare ≠ the secret in Lemon Squeezy |
-| `405 method not allowed` | not a POST |
-| `422 no user id` | the checkout link is missing `checkout[custom][user_id]` |
-| `500 not configured` | one of the three secrets is missing (retried, so nothing is lost) |
-| `500 write failed` / `500 no row written` | Supabase rejected the write |
+| `checkout.session.completed` | the ordinary grant. Skipped when `payment_status === 'unpaid'`. |
+| `checkout.session.async_payment_succeeded` | the delayed grant. Some methods complete the session first and confirm the money days later; **without this such a customer pays and is never entitled.** |
+| `charge.refunded` | back to the free tier, which is what the terms promise. **Full refunds only** — a partial refund must not take away what somebody still mostly paid for. |
+| `customer.subscription.*` | answered explicitly with a log line, not silently ignored, so the day a subscription *is* introduced the log says where the work goes. |
 
-**The bug worth remembering (fixed in v0.24):** the Worker read `SUPABASE_URL`, but the
-Cloudflare project only had `VITE_SUPABASE_URL`. Every delivery would have answered
-`500 not configured` while the dashboard looked perfectly set up. It now reads
-`SUPABASE_URL || VITE_SUPABASE_URL` — same string, same project.
+The user id comes from `metadata.user_id` or `client_reference_id`, checked against a
+UUID regex before it goes near Postgres — Stripe metadata is a free-text store, so it's
+untrusted input even though the signature proves who sent it. The grant is an **upsert**
+on `id` (a user can pay before their first sync created their row, and an `update` would
+quietly match zero rows); the revoke is an `update`, because if there's no row there is
+nothing to take away. `entitled_at` is left alone by a refund — it records when access
+was granted, and a refund doesn't unhappen that.
 
-### The dashboard half (owner tasks)
+Status codes: `200 ok` / `200 revoked` / `200 pending` / `200 ignored`, `401 bad
+signature`, `405 method not allowed`, `422 no user id`, `500 not configured`, `500 write
+failed`. `STRIPE-SETUP.md` has the full table with what each one means to fix.
 
-1. Run the SQL in `SUPABASE-SYNC.md` (adds `entitled_at` if the project predates it).
-2. Set the three Cloudflare **secrets**: `LEMONSQUEEZY_WEBHOOK_SECRET`,
-   `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL`.
-3. Lemon Squeezy → Settings → Webhooks → callback
-   `https://bitochess.com/api/lemonsqueezy/webhook`, a long random signing secret
-   (the same string as the Cloudflare secret), event **`order_created`** only.
-4. Make sure the checkout carries `checkout[custom][user_id]` (both the app and the
-   landing page build this for you; the 422 exists for links pasted by hand).
-5. Product → **Redirect to URL after purchase** → `https://bitochess.com/app/?purchased=1`.
-6. Test with Lemon Squeezy test mode and `npx wrangler tail`; look for
-   `entitled <uuid> from order <id>`.
+**The bug worth remembering (from the Lemon Squeezy era, and still guarded):** the Worker
+read `SUPABASE_URL`, but the Cloudflare project only had `VITE_SUPABASE_URL`. Every
+delivery would have answered `500 not configured` while the dashboard looked perfectly
+set up. Both the URL and the anon key now read `NAME || VITE_NAME` — same strings, same
+project.
 
 ### Where the price lives
 
-**€9** appears in three places that cannot import from one another:
-`src/entitlement.ts` (`PRO_PRICE`), `docs/index.html` + `docs/LANDING-COPY.md`, and the
-Lemon Squeezy product itself. Change all three together. **The store is the one that
-actually charges — if they disagree, the store is right and the others are the bug.**
-(Lemon Squeezy has one currency per store and does not localise it.)
+Four copies, and only one of them charges anybody:
+
+| where | what it is |
+|---|---|
+| **Stripe** | the real one. It takes the money. |
+| `src/pricing.ts` → `FALLBACK_AMOUNTS` | the app's offline fallback |
+| `docs/index.html` → `.tier__price` | the landing page's no-JS fallback, **overwritten from Stripe on load** |
+| `docs/index.html` → JSON-LD `offers` + `<meta name="description">` | static, EUR, for search engines |
+
+Change the Stripe price and both the app and the landing page follow within ten minutes
+(`PRICE_TTL_MS`). **If they ever disagree with Stripe, Stripe is right and they are the
+bug.**
 
 ---
 
@@ -2600,12 +2681,17 @@ Rebuilt in v0.23 so the page and the app are visibly the same thing:
 - **How it works** (3 steps), **Build**, **Train**, **Your games**, **Progress**.
 - **"There's more than openings in here"** — five illustrated cards (puzzles, mistakes,
   brilliants, endgames, Stockfish) on a scroll-snap carousel with arrows and dots.
-- **The price section** — Free €0 vs **Full access €9 once**, with a **Buy full access**
-  button. Signed in it goes straight to the Lemon Squeezy checkout carrying
-  `checkout[custom][user_id]`; signed out it goes to `/app/?auth=signup&buy=1` and the
-  app finishes the job. One constant near the top of the page's script (`CHECKOUT_URL`)
-  is the whole configuration; until it's filled in the button routes into the app's own
-  upgrade path rather than nowhere.
+- **The price section** — Free €0 vs **Full access, one payment**, with an **Unlock full
+  access** button. The card's price is **fetched** from `GET /api/stripe/prices` and
+  overwritten on load (99 kr on a Swedish device), so the `9€` in the markup is a no-JS
+  fallback rather than a second source of truth. Signed in, the button POSTs to
+  `/api/stripe/checkout` with the access token read out of `localStorage` — this page
+  never loads the Supabase library — and navigates to the returned Stripe URL. Signed
+  out, it shows the `#signup-overlay` card, whose own button goes to
+  `/app/?auth=signup&buy=1` so the app finishes the job. **Anything missing — no price
+  id, no token, an expired token, the GitHub Pages mirror with no Worker behind it —
+  hands over to `/app/?buy=1`**, where the app's own checkout has a live session it can
+  refresh. A visitor is never left with no way to pay.
 - **"Why I made Bito Chess"** as a comic speech bubble with a signature and an *About the
   app* box.
 - **Six hand-drawn 3D vector pieces** drift behind the sections (silhouette + gradient +
@@ -2804,8 +2890,9 @@ at a **phone viewport of 412×915**, since the app is phone-first.
 |---|---|---|---|---|
 | **Supabase Auth** | `/auth/v1` | anon key + PKCE | sign-up / sign-in / Google | friendly message; the app works signed out |
 | **Supabase REST** | `/rest/v1/profiles` | anon key + RLS | the synced copy, the `entitled` flag | "Sync failed — will retry"; last answer stands |
-| **Lemon Squeezy** | hosted checkout + lemon.js | none (public URL) | the €9 unlock | redirect fallback; the poll is silent |
-| **Lemon Squeezy → our Worker** | `POST /api/lemonsqueezy/webhook` | HMAC-SHA256 signature | granting `entitled` | **non-200 on purpose** → they retry |
+| **Stripe API** (from our Worker) | `prices.list`, `prices.retrieve`, `checkout.sessions.create` | `STRIPE_SECRET_KEY` | the price card, the checkout session | prices soft-fail to `[]` → built-in fallback; checkout toasts, nothing charged |
+| **Stripe Checkout** | `checkout.stripe.com` (redirect) | the session URL | taking the €9 / 99 kr | the return poll is silent |
+| **Stripe → our Worker** | `POST /api/stripe/webhook` | `Stripe-Signature` HMAC-SHA256 | granting `entitled` | **non-200 on purpose** → they retry for 3 days |
 | Lichess cloud eval | `/api/cloud-eval` | optional Bearer | tier-1 eval | circuit breaker → next tier; "Lichess off" badge |
 | Lichess opening explorer | explorer API | none | W/D/L bars, deep continuations | bundled stats / `liveFailed` |
 | Lichess puzzles | `/api/puzzle/next` | **none (must be anonymous)** | every puzzle mode | `null` → empty state |
@@ -2822,8 +2909,8 @@ at a **phone viewport of 412×915**, since the app is phone-first.
 | Google Identity | OAuth | client ID (public) | Drive + Supabase Google sign-in | friendly message |
 
 **Public-by-design keys in the bundle**: the Supabase anon key (protected by RLS and
-column grants), the Google OAuth client IDs, the Web3Forms access key, the Lemon
-Squeezy checkout URL, and the **shared YouTube key** in `src/youtube.ts` — the last is
+column grants), the Google OAuth client IDs, the Web3Forms access key, and the
+**shared YouTube key** in `src/youtube.ts` — the last is
 restricted in Google's console to the app's origin and to YouTube Data API v3 only, so
 outside the deployed app it's dead weight. All users share the free quota (~100
 searches/day); queries are per **opening name** (not per move) and cached for a week.
@@ -2863,10 +2950,13 @@ purchase.
 - **Chart labels distort on very wide screens** (`preserveAspectRatio: none`) — accepted
   for a phone-first app.
 - **Scouted opponents are excluded from backups and from sync** (re-fetchable, bulky).
-- **The price lives in three places** that can't import from one another (§11).
-- **Nothing reads `entitled_at`** — it exists so a row can answer "when did this account
-  get access, and did a purchase or a human do it?" without digging through the Lemon
-  Squeezy dashboard.
+- **The price lives in four places, and only Stripe charges** (§11). The app and the
+  landing page fetch it; their hard-coded numbers are offline fallbacks.
+- **Nothing reads `entitled_at`, `stripe_customer_id` or `stripe_payment_intent_id`** —
+  they exist so a row can answer "when did this account get access, did a purchase or a
+  human do it, and which Stripe payment was it?" without searching Stripe by email.
+- **There is deliberately no `subscription_status` column.** A boolean is the honest shape
+  for a one-time unlock; a status enum would imply renewals and dunning that don't exist.
 - Parked seeds: a fourth board/app theme, deeper engine adaptation, richer explanations,
   more opening-database coverage, the Play Store build-out.
 
@@ -2899,7 +2989,7 @@ phone.
 - **Split pure logic from DOM**, and add a `*.selftest.ts` for the pure part. Register new
   DOM-free suites in `scripts/run-selftests.ts`.
 - **Fail soft on every network call** — return `null`, degrade the UI, never throw at the
-  user. *The one exception is `worker/lemonsqueezy-webhook.ts`, which must fail loudly.*
+  user. *The one exception is `worker/stripe-webhook.ts`, which must fail loudly.*
 - **Every account/sync/payment path checks `isSupabaseConfigured` first** and returns
   early, so the internal build stays exactly as it is.
 - **Nothing secret goes in a `VITE_` variable.** Anything so prefixed is inlined into the

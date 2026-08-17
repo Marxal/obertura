@@ -95,7 +95,9 @@
   <p>Signing in with Google instead of a password means Google tells me your email address and a Google account identifier. I don’t receive your Google password, your contacts, or anything else.</p>
 
   <h3>If you buy the full unlock</h3>
-  <p>Payment is handled entirely by <strong>Lemon Squeezy</strong>, who act as the merchant of record — legally, they’re the seller. Your card details never touch Bito Chess and I never see them. Lemon Squeezy handles the payment, the VAT and the receipt, and they tell me only that a purchase succeeded and which account it belongs to. Their own privacy policy covers what they collect: <a href="https://www.lemonsqueezy.com/privacy" target="_blank" rel="noopener noreferrer">lemonsqueezy.com/privacy</a></p>
+  <p>Payment is processed by <strong>Stripe</strong>. Your card details never touch Bito Chess and I never see them — you enter them on Stripe’s own page, not mine. I’m the seller (see the Terms), so what comes back to me is your email address, the fact that a payment succeeded, and Stripe’s references for the customer and the transaction. That’s what lets your unlock follow your account, and what lets me find your purchase if you ever ask about a receipt or a refund.</p>
+  <p>Stripe also collects what any card processor has to: the payment details themselves, your IP address, and whatever the payment method tells them about you, which they use for fraud prevention and to meet their own legal obligations. Their privacy policy covers all of it: <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer">stripe.com/privacy</a></p>
+  <p>Nothing from Stripe is loaded into this site or the app. The checkout is a page on Stripe’s own domain that you’re sent to and come back from, which is why there’s still no third-party script anywhere in Bito Chess.</p>
 
   <h3>If you contact me</h3>
   <p>If you send feedback or fill in the survey, I receive whatever you write, plus an email address if you give one. Those messages arrive in my inbox through a form relay (Web3Forms) and I keep them until they’re no longer useful.</p>
@@ -108,7 +110,7 @@
     <li>No cookies are set by Bito Chess. No cookie banner is needed, because there’s nothing to consent to.</li>
     <li>No analytics. I don’t know how many people use the app, which screens they open, or how long they stay. I find out how it’s going by people telling me.</li>
     <li>No advertising, no ad networks, no tracking pixels, no fingerprinting.</li>
-    <li>No newsletter and no marketing email. Your address is used to sign you in and, if you buy, to receive your receipt from Lemon Squeezy. Nothing else. If I ever wanted to email you about the app, I’d ask first and you’d have to say yes.</li>
+    <li>No newsletter and no marketing email. Your address is used to sign you in and, if you buy, to receive your receipt. Nothing else. If I ever wanted to email you about the app, I’d ask first and you’d have to say yes.</li>
     <li>No selling, renting or sharing your data with anyone, for any price.</li>
   </ul>
 
@@ -121,8 +123,8 @@
       </thead>
       <tbody>
         <tr><td><strong>Supabase</strong></td><td>Stores accounts and synced chess data</td><td>EU (Frankfurt)</td></tr>
-        <tr><td><strong>Cloudflare</strong></td><td>Serves the website and app, runs the purchase webhook</td><td>Global network, EU-first routing</td></tr>
-        <tr><td><strong>Lemon Squeezy</strong></td><td>Takes payments as merchant of record</td><td>USA</td></tr>
+        <tr><td><strong>Cloudflare</strong></td><td>Serves the website and app, runs the checkout and purchase endpoints</td><td>Global network, EU-first routing</td></tr>
+        <tr><td><strong>Stripe</strong></td><td>Processes payments and issues receipts</td><td>Ireland (EU entity), with transfers to the USA</td></tr>
         <tr><td><strong>Google</strong></td><td>Optional Google sign-in; optional Google Drive backup</td><td>USA</td></tr>
         <tr><td><strong>Web3Forms</strong></td><td>Relays feedback and survey messages to my inbox</td><td>USA</td></tr>
       </tbody>

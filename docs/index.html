@@ -2385,23 +2385,40 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
 (function () {
   'use strict';
 
-  /* ── 0. THE LEMON SQUEEZY PRODUCT ────────────────────────────────────────
-     The €9 unlock. Behaviour:
-       · signed in  → straight to checkout, carrying the Supabase user id as
-                      checkout[custom][user_id], which is what the webhook in
-                      worker/lemonsqueezy-webhook.ts needs to know who paid
-                      (see LEMONSQUEEZY-SETUP.md, step 4). Without it a real
-                      payment cannot be matched to an account.
-       · signed out → the app's sign-up sheet first, which continues straight
-                      to this same checkout once the account exists. An account
-                      is not optional: the webhook has no way to reach a guest.
+  /* ── 0. THE STRIPE ENDPOINTS ─────────────────────────────────────────────
+     The unlock. Both endpoints are this site's own Worker (worker/index.ts),
+     same origin, so there is no CORS and no third-party script on this page.
+
+       GET  /api/stripe/prices    what it costs, per currency. Used to write the
+                                  price card below, so the number a visitor reads
+                                  is the number Stripe will charge.
+       POST /api/stripe/checkout  → { url }, a Stripe Checkout session. Needs the
+                                  signed-in visitor's Supabase ACCESS TOKEN in an
+                                  Authorization header; the Worker takes the
+                                  account id and email out of that token and
+                                  ignores anything this page claims about who is
+                                  asking. That is deliberate — see the note in
+                                  worker/stripe-checkout.ts.
+
+     Behaviour:
+       · signed in  → POST, then straight to the returned Stripe URL.
+       · signed out → the app's sign-up sheet first, which continues straight to
+                      the same checkout once the account exists. An account is
+                      not optional: the webhook has no way to reach a guest.
 
      The price is written in three places that cannot import from each other —
-     here (the tier card below), src/entitlement.ts's PRO_PRICE, and the Lemon
-     Squeezy product itself. The store is the one that takes the money, so if
-     they ever disagree, the store is right and the other two are the bug.
+     the card below, src/pricing.ts's FALLBACK_AMOUNTS, and Stripe itself. Stripe
+     is the one that takes the money, so if they ever disagree Stripe is right and
+     the other two are the bug. The card below is now overwritten from Stripe on
+     load, which leaves the hard-coded "9€" in the markup as a no-JS fallback
+     rather than a second source of truth.
+
+     NOTE the GitHub Pages mirror (isMirror, below) has no Worker behind it, so
+     neither endpoint exists there. Both calls are skipped and the markup's own
+     price stands.
      ────────────────────────────────────────────────────────────────────── */
-  var CHECKOUT_URL = 'https://bitochess.lemonsqueezy.com/checkout/buy/8f39bf24-f731-4c65-870b-8b843b0e2311';
+  var PRICES_ENDPOINT = '/api/stripe/prices';
+  var CHECKOUT_ENDPOINT = '/api/stripe/checkout';
 
   var ctas = Array.prototype.slice.call(document.querySelectorAll('.js-app'));
 
@@ -2444,8 +2461,17 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
       }
       if (!raw) return null;
       var parsed = JSON.parse(raw);
-      var user = parsed && (parsed.user || (parsed.currentSession && parsed.currentSession.user));
-      return { id: user && user.id ? String(user.id) : '' };
+      var inner = parsed && parsed.currentSession ? parsed.currentSession : parsed;
+      var user = inner && inner.user;
+      return {
+        id: user && user.id ? String(user.id) : '',
+        /* The access token, for the Authorization header on the checkout POST.
+           Read from storage rather than refreshed — this page does not load the
+           Supabase library, so it cannot refresh anything. An expired token is
+           handled by the Worker answering 401 and this page falling back to
+           sending the visitor into the app, which CAN refresh (section 8). */
+        token: inner && inner.access_token ? String(inner.access_token) : ''
+      };
     } catch (e) {
       return null;                       /* storage disabled or shape changed */
     }
@@ -2657,15 +2683,92 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
     syncDots();
   }
 
-  /* ── 8. The buy button ───────────────────────────────────────────────────
-     See CHECKOUT_URL at the top of this script for what each branch is for.
+  /* ── 8. The price card and the buy button ────────────────────────────────
+     See the endpoint notes at the top of this script for what each branch is
+     for.
 
      Signed out, this used to navigate straight into the app — a hard page
      load, with no warning that a sign-up sheet was the first thing waiting on
-     the other side. Now it shows the "create an account first" card ON THIS
+     the other side. Instead it shows the "create an account first" card ON THIS
      PAGE (#signup-overlay, styled to match the price card it grew out of) and
-     ONLY that card's own button makes the jump. Signed in, nothing changes:
-     straight to Lemon Squeezy, same as always. */
+     ONLY that card's own button makes the jump.
+
+     Signed in, the change from the old hosted-checkout link is that there is a
+     round trip first: POST for a session, then navigate. That means the button
+     can now fail, so it says so and re-enables itself rather than looking
+     broken. Anything that goes wrong falls back to opening the app, which has
+     the full checkout flow (src/checkout.ts) and a live Supabase session to
+     refresh with — so a visitor is never left with no way to pay. */
+
+  /* Currency by the device's language list, matching src/pricing.ts exactly: a
+     Swedish phone is quoted in kronor, everyone else in euros. Kept in step by
+     eye — this page cannot import from src/. */
+  function preferredCurrency() {
+    try {
+      var tags = navigator.languages && navigator.languages.length
+        ? navigator.languages
+        : [navigator.language];
+      for (var i = 0; i < tags.length; i++) {
+        var tag = String(tags[i] || '').toLowerCase();
+        if (tag === 'sv' || tag.indexOf('sv-') === 0 || /(^|-)se($|-)/.test(tag)) return 'sek';
+      }
+    } catch (e) { /* fall through to euros */ }
+    return 'eur';
+  }
+
+  /* House style, matching src/pricing.ts's formatPrice(): "9€", "99 kr", and no
+     decimals on a round amount. */
+  function formatAmount(unitAmount, currency) {
+    var digits = unitAmount % 100 === 0 ? 0 : 2;
+    var major = unitAmount / 100;
+    var number;
+    try {
+      number = new Intl.NumberFormat(currency === 'sek' ? 'sv-SE' : 'de-DE', {
+        minimumFractionDigits: digits, maximumFractionDigits: digits
+      }).format(major);
+    } catch (e) {
+      number = digits === 0 ? String(major) : major.toFixed(2);
+    }
+    if (currency === 'sek') return number + ' kr';
+    if (currency === 'eur') return number + '€';
+    return number + ' ' + currency.toUpperCase();
+  }
+
+  /* The quote to show and sell. Null until the fetch lands (or forever, on the
+     mirror and offline), which is what the markup's own "9€" is there for. */
+  var quote = null;
+
+  function loadPrice() {
+    /* No Worker on the GitHub Pages mirror — see the note at the top. */
+    if (isMirror || typeof fetch !== 'function') return;
+
+    fetch(PRICES_ENDPOINT, { headers: { accept: 'application/json' } })
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (data) {
+        var list = data && Array.isArray(data.prices) ? data.prices : [];
+        var wanted = preferredCurrency();
+        var match = null;
+        for (var i = 0; i < list.length; i++) {
+          var p = list[i];
+          if (!p || typeof p.unitAmount !== 'number' || p.unitAmount <= 0) continue;
+          if (!match) match = p;                                  /* first valid */
+          if (String(p.currency).toLowerCase() === wanted) { match = p; break; }
+        }
+        if (!match) return;
+
+        quote = match;
+        var card = document.querySelector('.tier__price');
+        if (!card) return;
+        /* Rewritten in place, keeping the "one payment" span beside the number. */
+        var span = card.querySelector('span');
+        card.textContent = formatAmount(match.unitAmount, String(match.currency).toLowerCase()) + ' ';
+        if (span) card.appendChild(span);
+      })
+      .catch(function () { /* the markup's price stands */ });
+  }
+
+  loadPrice();
+
   var buy = document.getElementById('buy');
   var signupOverlay = document.getElementById('signup-overlay');
   var signupContinue = document.getElementById('signup-continue');
@@ -2685,12 +2788,18 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
     if (buy) buy.focus();               /* back to the button that opened it */
   }
 
+  /* Hand the visitor to the app's own checkout. The fallback for everything this
+     page cannot do itself: no price id, no token, an expired token, a Worker that
+     didn't answer. `buy=1` tells the app to open the checkout the moment it
+     boots, so the intent survives the jump. */
+  function handOverToApp() {
+    location.href = appUrl('/app/?buy=1');
+  }
+
   if (buy) {
+    var buyLabel = buy.textContent;
+
     buy.addEventListener('click', function () {
-      if (!CHECKOUT_URL) {
-        location.href = appUrl('/app/?auth=signup');
-        return;
-      }
       if (!session || !session.id) {
         if (signupOverlay) {
           signupOverlay.hidden = false;
@@ -2700,9 +2809,40 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
         }
         return;
       }
-      var join = CHECKOUT_URL.indexOf('?') === -1 ? '?' : '&';
-      location.href = CHECKOUT_URL + join
-        + 'checkout[custom][user_id]=' + encodeURIComponent(session.id);
+
+      /* Anything missing, and the app does it properly instead. */
+      if (isMirror || !quote || !quote.id || !session.token || typeof fetch !== 'function') {
+        handOverToApp();
+        return;
+      }
+
+      buy.disabled = true;
+      buy.textContent = 'Opening checkout…';
+
+      fetch(CHECKOUT_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          accept: 'application/json',
+          authorization: 'Bearer ' + session.token
+        },
+        body: JSON.stringify({ price_id: quote.id })
+      })
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .then(function (data) {
+          var url = data && typeof data.url === 'string' ? data.url : '';
+          /* Only ever navigate to Stripe. Same check src/checkout.ts makes. */
+          if (url && /^https:\/\/([a-z0-9-]+\.)*stripe\.com\//.test(url)) {
+            location.href = url;
+            return;
+          }
+          handOverToApp();
+        })
+        .catch(function () {
+          buy.disabled = false;
+          buy.textContent = buyLabel;
+          handOverToApp();
+        });
     });
 
     if (session && session.id) {

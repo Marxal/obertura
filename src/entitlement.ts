@@ -40,28 +40,20 @@ import { getAuthUser, onAuthChange } from './auth';
 import { getAllLines } from './storage';
 import { getCachedEntitled, setCachedEntitled, clearCachedEntitled } from './entitlement-cache';
 import { openProSheet } from './pro-sheet';
+import { formatPrice, primePricing, PRICING_CHANGE_EVENT } from './pricing';
 import { showToast } from './toast';
 
 // How many lines a free account may have in training at once.
 export const FREE_TRAINING_LINES = 10;
 
-// What the unlock costs, written once. The landing page (docs/index.html and
-// docs/LANDING-COPY.md) cannot import this — it is a standalone static page —
-// so those two are kept in step by eye, and the comment at the top of the
-// page's script says so. The Lemon Squeezy product's own price is the third
-// copy, and the only one that takes the money: if these ever disagree, the
-// store is right and this is a bug.
+// What the unlock costs is no longer written here. It comes from Stripe, per
+// currency, via src/pricing.ts — €9 or a round 99 kr, picked by the device's
+// language. The built-in numbers that stand in when Stripe can't be reached live
+// in that file (FALLBACK_AMOUNTS), and the landing page keeps its own copy
+// because it is a standalone static page that cannot import from src/.
 //
-// It lives HERE rather than in checkout.ts because the imports only run one
-// way: checkout.ts imports this module, and this module reaches back for it
-// only dynamically (see the button handler below). Putting the price in
-// checkout.ts would need a static import in the other direction, which is
-// exactly the cycle that arrangement exists to avoid.
-// Written symbol-after-number ("9€"), which is how it is set on the landing
-// page and how the audience this is priced for reads it. The Lemon Squeezy
-// checkout will show whatever format the store is configured with; that screen
-// is theirs, not ours.
-export const PRO_PRICE = '9€';
+// pricing.ts is safe to import from here: it depends only on supabase.ts, so it
+// stays clear of the entitlement ⇄ checkout cycle described below.
 
 // ── The coaching caps: Mistake Retry, endgames-from-your-games, Scouting ─────
 //
@@ -179,17 +171,32 @@ export function showGoProDialog(): void {
   openUpgradeDialog();
 }
 
-// One pitch, one price, one place the checkout is opened from. The words are
-// the landing page's words (see pro-sheet.ts, and docs/LANDING-COPY.md for the
-// source of truth); the price is PRO_PRICE above, and the landing page and the
-// Lemon Squeezy product have to say the same thing — two different numbers for
-// the same unlock is the fastest way to lose a sale.
+// One pitch, one price, one place the checkout is opened from. The words are the
+// landing page's words (see pro-sheet.ts, and docs/LANDING-COPY.md for the source
+// of truth); the price comes from Stripe via pricing.ts, which is also what the
+// buy button charges — so the two cannot disagree, which they could when both
+// were typed by hand.
+//
+// The sheet paints synchronously with whatever price is in hand (a fetched one, a
+// cached one, or the built-in fallback) and is handed a subscription so it can
+// swap in the real number if the fetch lands a moment later. A first-ever visitor
+// on a slow connection therefore sees "9€" and not a spinner, and sees "99 kr"
+// a half-second later if that is what they should have been shown.
 function openUpgradeDialog(eyebrow?: string): void {
+  // Start a fetch now rather than when they tap buy, so the id is usually in hand
+  // by the time it's needed.
+  primePricing();
+
   openProSheet({
     eyebrow,
-    price: PRO_PRICE,
+    price: formatPrice(),
+    onPriceChange: (update) => {
+      const listener = (): void => update(formatPrice());
+      window.addEventListener(PRICING_CHANGE_EVENT, listener);
+      return () => window.removeEventListener(PRICING_CHANGE_EVENT, listener);
+    },
     // Dynamic on purpose — checkout.ts imports this module, so a static import
-    // here would close the loop. See the note over PRO_PRICE.
+    // here would close the loop. See the note over the price above.
     onBuy: () => { void import('./checkout').then(m => m.openCheckout()); },
   });
 }

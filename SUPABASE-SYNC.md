@@ -22,6 +22,8 @@ A table called `profiles`, one row per user, with:
 | `games_updated_at`      | `timestamptz` | when the games were last pushed                      |
 | `entitled`              | `boolean`     | has this account paid? Gates the training cap        |
 | `entitled_at`           | `timestamptz` | when the purchase webhook granted it (a record only)  |
+| `stripe_customer_id`      | `text`      | the Stripe customer behind that purchase (a record only) |
+| `stripe_payment_intent_id`| `text`      | the Stripe payment itself (a record only)             |
 
 **`repertoire` is badly named and it's staying that way.** It was drafted when
 lines were the only thing that synced; it now carries the lines *plus* the
@@ -40,11 +42,23 @@ changed at all (the app keeps a fingerprint of what it last pushed).
 
 `entitled` is the free tier's switch: false (the default) caps the account at 10
 lines in training at once, true lifts the cap. The app only ever READS it. Two
-things write it: your own hand in the dashboard, and the Lemon Squeezy purchase
-webhook (`worker/lemonsqueezy-webhook.ts`, set up in LEMONSQUEEZY-SETUP.md),
-which sets it together with `entitled_at`. Nothing reads `entitled_at` — it is
-there so a row can answer "when did this account get access, and did a purchase
-or a human do it?" without digging through the Lemon Squeezy dashboard.
+things write it: your own hand in the dashboard, and the Stripe purchase webhook
+(`worker/stripe-webhook.ts`, set up in STRIPE-SETUP.md), which sets it together
+with `entitled_at` and the two `stripe_` columns.
+
+**Nothing reads the other three.** They are there so a row can answer "when did
+this account get access, did a purchase or a human do it, and which Stripe payment
+was it?" without searching the Stripe dashboard by email. A refund sets `entitled`
+back to false and leaves all three alone — the timestamp records when access was
+granted, and a refund doesn't unhappen that.
+
+**There is deliberately no `subscription_status` column.** Bito Chess sells a
+one-time unlock, and a boolean is the honest shape for "has this account paid?".
+A status enum would imply renewals, dunning and a grace period, none of which
+exist — and the code that reads it would have to invent an opinion about what
+`past_due` should mean for someone who paid once, two years ago. If a
+subscription is ever introduced, that is the moment to add it, alongside the
+copy changes it would need in the app, the landing page and the terms.
 
 **It needs a column-level revoke, not just RLS.** The update policy below is
 row-scoped, not column-scoped — on its own it lets a signed-in user update *any*
@@ -77,6 +91,8 @@ create table if not exists public.profiles (
   games_updated_at timestamptz,
   entitled boolean not null default false,
   entitled_at timestamptz,
+  stripe_customer_id text,
+  stripe_payment_intent_id text,
   created_at timestamptz not null default now()
 );
 
@@ -88,6 +104,17 @@ alter table public.profiles
 -- accounts entitled by hand before the buy flow existed simply have no date.
 alter table public.profiles
   add column if not exists entitled_at timestamptz;
+
+-- THE STRIPE MIGRATION. Both nullable, and both stay null for every account that
+-- bought through Lemon Squeezy or was entitled by hand — which is exactly right,
+-- because there is no Stripe payment behind those. Nothing reads them; they exist
+-- so a paid row can be traced to a Stripe payment without searching by email.
+--
+-- Note what is NOT here: `entitled` is untouched, so every existing customer
+-- keeps their access through this migration. Nothing needs to be re-granted.
+alter table public.profiles
+  add column if not exists stripe_customer_id text,
+  add column if not exists stripe_payment_intent_id text;
 
 -- THE MIGRATION, for a project created before games moved to their own column.
 -- Adding them empty is all that's needed: any row still carrying its games
@@ -133,6 +160,11 @@ create policy "own profile: update"
 -- key rather than the anon key: `service_role` is not named here, so it keeps
 -- its UPDATE on `entitled` and bypasses RLS entirely. The browser can never
 -- write the flag; only the server can.
+--
+-- The two `stripe_` columns need no line of their own, and that is the useful
+-- part of doing it this way round: a column added later is not in either grant
+-- list, so it starts out unwritable by the browser. Protection by default rather
+-- than by remembering.
 revoke update on public.profiles from anon, authenticated;
 grant update (repertoire, repertoire_updated_at, games, games_updated_at)
   on public.profiles to authenticated;
@@ -142,8 +174,10 @@ grant insert (id, repertoire, repertoire_updated_at, games, games_updated_at)
 
 **Already ran an earlier version of this block?** Paste it again as-is. Every
 statement is either `if not exists`, a drop-then-create, or a grant that restates
-itself, so a re-run adds the two `games` columns and leaves everything else
-exactly as it was. Your existing synced data is untouched.
+itself, so a re-run adds whichever columns are missing and leaves everything else
+exactly as it was. Your existing synced data is untouched, and so is every
+account's `entitled` flag — running this after the Stripe migration adds the two
+`stripe_` columns and changes nothing else.
 
 ## Turning on full access for an account
 
