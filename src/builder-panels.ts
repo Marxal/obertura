@@ -41,6 +41,9 @@ import { isConnected, connect, disconnect, stashReturn } from './lichess-auth';
 import { getExplorerDb, setExplorerDb, setExplorerBand } from './prefs';
 import { showDialog } from './dialog';
 import { platformLabel } from './board-explorer';
+import { renderCoverageSection, type CoverageSection } from './coverage-section';
+import { openCoverageScreen } from './coverage-screen';
+import { MAX_GAPS_INLINE } from './coverage-gaps';
 import type { ImportedGame } from './import-core';
 
 // Which slide is showing. The builder addresses its panels by name (main.ts owns
@@ -65,6 +68,10 @@ export interface BuilderPanelsDeps {
   // My lines "show tree" → open a saved line. `atFen`, when given, lands the
   // builder on that position rather than the start.
   onOpenLine: (line: Line, atFen?: string) => void;
+  // A coverage gap's "build from here": seed the builder at that position in the
+  // answering colour — the existing Prepare flow, with the opponent tag when the
+  // gap came from a scouted opponent.
+  onPrepareGap: (ucis: string[], answeringColour: 'white' | 'black', opponentName?: string) => void;
 }
 
 export interface BuilderPanels {
@@ -117,6 +124,8 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   const statsByColour = new Map<'white' | 'black', StatNode>();
   // Per-opponent stats trees (their side against you), cached by `id:colour`.
   const oppStats = new Map<string, StatNode>();
+  // The live coverage block, so a re-render can detach the previous one.
+  let coverage: CoverageSection | null = null;
 
   // Lazy loads — repaint each slide once its data lands.
   loadBookEntries()
@@ -539,10 +548,40 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   //     it answers the same question from the other side of the board.
   function renderGames(): void {
     const el = deps.gamesEl;
+    // The coverage block survives no re-render — drop the old one's handle so a
+    // pass that's still running can't paint into a detached node.
+    coverage?.dispose();
+    coverage = null;
     el.innerHTML = '';
     el.appendChild(savedLinesSection());
+    el.appendChild(coverageSection());
     el.appendChild(myGamesSection());
     el.appendChild(opponentsSection());
+  }
+
+  // ── Coverage gaps ───────────────────────────────────────────────────────────
+  // The same component the Coverage screen is made of (coverage-section.ts),
+  // capped to three rows here. It is the one section on this slide that is NOT
+  // about the current position — a hole three moves back matters whatever the
+  // board is showing — which is exactly why it belongs next to your saved lines
+  // rather than in a screen you have to remember to visit.
+  //
+  // It costs nothing per move: the report is memoised per colour in
+  // coverage-data.ts and only recomputed when the lines or games change, so the
+  // repaint this function gets on every move is a synchronous read.
+  function coverageSection(): HTMLElement {
+    const wrap = document.createElement('div');
+    wrap.className = 'mylines-section';
+    coverage = renderCoverageSection(wrap, {
+      colour: deps.getColour(),
+      limit: MAX_GAPS_INLINE,
+      onPrepare: deps.onPrepareGap,
+      onSeeAll: () => openCoverageScreen({
+        colour: deps.getColour(),
+        onPrepare: deps.onPrepareGap,
+      }),
+    });
+    return wrap;
   }
 
   // Section header: a title with a discrete "Show tree" link on the same row.

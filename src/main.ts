@@ -2916,6 +2916,17 @@ function prepareReply(ucis: string[], answeringColour: 'white' | 'black', oppone
   buildFromUcis(ucis, answeringColour, [opponentTag(opponentName)]);
 }
 
+// A coverage gap's "build from here" — the SAME mechanism, reached from the
+// Coverage screen and the builder's My lines panel. The moves passed end with
+// the reply that has no answer, so the builder opens with it already on the
+// board and the next move to make is the answer. A gap that came from a scouted
+// opponent goes through prepareReply so it carries their tag, exactly as
+// preparing from their map does; anything else is a plain seeded build.
+function prepareGap(ucis: string[], answeringColour: 'white' | 'black', opponentName?: string): void {
+  if (opponentName) prepareReply(ucis, answeringColour, opponentName);
+  else buildFromUcis(ucis, answeringColour);
+}
+
 // The Explore screen's dependency object, shared by the Explore tab render and by
 // the FAB's "Build with the engine" shortcut.
 function exploreScreenDeps() {
@@ -3089,6 +3100,7 @@ function linesScreenDeps(): Parameters<typeof renderLinesScreen>[1] {
     onAddLine: startNewLine,
     onStartTraining: handleStartTraining,
     onBuildLine: buildFromUcis,
+    onPrepareGap: prepareGap,
     onPickStarterPack: () => void openStarterPackPicker(addStarterLine),
   };
 }
@@ -4852,6 +4864,8 @@ maybeShowGate(() => requestAnimationFrame(() => {
     onOpenOpponentReport: (id: string) => { openExploreOpponent(id); showView('explore'); },
     // My lines "Show tree": open the tapped saved line in the builder.
     onOpenLine,
+    // A coverage gap's "build from here" — the Prepare flow, unchanged.
+    onPrepareGap: prepareGap,
   });
 
   // The Explore slide — three curated moves for the position on the board.
