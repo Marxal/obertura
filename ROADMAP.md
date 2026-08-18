@@ -2263,6 +2263,20 @@ gives removal a home in the builder — and gives the save button somewhere to g
   afterwards; without that, a later commit would have written the stale copy back
   and resurrected whatever it removed.
 
+- ✅ **The branch sheet stopped shouting.** Now that the save button opens it,
+  it is a sheet people land in rather than seek out, and its weights were
+  backwards. The training switch is the app's own switch instead of a filled
+  card; "How often it comes round" is called **Training priority**; the two text
+  inputs — the least-used controls in the sheet and much its loudest — fold
+  behind one quiet *Name & tags* line that shows what they hold; and **Remove**
+  drops from a filled red button in the same stack as Done to quiet text at the
+  foot. Weight follows how often a thing is wanted; the seriousness is carried
+  by what happens after the tap.
+- ✅ **"Show on the tree"** — a quiet link opening the same map My Lines draws,
+  already centred on the branch you are standing on. Seeing where a branch sits
+  among its neighbours is most of what makes a removal decidable: it is the
+  difference between "2 lines" as a number and two lines you can point at.
+
 _On `claude/repertoire-move-removal-flow-upnamo`. Restore point: `v0.5`._
 
 ---

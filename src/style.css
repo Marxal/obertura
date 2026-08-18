@@ -18660,13 +18660,14 @@ html.picker-open body {
   color: var(--text-dim);
 }
 
-/* The branch training switch. A whole row rather than a small toggle: it can
-   move a dozen lines at once, so it says what it will do underneath itself. */
-.branch-toggle {
+/* The branch training switch. The app's own switch, so a two-state setting
+   looks like every other two-state setting — but still a whole row, because
+   unlike the others it can move a dozen lines at once and has to say so. */
+.branch-train {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.2rem;
+  gap: 0.3rem;
   width: 100%;
   padding: 0.7rem 0.85rem;
   border: 1px solid var(--border);
@@ -18676,10 +18677,15 @@ html.picker-open body {
   text-align: left;
 }
 
-.branch-toggle.is-on {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+.branch-train-main {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
 }
+
+.branch-train.is-on { border-color: var(--accent); }
+.branch-train.is-on .dline-switch { background: var(--success); }
+.branch-train.is-on .dline-switch-knob { transform: translateX(14px); }
 
 .branch-row-label {
   font-weight: 700;
@@ -18713,12 +18719,105 @@ html.picker-open body {
   color: var(--text);
 }
 
+/* Name and tags, folded away behind one line: the least-used controls in the
+   sheet were also its loudest (two full-width text inputs), so they collapse to
+   a quiet summary that shows what they currently hold. */
+.branch-more {
+  border-top: 1px solid var(--hairline-soft);
+  padding-top: 0.55rem;
+}
+
+.branch-more-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding: 0.15rem 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.branch-more-summary::-webkit-details-marker { display: none; }
+/* The disclosure arrow, drawn rather than inherited, so it can sit tight
+   against the label and turn when the section opens. */
+.branch-more-summary::after {
+  content: '›';
+  order: -1;
+  font-size: 0.95rem;
+  line-height: 1;
+  color: var(--text-faint);
+  transition: transform 0.15s;
+}
+.branch-more[open] .branch-more-summary::after { transform: rotate(90deg); }
+
+/* What the folded section currently holds — the reason it can stay folded. */
+.branch-more-current {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-faint);
+  font-weight: 500;
+}
+
+.branch-more .branch-field { margin-top: 0.6rem; }
+
+/* Places this branch also lives. They only MOVE you — nothing here changes the
+   repertoire — so they read as links, not as buttons. */
+.branch-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  padding-top: 0.15rem;
+}
+
+.branch-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.branch-link svg { flex: 0 0 auto; }
+.branch-link:active { opacity: 0.6; }
+
 .branch-actions {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
   margin-top: 0.25rem;
 }
+
+/* Removal, below everything and under a rule, as quiet text. It was a filled
+   red button in the same stack as Done — the loudest control in a sheet whose
+   everyday job is pausing a branch. Weight follows how often a thing is wanted;
+   the seriousness is carried by what happens after the tap. */
+.branch-remove {
+  display: inline-flex;
+  align-self: center;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.15rem;
+  padding: 0.5rem 0.4rem 0.1rem;
+  border: none;
+  border-top: 1px solid transparent;
+  background: none;
+  color: var(--danger);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.branch-remove svg { flex: 0 0 auto; }
+.branch-remove:active { opacity: 0.6; }
 
 /* A join offer in the branch sheet — one button per line this one could carry
    on as. Stacked, full width, wrapping: the names are line names, not chips. */

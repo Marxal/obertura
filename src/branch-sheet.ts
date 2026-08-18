@@ -12,7 +12,7 @@
 // things is a control nobody trusts twice.
 
 import type { MoveNode } from './tree';
-import type { LinePriority } from './types';
+import type { Line, LinePriority } from './types';
 import {
   getAllRepertoires, getRepertoire, saveRepertoire,
 } from './storage';
@@ -22,7 +22,11 @@ import {
   type DetachedSubtree, type Repertoire,
 } from './repertoire';
 import { describeRemoval, removalBody, removalDone, removalTitle } from './line-removal';
-import { endsUnder, setBranchTraining, setBranchValue, projectLine, locateLine } from './lines-view';
+import {
+  endsUnder, setBranchTraining, setBranchValue, projectLine, projectRepertoire, locateLine,
+} from './lines-view';
+import { openRepertoireMap } from './repertoire-map';
+import { Icons } from './icons';
 import { joinCandidates, joinContinuation } from './repertoire-join';
 import { requestTrainingSlots } from './entitlement';
 import { pushBack } from './back-nav';
@@ -43,6 +47,8 @@ export interface BranchSheetOptions {
    * point at the screen you are already looking at.
    */
   onSeeInLines?: () => void;
+  /** Opening a line from the map "Show on the tree" puts up. */
+  onOpenLine?: (line: Line) => void;
   /** Called after anything is written, so the screen behind can repaint. */
   onChanged?: () => void;
 }
@@ -153,13 +159,19 @@ function build(
   const inheritedTraining = resolveTraining(above);
   const training = resolveTraining(path);
 
+  // The app's switch, not a filled card: this is a two-state setting and it
+  // should look like every other two-state setting in the app. The note under it
+  // stays, because unlike those it can move a dozen lines in one tap.
   const trainRow = document.createElement('button');
   trainRow.type = 'button';
-  trainRow.className = `branch-row branch-toggle${training ? ' is-on' : ''}`;
+  trainRow.className = `branch-row branch-train${training ? ' is-on' : ''}`;
   trainRow.setAttribute('role', 'switch');
   trainRow.setAttribute('aria-checked', String(training));
   trainRow.innerHTML =
-    `<span class="branch-row-label">${training ? 'In training' : 'Paused'}</span>` +
+    `<span class="branch-train-main">` +
+      `<span class="dline-switch" aria-hidden="true"><span class="dline-switch-knob"></span></span>` +
+      `<span class="branch-row-label">${training ? 'In training' : 'Paused'}</span>` +
+    `</span>` +
     `<span class="branch-row-note">${
       training
         ? `Turning this off pauses ${lineCount === 1 ? 'this line' : `all ${lineCount} lines`}`
@@ -197,7 +209,7 @@ function build(
   prioWrap.className = 'branch-field';
   const prioLabel = document.createElement('span');
   prioLabel.className = 'edit-label';
-  prioLabel.textContent = 'How often it comes round';
+  prioLabel.textContent = 'Training priority';
   prioWrap.appendChild(prioLabel);
 
   const prioRow = document.createElement('div');
@@ -225,6 +237,29 @@ function build(
   }
   prioWrap.appendChild(prioRow);
   sheet.appendChild(prioWrap);
+
+  // ── Name and tags, folded away ────────────────────────────────────────────
+  //
+  // Two text inputs are the loudest thing that can sit in a sheet, and they are
+  // the least used thing in this one: most visits here are to pause a branch,
+  // change how often it comes round, or take it out. So they fold behind one
+  // quiet line that shows what they currently hold — open it when you actually
+  // want to type.
+  const more = document.createElement('details');
+  more.className = 'branch-more';
+  const moreSummary = document.createElement('summary');
+  moreSummary.className = 'branch-more-summary';
+  const moreLabel = document.createElement('span');
+  moreLabel.textContent = 'Name & tags';
+  moreSummary.appendChild(moreLabel);
+  const current = [resolveLabel(path), (node.tags ?? []).join(', ')].filter(Boolean).join(' · ');
+  if (current) {
+    const now = document.createElement('span');
+    now.className = 'branch-more-current';
+    now.textContent = current;
+    moreSummary.appendChild(now);
+  }
+  more.appendChild(moreSummary);
 
   // ── Name ──────────────────────────────────────────────────────────────────
   const nameWrap = document.createElement('div');
@@ -261,7 +296,7 @@ function build(
     hint.textContent = `Names all ${lineCount} lines below this move.`;
     nameWrap.appendChild(hint);
   }
-  sheet.appendChild(nameWrap);
+  more.appendChild(nameWrap);
 
   // ── Tags ──────────────────────────────────────────────────────────────────
   const tagWrap = document.createElement('div');
@@ -288,7 +323,8 @@ function build(
   tagInput.addEventListener('keydown', e => { if (e.key === 'Enter') tagInput.blur(); });
   tagWrap.appendChild(tagLabel);
   tagWrap.appendChild(tagInput);
-  sheet.appendChild(tagWrap);
+  more.appendChild(tagWrap);
+  sheet.appendChild(more);
 
   // ── Transposition join ────────────────────────────────────────────────────
   //
@@ -358,7 +394,44 @@ function build(
     }
   }
 
-  // ── Actions ───────────────────────────────────────────────────────────────
+  // ── Ways out ──────────────────────────────────────────────────────────────
+  //
+  // One primary (build from here), then a row of quiet links for the places
+  // this branch also lives — My Lines, and the map. Links rather than buttons
+  // because they only MOVE you: nothing on that row changes your repertoire, so
+  // nothing on it should carry a button's weight.
+  const links = document.createElement('div');
+  links.className = 'branch-links';
+
+  const addLink = (label: string, icon: SVGElement | null, onClick: () => void): void => {
+    const link = document.createElement('button');
+    link.type = 'button';
+    link.className = 'branch-link';
+    if (icon) link.appendChild(icon);
+    link.appendChild(document.createTextNode(label));
+    link.addEventListener('click', () => { commitName(); commitTags(); onClick(); });
+    links.appendChild(link);
+  };
+
+  if (opts.onSeeInLines) {
+    addLink('See in My Lines', null, () => { close(); opts.onSeeInLines?.(); });
+  }
+
+  // "Show on the tree": the same map My Lines draws, opened already centred on
+  // this position (`initialPath`). Seeing where a branch sits among its
+  // neighbours is most of what makes a removal decidable — it is the difference
+  // between "2 lines" as a number and 2 lines you can point at.
+  addLink('Show on the tree', Icons.tree(14), () => {
+    close();
+    openRepertoireMap(projectRepertoire(book), book.colour, l => opts.onOpenLine?.(l), {
+      title: book.name,
+      subtitle: `at ${branchLabel(opts.sans)}`,
+      initialPath: opts.ucis,
+    });
+  });
+
+  sheet.appendChild(links);
+
   const actions = document.createElement('div');
   actions.className = 'branch-actions';
 
@@ -375,28 +448,30 @@ function build(
     actions.appendChild(build);
   }
 
-  if (opts.onSeeInLines) {
-    const see = document.createElement('button');
-    see.type = 'button';
-    see.className = 'btn-secondary';
-    see.textContent = 'See in My Lines';
-    see.addEventListener('click', () => {
-      commitName(); commitTags();
-      close();
-      opts.onSeeInLines?.();
-    });
-    actions.appendChild(see);
-  }
+  const done = document.createElement('button');
+  done.type = 'button';
+  done.className = 'btn-secondary';
+  done.textContent = 'Done';
+  done.addEventListener('click', () => { commitName(); commitTags(); close(); });
+  actions.appendChild(done);
 
-  // What goes, said the same way everywhere it is said (line-removal.ts): this
-  // move and everything after it; the moves BEFORE it are shared and stay; and
-  // — the part people actually want to know — whether the line disappears or
-  // simply ends a move earlier.
+  sheet.appendChild(actions);
+
+  // ── Remove ────────────────────────────────────────────────────────────────
+  //
+  // Below everything, under a rule, as quiet text. It used to be a filled red
+  // button sitting in the same stack as Done — the loudest control in a sheet
+  // whose everyday job is pausing a branch. Weight here should follow how often
+  // something is wanted, not how serious it is; the seriousness is handled by
+  // what happens after the tap (see line-removal.ts), not by the shouting.
   const impact = describeRemoval(book, node.id);
   const remove = document.createElement('button');
   remove.type = 'button';
-  remove.className = 'btn-danger branch-remove';
-  remove.textContent = lineCount === 1 ? 'Remove this line' : `Remove all ${lineCount} lines`;
+  remove.className = 'branch-remove';
+  remove.appendChild(Icons.trash(13));
+  remove.appendChild(document.createTextNode(
+    lineCount === 1 ? 'Remove this line' : `Remove all ${lineCount} lines`,
+  ));
   remove.addEventListener('click', () => {
     if (!impact) return;
     // One line comes out on the tap, with an Undo; anything wider stops and
@@ -411,7 +486,7 @@ function build(
       ],
     });
   });
-  actions.appendChild(remove);
+  sheet.appendChild(remove);
 
   // Removal is the one edit here that destroys work — the review history goes
   // with the moves, and re-playing them does not bring it back. So the cut is
@@ -434,13 +509,4 @@ function build(
     await save();
     showToast('Moves put back ✓', { variant: 'success' });
   }
-
-  const done = document.createElement('button');
-  done.type = 'button';
-  done.className = 'btn-secondary';
-  done.textContent = 'Done';
-  done.addEventListener('click', () => { commitName(); commitTags(); close(); });
-  actions.appendChild(done);
-
-  sheet.appendChild(actions);
 }

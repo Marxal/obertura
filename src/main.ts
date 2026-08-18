@@ -2364,6 +2364,7 @@ function openBranchSheetHere(): void {
     ucis,
     sans: currentPathSans(),
     onSeeInLines: () => showView('lines'),
+    onOpenLine,
     onChanged: () => { void rereadBookAfterBranchEdit(book.id, ucis); },
   });
 }
