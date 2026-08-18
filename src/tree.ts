@@ -171,6 +171,25 @@ export function removeNode(nodeId: string): number {
   return countNodes(gone);
 }
 
+/**
+ * Put a subtree back under `parentId`, at the place it came from — the working
+ * tree's half of undoing a removal. The stored book is repaired separately
+ * (repertoire.reattachSubtree), so the node handed in here must be a COPY:
+ * sharing one object between the two trees would let an edit to one show up in
+ * the other.
+ *
+ * False when the parent is gone, or when a node with this id is somehow already
+ * there — both mean the undo no longer applies and must not half-happen.
+ */
+export function attachNode(parentId: string, node: MoveNode, index: number): boolean {
+  const parent = findNode(root, parentId);
+  if (!parent) return false;
+  if (findNode(root, node.id)) return false;
+  parent.children.splice(Math.min(index, parent.children.length), 0, node);
+  bumpVersion();
+  return true;
+}
+
 function findParent(node: MoveNode, id: string): MoveNode | null {
   for (const child of node.children) {
     if (child.id === id) return node;

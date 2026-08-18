@@ -1058,11 +1058,12 @@ header h1.header-title--screen {
 }
 
 /* Inside a book with nothing to add: the path on the board is already prepared,
-   and the button says so ("Line saved", "6 lines from here"). It is a STATEMENT,
-   not an action — so it is inert like any disabled button, but it keeps its
-   contrast, because a fact faded to 45% is a fact nobody reads. Quiet and
-   outlined rather than filled, so it can't be mistaken for the primary action
-   it replaces. */
+   and the button says so ("Line saved", "6 lines from here"). It keeps its
+   contrast, because a fact faded to 45% is a fact nobody reads, and stays quiet
+   and outlined rather than filled so it can't be mistaken for the primary
+   action it replaces. It is still tappable, though — the fact leads somewhere
+   (My Lines at the start, the branch sheet deeper in), which is what the
+   chevron after the label is for. */
 .header-save--covered,
 .header-save--covered:disabled {
   opacity: 1;
@@ -1073,9 +1074,8 @@ header h1.header-title--screen {
   box-shadow: none;
   text-shadow: none;
   font-weight: 600;
-  cursor: default;
-  /* Tighter than the primary it replaces: a statement doesn't need a tap
-     target's padding, and the pixels go to the title beside it. */
+  /* Tighter than the primary it replaces: a quiet secondary doesn't need the
+     primary's padding, and the pixels go to the title beside it. */
   padding-left: 0.6rem;
   padding-right: 0.7rem;
 }
@@ -1086,6 +1086,16 @@ header h1.header-title--screen {
    is the half that gives way, and it has two lines to give way into. */
 .header-save--covered #header-save-label {
   white-space: nowrap;
+}
+
+/* "›" after the covered label: the smallest possible mark that says the fact in
+   front of it is a door. */
+.header-save-chev {
+  flex: 0 0 auto;
+  margin-left: 0.05rem;
+  font-size: 1rem;
+  line-height: 1;
+  opacity: 0.65;
 }
 
 .header-save:hover {
@@ -3599,6 +3609,41 @@ html[data-coords="off"] .cg-wrap coords {
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
 }
+
+/* A saved-line row splits into two taps: the move (plays it) and the trash
+   (removes it from the book). The padding moves off the row and onto the tap
+   target so the two buttons fill the row's full height — a 10px miss on a
+   destructive icon is worse than one on a move. */
+.mylines-saved-row { padding: 0 0 0 0.25rem; }
+.mylines-saved-tap {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: 0.55rem 0.25rem;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.mylines-saved-remove {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  align-self: stretch;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.mylines-saved-remove:active { color: var(--danger); }
 
 /* Transposition / alternative-answer rows (TRANSPOSITIONS.md): same .bx-row
    weight and tap behaviour as the continuations above them, just quieter text

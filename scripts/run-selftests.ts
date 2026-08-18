@@ -49,6 +49,7 @@ import { runLineStatusSelfTest } from '../src/line-status.selftest';
 import { runRepertoireMigrateSelfTest } from '../src/repertoire-migrate.selftest';
 import { runRepertoireRunSelfTest } from '../src/repertoire-run.selftest';
 import { runRepertoireJoinSelfTest } from '../src/repertoire-join.selftest';
+import { runLineRemovalSelfTest } from '../src/line-removal.selftest';
 
 interface TestResult { name: string; pass: boolean; detail: string }
 
@@ -78,6 +79,7 @@ const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'repertoire-migrate', run: runRepertoireMigrateSelfTest },
   { suite: 'repertoire-run', run: runRepertoireRunSelfTest },
   { suite: 'repertoire-join', run: runRepertoireJoinSelfTest },
+  { suite: 'line-removal', run: runLineRemovalSelfTest },
   { suite: 'engine', run: runEngineSelfTest },
   { suite: 'puzzles', run: runPuzzlesSelfTest },
   { suite: 'puzzle-rating', run: runPuzzleRatingSelfTest },

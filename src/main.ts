@@ -12,8 +12,11 @@ import {
   isPending, discardPending, commitPending, currentLine as bookCurrentLine,
   cursorCoverage, pendingBranches, pendingAllVisible, discardBranch,
   removeManyAndStore,
-  planLineRemoval, removeAndStore,
+  planLineRemoval, removeAndStore, restoreAndStore,
 } from './builder-book';
+import { describeRemoval, removalBody, removalDone, removalTitle } from './line-removal';
+import { nodeAtPath, type DetachedSubtree } from './repertoire';
+import { openBranchSheet } from './branch-sheet';
 import { parseLineId } from './lines-view';
 import { selectedBookId } from './repertoire-picker';
 import { mainlineNodes, DEFAULT_PRIORITY } from './scheduler';
@@ -537,8 +540,14 @@ function renderMoveList() {
 function refreshSaveButtonState(): void {
   const btn = document.getElementById('header-save') as HTMLButtonElement | null;
   if (!btn) return;
+  // Inside a book the button is dead only when it has nothing to say: no draft
+  // to add, AND no lines running through the position to lead you to. It used to
+  // be disabled whenever there was nothing to add, which is what made "3 lines
+  // saved" a label you couldn't tap — the button described your book and then
+  // refused to show it to you.
+  const here = inBook() ? cursorCoverage() : null;
   btn.disabled = inBook()
-    ? !hasPending()
+    ? !hasPending() && (!here || here.lines === 0)
     : builderMode === 'analyser' && !!analyserGameId && !isBuilderDirty();
   // The duplicate check exists to stop a second copy of a line being created.
   // Inside a book that cannot happen, so it isn't asked.
@@ -673,6 +682,21 @@ function applySaveButtonLabel(): void {
   btn?.classList.toggle('header-save--covered', !!covered);
   if (btn) setSaveButtonIcon(btn, covered ? 'covered' : dup?.kind ?? null);
   if (btn) setDraftPlacesChip(btn, inBook() && !covered ? draftPlacesNote() : null);
+  if (btn) setSaveChevron(btn, !!covered);
+}
+
+// The covered button states a fact you can now follow ("2 lines from here" opens
+// that branch). The chevron is what says so: without it the button reads as a
+// status label, which is precisely what it was before it led anywhere.
+function setSaveChevron(btn: HTMLElement, show: boolean): void {
+  const chev = btn.querySelector<HTMLElement>('.header-save-chev');
+  if (!show) { chev?.remove(); return; }
+  if (chev) return;
+  const el = document.createElement('span');
+  el.className = 'header-save-chev';
+  el.setAttribute('aria-hidden', 'true');
+  el.textContent = '›';
+  btn.appendChild(el);
 }
 
 // The chip lives inside the button, after the label, and is created only when
@@ -2221,6 +2245,136 @@ function repaintAfterBookWrite(): void {
   renderMoveList();
 }
 
+// ── Removing moves from the book ─────────────────────────────────────────────
+//
+// Until now the builder could only ADD. Taking a move back out meant leaving for
+// My Lines and finding it again, so in practice nobody did — the book only ever
+// grew. These three functions are the whole removal path in the builder, and
+// they all go through line-removal.ts so the numbers quoted here are the same
+// ones the branch sheet quotes.
+
+/**
+ * The trash on a "My saved lines" row: take out the continuation played from the
+ * position on the board, and everything after it.
+ */
+function removeContinuationFromHere(uci: string): void {
+  const book = activeBook();
+  if (!book) return;
+  const node = nodeAtPath(book.tree, [...currentPathUcis(), uci]);
+  if (!node) { showToast('That move isn’t in this book'); return; }
+  askThenRemove(node.id);
+}
+
+/**
+ * Remove a move, asking first only when it is worth asking about.
+ *
+ * A TRIM — one line, which survives ending a move earlier — just happens, and
+ * the toast offers to put it back. A CUT that ends several lines stops and names
+ * them first. Both are undoable: the dialog is there so nobody is SURPRISED, not
+ * because one of them can't be recovered.
+ *
+ * Confirming everything is what teaches people to tap through confirmations, at
+ * which point the dialog protects nothing and the genuinely wide cut goes
+ * through as easily as the trim.
+ */
+function askThenRemove(nodeId: string): void {
+  const book = activeBook();
+  if (!book) return;
+  const impact = describeRemoval(book, nodeId);
+  if (!impact) { showToast('Nothing to remove here'); return; }
+  if (impact.small) { void applyRemoval(nodeId); return; }
+  showDialog({
+    title: removalTitle(impact),
+    body: removalBody(impact, book.name),
+    buttons: [
+      { label: 'Remove', variant: 'danger', onClick: () => { void applyRemoval(nodeId); } },
+      { label: 'Cancel', variant: 'secondary' },
+    ],
+  });
+}
+
+async function applyRemoval(nodeId: string): Promise<void> {
+  const cut = await removeAndStore(nodeId);
+  stopPlayback();
+  repaintAfterBookWrite();
+  // The cursor may have been standing inside what just went; tree.ts walks it
+  // back out to the parent, and this re-syncs the board and strip to wherever
+  // it landed.
+  handleMoveClick(getCurrentNode().id);
+  if (!cut) { showToast('Nothing to remove here'); return; }
+  showToast(removalDone(cut.moves), {
+    action: { label: 'Undo', onClick: () => void undoRemoval(cut) },
+  });
+}
+
+/**
+ * Put a removal back. This is the reason removal can be offered in more places
+ * at all: re-playing the moves would NOT bring back their review history, and
+ * re-attaching the very subtree that was taken does.
+ */
+async function undoRemoval(cut: DetachedSubtree): Promise<void> {
+  const ok = await restoreAndStore(cut);
+  repaintAfterBookWrite();
+  handleMoveClick(getCurrentNode().id);
+  if (ok) showToast('Moves put back ✓', { variant: 'success' });
+  else showToast('Those moves can’t be put back now');
+}
+
+// ── The header button inside a book ──────────────────────────────────────────
+
+/**
+ * With a draft open the button adds it, exactly as it always has. With nothing
+ * to add it used to be a dead tap: the label became a status line ("3 lines
+ * saved", "2 lines from here") and tapping it answered "Nothing new to add",
+ * which is true and useless.
+ *
+ * A button that describes your book should take you to the thing it describes.
+ * At the start position that is the book itself, so it goes to My Lines. Deeper
+ * in, it is the branch you are standing on, so it opens the branch sheet — where
+ * that branch can be named, tagged, paused, prioritised or removed.
+ *
+ * The start position deliberately does NOT open the sheet. There the "branch" is
+ * the entire repertoire, and its remove button would sit one tap from the
+ * header.
+ */
+function handleBookHeaderTap(): void {
+  if (hasPending()) { addFromHeader(); return; }
+  const at = cursorCoverage();
+  if (!at || at.lines === 0) { showToast('Play a move to start a line'); return; }
+  if (at.atStart) { showView('lines'); return; }
+  openBranchSheetHere();
+}
+
+/**
+ * The branch sheet for the position on the board.
+ *
+ * The sheet writes straight to storage, so the builder's in-memory book and the
+ * tree on the board are stale the moment it changes anything — and a later
+ * commit from here would write the stale copy back, resurrecting whatever it
+ * removed. So the book is re-opened afterwards and the cursor walked back to
+ * where it was, as far as the book still goes: the branch the user was standing
+ * on may be exactly the one they just removed.
+ */
+function openBranchSheetHere(): void {
+  const book = activeBook();
+  if (!book) return;
+  const ucis = currentPathUcis();
+  void openBranchSheet({
+    repertoireId: book.id,
+    ucis,
+    sans: currentPathSans(),
+    onSeeInLines: () => showView('lines'),
+    onChanged: () => { void rereadBookAfterBranchEdit(book.id, ucis); },
+  });
+}
+
+async function rereadBookAfterBranchEdit(bookId: string, ucis: string[]): Promise<void> {
+  await openBook(saveColour, bookId);
+  const node = nodeAtPath(rootNode(), ucis);
+  handleMoveClick(node ? node.id : 'root');
+  repaintAfterBookWrite();
+}
+
 /**
  * The header's add action.
  *
@@ -2610,15 +2764,10 @@ function deleteCurrentLineOrGame(): void {
       title: 'Delete this line?',
       body: `This removes ${moves} from “${label}”, along with their review history. Moves it shares with your other lines stay. This can’t be undone.`,
       buttons: [
-        { label: 'Delete', variant: 'danger', onClick: () => {
-          void removeAndStore(plan.from.id).then(() => {
-            stopPlayback();
-            builderPanels?.reloadLines();
-            handleMoveClick(getCurrentNode().id);
-            updateSaveButtonLabel();
-            showToast('Line deleted');
-          });
-        } },
+        // Through the shared path, so deleting a line from here is undoable
+        // too — it takes the same moves, and losing their review history to a
+        // mis-tap is the same loss wherever the tap happened.
+        { label: 'Delete', variant: 'danger', onClick: () => { void applyRemoval(plan.from.id); } },
         { label: 'Cancel', variant: 'secondary' },
       ],
     });
@@ -4854,7 +5003,7 @@ function trainingUnlockedMessage(lineCount: number): string {
 function setupSaveButton() {
   document.getElementById('header-save')!.addEventListener('click', () => {
     if (builderMode === 'analyser') { void saveGame(); return; }
-    if (inBook()) { addFromHeader(); return; }
+    if (inBook()) { handleBookHeaderTap(); return; }
     // The line on the board already exists: open it, or add the tag that's new.
     // Handled here rather than inside saveCurrentLine so it short-circuits the
     // whole save flow — none of the three nudges apply to a line we aren't
@@ -5201,6 +5350,10 @@ maybeShowGate(() => requestAnimationFrame(() => {
     onOpenOpponentReport: (id: string) => { openExploreOpponent(id); showView('explore'); },
     // My lines "Show tree": open the tapped saved line in the builder.
     onOpenLine,
+    // My saved lines: the trash on a continuation row. Only while a book is
+    // open — the analyser is looking at somebody's game, not at your book.
+    canRemoveLines: () => inBook(),
+    onRemoveContinuation: removeContinuationFromHere,
   });
 
   // The Explore slide — three curated moves for the position on the board.

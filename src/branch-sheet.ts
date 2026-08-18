@@ -18,8 +18,10 @@ import {
 } from './storage';
 import {
   nodeAtPath, pathToNode, resolveTraining, resolvePriority, resolveTags,
-  resolveLabel, removeSubtree, moveCount, type Repertoire,
+  resolveLabel, detachSubtree, reattachSubtree, moveCount,
+  type DetachedSubtree, type Repertoire,
 } from './repertoire';
+import { describeRemoval, removalBody, removalDone, removalTitle } from './line-removal';
 import { endsUnder, setBranchTraining, setBranchValue, projectLine, locateLine } from './lines-view';
 import { joinCandidates, joinContinuation } from './repertoire-join';
 import { requestTrainingSlots } from './entitlement';
@@ -35,6 +37,12 @@ export interface BranchSheetOptions {
   sans: string[];
   /** "Build from here" — seeds the builder at this position. */
   onBuildFrom?: (ucis: string[]) => void;
+  /**
+   * "See in My Lines" — offered when the sheet was opened from somewhere that
+   * ISN'T My Lines (the builder). Omitted on My Lines itself, where it would
+   * point at the screen you are already looking at.
+   */
+  onSeeInLines?: () => void;
   /** Called after anything is written, so the screen behind can repaint. */
   onChanged?: () => void;
 }
@@ -367,34 +375,65 @@ function build(
     actions.appendChild(build);
   }
 
+  if (opts.onSeeInLines) {
+    const see = document.createElement('button');
+    see.type = 'button';
+    see.className = 'btn-secondary';
+    see.textContent = 'See in My Lines';
+    see.addEventListener('click', () => {
+      commitName(); commitTags();
+      close();
+      opts.onSeeInLines?.();
+    });
+    actions.appendChild(see);
+  }
+
+  // What goes, said the same way everywhere it is said (line-removal.ts): this
+  // move and everything after it; the moves BEFORE it are shared and stay; and
+  // — the part people actually want to know — whether the line disappears or
+  // simply ends a move earlier.
+  const impact = describeRemoval(book, node.id);
   const remove = document.createElement('button');
   remove.type = 'button';
   remove.className = 'btn-danger branch-remove';
   remove.textContent = lineCount === 1 ? 'Remove this line' : `Remove all ${lineCount} lines`;
   remove.addEventListener('click', () => {
+    if (!impact) return;
+    // One line comes out on the tap, with an Undo; anything wider stops and
+    // names what it is about to take. Same rule as the builder's own trash.
+    if (impact.small) { void doRemove(); return; }
     showDialog({
-      title: lineCount === 1 ? 'Remove this line?' : `Remove ${lineCount} lines?`,
-      // The honest number, always: what goes is this move and everything after
-      // it, and everything BEFORE it is shared and stays.
-      body: `This removes ${plural(moves, 'move')} from “${book.name}”, along with their `
-        + `review history. The moves leading up to here stay — they belong to your other `
-        + `lines too. This can’t be undone.`,
+      title: removalTitle(impact),
+      body: removalBody(impact, book.name),
       buttons: [
-        {
-          label: 'Remove', variant: 'danger', onClick: () => {
-            void (async () => {
-              removeSubtree(book.tree, node.id);
-              await save();
-              close();
-              showToast(lineCount === 1 ? 'Line removed' : `${lineCount} lines removed`);
-            })();
-          },
-        },
+        { label: 'Remove', variant: 'danger', onClick: () => { void doRemove(); } },
         { label: 'Cancel', variant: 'secondary' },
       ],
     });
   });
   actions.appendChild(remove);
+
+  // Removal is the one edit here that destroys work — the review history goes
+  // with the moves, and re-playing them does not bring it back. So the cut is
+  // kept whole and handed to the toast, which can put the very same moves back.
+  async function doRemove(): Promise<void> {
+    const cut = detachSubtree(book.tree, node.id);
+    if (!cut) return;
+    await save();
+    close();
+    showToast(removalDone(cut.moves), {
+      action: { label: 'Undo', onClick: () => void undoRemove(cut) },
+    });
+  }
+
+  async function undoRemove(cut: DetachedSubtree): Promise<void> {
+    if (!reattachSubtree(book.tree, cut)) {
+      showToast('Those moves can’t be put back now');
+      return;
+    }
+    await save();
+    showToast('Moves put back ✓', { variant: 'success' });
+  }
 
   const done = document.createElement('button');
   done.type = 'button';
