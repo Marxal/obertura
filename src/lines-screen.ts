@@ -23,7 +23,7 @@ import {
   renderRepertoirePicker, loadBookRows, lineInBook, selectedBookId,
   setSelectedBookId, type BookRow,
 } from './repertoire-picker';
-import { openBranchSheet } from './branch-sheet';
+import { openBranchSheet, openBranchSheetForLine } from './branch-sheet';
 import { parseLineId } from './lines-view';
 import { renderCoverageLauncher, type CoverageSection } from './coverage-section';
 import { openCoverageScreen } from './coverage-screen';
@@ -664,6 +664,22 @@ function buildDetailCard(
   // Delete sits on the training row, right-aligned (rename lives up in the title row).
   const iconRow = document.createElement('div');
   iconRow.className = 'dline-iconrow';
+
+  // Everything you can do to this line as a BRANCH — pause it, set how often it
+  // comes round, name or tag it, and (the reason this control exists on a card
+  // at all) join it onto a line it transposes into. The tree view offers the
+  // same sheet, but it merges by position: two roads to one square are drawn as
+  // a single node there, which is precisely the node a join cannot be made on.
+  const optionsBtn = document.createElement('button');
+  optionsBtn.type = 'button';
+  optionsBtn.className = 'dline-icon';
+  optionsBtn.setAttribute('aria-label', 'Line options');
+  optionsBtn.title = 'Line options';
+  optionsBtn.appendChild(Icons.settings(16));
+  optionsBtn.addEventListener('click', () => {
+    void openBranchSheetForLine(line.id, { onChanged: () => refresh() });
+  });
+  iconRow.appendChild(optionsBtn);
 
   const deleteBtn = document.createElement('button');
   deleteBtn.type = 'button';

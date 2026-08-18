@@ -18439,3 +18439,11 @@ html.picker-open body {
   gap: 0.4rem;
   margin-top: 0.25rem;
 }
+
+/* A join offer in the branch sheet — one button per line this one could carry
+   on as. Stacked, full width, wrapping: the names are line names, not chips. */
+.branch-join-btn {
+  text-align: left;
+  white-space: normal;
+  line-height: 1.35;
+}

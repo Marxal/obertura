@@ -23,6 +23,7 @@ import {
   userMovesOnPath, pathToNode, makeIdFactory, mergePath,
   type MergeStep, type Repertoire,
 } from './repertoire';
+import { joinedPath } from './repertoire-join';
 
 // ── Line ids ─────────────────────────────────────────────────────────────────
 //
@@ -58,18 +59,35 @@ export function projectLines(repertoires: Repertoire[]): Line[] {
 
 /** The lines of one book. A book with no moves has no lines, not one empty one. */
 export function projectRepertoire(rep: Repertoire): Line[] {
-  return linePaths(rep.tree).map(path => projectLine(rep, path));
+  return linePaths(rep.tree).map(path => projectLine(rep, joinedPath(rep.tree, path), path));
 }
 
-/** One line, built from the path that ends it. */
-export function projectLine(rep: Repertoire, path: MoveNode[]): Line {
-  const end = path[path.length - 1];
+/**
+ * One line.
+ *
+ * `path` is everything the line PLAYS — which, on a line with a transposition
+ * join, runs past its own end and on through the line it continues as
+ * (repertoire-join.ts). `originPath` is the line's own branch, and it is what
+ * decides everything ABOUT the line:
+ *
+ *   • identity, name, tags, training and priority come from the origin, so
+ *     joining into a paused branch cannot pause this line, and naming this line
+ *     cannot rename the one it points at;
+ *   • the moves, and therefore the confidence, come from the full path, because
+ *     those are the moves you actually have to play.
+ *
+ * Without a join the two are the same array and this is the plain case.
+ */
+export function projectLine(
+  rep: Repertoire, path: MoveNode[], originPath: MoveNode[] = path,
+): Line {
+  const end = originPath[originPath.length - 1];
   const opening = nameForPath(path.map(n => n.fen));
-  const label = resolveLabel(path);
+  const label = resolveLabel(originPath);
   return {
     id: makeLineId(rep.id, end.id),
     name: label ?? opening ?? notationName(path),
-    tags: resolveTags(path),
+    tags: resolveTags(originPath),
     colour: rep.colour,
     openingName: opening,
     confidence: pathConfidence(path, rep.colour),
@@ -77,10 +95,10 @@ export function projectLine(rep: Repertoire, path: MoveNode[]): Line {
     // An archived book is out of the rotation whatever its nodes say — that is
     // what archiving IS, and resolving it per node would make "archive" a
     // twenty-node edit that un-archiving could not reliably undo.
-    inTraining: rep.archived ? false : resolveTraining(path),
+    inTraining: rep.archived ? false : resolveTraining(originPath),
     tree: spine(path),
     createdAt: end.createdAt,
-    priority: resolvePriority(path),
+    priority: resolvePriority(originPath),
     timesTrained: end.timesTrained,
   };
 }
@@ -152,9 +170,15 @@ function pathConfidence(path: MoveNode[], colour: 'white' | 'black'): number {
 
 export interface LineLocation {
   repertoire: Repertoire;
-  /** The live nodes in the repertoire's own tree, root excluded. */
+  /**
+   * The live nodes the line plays, root excluded — including anything a
+   * transposition join adds, so a drill's grades reach those moves too.
+   */
   path: MoveNode[];
+  /** The line's OWN end: where its metadata lives, join or no join. */
   end: MoveNode;
+  /** The line's own branch, without the joined continuation. */
+  originPath: MoveNode[];
 }
 
 /** Find the live nodes a projected line id refers to, or null if it's gone. */
@@ -163,9 +187,14 @@ export function locateLine(repertoires: Repertoire[], lineId: string): LineLocat
   if (!parsed) return null;
   const rep = repertoires.find(r => r.id === parsed.repertoireId);
   if (!rep) return null;
-  const path = pathToNode(rep.tree, parsed.endNodeId);
-  if (!path || path.length === 0) return null;
-  return { repertoire: rep, path, end: path[path.length - 1] };
+  const originPath = pathToNode(rep.tree, parsed.endNodeId);
+  if (!originPath || originPath.length === 0) return null;
+  return {
+    repertoire: rep,
+    path: joinedPath(rep.tree, originPath),
+    end: originPath[originPath.length - 1],
+    originPath,
+  };
 }
 
 // ── Write-back ───────────────────────────────────────────────────────────────
@@ -232,8 +261,11 @@ export function spineNodes(tree: MoveNode): MoveNode[] {
  * the ancestors don't, and REMOVED when it merely repeats them.
  */
 function applyLineMeta(at: LineLocation, line: Line): void {
-  const { path, end } = at;
-  const above = path.slice(0, -1);
+  const { originPath, end } = at;
+  // The line's own branch decides — a joined continuation belongs to another
+  // line and must not be what this line's name or training is measured against.
+  const path = originPath;
+  const above = originPath.slice(0, -1);
 
   setInherited(end, 'training', line.inTraining, resolveTraining(above));
   setInherited(end, 'priority', line.priority, resolvePriority(above));

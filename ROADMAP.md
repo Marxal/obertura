@@ -2119,8 +2119,29 @@ data; a line is a view of it.** Decision record: `REPERTOIRE-REDESIGN.md`.
 Verified at the real UI on six lines sharing 1.d4 d5 2.c4: 8 moves due, a
 reported saving of 4, and answering 2.c4 once graded the one shared node.
 
-**Still to do:** routing the seeded single-line flows through the book, and
-transposition joins (Phase E).
+### Phase E — transposition joins ✅
+
+- ✅ **"From here, continue as in that line."** A line end can point at another
+  line that reaches the same position by a different move order; the moves after
+  that position are appended to it. They are the same nodes, so drilling either
+  line grades the same records and nothing is stored twice — taking a join left
+  the book's stored move count exactly where it was.
+- ✅ **The tree stays a tree.** A join is followed once (two lines pointing at
+  each other cannot loop), a continuation that would revisit the line's own moves
+  is refused, and the target must be the same position — not merely somewhere
+  else in the book. All three are self-tested with real chess.js positions.
+- ✅ **A join changes what a line plays, never what it is.** Name, tags, training
+  and priority resolve from the line's own branch, so joining into a paused
+  branch can't pause the line that joined, and renaming a joined line can't
+  rename the line it points at.
+- ✅ **The control sits on the line card, not the tree.** The tree merges by
+  position, so two roads to one square are drawn as a single node — exactly the
+  node a join cannot be made on. "Line options" on a card opens the same branch
+  sheet, where a line has an unambiguous end.
+
+**Still to do:** routing the seeded single-line flows (onboarding, "prepare a
+reply", a line pulled from a game) through the book. They merge correctly on
+save, so nothing duplicates; they just don't show you the book while you work.
 
 _On `claude/repertoire-system-redesign-ddz4in`. Restore point: `v0.5`._
 
