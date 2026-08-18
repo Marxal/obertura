@@ -31,4 +31,10 @@ export interface Line {
   // 50% over twenty. Optional and only counted from the release that added it,
   // so older lines fall back to an estimate (see stats.lineTrainingCount).
   timesTrained?: number;
+  // Moves that belong to THIS line and no other — the tail past the last point
+  // where a neighbour branches off. The whole point of the tree model made
+  // visible: a line whose 12 moves are 3 of its own is mostly shared prep, and
+  // deleting it only cuts those 3. Derived by the projection, never stored, and
+  // absent on a Line built outside a repertoire (an import, a starter pack).
+  ownMoves?: number;
 }

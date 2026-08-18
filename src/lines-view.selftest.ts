@@ -510,6 +510,42 @@ export function runLinesViewSelfTest(): TestResult[] {
     );
   }
 
+  // ── How much of a line is its own ──────────────────────────────────────────
+  //
+  // The number a card shows as "3 only here", and the number deleting the line
+  // would actually cut. It has to agree with lineTailStart, which is what the
+  // delete confirm quotes.
+  {
+    const rep = book('white', 'e4 e5 Nf3 Nc6 Bb5', 'e4 e5 Nf3 Nc6 Bc4');
+    const lines = projectRepertoire(rep);
+    check(
+      'a line owns only the moves past where its neighbour branches off',
+      lines.every(l => l.ownMoves === 1),
+      `ownMoves: ${lines.map(l => l.ownMoves).join(', ')}`,
+    );
+
+    const alone = book('white', 'd4 d5 c4');
+    check(
+      'a line nothing else touches owns every move',
+      projectRepertoire(alone)[0].ownMoves === 3,
+      `ownMoves ${projectRepertoire(alone)[0].ownMoves}`,
+    );
+  }
+
+  {
+    // A line that ends inside a longer one (an endpoint with moves after it):
+    // every move it plays is also played by the lines that continue, so it owns
+    // none of them and the card says nothing rather than "0 only here".
+    const rep = book('white', 'e4 e5 Nf3 Nc6');
+    at(rep, 'e4 e5')!.endpoint = true;
+    const short = projectRepertoire(rep).find(l => l.tree.children[0]?.children[0]?.children.length === 0);
+    check(
+      'a line other lines continue past owns none of its moves',
+      short?.ownMoves === 0,
+      `ownMoves ${short?.ownMoves}`,
+    );
+  }
+
   // ── "Latest" ───────────────────────────────────────────────────────────────
   //
   // A line's date is the newest move on its own branch, so extending a line

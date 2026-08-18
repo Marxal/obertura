@@ -30,6 +30,8 @@ import { openCoverageScreen } from './coverage-screen';
 import type { ImportedGame } from './chesscom';
 import { renderLoadError } from './load-error';
 import { formatSanLine } from './notation';
+import { lineStatus, lineShape } from './line-status';
+import { openLinePeek } from './line-peek';
 
 // Game analysis walks every imported game through a merged repertoire tree — at
 // a year's worth of games that's a visible hitch on a phone. It was being re-run
@@ -60,19 +62,6 @@ let coverageLauncher: CoverageSection | null = null;
 function disposeCoverageLauncher(): void {
   coverageLauncher?.dispose();
   coverageLauncher = null;
-}
-
-function relativeDate(isoStr: string): string {
-  const diff = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000);
-  if (diff < 60) return 'just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  const days = Math.floor(diff / 86400);
-  if (days === 1) return 'yesterday';
-  if (days < 30) return `${days} days ago`;
-  const months = Math.floor(days / 30);
-  if (months < 12) return months === 1 ? '1 month ago' : `${months} months ago`;
-  return isoStr.slice(0, 10);
 }
 
 function confidenceDots(c: number): string {
@@ -116,6 +105,9 @@ function sortSuggestions(stats: OpeningStat[], mode: SuggestSort): OpeningStat[]
 
 interface LinesDeps {
   onOpenLine: (line: Line) => void;
+  // "Drill it" from a line's popup: drills an in-training line straight away,
+  // and runs the add-to-training flow for one that isn't in the rotation yet.
+  onTrainLine?: (lineId: string, inTraining: boolean) => void;
   onAddLine: (colour: 'white' | 'black') => void;
   onStartTraining?: (line: Line) => void;
   // Seed the builder with these UCI moves for the given colour, then open it.
@@ -531,11 +523,25 @@ function buildDetailCard(
 ): HTMLElement {
   // Shared position-card scaffold: title row on top, a larger miniature on the
   // left of row 2 with the info + actions on the right.
+  // Tapping the card — the board or the title — opens the line's POPUP, not the
+  // builder. Nine times in ten the question is "what is this line, and how is it
+  // going?", and answering it used to mean a round trip through the editor with
+  // a save guard on the way out. The popup answers it in place and offers the
+  // builder as one of its ways on.
+  const peek = (): void => openLinePeek({
+    line,
+    onOpen: (l) => deps.onOpenLine(l),
+    onDrill: deps.onTrainLine
+      ? (l) => deps.onTrainLine!(l.id, l.inTraining)
+      : undefined,
+    drillLabel: line.inTraining ? 'Drill line' : 'Add to training',
+  });
+
   const { card, titleRow: titleRowWrap, content } = buildPositionCard({
     fen: lineFinalFen(line.tree),
     orientation: line.colour,
-    onMiniClick: () => deps.onOpenLine(line),
-    miniLabel: 'Open line',
+    onMiniClick: peek,
+    miniLabel: 'Look at this line',
   });
 
   // Just saved from the builder: draw attention and scroll it into view.
@@ -564,7 +570,7 @@ function buildDetailCard(
     newBadge.textContent = 'New';
     titleRow.appendChild(newBadge);
   }
-  titleRow.addEventListener('click', () => deps.onOpenLine(line));
+  titleRow.addEventListener('click', peek);
   titleRowWrap.appendChild(titleRow);
 
   // Edit: a quiet, right-aligned twin of the title — opens the rename sheet.
@@ -610,18 +616,10 @@ function buildDetailCard(
     info.appendChild(played);
   }
 
-  const stats = document.createElement('div');
-  stats.className = 'dline-stats';
-  const conf = document.createElement('span');
-  conf.className = 'dline-stat';
-  conf.textContent = `Confidence ${confidenceDots(line.confidence)}`;
-  stats.appendChild(conf);
-  stats.appendChild(sepDot());
-  const last = document.createElement('span');
-  last.className = 'dline-stat';
-  last.textContent = line.lastTrained ? `Trained ${relativeDate(line.lastTrained)}` : 'Never trained';
-  stats.appendChild(last);
-  info.appendChild(stats);
+  // Two rows, in the order you'd want to scan them: what this line needs from
+  // you, then what the line actually is.
+  info.appendChild(buildStatusRow(line));
+  info.appendChild(buildShapeRow(line));
 
   content.appendChild(info);
 
@@ -696,6 +694,64 @@ function buildDetailCard(
   content.appendChild(footer);
 
   return card;
+}
+
+/**
+ * Row 1 — what this line wants from you, which is the one thing worth scanning
+ * a list of cards for. A coloured dot carries the state (due / learning / solid
+ * / paused) so the row reads at a glance, and the words say when.
+ *
+ * "Confidence ●●●○○ · Trained 3 days ago" used to sit here. Both looked
+ * backwards, and on a line never trained it rendered as "Confidence — · Never
+ * trained", which reads as something broken rather than as something new.
+ */
+function buildStatusRow(line: Line): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'dline-status';
+
+  const state = lineStatus(line);
+  const dot = document.createElement('span');
+  dot.className = `dline-dot dline-dot--${state.tone}`;
+  dot.setAttribute('aria-hidden', 'true');
+  row.appendChild(dot);
+
+  const text = document.createElement('span');
+  text.className = `dline-status-text dline-status-text--${state.tone}`;
+  text.textContent = state.text;
+  row.appendChild(text);
+
+  return row;
+}
+
+/**
+ * Row 2 — the line itself: how long it is, how much of it is its own, and how
+ * settled it is.
+ *
+ * "3 only here" is the tree model made visible. A line whose 12 moves are 3 of
+ * its own is mostly prep it shares with its neighbours — which is why deleting
+ * it only cuts 3, and why drilling it is mostly drilling moves you meet
+ * elsewhere too. Silent when the line is entirely shared (prepared moves
+ * continue past its end), because "0 only here" is a riddle, not a fact.
+ */
+function buildShapeRow(line: Line): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'dline-stats';
+
+  const { moves, ownMoves } = lineShape(line);
+  add(`${moves} ${moves === 1 ? 'move' : 'moves'}`);
+  if (ownMoves !== null) add(`${ownMoves} only here`);
+  if (line.confidence > 0) add(confidenceDots(line.confidence), 'dline-conf');
+
+  return row;
+
+  function add(text: string, extraClass?: string): void {
+    if (row.childElementCount > 0) row.appendChild(sepDot());
+    const el = document.createElement('span');
+    el.className = 'dline-stat' + (extraClass ? ' ' + extraClass : '');
+    el.textContent = text;
+    if (extraClass === 'dline-conf') el.title = `Confidence ${line.confidence} of 5`;
+    row.appendChild(el);
+  }
 }
 
 function sepDot(): HTMLElement {

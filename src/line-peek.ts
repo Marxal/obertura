@@ -1,9 +1,13 @@
 // The whole line in one popup: a board you can step through, the move list with
 // each move's miss count, and the line's own recall figures on top.
 //
-// Opened from the Statistics "Forgotten moves → Lines" rows. Read-only by
-// design — this is for looking at where a line leaks, not for editing it; the
-// two actions at the foot are the ways out (drill it, or open it in the builder).
+// Opened from the Statistics "Forgotten moves → Lines" rows AND from a card on
+// My Lines — tapping a line there lands here rather than dropping you straight
+// into the builder, because "what is this line and how is it going?" is the
+// question you usually have, and it used to cost a round trip through the
+// editor to answer. Read-only by design — this is for looking at where a line
+// leaks, not for editing it; the actions at the foot are the ways out (drill
+// it, or open it in the builder).
 //
 // Only YOUR moves are scheduled, so only they carry stats: the opponent's
 // replies are auto-played in training and never tested, and they read as muted
@@ -21,6 +25,7 @@ import { Icons } from './icons';
 import { pushBack } from './back-nav';
 import { formatMove } from './notation';
 import { peekActionBtn, buildStatRow, type PeekStat } from './position-peek';
+import { lineStatus, lineShapeText } from './line-status';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -32,6 +37,8 @@ export interface LinePeekOptions {
   focusPly?: number;
   onDrill?: (line: Line) => void;
   onOpen?: (line: Line) => void;
+  /** Wording for the drill action — "Drill line" unless the caller says else. */
+  drillLabel?: string;
 }
 
 interface Ply {
@@ -113,6 +120,14 @@ export function openLinePeek(opts: LinePeekOptions): void {
     },
   ];
   sheet.appendChild(buildStatRow(stats));
+
+  // ── What the line is ───────────────────────────────────────────────────────
+  //
+  // The figures above say how it is GOING. This says what it is: its state (the
+  // same phrase and colour its card carries, so the popup can't contradict the
+  // list it opened from), how long it is and how much of it belongs to no other
+  // line, then its tags.
+  sheet.appendChild(buildMeta(line));
 
   // ── Board ──────────────────────────────────────────────────────────────────
 
@@ -264,11 +279,11 @@ export function openLinePeek(opts: LinePeekOptions): void {
   const btnRow = document.createElement('div');
   btnRow.className = 'peek-actions';
   if (opts.onDrill) {
-    btnRow.appendChild(peekActionBtn(Icons.zap(18), 'Drill line',
+    btnRow.appendChild(peekActionBtn(Icons.zap(18), opts.drillLabel ?? 'Drill line',
       () => { close(); opts.onDrill!(line); }));
   }
   if (opts.onOpen) {
-    btnRow.appendChild(peekActionBtn(Icons.pencil(18), 'Open',
+    btnRow.appendChild(peekActionBtn(Icons.pencil(18), 'Open in builder',
       () => { close(); opts.onOpen!(line); }));
   }
   if (btnRow.childElementCount > 0) sheet.appendChild(btnRow);
@@ -283,6 +298,43 @@ export function openLinePeek(opts: LinePeekOptions): void {
   // then open on the focused move.
   requestAnimationFrame(() => cg.redrawAll());
   select(current);
+}
+
+/** State, shape and tags — everything the popup knows that isn't a figure. */
+function buildMeta(line: Line): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'lpeek-meta';
+
+  const state = lineStatus(line);
+  const status = document.createElement('div');
+  status.className = 'lpeek-state';
+  const dot = document.createElement('span');
+  dot.className = `dline-dot dline-dot--${state.tone}`;
+  dot.setAttribute('aria-hidden', 'true');
+  status.appendChild(dot);
+  const text = document.createElement('span');
+  text.className = `dline-status-text dline-status-text--${state.tone}`;
+  text.textContent = state.text;
+  status.appendChild(text);
+  const shape = document.createElement('span');
+  shape.className = 'lpeek-shape';
+  shape.textContent = lineShapeText(line);
+  status.appendChild(shape);
+  wrap.appendChild(status);
+
+  if (line.tags.length) {
+    const tags = document.createElement('div');
+    tags.className = 'lpeek-tags';
+    for (const tag of line.tags) {
+      const chip = document.createElement('span');
+      chip.className = 'tag-chip';
+      chip.textContent = tag;
+      tags.appendChild(chip);
+    }
+    wrap.appendChild(tags);
+  }
+
+  return wrap;
 }
 
 function stepBtn(label: string, icon: SVGElement, onClick: () => void): HTMLButtonElement {
