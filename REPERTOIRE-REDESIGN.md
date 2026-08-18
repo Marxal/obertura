@@ -1,6 +1,6 @@
 # The repertoire redesign — proposal
 
-**Status: Phases A, B and C are built.** §9 records the five decisions this was
+**Status: Phases A–D are built.** §9 records the five decisions this was
 agreed on; §10 says which phases have shipped and which have not. Restore point:
 `v0.5`.
 
@@ -342,14 +342,34 @@ paused exactly the two French lines, leaving the Sicilian alone; naming the
 branch renamed both and nothing else; a line built while a book is selected lands
 in that book.
 
-**Phase D, E — not started.** Specifically outstanding:
+**Phase D ✅** — a **Repertoire run**: one walk through the book, asking each move
+once. The line modes are untouched, exactly as §7 decided — walking a line
+start-to-finish is muscle memory and worth keeping — so this is a mode beside
+them rather than a replacement.
 
-- Training's shared-prefix dedupe and the "repertoire run" mode.
+The dedupe is structural rather than a filter: the run visits tree nodes, a node
+is visited once, and so a move six lines pass through is asked once because there
+is only one of it. The order is depth-first, which reads as walking down a line
+and backing up to the last branch when it ends. Paused branches and books put
+aside are skipped; spacing comes from the priority resolved **at each node**, so a
+branch marked "less often" is respected move by move.
+
+The card quotes the saving — "4 repeated moves you'd otherwise answer twice" —
+counted over exactly the moves the run covers, so it can't overstate itself by
+including opening plies that are never asked at all.
+
+"Individual moves" needed no change: it already deduped by position and move.
+
+Verified at the real UI on six lines sharing 1.d4 d5 2.c4 — the card reported 8
+moves due and a saving of 4, and answering 2.c4 once graded the single shared node.
+
+**Phase E — not started**, plus two things carried over:
+
 - The seeded single-line flows (onboarding, "prepare a reply", a line pulled out
   of a game) still lay ONE line down in the old single-path mode. They merge into
   the book correctly when saved, so nothing duplicates — but they don't yet show
   you the book while you work.
-- Transposition joins (Phase E), as agreed, after real use.
+- Transposition joins, as agreed, after real use.
 
 One thing worth knowing about the caps: `FREE_REPERTOIRES = 3` and the
 whole-branch training check are wired through exactly the same `isEntitled()`
