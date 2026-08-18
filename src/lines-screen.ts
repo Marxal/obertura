@@ -478,6 +478,7 @@ function renderSavedTab(
               onBuildFrom: deps.onPrepareGap
                 ? (ucis) => deps.onPrepareGap!(ucis, ctx.colour)
                 : undefined,
+              onOpenLine: deps.onOpenLine,
               onChanged: () => { void refresh(); },
             });
           },
@@ -675,7 +676,10 @@ function buildDetailCard(
   optionsBtn.title = 'Line options';
   optionsBtn.appendChild(Icons.settings(16));
   optionsBtn.addEventListener('click', () => {
-    void openBranchSheetForLine(line.id, { onChanged: () => refresh() });
+    void openBranchSheetForLine(line.id, {
+      onOpenLine: deps.onOpenLine,
+      onChanged: () => refresh(),
+    });
   });
   iconRow.appendChild(optionsBtn);
 
