@@ -15,6 +15,7 @@ import {
   isLineEnd, resolveTraining, resolvePriority, resolveTags, resolveLabel,
   removeSubtree, lineTailStart, lineTailSize, pathToNode, parentOf, nodeAtPath,
   walkPath, isUserMoveAtDepth, userMovesOnPath, findNode, type MergeStep,
+  groupAddedBranches,
 } from './repertoire';
 
 export interface TestResult {
@@ -405,6 +406,70 @@ export function runRepertoireSelfTest(): TestResult[] {
       'a new book starts at the standard position with no moves',
       root.fen === START_FEN && moveCount(root) === 0,
       `${moveCount(root)} moves`,
+    );
+  }
+
+  // ── Grouping a draft into the things it is building ────────────────────────
+  //
+  // What the builder's header counts and what its sheet lists. The rule under
+  // test is that a run of added moves is ONE thing, and two runs in different
+  // parts of the book are two — which is exactly what "Add 5 moves" failed to
+  // say when the user had built in two places.
+  {
+    const root = tree('d4 d5 c4 e6 e3 Nf6', 'd4 Nf6 Nf3 g6');
+    const added = new Set([
+      at(root, 'd4 d5 c4 e6 e3')!.id,
+      at(root, 'd4 d5 c4 e6 e3 Nf6')!.id,
+      at(root, 'd4 Nf6 Nf3')!.id,
+      at(root, 'd4 Nf6 Nf3 g6')!.id,
+    ]);
+    const branches = groupAddedBranches(root, added);
+    check(
+      'moves added in two places group into two branches',
+      branches.length === 2,
+      `${branches.length} branches`,
+    );
+    check(
+      'each branch holds its own run of moves',
+      branches.every(b => b.moves.length === 2),
+      branches.map(b => b.moves.map(n => n.san).join(' ')).join(' | '),
+    );
+    check(
+      'a branch knows the prepared moves it hangs off',
+      branches[0].from.map(n => n.san).join(' ') === 'd4 d5 c4 e6',
+      `from: ${branches[0].from.map(n => n.san).join(' ')}`,
+    );
+    check(
+      'a branch points at its deepest move, for going to look at it',
+      branches[0].lastId === at(root, 'd4 d5 c4 e6 e3 Nf6')!.id,
+      'lastId is the last added move',
+    );
+    check(
+      'the root of a branch is its shallowest added move',
+      branches[0].rootId === at(root, 'd4 d5 c4 e6 e3')!.id,
+      'rootId is the first added move',
+    );
+  }
+
+  {
+    // Two answers added at the SAME position are one piece of work, not two —
+    // they start from the same prepared move and the sheet should say so once.
+    const root = tree('e4 e5 Nf3', 'e4 e5 Bc4');
+    const added = new Set([at(root, 'e4 e5 Nf3')!.id, at(root, 'e4 e5 Bc4')!.id]);
+    const branches = groupAddedBranches(root, added);
+    check(
+      'two answers added at one position are two branches, each its own move',
+      branches.length === 2 && branches.every(b => b.moves.length === 1),
+      `${branches.length} branches`,
+    );
+  }
+
+  {
+    const root = tree('e4 e5');
+    check(
+      'nothing added means nothing to list',
+      groupAddedBranches(root, new Set()).length === 0,
+      'no branches',
     );
   }
 

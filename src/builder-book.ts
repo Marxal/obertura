@@ -28,7 +28,10 @@ import {
   defaultRepertoireFor, getRepertoire, saveRepertoire,
 } from './storage';
 import { applyLineWrite, endsUnder, makeLineId, projectRepertoire } from './lines-view';
-import { cloneTree, isLineEnd, findNode, lineTailStart, moveCount, type Repertoire } from './repertoire';
+import {
+  cloneTree, isLineEnd, findNode, lineTailStart, moveCount, groupAddedBranches,
+  type AddedBranch, type Repertoire,
+} from './repertoire';
 
 // The book being edited. `tree` here is the STORED state — the working copy
 // lives in tree.ts and only comes back on commit.
@@ -111,18 +114,80 @@ export function discardPending(): number {
   return removed;
 }
 
+export interface CommitResult {
+  /** Moves written. */
+  moves: number;
+  /** The branch roots written, so the whole commit can be taken back. */
+  roots: string[];
+}
+
 /**
  * Write the draft into the book. The working tree already IS the merged result —
  * a move played onto an existing branch became a child of the node that was
  * already there — so committing is storing it, not reconciling it.
+ *
+ * Reports the branch roots as well as the count, because an add is only as
+ * cheap as it is reversible: handing them back is what lets the toast offer an
+ * Undo that removes exactly what was just written and nothing else.
  */
-export async function commitPending(): Promise<number> {
-  if (!book) return 0;
-  const added = pending.size;
+export async function commitPending(): Promise<CommitResult> {
+  if (!book) return { moves: 0, roots: [] };
+  const moves = pending.size;
+  const roots = pendingBranches().map(b => b.rootId);
   book.tree = serialise();
   await saveRepertoire(book);
   pending.clear();
-  return added;
+  return { moves, roots };
+}
+
+// ── The draft, as things you are building ────────────────────────────────────
+//
+// `pending` is a flat set of node ids, which is the right way to STORE the
+// draft and the wrong way to describe it. A user who plays three moves off the
+// French, walks back, and plays two off the King's Indian has built TWO things;
+// telling them "Add 5 moves" while the move strip shows two of them — or none,
+// if they have since walked somewhere else entirely — is a button counting
+// something they cannot see.
+//
+// So the draft is grouped into branches: one per place you started adding.
+
+/** The draft's branches, as the sheet that lists them knows them. */
+export type DraftBranch = AddedBranch;
+
+/**
+ * The draft, grouped by where each piece of it starts. The grouping itself is
+ * pure and lives in repertoire.ts, where it is self-tested; this just hands it
+ * the working tree and the ids.
+ */
+export function pendingBranches(): DraftBranch[] {
+  return groupAddedBranches(rootOfWorking(), pending);
+}
+
+/**
+ * Is every added move on the line currently drawn in the move strip?
+ *
+ * This is what decides whether the header button can just DO it. When the answer
+ * is yes, "Add 3 moves" adds exactly the three moves marked as drafts in front
+ * of you. When it is no, the button has work hidden somewhere else in the book,
+ * and it owes the user a look at it before writing anything.
+ */
+export function pendingAllVisible(): boolean {
+  if (pending.size === 0) return true;
+  const here = new Set(currentLineNodes().map(n => n.id));
+  for (const id of pending) if (!here.has(id)) return false;
+  return true;
+}
+
+/**
+ * Throw away ONE branch of the draft. Nothing to save: these moves were never
+ * in the book, so dropping them is purely a working-tree edit.
+ */
+export function discardBranch(rootId: string): number {
+  const node = findNode(rootOfWorking(), rootId);
+  const doomed = node ? collectIds(node) : [];
+  const removed = removeNode(rootId);
+  for (const id of doomed) pending.delete(id);
+  return removed;
 }
 
 // ── What is already prepared where the cursor stands ─────────────────────────
@@ -248,6 +313,25 @@ export async function removeAndStore(nodeId: string): Promise<number> {
   const doomed = node ? collectIds(node) : [];
   const removed = removeNode(nodeId);
   for (const id of doomed) pending.delete(id);
+  book.tree = serialise();
+  await saveRepertoire(book);
+  return removed;
+}
+
+/**
+ * Remove several subtrees and store once — the undo of a commit that wrote more
+ * than one branch. Saving per branch would leave the book briefly holding half
+ * of what was undone, which the account sync would happily push.
+ */
+export async function removeManyAndStore(nodeIds: string[]): Promise<number> {
+  if (!book) return 0;
+  let removed = 0;
+  for (const id of nodeIds) {
+    const node = findNode(rootOfWorking(), id);
+    const doomed = node ? collectIds(node) : [];
+    removed += removeNode(id);
+    for (const gone of doomed) pending.delete(gone);
+  }
   book.tree = serialise();
   await saveRepertoire(book);
   return removed;

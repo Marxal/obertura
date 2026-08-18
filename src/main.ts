@@ -10,7 +10,8 @@ import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serial
 import {
   openBook, closeBook, activeBook, notePending, pendingCount, hasPending,
   isPending, discardPending, commitPending, currentLine as bookCurrentLine,
-  cursorCoverage,
+  cursorCoverage, pendingBranches, pendingAllVisible, discardBranch,
+  removeManyAndStore,
   planLineRemoval, removeAndStore,
 } from './builder-book';
 import { parseLineId } from './lines-view';
@@ -84,6 +85,7 @@ import { createPawnProgress, type PawnProgress } from './import-progress';
 import { askPromotion } from './promotion';
 import { initBackNav, setViewBack, pushBack } from './back-nav';
 import { showDialog } from './dialog';
+import { openDraftSheet } from './draft-sheet';
 import { platformLabel } from './board-explorer';
 import { openImportPanel, getGamesSource, IDENTITY_CHANGED_EVENT } from './import-panel';
 import { openStarterPackPicker, type LineSeed, type AddLineMode } from './onboarding-starter';
@@ -662,7 +664,7 @@ function applySaveButtonLabel(): void {
   const covered = inBook() && pending === 0 ? coveredLabel() : null;
   label.textContent =
     builderMode === 'analyser' ? 'Save game'
-    : inBook() ? (covered ?? (pending === 1 ? 'Add 1 move' : `Add ${pending} moves`))
+    : inBook() ? (covered ?? draftLabel(pending))
     : dup?.kind === 'open' ? 'Already saved — open it'
     : dup?.kind === 'add-tag' ? `Add tag to “${shortLineName(dup.lineName)}”`
     : loadedLineId ? 'Save changes' : 'Save line';
@@ -670,6 +672,47 @@ function applySaveButtonLabel(): void {
   btn?.classList.toggle('header-save--alt', !!dup);
   btn?.classList.toggle('header-save--covered', !!covered);
   if (btn) setSaveButtonIcon(btn, covered ? 'covered' : dup?.kind ?? null);
+  if (btn) setDraftPlacesChip(btn, inBook() && !covered ? draftPlacesNote() : null);
+}
+
+// The chip lives inside the button, after the label, and is created only when
+// there is something to say — so the ordinary "Add 3 moves" button is exactly
+// the button it always was.
+function setDraftPlacesChip(btn: HTMLElement, text: string | null): void {
+  let chip = btn.querySelector<HTMLElement>('.header-save-places');
+  btn.classList.toggle('header-save--places', !!text);
+  if (!text) { chip?.remove(); return; }
+  if (!chip) {
+    chip = document.createElement('span');
+    chip.className = 'header-save-places';
+    btn.appendChild(chip);
+  }
+  chip.textContent = text;
+}
+
+/**
+ * What the header says when there IS something to add.
+ *
+ * "Add 3 moves" as long as those three are the three marked as drafts on the
+ * line in front of you. The moment the draft reaches somewhere else in the book
+ * the count stops matching what the move strip shows, so the label says where
+ * the rest is rather than leaving the user to wonder why the number is bigger
+ * than the drafts they can see.
+ */
+function draftLabel(pending: number): string {
+  return pending === 1 ? 'Add 1 move' : `Add ${pending} moves`;
+}
+
+/**
+ * The chip beside that label when the draft reaches past the line on screen:
+ * "2 places". It is deliberately a chip and not more words — the header title
+ * beside it is already fighting for room, and this only has to say "the number
+ * is bigger than what you can see; tapping will show you".
+ */
+function draftPlacesNote(): string | null {
+  if (pendingAllVisible()) return null;
+  const places = pendingBranches().length;
+  return `${places} ${places === 1 ? 'place' : 'places'}`;
 }
 
 // What the header says when there is nothing to add: how much of the book runs
@@ -2148,13 +2191,60 @@ async function enterBuilderBook(
 // played onto a branch you had became a child of the node that was there — so
 // this stores it rather than reconciling anything.
 async function commitBook(): Promise<void> {
-  const added = await commitPending();
-  if (added === 0) { showToast('Nothing new to add'); return; }
+  const { moves, roots } = await commitPending();
+  if (moves === 0) { showToast('Nothing new to add'); return; }
+  repaintAfterBookWrite();
+  // An add is only as cheap as it is reversible, and this one is exactly
+  // reversible: the roots name the branches just written, and nothing else can
+  // have grown under them in the seconds the toast is up.
+  showToast(moves === 1 ? 'Added 1 move ✓' : `Added ${moves} moves ✓`, {
+    variant: 'success',
+    action: { label: 'Undo', onClick: () => void undoBookCommit(roots, moves) },
+  });
+}
+
+/** Take back the moves a commit just wrote. */
+async function undoBookCommit(roots: string[], moves: number): Promise<void> {
+  const removed = await removeManyAndStore(roots);
+  repaintAfterBookWrite();
+  handleMoveClick(getCurrentNode().id);
+  showToast(removed > 0
+    ? (moves === 1 ? 'Move taken back' : `${moves} moves taken back`)
+    : 'Nothing to take back');
+}
+
+/** Everything that has to catch up after the book on disk changed. */
+function repaintAfterBookWrite(): void {
   builderPanels?.reloadLines();
   refreshBuilderLineState();
   updateSaveButtonLabel();
   renderMoveList();
-  showToast(added === 1 ? 'Added 1 move ✓' : `Added ${added} moves ✓`, { variant: 'success' });
+}
+
+/**
+ * The header's add action.
+ *
+ * It commits straight away when every added move is on the line in front of
+ * you — the ordinary case, and it stays one tap. When the draft reaches into
+ * branches you are not looking at, it shows them first: the button would
+ * otherwise write work the user has no way of seeing from where they stand.
+ */
+function addFromHeader(): void {
+  if (pendingAllVisible()) { void commitBook(); return; }
+  openDraftSheet({
+    branches: pendingBranches(),
+    moves: pendingCount(),
+    onAddAll: () => void commitBook(),
+    onDiscardBranch: (rootId) => { discardBranch(rootId); afterDraftEdit(); },
+    onGoTo: (lastId) => handleMoveClick(lastId),
+  });
+}
+
+/** A branch was dropped from the draft — the tree and every count moved. */
+function afterDraftEdit(): void {
+  updateSaveButtonLabel();
+  renderMoveList();
+  handleMoveClick(getCurrentNode().id);
 }
 
 // 'builder' edits a repertoire line (Save line); 'analyser' explores an imported
@@ -4235,6 +4325,23 @@ function showSaveGuard(proceed: () => void): void {
   // leaving really does leave the repertoire as it was.
   if (inBook()) {
     const n = pendingCount();
+    const branches = pendingBranches();
+    // Built in more than one place: the old dialog offered a single "Discard"
+    // that threw away every branch at once, having named none of them. Show
+    // them instead, and let one be dropped without taking the others.
+    if (branches.length > 1) {
+      openDraftSheet({
+        branches,
+        moves: n,
+        leaving: true,
+        onAddAll: () => { void commitPending().then(() => proceed()); },
+        onDiscardBranch: (rootId) => { discardBranch(rootId); afterDraftEdit(); },
+        onGoTo: (lastId) => handleMoveClick(lastId),
+        onDiscardAll: () => { discardPending(); proceed(); },
+        onKeepEditing: () => { /* stay put — the back layer is already re-armed */ },
+      });
+      return;
+    }
     showDialog({
       title: 'Add these moves?',
       body: n === 1
@@ -4747,7 +4854,7 @@ function trainingUnlockedMessage(lineCount: number): string {
 function setupSaveButton() {
   document.getElementById('header-save')!.addEventListener('click', () => {
     if (builderMode === 'analyser') { void saveGame(); return; }
-    if (inBook()) { void commitBook(); return; }
+    if (inBook()) { addFromHeader(); return; }
     // The line on the board already exists: open it, or add the tag that's new.
     // Handled here rather than inside saveCurrentLine so it short-circuits the
     // whole save flow — none of the three nudges apply to a line we aren't

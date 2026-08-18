@@ -2183,6 +2183,42 @@ pieces of housekeeping.
   38px row, so the header keeps exactly the height it had and the board doesn't
   move.
 
+### Phase G — the line card, its popup, and what the draft really is ✅
+
+- ✅ **A card says what the line needs, then what it is.** Two rows in the order
+  you'd scan them: `● Due now · 4 of 7 moves` over `14 moves · 7 only here · ●●●○○`.
+  The old row was "Confidence — · Never trained", two backward-looking figures
+  that read as something broken. A coloured dot carries the state so a list of
+  cards is scannable without reading a word, and **paused wins over due** —
+  telling someone a line is due when the scheduler will never offer it is the
+  kind of small lie that costs trust in the whole screen.
+- ✅ **"7 only here" is the tree model made visible.** A line whose 14 moves are
+  7 of its own is half shared prep — which is why deleting it cuts only 7, and
+  why drilling it re-covers ground met elsewhere. Derived from the path the
+  projection already holds (no extra tree search), by the same rule
+  `lineTailStart` uses, so it agrees with the delete confirm by construction.
+- ✅ **Tapping a card opens the line's popup, not the builder.** Nine times in ten
+  the question is "what is this and how is it going?", and answering it meant a
+  round trip through the editor with a save guard on the way out. It reuses the
+  Forgotten-moves peek — steppable board, move list with miss bars, recall
+  figures — plus the line's state, shape and tags, and offers *Drill line* /
+  *Add to training* and *Open in builder* as the ways on.
+- ✅ **The draft is no longer counted in secret.** Inside a book the draft is
+  book-wide and every view of it was line-wide: add three moves off the French,
+  walk back, add two off the King's Indian, and the header said "Add 5 moves"
+  while the move strip showed two of them — or none, once you had walked on. It
+  now commits straight away when every added move is on the line in front of you
+  (the ordinary case, still one tap), and otherwise **shows you the draft first**:
+  each place you have built, the moves it would write, a way to go and look, and
+  a way to drop just that one. The button carries a `2 places` chip so the number
+  never silently outruns what you can see.
+- ✅ **The way out stopped being all-or-nothing.** Leaving with work in two places
+  used to offer one "Discard" that threw both away, having named neither. It now
+  opens the same list, with *Add all* · *Discard them all* · *Keep editing*.
+- ✅ **Adding is reversible.** The confirm toast carries an Undo that removes
+  exactly the branches just written — the redesign asked for this in §5 and it
+  had never been built.
+
 _On `claude/builder-ux-repertoire-redesign-j26ygg`. Restore point: `v0.5`._
 
 ---

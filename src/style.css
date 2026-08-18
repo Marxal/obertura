@@ -997,6 +997,35 @@ header h1.header-title--screen {
   display: none;
 }
 
+/* Carrying the chip, the button gives its padding back to the header title
+   beside it — the title is the half that has nowhere else to go. */
+.header-save--places {
+  padding-left: 0.7rem;
+  padding-right: 0.45rem;
+  gap: 0.3rem;
+}
+
+/* The disk glyph goes when the chip arrives. Both are saying "this button
+   writes something"; the chip is the half that also says WHAT, and on a phone
+   header the twenty pixels belong to the line's title instead. */
+.header-save--places > svg { display: none; }
+
+/* "2 places" — shown inside the add button when the draft reaches branches the
+   move strip isn't drawing. Small and quiet: its whole job is to say the count
+   beside it is bigger than what you can see, and that tapping will show you. */
+.header-save-places {
+  flex: 0 0 auto;
+  margin-left: 0.1rem;
+  padding: 0.05rem 0.32rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-shadow: none;
+  white-space: nowrap;
+}
+
 /* The line on the board is already saved, so the button no longer saves — it
    opens that line, or adds the tag that's new (TRANSPOSITIONS.md §4/§5). It
    stays a live, tappable primary: greying it out would leave a dead end where
@@ -6350,6 +6379,83 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 .dialog-btn-row--stack .dialog-btn {
   width: 100%;
+}
+
+/* ── The draft sheet (draft-sheet.ts) ────────────────────────────────────────
+   One row per place in the book you have added moves and not committed them:
+   where it hangs off, the moves themselves, then go-to-it and drop-it. */
+
+.draft-sheet .draft-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 46vh;
+  overflow-y: auto;
+  margin: 0.2rem 0 0.6rem;
+}
+
+.draft-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.4rem 0.55rem 0.7rem;
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  background: var(--bg-card);
+}
+
+.draft-row-text {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Where the branch hangs off — context, so it reads as a place in the book
+   rather than as a floating fragment of notation. */
+.draft-where {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.72rem;
+  color: var(--text-fainter);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The moves that would be written. The accent marks them as the draft, the same
+   colour the move strip marks them in. */
+.draft-moves {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.draft-row-btn {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s, color 0.12s;
+}
+
+.draft-row-btn:hover {
+  color: var(--text-muted);
+  background: var(--accent-soft);
+}
+
+.draft-row-btn:active { transform: translateY(1px); }
+
+.draft-row-btn--danger:hover {
+  color: var(--danger);
+  background: rgba(160, 48, 48, 0.1);
 }
 
 /* Chrome from .btn-primary in HTML; only flex stretch stays here. */

@@ -350,6 +350,66 @@ export function lineTailStart(root: MoveNode, endId: string): MoveNode | null {
   return path[cut];
 }
 
+// ── Grouping a set of added moves ────────────────────────────────────────────
+
+/** One place in a tree where a run of added moves starts. */
+export interface AddedBranch {
+  /** The shallowest added node — removing this removes the whole run. */
+  rootId: string;
+  /** Every added move under it, in walk order. */
+  moves: MoveNode[];
+  /** The prepared moves above it, for saying where it hangs off. */
+  from: MoveNode[];
+  /** The deepest added move — where "go and look at it" should land. */
+  lastId: string;
+}
+
+/**
+ * Group a set of added node ids into the branches they form.
+ *
+ * The builder holds its draft as a flat set of ids, which is the right way to
+ * STORE it and the wrong way to describe it: someone who adds three moves off
+ * the French, walks back, and adds two off the King's Indian has built two
+ * things, and a header offering "Add 5 moves" while the move strip shows two of
+ * them is counting work they cannot see.
+ *
+ * A branch root is an added node whose parent is not added. Everything added
+ * below it belongs to the same run — a node can only be added by playing a move
+ * onto its parent, so an added node never has an unadded descendant, which is
+ * what makes one walk enough.
+ */
+export function groupAddedBranches(root: MoveNode, added: Set<string>): AddedBranch[] {
+  if (added.size === 0) return [];
+  const out: AddedBranch[] = [];
+  // One trail, pushed and popped: this runs behind every board move while a
+  // draft is open, over the whole book.
+  const trail: MoveNode[] = [];
+
+  const walk = (node: MoveNode, insideBranch: boolean): void => {
+    for (const child of node.children) {
+      const isAdded = added.has(child.id);
+      if (isAdded && !insideBranch) out.push(collectBranch(child, trail, added));
+      trail.push(child);
+      walk(child, isAdded);
+      trail.pop();
+    }
+  };
+  walk(root, false);
+  return out;
+}
+
+function collectBranch(root: MoveNode, from: MoveNode[], added: Set<string>): AddedBranch {
+  const moves: MoveNode[] = [];
+  let last = root;
+  const walk = (node: MoveNode): void => {
+    moves.push(node);
+    last = node;
+    for (const child of node.children) if (added.has(child.id)) walk(child);
+  };
+  walk(root);
+  return { rootId: root.id, moves, from: [...from], lastId: last.id };
+}
+
 /** How many moves "delete this line" would take, without taking them. */
 export function lineTailSize(root: MoveNode, endId: string): number {
   const cut = lineTailStart(root, endId);
