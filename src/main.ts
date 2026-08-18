@@ -3272,6 +3272,9 @@ function linesScreenDeps(): Parameters<typeof renderLinesScreen>[1] {
     onOpenLine,
     onAddLine: startNewLine,
     onStartTraining: handleStartTraining,
+    // A line's popup offers "Drill line" / "Add to training" — the same entry
+    // point the Progress screen's Drill uses, so both behave identically.
+    onTrainLine: (lineId, inTraining) => void onTrainLine(lineId, inTraining),
     onBuildLine: buildFromUcis,
     onPrepareGap: prepareGap,
     onPickStarterPack: () => void openStarterPackPicker(addStarterLine),

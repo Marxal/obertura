@@ -45,6 +45,7 @@ import { runMapMergeSelfTest } from '../src/map-merge.selftest';
 import { runCoverageGapsSelfTest } from '../src/coverage-gaps.selftest';
 import { runRepertoireSelfTest } from '../src/repertoire.selftest';
 import { runLinesViewSelfTest } from '../src/lines-view.selftest';
+import { runLineStatusSelfTest } from '../src/line-status.selftest';
 import { runRepertoireMigrateSelfTest } from '../src/repertoire-migrate.selftest';
 import { runRepertoireRunSelfTest } from '../src/repertoire-run.selftest';
 import { runRepertoireJoinSelfTest } from '../src/repertoire-join.selftest';
@@ -73,6 +74,7 @@ const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'coverage-gaps', run: runCoverageGapsSelfTest },
   { suite: 'repertoire', run: runRepertoireSelfTest },
   { suite: 'lines-view', run: runLinesViewSelfTest },
+  { suite: 'line-status', run: runLineStatusSelfTest },
   { suite: 'repertoire-migrate', run: runRepertoireMigrateSelfTest },
   { suite: 'repertoire-run', run: runRepertoireRunSelfTest },
   { suite: 'repertoire-join', run: runRepertoireJoinSelfTest },

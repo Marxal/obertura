@@ -5602,11 +5602,58 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   gap: 0.35rem;
 }
 
+/* Row 1 of a saved-line card: a coloured dot and one phrase saying what the
+   line needs. The dot is what makes a list of cards scannable — you find the
+   amber ones without reading a word. */
+.dline-status {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.dline-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--text-faint);
+}
+
+/* Due is the only state that asks for anything, so it is the only one that gets
+   a colour with any weight behind it. */
+.dline-dot--due { background: var(--accent); }
+.dline-dot--learning { background: var(--primary); }
+.dline-dot--solid { background: #4e8063; }
+.dline-dot--new { background: var(--text-faint); }
+.dline-dot--off { background: transparent; box-shadow: inset 0 0 0 1.5px var(--text-faint); }
+
+.dline-status-text {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dline-status-text--due { color: var(--accent); }
+.dline-status-text--off { font-weight: 500; font-style: italic; }
+
+/* Row 2: what the line IS — length, how much of it is its own, confidence. */
 .dline-stats {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 0.35rem;
+}
+
+/* The confidence dots, tucked at the end of the shape row. Slightly tighter than
+   the words beside them so five glyphs don't dominate the line. */
+.dline-conf {
+  letter-spacing: -0.06em;
+  cursor: help;
 }
 
 .dline-stat {
@@ -16674,6 +16721,40 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
    Opened from Statistics → Forgotten moves → Lines. Read-only: this is for
    seeing where a line leaks, not for editing it. */
 .lpeek-sheet { gap: 0.6rem; }
+
+/* What the line IS, under the figures that say how it is going: its state (the
+   same dot and phrase its card carries), its shape, then its tags. */
+.lpeek-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.lpeek-state {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+/* The state leads; the shape trails it, quieter, as the second half of one
+   sentence rather than a competing figure. */
+.lpeek-shape {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.76rem;
+  color: var(--text-fainter);
+}
+
+.lpeek-shape::before {
+  content: '·';
+  margin-right: 0.4rem;
+}
+
+.lpeek-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
 
 
 .lpeek-step {

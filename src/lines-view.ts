@@ -123,7 +123,34 @@ export function projectLine(
     createdAt: addedAt(originPath),
     priority: resolvePriority(originPath),
     timesTrained: end.timesTrained,
+    ownMoves: exclusiveTail(originPath),
   };
+}
+
+/**
+ * How many of the line's moves no other line passes through.
+ *
+ * Walks up from the end while each parent has exactly one child and doesn't end
+ * a line of its own — the moment either is false, a neighbour shares the move,
+ * and everything above it is shared too. Same rule as `lineTailStart`, which is
+ * what "delete this line" cuts, but read off the path we already hold instead of
+ * searching the tree: the projection runs on every read, and a tree search per
+ * line would make it quadratic.
+ *
+ * Zero when prepared moves continue PAST this line's end (an `endpoint` with
+ * children): every move on the path is then shared with the lines below it, and
+ * saying "3 only here" about moves another line also plays would be a lie.
+ */
+function exclusiveTail(originPath: MoveNode[]): number {
+  const end = originPath[originPath.length - 1];
+  if (!end || end.children.length > 0) return 0;
+  let i = originPath.length - 1;
+  while (i > 0) {
+    const parent = originPath[i - 1];
+    if (parent.children.length !== 1 || parent.endpoint === true) break;
+    i--;
+  }
+  return originPath.length - i;
 }
 
 /**
