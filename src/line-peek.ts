@@ -20,12 +20,11 @@ import { registerBrushes } from './board-brushes';
 import type { Line } from './types';
 import type { MoveNode } from './tree';
 import { mainlineNodes } from './scheduler';
-import { lineTrainingCount } from './stats';
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
 import { formatMove } from './notation';
 import { peekActionBtn, buildStatRow, type PeekStat } from './position-peek';
-import { lineStatus, lineShapeText } from './line-status';
+import { lineStatus, lineShapeLongText, lineTraining, lineMastered } from './line-status';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -67,9 +66,10 @@ export function openLinePeek(opts: LinePeekOptions): void {
   const userPlies = plies.filter(p => p.isUser);
   const worst = Math.max(1, ...userPlies.map(p => p.lapses));
   const totalMisses = userPlies.reduce((n, p) => n + p.lapses, 0);
-  const drilled = userPlies.filter(p => p.node.review).length;
-  const solid = userPlies.filter(p => p.node.review && p.reps > 0).length;
-  const recallPct = drilled > 0 ? Math.round((100 * solid) / drilled) : null;
+  // Recall and runs come from line-status, which is what the CARD quotes too —
+  // the popup used to work them out for itself, and two copies of one sum is
+  // exactly how a list and the thing it opens start disagreeing.
+  const { drilled, recallPct, runs } = lineTraining(line);
 
   // Open on the worst move when there is one — that's why you tapped in.
   const defaultPly = opts.focusPly
@@ -102,7 +102,7 @@ export function openLinePeek(opts: LinePeekOptions): void {
 
   // Recall is only meaningful next to how often the line has actually been run,
   // so "trained" sits right beside it rather than being buried in a caption.
-  const times = opts.timesTrained ?? lineTrainingCount(line);
+  const times = opts.timesTrained ?? runs;
 
   const stats: PeekStat[] = [
     {
@@ -318,9 +318,18 @@ function buildMeta(line: Line): HTMLElement {
   status.appendChild(text);
   const shape = document.createElement('span');
   shape.className = 'lpeek-shape';
-  shape.textContent = lineShapeText(line);
+  shape.textContent = lineShapeLongText(line);
   status.appendChild(shape);
   wrap.appendChild(status);
+
+  // The same verdict the card's chip carries, said as a sentence: the way on is
+  // the "Open in builder" action already sitting at the foot of this popup.
+  if (lineMastered(line)) {
+    const grow = document.createElement('div');
+    grow.className = 'lpeek-grow';
+    grow.textContent = 'You know this one — keep growing it with the next moves.';
+    wrap.appendChild(grow);
+  }
 
   if (line.tags.length) {
     const tags = document.createElement('div');

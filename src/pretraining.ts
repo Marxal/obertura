@@ -4,6 +4,7 @@ import { saveLine } from './storage';
 import { startDrill } from './drill';
 import { newReview } from './scheduler';
 import { watchSpeedMs } from './prefs';
+import { showToast } from './toast';
 
 // Enrol a line into training straight away, with no confirm run. Used when the
 // "Confirm run before training" pref is OFF. Clones so the caller's in-memory
@@ -75,6 +76,26 @@ export function startPretrainingRun(
     onBeforeComplete: async () => {
       lineCopy.inTraining = true;
       await saveLine(lineCopy);
+    },
+    // A way past the run for a line you already know — you built it, after all.
+    // It saves exactly what a clean run would have saved, minus the lapse data
+    // a run would have recorded, so nothing about the line's schedule depends on
+    // having played it. Quiet, because playing it once IS worth doing: it is the
+    // first review, and the one that tells you whether you can actually recall
+    // what you just wrote down.
+    //
+    // Not offered on the guided first line (the one run with a `beforeWatch`
+    // introduction): that run is the payoff of the whole first-run flow, and it
+    // already carries its own quiet "Skip this time" on the coach-mark — two
+    // ways past one screen, one of them under an overlay, is worse than one.
+    skipRun: opts.beforeWatch ? undefined : {
+      label: 'Add without playing',
+      onSkip: () => {
+        void enrolLineDirectly(line).then(() => {
+          showToast('Added to training');
+          onComplete();
+        });
+      },
     },
     onComplete,
     onCancel,

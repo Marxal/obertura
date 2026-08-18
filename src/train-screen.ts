@@ -2,12 +2,6 @@ import type { Line } from './types';
 import type { MoveNode } from './tree';
 import { getAllLines, getLine, saveLine } from './storage';
 import {
-  requestTrainingSlot,
-  isEntitled,
-  FREE_TRAINING_LINES,
-  TRAINING_COUNT_VISIBLE_FROM,
-} from './entitlement';
-import {
   startDrill, startPositionsDrill, startTimedDrill,
   type DrillOptions, type DivertChoice,
 } from './drill';
@@ -24,8 +18,6 @@ import {
   getTimedBest,
   recordTimedBest,
   getDefaultTrainingMode,
-  getShowPausedLines,
-  setShowPausedLines,
   setOnboardingComplete,
   TIMED_DURATIONS,
   type TimedMinutes,
@@ -43,13 +35,11 @@ import { openMoveNoteSheet } from './note-sheet';
 import { openPositionPeek, type PeekAction } from './position-peek';
 import { renderForgottenSection } from './forgotten-section';
 import { lineTrainingCount } from './stats';
+import { lineMastered } from './line-status';
 import { formatMove } from './notation';
 import { Chess } from 'chess.js';
 import { ONBOARDING_GOAL } from './onboarding-starter';
 import { TRAINING_UNLOCK_LINES, trainingLockReason } from './first-steps';
-import { createFilterBar, type FilterSelection } from './filters';
-import { renderFamilyGroups, renderVariationGroups } from './line-groups';
-import { showDialog } from './dialog';
 import { TrainingSession, type SessionItem } from './session';
 import { countUp } from './count-up';
 import type { Review } from './scheduler';
@@ -60,9 +50,7 @@ import {
   newReview,
   qualityFromMisses,
   lineConfidence,
-  lineBucket,
   dueLines,
-  nextDue,
   describeDue,
   recentlyAddedLines,
   weakestLines,
@@ -75,7 +63,7 @@ import {
 } from './streak';
 import type { TaskOutcome } from './daily-recap';
 import { renderLoadError } from './load-error';
-import { buildPositionCard, colourPip, lineFinalFen } from './card-position';
+import { lineFinalFen } from './card-position';
 import { burstConfetti, starfall, celebratePawn } from './confetti';
 import { pushBack } from './back-nav';
 import { showToast } from './toast';
@@ -98,10 +86,6 @@ let onBuildLine: (() => void) | null = null;
 // list restores it. Navigating away resets it via the router, so a stale-hidden
 // FAB can't leak onto other tabs.
 let setFabVisible: ((visible: boolean) => void) | null = null;
-
-// Which opening families are expanded in the grouped in-training list. Module
-// scope so it survives the list's in-place rebuilds.
-const trainExpanded = new Set<string>();
 
 // One missed spot worth revisiting at the end of a session: the position to
 // show, the move that should have been played there, and the opponent's move
@@ -316,9 +300,11 @@ async function doRender(
   // own head is gone — the hero (when anything's due) is the top of this pane.
   if (!trainingLocked) renderHero(doNext, container, due, trainingLines);
   renderModeCards(doNext, container, trainingLines, allLines, books, trainingLocked);
-  // Lines in training rides directly under Practise; what keeps slipping —
-  // the worst moves and the weakest lines — closes the pane.
-  renderCardList(state, container, trainingLines, allLines.filter(l => !l.inTraining));
+  // What keeps slipping — the worst moves and the weakest lines — closes the
+  // pane. The "Lines in training" list that used to sit here is gone: it was a
+  // second copy of My Lines, one screen away from the real one, and the only
+  // thing it could do that My Lines couldn't was flick a switch My Lines also
+  // has. Training belongs to what you drill; the book belongs to My Lines.
   renderForgottenSection(state, allLines, {
     onFixMove: (m, lines) => startMoveFix(
       { preFen: m.preFen, san: m.san, colour: m.colour, count: m.lapses },
@@ -479,7 +465,7 @@ function renderModeCards(
     ? trainingLockReason(allLines.length)
     : nothingSaved
       ? 'Save a line first — then there’s something to drill'
-      : 'Switch a line on under “Lines in training” to drill it';
+      : 'Switch a line on in My Lines to drill it';
 
   // Time attack leads the list — three timed runs, each with its own personal
   // best. Always playable when there's any saved position anywhere (it falls back
@@ -781,404 +767,6 @@ export function startMoveFix(
       onCancel: onDone,
     },
   );
-}
-
-// ── "In training" list (filter + sort + rows) ────────────────────────────────────
-//
-// A filter row (colour · status · sort) sits above the list; every choice is
-// persisted (prefs.ts) so it survives a reload. Status buckets come straight from
-// the scheduler (see lineBucket): Due now / Learning (short intervals or a recent
-// miss) / Solid (long intervals). Each row carries the line, a "Train now" primary
-// action and two quiet icons — view the line, or remove it from training.
-
-// Persistence key + sort options for the shared filter bar (filters.ts).
-const TRAIN_FILTER_KEY = 'obertura.train.filter';
-const TRAIN_SORTS = [
-  { key: 'weakest', label: 'Weakest' },
-  { key: 'oldest', label: 'Oldest trained' },
-  { key: 'newest', label: 'Newest' },
-  { key: 'name', label: 'A–Z' },
-];
-
-// Apply the bar's colour + tag + status selection, then the chosen ordering.
-// Tags are OR'd: a line shows if it carries any selected tag (user or opponent).
-function viewTrainingLines(lines: Line[], sel: FilterSelection): Line[] {
-  let out = lines;
-  if (sel.colour !== 'all') out = out.filter(l => l.colour === sel.colour);
-  if (sel.tags.length > 0) out = out.filter(l => sel.tags.some(t => l.tags.includes(t)));
-  if (sel.status !== 'all') out = out.filter(l => lineBucket(l) === sel.status);
-  return sortTrainingLines(out, sel.sort);
-}
-
-function sortTrainingLines(lines: Line[], sort: string): Line[] {
-  switch (sort) {
-    case 'newest':
-      return recentlyAddedLines(lines);
-    case 'name':
-      return [...lines].sort((a, b) =>
-        (a.name || 'Untitled line').localeCompare(b.name || 'Untitled line'));
-    case 'oldest':
-      // Oldest trained first; never-trained lines (no timestamp) lead.
-      return [...lines].sort((a, b) => trainedTime(a) - trainedTime(b));
-    case 'weakest':
-    default:
-      return weakestLines(lines);
-  }
-}
-
-function trainedTime(line: Line): number {
-  return line.lastTrained ? new Date(line.lastTrained).getTime() : 0;
-}
-
-// Whether the "In training" list is expanded — ALWAYS collapsed on page load so
-// the Train hub stays short. Session-only (not localStorage): re-renders within
-// a visit (pausing a line, flipping a switch) keep the state, a reload resets it.
-let trainListOpen = false;
-
-function renderCardList(host: HTMLElement, container: HTMLElement, trainingLines: Line[], pausedLines: Line[]): void {
-  const section = document.createElement('div');
-  section.className = 'section train-list-section';
-
-  // Paused lines (out of training) show by default, dimmed with their switch
-  // off; a quiet header toggle hides them. Pausing/resuming flips a card in
-  // place — no re-render — so the page never jumps. The toggle just flips a CSS
-  // class on the list, so it never re-renders either. State persists.
-  let showPaused = getShowPausedLines();
-
-  // The whole section collapses behind its header (chevron + title + count),
-  // exactly like a family group. Everything below lives in `body`.
-  let openList = trainListOpen;
-
-  const head = document.createElement('button');
-  head.type = 'button';
-  head.className = 'train-collapse';
-  const chev = document.createElement('span');
-  chev.className = 'lines-fam-chev';
-  chev.setAttribute('aria-hidden', 'true');
-  chev.appendChild(Icons.chevronRight(18));
-  head.appendChild(chev);
-  const heading = document.createElement('span');
-  heading.className = 'section-title train-collapse-title';
-  heading.textContent = 'Lines in training';
-  head.appendChild(heading);
-  const countBadge = document.createElement('span');
-  countBadge.className = 'lines-fam-count';
-  countBadge.textContent = String(trainingLines.length);
-  head.appendChild(countBadge);
-  section.appendChild(head);
-
-  // Free tier only: show the ceiling once it's close, so it's never a surprise
-  // at line eleven. Entitled users see nothing at all. Sits outside `body` so it
-  // stays visible when the section is collapsed.
-  //
-  // Deliberately silent ABOVE the cap: grandfathered users (early testers with
-  // dozens enrolled) keep every line, and "14 of 10" would be nonsense. They
-  // find out where the ceiling is if they ever try to add one more.
-  const count = trainingLines.length;
-  if (!isEntitled() && count >= TRAINING_COUNT_VISIBLE_FROM && count <= FREE_TRAINING_LINES) {
-    const cap = document.createElement('p');
-    cap.className = 'section-desc train-cap-note';
-    cap.textContent = `${count} of ${FREE_TRAINING_LINES} lines in training`;
-    section.appendChild(cap);
-  }
-
-  const body = document.createElement('div');
-  body.className = 'train-collapse-body';
-  section.appendChild(body);
-
-  const setListOpen = (o: boolean): void => {
-    openList = o;
-    trainListOpen = o;
-    head.classList.toggle('train-collapse--open', o);
-    head.setAttribute('aria-expanded', String(o));
-    body.hidden = !o;
-  };
-  head.addEventListener('click', () => setListOpen(!openList));
-
-  // The list itself; paused rows live in it always, shown/hidden via CSS.
-  const listEl = document.createElement('div');
-  listEl.className = 'train-lines group' + (showPaused ? '' : ' train-lines--hide-paused');
-
-  if (pausedLines.length > 0) {
-    const tools = document.createElement('div');
-    tools.className = 'train-list-tools';
-    const toggle = document.createElement('button');
-    toggle.type = 'button';
-    toggle.className = 'train-show-paused';
-    const syncToggle = () => {
-      toggle.classList.toggle('active', showPaused);
-      toggle.setAttribute('aria-pressed', String(showPaused));
-      toggle.textContent = showPaused ? 'Hide paused' : 'Show paused';
-    };
-    syncToggle();
-    toggle.addEventListener('click', () => {
-      showPaused = !showPaused;
-      setShowPausedLines(showPaused);
-      listEl.classList.toggle('train-lines--hide-paused', !showPaused);
-      syncToggle();
-      // Rebuild so the "nothing here" note reflects what's now visible; only the
-      // list's contents change, so the page doesn't jump.
-      rebuildList();
-    });
-    tools.appendChild(toggle);
-    body.appendChild(tools);
-  }
-
-  // The shared two-row filter bar (filters.ts). It owns and persists the
-  // selection; we read filter.selection on every rebuild and do the filtering
-  // here. My own tags lead the chip row, vs-opponent tags follow, status pills
-  // close it.
-  // Tag chips cover every shown line — paused included, since they're listed too.
-  const allShown = [...trainingLines, ...pausedLines];
-  const filter = createFilterBar({
-    persistKey: TRAIN_FILTER_KEY,
-    sorts: TRAIN_SORTS,
-    defaultSort: 'weakest',
-    userTags: distinctUserTags(allShown),
-    opponentTags: distinctOpponentTags(allShown),
-    colourCounts: countLinesByColour(allShown),
-    countsForColour: (colour) => {
-      const subset = colour === 'all' ? allShown : allShown.filter(l => l.colour === colour);
-      return { tagCounts: countLinesByTag(subset), statusCounts: countLinesByStatus(subset) };
-    },
-    status: true,
-    group: true,
-    onChange: () => rebuildList(),
-  });
-
-  function rebuildList(): void {
-    listEl.innerHTML = '';
-    const inTraining = viewTrainingLines(trainingLines, filter.selection);
-    // Paused rows are always built; CSS (.train-lines--hide-paused) shows/hides
-    // them, and a card flipped to paused settles into view (or out) in place.
-    const paused = viewTrainingLines(pausedLines, filter.selection);
-    const visible = inTraining.length + (showPaused ? paused.length : 0);
-    if (visible === 0) {
-      const note = document.createElement('p');
-      note.className = 'train-lines-empty';
-      note.textContent = 'No lines match these filters.';
-      listEl.appendChild(note);
-      return;
-    }
-    // In-training rows first; paused rows follow, dimmed with their switch off.
-    // Grouped views carry a per-branch pause control on each family header.
-    if (filter.selection.group) {
-      const renderGrouped = filter.selection.group === 'variation' ? renderVariationGroups : renderFamilyGroups;
-      renderGrouped(listEl, inTraining, line => buildTrainRow(line, container), trainExpanded, {
-        headExtra: (family, lines) => buildBranchPause(family, lines, container),
-      });
-    } else {
-      for (const line of inTraining) listEl.appendChild(buildTrainRow(line, container));
-    }
-    for (const line of paused) listEl.appendChild(buildTrainRow(line, container));
-  }
-
-  body.appendChild(filter.element);
-  rebuildList();
-  body.appendChild(listEl);
-  setListOpen(openList);
-  host.appendChild(section);
-}
-
-// The "pause this whole branch" control on a group header: one tap (plus a
-// confirm) takes every line of the family out of the training rotation. The
-// per-line switches — and the paused rows below — are the way back.
-const PAUSE_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" stroke="none" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
-
-function buildBranchPause(family: string, lines: Line[], container: HTMLElement): HTMLElement | null {
-  const active = lines.filter(l => l.inTraining);
-  if (active.length === 0) return null;
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'lines-fam-pause';
-  btn.title = 'Pause this whole branch';
-  btn.setAttribute('aria-label', `Pause training for ${family}`);
-  btn.innerHTML = PAUSE_SVG;
-  btn.addEventListener('click', () => {
-    showDialog({
-      title: 'Pause this whole branch?',
-      body: `${active.length === 1 ? 'One line leaves' : `${active.length} lines leave`} the training rotation — “${family}” stops coming up until you switch its lines back on.`,
-      buttons: [
-        { label: 'Pause branch', variant: 'danger', onClick: () => { void pauseBranch(active, container); } },
-        { label: 'Keep training', variant: 'secondary' },
-      ],
-    });
-  });
-  return btn;
-}
-
-async function pauseBranch(lines: Line[], container: HTMLElement): Promise<void> {
-  for (const line of lines) await saveLine({ ...line, inTraining: false });
-  showToast('Branch paused — resume any line with its switch.');
-  void doRender(container);
-}
-
-// Every distinct opponent tag ("vs <name>") across the training lines, sorted.
-function distinctOpponentTags(lines: Line[]): string[] {
-  const set = new Set<string>();
-  for (const l of lines) for (const t of l.tags) if (isOpponentTag(t)) set.add(t);
-  return [...set].sort((a, b) => a.localeCompare(b));
-}
-
-// Line counts per colour, for the All / White / Black tab badges.
-function countLinesByColour(lines: Line[]): { all: number; white: number; black: number } {
-  let white = 0, black = 0;
-  for (const l of lines) (l.colour === 'black' ? black++ : white++);
-  return { all: lines.length, white, black };
-}
-
-// Line counts per tag (user + opponent), for the chip badges.
-function countLinesByTag(lines: Line[]): Map<string, number> {
-  const counts = new Map<string, number>();
-  for (const l of lines) for (const t of l.tags) counts.set(t, (counts.get(t) ?? 0) + 1);
-  return counts;
-}
-
-// Line counts per status bucket, for the Due / Learning / Solid pill badges.
-function countLinesByStatus(lines: Line[]): { due: number; learning: number; solid: number } {
-  const counts = { due: 0, learning: 0, solid: 0 };
-  for (const l of lines) counts[lineBucket(l)]++;
-  return counts;
-}
-
-// Every distinct user-authored tag (everything that isn't a "vs <name>" tag).
-function distinctUserTags(lines: Line[]): string[] {
-  const set = new Set<string>();
-  for (const l of lines) for (const t of l.tags) if (!isOpponentTag(t)) set.add(t);
-  return [...set].sort((a, b) => a.localeCompare(b));
-}
-
-function buildTrainRow(line: Line, container: HTMLElement): HTMLElement {
-  const bucket = lineBucket(line);
-
-  // Tapping the board miniature jumps straight into training this line — the
-  // same action as "Train now" — since that's the action you come to this list
-  // to take. The view icon (below) is the one that still opens the line itself.
-  const startTraining = () => {
-    const session = new TrainingSession([line], { explicit: true });
-    runSession(session, container, makeStats());
-  };
-
-  // Shared position-card scaffold: title + colour pip on row 1, a miniature on
-  // the left of row 2 with the meta + actions on the right. The board respects
-  // the same global "show miniatures" Settings toggle as the other listings.
-  const { card, titleRow, content } = buildPositionCard({
-    fen: lineFinalFen(line.tree),
-    orientation: line.colour,
-    className: 'train-row' + (bucket !== 'due' ? ' line-card--rested' : ''),
-    onMiniClick: startTraining,
-    miniLabel: 'Train now',
-  });
-
-  // Paused rows (revealed by "Show paused") read dimmed, switch off.
-  if (!line.inTraining) card.classList.add('train-row--paused');
-
-  // Title row — colour pip + the line name.
-  titleRow.appendChild(colourPip(line.colour));
-  const nameEl = document.createElement('span');
-  nameEl.className = 'pcard-name';
-  nameEl.textContent = line.name || 'Untitled line';
-  titleRow.appendChild(nameEl);
-
-  // Meta line (status · next due). Colour is already shown by the pip above.
-  const meta = document.createElement('div');
-  meta.className = 'line-card-meta train-row-meta';
-
-  const statusChip = document.createElement('span');
-  statusChip.className = `status-chip status-chip--${bucket}`;
-  statusChip.textContent = bucket === 'due' ? 'Due' : bucket === 'learning' ? 'Learning' : 'Solid';
-  meta.appendChild(statusChip);
-
-  const dueSpan = document.createElement('span');
-  dueSpan.className = 'training-stat';
-  dueSpan.textContent = describeDue(nextDue(line));
-  meta.appendChild(dueSpan);
-
-  content.appendChild(meta);
-
-  // Actions — a clear primary plus two quiet icons.
-  const actions = document.createElement('div');
-  actions.className = 'train-row-actions';
-
-  const train = document.createElement('button');
-  train.type = 'button';
-  train.className = 'btn-primary train-row-train';
-  train.textContent = 'Train now';
-  train.addEventListener('click', startTraining);
-  actions.appendChild(train);
-
-  const view = document.createElement('button');
-  view.type = 'button';
-  view.className = 'dline-icon train-row-view';
-  view.setAttribute('aria-label', 'View line');
-  view.title = 'View line';
-  view.appendChild(Icons.eye(18));
-  view.addEventListener('click', () => onViewLine?.(line));
-  actions.appendChild(view);
-
-  // The one training control — the exact In-training switch My Lines uses. ON
-  // here means "in the drill pool". Flicking it just flips the card in place
-  // (dim + switch), exactly like My Lines: no re-render, so the page never
-  // jumps. A paused line stays put, dimmed; if paused lines are hidden it slips
-  // out via CSS. The switch itself is the (reversible) undo.
-  actions.appendChild(buildTrainingSwitch(line, card));
-
-  content.appendChild(actions);
-
-  return card;
-}
-
-// The In-training switch, identical in markup to the My Lines control so it
-// looks and behaves the same everywhere.
-function buildTrainingSwitch(line: Line, row: HTMLElement): HTMLElement {
-  const toggle = document.createElement('button');
-  toggle.type = 'button';
-  toggle.className = 'dline-toggle train-row-toggle';
-  applySwitchState(toggle, row, line.inTraining);
-
-  const sw = document.createElement('span');
-  sw.className = 'dline-switch';
-  const knob = document.createElement('span');
-  knob.className = 'dline-switch-knob';
-  sw.appendChild(knob);
-  toggle.appendChild(sw);
-
-  const label = document.createElement('span');
-  label.className = 'dline-toggle-label';
-  toggle.appendChild(label);
-  applySwitchLabel(toggle, line.inTraining);
-
-  toggle.addEventListener('click', () => void toggleTraining(line, row, toggle));
-  return toggle;
-}
-
-// Flip a line in/out of the drill pool, updating its card in place — no
-// re-render, so the page keeps its scroll position (matching My Lines).
-//
-// Only the OFF→ON direction meets the free-tier cap; pausing is always allowed
-// and frees its slot straight away, so a free user can rotate their ten freely.
-async function toggleTraining(line: Line, row: HTMLElement, toggle: HTMLElement): Promise<void> {
-  const next = !line.inTraining;
-  if (next && !(await requestTrainingSlot())) return;
-  await saveLine({ ...line, inTraining: next });
-  line.inTraining = next; // keep the in-memory line in step for repeat flicks
-  applySwitchState(toggle, row, next);
-  applySwitchLabel(toggle, next);
-}
-
-// Paint the switch + its row for the given on/off state. A paused row reads
-// dimmed (and, when paused lines are hidden, drops out via CSS).
-function applySwitchState(toggle: HTMLElement, row: HTMLElement, inTraining: boolean): void {
-  toggle.classList.toggle('dline-toggle--on', inTraining);
-  toggle.setAttribute('role', 'switch');
-  toggle.setAttribute('aria-checked', String(inTraining));
-  toggle.setAttribute('aria-label', inTraining ? 'In training' : 'Paused');
-  row.classList.toggle('train-row--paused', !inTraining);
-}
-
-function applySwitchLabel(toggle: HTMLElement, inTraining: boolean): void {
-  const label = toggle.querySelector('.dline-toggle-label');
-  if (label) label.textContent = `Training ${inTraining ? 'ON' : 'OFF'}`;
 }
 
 // ── Driving a session ───────────────────────────────────────────────────────────
@@ -1968,6 +1556,13 @@ function renderIndividualComplete(
 // `close()` tears the overlay down and returns to the Train hub (restoring the
 // FAB); `dismiss()` just removes the overlay (used when handing straight off to a
 // retry/replay drill that will draw its own overlay).
+// The completion overlay currently on screen, if there is one. Anything that
+// LEAVES training from inside it has to take it down on the way out: it's a
+// fixed, full-screen layer on <body>, so navigating out from under it lands you
+// on the builder with the results screen still covering it — which is exactly
+// what "the Edit button doesn't open the line" looked like.
+let dismissCompletion: (() => void) | null = null;
+
 function mountCompletionOverlay(container: HTMLElement): {
   panel: HTMLElement;
   close: () => void;
@@ -1990,12 +1585,14 @@ function mountCompletionOverlay(container: HTMLElement): {
     done = true;
     removeBack?.();
     overlay.remove();
+    if (dismissCompletion === dismiss) dismissCompletion = null;
   };
   const close = (): void => {
     dismiss();
     void doRender(container);
   };
   removeBack = pushBack(close);
+  dismissCompletion = dismiss;
   return { panel, close, dismiss };
 }
 
@@ -2098,6 +1695,9 @@ interface OpeningTally {
   incorrect: number;
   onOpen?: () => void;
   statsLine?: string;
+  // Set on a line that has now been drilled clean often enough to have proved
+  // itself. The row says so and the way on is its popup's Edit.
+  grow?: boolean;
 }
 
 function bumpOpening(
@@ -2106,7 +1706,7 @@ function bumpOpening(
   name: string,
   correct: number,
   incorrect: number,
-  extras?: Pick<OpeningTally, 'onOpen' | 'statsLine'>,
+  extras?: Pick<OpeningTally, 'onOpen' | 'statsLine' | 'grow'>,
 ): void {
   const cur = tally.get(key) ?? { name: name || 'Untitled', correct: 0, incorrect: 0, ...extras };
   cur.correct += correct;
@@ -2163,6 +1763,11 @@ function tallyFromLineStats(lineStats: Map<string, LineSessionStat>): Map<string
         });
       },
       statsLine: lineStatsLine(s.line),
+      // The line just came round again and was graded, so this is the moment
+      // its recall is most worth reading: a line that comes back clean run after
+      // run has stopped teaching anything, and the useful next step is more
+      // moves rather than more reps.
+      grow: lineMastered(s.line),
     });
   }
   return tally;
@@ -2210,6 +1815,12 @@ function reviewedOpeningRows(tally: Map<string, OpeningTally>): HTMLElement[] {
       stats.className = 'pz-result-stats';
       stats.textContent = o.statsLine;
       main.appendChild(stats);
+    }
+    if (o.grow) {
+      const grow = document.createElement('div');
+      grow.className = 'pz-result-grow';
+      grow.textContent = '★ Mastered — keep adding moves';
+      main.appendChild(grow);
     }
     row.appendChild(main);
 
@@ -2266,10 +1877,12 @@ function openTrainingPeek(opts: {
       },
     });
   }
+  // Edit is the one action here that leaves training, so it takes the results
+  // screen down with it — the popup alone isn't the whole layer in the way.
   actions.push({
     icon: Icons.pencil(18),
     label: 'Edit',
-    onClick: ({ close }) => { close(); opts.onEdit(); },
+    onClick: ({ close }) => { close(); dismissCompletion?.(); opts.onEdit(); },
   });
 
   openPositionPeek({
@@ -2384,6 +1997,22 @@ function renderSessionComplete(container: HTMLElement, stats: SessionStats, next
     cleanEl.className = 'summary-clean-run';
     cleanEl.textContent = 'Clean run — all moves remembered!';
     head.appendChild(cleanEl);
+  }
+
+  // Lines that have now been round enough times, clean, to count as learned.
+  // The trainer knows where the book stops, so this is the one screen that can
+  // honestly say "this one is done — go and make it longer": the reps have
+  // stopped paying, and depth is what's left to gain.
+  const mastered = [...stats.lineStats.values()].filter(l => lineMastered(l.line));
+  if (mastered.length > 0) {
+    const grown = document.createElement('div');
+    grown.className = 'summary-mastered';
+    // The rows below name the lines (and carry their own ★ chip), so the
+    // headline doesn't repeat a name that would wrap to three lines.
+    grown.textContent = mastered.length === 1
+      ? "You've mastered this line — keep adding moves to it."
+      : `You've mastered ${mastered.length} of these lines — keep adding moves.`;
+    head.appendChild(grown);
   }
 
   // Every reviewed opening, recapped with correct/incorrect in the puzzle-results
