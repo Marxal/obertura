@@ -57,6 +57,13 @@ export interface MoveNode {
 
   /** Marks a line as ending here even though prepared moves continue past it. */
   endpoint?: true;
+  /**
+   * A TRANSPOSITION JOIN, on a line end only: the id of another line's end node
+   * whose line reaches this same position by a different move order. It means
+   * "from here, continue as in that line" — see repertoire-join.ts. Opt-in and
+   * removable; the tree stays a tree, and nothing follows a join twice.
+   */
+  joinTo?: string;
   /** When this move was added to the repertoire — the derived line's "Latest". */
   createdAt?: number;
   /** On a line end: full start-to-finish runs of the line ending here. */

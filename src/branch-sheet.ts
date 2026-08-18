@@ -14,13 +14,14 @@
 import type { MoveNode } from './tree';
 import type { LinePriority } from './types';
 import {
-  getRepertoire, saveRepertoire,
+  getAllRepertoires, getRepertoire, saveRepertoire,
 } from './storage';
 import {
   nodeAtPath, pathToNode, resolveTraining, resolvePriority, resolveTags,
   resolveLabel, removeSubtree, moveCount, type Repertoire,
 } from './repertoire';
-import { endsUnder, setBranchTraining, setBranchValue } from './lines-view';
+import { endsUnder, setBranchTraining, setBranchValue, projectLine, locateLine } from './lines-view';
+import { joinCandidates, joinContinuation } from './repertoire-join';
 import { requestTrainingSlots } from './entitlement';
 import { pushBack } from './back-nav';
 import { showDialog } from './dialog';
@@ -50,6 +51,32 @@ function branchLabel(sans: string[]): string {
 
 function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`;
+}
+
+/**
+ * The same sheet, opened for a LINE rather than for a node on the map.
+ *
+ * This is the entry the transposition join actually needs. The tree view merges
+ * by position, so two roads to one position are drawn as a single node — which
+ * is exactly the node you cannot use to say "this line continues as that one".
+ * A line, on the other hand, has an unambiguous end, and that end is the origin
+ * a join is stored on.
+ *
+ * It resolves the line's OWN branch (never the tail a join has already added),
+ * so opening the sheet on a joined line still acts on the line itself.
+ */
+export async function openBranchSheetForLine(
+  lineId: string,
+  extras: Omit<BranchSheetOptions, 'repertoireId' | 'ucis' | 'sans'> = {},
+): Promise<void> {
+  const found = locateLine(await getAllRepertoires(), lineId);
+  if (!found) return;
+  await openBranchSheet({
+    ...extras,
+    repertoireId: found.repertoire.id,
+    ucis: found.originPath.map(n => n.uci),
+    sans: found.originPath.map(n => n.san),
+  });
 }
 
 export async function openBranchSheet(opts: BranchSheetOptions): Promise<void> {
@@ -254,6 +281,74 @@ function build(
   tagWrap.appendChild(tagLabel);
   tagWrap.appendChild(tagInput);
   sheet.appendChild(tagWrap);
+
+  // ── Transposition join ────────────────────────────────────────────────────
+  //
+  // Only on a line END: a move with continuations already has them. This is the
+  // opt-in half of transpositions (REPERTOIRE-REDESIGN.md §9.5) — the tree stays
+  // a tree, and one line is told to carry on as another where the two meet.
+  const isEnd = node.children.length === 0 || node.endpoint === true;
+  if (isEnd) {
+    const joined = joinContinuation(book.tree, path);
+    const candidates = joinCandidates(book.tree, path);
+    if (joined.length > 0 || candidates.length > 0) {
+      const joinWrap = document.createElement('div');
+      joinWrap.className = 'branch-field';
+      const joinLabel = document.createElement('span');
+      joinLabel.className = 'edit-label';
+      joinLabel.textContent = 'Where this line goes next';
+      joinWrap.appendChild(joinLabel);
+
+      if (joined.length > 0) {
+        const note = document.createElement('p');
+        note.className = 'branch-hint';
+        note.textContent =
+          `Continues as another line from here — ${plural(joined.length, 'more move')}: `
+          + joined.map(m => m.san).join(' ');
+        joinWrap.appendChild(note);
+
+        const stop = document.createElement('button');
+        stop.type = 'button';
+        stop.className = 'btn-secondary';
+        stop.textContent = 'Stop continuing';
+        stop.addEventListener('click', () => {
+          void (async () => {
+            delete node.joinTo;
+            await save();
+            showToast('This line ends here again');
+            repaint();
+          })();
+        });
+        joinWrap.appendChild(stop);
+      } else {
+        const why = document.createElement('p');
+        why.className = 'branch-hint';
+        why.textContent = candidates.length === 1
+          ? 'Another line reaches this exact position by a different move order.'
+          : `${candidates.length} of your lines reach this exact position by a different move order.`;
+        joinWrap.appendChild(why);
+
+        // Three at most: the offer is a shortcut, not a directory.
+        for (const c of candidates.slice(0, 3)) {
+          const name = projectLine(book, c.path).name;
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'btn-secondary branch-join-btn';
+          btn.textContent = `Continue as “${name}” (+${plural(c.moves, 'move')})`;
+          btn.addEventListener('click', () => {
+            void (async () => {
+              node.joinTo = c.endId;
+              await save();
+              showToast(`This line now continues as “${name}” ✓`, { variant: 'success' });
+              repaint();
+            })();
+          });
+          joinWrap.appendChild(btn);
+        }
+      }
+      sheet.appendChild(joinWrap);
+    }
+  }
 
   // ── Actions ───────────────────────────────────────────────────────────────
   const actions = document.createElement('div');

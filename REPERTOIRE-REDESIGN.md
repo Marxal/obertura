@@ -1,6 +1,6 @@
 # The repertoire redesign — proposal
 
-**Status: Phases A–D are built.** §9 records the five decisions this was
+**Status: Phases A–E are built. The redesign is complete.** §9 records the five decisions this was
 agreed on; §10 says which phases have shipped and which have not. Restore point:
 `v0.5`.
 
@@ -363,13 +363,39 @@ including opening plies that are never asked at all.
 Verified at the real UI on six lines sharing 1.d4 d5 2.c4 — the card reported 8
 moves due and a saving of 4, and answering 2.c4 once graded the single shared node.
 
-**Phase E — not started**, plus two things carried over:
+**Phase E ✅** — **transposition joins**, the opt-in half of §9.5. A line end can
+be told "from here, continue as in that line", and the line simply gets longer:
+the moves after the shared position are appended to it. They are the SAME nodes
+as the other line's, so drilling either grades the same records and the book
+stores nothing twice — verified: taking a join left the stored move count at 18,
+exactly where it was.
+
+The tree stays a tree. Three rules keep it safe, and all three are self-tested: a
+join is followed **once** (two lines pointing at each other cannot loop), a
+continuation that would revisit the line's own moves is refused outright, and the
+target must be the **same position** — that is what makes it a transposition
+rather than a jump to somewhere else in the book.
+
+A join changes what the line *plays*, never what it *is*. Identity, name, tags,
+training and priority all resolve from the line's own branch, so joining into a
+paused branch cannot pause the line that joined, and renaming a joined line
+cannot rename the line it points at.
+
+**Where the control lives is the one thing that moved.** It was going to sit on
+the tree view with the other branch actions — but the tree merges by position, so
+the two roads to one square are drawn as a *single node*, which is precisely the
+node a join cannot be made on. Joins therefore live on the line card ("Line
+options"), where a line has an unambiguous end. The same sheet, reached from the
+place where a line is a line.
+
+**Everything from the original brief is now built.** One thing was deliberately
+left as it was:
 
 - The seeded single-line flows (onboarding, "prepare a reply", a line pulled out
   of a game) still lay ONE line down in the old single-path mode. They merge into
-  the book correctly when saved, so nothing duplicates — but they don't yet show
-  you the book while you work.
-- Transposition joins, as agreed, after real use.
+  the book correctly when saved, so nothing duplicates — they just don't show you
+  the book while you work. Worth doing, not worth destabilising the onboarding
+  walkthrough for.
 
 One thing worth knowing about the caps: `FREE_REPERTOIRES = 3` and the
 whole-branch training check are wired through exactly the same `isEntitled()`
