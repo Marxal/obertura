@@ -1,5 +1,6 @@
 import type { Line, LinePriority } from './types';
 import type { MoveNode } from './tree';
+import { byNewestFirst } from './lines-view';
 
 // ── The spaced-repetition brain ─────────────────────────────────────────────────
 //
@@ -243,7 +244,7 @@ export function lineMissCount(line: Line): number {
 
 // Newest first. Lines without a createdAt (older saves) sort last.
 export function recentlyAddedLines(lines: Line[]): Line[] {
-  return [...lines].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+  return [...lines].sort(byNewestFirst);
 }
 
 // Most-missed first; ties broken by lower confidence so the shakiest lead.

@@ -19,6 +19,7 @@ import {
   projectLines, projectRepertoire, makeLineId, parseLineId, locateLine,
   applyLineWrite, spineNodes, mergeLineIntoRepertoire, mergeRepertoireInto,
   setBranchTraining, setBranchValue, endsUnder, notationName, linePriorityOf,
+  byNewestFirst, endNodeSequence,
 } from './lines-view';
 
 export interface TestResult {
@@ -506,6 +507,63 @@ export function runLinesViewSelfTest(): TestResult[] {
       locateLine([white, black], whiteLine.id)?.repertoire === white &&
       locateLine([white, black], blackLine.id)?.repertoire === black,
       'each resolved to its own book',
+    );
+  }
+
+  // ── "Latest" ───────────────────────────────────────────────────────────────
+  //
+  // A line's date is the newest move on its own branch, so extending a line
+  // moves it to the top of My Lines. Undated moves — a book built before nodes
+  // carried a date at all — fall back to the order the nodes were handed out in,
+  // which is the only honest record of "added later" that data has.
+  {
+    const rep = book('white', 'e4 e5 Nf3');
+    const nodes = [at(rep, 'e4')!, at(rep, 'e4 e5')!, at(rep, 'e4 e5 Nf3')!];
+    nodes[0].createdAt = 100;
+    nodes[1].createdAt = 200;
+    nodes[2].createdAt = 300;
+    check(
+      'a line is dated by its newest move',
+      projectRepertoire(rep)[0].createdAt === 300,
+      `createdAt ${projectRepertoire(rep)[0].createdAt}`,
+    );
+
+    // The move that ended it loses its stamp (old data); the line still dates
+    // from the newest move it does know about rather than becoming undated.
+    delete nodes[2].createdAt;
+    check(
+      'a gap in the stamps falls back to the newest move that has one',
+      projectRepertoire(rep)[0].createdAt === 200,
+      `createdAt ${projectRepertoire(rep)[0].createdAt}`,
+    );
+  }
+
+  {
+    const rep = book('white', 'e4 e5', 'd4 d5');
+    const [first, second] = projectRepertoire(rep);
+    check(
+      'a line id yields the sequence its end node was created in',
+      endNodeSequence(second) > endNodeSequence(first),
+      `${first.id} → ${endNodeSequence(first)}, ${second.id} → ${endNodeSequence(second)}`,
+    );
+
+    // Every node undated — a book built in the builder before moves were
+    // stamped. Newest-first must still put the later-added line on top instead
+    // of collapsing the whole book into one indistinguishable heap.
+    const undated = [first, second].map(l => ({ ...l, createdAt: undefined }));
+    check(
+      'an undated book still orders by when its moves were added',
+      [...undated].sort(byNewestFirst)[0].id === second.id,
+      `first after sorting: ${[...undated].sort(byNewestFirst)[0].id}`,
+    );
+
+    // A dated line beats an undated one: the stamp only exists on moves added
+    // after stamping began, so anything without one is genuinely older.
+    check(
+      'a dated line outranks an undated one',
+      [{ ...first, createdAt: 5000 }, { ...second, createdAt: undefined }]
+        .sort(byNewestFirst)[0].id === first.id,
+      'dated line came first',
     );
   }
 

@@ -888,18 +888,35 @@ header h1 {
 header h1.header-title--screen { cursor: default; }
 
 /* On inner screens (builder / settings) the wordmark slot shows the screen's own
-   title instead — a plain heading, not the pixel wordmark. Long names (a line's
-   title) truncate with an ellipsis rather than push the header wider. */
+   title instead — a plain heading, not the pixel wordmark.
+   
+   TWO ROWS, NOT ONE. Opening names are long ("Queen's Gambit Declined: Orthodox
+   Defense, Rubinstein Variation") and the Save button beside them takes most of
+   the row, so a single nowrap line was an ellipsis almost every time — the title
+   said nothing more than the pip already did. It now wraps to two lines and
+   clamps there.
+   
+   It costs no height: the row is 38px tall either way, set by the back arrow and
+   the Save button, and two lines at 0.95rem × 1.2 come to ~36px. Keep those three
+   numbers in step if any of them changes — a third line WOULD grow the header,
+   which is board space on a phone. */
 header h1.header-title--screen {
   font-family: system-ui, -apple-system, sans-serif;
-  font-size: 1.15rem;
+  font-size: 0.95rem;
+  line-height: 1.2;
   font-weight: 700;
   letter-spacing: 0;
   text-transform: none;
   color: var(--text);
   min-width: 0;
+  white-space: normal;
   overflow: hidden;
-  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  /* Clamp is a paint-time effect; this is what actually caps the BOX, so a
+     browser that ignores the clamp still can't push the header taller. */
+  max-height: 2.4em;
 }
 
 /* ── Settings icon (header, top-right) ─────────────────────────────────────── */
@@ -1009,6 +1026,37 @@ header h1.header-title--screen {
   cursor: default;
   box-shadow: none;
   transform: none;
+}
+
+/* Inside a book with nothing to add: the path on the board is already prepared,
+   and the button says so ("Line saved", "6 lines from here"). It is a STATEMENT,
+   not an action — so it is inert like any disabled button, but it keeps its
+   contrast, because a fact faded to 45% is a fact nobody reads. Quiet and
+   outlined rather than filled, so it can't be mistaken for the primary action
+   it replaces. */
+.header-save--covered,
+.header-save--covered:disabled {
+  opacity: 1;
+  background-color: transparent;
+  background-image: none;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  box-shadow: none;
+  text-shadow: none;
+  font-weight: 600;
+  cursor: default;
+  /* Tighter than the primary it replaces: a statement doesn't need a tap
+     target's padding, and the pixels go to the title beside it. */
+  padding-left: 0.6rem;
+  padding-right: 0.7rem;
+}
+
+/* The label is a short, bounded count ("Line saved", "12 lines from here"), so
+   it is allowed its full width — truncating a fifteen-character fact to
+   "4 lines from h…" costs the reader the whole point of it. The title beside it
+   is the half that gives way, and it has two lines to give way into. */
+.header-save--covered #header-save-label {
+  white-space: nowrap;
 }
 
 .header-save:hover {

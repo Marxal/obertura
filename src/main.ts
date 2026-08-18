@@ -10,6 +10,7 @@ import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serial
 import {
   openBook, closeBook, activeBook, notePending, pendingCount, hasPending,
   isPending, discardPending, commitPending, currentLine as bookCurrentLine,
+  cursorCoverage,
   planLineRemoval, removeAndStore,
 } from './builder-book';
 import { parseLineId } from './lines-view';
@@ -655,21 +656,43 @@ function applySaveButtonLabel(): void {
   // move you already have is walking onto it, so there is nothing to warn about.
   const dup = builderMode === 'builder' && !inBook() ? saveDuplicate : null;
   const pending = inBook() ? pendingCount() : 0;
+  // Nothing to add means the path on the board is ALREADY PREPARED, and that is
+  // worth saying out loud rather than greying out a button that reads "Nothing".
+  // It is the answer to "have I done this one?" without leaving the builder.
+  const covered = inBook() && pending === 0 ? coveredLabel() : null;
   label.textContent =
     builderMode === 'analyser' ? 'Save game'
-    : inBook() ? (pending === 0 ? 'Nothing to add'
-      : pending === 1 ? 'Add 1 move' : `Add ${pending} moves`)
+    : inBook() ? (covered ?? (pending === 1 ? 'Add 1 move' : `Add ${pending} moves`))
     : dup?.kind === 'open' ? 'Already saved — open it'
     : dup?.kind === 'add-tag' ? `Add tag to “${shortLineName(dup.lineName)}”`
     : loadedLineId ? 'Save changes' : 'Save line';
 
   btn?.classList.toggle('header-save--alt', !!dup);
-  if (btn) setSaveButtonIcon(btn, dup?.kind ?? null);
+  btn?.classList.toggle('header-save--covered', !!covered);
+  if (btn) setSaveButtonIcon(btn, covered ? 'covered' : dup?.kind ?? null);
+}
+
+// What the header says when there is nothing to add: how much of the book runs
+// through the position on the board.
+//
+// Three readings, because the same fact means different things depending on
+// where you are standing — at the start it describes the whole book, on a leaf
+// it says this exact line is done, and in between it says how many of your
+// lines carry on from here. Returns null when the book is empty, so a fresh
+// book still prompts for a first move rather than announcing "0 lines".
+function coveredLabel(): string | null {
+  const at = cursorCoverage();
+  if (!at || at.lines === 0) return null;
+  if (at.atStart) return at.lines === 1 ? '1 line saved' : `${at.lines} lines saved`;
+  if (at.atLineEnd && at.lines === 1) return 'Line saved';
+  return at.lines === 1 ? '1 line from here' : `${at.lines} lines from here`;
 }
 
 // The disk icon is wrong on a button that no longer saves. Swap the glyph rather
 // than dropping it, so the control keeps the same shape as it changes meaning.
-const SAVE_ICON_PATHS: Record<'save' | 'open' | 'add-tag', string[]> = {
+const SAVE_ICON_PATHS: Record<'save' | 'open' | 'add-tag' | 'covered', string[]> = {
+  // A tick: the path on the board is already in the book.
+  covered: ['M20 6 9 17l-5-5'],
   save: [
     'M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z',
     'M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7',
@@ -679,7 +702,7 @@ const SAVE_ICON_PATHS: Record<'save' | 'open' | 'add-tag', string[]> = {
   'add-tag': ['M12 5v14', 'M5 12h14'],
 };
 
-function setSaveButtonIcon(btn: HTMLElement, kind: 'open' | 'add-tag' | null): void {
+function setSaveButtonIcon(btn: HTMLElement, kind: 'open' | 'add-tag' | 'covered' | null): void {
   const svg = btn.querySelector('svg');
   if (!svg) return;
   const want = kind ?? 'save';
@@ -5068,8 +5091,6 @@ maybeShowGate(() => requestAnimationFrame(() => {
     onOpenOpponentReport: (id: string) => { openExploreOpponent(id); showView('explore'); },
     // My lines "Show tree": open the tapped saved line in the builder.
     onOpenLine,
-    // A coverage gap's "build from here" — the Prepare flow, unchanged.
-    onPrepareGap: prepareGap,
   });
 
   // The Explore slide — three curated moves for the position on the board.

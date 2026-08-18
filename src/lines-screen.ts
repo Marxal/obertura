@@ -24,7 +24,7 @@ import {
   setSelectedBookId, type BookRow,
 } from './repertoire-picker';
 import { openBranchSheet, openBranchSheetForLine } from './branch-sheet';
-import { parseLineId } from './lines-view';
+import { byNewestFirst, parseLineId } from './lines-view';
 import { renderCoverageLauncher, type CoverageSection } from './coverage-section';
 import { openCoverageScreen } from './coverage-screen';
 import type { ImportedGame } from './chesscom';
@@ -94,7 +94,7 @@ function sortLines(lines: Line[], mode: SortMode): Line[] {
       return copy.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     case 'latest':
     default:
-      return copy.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+      return copy.sort(byNewestFirst);
   }
 }
 

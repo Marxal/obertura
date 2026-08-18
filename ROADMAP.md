@@ -2143,7 +2143,47 @@ reported saving of 4, and answering 2.c4 once graded the one shared node.
 reply", a line pulled from a game) through the book. They merge correctly on
 save, so nothing duplicates; they just don't show you the book while you work.
 
-_On `claude/repertoire-system-redesign-ddz4in`. Restore point: `v0.5`._
+### Phase F — the builder after real use ✅
+
+First round of fixes from actually building on the phone. Four defects and two
+pieces of housekeeping.
+
+- ✅ **Walking your own repertoire counted as drafting it.** The builder asks
+  `hasMove` before every `addMove` to tell navigation from addition — but
+  `hasMove` compared a SAN against a node's `uci`, so it never matched. Every
+  move played was counted as new: a fully prepared path read "Add 5 moves", the
+  move strip drew prepared moves as drafts, leaving the builder raised the
+  unsaved-work guard, and "Discard" there would have cut real moves out of the
+  working tree. Both now go through one `findChild`, so they cannot drift apart
+  again.
+- ✅ **Nothing to add now says what IS there.** In a book the header button
+  reads the position rather than greying out: "23 lines saved" at the start,
+  "6 lines from here" mid-book, "Line saved" on a line end — outlined and inert,
+  because it is a statement, not an action. The builder can now answer "have I
+  done this one?" without a trip to My Lines.
+- ✅ **"Latest" was ordering by nothing.** A line's date comes from its newest
+  move, and moves added in the builder were never stamped — `addMove` doesn't go
+  through `mergePath`, which is what stamps them — so every line built since the
+  redesign projected as undated and sorted to the BOTTOM. Repertoire-mode moves
+  are stamped now, and one shared comparator (`byNewestFirst`) falls back to node
+  sequence for books already saved without stamps, so existing repertoires order
+  correctly without inventing timestamps for them.
+- ✅ **The builder board's per-move cost.** `pathTo` searched the tree copying
+  its trail at every node it visited — cheap when the tree was one line, but
+  since the redesign it is the whole book, and a dozen readers ask for the path
+  behind every move. Profiling ten moves on a 2,900-node book put it at the top
+  of the app's cost (70ms); pushing/popping one array and remembering the answer
+  until the tree changes takes it to 7ms, below chess.js's own move generation.
+- ✅ **Coverage gaps left the builder.** They were the one block on the My lines
+  slide not about the position on the board, and while you are building, a list
+  of what you have *not* built is noise. They live on My Lines.
+- ✅ **The header title gets two rows.** Opening names are long and the Save
+  button takes most of the row, so a single nowrap line was an ellipsis nearly
+  every time. It wraps to two lines at 0.95rem and clamps there — 36px inside a
+  38px row, so the header keeps exactly the height it had and the board doesn't
+  move.
+
+_On `claude/builder-ux-repertoire-redesign-j26ygg`. Restore point: `v0.5`._
 
 ---
 
