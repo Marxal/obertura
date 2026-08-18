@@ -30,7 +30,7 @@ import type { ImportedGame } from './chesscom';
 import { renderLoadError } from './load-error';
 import { formatSanLine } from './notation';
 import {
-  lineStatus, lineShape, lineTraining, lineTrainingText, lineMastered,
+  lineStatus, lineTraining, lineTrainingText, lineMastered,
 } from './line-status';
 import { openLinePeek } from './line-peek';
 
@@ -613,10 +613,11 @@ function buildDetailCard(
     info.appendChild(played);
   }
 
-  // Three rows, in the order you'd want to scan them: what this line needs from
-  // you, what the line actually is, then how it has been going.
+  // Rows, in the order you'd want to scan them: what this line needs from you,
+  // how settled it is, then how it has been going.
   info.appendChild(buildStatusRow(line));
-  info.appendChild(buildShapeRow(line));
+  const confidenceRow = buildConfidenceRow(line);
+  if (confidenceRow) info.appendChild(confidenceRow);
   const training = buildTrainingRow(line);
   if (training) info.appendChild(training);
 
@@ -638,12 +639,13 @@ function buildDetailCard(
 
   content.appendChild(info);
 
-  // Footer: training toggle (+ Due badge) bottom-left, delete bottom-right.
+  // Footer: one row. The training switch anchors the left; every action on
+  // this line lives to its right, in the order each is wanted most: train it,
+  // edit it, its settings, delete it. Used to be two rows — the switch above
+  // its own line, icons on another below — which cost the card a whole extra
+  // line for no reason once both fit side by side.
   const footer = document.createElement('div');
   footer.className = 'dline-footer';
-
-  const footerLeft = document.createElement('div');
-  footerLeft.className = 'dline-footer-left';
 
   // The ONE training control: a switch. On = in the drill pool, off = excluded
   // but fully kept (stats and all). No separate pause/remove. Green when ON.
@@ -652,6 +654,11 @@ function buildDetailCard(
   toggleBtn.className = `dline-toggle${line.inTraining ? ' dline-toggle--on' : ''}`;
   toggleBtn.setAttribute('role', 'switch');
   toggleBtn.setAttribute('aria-checked', String(line.inTraining));
+  // The full "Training ON/OFF" reads fine on its own row; sharing one with four
+  // icons, it doesn't fit. The switch's colour already carries the state at a
+  // glance, so the label shrinks to the word that changes — the accessible
+  // name keeps the full sentence for anyone not reading it visually.
+  toggleBtn.setAttribute('aria-label', `Training ${line.inTraining ? 'on' : 'off'}`);
   const sw = document.createElement('span');
   sw.className = 'dline-switch';
   const knob = document.createElement('span');
@@ -659,7 +666,7 @@ function buildDetailCard(
   sw.appendChild(knob);
   const toggleLabel = document.createElement('span');
   toggleLabel.className = 'dline-toggle-label';
-  toggleLabel.textContent = `Training ${line.inTraining ? 'ON' : 'OFF'}`;
+  toggleLabel.textContent = line.inTraining ? 'On' : 'Off';
   toggleBtn.appendChild(sw);
   toggleBtn.appendChild(toggleLabel);
   // Only switching ON meets the free-tier cap; switching off is always allowed
@@ -670,14 +677,8 @@ function buildDetailCard(
     await saveLine({ ...line, inTraining: next });
     refresh();
   });
-  footerLeft.appendChild(toggleBtn);
+  footer.appendChild(toggleBtn);
 
-  footer.appendChild(footerLeft);
-
-  // EVERY action on this line lives in this one right-aligned row, so a card is
-  // read top-down (what it is, how it's going) and acted on in one place at the
-  // foot. Ordered by how often each is wanted: train it, edit it, its settings,
-  // delete it.
   const iconRow = document.createElement('div');
   iconRow.className = 'dline-iconrow';
 
@@ -796,55 +797,22 @@ function buildTrainingRow(line: Line): HTMLElement | null {
 }
 
 /**
- * Row 2 — the line itself: how long it is, how much of it is its own, and how
- * settled it is.
- *
- * "3 only here" is the tree model made visible. A line whose 12 moves are 3 of
- * its own is mostly prep it shares with its neighbours — which is why deleting
- * it only cuts 3, and why drilling it is mostly drilling moves you meet
- * elsewhere too. Silent when the line is entirely shared (prepared moves
- * continue past its end), because "0 only here" is a riddle, not a fact.
+ * Row 2 — how settled the line is, as confidence dots alone. Used to also
+ * name the length and how much of it was the line's own ("12 moves · 3 only
+ * here"); both dropped in favour of one glance-able fact, since confidence is
+ * the one of the three that actually changes as a line beds in. Silent before
+ * a line has ever been trained — there is nothing to show confidence IN yet.
  */
-function buildShapeRow(line: Line): HTMLElement {
+function buildConfidenceRow(line: Line): HTMLElement | null {
+  if (line.confidence <= 0) return null;
   const row = document.createElement('div');
   row.className = 'dline-stats';
-
-  const { moves, ownMoves } = lineShape(line);
-  add(
-    `${moves} ${moves === 1 ? 'move' : 'moves'}`,
-    undefined,
-    `This line is ${moves} half-moves long, yours and the opponent's`,
-  );
-  if (ownMoves !== null) {
-    add(
-      `${ownMoves} only here`,
-      undefined,
-      `${ownMoves} of those moves belong to no other line — the rest are shared `
-      + 'with the lines that branch off this one, so deleting this line would cut '
-      + `only the ${ownMoves}`,
-    );
-  }
-  if (line.confidence > 0) add(confidenceDots(line.confidence), 'dline-conf');
-
+  const dots = document.createElement('span');
+  dots.className = 'dline-stat dline-conf';
+  dots.textContent = confidenceDots(line.confidence);
+  dots.title = `Confidence ${line.confidence} of 5`;
+  row.appendChild(dots);
   return row;
-
-  function add(text: string, extraClass?: string, title?: string): void {
-    if (row.childElementCount > 0) row.appendChild(sepDot());
-    const el = document.createElement('span');
-    el.className = 'dline-stat' + (extraClass ? ' ' + extraClass : '');
-    el.textContent = text;
-    if (extraClass === 'dline-conf') el.title = `Confidence ${line.confidence} of 5`;
-    else if (title) el.title = title;
-    row.appendChild(el);
-  }
-}
-
-function sepDot(): HTMLElement {
-  const sep = document.createElement('span');
-  sep.className = 'dline-sep';
-  sep.setAttribute('aria-hidden', 'true');
-  sep.textContent = '·';
-  return sep;
 }
 
 // ── From my games tab ────────────────────────────────────────────────────────
