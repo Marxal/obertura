@@ -314,17 +314,57 @@ export function nodeAtPath(root: MoveNode, ucis: string[]): MoveNode | null {
 // ── Removing ─────────────────────────────────────────────────────────────────
 
 /**
+ * A subtree lifted out of a tree, and everything needed to put it back.
+ *
+ * Removal is the one repertoire edit that destroys work: the moves go, and with
+ * them the review history, notes and confidence built up over weeks. Re-playing
+ * the moves does NOT bring that back. So the cut hands back the node it took and
+ * where it sat, and an undo is a re-attach of the very same object rather than a
+ * reconstruction — which is what makes offering removal in more places safe.
+ */
+export interface DetachedSubtree {
+  /** The removed node, with its whole subtree under it. */
+  node: MoveNode;
+  /** The node it hung off. */
+  parentId: string;
+  /** Its place among its siblings — restored, because children[0] is the main line. */
+  index: number;
+  /** How many moves went: the subtree's, plus the node itself. */
+  moves: number;
+}
+
+/**
+ * Lift a node and everything under it out of the tree, keeping what an undo
+ * needs. Returns null when the id isn't in this tree (or is its root).
+ */
+export function detachSubtree(root: MoveNode, id: string): DetachedSubtree | null {
+  const parent = parentOf(root, id);
+  if (!parent) return null;
+  const index = parent.children.findIndex(c => c.id === id);
+  if (index === -1) return null;
+  const [node] = parent.children.splice(index, 1);
+  return { node, parentId: parent.id, index, moves: moveCount(node) + 1 };
+}
+
+/**
+ * Put a detached subtree back exactly where it was. False when the parent has
+ * gone in the meantime — the tree moved on and the undo no longer applies.
+ */
+export function reattachSubtree(root: MoveNode, cut: DetachedSubtree): boolean {
+  const parent = findNode(root, cut.parentId);
+  if (!parent) return false;
+  if (findNode(root, cut.node.id)) return false; // already back
+  parent.children.splice(Math.min(cut.index, parent.children.length), 0, cut.node);
+  return true;
+}
+
+/**
  * Remove a node and everything under it. Returns how many moves went — the
  * number the confirm dialog quotes, so it must count the subtree and not just
  * the one move the user tapped.
  */
 export function removeSubtree(root: MoveNode, id: string): number {
-  const parent = parentOf(root, id);
-  if (!parent) return 0;
-  const idx = parent.children.findIndex(c => c.id === id);
-  if (idx === -1) return 0;
-  const [removed] = parent.children.splice(idx, 1);
-  return moveCount(removed) + 1; // the subtree's moves, plus the node itself
+  return detachSubtree(root, id)?.moves ?? 0;
 }
 
 /**

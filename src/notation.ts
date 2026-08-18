@@ -20,8 +20,15 @@ const FIGURES: Record<string, string> = {
   N: '♞',
 };
 
+// Guarded because the modules that print moves are also read by the pure-logic
+// self-tests, which run under Node with no localStorage at all — and because a
+// browser in private mode can throw here rather than return null.
 export function getMoveNotation(): MoveNotation {
-  return localStorage.getItem(KEY) === 'standard' ? 'standard' : 'figurine';
+  try {
+    return localStorage.getItem(KEY) === 'standard' ? 'standard' : 'figurine';
+  } catch {
+    return 'figurine';
+  }
 }
 
 export function setMoveNotation(n: MoveNotation): void {
@@ -52,4 +59,12 @@ export function formatSanLine(sans: string[], notation: MoveNotation = getMoveNo
     out += i % 2 === 0 ? `${i / 2 + 1}.${mv} ` : `${mv} `;
   }
   return out.trim();
+}
+
+// "2…c5" — one move with its number, given its 1-based ply (the first move of
+// the game is ply 1). White's moves take a dot, Black's an ellipsis, so a single
+// move quoted on its own still says whose it is and when it happens.
+export function numberedMove(san: string, ply: number, notation: MoveNotation = getMoveNotation()): string {
+  const n = Math.ceil(ply / 2);
+  return `${n}${ply % 2 === 1 ? '.' : '…'}${formatMove(san, notation)}`;
 }

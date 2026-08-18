@@ -65,6 +65,11 @@ export interface BuilderPanelsDeps {
   // My lines "show tree" → open a saved line. `atFen`, when given, lands the
   // builder on that position rather than the start.
   onOpenLine: (line: Line, atFen?: string) => void;
+  // My saved lines → the trash on a continuation row. Only offered while a book
+  // is actually open for editing (the analyser has no book to cut), which is
+  // what `canRemoveLines` answers — the panel can't know the builder's mode.
+  canRemoveLines: () => boolean;
+  onRemoveContinuation: (uci: string) => void;
 }
 
 export interface BuilderPanels {
@@ -585,19 +590,53 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
       wrap.appendChild(emptyNote('No lines saved from here.'));
     } else {
       const prefix = movePrefix(deps.getUcis().length);
-      for (const r of replies) {
-        const row = document.createElement('button');
-        row.type = 'button';
-        row.className = 'bx-row bx-row--plain';
-        row.addEventListener('click', () => deps.onPlay(r.uci));
-        row.appendChild(span('bx-move', `${prefix} ${formatMove(r.san)}`));
-        row.appendChild(span('bx-line-count', `${r.count} line${r.count === 1 ? '' : 's'}`));
-        wrap.appendChild(row);
-      }
+      for (const r of replies) wrap.appendChild(savedLineRow(r, prefix));
     }
 
     appendTranspositionRows(wrap);
     return wrap;
+  }
+
+  /**
+   * One continuation of your OWN book: tap it to play it, or take it out.
+   *
+   * Removal belongs here because this row is already the answer to "what does my
+   * repertoire do from this position?" — one move, one branch, one count — so
+   * cutting it reads as trimming that answer rather than as deleting some
+   * abstract line elsewhere. Until now the builder had nowhere at all to remove
+   * a move from; you had to leave for My Lines and find it again.
+   *
+   * A div holding two buttons, not a button inside a button: nesting is invalid,
+   * and the two taps mean genuinely different things. The trash sits at the far
+   * edge, away from the move, because playing the move is what people come to
+   * this row to do.
+   */
+  function savedLineRow(
+    r: { san: string; uci: string; count: number }, prefix: string,
+  ): HTMLElement {
+    const row = document.createElement('div');
+    row.className = 'bx-row bx-row--plain mylines-saved-row';
+
+    const tap = document.createElement('button');
+    tap.type = 'button';
+    tap.className = 'mylines-saved-tap';
+    tap.addEventListener('click', () => deps.onPlay(r.uci));
+    tap.appendChild(span('bx-move', `${prefix} ${formatMove(r.san)}`));
+    tap.appendChild(span('bx-line-count', `${r.count} line${r.count === 1 ? '' : 's'}`));
+    row.appendChild(tap);
+
+    if (deps.canRemoveLines()) {
+      const label = `Remove ${prefix} ${r.san}`;
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'mylines-saved-remove';
+      remove.setAttribute('aria-label', label);
+      remove.title = label;
+      remove.appendChild(Icons.trash(15));
+      remove.addEventListener('click', () => deps.onRemoveContinuation(r.uci));
+      row.appendChild(remove);
+    }
+    return row;
   }
 
   // Quiet rows for what the primary continuations above can't see: another

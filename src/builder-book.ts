@@ -23,6 +23,7 @@ import type { MoveNode } from './tree';
 import type { Line } from './types';
 import {
   loadBookTree, serialise, getCurrentNode, currentLineNodes, removeNode, rootNode,
+  attachNode,
 } from './tree';
 import {
   defaultRepertoireFor, getRepertoire, saveRepertoire,
@@ -30,7 +31,8 @@ import {
 import { applyLineWrite, endsUnder, makeLineId, projectRepertoire } from './lines-view';
 import {
   cloneTree, isLineEnd, findNode, lineTailStart, moveCount, groupAddedBranches,
-  type AddedBranch, type Repertoire,
+  detachSubtree, reattachSubtree,
+  type AddedBranch, type DetachedSubtree, type Repertoire,
 } from './repertoire';
 
 // The book being edited. `tree` here is the STORED state — the working copy
@@ -304,18 +306,47 @@ export function planLineRemoval(): RemovalPlan | null {
 }
 
 /**
- * Remove a subtree from the working book and store the result. Anything pending
- * inside it is forgotten with it — it was never in the book to begin with.
+ * Remove a subtree from the book and store the result, handing back what it
+ * took so the removal can be undone.
+ *
+ * THE CUT IS MADE ON THE STORED TREE, not by re-serialising the working one.
+ * The working tree carries the open draft as well as the book, so storing it
+ * here would quietly commit moves the user has not added yet — they would find
+ * a draft they never confirmed already written, and discarding it afterwards
+ * would not take it back out. So the two trees are cut separately: the stored
+ * one by id (the ids are the same in both, the working tree is loaded from it),
+ * and the working one through tree.ts, which also walks the cursor back out of
+ * anything it is standing in.
+ *
+ * Returns null when the node was never stored — a draft move — in which case the
+ * working tree has still lost it, which is exactly what discarding a draft is.
  */
-export async function removeAndStore(nodeId: string): Promise<number> {
-  if (!book) return 0;
+export async function removeAndStore(nodeId: string): Promise<DetachedSubtree | null> {
+  if (!book) return null;
   const node = findNode(rootOfWorking(), nodeId);
   const doomed = node ? collectIds(node) : [];
-  const removed = removeNode(nodeId);
+  const cut = detachSubtree(book.tree, nodeId);
+  removeNode(nodeId);
   for (const id of doomed) pending.delete(id);
-  book.tree = serialise();
+  if (cut) await saveRepertoire(book);
+  return cut;
+}
+
+/**
+ * Put a removed subtree back, in the book and on the board. False when the tree
+ * has moved on underneath it (the parent is gone, or the moves are already
+ * back) — an undo that cannot land exactly must not land approximately.
+ *
+ * The working tree gets a COPY: sharing one node object between the stored book
+ * and the board's tree would let an edit on one side appear on the other.
+ */
+export async function restoreAndStore(cut: DetachedSubtree): Promise<boolean> {
+  if (!book) return false;
+  const copy = cloneTree(cut.node);
+  if (!reattachSubtree(book.tree, cut)) return false;
+  attachNode(cut.parentId, copy, cut.index);
   await saveRepertoire(book);
-  return removed;
+  return true;
 }
 
 /**
@@ -331,8 +362,8 @@ export async function removeManyAndStore(nodeIds: string[]): Promise<number> {
     const doomed = node ? collectIds(node) : [];
     removed += removeNode(id);
     for (const gone of doomed) pending.delete(gone);
+    detachSubtree(book.tree, id); // the stored side of the same cut
   }
-  book.tree = serialise();
   await saveRepertoire(book);
   return removed;
 }

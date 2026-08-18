@@ -2223,6 +2223,50 @@ _On `claude/builder-ux-repertoire-redesign-j26ygg`. Restore point: `v0.5`._
 
 ---
 
+## v0.6b — taking moves back out 🔜
+
+The builder could only ever ADD. Removing a move meant leaving for My Lines and
+finding it again, so in practice nobody did and the book only grew. This round
+gives removal a home in the builder — and gives the save button somewhere to go.
+
+- ✅ **One rule, said the same way everywhere.** *Removing a move removes
+  everything after it; everything before it stays, because your other lines are
+  built on it.* There is no "keep the rest" — the rest only exists because of
+  that move. So the only honest question is how much goes, and `line-removal.ts`
+  answers it once for every screen that asks: how many moves, how many lines,
+  which lines by name, and the sentence people actually want — **"your line will
+  end at 1.e4 c5 2.♞f3 instead"** when the line survives a move shorter rather
+  than disappearing.
+- ✅ **A trash on every "My saved lines" row.** That row already answers "what
+  does my book play from here?" — one move, one branch, one count — so cutting it
+  reads as trimming that answer rather than deleting something abstract
+  elsewhere. Tap the move to play it, the icon to take it out.
+- ✅ **The save button stopped being a dead end.** With nothing to add it was
+  *disabled*, so "3 lines saved" was a fact you could not tap. It is live again:
+  at the start position it goes to My Lines; deeper in it opens the branch sheet
+  for the position you are standing on — name, tags, pause, priority, remove —
+  with a chevron saying so. Not at the start, deliberately: there the "branch" is
+  the whole repertoire and its remove button would be one tap from the header.
+- ✅ **Confirm scaled to the cut, Undo always.** One line comes out on the tap
+  with a `Removed 4 moves — Undo`; several lines stop and get named first.
+  Confirming everything is how you teach someone to tap through confirmations, at
+  which point the wide cut goes through as easily as the trim.
+- ✅ **Undo re-attaches the very subtree that was taken** — review history, notes
+  and confidence intact. Re-playing the moves would not bring any of that back,
+  which is exactly why removal was worth being careful about before it could be
+  offered in more places.
+- ✅ **Two bugs found on the way.** `removeAndStore` wrote `serialise()` — the
+  whole working tree, open draft included — so removing a move while drafting
+  silently committed moves the user had never added. The cut is now made on the
+  stored tree by id, separately from the board's. And the branch sheet writes
+  straight to storage, so opening it from the builder now re-reads the book
+  afterwards; without that, a later commit would have written the stale copy back
+  and resurrected whatever it removed.
+
+_On `claude/repertoire-move-removal-flow-upnamo`. Restore point: `v0.5`._
+
+---
+
 ## Stripe migration — off Lemon Squeezy, on to being the merchant ✅
 
 The processor swap. **Not a product change:** it is still a one-time unlock, still
