@@ -80,6 +80,15 @@ export const FREE_ENDGAME_GAME_WINDOW = 50;
 export const FREE_ENDGAME_SPOTS = 3;
 export const FREE_SCOUT_OPPONENTS = 1;
 
+// How many repertoires (books) a free account may keep. Two are created for you
+// — White and Black — so this is "the two defaults plus one extra": enough to
+// try the idea of a separate book for blitz or for a tournament, not enough to
+// run a shelf of them.
+//
+// Archived books still count. Archiving is a way to put a book aside, not a way
+// to keep six for free, and a cap you can walk around isn't one.
+export const FREE_REPERTOIRES = 3;
+
 // Where the counter starts appearing on the Train hub, so the ceiling is visible
 // before it's hit rather than a surprise at line eleven.
 export const TRAINING_COUNT_VISIBLE_FROM = 7;
@@ -151,6 +160,36 @@ export async function requestTrainingSlot(): Promise<boolean> {
   if (isEntitled()) return true;
   if (canEnrolAnother(await countInTraining())) return true;
   showTrainingCapDialog();
+  return false;
+}
+
+/**
+ * "May I enrol this whole branch?" — the bulk form, for a toggle that turns on
+ * several lines at once.
+ *
+ * It deliberately does NOT enrol a partial branch. Turning on the French and
+ * getting seven of its twelve lines, chosen by nothing in particular, is worse
+ * than being told the branch doesn't fit: the user would have no way of knowing
+ * which five were left out. So this answers yes or no for the whole thing, and
+ * the caller says how many slots are free.
+ */
+export async function requestTrainingSlots(count: number): Promise<boolean> {
+  if (isEntitled() || count <= 0) return true;
+  const free = await freeTrainingSlots();
+  if (count <= free) return true;
+  openUpgradeDialog(
+    free === 0
+      ? `You’ve got ${FREE_TRAINING_LINES} lines in training`
+      : `That’s ${count} lines, and you have ${free} free ${free === 1 ? 'slot' : 'slots'} left`,
+  );
+  return false;
+}
+
+/** "May I make another repertoire?" — same contract as requestTrainingSlot. */
+export async function requestRepertoireSlot(existing: number): Promise<boolean> {
+  if (isEntitled()) return true;
+  if (existing < FREE_REPERTOIRES) return true;
+  openUpgradeDialog(`Free accounts keep ${FREE_REPERTOIRES} repertoires`);
   return false;
 }
 

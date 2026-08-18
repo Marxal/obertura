@@ -13,6 +13,7 @@ import {
   planLineRemoval, removeAndStore,
 } from './builder-book';
 import { parseLineId } from './lines-view';
+import { selectedBookId } from './repertoire-picker';
 import { mainlineNodes, DEFAULT_PRIORITY } from './scheduler';
 import type { Annotation, MoveNode } from './tree';
 import { saveLine, getAllLines, getLine, getAllGames, getGame, saveGames, deleteLine, deleteGame } from './storage';
@@ -2097,9 +2098,13 @@ function refreshBuilderLineState(): void {
 
 // Open a book on the board and stand at the start (or wherever `then` puts us).
 async function enterBuilderBook(
-  colour: 'white' | 'black', then?: () => void,
+  colour: 'white' | 'black', then?: () => void, bookId?: string,
 ): Promise<void> {
-  await openBook(colour);
+  // Default to whichever book My Lines is showing, so building a line lands in
+  // the book the user is looking at rather than always in the colour's default.
+  // openBook ignores an id of the wrong colour, so this is safe to pass blindly.
+  const wanted = bookId ?? selectedBookId();
+  await openBook(colour, wanted === 'all' ? undefined : wanted);
   saveColour = colour;
   builderMode = 'builder';
   chess.reset();
@@ -3808,13 +3813,15 @@ function onOpenLine(line: Line, atFen?: string): void {
     builderDesc = '';
     renderBuilderDesc();
     showView('builder');
+    // A saved line names its own book in its id — open THAT one, never whichever
+    // book the list happened to be filtered to.
     void enterBuilderBook(line.colour, () => {
       handleMoveClick(endId);
       if (atFen) {
         const target = currentLineNodes().find(n => n.fen === atFen);
         if (target) handleMoveClick(target.id);
       }
-    });
+    }, parseLineId(line.id)?.repertoireId);
     return;
   }
 

@@ -1,6 +1,6 @@
 # The repertoire redesign — proposal
 
-**Status: Phases A and B are built.** §9 records the five decisions this was
+**Status: Phases A, B and C are built.** §9 records the five decisions this was
 agreed on; §10 says which phases have shipped and which have not. Restore point:
 `v0.5`.
 
@@ -319,18 +319,41 @@ nothing, a new move is a draft, the header button says "Add N moves", and
 committing merges. Deleting a line quotes what it will actually cut. Verified at
 the real UI end to end.
 
-**Phase C, D, E — not started.** Specifically outstanding:
+**Phase C ✅** — My Lines became a repertoire screen. A book selector above the
+filter bar (hidden when there is only one book to choose between), a sheet behind
+it for making, renaming, putting aside and deleting books, and **branch actions**
+on any node of the tree view: pause or train the whole branch, set how often it
+comes round, name it, tag it, build from it, remove it. Every one of them names
+how many lines it is about to move.
 
-- The My Lines → Repertoire screen: the book selector, the tree as a first-class
-  view, and per-node branch actions (name / tag / pause a whole branch). The
-  inheritance rules that make those one-tap actions are built and tested; the
-  controls that would drive them are not.
-- The repertoire count gate (`FREE_REPERTOIRES`) and the warning before a branch
-  toggle enrols a dozen lines at once. Until the Repertoire screen exists there
-  is no way to create a second book or toggle a branch, so neither can yet fire.
+Two rules the branch controls follow, both because the alternative reads as the
+control being broken:
+
+- **The branch's answer replaces the lines'.** Setting training, priority or a
+  name on a branch clears that field on everything below it, so a line someone
+  set individually six months ago cannot out-vote the tap they just made. (Tags
+  are the deliberate exception: they accumulate, so a branch tag is added to what
+  the lines below already carry rather than replacing it.)
+- **The value lives on the branch, not on every leaf.** Pausing twelve lines
+  writes one flag.
+
+Verified at the real UI: pausing 1.e4 e6 wrote the single flag `e4 e6=false` and
+paused exactly the two French lines, leaving the Sicilian alone; naming the
+branch renamed both and nothing else; a line built while a book is selected lands
+in that book.
+
+**Phase D, E — not started.** Specifically outstanding:
+
 - Training's shared-prefix dedupe and the "repertoire run" mode.
 - The seeded single-line flows (onboarding, "prepare a reply", a line pulled out
   of a game) still lay ONE line down in the old single-path mode. They merge into
   the book correctly when saved, so nothing duplicates — but they don't yet show
   you the book while you work.
 - Transposition joins (Phase E), as agreed, after real use.
+
+One thing worth knowing about the caps: `FREE_REPERTOIRES = 3` and the
+whole-branch training check are wired through exactly the same `isEntitled()`
+path as every other cap — which returns **true for everyone when the build has no
+Supabase configured**. That is deliberate and predates this round (no accounts
+means nobody to charge), but it does mean neither cap can be exercised in a
+local or self-hosted build.
