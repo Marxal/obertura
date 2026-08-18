@@ -14,6 +14,11 @@ import {
 import { positionIndex } from './position-index';
 import { siblingCredits, applyReviewAt, judgeOtherLineMove } from './train-index';
 import { selectIndividualPositions, selectTimedPositions } from './individual';
+import { planRepertoireRun, runSavingNote, type RunPlan, type RunPosition } from './repertoire-run';
+import { getAllRepertoires, saveRepertoire } from './storage';
+import { locateLine } from './lines-view';
+import { PRIORITY_SPACING } from './scheduler';
+import type { Repertoire } from './repertoire';
 import { Icons } from './icons';
 import {
   getTimedBest,
@@ -223,8 +228,9 @@ async function doRender(
   setFabVisible?.(true);
   container.innerHTML = '<p class="lines-loading">Loading…</p>';
   let allLines: Line[];
+  let books: Repertoire[];
   try {
-    allLines = await getAllLines();
+    [allLines, books] = await Promise.all([getAllLines(), getAllRepertoires()]);
   } catch (err) {
     renderLoadError(container, err, () => void doRender(container, focusLineId, autoStart));
     return;
@@ -309,7 +315,7 @@ async function doRender(
   // The streak now lives on the daily-challenge card above the tabs, so Train's
   // own head is gone — the hero (when anything's due) is the top of this pane.
   if (!trainingLocked) renderHero(doNext, container, due, trainingLines);
-  renderModeCards(doNext, container, trainingLines, allLines, trainingLocked);
+  renderModeCards(doNext, container, trainingLines, allLines, books, trainingLocked);
   // Lines in training rides directly under Practise; what keeps slipping —
   // the worst moves and the weakest lines — closes the pane.
   renderCardList(state, container, trainingLines, allLines.filter(l => !l.inTraining));
@@ -442,6 +448,7 @@ const MODE_ACCENT = {
   fresh:  '#4e8063', // green — new growth
   weak:   '#7d5a86', // plum — shore up the soft spots
   prep:   '#3f7d8a', // teal — strategy against an opponent
+  run:    '#5b6ea8', // indigo — one pass through the whole book
 } as const;
 
 function renderModeCards(
@@ -449,6 +456,7 @@ function renderModeCards(
   container: HTMLElement,
   allTraining: Line[],
   allLines: Line[],
+  books: Repertoire[],
   // Under TRAINING_UNLOCK_LINES saved lines: every mode is off, with the count
   // still to go as the reason.
   locked: boolean,
@@ -496,6 +504,24 @@ function renderModeCards(
       : 'Train a little more to unlock single-move drills',
     onClick: () => runIndividual(container, allTraining),
   }));
+
+  // Repertoire run — one walk through the book, asking each move once. The line
+  // modes below replay a shared opening once per line; this one doesn't, and the
+  // card says so in the number of repeats it saves rather than in an
+  // explanation nobody would read.
+  const runPlan = locked ? null : planRepertoireRun(books);
+  if (runPlan && runPlan.totalMoves > 0) {
+    const saving = runSavingNote(runPlan);
+    section.appendChild(buildModeCard({
+      accent: MODE_ACCENT.run,
+      icon: Icons.list(20),
+      name: 'Repertoire run',
+      sub: saving ? `one pass through your book — ${saving}` : 'one pass through your book',
+      stat: runPlan.dueMoves,
+      statLabel: runPlan.dueMoves === 1 ? 'move due' : 'moves due',
+      onClick: () => runRepertoireRun(container, books),
+    }));
+  }
 
   // Fresh lines — full runs of the newest lines first. Both this and Target
   // weak areas below used to stay live with an empty rotation and start a
@@ -1639,6 +1665,135 @@ function runItem(
 // mid-opening (see individual.ts). A correct move jumps to the next position; a
 // wrong one runs the same full wrong-move flow as line training. Every position
 // is graded and persisted on its own, reusing the spaced-repetition scheduler.
+
+// ── Repertoire run ───────────────────────────────────────────────────────────
+//
+// One walk through the book, asking each move once. The line modes replay a
+// shared opening once per line that passes through it; this mode visits every
+// node exactly once, so the dedupe is structural rather than a filter someone
+// has to keep honest (see repertoire-run.ts).
+//
+// Grading happens on CLONED books and reaches storage only through
+// saveRepertoire, the same discipline the line modes use with saveLine.
+function runRepertoireRun(container: HTMLElement, books: Repertoire[]): void {
+  const clones = books.map(b => ({ ...b, tree: structuredClone(b.tree) }));
+  const plan: RunPlan = planRepertoireRun(clones);
+  if (plan.positions.length === 0) {
+    void doRender(container);
+    return;
+  }
+
+  const bookById = new Map(clones.map(b => [b.id, b]));
+  const posByNode = new Map<MoveNode, RunPosition>(plan.positions.map(p => [p.expected, p]));
+
+  const missed = new Set<string>();
+  const stats = { reviewed: 0, missed: 0, openings: new Map<string, OpeningTally>() };
+  const mistakes: Mistake[] = [];
+  const mistakeKeys = new Set<string>();
+
+  // ONE chain for every write this mode makes. A step's own save has to land
+  // before the cross-book credit re-reads storage, or the credit's
+  // read-modify-write would overwrite the grade that was just made — and two
+  // steps in the same book would race each other over the whole tree.
+  let writes: Promise<unknown> = Promise.resolve();
+  const queue = (job: () => Promise<unknown>): void => {
+    writes = writes.then(job, job);
+  };
+
+  const totalRounds = Math.max(1, Math.ceil(plan.positions.length / ROUND_SIZE_POSITIONS));
+  let index = 0;
+  let roundNo = 0;
+
+  function runRunRound(): void {
+    const before = { reviewed: stats.reviewed, missed: stats.missed };
+    const slice = plan.positions.slice(index, index + ROUND_SIZE_POSITIONS);
+    index += slice.length;
+    roundNo += 1;
+
+    startPositionsDrill(
+      slice.map(p => ({ preFen: p.preFen, expected: p.expected, prevUci: p.prevUci, prevFen: p.prevFen })),
+      {
+        wrongMoveMode: 'full',
+        confirmAbandon: true,
+        modeLabel: 'Repertoire run',
+        playPrelude: true,
+        celebrateOnComplete: true,
+        completeMessage: 'Book walked ✓',
+        recordMiss: (node) => { missed.add(node.id); },
+        onStepComplete: (expected) => {
+          const pos = posByNode.get(expected);
+          const book = pos ? bookById.get(pos.repertoireId) : undefined;
+          if (!pos || !book) return;
+          const now = new Date();
+          const wasMissed = missed.has(expected.id);
+          if (wasMissed) {
+            addMistake(mistakes, mistakeKeys, pos.preFen, expected,
+              { prevUci: pos.prevUci, prevFen: pos.prevFen });
+            recordMissedMove(pos.preFen, expected.san, pos.colour);
+          }
+          const quality = qualityFromMisses(wasMissed ? 1 : 0);
+          // Spacing comes from the priority resolved AT THIS NODE, so a branch
+          // the user marked "less often" is respected move by move rather than
+          // through whichever line happens to be named here.
+          expected.review = gradeReview(
+            expected.review ?? newReview(now), quality, now, PRIORITY_SPACING[pos.priority]);
+          // "Last trained" is a fact about a line, so it lands on the line end
+          // this move belongs to rather than on the move itself.
+          const owner = locateLine([book], pos.lineId);
+          if (owner) owner.end.lastTrained = now.toISOString();
+
+          queue(() => saveRepertoire(book));
+          // The same move in another BOOK is still the same work (§8). Inside
+          // this book there is nothing to credit — the node is already shared.
+          queue(() => queueWriteThrough(
+            [{ preFen: pos.preFen, uci: expected.uci, review: expected.review! }], pos.lineId));
+
+          recordReviewed(1);
+          recordReviewOutcome(wasMissed ? 0 : 1, wasMissed ? 1 : 0);
+          bumpOpening(
+            stats.openings, `${pos.repertoireId}:${expected.id}`, pos.lineName,
+            wasMissed ? 0 : 1, wasMissed ? 1 : 0,
+            {
+              onOpen: () => openTrainingPeek({
+                fen: pos.preFen,
+                orientation: pos.colour,
+                hintUci: expected.uci,
+                onTurnOff: () => void getLine(pos.lineId).then(l => {
+                  if (l) void saveLine({ ...l, inTraining: false });
+                }),
+                onEdit: () => void getLine(pos.lineId).then(l => {
+                  if (l) onViewLine?.(l, pos.preFen);
+                }),
+              }),
+              statsLine: reviewStatsLine(expected.review),
+            },
+          );
+          stats.reviewed++;
+          if (wasMissed) stats.missed++;
+        },
+        onComplete: () => {
+          if (index >= plan.positions.length) {
+            renderIndividualComplete(container, stats, mistakes);
+          } else {
+            if (stats.reviewed > 0) recordTrainingDay();
+            const remaining = plan.positions.length - index;
+            renderRoundScreen(container, {
+              roundNo,
+              totalRounds,
+              correct: (stats.reviewed - before.reviewed) - (stats.missed - before.missed),
+              missed: stats.missed - before.missed,
+              remainingLabel: `${remaining} move${remaining === 1 ? '' : 's'} left`,
+              onNext: runRunRound,
+            });
+          }
+        },
+        onCancel: () => void doRender(container),
+      },
+    );
+  }
+
+  runRunRound();
+}
 
 function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
   // Work on clones so grading edits only persist through saveLine, never the

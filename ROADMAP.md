@@ -2095,9 +2095,32 @@ data; a line is a view of it.** Decision record: `REPERTOIRE-REDESIGN.md`.
   — a user who asked for the French and got seven of its twelve lines would have
   no way of knowing which five were missing.
 
-**Still to do:** training's shared-prefix dedupe and the repertoire run (Phase D),
-routing the seeded single-line flows through the book, and transposition joins
-(Phase E).
+### Phase D — training walks the book ✅
+
+- ✅ **Repertoire run**, a mode beside the line walks rather than a replacement.
+  A session of line walks asks the shared opening once per line — six lines
+  through 1.d4 d5 2.c4 means answering 2.c4 six times, and write-through fixes
+  the score afterwards but not the four minutes. The run visits tree nodes, a
+  node is visited once, so the dedupe is structural rather than a filter someone
+  has to keep honest.
+- ✅ **It reads like going through a book.** Depth-first: down a line, back up to
+  the last branch when it ends. Paused branches and books put aside are skipped,
+  and spacing comes from the priority resolved at each node — so a branch marked
+  "less often" is respected move by move rather than through whichever line
+  happens to be named there.
+- ✅ **The card quotes the saving**, counted over exactly the moves the run
+  covers. The first version compared the run's moves against every line's moves
+  including the opening plies the run never asks, which overstated it; both sides
+  now cover the same set.
+- ✅ **The line walk is untouched.** Walking a line start-to-finish is muscle
+  memory and was never the thing to fix.
+- ✅ "Individual moves" needed no change — it already deduped by position and move.
+
+Verified at the real UI on six lines sharing 1.d4 d5 2.c4: 8 moves due, a
+reported saving of 4, and answering 2.c4 once graded the one shared node.
+
+**Still to do:** routing the seeded single-line flows through the book, and
+transposition joins (Phase E).
 
 _On `claude/repertoire-system-redesign-ddz4in`. Restore point: `v0.5`._
 

@@ -46,6 +46,7 @@ import { runCoverageGapsSelfTest } from '../src/coverage-gaps.selftest';
 import { runRepertoireSelfTest } from '../src/repertoire.selftest';
 import { runLinesViewSelfTest } from '../src/lines-view.selftest';
 import { runRepertoireMigrateSelfTest } from '../src/repertoire-migrate.selftest';
+import { runRepertoireRunSelfTest } from '../src/repertoire-run.selftest';
 
 interface TestResult { name: string; pass: boolean; detail: string }
 
@@ -72,6 +73,7 @@ const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'repertoire', run: runRepertoireSelfTest },
   { suite: 'lines-view', run: runLinesViewSelfTest },
   { suite: 'repertoire-migrate', run: runRepertoireMigrateSelfTest },
+  { suite: 'repertoire-run', run: runRepertoireRunSelfTest },
   { suite: 'engine', run: runEngineSelfTest },
   { suite: 'puzzles', run: runPuzzlesSelfTest },
   { suite: 'puzzle-rating', run: runPuzzleRatingSelfTest },
