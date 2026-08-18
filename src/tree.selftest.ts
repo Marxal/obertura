@@ -7,7 +7,10 @@
 
 import type { MoveNode } from './tree';
 import type { TestResult } from './selftest-panel';
-import { reset, addMove, goTo, mainline, serialise, loadTree, setTreeMode, getCurrentNode } from './tree';
+import {
+  reset, addMove, goTo, mainline, serialise, loadTree, setTreeMode, getCurrentNode,
+  hasMove, pathTo, removeNode, currentLineNodes,
+} from './tree';
 
 // Total nodes in a tree (root included), so a single mainline of N moves is N+1.
 // Used to prove no stray sibling branches survive a round-trip.
@@ -117,6 +120,90 @@ export function runTreeSelfTest(): TestResult[] {
     'replaying a variation advances, no duplicate',
     e5b.children.length === 2,
     `e5 children: ${e5b.children.length}`
+  );
+
+  // ── Walking a prepared move is not an addition ──────────────────────────────
+  //
+  // The builder counts "moves to add" by asking hasMove before every addMove.
+  // It used to compare a SAN against a UCI, so it never matched and walking
+  // your own repertoire read as drafting five new moves.
+  reset();
+  setTreeMode('repertoire');
+  addMove('e4', 'e2e4', 'fen-e4');
+  const blackE5 = addMove('e5', 'e7e5', 'fen-e5');
+  addMove('Nf3', 'g1f3', 'fen-nf3');
+
+  goTo('root');
+  check(
+    'a prepared move reports as already there',
+    hasMove('e4'),
+    `hasMove('e4') = ${hasMove('e4')}`
+  );
+  check(
+    'an unprepared move reports as new',
+    !hasMove('d4'),
+    `hasMove('d4') = ${hasMove('d4')}`
+  );
+  addMove('e4', 'e2e4', 'fen-e4');
+  check(
+    'a second answer at the same position reports as new',
+    !hasMove('c5'),
+    `hasMove('c5') = ${hasMove('c5')}`
+  );
+
+  // A move added inside a book is stamped with when it arrived — that is what
+  // My Lines sorts "Latest" by, and an unstamped node sorted to the bottom.
+  goTo(blackE5.id);
+  const stamped = addMove('Bc4', 'f1c4', 'fen-bc4');
+  check(
+    'a move added to a book records when it arrived',
+    typeof stamped.createdAt === 'number' && stamped.createdAt > 0,
+    `createdAt ${stamped.createdAt}`
+  );
+
+  reset();
+  setTreeMode('single');
+  const plain = addMove('e4', 'e2e4', 'fen-e4');
+  check(
+    "a game's moves are not stamped",
+    plain.createdAt === undefined,
+    `createdAt ${plain.createdAt}`
+  );
+
+  // ── pathTo: cached, but never shared ───────────────────────────────────────
+  //
+  // The path is remembered between calls (a dozen readers ask for the same one
+  // behind every board move) and invalidated by anything that changes the tree.
+  // Callers append to what they get — currentLineNodes does — so each caller
+  // must get its own array.
+  reset();
+  setTreeMode('repertoire');
+  addMove('e4', 'e2e4', 'fen-e4');
+  const cached = addMove('e5', 'e7e5', 'fen-e5');
+  const first = pathTo(cached.id);
+  const second = pathTo(cached.id);
+  check(
+    'pathTo hands each caller its own array',
+    first !== second && first.map(n => n.san).join(' ') === second.map(n => n.san).join(' '),
+    `same contents, ${first === second ? 'SAME array' : 'separate arrays'}`
+  );
+  check(
+    'currentLineNodes cannot corrupt the cached path',
+    currentLineNodes().length === 2 && pathTo(cached.id).length === 2,
+    `path ${pathTo(cached.id).map(n => n.san).join(' ')}`
+  );
+
+  const deep = addMove('Nf3', 'g1f3', 'fen-nf3');
+  check(
+    'a new move invalidates the cached path',
+    pathTo(deep.id).map(n => n.san).join(' ') === 'e4 e5 Nf3',
+    `path "${pathTo(deep.id).map(n => n.san).join(' ')}"`
+  );
+  removeNode(deep.id);
+  check(
+    'a removed move leaves no path behind',
+    pathTo(deep.id).length === 0,
+    `path length ${pathTo(deep.id).length}`
   );
 
   reset();

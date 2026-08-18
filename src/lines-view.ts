@@ -48,6 +48,29 @@ export function parseLineId(id: string): { repertoireId: string; endNodeId: stri
   };
 }
 
+/**
+ * "Newest first" — the order My Lines calls Latest, and the one "Drill new
+ * lines" walks. Shared so the two can't disagree about what recent means.
+ *
+ * `createdAt` decides it. The fallback matters more than it looks: a move added
+ * to a book before nodes were stamped at all carries no date, and comparing
+ * those as 0 collapsed a whole book into "no order" — which is what made Latest
+ * look broken. Node ids are handed out in sequence within a book, so a higher
+ * one WAS added later, and that orders undated lines correctly without inventing
+ * a timestamp for them. Undated still sorts below dated, which is right: an
+ * undated line predates every stamped move in the book.
+ */
+export function byNewestFirst(a: Line, b: Line): number {
+  return (b.createdAt ?? 0) - (a.createdAt ?? 0) || endNodeSequence(b) - endNodeSequence(a);
+}
+
+/** The sequence number in a line id's end node ("rep-white::n42" → 42). */
+export function endNodeSequence(line: Line): number {
+  const parsed = parseLineId(line.id);
+  const m = parsed?.endNodeId.match(/(\d+)$/);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
 // ── Projection ───────────────────────────────────────────────────────────────
 
 /** Every derived line across every repertoire, in repertoire order. */
@@ -97,10 +120,33 @@ export function projectLine(
     // twenty-node edit that un-archiving could not reliably undo.
     inTraining: rep.archived ? false : resolveTraining(originPath),
     tree: spine(path),
-    createdAt: end.createdAt,
+    createdAt: addedAt(originPath),
     priority: resolvePriority(originPath),
     timesTrained: end.timesTrained,
   };
+}
+
+/**
+ * When this line last grew — what My Lines sorts "Latest" by.
+ *
+ * The newest move on the line's OWN branch, which for a line that has just been
+ * built or extended is the move that ended it. Taken as a maximum over the path
+ * rather than straight off the end node so that data with gaps (a book migrated
+ * from the flat model, a move stored before nodes were stamped at all) still
+ * dates from the newest move it does know about, instead of falling to the
+ * bottom of the list as an undated line.
+ *
+ * The line's own branch, deliberately: a transposition join borrows another
+ * line's continuation, and that line being edited must not re-date this one.
+ */
+function addedAt(originPath: MoveNode[]): number | undefined {
+  let newest: number | undefined;
+  for (const node of originPath) {
+    if (typeof node.createdAt === 'number' && (newest === undefined || node.createdAt > newest)) {
+      newest = node.createdAt;
+    }
+  }
+  return newest;
 }
 
 /**

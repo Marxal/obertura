@@ -27,7 +27,7 @@ import {
 import {
   defaultRepertoireFor, getRepertoire, saveRepertoire,
 } from './storage';
-import { applyLineWrite, makeLineId, projectRepertoire } from './lines-view';
+import { applyLineWrite, endsUnder, makeLineId, projectRepertoire } from './lines-view';
 import { cloneTree, isLineEnd, findNode, lineTailStart, moveCount, type Repertoire } from './repertoire';
 
 // The book being edited. `tree` here is the STORED state — the working copy
@@ -123,6 +123,42 @@ export async function commitPending(): Promise<number> {
   await saveRepertoire(book);
   pending.clear();
   return added;
+}
+
+// ── What is already prepared where the cursor stands ─────────────────────────
+
+/** How much of the book lies at, or under, the position on the board. */
+export interface CursorCoverage {
+  /** Line ends here or below — the lines that pass through this position. */
+  lines: number;
+  /** The cursor is standing on the end of a line, with nothing after it. */
+  atLineEnd: boolean;
+  /** The board is at the starting position, so this describes the whole book. */
+  atStart: boolean;
+}
+
+/**
+ * What the book already covers from where the cursor is.
+ *
+ * Read off the WORKING tree, which is the same as the stored one whenever
+ * there is no draft open — and a draft is the only case where the header has
+ * something else to say. It is what lets the builder answer "is this path
+ * already prepared?" without the user having to go and look at My Lines.
+ */
+export function cursorCoverage(): CursorCoverage | null {
+  if (!book) return null;
+  const node = getCurrentNode();
+  const atStart = node.id === 'root';
+  if (atStart && node.children.length === 0) {
+    return { lines: 0, atLineEnd: false, atStart: true };
+  }
+  return {
+    // endsUnder counts the node itself when it is a line end, so this is
+    // "1" on a leaf and "the whole book" at the start.
+    lines: endsUnder(node).length,
+    atLineEnd: !atStart && isLineEnd(node),
+    atStart,
+  };
 }
 
 // ── The line the cursor is standing in ───────────────────────────────────────

@@ -120,23 +120,38 @@ export function getTreeMode(): TreeMode {
 // replacing the continuation in 'single' mode, or appending a new variation in
 // 'variations' mode (main line preserved).
 export function addMove(san: string, uci: string, fen: string): MoveNode {
-  const existing = current.children.find(c => c.san === san);
+  const existing = findChild(san);
   if (existing) {
     current = existing;
     return existing;
   }
   const node: MoveNode = { id: `n${++idCounter}`, san, uci, fen, children: [] };
+  // When the tree IS the repertoire, a new node is a move being added to the
+  // book, and when that happened is what My Lines sorts "Latest" by. The
+  // analyser's trees are games, not prepared moves, so they aren't stamped.
+  if (treeMode === 'repertoire') node.createdAt = Date.now();
   if (branches()) current.children.push(node);
   else current.children = [node];
   current = node;
+  bumpVersion();
   return node;
 }
 
-// Was the node the last addMove returned newly created, or was it already in the
-// tree? The builder needs to know: a move it just created is an UNCOMMITTED
-// addition to the book, and a move that was already there is navigation.
-export function hasMove(uci: string): boolean {
-  return current.children.some(c => c.uci === uci);
+// Would the next addMove CREATE a node, or walk onto one that's already there?
+// The builder needs to know: a move it just created is an UNCOMMITTED addition
+// to the book, and a move that was already there is navigation.
+//
+// It asks the same question addMove answers, so both go through findChild —
+// they matched on different fields once (this one on `uci`, addMove on `san`),
+// which meant this never returned true and every walked move was counted as an
+// addition.
+export function hasMove(san: string): boolean {
+  return !!findChild(san);
+}
+
+/** The child continuing with this move, by addMove's own matching rule. */
+function findChild(san: string): MoveNode | undefined {
+  return current.children.find(c => c.san === san);
 }
 
 /**
@@ -152,6 +167,7 @@ export function removeNode(nodeId: string): number {
   const [gone] = parent.children.splice(idx, 1);
   // The cursor cannot be left standing inside a subtree that no longer exists.
   if (containsNode(gone, current.id)) current = parent;
+  bumpVersion();
   return countNodes(gone);
 }
 
@@ -203,6 +219,7 @@ export function removeLastMove(): void {
   const parent = line.length === 1 ? root : line[line.length - 2];
   parent.children = [];
   current = parent;
+  bumpVersion();
 }
 
 // Drop everything after the cursor, so the line ends on the move currently shown
@@ -211,6 +228,7 @@ export function removeLastMove(): void {
 // (e.g. after importing a full game and stepping back to the position you want).
 export function truncateAfterCurrent(): void {
   current.children = [];
+  bumpVersion();
 }
 
 function findNode(node: MoveNode, id: string): MoveNode | null {
@@ -232,18 +250,61 @@ export function mainline(): MoveNode[] {
   return result;
 }
 
+// The last path worked out, and the tree it was worked out against.
+let pathCacheId = '';
+let pathCacheVersion = -1;
+let pathCache: MoveNode[] = [];
+
+// Bumped by everything that changes the SHAPE of the tree. Editing a node in
+// place (a review record, a note) leaves every path intact, so it doesn't count.
+let treeVersion = 0;
+
+function bumpVersion(): void {
+  treeVersion++;
+}
+
+/**
+ * The moves from the start to a node, root excluded.
+ *
+ * HOT PATH. Since the redesign the tree loaded here is the WHOLE repertoire
+ * rather than one line, and a single board move asks for this a dozen times
+ * (the move strip, the opening name, every panel that lists continuations from
+ * here, the live grader). Searching the whole book each time was measurable on
+ * a real book — profiling a 2,900-node repertoire put this function at the top
+ * of the builder's per-move cost — so two things keep it cheap:
+ *
+ *   • the search carries ONE array and pushes/pops as it descends, instead of
+ *     copying the trail at every node it visits;
+ *   • the answer is remembered until the tree actually changes, so the dozen
+ *     calls behind one move do the walk once.
+ *
+ * The cached path holds LIVE nodes (a caller reading a review record must see
+ * the real one), and callers append to what they get back — currentLineNodes
+ * does — so the cache is copied out rather than handed over.
+ */
 export function pathTo(nodeId: string): MoveNode[] {
-  function walk(node: MoveNode, path: MoveNode[]): MoveNode[] | null {
-    const p = [...path, node];
-    if (node.id === nodeId) return p;
-    for (const child of node.children) {
-      const result = walk(child, p);
-      if (result) return result;
-    }
-    return null;
+  if (pathCacheId !== nodeId || pathCacheVersion !== treeVersion) {
+    pathCacheId = nodeId;
+    pathCacheVersion = treeVersion;
+    pathCache = searchPath(nodeId);
   }
-  const full = walk(root, []) ?? [];
-  return full.slice(1); // exclude root (no move)
+  return pathCache.slice();
+}
+
+// Depth-first, carrying one trail array. Root is never pushed, so what comes
+// back is already the move list.
+function searchPath(nodeId: string): MoveNode[] {
+  const trail: MoveNode[] = [];
+  const descend = (node: MoveNode): boolean => {
+    if (node.id === nodeId) return true;
+    for (const child of node.children) {
+      trail.push(child);
+      if (descend(child)) return true;
+      trail.pop();
+    }
+    return false;
+  };
+  return descend(root) ? trail : [];
 }
 
 export function getCurrentNode(): MoveNode {
@@ -278,6 +339,7 @@ export function reset(): void {
   current = root;
   idCounter = 0;
   treeMode = 'single';
+  bumpVersion();
 }
 
 // Load a previously serialised tree into the module, replacing the current
@@ -295,6 +357,7 @@ export function loadTree(data: MoveNode): void {
   current = root;
   idCounter = scanMaxId(root);
   treeMode = 'single';
+  bumpVersion();
 }
 
 /** Load a tree and stand in it as a whole book, rather than as one line. */
