@@ -400,7 +400,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
       seg.appendChild(opt('masters', 'Masters'));
       seg.appendChild(opt('lichess', 'Lichess'));
       bar.appendChild(seg);
-      bar.appendChild(bandSeg());
+      bar.appendChild(bandPick());
     } else {
       const cta = document.createElement('button');
       cta.type = 'button';
@@ -430,41 +430,59 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     return head;
   }
 
-  // The rating-band strip, immediately after the Masters / Lichess toggle — the
-  // same segmented pill, because it answers the neighbouring question: these two
-  // together are "whose games am I looking at?". Six options don't fit a phone's
-  // width, so the strip scrolls sideways rather than shrinking to illegibility.
-  function bandSeg(): HTMLElement {
-    const seg = document.createElement('div');
-    seg.className = 'lib-db-seg lib-band-seg';
-    seg.setAttribute('role', 'group');
-    seg.setAttribute('aria-label', 'Rating level');
-
+  // The rating level, immediately after the Masters / Lichess toggle — it answers
+  // the neighbouring question, these two together being "whose games am I looking
+  // at?". A DROPDOWN rather than the six-pill strip it used to be: six labels
+  // never fit a phone's width beside the source toggle, so the strip wrapped onto
+  // a row of its own and the bar cost two lines to say one thing. A menu is one
+  // control the width of its longest label, and a filter you set once and read
+  // afterwards is exactly the kind that belongs behind one.
+  //
+  // The native <select> is laid transparently over the pill, so the platform's
+  // own picker opens on a tap and the control stays accessible for free.
+  function bandPick(): HTMLElement {
     // Masters is over-the-board games between titled players: it carries no
     // rating dimension at all, and the API quietly ignores the parameters rather
     // than refusing them. A control that looks live and does nothing is worse
     // than no control, so it's disabled with the reason on it.
     const off = explorerDb === 'masters';
-    if (off) seg.classList.add('is-disabled');
 
+    const wrap = document.createElement('div');
+    wrap.className = 'lib-band-pick' + (off ? ' is-disabled' : '');
+
+    const label = document.createElement('span');
+    label.className = 'lib-band-pick-label';
+    // Masters shows "All" because that is what its numbers actually are — the
+    // stored band is remembered and comes back the moment Lichess is picked.
+    label.textContent = off ? 'All' : bandShort(band);
+    wrap.appendChild(label);
+
+    const chev = Icons.chevronDown(14);
+    chev.classList.add('lib-band-pick-chev');
+    wrap.appendChild(chev);
+
+    const select = document.createElement('select');
+    select.className = 'lib-band-select';
+    select.setAttribute('aria-label', 'Rating level');
     for (const b of BANDS) {
       // "Around my level" needs a level. Without one it would silently mean
       // "all ratings", so it isn't offered.
       if (b === 'mine' && !level) continue;
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'lib-db-opt' + (!off && band === b ? ' is-active' : '');
-      btn.textContent = bandShort(b);
-      btn.setAttribute('aria-label', bandLabel(b));
-      if (off) {
-        btn.disabled = true;
-        btn.title = 'Masters games aren’t rating-filtered.';
-      } else {
-        btn.addEventListener('click', () => chooseBand(b));
-      }
-      seg.appendChild(btn);
+      const opt = document.createElement('option');
+      opt.value = b;
+      opt.textContent = bandLabel(b);
+      if (!off && band === b) opt.selected = true;
+      select.appendChild(opt);
     }
-    return seg;
+    if (off) {
+      select.disabled = true;
+      wrap.title = 'Masters games aren’t rating-filtered.';
+    } else {
+      select.addEventListener('change', () => chooseBand(select.value as ExplorerBand));
+    }
+    wrap.appendChild(select);
+
+    return wrap;
   }
 
   // One quiet line under the bar saying what the band means right now — the

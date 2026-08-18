@@ -1,7 +1,10 @@
 // A reusable two-row filter bar for line lists (Train now; Lines/Explore later).
 //
-// Row 1: the colour segment (All / White / Black) and the sort menu, side by
-//        side.
+// Row 1: the colour segment (All / White / Black), the search button, and the
+//        sort menu, side by side.
+// Row 1½: the search field — hidden until the magnifier is tapped, because a
+//        list you can see is one you rarely need to search, and an always-open
+//        input costs a row of every screen that shows the bar.
 // Row 2: one horizontally scrollable chip row — the user's own tags first, then
 //        the "vs <name>" opponent tags, then the status pills (Due / Learning /
 //        Solid) at the end.
@@ -35,6 +38,11 @@ export interface FilterSelection {
   status: StatusFilter;
   tags: string[];
   group: GroupMode;
+  // What's typed in the search box, trimmed and lowercased for the caller to
+  // match however it likes. Deliberately NOT persisted: a filter you chose is
+  // worth remembering, but a half-typed name silently hiding most of your lines
+  // after a reload reads as data loss.
+  query: string;
 }
 
 export interface FilterConfig {
@@ -65,6 +73,11 @@ export interface FilterConfig {
   // The exclusive status pills to draw (defaults to the line statuses). A games
   // list passes its own, e.g. Won / Lost / Drew.
   statusOptions?: { key: string; label: string }[];
+  // When true, draw a magnifier on row 1 that opens a search field; the caller
+  // reads selection.query and filters its list by it.
+  search?: boolean;
+  // What the field says when empty (defaults to "Search lines").
+  searchPlaceholder?: string;
   // When true, draw a "group by opening" icon toggle on row 1; the caller reads
   // selection.group and renders its list grouped into families (or flat).
   group?: boolean;
@@ -124,11 +137,13 @@ function loadSelection(config: FilterConfig): FilterSelection {
     : savedGroup === 'tree' ? (config.groupTree ? 'tree' : 'family')
     : false;
 
-  return { colour, sort, status, tags, group };
+  return { colour, sort, status, tags, group, query: '' };
 }
 
 function persist(config: FilterConfig, sel: FilterSelection): void {
-  localStorage.setItem(config.persistKey, JSON.stringify(sel));
+  // Everything but the search text, which starts empty on every visit.
+  const { query: _query, ...rest } = sel;
+  localStorage.setItem(config.persistKey, JSON.stringify(rest));
 }
 
 export function createFilterBar(config: FilterConfig): FilterBar {
@@ -148,7 +163,11 @@ export function createFilterBar(config: FilterConfig): FilterBar {
     refreshChips?.();
   };
 
-  element.appendChild(buildTopRow(config, selection, commit));
+  // Built before the top row, so the magnifier there has something to open.
+  const searchRow = config.search ? buildSearchRow(config, selection, commit) : null;
+
+  element.appendChild(buildTopRow(config, selection, commit, searchRow));
+  if (searchRow) element.appendChild(searchRow.element);
 
   const chips = buildChipRow(config, selection, commit);
   if (chips) {
@@ -162,7 +181,9 @@ export function createFilterBar(config: FilterConfig): FilterBar {
 
 // ── Row 1: colour segment + sort menu ─────────────────────────────────────────
 
-function buildTopRow(config: FilterConfig, sel: FilterSelection, commit: () => void): HTMLElement {
+function buildTopRow(
+  config: FilterConfig, sel: FilterSelection, commit: () => void, search: SearchRow | null,
+): HTMLElement {
   const row = document.createElement('div');
   row.className = 'fbar-top';
   row.appendChild(buildColourSeg(config, sel, commit));
@@ -170,10 +191,87 @@ function buildTopRow(config: FilterConfig, sel: FilterSelection, commit: () => v
   // optional: a screen with no sorts / no grouping just omits that icon.
   const tools = document.createElement('div');
   tools.className = 'fbar-tools';
+  if (search) tools.appendChild(search.button);
   if ((config.sorts ?? []).length > 0) tools.appendChild(buildSortMenu(config, sel, commit));
   if (config.group) tools.appendChild(buildGroupToggle(config, sel, commit));
   if (tools.childElementCount > 0) row.appendChild(tools);
   return row;
+}
+
+// ── Row 1½: the search field ─────────────────────────────────────────────────
+//
+// Hidden until the magnifier is tapped, and cleared when it's tapped shut — so
+// closing it can never leave a list quietly filtered by text nobody can see.
+// Typing filters live; the field is never rebuilt by a caller's list rebuild, so
+// it keeps focus (and the keyboard) between keystrokes.
+
+interface SearchRow {
+  element: HTMLElement;
+  button: HTMLElement;
+}
+
+function buildSearchRow(
+  config: FilterConfig, sel: FilterSelection, commit: () => void,
+): SearchRow {
+  const row = document.createElement('div');
+  row.className = 'fbar-search';
+  row.hidden = true;
+
+  const icon = Icons.search(16);
+  icon.classList.add('fbar-search-icon');
+  row.appendChild(icon);
+
+  const input = document.createElement('input');
+  input.type = 'search';
+  input.className = 'fbar-search-input';
+  input.placeholder = config.searchPlaceholder ?? 'Search lines';
+  input.setAttribute('aria-label', config.searchPlaceholder ?? 'Search lines');
+  input.addEventListener('input', () => {
+    sel.query = input.value.trim().toLowerCase();
+    commit();
+  });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); setOpen(false); }
+  });
+  row.appendChild(input);
+
+  const clear = document.createElement('button');
+  clear.type = 'button';
+  clear.className = 'fbar-search-clear';
+  clear.setAttribute('aria-label', 'Clear search');
+  clear.appendChild(Icons.close(15));
+  clear.addEventListener('click', () => {
+    if (input.value === '') { setOpen(false); return; }
+    input.value = '';
+    sel.query = '';
+    commit();
+    input.focus();
+  });
+  row.appendChild(clear);
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'fbar-searchbtn';
+  button.appendChild(Icons.search(18));
+  button.title = 'Search';
+  button.setAttribute('aria-label', 'Search');
+  button.setAttribute('aria-expanded', 'false');
+  button.addEventListener('click', () => setOpen(row.hidden));
+
+  function setOpen(open: boolean): void {
+    row.hidden = !open;
+    button.classList.toggle('active', open);
+    button.setAttribute('aria-expanded', String(open));
+    if (open) { input.focus(); return; }
+    // Closing clears: an invisible filter is the one kind this bar must not have.
+    if (sel.query !== '' || input.value !== '') {
+      input.value = '';
+      sel.query = '';
+      commit();
+    }
+  }
+
+  return { element: row, button };
 }
 
 function buildColourSeg(config: FilterConfig, sel: FilterSelection, commit: () => void): HTMLElement {

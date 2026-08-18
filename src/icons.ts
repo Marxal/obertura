@@ -42,6 +42,9 @@ export const Icons = {
   play:     (s?: number) => svg(`<polygon points="6 3 20 12 6 21 6 3"/>`, s),
   reset:    (s?: number) => svg(`<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>`, s),
   plus:     (s?: number) => svg(`<path d="M5 12h14"/><path d="M12 5v14"/>`, s),
+  // A shoot with two leaves — "this line is ready to grow", on a line you've
+  // proved you know. Lucide's sprout.
+  sprout:   (s?: number) => svg(`<path d="M7 20h10"/><path d="M12 20c0-6.5-3-9.5-9-9.5 0 5 2.5 7.5 6 8"/><path d="M12 20c0-5 2-8.5 8-9 0 4.5-2 7-5 8"/>`, s),
   pencil:   (s?: number) => svg(`<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>`, s),
   trash:    (s?: number) => svg(`<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>`, s),
   back:     (s?: number) => svg(`<path d="m15 18-6-6 6-6"/>`, s),

@@ -7,7 +7,10 @@
 
 import type { Line } from './types';
 import type { MoveNode } from './tree';
-import { lineStatus, lineShape, lineShapeText, spineLength } from './line-status';
+import {
+  lineStatus, lineShape, lineShapeText, spineLength, lineTraining, lineTrainingText,
+  lineMastered,
+} from './line-status';
 
 export interface TestResult {
   name: string;
@@ -113,7 +116,7 @@ export function runLineStatusSelfTest(): TestResult[] {
     const s = lineStatus(l, NOW);
     check(
       'a settled line reads as solid and says when it next comes round',
-      s.tone === 'solid' && s.text.startsWith('Due '),
+      s.tone === 'solid' && s.text === 'Due in 30 days',
       `${s.tone}: "${s.text}"`,
     );
   }
@@ -171,6 +174,86 @@ export function runLineStatusSelfTest(): TestResult[] {
       'the length is the spine, not the node count',
       spineLength(l.tree) === 9,
       `spineLength ${spineLength(l.tree)}`,
+    );
+  }
+
+  // ── Training figures ───────────────────────────────────────────────────────
+
+  {
+    // Two of the three drilled, one of those two still clean. Recall is read
+    // against what has been DRILLED, not against the whole line: the move never
+    // asked for hasn't been forgotten.
+    const l = line(6, { timesTrained: 4 });
+    const mine = userNodes(l);
+    mine[0].review = review(new Date(NOW), 5);
+    mine[1].review = { ease: 2.5, interval: 1, reps: 0, lapses: 2, due: new Date(NOW) };
+    const t = lineTraining(l);
+    check(
+      'recall counts clean moves against drilled ones, not against the line',
+      t.runs === 4 && t.drilled === 2 && t.total === 3 && t.recallPct === 50,
+      `runs ${t.runs} drilled ${t.drilled}/${t.total} recall ${t.recallPct}`,
+    );
+    check(
+      'the figures read as one quiet line',
+      lineTrainingText(l) === '4 runs · 50% recall',
+      `"${lineTrainingText(l)}"`,
+    );
+  }
+
+  {
+    const l = line(6);
+    check(
+      'a line never trained has no figures to quote',
+      lineTrainingText(l) === null,
+      `"${lineTrainingText(l)}"`,
+    );
+  }
+
+  // ── Mastery (the "keep growing" offer) ─────────────────────────────────────
+
+  /** A line drilled clean on every move, `runs` times, with room to grow. */
+  const mastered = (extra: Partial<Line> = {}): Line => {
+    const l = line(6, { timesTrained: 4, confidence: 4, ownMoves: 3, ...extra });
+    for (const n of userNodes(l)) n.review = review(new Date(NOW.getTime() + 30 * 86400000), 40);
+    return l;
+  };
+
+  check(
+    'a line drilled clean, several times over, is ready to grow',
+    lineMastered(mastered()),
+    'expected mastered',
+  );
+
+  check(
+    'a paused line is never asked to grow',
+    !lineMastered(mastered({ inTraining: false })),
+    'expected not mastered',
+  );
+
+  check(
+    'a line whose prep already continues past its end has nothing to add here',
+    !lineMastered(mastered({ ownMoves: 0 })),
+    'expected not mastered',
+  );
+
+  {
+    const l = mastered({ timesTrained: 1 });
+    check(
+      'one run does not make a line mastered',
+      !lineMastered(l),
+      'expected not mastered',
+    );
+  }
+
+  {
+    // Every move clean but one never asked for: the line hasn't been round in
+    // full, so it hasn't proved anything yet.
+    const l = mastered();
+    delete userNodes(l)[2].review;
+    check(
+      'a line with a move never drilled is not mastered',
+      !lineMastered(l),
+      'expected not mastered',
     );
   }
 

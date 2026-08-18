@@ -1,6 +1,6 @@
 // Shared scaffold for any card that represents a chess position — used by the
-// Saved-lines cards, the "From my games" suggestion cards, and the Train hub's
-// "In training" rows, so all three read as one family.
+// Saved-lines cards and the "From my games" suggestion cards, so both read as
+// one family.
 //
 // The shape (agreed in Phase 2, Task 5):
 //   Row 1 (titleRow): full width — the line/opening title with its colour pip.
@@ -63,7 +63,7 @@ export interface PositionCardOpts {
   fen?: string | null;
   /** Board orientation — Black lines show from Black's side. */
   orientation?: 'white' | 'black';
-  /** Extra class(es) for the card element (e.g. 'games-card', 'train-row'). */
+  /** Extra class(es) for the card element (e.g. 'games-card'). */
   className?: string;
   /**
    * When set, the miniature becomes a button that opens the position (item 8) —

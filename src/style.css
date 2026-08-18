@@ -607,18 +607,6 @@ body {
   margin-bottom: var(--space-sm);
 }
 
-/* Free-tier training-cap counter, under the "Lines in training" header. Only
-   ever rendered for a non-entitled user at 7+ of 10 (see train-screen.ts), so
-   the ceiling is visible before it's reached. Sits tight under the header row
-   rather than carrying .section-desc's full paragraph spacing. */
-.train-cap-note {
-  /* Reads as a caption under the header card (.train-collapse owns the card
-     border), so it sits just below it and lines up with the card's inner edge. */
-  margin: 6px 0 0;
-  padding-left: 14px;
-  font-size: 0.78rem;
-}
-
 /* The shared coaching-cap notice (entitlement.ts buildCapNotice) — Mistake
    Retry, endgames-from-your-games, Scouting. A discreet inline line, never a
    blocking overlay: sits in the flow of whatever section it's appended to. */
@@ -2896,8 +2884,9 @@ html[data-coords="off"] .cg-wrap coords {
   align-items: center;
   gap: 0.35rem;
   padding: 0.1rem 0.25rem 0.35rem;
-  /* Two segmented controls plus the "i" don't fit a 412px phone on one line, so
-     the band strip drops to its own row rather than squeezing the labels. */
+  /* One row, always: the source toggle, the level dropdown and the "i" fit a
+     412px phone now that the six-pill band strip is a single control. Wrapping
+     is still allowed as the last resort at very narrow widths. */
   flex-wrap: wrap;
 }
 .lib-db-seg {
@@ -2922,30 +2911,51 @@ html[data-coords="off"] .cg-wrap coords {
   background: var(--accent);
   color: var(--accent-contrast, #fff);
 }
-/* The rating-band strip: the same pills as the database toggle, because it
-   answers the neighbouring question. Six labels overflow a phone, so it scrolls
-   sideways instead of shrinking below legibility. */
-.lib-band-seg {
-  max-width: 100%;
-  overflow-x: auto;
-  flex-wrap: nowrap;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-}
-.lib-band-seg::-webkit-scrollbar { display: none; }
-.lib-band-seg .lib-db-opt {
+/* The rating level: one pill-shaped dropdown beside the database toggle, because
+   it answers the neighbouring question. It used to be six pills in a scrolling
+   strip, which never fitted a phone next to the toggle and so wrapped onto a row
+   of its own — two rows to say one thing. The native <select> lies transparently
+   over the pill, so a tap opens the platform picker and the control keeps its
+   accessibility for nothing. */
+.lib-band-pick {
+  position: relative;
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   padding: 0.4rem 0.55rem;
-  font-size: 0.7rem;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: var(--surface-2, transparent);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
   white-space: nowrap;
 }
-/* Masters: the filter doesn't exist there, so the strip reads as unavailable
-   rather than merely unselected. The reason rides in .lib-band-note. */
-.lib-band-seg.is-disabled {
-  opacity: 0.45;
+
+.lib-band-pick-label { line-height: 1; }
+.lib-band-pick-chev { flex: 0 0 auto; opacity: 0.7; }
+
+/* The real control, invisible on top of the pill. */
+.lib-band-select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
 }
-.lib-band-seg.is-disabled .lib-db-opt {
-  cursor: default;
+.lib-band-select:disabled { cursor: default; }
+
+/* Masters: the filter doesn't exist there, so the control reads as unavailable
+   rather than merely unselected. The reason rides in .lib-band-note. */
+.lib-band-pick.is-disabled {
+  opacity: 0.45;
 }
 
 /* The quiet line under the bar: what the band covers, and — when the app worked
@@ -5582,12 +5592,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   gap: 0.5rem;
 }
 
-/* The edit pencil is a quiet, right-aligned twin of the title — opens the
-   rename sheet. */
-.dline-edit {
-  flex: 0 0 auto;
-}
-
 /* Card info, stacked under the title. */
 .dline-info {
   display: flex;
@@ -5741,6 +5745,42 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   color: var(--text-fainter);
   user-select: none;
 }
+
+/* Row 3: how the line has been GOING — runs and recall, quiet enough to be
+   scanned past on a card you're only checking the state of. */
+.dline-training {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.72rem;
+  color: var(--text-fainter);
+  cursor: help;
+}
+
+/* The "keep growing" chip on a line that has been drilled clean enough times to
+   have proved itself. An invitation, not a warning: soft accent, no fill, and it
+   opens the builder at the line's end. */
+.dline-grow {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.05rem;
+  padding: 0.22rem 0.5rem;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.dline-grow:active { background: var(--accent-soft); }
+
+/* The train action in the card's icon row — the one icon there that starts
+   something, so it carries the accent while its neighbours stay quiet. */
+.dline-icon--go { color: var(--accent); }
+.dline-icon--go:hover { color: var(--accent); background: var(--accent-soft); }
 
 /* Footer: training toggle (+ Due tag) bottom-left, icon actions bottom-right.
    Beside the larger board the content column is narrower, so let the two groups
@@ -5935,6 +5975,75 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   color: #fff;
 }
 
+/* The search button on row 1 — the same round icon control as the group toggle
+   beside it, so the tools group reads as one family. */
+.fbar-searchbtn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--bg-card);
+  color: var(--text-faint);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.fbar-searchbtn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+/* Row 1½ — the search field itself, hidden until the magnifier is tapped. */
+.fbar-search {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--bg-card);
+}
+.fbar-search[hidden] { display: none; }
+
+.fbar-search-icon {
+  flex: 0 0 auto;
+  color: var(--text-fainter);
+}
+
+.fbar-search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.45rem 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.85rem;
+}
+.fbar-search-input:focus { outline: none; }
+/* The platform's own clear affordance would sit beside ours. */
+.fbar-search-input::-webkit-search-cancel-button { display: none; }
+
+.fbar-search-clear {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-fainter);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* One horizontally scrollable chip row — no wrapping, it scrolls. */
 .fbar-chips {
   display: flex;
@@ -6003,155 +6112,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   width: 1px;
   margin: 0.15rem 0.15rem;
   background: var(--border);
-}
-
-.train-lines-empty {
-  padding: 1rem 0.2rem;
-  color: var(--text-fainter);
-  font-size: 0.85rem;
-  font-family: system-ui, -apple-system, sans-serif;
-}
-
-/* A training row is now a .pcard: title + pip on row 1, a miniature on the left
-   of row 2 with the meta + action strip on the right. */
-.train-row-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-.train-row-meta {
-  margin-top: 0;
-}
-
-/* The action strip sits under the meta in the content column. With a board
-   beside it the column is narrower, so let the controls wrap rather than crush
-   the "Train now" button. */
-.train-row-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-/* "Train now" takes the row; the two quiet icons sit to its right. */
-.train-row-train {
-  flex: 1;
-  min-height: 40px;
-  padding: 0.5rem 0.9rem;
-  border-radius: 8px;
-  font-size: 0.875rem;
-}
-
-.train-row-view {
-  border: 1px solid var(--border-card);
-}
-
-/* The In-training switch sits at the end of the action strip, matching My Lines. */
-.train-row-toggle {
-  flex: 0 0 auto;
-}
-
-/* Paused rows (out of training): dimmed, switch off, one flick to wake. The
-   dim fades in/out as the switch is flipped in place. */
-.train-row {
-  transition: opacity 0.2s ease;
-}
-
-.train-row--paused {
-  opacity: 0.5;
-}
-
-/* "Hide paused" drops the paused rows out of the list entirely. */
-.train-lines--hide-paused .train-row--paused {
-  display: none;
-}
-
-/* The "Lines in training" list collapses behind its header (collapsed by
-   default). The header reads as a proper card — box, border, shadow — with
-   chevron + title + count inside; the expanded body below it is untouched. */
-.train-collapse {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 14px 14px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  border-radius: 12px;
-  box-shadow: var(--shadow-card);
-  font: inherit;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: box-shadow 0.12s ease;
-}
-.train-collapse:active { box-shadow: var(--shadow-card-hover); }
-/* Expanded: the header card stays exactly as it is (the body simply shows
-   below it), so opening never restyles what you tapped. */
-.train-collapse--open { margin-bottom: 0.5rem; }
-.train-collapse .lines-fam-chev {
-  transition: transform 0.15s ease;
-}
-.train-collapse--open .lines-fam-chev {
-  transform: rotate(90deg);
-}
-.train-collapse-title {
-  flex: 1 1 auto;
-  margin: 0;
-}
-.train-collapse-body[hidden] { display: none; }
-
-/* The show-paused toggle rides in a right-aligned tools row inside the body. */
-.train-list-tools {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 0.3rem;
-}
-
-/* A quiet text-toggle beside the "In training" heading. */
-.train-show-paused {
-  border: none;
-  background: transparent;
-  padding: 0.2rem 0.1rem;
-  color: var(--text-muted);
-  font-family: system-ui, -apple-system, sans-serif;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.train-show-paused.active {
-  color: var(--primary);
-}
-
-/* Status pill in a row's meta line — one per bucket. */
-.status-chip {
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  padding: 0.12rem 0.45rem;
-  border-radius: 10px;
-  font-family: system-ui, -apple-system, sans-serif;
-  line-height: 1.4;
-}
-
-.status-chip--due {
-  color: #fff;
-  background: var(--warn);
-}
-
-.status-chip--learning {
-  color: var(--primary);
-  background: rgba(156, 107, 67, 0.16);
-}
-
-.status-chip--solid {
-  color: var(--success);
-  background: rgba(112, 129, 81, 0.16);
 }
 
 .line-edit-btn {
@@ -6657,13 +6617,13 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
        │ .daily-host   (full width, above)   │
        │ .train-tabs   (full width, above)   │
        ├──────────────────┬──────────────────┤
-       │ .train-hero      │ .train-list-     │  col 1 — what to do next:
+       │ .train-hero      │ .forgotten-      │  col 1 — what to do next:
        │ ("Due now" +     │  section         │   the due count and the primary
-       │  Refresh lines)  │  ("Lines in      │   Start, then the Practise menu.
-       │                  │   training")     │
-       │ .mode-cards      ├──────────────────┤  col 2 — the state behind it:
-       │ (Practise)       │ .forgotten-      │   what's enrolled, and what you
-       │                  │  section         │   keep forgetting.
+       │  Refresh lines)  │  (what you keep  │   Start, then the Practise menu.
+       │                  │   forgetting)    │
+       │ .mode-cards      │                  │  col 2 — the state behind it:
+       │ (Practise)       │                  │   the moves and lines that keep
+       │                  │                  │   slipping.
        └──────────────────┴──────────────────┘
 
    Below $desktop-nav (960px — mirrors DESKTOP_NAV_BREAKPOINT in main.ts; keep
@@ -6774,6 +6734,27 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .pt-back-btn:active {
   color: var(--text);
 }
+
+/* The confirm run's quiet way past it ("Add without playing"). Pinned to the
+   right of the toolbar, opposite the exit, and styled as a link rather than a
+   button: it's an option, not the thing to do. */
+.pt-skip-btn {
+  margin-left: auto;
+  padding: 0.4rem 0 0.4rem 0.75rem;
+  background: transparent;
+  border: none;
+  color: var(--text-faint);
+  font-size: 0.8rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.pt-skip-btn:active { color: var(--accent); }
 
 /* ── Session progress bar (lines across a full-line training session) ─────────
    Pinned under the toolbar. Tracks LINES completed across the whole session and
@@ -8260,6 +8241,17 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   font-style: italic;
   text-align: center;
   padding: 0.25rem 0;
+}
+
+/* "You've mastered X — keep adding moves." The one screen that can honestly say
+   a line is done: it has just been graded, and the reps have stopped paying. */
+.summary-mastered {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent);
+  font-family: system-ui, -apple-system, sans-serif;
+  text-align: center;
+  padding: 0.15rem 0.6rem;
 }
 
 /* Dark mode is handled entirely by the design tokens at the top of this file
@@ -13364,23 +13356,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   flex: 1 1 auto;
   min-width: 0;
 }
-.lines-fam-pause {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  margin-right: 10px;
-  border: 1px solid var(--border-card);
-  border-radius: 999px;
-  background: var(--bg-card);
-  color: var(--text-faint);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.lines-fam-pause:active { filter: brightness(0.95); }
-
 .lines-fam-chev {
   flex: 0 0 auto;
   display: inline-flex;
@@ -15328,6 +15303,14 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   margin-top: 0.1rem;
 }
 
+/* The same verdict on the row it belongs to, for the line that earned it. */
+.pz-result-grow {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-top: 0.1rem;
+}
+
 /* Position-peek popup (openPositionPeek, train-screen.ts): a view-only board
    at the tapped row's position, plus whichever of Hint/Add note/Turn off
    apply, and an Edit button that's the only thing that leaves for the
@@ -16588,9 +16571,23 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 
 .pt-nudge {
+  /* Absolutely positioned over the bottom block — like .pt-note-card and
+     .pt-alt-card, and for the same reason: appearing must never reflow the
+     layout, because the board is sized from what's left and would move. It
+     covers the in-session control row while it's up, which is fine — it is a
+     temporary card, at most one a run, and the controls return with it gone. */
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
   box-sizing: border-box;
   margin: 0.15rem 1rem 0.5rem;
   padding: 0.55rem 0.6rem 0.55rem 0.7rem;
+  /* Expanded (the writing state) it grows UPWARDS from the foot; the cap keeps
+     it from ever reaching the board on a short screen. */
+  max-height: 40vh;
+  overflow-y: auto;
   background: var(--bg-card);
   border: 1px solid var(--border-card);
   border-left: 3px solid var(--warn);
@@ -16888,17 +16885,24 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   gap: 0.4rem;
 }
 
-/* The state leads; the shape trails it, quieter, as the second half of one
-   sentence rather than a competing figure. */
+/* The state leads; the shape sits under it, quieter — the long form ("8 moves
+   long · 7 of them only in this line") wraps to its own line on a phone, and a
+   leading separator dangling at the start of that line read as a typo. */
 .lpeek-shape {
+  flex: 1 0 100%;
+  padding-left: 0.85rem;   /* clears the state dot, so the two lines align */
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 0.76rem;
   color: var(--text-fainter);
 }
 
-.lpeek-shape::before {
-  content: '·';
-  margin-right: 0.4rem;
+/* "You know this one" — the popup's long form of the card's grow chip. Quiet
+   accent text: the way on is the "Open in builder" action at the foot. */
+.lpeek-grow {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--accent);
 }
 
 .lpeek-tags {

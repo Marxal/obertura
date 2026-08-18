@@ -1,5 +1,4 @@
 import type { Line } from './types';
-import { Chessground } from 'chessground';
 import {
   getAllLines,
   saveLine,
@@ -30,7 +29,9 @@ import { openCoverageScreen } from './coverage-screen';
 import type { ImportedGame } from './chesscom';
 import { renderLoadError } from './load-error';
 import { formatSanLine } from './notation';
-import { lineStatus, lineShape } from './line-status';
+import {
+  lineStatus, lineShape, lineTraining, lineTrainingText, lineMastered,
+} from './line-status';
 import { openLinePeek } from './line-peek';
 
 // Game analysis walks every imported game through a merged repertoire tree — at
@@ -265,20 +266,6 @@ function updateTabButtons(tabs: HTMLElement): void {
   });
 }
 
-// A static, non-interactive chessground board at the given position.
-function mountMiniBoard(el: HTMLElement, fen: string, orientation: 'white' | 'black'): void {
-  Chessground(el, {
-    fen,
-    orientation,
-    viewOnly: true,
-    coordinates: false,
-    drawable: { enabled: false },
-    animation: { enabled: false },
-    selectable: { enabled: false },
-    highlight: { lastMove: false, check: false },
-  });
-}
-
 // ── Saved lines tab ──────────────────────────────────────────────────────────
 
 const SAVED_ORDERS: { key: SortMode; label: string }[] = [
@@ -315,12 +302,23 @@ function countLinesByTag(lines: Line[]): Map<string, number> {
 }
 
 // Apply the bar's colour + tag selection (tags OR'd: a line shows if it carries
-// any selected tag), then the chosen ordering.
+// any selected tag) and the search text, then the chosen ordering.
+//
+// Search matches the line's NAME — which is what the card shows and what the
+// user is looking at when they reach for the box — plus its detected opening, so
+// typing "sicilian" finds the lines you never renamed. Substring, not prefix:
+// half these names start with the family, so a prefix match would mean typing
+// "Sicilian Defense: " before "Najdorf" could ever hit.
 function viewSavedLines(lines: Line[], sel: FilterSelection): Line[] {
   let out = lines;
   if (sel.colour !== 'all') out = out.filter(l => l.colour === sel.colour);
   if (sel.tags.length > 0) out = out.filter(l => sel.tags.some(t => l.tags.includes(t)));
+  if (sel.query) out = out.filter(l => lineMatches(l, sel.query));
   return sortLines(out, sel.sort as SortMode);
+}
+
+function lineMatches(line: Line, query: string): boolean {
+  return `${line.name} ${line.openingName ?? ''}`.toLowerCase().includes(query);
 }
 
 // The one book every one of these lines lives in, or null when they're spread
@@ -395,6 +393,8 @@ function renderSavedTab(
     countsForColour: (colour) => ({
       tagCounts: countLinesByTag(colour === 'all' ? lines : lines.filter(l => l.colour === colour)),
     }),
+    search: true,
+    searchPlaceholder: 'Search by name',
     group: true,
     // My Lines is the one list that can also draw its lines as a tree.
     groupTree: true,
@@ -450,11 +450,19 @@ function renderSavedTab(
       }
       const empty = document.createElement('p');
       empty.className = 'lines-empty';
-      empty.textContent = 'No lines here yet.';
+      empty.textContent = filter.selection.query
+        ? `No lines matching “${filter.selection.query}”.`
+        : 'No lines here yet.';
       list.appendChild(empty);
       return;
     }
-    if (filter.selection.group === 'tree') {
+    // A search is "find me this line", and both grouped views answer it with a
+    // list of closed families the match is hidden inside. So while there is
+    // something typed, the results come back flat — the grouping is still
+    // selected and returns the moment the box is cleared.
+    const searching = filter.selection.query !== '';
+
+    if (!searching && filter.selection.group === 'tree') {
       // Same screen, same filtered lines — drawn as one position-merged map
       // instead of a list, so lines that transpose meet on a single node.
       // Nothing to highlight in a tree of positions — drop the pending mark so
@@ -486,7 +494,7 @@ function renderSavedTab(
       );
       return;
     }
-    if (filter.selection.group) {
+    if (!searching && filter.selection.group) {
       const deep = filter.selection.group === 'variation';
       // Open the just-saved line's family so its highlighted card shows.
       if (highlightLineId) {
@@ -574,18 +582,6 @@ function buildDetailCard(
   titleRow.addEventListener('click', peek);
   titleRowWrap.appendChild(titleRow);
 
-  // Edit: a quiet, right-aligned twin of the title — opens the rename sheet.
-  const editBtn = document.createElement('button');
-  editBtn.type = 'button';
-  editBtn.className = 'dline-icon dline-edit';
-  editBtn.setAttribute('aria-label', 'Edit name');
-  editBtn.title = 'Edit name';
-  editBtn.appendChild(Icons.pencil(16));
-  editBtn.addEventListener('click', () =>
-    openRenameSheet(line, () => refresh())
-  );
-  titleRowWrap.appendChild(editBtn);
-
   // Card info, stacked beside the board.
   const info = document.createElement('div');
   info.className = 'dline-info';
@@ -617,10 +613,28 @@ function buildDetailCard(
     info.appendChild(played);
   }
 
-  // Two rows, in the order you'd want to scan them: what this line needs from
-  // you, then what the line actually is.
+  // Three rows, in the order you'd want to scan them: what this line needs from
+  // you, what the line actually is, then how it has been going.
   info.appendChild(buildStatusRow(line));
   info.appendChild(buildShapeRow(line));
+  const training = buildTrainingRow(line);
+  if (training) info.appendChild(training);
+
+  // A line that comes back clean, run after run, has stopped teaching anything —
+  // the useful next move is more moves, not more reps. The chip says so and
+  // opens the builder standing at its end, which is where they'd be added.
+  if (lineMastered(line)) {
+    const grow = document.createElement('button');
+    grow.type = 'button';
+    grow.className = 'dline-grow';
+    grow.appendChild(Icons.sprout(14));
+    const growLabel = document.createElement('span');
+    growLabel.textContent = 'Keep growing this line';
+    grow.appendChild(growLabel);
+    grow.title = 'You know this one — open it and add the next moves';
+    grow.addEventListener('click', (e) => { e.stopPropagation(); deps.onOpenLine(line); });
+    info.appendChild(grow);
+  }
 
   content.appendChild(info);
 
@@ -660,9 +674,41 @@ function buildDetailCard(
 
   footer.appendChild(footerLeft);
 
-  // Delete sits on the training row, right-aligned (rename lives up in the title row).
+  // EVERY action on this line lives in this one right-aligned row, so a card is
+  // read top-down (what it is, how it's going) and acted on in one place at the
+  // foot. Ordered by how often each is wanted: train it, edit it, its settings,
+  // delete it.
   const iconRow = document.createElement('div');
   iconRow.className = 'dline-iconrow';
+
+  // Train — the Train tab's own bolt, so the action reads the same wherever it
+  // appears. It drills the line straight away when it's in the rotation, and
+  // runs the add-to-training flow when it isn't (the same entry point the
+  // line's popup offers).
+  if (deps.onTrainLine) {
+    const trainBtn = document.createElement('button');
+    trainBtn.type = 'button';
+    trainBtn.className = 'dline-icon dline-icon--go';
+    const trainLabel = line.inTraining ? 'Train this line' : 'Add to training';
+    trainBtn.setAttribute('aria-label', trainLabel);
+    trainBtn.title = trainLabel;
+    trainBtn.appendChild(Icons.zap(16));
+    trainBtn.addEventListener('click', () => deps.onTrainLine!(line.id, line.inTraining));
+    iconRow.appendChild(trainBtn);
+  }
+
+  // Edit — straight into the builder, standing at the end of this line. It used
+  // to sit up in the title row and open a rename sheet; a line's NAME is the
+  // least of what you'd want to change about it, and naming now lives in the
+  // options sheet next door with the tags it belongs beside.
+  const editBtn = document.createElement('button');
+  editBtn.type = 'button';
+  editBtn.className = 'dline-icon';
+  editBtn.setAttribute('aria-label', 'Open in builder');
+  editBtn.title = 'Open in builder';
+  editBtn.appendChild(Icons.pencil(16));
+  editBtn.addEventListener('click', () => deps.onOpenLine(line));
+  iconRow.appendChild(editBtn);
 
   // Everything you can do to this line as a BRANCH — pause it, set how often it
   // comes round, name or tag it, and (the reason this control exists on a card
@@ -728,6 +774,28 @@ function buildStatusRow(line: Line): HTMLElement {
 }
 
 /**
+ * Row 3 — how it has been GOING: how many times it has been round, and how much
+ * of it comes back clean. Quiet and last, because it is the answer to a question
+ * you only ask once the first two rows have told you what you're looking at.
+ *
+ * Silent on a line that has never been drilled: "0 runs · — recall" is three
+ * pieces of punctuation saying "nothing has happened yet", which the status row
+ * has already said in words.
+ */
+function buildTrainingRow(line: Line): HTMLElement | null {
+  const t = lineTraining(line);
+  const text = lineTrainingText(line, t);
+  if (!text) return null;
+  const row = document.createElement('div');
+  row.className = 'dline-training';
+  row.textContent = text;
+  if (t.recallPct !== null) {
+    row.title = `${t.drilled} of ${t.total} moves drilled — ${t.recallPct}% of those come back clean`;
+  }
+  return row;
+}
+
+/**
  * Row 2 — the line itself: how long it is, how much of it is its own, and how
  * settled it is.
  *
@@ -742,18 +810,31 @@ function buildShapeRow(line: Line): HTMLElement {
   row.className = 'dline-stats';
 
   const { moves, ownMoves } = lineShape(line);
-  add(`${moves} ${moves === 1 ? 'move' : 'moves'}`);
-  if (ownMoves !== null) add(`${ownMoves} only here`);
+  add(
+    `${moves} ${moves === 1 ? 'move' : 'moves'}`,
+    undefined,
+    `This line is ${moves} half-moves long, yours and the opponent's`,
+  );
+  if (ownMoves !== null) {
+    add(
+      `${ownMoves} only here`,
+      undefined,
+      `${ownMoves} of those moves belong to no other line — the rest are shared `
+      + 'with the lines that branch off this one, so deleting this line would cut '
+      + `only the ${ownMoves}`,
+    );
+  }
   if (line.confidence > 0) add(confidenceDots(line.confidence), 'dline-conf');
 
   return row;
 
-  function add(text: string, extraClass?: string): void {
+  function add(text: string, extraClass?: string, title?: string): void {
     if (row.childElementCount > 0) row.appendChild(sepDot());
     const el = document.createElement('span');
     el.className = 'dline-stat' + (extraClass ? ' ' + extraClass : '');
     el.textContent = text;
     if (extraClass === 'dline-conf') el.title = `Confidence ${line.confidence} of 5`;
+    else if (title) el.title = title;
     row.appendChild(el);
   }
 }
@@ -1001,85 +1082,6 @@ function suggestionCard(stat: OpeningStat, deps: LinesDeps): HTMLElement {
   }
 
   return card;
-}
-
-// ── Rename sheet (bottom-sheet modal, name only) ─────────────────────────────
-
-function openRenameSheet(line: Line, onSaved: (newName: string) => void): void {
-  const overlay = document.createElement('div');
-  overlay.className = 'edit-overlay';
-
-  const sheet = document.createElement('div');
-  sheet.className = 'edit-sheet';
-
-  const title = document.createElement('h3');
-  title.className = 'edit-sheet-title';
-  title.textContent = 'Rename line';
-  sheet.appendChild(title);
-
-  // Mini-board of the line's position so you can recognise what you're naming.
-  const boardWrap = document.createElement('div');
-  boardWrap.className = 'rename-board';
-  const board = document.createElement('div');
-  board.className = 'rename-board-inner';
-  boardWrap.appendChild(board);
-  sheet.appendChild(boardWrap);
-
-  const nameLabel = document.createElement('label');
-  nameLabel.className = 'edit-label';
-  nameLabel.textContent = 'Name';
-  const nameInput = document.createElement('input');
-  nameInput.type = 'text';
-  nameInput.className = 'edit-input';
-  nameInput.value = line.name;
-  nameInput.placeholder = 'Line name';
-  sheet.appendChild(nameLabel);
-  sheet.appendChild(nameInput);
-
-  const btnRow = document.createElement('div');
-  btnRow.className = 'edit-btn-row';
-
-  const saveBtn = document.createElement('button');
-  saveBtn.type = 'button';
-  saveBtn.className = 'btn-primary edit-save-btn';
-  saveBtn.textContent = 'Save';
-  saveBtn.addEventListener('click', async () => {
-    const newName = nameInput.value.trim() || 'Untitled line';
-    await saveLine({ ...line, name: newName });
-    close();
-    onSaved(newName);
-  });
-
-  const cancelBtn = document.createElement('button');
-  cancelBtn.type = 'button';
-  cancelBtn.className = 'btn-secondary';
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.addEventListener('click', close);
-
-  btnRow.appendChild(saveBtn);
-  btnRow.appendChild(cancelBtn);
-  sheet.appendChild(btnRow);
-
-  function close() {
-    overlay.remove();
-    removeBack();
-  }
-  const removeBack = pushBack(close);
-
-  overlay.addEventListener('click', e => {
-    if (e.target === overlay) close();
-  });
-
-  nameInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter') saveBtn.click();
-  });
-
-  overlay.appendChild(sheet);
-  document.body.appendChild(overlay);
-  requestAnimationFrame(() => {
-    mountMiniBoard(board, lineFinalFen(line.tree), line.colour);
-    nameInput.focus();
-  });
 }
 
 // ── Delete confirmation popup ────────────────────────────────────────────────

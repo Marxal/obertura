@@ -88,6 +88,12 @@ export interface DrillOptions {
   firstMoveHint?: string;
   // Fire a brief confetti burst when the run is completed.
   celebrateOnComplete?: boolean;
+  // A quiet way PAST the run, on the runs that are a formality rather than a
+  // test — the confirm run a line goes through on its way into training. The
+  // drill tears itself down first (overlay + back-nav layer), exactly like
+  // onEditLine, and the caller decides what "skip" means (for the confirm run:
+  // save the line into training and carry on). Nothing renders without it.
+  skipRun?: { label: string; onSkip: () => void };
   // If provided (full mode only), a wrong move is judged before it is penalised
   // as a mistake — by the engine ('good-alternative') or by the position index
   // ('other-line'). See WrongMoveVerdict above.
@@ -395,6 +401,19 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   backBtn.appendChild(document.createTextNode(opts.backLabel ?? 'End session'));
   backBtn.addEventListener('click', () => exitViaButton());
   headerEl.appendChild(backBtn);
+
+  // The way past the run, when the caller offers one. Deliberately quiet and on
+  // the far side of the toolbar from the exit: it is neither leaving nor the
+  // main action, it's "I know this one, just save it".
+  if (opts.skipRun) {
+    const skip = opts.skipRun;
+    const skipBtn = document.createElement('button');
+    skipBtn.type = 'button';
+    skipBtn.className = 'pt-skip-btn';
+    skipBtn.textContent = skip.label;
+    skipBtn.addEventListener('click', () => { cleanup(); skip.onSkip(); });
+    headerEl.appendChild(skipBtn);
+  }
 
   // Timed mode: a live "✓ N" score and a mm:ss countdown pinned to the right of
   // the toolbar.
@@ -813,8 +832,13 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     return !!opts.struggle && isLineDrill && !timed && !struggleUsed;
   }
 
-  // Slide the nudge in under the board, between the status line and the control
-  // row — never over the board, and never in the way of the next move.
+  // Slide the nudge in at the FOOT of the bottom block — over the control row,
+  // never over the board. It used to sit in the flow between the status line and
+  // the controls, which grew the bottom block and pushed the board up: the one
+  // thing nothing in a drill may ever do is move the board the user is playing
+  // on. So it floats, exactly like the note and divert cards above it, and the
+  // controls it covers come back the moment it goes (it is at most one offer a
+  // run, and playing the highlighted move sees it off).
   function showStruggleNudge(node: MoveNode): StruggleNudge {
     const s = opts.struggle!;
     struggleNudge?.destroy();
@@ -827,7 +851,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
       onNoteChanged: () => { s.onNoteChanged(node); updateNoteButton(node); },
       onDismiss: () => s.onNoteDismissed(node, count),
     });
-    statusEl.insertAdjacentElement('afterend', struggleNudge.el);
+    bottomEl.appendChild(struggleNudge.el);
     return struggleNudge;
   }
 

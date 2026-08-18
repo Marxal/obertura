@@ -2281,6 +2281,80 @@ _On `claude/repertoire-move-removal-flow-upnamo`. Restore point: `v0.5`._
 
 ---
 
+## v0.6c — the line card grows up, and one screen stops being two 🔜
+
+A round about the two places a line is looked at — its card in My Lines and the
+popup behind it — plus four fixes to things that were quietly wrong on the way
+past. The thread through all of it: a line is a thing you train, and once you
+have trained it enough the useful next step is to make it longer.
+
+- ✅ **Every action on a card is now in one row at its foot.** The pencil used to
+  sit up in the title row and open a rename sheet; a line's NAME is the least of
+  what you'd want to change about it, and naming already lives in the options
+  sheet with the tags it belongs beside. So it comes down, and it opens the
+  builder at the end of the line. The row now reads train · edit · options ·
+  delete — ordered by how often each is wanted, and a card is read top-down and
+  acted on at the bottom.
+- ✅ **A train icon on the card** — the Train tab's own bolt, so the action reads
+  the same wherever it appears. In the rotation it drills straight away; out of
+  it, it runs the same add-to-training flow the popup offers. Four icons is the
+  whole set: the switch beside them covers pausing, and the options sheet covers
+  name, tags, priority and remove, so a fifth would be a second door to a room
+  that already has one.
+- ✅ **"5 runs · 100% recall"** — the two figures the popup already showed, quiet
+  and last on the card, and computed in ONE place now (`line-status.ts`), so the
+  list and the popup it opens can't quote different numbers. Silent on a line
+  never drilled, where "0 runs · — recall" is punctuation saying what the status
+  row said in words.
+- ✅ **"Keep growing this line"** — a chip on a line that has been round three
+  times or more, clean, with nothing saved after its last move. It opens the
+  builder standing at the end of the line, which is where the moves would go.
+  The trainer says it too: a line graded clean on the way past the finish screen
+  gets a ★ on its row and one line above the list. This is the first thing in
+  the app that says *stop drilling this and make it longer* — the reps have
+  stopped paying, and depth is what's left to gain.
+- ✅ **Search on My Lines** — a magnifier beside the sort and group icons opens a
+  field that filters by name (and by the detected opening, so typing "sicilian"
+  finds the lines you never renamed) as you type. While something is typed the
+  results come back FLAT: both grouped views answer "find me this line" with a
+  list of closed families the match is hidden inside. The text is never
+  persisted — a filter you chose is worth remembering, a half-typed name
+  silently hiding your lines after a reload is not.
+- ✅ **"Lines in training" is gone from Train.** It was a second copy of My Lines
+  one screen away from the real one, with its own filter bar, its own grouping,
+  its own paused-rows toggle — and the only thing it could do that My Lines
+  can't was flick a switch My Lines also has. Training now belongs to what you
+  drill; the book belongs to My Lines. (~470 lines of screen and CSS with it.)
+- ✅ **The results screen's Edit opened nothing.** Tapping a reviewed line on the
+  finish screen opens its position; its Edit navigated to the builder *under* the
+  completion overlay, which is a fixed full-screen layer on `<body>` — so the
+  builder loaded, correctly, behind the results screen still covering it. It
+  takes the overlay down with it now.
+- ✅ **The chronic-miss nudge stopped moving the board.** It was inserted in flow
+  between the status line and the controls, which grew the bottom block and
+  pushed the board up mid-drill. It floats over the control row now, like the
+  note and divert cards, on the same rule those two already followed: *nothing
+  may move the board you are playing on.*
+- ✅ **"Add without playing"** — a quiet link on the confirm run, opposite the
+  exit. It saves exactly what a clean run would have saved, so nothing about the
+  line's schedule depends on having played it. Deliberately quiet, because
+  playing it once is worth doing: it is the first review, and the one that tells
+  you whether you can actually recall what you just wrote down. Not offered on
+  the guided first line, which has its own "Skip this time" on the coach-mark.
+- ✅ **The library's level control is a dropdown.** Six rating pills never fitted
+  a phone beside the Masters/Lichess toggle, so the strip wrapped onto a row of
+  its own — two rows to say one thing. One pill-shaped menu now sits next to the
+  toggle (native `<select>` laid transparently over it, so the platform picker
+  opens on a tap and it stays accessible for free), and Masters greys it out with
+  the reason underneath, as before.
+- ✅ **"Due due tomorrow."** Found on the way past: `describeDue` already leads
+  with the word, and `lineStatus` prefixed it again — on every card and popup of
+  every line that wasn't due yet.
+
+_On `claude/lines-library-ui-n0jbi2`. Restore point: `v0.5`._
+
+---
+
 ## Stripe migration — off Lemon Squeezy, on to being the merchant ✅
 
 The processor swap. **Not a product change:** it is still a one-time unlock, still
