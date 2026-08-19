@@ -1,7 +1,14 @@
-// The coverage block, as ONE component with two homes: its own screen
-// (coverage-screen.ts) and the builder's My lines panel. Same rows, same
-// ranking, same wording — only the caps and the chrome differ, because a
-// section that reads differently in two places is two features to keep in step.
+// The coverage block — the replies your saved lines have no answer to.
+//
+// It has ONE home now: Explore's Coverage tab (explore-screen.ts). It used to
+// have two and a half — a full-screen coverage-screen.ts, a one-row launcher on
+// My Lines that opened it, and an inline cap for a builder panel that no longer
+// embeds it — which is how a report about what you DON'T have ended up living on
+// the screen for looking at what you do.
+//
+// The caps stay parameters (`limit`) rather than being fixed here, because the
+// point of the split was never the chrome: it is that one computation, ranked
+// once, can be read at whatever length the surface has room for.
 //
 // WHAT IT SHOWS, IN THIS ORDER, AND WHY:
 //
@@ -24,19 +31,20 @@
 
 import { Icons } from './icons';
 import { formatMove } from './notation';
+import { openPositionPeek, type PeekAction, type PeekStat } from './position-peek';
 import { loadCoverage, cachedCoverage, liveReachNote, type CoverageLoad } from './coverage-data';
-import { MAX_GAPS, MAX_GAPS_INLINE, type Gap, type GapSource } from './coverage-gaps';
+import { MAX_GAPS, type Gap, type GapSource } from './coverage-gaps';
 
 /** How many family bars the block shows before it stops being a summary. */
 const FAMILY_ROWS = 4;
 
 export interface CoverageSectionDeps {
   colour: 'white' | 'black';
-  /** Row cap. The builder passes the inline cap; the screen the full one. */
+  /** Row cap. Callers with less room pass a smaller one. */
   limit?: number;
-  /** The screen shows the family breakdown; the builder's inline copy doesn't. */
+  /** Whether to show the per-family breakdown above the gaps. */
   showFamilies?: boolean;
-  /** Section title. Null suppresses the header entirely (the screen has its own). */
+  /** Section title. Null suppresses the header entirely (the tab has its own). */
   title?: string | null;
   /**
    * Seed the builder at this position in the answering colour — the existing
@@ -44,7 +52,12 @@ export interface CoverageSectionDeps {
    * the line is tagged "vs <name>" exactly as preparing from their map is.
    */
   onPrepare: (ucis: string[], answeringColour: 'white' | 'black', opponentName?: string) => void;
-  /** The builder's "See all" link. Omitted on the screen itself. */
+  /**
+   * Show this gap's position in the repertoire tree. Optional: a caller that
+   * has no tree to open simply doesn't offer the action.
+   */
+  onSeeInTree?: (gap: Gap) => void;
+  /** A "See all" link, for a caller showing a shortened list. */
   onSeeAll?: () => void;
 }
 
@@ -207,18 +220,20 @@ export function renderCoverageSection(host: HTMLElement, deps: CoverageSectionDe
     return track;
   }
 
-  // One gap. The whole row is the button — "Build from here" is what tapping it
-  // does, and a row whose only action is a small button on the right is a row
-  // most thumbs miss.
+  // One gap. The whole row is the button — a row whose only action is a small
+  // button on the right is a row most thumbs miss.
+  //
+  // Tapping it shows the POSITION, not the builder. It used to jump straight
+  // into the editor, which is a big move to make from a one-line list item on
+  // the strength of a move name and a reason: you could not see what you were
+  // agreeing to prepare until you were already in it. The popup is the
+  // look-before-you-leap step the rest of the app's lists already have, and
+  // Prepare is its primary button.
   function gapRow(gap: Gap): HTMLElement {
     const row = document.createElement('button');
     row.type = 'button';
     row.className = `cvg-row cvg-row--${gap.source}`;
-    row.addEventListener('click', () => {
-      // The seed is the path PLUS the unanswered move, so the builder opens
-      // with the reply already on the board and your answer as the next move.
-      deps.onPrepare([...gap.ucis, gap.uci], gap.colour, gap.opponentName);
-    });
+    row.addEventListener('click', () => openGapPeek(gap));
 
     const move = document.createElement('span');
     move.className = 'cvg-row-move';
@@ -246,8 +261,60 @@ export function renderCoverageSection(host: HTMLElement, deps: CoverageSectionDe
     row.appendChild(add);
 
     row.setAttribute('aria-label',
-      `Prepare an answer to ${gap.san} after ${gap.sans.join(' ') || 'the first move'} — ${gap.reason}`);
+      `${gap.san} after ${gap.sans.join(' ') || 'the first move'} — ${gap.reason}. `
+      + 'Look at the position.');
     return row;
+  }
+
+  // The gap, on a board. The unanswered reply is drawn straight away (there is
+  // nothing to quiz here — the whole point is that you have no answer), with the
+  // figures that ranked it and the two things worth doing about it.
+  function openGapPeek(gap: Gap): void {
+    const actions: PeekAction[] = [{
+      icon: Icons.plus(16),
+      label: 'Prepare an answer',
+      onClick: ({ close }) => {
+        close();
+        // The seed is the path PLUS the unanswered move, so the builder opens
+        // with the reply already on the board and your answer as the next move.
+        deps.onPrepare([...gap.ucis, gap.uci], gap.colour, gap.opponentName);
+      },
+    }];
+    if (deps.onSeeInTree) {
+      const seeInTree = deps.onSeeInTree;
+      actions.push({
+        icon: Icons.merge(16),
+        label: 'See it in my tree',
+        onClick: ({ close }) => { close(); seeInTree(gap); },
+      });
+    }
+
+    openPositionPeek({
+      fen: gap.fen,
+      orientation: gap.colour,
+      title: `${movePrefix(gap.ply)} ${formatMove(gap.san)}`,
+      subtitle: gap.reason,
+      revealUci: gap.uci,
+      stats: gapStats(gap),
+      footnote: context(gap),
+      actions,
+    });
+  }
+
+  // The two figures a gap always has, plus the one its source gives it. Kept to
+  // three so the row above the board stays one line on a phone.
+  function gapStats(gap: Gap): PeekStat[] {
+    const out: PeekStat[] = [];
+    if (gap.source === 'games') {
+      out.push({ value: String(gap.weight), label: 'times faced', tone: 'low' });
+    } else if (gap.source === 'library') {
+      out.push({ value: `${gap.weight}%`, label: 'play this', tone: 'mid' });
+    } else {
+      out.push({ value: String(gap.weight), label: 'their games', tone: 'low' });
+    }
+    out.push({ value: String(gap.lineCount), label: gap.lineCount === 1 ? 'line here' : 'lines here' });
+    out.push({ value: String(Math.floor(gap.ply / 2) + 1), label: 'move' });
+    return out;
   }
 
   // Where the gap sits, in the fewest words that still locate it: the line so
@@ -280,61 +347,6 @@ export function renderCoverageSection(host: HTMLElement, deps: CoverageSectionDe
   };
 }
 
-/**
- * The one-row way in, for a list screen that has no room for the whole block:
- * the positive figure and how many gaps are behind it, as a button that opens
- * the screen. It reads the SAME report — no second computation, no second
- * ranking — so the number on the launcher and the number on the screen cannot
- * disagree.
- */
-export function renderCoverageLauncher(
-  host: HTMLElement,
-  opts: { colour: 'white' | 'black'; onOpen: () => void },
-): CoverageSection {
-  let live = true;
-
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'cvg-launch';
-  btn.addEventListener('click', opts.onOpen);
-
-  const ico = Icons.target(16);
-  ico.classList.add('cvg-launch-ico');
-  btn.appendChild(ico);
-
-  const text = document.createElement('span');
-  text.className = 'cvg-launch-text';
-  btn.appendChild(text);
-
-  const chev = Icons.chevronRight(16);
-  chev.classList.add('cvg-launch-chev');
-  btn.appendChild(chev);
-
-  host.appendChild(btn);
-  fill(cachedCoverage(opts.colour));
-
-  void loadCoverage(opts.colour, {
-    stillHere: () => live,
-    onPartial: load => { if (live) fill(load); },
-  }).then(load => { if (live) fill(load); }).catch(() => { /* the label just stays */ });
-
-  function fill(load: CoverageLoad | null): void {
-    text.replaceChildren();
-    const label = document.createElement('span');
-    label.className = 'cvg-launch-title';
-    label.textContent = 'Coverage';
-    text.appendChild(label);
-    const sub = document.createElement('span');
-    sub.className = 'cvg-launch-sub';
-    sub.textContent = !load ? 'working it out…'
-      : load.report.notable === 0 ? 'nothing to prepare yet'
-      : `${load.report.pct}% answered · ${load.report.totalGaps || 'no'} ${load.report.totalGaps === 1 ? 'gap' : 'gaps'} to prepare`;
-    text.appendChild(sub);
-  }
-
-  return { dispose() { live = false; } };
-}
-
 // ── small helpers ────────────────────────────────────────────────────────────
 
 function sourceIcon(source: GapSource, size: number): SVGElement {
@@ -357,6 +369,3 @@ function formatSans(sans: string[]): string {
   }
   return parts.join(' ');
 }
-
-/** The inline cap, re-exported so the builder doesn't import two modules. */
-export { MAX_GAPS_INLINE };

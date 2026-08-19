@@ -1,11 +1,14 @@
 // A runnable, network-free check of the game-analysis logic — same spirit as
-// import.selftest.ts and scheduler.selftest.ts. The "From my games" tab on My
-// Lines has a "Run analysis self-test" link that calls this and shows pass/fail,
-// so the grouping, scoring, and "left my prep" diff can be verified on the
-// phone, offline.
+// import.selftest.ts and scheduler.selftest.ts. Covers the family grouping, the
+// scoring, the "left my prep" diff, and rankOpenings: the ranking behind
+// Explore's Openings tab, which is what Recommended and "From my games" became
+// when they turned out to be one list.
 
 import { Chess } from 'chess.js';
-import { analyseGames, openingFamily, familyKey, UNKNOWN_FAMILY } from './analysis';
+import {
+  analyseGames, openingFamily, familyKey, rankOpenings, UNKNOWN_FAMILY,
+  type OpeningStat,
+} from './analysis';
 import type { ImportedGame } from './chesscom';
 import type { Line } from './types';
 import type { MoveNode } from './tree';
@@ -65,7 +68,7 @@ function line(colour: 'white' | 'black', sanLine: string): Line {
 
 export function runAnalysisSelfTest(): TestResult[] {
   const results: TestResult[] = [];
-  const check = (name: string, pass: boolean, detail: string) =>
+  const check = (name: string, pass: boolean, detail = '') =>
     results.push({ name, pass, detail });
 
   // 1. Family folding collapses deep names but keeps short ones.
@@ -130,25 +133,59 @@ export function runAnalysisSelfTest(): TestResult[] {
     `${ck.scorePct}% with ${ck.draws} draws`,
   );
 
-  // 4. No repertoire → the opening becomes a suggestion (played ≥ 2 times).
+  // 4. No repertoire → the opening needs a line (played ≥ 2 times).
   const sugg = analyseGames(italian, []);
+  const suggIt = sugg.openings.find(o => o.family === 'Italian Game');
   check(
-    'un-prepped opening is suggested',
-    sugg.suggestions.some(s => s.family === 'Italian Game') &&
-      !itStatHasRep(sugg.stats),
-    `suggestions: ${sugg.suggestions.map(s => s.family).join(', ') || 'none'}`,
+    'un-prepped opening needs a line',
+    suggIt?.need === 'none' && !itStatHasRep(sugg.stats),
+    `openings: ${sugg.openings.map(o => `${o.family}:${o.need}`).join(', ') || 'none'}`,
   );
 
-  // 5. With a matching repertoire line, the same opening is NOT suggested and is
-  //    flagged hasRepertoire.
+  // 4b. rankOpenings — the merge's own arithmetic, poked directly so it doesn't
+  //     depend on building a plausible pile of games for every case.
+  const stat = (over: Partial<OpeningStat>): OpeningStat => ({
+    key: 'k', family: 'X', colour: 'white',
+    games: 10, wins: 5, losses: 5, draws: 0, scorePct: 50,
+    hasRepertoire: false, repUcis: ['e2e4'], repSans: ['e4'],
+    ...over,
+  });
+  const need = (over: Partial<OpeningStat>) => rankOpenings([stat(over)])[0]?.need;
+
+  check('no line at all needs one', need({ hasRepertoire: false }) === 'none');
+  check('prepared and losing is flagged weak',
+    need({ hasRepertoire: true, games: 8, scorePct: 30 }) === 'weak');
+  check('prepared and holding up is ok',
+    need({ hasRepertoire: true, games: 8, scorePct: 70 }) === 'ok');
+  check('a bad score over too few games is not a verdict',
+    need({ hasRepertoire: true, games: 3, scorePct: 0 }) === 'ok');
+  check('an unrecognised family never ranks',
+    rankOpenings([stat({ family: UNKNOWN_FAMILY })]).length === 0);
+  check('one game is not enough to rank at all',
+    rankOpenings([stat({ games: 1 })]).length === 0);
+
+  // Attention = games × (100 − score): most-played AND worst-scoring leads.
+  const ranked = rankOpenings([
+    stat({ key: 'a', family: 'Alpha', games: 4, scorePct: 25 }),   // 300
+    stat({ key: 'b', family: 'Beta', games: 12, scorePct: 40 }),   // 720
+    stat({ key: 'c', family: 'Gamma', games: 20, scorePct: 90 }),  // 200
+  ]);
+  check('attention ranks most-played-and-worst first',
+    ranked.map(r => r.family).join(',') === 'Beta,Alpha,Gamma',
+    ranked.map(r => `${r.family}:${r.attention}`).join(' '));
+  check('attention is games × (100 − score)', ranked[0].attention === 720,
+    String(ranked[0].attention));
+
+  // 5. With a matching repertoire line, the same opening is flagged
+  //    hasRepertoire and stops needing one.
   const rep = [line('white', 'e4 e5 Nf3 Nc6 Bc4 Bc5 c3')];
   const withRep = analyseGames(italian, rep);
   const itWithRep = withRep.stats.find(s => s.family === 'Italian Game')!;
+  const repRow = withRep.openings.find(o => o.family === 'Italian Game');
   check(
-    'matching repertoire marks coverage and drops the suggestion',
-    itWithRep.hasRepertoire === true &&
-      !withRep.suggestions.some(s => s.family === 'Italian Game'),
-    `hasRepertoire=${itWithRep.hasRepertoire}, suggested=${withRep.suggestions.some(s => s.family === 'Italian Game')}`,
+    'matching repertoire marks coverage and clears the need',
+    itWithRep.hasRepertoire === true && repRow !== undefined && repRow.need !== 'none',
+    `hasRepertoire=${itWithRep.hasRepertoire}, need=${repRow?.need}`,
   );
 
   // 6. "Left my prep": prep is 1.e4 e5 2.Nf3 Nc6 3.Bc4 Bc5 4.c3, but in one game

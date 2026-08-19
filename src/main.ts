@@ -123,7 +123,7 @@ import { Icons, classBoardSvg, CLASS_LABEL } from './icons';
 import { mountFab, type FabItem, type FabAction, type FabSplit, type FabController } from './fab';
 import { importLastGame, hasConnectedAccount, connectedAccount } from './import-last';
 import { openBuilderImport } from './builder-import';
-import { openEngineSpar, openExploreOpponent, importOpponentFlow } from './explore-screen';
+import { openEngineSpar, openExploreOpponent, openExploreTab, importOpponentFlow } from './explore-screen';
 import { formatMove } from './notation';
 import {
   tryCallback as lichessTryCallback,
@@ -3419,6 +3419,8 @@ function exploreScreenDeps() {
     onScoutInBuilder: (opponentId: string) => scoutInBuilder(opponentId),
     // The Packs tab's Lichess-study browser saves chapters straight to My Lines.
     onSaveLines: saveImportedLines,
+    // The Coverage tab's rows: seed the builder at the unanswered reply.
+    onPrepareGap: prepareGap,
   };
 }
 
@@ -3580,8 +3582,9 @@ function linesScreenDeps(): Parameters<typeof renderLinesScreen>[1] {
     // point the Progress screen's Drill uses, so both behave identically.
     onTrainLine: (lineId, inTraining) => void onTrainLine(lineId, inTraining),
     onBuildLine: buildFromUcis,
-    onPrepareGap: prepareGap,
     onPickStarterPack: () => void openStarterPackPicker(addStarterLine),
+    // "Which openings do I play that I haven't saved?" moved to Explore.
+    onSeeMyOpenings: () => { openExploreTab('openings'); showView('explore'); },
   };
 }
 

@@ -3917,37 +3917,46 @@ html[data-coords="off"] .cg-wrap coords {
   color: var(--text-faint);
 }
 
-/* The one-row way in, on My Lines. */
-.lines-coverage { padding: 0 var(--space-lg) var(--space-sm); }
-.cvg-launch {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  width: 100%;
-  padding: 0.6rem 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--bg-card);
-  box-shadow: var(--shadow-card);
-  text-align: left;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.cvg-launch:active { filter: brightness(0.96); }
-.cvg-launch-ico { flex: 0 0 auto; color: var(--accent); }
-.cvg-launch-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.cvg-launch-title { font-size: 0.88rem; font-weight: 700; color: var(--text); }
-.cvg-launch-sub { font-size: 0.75rem; color: var(--text-faint); }
-.cvg-launch-chev { flex: 0 0 auto; color: var(--text-faint); }
+/* ── Explore → Openings: the status chip ──────────────────────────────────────
+   The one thing the merged list has that neither of the two lists it replaced
+   did: a row that says what this opening NEEDS, rather than being sorted into a
+   whole screen by it. Three states, three colours, semantic rather than
+   decorative — brick where there is no line at all, brass where the line exists
+   and is losing, sage where the work is holding up. */
 
-/* The screen: the map viewer's chrome (.rmap-overlay), this body. */
-.cvg-screen {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: var(--space-md) var(--space-lg) calc(env(safe-area-inset-bottom, 0px) + 2rem);
-  -webkit-overflow-scrolling: touch;
+.opening-chip {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+  padding: 0.14rem 0.46rem;
+  border-radius: 999px;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  text-transform: uppercase;
 }
+.opening-chip--none { background: var(--danger); color: #fff; }
+.opening-chip--weak { background: var(--accent); color: var(--on-accent); }
+.opening-chip--ok {
+  background: var(--bg-elevated);
+  color: var(--success);
+  box-shadow: inset 0 0 0 1px var(--success);
+}
+
+/* A prepared, healthy opening is on the list to be SEEN, not acted on — it sits
+   a shade back so the two that need something lead the eye. */
+.opening-card--ok { opacity: 0.86; }
+
+/* "Show all N" under the capped list. */
+.lines-showall {
+  width: 100%;
+  margin-top: var(--space-sm);
+}
+
+/* Explore → Coverage. It used to be a full-screen overlay reached by a one-row
+   launcher on My Lines; it is a tab now, so all it needs is the White/Black
+   toggle at the top and the framing at the foot. (.lines-tab-content already
+   brings the side gutter.) */
 .cvg-colour-seg { margin: 0 0 0.75rem; width: 100%; }
 .cvg-colour-seg .lib-db-opt { flex: 1; }
 .cvg-foot {
@@ -16356,37 +16365,22 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   }
 }
 
-/* ── Recommended: a column per colour ── */
+/* ── Openings: the card list reflows into columns ──
+   No more per-colour columns: the list is one ranked sequence now (attention
+   order), and splitting it by colour would break the ranking it exists for.
+   The colour segment on the filter bar does that job when it is wanted. */
 @media (min-width: 960px) {
-  /* Only when BOTH colours produced picks — with one group there is no second
-     column to fill, so the wrap stays a plain block (below). */
-  .explore-recommended:has(.scout-report-group + .scout-report-group) {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: var(--space-lg);
-    align-items: start;
-  }
-  .explore-recommended:has(.scout-report-group + .scout-report-group) > .section-desc {
-    grid-column: 1 / -1;
-  }
-  /* The group heading already sits at the top of its own column — level the two
-     so "AS WHITE" and "AS BLACK" line up. */
-  .explore-recommended:has(.scout-report-group + .scout-report-group) > .scout-report-group {
-    margin-top: var(--space-md);
-    min-width: 0;
-  }
-  /* One colour only: no second column to fill, so the CARDS grid instead — the
-     group keeps the full width and its picks sit two across. (In the two-column
-     case above each group is a plain stack, cards keeping their own margin.) */
-  .explore-recommended:not(:has(.scout-report-group + .scout-report-group)) .scout-report-group .group {
+  .explore-openings .lines-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
     gap: var(--space-md);
   }
-  .explore-recommended:not(:has(.scout-report-group + .scout-report-group)) .scout-report-group .group > .pcard {
-    margin-bottom: 0;
-  }
+  .explore-openings .lines-grid > .pcard { margin-bottom: 0; }
+  .explore-openings .lines-showall { grid-column: 1 / -1; }
+}
+@media (min-width: 1280px) {
+  .explore-openings .lines-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 /* ── Packs: accordion grid, open pack spans the row ── */

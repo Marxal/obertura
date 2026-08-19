@@ -70,13 +70,63 @@ export interface Deviation {
   prefixUcis: string[];         // in-book moves up to the deviation, for Build
 }
 
+/**
+ * What an opening you play needs from you. THE reason Explore's Recommended and
+ * My Lines' "From my games" became one list: they were two filters over this
+ * same question, and they overlapped on exactly the case that matters most.
+ *
+ *  · 'none' — you play it and have no line for it. Build one.
+ *  · 'weak' — you have a line and are still losing with it. The old
+ *             Recommended tab could not say this: it never checked
+ *             hasRepertoire, so it told you to "Build line" for openings you
+ *             had already prepared, where the useful answer is to go and look
+ *             at the line you have.
+ *  · 'ok'   — prepared, and holding up. Worth showing: without it the list is
+ *             a page of problems, and there is no way to see that the work you
+ *             did is working.
+ */
+export type OpeningNeed = 'none' | 'weak' | 'ok';
+
+export interface OpeningRow extends OpeningStat {
+  need: OpeningNeed;
+  /**
+   * How much this opening is costing you: games × (100 − score). Most-played
+   * and worst-scoring leads, which is the order both old lists were reaching
+   * for with a filter and a cap.
+   */
+  attention: number;
+}
+
 export interface Analysis {
   totalGames: number;
   stats: OpeningStat[];         // every family, most-played first
   mostPlayed: OpeningStat[];
   weakest: OpeningStat[];       // scoring under even, enough games behind it
-  suggestions: OpeningStat[];   // played often, no prep yet — lines to add
+  openings: OpeningRow[];       // every recognised opening you play, ranked
   deviations: Deviation[];      // where you left your prep, most frequent first
+}
+
+/**
+ * Every recognised opening you have played enough of, each labelled with what
+ * it needs and ranked by how much it is costing you. Pure, uncapped: the caller
+ * filters and caps.
+ */
+export function rankOpenings(stats: OpeningStat[]): OpeningRow[] {
+  return stats
+    .filter(s => s.family !== UNKNOWN_FAMILY && s.games >= MIN_GAMES_SUGGEST)
+    .map(s => ({ ...s, need: openingNeed(s), attention: s.games * (100 - s.scorePct) }))
+    // Attention first; among equals the more-played opening leads, then by name
+    // so the order never wobbles between renders.
+    .sort((a, b) => b.attention - a.attention || b.games - a.games
+      || a.family.localeCompare(b.family));
+}
+
+function openingNeed(s: OpeningStat): OpeningNeed {
+  if (!s.hasRepertoire) return 'none';
+  // "Losing with it" needs the same floor the weakest list uses — a 0% score
+  // over two games is noise, not a verdict on your prep.
+  if (s.games >= MIN_GAMES_WEAK && s.scorePct < WEAK_SCORE_PCT) return 'weak';
+  return 'ok';
 }
 
 // ── Opening-name → family ────────────────────────────────────────────────────────
@@ -296,18 +346,15 @@ export function analyseGames(games: ImportedGame[], lines: Line[]): Analysis {
     .sort((a, b) => a.scorePct - b.scorePct || b.games - a.games)
     .slice(0, TOP_N);
 
-  // Full list, uncapped: the From-my-games tab shows the top TOP_N and reveals
+  // Full list, uncapped: Explore's Openings tab shows the top TOP_N and reveals
   // the rest behind a "Show all". (mostPlayed / weakest keep their caps below.)
-  const suggestions = stats
-    .filter(s => recognised(s) && !s.hasRepertoire && s.games >= MIN_GAMES_SUGGEST)
-    // Most-played gaps first; among equals, the weaker ones matter more.
-    .sort((a, b) => b.games - a.games || a.scorePct - b.scorePct);
+  const openings = rankOpenings(stats);
 
   const deviations = [...devs.values()]
     .sort((a, b) => b.count - a.count || a.ply - b.ply)
     .slice(0, MAX_DEVIATIONS);
 
-  return { totalGames: games.length, stats, mostPlayed, weakest, suggestions, deviations };
+  return { totalGames: games.length, stats, mostPlayed, weakest, openings, deviations };
 }
 
 // ── Per-line play counts ─────────────────────────────────────────────────────────
