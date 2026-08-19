@@ -78,6 +78,9 @@ import { REPLAY_WALKTHROUGH_EVENT } from './onboarding-tour';
 import { isConnected, connect, disconnect, LICHESS_CONNECT_BLURB } from './lichess-auth';
 import { isSupabaseConfigured } from './supabase';
 import { buildAccountGroup } from './account-ui';
+import { getAuthUser, onAuthChange } from './auth';
+import { syncNow, replaceFromAccount, markEverythingDirty } from './repertoire-sync';
+import { deleteAccountOnServer, signOutAfterDelete } from './account-delete';
 import { isEntitled, showGoProDialog } from './entitlement';
 import { openDoc, LANDING_URL, PRIVACY_URL, TERMS_URL } from './legal';
 
@@ -1230,7 +1233,14 @@ function buildBackupGroup(): HTMLElement {
     confirmDialog({
       title: 'Reset all progress?',
       body: 'This clears every training score, streak and timed best, and marks all ' +
-        'moves as never-trained. Your lines, notes and tags are kept. This can’t be undone.',
+        'moves as never-trained. Your lines, notes and tags are kept. This can’t be undone.'
+        + (getAuthUser()
+          // Reset used to be a purely local action, and it isn't any more: the
+          // cleared state is pushed to the account like any other change, so it
+          // reaches the other phone too. Saying so is the difference between a
+          // feature and a nasty surprise.
+          ? '\n\nYou’re signed in, so the reset syncs to your account and your other devices.'
+          : ''),
       confirmLabel: 'Reset progress',
       danger: true,
       onConfirm: async () => {
@@ -1250,6 +1260,16 @@ function buildBackupGroup(): HTMLElement {
           clearTaBest();
           clearTimedBest();
           clearEndgameProgress();
+          // Push straight away rather than waiting out the 30-second debounce.
+          // Clearing the logs above writes localStorage directly, which fires no
+          // change notifier, so without this the reset could sit unsynced until
+          // the next unrelated edit — and a pull in the meantime would hand the
+          // old statistics straight back from the account.
+          if (getAuthUser()) {
+            status.textContent = 'Progress reset ✓ — syncing…';
+            markEverythingDirty();
+            await syncNow();
+          }
           status.textContent = 'Progress reset ✓ — every line is due again.';
         } catch (err) {
           status.textContent = `Reset failed — ${(err as Error).message}`;
@@ -1281,7 +1301,281 @@ function buildBackupGroup(): HTMLElement {
   // progress (which keeps your lines). Two-step, with a back-up-first offer.
   sec.appendChild(buildEraseSubsection());
 
+  // The two account-only blocks. Both are hidden entirely when signed out —
+  // there is no account to restore from and none to delete — and both are built
+  // fresh whenever the auth state changes, because a section that says "sign in
+  // first" is a section that has nothing to say.
+  if (isSupabaseConfigured) {
+    const accountData = document.createElement('div');
+    const paintAccountData = (): void => {
+      accountData.replaceChildren();
+      if (!getAuthUser()) return;
+      accountData.appendChild(buildRestoreFromAccountSubsection());
+      accountData.appendChild(buildDeleteAccountSubsection());
+    };
+    const drop = onAuthChange(() => {
+      if (!accountData.isConnected) { drop(); return; }
+      paintAccountData();
+    });
+    paintAccountData();
+    sec.appendChild(accountData);
+  }
+
   return sec;
+}
+
+// ── Replace this device from the account ─────────────────────────────────────
+//
+// The old sign-in prompt asked "merge or replace?" every single time, at the one
+// moment nobody has the context to answer. Merging is now automatic and silent
+// (repertoire-sync.ts), which leaves exactly one thing the prompt used to do
+// that nothing else does: throw away what is on this phone and take the
+// account's copy exactly.
+//
+// That is a rare, deliberate, destructive act — the shape of a button in the
+// Data section, not of a question thrown at somebody who has just typed a
+// password. It is also the only way to undo a merge that brought back lines
+// deleted on another device, which is the honest cost of having no tombstones.
+function buildRestoreFromAccountSubsection(): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'settings-reset';
+
+  const heading = document.createElement('h3');
+  heading.className = 'settings-subheading';
+  heading.textContent = 'Replace this device from your account';
+  wrap.appendChild(heading);
+
+  const blurb = document.createElement('p');
+  blurb.className = 'section-desc';
+  blurb.textContent =
+    'Your devices normally merge, so nothing is ever lost. This does the other ' +
+    'thing: it deletes what’s on this phone and restores exactly what your ' +
+    'account holds. Use it after tidying up on another device.';
+  wrap.appendChild(blurb);
+
+  const status = document.createElement('p');
+  status.className = 'settings-note';
+  status.setAttribute('aria-live', 'polite');
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn-secondary';
+  btn.appendChild(Icons.download(16));
+  btn.appendChild(document.createTextNode('Replace from account'));
+  btn.addEventListener('click', () => {
+    confirmDialog({
+      title: 'Replace everything on this phone?',
+      body: 'The lines, games, statistics and settings on this device are deleted and ' +
+        'replaced with your account’s copy. Anything here that never reached the ' +
+        'account is lost. Export a backup first if you’re not sure.',
+      confirmLabel: 'Replace from account',
+      danger: true,
+      onConfirm: async () => {
+        btn.disabled = true;
+        status.textContent = 'Restoring…';
+        try {
+          const n = await replaceFromAccount();
+          status.textContent = `Restored ${n} line${n === 1 ? '' : 's'} ✓ — reloading…`;
+          setTimeout(() => window.location.reload(), 1200);
+        } catch (err) {
+          status.textContent = `Couldn’t restore — ${(err as Error).message}`;
+          btn.disabled = false;
+        }
+      },
+    });
+  });
+
+  const actions = document.createElement('div');
+  actions.className = 'settings-actions';
+  actions.appendChild(btn);
+  wrap.appendChild(actions);
+  wrap.appendChild(status);
+  return wrap;
+}
+
+// ── Delete account ───────────────────────────────────────────────────────────
+//
+// Separate from "Erase everything" on purpose, because they are not the same
+// act and confusing them is expensive in both directions:
+//
+//   Erase everything  wipes this phone. The account and its copy survive, so
+//                     signing back in brings it all back.
+//   Delete account    removes the account itself, everywhere, for good. The
+//                     phone's own data is a separate tick-box on the way.
+//
+// Two steps, same as erase, with the same one-tap backup offer — this is the
+// last moment any of it can be saved.
+function buildDeleteAccountSubsection(): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'settings-reset settings-erase';
+
+  const heading = document.createElement('h3');
+  heading.className = 'settings-subheading';
+  heading.textContent = 'Delete your account';
+
+  const blurb = document.createElement('p');
+  blurb.className = 'section-desc';
+  blurb.textContent =
+    'Close your Bito Chess account and delete the copy of your data stored with ' +
+    'it. This is permanent, it can’t be undone, and it doesn’t refund a purchase.';
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn-danger';
+  btn.appendChild(Icons.trash(16));
+  btn.appendChild(document.createTextNode('Delete account'));
+  btn.addEventListener('click', openDeleteAccountDialog);
+
+  const actions = document.createElement('div');
+  actions.className = 'settings-actions';
+  actions.appendChild(btn);
+
+  wrap.appendChild(heading);
+  wrap.appendChild(blurb);
+  wrap.appendChild(actions);
+  return wrap;
+}
+
+function openDeleteAccountDialog(): void {
+  const overlay = document.createElement('div');
+  overlay.className = 'edit-overlay';
+  let closed = false;
+  const close = (): void => {
+    if (closed) return;
+    closed = true;
+    overlay.remove();
+    removeBack();
+  };
+  const removeBack = pushBack(close);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+
+  const sheet = document.createElement('div');
+  sheet.className = 'edit-sheet';
+  overlay.appendChild(sheet);
+
+  const h = document.createElement('h3');
+  h.className = 'edit-sheet-title';
+  h.textContent = 'Delete your account?';
+  sheet.appendChild(h);
+
+  const body = document.createElement('p');
+  body.className = 'section-desc';
+  const email = getAuthUser()?.email;
+  body.textContent =
+    `This closes ${email ? email : 'your account'} and deletes the copy of your lines, ` +
+    'games and statistics stored with it. It cannot be undone, and a paid unlock ' +
+    'is not refunded by it.';
+  sheet.appendChild(body);
+
+  const status = document.createElement('p');
+  status.className = 'settings-note';
+  status.setAttribute('aria-live', 'polite');
+
+  // Export first. The last moment any of this can be saved, and it never closes
+  // the dialog.
+  const exportBtn = document.createElement('button');
+  exportBtn.type = 'button';
+  exportBtn.className = 'btn-secondary';
+  exportBtn.appendChild(Icons.download(16));
+  exportBtn.appendChild(document.createTextNode('Export a backup first'));
+  exportBtn.addEventListener('click', async () => {
+    exportBtn.disabled = true;
+    status.textContent = 'Exporting…';
+    try {
+      const summary = await exportBackupNow();
+      status.textContent = `Backup downloaded — ${summary} ✓`;
+    } catch (err) {
+      status.textContent = `Export failed — ${(err as Error).message}`;
+    } finally {
+      exportBtn.disabled = false;
+    }
+  });
+  sheet.appendChild(exportBtn);
+
+  // The phone's own data is a separate question, asked plainly rather than
+  // assumed either way. Default OFF: someone closing an online account has not
+  // necessarily asked to lose the repertoire on the phone in their hand.
+  const wipeRow = document.createElement('label');
+  wipeRow.className = 'account-consent';
+  const wipe = document.createElement('input');
+  wipe.type = 'checkbox';
+  wipe.className = 'account-consent-box';
+  wipeRow.appendChild(wipe);
+  const wipeText = document.createElement('span');
+  wipeText.className = 'account-consent-text';
+  wipeText.textContent = 'Also erase everything on this phone. Leave this off and your '
+    + 'lines stay here, offline, exactly as they are.';
+  wipeRow.appendChild(wipeText);
+  sheet.appendChild(wipeRow);
+
+  // Type the word. The one place in the app that asks for it, because this is
+  // the one action no backup and no sign-in can undo.
+  const confirmField = document.createElement('label');
+  confirmField.className = 'account-field';
+  const confirmLabel = document.createElement('span');
+  confirmLabel.className = 'account-field-label';
+  confirmLabel.textContent = 'Type DELETE to confirm';
+  confirmField.appendChild(confirmLabel);
+  const confirmInput = document.createElement('input');
+  confirmInput.type = 'text';
+  confirmInput.className = 'account-input';
+  confirmInput.placeholder = 'DELETE';
+  confirmInput.autocapitalize = 'characters';
+  confirmInput.spellcheck = false;
+  confirmField.appendChild(confirmInput);
+  sheet.appendChild(confirmField);
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
+  deleteBtn.className = 'btn-danger';
+  deleteBtn.textContent = 'Delete my account';
+  deleteBtn.disabled = true;
+  confirmInput.addEventListener('input', () => {
+    deleteBtn.disabled = confirmInput.value.trim().toUpperCase() !== 'DELETE';
+  });
+
+  deleteBtn.addEventListener('click', async () => {
+    deleteBtn.disabled = true;
+    exportBtn.disabled = true;
+    status.textContent = 'Deleting…';
+    try {
+      // The account first: if this fails, nothing has been lost and the phone is
+      // untouched.
+      await deleteAccountOnServer();
+    } catch (err) {
+      status.textContent = `Couldn’t delete the account — ${(err as Error).message}`;
+      deleteBtn.disabled = false;
+      exportBtn.disabled = false;
+      return;
+    }
+    const alsoWipe = wipe.checked;
+    await signOutAfterDelete();
+    if (alsoWipe) {
+      try {
+        await eraseAllData();
+        wipeOberturaLocalStorage();
+      } catch {
+        /* the account is already gone; a failed local wipe is not worth blocking on */
+      }
+    }
+    status.textContent = 'Account deleted ✓ — reloading…';
+    setTimeout(() => window.location.reload(), 1200);
+  });
+
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.className = 'edit-cancel-btn';
+  cancel.textContent = 'Cancel';
+  cancel.addEventListener('click', close);
+
+  const btnRow = document.createElement('div');
+  btnRow.className = 'edit-btn-row';
+  btnRow.appendChild(deleteBtn);
+  btnRow.appendChild(cancel);
+
+  sheet.appendChild(status);
+  sheet.appendChild(btnRow);
+  document.body.appendChild(overlay);
 }
 
 // The "Erase everything" block: a heading, a plain warning, and the button that
@@ -1393,8 +1687,8 @@ function buildEraseStep1(
     exportBtn.disabled = true;
     status.textContent = 'Exporting…';
     try {
-      const n = await exportBackupNow();
-      status.textContent = `Backup downloaded — ${n} line${n === 1 ? '' : 's'} ✓`;
+      const summary = await exportBackupNow();
+      status.textContent = `Backup downloaded — ${summary} ✓`;
     } catch (err) {
       status.textContent = `Export failed — ${(err as Error).message}`;
     } finally {

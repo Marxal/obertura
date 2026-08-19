@@ -475,13 +475,76 @@ export interface BackupFile {
   games?: ImportedGame[];
   // localStorage snapshot: streaks, stats, puzzle ratings, prefs (v2+).
   local?: Record<string, string>;
+  /**
+   * v4+: which pieces this file deliberately carries. Absent on every file
+   * written before partial exports existed, and absent is NOT the same as
+   * empty — an old file simply carries everything it had, so readers must treat
+   * `undefined` as "whatever fields are present" rather than as "nothing".
+   *
+   * Its only job is to tell "this export left the games out" apart from "this
+   * user has no games", which matters on restore: a `replace` must not wipe a
+   * section the file was never meant to speak for.
+   */
+  parts?: BackupPart[];
+}
+
+/**
+ * The separable halves of a backup. The split is not arbitrary — each one is a
+ * different KIND of thing to lose:
+ *
+ *   lines     the repertoires: the work. What nothing else can reproduce.
+ *   games     the imported games. Re-fetchable from Chess.com/Lichess, but slow.
+ *   stats     what training earned: review history, streaks, ratings, bests,
+ *             endgame progress, the daily-challenge log.
+ *   settings  everything else the app remembers about how you like it —
+ *             board colours, piece set, notation, filters, onboarding flags.
+ *
+ * Scouted opponents are deliberately absent, here as everywhere: pure
+ * re-fetchable cache, and by far the bulkiest thing on the device.
+ */
+export type BackupPart = 'lines' | 'games' | 'stats' | 'settings';
+
+export const ALL_BACKUP_PARTS: readonly BackupPart[] = ['lines', 'games', 'stats', 'settings'];
+
+// Which localStorage keys are STATISTICS rather than preferences. Listed
+// explicitly, and by prefix where a family of keys shares one (per-mode timed
+// bests, per-account rating history), because the alternative — guessing from
+// the name — would quietly file a new key under the wrong half the day someone
+// adds one. Anything not named here is a preference.
+const STATS_KEY_PREFIXES = [
+  'obertura-review-log',
+  'obertura-reviewed-today',
+  'obertura-training-days',
+  'obertura.brilliantLog',
+  'obertura.dailyChallenge.log',
+  'obertura.endgameProgress',
+  'obertura.endgamePuzzleRating',
+  'obertura.endgamePuzzleRatingHistory',
+  'obertura.endgamePuzzleStreak',
+  'obertura.forgottenMoves',
+  'obertura.lichessRatingHistory.',
+  'obertura.liveRatings',
+  'obertura.puzzleByOpening',
+  'obertura.puzzleLog',
+  'obertura.puzzleRating',
+  'obertura.puzzleRatingHistory',
+  'obertura.puzzleRepeat',
+  'obertura.puzzleSeen',
+  'obertura.puzzleStreak',
+  'obertura.puzzles.taBest.',
+  'obertura.timedBest',
+];
+
+export function localKeyPart(key: string): 'stats' | 'settings' {
+  return STATS_KEY_PREFIXES.some((prefix) => key.startsWith(prefix)) ? 'stats' : 'settings';
 }
 
 const BACKUP_FORMAT = 'obertura-backup';
-// v3 carries repertoires instead of lines. An older build reading one fails
-// loudly in parseBackup ("missing its lines") rather than applying half of it,
-// which is the safe direction for a format change to break in.
-const BACKUP_VERSION = 3;
+// v3 carried repertoires instead of lines; v4 adds the optional `parts` list so
+// a partial export can say what it deliberately left out. Both are additive —
+// a v4 file with every part in it is a v3 file with one extra field, and an
+// older build reads it unchanged.
+const BACKUP_VERSION = 4;
 
 /**
  * The books a backup describes, whichever era it comes from. An old file's flat
@@ -500,23 +563,47 @@ export function backupLineCount(backup: BackupFile): number {
   return backup.lines?.length ?? 0;
 }
 
+// Keys left behind by features that no longer exist. Today that is the Google
+// Drive backup, retired in favour of the account sync: nothing reads these, but
+// a phone that once connected Drive still carries them, so they are swept once
+// at boot (purgeRetiredLocalKeys) and refused a place in any backup meanwhile.
+const RETIRED_KEY_PREFIXES = ['obertura.drive.'];
+
+/**
+ * Remove retired features' leftovers from this device. Called once at boot;
+ * safe to call again, and a no-op on a device that never had them.
+ */
+export function purgeRetiredLocalKeys(): void {
+  try {
+    const doomed: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && RETIRED_KEY_PREFIXES.some((prefix) => key.startsWith(prefix))) doomed.push(key);
+    }
+    for (const key of doomed) localStorage.removeItem(key);
+  } catch {
+    /* storage blocked — nothing to clean up, nothing to break */
+  }
+}
+
 // Which localStorage keys belong in a backup. Everything the app writes starts
 // with "obertura" (both the dot and dash spellings) except the engine toggle.
-// Device/session-specific keys are excluded: the Drive connection and the
-// account-sync state (restoring either onto a fresh device would lie — and the
-// sync blob IS a backup, so carrying "last synced" inside it is circular), plus
-// the OAuth return-path crumb.
+// Device/session-specific keys are excluded: the account-sync state (restoring
+// it onto a fresh device would lie — and the sync blob IS a backup, so carrying
+// "last synced" inside it is circular), plus the OAuth return-path crumb.
 //
 // The entitlement cache is excluded for a sharper reason than "it would lie": it
 // describes an ACCOUNT's plan, and this blob travels. It's what an export
-// downloads, what Drive stores, and what the Supabase sync pushes to every other
-// device — so carrying it would let an entitled user's backup grant full access
-// to whatever phone restored it. Entitlement is only ever read back from the
-// server (entitlement.ts); it must never arrive in a file.
+// downloads and what the Supabase sync pushes to every other device — so
+// carrying it would let an entitled user's backup grant full access to whatever
+// phone restored it. Entitlement is only ever read back from the server
+// (entitlement.ts); it must never arrive in a file.
 function backupLocalKey(key: string): boolean {
   if (key === 'engineEnabled' || key === 'sparEngineEnabled') return true;
   if (!key.startsWith('obertura')) return false;
-  if (key.startsWith('obertura.drive.')) return false;
+  // Retired features' leftovers. Cheap to keep listed: it costs one comparison
+  // and it guarantees a phone that still has them can't push them anywhere.
+  if (RETIRED_KEY_PREFIXES.some((prefix) => key.startsWith(prefix))) return false;
   if (key.startsWith('obertura.sync.')) return false;
   if (key === 'obertura.entitled') return false;
   // The cached Stripe prices (pricing.ts). Excluded for a milder version of the
@@ -528,23 +615,111 @@ function backupLocalKey(key: string): boolean {
   return true;
 }
 
-function snapshotLocalData(): Record<string, string> {
+function snapshotLocalData(parts?: readonly BackupPart[]): Record<string, string> {
+  const wantStats = !parts || parts.includes('stats');
+  const wantSettings = !parts || parts.includes('settings');
   const out: Record<string, string> = {};
+  if (!wantStats && !wantSettings) return out;
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     if (!key || !backupLocalKey(key)) continue;
+    const half = localKeyPart(key);
+    if (half === 'stats' ? !wantStats : !wantSettings) continue;
     const value = localStorage.getItem(key);
     if (value !== null) out[key] = value;
   }
   return out;
 }
 
-// Gather everything into a plain object ready to serialise. Lines and games
-// come straight from IndexedDB; JSON.stringify turns each move's `review.due`
-// Date into an ISO string, which parseBackup() revives on the way back in.
-export async function exportBackup(): Promise<BackupFile> {
-  const [core, games] = await Promise.all([exportCore(), getAllGames()]);
-  return { ...core, games };
+/**
+ * Write the localStorage half of a backup back onto this device. Split out of
+ * restoreBackup so the account sync can apply just this piece after a pull
+ * without going through a whole restore — and so both paths share the one guard
+ * that stops a doctored file planting keys the app doesn't own.
+ */
+export function applyLocalSnapshot(local: Record<string, string>): void {
+  for (const [k, v] of Object.entries(local)) {
+    if (!backupLocalKey(k)) continue;
+    try { localStorage.setItem(k, v); } catch { /* quota — keep restoring the rest */ }
+  }
+}
+
+/**
+ * Gather a backup ready to serialise. Lines and games come straight from
+ * IndexedDB; JSON.stringify turns each move's `review.due` Date into an ISO
+ * string, which parseBackup() revives on the way back in.
+ *
+ * `parts` narrows it. Omitted means everything, which is what every caller
+ * before partial exports existed meant — so the default is unchanged and the
+ * file it produces is byte-compatible apart from the `parts` list itself.
+ *
+ * A narrowed export omits the FIELD, it does not write an empty one: a file with
+ * no `games` key and a `parts` list that doesn't mention games is unambiguous
+ * about the difference between "left out" and "you have none".
+ */
+export async function exportBackup(
+  parts: readonly BackupPart[] = ALL_BACKUP_PARTS,
+): Promise<BackupFile> {
+  const wanted = ALL_BACKUP_PARTS.filter((p) => parts.includes(p));
+  const local = snapshotLocalData(wanted);
+  const file: BackupFile = {
+    format: BACKUP_FORMAT,
+    version: BACKUP_VERSION,
+    exportedAt: new Date().toISOString(),
+    parts: [...wanted],
+  };
+  if (wanted.includes('lines')) file.repertoires = await getAllRepertoires();
+  if (wanted.includes('games')) file.games = await getAllGames();
+  if (Object.keys(local).length > 0) file.local = local;
+  return file;
+}
+
+/** How many localStorage entries of each half a backup carries. */
+export function backupLocalCounts(backup: BackupFile): { stats: number; settings: number } {
+  let stats = 0;
+  let settings = 0;
+  for (const key of Object.keys(backup.local ?? {})) {
+    if (localKeyPart(key) === 'stats') stats++;
+    else settings++;
+  }
+  return { stats, settings };
+}
+
+/**
+ * What a backup actually contains, as the parts a restore would touch. Reads the
+ * `parts` list when the file has one (v4+) and falls back to looking at which
+ * fields are present, which is the only thing an older file can tell us.
+ */
+export function partsInBackup(backup: BackupFile): BackupPart[] {
+  if (backup.parts?.length) {
+    return ALL_BACKUP_PARTS.filter((p) => backup.parts!.includes(p));
+  }
+  const found: BackupPart[] = [];
+  if (backup.repertoires?.length || backup.lines?.length) found.push('lines');
+  if (backup.games?.length) found.push('games');
+  const counts = backupLocalCounts(backup);
+  if (counts.stats > 0) found.push('stats');
+  if (counts.settings > 0) found.push('settings');
+  return found;
+}
+
+/** A human list of what's inside — "42 lines, 300 games and your statistics". */
+export function describeBackup(backup: BackupFile): string {
+  const bits: string[] = [];
+  const parts = partsInBackup(backup);
+  if (parts.includes('lines')) {
+    const n = backupLineCount(backup);
+    bits.push(`${n} line${n === 1 ? '' : 's'}`);
+  }
+  if (parts.includes('games')) {
+    const g = backup.games?.length ?? 0;
+    bits.push(`${g} game${g === 1 ? '' : 's'}`);
+  }
+  if (parts.includes('stats')) bits.push('your statistics');
+  if (parts.includes('settings')) bits.push('your settings');
+  if (bits.length === 0) return 'nothing this app can restore';
+  if (bits.length === 1) return bits[0];
+  return `${bits.slice(0, -1).join(', ')} and ${bits[bits.length - 1]}`;
 }
 
 // Everything EXCEPT the imported games: the lines and the localStorage
@@ -558,6 +733,9 @@ export async function exportCore(): Promise<BackupFile> {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
+    // Everything but the games — named explicitly so a pull can tell this half
+    // apart from a partial export that happened to have no games in it.
+    parts: ['lines', 'stats', 'settings'],
     repertoires: await getAllRepertoires(),
     local: snapshotLocalData(),
   };
@@ -580,23 +758,38 @@ export function parseBackup(text: string): BackupFile {
   if (obj.format !== BACKUP_FORMAT) {
     throw new Error('This doesn’t look like a Bito Chess backup.');
   }
-  // Either era is acceptable, but a file carrying neither is not a backup.
   const hasReps = Array.isArray(obj.repertoires);
   const hasLines = Array.isArray(obj.lines);
-  if (!hasReps && !hasLines) {
-    throw new Error('Backup is missing its repertoire.');
+  const games = validateGames(obj.games);
+  const local = validateLocal(obj.local);
+  // A file is allowed to carry only some of the pieces — that is the whole point
+  // of a parts export. What it may NOT be is empty: a file with no repertoire,
+  // no games and no snapshot restores nothing, and saying so here is kinder than
+  // a silent "restored 0 lines".
+  if (!hasReps && !hasLines && !games && !local) {
+    throw new Error('That backup has nothing in it to restore.');
   }
   return {
     format: BACKUP_FORMAT,
     version: typeof obj.version === 'number' ? obj.version : 1,
     exportedAt: typeof obj.exportedAt === 'string' ? obj.exportedAt : '',
+    parts: validateParts(obj.parts),
     repertoires: hasReps
       ? (obj.repertoires as unknown[]).map((r, i) => validateRepertoire(r, i))
       : undefined,
     lines: hasLines ? (obj.lines as unknown[]).map((l, i) => validateLine(l, i)) : undefined,
-    games: validateGames(obj.games),
-    local: validateLocal(obj.local),
+    games,
+    local,
   };
+}
+
+// The `parts` list, kept only if it names parts this build knows. An unknown
+// name from a future version is dropped rather than trusted — the fields that
+// are actually present are the fallback, and they can't lie.
+function validateParts(raw: unknown): BackupPart[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const parts = ALL_BACKUP_PARTS.filter((p) => raw.includes(p));
+  return parts.length > 0 ? [...parts] : undefined;
 }
 
 // One book, checked the way validateLine checks a line: a single bad record
@@ -655,18 +848,23 @@ function validateLocal(raw: unknown): Record<string, string> | undefined {
 // snapshot simply overwrites its keys (stats/streaks aren't meaningfully
 // mergeable, and the file is the state being restored).
 export async function restoreBackup(backup: BackupFile, mode: 'merge' | 'replace'): Promise<void> {
-  const incoming = repertoiresFrom(backup);
-  if (mode === 'replace') await replaceAllRepertoires(incoming);
-  else await mergeRepertoires(incoming);
-  if (backup.games && backup.games.length > 0) {
+  const parts = partsInBackup(backup);
+
+  // A part the file doesn't carry is a part this restore says nothing about,
+  // and `replace` must respect that: importing a lines-only export must not
+  // wipe the games, and importing a games-only export must not wipe the lines.
+  // Before partial exports existed every file spoke for everything, so this
+  // narrowing only ever fires on a file that asked for it.
+  if (parts.includes('lines')) {
+    const incoming = repertoiresFrom(backup);
+    if (mode === 'replace') await replaceAllRepertoires(incoming);
+    else await mergeRepertoires(incoming);
+  }
+  if (parts.includes('games')) {
     if (mode === 'replace') await clearGames();
-    await saveGames(backup.games);
+    if (backup.games && backup.games.length > 0) await saveGames(backup.games);
   }
-  if (backup.local) {
-    for (const [k, v] of Object.entries(backup.local)) {
-      try { localStorage.setItem(k, v); } catch { /* quota — keep restoring the rest */ }
-    }
-  }
+  if (backup.local) applyLocalSnapshot(backup.local);
 }
 
 // Does this backup carry more than lines? Drives the "reload after restore"

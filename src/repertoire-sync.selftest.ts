@@ -27,11 +27,20 @@ import {
   coreFingerprintOf,
   gamesFingerprintOf,
   gamesForSync,
+  partsToPull,
+  anyPart,
+  shouldApplyRemoteLocal,
   payloadBytes,
   SYNC_GAME_LIMIT,
   type SyncFlags,
 } from './sync-core';
-import { parseBackup, type BackupFile } from './storage';
+import {
+  parseBackup,
+  localKeyPart,
+  partsInBackup,
+  describeBackup,
+  type BackupFile,
+} from './storage';
 import type { Line } from './types';
 
 // A signed-in device that has reconciled and pushed successfully — the baseline
@@ -470,6 +479,155 @@ export function runRepertoireSyncSelfTest(): TestResult[] {
     'a full, heavily-analysed library stays far under the ceiling',
     fullBytes < 1024 * 1024,
     `${SYNC_GAME_LIMIT} slimmed games ≈ ${Math.round(fullBytes / 1024)} KB`,
+  );
+
+  // ── Deciding what to download ─────────────────────────────────────────────
+  //
+  // This is the comparison that makes cross-device sync possible at all, and
+  // the one that was missing: the old module pulled once per device and pushed
+  // for ever after, so a second phone could never learn anything.
+
+  const T1 = '2026-08-19T10:00:00.000Z';
+  const T2 = '2026-08-19T10:05:00.000Z';
+
+  check(
+    'nothing to pull when both stamps are the ones we last saw',
+    !anyPart(partsToPull({ core: T1, games: T1 }, { core: T1, games: T1 })),
+    'an idle poll costs two timestamps and no blob',
+  );
+  check(
+    'a newer core stamp pulls the core and only the core',
+    (() => {
+      const parts = partsToPull({ core: T2, games: T1 }, { core: T1, games: T1 });
+      return parts.core && !parts.games;
+    })(),
+    'editing a line on the other phone must not re-download the games',
+  );
+  check(
+    'a newer games stamp pulls the games and only the games',
+    (() => {
+      const parts = partsToPull({ core: T1, games: T2 }, { core: T1, games: T1 });
+      return parts.games && !parts.core;
+    })(),
+    'importing games on the other phone must not re-download the lines',
+  );
+  check(
+    'a half we have never seen is always worth a look',
+    (() => {
+      const parts = partsToPull({ core: T1, games: T1 }, { core: null, games: null });
+      return parts.core && parts.games;
+    })(),
+    'the first launch after signing in',
+  );
+  check(
+    'a half the account has never held is never fetched',
+    !anyPart(partsToPull({ core: null, games: null }, { core: null, games: null })),
+    'an empty account row costs nothing',
+  );
+  check(
+    'an OLDER remote stamp is not a reason to pull',
+    !anyPart(partsToPull({ core: T1, games: T1 }, { core: T2, games: T2 })),
+    'our own push is newer — downloading it back would be a round trip for nothing',
+  );
+
+  // ── Whose statistics win ──────────────────────────────────────────────────
+
+  check(
+    'the account\u2019s snapshot applies when it is newer than our last push',
+    shouldApplyRemoteLocal({ remoteCoreStamp: T2, lastPushedCoreStamp: T1, localDirty: false }),
+    'the other device trained more recently',
+  );
+  check(
+    'it does not apply when our own push is the newer one',
+    !shouldApplyRemoteLocal({ remoteCoreStamp: T1, lastPushedCoreStamp: T2, localDirty: false }),
+    'we are the most recent writer',
+  );
+  check(
+    'and NEVER applies while this device has unpushed changes',
+    !shouldApplyRemoteLocal({ remoteCoreStamp: T2, lastPushedCoreStamp: T1, localDirty: true }),
+    'the guard that keeps last-write-wins from being lossy',
+  );
+  check(
+    'a first sign-in takes the account\u2019s snapshot',
+    shouldApplyRemoteLocal({ remoteCoreStamp: T1, lastPushedCoreStamp: null, localDirty: false }),
+    'nothing local to weigh it against',
+  );
+
+  // ── Which localStorage keys are statistics ────────────────────────────────
+  //
+  // Getting this wrong doesn't crash: it files a streak under "settings", and
+  // an "export my statistics" quietly leaves it out.
+
+  check(
+    'training history, streaks, ratings and bests are statistics',
+    ['obertura-review-log', 'obertura-training-days', 'obertura.puzzleRating',
+      'obertura.timedBest.blitz', 'obertura.endgameProgress', 'obertura.brilliantLog']
+      .every((k) => localKeyPart(k) === 'stats'),
+    'the things training earns',
+  );
+  check(
+    'board, pieces, filters and onboarding flags are settings',
+    ['obertura.pieceSet', 'obertura.boardColour', 'obertura.lines.filter',
+      'obertura.onboardingComplete', 'obertura.moveNotation']
+      .every((k) => localKeyPart(k) === 'settings'),
+    'the things preference sets',
+  );
+
+  // ── Partial backups ───────────────────────────────────────────────────────
+
+  const linesOnly = parseBackup(JSON.stringify({
+    format: 'obertura-backup',
+    version: 4,
+    exportedAt: T1,
+    parts: ['lines'],
+    repertoires: [{ id: 'r1', name: 'White', colour: 'white', tree: { san: '', uci: '', fen: 'x', children: [] } }],
+  }));
+  check(
+    'a lines-only export parses and reports only lines',
+    partsInBackup(linesOnly).join(',') === 'lines',
+    describeBackup(linesOnly),
+  );
+
+  const statsOnly = parseBackup(JSON.stringify({
+    format: 'obertura-backup',
+    version: 4,
+    exportedAt: T1,
+    parts: ['stats'],
+    local: { 'obertura.puzzleRating': '1500' },
+  }));
+  check(
+    'a statistics-only export parses even with no repertoire at all',
+    partsInBackup(statsOnly).join(',') === 'stats',
+    'the old parser rejected this outright with \u201cmissing its repertoire\u201d',
+  );
+
+  check(
+    'a file with nothing in it is still refused',
+    (() => {
+      try {
+        parseBackup(JSON.stringify({ format: 'obertura-backup', version: 4, exportedAt: T1 }));
+        return false;
+      } catch {
+        return true;
+      }
+    })(),
+    'partial is fine; empty is a mistake worth naming',
+  );
+
+  check(
+    'an old file with no parts list is read from the fields it has',
+    (() => {
+      const legacy = parseBackup(JSON.stringify({
+        format: 'obertura-backup',
+        version: 3,
+        exportedAt: T1,
+        repertoires: [{ id: 'r1', name: 'White', colour: 'white', tree: { san: '', uci: '', fen: 'x', children: [] } }],
+        games: [{ id: 'g1', endTime: 1 }],
+        local: { 'obertura.pieceSet': 'maestro' },
+      }));
+      return partsInBackup(legacy).join(',') === 'lines,games,settings';
+    })(),
+    'every file written before partial exports existed',
   );
 
   return results;

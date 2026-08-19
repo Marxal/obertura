@@ -1,84 +1,85 @@
 // Account sync — the cross-device copy of everything, kept in Supabase.
 //
-// IndexedDB stays the one source of truth for every read; every write
-// schedules a debounced upload (~30s after the last edit, so an editing burst is
-// one request), a "pending" flag survives a failed attempt, and connecting looks
-// for a remote copy BEFORE it ever uploads — so a fresh phone restores instead
-// of clobbering. It uploads a row after you sign in, with no extra step to take.
+// IndexedDB stays the one source of truth for every read. Around it sit two
+// halves of one loop:
 //
-// The payload is a BackupFile — the same JSON "Export backup" downloads — so
-// the same parseBackup/restoreBackup path validates and applies it, and the
-// same merge-vs-replace chooser asks what to do. One format, two transports.
+//   PUSH — every write schedules a debounced upload (~30s after the last edit,
+//   so an editing burst is one request), a "pending" flag survives a failed
+//   attempt, and a fingerprint of what was last sent means an unchanged half
+//   costs no request at all.
 //
-// ── BUT THE SYNCED COPY IS ON A DIET, AND THE BACKUP FILE ISN'T ─────────────
-// Same format, deliberately not the same contents. What goes up is
-// gamesForSync()'s output (sync-core.ts, where the WHY of each exclusion is
-// spelled out): the most recent 500 games, with each game's saved analysis tree
-// and mistake-scan spots stripped off. Those two are engine output, derived from
-// moves that ARE synced, and they were ~80% of every games upload.
+//   PULL — the app asks the account "has either half moved since I last saw
+//   it?" on sign-in, whenever it comes back to the foreground, and every few
+//   minutes while it's open. Two timestamps answer that in a few hundred bytes;
+//   only a half that really has moved is downloaded.
 //
-// The manual backup file keeps all of it, and that difference is intentional
-// rather than an oversight. A backup is a user-controlled export of ONE device,
-// downloaded on purpose, stored wherever the user likes, and paid for by nobody
-// else; the account row is a shared, quota-bearing resource this app writes to
-// automatically on the user's behalf. So the file's rule is "lose nothing" and
-// the row's is "carry only what another device can't recompute". storage.ts's
-// exportBackup is therefore left exactly as it was — anything dropped here is
-// still one "Export backup" tap away.
+// ── WHAT CHANGED, AND WHY IT HAD TO ─────────────────────────────────────────
+// The first version of this module pulled exactly ONCE per device — on the
+// first sign-in — and pushed forever after. That is not sync, and it failed in
+// the obvious way: add lines on phone A, open phone B, and B still showed its
+// own older copy and then pushed it back over A's. There was no way for a
+// second device to ever learn anything. The pull loop above is the fix.
+//
+// ── AND THE MERGE QUESTION IS GONE ──────────────────────────────────────────
+// Signing in used to stop and ask "merge or replace?" every time. It asked at
+// the worst possible moment (you have just typed a password, you have not yet
+// seen the app), the honest answer was always "merge", and cancelling left the
+// device silently unsynced forever. So a pull now ALWAYS merges, with no
+// question:
+//
+//   • repertoires merge by MOVE (storage.mergeRepertoires) — the two trees
+//     become one tree, and the better review record survives on any move both
+//     sides had. Nothing is ever deleted by a pull.
+//   • games merge by id.
+//   • the app-state snapshot (statistics, streaks, ratings, preferences) cannot
+//     merge — there is no union of two streak counters — so it is last-write-
+//     wins on the column's own timestamp, guarded so it can never overwrite
+//     changes this device hasn't pushed yet. See shouldApplyRemoteLocal.
+//
+// The one thing merge cannot do is propagate a DELETION: remove a line on phone
+// A and phone B will hand it back on its next push. That is the honest cost of
+// having no tombstones, it is written down in SUPABASE-SYNC.md, and the escape
+// hatch is explicit rather than a prompt — Settings → Data → "Replace this
+// device from the account" (replaceFromAccount below), which is the old
+// "replace" answer, asked for on purpose instead of guessed at.
 //
 // ── THE COLUMN NAMES LIE A LITTLE, AND IT MATTERS ───────────────────────────
 // `profiles.repertoire` is NOT just the repertoire. The name is a leftover from
 // when the schema was first drafted and lines were the only thing that synced;
-// by the time this shipped it held the whole backup blob. It now holds the
-// backup MINUS the imported games: the lines plus the localStorage snapshot
-// (statistics, streaks, puzzle ratings, endgame progress, preferences). Renaming
-// the column would be a migration for zero user-visible gain, so it stays —
-// don't read the name as a description of the contents.
+// it now holds the backup MINUS the imported games: the lines plus the
+// localStorage snapshot (statistics, streaks, puzzle ratings, endgame progress,
+// preferences). Renaming the column would be a migration for zero user-visible
+// gain, so it stays — don't read the name as a description of the contents.
 //
 // The games live next door in `profiles.games`, and the split is measured, not
 // aesthetic. A game carrying a saved analysis tree costs ~18 KB against ~1.3 KB
 // bare, so a heavy library (1000 games, some analysed) put the full blob at
-// 4–20 MB while the lines-plus-snapshot half stays at 0.2–1.3 MB. Pushing all of
-// it every time a line changed meant re-uploading megabytes of games that hadn't
-// changed — on mobile data, and rewriting the whole TOASTed value in Postgres
-// each time. Two columns off two notifiers (onLinesChanged / onGamesChanged in
-// storage.ts) means an edit sends the small half and games go up only when games
-// actually change, which is rare and deliberate: an import, a saved analysis, a
-// scan run.
+// 4–20 MB while the lines-plus-snapshot half stays at 0.2–1.3 MB. Two columns
+// off two notifiers (onLinesChanged / onGamesChanged in storage.ts) means an
+// edit sends the small half and games go up only when games actually change.
 //
-// With the diet on top, that same 1000-game library now pushes ~0.7 MB of games
-// instead of ~7 MB. Note what this does to the second half of that sentence: a
-// saved analysis or a scan run still fires onGamesChanged, but no longer changes
-// anything that syncs — the fingerprint comes out identical and the push is
-// skipped without a request. Analysing a game is now free, sync-wise.
+// ── THE SYNCED COPY IS ON A DIET, AND THE BACKUP FILE ISN'T ─────────────────
+// What goes up is gamesForSync()'s output (sync-core.ts, where the WHY of each
+// exclusion is spelled out): the most recent 500 games, with each game's saved
+// analysis tree and mistake-scan spots stripped off. Those two are engine
+// output, derived from moves that ARE synced, and they were ~80% of every games
+// upload. The manual backup file keeps all of it, deliberately: a backup is a
+// user-controlled export of ONE device, and the account row is a shared,
+// quota-bearing resource this app writes to on the user's behalf.
 //
-// Scouted opponents stay out entirely, exactly as backup.ts has it — pure
+// Scouted opponents stay out entirely, exactly as the backup file has it — pure
 // re-fetchable cache, and by far the bulkiest thing on the device.
-//
-// ── KNOWN LIMITATION: LAST WRITE WINS ───────────────────────────────────────
-// This is not true sync and doesn't pretend to be. The whole part goes up as one
-// value, so editing on two devices inside the same window means one silently
-// overwrites the other — there is no per-line merge and no way to tell a
-// deletion from a line that simply hasn't arrived yet. Drive backup has exactly
-// the same ceiling today. Lifting it needs a per-line `updatedAt` bumped on
-// every save, plus deletion tombstones so a delete can be told apart from an
-// absence; both are already parked in PUBLISHING.md (lines 131–133). Deliberately
-// NOT attempted here. In practice one person with one phone never meets it, and
-// the sign-in reconcile below asks before it overwrites anything, which covers
-// the case that actually bites (a second device joining).
 //
 // ── THE WHOLE MODULE IS A NO-OP WHEN SUPABASE ISN'T CONFIGURED ──────────────
 // The internal GitHub Pages build ships without the env vars, so
 // `isSupabaseConfigured` is false there, nobody can ever be signed in, and the
-// Account section isn't even built (settings-screen.ts). initAccountSync()
-// returns immediately on that build rather than registering listeners that would
-// fire on every edit — the checks below are belt-and-braces over that UI gating,
-// kept explicit so this build can never make a pointless network call.
+// Account section isn't even built (settings-screen.ts).
 //
 // Fail-soft, like every network client in this repo: an unreachable Supabase
 // never interrupts anything. The change is already safe in IndexedDB; the sync
-// is marked pending/failed, the Account section says so, and the next edit — or
-// the next app launch — retries.
+// is marked pending/failed, the Account section says WHY (see describeSyncError
+// — a generic "will retry" hid a missing table for weeks), and the next edit,
+// the next foreground or the next launch retries.
 
 import { supabase, isSupabaseConfigured } from './supabase';
 import { getAuthUser, onAuthChange } from './auth';
@@ -86,15 +87,17 @@ import {
   exportCore,
   getAllGames,
   parseBackup,
-  restoreBackup,
-  backupHasExtras,
+  applyLocalSnapshot,
+  mergeRepertoires,
+  repertoiresFrom,
+  replaceAllRepertoires,
+  clearGames,
+  saveGames,
   backupLineCount,
-  getAllLines,
   onLinesChanged,
   onGamesChanged,
   type BackupFile,
 } from './storage';
-import { openImportChooser } from './backup';
 import { showToast } from './toast';
 // The pure half lives next door so it can be self-tested under plain Node —
 // importing this module would drag the Supabase client, and `import.meta.env`
@@ -105,10 +108,14 @@ import {
   coreFingerprintOf,
   gamesFingerprintOf,
   gamesForSync,
+  partsToPull,
+  anyPart,
+  shouldApplyRemoteLocal,
   payloadBytes,
   SYNC_PART_LIMIT_BYTES,
   SYNC_TOO_LARGE_MESSAGE,
   type SyncState,
+  type PullParts,
 } from './sync-core';
 
 export { type SyncState } from './sync-core';
@@ -127,27 +134,31 @@ const GAMES_STAMP_COLUMN = 'games_updated_at';
 // are also excluded from backups (storage.ts's backupLocalKey): they describe
 // THIS device's relationship with an account, and restoring them onto another
 // phone would simply lie.
-//
-// ACCOUNT_KEY is the analogue of Drive's "connected" flag: it holds the user id
-// this device has already reconciled with. Its absence is what makes the next
-// sign-in run the fetch-first flow instead of pushing straight away.
 const ACCOUNT_KEY = 'obertura.sync.account';
 const LAST_KEY = 'obertura.sync.last';
 const PENDING_KEY = 'obertura.sync.pending';
 const FAILED_KEY = 'obertura.sync.failed';
-// Why the last push failed, when the reason is one the user can act on (today:
-// only the size ceiling). Absent for the ordinary offline/server failures, which
-// retry on their own and need no explaining. Read by the Account caption.
+// Why the last attempt failed, in words a person can act on. Always written on
+// failure now — the old code only filled it for the size ceiling and left every
+// other failure showing "Sync failed — will retry", which is exactly how a
+// project missing its `profiles` table looked identical to a train tunnel.
 const ERROR_KEY = 'obertura.sync.error';
 // Fingerprints of the two parts as last successfully pushed, so an unchanged
 // part costs nothing (see pushDirtyParts).
 const CORE_FP_KEY = 'obertura.sync.coreFingerprint';
 const GAMES_FP_KEY = 'obertura.sync.gamesFingerprint';
+// The column timestamps this device has already SEEN — set both when we push a
+// value ourselves and when we pull someone else's. A remote stamp that differs
+// from these is another device's work, and the only thing worth downloading.
+const SEEN_CORE_KEY = 'obertura.sync.seenCore';
+const SEEN_GAMES_KEY = 'obertura.sync.seenGames';
 
 // Fired on window whenever the sync state changes, so an open Settings screen
-// can refresh its Account caption without polling. Same idea as
-// DRIVE_CHANGE_EVENT.
+// can refresh its Account caption without polling.
 export const SYNC_CHANGE_EVENT = 'obertura:syncchange';
+// Fired after a pull actually changed something on this device, so open screens
+// can redraw rather than showing what was true a minute ago.
+export const SYNC_PULLED_EVENT = 'obertura:syncpulled';
 
 // ── State readers / writers ───────────────────────────────────────────────────
 
@@ -174,7 +185,7 @@ export function getLastSync(): string | null {
 }
 
 // Has this device already reconciled with the signed-in account? False while
-// signed out, and false on the first sign-in until the fetch-or-seed finishes.
+// signed out, and false on the first sign-in until the first pull finishes.
 function isAccountClaimed(): boolean {
   const user = getAuthUser();
   return !!user && readLocal(ACCOUNT_KEY) === user.id;
@@ -195,8 +206,7 @@ function notifyChange(): void {
   window.dispatchEvent(new Event(SYNC_CHANGE_EVENT));
 }
 
-// The explanation behind a 'failed' state, or null when there isn't a useful
-// one. The Account section shows it in place of the generic caption.
+// The explanation behind a 'failed' state, or null when there isn't one.
 export function getSyncError(): string | null {
   return readLocal(ERROR_KEY);
 }
@@ -206,7 +216,7 @@ function markPending(): void {
   notifyChange();
 }
 
-function markFailed(message: string | null): void {
+function markFailed(message: string): void {
   writeLocal(FAILED_KEY, '1');
   writeLocal(ERROR_KEY, message);
   notifyChange();
@@ -220,42 +230,112 @@ function markSynced(): void {
   notifyChange();
 }
 
+// A round trip that reached the server and came back clean, without necessarily
+// having anything to send. Clears a stale failure without claiming a push.
+function markReachable(): void {
+  if (readLocal(FAILED_KEY) === '1') {
+    writeLocal(FAILED_KEY, null);
+    writeLocal(ERROR_KEY, null);
+    notifyChange();
+  }
+}
+
 function claimAccount(userId: string): void {
   writeLocal(ACCOUNT_KEY, userId);
 }
 
 // Signing out (or losing the session) puts this device back to "never synced
-// here". The remote row is untouched — signing back in finds it again and runs
-// the same fetch-first flow, exactly like reconnecting Drive. The fingerprints
-// go too: they describe an account's copy, and keeping them could make the next
-// account's first push skip a part it has never actually seen.
+// here". The remote row is untouched — signing back in finds it again and pulls
+// it. The fingerprints and seen-stamps go too: they describe one account's copy,
+// and keeping them could make the next account's first push skip a half it has
+// never actually seen.
 function forgetAccount(): void {
-  writeLocal(ACCOUNT_KEY, null);
-  writeLocal(PENDING_KEY, null);
-  writeLocal(FAILED_KEY, null);
-  writeLocal(ERROR_KEY, null);
-  writeLocal(LAST_KEY, null);
-  writeLocal(CORE_FP_KEY, null);
-  writeLocal(GAMES_FP_KEY, null);
+  for (const key of [
+    ACCOUNT_KEY, PENDING_KEY, FAILED_KEY, ERROR_KEY, LAST_KEY,
+    CORE_FP_KEY, GAMES_FP_KEY, SEEN_CORE_KEY, SEEN_GAMES_KEY,
+  ]) writeLocal(key, null);
+  coreDirty = false;
+  gamesDirty = false;
   notifyChange();
+}
+
+// ── Saying what went wrong ────────────────────────────────────────────────────
+//
+// Every failure used to read "Sync failed — will retry", which is true of a
+// tunnel and a lie about a project whose SQL was never run. These are the ones
+// worth naming: each maps a Postgres/PostgREST condition onto the thing the
+// owner of the project would actually have to do about it.
+export function describeSyncError(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err ?? '');
+  const text = message.toLowerCase();
+
+  if (/failed to fetch|networkerror|load failed|offline|network request failed/.test(text)) {
+    return 'Offline — your changes are safe here and go up when you’re back.';
+  }
+  if (/does not exist/.test(text) && /relation|table/.test(text)) {
+    return 'Your Supabase project has no “profiles” table yet — run the SQL in SUPABASE-SYNC.md.';
+  }
+  if (/column .* does not exist|could not find the .* column/.test(text)) {
+    return 'Your “profiles” table is missing a column — re-run the SQL in SUPABASE-SYNC.md.';
+  }
+  if (/row-level security|violates row-level/.test(text)) {
+    return 'Supabase blocked the write (row-level security) — re-run the policies in SUPABASE-SYNC.md.';
+  }
+  if (/permission denied|not authorized|insufficient privilege/.test(text)) {
+    return 'Supabase refused the write — re-run the grants at the end of the SQL in SUPABASE-SYNC.md.';
+  }
+  if (/jwt|token is expired|invalid claim/.test(text)) {
+    return 'Your session expired — sign out and back in.';
+  }
+  if (/duplicate key|conflict/.test(text)) {
+    return 'Two devices wrote at once — the next sync sorts it out.';
+  }
+  // Anything unmapped keeps its real words. Ugly beats mysterious: this is the
+  // string that would otherwise cost a debugging session.
+  return message ? `Sync failed — ${trim(message)}` : 'Sync failed — will retry.';
+}
+
+function trim(text: string): string {
+  return text.length > 160 ? `${text.slice(0, 157)}…` : text;
 }
 
 // ── Fetch ─────────────────────────────────────────────────────────────────────
 
+// The two column timestamps, and nothing else. A few hundred bytes, which is
+// what makes polling for another device's work affordable.
+async function fetchRemoteStamps(userId: string): Promise<{ core: string | null; games: string | null } | null> {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select(`${CORE_STAMP_COLUMN}, ${GAMES_STAMP_COLUMN}`)
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  const row = data as Record<string, unknown> | null;
+  if (!row) return null; // no row yet: the account holds nothing
+  return {
+    core: typeof row[CORE_STAMP_COLUMN] === 'string' ? (row[CORE_STAMP_COLUMN] as string) : null,
+    games: typeof row[GAMES_STAMP_COLUMN] === 'string' ? (row[GAMES_STAMP_COLUMN] as string) : null,
+  };
+}
+
 // Read the copy stored in the user's row, or null when there isn't one yet.
 // Validation is parseBackup's, the same one a hand-picked file goes through, so
 // a corrupt or foreign blob throws here rather than reaching the repertoire.
-// Writing it stays the caller's decision (the merge-vs-replace chooser).
 //
-// A project that hasn't run the `games` migration in SUPABASE-SYNC.md fails here
-// with "column profiles.games does not exist" — which lands, correctly, as
-// "Sync failed — will retry" in the Account section rather than as a crash.
-export async function fetchRemoteBackup(): Promise<BackupFile | null> {
+// `parts` decides which columns are worth the bytes. Asking for neither is not
+// a valid call; asking for one is the common case.
+export async function fetchRemoteBackup(
+  parts: PullParts = { core: true, games: true },
+): Promise<BackupFile | null> {
   const user = getAuthUser();
   if (!user) return null;
+  const columns = [
+    parts.core ? CORE_COLUMN : null,
+    parts.games ? GAMES_COLUMN : null,
+  ].filter(Boolean).join(', ');
   const { data, error } = await supabase
     .from(TABLE)
-    .select(`${CORE_COLUMN}, ${GAMES_COLUMN}`)
+    .select(columns || CORE_COLUMN)
     .eq('id', user.id)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -263,18 +343,17 @@ export async function fetchRemoteBackup(): Promise<BackupFile | null> {
   const text = combineRemote(row?.[CORE_COLUMN] ?? null, row?.[GAMES_COLUMN] ?? null);
   if (text === null) return null;
   // The columns are jsonb, so supabase-js hands back already-parsed values.
-  // Re-serialising to run parseBackup is deliberate: one validator for files,
-  // Drive and Supabase alike — including reviving each move's `review.due` back
-  // into a real Date.
+  // Re-serialising to run parseBackup is deliberate: one validator for files and
+  // for Supabase alike — including reviving each move's `review.due` back into a
+  // real Date.
   return parseBackup(text);
 }
 
 // ── Debounced push ────────────────────────────────────────────────────────────
 //
 // Both parts share one 30s timer and one round trip, with a dirty flag each.
-// Drive's cadence, and there's no reason for the two halves to differ: games
-// change rarely but when they do (a 300-game import, a scan sweep) they fire in
-// bursts that one debounce window absorbs perfectly well.
+// Games change rarely but when they do (a 300-game import, a scan sweep) they
+// fire in bursts that one debounce window absorbs perfectly well.
 
 const PUSH_DELAY_MS = 30_000;
 let pushTimer: number | undefined;
@@ -283,16 +362,13 @@ let coreDirty = false;
 let gamesDirty = false;
 
 // Whether a background push is allowed right now. The account check is what
-// stops us uploading over the cross-device copy before the user has been asked
-// how to reconcile with it.
+// stops us uploading before this device has pulled what the account already has.
 function canPush(): boolean {
   return isSupabaseConfigured && isAccountClaimed();
 }
 
 // A push refused by the size ceiling rather than by the network. Distinct from
-// every other failure here because it will NOT fix itself by retrying, so the
-// caller swaps the generic "will retry" caption for something the user can act
-// on.
+// every other failure here because it will NOT fix itself by retrying.
 class PayloadTooLargeError extends Error {}
 
 // Upload whichever parts are dirty, in ONE upsert — two columns of the same row,
@@ -368,8 +444,16 @@ async function pushDirtyParts(): Promise<void> {
     throw err;
   }
 
-  if (nextCoreFp) writeLocal(CORE_FP_KEY, nextCoreFp);
-  if (nextGamesFp) writeLocal(GAMES_FP_KEY, nextGamesFp);
+  // A stamp we wrote ourselves is a stamp we have already seen, so recording it
+  // here is what stops the next poll downloading our own upload straight back.
+  if (nextCoreFp) {
+    writeLocal(CORE_FP_KEY, nextCoreFp);
+    writeLocal(SEEN_CORE_KEY, now);
+  }
+  if (nextGamesFp) {
+    writeLocal(GAMES_FP_KEY, nextGamesFp);
+    writeLocal(SEEN_GAMES_KEY, now);
+  }
 
   // A refused part stays dirty and stays unfingerprinted, so the state keeps
   // telling the truth: it is still owed, and a later push retries it — which is
@@ -394,11 +478,8 @@ async function runPush(): Promise<void> {
   } catch (err) {
     // Offline, RLS misconfigured, migration not run, Supabase down — none of it
     // is the user's problem mid-edit. The flags carry the retry; Settings shows
-    // the state. The one exception is the size ceiling: retrying can't cure it,
-    // so it carries its own caption instead of "will retry" (never mind that the
-    // data is perfectly safe locally — the user has to be told it isn't
-    // leaving).
-    markFailed(err instanceof PayloadTooLargeError ? err.message : null);
+    // the state, and now the reason with it.
+    markFailed(err instanceof PayloadTooLargeError ? err.message : describeSyncError(err));
   } finally {
     pushBusy = false;
   }
@@ -417,10 +498,10 @@ function schedule(): void {
 
 // Closing the app inside the 30s window shouldn't leave the change owed until
 // the next launch, so hitch a push to the page going away. Best-effort by
-// nature: the browser may kill the page before the request lands, especially on
-// Android. That's survivable rather than lossy — the pending flag is already in
-// localStorage, so the next launch retries, and the fingerprint check makes that
-// retry free if the push did get through.
+// nature: the browser may kill the page before the request lands. That's
+// survivable rather than lossy — the pending flag is already in localStorage, so
+// the next launch retries, and the fingerprint check makes that retry free if
+// the push did get through.
 function flush(): void {
   if (!canPush()) return;
   if (!coreDirty && !gamesDirty) return;
@@ -428,88 +509,226 @@ function flush(): void {
   void runPush();
 }
 
-// ── Sign-in reconcile ─────────────────────────────────────────────────────────
+// ── Pull ──────────────────────────────────────────────────────────────────────
 
-let reconciling = false;
+// How often the app asks whether the other device has been busy, while it is
+// open and in the foreground. Two timestamps per poll; cheap enough to do often,
+// slow enough that a phone left open all day costs a few hundred requests, not
+// tens of thousands.
+const PULL_POLL_MS = 5 * 60_000;
+// Coming back to the foreground always checks, but not more often than this —
+// app-switching on Android fires visibilitychange constantly.
+const PULL_MIN_GAP_MS = 20_000;
 
-// Remember what the account already holds, so the push that follows a restore
-// skips any part the restore left byte-identical. After a `replace` both halves
-// match and nothing goes back up — which is the difference between a silent
-// no-op and immediately re-uploading the megabytes of games we just downloaded.
-// After a `merge` local is ahead, the fingerprints differ, and it pushes.
-function rememberRemoteFingerprints(remote: BackupFile): void {
-  writeLocal(CORE_FP_KEY, coreFingerprintOf(remote));
-  writeLocal(GAMES_FP_KEY, gamesFingerprintOf(remote.games ?? []));
+let pullBusy = false;
+let lastPullAt = 0;
+let pollTimer: number | undefined;
+
+/**
+ * Bring down whatever the account has that this device hasn't seen, and merge
+ * it in. Returns true when something actually changed here.
+ *
+ * Never destructive: repertoires and games merge, and the app-state snapshot is
+ * only applied when the account's copy is genuinely newer than this device's
+ * last push AND this device has nothing unpushed of its own.
+ */
+async function pullFromAccount(opts: { force?: boolean } = {}): Promise<boolean> {
+  const user = getAuthUser();
+  if (!isSupabaseConfigured || !user || pullBusy) return false;
+  if (!opts.force && Date.now() - lastPullAt < PULL_MIN_GAP_MS) return false;
+
+  pullBusy = true;
+  lastPullAt = Date.now();
+  try {
+    const stamps = await fetchRemoteStamps(user.id);
+    markReachable();
+    if (!stamps) return false; // the account holds nothing yet
+
+    const seen = { core: readLocal(SEEN_CORE_KEY), games: readLocal(SEEN_GAMES_KEY) };
+    const parts = partsToPull(stamps, seen);
+    if (!anyPart(parts)) return false;
+
+    const remote = await fetchRemoteBackup(parts);
+    if (!remote) return false;
+
+    let changed = false;
+
+    if (parts.core) {
+      const incoming = repertoiresFrom(remote);
+      if (incoming.length > 0) {
+        await mergeRepertoires(incoming);
+        changed = true;
+      }
+      // The statistics/preferences half: last-write-wins, and only when this
+      // device has nothing of its own still waiting to go up.
+      if (remote.local && shouldApplyRemoteLocal({
+        remoteCoreStamp: stamps.core,
+        lastPushedCoreStamp: readLocal(SEEN_CORE_KEY),
+        localDirty: coreDirty,
+      })) {
+        applyLocalSnapshot(remote.local);
+        changed = true;
+      }
+      writeLocal(SEEN_CORE_KEY, stamps.core);
+    }
+
+    if (parts.games && remote.games && remote.games.length > 0) {
+      await saveGames(remote.games);
+      changed = true;
+    }
+    if (parts.games) writeLocal(SEEN_GAMES_KEY, stamps.games);
+
+    if (changed) window.dispatchEvent(new Event(SYNC_PULLED_EVENT));
+    return changed;
+  } catch (err) {
+    markFailed(describeSyncError(err));
+    return false;
+  } finally {
+    pullBusy = false;
+  }
 }
 
-// First sign-in on this device with this account. Order matters and mirrors
-// Drive's afterConnect(): LOOK before you ever upload. On a new phone the
-// account's copy is the thing the user wants back, and an eager first push of an
-// empty repertoire would destroy it.
-async function reconcile(userId: string): Promise<void> {
-  let remote: BackupFile | null;
+// ── Sign-in ───────────────────────────────────────────────────────────────────
+
+let connecting = false;
+
+/**
+ * First sign-in on this device with this account. LOOK before you upload: on a
+ * new phone the account's copy is the thing the user wants back, and an eager
+ * first push of an empty repertoire would flatten it.
+ *
+ * There is no question here any more — the pull merges. Merging an empty device
+ * with a full account restores it; merging a full device with an empty account
+ * seeds it; merging two full ones keeps both, which is the answer a user would
+ * have picked every time anyway.
+ */
+async function connect(userId: string): Promise<void> {
+  let remote: BackupFile | null = null;
   try {
     remote = await fetchRemoteBackup();
-  } catch {
+  } catch (err) {
     // Unreachable, or a copy we can't read. Claim nothing, push nothing,
-    // destroy nothing: the next auth event or app launch tries again.
-    markFailed(null);
+    // destroy nothing: the next auth event, foreground or launch tries again.
+    markFailed(describeSyncError(err));
     return;
   }
 
-  // Games count as "the account holds something" as much as lines do — a phone
-  // that only ever imported games has a copy worth asking about. A row carrying
-  // ONLY the app-state snapshot doesn't reach the chooser: `local` is never
-  // empty in practice (preferences alone fill it), so treating it as content
-  // would put a merge-or-replace question in front of every genuinely-new
-  // account. Stats-only rows lose to the seeding device; a deliberate line.
-  const hasRemoteData = !!remote && (backupLineCount(remote) > 0 || (remote.games?.length ?? 0) > 0);
-
-  if (remote && hasRemoteData) {
-    // Bound to a const so the callback below keeps the non-null narrowing.
-    const found = remote;
-    const existing = (await getAllLines()).length;
-    openImportChooser(found, existing, async (mode) => {
-      try {
-        await restoreBackup(found, mode);
-      } catch (err) {
-        showToast(`Couldn’t restore from your account — ${(err as Error).message}`);
-        return;
-      }
-      rememberRemoteFingerprints(found);
-      // Only now is this device in step with the account, so only now may it
-      // start pushing. restoreBackup's own writes have already set the dirty
-      // flags through the two notifiers; push straight away rather than waiting
-      // for the next edit, and let the fingerprints decide what's worth sending.
-      claimAccount(userId);
-      const n = backupLineCount(found);
-      showToast(
-        mode === 'replace'
-          ? `Restored ${n} line${n === 1 ? '' : 's'} from your account`
-          : `Merged in ${n} line${n === 1 ? '' : 's'} from your account`,
-        { variant: 'success' },
-      );
-      await runPush();
-      // A copy carrying stats/streaks/games needs a reload to take everywhere —
-      // several modules cache their localStorage state in memory at boot. Same
-      // beat backup.ts leaves before refreshing, so the toast can be read.
-      if (backupHasExtras(found)) setTimeout(() => window.location.reload(), 1200);
-    });
-    // Cancelling leaves the account unclaimed: nothing syncs, the caption says
-    // so, and the next launch asks again. Never assume an answer.
-    return;
+  if (remote) {
+    try {
+      const incoming = repertoiresFrom(remote);
+      if (incoming.length > 0) await mergeRepertoires(incoming);
+      if (remote.games?.length) await saveGames(remote.games);
+      // On a first connect the account's snapshot is applied unconditionally:
+      // there is nothing this device has "already pushed" to weigh it against,
+      // and a new phone signing in wants its streaks and ratings back.
+      if (remote.local) applyLocalSnapshot(remote.local);
+    } catch (err) {
+      markFailed(describeSyncError(err));
+      return;
+    }
+    const n = backupLineCount(remote);
+    if (n > 0) {
+      showToast(`Restored ${n} line${n === 1 ? '' : 's'} from your account`, { variant: 'success' });
+    }
   }
 
-  // Nothing up there yet (a first sign-in, or an account that has only ever been
-  // signed into from an empty device): seed it with what's on this phone, both
-  // halves.
+  // Only now is this device in step with the account, so only now may it push.
   claimAccount(userId);
   coreDirty = true;
   gamesDirty = true;
   await runPush();
+  window.dispatchEvent(new Event(SYNC_PULLED_EVENT));
+
+  // A copy carrying stats/streaks/games needs a reload to take everywhere —
+  // several modules cache their localStorage state in memory at boot. Only on
+  // this first connect: a background pull applies the same keys without one,
+  // because reloading the app under someone mid-drill would be far worse than a
+  // statistic that catches up at the next launch.
+  if (remote && (remote.local || remote.games?.length)) {
+    setTimeout(() => window.location.reload(), 1200);
+  }
+}
+
+// ── The public verbs ──────────────────────────────────────────────────────────
+
+/**
+ * "Sync now" — push anything owed, then pull anything new. Exported for the
+ * Account section's button, and for the places that make a change big enough
+ * that waiting 30 seconds to send it would be wrong (resetting progress, say).
+ *
+ * Returns nothing and never throws: the state flags and the Account caption are
+ * how it reports.
+ */
+export async function syncNow(): Promise<void> {
+  if (!isSupabaseConfigured || !getAuthUser()) return;
+  const user = getAuthUser()!;
+  if (!isAccountClaimed()) {
+    if (connecting) return;
+    connecting = true;
+    try { await connect(user.id); } finally { connecting = false; }
+    return;
+  }
+  window.clearTimeout(pushTimer);
+  if (coreDirty || gamesDirty) await runPush();
+  await pullFromAccount({ force: true });
+}
+
+/** Push everything on this device, whether or not it looks changed. */
+export function markEverythingDirty(): void {
+  coreDirty = true;
+  gamesDirty = true;
+}
+
+/**
+ * The explicit "replace" that the sign-in prompt used to guess at: throw away
+ * what is on this device and take the account's copy exactly. Settings → Data
+ * offers it behind a confirm; nothing calls it on its own.
+ *
+ * Throws with a readable message on failure, because unlike everything else in
+ * this module it was asked for and the user is watching.
+ */
+export async function replaceFromAccount(): Promise<number> {
+  const user = getAuthUser();
+  if (!isSupabaseConfigured || !user) throw new Error('You’re not signed in.');
+  let remote: BackupFile | null;
+  try {
+    remote = await fetchRemoteBackup();
+  } catch (err) {
+    throw new Error(describeSyncError(err));
+  }
+  if (!remote) throw new Error('Your account has no copy yet.');
+
+  await replaceAllRepertoires(repertoiresFrom(remote));
+  await clearGames();
+  if (remote.games?.length) await saveGames(remote.games);
+  if (remote.local) applyLocalSnapshot(remote.local);
+
+  // This device now holds exactly what the account holds, so record both halves
+  // as seen and as pushed — otherwise the push that follows would send back a
+  // byte-identical copy for nothing.
+  writeLocal(CORE_FP_KEY, coreFingerprintOf(remote));
+  writeLocal(GAMES_FP_KEY, gamesFingerprintOf(remote.games ?? []));
+  claimAccount(user.id);
+  markSynced();
+  return backupLineCount(remote);
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
+
+// Everything that reacts to an auth event goes through here rather than running
+// inside supabase-js's callback.
+//
+// THE `setTimeout(0)` IS NOT COSMETIC. supabase-js takes an internal lock around
+// the auth state it is broadcasting, and any `supabase.*` call made from inside
+// that broadcast waits on a lock the broadcast itself is holding. The library's
+// own documentation says not to await inside an onAuthStateChange callback for
+// exactly this reason. Our listeners are invoked synchronously from that
+// callback, so the first thing they did — fetch the profile row — could sit
+// there forever, which looks from the outside exactly like a sync that never
+// works. Hopping to the next task lets the lock go first.
+function deferred(fn: () => void): void {
+  setTimeout(fn, 0);
+}
 
 // Call once at boot, BEFORE initAuth(), so the first auth notification (the
 // stored session being picked up) isn't missed. Returns immediately unless this
@@ -532,35 +751,56 @@ export function initAccountSync(): void {
   // every app switch. flush() is idempotent — with nothing dirty it returns.
   window.addEventListener('pagehide', flush);
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') flush();
+    if (document.visibilityState === 'hidden') {
+      flush();
+      stopPolling();
+      return;
+    }
+    // Back in the foreground: the most likely moment for the other device to
+    // have been busy, and the moment the user is about to look at the lines.
+    if (canPush()) {
+      void pullFromAccount();
+      startPolling();
+    }
   });
 
-  onAuthChange(() => {
+  onAuthChange(() => deferred(() => {
     const user = getAuthUser();
     if (!user) {
+      stopPolling();
       forgetAccount();
       return;
     }
     if (readLocal(ACCOUNT_KEY) === user.id) {
-      // A resumed session (app launch, token refresh). Nothing to ask — but a
-      // debounce timer that died when the app was closed, or a push that failed
-      // offline, is still owed. The dirty flags don't survive a launch and we
-      // can't know WHICH part changed, so offer both and let the fingerprints
-      // sort it out: if the account is already in step this costs one hash of
-      // each half and no request at all.
-      const state = getSyncState();
-      if (state === 'pending' || state === 'failed') {
-        coreDirty = true;
-        gamesDirty = true;
-        void runPush();
-      }
+      // A resumed session (app launch, token refresh). The dirty flags don't
+      // survive a launch and we can't know WHICH half changed while we were
+      // away, so offer both and let the fingerprints sort it out: if the account
+      // is already in step this costs one hash of each half and no request.
+      coreDirty = true;
+      gamesDirty = true;
+      void runPush().then(() => pullFromAccount({ force: true }));
+      startPolling();
       return;
     }
     // A different account, or the first sign-in on this device.
-    if (reconciling) return;
-    reconciling = true;
-    void reconcile(user.id).finally(() => {
-      reconciling = false;
+    if (connecting) return;
+    connecting = true;
+    void connect(user.id).finally(() => {
+      connecting = false;
+      startPolling();
     });
-  });
+  }));
+}
+
+function startPolling(): void {
+  stopPolling();
+  if (document.visibilityState !== 'visible') return;
+  pollTimer = window.setInterval(() => void pullFromAccount(), PULL_POLL_MS);
+}
+
+function stopPolling(): void {
+  if (pollTimer !== undefined) {
+    window.clearInterval(pollTimer);
+    pollTimer = undefined;
+  }
 }

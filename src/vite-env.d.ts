@@ -14,6 +14,11 @@ declare const __DEPLOY_TARGET__: 'github' | 'cloudflare';
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL?: string;
   readonly VITE_SUPABASE_ANON_KEY?: string;
+  // Comma-separated list of the OAuth providers this build should offer:
+  // `google`, `facebook`, `apple`. Unset means `google` alone. A name listed
+  // here that isn't also enabled in the Supabase dashboard produces a button
+  // that fails, so the two must be changed together — see auth.ts.
+  readonly VITE_AUTH_PROVIDERS?: string;
 }
 
 interface ImportMeta {

@@ -231,3 +231,77 @@ export function coreFingerprintOf(backup: BackupFile): string {
 export function gamesFingerprintOf<T extends SyncGame>(games: readonly T[]): string {
   return fingerprint(JSON.stringify(gamesForSync(games)));
 }
+
+// ── Which half is worth downloading ──────────────────────────────────────────
+//
+// The two columns carry a timestamp each, and this device remembers the last
+// stamp it has already SEEN on each — whether it saw it by pushing that value
+// itself or by pulling it. A stamp that has moved since means another device
+// wrote that half, and only then is it worth spending a request on the blob.
+//
+// Reading two timestamptz columns is a few hundred bytes; reading the blobs is
+// up to 4 MB each. That gap is the whole reason this comparison exists rather
+// than the pull simply fetching everything every time.
+
+export interface RemoteStamps {
+  core: string | null;
+  games: string | null;
+}
+
+export interface PullParts {
+  core: boolean;
+  games: boolean;
+}
+
+export function anyPart(parts: PullParts): boolean {
+  return parts.core || parts.games;
+}
+
+// A stamp is "newer" only when it parses AND it is strictly later than the one
+// we hold. Unparseable stamps (a hand-edited row, a null) count as newer when we
+// hold nothing and as unchanged otherwise — the safe direction, since the worst
+// case is one wasted fetch that merges data we already have.
+function movedOn(remote: string | null, seen: string | null): boolean {
+  if (!remote) return false; // that half has never been written at all
+  if (!seen) return true; // we've never seen it — always worth a look
+  if (remote === seen) return false;
+  const r = Date.parse(remote);
+  const s = Date.parse(seen);
+  if (!Number.isFinite(r) || !Number.isFinite(s)) return true;
+  return r > s;
+}
+
+export function partsToPull(remote: RemoteStamps, seen: RemoteStamps): PullParts {
+  return {
+    core: movedOn(remote.core, seen.core),
+    games: movedOn(remote.games, seen.games),
+  };
+}
+
+// ── Whose statistics win ─────────────────────────────────────────────────────
+//
+// The lines and the games MERGE — a union of move trees and a union of games by
+// id, so a pull can never delete another device's work. The app-state snapshot
+// (statistics, streaks, ratings, preferences) cannot merge: there is no sensible
+// union of two streak counters, and pretending otherwise would invent numbers
+// nobody earned. So that half is last-write-wins, decided by the column's own
+// timestamp, and this is the function that decides it.
+//
+// `localDirty` is the guard that makes LWW safe rather than lossy: if this
+// device has unpushed changes of its own, applying the account's snapshot would
+// throw them away before they were ever sent. In that case we push first and
+// pull the snapshot on the next round, when the comparison is honest.
+export function shouldApplyRemoteLocal(opts: {
+  remoteCoreStamp: string | null;
+  lastPushedCoreStamp: string | null;
+  localDirty: boolean;
+}): boolean {
+  if (opts.localDirty) return false;
+  if (!opts.remoteCoreStamp) return false;
+  if (!opts.lastPushedCoreStamp) return true;
+  if (opts.remoteCoreStamp === opts.lastPushedCoreStamp) return false;
+  const r = Date.parse(opts.remoteCoreStamp);
+  const p = Date.parse(opts.lastPushedCoreStamp);
+  if (!Number.isFinite(r) || !Number.isFinite(p)) return true;
+  return r > p;
+}
