@@ -2395,6 +2395,15 @@ have trained it enough the useful next step is to make it longer.
   if the numbers ever stop adding up, something will visibly overflow instead
   of silently clipping. The train icon also drops its accent tint; all four
   icons read as one quiet, equal-weight row now.
+- ✅ **…and the actual fix: the footer moves out from beside the board.** Every
+  round of shrinking text and icons was fighting the wrong constraint — the
+  footer lived inside `.pcard-content`, the narrow column squeezed to one side
+  of the board thumbnail (~226px of a ~350px card). It's appended to the CARD
+  now, a sibling of the board+info row rather than a child of it, so it spans
+  the full card width below the board. Nothing in it needs to be trimmed down
+  any more: the switch, its full "Training ON/OFF" label and all four icons at
+  their normal 36px are back to the same sizing used everywhere else in the
+  app, with room to spare.
 
 _On `claude/lines-library-ui-n0jbi2`. Restore point: `v0.5`._
 
