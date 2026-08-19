@@ -676,7 +676,7 @@ function buildDetailCard(
   if (deps.onTrainLine) {
     const trainBtn = document.createElement('button');
     trainBtn.type = 'button';
-    trainBtn.className = 'dline-icon dline-icon--go';
+    trainBtn.className = 'dline-icon';
     const trainLabel = line.inTraining ? 'Train this line' : 'Add to training';
     trainBtn.setAttribute('aria-label', trainLabel);
     trainBtn.title = trainLabel;

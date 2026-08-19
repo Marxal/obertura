@@ -5602,18 +5602,20 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 /* Icon buttons live at the bottom-right of the card. */
 .dline-iconrow {
   display: flex;
-  gap: 0.2rem;
+  gap: 0.1rem;
   margin-left: auto;
 }
 
-/* Quiet square icon buttons for rename / delete. */
+/* Quiet square icon buttons for rename / delete. Sized down from the usual
+   36px — still a real, tappable target — so four of them can share a row with
+   the training switch's full "Training ON/OFF" label. */
 .dline-icon {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 26px;
+  height: 26px;
   border: none;
   border-radius: 8px;
   background: transparent;
@@ -5771,26 +5773,34 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 .dline-grow:active { background: var(--accent-soft); }
 
-/* The train action in the card's icon row — the one icon there that starts
-   something, so it carries the accent while its neighbours stay quiet. */
-.dline-icon--go { color: var(--accent); }
-.dline-icon--go:hover { color: var(--accent); background: var(--accent-soft); }
-
 /* Footer: training toggle (full "Training ON/OFF" label) bottom-left, icon
-   actions bottom-right. Beside the larger board the content column is only
-   ~226px wide — not enough for the full label AND four icons at a comfortable
-   tap size on the same line, so the row wraps rather than clipping the icons
-   or shrinking them past a size worth tapping. It still holds one row exactly
-   when there's room to (miniatures off, a wider screen). */
+   actions bottom-right, always one row. Beside the larger board the content
+   column is only ~226px wide — not enough for the full label at its normal
+   size AND four full-size icons, so the LABEL's font shrinks to make room
+   (scoped to this footer; .dline-toggle-label is full-size everywhere else it
+   appears). The switch itself and the icons stay full-size — legibility gives
+   way in the one place that's just decoration around a control whose colour
+   already carries the state. */
 .dline-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.4rem 0.5rem;
+  flex-wrap: nowrap;
+  gap: 0.3rem;
   margin-top: 0.15rem;
   padding-top: 0.55rem;
   border-top: 1px solid var(--hairline-soft);
+}
+/* Sized to its (smaller) content, not shrunk to fit — a shrinking toggle is
+   exactly what turned "Training ON" into "T…" before. If the numbers ever
+   stop adding up on some device, the icon row is what should give, not this. */
+.dline-footer .dline-toggle {
+  flex: 0 0 auto;
+  gap: 0.25rem;
+}
+.dline-footer .dline-toggle-label {
+  font-size: 0.58rem;
+  white-space: nowrap;
 }
 
 /* The single training control — a switch + label. Green when ON. */

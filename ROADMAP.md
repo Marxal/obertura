@@ -2381,6 +2381,20 @@ have trained it enough the useful next step is to make it longer.
   It now divides by what's actually been drilled, the same denominator recall%
   is already a percentage of, so the two figures can't read as contradicting
   each other.
+- ✅ **The footer, one more time — same row, full label, matching icons.** Two
+  rows ago the label shrank to "On/Off" to hold one row; the round after that
+  reverted to the full "Training ON/OFF" text and let the row wrap onto two
+  lines rather than clip an icon off the card. Neither was actually wanted:
+  one row AND the full name, always. The card's content column measures out at
+  ~226px next to its board, which doesn't hold "Training ON/OFF" at full size
+  beside four 36px icons — so the LABEL's font shrinks (0.58rem, scoped to this
+  footer) and the icon buttons come down a notch (26px, still a real tap
+  target and clear of WCAG's 24px minimum) while the switch itself stays
+  exactly the size it is everywhere else. The toggle is sized to its content
+  rather than flex-shrunk to fit, so it can never truncate into "T…" again —
+  if the numbers ever stop adding up, something will visibly overflow instead
+  of silently clipping. The train icon also drops its accent tint; all four
+  icons read as one quiet, equal-weight row now.
 
 _On `claude/lines-library-ui-n0jbi2`. Restore point: `v0.5`._
 
