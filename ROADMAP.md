@@ -2694,6 +2694,37 @@ fixes, on top of the four above:
 
 ---
 
+## The sign-in round — two taps, or a link in the post ✅
+
+Signing in asked for an email and a password before it offered anything else,
+which is the slowest way in and the one most likely to end at "what was my
+password again". The sign-in tab is now built the other way round: the accounts
+people already have come first, and typing is the fallback.
+
+- ✅ **Facebook joins Google as a lead button**, both at the same weight. The
+  choice between them is "whichever you already use", so neither may look
+  recommended. This was almost entirely markup: `signInWithProvider()` already
+  handled every provider generically (Facebook included, `email` scope and all),
+  so `signInWithFacebook()` is one line calling it. It still needs the provider
+  enabled in the dashboard and `facebook` added to `VITE_AUTH_PROVIDERS` —
+  `SUPABASE-SYNC.md` §3 has the steps.
+- ✅ **A magic link is the default email path.** "Send me a sign-in link" needs
+  nothing remembered and works from any device, because the link comes back as
+  `token_hash` — the same return leg confirmation and password reset already
+  use, with no new plumbing (`initAuth` hands whatever `type` is on the URL
+  straight to `verifyOtp`; `magiclink` was already in its accepted list).
+- ✅ **The link cannot create an account.** `shouldCreateUser: false`, on
+  purpose: sign-up means agreeing to the Terms, and there is one door for that.
+  An unknown address gets a dialog offering the Registration tab rather than
+  Supabase's own "signups not allowed for otp".
+- ✅ **Password is one small link away** — "Use a password instead" reveals the
+  field, and "Email me a link instead" goes back. One form, so the address you
+  typed survives the switch, and one primary button at a time.
+- ✅ **Registration is untouched.** Same email + password, same consent
+  checkbox, same confirmation email. Only the sign-in surface changed.
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

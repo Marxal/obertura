@@ -67,7 +67,14 @@ export function enabledOAuthProviders(): OAuthProvider[] {
 //   1. an OAuth sign-in (Google/Facebook/Apple) → `?code=…`
 //   2. confirming an email address              → `?token_hash=…&type=signup`
 //   3. a password-reset link                    → `?token_hash=…&type=recovery`
-//   4. "Connect to Lichess" (lichess-auth.ts)   → `?code=…&state=…`
+//   4. a passwordless sign-in link              → `?token_hash=…&type=magiclink`
+//   5. "Connect to Lichess" (lichess-auth.ts)   → `?code=…&state=…`
+//
+// (2), (3) and (4) are ONE mechanism, not three: the same `token_hash` branch
+// hands whatever `type` the URL carries straight to `verifyOtp`. Adding magic
+// link needed no new plumbing here — only a different sentence in the toast,
+// because "Email confirmed" is the wrong thing to say to somebody who just
+// signed in.
 //
 // PKCE is requested explicitly in supabase.ts: supabase-js still defaults to the
 // *implicit* flow, which comes back as a `#access_token=…` fragment instead — a
@@ -244,6 +251,9 @@ export async function initAuth(): Promise<void> {
         showToast(friendlyAuthError(error));
       } else if (authReturn.otpType === 'recovery') {
         beginPasswordRecovery();
+      } else if (authReturn.otpType === 'magiclink' || authReturn.otpType === 'email') {
+        // A sign-in link, not a confirmation — there was no address to confirm.
+        showToast('Signed in', { variant: 'success' });
       } else {
         showToast('Email confirmed — you’re signed in', { variant: 'success' });
       }
@@ -281,6 +291,10 @@ export interface AuthResult {
   // Set when a sign-up succeeded but Supabase is waiting on the confirmation
   // link before it will hand out a session.
   needsEmailConfirmation?: boolean;
+  // Set when a magic-link request was refused because that address has no
+  // account. The UI answers it by offering the Registration tab rather than
+  // just reporting a failure.
+  noSuchAccount?: boolean;
   // A plain-language message, ready to drop straight into a toast.
   message?: string;
 }
@@ -344,6 +358,66 @@ export async function signInWithProvider(provider: OAuthProvider): Promise<AuthR
   } catch (err) {
     return { ok: false, message: friendlyAuthError(err) };
   }
+}
+
+/**
+ * Named shortcuts for the two providers the sign-in screen leads with. They are
+ * one line each on purpose: `signInWithProvider` already does the work for every
+ * provider generically, and a second implementation of it per provider is
+ * exactly the kind of duplication that drifts. These exist so the UI reads as
+ * what it is, and so adding Facebook meant adding a button, not plumbing.
+ */
+export function signInWithGoogle(): Promise<AuthResult> {
+  return signInWithProvider('google');
+}
+
+export function signInWithFacebook(): Promise<AuthResult> {
+  return signInWithProvider('facebook');
+}
+
+/**
+ * Passwordless sign-in: email a one-tap link instead of asking for a password.
+ *
+ * `shouldCreateUser: false` IS THE POINT, not a detail. With it true (the
+ * default) this call quietly becomes a second, parallel way to create an
+ * account — one that skips the consent checkbox and the Terms the Registration
+ * tab makes people agree to. Sign-up has exactly one door, and it is that tab.
+ *
+ * The cost of saying no is that Supabase then answers an unknown address with
+ * `otp_disabled` — meaning "signups are off", which reads like the feature is
+ * broken. `noSuchAccount` marks that one case so the UI can point at
+ * registration instead. That does tell a stranger whether an address is
+ * registered here, which the password-reset sheet deliberately doesn't; the
+ * trade is accepted here because the alternative is a dead end that looks like
+ * a bug ("we sent a link" for a link that will never arrive).
+ */
+export async function signInWithMagicLink(email: string): Promise<AuthResult> {
+  if (!isSupabaseConfigured) return { ok: false, message: 'Accounts aren’t available in this build.' };
+  try {
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: {
+        emailRedirectTo: authRedirectUrl(),
+        shouldCreateUser: false,
+      },
+    });
+    if (error) {
+      return { ok: false, message: friendlyAuthError(error), noSuchAccount: isNoAccountError(error) };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, message: friendlyAuthError(err) };
+  }
+}
+
+// "There's no account here" wearing Supabase's clothes. `otp_disabled` is what
+// comes back when signInWithOtp is told not to create users and the address is
+// unknown; older projects word it as a message instead of a code.
+function isNoAccountError(err: unknown): boolean {
+  const error = err as { code?: unknown; message?: unknown };
+  if (error?.code === 'otp_disabled') return true;
+  return typeof error?.message === 'string'
+    && /signups not allowed for otp|signup.*disabled/i.test(error.message);
 }
 
 /**
@@ -441,6 +515,10 @@ export function friendlyAuthError(err: unknown): string {
     case 'provider_disabled':
     case 'validation_failed_provider':
       return 'That sign-in method isn’t switched on yet.';
+    case 'otp_disabled':
+      // Only reachable from signInWithMagicLink, which asks Supabase not to
+      // create accounts — so this always means "no account with that email".
+      return 'No account with that email yet — register first.';
   }
 
   if (/invalid login credentials/i.test(message)) return 'That email and password don’t match an account.';
@@ -449,6 +527,7 @@ export function friendlyAuthError(err: unknown): string {
   if (/password should be at least/i.test(message)) return 'That password is too short — use at least 6 characters.';
   if (/rate limit|too many/i.test(message)) return 'Too many tries. Wait a minute and try again.';
   if (/expired|invalid.*token/i.test(message)) return 'That link has expired — ask for a new one.';
+  if (/signups not allowed for otp/i.test(message)) return 'No account with that email yet — register first.';
   if (/unsupported provider|provider is not enabled/i.test(message)) return 'That sign-in method isn’t switched on yet.';
   if (/failed to fetch|network|offline/i.test(message)) return 'Couldn’t reach the server — check your connection.';
 

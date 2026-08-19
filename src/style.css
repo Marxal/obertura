@@ -17361,6 +17361,53 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   gap: 0.5rem;
 }
 
+/* Sign-in tab: the two provider buttons lead the section, so they get more
+   presence than a secondary button normally would — taller, on the card
+   surface, with a firmer edge. Both get exactly the same treatment: the choice
+   between them is "whichever account you already have", and a heavier Google
+   would be an answer to a question the app can't know. */
+.account-providers-lead {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.account-provider--lead {
+  min-height: 52px;
+  font-size: 0.975rem;
+  background: var(--bg-card);
+  border-color: var(--border);
+  box-shadow: var(--shadow-card);
+}
+
+/* Email, folded away under the divider — the slower path, kept out of the way
+   until somebody asks for it. */
+.account-email-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* Quieter than the provider buttons above it on purpose — same width so the
+   column stays tidy, but flat and unfilled, so the eye reads it as the fallback
+   rather than a third equal choice. */
+.account-email-toggle {
+  width: 100%;
+  min-height: 44px;
+  background: transparent;
+  border-color: var(--border);
+  box-shadow: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.account-email-toggle:hover { box-shadow: none; }
+
+.account-email-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
 /* The registration consent. A real checkbox, big enough to hit, with the two
    documents linked rather than summarised. */
 .account-consent {

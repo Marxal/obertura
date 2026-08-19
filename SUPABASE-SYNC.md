@@ -241,7 +241,7 @@ exactly wrong for an email, since **mail gets opened wherever mail gets opened**
 Tap the link in Gmail on your phone and it opens in Gmail's own in-app browser,
 which has never heard of the verifier, and the confirmation fails.
 
-`token_hash` has no such requirement. Edit these two templates:
+`token_hash` has no such requirement. Edit these three templates:
 
 **Confirm signup** — replace the link's `href` with:
 
@@ -255,8 +255,18 @@ which has never heard of the verifier, and the confirmation fails.
 {{ .SiteURL }}?token_hash={{ .TokenHash }}&type=recovery
 ```
 
-(If you also use Magic Link or Change Email, they take `type=magiclink` and
-`type=email_change` the same way.)
+**Magic Link** — replace the link's `href` with:
+
+```
+{{ .SiteURL }}?token_hash={{ .TokenHash }}&type=magiclink
+```
+
+This is the one the sign-in tab's **"Send me a sign-in link"** sends, and it is
+the template that matters most for this shape: a sign-in link is opened from a
+phone's mail app more reliably than anything else in this document. The Email
+provider is on already (it's what password sign-in uses), so nothing needs
+enabling — only the template edited. (Change Email takes `type=email_change` the
+same way, if you ever use it.)
 
 The app handles both shapes — `token_hash` and the old `?code=` — so nothing
 breaks while the templates are still the defaults. It just works in fewer places.
@@ -554,7 +564,8 @@ hand any time from **Actions → Supabase keepalive → Run workflow**.
 - [ ] §1 SQL run (table, RLS, grants, size trigger)
 - [ ] §2 Confirm email ON, minimum password length 8, leaked-password check ON
 - [ ] §2 Site URL and Redirect URLs set
-- [ ] §2 Both email templates switched to `token_hash`
+- [ ] §2 All three email templates switched to `token_hash` — Confirm signup,
+      Reset password and **Magic Link**
 - [ ] §2 **Custom SMTP configured** — without it, confirmation emails stop after
       a couple per hour
 - [ ] §2 Email rate limit raised
