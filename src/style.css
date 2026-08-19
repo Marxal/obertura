@@ -5602,20 +5602,18 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 /* Icon buttons live at the bottom-right of the card. */
 .dline-iconrow {
   display: flex;
-  gap: 0.1rem;
+  gap: 0.2rem;
   margin-left: auto;
 }
 
-/* Quiet square icon buttons for rename / delete. Sized down from the usual
-   36px — still a real, tappable target — so four of them can share a row with
-   the training switch's full "Training ON/OFF" label. */
+/* Quiet square icon buttons for rename / delete. */
 .dline-icon {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 36px;
+  height: 36px;
   border: none;
   border-radius: 8px;
   background: transparent;
@@ -5773,34 +5771,20 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 .dline-grow:active { background: var(--accent-soft); }
 
-/* Footer: training toggle (full "Training ON/OFF" label) bottom-left, icon
-   actions bottom-right, always one row. Beside the larger board the content
-   column is only ~226px wide — not enough for the full label at its normal
-   size AND four full-size icons, so the LABEL's font shrinks to make room
-   (scoped to this footer; .dline-toggle-label is full-size everywhere else it
-   appears). The switch itself and the icons stay full-size — legibility gives
-   way in the one place that's just decoration around a control whose colour
-   already carries the state. */
+/* Footer: its own full-width section below the board+info row (appended to
+   the CARD in lines-screen.ts, not the narrow content column beside the
+   board) — training toggle bottom-left, icon actions bottom-right, one row.
+   Full card width is roomy enough that nothing here needs to be trimmed down
+   to fit, unlike when this lived squeezed beside the board. */
 .dline-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: nowrap;
-  gap: 0.3rem;
+  gap: 0.5rem;
   margin-top: 0.15rem;
   padding-top: 0.55rem;
   border-top: 1px solid var(--hairline-soft);
-}
-/* Sized to its (smaller) content, not shrunk to fit — a shrinking toggle is
-   exactly what turned "Training ON" into "T…" before. If the numbers ever
-   stop adding up on some device, the icon row is what should give, not this. */
-.dline-footer .dline-toggle {
-  flex: 0 0 auto;
-  gap: 0.25rem;
-}
-.dline-footer .dline-toggle-label {
-  font-size: 0.58rem;
-  white-space: nowrap;
 }
 
 /* The single training control — a switch + label. Green when ON. */

@@ -631,8 +631,10 @@ function buildDetailCard(
 
   content.appendChild(info);
 
-  // Footer: one row. The training switch anchors the left; every action on
-  // this line lives to its right, in the order each is wanted most: train it,
+  // Footer: its OWN section, full card width, below the board+info row rather
+  // than squeezed into the narrow content column beside the board. The
+  // training switch anchors the left; every action on this line lives to its
+  // right, in the order each is wanted most: train it,
   // edit it, its settings, delete it. Used to be two rows — the switch above
   // its own line, icons on another below — which cost the card a whole extra
   // line for no reason once both fit side by side.
@@ -729,7 +731,10 @@ function buildDetailCard(
   iconRow.appendChild(deleteBtn);
 
   footer.appendChild(iconRow);
-  content.appendChild(footer);
+  // Appended to the CARD, not the content column — a sibling of the board+info
+  // row rather than a child squeezed beside the board, so it spans the whole
+  // card and finally has room for the switch's full label at full size.
+  card.appendChild(footer);
 
   return card;
 }
