@@ -778,14 +778,14 @@ function buildDailyChallengeGroup(): HTMLElement {
         setDailyConfig({ ...cur, enabled: on });
         rebuild();
       }),
-      { sub: 'A few bite-sized tasks at the top of Train each day. Off hides the card.' },
+      { sub: 'A few bite-sized challenges at the top of Train each day. Off hides the card.' },
     ));
 
     if (!config.enabled) return;
 
     const blurb = document.createElement('p');
     blurb.className = 'section-desc';
-    blurb.textContent = 'Choose which tasks to include and how many of each.';
+    blurb.textContent = 'Choose what the challenge includes and how many of each.';
     sec.appendChild(blurb);
 
     for (const id of DAILY_TASK_IDS) sec.appendChild(dailyTaskRow(id, rebuild));

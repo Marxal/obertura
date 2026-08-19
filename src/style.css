@@ -1565,16 +1565,99 @@ main {
   color: var(--text-faint);
 }
 
-/* Both halves done — the card is now a slim success line. */
+/* Both halves done — the card is now a slim success line, and a button: it
+   reopens the day's results popup, whose figures used to be gone the moment it
+   was dismissed. */
 .daily-card--done {
   gap: 0.5rem;
   padding: 0.7rem 0.9rem;
 }
 .daily-card-done-msg {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
   font-size: 0.85rem;
   font-weight: 700;
   color: #5a9e3f;
 }
+.daily-card-done-msg--tap {
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.daily-card-done-msg--tap:active { filter: brightness(0.92); }
+.daily-card-done-chev {
+  margin-left: auto;
+  flex: 0 0 auto;
+  opacity: 0.8;
+}
+
+/* ── The locked daily card ────────────────────────────────────────────────────
+   Under three saved lines the challenge cannot run, so the card introduces
+   itself instead of disappearing: the same rows, greyed and inert, under a bar
+   counting toward the goal. It sits BELOW the Get-started checklist, which
+   answers the question it raises. */
+
+.daily-card--locked {
+  background: var(--bg-card);
+  border-style: dashed;
+}
+.daily-card--locked .daily-card-title { color: var(--text-muted); }
+
+.daily-lock-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: var(--text-faint);
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.daily-locked-blurb {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.daily-goal {
+  display: block;
+}
+.daily-goal-track {
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  overflow: hidden;
+}
+.daily-goal-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.3s ease-out;
+}
+
+/* The preview rows: real icon, real label, nothing behind them. */
+.daily-task--locked {
+  background: var(--bg-elevated);
+  color: var(--text-faint);
+  border-style: dashed;
+  cursor: default;
+}
+.daily-task--locked .daily-task-icon { color: var(--text-fainter); }
+
+.daily-locked-cta { align-self: flex-start; }
 
 /* ── "Get started" panel (first-steps.ts) ─────────────────────────────────────
    Takes the daily challenge's slot at the top of Train until five lines are
@@ -13768,6 +13851,92 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   box-shadow: 0 0 0 2px var(--accent);
 }
 
+/* ── Performance banding on the two calendars ─────────────────────────────────
+   A day with a daily challenge behind it is coloured by how it WENT rather than
+   by whether it happened, and is a real button that reopens that day's results
+   popup (see daily-review.ts). Days with nothing logged keep the plain
+   trained/not fill above and stay inert, so every coloured cell is pressable and
+   every pressable cell is coloured.
+
+   The palette is deliberately NOT a gradient: four steps, each far enough from
+   its neighbour to be told apart at 20px, and each carrying its own text colour
+   so the number on it stays legible. `--perf` is the fill; the rules below set
+   it once per band and everything else reads it. */
+
+.stats-cell--perf {
+  --perf: var(--bg-elevated);
+  --perf-ink: var(--text-muted);
+  background: var(--perf);
+  border-color: var(--perf);
+  color: var(--perf-ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  -webkit-tap-highlight-color: transparent;
+}
+.stats-cell--perf:active { filter: brightness(0.94); }
+
+/* The week strip's cells are laid out by their own rule; a <button> needs the
+   border and padding reset that a <div> never had. */
+.stats-week-cell.stats-cell--perf {
+  border: none;
+  padding: 0.5rem 0;
+  width: 100%;
+}
+.stats-week-cell.stats-cell--perf .stats-week-num { color: var(--perf-ink); }
+
+/* Under 70% — the day happened and it was hard. Muted brick, never alarming:
+   a low day is information, not a telling-off. */
+.stats-cell--low {
+  --perf: color-mix(in srgb, var(--danger) 55%, var(--bg-elevated));
+  --perf-ink: var(--text);
+}
+/* 70%+ — a solid, ordinary day. */
+.stats-cell--mid {
+  --perf: color-mix(in srgb, var(--success) 45%, var(--bg-elevated));
+  --perf-ink: var(--text);
+}
+/* 90%+ — a good one. */
+.stats-cell--high {
+  --perf: var(--success);
+  --perf-ink: #fff;
+}
+/* Not one move missed — the brass the perfect-day popup uses, so the rare thing
+   looks rare here too. */
+.stats-cell--perfect {
+  --perf: var(--accent);
+  --perf-ink: #fff;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 60%, #fff);
+}
+/* Today's ring has to survive the band's own background. */
+.stats-cal-cell--today.stats-cell--perf { box-shadow: 0 0 0 2px var(--accent); }
+.stats-week-cell--today.stats-cell--perf { box-shadow: inset 0 0 0 2px var(--accent); }
+
+/* The legend under the hero — four swatches and their thresholds. */
+.stats-perf-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.8rem;
+  margin-top: 0.55rem;
+  font-size: 0.64rem;
+  font-weight: 600;
+  color: var(--text-faint);
+}
+.stats-perf-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.stats-perf-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--perf, var(--bg-elevated));
+  box-shadow: none;
+}
+
 /* The Your-games empty state's inline import form. .stats-region carries no side
    padding on a phone (its heading and every widget bring their own), so this
    brings the same 1rem gutter the heading above it uses. */
@@ -15959,196 +16128,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   width: 100%;
 }
 
-/* ── Learn (builder slide + Explore tab) ──────────────────────────────────────
-   Content for the opening on the board: opening-name header, Wikibooks theory
-   text, video cards / search pills, and the Explore tab's per-family cards.
-   Shared builders live in content-ui.ts. */
-
-.learn-head {
-  padding: 0.4rem 0.25rem 0;
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--text);
-}
-.learn-hint {
-  padding: 0.15rem 0.25rem 0.2rem;
-  font-size: 0.78rem;
-  color: var(--text-muted);
-}
-.learn-note {
-  padding: 0.3rem 0.25rem;
-  font-size: 0.8rem;
-  color: var(--text-faint);
-}
-/* Small uppercase section label (Theory / Videos / On Lichess / …). */
-.learn-sec {
-  margin-top: 0.55rem;
-  padding: 0 0.25rem 0.15rem;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-}
-/* Pill-shaped external links; a row wraps on narrow screens. */
-.learn-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  padding: 0.15rem 0.25rem 0.3rem;
-}
-.learn-link {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.42rem 0.7rem;
-  border: 1px solid var(--hairline-soft);
-  border-radius: 999px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text);
-  text-decoration: none;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.learn-link:active { background: var(--accent-soft); }
-/* A "Show more" pill under a growing video list. */
-.learn-more {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.35rem 0.25rem 0.1rem;
-}
-.learn-more-btn {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.42rem 0.8rem;
-  border: 1px solid var(--hairline-soft);
-  border-radius: 999px;
-  background: none;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text);
-  cursor: pointer;
-}
-.learn-more-btn:active { background: var(--accent-soft); }
-.learn-more-btn:disabled { opacity: 0.6; }
-/* A tappable video row: the link (thumbnail + title + channel) plus its actions. */
-.learn-video-row {
-  display: flex;
-  align-items: center;
-  gap: 0.2rem;
-  border-bottom: 1px solid var(--hairline-soft);
-}
-.learn-video-link {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  flex: 1;
-  min-width: 0;
-  padding: 0.4rem 0.25rem;
-  text-decoration: none;
-  color: inherit;
-}
-.learn-video-link:active { background: var(--accent-soft); }
-/* Favourite (★) + "not interested" (⊘) buttons at the right of a video row. */
-.learn-video-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.1rem;
-  flex: none;
-}
-.learn-video-act {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border: none;
-  border-radius: 999px;
-  background: none;
-  color: var(--text-faint);
-  cursor: pointer;
-}
-.learn-video-act:active { background: var(--accent-soft); }
-.learn-video-act.is-fav { color: #e0a72f; }
-.learn-video-act.is-fav .learn-video-act-icon { fill: #e0a72f; }
-.learn-video-thumb {
-  width: 96px;
-  height: 54px;
-  border-radius: 6px;
-  object-fit: cover;
-  flex: none;
-  background: var(--hairline-soft);
-}
-.learn-video-meta { flex: 1; min-width: 0; }
-.learn-video-title {
-  font-size: 0.82rem;
-  font-weight: 600;
-  line-height: 1.25;
-  color: var(--text);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.learn-video-channel {
-  margin-top: 0.1rem;
-  font-size: 0.72rem;
-  color: var(--text-muted);
-}
-/* Explore → Learn: one card per opening family from your saved lines. */
-.learn-family-card {
-  border: 1px solid var(--hairline-soft);
-  border-radius: 12px;
-  padding: 0.55rem 0.65rem;
-  margin-bottom: 0.6rem;
-}
-.learn-family-head {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  margin-bottom: 0.15rem;
-}
-.learn-family-name {
-  flex: 1;
-  min-width: 0;
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--text);
-}
-.learn-family-count {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.72rem;
-  color: var(--text-muted);
-}
-.learn-family-count .colour-pip {
-  width: 12px;
-  height: 12px;
-}
-/* Favourites / Watched shelves at the top & bottom of Explore → Learn. */
-.learn-shelf { margin-bottom: 0.6rem; }
-/* The discrete "search this exact position" link atop the board Learn tab. */
-.learn-exact {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  margin: 0.1rem 0.25rem 0.15rem;
-  padding: 0.28rem 0.6rem;
-  border: 1px solid var(--hairline-soft);
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-decoration: none;
-}
-.learn-exact:active { background: var(--accent-soft); }
-
 /* ── Packs tab: collapsed pack accordions + Lichess study browser ─────────── */
 /* The pack accordions reuse the onboarding picker's .onb-pack look; only the
    layout glue and the study browser need their own rules. */
@@ -16346,44 +16325,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   .packs-pack-lines,
   .study-list {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-/* ── Learn: one shelf per column, the saved shelves full width ── */
-@media (min-width: 960px) {
-  /* Not the fixed 2-then-3 the card lists use: a video row is a thumbnail, a
-     two-line title and its two actions, and it stops being readable under
-     roughly 420px. So the column COUNT is derived from that minimum instead of
-     from the breakpoint — two columns on a laptop, more only on a screen with
-     the room for them. Both grids share the track so a shelf's rows line up
-     with the family cards beneath it. */
-  .learn-tab {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
-    align-items: start;
-    column-gap: var(--space-lg);
-  }
-  /* The intro, the empty state and the Favourites / Watched bookends are not
-     per-opening shelves — they read across the whole tab. */
-  .learn-tab > .section-desc,
-  .learn-tab > .empty-state,
-  .learn-tab > .learn-shelf {
-    grid-column: 1 / -1;
-  }
-  /* …and being full width, their own rows grid instead of running as one long
-     column of near-empty lines. */
-  .learn-shelf-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
-    align-items: start;
-    column-gap: var(--space-lg);
-  }
-  /* Gap does the spacing between the family cards now. Their content loads
-     async (video thumbnails), so the row heights differ — align-items: start
-     above keeps a short card from stretching to its neighbour's height. */
-  .learn-tab > .learn-family-card {
-    margin-bottom: var(--space-md);
-    min-width: 0;
   }
 }
 
@@ -18383,6 +18324,16 @@ html.picker-open body {
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--text);
+}
+
+/* The date line on a REOPENED recap — the one thing that says this is a day
+   being looked back at rather than one just finished. */
+.dc-pop-day {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
 }
 
 .dc-pop-sub {

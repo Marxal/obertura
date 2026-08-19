@@ -55,25 +55,13 @@ import { getAuthUser } from './auth';
 import { canInstallApp, isAppInstalled } from './gate';
 import { isEntitled } from './entitlement';
 import { isBuilderTourComplete } from './onboarding-tour';
+import { TRAINING_UNLOCK_LINES } from './training-goal';
 
-// The number of SAVED lines that unlocks training, and the goal this panel's bar
-// counts toward. They're deliberately the same number.
-//
-// Why three and not one: training with a single line is a party trick, not a
-// habit. The scheduler shows you the one thing you already know, declares you
-// finished, and the whole loop the app is built around never gets a chance to
-// look like anything. Three lines is the smallest rotation where a session has
-// some variety in it and "due today" means something. It's still small enough to
-// reach in one sitting — a starter pack alone clears it.
-export const TRAINING_UNLOCK_LINES = 3;
-
-// Why training is greyed out below the goal, for the Train screen's mode cards.
-export function trainingLockReason(lineCount: number): string {
-  const left = Math.max(0, TRAINING_UNLOCK_LINES - lineCount);
-  return lineCount === 0
-    ? `Save ${TRAINING_UNLOCK_LINES} lines to unlock training`
-    : `${left} more line${left === 1 ? '' : 's'} to unlock training`;
-}
+// The three-line goal lives in training-goal.ts — a leaf module, so the daily
+// challenge can have the number without dragging this file's browser
+// dependencies (auth, Supabase, the install gate) into the headless self-tests.
+// Re-exported here because this panel is where it is most obviously about.
+export { TRAINING_UNLOCK_LINES, trainingLockReason } from './training-goal';
 
 export interface FirstStepsDeps {
   // How many lines are SAVED (not how many are in training) — the panel is about

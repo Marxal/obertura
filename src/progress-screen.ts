@@ -75,6 +75,12 @@ import {
   setCalendarExpanded,
   type StatsRange,
 } from './prefs';
+import {
+  dailyPerformanceByDay, performanceBand, showRecapForDay,
+  PERFORMANCE_MID, PERFORMANCE_HIGH,
+  type DayPerformance, type PerformanceBand,
+} from './daily-review';
+import { formatDayLabel } from './daily-recap';
 
 export interface ProgressCallbacks {
   onTrainLine: (lineId: string, inTraining: boolean) => void;
@@ -235,10 +241,21 @@ function attachRangeSwipe(el: HTMLElement, chipRow: HTMLElement): void {
 }
 
 // ── 1. Streak hero (+ month-calendar accordion) ─────────────────────────────
+//
+// Both calendars — the rolling 7-day strip and the month grid — used to say one
+// thing: trained, or not. That is the least of what is known about a day. The
+// daily-challenge log holds how it WENT, so a day with a challenge behind it is
+// banded by accuracy (see daily-review.performanceBand) and is TAPPABLE: it
+// reopens that day's completion popup, figures and all. A day with nothing
+// logged keeps the plain trained/not mark and stays inert — a tap that opens
+// nothing is worse than no tap at all.
 
 function renderStreakHero(container: HTMLElement): void {
   const streak = currentStreak();
   const today = trainedToday();
+  // Read once for the whole hero: both calendars colour from the same map.
+  const performance = dailyPerformanceByDay();
+  const todayKey = localDateKey(new Date());
 
   const hero = document.createElement('div');
   hero.className = 'stats-streak-hero';
@@ -280,15 +297,24 @@ function renderStreakHero(container: HTMLElement): void {
     const key = localDateKey(d);
     const trained = trainingDays.has(key);
     const isToday = i === 0;
+    const perf = performance.get(key);
+    const band = performanceBand(perf);
 
     const col = document.createElement('div');
     col.className = 'stats-week-col';
 
-    const cell = document.createElement('div');
+    // A day with a challenge behind it is a button; one without is a plain div,
+    // so there is nothing to press that doesn't answer.
+    const cell = document.createElement(perf ? 'button' : 'div');
+    if (cell instanceof HTMLButtonElement) {
+      cell.type = 'button';
+      cell.addEventListener('click', () => { void showRecapForDay(key, todayKey); });
+    }
     cell.className = 'stats-week-cell'
       + (trained ? ' stats-week-cell--on' : '')
-      + (isToday ? ' stats-week-cell--today' : '');
-    cell.setAttribute('aria-label', `${key}: ${trained ? 'trained' : 'not trained'}`);
+      + (isToday ? ' stats-week-cell--today' : '')
+      + (perf ? ` stats-cell--perf stats-cell--${band}` : '');
+    cell.setAttribute('aria-label', dayCellLabel(key, trained, perf));
 
     const numEl = document.createElement('span');
     numEl.className = 'stats-week-num';
@@ -318,14 +344,57 @@ function renderStreakHero(container: HTMLElement): void {
   hero.appendChild(sub);
 
   // The month calendar rides at the bottom of the hero as a collapsible row.
-  appendCalendarAccordion(hero, now, trainingDays);
+  appendCalendarAccordion(hero, now, trainingDays, performance, todayKey);
+
+  // One quiet legend, so the bands are readable rather than decorative. Only
+  // once there is something banded to read.
+  if (performance.size > 0) hero.appendChild(buildPerformanceLegend());
 
   container.appendChild(hero);
 }
 
+// What a calendar cell announces. The performance days say how they went, which
+// is also what makes the tap worth offering.
+function dayCellLabel(key: string, trained: boolean, perf: DayPerformance | undefined): string {
+  const day = formatDayLabel(key);
+  if (!perf) return `${day}: ${trained ? 'trained' : 'not trained'}`;
+  return `${day}: ${perf.right} of ${perf.total} moves right (${perf.accuracy}%)`
+    + `${perf.done ? ', challenge cleared' : ''} — see the results`;
+}
+
+// The banding, spelled out once. Four swatches and their thresholds; the
+// numbers come from daily-review so the legend can't drift from the colours.
+function buildPerformanceLegend(): HTMLElement {
+  const el = document.createElement('div');
+  el.className = 'stats-perf-legend';
+
+  const item = (band: PerformanceBand, label: string): HTMLElement => {
+    const row = document.createElement('span');
+    row.className = 'stats-perf-legend-item';
+    const dot = document.createElement('span');
+    dot.className = `stats-perf-dot stats-cell--${band}`;
+    dot.setAttribute('aria-hidden', 'true');
+    row.appendChild(dot);
+    row.appendChild(document.createTextNode(label));
+    return row;
+  };
+
+  el.appendChild(item('low', `under ${PERFORMANCE_MID}%`));
+  el.appendChild(item('mid', `${PERFORMANCE_MID}%+`));
+  el.appendChild(item('high', `${PERFORMANCE_HIGH}%+`));
+  el.appendChild(item('perfect', 'perfect'));
+  return el;
+}
+
 // A tappable "Times trained this month" row that reveals the month calendar;
 // the open/closed choice is remembered across visits (default collapsed).
-function appendCalendarAccordion(hero: HTMLElement, now: Date, trainingDays: Set<string>): void {
+function appendCalendarAccordion(
+  hero: HTMLElement,
+  now: Date,
+  trainingDays: Set<string>,
+  performance: Map<string, DayPerformance>,
+  todayKey: string,
+): void {
   const year = now.getFullYear();
   const month = now.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -359,7 +428,7 @@ function appendCalendarAccordion(hero: HTMLElement, now: Date, trainingDays: Set
   head.appendChild(chev);
   wrap.appendChild(head);
 
-  const cal = buildMonthCalendar(now, trainingDays);
+  const cal = buildMonthCalendar(now, trainingDays, performance, todayKey);
   cal.hidden = !expanded;
   wrap.appendChild(cal);
 
@@ -374,10 +443,14 @@ function appendCalendarAccordion(hero: HTMLElement, now: Date, trainingDays: Set
   hero.appendChild(wrap);
 }
 
-function buildMonthCalendar(now: Date, trainingDays: Set<string>): HTMLElement {
+function buildMonthCalendar(
+  now: Date,
+  trainingDays: Set<string>,
+  performance: Map<string, DayPerformance>,
+  todayKey: string,
+): HTMLElement {
   const year = now.getFullYear();
   const month = now.getMonth();
-  const todayKey = localDateKey(now);
   const firstDow = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
@@ -403,11 +476,22 @@ function buildMonthCalendar(now: Date, trainingDays: Set<string>): HTMLElement {
   }
   for (let d = 1; d <= daysInMonth; d++) {
     const key = localDateKey(new Date(year, month, d));
-    const cell = document.createElement('span');
+    const trained = trainingDays.has(key);
+    const perf = performance.get(key);
+    const band = performanceBand(perf);
+    // Same rule as the week strip: a day with a challenge behind it is a button
+    // that reopens its results; anything else stays a plain cell.
+    const cell = document.createElement(perf ? 'button' : 'span');
+    if (cell instanceof HTMLButtonElement) {
+      cell.type = 'button';
+      cell.addEventListener('click', () => { void showRecapForDay(key, todayKey); });
+    }
     cell.className = 'stats-cal-cell'
-      + (trainingDays.has(key) ? ' stats-cal-cell--on' : '')
-      + (key === todayKey ? ' stats-cal-cell--today' : '');
+      + (trained ? ' stats-cal-cell--on' : '')
+      + (key === todayKey ? ' stats-cal-cell--today' : '')
+      + (perf ? ` stats-cell--perf stats-cell--${band}` : '');
     cell.textContent = String(d);
+    cell.setAttribute('aria-label', dayCellLabel(key, trained, perf));
     grid.appendChild(cell);
   }
   cal.appendChild(grid);

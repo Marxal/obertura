@@ -234,7 +234,7 @@ export function runMistakeScanSelfTest(): TestResult[] {
     check('window truncation alone marks capped=true', windowed.capped === true);
   }
 
-  // ── nextDailyTask (the daily "Next task →" chain) ───────────────────────────
+  // ── nextDailyTask (the "Next challenge →" chain) ────────────────────────────
   const day = (over: Partial<Record<DailyTaskId, boolean>>) =>
     ({ lines: false, positions: false, puzzles: false, endgames: false, mistakes: false, ...over });
   const ALL: DailyTaskId[] = ['lines', 'positions', 'puzzles', 'endgames', 'mistakes'];

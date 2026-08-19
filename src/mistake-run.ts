@@ -80,7 +80,7 @@ export interface MistakeSessionOptions {
   // Open this game in the full analyser. The session suspends itself first and
   // hands over resume/discard hooks via ctx.
   onOpenGame?: (game: ImportedGame, ctx?: OpenGameCtx) => void;
-  // Daily challenge: the results screen's primary jumps to the next task.
+  // Daily challenge: the results screen's primary jumps to the next challenge.
   nextAction?: { label: string; run: () => void };
   modeLabel?: string;              // e.g. a category label or "Daily challenge"
 }
@@ -584,7 +584,7 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
     const actions = document.createElement('div');
     actions.className = 'pz-results-actions';
 
-    // Daily challenge: straight on to the next task is the main action.
+    // Daily challenge: straight on to the next challenge is the main action.
     if (opts.nextAction) {
       const next = document.createElement('button');
       next.type = 'button';
