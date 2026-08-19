@@ -6034,6 +6034,61 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   gap: 0.4rem;
 }
 
+/* THE OVERLAP FIX. Row 1 is a nowrap flex row, and the colour segment carried
+   `min-width: 0` with nowrap children and no overflow of its own — so on a
+   narrow phone (or once the count badges reach three digits) it shrank BELOW its
+   contents and the Black chip ran out from under it, straight across the search,
+   sort and view icons. Nothing clipped it, because nothing was told to.
+
+   So the segment now scrolls itself instead of overflowing, its chips refuse to
+   shrink, and the tools group is fixed-size and always wins the space it needs.
+   A fade on the segment's trailing edge says there is more to scroll to, since
+   the scrollbar is hidden. */
+.fbar .dfilter-seg {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  /* Room for the fade, so the last chip is never half-hidden under it. */
+  scroll-padding-inline-end: 0.5rem;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 14px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 14px), transparent);
+}
+/* No fade when everything already fits — the commonest case by far. */
+.fbar .dfilter-seg:not(.dfilter-seg--overflowing) {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+.fbar .dfilter-seg::-webkit-scrollbar { display: none; }
+.fbar .dfilter-seg > .dfilter-btn { flex: 0 0 auto; }
+
+/* The icons keep their room whatever the segment does. */
+.fbar-top > .fbar-tools { flex: 0 0 auto; }
+
+/* On a phone the colour chips drop their WORDS and keep their pips. Row 1 now
+   carries four icon controls (search, sort, group, tree), and "All · White 12 ·
+   Black 9" plus four 34px buttons does not fit 380px — the segment scrolled and
+   half of Black sat under the fade. The pip already says which side each chip
+   is, the count is the number people actually read, and the words stay on the
+   button's aria-label, so nothing is lost but the width.
+
+   "All" has no pip, so it keeps its word — a bare number would say nothing. */
+@media (max-width: 460px) {
+  .fbar .dfilter-btn:has(.colour-pip) .dfilter-btn-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .fbar .dfilter-btn { padding-inline: 0.5rem; }
+}
+
 /* The whole bar reads in the Phase 1 primary green when active. */
 .fbar .dfilter-btn.active {
   background: var(--primary);
@@ -11003,11 +11058,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   align-items: center;
   gap: 0.35rem;
 }
-.rmap-legend-dash {
-  width: 18px;
-  height: 0;
-  border-top: 1.5px dashed var(--accent);
-}
 .rmap-legend-dot {
   display: inline-flex;
   align-items: center;
@@ -13403,9 +13453,26 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 .dgroup--deep .dgroup-pip { display: block; }
 
-/* Fourth state — tree view (merged by position). It isn't another way of
-   grouping a list, so it gets its own glyph rather than another pip. */
-.dgroup--tree {
+/* The tree view's own button, beside the grouping one. It used to be the fourth
+   stop on that control's cycle, which put the only view that draws the
+   repertoire AS a repertoire three taps deep behind an icon whose other states
+   are all lists, with nothing on screen to say it existed. Same round shape as
+   its neighbours; the accent (rather than the primary green the list controls
+   take) says it is a different kind of thing, not a fourth grouping. */
+.dtree {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--bg-card);
+  color: var(--text-faint);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.dtree.active {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;

@@ -22,6 +22,10 @@ export const Icons = {
   // ── Navigation ──────────────────────────────────────────────────────────────
   build:    (s?: number) => svg(`<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>`, s),
   list:     (s?: number) => svg(`<path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/>`, s),
+  // The "group this list" mark on the filter bar (Lucide "rows-3"): a list cut
+  // into bands. Distinct from `tree`, which is now only ever the branching
+  // structure itself.
+  rows:     (s?: number) => svg(`<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/>`, s),
   zap:      (s?: number) => svg(`<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>`, s),
   search:   (s?: number) => svg(`<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>`, s),
   trending: (s?: number) => svg(`<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>`, s),
