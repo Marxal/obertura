@@ -11,7 +11,10 @@
 import type { Line } from './types';
 import type { ColourFilter } from './filters';
 import { mainlineNodes } from './scheduler';
-import { mountRepertoireMap, type MapHandle, type NodeActionContext } from './repertoire-map';
+import {
+  mountRepertoireMap, openRepertoireMap, type MapHandle, type NodeActionContext,
+  type RepertoireMapOptions,
+} from './repertoire-map';
 
 // How deep the tree draws before "Go deeper" is offered, and how much each tap
 // reveals. Four moves is what fits a phone at a readable size: a whole book
@@ -89,7 +92,9 @@ export function renderLinesTree(
   const maxPlies = lines.reduce(
     (deepest, l) => Math.max(deepest, mainlineNodes(l.tree).length), 0);
 
-  active = mountRepertoireMap(embed, lines, colour, onOpenLine, {
+  // Shared by the card and the full-screen copy, so the two are the same map
+  // rather than two maps that resemble each other.
+  const shared: RepertoireMapOptions = {
     merge: 'position',
     depth: {
       startPlies: TREE_START_PLIES,
@@ -98,6 +103,16 @@ export function renderLinesTree(
       atDepth: () => lines,
     },
     ...(nodeAction ? { nodeAction } : {}),
+  };
+
+  active = mountRepertoireMap(embed, lines, colour, onOpenLine, {
+    ...shared,
+    // The card is a preview you can scroll past; the real work happens here.
+    // The path keeps your place across the hand-off.
+    onFullScreen: (path) => openRepertoireMap(lines, colour, onOpenLine, {
+      ...shared,
+      ...(path.length ? { initialPath: path } : {}),
+    }),
     ...(showBoth ? {
       colourToggle: {
         current: colour,

@@ -79,6 +79,9 @@ export const Icons = {
   // Feedback & about mark — a friendly smiley.
   smile:    (s?: number) => svg(`<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/>`, s),
   target:   (s?: number) => svg(`<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>`, s),
+  // Four corners pushing outward (Lucide "maximize") — the embedded tree's way
+  // into the full-screen one.
+  expand:   (s?: number) => svg(`<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>`, s),
   // Scouting's own mark (Lucide "user-search") — a person under a magnifier.
   // It used to borrow `target`, which now belongs to Coverage: two Explore tabs
   // sharing one glyph is one tab nobody can find.

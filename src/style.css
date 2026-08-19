@@ -10777,40 +10777,105 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 
 /* ── Position preview (floating, absolute top of tree-area) ─────────────────── */
 
+/* A BOTTOM SHEET, in two heights. It used to be a full-height panel pinned to
+   the TOP of the tree area: 190px of a 512px box on a phone, dropped over the
+   part of the tree you had just been reading and often over the node you tapped.
+   Collapsed it is now a 44px strip at the bottom, where the thumb already is;
+   the board and the rest come up when you pull it. */
 .rmap-pos-panel {
   position: absolute;
-  top: 0;
+  bottom: 0;
   left: 0;
   right: 0;
   z-index: 10;
   display: flex;
-  align-items: stretch;
-  gap: 0;
+  flex-direction: column;
   background: var(--bg-card);
-  border-bottom: 1px solid var(--border);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 16px rgba(0,0,0,0.12);
 }
 
-/* Above $desktop-nav (960px) the panel floats as a rounded card near the top
-   of the tree area instead of spanning it edge to edge. Below the breakpoint
-   NOTHING here applies. */
+/* The always-visible strip: what you tapped, and the way to see more. */
+.rmap-pos-handle {
+  display: flex;
+  align-items: stretch;
+  min-height: 44px;
+}
+.rmap-pos-grab {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.4rem 0 0.85rem;
+  border: none;
+  background: none;
+  color: var(--text);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.rmap-pos-handle-san {
+  flex: 0 0 auto;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 1rem;
+  font-weight: 700;
+}
+.rmap-pos-handle-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rmap-pos-handle-chev {
+  flex: 0 0 auto;
+  color: var(--text-faint);
+  transition: transform 0.18s ease-out;
+}
+/* Down when the sheet is up, so the chevron always points at what a tap does. */
+.rmap-pos-panel--open .rmap-pos-handle-chev { transform: rotate(180deg); }
+
+/* The board + info, revealed by the handle. */
+.rmap-pos-body {
+  display: flex;
+  align-items: stretch;
+  border-top: 1px solid var(--hairline);
+}
+.rmap-pos-body[hidden] { display: none; }
+
+/* Above $desktop-nav (960px) the sheet floats as a rounded card near the bottom
+   of the tree area instead of spanning it edge to edge. */
 @media (min-width: 960px) {
   .rmap-pos-panel {
     left: 50%;
     right: auto;
-    top: var(--space-lg);
+    bottom: var(--space-lg);
     transform: translateX(-50%);
     width: min(560px, calc(100% - 2 * var(--space-lg)));
     border-radius: 14px;
     border: 1px solid var(--border-card);
-    border-bottom: 1px solid var(--border-card);
+    overflow: hidden;
   }
 }
 
-/* Board column — fills half the panel width and is square */
+/* Board column — square, and a bit under half the sheet on a phone. It was a
+   flat 50%, which on the shorter tree box the card now gets meant an expanded
+   sheet covering nearly 60% of the map. 40% keeps the board readable (about
+   150px) and the sheet under 40% of the area — and it is one tap back down. */
 .rmap-pos-board-col {
-  flex: 0 0 50%;
-  max-width: 50%;
+  flex: 0 0 40%;
+  max-width: 40%;
+}
+@media (min-width: 960px) {
+  .rmap-pos-board-col {
+    flex-basis: 50%;
+    max-width: 50%;
+  }
 }
 
 .rmap-pos-board {
@@ -10919,27 +10984,23 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 .rmap-pos-open-btn:active { filter: brightness(0.9); }
 
-/* Collapse button — discrete ×  */
+/* Dismiss — a discrete × at the end of the handle row. It closes the sheet
+   outright; the handle beside it only raises and lowers it. */
 .rmap-pos-collapse {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 28px;
-  height: 28px;
+  flex: 0 0 auto;
+  width: 44px;
   border: none;
-  background: var(--bg-elevated);
+  background: none;
   color: var(--text-faint);
-  border-radius: 50%;
-  font-size: 1rem;
+  font-size: 1.15rem;
   line-height: 1;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   -webkit-tap-highlight-color: transparent;
-  z-index: 1;
 }
-.rmap-pos-collapse:active { background: var(--border); }
+.rmap-pos-collapse:active { color: var(--text); }
 
 /* ── SVG tree elements ───────────────────────────────────────────────────────── */
 
@@ -11008,6 +11069,33 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 .rmap-node--selected > .rmap-node-text { fill: #fff; }
 
+/* ── The fold control ─────────────────────────────────────────────────────────
+   A small disc off a fork's right edge, in the gap between generations. Open it
+   is a minus; folded it carries the number of LINE ENDS put away, and takes the
+   accent so a folded branch is visible as a folded branch from across the map
+   rather than looking like a line that simply stops. */
+.rmap-fold { cursor: pointer; }
+.rmap-fold-disc {
+  fill: var(--bg-elevated);
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.rmap-fold-text {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  fill: var(--text-faint);
+  pointer-events: none;
+  user-select: none;
+}
+.rmap-fold--on .rmap-fold-disc { fill: var(--accent); stroke: var(--accent); }
+.rmap-fold--on .rmap-fold-text { fill: var(--on-accent); }
+.rmap-fold:active .rmap-fold-disc { stroke: var(--accent); }
+.rmap-fold:focus-visible .rmap-fold-disc {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
 /* Per-move win/draw/loss bar on each node (sage win, neutral draw, brick loss),
    matching the wdl-bar component. Non-interactive so taps hit the node. */
 .rmap-wdl-track { fill: var(--hairline-soft); pointer-events: none; }
@@ -11061,28 +11149,70 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
    card that owns its own pan/zoom. Phone first — tall enough to read a tree at
    412px wide without swallowing the filter bar above it. */
 
+/* A PREVIEW, not a workspace. The card is a `touch-action: none` pan surface
+   sitting in a scrolling page: at 62vh a vertical swipe anywhere near the middle
+   of the screen panned the tree instead of the page, and there was no way past
+   it except to start the swipe in the 50px of margin beside it. At 50vh there is
+   page above and below to scroll from — and "Full screen" is one tap away for
+   when the tree is what you actually came for. */
 .rmap-embed {
   display: flex;
   flex-direction: column;
-  height: 62vh;
-  min-height: 320px;
-  max-height: 620px;
+  height: 50vh;
+  min-height: 280px;
+  max-height: 520px;
   border: 1px solid var(--border-card);
   border-radius: 14px;
   overflow: hidden;
   background: var(--bg-card);
 }
-/* No safe-area padding inside a card that isn't at the bottom of the screen.
-   The right padding keeps the move arrows clear of the FAB, which floats over
-   this bar on a phone (the overlay map sits above the FAB and never met it). */
+/* No safe-area padding inside a card that isn't at the bottom of the screen. The
+   FAB used to float over this bar's right end, which cost it 5rem of padding;
+   the variation arrows that were being pushed clear are gone on a phone (see
+   .rmap-nav-btn--var), so the bar fits without the hack. */
 .rmap-embed .rmap-controls {
   padding: 0.4rem 0.6rem;
-  padding-right: 5rem;
+  padding-right: 3.6rem;
   background: transparent;
 }
 @media (min-width: 960px) {
   .rmap-embed .rmap-controls { padding-right: 0.6rem; }
 }
+
+/* Landscape on a phone: 50vh of a 412px-tall viewport is 206px, and the control
+   bar takes 54 of them — in the orientation a left-to-right tree is at its best.
+   Short viewports get a fixed height instead of a proportional one, so the card
+   keeps a workable tree and the page still scrolls past it. */
+@media (max-height: 560px) and (orientation: landscape) {
+  .rmap-embed {
+    height: 300px;
+    min-height: 0;
+    max-height: none;
+  }
+  /* The bottom sheet would swallow a short tree whole, so it opens as a strip
+     and stays one until asked. */
+  .rmap-pos-body { max-height: 190px; }
+  .rmap-pos-board-col { flex-basis: 34%; max-width: 34%; }
+}
+
+/* "Full screen" — the embedded map's way out, in the bar's left slot. */
+.rmap-full-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.34rem 0.66rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.rmap-full-btn:active { filter: brightness(0.95); }
 .rmap-embed .rmap-colour-toggle {
   border-bottom: 1px solid var(--border);
 }
@@ -11141,9 +11271,14 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 
 /* Zoom floats bottom-left of the tree area, outside the bar (mirrors the
    top-left "Go deeper" pill). */
+/* The floating cluster moved to the TOP-left. The bottom of the tree area now
+   belongs to the position sheet, and the crosshair sat right where the sheet
+   comes up — the one control you reach for when the map has drifted was the one
+   the sheet hid. On a phone the ± pair beside it is gone (see below), so what
+   floats here is a single 44px button. */
 .rmap-controls-zoom {
   position: absolute;
-  bottom: 0.6rem;
+  top: 0.6rem;
   left: 0.6rem;
   z-index: 4;
   display: flex;
@@ -11242,11 +11377,26 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 .rmap-zoom-btn:active { background: var(--border); }
 
-/* "Go deeper" — a quiet floating pill, top-left of the tree area. */
-/* "Go deeper" sits bottom-right of the tree area, just above the nav bar. */
+/* ── Controls a phone doesn't need ────────────────────────────────────────────
+   Seven controls competed for a 380px bar, two of them floating ON the tree.
+   The variation arrows duplicate tapping a sibling that is already in plain
+   sight; the ± pair duplicates pinch. Both stay above the breakpoint, where a
+   mouse has no pinch and the room was never the problem.
+
+   These rules sit HERE, after .rmap-nav-btn and .rmap-zoom-btn, on purpose: a
+   media query adds no specificity, so a `display: none` written above the
+   `display: flex` it has to beat simply loses on source order. */
+@media (max-width: 959px) {
+  .rmap-controls-nav .rmap-nav-btn--var,
+  .rmap-controls-zoom .rmap-zoom-btn--zoom { display: none; }
+}
+
+/* "Go deeper" — a quiet floating pill, top-right of the tree area, opposite the
+   zoom cluster. It used to sit bottom-right, which the position sheet now
+   covers. */
 .rmap-deeper-btn {
   position: absolute;
-  bottom: 0.6rem;
+  top: 0.6rem;
   right: 0.6rem;
   z-index: 4;
   display: inline-flex;
