@@ -21,8 +21,6 @@ import { renderLinesTree, disposeLinesTree } from './lines-tree-view';
 
 import { openBranchSheet, openBranchSheetForLine } from './branch-sheet';
 import { byNewestFirst, parseLineId } from './lines-view';
-import { renderCoverageLauncher, type CoverageSection } from './coverage-section';
-import { openCoverageScreen } from './coverage-screen';
 import type { ImportedGame } from './chesscom';
 import { renderLoadError } from './load-error';
 import { formatSanLine } from './notation';
@@ -53,15 +51,6 @@ function cachedCounts(games: ImportedGame[], lines: Line[]): Map<string, number>
   return countsCache.result;
 }
 
-// The Coverage launcher's handle, so a re-render (tab switch, filter change,
-// refresh after a save) detaches the previous one before drawing a new row —
-// otherwise a pass still running would paint into a node that has gone.
-let coverageLauncher: CoverageSection | null = null;
-function disposeCoverageLauncher(): void {
-  coverageLauncher?.dispose();
-  coverageLauncher = null;
-}
-
 type SortMode = 'latest' | 'weakest' | 'strongest' | 'name';
 
 function sortLines(lines: Line[], mode: SortMode): Line[] {
@@ -79,22 +68,6 @@ function sortLines(lines: Line[], mode: SortMode): Line[] {
   }
 }
 
-// Order options for the "From my games" suggestions.
-type SuggestSort = 'played' | 'weakest' | 'name';
-
-function sortSuggestions(stats: OpeningStat[], mode: SuggestSort): OpeningStat[] {
-  const copy = [...stats];
-  switch (mode) {
-    case 'weakest':
-      return copy.sort((a, b) => a.scorePct - b.scorePct || b.games - a.games);
-    case 'name':
-      return copy.sort((a, b) => a.family.localeCompare(b.family));
-    case 'played':
-    default:
-      return copy.sort((a, b) => b.games - a.games || a.family.localeCompare(b.family));
-  }
-}
-
 interface LinesDeps {
   onOpenLine: (line: Line) => void;
   // "Drill it" from a line's popup: drills an in-training line straight away,
@@ -104,21 +77,18 @@ interface LinesDeps {
   onStartTraining?: (line: Line) => void;
   // Seed the builder with these UCI moves for the given colour, then open it.
   onBuildLine?: (ucis: string[], colour: 'white' | 'black') => void;
-  // The Prepare flow, for a coverage gap's "build from here". Optional so the
-  // screen still renders in any host that hasn't wired it.
-  onPrepareGap?: (ucis: string[], answeringColour: 'white' | 'black', opponentName?: string) => void;
   // Open the starter-pack picker (the curated quick-start route).
   onPickStarterPack: () => void;
+  // Jump to Explore → Openings — where "which openings do I play that I haven't
+  // saved?" moved to. Optional so the screen still renders in any host that
+  // hasn't wired it.
+  onSeeMyOpenings?: () => void;
 }
 
 // Persistence keys for the shared two-row filter bar (filters.ts). Each list
 // keeps its own remembered selection, device-local.
 const LINES_FILTER_KEY = 'obertura.lines.filter';
 const GAMES_FILTER_KEY = 'obertura.games.filter';
-
-// Which of the two tabs is showing. Module-level so it survives re-renders.
-type TabName = 'saved' | 'games';
-let activeTab: TabName = 'saved';
 
 // Which opening families are expanded in the grouped saved view. Module-level so
 // a filter change / refresh keeps the open/closed state across re-renders.
@@ -129,7 +99,6 @@ const expandedFamilies = new Set<string>();
 // add it to training. Consumed (cleared) once shown.
 let highlightLineId: string | null = null;
 export function focusSavedLine(id: string): void {
-  activeTab = 'saved';
   // Clear the colour + tag filters so a freshly-saved line is never hidden
   // behind them; the chosen sort is left alone.
   clearSavedFilterScope();
@@ -169,91 +138,20 @@ async function doRender(container: HTMLElement, deps: LinesDeps): Promise<void> 
   }
   container.innerHTML = '';
 
-  // Default landing tab. With no saved lines yet but games already imported, the
-  // Saved tab is just an empty state — open straight on "From my games" so the
-  // user lands on opening suggestions instead of a blank list. This only nudges
-  // away from a still-default Saved tab; an explicit jump to "From my games"
-  // (a tab tap or goToGamesTab) sets activeTab = 'games' and is left untouched.
-  if (activeTab === 'saved' && allLines.length === 0 && games.length > 0) {
-    activeTab = 'games';
-  }
-
-  const hasGames = games.length > 0;
-
-  // Jump to the "From my games" tab (empty states offer it as the quieter
-  // alternative to building a line by hand).
-  const goToGamesTab = () => {
-    activeTab = 'games';
-    void doRender(container, deps);
-  };
-
-  // Two prominent tabs: SAVED LINES | FROM MY GAMES.
+  // NO TAB BAR. This screen had two — Saved lines and "From my games" — and the
+  // second was never really about your lines: it read your GAMES and offered
+  // openings you hadn't saved yet, which is a question about what you don't
+  // have. It has moved to Explore, merged with the Recommended tab it
+  // duplicated. With one tab left, a tab bar is a title with extra steps, so the
+  // screen is simply the list and gets that row back.
   const content = document.createElement('section');
   content.className = 'lines-tab-content';
-
-  // A full re-render (used by "Refresh my games" once the import finishes).
-  const fullRefresh = () => doRender(container, deps);
-
-  const renderActive = () => {
-    disposeLinesTree();
-    disposeCoverageLauncher();
-    if (activeTab === 'saved') {
-      renderSavedTab(content, allLines, games, deps, container, goToGamesTab, hasGames);
-    } else {
-      renderGamesTab(content, games, allLines, deps, fullRefresh);
-    }
-  };
-
-  const tabs = buildTabSwitcher(() => {
-    updateTabButtons(tabs);
-    renderActive();
-  });
-  container.appendChild(tabs);
   container.appendChild(content);
 
-  updateTabButtons(tabs);
-  renderActive();
+  renderSavedTab(content, allLines, games, deps, container);
 
-  // Backup & restore now lives in Settings → Backup (a device-wide action), so
-  // it's no longer duplicated here.
-}
-
-// ── Tab switcher (the two important buttons, side by side) ───────────────────
-
-function buildTabSwitcher(onChange: () => void): HTMLElement {
-  const row = document.createElement('div');
-  row.className = 'lines-tabs';
-
-  const make = (tab: TabName, label: string, icon: SVGElement) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'lines-tab';
-    btn.dataset.tab = tab;
-    icon.classList.add('lines-tab-icon');
-    btn.appendChild(icon);
-    const span = document.createElement('span');
-    span.className = 'lines-tab-label';
-    span.textContent = label;
-    btn.appendChild(span);
-    btn.addEventListener('click', () => {
-      if (activeTab === tab) return;
-      activeTab = tab;
-      onChange();
-    });
-    return btn;
-  };
-
-  row.appendChild(make('saved', 'Saved lines', Icons.list(18)));
-  row.appendChild(make('games', 'From my games', Icons.download(18)));
-  return row;
-}
-
-function updateTabButtons(tabs: HTMLElement): void {
-  tabs.querySelectorAll<HTMLElement>('.lines-tab').forEach(btn => {
-    const active = btn.dataset.tab === activeTab;
-    btn.classList.toggle('active', active);
-    btn.setAttribute('aria-current', active ? 'true' : 'false');
-  });
+  // Backup & restore lives in Settings → Backup (a device-wide action), so it's
+  // not duplicated here.
 }
 
 // ── Saved lines tab ──────────────────────────────────────────────────────────
@@ -330,8 +228,6 @@ function renderSavedTab(
   games: ImportedGame[],
   deps: LinesDeps,
   container: HTMLElement,
-  goToGamesTab: () => void,
-  hasGames: boolean,
 ): void {
   content.innerHTML = '';
 
@@ -347,7 +243,7 @@ function renderSavedTab(
   // After a toggle/delete/rename, re-fetch lines and re-render this tab.
   const refresh = async () => {
     const fresh = await getAllLines();
-    renderSavedTab(content, fresh, games, deps, container, goToGamesTab, hasGames);
+    renderSavedTab(content, fresh, games, deps, container);
   };
 
   // The shared two-row filter bar (filters.ts): colour + sort on row 1, my own
@@ -374,27 +270,6 @@ function renderSavedTab(
   });
   content.appendChild(filter.element);
 
-  // The way in to Coverage: one row carrying the positive figure, reading the
-  // same report the screen does (coverage-section.ts). Only once there are
-  // lines to have gaps in — on an empty repertoire it would be a 0% verdict on
-  // nothing. The colour follows the filter bar; with "All" showing, the bigger
-  // book wins, since the screen shows one book at a time either way.
-  if (lines.length > 0 && deps.onPrepareGap) {
-    disposeCoverageLauncher();
-    const launchHost = document.createElement('div');
-    launchHost.className = 'lines-coverage';
-    content.appendChild(launchHost);
-    const sel = filter.selection.colour;
-    const colour: 'white' | 'black' = sel === 'white' || sel === 'black'
-      ? sel
-      : lines.filter(l => l.colour === 'black').length > lines.filter(l => l.colour === 'white').length
-        ? 'black' : 'white';
-    coverageLauncher = renderCoverageLauncher(launchHost, {
-      colour,
-      onOpen: () => openCoverageScreen({ colour, onPrepare: deps.onPrepareGap! }),
-    });
-  }
-
   const sec = document.createElement('div');
   sec.className = 'section';
   const list = document.createElement('div');
@@ -413,10 +288,14 @@ function renderSavedTab(
         list.appendChild(buildEmptyState({
           line: 'No saved lines yet.',
           cta: { label: '+ Add a line', onClick: () => deps.onAddLine('white') },
-          link: {
-            label: hasGames ? 'or see suggestions from your games' : 'or import from your games',
-            onClick: goToGamesTab,
-          },
+          secondaryActions: [
+            { label: 'Pick a starter pack', onClick: () => deps.onPickStarterPack() },
+          ],
+          // The openings-from-your-games route now lives on Explore, so the
+          // quiet alternative points there rather than at a tab that has gone.
+          ...(deps.onSeeMyOpenings && {
+            link: { label: 'or see the openings you play', onClick: deps.onSeeMyOpenings },
+          }),
         }));
         return;
       }
@@ -455,8 +334,10 @@ function renderSavedTab(
               repertoireId: book,
               ucis: ctx.ucis,
               sans: ctx.sans,
-              onBuildFrom: deps.onPrepareGap
-                ? (ucis) => deps.onPrepareGap!(ucis, ctx.colour)
+              // "Build from here" is a plain seeded build — the same thing the
+              // coverage rows' Prepare does when there is no opponent to tag.
+              onBuildFrom: deps.onBuildLine
+                ? (ucis) => deps.onBuildLine!(ucis, ctx.colour)
                 : undefined,
               onOpenLine: deps.onOpenLine,
               onChanged: () => { void refresh(); },
@@ -800,243 +681,6 @@ function buildTrainingRow(line: Line): HTMLElement | null {
     row.title = `${t.drilled} of ${t.total} moves drilled — ${t.recallPct}% of those come back clean`;
   }
   return row;
-}
-
-// ── From my games tab ────────────────────────────────────────────────────────
-//
-// From the imported-games analysis, surface openings you actually play but have
-// no prep for yet, each with a one-tap "Build line" into the builder. A
-// "Refresh my games" button re-runs the import so badges and suggestions update.
-
-const SUGGEST_ORDERS: { key: SuggestSort; label: string }[] = [
-  { key: 'played', label: 'Most played' },
-  { key: 'weakest', label: 'Weakest' },
-  { key: 'name', label: 'Name' },
-];
-
-function renderGamesTab(
-  content: HTMLElement,
-  games: ImportedGame[],
-  lines: Line[],
-  deps: LinesDeps,
-  fullRefresh: () => void
-): void {
-  content.innerHTML = '';
-
-  if (games.length === 0) {
-    // No games yet: the import form lands here directly rather than behind a
-    // button, with the same two quick-start routes underneath it.
-    content.appendChild(buildInlineImport({
-      title: 'Import your games',
-      body: 'Pull your games from Chess.com or Lichess to see which openings you ' +
-        'actually play — this tab then suggests the ones you haven’t saved yet.',
-      onImported: () => fullRefresh(),
-    }));
-    content.appendChild(buildEmptyState({
-      line: 'Or start from scratch',
-      cta: { label: 'Build a line myself', onClick: () => deps.onAddLine('white') },
-      secondaryActions: [
-        { label: 'Pick a starter pack', onClick: () => deps.onPickStarterPack() },
-      ],
-    }));
-    return;
-  }
-
-  // Refresh button row — available once games exist so badges/suggestions can be
-  // redone (and the saved source stays handy).
-  content.appendChild(buildRefreshRow(fullRefresh));
-
-  const analysis = cachedAnalysis(games, lines);
-
-  // The shared filter bar — colour + sort only here. Suggestions are openings
-  // you haven't saved yet, so they carry no tags and there's no row 2.
-  const rerender = () => renderGamesTab(content, games, lines, deps, fullRefresh);
-  const filter = createFilterBar({
-    persistKey: GAMES_FILTER_KEY,
-    sorts: SUGGEST_ORDERS,
-    defaultSort: 'played',
-    onChange: rerender,
-  });
-  content.appendChild(filter.element);
-  const sel = filter.selection;
-
-  let suggestions = analysis.suggestions;
-  if (sel.colour !== 'all') {
-    suggestions = suggestions.filter(s => s.colour === sel.colour);
-  }
-  suggestions = sortSuggestions(suggestions, sel.sort as SuggestSort);
-
-  if (suggestions.length === 0) {
-    const emptySection = document.createElement('div');
-    emptySection.className = 'section';
-    const empty = document.createElement('p');
-    empty.className = 'lines-empty';
-    empty.textContent =
-      analysis.suggestions.length === 0
-        ? "Nothing to suggest — you've prepped the openings you play. Nice."
-        : "No suggestions for this colour.";
-    emptySection.appendChild(empty);
-    content.appendChild(emptySection);
-    return;
-  }
-
-  const intro = document.createElement('p');
-  intro.className = 'games-intro';
-  intro.textContent = 'Openings you play often but haven’t saved yet. Build one:';
-  content.appendChild(intro);
-
-  // Section + inner .group so the cards sit edge-to-edge (no surrounding box),
-  // exactly like Saved lines — `.section:has(.group)` drops the section chrome.
-  const sec = document.createElement('div');
-  sec.className = 'section';
-  const list = document.createElement('div');
-  list.className = 'group lines-grid';
-  // Keep the top-6 cap, but reveal the rest inline behind a "Show all".
-  suggestions.forEach((stat, i) => {
-    const card = suggestionCard(stat, deps);
-    if (i >= TOP_N) card.hidden = true;
-    list.appendChild(card);
-  });
-  sec.appendChild(list);
-  content.appendChild(sec);
-
-  if (suggestions.length > TOP_N) {
-    content.appendChild(buildShowAllToggle(list, suggestions.length));
-  }
-}
-
-// A "Show all N" / "Show fewer" toggle that reveals the cards hidden past the
-// top-N cap, collapsing them again on a second tap.
-function buildShowAllToggle(list: HTMLElement, total: number): HTMLElement {
-  let showingAll = false;
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'btn-secondary lines-show-all';
-  const setLabel = () => {
-    btn.textContent = showingAll ? 'Show fewer' : `Show all ${total}`;
-  };
-  setLabel();
-  btn.addEventListener('click', () => {
-    showingAll = !showingAll;
-    (Array.from(list.children) as HTMLElement[]).forEach((card, i) => {
-      card.hidden = !showingAll && i >= TOP_N;
-    });
-    setLabel();
-  });
-  return btn;
-}
-
-function buildRefreshRow(fullRefresh: () => void): HTMLElement {
-  const row = document.createElement('div');
-  row.className = 'games-refresh-row';
-
-  const source = getGamesSource();
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'games-refresh-btn';
-  btn.appendChild(Icons.reset(15));
-  btn.appendChild(document.createTextNode(source ? 'Refresh my games' : 'Import my games'));
-
-  const status = document.createElement('span');
-  status.className = 'games-refresh-status';
-  status.setAttribute('aria-live', 'polite');
-  if (source) {
-    // Your picture (Chess.com only) next to "username on Platform".
-    status.appendChild(userAvatar(source.avatarUrl, 18));
-    const who = document.createElement('span');
-    who.className = 'games-refresh-who';
-    who.textContent = `${source.username} on ${source.platform === 'lichess' ? 'Lichess' : 'Chess.com'}`;
-    status.appendChild(who);
-  }
-
-  // The shared import panel does the scan/filter/import; on success we re-render
-  // the whole screen so badges + suggestions reflect the new games.
-  btn.addEventListener('click', () => openImportPanel({
-    platform: source?.platform,
-    username: source?.username,
-    onImported: () => fullRefresh(),
-  }));
-
-  row.appendChild(btn);
-  row.appendChild(status);
-  return row;
-}
-
-
-// A win/draw/loss score bar, green→amber→red by how good the score is.
-function scoreBar(pct: number): HTMLElement {
-  const wrap = document.createElement('div');
-  wrap.className = 'review-score-bar';
-  const fill = document.createElement('div');
-  fill.className = 'review-score-fill';
-  fill.style.width = `${Math.max(4, Math.min(100, pct))}%`;
-  fill.style.background = pct >= 55 ? '#2a6b3a' : pct >= 45 ? '#d8961f' : '#c0531f';
-  wrap.appendChild(fill);
-  return wrap;
-}
-
-function suggestionCard(stat: OpeningStat, deps: LinesDeps): HTMLElement {
-  // Shared position-card scaffold so suggestions read like the saved-line cards:
-  // family name + colour pip on row 1, a larger miniature on the left of row 2
-  // with the score, line and Build action stacked on the right.
-  const { card, titleRow, content } = buildPositionCard({
-    fen: stat.repUcis.length > 0 ? fenFromUcis(stat.repUcis) : null,
-    orientation: stat.colour,
-    className: 'games-card',
-    ...(stat.repUcis.length > 0 && deps.onBuildLine && {
-      onMiniClick: () => deps.onBuildLine!(stat.repUcis, stat.colour),
-      miniLabel: 'Build this line',
-    }),
-  });
-
-  // Row 1: colour pip + opening family name.
-  titleRow.appendChild(colourPip(stat.colour));
-  const nameEl = document.createElement('span');
-  nameEl.className = 'pcard-name';
-  nameEl.textContent = stat.family;
-  titleRow.appendChild(nameEl);
-
-  // Played-count chip.
-  const meta = document.createElement('div');
-  meta.className = 'stat-card-chips';
-  const gamesChip = document.createElement('span');
-  gamesChip.className = 'review-stat-chip';
-  gamesChip.textContent = `Played ${stat.games}×`;
-  meta.appendChild(gamesChip);
-  content.appendChild(meta);
-
-  // Score line — bar + "67% · W-D-L".
-  const scoreRow = document.createElement('div');
-  scoreRow.className = 'review-score-row';
-  scoreRow.appendChild(scoreBar(stat.scorePct));
-  const scoreText = document.createElement('span');
-  scoreText.className = 'review-score-text';
-  scoreText.textContent = `${stat.scorePct}% · ${stat.wins}-${stat.draws}-${stat.losses} W-D-L`;
-  scoreRow.appendChild(scoreText);
-  content.appendChild(scoreRow);
-
-  // The representative line.
-  if (stat.repSans.length > 0) {
-    const lineEl = document.createElement('div');
-    lineEl.className = 'review-moves stat-card-note';
-    lineEl.textContent = formatSanLine(stat.repSans);
-    content.appendChild(lineEl);
-  }
-
-  // The Build action.
-  if (stat.repUcis.length > 0 && deps.onBuildLine) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'btn-secondary stat-card-btn';
-    btn.textContent = 'Build line';
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      deps.onBuildLine!(stat.repUcis, stat.colour);
-    });
-    content.appendChild(btn);
-  }
-
-  return card;
 }
 
 // ── Delete confirmation popup ────────────────────────────────────────────────

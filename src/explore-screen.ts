@@ -1,9 +1,24 @@
-// The Explore tab — four top-level pillars, tabbed exactly like My Lines:
-//   1. Recommended — openings you play a lot but score poorly in, built from
-//                    your imported games. Build a solid line and train it.
-//   2. Packs       — the curated library: starter packs and traps, both
+// The Explore tab — everything you DON'T have yet, one question per tab.
+//
+// That sentence is the whole information architecture, and its other half lives
+// on My Lines: My Lines is what you own, Explore is what you don't. Before this
+// round the two were tangled — Coverage was a launcher on My Lines (a screen for
+// looking at what you have, carrying a report about what you haven't), and "From
+// my games" was a My Lines tab drawing the same card as Explore's Recommended,
+// from the same analyseGames() pass, differing only in a filter().
+//
+//   1. Coverage    — the replies your saved lines have no answer to. The only
+//                    one of these tabs that reads your REPERTOIRE, so the only
+//                    one whose answer changes as you work; body in
+//                    coverage-section.ts, which the builder's My-lines panel
+//                    shares.
+//   2. Openings    — the openings your games show, each row saying what to do
+//                    about it: no line yet / your line is losing / prepared.
+//                    This is Recommended and "From my games" merged, which is
+//                    what they always were.
+//   3. Packs       — the curated library: starter packs and traps, both
 //                    filterable by colour and by tag (skill level, or "Traps").
-//   3. Scouting    — scout imported opponents; tapping one opens a full-screen
+//   4. Scouting    — scout imported opponents; tapping one opens a full-screen
 //                    DETAIL view with their most-played openings per colour and
 //                    their auto-built opening maps. "Add opponent" and a
 //                    per-opponent "Refresh" reuse the one import panel, pointed
@@ -23,8 +38,12 @@ import { openRepertoireMap } from './repertoire-map';
 import { openSpar, type SparMode } from './spar';
 import { loadBookLines, pickBookLine, pickGameLine } from './book-lines';
 import {
-  analyseGames, UNKNOWN_FAMILY, MIN_GAMES_WEAK, WEAK_SCORE_PCT, type OpeningStat,
+  analyseGames, UNKNOWN_FAMILY, MIN_GAMES_WEAK, WEAK_SCORE_PCT, TOP_N,
+  type OpeningStat, type OpeningNeed, type OpeningRow,
 } from './analysis';
+import { renderCoverageSection, type CoverageSection } from './coverage-section';
+import { MAX_GAPS } from './coverage-gaps';
+import { openPositionPeek } from './position-peek';
 import { buildPositionCard, colourPip, fenFromUcis } from './card-position';
 import {
   getAllLines, getAllGames, getAllOpponents, getOpponent, saveOpponent, deleteOpponent, deleteLine,
@@ -42,7 +61,7 @@ import { loadPacks, type Pack, type PackLine, type LineSeed } from './onboarding
 import { buildStudySection } from './study-browser';
 import { wdlBlock, wdlScoreRow } from './wdl-bar';
 import { buildMoveStats } from './move-stats';
-import { createFilterBar, type FilterSelection } from './filters';
+import { createFilterBar, type ColourFilter, type FilterSelection } from './filters';
 import { renderFamilyGroups } from './line-groups';
 import { buildEmptyState } from './empty-state';
 import { buildInlineImport } from './import-inline';
@@ -92,6 +111,10 @@ export interface ExploreDeps {
   // Save imported study chapters straight to My Lines (the Packs tab's Lichess
   // study browser). Resolves with how many were actually saved.
   onSaveLines: (seeds: LineSeed[], colour: 'white' | 'black') => Promise<number>;
+  // A coverage gap's "prepare an answer": the same seeded build as
+  // onPrepareReply, but the opponent name is optional — a gap from your own
+  // games or from the opening database has nobody to tag it to.
+  onPrepareGap: (ucis: string[], answeringColour: 'white' | 'black', opponentName?: string) => void;
 }
 
 let exploreDeps: ExploreDeps | null = null;
@@ -100,6 +123,15 @@ let exploreDeps: ExploreDeps | null = null;
 // straight into this opponent's detail.
 let pendingOpponentId: string | null = null;
 export function openExploreOpponent(id: string): void { pendingOpponentId = id; }
+
+/**
+ * Land the next Explore render on a particular tab. My Lines' empty state uses
+ * it to point at Openings, which is where "which openings do I play that I
+ * haven't saved?" moved to.
+ */
+export function openExploreTab(tab: 'coverage' | 'openings' | 'packs' | 'scouting'): void {
+  exploreTab = tab;
+}
 
 // Whether a new opponent may be added right now, and if not, tries to clear
 // the way. Three cases:
@@ -227,15 +259,25 @@ async function buildScreen(container: HTMLElement): Promise<void> {
 // ── Explore tabs (Recommended | Packs | Scouting) ────────────────────────────
 
 // Which tab is showing. Module-level so it survives the screen's rebuilds.
-type ExploreTab = 'recommended' | 'packs' | 'scouting';
+type ExploreTab = 'coverage' | 'openings' | 'packs' | 'scouting';
 let exploreTab: ExploreTab | null = null;
 
-// One block with the pillars, laid out exactly like the My Lines screen
-// (the same .lines-tabs switcher + padded .lines-tab-content body, so the side
-// margins line up): Recommended picks from your games, the curated Packs library
-// (starter packs + traps, filterable), and Scouting — hidden entirely when
-// scouting is off in Settings. No section title: Explore leads straight with
-// this.
+// The Coverage tab's live handle, so switching away (or re-rendering the screen)
+// stops a pass still running from painting into a node that has gone.
+let coverageTab: CoverageSection | null = null;
+function disposeCoverageTab(): void {
+  coverageTab?.dispose();
+  coverageTab = null;
+}
+
+// One block with the pillars, laid out exactly like the My Lines screen (the
+// same .lines-tabs switcher + padded .lines-tab-content body, so the side
+// margins line up).
+//
+// WHICH TAB LEADS follows what the user actually has, in the order the answers
+// become useful: Coverage once there are lines to have gaps in, Openings once
+// there are games to read, and Packs otherwise — which is also the only one that
+// is never empty.
 function exploreTabsSection(
   games: ImportedGame[],
   lines: Line[],
@@ -247,15 +289,16 @@ function exploreTabsSection(
   const wrap = document.createElement('div');
   wrap.className = 'lines-try';
 
-  const recommended = buildRecommendedTab(games, lines, container);
-  // Built on first visit, then reused: the Packs body is heavy enough (traps
-  // relevance analysis + the lazily-fetched study catalogue) that it shouldn't
-  // pay its cost when Explore opens onto Recommended and never leaves it.
+  // Built on first visit, then reused: both bodies are heavy enough (the traps
+  // relevance analysis and the lazily-fetched study catalogue on one side, a
+  // full analyseGames pass on the other) that they shouldn't pay their cost when
+  // Explore opens onto a tab and never leaves it. Coverage is deliberately NOT
+  // memoised — it owns a live pass, so it is built and disposed per visit.
   let packsTab: HTMLElement | null = null;
+  let openingsTab: HTMLElement | null = null;
 
-  // Default to Recommended when it has real picks, else Packs (always populated).
   if (exploreTab === null) {
-    exploreTab = recommended.hasContent ? 'recommended' : 'packs';
+    exploreTab = lines.length > 0 ? 'coverage' : games.length > 0 ? 'openings' : 'packs';
   }
 
   const tabs = document.createElement('div');
@@ -264,12 +307,16 @@ function exploreTabsSection(
   content.className = 'lines-tab-content';
 
   const tabEl = (tab: ExploreTab): HTMLElement => {
-    if (tab === 'recommended') return recommended.el;
+    if (tab === 'coverage') return buildCoverageTab(lines);
+    if (tab === 'openings') return (openingsTab ??= buildOpeningsTab(games, lines, container));
     if (tab === 'packs') return (packsTab ??= buildPacksTab(starterPacks, trapPacks, games, lines));
     return buildScoutingTab(opponents, container);
   };
 
   const render = (): void => {
+    // Whatever was showing goes; only Coverage holds anything that has to be
+    // told, and only Coverage is rebuilt each time it is shown.
+    disposeCoverageTab();
     content.innerHTML = '';
     content.appendChild(tabEl(exploreTab!));
     tabs.querySelectorAll<HTMLElement>('.lines-tab').forEach(btn => {
@@ -298,62 +345,370 @@ function exploreTabsSection(
     return btn;
   };
 
-  tabs.appendChild(makeTab('recommended', 'Recommended', Icons.sparkles(18)));
+  tabs.appendChild(makeTab('coverage', 'Coverage', Icons.target(18)));
+  tabs.appendChild(makeTab('openings', 'Openings', Icons.sparkles(18)));
   tabs.appendChild(makeTab('packs', 'Packs', Icons.build(18)));
-  tabs.appendChild(makeTab('scouting', 'Scouting', Icons.target(18)));
+  tabs.appendChild(makeTab('scouting', 'Scouting', Icons.scout(18)));
   wrap.appendChild(tabs);
   wrap.appendChild(content);
   render();
   return wrap;
 }
 
-// The Recommended tab body + whether it actually surfaced any picks (used to pick
-// the default tab). Picks come from the same games heuristic as before.
-function buildRecommendedTab(
+// ── Coverage tab ──────────────────────────────────────────────────────────────
+//
+// The replies your saved lines have no answer to. The body is
+// coverage-section.ts, unchanged — the same component the builder's My-lines
+// panel embeds, and the same one the retired full-screen coverage-screen.ts used
+// to wrap. It reads one book at a time, because a Black gap means nothing to a
+// White line (TRANSPOSITIONS.md), so the White/Black choice that used to be the
+// screen's own segmented control is now a plain toggle at the top of the tab.
+
+// Which book the tab is showing. Module-level, so switching tabs and coming back
+// keeps your place.
+let coverageColour: 'white' | 'black' | null = null;
+
+function buildCoverageTab(lines: Line[]): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'cvg-tab';
+
+  const counts = {
+    white: lines.filter(l => l.colour === 'white').length,
+    black: lines.filter(l => l.colour === 'black').length,
+  };
+
+  if (counts.white + counts.black === 0) {
+    wrap.appendChild(buildEmptyState({
+      icon: Icons.target(44),
+      line: 'Coverage starts with your first line.',
+      body: 'Save a line and this fills in with the replies it doesn’t answer yet — '
+        + 'ranked by how often you actually face them.',
+      cta: { label: 'Build a line', onClick: () => exploreDeps?.onOpenInBuilder([], 'white') },
+    }));
+    return wrap;
+  }
+
+  // Follow the remembered choice where that book has lines; otherwise the book
+  // that has some, so the tab never opens on an empty verdict.
+  const colour: 'white' | 'black' =
+    coverageColour && counts[coverageColour] > 0 ? coverageColour
+    : counts.white > 0 ? 'white' : 'black';
+  coverageColour = colour;
+
+  const seg = document.createElement('div');
+  seg.className = 'lib-db-seg cvg-colour-seg';
+  seg.setAttribute('role', 'group');
+  seg.setAttribute('aria-label', 'Which repertoire');
+  for (const c of ['white', 'black'] as const) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'lib-db-opt' + (c === colour ? ' is-active' : '');
+    btn.textContent = c === 'white' ? 'White' : 'Black';
+    btn.disabled = counts[c] === 0;
+    if (c !== colour && counts[c] > 0) {
+      btn.addEventListener('click', () => {
+        coverageColour = c;
+        const fresh = buildCoverageTab(lines);
+        wrap.replaceWith(fresh);
+      });
+    }
+    seg.appendChild(btn);
+  }
+  wrap.appendChild(seg);
+
+  const host = document.createElement('div');
+  host.className = 'cvg-tab-body';
+  wrap.appendChild(host);
+
+  disposeCoverageTab();
+  coverageTab = renderCoverageSection(host, {
+    colour,
+    limit: MAX_GAPS,
+    showFamilies: true,
+    title: null,
+    onPrepare: (ucis, answering, opponentName) =>
+      exploreDeps?.onPrepareGap(ucis, answering, opponentName),
+    // "See it in my tree" opens the full-screen repertoire map standing at the
+    // gap's position — the same map My Lines embeds, given the whole screen,
+    // which is the one place the hole is visible as a hole.
+    onSeeInTree: (gap) => openRepertoireMap(lines, gap.colour, l => exploreDeps?.onOpenLine(l), {
+      merge: 'position',
+      initialPath: gap.ucis,
+      title: gap.colour === 'white' ? 'White repertoire' : 'Black repertoire',
+    }),
+  });
+
+  // The framing, once, at the FOOT — above the list it is a paragraph between
+  // the user and the thing they came for.
+  const foot = document.createElement('p');
+  foot.className = 'cvg-foot';
+  foot.textContent =
+    'A gap is a reply you have started answering somewhere and missed here. '
+    + 'Only replies you have faced twice, or that a real share of players at your '
+    + 'level play, or that a scouted opponent plays, are counted — and only in the '
+    + 'first six moves. Nothing here is saved; it is worked out fresh each time.';
+  wrap.appendChild(foot);
+
+  return wrap;
+}
+
+// ── Openings tab ─────────────────────────────────────────────────────────────
+//
+// The openings your games show, each row saying what to do about it. This is
+// Explore's old "Recommended" and My Lines' old "From my games" merged, which is
+// what they always were: two filters over one analyseGames() pass, drawing two
+// near-identical cards, overlapping on exactly the case that mattered most (an
+// opening you play a lot, score badly in, and have no line for appeared on both
+// screens with the same button).
+//
+// The merge is what makes the third state sayable. Recommended never checked
+// hasRepertoire, so it offered "Build line" for openings already prepared —
+// where the useful answer is to open the line you have. A row now carries its
+// own reason (analysis.rankOpenings), and the action follows from it.
+
+const MY_OPENINGS_FILTER_KEY = 'obertura.explore.myopenings.filter';
+
+const NEED_LABEL: Record<OpeningNeed, string> = {
+  none: 'No line yet',
+  weak: 'Line is losing',
+  ok: 'Prepared',
+};
+
+const OPENINGS_SORTS = [
+  { key: 'attention', label: 'Needs work' },
+  { key: 'played', label: 'Most played' },
+  { key: 'weakest', label: 'Worst score' },
+  { key: 'name', label: 'Name' },
+];
+
+function sortOpenings(rows: OpeningRow[], mode: string): OpeningRow[] {
+  const copy = [...rows];
+  switch (mode) {
+    case 'played': return copy.sort((a, b) => b.games - a.games || a.family.localeCompare(b.family));
+    case 'weakest': return copy.sort((a, b) => a.scorePct - b.scorePct || b.games - a.games);
+    case 'name': return copy.sort((a, b) => a.family.localeCompare(b.family));
+    // 'attention' is the order rankOpenings already returns.
+    default: return copy;
+  }
+}
+
+function buildOpeningsTab(
   games: ImportedGame[],
   lines: Line[],
   container: HTMLElement,
-): { el: HTMLElement; hasContent: boolean } {
-  // The marker CSS needs to give the two colour groups a column each above the
-  // desktop breakpoint (see .explore-recommended in style.css).
+): HTMLElement {
   const wrap = document.createElement('div');
-  wrap.className = 'explore-recommended';
-  const desc = document.createElement('p');
-  desc.className = 'section-desc';
-  desc.textContent =
-    'Openings you play a lot but score poorly in — build a solid line and train it.';
-  wrap.appendChild(desc);
-
-  let white: OpeningStat[] = [];
-  let black: OpeningStat[] = [];
-  if (games.length > 0) {
-    const analysis = analyseGames(games, lines);
-    white = recommendedFor(analysis.stats, 'white');
-    black = recommendedFor(analysis.stats, 'black');
-  }
+  wrap.className = 'explore-openings';
 
   if (games.length === 0) {
-    // Nothing here can be recommended without games, so the import form itself
-    // is the section's content rather than a button that goes and gets one.
+    // Nothing here exists without games, so the import form IS the tab rather
+    // than a button that goes and gets one. (This is the empty state the old
+    // "From my games" tab carried; it had to survive the merge.)
     wrap.appendChild(buildInlineImport({
       title: 'Import your games',
-      body: 'Then this picks out the openings you play a lot but score poorly in — the ones worth preparing first.',
+      body: 'Then this lists the openings you actually play — which ones have no line yet, '
+        + 'and which ones you are losing with despite having prepared them.',
       onImported: () => renderExploreScreen(container),
     }));
-    return { el: wrap, hasContent: false };
+    return wrap;
   }
 
-  if (white.length === 0 && black.length === 0) {
-    const empty = document.createElement('p');
-    empty.className = 'section-desc';
-    empty.textContent = 'No weak spots to flag yet — nice. Check back after more games.';
-    wrap.appendChild(empty);
-    return { el: wrap, hasContent: false };
+  const rows = analyseGames(games, lines).openings;
+  if (rows.length === 0) {
+    wrap.appendChild(buildEmptyState({
+      icon: Icons.sparkles(44),
+      line: 'Nothing to read from your games yet.',
+      body: 'An opening has to show up a couple of times before its score means anything.',
+      cta: { label: 'Import more games', onClick: () => openImportPanel({ onImported: () => renderExploreScreen(container) }) },
+    }));
+    return wrap;
   }
 
-  if (white.length > 0) wrap.appendChild(reportGroup('As White', white.map(recommendationCard)));
-  if (black.length > 0) wrap.appendChild(reportGroup('As Black', black.map(recommendationCard)));
-  return { el: wrap, hasContent: true };
+  const counts = {
+    all: rows.length,
+    white: rows.filter(r => r.colour === 'white').length,
+    black: rows.filter(r => r.colour === 'black').length,
+  };
+  const needCounts = (colour: ColourFilter): Record<string, number> => {
+    const scoped = colour === 'all' ? rows : rows.filter(r => r.colour === colour);
+    return {
+      none: scoped.filter(r => r.need === 'none').length,
+      weak: scoped.filter(r => r.need === 'weak').length,
+      ok: scoped.filter(r => r.need === 'ok').length,
+    };
+  };
+
+  const listSec = document.createElement('div');
+  listSec.className = 'section';
+  const list = document.createElement('div');
+  list.className = 'group lines-grid';
+  listSec.appendChild(list);
+
+  const filter = createFilterBar({
+    persistKey: MY_OPENINGS_FILTER_KEY,
+    sorts: OPENINGS_SORTS,
+    defaultSort: 'attention',
+    colourCounts: counts,
+    status: true,
+    // The three states ARE the statuses here — the same exclusive pills the line
+    // lists use for Due / Learning / Solid.
+    statusOptions: [
+      { key: 'none', label: NEED_LABEL.none },
+      { key: 'weak', label: NEED_LABEL.weak },
+      { key: 'ok', label: NEED_LABEL.ok },
+    ],
+    countsForColour: (colour) => ({ statusCounts: needCounts(colour) }),
+    onChange: () => rebuild(),
+  });
+  wrap.appendChild(filter.element);
+  wrap.appendChild(listSec);
+
+  function rebuild(): void {
+    list.innerHTML = '';
+    const sel = filter.selection;
+    let shown = rows;
+    if (sel.colour !== 'all') shown = shown.filter(r => r.colour === sel.colour);
+    if (sel.status !== 'all') shown = shown.filter(r => r.need === sel.status);
+    shown = sortOpenings(shown, sel.sort);
+
+    if (shown.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'lines-empty';
+      empty.textContent = 'Nothing here with those filters.';
+      list.appendChild(empty);
+      return;
+    }
+    // Same cap and reveal the old suggestions list used — a phone shows six.
+    shown.forEach((row, i) => {
+      const card = myOpeningCard(row);
+      if (i >= TOP_N) card.hidden = true;
+      list.appendChild(card);
+    });
+    if (shown.length > TOP_N) listSec.appendChild(buildShowAll(list, shown.length, listSec));
+  }
+
+  rebuild();
+  return wrap;
+}
+
+// "Show all" / "Show fewer" under a capped list. Rebuilt with the list, so it
+// can never outlive the cards it counts.
+function buildShowAll(list: HTMLElement, total: number, host: HTMLElement): HTMLElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn-secondary lines-showall';
+  let open = false;
+  const paint = () => {
+    btn.textContent = open ? 'Show fewer' : `Show all ${total}`;
+  };
+  paint();
+  btn.addEventListener('click', () => {
+    open = !open;
+    list.querySelectorAll<HTMLElement>('.pcard').forEach((c, i) => {
+      if (i >= TOP_N) c.hidden = !open;
+    });
+    paint();
+  });
+  host.appendChild(btn);
+  return btn;
+}
+
+// One opening. The row is the same position card the rest of the app uses; what
+// is new is the CHIP, which says what this opening needs, and the action, which
+// follows from it: build a line where there is none, open yours where it is
+// losing, and nothing at all where it is holding up.
+function myOpeningCard(row: OpeningRow): HTMLElement {
+  const { card, titleRow, content } = buildPositionCard({
+    fen: row.repUcis.length > 0 ? fenFromUcis(row.repUcis) : null,
+    orientation: row.colour,
+    className: `games-card opening-card opening-card--${row.need}`,
+    ...(row.repUcis.length > 0 && {
+      onMiniClick: () => openOpeningPeek(row),
+      miniLabel: `Look at ${row.family}`,
+    }),
+  });
+
+  titleRow.appendChild(colourPip(row.colour));
+  const nameEl = document.createElement('span');
+  nameEl.className = 'pcard-name';
+  nameEl.textContent = row.family;
+  titleRow.appendChild(nameEl);
+
+  const chip = document.createElement('span');
+  chip.className = `opening-chip opening-chip--${row.need}`;
+  chip.textContent = NEED_LABEL[row.need];
+  titleRow.appendChild(chip);
+
+  const meta = document.createElement('div');
+  meta.className = 'stat-card-chips';
+  const gamesChip = document.createElement('span');
+  gamesChip.className = 'review-stat-chip';
+  gamesChip.textContent = `Played ${row.games}×`;
+  meta.appendChild(gamesChip);
+  content.appendChild(meta);
+
+  const scoreRow = document.createElement('div');
+  scoreRow.className = 'review-score-row';
+  scoreRow.appendChild(scoreBar(row.scorePct));
+  const scoreText = document.createElement('span');
+  scoreText.className = 'review-score-text';
+  scoreText.textContent = `${row.scorePct}% · ${row.wins}-${row.draws}-${row.losses} W-D-L`;
+  scoreRow.appendChild(scoreText);
+  content.appendChild(scoreRow);
+
+  if (row.repSans.length > 0) {
+    const lineEl = document.createElement('div');
+    lineEl.className = 'review-moves stat-card-note';
+    lineEl.textContent = formatSanLine(row.repSans);
+    content.appendChild(lineEl);
+  }
+
+  if (row.repUcis.length > 0) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn-secondary stat-card-btn';
+    btn.textContent = row.need === 'none' ? 'Build line' : 'Look at this position';
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      openOpeningPeek(row);
+    });
+    content.appendChild(btn);
+  }
+
+  return card;
+}
+
+// Tapping an opening shows the POSITION first, not the builder. Jumping straight
+// into the editor from a one-line list row is a big move to make on a guess; the
+// popup is the look-before-you-leap step every other list in the app already
+// has (Statistics' forgotten moves, the training results screen).
+function openOpeningPeek(row: OpeningRow): void {
+  const last = row.repUcis[row.repUcis.length - 1];
+  openPositionPeek({
+    fen: fenFromUcis(row.repUcis),
+    orientation: row.colour,
+    title: row.family,
+    subtitle: `${NEED_LABEL[row.need]} · played ${row.games}× · ${row.scorePct}% score`,
+    stats: [
+      { value: String(row.games), label: 'games' },
+      {
+        value: `${row.scorePct}%`,
+        label: 'score',
+        tone: row.scorePct >= 55 ? 'ok' : row.scorePct >= 45 ? 'mid' : 'low',
+      },
+      { value: `${row.wins}-${row.draws}-${row.losses}`, label: 'W-D-L' },
+    ],
+    revealUci: last,
+    footnote: row.repSans.length ? formatSanLine(row.repSans) : undefined,
+    actions: [{
+      icon: Icons.build(16),
+      label: row.need === 'none' ? 'Build a line here' : 'Open in the builder',
+      onClick: ({ close }) => {
+        close();
+        exploreDeps?.onOpenInBuilder(row.repUcis, row.colour);
+      },
+    }],
+  });
 }
 
 // Pack.level isn't a clean skill-level tag for every pack (the onboarding data

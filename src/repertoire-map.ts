@@ -95,6 +95,17 @@ export interface RepertoireMapOptions {
     you: 'white' | 'black';
     opponent?: { name: string; avatarUrl?: string };
   };
+  // A way OUT of an embedded map and into a full-screen one. When set, a button
+  // appears in the control bar; the caller reopens the same map as an overlay
+  // (openRepertoireMap), standing where this one was standing — which is why it
+  // receives the current path.
+  //
+  // It exists because an embedded map is a `touch-action: none` surface filling
+  // most of a scrolling page: a vertical swipe that starts inside it pans the
+  // tree rather than the page, so the card has to be small enough to scroll
+  // past, and then it is too small to work in. Small card, full screen when you
+  // mean it.
+  onFullScreen?: (path: string[]) => void;
   // How lines are merged into the tree (see map-merge.ts):
   //   'path'     — the default. Two lines share a node only while they have not
   //                parted, so a transposition draws as two separate branches.
@@ -128,14 +139,28 @@ export interface MapDepth {
 // horizontal (the reverse of a top-down tree).
 const NW = 56;          // node width
 const NH = 30;          // node height
-const SIBLING_GAP = 12; // vertical gap between stacked sibling subtrees
-const GEN_GAP = 44;     // horizontal gap: right of parent → left of child
+// Vertical gap between stacked sibling subtrees. It has to clear the tap
+// TARGET, not the box: the hit rect is NH + 14 = 44px tall (the minimum a thumb
+// wants), so a pitch of NH + 12 left adjacent targets overlapping by 2px and a
+// tap on the boundary landed on whichever was drawn last. NH + 16 = 46 clears it.
+const SIBLING_GAP = 16;
+const GEN_GAP = 36;     // horizontal gap: right of parent → left of child
 const PAD = 20;         // outer padding
 
-// The floor the first-paint fit will not zoom past — below this the move text
-// stops being readable, and a tree nobody can read is worse than one that needs
-// a pan. See centreOnFirst/fitScale.
-const FIT_MIN_SCALE = 0.55;
+// ── How small the first paint may go ─────────────────────────────────────────
+//
+// The fit is a CSS transform, so shrinking the tree shrinks the TEXT with it: at
+// the old 0.55 floor a 12px move label rendered at 6.6px, which is not a label
+// any more. The floor is therefore derived from legibility rather than picked:
+// the smallest the map will draw itself is the scale at which the move text is
+// still readable, and anything wider than that is what panning is for.
+//
+// NODE_FONT_PX must match .rmap-node-text's font-size in the stylesheet. It is
+// only ever used to work out this floor, so a drift costs a slightly wrong floor
+// and nothing else.
+const NODE_FONT_PX = 12;
+const MIN_LEGIBLE_FONT_PX = 9.5;
+const FIT_MIN_SCALE = MIN_LEGIBLE_FONT_PX / NODE_FONT_PX;
 
 // Win/draw/loss bar, pinned to the bottom edge of the node box (below the SAN).
 const BAR_M = 6;             // horizontal inset from the box edges
@@ -204,6 +229,13 @@ function placeNodes(n: MapNode, x: number, y: number, h: number): void {
   }
 }
 
+/** Line ends under a node — what a fold is putting away, in the unit that means
+ * something to the user. */
+function countEnds(n: MapNode): number {
+  if (!n.children.length) return 1;
+  return n.children.reduce((sum, c) => sum + countEnds(c), 0);
+}
+
 // Rightmost edge reached by any node — drives the SVG width.
 function treeMaxX(n: MapNode): number {
   let m = n.x + NW / 2;
@@ -217,6 +249,7 @@ function buildSVG(
   root: MapNode,
   onTap: (n: MapNode) => void,
   marks = false,
+  onToggleFold?: (n: MapNode) => void,
 ): SVGSVGElement {
   const h = subH(root);
   placeNodes(root, PAD, PAD, h);
@@ -233,7 +266,7 @@ function buildSVG(
   // Root is the start position (no SAN) — skip it, draw its children.
   drawEdges(svg, root, true);
   if (marks) drawAltEdges(svg, root);
-  drawNodes(svg, root, true, onTap, marks);
+  drawNodes(svg, root, true, onTap, marks, onToggleFold);
   return svg;
 }
 
@@ -321,9 +354,10 @@ function drawNodes(
   skip: boolean,
   onTap: (n: MapNode) => void,
   marks = false,
+  onToggleFold?: (n: MapNode) => void,
 ): void {
   if (!skip) {
-    const isFork = n.children.length > 1;
+    const isFork = n.children.length > 1 || !!n.collapsed;
     const mover = movedBy(n.fen);
     const g = document.createElementNS(NS, 'g') as SVGGElement;
     g.setAttribute('class', [
@@ -367,6 +401,12 @@ function drawNodes(
     // read-only tree can tell you that a list of lines can't.
     if (marks && n.answers > 1) drawAnswerBadge(g, n);
 
+    // Fold control on every fork. Until now the only depth control was global —
+    // everything, or the first N moves of everything — and on a phone the single
+    // most useful thing you can do to a tree is put one branch away while you
+    // read the other.
+    if (onToggleFold && isFork) drawFoldToggle(g, n, onToggleFold);
+
     n.svgEl = g;
     g.addEventListener('click', e => {
       e.stopPropagation();
@@ -374,7 +414,59 @@ function drawNodes(
     });
     parent.appendChild(g);
   }
-  for (const c of n.children) drawNodes(parent, c, false, onTap, marks);
+  for (const c of n.children) drawNodes(parent, c, false, onTap, marks, onToggleFold);
+}
+
+// The fold control: a small disc off the node's right edge, sitting in the gap
+// between generations so it never lands on a neighbour. Open, it is a minus;
+// folded, it is the number of LINE ENDS put away — which is the figure worth
+// knowing ("six lines under here"), not the number of moves.
+const FOLD_R = 8;
+
+function drawFoldToggle(g: SVGGElement, n: MapNode, onToggle: (n: MapNode) => void): void {
+  const cx = n.x + NW / 2 + FOLD_R + 2;
+  const cy = n.y + NH / 2;
+  const folded = !!n.collapsed;
+
+  const wrap = document.createElementNS(NS, 'g');
+  wrap.setAttribute('class', `rmap-fold${folded ? ' rmap-fold--on' : ''}`);
+
+  // Its own tap target, comfortably bigger than the disc it draws.
+  const hit = document.createElementNS(NS, 'rect');
+  hit.setAttribute('x', String(cx - 14));
+  hit.setAttribute('y', String(cy - 14));
+  hit.setAttribute('width', '28');
+  hit.setAttribute('height', '28');
+  hit.setAttribute('fill', 'transparent');
+  wrap.appendChild(hit);
+
+  const disc = document.createElementNS(NS, 'circle');
+  disc.setAttribute('cx', String(cx));
+  disc.setAttribute('cy', String(cy));
+  disc.setAttribute('r', String(FOLD_R));
+  disc.setAttribute('class', 'rmap-fold-disc');
+  wrap.appendChild(disc);
+
+  const label = document.createElementNS(NS, 'text');
+  label.setAttribute('x', String(cx));
+  label.setAttribute('y', String(cy + 3.5));
+  label.setAttribute('text-anchor', 'middle');
+  label.setAttribute('class', 'rmap-fold-text');
+  label.textContent = folded ? String(n.hiddenEnds ?? 0) : '−';
+  wrap.appendChild(label);
+
+  const ends = n.hiddenEnds ?? 0;
+  wrap.setAttribute('role', 'button');
+  wrap.setAttribute('tabindex', '0');
+  wrap.setAttribute('aria-label', folded
+    ? `Unfold ${ends} line${ends === 1 ? '' : 's'} after ${n.san}`
+    : `Fold away everything after ${n.san}`);
+  wrap.addEventListener('click', e => {
+    // The node under it must not select as well — this is its own control.
+    e.stopPropagation();
+    onToggle(n);
+  });
+  g.appendChild(wrap);
 }
 
 // A small count pill on the node's top-right corner: "you have N answers here".
@@ -487,6 +579,19 @@ function rmapPlayerIcon(): HTMLElement {
   return wrap;
 }
 
+// A BOTTOM SHEET, in two heights.
+//
+// It used to be a panel pinned to the TOP of the tree area, always at full
+// height: 190px of a 512px tree box on a phone — 37% of the map — dropped over
+// the part of the tree you had just been reading, and often over the very node
+// you tapped. Half of that was a chessboard nobody had asked for yet.
+//
+// Now the answer to "what is this move?" is a 44px strip at the BOTTOM, where
+// the thumb already is: the move, the opening it makes, and a chevron. Pull it
+// up and you get the board and everything else, exactly as before. The open /
+// closed choice sticks for the session, because someone who opened it once
+// means it; a desktop starts open, since up there the room was never the
+// problem.
 function makePreview(
   colour: 'white' | 'black',
   opts: RepertoireMapOptions,
@@ -496,14 +601,40 @@ function makePreview(
   panel.className = 'rmap-pos-panel';
   panel.hidden = true;
 
-  // Collapse button (top-right).
+  let expanded = window.matchMedia?.('(min-width: 960px)').matches ?? false;
+
+  // ── The handle: always visible once a node is selected ──
+  const handle = document.createElement('div');
+  handle.className = 'rmap-pos-handle';
+
+  const grab = document.createElement('button');
+  grab.type = 'button';
+  grab.className = 'rmap-pos-grab';
+  const handleSan = document.createElement('span');
+  handleSan.className = 'rmap-pos-handle-san';
+  grab.appendChild(handleSan);
+  const handleName = document.createElement('span');
+  handleName.className = 'rmap-pos-handle-name';
+  grab.appendChild(handleName);
+  const chev = Icons.chevronDown(18);
+  chev.classList.add('rmap-pos-handle-chev');
+  grab.appendChild(chev);
+  grab.addEventListener('click', () => setExpanded(!expanded));
+  handle.appendChild(grab);
+
   const collapseBtn = document.createElement('button');
   collapseBtn.type = 'button';
   collapseBtn.className = 'rmap-pos-collapse';
   collapseBtn.setAttribute('aria-label', 'Hide position');
   collapseBtn.textContent = '×';
   collapseBtn.addEventListener('click', () => { panel.hidden = true; });
-  panel.appendChild(collapseBtn);
+  handle.appendChild(collapseBtn);
+  panel.appendChild(handle);
+
+  // ── The body: board + info, revealed when the sheet is up ──
+  const body = document.createElement('div');
+  body.className = 'rmap-pos-body';
+  panel.appendChild(body);
 
   // Board column (left). For opponent maps it's bracketed by player strips
   // (opponent on top, "You" below) so the perspective reads at a glance.
@@ -514,25 +645,35 @@ function makePreview(
   boardEl.className = 'rmap-pos-board';
   boardCol.appendChild(boardEl);
   if (opts.perspective) boardCol.appendChild(rmapPlayerStrip('you'));
-  panel.appendChild(boardCol);
+  body.appendChild(boardCol);
 
   // Info column (right).
   const infoCol = document.createElement('div');
   infoCol.className = 'rmap-pos-info-col';
-  panel.appendChild(infoCol);
+  body.appendChild(infoCol);
 
   let cg: CgApi | null = null;
+  // The node the sheet is describing, so expanding it later can mount the board
+  // for a position that was selected while it was down.
+  let current: MapNode | null = null;
 
-  function show(n: MapNode, lines: Line[], open: (l: Line) => void): void {
-    panel.hidden = false;
+  function setExpanded(open: boolean): void {
+    expanded = open;
+    panel.classList.toggle('rmap-pos-panel--open', open);
+    body.hidden = !open;
+    grab.setAttribute('aria-expanded', String(open));
+    grab.setAttribute('aria-label', open ? 'Hide the board' : 'Show the board');
+    // A board is only worth mounting once it can be seen — and chessground
+    // measures its container, so mounting one inside a hidden box lays it out at
+    // zero and it never recovers.
+    if (open && current) paintBoard(current);
+  }
+  setExpanded(expanded);
 
+  function paintBoard(n: MapNode): void {
     const from = n.uci.slice(0, 2) as Key;
     const to = n.uci.slice(2, 4) as Key;
-    const assoc = lines.find(l => n.lineIds.includes(l.id));
-    // Opponent maps fix the orientation to MY answering side; otherwise follow
-    // the associated saved line (falling back to the map's colour).
-    const orient = opts.perspective?.you ?? assoc?.colour ?? colour;
-
+    const orient = opts.perspective?.you ?? boardOrientation(n) ?? colour;
     if (!cg) {
       cg = Chessground(boardEl, {
         fen: n.fen, orientation: orient, viewOnly: true,
@@ -545,6 +686,29 @@ function makePreview(
     } else {
       cg.set({ fen: n.fen, orientation: orient, lastMove: [from, to] });
     }
+  }
+
+  // Which way up the board faces: an opponent map fixes it to my answering side,
+  // otherwise follow the saved line this node belongs to. Held here so both the
+  // mount and the later repaint agree.
+  let boardLines: Line[] = [];
+  function boardOrientation(n: MapNode): 'white' | 'black' | null {
+    return boardLines.find(l => n.lineIds.includes(l.id))?.colour ?? null;
+  }
+
+  function show(n: MapNode, lines: Line[], open: (l: Line) => void): void {
+    panel.hidden = false;
+    current = n;
+    boardLines = lines;
+
+    // The handle says what you tapped, whether or not the board is up.
+    handleSan.textContent = formatMove(n.san);
+    handleName.textContent = nameForFen(n.fen) ?? '';
+
+    const assoc = lines.find(l => n.lineIds.includes(l.id));
+    // Only when the sheet is up: a board mounted into a hidden box measures zero
+    // and never recovers (see setExpanded).
+    if (expanded) paintBoard(n);
 
     infoCol.innerHTML = '';
 
@@ -817,7 +981,11 @@ function makeControls(
   for (const [t, a, h] of [['−', 'Zoom out', onZoomOut], ['+', 'Zoom in', onZoomIn]]) {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'rmap-zoom-btn';
+    // …and the ± pair goes the same way on a phone: pinch is the gesture
+    // everyone already reaches for, and these two float ON the tree, covering
+    // it. The crosshair stays — "bring it back" has no gesture anyone would
+    // guess (it is a double-tap), so it needs a button.
+    b.className = 'rmap-zoom-btn rmap-zoom-btn--zoom';
     b.setAttribute('aria-label', String(a));
     b.textContent = String(t);
     b.addEventListener('click', h as () => void);
@@ -841,6 +1009,13 @@ function makeControls(
   const downBtn = svgBtn('Next variation', DBL_CHEVRON.down, onDown);
   const leftBtn = svgBtn('Previous move', [CHEVRON.left], onLeft);
   const rightBtn = svgBtn('Next move', [CHEVRON.right], onRight);
+  // The variation arrows step between siblings at a fork — which on a phone is
+  // what tapping the sibling does, since they are stacked in plain sight a
+  // thumb's width apart. Two of the seven controls crowding a 380px bar to
+  // duplicate a tap is a poor trade, so CSS drops them below the desktop
+  // breakpoint (see .rmap-nav-btn--var).
+  upBtn.classList.add('rmap-nav-btn--var');
+  downBtn.classList.add('rmap-nav-btn--var');
   navGroup.append(upBtn, downBtn, leftBtn, rightBtn);
 
   bar.appendChild(viewSlot);
@@ -1060,9 +1235,48 @@ export function mountRepertoireMap(
   const makeTree = (): MapNode =>
     buildMergedTree(currentLines(), currentPlies, mergeMode, colour);
 
-  let root = makeTree();
-  attachStats(root, statsTree);
-  if (statsTree && viewMode === 'frequent') pruneByStats(root);
+  // ── Folding ────────────────────────────────────────────────────────────────
+  //
+  // Which forks are folded away, by their uci path from the start. A PATH rather
+  // than a node, because every rebuild ("Go deeper", All/Frequent, a colour
+  // switch) throws the node objects away and builds fresh ones — and the fold
+  // has to survive that, or every reveal would silently unfold everything.
+  const folded = new Set<string>();
+
+  const foldKey = (n: MapNode): string => nodePath(n).ucis.join(' ');
+
+  // Fold the marked forks out of a freshly built tree. Emptying `children` is
+  // all it takes: the layout, the width measure and every walk follow that one
+  // list, so a folded subtree costs nothing anywhere downstream.
+  function applyFolds(node: MapNode): void {
+    node.collapsed = false;
+    node.hiddenEnds = 0;
+    if (node.san && node.children.length > 1 && folded.has(foldKey(node))) {
+      node.hiddenEnds = countEnds(node);
+      node.collapsed = true;
+      node.children = [];
+      return;
+    }
+    for (const c of node.children) applyFolds(c);
+  }
+
+  function toggleFold(n: MapNode): void {
+    const key = foldKey(n);
+    if (folded.has(key)) folded.delete(key);
+    else folded.add(key);
+    rebuild();
+  }
+
+  const makeDrawn = (): MapNode => {
+    const built = makeTree();
+    attachStats(built, statsTree);
+    if (statsTree && viewMode === 'frequent') pruneByStats(built);
+    // After the stats prune, so a fold hides what is actually on screen.
+    applyFolds(built);
+    return built;
+  };
+
+  let root = makeDrawn();
 
   if (!root.children.length) {
     const empty = document.createElement('p');
@@ -1110,7 +1324,7 @@ export function mountRepertoireMap(
     controls.update(n, forkChoice);
   }
 
-  let svg = buildSVG(root, selectNode, marks);
+  let svg = buildSVG(root, selectNode, marks, toggleFold);
   inner.appendChild(svg);
   treeWrap.appendChild(inner);
   treeArea.appendChild(treeWrap);
@@ -1167,10 +1381,8 @@ export function mountRepertoireMap(
   // same move (by path) when one was selected, else re-centre on the first move.
   function rebuild(): void {
     const keepPath = selected ? nodePath(selected).ucis : null;
-    root = makeTree();
-    attachStats(root, statsTree);
-    if (statsTree && viewMode === 'frequent') pruneByStats(root);
-    const newSvg = buildSVG(root, selectNode, marks);
+    root = makeDrawn();
+    const newSvg = buildSVG(root, selectNode, marks, toggleFold);
     svg.replaceWith(newSvg);
     svg = newSvg;
     forkChoice.clear();
@@ -1300,6 +1512,22 @@ export function mountRepertoireMap(
       return b;
     });
     controls.viewSlot.appendChild(seg);
+  }
+
+  // "Full screen" — the embedded map's way into the overlay one, standing on the
+  // move you were looking at.
+  if (opts.onFullScreen) {
+    const full = document.createElement('button');
+    full.type = 'button';
+    full.className = 'rmap-full-btn';
+    full.appendChild(Icons.expand(16));
+    const label = document.createElement('span');
+    label.textContent = 'Full screen';
+    full.appendChild(label);
+    full.addEventListener('click', () => {
+      opts.onFullScreen?.(selected ? nodePath(selected).ucis : []);
+    });
+    controls.viewSlot.appendChild(full);
   }
 
   // The quiet "Go deeper" control sits in the left group of the control bar. It

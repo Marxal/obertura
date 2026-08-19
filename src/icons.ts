@@ -79,6 +79,13 @@ export const Icons = {
   // Feedback & about mark — a friendly smiley.
   smile:    (s?: number) => svg(`<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/>`, s),
   target:   (s?: number) => svg(`<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>`, s),
+  // Four corners pushing outward (Lucide "maximize") — the embedded tree's way
+  // into the full-screen one.
+  expand:   (s?: number) => svg(`<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>`, s),
+  // Scouting's own mark (Lucide "user-search") — a person under a magnifier.
+  // It used to borrow `target`, which now belongs to Coverage: two Explore tabs
+  // sharing one glyph is one tab nobody can find.
+  scout:    (s?: number) => svg(`<circle cx="10" cy="7" r="4"/><path d="M10.3 15H7a4 4 0 0 0-4 4v2"/><circle cx="17" cy="17" r="3"/><path d="m21 21-1.9-1.9"/>`, s),
   // The My games tab mark — an ultra-minimalist 2×2 chessboard (two filled
   // squares on the diagonal, two empty), drawn to sit beside the stroked nav set.
   grid2x2:  (s?: number) => svg(`<rect x="3" y="3" width="18" height="18" rx="1.5"/><path d="M12 3v18"/><path d="M3 12h18"/><rect x="3" y="3" width="9" height="9" fill="currentColor" stroke="none"/><rect x="12" y="12" width="9" height="9" fill="currentColor" stroke="none"/>`, s),

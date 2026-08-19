@@ -2555,9 +2555,10 @@ never does) is a complete test on its own.
 
 ## The daily-challenge, tree and Explore round ✅
 
-Nine items off one brief. Two of them were questions rather than jobs, and their
-answers are written up in full in the **Tree and Explore** report; what follows
-is what shipped.
+Nine items off one brief. Two of them were questions before they were jobs —
+what makes the repertoire tree hard to use on a phone, and whether Coverage,
+Recommended and "From my games" are really three things — so they were measured
+and written up first (the **Tree and Explore** report), then built.
 
 **The daily challenge now exists before you can do it.** Under the three-line
 goal it does not run — two of its five parts need a repertoire — and it used to
@@ -2635,25 +2636,61 @@ the + button.
 the API key that shipped with them, the Explore tab, the icon and ~230 lines of
 CSS. Explore is three tabs now: Recommended, Packs, Scouting.
 
-**Two questions, answered rather than built:**
+**Two questions were answered first and then built** — the reasoning, the
+measurements and the ranking are in the **Tree and Explore** report.
 
-- 🔜 **The tree on a phone.** Four fixes shipped (above); six more are ranked and
-  costed in the report, worst first. The biggest by a distance: the tap-preview
-  takes 37% of the tree area and pins itself over the node you just tapped, and
-  the embedded map is a `touch-action: none` surface filling 62vh of a scrolling
-  page. Both are the same problem — a 512px box doing a full screen's work.
-- 🔜 **Coverage vs Recommended vs From my games.** They are not three things:
-  `recommendationCard` and `suggestionCard` are the same component twice, built
-  from the same `analyseGames()` pass, differing only in a `filter()` — and they
-  overlap on exactly the interesting case (played a lot, scoring badly, no line
-  yet), which therefore appears on two screens with the same button. Recommended
-  never checks `hasRepertoire`, so it offers "Build line" for openings you
-  already prepared. Coverage is the only one of the three that reads your
-  repertoire, the only one whose unit is a MOVE, and the only one whose answer
-  changes as you work — and it is on the wrong screen. The proposal: My Lines is
-  what you own (no tabs at all), Explore is what you don't, as four tabs —
-  Coverage, Openings (the merge, with a status chip per row), Packs, Scouting —
-  and a coverage row opens the position popup before it opens the builder.
+**My Lines is what you own; Explore is what you don't.** One rule, and it
+resolved all three of Coverage, Recommended and "From my games" — which were
+never three things. `recommendationCard` and `suggestionCard` were the same
+component twice, built from the same `analyseGames()` pass and differing only in
+a `filter()`, and they overlapped on exactly the interesting case (played a lot,
+scoring badly, no line yet), which therefore appeared on two screens with the
+same button.
+
+- ✅ **Coverage is an Explore tab**, and leads it once there are lines to have
+  gaps in. `coverage-section.ts` already rendered standalone with exactly the
+  options a tab body needs, so the full-screen `coverage-screen.ts` and the
+  one-row launcher that opened it are both gone.
+- ✅ **Recommended and "From my games" are one Openings tab.**
+  `analysis.rankOpenings` labels every opening your games show with what it
+  NEEDS — *no line yet* / *line is losing* / *prepared* — and orders by
+  `games × (100 − score)`. The middle state is the one Recommended got wrong: it
+  never checked `hasRepertoire`, so it offered "Build line" for openings already
+  prepared. That row now opens the line you have.
+- ✅ **My Lines lost its tab bar.** With "From my games" gone there was one tab
+  left, and a one-tab tab bar is a title with extra steps.
+- ✅ **A coverage row opens the POSITION, not the builder.** Jumping into the
+  editor from a one-line list item meant agreeing to prepare something you could
+  not yet see. It is `openPositionPeek` — the same popup Statistics' forgotten
+  moves and the training results screen use — with the unanswered move drawn as
+  an arrow, the figures that ranked it, and two ways on: prepare an answer, or
+  see it in the tree. Openings rows do the same.
+
+**The tree stops making a 512px box do a full screen's work.** All six remaining
+fixes, on top of the four above:
+
+- ✅ **The preview is a bottom sheet.** It was a full-height panel pinned to the
+  TOP of the tree area — 190px of a 512px box, dropped over the part of the tree
+  you had just been reading and often over the node you tapped, half of it a
+  chessboard nobody had asked for. Collapsed it is a 44px strip at the bottom:
+  **37% of the map → 11%**. Pull it up for the board.
+- ✅ **Seven controls become three on a phone.** The variation arrows duplicate
+  tapping a sibling in plain sight; the ± pair duplicates pinch and floated ON
+  the tree. Both stay above the desktop breakpoint. That retires the 5rem of
+  padding the bar carried to dodge the FAB.
+- ✅ **Full screen.** The embedded map is a `touch-action: none` surface in a
+  scrolling page, so at 62vh a vertical swipe panned the tree instead of the
+  page with no way past it. The card is a 50vh preview now, and "Full screen"
+  reopens the same map as the overlay, standing where you were.
+- ✅ **The fit floor is derived from legibility rather than picked.** Shrinking
+  to fit is a CSS transform, so it shrank the text: at the old 0.55 floor a 12px
+  label rendered at 6.6px. The floor is now the scale at which the label is
+  still readable, and anything wider is what panning is for.
+- ✅ **Folding.** Every fork carries one, showing the number of LINE ENDS put
+  away. The state keys on the uci path rather than the node, so it survives "Go
+  deeper", All/Frequent and a colour switch — each of which rebuilds the tree.
+- ✅ **Landscape** gets a fixed 300px card instead of 50vh of a 412px viewport,
+  and `SIBLING_GAP` goes 12 → 16 so stacked 44px tap targets stop overlapping.
 
 ---
 

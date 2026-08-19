@@ -80,9 +80,11 @@ export const MIN_SCOUT_GAMES = 2;
  */
 export const MAX_GAPS_PER_POSITION = 2;
 
-/** The list caps: the full screen, and the builder's inline section. */
+/** How many gaps the list shows before it stops being a list and starts being
+ * a backlog. Twelve fits a phone scroll and is well past what anyone closes in
+ * one sitting. (There used to be a second, smaller cap for an inline copy of
+ * this block in the builder; that copy is gone, and so is the cap.) */
 export const MAX_GAPS = 12;
-export const MAX_GAPS_INLINE = 3;
 
 // ── Shapes ───────────────────────────────────────────────────────────────────
 

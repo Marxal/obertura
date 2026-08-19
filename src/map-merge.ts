@@ -75,6 +75,14 @@ export interface MapNode {
   x: number;
   y: number;
   svgEl: SVGGElement | null; // set during SVG build
+  /**
+   * Drawing state, set by repertoire-map.ts after the merge: this node is a fork
+   * whose subtree has been folded away, and how many line ends went with it. The
+   * merge itself never sets either — it always builds the whole tree, and
+   * folding is a view.
+   */
+  collapsed?: boolean;
+  hiddenEnds?: number;
   stats: StatNode | null;    // stamped by attachStats when a stats lookup is set
 }
 
