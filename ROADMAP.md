@@ -2466,6 +2466,93 @@ re-run the SQL in `SUPABASE-SYNC.md`. Restore point: `v0.4`._
 
 ---
 
+## The account round — sync that actually syncs ✅
+
+A pass over everything the account touches, prompted by three symptoms that
+turned out to be one story: signing in on a second device showed the first
+device's old lines, the Account section said "Sync failed — will retry" on every
+launch, and nothing anyone did made either better.
+
+**The sync only ever pulled once.** On the very first sign-in with an account,
+and never again — after that a device pushed and only pushed. So the second
+phone kept its own older copy, showed it, and then pushed it back over the
+first's. Both columns now carry a timestamp, each device remembers the last one
+it saw of each half, and it asks (two timestamps, a few hundred bytes) on
+sign-in, on coming back to the foreground and every five minutes. Only a half
+that really moved is downloaded. There is a **Sync now** button for impatience.
+
+- ✅ **A pull always merges, so the merge-or-replace prompt is gone.** It asked
+  at the worst possible moment — you have just typed a password and not yet seen
+  the app — "merge" was right every time, and cancelling left the device
+  silently unsynced for ever. Lines merge by move, games by id, statistics by
+  last-write-wins with a guard that can't overwrite unpushed work. What the
+  prompt uniquely did is now Settings → Data → **"Replace this device from your
+  account"**, asked for on purpose.
+- ✅ **The deadlock.** Every `onAuthChange` listener ran inside supabase-js's own
+  auth broadcast, which holds an internal lock; the first thing they did was call
+  Supabase, which waits on that lock. Auth work now hops to the next task first.
+- ✅ **Statistics were only pushed when a line changed.** The core column is the
+  lines *plus* the app-state snapshot, but only the lines had a change notifier —
+  so a puzzle rating or a streak sat on the phone until some unrelated edit
+  carried it up. The core is now offered at every push opportunity and the
+  fingerprint decides, which costs no request when nothing changed.
+- ✅ **Failures say what went wrong.** "Sync failed — will retry" covered a
+  missing table, a missing column, a blocked write and a train tunnel alike.
+  Now it names which.
+
+**Email confirmation is back on, and the links now work.** Turning it off was a
+mistake — a typo'd address means an account nobody can reach, including the
+person who just paid for it. But the return leg had a bug that would have made it
+useless: the app only claimed a `?code=` if a localStorage flag it set moments
+before the redirect was still standing, and no such flag survives a trip through
+a mail app. The flag is gone; `state` (which Lichess always sends and Supabase
+never does) is a complete test on its own.
+
+- ✅ **Password reset**, both halves: "Forgot your password?" on the sign-in tab,
+  and a "choose a new password" sheet when the link is opened.
+- ✅ **Resend the confirmation email**, because the commonest failure of email
+  confirmation is an email that never arrives.
+- ✅ **Facebook and Apple** join Google, behind `VITE_AUTH_PROVIDERS` so a button
+  can never appear for a provider the dashboard hasn't enabled. Lichess and
+  Chess.com were investigated and are **not possible** as sign-in providers —
+  Supabase takes only its own fixed list, Lichess is OAuth2 without an
+  `id_token`, and Chess.com has no public OAuth at all. `SUPABASE-SYNC.md` §3
+  has the reasoning and the workaround (offer the existing Lichess connection
+  right after sign-in instead).
+- ✅ **Registration / Sign in**, not "sign up / sign in" — one letter in the
+  middle of a word is a coin-toss to read on a phone. Registration now requires
+  ticking a consent for the privacy policy and terms; the social buttons carry
+  the passive line, because an OAuth tap is indistinguishable from a
+  registration until it comes back.
+
+**Everything else the round touched:**
+
+- ✅ **Export takes a dropdown** — everything, lines, games, statistics or
+  settings — and the file records which parts it holds, so "Replace" on a
+  lines-only import replaces the lines and leaves the games alone.
+- ✅ **Delete your account**, under Data: a Worker endpoint with the service-role
+  key (the browser has no key that may touch `auth.users`, and shouldn't),
+  type-DELETE to confirm, a backup offered first, and a separate tick-box for
+  whether to wipe this phone too — because closing an online account is not the
+  same as asking to lose the repertoire in your hand.
+- ✅ **Reset progress pushes immediately** rather than waiting out the 30-second
+  debounce, and says out loud that it reaches your other devices.
+- ✅ **Google Drive backup retired for good** — the code went earlier; this round
+  took the documentation, the privacy-policy entries, the dead CSS and the
+  leftover device keys, which are now swept at boot.
+- ✅ **A size guard in the database.** The 4 MB-per-column ceiling was enforced
+  only in JavaScript the user is holding. It is now a Postgres trigger as well.
+  Measured on the way: ~2.1–2.7 KB per line, ~1.4 KB per synced game, so the
+  ceiling lands at roughly 1,600 lines and the games column can't reach its own
+  at all. Full table in `SUPABASE-SYNC.md` §7.
+- ✅ **`SUPABASE-SYNC.md` is now the whole account checklist**, not just the SQL:
+  auth settings, the redirect allow-list, the email-template edit that makes
+  links work in any browser, custom SMTP (the built-in sender is capped at a
+  couple of emails an hour, which would have silently blocked registrations),
+  every provider's setup, account deletion, quotas, and a checklist at the end.
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on
@@ -2482,8 +2569,11 @@ the phone.
 
 Deliberately deferred. Revisited once the app has had more real use on the phone.
 
-- 💤 True automatic sync (Drive *backup* shipped in v0.6; auto two-device sync
-  needs per-line `updatedAt` + deletion tombstones — design note in `PUBLISHING.md`)
+- 💤 **Deletion tombstones.** Two-device sync now works (the account round), but
+  a *deletion* still doesn't travel: lines and games merge, so removing a line on
+  one phone leaves it on the other. Needs per-line `updatedAt` plus a remembered
+  list of deleted ids — design note in `PUBLISHING.md`. Until then the escape
+  hatch is Settings → Data → "Replace this device from your account".
 - 💤 Monetization build-out (options and recommended path now in `PUBLISHING.md`)
 - 💤 Offline support (service worker / installable cache)
 - 💤 Deeper engine features and richer explanations

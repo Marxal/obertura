@@ -24,7 +24,9 @@ understand concepts, not syntax. I direct; you build; I test on my phone.
 - Build tool: Vite, vanilla TypeScript (no heavy framework for v1).
 - Board UI: chessground.
 - Chess rules / move validation / PGN: chess.js.
-- Storage: IndexedDB on the device (use a thin wrapper). NO backend.
+- Storage: IndexedDB on the device (use a thin wrapper). The only backend is
+  Supabase (accounts + one `profiles` row of synced data) and a small Cloudflare
+  Worker (`worker/`) for Stripe and account deletion.
 - Opening names: bundled offline table (CC0 lichess-org/chess-openings dataset,
   `src/openings.ts`). The live explorer API is login-gated nowadays — it's only
   an optional logged-in overlay on the Library slide, never a dependency.
@@ -33,7 +35,8 @@ understand concepts, not syntax. I direct; you build; I test on my phone.
 
 ## Hard constraints
 - Online-only is fine for v1. Offline (service worker) is LATER.
-- Data lives on the phone. Google Drive sync is "someday," not now.
+- Data lives on the phone. Signing in keeps a synced copy in the user's Supabase
+  account (`SUPABASE-SYNC.md`); the retired Google Drive backup is gone for good.
 - Must run as a PWA installable on Android (manifest + add-to-home-screen).
 - Keep files small and focused (keeps context/token cost low).
 

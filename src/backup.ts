@@ -1,22 +1,53 @@
-// Backup & restore UI — the repertoire's safety net.
+// Backup & restore UI — the repertoire's safety net, and the way data leaves
+// the device on purpose.
 //
-// All the data lives only in this browser's IndexedDB, so this is how it leaves
-// the device: Export writes the whole repertoire to one JSON file you keep in
-// Drive or email; Import reads such a file back. The storage layer does the
-// real work (export/parse/restore); this module is just the buttons, the file
-// download/pick plumbing, and the merge-vs-replace chooser.
+// Export writes a JSON file you keep wherever you like; Import reads one back.
+// The storage layer does the real work (export/parse/restore); this module is
+// the buttons, the file download/pick plumbing, and the merge-vs-replace
+// chooser.
+//
+// ── EXPORTING PART OF IT ────────────────────────────────────────────────────
+// The dropdown next to Export picks how much goes in the file: everything, or
+// just the lines, the games, the statistics or the settings. It exists because
+// those are four different things to want. Moving to a new phone wants
+// everything; sharing a repertoire, or keeping a snapshot of it before a big
+// rewrite, wants the lines alone and none of the megabytes of games; starting a
+// season fresh but keeping your board colours wants the settings alone.
+//
+// The file says which parts it carries (`parts` in storage.ts), and that is what
+// makes a partial import safe: "Replace everything" on a lines-only file
+// replaces the LINES and leaves the games alone, because the file never claimed
+// to speak for them.
 
 import {
   exportBackup,
   parseBackup,
   restoreBackup,
   backupHasExtras,
-  backupLineCount,
+  describeBackup,
+  partsInBackup,
   getAllLines,
+  ALL_BACKUP_PARTS,
+  type BackupPart,
   type BackupFile,
 } from './storage';
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
+
+// What the dropdown offers, in the order it offers it. "Everything" first
+// because it is what most people want and what the erase dialog's one-tap
+// backup uses.
+const EXPORT_CHOICES: { value: 'everything' | BackupPart; label: string; hint: string }[] = [
+  { value: 'everything', label: 'Everything', hint: 'Lines, games, statistics and settings.' },
+  { value: 'lines', label: 'Lines', hint: 'Your repertoires and their move trees.' },
+  { value: 'games', label: 'Games', hint: 'Your imported games.' },
+  { value: 'stats', label: 'Statistics', hint: 'Training history, streaks, ratings and bests.' },
+  { value: 'settings', label: 'Settings', hint: 'Board, pieces, notation and preferences.' },
+];
+
+function partsFor(choice: 'everything' | BackupPart): readonly BackupPart[] {
+  return choice === 'everything' ? ALL_BACKUP_PARTS : [choice];
+}
 
 // Build the "Backup & restore" section. `onRestored` is called after a
 // successful import so the caller can re-render the lines it just changed.
@@ -32,10 +63,38 @@ export function renderBackupSection(onRestored: () => void): HTMLElement {
   const blurb = document.createElement('p');
   blurb.className = 'backup-blurb';
   blurb.textContent =
-    'Everything lives only on this device. A backup file carries your lines, ' +
-    'imported games, statistics and streaks — restore it and the app picks up ' +
-    'exactly where you left it, on this phone or a new one.';
+    'A backup file carries your lines, imported games, statistics and settings — ' +
+    'restore it and the app picks up exactly where you left it, on this phone or ' +
+    'a new one. Pick a smaller piece below if that’s all you want.';
   section.appendChild(blurb);
+
+  // What to export. A plain <select>, so a phone gives it the native wheel.
+  const choiceWrap = document.createElement('label');
+  choiceWrap.className = 'backup-choice-field';
+  const choiceLabel = document.createElement('span');
+  choiceLabel.className = 'backup-choice-label';
+  choiceLabel.textContent = 'Export';
+  choiceWrap.appendChild(choiceLabel);
+
+  const choice = document.createElement('select');
+  choice.className = 'backup-choice-select';
+  for (const option of EXPORT_CHOICES) {
+    const el = document.createElement('option');
+    el.value = option.value;
+    el.textContent = option.label;
+    choice.appendChild(el);
+  }
+  choiceWrap.appendChild(choice);
+  section.appendChild(choiceWrap);
+
+  const hint = document.createElement('p');
+  hint.className = 'backup-choice-hint';
+  const paintHint = (): void => {
+    hint.textContent = EXPORT_CHOICES.find(c => c.value === choice.value)?.hint ?? '';
+  };
+  choice.addEventListener('change', paintHint);
+  paintHint();
+  section.appendChild(hint);
 
   const row = document.createElement('div');
   row.className = 'backup-row';
@@ -44,13 +103,13 @@ export function renderBackupSection(onRestored: () => void): HTMLElement {
   exportBtn.type = 'button';
   exportBtn.className = 'backup-btn';
   exportBtn.appendChild(Icons.download(16));
-  exportBtn.appendChild(document.createTextNode('Export backup'));
+  exportBtn.appendChild(document.createTextNode('Export'));
 
   const importBtn = document.createElement('button');
   importBtn.type = 'button';
   importBtn.className = 'backup-btn';
   importBtn.appendChild(Icons.upload(16));
-  importBtn.appendChild(document.createTextNode('Import backup'));
+  importBtn.appendChild(document.createTextNode('Import'));
 
   // The actual file picker, kept off-screen and triggered by the Import button.
   const fileInput = document.createElement('input');
@@ -76,9 +135,10 @@ export function renderBackupSection(onRestored: () => void): HTMLElement {
   };
 
   exportBtn.addEventListener('click', async () => {
+    const picked = choice.value as 'everything' | BackupPart;
     try {
-      const n = await exportBackupNow();
-      setStatus(`Exported ${n} line${n === 1 ? '' : 's'} ✓`, 'ok');
+      const summary = await exportBackupNow(partsFor(picked));
+      setStatus(`Exported ${summary} ✓`, 'ok');
     } catch (err) {
       setStatus(`Export failed — ${(err as Error).message}`, 'error');
     }
@@ -105,11 +165,10 @@ export function renderBackupSection(onRestored: () => void): HTMLElement {
     openImportChooser(backup, existing, async (mode) => {
       try {
         await restoreBackup(backup, mode);
-        const n = backupLineCount(backup);
         setStatus(
           mode === 'replace'
-            ? `Restored ${n} line${n === 1 ? '' : 's'} ✓`
-            : `Merged in ${n} line${n === 1 ? '' : 's'} ✓`,
+            ? `Restored ${describeBackup(backup)} ✓`
+            : `Merged in ${describeBackup(backup)} ✓`,
           'ok',
         );
         onRestored();
@@ -135,26 +194,33 @@ function reloadAfterRestore(
   setTimeout(() => window.location.reload(), 1200);
 }
 
-// Run the export immediately: gather the whole repertoire and hand the browser
-// a dated download file, returning how many lines it held. Exposed so other
-// screens — notably the "Erase everything" dialog's "export a backup first"
-// step — can offer a one-tap backup without rebuilding the whole section.
-export async function exportBackupNow(): Promise<number> {
-  const data = await exportBackup();
+// Run the export immediately: gather the requested parts and hand the browser a
+// dated download file, returning a human summary of what went in it. Exposed so
+// other screens — notably the "Erase everything" and "Delete account" dialogs'
+// "export a backup first" step — can offer a one-tap backup without rebuilding
+// the whole section. Those callers pass nothing and get everything.
+export async function exportBackupNow(
+  parts: readonly BackupPart[] = ALL_BACKUP_PARTS,
+): Promise<string> {
+  const data = await exportBackup(parts);
   downloadBackup(data);
-  return backupLineCount(data);
+  return describeBackup(data);
 }
 
-// Serialise the backup and hand it to the browser as a dated download. Object
-// URLs are revoked after the click so we don't leak them.
+// Serialise the backup and hand it to the browser as a dated download. The
+// filename names the parts when it isn't a whole backup, so a folder of these
+// can be told apart a year later without opening any of them. Object URLs are
+// revoked after the click so we don't leak them.
 function downloadBackup(data: BackupFile): void {
   const json = JSON.stringify(data, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const date = new Date().toISOString().slice(0, 10);
+  const parts = partsInBackup(data);
+  const tag = parts.length === ALL_BACKUP_PARTS.length ? '' : `-${parts.join('-')}`;
   const a = document.createElement('a');
   a.href = url;
-  a.download = `obertura-backup-${date}.json`;
+  a.download = `obertura-backup${tag}-${date}.json`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -163,6 +229,19 @@ function downloadBackup(data: BackupFile): void {
 }
 
 type ImportMode = 'merge' | 'replace';
+
+const PART_LABELS: Record<BackupPart, string> = {
+  lines: 'your lines',
+  games: 'your games',
+  stats: 'your statistics',
+  settings: 'your settings',
+};
+
+function partLabels(parts: readonly BackupPart[]): string {
+  const names = parts.map((p) => PART_LABELS[p]);
+  if (names.length <= 1) return names[0] ?? 'nothing';
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
 
 // Ask how to bring the file in. Merge is the safe default — it never deletes
 // anything (same-id lines update, new ones are added). Replace wipes the
@@ -188,21 +267,24 @@ export function openImportChooser(
   title.textContent = 'Import backup';
   sheet.appendChild(title);
 
-  const n = backupLineCount(backup);
+  const parts = partsInBackup(backup);
   const summary = document.createElement('p');
   summary.className = 'backup-import-summary';
   const when = backup.exportedAt ? ` from ${backup.exportedAt.slice(0, 10)}` : '';
-  const parts = [`${n} line${n === 1 ? '' : 's'}`];
-  const g = backup.games?.length ?? 0;
-  if (g > 0) parts.push(`${g} game${g === 1 ? '' : 's'}`);
-  if (backup.local) parts.push('your stats & settings');
-  const has = parts.length > 1
-    ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
-    : parts[0];
   summary.textContent =
-    `This backup${when} has ${has}. ` +
+    `This backup${when} has ${describeBackup(backup)}. ` +
     `You currently have ${existingCount} line${existingCount === 1 ? '' : 's'} on this device.`;
   sheet.appendChild(summary);
+
+  // What "Replace everything" would actually touch. A partial file only ever
+  // replaces the parts it carries, and saying which ones out loud is the
+  // difference between an informed choice and a scary one.
+  const scope = document.createElement('p');
+  scope.className = 'backup-import-scope';
+  scope.textContent = parts.length === ALL_BACKUP_PARTS.length
+    ? 'It covers everything on this device.'
+    : `It only covers ${partLabels(parts)} — the rest of your data is left alone either way.`;
+  sheet.appendChild(scope);
 
   // Merge — recommended/safe. Listed first.
   const mergeBtn = document.createElement('button');
@@ -210,7 +292,7 @@ export function openImportChooser(
   mergeBtn.className = 'backup-choice-btn';
   mergeBtn.innerHTML =
     '<strong>Merge (recommended)</strong>' +
-    '<span>Add the file’s lines and update matching ones. Nothing is deleted.</span>';
+    '<span>Add what the file has and update what matches. Nothing is deleted.</span>';
   mergeBtn.addEventListener('click', () => {
     close();
     onChoose('merge');
@@ -222,8 +304,8 @@ export function openImportChooser(
   replaceBtn.type = 'button';
   replaceBtn.className = 'backup-choice-btn backup-choice-btn--danger';
   replaceBtn.innerHTML =
-    '<strong>Replace everything</strong>' +
-    '<span>Delete what’s here and restore exactly this file. Best for a fresh or cleared browser.</span>';
+    '<strong>Replace</strong>' +
+    '<span>Delete what the file covers and restore exactly what it holds. Best for a fresh or cleared browser.</span>';
   replaceBtn.addEventListener('click', () => {
     close();
     onChoose('replace');

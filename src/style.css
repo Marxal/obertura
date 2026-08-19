@@ -11276,6 +11276,43 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   color: var(--text-muted);
 }
 
+/* The "what to export" picker. A label + native <select>, so a phone gives it
+   the system wheel rather than a bespoke menu that has to be re-tested on
+   every OS. The hint below it changes with the choice. */
+.backup-choice-field {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.backup-choice-label {
+  flex: 0 0 auto;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.backup-choice-select {
+  flex: 1 1 auto;
+  min-height: 40px;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.backup-choice-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
 .backup-row {
   display: flex;
   flex-wrap: wrap;
@@ -11309,29 +11346,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   font-weight: 600;
 }
 
-/* Cloud backup (Google Drive) — same card as the local section, plus its own
-   auto-backup pref row (keeps the standard hairline as a separator) and a
-   quiet disconnect link. */
-.backup-section--cloud .pref-row {
-  margin-top: 0.85rem;
-  padding-bottom: 0;
-}
-
-.backup-disconnect {
-  display: block;
-  margin: 0.85rem 0 0;
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--text-muted);
-  font-family: system-ui, -apple-system, sans-serif;
-  font-size: 0.78rem;
-  font-weight: 600;
-  text-decoration: underline;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.backup-disconnect:hover { color: var(--danger); }
 .backup-status--ok { color: var(--success); }
 .backup-status--error { color: var(--danger); }
 .backup-status--info { color: var(--text-muted); }
@@ -11341,6 +11355,14 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   font-size: 0.84rem;
   line-height: 1.45;
   color: var(--text-muted);
+}
+
+.backup-import-scope {
+  margin: 0.4rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  font-weight: 600;
 }
 
 .backup-choice-btn {
@@ -17059,7 +17081,7 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   gap: var(--space-md);
 }
 
-/* Sign in / Sign up — a two-way switch above the shared form. */
+/* Registration / Sign in — a two-way switch above the shared form. */
 .account-tabs {
   display: flex;
   gap: 0.35rem;
@@ -17140,12 +17162,70 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   background: var(--border);
 }
 
-.account-google {
+/* One row per enabled sign-in provider. Google and Facebook carry their own
+   brand colours; Apple's mark takes currentColor, which is its own guidance —
+   black on light, white on dark. */
+.account-provider {
   width: 100%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
+}
+
+/* The registration consent. A real checkbox, big enough to hit, with the two
+   documents linked rather than summarised. */
+.account-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  cursor: pointer;
+}
+
+.account-consent-box {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  margin-top: 0.1rem;
+  accent-color: var(--accent);
+}
+
+.account-consent-text {
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+.account-consent-text a,
+.account-legal-note a {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+/* "Forgot your password?" and "Not now" — quiet, inline, never a button that
+   competes with the primary action above it. */
+.account-link-btn {
+  align-self: flex-start;
+  padding: 0.2rem 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.account-link-btn:hover { color: var(--text); }
+
+/* The consent the checkbox can't cover: an OAuth tap is indistinguishable from
+   a registration until the redirect comes back. */
+.account-legal-note {
+  margin: 0;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  color: var(--text-faint);
+  text-align: center;
 }
 
 /* Signed in: the email, then the plan pill. */
@@ -17182,16 +17262,44 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   background: color-mix(in srgb, var(--text-muted) 10%, transparent);
 }
 
-/* Live sync caption under the card: quiet by default, only loud on failure. */
+/* Live sync caption under the card: quiet by default, only loud on failure.
+   The "Sync now" button sits beside it — the caption says what happened, the
+   button is what to do when the answer is "not what I hoped". */
+.account-sync-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-top: 0.55rem;
+}
+
 .account-sync {
-  margin: 0.55rem 0 0;
+  margin: 0;
+  flex: 1 1 auto;
   font-size: 0.78rem;
+  line-height: 1.4;
   color: var(--text-muted);
 }
 
 .account-sync--error {
   color: var(--danger);
 }
+
+.account-sync-now {
+  flex: 0 0 auto;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.account-sync-now:hover { border-color: var(--accent); }
+.account-sync-now:disabled { opacity: 0.6; cursor: default; }
 
 /* ════════════════════════════════════════════════════════════════════════════
    FIRST-RUN PICKER  (onboarding-picker.ts)

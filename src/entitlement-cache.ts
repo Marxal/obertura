@@ -15,8 +15,8 @@
 //
 // The key sits under the `obertura.` prefix like everything else the app writes,
 // so the Settings "erase everything" sweep clears it — but it is excluded from
-// backups (storage.ts's backupLocalKey), the same way the Drive and sync flags
-// are. The sync payload reuses the BackupFile shape, so without that exclusion
+// backups (storage.ts's backupLocalKey), the same way the sync flags are. The
+// sync payload reuses the BackupFile shape, so without that exclusion
 // this value would ride the Supabase blob to every other device: restore an
 // entitled user's copy onto a free phone and the free phone would believe it.
 

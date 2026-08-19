@@ -12,7 +12,7 @@
 //
 // The same answer applies to Supabase Edge Functions, which the Stripe migration
 // was originally sketched against: this repo has no `supabase/` directory, no
-// Supabase CLI and no migration history, and its server already lives here. Three
+// Supabase CLI and no migration history, and its server already lives here. Four
 // endpoints are not worth a second deploy target, a second secret store and a
 // second thing to remember to ship.
 //
@@ -28,12 +28,13 @@
 //     requests unless the asset is missing, in which case it hands them back
 //     to the asset server via the ASSETS binding for its normal 404.
 //
-// ── THE THREE STRIPE ENDPOINTS ──────────────────────────────────────────────
+// ── THE ENDPOINTS ───────────────────────────────────────────────────────────
 //   GET  /api/stripe/prices    what the unlock costs, per currency (stripe-prices.ts)
 //   POST /api/stripe/checkout  → a Stripe Checkout URL (stripe-checkout.ts)
 //   POST /api/stripe/webhook   Stripe → profiles.entitled (stripe-webhook.ts)
+//   POST /api/account/delete   remove an account for good (account-delete.ts)
 //
-// No CORS headers anywhere, deliberately. All three are called from pages served
+// No CORS headers anywhere, deliberately. All four are called from pages served
 // by this same Worker's assets — the landing page at the root and the trainer at
 // /app/ — so every call is same-origin and CORS never enters the picture. The
 // GitHub Pages mirror is a different origin and has no Worker at all; it is also
@@ -41,11 +42,12 @@
 // buy (see src/entitlement.ts). Adding permissive CORS here would only make the
 // checkout endpoint callable from places that have no business calling it.
 //
-// Adding a fourth endpoint later means adding a branch here, nothing more.
+// Adding another endpoint later means adding a branch here, nothing more.
 
 import { handleStripePrices } from './stripe-prices';
 import { handleStripeCheckout } from './stripe-checkout';
 import { handleStripeWebhook } from './stripe-webhook';
+import { handleAccountDelete } from './account-delete';
 import type { StripeEnv } from './stripe-env';
 
 // The static-asset binding, declared as `assets.binding` in wrangler.jsonc.
@@ -68,6 +70,9 @@ export interface Env extends StripeEnv {
 const PRICES_PATH = '/api/stripe/prices';
 const CHECKOUT_PATH = '/api/stripe/checkout';
 const WEBHOOK_PATH = '/api/stripe/webhook';
+// Not under /api/stripe/, because it has nothing to do with Stripe — it just
+// happens to need the same service-role key the webhook does.
+const ACCOUNT_DELETE_PATH = '/api/account/delete';
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -76,6 +81,7 @@ export default {
     if (pathname === PRICES_PATH) return handleStripePrices(request, env);
     if (pathname === CHECKOUT_PATH) return handleStripeCheckout(request, env);
     if (pathname === WEBHOOK_PATH) return handleStripeWebhook(request, env);
+    if (pathname === ACCOUNT_DELETE_PATH) return handleAccountDelete(request, env);
 
     // An /api/ path we don't serve. Answered here rather than falling through
     // to the assets, so a typo'd webhook URL gets a plain 404 instead of the

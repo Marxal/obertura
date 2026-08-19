@@ -21,7 +21,7 @@ import { parseLineId } from './lines-view';
 import { selectedBookId } from './repertoire-picker';
 import { mainlineNodes, DEFAULT_PRIORITY } from './scheduler';
 import type { Annotation, MoveNode } from './tree';
-import { saveLine, getAllLines, getLine, getAllGames, getGame, saveGames, deleteLine, deleteGame } from './storage';
+import { saveLine, getAllLines, getLine, getAllGames, getGame, saveGames, deleteLine, deleteGame, purgeRetiredLocalKeys } from './storage';
 import type { ImportedGame } from './import-games';
 import { nameForPath } from './openings';
 import { positionIndex, type DuplicateVerdict } from './position-index';
@@ -132,7 +132,7 @@ import {
   isConnected as isLichessConnected,
 } from './lichess-auth';
 import { isSupabaseConfigured } from './supabase';
-import { initAuth } from './auth';
+import { initAuth, isPasswordRecovery, PASSWORD_RECOVERY_EVENT } from './auth';
 import { initAccountSync } from './repertoire-sync';
 
 // Cloud-eval (engine.ts) uses the Lichess token when connected for higher rate
@@ -5078,11 +5078,12 @@ initTheme();
 initAppearance();
 setupNav();
 
-// Accounts: pick up an existing session (and finish a Google sign-in if this
-// load is the return leg of one) so Settings can render the Account section
-// already signed in. Only ever runs on a build with Supabase configured — the
-// internal GitHub Pages build has no env vars, so this is skipped entirely and
-// nothing about that build changes. Never blocks boot, never throws.
+// Accounts: pick up an existing session (and finish an OAuth sign-in, an email
+// confirmation or a password-reset link if this load is the return leg of one)
+// so Settings can render the Account section already signed in. Only ever runs
+// on a build with Supabase configured — the internal GitHub Pages build has no
+// env vars, so this is skipped entirely and nothing about that build changes.
+// Never blocks boot, never throws.
 //
 // Sync registers FIRST: it listens for the sign-in that initAuth is about to
 // report, and a listener added afterwards would miss it. It is its own no-op on
@@ -5092,6 +5093,25 @@ setupNav();
 initAccountSync();
 initEntitlement();
 if (isSupabaseConfigured) void initAuth();
+
+// A password-reset link signs you in and then leaves you looking at an app that
+// seems perfectly normal, with no hint that a new password was the point. So the
+// "choose a new password" sheet is put in front of it — both if the recovery was
+// already detected while auth.ts was completing the URL (the usual case, which
+// fires before this listener could exist) and if Supabase raises it later.
+if (isSupabaseConfigured) {
+  const openRecovery = (): void => {
+    if (!isPasswordRecovery()) return;
+    void import('./account-ui').then(m => m.openNewPasswordSheet());
+  };
+  window.addEventListener(PASSWORD_RECOVERY_EVENT, openRecovery);
+  setTimeout(openRecovery, 0);
+}
+
+// One-time cleanup of the retired Google Drive backup's device flags. Drive is
+// gone (ROADMAP.md), but a phone that once had it connected still carries its
+// keys, and they would otherwise sit there forever.
+purgeRetiredLocalKeys();
 
 // Fetch what the unlock costs, once, in the background. Nothing waits on it: the
 // paywall paints from the cached or built-in number and corrects itself if this
