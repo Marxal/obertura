@@ -2553,6 +2553,110 @@ never does) is a complete test on its own.
 
 ---
 
+## The daily-challenge, tree and Explore round ✅
+
+Nine items off one brief. Two of them were questions rather than jobs, and their
+answers are written up in full in the **Tree and Explore** report; what follows
+is what shipped.
+
+**The daily challenge now exists before you can do it.** Under the three-line
+goal it does not run — two of its five parts need a repertoire — and it used to
+vanish entirely, which meant the one habit the whole app is built around was
+invisible until after you had done the work that turns it on. It introduces
+itself instead: the same card, the same rows, greyed and inert, under a bar
+counting toward three lines. The Get-started checklist leads and the locked card
+follows it, because "how do I get lines" is the question that has to be answered
+first.
+
+**The completion popup can be reopened.** It carried the only reading of "how
+did that go" the app produces, and a tap anywhere lost it until tomorrow. Three
+ways back to it now, all through `daily-review.ts` so they cannot drift apart:
+the finished Train card, a day in the 7-day strip, and a day in the month
+calendar. Both calendars are banded by how the day WENT rather than whether it
+happened — four steps and a legend, coarse on purpose, because a per-percent
+gradient on a 20px square is a colour nobody can read back into a number.
+
+- ✅ A reopened day is recomputed **as of that day**: the streak counted back out
+  of the training-days set, every all-time tally read off the log truncated
+  there. It dates itself rather than borrowing the word "today", and skips the
+  confetti — a replay is a look back, not an event.
+- ✅ The copy: "Every task cleared" is gone for "9 correct moves of 10 played
+  moves", and the word throughout is **challenge**, not task ("Next challenge →").
+- ✅ `TRAINING_UNLOCK_LINES` moved to its own leaf module. `first-steps.ts`
+  reaches auth, Supabase and the install gate, so importing the constant from
+  `daily-challenge.ts` dragged the whole browser world into the headless
+  self-test run.
+
+**The trainer opens again after a new line.** Standing inside a book the header
+button ADDS moves rather than saving a line, which is right — but it meant the
+whole tail of the old save flow never ran. The confirm run stopped appearing,
+and "Just save it" stopped being honoured, because a freshly grown branch
+inherits `training` from its ancestors whatever the toggle said. Both are picked
+back up at the end of `commitBook`, on the one condition that means "I have just
+finished a line": the line in front of you contains part of the draft, and the
+cursor is standing on its end.
+
+**The filter bar stopped overlapping itself.** Row 1 is a nowrap flex row, and
+the colour segment carried `min-width: 0` with nowrap children and no overflow
+of its own — so on a narrow phone, or once the count badges reached three
+digits, it shrank below its contents and the Black chip ran out across the
+search, sort and view icons. Measured at 360px: 34px of overlap. The segment
+scrolls itself now, its chips refuse to shrink, and the tools group is
+fixed-size. Below 460px the chips also drop their WORDS and keep their pips,
+which is what makes room for a fourth icon without anything scrolling at all.
+
+**The tree got its own button and a phone-sized first paint.** It was the fourth
+stop on the grouping toggle's cycle — three taps deep behind an icon whose other
+states are all lists, with nothing on screen to say it existed. It is a switch
+now, and turning it off restores the grouping that was showing before.
+
+- ✅ It draws four moves deep with the existing "Go deeper" control, and the
+  first paint shrinks to fit what it drew (floor 0.55, below which the move text
+  stops being readable). Same ten-line book, same 378×512 box: **19 of 69 nodes
+  on screen → 48 of 58**.
+- ✅ The legend's "another move order to the same position" line is gone. It
+  explained a line most people never see, in a sentence that reads as jargon on a
+  phone, and cost a whole row above a view already short of height. The dashed
+  edges still draw and the tap-preview still explains them where it matters.
+
+**Repertoires moved to Settings.** The book picker sat at the top of My Lines,
+asking a question most people never have a second answer to — and its answer HID
+lines, which on a screen called My Lines reads as data loss. Making, naming,
+putting aside and removing books is a setup decision, so it is a setting.
+"Which book new lines are filed into" is offered only once there are more than
+the two defaults. My Lines shows every saved line, always.
+
+**My Lines ends by offering another line.** "And now what?" gets asked at the
+bottom of the list, and the answer used to be to scroll back to the top and find
+the + button.
+
+**The Learn tab and every trace of YouTube are gone** — `youtube.ts`,
+`video-lib.ts`, `content-ui.ts`, `content-explore.ts`, `content-curated.json`,
+the API key that shipped with them, the Explore tab, the icon and ~230 lines of
+CSS. Explore is three tabs now: Recommended, Packs, Scouting.
+
+**Two questions, answered rather than built:**
+
+- 🔜 **The tree on a phone.** Four fixes shipped (above); six more are ranked and
+  costed in the report, worst first. The biggest by a distance: the tap-preview
+  takes 37% of the tree area and pins itself over the node you just tapped, and
+  the embedded map is a `touch-action: none` surface filling 62vh of a scrolling
+  page. Both are the same problem — a 512px box doing a full screen's work.
+- 🔜 **Coverage vs Recommended vs From my games.** They are not three things:
+  `recommendationCard` and `suggestionCard` are the same component twice, built
+  from the same `analyseGames()` pass, differing only in a `filter()` — and they
+  overlap on exactly the interesting case (played a lot, scoring badly, no line
+  yet), which therefore appears on two screens with the same button. Recommended
+  never checks `hasRepertoire`, so it offers "Build line" for openings you
+  already prepared. Coverage is the only one of the three that reads your
+  repertoire, the only one whose unit is a MOVE, and the only one whose answer
+  changes as you work — and it is on the wrong screen. The proposal: My Lines is
+  what you own (no tabs at all), Explore is what you don't, as four tabs —
+  Coverage, Openings (the merge, with a status chip per row), Packs, Scouting —
+  and a coverage row opens the position popup before it opens the builder.
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on
