@@ -69,7 +69,7 @@ export function openLinePeek(opts: LinePeekOptions): void {
   // Recall and runs come from line-status, which is what the CARD quotes too —
   // the popup used to work them out for itself, and two copies of one sum is
   // exactly how a list and the thing it opens start disagreeing.
-  const { recallPct, runs, solid } = lineTraining(line);
+  const { recallPct, runs, solid, drilled } = lineTraining(line);
 
   // Open on the worst move when there is one — that's why you tapped in.
   const defaultPly = opts.focusPly
@@ -112,10 +112,14 @@ export function openLinePeek(opts: LinePeekOptions): void {
         : recallPct < 50 ? 'low' : recallPct < 80 ? 'mid' : 'ok',
     },
     { value: String(times), label: times === 1 ? 'run' : 'runs' },
-    // How many of this line's moves are correct RIGHT NOW (on a clean recall
-    // streak), out of the whole line — replaces "drilled" (how many have ever
-    // been asked), which said less than the recall % just beside it already did.
-    { value: `${solid}/${userPlies.length}`, label: 'correct' },
+    // How many of this line's moves are correct RIGHT NOW, out of what's
+    // actually been ASKED — the same denominator recall% is a percentage of,
+    // so the two figures can't disagree. Against the whole line instead, a
+    // line that grew after being mastered (new moves via "Keep growing this
+    // line") would count its brand-new, never-tested moves as wrong rather
+    // than simply not-yet-asked — "23 runs, but 4/8 correct" for a line with
+    // 4 solid old moves and 4 untested new ones is confusing, not informative.
+    { value: `${solid}/${drilled}`, label: 'correct' },
     {
       value: String(totalMisses),
       label: totalMisses === 1 ? 'miss' : 'misses',

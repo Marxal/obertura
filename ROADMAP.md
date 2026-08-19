@@ -2366,6 +2366,21 @@ have trained it enough the useful next step is to make it longer.
   moves have ever been asked) becomes "correct" (how many are right now on a
   clean streak), which is the question the box next to a recall percentage
   should actually answer.
+- ✅ **The confidence dots were also on their way out, and the popup's "correct"
+  box had a real bug.** The dots come off the card entirely (nothing replaced
+  them — the training-figures line already covers "how is it going"), and the
+  switch's label goes back to the full "Training ON/OFF" — legible over
+  compact. The two together don't fit one row next to four full-size icons at
+  the card's actual ~226px content width, so the footer wraps to a second line
+  when it needs to, exactly as it always did, rather than clipping the delete
+  icon off the card (measured, then seen) or shrinking icons past a size worth
+  tapping. Separately: the popup's "correct" box divided by the WHOLE line, so
+  a line drilled clean for weeks and then extended ("Keep growing this line")
+  counted its brand-new, never-tested moves as wrong rather than not-yet-asked
+  — "23 runs, but 4/8 correct" for 4 solid old moves and 4 untested new ones.
+  It now divides by what's actually been drilled, the same denominator recall%
+  is already a percentage of, so the two figures can't read as contradicting
+  each other.
 
 _On `claude/lines-library-ui-n0jbi2`. Restore point: `v0.5`._
 
