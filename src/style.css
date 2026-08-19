@@ -5776,35 +5776,21 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .dline-icon--go { color: var(--accent); }
 .dline-icon--go:hover { color: var(--accent); background: var(--accent-soft); }
 
-/* Footer: training toggle (+ Due tag) bottom-left, icon actions bottom-right.
-   Beside the larger board the content column is narrower than it looks, so the
-   switch's label and the four icons are both trimmed down (scoped to this
-   footer only — the switch styling itself is shared with the branch sheet and
-   the builder's header, and stays full-size there) to hold one row without
-   wrapping. */
+/* Footer: training toggle (full "Training ON/OFF" label) bottom-left, icon
+   actions bottom-right. Beside the larger board the content column is only
+   ~226px wide — not enough for the full label AND four icons at a comfortable
+   tap size on the same line, so the row wraps rather than clipping the icons
+   or shrinking them past a size worth tapping. It still holds one row exactly
+   when there's room to (miniatures off, a wider screen). */
 .dline-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: nowrap;
-  gap: 0.5rem;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.5rem;
   margin-top: 0.15rem;
   padding-top: 0.55rem;
   border-top: 1px solid var(--hairline-soft);
-}
-
-/* Trimmed padding + a smaller label, so the switch doesn't crowd out the icon
-   row on the card's narrower content column. */
-.dline-footer .dline-toggle {
-  flex: 0 1 auto;
-  min-width: 0;
-  gap: 0.35rem;
-  padding: 0.3rem 0;
-}
-.dline-footer .dline-toggle-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* The single training control — a switch + label. Green when ON. */

@@ -65,12 +65,6 @@ function disposeCoverageLauncher(): void {
   coverageLauncher = null;
 }
 
-function confidenceDots(c: number): string {
-  if (!c) return '—';
-  const n = Math.min(Math.max(c, 0), 5);
-  return '●'.repeat(n) + '○'.repeat(5 - n);
-}
-
 type SortMode = 'latest' | 'weakest' | 'strongest' | 'name';
 
 function sortLines(lines: Line[], mode: SortMode): Line[] {
@@ -614,10 +608,8 @@ function buildDetailCard(
   }
 
   // Rows, in the order you'd want to scan them: what this line needs from you,
-  // how settled it is, then how it has been going.
+  // then how it has been going.
   info.appendChild(buildStatusRow(line));
-  const confidenceRow = buildConfidenceRow(line);
-  if (confidenceRow) info.appendChild(confidenceRow);
   const training = buildTrainingRow(line);
   if (training) info.appendChild(training);
 
@@ -654,11 +646,6 @@ function buildDetailCard(
   toggleBtn.className = `dline-toggle${line.inTraining ? ' dline-toggle--on' : ''}`;
   toggleBtn.setAttribute('role', 'switch');
   toggleBtn.setAttribute('aria-checked', String(line.inTraining));
-  // The full "Training ON/OFF" reads fine on its own row; sharing one with four
-  // icons, it doesn't fit. The switch's colour already carries the state at a
-  // glance, so the label shrinks to the word that changes — the accessible
-  // name keeps the full sentence for anyone not reading it visually.
-  toggleBtn.setAttribute('aria-label', `Training ${line.inTraining ? 'on' : 'off'}`);
   const sw = document.createElement('span');
   sw.className = 'dline-switch';
   const knob = document.createElement('span');
@@ -666,7 +653,7 @@ function buildDetailCard(
   sw.appendChild(knob);
   const toggleLabel = document.createElement('span');
   toggleLabel.className = 'dline-toggle-label';
-  toggleLabel.textContent = line.inTraining ? 'On' : 'Off';
+  toggleLabel.textContent = `Training ${line.inTraining ? 'ON' : 'OFF'}`;
   toggleBtn.appendChild(sw);
   toggleBtn.appendChild(toggleLabel);
   // Only switching ON meets the free-tier cap; switching off is always allowed
@@ -793,25 +780,6 @@ function buildTrainingRow(line: Line): HTMLElement | null {
   if (t.recallPct !== null) {
     row.title = `${t.drilled} of ${t.total} moves drilled — ${t.recallPct}% of those come back clean`;
   }
-  return row;
-}
-
-/**
- * Row 2 — how settled the line is, as confidence dots alone. Used to also
- * name the length and how much of it was the line's own ("12 moves · 3 only
- * here"); both dropped in favour of one glance-able fact, since confidence is
- * the one of the three that actually changes as a line beds in. Silent before
- * a line has ever been trained — there is nothing to show confidence IN yet.
- */
-function buildConfidenceRow(line: Line): HTMLElement | null {
-  if (line.confidence <= 0) return null;
-  const row = document.createElement('div');
-  row.className = 'dline-stats';
-  const dots = document.createElement('span');
-  dots.className = 'dline-stat dline-conf';
-  dots.textContent = confidenceDots(line.confidence);
-  dots.title = `Confidence ${line.confidence} of 5`;
-  row.appendChild(dots);
   return row;
 }
 
