@@ -597,6 +597,7 @@ most of this module:
 | OAuth sign-in (Google/Facebook/Apple) | `?code=…` |
 | confirming an email address | `?token_hash=…&type=signup` |
 | a password-reset link | `?token_hash=…&type=recovery` |
+| a passwordless sign-in link | `?token_hash=…&type=magiclink` |
 | "Connect to Lichess" (`lichess-auth.ts`) | `?code=…&state=…` |
 
 If supabase-js were left to auto-detect (`detectSessionInUrl: true`) it would swallow
@@ -617,6 +618,12 @@ be redeemed by the browser holding the PKCE verifier, and mail gets opened where
 mail gets opened. `verifyOtp({ token_hash, type })` has no such requirement. The
 Supabase email templates are edited once to send that shape (`SUPABASE-SYNC.md` §2);
 both shapes are handled, so an un-edited project still works on the device that asked.
+
+The three email journeys are **one branch**, not three: whatever `type` is on the URL
+goes straight to `verifyOtp`, checked only against a list of the types worth
+verifying. Magic-link sign-in therefore needed no new plumbing on the return leg —
+only a different sentence in the toast, since "Email confirmed" is the wrong thing to
+say to somebody who just signed in.
 
 A `type=recovery` arrival — or Supabase's own `PASSWORD_RECOVERY` auth event — sets a
 flag and fires `PASSWORD_RECOVERY_EVENT`, which `main.ts` turns into the "choose a new
@@ -647,6 +654,8 @@ enabledOAuthProviders(): OAuthProvider[]
 signUpWithPassword(email, password): Promise<AuthResult>
 signInWithPassword(email, password): Promise<AuthResult>
 signInWithProvider(provider): Promise<AuthResult>   // leaves the app; returns only on failure
+signInWithGoogle() / signInWithFacebook(): Promise<AuthResult>   // one line each, onto the above
+signInWithMagicLink(email): Promise<AuthResult>     // shouldCreateUser: false — sign-in only
 sendPasswordReset(email): Promise<AuthResult>
 updatePassword(password): Promise<AuthResult>       // on the recovery session
 resendConfirmation(email): Promise<AuthResult>
@@ -655,12 +664,21 @@ signOut(): Promise<AuthResult>
 friendlyAuthError(err): string
 ```
 
-`AuthResult` is `{ ok, needsEmailConfirmation?, message? }` — nothing throws, and
+`AuthResult` is `{ ok, needsEmailConfirmation?, noSuchAccount?, message? }` — nothing throws, and
 nothing raw ever reaches the user. `friendlyAuthError` maps Supabase's developer-facing
 codes (`invalid_credentials`, `email_not_confirmed`, `user_already_exists`,
 `weak_password`, `over_email_send_rate_limit`, `validation_failed`, `same_password`,
-`otp_expired`, `provider_disabled`) plus a set of message regexes onto sentences that
-say what to do next, and falls back to a calm generic line.
+`otp_expired`, `provider_disabled`, `otp_disabled`) plus a set of message regexes onto
+sentences that say what to do next, and falls back to a calm generic line.
+
+`signInWithMagicLink` passes `shouldCreateUser: false` **on purpose**: with it true the
+call quietly becomes a second way to create an account, one that skips the consent
+checkbox and the Terms. Sign-up has exactly one door. The cost is that Supabase answers
+an unknown address with `otp_disabled` ("signups are off"), which reads like a broken
+feature — so `noSuchAccount` marks that one case and the UI offers the Registration tab
+instead. That does reveal whether an address is registered, which `sendPasswordReset`
+deliberately doesn't; the trade is accepted because the alternative is "we sent a link"
+for a link that will never arrive.
 
 `sendPasswordReset` answers the same way whether or not the address has an account,
 and the confirmation reads "if there's an account for …" — telling a stranger which
@@ -679,18 +697,30 @@ accordion (`group()`), but it re-renders only its own body on auth changes so th
 accordion doesn't snap shut the instant you sign in. Only the newest instance listens
 (each rebuild retires the previous subscription).
 
-- **Signed out:** the group is highlighted (`section--acc-highlight`) and forced open.
-  A **Registration / Sign in** two-way switch above one shared form ("sign up" and
-  "sign in" differ by one letter in the middle of a word, which is a coin-toss to read
-  on a phone): email + password with proper `autocomplete` (`username` /
-  `new-password` / `current-password`, so phone password managers offer to fill and
-  save); on Registration, a **required consent checkbox** linking the privacy policy
-  and terms; on Sign in, a **Forgot your password?** link; then a submit button, an
-  "or" divider, and one **Continue with …** button per enabled provider, each with its
-  brand mark inlined (fixed brand colours in every theme, deliberately — Apple's takes
-  `currentColor`, which is its own guidance). Under the provider buttons sits the
-  passive legal line, because from the app's side an OAuth tap is indistinguishable
-  from a registration until the redirect comes back.
+- **Signed out:** the group is highlighted (`section--acc-highlight`) and forced open,
+  under a **Registration / Sign in** two-way switch ("sign up" and "sign in" differ by
+  one letter in the middle of a word, which is a coin-toss to read on a phone). The two
+  tabs are shaped differently on purpose — registration is a *form*, signing in is a
+  *choice*:
+  - **Registration:** email + password, a **required consent checkbox** linking the
+    privacy policy and terms, **Create account**, then an "or" divider and the provider
+    buttons. Unchanged by the sign-in round.
+  - **Sign in:** the enabled providers lead, as **Continue with …** buttons at equal
+    weight (`.account-provider--lead`) — the choice between Google and Facebook is
+    "whichever you already use", so neither may look recommended. Below the "or"
+    divider, a quiet **Use email instead** disclosure opens one email field and
+    **Send me a sign-in link** (the magic link, the default). A small **Use a password
+    instead** link reveals the password field, swaps the primary to **Sign in** and
+    shows **Forgot your password?**; **Email me a link instead** goes back. It is one
+    form with a hidden field rather than two forms, so the address survives the switch,
+    and only one primary button is ever on screen.
+
+  Every field carries proper `autocomplete` (`username` / `new-password` /
+  `current-password`, so phone password managers offer to fill and save), and each
+  provider button has its brand mark inlined (fixed brand colours in every theme,
+  deliberately — Apple's takes `currentColor`, which is its own guidance). The passive
+  legal line sits at the foot of both tabs, because from the app's side an OAuth tap is
+  indistinguishable from a registration until the redirect comes back.
 - **Signed in:** the email, a **plan pill** (`Full access` / `Free — 10 lines in
   training`), the live **sync caption** with a **Sync now** button beside it, and Sign
   out. The old paragraph explaining the merge-or-replace question is gone with the

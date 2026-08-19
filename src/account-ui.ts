@@ -24,6 +24,7 @@ import {
   signUpWithPassword,
   signInWithPassword,
   signInWithProvider,
+  signInWithMagicLink,
   sendPasswordReset,
   updatePassword,
   resendConfirmation,
@@ -284,16 +285,32 @@ function signedOutBody(
   }
   wrap.appendChild(tabs);
 
+  // The two tabs are shaped differently ON PURPOSE, and it isn't inconsistency.
+  //
+  // Registration is a form: creating an account means agreeing to two documents,
+  // so the checkbox has to be on screen and the email/password pair leads.
+  // Signing in is a CHOICE, and for most people the fastest right answer is a
+  // provider they're already logged into — so Google and Facebook lead there,
+  // and email is folded away behind one tap for the people who want it.
+  if (mode === 'signup') buildSignUpBlock(wrap);
+  else buildSignInBlock(wrap, setMode);
+
+  return wrap;
+}
+
+// ── Registration ─────────────────────────────────────────────────────────────
+//
+// Unchanged: email + password + the consent checkbox, then the providers under
+// a divider. Sign-up has exactly one door and this is it — the magic link on
+// the other tab cannot create an account (see signInWithMagicLink), precisely so
+// nobody ends up with an account they never agreed to the Terms for.
+
+function buildSignUpBlock(wrap: HTMLElement): void {
   const form = document.createElement('form');
   form.className = 'account-form';
 
   const email = field('email', 'Email', 'you@example.com', 'username');
-  const password = field(
-    'password',
-    'Password',
-    mode === 'signup' ? 'At least 6 characters' : 'Your password',
-    mode === 'signup' ? 'new-password' : 'current-password',
-  );
+  const password = field('password', 'Password', 'At least 6 characters', 'new-password');
   form.appendChild(email.wrap);
   form.appendChild(password.wrap);
 
@@ -309,30 +326,27 @@ function signedOutBody(
   // because from here a Google tap is indistinguishable from a Google tap: the
   // app cannot tell a first-time registration from a returning sign-in until
   // the redirect comes back.
-  let consent: HTMLInputElement | null = null;
-  if (mode === 'signup') {
-    const row = document.createElement('label');
-    row.className = 'account-consent';
-    consent = document.createElement('input');
-    consent.type = 'checkbox';
-    consent.className = 'account-consent-box';
-    consent.required = true;
-    row.appendChild(consent);
-    const text = document.createElement('span');
-    text.className = 'account-consent-text';
-    text.appendChild(document.createTextNode('I have read and agree to the '));
-    text.appendChild(docLink(PRIVACY_URL, 'Privacy policy'));
-    text.appendChild(document.createTextNode(' and '));
-    text.appendChild(docLink(TERMS_URL, 'Terms'));
-    text.appendChild(document.createTextNode('.'));
-    row.appendChild(text);
-    form.appendChild(row);
-  }
+  const row = document.createElement('label');
+  row.className = 'account-consent';
+  const consent = document.createElement('input');
+  consent.type = 'checkbox';
+  consent.className = 'account-consent-box';
+  consent.required = true;
+  row.appendChild(consent);
+  const text = document.createElement('span');
+  text.className = 'account-consent-text';
+  text.appendChild(document.createTextNode('I have read and agree to the '));
+  text.appendChild(docLink(PRIVACY_URL, 'Privacy policy'));
+  text.appendChild(document.createTextNode(' and '));
+  text.appendChild(docLink(TERMS_URL, 'Terms'));
+  text.appendChild(document.createTextNode('.'));
+  row.appendChild(text);
+  form.appendChild(row);
 
   const submit = document.createElement('button');
   submit.type = 'submit';
   submit.className = 'btn-primary account-submit';
-  submit.textContent = mode === 'signup' ? 'Create account' : 'Sign in';
+  submit.textContent = 'Create account';
   form.appendChild(submit);
 
   form.addEventListener('submit', async (e) => {
@@ -343,22 +357,19 @@ function signedOutBody(
       showToast('Enter your email and a password.');
       return;
     }
-    if (consent && !consent.checked) {
+    if (!consent.checked) {
       showToast('Please agree to the Privacy policy and Terms first.');
       consent.focus();
       return;
     }
 
     submit.disabled = true;
-    const busyLabel = submit.textContent;
-    submit.textContent = mode === 'signup' ? 'Creating…' : 'Signing in…';
+    submit.textContent = 'Creating…';
 
-    const result = mode === 'signup'
-      ? await signUpWithPassword(emailValue, passwordValue)
-      : await signInWithPassword(emailValue, passwordValue);
+    const result = await signUpWithPassword(emailValue, passwordValue);
 
     submit.disabled = false;
-    submit.textContent = busyLabel;
+    submit.textContent = 'Create account';
 
     if (!result.ok) {
       showToast(result.message ?? 'Something went wrong. Try again in a moment.');
@@ -385,45 +396,197 @@ function signedOutBody(
       password.input.value = '';
       return;
     }
-    showToast(mode === 'signup' ? 'Account created' : 'Signed in', { variant: 'success' });
+    showToast('Account created', { variant: 'success' });
     // The auth listener re-renders this section; nothing else to do.
   });
 
   wrap.appendChild(form);
 
-  // Forgot your password — sign-in only. On the registration tab it would be
-  // answering a question nobody has yet.
-  if (mode === 'signin') {
-    const forgot = document.createElement('button');
-    forgot.type = 'button';
-    forgot.className = 'account-link-btn';
-    forgot.textContent = 'Forgot your password?';
-    forgot.addEventListener('click', () => openPasswordResetSheet(email.input.value.trim()));
-    wrap.appendChild(forgot);
-  }
-
   const providers = enabledOAuthProviders();
   if (providers.length > 0) {
-    const divider = document.createElement('div');
-    divider.className = 'account-divider';
-    divider.appendChild(document.createTextNode('or'));
-    wrap.appendChild(divider);
-
+    wrap.appendChild(orDivider());
     for (const provider of providers) wrap.appendChild(providerButton(provider));
+    wrap.appendChild(legalNote());
+  }
+}
 
-    // The consent the checkbox above can't cover — see the note by the
-    // checkbox. Small, always visible, and linked rather than summarised.
-    const legal = document.createElement('p');
-    legal.className = 'account-legal-note';
-    legal.appendChild(document.createTextNode('By continuing you agree to our '));
-    legal.appendChild(docLink(PRIVACY_URL, 'Privacy policy'));
-    legal.appendChild(document.createTextNode(' and '));
-    legal.appendChild(docLink(TERMS_URL, 'Terms'));
-    legal.appendChild(document.createTextNode('.'));
-    wrap.appendChild(legal);
+// ── Sign in ──────────────────────────────────────────────────────────────────
+//
+// Providers first, at equal weight — neither is "the" way in, and a returning
+// user who registered with Google should be one tap from done. Email lives
+// under the divider, closed, because it is the slower path and only some people
+// want it; opening it offers the sign-in LINK first (nothing to remember, works
+// from any device) with the password field one small link away for anyone who
+// prefers it.
+
+function buildSignInBlock(wrap: HTMLElement, setMode: (m: Mode) => void): void {
+  const providers = enabledOAuthProviders();
+
+  if (providers.length > 0) {
+    const lead = document.createElement('div');
+    lead.className = 'account-providers-lead';
+    for (const provider of providers) lead.appendChild(providerButton(provider, true));
+    wrap.appendChild(lead);
+    wrap.appendChild(orDivider());
   }
 
-  return wrap;
+  // With no provider configured at all (a build that named none) there is
+  // nothing to fold email away behind — it's the only way in, so it opens.
+  wrap.appendChild(emailSignInSection(setMode, providers.length === 0));
+
+  wrap.appendChild(legalNote());
+}
+
+function emailSignInSection(setMode: (m: Mode) => void, startOpen: boolean): HTMLElement {
+  const host = document.createElement('div');
+  host.className = 'account-email-section';
+
+  const panel = document.createElement('div');
+  panel.className = 'account-email-panel';
+  panel.hidden = !startOpen;
+
+  if (!startOpen) {
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'btn-secondary account-email-toggle';
+    toggle.textContent = 'Use email instead';
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.addEventListener('click', () => {
+      panel.hidden = !panel.hidden;
+      toggle.setAttribute('aria-expanded', String(!panel.hidden));
+      if (!panel.hidden) email.input.focus();
+    });
+    host.appendChild(toggle);
+  }
+
+  // One form, two ways to finish it. The email you type is the same either way,
+  // so revealing the password field must not throw the address away — which is
+  // why this is one form with a hidden field rather than two forms.
+  let usePassword = false;
+
+  const form = document.createElement('form');
+  form.className = 'account-form';
+
+  const email = field('email', 'Email', 'you@example.com', 'username');
+  form.appendChild(email.wrap);
+
+  const password = field('password', 'Password', 'Your password', 'current-password');
+  password.wrap.hidden = true;
+  // A hidden input that is still `required` silently blocks submit with a
+  // validation bubble pointing at nothing. It gets its required back when shown.
+  password.input.required = false;
+  form.appendChild(password.wrap);
+
+  const submit = document.createElement('button');
+  submit.type = 'submit';
+  submit.className = 'btn-primary account-submit';
+  form.appendChild(submit);
+
+  panel.appendChild(form);
+
+  const swap = document.createElement('button');
+  swap.type = 'button';
+  swap.className = 'account-link-btn';
+  panel.appendChild(swap);
+
+  const forgot = document.createElement('button');
+  forgot.type = 'button';
+  forgot.className = 'account-link-btn';
+  forgot.textContent = 'Forgot your password?';
+  forgot.hidden = true;
+  forgot.addEventListener('click', () => openPasswordResetSheet(email.input.value.trim()));
+  panel.appendChild(forgot);
+
+  const paint = (): void => {
+    password.wrap.hidden = !usePassword;
+    password.input.required = usePassword;
+    submit.textContent = usePassword ? 'Sign in' : 'Send me a sign-in link';
+    swap.textContent = usePassword ? 'Email me a link instead' : 'Use a password instead';
+    forgot.hidden = !usePassword;
+  };
+
+  swap.addEventListener('click', () => {
+    usePassword = !usePassword;
+    paint();
+    if (usePassword) password.input.focus();
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const emailValue = email.input.value.trim();
+    if (!emailValue) { showToast('Enter your email address.'); return; }
+    if (usePassword && !password.input.value) { showToast('Enter your password.'); return; }
+
+    submit.disabled = true;
+    const restore = submit.textContent;
+    submit.textContent = usePassword ? 'Signing in…' : 'Sending…';
+
+    const result = usePassword
+      ? await signInWithPassword(emailValue, password.input.value)
+      : await signInWithMagicLink(emailValue);
+
+    submit.disabled = false;
+    submit.textContent = restore;
+
+    if (!result.ok) {
+      if (result.noSuchAccount) {
+        // A dead end unless we point somewhere: the address simply isn't
+        // registered, and the fix is one tab away.
+        showDialog({
+          title: 'No account with that email',
+          body: `We couldn’t find an account for ${emailValue}. Sign-in links only `
+            + 'work for accounts that already exist — register first and you can use '
+            + 'them from then on.',
+          buttons: [
+            { label: 'Not now' },
+            { label: 'Register', variant: 'primary', onClick: () => setMode('signup') },
+          ],
+        });
+        return;
+      }
+      showToast(result.message ?? 'Something went wrong. Try again in a moment.');
+      return;
+    }
+
+    if (usePassword) {
+      showToast('Signed in', { variant: 'success' });
+      // The auth listener re-renders this section; nothing else to do.
+      return;
+    }
+
+    showDialog({
+      title: 'Check your inbox',
+      body: `We’ve sent a sign-in link to ${emailValue}. Open it and you’re in — no `
+        + 'password needed. It expires after an hour, and it sometimes lands in spam.',
+      buttons: [{ label: 'Got it', variant: 'primary' }],
+    });
+  });
+
+  paint();
+  host.appendChild(panel);
+  return host;
+}
+
+// ── Shared pieces of both tabs ───────────────────────────────────────────────
+
+function orDivider(): HTMLElement {
+  const divider = document.createElement('div');
+  divider.className = 'account-divider';
+  divider.appendChild(document.createTextNode('or'));
+  return divider;
+}
+
+// The consent the registration checkbox can't cover — see the note by the
+// checkbox. Small, always visible, and linked rather than summarised.
+function legalNote(): HTMLElement {
+  const legal = document.createElement('p');
+  legal.className = 'account-legal-note';
+  legal.appendChild(document.createTextNode('By continuing you agree to our '));
+  legal.appendChild(docLink(PRIVACY_URL, 'Privacy policy'));
+  legal.appendChild(document.createTextNode(' and '));
+  legal.appendChild(docLink(TERMS_URL, 'Terms'));
+  legal.appendChild(document.createTextNode('.'));
+  return legal;
 }
 
 async function resendAndReport(email: string): Promise<void> {
@@ -436,10 +599,14 @@ async function resendAndReport(email: string): Promise<void> {
   );
 }
 
-function providerButton(provider: OAuthProvider): HTMLElement {
+// `lead` is the sign-in tab's treatment: bigger, on a card of its own, and
+// identical for every provider — the choice between Google and Facebook is
+// "whichever you already use", so neither may look like the recommended one.
+function providerButton(provider: OAuthProvider, lead = false): HTMLElement {
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.className = `btn-secondary account-provider account-provider--${provider}`;
+  btn.className = `btn-secondary account-provider account-provider--${provider}`
+    + (lead ? ' account-provider--lead' : '');
   btn.appendChild(providerMark(provider));
   btn.appendChild(document.createTextNode(`Continue with ${OAUTH_PROVIDER_LABELS[provider]}`));
   btn.addEventListener('click', async () => {
