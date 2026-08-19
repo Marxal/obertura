@@ -93,7 +93,7 @@ export interface PuzzleSessionOptions {
   // the missed puzzles are deliberately repeated.
   dedup?: boolean;
   // Daily challenge: an extra leading primary on the results screen that chains
-  // straight into the next task ("Next task →").
+  // straight into the next part of the challenge ("Next challenge →").
   nextAction?: { label: string; run: () => void };
   // Which rating ladder a rated session moves. Defaults to the openings puzzle
   // rating; the End game trainer passes 'endgame' so its rated runs keep a
@@ -857,7 +857,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
 
     // Actions, matching the training success screen: a green primary + white
     // secondaries, all full width. With a daily-challenge nextAction, the chain
-    // to the next task takes the green and everything else steps down.
+    // to the next challenge takes the green and everything else steps down.
     const actions = document.createElement('div');
     actions.className = 'pz-results-actions';
 

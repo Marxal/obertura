@@ -1,15 +1,23 @@
-// Which book am I looking at? — the repertoire selector, and the management
-// that goes with it.
+// Repertoires: making them, naming them, putting them aside, removing them —
+// and choosing which one new lines are filed into.
 //
 // A repertoire is a book of one colour. Everyone starts with two, White and
-// Black, and the point of allowing more is situations rather than colours: one
-// for blitz, one for a tournament, one prepared for a particular opponent. So
-// the control is a NAME with a chevron rather than a colour switch, and the
-// sheet behind it is where books are made, renamed, put aside and removed.
+// Black, and that is all most people ever need. The point of allowing more is
+// SITUATIONS rather than colours: one for blitz, one for a tournament, one
+// prepared for a particular opponent.
 //
-// The selection is remembered per device. It is not part of the data — a book
-// you were last looking at is a view preference, and syncing it would make one
-// phone's browsing move another phone's screen.
+// WHERE THIS LIVES, AND WHY IT MOVED. It used to be a picker at the top of My
+// Lines, above the filter bar — a control on the busiest screen in the app,
+// asking a question ("which book?") that the overwhelming majority of users
+// never have a second answer to. Worse, its answer HID lines: pick the White
+// book and half your repertoire disappears, which on a screen called My Lines
+// reads as data loss. It is a setup decision, so it is a setting now
+// (settings-screen.ts's Repertoires group). My Lines shows every line, always,
+// and the colour segment — which people do use — is what narrows it.
+//
+// The selection is remembered per device. It is not part of the data — where a
+// device files new lines is a local preference, and syncing it would make one
+// phone's choice move another phone's work.
 
 import {
   getAllRepertoires, saveRepertoire, deleteRepertoire,
@@ -20,7 +28,6 @@ import { requestRepertoireSlot } from './entitlement';
 import { pushBack } from './back-nav';
 import { showDialog } from './dialog';
 import { showToast } from './toast';
-import { Icons } from './icons';
 
 const SELECTED_KEY = 'obertura.lines.book';
 
@@ -62,79 +69,47 @@ export interface PickerOptions {
 }
 
 /**
- * The one-line control: which book, how many lines, and a way into the rest.
- * Draws nothing at all when there is only one book and nothing to choose between
- * — a picker with a single option is furniture, not a control.
+ * The Repertoires body, for Settings: what you have, and what can be done with
+ * each. Rendered into `host`, which the caller owns and which this replaces
+ * wholesale on every change.
+ *
+ * "Which book new lines go into" is offered only once there are more than the
+ * two defaults. With exactly White and Black the question has no second answer —
+ * the colour you are building decides — and a control whose only setting is its
+ * default is furniture.
  */
-export function renderRepertoirePicker(host: HTMLElement, opts: PickerOptions): void {
-  host.innerHTML = '';
-  if (opts.rows.length <= 1) return;
-
-  const current = opts.rows.find(r => r.book.id === opts.selected);
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'book-picker';
-
-  const name = document.createElement('span');
-  name.className = 'book-picker-name';
-  name.textContent = current ? current.book.name : 'All repertoires';
-  btn.appendChild(name);
-
-  const count = document.createElement('span');
-  count.className = 'book-picker-count';
-  const n = current ? current.lines : opts.rows.reduce((a, r) => a + r.lines, 0);
-  count.textContent = n === 1 ? '1 line' : `${n} lines`;
-  btn.appendChild(count);
-
-  const chev = Icons.chevronDown(16);
-  chev.classList.add('book-picker-chev');
-  btn.appendChild(chev);
-
-  btn.addEventListener('click', () => openBooksSheet(opts));
-  host.appendChild(btn);
-}
-
-// ── The sheet ────────────────────────────────────────────────────────────────
-
-export function openBooksSheet(opts: PickerOptions): void {
-  const overlay = document.createElement('div');
-  overlay.className = 'edit-overlay';
-  const sheet = document.createElement('div');
-  sheet.className = 'edit-sheet book-sheet';
-  overlay.appendChild(sheet);
-
-  const close = (): void => { overlay.remove(); removeBack(); };
-  const removeBack = pushBack(close);
-  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-
-  const title = document.createElement('h3');
-  title.className = 'edit-sheet-title';
-  title.textContent = 'Repertoires';
-  sheet.appendChild(title);
+export function renderRepertoireManager(host: HTMLElement, opts: PickerOptions): void {
+  host.replaceChildren();
 
   const list = document.createElement('div');
   list.className = 'book-list';
-  sheet.appendChild(list);
+  host.appendChild(list);
 
-  const pick = (id: string): void => { setSelectedBookId(id); opts.onSelect(id); close(); };
-
-  // "All" first, so the way back to everything is never buried under books.
-  list.appendChild(bookRow({
-    label: 'All repertoires',
-    note: `${opts.rows.reduce((a, r) => a + r.lines, 0)} lines`,
-    active: opts.selected === 'all',
-    onPick: () => pick('all'),
-  }));
+  // More than the two defaults means the filing choice is real, so "All" (file
+  // by colour) leads the list as the way back to not choosing.
+  const choosable = opts.rows.length > 2;
+  if (choosable) {
+    list.appendChild(bookRow({
+      label: 'By colour',
+      note: 'New lines go to your default White or Black book',
+      active: opts.selected === 'all',
+      onPick: () => { setSelectedBookId('all'); opts.onSelect('all'); },
+    }));
+  }
 
   for (const row of opts.rows) {
     list.appendChild(bookRow({
       label: row.book.name,
       note: `${row.book.colour === 'white' ? 'White' : 'Black'} · ${
         row.lines === 1 ? '1 line' : `${row.lines} lines`}${row.book.archived ? ' · put aside' : ''}`,
-      active: opts.selected === row.book.id,
+      active: choosable && opts.selected === row.book.id,
       archived: row.book.archived,
-      onPick: () => pick(row.book.id),
-      onManage: () => { close(); openBookManageSheet(row, opts); },
+      // With only the two defaults there is nothing to pick BETWEEN, so the row
+      // is a way into managing that book rather than a radio button.
+      onPick: choosable
+        ? () => { setSelectedBookId(row.book.id); opts.onSelect(row.book.id); }
+        : () => openBookManageSheet(row, opts),
+      onManage: () => openBookManageSheet(row, opts),
     }));
   }
 
@@ -145,13 +120,10 @@ export function openBooksSheet(opts: PickerOptions): void {
   add.addEventListener('click', () => {
     void (async () => {
       if (!(await requestRepertoireSlot(opts.rows.length))) return;
-      close();
       openNewBookSheet(opts);
     })();
   });
-  sheet.appendChild(add);
-
-  document.body.appendChild(overlay);
+  host.appendChild(add);
 }
 
 function bookRow(o: {

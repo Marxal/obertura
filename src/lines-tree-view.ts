@@ -10,7 +10,16 @@
 
 import type { Line } from './types';
 import type { ColourFilter } from './filters';
+import { mainlineNodes } from './scheduler';
 import { mountRepertoireMap, type MapHandle, type NodeActionContext } from './repertoire-map';
+
+// How deep the tree draws before "Go deeper" is offered, and how much each tap
+// reveals. Four moves is what fits a phone at a readable size: a whole book
+// drawn at once is a thousand pixels wide in a 380px window, so nine nodes in
+// ten opened off screen and the view read as broken rather than big. Stepping
+// two moves at a time keeps every reveal small enough to follow.
+const TREE_START_PLIES = 8;
+const TREE_STEP_PLIES = 4;
 
 // Which colour the tree is showing while the filter says "All". Module-level so
 // it survives the re-render a filter change causes.
@@ -74,8 +83,20 @@ export function renderLinesTree(
 
   const showBoth = colourSel === 'all' && counts.white > 0 && counts.black > 0;
 
+  // The deepest line in the book decides how far "Go deeper" can go. The merge
+  // truncates, so every depth is served from the same lines — nothing is rebuilt
+  // and `atDepth` can simply hand them back.
+  const maxPlies = lines.reduce(
+    (deepest, l) => Math.max(deepest, mainlineNodes(l.tree).length), 0);
+
   active = mountRepertoireMap(embed, lines, colour, onOpenLine, {
     merge: 'position',
+    depth: {
+      startPlies: TREE_START_PLIES,
+      stepPlies: TREE_STEP_PLIES,
+      maxPlies,
+      atDepth: () => lines,
+    },
     ...(nodeAction ? { nodeAction } : {}),
     ...(showBoth ? {
       colourToggle: {
@@ -91,23 +112,24 @@ export function renderLinesTree(
   }, () => disposeLinesTree());
 }
 
-// One quiet line under the toggle explaining the two marks the position merge
-// adds. Without it a dashed edge and a numbered dot are just decoration.
+// One quiet line under the toggle explaining the mark the position merge adds.
+// Without it a numbered dot is just decoration.
+//
+// The dashed-edge entry ("another move order to the same position") is gone. It
+// explained a line most people never see, in a sentence that reads as jargon on
+// a phone, and it cost a whole row above a view that is already short of
+// vertical room. The edges still draw; the tap-preview still says "Also reached
+// by another move order" on a node where it matters, which is where the
+// explanation belongs — on the thing, when you ask about it.
 function buildLegend(): HTMLElement {
   const el = document.createElement('p');
   el.className = 'rmap-embed-legend';
-
-  const dashed = document.createElement('span');
-  dashed.className = 'rmap-legend-item';
-  dashed.innerHTML = '<span class="rmap-legend-dash" aria-hidden="true"></span>';
-  dashed.appendChild(document.createTextNode('another move order to the same position'));
 
   const answers = document.createElement('span');
   answers.className = 'rmap-legend-item';
   answers.innerHTML = '<span class="rmap-legend-dot" aria-hidden="true">2</span>';
   answers.appendChild(document.createTextNode('more than one answer saved here'));
 
-  el.appendChild(dashed);
   el.appendChild(answers);
   return el;
 }

@@ -18,10 +18,7 @@ import { buildEmptyState } from './empty-state';
 import { buildInlineImport } from './import-inline';
 import { createFilterBar, type FilterSelection } from './filters';
 import { renderLinesTree, disposeLinesTree } from './lines-tree-view';
-import {
-  renderRepertoirePicker, loadBookRows, lineInBook, selectedBookId,
-  setSelectedBookId, type BookRow,
-} from './repertoire-picker';
+
 import { openBranchSheet, openBranchSheetForLine } from './branch-sheet';
 import { byNewestFirst, parseLineId } from './lines-view';
 import { renderCoverageLauncher, type CoverageSection } from './coverage-section';
@@ -164,9 +161,8 @@ async function doRender(container: HTMLElement, deps: LinesDeps): Promise<void> 
   container.innerHTML = '<p class="lines-loading">Loading…</p>';
   let allLines: Line[];
   let games: ImportedGame[];
-  let books: BookRow[];
   try {
-    [allLines, games, books] = await Promise.all([getAllLines(), getAllGames(), loadBookRows()]);
+    [allLines, games] = await Promise.all([getAllLines(), getAllGames()]);
   } catch (err) {
     renderLoadError(container, err, () => void doRender(container, deps));
     return;
@@ -202,7 +198,7 @@ async function doRender(container: HTMLElement, deps: LinesDeps): Promise<void> 
     disposeLinesTree();
     disposeCoverageLauncher();
     if (activeTab === 'saved') {
-      renderSavedTab(content, allLines, games, deps, container, goToGamesTab, hasGames, books);
+      renderSavedTab(content, allLines, games, deps, container, goToGamesTab, hasGames);
     } else {
       renderGamesTab(content, games, allLines, deps, fullRefresh);
     }
@@ -336,41 +332,23 @@ function renderSavedTab(
   container: HTMLElement,
   goToGamesTab: () => void,
   hasGames: boolean,
-  books: BookRow[] = [],
 ): void {
   content.innerHTML = '';
 
-  // Which book is on screen. A selection pointing at a book that has since been
-  // deleted quietly falls back to all of them rather than showing an empty list
-  // with no way to understand why.
-  let bookId = selectedBookId();
-  if (bookId !== 'all' && !books.some(b => b.book.id === bookId)) {
-    bookId = 'all';
-    setSelectedBookId('all');
-  }
-  const lines = bookId === 'all' ? allLines : allLines.filter(l => lineInBook(l.id, bookId));
+  // EVERY saved line, always. This screen used to open with a book picker whose
+  // answer HID lines — pick the White book and half your repertoire vanishes,
+  // which on a screen called My Lines reads as data loss — and which asked a
+  // question most people have only one answer to. Making and managing books is a
+  // setup decision and lives in Settings → Repertoires now; the colour segment
+  // on the filter bar, which people actually use, is what narrows this list.
+  const lines = allLines;
   const counts = cachedCounts(games, lines);
 
   // After a toggle/delete/rename, re-fetch lines and re-render this tab.
   const refresh = async () => {
-    const [fresh, freshBooks] = await Promise.all([getAllLines(), loadBookRows()]);
-    renderSavedTab(content, fresh, games, deps, container, goToGamesTab, hasGames, freshBooks);
+    const fresh = await getAllLines();
+    renderSavedTab(content, fresh, games, deps, container, goToGamesTab, hasGames);
   };
-
-  // Which book am I looking at — shown only once there is more than one to
-  // choose between (see repertoire-picker).
-  const pickerHost = document.createElement('div');
-  pickerHost.className = 'lines-book-picker';
-  content.appendChild(pickerHost);
-  renderRepertoirePicker(pickerHost, {
-    rows: books,
-    selected: bookId,
-    onSelect: (id) => {
-      setSelectedBookId(id);
-      void refresh();
-    },
-    onChanged: () => { void refresh(); },
-  });
 
   // The shared two-row filter bar (filters.ts): colour + sort on row 1, my own
   // tags then vs-opponent tags on row 2. No status here — the saved list has no
@@ -512,9 +490,45 @@ function renderSavedTab(
         );
       }
     }
+
+    // The end of the list is where "and now what?" gets asked, and until now the
+    // answer was to scroll all the way back up and find the + button. One more
+    // line is the single most useful thing anyone can do from here, so the list
+    // ends by offering it.
+    //
+    // Not on the tree (it draws its own surface and has its own controls
+    // underneath) and not on an empty list, which already leads with the offer.
+    list.appendChild(buildMoreLinesRow(deps));
   }
 
   rebuildList();
+}
+
+// The tail of the saved list: build another line, or take one from a pack. A
+// quiet pair — this is a footer, not a call to action competing with the lines
+// above it.
+function buildMoreLinesRow(deps: LinesDeps): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'lines-more';
+
+  const build = document.createElement('button');
+  build.type = 'button';
+  build.className = 'btn-secondary lines-more-btn';
+  build.appendChild(Icons.plus(16));
+  const label = document.createElement('span');
+  label.textContent = 'Create more lines';
+  build.appendChild(label);
+  build.addEventListener('click', () => deps.onAddLine('white'));
+  row.appendChild(build);
+
+  const packs = document.createElement('button');
+  packs.type = 'button';
+  packs.className = 'lines-more-link';
+  packs.textContent = 'or pick a starter pack';
+  packs.addEventListener('click', () => deps.onPickStarterPack());
+  row.appendChild(packs);
+
+  return row;
 }
 
 function buildDetailCard(

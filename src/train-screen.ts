@@ -831,7 +831,7 @@ function runSession(
 // that round's delta.
 
 // A completion screen's optional extra primary — the daily challenge passes
-// "Next task →" so a finished task chains straight into the next one.
+// "Next challenge →" so a finished part chains straight into the next one.
 type NextAction = { label: string; run: () => void };
 
 interface RoundRunner {

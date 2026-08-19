@@ -137,11 +137,14 @@ export function clearDailyLog(): void {
 
 export interface RecapInput {
   log: DailyDayResult[];
-  today: string;            // "YYYY-MM-DD" local
-  streak: number;           // current training streak, in days
+  today: string;            // the day being summarised, "YYYY-MM-DD" local
+  streak: number;           // training streak on that day, in days
   trainingDays: string[];   // every recorded training day (for the best streak)
   linesMastered: number;
   linesInTraining: number;
+  // Set when the day is being reopened from the calendar rather than just
+  // finished. Carried straight through onto the Recap.
+  replay?: boolean;
 }
 
 export interface RecapCompare {
@@ -155,16 +158,22 @@ export interface RecapCompare {
 }
 
 export interface Recap {
+  // The day this recap describes ("YYYY-MM-DD" local). Usually today; a recap
+  // reopened from the calendar carries the day that was tapped.
+  day: string;
+  // True when this is a day being LOOKED BACK AT rather than one just finished,
+  // so the popup can date itself instead of claiming to be about today.
+  replay: boolean;
   right: number;
   wrong: number;
   total: number;
-  accuracy: number;             // 0–100, today
+  accuracy: number;             // 0–100, on `day`
   perfect: boolean;             // not one wrong, and something was actually done
   compare: RecapCompare | null; // null on the very first logged day
-  delta: number | null;         // today's accuracy minus the compare day's
+  delta: number | null;         // this day's accuracy minus the compare day's
   streak: number;
   bestStreak: number;
-  // Today's streak equals the longest ever (and is worth more than one day).
+  // The streak equals the longest ever (and is worth more than one day).
   streakIsBest: boolean;
   challengesDone: number;       // completed daily challenges, all time
   perfectDays: number;          // days finished without a single miss, all time
@@ -207,6 +216,52 @@ export function longestStreak(days: string[]): number {
   return best;
 }
 
+/**
+ * The training streak AS OF a given day: the run of consecutive recorded days
+ * ending on it, or 0 when nothing was trained that day.
+ *
+ * `currentStreak()` in streak.ts answers the same question for today (and
+ * forgives today when yesterday counts, so a streak survives until midnight).
+ * A day reopened from the calendar needs the figure that was true THEN, and
+ * nothing stored it, so it is counted back out of the training-days set.
+ */
+export function streakEndingOn(days: string[], day: string): number {
+  const set = new Set(days);
+  if (!set.has(day)) return 0;
+  let run = 0;
+  let cursor = day;
+  while (set.has(cursor)) {
+    run++;
+    cursor = prevKey(cursor);
+  }
+  return run;
+}
+
+/**
+ * The log up to and including a day — which is what makes every all-time figure
+ * on a reopened recap ("challenges cleared", "perfect days", the best streak)
+ * read as it did on that day rather than as it does now.
+ */
+export function logUpTo(log: DailyDayResult[], day: string): DailyDayResult[] {
+  return log.filter((r) => r.day <= day);
+}
+
+/**
+ * A day key as a human date — "Today", "Yesterday", or "12 August". Used by the
+ * reopened popup's date line and by the calendars' labels, so both name a day
+ * the same way.
+ */
+export function formatDayLabel(day: string, now: Date = new Date()): string {
+  const [y, m, d] = day.split('-').map(Number);
+  if (!y || !m || !d) return day;
+  const date = new Date(y, m - 1, d);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diff = Math.round((today.getTime() - date.getTime()) / 86_400_000);
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Yesterday';
+  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'long' });
+}
+
 // A day counts as perfect when it was cleared and nothing at all was missed.
 export function isPerfectDay(r: DailyDayResult): boolean {
   return r.done && r.wrong === 0 && r.right > 0;
@@ -233,6 +288,8 @@ export function buildRecap(input: RecapInput): Recap {
   const bestStreak = Math.max(longestStreak(input.trainingDays), input.streak);
 
   return {
+    day: today,
+    replay: input.replay === true,
     right: todayRow.right,
     wrong: todayRow.wrong,
     total: todayRow.right + todayRow.wrong,

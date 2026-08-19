@@ -194,6 +194,9 @@ function buildTopRow(
   if (search) tools.appendChild(search.button);
   if ((config.sorts ?? []).length > 0) tools.appendChild(buildSortMenu(config, sel, commit));
   if (config.group) tools.appendChild(buildGroupToggle(config, sel, commit));
+  // The tree gets its own button rather than hiding at the end of the grouping
+  // cycle — see buildTreeToggle.
+  if (config.groupTree) tools.appendChild(buildTreeToggle(sel, commit));
   if (tools.childElementCount > 0) row.appendChild(tools);
   return row;
 }
@@ -277,6 +280,12 @@ function buildSearchRow(
 function buildColourSeg(config: FilterConfig, sel: FilterSelection, commit: () => void): HTMLElement {
   const seg = document.createElement('div');
   seg.className = 'dfilter-seg';
+  // The segment scrolls rather than overflowing (see .fbar .dfilter-seg in the
+  // CSS — it used to run out from under itself and across the tools beside it).
+  // The trailing fade that says so is only wanted when there really is more to
+  // scroll to, so the class is set from the measured widths once laid out, and
+  // again whenever the row's width changes.
+  markOverflow(seg);
   for (const o of COLOURS) {
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -287,7 +296,13 @@ function buildColourSeg(config: FilterConfig, sel: FilterSelection, commit: () =
       pip.setAttribute('aria-hidden', 'true');
       btn.appendChild(pip);
     }
-    btn.appendChild(document.createTextNode(o.label));
+    // The word rides in its own span so a phone can drop it and keep the pip —
+    // see .dfilter-btn-label in the CSS. The aria-label below always carries it,
+    // so nothing is lost to a screen reader.
+    const label = document.createElement('span');
+    label.className = 'dfilter-btn-label';
+    label.textContent = o.label;
+    btn.appendChild(label);
     if (config.colourCounts) btn.appendChild(countBadge(config.colourCounts[o.key]));
     btn.setAttribute('aria-label', o.label);
     btn.addEventListener('click', () => {
@@ -299,6 +314,18 @@ function buildColourSeg(config: FilterConfig, sel: FilterSelection, commit: () =
     seg.appendChild(btn);
   }
   return seg;
+}
+
+// Keep `.dfilter-seg--overflowing` in step with whether the chips actually
+// overrun the segment. ResizeObserver catches a rotation, a desktop resize and
+// the first layout alike; where it isn't available a single rAF still gets the
+// common case right.
+function markOverflow(seg: HTMLElement): void {
+  const sync = (): void => {
+    seg.classList.toggle('dfilter-seg--overflowing', seg.scrollWidth > seg.clientWidth + 1);
+  };
+  if (typeof ResizeObserver === 'function') new ResizeObserver(sync).observe(seg);
+  requestAnimationFrame(sync);
 }
 
 function buildSortMenu(config: FilterConfig, sel: FilterSelection, commit: () => void): HTMLElement {
@@ -332,19 +359,22 @@ function buildSortMenu(config: FilterConfig, sel: FilterSelection, commit: () =>
 }
 
 // The grouping toggle — sits beside sort on row 1. Cycles:
-// flat → by opening family → compact (by variation, narrower buckets) → [tree]
-// → flat. The compact state carries a small "2" pip on the icon so the two
-// grouped looks are tellable apart; the tree state swaps the glyph for a merge
-// mark, since it isn't a third way of grouping a list but a different drawing.
+// flat → by opening family → compact (by variation, narrower buckets) → flat.
+// The compact state carries a small "2" pip on the icon so the two grouped looks
+// are tellable apart.
+//
+// THE TREE IS NOT ON THIS CYCLE ANY MORE. It used to be its fourth stop, which
+// meant reaching the one view that shows the repertoire as a repertoire took
+// three taps on a control whose other three states are all lists — and there was
+// nothing on screen to say it was there. It has its own button now (see
+// buildTreeToggle), so it is one tap from anywhere and visibly exists.
 const GROUP_TITLES: Record<'off' | 'family' | 'variation' | 'tree', string> = {
   off: 'Group by opening',
   family: 'Compact view (group by variation)',
   variation: 'Flat list',
+  // Only reachable from a restored selection made before the tree got its own
+  // button; tapping the grouping control from there returns to a flat list.
   tree: 'Flat list',
-};
-const GROUP_TITLES_TREE: Record<'off' | 'family' | 'variation' | 'tree', string> = {
-  ...GROUP_TITLES,
-  variation: 'Tree view (merged by position)',
 };
 
 function buildGroupToggle(
@@ -356,14 +386,9 @@ function buildGroupToggle(
   btn.type = 'button';
   btn.className = 'dgroup';
 
-  const icon = Icons.tree(18);
+  const icon = Icons.rows(18);
   icon.classList.add('dgroup-icon');
   btn.appendChild(icon);
-
-  // The tree state's own glyph, swapped in place of the grouping one.
-  const mergeIcon = Icons.merge(18);
-  mergeIcon.classList.add('dgroup-icon');
-  btn.appendChild(mergeIcon);
 
   const pip = document.createElement('span');
   pip.className = 'dgroup-pip';
@@ -372,18 +397,16 @@ function buildGroupToggle(
   btn.appendChild(pip);
 
   const paint = (): void => {
-    const tree = sel.group === 'tree';
-    btn.classList.toggle('active', !!sel.group);
+    // In tree view the grouping control describes the LIST underneath, which
+    // isn't on screen — so it reads as off rather than claiming a state.
+    const grouped = sel.group === 'family' || sel.group === 'variation';
+    btn.classList.toggle('active', grouped);
     btn.classList.toggle('dgroup--deep', sel.group === 'variation');
-    btn.classList.toggle('dgroup--tree', tree);
-    icon.style.display = tree ? 'none' : '';
-    mergeIcon.style.display = tree ? '' : 'none';
     // The title names the NEXT state (what a tap does), like a play/pause button.
-    const titles = config.groupTree ? GROUP_TITLES_TREE : GROUP_TITLES;
-    const title = titles[sel.group === false ? 'off' : sel.group];
+    const title = GROUP_TITLES[sel.group === false ? 'off' : sel.group];
     btn.title = title;
     btn.setAttribute('aria-label', title);
-    btn.setAttribute('aria-pressed', String(!!sel.group));
+    btn.setAttribute('aria-pressed', String(grouped));
   };
   paint();
 
@@ -391,8 +414,49 @@ function buildGroupToggle(
     sel.group =
       sel.group === false ? 'family'
       : sel.group === 'family' ? 'variation'
-      : sel.group === 'variation' && config.groupTree ? 'tree'
       : false;
+    paint();
+    commit();
+  });
+  return btn;
+}
+
+// The tree view's own control — a plain on/off, beside the grouping one.
+//
+// It is a SWITCH, not another stop on a cycle: the tree isn't a third way of
+// grouping a list, it is a different drawing of the same repertoire, and going
+// back to a list should not mean cycling forward through two grouped states to
+// reach it. Turning it off restores whatever grouping was showing beforehand,
+// so the list you left is the list you come back to.
+function buildTreeToggle(sel: FilterSelection, commit: () => void): HTMLElement {
+  // What the list was doing before the tree took over. Held here (not persisted)
+  // because it only has to survive the current visit.
+  let lastList: GroupMode = sel.group === 'tree' ? false : sel.group;
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'dtree';
+  const icon = Icons.merge(18);
+  icon.classList.add('dgroup-icon');
+  btn.appendChild(icon);
+
+  const paint = (): void => {
+    const on = sel.group === 'tree';
+    btn.classList.toggle('active', on);
+    const title = on ? 'Back to the list' : 'Tree view (merged by position)';
+    btn.title = title;
+    btn.setAttribute('aria-label', title);
+    btn.setAttribute('aria-pressed', String(on));
+  };
+  paint();
+
+  btn.addEventListener('click', () => {
+    if (sel.group === 'tree') {
+      sel.group = lastList;
+    } else {
+      lastList = sel.group;
+      sel.group = 'tree';
+    }
     paint();
     commit();
   });

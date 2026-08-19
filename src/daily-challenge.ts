@@ -1,14 +1,28 @@
 // The daily challenge — the dynamic card at the top of the Train screen. A few
-// bite-sized tasks for today: remember some lines, refresh some positions, solve
-// some rated puzzles and (once games have been scanned) fix a few of your own
-// mistakes. When everything's done the card shrinks to a quiet "done for today"
-// state. State is device-local (localStorage), reset each calendar day,
-// mirroring streak.ts.
+// bite-sized bits of work for today: remember some lines, refresh some
+// positions, solve some rated puzzles and (once games have been scanned) fix a
+// few of your own mistakes. When everything's done the card shrinks to a quiet
+// "done for today" state. State is device-local (localStorage), reset each
+// calendar day, mirroring streak.ts.
+//
+// BEFORE THE UNLOCK it has a third face. Under TRAINING_UNLOCK_LINES saved lines
+// there is nothing to have a daily challenge about — two of its five parts need
+// a repertoire — so it does not run. It used to vanish entirely, which meant the
+// single habit the whole app is built around was invisible until you had already
+// done the work that turns it on. So it INTRODUCES itself instead: the same
+// card, the same rows, greyed out, under a bar counting toward three lines. It
+// rides below the Get-started checklist, because "how do I get lines" is the
+// question that has to be answered first.
+//
+// The word is CHALLENGE, not task: one challenge a day, made of several parts.
+// "Task" reads like a chore list and made the completion popup ("every task
+// cleared") sound like an inbox.
 
 import type { Line } from './types';
 import { dueLines, recentlyAddedLines, weakestLines } from './scheduler';
 import { currentStreak } from './streak';
 import { recordDailyTask, type TaskOutcome } from './daily-recap';
+import { TRAINING_UNLOCK_LINES } from './training-goal';
 import { Icons } from './icons';
 
 export type { TaskOutcome } from './daily-recap';
@@ -23,7 +37,8 @@ export const DAILY_MISTAKE_GOAL = 3;
 const KEY = 'obertura.dailyChallenge';
 const CONFIG_KEY = 'obertura.dailyChallenge.config';
 
-// The five daily tasks, in the order they appear on the card — the "Next task →"
+// The five parts of the daily challenge, in the order they appear on the card —
+// the "Next challenge →"
 // chain follows this same order.
 export type DailyTaskId = 'lines' | 'positions' | 'puzzles' | 'endgames' | 'mistakes';
 export const DAILY_TASK_IDS: DailyTaskId[] = ['lines', 'positions', 'puzzles', 'endgames', 'mistakes'];
@@ -211,7 +226,7 @@ export function perfectDayEligible(config: DailyConfig, active: DailyTaskId[]): 
 }
 
 // ── The next-task chain ───────────────────────────────────────────────────────
-// A finished daily task's success screen offers "Next task →"; this names the
+// A finished part's success screen offers "Next challenge →"; this names the
 // task it should jump to. Pure (active list passed in) so it's self-testable;
 // the list is already in card order.
 
@@ -249,6 +264,9 @@ export interface DailyChallengeDeps {
   active: DailyTaskId[];
   // The lines to drill for today's lines task (already picked), or [] when none.
   lines: Line[];
+  // How many lines are SAVED. Under TRAINING_UNLOCK_LINES the card renders its
+  // locked, introducing face instead of running (see renderDailyChallenge).
+  savedLineCount: number;
   onTrainLines: (lines: Line[]) => void;
   onRefreshPositions: () => void;
   onSolvePuzzles: () => void;
@@ -257,6 +275,13 @@ export interface DailyChallengeDeps {
   // How many mistake-retry spots the scan has found (for the card note only).
   mistakeSpotCount: number;
   onFixMistakes: () => void;
+  // Reopen today's completion popup from the "done" card. Omitted where there is
+  // nothing to reopen.
+  onReplayRecap?: () => void;
+  // The locked card's one way out, offered ONLY when nothing else on screen is
+  // (the Get-started panel above it carries the same routes and says them
+  // louder, so two of them would be one too many).
+  onBuildLine?: () => void;
 }
 
 // Each task's card face: an icon and a label that folds in the configured count.
@@ -278,12 +303,24 @@ function runDailyTask(id: DailyTaskId, deps: DailyChallengeDeps): void {
   }
 }
 
-// Build the daily-challenge card. Returns null when it's switched off, nothing is
-// active, or there's no repertoire yet (the lines/positions tasks need one — this
-// keeps first-run onboarding clean).
+/**
+ * Is the daily challenge locked — fewer than TRAINING_UNLOCK_LINES lines saved?
+ *
+ * Exported so the caller can put the card in the right PLACE without building it
+ * first: locked, it rides under the Get-started checklist; unlocked, it leads.
+ */
+export function dailyChallengeLocked(savedLineCount: number): boolean {
+  return savedLineCount < TRAINING_UNLOCK_LINES;
+}
+
+// Build the daily-challenge card. Returns null only when the whole thing is
+// switched off in Preferences, or when nothing at all is configured — with a
+// repertoire too small to run it the card still comes back, in its locked face.
 export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | null {
   const { config, active } = deps;
-  if (!config.enabled || active.length === 0 || deps.lines.length === 0) return null;
+  if (!config.enabled) return null;
+  if (dailyChallengeLocked(deps.savedLineCount)) return buildLockedCard(deps);
+  if (active.length === 0 || deps.lines.length === 0) return null;
 
   const state = getDaily();
   const done = active.every((id) => state[id]);
@@ -301,9 +338,28 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
   card.appendChild(head);
 
   if (done) {
-    const msg = document.createElement('div');
+    // The whole line is the button: the completion popup carries the day's
+    // figures, and losing it to a stray tap used to mean losing them until
+    // tomorrow. It reads as a button (chevron, pressable) so nobody has to
+    // discover it.
+    const msg = deps.onReplayRecap
+      ? document.createElement('button')
+      : document.createElement('div');
     msg.className = 'daily-card-done-msg';
-    msg.textContent = 'Daily challenge done — keep training ✓';
+    if (msg instanceof HTMLButtonElement) {
+      msg.type = 'button';
+      msg.classList.add('daily-card-done-msg--tap');
+      msg.setAttribute('aria-label', 'Daily challenge done — see today’s results');
+      msg.addEventListener('click', deps.onReplayRecap!);
+    }
+    const label = document.createElement('span');
+    label.textContent = 'Daily challenge done — keep training ✓';
+    msg.appendChild(label);
+    if (msg instanceof HTMLButtonElement) {
+      const chev = Icons.chevronRight(15);
+      chev.classList.add('daily-card-done-chev');
+      msg.appendChild(chev);
+    }
     card.appendChild(msg);
     return card;
   }
@@ -329,6 +385,128 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
   card.appendChild(note);
 
   return card;
+}
+
+// ── The locked card ──────────────────────────────────────────────────────────
+//
+// Same card, same rows, nothing tappable: what the daily challenge WILL be, once
+// there are three lines to run it on. The rows are the real configured ones
+// (minus the two that need data nobody has on day one), so the preview is not a
+// mock-up of a feature — it is the feature, greyed.
+
+// The rows the preview shows: everything switched on in Preferences except the
+// mistake retry, which needs imported, scanned games and would promise something
+// a new install can't deliver.
+function previewTasks(config: DailyConfig): DailyTaskId[] {
+  return DAILY_TASK_IDS.filter((id) => id !== 'mistakes' && config.tasks[id].count > 0);
+}
+
+function buildLockedCard(deps: DailyChallengeDeps): HTMLElement | null {
+  const { config } = deps;
+  const preview = previewTasks(config);
+  if (preview.length === 0) return null;
+
+  const saved = Math.max(0, deps.savedLineCount);
+  const left = Math.max(0, TRAINING_UNLOCK_LINES - saved);
+
+  const card = document.createElement('div');
+  card.className = 'card daily-card daily-card--locked';
+
+  const head = document.createElement('div');
+  head.className = 'daily-card-head';
+  const title = document.createElement('span');
+  title.className = 'daily-card-title';
+  title.textContent = 'Daily challenge';
+  head.appendChild(title);
+
+  const lock = document.createElement('span');
+  lock.className = 'daily-lock-pill';
+  lock.appendChild(Icons.lock(13));
+  const lockLabel = document.createElement('span');
+  lockLabel.textContent = `${saved} / ${TRAINING_UNLOCK_LINES} lines`;
+  lock.appendChild(lockLabel);
+  head.appendChild(lock);
+  card.appendChild(head);
+
+  const blurb = document.createElement('p');
+  blurb.className = 'daily-locked-blurb';
+  blurb.textContent =
+    'A few minutes a day, picked for you — this is the habit the whole app is '
+    + 'built around, and it starts as soon as you have something to train.';
+  card.appendChild(blurb);
+
+  card.appendChild(buildGoalBar(saved));
+
+  const tasks = document.createElement('div');
+  tasks.className = 'daily-card-tasks';
+  for (const id of preview) {
+    const meta = TASK_META[id];
+    tasks.appendChild(buildLockedTask(meta.icon(), meta.label(config.tasks[id].count)));
+  }
+  card.appendChild(tasks);
+
+  const note = document.createElement('div');
+  note.className = 'daily-card-note';
+  note.textContent = saved === 0
+    ? `Save ${TRAINING_UNLOCK_LINES} lines and your first challenge is waiting tomorrow.`
+    : left === 1
+      ? 'One more line and this starts.'
+      : `${left} more lines and this starts.`;
+  card.appendChild(note);
+
+  // Only where nothing else on screen offers the route — see DailyChallengeDeps.
+  if (deps.onBuildLine) {
+    const cta = document.createElement('button');
+    cta.type = 'button';
+    cta.className = 'btn-secondary daily-locked-cta';
+    cta.textContent = saved === 0 ? 'Build your first line' : 'Build another line';
+    cta.addEventListener('click', deps.onBuildLine);
+    card.appendChild(cta);
+  }
+
+  return card;
+}
+
+// The three-line goal as a bar — the same figure the Get-started panel counts,
+// so the two never disagree about how far along you are.
+function buildGoalBar(saved: number): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'daily-goal';
+
+  const track = document.createElement('span');
+  track.className = 'daily-goal-track';
+  const fill = document.createElement('span');
+  fill.className = 'daily-goal-fill';
+  const pct = Math.min(100, (Math.min(saved, TRAINING_UNLOCK_LINES) / TRAINING_UNLOCK_LINES) * 100);
+  fill.style.width = `${pct}%`;
+  track.appendChild(fill);
+  wrap.appendChild(track);
+
+  wrap.setAttribute('role', 'progressbar');
+  wrap.setAttribute('aria-valuemin', '0');
+  wrap.setAttribute('aria-valuemax', String(TRAINING_UNLOCK_LINES));
+  wrap.setAttribute('aria-valuenow', String(Math.min(saved, TRAINING_UNLOCK_LINES)));
+  wrap.setAttribute('aria-label', `${saved} of ${TRAINING_UNLOCK_LINES} lines saved`);
+  return wrap;
+}
+
+// A preview row: the real icon and label, dimmed, and inert. Not a <button> —
+// there is nothing behind it, and a button that does nothing is worse than a
+// line of text.
+function buildLockedTask(icon: SVGElement, label: string): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'daily-task daily-task--locked';
+
+  const iconWrap = document.createElement('span');
+  iconWrap.className = 'daily-task-icon';
+  iconWrap.appendChild(icon);
+  row.appendChild(iconWrap);
+
+  const text = document.createElement('span');
+  text.className = 'daily-task-label';
+  text.textContent = label;
+  row.appendChild(text);
+  return row;
 }
 
 function buildTask(o: { icon: SVGElement; label: string; done: boolean; onClick: () => void }): HTMLElement {

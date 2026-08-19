@@ -132,6 +132,11 @@ const SIBLING_GAP = 12; // vertical gap between stacked sibling subtrees
 const GEN_GAP = 44;     // horizontal gap: right of parent → left of child
 const PAD = 20;         // outer padding
 
+// The floor the first-paint fit will not zoom past — below this the move text
+// stops being readable, and a tree nobody can read is worse than one that needs
+// a pan. See centreOnFirst/fitScale.
+const FIT_MIN_SCALE = 0.55;
+
 // Win/draw/loss bar, pinned to the bottom edge of the node box (below the SAN).
 const BAR_M = 6;             // horizontal inset from the box edges
 const BAR_H = 3.5;           // bar thickness
@@ -1114,12 +1119,33 @@ export function mountRepertoireMap(
   // Re-centre the view on the first move of the (possibly rebuilt) tree. With
   // the left → right layout we pin the first move near the left edge and centre
   // it vertically, so the tree reads outward to the right like a game.
+  //
+  // It also picks the opening SCALE, which it used to leave at 1 whatever the
+  // tree measured. On a phone that meant a ten-line book opened 1100px wide in a
+  // 380px window: three moves showed and the other fifty nodes were somewhere
+  // off to the right, with nothing on screen to say so. Now the first paint
+  // shrinks to fit what has been drawn — but never below FIT_MIN_SCALE, because
+  // a tree you cannot read is no better than one you cannot see. Anything still
+  // too wide at that floor is what "Go deeper" is the other half of: draw fewer
+  // moves rather than smaller ones.
+  function fitScale(): number {
+    const rect = treeWrap.getBoundingClientRect();
+    if (rect.width === 0) return 1;
+    const treeW = treeMaxX(root) + PAD;
+    const treeH = subH(root) + 2 * PAD;
+    const fit = Math.min(rect.width / treeW, rect.height / treeH, 1);
+    return Math.max(FIT_MIN_SCALE, fit);
+  }
+
   function centreOnFirst(): void {
     requestAnimationFrame(() => {
       if (root.children[0]) {
         const rect = treeWrap.getBoundingClientRect();
+        state.scale = fitScale();
         const c0 = root.children[0];
-        state.tx = 40 - (c0.x - NW / 2) * state.scale;
+        // A shrunk tree is pinned nearer the left edge than a full-size one, so
+        // the gap in front of the first move doesn't grow with the zoom-out.
+        state.tx = 40 * state.scale - (c0.x - NW / 2) * state.scale;
         state.ty = rect.height / 2 - (c0.y + NH / 2) * state.scale;
         applyTx(inner, state);
       }

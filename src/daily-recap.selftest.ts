@@ -6,9 +6,12 @@
 import {
   accuracyOf,
   buildRecap,
+  formatDayLabel,
   isPerfectDay,
+  logUpTo,
   longestStreak,
   recapMessage,
+  streakEndingOn,
   type DailyDayResult,
 } from './daily-recap';
 import {
@@ -152,6 +155,55 @@ export function runDailyRecapSelfTest(): TestResult[] {
   check('one thin task among three disqualifies the day', !perfectDayEligible(
     { enabled: true, tasks: { ...config(3).tasks, puzzles: { count: 1 } } }, three));
   check('all five at two qualify', perfectDayEligible(config(2), [...DAILY_TASK_IDS]));
+
+  // ── Reopening a past day (daily-review.ts's maths) ──────────────────────────
+  //
+  // A day tapped in the calendar has to read as it did THEN, not as things stand
+  // now: the streak counted back to that day, and every all-time tally taken off
+  // the log truncated at it.
+
+  const days = ['2026-08-10', '2026-08-11', '2026-08-12', '2026-08-14'];
+  check('a streak ends on the day asked about', streakEndingOn(days, '2026-08-12') === 3);
+  check('a gap breaks the run', streakEndingOn(days, '2026-08-14') === 1);
+  check('a day never trained has no streak', streakEndingOn(days, '2026-08-13') === 0);
+  check('an empty history has no streak', streakEndingOn([], '2026-08-12') === 0);
+
+  const full = [day('2026-08-12', 8, 2), day('2026-08-13', 9, 1), day('2026-08-14', 10, 0)];
+  check('the log truncates inclusively', logUpTo(full, '2026-08-13').length === 2);
+  const truncated = logUpTo(full, '2026-08-13');
+  check('truncating keeps the day asked for',
+    truncated[truncated.length - 1]?.day === '2026-08-13');
+  check('truncating before everything gives nothing',
+    logUpTo(full, '2026-08-01').length === 0);
+
+  // The replayed recap: same shape, but measured on the day it names.
+  const past = buildRecap({
+    log: logUpTo(full, '2026-08-13'),
+    today: '2026-08-13',
+    streak: streakEndingOn(['2026-08-12', '2026-08-13'], '2026-08-13'),
+    trainingDays: ['2026-08-12', '2026-08-13'],
+    linesMastered: 2,
+    linesInTraining: 5,
+    replay: true,
+  });
+  check('a replay names its day', past.day === '2026-08-13');
+  check('a replay is flagged as one', past.replay);
+  check('a replay scores its own day', past.accuracy === 90, String(past.accuracy));
+  check('a replay compares with the day before it', past.compare?.day === '2026-08-12');
+  check('a replay counts only the challenges up to it', past.challengesDone === 2);
+  check('a later day is invisible to a replay', past.right === 9 && past.wrong === 1);
+
+  // …and a live recap still isn't a replay.
+  check('a finished day is not a replay', !recapFor([day('2026-08-14', 10, 0)]).replay);
+  check('a finished day names today', recapFor([day('2026-08-14', 10, 0)]).day === '2026-08-14');
+
+  // ── formatDayLabel ──────────────────────────────────────────────────────────
+  const now = new Date(2026, 7, 14);
+  check('today is named today', formatDayLabel('2026-08-14', now) === 'Today');
+  check('yesterday is named yesterday', formatDayLabel('2026-08-13', now) === 'Yesterday');
+  check('older days get a date', /\d/.test(formatDayLabel('2026-08-02', now))
+    && formatDayLabel('2026-08-02', now) !== 'Today');
+  check('a malformed key comes back unchanged', formatDayLabel('nonsense', now) === 'nonsense');
 
   return results;
 }

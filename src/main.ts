@@ -10,6 +10,7 @@ import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serial
 import {
   openBook, closeBook, activeBook, notePending, pendingCount, hasPending,
   isPending, discardPending, commitPending, currentLine as bookCurrentLine,
+  currentLineHasPending,
   cursorCoverage, pendingBranches, pendingAllVisible, discardBranch,
   removeManyAndStore,
   planLineRemoval, removeAndStore, restoreAndStore,
@@ -61,6 +62,7 @@ import {
   type DailyConfig,
 } from './daily-challenge';
 import { buildRecap, getDailyLog, localDayKey, markDayComplete, type TaskOutcome } from './daily-recap';
+import { showRecapForDay } from './daily-review';
 import { showDailyCelebration, showPerfectDayCelebration, showWhenClear } from './daily-celebration';
 import { currentStreak, getTrainingDays } from './streak';
 import { masteredLines } from './stats';
@@ -2215,6 +2217,22 @@ async function enterBuilderBook(
 // played onto a branch you had became a child of the node that was there — so
 // this stores it rather than reconciling anything.
 async function commitBook(): Promise<void> {
+  // Read BEFORE the write, because committing repaints every one of these.
+  //
+  // Standing inside a book, the header button ADDS moves rather than saving a
+  // line — which is right, but it meant the whole tail of the old save flow
+  // never ran: the confirm run (the trainer) stopped opening after a new line,
+  // and the Line info toggle's "Just save it" stopped being honoured, because a
+  // freshly grown branch inherits training from its ancestors (DEFAULT_TRAINING)
+  // whatever the toggle said. Both are picked back up below.
+  //
+  // "I have just finished a line" is: the line drawn in front of me contains
+  // part of the draft, AND the cursor stands on its end. Adding a branch
+  // somewhere else in the book, or walking back up before committing, is not
+  // that and gets the plain toast it always got.
+  const finishedALine = currentLineHasPending() && getCurrentNode().children.length === 0;
+  const wantsTraining = loadedLineInTraining;
+
   const { moves, roots } = await commitPending();
   if (moves === 0) { showToast('Nothing new to add'); return; }
   repaintAfterBookWrite();
@@ -2225,6 +2243,52 @@ async function commitBook(): Promise<void> {
     variant: 'success',
     action: { label: 'Undo', onClick: () => void undoBookCommit(roots, moves) },
   });
+
+  if (finishedALine) await settleNewBookLine(wantsTraining);
+}
+
+/**
+ * The tail of the save flow, for a line finished inside a book.
+ *
+ * Two jobs, and only the first of them is new behaviour:
+ *
+ *  • "Just save it" means just save it. A new branch resolves `training` from
+ *    its ancestors, so it lands IN training whatever the toggle said; when the
+ *    toggle said no, write the explicit off (which is exactly what the My Lines
+ *    switch writes) rather than leaving the user with a line they asked not to
+ *    drill.
+ *  • Otherwise the line is in training, and the confirm run is what "added to
+ *    training" has always meant — one clean run before it joins the schedule.
+ *    Skipped when the user has switched that pref off, exactly as the old save
+ *    path skipped it.
+ */
+async function settleNewBookLine(wantsTraining: boolean): Promise<void> {
+  const line = bookCurrentLine();
+  if (!line) return;
+
+  if (!wantsTraining) {
+    if (line.inTraining) {
+      await saveLine({ ...line, inTraining: false });
+      repaintAfterBookWrite();
+    }
+    return;
+  }
+  if (!line.inTraining || !getConfirmRunBeforeTraining()) return;
+
+  startPretrainingRun(
+    line,
+    () => { repaintAfterBookWrite(); },
+    // Backing out of the run leaves the moves saved — they are already in the
+    // book — and takes the line back out of training, which is what cancelling
+    // "add it to training" has to mean.
+    () => {
+      void (async () => {
+        const current = bookCurrentLine();
+        if (current?.inTraining) await saveLine({ ...current, inTraining: false });
+        repaintAfterBookWrite();
+      })();
+    },
+  );
 }
 
 /** Take back the moves a commit just wrote. */
@@ -3746,30 +3810,33 @@ function renderTrainTabbed(host: HTMLElement): void {
         onHide: () => showView('train'),
     });
 
-    if (showSteps && firstStepsOwnsSlot(allLines.length)) {
-      dailyHost.appendChild(buildSteps());
-      return;
-    }
-    // Past the unlock the checklist is appended AFTER the daily card is built,
-    // at the end of this function — see the append below.
+    // Under the three-line goal the checklist LEADS — "how do I get lines" is
+    // the question that has to be answered before a daily challenge means
+    // anything — and the daily card follows it in its locked, introducing face
+    // (see daily-challenge.ts). Past the unlock the two swap over: the daily
+    // card leads and the checklist is appended after it, at the end of this
+    // function.
+    const stepsLead = showSteps && firstStepsOwnsSlot(allLines.length);
+    if (stepsLead) dailyHost.appendChild(buildSteps());
 
     // The daily config (which tasks + how many of each) and which are actually
-    // runnable right now decide the card — and the "Next task →" chain.
+    // runnable right now decide the card — and the "Next challenge →" chain.
     const config = getDailyConfig();
     const dailyLines = pickDailyLines(allLines, config.tasks.lines.count);
     const avail = { hasLines: dailyLines.length > 0, mistakesAvailable: spotRefs.length > 0 };
     const active = activeDailyTasks(config, avail);
 
-    // Each task as a named launcher so the success screens' "Next task →" can
-    // chain into any of them. The next task is resolved at CLICK time (the
-    // completion screen mounts before the finished task's done flag is set).
+    // Each part as a named launcher so the success screens' "Next challenge →"
+    // can chain into any of them. The next one is resolved at CLICK time (the
+    // completion screen mounts before the finished part's done flag is set).
     const nextFor = (current: DailyTaskId): { label: string; run: () => void } | undefined => {
-      // Offer the button only when some OTHER active task would still be open once
-      // this one is done — a "Next task" that closes into nothing misleads.
+      // Offer the button only when some OTHER active part would still be open
+      // once this one is done — a "Next challenge" that closes into nothing
+      // misleads.
       const pretend = { ...getDaily(), [current]: true };
       if (!nextDailyTask(pretend, active)) return undefined;
       return {
-        label: 'Next task →',
+        label: 'Next challenge →',
         run: () => {
           const next = nextDailyTask(getDaily(), active);
           if (next) launchers[next]();
@@ -3829,12 +3896,19 @@ function renderTrainTabbed(host: HTMLElement): void {
       config,
       active,
       lines: dailyLines,
+      savedLineCount: allLines.length,
       onTrainLines: () => launchers.lines(),
       onRefreshPositions: () => launchers.positions(),
       onSolvePuzzles: () => launchers.puzzles(),
       onSolveEndgames: () => launchers.endgames(),
       mistakeSpotCount: spotRefs.length,
       onFixMistakes: () => launchers.mistakes(),
+      // The finished card reopens today's popup rather than losing its figures
+      // to the tap that dismissed it.
+      onReplayRecap: () => { void showRecapForDay(localDayKey(), localDayKey(), allLines); },
+      // The locked card only needs its own way to a line when the checklist
+      // above isn't already offering two louder ones.
+      onBuildLine: stepsLead ? undefined : () => startNewLine('white'),
     });
     if (card) dailyHost.appendChild(card);
 
@@ -3843,7 +3917,7 @@ function renderTrainTabbed(host: HTMLElement): void {
     // are the easiest things in the app to put off forever, and clearing the
     // line goal is no reason for them to vanish. It goes when the user hides it
     // or when they've done one of the two that matter — see first-steps.ts.
-    if (showSteps) dailyHost.appendChild(buildSteps());
+    if (showSteps && !stepsLead) dailyHost.appendChild(buildSteps());
   };
   void renderDaily();
 

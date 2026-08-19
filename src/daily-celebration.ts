@@ -19,7 +19,7 @@
 import { celebratePawn, burstConfetti, starfall } from './confetti';
 import { pixelQueenSvg } from './pixel-pawn';
 import { pushBack } from './back-nav';
-import { recapMessage, type Recap } from './daily-recap';
+import { formatDayLabel, recapMessage, type Recap } from './daily-recap';
 
 // How long the promoting pawn hops before it queens.
 const PROMOTE_AT_MS = 1100;
@@ -113,30 +113,43 @@ export function showDailyCelebration(recap: Recap): void {
 
   pop.appendChild(celebratePawn());
   pop.appendChild(el('div', 'dc-pop-title', 'Daily challenge done'));
+  // A day reopened from the calendar says WHICH day, so nothing on the popup
+  // can be misread as being about today.
+  if (recap.replay) pop.appendChild(el('div', 'dc-pop-day', formatDayLabel(recap.day)));
   pop.appendChild(el('div', 'dc-pop-sub', subtitleFor(recap)));
 
   if (recap.total > 0) pop.appendChild(buildCompare(recap));
   pop.appendChild(el('p', 'dc-pop-msg', recapMessage(recap)));
   pop.appendChild(buildStrip(recap));
-  pop.appendChild(dismissButton('Nice', close));
+  pop.appendChild(dismissButton(recap.replay ? 'Close' : 'Nice', close));
 
-  burstConfetti(pop);
+  // A replay is a look back, not an event — no confetti for a day you already
+  // celebrated once.
+  if (!recap.replay) burstConfetti(pop);
 }
 
+// The one line under the title. It used to say "Every task cleared", which is
+// both the wrong word (it is one challenge, in parts) and the least interesting
+// fact available — the user had just cleared it, so they knew. The score is what
+// they actually want: how many of the moves they played came back right.
 function subtitleFor(recap: Recap): string {
-  if (recap.total === 0) return 'Every task cleared for today';
-  const moves = `${recap.total} move${recap.total === 1 ? '' : 's'} played`;
-  return `Every task cleared · ${moves}`;
+  if (recap.total === 0) return 'Nothing to score today — the challenge is cleared';
+  const right = `${recap.right} correct move${recap.right === 1 ? '' : 's'}`;
+  const played = `${recap.total} played move${recap.total === 1 ? '' : 's'}`;
+  return `${right} of ${played}`;
 }
 
-// Today's accuracy, big, with the previous day's underneath it as two thin bars
-// — the whole "am I getting better" story in one glance.
+// The day's accuracy, big, with the previous day's underneath it as two thin
+// bars — the whole "am I getting better" story in one glance. A reopened day
+// names itself rather than borrowing the word "today".
 function buildCompare(recap: Recap): HTMLElement {
   const wrap = el('div', 'dc-compare');
+  const dayWord = recap.replay ? formatDayLabel(recap.day) : 'Today';
 
   const scoreRow = el('div', 'dc-score-row');
   scoreRow.appendChild(el('span', 'dc-score', `${recap.accuracy}%`));
-  scoreRow.appendChild(el('span', 'dc-score-label', 'right today'));
+  scoreRow.appendChild(el('span', 'dc-score-label',
+    recap.replay ? `right that day` : 'right today'));
   if (recap.delta !== null && recap.delta !== 0) {
     const up = recap.delta > 0;
     const chip = el('span', `dc-delta ${up ? 'dc-delta--up' : 'dc-delta--down'}`,
@@ -148,9 +161,14 @@ function buildCompare(recap: Recap): HTMLElement {
   wrap.appendChild(scoreRow);
 
   if (recap.compare) {
-    wrap.appendChild(bar(recap.compare.isYesterday ? 'Yesterday' : 'Last time', recap.compare.accuracy, false));
+    // "Yesterday" only means yesterday from today; on a replay the compare day
+    // is the one before THAT day, so it reads as "the day before".
+    const before = recap.compare.isYesterday
+      ? (recap.replay ? 'The day before' : 'Yesterday')
+      : 'Last time';
+    wrap.appendChild(bar(before, recap.compare.accuracy, false));
   }
-  wrap.appendChild(bar('Today', recap.accuracy, true));
+  wrap.appendChild(bar(dayWord, recap.accuracy, true));
   return wrap;
 }
 
@@ -207,11 +225,13 @@ export function showPerfectDayCelebration(recap: Recap): void {
   const { pop, close } = mountPopup('perfect');
   pop.setAttribute('aria-label', 'Perfect day — every move right');
 
-  pop.appendChild(buildPromotion());
+  pop.appendChild(buildPromotion(recap.replay));
   pop.appendChild(el('div', 'dc-eyebrow', 'PERFECT DAY'));
   pop.appendChild(el('div', 'dc-pop-title', 'Your pawn just queened'));
+  if (recap.replay) pop.appendChild(el('div', 'dc-pop-day', formatDayLabel(recap.day)));
   pop.appendChild(el('div', 'dc-pop-sub',
-    `${recap.right} move${recap.right === 1 ? '' : 's'} today. Every single one right.`));
+    `${recap.right} correct move${recap.right === 1 ? '' : 's'} of ${
+      recap.total} played move${recap.total === 1 ? '' : 's'}. Not one missed.`));
 
   pop.appendChild(el('p', 'dc-pop-msg', perfectMessage(recap)));
 
@@ -221,10 +241,11 @@ export function showPerfectDayCelebration(recap: Recap): void {
   strip.appendChild(tile(String(recap.streak), 'day streak', recap.streakIsBest ? 'best yet' : null));
   pop.appendChild(strip);
 
-  pop.appendChild(dismissButton('Take a bow', close));
+  pop.appendChild(dismissButton(recap.replay ? 'Close' : 'Take a bow', close));
 
   // The full works: a burst on arrival, stars raining through, and a second
-  // burst as the pawn promotes.
+  // burst as the pawn promotes. A replay gets the queen and none of the theatre.
+  if (recap.replay) return;
   burstConfetti(pop);
   starfall(pop);
   window.setTimeout(() => burstConfetti(pop), PROMOTE_AT_MS);
@@ -236,12 +257,13 @@ function perfectMessage(recap: Recap): string {
 }
 
 // The pawn hops, then promotes: it bursts and comes back as a queen. Reduced
-// motion skips the theatre and shows the queen straight away.
-function buildPromotion(): HTMLElement {
+// motion — and a day being looked back at — skip the theatre and show the queen
+// straight away.
+function buildPromotion(replay: boolean): HTMLElement {
   const stage = el('div', 'dc-promote');
   stage.setAttribute('aria-hidden', 'true');
 
-  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const reduce = replay || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   if (reduce) {
     stage.appendChild(queenEl());
     return stage;
