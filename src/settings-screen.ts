@@ -83,6 +83,7 @@ import { syncNow, replaceFromAccount, markEverythingDirty } from './repertoire-s
 import { deleteAccountOnServer, signOutAfterDelete } from './account-delete';
 import { isEntitled, showGoProDialog } from './entitlement';
 import { openDoc, LANDING_URL, PRIVACY_URL, TERMS_URL } from './legal';
+import { loadBookRows, renderRepertoireManager, selectedBookId } from './repertoire-picker';
 
 export function renderSettingsScreen(container: HTMLElement): void {
   container.innerHTML = '';
@@ -121,6 +122,7 @@ export function renderSettingsScreen(container: HTMLElement): void {
   if (!isConnected()) screen.appendChild(buildLichessGroup(refresh));
 
   screen.appendChild(buildAppearanceGroup());
+  screen.appendChild(buildRepertoiresGroup());
   screen.appendChild(buildTrainingGroup());
   screen.appendChild(buildDailyChallengeGroup());
   screen.appendChild(buildBackupGroup());
@@ -701,6 +703,50 @@ function buildAppearanceGroup(): HTMLElement {
     }),
     { sub: 'A soft tone on right and wrong moves while training.' },
   ));
+
+  return sec;
+}
+
+// ── Repertoires ──────────────────────────────────────────────────────────────
+//
+// Making a book, naming it, putting it aside, removing it — and, once there are
+// more than the two defaults, choosing which one new lines are filed into.
+//
+// It moved here from the top of My Lines, where it was a control on the busiest
+// screen in the app answering a question most people never have a second answer
+// to, and whose answer HID lines. One repertoire at a time is the shape almost
+// everybody wants; more than one is an option, and options live in Settings.
+
+function buildRepertoiresGroup(): HTMLElement {
+  const sec = group('Repertoires', Icons.book(16));
+
+  const blurb = document.createElement('p');
+  blurb.className = 'pref-note';
+  blurb.textContent =
+    'A repertoire is a book of lines of one colour. You start with two — White '
+    + 'and Black — and for most people that is the whole story. More are for '
+    + 'situations rather than colours: one for blitz, one for a tournament, one '
+    + 'prepared for a particular opponent.';
+  sec.appendChild(blurb);
+
+  const host = document.createElement('div');
+  host.className = 'settings-books';
+  sec.appendChild(host);
+
+  // Re-read on every change rather than patching rows in place: books are a
+  // handful of records, and a stale count on this list is exactly the kind of
+  // thing nobody notices until it is wrong.
+  const paint = (): void => {
+    void loadBookRows().then((rows) => {
+      renderRepertoireManager(host, {
+        rows,
+        selected: selectedBookId(),
+        onSelect: () => paint(),
+        onChanged: () => paint(),
+      });
+    });
+  };
+  paint();
 
   return sec;
 }

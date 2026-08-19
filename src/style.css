@@ -4781,6 +4781,39 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   padding: 0.25rem 0 0.75rem;
 }
 
+/* ── The end of the saved list ────────────────────────────────────────────────
+   "And now what?" gets asked at the bottom of the list, and the answer used to
+   be to scroll all the way back to the top and find the + button. A quiet
+   footer: the offer, and the shortcut for anyone who'd rather not build it by
+   hand. Deliberately understated — it must not compete with the lines above it.
+   The FAB floats bottom-right, so the row is left-aligned and the bottom margin
+   keeps it clear of both the FAB and the nav bar. */
+.lines-more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.8rem;
+  margin: 0.4rem 0 4.5rem;
+}
+.lines-more-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.lines-more-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-faint);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .colour-pip {
   width: 16px;
   height: 16px;
@@ -13577,7 +13610,10 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   /* The tree view is one wide drawing, not a card — it takes the full row and
      grows taller now that there is room for it. */
   .lines-grid > .rmap-embed,
-  .lines-grid > .rmap-embed-legend {
+  .lines-grid > .rmap-embed-legend,
+  /* The end-of-list footer is a row, not a card: it takes the full width under
+     the columns rather than being dealt into one of them. */
+  .lines-grid > .lines-more {
     grid-column: 1 / -1;
   }
   .rmap-embed { height: 70vh; max-height: 760px; }
@@ -18651,45 +18687,26 @@ html.picker-open body {
   .dc-bar-fill { transition: none; }
 }
 
-/* ── Repertoire picker & branch actions (Phase C) ─────────────────────────────
-   The book selector sits above My Lines' filter bar, and the branch sheet is
-   reached from a node in the tree view. Both reuse .edit-overlay/.edit-sheet,
-   so only their own innards are styled here. */
+/* ── Repertoires (Settings) & branch actions ──────────────────────────────────
+   The book list lives in Settings → Repertoires; the branch sheet is reached
+   from a node in the tree view. Both reuse .edit-overlay/.edit-sheet, so only
+   their own innards are styled here. (The old .book-picker row above My Lines'
+   filter bar is gone — see repertoire-picker.ts.) */
 
-.lines-book-picker:empty {
-  display: none;
-}
-
-.book-picker {
+/* The Settings group's body: the list, then the add button under it. */
+.settings-books {
   display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  width: 100%;
-  padding: 0.6rem 0.75rem;
-  margin-bottom: 0.5rem;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--text);
-  text-align: left;
-  -webkit-tap-highlight-color: transparent;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0 var(--space-md) var(--space-md);
 }
 
-.book-picker-name {
-  font-weight: 700;
-  font-size: 0.95rem;
-}
-
-.book-picker-count {
+/* The one-paragraph framing above the list. */
+.pref-note {
+  margin: 0 var(--space-md) 0.6rem;
   font-size: 0.8rem;
-  color: var(--text-dim);
-  margin-inline-start: auto;
-}
-
-.book-picker-chev {
-  flex: 0 0 auto;
-  color: var(--text-dim);
-  align-self: center;
+  line-height: 1.45;
+  color: var(--text-muted);
 }
 
 .book-list {
