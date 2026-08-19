@@ -8,10 +8,11 @@ things in. Nothing here is started until you say go.
 ## Where we stand
 
 Bito Chess is a PWA (an installable web app) served free at
-`https://marxal.github.io/obertura/`. All data lives on the device; with the
-new cloud backup (see `DRIVE-SETUP.md`) it can also live in the user's own
-Google Drive. There is no server, and none of the options below adds one —
-that constraint holds throughout.
+`https://bitochess.com/app/`, and mirrored for internal testing at
+`https://marxal.github.io/obertura/`. All data lives on the device; signing in
+keeps a synced copy in the user's account (see `SUPABASE-SYNC.md`). The Google
+Drive backup that used to fill that role has been retired — the account does it
+better and asks for nothing from anybody's Drive.
 
 ## The one honest tension first: the web app is public
 
@@ -57,9 +58,11 @@ cleanest possible one-time payment.
    native.
 3. Generate the Android package with PWABuilder from the live URL.
 4. Store listing: name, description, screenshots (phone + 7-inch), the icon,
-   a **privacy policy URL** (a page on the landing site saying "your data
-   stays on your device / your own Google Drive" — genuinely true here), a
-   content-rating questionnaire, and the data-safety form.
+   a **privacy policy URL** (`https://bitochess.com/privacy.html`, already
+   written), a content-rating questionnaire, and the data-safety form. The
+   data-safety answers are unusually easy here: no analytics, no ads, no
+   tracking; an email address for the account, and the chess data the user
+   asked to sync.
 5. **The big gotcha for new personal accounts:** before you may publish to
    production, Google requires a **closed test with at least 12 testers
    enrolled continuously for 14 days**. Plan for this — it's the beta list's
@@ -71,14 +74,14 @@ cleanest possible one-time payment.
 
 **Also worth knowing:** the paid app still loads the public web URL, so
 "piracy" is just… using the website (see the tension above — priced in).
-Reviews take a few days the first time. Cloud backup's Google consent screen
-should be verified before launch (last section of `DRIVE-SETUP.md`).
+Reviews take a few days the first time. The Google sign-in consent screen
+should be verified before launch.
 
 ## Option 2 — Microsoft Store (desktop, optional, cheap)
 
 Desktop needs no store at all — Chrome and Edge install the PWA from the
-address-bar icon on Windows/Mac/Linux today, and with Drive backup the
-desktop and phone share one repertoire. But if you want a real desktop
+address-bar icon on Windows/Mac/Linux today, and signing in on both makes the
+desktop and the phone share one repertoire. But if you want a real desktop
 storefront: the **Microsoft Store accepts PWAs almost as-is** (PWABuilder
 again), registration is a one-time ~$19 for individuals, and paid listings
 work the same way. Low effort, low reach, entirely optional.
@@ -116,7 +119,9 @@ is whatever marketing you do — the two real costs of not being in a store.
 
 ## Recommended sequence
 
-1. **Now:** finish cloud backup (paste the Drive client ID — `DRIVE-SETUP.md`).
+1. **Now:** finish the Supabase account setup end to end — `SUPABASE-SYNC.md`
+   §9 is the checklist, and custom SMTP is the step that actually blocks
+   registrations if it's skipped.
 2. **Prep:** privacy policy page on the landing site; the `marxal.github.io`
    repo with `assetlinks.json`; screenshots.
 3. **Play:** developer account → PWABuilder package → closed test with the
@@ -125,19 +130,27 @@ is whatever marketing you do — the two real costs of not being in a store.
 4. **Optional:** Microsoft Store for a desktop storefront.
 5. **Later, only on demand:** Apple via Capacitor.
 
-## Deferred design note — true automatic sync
+## Deferred design note — the last piece of true sync
 
-Today's cloud backup already gives *manual* sync: device A backs up
-automatically, device B taps "Restore from Drive" (merge). Fully automatic
-two-device sync is deliberately deferred because it needs three things the
-data model doesn't have yet, and half-doing them silently loses user data:
+Automatic two-device sync now exists: both halves of the account row carry a
+timestamp, each device remembers the last one it saw, and it pulls and merges on
+sign-in, on foreground and every few minutes (`src/repertoire-sync.ts`). Lines
+merge by move, games by id, statistics by last-write-wins.
 
-- a per-line `updatedAt` timestamp, bumped on every save, so merge can be
-  "newest wins per line" instead of "file overwrites by id";
-- **deletion tombstones** (a remembered list of deleted line ids + when), so
-  a deletion on one device doesn't resurrect via a merge from the other;
-- a sync cycle on app open/close (download → merge both ways → upload),
-  with a conflict rule that never drops review history.
+What is still deferred is the one thing merge can't do — **propagate a
+deletion**. Delete a line on phone A and phone B hands it back, because there is
+no way to tell "deleted" from "hasn't arrived yet". Doing it properly needs:
+
+- a per-move or per-line `updatedAt`, bumped on every save, so a merge can be
+  "newest wins" rather than "union";
+- **deletion tombstones** (a remembered list of deleted ids and when), kept long
+  enough that a device offline for a month still learns about them;
+- a rule for what happens when the same line is edited on one device and deleted
+  on the other.
+
+Until then the escape hatch is explicit and adequate: Settings → Data → "Replace
+this device from your account" takes the account's copy exactly, which is how you
+make a deletion stick everywhere.
 
 The existing `mergeLines()` in `src/storage.ts` is the right foundation; this
 note exists so a future round starts from the design, not from scratch.

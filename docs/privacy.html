@@ -125,12 +125,17 @@
         <tr><td><strong>Supabase</strong></td><td>Stores accounts and synced chess data</td><td>EU (Frankfurt)</td></tr>
         <tr><td><strong>Cloudflare</strong></td><td>Serves the website and app, runs the checkout and purchase endpoints</td><td>Global network, EU-first routing</td></tr>
         <tr><td><strong>Stripe</strong></td><td>Processes payments and issues receipts</td><td>Ireland (EU entity), with transfers to the USA</td></tr>
-        <tr><td><strong>Google</strong></td><td>Optional Google sign-in; optional Google Drive backup</td><td>USA</td></tr>
+        <tr><td><strong>Google</strong></td><td>Optional “Continue with Google” sign-in</td><td>USA</td></tr>
+        <tr><td><strong>Resend</strong></td><td>Sends the confirmation and password-reset emails</td><td>USA</td></tr>
         <tr><td><strong>Web3Forms</strong></td><td>Relays feedback and survey messages to my inbox</td><td>USA</td></tr>
       </tbody>
     </table>
   </div>
   <p>Transfers outside the EU rely on the European Commission’s standard contractual clauses and, where applicable, the EU–US Data Privacy Framework.</p>
+
+  <h2>Signing in</h2>
+  <p>You can create an account with an email address and a password, or with “Continue with Google”. If you use Google, Google tells me your email address and nothing else — no contacts, no Drive, no profile beyond the address. If other sign-in buttons appear here later (Facebook, Apple), the same applies: an email address, and nothing more.</p>
+  <p>Registering asks you to confirm the address by opening a link I email you. That link, and the password-reset one, are sent through Resend on my behalf; they see the address and the message, and nothing else about you.</p>
 
   <h2>Optional features that send data outside</h2>
   <p>Some parts of the app talk to other chess services. Most send nothing about you; a few send something, and those are listed here so you can decide.</p>
@@ -139,8 +144,8 @@
     <li><strong>Chess.com</strong> — if you import your games or scout an opponent, that username is sent to their public data API. Again, already public information.</li>
     <li><strong>chess-api.com</strong> — deeper online analysis. <strong>Off by default.</strong> If you turn it on, chess positions from your games are sent to that service. No account information goes with them.</li>
     <li><strong>YouTube</strong> — the Learn cards search YouTube for videos about an opening. Only the opening name is sent, never anything about you.</li>
-    <li><strong>Google Drive backup</strong> — optional, and off unless you connect it. Your backup file is written to a hidden folder that only Bito Chess can read; it doesn’t appear among your own Drive files, and the app can’t see the rest of your Drive.</li>
   </ul>
+  <p>The Google Drive backup that used to be listed here has been retired. Nothing in the app talks to Google Drive any more; the account sync and the Export button do the same job, and neither needs access to your files.</p>
 
   <h2>How long I keep things</h2>
   <p>Your account and its data stay until you delete them. Feedback messages stay in my inbox until I clear them out. Cloudflare’s technical logs expire on their own schedule, measured in days.</p>
@@ -155,9 +160,10 @@
     <li><strong>hand you a copy</strong> in a portable format</li>
     <li><strong>restrict or object to</strong> how I use it</li>
   </ul>
-  <p>For the last one, the app already has a built-in answer: Settings → Export creates a complete JSON file of everything you have, at any time, without asking me.</p>
-  <p><strong>To delete your account,</strong> email <a href="mailto:creative@marxal.net">creative@marxal.net</a> from the address you signed up with and say so. I’ll delete the account and everything attached to it — your synced repertoire, your games, your purchase record — within 30 days, usually the same week, and I’ll confirm when it’s done. Deleting your account doesn’t touch the copy on your own device; Settings → Erase all data does that.</p>
-  <p>There’s no charge and no form. You don’t have to give a reason.</p>
+  <p>For the last one, the app already has a built-in answer: Settings → Data → Export creates a JSON file of everything you have, at any time, without asking me — or of just your lines, your games, your statistics or your settings, if that’s all you want.</p>
+  <p><strong>To delete your account,</strong> open Settings → Data → Delete your account. It happens immediately and for good: the account and the synced copy of your repertoire, games and statistics are removed the moment you confirm. The same screen offers to export a backup first, and lets you choose whether to erase the copy on your own device too — that copy is yours, and closing the account doesn’t touch it unless you say so.</p>
+  <p>If you’d rather I did it, email <a href="mailto:creative@marxal.net">creative@marxal.net</a> from the address you signed up with and say so. Either way there’s no charge, no form, and no reason required.</p>
+
   <p>If you think I’ve handled your data badly, you can complain to the Swedish Authority for Privacy Protection (<strong>IMY</strong>, <a href="https://www.imy.se" target="_blank" rel="noopener noreferrer">imy.se</a>), or to the supervisory authority where you live.</p>
 
   <h2>Children</h2>

@@ -1528,7 +1528,7 @@ function openDeleteAccountDialog(): void {
   const deleteBtn = document.createElement('button');
   deleteBtn.type = 'button';
   deleteBtn.className = 'btn-danger';
-  deleteBtn.textContent = 'Delete my account';
+  deleteBtn.textContent = 'Delete account';
   deleteBtn.disabled = true;
   confirmInput.addEventListener('input', () => {
     deleteBtn.disabled = confirmInput.value.trim().toUpperCase() !== 'DELETE';

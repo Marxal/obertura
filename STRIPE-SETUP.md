@@ -183,6 +183,12 @@ project with only the `VITE_` ones answers `500 not configured` on every request
 while the dashboard looks perfectly set up. Setting the unprefixed names as well
 is tidier; nothing breaks either way.
 
+**One of these is now shared with something else.** `SUPABASE_SERVICE_ROLE_KEY`
+is also what `POST /api/account/delete` uses to remove an account
+(`worker/account-delete.ts`, set up in SUPABASE-SYNC.md §5) — same key, same
+reason: it is the only one allowed anywhere near `auth.users`. Setting it here
+covers both; there is nothing extra to add for account deletion.
+
 The service_role key ignores every row-level security rule in the project, and
 the Stripe secret key can move money. Both belong in exactly two places: the
 dashboard each came from, and this secret store. Never in `.env`, never in the

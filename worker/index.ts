@@ -12,7 +12,7 @@
 //
 // The same answer applies to Supabase Edge Functions, which the Stripe migration
 // was originally sketched against: this repo has no `supabase/` directory, no
-// Supabase CLI and no migration history, and its server already lives here. Three
+// Supabase CLI and no migration history, and its server already lives here. Four
 // endpoints are not worth a second deploy target, a second secret store and a
 // second thing to remember to ship.
 //
@@ -34,7 +34,7 @@
 //   POST /api/stripe/webhook   Stripe → profiles.entitled (stripe-webhook.ts)
 //   POST /api/account/delete   remove an account for good (account-delete.ts)
 //
-// No CORS headers anywhere, deliberately. All three are called from pages served
+// No CORS headers anywhere, deliberately. All four are called from pages served
 // by this same Worker's assets — the landing page at the root and the trainer at
 // /app/ — so every call is same-origin and CORS never enters the picture. The
 // GitHub Pages mirror is a different origin and has no Worker at all; it is also

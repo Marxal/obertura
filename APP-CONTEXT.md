@@ -281,9 +281,9 @@ in the Cloudflare project. No other configuration differs between the two.
 ├── AUDIT.md               v1.2 read-only code audit + what was fixed
 ├── BACKNAV-DIAGNOSIS.md   v1.3 investigation into the dead back gesture in training
 ├── BETA-ACCESS.md         owner notes: rotating the beta access codes
-├── DRIVE-SETUP.md         click-by-click Google OAuth client-ID setup
-├── SUPABASE-SYNC.md       the one-time Supabase table + RLS + grants setup (SQL)
-├── LEMONSQUEEZY-SETUP.md  the buy flow's dashboard half (secrets, webhook, redirect)
+├── SUPABASE-SYNC.md       the whole account checklist: table + RLS + grants (SQL),
+│                          auth settings, email templates, SMTP, providers, quotas
+├── STRIPE-SETUP.md        the buy flow's dashboard half (secrets, webhook, redirect)
 ├── PUBLISHING.md          store/monetization options analysis + Play checklist
 ├── Obertura_Style_Guide.html  standalone visual style guide
 ├── index.html             the app shell (header, views, tab bar, pre-paint theme script)
@@ -422,8 +422,8 @@ moves), `engine-panel.ts` (the Engine tab), `line-info.ts` (priority + line stat
 lines), `onboarding-tour.ts` (coach-marks), `onboarding-signup.ts` (the post-win
 ask + `?auth=` handling), `onboarding-starter.ts` (starter packs + picker sheet),
 `first-steps.ts` (the Get-started checklist), `gate.ts` (beta code + install prompt),
-`survey.ts`, `feedback.ts`, `support.ts`, `about.ts`, `backup.ts`, `drive-backup.ts`,
-`selftest-panel.ts`, `avatar.ts`, `sound.ts`.
+`survey.ts`, `feedback.ts`, `support.ts`, `about.ts`, `backup.ts`,
+`account-delete.ts`, `selftest-panel.ts`, `avatar.ts`, `sound.ts`.
 
 #### Bundled data (all lazy-loaded except `openings-data.json`)
 | File | Size | Contents |
@@ -490,10 +490,10 @@ trying to wire in its Vite plugin (which needs Vite 6+).
 Environment in the Cloudflare dashboard:
 
 - **Plain variables (public, baked into the bundle):** `DEPLOY_TARGET=cloudflare`,
-  `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
-- **Secrets (never in the bundle):** `LEMONSQUEEZY_WEBHOOK_SECRET`,
-  `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL` (see §11 for why the last one has a
-  `VITE_SUPABASE_URL` fallback).
+  `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_AUTH_PROVIDERS`.
+- **Secrets (never in the bundle):** `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
+  `STRIPE_PRODUCT_ID`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL` (see §11 for why
+  the last one has a `VITE_SUPABASE_URL` fallback).
 
 ### Deploying the internal build (GitHub Pages)
 
@@ -544,6 +544,7 @@ request
   ├─ GET  /api/stripe/prices   → handleStripePrices()
   ├─ POST /api/stripe/checkout → handleStripeCheckout()
   ├─ POST /api/stripe/webhook  → handleStripeWebhook()
+  ├─ POST /api/account/delete  → handleAccountDelete()
   ├─ /api or /api/*            → plain 404 text
   └─ anything else             → env.ASSETS.fetch(request)   (static dist/)
 ```
@@ -586,27 +587,53 @@ consumer checks the flag first.
 **The anon key is public by design.** Vite inlines it into the bundle. The protection
 is row-level security in Postgres, never the secrecy of that string.
 
-### The OAuth return leg (`src/auth.ts`)
+### The return leg (`src/auth.ts`)
 
-Both Supabase's PKCE flow *and* the Lichess connect flow come back to the app as
-`?code=…` on the same redirect URL. If supabase-js were left to auto-detect
-(`detectSessionInUrl: true`) it would swallow Lichess's code and strip it before the
-Lichess library ever saw it.
+**Four** journeys come back to the app's one redirect URL, and telling them apart is
+most of this module:
 
-So `auth.ts` claims the code itself, at module load (synchronously, before boot reads
-the URL), and only when **two** things agree:
+| journey | shape |
+| --- | --- |
+| OAuth sign-in (Google/Facebook/Apple) | `?code=…` |
+| confirming an email address | `?token_hash=…&type=signup` |
+| a password-reset link | `?token_hash=…&type=recovery` |
+| "Connect to Lichess" (`lichess-auth.ts`) | `?code=…&state=…` |
 
-1. `obertura.supabase.oauthPending` was stamped in localStorage immediately before
-   redirecting to Google, and is less than 10 minutes old, **and**
-2. the URL has **no `state` parameter** — Supabase doesn't send one; the Lichess
-   library always does.
+If supabase-js were left to auto-detect (`detectSessionInUrl: true`) it would swallow
+Lichess's code and strip it before the Lichess library ever saw it. So `auth.ts`
+claims the return itself, at module load (synchronously, before boot reads the URL),
+using the one marker that separates Lichess from the rest: **Lichess always sends
+`state`, Supabase never does.**
 
-It then reads `code`, `sb_flow_id` and any `error_description`, strips those keys off
-the URL with `history.replaceState`, and hands them to `initAuth()` which calls
-`exchangeCodeForSession`. (`flowId` is carried explicitly because
-`exchangeCodeForSession` normally finds the PKCE verifier by reading `sb_flow_id` off
-the *live* URL — which we've already cleaned. It's belt-and-braces today, and
-future-proofs a deprecated fallback path.)
+That test used to be paired with an `obertura.supabase.oauthPending` localStorage flag
+stamped immediately before redirecting to Google, and both had to agree. **The flag is
+gone, and its going is a bug fix**: an email-confirmation link is opened from a mail
+app, minutes or hours later and often in a different browser, so no flag this app set
+could still be standing — every confirmation link landed on an app that ignored it.
+`state` alone is a complete test.
+
+Email links prefer `token_hash` over `?code=` for the same reason: a `code` can only
+be redeemed by the browser holding the PKCE verifier, and mail gets opened wherever
+mail gets opened. `verifyOtp({ token_hash, type })` has no such requirement. The
+Supabase email templates are edited once to send that shape (`SUPABASE-SYNC.md` §2);
+both shapes are handled, so an un-edited project still works on the device that asked.
+
+A `type=recovery` arrival — or Supabase's own `PASSWORD_RECOVERY` auth event — sets a
+flag and fires `PASSWORD_RECOVERY_EVENT`, which `main.ts` turns into the "choose a new
+password" sheet. Without it the reset link would sign you in and leave you looking at
+a perfectly normal app, with no hint that a new password was the point.
+
+### Sign-in providers
+
+`enabledOAuthProviders()` reads one build-time variable, `VITE_AUTH_PROVIDERS`
+(comma-separated; unset means `google` alone), and the UI renders one button per name.
+A provider listed there but *not* enabled in the Supabase dashboard bounces back with
+"Unsupported provider", so the two are always changed together. Facebook is free to
+set up (Meta App Review for the `email` permission); Apple needs a paid Apple
+Developer membership. **Lichess and Chess.com cannot be sign-in providers**: Supabase
+accepts only its own fixed provider list, has no generic-OIDC option on the hosted
+platform, Lichess is OAuth2 without an `id_token`, and Chess.com has no public OAuth
+at all. `SUPABASE-SYNC.md` §3 has the full reasoning and the workaround.
 
 ### The API surface
 
@@ -616,9 +643,14 @@ getAuthUser(): User | null           // synchronous snapshot — the UI is built
 isSignedIn(): boolean
 onAuthChange(fn): () => void         // subscribe; returns an unsubscribe
 authRedirectUrl(): string            // location.origin + BASE_URL — must match the allow-list
+enabledOAuthProviders(): OAuthProvider[]
 signUpWithPassword(email, password): Promise<AuthResult>
 signInWithPassword(email, password): Promise<AuthResult>
-signInWithGoogle(): Promise<AuthResult>     // leaves the app; returns only on failure
+signInWithProvider(provider): Promise<AuthResult>   // leaves the app; returns only on failure
+sendPasswordReset(email): Promise<AuthResult>
+updatePassword(password): Promise<AuthResult>       // on the recovery session
+resendConfirmation(email): Promise<AuthResult>
+isPasswordRecovery() / clearPasswordRecovery()
 signOut(): Promise<AuthResult>
 friendlyAuthError(err): string
 ```
@@ -626,12 +658,18 @@ friendlyAuthError(err): string
 `AuthResult` is `{ ok, needsEmailConfirmation?, message? }` — nothing throws, and
 nothing raw ever reaches the user. `friendlyAuthError` maps Supabase's developer-facing
 codes (`invalid_credentials`, `email_not_confirmed`, `user_already_exists`,
-`weak_password`, `over_email_send_rate_limit`, `validation_failed`, `same_password`)
-plus a set of message regexes onto sentences that say what to do next, and falls back
-to a calm generic line.
+`weak_password`, `over_email_send_rate_limit`, `validation_failed`, `same_password`,
+`otp_expired`, `provider_disabled`) plus a set of message regexes onto sentences that
+say what to do next, and falls back to a calm generic line.
+
+`sendPasswordReset` answers the same way whether or not the address has an account,
+and the confirmation reads "if there's an account for …" — telling a stranger which
+emails are registered here is an enumeration hole.
 
 Email sign-up that returns no session means Supabase wants the address confirmed
-first; the UI shows a **dialog** (not a toast) telling the user to open the link.
+first; the UI shows a **dialog** (not a toast) with a **Send it again** button, because
+the commonest failure of email confirmation is an email that never arrives and
+re-registering only says "already exists".
 
 ### The Account UI (`src/account-ui.ts`)
 
@@ -642,22 +680,38 @@ accordion doesn't snap shut the instant you sign in. Only the newest instance li
 (each rebuild retires the previous subscription).
 
 - **Signed out:** the group is highlighted (`section--acc-highlight`) and forced open.
-  A Sign in / Sign up two-way switch above one shared form: email + password with
-  proper `autocomplete` (`username` / `new-password` / `current-password`, so phone
-  password managers offer to fill and save), a submit button, an "or" divider, and
-  **Continue with Google** with the four-colour G inlined (fixed brand colours in
-  every theme, deliberately).
+  A **Registration / Sign in** two-way switch above one shared form ("sign up" and
+  "sign in" differ by one letter in the middle of a word, which is a coin-toss to read
+  on a phone): email + password with proper `autocomplete` (`username` /
+  `new-password` / `current-password`, so phone password managers offer to fill and
+  save); on Registration, a **required consent checkbox** linking the privacy policy
+  and terms; on Sign in, a **Forgot your password?** link; then a submit button, an
+  "or" divider, and one **Continue with …** button per enabled provider, each with its
+  brand mark inlined (fixed brand colours in every theme, deliberately — Apple's takes
+  `currentColor`, which is its own guidance). Under the provider buttons sits the
+  passive legal line, because from the app's side an OAuth tap is indistinguishable
+  from a registration until the redirect comes back.
 - **Signed in:** the email, a **plan pill** (`Full access` / `Free — 10 lines in
-  training`), the live **sync caption**, an explanatory note, and Sign out.
+  training`), the live **sync caption** with a **Sync now** button beside it, and Sign
+  out. The old paragraph explaining the merge-or-replace question is gone with the
+  question itself.
 
 `buildAuthForm({ initialMode, blurb })` is exported so the sign-up sheet
 (`onboarding-signup.ts`) and the buy flow reuse the exact same form rather than a
 second implementation.
 
 The sync caption is `aria-live="polite"`, listens to `SYNC_CHANGE_EVENT`, detaches
-itself once the row leaves the DOM, and reads: *"Sync failed — will retry."* /
-*"Pending — your latest changes go up in a moment."* / *"Synced 12 minutes ago."* /
-*"Nothing synced yet."*
+itself once the row leaves the DOM, and reads: *"Pending — your latest changes go up
+in a moment."* / *"Synced 12 minutes ago."* / *"Nothing synced yet."* — or, on
+failure, **what actually went wrong** (`describeSyncError`), which names a missing
+table, a missing column, a blocked write, an expired session or simply being offline.
+The old single line, *"Sync failed — will retry."*, made a project whose SQL had never
+been run look exactly like a train tunnel.
+
+`account-ui.ts` also owns the two password-reset sheets: `openPasswordResetSheet()`
+(ask for the address, send the link) and `openNewPasswordSheet()` (set the new one),
+the second deliberately not dismissable by a backdrop tap — that is exactly the tap
+that would strand somebody signed in with the password they couldn't remember.
 
 ---
 
@@ -746,6 +800,10 @@ yet) → `synced`. A first sign-in that couldn't reach Supabase must *say* it fa
 not look like it hasn't got round to it; and a claimed account with no push yet must
 never claim a copy exists.
 
+`partsToPull(remote, seen)` and `shouldApplyRemoteLocal({…})` are the pull loop's two
+decisions, pure and self-tested for the same reason the precedence above is: getting
+either wrong doesn't crash, it silently syncs the wrong thing.
+
 `fingerprint(text)` is two independent rolling hashes (FNV-1a and djb2, both with
 `Math.imul` so the multiply doesn't lose precision past 2^53) plus the length, so a
 false match — the one outcome that would matter, since it would skip a real push —
@@ -770,35 +828,71 @@ to be. `coreFingerprintOf` deliberately hashes only `{ lines, local }` — inclu
   Best-effort: the pending flag survives in localStorage, and the fingerprint check
   makes the next launch's retry free if the push did land.
 
-### The sign-in reconcile
+### The pull loop — the part that was missing
 
-**Look before you ever upload.** On a first sign-in with an account this device hasn't
-claimed:
+The first version of this module pulled **exactly once per device**, on the first
+sign-in, and pushed for ever after. That is not sync, and it failed in the obvious
+way: add lines on phone A, open phone B, and B still showed its own older copy and
+then pushed that back over A's. A second device could never learn anything.
 
-1. `fetchRemoteBackup()` reads both columns, reassembles them with `combineRemote()`
-   and validates with the very same `parseBackup()` a hand-picked file goes through
-   (including reviving each move's `review.due` back into a real `Date`).
-2. If the account holds real data (lines **or** games — a snapshot-only row doesn't
-   count, since `local` is never empty in practice), `openImportChooser()` asks the
-   same **merge vs replace** question a manual backup import asks.
-3. After the restore, the remote fingerprints are remembered, the account is claimed,
-   and a push runs — which after a `replace` sends nothing at all (both halves match),
-   and after a `merge` sends the now-ahead local copy.
-4. If the copy carried extras (games / localStorage), the app reloads after 1.2 s,
-   because several modules cache their localStorage state in memory at boot.
-5. **Cancelling leaves the account unclaimed** — nothing syncs, the caption says so,
-   and the next launch asks again. An answer is never assumed.
+Now both columns carry an `_updated_at` stamp, and this device remembers the last one
+it saw of each (`obertura.sync.seenCore` / `seenGames`) — set both when it pushes a
+value itself and when it pulls someone else's. A pull is:
 
-If the account is empty, the phone's data seeds it (both halves dirty, push).
+1. read the two timestamps (`fetchRemoteStamps`) — a few hundred bytes;
+2. `partsToPull(remote, seen)` (pure, self-tested) says which halves moved;
+3. fetch only those columns, `combineRemote` + `parseBackup` as before;
+4. **merge**, never replace: `mergeRepertoires` folds the trees together move by move,
+   `saveGames` merges by id;
+5. the app-state snapshot is last-write-wins on `repertoire_updated_at`, guarded by
+   `shouldApplyRemoteLocal` — which refuses outright while this device has unpushed
+   changes of its own, because applying it then would throw them away before they were
+   ever sent.
 
-Failure at step 1 marks failed and claims nothing: **an unreachable Supabase can never
-destroy a copy.**
+It runs on sign-in, on `visibilitychange→visible` (throttled to 20 s), every 5 minutes
+while the app is open, and from the **Sync now** button. `syncTick()` always pushes
+before it pulls, for the same reason as the guard above.
+
+**`offerCore()` fixes a second, quieter bug.** The core column is the lines *plus* the
+app-state snapshot, but only the lines have a change notifier — so solving a puzzle,
+extending a streak or changing the board colour set no dirty flag, and the statistics
+sat on the phone until some unrelated line edit happened to carry them up. Rather than
+teach a dozen modules to announce themselves, the core is simply *offered* at every
+moment a push is due and the fingerprint decides; when nothing changed it costs one
+read and two hashes and sends no request.
+
+### First sign-in, and the merge question that isn't asked any more
+
+`connect(userId)` still **looks before it uploads** — on a new phone the account's copy
+is the thing the user wants back, and an eager first push of an empty repertoire would
+flatten it. But it no longer asks anything: it fetches, merges (lines, games and the
+snapshot), claims the account, pushes, and reloads if the copy carried extras, because
+several modules cache their localStorage state in memory at boot.
+
+The old `openImportChooser()` **merge vs replace** prompt is gone. It asked at the
+worst possible moment — you have just typed a password and have not yet seen the app —
+"merge" was the right answer every time, and *cancelling left the device silently
+unsynced for ever*. What it uniquely did survives as an explicit action:
+`replaceFromAccount()`, behind Settings → Data → **"Replace this device from your
+account"**, with a confirm.
+
+Failure at any step marks failed with a readable reason and claims nothing: **an
+unreachable Supabase can never destroy a copy.**
+
+### The deadlock that made all of this look broken
+
+Every listener registered through `onAuthChange` is invoked synchronously from inside
+supabase-js's own `onAuthStateChange` broadcast, and supabase-js holds an internal lock
+while it broadcasts. A `supabase.*` call made from in there waits on a lock the
+broadcast itself is holding — the library's documentation says not to await inside that
+callback for exactly this reason. `repertoire-sync.ts` now hops to the next task
+(`deferred()`) before touching Supabase at all.
 
 ### Signing out and erasing
 
-`forgetAccount()` clears the claim, the pending/failed flags, the last-sync stamp and
-both fingerprints. The remote row is untouched; signing back in runs the same
-fetch-first flow.
+`forgetAccount()` clears the claim, the pending/failed flags, the last-sync stamp, both
+fingerprints and both seen-stamps. The remote row is untouched; signing back in pulls
+it down and merges it.
 
 `eraseAllData()` deliberately does **not** fire either notifier, and the Settings
 sweep clears the sync keys *and* the Supabase session — so there is nothing to push
@@ -806,16 +900,29 @@ and no session to push with. An erase can never clobber the account's copy.
 
 ### Known limitation, stated plainly
 
-**Last-write-wins, not real sync.** Each half goes up as one value, so editing on two
-devices inside the same window means one silently overwrites the other; there is no
-per-line merge and no way to tell "deleted" from "hasn't arrived yet". Google Drive
-backup has the same ceiling. Fixing it properly needs per-line `updatedAt` plus
-deletion tombstones — parked in `PUBLISHING.md`.
+**A deletion doesn't travel.** Lines and games merge, which is what makes a pull safe,
+and the price of that is that removing a line on phone A doesn't remove it on phone B —
+there is no way to tell "deleted" from "hasn't arrived yet" without per-move
+tombstones. The statistics half is last-write-wins by timestamp, so two devices trained
+in the same five-minute window means the later push wins.
+
+Both are documented in `SUPABASE-SYNC.md` §6, the escape hatch is "Replace this device
+from your account", and the proper fix (per-line `updatedAt` + tombstones) is parked in
+`PUBLISHING.md`.
 
 Also unmeasured: Supabase publishes no REST request-body limit (the real one comes
 from the gateway in front of it). `npm run probe-sync-limit <url> <anon-key>` sends
 increasing bodies from a desktop and reports where they bounce; it writes nothing,
 because RLS rejects every probe by design.
+
+### How big it gets (measured)
+
+About **2.1–2.7 KB per line** inside the tree, review records included, and about
+**1.4 KB per synced game**. So the 4 MB ceiling on `repertoire` falls at roughly
+**1,600 lines**; the games column can't reach its own ceiling at all, since the
+500-game cap puts it at 0.68 MB. Postgres TOAST-compresses `jsonb`, so a 1,600-line
+account occupies about 0.84 MB on disk. `SUPABASE-SYNC.md` §7 has the full table and
+what it means for the free tier's 500 MB.
 
 ---
 
@@ -977,21 +1084,22 @@ phone: "Unlock full access"            landing page: "Unlock full access"
   the app polls profiles.entitled for ~20s after a checkout → cap lifted
 ```
 
-### Three endpoints (`worker/index.ts` routes them by hand)
+### Four endpoints (`worker/index.ts` routes them by hand)
 
 | endpoint | what it does |
 |---|---|
 | `GET /api/stripe/prices` | active one-time prices, per currency. Soft-fails to `{"prices":[]}`. |
 | `POST /api/stripe/checkout` | verifies the JWT, validates the price, returns a session `url`. |
 | `POST /api/stripe/webhook` | verifies the signature, writes `entitled`. **Fails loudly.** |
+| `POST /api/account/delete` | verifies the JWT, deletes the `profiles` row then the auth user. |
 
 **Not Supabase Edge Functions**, though the migration spec asked for them: this repo has
 no `supabase/` directory, no CLI and no migration history, and the server already lived
-in a Worker. Three endpoints don't justify a second deploy target and a second secret
+in a Worker. Four endpoints don't justify a second deploy target and a second secret
 store. Same reasoning as the "why no `functions/` folder" note in `worker/index.ts`.
 
 **No CORS headers anywhere**, deliberately: every caller is a page this same Worker
-serves, so all three calls are same-origin. Adding permissive CORS would only make the
+serves, so all four calls are same-origin. Adding permissive CORS would only make the
 checkout endpoint reachable from places with no business calling it.
 
 **The Stripe SDK on Workers.** `stripe` ships a separate build selected by the `workerd`
@@ -1346,22 +1454,41 @@ interface Opponent {
 `MAP_START_PLIES` (10) and "Go deeper" steps `MAP_STEP_PLIES` (10) up to
 `MAP_MAX_PLIES` (60).
 
-### `BackupFile` (`src/storage.ts`) — format v2
+### `BackupFile` (`src/storage.ts`) — format v4
 
 ```ts
-{ format: 'obertura-backup', version: 2, exportedAt,
-  lines: Line[], games?: ImportedGame[], local?: Record<string,string> }
+{ format: 'obertura-backup', version: 4, exportedAt,
+  parts?: BackupPart[],              // v4: what this file deliberately carries
+  repertoires?: Repertoire[],        // v3+
+  lines?: Line[],                    // v1/v2 — still READ, never written
+  games?: ImportedGame[], local?: Record<string,string> }
+
+type BackupPart = 'lines' | 'games' | 'stats' | 'settings';
 ```
 
 `local` is a snapshot of every `obertura*` localStorage key plus `engineEnabled` /
-`sparEngineEnabled`, **excluding** `obertura.drive.*`, `obertura.sync.*`,
-`obertura.entitled` and `obertura.lichessReturnTo`. v1 files (lines only) still
-restore. **Scouted opponents are deliberately excluded** — pure re-fetchable cache and
-by far the bulkiest data.
+`sparEngineEnabled`, **excluding** `obertura.sync.*`, `obertura.entitled`,
+`obertura.pricing`, `obertura.lichessReturnTo` and any retired feature's leftovers
+(`RETIRED_KEY_PREFIXES`, today the Drive backup's). **Scouted opponents are
+deliberately excluded** — pure re-fetchable cache and by far the bulkiest data.
 
-`exportCore()` is the same shape minus `games` (a valid `BackupFile` in its own right,
-since `games` is optional). It never opens the games store at all — reading megabytes
-out just to throw them away would defeat the whole point of the split.
+**`parts` is what makes a partial export safe.** `exportBackup(parts)` writes only the
+requested pieces and *omits the field* rather than writing an empty one, so a reader
+can tell "this export left the games out" from "this user has no games". On restore
+that decides scope: `replace` on a lines-only file replaces the LINES and leaves the
+games alone, because the file never claimed to speak for them. A file with no `parts`
+(everything written before v4) is read from the fields it has, which is exactly the
+old behaviour. `parseBackup` accepts a file carrying any subset — it only refuses one
+carrying nothing at all.
+
+`localKeyPart(key)` splits the snapshot into **stats** (review log, training days,
+streaks, puzzle/endgame ratings and histories, timed bests, brilliant log, forgotten
+moves) and **settings** (everything else). The list is explicit rather than guessed
+from the name, so a new key can't quietly file itself under the wrong half.
+
+`exportCore()` is the same shape minus `games`, declaring
+`parts: ['lines','stats','settings']`. It never opens the games store at all — reading
+megabytes out just to throw them away would defeat the whole point of the split.
 
 ---
 
@@ -2622,28 +2749,28 @@ Stockfish GPL-3.0, Lichess chess-openings CC0-1.0, the piece sets).
 
 Export writes the whole `BackupFile` to one JSON download; Import reads it back with a
 **merge vs replace** chooser (`openImportChooser` — merge overwrites by id and never
-deletes, the safe default; replace wipes first). This is the same chooser the Supabase
-sign-in reconcile uses. A restore carrying extras (games / localStorage) prompts a
-reload, since modules cache localStorage state in memory.
+deletes, the safe default; replace wipes first). A restore carrying extras (games /
+localStorage) prompts a reload, since modules cache localStorage state in memory.
 
-### Google Drive cloud backup (`drive-backup.ts`)
+Export takes a **dropdown**: *Everything*, *Lines*, *Games*, *Statistics* or
+*Settings*. The chosen parts are named in the file (`parts`) and in its name
+(`obertura-backup-lines-2026-08-19.json`), and the import chooser says which parts a
+file covers before you pick merge or replace — so "Replace" on a lines-only file
+replaces the lines and leaves the games alone. The chooser is no longer shared with the
+account sync, which merges without asking (§9).
 
-Everything runs in the browser, no server: Google Identity Services hands the app a
-short-lived access token via an OAuth popup (client IDs are public by design), and the
-Drive REST API stores **one file** — the same JSON that Export downloads — in the app's
-hidden **`appDataFolder`**. That folder never appears in the user's Drive and only this
-app can read it, so the narrowest Drive scope suffices.
+### Google Drive cloud backup — retired
 
-Features: Connect, Back up now, Restore from Drive, an **auto-backup toggle** (a debounced
-upload ~30 s after any repertoire change, wired through the storage change notifier), and
-a last-backed-up caption with a "pending" state. Connecting on a fresh device offers to
-restore an existing cloud backup *before* anything is uploaded. Background auto-backup
-only uploads while a session token is live — otherwise it stays quietly "pending" until
-Settings is opened — so it can never trigger the Google sign-in screen mid-app.
+There was a "Cloud backup — Google Drive" section that stored one JSON file in the
+app's hidden `appDataFolder`, with a Connect / Back up now / Restore flow and an
+auto-backup toggle. **It is gone**, code and documentation both. The account sync does
+the same job better — automatic in both directions, no consent screen, no third-party
+scope to justify in the privacy policy — and two transports of the same `BackupFile`,
+each with its own last-write-wins ceiling, was one more than the app needed.
 
-`DRIVE-SETUP.md` is the click-by-click guide to creating a client ID. Drive backup now
-coexists with Supabase sync: they are independent transports of the same `BackupFile`,
-with the same last-write-wins ceiling.
+What remains of it: `RETIRED_KEY_PREFIXES` in `storage.ts`, which sweeps a phone's
+leftover `obertura.drive.*` keys once at boot and refuses them a place in any backup
+meanwhile.
 
 ### Publishing (`PUBLISHING.md`)
 
@@ -2820,12 +2947,13 @@ ones marked below.
 | `obertura.installedAt` | main.ts | first-launch timestamp; gates the survey banner |
 | `engineEnabled` / `sparEngineEnabled` | engine.ts / spar.ts | engine on/off (backed up) |
 | **`obertura.supabase.auth`** | supabase.ts | the Supabase session (namespaced so the erase sweep clears it) |
-| **`obertura.supabase.oauthPending`** | auth.ts | the 10-minute Google-sign-in-in-flight flag |
 | **`obertura.sync.account`** | repertoire-sync.ts | the user id this device has reconciled with — **excluded from backups** |
 | **`obertura.sync.last` / `.pending` / `.failed`** | repertoire-sync.ts | sync state — **excluded** |
 | **`obertura.sync.coreFingerprint` / `.gamesFingerprint`** | repertoire-sync.ts | what was last pushed — **excluded** |
+| **`obertura.sync.seenCore` / `.seenGames`** | repertoire-sync.ts | the column timestamps this device has already seen — **excluded** |
+| **`obertura.sync.error`** | repertoire-sync.ts | why the last attempt failed, in words — **excluded** |
 | **`obertura.entitled`** | entitlement-cache.ts | `{ id, entitled }` — **excluded from backups AND from the sync blob** |
-| `obertura.drive.*` | drive-backup.ts | Drive connection state — **excluded from backups** |
+| ~~`obertura.drive.*`~~ | *(retired)* | left by the removed Drive backup — swept at boot by `purgeRetiredLocalKeys()` |
 | `obertura.lichessReturnTo` | lichess-auth.ts | OAuth return crumb — **excluded from backups** |
 
 Plus the stat/log stores: streak days, review outcome log (`REVIEW_LOG_WINDOW = 120`
@@ -2915,8 +3043,9 @@ restricted in Google's console to the app's origin and to YouTube Data API v3 on
 outside the deployed app it's dead weight. All users share the free quota (~100
 searches/day); queries are per **opening name** (not per move) and cached for a week.
 
-**Never in the bundle**: `SUPABASE_SERVICE_ROLE_KEY`, `LEMONSQUEEZY_WEBHOOK_SECRET`.
-Both are Cloudflare Worker secrets, and nothing logs, echoes or returns them.
+**Never in the bundle**: `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_SECRET_KEY`,
+`STRIPE_WEBHOOK_SECRET`. All are Cloudflare Worker secrets, and nothing logs, echoes
+or returns them.
 
 **Container caveat:** `lichess.org`, `api.chess.com` and `tablebase.lichess.org` are all
 blocked by the build/preview container's network allowlist. Anything touching them can

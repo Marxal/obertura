@@ -509,6 +509,25 @@ function flush(): void {
   void runPush();
 }
 
+// ── The half nothing notifies about ──────────────────────────────────────────
+//
+// The core column is the lines PLUS the app-state snapshot, but only the lines
+// have a change notifier. Solving a puzzle, extending a streak, playing out an
+// endgame, changing the board colour — every one of those writes localStorage
+// and nothing else, so `coreDirty` stayed false and the statistics sat on the
+// phone until some unrelated line edit happened to carry them up. On a device
+// used mostly for puzzles that could be weeks.
+//
+// Rather than teach a dozen modules to announce themselves, the core is simply
+// OFFERED at the moments a push is due anyway, and the fingerprint decides.
+// Offering costs one read of the repertoires and two hashes; when nothing has
+// changed it sends no request at all, which is the whole reason the fingerprint
+// exists. Quiet on purpose — it doesn't call schedule(), so the caption never
+// flickers to "Pending" for a check that turns out to have nothing to say.
+function offerCore(): void {
+  coreDirty = true;
+}
+
 // ── Pull ──────────────────────────────────────────────────────────────────────
 
 // How often the app asks whether the other device has been busy, while it is
@@ -669,7 +688,9 @@ export async function syncNow(): Promise<void> {
     return;
   }
   window.clearTimeout(pushTimer);
-  if (coreDirty || gamesDirty) await runPush();
+  offerCore();
+  gamesDirty = true;
+  await runPush();
   await pullFromAccount({ force: true });
 }
 
@@ -749,9 +770,10 @@ export function initAccountSync(): void {
   // Both events, because neither alone is reliable on a phone: Android usually
   // kills a PWA without ever firing pagehide, while visibilitychange fires on
   // every app switch. flush() is idempotent — with nothing dirty it returns.
-  window.addEventListener('pagehide', flush);
+  window.addEventListener('pagehide', () => { offerCore(); flush(); });
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
+      offerCore();
       flush();
       stopPolling();
       return;
@@ -759,7 +781,7 @@ export function initAccountSync(): void {
     // Back in the foreground: the most likely moment for the other device to
     // have been busy, and the moment the user is about to look at the lines.
     if (canPush()) {
-      void pullFromAccount();
+      void syncTick();
       startPolling();
     }
   });
@@ -792,10 +814,21 @@ export function initAccountSync(): void {
   }));
 }
 
+// One round of the loop: send whatever is owed, then take whatever is new.
+// Push first, always — pulling first would let the account's older snapshot land
+// on top of statistics this device hasn't sent yet, and shouldApplyRemoteLocal's
+// guard would then refuse to apply anything at all until the next round.
+async function syncTick(): Promise<void> {
+  if (!canPush()) return;
+  offerCore();
+  await runPush();
+  await pullFromAccount();
+}
+
 function startPolling(): void {
   stopPolling();
   if (document.visibilityState !== 'visible') return;
-  pollTimer = window.setInterval(() => void pullFromAccount(), PULL_POLL_MS);
+  pollTimer = window.setInterval(() => void syncTick(), PULL_POLL_MS);
 }
 
 function stopPolling(): void {

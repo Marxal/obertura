@@ -121,8 +121,8 @@ function notifyLinesChanged(): void {
 // KB, while a thousand games carrying saved analysis is measured in megabytes.
 // The account sync pushes them to different columns off these two notifiers, so
 // editing a line doesn't drag the games blob along with it (see
-// repertoire-sync.ts). Drive doesn't subscribe — it stores one whole file, so
-// notifyLinesChanged is all the trigger it needs.
+// repertoire-sync.ts). Nothing else subscribes: the manual export reads both
+// stores on demand, so it needs no notification at all.
 //
 // Same erase exemption as above, for the same reason: eraseAllData clears the
 // games store through its own transaction and never calls the helpers below, so
@@ -843,7 +843,7 @@ function validateLocal(raw: unknown): Record<string, string> | undefined {
 }
 
 // Apply a whole backup in one call — the single restore path for the manual
-// import and the Drive restore alike. Lines merge/replace as chosen; games
+// import and the account sync alike. Lines merge/replace as chosen; games
 // always merge by id (replace additionally clears first); the localStorage
 // snapshot simply overwrites its keys (stats/streaks aren't meaningfully
 // mergeable, and the file is the state being restored).
