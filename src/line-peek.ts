@@ -24,7 +24,7 @@ import { Icons } from './icons';
 import { pushBack } from './back-nav';
 import { formatMove } from './notation';
 import { peekActionBtn, buildStatRow, type PeekStat } from './position-peek';
-import { lineStatus, lineShapeLongText, lineTraining, lineMastered } from './line-status';
+import { lineTraining, lineMastered } from './line-status';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -69,7 +69,7 @@ export function openLinePeek(opts: LinePeekOptions): void {
   // Recall and runs come from line-status, which is what the CARD quotes too —
   // the popup used to work them out for itself, and two copies of one sum is
   // exactly how a list and the thing it opens start disagreeing.
-  const { drilled, recallPct, runs } = lineTraining(line);
+  const { recallPct, runs, solid } = lineTraining(line);
 
   // Open on the worst move when there is one — that's why you tapped in.
   const defaultPly = opts.focusPly
@@ -98,7 +98,7 @@ export function openLinePeek(opts: LinePeekOptions): void {
   h.textContent = line.name || line.openingName || 'Untitled line';
   sheet.appendChild(h);
 
-  // ── The line's own numbers, as three plain figures ─────────────────────────
+  // ── The line's own numbers, as four plain figures ──────────────────────────
 
   // Recall is only meaningful next to how often the line has actually been run,
   // so "trained" sits right beside it rather than being buried in a caption.
@@ -112,7 +112,10 @@ export function openLinePeek(opts: LinePeekOptions): void {
         : recallPct < 50 ? 'low' : recallPct < 80 ? 'mid' : 'ok',
     },
     { value: String(times), label: times === 1 ? 'run' : 'runs' },
-    { value: `${drilled}/${userPlies.length}`, label: 'drilled' },
+    // How many of this line's moves are correct RIGHT NOW (on a clean recall
+    // streak), out of the whole line — replaces "drilled" (how many have ever
+    // been asked), which said less than the recall % just beside it already did.
+    { value: `${solid}/${userPlies.length}`, label: 'correct' },
     {
       value: String(totalMisses),
       label: totalMisses === 1 ? 'miss' : 'misses',
@@ -121,13 +124,14 @@ export function openLinePeek(opts: LinePeekOptions): void {
   ];
   sheet.appendChild(buildStatRow(stats));
 
-  // ── What the line is ───────────────────────────────────────────────────────
+  // ── What the popup knows that isn't a figure ────────────────────────────────
   //
-  // The figures above say how it is GOING. This says what it is: its state (the
-  // same phrase and colour its card carries, so the popup can't contradict the
-  // list it opened from), how long it is and how much of it belongs to no other
-  // line, then its tags.
-  sheet.appendChild(buildMeta(line));
+  // Just the mastered verdict (when there is one) and tags. State and shape used
+  // to sit here too — but both are right there on the CARD you tapped to open
+  // this, so saying "Due tomorrow · 8 moves long" a second time here was an echo,
+  // not information.
+  const meta = buildMeta(line);
+  if (meta) sheet.appendChild(meta);
 
   // ── Board ──────────────────────────────────────────────────────────────────
 
@@ -300,34 +304,25 @@ export function openLinePeek(opts: LinePeekOptions): void {
   select(current);
 }
 
-/** State, shape and tags — everything the popup knows that isn't a figure. */
-function buildMeta(line: Line): HTMLElement {
+/**
+ * The mastered verdict (when there is one) and tags. Null when there's neither,
+ * so a line with nothing to say here doesn't leave an empty, padded gap.
+ */
+function buildMeta(line: Line): HTMLElement | null {
   const wrap = document.createElement('div');
   wrap.className = 'lpeek-meta';
 
-  const state = lineStatus(line);
-  const status = document.createElement('div');
-  status.className = 'lpeek-state';
-  const dot = document.createElement('span');
-  dot.className = `dline-dot dline-dot--${state.tone}`;
-  dot.setAttribute('aria-hidden', 'true');
-  status.appendChild(dot);
-  const text = document.createElement('span');
-  text.className = `dline-status-text dline-status-text--${state.tone}`;
-  text.textContent = state.text;
-  status.appendChild(text);
-  const shape = document.createElement('span');
-  shape.className = 'lpeek-shape';
-  shape.textContent = lineShapeLongText(line);
-  status.appendChild(shape);
-  wrap.appendChild(status);
-
-  // The same verdict the card's chip carries, said as a sentence: the way on is
+  // The same verdict the card's chip carries, but a BANNER here rather than a
+  // line of text — the one thing on this sheet that asks you to do something
+  // (add moves), so it's the one thing that gets to look like it. The way on is
   // the "Open in builder" action already sitting at the foot of this popup.
   if (lineMastered(line)) {
     const grow = document.createElement('div');
     grow.className = 'lpeek-grow';
-    grow.textContent = 'You know this one — keep growing it with the next moves.';
+    grow.appendChild(Icons.sprout(18));
+    const growText = document.createElement('span');
+    growText.textContent = 'You know this one — keep growing it with the next moves.';
+    grow.appendChild(growText);
     wrap.appendChild(grow);
   }
 
@@ -343,7 +338,7 @@ function buildMeta(line: Line): HTMLElement {
     wrap.appendChild(tags);
   }
 
-  return wrap;
+  return wrap.childElementCount > 0 ? wrap : null;
 }
 
 function stepBtn(label: string, icon: SVGElement, onClick: () => void): HTMLButtonElement {

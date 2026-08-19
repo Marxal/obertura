@@ -1,16 +1,11 @@
 // What a line's card and its popup say ABOUT the line, in one place so the two
 // can never disagree.
 //
-// Three facts, and they answer different questions:
+// Two facts, and they answer different questions:
 //
 //   • STATUS — what this line wants from you now. It is the only thing worth
 //     scanning a list of cards for, so it leads, carries a colour, and is
 //     phrased as a state ("Due now · 4 of 7 moves") rather than a measurement.
-//   • SHAPE — what the line IS. Its length, and how much of it is its own.
-//     "3 only here" is the tree model made visible: a line whose 12 moves are 3
-//     of its own is mostly prep shared with its neighbours, which is why
-//     deleting it cuts only 3 and why drilling it re-covers ground you meet
-//     elsewhere. The flat model could not have told you this.
 //   • TRAINING — how it has been GOING: runs and recall, and the verdict those
 //     two add up to (lineMastered), which is what the "keep growing this line"
 //     offer is made on.
@@ -18,7 +13,6 @@
 // DOM-free, so both the card and the peek can use it and a self-test can too.
 
 import type { Line } from './types';
-import type { MoveNode } from './tree';
 import {
   lineBucket, nextDue, describeDue, userMoveNodes, isReviewDue,
 } from './scheduler';
@@ -64,48 +58,6 @@ export function lineStatus(line: Line, now: Date = new Date()): LineStatus {
 }
 
 /**
- * The line's shape as its parts, for a caller to lay out however it likes.
- *
- * `ownMoves` is omitted when it is the whole line (nothing to contrast it
- * with) or zero. Zero means prepared moves continue PAST this line's end, so
- * every move on it is shared — and "0 only here" is a riddle, not a fact.
- */
-export function lineShape(line: Line): { moves: number; ownMoves: number | null } {
-  const moves = spineLength(line.tree);
-  const own = line.ownMoves ?? 0;
-  return { moves, ownMoves: own > 0 && own < moves ? own : null };
-}
-
-/** The shape as one line of text: "12 moves · 3 only here". */
-export function lineShapeText(line: Line): string {
-  const { moves, ownMoves } = lineShape(line);
-  const head = `${moves} ${moves === 1 ? 'move' : 'moves'}`;
-  return ownMoves === null ? head : `${head} · ${ownMoves} only here`;
-}
-
-/**
- * The same shape said in full — for the popup, which has the room a card
- * doesn't. "3 only here" is the phrase people ask about: on a card it has to be
- * three words, but the one screen you land on to ask what a line IS can afford
- * to answer properly.
- */
-export function lineShapeLongText(line: Line): string {
-  const { moves, ownMoves } = lineShape(line);
-  const head = `${moves} ${moves === 1 ? 'move' : 'moves'} long`;
-  return ownMoves === null
-    ? head
-    : `${head} · ${ownMoves} of them only in this line`;
-}
-
-/** How many moves a projected line's spine holds. */
-export function spineLength(tree: MoveNode): number {
-  let n = 0;
-  let node = tree.children[0];
-  while (node) { n++; node = node.children[0]; }
-  return n;
-}
-
-/**
  * How the line is GOING, as the two figures worth putting on a card: how many
  * full runs it has had, and how much of it comes back clean.
  *
@@ -127,6 +79,8 @@ export interface LineTraining {
   total: number;
   /** Percentage of drilled moves currently on a clean streak; null if none. */
   recallPct: number | null;
+  /** User moves currently on a clean recall streak — the popup's "correct" figure. */
+  solid: number;
 }
 
 export function lineTraining(line: Line): LineTraining {
@@ -138,6 +92,7 @@ export function lineTraining(line: Line): LineTraining {
     drilled,
     total: nodes.length,
     recallPct: drilled > 0 ? Math.round((100 * solid) / drilled) : null,
+    solid,
   };
 }
 

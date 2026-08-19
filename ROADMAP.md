@@ -2350,6 +2350,22 @@ have trained it enough the useful next step is to make it longer.
 - ✅ **"Due due tomorrow."** Found on the way past: `describeDue` already leads
   with the word, and `lineStatus` prefixed it again — on every card and popup of
   every line that wasn't due yet.
+- ✅ **A follow-up pass on the card and the popup.** The training switch moves
+  onto the icon row, on the left, so a card is one row shorter — its own label
+  shrinks to "On"/"Off" to fit (the switch's colour already carries the state;
+  `aria-label` keeps the full sentence for anyone not reading it visually). The
+  card's shape row drops "12 moves · 3 only here" and keeps only the confidence
+  dots — the one figure of the three that actually changes as a line beds in —
+  and `lineShape`/`lineShapeText`/`lineShapeLongText`/`spineLength` go with it,
+  unused everywhere once that text is gone. The popup drops its own copy of
+  "Due tomorrow · 8 moves long": both were already sitting on the card you
+  tapped to open it, so repeating them here was an echo, not information. The
+  "You know this one" mastered verdict becomes a filled banner instead of a
+  line of quiet text — the one thing on that sheet that asks you to DO
+  something earns to look like it — and the "drilled" stat box (how many
+  moves have ever been asked) becomes "correct" (how many are right now on a
+  clean streak), which is the question the box next to a recall percentage
+  should actually answer.
 
 _On `claude/lines-library-ui-n0jbi2`. Restore point: `v0.5`._
 

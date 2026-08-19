@@ -5740,12 +5740,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   font-family: system-ui, -apple-system, sans-serif;
 }
 
-.dline-sep {
-  font-size: 0.74rem;
-  color: var(--text-fainter);
-  user-select: none;
-}
-
 /* Row 3: how the line has been GOING — runs and recall, quiet enough to be
    scanned past on a card you're only checking the state of. */
 .dline-training {
@@ -5783,25 +5777,34 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .dline-icon--go:hover { color: var(--accent); background: var(--accent-soft); }
 
 /* Footer: training toggle (+ Due tag) bottom-left, icon actions bottom-right.
-   Beside the larger board the content column is narrower, so let the two groups
-   wrap onto separate lines rather than crush the toggle label. */
+   Beside the larger board the content column is narrower than it looks, so the
+   switch's label and the four icons are both trimmed down (scoped to this
+   footer only — the switch styling itself is shared with the branch sheet and
+   the builder's header, and stays full-size there) to hold one row without
+   wrapping. */
 .dline-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.4rem 0.5rem;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
   margin-top: 0.15rem;
   padding-top: 0.55rem;
   border-top: 1px solid var(--hairline-soft);
 }
 
-/* Training switch and the Due tag sit together on the left. */
-.dline-footer-left {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+/* Trimmed padding + a smaller label, so the switch doesn't crowd out the icon
+   row on the card's narrower content column. */
+.dline-footer .dline-toggle {
+  flex: 0 1 auto;
   min-width: 0;
+  gap: 0.35rem;
+  padding: 0.3rem 0;
+}
+.dline-footer .dline-toggle-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* The single training control — a switch + label. Green when ON. */
@@ -16870,39 +16873,35 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
    seeing where a line leaks, not for editing it. */
 .lpeek-sheet { gap: 0.6rem; }
 
-/* What the line IS, under the figures that say how it is going: its state (the
-   same dot and phrase its card carries), its shape, then its tags. */
+/* What the popup knows that isn't a figure: the mastered banner (when there is
+   one), then tags. State and shape used to live here too — both dropped, since
+   the card you tapped to open this already showed them once. */
 .lpeek-meta {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.55rem;
 }
 
-.lpeek-state {
+/* "You know this one" — a filled banner, not a line of text. It's the one
+   thing on this sheet that asks you to DO something (open the builder, add
+   moves), so unlike every quiet figure around it, this one gets to look like
+   an announcement. */
+.lpeek-grow {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-/* The state leads; the shape sits under it, quieter — the long form ("8 moves
-   long · 7 of them only in this line") wraps to its own line on a phone, and a
-   leading separator dangling at the start of that line read as a typo. */
-.lpeek-shape {
-  flex: 1 0 100%;
-  padding-left: 0.85rem;   /* clears the state dot, so the two lines align */
+  gap: 0.55rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--accent-contrast, #fff);
+  box-shadow: var(--shadow-card);
   font-family: system-ui, -apple-system, sans-serif;
-  font-size: 0.76rem;
-  color: var(--text-fainter);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.35;
 }
-
-/* "You know this one" — the popup's long form of the card's grow chip. Quiet
-   accent text: the way on is the "Open in builder" action at the foot. */
-.lpeek-grow {
-  font-family: system-ui, -apple-system, sans-serif;
-  font-size: 0.74rem;
-  font-weight: 600;
-  color: var(--accent);
+.lpeek-grow svg {
+  flex: 0 0 auto;
 }
 
 .lpeek-tags {

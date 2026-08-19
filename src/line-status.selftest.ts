@@ -1,15 +1,14 @@
 // DOM-free checks of the two things a line card and its popup say about a line.
 //
 // Both are wording, which is exactly why they are worth pinning: the phrases go
-// in front of the user on every screen that lists a line, and the two rules that
-// matter are easy to break by accident — a paused line must never be described
-// as due, and a line whose moves are all shared must not claim any as its own.
+// in front of the user on every screen that lists a line, and the rule that
+// matters most is easy to break by accident — a paused line must never be
+// described as due.
 
 import type { Line } from './types';
 import type { MoveNode } from './tree';
 import {
-  lineStatus, lineShape, lineShapeText, spineLength, lineTraining, lineTrainingText,
-  lineMastered,
+  lineStatus, lineTraining, lineTrainingText, lineMastered,
 } from './line-status';
 
 export interface TestResult {
@@ -135,48 +134,6 @@ export function runLineStatusSelfTest(): TestResult[] {
     );
   }
 
-  // ── Shape ──────────────────────────────────────────────────────────────────
-
-  {
-    const l = line(12, { ownMoves: 3 });
-    check(
-      'the shape names the length and how much is the line’s own',
-      lineShapeText(l) === '12 moves · 3 only here',
-      `"${lineShapeText(l)}"`,
-    );
-  }
-
-  {
-    // Prepared moves continue past this line's end, so nothing on it is
-    // exclusively its own. "0 only here" is a riddle; the shape stays silent.
-    const l = line(12, { ownMoves: 0 });
-    check(
-      'a line sharing every move claims none of them',
-      lineShape(l).ownMoves === null && lineShapeText(l) === '12 moves',
-      `"${lineShapeText(l)}"`,
-    );
-  }
-
-  {
-    // A line nothing else touches: every move is its own, and contrasting "12"
-    // with "12 only here" says nothing worth the pixels.
-    const l = line(12, { ownMoves: 12 });
-    check(
-      'a line shared with nothing does not contrast itself with itself',
-      lineShape(l).ownMoves === null,
-      `ownMoves ${lineShape(l).ownMoves}`,
-    );
-  }
-
-  {
-    const l = line(9);
-    check(
-      'the length is the spine, not the node count',
-      spineLength(l.tree) === 9,
-      `spineLength ${spineLength(l.tree)}`,
-    );
-  }
-
   // ── Training figures ───────────────────────────────────────────────────────
 
   {
@@ -190,8 +147,8 @@ export function runLineStatusSelfTest(): TestResult[] {
     const t = lineTraining(l);
     check(
       'recall counts clean moves against drilled ones, not against the line',
-      t.runs === 4 && t.drilled === 2 && t.total === 3 && t.recallPct === 50,
-      `runs ${t.runs} drilled ${t.drilled}/${t.total} recall ${t.recallPct}`,
+      t.runs === 4 && t.drilled === 2 && t.total === 3 && t.recallPct === 50 && t.solid === 1,
+      `runs ${t.runs} drilled ${t.drilled}/${t.total} recall ${t.recallPct} solid ${t.solid}`,
     );
     check(
       'the figures read as one quiet line',
