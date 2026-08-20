@@ -246,7 +246,7 @@ async function sendPurchaseConfirmation(env: StripeEnv, to: string, sessionId: s
       body: JSON.stringify({
         from,
         to,
-        subject: 'You’re in! 🎉',
+        subject: 'You’re in — Bito Chess full access',
         html: confirmationHtml(),
       }),
     });
@@ -288,10 +288,13 @@ function confirmationHtml(): string {
         <tr>
           <td style="padding:16px 40px 0 40px;">
             <h2 style="font-family: Georgia, 'Times New Roman', serif; font-size:21px; font-weight:600; color:#2b2420; margin:0 0 14px 0;">
-              You’re in! 🎉
+              Thanks! You’re in! 🎉
             </h2>
+            <p style="font-family: 'Helvetica Neue', Arial, sans-serif; font-size:15px; line-height:1.6; color:#5c5346; margin:0 0 14px 0;">
+              You now have full access to Bito Chess. Train as many lines as you like, build your repertoire, and keep improving.
+            </p>
             <p style="font-family: 'Helvetica Neue', Arial, sans-serif; font-size:15px; line-height:1.6; color:#5c5346; margin:0 0 28px 0;">
-              You now have full access to Bito Chess. Train as many lines as you like, build your repertoire, and keep improving. Thank you for supporting Bito Chess.
+              Thank you for supporting Bito Chess.
             </p>
           </td>
         </tr>
@@ -306,7 +309,7 @@ function confirmationHtml(): string {
         <tr>
           <td style="padding:20px 40px 32px 40px; border-top:1px solid #e2d5b8;">
             <p style="font-family: 'Helvetica Neue', Arial, sans-serif; font-size:12px; line-height:1.5; color:#a89a7c; margin:0;">
-              Now go improve your next move.
+              Improve your next move.
             </p>
           </td>
         </tr>
