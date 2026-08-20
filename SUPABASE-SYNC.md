@@ -83,6 +83,19 @@ column of their own row, `entitled` included, straight from the browser with the
 public anon key. Postgres column privileges are what actually stop that, so the
 SQL revokes UPDATE on `entitled` and re-grants it only on the four sync columns.
 
+**And that revoke is why the app never upserts from the browser.** `id` is not
+in the UPDATE grant, deliberately. PostgREST — the thing behind every
+`supabase.from(…)` call — compiles an upsert into `INSERT … ON CONFLICT (id) DO
+UPDATE SET id = EXCLUDED.id, …`: it puts the conflict key itself in the SET list,
+so the statement asks for UPDATE on `id` and Postgres refuses the whole thing
+with *permission denied for table profiles*. That is not a hole in this SQL —
+it's [PostgREST issue #2446](https://github.com/PostgREST/postgrest/issues/2446),
+and the app works around it by doing an UPDATE and, only when no row came back,
+an INSERT (`writeRow` in `src/repertoire-sync.ts`). **Don't "simplify" that back
+into `.upsert()`** — it looks identical and it silently breaks every push.
+(The Stripe webhook still upserts, and is right to: it holds the `service_role`
+key, which this revoke never names, so it keeps table-wide UPDATE.)
+
 ### The SQL
 
 Open <https://supabase.com/dashboard> → the Bito Chess project → **SQL Editor**
@@ -483,6 +496,39 @@ project whose SQL had never been run look exactly like a train tunnel. It now
 names the cause: a missing table, a missing column, a blocked write, an expired
 session, or simply being offline. If you see one of the first three, the fix is
 always the same — re-run §1's SQL.
+
+---
+
+## 6b. When the Account section names a fault
+
+The caption in Settings → Account is the sync's own diagnosis, and each line
+maps to one thing to go and do.
+
+| the caption says                         | what it means                                    | the fix                                        |
+| ---------------------------------------- | ------------------------------------------------ | ---------------------------------------------- |
+| Offline — your changes are safe here…    | no network reached Supabase                       | nothing; it retries by itself                   |
+| …has no "profiles" table yet             | §1's SQL has never run on this project            | run §1                                          |
+| …missing a column                        | §1 ran, but before a column was added             | re-run §1 — it's safe to repeat                 |
+| …blocked the write (row-level security)  | the policies are missing                          | re-run §1                                       |
+| Supabase refused the write               | the column grants don't cover what was sent       | re-run §1's grants — and see the note below     |
+| Your session expired                     | the refresh token is dead                         | sign out and back in                            |
+| Sync failed — *(anything else)*          | unmapped; the words are Postgres's own            | read them                                       |
+
+**"Supabase refused the write" after §1 has been run correctly** was a real bug
+in the app, not in the project: the push used an upsert, PostgREST asked for
+UPDATE on `id`, and the grants — rightly — don't hand that out. Fixed in
+`writeRow`; see the note in §1. If you ever see it again, the exact Postgres
+sentence is in the browser console, logged as `[sync]` right before the friendly
+one, and that sentence names the column.
+
+**A second device that shows no data and offers the walkthrough again** is the
+same fault seen from the other end, not a separate one. Nothing had ever been
+written to the row, so there was nothing for the new phone to pull — and with no
+copy arriving, an empty database looks exactly like a new user. The app now waits
+for the account's copy before offering the first run at all (`main.ts`), so once
+a push has succeeded on device A, device B signs in and comes up finished:
+lines, statistics, streaks and the "you've done the walkthrough" flags all travel
+in the same snapshot.
 
 ---
 
