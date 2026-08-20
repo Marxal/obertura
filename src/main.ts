@@ -135,7 +135,12 @@ import {
 } from './lichess-auth';
 import { isSupabaseConfigured } from './supabase';
 import { initAuth, isPasswordRecovery, PASSWORD_RECOVERY_EVENT } from './auth';
-import { initAccountSync, isAwaitingAccountCopy, SYNC_PULLED_EVENT } from './repertoire-sync';
+import {
+  initAccountSync,
+  isAwaitingAccountCopy,
+  reportRestoreOnBoot,
+  SYNC_PULLED_EVENT,
+} from './repertoire-sync';
 
 // Cloud-eval (engine.ts) uses the Lichess token when connected for higher rate
 // limits. Wire the getter once, here, so engine.ts needn't import the OAuth code.
@@ -5534,6 +5539,10 @@ maybeShowGate(() => requestAnimationFrame(() => {
   //
   // It only appears on a genuinely empty install (no lines AND onboarding never
   // finished), so an existing user sees none of this.
+  // If the last thing this device did was take a copy down from an account and
+  // reload, say so now — the page that fetched it is gone.
+  reportRestoreOnBoot();
+
   const offerFirstRun = (): void => {
     void shouldShowFirstRun().then((show) => {
       if (show) showFirstRunPicker();

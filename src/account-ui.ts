@@ -34,7 +34,12 @@ import {
   signOut,
   type OAuthProvider,
 } from './auth';
-import { entitlementLabel, isEntitled, ENTITLEMENT_CHANGE_EVENT } from './entitlement';
+import {
+  entitlementLabel,
+  isEntitled,
+  FREE_TRAINING_LINES,
+  ENTITLEMENT_CHANGE_EVENT,
+} from './entitlement';
 import { showToast } from './toast';
 import { showDialog } from './dialog';
 import { Icons } from './icons';
@@ -55,6 +60,17 @@ let dropPreviousListener: (() => void) | null = null;
 export function buildAccountGroup(): HTMLElement {
   const sec = group('Account', Icons.userCircle(16));
 
+  // ── THE ANSWER TO "AM I SIGNED IN?", ON THE ROW ITSELF ─────────────────────
+  // Everything that tells you the state used to be INSIDE the accordion, so the
+  // only way to find out was to open it — and since signing out changes nothing
+  // you can see (the lines are on the phone either way), people genuinely did
+  // not know which they were. This hint sits on the closed row, next to the
+  // chevron, and names the state and the tier in one glance.
+  const summary = sec.querySelector('summary')!;
+  const hint = document.createElement('span');
+  hint.className = 'account-summary-hint';
+  summary.insertBefore(hint, summary.lastElementChild);
+
   let mode: Mode = 'signin';
 
   // Swap everything after the <summary> for the current state's body. Signed
@@ -64,6 +80,10 @@ export function buildAccountGroup(): HTMLElement {
   const render = (): void => {
     while (sec.childNodes.length > 1) sec.removeChild(sec.lastChild!);
     const signedIn = !!getAuthUser();
+    hint.textContent = signedIn
+      ? `Signed in · ${isEntitled() ? 'Full access' : 'Free'}`
+      : 'Not signed in';
+    hint.classList.toggle('account-summary-hint--out', !signedIn);
     sec.classList.toggle('section--acc-highlight', !signedIn);
     if (!signedIn) sec.setAttribute('open', '');
     sec.appendChild(signedIn ? signedInBody(render) : signedOutBody(mode, (m) => { mode = m; render(); }));
@@ -125,14 +145,7 @@ function signedInBody(refresh: () => void): HTMLElement {
   outBtn.type = 'button';
   outBtn.className = 'btn-secondary';
   outBtn.textContent = 'Sign out';
-  outBtn.addEventListener('click', async () => {
-    outBtn.disabled = true;
-    const result = await signOut();
-    outBtn.disabled = false;
-    if (!result.ok) { showToast(result.message ?? 'Couldn’t sign out. Try again.'); return; }
-    showToast('Signed out');
-    refresh();
-  });
+  outBtn.addEventListener('click', () => confirmSignOut(outBtn, refresh));
 
   const actions = document.createElement('div');
   actions.className = 'settings-actions';
@@ -140,6 +153,58 @@ function signedInBody(refresh: () => void): HTMLElement {
   wrap.appendChild(actions);
 
   return wrap;
+}
+
+// ── Signing out, said out loud ───────────────────────────────────────────────
+//
+// Sign-out used to be one tap with a "Signed out" toast, and the screen behind
+// it looked *identical* afterwards — every line, every statistic, still there,
+// because they live on the phone and always did. Nothing about that is wrong,
+// but it means the one thing that DID change is invisible: a paid account is on
+// the free tier again the moment it signs out, and the next cap comes as an
+// ambush days later.
+//
+// So the tap now says what it costs, in the order the reader cares about: what
+// they keep first (all of it), then what stops. The full-access line only
+// appears for someone who actually has full access — telling a free user they
+// are losing it would be nonsense.
+function confirmSignOut(btn: HTMLButtonElement, refresh: () => void): void {
+  const email = getAuthUser()?.email;
+  const paid = isEntitled();
+
+  const body = [
+    'Your lines, training and statistics stay on this phone — signing out never '
+    + 'deletes anything, here or in your account.',
+    paid
+      ? 'What stops is syncing and your full access: this phone goes back to the '
+      + `free tier (${FREE_TRAINING_LINES} lines in training at a time) until you `
+      + 'sign back in. Nothing is un-paid — your purchase is on the account, not '
+      + 'on the phone.'
+      : 'What stops is syncing: changes made here won’t reach your other devices '
+      + 'until you sign back in.',
+  ].join('\n\n');
+
+  showDialog({
+    title: email ? `Sign out of ${email}?` : 'Sign out?',
+    body,
+    buttons: [
+      { label: 'Stay signed in' },
+      {
+        label: 'Sign out',
+        variant: 'danger',
+        onClick: () => { void runSignOut(btn, refresh); },
+      },
+    ],
+  });
+}
+
+async function runSignOut(btn: HTMLButtonElement, refresh: () => void): Promise<void> {
+  btn.disabled = true;
+  const result = await signOut();
+  btn.disabled = false;
+  if (!result.ok) { showToast(result.message ?? 'Couldn’t sign out. Try again.'); return; }
+  showToast('Signed out — your lines are still on this phone');
+  refresh();
 }
 
 // ── Sync status ──────────────────────────────────────────────────────────────
@@ -300,12 +365,24 @@ function signedOutBody(
 
 // ── Registration ─────────────────────────────────────────────────────────────
 //
-// Unchanged: email + password + the consent checkbox, then the providers under
-// a divider. Sign-up has exactly one door and this is it — the magic link on
-// the other tab cannot create an account (see signInWithMagicLink), precisely so
-// nobody ends up with an account they never agreed to the Terms for.
+// Google and Facebook lead, then email and password under a divider — the same
+// order as Sign in, because the fastest right answer is the same on both tabs
+// and a form that changes shape between them makes the reader re-learn it.
+//
+// The magic link is deliberately absent here: it cannot create an account (see
+// signInWithMagicLink), precisely so nobody ends up with an account they never
+// agreed to the Terms for.
 
 function buildSignUpBlock(wrap: HTMLElement): void {
+  const providers = enabledOAuthProviders();
+  if (providers.length > 0) {
+    const lead = document.createElement('div');
+    lead.className = 'account-providers-lead';
+    for (const provider of providers) lead.appendChild(providerButton(provider, true));
+    wrap.appendChild(lead);
+    wrap.appendChild(orDivider());
+  }
+
   const form = document.createElement('form');
   form.className = 'account-form';
 
@@ -401,23 +478,21 @@ function buildSignUpBlock(wrap: HTMLElement): void {
   });
 
   wrap.appendChild(form);
-
-  const providers = enabledOAuthProviders();
-  if (providers.length > 0) {
-    wrap.appendChild(orDivider());
-    for (const provider of providers) wrap.appendChild(providerButton(provider));
-    wrap.appendChild(legalNote());
-  }
+  wrap.appendChild(legalNote());
 }
 
 // ── Sign in ──────────────────────────────────────────────────────────────────
 //
-// Providers first, at equal weight — neither is "the" way in, and a returning
-// user who registered with Google should be one tap from done. Email lives
-// under the divider, closed, because it is the slower path and only some people
-// want it; opening it offers the sign-in LINK first (nothing to remember, works
-// from any device) with the password field one small link away for anyone who
-// prefers it.
+// One order, top to bottom, and it is the order of how likely each is to be the
+// right answer: Google and Facebook first (a returning user who registered with
+// one is a single tap from done), then email and password, then the sign-in link
+// as a quiet option under the password.
+//
+// The email pair used to be folded away behind a "Use email instead" button,
+// with the LINK leading once opened and the password behind a swap. That put the
+// commonest way in — an address and a password — two taps deep, and it made the
+// tab look like it had no form on it at all. It is open now, and the link is the
+// small print it always should have been.
 
 function buildSignInBlock(wrap: HTMLElement, setMode: (m: Mode) => void): void {
   const providers = enabledOAuthProviders();
@@ -430,39 +505,23 @@ function buildSignInBlock(wrap: HTMLElement, setMode: (m: Mode) => void): void {
     wrap.appendChild(orDivider());
   }
 
-  // With no provider configured at all (a build that named none) there is
-  // nothing to fold email away behind — it's the only way in, so it opens.
-  wrap.appendChild(emailSignInSection(setMode, providers.length === 0));
+  wrap.appendChild(emailSignInSection(setMode));
 
   wrap.appendChild(legalNote());
 }
 
-function emailSignInSection(setMode: (m: Mode) => void, startOpen: boolean): HTMLElement {
+function emailSignInSection(setMode: (m: Mode) => void): HTMLElement {
   const host = document.createElement('div');
   host.className = 'account-email-section';
 
   const panel = document.createElement('div');
   panel.className = 'account-email-panel';
-  panel.hidden = !startOpen;
-
-  if (!startOpen) {
-    const toggle = document.createElement('button');
-    toggle.type = 'button';
-    toggle.className = 'btn-secondary account-email-toggle';
-    toggle.textContent = 'Use email instead';
-    toggle.setAttribute('aria-expanded', 'false');
-    toggle.addEventListener('click', () => {
-      panel.hidden = !panel.hidden;
-      toggle.setAttribute('aria-expanded', String(!panel.hidden));
-      if (!panel.hidden) email.input.focus();
-    });
-    host.appendChild(toggle);
-  }
 
   // One form, two ways to finish it. The email you type is the same either way,
-  // so revealing the password field must not throw the address away — which is
-  // why this is one form with a hidden field rather than two forms.
-  let usePassword = false;
+  // so hiding the password field must not throw the address away — which is why
+  // this is one form with a hidden field rather than two forms. Password is the
+  // default; `swap` below trades it for the link and back.
+  let usePassword = true;
 
   const form = document.createElement('form');
   form.className = 'account-form';
@@ -471,10 +530,8 @@ function emailSignInSection(setMode: (m: Mode) => void, startOpen: boolean): HTM
   form.appendChild(email.wrap);
 
   const password = field('password', 'Password', 'Your password', 'current-password');
-  password.wrap.hidden = true;
   // A hidden input that is still `required` silently blocks submit with a
-  // validation bubble pointing at nothing. It gets its required back when shown.
-  password.input.required = false;
+  // validation bubble pointing at nothing, so `paint` keeps the two in step.
   form.appendChild(password.wrap);
 
   const submit = document.createElement('button');
@@ -484,24 +541,28 @@ function emailSignInSection(setMode: (m: Mode) => void, startOpen: boolean): HTM
 
   panel.appendChild(form);
 
-  const swap = document.createElement('button');
-  swap.type = 'button';
-  swap.className = 'account-link-btn';
-  panel.appendChild(swap);
-
   const forgot = document.createElement('button');
   forgot.type = 'button';
   forgot.className = 'account-link-btn';
   forgot.textContent = 'Forgot your password?';
-  forgot.hidden = true;
   forgot.addEventListener('click', () => openPasswordResetSheet(email.input.value.trim()));
   panel.appendChild(forgot);
+
+  // The sign-in link, LAST and quiet. It is a genuinely good way in — nothing to
+  // remember, and it survives a phone with no password manager — but it costs a
+  // trip to an inbox, so it sits under the password rather than in front of it.
+  const swap = document.createElement('button');
+  swap.type = 'button';
+  swap.className = 'account-link-btn account-link-btn--quiet';
+  panel.appendChild(swap);
 
   const paint = (): void => {
     password.wrap.hidden = !usePassword;
     password.input.required = usePassword;
     submit.textContent = usePassword ? 'Sign in' : 'Send me a sign-in link';
-    swap.textContent = usePassword ? 'Email me a link instead' : 'Use a password instead';
+    swap.textContent = usePassword
+      ? 'Email me a sign-in link instead'
+      : 'Use a password instead';
     forgot.hidden = !usePassword;
   };
 

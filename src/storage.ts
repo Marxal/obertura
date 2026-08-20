@@ -11,6 +11,11 @@ import {
   projectLines, projectRepertoire,
 } from './lines-view';
 import { migrateLines } from './repertoire-migrate';
+// The "may this key leave the device?" rule. It lives in its own import-free
+// module so it can be self-tested — it decides what a backup file and the
+// account's synced copy are allowed to carry, and it is the reason the
+// signed-in session no longer travels. See local-keys.ts.
+import { backupLocalKey, RETIRED_KEY_PREFIXES } from './local-keys';
 
 // Thin IndexedDB wrapper. IndexedDB's native API is event-based: every call
 // returns a request and you attach onsuccess / onerror handlers. This module
@@ -567,7 +572,6 @@ export function backupLineCount(backup: BackupFile): number {
 // Drive backup, retired in favour of the account sync: nothing reads these, but
 // a phone that once connected Drive still carries them, so they are swept once
 // at boot (purgeRetiredLocalKeys) and refused a place in any backup meanwhile.
-const RETIRED_KEY_PREFIXES = ['obertura.drive.'];
 
 /**
  * Remove retired features' leftovers from this device. Called once at boot;
@@ -584,35 +588,6 @@ export function purgeRetiredLocalKeys(): void {
   } catch {
     /* storage blocked — nothing to clean up, nothing to break */
   }
-}
-
-// Which localStorage keys belong in a backup. Everything the app writes starts
-// with "obertura" (both the dot and dash spellings) except the engine toggle.
-// Device/session-specific keys are excluded: the account-sync state (restoring
-// it onto a fresh device would lie — and the sync blob IS a backup, so carrying
-// "last synced" inside it is circular), plus the OAuth return-path crumb.
-//
-// The entitlement cache is excluded for a sharper reason than "it would lie": it
-// describes an ACCOUNT's plan, and this blob travels. It's what an export
-// downloads and what the Supabase sync pushes to every other device — so
-// carrying it would let an entitled user's backup grant full access to whatever
-// phone restored it. Entitlement is only ever read back from the server
-// (entitlement.ts); it must never arrive in a file.
-function backupLocalKey(key: string): boolean {
-  if (key === 'engineEnabled' || key === 'sparEngineEnabled') return true;
-  if (!key.startsWith('obertura')) return false;
-  // Retired features' leftovers. Cheap to keep listed: it costs one comparison
-  // and it guarantees a phone that still has them can't push them anywhere.
-  if (RETIRED_KEY_PREFIXES.some((prefix) => key.startsWith(prefix))) return false;
-  if (key.startsWith('obertura.sync.')) return false;
-  if (key === 'obertura.entitled') return false;
-  // The cached Stripe prices (pricing.ts). Excluded for a milder version of the
-  // entitlement reason: they are per-locale and cheap to re-fetch, so carrying
-  // them would quote a Swedish restore a Swedish price on a Spanish phone, for no
-  // gain at all.
-  if (key === 'obertura.pricing') return false;
-  if (key === 'obertura.lichessReturnTo') return false;
-  return true;
 }
 
 function snapshotLocalData(parts?: readonly BackupPart[]): Record<string, string> {

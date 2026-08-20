@@ -99,6 +99,7 @@ import {
   type BackupFile,
 } from './storage';
 import { showToast } from './toast';
+import { showSigningIn } from './signing-in';
 // The pure half lives next door so it can be self-tested under plain Node —
 // importing this module would drag the Supabase client, and `import.meta.env`
 // with it, into the test.
@@ -152,6 +153,10 @@ const GAMES_FP_KEY = 'obertura.sync.gamesFingerprint';
 // from these is another device's work, and the only thing worth downloading.
 const SEEN_CORE_KEY = 'obertura.sync.seenCore';
 const SEEN_GAMES_KEY = 'obertura.sync.seenGames';
+// How many lines the restore that triggered a reload brought down, left for the
+// next boot to announce. Under the `obertura.sync.` prefix like its neighbours,
+// so it is swept by "erase everything" and kept out of backups.
+const RESTORED_KEY = 'obertura.sync.restored';
 
 // Fired on window whenever the sync state changes, so an open Settings screen
 // can refresh its Account caption without polling.
@@ -266,7 +271,7 @@ function claimAccount(userId: string): void {
 function forgetAccount(): void {
   for (const key of [
     ACCOUNT_KEY, PENDING_KEY, FAILED_KEY, ERROR_KEY, LAST_KEY,
-    CORE_FP_KEY, GAMES_FP_KEY, SEEN_CORE_KEY, SEEN_GAMES_KEY,
+    CORE_FP_KEY, GAMES_FP_KEY, SEEN_CORE_KEY, SEEN_GAMES_KEY, RESTORED_KEY,
   ]) writeLocal(key, null);
   coreDirty = false;
   gamesDirty = false;
@@ -690,17 +695,25 @@ let connecting = false;
  * have picked every time anyway.
  */
 async function connect(userId: string): Promise<void> {
+  // Up before the first request and down in every exit below. From here to the
+  // reload the user sees one screen — see signing-in.ts for why the reload can't
+  // simply be dropped, and why covering it is the honest fix rather than a
+  // cosmetic one.
+  const done = showSigningIn('Signing you in…');
+
   let remote: BackupFile | null = null;
   try {
     remote = await fetchRemoteBackup();
   } catch (err) {
     // Unreachable, or a copy we can't read. Claim nothing, push nothing,
     // destroy nothing: the next auth event, foreground or launch tries again.
+    done();
     markFailed(describeSyncError(err));
     return;
   }
 
   if (remote) {
+    showSigningIn('Restoring your account…');
     try {
       const incoming = repertoiresFrom(remote);
       if (incoming.length > 0) await mergeRepertoires(incoming);
@@ -710,12 +723,9 @@ async function connect(userId: string): Promise<void> {
       // and a new phone signing in wants its streaks and ratings back.
       if (remote.local) applyLocalSnapshot(remote.local);
     } catch (err) {
+      done();
       markFailed(describeSyncError(err));
       return;
-    }
-    const n = backupLineCount(remote);
-    if (n > 0) {
-      showToast(`Restored ${n} line${n === 1 ? '' : 's'} from your account`, { variant: 'success' });
     }
   }
 
@@ -727,13 +737,38 @@ async function connect(userId: string): Promise<void> {
   window.dispatchEvent(new Event(SYNC_PULLED_EVENT));
 
   // A copy carrying stats/streaks/games needs a reload to take everywhere —
-  // several modules cache their localStorage state in memory at boot. Only on
-  // this first connect: a background pull applies the same keys without one,
-  // because reloading the app under someone mid-drill would be far worse than a
+  // several modules read their localStorage state at boot, and boot is also when
+  // the theme, board and piece set are applied to the document. Only on this
+  // first connect: a background pull applies the same keys without one, because
+  // reloading the app under someone mid-drill would be far worse than a
   // statistic that catches up at the next launch.
   if (remote && (remote.local || remote.games?.length)) {
-    setTimeout(() => window.location.reload(), 1200);
+    // The "restored N lines" news has to survive the reload, so it is left for
+    // the next boot to say rather than shown to a page that is about to vanish.
+    // The old code showed it and then waited 1.2 seconds so it could be read —
+    // which is exactly the pause that made signing in look broken.
+    const n = backupLineCount(remote);
+    if (n > 0) writeLocal(RESTORED_KEY, String(n));
+    window.location.reload();
+    return;
   }
+
+  // Nothing came back (a brand-new account): no reload, so nothing to hand over.
+  done();
+}
+
+/**
+ * Say "restored N lines" if the last thing this device did before reloading was
+ * take a copy down from an account. Called once, from boot; consuming the note
+ * is what stops it being repeated on the launch after that.
+ */
+export function reportRestoreOnBoot(): void {
+  const raw = readLocal(RESTORED_KEY);
+  if (!raw) return;
+  writeLocal(RESTORED_KEY, null);
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return;
+  showToast(`Restored ${n} line${n === 1 ? '' : 's'} from your account`, { variant: 'success' });
 }
 
 // ── The public verbs ──────────────────────────────────────────────────────────
