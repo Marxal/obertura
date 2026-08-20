@@ -191,6 +191,20 @@ function isAccountClaimed(): boolean {
   return !!user && readLocal(ACCOUNT_KEY) === user.id;
 }
 
+/**
+ * Signed in, but this device hasn't reconciled with the account yet — the first
+ * pull is still owed or still in flight.
+ *
+ * It exists for one caller (main.ts's first-run picker) and one bug: on a phone
+ * that has just signed in, an empty IndexedDB means "we haven't looked yet", not
+ * "this person is new". Taking it for the second reading is what made a second
+ * device run the whole first-run walkthrough over a repertoire that was about to
+ * arrive.
+ */
+export function isAwaitingAccountCopy(): boolean {
+  return isSupabaseConfigured && !!getAuthUser() && !isAccountClaimed();
+}
+
 export function getSyncState(): SyncState {
   return syncStateFrom({
     configured: isSupabaseConfigured,
@@ -267,6 +281,11 @@ function forgetAccount(): void {
 // owner of the project would actually have to do about it.
 export function describeSyncError(err: unknown): string {
   const message = err instanceof Error ? err.message : String(err ?? '');
+  // The friendly sentence below replaces the database's own words, which is
+  // right for the caption and wrong for debugging — "re-run the grants" was
+  // shown for weeks while the real message named the column Postgres had
+  // actually refused. Keep the original where a remote console can reach it.
+  console.warn('[sync]', message);
   const text = message.toLowerCase();
 
   if (/failed to fetch|networkerror|load failed|offline|network request failed/.test(text)) {
@@ -371,7 +390,7 @@ function canPush(): boolean {
 // every other failure here because it will NOT fix itself by retrying.
 class PayloadTooLargeError extends Error {}
 
-// Upload whichever parts are dirty, in ONE upsert — two columns of the same row,
+// Upload whichever parts are dirty, in ONE write — two columns of the same row,
 // so a burst that touched lines and games costs one request, not two. Throws on
 // failure; the caller decides whether that's a silent "pending" or visible.
 async function pushDirtyParts(): Promise<void> {
@@ -431,11 +450,7 @@ async function pushDirtyParts(): Promise<void> {
     // retry-everything sweep on app launch finding the account already in step.
     // Don't spend the request; we ARE synced, so say so.
     if (Object.keys(row).length > 1) {
-      // Upsert, not update: the row may not exist yet (a brand-new account, or
-      // a project without the create-profile-on-signup trigger). RLS still
-      // limits this to the caller's own id.
-      const { error } = await supabase.from(TABLE).upsert(row, { onConflict: 'id' });
-      if (error) throw new Error(error.message);
+      await writeRow(user.id, row);
     }
   } catch (err) {
     // Put the flags back so the work is still owed, then let the caller mark it.
@@ -466,6 +481,59 @@ async function pushDirtyParts(): Promise<void> {
   }
 
   markSynced();
+}
+
+// Write the changed columns into the user's row, creating the row if this
+// account has never pushed before.
+//
+// ── AND IT IS DELIBERATELY NOT AN UPSERT ────────────────────────────────────
+// This was `.upsert(row, { onConflict: 'id' })`, which is the obvious call and
+// which silently broke every push in the app the day the column grants landed.
+//
+// PostgREST turns an upsert into
+//
+//     INSERT INTO profiles (id, repertoire, …)
+//       VALUES (…)
+//       ON CONFLICT (id) DO UPDATE SET id = EXCLUDED.id, repertoire = …
+//
+// — note `id = EXCLUDED.id`. It puts the conflict key itself in the SET list,
+// even though assigning a column to the value it already has is a no-op, so the
+// statement needs UPDATE privilege on `id`. (PostgREST issue #2446.)
+//
+// SUPABASE-SYNC.md deliberately does not grant that. The whole point of the
+// grants there is that the browser may UPDATE the four sync columns and nothing
+// else — that is what stops a signed-in user flipping their own `entitled` to
+// true with the public anon key. So Postgres refused every push with "permission
+// denied for table profiles", the Account section said so, and the account's row
+// was never created at all: no copy to pull, which is why a second device came
+// up empty and ran the first-run walkthrough all over again.
+//
+// UPDATE first, because after the very first push the row always exists. The
+// INSERT is the once-per-account path, and a duplicate-key error there means
+// another device created the row in the gap between our two statements — so we
+// simply run the UPDATE again.
+async function writeRow(userId: string, row: Record<string, unknown>): Promise<void> {
+  const { id: _id, ...columns } = row;
+  if (await updateRow(userId, columns)) return;
+
+  const { error } = await supabase.from(TABLE).insert(row);
+  if (!error) return;
+  if (!/duplicate key|already exists|conflict/i.test(error.message)) throw new Error(error.message);
+  if (!(await updateRow(userId, columns))) throw new Error(error.message);
+}
+
+// True when a row was actually there to update. The `select('id')` is what makes
+// that answerable: without it PostgREST reports nothing about how many rows
+// matched, and "this account has no row yet" would be indistinguishable from a
+// successful write. It costs one uuid on the wire.
+async function updateRow(userId: string, columns: Record<string, unknown>): Promise<boolean> {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update(columns)
+    .eq('id', userId)
+    .select('id');
+  if (error) throw new Error(error.message);
+  return Array.isArray(data) && data.length > 0;
 }
 
 async function runPush(): Promise<void> {

@@ -135,7 +135,7 @@ import {
 } from './lichess-auth';
 import { isSupabaseConfigured } from './supabase';
 import { initAuth, isPasswordRecovery, PASSWORD_RECOVERY_EVENT } from './auth';
-import { initAccountSync } from './repertoire-sync';
+import { initAccountSync, isAwaitingAccountCopy, SYNC_PULLED_EVENT } from './repertoire-sync';
 
 // Cloud-eval (engine.ts) uses the Lichess token when connected for higher rate
 // limits. Wire the getter once, here, so engine.ts needn't import the OAuth code.
@@ -5534,9 +5534,31 @@ maybeShowGate(() => requestAnimationFrame(() => {
   //
   // It only appears on a genuinely empty install (no lines AND onboarding never
   // finished), so an existing user sees none of this.
-  void shouldShowFirstRun().then((show) => {
-    if (show) showFirstRunPicker();
-  });
+  const offerFirstRun = (): void => {
+    void shouldShowFirstRun().then((show) => {
+      if (show) showFirstRunPicker();
+    });
+  };
+  // ONE THING GOES FIRST on a phone that has just signed in: the account's copy
+  // has to land. Until this device has reconciled, an empty database means "we
+  // haven't looked yet", not "this person is new" — and running the walkthrough
+  // there is exactly the second-device confusion this guard exists to stop. The
+  // sync fires SYNC_PULLED_EVENT when the reconcile finishes, whether it found a
+  // copy or not, so somebody who signed up before building anything still gets
+  // their first run a moment later. The timeout is the offline case: a copy we
+  // can't reach must not cost a new user their onboarding.
+  if (isAwaitingAccountCopy()) {
+    let offered = false;
+    const once = (): void => {
+      if (offered) return;
+      offered = true;
+      offerFirstRun();
+    };
+    window.addEventListener(SYNC_PULLED_EVENT, once);
+    window.setTimeout(once, 8000);
+  } else {
+    offerFirstRun();
+  }
 
   // Weekly games auto-refresh: runs after the first view has rendered, never
   // blocks launch, and stays silent on zero or on failure. New games trigger a
