@@ -521,6 +521,20 @@ UPDATE on `id`, and the grants — rightly — don't hand that out. Fixed in
 sentence is in the browser console, logged as `[sync]` right before the friendly
 one, and that sentence names the column.
 
+**Signed in, then signed straight back out again** (most visibly with Google,
+because it is the fastest way in) was a third face of the same fault. The
+localStorage snapshot that rides along in the `repertoire` column is built by
+prefix — everything the app owns starts with `obertura` — and supabase-js keeps
+the signed-in session under `obertura.supabase.auth`. So the session travelled:
+uploaded to the row, and written back over the session of whatever device pulled
+it. Sign in, pull, have your brand-new session replaced by an older one, reload,
+fail to refresh a rotated token, and you are signed out seconds after signing in.
+Fixed in `src/local-keys.ts`, which is now the single list of what may leave a
+device and is checked in both directions — so an account row that still holds an
+old session simply can't deliver it, and the next push replaces the column
+without one. **If you were signed in anywhere before this fix, sign out and back
+in once on each device**: that rotates the tokens and pushes a clean snapshot.
+
 **A second device that shows no data and offers the walkthrough again** is the
 same fault seen from the other end, not a separate one. Nothing had ever been
 written to the row, so there was nothing for the new phone to pull — and with no
