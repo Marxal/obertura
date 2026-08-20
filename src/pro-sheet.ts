@@ -48,6 +48,15 @@ export interface ProSheetOptions {
   onPriceChange?: (update: (price: string) => void) => () => void;
   // Tapped "Unlock full access". The sheet closes first, then this runs.
   onBuy: () => void;
+  // Optional, and passed only when nobody is signed in: tapped "Already have
+  // Full Access? Sign in". The sheet closes first, then this runs.
+  //
+  // It exists because a purchase belongs to the ACCOUNT, not to the phone — so a
+  // paid user who signs out (or picks up a second device) meets the free tier's
+  // caps and, without this line, is offered the thing they already own with no
+  // hint that signing in is the answer. Being asked to pay twice is the single
+  // worst moment this sheet can produce.
+  onSignIn?: () => void;
 }
 
 // The two promises, in the landing page's order and wording.
@@ -171,6 +180,19 @@ export function openProSheet(opts: ProSheetOptions): void {
     'Secure checkout via Stripe. A Bito Chess account is required so your '
     + 'purchase can follow you across devices.';
   sheet.appendChild(note);
+
+  if (opts.onSignIn) {
+    const restore = document.createElement('p');
+    restore.className = 'pro-restore';
+    restore.appendChild(document.createTextNode('Already have Full Access? '));
+    const link = document.createElement('button');
+    link.type = 'button';
+    link.className = 'pro-restore-link';
+    link.textContent = 'Sign in';
+    link.addEventListener('click', () => { close(); opts.onSignIn?.(); });
+    restore.appendChild(link);
+    sheet.appendChild(restore);
+  }
 
   const later = document.createElement('button');
   later.type = 'button';

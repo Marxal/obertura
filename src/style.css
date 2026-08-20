@@ -330,7 +330,13 @@ body {
    it. Now a first-run screen covers it regardless, and hideAppSplash() is belt
    and braces rather than the only thing standing between the user and a blank
    page. */
-#app-splash {
+/* .auth-splash is the same screen, put up by signing-in.ts while an account is
+   restored. It has to be pixel-identical to the boot splash: it is still on
+   screen when the page reloads, and the reloaded page shows THIS one again — the
+   seam between them is what stops signing in looking like a crash. Its z-index
+   is higher so it also covers any sheet the sign-in was started from. */
+#app-splash,
+.auth-splash {
   position: fixed;
   inset: 0;
   z-index: 150;
@@ -340,7 +346,21 @@ body {
   background: var(--bg-page);
   transition: opacity 0.3s ease;
 }
-#app-splash img {
+.auth-splash {
+  z-index: 500; /* above everything, toasts and sheets included */
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+.auth-splash p {
+  margin: 0;
+  padding: 0 var(--space-lg);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
+}
+#app-splash img,
+.auth-splash img {
   width: 96px;
   height: 96px;
   border-radius: 22%;
@@ -664,6 +684,28 @@ body {
 }
 .section--acc[open] > summary > svg {
   transform: rotate(90deg);
+}
+
+/* The Account row's state, on the closed summary between the title and the
+   chevron. It is the app's answer to "am I signed in?", so it is readable rather
+   than decorative — but it must never push the chevron off a narrow phone, hence
+   the shrink-and-ellipsis. */
+.account-summary-hint {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--text-muted);
+}
+/* Signed out reads as a state to fix, not a fault: the same accent the group's
+   own border takes, never the danger red. */
+.account-summary-hint--out {
+  color: var(--accent);
 }
 
 /* Signed-out Account group: the same accent border/shadow weight as the other
@@ -1919,6 +1961,28 @@ main {
   font-size: 0.74rem;
   line-height: 1.45;
   color: var(--text-faint);
+}
+
+/* "Already have Full Access? Sign in" — for the signed-out reader who has
+   already paid. Louder than .pro-note above it (it is an action, not small
+   print) and quieter than the buy button (they have already bought). */
+.pro-restore {
+  margin: var(--space-md) 0 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  text-align: center;
+}
+.pro-restore-link {
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: underline;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .pro-later {
@@ -17380,27 +17444,12 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   box-shadow: var(--shadow-card);
 }
 
-/* Email, folded away under the divider — the slower path, kept out of the way
-   until somebody asks for it. */
+/* Email and password, under the divider that follows the provider buttons. */
 .account-email-section {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
 }
-
-/* Quieter than the provider buttons above it on purpose — same width so the
-   column stays tidy, but flat and unfilled, so the eye reads it as the fallback
-   rather than a third equal choice. */
-.account-email-toggle {
-  width: 100%;
-  min-height: 44px;
-  background: transparent;
-  border-color: var(--border);
-  box-shadow: none;
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-.account-email-toggle:hover { box-shadow: none; }
 
 .account-email-panel {
   display: flex;
@@ -17452,6 +17501,15 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   -webkit-tap-highlight-color: transparent;
 }
 .account-link-btn:hover { color: var(--text); }
+
+/* The sign-in link, under the password. Quieter still than "Forgot your
+   password?" above it: it is an alternative route, not a repair, and it must not
+   read as the thing to do next. */
+.account-link-btn--quiet {
+  font-weight: 500;
+  text-decoration-color: var(--border);
+  opacity: 0.85;
+}
 
 /* The consent the checkbox can't cover: an OAuth tap is indistinguishable from
    a registration until the redirect comes back. */

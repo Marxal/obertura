@@ -237,6 +237,17 @@ function openUpgradeDialog(eyebrow?: string): void {
     // Dynamic on purpose — checkout.ts imports this module, so a static import
     // here would close the loop. See the note over the price above.
     onBuy: () => { void import('./checkout').then(m => m.openCheckout()); },
+    // Only for someone who isn't signed in — the one person for whom "you
+    // already own this" is a live possibility. Dynamic for the same reason as
+    // onBuy: onboarding-signup.ts reaches this module through account-ui.ts.
+    onSignIn: isSupabaseConfigured && !getAuthUser()
+      ? () => {
+          void import('./onboarding-signup').then(m => m.openSignUpSheet('signin', {
+            lead: 'Full Access lives on your account, so signing in brings it '
+              + 'back — on this phone and any other.',
+          }));
+        }
+      : undefined,
   });
 }
 
