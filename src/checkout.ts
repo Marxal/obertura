@@ -57,7 +57,8 @@ import { getAuthUser } from './auth';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { isEntitled, refreshEntitlement } from './entitlement';
 import { sellablePrice } from './pricing';
-import { showDialog } from './dialog';
+import { celebratePawn, burstConfetti } from './confetti';
+import { pushBack } from './back-nav';
 import { showToast } from './toast';
 
 // The Worker endpoint that creates the Stripe session. An absolute path, so it
@@ -304,16 +305,60 @@ export function handlePurchaseReturn(): void {
   startPolling();
 }
 
-// The moment it lands. A dialog rather than a toast: someone has just paid, and a
-// message that fades after two seconds is not an acknowledgement.
+// The moment it lands. A centred popup, not a toast or the general dialog —
+// someone has just paid, and this deserves the same weight as clearing the
+// daily challenge: the hopping pawn, a confetti burst, one line of thanks.
+// Mirrors daily-celebration.ts's popup shell (same dc-overlay/dc-pop classes,
+// so it looks like part of the same family) without importing from it — this
+// one has no variants to juggle, so its own copy is simpler than a shared one.
 function celebrate(): void {
-  showDialog({
-    title: 'You’re in',
-    body: 'Full access is on your account. Train as many lines as you like — '
-      + 'and the coaching from your own games is open too.\n\n'
-      + 'Thank you. Genuinely.',
-    buttons: [{ label: 'Let’s go', variant: 'primary' }],
-  });
+  const overlay = document.createElement('div');
+  overlay.className = 'dc-overlay';
+
+  const pop = document.createElement('div');
+  pop.className = 'dc-pop';
+  pop.setAttribute('role', 'dialog');
+  pop.setAttribute('aria-modal', 'true');
+  pop.setAttribute('aria-label', 'Full access unlocked');
+  overlay.appendChild(pop);
+
+  let closed = false;
+  const close = (): void => {
+    if (closed) return;
+    closed = true;
+    removeBack();
+    overlay.remove();
+    document.removeEventListener('keydown', onKey);
+  };
+  function onKey(e: KeyboardEvent): void {
+    if (e.key === 'Escape') close();
+  }
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  const removeBack = pushBack(close);
+  document.addEventListener('keydown', onKey);
+
+  pop.appendChild(celebratePawn());
+
+  const title = document.createElement('div');
+  title.className = 'dc-pop-title';
+  title.textContent = 'You’re in';
+  pop.appendChild(title);
+
+  const msg = document.createElement('p');
+  msg.className = 'dc-pop-msg';
+  msg.textContent = 'Full access is on your account. Train as many lines as you '
+    + 'like — and the coaching from your own games is open too. Thank you. Genuinely.';
+  pop.appendChild(msg);
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn-primary dc-pop-btn';
+  btn.textContent = 'Let’s go';
+  btn.addEventListener('click', close);
+  pop.appendChild(btn);
+
+  document.body.appendChild(overlay);
+  burstConfetti(pop);
 }
 
 function sleep(ms: number): Promise<void> {
