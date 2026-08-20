@@ -246,7 +246,7 @@ async function sendPurchaseConfirmation(env: StripeEnv, to: string, sessionId: s
       body: JSON.stringify({
         from,
         to,
-        subject: 'You’re in — Bito Chess full access',
+        subject: 'You’re in! 🎉',
         html: confirmationHtml(),
       }),
     });
@@ -265,32 +265,55 @@ async function sendPurchaseConfirmation(env: StripeEnv, to: string, sessionId: s
   }
 }
 
-// Plain, inline-styled HTML — email clients don't run stylesheets. Same voice
-// as the in-app popup (src/checkout.ts): short, warm, no marketing padding.
+// Matches the three Supabase auth emails (magic link, password reset, signup
+// confirmation) exactly — same table structure, same colours, same fonts,
+// same button and footer treatment — so this reads as the fourth email in one
+// family rather than a one-off. Only the heading, body, button and footer
+// text differ; nothing about the shell is reinvented here.
 function confirmationHtml(): string {
-  return `<!doctype html>
-<html>
-  <body style="margin:0;padding:32px 24px;background:#f5ede0;font-family:Georgia,'Times New Roman',serif;color:#2b241c;">
-    <table role="presentation" width="100%" style="max-width:480px;margin:0 auto;">
-      <tr><td style="padding-bottom:24px;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#8a7a5c;">
-        Bito Chess
-      </td></tr>
-      <tr><td style="padding-bottom:16px;font-size:26px;font-weight:bold;">
-        You’re in
-      </td></tr>
-      <tr><td style="padding-bottom:16px;font-size:16px;line-height:1.6;">
-        Full access is on your account. Train as many lines as you like — and the
-        coaching from your own games is open too.
-      </td></tr>
-      <tr><td style="padding-bottom:28px;font-size:16px;line-height:1.6;">
-        Thank you. Genuinely.
-      </td></tr>
-      <tr><td style="font-size:13px;color:#8a7a5c;">
-        A payment receipt from Stripe follows separately.
-      </td></tr>
-    </table>
-  </body>
-</html>`;
+  return `<style>
+  @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@700&display=swap');
+</style>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#efe6d3; padding:40px 20px; font-family: Georgia, 'Times New Roman', serif;">
+  <tr>
+    <td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:440px; background-color:#fffcf5; border:1px solid #e2d5b8; border-radius:10px; overflow:hidden;">
+        <tr>
+          <td style="padding:36px 40px 8px 40px; text-align:center;">
+            <div style="font-family: 'Chakra Petch', Arial, sans-serif; font-size:26px; font-weight:700; color:#d58a2c; letter-spacing:0.5px;">
+              bito chess
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 40px 0 40px;">
+            <h2 style="font-family: Georgia, 'Times New Roman', serif; font-size:21px; font-weight:600; color:#2b2420; margin:0 0 14px 0;">
+              You’re in! 🎉
+            </h2>
+            <p style="font-family: 'Helvetica Neue', Arial, sans-serif; font-size:15px; line-height:1.6; color:#5c5346; margin:0 0 28px 0;">
+              You now have full access to Bito Chess. Train as many lines as you like, build your repertoire, and keep improving. Thank you for supporting Bito Chess.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 40px 28px 40px; text-align:center;">
+            <a href="https://bitochess.com/app/"
+               style="display:inline-block; background-color:#3e6650; color:#fdf8ec; font-family: 'Helvetica Neue', Arial, sans-serif; font-size:15px; font-weight:600; text-decoration:none; padding:13px 30px; border-radius:6px;">
+              Open Bito Chess
+            </a>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:20px 40px 32px 40px; border-top:1px solid #e2d5b8;">
+            <p style="font-family: 'Helvetica Neue', Arial, sans-serif; font-size:12px; line-height:1.5; color:#a89a7c; margin:0;">
+              Now go improve your next move.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>`;
 }
 
 // A refund. `update`, not `upsert`: if there is no row there is nothing to take
