@@ -119,7 +119,7 @@ export async function handleStripeWebhook(request: Request, env: StripeEnv): Pro
         return problem(422, 'no user id');
       }
 
-      return grant(supabase, userId, session);
+      return grant(supabase, userId, session, env);
     }
 
     // A refund. The terms promise that a refunded account returns to the free
@@ -179,6 +179,7 @@ async function grant(
   supabase: ReturnType<typeof supabaseServiceClient>,
   userId: string,
   session: Stripe.Checkout.Session,
+  env: StripeEnv,
 ): Promise<Response> {
   const row: Record<string, unknown> = {
     id: userId,
@@ -213,7 +214,83 @@ async function grant(
   }
 
   console.log(`stripe webhook: entitled ${userId} from session ${session.id}`);
+
+  // The email is a nice-to-have riding on top of a grant that has already
+  // happened — never let it affect the response. Unlike every write above,
+  // THIS is allowed to fail quietly: a bounced confirmation email is a
+  // shame, not a lost entitlement, and Stripe must never retry a webhook
+  // whose only real job (the database write) already succeeded.
+  const recipient = session.customer_details?.email ?? session.customer_email ?? null;
+  if (recipient) await sendPurchaseConfirmation(env, recipient, session.id);
+
   return ok('ok');
+}
+
+// ── The confirmation email ───────────────────────────────────────────────────
+
+// Fire-and-check, not fire-and-forget-blindly: awaited so its own errors are
+// caught here rather than becoming an unhandled rejection on the Worker, but
+// never thrown onward. See the comment in grant() above for why.
+async function sendPurchaseConfirmation(env: StripeEnv, to: string, sessionId: string): Promise<void> {
+  if (!env.RESEND_API_KEY) return; // not configured — silently skip, not an error
+
+  const from = env.RESEND_FROM_EMAIL || 'Bito Chess <hello@mail.bitochess.com>';
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${env.RESEND_API_KEY}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        from,
+        to,
+        subject: 'You’re in — Bito Chess full access',
+        html: confirmationHtml(),
+      }),
+    });
+
+    if (!res.ok) {
+      // Resend's error body is small and safe to log — it never echoes back
+      // the API key.
+      const body = await res.text().catch(() => '');
+      console.error(`stripe webhook: confirmation email failed for session ${sessionId}: ${res.status} ${body}`);
+      return;
+    }
+
+    console.log(`stripe webhook: confirmation email sent for session ${sessionId}`);
+  } catch (err) {
+    console.error(`stripe webhook: confirmation email errored for session ${sessionId} (${describe(err)})`);
+  }
+}
+
+// Plain, inline-styled HTML — email clients don't run stylesheets. Same voice
+// as the in-app popup (src/checkout.ts): short, warm, no marketing padding.
+function confirmationHtml(): string {
+  return `<!doctype html>
+<html>
+  <body style="margin:0;padding:32px 24px;background:#f5ede0;font-family:Georgia,'Times New Roman',serif;color:#2b241c;">
+    <table role="presentation" width="100%" style="max-width:480px;margin:0 auto;">
+      <tr><td style="padding-bottom:24px;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#8a7a5c;">
+        Bito Chess
+      </td></tr>
+      <tr><td style="padding-bottom:16px;font-size:26px;font-weight:bold;">
+        You’re in
+      </td></tr>
+      <tr><td style="padding-bottom:16px;font-size:16px;line-height:1.6;">
+        Full access is on your account. Train as many lines as you like — and the
+        coaching from your own games is open too.
+      </td></tr>
+      <tr><td style="padding-bottom:28px;font-size:16px;line-height:1.6;">
+        Thank you. Genuinely.
+      </td></tr>
+      <tr><td style="font-size:13px;color:#8a7a5c;">
+        A payment receipt from Stripe follows separately.
+      </td></tr>
+    </table>
+  </body>
+</html>`;
 }
 
 // A refund. `update`, not `upsert`: if there is no row there is nothing to take
