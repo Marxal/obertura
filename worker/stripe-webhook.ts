@@ -119,7 +119,7 @@ export async function handleStripeWebhook(request: Request, env: StripeEnv): Pro
         return problem(422, 'no user id');
       }
 
-      return grant(supabase, userId, session);
+      return grant(supabase, userId, session, env);
     }
 
     // A refund. The terms promise that a refunded account returns to the free
@@ -179,6 +179,7 @@ async function grant(
   supabase: ReturnType<typeof supabaseServiceClient>,
   userId: string,
   session: Stripe.Checkout.Session,
+  env: StripeEnv,
 ): Promise<Response> {
   const row: Record<string, unknown> = {
     id: userId,
@@ -213,7 +214,109 @@ async function grant(
   }
 
   console.log(`stripe webhook: entitled ${userId} from session ${session.id}`);
+
+  // The email is a nice-to-have riding on top of a grant that has already
+  // happened — never let it affect the response. Unlike every write above,
+  // THIS is allowed to fail quietly: a bounced confirmation email is a
+  // shame, not a lost entitlement, and Stripe must never retry a webhook
+  // whose only real job (the database write) already succeeded.
+  const recipient = session.customer_details?.email ?? session.customer_email ?? null;
+  if (recipient) await sendPurchaseConfirmation(env, recipient, session.id);
+
   return ok('ok');
+}
+
+// ── The confirmation email ───────────────────────────────────────────────────
+
+// Fire-and-check, not fire-and-forget-blindly: awaited so its own errors are
+// caught here rather than becoming an unhandled rejection on the Worker, but
+// never thrown onward. See the comment in grant() above for why.
+async function sendPurchaseConfirmation(env: StripeEnv, to: string, sessionId: string): Promise<void> {
+  if (!env.RESEND_API_KEY) return; // not configured — silently skip, not an error
+
+  const from = env.RESEND_FROM_EMAIL || 'Bito Chess <hello@mail.bitochess.com>';
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${env.RESEND_API_KEY}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        from,
+        to,
+        subject: 'You’re in — Bito Chess full access',
+        html: confirmationHtml(),
+      }),
+    });
+
+    if (!res.ok) {
+      // Resend's error body is small and safe to log — it never echoes back
+      // the API key.
+      const body = await res.text().catch(() => '');
+      console.error(`stripe webhook: confirmation email failed for session ${sessionId}: ${res.status} ${body}`);
+      return;
+    }
+
+    console.log(`stripe webhook: confirmation email sent for session ${sessionId}`);
+  } catch (err) {
+    console.error(`stripe webhook: confirmation email errored for session ${sessionId} (${describe(err)})`);
+  }
+}
+
+// Matches the three Supabase auth emails (magic link, password reset, signup
+// confirmation) exactly — same table structure, same colours, same fonts,
+// same button and footer treatment — so this reads as the fourth email in one
+// family rather than a one-off. Only the heading, body, button and footer
+// text differ; nothing about the shell is reinvented here.
+function confirmationHtml(): string {
+  return `<style>
+  @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@700&display=swap');
+</style>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#efe6d3; padding:40px 20px; font-family: Georgia, 'Times New Roman', serif;">
+  <tr>
+    <td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:440px; background-color:#fffcf5; border:1px solid #e2d5b8; border-radius:10px; overflow:hidden;">
+        <tr>
+          <td style="padding:36px 40px 8px 40px; text-align:center;">
+            <div style="font-family: 'Chakra Petch', Arial, sans-serif; font-size:26px; font-weight:700; color:#d58a2c; letter-spacing:0.5px;">
+              bito chess
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 40px 0 40px;">
+            <h2 style="font-family: Georgia, 'Times New Roman', serif; font-size:21px; font-weight:600; color:#2b2420; margin:0 0 14px 0;">
+              Thanks! You’re in! 🎉
+            </h2>
+            <p style="font-family: 'Helvetica Neue', Arial, sans-serif; font-size:15px; line-height:1.6; color:#5c5346; margin:0 0 14px 0;">
+              You now have full access to Bito Chess. Train as many lines as you like, build your repertoire, and keep improving.
+            </p>
+            <p style="font-family: 'Helvetica Neue', Arial, sans-serif; font-size:15px; line-height:1.6; color:#5c5346; margin:0 0 28px 0;">
+              Thank you for supporting Bito Chess.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 40px 28px 40px; text-align:center;">
+            <a href="https://bitochess.com/app/"
+               style="display:inline-block; background-color:#3e6650; color:#fdf8ec; font-family: 'Helvetica Neue', Arial, sans-serif; font-size:15px; font-weight:600; text-decoration:none; padding:13px 30px; border-radius:6px;">
+              Open Bito Chess
+            </a>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:20px 40px 32px 40px; border-top:1px solid #e2d5b8;">
+            <p style="font-family: 'Helvetica Neue', Arial, sans-serif; font-size:12px; line-height:1.5; color:#a89a7c; margin:0;">
+              Improve your next move.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>`;
 }
 
 // A refund. `update`, not `upsert`: if there is no row there is nothing to take

@@ -64,6 +64,18 @@ export interface StripeEnv {
   // SUPABASE-SYNC.md revokes UPDATE on that column from anon and authenticated.
   // Read by the webhook and nothing else.
   SUPABASE_SERVICE_ROLE_KEY?: string;
+
+  // ── Resend ────────────────────────────────────────────────────────────────
+  // The purchase-confirmation email, sent once a payment is granted. Optional:
+  // a missing key just means the webhook skips the email (see stripe-webhook.ts)
+  // — the grant itself never depends on it.
+  RESEND_API_KEY?: string;
+  // "Display Name <address@domain>". A plain Variable, not a Secret — the address
+  // isn't sensitive, and keeping it editable without a redeploy is the whole
+  // point after today's session. Must be on a domain verified in Resend; the
+  // fallback below assumes mail.bitochess.com, the domain already verified for
+  // Supabase's auth emails.
+  RESEND_FROM_EMAIL?: string;
 }
 
 // Supabase ids are auth.users UUIDs. Checked before the value reaches Postgres,
