@@ -16,7 +16,7 @@
 import { Chessground } from 'chessground';
 import type { Key } from 'chessground/types';
 import type { Api } from 'chessground/api';
-import { registerBrushes } from './board-brushes';
+import { registerBrushes, HINT_COLOR } from './board-brushes';
 import type { Line } from './types';
 import type { MoveNode } from './tree';
 import { mainlineNodes } from './scheduler';
@@ -152,7 +152,7 @@ export function openLinePeek(opts: LinePeekOptions): void {
     drawable: { enabled: false, visible: true },
   });
   registerBrushes(cg, {
-    accent: { color: '#ff9b21', opacity: 0.9, lineWidth: 10 },
+    accent: { color: HINT_COLOR, opacity: 0.9, lineWidth: 10 },
     danger: { color: '#c93636', opacity: 0.85, lineWidth: 10 },
   });
 

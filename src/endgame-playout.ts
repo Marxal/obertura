@@ -16,7 +16,7 @@
 // and the chessground + chess.js pattern from fix-it.ts.
 
 import { Chess } from 'chess.js';
-import { registerBrushes } from './board-brushes';
+import { registerBrushes, HINT_COLOR } from './board-brushes';
 import { Chessground } from 'chessground';
 import type { Api } from 'chessground/api';
 import type { Key } from 'chessground/types';
@@ -248,7 +248,7 @@ export function startEndgamePlayout(endgame: Endgame, opts: EndgamePlayoutOption
     animation: { enabled: true, duration: 220 },
     events: { move(from, to) { onUserMove(from as Key, to as Key); } },
   });
-  registerBrushes(cg, { accent: { color: '#ff9b21', opacity: 0.9, lineWidth: 10 } });
+  registerBrushes(cg, { accent: { color: HINT_COLOR, opacity: 0.9, lineWidth: 10 } });
   const ro = new ResizeObserver(() => cg.redrawAll());
   ro.observe(boardEl);
 
@@ -302,6 +302,11 @@ export function startEndgamePlayout(endgame: Endgame, opts: EndgamePlayoutOption
 
   function onUserMove(from: Key, to: Key): void {
     if (finished || isCleaned) return;
+    // A hint points at the move to play NOW, so playing anything spends it. It
+    // used to survive the move and every move after — by the end of a rook-and-
+    // king win the board carried an arrow between two squares that no longer had
+    // the pieces on them. A refused move draws its own nudge again below.
+    cg.setAutoShapes([]);
     const snapshot = chess.fen();
     // Apply on the rules engine (promotion always to queen — no underpromotion in
     // the fundamentals). chessground already restricted to legal dests.

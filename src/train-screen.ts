@@ -1119,6 +1119,9 @@ function runRound(runner: RoundRunner, container: HTMLElement): void {
     lines: runner.stats.linesReviewed,
     missed: runner.stats.movesMissed,
     moves: runner.stats.totalMoves,
+    // …and which lines were already recapped, so the round screen can list only
+    // the ones this round adds.
+    lineIds: new Set(runner.stats.lineStats.keys()),
   };
   const slice = runner.lines.slice(runner.index, runner.index + ROUND_SIZE);
   runner.index += slice.length;
@@ -1437,7 +1440,13 @@ function runRepertoireRun(container: HTMLElement, books: Repertoire[]): void {
   let roundNo = 0;
 
   function runRunRound(): void {
-    const before = { reviewed: stats.reviewed, missed: stats.missed };
+    // …plus which recap rows already existed, so the round screen can list only
+    // what this round adds (see renderRoundScreen).
+    const before = {
+      reviewed: stats.reviewed,
+      missed: stats.missed,
+      keys: new Set(stats.openings.keys()),
+    };
     const slice = plan.positions.slice(index, index + ROUND_SIZE_POSITIONS);
     index += slice.length;
     roundNo += 1;
@@ -1515,6 +1524,8 @@ function runRepertoireRun(container: HTMLElement, books: Repertoire[]): void {
               correct: (stats.reviewed - before.reviewed) - (stats.missed - before.missed),
               missed: stats.missed - before.missed,
               remainingLabel: `${remaining} move${remaining === 1 ? '' : 's'} left`,
+              rows: reviewedOpeningRows(newTally(stats.openings, before.keys)),
+              rowsLabel: 'Moves in this round',
               onNext: runRunRound,
             });
           }
@@ -1556,7 +1567,11 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
   let roundNo = 0;
 
   function runPositionRound(): void {
-    const before = { reviewed: stats.reviewed, missed: stats.missed };
+    const before = {
+      reviewed: stats.reviewed,
+      missed: stats.missed,
+      keys: new Set(stats.openings.keys()),
+    };
     const slice = positions.slice(index, index + ROUND_SIZE_POSITIONS);
     index += slice.length;
     roundNo += 1;
@@ -1628,6 +1643,8 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
               correct: (stats.reviewed - before.reviewed) - (stats.missed - before.missed),
               missed: stats.missed - before.missed,
               remainingLabel: `${remaining} position${remaining === 1 ? '' : 's'} left`,
+              rows: reviewedOpeningRows(newTally(stats.openings, before.keys)),
+              rowsLabel: 'Moves in this round',
               onNext: runPositionRound,
             });
           }
@@ -1917,6 +1934,17 @@ function tallyFromLineStats(lineStats: Map<string, LineSessionStat>): Map<string
   return tally;
 }
 
+// The recap entries a round ADDED — everything whose key wasn't there when the
+// round started. Rounds never revisit material, so a plain key diff is exact and
+// costs nothing to keep: no per-round bookkeeping alongside the cumulative
+// tally that the final screen needs anyway.
+function newTally(
+  tally: Map<string, OpeningTally>,
+  before: Set<string>,
+): Map<string, OpeningTally> {
+  return new Map([...tally].filter(([key]) => !before.has(key)));
+}
+
 function reviewedOpeningRows(tally: Map<string, OpeningTally>): HTMLElement[] {
   const ordered = [...tally.values()].sort((a, b) => {
     const total = (o: OpeningTally): number => o.correct + o.incorrect;
@@ -2052,6 +2080,13 @@ function renderRoundScreen(
     missed: number;
     remainingLabel: string;
     onNext: () => void;
+    // The lines THIS round covered, as result rows. A four-round sitting used to
+    // show nothing but a tally until the very end, which is the wrong twenty
+    // minutes to wait: the round you have just played is the one you can still
+    // remember, and the row is how you get to the position that beat you. The
+    // final screen still lists the whole sitting.
+    rows?: HTMLElement[];
+    rowsLabel?: string;
   },
 ): void {
   // Mount as a full-screen overlay (like the session-complete screen) rather than
@@ -2063,14 +2098,25 @@ function renderRoundScreen(
     `Round ${opts.roundNo} done ✓`,
     `Round ${opts.roundNo} of ${opts.totalRounds}`,
   );
-  head.classList.add('pz-results-head--fill');
   appendStatsRow(head, opts.correct, opts.missed, 'missed');
 
   const note = document.createElement('div');
   note.className = 'train-all-done';
   note.textContent = opts.remainingLabel;
   head.appendChild(note);
-  panel.appendChild(head);
+
+  if (opts.rows?.length) {
+    const sectionHead = document.createElement('div');
+    sectionHead.className = 'summary-needs-work-head';
+    sectionHead.textContent = opts.rowsLabel ?? 'This round';
+    head.appendChild(sectionHead);
+    panel.appendChild(head);
+    panel.appendChild(completionList(opts.rows));
+  } else {
+    // Nothing to list — let the head fill the panel as it always did.
+    head.classList.add('pz-results-head--fill');
+    panel.appendChild(head);
+  }
 
   const actions = completionActions();
 
@@ -2101,7 +2147,7 @@ function renderRoundScreen(
 function renderRoundComplete(
   container: HTMLElement,
   runner: RoundRunner,
-  before: { lines: number; missed: number; moves: number },
+  before: { lines: number; missed: number; moves: number; lineIds: Set<string> },
 ): void {
   if (runner.stats.linesReviewed > 0) recordTrainingDay();
 
@@ -2109,12 +2155,20 @@ function renderRoundComplete(
   const roundMissed = runner.stats.movesMissed - before.missed;
   const remaining = runner.lines.length - runner.index;
 
+  // lineStats is cumulative across the whole sitting, and each round draws a
+  // distinct slice of the queue — so the entries that weren't there when this
+  // round started ARE this round's lines.
+  const thisRound = new Map(
+    [...runner.stats.lineStats].filter(([id]) => !before.lineIds.has(id)));
+
   renderRoundScreen(container, {
     roundNo: runner.roundNo,
     totalRounds: runner.totalRounds,
     correct: roundMoves - roundMissed,
     missed: roundMissed,
     remainingLabel: `${remaining} line${remaining === 1 ? '' : 's'} left`,
+    rows: reviewedOpeningRows(tallyFromLineStats(thisRound)),
+    rowsLabel: 'Lines in this round',
     onNext: () => runRound(runner, container),
   });
 }

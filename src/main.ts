@@ -1,5 +1,5 @@
 import { Chess, type Square } from 'chess.js';
-import { registerBrushes } from './board-brushes';
+import { registerBrushes, HINT_COLOR } from './board-brushes';
 import { Chessground } from 'chessground';
 import type { Key } from 'chessground/types';
 import type { DrawShape } from 'chessground/draw';
@@ -5645,7 +5645,7 @@ maybeShowGate(() => requestAnimationFrame(() => {
     eng3: { color: '#3a9a5c', opacity: 0.38, lineWidth: 8 },
     // The first-run walkthrough's "play this move" arrow — the accent, so it
     // reads as the app talking rather than as an engine suggestion.
-    cue: { color: '#ff9b21', opacity: 0.9, lineWidth: 11 },
+    cue: { color: HINT_COLOR, opacity: 0.9, lineWidth: 11 },
   });
 
   // The cue is an instruction, and it's spent the moment it's followed (or

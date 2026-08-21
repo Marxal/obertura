@@ -9,7 +9,7 @@
 
 import { Chessground } from 'chessground';
 import type { Key } from 'chessground/types';
-import { registerBrushes } from './board-brushes';
+import { registerBrushes, HINT_COLOR } from './board-brushes';
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
 
@@ -91,7 +91,7 @@ export function openPositionPeek(opts: PositionPeekOptions): void {
     animation: { enabled: false },
     drawable: { enabled: false, visible: true },
   });
-  registerBrushes(cg, { accent: { color: '#ff9b21', opacity: 0.9, lineWidth: 10 } });
+  registerBrushes(cg, { accent: { color: HINT_COLOR, opacity: 0.9, lineWidth: 10 } });
 
   const arrow = (uci: string): void => {
     cg.setAutoShapes([{ orig: uci.slice(0, 2) as Key, dest: uci.slice(2, 4) as Key, brush: 'accent' }]);
