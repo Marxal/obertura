@@ -117,6 +117,8 @@ import {
 } from './first-steps';
 import type { LineCut } from './onboarding-lines';
 import { maybeAutoRefreshGames } from './auto-refresh';
+import { startAutoScan } from './mistake-autoscan';
+import { openDailyPrefsSheet } from './daily-prefs';
 import { maybeShowGate, promptInstallApp, onInstallAvailable } from './gate';
 import { showToast } from './toast';
 import { Icons, classBoardSvg, CLASS_LABEL } from './icons';
@@ -3141,6 +3143,12 @@ const BACK_VIEWS: ReadonlySet<ViewName> = new Set<ViewName>(['builder', 'setting
 // $desktop-nav media query in style.css; same discipline as theme.ts /
 // index.html's pre-paint script — update both on change.
 const DESKTOP_NAV_BREAKPOINT = 960;
+
+// How long after launch the background mistake scan is allowed to start. Long
+// enough that the first screen, the weekly refresh and any sync have all had the
+// device to themselves first — nothing here is urgent, and the whole point is
+// that nobody is waiting for it.
+const AUTO_SCAN_DELAY_MS = 8000;
 const desktopNavQuery = window.matchMedia(`(min-width: ${DESKTOP_NAV_BREAKPOINT}px)`);
 
 // The tab to return to when the back arrow exits a full screen. Builder is
@@ -4162,6 +4170,10 @@ function renderTrainTabbed(host: HTMLElement): void {
       // The locked card only needs its own way to a line when the checklist
       // above isn't already offering two louder ones.
       onBuildLine: stepsLead ? undefined : () => startNewLine('white'),
+      // The gear in the card's corner: the same rows Settings shows, opened
+      // from the thing they configure. Repaint after, so turning a task off (or
+      // the whole challenge) shows on the card immediately.
+      onOpenPrefs: () => openDailyPrefsSheet(() => { void renderDaily(); }),
     });
     if (card) dailyHost.appendChild(card);
 
@@ -4937,22 +4949,28 @@ async function persistCurrentLine(): Promise<
   // being stored and the builder's live tree is untouched — which is what we
   // want: `line` is the object the enrolment path below receives, so the confirm
   // run and the scheduler get the inherited records, and the board doesn't move.
-  await saveLine(line);
+  // Take back the line AS STORED. A new line is built here with a fresh UUID,
+  // but the id it actually gets is derived from the book and the node its last
+  // move landed on (lines-view.makeLineId) — so the object we built is not the
+  // object that exists, and anything downstream that looks a line up by id (the
+  // "just saved" highlight on My Lines, a second save of the same line) was
+  // quietly missing.
+  const stored = await saveLine(line);
   // The My-lines slide reads saved lines from storage; refresh it so a just-saved
   // line shows up in "My saved lines" without leaving the builder.
   builderPanels?.reloadLines();
-  loadedLineId = line.id;
-  loadedLineCreatedAt = line.createdAt;
-  loadedLineInTraining = line.inTraining;
-  workingPriority = linePriority(line);
-  currentTrainingLine = line;
+  loadedLineId = stored.id;
+  loadedLineCreatedAt = stored.createdAt;
+  loadedLineInTraining = stored.inTraining;
+  workingPriority = linePriority(stored);
+  currentTrainingLine = stored;
   // A line that has just been saved for the first time gains the controls that
   // only make sense on a saved line — the training toggle, the priority, the
   // stats — so the panel has to be told.
   updateSaveButtonLabel();
   // The builder now matches storage — no unsaved edits.
   savedSnapshot = builderSnapshot();
-  return { line, isNew, index: outcome };
+  return { line: stored, isNew, index: outcome };
 }
 
 // Game analyser: "Save game" stores the whole analysed tree (main line +
@@ -5869,5 +5887,14 @@ maybeShowGate(() => requestAnimationFrame(() => {
     if (newCount <= 0) return;
     showToast(`Games refreshed · ${newCount} new`);
     if (currentView !== 'builder') showView(currentView);
+  }).finally(() => {
+    // …and then read whatever games are now on the device for mistakes, quietly
+    // (mistake-autoscan.ts). It used to sit behind an "Analyse my games" button
+    // that asked for ten minutes up front, which is a question almost nobody
+    // says yes to — so the Middle game pane stayed empty for people who had
+    // imported hundreds of games. Deliberately last and deliberately delayed:
+    // launch, the first paint and any refresh above all come first, and the
+    // engine worker is left alone until the app has settled.
+    window.setTimeout(() => startAutoScan(), AUTO_SCAN_DELAY_MS);
   });
 }), hideAppSplash);

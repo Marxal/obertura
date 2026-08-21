@@ -282,6 +282,10 @@ export interface DailyChallengeDeps {
   // (the Get-started panel above it carries the same routes and says them
   // louder, so two of them would be one too many).
   onBuildLine?: () => void;
+  // Open the challenge's own preferences (daily-prefs.ts). Passed in rather than
+  // imported: daily-prefs reads this module's config, so reaching back for its
+  // sheet would be a cycle. Omit and the gear simply isn't drawn.
+  onOpenPrefs?: () => void;
 }
 
 // Each task's card face: an icon and a label that folds in the configured count.
@@ -292,6 +296,33 @@ const TASK_META: Record<DailyTaskId, { icon: () => SVGElement; label: (n: number
   endgames:  { icon: () => Icons.flag(18),        label: (n) => `${n} endgame puzzle${n === 1 ? '' : 's'}` },
   mistakes:  { icon: () => Icons.reset(18),       label: (n) => `${n} mistake${n === 1 ? '' : 's'} to fix` },
 };
+
+// The gear, bottom-right of the card. Which tasks the challenge includes and how
+// many of each used to be reachable only from Settings → Daily challenge — a tab
+// away and an accordion down from the card those settings describe, which is a
+// good way to own settings nobody ever finds. It is small and quiet on purpose:
+// the card is for doing today's work, not configuring it.
+function buildPrefsButton(onOpen: () => void): HTMLButtonElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'daily-card-prefs';
+  btn.setAttribute('aria-label', 'Daily challenge preferences');
+  btn.appendChild(Icons.settings(16));
+  btn.addEventListener('click', (e) => { e.stopPropagation(); onOpen(); });
+  return btn;
+}
+
+// The card's last row: whatever note the face carries on the left, the gear on
+// the right. A face with no note still gets the row, so the gear is always in
+// the same corner.
+function buildFoot(note: HTMLElement | null, onOpenPrefs?: () => void): HTMLElement | null {
+  if (!note && !onOpenPrefs) return null;
+  const foot = document.createElement('div');
+  foot.className = 'daily-card-foot';
+  if (note) foot.appendChild(note);
+  if (onOpenPrefs) foot.appendChild(buildPrefsButton(onOpenPrefs));
+  return foot;
+}
 
 function runDailyTask(id: DailyTaskId, deps: DailyChallengeDeps): void {
   switch (id) {
@@ -361,6 +392,8 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
       msg.appendChild(chev);
     }
     card.appendChild(msg);
+    const doneFoot = buildFoot(null, deps.onOpenPrefs);
+    if (doneFoot) card.appendChild(doneFoot);
     return card;
   }
 
@@ -382,7 +415,7 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
   note.textContent = active.includes('mistakes')
     ? 'Lines, puzzles and your own mistakes, picked for you.'
     : 'A daily mix of lines, puzzles and endgames, picked for you.';
-  card.appendChild(note);
+  card.appendChild(buildFoot(note, deps.onOpenPrefs) ?? note);
 
   return card;
 }
@@ -452,7 +485,7 @@ function buildLockedCard(deps: DailyChallengeDeps): HTMLElement | null {
     : left === 1
       ? 'One more line and this starts.'
       : `${left} more lines and this starts.`;
-  card.appendChild(note);
+  card.appendChild(buildFoot(note, deps.onOpenPrefs) ?? note);
 
   // Only where nothing else on screen offers the route — see DailyChallengeDeps.
   if (deps.onBuildLine) {

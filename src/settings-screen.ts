@@ -19,13 +19,6 @@ import {
 import { PIECE_PREVIEWS } from './pieces/previews';
 import { getMoveNotation, setMoveNotation, type MoveNotation } from './notation';
 import {
-  getDailyConfig,
-  setDailyConfig,
-  DAILY_TASK_IDS,
-  DAILY_COUNT_RANGE,
-  type DailyTaskId,
-} from './daily-challenge';
-import {
   getRetriesBeforeReveal,
   setRetriesBeforeReveal,
   type Retries,
@@ -60,6 +53,7 @@ import {
 } from './import-panel';
 import { countGames, resetAllProgress, eraseAllData } from './storage';
 import { getAutoRefreshEnabled, setAutoRefreshEnabled, getLastGamesRefresh } from './auto-refresh';
+import { getAutoScanEnabled, setAutoScanEnabled } from './mistake-autoscan';
 import { clearTrainingDays, clearReviewedToday, clearReviewLog } from './streak';
 import { clearPuzzleLog } from './puzzle-log';
 import { clearDailyLog } from './daily-recap';
@@ -71,6 +65,8 @@ import { clearTaBest } from './puzzles-screen';
 import { clearEndgameProgress } from './endgame-progress';
 import { renderBackupSection, exportBackupNow } from './backup';
 import { Icons } from './icons';
+import { row, segmented, toggle } from './settings-controls';
+import { renderDailyPrefs } from './daily-prefs';
 import { userAvatar } from './avatar';
 import { pushBack } from './back-nav';
 import { openFeedbackSheet } from './feedback';
@@ -283,113 +279,6 @@ function staticGroup(titleText: string, icon: SVGElement): HTMLElement {
   h.appendChild(label);
   sec.appendChild(h);
   return sec;
-}
-
-// One preference, using the shared .pref-row component. Two layouts, chosen by
-// the control:
-//   • a SWITCH sits right-aligned on the title line, with the description below
-//     spanning the full width (a compact, scannable on/off row).
-//   • every other control (segmented pickers, swatches, buttons, fields) keeps
-//     the stacked layout: title + optional description, then the control below.
-// We tell them apart by the control's own class, so callers pass the same args.
-function row(label: string, control: HTMLElement, opts: { sub?: string } = {}): HTMLElement {
-  const isSwitch = control.classList.contains('switch');
-
-  const r = document.createElement('div');
-  r.className = isSwitch ? 'pref-row pref-row--switch' : 'pref-row';
-
-  const title = document.createElement('div');
-  title.className = 'pref-row-title';
-  title.textContent = label;
-
-  const sub = opts.sub ? document.createElement('div') : null;
-  if (sub) {
-    sub.className = 'pref-row-desc';
-    sub.textContent = opts.sub!;
-  }
-
-  const ctrl = document.createElement('div');
-  ctrl.className = 'pref-row-control';
-  ctrl.appendChild(control);
-
-  if (isSwitch) {
-    // Title and switch share the top line; the description (if any) spans below.
-    const head = document.createElement('div');
-    head.className = 'pref-row-head';
-    head.appendChild(title);
-    head.appendChild(ctrl);
-    r.appendChild(head);
-    if (sub) r.appendChild(sub);
-    return r;
-  }
-
-  // Stacked: title + description in a text column, control on its own line below.
-  const text = document.createElement('div');
-  text.className = 'pref-row-text';
-  text.appendChild(title);
-  if (sub) text.appendChild(sub);
-  r.appendChild(text);
-  r.appendChild(ctrl);
-
-  return r;
-}
-
-// ── Reusable controls ────────────────────────────────────────────────────────
-
-export function segmented<T extends string>(
-  options: { value: T; label: string; sublabel?: string }[],
-  current: T,
-  onChange: (v: T) => void,
-  opts: { fullWidth?: boolean } = {},
-): HTMLElement {
-  const wrap = document.createElement('div');
-  wrap.className = opts.fullWidth ? 'seg-control seg-control--full' : 'seg-control';
-  wrap.setAttribute('role', 'group');
-
-  const buttons: HTMLButtonElement[] = [];
-  const reflect = (active: T) => {
-    for (const b of buttons) {
-      const on = b.dataset.value === active;
-      b.classList.toggle('active', on);
-      b.setAttribute('aria-pressed', String(on));
-    }
-  };
-
-  for (const opt of options) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'seg-btn';
-    btn.dataset.value = opt.value;
-    btn.textContent = opt.label;
-    if (opt.sublabel) {
-      const sub = document.createElement('span');
-      sub.className = 'seg-btn-sublabel';
-      sub.textContent = opt.sublabel;
-      btn.appendChild(sub);
-    }
-    btn.addEventListener('click', () => {
-      reflect(opt.value);
-      onChange(opt.value);
-    });
-    buttons.push(btn);
-    wrap.appendChild(btn);
-  }
-  reflect(current);
-  return wrap;
-}
-
-function toggle(current: boolean, onChange: (v: boolean) => void): HTMLElement {
-  const label = document.createElement('label');
-  label.className = 'switch';
-  const input = document.createElement('input');
-  input.type = 'checkbox';
-  input.checked = current;
-  input.addEventListener('change', () => onChange(input.checked));
-  const track = document.createElement('span');
-  track.className = 'switch-track';
-  label.appendChild(input);
-  label.appendChild(track);
-  return label;
 }
 
 // ── Appearance ───────────────────────────────────────────────────────────────
@@ -796,126 +685,16 @@ function buildTrainingGroup(): HTMLElement {
 }
 
 // ── Daily challenge ──────────────────────────────────────────────────────────
-// Turn the whole daily challenge on/off, and pick which tasks it includes and
-// how many of each (default: all on, three each). Mirrors the card's task order.
-
-const DAILY_TASK_LABEL: Record<DailyTaskId, string> = {
-  lines: 'Lines to remember',
-  positions: 'Positions to refresh',
-  puzzles: 'Puzzles to solve',
-  endgames: 'Endgame puzzles',
-  mistakes: 'Mistakes to fix',
-};
+// The rows themselves live in daily-prefs.ts, because the daily card on Train
+// opens the very same ones from its own gear. This is just the accordion around
+// them.
 
 function buildDailyChallengeGroup(): HTMLElement {
   const sec = group('Daily challenge', Icons.checkCircle(16));
-
-  // Cheap to rebuild (a handful of rows), so any change re-renders the group in
-  // place — the per-task rows hide when the challenge is off, and each row reads
-  // fresh config so writes never clobber a sibling's change.
-  const rebuild = (): void => {
-    while (sec.childNodes.length > 1) sec.removeChild(sec.lastChild!);
-    const config = getDailyConfig();
-
-    sec.appendChild(row(
-      'Show daily challenge',
-      toggle(config.enabled, (on) => {
-        const cur = getDailyConfig();
-        setDailyConfig({ ...cur, enabled: on });
-        rebuild();
-      }),
-      { sub: 'A few bite-sized challenges at the top of Train each day. Off hides the card.' },
-    ));
-
-    if (!config.enabled) return;
-
-    const blurb = document.createElement('p');
-    blurb.className = 'section-desc';
-    blurb.textContent = 'Choose what the challenge includes and how many of each.';
-    sec.appendChild(blurb);
-
-    for (const id of DAILY_TASK_IDS) sec.appendChild(dailyTaskRow(id, rebuild));
-  };
-  rebuild();
+  const body = document.createElement('div');
+  sec.appendChild(body);
+  renderDailyPrefs(body);
   return sec;
-}
-
-// One task's row: a title, then an Off/1/2/3/Custom count picker — Off IS a
-// count of zero, so there's no separate switch. Custom reveals a capped number
-// field, so nobody can type 50 or 100 into it.
-function dailyTaskRow(id: DailyTaskId, onChange: () => void): HTMLElement {
-  const config = getDailyConfig();
-  const task = config.tasks[id];
-  const isCustom = task.count > DAILY_COUNT_RANGE.stepMax;
-
-  const r = row(DAILY_TASK_LABEL[id], dailyCountControl(id, task.count, onChange));
-
-  if (isCustom) r.appendChild(dailyCustomInput(id, task.count, onChange));
-
-  return r;
-}
-
-// The Off/1/2/3/Custom segmented picker — five short labels, so it still fits
-// one line on a phone (the 0-through-5-plus-Custom row it replaced didn't).
-function dailyCountControl(id: DailyTaskId, count: number, onChange: () => void): HTMLElement {
-  const options: { value: string; label: string }[] = [];
-  for (let n = DAILY_COUNT_RANGE.min; n <= DAILY_COUNT_RANGE.stepMax; n++) {
-    options.push({ value: String(n), label: n === 0 ? 'Off' : String(n) });
-  }
-  options.push({ value: 'custom', label: 'Custom' });
-
-  const isCustom = count > DAILY_COUNT_RANGE.stepMax;
-  const seg = segmented<string>(
-    options,
-    isCustom ? 'custom' : String(count),
-    (v) => {
-      const cur = getDailyConfig();
-      const nextCount = v === 'custom'
-        // Stepping into Custom keeps whatever custom value was already set;
-        // otherwise it starts just past the preset row.
-        ? Math.max(DAILY_COUNT_RANGE.stepMax + 1, cur.tasks[id].count)
-        : Number(v);
-      setDailyConfig({ ...cur, tasks: { ...cur.tasks, [id]: { count: nextCount } } });
-      onChange(); // show/hide the custom field
-    },
-    // Full width, equal columns — five short labels that always fit one line,
-    // rather than the natural sizing that made the old 0-through-5 row wrap.
-    { fullWidth: true },
-  );
-  seg.classList.add('daily-count-seg');
-  return seg;
-}
-
-// The capped custom-count field, shown only once "Custom" is picked.
-function dailyCustomInput(id: DailyTaskId, count: number, onChange: () => void): HTMLElement {
-  const wrap = document.createElement('div');
-  wrap.className = 'daily-custom-count';
-
-  const input = document.createElement('input');
-  input.type = 'number';
-  input.inputMode = 'numeric';
-  input.className = 'daily-custom-input';
-  input.min = String(DAILY_COUNT_RANGE.stepMax + 1);
-  input.max = String(DAILY_COUNT_RANGE.max);
-  input.value = String(count);
-  input.addEventListener('change', () => {
-    const clamped = Math.max(
-      DAILY_COUNT_RANGE.stepMax + 1,
-      Math.min(DAILY_COUNT_RANGE.max, Math.round(Number(input.value)) || DAILY_COUNT_RANGE.stepMax + 1),
-    );
-    input.value = String(clamped);
-    const cur = getDailyConfig();
-    setDailyConfig({ ...cur, tasks: { ...cur.tasks, [id]: { count: clamped } } });
-    onChange();
-  });
-  wrap.appendChild(input);
-
-  const suffix = document.createElement('span');
-  suffix.className = 'daily-custom-suffix';
-  suffix.textContent = `per day (max ${DAILY_COUNT_RANGE.max})`;
-  wrap.appendChild(suffix);
-
-  return wrap;
 }
 
 // ── Add your games ───────────────────────────────────────────────────────────
@@ -1260,6 +1039,17 @@ function buildBackupGroup(): HTMLElement {
   caption.textContent = lastRefreshCaption();
   autoRow.appendChild(caption);
   sec.appendChild(autoRow);
+
+  // The mistake scan, run on its own (mistake-autoscan.ts). On by default: the
+  // Middle game pane is built around the spots existing, and behind a button
+  // they mostly didn't. Off is here for anyone on a metered connection or an old
+  // phone who would rather decide when the engine runs.
+  sec.appendChild(row(
+    'Analyse games in the background',
+    toggle(getAutoScanEnabled(), (on) => setAutoScanEnabled(on)),
+    { sub: 'Reads your imported games for mistakes while the app is open, so Train → '
+      + 'Middle game fills in without you starting a scan.' },
+  ));
 
   // Export / import — the existing backup section does both.
   sec.appendChild(renderBackupSection(() => { /* nothing else on this screen depends on it */ }));

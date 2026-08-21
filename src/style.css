@@ -1510,7 +1510,16 @@ main {
    puzzles — with the streak alongside. Once both are done it shrinks to a quiet
    "done for today" line. Visual but compact; copy stays short. */
 
-.daily-host { margin: 0.75rem 1rem 0; }
+/* The Get-started checklist and the daily card share this slot — either can
+   lead (see renderDaily in main.ts) — and neither carries an outer margin of its
+   own, so the gap belongs to the host that stacks them. Without it the two
+   accent-washed boxes butt together and read as one confused card. */
+.daily-host {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin: 0.75rem 1rem 0;
+}
 
 .daily-card {
   display: flex;
@@ -1579,6 +1588,52 @@ main {
 .daily-card-note {
   font-size: 0.76rem;
   color: var(--text-faint);
+}
+
+/* The card's last row: its note on the left, the preferences gear on the right.
+   The gear is always in the same corner, whichever face the card is wearing —
+   including the finished one, which has no note. */
+.daily-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+.daily-card-foot > .daily-card-note { flex: 1; min-width: 0; }
+.daily-card-foot:only-child,
+.daily-card-foot > .daily-card-prefs:only-child { margin-inline-start: auto; }
+
+.daily-card-prefs {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin: -0.25rem -0.25rem -0.25rem 0;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.daily-card-prefs svg { flex: none; }
+.daily-card-prefs:active { background: var(--accent-soft); color: var(--accent); }
+@media (hover: hover) {
+  .daily-card-prefs:hover { color: var(--accent); }
+}
+
+/* The gear's sheet — the same rows Settings draws, in a bottom sheet. The rows
+   bring their own chrome (.pref-row), so this only has to give them room and
+   stop a long list running off the screen. */
+.daily-prefs-body {
+  display: flex;
+  flex-direction: column;
+  max-height: 60vh;
+  overflow-y: auto;
+  margin: 0.25rem 0;
 }
 
 /* Both halves done — the card is now a slim success line, and a button: it
@@ -4087,69 +4142,37 @@ html[data-coords="off"] .cg-wrap coords {
   font-variant-numeric: tabular-nums;
 }
 
-/* A gap row. The WHOLE row is the button — its action is "prepare an answer to
-   this", and a row whose only target is a small button on the right is a row
-   most thumbs miss. */
-.cvg-list { display: flex; flex-direction: column; }
-.cvg-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  width: 100%;
-  padding: 0.5rem 0.25rem;
-  border: none;
-  border-bottom: 1px solid var(--hairline-soft);
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.cvg-row:active { background: var(--accent-soft); }
-.cvg-row-move {
-  flex: 0 0 auto;
-  min-width: 4.25rem;
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-}
-.cvg-row-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-}
-/* The sentence that ranked the row, with its source's icon. A ranking the user
+/* A gap CARD. It was a dense one-line row for a while, which read as a list of
+   complaints; on the shared .pcard scaffold — miniature on the left, reason and
+   action on the right — it reads like the Openings cards a tab away, and you can
+   SEE the hole before deciding anything about it. */
+.cvg-list { display: flex; flex-direction: column; gap: var(--space-md); }
+.cvg-card { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.cvg-card:active { filter: brightness(0.97); }
+
+/* The sentence that ranked the card, with its source's icon. A ranking the user
    can't explain to themselves is noise, so this line is never optional. */
-.cvg-row-why {
+.cvg-card-why {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
-  font-size: 0.82rem;
+  gap: 0.35rem;
+  font-size: 0.84rem;
   font-weight: 600;
   color: var(--text);
 }
-.cvg-row-why svg { flex: 0 0 auto; color: var(--text-faint); }
-.cvg-row--games .cvg-row-why svg { color: var(--accent); }
-.cvg-row-where {
-  font-size: 0.72rem;
-  color: var(--text-faint);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.cvg-row-add {
-  flex: 0 0 auto;
+.cvg-card-why svg { flex: 0 0 auto; color: var(--text-faint); }
+.cvg-card--games .cvg-card-why svg { color: var(--accent); }
+
+/* Every card here is the same state — a reply with no answer — so the chip is
+   the one the Openings tab uses for exactly that. */
+.cvg-chip { background: var(--danger); color: #fff; }
+
+.cvg-card .stat-card-btn {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: var(--accent-soft);
-  color: var(--accent);
+  gap: 0.3rem;
 }
+
 .cvg-more {
   display: block;
   width: 100%;
@@ -6713,6 +6736,106 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 /* A numbered "here's what happens" list in a dialog. A badge, a bold label and
    one line of detail, so the two steps are scanned rather than read — the same
    words as a paragraph, in the shape people actually look at. */
+/* ── The "what is this?" sheet (info-sheet.ts) ────────────────────────────────
+   One shared popup behind every (i) beside a section title. The list is a SET of
+   choices, not a sequence, so it carries each mode's own icon in its own accent
+   rather than dialog.ts's numbers — the row in the sheet and the card it
+   explains read as the same thing. */
+
+.info-sheet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0.35rem 0 0.15rem;
+  padding: 0;
+  list-style: none;
+}
+
+.info-sheet-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+}
+
+.info-sheet-icon {
+  --mode-accent: var(--accent);
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--mode-accent) 16%, transparent);
+  color: var(--mode-accent);
+}
+.info-sheet-icon svg { flex: none; }
+
+.info-sheet-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.info-sheet-label {
+  font-size: 0.93rem;
+  font-weight: 750;
+  line-height: 1.25;
+  color: var(--text);
+}
+
+.info-sheet-detail {
+  font-size: 0.83rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.info-sheet-foot {
+  margin: 0.6rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--text-faint);
+}
+
+/* A section title with a control (usually the (i)) on its right. The title keeps
+   its own margins; this only puts the two on one line. */
+.section-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+.section-head-row > .section-title { margin-bottom: 0; }
+
+/* The reason every card below is greyed out, said once at the top instead of six
+   times down the list. */
+.mode-cards-locked { margin-top: 0.15rem; }
+
+/* The (i) itself. Quiet until touched — it explains the screen, it isn't part
+   of it. 34px of target around a 17px glyph keeps it thumb-sized without
+   drawing a box on the page. */
+.info-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.info-btn svg { flex: none; }
+.info-btn:active { background: var(--accent-soft); color: var(--accent); }
+@media (hover: hover) {
+  .info-btn:hover { color: var(--accent); }
+}
+
 .dialog-steps {
   display: flex;
   flex-direction: column;
@@ -8120,6 +8243,67 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   text-transform: uppercase;
   letter-spacing: 0.08em;
   text-align: center;
+}
+
+/* ── "Refresh your moves" — the two ways through today's due pile ─────────────
+   One button used to sit here (full lines); the other route, Repertoire run, was
+   buried in the Practise menu. They answer the same question, so they are the
+   same size, side by side, under the question. */
+
+.train-refresh-title {
+  width: 100%;
+  margin-top: var(--space-md);
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
+/* A grid, not flex: equal columns whatever the labels say. */
+.train-refresh-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+  width: 100%;
+  margin-top: var(--space-xs);
+}
+.train-refresh-row--single { grid-template-columns: 1fr; }
+
+/* Chrome from .btn-primary; this is size + the stacked label/count. */
+.train-refresh-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  min-height: 56px;
+  padding: var(--space-sm);
+  border-radius: 10px;
+  line-height: 1.2;
+}
+
+.train-refresh-btn-top {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+.train-refresh-btn-top svg { flex: none; }
+
+.train-refresh-btn-sub {
+  font-size: 0.7rem;
+  font-weight: 600;
+  opacity: 0.82;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Very narrow phones: two 56px buttons plus their counts get cramped side by
+   side, so they stack rather than truncate. */
+@media (max-width: 340px) {
+  .train-refresh-row { grid-template-columns: 1fr; }
 }
 
 /* Size/width modifiers only — chrome from .btn-primary in HTML. */
@@ -16031,6 +16215,43 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 
 .mistakes-hero-note--done { color: var(--success); font-weight: 600; }
+
+/* The background scan's live line in the hero (mistake-autoscan.ts). It is a
+   STATUS, not a job the user started, so it is quiet: a thin bar and one
+   sentence, no stop button, nothing that has to be dismissed. */
+.mistakes-autoscan {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.65rem;
+}
+
+.mistakes-autoscan-bar {
+  position: relative;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  overflow: hidden;
+}
+
+.mistakes-autoscan-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.4s ease;
+}
+
+.mistakes-autoscan-label {
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* "Analyse now" is the impatient route once the pass runs on its own, so it
+   steps back from the primary fill it used to wear. */
+.mistakes-scan-now { margin-top: 0.65rem; }
 
 /* ── The scan progress overlay ── */
 .mr-scan-overlay {
