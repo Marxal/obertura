@@ -11,7 +11,7 @@ import {
   openBook, closeBook, activeBook, notePending, pendingCount, hasPending,
   isPending, discardPending, commitPending, currentLine as bookCurrentLine,
   currentLineHasPending,
-  cursorCoverage, pendingBranches, pendingAllVisible, discardBranch,
+  cursorCoverage, pendingBranches, discardBranch,
   removeManyAndStore,
   planLineRemoval, removeAndStore, restoreAndStore,
 } from './builder-book';
@@ -77,6 +77,7 @@ import { userAvatar } from './avatar';
 import { Engine, setCloudAuthToken, retryCloudNow, type EvalResult, type CloudTopMove } from './engine';
 import { EvalPanel } from './eval-panel';
 import { createBuilderPanels, type BuilderPanels } from './builder-panels';
+import { showBuilderInfo, builderInfoLabel, type BuilderInfoId } from './builder-info';
 import { renderLinePriority, renderLineStats, renderLineStatsEmpty, linePriority } from './line-info';
 import { createExplorePanel, type ExplorePanel } from './explore-panel';
 import { createEnginePanel, type EnginePanel } from './engine-panel';
@@ -219,11 +220,14 @@ function renderTitle(): void {
   const el = document.getElementById('opening-name')!;
   const pip = document.getElementById('title-pip');
   if (pip) pip.className = `colour-pip colour-pip--${saveColour}`;
-  // A fresh line with no moves yet: prompt the first move rather than show
-  // an empty "Unnamed line".
-  if (isEmpty()) {
+  // Nothing on the board yet: prompt the first move rather than show an empty
+  // "Unnamed line". Inside a book that means a cursor still at the START — the
+  // tree is never empty there (it holds every line you own), and the panel would
+  // otherwise describe whichever of them happens to be first.
+  if (isEmpty() || (inBook() && getCurrentNode().id === 'root')) {
     el.textContent = 'Play the first move';
     el.classList.add('opening-name--empty');
+    if (currentView === 'builder') updateHeaderTitle();
     return;
   }
   const title = currentTitle();
@@ -309,9 +313,18 @@ function renderBuilderDesc(): void {
   el.hidden = !meta && !builderGameUrl;
 }
 
-// The edit lightbox — now focused: the pencil opens it on the NAME only, the tag
-// icon on the TAGS only, so the two concerns are separate in the title row.
-function openEditSheet(focus: 'name' | 'tags' = 'name'): void {
+/**
+ * The tag lightbox: suggested chips, every tag you've already used, and a
+ * freeform field.
+ *
+ * IT USED TO EDIT THE NAME TOO — the "Title" pencil in the Line info row opened
+ * the same sheet on a name field. Both went in the same round: a line's name is
+ * the opening it reaches, detected and shown right under the row, and the one
+ * control almost nobody used was taking a quarter of a four-across action row on
+ * a phone. Branches can still be named by hand, from the branch sheet, which is
+ * where naming a chunk of your book actually makes sense.
+ */
+function openEditSheet(): void {
   const overlay = document.createElement('div');
   overlay.className = 'edit-overlay';
   const sheet = document.createElement('div');
@@ -319,100 +332,81 @@ function openEditSheet(focus: 'name' | 'tags' = 'name'): void {
 
   const title = document.createElement('h3');
   title.className = 'edit-sheet-title';
-  title.textContent = focus === 'tags' ? 'Tags' : 'Rename line';
+  title.textContent = 'Tags';
   sheet.appendChild(title);
 
-  // Name (pencil).
-  let nameInput: HTMLInputElement | null = null;
-  if (focus === 'name') {
-    const nameLabel = document.createElement('label');
-    nameLabel.className = 'edit-label';
-    nameLabel.textContent = 'Name';
-    nameInput = document.createElement('input');
-    nameInput.type = 'text';
-    nameInput.className = 'edit-input';
-    nameInput.value = currentTitle();
-    nameInput.placeholder = 'Line name';
-    sheet.appendChild(nameLabel);
-    sheet.appendChild(nameInput);
-  }
-
-  // Tags (tag icon): suggested chips + your existing tags + freeform field.
-  let chipRow: HTMLElement | null = null;
-  let freeInput: HTMLInputElement | null = null;
   // The existing-tags row, once loaded — Done reads its toggled chips too.
   let ownRows: HTMLElement | null = null;
-  if (focus === 'tags') {
-    const tagsLabel = document.createElement('label');
-    tagsLabel.className = 'edit-label';
-    tagsLabel.textContent = 'Tags';
-    sheet.appendChild(tagsLabel);
 
-    chipRow = document.createElement('div');
-    chipRow.className = 'edit-chips';
-    const addChip = (tag: string): void => {
+  const tagsLabel = document.createElement('label');
+  tagsLabel.className = 'edit-label';
+  tagsLabel.textContent = 'Tags';
+  sheet.appendChild(tagsLabel);
+
+  const chipRow = document.createElement('div');
+  chipRow.className = 'edit-chips';
+  const addChip = (tag: string): void => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'tag-chip';
+    chip.textContent = tag;
+    if (currentTags.includes(tag)) chip.classList.add('tag-chip--on');
+    chip.addEventListener('click', () => chip.classList.toggle('tag-chip--on'));
+    chipRow.appendChild(chip);
+  };
+  for (const tag of SUGGESTED_TAGS) addChip(tag);
+  sheet.appendChild(chipRow);
+
+  // Every tag you've already created — on any line OR any game — as tappable
+  // chips, so reusing a tag is a tap, not retyping it (and no near-duplicate
+  // spellings). Loaded async; the row only appears when there's something to
+  // show.
+  const ownRow = document.createElement('div');
+  ownRow.className = 'edit-chips edit-chips--own';
+  ownRow.hidden = true;
+  sheet.appendChild(ownRow);
+  void Promise.all([getAllLines(), getAllGames()]).then(([lines, games]) => {
+    const known = new Set<string>(SUGGESTED_TAGS);
+    const own: string[] = [];
+    for (const l of lines) {
+      for (const t of l.tags) {
+        if (!known.has(t)) { known.add(t); own.push(t); }
+      }
+    }
+    for (const g of games) {
+      for (const t of g.tags ?? []) {
+        if (!known.has(t)) { known.add(t); own.push(t); }
+      }
+    }
+    // Tags on THIS line that aren't stored anywhere yet still belong here —
+    // they'd otherwise only live in the freeform field.
+    for (const t of currentTags) {
+      if (!known.has(t)) { known.add(t); own.push(t); }
+    }
+    if (own.length === 0) return;
+    own.sort((a, b) => a.localeCompare(b));
+    const ownLabel = document.createElement('div');
+    ownLabel.className = 'edit-chips-label';
+    ownLabel.textContent = 'Your tags';
+    ownRow.appendChild(ownLabel);
+    for (const t of own) {
       const chip = document.createElement('button');
       chip.type = 'button';
       chip.className = 'tag-chip';
-      chip.textContent = tag;
-      if (currentTags.includes(tag)) chip.classList.add('tag-chip--on');
+      chip.textContent = t;
+      if (currentTags.includes(t)) chip.classList.add('tag-chip--on');
       chip.addEventListener('click', () => chip.classList.toggle('tag-chip--on'));
-      chipRow!.appendChild(chip);
-    };
-    for (const tag of SUGGESTED_TAGS) addChip(tag);
-    sheet.appendChild(chipRow);
+      ownRow.appendChild(chip);
+    }
+    ownRow.hidden = false;
+    ownRows = ownRow;
+  });
 
-    // Every tag you've already created — on any line OR any game — as tappable
-    // chips, so reusing a tag is a tap, not retyping it (and no near-duplicate
-    // spellings). Loaded async; the row only appears when there's something to
-    // show.
-    const ownRow = document.createElement('div');
-    ownRow.className = 'edit-chips edit-chips--own';
-    ownRow.hidden = true;
-    sheet.appendChild(ownRow);
-    void Promise.all([getAllLines(), getAllGames()]).then(([lines, games]) => {
-      const known = new Set<string>(SUGGESTED_TAGS);
-      const own: string[] = [];
-      for (const l of lines) {
-        for (const t of l.tags) {
-          if (!known.has(t)) { known.add(t); own.push(t); }
-        }
-      }
-      for (const g of games) {
-        for (const t of g.tags ?? []) {
-          if (!known.has(t)) { known.add(t); own.push(t); }
-        }
-      }
-      // Tags on THIS line that aren't stored anywhere yet still belong here —
-      // they'd otherwise only live in the freeform field.
-      for (const t of currentTags) {
-        if (!known.has(t)) { known.add(t); own.push(t); }
-      }
-      if (own.length === 0) return;
-      own.sort((a, b) => a.localeCompare(b));
-      const ownLabel = document.createElement('div');
-      ownLabel.className = 'edit-chips-label';
-      ownLabel.textContent = 'Your tags';
-      ownRow.appendChild(ownLabel);
-      for (const t of own) {
-        const chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'tag-chip';
-        chip.textContent = t;
-        if (currentTags.includes(t)) chip.classList.add('tag-chip--on');
-        chip.addEventListener('click', () => chip.classList.toggle('tag-chip--on'));
-        ownRow.appendChild(chip);
-      }
-      ownRow.hidden = false;
-      ownRows = ownRow;
-    });
-
-    freeInput = document.createElement('input');
-    freeInput.type = 'text';
-    freeInput.className = 'edit-input';
-    freeInput.placeholder = 'or type a new tag (comma separated)';
-    sheet.appendChild(freeInput);
-  }
+  const freeInput = document.createElement('input');
+  freeInput.type = 'text';
+  freeInput.className = 'edit-input';
+  freeInput.placeholder = 'or type a new tag (comma separated)';
+  sheet.appendChild(freeInput);
 
   const btnRow = document.createElement('div');
   btnRow.className = 'edit-btn-row';
@@ -421,24 +415,17 @@ function openEditSheet(focus: 'name' | 'tags' = 'name'): void {
   saveBtn.className = 'btn-primary edit-save-btn';
   saveBtn.textContent = 'Done';
   saveBtn.addEventListener('click', () => {
-    if (chipRow && freeInput) {
-      const selected = [...chipRow.querySelectorAll('.tag-chip--on')].map(
-        c => (c as HTMLElement).textContent!.trim()
-      );
-      // If the existing-tags row hasn't loaded yet, keep the line's own custom
-      // tags as-is rather than silently dropping them.
-      const own = ownRows
-        ? [...ownRows.querySelectorAll('.tag-chip--on')].map(c => (c as HTMLElement).textContent!.trim())
-        : currentTags.filter(t => !SUGGESTED_TAGS.includes(t as typeof SUGGESTED_TAGS[number]));
-      const custom = freeInput.value.split(',').map(t => t.trim()).filter(Boolean);
-      currentTags = [...new Set([...selected, ...own, ...custom])];
-      renderBuilderTags();
-    }
-    if (nameInput) {
-      const val = nameInput.value.trim();
-      manualTitle = val ? val : null;
-      renderTitle();
-    }
+    const selected = [...chipRow.querySelectorAll('.tag-chip--on')].map(
+      c => (c as HTMLElement).textContent!.trim()
+    );
+    // If the existing-tags row hasn't loaded yet, keep the line's own custom
+    // tags as-is rather than silently dropping them.
+    const own = ownRows
+      ? [...ownRows.querySelectorAll('.tag-chip--on')].map(c => (c as HTMLElement).textContent!.trim())
+      : currentTags.filter(t => !SUGGESTED_TAGS.includes(t as typeof SUGGESTED_TAGS[number]));
+    const custom = freeInput.value.split(',').map(t => t.trim()).filter(Boolean);
+    currentTags = [...new Set([...selected, ...own, ...custom])];
+    renderBuilderTags();
     close();
   });
   const cancelBtn = document.createElement('button');
@@ -473,21 +460,19 @@ function openEditSheet(focus: 'name' | 'tags' = 'name'): void {
   overlay.addEventListener('click', e => {
     if (e.target === overlay) close();
   });
-  nameInput?.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); saveBtn.click(); }
-  });
-
   overlay.appendChild(sheet);
   document.body.appendChild(overlay);
   requestAnimationFrame(() => {
-    (nameInput ?? freeInput)?.focus();
+    freeInput.focus();
     syncKeyboardInset();
   });
 }
 
 function setupTitleControls(): void {
-  document.getElementById('rename-btn')!.addEventListener('click', () => openEditSheet('name'));
-  document.getElementById('tags-btn')!.addEventListener('click', () => openEditSheet('tags'));
+  // The hand-written title went with the "Title" button: a line is named by the
+  // opening it reaches (detected and shown under this row), and the edit sheet
+  // is now reached only for tags.
+  document.getElementById('tags-btn')!.addEventListener('click', () => openEditSheet());
 }
 
 // One clickable move in the strip: the SAN, its annotation chip (if marked)
@@ -520,11 +505,14 @@ function moveSpan(node: MoveNode, activeId: string): HTMLElement {
   return span;
 }
 
-// The move list is drawn ONCE, into the persistent strip under the tab bar,
-// which is on screen whatever tab you're on. It used to be copied into the foot
-// of every list panel and again onto Line info — the same list four times on one
-// screen, each copy costing a panel a chunk of its height.
-const MOVE_LIST_MOUNTS = ['move-list-strip'];
+// The move list is drawn into two places, and they are two different readings
+// of it. The persistent STRIP under the tab bar is on screen whatever tab you're
+// on: one line, scrolled, active move centred — it is for keeping your place
+// while you build. The BOX at the foot of Line info wraps instead of scrolling,
+// so the whole sequence can be read at once, which is what that tab is for.
+// (It used to be copied into the foot of every list panel as well — the same
+// list four times on one screen, each copy costing a panel a chunk of height.)
+const MOVE_LIST_MOUNTS = ['move-list-strip', 'move-list-box'];
 
 function renderMoveList() {
   for (const id of MOVE_LIST_MOUNTS) {
@@ -680,6 +668,10 @@ function applySaveButtonLabel(): void {
   const covered = inBook() && pending === 0 ? coveredLabel() : null;
   label.textContent =
     builderMode === 'analyser' ? 'Save game'
+    // An empty book, at the start, with nothing played: there is no count to
+    // give and no coverage to report, so the button says what to do instead of
+    // offering "Add 0 moves".
+    : inBook() && pending === 0 && !covered ? 'Play your first move'
     : inBook() ? (covered ?? draftLabel(pending))
     : dup?.kind === 'open' ? 'Already saved — open it'
     : dup?.kind === 'add-tag' ? `Add tag to “${shortLineName(dup.lineName)}”`
@@ -688,7 +680,6 @@ function applySaveButtonLabel(): void {
   btn?.classList.toggle('header-save--alt', !!dup);
   btn?.classList.toggle('header-save--covered', !!covered);
   if (btn) setSaveButtonIcon(btn, covered ? 'covered' : dup?.kind ?? null);
-  if (btn) setDraftPlacesChip(btn, inBook() && !covered ? draftPlacesNote() : null);
   if (btn) setSaveChevron(btn, !!covered);
 }
 
@@ -706,44 +697,17 @@ function setSaveChevron(btn: HTMLElement, show: boolean): void {
   btn.appendChild(el);
 }
 
-// The chip lives inside the button, after the label, and is created only when
-// there is something to say — so the ordinary "Add 3 moves" button is exactly
-// the button it always was.
-function setDraftPlacesChip(btn: HTMLElement, text: string | null): void {
-  let chip = btn.querySelector<HTMLElement>('.header-save-places');
-  btn.classList.toggle('header-save--places', !!text);
-  if (!text) { chip?.remove(); return; }
-  if (!chip) {
-    chip = document.createElement('span');
-    chip.className = 'header-save-places';
-    btn.appendChild(chip);
-  }
-  chip.textContent = text;
-}
-
 /**
  * What the header says when there IS something to add.
  *
- * "Add 3 moves" as long as those three are the three marked as drafts on the
- * line in front of you. The moment the draft reaches somewhere else in the book
- * the count stops matching what the move strip shows, so the label says where
- * the rest is rather than leaving the user to wonder why the number is bigger
- * than the drafts they can see.
+ * "Add 3 moves", and those three moves are on screen: the move strip now draws
+ * the WHOLE draft — a second answer played off the same position appears there
+ * as a parenthesised variation — so the count can never be bigger than what you
+ * can see. It used to be able to, which is what the old "2 places" chip beside
+ * this label was apologising for.
  */
 function draftLabel(pending: number): string {
   return pending === 1 ? 'Add 1 move' : `Add ${pending} moves`;
-}
-
-/**
- * The chip beside that label when the draft reaches past the line on screen:
- * "2 places". It is deliberately a chip and not more words — the header title
- * beside it is already fighting for room, and this only has to say "the number
- * is bigger than what you can see; tapping will show you".
- */
-function draftPlacesNote(): string | null {
-  if (pendingAllVisible()) return null;
-  const places = pendingBranches().length;
-  return `${places} ${places === 1 ? 'place' : 'places'}`;
 }
 
 // What the header says when there is nothing to add: how much of the book runs
@@ -828,18 +792,19 @@ function handleDuplicateSaveTap(): boolean {
 function renderMoveListInto(el: HTMLElement): void {
   const activeId = getCurrentNode().id;
   el.innerHTML = '';
-  // A book is a tree of every line you have; drawing it PGN-style would put the
-  // whole repertoire in a strip. Inside a book the strip shows the LINE you are
-  // standing in — the path to the cursor, then straight on to where that line
-  // ends — with anything not yet added marked as a draft.
+  // A book is a tree of every line you have; drawing all of it would put the
+  // whole repertoire in a strip. Inside a book the strip draws the WORK IN
+  // FRONT OF YOU and nothing else: the moves walked to reach the cursor, plus
+  // every branch of the open draft — a second answer played off the same
+  // position appearing as a parenthesised variation, PGN style.
+  //
+  // It used to run on past the cursor down the first stored continuation, on
+  // the theory that "the line I am standing in" continues to its end. At the
+  // start position that theory picks a line at random, which is why opening the
+  // builder on a brand-new line showed moves somebody had already written. Now
+  // a fresh cursor with no draft draws nothing, and the strip folds away.
   if (inBook()) {
-    const nodes = currentLineNodes();
-    nodes.forEach((node, i) => {
-      emitMove(el, node, i + 1, i === 0, activeId);
-      if (isPending(node.id)) {
-        el.lastElementChild?.classList.add('move-san--draft');
-      }
-    });
+    renderContinuation(el, rootNode(), 1, activeId, true, draftPathNodes());
     centreActive(el);
     return;
   }
@@ -855,8 +820,30 @@ function renderMoveListInto(el: HTMLElement): void {
   centreActive(el);
 }
 
-// Keep the active move centred in the horizontally-scrolling strip.
+/**
+ * The nodes the strip is allowed to draw inside a book.
+ *
+ * Two things, unioned: the path walked to the cursor (how you got where you are)
+ * and every branch of the open draft — its added moves, and the prepared moves
+ * it hangs off, so a draft started three moves back still reads as one sequence.
+ * Everything else in the book is somebody else's line as far as this strip is
+ * concerned.
+ */
+function draftPathNodes(): Set<string> {
+  const ids = new Set<string>();
+  for (const node of pathTo(getCurrentNode().id)) ids.add(node.id);
+  for (const branch of pendingBranches()) {
+    for (const node of branch.from) ids.add(node.id);
+    for (const node of branch.moves) ids.add(node.id);
+  }
+  return ids;
+}
+
+// Keep the active move centred in the horizontally-scrolling strip. The Line
+// info BOX wraps instead of scrolling, so there is nothing to centre there —
+// it falls out of this on the width check.
 function centreActive(el: HTMLElement): void {
+  if (el.scrollWidth <= el.clientWidth) { el.scrollLeft = 0; return; }
   const activeEl = el.querySelector<HTMLElement>('.move-san.active');
   if (!activeEl) { el.scrollLeft = 0; return; }
   const elRect = el.getBoundingClientRect();
@@ -870,26 +857,33 @@ function centreActive(el: HTMLElement): void {
 // a black move show its number too (line start / right after a variation).
 function renderContinuation(
   container: HTMLElement, parent: MoveNode, ply: number, activeId: string, forceNumber: boolean,
+  visible?: Set<string>,
 ): void {
-  if (parent.children.length === 0) return;
-  const main = parent.children[0];
+  // `visible` is the book's filter: only these nodes exist as far as this walk
+  // is concerned. Without it (the analyser, a single-path build) the whole tree
+  // is drawn, exactly as before.
+  const children = visible
+    ? parent.children.filter(c => visible.has(c.id))
+    : parent.children;
+  if (children.length === 0) return;
+  const main = children[0];
   emitMove(container, main, ply, forceNumber, activeId);
 
   let nextForce = false;
-  if (parent.children.length > 1) {
-    for (let i = 1; i < parent.children.length; i++) {
-      const v = parent.children[i];
+  if (children.length > 1) {
+    for (let i = 1; i < children.length; i++) {
+      const v = children[i];
       const wrap = document.createElement('span');
       wrap.className = 'move-var';
       wrap.appendChild(document.createTextNode('('));
       emitMove(wrap, v, ply, true, activeId);          // variation's first move: numbered
-      renderContinuation(wrap, v, ply + 1, activeId, false);
+      renderContinuation(wrap, v, ply + 1, activeId, false, visible);
       wrap.appendChild(document.createTextNode(')'));
       container.appendChild(wrap);
     }
     nextForce = true; // the main line resumes after the variations — re-number it
   }
-  renderContinuation(container, main, ply + 1, activeId, nextForce);
+  renderContinuation(container, main, ply + 1, activeId, nextForce, visible);
 }
 
 function emitMove(
@@ -902,7 +896,12 @@ function emitMove(
     num.textContent = white ? `${Math.ceil(ply / 2)}.` : `${Math.ceil(ply / 2)}…`;
     container.appendChild(num);
   }
-  container.appendChild(moveSpan(node, activeId));
+  const span = moveSpan(node, activeId);
+  // A move played onto the board but not yet added to the book. Marked here
+  // rather than at the call site, so it shows wherever the strip draws it —
+  // including inside a parenthesised draft variation.
+  if (inBook() && isPending(node.id)) span.classList.add('move-san--draft');
+  container.appendChild(span);
 }
 
 // The "Analyse game" button (Game tab, analyser only) has three states: idle
@@ -950,11 +949,19 @@ function updateMoveNavButtons(): void {
     const b = document.getElementById(id) as HTMLButtonElement | null;
     if (b) b.disabled = disabled;
   };
+  set('move-start', atStart);
   set('move-prev', atStart);
   set('move-next', atEnd);
 }
 
 function setupMoveNav(): void {
+  // Rewind: the one control the bar was missing. Walking back to the start took
+  // as many taps as there were moves, which on a twenty-move game is a joke.
+  document.getElementById('move-start')!.addEventListener('click', () => {
+    stopPlayback();
+    goToStart();
+    refreshBuilderLineState();
+  });
   document.getElementById('move-prev')!.addEventListener('click', stepBack);
   document.getElementById('move-next')!.addEventListener('click', stepForward);
 }
@@ -1014,6 +1021,11 @@ function openGameForAnalysis(
   // it dirty (the auto-review's classifications are stripped from the snapshot), so
   // an untouched game closes without the save prompt.
   savedSnapshot = builderSnapshot();
+  // The full pass, not just the save button: `analyserGameId` is only set two
+  // lines above (the build clears it), and it is what decides whether the Game
+  // tab offers "Delete game" at all. Running only refreshSaveButtonState here
+  // left that button hidden on every game opened from My games.
+  updateSaveButtonLabel();
   refreshSaveButtonState();
   if (o.atFen) {
     const target = mainline().find(n => n.fen === o.atFen);
@@ -1375,6 +1387,52 @@ function applyBuilderSlideOrder(): void {
     tab.textContent = slideTabLabel(id);
     tabs.appendChild(tab);
   });
+
+  // Switching between builder and analyser renames the Line tab without moving
+  // the active index, so the info control's name is refreshed here too.
+  syncBuilderInfoLabel();
+}
+
+// ── The sheet's info control ─────────────────────────────────────────────────
+//
+// One button, bottom right of the sheet, whose dialog follows whichever slide is
+// showing. Five buttons — one absolutely positioned inside each scrolling panel —
+// would be five things to keep out of the way of five different layouts; this is
+// one, outside the carousel, so it can't scroll away with a panel's content.
+
+// Which explanation the button opens for a slide. The Line tab is two different
+// tabs depending on the mode ("Line info" building, "Game" analysing), and it
+// owes a different explanation in each.
+function infoIdFor(id: SlideId): BuilderInfoId | 'library' {
+  if (id === 'library') return 'library';
+  if (id === 'line') return builderMode === 'analyser' ? 'game' : 'line';
+  return id;
+}
+
+function setupBuilderInfo(): void {
+  const btn = document.getElementById('builder-info');
+  if (!btn) return;
+  btn.appendChild(Icons.info(16));
+  btn.addEventListener('click', () => {
+    const slide = slideIdAt(activeSlide);
+    if (!slide) return;
+    const id = infoIdFor(slide);
+    // The Library's explanation is the opening-database dialog, which carries
+    // the Lichess connect/disconnect buttons — it belongs with the panel that
+    // owns that state, not with the static copy in builder-info.ts.
+    if (id === 'library') { builderPanels?.showLibraryInfo(); return; }
+    showBuilderInfo(id);
+  });
+  syncBuilderInfoLabel();
+}
+
+function syncBuilderInfoLabel(): void {
+  const btn = document.getElementById('builder-info');
+  const slide = slideIdAt(activeSlide);
+  if (!btn || !slide) return;
+  const label = builderInfoLabel(infoIdFor(slide));
+  btn.setAttribute('aria-label', label);
+  btn.title = label;
 }
 
 // The analyser's first tab names the game it's showing, not a repertoire line.
@@ -1409,6 +1467,7 @@ function onActiveSlide(index: number): void {
   });
   if (index === activeSlide) return;
   activeSlide = index;
+  syncBuilderInfoLabel();
   const id = slideIdAt(index);
   if (id) builderPanels?.setActiveSlide(id);
   explorePanel?.setActive(id === 'explore');
@@ -1881,14 +1940,15 @@ function renderNoteBlock(): void {
   const btn = document.getElementById('note-btn')!;
   const label = document.getElementById('note-btn-label')!;
   const node = getCurrentNode();
-  // The note button lives in the Line tab's action row. At the root there's no
-  // move to annotate, so hide the button (Title/Tags stay) and the display.
+  // The note BUTTON lives in the Line tab's action row, which the analyser
+  // gives over to "Open in builder" / "Save line" — so it's builder-only, and
+  // only once there's a move to annotate. The note DISPLAY below is not: an
+  // imported game carries its own per-move notes, and they still show.
+  btn.hidden = node.id === 'root' || builderMode === 'analyser';
   if (node.id === 'root') {
-    btn.hidden = true;
     block.hidden = true;
     return;
   }
-  btn.hidden = false;
   // Not while the line is playing itself through. A note appearing and vanishing
   // under a board that's moving on its own re-lays the panel out on every ply —
   // the watch is for seeing the SHAPE of the line, and the notes are still one
@@ -2101,8 +2161,16 @@ function playUci(uci: string): void {
   renderMoveList();
   renderMoveDetails();
   updateOpeningName();
+  // Playing a move moves you between lines of the book exactly as navigating
+  // does, so the panel that describes "the line I am in" has to catch up. It
+  // used to run on navigation only, which left the Line tab (and the header
+  // title) describing the line you had just branched away from.
+  refreshBuilderLineState();
   reevaluate();
   notifyBuilderMove();
+  // Explore's auto-reply answers a move that was PLAYED, never one that was
+  // navigated to — so it hangs off these two funnels rather than off a render.
+  explorePanel?.movePlayed();
   void gradeLiveMove(node, parentFen);
 }
 
@@ -2128,9 +2196,40 @@ function commitBoardMove(from: string, to: string, promotion: 'q' | 'r' | 'b' | 
   renderMoveList();
   renderMoveDetails();
   updateOpeningName();
+  // Playing a move moves you between lines of the book exactly as navigating
+  // does, so the panel that describes "the line I am in" has to catch up. It
+  // used to run on navigation only, which left the Line tab (and the header
+  // title) describing the line you had just branched away from.
+  refreshBuilderLineState();
   reevaluate();
   notifyBuilderMove();
+  // Explore's auto-reply answers a move that was PLAYED, never one that was
+  // navigated to — so it hangs off these two funnels rather than off a render.
+  explorePanel?.movePlayed();
   void gradeLiveMove(node, parentFen);
+}
+
+/**
+ * Take the move on the board back off the line — Explore's "Another reply".
+ *
+ * A move the auto-reply just played is a DRAFT, so taking it back means dropping
+ * it out of the tree entirely; that is what makes swapping a reply free rather
+ * than something that leaves a rejected branch behind. A move that is already in
+ * the book is somebody's saved line and is left alone: the cursor simply walks
+ * back, and the next reply lands as a new sibling.
+ *
+ * False when there is nothing to take back (the board is at the start).
+ */
+function takeBackLastMove(): boolean {
+  const node = getCurrentNode();
+  if (node.id === 'root') return false;
+  const path = pathTo(node.id);
+  const parentId = path.length > 1 ? path[path.length - 2].id : 'root';
+  const wasDraft = inBook() && isPending(node.id);
+  if (wasDraft) discardBranch(node.id);
+  handleMoveClick(parentId);
+  if (wasDraft) updateSaveButtonLabel();
+  return true;
 }
 
 // Snap the board back to the current chess.js position — used when a promotion is
@@ -2178,12 +2277,15 @@ function inBook(): boolean {
 function refreshBuilderLineState(): void {
   if (!inBook()) return;
   const line = bookCurrentLine();
+  const wasUnsaved = loadedLineId === null;
   currentTrainingLine = line;
   loadedLineId = line?.id ?? null;
   loadedLineCreatedAt = line?.createdAt;
   // A line that isn't in the book yet states an INTENT to train, which is the
-  // same thing the toggle has always said before a first save.
-  loadedLineInTraining = line ? line.inTraining : true;
+  // same thing the toggle has always said before a first save — and moving
+  // between two unsaved positions must not quietly switch that intent back on,
+  // or "just save it" would be undone by playing one more move.
+  loadedLineInTraining = line ? line.inTraining : (wasUnsaved ? loadedLineInTraining : true);
   workingPriority = line?.priority ?? DEFAULT_PRIORITY;
   currentTags = line ? [...line.tags] : [];
   manualTitle = line?.name ?? null;
@@ -2216,6 +2318,10 @@ async function enterBuilderBook(
   then?.();
   updateSaveButtonLabel();
   builderPanels?.render();
+  // A Black book opens with White to move, so with Explore's auto-reply on the
+  // opponent owes a move before the user has played anything. Only from the
+  // start — a `then` that walked the cursor somewhere has its own plans.
+  if (getCurrentNode().id === 'root') explorePanel?.openedAtStart();
 }
 
 // Commit the draft. The working tree is already the merged result — a move
@@ -2446,22 +2552,17 @@ async function rereadBookAfterBranchEdit(bookId: string, ucis: string[]): Promis
 }
 
 /**
- * The header's add action.
+ * The header's add action: one tap, always.
  *
- * It commits straight away when every added move is on the line in front of
- * you — the ordinary case, and it stays one tap. When the draft reaches into
- * branches you are not looking at, it shows them first: the button would
- * otherwise write work the user has no way of seeing from where they stand.
+ * It used to stop and show the draft first whenever part of it was off the line
+ * in front of you, because the button would otherwise have written work the
+ * user had no way of seeing. The move strip draws every branch of the draft now
+ * — variations in parentheses, PGN style — so there is nothing hidden left to
+ * show. (The sheet still exists: it is what the leave guard uses when you walk
+ * away from a draft built in several places.)
  */
 function addFromHeader(): void {
-  if (pendingAllVisible()) { void commitBook(); return; }
-  openDraftSheet({
-    branches: pendingBranches(),
-    moves: pendingCount(),
-    onAddAll: () => void commitBook(),
-    onDiscardBranch: (rootId) => { discardBranch(rootId); afterDraftEdit(); },
-    onGoTo: (lastId) => handleMoveClick(lastId),
-  });
+  void commitBook();
 }
 
 /** A branch was dropped from the draft — the tree and every count moved. */
@@ -2618,7 +2719,10 @@ function playStep(): void {
 // line in exactly the same way — same speed pref, same stepping, same pause
 // button — rather than growing a second animation loop beside it.
 function startPlaybackFromStart(onDone?: () => void): void {
-  const moves = mainline();
+  // Inside a book, mainline() is the book's FIRST line, not the one you are
+  // looking at — so Watch used to play somebody else's line back at you from
+  // wherever you were standing. The line the cursor is in is the one to watch.
+  const moves = inBook() ? currentLineNodes() : mainline();
   if (moves.length === 0) { onDone?.(); return; }
   playbackMoves = moves;
   playbackIndex = 0;
@@ -2664,33 +2768,43 @@ function updateSaveButtonLabel(): void {
   // The "Analyse game" button is the analyser's manual grade trigger.
   refreshReviewButtonState();
 
-  // The "save this line to my repertoire" action only makes sense in the analyser.
-  const saveLineBtn = document.getElementById('save-line-btn');
-  if (saveLineBtn) saveLineBtn.hidden = !analyser;
+  // The action row is one row of four, and which four depends on the mode.
+  //
+  //   builder  — Training · Tags · Note · Delete. What you do TO a line.
+  //   analyser — Open in builder · Save line · Delete. A game isn't a line you
+  //              train or tag; it's a thing you take lines out of, so the two
+  //              middle slots become the two ways out of it.
+  const setHidden = (id: string, hidden: boolean): void => {
+    const el = document.getElementById(id);
+    if (el) el.hidden = hidden;
+  };
+  setHidden('save-line-btn', !analyser);
+  setHidden('open-builder-btn', !analyser);
+  setHidden('tags-btn', analyser);
+  // The note button also depends on WHERE the cursor is (there is no move to
+  // annotate at the start), so renderNoteBlock owns it entirely — including
+  // taking it away in the analyser.
+  renderNoteBlock();
 
-  // Renaming a repertoire line makes sense in builder mode; renaming a game's
-  // extracted-line title in the analyser doesn't, so it's builder-only.
-  const renameBtn = document.getElementById('rename-btn');
-  if (renameBtn) renameBtn.hidden = builderMode === 'analyser';
-
-  // Delete sits at the foot of the Line panel: removes the saved game (analyser)
-  // or the saved line (builder). Hidden for a brand-new, never-saved line — there
-  // is nothing to delete yet.
+  // Delete: the saved game (analyser) or the saved line (builder). Icon-only —
+  // the label is on the button's accessible name — so four controls fit a phone
+  // width. Hidden for a brand-new, never-saved line: nothing to delete yet.
   const deleteBtn = document.getElementById('line-delete');
   if (deleteBtn) {
-    const canDelete = builderMode === 'analyser' ? !!analyserGameId : !!loadedLineId;
+    const canDelete = analyser ? !!analyserGameId : !!loadedLineId;
     deleteBtn.hidden = !canDelete;
-    const lbl = deleteBtn.querySelector('.line-delete-label');
-    if (lbl) lbl.textContent = builderMode === 'analyser' ? 'Delete game' : 'Delete line';
+    const label = analyser ? 'Delete game' : 'Delete line';
+    deleteBtn.setAttribute('aria-label', label);
+    deleteBtn.title = label;
   }
 
-  // Training toggle sits next to Delete: builder mode only (a game has no
-  // inTraining concept), but shown from the very first move rather than only
-  // once the line is saved — deciding how a line will be trained is part of
-  // building it, not an afterthought a modal asks about later.
+  // Training toggle leads the row: builder mode only (a game has no inTraining
+  // concept), but shown from the very first move rather than only once the line
+  // is saved — deciding how a line will be trained is part of building it, not
+  // an afterthought a modal asks about later.
   const trainingToggle = document.getElementById('line-training-toggle');
   if (trainingToggle) {
-    trainingToggle.hidden = builderMode !== 'builder';
+    trainingToggle.hidden = analyser;
     applyLineTrainingToggleState();
   }
 
@@ -2771,8 +2885,20 @@ function applyLineTrainingToggleState(): void {
   btn.setAttribute('aria-checked', String(loadedLineInTraining));
   const lbl = btn.querySelector('.dline-toggle-label');
   if (!lbl) return;
-  if (loadedLineId) lbl.textContent = `Training ${loadedLineInTraining ? 'ON' : 'OFF'}`;
-  else lbl.textContent = loadedLineInTraining ? 'Train after saving' : 'Just save it';
+  // Short enough for a quarter of a phone's width — this control shares its row
+  // with three others now. The full sentence lives on the button's own name,
+  // which is where a screen reader and a long-press both look for it.
+  const saved = !!loadedLineId;
+  lbl.textContent = saved
+    ? `Training ${loadedLineInTraining ? 'ON' : 'OFF'}`
+    : (loadedLineInTraining ? 'Train it' : 'Just save');
+  const full = saved
+    ? (loadedLineInTraining ? 'In training — tap to pause it' : 'Paused — tap to put it back in training')
+    : (loadedLineInTraining
+      ? 'This line goes into training when you add it — tap to just save it'
+      : 'This line is saved without going into training — tap to train it');
+  btn.setAttribute('aria-label', full);
+  btn.title = full;
 }
 
 // Flip inTraining on the loaded, saved line immediately — no need to hit
@@ -4786,6 +4912,19 @@ async function saveLineFromCurrentPath(): Promise<void> {
   void doSave();
 }
 
+/**
+ * Game analyser: "Open in builder" hands the CURRENT path (root → the move on
+ * the board) to the builder as a line to carry on with, instead of filing it
+ * straight to My Lines. Same handoff the board browser makes — the moves land
+ * as an ordinary build that merges into your book when you save it.
+ */
+function openCurrentPathInBuilder(): void {
+  const ucis = pathTo(getCurrentNode().id).map(n => n.uci);
+  if (!ucis.length) { showToast('Step to a move first'); return; }
+  buildFromUcis(ucis, saveColour);
+  showToast('Carry on from here');
+}
+
 // Surface a saved line on My Lines, highlighted so it's easy to find.
 function goToSavedLine(id: string): void {
   focusSavedLine(id);
@@ -5097,12 +5236,13 @@ function setupSaveButton() {
   document.getElementById('save-line-btn')?.addEventListener('click', () => {
     void saveLineFromCurrentPath();
   });
+  // The analyser's other way out: take the moves up to the cursor into the
+  // builder and carry on building from there, rather than filing them straight
+  // as a line. Same handoff the board browser's "Open in builder" makes.
+  document.getElementById('open-builder-btn')?.addEventListener('click', openCurrentPathInBuilder);
   const deleteBtn = document.getElementById('line-delete');
   if (deleteBtn) {
-    deleteBtn.appendChild(Icons.trash(15));
-    const lbl = document.createElement('span');
-    lbl.className = 'line-delete-label';
-    deleteBtn.appendChild(lbl);
+    deleteBtn.appendChild(Icons.trash(16));
     deleteBtn.addEventListener('click', deleteCurrentLineOrGame);
   }
   document.getElementById('line-training-toggle')?.addEventListener('click', () => {
@@ -5119,18 +5259,17 @@ function setupSaveButton() {
 function setupPlaybackControls(): void {
   const watchBtn = document.getElementById('watch-btn') as HTMLButtonElement;
 
-  // Flip: swap to the other side AND switch which colour this line saves as —
-  // building from White and flipping means you're now preparing the Black side.
-  // The colour-dependent slides (My games / Scouting) refresh to match.
+  // Flip: turn the board round, and NOTHING else. It used to also swap
+  // `saveColour`, so looking at a White line from Black's side quietly re-filed
+  // it in the Black book — a view control that edited your data. The colour a
+  // line saves as is decided when the builder is opened (which book you are
+  // standing in); seeing the position from the other side is just a look.
   document.getElementById('board-flip')!.addEventListener('click', () => {
     cg.toggleOrientation();
-    saveColour = saveColour === 'white' ? 'black' : 'white';
-    renderTitle();
-    builderPanels?.render();
-    // Colour is half of line identity, so flipping can make the line on the
-    // board stop (or start) matching one already saved.
-    refreshSaveButtonState();
-    showToast(`This line will now save as ${saveColour === 'white' ? 'White' : 'Black'}`);
+    // The board's own overlays (grade badges, engine arrows) are drawn per
+    // square, so they survive the flip — but redraw them anyway, since
+    // chessground rebuilds its shape layer on an orientation change.
+    refreshBoardShapes();
   });
 
   watchBtn.addEventListener('click', () => {
@@ -5470,9 +5609,11 @@ maybeShowGate(() => requestAnimationFrame(() => {
     onImportGames: () => openImportPanel({
       onImported: () => { builderPanels?.reload(); builderPanels?.render(); explorePanel?.reload(); },
     }),
+    onTakeBack: takeBackLastMove,
   });
 
   setupSaveButton();
+  setupBuilderInfo();
   setupPlaybackControls();
   setupTitleControls();
   setupNoteBlock();

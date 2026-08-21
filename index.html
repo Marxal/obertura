@@ -93,11 +93,25 @@
             <section class="builder-slide builder-slide--list" id="slide-explore" aria-label="Explore"></section>
             <section class="builder-slide" id="slide-line" aria-label="Line info">
               <div id="line-panel">
+                <!-- ONE row of four. "Title" went: a line's name is the opening
+                     it reaches, detected and shown right below, and hand-naming
+                     it was a control almost nobody touched taking a quarter of
+                     the row. What is left is what you actually do to a line —
+                     train it or not, tag it, note it, delete it. The analyser
+                     swaps the middle two for "Open in builder" / "Save line",
+                     since a game is a thing you take lines OUT of. Delete is
+                     icon-only so four controls fit a phone width without any
+                     label wrapping. -->
                 <div class="line-actions">
-                  <button id="rename-btn" type="button" class="line-action" aria-label="Edit name" title="Edit name"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg><span>Title</span></button>
+                  <button id="line-training-toggle" type="button" class="line-action line-action--train dline-toggle" role="switch" aria-checked="false" hidden>
+                    <span class="dline-switch" aria-hidden="true"><span class="dline-switch-knob"></span></span>
+                    <span class="dline-toggle-label">Training OFF</span>
+                  </button>
                   <button id="tags-btn" type="button" class="line-action" aria-label="Edit tags" title="Edit tags"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></svg><span>Tags</span></button>
                   <button id="note-btn" type="button" class="line-action" aria-label="Add a note" title="Add a note"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span id="note-btn-label">Add note</span></button>
+                  <button id="open-builder-btn" type="button" class="line-action" aria-label="Open these moves in the builder" title="Open in builder" hidden><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg><span>Builder</span></button>
                   <button id="save-line-btn" type="button" class="line-action" aria-label="Save this line to My Lines" title="Save this line to My Lines" hidden><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg><span>Save line</span></button>
+                  <button id="line-delete" class="line-action line-action--delete" type="button" hidden></button>
                 </div>
                 <button id="analyse-game-btn" type="button" class="analyse-game-btn" hidden><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="11.5" r="6"/><path d="m14.3 15.8 3.7 3.7"/><path d="M18 2l.95 2.25 2.25.95-2.25.95L18 8.4l-.95-2.25-2.25-.95 2.25-.95z" fill="currentColor" stroke="none"/><path d="M21.4 9.3l.5 1.2 1.2.5-1.2.5-.5 1.2-.5-1.2-1.2-.5 1.2-.5z" fill="currentColor" stroke="none"/></svg><span class="analyse-game-label">Analyse game</span></button>
                 <div class="line-title-row">
@@ -110,15 +124,17 @@
                 <div id="note-block" class="note-block" hidden>
                   <p id="note-display" class="note-display" hidden></p>
                 </div>
-                <div class="line-footer">
-                  <button id="line-training-toggle" type="button" class="dline-toggle" role="switch" aria-checked="false" hidden>
-                    <span class="dline-switch" aria-hidden="true"><span class="dline-switch-knob"></span></span>
-                    <span class="dline-toggle-label">Training OFF</span>
-                  </button>
-                  <button id="line-delete" class="line-delete" type="button" hidden></button>
-                </div>
                 <div id="line-priority" class="line-priority" hidden></div>
                 <div id="line-stats" class="line-stats" hidden></div>
+                <!-- The moves again, at the foot of the panel — but WRAPPED into
+                     a box rather than the single scrolling line the strip above
+                     is. The strip is for keeping your place while you build; this
+                     is for reading the whole sequence at once, which is what you
+                     want when the tab is describing the line (or the game). -->
+                <div id="line-movebox" class="line-movebox">
+                  <div class="lineinfo-head"><span class="lineinfo-head-title">Moves</span></div>
+                  <div id="move-list-box" class="move-list move-list--box"></div>
+                </div>
               </div>
             </section>
             <section class="builder-slide builder-slide--list" id="slide-library" aria-label="Opening library">
@@ -129,6 +145,11 @@
             </section>
             <section class="builder-slide builder-slide--list" id="slide-engine" aria-label="Engine"></section>
             </div>
+            <!-- One discrete "what is this tab for?" control, bottom right of
+                 the sheet, whose dialog follows whichever slide is showing. It
+                 lives outside the carousel so it can't scroll away with a
+                 panel's content. -->
+            <button id="builder-info" class="builder-info" type="button" aria-label="About this tab"></button>
           </div>
           <div id="builder-dock" class="builder-dock">
             <div id="builder-eval" class="builder-eval" hidden>
@@ -141,7 +162,8 @@
                 <button id="builder-engine" type="button" class="bar-btn" aria-label="Engine" title="Engine" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></svg></button>
               </div>
               <div class="builder-bar-group">
-                <button id="watch-btn" type="button" class="bar-btn bar-btn--step watch-btn" aria-label="Watch line" title="Watch line"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" stroke="none" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>
+                <button id="move-start" type="button" class="bar-btn bar-btn--step bar-btn--mini" aria-label="Back to the starting position" title="Back to the start"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18.5 19 9 12l9.5-7z"/><path d="M5 19V5"/></svg></button>
+                <button id="watch-btn" type="button" class="bar-btn bar-btn--step bar-btn--mini watch-btn" aria-label="Watch line" title="Watch line"><svg viewBox="0 0 24 24" width="19" height="19" fill="currentColor" stroke="none" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>
                 <button id="move-prev" type="button" class="bar-btn bar-btn--step" aria-label="Step back" title="Back"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
                 <button id="move-next" type="button" class="bar-btn bar-btn--step" aria-label="Step forward" title="Forward"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
               </div>

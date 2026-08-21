@@ -1027,34 +1027,10 @@ header h1.header-title--screen {
   display: none;
 }
 
-/* Carrying the chip, the button gives its padding back to the header title
-   beside it — the title is the half that has nowhere else to go. */
-.header-save--places {
-  padding-left: 0.7rem;
-  padding-right: 0.45rem;
-  gap: 0.3rem;
-}
-
-/* The disk glyph goes when the chip arrives. Both are saying "this button
-   writes something"; the chip is the half that also says WHAT, and on a phone
-   header the twenty pixels belong to the line's title instead. */
-.header-save--places > svg { display: none; }
-
-/* "2 places" — shown inside the add button when the draft reaches branches the
-   move strip isn't drawing. Small and quiet: its whole job is to say the count
-   beside it is bigger than what you can see, and that tapping will show you. */
-.header-save-places {
-  flex: 0 0 auto;
-  margin-left: 0.1rem;
-  padding: 0.05rem 0.32rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.2);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0;
-  text-shadow: none;
-  white-space: nowrap;
-}
+/* A "2 places" chip used to ride inside this button whenever the draft reached
+   branches the move strip wasn't drawing. The strip draws all of them now
+   (parenthesised, PGN style), so the count is always a count of moves on
+   screen and there is nothing left for the chip to apologise for. */
 
 /* The line on the board is already saved, so the button no longer saves — it
    opens that line, or adds the tag that's new (TRANSPOSITIONS.md §4/§5). It
@@ -2505,7 +2481,7 @@ html[data-coords="off"] .cg-wrap coords {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0.4rem;
-  padding: 0.5rem 0 0.55rem;
+  padding: 0 0 0.5rem;
 }
 
 /* The source tint, set once per card and reused by every part of it (border,
@@ -2593,15 +2569,63 @@ html[data-coords="off"] .cg-wrap coords {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
+/* The question, at the very top: the three tiles under it are its answers, and
+   the cards under those are the argument. It used to sit BETWEEN the tiles and
+   the cards, with a rule above it — which made it read as a caption for the
+   cards and left the tiles arriving unannounced. */
 .explore-head {
-  padding: 0.35rem 0.25rem 0.4rem;
-  border-top: 1px solid var(--hairline-soft);
+  padding: 0.5rem 0.25rem 0.4rem;
 }
 .explore-head-title {
   font-size: 0.86rem;
   font-weight: 700;
   line-height: 1.25;
 }
+
+/* ── Auto-reply ──────────────────────────────────────────────────────────────
+   A switch under the three tiles, plus — once a reply is actually on the board —
+   the way to swap it for the next suggestion. Quiet: it is a setting for how the
+   slide behaves, not a fourth move to choose. */
+.explore-auto {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.15rem 0.15rem 0.5rem;
+  border-bottom: 1px solid var(--hairline-soft);
+  margin-bottom: 0.5rem;
+}
+.explore-auto-toggle.dline-toggle {
+  gap: 0.4rem;
+  padding: 0.15rem 0.1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.explore-auto .dline-switch { width: 28px; height: 16px; }
+.explore-auto .dline-switch-knob { width: 12px; height: 12px; }
+.explore-auto .dline-toggle--on .dline-switch-knob { transform: translateX(12px); }
+
+.explore-auto-again {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 0 0 auto;
+  padding: 0.22rem 0.6rem;
+  border: 1px solid var(--border-card);
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.explore-auto-again:active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.explore-auto-again-ico { flex: 0 0 auto; }
 
 .explore-rows {
   display: flex;
@@ -2621,21 +2645,17 @@ html[data-coords="off"] .cg-wrap coords {
 }
 .explore-card--cue { border-color: var(--accent); }
 
+/* No longer a button: the tile above is where the move is chosen, and a whole
+   second tappable row with its own plus made the panel offer every move twice.
+   What's left is a heading for the record underneath it. */
 .explore-card-head {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.5rem;
   min-width: 0;
-  padding: 0.45rem 0.5rem;
-  border: none;
-  background: transparent;
-  font: inherit;
-  color: inherit;
+  padding: 0.4rem 0.5rem 0.3rem;
   text-align: left;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
 }
-.explore-card-head:active { background: var(--bg-parchment); }
 
 .explore-card-move {
   flex: 0 0 auto;
@@ -2674,31 +2694,21 @@ html[data-coords="off"] .cg-wrap coords {
   white-space: nowrap;
 }
 
-/* The card's own add button — same promise as the tile above, at the end of the
-   row you're reading. */
-.explore-card-add {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--explore-tint) 14%, transparent);
-  color: color-mix(in srgb, var(--explore-tint) 85%, var(--text-muted));
-}
-
 /* Everything that used to hide behind the chevron. Two columns — label, then
    the bar — so "you" and the database sit on the same grid and the comparison
-   is a glance rather than a calculation. */
+   is a glance rather than a calculation.
+
+   The dividing rule went with the card's press state: with no button above it
+   there are no longer two regions to separate, and one card was carrying a left
+   accent, an outline, a rule, a tinted verdict strip and a row of outlined
+   pills. The facts are all still here; the boxes around them are not. */
 .explore-stats {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 0.3rem 0.5rem;
+  gap: 0.25rem 0.5rem;
   margin: 0 0.5rem;
-  padding: 0.45rem 0 0.55rem;
-  border-top: 1px solid var(--hairline-soft);
+  padding: 0 0 0.5rem;
 }
 .explore-stat-label {
   font-size: 0.6rem;
@@ -2718,23 +2728,13 @@ html[data-coords="off"] .cg-wrap coords {
   display: flex;
   align-items: center;
   gap: 0.3rem;
-  padding: 0.22rem 0.4rem;
-  border-radius: 7px;
+  padding: 0.1rem 0;
   font-size: 0.7rem;
   line-height: 1.25;
 }
-.explore-compare--up {
-  background: color-mix(in srgb, var(--success) 14%, transparent);
-  color: var(--success-active);
-}
-.explore-compare--down {
-  background: color-mix(in srgb, var(--danger) 14%, transparent);
-  color: var(--danger-active);
-}
-.explore-compare--level {
-  background: var(--bg-parchment);
-  color: var(--text-muted);
-}
+.explore-compare--up { color: var(--success-active); }
+.explore-compare--down { color: var(--danger-active); }
+.explore-compare--level { color: var(--text-faint); }
 /* On dark, the -active inks are too dark to sit on their own tint; lift them
    toward the page's cream. */
 [data-theme="dark"] .explore-compare--up {
@@ -2750,31 +2750,31 @@ html[data-coords="off"] .cg-wrap coords {
   font-variant-numeric: tabular-nums;
 }
 
-/* The loose numbers that don't deserve a bar. */
+/* The loose numbers that don't deserve a bar. Plain text on a divider, not
+   outlined pills: three of these per card, three cards per screen, was nine
+   little capsules doing the work of nine short phrases. */
 .explore-facts {
   grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem;
+  align-items: baseline;
+  gap: 0.1rem 0.7rem;
+  padding-top: 0.1rem;
 }
 .explore-fact {
   display: inline-flex;
   align-items: baseline;
   gap: 0.28rem;
-  padding: 2px 7px;
-  border: 1px solid var(--hairline-soft);
-  border-radius: 999px;
-  background: var(--bg-parchment);
 }
 .explore-fact-k {
-  font-size: 0.56rem;
+  font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--text-fainter);
 }
 .explore-fact-v {
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   font-weight: 700;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
@@ -2786,17 +2786,13 @@ html[data-coords="off"] .cg-wrap coords {
   align-items: center;
   gap: 3px;
   flex: 0 0 auto;
-  padding: 1px 6px 1px 4px;
-  border-radius: 999px;
   font-size: 0.6rem;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  background: var(--bg-parchment);
-  color: var(--text-muted);
+  color: color-mix(in srgb, var(--explore-tint) 70%, var(--text-muted));
 }
 .explore-chip svg { flex-shrink: 0; }
-.explore-chip--games { color: var(--accent); }
 
 .explore-empty { padding: 0.25rem 0; }
 
@@ -3117,22 +3113,12 @@ html[data-coords="off"] .cg-wrap coords {
   font-style: italic;
 }
 
-.lib-db-info {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-left: auto;          /* always pinned to the far right of the bar */
-  padding: 0.15rem;
-  border: none;
-  background: transparent;
-  color: var(--text-faint);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-/* A discrete off-book note ("games from here") riding on the top bar, between
-   the source toggle / connect nudge and the info button. */
+/* A discrete off-book note ("games from here") riding on the top bar, after the
+   source toggle / connect nudge. It takes the far-right slot the Library's own
+   (i) used to hold — every tab's info now lives on one control at the bottom
+   right of the sheet (.builder-info). */
 .lib-db-caption {
+  margin-left: auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3196,13 +3182,13 @@ html[data-coords="off"] .cg-wrap coords {
   align-items: center;
   justify-content: center;
   gap: 0.25rem;
-  padding: 0.4rem 0.35rem;
+  padding: 0.4rem 0.3rem;
   border: 1px solid var(--border-card);
   border-radius: 999px;
   background: var(--bg-card);
   color: var(--text-muted);
   font-family: system-ui, -apple-system, sans-serif;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -3218,6 +3204,64 @@ html[data-coords="off"] .cg-wrap coords {
 }
 .line-action:active { filter: brightness(0.97); color: var(--text); }
 .line-action[hidden] { display: none; }
+
+/* ── The four-across row ─────────────────────────────────────────────────────
+   Training · Tags · Note · Delete, on one line of a phone. Two things make that
+   fit: the training pill gets a share and a half of the width (its label is by
+   far the longest, and it carries a switch as well), and delete gives up its
+   label entirely — it is the one action here whose icon needs no gloss, and its
+   name survives on the button's title/aria-label. */
+.line-actions .line-action--train {
+  flex: 1.45 1 0;
+  gap: 0.3rem;
+  /* The pill wins back the look .dline-toggle takes away (that class is shared
+     with the borderless switch on My Lines, and it lands later in this file). */
+  padding: 0.4rem 0.35rem;
+  border: 1px solid var(--border-card);
+  border-radius: 999px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+/* ON tints the whole pill, not just the words — at this size the switch alone
+   is too small to carry the state. */
+.line-actions .line-action--train.dline-toggle--on {
+  border-color: color-mix(in srgb, var(--success) 45%, var(--border-card));
+  background: color-mix(in srgb, var(--success) 9%, var(--bg-card));
+}
+/* A smaller switch than the full-width one on My Lines: this one shares a pill
+   with its own label and three neighbours. */
+.line-actions .dline-switch {
+  width: 26px;
+  height: 15px;
+}
+.line-actions .dline-switch-knob {
+  width: 11px;
+  height: 11px;
+}
+.line-actions .dline-toggle--on .dline-switch-knob {
+  transform: translateX(11px);
+}
+.line-actions .dline-toggle-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Icon only, and no wider than the icon needs — the label's width is what the
+   other three are short of. Quiet until pressed, like the delete it replaces. */
+.line-actions .line-action--delete {
+  flex: 0 0 auto;
+  width: 40px;
+  padding: 0.4rem 0;
+  color: var(--text-fainter);
+}
+.line-actions .line-action--delete:active {
+  color: var(--danger, #d2453f);
+  border-color: color-mix(in srgb, var(--danger, #d2453f) 45%, var(--border-card));
+}
 
 .line-title-row .colour-pip {
   width: 12px;
@@ -3243,30 +3287,6 @@ html[data-coords="off"] .cg-wrap coords {
   font-style: italic;
   font-weight: 400;
   color: var(--text-faint);
-}
-
-/* Small round edit control in the title row. */
-.rename-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 1px solid var(--border-card);
-  border-radius: 50%;
-  background: var(--bg-card);
-  color: var(--text-muted);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  flex-shrink: 0;
-  box-shadow: var(--shadow-card);
-  transition: color 0.12s, border-color 0.12s, filter 0.12s;
-}
-
-.rename-btn:active {
-  filter: brightness(0.95);
-  transform: translateY(1px);
 }
 
 /* Watch/play-line button (in the bottom control bar, next to Flip): accent
@@ -3360,6 +3380,12 @@ html[data-coords="off"] .cg-wrap coords {
    renderMoveListInto) — every pixel here comes off the board above it. */
 .builder-movestrip {
   flex: 0 0 auto;
+  /* A tone of its own. The strip sits between the tab bar and the panel, both
+     on --bg-card, so on one flat surface it read as the top line of whichever
+     panel was showing rather than as the moves of the line. A few percent of
+     the text colour is enough to separate it in every theme without becoming a
+     block of grey. */
+  background: color-mix(in srgb, var(--text) 5%, var(--bg-card));
   border-bottom: 1px solid var(--hairline-soft);
 }
 .move-list--strip {
@@ -3386,6 +3412,34 @@ html[data-coords="off"] .cg-wrap coords {
 /* The strip is a single line, so a PGN variation block can't be allowed to wrap
    or to grow the row. */
 .move-list--strip .move-var { white-space: nowrap; }
+
+/* The same move list at the foot of Line info, WRAPPED into a box instead of
+   scrolled along one line. Different job: the strip keeps your place while you
+   build, this is for reading the whole sequence at once. */
+.line-movebox {
+  margin-top: 0.9rem;
+}
+/* Nothing played yet — the whole block folds away rather than captioning an
+   empty box. */
+.line-movebox:has(.move-list--box:empty) { display: none; }
+.move-list--box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem 0.1em;
+  max-height: 9.5rem;
+  overflow-y: auto;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--hairline-soft);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--text) 4%, var(--bg-card));
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+/* A variation inside the box is allowed to wrap — that is the whole point of
+   the box — so it keeps its own moves as separate flex items. */
+.move-list--box .move-var { display: contents; }
 
 .move-num,
 .move-san {
@@ -3616,7 +3670,10 @@ html[data-coords="off"] .cg-wrap coords {
   #view-builder:not([hidden]) #builder-sheet {
     grid-column: 2;
     grid-row: 1 / -1;
-    position: static;
+    /* Not `static`: the info control is absolutely positioned against the sheet,
+       and on phones the sheet is fixed (a containing block for free). Relative
+       keeps that true here without changing the layout. */
+    position: relative;
     height: auto;
     border: 1px solid var(--border-card);
     border-radius: 12px;
@@ -3659,9 +3716,50 @@ html[data-coords="off"] .cg-wrap coords {
   }
 
   #view-builder:not([hidden]) .builder-slide--list {
-    padding: 0.5rem 0.75rem;
+    padding: 0.5rem 0.75rem 2.25rem;
   }
 }
+
+/* ── The sheet's info control ────────────────────────────────────────────────
+   One small (i) at the bottom right of the sheet, whose dialog follows whichever
+   tab is showing. It floats OVER the panel rather than inside it: the panels
+   scroll, and an explanation that scrolls away is one you can only find by
+   scrolling to the bottom of something you don't understand yet.
+
+   Discrete by default and only reaching full contrast on press — it must never
+   compete with the content it is explaining. The translucent disc is what keeps
+   it legible when a row happens to pass underneath. */
+.builder-info {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--hairline-soft);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--bg-card) 88%, transparent);
+  backdrop-filter: blur(3px);
+  color: var(--text-fainter);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.12s, border-color 0.12s;
+}
+.builder-info:active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+@media (hover: hover) {
+  .builder-info:hover { color: var(--text-muted); }
+}
+/* The panels leave room for it, so the last row of a scrolled list never ends
+   up underneath. */
+.builder-slide { padding-bottom: 2.25rem; }
+.builder-slide--list { padding-bottom: 2.25rem; }
 
 /* Quiet icon buttons: no fill or border, colour only — same treatment as
    .btn-quiet, sized as square touch targets. */
@@ -3714,6 +3812,13 @@ html[data-coords="off"] .cg-wrap coords {
   box-shadow: none;
 }
 
+/* Rewind and play are secondary to the step arrows — you step through a line
+   dozens of times and rewind it once — so they take the same button look at a
+   narrower width, which also buys the row the space for a fourth control. */
+.bar-btn--mini {
+  width: 40px;
+}
+
 /* The watch/play button sits in the right group next to the arrows and borrows
    their button look; the play glyph just needs a touch of optical centring. */
 .watch-btn.bar-btn--step svg { margin-left: 1px; }
@@ -3726,6 +3831,13 @@ html[data-coords="off"] .cg-wrap coords {
   margin-top: 0.25rem;
   padding-top: 0.5rem;
   border-top: 1px solid var(--hairline-soft);
+}
+/* A section that turned out to have nothing in it is one row tall, so it gets a
+   thinner rule and less air than one carrying a list. */
+.mylines-section:has(> .mylines-head--empty) { margin-bottom: 0.15rem; }
+.mylines-section:has(> .mylines-head--empty) + .mylines-section {
+  margin-top: 0.15rem;
+  padding-top: 0.35rem;
 }
 .mylines-head {
   display: flex;
@@ -3741,6 +3853,27 @@ html[data-coords="off"] .cg-wrap coords {
   text-transform: uppercase;
   color: var(--text-muted);
 }
+/* An empty section is ONE line: the answer rides on the title row instead of
+   taking a sentence of its own underneath. On a fresh book all three sections
+   are empty, and three titles each followed by a line of prose saying "nothing
+   here" filled the panel with restatements of the same non-answer. */
+.mylines-head--empty {
+  margin-bottom: 0.15rem;
+  justify-content: flex-start;
+  gap: 0.4rem;
+}
+.mylines-head-note {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  color: var(--text-fainter);
+}
+/* The title stops stretching once there's a note beside it, so the two read as
+   one phrase rather than sitting at opposite ends of the row. */
+.mylines-head--empty .mylines-head-title { flex: 0 0 auto; }
 .mylines-tree-link {
   display: inline-flex;
   align-items: center;
@@ -4982,17 +5115,10 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .mygames-action--busy svg { animation: mygames-spin 0.9s linear infinite; }
 @keyframes mygames-spin { to { transform: rotate(360deg); } }
 
-/* Foot of the Line panel: the training toggle (builder mode, saved lines
-   only) on the left, delete on the right. Either side can be hidden on its
-   own (fresh line: neither; analyser: delete only), so this stays a plain
-   flex row rather than a justified pair. */
-.line-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-top: 0.9rem;
-}
+/* The training toggle and delete used to sit in a footer of their own at the
+   bottom of the Line panel — two controls, a whole row each, a screen away from
+   the tags and notes they belong beside. Both moved up into the one action row
+   at the top (.line-actions above); the footer went with them. */
 
 /* ── Line info: priority + inline statistics ─────────────────────────────────
    The two blocks below the footer, shown only for a SAVED line. Both open with
@@ -5121,24 +5247,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 .lineinfo-fail-state--ok { background: rgba(112, 129, 81, 0.16); color: var(--success); }
 .lineinfo-fail-state--shaky { background: rgba(180, 83, 58, 0.14); color: var(--danger); }
-
-/* Discrete delete control at the foot of the Line panel (game review / builder).
-   Quiet by default; reads as danger on press. */
-.line-delete {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  margin-left: auto;
-  padding: 0.3rem 0.2rem;
-  border: none;
-  background: transparent;
-  color: var(--text-faint);
-  font: inherit;
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-.line-delete:active { color: var(--danger, #d2453f); }
 
 /* ── Add-a-game manual form ──────────────────────────────────────────────────── */
 .manual-game-player {
@@ -18232,6 +18340,7 @@ html.picker-open body {
 #app.tour-lookonly #builder-carousel textarea,
 #app.tour-lookonly #builder-carousel [role="button"],
 #app.tour-lookonly #builder-movestrip,
+#app.tour-lookonly #builder-info,
 #app.tour-lookonly #board,
 #app.tour-lookonly #builder-dock,
 #app.tour-lookonly > header,
