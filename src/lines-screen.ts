@@ -28,6 +28,7 @@ import {
   lineStatus, lineTraining, lineTrainingText, lineMastered,
 } from './line-status';
 import { openLinePeek } from './line-peek';
+import { addedLabel, addedExact } from './line-info';
 
 // Game analysis walks every imported game through a merged repertoire tree — at
 // a year's worth of games that's a visible hitch on a phone. It was being re-run
@@ -492,6 +493,17 @@ function buildDetailCard(
       tagRow.appendChild(chip);
     }
     info.appendChild(tagRow);
+  }
+
+  // When the line was added — the one fact on the card that never changes, and
+  // the one that tells an old forgotten line from one made last night.
+  const added = addedLabel(line.createdAt);
+  if (added) {
+    const when = document.createElement('div');
+    when.className = 'dline-added';
+    when.textContent = added;
+    when.title = addedExact(line.createdAt);
+    info.appendChild(when);
   }
 
   // Play-count badge from the last import (omitted when zero/unknown).

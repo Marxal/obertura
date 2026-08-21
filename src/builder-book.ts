@@ -22,8 +22,7 @@
 import type { MoveNode } from './tree';
 import type { Line } from './types';
 import {
-  loadBookTree, serialise, getCurrentNode, currentLineNodes, removeNode, rootNode,
-  attachNode,
+  loadBookTree, serialise, getCurrentNode, removeNode, rootNode, attachNode,
 } from './tree';
 import {
   defaultRepertoireFor, getRepertoire, saveRepertoire,
@@ -99,11 +98,6 @@ export function isPending(nodeId: string): boolean {
   return pending.has(nodeId);
 }
 
-/** Does the line the cursor is standing in contain anything uncommitted? */
-export function currentLineHasPending(): boolean {
-  return currentLineNodes().some(n => pending.has(n.id));
-}
-
 /**
  * Throw the draft away: remove every added node from the working tree. Removing
  * an ancestor takes its descendants with it, so ids that have already gone are
@@ -166,6 +160,71 @@ export type DraftBranch = AddedBranch;
  */
 export function pendingBranches(): DraftBranch[] {
   return groupAddedBranches(rootOfWorking(), pending);
+}
+
+// ── The draft, as LINES ──────────────────────────────────────────────────────
+//
+// A branch is where you started adding; a LINE is what you end up with, and it
+// is what the user is actually deciding about when the header offers to write
+// the draft. One branch can finish two lines (play a move, walk back a step,
+// play another), and a branch that extends a line you already had finishes a
+// line most of whose moves are not in the draft at all. So the confirm sheet
+// counts line ends, not branch roots.
+
+export interface DraftLine {
+  /** The node the line ends on. */
+  endId: string;
+  /**
+   * Removing this line cuts here: the shallowest node that is BOTH added and
+   * exclusive to this line. Never higher — cutting a shared move would take a
+   * neighbour with it — and never a committed one, which was in the book before
+   * this draft opened.
+   */
+  cutId: string;
+  /** The whole line, from the first move. */
+  nodes: MoveNode[];
+  /** How many of those moves the draft is adding. */
+  added: number;
+}
+
+/**
+ * The lines the open draft finishes.
+ *
+ * Every added node's subtree is added (a move can only be played onto its
+ * parent), so the draft's line ends are exactly its leaves — and each one is a
+ * line the book is about to gain.
+ */
+export function pendingLines(): DraftLine[] {
+  if (pending.size === 0) return [];
+  const root = rootOfWorking();
+  const out: DraftLine[] = [];
+  const trail: MoveNode[] = [];
+  const walk = (node: MoveNode): void => {
+    for (const child of node.children) {
+      trail.push(child);
+      if (child.children.length === 0 && pending.has(child.id)) out.push(draftLineOf(root, trail));
+      else walk(child);
+      trail.pop();
+    }
+  };
+  walk(root);
+  return out;
+}
+
+function draftLineOf(root: MoveNode, trail: MoveNode[]): DraftLine {
+  const nodes = [...trail];
+  const end = nodes[nodes.length - 1];
+  const tail = lineTailStart(root, end.id);
+  const exclusiveFrom = tail ? nodes.findIndex(n => n.id === tail.id) : 0;
+  const addedFrom = nodes.findIndex(n => pending.has(n.id));
+  // The later of the two: both conditions have to hold at the cut.
+  const cut = nodes[Math.max(exclusiveFrom, addedFrom)] ?? end;
+  return {
+    endId: end.id,
+    cutId: cut.id,
+    nodes,
+    added: nodes.filter(n => pending.has(n.id)).length,
+  };
 }
 
 /**
@@ -247,12 +306,20 @@ export function currentLineEnd(): MoveNode | null {
  * and the controls that describe a saved line say so rather than pretending.
  */
 export function currentLine(): Line | null {
-  if (!book) return null;
   const end = currentLineEnd();
-  if (!end) return null;
-  const stored = findNode(book.tree, end.id);
+  return end ? lineForEnd(end.id) : null;
+}
+
+/**
+ * A stored line by the node it ends on — how a line just written by a commit is
+ * found again. Null when that node isn't in the book, or doesn't end a line
+ * there (a draft move, or one the user has since built past).
+ */
+export function lineForEnd(endId: string): Line | null {
+  if (!book) return null;
+  const stored = findNode(book.tree, endId);
   if (!stored || !isLineEnd(stored)) return null;
-  const id = makeLineId(book.id, end.id);
+  const id = makeLineId(book.id, endId);
   return projectRepertoire(book).find(l => l.id === id) ?? null;
 }
 

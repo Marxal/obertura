@@ -512,22 +512,15 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   function showDbInfo(): void {
     const connected = isConnected();
     showDialog({
-      title: 'Opening database',
+      title: 'Library',
       body:
-        'The bars under each move show how that position has scored across real ' +
-        'games — so you can tell a solid main line from a shaky sideline at a glance.\n\n' +
-        'Masters — over-the-board games between titled players: cleaner, established theory.\n\n' +
-        'Lichess — rated online games: what real opponents actually play. The level buttons ' +
-        'filter those games to a rating band, so the numbers describe the opponents you ' +
-        'actually get. A band counts a game by the AVERAGE rating of both players, so ' +
-        '“1400–1800” means games played at that level rather than games somebody rated ' +
-        '1400–1800 happened to play. Masters games carry no rating band, so the buttons are ' +
-        'off there.\n\n' +
-        'A built-in set of the most common positions works instantly and offline, with no ' +
-        'login. It has no rating dimension, so whenever it stands in for the live explorer ' +
-        'the numbers are for all ratings and say so. Connecting your Lichess account extends ' +
-        'the stats to every position, live — no personal data is read, so even a throwaway ' +
-        'account works.',
+        'Every move played from the position on the board, most popular first, with a bar '
+        + 'saying how each has actually scored. Tap one to play it onto your line.\n\n'
+        + 'Masters is over-the-board games between titled players — established theory. '
+        + 'Lichess is rated online games, filtered to a rating band, so the numbers describe '
+        + 'the opponents you actually get.\n\n'
+        + 'A built-in set of common positions works offline with no login. Connecting Lichess '
+        + 'extends it to every position, live — no personal data is read.',
       links: [
         { label: 'Live opening explorer', href: 'https://lichess.org/analysis' },
         { label: 'About the game data', href: 'https://database.lichess.org' },

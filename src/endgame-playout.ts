@@ -13,7 +13,7 @@
 // container and can be offline on a phone, so when it's unreachable we fall back to
 // the LOCAL Stockfish worker for both the defence and end-state judging — you
 // simply play it out and we check the final result. Reuses the .pt-* overlay look
-// and the chessground + chess.js pattern from fix-it.ts / spar.ts.
+// and the chessground + chess.js pattern from fix-it.ts.
 
 import { Chess } from 'chess.js';
 import { registerBrushes } from './board-brushes';
@@ -54,7 +54,7 @@ function invert(o: TbOutcome): TbOutcome {
   return o === 'win' ? 'loss' : o === 'loss' ? 'win' : o;
 }
 
-// ── The local engine driver (a trimmed copy of spar.ts's SparEngine) ─────────────
+// ── The local engine driver ─────────────────────────────────────────────────────
 // One Stockfish worker: ask for the best move within a movetime budget. Used for
 // the defence and the fallback best-move hint when the tablebase is unreachable.
 class PlayoutEngine {

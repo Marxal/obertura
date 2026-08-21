@@ -11,9 +11,9 @@
 // and what you can do on it. Anything longer is a manual, and nobody reads a
 // manual from a phone in the middle of building a line.
 //
-// The Library tab is the exception and isn't here: its (i) is the opening-database
-// dialog (builder-panels.ts's showDbInfo), which has to carry the Lichess
-// connect/disconnect buttons as well as the explanation.
+// The Library tab is the exception and isn't here: its (i) is builder-panels.ts's
+// showDbInfo, which has to carry the Lichess connect/disconnect buttons as well
+// as the explanation.
 
 import { showDialog } from './dialog';
 

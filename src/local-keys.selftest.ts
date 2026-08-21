@@ -76,7 +76,6 @@ export function runLocalKeysSelfTest(): TestResult[] {
     'obertura-review-log',
     'obertura-training-days',
     'engineEnabled',
-    'sparEngineEnabled',
   ];
   for (const key of carried) {
     check(`${key} is carried`, backupLocalKey(key), 'a real preference or statistic was excluded');

@@ -2418,10 +2418,12 @@ not chosen. Flipping the board to look at a position from the other side quietly
 re-filed the line in the other colour's book. And the one button that admitted
 the confusion said "1 place", which meant nothing to anybody.
 
-- ✅ **Flipping the board is a look, not an edit.** It used to swap `saveColour`
-  as well as the orientation, so viewing a White line from Black's side moved it
-  to the Black book. Which book a line belongs to is settled when the builder
-  opens; the flip button now only turns the board round.
+- ✅ **Flipping the board carries the line across.** Flipping still switches the
+  colour the line saves as, and says so — looking at a position from the other
+  side is nearly always the moment you decide to prepare THAT side. What is new
+  is that it now moves to the other colour's book and replays the moves on the
+  board into it, so the flip carries the work rather than leaving it filed under
+  a book it no longer belongs to.
 - ✅ **A new line opens blank.** Inside a book the strip drew "the line you are
   standing in", which it worked out by descending the first continuation from
   the cursor — and at the start position that is whichever line happens to be
@@ -2447,13 +2449,28 @@ the confusion said "1 place", which meant nothing to anybody.
   control almost nobody used taking a quarter of the width. What is left is
   training · tags · note · delete, with delete icon-only so all four fit a phone.
   The training toggle moved up from the old footer, which is gone.
-- ✅ **A rewind button in the bottom bar.** Back to the start took as many taps
-  as there were moves. Rewind and play are narrower than the step arrows — you
-  step through a line dozens of times and rewind it once.
+- ✅ **The bottom bar is four navigation controls**: start · end · back ·
+  forward. Getting to either end of a line took as many taps as it had moves.
+  The play/watch button went to make room — a line that plays itself is what the
+  trainer's watch step is for — and the two jump buttons are narrower than the
+  step arrows, which is where the thumb actually lives.
+- ✅ **Forward follows the line you walked.** Inside a book it used to mean
+  `children[0]`, so at the start of a book tapping Forward played whichever line
+  happened to be stored first, one move at a time. The builder now remembers the
+  deepest node the cursor has stood at: stepping back keeps the way on (and the
+  strip keeps drawing it), stepping elsewhere starts a new walk, and a fresh
+  builder has all four arrows dead because there is no line yet.
+- ✅ **A draft that finishes more than one line stops and shows them.** Every
+  line the write is about to add gets a row — its opening, its moves, a
+  train/store switch and a bin — and "Add all 3 lines" then runs a confirm drill
+  on each one that said train, back to back. Two lines are two decisions, and
+  "Add 7 moves" was not where to make them.
 - ✅ **Explore's cards stopped being buttons.** Each card had a round plus and a
   press state, duplicating the tile directly above it, so the slide offered
-  every move twice. The cards are reading matter now, and the pills, rules and
-  tinted strips around their numbers went with the plus.
+  every move twice. The cards are reading matter now — but they keep their
+  outlined chips, their divider and their tinted verdict strip, which is what
+  makes three cards scannable as one table. The list gained a heading of its
+  own ("Why these moves") so the slide reads as answers then evidence.
 - ✅ **Empty sections on My lines collapse to one line.** Three sections each
   drawing a title and then a sentence saying it had nothing filled a fresh
   book's panel with three restatements of "nothing here yet".
@@ -2461,13 +2478,26 @@ the confusion said "1 place", which meant nothing to anybody.
   moves as the strip above, wrapped rather than scrolled, so the whole sequence
   reads at once. The Game tab's tags and note gave way to "Open in builder" and
   "Save line", which is what a game is actually for.
-- ✅ **Auto-reply**, on the Explore slide. Building a line means playing both
-  sides, and half of every line is a move of the opponent's chosen only so the
-  next one of yours can exist. With the switch on, that half is played for you —
-  the top suggestion at the position, from the three the slide is already
-  ranking — and "Another reply" takes it back and cycles to the next, for when
-  their most popular move is not the only one worth preparing for. A Black book
+- ✅ **The Library tab's info is about the library**, not about a database: a
+  third of the words, titled after the tab, and it still carries the Lichess
+  connect button.
+- ✅ **Auto-reply**, on the Explore slide, as a block of its own. Building a line
+  means playing both sides, and half of every line is a move of the opponent's
+  chosen only so the next one of yours can exist. With the switch on, that half
+  is played for you, and a picker beside it says where the reply comes from —
+  best guess, your games, the library or the engine. "Another reply" (full
+  width, and a real tap target — it is the control you press once per reply you
+  don't want) takes the played reply back and cycles to the next. A Black book
   gets White's first move played the moment it opens.
+- ✅ **"Build with the engine" is gone**, and auto-reply is why: it was a whole
+  second board you played a casual game on, a game first and a line second, when
+  the thing it was for is having an opponent to answer while you build. Out with
+  it went `spar.ts`, `book-lines.ts`, their self-test, the Explore launcher, the
+  FAB entry, the Get-started link and the `sparEngineEnabled` key.
+- ✅ **A line says when it was added** — on its card in My Lines and under "How
+  this line is going" in the builder. The per-move `createdAt` stamps were
+  already there (they are what "Latest" sorts by); this is the first time they
+  are shown. Relative for the first week ("Added 3 days ago"), then a date.
 - ✅ **The move strip has a tone of its own**, a few percent of the text colour,
   so it reads as the moves of the line rather than as the top row of whichever
   panel is showing.

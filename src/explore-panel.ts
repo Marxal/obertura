@@ -68,7 +68,10 @@ import { buildMoveStats, statAt, statScorePct, type StatNode } from './move-stat
 import { MAP_MAX_PLIES } from './scout';
 import { formatMove } from './notation';
 import { Icons } from './icons';
-import { getExplorerDb, getAutoReply, setAutoReply } from './prefs';
+import {
+  getExplorerDb, getAutoReply, setAutoReply,
+  getAutoReplySource, setAutoReplySource, type AutoReplySource,
+} from './prefs';
 import { bandRangeLabel, explorerFilter } from './explorer-bands';
 import { activeBand, cachedMyLevel, resolveMyLevel, type MyLevel } from './explorer-level';
 import { resolveExplorerStats, orientCounts } from './explorer-resolve';
@@ -168,6 +171,9 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
   // Play the opponent's answer for me after every move of mine, so building a
   // line is only ever my own decisions. Remembered across sessions.
   let autoReply = getAutoReply();
+  // Where the reply comes from — the slide's own ranking by default, or pinned
+  // to one source.
+  let autoSource: AutoReplySource = getAutoReplySource();
   // Which of the suggestions the next auto-reply plays. 0 is the top one; the
   // "Another reply" button takes the last one back and bumps this, so a second
   // tap gets the second suggestion and so on, wrapping round the three.
@@ -228,6 +234,8 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
     el.appendChild(picks);
 
     el.appendChild(buildAutoRow());
+
+    el.appendChild(span('explore-rows-head', 'Why these moves'));
 
     const rows = document.createElement('div');
     rows.className = 'explore-rows';
@@ -293,8 +301,12 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
   // only one worth preparing for, so it takes the played reply back off the
   // line and plays the next suggestion instead, cycling round the three.
   function buildAutoRow(): HTMLElement {
+    const block = document.createElement('div');
+    block.className = 'explore-auto' + (autoReply ? ' explore-auto--on' : '');
+
     const row = document.createElement('div');
-    row.className = 'explore-auto';
+    row.className = 'explore-auto-row';
+    block.appendChild(row);
 
     const toggle = document.createElement('button');
     toggle.type = 'button';
@@ -321,21 +333,61 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
     });
     row.appendChild(toggle);
 
+    row.appendChild(sourcePick());
+    block.appendChild(span('explore-auto-note', autoReply
+      ? `Their answer is played for you, ${SOURCE_NOTE[autoSource]}.`
+      : 'Play the opponent’s answer for me, so I only choose my own moves.'));
+
     // Only ever offered when there is a reply on the board to swap: auto-reply
     // is on, and the last move played was theirs.
     if (autoReply && myTurn() && deps.getUcis().length > 0) {
       const again = document.createElement('button');
       again.type = 'button';
       again.className = 'explore-auto-again';
-      const ico = Icons.reset(13);
+      const ico = Icons.reset(15);
       ico.classList.add('explore-auto-again-ico');
       again.appendChild(ico);
       again.appendChild(document.createTextNode('Another reply'));
       again.title = 'Take that reply back and prepare for a different one';
       again.addEventListener('click', () => { void rerollReply(); });
-      row.appendChild(again);
+      block.appendChild(again);
     }
-    return row;
+    return block;
+  }
+
+  /**
+   * Where the reply comes from. A native <select> laid transparently over a
+   * pill, the same trick the Library's rating picker uses: the platform's own
+   * menu, and the control stays accessible for free.
+   */
+  function sourcePick(): HTMLElement {
+    const wrap = document.createElement('div');
+    wrap.className = 'explore-auto-src' + (autoReply ? '' : ' is-disabled');
+
+    wrap.appendChild(span('explore-auto-src-label', SOURCE_LABEL[autoSource]));
+    const chev = Icons.chevronDown(13);
+    chev.classList.add('explore-auto-src-chev');
+    wrap.appendChild(chev);
+
+    const select = document.createElement('select');
+    select.className = 'explore-auto-select';
+    select.setAttribute('aria-label', 'Where the reply comes from');
+    select.disabled = !autoReply;
+    for (const value of ['best', 'games', 'library', 'engine'] as AutoReplySource[]) {
+      const opt = document.createElement('option');
+      opt.value = value;
+      opt.textContent = SOURCE_LABEL[value];
+      opt.selected = value === autoSource;
+      select.appendChild(opt);
+    }
+    select.addEventListener('change', () => {
+      autoSource = select.value as AutoReplySource;
+      setAutoReplySource(autoSource);
+      replyIndex = 0;
+      render();
+    });
+    wrap.appendChild(select);
+    return wrap;
   }
 
   /** Take the reply on the board back, then play the next suggestion instead. */
@@ -361,16 +413,18 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
     replying = true;
     try {
       const instant = [...gameCandidates(), ...bookCandidates()];
-      let list = mergeCandidates(instant);
+      let list = fromSource(mergeCandidates(instant));
 
+      // Only pay for the slower sources when what we have doesn't reach the
+      // rank we want — or when the pinned source isn't among the instant ones.
       if (list.length <= replyIndex) {
         const lib = await libraryCandidates(fen);
         if (deps.getFen() !== fen) return;
-        list = mergeCandidates([...instant, ...lib]);
+        list = fromSource(mergeCandidates([...instant, ...lib]));
         if (list.length <= replyIndex) {
           const eng = await engineCandidates(fen, true);
           if (deps.getFen() !== fen) return;
-          list = mergeCandidates([...instant, ...lib, ...eng]);
+          list = fromSource(mergeCandidates([...instant, ...lib, ...eng]));
         }
       }
       if (deps.getFen() !== fen || !list.length) return;
@@ -380,6 +434,20 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
     } finally {
       replying = false;
     }
+  }
+
+  /**
+   * The candidates the chosen source allows.
+   *
+   * A pinned source that has nothing here falls back to the whole list rather
+   * than refusing to move: "from my games" in a position you have never had is
+   * a preference that cannot be met, and a switch that silently stops working is
+   * worse than one that quietly does its best.
+   */
+  function fromSource(list: Candidate[]): Candidate[] {
+    if (autoSource === 'best') return list;
+    const pinned = list.filter(c => c.source === autoSource);
+    return pinned.length ? pinned : list;
   }
 
   // ── The sources ───────────────────────────────────────────────────────────
@@ -826,6 +894,23 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
     },
   };
 }
+
+// ── Auto-reply's source, in words ────────────────────────────────────────────
+
+const SOURCE_LABEL: Record<AutoReplySource, string> = {
+  best: 'Best guess',
+  games: 'My games',
+  library: 'Library',
+  engine: 'Engine',
+};
+
+// Completes "Their answer is played for you, …".
+const SOURCE_NOTE: Record<AutoReplySource, string> = {
+  best: 'from whichever source knows this position best',
+  games: 'from what you have actually faced',
+  library: 'from what players play here',
+  engine: 'from what the engine would play',
+};
 
 // ── the case for a move, in one line ─────────────────────────────────────────
 
