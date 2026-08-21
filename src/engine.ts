@@ -600,7 +600,7 @@ export class Engine {
   private cb: EvalCallback;
   private baseUrl: string;
   // localStorage key the on/off state persists under. Defaults to the builder's
-  // key; spar passes its own so its toggle is independent and defaults OFF.
+  // key; a caller can pass its own so its toggle is independent.
   private storageKey: string;
 
   constructor(baseUrl: string, cb: EvalCallback, storageKey = 'engineEnabled') {
@@ -863,7 +863,7 @@ export class Engine {
     this.multiPv.clear();
     this.searchFen = fen;  // from here, worker output belongs to `fen`
     // `stop` first so a stray previous search can't overlap the new one — one
-    // worker searches one position at a time (mirrors spar.ts's SuggestEngine).
+    // worker searches one position at a time.
     if (this.awaitedBestmoves > 0) this.worker!.postMessage('stop');
     this.worker!.postMessage(`position fen ${fen}`);
     this.worker!.postMessage(`go depth ${MAX_DEPTH}`);

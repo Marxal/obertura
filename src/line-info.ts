@@ -140,6 +140,37 @@ export interface LineStatsOpts {
   onGoToMove?: (move: NeedsWorkMove) => void;
 }
 
+/**
+ * When a line was added, in words.
+ *
+ * `Line.createdAt` is the newest `createdAt` stamp on the line's own branch —
+ * so for a line built in one sitting it IS the day it was made, and for one that
+ * has since been extended it is the day it last grew. "Added" is the honest word
+ * for both; the title says which.
+ *
+ * Empty when the line predates per-move stamps (books migrated from the old flat
+ * model carry none), because "Added —" is worse than nothing.
+ */
+export function addedLabel(createdAt: number | undefined): string {
+  if (!createdAt) return '';
+  const then = new Date(createdAt);
+  const days = Math.floor((Date.now() - then.getTime()) / 86_400_000);
+  if (days <= 0) return 'Added today';
+  if (days === 1) return 'Added yesterday';
+  if (days < 7) return `Added ${days} days ago`;
+  return `Added ${then.toLocaleDateString(undefined, {
+    day: 'numeric', month: 'short', year: 'numeric',
+  })}`;
+}
+
+/** The full date, for the title attribute behind the relative label. */
+export function addedExact(createdAt: number | undefined): string {
+  if (!createdAt) return '';
+  return `Last added to on ${new Date(createdAt).toLocaleDateString(undefined, {
+    day: 'numeric', month: 'long', year: 'numeric',
+  })}`;
+}
+
 export function renderLineStats(host: HTMLElement, opts: LineStatsOpts): void {
   const { line, games } = opts;
   host.replaceChildren();
@@ -157,6 +188,16 @@ export function renderLineStats(host: HTMLElement, opts: LineStatsOpts): void {
   head.appendChild(spanEl('lineinfo-head-meta',
     line.inTraining ? due : 'Not in training'));
   host.appendChild(head);
+
+  // When it joined the book. Small, above the numbers, because it is the one
+  // fact here that never changes — and the one that answers "is this an old line
+  // I've forgotten, or one I made last night?".
+  const added = addedLabel(line.createdAt);
+  if (added) {
+    const when = spanEl('lineinfo-added', added);
+    when.title = addedExact(line.createdAt);
+    host.appendChild(when);
+  }
 
   // Four numbers, in the same boxes the Statistics screen uses so a figure means
   // the same thing in both places.

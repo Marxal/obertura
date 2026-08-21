@@ -70,7 +70,6 @@ export interface FirstStepsDeps {
   gameCount: number;
   onPickStarterPack: () => void;
   onBuildLine: () => void;
-  onBuildWithEngine: () => void;
   onImportGames: () => void;
   onConnectLichess: () => void;
   onSignIn: () => void;
@@ -281,17 +280,10 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
   routes.appendChild(routeButton('Starter packs', Icons.build(18), deps.onPickStarterPack));
   goal.appendChild(routes);
 
-  // Sparring the engine is a third way in, but it's a game first and a line
-  // second — a discrete link under the pair rather than a peer of them.
-  const engine = document.createElement('button');
-  engine.type = 'button';
-  engine.className = 'first-steps-engine';
-  engine.appendChild(Icons.gamepad(15));
-  const engineLabel = document.createElement('span');
-  engineLabel.textContent = 'Or build one against the engine';
-  engine.appendChild(engineLabel);
-  engine.addEventListener('click', deps.onBuildWithEngine);
-  goal.appendChild(engine);
+  // "Or build one against the engine" used to sit here — a third way in that was
+  // a game first and a line second. Auto-reply on the builder's Explore slide
+  // does the same job in the place a line is actually built, so the whole
+  // sparring feature went and this link with it.
 
   if (showGoal) card.appendChild(goal);
 

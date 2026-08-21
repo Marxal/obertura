@@ -10,8 +10,7 @@ import { addMove, goTo, mainline, pathTo, getCurrentNode, reset, isEmpty, serial
 import {
   openBook, closeBook, activeBook, notePending, pendingCount, hasPending,
   isPending, discardPending, commitPending, currentLine as bookCurrentLine,
-  currentLineHasPending,
-  cursorCoverage, pendingBranches, discardBranch,
+  cursorCoverage, pendingBranches, pendingLines, lineForEnd, discardBranch,
   removeManyAndStore,
   planLineRemoval, removeAndStore, restoreAndStore,
 } from './builder-book';
@@ -91,7 +90,7 @@ import { createPawnProgress, type PawnProgress } from './import-progress';
 import { askPromotion } from './promotion';
 import { initBackNav, setViewBack, pushBack } from './back-nav';
 import { showDialog } from './dialog';
-import { openDraftSheet } from './draft-sheet';
+import { openDraftSheet, type DraftSheetLine } from './draft-sheet';
 import { platformLabel } from './board-explorer';
 import { openImportPanel, getGamesSource, IDENTITY_CHANGED_EVENT } from './import-panel';
 import { openStarterPackPicker, type LineSeed, type AddLineMode } from './onboarding-starter';
@@ -124,7 +123,7 @@ import { Icons, classBoardSvg, CLASS_LABEL } from './icons';
 import { mountFab, type FabItem, type FabAction, type FabSplit, type FabController } from './fab';
 import { importLastGame, hasConnectedAccount, connectedAccount } from './import-last';
 import { openBuilderImport } from './builder-import';
-import { openEngineSpar, openExploreOpponent, openExploreTab, importOpponentFlow } from './explore-screen';
+import { openExploreOpponent, openExploreTab, importOpponentFlow } from './explore-screen';
 import { formatMove } from './notation';
 import {
   tryCallback as lichessTryCallback,
@@ -831,6 +830,9 @@ function renderMoveListInto(el: HTMLElement): void {
  */
 function draftPathNodes(): Set<string> {
   const ids = new Set<string>();
+  // The walked line, not just the path behind the cursor: stepping back must
+  // not rub out the moves you are about to step forward onto again.
+  for (const node of pathTo(builderTipId)) ids.add(node.id);
   for (const node of pathTo(getCurrentNode().id)) ids.add(node.id);
   for (const branch of pendingBranches()) {
     for (const node of branch.from) ids.add(node.id);
@@ -927,6 +929,48 @@ function refreshReviewButtonState(): void {
 // The cursor's index within the mainline, or -1 when sitting at the root.
 // Navigation follows the ACTIVE path (root → cursor), so the arrows work inside
 // a variation too: back = the cursor's parent, forward = its main continuation.
+/**
+ * The deepest node the cursor has stood at along the current walk.
+ *
+ * WHY THIS EXISTS. Inside a book, "forward" used to mean `children[0]` — the
+ * first continuation stored under the cursor. At the start of a book that is
+ * whichever line happens to be first, so tapping Forward played a line the user
+ * had never chosen, one move at a time. Forward now follows the line you
+ * actually walked: the tip is remembered, stepping back keeps it, and stepping
+ * somewhere else replaces it.
+ *
+ * The move strip reads the same tip, which is why stepping back does not make
+ * the moves ahead of you disappear from it.
+ */
+let builderTipId = 'root';
+
+function resetBuilderTip(): void {
+  builderTipId = 'root';
+}
+
+/** Remember where the cursor now is, keeping the tip when it's still ahead. */
+function noteCursorAt(nodeId: string): void {
+  if (nodeId === builderTipId) return;
+  if (nodeId === 'root') return;                      // the root is under every tip
+  if (pathTo(builderTipId).some(n => n.id === nodeId)) return;  // still on the way there
+  builderTipId = nodeId;                              // a different walk starts here
+}
+
+/**
+ * The continuation Forward should take: the next move of the walked line, plus
+ * — inside a book — any draft branch, since the strip draws those too.
+ *
+ * Outside a book (the analyser, a seeded single-path build) the tree IS the one
+ * thing on screen, so the main continuation is the honest answer, exactly as
+ * before.
+ */
+function nextVisibleNode(): MoveNode | null {
+  const cur = getCurrentNode();
+  if (!inBook()) return cur.children[0] ?? null;
+  const visible = draftPathNodes();
+  return cur.children.find(c => visible.has(c.id)) ?? null;
+}
+
 function stepBack(): void {
   const cur = getCurrentNode();
   if (cur.id === 'root') return;
@@ -936,15 +980,29 @@ function stepBack(): void {
 }
 
 function stepForward(): void {
-  const next = getCurrentNode().children[0];
+  const next = nextVisibleNode();
   if (next) handleMoveClick(next.id);
+}
+
+/** Straight to the end of the line on screen — the mirror of the rewind. */
+function stepToEnd(): void {
+  let last: MoveNode | null = null;
+  let guard = 0;
+  for (let next = nextVisibleNode(); next && guard < 400; guard++) {
+    last = next;
+    goTo(next.id);
+    next = nextVisibleNode();
+  }
+  if (last) handleMoveClick(last.id);
 }
 
 // Grey out the step arrows at the ends of the active path.
 function updateMoveNavButtons(): void {
   const cur = getCurrentNode();
   const atStart = cur.id === 'root';
-  const atEnd = cur.children.length === 0;
+  // "At the end" is the end of the line ON SCREEN, not of whatever the tree
+  // stores under the cursor — see nextVisibleNode.
+  const atEnd = !nextVisibleNode();
   const set = (id: string, disabled: boolean) => {
     const b = document.getElementById(id) as HTMLButtonElement | null;
     if (b) b.disabled = disabled;
@@ -952,6 +1010,7 @@ function updateMoveNavButtons(): void {
   set('move-start', atStart);
   set('move-prev', atStart);
   set('move-next', atEnd);
+  set('move-end', atEnd);
 }
 
 function setupMoveNav(): void {
@@ -961,6 +1020,11 @@ function setupMoveNav(): void {
     stopPlayback();
     goToStart();
     refreshBuilderLineState();
+  });
+  // …and its mirror: straight to the end of the line on screen.
+  document.getElementById('move-end')!.addEventListener('click', () => {
+    stopPlayback();
+    stepToEnd();
   });
   document.getElementById('move-prev')!.addEventListener('click', stepBack);
   document.getElementById('move-next')!.addEventListener('click', stepForward);
@@ -2110,6 +2174,7 @@ function reevaluate(): void {
 
 function handleMoveClick(nodeId: string) {
   goTo(nodeId);
+  noteCursorAt(nodeId);
   const path = pathTo(nodeId);
 
   chess.reset();
@@ -2150,6 +2215,7 @@ function playUci(uci: string): void {
   const fullUci = from + to + (result.promotion ?? '');
   const existed = hasMove(result.san);
   const node = addMove(result.san, fullUci, chess.fen());
+  noteCursorAt(node.id);
   if (!existed) notePending(node.id);
   cg.set({
     fen: chess.fen(),
@@ -2186,6 +2252,7 @@ function commitBoardMove(from: string, to: string, promotion: 'q' | 'r' | 'b' | 
   const uci = from + to + (result.promotion ?? '');
   const existed = hasMove(result.san);
   const node = addMove(result.san, uci, chess.fen());
+  noteCursorAt(node.id);
   if (!existed) notePending(node.id);
   cg.set({
     fen: chess.fen(),
@@ -2306,6 +2373,7 @@ async function enterBuilderBook(
   await openBook(colour, wanted === 'all' ? undefined : wanted);
   saveColour = colour;
   builderMode = 'builder';
+  resetBuilderTip();
   chess.reset();
   cg.set({
     fen: chess.fen(),
@@ -2327,8 +2395,10 @@ async function enterBuilderBook(
 // Commit the draft. The working tree is already the merged result — a move
 // played onto a branch you had became a child of the node that was there — so
 // this stores it rather than reconciling anything.
-async function commitBook(): Promise<void> {
-  // Read BEFORE the write, because committing repaints every one of these.
+async function commitBook(intents?: Map<string, boolean>): Promise<void> {
+  // Read BEFORE the write, because committing repaints every one of these — and
+  // because the draft is what knows which lines are NEW. Their end-node ids
+  // survive the write unchanged, which is how each one is found again after it.
   //
   // Standing inside a book, the header button ADDS moves rather than saving a
   // line — which is right, but it meant the whole tail of the old save flow
@@ -2336,13 +2406,11 @@ async function commitBook(): Promise<void> {
   // and the Line info toggle's "Just save it" stopped being honoured, because a
   // freshly grown branch inherits training from its ancestors (DEFAULT_TRAINING)
   // whatever the toggle said. Both are picked back up below.
-  //
-  // "I have just finished a line" is: the line drawn in front of me contains
-  // part of the draft, AND the cursor stands on its end. Adding a branch
-  // somewhere else in the book, or walking back up before committing, is not
-  // that and gets the plain toast it always got.
-  const finishedALine = currentLineHasPending() && getCurrentNode().children.length === 0;
-  const wantsTraining = loadedLineInTraining;
+  const drafted = pendingLines();
+  // What each line asked for: the confirm sheet's switches when it was shown,
+  // and the Line info toggle when the draft was a single line and went straight
+  // through.
+  const wants = intents ?? new Map(drafted.map(l => [l.endId, loadedLineInTraining]));
 
   const { moves, roots } = await commitPending();
   if (moves === 0) { showToast('Nothing new to add'); return; }
@@ -2355,51 +2423,73 @@ async function commitBook(): Promise<void> {
     action: { label: 'Undo', onClick: () => void undoBookCommit(roots, moves) },
   });
 
-  if (finishedALine) await settleNewBookLine(wantsTraining);
+  await settleNewBookLines(drafted.map(l => l.endId), wants);
 }
 
 /**
- * The tail of the save flow, for a line finished inside a book.
+ * The tail of the save flow, for every line a commit just finished.
  *
- * Two jobs, and only the first of them is new behaviour:
+ * Two jobs, and the second is what makes a multi-line add feel like one action:
  *
- *  • "Just save it" means just save it. A new branch resolves `training` from
- *    its ancestors, so it lands IN training whatever the toggle said; when the
- *    toggle said no, write the explicit off (which is exactly what the My Lines
+ *  • "Store, don't train" means exactly that. A new branch resolves `training`
+ *    from its ancestors, so it lands IN training whatever the switch said; when
+ *    the switch said no, write the explicit off (which is what the My Lines
  *    switch writes) rather than leaving the user with a line they asked not to
  *    drill.
- *  • Otherwise the line is in training, and the confirm run is what "added to
- *    training" has always meant — one clean run before it joins the schedule.
- *    Skipped when the user has switched that pref off, exactly as the old save
- *    path skipped it.
+ *  • Everything still in training gets its confirm run — one clean run before a
+ *    line joins the schedule, which is what "added to training" has always
+ *    meant. Several new lines get several runs, back to back, so adding three
+ *    at once is three runs rather than a silent enrolment. Skipped entirely when
+ *    the user has switched that pref off, exactly as the old path skipped it.
  */
-async function settleNewBookLine(wantsTraining: boolean): Promise<void> {
-  const line = bookCurrentLine();
-  if (!line) return;
-
-  if (!wantsTraining) {
-    if (line.inTraining) {
-      await saveLine({ ...line, inTraining: false });
-      repaintAfterBookWrite();
+async function settleNewBookLines(
+  endIds: string[], wants: Map<string, boolean>,
+): Promise<void> {
+  const queue: Line[] = [];
+  for (const endId of endIds) {
+    const line = lineForEnd(endId);
+    if (!line) continue;                       // built past since, or never landed
+    if (wants.get(endId) === false) {
+      if (line.inTraining) await saveLine({ ...line, inTraining: false });
+      continue;
     }
-    return;
+    if (line.inTraining) queue.push(line);
   }
-  if (!line.inTraining || !getConfirmRunBeforeTraining()) return;
+  repaintAfterBookWrite();
+  if (!queue.length || !getConfirmRunBeforeTraining()) return;
+  runConfirmRuns(queue);
+}
 
-  startPretrainingRun(
-    line,
-    () => { repaintAfterBookWrite(); },
-    // Backing out of the run leaves the moves saved — they are already in the
-    // book — and takes the line back out of training, which is what cancelling
-    // "add it to training" has to mean.
-    () => {
-      void (async () => {
-        const current = bookCurrentLine();
-        if (current?.inTraining) await saveLine({ ...current, inTraining: false });
-        repaintAfterBookWrite();
-      })();
-    },
-  );
+/**
+ * The confirm runs for a batch of new lines, one after another.
+ *
+ * Backing out of a run stops the whole queue AND takes that line out of
+ * training: cancelling "add it to training" has to mean the line is not in
+ * training, and being asked the same question three more times after saying no
+ * once is not a queue, it is a nag. The lines already run keep their place, and
+ * any not yet reached stay in the book, in training, unconfirmed.
+ */
+function runConfirmRuns(lines: Line[]): void {
+  let i = 0;
+  const step = (): void => {
+    const line = lines[i++];
+    if (!line) { repaintAfterBookWrite(); return; }
+    startPretrainingRun(
+      line,
+      step,
+      () => {
+        void (async () => {
+          const current = lineForEnd(parseLineId(line.id)?.endNodeId ?? '') ?? line;
+          if (current.inTraining) await saveLine({ ...current, inTraining: false });
+          repaintAfterBookWrite();
+        })();
+      },
+      lines.length > 1
+        ? { completeMessage: `Line ${i} of ${lines.length} confirmed — added to training` }
+        : {},
+    );
+  };
+  step();
 }
 
 /** Take back the moves a commit just wrote. */
@@ -2552,17 +2642,61 @@ async function rereadBookAfterBranchEdit(bookId: string, ucis: string[]): Promis
 }
 
 /**
- * The header's add action: one tap, always.
+ * The header's add action.
  *
- * It used to stop and show the draft first whenever part of it was off the line
- * in front of you, because the button would otherwise have written work the
- * user had no way of seeing. The move strip draws every branch of the draft now
- * — variations in parentheses, PGN style — so there is nothing hidden left to
- * show. (The sheet still exists: it is what the leave guard uses when you walk
- * away from a draft built in several places.)
+ * ONE line goes straight in — that is the ordinary case and it stays one tap,
+ * with the Line info switch deciding whether it trains. SEVERAL lines stop and
+ * show themselves first: two lines are two decisions (train this one, just
+ * store that one, drop the third), and "Add 7 moves" is not where you make
+ * them.
  */
 function addFromHeader(): void {
-  void commitBook();
+  const drafted = pendingLines();
+  if (drafted.length <= 1) { void commitBook(); return; }
+  openDraftConfirm(drafted);
+}
+
+/**
+ * The lines the draft is about to add, as the sheet knows them — named by the
+ * opening they reach, with the whole line quoted so it can be recognised, and
+ * carrying the training intent the switches will edit.
+ */
+function draftSheetLines(drafted: ReturnType<typeof pendingLines>): DraftSheetLine[] {
+  return drafted.map(line => ({
+    endId: line.endId,
+    cutId: line.cutId,
+    name: nameForPath(line.nodes.map(n => n.fen)) ?? notate(line.nodes),
+    moves: notate(line.nodes),
+    added: line.added,
+    // A new line means to be trained unless said otherwise — the same default
+    // the Line info switch carries.
+    training: true,
+  }));
+}
+
+/** The confirm sheet, from the header. (The way OUT builds its own — it has a
+ *  "proceed" to run afterwards and a discard-everything button of its own.) */
+function openDraftConfirm(drafted: ReturnType<typeof pendingLines>): void {
+  const lines = draftSheetLines(drafted);
+  openDraftSheet({
+    lines,
+    onAddAll: () => {
+      const wants = new Map(lines.map(l => [l.endId, l.training]));
+      void commitBook(wants);
+    },
+    onRemove: (cutId) => { discardBranch(cutId); afterDraftEdit(); },
+    onGoTo: (endId) => handleMoveClick(endId),
+    onKeepEditing: () => { /* stay put — the back layer is already re-armed */ },
+  });
+}
+
+/** "1.e4 e5 2.Nf3" — a line's moves, numbered from the first. */
+function notate(nodes: MoveNode[]): string {
+  return nodes.map((node, i) => {
+    const white = i % 2 === 0;
+    const number = Math.floor(i / 2) + 1;
+    return white ? `${number}.${formatMove(node.san)}` : formatMove(node.san);
+  }).join(' ');
 }
 
 /** A branch was dropped from the draft — the tree and every count moved. */
@@ -2654,21 +2788,14 @@ let playbackTimer: ReturnType<typeof setTimeout> | undefined;
 let playbackMoves: ReturnType<typeof mainline> = [];
 let playbackIndex = 0;
 
-// Watch line is an icon-only button (in the bottom bar, next to Flip): a play
-// triangle that becomes a pause symbol while a line is playing back.
-const PLAY_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" stroke="none" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
-const PAUSE_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" stroke="none" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
-
-function setWatchPlaying(playing: boolean): void {
-  const btn = document.getElementById('watch-btn') as HTMLButtonElement | null;
-  if (!btn) return;
-  btn.innerHTML = playing ? PAUSE_ICON : PLAY_ICON;
-  btn.classList.toggle('playing', playing);
-  // Paused mid-line (moves still queued) offers "Resume"; otherwise "Watch".
-  const resumable = !playing && playbackMoves.length > 0 && playbackIndex < playbackMoves.length;
-  const label = playing ? 'Pause' : resumable ? 'Resume line' : 'Watch line';
-  btn.setAttribute('aria-label', label);
-  btn.title = label;
+// The bar's Watch/Pause button is GONE — the bottom bar is four navigation
+// controls now (start · end · back · forward), and a line that plays itself is
+// what the trainer's watch step is for. The playback machinery stays, because
+// the guided first run still plays its line in (startPlaybackFromStart), and
+// this is what used to paint the button: kept as a no-op-safe hook so every
+// caller reads the same.
+function setWatchPlaying(_playing: boolean): void {
+  /* no button to paint any more */
 }
 
 // Fires once when a playback reaches the end of its line under its own steam —
@@ -3029,6 +3156,7 @@ let pendingTrainLineId: string | null = null;
 // per-colour Add buttons (which preselect the side) and the post-save redirect.
 function clearBuilder(colour: 'white' | 'black' = 'white'): void {
   stopPlayback();
+  resetBuilderTip();
   reset();
   chess.reset();
   loadedLineId = null;
@@ -3590,14 +3718,6 @@ async function buildFabActions(): Promise<FabItem[]> {
     });
   }
 
-  // 3) Build with the engine — always; top of the menu.
-  items.push({
-    icon: Icons.gamepad(20),
-    label: 'Build with the engine',
-    sublabel: 'Play a game, save it as a line',
-    onClick: () => { void openEngineSpar(exploreScreenDeps()); },
-  });
-
   return items;
 }
 
@@ -3930,7 +4050,6 @@ function renderTrainTabbed(host: HTMLElement): void {
         // can hand to the builder at any point (the same flow the FAB and Explore
         // open). It used to open an ordinary empty builder with the eval bar
         // switched on, which is an analysis aid, not a way to get a line.
-        onBuildWithEngine: () => { void openEngineSpar(exploreScreenDeps()); },
         onImportGames: () => openImportPanel({ onImported: () => showView('train') }),
         onConnectLichess: () => void lichessConnect(),
         // The same replay Settings offers, in the one place a user who skipped
@@ -4683,18 +4802,22 @@ function showSaveGuard(proceed: () => void): void {
   // leaving really does leave the repertoire as it was.
   if (inBook()) {
     const n = pendingCount();
-    const branches = pendingBranches();
-    // Built in more than one place: the old dialog offered a single "Discard"
-    // that threw away every branch at once, having named none of them. Show
-    // them instead, and let one be dropped without taking the others.
-    if (branches.length > 1) {
+    const drafted = pendingLines();
+    // More than one line built: the old dialog offered a single "Discard" that
+    // threw away everything at once, having named none of it. Show the lines
+    // instead, and let one be dropped — or added and trained — without taking
+    // the others with it.
+    if (drafted.length > 1) {
+      const lines = draftSheetLines(drafted);
       openDraftSheet({
-        branches,
-        moves: n,
+        lines,
         leaving: true,
-        onAddAll: () => { void commitPending().then(() => proceed()); },
-        onDiscardBranch: (rootId) => { discardBranch(rootId); afterDraftEdit(); },
-        onGoTo: (lastId) => handleMoveClick(lastId),
+        onAddAll: () => {
+          const wants = new Map(lines.map(l => [l.endId, l.training]));
+          void commitBook(wants).then(() => proceed());
+        },
+        onRemove: (cutId) => { discardBranch(cutId); afterDraftEdit(); },
+        onGoTo: (endId) => handleMoveClick(endId),
         onDiscardAll: () => { discardPending(); proceed(); },
         onKeepEditing: () => { /* stay put — the back layer is already re-armed */ },
       });
@@ -5257,38 +5380,66 @@ function setupSaveButton() {
 // move.
 
 function setupPlaybackControls(): void {
-  const watchBtn = document.getElementById('watch-btn') as HTMLButtonElement;
-
-  // Flip: turn the board round, and NOTHING else. It used to also swap
-  // `saveColour`, so looking at a White line from Black's side quietly re-filed
-  // it in the Black book — a view control that edited your data. The colour a
-  // line saves as is decided when the builder is opened (which book you are
-  // standing in); seeing the position from the other side is just a look.
+  // Flip: swap to the other side AND switch which colour this line saves as —
+  // building from White and flipping means you're now preparing the Black side.
   document.getElementById('board-flip')!.addEventListener('click', () => {
-    cg.toggleOrientation();
-    // The board's own overlays (grade badges, engine arrows) are drawn per
-    // square, so they survive the flip — but redraw them anyway, since
-    // chessground rebuilds its shape layer on an orientation change.
-    refreshBoardShapes();
+    void flipBuilderColour();
   });
 
-  watchBtn.addEventListener('click', () => {
-    // Already playing → pause (keeps position for a later resume).
-    if (playbackTimer !== undefined) {
-      pausePlayback();
-      return;
-    }
+}
 
-    // Fresh start (or restart after a finished run): load the line from the top.
-    if (playbackMoves.length === 0 || playbackIndex >= playbackMoves.length) {
-      startPlaybackFromStart();
-      return;
-    }
+/**
+ * Turn the board round and change the colour this line saves as.
+ *
+ * The second half is the point: the sides of a chess position are not
+ * interchangeable, and looking at one from the other side is nearly always the
+ * moment you decide to prepare THAT side instead. So the flip carries the work
+ * across rather than just re-drawing it.
+ *
+ * INSIDE A BOOK that means moving to the other colour's book, because a book
+ * holds one colour and nothing else. The moves on the board come along: the path
+ * is replayed into the new book, walking onto whatever it already has and
+ * leaving the rest as a draft — exactly what playing those moves by hand would
+ * have produced. Without the replay the flip would silently empty the board.
+ */
+async function flipBuilderColour(): Promise<void> {
+  stopPlayback();
+  const next: 'white' | 'black' = saveColour === 'white' ? 'black' : 'white';
+  const ucis = inBook() ? currentPathUcis() : [];
 
-    // Otherwise we're resuming a paused line from playbackIndex.
-    setWatchPlaying(true);
-    playStep();
-  });
+  cg.toggleOrientation();
+  saveColour = next;
+
+  if (inBook()) {
+    // A new book, then the same moves played into it. openBook resets the tree
+    // and the cursor, so everything below rebuilds from the replayed path.
+    await openBook(next, selectedBookId() === 'all' ? undefined : selectedBookId());
+    resetBuilderTip();
+    chess.reset();
+    goTo('root');
+    for (const uci of ucis) {
+      const from = uci.slice(0, 2);
+      const to = uci.slice(2, 4);
+      const promotion = (uci[4] as 'q' | 'r' | 'b' | 'n') || 'q';
+      const result = chess.move({ from, to, promotion });
+      if (!result) break;
+      const existed = hasMove(result.san);
+      const node = addMove(result.san, from + to + (result.promotion ?? ''), chess.fen());
+      noteCursorAt(node.id);
+      if (!existed) notePending(node.id);
+    }
+    handleMoveClick(getCurrentNode().id);
+  }
+
+  renderTitle();
+  updateSaveButtonLabel();
+  builderPanels?.render();
+  explorePanel?.render();
+  // Colour is half of line identity, so flipping can make the line on the board
+  // stop (or start) matching one already saved.
+  refreshSaveButtonState();
+  refreshBoardShapes();
+  showToast(`This line will now save as ${next === 'white' ? 'White' : 'Black'}`);
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
@@ -5467,8 +5618,7 @@ maybeShowGate(() => requestAnimationFrame(() => {
     },
   });
 
-  // Decreasing-opacity arrows for the engine's top 3 candidates — same brushes
-  // as the spar overlay's "build with engine" mode (spar.ts). Unique keys per
+  // Decreasing-opacity arrows for the engine's top 3 candidates. Unique keys per
   // board (board-brushes.ts) keep each arrow's head from colliding with another
   // board's marker id, which otherwise drops the arrowhead on hidden-view boards.
   registerBrushes(cg, {

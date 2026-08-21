@@ -3,13 +3,13 @@ import { formatMove } from './notation';
 
 export interface EvalPanelOpts {
   // Show just the 3 best moves in one fixed-height row (no principal variation)
-  // rather than the richer stacked-PV view. Used by the spar overlay and the
-  // builder's docked eval bar so a longer line can never grow the panel taller
-  // and nudge the board out from under an in-progress drag.
+  // rather than the richer stacked-PV view. Used by the builder's docked eval
+  // bar so a longer line can never grow the panel taller and nudge the board out
+  // from under an in-progress drag.
   compact?: boolean;
   // Render the on/off switch in the controls row. The builder's docked eval bar
-  // is switched by the dock's engine icon instead, so it hides this (false); the
-  // spar overlay keeps its own inline toggle (the default).
+  // is switched by the dock's engine icon instead, so it hides this (false); a
+  // host with no toggle of its own keeps it (the default).
   showToggle?: boolean;
   // Show the "cloud · d38" / "local · d20" source-and-depth badge. The builder's
   // docked bar turns it off: the whole point of the quick engine is a glance at

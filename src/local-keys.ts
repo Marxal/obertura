@@ -79,7 +79,7 @@ const PRIVATE_KEYS = [
  * deliver it.
  */
 export function backupLocalKey(key: string): boolean {
-  if (key === 'engineEnabled' || key === 'sparEngineEnabled') return true;
+  if (key === 'engineEnabled') return true;
   if (!key.startsWith('obertura')) return false;
   if (RETIRED_KEY_PREFIXES.some((prefix) => key.startsWith(prefix))) return false;
   if (PRIVATE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix))) return false;

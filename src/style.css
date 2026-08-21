@@ -472,15 +472,13 @@ body {
 [data-theme="game"] .card-training-btn:not(.card-training-btn--active),
 [data-theme="game"] .rmap-pos-open-btn,
 [data-theme="game"] .lib-move--current,
-[data-theme="game"] .spar-banner,
 [data-theme="gamer"] .move-san.active,
 [data-theme="gamer"] .seg-btn.active,
 [data-theme="gamer"] .dfilter-btn.active,
 [data-theme="gamer"] .tag-chip--on,
 [data-theme="gamer"] .card-training-btn:not(.card-training-btn--active),
 [data-theme="gamer"] .rmap-pos-open-btn,
-[data-theme="gamer"] .lib-move--current,
-[data-theme="gamer"] .spar-banner {
+[data-theme="gamer"] .lib-move--current {
   color: var(--on-accent);
 }
 
@@ -2056,25 +2054,6 @@ main {
   text-align: center;
 }
 
-/* The engine, third and quieter: a game first, a line second. */
-.first-steps-engine {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  width: 100%;
-  margin-top: 0.15rem;
-  padding: 0.4rem;
-  border: none;
-  background: none;
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.first-steps-engine:active { color: var(--accent-active); }
 
 /* ── The checklist rows ── */
 
@@ -2583,49 +2562,124 @@ html[data-coords="off"] .cg-wrap coords {
 }
 
 /* ── Auto-reply ──────────────────────────────────────────────────────────────
-   A switch under the three tiles, plus — once a reply is actually on the board —
-   the way to swap it for the next suggestion. Quiet: it is a setting for how the
-   slide behaves, not a fourth move to choose. */
+   A block of its own between the tiles and the cards: the switch, a picker for
+   where the reply comes from, one line saying what it will do, and — once a
+   reply is actually on the board — a full-width button to swap it.
+
+   A CARD RATHER THAN A ROW, because it is the one thing on this slide that
+   changes what the BOARD does. As a quiet row under the tiles it read as a
+   footnote to them and nobody found it. */
 .explore-auto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+  padding: 0.5rem 0.6rem 0.55rem;
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  background: var(--bg-card);
+  transition: border-color 0.15s, background 0.15s;
+}
+/* On, it is doing something to the board — so it says so in colour. */
+.explore-auto--on {
+  border-color: color-mix(in srgb, var(--success) 40%, var(--border-card));
+  background: color-mix(in srgb, var(--success) 7%, var(--bg-card));
+}
+.explore-auto-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.15rem 0.15rem 0.5rem;
-  border-bottom: 1px solid var(--hairline-soft);
-  margin-bottom: 0.5rem;
 }
 .explore-auto-toggle.dline-toggle {
-  gap: 0.4rem;
-  padding: 0.15rem 0.1rem;
-  font-size: 0.75rem;
-  font-weight: 600;
+  gap: 0.45rem;
+  padding: 0.1rem 0;
+  font-size: 0.82rem;
+  font-weight: 700;
 }
-.explore-auto .dline-switch { width: 28px; height: 16px; }
-.explore-auto .dline-switch-knob { width: 12px; height: 12px; }
-.explore-auto .dline-toggle--on .dline-switch-knob { transform: translateX(12px); }
+.explore-auto .dline-switch { width: 32px; height: 18px; }
+.explore-auto .dline-switch-knob { width: 14px; height: 14px; }
+.explore-auto .dline-toggle--on .dline-switch-knob { transform: translateX(14px); }
 
-.explore-auto-again {
+.explore-auto-note {
+  font-size: 0.7rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+/* The source picker: a pill with the platform's own menu laid transparently
+   over it, exactly like the Library's rating-band control. */
+.explore-auto-src {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.25rem;
   flex: 0 0 auto;
-  padding: 0.22rem 0.6rem;
+  padding: 0.2rem 0.5rem;
   border: 1px solid var(--border-card);
   border-radius: 999px;
   background: var(--bg-card);
   color: var(--text-muted);
-  font-family: system-ui, -apple-system, sans-serif;
   font-size: 0.72rem;
   font-weight: 600;
+}
+.explore-auto-src.is-disabled { opacity: 0.45; }
+.explore-auto-src-chev { flex: 0 0 auto; opacity: 0.7; }
+.explore-auto-select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.explore-auto-select:disabled { cursor: default; }
+
+/* Full width and a real tap height: it is the one control here you press again
+   and again, once per reply you don't want. */
+.explore-auto-again {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  min-height: 38px;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--success) 35%, var(--border-card));
+  border-radius: 10px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  box-shadow: var(--shadow-card);
 }
 .explore-auto-again:active {
   color: var(--accent);
   border-color: var(--accent);
+  transform: translateY(1px);
+  box-shadow: none;
 }
 .explore-auto-again-ico { flex: 0 0 auto; }
+
+/* The card list's own heading. The tiles above answer the question; this names
+   what everything below them is — the evidence — so the slide reads as two
+   sections rather than as a row of buttons followed by an unexplained list. */
+.explore-rows-head {
+  padding: 0.15rem 0.25rem 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
 
 .explore-rows {
   display: flex;
@@ -2696,19 +2750,17 @@ html[data-coords="off"] .cg-wrap coords {
 
 /* Everything that used to hide behind the chevron. Two columns — label, then
    the bar — so "you" and the database sit on the same grid and the comparison
-   is a glance rather than a calculation.
-
-   The dividing rule went with the card's press state: with no button above it
-   there are no longer two regions to separate, and one card was carrying a left
-   accent, an outline, a rule, a tinted verdict strip and a row of outlined
-   pills. The facts are all still here; the boxes around them are not. */
+   is a glance rather than a calculation. The rule above it separates the card's
+   heading from its record: without it the numbers ran straight on from the
+   sentence above and the card read as one paragraph. */
 .explore-stats {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 0.25rem 0.5rem;
+  gap: 0.3rem 0.5rem;
   margin: 0 0.5rem;
-  padding: 0 0 0.5rem;
+  padding: 0.4rem 0 0.5rem;
+  border-top: 1px solid var(--hairline-soft);
 }
 .explore-stat-label {
   font-size: 0.6rem;
@@ -2728,13 +2780,23 @@ html[data-coords="off"] .cg-wrap coords {
   display: flex;
   align-items: center;
   gap: 0.3rem;
-  padding: 0.1rem 0;
+  padding: 0.22rem 0.4rem;
+  border-radius: 7px;
   font-size: 0.7rem;
   line-height: 1.25;
 }
-.explore-compare--up { color: var(--success-active); }
-.explore-compare--down { color: var(--danger-active); }
-.explore-compare--level { color: var(--text-faint); }
+.explore-compare--up {
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+  color: var(--success-active);
+}
+.explore-compare--down {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: var(--danger-active);
+}
+.explore-compare--level {
+  background: var(--bg-parchment);
+  color: var(--text-muted);
+}
 /* On dark, the -active inks are too dark to sit on their own tint; lift them
    toward the page's cream. */
 [data-theme="dark"] .explore-compare--up {
@@ -2750,31 +2812,33 @@ html[data-coords="off"] .cg-wrap coords {
   font-variant-numeric: tabular-nums;
 }
 
-/* The loose numbers that don't deserve a bar. Plain text on a divider, not
-   outlined pills: three of these per card, three cards per screen, was nine
-   little capsules doing the work of nine short phrases. */
+/* The loose numbers that don't deserve a bar. Each in its own outlined capsule:
+   they are two or three unrelated facts on one line, and the outline is what
+   stops "Engine +0.35 · White better Engine pick #1" reading as one sentence. */
 .explore-facts {
   grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.1rem 0.7rem;
-  padding-top: 0.1rem;
+  gap: 0.25rem;
 }
 .explore-fact {
   display: inline-flex;
   align-items: baseline;
   gap: 0.28rem;
+  padding: 2px 7px;
+  border: 1px solid var(--hairline-soft);
+  border-radius: 999px;
+  background: var(--bg-parchment);
 }
 .explore-fact-k {
-  font-size: 0.58rem;
+  font-size: 0.56rem;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--text-fainter);
 }
 .explore-fact-v {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 700;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
@@ -2786,11 +2850,14 @@ html[data-coords="off"] .cg-wrap coords {
   align-items: center;
   gap: 3px;
   flex: 0 0 auto;
+  padding: 1px 6px 1px 4px;
+  border-radius: 999px;
   font-size: 0.6rem;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--explore-tint) 70%, var(--text-muted));
+  background: color-mix(in srgb, var(--explore-tint) 12%, var(--bg-parchment));
+  color: color-mix(in srgb, var(--explore-tint) 75%, var(--text-muted));
 }
 .explore-chip svg { flex-shrink: 0; }
 
@@ -3289,13 +3356,6 @@ html[data-coords="off"] .cg-wrap coords {
   color: var(--text-faint);
 }
 
-/* Watch/play-line button (in the bottom control bar, next to Flip): accent
-   while a line is playing back. */
-.watch-btn.playing {
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-
 /* Applied-tag chips shown under the title (read-only; edited in the lightbox). */
 .builder-tags {
   display: flex;
@@ -3792,7 +3852,7 @@ html[data-coords="off"] .cg-wrap coords {
 /* The single-step arrows read as real buttons: card surface, border, shadow —
    so they feel tappable, distinct from the quiet flip/watch icons on the left. */
 .bar-btn--step {
-  width: 52px;
+  width: 62px;
   height: 40px;
   border: 1px solid var(--border-card);
   border-radius: 9px;
@@ -3812,16 +3872,13 @@ html[data-coords="off"] .cg-wrap coords {
   box-shadow: none;
 }
 
-/* Rewind and play are secondary to the step arrows — you step through a line
-   dozens of times and rewind it once — so they take the same button look at a
-   narrower width, which also buys the row the space for a fourth control. */
+/* Jump-to-start and jump-to-end are secondary to the step arrows — you step
+   through a line dozens of times and jump to its ends once — so they take the
+   same button look at a narrower width, and the width they give up goes to the
+   two buttons the thumb actually lives on. */
 .bar-btn--mini {
-  width: 40px;
+  width: 38px;
 }
-
-/* The watch/play button sits in the right group next to the arrows and borrows
-   their button look; the play glyph just needs a touch of optical centring. */
-.watch-btn.bar-btn--step svg { margin-left: 1px; }
 
 /* ── My lines slide: saved-lines + games sections ────────────────────────────
    Two stacked sections, each a titled list of continuations from here with a
@@ -5120,6 +5177,14 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
    the tags and notes they belong beside. Both moved up into the one action row
    at the top (.line-actions above); the footer went with them. */
 
+/* The line's age, under the "How this line is going" heading. */
+.lineinfo-added {
+  display: block;
+  margin: -0.35rem 0 0.15rem;
+  font-size: 0.7rem;
+  color: var(--text-fainter);
+}
+
 /* ── Line info: priority + inline statistics ─────────────────────────────────
    The two blocks below the footer, shown only for a SAVED line. Both open with
    the same small section head so the tab reads as a stack of sections rather
@@ -5953,6 +6018,14 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 
 /* "Played N× in your games" badge on a saved-line row. */
+/* "Added 3 days ago" — the quietest line on the card: a fact you look for, not
+   one that should catch the eye on the way past. */
+.dline-added {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.7rem;
+  color: var(--text-fainter);
+}
+
 .dline-played {
   align-self: flex-start;
   font-size: 0.72rem;
@@ -6744,13 +6817,23 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   background: var(--bg-card);
 }
 
+/* The line itself, and a way to go and stand on it — a button, because
+   "which one IS that?" is answered by looking at the board, not at notation. */
 .draft-row-text {
   flex: 1;
   min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
+.draft-row-text:active { opacity: 0.7; }
 
-/* Where the branch hangs off — context, so it reads as a place in the book
-   rather than as a floating fragment of notation. */
+/* The line's name — its opening — above the moves. */
 .draft-where {
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 0.72rem;
@@ -6769,6 +6852,25 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
+
+/* Train / store, per line, right where the line is. The decision belongs beside
+   the thing it is about — a modal after the save asking "and this one?" three
+   times is the flow this replaces. */
+.draft-train.dline-toggle {
+  flex: 0 0 auto;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.2rem 0.3rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.draft-train .dline-switch { width: 30px; height: 17px; }
+.draft-train .dline-switch-knob { width: 13px; height: 13px; }
+.draft-train.dline-toggle--on .dline-switch-knob { transform: translateX(13px); }
 
 .draft-row-btn {
   flex: 0 0 auto;
@@ -8625,14 +8727,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   display: none;
 }
 
-/* Spar's eval bar still sits ABOVE its board, so there we KEEP the bar's box in
-   layout when off (invisible) to stop that board shifting on toggle — which
-   used to leave chessground's cached bounds stale and break dragging. */
-.spar-eval-bar #eval-bar-wrap[hidden] {
-  display: flex;
-  visibility: hidden;
-}
-
 .eval-row {
   display: flex;
   align-items: center;
@@ -8687,7 +8781,7 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   overflow: hidden;
 }
 
-/* Compact mounts (the spar overlay): the 3 candidates sit side by side in one
+/* Compact mounts: the 3 candidates sit side by side in one
    fixed-height row instead of stacking — a longer PV can never grow this
    block taller and nudge the board out from under an in-progress drag. */
 .eval-moves--compact {
@@ -8744,7 +8838,7 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
    eval sit side by side rather than stacked: the docked bar is the app's most
    space-constrained row (every pixel here is a pixel off the board), and one
    line of "Nf3 +0.3" is shorter than two lines of the same thing. The stacked
-   layout stays for the spar overlay, which has the room. */
+   layout stays for the full-height mounts, which have the room. */
 #eval-controls .eval-move {
   background: var(--bg-parchment);
   border: 1px solid var(--border-card);
@@ -8762,7 +8856,7 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   flex-shrink: 0;
 }
 
-/* Move chips: a compact [move][score] column, used for the spar overlay's
+/* Move chips: a compact [move][score] column, used for the compact
    one-row "3 best moves" display (see .eval-moves--compact above). */
 .eval-move {
   display: flex;
@@ -12813,203 +12907,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
     scrollbar-width: thin;
   }
 }
-
-/* ── Spar with the engine ──────────────────────────────────────────────────── */
-
-/* The Explore launcher card's side/level pickers. */
-.spar-picker-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-  margin-top: var(--space-sm);
-}
-.spar-picker-label {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-/* The engine-opening picker: a stacked row (label, full-width segments, hint)
-   since its option labels are too long for the inline side/level rows. */
-.spar-mode-row {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  margin-top: var(--space-sm);
-}
-.spar-mode-hint {
-  margin: 0;
-  font-size: 0.78rem;
-  line-height: 1.3;
-  color: var(--text-muted);
-}
-.seg-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* The front-door "Play" button — full-width primary (chrome from .btn-primary). */
-.spar-start-btn {
-  width: 100%;
-  margin-top: var(--space-md);
-  min-height: 52px;
-  font-size: 1rem;
-  border-radius: 10px;
-}
-
-/* The full-screen spar overlay reuses the .pt- pre-training shell. Its bottom
-   block mirrors .pt-top so the board sits centred between them. */
-.spar-bottom {
-  flex: 1 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  gap: var(--space-md);
-  padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0));
-}
-
-.spar-status {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  min-height: 1.2em;
-  text-align: center;
-}
-
-/* Quiet, persistent "off book" marker under the opening name. */
-.spar-oob {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-faint, var(--text-muted));
-  opacity: 0.75;
-}
-.spar-oob[hidden] { display: none; }
-
-.spar-controls {
-  display: flex;
-  gap: var(--space-sm);
-  width: 100%;
-  max-width: 420px;
-}
-.spar-ctrl-btn {
-  flex: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  font-size: 0.85rem;
-  padding: 0.65rem 0.5rem;
-}
-.spar-ctrl-btn:disabled { opacity: 0.4; }
-
-/* ── Engine in spar: eval bar/panel + Suggest ──────────────────────────────── */
-/* Eval bar above the board — mirrors the builder's #eval-bar-top. When the
-   engine is off the inner wrap is kept in layout but made invisible (the shared
-   #eval-bar-wrap[hidden] rule above), so the board never shifts on toggle; the
-   strip just blends to transparent. */
-.spar-eval-bar {
-  width: 100%;
-  background: var(--bg-elevated);
-  padding: 8px 12px;
-}
-.spar-eval-bar:empty {
-  display: none;
-}
-.spar-eval-bar:has(#eval-bar-wrap[hidden]) {
-  background: transparent;
-}
-
-/* Eval controls below the board — the candidate chips, source badge and the
-   on/off toggle, exactly as the builder mounts them. The source badge gets its
-   own discrete row above the moves (mirrors the builder's #eval-controls
-   treatment), so the toggle/label/badge never squeeze the one-row move chips
-   and force the panel — and the board above it — to grow. */
-.spar-eval-controls {
-  width: 100%;
-  max-width: 420px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--hairline-soft);
-  border-radius: 10px;
-  padding: 6px 10px;
-}
-.spar-eval-controls .eval-row {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 6px;
-}
-.spar-eval-controls .eval-right {
-  order: -1;
-  justify-content: flex-start;
-}
-
-/* Suggest-a-move row: a small label and the three flavour buttons. */
-.spar-suggest {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  width: 100%;
-  max-width: 420px;
-}
-.spar-suggest-label {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-.spar-suggest-btn {
-  flex: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  font-size: 0.8rem;
-  padding: 0.55rem 0.4rem;
-}
-.spar-suggest-btn:disabled { opacity: 0.4; }
-
-/* Tiny busy state: a spinning dot replaces nothing visually until loading. */
-.spar-suggest-spinner {
-  display: none;
-  width: 11px;
-  height: 11px;
-  border: 2px solid currentColor;
-  border-top-color: transparent;
-  border-radius: 50%;
-  opacity: 0.85;
-  animation: spar-spin 0.7s linear infinite;
-}
-.spar-suggest-btn.is-loading .spar-suggest-spinner { display: inline-block; }
-@keyframes spar-spin { to { transform: rotate(360deg); } }
-
-/* The one-time "left the book" banner, floating over the top of the board. */
-@keyframes spar-banner-in {
-  0%   { opacity: 0; transform: translate(-50%, -8px); }
-  100% { opacity: 1; transform: translate(-50%, 0); }
-}
-.spar-banner {
-  position: absolute;
-  top: 0.6rem;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 12;
-  background: var(--accent);
-  color: #fff;
-  font-size: 0.82rem;
-  font-weight: 700;
-  padding: 0.5rem 0.9rem;
-  border-radius: 999px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
-  white-space: nowrap;
-  pointer-events: none;
-}
-.spar-banner[hidden] { display: none; }
-.spar-banner--in { animation: spar-banner-in 0.25s ease-out; }
 
 /* ════════════════════════════════════════════════════════════════════════════
    ONBOARDING INTRO (onboarding.ts)

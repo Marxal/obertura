@@ -239,6 +239,23 @@ export function setAutoReply(on: boolean): void {
   localStorage.setItem(AUTO_REPLY_KEY, on ? 'on' : 'off');
 }
 
+// Where that reply is drawn from. 'best' is the slide's own ranking (your games
+// first, then the library, then the engine) — the default, and the only one
+// that can always answer. The other three pin it to one source, for when you
+// know what you are preparing against: what you actually face, what the book
+// says, or what the engine would play.
+export type AutoReplySource = 'best' | 'games' | 'library' | 'engine';
+const AUTO_REPLY_SOURCE_KEY = 'obertura.builder.autoReplySource';
+
+export function getAutoReplySource(): AutoReplySource {
+  const v = localStorage.getItem(AUTO_REPLY_SOURCE_KEY);
+  return v === 'games' || v === 'library' || v === 'engine' ? v : 'best';
+}
+
+export function setAutoReplySource(source: AutoReplySource): void {
+  localStorage.setItem(AUTO_REPLY_SOURCE_KEY, source);
+}
+
 //   'masters'  → over-the-board games between strong titled players.
 const EXPLORER_DB_KEY = 'obertura.explorerDb';
 

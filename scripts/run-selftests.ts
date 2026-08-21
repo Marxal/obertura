@@ -10,7 +10,6 @@ import { runOpeningsSelfTest } from '../src/openings.selftest';
 import { runImportSelfTest } from '../src/import.selftest';
 import { runSchedulerSelfTest } from '../src/scheduler.selftest';
 import { runAnalysisSelfTest } from '../src/analysis.selftest';
-import { runSparSelfTest } from '../src/spar.selftest';
 import { runScoutSelfTest } from '../src/scout.selftest';
 import { runTrapsSelfTest } from '../src/traps.selftest';
 import { runMoveStatsSelfTest } from '../src/move-stats.selftest';
@@ -60,7 +59,6 @@ const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'import-tier', run: runImportTierSelfTest },
   { suite: 'scheduler', run: runSchedulerSelfTest },
   { suite: 'analysis', run: runAnalysisSelfTest },
-  { suite: 'spar', run: runSparSelfTest },
   { suite: 'scout', run: runScoutSelfTest },
   { suite: 'traps', run: runTrapsSelfTest },
   { suite: 'move-stats', run: runMoveStatsSelfTest },
