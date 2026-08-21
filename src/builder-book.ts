@@ -151,7 +151,10 @@ export async function commitPending(): Promise<CommitResult> {
 // if they have since walked somewhere else entirely — is a button counting
 // something they cannot see.
 //
-// So the draft is grouped into branches: one per place you started adding.
+// So the draft is grouped into branches: one per place you started adding. The
+// move strip draws every one of them (parenthesised, PGN style), so "Add 5
+// moves" is now always a count of moves on screen; the grouping is what the
+// leave guard uses to let one branch be dropped without taking the others.
 
 /** The draft's branches, as the sheet that lists them knows them. */
 export type DraftBranch = AddedBranch;
@@ -163,21 +166,6 @@ export type DraftBranch = AddedBranch;
  */
 export function pendingBranches(): DraftBranch[] {
   return groupAddedBranches(rootOfWorking(), pending);
-}
-
-/**
- * Is every added move on the line currently drawn in the move strip?
- *
- * This is what decides whether the header button can just DO it. When the answer
- * is yes, "Add 3 moves" adds exactly the three moves marked as drafts in front
- * of you. When it is no, the button has work hidden somewhere else in the book,
- * and it owes the user a look at it before writing anything.
- */
-export function pendingAllVisible(): boolean {
-  if (pending.size === 0) return true;
-  const here = new Set(currentLineNodes().map(n => n.id));
-  for (const id of pending) if (!here.has(id)) return false;
-  return true;
 }
 
 /**
@@ -230,10 +218,27 @@ export function cursorCoverage(): CursorCoverage | null {
 
 // ── The line the cursor is standing in ───────────────────────────────────────
 
-/** The node the current line ends on, or null when the board is at the start. */
+/**
+ * The node the current line ends on, or null when the cursor isn't standing in
+ * one line in particular.
+ *
+ * A FORK IS NOT A LINE, AND NEITHER IS THE START. This used to descend the FIRST
+ * continuation from wherever the cursor stood, which meant it always found a
+ * line — even standing at the start of a book, or on 1.e4 with three answers
+ * under it. Whichever line happened to be first would then lend its name, tags,
+ * training state and statistics to the whole Line panel, and to the builder's
+ * header, as if the user had chosen it. They hadn't; the array order had.
+ *
+ * So the walk only runs while the way on is unambiguous. At a node with two
+ * continuations — or at the root — the answer is null, and everything that reads
+ * this (Line info, "delete this line", the line the controls write to) says the
+ * honest thing instead of naming a line at random.
+ */
 export function currentLineEnd(): MoveNode | null {
-  const nodes = currentLineNodes();
-  return nodes.length ? nodes[nodes.length - 1] : null;
+  let node = getCurrentNode();
+  if (node.id === 'root') return null;
+  while (node.children.length === 1) node = node.children[0];
+  return node.children.length === 0 ? node : null;
 }
 
 /**

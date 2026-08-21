@@ -225,6 +225,20 @@ export function setIncludeSecondPlatform(on: boolean): void {
 // Which Lichess opening-explorer database the builder's Library slide shows its
 // real-game stats from. Both are free and anonymous (no login):
 //   'lichess'  → every rated Lichess game (default; the biggest sample).
+// The builder's Explore slide: play the opponent's reply automatically after
+// every move of mine, so building a line is only ever my own decisions. OFF by
+// default — it moves pieces on the board on its own, which nobody should meet
+// without having asked for it.
+const AUTO_REPLY_KEY = 'obertura.builder.autoReply';
+
+export function getAutoReply(): boolean {
+  return localStorage.getItem(AUTO_REPLY_KEY) === 'on';
+}
+
+export function setAutoReply(on: boolean): void {
+  localStorage.setItem(AUTO_REPLY_KEY, on ? 'on' : 'off');
+}
+
 //   'masters'  → over-the-board games between strong titled players.
 const EXPLORER_DB_KEY = 'obertura.explorerDb';
 

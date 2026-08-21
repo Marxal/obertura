@@ -2409,6 +2409,80 @@ _On `claude/lines-library-ui-n0jbi2`. Restore point: `v0.5`._
 
 ---
 
+## v0.6d — the builder tells you what it is doing 🔜
+
+Ten fixes to the builder, all of them versions of the same complaint: the panel
+was describing something other than the thing in front of you. A brand-new line
+opened with moves already written in the strip. The header named a line you had
+not chosen. Flipping the board to look at a position from the other side quietly
+re-filed the line in the other colour's book. And the one button that admitted
+the confusion said "1 place", which meant nothing to anybody.
+
+- ✅ **Flipping the board is a look, not an edit.** It used to swap `saveColour`
+  as well as the orientation, so viewing a White line from Black's side moved it
+  to the Black book. Which book a line belongs to is settled when the builder
+  opens; the flip button now only turns the board round.
+- ✅ **A new line opens blank.** Inside a book the strip drew "the line you are
+  standing in", which it worked out by descending the first continuation from
+  the cursor — and at the start position that is whichever line happens to be
+  first in the book. So the builder opened on a fresh line already showing
+  somebody else's moves, with their name in the header and their statistics on
+  Line info. The strip now draws the path you actually walked and nothing more,
+  and `currentLineEnd()` returns null at the start and at any fork: standing on
+  1.e4 with three answers under it is not standing in a line, and the panel says
+  the honest thing rather than naming one at random.
+- ✅ **The draft is drawn in full, variations in parentheses.** Play three moves
+  off the French, walk back, play two off the King's Indian, and the strip shows
+  both — `1.e4 e5 2.f4 (2.Nc3 Nf6)`, PGN style, each uncommitted move dashed. So
+  "Add 5 moves" is now always a count of moves on screen, the "2 places" chip is
+  gone, and the header button commits in one tap instead of stopping to show you
+  work you could not see. Several answers to one position can be built and added
+  in a single go, which the tree could always store and the strip could never
+  show.
+- ✅ **An info button per tab**, bottom right of the sheet: one discrete (i)
+  whose dialog follows whichever slide is showing (`builder-info.ts`). The
+  Library's own (i) went — that dialog is now what this button opens there.
+- ✅ **Line info is one row of four.** "Title" went: a line is named by the
+  opening it reaches, shown right under the row, and hand-naming it was a
+  control almost nobody used taking a quarter of the width. What is left is
+  training · tags · note · delete, with delete icon-only so all four fit a phone.
+  The training toggle moved up from the old footer, which is gone.
+- ✅ **A rewind button in the bottom bar.** Back to the start took as many taps
+  as there were moves. Rewind and play are narrower than the step arrows — you
+  step through a line dozens of times and rewind it once.
+- ✅ **Explore's cards stopped being buttons.** Each card had a round plus and a
+  press state, duplicating the tile directly above it, so the slide offered
+  every move twice. The cards are reading matter now, and the pills, rules and
+  tinted strips around their numbers went with the plus.
+- ✅ **Empty sections on My lines collapse to one line.** Three sections each
+  drawing a title and then a sentence saying it had nothing filled a fresh
+  book's panel with three restatements of "nothing here yet".
+- ✅ **Line info and the Game tab carry the move list in a box** — the same
+  moves as the strip above, wrapped rather than scrolled, so the whole sequence
+  reads at once. The Game tab's tags and note gave way to "Open in builder" and
+  "Save line", which is what a game is actually for.
+- ✅ **Auto-reply**, on the Explore slide. Building a line means playing both
+  sides, and half of every line is a move of the opponent's chosen only so the
+  next one of yours can exist. With the switch on, that half is played for you —
+  the top suggestion at the position, from the three the slide is already
+  ranking — and "Another reply" takes it back and cycles to the next, for when
+  their most popular move is not the only one worth preparing for. A Black book
+  gets White's first move played the moment it opens.
+- ✅ **The move strip has a tone of its own**, a few percent of the text colour,
+  so it reads as the moves of the line rather than as the top row of whichever
+  panel is showing.
+
+Four things were quietly wrong and were fixed on the way past: playing a move
+never re-derived the line state (only navigating did, so the header kept naming
+the line you had just branched away from); "Delete game" was hidden on every
+game opened from My games, because `analyserGameId` is set after the build that
+paints the button; "Watch line" inside a book played the book's FIRST line back
+at you from wherever you stood; and an empty book offered "Add 0 moves".
+
+_On `claude/builder-improvements-sbs5fs`. Restore point: `v0.5`._
+
+---
+
 ## Stripe migration — off Lemon Squeezy, on to being the merchant ✅
 
 The processor swap. **Not a product change:** it is still a one-time unlock, still

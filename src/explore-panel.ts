@@ -9,12 +9,16 @@
 // answers it in three: given YOUR games, the master library and the engine, what
 // are the three moves actually worth having in your repertoire here?
 //
-// THE THREE COME FIRST, AS THREE BUTTONS. The slide used to open with a heading
-// and a subheading, so the thing you came to do was below two lines of prose.
-// Now the top of the panel is a row of three raised, tinted, plus-marked tiles —
-// the move and where it came from — and tapping one plays it onto the line.
-// Everything under them is the argument for them: the same three moves again,
-// each with its whole record laid out.
+// THE SHAPE OF THE SLIDE: question, answers, argument. One line of heading says
+// what is being asked at this position, then a row of three raised, tinted tiles
+// — the move and where it came from — and tapping one plays it onto the line.
+// Under those, the auto-reply switch, and then the argument: the same three
+// moves again, each with its whole record laid out.
+//
+// ONE PLACE TO CHOOSE, ONE PLACE TO READ. The cards used to be buttons too, each
+// with a round plus at the end, so the panel offered every move twice and the
+// reading matter had a press state competing with the tiles above it. The cards
+// are now inert: the tiles are the controls.
 //
 // NOTHING IS HIDDEN BEHIND A TAP. The record used to sit under a chevron, one
 // disclosure per card. That made the interesting part — how a move actually
@@ -23,6 +27,13 @@
 // three cards read as a table: your win/draw/loss bar over the database's win/
 // draw/loss bar, aligned to the same grid, with one line saying which way the
 // comparison went and a row of facts (engine evaluation, popularity) underneath.
+//
+// AUTO-REPLY. Building a line means playing both sides, and half of every line
+// is a move of the opponent's chosen only so the next one of mine can exist.
+// With the switch on, that half is played for me — the top suggestion at the
+// position, from the very three this slide is ranking — and "Another reply"
+// takes it back and cycles to the next one, for when their most popular move
+// isn't the only one worth preparing for.
 //
 // WHERE THE THREE COME FROM, IN ORDER OF PRIORITY:
 //
@@ -45,9 +56,10 @@
 // when the other two sources came up short — one cached GET per position, which
 // is what lets a card from any source carry an evaluation.
 //
-// THE HEADER IS THE FRAMING. On your move the question is "what do I play?" — the
-// rows are answers. On the opponent's move it's "what do they play?" — the rows
-// are things to prepare for, and tapping one builds the branch that meets it.
+// THE HEADER IS THE FRAMING, which is why it leads. On your move the question is
+// "what do I play?" — the tiles are answers. On the opponent's move it's "what do
+// they play?" — they are things to prepare for, and tapping one builds the branch
+// that meets it.
 
 import { Chess } from 'chess.js';
 import { buildBook, bookNodeAt, loadBookEntries, type BookNode } from './book-tree';
@@ -56,7 +68,7 @@ import { buildMoveStats, statAt, statScorePct, type StatNode } from './move-stat
 import { MAP_MAX_PLIES } from './scout';
 import { formatMove } from './notation';
 import { Icons } from './icons';
-import { getExplorerDb } from './prefs';
+import { getExplorerDb, getAutoReply, setAutoReply } from './prefs';
 import { bandRangeLabel, explorerFilter } from './explorer-bands';
 import { activeBand, cachedMyLevel, resolveMyLevel, type MyLevel } from './explorer-level';
 import { resolveExplorerStats, orientCounts } from './explorer-resolve';
@@ -124,12 +136,23 @@ export interface ExplorePanelDeps {
   getColour: () => 'white' | 'black';
   onPlay: (uci: string) => void;
   onImportGames: () => void;
+  // Auto-reply's undo: take the move on the board back off the line (dropping it
+  // if it is still a draft) so a different reply can be played in its place.
+  // Returns false when there was nothing to take back.
+  onTakeBack: () => boolean;
 }
 
 export interface ExplorePanel {
   render(): void;
   reload(): void;                 // re-read games from storage (after an import)
   setActive(on: boolean): void;   // is the slide showing? gates network work
+  // A move was just PLAYED by hand (not navigated to). Auto-reply hangs off
+  // this rather than off render(): walking around a line you already have must
+  // not make the board answer you.
+  movePlayed(): void;
+  // The builder has just opened a book and is standing at the start position.
+  // With auto-reply on and a Black book, that means White's first move is owed.
+  openedAtStart(): void;
   // The walkthrough's scripted next move: pinned into the three and ringed, so
   // the bubble that says "tap one to add it to your line" has something to point
   // at. Null clears it.
@@ -141,6 +164,17 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
   let games: ImportedGame[] | null = null;
   let active = false;
   let highlightUci: string | null = null;
+  // ── Auto-reply ──
+  // Play the opponent's answer for me after every move of mine, so building a
+  // line is only ever my own decisions. Remembered across sessions.
+  let autoReply = getAutoReply();
+  // Which of the suggestions the next auto-reply plays. 0 is the top one; the
+  // "Another reply" button takes the last one back and bumps this, so a second
+  // tap gets the second suggestion and so on, wrapping round the three.
+  let replyIndex = 0;
+  // One reply in flight at a time — the sources are async, and a second request
+  // arriving mid-flight would race two moves onto the board.
+  let replying = false;
   // The user's playing strength, behind the "Around my level" band. Seeded from
   // the cache so the first render already filters correctly, then refreshed;
   // held in one place so every render builds its filter from the same value.
@@ -183,13 +217,17 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
 
     el.replaceChildren();
 
-    // The three tiles, at the very top — the reason the slide exists is one tap
-    // from the top of the panel, not below a paragraph.
+    // The question first, then the three answers to it. The heading used to sit
+    // BETWEEN the tiles and the cards, where it read as a caption for the cards
+    // rather than as the framing for the whole slide — and the tiles arrived
+    // with nothing saying what they were.
+    el.appendChild(buildHeader());
+
     const picks = document.createElement('div');
     picks.className = 'explore-picks';
     el.appendChild(picks);
 
-    el.appendChild(buildHeader());
+    el.appendChild(buildAutoRow());
 
     const rows = document.createElement('div');
     rows.className = 'explore-rows';
@@ -240,6 +278,108 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
       : (last ? `Prepare for the reply to ${last}` : `Prepare for ${them}’s first move`);
     wrap.appendChild(title);
     return wrap;
+  }
+
+  // ── Auto-reply: the toggle, and the way to re-roll it ─────────────────────
+  //
+  // Building a line means answering the opponent, which means playing BOTH
+  // sides: one move of mine, one of theirs, all the way down. Half of every
+  // line I build is a move I don't care about, chosen only so the next one of
+  // mine can exist. Auto-reply plays that half — the top suggestion at the
+  // position, from the same three this slide is already ranking — so a line is
+  // built out of my decisions and nothing else.
+  //
+  // "Another reply" is the escape hatch: their most popular move is not the
+  // only one worth preparing for, so it takes the played reply back off the
+  // line and plays the next suggestion instead, cycling round the three.
+  function buildAutoRow(): HTMLElement {
+    const row = document.createElement('div');
+    row.className = 'explore-auto';
+
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'explore-auto-toggle dline-toggle' + (autoReply ? ' dline-toggle--on' : '');
+    toggle.setAttribute('role', 'switch');
+    toggle.setAttribute('aria-checked', String(autoReply));
+    const sw = document.createElement('span');
+    sw.className = 'dline-switch';
+    sw.setAttribute('aria-hidden', 'true');
+    const knob = document.createElement('span');
+    knob.className = 'dline-switch-knob';
+    sw.appendChild(knob);
+    toggle.appendChild(sw);
+    toggle.appendChild(span('dline-toggle-label', 'Auto-reply'));
+    toggle.title = 'Play the opponent’s answer for me after each of my moves';
+    toggle.addEventListener('click', () => {
+      autoReply = !autoReply;
+      setAutoReply(autoReply);
+      replyIndex = 0;
+      render();
+      // Switched on while it is already their move — answer now rather than
+      // waiting for the next move of mine, which is what the user just asked for.
+      if (autoReply) void playAutoReply();
+    });
+    row.appendChild(toggle);
+
+    // Only ever offered when there is a reply on the board to swap: auto-reply
+    // is on, and the last move played was theirs.
+    if (autoReply && myTurn() && deps.getUcis().length > 0) {
+      const again = document.createElement('button');
+      again.type = 'button';
+      again.className = 'explore-auto-again';
+      const ico = Icons.reset(13);
+      ico.classList.add('explore-auto-again-ico');
+      again.appendChild(ico);
+      again.appendChild(document.createTextNode('Another reply'));
+      again.title = 'Take that reply back and prepare for a different one';
+      again.addEventListener('click', () => { void rerollReply(); });
+      row.appendChild(again);
+    }
+    return row;
+  }
+
+  /** Take the reply on the board back, then play the next suggestion instead. */
+  async function rerollReply(): Promise<void> {
+    if (replying) return;
+    if (!deps.onTakeBack()) return;
+    replyIndex++;
+    await playAutoReply();
+  }
+
+  /**
+   * Play the opponent's reply for the position on the board.
+   *
+   * Resolves the suggestions the same way the slide paints them — the instant
+   * sources first, then the library and the engine only if the wanted rank
+   * isn't there yet — and abandons the whole thing if the board moves under it.
+   */
+  async function playAutoReply(): Promise<void> {
+    // The walkthrough is driving the board a move at a time; a second mover on
+    // the same board would fight it for the cursor.
+    if (!autoReply || replying || highlightUci || myTurn()) return;
+    const fen = deps.getFen();
+    replying = true;
+    try {
+      const instant = [...gameCandidates(), ...bookCandidates()];
+      let list = mergeCandidates(instant);
+
+      if (list.length <= replyIndex) {
+        const lib = await libraryCandidates(fen);
+        if (deps.getFen() !== fen) return;
+        list = mergeCandidates([...instant, ...lib]);
+        if (list.length <= replyIndex) {
+          const eng = await engineCandidates(fen, true);
+          if (deps.getFen() !== fen) return;
+          list = mergeCandidates([...instant, ...lib, ...eng]);
+        }
+      }
+      if (deps.getFen() !== fen || !list.length) return;
+      // Wrap rather than run out: pressing "Another reply" a fourth time comes
+      // back round to the first, which is a cycle rather than a dead end.
+      deps.onPlay(list[replyIndex % list.length].uci);
+    } finally {
+      replying = false;
+    }
   }
 
   // ── The sources ───────────────────────────────────────────────────────────
@@ -506,18 +646,25 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
     return btn;
   }
 
-  // The same move again, with everything we know about it laid out in the same
-  // order on every card: what it is, how you score with it, how the database
-  // scores with it, which way that comparison went, and the loose facts.
+  /**
+   * The same move again, with what we know about it laid out in the same order
+   * on every card: what it is, how you score with it, how the database scores
+   * with it, which way that comparison went, and the loose facts.
+   *
+   * THE CARD IS NOT A BUTTON. It used to be one — a whole tappable row with a
+   * round plus at the end, duplicating the tile directly above it. So the panel
+   * offered every move twice, and the reading matter had a press state, a hover
+   * and a target of its own competing with it. The tiles are where you choose;
+   * the cards are where you read. Dropping the plus, the press and the ring took
+   * two controls and a lot of contrast out of each card without losing a fact.
+   */
   function detailCard(c: Candidate, prefix: string, faced: boolean): HTMLElement {
     const wrap = document.createElement('div');
     wrap.className = `explore-card explore-card--${c.source}`;
     if (c.uci === highlightUci) wrap.classList.add('explore-card--cue');
 
-    const head = document.createElement('button');
-    head.type = 'button';
+    const head = document.createElement('div');
     head.className = 'explore-card-head';
-    head.addEventListener('click', () => deps.onPlay(c.uci));
 
     head.appendChild(span('explore-card-move', `${prefix} ${formatMove(c.san)}`));
 
@@ -530,12 +677,6 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
     body.appendChild(chipRow);
     body.appendChild(span('explore-card-detail', headline(c, faced)));
     head.appendChild(body);
-
-    const add = document.createElement('span');
-    add.className = 'explore-card-add';
-    add.appendChild(Icons.plus(16));
-    head.appendChild(add);
-    head.setAttribute('aria-label', `Add ${prefix} ${c.san} to the line`);
     wrap.appendChild(head);
 
     const stats = statsBlock(c);
@@ -655,6 +796,28 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
       active = on;
       // Entering the slide: repaint so the library/engine sources are fetched now.
       if (on) render();
+    },
+    openedAtStart() {
+      // Building a BLACK line starts with a move of White's, so there is a reply
+      // owed before the user has played anything at all. Called by the builder
+      // once the book is actually loaded — doing it from setActive would race
+      // the load and play the move onto a tree about to be replaced.
+      replyIndex = 0;
+      if (active) void playAutoReply();
+    },
+    movePlayed() {
+      // The auto-reply's own move comes back through here. It must not count as
+      // "a fresh position" — that would reset the re-roll counter the moment it
+      // was used, and "Another reply" would hand back the second suggestion for
+      // ever instead of cycling on to the third.
+      if (replying) return;
+      // A move of MY own: the next reply is the top suggestion again, not
+      // wherever the last re-roll left off.
+      replyIndex = 0;
+      // Only while this slide is the one on screen. Auto-reply is a feature OF
+      // this tab, its switch is on this tab, and a board that answers back while
+      // the user is reading the Library would be a haunting.
+      if (active) void playAutoReply();
     },
     setHighlight(uci: string | null) {
       if (uci === highlightUci) return;

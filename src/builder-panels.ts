@@ -74,6 +74,7 @@ export interface BuilderPanelsDeps {
 
 export interface BuilderPanels {
   render(): void;                   // repaint every slide for the current position
+  showLibraryInfo(): void;          // the Library tab's "what am I looking at?" dialog
   reload(): void;                   // re-read games from storage (after an import)
   reloadLines(): void;              // re-read saved lines from storage (after a save)
   reloadOpponents(): void;          // re-read opponents from storage (after import)
@@ -412,13 +413,9 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
 
     if (caption) bar.appendChild(span('lib-db-caption', caption));
 
-    const info = document.createElement('button');
-    info.type = 'button';
-    info.className = 'lib-db-info';
-    info.setAttribute('aria-label', 'About the opening database');
-    info.appendChild(Icons.info(16));
-    info.addEventListener('click', showDbInfo);
-    bar.appendChild(info);
+    // The "about the opening database" (i) used to sit here. Every builder tab
+    // now carries one info control, bottom right of the sheet, and this slide's
+    // is that dialog — so the bar gets its width back.
 
     // The band's own quiet line sits UNDER the bar rather than in it: it's an
     // explanation, not a control, and on a phone the bar has no room left.
@@ -576,10 +573,18 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
 
   // Section header: a title with a discrete "Show tree" link on the same row.
   // `onTree` is omitted (no link) when there's nothing to open.
-  function sectionHead(title: string, onTree?: () => void): HTMLElement {
+  //
+  // THREE EMPTY SECTIONS USED TO COST SIX ROWS. Each one drew a title and then a
+  // whole line of prose underneath saying it had nothing — which on a fresh book,
+  // where all three are empty, filled the panel with three restatements of
+  // "nothing here yet". `emptyNote` folds that answer onto the title row instead,
+  // so an empty section is one line and the sections you DO have something in
+  // start near the top.
+  function sectionHead(title: string, onTree?: () => void, emptyText?: string): HTMLElement {
     const head = document.createElement('div');
-    head.className = 'mylines-head';
+    head.className = 'mylines-head' + (emptyText ? ' mylines-head--empty' : '');
     head.appendChild(span('mylines-head-title', title));
+    if (emptyText) head.appendChild(span('mylines-head-note', emptyText));
     if (onTree) {
       const link = document.createElement('button');
       link.type = 'button';
@@ -599,14 +604,18 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     const mine = (lines ?? []).filter(l => l.colour === colour);
     const hasTree = mine.length > 0;
 
-    wrap.appendChild(sectionHead('My saved lines', hasTree ? () => openSavedTree(mine) : undefined));
-
-    if (!lines) { wrap.appendChild(emptyNote('Loading your lines…')); return wrap; }
+    if (!lines) {
+      wrap.appendChild(sectionHead('My saved lines', undefined, 'loading…'));
+      return wrap;
+    }
 
     const replies = savedLineReplies(mine, deps.getUcis());
-    if (!replies.length) {
-      wrap.appendChild(emptyNote('No lines saved from here.'));
-    } else {
+    wrap.appendChild(sectionHead(
+      'My saved lines',
+      hasTree ? () => openSavedTree(mine) : undefined,
+      replies.length ? undefined : 'nothing from here',
+    ));
+    if (replies.length) {
       const prefix = movePrefix(deps.getUcis().length);
       for (const r of replies) wrap.appendChild(savedLineRow(r, prefix));
     }
@@ -699,17 +708,27 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
 
     const stats = games ? statsFor(deps.getColour()) : null;
     const hasGames = !!stats && stats.games > 0;
-    wrap.appendChild(sectionHead('My games', hasGames ? () => openGamesTree() : undefined));
 
-    if (!games) { wrap.appendChild(emptyNote('Loading your games…')); return wrap; }
+    if (!games) {
+      wrap.appendChild(sectionHead('My games', undefined, 'loading…'));
+      return wrap;
+    }
 
     // No imported games for this colour: offer the import flow right here so
-    // "My games" is actionable rather than just empty.
+    // "My games" is actionable rather than just empty. The reason folds onto
+    // the title row; the button is the only thing that earns a row of its own.
     if (!hasGames) {
-      wrap.appendChild(emptyNote('No games imported yet.'));
+      wrap.appendChild(sectionHead('My games', undefined, 'none imported yet'));
       wrap.appendChild(actionButton('Import my games', () => deps.onImportGames()));
       return wrap;
     }
+
+    const node = statAt(stats!, deps.getUcis());
+    const replies = node ? [...node.children.values()] : [];
+    replies.sort((a, b) => b.games - a.games || a.san.localeCompare(b.san));
+    wrap.appendChild(sectionHead(
+      'My games', () => openGamesTree(), replies.length ? undefined : 'nothing from here',
+    ));
 
     // When the line narrows to exactly one of your games, link straight to it —
     // same affordance as the board browser's "See full game".
@@ -724,14 +743,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
       wrap.appendChild(a);
     }
 
-    const node = statAt(stats!, deps.getUcis());
-    const replies = node ? [...node.children.values()] : [];
-    replies.sort((a, b) => b.games - a.games || a.san.localeCompare(b.san));
-
-    if (!replies.length) {
-      wrap.appendChild(emptyNote('No games from here.'));
-      return wrap;
-    }
+    if (!replies.length) return wrap;
     const prefix = movePrefix(deps.getUcis().length);
     for (const c of replies) {
       const row = document.createElement('button');
@@ -797,8 +809,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   function renderOpponents(el: HTMLElement): void {
     el.innerHTML = '';
     if (!opponents) {
-      el.appendChild(sectionHead('My opponents'));
-      el.appendChild(emptyNote('Loading opponents…'));
+      el.appendChild(sectionHead('My opponents', undefined, 'loading…'));
       return;
     }
 
@@ -870,7 +881,12 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   }
 
   function renderOpponentList(el: HTMLElement): void {
-    el.appendChild(sectionHead('My opponents'));
+    const scouted = opponents ?? [];
+    const none = scouted.length === 0;
+    // Nothing scouted yet: the reason rides on the title row and the "+ Add
+    // opponent" pill is the whole section, rather than a title, a sentence and
+    // a button stacked three deep on a panel that has two other sections below.
+    el.appendChild(sectionHead('My opponents', undefined, none ? 'none scouted yet' : undefined));
     // "+ Add opponent" — the same pill the Explore scouting section uses, so the
     // two entry points read identically.
     const add = document.createElement('button');
@@ -880,14 +896,11 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
     add.appendChild(document.createTextNode('Add opponent'));
     add.addEventListener('click', () => deps.onImportOpponent());
     el.appendChild(add);
-    if (!opponents || opponents.length === 0) {
-      el.appendChild(emptyNote('Scout an opponent to walk their games from here.'));
-      return;
-    }
+    if (none) return;
     // Their side is the opposite of the colour you're preparing — the same
     // perspective the selected view uses, so the cached stats trees are reused.
     const oppColour: 'white' | 'black' = deps.getColour() === 'white' ? 'black' : 'white';
-    for (const opp of opponents) {
+    for (const opp of scouted) {
       const statsKey = `${opp.id}:${oppColour}`;
       let s = oppStats.get(statsKey);
       if (!s) { s = buildMoveStats(opp.games, oppColour, MAP_MAX_PLIES); oppStats.set(statsKey, s); }
@@ -928,6 +941,7 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
 
   return {
     render() { renderLibrary(); renderGames(); },
+    showLibraryInfo() { showDbInfo(); },
     reload() { loadGames(); },
     reloadLines() { loadLines(); },
     reloadOpponents() { loadOpponents(); },
