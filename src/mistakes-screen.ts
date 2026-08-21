@@ -204,11 +204,13 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
 
     const stats = document.createElement('div');
     stats.className = 'train-hero-stats';
-    stats.appendChild(heroStat('found', counts.spots, 'Spots found'));
-    stats.appendChild(heroStat('fixed', counts.fixed, 'Fixed'));
+    const foundNum = heroStat('found', counts.spots, 'Spots found');
+    const scannedNum = heroStat('scanned', counts.scanned, 'Games analysed');
+    stats.appendChild(foundNum.col);
+    stats.appendChild(heroStat('fixed', counts.fixed, 'Fixed').col);
     // Just the count of games actually analysed — not "scanned/total", which
     // read as if the whole library were being added up.
-    stats.appendChild(heroStat('scanned', counts.scanned, 'Games analysed'));
+    stats.appendChild(scannedNum.col);
     hero.appendChild(stats);
 
     if (newGames > 0) {
@@ -237,6 +239,10 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       // doing, idle says what is waiting and offers the button.
       const paintScanState = (st: AutoScanState): void => {
         live.replaceChildren();
+        // The figures above, plus whatever this pass has turned up so far. They
+        // are re-read from disk on the rebuild that follows the pass.
+        foundNum.num.textContent = String(counts.spots + (st.running ? st.spots : 0));
+        scannedNum.num.textContent = String(counts.scanned + (st.running ? st.done : 0));
         if (st.running) {
           const bar = document.createElement('div');
           bar.className = 'mistakes-autoscan-bar';
@@ -299,7 +305,14 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     return hero;
   }
 
-  function heroStat(kind: string, value: number | string, label: string): HTMLElement {
+  // Returns the column AND its number, so a hero watching the background pass
+  // can keep the figures honest — "0 spots found" over "36 spots found so far"
+  // is the sort of contradiction that makes people distrust a whole screen.
+  function heroStat(
+    kind: string,
+    value: number | string,
+    label: string,
+  ): { col: HTMLElement; num: HTMLElement } {
     const col = document.createElement('div');
     col.className = `train-hero-stat train-hero-stat--${kind}`;
     const num = document.createElement('span');
@@ -315,7 +328,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     lbl.className = 'train-hero-stat-label';
     lbl.textContent = label;
     col.appendChild(lbl);
-    return col;
+    return { col, num };
   }
 
   // ── The four category cards ─────────────────────────────────────────────────
