@@ -17947,6 +17947,121 @@ html.picker-open body {
   color: var(--text);
 }
 
+/* ── The slim first-run screen ────────────────────────────────────────────────
+   One question — which colour — a button that arrives with the answer, and a
+   quiet log-in line at the very bottom. The screen it replaced asked three
+   questions and offered two escape hatches, all of which had to be answered by
+   someone who did not yet know what the app does.
+
+   Everything is CENTRED and vertically settled here (the old form was a
+   top-aligned stack of labelled fields), because there is only one thing on the
+   screen and it should look like it. */
+
+.picker-overlay--slim { gap: 0; }
+
+.picker-stage-slim {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 0;
+  padding: 0 0.25rem;
+  text-align: center;
+}
+
+.picker-overlay--slim .picker-lead {
+  margin: 0;
+  max-width: 15ch;
+}
+
+.picker-sub {
+  margin: 0 0 1.1rem;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+/* The two colours, as the screen's subject rather than a row in a form: bigger,
+   stacked pawn over word, and side by side. */
+.picker-colours--lead {
+  width: 100%;
+  max-width: 340px;
+  gap: 0.7rem;
+}
+
+.picker-colours--lead .picker-colour {
+  flex-direction: column;
+  gap: 0.55rem;
+  min-height: 116px;
+  font-size: 1rem;
+}
+
+.picker-colours--lead .picker-colour-token {
+  width: 46px;
+  height: 46px;
+}
+
+/* Not there until a colour is: one thing to do, then one thing to press. */
+.picker-start {
+  width: 100%;
+  max-width: 340px;
+  min-height: 52px;
+  margin-top: 1.4rem;
+  font-size: 1rem;
+  border-radius: 12px;
+}
+
+.picker-start--in { animation: picker-start-in 0.26s ease both; }
+
+@keyframes picker-start-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .picker-start--in { animation: none; }
+}
+
+/* "I already have an account, log in" — a sentence at the foot of the screen.
+   It is the rarest thing anyone does here, and as a bordered pill in the top
+   corner it was the only object on the screen that looked like a website's
+   primary button. */
+.picker-foot-signin {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.6rem 0 0.2rem;
+  font-size: 0.82rem;
+  color: var(--text-faint);
+}
+
+.picker-signin-link {
+  padding: 0.2rem 0.1rem;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.picker-signin-link:active { opacity: 0.7; }
+
+/* Short windows: the headline gives way first, then the tiles. */
+@media (max-height: 620px) {
+  .picker-overlay--slim .picker-lead { font-size: 1.25rem; }
+  .picker-sub { margin-bottom: 0.8rem; }
+  .picker-colours--lead .picker-colour { min-height: 96px; }
+  .picker-start { margin-top: 1rem; }
+}
+
 /* ── The card: the whole form, and the button that commits it ── */
 /* Colour, depth, style and the CTA are one form, so they sit on one surface.
    A faint wash rather than a solid card — the controls inside are themselves
@@ -18591,7 +18706,12 @@ html.picker-open body {
 }
 
 .tour-main-btn {
-  display: block;
+  /* Flex, not block: the button can carry a leading icon (the Train bolt on
+     "Start training"), and centred text plus an icon has to be laid out. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
   width: 100%;
   min-height: 42px;
   padding: 0.55rem 1rem;
@@ -18605,6 +18725,7 @@ html.picker-open body {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
+.tour-main-btn svg { flex: none; }
 .tour-main-btn:active { filter: brightness(0.94); }
 
 /* Its done state: the same slot, so the step doesn't reflow when the user comes

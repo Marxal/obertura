@@ -1,5 +1,5 @@
 import { Chess, type Square } from 'chess.js';
-import { registerBrushes, HINT_COLOR } from './board-brushes';
+import { registerBrushes } from './board-brushes';
 import { Chessground } from 'chessground';
 import type { Key } from 'chessground/types';
 import type { DrawShape } from 'chessground/draw';
@@ -115,7 +115,6 @@ import {
   firstStepsOwnsSlot,
   TRAINING_UNLOCK_LINES,
 } from './first-steps';
-import type { LineCut } from './onboarding-lines';
 import { maybeAutoRefreshGames } from './auto-refresh';
 import { startAutoScan } from './mistake-autoscan';
 import { openDailyPrefsSheet } from './daily-prefs';
@@ -1584,18 +1583,6 @@ function refreshBoardShapes(): void {
     const brushes = ['eng1', 'eng2', 'eng3'];
     result.moves.slice(0, 3).forEach((m, i) => {
       shapes.push({ orig: m.uci.slice(0, 2) as Key, dest: m.uci.slice(2, 4) as Key, brush: brushes[i] });
-    });
-  }
-
-  // 3. The walkthrough's cue: an arrow on the move the first-run bubbles are
-  //    asking the user to play. Drawn here rather than in its own setAutoShapes
-  //    call because chessground keeps ONE autoshape list — a second call would
-  //    wipe the badge and the engine arrows.
-  if (guidedCueUci) {
-    shapes.push({
-      orig: guidedCueUci.slice(0, 2) as Key,
-      dest: guidedCueUci.slice(2, 4) as Key,
-      brush: 'cue',
     });
   }
 
@@ -3252,75 +3239,6 @@ function startNewLine(colour: 'white' | 'black'): void {
 // gone; the bubble does its job, in one voice, and waits.
 let guidedActive = false;
 
-// ── The walkthrough's board cue ──────────────────────────────────────────────
-//
-// The move the walkthrough is asking for, as an arrow on the builder board. It
-// rides in refreshBoardShapes with the engine arrows (one autoshape list), and
-// is dropped the moment a move is played by hand.
-let guidedCueUci: string | null = null;
-
-// The plies of the mainline that are the USER'S own moves: 0, 2, 4… as White,
-// 1, 3, 5… as Black.
-function ownPlyIndices(): number[] {
-  const out: number[] = [];
-  const length = mainline().length;
-  for (let i = 0; i < length; i++) {
-    if ((i % 2 === 0) === (saveColour === 'white')) out.push(i);
-  }
-  return out;
-}
-
-// Put the cursor just BEFORE the user's last (fromEnd = 1) or second-to-last
-// (fromEnd = 2) own move, and answer with that move's UCI. Null when there's
-// nothing sensible to ask for — an empty board, or a line the user has already
-// played out to its end (which happens when they play something other than the
-// move we cued and the builder truncates the rest).
-function placeGuidedCursor(fromEnd: 1 | 2): string | null {
-  const line = mainline();
-  const own = ownPlyIndices();
-  if (own.length === 0) return null;
-  const ply = own[Math.max(0, own.length - fromEnd)];
-  if (ply >= line.length) return null;
-  // The cursor is already sitting ON that move with nothing after it: the user
-  // has played to the end of the line, so asking for the move again would be
-  // asking them to repeat themselves.
-  const here = pathTo(getCurrentNode().id).length;
-  if (getCurrentNode().children.length === 0 && here === ply + 1) return null;
-
-  if (ply === 0) goToStart();
-  else handleMoveClick(line[ply - 1].id);
-  return line[ply].uci;
-}
-
-// The move the guided line wants next from wherever the cursor is sitting: the
-// mainline child of the current node, or null once the line has been played out
-// to its end. The walkthrough rings this move in the Explore panel, and the last
-// board step uses it to tell whether there's still a move to ask for.
-function guidedNextUci(): string | null {
-  return getCurrentNode().children[0]?.uci ?? null;
-}
-
-// Show (or clear) the walkthrough's cue: the board rewinds to just before the
-// move being asked for, with an arrow on it.
-function setGuidedBoardCue(cue: 'second-last' | 'last' | null): void {
-  guidedCueUci = cue ? placeGuidedCursor(cue === 'last' ? 1 : 2) : null;
-  // The very first cue lands the same frame the builder opens, when chessground
-  // may still be holding the bounds it had while the view was hidden — and an
-  // arrow drawn against a zero-sized board comes out as NaN coordinates.
-  if (guidedCueUci) cg.redrawAll();
-  refreshBoardShapes();
-}
-
-// Leaving the first board step: whether they played the move or pressed Next,
-// settle the board on the position the LAST move of the line is played from —
-// the opponent's reply is on the board, and the panel steps have a real
-// position under them.
-function settleAfterGuidedMove(): void {
-  placeGuidedCursor(1);
-  guidedCueUci = null;
-  refreshBoardShapes();
-}
-
 // The walkthrough's shared wiring: which panel each step opens, and the two
 // connects it offers (Lichess on the Library step, the games import on My
 // lines). `after` is the caller's continuation — it runs on whatever exit the
@@ -3328,7 +3246,7 @@ function settleAfterGuidedMove(): void {
 // import sheet (which is why it waits for that sheet to close).
 function builderIntroDeps(
   after: () => void,
-  o: { startStep?: number; hasScript?: boolean } = {},
+  o: { startStep?: number } = {},
 ): BuilderIntroDeps {
   let ran = false;
   const once = (): void => { if (!ran) { ran = true; after(); } };
@@ -3336,19 +3254,24 @@ function builderIntroDeps(
     onDone: once,
     showSlide: showBuilderSlide,
     isLichessConnected: isLichessConnected,
-    hasScript: o.hasScript ?? mainline().length > 0,
-    setBoardCue: setGuidedBoardCue,
-    settleAfterOwnMove: settleAfterGuidedMove,
-    setEngine: setEngineOn,
-    setExploreCue: (uci) => explorePanel?.setHighlight(uci),
-    nextScriptedUci: guidedNextUci,
+    // The first bubble asks for one move and promises an answer back. This is
+    // what keeps that promise — and the panel it belongs to is opened with it,
+    // because Explore only answers while it is the slide on screen.
+    setAutoReply: (on) => {
+      explorePanel?.setAutoReply(on);
+      // A BLACK first line opens with White to move, so the opponent owes a move
+      // before the user has played anything. clearBuilder already handles that —
+      // but it runs when the builder opens, which is before this switch is
+      // thrown, so the Black walkthrough would otherwise sit on an empty board
+      // asking for "your first move" with White still to play.
+      if (on && getCurrentNode().id === 'root') explorePanel?.openedAtStart();
+    },
     goToLineEnd: endGuidedWalkthrough,
     onSave: () => { void saveCurrentLine(); },
     // Back off the first bubble: there's nothing behind the builder on a first
     // run, so it goes right back to the screen the line was picked on.
     onRestart: () => {
       guidedActive = false;
-      guidedCueUci = null;
       clearBuilder(saveColour);
       // The walkthrough marked itself seen when it started; going back to the
       // start screen means it hasn't been, so the next pick gets it again.
@@ -3404,25 +3327,21 @@ function startGuidedLine(line: GuidedLine): void {
   renderTitle();
   guidedActive = true;
 
-  const tourOwed = isBuilderTourOwed({ firstRun: line.firstRun });
-  if (tourOwed) markBuilderTourSeen();
-
   // Rewind and watch it play itself in, using the builder's own Watch playback
   // (so it honours the watch-speed pref and can be paused mid-flight), then ask
-  // what to do with it. The save step runs on EVERY guided line, not just the
-  // first: it's what replaced the coach strip, and a pack line opened months
-  // later needs the prompt just as much.
-  const playIn = (): void => startPlaybackFromStart(() => {
+  // what to do with it. The save step runs on EVERY guided line: it's what
+  // replaced the coach strip, and a pack line opened months later needs the
+  // prompt just as much.
+  //
+  // The WALKTHROUGH no longer runs here. It is an empty-board sequence now —
+  // "play your first move", then two more — and none of that means anything on
+  // a board that already has the whole line on it. Someone who arrives by a
+  // pack rather than by the first-run screen gets this, and can take the
+  // walkthrough from Get started or Settings whenever they want it.
+  startPlaybackFromStart(() => {
     if (!guidedActive) return;
     showSaveStep({ onSave: () => { void saveCurrentLine(); } });
   });
-
-  // First device visit: the walkthrough owns the whole sequence, save step
-  // included, and it moves the board itself — no playback, because the user is
-  // the one making the moves. Every visit after that just watches the line in
-  // and gets the save prompt.
-  if (tourOwed) showBuilderIntro(builderIntroDeps(endGuidedWalkthrough, { hasScript: true }));
-  else playIn();
 }
 
 // However the walkthrough ends — its last button, Skip, the back gesture — the
@@ -3431,7 +3350,6 @@ function startGuidedLine(line: GuidedLine): void {
 // goes back off with it: the walkthrough switched it on to talk about it, which
 // isn't the same as the user asking for it.
 function endGuidedWalkthrough(): void {
-  guidedCueUci = null;
   setEngineOn(false);
   const line = mainline();
   if (line.length > 0) handleMoveClick(line[line.length - 1].id);
@@ -3476,42 +3394,26 @@ function armEmptyBoardSaveStep(): void {
 // honest answer to that is the screen the line was picked on.
 function showFirstRunPicker(): void {
   showOnboardingPicker({
-    onPick: (cut) => startGuidedLine({
-      ucis: cut.ucis,
-      colour: cut.line.colour,
-      name: cut.line.name,
-      ownMoves: cut.ownMoves,
-      firstRun: true,
-    }),
-    onImport: (close) => openImportPanel({
-      onImported: () => {
-        // Importing games IS a first line's worth of intent — the picker has
-        // done its job, so it steps aside and Train takes over.
-        setOnboardingComplete();
-        close();
-        showView('train');
-      },
-    }),
-    // "Build my own" — someone who opts out of the curated lines needs the
-    // walkthrough MORE than someone who was handed a line to look at, so the
-    // coach-marks still run. They point at live controls, so they wait for the
-    // builder to have laid itself out. It's still a guided first line: three
-    // moves in, the save prompt arrives, and the save routes into the confirm
-    // run exactly as a curated line's does.
-    onBuildOwn: (colour) => {
+    // One question answered, and straight to an empty board of that colour with
+    // the walkthrough on it. The walkthrough is the first line: the coach-marks
+    // ask for the moves, auto-reply answers them, and the last bubble saves —
+    // which routes into the confirm run exactly as any other save does.
+    onStart: (colour) => {
       setOnboardingComplete();
       startNewLine(colour);
       guidedActive = true;
+      // The bubbles point at live controls, so they wait for the builder to
+      // have laid itself out.
       setTimeout(() => {
         if (!isBuilderTourOwed({ firstRun: true })) { armEmptyBoardSaveStep(); return; }
         markBuilderTourSeen();
-        showBuilderIntro(builderIntroDeps(endEmptyBoardWalkthrough, { hasScript: false }));
+        showBuilderIntro(builderIntroDeps(endEmptyBoardWalkthrough));
       }, 450);
     },
-    // Only where accounts exist — in the internal build the button would be a
-    // dead end, so the picker's top bar simply doesn't grow one.
-    // …and it opens the sheet in SIGN-IN mode, because the picker's button says
-    // "Sign in" and the person tapping it already has an account.
+    // Only where accounts exist — in the internal build the line would be a
+    // dead end, so the picker's foot simply doesn't grow one.
+    // …and it opens the sheet in SIGN-IN mode, because the line says "I already
+    // have an account" and the person tapping it does.
     onSignIn: isSupabaseConfigured ? () => openSignUpSheet('signin') : undefined,
     // The picker is the first screen on a first visit, so it clears the boot
     // splash itself rather than depending on the boot order to have done it.
@@ -3528,7 +3430,7 @@ function replayBuilderWalkthrough(): void {
   guidedActive = true;
   setTimeout(() => {
     markBuilderTourSeen();
-    showBuilderIntro(builderIntroDeps(endEmptyBoardWalkthrough, { hasScript: false }));
+    showBuilderIntro(builderIntroDeps(endEmptyBoardWalkthrough));
   }, 450);
 }
 
@@ -5144,7 +5046,19 @@ async function continueSave(): Promise<void> {
 }
 
 // Step 2: nudge a line that ends on the opponent's move (never blocks).
+//
+// EXCEPT ON THE GUIDED FIRST LINE, where it is taken silently. Auto-reply is on
+// throughout the walkthrough — that is what makes "play a move, get an answer"
+// true — so the line ALWAYS ends on the opponent's reply, and a first-timer
+// pressing "Save line" would meet a three-button modal adjudicating a rule they
+// have never heard of, every single time. Trimming is the answer the dialog
+// itself recommends, so on the first line it is simply applied.
 function afterPartialSave(): void {
+  if (guidedActive && !isEmpty() && lineEndsOnOpponentMove()) {
+    trimLastMove();
+    afterEndNudge();
+    return;
+  }
   if (!isEmpty() && lineEndsOnOpponentMove()) {
     showDialog({
       title: 'End on your move?',
@@ -5560,15 +5474,11 @@ function maybeRestoreLichessReturn(): void {
     goToStart();
   }
 
-  const hasScript = line.length > 0;
-  const after = (): void => {
-    // Empty-board first line: nothing scripted to finish on, so wait for the
-    // moves as the unbroken run would have.
-    if (!hasScript) { endEmptyBoardWalkthrough(); return; }
-    endGuidedWalkthrough();
-  };
+  // The walkthrough only ever runs on an empty-board first line now, so there is
+  // one ending: wait for the moves, then offer the save, exactly as the
+  // unbroken run would have.
   setTimeout(
-    () => showBuilderIntro(builderIntroDeps(after, { startStep: resume.step, hasScript })),
+    () => showBuilderIntro(builderIntroDeps(endEmptyBoardWalkthrough, { startStep: resume.step })),
     450,
   );
 }
@@ -5643,18 +5553,6 @@ maybeShowGate(() => requestAnimationFrame(() => {
     eng1: { color: '#3a9a5c', opacity: 0.9, lineWidth: 11 },
     eng2: { color: '#3a9a5c', opacity: 0.55, lineWidth: 9 },
     eng3: { color: '#3a9a5c', opacity: 0.38, lineWidth: 8 },
-    // The first-run walkthrough's "play this move" arrow — the accent, so it
-    // reads as the app talking rather than as an engine suggestion.
-    cue: { color: HINT_COLOR, opacity: 0.9, lineWidth: 11 },
-  });
-
-  // The cue is an instruction, and it's spent the moment it's followed (or
-  // ignored in favour of another move). One listener covers every way a move
-  // gets played by hand.
-  document.addEventListener(BUILDER_MOVE_EVENT, () => {
-    if (!guidedCueUci) return;
-    guidedCueUci = null;
-    refreshBoardShapes();
   });
 
   // Engine + eval panel — must come after cg is available so evaluate() can read chess.fen().

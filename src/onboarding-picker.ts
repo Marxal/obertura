@@ -1,113 +1,57 @@
-// The first-run picker — one screen, a small form, and out.
+// The first-run screen — ONE question, and out.
 //
-// This replaces the old install-an-app first run (intro carousel → 5-step setup
-// wizard → "add 5 lines to unlock training") with a web-visitor one: a stranger
-// who lands on bitochess.com should be looking at their own saved line inside a
-// minute, with no account, no code and no questionnaire.
+// It asks which colour you want to build a line for. That is the whole screen.
 //
-// WHAT THE SCREEN ASKS. Three things and nothing else: which colour, how deep,
-// and which style. Everything the wizard used to ask — rating, notation, theme,
-// Lichess, import — either has a sane default or comes back later as a row in
-// the Get-started checklist. Tapping a style hands a LineCut to the caller,
-// which walks the user through the builder and opens it (see main.ts's guided
-// flow).
+// WHAT IT USED TO ASK, AND WHY IT DOESN'T ANY MORE. Three questions: colour,
+// depth, style — and then it handed the builder a CURATED line, four openings
+// deep, that somebody else had chosen. Underneath sat two more routes ("import
+// my games", "build my own"), so a stranger's first screen was a small
+// questionnaire with two escape hatches.
 //
-// IT ARRIVES IN TWO STEPS. Colour and depth first, and only once a depth has
-// been chosen do the four styles appear underneath. The whole form at once was
-// three fields and a button on a phone screen — a small questionnaire, which is
-// exactly what this screen was built to stop being. Two of the three fields fit
-// above the fold, the third arrives when it's earned, and the screen is never
-// taller than the decision in front of you.
+// Every one of those questions has the same problem: it can only be answered by
+// someone who already knows what the app does. "How much to learn" is a question
+// about a training schedule they have never seen. "Sharp or solid" is a question
+// about openings, asked before a single piece has moved. And picking one handed
+// them a finished line to look at — which is the wrong first experience for an
+// app whose entire point is that the lines are YOURS.
 //
-// Colour has a default (White, because most people play a first line as White)
-// and depth deliberately does NOT: it's the choice that decides how long the
-// line is, and a pre-picked answer to it gets accepted without being read.
+// So: colour, a button, and the board. Everything else the old screen asked has
+// a sane default, and the two routes it offered are still one tap away from the
+// Get-started checklist on Train (import your games) and from Explore (starter
+// packs) — reached later, by someone who by then knows what they are for.
 //
-// SO DEPTH IS THE SCREEN'S ONE ACTION, AND IT LOOKS LIKE IT. Nothing else here
-// moves the user forward: colour is already answered, the styles don't exist
-// yet, and Sign in is for the handful of people who already have an account.
-// Three equal-looking controls left a first-timer's eye to find the "Sign in"
-// pill in the corner — the only thing on screen that looked like a button on a
-// website. So depth is marked "Start here", carries the accent, and pulses
-// once; colour is visibly quieter than it; and Sign in is a plain word rather
-// than a bordered pill. The moment a depth is picked all of that emphasis is
-// dropped and the styles arrive with it, so exactly one thing on the screen is
-// ever asking to be tapped.
+// COLOUR HAS NO DEFAULT. It is the only question here, and a pre-picked answer
+// to the only question gets tapped past without being read. So nothing is
+// selected when the screen opens and the Start button is not there yet; picking
+// a colour is what makes it appear. One thing to do, then one thing to press.
 //
-// NO BOARDS. The four choices used to be cards with a miniature board on each,
-// showing the position the line ends on. It was the prettiest thing in the app
-// and it was the wrong thing: four boards at thumbnail size are four grids of
-// beige squares to someone who hasn't played the line, they pushed the controls
-// off a short screen, and they made a three-second decision look like homework.
-// A style is a WORD — "solid", "sharp" — so the choice is now a word, an icon
-// and the opening's name, in a 2×2 grid. The board arrives one tap later, full
-// size, with the walkthrough on it.
-//
-// AND THE STYLE COMMITS. There was a "Start building the …" button under the
-// tiles for a while, on the theory that a form's last field should behave like
-// its first two. It cost every user an extra tap to confirm a choice they'd
-// already made, on a screen whose whole point is speed — and the choice is
-// undoable anyway: Back on the walkthrough's first bubble comes right back here.
-//
-// The two ways out — import your games, or start from an empty board — sit
-// under a labelled "or start from" rule, so they read as alternatives rather
-// than as two unexplained buttons below a primary.
+// AND SIGN IN IS A SENTENCE, NOT A BUTTON. Someone who already has an account is
+// on this screen by accident (a new device, cleared storage) — so the way in has
+// to exist, but it is the rarest thing anyone does here and it used to be the
+// only object on screen that looked like a website button. It is a quiet line at
+// the very bottom now.
 
-import {
-  LEVELS,
-  STYLE_LABELS,
-  cutFor,
-  linesFor,
-  type LineCut,
-  type OnboardingColour,
-  type OnboardingLevel,
-  type OnboardingStyle,
-} from './onboarding-lines';
 import { Icons } from './icons';
 import { getAllLines } from './storage';
 import { isOnboardingComplete } from './prefs';
 import { pushBack } from './back-nav';
 
-// How long the style-list crossfade runs. Long enough to read as a dissolve
-// rather than a flicker — this is the one moment in the picker that should feel
-// like something, so it's deliberately slower than a normal UI transition.
-const CROSSFADE_MS = 320;
+export type OnboardingColour = 'white' | 'black';
 
 // Where the brand mark points. The marketing page, not the app.
 const BITO_CHESS_URL = 'https://bitochess.com';
 
-// One glyph per style. They carry no information the label doesn't; they're
-// there so the four rows scan as four distinct things rather than a list.
-const STYLE_ICONS: Record<OnboardingStyle, (size?: number) => SVGElement> = {
-  solid: Icons.flag,       // ground held
-  sharp: Icons.zap,        // a line with teeth
-  classical: Icons.star,   // the time-honoured choice
-  wild: Icons.swords,      // both kings in trouble
-};
-
 export interface PickerDeps {
-  // A style was tapped: open that cut in the builder, guided. The picker has
-  // already closed itself by the time this runs — the builder replaces it.
-  onPick: (cut: LineCut) => void;
-  // "Import my games". Handed a callback that closes the picker, so it stays up
-  // behind the import sheet and only goes away if the import actually happens —
-  // a cancelled import comes back here.
-  onImport: (close: () => void) => void;
-  // "Build my own" — an empty board of the chosen colour. Closes the picker
-  // itself, like a style pick does.
-  onBuildOwn: (colour: OnboardingColour) => void;
-  // "Sign in", top right. Absent in a build with no accounts (the internal
-  // GitHub Pages one), where the button would be a dead end — so the top bar
-  // simply doesn't grow it.
+  // A colour was chosen and Start pressed: open an empty builder of that colour,
+  // guided. The picker has already closed itself by the time this runs.
+  onStart: (colour: OnboardingColour) => void;
+  // "I already have an account" — absent in a build with no accounts (the
+  // internal GitHub Pages one), where the line would be a dead end.
   onSignIn?: () => void;
   // Fires once the picker is actually on screen, so the caller can drop the
   // boot splash. The picker IS the first screen on a first visit, and the splash
   // sits above everything, so this must not wait on anything else.
   onShown?: () => void;
-}
-
-function prefersReducedMotion(): boolean {
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
 // Is this a genuine first visit? No saved lines AND onboarding never finished.
@@ -126,12 +70,11 @@ export async function shouldShowFirstRun(): Promise<boolean> {
 }
 
 export function showOnboardingPicker(deps: PickerDeps): void {
-  let colour: OnboardingColour = 'white';
-  // No default: picking a depth is what opens the second half of the screen.
-  let level: OnboardingLevel | null = null;
+  // No default: picking IS the action this screen exists for.
+  let colour: OnboardingColour | null = null;
 
   const overlay = document.createElement('div');
-  overlay.className = 'picker-overlay';
+  overlay.className = 'picker-overlay picker-overlay--slim';
   overlay.setAttribute('role', 'dialog');
   overlay.setAttribute('aria-label', 'Build your first opening line');
 
@@ -147,18 +90,13 @@ export function showOnboardingPicker(deps: PickerDeps): void {
   // doesn't pick anything. There's nothing behind it but Train.
   const removeBack = pushBack(close);
 
-  // ── Top bar: identity on the left, the returning user's way in on the right ──
-  // The brand used to be a stacked, centred block — a 72px app tile over a
-  // wordmark over the lead — which is three rows of chrome above the first thing
-  // the user can act on. On a phone browser the URL bar takes another ~110px of
-  // that budget, and the footer buttons fell off the bottom. Identity is a job
-  // for one line at the top; the space it gives back goes to the lead.
-  const bar = document.createElement('div');
-  bar.className = 'picker-bar';
-
+  // ── Identity, one line, at the top ──
   // The brand is a link out to the product page. A stranger who has landed on
   // the app itself has no other way back to "what is this?", and the mark in the
   // corner is where everyone looks for it.
+  const bar = document.createElement('div');
+  bar.className = 'picker-bar';
+
   const brandRow = document.createElement('a');
   brandRow.className = 'picker-brandrow';
   brandRow.href = BITO_CHESS_URL;
@@ -171,149 +109,61 @@ export function showOnboardingPicker(deps: PickerDeps): void {
   brand.textContent = 'bito chess';
   brandRow.appendChild(brand);
   bar.appendChild(brandRow);
-
-  // Someone who already has an account is on this screen by accident (a new
-  // device, cleared storage). Without a way in they'd have to build a line
-  // first, then find sign-in in Settings, to get their own repertoire back.
-  if (deps.onSignIn) {
-    const signIn = document.createElement('button');
-    signIn.type = 'button';
-    signIn.className = 'picker-signin';
-    signIn.textContent = 'Sign in';
-    signIn.addEventListener('click', () => deps.onSignIn?.());
-    bar.appendChild(signIn);
-  }
-
   overlay.appendChild(bar);
+
+  // ── The one question ──
+  const stage = document.createElement('div');
+  stage.className = 'picker-stage-slim';
 
   const lead = document.createElement('h1');
   lead.className = 'picker-lead';
   lead.textContent = 'Let’s build your first line.';
-  overlay.appendChild(lead);
+  stage.appendChild(lead);
 
-  // ── One card, two fields, then four tiles ──
-  const card = document.createElement('div');
-  card.className = 'picker-card';
-  overlay.appendChild(card);
+  const sub = document.createElement('p');
+  sub.className = 'picker-sub';
+  sub.textContent = 'Which colour are you preparing for?';
+  stage.appendChild(sub);
 
-  const form = document.createElement('div');
-  form.className = 'picker-form';
+  const start = document.createElement('button');
+  start.type = 'button';
+  start.className = 'btn-primary picker-start';
+  start.textContent = 'Start building';
+  start.hidden = true;
+  start.addEventListener('click', () => {
+    if (!colour) return;
+    const chosen = colour;
+    close();
+    deps.onStart(chosen);
+  });
 
-  // Colour is answered before the user arrives (White), so it's the quiet row:
-  // same control, one size down, no accent. It's a confirmation, not a task.
-  form.appendChild(field('I play as', colourChooser(colour, (v) => {
+  stage.appendChild(colourChooser((v) => {
     colour = v;
-    swapStyles();
-  }), { quiet: true }));
-
-  // Depth wears the same clothes as colour — rows of the same big, tappable
-  // choice — rather than the app's segmented control. They're the same KIND of
-  // question, asked one after the other, and a form that changes control style
-  // between two adjacent rows reads as two unrelated settings. It's the LOUD
-  // row, though, and the only one carrying a "Start here": it's the unanswered
-  // question, and answering it is what opens the rest of the screen.
-  const depthField = field('How much to learn', levelChooser((v) => {
-    const first = level === null;
-    level = v;
-    // The ask has been answered — the emphasis comes off it and goes with the
-    // styles that just arrived.
-    depthField.classList.remove('picker-field--ask');
-    revealStyles(first);
-  }), { hint: 'Start here' });
-  depthField.classList.add('picker-field--ask');
-  form.appendChild(depthField);
-
-  card.appendChild(form);
-
-  // ── The four styles, on a stage so one layer can cross-fade over another ──
-  // Hidden until a depth is chosen, then they arrive — the second half of the
-  // screen, and the last thing asked.
-  const stylesBlock = document.createElement('div');
-  stylesBlock.className = 'picker-styles-block';
-  stylesBlock.hidden = true;
-
-  const stylesLabel = document.createElement('div');
-  stylesLabel.className = 'picker-field-label picker-styles-label';
-  stylesLabel.textContent = 'Pick a style';
-  stylesBlock.appendChild(stylesLabel);
-
-  const stage = document.createElement('div');
-  stage.className = 'picker-stage';
-  stylesBlock.appendChild(stage);
-  card.appendChild(stylesBlock);
-
-  let currentLayer: HTMLElement | null = null;
-
-  // A style tap IS the commit — no confirming button under it.
-  const select = (style: OnboardingStyle): void => {
-    const cut = cutFor2(colour, level, style);
-    if (!cut) return;
-    close();
-    deps.onPick(cut);
-  };
-
-  // First depth pick: grow the tiles in. Later ones just swap the four openings
-  // under the same four words.
-  function revealStyles(first: boolean): void {
-    if (!first) { swapStyles(); return; }
-    stylesBlock.hidden = false;
-    currentLayer = buildStyleLayer(colour, level!, select);
-    stage.appendChild(currentLayer);
-    if (prefersReducedMotion()) return;
-    stylesBlock.classList.add('picker-styles-block--in');
-    // The card just got taller than the screen on a short phone — bring the new
-    // half into view rather than leaving it below the fold.
-    setTimeout(() => stylesBlock.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 60);
-  }
-
-  // Replace the four tiles with a crossfade: the outgoing layer is lifted out of
-  // flow and faded out while the incoming one (which keeps the stage's height)
-  // fades in underneath it. Reduced motion swaps outright.
-  function swapStyles(): void {
-    if (!currentLayer || level === null) return;
-    const next = buildStyleLayer(colour, level, select);
-
-    if (prefersReducedMotion()) {
-      currentLayer.replaceWith(next);
-      currentLayer = next;
-      return;
+    // The button arrives with the answer, so there is only ever one thing on
+    // this screen asking to be pressed.
+    if (start.hidden) {
+      start.hidden = false;
+      start.classList.add('picker-start--in');
     }
-
-    const outgoing = currentLayer;
-    outgoing.classList.add('picker-styles--out');
-    next.classList.add('picker-styles--enter');
-    stage.appendChild(next);
-    currentLayer = next;
-
-    // One frame with the start styles applied, then run both halves together.
-    requestAnimationFrame(() => {
-      outgoing.classList.add('is-gone');
-      next.classList.remove('picker-styles--enter');
-    });
-
-    setTimeout(() => outgoing.remove(), CROSSFADE_MS + 40);
-  }
-
-  // ── The two ways out ──
-  // Introduced, not just present: a labelled rule turns them from two mystery
-  // buttons under a primary into the alternatives they are. They're quiet by
-  // design — text links, not framed buttons — because they're the answer to
-  // "what if none of this is me", not a third thing to weigh up.
-  const or = document.createElement('div');
-  or.className = 'picker-or';
-  const orText = document.createElement('span');
-  orText.textContent = 'or start from';
-  or.appendChild(orText);
-  overlay.appendChild(or);
-
-  const foot = document.createElement('div');
-  foot.className = 'picker-foot';
-  foot.appendChild(footButton('Import my games', Icons.download(17), () => deps.onImport(close)));
-  foot.appendChild(footButton('Build my own', Icons.plus(17), () => {
-    close();
-    deps.onBuildOwn(colour);
   }));
-  overlay.appendChild(foot);
+  stage.appendChild(start);
+  overlay.appendChild(stage);
+
+  // ── The returning user's way in, at the very bottom ──
+  if (deps.onSignIn) {
+    const foot = document.createElement('div');
+    foot.className = 'picker-foot-signin';
+    const text = document.createElement('span');
+    text.textContent = 'I already have an account,';
+    foot.appendChild(text);
+    const link = document.createElement('button');
+    link.type = 'button';
+    link.className = 'picker-signin-link';
+    link.textContent = 'log in';
+    link.addEventListener('click', () => deps.onSignIn?.());
+    foot.appendChild(link);
+    overlay.appendChild(foot);
+  }
 
   document.body.appendChild(overlay);
   // Freeze the page behind the picker. The overlay is position:fixed, so the app
@@ -325,21 +175,9 @@ export function showOnboardingPicker(deps: PickerDeps): void {
   deps.onShown?.();
 }
 
-// The cut a tap means: this style, at the chosen colour and depth.
-function cutFor2(
-  colour: OnboardingColour,
-  level: OnboardingLevel | null,
-  style: OnboardingStyle,
-): LineCut | null {
-  if (!level) return null;
-  const line = linesFor(colour).find(l => l.style === style);
-  return line ? cutFor(line, level) : null;
-}
-
 // The real installed app icon (public/icons/icon-192.png) — the same art Android
 // puts on the home screen, so the very first screen opens on the actual brand
-// mark. Small and inline beside the wordmark now: at 64px centred it was the
-// largest thing on a screen whose job is to get a line built.
+// mark.
 function appMark(): HTMLImageElement {
   const img = document.createElement('img');
   img.src = `${import.meta.env.BASE_URL}icons/icon-192.png`;
@@ -351,46 +189,14 @@ function appMark(): HTMLImageElement {
   return img;
 }
 
-// A labelled row of the form. `hint` is the small accent chip beside the label
-// ("Start here") that points at the one row worth tapping; `quiet` marks a row
-// that's already answered and shouldn't compete with it.
-function field(
-  label: string,
-  control: HTMLElement,
-  o: { hint?: string; quiet?: boolean } = {},
-): HTMLElement {
-  const wrap = document.createElement('div');
-  wrap.className = 'picker-field' + (o.quiet ? ' picker-field--quiet' : '');
-
-  const head = document.createElement('div');
-  head.className = 'picker-field-head';
-  const lbl = document.createElement('div');
-  lbl.className = 'picker-field-label';
-  lbl.textContent = label;
-  head.appendChild(lbl);
-  if (o.hint) {
-    const chip = document.createElement('span');
-    chip.className = 'picker-field-hint';
-    chip.textContent = o.hint;
-    head.appendChild(chip);
-  }
-  wrap.appendChild(head);
-
-  wrap.appendChild(control);
-  return wrap;
-}
-
 // ── Colour ───────────────────────────────────────────────────────────────────
 // Not the shared segmented control: this one wants a real white pawn on a light
 // disc and a real black pawn on a dark one, which says "colour" faster than the
 // words do — and is the same token the FAB's new-line rows use.
 
-function colourChooser(
-  current: OnboardingColour,
-  onChange: (v: OnboardingColour) => void,
-): HTMLElement {
+function colourChooser(onChange: (v: OnboardingColour) => void): HTMLElement {
   const wrap = document.createElement('div');
-  wrap.className = 'picker-colours';
+  wrap.className = 'picker-colours picker-colours--lead';
   wrap.setAttribute('role', 'group');
   wrap.setAttribute('aria-label', 'Colour');
 
@@ -408,11 +214,12 @@ function colourChooser(
     btn.type = 'button';
     btn.className = 'picker-colour';
     btn.dataset.value = value;
+    btn.setAttribute('aria-pressed', 'false');
 
     const token = document.createElement('span');
     token.className = `picker-colour-token picker-colour-token--${value}`;
     token.setAttribute('aria-hidden', 'true');
-    token.appendChild(Icons.pawn(22));
+    token.appendChild(Icons.pawn(26));
     btn.appendChild(token);
 
     const label = document.createElement('span');
@@ -424,122 +231,5 @@ function colourChooser(
     buttons.push(btn);
     wrap.appendChild(btn);
   }
-  reflect(current);
   return wrap;
-}
-
-// ── Depth ────────────────────────────────────────────────────────────────────
-// The same button as colour: the level's name is the title, and what it costs
-// you — "5 moves" — sits under it in small type. There was a bare number in a
-// disc above both for a while, which said the same thing twice and made a "3"
-// the largest object on a tile whose actual choice is a word.
-
-function levelChooser(onChange: (v: OnboardingLevel) => void): HTMLElement {
-  const wrap = document.createElement('div');
-  wrap.className = 'picker-colours picker-levels';
-  wrap.setAttribute('role', 'group');
-  wrap.setAttribute('aria-label', 'How much to learn');
-
-  const buttons: HTMLButtonElement[] = [];
-  for (const l of LEVELS) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'picker-colour picker-level';
-    btn.dataset.value = l.value;
-    btn.setAttribute('aria-pressed', 'false');
-
-    const label = document.createElement('span');
-    label.className = 'picker-colour-label';
-    label.textContent = l.label;
-    btn.appendChild(label);
-
-    const caption = document.createElement('span');
-    caption.className = 'picker-level-caption';
-    caption.textContent = `${l.moves} moves`;
-    btn.appendChild(caption);
-
-    btn.setAttribute('aria-label', `${l.label}, ${l.moves} moves`);
-    btn.addEventListener('click', () => {
-      for (const b of buttons) {
-        const on = b === btn;
-        b.classList.toggle('picker-colour--on', on);
-        b.setAttribute('aria-pressed', String(on));
-      }
-      onChange(l.value);
-    });
-    buttons.push(btn);
-    wrap.appendChild(btn);
-  }
-  return wrap;
-}
-
-// ── One layer of four style buttons ──────────────────────────────────────────
-
-function buildStyleLayer(
-  colour: OnboardingColour,
-  level: OnboardingLevel,
-  onSelect: (style: OnboardingStyle) => void,
-): HTMLElement {
-  const grid = document.createElement('div');
-  grid.className = 'picker-styles';
-
-  for (const line of linesFor(colour)) {
-    grid.appendChild(styleTile(cutFor(line, level), onSelect));
-  }
-  return grid;
-}
-
-function styleTile(cut: LineCut, onSelect: (style: OnboardingStyle) => void): HTMLElement {
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = `picker-style picker-style--${cut.line.style}`;
-  btn.dataset.style = cut.line.style;
-
-  const icon = document.createElement('span');
-  icon.className = 'picker-style-icon';
-  icon.setAttribute('aria-hidden', 'true');
-  icon.appendChild(STYLE_ICONS[cut.line.style](22));
-  btn.appendChild(icon);
-
-  const style = document.createElement('span');
-  style.className = 'picker-style-name';
-  style.textContent = STYLE_LABELS[cut.line.style];
-  btn.appendChild(style);
-
-  // The CURATED name, not the book name openings.ts resolves. The book is
-  // precise to a fault — the same cut comes back as "Sicilian: Najdorf, 6.Be3 e5
-  // 7.Nb3" or "French Defense: Steinitz Variation, Boleslavsky Variation", which
-  // is three lines of jargon under a word meant to be chosen in a glance. The
-  // resolved name still matters, but as a data check (the self-test asserts one
-  // exists at every cut), not as copy.
-  const opening = document.createElement('span');
-  opening.className = 'picker-style-opening';
-  opening.textContent = cut.line.name;
-  btn.appendChild(opening);
-
-  // The blurb, the move count and (for Black) what the line answers don't fit a
-  // tile, but they're still the best description of what it holds — so they stay
-  // in the accessible name.
-  btn.setAttribute(
-    'aria-label',
-    `${STYLE_LABELS[cut.line.style]} — ${cut.line.name}`
-    + (cut.line.colour === 'black' ? ', against 1.e4' : '')
-    + `, ${cut.ownMoves} moves. ${cut.line.blurb}`,
-  );
-  btn.addEventListener('click', () => onSelect(cut.line.style));
-  return btn;
-}
-
-// ── The footer's two escape hatches ──────────────────────────────────────────
-
-function footButton(label: string, icon: SVGElement, onClick: () => void): HTMLElement {
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'picker-foot-btn';
-  btn.appendChild(icon);
-  const text = document.createElement('span');
-  text.textContent = label;
-  btn.appendChild(text);
-  btn.addEventListener('click', onClick);
-  return btn;
 }

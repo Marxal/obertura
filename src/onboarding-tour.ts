@@ -61,6 +61,7 @@ import {
   setBuilderTourDone,
 } from './prefs';
 import { pushBack } from './back-nav';
+import { Icons } from './icons';
 
 // Gap between the spotlight and the bubble, how far the spotlight is inflated
 // past the target's own box, how far inside the viewport a spot edge is always
@@ -110,7 +111,7 @@ export interface CoachStep {
   // games, Save line — as a full-width button above the Back/Next row. It EXITS
   // the walkthrough, because what it opens takes the screen; bringing the
   // walkthrough back is the caller's job.
-  mainAction?: { label: string; onClick: () => void };
+  mainAction?: { label: string; onClick: () => void; icon?: SVGElement };
   // Shown in the main action's place once its job is done ("Connected").
   mainDone?: string;
   // Run when the step becomes the current one — forwards OR backwards — so it's
@@ -305,7 +306,8 @@ export function showCoachMarks(
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'tour-main-btn';
-      btn.textContent = step.mainAction.label;
+      if (step.mainAction.icon) btn.appendChild(step.mainAction.icon);
+      btn.appendChild(document.createTextNode(step.mainAction.label));
       btn.addEventListener('click', () => {
         const run = step.mainAction!.onClick;
         teardown();
@@ -517,24 +519,39 @@ function onBuilderMove(advance: () => void): () => void {
 
 // ── The builder walkthrough ──────────────────────────────────────────────────
 //
-// One sequence now, from the first move to the save, rather than two halves with
-// the line playing itself in between them. The user is never a spectator: the
-// board opens two moves from the end of the line they picked, with an arrow on
-// the move they have to make, and the walkthrough waits.
+// SIX BUBBLES, ON AN EMPTY BOARD, AND THAT IS THE WHOLE THING:
 //
-//   1. the board — play your second-to-last move,
-//   2. Explore — the three curated moves, with the line's own next move ringed.
-//      Look-only, like every panel step: the board is where the user acts, and
-//      the panels are what they're being shown,
-//   3. Library — what strong players play here (and connect Lichess),
-//   4. My lines — what you've saved here (and import your games),
-//   5. Line info — the notes, priority and stats a saved line carries,
-//   6. Engine — the Engine tab, switched on for the step that describes it,
-//   7. the board again — the last move, if the Explore step didn't already get
-//      it played,
-//   8. Save.
+//   1. the board — play your first move, and watch the answer come back,
+//   2. Explore   — where that answer came from,
+//   3. Library   — the masters and the online games,
+//   4. My lines  — your saved lines and your own games,
+//   5. the board again — two more moves,
+//   6. Save.
+//
+// WHAT IT USED TO BE, AND WHY IT ISN'T. The first run began with a form —
+// colour, depth, style — that handed the builder a CURATED line, and the
+// walkthrough then walked the user through the last two moves of a line
+// somebody else had chosen. Eight bubbles, two of them (Line info, Engine) about
+// panels a first-timer has no use for yet, one of them an account ask. It taught
+// the app and skipped the point: the app is for building YOUR line, and the
+// fastest way to understand that is to build one, from move one, on an empty
+// board.
+//
+// So the picker asks one question (which colour) and every walkthrough now runs
+// on an empty board. Auto-reply is switched on for it, which is what makes a
+// three-move line take three taps: you play your move, the opponent's commonest
+// answer appears, you play the next one. The Explore bubble then explains the
+// thing that has already visibly happened, rather than describing something the
+// user has yet to see.
+//
+// A pack line opened in the builder no longer triggers this. It gets the
+// play-it-in-and-save flow it has always got afterwards — a walkthrough whose
+// first instruction is "play your first move" makes no sense on a board that
+// already has eight moves on it.
 
 // The panels the walkthrough drives, by name (main.ts owns the real ordering).
+// Line info and Engine are still real panels — they just have no bubble, so the
+// walkthrough locks their tabs while it runs (see setSideTabsDisabled).
 export type TourSlide = 'explore' | 'library' | 'mylines' | 'line' | 'engine';
 
 // Step indices, so a tab tap can jump to the step that describes that tab and a
@@ -543,18 +560,15 @@ const STEP_BOARD = 0;
 const STEP_EXPLORE = 1;
 const STEP_LIBRARY = 2;
 const STEP_MYLINES = 3;
-const STEP_LINEINFO = 4;
-const STEP_ENGINE = 5;
 
-// Which walkthrough step each panel tab belongs to. Every tab has a bubble now,
-// so nothing is locked out — tapping any tab moves the walkthrough to the step
-// that explains it.
+// Which walkthrough step each panel tab belongs to: tapping a tab moves the
+// walkthrough to the bubble that explains it. A tab with no entry here is locked
+// while the walkthrough runs, rather than letting a tap land on a panel the
+// bubbles never mention.
 const TAB_STEPS: Partial<Record<TourSlide, number>> = {
   explore: STEP_EXPLORE,
   library: STEP_LIBRARY,
   mylines: STEP_MYLINES,
-  line: STEP_LINEINFO,
-  engine: STEP_ENGINE,
 };
 
 // Where to resume the walkthrough after a Lichess connect, which redirects the
@@ -638,35 +652,26 @@ export interface BuilderIntroDeps {
   // Show a builder carousel slide, so each panel step opens the panel it names.
   showSlide: (id: TourSlide) => void;
   // Back off the FIRST bubble: there's nothing behind it in the builder, so it
-  // goes right back to the screen the line was chosen on.
+  // goes right back to the screen the colour was chosen on.
   onRestart?: () => void;
-  // Put the board where a board step describes: just before the user's
-  // second-to-last (or last) own move, with an arrow on the move to play.
-  // `null` clears the cue.
-  setBoardCue: (cue: 'second-last' | 'last' | null) => void;
-  // Move the board on from the position the first board step left it: the
-  // opponent's reply, so the panel steps sit on a real position and the last
-  // board step has the last move to ask for.
-  settleAfterOwnMove: () => void;
-  // The engine toggle in the dock, driven by the engine step.
-  setEngine: (on: boolean) => void;
-  // Ring the line's own next move among the Explore suggestions (and pin it into
-  // the three), so the bubble that says "tap one to add it to your line" has
-  // something to point at. Null clears it.
-  setExploreCue: (uci: string | null) => void;
-  // The move the guided line wants next from where the cursor is, or null when
-  // the line has been played out to its end.
-  nextScriptedUci: () => string | null;
-  // Put the cursor at the end of the line, for the save step: saving from the
+  /**
+   * Switch Explore's auto-reply on (or off).
+   *
+   * This is what makes the first bubble's promise true. The user plays a move
+   * and the opponent's commonest answer comes back on its own, so a first line
+   * is three taps rather than six, and — more to the point — nobody has to
+   * decide what Black "should" reply on their first minute in a chess app.
+   * Left ON afterwards: the walkthrough said out loud that it does this, and its
+   * switch is right there on the Explore panel.
+   */
+  setAutoReply: (on: boolean) => void;
+  // Put the cursor at the end of the line for the save step: saving from the
   // middle of a line raises the builder's "save up to here?" nudge, which is a
-  // question about an edit the user hasn't made.
+  // question about an edit the user hasn't made. The first bubble tells people
+  // they can step back through their moves, so this is not a rare case.
   goToLineEnd: () => void;
   // "Save line" on the last bubble.
   onSave: () => void;
-  // Does the walkthrough have a curated line under it? An empty-board first line
-  // has no scripted moves, so the two board-script steps and the save step are
-  // left out and the caller arms its own save prompt.
-  hasScript: boolean;
   // Where the cursor is in the line (ply count), stashed across a Lichess
   // connect so the board comes back on the same position.
   cursorPly?: () => number;
@@ -763,54 +768,53 @@ function buildSteps(
 ): CoachStep[] {
   const connected = deps.isLichessConnected();
 
-  const steps: CoachStep[] = [
+  return [
     {
       selector: ['#board'],
       title: 'Enter your line',
       body: 'Make your moves on the board to build a line you can train after. '
-        + 'Play the move!',
+        + 'You can step back and forward through them at any time to add more. '
+        + 'Play your first move!',
       pad: 0,
       // Live, and it advances on a move: the fastest way to learn that the board
-      // is yours to play on is to play on it. Next plays the move for you.
+      // is yours to play on is to play on it.
       interactive: true,
       watch: onBuilderMove,
-      onEnter: () => deps.setBoardCue(deps.hasScript ? 'second-last' : null),
-      nextLabel: 'Next',
+      onEnter: () => {
+        // Explore has to be the panel on screen for its auto-reply to answer —
+        // a board that moved on its own while the user was reading the Library
+        // would be a haunting, so the panel only replies while it is showing.
+        // Opening it here is also what puts the next bubble's subject on screen
+        // before the bubble talks about it.
+        deps.setAutoReply(true);
+        deps.showSlide('explore');
+      },
       onBack: deps.onRestart,
     },
     {
       selector: ['#builder-sheet'],
       title: 'Explore',
-      body: 'Suggested moves from your games, the library and the engine — your '
-        + 'line’s next move is ringed. Tapping one adds it to your line, after '
-        + 'the walkthrough.',
+      body: 'Suggested moves from your games, the library and the engine. '
+        + 'Auto-reply plays the suggested answer for you.',
       pad: 4,
-      // Look-only, and the panel's own tiles are the reason. Every row here
-      // PLAYS when tapped, so the panel that used to teach itself by being used
-      // was also the fastest way to walk the line off the opening the user
-      // picked one screen earlier — a branch they didn't ask for, three bubbles
-      // before being asked to save it. The only ways on are Next and the tabs.
+      // Look-only, and the panel's own tiles are the reason: every row here
+      // PLAYS when tapped, so the panel that taught itself by being used was
+      // also the fastest way to put a move down that nobody meant. The only ways
+      // on are Next and the tabs.
       lookOnly: true,
-      onEnter: () => {
-        // Whichever way the user left the board step — playing the move or
-        // pressing Next — the opponent's reply comes in here, so the panels
-        // describe a real position and the last move is still to come.
-        deps.setBoardCue(null);
-        deps.settleAfterOwnMove();
-        deps.showSlide('explore');
-        deps.setExploreCue(deps.nextScriptedUci());
-      },
+      onEnter: () => deps.showSlide('explore'),
     },
     {
       selector: ['#builder-sheet'],
       title: 'Opening Library',
-      body: 'Get inspiration from Masters and Lichess players. Connect your free '
-        + 'Lichess account to analyze any position.',
+      body: 'Get inspiration from Masters and online players. Connect your free '
+        + 'Lichess account to analyze any position. You don’t need to be an '
+        + 'active player of Lichess — a free account is enough.',
       pad: 4,
       // Look-only for the same reason as Explore: every book move in this list
       // plays onto the line when tapped.
       lookOnly: true,
-      onEnter: () => { deps.setExploreCue(null); deps.showSlide('library'); },
+      onEnter: () => deps.showSlide('library'),
       mainDone: connected ? 'Lichess connected' : undefined,
       mainAction: connected ? undefined : {
         label: 'Connect Lichess',
@@ -838,7 +842,7 @@ function buildSteps(
       // OPENS it, which would throw away the line the walkthrough is in the
       // middle of building.
       lookOnly: true,
-      onEnter: () => { deps.setExploreCue(null); deps.showSlide('mylines'); },
+      onEnter: () => deps.showSlide('mylines'),
       mainAction: {
         label: 'Import my games',
         onClick: () => {
@@ -850,54 +854,14 @@ function buildSteps(
       },
     },
     {
-      selector: ['#builder-sheet'],
-      title: 'Line info',
-      body: 'See notes, training priority, and live stats for any saved line.',
-      pad: 4,
-      // Look-only: this panel's row of actions includes Delete and the training
-      // toggle, neither of which belongs in a first minute.
-      lookOnly: true,
-      onEnter: () => { deps.setExploreCue(null); deps.showSlide('line'); },
-    },
-    {
-      // The Engine TAB, not the dock's engine icon: the icon is the quick
-      // glance, and pointing the bubble at it taught the smaller of the two
-      // surfaces. Opening the tab switches the engine on by itself, so there's
-      // something to look at while the bubble describes it.
-      selector: ['#builder-sheet'],
-      title: 'Engine',
-      body: 'See Stockfish evaluations and the three strongest lines. Tapping '
-        + 'one plays it onto your line, after the walkthrough.',
-      pad: 4,
-      // Look-only like every other panel step — and live enough that the tab
-      // strip stays tappable all the way through, or "tap Library to go back to
-      // Library" is only true on some of the bubbles.
-      lookOnly: true,
-      onEnter: () => { deps.setExploreCue(null); deps.showSlide('engine'); },
-    },
-  ];
-
-  if (!deps.hasScript) return steps;
-
-  steps.push(
-    {
+      // Back to the board. The panels have had their turn; this is where the
+      // line actually gets built, and two more moves is enough to have one.
       selector: ['#board'],
-      title: 'Finish the line',
-      // The Explore step offers the same move, so by the time this bubble is
-      // painted the line may already be complete. Say whichever is true.
-      body: () => deps.nextScriptedUci()
-        ? 'Play the last move of your line on the board.'
-        : 'That’s your line. Keep playing moves to take it further, or save it '
-          + 'as it is.',
+      title: 'Back to your line',
+      body: 'Play two more moves for now — you can keep adding moves later.',
       pad: 0,
       interactive: true,
-      watch: onBuilderMove,
-      onEnter: () => {
-        // The engine has had its step; the board is the subject again.
-        deps.setEngine(false);
-        deps.setExploreCue(null);
-        deps.setBoardCue('last');
-      },
+      onEnter: () => deps.showSlide('explore'),
     },
     {
       selector: ['#header-save', '#save-line-btn'],
@@ -906,15 +870,16 @@ function buildSteps(
         + 'it to your training repertoire.',
       pad: 8,
       interactive: true,
-      onEnter: () => { deps.setBoardCue(null); deps.goToLineEnd(); },
-      // Next on the last bubble is the quiet way out: stay in the builder and
-      // carry on. Saving is the button above it.
-      nextLabel: 'Add more moves',
+      onEnter: deps.goToLineEnd,
+      // Saving is the big button above; carrying on is a bare word under it.
+      // They used to be a primary Next and a primary main action side by side,
+      // which asked the user to weigh two equal-looking options on the last
+      // bubble of a walkthrough whose entire purpose was getting them to a saved
+      // line.
       mainAction: { label: 'Save line', onClick: deps.onSave },
+      actions: [{ label: 'Add more moves', variant: 'quiet', onClick: deps.onDone }],
     },
-  );
-
-  return steps;
+  ];
 }
 
 // The save decision on its own, for a line the walkthrough isn't running on: a
@@ -956,7 +921,9 @@ export function showTrainerIntro(o: { onStart: () => void; onSkip: () => void })
         + 'attempts before the move is revealed. Bito Chess tracks your mistakes '
         + 'so you can master them.',
       pad: 0,
-      mainAction: { label: 'Start training', onClick: o.onStart },
+      // The Train tab's own bolt on the button that starts training, so the
+      // thing about to happen is named with the mark it lives under in the app.
+      mainAction: { label: 'Start training', onClick: o.onStart, icon: Icons.zap(17) },
       // One thing to do and one quiet way out of it, in the same corner the
       // walkthrough's Skip sits in — so "Skip" is in one place in the app.
       actions: [],
