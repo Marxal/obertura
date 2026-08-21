@@ -2829,6 +2829,106 @@ people already have come first, and typing is the fallback.
 
 ---
 
+## The first-line round — one question, and the app doing its own homework ✅
+
+A twelve-item round across Train, Explore and the first run. Two themes hold
+most of it together: **the app should do the slow work itself**, and **a screen
+should say what it is for where you are standing**.
+
+### The first run
+
+- ✅ **The first screen asks ONE question.** It asked three — colour, depth,
+  style — and then handed the builder a curated line somebody else had chosen.
+  Every one of those questions can only be answered by someone who already knows
+  what the app does. It asks which colour now; "Start building" appears with the
+  answer, and "I already have an account, log in" sits quietly at the foot for
+  the people that question is actually for. `onboarding-picker.ts` lost two
+  thirds of its weight; `onboarding-lines.ts` (the eight curated lines) is left
+  in place with its self-test but is no longer reachable from the app.
+- ✅ **The walkthrough is six bubbles on an empty board:** the board (play your
+  first move), Explore, Library, My lines, the board again (two more moves),
+  Save. Line info and Engine are gone — first-minute panels they are not — and
+  their tabs are locked while it runs.
+- ✅ **Auto-reply is switched on for it**, which is what makes "play a move, get
+  an answer" true and a three-move line three taps. The Explore bubble then
+  explains something that has already visibly happened. A Black first line gets
+  White's move played in at the start (`explorePanel.setAutoReply` exists
+  because the panel reads the pref once, into the variable its own switch
+  writes).
+- ✅ **Two consequences of that**, both handled: the guided line now always ends
+  on the opponent's reply, so the "end on your move?" nudge is taken silently
+  rather than made a first-timer's modal; and a pack line no longer triggers the
+  walkthrough at all, since "play your first move" means nothing on a board that
+  already has eight.
+- ✅ **The account ask is gone from the success card.** It landed on someone who
+  had been in the app four minutes and had nothing yet to sync, and turned the
+  one moment that should read as "that worked" into a form. The log-in line on
+  screen one is where that question belongs.
+- ✅ **Save's "Add more moves" drops to a quiet line** under a primary Save; the
+  trainer's introduction carries the Train bolt on "Start training".
+
+### Train
+
+- ✅ **"Refresh your moves"** replaces the lone "Refresh lines" button: Full
+  lines and Repertoire run, side by side, equal width, each carrying its own
+  count ("6 lines due" / "11 moves due"). They are two answers to one question
+  and Repertoire run was buried a third of the way down the Practise menu.
+  "Rounds left" holds its column instead of hiding at one.
+- ✅ **The Get-started box and the daily card stop butting together** —
+  `.daily-host` owns the gap, since either can lead.
+- ✅ **A gear in the daily card's corner** opens the same preference rows
+  Settings shows. The row chrome moved to `settings-controls.ts` and the rows
+  themselves to `daily-prefs.ts`, so neither Settings nor the card has to import
+  the other. Its copy is now "Pick your challenges and how many of each."
+- ✅ **Practise says once, at the top, why every card is greyed out** — six
+  identical "reasons" down a list read as six dead ends rather than one rule.
+- ✅ **An (i) beside "Practise" and "From your games"** explains each mode
+  (`info-sheet.ts`). The card subtitles have to stay one short line for the menu
+  to stay scannable, which leaves nowhere to say how Repertoire run differs from
+  Drill new lines.
+- ✅ **Round screens list the lines (or moves) that round covered.** A
+  four-round sitting showed a bare tally until the very end, which is the wrong
+  twenty minutes to wait — the round you just played is the one you can still
+  remember. The final screen still lists the whole sitting.
+
+### Middle game
+
+- ✅ **The mistake scan runs on its own** (`mistake-autoscan.ts`). Behind a
+  button it was a decision — "do I want to give this ten minutes right now?" —
+  and the honest answer is almost always no, so the pane stayed empty for people
+  who had imported hundreds of games. One pass at a time, the manual scan always
+  wins the engine, aborting is a pause, and the tier cap is the same one the
+  button obeys. The hero reports it live; Settings → Data can turn it off.
+
+### Explore
+
+- ✅ **Coverage gets the import form as its empty state**, exactly as Openings
+  has: the strongest thing coverage can say is "you have faced this eleven
+  times", and that sentence needs your games.
+- ✅ **A gap is a position CARD now**, on the shared `.pcard` scaffold — a
+  miniature with the unanswered reply already played, the sentence that ranked
+  it, and one button. As a dense one-line row it read as a list of complaints.
+
+### Everywhere
+
+- ✅ **Hint arrows and circles go blue** (`board-brushes.HINT_COLOR`). The warm
+  orange read beautifully on cream squares and vanished on dark ones; blue is
+  off-axis against every board scheme the app ships. The colour lived in nine
+  files — it lives in one now.
+- ✅ **The endgame's hint arrow clears the moment you move.** It used to survive
+  every move after, so a long win ended with an arrow between two squares that
+  no longer had the pieces on them.
+- ✅ **The just-saved highlight on My Lines works again.** `persistCurrentLine`
+  took back the line AS BUILT, whose id is a fresh UUID — but a saved line's id
+  is derived from the book and the node it ends on, so nothing downstream could
+  find it. It takes back the line as stored now, which also fixes a second save
+  of the same line.
+- ✅ **The full-screen repertoire map opens with its board up.** The whole reason
+  to go full screen is that the embedded card is too small to work in; arriving
+  to a 44px strip you then have to pull up spends the extra room on nothing.
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

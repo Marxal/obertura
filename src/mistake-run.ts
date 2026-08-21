@@ -18,7 +18,7 @@
 // so an abandoned session still counts what it fixed.
 
 import { Chess } from 'chess.js';
-import { registerBrushes } from './board-brushes';
+import { registerBrushes, HINT_COLOR } from './board-brushes';
 import { Chessground } from 'chessground';
 import type { Api } from 'chessground/api';
 import type { Key } from 'chessground/types';
@@ -241,7 +241,7 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
   // The played mistake is drawn in the review palette's blunder red. Unique
   // brush keys per board (board-brushes.ts) so arrowheads never collide.
   registerBrushes(cg, {
-    accent: { color: '#ff9b21', opacity: 0.85, lineWidth: 10 },
+    accent: { color: HINT_COLOR, opacity: 0.85, lineWidth: 10 },
     danger: { color: '#c93636', opacity: 0.8, lineWidth: 10 },
   });
   const ro = new ResizeObserver(() => cg.redrawAll());
@@ -677,7 +677,7 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
       drawable: { enabled: false, visible: true },
     });
     registerBrushes(pcg, {
-      accent: { color: '#ff9b21', opacity: 0.9, lineWidth: 10 },
+      accent: { color: HINT_COLOR, opacity: 0.9, lineWidth: 10 },
       danger: { color: '#c93636', opacity: 0.8, lineWidth: 10 },
     });
     const shapes: DrawShape[] = [];

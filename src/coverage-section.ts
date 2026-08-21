@@ -31,6 +31,7 @@
 
 import { Icons } from './icons';
 import { formatMove } from './notation';
+import { buildPositionCard, colourPip, fenFromUcis } from './card-position';
 import { openPositionPeek, type PeekAction, type PeekStat } from './position-peek';
 import { loadCoverage, cachedCoverage, liveReachNote, type CoverageLoad } from './coverage-data';
 import { MAX_GAPS, type Gap, type GapSource } from './coverage-gaps';
@@ -124,8 +125,8 @@ export function renderCoverageSection(host: HTMLElement, deps: CoverageSectionDe
         : 'Nothing unanswered so far…'));
     } else {
       const list = document.createElement('div');
-      list.className = 'cvg-list';
-      for (const gap of shown) list.appendChild(gapRow(gap));
+      list.className = 'cvg-list lines-grid';
+      for (const gap of shown) list.appendChild(gapCard(gap));
       host.appendChild(list);
 
       const hidden = report.totalGaps - shown.length;
@@ -220,50 +221,81 @@ export function renderCoverageSection(host: HTMLElement, deps: CoverageSectionDe
     return track;
   }
 
-  // One gap. The whole row is the button — a row whose only action is a small
-  // button on the right is a row most thumbs miss.
+  // One gap, as a position CARD — the same scaffold (and therefore the same
+  // reading) as the Openings cards a tab away: a miniature of the position with
+  // the unanswered reply already played, the sentence that ranked it, where it
+  // sits, and one button. It was a dense one-line row for a while, which read as
+  // a list of complaints; on a card you can SEE the hole before deciding
+  // anything about it.
   //
-  // Tapping it shows the POSITION, not the builder. It used to jump straight
-  // into the editor, which is a big move to make from a one-line list item on
-  // the strength of a move name and a reason: you could not see what you were
-  // agreeing to prepare until you were already in it. The popup is the
-  // look-before-you-leap step the rest of the app's lists already have, and
-  // Prepare is its primary button.
-  function gapRow(gap: Gap): HTMLElement {
-    const row = document.createElement('button');
-    row.type = 'button';
-    row.className = `cvg-row cvg-row--${gap.source}`;
-    row.addEventListener('click', () => openGapPeek(gap));
+  // Tapping the card (or the board) shows the position popup, not the builder.
+  // Jumping straight into the editor is a big move to make on the strength of a
+  // move name, so the popup is the look-before-you-leap step every other list in
+  // the app already has, and Prepare is its primary button.
+  function gapCard(gap: Gap): HTMLElement {
+    const { card, titleRow, content } = buildPositionCard({
+      fen: fenFromUcis([...gap.ucis, gap.uci]),
+      orientation: gap.colour,
+      className: `games-card cvg-card cvg-card--${gap.source}`,
+      onMiniClick: () => openGapPeek(gap),
+      miniLabel: `Look at ${gap.san}`,
+    });
+    card.addEventListener('click', () => openGapPeek(gap));
 
-    const move = document.createElement('span');
-    move.className = 'cvg-row-move';
-    move.textContent = `${movePrefix(gap.ply)} ${formatMove(gap.san)}`;
-    row.appendChild(move);
+    titleRow.appendChild(colourPip(gap.colour));
+    const name = document.createElement('span');
+    name.className = 'pcard-name';
+    name.textContent = `${movePrefix(gap.ply)} ${formatMove(gap.san)}`;
+    titleRow.appendChild(name);
 
-    const body = document.createElement('span');
-    body.className = 'cvg-row-body';
+    const chip = document.createElement('span');
+    chip.className = 'opening-chip cvg-chip';
+    chip.textContent = 'No answer';
+    titleRow.appendChild(chip);
 
-    const why = document.createElement('span');
-    why.className = 'cvg-row-why';
-    why.appendChild(sourceIcon(gap.source, 12));
+    // The sentence that ranked the row, with its source's icon. A ranking the
+    // user can't explain to themselves is noise, so this is never optional.
+    const why = document.createElement('div');
+    why.className = 'cvg-card-why';
+    why.appendChild(sourceIcon(gap.source, 13));
     why.appendChild(document.createTextNode(gap.reason));
-    body.appendChild(why);
+    content.appendChild(why);
 
-    const where = document.createElement('span');
-    where.className = 'cvg-row-where';
-    where.textContent = context(gap);
-    body.appendChild(where);
-    row.appendChild(body);
+    const chips = document.createElement('div');
+    chips.className = 'stat-card-chips';
+    chips.appendChild(chipEl(gap.family && gap.family !== 'Unrecognised opening'
+      ? gap.family
+      : `Move ${Math.floor(gap.ply / 2) + 1}`));
+    chips.appendChild(chipEl(gap.lineCount === 1 ? '1 line here' : `${gap.lineCount} lines here`));
+    content.appendChild(chips);
 
-    const add = document.createElement('span');
-    add.className = 'cvg-row-add';
-    add.appendChild(Icons.plus(15));
-    row.appendChild(add);
+    const where = document.createElement('div');
+    where.className = 'review-moves stat-card-note';
+    where.textContent = `after ${gap.sans.length ? formatSans(gap.sans) : 'the first move'}`;
+    content.appendChild(where);
 
-    row.setAttribute('aria-label',
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn-secondary stat-card-btn';
+    btn.appendChild(Icons.plus(15));
+    btn.appendChild(document.createTextNode('Prepare an answer'));
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      deps.onPrepare([...gap.ucis, gap.uci], gap.colour, gap.opponentName);
+    });
+    content.appendChild(btn);
+
+    card.setAttribute('aria-label',
       `${gap.san} after ${gap.sans.join(' ') || 'the first move'} — ${gap.reason}. `
       + 'Look at the position.');
-    return row;
+    return card;
+  }
+
+  function chipEl(text: string): HTMLElement {
+    const chip = document.createElement('span');
+    chip.className = 'review-stat-chip';
+    chip.textContent = text;
+    return chip;
   }
 
   // The gap, on a board. The unanswered reply is drawn straight away (there is

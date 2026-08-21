@@ -1,5 +1,5 @@
 import { Chess } from 'chess.js';
-import { registerBrushes } from './board-brushes';
+import { registerBrushes, HINT_COLOR } from './board-brushes';
 import { Chessground } from 'chessground';
 import type { Key } from 'chessground/types';
 import type { Line } from './types';
@@ -749,7 +749,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   // board so the arrowhead markers never collide with another board's (see
   // board-brushes.ts — collisions drop the arrowhead, leaving a headless line).
   registerBrushes(cg, {
-    accent: { color: '#ff9b21', opacity: 0.85, lineWidth: 10 },
+    accent: { color: HINT_COLOR, opacity: 0.85, lineWidth: 10 },
     // 'alt' also marks the divert's trained-line arrow (green = a known-good
     // move) — the two never show at once, so one colour does both jobs.
     alt: { color: '#708151', opacity: 0.85, lineWidth: 10 },

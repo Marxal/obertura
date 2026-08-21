@@ -106,6 +106,12 @@ export interface RepertoireMapOptions {
   // past, and then it is too small to work in. Small card, full screen when you
   // mean it.
   onFullScreen?: (path: string[]) => void;
+  // True for the full-screen overlay (openRepertoireMap sets it). The tap
+  // preview's board starts UP there: the whole reason to go full screen is that
+  // the embedded card is too small to work in, and arriving to a 44px strip you
+  // then have to pull up spends the extra room on nothing. An embedded map keeps
+  // the strip, where the room genuinely is the problem.
+  fullScreen?: boolean;
   // How lines are merged into the tree (see map-merge.ts):
   //   'path'     — the default. Two lines share a node only while they have not
   //                parted, so a transposition draws as two separate branches.
@@ -601,7 +607,8 @@ function makePreview(
   panel.className = 'rmap-pos-panel';
   panel.hidden = true;
 
-  let expanded = window.matchMedia?.('(min-width: 960px)').matches ?? false;
+  let expanded = opts.fullScreen
+    || (window.matchMedia?.('(min-width: 960px)').matches ?? false);
 
   // ── The handle: always visible once a node is selected ──
   const handle = document.createElement('div');
@@ -1159,7 +1166,7 @@ export function openRepertoireMap(
 
   // In the DOM before the mount: the initial centring measures the tree area.
   document.body.appendChild(overlay);
-  mounted = mountRepertoireMap(overlay, filtered, colour, onOpenLine, opts, close);
+  mounted = mountRepertoireMap(overlay, filtered, colour, onOpenLine, { ...opts, fullScreen: true }, close);
 }
 
 /** What an embedded map hands back — call dispose() when the host goes away. */

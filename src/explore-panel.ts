@@ -69,7 +69,7 @@ import { MAP_MAX_PLIES } from './scout';
 import { formatMove } from './notation';
 import { Icons } from './icons';
 import {
-  getExplorerDb, getAutoReply, setAutoReply,
+  getExplorerDb, getAutoReply, setAutoReply as persistAutoReply,
   getAutoReplySource, setAutoReplySource, type AutoReplySource,
 } from './prefs';
 import { bandRangeLabel, explorerFilter } from './explorer-bands';
@@ -160,6 +160,17 @@ export interface ExplorePanel {
   // the bubble that says "tap one to add it to your line" has something to point
   // at. Null clears it.
   setHighlight(uci: string | null): void;
+  /**
+   * Turn auto-reply on (or off) from outside — the first-run walkthrough, whose
+   * opening bubble promises that playing a move gets you an answer back.
+   *
+   * It has to be a method rather than "write the pref and re-render": the panel
+   * reads the pref ONCE, into the `autoReply` above, because that variable is
+   * also what the switch on the panel writes. A caller that only wrote the pref
+   * would leave the panel's own copy — and therefore its switch and its
+   * behaviour — untouched.
+   */
+  setAutoReply(on: boolean): void;
 }
 
 export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
@@ -324,7 +335,7 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
     toggle.title = 'Play the opponent’s answer for me after each of my moves';
     toggle.addEventListener('click', () => {
       autoReply = !autoReply;
-      setAutoReply(autoReply);
+      persistAutoReply(autoReply);
       replyIndex = 0;
       render();
       // Switched on while it is already their move — answer now rather than
@@ -886,6 +897,15 @@ export function createExplorePanel(deps: ExplorePanelDeps): ExplorePanel {
       // this tab, its switch is on this tab, and a board that answers back while
       // the user is reading the Library would be a haunting.
       if (active) void playAutoReply();
+    },
+    setAutoReply(on: boolean) {
+      if (autoReply === on) return;
+      autoReply = on;
+      persistAutoReply(on);
+      render();
+      // Switching it ON owes a reply when it is the opponent's turn — the same
+      // thing tapping the panel's own switch does.
+      if (on) void playAutoReply();
     },
     setHighlight(uci: string | null) {
       if (uci === highlightUci) return;

@@ -11,7 +11,7 @@
 // chain into the full line).
 
 import { Chess } from 'chess.js';
-import { registerBrushes } from './board-brushes';
+import { registerBrushes, HINT_COLOR } from './board-brushes';
 import { Chessground } from 'chessground';
 import type { Key } from 'chessground/types';
 import { Icons } from './icons';
@@ -163,7 +163,7 @@ export function startFixIt(move: FixItMove, opts: FixItOptions): void {
     animation: { enabled: true, duration: 220 },
     events: { move(from, to) { onUserMove(from, to); } },
   });
-  registerBrushes(cg, { accent: { color: '#ff9b21', opacity: 0.9, lineWidth: 10 } });
+  registerBrushes(cg, { accent: { color: HINT_COLOR, opacity: 0.9, lineWidth: 10 } });
 
   const ro = new ResizeObserver(() => cg.redrawAll());
   ro.observe(boardEl);

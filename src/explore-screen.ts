@@ -293,7 +293,7 @@ function exploreTabsSection(
   content.className = 'lines-tab-content';
 
   const tabEl = (tab: ExploreTab): HTMLElement => {
-    if (tab === 'coverage') return buildCoverageTab(lines);
+    if (tab === 'coverage') return buildCoverageTab(lines, games, container);
     if (tab === 'openings') return (openingsTab ??= buildOpeningsTab(games, lines, container));
     if (tab === 'packs') return (packsTab ??= buildPacksTab(starterPacks, trapPacks, games, lines));
     return buildScoutingTab(opponents, container);
@@ -354,7 +354,7 @@ function exploreTabsSection(
 // keeps your place.
 let coverageColour: 'white' | 'black' | null = null;
 
-function buildCoverageTab(lines: Line[]): HTMLElement {
+function buildCoverageTab(lines: Line[], games: ImportedGame[], container: HTMLElement): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'cvg-tab';
 
@@ -363,7 +363,21 @@ function buildCoverageTab(lines: Line[]): HTMLElement {
     black: lines.filter(l => l.colour === 'black').length,
   };
 
-  if (counts.white + counts.black === 0) {
+  // The strongest thing coverage can say is "you have faced this eleven times",
+  // and that sentence needs your games. So the import form IS the empty state
+  // here, exactly as it is one tab over on Openings — a button that opens a
+  // sheet that then asks for a username spends a tap on nothing.
+  if (games.length === 0) {
+    wrap.appendChild(buildInlineImport({
+      title: 'Import your games',
+      body: 'Coverage checks your saved lines against the replies you actually meet, and '
+        + 'lists the ones you have no answer for — commonest first.',
+      onImported: () => renderExploreScreen(container),
+    }));
+    // With no lines either there is nothing else to draw; with lines, the
+    // library and any scouted opponents can still fill the list below.
+    if (counts.white + counts.black === 0) return wrap;
+  } else if (counts.white + counts.black === 0) {
     wrap.appendChild(buildEmptyState({
       icon: Icons.target(44),
       line: 'Coverage starts with your first line.',
@@ -394,7 +408,7 @@ function buildCoverageTab(lines: Line[]): HTMLElement {
     if (c !== colour && counts[c] > 0) {
       btn.addEventListener('click', () => {
         coverageColour = c;
-        const fresh = buildCoverageTab(lines);
+        const fresh = buildCoverageTab(lines, games, container);
         wrap.replaceWith(fresh);
       });
     }

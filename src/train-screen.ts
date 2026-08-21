@@ -66,6 +66,7 @@ import { renderLoadError } from './load-error';
 import { lineFinalFen } from './card-position';
 import { burstConfetti, starfall, celebratePawn } from './confetti';
 import { pushBack } from './back-nav';
+import { openInfoSheet, buildInfoButton } from './info-sheet';
 import { showToast } from './toast';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -298,7 +299,7 @@ async function doRender(
 
   // The streak now lives on the daily-challenge card above the tabs, so Train's
   // own head is gone — the hero (when anything's due) is the top of this pane.
-  if (!trainingLocked) renderHero(doNext, container, due, trainingLines);
+  if (!trainingLocked) renderHero(doNext, container, due, trainingLines, books);
   renderModeCards(doNext, container, trainingLines, allLines, books, trainingLocked);
   // What keeps slipping — the worst moves and the weakest lines — closes the
   // pane. The "Lines in training" list that used to sit here is gone: it was a
@@ -352,7 +353,14 @@ const PICKER_SESSION_CAP = 12;
 const ROUND_SIZE = 5;            // full lines per round
 const ROUND_SIZE_POSITIONS = 10; // single moves per round (quicker, so a bigger chunk)
 
-function renderHero(host: HTMLElement, container: HTMLElement, due: Line[], allTraining: Line[]): void {
+function renderHero(
+  host: HTMLElement,
+  container: HTMLElement,
+  due: Line[],
+  allTraining: Line[],
+  // The books, for the Repertoire run half of the refresh pair.
+  books: Repertoire[],
+): void {
   // Nothing due now → no hero at all. The card only earns its space when there's
   // something to review; "all caught up" is implied by its absence.
   if (due.length === 0) return;
@@ -378,29 +386,88 @@ function renderHero(host: HTMLElement, container: HTMLElement, due: Line[], allT
   countUp(revNum, reviewedToday());
 
   // How many rounds the due pile breaks into. Stateless — it shrinks as rounds
-  // are banked across sittings. Only worth showing once there's more than one
-  // round to do (otherwise it's just "Start review" as before).
-  const roundsLeft = Math.ceil(due.length / ROUND_SIZE);
-  if (roundsLeft > 1) {
-    const roundsNum = document.createElement('span');
-    roundsNum.className = 'train-hero-stat-num';
-    roundsNum.textContent = '0';
-    stats.appendChild(buildHeroStat('rounds', roundsNum, 'Rounds left'));
-    countUp(roundsNum, roundsLeft);
-  }
+  // are banked across sittings. It used to hide at one round, which made the row
+  // flip between two stats and three; it is one of the three figures this card
+  // is for, so it holds its column and reads "1" on a short day.
+  const roundsLeft = Math.max(1, Math.ceil(due.length / ROUND_SIZE));
+  const roundsNum = document.createElement('span');
+  roundsNum.className = 'train-hero-stat-num';
+  roundsNum.textContent = '0';
+  stats.appendChild(buildHeroStat('rounds', roundsNum, 'Rounds left'));
+  countUp(roundsNum, roundsLeft);
 
   hero.appendChild(stats);
 
-  const start = document.createElement('button');
-  start.type = 'button';
-  start.className = 'btn-primary train-hero-start';
-  start.appendChild(Icons.brain(18));
-  start.appendChild(document.createTextNode('Refresh lines'));
-  start.addEventListener('click', () =>
-    startRounds(dueLines(allTraining), container, { explicit: true }));
-  hero.appendChild(start);
+  // ── Refresh your moves ─────────────────────────────────────────────────────
+  //
+  // One button used to sit here, called "Refresh lines", and it ran full lines.
+  // The other way through the same due pile — Repertoire run, which asks each
+  // due MOVE once instead of replaying a shared opening once per line — was
+  // buried a third of the way down the Practise menu, where nobody comparing
+  // "how shall I do today's review?" would find it. They are two answers to one
+  // question, so they belong side by side, the same size, under the question.
+  //
+  // Each says its own size underneath, because that is the actual difference
+  // between them and the reason to pick one: the same due pile is N lines one
+  // way and M moves the other.
+  const runPlan = planRepertoireRun(books);
+  const refreshTitle = document.createElement('div');
+  refreshTitle.className = 'train-refresh-title';
+  refreshTitle.textContent = 'Refresh your moves';
+  hero.appendChild(refreshTitle);
+
+  const row = document.createElement('div');
+  row.className = 'train-refresh-row';
+  row.appendChild(refreshButton(
+    Icons.brain(18),
+    'Full lines',
+    `${due.length} ${due.length === 1 ? 'line' : 'lines'} due`,
+    () => startRounds(dueLines(allTraining), container, { explicit: true }),
+  ));
+  // Only when there is a book to run. A repertoire with nothing due through this
+  // route would open a session with nothing in it.
+  if (runPlan && runPlan.dueMoves > 0) {
+    row.appendChild(refreshButton(
+      Icons.list(18),
+      'Repertoire run',
+      `${runPlan.dueMoves} ${runPlan.dueMoves === 1 ? 'move' : 'moves'} due`,
+      () => runRepertoireRun(container, books),
+    ));
+  } else {
+    row.classList.add('train-refresh-row--single');
+  }
+  hero.appendChild(row);
 
   host.appendChild(hero);
+}
+
+// One of the pair. Equal width by construction (the row is a two-column grid),
+// with the count as a quiet second line so the two are comparable at a glance.
+function refreshButton(
+  icon: SVGElement,
+  label: string,
+  sub: string,
+  onClick: () => void,
+): HTMLButtonElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn-primary train-refresh-btn';
+
+  const top = document.createElement('span');
+  top.className = 'train-refresh-btn-top';
+  top.appendChild(icon);
+  const name = document.createElement('span');
+  name.textContent = label;
+  top.appendChild(name);
+  btn.appendChild(top);
+
+  const note = document.createElement('span');
+  note.className = 'train-refresh-btn-sub';
+  note.textContent = sub;
+  btn.appendChild(note);
+
+  btn.addEventListener('click', onClick);
+  return btn;
 }
 
 // One column of the hero pair: a big-ish number stacked over its label.
@@ -450,10 +517,33 @@ function renderModeCards(
   const section = document.createElement('div');
   section.className = 'section mode-cards';
 
+  // Title + the (i). The subtitle on each card has to stay one short line for
+  // the menu to stay scannable, which leaves nowhere to say how "Repertoire run"
+  // differs from "Drill new lines" — so that answer lives one tap away instead
+  // of on every card forever.
+  const head = document.createElement('div');
+  head.className = 'section-head-row';
   const label = document.createElement('div');
   label.className = 'section-title';
   label.textContent = 'Practise';
-  section.appendChild(label);
+  head.appendChild(label);
+  head.appendChild(buildInfoButton('About the practice modes', openPracticeInfo));
+  section.appendChild(head);
+
+  // Under the unlock every card below is greyed out for the same reason, and
+  // saying it once at the top is what makes the six repetitions read as one
+  // rule rather than six separate dead ends.
+  if (locked) {
+    const left = Math.max(0, TRAINING_UNLOCK_LINES - allLines.length);
+    const note = document.createElement('p');
+    note.className = 'section-desc mode-cards-locked';
+    note.textContent = allLines.length === 0
+      ? `Save ${TRAINING_UNLOCK_LINES} lines to switch practice on. Fewer than that and a `
+        + 'session is the same line over and over, which is where the habit dies.'
+      : `Save at least ${TRAINING_UNLOCK_LINES} lines to switch practice on — `
+        + `you have ${allLines.length}, so ${left} to go.`;
+    section.appendChild(note);
+  }
 
   // Why a mode is greyed out. Under the unlock, every card here says the same
   // thing and says it first — the answer is "go and save more lines", whatever
@@ -552,6 +642,60 @@ function renderModeCards(
   }
 
   host.appendChild(section);
+}
+
+// What each practice mode actually is, in the words the one-line subtitles have
+// no room for. Kept beside renderModeCards on purpose: a mode added to the menu
+// and not to this list is an obvious omission when the two sit together.
+function openPracticeInfo(): void {
+  openInfoSheet({
+    title: 'The practice modes',
+    intro: 'Six ways through the same repertoire. They differ in WHAT they ask you and '
+      + 'how much of a line you play.',
+    entries: [
+      {
+        icon: Icons.clock(18), accent: MODE_ACCENT.timed,
+        label: 'Time attack',
+        detail: 'Single positions against the clock — 1, 3 or 5 minutes, each with its own '
+          + 'personal best. It draws on everything you have saved, including paused and '
+          + 'shallow lines, so it stays playable early on.',
+      },
+      {
+        icon: Icons.zap(18), accent: MODE_ACCENT.fix,
+        label: 'Review missed moves',
+        detail: 'One move at a time, from the positions you have actually got wrong. No '
+          + 'run-up: you are dropped straight into the position that beat you.',
+      },
+      {
+        icon: Icons.list(18), accent: MODE_ACCENT.run,
+        label: 'Repertoire run',
+        detail: 'One pass through your whole book, asking every move exactly once. Lines '
+          + 'that share an opening replay it once here instead of once per line, which is '
+          + 'why it is much shorter than drilling the same lines one by one.',
+      },
+      {
+        icon: Icons.plus(18), accent: MODE_ACCENT.fresh,
+        label: 'Drill new lines',
+        detail: 'Full runs of your newest lines, start to finish. The one to use straight '
+          + 'after building something, while it is still fresh enough to fix.',
+      },
+      {
+        icon: Icons.trending(18), accent: MODE_ACCENT.weak,
+        label: 'Target weak areas',
+        detail: 'Full runs of the lines you score worst on. Same shape as the one above, '
+          + 'picked from the other end of the list.',
+      },
+      {
+        icon: Icons.target(18), accent: MODE_ACCENT.prep,
+        label: 'Prep',
+        detail: 'Full runs of the lines you tagged against a scouted opponent. It only '
+          + 'appears once you have some.',
+      },
+    ],
+    footnote: 'Time attack and Review missed moves ask single positions; the rest walk whole '
+      + 'lines. Nothing here changes your review schedule differently — a move answered is a '
+      + 'move reviewed, whichever door you came in by.',
+  });
 }
 
 // Exported: the Mistake retry pane builds its category cards with the same
@@ -975,6 +1119,9 @@ function runRound(runner: RoundRunner, container: HTMLElement): void {
     lines: runner.stats.linesReviewed,
     missed: runner.stats.movesMissed,
     moves: runner.stats.totalMoves,
+    // …and which lines were already recapped, so the round screen can list only
+    // the ones this round adds.
+    lineIds: new Set(runner.stats.lineStats.keys()),
   };
   const slice = runner.lines.slice(runner.index, runner.index + ROUND_SIZE);
   runner.index += slice.length;
@@ -1293,7 +1440,13 @@ function runRepertoireRun(container: HTMLElement, books: Repertoire[]): void {
   let roundNo = 0;
 
   function runRunRound(): void {
-    const before = { reviewed: stats.reviewed, missed: stats.missed };
+    // …plus which recap rows already existed, so the round screen can list only
+    // what this round adds (see renderRoundScreen).
+    const before = {
+      reviewed: stats.reviewed,
+      missed: stats.missed,
+      keys: new Set(stats.openings.keys()),
+    };
     const slice = plan.positions.slice(index, index + ROUND_SIZE_POSITIONS);
     index += slice.length;
     roundNo += 1;
@@ -1371,6 +1524,8 @@ function runRepertoireRun(container: HTMLElement, books: Repertoire[]): void {
               correct: (stats.reviewed - before.reviewed) - (stats.missed - before.missed),
               missed: stats.missed - before.missed,
               remainingLabel: `${remaining} move${remaining === 1 ? '' : 's'} left`,
+              rows: reviewedOpeningRows(newTally(stats.openings, before.keys)),
+              rowsLabel: 'Moves in this round',
               onNext: runRunRound,
             });
           }
@@ -1412,7 +1567,11 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
   let roundNo = 0;
 
   function runPositionRound(): void {
-    const before = { reviewed: stats.reviewed, missed: stats.missed };
+    const before = {
+      reviewed: stats.reviewed,
+      missed: stats.missed,
+      keys: new Set(stats.openings.keys()),
+    };
     const slice = positions.slice(index, index + ROUND_SIZE_POSITIONS);
     index += slice.length;
     roundNo += 1;
@@ -1484,6 +1643,8 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
               correct: (stats.reviewed - before.reviewed) - (stats.missed - before.missed),
               missed: stats.missed - before.missed,
               remainingLabel: `${remaining} position${remaining === 1 ? '' : 's'} left`,
+              rows: reviewedOpeningRows(newTally(stats.openings, before.keys)),
+              rowsLabel: 'Moves in this round',
               onNext: runPositionRound,
             });
           }
@@ -1773,6 +1934,17 @@ function tallyFromLineStats(lineStats: Map<string, LineSessionStat>): Map<string
   return tally;
 }
 
+// The recap entries a round ADDED — everything whose key wasn't there when the
+// round started. Rounds never revisit material, so a plain key diff is exact and
+// costs nothing to keep: no per-round bookkeeping alongside the cumulative
+// tally that the final screen needs anyway.
+function newTally(
+  tally: Map<string, OpeningTally>,
+  before: Set<string>,
+): Map<string, OpeningTally> {
+  return new Map([...tally].filter(([key]) => !before.has(key)));
+}
+
 function reviewedOpeningRows(tally: Map<string, OpeningTally>): HTMLElement[] {
   const ordered = [...tally.values()].sort((a, b) => {
     const total = (o: OpeningTally): number => o.correct + o.incorrect;
@@ -1908,6 +2080,13 @@ function renderRoundScreen(
     missed: number;
     remainingLabel: string;
     onNext: () => void;
+    // The lines THIS round covered, as result rows. A four-round sitting used to
+    // show nothing but a tally until the very end, which is the wrong twenty
+    // minutes to wait: the round you have just played is the one you can still
+    // remember, and the row is how you get to the position that beat you. The
+    // final screen still lists the whole sitting.
+    rows?: HTMLElement[];
+    rowsLabel?: string;
   },
 ): void {
   // Mount as a full-screen overlay (like the session-complete screen) rather than
@@ -1919,14 +2098,25 @@ function renderRoundScreen(
     `Round ${opts.roundNo} done ✓`,
     `Round ${opts.roundNo} of ${opts.totalRounds}`,
   );
-  head.classList.add('pz-results-head--fill');
   appendStatsRow(head, opts.correct, opts.missed, 'missed');
 
   const note = document.createElement('div');
   note.className = 'train-all-done';
   note.textContent = opts.remainingLabel;
   head.appendChild(note);
-  panel.appendChild(head);
+
+  if (opts.rows?.length) {
+    const sectionHead = document.createElement('div');
+    sectionHead.className = 'summary-needs-work-head';
+    sectionHead.textContent = opts.rowsLabel ?? 'This round';
+    head.appendChild(sectionHead);
+    panel.appendChild(head);
+    panel.appendChild(completionList(opts.rows));
+  } else {
+    // Nothing to list — let the head fill the panel as it always did.
+    head.classList.add('pz-results-head--fill');
+    panel.appendChild(head);
+  }
 
   const actions = completionActions();
 
@@ -1957,7 +2147,7 @@ function renderRoundScreen(
 function renderRoundComplete(
   container: HTMLElement,
   runner: RoundRunner,
-  before: { lines: number; missed: number; moves: number },
+  before: { lines: number; missed: number; moves: number; lineIds: Set<string> },
 ): void {
   if (runner.stats.linesReviewed > 0) recordTrainingDay();
 
@@ -1965,12 +2155,20 @@ function renderRoundComplete(
   const roundMissed = runner.stats.movesMissed - before.missed;
   const remaining = runner.lines.length - runner.index;
 
+  // lineStats is cumulative across the whole sitting, and each round draws a
+  // distinct slice of the queue — so the entries that weren't there when this
+  // round started ARE this round's lines.
+  const thisRound = new Map(
+    [...runner.stats.lineStats].filter(([id]) => !before.lineIds.has(id)));
+
   renderRoundScreen(container, {
     roundNo: runner.roundNo,
     totalRounds: runner.totalRounds,
     correct: roundMoves - roundMissed,
     missed: roundMissed,
     remainingLabel: `${remaining} line${remaining === 1 ? '' : 's'} left`,
+    rows: reviewedOpeningRows(tallyFromLineStats(thisRound)),
+    rowsLabel: 'Lines in this round',
     onNext: () => runRound(runner, container),
   });
 }

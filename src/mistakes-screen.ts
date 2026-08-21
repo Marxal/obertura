@@ -18,6 +18,12 @@ import { formatMove } from './notation';
 import { cloudHealth, type CloudHealth } from './engine';
 import { createPawnProgress, createFactsTicker } from './import-progress';
 import { buildModeCard } from './train-screen';
+import { openInfoSheet, buildInfoButton } from './info-sheet';
+import {
+  autoScanState, onAutoScanChange, startAutoScan,
+  suspendAutoScan, resumeAutoScan, getAutoScanEnabled,
+  type AutoScanState,
+} from './mistake-autoscan';
 import { showToast } from './toast';
 import {
   isEntitled, buildCapNotice, FREE_MISTAKE_GAME_WINDOW, FREE_MISTAKE_SPOTS,
@@ -72,6 +78,52 @@ const CATEGORY_ICON: Record<MistakeCategory, () => SVGElement> = {
 };
 
 const CATEGORIES: MistakeCategory[] = ['opening-blunder', 'punish-opening', 'missed-win', 'blunder'];
+
+// What the five exercises here actually are. The card subtitles are one short
+// line each — enough to tell them apart in a menu, not enough to say where the
+// positions come from or why a "blunder" and an "opening blunder" are two
+// different cards. That answer lives one tap away rather than on every card.
+function openMistakeInfo(): void {
+  openInfoSheet({
+    title: 'From your games',
+    intro: 'Every position here is one you actually played. The engine reads your imported '
+      + 'games, marks the moves where the evaluation swung, and hands the position back to '
+      + 'you as it was — before you played the move.',
+    entries: [
+      {
+        icon: Icons.zap(18), accent: CATEGORY_ACCENT['opening-blunder'],
+        label: CATEGORY_LABEL['opening-blunder'],
+        detail: 'Mistakes inside the first dozen moves — the ones a line in your repertoire '
+          + 'would have prevented. The most useful card here, because these repeat.',
+      },
+      {
+        icon: Icons.target(18), accent: CATEGORY_ACCENT['punish-opening'],
+        label: CATEGORY_LABEL['punish-opening'],
+        detail: 'Your OPPONENT went wrong in the opening and you let it go. Same positions, '
+          + 'other side of the board: find the move that punishes it.',
+      },
+      {
+        icon: Icons.star(18), accent: CATEGORY_ACCENT['missed-win'],
+        label: CATEGORY_LABEL['missed-win'],
+        detail: 'Positions where you were winning and the win slipped. Anywhere in the game, '
+          + 'not just the opening.',
+      },
+      {
+        icon: Icons.alert(18), accent: CATEGORY_ACCENT['blunder'],
+        label: CATEGORY_LABEL['blunder'],
+        detail: 'Game-losing moves from a level position — the plain ??, wherever it landed.',
+      },
+      {
+        icon: classIcon('brilliant', 18), accent: CLASS_COLOR.brilliant,
+        label: 'Your brilliant moves',
+        detail: 'The opposite exercise: moves the engine graded brilliant or great when you '
+          + 'played them. Find them again. Solved ones rest a while, then come back.',
+      },
+    ],
+    footnote: 'A card stays greyed out until the scan has found something for it, and a spot '
+      + 'you get right is marked fixed and drops out of the rotation.',
+  });
+}
 
 export interface MistakesScreenDeps {
   // Open a game in the full analyser (builder view) — the session's "Open full
@@ -152,35 +204,97 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
 
     const stats = document.createElement('div');
     stats.className = 'train-hero-stats';
-    stats.appendChild(heroStat('found', counts.spots, 'Spots found'));
-    stats.appendChild(heroStat('fixed', counts.fixed, 'Fixed'));
+    const foundNum = heroStat('found', counts.spots, 'Spots found');
+    const scannedNum = heroStat('scanned', counts.scanned, 'Games analysed');
+    stats.appendChild(foundNum.col);
+    stats.appendChild(heroStat('fixed', counts.fixed, 'Fixed').col);
     // Just the count of games actually analysed — not "scanned/total", which
     // read as if the whole library were being added up.
-    stats.appendChild(heroStat('scanned', counts.scanned, 'Games analysed'));
+    stats.appendChild(scannedNum.col);
     hero.appendChild(stats);
 
     if (newGames > 0) {
+      // The scan runs on its own now (mistake-autoscan.ts), so this is a LIVE
+      // STATUS first and a button second. Watching it is optional: leaving the
+      // screen doesn't stop it, and the spots appear on their own next time you
+      // look. The button stays for someone who wants to sit and watch it — and
+      // it is the only route when the background pass has been turned off.
+      const live = document.createElement('div');
+      live.className = 'mistakes-autoscan';
+      hero.appendChild(live);
+
       const scan = document.createElement('button');
       scan.type = 'button';
-      scan.className = 'btn-primary train-hero-start';
+      scan.className = 'btn-secondary train-hero-start mistakes-scan-now';
       scan.appendChild(Icons.review(18));
       scan.appendChild(document.createTextNode(
-        counts.scanned === 0 ? 'Analyse my games' : `Analyse new games (${newGames})`));
+        counts.scanned === 0 ? 'Analyse my games now' : `Analyse new games (${newGames})`));
       scan.addEventListener('click', () => { void runScan(); });
-      hero.appendChild(scan);
 
       const note = document.createElement('div');
       note.className = 'mistakes-hero-note';
-      note.textContent = counts.scanned === 0
-        ? entitled
-          ? `The engine looks through your ${counts.total === 1 ? 'game' : `${counts.total} games`} for mistakes worth retrying. Stop anytime — progress is saved.`
-          : `The engine looks through your ${Math.min(counts.total, FREE_MISTAKE_GAME_WINDOW)} most recent games for mistakes worth retrying. Stop anytime — progress is saved.`
-        : 'Newest first, stop anytime — progress is saved.';
       hero.appendChild(note);
+
+      // One painter for both faces so they can't drift: running says what it is
+      // doing, idle says what is waiting and offers the button.
+      const paintScanState = (st: AutoScanState): void => {
+        live.replaceChildren();
+        // The figures above, plus whatever this pass has turned up so far. They
+        // are re-read from disk on the rebuild that follows the pass.
+        foundNum.num.textContent = String(counts.spots + (st.running ? st.spots : 0));
+        scannedNum.num.textContent = String(counts.scanned + (st.running ? st.done : 0));
+        if (st.running) {
+          const bar = document.createElement('div');
+          bar.className = 'mistakes-autoscan-bar';
+          const fill = document.createElement('span');
+          fill.className = 'mistakes-autoscan-fill';
+          fill.style.width = `${Math.round((st.done / Math.max(1, st.total)) * 100)}%`;
+          bar.appendChild(fill);
+          live.appendChild(bar);
+
+          const label = document.createElement('div');
+          label.className = 'mistakes-autoscan-label';
+          label.textContent = st.opponent
+            ? `Analysing in the background — game ${st.done} of ${st.total}, vs ${st.opponent}`
+            : `Analysing in the background — game ${st.done} of ${st.total}`;
+          live.appendChild(label);
+
+          scan.remove();
+          const carryOn = 'Carry on with anything else — this keeps going, and every game '
+            + 'finished is saved.';
+          note.textContent = st.spots > 0
+            ? `${st.spots} ${st.spots === 1 ? 'spot' : 'spots'} found so far. ${carryOn}`
+            : carryOn;
+          return;
+        }
+
+        // Idle. Either it has not got to these games yet, or it is switched off.
+        hero.insertBefore(scan, note);
+        note.textContent = getAutoScanEnabled()
+          ? `${newGames} ${newGames === 1 ? 'game is' : 'games are'} still to read. This happens `
+            + 'on its own while the app is open — the button just makes it happen now.'
+          : entitled
+            ? `The engine looks through your ${counts.total === 1 ? 'game' : `${counts.total} games`} for mistakes worth retrying. Stop anytime — progress is saved.`
+            : `The engine looks through your ${Math.min(counts.total, FREE_MISTAKE_GAME_WINDOW)} most recent games for mistakes worth retrying. Stop anytime — progress is saved.`;
+      };
+
+      paintScanState(autoScanState());
+      // Live while the pane is mounted. The next render of this screen replaces
+      // the nodes above, so the listener is dropped the moment its host goes.
+      const stopWatching = onAutoScanChange((st) => {
+        if (!hero.isConnected) { stopWatching(); return; }
+        // A pass that has just finished has left new spots on disk; the whole
+        // pane is built from those, so it is rebuilt rather than patched.
+        if (!st.running && st.done > 0) { rerender(); return; }
+        paintScanState(st);
+      });
+      // Nothing waiting means nothing to start; anything else nudges the pass
+      // along, which is a no-op when it is already running.
+      startAutoScan();
     } else {
       const done = document.createElement('div');
       done.className = 'mistakes-hero-note mistakes-hero-note--done';
-      done.textContent = 'All games analysed ✓ — new imports show up here.';
+      done.textContent = 'All games analysed ✓ — new imports are read automatically.';
       hero.appendChild(done);
     }
 
@@ -191,7 +305,14 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     return hero;
   }
 
-  function heroStat(kind: string, value: number | string, label: string): HTMLElement {
+  // Returns the column AND its number, so a hero watching the background pass
+  // can keep the figures honest — "0 spots found" over "36 spots found so far"
+  // is the sort of contradiction that makes people distrust a whole screen.
+  function heroStat(
+    kind: string,
+    value: number | string,
+    label: string,
+  ): { col: HTMLElement; num: HTMLElement } {
     const col = document.createElement('div');
     col.className = `train-hero-stat train-hero-stat--${kind}`;
     const num = document.createElement('span');
@@ -207,7 +328,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     lbl.className = 'train-hero-stat-label';
     lbl.textContent = label;
     col.appendChild(lbl);
-    return col;
+    return { col, num };
   }
 
   // ── The four category cards ─────────────────────────────────────────────────
@@ -215,10 +336,14 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     const section = document.createElement('div');
     section.className = 'section mode-cards';
 
+    const head = document.createElement('div');
+    head.className = 'section-head-row';
     const label = document.createElement('div');
     label.className = 'section-title';
     label.textContent = 'From your games';
-    section.appendChild(label);
+    head.appendChild(label);
+    head.appendChild(buildInfoButton('About these exercises', openMistakeInfo));
+    section.appendChild(head);
 
     for (const cat of CATEGORIES) {
       const pool = refs.filter(r => r.spot.category === cat);
@@ -500,6 +625,10 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
 
   // ── The scan run + its progress overlay ─────────────────────────────────────
   async function runScan(): Promise<void> {
+    // The button and the background pass would otherwise queue on the same
+    // engine worker and each make the other look stuck. The manual one wins:
+    // it has someone watching it.
+    suspendAutoScan();
     const ctrl = new AbortController();
 
     const overlay = document.createElement('div');
@@ -590,6 +719,9 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       facts.stop();
       removeBack();
       overlay.remove();
+      // Hand the engine back. If the user stopped early, the background pass
+      // picks up from exactly where they left it.
+      resumeAutoScan();
       rerender();
     }
   }
