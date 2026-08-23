@@ -9,6 +9,9 @@ import {
   collectSpots,
   countRetry,
   unscannedCount,
+  needsRetryScan,
+  carryTraining,
+  RETRY_VERSION,
   replayGame,
   seedCacheFromAnalyses,
   capMistakeGamesForTier,
@@ -152,7 +155,25 @@ export function runMistakeScanSelfTest(): TestResult[] {
   check('counts: scanned x of y', counts.scanned === 3 && counts.total === 4);
   check('counts: per-category unfixed', counts.unfixedByCategory['blunder'] === 1
     && counts.unfixedByCategory['missed-win'] === 1, JSON.stringify(counts.unfixedByCategory));
-  check('unscannedCount', unscannedCount([gOld, gMid, gNew, gUnscanned]) === 1);
+  check('unscannedCount', unscannedCount([gOld, gMid, gNew, gUnscanned]) === 4,
+    'scans written under an older version need re-reading too');
+  const gCurrent = { ...gNew, retry: { ...gNew.retry!, version: RETRY_VERSION } };
+  check('a current scan is not re-read', unscannedCount([gCurrent, gUnscanned]) === 1);
+  check('needsRetryScan: never scanned', needsRetryScan(gUnscanned));
+  check('needsRetryScan: stale version', needsRetryScan(gNew));
+  check('needsRetryScan: current', !needsRetryScan(gCurrent));
+
+  // A re-read must not cost the user what they earned: same ply, same id, so
+  // the fixed mark and the attempt count come across.
+  {
+    const before = [mkSpot('g#4', 'blunder', { fixed: true, attempts: 3, lastTrained: 99 })];
+    const after = carryTraining(before, [mkSpot('g#4', 'blunder'), mkSpot('g#9', 'missed-win')]);
+    check('a rescan keeps a fixed spot fixed',
+      after[0].fixed === true && after[0].attempts === 3 && after[0].lastTrained === 99);
+    check('a newly-found spot starts clean', after[1].fixed === undefined);
+    check('carryTraining with nothing to carry is a pass-through',
+      carryTraining(undefined, after).length === 2);
+  }
 
   // ── seedCacheFromAnalyses (reusing the analyser's saved evals) ──────────────
   const analysedGame = {
@@ -235,8 +256,11 @@ export function runMistakeScanSelfTest(): TestResult[] {
   }
 
   // ── nextDailyTask (the "Next challenge →" chain) ────────────────────────────
-  const day = (over: Partial<Record<DailyTaskId, boolean>>) =>
-    ({ lines: false, positions: false, puzzles: false, endgames: false, mistakes: false, ...over });
+  const day = (over: Partial<Record<DailyTaskId, boolean>>) => ({
+    lines: false, positions: false, puzzles: false, endgames: false,
+    mistakes: false, detective: false, better: false,
+    ...over,
+  });
   const ALL: DailyTaskId[] = ['lines', 'positions', 'puzzles', 'endgames', 'mistakes'];
   const NO_MISTAKES: DailyTaskId[] = ['lines', 'positions', 'puzzles', 'endgames'];
   check('fresh day starts with lines', nextDailyTask(day({}), ALL) === 'lines');
@@ -250,6 +274,17 @@ export function runMistakeScanSelfTest(): TestResult[] {
     nextDailyTask(day({ lines: true, positions: true, puzzles: true, endgames: true }), NO_MISTAKES) === null);
   check('all done → null',
     nextDailyTask(day({ lines: true, positions: true, puzzles: true, endgames: true, mistakes: true }), ALL) === null);
+
+  // The two from-your-games parts added after the original five sit at the end
+  // of the chain, in card order.
+  const EVERY: DailyTaskId[] = [...ALL, 'detective', 'better'];
+  check('detective follows the mistake retry',
+    nextDailyTask(day({ lines: true, positions: true, puzzles: true, endgames: true, mistakes: true }), EVERY)
+      === 'detective');
+  check('better or blunder closes the chain',
+    nextDailyTask(
+      day({ lines: true, positions: true, puzzles: true, endgames: true, mistakes: true, detective: true }),
+      EVERY) === 'better');
 
   return results;
 }

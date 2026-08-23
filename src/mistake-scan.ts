@@ -31,6 +31,13 @@ import { cpToWin, flattenCp } from './winprob';
 import { getAllGames, getGame, saveGames } from './storage';
 import type { ImportedGame, GameResult } from './import-core';
 import type { MoveNode } from './tree';
+import {
+  findDetectiveWindows,
+  chooseDetectiveWindow,
+  BLUNDER_DROP,
+  MIN_WIN_BEFORE,
+  type DetectiveSpot,
+} from './detective';
 
 // ── Tunable thresholds (one place to adjust the whole feel) ──────────────────
 // All cp values are USER-perspective (positive = good for you), mate-flattened
@@ -96,9 +103,32 @@ export interface GameRetry {
   scannedAt: number;
   version: number;
   spots: MistakeSpot[];
+  // The cheap pass's eval trail, WHITE-perspective and mate-flattened:
+  // trail[i] = the position before ply i, trail[plyCount] = the final position
+  // (null where neither the cloud nor the engine answered). Kept because it
+  // covers BOTH sides — the Blunder-detective run (detective.ts) is derived
+  // from it, and keeping it means that exercise costs the scan almost nothing.
+  // Absent on scans written before v2.
+  trail?: (number | null)[];
+  // The one "find the blunder" run this game can offer, or absent when it has
+  // none that satisfies detective.ts's one-blunder rule.
+  detective?: DetectiveSpot;
 }
 
-export const RETRY_VERSION = 1;
+// v2 keeps the eval trail and derives a Blunder-detective run from it. A v1
+// scan has neither, and neither can be reconstructed without re-reading the
+// game — so v1 games look unscanned again and the pass rebuilds them. What
+// survives the re-read is everything the user earned: each spot's fixed mark,
+// attempts and last-trained date are carried across by id (carryTraining).
+export const RETRY_VERSION = 2;
+
+/**
+ * Does this game still need the scan? Either it has never been read, or it was
+ * read under older rules that produced less than the exercises now need.
+ */
+export function needsRetryScan(game: ImportedGame): boolean {
+  return !game.retry || game.retry.version < RETRY_VERSION;
+}
 
 // A spot plus the game it came from — sessions need both (the intro line names
 // the opponent; the inline review replays the full game).
@@ -354,7 +384,17 @@ export interface ScanCap {
 
 // How many games still wait for a scan — drives the pane's button label.
 export function unscannedCount(games: ImportedGame[]): number {
-  return games.filter(g => !g.retry).length;
+  return games.filter(needsRetryScan).length;
+}
+
+/**
+ * Of those, how many have been read BEFORE, under older rules. The pane needs
+ * the distinction only to tell the truth: after a rules bump a long-settled
+ * library suddenly has hundreds of games "to read", and calling them new games
+ * would look like a bug in the import.
+ */
+export function rescanCount(games: ImportedGame[]): number {
+  return games.filter(g => g.retry && g.retry.version < RETRY_VERSION).length;
 }
 
 // Reuse the analyser's saved work: a game reviewed in the game analyser already
@@ -396,7 +436,7 @@ export async function scanGames(opts: {
   const windowed = opts.cap
     ? [...all].sort((a, b) => b.endTime - a.endTime).slice(0, opts.cap.windowGames)
     : all;
-  const pending = windowed.filter(g => !g.retry).sort((a, b) => b.endTime - a.endTime);
+  const pending = windowed.filter(needsRetryScan).sort((a, b) => b.endTime - a.endTime);
   const onAbort = (): void => cancelLocalAnalysis();
   opts.signal.addEventListener('abort', onAbort, { once: true });
 
@@ -417,14 +457,21 @@ export async function scanGames(opts: {
     if (!capped) {
       for (const game of pending) {
         if (opts.signal.aborted) break;
-        const spots = await scanOneGame(game, cache, opts.signal);
+        const read = await scanOneGame(game, cache, opts.signal);
         // An aborted game is half-judged — drop it rather than persisting junk.
         if (opts.signal.aborted) break;
         // Re-fetch before writing so a concurrent save (e.g. the analyser's Save
         // game) isn't clobbered; skip silently if the game was deleted mid-scan.
         const fresh = await getGame(game.id);
+        const spots = fresh ? carryTraining(fresh.retry?.spots, read.spots) : read.spots;
         if (fresh) {
-          fresh.retry = { scannedAt: Date.now(), version: RETRY_VERSION, spots };
+          fresh.retry = {
+            scannedAt: Date.now(),
+            version: RETRY_VERSION,
+            spots,
+            trail: read.trail,
+            ...(read.detective ? { detective: read.detective } : {}),
+          };
           await saveGames([fresh]);
         }
         scanned++;
@@ -454,13 +501,43 @@ function countUnfixedInWindow(games: ImportedGame[]): number {
   return n;
 }
 
+// What one game's read produced: the mistake spots, the trail they came from,
+// and the detective run derived from it (see buildDetective).
+interface GameScan {
+  spots: MistakeSpot[];
+  trail: (number | null)[];
+  detective?: DetectiveSpot;
+}
+
+// Carry a rescanned game's earned training state onto the freshly-found spots.
+// Spot ids are `${gameId}#${ply}` — stable across scans — so a spot found again
+// at the same ply keeps its fixed mark, its attempt count and its last-trained
+// date. A spot the new rules no longer find simply goes, along with its state.
+export function carryTraining(
+  previous: MistakeSpot[] | undefined,
+  found: MistakeSpot[],
+): MistakeSpot[] {
+  if (!previous || previous.length === 0) return found;
+  const byId = new Map(previous.map(s => [s.id, s]));
+  return found.map(spot => {
+    const old = byId.get(spot.id);
+    if (!old) return spot;
+    return {
+      ...spot,
+      ...(old.fixed ? { fixed: true } : {}),
+      ...(old.attempts ? { attempts: old.attempts } : {}),
+      ...(old.lastTrained ? { lastTrained: old.lastTrained } : {}),
+    };
+  });
+}
+
 async function scanOneGame(
   game: ImportedGame,
   cache: Map<string, number | null>,
   signal: AbortSignal,
-): Promise<MistakeSpot[]> {
+): Promise<GameScan> {
   const replay = replayGame(game);
-  if (!replay || replay.sans.length < MIN_GAME_PLIES) return [];
+  if (!replay || replay.sans.length < MIN_GAME_PLIES) return { spots: [], trail: [] };
 
   // The cheap pass: one eval per position. Opening plies mostly come straight
   // from the cloud; the rest fall back to a shallow local search. Once the
@@ -469,7 +546,7 @@ async function scanOneGame(
   const trail: (number | null)[] = [];
   let cloudMisses = 0;
   for (const fen of replay.fens.slice(0, SCAN_MAX_PLIES + 1)) {
-    if (signal.aborted) return [];
+    if (signal.aborted) return { spots: [], trail: [] };
     const r = await positionCp(fen, cache, signal, cloudMisses < CLOUD_MISS_STREAK);
     if (r.cloud === 'miss') cloudMisses++;
     else if (r.cloud === 'hit') cloudMisses = 0;
@@ -483,7 +560,118 @@ async function scanOneGame(
     const spot = await verifyCandidate(game, cand, replay, trail, signal);
     if (spot) spots.push(spot);
   }
-  return spots;
+
+  const detective = await buildDetective(game, replay, trail, spots, signal);
+  return { spots, trail, ...(detective ? { detective } : {}) };
+}
+
+// ── The Blunder-detective run (I/O: one engine look at most) ─────────────────
+//
+// The trail above already knows where BOTH sides went wrong, so finding the run
+// is free arithmetic (detective.ts). What isn't free is the answer: to ask
+// "now play what should have been played" we need the engine's move at the
+// blunder, and to be sure we're not accusing a move the deeper search likes.
+//
+// So this verifies the chosen blunder exactly the way a mistake spot is
+// verified — except when the blunder is one of YOUR moves that the pass has
+// already verified, which costs nothing at all: that spot carries the same
+// top-3 and the same evals.
+//
+// It tries at most DETECTIVE_TRIES distinct blunders before giving up, so one
+// awkward game can never turn into a long engine session.
+const DETECTIVE_TRIES = 2;
+
+async function buildDetective(
+  game: ImportedGame,
+  replay: GameReplay,
+  trail: (number | null)[],
+  spots: MistakeSpot[],
+  signal: AbortSignal,
+): Promise<DetectiveSpot | null> {
+  const windows = findDetectiveWindows(trail);
+  if (windows.length === 0) return null;
+
+  // The candidates are ordered worst-blunder-first; walk their distinct plies.
+  const plies: number[] = [];
+  for (const w of windows) {
+    if (!plies.includes(w.blunderPly)) plies.push(w.blunderPly);
+    if (plies.length >= DETECTIVE_TRIES) break;
+  }
+
+  for (const ply of plies) {
+    if (signal.aborted) return null;
+    const window = chooseDetectiveWindow(windows.filter(w => w.blunderPly === ply), game.id);
+    if (!window) continue;
+
+    const preFen = replay.fens[ply];
+    const playedUci = game.ucis[ply] ?? uciFromReplay(replay, ply);
+    if (!preFen || !playedUci) continue;
+    // A move with no alternative is not a blunder, whatever the eval says.
+    if (new Chess(preFen).moves().length <= 1) continue;
+
+    const answer = await detectiveAnswer(game, ply, preFen, playedUci, replay, spots, signal);
+    if (!answer) continue;
+
+    return {
+      id: `${game.id}#d${ply}`,
+      startPly: window.startPly,
+      plies: window.plies,
+      blunderPly: ply,
+      byUser: (ply % 2 === 0) === (game.colour === 'white'),
+      preFen,
+      playedSan: replay.sans[ply],
+      playedUci,
+      best: answer.best,
+      evalBefore: answer.before,
+      evalAfter: answer.after,
+    };
+  }
+  return null;
+}
+
+// The engine's verdict at one blunder: its top-3 and the mover-perspective evals
+// either side of the played move. Null when the deeper look disagrees that this
+// was a blunder at all — which is exactly what the cheap trail can get wrong.
+async function detectiveAnswer(
+  game: ImportedGame,
+  ply: number,
+  preFen: string,
+  playedUci: string,
+  replay: GameReplay,
+  spots: MistakeSpot[],
+  signal: AbortSignal,
+): Promise<{ best: MoveEval[]; before: number; after: number } | null> {
+  // Already verified as one of YOUR mistakes this same pass — same position,
+  // same depth, same perspective (the mover is you). Free.
+  const mine = spots.find(s => s.ply === ply);
+  if (mine) return { best: mine.best, before: mine.evalBefore, after: mine.evalAfter };
+
+  const best = await topLines(preFen, signal);
+  if (signal.aborted || !best || best.length === 0) return null;
+  // The deeper look says the move WAS the best — no blunder after all.
+  if (best[0].uci === playedUci) return null;
+  const bestW = flattenCp(best[0]);
+  if (bestW === null) return null;
+
+  let afterW: number | null = null;
+  const played = best.find(m => m.uci === playedUci);
+  if (played) afterW = flattenCp(played);
+  if (afterW === null) {
+    const child = await topLines(replay.fens[ply + 1], signal);
+    if (child && child.length) afterW = flattenCp(child[0]);
+  }
+  if (afterW === null) return null;
+
+  // Into the BLUNDERER's perspective, and re-checked against the same bar the
+  // trail was held to — a cheap-pass blunder that shrinks at depth is dropped.
+  const sign = ply % 2 === 0 ? 1 : -1;
+  const before = sign * bestW;
+  const after = sign * afterW;
+  const winBefore = cpToWin(before);
+  if (winBefore < MIN_WIN_BEFORE) return null;
+  if (winBefore - cpToWin(after) < BLUNDER_DROP) return null;
+
+  return { best: best.slice(0, 3), before, after };
 }
 
 // WHITE-perspective cp of a position (its best move's eval), cloud first (when

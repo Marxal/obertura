@@ -55,6 +55,8 @@ import {
   markPositionsDone,
   markEndgamesDone,
   markMistakesDone,
+  markDetectiveDone,
+  markBetterDone,
   isDailyDone,
   perfectDayEligible,
   type DailyTaskId,
@@ -67,6 +69,11 @@ import { currentStreak, getTrainingDays } from './streak';
 import { masteredLines } from './stats';
 import { collectSpots, pickSpots, type SpotRef } from './mistake-scan';
 import { startMistakeSession, type OpenGameCtx } from './mistake-run';
+import { collectDetectiveSpots, pickDetective, type DetectiveRef } from './detective';
+import { startDetectiveSession } from './detective-run';
+import { fairPairs, pickBetter } from './better';
+import { startBetterSession } from './better-run';
+import { detectiveLog, betterLog } from './middle-log';
 import type { AnalyseRequest as PuzzleAnalyseRequest } from './puzzle-run';
 import { renderMyGamesScreen, formatGameDate } from './my-games-screen';
 import { opponentTag } from './scout';
@@ -3961,12 +3968,18 @@ function renderTrainTabbed(host: HTMLElement): void {
   const renderDaily = async (): Promise<void> => {
     let allLines: Line[];
     let spotRefs: SpotRef[];
+    let pairRefs: SpotRef[];
+    let detectiveRefs: DetectiveRef[];
     let gameCount: number;
     try {
       const [lines, games] = await Promise.all([getAllLines(), getAllGames()]);
       allLines = lines;
       gameCount = games.length;
       spotRefs = collectSpots(games);
+      // The two newer from-your-games parts read the same scan: one takes the
+      // runs it found, the other the spots that make a fair two-move question.
+      detectiveRefs = collectDetectiveSpots(games);
+      pairRefs = fairPairs(spotRefs);
     } catch {
       dailyHost.innerHTML = '';
       return;
@@ -4026,7 +4039,12 @@ function renderTrainTabbed(host: HTMLElement): void {
     // runnable right now decide the card — and the "Next challenge →" chain.
     const config = getDailyConfig();
     const dailyLines = pickDailyLines(allLines, config.tasks.lines.count);
-    const avail = { hasLines: dailyLines.length > 0, mistakesAvailable: spotRefs.length > 0 };
+    const avail = {
+      hasLines: dailyLines.length > 0,
+      mistakesAvailable: spotRefs.length > 0,
+      detectiveAvailable: detectiveRefs.length > 0,
+      betterAvailable: pairRefs.length > 0,
+    };
     const active = activeDailyTasks(config, avail);
 
     // Each part as a named launcher so the success screens' "Next challenge →"
@@ -4093,6 +4111,33 @@ function renderTrainTabbed(host: HTMLElement): void {
           nextAction: nextFor('mistakes'),
         });
       },
+      detective: () => {
+        // "Find the blunder in these six moves" — one case by default, because
+        // one case is a whole exercise.
+        const done = finish(markDetectiveDone);
+        const dueMap = detectiveLog.dueMap();
+        startDetectiveSession({
+          refs: pickDetective(detectiveRefs, config.tasks.detective.count, id => dueMap[id] ?? 0),
+          modeLabel: 'Daily challenge',
+          onComplete: (s) => done({ right: s.solved, wrong: Math.max(0, s.completed - s.solved) }),
+          onExit: () => { if (trainTab === 'mistakes') paint(); },
+          onOpenGame: openGameFromSession,
+          nextAction: nextFor('detective'),
+        });
+      },
+      better: () => {
+        // The quick one: two moves, pick the good one.
+        const done = finish(markBetterDone);
+        const dueMap = betterLog.dueMap();
+        startBetterSession({
+          refs: pickBetter(pairRefs, config.tasks.better.count, id => dueMap[id] ?? 0),
+          modeLabel: 'Daily challenge',
+          onComplete: (s) => done({ right: s.solved, wrong: Math.max(0, s.completed - s.solved) }),
+          onExit: () => { if (trainTab === 'mistakes') paint(); },
+          onOpenGame: openGameFromSession,
+          nextAction: nextFor('better'),
+        });
+      },
     };
 
     const card = renderDailyChallenge({
@@ -4106,6 +4151,8 @@ function renderTrainTabbed(host: HTMLElement): void {
       onSolveEndgames: () => launchers.endgames(),
       mistakeSpotCount: spotRefs.length,
       onFixMistakes: () => launchers.mistakes(),
+      onCatchBlunders: () => launchers.detective(),
+      onBetterOrBlunder: () => launchers.better(),
       // The finished card reopens today's popup rather than losing its figures
       // to the tap that dismissed it.
       onReplayRecap: () => { void showRecapForDay(localDayKey(), localDayKey(), allLines); },

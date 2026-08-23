@@ -42,6 +42,7 @@ import {
   pickSpots,
   countRetry,
   unscannedCount,
+  rescanCount,
   capMistakeGamesForTier,
   resetMistakeScans,
 } from './mistake-scan';
@@ -53,9 +54,26 @@ import {
   type BrilliantRef,
 } from './brilliant';
 import { brilliantDueMap, clearBrilliantLog } from './brilliant-log';
+import {
+  collectDetectiveSpots,
+  pickDetective,
+  readyDetectiveCount,
+  type DetectiveRef,
+} from './detective';
+import { startDetectiveSession, openDetectiveInfo } from './detective-run';
+import { fairPairs, pickBetter, readyBetterCount } from './better';
+import { startBetterSession, openBetterInfo, PICK_COLORS } from './better-run';
+import { detectiveLog, betterLog, clearMiddleLogs } from './middle-log';
 
 // Session size for a category card tap — five positions, like a puzzle run.
 const SESSION_SIZE = 5;
+
+// The two whole-game exercises run shorter and longer than that respectively: a
+// detective case is four to six moves to read plus an answer, so three of them
+// is already a sitting; a two-move question is ten seconds, so six of them is
+// the same amount of time.
+const DETECTIVE_SESSION = 3;
+const BETTER_SESSION = 6;
 
 // The mixed run at the top of the pane: how many mistake positions it deals from
 // across the four categories, and how many brilliant finds it closes with. The
@@ -71,6 +89,12 @@ const MIX_BRILLIANT = 3;
 const BRILLIANT_ONLY_FROM = 10;
 
 // Per-category accents for the cards, kin to the Practise cards' palette.
+// The two exercises that read the whole game rather than one position: catching
+// the blunder in a run of moves, and telling two moves apart. Their own accents,
+// off the four categories' palette because they aren't categories.
+const DETECTIVE_ACCENT = '#6f6ac0';  // indigo — the search
+const BETTER_ACCENT = PICK_COLORS[1]; // teal — one of the two arrows
+
 const CATEGORY_ACCENT: Record<MistakeCategory, string> = {
   'opening-blunder': '#b3593b', // ember — it went wrong early
   'punish-opening': '#3f7d8a',  // teal — seize what they hand you
@@ -111,6 +135,20 @@ function openMistakeInfo(): void {
         detail: 'The button at the top. It deals from all four mistake cards in turn and '
           + 'finishes on your best moves, so you get a spread of your own game rather than '
           + 'having to pick a category first.',
+      },
+      {
+        icon: Icons.scout(18), accent: DETECTIVE_ACCENT,
+        label: 'Blunder detective',
+        detail: 'A run of four to six moves from one of your games with exactly one blunder '
+          + 'in it — yours or your opponent’s, and nothing says which. Step through, name it, '
+          + 'then play what should have been played. One run per game at most.',
+      },
+      {
+        icon: Icons.merge(18), accent: BETTER_ACCENT,
+        label: 'Better or blunder',
+        detail: 'The quick one. Two moves drawn on the board — the one you played and the '
+          + 'one the engine wanted — and you pick. Ten seconds each, and it ends by telling '
+          + 'you which game it was and what the move cost.',
       },
       {
         icon: Icons.zap(18), accent: CATEGORY_ACCENT['opening-blunder'],
@@ -214,6 +252,15 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   const { scanned, total } = entitled ? spotCounts : countRetry(allGames);
   const counts: RetryCounts = { ...spotCounts, scanned, total };
   const refs = collectSpots(games);
+  // The two whole-game exercises, both read off the same scan. The detective
+  // runs are stored one per game; the two-move questions are the spots above,
+  // filtered down to the ones that make a fair question (better.ts).
+  const detectiveRefs = collectDetectiveSpots(games);
+  const detectiveDue = detectiveLog.dueMap();
+  const detectiveReady = readyDetectiveCount(detectiveRefs, id => detectiveDue[id] ?? 0);
+  const pairRefs = fairPairs(refs);
+  const betterDue = betterLog.dueMap();
+  const betterReady = readyBetterCount(refs, id => betterDue[id] ?? 0);
   // Order the brilliant finds so the carousel + session loop through them:
   // freshly-solved gems rest a while, then resurface (brilliant-log.ts).
   //
@@ -237,6 +284,13 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   const gemsReady = brilliantRefs.filter(
     r => (dueMap[r.spot.id] ?? 0) <= Date.now()).length;
   const newGames = unscannedCount(games);
+  // Games waiting because the RULES changed, not because they are new (see
+  // rescanCount). They dominate the count right after a scan version bump.
+  const rereads = rescanCount(games);
+  // A free account's scan stops once its rolling unfixed count is full, so
+  // "N games still to read" would otherwise sit there forever with nothing
+  // about to read them. The hero says the real reason instead.
+  const atFreeSpotCap = !entitled && (counts.spots - counts.fixed) >= FREE_MISTAKE_SPOTS;
 
   root.appendChild(renderHero());
   root.appendChild(renderCategoryCards());
@@ -287,7 +341,11 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       scan.className = 'btn-secondary train-hero-start mistakes-scan-now';
       scan.appendChild(Icons.review(18));
       scan.appendChild(document.createTextNode(
-        counts.scanned === 0 ? 'Analyse my games now' : `Analyse new games (${newGames})`));
+        counts.scanned === 0
+          ? 'Analyse my games now'
+          : rereads >= newGames
+            ? `Read my games again (${newGames})`
+            : `Analyse new games (${newGames})`));
       scan.addEventListener('click', () => { void runScan(); });
 
       const note = document.createElement('div');
@@ -327,11 +385,21 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
           return;
         }
 
-        // Idle. Either it has not got to these games yet, or it is switched off.
+        // Idle. Either it has not got to these games yet, it is switched off, or
+        // the free tier's rolling spot cap is full — in which case nothing is
+        // going to read them, however long the app stays open, and saying "this
+        // happens on its own" would be a promise that never lands.
         hero.insertBefore(scan, note);
-        note.textContent = getAutoScanEnabled()
-          ? `${newGames} ${newGames === 1 ? 'game is' : 'games are'} still to read. This happens `
-            + 'on its own while the app is open — the button just makes it happen now.'
+        note.textContent = atFreeSpotCap
+          ? `You're at ${FREE_MISTAKE_SPOTS} mistakes to fix, so the engine has stopped `
+            + `reading. Fix some to free up room, or unlock your full history.`
+          : getAutoScanEnabled()
+          ? rereads >= newGames
+            ? `${newGames} ${newGames === 1 ? 'game was' : 'games were'} read under older rules — `
+              + 'reading them again is what finds the blunder-detective runs. It happens on its '
+              + 'own while the app is open; the button just makes it happen now.'
+            : `${newGames} ${newGames === 1 ? 'game is' : 'games are'} still to read. This happens `
+              + 'on its own while the app is open — the button just makes it happen now.'
           : entitled
             ? `The engine looks through your ${counts.total === 1 ? 'game' : `${counts.total} games`} for mistakes worth retrying. Stop anytime — progress is saved.`
             : `The engine looks through your ${Math.min(counts.total, FREE_MISTAKE_GAME_WINDOW)} most recent games for mistakes worth retrying. Stop anytime — progress is saved.`;
@@ -348,7 +416,8 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
         paintScanState(st);
       });
       // Nothing waiting means nothing to start; anything else nudges the pass
-      // along, which is a no-op when it is already running.
+      // along, which is a no-op when it is already running (and when the free
+      // cap is full it costs one storage read and stops).
       startAutoScan();
     } else {
       // Nothing to say beyond the fact. "New imports are read automatically" was
@@ -379,14 +448,16 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
 
   // "Reset" beside the all-analysed line: start this pane over.
   //
-  // It resets EVERY exercise on it, which is two different stores. The mistake
-  // half is the scan: the spots and the fixed marks go, and the games are read
-  // again from scratch. The brilliant half has no scan of its own — the finds
-  // are read off each game's saved analysis, written by the game review, so
+  // It resets EVERY exercise on it, which is two different stores. The scan half
+  // is the spots, the fixed marks and the detective runs: they go, and the games
+  // are read again from scratch. The brilliant half has no scan of its own — the
+  // finds are read off each game's saved analysis, written by the game review, so
   // nothing here can regenerate them and throwing them away would mean deleting
   // that analysis (with the user's variations and notes in it) for good. What it
   // DOES have is progress: a re-found gem rests for a few days before coming
-  // back, and that log is cleared, so every one of them is available again.
+  // back, and that log is cleared, so every one of them is available again. The
+  // two whole-game exercises rest the same way (middle-log.ts), and their logs
+  // go with it.
   //
   // It is a discard either way, so it asks first and says which is which.
   function buildResetLink(): HTMLElement {
@@ -420,9 +491,12 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     suspendAutoScan();
     try {
       await resetMistakeScans();
-      // The other half of this pane's progress. Local and instant — no games are
-      // rewritten, the suppression log simply stops existing.
+      // The rest of this pane's progress. Local and instant — no games are
+      // rewritten, the suppression logs simply stop existing.
       clearBrilliantLog();
+      // …and the rotation on the two whole-game exercises, so every case and
+      // every question is back on the table too.
+      clearMiddleLogs();
       // Don't promise a background pass to someone who has turned it off in
       // Settings — for them the button on this card is the whole of it.
       showToast(getAutoScanEnabled()
@@ -536,6 +610,41 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     head.appendChild(buildInfoButton('About these exercises', openMistakeInfo));
     section.appendChild(head);
 
+    // The two whole-game exercises lead. They ask a smaller question than the
+    // category cards ("which of these moves is the blunder", "which of these two
+    // moves is better") and they don't need you to choose a category of your own
+    // mistakes first, which is a decision a newcomer has no basis for.
+    section.appendChild(buildModeCard({
+      accent: DETECTIVE_ACCENT,
+      icon: Icons.scout(20),
+      name: 'Blunder detective',
+      sub: detectiveRefs.length > 0 && detectiveReady === 0
+        ? 'all cracked — they come back over the next few days'
+        : 'find the blunder — yours or theirs',
+      stat: detectiveReady > 0 ? detectiveReady : undefined,
+      statLabel: detectiveReady > 0 ? 'cases' : undefined,
+      disabled: detectiveRefs.length === 0,
+      disabledReason: counts.scanned === 0
+        ? 'Analyse your games first'
+        : 'None found in your analysed games',
+      onClick: () => startDetective(),
+    }));
+    section.appendChild(buildModeCard({
+      accent: BETTER_ACCENT,
+      icon: Icons.merge(20),
+      name: 'Better or blunder',
+      sub: pairRefs.length > 0 && betterReady === 0
+        ? 'all answered — they come back over the next few days'
+        : 'two moves, one of them yours',
+      stat: betterReady > 0 ? betterReady : undefined,
+      statLabel: betterReady > 0 ? 'to answer' : undefined,
+      disabled: pairRefs.length === 0,
+      disabledReason: counts.scanned === 0
+        ? 'Analyse your games first'
+        : 'None found in your analysed games',
+      onClick: () => startBetter(),
+    }));
+
     for (const cat of CATEGORIES) {
       const pool = refs.filter(r => r.spot.category === cat);
       const unfixed = counts.unfixedByCategory[cat];
@@ -576,6 +685,28 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     }));
 
     return section;
+  }
+
+  function startDetective(count = DETECTIVE_SESSION): void {
+    const refsForRun = pickDetective(detectiveRefs, count, id => detectiveDue[id] ?? 0);
+    if (refsForRun.length === 0) return;
+    startDetectiveSession({
+      refs: refsForRun,
+      onExit: rerender,
+      onPlayAgain: () => startDetective(count),
+      onOpenGame: deps.onOpenGame,
+    });
+  }
+
+  function startBetter(count = BETTER_SESSION): void {
+    const refsForRun = pickBetter(pairRefs, count, id => betterDue[id] ?? 0);
+    if (refsForRun.length === 0) return;
+    startBetterSession({
+      refs: refsForRun,
+      onExit: rerender,
+      onPlayAgain: () => startBetter(count),
+      onOpenGame: deps.onOpenGame,
+    });
   }
 
   function startBrilliant(pool: BrilliantRef[], count = SESSION_SIZE): void {

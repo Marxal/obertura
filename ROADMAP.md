@@ -3076,6 +3076,82 @@ reason to take it.
 
 ---
 
+## The middle-game detective round — two exercises that read the whole game ✅
+
+Everything on the Middle game pane trained ONE position: here is where you went
+wrong, find the better move. Two new exercises change the question. The first
+gives you a run of moves and doesn't say which of them is the mistake — which is
+the thing a game actually asks. The second shrinks the exercise to its smallest
+useful form: two moves, pick the better one. Both are in the daily challenge.
+
+- ✅ **Blunder detective.** Four to six moves from one of your own games, browsed
+  with back and forward, and one wide button that always names the move on the
+  board: "13…♞xe4 is the blunder". The blunder can be YOURS OR YOUR OPPONENT'S
+  and nothing says which — that is the whole exercise. A wrong accusation says so
+  and crosses that move off, and the run carries on; a discrete "Show solution"
+  is there for anyone stuck. Catching it is only half: the board goes back to the
+  position before the blunder and asks for the move that should have been played,
+  judged instantly against the stored top three, like the mistake drill. An (i)
+  beside the brief explains the rest.
+- ✅ **Exactly one blunder per run, guaranteed.** The rule the whole exercise
+  rests on, so `detective.ts` is strict about it: one move over the blunder line
+  (a 22% win-probability drop, a shade past the grader's own boundary), and every
+  OTHER move in the run comfortably under the *mistake* line — not merely under
+  the blunder line. A run that can't clear that bar isn't offered. Runs never span
+  a position the scan couldn't evaluate, never open ON the blunder, and never
+  start from a position the blunderer had already lost. Where the blunder sits
+  inside the run is chosen by a hash of the game id, so it isn't always the middle
+  one and isn't always the last.
+- ✅ **It costs the scan almost nothing.** The mistake scan already walks every
+  game building an eval per position — covering BOTH sides — and then threw that
+  trail away. It keeps it now (`retry.trail`), so finding the run is free
+  arithmetic; the engine is asked exactly once per game, for the move that should
+  have been played, and not even that when the blunder is one of your own that
+  the same pass has already verified.
+- ✅ **Better or blunder.** The quick one. One position, two moves drawn as
+  arrows — the one you played and the one the engine wanted — and two buttons
+  under the board naming them. Pick one, or just play it on the board. The
+  arrows are two neutral colours (violet and teal, never the palette's blunder
+  red or the hint blue) and the sides shuffle every time, so nothing but the
+  chess tells you which is which. It ends by naming the game: "Against Kevin you
+  played 11.♝xe6 ?? here. The engine wanted ♝a4" — with the evaluation either
+  side of it, and Analyse to open the game at that position.
+- ✅ **Only fair questions get asked.** A two-answer question with a defensible
+  wrong answer is worse than no question, so `better.ts` refuses any spot where
+  the move you played is also one of the engine's picks, where the two moves land
+  on the same square, or where the gap between them is under the grader's mistake
+  boundary.
+- ✅ **Both in the daily challenge** — one detective case (a case is four to six
+  moves to read plus an answer, so one IS an exercise), three better-or-blunder
+  picks, and **Mistakes to fix drops from three to two**, because the blank-board
+  search is now one of three from-your-games parts rather than the only one. Each
+  part has its own default count instead of one number for all seven, and the
+  perfect-day bar holds a part to two OR its own default, whichever is lower —
+  otherwise shipping a part at one would have made a perfect day impossible.
+- ✅ **A re-read of the library, said honestly.** The trail the detective needs
+  can't be reconstructed from an old scan, so games scanned under the previous
+  rules look unscanned again and the background pass rebuilds them. Nothing
+  earned is lost: each spot's fixed mark, attempts and last-trained date are
+  carried across by id. And because a settled library suddenly having 300 games
+  "to read" looks like an import bug, the pane says which it is — "read under
+  older rules" — and the button says "Read my games again".
+- ✅ **The free tier stops promising a pass that won't run.** A free account's
+  scan stops once its rolling ten unfixed spots are full; the pane went on saying
+  "this happens on its own while the app is open", which was never going to
+  happen. It now says it has stopped and why.
+- ✅ **Both exercises rest and come back.** A case you crack, or a question you
+  answer right, rests a few days and then returns, further out each time
+  (`middle-log.ts`) — so the pool rotates instead of dealing you the same run
+  forever. The cards badge what is available now rather than the whole pool, and
+  Reset clears these logs along with the brilliant one.
+- ✅ **A chessground trap, documented in the code.** Both boards are built
+  interactive from the start and gated by `movable.color`, never by `viewOnly`:
+  chessground binds its drag listeners once, at creation, and binds none at all
+  when `viewOnly` is set — so a board born view-only never becomes playable, and
+  the detective's "now play the better move" step silently did nothing.
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on
