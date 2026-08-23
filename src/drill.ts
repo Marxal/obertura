@@ -64,6 +64,14 @@ export interface DrillOptions {
   onStepComplete?: (expected: MoveNode) => void;
   completeMessage?: string;
   backLabel?: string;
+  // Drop the in-session exit control from the header altogether. The first
+  // line's confirm run uses it: that run IS the payoff of the whole first visit,
+  // it lasts about twenty seconds, and its own introduction already carries a
+  // quiet "Skip this time". A second, louder "End session" beside it turns the
+  // reward into a screen to escape from — the one thing a first-timer will be
+  // looking for a way out of is the thing you most wanted them to see. The back
+  // gesture still works, so nobody is trapped; it just isn't advertised.
+  hideExit?: boolean;
   // Small muted label shown at the top of the overlay (e.g. "Training"). Falls
   // back to the opening/line name when omitted.
   modeLabel?: string;
@@ -394,13 +402,15 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   const headerEl = document.createElement('div');
   headerEl.className = 'pt-header';
 
-  const backBtn = document.createElement('button');
-  backBtn.type = 'button';
-  backBtn.className = 'pt-back-btn';
-  backBtn.appendChild(Icons.back(15));
-  backBtn.appendChild(document.createTextNode(opts.backLabel ?? 'End session'));
-  backBtn.addEventListener('click', () => exitViaButton());
-  headerEl.appendChild(backBtn);
+  if (!opts.hideExit) {
+    const backBtn = document.createElement('button');
+    backBtn.type = 'button';
+    backBtn.className = 'pt-back-btn';
+    backBtn.appendChild(Icons.back(15));
+    backBtn.appendChild(document.createTextNode(opts.backLabel ?? 'End session'));
+    backBtn.addEventListener('click', () => exitViaButton());
+    headerEl.appendChild(backBtn);
+  }
 
   // The way past the run, when the caller offers one. Deliberately quiet and on
   // the far side of the toolbar from the exit: it is neither leaving nor the
@@ -602,7 +612,9 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     bottomEl.appendChild(controls);
   }
 
-  overlay.appendChild(headerEl);
+  // An empty header is a blank bar with a hairline under it — the guided first
+  // run has no exit, no skip and no clock, so there is nothing for it to hold.
+  if (headerEl.childElementCount > 0) overlay.appendChild(headerEl);
   if (showSessionBar) overlay.appendChild(sessionBarEl);
   overlay.appendChild(topEl);
   overlay.appendChild(boardWrap);

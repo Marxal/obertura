@@ -635,6 +635,27 @@ export async function recordSpotResult(gameId: string, spotId: string, clean: bo
   await saveGames([fresh]);
 }
 
+/**
+ * Throw away every mistake scan on this device: the found spots AND the training
+ * state on them (fixed, attempts, last trained). Nothing else about a game is
+ * touched — its moves, its saved analysis and its tags all survive, so the
+ * brilliant-move exercise (which reads the analysis, not the scan) is unaffected.
+ *
+ * Every game then looks unscanned again, which is what makes the next pass a
+ * genuine re-read rather than a no-op: the engine has changed since some of
+ * these were scanned, and a spot you fixed months ago is worth being asked again.
+ *
+ * Returns how many games were cleared. One write for the lot.
+ */
+export async function resetMistakeScans(): Promise<number> {
+  const all = await getAllGames();
+  const scanned = all.filter(g => g.retry);
+  if (scanned.length === 0) return 0;
+  for (const game of scanned) delete game.retry;
+  await saveGames(scanned);
+  return scanned.length;
+}
+
 // ── Small helpers ─────────────────────────────────────────────────────────────
 
 function blackToMove(fen: string): boolean {

@@ -16219,12 +16219,34 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
    on the app having finished its own homework. One faint line is the whole of
    what there is to say. */
 .mistakes-hero-note--done {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.5rem;
   margin-top: 0.7rem;
   font-size: 0.72rem;
   letter-spacing: 0.02em;
   color: var(--text-faint);
   opacity: 0.7;
 }
+
+/* "Reset" beside it: the same faint size, underlined so it reads as the one
+   tappable thing on a line that is otherwise a statement. Not a button — it
+   starts a long job and throws work away, so it should look like the small
+   deliberate choice it is. */
+.mistakes-reset-link {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mistakes-reset-link:active { color: var(--text-muted); }
 
 /* The pane's wide launch button — the same shape every other Train tab opens
    with. It sits under the three figures and above the scan status. */

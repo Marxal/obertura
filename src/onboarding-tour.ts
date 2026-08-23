@@ -68,6 +68,9 @@ import { Icons } from './icons';
 // kept (so a full-bleed target still shows its ring), and how close to a corner
 // the tail is allowed to sit.
 const BUBBLE_GAP = 12;
+// The default pause between `watch` firing and the bubble moving on — long
+// enough for the move that triggered it to land on the board.
+const WATCH_BEAT = 400;
 const SPOT_PAD = 6;
 const EDGE_INSET = 9;
 const TAIL_INSET = 24;
@@ -130,6 +133,12 @@ export interface CoachStep {
   // Subscribe to something in the app that should advance this step: a move
   // played on the board, the next tab tapped. Return the unsubscribe.
   watch?: (advance: () => void) => () => void;
+  // How long to sit on the current bubble after `watch` fires. The default beat
+  // lets the thing the user just did finish animating before the bubble moves
+  // off it. Zero is for a watch whose event TAKES THE SCREEN — the save button,
+  // which starts the trainer — where a bubble that lingers is a bubble sitting
+  // on top of the next screen.
+  watchDelay?: number;
   // Let taps through to the app underneath. The bubble stays clickable; the
   // rest of the screen is live, so the thing being described can be used while
   // it's being described.
@@ -368,9 +377,11 @@ export function showCoachMarks(
     // bubble moves off it.
     if (step.watch) {
       const stepIndex = index;
+      const beat = step.watchDelay ?? WATCH_BEAT;
       unwatch = step.watch(() => {
         if (finished || index !== stepIndex) return;
-        setTimeout(() => { if (!finished && index === stepIndex) advance(); }, 400);
+        if (beat <= 0) { advance(); return; }
+        setTimeout(() => { if (!finished && index === stepIndex) advance(); }, beat);
       });
     }
 
@@ -629,10 +640,22 @@ function stashTourStep(state: TourResume): void {
 // Consume the stashed step (once). Null if there is none, it's malformed, or
 // it's stale (a leftover from a connect the user abandoned).
 export function takeTourResume(): TourResume | null {
+  return readTourResume(true);
+}
+
+// Is a resume waiting, without spending it? The boot sequence asks before
+// anything consumes it: a walkthrough that is about to come back owns the
+// screen, and the first-run picker — the question that STARTED that walkthrough
+// — must not be stacked on top of its bubbles.
+export function hasTourResume(): boolean {
+  return readTourResume(false) !== null;
+}
+
+function readTourResume(consume: boolean): TourResume | null {
   try {
     const raw = localStorage.getItem(RESUME_KEY);
     if (!raw) return null;
-    localStorage.removeItem(RESUME_KEY);
+    if (consume) localStorage.removeItem(RESUME_KEY);
     const v = JSON.parse(raw) as TourResume & { t?: number };
     if (typeof v.step !== 'number' || Date.now() - (v.t ?? 0) > 600_000) return null;
     return {
@@ -870,11 +893,13 @@ function buildSteps(
       lookOnly: true,
       onEnter: () => {
         deps.showSlide('explore');
-        // …and scroll the switch itself into the lit area, after the slide has
-        // swapped. 'nearest' means no scroll at all when it is already showing.
+        // …at the TOP of the panel. The first cut scrolled the auto-reply switch
+        // into view, which is a jump on arrival to reach something that is three
+        // rows down anyway; from the top the whole of what the bubble describes —
+        // the question, the three answers, the switch — is already on screen.
         requestAnimationFrame(() => {
-          document.querySelector('.explore-auto')
-            ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+          const panel = document.getElementById('slide-explore');
+          if (panel) panel.scrollTop = 0;
         });
       },
     },
@@ -971,6 +996,20 @@ function buildSteps(
       // stepAside first: saving takes the screen, and without it the walkthrough
       // would leave the panel tabs it locked on the way in still disabled.
       mainAction: { label: 'Save line', onClick: () => { stepAside(); deps.onSave(); } },
+      // …and so does the real button under the spotlight. This step is live, so
+      // the header's own Save ("Add 6 moves") is tappable — and tapping it saved
+      // the line, started the trainer, and left this bubble sitting on top of it,
+      // because the walkthrough only ever heard about its OWN button. It hears
+      // about both now. No beat before it goes: the screen it is sitting on is
+      // already changing.
+      watch: (advance) => {
+        const btn = findVisible(['#header-save', '#save-line-btn']);
+        if (!btn) return () => {};
+        const on = (): void => advance();
+        btn.addEventListener('click', on);
+        return () => btn.removeEventListener('click', on);
+      },
+      watchDelay: 0,
       // `advance` on the LAST step is the sequence's ordinary end, which runs
       // the walkthrough's own onDone — the tidy-up included. Calling deps.onDone
       // directly (what this used to do) skipped that AND re-armed the standalone

@@ -104,10 +104,12 @@ import {
   unmarkBuilderTourSeen,
   notifyBuilderMove,
   takeTourResume,
+  hasTourResume,
   BUILDER_MOVE_EVENT,
   REPLAY_WALKTHROUGH_EVENT,
   type BuilderIntroDeps,
   type TourEnd,
+  type TourResume,
 } from './onboarding-tour';
 import { showFirstLineSuccess, handleAuthUrlParam, openSignUpSheet } from './onboarding-signup';
 import {
@@ -674,6 +676,11 @@ function applySaveButtonLabel(): void {
     // give and no coverage to report, so the button says what to do instead of
     // offering "Add 0 moves".
     : inBook() && pending === 0 && !covered ? 'Play your first move'
+    // The guided first line: this button and the walkthrough's own bubble are
+    // the same offer, so they say the same word. "Add 6 moves" is the honest
+    // label for adding to a book you already have; on somebody's first minute,
+    // beside a bubble that says "save it now", it reads as a different action.
+    : inBook() && guidedActive ? 'Save line'
     : inBook() ? (covered ?? draftLabel(pending))
     : dup?.kind === 'open' ? 'Already saved — open it'
     : dup?.kind === 'add-tag' ? `Add tag to “${shortLineName(dup.lineName)}”`
@@ -5313,6 +5320,13 @@ function trainingUnlockedMessage(lineCount: number): string {
 function setupSaveButton() {
   document.getElementById('header-save')!.addEventListener('click', () => {
     if (builderMode === 'analyser') { void saveGame(); return; }
+    // The guided first line has ONE ending, and this button is part of it.
+    // Standing inside a book the header ordinarily ADDS moves — which commits
+    // them and then runs a bare confirm run: no trainer introduction, no
+    // success card, no account offer, and a walkthrough bubble left sitting on
+    // top of it. Under the walkthrough it means what the bubble beside it
+    // means, and goes down the same path the bubble's Save does.
+    if (guidedActive && inBook() && hasPending()) { void saveCurrentLine(); return; }
     if (inBook()) { handleBookHeaderTap(); return; }
     // The line on the board already exists: open it, or add the tag that's new.
     // Handled here rather than inside saveCurrentLine so it short-circuits the
@@ -5463,24 +5477,42 @@ primePricing();
 // finished booting, return the builder to the position the user connected from
 // (the redirect reloads the page, so we restore from the stashed move path).
 let lichessReturn: { ucis: string[]; colour: 'white' | 'black' } | null = null;
+let tourReturn: TourResume | null = null;
+// Read HERE, at module scope, before any promise callback can consume the stash:
+// the boot sequence below needs to know a walkthrough is coming back before it
+// decides whether to offer the first-run picker, and the two run in an order
+// nothing guarantees.
+const tourResumePending = hasTourResume();
 let appBooted = false;
 void lichessTryCallback().then((justConnected) => {
-  if (!justConnected) return;
-  showToast('Connected to Lichess');
-  lichessReturn = lichessTakeReturn();
-  if (lichessReturn) maybeRestoreLichessReturn();
-  else builderPanels?.render();
+  // BACKING OUT OF LICHESS IS NOT LEAVING THE WALKTHROUGH. The connect redirects
+  // the whole page away; someone who reads the Lichess login screen and presses
+  // back comes home with no `?code=`, so none of the success path below used to
+  // run — and the walkthrough, which had stashed exactly where it was, was
+  // dropped on the floor. The user landed in a half-built line with no bubbles
+  // and no way to get them back. The stash is read on BOTH paths now (it is
+  // one-shot and expires after ten minutes, so an abandoned connect from
+  // yesterday still can't resurrect anything).
+  tourReturn = takeTourResume();
+  if (justConnected) showToast('Connected to Lichess');
+  if (justConnected || tourReturn) lichessReturn = lichessTakeReturn();
+  if (lichessReturn || tourReturn) maybeRestoreLichessReturn();
+  else if (justConnected) builderPanels?.render();
 });
 
-// Replay the stashed position once both halves are ready: the OAuth callback has
-// resolved AND the app has booted (so cg/builder exist). Called from both sides.
+// Replay the stashed position (and the stashed walkthrough step) once both halves
+// are ready: the OAuth callback has resolved AND the app has booted, so cg and the
+// builder exist. Called from both sides. Either stash on its own is enough —
+// abandoning the connect loses the position but not the walkthrough.
 function maybeRestoreLichessReturn(): void {
-  if (!appBooted || !lichessReturn) return;
-  const { ucis, colour } = lichessReturn;
+  if (!appBooted || (!lichessReturn && !tourReturn)) return;
+  if (lichessReturn) {
+    const { ucis, colour } = lichessReturn;
+    // Land back on the Library tab — where Connect lives — at the same position.
+    pendingBuilderSlide = 'library';
+    buildFromUcis(ucis, colour);
+  }
   lichessReturn = null;
-  // Land back on the Library tab — where Connect lives — at the same position.
-  pendingBuilderSlide = 'library';
-  buildFromUcis(ucis, colour);
 
   // Connected from inside the first-run walkthrough: pick it back up where it
   // was, on the Library step, which now reads as connected. Without this a
@@ -5490,7 +5522,8 @@ function maybeRestoreLichessReturn(): void {
   // This is the ONLY place a Lichess connect redirects anyone into the builder:
   // Settings' connect (and the wizard's) stashes nothing, so it comes back to
   // the screen it left.
-  const resume = takeTourResume();
+  const resume = tourReturn;
+  tourReturn = null;
   if (!resume) return;
   // A walkthrough only runs on the first line, so picking one back up means we
   // are still in it — including the guided save that ends it.
@@ -5784,6 +5817,12 @@ maybeShowGate(() => requestAnimationFrame(() => {
   reportRestoreOnBoot();
 
   const offerFirstRun = (): void => {
+    // A walkthrough returning from the Lichess round-trip owns the screen. The
+    // picker is the question that STARTED that walkthrough, and this device
+    // still has no saved lines — so without this guard the colour question came
+    // back up over the resumed bubbles, which is a second first run stacked on
+    // top of the first one, still in progress.
+    if (tourResumePending) return;
     void shouldShowFirstRun().then((show) => {
       if (show) showFirstRunPicker();
     });
