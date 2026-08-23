@@ -3059,9 +3059,20 @@ reason to take it.
   rules change, and a spot you fixed months ago is worth being asked again — but
   with the pane reporting "all analysed" there was no route to any of that short
   of deleting your games. A bare word beside the line, not a button: it is a long
-  job and a discard, so it asks first, says what goes (the spots and the fixed
-  marks) and what doesn't (the games, their analysis, and so the brilliant
-  moves).
+  job and a discard, so it asks first and says what goes.
+- ✅ **…and it resets the brilliant half too.** The first cut only reset the scan,
+  because that is the only thing on this pane that HAS a scan — the brilliant
+  finds are read off each game's saved analysis, written by the game review, so
+  nothing here can regenerate them and dropping them would mean deleting that
+  analysis (with the user's variations and notes in it) for good. But the half
+  that IS progress — the log that rests a re-found gem for a few days — survived
+  a reset that claimed to clear progress. It goes now.
+- ✅ **The brilliant card counts what is actually waiting.** It badged the whole
+  pool, so the number never moved however many you re-found — and, once Reset
+  existed, nothing on that card could show it had done anything. It badges the
+  available ones now, like the mistake cards badge their unfixed, and when they
+  have all been re-found the badge gives way to a line saying they come back over
+  the next few days rather than a "0" that reads as a failure.
 
 ---
 
