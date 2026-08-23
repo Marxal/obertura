@@ -19585,3 +19585,216 @@ html.picker-open body {
   white-space: normal;
   line-height: 1.35;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BLUNDER DETECTIVE + BETTER OR BLUNDER (detective-run.ts / better-run.ts)
+   ───────────────────────────────────────────────────────────────────────────
+   Both ride the .pt-* overlay chrome and the .mr-* top block; below is only
+   what the two exercises add — the stepper, the accusation, the two picks.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* The brief at the top, with its (i) sitting on the same line. .mr-intro keeps
+   it to one line; the button must not stretch the row's height. */
+.dt-brief {
+  gap: 0.25rem;
+}
+.dt-brief .info-btn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+}
+
+/* ── The stepper: back, the move you're on, forward ── */
+.dt-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem 0.15rem;
+}
+.dt-nav[hidden] { display: none; }
+
+.dt-nav-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  min-height: 44px;
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  background: var(--bg-card);
+  color: var(--text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.dt-nav-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.dt-nav-btn:not(:disabled):active { background: var(--bg-elevated); }
+
+/* The move currently on the board, named — the thing the accuse button below
+   is about, so it reads as the subject of the sentence. */
+.dt-move-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: center;
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* A move already ruled out reads struck through, so the stepper carries the
+   same state the pips do. */
+.dt-move-label--cleared {
+  color: var(--text-faint);
+  text-decoration: line-through;
+}
+
+/* ── One pip per move in the run ── */
+.dt-pips {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.15rem 1rem 0.35rem;
+}
+.dt-pips[hidden] { display: none; }
+
+.dt-pip {
+  width: 26px;
+  height: 12px;
+  padding: 0;
+  border: 1px solid var(--border-card);
+  border-radius: 6px;
+  background: var(--bg-card);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s, border-color 0.12s;
+}
+.dt-pip--here {
+  background: var(--text-faint);
+  border-color: var(--text-faint);
+}
+.dt-pip--out {
+  background: repeating-linear-gradient(
+    -45deg, transparent, transparent 3px, var(--border-card) 3px, var(--border-card) 5px);
+}
+.dt-pip--found {
+  background: #c93636;
+  border-color: #c93636;
+}
+
+/* ── The accusation ── */
+.dt-accuse {
+  width: auto;
+  margin: 0.2rem 1rem 0;
+  min-height: 50px;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+.dt-accuse[hidden] { display: none; }
+
+/* The way out, deliberately not shaped like a button. */
+.dt-reveal {
+  align-self: center;
+  margin: 0 0 0.9rem;
+  padding: 0.35rem 0.6rem;
+  border: none;
+  background: none;
+  color: var(--text-faint);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.dt-reveal[hidden] { display: none; }
+.dt-reveal:active { color: var(--text); }
+
+/* ── Better or blunder: the two picks ── */
+.bb-picks {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0 1rem 0.6rem;
+}
+.bb-picks[hidden] { display: none; }
+
+/* Each pick carries its arrow's colour (--bb-pick), which is the only thing
+   tying a button to a shape on the board. */
+.bb-pick {
+  flex: 1 1 0;
+  min-height: 54px;
+  padding: 0.5rem 0.6rem;
+  border: 2px solid var(--bb-pick);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bb-pick) 12%, var(--bg-card));
+  color: var(--text);
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s, opacity 0.12s, transform 0.12s;
+}
+.bb-pick:not(:disabled):active { transform: scale(0.98); }
+
+/* After the answer both buttons say what they were: the engine's move goes
+   green, the played one red, and the one that was tapped is ringed so the
+   verdict is about YOUR answer, not just about the moves. */
+.bb-pick--best {
+  border-color: var(--success);
+  background: color-mix(in srgb, var(--success) 18%, var(--bg-card));
+  opacity: 1;
+}
+.bb-pick--bad {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 14%, var(--bg-card));
+  opacity: 1;
+}
+.bb-pick--chosen {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--text-faint) 45%, transparent);
+}
+.bb-pick:disabled { cursor: default; }
+
+/* ── Better or blunder: the reveal ── */
+.bb-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0 1rem 0.7rem;
+  text-align: center;
+}
+.bb-facts[hidden] { display: none; }
+
+.bb-facts-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.bb-facts-cost {
+  color: var(--text-faint);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Both new exercises carry a stack of controls under the board, so the shared
+   overlay's habit of handing all the spare height to the top block (which
+   centres the board beautifully when the bottom is one status line) has to
+   yield: the height belongs to whichever end has the content. Without this the
+   "Next position" button sits just past the fold on a 915px phone. */
+.pt-overlay--compact .pt-top {
+  flex: 0 0 auto;
+  padding-top: 0.4rem;
+}
