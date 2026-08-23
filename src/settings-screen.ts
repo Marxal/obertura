@@ -54,6 +54,7 @@ import {
 import { countGames, resetAllProgress, eraseAllData } from './storage';
 import { getAutoRefreshEnabled, setAutoRefreshEnabled, getLastGamesRefresh } from './auto-refresh';
 import { getAutoScanEnabled, setAutoScanEnabled } from './mistake-autoscan';
+import { startEndgameAutoScan, stopEndgameAutoScan } from './endgame-autoscan';
 import { clearTrainingDays, clearReviewedToday, clearReviewLog } from './streak';
 import { clearPuzzleLog } from './puzzle-log';
 import { clearDailyLog } from './daily-recap';
@@ -1046,9 +1047,16 @@ function buildBackupGroup(): HTMLElement {
   // phone who would rather decide when the engine runs.
   sec.appendChild(row(
     'Analyse games in the background',
-    toggle(getAutoScanEnabled(), (on) => setAutoScanEnabled(on)),
-    { sub: 'Reads your imported games for mistakes while the app is open, so Train → '
-      + 'Middle game fills in without you starting a scan.' },
+    // One switch for both background passes — they read the same pref, and two
+    // toggles for "analyse my games quietly" would be one question too many.
+    toggle(getAutoScanEnabled(), (on) => {
+      setAutoScanEnabled(on);
+      if (on) startEndgameAutoScan({ retryOffline: true });
+      else stopEndgameAutoScan();
+    }),
+    { sub: 'Reads your imported games while the app is open — mistakes first, then the '
+      + 'endgames you reached — so Train → Middle game and End game fill in without you '
+      + 'starting a scan.' },
   ));
 
   // Export / import — the existing backup section does both.

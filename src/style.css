@@ -16214,7 +16214,21 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   line-height: 1.35;
 }
 
-.mistakes-hero-note--done { color: var(--success); font-weight: 600; }
+/* "All games analysed" — a state, not an achievement. It used to be bold and
+   green with a tick and a sentence about background imports, which put a badge
+   on the app having finished its own homework. One faint line is the whole of
+   what there is to say. */
+.mistakes-hero-note--done {
+  margin-top: 0.7rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  color: var(--text-faint);
+  opacity: 0.7;
+}
+
+/* The pane's wide launch button — the same shape every other Train tab opens
+   with. It sits under the three figures and above the scan status. */
+.mistakes-mix-btn { margin-top: 0.75rem; }
 
 /* The background scan's live line in the hero (mistake-autoscan.ts). It is a
    STATUS, not a job the user started, so it is quiet: a thin bar and one

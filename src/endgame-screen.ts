@@ -32,6 +32,10 @@ import {
   type EndgameSpotRef, type EndgameScanProgress,
 } from './endgame-scan';
 import { createPawnProgress, createFactsTicker } from './import-progress';
+import {
+  endgameAutoScanState, onEndgameAutoScanChange, startEndgameAutoScan,
+  suspendEndgameAutoScan, resumeEndgameAutoScan, type EndgameAutoScanState,
+} from './endgame-autoscan';
 import { pushBack } from './back-nav';
 import { Chessground } from 'chessground';
 import { showToast } from './toast';
@@ -455,16 +459,70 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
 
     const unscanned = unscannedEndgameCount(gs);
     if (unscanned > 0) {
+      // The scan runs on its own now (endgame-autoscan.ts), so this is a LIVE
+      // STATUS first and a button second — the same shape the Middle game hero
+      // uses. Watching it is optional: leaving the tab doesn't stop it, and the
+      // endgames appear on their own next time you look. The button stays for
+      // someone who wants to sit and watch, and it is the only route when the
+      // background pass has been switched off.
+      const live = document.createElement('div');
+      live.className = 'mistakes-autoscan eg-autoscan';
+      section.appendChild(live);
+
       const scan = document.createElement('button');
       scan.type = 'button';
       scan.className = 'btn-primary eg-scan-btn';
       scan.appendChild(Icons.sparkles(16));
       scan.appendChild(document.createTextNode(`Scan my games (${unscanned})`));
       scan.addEventListener('click', () => { void runScan(); });
-      section.appendChild(scan);
+
+      const paintScanState = (st: EndgameAutoScanState): void => {
+        live.replaceChildren();
+        // Empty, it is still a flex box with a margin above it — hide it outright
+        // so an idle section has no gap where the status will be.
+        live.hidden = !st.running;
+        if (st.running) {
+          scan.remove();
+          const bar = document.createElement('div');
+          bar.className = 'mistakes-autoscan-bar';
+          const fill = document.createElement('span');
+          fill.className = 'mistakes-autoscan-fill';
+          fill.style.width = `${Math.round((st.done / Math.max(1, st.total)) * 100)}%`;
+          bar.appendChild(fill);
+          live.appendChild(bar);
+
+          const label = document.createElement('div');
+          label.className = 'mistakes-autoscan-label';
+          const found = st.found > 0
+            ? ` · ${st.found} ${st.found === 1 ? 'endgame' : 'endgames'} found`
+            : '';
+          label.textContent = st.opponent
+            ? `Looking for endgames — game ${st.done} of ${st.total}, vs ${st.opponent}${found}`
+            : `Looking for endgames — game ${st.done} of ${st.total}${found}`;
+          live.appendChild(label);
+          return;
+        }
+        // Idle: it has not got to these games yet, or it is switched off, or the
+        // tablebase was out of reach. Whichever it is, the button is the answer.
+        if (!scan.isConnected) live.after(scan);
+      };
+
+      paintScanState(endgameAutoScanState());
+      // Live while the section is mounted. The next rebuild replaces these
+      // nodes, so the listener drops the moment its host goes.
+      const stopWatching = onEndgameAutoScanChange((st) => {
+        if (!live.isConnected) { stopWatching(); return; }
+        // A finished pass has left new endgames on disk, and the whole section
+        // is built from those — so rebuild rather than patch.
+        if (!st.running && st.done > 0) { games = null; rebuild(); return; }
+        paintScanState(st);
+      });
+      // Coming back to the tab is as good a sign as any that a phone which
+      // couldn't reach the tablebase last time might reach it now.
+      startEndgameAutoScan({ retryOffline: true });
     }
 
-    if (lastScanUnreachable) {
+    if (lastScanUnreachable || endgameAutoScanState().unreachable) {
       const warn = document.createElement('p');
       warn.className = 'eg-scan-warn';
       warn.textContent = 'Couldn’t reach the endgame tablebase — connect to the internet and scan again.';
@@ -635,6 +693,9 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
   // ── The scan run + its progress overlay (mirrors mistakes-screen.ts) ──────────
   async function runScan(): Promise<void> {
     const ctrl = new AbortController();
+    // The manual scan always wins: the two would otherwise queue on the same
+    // worker and each make the other look broken.
+    suspendEndgameAutoScan();
 
     const overlay = document.createElement('div');
     overlay.className = 'pt-overlay mr-scan-overlay';
@@ -702,6 +763,7 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
       facts.stop();
       removeBack();
       overlay.remove();
+      resumeEndgameAutoScan();
       // Reload the games so freshly-scanned results show, then repaint.
       games = null;
       rebuild();

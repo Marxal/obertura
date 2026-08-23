@@ -337,11 +337,27 @@ function linesForDefaultMode(trainingLines: Line[], due: Line[]): Line[] | null 
   }
 }
 
-// ── Hero: "Due now" · "Reviewed today" ────────────────────────────────────────
+// ── Hero: the due pile, in both of the units it comes in ──────────────────────
 //
-// The front door. Two compact stats side by side — lines due and today's effort —
-// at half the old headline height, with the primary Start button full-width
-// below. Same data, calmer footprint. The counts animate up on entry.
+// The front door. Three compact stats in a row at half the old headline height,
+// with the two ways through the pile as equal buttons under them.
+//
+// WHY THESE THREE. The card offers two routes — walk the due LINES, or walk the
+// due MOVES — and every figure on it used to describe the first one only: lines
+// due, and the rounds of five those lines break into. Someone weighing the two
+// buttons had one of them measured and the other not, and the number that was
+// least about the choice ("Rounds left") took a whole column to say something
+// derivable from the one beside it.
+//
+// So the middle column is the same pile counted the other way. Lines due and
+// moves due ARE the two buttons, in the order the buttons sit, and the third
+// stays what you have already done today — which was always in moves, and so was
+// always true of both routes. Three columns, both routes, no fourth number.
+//
+// The rounds figure survives only as the stand-in for a repertoire with no due
+// moves of its own to walk (a book whose due moves are all in the opening plies
+// the run skips), where a "0 moves due" column would sit under a button that
+// isn't there.
 
 // Lines drilled per explicit-mode session, so Fresh/Weak stay bite-sized.
 const PICKER_SESSION_CAP = 12;
@@ -365,36 +381,51 @@ function renderHero(
   // something to review; "all caught up" is implied by its absence.
   if (due.length === 0) return;
 
+  const runPlan = planRepertoireRun(books);
+  // Only when there is a book to run. A repertoire with nothing due through this
+  // route would open a session with nothing in it — and would put a "0" in the
+  // middle column under a button that isn't there.
+  const runnable = !!runPlan && runPlan.dueMoves > 0;
+
   const hero = document.createElement('div');
   hero.className = 'card train-hero';
 
-  // Two stats in a row: "Due now" and "Reviewed today". Numbers above, labels
-  // beneath, each at roughly half the old single big count.
   const stats = document.createElement('div');
   stats.className = 'train-hero-stats';
 
   const dueNum = document.createElement('span');
   dueNum.className = 'train-hero-stat-num';
   dueNum.textContent = '0';
-  stats.appendChild(buildHeroStat('due', dueNum, 'Due now'));
+  stats.appendChild(buildHeroStat('due', dueNum, 'Lines due'));
   countUp(dueNum, due.length);
+
+  if (runnable) {
+    // The same pile, counted in moves — what the Repertoire run walks. Lines
+    // that share an opening are one move here and two lines above, which is the
+    // whole difference between the two buttons underneath, stated as a number
+    // rather than as a sentence on a button.
+    const movesNum = document.createElement('span');
+    movesNum.className = 'train-hero-stat-num';
+    movesNum.textContent = '0';
+    stats.appendChild(buildHeroStat('moves', movesNum, 'Moves due'));
+    countUp(movesNum, runPlan!.dueMoves);
+  } else {
+    // No move-walk to measure, so the column falls back to how many rounds of
+    // five the due lines break into. Stateless — it shrinks as rounds are banked
+    // across sittings — and it reads "1" on a short day rather than vanishing,
+    // because a row that flips between two stats and three is worse than a 1.
+    const roundsNum = document.createElement('span');
+    roundsNum.className = 'train-hero-stat-num';
+    roundsNum.textContent = '0';
+    stats.appendChild(buildHeroStat('rounds', roundsNum, 'Rounds left'));
+    countUp(roundsNum, Math.max(1, Math.ceil(due.length / ROUND_SIZE)));
+  }
 
   const revNum = document.createElement('span');
   revNum.className = 'train-hero-stat-num';
   revNum.textContent = '0';
   stats.appendChild(buildHeroStat('reviewed', revNum, 'Reviewed today'));
   countUp(revNum, reviewedToday());
-
-  // How many rounds the due pile breaks into. Stateless — it shrinks as rounds
-  // are banked across sittings. It used to hide at one round, which made the row
-  // flip between two stats and three; it is one of the three figures this card
-  // is for, so it holds its column and reads "1" on a short day.
-  const roundsLeft = Math.max(1, Math.ceil(due.length / ROUND_SIZE));
-  const roundsNum = document.createElement('span');
-  roundsNum.className = 'train-hero-stat-num';
-  roundsNum.textContent = '0';
-  stats.appendChild(buildHeroStat('rounds', roundsNum, 'Rounds left'));
-  countUp(roundsNum, roundsLeft);
 
   hero.appendChild(stats);
 
@@ -407,10 +438,8 @@ function renderHero(
   // "how shall I do today's review?" would find it. They are two answers to one
   // question, so they belong side by side, the same size, under the question.
   //
-  // Each says its own size underneath, because that is the actual difference
-  // between them and the reason to pick one: the same due pile is N lines one
-  // way and M moves the other.
-  const runPlan = planRepertoireRun(books);
+  // The two sizes are the two figures above now, so each button says what it
+  // DOES instead of repeating a count six millimetres below the same count.
   const refreshTitle = document.createElement('div');
   refreshTitle.className = 'train-refresh-title';
   refreshTitle.textContent = 'Refresh your moves';
@@ -421,16 +450,14 @@ function renderHero(
   row.appendChild(refreshButton(
     Icons.brain(18),
     'Full lines',
-    `${due.length} ${due.length === 1 ? 'line' : 'lines'} due`,
+    'start to finish',
     () => startRounds(dueLines(allTraining), container, { explicit: true }),
   ));
-  // Only when there is a book to run. A repertoire with nothing due through this
-  // route would open a session with nothing in it.
-  if (runPlan && runPlan.dueMoves > 0) {
+  if (runnable) {
     row.appendChild(refreshButton(
       Icons.list(18),
       'Repertoire run',
-      `${runPlan.dueMoves} ${runPlan.dueMoves === 1 ? 'move' : 'moves'} due`,
+      'each move once',
       () => runRepertoireRun(container, books),
     ));
   } else {
@@ -471,7 +498,11 @@ function refreshButton(
 }
 
 // One column of the hero pair: a big-ish number stacked over its label.
-function buildHeroStat(kind: 'due' | 'reviewed' | 'rounds', num: HTMLElement, label: string): HTMLElement {
+function buildHeroStat(
+  kind: 'due' | 'moves' | 'reviewed' | 'rounds',
+  num: HTMLElement,
+  label: string,
+): HTMLElement {
   const col = document.createElement('div');
   col.className = `train-hero-stat train-hero-stat--${kind}`;
   col.appendChild(num);
@@ -527,7 +558,12 @@ function renderModeCards(
   label.className = 'section-title';
   label.textContent = 'Practise';
   head.appendChild(label);
-  head.appendChild(buildInfoButton('About the practice modes', openPracticeInfo));
+  // Planned once, up here, because two things want it: the Repertoire run card
+  // below, and the info sheet — which is where the saving that used to crowd
+  // that card's subtitle now lives.
+  const runPlan = locked ? null : planRepertoireRun(books);
+  head.appendChild(buildInfoButton(
+    'About the practice modes', () => openPracticeInfo(runPlan)));
   section.appendChild(head);
 
   // Under the unlock every card below is greyed out for the same reason, and
@@ -581,20 +617,22 @@ function renderModeCards(
     onClick: () => runIndividual(container, allTraining),
   }));
 
-  // Repertoire run — one walk through the book, asking each move once. The line
-  // modes below replay a shared opening once per line; this one doesn't, and the
-  // card says so in the number of repeats it saves rather than in an
-  // explanation nobody would read.
-  const runPlan = locked ? null : planRepertoireRun(books);
+  // Repertoire run — one walk through the book, asking each move once.
+  //
+  // NO BADGE, ONE SENTENCE. This card used to carry a "N moves due" stat on the
+  // right and a two-clause subtitle on the left ("one pass through your book —
+  // 34 repeated moves you'd otherwise answer twice"). Every other card in the
+  // menu is icon / name / one short line, so the long subtitle wrapped to two
+  // rows and dragged the stat badge out of line with the badges above it. The
+  // saving is a fact about the mode rather than a number you decide on, so it
+  // has moved to the info sheet; the due count is one tap away in the run itself,
+  // which now counts the whole walk down move by move.
   if (runPlan && runPlan.totalMoves > 0) {
-    const saving = runSavingNote(runPlan);
     section.appendChild(buildModeCard({
       accent: MODE_ACCENT.run,
       icon: Icons.list(20),
       name: 'Repertoire run',
-      sub: saving ? `one pass through your book — ${saving}` : 'one pass through your book',
-      stat: runPlan.dueMoves,
-      statLabel: runPlan.dueMoves === 1 ? 'move due' : 'moves due',
+      sub: 'every move in your book, asked once',
       onClick: () => runRepertoireRun(container, books),
     }));
   }
@@ -647,7 +685,11 @@ function renderModeCards(
 // What each practice mode actually is, in the words the one-line subtitles have
 // no room for. Kept beside renderModeCards on purpose: a mode added to the menu
 // and not to this list is an obvious omission when the two sit together.
-function openPracticeInfo(): void {
+function openPracticeInfo(runPlan: RunPlan | null): void {
+  // The concrete figure for THIS book, when there is one worth quoting. It used
+  // to be half of the Repertoire run card's subtitle, where it wrapped the line
+  // and knocked that card's stat badge out of alignment with its neighbours.
+  const saving = runPlan ? runSavingNote(runPlan) : null;
   openInfoSheet({
     title: 'The practice modes',
     intro: 'Six ways through the same repertoire. They differ in WHAT they ask you and '
@@ -671,7 +713,8 @@ function openPracticeInfo(): void {
         label: 'Repertoire run',
         detail: 'One pass through your whole book, asking every move exactly once. Lines '
           + 'that share an opening replay it once here instead of once per line, which is '
-          + 'why it is much shorter than drilling the same lines one by one.',
+          + 'why it is much shorter than drilling the same lines one by one.'
+          + (saving ? ` In your book that is ${saving}.` : ''),
       },
       {
         icon: Icons.plus(18), accent: MODE_ACCENT.fresh,
@@ -1408,6 +1451,20 @@ function runItem(
 // node exactly once, so the dedupe is structural rather than a filter someone
 // has to keep honest (see repertoire-run.ts).
 //
+// NO ROUNDS. The other modes here chunk a long sitting into rounds of five or
+// ten with a recap between, because a line walk is a long unit and banking the
+// pile in stages is how it gets finished at all. This mode is not that: it is one
+// pass through one book, and "Round 3 of 7" describes an arithmetic nobody asked
+// for while hiding the only figure they wanted — how much of the book is left.
+// The drill's own bar reads "Position 12 of 34" the whole way through instead:
+// the walk, counted down in one line.
+//
+// Nothing is lost by dropping the rounds. Every position is graded and saved the
+// moment it is answered (onStepComplete), so stopping halfway keeps everything
+// answered so far — which is exactly why stopping now ENDS ON THE RESULTS SCREEN
+// rather than dropping the user back on the Train tab. They did the work; they
+// get the recap for it, the same one finishing the walk gives.
+//
 // Grading happens on CLONED books and reaches storage only through
 // saveRepertoire, the same discipline the line modes use with saveLine.
 function runRepertoireRun(container: HTMLElement, books: Repertoire[]): void {
@@ -1435,107 +1492,79 @@ function runRepertoireRun(container: HTMLElement, books: Repertoire[]): void {
     writes = writes.then(job, job);
   };
 
-  const totalRounds = Math.max(1, Math.ceil(plan.positions.length / ROUND_SIZE_POSITIONS));
-  let index = 0;
-  let roundNo = 0;
+  startPositionsDrill(
+    plan.positions.map(
+      p => ({ preFen: p.preFen, expected: p.expected, prevUci: p.prevUci, prevFen: p.prevFen })),
+    {
+      wrongMoveMode: 'full',
+      confirmAbandon: true,
+      modeLabel: 'Repertoire run',
+      playPrelude: true,
+      celebrateOnComplete: true,
+      completeMessage: 'Book walked ✓',
+      recordMiss: (node) => { missed.add(node.id); },
+      onStepComplete: (expected) => {
+        const pos = posByNode.get(expected);
+        const book = pos ? bookById.get(pos.repertoireId) : undefined;
+        if (!pos || !book) return;
+        const now = new Date();
+        const wasMissed = missed.has(expected.id);
+        if (wasMissed) {
+          addMistake(mistakes, mistakeKeys, pos.preFen, expected,
+            { prevUci: pos.prevUci, prevFen: pos.prevFen });
+          recordMissedMove(pos.preFen, expected.san, pos.colour);
+        }
+        const quality = qualityFromMisses(wasMissed ? 1 : 0);
+        // Spacing comes from the priority resolved AT THIS NODE, so a branch
+        // the user marked "less often" is respected move by move rather than
+        // through whichever line happens to be named here.
+        expected.review = gradeReview(
+          expected.review ?? newReview(now), quality, now, PRIORITY_SPACING[pos.priority]);
+        // "Last trained" is a fact about a line, so it lands on the line end
+        // this move belongs to rather than on the move itself.
+        const owner = locateLine([book], pos.lineId);
+        if (owner) owner.end.lastTrained = now.toISOString();
 
-  function runRunRound(): void {
-    // …plus which recap rows already existed, so the round screen can list only
-    // what this round adds (see renderRoundScreen).
-    const before = {
-      reviewed: stats.reviewed,
-      missed: stats.missed,
-      keys: new Set(stats.openings.keys()),
-    };
-    const slice = plan.positions.slice(index, index + ROUND_SIZE_POSITIONS);
-    index += slice.length;
-    roundNo += 1;
+        queue(() => saveRepertoire(book));
+        // The same move in another BOOK is still the same work (§8). Inside
+        // this book there is nothing to credit — the node is already shared.
+        queue(() => queueWriteThrough(
+          [{ preFen: pos.preFen, uci: expected.uci, review: expected.review! }], pos.lineId));
 
-    startPositionsDrill(
-      slice.map(p => ({ preFen: p.preFen, expected: p.expected, prevUci: p.prevUci, prevFen: p.prevFen })),
-      {
-        wrongMoveMode: 'full',
-        confirmAbandon: true,
-        modeLabel: 'Repertoire run',
-        playPrelude: true,
-        celebrateOnComplete: true,
-        completeMessage: 'Book walked ✓',
-        recordMiss: (node) => { missed.add(node.id); },
-        onStepComplete: (expected) => {
-          const pos = posByNode.get(expected);
-          const book = pos ? bookById.get(pos.repertoireId) : undefined;
-          if (!pos || !book) return;
-          const now = new Date();
-          const wasMissed = missed.has(expected.id);
-          if (wasMissed) {
-            addMistake(mistakes, mistakeKeys, pos.preFen, expected,
-              { prevUci: pos.prevUci, prevFen: pos.prevFen });
-            recordMissedMove(pos.preFen, expected.san, pos.colour);
-          }
-          const quality = qualityFromMisses(wasMissed ? 1 : 0);
-          // Spacing comes from the priority resolved AT THIS NODE, so a branch
-          // the user marked "less often" is respected move by move rather than
-          // through whichever line happens to be named here.
-          expected.review = gradeReview(
-            expected.review ?? newReview(now), quality, now, PRIORITY_SPACING[pos.priority]);
-          // "Last trained" is a fact about a line, so it lands on the line end
-          // this move belongs to rather than on the move itself.
-          const owner = locateLine([book], pos.lineId);
-          if (owner) owner.end.lastTrained = now.toISOString();
-
-          queue(() => saveRepertoire(book));
-          // The same move in another BOOK is still the same work (§8). Inside
-          // this book there is nothing to credit — the node is already shared.
-          queue(() => queueWriteThrough(
-            [{ preFen: pos.preFen, uci: expected.uci, review: expected.review! }], pos.lineId));
-
-          recordReviewed(1);
-          recordReviewOutcome(wasMissed ? 0 : 1, wasMissed ? 1 : 0);
-          bumpOpening(
-            stats.openings, `${pos.repertoireId}:${expected.id}`, pos.lineName,
-            wasMissed ? 0 : 1, wasMissed ? 1 : 0,
-            {
-              onOpen: () => openTrainingPeek({
-                fen: pos.preFen,
-                orientation: pos.colour,
-                hintUci: expected.uci,
-                onTurnOff: () => void getLine(pos.lineId).then(l => {
-                  if (l) void saveLine({ ...l, inTraining: false });
-                }),
-                onEdit: () => void getLine(pos.lineId).then(l => {
-                  if (l) onViewLine?.(l, pos.preFen);
-                }),
+        recordReviewed(1);
+        recordReviewOutcome(wasMissed ? 0 : 1, wasMissed ? 1 : 0);
+        bumpOpening(
+          stats.openings, `${pos.repertoireId}:${expected.id}`, pos.lineName,
+          wasMissed ? 0 : 1, wasMissed ? 1 : 0,
+          {
+            onOpen: () => openTrainingPeek({
+              fen: pos.preFen,
+              orientation: pos.colour,
+              hintUci: expected.uci,
+              onTurnOff: () => void getLine(pos.lineId).then(l => {
+                if (l) void saveLine({ ...l, inTraining: false });
               }),
-              statsLine: reviewStatsLine(expected.review),
-            },
-          );
-          stats.reviewed++;
-          if (wasMissed) stats.missed++;
-        },
-        onComplete: () => {
-          if (index >= plan.positions.length) {
-            renderIndividualComplete(container, stats, mistakes);
-          } else {
-            if (stats.reviewed > 0) recordTrainingDay();
-            const remaining = plan.positions.length - index;
-            renderRoundScreen(container, {
-              roundNo,
-              totalRounds,
-              correct: (stats.reviewed - before.reviewed) - (stats.missed - before.missed),
-              missed: stats.missed - before.missed,
-              remainingLabel: `${remaining} move${remaining === 1 ? '' : 's'} left`,
-              rows: reviewedOpeningRows(newTally(stats.openings, before.keys)),
-              rowsLabel: 'Moves in this round',
-              onNext: runRunRound,
-            });
-          }
-        },
-        onCancel: () => void doRender(container),
+              onEdit: () => void getLine(pos.lineId).then(l => {
+                if (l) onViewLine?.(l, pos.preFen);
+              }),
+            }),
+            statsLine: reviewStatsLine(expected.review),
+          },
+        );
+        stats.reviewed++;
+        if (wasMissed) stats.missed++;
       },
-    );
-  }
-
-  runRunRound();
+      onComplete: () => renderIndividualComplete(container, stats, mistakes),
+      // Ending the walk early is still a session’s work: every move answered is
+      // already graded and saved by the time the dialog appears, so the recap is
+      // owed. Only a run stopped before a single answer goes straight back to the
+      // tab — there is nothing there for a recap to recap.
+      onCancel: () => {
+        if (stats.reviewed === 0) { void doRender(container); return; }
+        renderIndividualComplete(container, stats, mistakes);
+      },
+    },
+  );
 }
 
 function runIndividual(container: HTMLElement, trainingLines: Line[]): void {

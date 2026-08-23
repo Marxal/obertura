@@ -1,18 +1,21 @@
 // The sign-up sheet, and the card that closes the first run.
 //
-// THE FIRST RUN NO LONGER ASKS FOR AN ACCOUNT. It used to: the success card at
-// the end of the first line carried "Create a free account" and a quiet "Not
-// now", on the reasoning that the first ask should follow the first win. In
-// practice it landed on someone who had been in the app for four minutes and had
-// nothing yet to sync, and it turned the one moment that should read as "that
-// worked" into a form. The way in for someone who ALREADY has an account is on
-// the first screen ("I already have an account, log in"), where it answers a
-// real question; everyone else finds Settings → Account when they have something
-// worth keeping.
+// THE FIRST RUN ASKS FOR AN ACCOUNT AGAIN — but as an offer, not a form. The
+// original version put the sign-up FORM on the success card, which turned the
+// one moment that should read as "that worked" into a data-entry screen. The ask
+// was then dropped altogether, which went too far the other way: the person has
+// just made something worth keeping, and the only thing standing between that
+// line and a wiped browser is an account nobody has mentioned.
 //
-// So showFirstLineSuccess is now purely a celebration, and the sheet below is
-// opened only when someone asks for it: the first screen's log-in line, Settings,
-// the buy flow, and the marketing site's ?auth= links.
+// So the card celebrates first and offers second. One sentence saying what an
+// account is FOR (the line survives this phone), a button that opens the
+// ordinary sign-up sheet below, and "Not now" underneath in plain text for
+// everyone who would rather not. Nothing is entered on the card itself, and the
+// offer simply isn't built for someone already signed in.
+//
+// The sheet is otherwise opened only when someone asks for it: the first
+// screen's log-in line, Settings, the buy flow, and the marketing site's ?auth=
+// links.
 //
 // The form itself is account-ui.ts's, unchanged — the same one in Settings, just
 // dropped into a sheet.
@@ -61,10 +64,37 @@ export function showFirstLineSuccess(): void {
   }
   const removeBack = pushBack(close);
 
+  // The offer, only where it means something: accounts have to exist in this
+  // build, and someone already signed in has nothing to be asked for.
+  const offerAccount = isSupabaseConfigured && !getAuthUser();
+
+  if (offerAccount) {
+    const why = document.createElement('p');
+    why.className = 'firstwin-ask';
+    why.textContent = 'Your lines live on this phone. A free account keeps a copy, '
+      + 'so they come back on any device you sign in on.';
+    card.appendChild(why);
+
+    const signUp = document.createElement('button');
+    signUp.type = 'button';
+    signUp.className = 'btn-primary firstwin-cta';
+    signUp.textContent = 'Create a free account';
+    signUp.addEventListener('click', () => {
+      close();
+      openSignUpSheet('signup', {
+        lead: 'Your first line is saved on this phone. An account keeps a copy, so it '
+          + 'follows you to any device you sign in on.',
+      });
+    });
+    card.appendChild(signUp);
+  }
+
   const cta = document.createElement('button');
   cta.type = 'button';
-  cta.className = 'btn-primary firstwin-cta';
-  cta.textContent = 'Keep going';
+  // Two primaries side by side would ask the user to weigh the celebration
+  // against a form. The way on stays a plain word under the offer.
+  cta.className = offerAccount ? 'signup-sheet-dismiss' : 'btn-primary firstwin-cta';
+  cta.textContent = offerAccount ? 'Not now' : 'Keep going';
   cta.addEventListener('click', close);
   card.appendChild(cta);
 
