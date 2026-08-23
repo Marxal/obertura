@@ -15,13 +15,13 @@ import {
   planLineRemoval, removeAndStore, restoreAndStore,
 } from './builder-book';
 import { describeRemoval, removalBody, removalDone, removalTitle } from './line-removal';
-import { nodeAtPath, type DetachedSubtree } from './repertoire';
+import { nodeAtPath, isUserMoveAtDepth, type DetachedSubtree } from './repertoire';
 import { openBranchSheet } from './branch-sheet';
 import { parseLineId } from './lines-view';
 import { selectedBookId } from './repertoire-picker';
 import { mainlineNodes, DEFAULT_PRIORITY } from './scheduler';
 import type { Annotation, MoveNode } from './tree';
-import { saveLine, getAllLines, getLine, getAllGames, getGame, saveGames, deleteLine, deleteGame, purgeRetiredLocalKeys } from './storage';
+import { saveLine, getAllLines, getLine, getAllGames, getGame, saveGames, deleteLine, deleteGame, purgeRetiredLocalKeys, countGames } from './storage';
 import type { ImportedGame } from './import-games';
 import { nameForPath } from './openings';
 import { positionIndex, type DuplicateVerdict } from './position-index';
@@ -107,6 +107,7 @@ import {
   BUILDER_MOVE_EVENT,
   REPLAY_WALKTHROUGH_EVENT,
   type BuilderIntroDeps,
+  type TourEnd,
 } from './onboarding-tour';
 import { showFirstLineSuccess, handleAuthUrlParam, openSignUpSheet } from './onboarding-signup';
 import {
@@ -117,6 +118,7 @@ import {
 } from './first-steps';
 import { maybeAutoRefreshGames } from './auto-refresh';
 import { startAutoScan } from './mistake-autoscan';
+import { startEndgameAutoScan } from './endgame-autoscan';
 import { openDailyPrefsSheet } from './daily-prefs';
 import { maybeShowGate, promptInstallApp, onInstallAvailable } from './gate';
 import { showToast } from './toast';
@@ -1039,7 +1041,7 @@ function openMyGamesImport(onManualAdd?: () => void): void {
   openBuilderImport({
     onLoadGame: (ucis, colour, description, gameId, endTime, notes) =>
       openImportedGame(ucis, colour, description, gameId, endTime, notes),
-    onGamesChanged: () => { builderPanels?.reload(); },
+    onGamesChanged: () => { builderPanels?.reload(); void refreshGamesOnDevice(); },
     onManualAdd,
     onSaveLines: saveImportedLines,
   });
@@ -3239,21 +3241,43 @@ function startNewLine(colour: 'white' | 'black'): void {
 // gone; the bubble does its job, in one voice, and waits.
 let guidedActive = false;
 
+// Are there imported games on this device? A cached answer, because the
+// walkthrough's bubbles are built synchronously and IndexedDB is not. Refreshed
+// at boot and after anything that could have changed it (an import, a wipe).
+let gamesOnDevice = false;
+
+function refreshGamesOnDevice(): Promise<void> {
+  return countGames()
+    .then(n => { gamesOnDevice = n > 0; })
+    .catch(() => { /* storage off — the bubble simply keeps offering the import */ });
+}
+
 // The walkthrough's shared wiring: which panel each step opens, and the two
 // connects it offers (Lichess on the Library step, the games import on My
 // lines). `after` is the caller's continuation — it runs on whatever exit the
 // walkthrough takes, and exactly once, including the exit that goes via the
-// import sheet (which is why it waits for that sheet to close).
+// import sheet (which is why it waits for that sheet to close). It is handed a
+// TourEnd, because "did the walkthrough get as far as offering the save?" is
+// something only the walkthrough knows and the ending has to act on.
 function builderIntroDeps(
-  after: () => void,
+  after: (end: TourEnd) => void,
   o: { startStep?: number } = {},
 ): BuilderIntroDeps {
   let ran = false;
-  const once = (): void => { if (!ran) { ran = true; after(); } };
+  const once = (end: TourEnd): void => { if (!ran) { ran = true; after(end); } };
   return {
     onDone: once,
     showSlide: showBuilderSlide,
     isLichessConnected: isLichessConnected,
+    // Games on the device turn the My-lines bubble's "Import my games" into a
+    // "Games imported" pill. A bubble is painted synchronously, so this reads a
+    // cached flag rather than IndexedDB — refreshGamesOnDevice keeps it honest.
+    hasImportedGames: () => gamesOnDevice,
+    // The user's own half of the line — what the "two more moves" bubble counts.
+    // With auto-reply on, the opponent's answers are on the line too, and
+    // counting those would let one move of theirs finish the step.
+    ownMoveCount: () => mainline().filter(
+      (_, i) => isUserMoveAtDepth(i + 1, saveColour)).length,
     // The first bubble asks for one move and promises an answer back. This is
     // what keeps that promise — and the panel it belongs to is opened with it,
     // because Explore only answers while it is the slide on screen.
@@ -3295,7 +3319,9 @@ function builderIntroDeps(
     // anything was imported.
     onImportGames: (resume) => openImportPanel({
       onImported: () => { builderPanels?.reload(); builderPanels?.render(); },
-      onClose: resume,
+      // Before the walkthrough comes back, so the bubble it returns to already
+      // knows whether the import happened.
+      onClose: () => void refreshGamesOnDevice().then(resume),
     }),
     startStep: o.startStep,
   };
@@ -3358,8 +3384,15 @@ function endGuidedWalkthrough(): void {
 
 // The same ending for an empty-board first line, which has no line to land on
 // and waits for the user's own moves before offering the save.
-function endEmptyBoardWalkthrough(): void {
+//
+// UNLESS the walkthrough already offered it. Its last bubble IS the save step —
+// the same title, the same two buttons — so re-arming the standalone one here
+// answered "Add more moves" with the very bubble the user had just dismissed.
+// The Save button in the header is lit and named by then; nothing is lost by
+// letting them get on with it.
+function endEmptyBoardWalkthrough(end: TourEnd = { saveOffered: false }): void {
   setEngineOn(false);
+  if (end.saveOffered) return;
   armEmptyBoardSaveStep();
 }
 
@@ -5793,6 +5826,15 @@ maybeShowGate(() => requestAnimationFrame(() => {
     // imported hundreds of games. Deliberately last and deliberately delayed:
     // launch, the first paint and any refresh above all come first, and the
     // engine worker is left alone until the app has settled.
-    window.setTimeout(() => startAutoScan(), AUTO_SCAN_DELAY_MS);
+    window.setTimeout(() => {
+      startAutoScan();
+      // …and the End game tab's own pass behind it. It queues itself on the
+      // mistake pass finishing (endgame-autoscan.ts), so this only puts it in
+      // the queue — it never competes for the worker.
+      startEndgameAutoScan();
+    }, AUTO_SCAN_DELAY_MS);
   });
+  // One cheap count, so anything painted synchronously (the walkthrough's
+  // bubbles) knows whether this device has games without awaiting IndexedDB.
+  void refreshGamesOnDevice();
 }), hideAppSplash);

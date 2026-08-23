@@ -90,6 +90,12 @@ export interface CoachStep {
   // What to point at. First VISIBLE match wins; a step whose targets are all
   // missing is dropped rather than pointed at nothing.
   selector: string[];
+  // A SECOND thing the same spotlight should also cover: the cut-out becomes
+  // the box enclosing both. The Explore bubble uses it to light up the panel
+  // AND the dock beneath it, because "the controls under the board" is part of
+  // what the panel step is describing and a hole that stopped at the panel's
+  // bottom edge said the opposite. Missing → the spot is just `selector`'s.
+  spanSelector?: string[];
   title: string;
   // A function when the sentence depends on what the user has done by the time
   // the bubble is painted — the last board step asks for a move that may already
@@ -386,7 +392,7 @@ export function showCoachMarks(
     if (!target) return;
 
     const want = step.pad ?? SPOT_PAD;
-    const r = target.getBoundingClientRect();
+    const r = unionRect(target, step.spanSelector);
     const vw = window.innerWidth;
     const vh = window.innerHeight;
 
@@ -480,20 +486,45 @@ function actionButton(label: string, variant: 'primary' | 'quiet', onClick: () =
   return btn;
 }
 
+// The box the spotlight has to cover: the target's own rect, grown to enclose
+// the first visible `spanSelector` match too. Two elements that sit one above
+// the other (the builder's panel and its dock) give ONE tall hole rather than
+// two, which is the only shape a single box-shadow cut-out can paint.
+interface SpotRect { left: number; right: number; top: number; bottom: number }
+
+function unionRect(target: HTMLElement, span?: string[]): SpotRect {
+  const r = target.getBoundingClientRect();
+  const box: SpotRect = { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+  const extra = span ? findVisible(span) : null;
+  if (!extra) return box;
+  const e = extra.getBoundingClientRect();
+  return {
+    left: Math.min(box.left, e.left),
+    right: Math.max(box.right, e.right),
+    top: Math.min(box.top, e.top),
+    bottom: Math.max(box.bottom, e.bottom),
+  };
+}
+
 // The first selector in the list that resolves to something actually visible.
 //
 // Measured, not `offsetParent`: the builder's panel sheet is position:fixed, and
 // a fixed element's offsetParent is null however plainly visible it is — which
 // silently dropped every panel step from the walkthrough. A box with area is on
 // screen; a hidden one (or one under a `display: none` ancestor) has none.
-function findTarget(step: CoachStep): HTMLElement | null {
-  for (const sel of step.selector) {
+function findVisible(selectors: string[]): HTMLElement | null {
+  for (const sel of selectors) {
     const el = document.querySelector<HTMLElement>(sel);
     if (!el) continue;
     const r = el.getBoundingClientRect();
     if (r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden') return el;
   }
   return null;
+}
+
+// What a step points at — the first of its own selectors that is on screen.
+function findTarget(step: CoachStep): HTMLElement | null {
+  return findVisible(step.selector);
 }
 
 // ── Watching the app ─────────────────────────────────────────────────────────
@@ -576,6 +607,10 @@ const TAB_STEPS: Partial<Record<TourSlide, number>> = {
 // as lichess-auth's own stashReturn / takeReturn.
 const RESUME_KEY = 'obertura.tourResume';
 
+// How many of the user's OWN moves the "Back to your line" bubble waits for
+// before handing over to the save bubble.
+const BACK_TO_LINE_MOVES = 2;
+
 export interface TourResume {
   step: number;
   // Where the cursor was sitting in the line, so the board comes back on the
@@ -646,9 +681,19 @@ export function unmarkBuilderTourSeen(): void {
   clearBuilderTourSeen();
 }
 
+// What the walkthrough's ending tells its caller. `saveOffered` is the one thing
+// the caller can't work out for itself: whether the last bubble — the one that
+// offers Save — was actually reached. Without it the empty-board first line
+// re-arms its own standalone save prompt the instant the walkthrough hands back,
+// and someone who has just tapped "Add more moves" is answered by the identical
+// bubble a second time.
+export interface TourEnd {
+  saveOffered: boolean;
+}
+
 export interface BuilderIntroDeps {
   // Fires on whatever exit happens — the last step, Skip, or the back gesture.
-  onDone: () => void;
+  onDone: (end: TourEnd) => void;
   // Show a builder carousel slide, so each panel step opens the panel it names.
   showSlide: (id: TourSlide) => void;
   // Back off the FIRST bubble: there's nothing behind it in the builder, so it
@@ -684,6 +729,12 @@ export interface BuilderIntroDeps {
   // step once the sheet closes — imported or not.
   onImportGames: (resume: () => void) => void;
   isLichessConnected: () => boolean;
+  // Are there imported games on the device? The My-lines bubble's "Import my
+  // games" becomes a "Games imported" pill once there are.
+  hasImportedGames: () => boolean;
+  // How many moves of the USER's own are on the line right now — the bar the
+  // "two more moves" bubble waits on.
+  ownMoveCount: () => number;
   // Start partway in (STEP_LIBRARY) — how the walkthrough picks itself back up
   // after the Lichess round-trip.
   startStep?: number;
@@ -691,11 +742,13 @@ export interface BuilderIntroDeps {
 
 export function showBuilderIntro(deps: BuilderIntroDeps): void {
   let handle: CoachHandle | null = null;
+  // Set the moment the last bubble is painted — see TourEnd.
+  let saveOffered = false;
 
   const done = (): void => {
     setSideTabsDisabled(false);
     dropTabNav();
-    deps.onDone();
+    deps.onDone({ saveOffered });
   };
 
   // Leave the walkthrough on screen but hand the screen to something else (the
@@ -709,7 +762,11 @@ export function showBuilderIntro(deps: BuilderIntroDeps): void {
 
   const launch = (from: number): void => {
     setSideTabsDisabled(true);
-    handle = showCoachMarks(markDoneOnLastStep(buildSteps(deps, launch, stepAside)), done, from);
+    handle = showCoachMarks(
+      markDoneOnLastStep(buildSteps(deps, launch, stepAside), () => { saveOffered = true; }),
+      done,
+      from,
+    );
     // Tapping a panel tab moves the WALKTHROUGH to that tab's step — tapping
     // Line goes back to the Line bubble, not just to the Line panel. So the
     // walkthrough is navigable by its own buttons and by the tabs, and by
@@ -723,13 +780,13 @@ export function showBuilderIntro(deps: BuilderIntroDeps): void {
 // "Done" is reaching the LAST bubble, not surviving to whatever exit fires
 // onDone — Skip and the back gesture end the walkthrough too, and neither means
 // the user has been through it. So the last step's onEnter records it.
-function markDoneOnLastStep(steps: CoachStep[]): CoachStep[] {
+function markDoneOnLastStep(steps: CoachStep[], onReached: () => void): CoachStep[] {
   const last = steps[steps.length - 1];
   if (!last) return steps;
   const before = last.onEnter;
   return [...steps.slice(0, -1), {
     ...last,
-    onEnter: () => { before?.(); markBuilderTourDone(); },
+    onEnter: () => { before?.(); onReached(); markBuilderTourDone(); },
   }];
 }
 
@@ -767,6 +824,9 @@ function buildSteps(
   stepAside: () => void,
 ): CoachStep[] {
   const connected = deps.isLichessConnected();
+  const imported = deps.hasImportedGames();
+  // The "two more moves" bar, set when that step is entered (see below).
+  let movesWanted = Number.POSITIVE_INFINITY;
 
   return [
     {
@@ -793,6 +853,12 @@ function buildSteps(
     },
     {
       selector: ['#builder-sheet'],
+      // The dock goes inside the same hole. The bubble names auto-reply, and
+      // auto-reply's switch is a scroll down the panel — a spotlight that
+      // stopped at the panel's bottom edge lit the tiles and hid the one
+      // control the sentence is about. Covering panel + dock also says, without
+      // a sentence, that everything under the board belongs to this step.
+      spanSelector: ['#builder-dock'],
       title: 'Explore',
       body: 'Suggested moves from your games, the library and the engine. '
         + 'Auto-reply plays the suggested answer for you.',
@@ -802,7 +868,15 @@ function buildSteps(
       // also the fastest way to put a move down that nobody meant. The only ways
       // on are Next and the tabs.
       lookOnly: true,
-      onEnter: () => deps.showSlide('explore'),
+      onEnter: () => {
+        deps.showSlide('explore');
+        // …and scroll the switch itself into the lit area, after the slide has
+        // swapped. 'nearest' means no scroll at all when it is already showing.
+        requestAnimationFrame(() => {
+          document.querySelector('.explore-auto')
+            ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        });
+      },
     },
     {
       selector: ['#builder-sheet'],
@@ -843,7 +917,11 @@ function buildSteps(
       // middle of building.
       lookOnly: true,
       onEnter: () => deps.showSlide('mylines'),
-      mainAction: {
+      // The same before/after the Library step gives Lichess: once there are
+      // games on the device the ask is answered, so the button becomes a pill
+      // that says so rather than an invitation to do it again.
+      mainDone: imported ? 'Games imported' : undefined,
+      mainAction: imported ? undefined : {
         label: 'Import my games',
         onClick: () => {
           stepAside();
@@ -861,7 +939,21 @@ function buildSteps(
       body: 'Play two more moves for now — you can keep adding moves later.',
       pad: 0,
       interactive: true,
-      onEnter: () => deps.showSlide('explore'),
+      onEnter: () => {
+        deps.showSlide('explore');
+        // The bar this step is asking for, measured from wherever the line is
+        // NOW — re-entering the step (Back, or a tab tap and back again) moves
+        // the bar with it rather than counting moves made before it started.
+        movesWanted = deps.ownMoveCount() + BACK_TO_LINE_MOVES;
+      },
+      // It asks for two moves; playing two moves is the answer, so it moves on
+      // by itself. Next is still there for anyone who would rather read ahead.
+      // Counting the USER's moves, not board events: with auto-reply on, every
+      // move of theirs is followed by one of the opponent's, and a raw event
+      // count would call one move two.
+      watch: (advance) => onBuilderMove(() => {
+        if (deps.ownMoveCount() >= movesWanted) advance();
+      }),
     },
     {
       selector: ['#header-save', '#save-line-btn'],
@@ -876,8 +968,14 @@ function buildSteps(
       // which asked the user to weigh two equal-looking options on the last
       // bubble of a walkthrough whose entire purpose was getting them to a saved
       // line.
-      mainAction: { label: 'Save line', onClick: deps.onSave },
-      actions: [{ label: 'Add more moves', variant: 'quiet', onClick: deps.onDone }],
+      // stepAside first: saving takes the screen, and without it the walkthrough
+      // would leave the panel tabs it locked on the way in still disabled.
+      mainAction: { label: 'Save line', onClick: () => { stepAside(); deps.onSave(); } },
+      // `advance` on the LAST step is the sequence's ordinary end, which runs
+      // the walkthrough's own onDone — the tidy-up included. Calling deps.onDone
+      // directly (what this used to do) skipped that AND re-armed the standalone
+      // save prompt, so "Add more moves" was answered by the same bubble again.
+      actions: [{ label: 'Add more moves', variant: 'quiet', advance: true }],
     },
   ];
 }

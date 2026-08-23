@@ -2929,6 +2929,95 @@ should say what it is for where you are standing**.
 
 ---
 
+## The walkthrough-and-background round — the app finishes its own homework ✅
+
+A six-item round across the first run, Middle game, End game and Train. Two
+threads run through it: **a walkthrough should not repeat itself**, and **a pane
+built on a long engine job should not open with the job as a question**.
+
+### The walkthrough
+
+- ✅ **The Explore bubble lights the dock too.** A spotlight is one box-shadow
+  cut-out, so it could only ever cover one element — and the element it covered
+  stopped at the panel's bottom edge, which is exactly where the auto-reply
+  switch the bubble is talking about had scrolled to. A step can name a second
+  target now (`spanSelector`), the hole is drawn round both, and the step scrolls
+  the switch into it. Panel and bottom bar light up together, which also says
+  without a sentence that everything under the board belongs to this step.
+- ✅ **"Play two more moves" is answered by playing two more moves.** The bubble
+  asked for two and then sat there until Next was pressed, which taught that the
+  walkthrough's instructions are decorative. It counts the user's OWN moves — with
+  auto-reply on, every move of theirs is followed by one of the opponent's, and a
+  raw event count called one move two.
+- ✅ **"Import my games" becomes "Games imported."** The same before/after the
+  Library step already gave Lichess. An ask that has been answered should stop
+  being an ask.
+- ✅ **The save bubble stopped appearing twice.** The walkthrough's last bubble IS
+  the save step; "Add more moves" ended the walkthrough, which re-armed the
+  STANDALONE save step, which is the identical bubble — so declining the offer
+  produced the offer. The ending now reports whether that bubble was reached
+  (`TourEnd.saveOffered`) and the empty-board first line stops re-arming when it
+  was. Two smaller leaks went with it: the same button skipped the walkthrough's
+  own tidy-up, so the panel tabs it had locked stayed locked, and so did Save.
+- ✅ **The first-line success card offers an account again.** It used to carry the
+  sign-up FORM, which turned the one moment that should read as "that worked"
+  into data entry; the fix was to delete the ask entirely, which went too far —
+  the person has just made something worth keeping and nothing has mentioned that
+  the browser can lose it. It celebrates first and offers second: one sentence,
+  a button that opens the ordinary sheet, and "Not now" underneath. Built only
+  where accounts exist and only for someone not already signed in.
+
+### Middle game
+
+- ✅ **"Your games mix" is the pane's front door.** Every other Train tab opens
+  with one wide button that just starts something; this one opened with a menu of
+  five cards and asked you to choose a category first — a decision about your own
+  games that a first-timer has no basis for. The mix deals round-robin across the
+  four mistake categories so a library heavy in one of them doesn't fill the run
+  with it, then hands over to your brilliant finds on the results screen, the way
+  the daily challenge passes between its halves.
+- ✅ **"All games analysed" is one faint line.** It was bold, green, ticked, and
+  followed by a sentence explaining a background job nobody had asked about —
+  a badge for the app having finished its own homework.
+- ✅ **Brilliant moves narrow once there are enough of them.** A brilliant (!!) is
+  rare, so the card has always pooled the engine's "great" grade in with them or
+  it would be a card with nothing on it. At ten of your own it stops: by then
+  there is enough of the real thing to fill a session, and mixing greats in
+  dilutes it.
+
+### End game
+
+- ✅ **"From your games" scans itself** (`endgame-autoscan.ts`), the twin of the
+  mistake pass. Same rules — one at a time, the manual scan wins, aborting is a
+  pause, the tier cap is the button's — plus two this one needs. It goes SECOND,
+  because both passes queue on the same review worker and the Middle game pane is
+  the one the app leads with. And it can be UNREACHABLE: the tablebase is a
+  network call, so a pass that gives up latches off for five minutes rather than
+  turning a train journey into a retry loop. One Settings switch still governs
+  both.
+
+### Train
+
+- ✅ **Repertoire run's card lines up with the others.** It carried a stat badge
+  and a two-clause subtitle, so the subtitle wrapped and dragged the badge out of
+  line with the badges above it. One sentence, no badge; the saving it used to
+  quote is a fact about the mode rather than a number you decide on, so it moved
+  to the info sheet.
+- ✅ **The run is one walk, not seven rounds.** Rounds exist because a line walk is
+  a long unit worth banking in stages. A repertoire run is one pass through one
+  book: "Round 3 of 7" described an arithmetic nobody asked for while hiding the
+  only figure they wanted. The drill's own bar reads "Position 12 of 34" the
+  whole way through instead — and stopping early now ENDS ON THE RESULTS SCREEN,
+  because every answer was already graded and saved, so the recap is owed.
+- ✅ **The refresh box counts the pile both ways.** It offers two routes through
+  one due pile and measured only the first: lines due, and the rounds of five
+  those lines break into. The middle column is the same pile counted in moves
+  now — lines due and moves due ARE the two buttons, in the order the buttons sit
+  — and each button says what it DOES rather than repeating a count six
+  millimetres below the same count. Still three figures.
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

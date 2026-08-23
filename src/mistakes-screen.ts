@@ -55,6 +55,19 @@ import { brilliantDueMap } from './brilliant-log';
 // Session size for a category card tap — five positions, like a puzzle run.
 const SESSION_SIZE = 5;
 
+// The mixed run at the top of the pane: how many mistake positions it deals from
+// across the four categories, and how many brilliant finds it closes with. The
+// two halves are two different exercises (find a better move / find the move you
+// found), so they run back to back rather than shuffled into one another — the
+// same shape the daily challenge uses for its two halves.
+const MIX_MISTAKES = 8;
+const MIX_BRILLIANT = 3;
+
+// Brilliancies are scarce. Below this many of your own, the card pools the
+// engine's "great" grade in with them so the exercise has something to deal;
+// once you have a proper collection it narrows to the real thing.
+const BRILLIANT_ONLY_FROM = 10;
+
 // Per-category accents for the cards, kin to the Practise cards' palette.
 const CATEGORY_ACCENT: Record<MistakeCategory, string> = {
   'opening-blunder': '#b3593b', // ember — it went wrong early
@@ -91,6 +104,13 @@ function openMistakeInfo(): void {
       + 'you as it was — before you played the move.',
     entries: [
       {
+        icon: Icons.sparkles(18), accent: CATEGORY_ACCENT['punish-opening'],
+        label: 'Your games mix',
+        detail: 'The button at the top. It deals from all four mistake cards in turn and '
+          + 'finishes on your best moves, so you get a spread of your own game rather than '
+          + 'having to pick a category first.',
+      },
+      {
         icon: Icons.zap(18), accent: CATEGORY_ACCENT['opening-blunder'],
         label: CATEGORY_LABEL['opening-blunder'],
         detail: 'Mistakes inside the first dozen moves — the ones a line in your repertoire '
@@ -116,12 +136,16 @@ function openMistakeInfo(): void {
       {
         icon: classIcon('brilliant', 18), accent: CLASS_COLOR.brilliant,
         label: 'Your brilliant moves',
-        detail: 'The opposite exercise: moves the engine graded brilliant or great when you '
-          + 'played them. Find them again. Solved ones rest a while, then come back.',
+        detail: 'The opposite exercise: moves the engine graded brilliant (!!) or great (!) '
+          + 'when you played them. Find them again. Once you have ten brilliancies of your '
+          + 'own the card narrows to those alone. Solved ones rest a while, then come back.',
       },
     ],
-    footnote: 'A card stays greyed out until the scan has found something for it, and a spot '
-      + 'you get right is marked fixed and drops out of the rotation.',
+    footnote: 'A card stays greyed out until the scan has found something for it. A spot you '
+      + 'get right is marked fixed and goes to the back of its queue — it only comes round '
+      + 'again once the unfixed ones have run out, and the "to fix" count never counts it. '
+      + 'A brilliant move you re-find rests for a few days and then returns, longer each '
+      + 'time you find it again.',
   });
 }
 
@@ -188,8 +212,18 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   const refs = collectSpots(games);
   // Order the brilliant finds so the carousel + session loop through them:
   // freshly-solved gems rest a while, then resurface (brilliant-log.ts).
+  //
+  // WHICH FINDS. A brilliant (!!) is rare — plenty of people have two in a
+  // hundred games — so a card that only ever offered those would be a card with
+  // nothing on it. Below BRILLIANT_ONLY_FROM of them the engine's "great" grade
+  // is pooled in to make an exercise; at or above it the card is brilliancies
+  // only, because by then there are enough of the real thing to fill a session
+  // and mixing greats in would dilute it.
+  const allGems = collectBrilliantSpots(games);
+  const trueGems = allGems.filter(g => g.spot.cls === 'brilliant');
+  const gemsOnly = trueGems.length >= BRILLIANT_ONLY_FROM;
   const dueMap = brilliantDueMap();
-  const brilliantRefs = orderBrilliant(collectBrilliantSpots(games), id => dueMap[id] ?? 0);
+  const brilliantRefs = orderBrilliant(gemsOnly ? trueGems : allGems, id => dueMap[id] ?? 0);
   const newGames = unscannedCount(games);
 
   root.appendChild(renderHero());
@@ -212,6 +246,19 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     // read as if the whole library were being added up.
     stats.appendChild(scannedNum.col);
     hero.appendChild(stats);
+
+    // ── Your games mix ───────────────────────────────────────────────────────
+    //
+    // The front door this pane never had. Every other Train tab opens with one
+    // wide button that just starts something — Puzzle rated mix, All endgame
+    // puzzles — and this one opened with a menu of five cards and asked you to
+    // choose a category first. Choosing between "Missed wins" and "Blunders" is
+    // a decision about your own games that a first-timer has no basis for, and
+    // the cards are still there for anyone who does. This deals from all of
+    // them: mistake positions round-robin across the four categories, then your
+    // brilliant finds to close on.
+    const mix = buildMixButton();
+    if (mix) hero.appendChild(mix);
 
     if (newGames > 0) {
       // The scan runs on its own now (mistake-autoscan.ts), so this is a LIVE
@@ -292,9 +339,12 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       // along, which is a no-op when it is already running.
       startAutoScan();
     } else {
+      // Nothing to say beyond the fact. "New imports are read automatically" was
+      // an explanation of a background job nobody asked about, printed under a
+      // line that had already reported the job was finished.
       const done = document.createElement('div');
       done.className = 'mistakes-hero-note mistakes-hero-note--done';
-      done.textContent = 'All games analysed ✓ — new imports are read automatically.';
+      done.textContent = 'All games analysed';
       hero.appendChild(done);
     }
 
@@ -303,6 +353,66 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     }
 
     return hero;
+  }
+
+  // The wide launch button, or null when the scan has not turned anything up
+  // yet — a primary button that can only tell you there is nothing to do is
+  // worse than no button.
+  function buildMixButton(): HTMLElement | null {
+    const spots = mixSpots();
+    const gems = brilliantRefs.slice(0, MIX_BRILLIANT);
+    if (spots.length === 0 && gems.length === 0) return null;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn-primary train-hero-start mistakes-mix-btn';
+    btn.appendChild(Icons.sparkles(18));
+    btn.appendChild(document.createTextNode('Your games mix'));
+    btn.addEventListener('click', () => startMix());
+    return btn;
+  }
+
+  // The mistake half of the mix: deal round-robin across the four categories so
+  // a library heavy in one of them doesn't fill the whole run with it. Each
+  // category's own order is pickSpots's — unfixed and newest first, solved ones
+  // behind them — so a spot you have already fixed only turns up once the
+  // unfixed ones in its category have run out.
+  function mixSpots(): SpotRef[] {
+    const queues = CATEGORIES.map(cat =>
+      pickSpots(refs.filter(r => r.spot.category === cat), cat, MIX_MISTAKES));
+    const out: SpotRef[] = [];
+    for (let round = 0; out.length < MIX_MISTAKES; round++) {
+      let dealt = false;
+      for (const q of queues) {
+        if (round >= q.length) continue;
+        out.push(q[round]);
+        dealt = true;
+        if (out.length >= MIX_MISTAKES) break;
+      }
+      if (!dealt) break;
+    }
+    return out;
+  }
+
+  // Mistakes, then the brilliancies as the run's last stretch — handed over by
+  // the results screen's primary button, the way the daily challenge passes from
+  // its puzzle half to its endgame half. Either half alone is still a mix worth
+  // running when the other is empty.
+  function startMix(): void {
+    const spots = mixSpots();
+    const gems = brilliantRefs.slice(0, MIX_BRILLIANT);
+    if (spots.length === 0) { startBrilliant(brilliantRefs, MIX_BRILLIANT); return; }
+
+    startMistakeSession({
+      refs: spots,
+      modeLabel: 'Your games mix',
+      onExit: rerender,
+      onPlayAgain: () => startMix(),
+      onOpenGame: deps.onOpenGame,
+      nextAction: gems.length > 0
+        ? { label: 'Now your best moves', run: () => startBrilliant(brilliantRefs, MIX_BRILLIANT) }
+        : undefined,
+    });
   }
 
   // Returns the column AND its number, so a hero watching the background pass
@@ -370,7 +480,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       accent: CLASS_COLOR.brilliant,
       icon: classIcon('brilliant', 20),
       name: 'Your brilliant moves',
-      sub: 'find your best moves again',
+      sub: gemsOnly ? 'find your brilliancies again' : 'find your best moves again',
       stat: brilliantRefs.length > 0 ? brilliantRefs.length : undefined,
       statLabel: brilliantRefs.length > 0 ? 'to find' : undefined,
       disabled: brilliantRefs.length === 0,
@@ -381,12 +491,12 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     return section;
   }
 
-  function startBrilliant(pool: BrilliantRef[]): void {
+  function startBrilliant(pool: BrilliantRef[], count = SESSION_SIZE): void {
     // pool is already ordered (available gems first); take a session's worth.
     startBrilliantSession({
-      refs: pool.slice(0, SESSION_SIZE),
+      refs: pool.slice(0, count),
       onExit: rerender,
-      onPlayAgain: () => startBrilliant(pool),
+      onPlayAgain: () => startBrilliant(pool, count),
       onOpenGame: deps.onOpenGame,
     });
   }
