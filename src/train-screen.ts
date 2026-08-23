@@ -447,15 +447,20 @@ function renderHero(
 
   const row = document.createElement('div');
   row.className = 'train-refresh-row';
+  // The icons say what the two units ARE. Full lines walks a list of lines, one
+  // row at a time, so it gets the list; Repertoire run walks the book itself, so
+  // it gets the book. (A brain and a list, which is what these were, said
+  // "thinking" and "some rows" — neither of which is the difference between
+  // them.)
   row.appendChild(refreshButton(
-    Icons.brain(18),
+    Icons.list(18),
     'Full lines',
     'start to finish',
     () => startRounds(dueLines(allTraining), container, { explicit: true }),
   ));
   if (runnable) {
     row.appendChild(refreshButton(
-      Icons.list(18),
+      Icons.book(18),
       'Repertoire run',
       'each move once',
       () => runRepertoireRun(container, books),
@@ -630,7 +635,7 @@ function renderModeCards(
   if (runPlan && runPlan.totalMoves > 0) {
     section.appendChild(buildModeCard({
       accent: MODE_ACCENT.run,
-      icon: Icons.list(20),
+      icon: Icons.book(20),
       name: 'Repertoire run',
       sub: 'every move in your book, asked once',
       onClick: () => runRepertoireRun(container, books),
@@ -709,7 +714,7 @@ function openPracticeInfo(runPlan: RunPlan | null): void {
           + 'run-up: you are dropped straight into the position that beat you.',
       },
       {
-        icon: Icons.list(18), accent: MODE_ACCENT.run,
+        icon: Icons.book(18), accent: MODE_ACCENT.run,
         label: 'Repertoire run',
         detail: 'One pass through your whole book, asking every move exactly once. Lines '
           + 'that share an opening replay it once here instead of once per line, which is '

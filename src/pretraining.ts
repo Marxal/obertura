@@ -62,6 +62,15 @@ export function startPretrainingRun(
   startDrill(lineCopy, {
     // No backLabel override: the in-session exit control reads "End session"
     // everywhere (the default), with the header chevron as its icon.
+    //
+    // …except on the guided first line — the run with a `beforeWatch`
+    // introduction — where there is no exit control at all. Same reasoning as
+    // skipRun below: that run is the payoff of the whole first visit and lasts
+    // about twenty seconds, and its own coach-mark already carries a quiet
+    // "Skip this time". Advertising a louder way out beside it is offering an
+    // escape from the thing you most wanted them to see. The back gesture still
+    // works either way.
+    hideExit: !!opts.beforeWatch,
     modeLabel: 'Confirm line',
     completeMessage: opts.completeMessage ?? 'Line confirmed — added to training',
     // Watch the line through once first, at the user's chosen watch speed.

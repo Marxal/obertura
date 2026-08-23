@@ -3018,6 +3018,53 @@ built on a long engine job should not open with the job as a question**.
 
 ---
 
+## The walkthrough second pass — the ways out, and the ways back ✅
+
+Six items from testing the round above on the phone. Most of them are the same
+shape: a path the walkthrough didn't know existed, taken by a user who had every
+reason to take it.
+
+- ✅ **Backing out of the Lichess login keeps the walkthrough.** The connect
+  redirects the whole page away, and the stash that says where the walkthrough
+  was is read on the way home — but only on the SUCCESS path, so someone who read
+  the Lichess login screen and pressed back came home to a half-built line with
+  no bubbles and no way to get them back. Both paths read it now. A second bug
+  sat behind it and would have hit the successful connect too: this device still
+  has no saved lines, so the first-run picker came up over the resumed bubbles —
+  the question that STARTED the walkthrough, asked again on top of it. The boot
+  sequence checks for a pending resume before offering the picker.
+- ✅ **The Explore bubble opens the panel at its top.** The first cut scrolled the
+  auto-reply switch into view, which is a jump on arrival to reach something
+  three rows down anyway. From the top, the whole of what the bubble describes —
+  the question, the three answers, the switch — is already on screen.
+- ✅ **The real Save button ends the walkthrough too, and does the same thing.**
+  That step is live, so the header's own button is tappable — and it did
+  something else entirely. Standing inside a book the header ADDS moves: it
+  committed them and ran a bare confirm run, with no trainer introduction, no
+  success card, no account offer, and the walkthrough bubble left sitting on top
+  of it. Under the walkthrough it now goes down the same path the bubble's Save
+  does, says the same word ("Save line", not "Add 6 moves"), and the walkthrough
+  hears about it and gets out of the way.
+- ✅ **The first line's confirm run has no "End session".** That run is the payoff
+  of the whole first visit and lasts about twenty seconds, and its own coach-mark
+  already carries a quiet "Skip this time". A louder way out beside it is an
+  escape hatch from the thing you most wanted them to see. The header goes with
+  it rather than leaving an empty bar. The back gesture still works.
+- ✅ **Full lines and Repertoire run get icons that mean something.** A brain and
+  a list said "thinking" and "some rows", neither of which is the difference
+  between them. Full lines walks a list of lines, so it takes the list;
+  Repertoire run walks the book, so it takes the book — on the button, on the
+  Practise card and in the info sheet.
+- ✅ **"Reset" beside "All games analysed".** The engine improves and the scan's
+  rules change, and a spot you fixed months ago is worth being asked again — but
+  with the pane reporting "all analysed" there was no route to any of that short
+  of deleting your games. A bare word beside the line, not a button: it is a long
+  job and a discard, so it asks first, says what goes (the spots and the fixed
+  marks) and what doesn't (the games, their analysis, and so the brilliant
+  moves).
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

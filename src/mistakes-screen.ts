@@ -25,6 +25,7 @@ import {
   type AutoScanState,
 } from './mistake-autoscan';
 import { showToast } from './toast';
+import { showDialog } from './dialog';
 import {
   isEntitled, buildCapNotice, FREE_MISTAKE_GAME_WINDOW, FREE_MISTAKE_SPOTS,
 } from './entitlement';
@@ -42,6 +43,7 @@ import {
   countRetry,
   unscannedCount,
   capMistakeGamesForTier,
+  resetMistakeScans,
 } from './mistake-scan';
 import type { MistakeCategory, RetryCounts, ScanProgress, SpotRef } from './mistake-scan';
 import { startBrilliantSession } from './brilliant-run';
@@ -342,9 +344,19 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       // Nothing to say beyond the fact. "New imports are read automatically" was
       // an explanation of a background job nobody asked about, printed under a
       // line that had already reported the job was finished.
+      //
+      // The one thing worth offering here is the way BACK: read them all again.
+      // The engine improves, the scan's rules change, and a spot you fixed
+      // months ago is worth being asked once more — but with the pane reporting
+      // "all analysed" there was no route to any of that short of deleting your
+      // games. It sits as a bare word beside the line, not a button: it is a
+      // long job and a discard, and it asks first.
       const done = document.createElement('div');
       done.className = 'mistakes-hero-note mistakes-hero-note--done';
-      done.textContent = 'All games analysed';
+      const doneText = document.createElement('span');
+      doneText.textContent = 'All games analysed';
+      done.appendChild(doneText);
+      done.appendChild(buildResetLink());
       hero.appendChild(done);
     }
 
@@ -353,6 +365,55 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     }
 
     return hero;
+  }
+
+  // "Reset" beside the all-analysed line: read every game again from scratch.
+  //
+  // It is a DISCARD, so it asks first and says exactly what goes — the spots and
+  // the fixed marks — and exactly what doesn't: the games themselves, their
+  // saved analysis, and so the brilliant-move finds, which come from the
+  // analysis rather than from this scan.
+  function buildResetLink(): HTMLElement {
+    const reset = document.createElement('button');
+    reset.type = 'button';
+    reset.className = 'mistakes-reset-link';
+    reset.textContent = 'Reset';
+    reset.addEventListener('click', () => showDialog({
+      title: 'Analyse every game again?',
+      body: `This clears the ${counts.spots} ${counts.spots === 1 ? 'spot' : 'spots'} found so `
+        + `far and the ${counts.fixed} marked fixed, then reads all `
+        + `${counts.scanned} ${counts.scanned === 1 ? 'game' : 'games'} from scratch.\n\n`
+        + 'Your games, their analysis and your brilliant moves are untouched. The new scan '
+        + 'runs in the background — you can carry on with anything else.',
+      buttons: [
+        {
+          label: 'Analyse again',
+          variant: 'danger',
+          onClick: () => { void runReset(); },
+        },
+        { label: 'Cancel', variant: 'secondary' },
+      ],
+    }));
+    return reset;
+  }
+
+  async function runReset(): Promise<void> {
+    // Stop the background pass before the wipe, or it would be halfway through
+    // writing a result for a game we are about to clear.
+    suspendAutoScan();
+    try {
+      await resetMistakeScans();
+      // Don't promise a background pass to someone who has turned it off in
+      // Settings — for them the button on this card is the whole of it.
+      showToast(getAutoScanEnabled()
+        ? 'Starting again — analysing your games'
+        : 'Scan cleared — press Analyse my games to read them again');
+    } catch {
+      showToast('Couldn’t reset the scan');
+    } finally {
+      resumeAutoScan();
+      rerender();
+    }
   }
 
   // The wide launch button, or null when the scan has not turned anything up
