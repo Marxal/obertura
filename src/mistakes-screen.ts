@@ -52,7 +52,7 @@ import {
   orderBrilliant,
   type BrilliantRef,
 } from './brilliant';
-import { brilliantDueMap } from './brilliant-log';
+import { brilliantDueMap, clearBrilliantLog } from './brilliant-log';
 
 // Session size for a category card tap — five positions, like a puzzle run.
 const SESSION_SIZE = 5;
@@ -143,7 +143,9 @@ function openMistakeInfo(): void {
           + 'own the card narrows to those alone. Solved ones rest a while, then come back.',
       },
     ],
-    footnote: 'A card stays greyed out until the scan has found something for it. A spot you '
+    footnote: 'Reset, under the mix button, starts all of this again: the spots go, every game '
+      + 'is read from scratch, and every brilliant move you have re-found becomes available '
+      + 'again. A card stays greyed out until the scan has found something for it. A spot you '
       + 'get right is marked fixed and goes to the back of its queue — it only comes round '
       + 'again once the unfixed ones have run out, and the "to fix" count never counts it. '
       + 'A brilliant move you re-find rests for a few days and then returns, longer each '
@@ -226,6 +228,14 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   const gemsOnly = trueGems.length >= BRILLIANT_ONLY_FROM;
   const dueMap = brilliantDueMap();
   const brilliantRefs = orderBrilliant(gemsOnly ? trueGems : allGems, id => dueMap[id] ?? 0);
+  // How many are available RIGHT NOW, as opposed to resting off a recent
+  // re-find. This is the figure the card badges, for the same reason the mistake
+  // cards badge their unfixed count rather than their total: a number that never
+  // moves however much you do is not a number worth printing. It is also what
+  // makes Reset visible on this half of the pane — clearing the rest log puts
+  // every gem back, and the badge says so.
+  const gemsReady = brilliantRefs.filter(
+    r => (dueMap[r.spot.id] ?? 0) <= Date.now()).length;
   const newGames = unscannedCount(games);
 
   root.appendChild(renderHero());
@@ -367,27 +377,34 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     return hero;
   }
 
-  // "Reset" beside the all-analysed line: read every game again from scratch.
+  // "Reset" beside the all-analysed line: start this pane over.
   //
-  // It is a DISCARD, so it asks first and says exactly what goes — the spots and
-  // the fixed marks — and exactly what doesn't: the games themselves, their
-  // saved analysis, and so the brilliant-move finds, which come from the
-  // analysis rather than from this scan.
+  // It resets EVERY exercise on it, which is two different stores. The mistake
+  // half is the scan: the spots and the fixed marks go, and the games are read
+  // again from scratch. The brilliant half has no scan of its own — the finds
+  // are read off each game's saved analysis, written by the game review, so
+  // nothing here can regenerate them and throwing them away would mean deleting
+  // that analysis (with the user's variations and notes in it) for good. What it
+  // DOES have is progress: a re-found gem rests for a few days before coming
+  // back, and that log is cleared, so every one of them is available again.
+  //
+  // It is a discard either way, so it asks first and says which is which.
   function buildResetLink(): HTMLElement {
     const reset = document.createElement('button');
     reset.type = 'button';
     reset.className = 'mistakes-reset-link';
     reset.textContent = 'Reset';
     reset.addEventListener('click', () => showDialog({
-      title: 'Analyse every game again?',
+      title: 'Start these exercises again?',
       body: `This clears the ${counts.spots} ${counts.spots === 1 ? 'spot' : 'spots'} found so `
         + `far and the ${counts.fixed} marked fixed, then reads all `
-        + `${counts.scanned} ${counts.scanned === 1 ? 'game' : 'games'} from scratch.\n\n`
-        + 'Your games, their analysis and your brilliant moves are untouched. The new scan '
-        + 'runs in the background — you can carry on with anything else.',
+        + `${counts.scanned} ${counts.scanned === 1 ? 'game' : 'games'} from scratch. `
+        + 'Every brilliant move you have already re-found becomes available again too.\n\n'
+        + 'Your games and their analysis are untouched — which is where the brilliant moves '
+        + 'themselves come from, so the same ones will still be there to find.',
       buttons: [
         {
-          label: 'Analyse again',
+          label: 'Start again',
           variant: 'danger',
           onClick: () => { void runReset(); },
         },
@@ -403,13 +420,16 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     suspendAutoScan();
     try {
       await resetMistakeScans();
+      // The other half of this pane's progress. Local and instant — no games are
+      // rewritten, the suppression log simply stops existing.
+      clearBrilliantLog();
       // Don't promise a background pass to someone who has turned it off in
       // Settings — for them the button on this card is the whole of it.
       showToast(getAutoScanEnabled()
         ? 'Starting again — analysing your games'
-        : 'Scan cleared — press Analyse my games to read them again');
+        : 'Progress cleared — press Analyse my games to read them again');
     } catch {
-      showToast('Couldn’t reset the scan');
+      showToast('Couldn’t reset these exercises');
     } finally {
       resumeAutoScan();
       rerender();
@@ -541,9 +561,15 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       accent: CLASS_COLOR.brilliant,
       icon: classIcon('brilliant', 20),
       name: 'Your brilliant moves',
-      sub: gemsOnly ? 'find your brilliancies again' : 'find your best moves again',
-      stat: brilliantRefs.length > 0 ? brilliantRefs.length : undefined,
-      statLabel: brilliantRefs.length > 0 ? 'to find' : undefined,
+      // Nothing waiting means they have all been re-found lately, which is a
+      // result rather than an empty card — so the card stays tappable (the
+      // session deals the nearest-due one) and the subtitle says why the badge
+      // has gone instead of a "0" that looks like a failure.
+      sub: brilliantRefs.length > 0 && gemsReady === 0
+        ? 'all found — they come back over the next few days'
+        : gemsOnly ? 'find your brilliancies again' : 'find your best moves again',
+      stat: gemsReady > 0 ? gemsReady : undefined,
+      statLabel: gemsReady > 0 ? 'to find' : undefined,
       disabled: brilliantRefs.length === 0,
       disabledReason: 'Analyse your games to find your brilliant moves',
       onClick: () => startBrilliant(brilliantRefs),
