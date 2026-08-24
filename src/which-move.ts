@@ -1,4 +1,4 @@
-// Better or blunder — the pure core of the two-move question.
+// Which move — the pure core of the two-move question.
 //
 // THE EXERCISE. One position from one of your games, two moves drawn on the
 // board as arrows: the one you actually played, and the one the engine wanted.
@@ -18,7 +18,7 @@
 //   • and the two moves have to be visibly different on the board (a promotion
 //     to a different piece from the same square is one arrow, not two).
 //
-// No DOM, no engine, no storage — better.selftest.ts covers the lot.
+// No DOM, no engine, no storage — which-move.selftest.ts covers the lot.
 
 import { cpToWin } from './winprob';
 import type { SpotRef } from './mistake-scan';
@@ -54,7 +54,7 @@ export function fairPairs(refs: SpotRef[]): SpotRef[] {
  * from the same game in a row while other games are waiting. Same game twice
  * running means the same opponent, often the same opening — it reads as a bug.
  */
-export function pickBetter(
+export function pickWhichMove(
   refs: SpotRef[],
   count: number,
   dueAt: (id: string) => number = () => 0,
@@ -85,7 +85,7 @@ export function pickBetter(
 }
 
 /** How many questions are available right now (not resting) — the card's badge. */
-export function readyBetterCount(
+export function readyWhichMoveCount(
   refs: SpotRef[],
   dueAt: (id: string) => number,
   now: number = Date.now(),

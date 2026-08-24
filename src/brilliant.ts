@@ -1,15 +1,30 @@
 // Brilliant Moves — the "find it again" exercise source. Where the Mistake scan
 // (mistake-scan.ts) finds where your games went WRONG, this finds where they
-// went RIGHT: the brilliant (!!) and great (!) moves YOU played, read straight
-// off a game's saved analysis. review.ts writes a `classification` onto every
-// mainline move, so once a game has been analysed the finds are already there —
-// no engine, no network, pure walks over the stored tree.
+// went RIGHT: the brilliant (!!) and great (!) moves YOU played.
 //
-// Two jobs:
-//   • collectBrilliantSpots / gameBrilliantSpots — flatten analysed games into
-//     session-ready "find it again" positions.
+// TWO SOURCES, AND WHY THERE ARE TWO. The original one is a game's SAVED
+// ANALYSIS: review.ts writes a `classification` onto every mainline move, so a
+// game you have opened in the analyser and reviewed already holds its finds —
+// no engine, no network, a pure walk over the stored tree.
+//
+// The catch was that almost nobody has those. A saved analysis only exists once
+// you open a game in the analyser and press Analyse game, one game at a time,
+// while the pane's "games analysed" figure counts the BACKGROUND MISTAKE SCAN —
+// so the screen could honestly say "400 games analysed" and "no brilliant moves
+// found", which is a contradiction from every angle except the code's. The scan
+// now looks for them too (candidatePlies below feeds it), and its finds are
+// stored on the game record beside the mistake spots. collectBrilliantSpots
+// reads both and de-duplicates.
+//
+// Three jobs:
+//   • collectBrilliantSpots / gameBrilliantSpots — flatten a game's finds into
+//     session-ready "find it again" positions, from either source.
+//   • candidatePlies — the scan's cheap pre-filter: which of your moves are
+//     worth asking the engine about at all.
 //   • hasUserBrilliant / applyBrilliantTag — the automatic "brilliant" game tag.
 
+import { moveFacts, SEE_MATERIAL_MARGIN } from './move-facts';
+import { cpToWin, BRILLIANT_MIN_WIN_AFTER, BRILLIANT_MAX_WIN_BEFORE } from './winprob';
 import type { ImportedGame } from './import-core';
 import type { MoveNode } from './tree';
 
@@ -76,8 +91,10 @@ export function gameBrilliantSpots(game: ImportedGame): BrilliantSpot[] {
 
 // Does this game contain a user-side BRILLIANT move? Great alone doesn't earn
 // the tag — a brilliant (a sound sacrifice, the engine's #1) is the real gem.
+// Reads both sources, so a game the scan found one in is tagged even though it
+// has never been opened in the analyser.
 export function hasUserBrilliant(game: ImportedGame): boolean {
-  return gameBrilliantSpots(game).some(s => s.cls === 'brilliant');
+  return gameFinds(game).some(s => s.cls === 'brilliant');
 }
 
 // Add the automatic "brilliant" tag to a game that contains a user-side
@@ -91,12 +108,88 @@ export function applyBrilliantTag(game: ImportedGame): boolean {
   return true;
 }
 
-// Flatten every analysed game's finds into session-ready refs.
+/**
+ * Every find a game holds, from both sources: the ones read off a saved analysis
+ * and the ones the mistake scan verified. Ids are `${gameId}#b${ply}` in both,
+ * so the same move found twice is one spot — and the analysis wins, because it
+ * carries the reviewer's own grade for that exact move.
+ */
+export function gameFinds(game: ImportedGame): BrilliantSpot[] {
+  const fromAnalysis = gameBrilliantSpots(game);
+  const scanned = game.retry?.brilliant ?? [];
+  if (scanned.length === 0) return fromAnalysis;
+  const seen = new Set(fromAnalysis.map(s => s.id));
+  return [...fromAnalysis, ...scanned.filter(s => !seen.has(s.id))];
+}
+
+// Flatten every game's finds into session-ready refs.
 export function collectBrilliantSpots(games: ImportedGame[]): BrilliantRef[] {
   const out: BrilliantRef[] = [];
   for (const game of games) {
-    for (const spot of gameBrilliantSpots(game)) out.push({ game, spot });
+    for (const spot of gameFinds(game)) out.push({ game, spot });
   }
+  return out;
+}
+
+// ── The scan's candidate pass (pure) ─────────────────────────────────────────
+
+/**
+ * Which of YOUR moves in a game are worth asking the engine about.
+ *
+ * A brilliancy is a real material sacrifice that works, so the filter is exactly
+ * that, and it costs nothing but chess.js: the move must give up material (the
+ * same SEE test the analyser's grader uses), it must not be the only legal move,
+ * and — this is the part that does the work — the position must still be FINE
+ * afterwards. Amateur games are full of pieces given away by accident, and every
+ * one of them passes a sacrifice test; almost none of them survives "and you
+ * were still alright after it".
+ *
+ * `trail` is the mistake scan's cheap eval pass (WHITE-perspective, trail[i] =
+ * before ply i), which the scan has already paid for. Plies it couldn't evaluate
+ * are skipped rather than guessed at.
+ *
+ * Ordered by material given up, most first — if only a couple can be verified,
+ * they should be the spectacular ones.
+ */
+export interface BrilliantCandidate {
+  ply: number;
+  given: number;   // material handed over, in pawns (positive)
+}
+
+export function candidatePlies(o: {
+  colour: 'white' | 'black';
+  fens: string[];               // fens[i] = the position before ply i
+  ucis: string[];
+  trail: (number | null)[];
+  maxPly?: number;
+}): BrilliantCandidate[] {
+  const userParity = o.colour === 'white' ? 0 : 1;
+  const last = Math.min(o.ucis.length, o.maxPly ?? o.ucis.length, o.trail.length - 1);
+  const out: BrilliantCandidate[] = [];
+
+  for (let i = userParity; i < last; i += 2) {
+    const before = o.trail[i];
+    const after = o.trail[i + 1];
+    if (before === null || before === undefined) continue;
+    if (after === null || after === undefined) continue;
+    // Into the mover's own perspective.
+    const sign = i % 2 === 0 ? 1 : -1;
+    const winBefore = cpToWin(sign * before);
+    const winAfter = cpToWin(sign * after);
+    if (winAfter < BRILLIANT_MIN_WIN_AFTER) continue;   // it simply lost material
+    if (winBefore > BRILLIANT_MAX_WIN_BEFORE) continue; // already completely winning
+
+    const fen = o.fens[i];
+    const uci = o.ucis[i];
+    if (!fen || !uci) continue;
+    const facts = moveFacts(fen, uci, i > 0 ? o.ucis[i - 1] : undefined);
+    if (facts.onlyMove) continue;
+    if (facts.seeNet === null || facts.seeNet > -SEE_MATERIAL_MARGIN) continue;
+
+    out.push({ ply: i, given: -facts.seeNet });
+  }
+
+  out.sort((a, b) => b.given - a.given || a.ply - b.ply);
   return out;
 }
 

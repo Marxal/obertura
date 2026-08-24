@@ -149,6 +149,51 @@ export function runMistakeScanSelfTest(): TestResult[] {
     JSON.stringify(blunders.map(p => p.spot.id)));
   check('count caps the picks', pickSpots(refs, null, 2).length === 2);
 
+  // ── The rotation: a session must not deal the same spots every time ─────────
+  {
+    // Same game, same everything, except that two of the three have been met.
+    const g = mkGame('g', 5000, [
+      mkSpot('g#2', 'blunder', { attempts: 1, lastTrained: 900 }),
+      mkSpot('g#4', 'blunder'),
+      mkSpot('g#6', 'blunder', { attempts: 2, lastTrained: 100 }),
+    ]);
+    const order = pickSpots(collectSpots([g]), null, 3).map(r => r.spot.id);
+    check('a spot never met leads', order[0] === 'g#4', order.join(','));
+    check('then the one seen longest ago', order[1] === 'g#6', order.join(','));
+    check('the one seen most recently comes last', order[2] === 'g#2', order.join(','));
+  }
+
+  {
+    // Three games, three spots each. A session of three must be three DIFFERENT
+    // games, not one game's whole scan.
+    const many = [8000, 7000, 6000].map((t, i) => mkGame(`m${i}`, t, [
+      mkSpot(`m${i}#2`, 'blunder'), mkSpot(`m${i}#4`, 'blunder'), mkSpot(`m${i}#6`, 'blunder'),
+    ]));
+    const session = pickSpots(collectSpots(many), null, 3);
+    const games = new Set(session.map(r => r.game.id));
+    check('a session spreads across games', games.size === 3,
+      session.map(r => r.spot.id).join(','));
+    const nine = pickSpots(collectSpots(many), null, 9);
+    check('and never deals two from one game back to back',
+      nine.every((r, i) => i === 0 || nine[i - 1].game.id !== r.game.id),
+      nine.map(r => r.spot.id).join(','));
+    check('everything is still dealt', nine.length === 9);
+  }
+
+  {
+    // The complaint, reproduced: answer today's session without fixing anything,
+    // and tomorrow's session must be different spots.
+    const pool = [9000, 8000, 7000, 6000, 5000].map((t, i) =>
+      mkGame(`d${i}`, t, [mkSpot(`d${i}#2`, 'blunder')]));
+    const today = pickSpots(collectSpots(pool), null, 2);
+    // Every answer stamps lastTrained, fixed or not (recordSpotResult).
+    for (const r of today) r.spot.lastTrained = 1000;
+    const tomorrow = pickSpots(collectSpots(pool), null, 2);
+    const repeated = tomorrow.filter(r => today.some(t => t.spot.id === r.spot.id));
+    check('tomorrow deals different spots', repeated.length === 0,
+      `today ${today.map(r => r.spot.id)} → tomorrow ${tomorrow.map(r => r.spot.id)}`);
+  }
+
   const counts = countRetry([gOld, gMid, gNew, gUnscanned]);
   check('counts: spots and fixed', counts.spots === 4 && counts.fixed === 2,
     JSON.stringify(counts));
@@ -258,7 +303,7 @@ export function runMistakeScanSelfTest(): TestResult[] {
   // ── nextDailyTask (the "Next challenge →" chain) ────────────────────────────
   const day = (over: Partial<Record<DailyTaskId, boolean>>) => ({
     lines: false, positions: false, puzzles: false, endgames: false,
-    mistakes: false, detective: false, better: false,
+    mistakes: false, detective: false, whichMove: false,
     ...over,
   });
   const ALL: DailyTaskId[] = ['lines', 'positions', 'puzzles', 'endgames', 'mistakes'];
@@ -277,14 +322,14 @@ export function runMistakeScanSelfTest(): TestResult[] {
 
   // The two from-your-games parts added after the original five sit at the end
   // of the chain, in card order.
-  const EVERY: DailyTaskId[] = [...ALL, 'detective', 'better'];
+  const EVERY: DailyTaskId[] = [...ALL, 'detective', 'whichMove'];
   check('detective follows the mistake retry',
     nextDailyTask(day({ lines: true, positions: true, puzzles: true, endgames: true, mistakes: true }), EVERY)
       === 'detective');
-  check('better or blunder closes the chain',
+  check('which move closes the chain',
     nextDailyTask(
       day({ lines: true, positions: true, puzzles: true, endgames: true, mistakes: true, detective: true }),
-      EVERY) === 'better');
+      EVERY) === 'whichMove');
 
   return results;
 }

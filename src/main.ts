@@ -56,7 +56,7 @@ import {
   markEndgamesDone,
   markMistakesDone,
   markDetectiveDone,
-  markBetterDone,
+  markWhichMoveDone,
   isDailyDone,
   perfectDayEligible,
   type DailyTaskId,
@@ -71,9 +71,9 @@ import { collectSpots, pickSpots, type SpotRef } from './mistake-scan';
 import { startMistakeSession, type OpenGameCtx } from './mistake-run';
 import { collectDetectiveSpots, pickDetective, type DetectiveRef } from './detective';
 import { startDetectiveSession } from './detective-run';
-import { fairPairs, pickBetter } from './better';
-import { startBetterSession } from './better-run';
-import { detectiveLog, betterLog } from './middle-log';
+import { fairPairs, pickWhichMove } from './which-move';
+import { startWhichMoveSession } from './which-move-run';
+import { detectiveLog, whichMoveLog } from './middle-log';
 import type { AnalyseRequest as PuzzleAnalyseRequest } from './puzzle-run';
 import { renderMyGamesScreen, formatGameDate } from './my-games-screen';
 import { opponentTag } from './scout';
@@ -4043,7 +4043,7 @@ function renderTrainTabbed(host: HTMLElement): void {
       hasLines: dailyLines.length > 0,
       mistakesAvailable: spotRefs.length > 0,
       detectiveAvailable: detectiveRefs.length > 0,
-      betterAvailable: pairRefs.length > 0,
+      whichMoveAvailable: pairRefs.length > 0,
     };
     const active = activeDailyTasks(config, avail);
 
@@ -4125,17 +4125,17 @@ function renderTrainTabbed(host: HTMLElement): void {
           nextAction: nextFor('detective'),
         });
       },
-      better: () => {
+      whichMove: () => {
         // The quick one: two moves, pick the good one.
-        const done = finish(markBetterDone);
-        const dueMap = betterLog.dueMap();
-        startBetterSession({
-          refs: pickBetter(pairRefs, config.tasks.better.count, id => dueMap[id] ?? 0),
+        const done = finish(markWhichMoveDone);
+        const dueMap = whichMoveLog.dueMap();
+        startWhichMoveSession({
+          refs: pickWhichMove(pairRefs, config.tasks.whichMove.count, id => dueMap[id] ?? 0),
           modeLabel: 'Daily challenge',
           onComplete: (s) => done({ right: s.solved, wrong: Math.max(0, s.completed - s.solved) }),
           onExit: () => { if (trainTab === 'mistakes') paint(); },
           onOpenGame: openGameFromSession,
-          nextAction: nextFor('better'),
+          nextAction: nextFor('whichMove'),
         });
       },
     };
@@ -4152,7 +4152,7 @@ function renderTrainTabbed(host: HTMLElement): void {
       mistakeSpotCount: spotRefs.length,
       onFixMistakes: () => launchers.mistakes(),
       onCatchBlunders: () => launchers.detective(),
-      onBetterOrBlunder: () => launchers.better(),
+      onWhichMove: () => launchers.whichMove(),
       // The finished card reopens today's popup rather than losing its figures
       // to the tap that dismissed it.
       onReplayRecap: () => { void showRecapForDay(localDayKey(), localDayKey(), allLines); },

@@ -1,19 +1,20 @@
-// Better or blunder — the two-move question, as an overlay.
+// Which move — the two-move question, as an overlay.
 //
 // One position out of one of your games with TWO moves drawn on it: the move
 // you played, and the move the engine wanted. Pick the good one. Two buttons
-// under the board name them, colour-matched to their arrows, and the board takes
-// the answer too — playing the move you believe in is the more natural way to
-// say it, and the more useful one to practise.
+// under the board name them, and the board takes the answer too — playing the
+// move you believe in is the more natural way to say it, and the more useful one
+// to practise.
 //
 // It is the smallest exercise in the app, deliberately. The mistake drill asks
 // you to find a move on a blank board, which is real work; this asks you only to
 // tell two moves apart, which is the skill underneath it and takes ten seconds.
 //
 // TWO RULES KEEP IT HONEST:
-//   • the arrows are two DIFFERENT colours, neither of them red or green — if
-//     the blunder were drawn in the palette's blunder red the question would
-//     answer itself;
+//   • ONE COLOUR for both arrows and both buttons. Colour in this app carries
+//     meaning — red is a blunder, green is the engine's move — so two different
+//     colours would have started answering the question. The only thing telling
+//     the moves apart is the chess.
 //   • the sides are shuffled every time, so neither the left button nor the
 //     first arrow is ever "the answer".
 //
@@ -26,7 +27,7 @@ import { Chessground } from 'chessground';
 import type { Api } from 'chessground/api';
 import type { Key } from 'chessground/types';
 import type { DrawShape } from 'chessground/draw';
-import { registerBrushes } from './board-brushes';
+import { registerBrushes, HINT_COLOR } from './board-brushes';
 import { Icons, classBoardSvg } from './icons';
 import { playFeedback } from './sound';
 import { pushBack } from './back-nav';
@@ -34,18 +35,17 @@ import { burstConfetti, celebratePawn } from './confetti';
 import { showDialog } from './dialog';
 import { formatMove, numberedMove } from './notation';
 import { openInfoSheet, buildInfoButton } from './info-sheet';
-import { betterLog } from './middle-log';
+import { whichMoveLog } from './middle-log';
 import type { SpotRef } from './mistake-scan';
 import type { OpenGameCtx } from './mistake-run';
 import type { ImportedGame } from './import-core';
 
-// The two candidate colours. Both are off the board's cream-to-brown axis and
-// neither carries a verdict: violet and teal say "this one" and "that one", not
-// "right" and "wrong". (The hint blue is avoided on purpose — it means "the
-// engine's move" everywhere else in the app, which would give the game away.)
-export const PICK_COLORS = ['#7b5cd6', '#1d9e8f'] as const;
+// The one candidate colour, shared by both arrows and both buttons: the app's
+// hint blue, which every board in the app already uses for "look here". Both
+// candidates wear it, so it points without judging.
+export const PICK_COLOR = HINT_COLOR;
 
-export interface BetterSessionOptions {
+export interface WhichMoveSessionOptions {
   refs: SpotRef[];
   onExit: () => void;
   onComplete?: (summary: { solved: number; completed: number }) => void;
@@ -57,17 +57,18 @@ export interface BetterSessionOptions {
 }
 
 /** What this exercise is, one tap from the run itself. */
-export function openBetterInfo(): void {
+export function openWhichMoveInfo(): void {
   openInfoSheet({
-    title: 'Better or blunder',
+    title: 'Which move',
     intro: 'A position from one of your games with two moves on it: the one you played and '
       + 'the one the engine wanted. Say which is which.',
     entries: [
       {
-        icon: Icons.merge(18), accent: PICK_COLORS[0],
+        icon: Icons.merge(18), accent: PICK_COLOR,
         label: 'Two moves, one question',
-        detail: 'Tap the move you think is better — or just play it on the board. The two '
-          + 'swap sides every time, so the answer is never in the same place twice.',
+        detail: 'Tap the move you think is better — or just play it on the board. Both arrows '
+          + 'are the same colour and they swap sides every time, so nothing but the chess '
+          + 'tells you which is which.',
       },
       {
         icon: Icons.alert(18), accent: '#c93636',
@@ -94,7 +95,7 @@ interface SessionEntry {
   correct: boolean;
 }
 
-export function startBetterSession(opts: BetterSessionOptions): void {
+export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
   if (opts.refs.length === 0) { opts.onExit(); return; }
 
   const chess = new Chess();
@@ -155,7 +156,7 @@ export function startBetterSession(opts: BetterSessionOptions): void {
   const briefText = document.createElement('span');
   briefText.textContent = 'One of these two moves went wrong.';
   briefEl.appendChild(briefText);
-  briefEl.appendChild(buildInfoButton('About Better or blunder', openBetterInfo));
+  briefEl.appendChild(buildInfoButton('About Which move', openWhichMoveInfo));
   topEl.appendChild(briefEl);
 
   const boardWrap = document.createElement('div');
@@ -173,12 +174,11 @@ export function startBetterSession(opts: BetterSessionOptions): void {
 
   // The two picks, in one row, each in its arrow's colour.
   const picksEl = document.createElement('div');
-  picksEl.className = 'bb-picks';
+  picksEl.className = 'wm-picks';
   const pickBtns: HTMLButtonElement[] = [0, 1].map((side) => {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'bb-pick';
-    btn.style.setProperty('--bb-pick', PICK_COLORS[side]);
+    btn.className = 'wm-pick';
     btn.addEventListener('click', () => choose(side));
     picksEl.appendChild(btn);
     return btn;
@@ -186,7 +186,7 @@ export function startBetterSession(opts: BetterSessionOptions): void {
 
   // The story, after the answer: which game, which move, what it cost.
   const factsEl = document.createElement('div');
-  factsEl.className = 'bb-facts';
+  factsEl.className = 'wm-facts';
   factsEl.hidden = true;
 
   const afterEl = document.createElement('div');
@@ -235,10 +235,7 @@ export function startBetterSession(opts: BetterSessionOptions): void {
     events: { move(from, to) { onUserMove(from as Key, to as Key); } },
   });
   registerBrushes(cg, {
-    pickA: { color: PICK_COLORS[0], opacity: 0.9, lineWidth: 11 },
-    pickB: { color: PICK_COLORS[1], opacity: 0.9, lineWidth: 11 },
-    danger: { color: '#c93636', opacity: 0.85, lineWidth: 11 },
-    accent: { color: '#4a9e3f', opacity: 0.9, lineWidth: 11 },
+    pick: { color: PICK_COLOR, opacity: 0.9, lineWidth: 11 },
   });
   const ro = new ResizeObserver(() => cg.redrawAll());
   ro.observe(boardEl);
@@ -340,8 +337,7 @@ export function startBetterSession(opts: BetterSessionOptions): void {
 
     pickBtns.forEach((btn, side) => {
       btn.disabled = false;
-      btn.className = 'bb-pick';
-      btn.style.setProperty('--bb-pick', PICK_COLORS[side]);
+      btn.className = 'wm-pick';
       btn.textContent = formatMove(options[side].san);
     });
     setStatus('Choose the best move', 'pt-status--prompt');
@@ -355,9 +351,9 @@ export function startBetterSession(opts: BetterSessionOptions): void {
   }
 
   function paintCandidates(): void {
-    const shapes: DrawShape[] = options.map((o, side) => {
+    const shapes: DrawShape[] = options.map((o) => {
       const { from, to } = uciParts(o.uci);
-      return { orig: from, dest: to, brush: side === 0 ? 'pickA' : 'pickB' };
+      return { orig: from, dest: to, brush: 'pick' };
     });
     requestAnimationFrame(() => { if (!isCleaned) cg.setAutoShapes(shapes); });
   }
@@ -389,12 +385,12 @@ export function startBetterSession(opts: BetterSessionOptions): void {
     // touch the spot's own training state: "fixed" means you found the move on a
     // blank board in the mistake drill, and telling two moves apart is not the
     // same feat. Inflating that number here would quietly devalue it.
-    if (right) betterLog.solved(spot.id);
+    if (right) whichMoveLog.solved(spot.id);
 
     pickBtns.forEach((btn, i) => {
       btn.disabled = true;
-      btn.classList.add(i === bestSide ? 'bb-pick--best' : 'bb-pick--bad');
-      if (i === side) btn.classList.add('bb-pick--chosen');
+      btn.classList.add(i === bestSide ? 'wm-pick--best' : 'wm-pick--bad');
+      if (i === side) btn.classList.add('wm-pick--chosen');
     });
 
     // Whichever way they answered, the board ends on the RIGHT move played out:
@@ -443,43 +439,58 @@ export function startBetterSession(opts: BetterSessionOptions): void {
   }
 
   /**
-   * The reveal: which game this was, what you played, and what it cost. Held
-   * back until now because "vs Kevin, move 14" is a clue about a game you might
-   * remember — and because it reads as a verdict, which is what it is.
+   * The reveal, in two lines. Which game it was and what you played — held back
+   * until now because "vs Kevin, move 14" is a clue about a game you might
+   * remember. Then the two moves side by side with what each was worth: the one
+   * you played in red, the engine's in green. The numbers do the arguing, which
+   * is shorter and more convincing than a sentence saying the same thing.
    */
   function renderFacts(): void {
     const { spot, game } = current;
     factsEl.replaceChildren();
 
     const line = document.createElement('div');
-    line.className = 'bb-facts-line';
+    line.className = 'wm-facts-line';
     line.appendChild(document.createTextNode(`Against ${game.opponent} you played`));
     const mv = document.createElement('span');
     mv.className = 'mr-played mr-played--blunder';
     mv.textContent = `${numberedMove(spot.playedSan, spot.ply + 1)} ??`;
     line.appendChild(mv);
-    line.appendChild(document.createTextNode(
-      `here. The engine wanted ${formatMove(spot.best[0].san)}.`));
     factsEl.appendChild(line);
 
-    const cost = document.createElement('div');
-    cost.className = 'bb-facts-cost';
-    cost.textContent = costLine(spot.evalBefore, spot.evalAfter);
-    factsEl.appendChild(cost);
+    const evals = document.createElement('div');
+    evals.className = 'wm-facts-evals';
+    evals.appendChild(evalChip(spot.playedSan, spot.evalAfter, 'bad'));
+    evals.appendChild(evalChip(spot.best[0].san, spot.evalBefore, 'good'));
+    factsEl.appendChild(evals);
 
     factsEl.hidden = false;
   }
 
-  // "+1.2 → −2.4" in your own perspective, with a plain-words tail. Mate scores
-  // are stored as big sentinels (winprob.ts), so they get words, not numbers.
-  function costLine(before: number, after: number): string {
-    const show = (cp: number): string => {
-      if (cp >= 90000) return 'mate';
-      if (cp <= -90000) return 'mated';
-      const pawns = cp / 100;
-      return `${pawns > 0 ? '+' : ''}${pawns.toFixed(1)}`;
-    };
-    return `Evaluation: ${show(before)} → ${show(after)}`;
+  /** "♝xe6 −5.2" — one move and what the position was worth after it. */
+  function evalChip(san: string, cp: number, kind: 'good' | 'bad'): HTMLElement {
+    const chip = document.createElement('span');
+    chip.className = `wm-eval wm-eval--${kind}`;
+    const move = document.createElement('span');
+    move.className = 'wm-eval-move';
+    move.textContent = formatMove(san);
+    chip.appendChild(move);
+    const num = document.createElement('span');
+    num.className = 'wm-eval-cp';
+    num.textContent = showCp(cp);
+    chip.appendChild(num);
+    return chip;
+  }
+
+  // Your own perspective. Mate scores are stored as big sentinels (winprob.ts),
+  // so they get words rather than a nonsense number.
+  function showCp(cp: number): string {
+    if (cp >= 90000) return 'mate';
+    if (cp <= -90000) return 'mated';
+    const pawns = cp / 100;
+    // A real minus sign, not a hyphen: these sit next to a figurine at the same
+    // size, and a hyphen reads as a dash between two words.
+    return pawns > 0 ? `+${pawns.toFixed(1)}` : pawns.toFixed(1).replace('-', '\u2212');
   }
 
   function onNextTap(): void {

@@ -1,5 +1,5 @@
 // The rest logs for the two "read your own games" exercises — Blunder detective
-// and Better or blunder — device-local in localStorage, exactly like
+// and Which move — device-local in localStorage, exactly like
 // brilliant-log.ts (this file is that file, generalised, rather than a third
 // copy of it).
 //
@@ -97,10 +97,10 @@ export const detectiveLog = makeRestLog('obertura.detectiveLog', [4, 10, 25, 60]
 
 // A two-move question is smaller, so it comes back sooner — and a right answer
 // there is worth less than a right answer at a blank board.
-export const betterLog = makeRestLog('obertura.betterLog', [2, 6, 15, 40]);
+export const whichMoveLog = makeRestLog('obertura.whichMoveLog', [2, 6, 15, 40]);
 
 /** Both, for the Middle-game pane's Reset. */
 export function clearMiddleLogs(): void {
   detectiveLog.clear();
-  betterLog.clear();
+  whichMoveLog.clear();
 }

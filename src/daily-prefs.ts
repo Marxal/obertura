@@ -32,7 +32,7 @@ const DAILY_TASK_LABEL: Record<DailyTaskId, string> = {
   endgames: 'Endgame puzzles',
   mistakes: 'Mistakes to fix',
   detective: 'Blunders to catch',
-  better: 'Better or blunder',
+  whichMove: 'Which move',
 };
 
 /**
