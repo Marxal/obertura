@@ -38,6 +38,11 @@ import {
   MIN_WIN_BEFORE,
   type DetectiveSpot,
 } from './detective';
+import { candidatePlies, applyBrilliantTag, type BrilliantSpot } from './brilliant';
+import { gradeMove } from './review';
+import { moveFacts } from './move-facts';
+import { isBookMove } from './book-check';
+import type { CloudTopMove } from './engine';
 
 // ── Tunable thresholds (one place to adjust the whole feel) ──────────────────
 // All cp values are USER-perspective (positive = good for you), mate-flattened
@@ -113,13 +118,18 @@ export interface GameRetry {
   // The one "find the blunder" run this game can offer, or absent when it has
   // none that satisfies detective.ts's one-blunder rule.
   detective?: DetectiveSpot;
+  // Your own brilliant (!!) moves in this game, verified at depth by the same
+  // grader the analyser uses. Absent when the game has none — which is most
+  // games. See buildBrilliant below for why the scan looks for these at all.
+  brilliant?: BrilliantSpot[];
 }
 
-// v2 keeps the eval trail and derives a Blunder-detective run from it. A v1
-// scan has neither, and neither can be reconstructed without re-reading the
-// game — so v1 games look unscanned again and the pass rebuilds them. What
-// survives the re-read is everything the user earned: each spot's fixed mark,
-// attempts and last-trained date are carried across by id (carryTraining).
+// v2 keeps the eval trail, derives a Blunder-detective run from it, and looks
+// for your own brilliancies. A v1 scan has none of that, and none of it can be
+// reconstructed without re-reading the game — so v1 games look unscanned again
+// and the pass rebuilds them. What survives the re-read is everything the user
+// earned: each spot's fixed mark, attempts and last-trained date are carried
+// across by id (carryTraining).
 export const RETRY_VERSION = 2;
 
 /**
@@ -283,17 +293,70 @@ export function collectSpots(games: ImportedGame[]): SpotRef[] {
   return out;
 }
 
-// Pick a session's worth of spots: unfixed first (newest game first), then
-// fixed ones you trained longest ago. `category` null = mixed (the daily task).
+/**
+ * Pick a session's worth of spots.
+ *
+ * THE PROBLEM THIS SOLVES. The first cut ordered the unfixed spots by game
+ * recency and nothing else, which is a FIXED order — so every session dealt the
+ * same handful, and the only way a spot ever left the front of the queue was
+ * solving it cleanly. Miss one (or answer it with a hint, which doesn't count as
+ * fixed) and it was waiting there again tomorrow, and the day after. With a big
+ * library it was worse: the newest games' spots monopolised every deal and the
+ * other three hundred games were never reached at all.
+ *
+ * So the queue moves now. Three tiers, in this order:
+ *
+ *   1. spots you have NEVER been shown, newest game first — new work leads;
+ *   2. spots you have seen but not fixed, LONGEST AGO FIRST — a spot you met
+ *      today goes to the back of its own tier, so a miss comes back after the
+ *      others rather than immediately;
+ *   3. spots already fixed, longest ago first — the old behaviour, unchanged.
+ *
+ * And within each tier the spots are dealt round-robin BY GAME. One game can
+ * carry three spots (MAX_SPOTS_PER_GAME), and three positions from the same
+ * game in a row is the other way a session feels like a repeat.
+ *
+ * `category` null = mixed (the daily task).
+ */
 export function pickSpots(refs: SpotRef[], category: MistakeCategory | null, count: number): SpotRef[] {
   const pool = category ? refs.filter(r => r.spot.category === category) : refs.slice();
-  const unfixed = pool
-    .filter(r => !r.spot.fixed)
-    .sort((a, b) => b.game.endTime - a.game.endTime);
-  const fixed = pool
-    .filter(r => r.spot.fixed)
-    .sort((a, b) => (a.spot.lastTrained ?? 0) - (b.spot.lastTrained ?? 0));
-  return [...unfixed, ...fixed].slice(0, count);
+  const newestGame = (a: SpotRef, b: SpotRef): number => b.game.endTime - a.game.endTime;
+  const seenLongestAgo = (a: SpotRef, b: SpotRef): number =>
+    (a.spot.lastTrained ?? 0) - (b.spot.lastTrained ?? 0) || newestGame(a, b);
+
+  const unfixed = pool.filter(r => !r.spot.fixed);
+  const unseen = unfixed.filter(r => !r.spot.lastTrained).sort(newestGame);
+  const seen = unfixed.filter(r => r.spot.lastTrained).sort(seenLongestAgo);
+  const fixed = pool.filter(r => r.spot.fixed).sort(seenLongestAgo);
+
+  return [...spreadByGame(unseen), ...spreadByGame(seen), ...spreadByGame(fixed)]
+    .slice(0, count);
+}
+
+/**
+ * Re-order one tier so consecutive picks come from different games wherever the
+ * tier allows: group by game (keeping both the games' order and each game's own
+ * order) and deal one per game per round.
+ */
+export function spreadByGame(ordered: SpotRef[]): SpotRef[] {
+  const queues: SpotRef[][] = [];
+  const byGame = new Map<string, SpotRef[]>();
+  for (const ref of ordered) {
+    let q = byGame.get(ref.game.id);
+    if (!q) { q = []; byGame.set(ref.game.id, q); queues.push(q); }
+    q.push(ref);
+  }
+  const out: SpotRef[] = [];
+  for (let round = 0; ; round++) {
+    let dealt = false;
+    for (const q of queues) {
+      if (round >= q.length) continue;
+      out.push(q[round]);
+      dealt = true;
+    }
+    if (!dealt) break;
+  }
+  return out;
 }
 
 // The numbers the pane shows — all cheap, straight off the stored records.
@@ -471,7 +534,12 @@ export async function scanGames(opts: {
             spots,
             trail: read.trail,
             ...(read.detective ? { detective: read.detective } : {}),
+            ...(read.brilliant?.length ? { brilliant: read.brilliant } : {}),
           };
+          // A brilliancy of your own earns the game its automatic tag, the same
+          // one the analyser applies — so the My games filter fills in from the
+          // background pass rather than only from games you opened by hand.
+          applyBrilliantTag(fresh);
           await saveGames([fresh]);
         }
         scanned++;
@@ -507,6 +575,7 @@ interface GameScan {
   spots: MistakeSpot[];
   trail: (number | null)[];
   detective?: DetectiveSpot;
+  brilliant?: BrilliantSpot[];
 }
 
 // Carry a rescanned game's earned training state onto the freshly-found spots.
@@ -562,7 +631,94 @@ async function scanOneGame(
   }
 
   const detective = await buildDetective(game, replay, trail, spots, signal);
-  return { spots, trail, ...(detective ? { detective } : {}) };
+  const brilliant = await buildBrilliant(game, replay, trail, signal);
+  return {
+    spots,
+    trail,
+    ...(detective ? { detective } : {}),
+    ...(brilliant.length ? { brilliant } : {}),
+  };
+}
+
+// ── Your brilliancies (I/O: one engine look per candidate, at most two) ──────
+//
+// WHY THE SCAN DOES THIS. The Brilliant-moves exercise used to read a game's
+// SAVED ANALYSIS, which only exists once you have opened that game in the
+// analyser and pressed Analyse game. Nobody does that four hundred times, so the
+// card sat empty on a library the pane itself described as fully analysed. The
+// scan is already reading every game; it may as well look.
+//
+// It is cheap because the candidate pass is pure (brilliant.ts): a brilliancy is
+// a material sacrifice that works, and chess.js plus the trail can rule out
+// every hung piece for nothing. What's left is a handful of positions a year, so
+// they can afford a proper look — the analyser's own grader, at the analyser's
+// own depth, which is what keeps a scan-found !! and a reviewed !! the same
+// thing.
+const MAX_BRILLIANT_TRIES = 2;
+
+async function buildBrilliant(
+  game: ImportedGame,
+  replay: GameReplay,
+  trail: (number | null)[],
+  signal: AbortSignal,
+): Promise<BrilliantSpot[]> {
+  const candidates = candidatePlies({
+    colour: game.colour,
+    fens: replay.fens,
+    ucis: game.ucis.length ? game.ucis : replay.sans.map((_, i) => uciFromReplay(replay, i) ?? ''),
+    trail,
+    maxPly: SCAN_MAX_PLIES,
+  }).slice(0, MAX_BRILLIANT_TRIES);
+
+  const found: BrilliantSpot[] = [];
+  for (const cand of candidates) {
+    if (signal.aborted) break;
+    const i = cand.ply;
+    const preFen = replay.fens[i];
+    const playedUci = game.ucis[i] ?? uciFromReplay(replay, i);
+    if (!preFen || !playedUci) continue;
+
+    const top = await topLines(preFen, signal);
+    if (signal.aborted || !top || top.length === 0) continue;
+    // Both grades this exercise wants (!! and !) require the engine's #1, so a
+    // move that isn't it is out before anything else is computed.
+    if (top[0].uci !== playedUci) continue;
+
+    const graded = gradeMove({
+      parentTop: toMoverTop(top, preFen),
+      playedUci,
+      playedCp: null, // it is the top move, so gradeMove reads it off the list
+      // A gambit everyone knows is theory, not a find — the same call the
+      // analyser makes, against the same bundled library.
+      inBook: await isBookMove(replay.sans.slice(0, i + 1), replay.fens[i + 1]),
+      facts: moveFacts(preFen, playedUci,
+        i > 0 ? (game.ucis[i - 1] ?? uciFromReplay(replay, i - 1) ?? undefined) : undefined),
+    });
+    if (!graded) continue;
+    if (graded.classification !== 'brilliant' && graded.classification !== 'great') continue;
+
+    found.push({
+      id: `${game.id}#b${i}`,
+      ply: i,
+      cls: graded.classification,
+      preFen,
+      playedSan: replay.sans[i],
+      playedUci,
+    });
+  }
+  return found;
+}
+
+// White-perspective engine evals → the mover's perspective, which is what the
+// grader reasons in. (review.ts keeps its own copy of this three-line helper for
+// the same reason: it is smaller than the import would be.)
+function toMoverTop(evals: MoveEval[], fen: string): CloudTopMove[] {
+  const flip = blackToMove(fen);
+  return evals.map(e => ({
+    uci: e.uci,
+    cp: e.cp === undefined ? undefined : (flip ? -e.cp : e.cp),
+    mate: e.mate === undefined ? undefined : (flip ? -e.mate : e.mate),
+  }));
 }
 
 // ── The Blunder-detective run (I/O: one engine look at most) ─────────────────

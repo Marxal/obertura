@@ -61,9 +61,10 @@ import {
   type DetectiveRef,
 } from './detective';
 import { startDetectiveSession, openDetectiveInfo } from './detective-run';
-import { fairPairs, pickBetter, readyBetterCount } from './better';
-import { startBetterSession, openBetterInfo, PICK_COLORS } from './better-run';
-import { detectiveLog, betterLog, clearMiddleLogs } from './middle-log';
+import { fairPairs, pickWhichMove, readyWhichMoveCount } from './which-move';
+import { startWhichMoveSession, openWhichMoveInfo } from './which-move-run';
+import { detectiveLog, whichMoveLog, clearMiddleLogs } from './middle-log';
+import { openFixedSheet } from './fixed-sheet';
 
 // Session size for a category card tap — five positions, like a puzzle run.
 const SESSION_SIZE = 5;
@@ -73,7 +74,7 @@ const SESSION_SIZE = 5;
 // is already a sitting; a two-move question is ten seconds, so six of them is
 // the same amount of time.
 const DETECTIVE_SESSION = 3;
-const BETTER_SESSION = 6;
+const WHICH_MOVE_SESSION = 6;
 
 // The mixed run at the top of the pane: how many mistake positions it deals from
 // across the four categories, and how many brilliant finds it closes with. The
@@ -92,8 +93,8 @@ const BRILLIANT_ONLY_FROM = 10;
 // The two exercises that read the whole game rather than one position: catching
 // the blunder in a run of moves, and telling two moves apart. Their own accents,
 // off the four categories' palette because they aren't categories.
-const DETECTIVE_ACCENT = '#6f6ac0';  // indigo — the search
-const BETTER_ACCENT = PICK_COLORS[1]; // teal — one of the two arrows
+const DETECTIVE_ACCENT = '#6f6ac0';   // indigo — the search
+const WHICH_MOVE_ACCENT = '#5c8bb0'; // steel blue — two moves, one choice
 
 const CATEGORY_ACCENT: Record<MistakeCategory, string> = {
   'opening-blunder': '#b3593b', // ember — it went wrong early
@@ -144,8 +145,8 @@ function openMistakeInfo(): void {
           + 'then play what should have been played. One run per game at most.',
       },
       {
-        icon: Icons.merge(18), accent: BETTER_ACCENT,
-        label: 'Better or blunder',
+        icon: Icons.merge(18), accent: WHICH_MOVE_ACCENT,
+        label: 'Which move',
         detail: 'The quick one. Two moves drawn on the board — the one you played and the '
           + 'one the engine wanted — and you pick. Ten seconds each, and it ends by telling '
           + 'you which game it was and what the move cost.',
@@ -177,8 +178,10 @@ function openMistakeInfo(): void {
         icon: classIcon('brilliant', 18), accent: CLASS_COLOR.brilliant,
         label: 'Your brilliant moves',
         detail: 'The opposite exercise: moves the engine graded brilliant (!!) or great (!) '
-          + 'when you played them. Find them again. Once you have ten brilliancies of your '
-          + 'own the card narrows to those alone. Solved ones rest a while, then come back.',
+          + 'when you played them. Find them again. The scan looks for these too — a real '
+          + 'sacrifice that works — so they turn up on their own, and any you have graded by '
+          + 'reviewing a game in the analyser are added to them. Once you have ten '
+          + 'brilliancies the card narrows to those alone. Solved ones rest, then come back.',
       },
     ],
     footnote: 'Reset, under the mix button, starts all of this again: the spots go, every game '
@@ -254,13 +257,13 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   const refs = collectSpots(games);
   // The two whole-game exercises, both read off the same scan. The detective
   // runs are stored one per game; the two-move questions are the spots above,
-  // filtered down to the ones that make a fair question (better.ts).
+  // filtered down to the ones that make a fair question (which-move.ts).
   const detectiveRefs = collectDetectiveSpots(games);
   const detectiveDue = detectiveLog.dueMap();
   const detectiveReady = readyDetectiveCount(detectiveRefs, id => detectiveDue[id] ?? 0);
   const pairRefs = fairPairs(refs);
-  const betterDue = betterLog.dueMap();
-  const betterReady = readyBetterCount(refs, id => betterDue[id] ?? 0);
+  const whichMoveDue = whichMoveLog.dueMap();
+  const whichMoveReady = readyWhichMoveCount(refs, id => whichMoveDue[id] ?? 0);
   // Order the brilliant finds so the carousel + session loop through them:
   // freshly-solved gems rest a while, then resurface (brilliant-log.ts).
   //
@@ -307,7 +310,12 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     const foundNum = heroStat('found', counts.spots, 'Spots found');
     const scannedNum = heroStat('scanned', counts.scanned, 'Games analysed');
     stats.appendChild(foundNum.col);
-    stats.appendChild(heroStat('fixed', counts.fixed, 'Fixed').col);
+    // The one figure on this pane worth being proud of, and the only record of
+    // which games have actually been worked through — so it opens the list
+    // rather than just counting (fixed-sheet.ts).
+    stats.appendChild(heroStat('fixed', counts.fixed, 'Fixed', {
+      onTap: counts.fixed > 0 ? openFixed : undefined,
+    }).col);
     // Just the count of games actually analysed — not "scanned/total", which
     // read as if the whole library were being added up.
     stats.appendChild(scannedNum.col);
@@ -448,16 +456,14 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
 
   // "Reset" beside the all-analysed line: start this pane over.
   //
-  // It resets EVERY exercise on it, which is two different stores. The scan half
-  // is the spots, the fixed marks and the detective runs: they go, and the games
-  // are read again from scratch. The brilliant half has no scan of its own — the
-  // finds are read off each game's saved analysis, written by the game review, so
-  // nothing here can regenerate them and throwing them away would mean deleting
-  // that analysis (with the user's variations and notes in it) for good. What it
-  // DOES have is progress: a re-found gem rests for a few days before coming
-  // back, and that log is cleared, so every one of them is available again. The
-  // two whole-game exercises rest the same way (middle-log.ts), and their logs
-  // go with it.
+  // It resets EVERY exercise on it, which is two different stores. The scan is
+  // the spots, the fixed marks, the detective runs and the brilliancies it found
+  // itself: they go, and the games are read again from scratch. What the scan
+  // does NOT own is a game's saved analysis — the reviewer's own grades, with
+  // the user's variations and notes attached — so that is left alone, and the
+  // finds read off it survive. The rest is progress: a re-found gem rests for a
+  // few days before coming back, and that log is cleared, as are the two
+  // whole-game exercises' logs (middle-log.ts).
   //
   // It is a discard either way, so it asks first and says which is which.
   function buildResetLink(): HTMLElement {
@@ -470,9 +476,10 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       body: `This clears the ${counts.spots} ${counts.spots === 1 ? 'spot' : 'spots'} found so `
         + `far and the ${counts.fixed} marked fixed, then reads all `
         + `${counts.scanned} ${counts.scanned === 1 ? 'game' : 'games'} from scratch. `
-        + 'Every brilliant move you have already re-found becomes available again too.\n\n'
-        + 'Your games and their analysis are untouched — which is where the brilliant moves '
-        + 'themselves come from, so the same ones will still be there to find.',
+        + 'Every brilliant move you have re-found, every detective case you have cracked and '
+        + 'every which-move question you have answered becomes available again too.\n\n'
+        + 'Your games and their saved analysis are untouched, so nothing you have written is '
+        + 'lost — the same finds will be there again once the re-read is done.',
       buttons: [
         {
           label: 'Start again',
@@ -577,9 +584,16 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     kind: string,
     value: number | string,
     label: string,
+    o: { onTap?: () => void } = {},
   ): { col: HTMLElement; num: HTMLElement } {
-    const col = document.createElement('div');
-    col.className = `train-hero-stat train-hero-stat--${kind}`;
+    const col = document.createElement(o.onTap ? 'button' : 'div');
+    col.className = `train-hero-stat train-hero-stat--${kind}`
+      + (o.onTap ? ' train-hero-stat--tap' : '');
+    if (o.onTap && col instanceof HTMLButtonElement) {
+      col.type = 'button';
+      col.setAttribute('aria-label', `${label} — see them`);
+      col.addEventListener('click', o.onTap);
+    }
     const num = document.createElement('span');
     num.className = 'train-hero-stat-num';
     if (typeof value === 'number') {
@@ -630,19 +644,19 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       onClick: () => startDetective(),
     }));
     section.appendChild(buildModeCard({
-      accent: BETTER_ACCENT,
+      accent: WHICH_MOVE_ACCENT,
       icon: Icons.merge(20),
-      name: 'Better or blunder',
-      sub: pairRefs.length > 0 && betterReady === 0
+      name: 'Which move',
+      sub: pairRefs.length > 0 && whichMoveReady === 0
         ? 'all answered — they come back over the next few days'
         : 'two moves, one of them yours',
-      stat: betterReady > 0 ? betterReady : undefined,
-      statLabel: betterReady > 0 ? 'to answer' : undefined,
+      stat: whichMoveReady > 0 ? whichMoveReady : undefined,
+      statLabel: whichMoveReady > 0 ? 'to answer' : undefined,
       disabled: pairRefs.length === 0,
       disabledReason: counts.scanned === 0
         ? 'Analyse your games first'
         : 'None found in your analysed games',
-      onClick: () => startBetter(),
+      onClick: () => startWhichMove(),
     }));
 
     for (const cat of CATEGORIES) {
@@ -664,8 +678,9 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     }
 
     // Your brilliant moves — the flip side of the mistake cards: find again the
-    // best moves you already found. Sourced from analysed games (the review's
-    // brilliant/great grades), not the mistake scan.
+    // best moves you already found. Two sources, merged (brilliant.ts): the
+    // grades on a game you have reviewed in the analyser, and the ones the
+    // background scan verified for itself.
     section.appendChild(buildModeCard({
       accent: CLASS_COLOR.brilliant,
       icon: classIcon('brilliant', 20),
@@ -680,11 +695,34 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       stat: gemsReady > 0 ? gemsReady : undefined,
       statLabel: gemsReady > 0 ? 'to find' : undefined,
       disabled: brilliantRefs.length === 0,
-      disabledReason: 'Analyse your games to find your brilliant moves',
+      // The same two reasons the mistake cards give. It used to say "analyse
+      // your games to find your brilliant moves" on a screen that had just
+      // reported every game analysed — true of the analyser's review, which is
+      // not the analysis that figure counts, and unanswerable from here.
+      disabledReason: counts.scanned === 0
+        ? 'Analyse your games first'
+        : 'None found in your analysed games',
       onClick: () => startBrilliant(brilliantRefs),
     }));
 
     return section;
+  }
+
+  // The Fixed list, and the way back into any of it: a row (or the button at the
+  // top) hands spots straight to the same drill the category cards use.
+  function openFixed(): void {
+    openFixedSheet({
+      refs: refs.filter(r => r.spot.fixed),
+      onTrain: (deal) => {
+        if (deal.length === 0) return;
+        startMistakeSession({
+          refs: deal,
+          modeLabel: 'Fixed again',
+          onExit: rerender,
+          onOpenGame: deps.onOpenGame,
+        });
+      },
+    });
   }
 
   function startDetective(count = DETECTIVE_SESSION): void {
@@ -698,13 +736,13 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     });
   }
 
-  function startBetter(count = BETTER_SESSION): void {
-    const refsForRun = pickBetter(pairRefs, count, id => betterDue[id] ?? 0);
+  function startWhichMove(count = WHICH_MOVE_SESSION): void {
+    const refsForRun = pickWhichMove(pairRefs, count, id => whichMoveDue[id] ?? 0);
     if (refsForRun.length === 0) return;
-    startBetterSession({
+    startWhichMoveSession({
       refs: refsForRun,
       onExit: rerender,
-      onPlayAgain: () => startBetter(count),
+      onPlayAgain: () => startWhichMove(count),
       onOpenGame: deps.onOpenGame,
     });
   }

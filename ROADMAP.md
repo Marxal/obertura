@@ -3152,6 +3152,60 @@ useful form: two moves, pick the better one. Both are in the daily challenge.
 
 ---
 
+## The middle-game second pass — one colour, one queue, and the missing brilliancies ✅
+
+Testing the round above on the phone turned up two things that were quietly
+broken and three that were merely wrong. The two: every session dealt the same
+mistakes, and the Brilliant-moves card was empty on a library the same screen
+called fully analysed.
+
+- ✅ **Better or blunder is now "Which move".** Shorter, and it asks the question
+  instead of listing the answers.
+- ✅ **One colour for both moves.** The two arrows were violet and teal with
+  buttons to match, which was pretty and wrong: colour in this app MEANS
+  something — red is a blunder, green is the engine's move — so two colours had
+  already started answering the question. Both arrows and both buttons now wear
+  the app's hint blue. The only thing telling them apart is the chess.
+- ✅ **The reveal says less, and shows more.** It was a sentence with the answer
+  buried in it ("…here. The engine wanted ♝a4") followed by an evaluation nobody
+  could attach to a move. Now: one line naming the game and what you played, then
+  the two moves side by side with what each was worth — the one you played in
+  red, the engine's in green. The numbers argue better than the sentence did.
+- ✅ **The mistakes stopped repeating.** THE BUG: `pickSpots` ordered unfixed
+  spots by game recency and nothing else, which is a FIXED order — so every
+  session dealt the same handful, and the only way a spot ever left the front of
+  the queue was solving it cleanly. Miss one, or take a hint, and it was waiting
+  there again tomorrow; with a big library the newest games' spots monopolised
+  every deal and the other three hundred games were never reached. The queue
+  moves now: spots you have never been shown lead, then the ones you saw longest
+  ago, then the fixed ones — and within each tier they are dealt round-robin BY
+  GAME, so a session is never three positions from the same game. Self-tested,
+  including "answer today's session without fixing anything, and tomorrow's
+  session is different spots".
+- ✅ **The Fixed figure opens what it counts.** It was a number that only went up
+  with no way to see what it meant — and the only record of which games have
+  actually been worked through. It now opens a list: every fixed position,
+  grouped under its game, with when you put it right, a row that drills it again,
+  and a "Train these again" that deals the ones you fixed longest ago.
+- ✅ **The engine now finds your brilliancies.** THE BUG: the Brilliant-moves card
+  read a game's SAVED ANALYSIS, which only exists after you open that game in the
+  analyser and press Analyse game — one game at a time. The pane's "games
+  analysed" figure counts the BACKGROUND MISTAKE SCAN, which is a different thing
+  entirely, so the screen could say "400 games analysed" and "no brilliant moves"
+  in the same breath and both were true. The scan looks for them itself now: a
+  pure candidate pass (a real material sacrifice, by the same SEE test the
+  analyser uses, that leaves you FINE afterwards — which is what rules out every
+  accidentally hung piece for free), then the analyser's own grader at the
+  analyser's own depth on what survives, capped at two positions per game. Finds
+  from both sources are merged by move, and a scan-found brilliancy earns the
+  game its automatic "brilliant" tag, so the My games filter fills in on its own.
+- ✅ **…and the card stops asking for something that was already done.** Its
+  greyed-out line said "analyse your games to find your brilliant moves" on a
+  screen reporting every game analysed. It now gives the same two reasons the
+  mistake cards do: analyse your games first, or none found in the ones analysed.
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

@@ -39,7 +39,7 @@ export const DAILY_MISTAKE_GOAL = 2;
 // One case is four to six moves to read plus the answer — a whole exercise, not
 // an item. Three of them would be the longest part of the day by far.
 export const DAILY_DETECTIVE_GOAL = 1;
-export const DAILY_BETTER_GOAL = 3;
+export const DAILY_WHICH_MOVE_GOAL = 3;
 
 const KEY = 'obertura.dailyChallenge';
 const CONFIG_KEY = 'obertura.dailyChallenge.config';
@@ -50,9 +50,9 @@ const CONFIG_KEY = 'obertura.dailyChallenge.config';
 // puzzles, then yourself.
 export type DailyTaskId =
   | 'lines' | 'positions' | 'puzzles' | 'endgames'
-  | 'mistakes' | 'detective' | 'better';
+  | 'mistakes' | 'detective' | 'whichMove';
 export const DAILY_TASK_IDS: DailyTaskId[] = [
-  'lines', 'positions', 'puzzles', 'endgames', 'mistakes', 'detective', 'better',
+  'lines', 'positions', 'puzzles', 'endgames', 'mistakes', 'detective', 'whichMove',
 ];
 
 export interface DailyState {
@@ -64,7 +64,7 @@ export interface DailyState {
   mistakes: boolean;  // the mistake-retry task is done (only offered when
                       // scanned spots exist — see renderDailyChallenge)
   detective: boolean; // the blunder-detective task is done (needs a scanned run)
-  better: boolean;    // the better-or-blunder task is done (needs scanned spots)
+  whichMove: boolean; // the which-move task is done (needs scanned spots)
 }
 
 // ── Config (Preferences) ──────────────────────────────────────────────────────
@@ -75,8 +75,8 @@ const DEFAULT_COUNT = 3;
 
 // What each part ships with. Most are three; the two that aren't are the two
 // newest ones, and both for the same reason — the size of one "item" differs
-// wildly between parts. A detective case is a whole exercise; a better-or-
-// blunder question is ten seconds.
+// wildly between parts. A detective case is a whole exercise; a which-move
+// question is ten seconds.
 const DEFAULT_COUNTS: Record<DailyTaskId, number> = {
   lines: DAILY_LINE_GOAL,
   positions: DAILY_POSITION_GOAL,
@@ -84,7 +84,7 @@ const DEFAULT_COUNTS: Record<DailyTaskId, number> = {
   endgames: DAILY_ENDGAME_GOAL,
   mistakes: DAILY_MISTAKE_GOAL,
   detective: DAILY_DETECTIVE_GOAL,
-  better: DAILY_BETTER_GOAL,
+  whichMove: DAILY_WHICH_MOVE_GOAL,
 };
 
 /** What a part ships with — also the floor the perfect-day bar holds it to. */
@@ -169,7 +169,7 @@ function load(): DailyState {
   const fresh: DailyState = {
     day: todayKey(),
     lines: false, positions: false, puzzles: false, endgames: false,
-    mistakes: false, detective: false, better: false,
+    mistakes: false, detective: false, whichMove: false,
   };
   try {
     const raw = localStorage.getItem(KEY);
@@ -187,7 +187,7 @@ function load(): DailyState {
       endgames: !!obj.endgames,
       mistakes: !!obj.mistakes,
       detective: !!obj.detective,
-      better: !!obj.better,
+      whichMove: !!obj.whichMove,
     };
   } catch {
     return fresh;
@@ -224,7 +224,7 @@ export function markPuzzlesDone(o: TaskOutcome): void { markDone('puzzles', o); 
 export function markEndgamesDone(o: TaskOutcome): void { markDone('endgames', o); }
 export function markMistakesDone(o: TaskOutcome): void { markDone('mistakes', o); }
 export function markDetectiveDone(o: TaskOutcome): void { markDone('detective', o); }
-export function markBetterDone(o: TaskOutcome): void { markDone('better', o); }
+export function markWhichMoveDone(o: TaskOutcome): void { markDone('whichMove', o); }
 
 // ── Which tasks are active, and the next one ──────────────────────────────────
 
@@ -232,7 +232,7 @@ export interface DailyAvailability {
   hasLines: boolean;            // any in-training lines (lines + positions need these)
   mistakesAvailable: boolean;   // the mistake scan has found spots
   detectiveAvailable: boolean;  // the scan has found a "find the blunder" run
-  betterAvailable: boolean;     // …and spots that make a fair two-move question
+  whichMoveAvailable: boolean;     // …and spots that make a fair two-move question
 }
 
 // The active tasks, in card order: switched on in the config AND actually
@@ -244,7 +244,7 @@ export function activeDailyTasks(config: DailyConfig, avail: DailyAvailability):
     if ((id === 'lines' || id === 'positions') && !avail.hasLines) return false;
     if (id === 'mistakes' && !avail.mistakesAvailable) return false;
     if (id === 'detective' && !avail.detectiveAvailable) return false;
-    if (id === 'better' && !avail.betterAvailable) return false;
+    if (id === 'whichMove' && !avail.whichMoveAvailable) return false;
     return true;
   });
 }
@@ -332,7 +332,7 @@ export interface DailyChallengeDeps {
   // The two newer from-your-games parts: catch the blunder in a short run, and
   // pick the better of two moves.
   onCatchBlunders: () => void;
-  onBetterOrBlunder: () => void;
+  onWhichMove: () => void;
   // Reopen today's completion popup from the "done" card. Omitted where there is
   // nothing to reopen.
   onReplayRecap?: () => void;
@@ -354,7 +354,7 @@ const TASK_META: Record<DailyTaskId, { icon: () => SVGElement; label: (n: number
   endgames:  { icon: () => Icons.flag(18),        label: (n) => `${n} endgame puzzle${n === 1 ? '' : 's'}` },
   mistakes:  { icon: () => Icons.reset(18),       label: (n) => `${n} mistake${n === 1 ? '' : 's'} to fix` },
   detective: { icon: () => Icons.scout(18),       label: (n) => `${n} blunder${n === 1 ? '' : 's'} to catch` },
-  better:    { icon: () => Icons.merge(18),       label: (n) => `${n} better move${n === 1 ? '' : 's'} to pick` },
+  whichMove: { icon: () => Icons.merge(18),       label: (n) => `${n} move${n === 1 ? '' : 's'} to pick` },
 };
 
 // The gear, bottom-right of the card. Which tasks the challenge includes and how
@@ -392,7 +392,7 @@ function runDailyTask(id: DailyTaskId, deps: DailyChallengeDeps): void {
     case 'endgames': deps.onSolveEndgames(); break;
     case 'mistakes': deps.onFixMistakes(); break;
     case 'detective': deps.onCatchBlunders(); break;
-    case 'better': deps.onBetterOrBlunder(); break;
+    case 'whichMove': deps.onWhichMove(); break;
   }
 }
 
@@ -474,7 +474,7 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
 
   const note = document.createElement('div');
   note.className = 'daily-card-note';
-  const fromYourGames = active.some(id => id === 'mistakes' || id === 'detective' || id === 'better');
+  const fromYourGames = active.some(id => id === 'mistakes' || id === 'detective' || id === 'whichMove');
   note.textContent = fromYourGames
     ? 'Lines, puzzles and your own mistakes, picked for you.'
     : 'A daily mix of lines, puzzles and endgames, picked for you.';
@@ -493,7 +493,7 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
 // The rows the preview shows: everything switched on in Preferences except the
 // three from-your-games parts, which need imported, scanned games and would
 // promise something a new install can't deliver.
-const GAME_FED: DailyTaskId[] = ['mistakes', 'detective', 'better'];
+const GAME_FED: DailyTaskId[] = ['mistakes', 'detective', 'whichMove'];
 
 function previewTasks(config: DailyConfig): DailyTaskId[] {
   return DAILY_TASK_IDS.filter((id) => !GAME_FED.includes(id) && config.tasks[id].count > 0);

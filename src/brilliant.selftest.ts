@@ -3,8 +3,11 @@
 // brilliant/great moves are pulled out, the auto-tag fires only on a brilliant,
 // and the session picking/latest order is right.
 
+import { Chess } from 'chess.js';
 import {
   gameBrilliantSpots,
+  gameFinds,
+  candidatePlies,
   hasUserBrilliant,
   applyBrilliantTag,
   collectBrilliantSpots,
@@ -131,6 +134,78 @@ export function runBrilliantSelfTest(): TestResult[] {
   const dueById: Record<string, number> = { 'new#b0': now + 300, 'new#b2': now + 100, 'old#b0': now + 200 };
   const allRested = orderBrilliant(all, id => dueById[id] ?? 0, now);
   check('all rested → soonest-back leads', allRested[0].spot.id === 'new#b2', allRested[0].spot.id);
+
+  // ── gameFinds: the two sources, merged ─────────────────────────────────────
+  {
+    const g = mkGame('both', 10, 'white', ['brilliant', undefined, undefined]);
+    g.retry = {
+      scannedAt: 1, version: 2, spots: [],
+      brilliant: [
+        // The same move the analysis already graded — must not appear twice.
+        { id: 'both#b0', ply: 0, cls: 'great', preFen: 'x', playedSan: 'a', playedUci: 'a1a2' },
+        { id: 'both#b2', ply: 2, cls: 'brilliant', preFen: 'y', playedSan: 'b', playedUci: 'b1b2' },
+      ],
+    };
+    const finds = gameFinds(g);
+    check('both sources are read', finds.length === 2, JSON.stringify(finds.map(f => f.id)));
+    check('the same move is never listed twice',
+      finds.filter(f => f.id === 'both#b0').length === 1);
+    check('the analysis grade wins on a clash',
+      finds.find(f => f.id === 'both#b0')?.cls === 'brilliant');
+    check('a scan find earns the auto-tag', hasUserBrilliant(g));
+
+    const scanOnly = mkGame('scan', 11, 'white', [], false);
+    scanOnly.retry = {
+      scannedAt: 1, version: 2, spots: [],
+      brilliant: [{ id: 'scan#b4', ply: 4, cls: 'brilliant', preFen: 'z', playedSan: 'c', playedUci: 'c1c2' }],
+    };
+    check('a game with no saved analysis still has its finds',
+      gameFinds(scanOnly).length === 1);
+    check('…and they reach the exercise',
+      collectBrilliantSpots([scanOnly]).length === 1);
+  }
+
+  // ── candidatePlies: which sacrifices are worth an engine look ──────────────
+  {
+    // 6.Nxf7 in the Fried Liver — a real sacrifice (knight for a pawn, king
+    // recaptures) at ply 10, played by White.
+    const SANS = ['e4','e5','Nf3','Nc6','Bc4','Nf6','Ng5','d5','exd5','Nxd5','Nxf7'];
+    const ch = new Chess();
+    const fens = [ch.fen()];
+    const ucis: string[] = [];
+    for (const san of SANS) {
+      const m = ch.move(san);
+      ucis.push(m.from + m.to + (m.promotion ?? ''));
+      fens.push(ch.fen());
+    }
+    const level = (): (number | null)[] => new Array(SANS.length + 1).fill(0);
+
+    const cands = candidatePlies({ colour: 'white', fens, ucis, trail: level() });
+    check('a real sacrifice is a candidate',
+      cands.length === 1 && cands[0].ply === 10, JSON.stringify(cands));
+    check('and it knows what was given up', (cands[0]?.given ?? 0) >= 2, String(cands[0]?.given));
+
+    const tanked = level();
+    tanked[11] = -600; // the sacrifice simply lost material
+    check('a piece merely hung is not a candidate',
+      candidatePlies({ colour: 'white', fens, ucis, trail: tanked }).length === 0);
+
+    const won = level();
+    for (let i = 0; i <= 10; i++) won[i] = 900; // already completely winning
+    check('a sacrifice from a won position is not a candidate',
+      candidatePlies({ colour: 'white', fens, ucis, trail: won }).length === 0);
+
+    check('the other side’s moves are never candidates',
+      candidatePlies({ colour: 'black', fens, ucis, trail: level() }).length === 0);
+
+    const gap = level();
+    gap[11] = null; // the scan couldn't evaluate the position after it
+    check('an unevaluated ply is skipped, not guessed',
+      candidatePlies({ colour: 'white', fens, ucis, trail: gap }).length === 0);
+
+    check('maxPly stops the walk',
+      candidatePlies({ colour: 'white', fens, ucis, trail: level(), maxPly: 8 }).length === 0);
+  }
 
   return results;
 }

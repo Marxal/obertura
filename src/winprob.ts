@@ -49,8 +49,14 @@ const GREAT_GAP = 0.12;
 // "Brilliant": a real sacrifice that works. The mover must still be OK after
 // the move (not sacrificing while lost) and must not have been completely
 // winning already (a sac when totally winning isn't daring, it's showing off).
-const BRILLIANT_MIN_WIN_AFTER = 0.45;
-const BRILLIANT_MAX_WIN_BEFORE = 0.90;
+//
+// Exported because the mistake scan uses the same two numbers to decide which
+// sacrifices are worth asking the engine about (brilliant.ts's candidate pass).
+// A cheaper bar there would waste engine time on hung pieces; a stricter one
+// would hide brilliancies from the exercise that this very function would go on
+// to grade as brilliant.
+export const BRILLIANT_MIN_WIN_AFTER = 0.45;
+export const BRILLIANT_MAX_WIN_BEFORE = 0.90;
 
 // Logistic centipawn → win% for the side to move. The constant is Lichess's
 // accuracy-model fit; cp is clamped implicitly by the mate sentinels below, so

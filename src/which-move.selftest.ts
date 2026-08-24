@@ -1,9 +1,9 @@
-// Pure checks of Better or blunder's fairness rules and dealing order — no
-// network, no engine, no storage. The whole point of better.ts is that a
+// Pure checks of Which move's fairness rules and dealing order — no
+// network, no engine, no storage. The whole point of which-move.ts is that a
 // two-answer question must have an indefensible wrong answer, so most of what
 // is checked here is what it REFUSES to ask.
 
-import { isFairPair, fairPairs, pickBetter, readyBetterCount, MIN_GAP } from './better';
+import { isFairPair, fairPairs, pickWhichMove, readyWhichMoveCount, MIN_GAP } from './which-move';
 import type { MistakeSpot, SpotRef } from './mistake-scan';
 import type { ImportedGame } from './import-core';
 
@@ -45,7 +45,7 @@ function mkRef(o: {
   return { game: mkGame(o.gameId ?? o.id, o.endTime ?? 1), spot };
 }
 
-export function runBetterSelfTest(): TestResult[] {
+export function runWhichMoveSelfTest(): TestResult[] {
   const results: TestResult[] = [];
   const check = (name: string, pass: boolean, detail = ''): void => {
     results.push({ name, pass, detail: detail || (pass ? 'ok' : 'failed') });
@@ -93,23 +93,23 @@ export function runBetterSelfTest(): TestResult[] {
       mkRef({ id: 'g2#1', gameId: 'g2', endTime: 9 }),
       mkRef({ id: 'g3#1', gameId: 'g3', endTime: 8 }),
     ];
-    const picked = pickBetter(refs, 3, () => 0, 1000);
+    const picked = pickWhichMove(refs, 3, () => 0, 1000);
     check('newest game leads', picked[0].spot.id === 'g1#1');
     const backToBack = picked.some((r, i) => i > 0 && picked[i - 1].game.id === r.game.id);
     check('never two questions from one game in a row', !backToBack,
       picked.map(r => r.game.id).join(','));
 
-    const short = pickBetter(refs.slice(0, 2), 2, () => 0, 1000);
+    const short = pickWhichMove(refs.slice(0, 2), 2, () => 0, 1000);
     check('a one-game pool still fills the session', short.length === 2);
 
     const due: Record<string, number> = { 'g1#1': 9000, 'g1#2': 9000 };
-    const rested = pickBetter(refs, 4, id => due[id] ?? 0, 1000);
+    const rested = pickWhichMove(refs, 4, id => due[id] ?? 0, 1000);
     check('answered questions sink to the back',
       rested.slice(0, 2).every(r => !due[r.spot.id]), rested.map(r => r.spot.id).join(','));
     check('the ready count skips the resting ones',
-      readyBetterCount(refs, id => due[id] ?? 0, 1000) === 2);
+      readyWhichMoveCount(refs, id => due[id] ?? 0, 1000) === 2);
     check('an unfair spot never counts as ready',
-      readyBetterCount([...refs, mkRef({ id: 'junk', best: [] })], () => 0, 1000) === 4);
+      readyWhichMoveCount([...refs, mkRef({ id: 'junk', best: [] })], () => 0, 1000) === 4);
   }
 
   return results;

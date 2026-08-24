@@ -19718,22 +19718,26 @@ html.picker-open body {
 .dt-reveal:active { color: var(--text); }
 
 /* ── Better or blunder: the two picks ── */
-.bb-picks {
+.wm-picks {
+  /* The one candidate colour, matching the arrows (HINT_COLOR in
+     board-brushes.ts — keep the two in step). */
+  --wm-pick-color: #2f8bf0;
   display: flex;
   gap: 0.5rem;
   padding: 0 1rem 0.6rem;
 }
-.bb-picks[hidden] { display: none; }
+.wm-picks[hidden] { display: none; }
 
-/* Each pick carries its arrow's colour (--bb-pick), which is the only thing
-   tying a button to a shape on the board. */
-.bb-pick {
+/* Both picks wear the same colour as both arrows — see which-move-run.ts. A
+   button that looked different from its neighbour would be answering the
+   question before the user does. */
+.wm-pick {
   flex: 1 1 0;
   min-height: 54px;
   padding: 0.5rem 0.6rem;
-  border: 2px solid var(--bb-pick);
+  border: 2px solid var(--wm-pick-color);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--bb-pick) 12%, var(--bg-card));
+  background: color-mix(in srgb, var(--wm-pick-color) 12%, var(--bg-card));
   color: var(--text);
   font-size: 1.05rem;
   font-weight: 700;
@@ -19742,37 +19746,37 @@ html.picker-open body {
   -webkit-tap-highlight-color: transparent;
   transition: background 0.12s, opacity 0.12s, transform 0.12s;
 }
-.bb-pick:not(:disabled):active { transform: scale(0.98); }
+.wm-pick:not(:disabled):active { transform: scale(0.98); }
 
 /* After the answer both buttons say what they were: the engine's move goes
    green, the played one red, and the one that was tapped is ringed so the
    verdict is about YOUR answer, not just about the moves. */
-.bb-pick--best {
+.wm-pick--best {
   border-color: var(--success);
   background: color-mix(in srgb, var(--success) 18%, var(--bg-card));
   opacity: 1;
 }
-.bb-pick--bad {
+.wm-pick--bad {
   border-color: var(--danger);
   background: color-mix(in srgb, var(--danger) 14%, var(--bg-card));
   opacity: 1;
 }
-.bb-pick--chosen {
+.wm-pick--chosen {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--text-faint) 45%, transparent);
 }
-.bb-pick:disabled { cursor: default; }
+.wm-pick:disabled { cursor: default; }
 
 /* ── Better or blunder: the reveal ── */
-.bb-facts {
+.wm-facts {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
   padding: 0 1rem 0.7rem;
   text-align: center;
 }
-.bb-facts[hidden] { display: none; }
+.wm-facts[hidden] { display: none; }
 
-.bb-facts-line {
+.wm-facts-line {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -19783,10 +19787,33 @@ html.picker-open body {
   line-height: 1.4;
 }
 
-.bb-facts-cost {
-  color: var(--text-faint);
-  font-size: 0.78rem;
+/* The two moves and what each was worth: what you played, and what the engine
+   wanted. Red and green do the arguing — the sentence above says what happened,
+   these two say how much it mattered. */
+.wm-facts-evals {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.wm-eval {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding: 0.18rem 0.55rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+.wm-eval--bad { color: var(--danger); }
+.wm-eval--good { color: var(--success); }
+
+.wm-eval-cp {
+  opacity: 0.85;
+  font-weight: 800;
 }
 
 /* Both new exercises carry a stack of controls under the board, so the shared
@@ -19797,4 +19824,128 @@ html.picker-open body {
 .pt-overlay--compact .pt-top {
   flex: 0 0 auto;
   padding-top: 0.4rem;
+}
+
+/* ── The Fixed figure, as a door (fixed-sheet.ts) ──────────────────────────── */
+/* A stat that opens something has to LOOK like it does, or nobody taps it —
+   but only just: it still has to read as one of three figures in a row, not as
+   a button someone dropped into a stats block. An underline under the label and
+   a press state are the whole of it. */
+.train-hero-stat--tap {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.train-hero-stat--tap .train-hero-stat-label {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+.train-hero-stat--tap:active { opacity: 0.6; }
+
+/* ── The Fixed sheet ───────────────────────────────────────────────────────── */
+.fixed-sheet-again {
+  width: 100%;
+  margin: 0.2rem 0 0.4rem;
+}
+
+.fixed-sheet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 55vh;
+  overflow-y: auto;
+  margin: 0.25rem 0;
+}
+
+/* One game's block: the opponent, then its fixed positions. */
+.fixed-game-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.fixed-game-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.fixed-game-count {
+  flex: none;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--success) 18%, transparent);
+  color: var(--success);
+  font-size: 0.72rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.fixed-game-opening {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-faint);
+  font-size: 0.72rem;
+  margin-bottom: 0.15rem;
+}
+
+.fixed-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin-top: 0.3rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  background: var(--bg-card);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.fixed-row:active { background: var(--bg-elevated); }
+.fixed-row svg { flex: none; color: var(--text-faint); }
+
+.fixed-row-tick {
+  flex: none;
+  display: inline-flex;
+  color: var(--success);
+}
+.fixed-row-tick svg { color: inherit; }
+
+.fixed-row-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.fixed-row-moves {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+  font-size: 0.88rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.fixed-row-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-faint);
+  font-size: 0.72rem;
 }
