@@ -7,15 +7,29 @@
 // game, one two-move question per found mistake. Without a memory they would
 // deal the same handful forever — you'd learn "the third move, vs Kevin" rather
 // than how to spot a blunder. So a run you crack goes away for a few days and
-// then comes back, further out each time you get it right again; a run you miss
-// never rests, because an unfound blunder is exactly what you should meet again
-// tomorrow.
+// then comes back, further out each time you get it right again.
+//
+// AND A RUN YOU MISS RESTS TOO — briefly. The first version of this logged only
+// CLEAN solves, on the reasoning that an unfound blunder is exactly what you
+// should meet again tomorrow. In practice that reasoning was backwards: both
+// pickers deal newest-game-first, so the case you just failed was still the
+// first thing in the pile, and the exercise dealt it again immediately — the
+// same position, over and over, from both the daily challenge and the pane.
+// A miss now rests SEEN_REST_DAYS (a day) without stepping the ladder: long
+// enough to get out of today's way, short enough that it is back tomorrow while
+// a cracked one is still four days out.
 //
 // Both stores are throwaway by design: clearing them (the pane's Reset) puts
 // every exercise back on the table and loses nothing but the rotation.
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_ITEMS = 300;
+
+/**
+ * How long a MISSED (or revealed) exercise stands aside. One day: the point is
+ * only to stop the same case leading the pile for the rest of today.
+ */
+export const SEEN_REST_DAYS = 1;
 
 interface Rec {
   due: number;   // epoch ms — suppressed until now ≥ due
@@ -28,6 +42,11 @@ export interface RestLog {
   dueMap(): Record<string, number>;
   /** Record one clean solve: step up the ladder, push the return date out. */
   solved(id: string, now?: number): void;
+  /**
+   * Record a MISS: a short stand-aside, with the ladder untouched, so tomorrow
+   * it is back. Never shortens a rest already earned by a solve.
+   */
+  seen(id: string, now?: number): void;
   /** Forget everything — every exercise becomes available again. */
   clear(): void;
 }
@@ -79,6 +98,17 @@ function makeRestLog(key: string, ladder: readonly number[]): RestLog {
       const map = load();
       const step = Math.min((map[id]?.step ?? -1) + 1, ladder.length - 1);
       map[id] = { step, due: now + ladder[step] * DAY_MS };
+      save(map);
+    },
+    seen(id: string, now: number = Date.now()): void {
+      if (!id) return;
+      const map = load();
+      const prev = map[id];
+      const due = now + SEEN_REST_DAYS * DAY_MS;
+      // A miss must never pull a solved item forward — the ladder is the longer
+      // memory, and getting one wrong today doesn't undo getting it right.
+      if (prev && prev.due > due) return;
+      map[id] = { step: prev?.step ?? 0, due };
       save(map);
     },
     clear(): void {

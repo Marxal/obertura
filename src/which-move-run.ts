@@ -36,6 +36,10 @@ import { showDialog } from './dialog';
 import { formatMove, numberedMove } from './notation';
 import { openInfoSheet, buildInfoButton } from './info-sheet';
 import { whichMoveLog } from './middle-log';
+import { explainPair } from './which-move';
+import { buildRunHeader } from './run-header';
+import { openSpotPeek } from './spot-peek';
+import { WHICH_MOVE_ACCENT } from './exercise-identity';
 import type { SpotRef } from './mistake-scan';
 import type { OpenGameCtx } from './mistake-run';
 import type { ImportedGame } from './import-core';
@@ -54,6 +58,11 @@ export interface WhichMoveSessionOptions {
   /** Daily challenge: the results screen's primary jumps to the next challenge. */
   nextAction?: { label: string; run: () => void };
   modeLabel?: string;
+  /**
+   * The session's framing, shown above the exercise's name in the run header —
+   * "Daily challenge", "Your games mix". Context, not identity.
+   */
+  contextLabel?: string;
 }
 
 /** What this exercise is, one tap from the run itself. */
@@ -125,15 +134,14 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
   overlay.className = 'pt-overlay pt-overlay--puzzle pt-overlay--tinted pt-overlay--compact';
   overlay.style.setProperty('--pt-tint', '#a3492e');
 
-  const headerEl = document.createElement('div');
-  headerEl.className = 'pt-header';
-  const backBtn = document.createElement('button');
-  backBtn.type = 'button';
-  backBtn.className = 'pt-back-btn';
-  backBtn.appendChild(Icons.back(15));
-  backBtn.appendChild(document.createTextNode('End session'));
-  backBtn.addEventListener('click', () => exitViaButton());
-  headerEl.appendChild(backBtn);
+  const header = buildRunHeader({
+    icon: Icons.merge(18),
+    title: opts.modeLabel ?? 'Which move',
+    kicker: opts.contextLabel,
+    accent: WHICH_MOVE_ACCENT,
+    onEnd: () => exitViaButton(),
+  });
+  const headerEl = header.el;
 
   const sessionBarEl = document.createElement('div');
   sessionBarEl.className = 'pt-session-bar';
@@ -386,6 +394,10 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
     // blank board in the mistake drill, and telling two moves apart is not the
     // same feat. Inflating that number here would quietly devalue it.
     if (right) whichMoveLog.solved(spot.id);
+    // A wrong answer rests for a day rather than not at all. Without this the
+    // picker (newest game first) dealt the question you just got wrong straight
+    // back to you, over and over — see middle-log.ts.
+    else whichMoveLog.seen(spot.id);
 
     pickBtns.forEach((btn, i) => {
       btn.disabled = true;
@@ -458,27 +470,43 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
     line.appendChild(mv);
     factsEl.appendChild(line);
 
+    // …and WHY, one clause each. The two numbers alone were an argument only for
+    // someone who already reads evals; explainPair (which-move.ts) turns them
+    // and the board into a sentence.
+    const why = explainPair(spot);
     const evals = document.createElement('div');
     evals.className = 'wm-facts-evals';
-    evals.appendChild(evalChip(spot.playedSan, spot.evalAfter, 'bad'));
-    evals.appendChild(evalChip(spot.best[0].san, spot.evalBefore, 'good'));
+    evals.appendChild(evalChip(spot.playedSan, spot.evalAfter, 'bad', why.played));
+    evals.appendChild(evalChip(spot.best[0].san, spot.evalBefore, 'good', why.best));
     factsEl.appendChild(evals);
 
     factsEl.hidden = false;
   }
 
-  /** "♝xe6 −5.2" — one move and what the position was worth after it. */
-  function evalChip(san: string, cp: number, kind: 'good' | 'bad'): HTMLElement {
+  /**
+   * "♝xe6 −5.2 / hangs material on e6" — one move, what the position was worth
+   * after it, and the one thing that makes that number make sense.
+   */
+  function evalChip(san: string, cp: number, kind: 'good' | 'bad', why: string): HTMLElement {
     const chip = document.createElement('span');
     chip.className = `wm-eval wm-eval--${kind}`;
+    const head = document.createElement('span');
+    head.className = 'wm-eval-head';
     const move = document.createElement('span');
     move.className = 'wm-eval-move';
     move.textContent = formatMove(san);
-    chip.appendChild(move);
+    head.appendChild(move);
     const num = document.createElement('span');
     num.className = 'wm-eval-cp';
     num.textContent = showCp(cp);
-    chip.appendChild(num);
+    head.appendChild(num);
+    chip.appendChild(head);
+    if (why) {
+      const reason = document.createElement('span');
+      reason.className = 'wm-eval-why';
+      reason.textContent = why;
+      chip.appendChild(reason);
+    }
     return chip;
   }
 
@@ -594,10 +622,20 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
     overlay.appendChild(wrap);
   }
 
+  // One results row — tappable, exactly like the mistake drill's: it pops the
+  // question's position up right here, the move you played in red and the
+  // engine's in blue, with a jump into the full analyser.
   function resultRow(e: SessionEntry): HTMLElement {
     const row = document.createElement('div');
-    row.className = 'pz-result-row '
+    row.className = 'pz-result-row pz-result-row--linked '
       + (e.correct ? 'pz-result-row--solved' : 'pz-result-row--missed');
+    row.setAttribute('role', 'button');
+    row.tabIndex = 0;
+    const open = (): void => openQuestionPeek(e.ref);
+    row.addEventListener('click', open);
+    row.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(); }
+    });
 
     const dot = document.createElement('span');
     dot.className = 'pz-result-dot';
@@ -616,6 +654,23 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
     main.appendChild(meta);
     row.appendChild(main);
     return row;
+  }
+
+  function openQuestionPeek(ref: SpotRef): void {
+    const best = ref.spot.best[0];
+    openSpotPeek({
+      fen: ref.spot.preFen,
+      orientation: ref.game.colour,
+      arrows: [
+        { uci: ref.spot.playedUci, kind: 'danger' },
+        ...(best ? [{ uci: best.uci, kind: 'accent' as const }] : []),
+      ],
+      meta: `${numberedMove(ref.spot.playedSan, ref.spot.ply + 1)} → `
+        + `${formatMove(best?.san ?? '?')} · vs ${ref.game.opponent}`,
+      onAnalyse: opts.onOpenGame
+        ? () => suspendForAnalysis(ref.game, ref.spot.preFen)
+        : undefined,
+    });
   }
 
   function doExit(): void {

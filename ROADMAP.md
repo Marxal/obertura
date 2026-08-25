@@ -3206,6 +3206,93 @@ called fully analysed.
 
 ---
 
+## The daily-challenge round — your order, your exercises, and three queues that move ✅
+
+Testing the middle-game round on the phone: the daily challenge felt like the
+same challenge every day, one part of it never ticked itself off, and the three
+newest exercises still looked like three unrelated screens once you were inside
+them.
+
+- ✅ **The order is yours now.** Which parts the daily challenge includes was
+  already a preference; the order they run in was whatever `daily-challenge.ts`
+  happened to list, which quietly decided what you do first every single day —
+  and the first thing is the thing that actually gets done. Each row in
+  Preferences carries a pair of move buttons and its place in the day, and the
+  card and the "Next challenge →" chain both follow it. Up/down rather than
+  drag-and-drop: a drag handle inside a scrolling bottom sheet on a phone fights
+  the scroll for the same gesture.
+- ✅ **…or nobody's.** "Shuffle each day" hands the order to chance. It settles
+  ONCE PER DAY (seeded on the date, not on `Math.random`), so the card can be
+  rebuilt mid-sitting without rearranging itself under your thumb, and the part
+  you were about to do is still the part you were about to do.
+- ✅ **New defaults.** Three lines, three positions, three puzzles, three endgame
+  puzzles, then two each of the three that read your own games. The from-your-
+  games parts are whole exercises rather than items, and there are three of them
+  now — three each would have made your own games two-thirds of the day.
+  Blunder detective goes UP from one to two; Which move down from three to two
+  and renamed on the card to "moves to pick".
+- ✅ **A finished part ticks itself off, even after a detour.** THE BUG: finish
+  the last puzzle of the daily challenge, tap Analyse, come back with "Back to
+  train", tap "See results" — the task was recorded but the card still showed it
+  waiting. `showView('train')` REBUILDS the whole Train screen, so the suspended
+  session was holding closures over a daily card that was no longer in the
+  document; it dutifully repainted a detached node. "Next challenge →" was worse:
+  it rendered the next session into a detached pane, so nothing happened at all.
+  Both now go through one live hook that the newest render owns.
+- ✅ **The lines stopped repeating.** With nothing actually due — which is most
+  days once a repertoire settles — the top-up was "the newest three, then the
+  weakest", both fixed orders over a set that barely changes. It now leads with
+  the lines you have gone longest without training, which is both the more useful
+  pick and a genuinely moving target: training a line stamps it, so tomorrow
+  deals different ones. Self-tested as exactly that.
+- ✅ **…and so did the blunders, the questions and the gems.** Same shape as the
+  mistake-queue fix in the round above, and the same root cause: all three rest
+  logs recorded only a CLEAN solve. Miss a detective case and it was still the
+  newest game's case, so it led the pile again immediately — from the daily
+  challenge and from the pane both. A miss now rests a day without stepping the
+  ladder: out of today's way, back tomorrow, while a cracked one is still four
+  days out.
+- ✅ **Every exercise says what it is.** Each mode owns an icon, a colour and a
+  name — on the card that launches it. The moment the overlay opened, all three
+  vanished: the header was one "‹ End session" and nothing else. It now carries
+  the icon in an accent-tinted chip, the exercise's name, and the exit on the
+  right; the session's framing ("Daily challenge", "Your games mix") rides above
+  the name as a kicker, so a chained run always says what it just handed you.
+  Shared by all eight overlays (`run-header.ts`); the duplicate mode title that
+  used to sit above the board is gone, and that block is about the position again.
+- ✅ **The count stopped eating the card.** A "From your games" card's badge had a
+  column of its own — a big number and an uppercase label, a third of the width —
+  which wrapped every title and subtitle onto two lines. It is a small chip in
+  the top-right corner now, and the words have the width back.
+- ✅ **Blunder detective: a hint before the answer.** The answer phase offered
+  "Show the move" and nothing else, so the only way to get unstuck was to be told.
+  Hint comes first and highlights the piece; only once it is spent does Show
+  solution appear; Analyse arrives with the closed case.
+- ✅ **…and it says the instruction once.** The brief above the board stays; the
+  stepper's "Before the run" — which said where the board was, which the disabled
+  arrow already said — is now the instruction itself, in a quiet two-line box
+  between the arrows it is telling you to press. The sentence that repeated it
+  under the button is gone.
+- ✅ **Results rows open the position.** The mistake drill's rows have always
+  popped the position up; detective and Which move copied the results screen but
+  not that, so their rows were the only ones in the app that looked like buttons
+  and did nothing. One shared popup (`spot-peek.ts`) for all three.
+- ✅ **Which move says why.** The red and green boxes were two numbers, and a
+  number is only an argument if you already read evals. Each now carries one
+  derived clause — a static exchange on the destination square answers "did this
+  hang something", the mate sentinels answer "is this mate", the win
+  probabilities answer "what changed". Anything the engine did not tell us, it
+  does not say.
+- ✅ **Your games mix means all of your games.** It dealt mistake positions and
+  closed on brilliancies; the two newest exercises were not in it. It now chains
+  every exercise in the section — two-move questions, mistakes, a detective case
+  or two, then your best moves — skipping whatever has nothing to deal.
+- ✅ **The daily card stopped vanishing.** Turning "lines to remember" off deleted
+  the whole card: it bailed whenever today's lines came back empty, even though
+  every other part still had work to offer.
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

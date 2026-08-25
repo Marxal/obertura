@@ -24,6 +24,7 @@ import type { Key } from 'chessground/types';
 import { Icons } from './icons';
 import { playFeedback } from './sound';
 import { pushBack } from './back-nav';
+import { buildRunHeader } from './run-header';
 import { burstConfetti, celebratePawn } from './confetti';
 import { puzzleSetup, type Puzzle } from './puzzles';
 import { checkPuzzleAlternate, isPromotionMove } from './puzzle-alt';
@@ -89,6 +90,11 @@ export interface PuzzleSessionOptions {
   onPlayAgain?: () => void;
   // Small muted label above the board (e.g. the opening name, or "Mixed").
   modeLabel?: string;
+  /**
+   * The session's framing, shown above the exercise's name in the run header —
+   * "Daily challenge", "Your games mix". Context, not identity.
+   */
+  contextLabel?: string;
   // Skip puzzles seen recently (default true); a retry session turns this off so
   // the missed puzzles are deliberately repeated.
   dedup?: boolean;
@@ -163,19 +169,17 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   // same hue as its Train tab, so the mode reads consistently.
   overlay.style.setProperty('--pt-tint', '#8a5a20');
 
-  const headerEl = document.createElement('div');
-  headerEl.className = 'pt-header';
-  const backBtn = document.createElement('button');
-  backBtn.type = 'button';
-  backBtn.className = 'pt-back-btn';
-  backBtn.appendChild(Icons.back(15));
-  backBtn.appendChild(document.createTextNode('End session'));
-  backBtn.addEventListener('click', () => exitViaButton());
-  headerEl.appendChild(backBtn);
+  const header = buildRunHeader({
+    icon: timed ? Icons.clock(18) : Icons.puzzlePiece(18),
+    title: opts.modeLabel ?? (timed ? 'Time attack' : 'Puzzles'),
+    kicker: opts.contextLabel,
+    onEnd: () => exitViaButton(),
+  });
+  const headerEl = header.el;
 
   const scoreEl = document.createElement('div');
   scoreEl.className = 'pt-timed-score';
-  if (timed) headerEl.appendChild(scoreEl);
+  if (timed) header.extras.appendChild(scoreEl);
 
   // Time Attack HUD: the countdown and a 3-dot mistake tracker, centred above the
   // mode title (built into .pt-top below).
@@ -222,10 +226,9 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     hud.appendChild(mistakesEl);
     topEl.appendChild(hud);
   }
-  const modeEl = document.createElement('div');
-  modeEl.className = 'pt-mode-title';
-  modeEl.textContent = opts.modeLabel ?? 'Puzzles';
-  topEl.appendChild(modeEl);
+  // No mode title here: the run header says which exercise this is (see
+  // run-header.ts), and saying it twice cost the block a line it needs for the
+  // rating and the themes.
   const ratingEl = document.createElement('div');
   ratingEl.className = 'pt-line-name';
   topEl.appendChild(ratingEl);

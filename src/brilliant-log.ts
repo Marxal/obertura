@@ -5,13 +5,20 @@
 // forever. When you re-find one cleanly it's suppressed for a stretch, then
 // resurfaces so you can prove you still know it. Each clean solve pushes the
 // resurface date further out along a growing ladder (2 → 5 → 12 → 30 days).
-// A miss never suppresses — an unfound gem stays available.
+//
+// A MISS RESTS TOO, briefly. It used not to — "an unfound gem stays available"
+// — but the ordering is newest-game-first, so the gem you needed a hint for was
+// still the very next one offered, again and again. It now stands aside for a
+// day (SEEN_REST_DAYS) with the ladder untouched, which is long enough to get
+// out of today's way and short enough to be back tomorrow.
 
 const KEY = 'obertura.brilliantLog';
 const DAY_MS = 24 * 60 * 60 * 1000;
 // Days a spot rests after each successive clean re-find. Wider than the puzzle
 // ladder because brilliancies are scarce and worth savouring.
 const LADDER = [2, 5, 12, 30] as const;
+// …and how long one you needed help with stands aside. See above.
+const SEEN_REST_DAYS = 1;
 const MAX_ITEMS = 200;
 
 interface Rec {
@@ -69,6 +76,19 @@ export function recordBrilliantSolved(id: string, now: number = Date.now()): voi
   const prevStep = map[id]?.step ?? -1;
   const step = Math.min(prevStep + 1, LADDER.length - 1);
   map[id] = { step, due: now + LADDER[step] * DAY_MS };
+  save(map);
+}
+
+// Record a spot you were SHOWN rather than found: a short stand-aside, with the
+// ladder untouched, so it comes back tomorrow rather than immediately. Never
+// shortens a rest a clean find already earned.
+export function recordBrilliantSeen(id: string, now: number = Date.now()): void {
+  if (!id) return;
+  const map = load();
+  const prev = map[id];
+  const due = now + SEEN_REST_DAYS * DAY_MS;
+  if (prev && prev.due > due) return;
+  map[id] = { step: prev?.step ?? 0, due };
   save(map);
 }
 

@@ -16,6 +16,7 @@ import { Chessground } from 'chessground';
 import type { Key } from 'chessground/types';
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
+import { buildRunHeader } from './run-header';
 import { playFeedback } from './sound';
 import { burstConfetti } from './confetti';
 import { formatMove } from './notation';
@@ -68,22 +69,17 @@ export function startFixIt(move: FixItMove, opts: FixItOptions): void {
   const overlay = document.createElement('div');
   overlay.className = 'pt-overlay fixit-overlay';
 
-  const headerEl = document.createElement('div');
-  headerEl.className = 'pt-header';
-  const backBtn = document.createElement('button');
-  backBtn.type = 'button';
-  backBtn.className = 'pt-back-btn';
-  backBtn.appendChild(Icons.back(15));
-  backBtn.appendChild(document.createTextNode('Close'));
-  backBtn.addEventListener('click', () => doExit());
-  headerEl.appendChild(backBtn);
+  const header = buildRunHeader({
+    icon: Icons.zap(18),
+    title: 'Fix it',
+    endLabel: 'Close',
+    onEnd: () => doExit(),
+  });
+  const headerEl = header.el;
 
   const topEl = document.createElement('div');
   topEl.className = 'pt-top';
-  const modeEl = document.createElement('div');
-  modeEl.className = 'pt-mode-title';
-  modeEl.textContent = 'Fix it';
-  topEl.appendChild(modeEl);
+  // "Fix it" is in the header now (run-header.ts); the block keeps the opening.
   const titleEl = document.createElement('div');
   titleEl.className = 'pt-line-name';
   titleEl.textContent = move.openingName || 'Forgotten move';

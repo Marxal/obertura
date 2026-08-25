@@ -787,6 +787,12 @@ export function buildModeCard(o: {
   }
   card.appendChild(text);
 
+  // The count badge, pinned to the card's top-right corner rather than given a
+  // column of its own. It used to sit in the flex row beside the text, where a
+  // big number and an uppercase label ("12 CASES") ate a third of the card and
+  // squeezed every title and subtitle into two wrapped lines. It is a footnote
+  // about the card, not half of it — so it floats above the text, small, and the
+  // words get the width back.
   if (o.stat !== undefined) {
     const stat = document.createElement('span');
     stat.className = 'mode-card-stat';
@@ -799,7 +805,11 @@ export function buildModeCard(o: {
     lbl.textContent = o.statLabel ?? '';
     stat.appendChild(num);
     stat.appendChild(lbl);
+    // Said once, properly, for a screen reader — the corner chip reads as two
+    // loose fragments otherwise.
+    stat.setAttribute('aria-label', `${o.stat} ${o.statLabel ?? ''}`.trim());
     card.appendChild(stat);
+    card.classList.add('mode-card--stat');
   }
 
   if (!o.disabled) card.addEventListener('click', o.onClick);
@@ -949,6 +959,8 @@ export function startMoveFix(
         startDrill(located.line, {
           wrongMoveMode: 'full',
           modeLabel: 'Fix it',
+          modeIcon: () => Icons.zap(18),
+          modeAccent: MODE_ACCENT.fix,
           completeMessage: 'Fixed! 🎉',
           celebrateOnComplete: true,
           backLabel: 'Done',
@@ -981,9 +993,14 @@ interface SessionStats {
   // Distinct missed positions, for the end-of-session "try your mistakes" review.
   mistakes: Mistake[];
   mistakeKeys: Set<string>;
+  // Not a tally: the sitting's framing ("Daily challenge") for the run header.
+  // It rides here because `stats` is the one object already threaded through
+  // startRounds → runRound → runSession → runItem, which is where the drill is
+  // finally built — four signatures for one optional string is worse.
+  contextLabel?: string;
 }
 
-function makeStats(): SessionStats {
+function makeStats(contextLabel?: string): SessionStats {
   return {
     linesReviewed: 0,
     movesMissed: 0,
@@ -991,6 +1008,7 @@ function makeStats(): SessionStats {
     lineStats: new Map(),
     mistakes: [],
     mistakeKeys: new Set(),
+    contextLabel,
   };
 }
 
@@ -1043,7 +1061,12 @@ interface RoundRunner {
 function startRounds(
   lines: Line[],
   container: HTMLElement,
-  opts: { explicit?: boolean; onComplete?: (outcome: TaskOutcome) => void; nextAction?: NextAction } = {},
+  opts: {
+    explicit?: boolean;
+    onComplete?: (outcome: TaskOutcome) => void;
+    nextAction?: NextAction;
+    contextLabel?: string;
+  } = {},
 ): void {
   const runner: RoundRunner = {
     lines,
@@ -1051,7 +1074,7 @@ function startRounds(
     index: 0,
     roundNo: 0,
     totalRounds: Math.max(1, Math.ceil(lines.length / ROUND_SIZE)),
-    stats: makeStats(),
+    stats: makeStats(opts.contextLabel),
     onComplete: opts.onComplete,
     nextAction: opts.nextAction,
   };
@@ -1066,8 +1089,11 @@ export function startLineSession(
   container: HTMLElement,
   onComplete?: (outcome: TaskOutcome) => void,
   nextAction?: NextAction,
+  // The framing shown above "Lines to remember" in the run header, when the
+  // sitting is part of something bigger (the daily challenge).
+  contextLabel?: string,
 ): void {
-  startRounds(lines, container, { explicit: true, onComplete, nextAction });
+  startRounds(lines, container, { explicit: true, onComplete, nextAction, contextLabel });
 }
 
 // Run a short, fixed-size individual-positions session (the daily challenge's
@@ -1082,6 +1108,7 @@ export function startPositionsSession(
   count: number,
   onComplete: (outcome: TaskOutcome) => void,
   nextAction?: NextAction,
+  contextLabel?: string,
 ): void {
   const trainingLines = lines.filter(l => l.inTraining);
   const clones = trainingLines.map(l => ({ ...l, tree: structuredClone(l.tree) }));
@@ -1105,6 +1132,9 @@ export function startPositionsSession(
       wrongMoveMode: 'full',
       confirmAbandon: true,
       modeLabel: 'Positions to refresh',
+      modeIcon: () => Icons.target(18),
+      modeAccent: MODE_ACCENT.fix,
+      contextLabel,
       playPrelude: true,
       celebrateOnComplete: true,
       completeMessage: 'Positions cleared ✓',
@@ -1320,6 +1350,8 @@ function runItem(
     wrongMoveMode: 'full',
     confirmAbandon: true,
     modeLabel: 'Training',
+    modeIcon: () => Icons.pawn(18),
+    contextLabel: stats.contextLabel,
     startAtPly,
     // Session-level progress bar: lines completed so far out of the lines the
     // session started with. linesReviewed counts completions, so for the current
@@ -1504,6 +1536,8 @@ function runRepertoireRun(container: HTMLElement, books: Repertoire[]): void {
       wrongMoveMode: 'full',
       confirmAbandon: true,
       modeLabel: 'Repertoire run',
+      modeIcon: () => Icons.book(18),
+      modeAccent: MODE_ACCENT.run,
       playPrelude: true,
       celebrateOnComplete: true,
       completeMessage: 'Book walked ✓',
@@ -1616,6 +1650,8 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
         wrongMoveMode: 'full',
         confirmAbandon: true,
         modeLabel: 'Individual moves',
+        modeIcon: () => Icons.zap(18),
+        modeAccent: MODE_ACCENT.fix,
         // Replay the opponent's move into each position so you see how it arose.
         playPrelude: true,
         celebrateOnComplete: true,
@@ -2334,6 +2370,8 @@ function runMistakesReview(container: HTMLElement, mistakes: Mistake[]): void {
     {
       wrongMoveMode: 'full',
       modeLabel: 'Your mistakes',
+      modeIcon: () => Icons.reset(18),
+      modeAccent: MODE_ACCENT.fix,
       // Replay the opponent's last move into each position so it reads in
       // context (matches the individual-moves drill) instead of appearing cold.
       playPrelude: true,
@@ -2414,7 +2452,9 @@ function runTimed(container: HTMLElement, allLines: Line[], minutes: TimedMinute
     {
       timedMs: minutes * 60 * 1000,
       confirmAbandon: true,
-      modeLabel: 'Timed',
+      modeLabel: 'Time attack',
+      modeIcon: () => Icons.clock(18),
+      modeAccent: MODE_ACCENT.timed,
       // Mark the opponent's last move so the position reads at a glance (no replay —
       // speed is the point).
       showLastMove: true,

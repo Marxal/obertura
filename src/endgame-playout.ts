@@ -22,6 +22,7 @@ import type { Api } from 'chessground/api';
 import type { Key } from 'chessground/types';
 import { Icons } from './icons';
 import { pushBack } from './back-nav';
+import { buildRunHeader } from './run-header';
 import { playFeedback } from './sound';
 import { burstConfetti, celebratePawn } from './confetti';
 import type { Endgame } from './endgame-catalog';
@@ -130,15 +131,14 @@ export function startEndgamePlayout(endgame: Endgame, opts: EndgamePlayoutOption
   overlay.className = 'pt-overlay pt-overlay--tinted endgame-overlay';
   overlay.style.setProperty('--pt-tint', TINT);
 
-  const headerEl = document.createElement('div');
-  headerEl.className = 'pt-header';
-  const backBtn = document.createElement('button');
-  backBtn.type = 'button';
-  backBtn.className = 'pt-back-btn';
-  backBtn.appendChild(Icons.back(15));
-  backBtn.appendChild(document.createTextNode('End session'));
-  backBtn.addEventListener('click', () => doExit());
-  headerEl.appendChild(backBtn);
+  // The endgame's own name is the identity here — "Rook vs pawn" tells you far
+  // more than "Endgame" would, and the flag says which family of exercise it is.
+  const header = buildRunHeader({
+    icon: Icons.flag(18),
+    title: endgame.name,
+    onEnd: () => doExit(),
+  });
+  const headerEl = header.el;
 
   // Live timer at the top-right (Fix 3), and an info button beside it that reveals
   // the teaching note as a popover (so revealing text never nudges the board).
@@ -149,21 +149,19 @@ export function startEndgamePlayout(endgame: Endgame, opts: EndgamePlayoutOption
   timerText.className = 'eg-timer-text';
   timerText.textContent = '0:00';
   timerEl.appendChild(timerText);
-  headerEl.appendChild(timerEl);
+  header.extras.appendChild(timerEl);
   const infoBtn = document.createElement('button');
   infoBtn.type = 'button';
   infoBtn.className = 'eg-play-info';
   infoBtn.appendChild(Icons.info(16));
   infoBtn.setAttribute('aria-label', 'Show the idea');
   infoBtn.setAttribute('aria-expanded', 'false');
-  headerEl.appendChild(infoBtn);
+  header.extras.appendChild(infoBtn);
 
   const topEl = document.createElement('div');
   topEl.className = 'pt-top';
-  const modeEl = document.createElement('div');
-  modeEl.className = 'pt-mode-title';
-  modeEl.textContent = endgame.name;
-  topEl.appendChild(modeEl);
+  // The name is in the header now (run-header.ts) — this block keeps the one
+  // thing that changes per exercise: what you have to achieve.
   const goalChip = document.createElement('span');
   goalChip.className = `eg-goal-chip eg-goal-chip--${endgame.goal}`;
   goalChip.textContent = endgame.goal === 'win' ? 'You must win' : 'You must draw';

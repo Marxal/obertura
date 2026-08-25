@@ -15,7 +15,7 @@ import { Chessground } from 'chessground';
 import type { Api } from 'chessground/api';
 import type { Key } from 'chessground/types';
 import type { DrawShape } from 'chessground/draw';
-import { Icons, classBoardSvg, CLASS_LABEL } from './icons';
+import { Icons, classBoardSvg, classIcon, CLASS_LABEL, CLASS_COLOR } from './icons';
 import { playFeedback } from './sound';
 import { pushBack } from './back-nav';
 import { burstConfetti, celebratePawn } from './confetti';
@@ -23,7 +23,8 @@ import { showDialog } from './dialog';
 import { formatMove } from './notation';
 import type { ImportedGame } from './import-core';
 import type { BrilliantRef } from './brilliant';
-import { recordBrilliantSolved } from './brilliant-log';
+import { recordBrilliantSolved, recordBrilliantSeen } from './brilliant-log';
+import { buildRunHeader } from './run-header';
 import type { OpenGameCtx } from './mistake-run';
 
 export interface BrilliantSessionOptions {
@@ -34,6 +35,15 @@ export interface BrilliantSessionOptions {
   // Open this game in the full analyser, AT the drill position; the session
   // suspends itself and hands over resume/discard hooks via ctx.
   onOpenGame?: (game: ImportedGame, ctx?: OpenGameCtx) => void;
+  /** Daily challenge / the games mix: the results screen chains on from here. */
+  nextAction?: { label: string; run: () => void };
+  /** What the run header calls this. Defaults to "Your brilliant moves". */
+  modeLabel?: string;
+  /**
+   * The session's framing, shown above the exercise's name in the run header —
+   * "Daily challenge", "Your games mix". Context, not identity.
+   */
+  contextLabel?: string;
 }
 
 interface SessionEntry {
@@ -68,15 +78,14 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
   // The brilliant teal, as a whisper behind the exercise.
   overlay.style.setProperty('--pt-tint', '#1d9e8f');
 
-  const headerEl = document.createElement('div');
-  headerEl.className = 'pt-header';
-  const backBtn = document.createElement('button');
-  backBtn.type = 'button';
-  backBtn.className = 'pt-back-btn';
-  backBtn.appendChild(Icons.back(15));
-  backBtn.appendChild(document.createTextNode('End session'));
-  backBtn.addEventListener('click', () => exitViaButton());
-  headerEl.appendChild(backBtn);
+  const header = buildRunHeader({
+    icon: classIcon('brilliant', 18),
+    title: opts.modeLabel ?? 'Your brilliant moves',
+    kicker: opts.contextLabel,
+    accent: CLASS_COLOR.brilliant,
+    onEnd: () => exitViaButton(),
+  });
+  const headerEl = header.el;
 
   const sessionBarEl = document.createElement('div');
   sessionBarEl.className = 'pt-session-bar';
@@ -349,6 +358,9 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
     // A clean re-find rests this gem for a while so the carousel loops on to the
     // next one; it resurfaces later (brilliant-log.ts).
     if (clean) recordBrilliantSolved(current.spot.id);
+    // …and one you needed a hint for stands aside for a day rather than being
+    // dealt straight back to you (brilliant-log.ts).
+    else recordBrilliantSeen(current.spot.id);
     entries.push({ ref: current, clean });
 
     const { from, to, promotion } = uciParts(current.spot.playedUci);
@@ -451,17 +463,29 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
 
     const actions = document.createElement('div');
     actions.className = 'pz-results-actions';
+    // A chained run (the games mix, the daily challenge) hands straight on: its
+    // button takes the green and everything else steps down, exactly as the
+    // other exercises' results screens do.
+    if (opts.nextAction) {
+      const next = document.createElement('button');
+      next.type = 'button';
+      next.className = 'btn-primary train-next-btn';
+      next.textContent = opts.nextAction.label;
+      next.addEventListener('click', () => { const fn = opts.nextAction!.run; cleanup(); fn(); });
+      actions.appendChild(next);
+    }
     if (opts.onPlayAgain) {
       const again = document.createElement('button');
       again.type = 'button';
-      again.className = 'btn-primary train-next-btn';
+      again.className = opts.nextAction ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
       again.textContent = 'Play again';
       again.addEventListener('click', () => { const fn = opts.onPlayAgain!; cleanup(); fn(); });
       actions.appendChild(again);
     }
     const doneBtn = document.createElement('button');
     doneBtn.type = 'button';
-    doneBtn.className = opts.onPlayAgain ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
+    doneBtn.className = (opts.nextAction || opts.onPlayAgain)
+      ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
     doneBtn.textContent = 'Close session';
     doneBtn.addEventListener('click', () => doExit());
     actions.appendChild(doneBtn);
