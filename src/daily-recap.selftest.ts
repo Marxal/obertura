@@ -35,7 +35,7 @@ function day(d: string, right: number, wrong: number, done = true): DailyDayResu
 function config(count: number, only?: DailyTaskId[]): DailyConfig {
   const tasks = {} as DailyConfig['tasks'];
   for (const id of DAILY_TASK_IDS) tasks[id] = { count: only && !only.includes(id) ? 0 : count };
-  return { enabled: true, tasks };
+  return { enabled: true, tasks, order: [...DAILY_TASK_IDS], randomOrder: false };
 }
 
 function recapFor(log: DailyDayResult[], today = '2026-08-14', extra: Partial<{
@@ -153,7 +153,7 @@ export function runDailyRecapSelfTest(): TestResult[] {
   check('two tasks never qualify', !perfectDayEligible(config(3), ['lines', 'puzzles']));
   check('a task set to one disqualifies the day', !perfectDayEligible(config(1), three));
   check('one thin task among three disqualifies the day', !perfectDayEligible(
-    { enabled: true, tasks: { ...config(3).tasks, puzzles: { count: 1 } } }, three));
+    { ...config(3), tasks: { ...config(3).tasks, puzzles: { count: 1 } } }, three));
   check('all five at two qualify', perfectDayEligible(config(2), [...DAILY_TASK_IDS]));
 
   // ── Reopening a past day (daily-review.ts's maths) ──────────────────────────

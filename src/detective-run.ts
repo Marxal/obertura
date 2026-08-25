@@ -34,6 +34,9 @@ import { showDialog } from './dialog';
 import { formatMove, numberedMove } from './notation';
 import { openInfoSheet, buildInfoButton } from './info-sheet';
 import { detectiveLog } from './middle-log';
+import { buildRunHeader } from './run-header';
+import { openSpotPeek } from './spot-peek';
+import { DETECTIVE_ACCENT } from './exercise-identity';
 import type { DetectiveRef } from './detective';
 import type { OpenGameCtx } from './mistake-run';
 import type { ImportedGame } from './import-core';
@@ -51,6 +54,11 @@ export interface DetectiveSessionOptions {
   /** Daily challenge: the results screen's primary jumps to the next challenge. */
   nextAction?: { label: string; run: () => void };
   modeLabel?: string;
+  /**
+   * The session's framing, shown above the exercise's name in the run header —
+   * "Daily challenge", "Your games mix". Context, not identity.
+   */
+  contextLabel?: string;
 }
 
 /** What this exercise is, one tap from the run itself. */
@@ -85,7 +93,14 @@ export function openDetectiveInfo(): void {
         label: 'Wrong guesses are free',
         detail: 'An accusation that misses crosses that move off and the run carries on. You '
           + 'only lose the clean solve — and a case you crack rests a few days before it '
-          + 'comes back.',
+          + 'comes back. One you miss rests a day, so it is back tomorrow rather than next.',
+      },
+      {
+        icon: Icons.bulb(18), accent: '#c79a2a',
+        label: 'Stuck on the answer',
+        detail: 'Hint highlights the piece that should move and leaves the rest to you. Only '
+          + 'once you have used it does Show solution appear, and once the case is closed so '
+          + 'does Analyse, which opens the whole game at that position.',
       },
     ],
     footnote: 'The runs come from the same engine pass that finds your mistakes, so they '
@@ -120,6 +135,10 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   let cleanSoFar = true;          // no wrong accusation, no reveal, no wrong move
   let wrongTries = 0;
   let revealedMove = false;
+  // The answer phase's ladder: 0 nothing shown, 1 the piece highlighted, 2 the
+  // whole move drawn. Offering "Show the move" as the only help meant the only
+  // way to get unstuck was to be told the answer.
+  let hintStage: 0 | 1 | 2 = 0;
 
   // Session tallies.
   let completed = 0;
@@ -137,15 +156,14 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   // The Middle-game ember, same as the mistake drill — this is the same pane.
   overlay.style.setProperty('--pt-tint', '#a3492e');
 
-  const headerEl = document.createElement('div');
-  headerEl.className = 'pt-header';
-  const backBtn = document.createElement('button');
-  backBtn.type = 'button';
-  backBtn.className = 'pt-back-btn';
-  backBtn.appendChild(Icons.back(15));
-  backBtn.appendChild(document.createTextNode('End session'));
-  backBtn.addEventListener('click', () => exitViaButton());
-  headerEl.appendChild(backBtn);
+  const header = buildRunHeader({
+    icon: Icons.scout(18),
+    title: opts.modeLabel ?? 'Blunder detective',
+    kicker: opts.contextLabel,
+    accent: DETECTIVE_ACCENT,
+    onEnd: () => exitViaButton(),
+  });
+  const headerEl = header.el;
 
   const sessionBarEl = document.createElement('div');
   sessionBarEl.className = 'pt-session-bar';
@@ -223,6 +241,17 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   statusEl.className = 'pt-status';
   statusEl.setAttribute('aria-live', 'polite');
 
+  // Two ways to get unstuck, one after the other. HINT comes first in the answer
+  // phase — it highlights the piece and nothing more, which is usually all
+  // anyone needs — and only once it has been used does the reveal appear.
+  const hintBtn = document.createElement('button');
+  hintBtn.type = 'button';
+  hintBtn.className = 'pz-hint-btn dt-hint';
+  hintBtn.appendChild(Icons.bulb(16));
+  hintBtn.appendChild(document.createTextNode('Hint'));
+  hintBtn.hidden = true;
+  hintBtn.addEventListener('click', () => useHint());
+
   // Quiet, and deliberately not a button-shaped button: it is the way out, not
   // the way through.
   const revealBtn = document.createElement('button');
@@ -258,6 +287,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   bottomEl.appendChild(pipsEl);
   bottomEl.appendChild(accuseBtn);
   bottomEl.appendChild(statusEl);
+  bottomEl.appendChild(hintBtn);
   bottomEl.appendChild(revealBtn);
   bottomEl.appendChild(afterEl);
 
@@ -371,11 +401,14 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     cleanSoFar = true;
     wrongTries = 0;
     revealedMove = false;
+    hintStage = 0;
     cursor = 0;
     blunderIdx = spot.blunderPly - spot.startPly;
     afterEl.hidden = true;
     revealBtn.hidden = false;
     revealBtn.textContent = 'Show solution';
+    hintBtn.hidden = true;
+    hintBtn.replaceChildren(Icons.bulb(16), document.createTextNode('Hint'));
     navEl.hidden = false;
     pipsEl.hidden = false;
     accuseBtn.hidden = false;
@@ -404,7 +437,10 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
       orientation: game.colour,
       movable: { color: undefined, dests: new Map() },
     });
-    setStatus('Step through the moves and name the blunder.', 'pt-status--prompt');
+    // No prompt here. The instruction lives in the stepper (renderNav), where it
+    // is beside the arrows it is telling you to press — printing it a second
+    // time under the button just filled the screen with the same sentence.
+    setStatus('');
     renderPips();
     goTo(0, false);
   }
@@ -483,13 +519,18 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     nextMoveBtn.disabled = cursor >= sans.length;
     const i = cursor - 1;
     if (i < 0) {
-      moveLabelEl.textContent = 'Before the run';
+      // Before the first move there is no move to name, so the slot carries the
+      // instruction instead of the words "Before the run" — which said where
+      // the board was, which the disabled arrow already said.
+      moveLabelEl.textContent = 'Step through moves to name the blunder, yours or theirs';
+      moveLabelEl.classList.add('dt-move-label--hint');
       moveLabelEl.classList.remove('dt-move-label--cleared');
       accuseBtn.disabled = true;
       accuseBtn.textContent = 'Step forward to a move';
       return;
     }
     moveLabelEl.textContent = moveName(i);
+    moveLabelEl.classList.remove('dt-move-label--hint');
     const cleared = accused.has(i);
     moveLabelEl.classList.toggle('dt-move-label--cleared', cleared);
     accuseBtn.disabled = cleared || phase !== 'browse';
@@ -542,15 +583,38 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
 
   function reveal(): void {
     if (phase === 'browse') { cleanSoFar = false; caught(true); return; }
-    // Second use, during the answer: show the move itself.
+    // During the answer this is the SECOND rung — the hint below has already
+    // pointed at the piece, and this draws the move itself.
     revealedMove = true;
+    hintStage = 2;
     cleanSoFar = false;
     const best = current.spot.best[0];
     if (best) {
       paintAnswerShapes({ blunder: true, suggestUci: best.uci });
       setStatus(`Play ${formatMove(best.san)}`, 'pt-status--reveal');
     }
+    hintBtn.hidden = true;
     revealBtn.hidden = true;
+  }
+
+  /**
+   * The first rung: highlight the square the move starts from, and nothing else.
+   * Most of the time that is enough, and it leaves the finding to the user —
+   * which is the difference between a hint and an answer. Using it costs the
+   * clean solve, exactly as revealing does.
+   */
+  function useHint(): void {
+    if (phase !== 'answer' || hintStage !== 0) return;
+    hintStage = 1;
+    cleanSoFar = false;
+    const best = current.spot.best[0];
+    if (!best) { reveal(); return; }
+    paintAnswerShapes({ blunder: true, hintFrom: uciParts(best.uci).from });
+    setStatus('Move the highlighted piece', 'pt-status--reveal');
+    hintBtn.hidden = true;
+    // Only now does the full answer become available — one rung at a time.
+    revealBtn.hidden = false;
+    revealBtn.textContent = 'Show solution';
   }
 
   /**
@@ -591,8 +655,13 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     );
     if (!shown) burstConfetti(boardWrap);
 
-    revealBtn.hidden = false;
-    revealBtn.textContent = 'Show the move';
+    // The answer phase opens with a HINT, not with "show me". The reveal comes
+    // back once the hint has been spent (useHint) or after a couple of wrong
+    // tries (onUserMove).
+    hintStage = 0;
+    hintBtn.hidden = false;
+    hintBtn.replaceChildren(Icons.bulb(16), document.createTextNode('Hint'));
+    revealBtn.hidden = true;
 
     // Hand the board over to whoever blundered.
     setTimeout(() => {
@@ -610,6 +679,8 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   function paintAnswerShapes(o: {
     blunder?: boolean;
     badgeAt?: Key;
+    /** The hint's first rung: the square the right move starts from. */
+    hintFrom?: Key;
     suggestUci?: string;
     solvedAt?: Key;
   } = {}): void {
@@ -618,6 +689,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
       const { from, to } = uciParts(current.spot.playedUci);
       shapes.push({ orig: from, dest: to, brush: 'danger' });
     }
+    if (o.hintFrom) shapes.push({ orig: o.hintFrom, brush: 'accent' });
     if (o.badgeAt) shapes.push({ orig: o.badgeAt, customSvg: classBoardSvg('blunder') });
     if (o.suggestUci) {
       const { from, to } = uciParts(o.suggestUci);
@@ -645,10 +717,17 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
       turnColor: cgTurn(),
       movable: { color: moverAt(blunderIdx), dests: legalDests() },
     });
-    paintAnswerShapes({ blunder: true });
+    paintAnswerShapes(hintStage === 1
+      ? { blunder: true, hintFrom: uciParts(spot.best[0]?.uci ?? '').from }
+      : { blunder: true });
+    // Two wrong tries and the reveal appears whether the hint was taken or not:
+    // by then the point has been made.
     if (wrongTries >= TRIES_BEFORE_HINT && !revealedMove) {
+      hintBtn.hidden = true;
       revealBtn.hidden = false;
-      revealBtn.textContent = 'Show the move';
+      revealBtn.textContent = 'Show solution';
+    } else if (hintStage === 0) {
+      hintBtn.hidden = false;
     }
   }
 
@@ -659,7 +738,11 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     const clean = cleanSoFar;
     if (clean) solvedCount++;
     entries.push({ ref: current, clean });
+    // Clean solves earn the long ladder; a case that needed a wrong accusation,
+    // a reveal or a wrong move still stands aside for a day, so tomorrow's
+    // session doesn't open on the very case that just beat you (middle-log.ts).
     if (clean) detectiveLog.solved(spot.id);
+    else detectiveLog.seen(spot.id);
 
     const { from, to, promotion } = uciParts(uci);
     try {
@@ -683,9 +766,12 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     );
     if (clean) burstConfetti(boardWrap);
 
+    hintBtn.hidden = true;
     revealBtn.hidden = true;
     renderSessionBar();
     nextBtn.textContent = completed >= opts.refs.length ? 'See results' : 'Next case';
+    // Analyse rides in here (afterEl) — the full game is worth opening once the
+    // case is closed, and not a moment before.
     afterEl.hidden = false;
   }
 
@@ -790,10 +876,20 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     overlay.appendChild(wrap);
   }
 
+  // One results row — tappable, exactly like the mistake drill's: it pops the
+  // case's position up right here (the blunder in red, the move that should
+  // have been played in blue) with a jump into the full analyser.
   function resultRow(e: SessionEntry): HTMLElement {
     const row = document.createElement('div');
-    row.className = 'pz-result-row '
+    row.className = 'pz-result-row pz-result-row--linked '
       + (e.clean ? 'pz-result-row--solved' : 'pz-result-row--missed');
+    row.setAttribute('role', 'button');
+    row.tabIndex = 0;
+    const open = (): void => openCasePeek(e.ref);
+    row.addEventListener('click', open);
+    row.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(); }
+    });
 
     const dot = document.createElement('span');
     dot.className = 'pz-result-dot';
@@ -812,6 +908,26 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     main.appendChild(meta);
     row.appendChild(main);
     return row;
+  }
+
+  function openCasePeek(ref: DetectiveRef): void {
+    const best = ref.spot.best[0];
+    openSpotPeek({
+      fen: ref.spot.preFen,
+      orientation: ref.game.colour,
+      arrows: [
+        { uci: ref.spot.playedUci, kind: 'danger' },
+        ...(best ? [{ uci: best.uci, kind: 'accent' as const }] : []),
+      ],
+      meta: `${ref.spot.byUser ? 'Your' : 'Their'} `
+        + `${numberedMove(ref.spot.playedSan, ref.spot.blunderPly + 1)} ?? → `
+        + `${formatMove(best?.san ?? '?')} · vs ${ref.game.opponent}`,
+      // The results screen sits over the run, so the hand-off is the same one
+      // the Analyse button under the board uses — it comes back here.
+      onAnalyse: opts.onOpenGame
+        ? () => suspendForAnalysis(ref.game, ref.spot.preFen)
+        : undefined,
+    });
   }
 
   function doExit(): void {

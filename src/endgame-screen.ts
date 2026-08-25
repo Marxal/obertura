@@ -98,7 +98,8 @@ function angleFor(theme: PuzzleTheme): string {
 // scored on the 'endgame' ladder. Mirrors the openings runner but single-angle.
 function runEndgamePuzzles(theme: PuzzleTheme, deps: EndgameScreenDeps, onExit: () => void): void {
   startPuzzleSession({
-    modeLabel: `Endgame puzzles — ${THEME_LABEL[theme]}`,
+    modeLabel: 'Endgame puzzles',
+    contextLabel: THEME_LABEL[theme],
     mode: { kind: 'count', count: PUZZLE_COUNT, rated: true },
     ratingScope: 'endgame',
     onAnalysePosition: deps.onAnalysePosition,
@@ -124,7 +125,8 @@ export function startDailyEndgamePuzzles(
   onAnalysePosition?: (req: AnalyseRequest) => void,
 ): void {
   startPuzzleSession({
-    modeLabel: 'Daily challenge — endgames',
+    modeLabel: 'Endgame puzzles',
+    contextLabel: 'Daily challenge',
     mode: { kind: 'count', count, rated: true },
     ratingScope: 'endgame',
     onAnalysePosition,

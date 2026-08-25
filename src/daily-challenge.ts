@@ -32,27 +32,34 @@ export const DAILY_LINE_GOAL = 3;
 export const DAILY_PUZZLE_GOAL = 3;
 export const DAILY_POSITION_GOAL = 3;
 export const DAILY_ENDGAME_GOAL = 3;
-// Three of these was a lot of blank-board searching for one sitting, and it is
-// now one of THREE "from your games" parts rather than the only one — so two
-// each of the searching kind and three of the quick two-move kind.
+// The three "from your games" parts all ship at two rather than three. Each of
+// them is a whole exercise rather than an item — a detective case is four to six
+// moves to read plus an answer — and there are three of them now, so three each
+// would make your own games two-thirds of the day.
 export const DAILY_MISTAKE_GOAL = 2;
-// One case is four to six moves to read plus the answer — a whole exercise, not
-// an item. Three of them would be the longest part of the day by far.
-export const DAILY_DETECTIVE_GOAL = 1;
-export const DAILY_WHICH_MOVE_GOAL = 3;
+export const DAILY_DETECTIVE_GOAL = 2;
+export const DAILY_WHICH_MOVE_GOAL = 2;
 
 const KEY = 'obertura.dailyChallenge';
 const CONFIG_KEY = 'obertura.dailyChallenge.config';
 
-// The parts of the daily challenge, in the order they appear on the card — the
-// "Next challenge →" chain follows this same order. The last three all come from
-// your own games, so they sit together at the end: repertoire work first, then
-// puzzles, then yourself.
+// Every part of the daily challenge. This list is the CANONICAL SET, not the
+// running order — the order is `config.order` below, which the user rearranges
+// in Preferences (or hands over to chance entirely).
 export type DailyTaskId =
   | 'lines' | 'positions' | 'puzzles' | 'endgames'
   | 'mistakes' | 'detective' | 'whichMove';
 export const DAILY_TASK_IDS: DailyTaskId[] = [
   'lines', 'positions', 'puzzles', 'endgames', 'mistakes', 'detective', 'whichMove',
+];
+
+// The order the challenge ships in, and what "Reset order" restores: repertoire
+// work first, then puzzles, then the three that read your own games. The three
+// game-fed parts sit together at the end because they need imported, scanned
+// games — a new install simply doesn't show them, and the parts that do show are
+// then still in a sensible order rather than full of holes.
+export const DEFAULT_DAILY_ORDER: DailyTaskId[] = [
+  'lines', 'positions', 'puzzles', 'endgames', 'whichMove', 'detective', 'mistakes',
 ];
 
 export interface DailyState {
@@ -111,6 +118,20 @@ export interface DailyTaskConfig { count: number; }
 export interface DailyConfig {
   enabled: boolean;
   tasks: Record<DailyTaskId, DailyTaskConfig>;
+  /**
+   * The running order — the order the rows appear in on the card AND the order
+   * "Next challenge →" chains through. Always holds every id exactly once
+   * (normaliseOrder below guarantees it, so a part added in a later release can
+   * never go missing from someone's stored order).
+   */
+  order: DailyTaskId[];
+  /**
+   * Shuffle the order instead of following `order`. Stable WITHIN a day — see
+   * orderedDailyTasks: a card that reshuffled itself on every repaint would be
+   * unusable, and a challenge whose next part changed halfway through would be
+   * a bug rather than a feature.
+   */
+  randomOrder: boolean;
 }
 
 function clampCount(n: unknown, fallback = DEFAULT_COUNT): number {
@@ -119,10 +140,30 @@ function clampCount(n: unknown, fallback = DEFAULT_COUNT): number {
   return Math.max(COUNT_MIN, Math.min(COUNT_CUSTOM_MAX, v));
 }
 
+/**
+ * Any stored order, made whole: known ids in the order given, then whatever is
+ * missing in default order. Junk and duplicates are dropped. This is what lets
+ * a new part appear for someone who saved an order two releases ago.
+ */
+export function normaliseOrder(raw: unknown): DailyTaskId[] {
+  const seen = new Set<DailyTaskId>();
+  const out: DailyTaskId[] = [];
+  if (Array.isArray(raw)) {
+    for (const v of raw) {
+      const id = v as DailyTaskId;
+      if (!DAILY_TASK_IDS.includes(id) || seen.has(id)) continue;
+      seen.add(id);
+      out.push(id);
+    }
+  }
+  for (const id of DEFAULT_DAILY_ORDER) if (!seen.has(id)) out.push(id);
+  return out;
+}
+
 function defaultConfig(): DailyConfig {
   const tasks = {} as Record<DailyTaskId, DailyTaskConfig>;
   for (const id of DAILY_TASK_IDS) tasks[id] = { count: DEFAULT_COUNTS[id] };
-  return { enabled: true, tasks };
+  return { enabled: true, tasks, order: [...DEFAULT_DAILY_ORDER], randomOrder: false };
 }
 
 export function getDailyConfig(): DailyConfig {
@@ -133,6 +174,8 @@ export function getDailyConfig(): DailyConfig {
     const obj = JSON.parse(raw) as {
       enabled?: boolean;
       tasks?: Record<string, { on?: boolean; count?: number }>;
+      order?: unknown;
+      randomOrder?: boolean;
     };
     for (const id of DAILY_TASK_IDS) {
       const t = obj.tasks?.[id];
@@ -142,7 +185,14 @@ export function getDailyConfig(): DailyConfig {
         base.tasks[id] = { count: t.on === false ? 0 : clampCount(t.count, DEFAULT_COUNTS[id]) };
       }
     }
-    return { enabled: obj.enabled !== false, tasks: base.tasks };
+    return {
+      enabled: obj.enabled !== false,
+      tasks: base.tasks,
+      // A config saved before the order existed has none; normaliseOrder turns
+      // that (and anything else) into the default.
+      order: normaliseOrder(obj.order),
+      randomOrder: obj.randomOrder === true,
+    };
   } catch {
     return base;
   }
@@ -235,11 +285,58 @@ export interface DailyAvailability {
   whichMoveAvailable: boolean;     // …and spots that make a fair two-move question
 }
 
-// The active tasks, in card order: switched on in the config AND actually
-// runnable (lines/positions need a repertoire; the three from-your-games parts
-// each need their own kind of scanned material).
-export function activeDailyTasks(config: DailyConfig, avail: DailyAvailability): DailyTaskId[] {
-  return DAILY_TASK_IDS.filter((id) => {
+/**
+ * The running order for one day: `config.order`, or — with randomOrder on — a
+ * shuffle of it that is FIXED FOR THAT DAY.
+ *
+ * The day key is the seed, so every call within a day returns the same order and
+ * the next day returns a different one. That matters more than it sounds: this
+ * list drives both the card's rows and the "Next challenge →" chain, and both
+ * are rebuilt several times a sitting. A fresh shuffle per call would rearrange
+ * the card under the user's thumb.
+ */
+export function orderedDailyTasks(config: DailyConfig, dayKey = todayKey()): DailyTaskId[] {
+  const order = normaliseOrder(config.order);
+  return config.randomOrder ? seededShuffle(order, dayKey) : order;
+}
+
+/** A stable string hash (FNV-1a) — the seed behind the daily shuffle. */
+function hashSeed(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+/** Fisher–Yates, driven by a small deterministic PRNG rather than Math.random. */
+function seededShuffle<T>(items: T[], seed: string): T[] {
+  const out = items.slice();
+  let state = hashSeed(seed) || 1;
+  const next = (): number => {
+    // xorshift32 — tiny, no dependencies, and plenty for shuffling seven rows.
+    state ^= state << 13; state >>>= 0;
+    state ^= state >> 17;
+    state ^= state << 5; state >>>= 0;
+    return state / 0x100000000;
+  };
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(next() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+// The active tasks, in the day's running order: switched on in the config AND
+// actually runnable (lines/positions need a repertoire; the three
+// from-your-games parts each need their own kind of scanned material).
+export function activeDailyTasks(
+  config: DailyConfig,
+  avail: DailyAvailability,
+  dayKey = todayKey(),
+): DailyTaskId[] {
+  return orderedDailyTasks(config, dayKey).filter((id) => {
     if (config.tasks[id].count <= 0) return false;
     if ((id === 'lines' || id === 'positions') && !avail.hasLines) return false;
     if (id === 'mistakes' && !avail.mistakesAvailable) return false;
@@ -292,9 +389,24 @@ export function nextDailyTask(
   return null;
 }
 
-// Today's three lines: due ones first, then topped up with the newest and then the
-// weakest in-training lines until we reach the goal (de-duplicated). Returns fewer
-// than the goal only when the repertoire is small.
+/**
+ * Today's lines: due ones first, then a top-up.
+ *
+ * THE TOP-UP USED TO BE THE PROBLEM. It was "the newest lines, then the weakest"
+ * — both fixed orders over a set that barely changes, so on any day with nothing
+ * actually due (which is most days once a repertoire settles) the challenge
+ * offered the same three lines it offered yesterday, and the day before. The
+ * card looked broken; nothing was broken, it was just deterministic.
+ *
+ * So the top-up now leads with the lines you have gone LONGEST without training
+ * (never-trained first), which is both the more useful pick and a genuinely
+ * moving target: training a line stamps it, so it goes to the back of the queue
+ * and three different lines come up tomorrow. The weakest-first list stays
+ * behind it as the tie-break for a repertoire small enough that everything was
+ * trained on the same day.
+ *
+ * Returns fewer than the goal only when the repertoire is small.
+ */
 export function pickDailyLines(allLines: Line[], goal = DAILY_LINE_GOAL): Line[] {
   const training = allLines.filter((l) => l.inTraining);
   const picked: Line[] = [];
@@ -308,9 +420,25 @@ export function pickDailyLines(allLines: Line[], goal = DAILY_LINE_GOAL): Line[]
     }
   };
   add(dueLines(training));
-  add(recentlyAddedLines(training));
+  add(leastRecentlyTrained(training));
   add(weakestLines(training));
+  add(recentlyAddedLines(training));
   return picked;
+}
+
+/**
+ * Longest-unseen first: never-trained lines lead (they have no stamp at all),
+ * then oldest `lastTrained`. Ties break on the newest line, so a repertoire
+ * where nothing has been trained yet still opens on your most recent work.
+ */
+function leastRecentlyTrained(lines: Line[]): Line[] {
+  const stamp = (l: Line): number => {
+    if (!l.lastTrained) return 0;             // never trained — first in line
+    const t = Date.parse(l.lastTrained);
+    return Number.isFinite(t) ? t : 0;
+  };
+  return [...lines].sort((a, b) =>
+    stamp(a) - stamp(b) || (b.createdAt ?? 0) - (a.createdAt ?? 0));
 }
 
 export interface DailyChallengeDeps {
@@ -413,7 +541,12 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
   const { config, active } = deps;
   if (!config.enabled) return null;
   if (dailyChallengeLocked(deps.savedLineCount)) return buildLockedCard(deps);
-  if (active.length === 0 || deps.lines.length === 0) return null;
+  // Nothing runnable is the only reason to draw nothing. It used to ALSO bail
+  // when today's lines came back empty, which quietly deleted the whole card
+  // for anyone who had switched "lines to remember" off — every other part
+  // still had work to offer, and the caller's `hasLines` flag has already
+  // dropped the two parts that actually need a repertoire.
+  if (active.length === 0) return null;
 
   const state = getDaily();
   const done = active.every((id) => state[id]);
@@ -496,7 +629,8 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
 const GAME_FED: DailyTaskId[] = ['mistakes', 'detective', 'whichMove'];
 
 function previewTasks(config: DailyConfig): DailyTaskId[] {
-  return DAILY_TASK_IDS.filter((id) => !GAME_FED.includes(id) && config.tasks[id].count > 0);
+  return orderedDailyTasks(config)
+    .filter((id) => !GAME_FED.includes(id) && config.tasks[id].count > 0);
 }
 
 function buildLockedCard(deps: DailyChallengeDeps): HTMLElement | null {

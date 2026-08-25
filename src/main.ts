@@ -3925,6 +3925,30 @@ function celebrateDaily(config: DailyConfig, active: DailyTaskId[], allLines: Li
   });
 }
 
+/**
+ * THE LIVE DAILY CHALLENGE — repaint + launch, always pointing at the Train
+ * screen that is actually on screen.
+ *
+ * showView('train') calls renderTrainTabbed, which rebuilds the whole Train
+ * screen from scratch: new panes, a new daily host, a new renderDaily closure.
+ * Anything holding the OLD closures is then writing into detached nodes.
+ *
+ * That is not hypothetical. Finish the last puzzle of the daily challenge, tap
+ * Analyse, come back via "Back to train" (which rebuilds Train), then tap "See
+ * results": the puzzle overlay is still the one from before, so its onComplete
+ * ticked the task off in storage and repainted a card that was no longer in the
+ * document — the visible card sat there un-ticked. The "Next challenge →" chain
+ * was worse: it rendered the next session into a detached pane, so nothing
+ * happened at all.
+ *
+ * So a suspended session reaches the daily challenge through here instead, and
+ * the newest render always owns it.
+ */
+let liveDaily: {
+  repaint: () => void;
+  launch: (id: DailyTaskId) => void;
+} | null = null;
+
 function renderTrainTabbed(host: HTMLElement): void {
   host.innerHTML = '';
 
@@ -3962,6 +3986,17 @@ function renderTrainTabbed(host: HTMLElement): void {
   const mistakesPane = document.createElement('div');
   const endgamePane = document.createElement('div');
   host.append(dailyHost, tabs, openingsPane, puzzlesPane, mistakesPane, endgamePane);
+
+  // This render's launchers, filled in once renderDaily has read the data it
+  // needs. Held in a box rather than captured so `liveDaily` below can be set
+  // SYNCHRONOUSLY — a suspended session resuming onto a freshly-built Train
+  // screen must not be able to reach the previous screen's closures in the tick
+  // before the async render lands. A launch asked for before the data is in is
+  // remembered and run the moment it is.
+  const launcher: {
+    run: ((id: DailyTaskId) => void) | null;
+    pending: DailyTaskId | null;
+  } = { run: null, pending: null };
 
   // (Re)render the daily card from current lines + done state. Called on first
   // paint and after any task completes.
@@ -4060,7 +4095,10 @@ function renderTrainTabbed(host: HTMLElement): void {
         label: 'Next challenge →',
         run: () => {
           const next = nextDailyTask(getDaily(), active);
-          if (next) launchers[next]();
+          // Through liveDaily, not `launchers`: this button can be tapped after
+          // a trip through the analyser rebuilt the Train screen, and the
+          // launchers captured here would then render into detached panes.
+          if (next) liveDaily?.launch(next);
         },
       };
     };
@@ -4069,7 +4107,8 @@ function renderTrainTabbed(host: HTMLElement): void {
     // card behind the overlay, and — if that was the last one — celebrate.
     const finish = (mark: (o: TaskOutcome) => void) => (outcome: TaskOutcome): void => {
       mark(outcome);
-      void renderDaily();
+      // Same reason as above: repaint whichever daily card is on screen NOW.
+      liveDaily?.repaint();
       if (isDailyDone(config, avail)) celebrateDaily(config, active, allLines);
     };
 
@@ -4078,13 +4117,14 @@ function renderTrainTabbed(host: HTMLElement): void {
         // Drill today's lines on the Openings pane; mark that task done when the
         // whole sitting finishes, then refresh the card behind the overlay.
         if (trainTab !== 'openings') { trainTab = 'openings'; paint(); }
-        startLineSession(dailyLines, openingsPane, finish(markLinesDone), nextFor('lines'));
+        startLineSession(dailyLines, openingsPane, finish(markLinesDone), nextFor('lines'),
+          'Daily challenge');
       },
       positions: () => {
         // Same pane, but a stream of single due positions rather than whole lines.
         if (trainTab !== 'openings') { trainTab = 'openings'; paint(); }
         startPositionsSession(allLines, openingsPane, config.tasks.positions.count,
-          finish(markPositionsDone), nextFor('positions'));
+          finish(markPositionsDone), nextFor('positions'), 'Daily challenge');
       },
       puzzles: () => {
         void startDailyPuzzles(config.tasks.puzzles.count,
@@ -4104,7 +4144,10 @@ function renderTrainTabbed(host: HTMLElement): void {
         const done = finish(markMistakesDone);
         startMistakeSession({
           refs: pickSpots(spotRefs, null, config.tasks.mistakes.count),
-          modeLabel: 'Daily challenge',
+          // The header names the EXERCISE; "Daily challenge" is the framing
+          // above it (run-header.ts), so a chained run always says what it
+          // just handed you.
+          contextLabel: 'Daily challenge',
           onComplete: (s) => done({ right: s.solved, wrong: Math.max(0, s.completed - s.solved) }),
           onExit: () => { if (trainTab === 'mistakes') paint(); },
           onOpenGame: openGameFromSession,
@@ -4118,7 +4161,7 @@ function renderTrainTabbed(host: HTMLElement): void {
         const dueMap = detectiveLog.dueMap();
         startDetectiveSession({
           refs: pickDetective(detectiveRefs, config.tasks.detective.count, id => dueMap[id] ?? 0),
-          modeLabel: 'Daily challenge',
+          contextLabel: 'Daily challenge',
           onComplete: (s) => done({ right: s.solved, wrong: Math.max(0, s.completed - s.solved) }),
           onExit: () => { if (trainTab === 'mistakes') paint(); },
           onOpenGame: openGameFromSession,
@@ -4131,7 +4174,7 @@ function renderTrainTabbed(host: HTMLElement): void {
         const dueMap = whichMoveLog.dueMap();
         startWhichMoveSession({
           refs: pickWhichMove(pairRefs, config.tasks.whichMove.count, id => dueMap[id] ?? 0),
-          modeLabel: 'Daily challenge',
+          contextLabel: 'Daily challenge',
           onComplete: (s) => done({ right: s.solved, wrong: Math.max(0, s.completed - s.solved) }),
           onExit: () => { if (trainTab === 'mistakes') paint(); },
           onOpenGame: openGameFromSession,
@@ -4139,6 +4182,13 @@ function renderTrainTabbed(host: HTMLElement): void {
         });
       },
     };
+
+    launcher.run = (id) => launchers[id]();
+    if (launcher.pending) {
+      const queued = launcher.pending;
+      launcher.pending = null;
+      launchers[queued]();
+    }
 
     const card = renderDailyChallenge({
       config,
@@ -4172,6 +4222,14 @@ function renderTrainTabbed(host: HTMLElement): void {
     // line goal is no reason for them to vanish. It goes when the user hides it
     // or when they've done one of the two that matter — see first-steps.ts.
     if (showSteps && !stepsLead) dailyHost.appendChild(buildSteps());
+  };
+  // This Train screen is now the live one — see liveDaily's note.
+  liveDaily = {
+    repaint: () => { void renderDaily(); },
+    launch: (id) => {
+      if (launcher.run) launcher.run(id);
+      else launcher.pending = id; // the first render is still reading; run it after
+    },
   };
   void renderDaily();
 

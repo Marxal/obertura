@@ -1,10 +1,16 @@
-// The daily challenge's own preferences — which tasks it includes and how many
-// of each — on their own so they have TWO homes.
+// The daily challenge's own preferences — which parts it includes, how many of
+// each, and WHAT ORDER they come in — on their own so they have TWO homes.
 //
 // They started life inside settings-screen.ts, which meant the only way to
 // change the challenge was Settings → Daily challenge: a tab away, an accordion
 // down, from a card sitting right there on Train with no way in. The rows are
 // unchanged; what is new is that the card can open them itself.
+//
+// THE ORDER IS A PREFERENCE, NOT A CONSTANT. The parts used to run in the order
+// this file happened to list them, which quietly decided what you do first every
+// single day — and the first thing is the thing that actually gets done. So each
+// row carries a pair of move buttons, and "Shuffle each day" hands the whole
+// decision to chance for anyone who would rather not be able to predict it.
 //
 // This module is deliberately below both of its callers in the import graph
 // (it reaches daily-challenge.ts for the config and settings-controls.ts for the
@@ -14,17 +20,24 @@
 import {
   getDailyConfig,
   setDailyConfig,
-  DAILY_TASK_IDS,
+  orderedDailyTasks,
+  normaliseOrder,
   DAILY_COUNT_RANGE,
+  DEFAULT_DAILY_ORDER,
+  type DailyConfig,
   type DailyTaskId,
 } from './daily-challenge';
 import { row, segmented, toggle } from './settings-controls';
 import { pushBack } from './back-nav';
+import { Icons } from './icons';
 
 // ── Daily challenge ──────────────────────────────────────────────────────────
-// Turn the whole daily challenge on/off, and pick which tasks it includes and
-// how many of each (default: all on, three each). Mirrors the card's task order.
+// Turn the whole daily challenge on/off, pick which parts it includes, how many
+// of each, and the order they run in.
 
+// The same words the card uses, so the row you drag is recognisably the row you
+// see on Train. (Not literally shared with TASK_META, which folds the count into
+// its label — "3 lines to remember" is a card face, not a settings label.)
 const DAILY_TASK_LABEL: Record<DailyTaskId, string> = {
   lines: 'Lines to remember',
   positions: 'Positions to refresh',
@@ -32,7 +45,7 @@ const DAILY_TASK_LABEL: Record<DailyTaskId, string> = {
   endgames: 'Endgame puzzles',
   mistakes: 'Mistakes to fix',
   detective: 'Blunders to catch',
-  whichMove: 'Which move',
+  whichMove: 'Moves to pick',
 };
 
 /**
@@ -51,25 +64,63 @@ export function renderDailyPrefs(host: HTMLElement, onChange?: () => void): void
   const rebuild = (): void => {
     host.replaceChildren();
     const config = getDailyConfig();
+    const again = (): void => { rebuild(); onChange?.(); };
 
     host.appendChild(row(
       'Show daily challenge',
       toggle(config.enabled, (on) => {
-        const cur = getDailyConfig();
-        setDailyConfig({ ...cur, enabled: on });
-        rebuild();
-        onChange?.();
+        write({ ...getDailyConfig(), enabled: on });
+        again();
       }),
-      { sub: 'Pick your challenges and how many of each.' },
+      { sub: 'Pick your challenges, how many of each, and the order they run in.' },
     ));
 
     if (!config.enabled) return;
 
-    for (const id of DAILY_TASK_IDS) {
-      host.appendChild(dailyTaskRow(id, () => { rebuild(); onChange?.(); }));
+    host.appendChild(row(
+      'Shuffle each day',
+      toggle(config.randomOrder, (on) => {
+        write({ ...getDailyConfig(), randomOrder: on });
+        again();
+      }),
+      {
+        sub: 'A different order every day, picked for you. It settles once per day, '
+          + 'so the challenge never rearranges itself while you are working through it.',
+      },
+    ));
+
+    // The order the rows will actually run in today — so the list you are
+    // looking at is the list you will meet, shuffle or no shuffle.
+    const order = orderedDailyTasks(config);
+    const list = document.createElement('div');
+    list.className = 'daily-order-list';
+    order.forEach((id, i) => {
+      list.appendChild(dailyTaskRow(config, id, i, order, again));
+    });
+    host.appendChild(list);
+
+    // Only worth offering once the order has actually been changed.
+    if (!config.randomOrder && !sameOrder(config.order, DEFAULT_DAILY_ORDER)) {
+      const reset = document.createElement('button');
+      reset.type = 'button';
+      reset.className = 'daily-order-reset';
+      reset.textContent = 'Reset to the default order';
+      reset.addEventListener('click', () => {
+        write({ ...getDailyConfig(), order: [...DEFAULT_DAILY_ORDER] });
+        again();
+      });
+      host.appendChild(reset);
     }
   };
   rebuild();
+}
+
+function write(config: DailyConfig): void {
+  setDailyConfig(config);
+}
+
+function sameOrder(a: DailyTaskId[], b: DailyTaskId[]): boolean {
+  return a.length === b.length && a.every((id, i) => id === b[i]);
 }
 
 /** The same rows as a bottom sheet — what the daily card's gear opens. */
@@ -119,19 +170,86 @@ export function openDailyPrefsSheet(onChange?: () => void): void {
   document.body.appendChild(overlay);
 }
 
-// One task's row: a title, then an Off/1/2/3/Custom count picker — Off IS a
-// count of zero, so there's no separate switch. Custom reveals a capped number
-// field, so nobody can type 50 or 100 into it.
-function dailyTaskRow(id: DailyTaskId, onChange: () => void): HTMLElement {
-  const config = getDailyConfig();
+// One task's row: its place in the running order, its title, the move buttons,
+// then an Off/1/2/3/Custom count picker — Off IS a count of zero, so there's no
+// separate switch. Custom reveals a capped number field, so nobody can type 50
+// or 100 into it.
+function dailyTaskRow(
+  config: DailyConfig,
+  id: DailyTaskId,
+  index: number,
+  order: DailyTaskId[],
+  onChange: () => void,
+): HTMLElement {
   const task = config.tasks[id];
   const isCustom = task.count > DAILY_COUNT_RANGE.stepMax;
 
   const r = row(DAILY_TASK_LABEL[id], dailyCountControl(id, task.count, onChange));
+  r.classList.add('daily-order-row');
+  if (task.count <= 0) r.classList.add('daily-order-row--off');
+
+  // The position badge and the move buttons ride on the title line. Shuffled,
+  // the buttons go — there is no order to edit — but the number stays, because
+  // "today it is third" is exactly what someone turning the shuffle on wants to
+  // be able to check.
+  const text = r.querySelector('.pref-row-text');
+  if (text) {
+    const head = document.createElement('div');
+    head.className = 'daily-order-head';
+    const num = document.createElement('span');
+    num.className = 'daily-order-num';
+    num.textContent = String(index + 1);
+    num.setAttribute('aria-hidden', 'true');
+    head.appendChild(num);
+    // Move the row's own title into the head so the badge sits beside it.
+    const title = text.querySelector('.pref-row-title');
+    if (title) head.appendChild(title);
+    if (!config.randomOrder) head.appendChild(moveButtons(id, index, order, onChange));
+    text.prepend(head);
+  }
 
   if (isCustom) r.appendChild(dailyCustomInput(id, task.count, onChange));
 
   return r;
+}
+
+// Up/down rather than drag-and-drop. A drag handle inside a scrolling bottom
+// sheet on a phone fights the scroll for the same gesture, and seven rows are
+// two taps apart at worst.
+function moveButtons(
+  id: DailyTaskId,
+  index: number,
+  order: DailyTaskId[],
+  onChange: () => void,
+): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'daily-order-moves';
+
+  const mk = (dir: -1 | 1, label: string, icon: SVGElement): HTMLButtonElement => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'daily-order-move';
+    btn.setAttribute('aria-label', `${label} ${DAILY_TASK_LABEL[id]}`);
+    btn.appendChild(icon);
+    btn.disabled = dir < 0 ? index === 0 : index === order.length - 1;
+    btn.addEventListener('click', () => {
+      const cur = getDailyConfig();
+      // Re-read and re-locate: the stored order can differ from the list this
+      // row was built from (a sibling row may have moved since).
+      const next = normaliseOrder(cur.order);
+      const from = next.indexOf(id);
+      const to = from + dir;
+      if (from < 0 || to < 0 || to >= next.length) return;
+      [next[from], next[to]] = [next[to], next[from]];
+      write({ ...cur, order: next });
+      onChange();
+    });
+    return btn;
+  };
+
+  wrap.appendChild(mk(-1, 'Move up', Icons.chevronUp(16)));
+  wrap.appendChild(mk(1, 'Move down', Icons.chevronDown(16)));
+  return wrap;
 }
 
 // The Off/1/2/3/Custom segmented picker — five short labels, so it still fits
@@ -154,7 +272,7 @@ function dailyCountControl(id: DailyTaskId, count: number, onChange: () => void)
         // otherwise it starts just past the preset row.
         ? Math.max(DAILY_COUNT_RANGE.stepMax + 1, cur.tasks[id].count)
         : Number(v);
-      setDailyConfig({ ...cur, tasks: { ...cur.tasks, [id]: { count: nextCount } } });
+      write({ ...cur, tasks: { ...cur.tasks, [id]: { count: nextCount } } });
       onChange(); // show/hide the custom field
     },
     // Full width, equal columns — five short labels that always fit one line,
@@ -184,7 +302,7 @@ function dailyCustomInput(id: DailyTaskId, count: number, onChange: () => void):
     );
     input.value = String(clamped);
     const cur = getDailyConfig();
-    setDailyConfig({ ...cur, tasks: { ...cur.tasks, [id]: { count: clamped } } });
+    write({ ...cur, tasks: { ...cur.tasks, [id]: { count: clamped } } });
     onChange();
   });
   wrap.appendChild(input);

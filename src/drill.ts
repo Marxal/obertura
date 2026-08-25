@@ -8,6 +8,7 @@ import { Icons } from './icons';
 import { getRetriesBeforeReveal } from './prefs';
 import { playFeedback } from './sound';
 import { pushBack } from './back-nav';
+import { buildRunHeader } from './run-header';
 import { showDialog } from './dialog';
 import { showToast } from './toast';
 import { burstConfetti } from './confetti';
@@ -72,9 +73,14 @@ export interface DrillOptions {
   // looking for a way out of is the thing you most wanted them to see. The back
   // gesture still works, so nobody is trapped; it just isn't advertised.
   hideExit?: boolean;
-  // Small muted label shown at the top of the overlay (e.g. "Training"). Falls
-  // back to the opening/line name when omitted.
+  // The exercise's name, icon and colour for the run header (run-header.ts) —
+  // e.g. "Time attack", the clock, gold. Falls back to "Training" and the pawn.
   modeLabel?: string;
+  modeIcon?: () => SVGElement;
+  modeAccent?: string;
+  // The session's framing above that name ("Daily challenge"). Context, not
+  // identity.
+  contextLabel?: string;
   // 'gentle': show error text and let the user retry freely (pre-training).
   // 'full':   flash → snap back → (retries) → draw arrow → require correct replay.
   wrongMoveMode?: 'gentle' | 'full';
@@ -399,18 +405,18 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   // exercise screen carries its own subtle colour identity.
   overlay.style.setProperty('--pt-tint', 'var(--accent)');
 
-  const headerEl = document.createElement('div');
-  headerEl.className = 'pt-header';
-
-  if (!opts.hideExit) {
-    const backBtn = document.createElement('button');
-    backBtn.type = 'button';
-    backBtn.className = 'pt-back-btn';
-    backBtn.appendChild(Icons.back(15));
-    backBtn.appendChild(document.createTextNode(opts.backLabel ?? 'End session'));
-    backBtn.addEventListener('click', () => exitViaButton());
-    headerEl.appendChild(backBtn);
-  }
+  // Which exercise this is, in the same place every other overlay puts it
+  // (run-header.ts). The mode label used to sit in the block above the board,
+  // where it competed with the line name for the one line that block can spare.
+  const header = buildRunHeader({
+    icon: (opts.modeIcon ?? (() => Icons.pawn(18)))(),
+    title: opts.modeLabel ?? 'Training',
+    kicker: opts.contextLabel,
+    accent: opts.modeAccent,
+    endLabel: opts.backLabel ?? 'End session',
+    onEnd: opts.hideExit ? undefined : () => exitViaButton(),
+  });
+  const headerEl = header.el;
 
   // The way past the run, when the caller offers one. Deliberately quiet and on
   // the far side of the toolbar from the exit: it is neither leaving nor the
@@ -422,18 +428,18 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     skipBtn.className = 'pt-skip-btn';
     skipBtn.textContent = skip.label;
     skipBtn.addEventListener('click', () => { cleanup(); skip.onSkip(); });
-    headerEl.appendChild(skipBtn);
+    header.extras.appendChild(skipBtn);
   }
 
-  // Timed mode: a live "✓ N" score and a mm:ss countdown pinned to the right of
-  // the toolbar.
+  // Timed mode: a live "✓ N" score and a mm:ss countdown, in the header's own
+  // slot for a mode's furniture — between the exercise's name and the exit.
   const scoreEl = document.createElement('div');
   const timerEl = document.createElement('div');
   if (timed) {
     scoreEl.className = 'pt-timed-score';
     timerEl.className = 'pt-timer';
-    headerEl.appendChild(scoreEl);
-    headerEl.appendChild(timerEl);
+    header.extras.appendChild(scoreEl);
+    header.extras.appendChild(timerEl);
   }
 
   // ── Session progress bar ───────────────────────────────────────────────────
@@ -503,16 +509,10 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   const topEl = document.createElement('div');
   topEl.className = 'pt-top';
 
-  // The training mode (e.g. "Training") — never the opening, in modes where that
-  // would be a hint.
-  const modeEl = document.createElement('div');
-  modeEl.className = 'pt-mode-title';
-  modeEl.textContent = opts.modeLabel ?? config.titleText;
-  topEl.appendChild(modeEl);
-
-  // The line name, directly under the mode title. Shown for full-line drills
-  // (you picked the line by name); empty — and so hidden — for the individual-
-  // move and timed modes, where it would give the answer away.
+  // The line name. Shown for full-line drills (you picked the line by name);
+  // empty — and so hidden — for the individual-move and timed modes, where it
+  // would give the answer away. The MODE's own name is in the header now, so
+  // this block is purely about the line in front of you.
   const titleEl = document.createElement('div');
   titleEl.className = 'pt-line-name';
   titleEl.textContent = config.titleText;

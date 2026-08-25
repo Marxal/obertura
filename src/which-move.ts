@@ -21,7 +21,8 @@
 // No DOM, no engine, no storage — which-move.selftest.ts covers the lot.
 
 import { cpToWin } from './winprob';
-import type { SpotRef } from './mistake-scan';
+import { moveFacts, SEE_MATERIAL_MARGIN } from './move-facts';
+import type { MistakeSpot, SpotRef } from './mistake-scan';
 
 /**
  * How much worse the played move has to be, in win probability. The grader's
@@ -82,6 +83,97 @@ export function pickWhichMove(
     out.push(ref);
   }
   return out;
+}
+
+// ── The "why" under each answer ──────────────────────────────────────────────
+//
+// After you have picked, the two moves sit side by side with what the position
+// was worth after each: red for yours, green for the engine's. The numbers were
+// the whole argument, and a number is only an argument if you already know how
+// to read one — "−4.2" says the move was bad without ever saying what was bad
+// about it.
+//
+// So each chip gets one short clause. It is derived, never guessed: a static
+// exchange on the move's destination square (move-facts.ts) answers "did this
+// hang something", the mate sentinels answer "is this mate", and the win
+// probabilities either side answer "what changed". Where none of those has
+// anything definite to say, the clause is about the SWING and nothing more —
+// which is still true, and still more than a number.
+//
+// Anything the engine did not tell us, we do not say.
+
+/** Mate scores are stored as ±100000-ish sentinels (winprob.flattenCp). */
+const MATE_CP = 90000;
+
+export interface PairWhy {
+  /** One clause for the move that was played. */
+  played: string;
+  /** …and one for the engine's. */
+  best: string;
+}
+
+/**
+ * A short reason for each side of the red/green pair. Pure: FEN + the stored
+ * evals in, two clauses out.
+ *
+ * Both evals are in YOUR perspective, as MistakeSpot stores them: `evalBefore`
+ * is what the position was worth with the engine's move, `evalAfter` what it
+ * was worth after the move you actually played.
+ */
+export function explainPair(spot: MistakeSpot): PairWhy {
+  const best = spot.best[0];
+  const winBefore = cpToWin(spot.evalBefore);
+  const winAfter = cpToWin(spot.evalAfter);
+  const playedSee = seeOf(spot.preFen, spot.playedUci);
+  const bestSee = best ? seeOf(spot.preFen, best.uci) : null;
+
+  return {
+    played: whyPlayed(spot, winBefore, winAfter, playedSee),
+    best: whyBest(spot, winBefore, playedSee, bestSee),
+  };
+}
+
+function seeOf(fen: string, uci: string): number | null {
+  if (!fen || !uci) return null;
+  return moveFacts(fen, uci).seeNet;
+}
+
+function whyPlayed(
+  spot: MistakeSpot,
+  winBefore: number,
+  winAfter: number,
+  see: number | null,
+): string {
+  if (spot.evalAfter <= -MATE_CP) return 'allows mate';
+  // A losing exchange on the square it lands on is the most concrete thing we
+  // can say, and the most common answer.
+  if (see !== null && see <= -SEE_MATERIAL_MARGIN) {
+    return `hangs material on ${spot.playedUci.slice(2, 4)}`;
+  }
+  if (winBefore >= 0.75 && winAfter < 0.55) return 'throws away a won position';
+  if (winAfter <= 0.25) return 'leaves you losing';
+  if (winBefore >= 0.55) return 'gives up the advantage';
+  return 'makes it much worse';
+}
+
+function whyBest(
+  spot: MistakeSpot,
+  winBefore: number,
+  playedSee: number | null,
+  bestSee: number | null,
+): string {
+  const best = spot.best[0];
+  if (!best) return '';
+  if (spot.evalBefore >= MATE_CP) return 'forces mate';
+  if (bestSee !== null && bestSee >= SEE_MATERIAL_MARGIN) {
+    return `wins material on ${best.uci.slice(2, 4)}`;
+  }
+  // Only worth saying "keeps it" when there was something to lose — i.e. when
+  // the move actually played was the one that dropped it.
+  if (playedSee !== null && playedSee <= -SEE_MATERIAL_MARGIN) return 'keeps the material';
+  if (winBefore >= 0.75) return 'keeps you winning';
+  if (winBefore >= 0.45) return 'holds the balance';
+  return 'keeps the game alive';
 }
 
 /** How many questions are available right now (not resting) — the card's badge. */

@@ -197,6 +197,8 @@ function runMixedPuzzleSession(
     onComplete?: (summary: { solved: number; completed: number; timed: boolean }) => void;
     nextAction?: { label: string; run: () => void };
     onAnalysePosition?: (req: AnalyseRequest) => void;
+    // The session's framing above the exercise's name in the run header.
+    contextLabel?: string;
     // Count modes: override the adaptive difficulty per puzzle ordinal (0-based
     // draw index) — the daily challenge's easy → medium → hard ladder.
     difficultyFor?: (ordinal: number) => Difficulty;
@@ -243,6 +245,7 @@ function runMixedPuzzleSession(
 
   startPuzzleSession({
     modeLabel: label,
+    contextLabel: hooks.contextLabel,
     mode,
     onAnalysePosition: hooks.onAnalysePosition,
     nextPuzzle: async (ctx) => {
@@ -309,7 +312,8 @@ export async function startDailyPuzzles(
     difficultyStep(rating, 1),
   ];
 
-  runMixedPuzzleSession(allEntries, 'Daily challenge', { kind: 'count', count, rated: true }, {
+  runMixedPuzzleSession(allEntries, 'Puzzles', { kind: 'count', count, rated: true }, {
+    contextLabel: 'Daily challenge',
     onExit: () => { /* the daily card refreshes itself via onComplete */ },
     onComplete: (s) => onComplete({ right: s.solved, wrong: Math.max(0, s.completed - s.solved) }),
     nextAction,

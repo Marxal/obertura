@@ -27,6 +27,7 @@ import { runMoveFactsSelfTest } from '../src/move-facts.selftest';
 import { runAccuracySelfTest } from '../src/accuracy.selftest';
 import { runMistakeScanSelfTest } from '../src/mistake-scan.selftest';
 import { runDailyRecapSelfTest } from '../src/daily-recap.selftest';
+import { runDailyChallengeSelfTest } from '../src/daily-challenge.selftest';
 import { runBrilliantSelfTest } from '../src/brilliant.selftest';
 import { runDetectiveSelfTest } from '../src/detective.selftest';
 import { runWhichMoveSelfTest } from '../src/which-move.selftest';
@@ -91,6 +92,7 @@ const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'accuracy', run: runAccuracySelfTest },
   { suite: 'mistake-scan', run: runMistakeScanSelfTest },
   { suite: 'daily-recap', run: runDailyRecapSelfTest },
+  { suite: 'daily-challenge', run: runDailyChallengeSelfTest },
   { suite: 'brilliant', run: runBrilliantSelfTest },
   { suite: 'detective', run: runDetectiveSelfTest },
   { suite: 'which-move', run: runWhichMoveSelfTest },

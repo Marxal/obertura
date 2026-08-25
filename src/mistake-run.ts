@@ -34,6 +34,8 @@ import type { MoveClass } from './winprob';
 import { recordSpotResult } from './mistake-scan';
 import type { SpotRef, MistakeCategory } from './mistake-scan';
 import type { ImportedGame } from './import-core';
+import { buildRunHeader } from './run-header';
+import { openSpotPeek } from './spot-peek';
 
 // Presentation names for the four categories — shared with the pane's cards.
 export const CATEGORY_LABEL: Record<MistakeCategory, string> = {
@@ -83,6 +85,16 @@ export interface MistakeSessionOptions {
   // Daily challenge: the results screen's primary jumps to the next challenge.
   nextAction?: { label: string; run: () => void };
   modeLabel?: string;              // e.g. a category label or "Daily challenge"
+  // The exercise's face in the run header (run-header.ts). Defaults to the
+  // pane's own alert icon and ember; a category card passes its own two so the
+  // overlay looks like the card that opened it.
+  modeIcon?: () => SVGElement;
+  modeAccent?: string;
+  /**
+   * The session's framing, shown above the exercise's name in the run header —
+   * "Daily challenge", "Your games mix". Context, not identity.
+   */
+  contextLabel?: string;
 }
 
 interface SessionEntry {
@@ -119,15 +131,14 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
   // its Train tab.
   overlay.style.setProperty('--pt-tint', '#a3492e');
 
-  const headerEl = document.createElement('div');
-  headerEl.className = 'pt-header';
-  const backBtn = document.createElement('button');
-  backBtn.type = 'button';
-  backBtn.className = 'pt-back-btn';
-  backBtn.appendChild(Icons.back(15));
-  backBtn.appendChild(document.createTextNode('End session'));
-  backBtn.addEventListener('click', () => exitViaButton());
-  headerEl.appendChild(backBtn);
+  const header = buildRunHeader({
+    icon: (opts.modeIcon ?? (() => Icons.reset(18)))(),
+    title: opts.modeLabel ?? 'Mistakes to fix',
+    kicker: opts.contextLabel,
+    accent: opts.modeAccent,
+    onEnd: () => exitViaButton(),
+  });
+  const headerEl = header.el;
 
   // "Position X of N" progress bar.
   const sessionBarEl = document.createElement('div');
@@ -622,7 +633,7 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
       + (e.clean ? 'pz-result-row--solved' : 'pz-result-row--missed');
     row.setAttribute('role', 'button');
     row.tabIndex = 0;
-    const open = (): void => openSpotPeek(e.ref);
+    const open = (): void => openSpotPeekFor(e.ref);
     row.addEventListener('click', open);
     row.addEventListener('keydown', (ev) => {
       if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(); }
@@ -648,87 +659,22 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
     return row;
   }
 
-  // The results-row popup: the position as you had it (played move in red, the
-  // engine's answer in orange) plus "Analyse game" into the full analyser.
-  function openSpotPeek(ref: SpotRef): void {
-    const ov = document.createElement('div');
-    ov.className = 'edit-overlay';
-    const sheet = document.createElement('div');
-    sheet.className = 'edit-sheet peek-sheet';
-
-    let closed = false;
-    const close = (): void => {
-      if (closed) return;
-      closed = true;
-      ov.remove();
-      removePeekBack();
-    };
-
-    const board = document.createElement('div');
-    board.className = 'peek-board cg-wrap';
-    sheet.appendChild(board);
-
-    const pcg = Chessground(board, {
+  // The results-row popup — the shared one (spot-peek.ts), which the detective
+  // and which-move runs use too.
+  function openSpotPeekFor(ref: SpotRef): void {
+    const best = ref.spot.best[0];
+    openSpotPeek({
       fen: ref.spot.preFen,
       orientation: ref.game.colour,
-      viewOnly: true,
-      coordinates: false,
-      animation: { enabled: false },
-      drawable: { enabled: false, visible: true },
+      arrows: [
+        { uci: ref.spot.playedUci, kind: 'danger' },
+        ...(best ? [{ uci: best.uci, kind: 'accent' as const }] : []),
+      ],
+      meta: `${formatMove(ref.spot.playedSan)} → ${formatMove(best?.san ?? '?')} · vs ${ref.game.opponent}`,
+      onAnalyse: opts.onOpenGame
+        ? () => suspendForAnalysis(ref.game, ref.spot.preFen)
+        : undefined,
     });
-    registerBrushes(pcg, {
-      accent: { color: HINT_COLOR, opacity: 0.9, lineWidth: 10 },
-      danger: { color: '#c93636', opacity: 0.8, lineWidth: 10 },
-    });
-    const shapes: DrawShape[] = [];
-    const played = uciParts(ref.spot.playedUci);
-    shapes.push({ orig: played.from, dest: played.to, brush: 'danger' });
-    const best = ref.spot.best[0];
-    if (best) {
-      const b = uciParts(best.uci);
-      shapes.push({ orig: b.from, dest: b.to, brush: 'accent' });
-    }
-    pcg.setAutoShapes(shapes);
-    requestAnimationFrame(() => pcg.redrawAll());
-
-    const meta = document.createElement('div');
-    meta.className = 'mr-peek-meta';
-    meta.textContent =
-      `${formatMove(ref.spot.playedSan)} → ${formatMove(best?.san ?? '?')} · vs ${ref.game.opponent}`;
-    sheet.appendChild(meta);
-
-    const btnRow = document.createElement('div');
-    btnRow.className = 'peek-actions';
-    if (opts.onOpenGame) {
-      const analyse = document.createElement('button');
-      analyse.type = 'button';
-      analyse.className = 'peek-action';
-      analyse.appendChild(Icons.review(18));
-      const lbl = document.createElement('span');
-      lbl.textContent = 'Analyse game';
-      analyse.appendChild(lbl);
-      analyse.addEventListener('click', () => {
-        close();
-        suspendForAnalysis(ref.game, ref.spot.preFen);
-      });
-      btnRow.appendChild(analyse);
-    }
-    const closeBtn = document.createElement('button');
-    closeBtn.type = 'button';
-    closeBtn.className = 'peek-action';
-    closeBtn.appendChild(Icons.back(18));
-    const closeLbl = document.createElement('span');
-    closeLbl.textContent = 'Close';
-    closeBtn.appendChild(closeLbl);
-    closeBtn.addEventListener('click', close);
-    btnRow.appendChild(closeBtn);
-    sheet.appendChild(btnRow);
-
-    const removePeekBack = pushBack(close);
-    ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
-
-    ov.appendChild(sheet);
-    document.body.appendChild(ov);
   }
 
   function doExit(): void {

@@ -7271,6 +7271,78 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   flex-shrink: 0;
 }
 
+/* ── WHICH EXERCISE THIS IS (run-header.ts) ─────────────────────────────────
+   The mode's icon in an accent-tinted chip, its name beside it, and the exit
+   pushed to the far right. Same three elements, same places, in every overlay
+   — so a chained session ("Next challenge →") always says what it just handed
+   you. --pt-accent falls back to the overlay's own tint, which every exercise
+   already sets. */
+.pt-header-id {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.pt-header-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--pt-accent, var(--pt-tint, var(--accent))) 16%, transparent);
+  color: var(--pt-accent, var(--pt-tint, var(--accent)));
+}
+
+.pt-header-text {
+  min-width: 0;
+}
+
+.pt-header-title {
+  min-width: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The session's framing above the name ("Daily challenge"), where the name
+   itself stays the exercise's. */
+.pt-header-kicker {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A mode's own header furniture (Time attack's clock and score, the endgame
+   timer) sits between the identity and the exit. */
+.pt-header-extras {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: none;
+}
+.pt-header-extras:empty { display: none; }
+
+/* The exit, now on the right: the label first, then an ✕ — a leading "‹" reads
+   as "back to the left", which is no longer where it is. */
+.pt-header-end {
+  padding: 0.4rem 0 0.4rem 0.75rem;
+  color: var(--text-faint);
+}
+
 .pt-back-btn {
   /* inline-flex centres the chevron icon against the label's cap height, so the
      "<" and its text read as one piece rather than the icon sitting on the
@@ -7372,9 +7444,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   font-weight: 700;
   color: var(--success);
   flex-shrink: 0;
-  /* Push the score + clock to the right edge of the toolbar (the old mode label
-     that used to fill the gap now lives in the top block). */
-  margin-left: auto;
   font-variant-numeric: tabular-nums;
 }
 
@@ -7409,19 +7478,9 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   padding: 0.6rem 1rem 0.5rem;
 }
 
-/* The training-mode title — deliberately NOT the opening name, so it can't act
-   as a hint. */
-.pt-mode-title {
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  text-align: center;
-}
-
-/* The line name, under the mode title. Hidden (empty) in modes where it would
-   give the answer away — individual moves and timed. */
+/* The line name. (The training-mode title that used to sit above it has moved
+   into the run header — see .pt-header-id.) Hidden (empty) in modes where it
+   would give the answer away — individual moves and timed. */
 .pt-line-name {
   font-size: 1.05rem;
   font-weight: 700;
@@ -8431,29 +8490,42 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   color: var(--accent);
 }
 
-/* The live stat at the card's trailing edge — a small pill badge tinted with
-   the mode accent, so the number reads as part of this card's identity. */
+/* The live stat, pinned to the card's TOP-RIGHT CORNER rather than sitting in
+   the row. As a column it took a third of the card's width and wrapped every
+   title and subtitle onto two lines; as a corner chip it is a footnote and the
+   words get the width back. Absolutely positioned so it costs the flex row
+   nothing at all — only the padding-right below, so a long subtitle can't run
+   under it. */
 .mode-card-stat {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.5rem;
   display: inline-flex;
   flex-direction: row;
   align-items: baseline;
-  gap: 0.28rem;
-  flex-shrink: 0;
-  padding: 0.22rem 0.55rem;
+  gap: 0.22rem;
+  padding: 0.12rem 0.4rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--mode-accent, var(--primary)) 16%, transparent);
+  background: color-mix(in srgb, var(--mode-accent, var(--primary)) 15%, transparent);
   line-height: 1;
+  pointer-events: none; /* the whole card is the button */
+}
+
+/* Room for the corner chip. Only the first line needs it, but reserving it on
+   the text column is simpler than a float and can't overlap on a narrow phone. */
+.mode-card--stat .mode-card-text {
+  padding-right: 3.2rem;
 }
 
 .mode-card-stat-num {
-  font-size: 1.05rem;
+  font-size: 0.8rem;
   font-weight: 800;
   color: var(--mode-accent, var(--primary));
   font-variant-numeric: tabular-nums;
 }
 
 .mode-card-stat-label {
-  font-size: 0.6rem;
+  font-size: 0.55rem;
   font-weight: 700;
   color: var(--mode-accent, var(--text-faint));
   text-transform: uppercase;
@@ -15583,6 +15655,86 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 /* The count picker sits just under each task's title. */
 .daily-count-seg { margin-top: var(--space-sm); }
 
+/* THE RUNNING ORDER. Each part's row carries its place in the day, its name and
+   a pair of move buttons on one line, with the count picker below — so reading
+   down the list reads the challenge in the order it will actually happen. */
+.daily-order-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* The position badge. A number, not a drag handle: nothing here is dragged. */
+.daily-order-num {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.daily-order-head .pref-row-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.daily-order-moves {
+  flex: none;
+  display: flex;
+  gap: 0.25rem;
+}
+
+.daily-order-move {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.daily-order-move:active:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.daily-order-move:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* A part set to Off keeps its place in the list (turning it back on shouldn't
+   move it) but stops shouting. */
+.daily-order-row--off .daily-order-num,
+.daily-order-row--off .pref-row-title {
+  opacity: 0.5;
+}
+
+.daily-order-reset {
+  margin-top: var(--space-md);
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
 /* The capped number field revealed once "Custom" is picked. */
 .daily-custom-count {
   display: flex;
@@ -19654,6 +19806,33 @@ html.picker-open body {
   text-decoration: line-through;
 }
 
+/* Before the first move there is no move to name, so the slot carries the
+   instruction instead — as a quiet box, capped at two lines, between the two
+   arrows it is telling you to press. */
+.dt-move-label--hint {
+  padding: 0.3rem 0.5rem;
+  border: 1px dashed var(--border-card);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* The answer phase's first rung. Centred like the reveal beneath it, and never
+   full width — it is help, not the thing to do. */
+.dt-hint {
+  align-self: center;
+  margin: 0.2rem 0 0.35rem; /* overrides .pz-hint-btn's 0.7rem top */
+}
+.dt-hint[hidden] { display: none; }
+
 /* ── One pip per move in the run ── */
 .dt-pips {
   display: flex;
@@ -19797,13 +19976,21 @@ html.picker-open body {
   flex-wrap: wrap;
 }
 
+/* Two lines now, not one: the move and its number on top, the WHY under it. A
+   pill is the wrong shape for two lines, so the chips are rounded boxes and
+   they share the row equally — two boxes of the same size read as a comparison,
+   which is what they are. */
 .wm-eval {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.35rem;
-  padding: 0.18rem 0.55rem;
+  flex: 1 1 0;
+  min-width: 8.5rem;
+  max-width: 14rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.3rem 0.55rem;
   border: 1px solid currentColor;
-  border-radius: 999px;
+  border-radius: 10px;
   font-size: 0.82rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -19811,9 +19998,26 @@ html.picker-open body {
 .wm-eval--bad { color: var(--danger); }
 .wm-eval--good { color: var(--success); }
 
+.wm-eval-head {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
 .wm-eval-cp {
   opacity: 0.85;
   font-weight: 800;
+}
+
+/* The reason, in the chip's own colour but quieter — it explains the number
+   above it rather than competing with it. Two lines at most on a phone. */
+.wm-eval-why {
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  opacity: 0.85;
+  font-variant-numeric: normal;
 }
 
 /* Both new exercises carry a stack of controls under the board, so the shared

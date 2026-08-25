@@ -65,6 +65,9 @@ import { fairPairs, pickWhichMove, readyWhichMoveCount } from './which-move';
 import { startWhichMoveSession, openWhichMoveInfo } from './which-move-run';
 import { detectiveLog, whichMoveLog, clearMiddleLogs } from './middle-log';
 import { openFixedSheet } from './fixed-sheet';
+import {
+  DETECTIVE_ACCENT, WHICH_MOVE_ACCENT, CATEGORY_ACCENT,
+} from './exercise-identity';
 
 // Session size for a category card tap — five positions, like a puzzle run.
 const SESSION_SIZE = 5;
@@ -76,12 +79,18 @@ const SESSION_SIZE = 5;
 const DETECTIVE_SESSION = 3;
 const WHICH_MOVE_SESSION = 6;
 
-// The mixed run at the top of the pane: how many mistake positions it deals from
-// across the four categories, and how many brilliant finds it closes with. The
-// two halves are two different exercises (find a better move / find the move you
-// found), so they run back to back rather than shuffled into one another — the
-// same shape the daily challenge uses for its two halves.
-const MIX_MISTAKES = 8;
+// The mixed run at the top of the pane. It deals from EVERY exercise in this
+// section, not just two of them: the quick two-move questions to warm up, then
+// mistake positions round-robin across the four categories, then a detective
+// case or two, and it closes on your own best moves.
+//
+// They run back to back as legs of one chain rather than shuffled into one
+// another, because they are four genuinely different exercises — the same shape
+// the daily challenge uses to pass from one of its parts to the next. Each leg
+// is short; the point of the mix is the spread, not the volume.
+const MIX_WHICH_MOVE = 3;
+const MIX_MISTAKES = 6;
+const MIX_DETECTIVE = 2;
 const MIX_BRILLIANT = 3;
 
 // Brilliancies are scarce. Below this many of your own, the card pools the
@@ -89,19 +98,9 @@ const MIX_BRILLIANT = 3;
 // once you have a proper collection it narrows to the real thing.
 const BRILLIANT_ONLY_FROM = 10;
 
-// Per-category accents for the cards, kin to the Practise cards' palette.
-// The two exercises that read the whole game rather than one position: catching
-// the blunder in a run of moves, and telling two moves apart. Their own accents,
-// off the four categories' palette because they aren't categories.
-const DETECTIVE_ACCENT = '#6f6ac0';   // indigo — the search
-const WHICH_MOVE_ACCENT = '#5c8bb0'; // steel blue — two moves, one choice
-
-const CATEGORY_ACCENT: Record<MistakeCategory, string> = {
-  'opening-blunder': '#b3593b', // ember — it went wrong early
-  'punish-opening': '#3f7d8a',  // teal — seize what they hand you
-  'missed-win': '#c79a2a',      // gold — the win that got away
-  'blunder': '#a94444',         // red — the plain ??
-};
+// The palette for all of this now lives in exercise-identity.ts — the exercise
+// OVERLAYS wear it too (their header carries the icon and colour of the card
+// that launched them), and a leaf module is the only place both can reach.
 
 const CATEGORY_SUB: Record<MistakeCategory, string> = {
   'opening-blunder': 'openings that lost you the game',
@@ -110,11 +109,12 @@ const CATEGORY_SUB: Record<MistakeCategory, string> = {
   'blunder': 'game-losing moves from level play',
 };
 
-const CATEGORY_ICON: Record<MistakeCategory, () => SVGElement> = {
-  'opening-blunder': () => Icons.zap(20),
-  'punish-opening': () => Icons.target(20),
-  'missed-win': () => Icons.star(20),
-  'blunder': () => Icons.alert(20),
+// Sized by the caller: 20 on the cards, 18 in an exercise's run header.
+const CATEGORY_ICON: Record<MistakeCategory, (size?: number) => SVGElement> = {
+  'opening-blunder': (s = 20) => Icons.zap(s),
+  'punish-opening': (s = 20) => Icons.target(s),
+  'missed-win': (s = 20) => Icons.star(s),
+  'blunder': (s = 20) => Icons.alert(s),
 };
 
 const CATEGORIES: MistakeCategory[] = ['opening-blunder', 'punish-opening', 'missed-win', 'blunder'];
@@ -133,9 +133,11 @@ function openMistakeInfo(): void {
       {
         icon: Icons.sparkles(18), accent: CATEGORY_ACCENT['punish-opening'],
         label: 'Your games mix',
-        detail: 'The button at the top. It deals from all four mistake cards in turn and '
-          + 'finishes on your best moves, so you get a spread of your own game rather than '
-          + 'having to pick a category first.',
+        detail: 'The button at the top, and the one to press if you do not want to choose. '
+          + 'It runs every exercise on this screen back to back — two-move questions, then '
+          + 'mistake positions from all four cards in turn, then a detective case or two, '
+          + 'and it finishes on your own best moves. Each leg is short; whatever has nothing '
+          + 'to deal is simply skipped.',
       },
       {
         icon: Icons.scout(18), accent: DETECTIVE_ACCENT,
@@ -521,9 +523,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   // yet — a primary button that can only tell you there is nothing to do is
   // worse than no button.
   function buildMixButton(): HTMLElement | null {
-    const spots = mixSpots();
-    const gems = brilliantRefs.slice(0, MIX_BRILLIANT);
-    if (spots.length === 0 && gems.length === 0) return null;
+    if (mixLegs().length === 0) return null;
 
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -556,25 +556,100 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     return out;
   }
 
-  // Mistakes, then the brilliancies as the run's last stretch — handed over by
-  // the results screen's primary button, the way the daily challenge passes from
-  // its puzzle half to its endgame half. Either half alone is still a mix worth
-  // running when the other is empty.
-  function startMix(): void {
-    const spots = mixSpots();
-    const gems = brilliantRefs.slice(0, MIX_BRILLIANT);
-    if (spots.length === 0) { startBrilliant(brilliantRefs, MIX_BRILLIANT); return; }
+  // ── The mix, as a chain of legs ────────────────────────────────────────────
+  //
+  // One leg per exercise that has anything to deal, each handing over through
+  // its results screen's primary button. The legs are worked out ONCE, when the
+  // mix starts, and the index is carried along: a leg's own solves change the
+  // rest logs underneath it, so recomputing the list between hops could shuffle
+  // what "the next one" means halfway through a run.
+  interface MixLeg {
+    /** What the previous leg's hand-off button says. */
+    label: string;
+    start: (next?: { label: string; run: () => void }) => void;
+  }
 
-    startMistakeSession({
-      refs: spots,
-      modeLabel: 'Your games mix',
-      onExit: rerender,
-      onPlayAgain: () => startMix(),
-      onOpenGame: deps.onOpenGame,
-      nextAction: gems.length > 0
-        ? { label: 'Now your best moves', run: () => startBrilliant(brilliantRefs, MIX_BRILLIANT) }
-        : undefined,
-    });
+  function mixLegs(): MixLeg[] {
+    const legs: MixLeg[] = [];
+    const ctx = 'Your games mix';
+
+    // Quickest first: ten seconds a question, and it warms up the eye for the
+    // blank-board work that follows.
+    const pairs = pickWhichMove(pairRefs, MIX_WHICH_MOVE, id => whichMoveDue[id] ?? 0);
+    if (pairs.length) {
+      legs.push({
+        label: 'Two moves, one choice',
+        start: (next) => startWhichMoveSession({
+          refs: pairs,
+          contextLabel: ctx,
+          onExit: rerender,
+          onPlayAgain: () => startMix(),
+          onOpenGame: deps.onOpenGame,
+          nextAction: next,
+        }),
+      });
+    }
+
+    const spots = mixSpots();
+    if (spots.length) {
+      legs.push({
+        label: 'Now your mistakes',
+        start: (next) => startMistakeSession({
+          refs: spots,
+          contextLabel: ctx,
+          onExit: rerender,
+          onPlayAgain: () => startMix(),
+          onOpenGame: deps.onOpenGame,
+          nextAction: next,
+        }),
+      });
+    }
+
+    const cases = pickDetective(detectiveRefs, MIX_DETECTIVE, id => detectiveDue[id] ?? 0);
+    if (cases.length) {
+      legs.push({
+        label: 'Now find the blunder',
+        start: (next) => startDetectiveSession({
+          refs: cases,
+          contextLabel: ctx,
+          onExit: rerender,
+          onPlayAgain: () => startMix(),
+          onOpenGame: deps.onOpenGame,
+          nextAction: next,
+        }),
+      });
+    }
+
+    // The mix closes on the one exercise that is about something you got RIGHT.
+    const gems = brilliantRefs.slice(0, MIX_BRILLIANT);
+    if (gems.length) {
+      legs.push({
+        label: 'Now your best moves',
+        start: (next) => startBrilliantSession({
+          refs: gems,
+          contextLabel: ctx,
+          onExit: rerender,
+          onPlayAgain: () => startMix(),
+          onOpenGame: deps.onOpenGame,
+          nextAction: next,
+        }),
+      });
+    }
+
+    return legs;
+  }
+
+  function startMix(): void {
+    runMixLeg(mixLegs(), 0);
+  }
+
+  function runMixLeg(legs: MixLeg[], i: number): void {
+    const leg = legs[i];
+    if (!leg) { rerender(); return; }
+    const next = legs[i + 1];
+    leg.start(next
+      ? { label: `${next.label} →`, run: () => runMixLeg(legs, i + 1) }
+      : undefined);
   }
 
   // Returns the column AND its number, so a hero watching the background pass
@@ -717,7 +792,9 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
         if (deal.length === 0) return;
         startMistakeSession({
           refs: deal,
-          modeLabel: 'Fixed again',
+          modeLabel: 'Mistakes to fix',
+          contextLabel: 'Fixed again',
+          modeAccent: CATEGORY_ACCENT.blunder,
           onExit: rerender,
           onOpenGame: deps.onOpenGame,
         });
@@ -761,6 +838,8 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     startMistakeSession({
       refs: pickSpots(pool, cat, SESSION_SIZE),
       modeLabel: CATEGORY_LABEL[cat],
+      modeIcon: () => CATEGORY_ICON[cat](18),
+      modeAccent: CATEGORY_ACCENT[cat],
       onExit: rerender,
       onPlayAgain: () => startSession(pool, cat),
       onOpenGame: deps.onOpenGame,
@@ -974,6 +1053,8 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       startMistakeSession({
         refs: pool.slice(0, SESSION_SIZE),
         modeLabel: CATEGORY_LABEL[cat],
+        modeIcon: () => CATEGORY_ICON[cat](18),
+        modeAccent: CATEGORY_ACCENT[cat],
         onExit: rerender,
         onOpenGame: deps.onOpenGame,
       });
