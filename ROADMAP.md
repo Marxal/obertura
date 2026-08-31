@@ -3392,15 +3392,36 @@ end of it, and names three moves you'd meet next that you have no answer to.
   and the builder is where the tools are — the board, the opening library, your
   own games, the engine, the position explorer. So the daily row opens the book
   at the end of the line and puts a "Grow line" tab in front of the others,
-  carrying the brief, the line's record and the three moves. Tap one, play your
-  answer, and the header's own "Add moves" button finishes it. One move is the
+  carrying the brief, the line's record and the three moves. One move is the
   whole job; every other tab is right there if you want to look further first.
+- ✅ **The three moves are on the board, not just in a list.** They are drawn as
+  arrows in the hint blue every other "the app is pointing at this" arrow uses,
+  weighted in the order the panel lists them, and they go the moment one is
+  played — three arrows over the position you are now thinking about would be
+  three arrows in the way. The tiles themselves are Explore's, verbatim: same
+  gesture, same shape, three across. Only the reasons live underneath, where
+  they have the width to be read.
+- ✅ **The panel says what to do next, by name.** "Now play your answer" leaves
+  someone looking for what they are answering, so the copy names the move:
+  *They've played Nf6. Now play YOUR answer on the board.* Then, once it is
+  down, *Nf6 is your answer — add it to your line* over a full-width button
+  that does exactly that. The line's own moves are not repeated on the panel;
+  the builder's move strip is directly above it, on every tab.
+- ✅ **Save and move on.** A grown branch skips the confirm run every other new
+  line gets. The exercise is already an interruption to the daily challenge, and
+  ending it by drilling the line you have just written — then landing on My
+  Lines — puts two screens between the user and the rest of their day. It saves,
+  leaves the builder, and launches the next part of the challenge.
 - ✅ **"Skip for today" is quiet, and it counts.** A position you don't want to
-  think about today is not a failure, so the control that says so is the
-  smallest thing on the panel. It clears the row with no right and no wrong
-  filed — a perfect day survives it — and rests that line for a day so tomorrow
-  offers a different one. Walking out of the builder does neither: the row stays
-  open, because leaving isn't doing it.
+  think about today is not a failure, so the control that says so is a plain
+  underlined word rather than a button — beside the title, where it can be found
+  without reading the panel to the end. It clears the row with no right and no
+  wrong filed (a perfect day survives it) and rests that line for a day, so
+  tomorrow offers a different one. It does NOT pull the next part up: skipping
+  says "not now", and answering that with another exercise would be the app
+  arguing. It goes while a draft is waiting, too — skipping then would throw
+  away moves just played. Walking out of the builder clears nothing: the row
+  stays open, because leaving isn't doing it.
 - ✅ **A grown line looks after itself.** Adding moves gives the line moves that
   have never been drilled, so it stops being mastered until it has been learned
   again — it leaves the pool without being told to. `grow-log.ts` exists for the

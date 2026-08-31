@@ -8,28 +8,33 @@
 // screen would have meant a worse version of five panels that already exist.
 //
 // So the exercise is a tab beside them. It says what the job is, shows how the
-// line has been going, and lists the three moves worth preparing for; the user
+// line has been going, and offers the three moves worth preparing for; the user
 // tapping one puts it on the board and then they are simply in the builder,
-// with everything the builder has. The header's own "Add N moves" button is
-// what finishes the job — this panel never grows a second one.
+// with everything the builder has.
 //
 // The panel is a READOUT of where the cursor is. It has no state of its own
 // beyond the target it was handed, which is what lets the user wander off down
 // the Library tab and come back to a panel that still knows what it asked for.
+// The line's own moves are NOT repeated here — the builder's move strip sits
+// directly above every tab, including this one.
 
 import type { GrowMove, GrowTarget } from './grow-line';
 import { lineTraining, lineTrainingText } from './line-status';
-import { formatMove, formatSanLine } from './notation';
+import { formatMove } from './notation';
 import { Icons } from './icons';
 
 export interface GrowPanelDeps {
   el: HTMLElement;
   /** The UCI path to the builder's cursor — where we are relative to the end. */
   getUcis: () => string[];
+  /** …and the same path in SAN, so the panel can name the moves just played. */
+  getSans: () => string[];
   /** Play a move onto the line (the same hand-off the Explore tab makes). */
   onPlay: (uci: string) => void;
   /** Walk the cursor back to the end of the line being grown. */
   onBackToEnd: () => void;
+  /** Add the drafted moves — the same action as the header's own button. */
+  onCommit: () => void;
   /** "Skip for today" — a different line tomorrow. */
   onSkip: () => void;
   /** Are there moves waiting to be added? Skipping would throw them away. */
@@ -40,6 +45,12 @@ export interface GrowPanel {
   /** Point the panel at a line to grow, or null to stand down. */
   setTarget(target: GrowTarget | null): void;
   target(): GrowTarget | null;
+  /**
+   * The moves to draw on the BOARD right now — the three candidates while the
+   * cursor is standing at the line end, and nothing once one has been played.
+   * main.ts folds these into its one autoshapes pass.
+   */
+  arrows(): GrowMove[];
   render(): void;
 }
 
@@ -62,6 +73,12 @@ export function createGrowPanel(deps: GrowPanelDeps): GrowPanel {
     return 'commit';
   }
 
+  /** The SAN of the move `n` plies past the line end, if it has been played. */
+  function playedAt(n: number): string | null {
+    if (!target) return null;
+    return deps.getSans()[target.spot.ucis.length + n] ?? null;
+  }
+
   function render(): void {
     const el = deps.el;
     el.replaceChildren();
@@ -72,21 +89,19 @@ export function createGrowPanel(deps: GrowPanelDeps): GrowPanel {
     const wrap = document.createElement('div');
     wrap.className = 'grow-panel';
     wrap.appendChild(head(target));
-    wrap.appendChild(moveBox(target));
 
     const at = step();
     wrap.appendChild(say(at, target));
-    if (at === 'pick') wrap.appendChild(picks(target.moves));
+    if (at === 'pick') {
+      wrap.appendChild(picks(target.moves));
+      wrap.appendChild(whys(target.moves));
+    }
     if (at === 'astray') wrap.appendChild(backButton());
-    // Skipping while moves are waiting to be added would throw them away —
-    // which is not what "skip for today" says, and not what anyone who has just
-    // played an answer means by it. The offer goes until the draft is dealt
-    // with, one way or the other.
-    if (!deps.hasDraft()) wrap.appendChild(skipButton());
+    if (at === 'commit') wrap.appendChild(commitButton());
     el.appendChild(wrap);
   }
 
-  // ── The head: what this line is, and how it has been going ─────────────────
+  // ── The head: what this line is, how it has been going, and the way out ────
   //
   // The performance figures are the whole justification for the exercise being
   // offered at all ("you know this one"), so they are stated rather than
@@ -96,7 +111,9 @@ export function createGrowPanel(deps: GrowPanelDeps): GrowPanel {
     const wrap = document.createElement('div');
     wrap.className = 'grow-head';
 
-    const title = document.createElement('div');
+    const row = document.createElement('div');
+    row.className = 'grow-head-row';
+    const title = document.createElement('span');
     title.className = 'grow-head-title';
     const icon = Icons.sprout(16);
     icon.classList.add('grow-head-icon');
@@ -104,7 +121,14 @@ export function createGrowPanel(deps: GrowPanelDeps): GrowPanel {
     const label = document.createElement('span');
     label.textContent = 'Grow this line';
     title.appendChild(label);
-    wrap.appendChild(title);
+    row.appendChild(title);
+    // Skipping is a legitimate answer — a position you don't want to think
+    // about today is not a failure — so the way out sits beside the title where
+    // it can be found, rather than at the bottom of a panel you have to read to
+    // the end to escape. It goes while a draft is waiting: skipping then would
+    // throw away moves the user has just played, which is not what it says.
+    if (!deps.hasDraft()) row.appendChild(skipButton());
+    wrap.appendChild(row);
 
     const name = document.createElement('div');
     name.className = 'grow-head-name';
@@ -127,14 +151,11 @@ export function createGrowPanel(deps: GrowPanelDeps): GrowPanel {
     return el;
   }
 
-  /** The line itself, wrapped, so "the end of the line" is a place you can see. */
-  function moveBox(t: GrowTarget): HTMLElement {
-    const box = document.createElement('div');
-    box.className = 'grow-movebox';
-    box.textContent = formatSanLine(t.spot.sans);
-    return box;
-  }
-
+  // ── What to do, at each step ───────────────────────────────────────────────
+  //
+  // The copy NAMES the move that was just played rather than describing it in
+  // the abstract. "Now play your answer" leaves someone looking for what they
+  // are answering; "They played 4…Nf6 — now play your reply" does not.
   function say(at: Step, t: GrowTarget): HTMLElement {
     const p = document.createElement('p');
     p.className = 'grow-say';
@@ -143,30 +164,36 @@ export function createGrowPanel(deps: GrowPanelDeps): GrowPanel {
         + 'at the end of it.';
     } else if (at === 'pick') {
       p.textContent = t.moves.length === 1
-        ? 'Your line stops here — and this is what you’d meet next. Tap it, then '
-          + 'play your answer.'
-        : 'Your line stops here. These are the moves you’d meet next: tap one, '
-          + 'then play your answer on the board.';
+        ? 'Your line stops here — and this is what you’d meet next. Tap it to '
+          + 'put it on the board.'
+        : 'Your line stops here. These are the moves you’d meet next — tap one '
+          + 'to put it on the board.';
     } else if (at === 'reply') {
-      p.textContent = 'Now play your answer on the board. One move is enough — '
-        + 'carry on if you know what comes after it.';
+      const their = playedAt(0);
+      p.textContent = (their ? `They’ve played ${formatMove(their)}. ` : '')
+        + 'Now play YOUR answer on the board — drag the piece you’d reply with. '
+        + 'One move is enough.';
     } else {
-      p.textContent = 'That’s it. Use the button at the top to add it to your '
-        + 'line, and it joins your training.';
+      const mine = playedAt(1);
+      p.textContent = mine
+        ? `${formatMove(mine)} is your answer. Add it to your line and today’s `
+          + 'challenge moves on.'
+        : 'That’s your answer. Add it to your line and today’s challenge moves on.';
     }
     return p;
   }
 
   // ── The three moves ────────────────────────────────────────────────────────
   //
-  // A COLUMN of wide rows, not the Explore tab's three-across grid, and the
-  // difference is the reason. Explore's tiles are a quick pick between moves you
-  // are already comparing on the board; here the reason IS the exercise — "you
-  // have faced this 4 times" is what makes a move worth an answer — and a reason
-  // has to be readable, which a third of a phone width is not.
+  // The SAME three-across tile the Explore tab uses, down to the class names:
+  // it is the same gesture doing the same thing (tap a suggested move, it goes
+  // on the board), and teaching one gesture twice in two shapes would be
+  // teaching it badly. The reasons follow underneath, where they have the width
+  // to be read — a third of a phone is not enough for "you have faced this 4
+  // times".
   function picks(moves: GrowMove[]): HTMLElement {
     const wrap = document.createElement('div');
-    wrap.className = 'grow-picks';
+    wrap.className = 'explore-picks grow-picks';
     for (const m of moves) wrap.appendChild(tile(m));
     return wrap;
   }
@@ -174,36 +201,48 @@ export function createGrowPanel(deps: GrowPanelDeps): GrowPanel {
   function tile(m: GrowMove): HTMLElement {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = `grow-pick grow-pick--${m.source}`;
+    btn.className = `explore-pick explore-pick--${m.source}`;
     btn.addEventListener('click', () => deps.onPlay(m.uci));
 
     const move = document.createElement('span');
-    move.className = 'grow-pick-move';
+    move.className = 'explore-pick-move';
     move.textContent = formatMove(m.san);
     btn.appendChild(move);
 
-    const body = document.createElement('span');
-    body.className = 'grow-pick-body';
-
     const src = document.createElement('span');
-    src.className = 'grow-pick-src';
+    src.className = 'explore-pick-src';
     src.appendChild(sourceIcon(m));
     src.appendChild(document.createTextNode(sourceName(m)));
-    body.appendChild(src);
-
-    const why = document.createElement('span');
-    why.className = 'grow-pick-why';
-    why.textContent = m.reason;
-    body.appendChild(why);
-    btn.appendChild(body);
+    btn.appendChild(src);
 
     const add = document.createElement('span');
-    add.className = 'grow-pick-add';
-    add.appendChild(Icons.plus(14));
+    add.className = 'explore-pick-add';
+    add.appendChild(Icons.plus(13));
     btn.appendChild(add);
 
     btn.setAttribute('aria-label', `Play ${m.san} — ${m.reason}`);
+    btn.title = m.reason;
     return btn;
+  }
+
+  /** One line per move: why it is worth an answer. The exercise, in words. */
+  function whys(moves: GrowMove[]): HTMLElement {
+    const wrap = document.createElement('div');
+    wrap.className = 'grow-whys';
+    for (const m of moves) {
+      const row = document.createElement('div');
+      row.className = `grow-why grow-why--${m.source}`;
+      const san = document.createElement('span');
+      san.className = 'grow-why-move';
+      san.textContent = formatMove(m.san);
+      row.appendChild(san);
+      const why = document.createElement('span');
+      why.className = 'grow-why-text';
+      why.textContent = m.reason;
+      row.appendChild(why);
+      wrap.appendChild(row);
+    }
+    return wrap;
   }
 
   function sourceIcon(m: GrowMove): SVGElement {
@@ -227,11 +266,18 @@ export function createGrowPanel(deps: GrowPanelDeps): GrowPanel {
     return btn;
   }
 
-  // Quiet on purpose. Skipping is a legitimate answer — a position you don't
-  // want to think about today is not a failure — and a loud button would make
-  // it read as one. It clears the row either way (daily-challenge.ts records no
-  // right and no wrong for it), so nobody has to grow a line badly to finish
-  // their day.
+  // The header's "Add N moves" is the same action and is two centimetres away,
+  // but it is a small control in a bar full of small controls. At the one moment
+  // the exercise has a single obvious next step, the panel says so in full.
+  function commitButton(): HTMLElement {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn-primary grow-commit';
+    btn.textContent = 'Add it to my line';
+    btn.addEventListener('click', deps.onCommit);
+    return btn;
+  }
+
   function skipButton(): HTMLElement {
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -251,6 +297,9 @@ export function createGrowPanel(deps: GrowPanelDeps): GrowPanel {
   return {
     setTarget(next: GrowTarget | null): void { target = next; render(); },
     target(): GrowTarget | null { return target; },
+    arrows(): GrowMove[] {
+      return target && step() === 'pick' ? target.moves : [];
+    },
     render,
   };
 }

@@ -1,5 +1,5 @@
 import { Chess, type Square } from 'chess.js';
-import { registerBrushes } from './board-brushes';
+import { registerBrushes, HINT_COLOR } from './board-brushes';
 import { Chessground } from 'chessground';
 import type { Key } from 'chessground/types';
 import type { DrawShape } from 'chessground/draw';
@@ -268,8 +268,10 @@ function updateOpeningName(): void {
   builderPanels?.render();
   explorePanel?.render();
   // The Grow tab is a readout of where the cursor stands relative to the line
-  // end it asked about, so it repaints with every other position-driven panel.
+  // end it asked about, so it repaints with every other position-driven panel —
+  // and its candidate arrows come and go with the same step.
   growPanel?.render();
+  if (cg) refreshBoardShapes();
   // The engine's previous answer belongs to the previous position; drop it so
   // the Engine tab says "analysing…" instead of showing a stale line.
   enginePanel?.clear();
@@ -1626,6 +1628,18 @@ function refreshBoardShapes(): void {
     });
   }
 
+  // 3. The grow exercise's candidate replies, drawn where they'd happen. Only
+  //    while the cursor is still standing at the end of the line — once one has
+  //    been played the question is answered, and three arrows over the position
+  //    you are now thinking about would be three arrows in the way.
+  growPanel?.arrows().slice(0, 3).forEach((m, i) => {
+    shapes.push({
+      orig: m.uci.slice(0, 2) as Key,
+      dest: m.uci.slice(2, 4) as Key,
+      brush: `grow${i + 1}`,
+    });
+  });
+
   cg.setAutoShapes(shapes);
   setReviewSquares(fromSq, toSq, showBadge ? node.classification! : undefined);
 }
@@ -2453,9 +2467,13 @@ async function commitBook(intents?: Map<string, boolean>): Promise<void> {
   });
 
   // A grow session ends the moment moves land — the whole ask was "add one".
-  finishGrowSession(moves);
-
-  await settleNewBookLines(drafted.map(l => l.endId), wants);
+  // Its new branch skips the confirm run: the exercise is already an interruption
+  // to the daily challenge, and ending it by drilling the line you just wrote
+  // (and landing on My Lines afterwards) puts two screens between the user and
+  // the next part of their day. Save it and move on is what the part promises.
+  const growing = moves > 0 && !!growPanel?.target();
+  await settleNewBookLines(drafted.map(l => l.endId), wants, { confirmRuns: !growing });
+  if (growing) finishGrowSession();
 }
 
 /**
@@ -2475,7 +2493,9 @@ async function commitBook(intents?: Map<string, boolean>): Promise<void> {
  *    the user has switched that pref off, exactly as the old path skipped it.
  */
 async function settleNewBookLines(
-  endIds: string[], wants: Map<string, boolean>,
+  endIds: string[],
+  wants: Map<string, boolean>,
+  opts: { confirmRuns?: boolean } = {},
 ): Promise<void> {
   const queue: Line[] = [];
   for (const endId of endIds) {
@@ -2488,6 +2508,7 @@ async function settleNewBookLines(
     if (line.inTraining) queue.push(line);
   }
   repaintAfterBookWrite();
+  if (opts.confirmRuns === false) return;
   if (!queue.length || !getConfirmRunBeforeTraining()) return;
   runConfirmRuns(queue);
 }
@@ -4225,7 +4246,7 @@ function renderTrainTabbed(host: HTMLElement): void {
         // The one part that leaves the trainer: it opens the builder, because
         // adding a move is building. finish() is captured and called later,
         // from the commit (or the skip) — see startGrowLine.
-        void startGrowLine(allLines, finish(markGrowLinesDone));
+        void startGrowLine(allLines, finish(markGrowLinesDone), nextFor('growLines'));
       },
       whichMove: () => {
         // The quick one: two moves, pick the good one.
@@ -4508,7 +4529,7 @@ function showView(view: ViewName): void {
     // and stand the grow brief down. The daily row is deliberately NOT ticked
     // off — walking away from it isn't doing it, and the card still offers it.
     if (evalPanel && evalPanel.isEnabled) evalPanel.setEnabled(false);
-    if (growPanel?.target()) { growDone = null; endGrowSession(false); }
+    if (growPanel?.target()) { growDone = null; growNext = undefined; endGrowSession(); }
   }
 
   // Un-hide the suspended session's overlay only once its home screen is back.
@@ -4538,6 +4559,12 @@ let growEndNodeId: string | null = null;
  * than looked up. Cleared as soon as it is used: the row is done once.
  */
 let growDone: ((o: TaskOutcome) => void) | null = null;
+/**
+ * …and the part of the day to move on to once it is, captured at the same
+ * moment and for the same reason. Undefined when this was the last open part —
+ * the challenge is then done, and the card says so on the way back.
+ */
+let growNext: { label: string; run: () => void } | undefined;
 
 /**
  * Open the builder on a line worth growing, with the brief on its own tab.
@@ -4549,7 +4576,9 @@ let growDone: ((o: TaskOutcome) => void) | null = null;
  * this to the tap.
  */
 async function startGrowLine(
-  lines: Line[], done: (o: TaskOutcome) => void,
+  lines: Line[],
+  done: (o: TaskOutcome) => void,
+  next?: { label: string; run: () => void },
 ): Promise<void> {
   // Ordered, not trimmed. The part grows ONE line (dailyCountCeiling), but the
   // first candidate may be a position none of the sources knows anything about
@@ -4584,6 +4613,7 @@ async function startGrowLine(
   if (!parsed) { growNothingToDo(done); return; }
 
   growDone = done;
+  growNext = next;
   growEndNodeId = parsed.endNodeId;
   // Before showView: the tab strip is built from whether a target is set.
   growPanel?.setTarget(target);
@@ -4615,6 +4645,7 @@ function growNothingToDo(done: (o: TaskOutcome) => void): void {
   showToast('Nothing new to prepare at the end of your lines today');
   done({ right: 0, wrong: 0 });
   growDone = null;
+  growNext = undefined;
 }
 
 /** The rest log as the lookup every picker in the app takes. */
@@ -4630,19 +4661,31 @@ function growAt(): (lineId: string) => number {
  * moves to the book is the job, wherever in the book they went. A stricter test
  * would fail the honest case where someone answers the reply and then fixes a
  * neighbouring line while they're in there.
+ *
+ * It ends by leaving the builder, because the builder was never the
+ * destination: the row came from the daily card and the day carries on there.
+ * The next part is launched straight away where there is one — the same
+ * "Next challenge →" chain every other part offers, taken automatically because
+ * this one has no completion screen to put a button on.
  */
-function finishGrowSession(moves: number): void {
-  if (moves <= 0 || !growPanel?.target()) return;
-  const line = growPanel.target()!.spot.line;
+function finishGrowSession(): void {
+  const target = growPanel?.target();
+  if (!target) return;
   // A grown line usually drops out of the pool on its own — its new moves have
   // never been drilled, so it stops being "mastered" until it is learned again.
   // The rest covers the case where it doesn't: a branch grown into material
   // already in training can come back mastered within days.
-  restGrowLine(line.id, GROW_GROWN_DAYS);
-  endGrowSession(true);
+  restGrowLine(target.spot.line.id, GROW_GROWN_DAYS);
+  endGrowSession();
   growDone?.({ right: 0, wrong: 0 });
   growDone = null;
+  const next = growNext;
+  growNext = undefined;
+  showView('train');
   liveDaily?.repaint();
+  // After showView, so the launcher it reaches is the freshly-rendered Train
+  // screen's own (liveDaily queues it if that render is still in flight).
+  next?.run();
 }
 
 /** "Skip for today": stand this line aside, clear the row, go back to Train. */
@@ -4650,9 +4693,13 @@ function skipGrowLine(): void {
   const target = growPanel?.target();
   if (!target) return;
   restGrowLine(target.spot.line.id, GROW_SKIP_DAYS);
-  endGrowSession(false);
+  endGrowSession();
   growDone?.({ right: 0, wrong: 0 });
   growDone = null;
+  // A skip clears the row but does NOT pull the next part up: skipping is
+  // saying "not now", and answering it with another exercise would be the app
+  // arguing. The card is there when they want it.
+  growNext = undefined;
   liveDaily?.repaint();
   showToast('Skipped — a different line tomorrow');
   showView('train');
@@ -4661,20 +4708,14 @@ function skipGrowLine(): void {
 /**
  * Put the builder's tab strip back the way it was.
  *
- * `land` moves the carousel to the first remaining tab, which is only right
- * when the user is still LOOKING at the builder — the tab they were on has just
- * been removed from under them. Leaving the builder passes false: the strip is
- * rebuilt for the next visit, and nothing should be scrolled behind their back.
+ * Every way out of the exercise leaves the builder (a finished grow goes to the
+ * next part of the day, a skip goes back to the card), so there is nothing to
+ * scroll to here — the strip is simply rebuilt for the next visit.
  */
-function endGrowSession(land: boolean): void {
+function endGrowSession(): void {
   growEndNodeId = null;
   growPanel?.setTarget(null);
   applyBuilderSlideOrder();
-  if (!land) return;
-  const track = document.getElementById('builder-carousel');
-  if (track) track.scrollLeft = 0;
-  activeSlide = -1;
-  onActiveSlide(0);
 }
 
 function onOpenLine(line: Line, atFen?: string): void {
@@ -5949,6 +5990,13 @@ maybeShowGate(() => requestAnimationFrame(() => {
     eng1: { color: '#3a9a5c', opacity: 0.9, lineWidth: 11 },
     eng2: { color: '#3a9a5c', opacity: 0.55, lineWidth: 9 },
     eng3: { color: '#3a9a5c', opacity: 0.38, lineWidth: 8 },
+    // The grow exercise's three candidate replies. HINT_COLOR, because these
+    // are "the app is pointing at this" arrows rather than an engine opinion —
+    // and because it is the one hue no board scheme uses (board-brushes.ts).
+    // Descending weight mirrors the order of the tiles on the panel.
+    grow1: { color: HINT_COLOR, opacity: 0.85, lineWidth: 11 },
+    grow2: { color: HINT_COLOR, opacity: 0.55, lineWidth: 9 },
+    grow3: { color: HINT_COLOR, opacity: 0.38, lineWidth: 8 },
   });
 
   // Engine + eval panel — must come after cg is available so evaluate() can read chess.fen().
@@ -6065,8 +6113,10 @@ maybeShowGate(() => requestAnimationFrame(() => {
   growPanel = createGrowPanel({
     el: document.getElementById('slide-grow')!,
     getUcis: currentPathUcis,
+    getSans: currentPathSans,
     onPlay: (uci) => playUci(uci),
     onBackToEnd: () => { if (growEndNodeId) handleMoveClick(growEndNodeId); },
+    onCommit: addFromHeader,
     onSkip: skipGrowLine,
     hasDraft: () => inBook() && hasPending(),
   });
