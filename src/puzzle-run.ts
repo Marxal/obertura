@@ -559,7 +559,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     plus.className = 'pz-award-plus';
     plus.textContent = '+';
     sum.appendChild(plus);
-    sum.appendChild(awardChip(`${bonus} fast`, 'bonus'));
+    sum.appendChild(awardChip(`+${bonus} fast`, 'bonus'));
     awardEl.append(sum, total);
 
     num.textContent = sign(base);

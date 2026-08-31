@@ -1005,11 +1005,31 @@ puzzle was all downside.
   board is actually yours, so the opening animation, the opponent's scripted
   replies and the alternative-move engine check are all free. Charging someone
   for the app's own pauses is the quickest way to make a bonus feel rigged.
-- ✅ **One thin row above the board**: the clock, a bar that drains as the bonus
-  does, and the words "Speed bonus" — until it is spent, when it says so quietly
-  and stops drawing attention. The reveal then says where the points came from
-  (`+6 points ⚡+6 fast`), and the results list puts a bolt on every row the clock
-  paid for.
+- ✅ **One block for the whole puzzle: YOUR rating, and the clock under it.**
+  Before this round the rating only appeared at the END, as the PUZZLE's rating,
+  and the clock was a stray row above an empty space — two strangers sharing a
+  gap. Now the number you care about is on screen while you solve and MOVES when
+  you finish, which is the only presentation of a rating change anybody reads.
+  The clock is a time and a bar and nothing else: a bar that empties as the bonus
+  does needs no caption, and "Speed bonus" written beside it was one.
+- ✅ **A discreet eye hides the clock, and nothing else.** Some people solve worse
+  with a clock in front of them and should still be paid for being quick, so this
+  is a DISPLAY switch — the bonus is earned exactly the same way with the readout
+  off. A bonus you can turn off is not a bonus, it is a difficulty setting. The
+  choice is remembered across runs, and the eye stays as the way back.
+- ✅ **The addition is staged, because addition is a thing that HAPPENS.**
+  "+6 points ⚡+6 fast" sat there as two facts side by side and nobody could tell
+  whether the bolt was part of the six or on top of it. Now the solve lands
+  (`+0 solved`), the bolt arrives beside it (`+ ⚡+6 fast`), and only then do the
+  two resolve into a total that counts on from the first number — with your
+  rating ticking up alongside it. Reduced motion gets the final state at once.
+- ✅ **The clock never flickers in and out of a run.** A repeat from the review
+  queue can't move the rating, so it used to hide the clock entirely — which is
+  most of what made the rated mix look like it had no clock at all, since about a
+  third of that mix is repeats. The time now always runs; only the BAR is absent
+  when there is nothing to earn (a repeat, or a puzzle already spoiled by a wrong
+  move or a hint).
+- ✅ The results list still puts a bolt on every row the clock paid for.
 - ✅ **Both ladders, one change.** The Puzzles tab and the End game trainer both
   run through `startPuzzleSession` in rated count mode, so tactics and endgames
   got this together. Time Attack is untouched — it is casual, it never moved the
