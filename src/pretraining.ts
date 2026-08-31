@@ -44,6 +44,12 @@ export function startPretrainingRun(
     beforeWatch?: (start: () => void, skip: () => void) => void;
     // The guided first line names its first move and draws it — see DrillOptions.
     firstMoveHint?: string;
+    // A brand-new line's confirm run offers exactly one way through: "Add
+    // without playing". A louder "End session" beside it reads as a second,
+    // competing way out of a run whose only real purpose is to enrol the line —
+    // there is nothing to abandon that saving without playing doesn't already
+    // cover. The back gesture still works either way.
+    hideExit?: boolean;
   } = {},
 ): void {
   // Deep-clone so lapse edits don't mutate the caller's copy in memory.
@@ -70,7 +76,7 @@ export function startPretrainingRun(
     // "Skip this time". Advertising a louder way out beside it is offering an
     // escape from the thing you most wanted them to see. The back gesture still
     // works either way.
-    hideExit: !!opts.beforeWatch,
+    hideExit: !!opts.beforeWatch || !!opts.hideExit,
     modeLabel: 'Confirm line',
     completeMessage: opts.completeMessage ?? 'Line confirmed — added to training',
     // Watch the line through once first, at the user's chosen watch speed.

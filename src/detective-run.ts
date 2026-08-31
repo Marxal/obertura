@@ -35,7 +35,7 @@ import { formatMove, numberedMove } from './notation';
 import { openInfoSheet, buildInfoButton } from './info-sheet';
 import { detectiveLog } from './middle-log';
 import { buildRunHeader } from './run-header';
-import { openSpotPeek } from './spot-peek';
+import { openSpotPeek, type SpotPeekOptions } from './spot-peek';
 import { DETECTIVE_ACCENT } from './exercise-identity';
 import type { DetectiveRef } from './detective';
 import type { OpenGameCtx } from './mistake-run';
@@ -838,7 +838,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
       listWrap.className = 'pz-results-list-wrap';
       const list = document.createElement('div');
       list.className = 'pz-results-list';
-      for (const e of entries) list.appendChild(resultRow(e));
+      entries.forEach((e, idx) => list.appendChild(resultRow(e, idx)));
       listWrap.appendChild(list);
       const fade = document.createElement('div');
       fade.className = 'pz-results-fade';
@@ -879,13 +879,13 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   // One results row — tappable, exactly like the mistake drill's: it pops the
   // case's position up right here (the blunder in red, the move that should
   // have been played in blue) with a jump into the full analyser.
-  function resultRow(e: SessionEntry): HTMLElement {
+  function resultRow(e: SessionEntry, idx: number): HTMLElement {
     const row = document.createElement('div');
     row.className = 'pz-result-row pz-result-row--linked '
       + (e.clean ? 'pz-result-row--solved' : 'pz-result-row--missed');
     row.setAttribute('role', 'button');
     row.tabIndex = 0;
-    const open = (): void => openCasePeek(e.ref);
+    const open = (): void => openCasePeek(idx);
     row.addEventListener('click', open);
     row.addEventListener('keydown', (ev) => {
       if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(); }
@@ -910,9 +910,12 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     return row;
   }
 
-  function openCasePeek(ref: DetectiveRef): void {
+  function peekOptionsFor(idx: number): SpotPeekOptions | null {
+    const e = entries[idx];
+    if (!e) return null;
+    const ref = e.ref;
     const best = ref.spot.best[0];
-    openSpotPeek({
+    return {
       fen: ref.spot.preFen,
       orientation: ref.game.colour,
       arrows: [
@@ -927,7 +930,12 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
       onAnalyse: opts.onOpenGame
         ? () => suspendForAnalysis(ref.game, ref.spot.preFen)
         : undefined,
-    });
+      onNav: (dir) => peekOptionsFor(idx + dir),
+    };
+  }
+  function openCasePeek(idx: number): void {
+    const o = peekOptionsFor(idx);
+    if (o) openSpotPeek(o);
   }
 
   function doExit(): void {

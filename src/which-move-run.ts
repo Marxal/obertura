@@ -38,7 +38,7 @@ import { openInfoSheet, buildInfoButton } from './info-sheet';
 import { whichMoveLog } from './middle-log';
 import { explainPair } from './which-move';
 import { buildRunHeader } from './run-header';
-import { openSpotPeek } from './spot-peek';
+import { openSpotPeek, type SpotPeekOptions } from './spot-peek';
 import { WHICH_MOVE_ACCENT } from './exercise-identity';
 import type { SpotRef } from './mistake-scan';
 import type { OpenGameCtx } from './mistake-run';
@@ -584,7 +584,7 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
       listWrap.className = 'pz-results-list-wrap';
       const list = document.createElement('div');
       list.className = 'pz-results-list';
-      for (const e of entries) list.appendChild(resultRow(e));
+      entries.forEach((e, idx) => list.appendChild(resultRow(e, idx)));
       listWrap.appendChild(list);
       const fade = document.createElement('div');
       fade.className = 'pz-results-fade';
@@ -625,13 +625,13 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
   // One results row — tappable, exactly like the mistake drill's: it pops the
   // question's position up right here, the move you played in red and the
   // engine's in blue, with a jump into the full analyser.
-  function resultRow(e: SessionEntry): HTMLElement {
+  function resultRow(e: SessionEntry, idx: number): HTMLElement {
     const row = document.createElement('div');
     row.className = 'pz-result-row pz-result-row--linked '
       + (e.correct ? 'pz-result-row--solved' : 'pz-result-row--missed');
     row.setAttribute('role', 'button');
     row.tabIndex = 0;
-    const open = (): void => openQuestionPeek(e.ref);
+    const open = (): void => openQuestionPeek(idx);
     row.addEventListener('click', open);
     row.addEventListener('keydown', (ev) => {
       if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(); }
@@ -656,9 +656,12 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
     return row;
   }
 
-  function openQuestionPeek(ref: SpotRef): void {
+  function peekOptionsFor(idx: number): SpotPeekOptions | null {
+    const e = entries[idx];
+    if (!e) return null;
+    const ref = e.ref;
     const best = ref.spot.best[0];
-    openSpotPeek({
+    return {
       fen: ref.spot.preFen,
       orientation: ref.game.colour,
       arrows: [
@@ -670,7 +673,12 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
       onAnalyse: opts.onOpenGame
         ? () => suspendForAnalysis(ref.game, ref.spot.preFen)
         : undefined,
-    });
+      onNav: (dir) => peekOptionsFor(idx + dir),
+    };
+  }
+  function openQuestionPeek(idx: number): void {
+    const o = peekOptionsFor(idx);
+    if (o) openSpotPeek(o);
   }
 
   function doExit(): void {

@@ -38,13 +38,20 @@ export interface SpotPeekOptions {
    * The popup closes itself before calling it.
    */
   onAnalyse?: () => void;
+  /**
+   * Enables the left/right nav arrows for browsing between results-row
+   * positions without closing the popup. `dir` is -1 for "previous", +1 for
+   * "next"; return the options for that neighbour, or null at the end of the
+   * list (the arrow renders disabled).
+   */
+  onNav?: (dir: -1 | 1) => SpotPeekOptions | null;
 }
 
 function uciParts(uci: string): { from: Key; to: Key } {
   return { from: uci.slice(0, 2) as Key, to: uci.slice(2, 4) as Key };
 }
 
-export function openSpotPeek(o: SpotPeekOptions): void {
+export function openSpotPeek(initial: SpotPeekOptions): void {
   const ov = document.createElement('div');
   ov.className = 'edit-overlay';
   const sheet = document.createElement('div');
@@ -58,13 +65,16 @@ export function openSpotPeek(o: SpotPeekOptions): void {
     removePeekBack();
   };
 
+  const boardWrap = document.createElement('div');
+  boardWrap.className = 'peek-board-wrap';
   const board = document.createElement('div');
   board.className = 'peek-board cg-wrap';
-  sheet.appendChild(board);
+  boardWrap.appendChild(board);
+  sheet.appendChild(boardWrap);
 
   const pcg = Chessground(board, {
-    fen: o.fen,
-    orientation: o.orientation,
+    fen: initial.fen,
+    orientation: initial.orientation,
     viewOnly: true,
     coordinates: false,
     animation: { enabled: false },
@@ -74,34 +84,28 @@ export function openSpotPeek(o: SpotPeekOptions): void {
     accent: { color: HINT_COLOR, opacity: 0.9, lineWidth: 10 },
     danger: { color: '#c93636', opacity: 0.8, lineWidth: 10 },
   });
-  const shapes: DrawShape[] = (o.arrows ?? []).map((a) => {
-    const { from, to } = uciParts(a.uci);
-    return { orig: from, dest: to, brush: a.kind };
-  });
-  pcg.setAutoShapes(shapes);
-  requestAnimationFrame(() => pcg.redrawAll());
 
-  if (o.meta) {
-    const meta = document.createElement('div');
-    meta.className = 'mr-peek-meta';
-    meta.textContent = o.meta;
-    sheet.appendChild(meta);
-  }
+  let prevBtn: HTMLButtonElement | null = null;
+  let nextBtn: HTMLButtonElement | null = null;
+
+  const meta = document.createElement('div');
+  meta.className = 'mr-peek-meta';
+  meta.hidden = true;
+  sheet.appendChild(meta);
 
   const btnRow = document.createElement('div');
   btnRow.className = 'peek-actions';
-  if (o.onAnalyse) {
-    const onAnalyse = o.onAnalyse;
-    const analyse = document.createElement('button');
-    analyse.type = 'button';
-    analyse.className = 'peek-action';
-    analyse.appendChild(Icons.review(18));
-    const lbl = document.createElement('span');
-    lbl.textContent = 'Analyse game';
-    analyse.appendChild(lbl);
-    analyse.addEventListener('click', () => { close(); onAnalyse(); });
-    btnRow.appendChild(analyse);
-  }
+
+  const analyse = document.createElement('button');
+  analyse.type = 'button';
+  analyse.className = 'peek-action';
+  analyse.hidden = true;
+  analyse.appendChild(Icons.review(18));
+  const analyseLbl = document.createElement('span');
+  analyseLbl.textContent = 'Analyse game';
+  analyse.appendChild(analyseLbl);
+  btnRow.appendChild(analyse);
+
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.className = 'peek-action';
@@ -112,6 +116,55 @@ export function openSpotPeek(o: SpotPeekOptions): void {
   closeBtn.addEventListener('click', close);
   btnRow.appendChild(closeBtn);
   sheet.appendChild(btnRow);
+
+  // Renders one position into the already-mounted board/meta/analyse button,
+  // so browsing between results-row positions doesn't flash the whole popup
+  // closed and reopened.
+  const render = (o: SpotPeekOptions): void => {
+    pcg.set({ fen: o.fen, orientation: o.orientation });
+    const shapes: DrawShape[] = (o.arrows ?? []).map((a) => {
+      const { from, to } = uciParts(a.uci);
+      return { orig: from, dest: to, brush: a.kind };
+    });
+    pcg.setAutoShapes(shapes);
+    requestAnimationFrame(() => pcg.redrawAll());
+
+    meta.textContent = o.meta ?? '';
+    meta.hidden = !o.meta;
+
+    analyse.hidden = !o.onAnalyse;
+    const onAnalyse = o.onAnalyse;
+    analyse.onclick = onAnalyse ? () => { close(); onAnalyse(); } : null;
+
+    if (o.onNav) {
+      if (!prevBtn || !nextBtn) {
+        prevBtn = document.createElement('button');
+        prevBtn.type = 'button';
+        prevBtn.className = 'peek-nav peek-nav--prev';
+        prevBtn.setAttribute('aria-label', 'Previous position');
+        prevBtn.appendChild(Icons.back(20));
+        nextBtn = document.createElement('button');
+        nextBtn.type = 'button';
+        nextBtn.className = 'peek-nav peek-nav--next';
+        nextBtn.setAttribute('aria-label', 'Next position');
+        nextBtn.appendChild(Icons.chevronRight(20));
+        boardWrap.appendChild(prevBtn);
+        boardWrap.appendChild(nextBtn);
+      }
+      const prevO = o.onNav(-1);
+      const nextO = o.onNav(1);
+      prevBtn.disabled = !prevO;
+      prevBtn.onclick = prevO ? () => render(prevO) : null;
+      nextBtn.disabled = !nextO;
+      nextBtn.onclick = nextO ? () => render(nextO) : null;
+    } else if (prevBtn && nextBtn) {
+      prevBtn.remove();
+      nextBtn.remove();
+      prevBtn = null;
+      nextBtn = null;
+    }
+  };
+  render(initial);
 
   const removePeekBack = pushBack(close);
   ov.addEventListener('click', (e) => { if (e.target === ov) close(); });

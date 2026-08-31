@@ -35,7 +35,7 @@ import { recordSpotResult } from './mistake-scan';
 import type { SpotRef, MistakeCategory } from './mistake-scan';
 import type { ImportedGame } from './import-core';
 import { buildRunHeader } from './run-header';
-import { openSpotPeek } from './spot-peek';
+import { openSpotPeek, type SpotPeekOptions } from './spot-peek';
 
 // Presentation names for the four categories — shared with the pane's cards.
 export const CATEGORY_LABEL: Record<MistakeCategory, string> = {
@@ -583,7 +583,7 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
       listWrap.className = 'pz-results-list-wrap';
       const list = document.createElement('div');
       list.className = 'pz-results-list';
-      for (const e of entries) list.appendChild(resultRow(e));
+      entries.forEach((e, idx) => list.appendChild(resultRow(e, idx)));
       listWrap.appendChild(list);
       const fade = document.createElement('div');
       fade.className = 'pz-results-fade';
@@ -627,13 +627,13 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
 
   // One results row — tappable: pops the position up right here, with a jump
   // into the full analyser for that game.
-  function resultRow(e: SessionEntry): HTMLElement {
+  function resultRow(e: SessionEntry, idx: number): HTMLElement {
     const row = document.createElement('div');
     row.className = 'pz-result-row pz-result-row--linked '
       + (e.clean ? 'pz-result-row--solved' : 'pz-result-row--missed');
     row.setAttribute('role', 'button');
     row.tabIndex = 0;
-    const open = (): void => openSpotPeekFor(e.ref);
+    const open = (): void => openSpotPeekFor(idx);
     row.addEventListener('click', open);
     row.addEventListener('keydown', (ev) => {
       if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(); }
@@ -660,10 +660,14 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
   }
 
   // The results-row popup — the shared one (spot-peek.ts), which the detective
-  // and which-move runs use too.
-  function openSpotPeekFor(ref: SpotRef): void {
+  // and which-move runs use too. `idx` into `entries` so the popup's arrows
+  // can browse to the neighbouring positions.
+  function peekOptionsFor(idx: number): SpotPeekOptions | null {
+    const e = entries[idx];
+    if (!e) return null;
+    const ref = e.ref;
     const best = ref.spot.best[0];
-    openSpotPeek({
+    return {
       fen: ref.spot.preFen,
       orientation: ref.game.colour,
       arrows: [
@@ -674,7 +678,12 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
       onAnalyse: opts.onOpenGame
         ? () => suspendForAnalysis(ref.game, ref.spot.preFen)
         : undefined,
-    });
+      onNav: (dir) => peekOptionsFor(idx + dir),
+    };
+  }
+  function openSpotPeekFor(idx: number): void {
+    const o = peekOptionsFor(idx);
+    if (o) openSpotPeek(o);
   }
 
   function doExit(): void {

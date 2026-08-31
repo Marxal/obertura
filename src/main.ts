@@ -2476,9 +2476,16 @@ async function settleNewBookLines(
  */
 function runConfirmRuns(lines: Line[]): void {
   let i = 0;
+  // The last line reached, so the queue's end can land on My Lines with it
+  // highlighted rather than leaving the builder sitting behind a finished run.
+  let lastLine: Line | null = null;
   const step = (): void => {
     const line = lines[i++];
-    if (!line) { repaintAfterBookWrite(); return; }
+    if (!line) {
+      if (lastLine) goToSavedLine(lastLine.id); else repaintAfterBookWrite();
+      return;
+    }
+    lastLine = line;
     startPretrainingRun(
       line,
       step,
@@ -2489,9 +2496,16 @@ function runConfirmRuns(lines: Line[]): void {
           repaintAfterBookWrite();
         })();
       },
-      lines.length > 1
-        ? { completeMessage: `Line ${i} of ${lines.length} confirmed — added to training` }
-        : {},
+      {
+        // The only way through this run is "Add without playing" — there is
+        // nothing here to abandon that skipping doesn't already cover, so a
+        // louder "End session" beside it would just be a second, competing way
+        // out. The back gesture still works either way.
+        hideExit: true,
+        ...(lines.length > 1
+          ? { completeMessage: `Line ${i} of ${lines.length} confirmed — added to training` }
+          : {}),
+      },
     );
   };
   step();
@@ -3816,6 +3830,7 @@ function addLineToTraining(
     completeMessage?: string;
     beforeWatch?: (start: () => void, skip: () => void) => void;
     firstMoveHint?: string;
+    hideExit?: boolean;
   } = {},
 ): void {
   void requestTrainingSlot().then((allowed) => {
@@ -3825,6 +3840,7 @@ function addLineToTraining(
         completeMessage: opts.completeMessage,
         beforeWatch: opts.beforeWatch,
         firstMoveHint: opts.firstMoveHint,
+        hideExit: opts.hideExit,
       });
     } else {
       void enrolLineDirectly(line).then(onDone);
@@ -5288,7 +5304,7 @@ async function finishSave(): Promise<void> {
     goToSavedLine(line.id);
     return;
   }
-  addLineToTraining(line, () => goToSavedLine(line.id), () => goToSavedLine(line.id));
+  addLineToTraining(line, () => goToSavedLine(line.id), () => goToSavedLine(line.id), { hideExit: true });
 }
 
 // TRANSPOSITIONS.md §6 — the line just saved overlaps one already stored, and
