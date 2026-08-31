@@ -32,7 +32,10 @@ import { resolveUci } from './engine';
 import { formatMove } from './notation';
 import { showDialog } from './dialog';
 import { wasRecentlySeen, recordSeenPuzzle } from './puzzle-log';
-import { getPuzzleRating, nextRating, commitRating, recordCleanResult, type RatingScope } from './puzzle-rating';
+import {
+  getPuzzleRating, rateSolve, commitRating, recordCleanResult,
+  parSolveMs, speedFactor, type RatingScope,
+} from './puzzle-rating';
 import { countUp } from './count-up';
 
 // One puzzle plus the opening it was drawn for (so stats and retry know its
@@ -112,6 +115,7 @@ interface SessionEntry {
   draw: PuzzleDraw;
   clean: boolean;   // solved first try, no hint
   points?: number;  // rated mode: the rating change this puzzle earned (+/-)
+  bonus?: number;   // …of which this much was the speed bonus (absent when none)
   alt?: boolean;    // finished with a verified alternative, not the puzzle's move
 }
 
@@ -157,6 +161,19 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   // The clean-solve best run, if it improved during this rated session (shown once
   // on the results screen).
   let newBestStreak: number | null = null;
+
+  // ── The solve clock (rated count mode only) ─────────────────────────────────
+  //
+  // YOUR THINKING TIME, not wall time: the clock runs only while the board is
+  // actually yours, so the opening animation, the opponent's scripted replies
+  // and the alternative-move check are all free. Anything else would charge you
+  // for the app's own pauses, which is the quickest way to make a speed bonus
+  // feel rigged.
+  const timing = rated;
+  let thinkMs = 0;            // banked thinking time on the current puzzle
+  let thinkFrom = 0;          // epoch ms the board was handed over (0 = not yours)
+  let parMs = 0;              // what this puzzle is "supposed" to take
+  let speedTick: ReturnType<typeof setInterval> | undefined;
 
   // ── Overlay scaffold (mirrors drill.ts) ──────────────────────────────────────
   const overlay = document.createElement('div');
@@ -229,6 +246,29 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   // No mode title here: the run header says which exercise this is (see
   // run-header.ts), and saying it twice cost the block a line it needs for the
   // rating and the themes.
+  // The solve clock and the bonus still on the table. It sits ABOVE the rating
+  // line, which is empty until the puzzle is over — so while you are solving,
+  // this is the only thing in the block, and when you finish it hands its space
+  // straight to the result.
+  const speedEl = document.createElement('div');
+  const speedClockEl = document.createElement('span');
+  const speedFillEl = document.createElement('span');
+  const speedLabelEl = document.createElement('span');
+  if (timing) {
+    speedEl.className = 'pz-speed';
+    speedEl.hidden = true;
+    speedClockEl.className = 'pz-speed-clock';
+    speedEl.appendChild(speedClockEl);
+    const track = document.createElement('span');
+    track.className = 'pz-speed-track';
+    speedFillEl.className = 'pz-speed-fill';
+    track.appendChild(speedFillEl);
+    speedEl.appendChild(track);
+    speedLabelEl.className = 'pz-speed-label';
+    speedEl.appendChild(speedLabelEl);
+    topEl.appendChild(speedEl);
+  }
+
   const ratingEl = document.createElement('div');
   ratingEl.className = 'pt-line-name';
   topEl.appendChild(ratingEl);
@@ -361,12 +401,61 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   function lockBoard(): void {
     inputLocked = true;
     hintBtn.hidden = true;
+    pauseSolveClock();
     cg.set({ movable: { color: undefined, dests: new Map() } });
   }
   function handToSolver(): void {
     inputLocked = false;
     if (!timed) hintBtn.hidden = false;
+    startSolveClock();
     cg.set({ turnColor: cgTurn(), movable: { color: solverColour, dests: legalDests() } });
+  }
+
+  // ── The solve clock ────────────────────────────────────────────────────────
+  function elapsedMs(): number {
+    return thinkMs + (thinkFrom ? Date.now() - thinkFrom : 0);
+  }
+  function startSolveClock(): void {
+    if (!timing || thinkFrom) return;
+    thinkFrom = Date.now();
+    renderSpeed();
+    // No ticker behind a hidden bar — a repeat from the review queue never
+    // scores, so it never shows one.
+    if (speedEl.hidden) return;
+    speedTick = setInterval(() => { if (!isCleaned) renderSpeed(); }, 200);
+  }
+  function pauseSolveClock(): void {
+    if (speedTick) { clearInterval(speedTick); speedTick = undefined; }
+    if (!thinkFrom) return;
+    thinkMs += Date.now() - thinkFrom;
+    thinkFrom = 0;
+    renderSpeed();
+  }
+
+  // The bar drains as the bonus does, so "how much is still on the table" is one
+  // glance rather than a number to interpret. Once it is empty it says so and
+  // stops being a countdown — nobody needs a clock telling them they are late.
+  /**
+   * The bonus is gone — a wrong move or a hint means this puzzle scores as a
+   * loss, and the clock stops mattering. The row goes rather than freezing:
+   * a bar that has stopped moving reads as a bug, and one that keeps draining
+   * would be counting down to a bonus that is already spent.
+   */
+  function dropSpeedBonus(): void {
+    if (!timing) return;
+    pauseSolveClock();
+    speedEl.hidden = true;
+  }
+
+  function renderSpeed(): void {
+    if (!timing || speedEl.hidden) return;
+    const ms = elapsedMs();
+    const secs = Math.floor(ms / 1000);
+    speedClockEl.textContent = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+    const speed = speedFactor(ms, parMs);
+    speedFillEl.style.width = `${Math.round(speed * 100)}%`;
+    speedEl.classList.toggle('pz-speed--spent', speed <= 0);
+    speedLabelEl.textContent = speed > 0 ? 'Speed bonus' : 'No speed bonus';
   }
   // Apply a UCI move to both chess.js and the board, animated.
   function playMove(uci: string): void {
@@ -443,6 +532,16 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
 
     recordSeenPuzzle(draw.puzzle.id);
     solution = setup.solution;
+    // Par is per-puzzle: how many moves you have to find, and how hard it is.
+    // A repeat from the review queue never scores, so it never shows a clock —
+    // a bonus bar over a puzzle that cannot pay is a lie with a progress bar on it.
+    thinkMs = 0;
+    thinkFrom = 0;
+    parMs = parSolveMs(draw.puzzle.rating, Math.ceil(setup.solution.length / 2));
+    if (timing) {
+      speedEl.hidden = !!draw.repeat;
+      renderSpeed();
+    }
     solverColour = setup.solverColour;
     solIndex = 0;            // the solver plays solution[0] first
     failedThisPuzzle = false;
@@ -510,6 +609,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   function useHint(): void {
     if (inputLocked) return;
     failedThisPuzzle = true; // a hinted solve earns no points
+    dropSpeedBonus();
     if (hintStage === 0) {
       hintStage = 1;
       showPieceHighlight();
@@ -556,6 +656,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   // verify a move, so an unverifiable move behaves exactly as it always did.
   function registerWrong(): void {
     failedThisPuzzle = true;
+    dropSpeedBonus();
     flashError();
     if (timed) {
       // No reveal — count it missed and jump straight to the next puzzle.
@@ -674,17 +775,24 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     // Rating moves only in rated mode, and only a clean solve scores. A queued
     // repeat never scores (already seen). Record the per-puzzle change and bank it
     // immediately so an early exit keeps it.
+    // The clock stopped when finish() locked the board, so this is the thinking
+    // time and nothing else. A miss ignores it entirely (see puzzle-rating.ts).
+    const speed = clean ? speedFactor(thinkMs, parMs) : 0;
     let points: number | undefined;
+    let speedBonus = 0;
     if (rated && !cur.repeat) {
-      const updated = nextRating(liveRating, cur.puzzle.rating, clean);
-      points = updated - liveRating;
-      liveRating = updated;
+      const change = rateSolve(liveRating, cur.puzzle.rating, clean, speed);
+      points = change.points;
+      speedBonus = change.bonus;
+      liveRating = change.next;
       commitRating(liveRating, ratingScope);
       // Track the clean-solve best run; remember it if it just improved.
       const streak = recordCleanResult(clean, ratingScope);
       if (streak.improved) newBestStreak = streak.best;
     }
-    entries.push({ draw: cur, clean, points, alt: altSolve });
+    entries.push({ draw: cur, clean, points, bonus: speedBonus || undefined, alt: altSolve });
+    // The bar has done its job — the result below says what it earned.
+    if (timing) speedEl.hidden = true;
 
     if (timed) {
       if (!clean) { mistakes++; renderMistakes(); }
@@ -718,6 +826,16 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
         pts.className = 'pt-rating-delta ' + (points >= 0 ? 'pt-rating-delta--up' : 'pt-rating-delta--down');
         pts.textContent = ` ${sign}${Math.abs(points)} points`;
         ratingEl.appendChild(pts);
+      }
+      // Where the points came from, when part of them came from the clock. On an
+      // easy puzzle this is the WHOLE gain, and saying so is the point of the
+      // feature: solving it was never in doubt, solving it fast is what counted.
+      if (speedBonus > 0) {
+        const chip = document.createElement('span');
+        chip.className = 'pz-speed-earned';
+        chip.appendChild(Icons.zap(12));
+        chip.appendChild(document.createTextNode(`+${speedBonus} fast`));
+        ratingEl.appendChild(chip);
       }
     } else {
       ratingEl.className = 'pt-line-name pt-rating--solved';
@@ -913,11 +1031,18 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     dot.textContent = e.clean ? '✓' : '✕';
     row.appendChild(dot);
 
-    // Rated runs: the points this puzzle won or lost, right next to the outcome.
+    // Rated runs: the points this puzzle won or lost, right next to the outcome —
+    // with a bolt on the ones where the clock is what paid.
     if (e.points !== undefined) {
       const pts = document.createElement('span');
       pts.className = 'pz-result-points ' + (e.points >= 0 ? 'pz-result-points--up' : 'pz-result-points--down');
       pts.textContent = `${e.points >= 0 ? '+' : '−'}${Math.abs(e.points)}`;
+      if (e.bonus) {
+        const bolt = Icons.zap(10);
+        bolt.classList.add('pz-result-bolt');
+        pts.appendChild(bolt);
+        pts.title = `${e.points - e.bonus} for the solve, +${e.bonus} for the speed`;
+      }
       row.appendChild(pts);
     }
 
@@ -965,6 +1090,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   function cleanup(): void {
     isCleaned = true;
     if (autoTimer) clearTimeout(autoTimer);
+    if (speedTick) { clearInterval(speedTick); speedTick = undefined; }
     stopTimer();
     ro.disconnect();
     overlay.remove();

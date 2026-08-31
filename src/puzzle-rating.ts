@@ -5,8 +5,10 @@
 // The maths is plain Elo against the puzzle's own Lichess rating: you "win" a
 // puzzle by solving it on the first try (no wrong move, no hint), and "lose" it
 // otherwise. Beating a harder puzzle is worth more; missing an easy one costs
-// more. The pure helpers (expectedScore / nextRating / difficulty*) carry no DOM
-// or storage so they can be self-tested.
+// more. On top of that sits a SPEED BONUS — see the long note further down, which
+// is where the interesting decisions are. The pure helpers (expectedScore /
+// rateSolve / parSolveMs / speedFactor / difficulty*) carry no DOM or storage so
+// they can be self-tested.
 
 import type { Difficulty } from './puzzles';
 
@@ -40,11 +42,122 @@ export function expectedScore(user: number, puzzle: number): number {
   return 1 / (1 + Math.pow(10, (puzzle - user) / 400));
 }
 
-// The new rating after one puzzle. `solvedFirstTry` is the only thing that scores
-// — a hinted or second-try solve counts as a loss (score 0).
+// ── The speed bonus ─────────────────────────────────────────────────────────
+//
+// THE PROBLEM IT FIXES. Plain Elo pays you for the UNEXPECTED. Beat a puzzle
+// rated 700 points below you and the maths says "of course you did": the gain
+// rounds to zero, while missing it costs a full step. So an easy puzzle is all
+// downside, and a run of them feels like work you were not paid for — which is
+// exactly what happens at the bottom of the ladder, where Lichess's difficulty
+// bands are coarse and a 1000-rated solver keeps drawing 600-rated puzzles.
+//
+// THE FIX, IN ONE SENTENCE: you are paid for HOW FAST, in exactly the
+// proportion that you were not paid for WHETHER.
+//
+//     bonus = MAX_SPEED_BONUS × speed × expectedScore(you, puzzle)
+//
+// `expectedScore` is the share of the puzzle plain Elo already treated as a
+// foregone conclusion, so the bonus is largest precisely where the base gain is
+// smallest, and fades to nothing on a puzzle harder than you — where the base
+// gain is already a full step and needs no help. Two consequences, both wanted:
+//
+//   • Solve a puzzle rated above you and the rating moves as it always did,
+//     fast or slow. Being quick against something genuinely hard is worth a
+//     point or two, not a windfall.
+//   • Solve one far below you and speed is the ONLY thing worth measuring,
+//     because whether you'd solve it was never in doubt.
+//
+// A MISS IGNORES THE CLOCK ENTIRELY. Losing rating for being slow would turn
+// every puzzle into a test of nerve, and "I saw it, I just checked it twice"
+// is not a mistake. Wrong is wrong, at the same price as before.
+//
+// AND IT ONLY EVER ADDS. That does mean the ladder settles a little higher than
+// one that only measured whether you solved things — it is now measuring how
+// hard a puzzle you can solve QUICKLY, which is a different (and, for practical
+// strength, a better) question. It is self-limiting: the harder the puzzles get,
+// the smaller `expectedScore` gets, and the bonus goes with it.
+
+/**
+ * The most a fast solve can add. A quarter of K: enough that clearing an easy
+ * puzzle quickly is visibly worth something, never enough to out-earn actually
+ * beating a hard one.
+ */
+export const MAX_SPEED_BONUS = 6;
+
+/** Par time: the base every puzzle gets, just to read the position. */
+const PAR_BASE_MS = 5_000;
+/** …plus this much per move you have to find. */
+const PAR_PER_MOVE_MS = 5_000;
+/** …plus up to this much for the puzzle's own difficulty. */
+const PAR_RATING_MS = 30_000;
+/** The rating span that difficulty allowance is spread over. */
+const PAR_RATING_FLOOR = 600;
+const PAR_RATING_CEIL = 2400;
+
+/**
+ * How long this puzzle is "supposed" to take — the point at which the bonus has
+ * run out. It scales with both things that actually make a puzzle slow: how many
+ * moves you have to find, and how hard it is.
+ *
+ * A one-move 800 is 13 seconds; a three-move 2000 is 43. Deliberately generous:
+ * par is not a target, it is the line past which speed stops being evidence.
+ */
+export function parSolveMs(puzzleRating: number, solverMoves: number): number {
+  const span = PAR_RATING_CEIL - PAR_RATING_FLOOR;
+  const hardness = Math.max(0, Math.min(1, (puzzleRating - PAR_RATING_FLOOR) / span));
+  return PAR_BASE_MS
+    + PAR_PER_MOVE_MS * Math.max(1, solverMoves)
+    + PAR_RATING_MS * hardness;
+}
+
+/**
+ * The share of par under which a solve counts as instant — full bonus, no
+ * stopwatch anxiety. Above it the bonus tapers to nothing at par.
+ */
+export const FAST_FRACTION = 0.35;
+
+/** 1 = as fast as it gets, 0 = at or past par. */
+export function speedFactor(elapsedMs: number, parMs: number): number {
+  if (!(parMs > 0)) return 0;
+  const fast = parMs * FAST_FRACTION;
+  if (elapsedMs <= fast) return 1;
+  if (elapsedMs >= parMs) return 0;
+  return (parMs - elapsedMs) / (parMs - fast);
+}
+
+/** What one puzzle did to the rating, split so the screen can show the why. */
+export interface RatingChange {
+  /** The rating afterwards. */
+  next: number;
+  /** The whole change — `base + bonus`. */
+  points: number;
+  /** What the solve itself was worth, exactly as it always has been. */
+  base: number;
+  /** …and what speed added. Zero on anything but a fast, clean, first-try solve. */
+  bonus: number;
+}
+
+/**
+ * Score one puzzle. `solvedFirstTry` is the only thing that scores — a hinted or
+ * second-try solve counts as a loss (score 0) — and `speed` (0…1, from
+ * speedFactor above) can only ever ADD to a solve.
+ */
+export function rateSolve(
+  user: number, puzzle: number, solvedFirstTry: boolean, speed = 0,
+): RatingChange {
+  const expected = expectedScore(user, puzzle);
+  const base = Math.round(K * ((solvedFirstTry ? 1 : 0) - expected));
+  const bonus = solvedFirstTry
+    ? Math.round(MAX_SPEED_BONUS * Math.max(0, Math.min(1, speed)) * expected)
+    : 0;
+  const points = base + bonus;
+  return { next: user + points, points, base, bonus };
+}
+
+// The new rating after one puzzle, with no clock involved — the plain Elo step,
+// kept for every caller that has no time to report.
 export function nextRating(user: number, puzzle: number, solvedFirstTry: boolean): number {
-  const score = solvedFirstTry ? 1 : 0;
-  return Math.round(user + K * (score - expectedScore(user, puzzle)));
+  return rateSolve(user, puzzle, solvedFirstTry).next;
 }
 
 // Adaptive difficulty for the Daily Rated Mix: harder puzzles as your rating

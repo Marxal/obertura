@@ -3429,6 +3429,51 @@ end of it, and names three moves you'd meet next that you have no answer to.
 
 ---
 
+## The speed-bonus round — paying for how fast, where Elo pays nothing for whether ✅
+
+Testing on the phone: at the bottom of the ladder every puzzle is a low-rated
+one, and plain Elo pays nothing for solving those. Beat a puzzle 700 points
+below you and the gain rounds to zero; miss it and it costs a full step. An easy
+puzzle was all downside.
+
+- ✅ **The bonus fills exactly the gap the base leaves.**
+  `bonus = 6 × speed × expectedScore(you, puzzle)` — `expectedScore` being the
+  share of the result plain Elo already treated as a foregone conclusion. So the
+  clock pays most precisely where the solve paid least, and fades to nothing on a
+  puzzle harder than you, where a full step is already on the table. A 900 puzzle
+  at 1600 went from **+0 to +6**; a 1400 puzzle at 1000 stays at +21 whether you
+  were quick or not.
+- ✅ **It only ever adds, and a miss ignores the clock entirely.** Losing rating
+  for being slow would turn every puzzle into a test of nerve, and "I saw it, I
+  just checked it twice" is not a mistake. Wrong is wrong, at the same price as
+  before. A wrong move or a hint takes the bar away then and there — a bar
+  counting down to a bonus that is already spent is worse than no bar.
+- ✅ **Par is per-puzzle, and generous.** Five seconds to read the position, five
+  per move you have to find, and up to thirty more for the puzzle's own
+  difficulty: a one-move 800 is 13 seconds, a three-move 2000 is 43. Anything
+  under a third of par is the full bonus — par is not a target, it is the line
+  past which speed stops being evidence.
+- ✅ **It is YOUR thinking time, not wall time.** The clock runs only while the
+  board is actually yours, so the opening animation, the opponent's scripted
+  replies and the alternative-move engine check are all free. Charging someone
+  for the app's own pauses is the quickest way to make a bonus feel rigged.
+- ✅ **One thin row above the board**: the clock, a bar that drains as the bonus
+  does, and the words "Speed bonus" — until it is spent, when it says so quietly
+  and stops drawing attention. The reveal then says where the points came from
+  (`+6 points ⚡+6 fast`), and the results list puts a bolt on every row the clock
+  paid for.
+- ✅ **Both ladders, one change.** The Puzzles tab and the End game trainer both
+  run through `startPuzzleSession` in rated count mode, so tactics and endgames
+  got this together. Time Attack is untouched — it is casual, it never moved the
+  rating, and it already has a clock of its own.
+- ⚠️ **The ladder will settle a little higher.** A bonus that only ever adds has
+  to. It is now measuring how hard a puzzle you can solve QUICKLY rather than
+  whether you can solve it at all — a different, and for practical strength a
+  better, question. It is self-limiting: the harder the puzzles get, the smaller
+  `expectedScore` gets, and the bonus goes with it.
+
+---
+
 ---
 
 ## v1.4 — seeds (parked) 💤

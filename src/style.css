@@ -7701,6 +7701,67 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .pt-rating-delta--up { color: var(--success); }
 .pt-rating-delta--down { color: var(--danger); }
 
+/* ── The solve clock (rated puzzle runs) ─────────────────────────────────────
+   One thin row above the rating line: how long you have been on this puzzle,
+   and how much of the speed bonus is still on the table. The BAR is the point
+   — "how much is left" is one glance, where a number would be arithmetic — and
+   the clock beside it is there because a draining bar with no units is a threat
+   rather than information. */
+.pz-speed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 1.1rem;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  transition: opacity 0.3s;
+}
+.pz-speed-clock {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+.pz-speed-track {
+  position: relative;
+  width: 4.5rem;
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 18%, transparent);
+  overflow: hidden;
+}
+.pz-speed-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--success);
+  /* Matches the 200 ms tick, so the bar slides rather than stepping. */
+  transition: width 0.2s linear;
+}
+.pz-speed-label {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+/* Spent: it stops drawing attention rather than turning red. Running out of
+   bonus is not a mistake — the puzzle is still worth solving. */
+.pz-speed--spent { opacity: 0.5; }
+.pz-speed--spent .pz-speed-fill { background: var(--text-muted); }
+
+/* What the clock earned, beside the points on the reveal. On an easy puzzle
+   this IS the gain, which is the whole point of the feature. */
+.pz-speed-earned {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 0.35rem;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--success) 16%, transparent);
+  color: var(--success);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+.pz-speed-earned svg { flex-shrink: 0; }
+
 .pt-board-wrap {
   /* Square: cap at ~58 vh so status + note/alt card are always visible without
      scrolling, and mirror that cap on the width so a wide viewport gets a centred
@@ -16226,6 +16287,8 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 .pz-result-points--up { color: var(--success); }
 .pz-result-points--down { color: var(--danger); }
+/* A bolt on the rows where part of the points came from the clock. */
+.pz-result-bolt { margin-left: 1px; vertical-align: -1px; }
 .pz-result-main { flex: 1; min-width: 0; }
 .pz-result-name {
   font-size: 0.86rem;
