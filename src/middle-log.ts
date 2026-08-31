@@ -19,8 +19,18 @@
 // enough to get out of today's way, short enough that it is back tomorrow while
 // a cracked one is still four days out.
 //
+// AND THE REST IS SHARED. Whatever either log decides, it also files against
+// the blunder itself (spot-rest.ts) — the same move can be dealt by the mistake
+// drill and by the other one of these two, and a memory each mode keeps to
+// itself is a memory that lets the same blunder come round three times in one
+// sitting. Each mode still keeps its OWN ladder here (a detective case is worth
+// a longer rest than a two-move question); the shared store is what stops the
+// other doors offering the same thing.
+//
 // Both stores are throwaway by design: clearing them (the pane's Reset) puts
 // every exercise back on the table and loses nothing but the rotation.
+
+import { restSpot, clearSpotRest } from './spot-rest';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_ITEMS = 300;
@@ -97,8 +107,11 @@ function makeRestLog(key: string, ladder: readonly number[]): RestLog {
       if (!id) return;
       const map = load();
       const step = Math.min((map[id]?.step ?? -1) + 1, ladder.length - 1);
-      map[id] = { step, due: now + ladder[step] * DAY_MS };
+      const due = now + ladder[step] * DAY_MS;
+      map[id] = { step, due };
       save(map);
+      // …and every other door onto the same blunder rests just as long.
+      restSpot(id, due, now);
     },
     seen(id: string, now: number = Date.now()): void {
       if (!id) return;
@@ -107,9 +120,10 @@ function makeRestLog(key: string, ladder: readonly number[]): RestLog {
       const due = now + SEEN_REST_DAYS * DAY_MS;
       // A miss must never pull a solved item forward — the ladder is the longer
       // memory, and getting one wrong today doesn't undo getting it right.
-      if (prev && prev.due > due) return;
+      if (prev && prev.due > due) { restSpot(id, prev.due, now); return; }
       map[id] = { step: prev?.step ?? 0, due };
       save(map);
+      restSpot(id, due, now);
     },
     clear(): void {
       try {
@@ -129,8 +143,9 @@ export const detectiveLog = makeRestLog('obertura.detectiveLog', [4, 10, 25, 60]
 // there is worth less than a right answer at a blank board.
 export const whichMoveLog = makeRestLog('obertura.whichMoveLog', [2, 6, 15, 40]);
 
-/** Both, for the Middle-game pane's Reset. */
+/** Both — and the shared rest under them — for the Middle-game pane's Reset. */
 export function clearMiddleLogs(): void {
   detectiveLog.clear();
   whichMoveLog.clear();
+  clearSpotRest();
 }

@@ -316,21 +316,45 @@ export function collectSpots(games: ImportedGame[]): SpotRef[] {
  * carry three spots (MAX_SPOTS_PER_GAME), and three positions from the same
  * game in a row is the other way a session feels like a repeat.
  *
+ * ABOVE ALL THREE TIERS sits `dueAt` (spot-rest.ts): a blunder answered in ANY
+ * exercise — this drill, Blunder detective, Which move — rests for a while, and
+ * a resting one is dealt only once everything else has run out. That is the
+ * fourth way a session felt like a repeat, and the only one the tiers above
+ * couldn't see: they know what THIS drill has shown you, not what you did with
+ * the same move one row up the daily challenge.
+ *
  * `category` null = mixed (the daily task).
  */
-export function pickSpots(refs: SpotRef[], category: MistakeCategory | null, count: number): SpotRef[] {
+export function pickSpots(
+  refs: SpotRef[],
+  category: MistakeCategory | null,
+  count: number,
+  dueAt: (id: string) => number = () => 0,
+  now: number = Date.now(),
+): SpotRef[] {
   const pool = category ? refs.filter(r => r.spot.category === category) : refs.slice();
   const newestGame = (a: SpotRef, b: SpotRef): number => b.game.endTime - a.game.endTime;
   const seenLongestAgo = (a: SpotRef, b: SpotRef): number =>
     (a.spot.lastTrained ?? 0) - (b.spot.lastTrained ?? 0) || newestGame(a, b);
 
-  const unfixed = pool.filter(r => !r.spot.fixed);
-  const unseen = unfixed.filter(r => !r.spot.lastTrained).sort(newestGame);
-  const seen = unfixed.filter(r => r.spot.lastTrained).sort(seenLongestAgo);
-  const fixed = pool.filter(r => r.spot.fixed).sort(seenLongestAgo);
+  // The three tiers, applied to the spots that are available today. Resting
+  // ones queue behind them (below), so a short pool still deals a full session
+  // rather than dealing nothing.
+  const tiers = (group: SpotRef[]): SpotRef[] => {
+    const unfixed = group.filter(r => !r.spot.fixed);
+    const unseen = unfixed.filter(r => !r.spot.lastTrained).sort(newestGame);
+    const seen = unfixed.filter(r => r.spot.lastTrained).sort(seenLongestAgo);
+    const fixed = group.filter(r => r.spot.fixed).sort(seenLongestAgo);
+    return [...spreadByGame(unseen), ...spreadByGame(seen), ...spreadByGame(fixed)];
+  };
 
-  return [...spreadByGame(unseen), ...spreadByGame(seen), ...spreadByGame(fixed)]
-    .slice(0, count);
+  const ready = pool.filter(r => dueAt(r.spot.id) <= now);
+  // The fallback is ordered by how soon each one is back — nearest first, so a
+  // pool too small to fill a session borrows the least-rested spots it has.
+  const resting = pool.filter(r => dueAt(r.spot.id) > now)
+    .sort((a, b) => dueAt(a.spot.id) - dueAt(b.spot.id));
+
+  return [...tiers(ready), ...spreadByGame(resting)].slice(0, count);
 }
 
 /**

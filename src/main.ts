@@ -74,6 +74,7 @@ import { startDetectiveSession } from './detective-run';
 import { fairPairs, pickWhichMove } from './which-move';
 import { startWhichMoveSession } from './which-move-run';
 import { detectiveLog, whichMoveLog } from './middle-log';
+import { combinedDueAt } from './spot-rest';
 import type { AnalyseRequest as PuzzleAnalyseRequest } from './puzzle-run';
 import { renderMyGamesScreen, formatGameDate } from './my-games-screen';
 import { opponentTag } from './scout';
@@ -4159,7 +4160,11 @@ function renderTrainTabbed(host: HTMLElement): void {
         // so no tab switch is needed.
         const done = finish(markMistakesDone);
         startMistakeSession({
-          refs: pickSpots(spotRefs, null, config.tasks.mistakes.count),
+          // Read the shared rest at LAUNCH, not when the card was built: the
+          // row above this one may have just answered some of these blunders
+          // under a different exercise's name.
+          refs: pickSpots(spotRefs, null, config.tasks.mistakes.count,
+            combinedDueAt({})),
           // The header names the EXERCISE; "Daily challenge" is the framing
           // above it (run-header.ts), so a chained run always says what it
           // just handed you.
@@ -4174,9 +4179,9 @@ function renderTrainTabbed(host: HTMLElement): void {
         // "Find the blunder in these six moves" — one case by default, because
         // one case is a whole exercise.
         const done = finish(markDetectiveDone);
-        const dueMap = detectiveLog.dueMap();
+        const dueAt = combinedDueAt(detectiveLog.dueMap());
         startDetectiveSession({
-          refs: pickDetective(detectiveRefs, config.tasks.detective.count, id => dueMap[id] ?? 0),
+          refs: pickDetective(detectiveRefs, config.tasks.detective.count, dueAt),
           contextLabel: 'Daily challenge',
           onComplete: (s) => done({ right: s.solved, wrong: Math.max(0, s.completed - s.solved) }),
           onExit: () => { if (trainTab === 'mistakes') paint(); },
@@ -4187,9 +4192,9 @@ function renderTrainTabbed(host: HTMLElement): void {
       whichMove: () => {
         // The quick one: two moves, pick the good one.
         const done = finish(markWhichMoveDone);
-        const dueMap = whichMoveLog.dueMap();
+        const dueAt = combinedDueAt(whichMoveLog.dueMap());
         startWhichMoveSession({
-          refs: pickWhichMove(pairRefs, config.tasks.whichMove.count, id => dueMap[id] ?? 0),
+          refs: pickWhichMove(pairRefs, config.tasks.whichMove.count, dueAt),
           contextLabel: 'Daily challenge',
           onComplete: (s) => done({ right: s.solved, wrong: Math.max(0, s.completed - s.solved) }),
           onExit: () => { if (trainTab === 'mistakes') paint(); },

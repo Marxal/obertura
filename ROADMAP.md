@@ -3325,6 +3325,39 @@ eleventh in a queue that only ever gets five deep.
 
 ---
 
+## The one-blunder round — three doors onto the same move ✅
+
+Testing on the phone: catch a blunder in Blunder detective, and the same move
+turns up again two rows down the daily challenge as a Which move question. It
+wasn't chance — each exercise kept its own memory and none of them could see
+the others.
+
+- ✅ **A blunder answered anywhere rests everywhere.** The same move from one of
+  your games is dealt by three exercises: Blunder detective shows it inside a
+  run of six, Which move puts it against the engine's pick, and the mistake
+  drill (Opening blunders, Punish, Missed win, Blunder) asks you to play the fix
+  at a blank board. Their ids already name the game and the ply — `g#14`,
+  `g#d14` — so `spot-rest.ts` collapses them onto one key and holds a single
+  shared rest under all three. It rests for however long the mode that dealt it
+  earned (a cracked detective case is four days, so the question is four days
+  away too), with a floor of one day — which is what stops a single day's
+  challenge asking the same thing twice.
+- ✅ **A rest is never a removal.** Every picker still deals resting items once
+  the fresh ones run out, so a small library gets a full session rather than an
+  empty one. The blunder goes to the back of the queue; nothing leaves it.
+- ✅ **The mistake drill learned to rest.** `pickSpots` had three tiers (never
+  met → seen longest ago → already fixed) and no way to know what another
+  exercise had just shown you. It now takes the shared rest above all three.
+- ✅ **The mix deals each blunder once.** "Your games mix" chooses all of its
+  legs before the first one is answered, so no rest log could have covered it —
+  the legs now claim what they deal and the later ones skip it.
+- ✅ **"Play again" plays something else.** The pane read the rest logs once,
+  when it painted, and handed the same stale map to every replay — so playing a
+  detective sitting again dealt the identical cases. Every deal now reads the
+  logs at the moment it deals. Same fix for the brilliancies carousel.
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

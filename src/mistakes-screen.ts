@@ -64,6 +64,7 @@ import { startDetectiveSession, openDetectiveInfo } from './detective-run';
 import { fairPairs, pickWhichMove, readyWhichMoveCount } from './which-move';
 import { startWhichMoveSession, openWhichMoveInfo } from './which-move-run';
 import { detectiveLog, whichMoveLog, clearMiddleLogs } from './middle-log';
+import { combinedDueAt, restKey } from './spot-rest';
 import { openFixedSheet } from './fixed-sheet';
 import {
   DETECTIVE_ACCENT, WHICH_MOVE_ACCENT, CATEGORY_ACCENT,
@@ -261,11 +262,24 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   // runs are stored one per game; the two-move questions are the spots above,
   // filtered down to the ones that make a fair question (which-move.ts).
   const detectiveRefs = collectDetectiveSpots(games);
-  const detectiveDue = detectiveLog.dueMap();
-  const detectiveReady = readyDetectiveCount(detectiveRefs, id => detectiveDue[id] ?? 0);
   const pairRefs = fairPairs(refs);
-  const whichMoveDue = whichMoveLog.dueMap();
-  const whichMoveReady = readyWhichMoveCount(refs, id => whichMoveDue[id] ?? 0);
+  // What each exercise may deal, and when. Two things are folded into every
+  // one of these: the exercise's OWN rest log, and the shared one under all
+  // three (spot-rest.ts) — the same blunder is a detective case, a two-move
+  // question and a mistake to fix, and answering it once should quiet all
+  // three doors.
+  //
+  // They are functions, not maps, because they must be read at the moment a
+  // session is dealt rather than when the pane was painted: a run started from
+  // here files rests as it goes, and "Play again" has to see them or it deals
+  // the identical sitting straight back.
+  const detectiveDueAt = (): ((id: string) => number) => combinedDueAt(detectiveLog.dueMap());
+  const whichMoveDueAt = (): ((id: string) => number) => combinedDueAt(whichMoveLog.dueMap());
+  // The mistake drill has no rest log of its own (it orders by the spot's
+  // fixed/lastTrained marks); the shared rest is all it consults.
+  const spotDueAt = (): ((id: string) => number) => combinedDueAt({});
+  const detectiveReady = readyDetectiveCount(detectiveRefs, detectiveDueAt());
+  const whichMoveReady = readyWhichMoveCount(refs, whichMoveDueAt());
   // Order the brilliant finds so the carousel + session loop through them:
   // freshly-solved gems rest a while, then resurface (brilliant-log.ts).
   //
@@ -539,9 +553,15 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   // category's own order is pickSpots's — unfixed and newest first, solved ones
   // behind them — so a spot you have already fixed only turns up once the
   // unfixed ones in its category have run out.
-  function mixSpots(): SpotRef[] {
+  //
+  // `skip` holds the blunders an earlier leg of this same mix has already
+  // dealt. The rest logs can't cover that on their own: every leg of a mix is
+  // dealt before the first one is answered, so nothing has been filed yet.
+  function mixSpots(skip: Set<string>): SpotRef[] {
+    const dueAt = spotDueAt();
+    const free = refs.filter(r => !skip.has(restKey(r.spot.id)));
     const queues = CATEGORIES.map(cat =>
-      pickSpots(refs.filter(r => r.spot.category === cat), cat, MIX_MISTAKES));
+      pickSpots(free.filter(r => r.spot.category === cat), cat, MIX_MISTAKES, dueAt));
     const out: SpotRef[] = [];
     for (let round = 0; out.length < MIX_MISTAKES; round++) {
       let dealt = false;
@@ -573,9 +593,19 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     const legs: MixLeg[] = [];
     const ctx = 'Your games mix';
 
+    // One blunder, one appearance. A mix deals all of its legs up front, so the
+    // rest logs are still describing yesterday when the last leg is chosen —
+    // this set is the within-the-sitting half of the same rule, and every leg
+    // below both reads it and adds to it.
+    const claimed = new Set<string>();
+    const claim = <T extends { spot: { id: string } }>(dealt: T[]): T[] => {
+      for (const r of dealt) claimed.add(restKey(r.spot.id));
+      return dealt;
+    };
+
     // Quickest first: ten seconds a question, and it warms up the eye for the
     // blank-board work that follows.
-    const pairs = pickWhichMove(pairRefs, MIX_WHICH_MOVE, id => whichMoveDue[id] ?? 0);
+    const pairs = claim(pickWhichMove(pairRefs, MIX_WHICH_MOVE, whichMoveDueAt()));
     if (pairs.length) {
       legs.push({
         label: 'Two moves, one choice',
@@ -590,7 +620,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       });
     }
 
-    const spots = mixSpots();
+    const spots = claim(mixSpots(claimed));
     if (spots.length) {
       legs.push({
         label: 'Now your mistakes',
@@ -605,7 +635,9 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       });
     }
 
-    const cases = pickDetective(detectiveRefs, MIX_DETECTIVE, id => detectiveDue[id] ?? 0);
+    const cases = claim(pickDetective(
+      detectiveRefs.filter(r => !claimed.has(restKey(r.spot.id))),
+      MIX_DETECTIVE, detectiveDueAt()));
     if (cases.length) {
       legs.push({
         label: 'Now find the blunder',
@@ -803,7 +835,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   }
 
   function startDetective(count = DETECTIVE_SESSION): void {
-    const refsForRun = pickDetective(detectiveRefs, count, id => detectiveDue[id] ?? 0);
+    const refsForRun = pickDetective(detectiveRefs, count, detectiveDueAt());
     if (refsForRun.length === 0) return;
     startDetectiveSession({
       refs: refsForRun,
@@ -814,7 +846,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   }
 
   function startWhichMove(count = WHICH_MOVE_SESSION): void {
-    const refsForRun = pickWhichMove(pairRefs, count, id => whichMoveDue[id] ?? 0);
+    const refsForRun = pickWhichMove(pairRefs, count, whichMoveDueAt());
     if (refsForRun.length === 0) return;
     startWhichMoveSession({
       refs: refsForRun,
@@ -825,9 +857,14 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   }
 
   function startBrilliant(pool: BrilliantRef[], count = SESSION_SIZE): void {
-    // pool is already ordered (available gems first); take a session's worth.
+    // Re-order against the rest log as it stands NOW rather than reusing the
+    // ordering the pane was painted with: the gems this sitting just re-found
+    // have gone to rest since, and "Play again" that deals the same five gems
+    // back is the same complaint as a repeated blunder.
+    const due = brilliantDueMap();
+    const ordered = orderBrilliant(pool, id => due[id] ?? 0);
     startBrilliantSession({
-      refs: pool.slice(0, count),
+      refs: ordered.slice(0, count),
       onExit: rerender,
       onPlayAgain: () => startBrilliant(pool, count),
       onOpenGame: deps.onOpenGame,
@@ -836,7 +873,9 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
 
   function startSession(pool: SpotRef[], cat: MistakeCategory): void {
     startMistakeSession({
-      refs: pickSpots(pool, cat, SESSION_SIZE),
+      // Fresh each time, so "Play again" deals what you haven't just done —
+      // including what another exercise dealt you a minute ago.
+      refs: pickSpots(pool, cat, SESSION_SIZE, spotDueAt()),
       modeLabel: CATEGORY_LABEL[cat],
       modeIcon: () => CATEGORY_ICON[cat](18),
       modeAccent: CATEGORY_ACCENT[cat],

@@ -194,6 +194,25 @@ export function runMistakeScanSelfTest(): TestResult[] {
       `today ${today.map(r => r.spot.id)} → tomorrow ${tomorrow.map(r => r.spot.id)}`);
   }
 
+  {
+    // The shared rest (spot-rest.ts) outranks all three tiers: a never-met spot
+    // that another exercise dealt an hour ago waits behind a spot you already
+    // fixed. It still gets dealt when nothing else is left.
+    const now = 1_000_000;
+    const tomorrow = now + 24 * 60 * 60 * 1000;
+    const pool = collectSpots([
+      mkGame('r0', 9000, [mkSpot('r0#2', 'blunder')]),
+      mkGame('r1', 8000, [mkSpot('r1#2', 'blunder', { fixed: true, lastTrained: 10 })]),
+    ]);
+    const dueAt = (id: string): number => (id === 'r0#2' ? tomorrow : 0);
+    const one = pickSpots(pool, null, 1, dueAt, now).map(r => r.spot.id);
+    check('a blunder answered in another exercise waits',
+      one[0] === 'r1#2', one.join(','));
+    const both = pickSpots(pool, null, 2, dueAt, now).map(r => r.spot.id);
+    check('but it is still dealt rather than dropped',
+      both.length === 2 && both[1] === 'r0#2', both.join(','));
+  }
+
   const counts = countRetry([gOld, gMid, gNew, gUnscanned]);
   check('counts: spots and fixed', counts.spots === 4 && counts.fixed === 2,
     JSON.stringify(counts));

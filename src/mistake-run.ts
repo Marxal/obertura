@@ -32,6 +32,7 @@ import { formatMove } from './notation';
 import type { MoveEval } from './engine';
 import type { MoveClass } from './winprob';
 import { recordSpotResult } from './mistake-scan';
+import { restSpot } from './spot-rest';
 import type { SpotRef, MistakeCategory } from './mistake-scan';
 import type { ImportedGame } from './import-core';
 import { buildRunHeader } from './run-header';
@@ -481,6 +482,12 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
     if (clean) solvedCount++;
     entries.push({ ref: current, clean });
     void recordSpotResult(current.game.id, current.spot.id, clean);
+    // This drill's own memory is the spot's `fixed`/`lastTrained` marks, which
+    // pickSpots orders by. The shared rest (spot-rest.ts) is the other half:
+    // the same blunder is also a detective case and a two-move question, and
+    // having just played the fix is reason enough not to be asked it again by
+    // the next row of today's challenge.
+    restSpot(current.spot.id);
 
     const best = current.spot.best[0];
     const { from, to, promotion } = uciParts(uci);
