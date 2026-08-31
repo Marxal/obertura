@@ -210,5 +210,56 @@ export function runSchedulerSelfTest(): TestResult[] {
     `order: ${ordered}`
   );
 
+  // 15. A line added after training started must not queue behind the book.
+  //     Five older due lines are handed in ahead of it; the new one still takes
+  //     the first slot, because it holds a move that has never been trained.
+  const older = [1, 2, 3, 4, 5].map(n => {
+    const l = makeLine([-1], now); l.id = `O${n}`; return l;
+  });
+  const added = makeLine([undefined], now);
+  added.id = 'NEW';
+  added.createdAt = now.getTime();
+  const withNew = dueLines([...older, added], now).map(l => l.id);
+  check(
+    'a line added later leads the due queue instead of queueing behind the book',
+    withNew[0] === 'NEW',
+    `order: ${withNew.join(' ')}`
+  );
+
+  // 16. …and the other way round: an afternoon of adding twenty lines must not
+  //     flush the day's reviews. One slot in three is new, so the first round of
+  //     five carries two new lines and three reviews.
+  const manyNew = Array.from({ length: 20 }, (_, i) => {
+    const l = makeLine([undefined], now);
+    l.id = `N${i}`;
+    l.createdAt = now.getTime() + i;
+    return l;
+  });
+  const fiveReviews = Array.from({ length: 5 }, (_, i) => {
+    const l = makeLine([-1], now); l.id = `R${i}`; return l;
+  });
+  const firstRound = dueLines([...manyNew, ...fiveReviews], now).slice(0, 5).map(l => l.id);
+  check(
+    'twenty new lines cannot flush the day\u2019s reviews out of the first round',
+    firstRound.filter(id => id.startsWith('R')).length === 3,
+    `first round: ${firstRound.join(' ')}`
+  );
+
+  // 17. Reviews lead on lateness measured against their OWN interval — two days
+  //     late on a one-day move is forgotten; two days late on a 90-day move is
+  //     nothing. (Input order puts the 90-day line first, so a pass here can
+  //     only come from the comparison.)
+  const longIv = makeLine([-2], now);
+  longIv.id = 'LONG';
+  longIv.tree.children[0].review!.interval = 90;
+  const shortIv = makeLine([-2], now);
+  shortIv.id = 'SHORT';
+  const byLateness = dueLines([longIv, shortIv], now).map(l => l.id).join(' ');
+  check(
+    'reviews lead with whichever is latest relative to its own interval',
+    byLateness === 'SHORT LONG',
+    `order: ${byLateness}`
+  );
+
   return results;
 }

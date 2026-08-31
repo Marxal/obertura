@@ -3293,6 +3293,38 @@ them.
 
 ---
 
+## The new-lines round — nothing added waits at the back for ever ✅
+
+Testing on the phone: add a line to a repertoire that is already in training,
+and it never comes up. It was in training, it was due — it was just always
+eleventh in a queue that only ever gets five deep.
+
+- ✅ **New material takes one slot in three, everywhere.** A line saved today is
+  due the moment it exists (no review record = never trained = due), but the due
+  pile was handed out in BOOK order: `mergePath` appends a new branch after its
+  siblings, a session runs in rounds of five, and the daily challenge takes the
+  first three. A just-graded line comes back due tomorrow, so the same handful at
+  the front of the book was re-served every day and a line added later never
+  surfaced. `dueLines` now weaves two queues — never-trained material and
+  reviews — giving every third slot to what is new. A round of five carries two
+  new lines; the daily challenge's three carry one. Neither side can starve the
+  other, so adding twenty lines in one afternoon cannot flush the day's reviews
+  either.
+- ✅ **Reviews lead on how late they are, not where they sit in the book.**
+  Lateness measured against each move's OWN interval: two days late on a one-day
+  move is forgotten, two days late on a ninety-day move is nothing. Nothing can
+  hide at the back of a long book any more.
+- ✅ **The same fix, one layer down.** Individual positions (the daily "positions
+  to refresh") ranked the due pool weakest-first, and a never-trained move has no
+  lapses — so it sorted below every move you have ever missed, and lapses only
+  ever grow. Repertoire run cut the book at 24 moves in walk order, so a long
+  book's tail was never run. Both now use the same interleave.
+- ✅ **First in, first drilled.** New lines are served oldest-added first, so
+  adding three on Monday and two on Wednesday doesn't push Monday's remaining
+  ones further back every time you add something.
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

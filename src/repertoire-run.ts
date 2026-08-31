@@ -18,7 +18,7 @@
 
 import type { MoveNode } from './tree';
 import type { LinePriority } from './types';
-import { isReviewDue } from './scheduler';
+import { isReviewDue, interleaveNew, reviewOverdueness } from './scheduler';
 import {
   START_FEN, isUserMoveAtDepth, resolveTraining, resolvePriority, linePaths,
   type Repertoire,
@@ -148,6 +148,22 @@ export function planRepertoireRun(reps: Repertoire[], opts: RunOptions = {}): Ru
     chosen = [...all]
       .sort((a, b) => dueTime(a, now) - dueTime(b, now))
       .slice(0, max);
+  }
+
+  // WHICH ones survive the cap is a separate question from what order they are
+  // played in. Cutting the walk order at `max` means a book longer than one
+  // sitting is always the same first 24 moves — so a line added near the end
+  // never gets run, however overdue it is. So the cut is made on urgency: new
+  // moves take every third slot (they have no record and would otherwise have
+  // no claim at all), reviews go most-overdue-first, measured against each
+  // move's own interval.
+  if (chosen.length > max) {
+    chosen = interleaveNew(
+      chosen.filter(p => !p.expected.review),
+      chosen.filter(p => p.expected.review)
+        .sort((a, b) =>
+          reviewOverdueness(b.expected.review, now) - reviewOverdueness(a.expected.review, now)),
+    );
   }
 
   // Cap, then put the survivors back into walk order — a run that jumped about

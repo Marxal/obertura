@@ -161,17 +161,116 @@ export function lineIsDue(line: Line, now: Date = new Date()): boolean {
   return userMoveNodes(line.tree, line.colour).some(n => isReviewDue(n.review, now));
 }
 
-// Every in-training line that has a due move, highest priority first (the input
-// order is kept within a priority band, so nothing else about the ordering
-// changes). A session that runs out of time should have spent it on the lines
-// that were marked as mattering most.
+// ── New material vs. review ─────────────────────────────────────────────────
+//
+// THE BUG THIS FIXES. A line you add today is due the moment it is saved — its
+// moves have no review record, and `isReviewDue` treats "never trained" as due.
+// So it joins the due pile immediately. What it did NOT do was ever come UP:
+// the due pile used to be handed out in book order (the depth-first walk of the
+// tree), `mergePath` appends a new branch after its siblings, and a session is
+// served in rounds of five while the daily challenge takes the first three. A
+// just-graded line comes back due in one day, so the same handful at the front
+// of the book was re-served every day and a line added later never surfaced.
+// The line was in training, correctly; it was simply always eleventh in a queue
+// that only ever got five deep.
+//
+// THE FIX, in two halves:
+//
+//   · Reviews are ordered by how LATE they are, not by where they sit in the
+//     book — lateness measured against the move's own interval, so a 2-day
+//     lapse on a 1-day move outranks a week's slip on a 3-month one. Nothing
+//     can hide at the back of a book any more.
+//
+//   · New material is INTERLEAVED rather than sorted in. Putting never-trained
+//     lines first would let one afternoon of adding twenty lines flush the
+//     day's reviews; putting them last is the bug. So one slot in every three
+//     is reserved for new material while any is waiting — first slot, then the
+//     fourth, then the seventh. A round of five carries two new lines; the
+//     daily challenge's three carry one. Neither can starve the other.
+//
+// Both halves live here because `dueLines` is the one door: the Train hero's
+// "Full lines", the Home screen's "Start training" and the daily challenge's
+// lines task all queue from it.
+
+/** One slot in every N is reserved for never-trained material. */
+export const NEW_MATERIAL_CADENCE = 3;
+
+/**
+ * How overdue a review is, in multiples of its own interval: 0 = not due yet or
+ * due this instant, 1 = a whole interval has passed since it came due, Infinity
+ * = never trained.
+ *
+ * Relative, not absolute, because absolute lateness is dominated by whatever
+ * has the longest interval. A move on a 1-day interval that is 2 days late has
+ * been forgotten; a move on a 90-day interval that is 2 days late has not.
+ */
+export function reviewOverdueness(review: Review | undefined, now: Date = new Date()): number {
+  if (!review) return Infinity;
+  const late = (now.getTime() - new Date(review.due).getTime()) / DAY_MS;
+  if (late <= 0) return 0;
+  return late / Math.max(1, review.interval);
+}
+
+/** A line's most-overdue user move — what the line as a whole is judged on. */
+export function lineOverdueness(line: Line, now: Date = new Date()): number {
+  let worst = 0;
+  for (const n of userMoveNodes(line.tree, line.colour)) {
+    const o = reviewOverdueness(n.review, now);
+    if (o > worst) worst = o;
+  }
+  return worst;
+}
+
+/**
+ * Does this line hold a move that has never been trained? True for a line just
+ * added, and also for one just EXTENDED — the shared opening moves carry their
+ * records, the new tail doesn't, and the new tail is the part you can't play.
+ */
+export function hasNewMoves(line: Line): boolean {
+  return userMoveNodes(line.tree, line.colour).some(n => !n.review);
+}
+
+/**
+ * Weave two queues together, giving `fresh` every `cadence`-th slot and `seen`
+ * the rest. When either runs dry the other simply drains — so a repertoire with
+ * nothing new behaves exactly as it did before this existed.
+ */
+export function interleaveNew<T>(
+  fresh: T[], seen: T[], cadence: number = NEW_MATERIAL_CADENCE,
+): T[] {
+  const out: T[] = [];
+  let f = 0, s = 0;
+  while (f < fresh.length || s < seen.length) {
+    const wantsNew = out.length % cadence === 0;
+    if (f < fresh.length && (wantsNew || s >= seen.length)) out.push(fresh[f++]);
+    else out.push(seen[s++]);
+  }
+  return out;
+}
+
+// Every in-training line that has a due move, in the order a session should
+// walk them: highest priority first, then new material woven through reviews at
+// NEW_MATERIAL_CADENCE, with the reviews themselves most-overdue first. Lines
+// that tie on all of that keep their input order, so the ordering is stable.
 export function dueLines(lines: Line[], now: Date = new Date()): Line[] {
-  return lines
-    .filter(l => l.inTraining && lineIsDue(l, now))
-    .map((line, i) => ({ line, i }))
-    .sort((a, b) =>
-      PRIORITY_RANK[linePriority(a.line)] - PRIORITY_RANK[linePriority(b.line)] || a.i - b.i)
-    .map(x => x.line);
+  const due = lines.filter(l => l.inTraining && lineIsDue(l, now));
+  const rank = (l: Line): number => PRIORITY_RANK[linePriority(l)];
+
+  // Stable sort helper: index carried alongside so ties fall back to input order
+  // whatever the engine's own sort stability does with a mixed comparator.
+  const order = (pool: Line[], cmp: (a: Line, b: Line) => number): Line[] =>
+    pool.map((line, i) => ({ line, i }))
+      .sort((a, b) => rank(a.line) - rank(b.line) || cmp(a.line, b.line) || a.i - b.i)
+      .map(x => x.line);
+
+  // New material is served oldest-first. Adding three lines on Monday and two
+  // more on Wednesday must not push Monday's remaining ones further back every
+  // time you add something — first in, first drilled.
+  const fresh = order(due.filter(hasNewMoves), (a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
+  const seen = order(due.filter(l => !hasNewMoves(l)),
+    (a, b) => lineOverdueness(b, now) - lineOverdueness(a, now));
+
+  return interleaveNew(fresh, seen);
 }
 
 // The soonest `due` across a line's user-moves — drives "Due in N days" labels.

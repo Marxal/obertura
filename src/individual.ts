@@ -1,6 +1,6 @@
 import type { Line } from './types';
 import type { MoveNode } from './tree';
-import { mainlineNodes, isReviewDue } from './scheduler';
+import { mainlineNodes, isReviewDue, interleaveNew } from './scheduler';
 
 // ── Individual-moves selection ──────────────────────────────────────────────────
 //
@@ -36,6 +36,7 @@ const DEFAULT_MAX = 20;
 
 interface Candidate extends IndividualPosition {
   due: boolean;
+  isNew: boolean;
   lapses: number;
   dueTime: number;
 }
@@ -59,6 +60,7 @@ function candidatesFor(line: Line, now: Date, minPly: number): Candidate[] {
       prevUci: i >= 1 ? nodes[i - 1].uci : undefined,
       prevFen: i >= 2 ? nodes[i - 2].fen : i === 1 ? START_FEN : undefined,
       due: isReviewDue(review, now),
+      isNew: !review,
       lapses: review?.lapses ?? 0,
       dueTime: review ? new Date(review.due).getTime() : now.getTime(),
     });
@@ -93,7 +95,17 @@ export function selectIndividualPositions(
   // (then soonest-due) so the shakiest material leads.
   const byWeakness = (a: Candidate, b: Candidate) =>
     b.lapses - a.lapses || a.dueTime - b.dueTime;
-  const duePool = uniq.filter(c => c.due).sort(byWeakness);
+  const dueSorted = uniq.filter(c => c.due).sort(byWeakness);
+  // …except that weakest-first alone would bury everything you just ADDED. A
+  // never-trained move has no lapses, so it sorts below every move you have
+  // ever missed — and lapses only ever grow, so with a set of three a new line's
+  // moves could wait for ever behind the same old sore spots. So new material
+  // takes every third slot of the due pool instead of queueing at the back of
+  // it, the same bargain dueLines strikes for whole lines.
+  const duePool = interleaveNew(
+    dueSorted.filter(c => c.isNew),
+    dueSorted.filter(c => !c.isNew),
+  );
   const weakPool = uniq.filter(c => !c.due && c.lapses > 0).sort(byWeakness);
 
   // Interleave the pools so the set genuinely blends due reviews with weak spots
