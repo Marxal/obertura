@@ -250,35 +250,22 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   // rating and the themes.
   // ── The HUD (rated runs) ───────────────────────────────────────────────────
   //
-  // One block that means the same thing for the whole puzzle: YOUR RATING, and
-  // the clock under it. Before, the rating only appeared at the end (as the
-  // PUZZLE's rating) and the clock was a stray row above an empty space — two
-  // strangers sharing a gap. Now the number you care about is on screen the
-  // whole time and the reveal MOVES it, which is the only presentation of a
-  // rating change anybody actually reads.
-  //
-  // The clock is a time and a bar, and nothing else: a bar that empties as the
-  // bonus does needs no label, and "Speed bonus" written beside it was a caption
-  // for something already obvious.
+  // One block, two states. WHILE SOLVING it is just the clock — a time and a
+  // bar, nothing else, because there is nothing to report yet; a rating sitting
+  // there unearned reads as a promise rather than a fact. ONCE THE PUZZLE IS
+  // OVER the clock gives way to the result: your rating and what this puzzle
+  // was worth, side by side, because "+6" only means something next to the
+  // number it just changed.
   const hudEl = document.createElement('div');
   const hudRatingEl = document.createElement('span');
+  const hudPointsEl = document.createElement('span');
+  const pointsGroup = document.createElement('div');
   const hudClockEl = document.createElement('div');
   const hudTimeEl = document.createElement('span');
   const hudFillEl = document.createElement('span');
-  const hudEyeEl = document.createElement('button');
+  const hudClockToggleEl = document.createElement('button');
   if (timing) {
     hudEl.className = 'pz-hud';
-
-    const ratingRow = document.createElement('div');
-    ratingRow.className = 'pz-hud-top';
-    const ratingLabel = document.createElement('span');
-    ratingLabel.className = 'pz-hud-label';
-    ratingLabel.textContent = 'Your rating';
-    ratingRow.appendChild(ratingLabel);
-    hudRatingEl.className = 'pz-hud-rating';
-    hudRatingEl.textContent = String(ratingBefore);
-    ratingRow.appendChild(hudRatingEl);
-    hudEl.appendChild(ratingRow);
 
     hudClockEl.className = 'pz-hud-clock';
     hudTimeEl.className = 'pz-hud-time';
@@ -290,16 +277,44 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     hudClockEl.appendChild(track);
     hudEl.appendChild(hudClockEl);
 
+    // The result row: hidden while solving (see .pz-hud--done in style.css),
+    // shown in its place once the puzzle is over.
+    const resultRow = document.createElement('div');
+    resultRow.className = 'pz-hud-top';
+
+    const ratingGroup = document.createElement('div');
+    ratingGroup.className = 'pz-hud-group';
+    const ratingLabel = document.createElement('span');
+    ratingLabel.className = 'pz-hud-label';
+    ratingLabel.textContent = 'Your rating';
+    hudRatingEl.className = 'pz-hud-rating';
+    hudRatingEl.textContent = String(ratingBefore);
+    ratingGroup.append(ratingLabel, hudRatingEl);
+    resultRow.appendChild(ratingGroup);
+
+    // Absent on a repeat from the review queue — nothing was earned or lost, so
+    // there is no second number to show beside the rating.
+    pointsGroup.className = 'pz-hud-group pz-hud-group--points';
+    pointsGroup.hidden = true;
+    const pointsLabel = document.createElement('span');
+    pointsLabel.className = 'pz-hud-label';
+    pointsLabel.textContent = 'Points';
+    hudPointsEl.className = 'pz-hud-points';
+    pointsGroup.append(pointsLabel, hudPointsEl);
+    resultRow.appendChild(pointsGroup);
+
+    hudEl.appendChild(resultRow);
+
     // Discreet, and a DISPLAY switch only — see getShowPuzzleClock. Some people
     // solve worse with a clock in front of them; they should still be paid for
     // being quick, so this hides the readout and touches nothing else.
-    hudEyeEl.type = 'button';
-    hudEyeEl.className = 'pz-hud-eye';
-    hudEyeEl.addEventListener('click', () => {
+    hudClockToggleEl.type = 'button';
+    hudClockToggleEl.className = 'pz-hud-toggle';
+    hudClockToggleEl.addEventListener('click', () => {
       setShowPuzzleClock(!getShowPuzzleClock());
       syncClockVisibility();
     });
-    hudEl.appendChild(hudEyeEl);
+    hudEl.appendChild(hudClockToggleEl);
 
     topEl.appendChild(hudEl);
   }
@@ -487,26 +502,30 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     renderSpeed();
   }
 
-  // The eye. Hidden, the readout goes and the button stays as the way back —
-  // never both gone, or there'd be no way to bring it back inside a run.
+  // The clock toggle. Hidden, the readout goes and the button stays as the way
+  // back — never both gone, or there'd be no way to bring it back inside a run.
   function syncClockVisibility(): void {
     if (!timing) return;
     const on = getShowPuzzleClock();
     hudEl.classList.toggle('pz-hud--clockless', !on);
-    hudEyeEl.replaceChildren(on ? Icons.eye(14) : Icons.eyeOff(14));
+    hudClockToggleEl.replaceChildren(on ? Icons.clock(14) : Icons.clockOff(14));
     const label = on ? 'Hide the clock' : 'Show the clock';
-    hudEyeEl.setAttribute('aria-label', label);
-    hudEyeEl.title = `${label} — the speed bonus is earned either way`;
+    hudClockToggleEl.setAttribute('aria-label', label);
+    hudClockToggleEl.title = `${label} — the speed bonus is earned either way`;
   }
 
   // ── The award ──────────────────────────────────────────────────────────────
   //
-  // WHY IT IS AN ANIMATION AND NOT A LINE OF TEXT. "+6 points ⚡+6 fast" sat
+  // The points figure lives IN the HUD, right beside your rating — "+6" only
+  // means something next to the number it just changed, and stacking them
+  // as two separate blocks was the reason they read as unrelated.
+  //
+  // WHY THE BREAKDOWN IS STILL AN ANIMATION. "+6 points ⚡+6 fast" used to sit
   // there as two facts side by side, and nobody could tell whether the bolt was
   // part of the six or on top of it. Addition is a thing that HAPPENS, so it is
-  // staged: the solve lands, the bolt arrives beside it, and only then do the
-  // two resolve into a total that counts up from the first number to the sum —
-  // and your rating, which has been on screen the whole puzzle, ticks with it.
+  // staged: the solve lands, the bolt arrives beside it, and only then does the
+  // points figure count up from the base to the sum — and your rating, which
+  // has been on screen since the reveal, ticks with it.
   //
   // Three beats via one class and CSS transition-delays, plus a single timer for
   // the two counting numbers. Reduced motion gets the final state at once.
@@ -524,34 +543,28 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   function renderAward(before: number, points: number, bonus: number): void {
     if (awardTimer) { clearTimeout(awardTimer); awardTimer = undefined; }
     awardEl.replaceChildren();
-    awardEl.hidden = false;
-    awardEl.classList.remove('pz-award--in');
+    awardEl.hidden = true;
+    awardEl.classList.remove('pz-award--in', 'pz-award--summed');
+    pointsGroup.hidden = false;
     const up = points >= 0;
     const after = before + points;
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
 
-    const total = document.createElement('div');
-    total.className = 'pz-award-total ' + (up ? 'pz-award-total--up' : 'pz-award-total--down');
-    const num = document.createElement('span');
-    num.className = 'pz-award-num';
-    const unit = document.createElement('span');
-    unit.className = 'pz-award-unit';
-    unit.textContent = 'points';
+    hudPointsEl.classList.toggle('pz-hud-points--up', up);
+    hudPointsEl.classList.toggle('pz-hud-points--down', !up);
 
     const base = points - bonus;
     const sign = (n: number): string => (n >= 0 ? '+' : '−') + Math.abs(n);
 
     // No bonus (a miss, or a solve the clock didn't pay for): there is no sum to
-    // show, so the total is the whole story and lands on its own.
+    // break down, so the points figure is the whole story and lands on its own.
     if (bonus <= 0) {
-      num.textContent = sign(points);
-      total.append(num, unit);
-      awardEl.appendChild(total);
+      hudPointsEl.textContent = sign(points);
       settleRating(before, after, reduce);
-      show(reduce);
       return;
     }
 
+    awardEl.hidden = false;
     const sum = document.createElement('div');
     sum.className = 'pz-award-sum';
     sum.appendChild(awardChip(`${sign(base)} solved`, 'base'));
@@ -560,22 +573,21 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     plus.textContent = '+';
     sum.appendChild(plus);
     sum.appendChild(awardChip(`+${bonus} fast`, 'bonus'));
-    awardEl.append(sum, total);
+    awardEl.appendChild(sum);
 
-    num.textContent = sign(base);
-    total.append(num, unit);
+    hudPointsEl.textContent = sign(base);
     show(reduce);
     if (reduce) {
-      num.textContent = sign(points);
+      hudPointsEl.textContent = sign(points);
       settleRating(before, after, true);
       return;
     }
-    // Beat three: the parts add up. The total counts on from the base rather than
-    // from zero — the point being made is "and this much MORE".
+    // Beat three: the parts add up. The points figure counts on from the base
+    // rather than from zero — the point being made is "and this much MORE".
     awardTimer = setTimeout(() => {
       if (isCleaned) return;
       awardEl.classList.add('pz-award--summed');
-      countSigned(num, base, points, 420);
+      countSigned(hudPointsEl, base, points, 420);
       settleRating(before, after, false);
     }, AWARD_BEAT_MS * 2);
   }
@@ -715,6 +727,9 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
       hudEl.hidden = false;
       hudEl.classList.remove('pz-hud--done');
       hudRatingEl.classList.remove('pz-hud-rating--up', 'pz-hud-rating--down');
+      pointsGroup.hidden = true;
+      hudPointsEl.classList.remove('pz-hud-points--up', 'pz-hud-points--down');
+      hudPointsEl.textContent = '';
       if (awardTimer) { clearTimeout(awardTimer); awardTimer = undefined; }
       awardEl.hidden = true;
       awardEl.classList.remove('pz-award--in', 'pz-award--summed');

@@ -7702,16 +7702,15 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .pt-rating-delta--down { color: var(--danger); }
 
 /* ── The rated-run HUD ───────────────────────────────────────────────────────
-   YOUR rating, and the clock under it — the same block for the whole puzzle, so
-   the number you care about is on screen while you solve and MOVES when you
-   finish. (Before, the rating only appeared at the end, as the PUZZLE's rating,
-   and the clock was a stray row above an empty space.)
-
-   The clock is a time and a bar and nothing else. A bar that empties as the
-   bonus does needs no caption; "Speed bonus" written beside it was one. */
+   Two states, one block. WHILE SOLVING it is just the clock — a time and a
+   bar, nothing else, because there's nothing to report until you're done: a
+   rating sitting there unearned reads as a promise, not a fact. ONCE THE
+   PUZZLE IS OVER the clock gives way to the result row: your rating and what
+   this puzzle was worth, side by side, so "+6" reads next to the number it
+   just changed rather than floating in a block of its own. */
 .pz-hud {
   position: relative;
-  /* Full width so the eye can sit in a real corner rather than crowding the
+  /* Full width so the toggle can sit in a real corner rather than crowding the
      rating — the block itself still centres its own contents. */
   width: 100%;
   display: flex;
@@ -7721,9 +7720,18 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   padding-bottom: 0.15rem;
 }
 .pz-hud-top {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 1.1rem;
+}
+/* The result row only exists once the puzzle is over. */
+.pz-hud--done .pz-hud-top { display: flex; }
+.pz-hud-group {
   display: flex;
-  align-items: baseline;
-  gap: 0.35rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
 }
 .pz-hud-label {
   font-size: 0.62rem;
@@ -7742,6 +7750,30 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 /* It only takes a colour once it has actually moved. */
 .pz-hud-rating--up { color: var(--success); }
 .pz-hud-rating--down { color: var(--danger); }
+
+/* The points figure sits right beside the rating it just changed — same size,
+   same baseline, so the two read as one result rather than two facts. */
+.pz-hud-points {
+  font-size: 1.35rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--text-muted);
+}
+.pz-hud-points--up { color: var(--success); }
+.pz-hud-points--down { color: var(--danger); }
+/* A thin divider between the two groups — they belong together, but they are
+   still two different numbers. */
+.pz-hud-group--points { position: relative; padding-left: 1.1rem; }
+.pz-hud-group--points::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.15rem;
+  bottom: 0.15rem;
+  width: 1px;
+  background: color-mix(in srgb, var(--text-muted) 25%, transparent);
+}
 
 .pz-hud-clock {
   display: flex;
@@ -7778,8 +7810,8 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .pz-hud-clock--spent { opacity: 0.55; }
 .pz-hud-clock--spent .pz-hud-fill { background: var(--text-muted); }
 
-/* The eye: discreet, off to the side, and a DISPLAY switch only. */
-.pz-hud-eye {
+/* The clock toggle: discreet, off to the side, and a DISPLAY switch only. */
+.pz-hud-toggle {
   position: absolute;
   top: -2px;
   right: -4px;
@@ -7791,25 +7823,26 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   opacity: 0.45;
   cursor: pointer;
 }
-.pz-hud-eye:active { opacity: 0.9; }
-@media (hover: hover) { .pz-hud-eye:hover { opacity: 0.9; } }
+.pz-hud-toggle:active { opacity: 0.9; }
+@media (hover: hover) { .pz-hud-toggle:hover { opacity: 0.9; } }
 
-/* Clock off, or the puzzle over: the readout goes, the rating stays. The eye
-   stays too — never both gone, or there'd be no way back inside a run. */
+/* Clock off, or the puzzle over: the readout goes, the result row (or nothing,
+   mid-solve) takes its place. The toggle stays only while there's a clock to
+   bring back — once the puzzle is done there's nothing left for it to do. */
 .pz-hud--clockless .pz-hud-clock,
 .pz-hud--done .pz-hud-clock { display: none; }
-.pz-hud--done .pz-hud-eye { display: none; }
+.pz-hud--done .pz-hud-toggle { display: none; }
 
 /* ── The award ───────────────────────────────────────────────────────────────
-   Addition is a thing that HAPPENS, so it is staged: the solve lands, the bolt
-   arrives beside it, then the two resolve into a total that counts on from the
-   first number. One class and two transition-delays do the staging. */
+   Just the breakdown chips now — "+0 solved ⚡+6 fast" — sitting under the HUD's
+   points figure. Addition is a thing that HAPPENS, so it is staged: the solve
+   lands, the bolt arrives beside it, then both step back once the points
+   figure (in the HUD) has counted up to their sum. One class and two
+   transition-delays do the staging. */
 .pz-award {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.15rem;
-  padding-top: 0.15rem;
+  justify-content: center;
+  padding-top: 0.3rem;
 }
 .pz-award-sum {
   display: flex;
@@ -7843,39 +7876,17 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   transition: opacity 0.28s ease-out;
   transition-delay: 0.24s;
 }
-.pz-award-total {
-  display: flex;
-  align-items: baseline;
-  gap: 0.25rem;
-  opacity: 0;
-  transform: translateY(4px);
-  transition: opacity 0.28s ease-out, transform 0.28s ease-out;
-}
-.pz-award-num {
-  font-size: 1.15rem;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-}
-.pz-award-unit {
-  font-size: 0.74rem;
-  font-weight: 700;
-  color: var(--text-muted);
-}
-.pz-award-total--up .pz-award-num { color: var(--success); }
-.pz-award-total--down .pz-award-num { color: var(--danger); }
 
-/* Beat one, then two, then three. */
-.pz-award--in .pz-award-part--base,
-.pz-award--in .pz-award-total { opacity: 1; transform: none; }
+/* Beat one, then two. */
+.pz-award--in .pz-award-part--base { opacity: 1; transform: none; }
 .pz-award--in .pz-award-part--bonus {
   opacity: 1;
   transform: none;
   transition-delay: 0.24s;
 }
 .pz-award--in .pz-award-plus { opacity: 1; }
-/* With a sum to show, the total waits for it. */
-.pz-award--in .pz-award-sum ~ .pz-award-total { transition-delay: 0.48s; }
-/* …and once it has landed, the parts step back so the total reads as the answer. */
+/* Beat three: the points figure (in the HUD) has the sum now, so the chips
+   step back and let it read as the answer. */
 .pz-award--summed .pz-award-sum { opacity: 0.55; transition: opacity 0.3s; }
 
 
