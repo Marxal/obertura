@@ -45,7 +45,7 @@ import type { ImportedGame } from './import-core';
 
 // Which slide is showing. The builder addresses its panels by name (main.ts owns
 // the per-mode ordering), so nothing here depends on a slide's index.
-export type BuilderSlideId = 'explore' | 'library' | 'mylines' | 'line' | 'engine';
+export type BuilderSlideId = 'grow' | 'explore' | 'library' | 'mylines' | 'line' | 'engine';
 
 export interface BuilderPanelsDeps {
   libraryEl: HTMLElement;

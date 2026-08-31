@@ -3356,6 +3356,58 @@ the others.
   detective sitting again dealt the identical cases. Every deal now reads the
   logs at the moment it deals. Same fix for the brilliancies carousel.
 
+## The grow-your-lines round — the first daily part that asks you to write ✅
+
+Every part of the daily challenge asked you to REMEMBER something. This one asks
+you to write something: it takes a line you have genuinely learned, stands at the
+end of it, and names three moves you'd meet next that you have no answer to.
+
+- ✅ **"Grow your lines" is the eighth part of the daily challenge.** One line a
+  day by default, and one is the honest number — it is the only part that opens
+  the builder and wants a decision about a position you have never had to think
+  about. It sits with the two other repertoire parts in the default order, and
+  it takes a count, a position and an off switch in Preferences like every other.
+- ✅ **It waits for mastery, and mastery is the app's existing verdict.**
+  `lineMastered` (line-status.ts) already decided when the trainer says "you know
+  this one — keep adding moves": three clean runs, 80% recall, every move
+  drilled, confidence 3+, and a last move with nothing saved after it. The row
+  simply doesn't appear until a line clears it, so the exercise is the reward for
+  finishing something rather than a chore to start one with.
+- ✅ **The end of a mastered line is an opponent-to-move position.** A repertoire
+  line ends on YOUR move — you prepared an answer and stopped — so what happens
+  next is a question nobody has answered yet. (A line ending on THEIR move is a
+  different hole, and coverage-gaps.ts is what reports those; grow-line.ts is
+  deliberately the complement, working on exactly the line ends coverage ignores.)
+- ✅ **Three moves, each with one reason, from the app's established sources.**
+  Your own games first ("you have faced this 4 times"), then the bundled opening
+  book ("12 openings continue this way"), then a scouted opponent ("Kevin plays
+  this"). No network, no login, no engine — a daily part must never wait on any
+  of the three. The floors are coverage's own — two games, because once is an
+  accident and twice is a thing that happens to you — plus one of the book's
+  own: past its main continuation, a reply has to be played by at least two
+  named openings. At the end of 4.Ba4 the book knows 468 openings that play
+  4…Nf6, four that play 4…Bc5, and then four more moves with one apiece; the
+  tail is padding, not a choice.
+- ✅ **The exercise IS the builder, plus one tab.** Adding a move is building,
+  and the builder is where the tools are — the board, the opening library, your
+  own games, the engine, the position explorer. So the daily row opens the book
+  at the end of the line and puts a "Grow line" tab in front of the others,
+  carrying the brief, the line's record and the three moves. Tap one, play your
+  answer, and the header's own "Add moves" button finishes it. One move is the
+  whole job; every other tab is right there if you want to look further first.
+- ✅ **"Skip for today" is quiet, and it counts.** A position you don't want to
+  think about today is not a failure, so the control that says so is the
+  smallest thing on the panel. It clears the row with no right and no wrong
+  filed — a perfect day survives it — and rests that line for a day so tomorrow
+  offers a different one. Walking out of the builder does neither: the row stays
+  open, because leaving isn't doing it.
+- ✅ **A grown line looks after itself.** Adding moves gives the line moves that
+  have never been drilled, so it stops being mastered until it has been learned
+  again — it leaves the pool without being told to. `grow-log.ts` exists for the
+  case that doesn't: a skip, and a branch grown into material already in training.
+
+---
+
 ---
 
 ## v1.4 — seeds (parked) 💤

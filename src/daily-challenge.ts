@@ -39,6 +39,12 @@ export const DAILY_ENDGAME_GOAL = 3;
 export const DAILY_MISTAKE_GOAL = 2;
 export const DAILY_DETECTIVE_GOAL = 2;
 export const DAILY_WHICH_MOVE_GOAL = 2;
+// Growing a line ships at ONE, and one is the honest number rather than a shy
+// one: this is the only part that asks you to write something rather than
+// remember something, it opens the builder, and it wants a decision about a
+// position you have never had to think about before. Two of those is a
+// different sort of day. Nothing stops anyone raising it in Preferences.
+export const DAILY_GROW_GOAL = 1;
 
 const KEY = 'obertura.dailyChallenge';
 const CONFIG_KEY = 'obertura.dailyChallenge.config';
@@ -47,10 +53,11 @@ const CONFIG_KEY = 'obertura.dailyChallenge.config';
 // running order — the order is `config.order` below, which the user rearranges
 // in Preferences (or hands over to chance entirely).
 export type DailyTaskId =
-  | 'lines' | 'positions' | 'puzzles' | 'endgames'
+  | 'lines' | 'positions' | 'growLines' | 'puzzles' | 'endgames'
   | 'mistakes' | 'detective' | 'whichMove';
 export const DAILY_TASK_IDS: DailyTaskId[] = [
-  'lines', 'positions', 'puzzles', 'endgames', 'mistakes', 'detective', 'whichMove',
+  'lines', 'positions', 'growLines', 'puzzles', 'endgames',
+  'mistakes', 'detective', 'whichMove',
 ];
 
 // The order the challenge ships in, and what "Reset order" restores: repertoire
@@ -59,7 +66,8 @@ export const DAILY_TASK_IDS: DailyTaskId[] = [
 // games — a new install simply doesn't show them, and the parts that do show are
 // then still in a sensible order rather than full of holes.
 export const DEFAULT_DAILY_ORDER: DailyTaskId[] = [
-  'lines', 'positions', 'puzzles', 'endgames', 'whichMove', 'detective', 'mistakes',
+  'lines', 'positions', 'growLines', 'puzzles', 'endgames',
+  'whichMove', 'detective', 'mistakes',
 ];
 
 export interface DailyState {
@@ -72,6 +80,7 @@ export interface DailyState {
                       // scanned spots exist — see renderDailyChallenge)
   detective: boolean; // the blunder-detective task is done (needs a scanned run)
   whichMove: boolean; // the which-move task is done (needs scanned spots)
+  growLines: boolean; // a mastered line was extended (or skipped for today)
 }
 
 // ── Config (Preferences) ──────────────────────────────────────────────────────
@@ -92,6 +101,7 @@ const DEFAULT_COUNTS: Record<DailyTaskId, number> = {
   mistakes: DAILY_MISTAKE_GOAL,
   detective: DAILY_DETECTIVE_GOAL,
   whichMove: DAILY_WHICH_MOVE_GOAL,
+  growLines: DAILY_GROW_GOAL,
 };
 
 /** What a part ships with — also the floor the perfect-day bar holds it to. */
@@ -134,10 +144,25 @@ export interface DailyConfig {
   randomOrder: boolean;
 }
 
-function clampCount(n: unknown, fallback = DEFAULT_COUNT): number {
+/**
+ * The most a part may be set to.
+ *
+ * Everything is capped at COUNT_CUSTOM_MAX except growing a line, which is
+ * capped at ONE — and that is a design limit rather than a shy default. The
+ * exercise ends by handing you the extended line to confirm, which lands you on
+ * My Lines; chaining a second one after that would mean yanking you back into
+ * the builder from a screen you were just taken to. The row is therefore an
+ * on/off, and Preferences draws it as one rather than offering a number the
+ * exercise wouldn't honour.
+ */
+export function dailyCountCeiling(id: DailyTaskId): number {
+  return id === 'growLines' ? 1 : COUNT_CUSTOM_MAX;
+}
+
+function clampCount(n: unknown, fallback = DEFAULT_COUNT, ceiling = COUNT_CUSTOM_MAX): number {
   const v = Math.round(Number(n));
   if (!Number.isFinite(v)) return fallback;
-  return Math.max(COUNT_MIN, Math.min(COUNT_CUSTOM_MAX, v));
+  return Math.max(COUNT_MIN, Math.min(ceiling, v));
 }
 
 /**
@@ -182,7 +207,10 @@ export function getDailyConfig(): DailyConfig {
       if (t) {
         // Back-compat with the old on/off switch: an explicit "off" now means
         // a count of zero, whatever count was stored alongside it.
-        base.tasks[id] = { count: t.on === false ? 0 : clampCount(t.count, DEFAULT_COUNTS[id]) };
+        base.tasks[id] = {
+          count: t.on === false ? 0
+            : clampCount(t.count, DEFAULT_COUNTS[id], dailyCountCeiling(id)),
+        };
       }
     }
     return {
@@ -219,7 +247,7 @@ function load(): DailyState {
   const fresh: DailyState = {
     day: todayKey(),
     lines: false, positions: false, puzzles: false, endgames: false,
-    mistakes: false, detective: false, whichMove: false,
+    mistakes: false, detective: false, whichMove: false, growLines: false,
   };
   try {
     const raw = localStorage.getItem(KEY);
@@ -238,6 +266,7 @@ function load(): DailyState {
       mistakes: !!obj.mistakes,
       detective: !!obj.detective,
       whichMove: !!obj.whichMove,
+      growLines: !!obj.growLines,
     };
   } catch {
     return fresh;
@@ -275,6 +304,10 @@ export function markEndgamesDone(o: TaskOutcome): void { markDone('endgames', o)
 export function markMistakesDone(o: TaskOutcome): void { markDone('mistakes', o); }
 export function markDetectiveDone(o: TaskOutcome): void { markDone('detective', o); }
 export function markWhichMoveDone(o: TaskOutcome): void { markDone('whichMove', o); }
+// Growing a line has no right/wrong to file — there is no answer to get wrong,
+// and a skip is a legitimate way to clear it. Callers pass {right:0,wrong:0}, so
+// a perfect day survives both outcomes.
+export function markGrowLinesDone(o: TaskOutcome): void { markDone('growLines', o); }
 
 // ── Which tasks are active, and the next one ──────────────────────────────────
 
@@ -283,6 +316,10 @@ export interface DailyAvailability {
   mistakesAvailable: boolean;   // the mistake scan has found spots
   detectiveAvailable: boolean;  // the scan has found a "find the blunder" run
   whichMoveAvailable: boolean;     // …and spots that make a fair two-move question
+  // At least one line is mastered, ends on the opponent's move, and has
+  // something known to prepare for (grow-line.ts). Off until then: the exercise
+  // is the reward for finishing something, not a chore to start one with.
+  growAvailable: boolean;
 }
 
 /**
@@ -342,6 +379,7 @@ export function activeDailyTasks(
     if (id === 'mistakes' && !avail.mistakesAvailable) return false;
     if (id === 'detective' && !avail.detectiveAvailable) return false;
     if (id === 'whichMove' && !avail.whichMoveAvailable) return false;
+    if (id === 'growLines' && !avail.growAvailable) return false;
     return true;
   });
 }
@@ -461,6 +499,9 @@ export interface DailyChallengeDeps {
   // pick the better of two moves.
   onCatchBlunders: () => void;
   onWhichMove: () => void;
+  // Open the builder on the end of a line you have mastered, with the moves to
+  // prepare for listed on its own tab.
+  onGrowLine: () => void;
   // Reopen today's completion popup from the "done" card. Omitted where there is
   // nothing to reopen.
   onReplayRecap?: () => void;
@@ -483,6 +524,7 @@ const TASK_META: Record<DailyTaskId, { icon: () => SVGElement; label: (n: number
   mistakes:  { icon: () => Icons.reset(18),       label: (n) => `${n} mistake${n === 1 ? '' : 's'} to fix` },
   detective: { icon: () => Icons.scout(18),       label: (n) => `${n} blunder${n === 1 ? '' : 's'} to catch` },
   whichMove: { icon: () => Icons.merge(18),       label: (n) => `${n} move${n === 1 ? '' : 's'} to pick` },
+  growLines: { icon: () => Icons.sprout(18),      label: (n) => `${n} line${n === 1 ? '' : 's'} to grow` },
 };
 
 // The gear, bottom-right of the card. Which tasks the challenge includes and how
@@ -521,6 +563,7 @@ function runDailyTask(id: DailyTaskId, deps: DailyChallengeDeps): void {
     case 'mistakes': deps.onFixMistakes(); break;
     case 'detective': deps.onCatchBlunders(); break;
     case 'whichMove': deps.onWhichMove(); break;
+    case 'growLines': deps.onGrowLine(); break;
   }
 }
 
@@ -626,11 +669,16 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
 // The rows the preview shows: everything switched on in Preferences except the
 // three from-your-games parts, which need imported, scanned games and would
 // promise something a new install can't deliver.
-const GAME_FED: DailyTaskId[] = ['mistakes', 'detective', 'whichMove'];
+// The rows the preview does NOT show. The three from-your-games parts need
+// imported, scanned games; growing a line needs a line you have already
+// mastered, which is several weeks past the three the bar is counting to.
+// Promising either on day one would be promising something the card can't
+// deliver for a long time.
+const NOT_YET: DailyTaskId[] = ['mistakes', 'detective', 'whichMove', 'growLines'];
 
 function previewTasks(config: DailyConfig): DailyTaskId[] {
   return orderedDailyTasks(config)
-    .filter((id) => !GAME_FED.includes(id) && config.tasks[id].count > 0);
+    .filter((id) => !NOT_YET.includes(id) && config.tasks[id].count > 0);
 }
 
 function buildLockedCard(deps: DailyChallengeDeps): HTMLElement | null {

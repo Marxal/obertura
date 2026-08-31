@@ -21,7 +21,7 @@ import { parseLineId } from './lines-view';
 import { selectedBookId } from './repertoire-picker';
 import { mainlineNodes, DEFAULT_PRIORITY } from './scheduler';
 import type { Annotation, MoveNode } from './tree';
-import { saveLine, getAllLines, getLine, getAllGames, getGame, saveGames, deleteLine, deleteGame, purgeRetiredLocalKeys, countGames } from './storage';
+import { saveLine, getAllLines, getLine, getAllGames, getGame, saveGames, deleteLine, deleteGame, purgeRetiredLocalKeys, countGames, getAllOpponents } from './storage';
 import type { ImportedGame } from './import-games';
 import { nameForPath } from './openings';
 import { positionIndex, type DuplicateVerdict } from './position-index';
@@ -57,11 +57,19 @@ import {
   markMistakesDone,
   markDetectiveDone,
   markWhichMoveDone,
+  markGrowLinesDone,
   isDailyDone,
   perfectDayEligible,
   type DailyTaskId,
   type DailyConfig,
 } from './daily-challenge';
+import {
+  growCandidates, pickGrowSpots, firstGrowTarget, growGameIndex, growScoutIndex,
+  type GrowSources, type GrowSpot,
+} from './grow-line';
+import { growDueMap, restGrowLine, GROW_SKIP_DAYS, GROW_GROWN_DAYS } from './grow-log';
+import { createGrowPanel, type GrowPanel } from './grow-panel';
+import { buildBook, bookNodeAt, loadBookEntries } from './book-tree';
 import { buildRecap, getDailyLog, localDayKey, markDayComplete, type TaskOutcome } from './daily-recap';
 import { showRecapForDay } from './daily-review';
 import { showDailyCelebration, showPerfectDayCelebration, showWhenClear } from './daily-celebration';
@@ -166,6 +174,7 @@ let evalPanel!: EvalPanel;
 let builderPanels: BuilderPanels | null = null;
 let explorePanel: ExplorePanel | null = null;
 let enginePanel: EnginePanel | null = null;
+let growPanel: GrowPanel | null = null;
 let showEngineArrows = getShowEngineArrows();
 // The dock's engine toggle (the chip icon in the builder/analyser bottom bar).
 // When on, the engine runs, the docked eval bar shows above the bottom bar with
@@ -258,6 +267,9 @@ function updateOpeningName(): void {
   renderTitle();
   builderPanels?.render();
   explorePanel?.render();
+  // The Grow tab is a readout of where the cursor stands relative to the line
+  // end it asked about, so it repaints with every other position-driven panel.
+  growPanel?.render();
   // The engine's previous answer belongs to the previous position; drop it so
   // the Engine tab says "analysing…" instead of showing a stale line.
   enginePanel?.clear();
@@ -1391,9 +1403,10 @@ function refreshLineAnalysis(): void {
 // game that has already been played). applyBuilderSlideOrder() reorders the DOM
 // to match, so "visual order" and "DOM order" stay the same thing and the
 // scroll-position→index maths needs to know nothing about any of this.
-type SlideId = 'explore' | 'library' | 'mylines' | 'line' | 'engine';
+type SlideId = 'grow' | 'explore' | 'library' | 'mylines' | 'line' | 'engine';
 
 const SLIDE_ELEMENT: Record<SlideId, string> = {
+  grow: 'slide-grow',
   explore: 'slide-explore',
   library: 'slide-library',
   mylines: 'slide-games',
@@ -1402,6 +1415,12 @@ const SLIDE_ELEMENT: Record<SlideId, string> = {
 };
 
 const BUILDER_SLIDES: SlideId[] = ['explore', 'library', 'mylines', 'line', 'engine'];
+// The daily challenge's "grow a line" part: the ordinary builder with one extra
+// tab in front, holding the brief. Every other tab is exactly as it always is —
+// the point of running the exercise IN the builder is that all of them are
+// there (grow-panel.ts). The tab exists only while a line is being grown; there
+// is nothing for it to say otherwise.
+const GROW_SLIDES: SlideId[] = ['grow', 'explore', 'library', 'mylines', 'line', 'engine'];
 // The analyser keeps its game first and drops Explore — curated "what could you
 // play here" suggestions are for a line you're building, not a game you played.
 const ANALYSER_SLIDES: SlideId[] = ['line', 'library', 'mylines', 'engine'];
@@ -1434,7 +1453,9 @@ let pendingEngineOn = false;
 // scrollLeft honest, and the sections carry their own contents and listeners
 // with them.
 function applyBuilderSlideOrder(): void {
-  const order = builderMode === 'analyser' ? ANALYSER_SLIDES : BUILDER_SLIDES;
+  const order = builderMode === 'analyser' ? ANALYSER_SLIDES
+    : growPanel?.target() ? GROW_SLIDES
+    : BUILDER_SLIDES;
   slideOrder = order;
 
   const track = document.getElementById('builder-carousel');
@@ -1487,6 +1508,7 @@ function applyBuilderSlideOrder(): void {
 // owes a different explanation in each.
 function infoIdFor(id: SlideId): BuilderInfoId | 'library' {
   if (id === 'library') return 'library';
+  if (id === 'grow') return 'grow';
   if (id === 'line') return builderMode === 'analyser' ? 'game' : 'line';
   return id;
 }
@@ -1520,6 +1542,7 @@ function syncBuilderInfoLabel(): void {
 // The analyser's first tab names the game it's showing, not a repertoire line.
 function slideTabLabel(id: SlideId): string {
   switch (id) {
+    case 'grow': return 'Grow line';
     case 'explore': return 'Explore';
     case 'library': return 'Library';
     case 'mylines': return 'My lines';
@@ -2428,6 +2451,9 @@ async function commitBook(intents?: Map<string, boolean>): Promise<void> {
     variant: 'success',
     action: { label: 'Undo', onClick: () => void undoBookCommit(roots, moves) },
   });
+
+  // A grow session ends the moment moves land — the whole ask was "add one".
+  finishGrowSession(moves);
 
   await settleNewBookLines(drafted.map(l => l.endId), wants);
 }
@@ -4096,6 +4122,12 @@ function renderTrainTabbed(host: HTMLElement): void {
       mistakesAvailable: spotRefs.length > 0,
       detectiveAvailable: detectiveRefs.length > 0,
       whichMoveAvailable: pairRefs.length > 0,
+      // Cheap on purpose: "is any line mastered, ending on their move". Whether
+      // we know anything to prepare for THERE needs the bundled opening book,
+      // which is a lazily-imported 1.7 MB dataset — far too much to load on
+      // every repaint of the Train screen. The launcher does that part, and
+      // clears the row itself in the rare case it comes up empty.
+      growAvailable: growCandidates(allLines).length > 0,
     };
     const active = activeDailyTasks(config, avail);
 
@@ -4189,6 +4221,12 @@ function renderTrainTabbed(host: HTMLElement): void {
           nextAction: nextFor('detective'),
         });
       },
+      growLines: () => {
+        // The one part that leaves the trainer: it opens the builder, because
+        // adding a move is building. finish() is captured and called later,
+        // from the commit (or the skip) — see startGrowLine.
+        void startGrowLine(allLines, finish(markGrowLinesDone));
+      },
       whichMove: () => {
         // The quick one: two moves, pick the good one.
         const done = finish(markWhichMoveDone);
@@ -4224,6 +4262,7 @@ function renderTrainTabbed(host: HTMLElement): void {
       onFixMistakes: () => launchers.mistakes(),
       onCatchBlunders: () => launchers.detective(),
       onWhichMove: () => launchers.whichMove(),
+      onGrowLine: () => launchers.growLines(),
       // The finished card reopens today's popup rather than losing its figures
       // to the tap that dismissed it.
       onReplayRecap: () => { void showRecapForDay(localDayKey(), localDayKey(), allLines); },
@@ -4464,13 +4503,178 @@ function showView(view: ViewName): void {
       explorePanel?.render();
       enginePanel?.render();
     });
-  } else if (evalPanel && evalPanel.isEnabled) {
-    // Leaving the builder for any other screen: stop the engine it was running.
-    evalPanel.setEnabled(false);
+  } else {
+    // Leaving the builder for any other screen: stop the engine it was running,
+    // and stand the grow brief down. The daily row is deliberately NOT ticked
+    // off — walking away from it isn't doing it, and the card still offers it.
+    if (evalPanel && evalPanel.isEnabled) evalPanel.setEnabled(false);
+    if (growPanel?.target()) { growDone = null; endGrowSession(false); }
   }
 
   // Un-hide the suspended session's overlay only once its home screen is back.
   resumeSuspended?.();
+}
+
+// ── Grow your lines ──────────────────────────────────────────────────────────
+//
+// The daily challenge's one CREATIVE part: stand at the end of a line you have
+// mastered and add an answer to something you'd meet next. The choosing and the
+// ranking are grow-line.ts (pure); the brief is grow-panel.ts (the extra tab);
+// this is the wiring — open the book at the right node, hand the panel a target,
+// and notice when the job is done.
+//
+// It deliberately does NOT run as a session overlay like every other part. See
+// the header of grow-panel.ts: adding a move is building, and the builder is
+// where the tools are.
+
+/** The node the exercise is standing at, so "back to the end" has somewhere to go. */
+let growEndNodeId: string | null = null;
+/**
+ * Today's tick-it-off, captured at LAUNCH.
+ *
+ * Every other part finishes inside the Train screen, where `finish()` is still
+ * in scope. This one finishes in the builder — possibly minutes later, after a
+ * trip round the Library and the engine — so the callback has to be held rather
+ * than looked up. Cleared as soon as it is used: the row is done once.
+ */
+let growDone: ((o: TaskOutcome) => void) | null = null;
+
+/**
+ * Open the builder on a line worth growing, with the brief on its own tab.
+ *
+ * The three evidence sources are read ONCE here rather than on every Train
+ * repaint — the opening book is a lazily-imported 1.7 MB dataset, and the game
+ * index is a replay of every imported game — which is exactly why the daily
+ * card's availability check (growAvailable) asks a cheaper question and leaves
+ * this to the tap.
+ */
+async function startGrowLine(
+  lines: Line[], done: (o: TaskOutcome) => void,
+): Promise<void> {
+  // Ordered, not trimmed. The part grows ONE line (dailyCountCeiling), but the
+  // first candidate may be a position none of the sources knows anything about
+  // — and the answer to that is the next candidate, not an empty exercise.
+  const candidates = growCandidates(lines);
+  const spots = pickGrowSpots(candidates, candidates.length, growAt());
+  if (spots.length === 0) { growNothingToDo(done); return; }
+
+  const colour = spots[0].line.colour;
+  const [games, opponents, entries] = await Promise.all([
+    getAllGames(), getAllOpponents(), loadBookEntries(),
+  ]);
+  const book = buildBook(entries);
+  // One index per colour, and every candidate we look at is that colour's —
+  // pickGrowSpots is ordered, so mixing colours would mean rebuilding the index
+  // mid-search for no gain. Candidates of the other colour simply wait a day.
+  const gameIndex = growGameIndex(games, colour);
+  const scoutIndex = growScoutIndex(
+    opponents.map(o => ({ name: o.name, games: o.games })), colour,
+  );
+  const sources = (spot: GrowSpot): GrowSources => ({
+    games: gameIndex,
+    scouts: scoutIndex,
+    book: bookReplies(book, spot),
+  });
+
+  const target = firstGrowTarget(spots.filter(s => s.line.colour === colour), sources);
+  if (!target) { growNothingToDo(done); return; }
+
+  const line = target.spot.line;
+  const parsed = parseLineId(line.id);
+  if (!parsed) { growNothingToDo(done); return; }
+
+  growDone = done;
+  growEndNodeId = parsed.endNodeId;
+  // Before showView: the tab strip is built from whether a target is set.
+  growPanel?.setTarget(target);
+
+  stopPlayback();
+  builderMode = 'builder';
+  manualTitle = line.name;
+  detectedName = '';
+  builderDesc = '';
+  renderBuilderDesc();
+  pendingBuilderSlide = 'grow';
+  showView('builder');
+  await enterBuilderBook(line.colour, () => handleMoveClick(parsed.endNodeId), parsed.repertoireId);
+}
+
+/** SAN → how many named openings continue that way, at this spot. */
+function bookReplies(book: ReturnType<typeof buildBook>, spot: GrowSpot): Map<string, number> {
+  const node = bookNodeAt(book, spot.sans);
+  const out = new Map<string, number>();
+  if (!node) return out;
+  for (const [san, child] of node.children) out.set(san, child.count);
+  return out;
+}
+
+// Availability said there was a mastered line; the sources say they know
+// nothing about where it ends. Rare, and not the user's fault, so the row
+// clears rather than sitting there un-clearable for the rest of the day.
+function growNothingToDo(done: (o: TaskOutcome) => void): void {
+  showToast('Nothing new to prepare at the end of your lines today');
+  done({ right: 0, wrong: 0 });
+  growDone = null;
+}
+
+/** The rest log as the lookup every picker in the app takes. */
+function growAt(): (lineId: string) => number {
+  const map = growDueMap();
+  return (id: string): number => map[id] ?? 0;
+}
+
+/**
+ * A commit landed while the exercise was running — that IS the exercise.
+ *
+ * Not checked against the grown branch: standing in the grow builder and adding
+ * moves to the book is the job, wherever in the book they went. A stricter test
+ * would fail the honest case where someone answers the reply and then fixes a
+ * neighbouring line while they're in there.
+ */
+function finishGrowSession(moves: number): void {
+  if (moves <= 0 || !growPanel?.target()) return;
+  const line = growPanel.target()!.spot.line;
+  // A grown line usually drops out of the pool on its own — its new moves have
+  // never been drilled, so it stops being "mastered" until it is learned again.
+  // The rest covers the case where it doesn't: a branch grown into material
+  // already in training can come back mastered within days.
+  restGrowLine(line.id, GROW_GROWN_DAYS);
+  endGrowSession(true);
+  growDone?.({ right: 0, wrong: 0 });
+  growDone = null;
+  liveDaily?.repaint();
+}
+
+/** "Skip for today": stand this line aside, clear the row, go back to Train. */
+function skipGrowLine(): void {
+  const target = growPanel?.target();
+  if (!target) return;
+  restGrowLine(target.spot.line.id, GROW_SKIP_DAYS);
+  endGrowSession(false);
+  growDone?.({ right: 0, wrong: 0 });
+  growDone = null;
+  liveDaily?.repaint();
+  showToast('Skipped — a different line tomorrow');
+  showView('train');
+}
+
+/**
+ * Put the builder's tab strip back the way it was.
+ *
+ * `land` moves the carousel to the first remaining tab, which is only right
+ * when the user is still LOOKING at the builder — the tab they were on has just
+ * been removed from under them. Leaving the builder passes false: the strip is
+ * rebuilt for the next visit, and nothing should be scrolled behind their back.
+ */
+function endGrowSession(land: boolean): void {
+  growEndNodeId = null;
+  growPanel?.setTarget(null);
+  applyBuilderSlideOrder();
+  if (!land) return;
+  const track = document.getElementById('builder-carousel');
+  if (track) track.scrollLeft = 0;
+  activeSlide = -1;
+  onActiveSlide(0);
 }
 
 function onOpenLine(line: Line, atFen?: string): void {
@@ -5854,6 +6058,17 @@ maybeShowGate(() => requestAnimationFrame(() => {
     // open — the analyser is looking at somebody's game, not at your book.
     canRemoveLines: () => inBook(),
     onRemoveContinuation: removeContinuationFromHere,
+  });
+
+  // The Grow line slide — the daily challenge's brief, beside the tools that
+  // answer it. Only ever populated by startGrowLine below.
+  growPanel = createGrowPanel({
+    el: document.getElementById('slide-grow')!,
+    getUcis: currentPathUcis,
+    onPlay: (uci) => playUci(uci),
+    onBackToEnd: () => { if (growEndNodeId) handleMoveClick(growEndNodeId); },
+    onSkip: skipGrowLine,
+    hasDraft: () => inBook() && hasPending(),
   });
 
   // The Explore slide — three curated moves for the position on the board.

@@ -17,9 +17,20 @@
 
 import { showDialog } from './dialog';
 
-export type BuilderInfoId = 'explore' | 'mylines' | 'line' | 'game' | 'engine';
+export type BuilderInfoId = 'grow' | 'explore' | 'mylines' | 'line' | 'game' | 'engine';
 
 const COPY: Record<BuilderInfoId, { title: string; body: string }> = {
+  grow: {
+    title: 'Grow line',
+    body:
+      'Today’s line to grow. You’ve been round this one enough times to know it, '
+      + 'so the useful next step is depth rather than another run — the board is '
+      + 'standing at the end of it, where your prep currently stops.\n\n'
+      + 'The moves listed are what your opponent could play from here, and why '
+      + 'each one is worth an answer. Tap one, play your reply, and add it. One '
+      + 'move is the whole job; every other tab is still here if you want to look '
+      + 'further before you decide.',
+  },
   explore: {
     title: 'Explore',
     body:

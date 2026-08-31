@@ -322,7 +322,7 @@ export function runMistakeScanSelfTest(): TestResult[] {
   // ── nextDailyTask (the "Next challenge →" chain) ────────────────────────────
   const day = (over: Partial<Record<DailyTaskId, boolean>>) => ({
     lines: false, positions: false, puzzles: false, endgames: false,
-    mistakes: false, detective: false, whichMove: false,
+    mistakes: false, detective: false, whichMove: false, growLines: false,
     ...over,
   });
   const ALL: DailyTaskId[] = ['lines', 'positions', 'puzzles', 'endgames', 'mistakes'];

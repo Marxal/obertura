@@ -2603,6 +2603,160 @@ html[data-coords="off"] .cg-wrap coords {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
+/* ── Grow line (the daily challenge's extra builder tab) ─────────────────────
+   Quiet by design. It is a BRIEF sitting beside five working panels, so it
+   states the job, shows the line's record, and offers three moves — and then
+   gets out of the way of the board, which is where the work happens. */
+.grow-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.5rem 0.25rem 0.75rem;
+}
+
+.grow-head { display: flex; flex-direction: column; gap: 0.25rem; }
+.grow-head-title {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--success);
+}
+.grow-head-icon { flex-shrink: 0; }
+.grow-head-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+/* The line's record, stated rather than implied: it is the whole reason this
+   line is the one being offered ("you know this one"), and the figures are the
+   same ones My Lines shows (line-status.ts). */
+.grow-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.grow-chip {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+  color: color-mix(in srgb, var(--success) 75%, var(--text-muted));
+  font-size: 0.66rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* The line itself, wrapped — so "the end of the line" is somewhere you can see
+   rather than somewhere you're told about. */
+.grow-movebox {
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  background: var(--bg-card);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+  word-break: break-word;
+}
+
+.grow-say {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+/* One row per move, full width: the REASON is the exercise, and a reason has to
+   be readable — which a third of a phone width is not. (Explore's three-across
+   tiles are a different job: a quick pick between moves you are already
+   comparing on the board.) */
+.grow-picks { display: flex; flex-direction: column; gap: 0.4rem; }
+
+.grow-pick { --grow-tint: var(--text-muted); }
+.grow-pick--games { --grow-tint: var(--accent); }
+.grow-pick--library { --grow-tint: var(--success); }
+.grow-pick--scout { --grow-tint: var(--warn); }
+
+.grow-pick {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: 1.5px solid color-mix(in srgb, var(--grow-tint) 38%, var(--border-card));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--grow-tint) 7%, var(--bg-card));
+  box-shadow: var(--shadow-card);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.grow-pick:active {
+  transform: translateY(1px);
+  box-shadow: none;
+  background: color-mix(in srgb, var(--grow-tint) 18%, var(--bg-card));
+}
+@media (hover: hover) {
+  .grow-pick:hover {
+    box-shadow: var(--shadow-card-hover);
+    border-color: color-mix(in srgb, var(--grow-tint) 58%, var(--border-card));
+  }
+}
+
+.grow-pick-move {
+  flex-shrink: 0;
+  min-width: 3.2rem;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.grow-pick-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+.grow-pick-src {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--grow-tint) 80%, var(--text-muted));
+}
+.grow-pick-src svg { flex-shrink: 0; }
+.grow-pick-why {
+  font-size: 0.76rem;
+  line-height: 1.3;
+  color: var(--text-muted);
+}
+.grow-pick-add {
+  display: flex;
+  flex-shrink: 0;
+  color: color-mix(in srgb, var(--grow-tint) 70%, transparent);
+}
+
+.grow-back { align-self: flex-start; }
+
+/* Skipping is a legitimate answer, not a failure, so the control that does it
+   is the quietest thing on the panel. */
+.grow-skip {
+  align-self: center;
+  margin-top: 0.15rem;
+  padding: 0.3rem 0.5rem;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
 /* The question, at the very top: the three tiles under it are its answers, and
    the cards under those are the argument. It used to sit BETWEEN the tiles and
    the cards, with a rule above it — which made it read as a caption for the
