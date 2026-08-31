@@ -126,6 +126,21 @@ export function setShowLineMiniatures(on: boolean): void {
   localStorage.setItem(SHOW_MINIATURES_KEY, on ? 'on' : 'off');
 }
 
+// The solve clock on rated puzzle runs — the timer and the speed-bonus bar above
+// the board. ON by default. This is a DISPLAY preference and nothing more: the
+// bonus is earned exactly the same way with the clock hidden, because a bonus
+// you can turn off is not a bonus, it is a difficulty setting. Some people solve
+// worse with a clock in front of them and should still be paid for being quick.
+const PUZZLE_CLOCK_KEY = 'obertura.puzzleClock';
+
+export function getShowPuzzleClock(): boolean {
+  return localStorage.getItem(PUZZLE_CLOCK_KEY) !== 'off';
+}
+
+export function setShowPuzzleClock(on: boolean): void {
+  localStorage.setItem(PUZZLE_CLOCK_KEY, on ? 'on' : 'off');
+}
+
 // Whether the engine draws arrows on the board for its top 3 suggested moves.
 // ON by default; the icon toggle next to the source badge in the docked eval bar
 // can switch it off if the arrows get in the way.

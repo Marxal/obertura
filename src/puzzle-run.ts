@@ -36,6 +36,7 @@ import {
   getPuzzleRating, rateSolve, commitRating, recordCleanResult,
   parSolveMs, speedFactor, type RatingScope,
 } from './puzzle-rating';
+import { getShowPuzzleClock, setShowPuzzleClock } from './prefs';
 import { countUp } from './count-up';
 
 // One puzzle plus the opening it was drawn for (so stats and retry know its
@@ -173,6 +174,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   let thinkMs = 0;            // banked thinking time on the current puzzle
   let thinkFrom = 0;          // epoch ms the board was handed over (0 = not yours)
   let parMs = 0;              // what this puzzle is "supposed" to take
+  let earning = false;        // is a bonus still on the table for this puzzle?
   let speedTick: ReturnType<typeof setInterval> | undefined;
 
   // ── Overlay scaffold (mirrors drill.ts) ──────────────────────────────────────
@@ -246,32 +248,71 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   // No mode title here: the run header says which exercise this is (see
   // run-header.ts), and saying it twice cost the block a line it needs for the
   // rating and the themes.
-  // The solve clock and the bonus still on the table. It sits ABOVE the rating
-  // line, which is empty until the puzzle is over — so while you are solving,
-  // this is the only thing in the block, and when you finish it hands its space
-  // straight to the result.
-  const speedEl = document.createElement('div');
-  const speedClockEl = document.createElement('span');
-  const speedFillEl = document.createElement('span');
-  const speedLabelEl = document.createElement('span');
+  // ── The HUD (rated runs) ───────────────────────────────────────────────────
+  //
+  // One block that means the same thing for the whole puzzle: YOUR RATING, and
+  // the clock under it. Before, the rating only appeared at the end (as the
+  // PUZZLE's rating) and the clock was a stray row above an empty space — two
+  // strangers sharing a gap. Now the number you care about is on screen the
+  // whole time and the reveal MOVES it, which is the only presentation of a
+  // rating change anybody actually reads.
+  //
+  // The clock is a time and a bar, and nothing else: a bar that empties as the
+  // bonus does needs no label, and "Speed bonus" written beside it was a caption
+  // for something already obvious.
+  const hudEl = document.createElement('div');
+  const hudRatingEl = document.createElement('span');
+  const hudClockEl = document.createElement('div');
+  const hudTimeEl = document.createElement('span');
+  const hudFillEl = document.createElement('span');
+  const hudEyeEl = document.createElement('button');
   if (timing) {
-    speedEl.className = 'pz-speed';
-    speedEl.hidden = true;
-    speedClockEl.className = 'pz-speed-clock';
-    speedEl.appendChild(speedClockEl);
+    hudEl.className = 'pz-hud';
+
+    const ratingRow = document.createElement('div');
+    ratingRow.className = 'pz-hud-top';
+    const ratingLabel = document.createElement('span');
+    ratingLabel.className = 'pz-hud-label';
+    ratingLabel.textContent = 'Your rating';
+    ratingRow.appendChild(ratingLabel);
+    hudRatingEl.className = 'pz-hud-rating';
+    hudRatingEl.textContent = String(ratingBefore);
+    ratingRow.appendChild(hudRatingEl);
+    hudEl.appendChild(ratingRow);
+
+    hudClockEl.className = 'pz-hud-clock';
+    hudTimeEl.className = 'pz-hud-time';
+    hudClockEl.appendChild(hudTimeEl);
     const track = document.createElement('span');
-    track.className = 'pz-speed-track';
-    speedFillEl.className = 'pz-speed-fill';
-    track.appendChild(speedFillEl);
-    speedEl.appendChild(track);
-    speedLabelEl.className = 'pz-speed-label';
-    speedEl.appendChild(speedLabelEl);
-    topEl.appendChild(speedEl);
+    track.className = 'pz-hud-track';
+    hudFillEl.className = 'pz-hud-fill';
+    track.appendChild(hudFillEl);
+    hudClockEl.appendChild(track);
+    hudEl.appendChild(hudClockEl);
+
+    // Discreet, and a DISPLAY switch only — see getShowPuzzleClock. Some people
+    // solve worse with a clock in front of them; they should still be paid for
+    // being quick, so this hides the readout and touches nothing else.
+    hudEyeEl.type = 'button';
+    hudEyeEl.className = 'pz-hud-eye';
+    hudEyeEl.addEventListener('click', () => {
+      setShowPuzzleClock(!getShowPuzzleClock());
+      syncClockVisibility();
+    });
+    hudEl.appendChild(hudEyeEl);
+
+    topEl.appendChild(hudEl);
   }
 
   const ratingEl = document.createElement('div');
   ratingEl.className = 'pt-line-name';
   topEl.appendChild(ratingEl);
+
+  // The end-of-puzzle award: what this one was worth, and where it came from.
+  const awardEl = document.createElement('div');
+  awardEl.className = 'pz-award';
+  awardEl.hidden = true;
+  topEl.appendChild(awardEl);
   // The puzzle's themes ("explanation") — lives up here, under the rating, so a
   // long theme list can never push the Hint/Next buttons below the fold. This
   // block is content-independent in height (see .pt-overlay--puzzle .pt-top in
@@ -419,9 +460,6 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     if (!timing || thinkFrom) return;
     thinkFrom = Date.now();
     renderSpeed();
-    // No ticker behind a hidden bar — a repeat from the review queue never
-    // scores, so it never shows one.
-    if (speedEl.hidden) return;
     speedTick = setInterval(() => { if (!isCleaned) renderSpeed(); }, 200);
   }
   function pauseSolveClock(): void {
@@ -437,25 +475,157 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   // stops being a countdown — nobody needs a clock telling them they are late.
   /**
    * The bonus is gone — a wrong move or a hint means this puzzle scores as a
-   * loss, and the clock stops mattering. The row goes rather than freezing:
-   * a bar that has stopped moving reads as a bug, and one that keeps draining
-   * would be counting down to a bonus that is already spent.
+   * loss, and the clock stops mattering. The BAR goes rather than freezing (a bar
+   * that has stopped moving reads as a bug, and one that keeps draining is
+   * counting down to a bonus already spent); the time stays, because how long a
+   * puzzle took is still worth knowing.
    */
   function dropSpeedBonus(): void {
     if (!timing) return;
     pauseSolveClock();
-    speedEl.hidden = true;
+    earning = false;
+    renderSpeed();
+  }
+
+  // The eye. Hidden, the readout goes and the button stays as the way back —
+  // never both gone, or there'd be no way to bring it back inside a run.
+  function syncClockVisibility(): void {
+    if (!timing) return;
+    const on = getShowPuzzleClock();
+    hudEl.classList.toggle('pz-hud--clockless', !on);
+    hudEyeEl.replaceChildren(on ? Icons.eye(14) : Icons.eyeOff(14));
+    const label = on ? 'Hide the clock' : 'Show the clock';
+    hudEyeEl.setAttribute('aria-label', label);
+    hudEyeEl.title = `${label} — the speed bonus is earned either way`;
+  }
+
+  // ── The award ──────────────────────────────────────────────────────────────
+  //
+  // WHY IT IS AN ANIMATION AND NOT A LINE OF TEXT. "+6 points ⚡+6 fast" sat
+  // there as two facts side by side, and nobody could tell whether the bolt was
+  // part of the six or on top of it. Addition is a thing that HAPPENS, so it is
+  // staged: the solve lands, the bolt arrives beside it, and only then do the
+  // two resolve into a total that counts up from the first number to the sum —
+  // and your rating, which has been on screen the whole puzzle, ticks with it.
+  //
+  // Three beats via one class and CSS transition-delays, plus a single timer for
+  // the two counting numbers. Reduced motion gets the final state at once.
+  const AWARD_BEAT_MS = 240;
+  let awardTimer: ReturnType<typeof setTimeout> | undefined;
+
+  function awardChip(text: string, kind: 'base' | 'bonus'): HTMLElement {
+    const el = document.createElement('span');
+    el.className = `pz-award-part pz-award-part--${kind}`;
+    if (kind === 'bonus') el.appendChild(Icons.zap(12));
+    el.appendChild(document.createTextNode(text));
+    return el;
+  }
+
+  function renderAward(before: number, points: number, bonus: number): void {
+    if (awardTimer) { clearTimeout(awardTimer); awardTimer = undefined; }
+    awardEl.replaceChildren();
+    awardEl.hidden = false;
+    awardEl.classList.remove('pz-award--in');
+    const up = points >= 0;
+    const after = before + points;
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+
+    const total = document.createElement('div');
+    total.className = 'pz-award-total ' + (up ? 'pz-award-total--up' : 'pz-award-total--down');
+    const num = document.createElement('span');
+    num.className = 'pz-award-num';
+    const unit = document.createElement('span');
+    unit.className = 'pz-award-unit';
+    unit.textContent = 'points';
+
+    const base = points - bonus;
+    const sign = (n: number): string => (n >= 0 ? '+' : '−') + Math.abs(n);
+
+    // No bonus (a miss, or a solve the clock didn't pay for): there is no sum to
+    // show, so the total is the whole story and lands on its own.
+    if (bonus <= 0) {
+      num.textContent = sign(points);
+      total.append(num, unit);
+      awardEl.appendChild(total);
+      settleRating(before, after, reduce);
+      show(reduce);
+      return;
+    }
+
+    const sum = document.createElement('div');
+    sum.className = 'pz-award-sum';
+    sum.appendChild(awardChip(`${sign(base)} solved`, 'base'));
+    const plus = document.createElement('span');
+    plus.className = 'pz-award-plus';
+    plus.textContent = '+';
+    sum.appendChild(plus);
+    sum.appendChild(awardChip(`${bonus} fast`, 'bonus'));
+    awardEl.append(sum, total);
+
+    num.textContent = sign(base);
+    total.append(num, unit);
+    show(reduce);
+    if (reduce) {
+      num.textContent = sign(points);
+      settleRating(before, after, true);
+      return;
+    }
+    // Beat three: the parts add up. The total counts on from the base rather than
+    // from zero — the point being made is "and this much MORE".
+    awardTimer = setTimeout(() => {
+      if (isCleaned) return;
+      awardEl.classList.add('pz-award--summed');
+      countSigned(num, base, points, 420);
+      settleRating(before, after, false);
+    }, AWARD_BEAT_MS * 2);
+  }
+
+  /**
+   * countUp for a SIGNED total. count-up.ts writes a bare number, and "6"
+   * appearing where "+6" was is a different claim — so this one keeps the sign
+   * on every frame.
+   */
+  function countSigned(el: HTMLElement, from: number, to: number, ms: number): void {
+    const write = (n: number): void => {
+      el.textContent = (n >= 0 ? '+' : '−') + Math.abs(n);
+    };
+    const started = performance.now();
+    const step = (now: number): void => {
+      if (isCleaned) return;
+      const t = Math.min(1, (now - started) / ms);
+      const eased = 1 - Math.pow(1 - t, 3);
+      write(Math.round(from + (to - from) * eased));
+      if (t < 1) requestAnimationFrame(step);
+      else write(to);
+    };
+    requestAnimationFrame(step);
+  }
+
+  function show(reduce: boolean): void {
+    if (reduce) { awardEl.classList.add('pz-award--in', 'pz-award--summed'); return; }
+    requestAnimationFrame(() => { if (!isCleaned) awardEl.classList.add('pz-award--in'); });
+  }
+
+  /** Your rating, moving — the one presentation of a rating change anybody reads. */
+  function settleRating(before: number, after: number, reduce: boolean): void {
+    if (!timing) return;
+    hudRatingEl.classList.toggle('pz-hud-rating--up', after > before);
+    hudRatingEl.classList.toggle('pz-hud-rating--down', after < before);
+    if (reduce || after === before) { hudRatingEl.textContent = String(after); return; }
+    countUp(hudRatingEl, after, { from: before, durationMs: 420 });
   }
 
   function renderSpeed(): void {
-    if (!timing || speedEl.hidden) return;
+    if (!timing) return;
     const ms = elapsedMs();
     const secs = Math.floor(ms / 1000);
-    speedClockEl.textContent = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
-    const speed = speedFactor(ms, parMs);
-    speedFillEl.style.width = `${Math.round(speed * 100)}%`;
-    speedEl.classList.toggle('pz-speed--spent', speed <= 0);
-    speedLabelEl.textContent = speed > 0 ? 'Speed bonus' : 'No speed bonus';
+    hudTimeEl.textContent = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+    // No bar on a puzzle that cannot pay — a repeat from the review queue, or one
+    // already spoiled by a wrong move. The clock itself stays, so it never
+    // flickers in and out of a run.
+    const speed = earning ? speedFactor(ms, parMs) : 0;
+    hudFillEl.style.width = `${Math.round(speed * 100)}%`;
+    hudClockEl.classList.toggle('pz-hud-clock--spent', speed <= 0);
   }
   // Apply a UCI move to both chess.js and the board, animated.
   function playMove(uci: string): void {
@@ -538,8 +708,19 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     thinkMs = 0;
     thinkFrom = 0;
     parMs = parSolveMs(draw.puzzle.rating, Math.ceil(setup.solution.length / 2));
+    // A repeat from the review queue never moves the rating, so there is nothing
+    // to earn on it — the clock runs, the bar doesn't.
+    earning = !draw.repeat;
     if (timing) {
-      speedEl.hidden = !!draw.repeat;
+      hudEl.hidden = false;
+      hudEl.classList.remove('pz-hud--done');
+      hudRatingEl.classList.remove('pz-hud-rating--up', 'pz-hud-rating--down');
+      if (awardTimer) { clearTimeout(awardTimer); awardTimer = undefined; }
+      awardEl.hidden = true;
+      awardEl.classList.remove('pz-award--in', 'pz-award--summed');
+      awardEl.replaceChildren();
+      hudRatingEl.textContent = String(liveRating);
+      syncClockVisibility();
       renderSpeed();
     }
     solverColour = setup.solverColour;
@@ -791,8 +972,6 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
       if (streak.improved) newBestStreak = streak.best;
     }
     entries.push({ draw: cur, clean, points, bonus: speedBonus || undefined, alt: altSolve });
-    // The bar has done its job — the result below says what it earned.
-    if (timing) speedEl.hidden = true;
 
     if (timed) {
       if (!clean) { mistakes++; renderMistakes(); }
@@ -818,25 +997,12 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
     // also show how many points the solve won or lost (green up / red down);
     // practice runs just show the puzzle's rating.
     if (rated) {
+      // The PUZZLE's rating, quietly — the number that matters is yours, and it
+      // is in the HUD above, about to move.
       ratingEl.className = 'pt-line-name pt-rating--solved';
-      ratingEl.textContent = `Puzzle rating: ${cur.puzzle.rating}`;
-      if (points !== undefined) {
-        const sign = points >= 0 ? '+' : '−';
-        const pts = document.createElement('span');
-        pts.className = 'pt-rating-delta ' + (points >= 0 ? 'pt-rating-delta--up' : 'pt-rating-delta--down');
-        pts.textContent = ` ${sign}${Math.abs(points)} points`;
-        ratingEl.appendChild(pts);
-      }
-      // Where the points came from, when part of them came from the clock. On an
-      // easy puzzle this is the WHOLE gain, and saying so is the point of the
-      // feature: solving it was never in doubt, solving it fast is what counted.
-      if (speedBonus > 0) {
-        const chip = document.createElement('span');
-        chip.className = 'pz-speed-earned';
-        chip.appendChild(Icons.zap(12));
-        chip.appendChild(document.createTextNode(`+${speedBonus} fast`));
-        ratingEl.appendChild(chip);
-      }
+      ratingEl.textContent = `Puzzle ${cur.puzzle.rating}`;
+      if (timing) hudEl.classList.add('pz-hud--done');
+      if (points !== undefined) renderAward(liveRating - points, points, speedBonus);
     } else {
       ratingEl.className = 'pt-line-name pt-rating--solved';
       ratingEl.textContent = `Rating ${cur.puzzle.rating}`;
@@ -1090,6 +1256,7 @@ export function startPuzzleSession(opts: PuzzleSessionOptions): void {
   function cleanup(): void {
     isCleaned = true;
     if (autoTimer) clearTimeout(autoTimer);
+    if (awardTimer) { clearTimeout(awardTimer); awardTimer = undefined; }
     if (speedTick) { clearInterval(speedTick); speedTick = undefined; }
     stopTimer();
     ro.disconnect();

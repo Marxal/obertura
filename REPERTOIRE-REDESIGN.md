@@ -125,6 +125,18 @@ of §7, and the `detachAsNewLine` / `lastSavedLinePath` / duplicate-fingerprint
 machinery in `main.ts`. **This redesign removes more code from `main.ts` than it
 adds**, and concentrates what's left in one self-testable module.
 
+> **⚠️ This paragraph is a plan that was not carried out.** Checked against the
+> source: §4 (the save button transform, `refreshSaveButtonState` and the
+> "Already saved — open it" label), §5 (the "Add tag to …" offer, via
+> `missingTags` in `save-index.ts`), §6 (the extension toasts, on
+> `extension-longer` / `extension-shorter`) and §7 (`inheritReviews`, called from
+> `persistCurrentLine`) are all still present and live, as are `detachAsNewLine`
+> and `lastSavedLinePath` in `main.ts`. The redesign shipped alongside them
+> rather than replacing them. Treat the deletions above as an option that is
+> still open, not a description of the code — and if you do take it, the
+> comments in `main.ts` and `save-index.ts` that cite these sections come with
+> it.
+
 ---
 
 ## 5. The builder — the heart of it

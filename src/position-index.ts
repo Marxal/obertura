@@ -381,15 +381,21 @@ export async function positionIndex(): Promise<PositionIndex> {
 }
 
 /**
- * Freeze the index for the duration of a drill. A drill holds references into
- * the index and writes review records back through them; rebuilding underneath
- * it would swap those nodes out mid-session. Writes still mark the index stale,
- * so the first read after the last hold is released rebuilds.
- *
- * Returns the release function — call it once, when the drill ends:
+ * Freeze the index for the duration of a drill, returning the release function:
  *
  *   const release = holdPositionIndex();
  *   try { ...drill... } finally { release(); }
+ *
+ * NOTHING CALLS THIS. It was built for a drill that held live index nodes and
+ * wrote review records back through them, where rebuilding underneath would
+ * swap those nodes out mid-session. TRANSPOSITIONS.md §8 abandoned that design:
+ * write-through re-reads each line from storage, so no drill needs a hold, and
+ * a stale entry is skipped rather than overwritten.
+ *
+ * Kept because it is correct and costs nothing while unused. Read §8 before
+ * reaching for it — the reason it isn't needed is probably still the reason.
+ * Writes during a hold still mark the index stale, so the first read after the
+ * last hold is released rebuilds.
  */
 export function holdPositionIndex(): () => void {
   holds++;
@@ -406,7 +412,7 @@ export function positionIndexHeld(): boolean {
   return holds > 0;
 }
 
-/** Drop the cached index — for tests and for the "erase everything" path. */
+/** Drop the cached index. Currently uncalled — see the note on holdPositionIndex. */
 export function resetPositionIndex(): void {
   cached = null;
   stale = true;

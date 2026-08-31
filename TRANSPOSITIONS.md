@@ -13,14 +13,22 @@ path in `main.ts`; training's half — §8 and §9, wired through
 `src/train-index.ts`, `src/drill.ts` and `src/train-screen.ts`; and §10 as it
 applies to statistics, wired through `groupUserMoves` in `src/stats.ts` (feeding
 `moveMemory`, `needsWorkMoves` and `memoryByOpening`) and read unchanged by
-`src/line-info.ts` and `src/forgotten-section.ts`. The tree view in My Lines —
-§11 — is the one consumer that does NOT read the index: it re-derives the same
-position key over the saved trees, for the reason given there. Coverage gaps
-(`src/coverage-gaps.ts`) is the second: it needs the OPPONENT-to-move positions
-with the replies already prepared at each, which is a shape the index doesn't
-hold, and it must stay pure (no storage) to be self-tested. It uses the same
-`positionKey`, so two lines that transpose still meet on one position and a
-reply answered in either counts as answered.
+`src/line-info.ts` and `src/forgotten-section.ts`. `src/builder-panels.ts` reads
+the index too, for the builder's own list slides.
+
+**Consumers that use the position KEY but not the index.** There are four, each
+for the same reason: they need a shape the index doesn't hold, and most must stay
+pure (no storage) so a self-test can drive them.
+
+| | why not the index |
+| --- | --- |
+| §11's tree view (`map-merge.ts`) | needs a graph of positions with parent/child edges, rebuildable at a truncated depth |
+| Coverage gaps (`coverage-gaps.ts`) | needs the OPPONENT-to-move positions with the replies already prepared at each |
+| Grow your lines (`grow-line.ts`) | keys your own games and scouted replies by position |
+| Transposition joins (`repertoire-join.ts`) | the opt-in join — see `REPERTOIRE-REDESIGN.md` §9.5 |
+
+All four call the same `positionKey`/`epdKey`, so two lines that transpose still
+meet on one position and a reply answered in either counts as answered.
 
 ---
 
@@ -253,6 +261,15 @@ move; the weakest copy is a bookkeeping artefact, not evidence.
 
 ## Transpositions
 
+> **This section describes a report, not the shipped feature.**
+> `transpositionsFor()` is exercised by `position-index.selftest.ts` and called
+> from nowhere else in `src/`. What shipped is the opt-in **join** in
+> `src/repertoire-join.ts` (`REPERTOIRE-REDESIGN.md` §9.5), which re-derives the
+> same position key over the saved trees rather than asking the index. Keep the
+> two straight: this is a *report* about where lines meet; the join is an *edit*
+> that makes one line continue as another. The rules below still hold for the
+> report, and are kept because the join was designed against them.
+
 `transpositionsFor(line)` reports positions the line shares with another line
 that gets there **by a different move order**. A shared opening prefix is not a
 transposition — the two lines simply have not parted yet — so a match only counts
@@ -314,18 +331,26 @@ restore, a starter pack, an account sync — therefore costs one rebuild rather
 than one per line, and a session that never asks a position question never pays
 for one.
 
-**Never rebuild during a drill.** A drill holds references into the index and
-writes review records back through them; swapping those nodes out mid-session
-would lose the writes. `holdPositionIndex()` freezes the snapshot and returns a
-release function:
+**The freeze exists, and nothing uses it.** `holdPositionIndex()` freezes the
+snapshot and returns a release function; `positionIndexHeld()` and
+`resetPositionIndex()` sit beside it. All three were built for a drill that held
+live index nodes and wrote review records back through them — swapping those
+nodes out mid-session would have lost the writes:
 
 ```ts
 const release = holdPositionIndex();
 try { /* ...drill... */ } finally { release(); }
 ```
 
-Writes during a hold still mark the index stale, so the first read after the last
-hold is released rebuilds.
+**That design was abandoned in §8**, which re-reads each line from storage
+instead of writing through the index's live nodes, precisely so a drill needs no
+hold. As of this writing **none of the three has a caller anywhere in `src/`**,
+selftests included. They are kept because they are correct and cost nothing, but
+do not reach for one on the assumption that drills need it: read §8 first, and if
+you still want a hold, say why there rather than re-deriving it here.
+
+Writes during a hold would still mark the index stale, so the first read after
+the last hold is released rebuilds.
 
 ## Measured cost
 
