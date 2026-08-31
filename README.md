@@ -6,8 +6,9 @@ Bito Chess is a phone-first chess opening trainer, installable as a PWA. Build a
 repertoire that's genuinely yours, drill it, and let spaced repetition bring your
 mistakes back until they stick.
 
-- 🔗 **Open the app:** https://marxal.github.io/obertura
-- 🌱 **Landing page:** https://marxal.github.io/obertura/docs/ *(served from `/docs` via the Pages build — see [Deploying](#deploying))*
+- 🔗 **Open the app:** https://bitochess.com/app/
+- 🌱 **Landing page:** https://bitochess.com
+- 🧪 **Internal test mirror:** https://marxal.github.io/obertura *(the GitHub Pages build; its landing page is at `/obertura/docs/` — see [Deploying](#deploying))*
 
 ## What it does
 

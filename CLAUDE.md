@@ -47,14 +47,15 @@ understand concepts, not syntax. I direct; you build; I test on my phone.
 - Phase 4+: engine, explanations, Chess.com import, polish. All later.
 
 ## Where we are now
-Latest rollback tag is `v0.5`. The project uses a v0.x beta scheme (old v1.x
-tags left intact; v1.0→v0.1 … v1.3→v0.3 conceptually). `v0.5` was cut to close
-a gap: everything from the "v0.5" ROADMAP.md round through the Stripe
-migration (~30 rounds) shipped on `main` without anyone cutting a tag or
-bumping `package.json`, so `v0.4` had been stale as a restore point for a long
-time. Going forward, cut a new tag (and bump `package.json`) before starting
-each risky round — see "Declaring a version" below. `ROADMAP.md` records every
-round phase by phase. Confirm scope before starting new work.
+`ROADMAP.md` is the record — read the last few rounds there rather than
+restating them here. The project uses a v0.x beta scheme (old v1.x tags left
+intact; v1.0→v0.1 … v1.3→v0.3 conceptually).
+
+Tags drift out of date easily: `v0.5` had to be cut to close a ~30-round gap
+where everything shipped on `main` without a tag or a `package.json` bump, so
+`v0.4` sat stale as a restore point for a long time. Don't let that happen
+again — cut a tag and bump the version *before* starting each risky round, per
+"Declaring a version" below. Confirm scope before starting new work.
 
 ### Declaring a version (before a risky round of changes)
 1. Make sure `main` is clean: `npm run selftest` and `npm run build` both pass.
@@ -65,6 +66,29 @@ round phase by phase. Confirm scope before starting new work.
    tag into your working copy (review with `git status`/`git diff` before
    committing), or `git reset --hard v0.6` throws away everything after it —
    ask Claude Code to do this rather than typing raw git.
+
+## The documentation
+Keep this map in mind before reading anything large.
+
+- **`CLAUDE.md`** (this file) — behaviour rules, stack, hard constraints. The
+  only doc loaded every session, so keep it short.
+- **`APP-CONTEXT.md`** — a ~340-line orientation **map**: where every module
+  lives and which spec to read. It is deliberately not a spec; don't grow it
+  back into one.
+- **`ROADMAP.md`** — recent rounds in full, plus a one-line index of everything
+  older. Add each new round at the bottom.
+- **Specs, cited by section number from ~60 places in source — keep them at the
+  repo root and don't renumber their sections:** `REPERTOIRE-REDESIGN.md` (the
+  data model), `TRANSPOSITIONS.md` (saving, drilling, duplicates),
+  `SUPABASE-SYNC.md` (accounts, sync, SQL), `STRIPE-SETUP.md` (the buy flow).
+- **Owner notes:** `BETA-ACCESS.md` (rotating access codes), `PUBLISHING.md`
+  (store plans not yet built), `docs/LANDING-COPY.md` (landing copy's source of
+  truth).
+- **`archive/`** — history. Nothing in it describes today's code. **Don't read
+  it unless explicitly asked**; it will confidently tell you stale things.
+
+When a doc turns out to be wrong, fix the doc in the same pass as the code.
+A confidently wrong document costs more than a missing one.
 
 ## Public documents
 `docs/` holds four hand-written static pages, copied wholesale by both deploy

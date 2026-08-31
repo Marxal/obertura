@@ -1,9 +1,20 @@
 # Publishing Bito Chess — options, costs and the recommended path
 
+> **Status:** Option 4 (**sell from the web, no stores**) is the one that
+> shipped. The app sells the unlock through Stripe Checkout — the working setup
+> is documented in **`STRIPE-SETUP.md`**, which is the file to read for anything
+> about the live buy flow.
+>
+> Everything else here is **still a plan, not a record**: the store options
+> below (Play, Microsoft, Apple) have not been started, and the sequence at the
+> foot is unfinished. Steps 1 and 2 of that sequence are done — accounts and the
+> legal pages are live. Keep this document for the store decision when it comes.
+
 The goal, in Marçal's words: sell the app with a **one-time payment**, without
 being tied to a server. This document is the full decision guide: what's
 possible, what each route costs, where the traps are, and the order I'd do
-things in. Nothing here is started until you say go.
+things in. Nothing here is started until you say go — except Option 4, which
+since shipped (see the status note above).
 
 ## Where we stand
 
