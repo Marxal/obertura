@@ -238,10 +238,32 @@ one click and makes the address real before anything is attached to it.
 - **Redirect URLs**: add every origin the app is served from, or the links in
   the emails will bounce with "requested path is invalid":
   - `https://bitochess.com/app/`
-  - `http://localhost:5173/` (whatever `npm run dev` prints)
+  - `http://localhost:5173/**` (wildcard path — `npm run dev` doesn't always
+    pick 5173 if something else is already using it, and it prints whatever
+    it actually bound)
+  - `http://iMac-de-Marcal.local:*/**` — covers testing on a phone over LAN.
+    Vite's dev server binds `0.0.0.0` (`server.host` in `vite.config.ts`), so
+    a phone *could* load `http://192.168.x.x:5173/obertura/` — **but don't
+    use the IP form.** Supabase's Auth server hard-rejects any redirect whose
+    host parses as an IP address (confirmed straight from `supabase/auth`
+    source, `internal/utilities/request.go`: `IsRedirectURLValid` returns
+    `ip.IsLoopback()` for any parsed IP — true only for `127.0.0.1` — and
+    never even reaches this allow-list for one). No wildcard on a `192.168.*`
+    entry can ever fix that; it's rejected before the allow-list is checked.
+    The working fix is a hostname: this Mac advertises itself over Bonjour/
+    mDNS for free (`scutil --get LocalHostName` → e.g. `iMac-de-Marcal` →
+    `iMac-de-Marcal.local`), which phones resolve on the same wifi with no
+    setup. `vite.config.ts`'s `server.allowedHosts: ['.local']` lets Vite
+    itself accept that hostname (a separate, unrelated guard it applies to
+    any `Host:` header it doesn't recognize) — the leading dot matches any
+    `*.local` name, so it survives this project moving to a different Mac.
+    Open the app on the phone as `http://iMac-de-Marcal.local:5173/obertura/`.
 
 The app always sends the same string — its own origin plus its base path — so
-these two are the whole list. See `authRedirectUrl()` in `src/auth.ts`.
+this is the whole list. See `authRedirectUrl()` in `src/auth.ts`. **Google
+itself needs no changes for any of this** — the redirect URI it sees is always
+Supabase's own fixed HTTPS callback, never the app's origin, so it doesn't
+care what network the phone is on.
 
 ### The email templates — one edit each, and it matters
 
