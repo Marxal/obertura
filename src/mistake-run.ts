@@ -32,6 +32,8 @@ import { formatMove } from './notation';
 import type { MoveEval } from './engine';
 import type { MoveClass } from './winprob';
 import { recordSpotResult } from './mistake-scan';
+import { explainPair } from './which-move';
+import { evalPairRow } from './eval-chip';
 import { restSpot } from './spot-rest';
 import type { SpotRef, MistakeCategory } from './mistake-scan';
 import type { ImportedGame } from './import-core';
@@ -206,6 +208,13 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
   hintBtn.hidden = true;
   hintBtn.addEventListener('click', () => useHint());
 
+  // The reveal, once solved: the mistake and the engine's move, side by side
+  // with what each was worth — same shape as Which move's comparison
+  // (eval-chip.ts).
+  const factsEl = document.createElement('div');
+  factsEl.className = 'wm-facts';
+  factsEl.hidden = true;
+
   // The post-answer block: just the two actions.
   const afterEl = document.createElement('div');
   afterEl.className = 'mr-after';
@@ -234,6 +243,7 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
 
   bottomEl.appendChild(statusRow);
   bottomEl.appendChild(hintBtn);
+  bottomEl.appendChild(factsEl);
   bottomEl.appendChild(afterEl);
 
   overlay.appendChild(headerEl);
@@ -378,6 +388,8 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
     hintBtn.replaceChildren(Icons.bulb(16), document.createTextNode('Hint'));
     hintBtn.hidden = true;
     afterEl.hidden = true;
+    factsEl.hidden = true;
+    factsEl.replaceChildren();
     renderSessionBar();
 
     const { game, spot } = current;
@@ -515,9 +527,26 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
         clean ? 'pt-status--success' : 'pt-status--reveal');
     }
     if (clean) burstConfetti(boardWrap);
+    renderFacts();
     renderSessionBar();
     nextBtn.textContent = completed >= opts.refs.length ? 'See results' : 'Next position';
     afterEl.hidden = false;
+  }
+
+  // The mistake and the fix, side by side with what each was worth — the same
+  // red/green comparison Which move shows (which-move.ts's explainPair reads
+  // MistakeSpot's fields directly).
+  function renderFacts(): void {
+    const { spot } = current;
+    factsEl.replaceChildren();
+    const best = spot.best[0];
+    if (!best) return;
+    const why = explainPair(spot);
+    factsEl.appendChild(evalPairRow(
+      spot.playedSan, spot.evalAfter, why.played,
+      best.san, spot.evalBefore, why.best,
+    ));
+    factsEl.hidden = false;
   }
 
   function onNextTap(): void {

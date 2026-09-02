@@ -34,6 +34,8 @@ import { showDialog } from './dialog';
 import { formatMove, numberedMove } from './notation';
 import { openInfoSheet, buildInfoButton } from './info-sheet';
 import { detectiveLog } from './middle-log';
+import { explainPair } from './which-move';
+import { evalPairRow } from './eval-chip';
 import { buildRunHeader } from './run-header';
 import { openSpotPeek, type SpotPeekOptions } from './spot-peek';
 import { DETECTIVE_ACCENT } from './exercise-identity';
@@ -260,6 +262,13 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   revealBtn.textContent = 'Show solution';
   revealBtn.addEventListener('click', () => reveal());
 
+  // The reveal, once the case is closed: the blunder and the move that should
+  // have been played, side by side with what each was worth — same shape as
+  // Which move's comparison (eval-chip.ts).
+  const factsEl = document.createElement('div');
+  factsEl.className = 'wm-facts';
+  factsEl.hidden = true;
+
   const afterEl = document.createElement('div');
   afterEl.className = 'mr-after';
   afterEl.hidden = true;
@@ -289,6 +298,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   bottomEl.appendChild(statusEl);
   bottomEl.appendChild(hintBtn);
   bottomEl.appendChild(revealBtn);
+  bottomEl.appendChild(factsEl);
   bottomEl.appendChild(afterEl);
 
   overlay.appendChild(headerEl);
@@ -405,6 +415,8 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     cursor = 0;
     blunderIdx = spot.blunderPly - spot.startPly;
     afterEl.hidden = true;
+    factsEl.hidden = true;
+    factsEl.replaceChildren();
     revealBtn.hidden = false;
     revealBtn.textContent = 'Show solution';
     hintBtn.hidden = true;
@@ -768,11 +780,29 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
 
     hintBtn.hidden = true;
     revealBtn.hidden = true;
+    renderFacts();
     renderSessionBar();
     nextBtn.textContent = completed >= opts.refs.length ? 'See results' : 'Next case';
     // Analyse rides in here (afterEl) — the full game is worth opening once the
     // case is closed, and not a moment before.
     afterEl.hidden = false;
+  }
+
+  // The blunder and the fix, side by side with what each was worth — the same
+  // red/green comparison Which move shows, built from the same spot shape
+  // (DetectiveSpot's evals are in the blunderer's own perspective, exactly
+  // like MistakeSpot's "yours" — see which-move.ts's EvalPairSpot).
+  function renderFacts(): void {
+    const { spot } = current;
+    factsEl.replaceChildren();
+    const best = spot.best[0];
+    if (!best) return;
+    const why = explainPair(spot);
+    factsEl.appendChild(evalPairRow(
+      spot.playedSan, spot.evalAfter, why.played,
+      best.san, spot.evalBefore, why.best,
+    ));
+    factsEl.hidden = false;
   }
 
   function onNextTap(): void {

@@ -37,6 +37,7 @@ import { formatMove, numberedMove } from './notation';
 import { openInfoSheet, buildInfoButton } from './info-sheet';
 import { whichMoveLog } from './middle-log';
 import { explainPair } from './which-move';
+import { evalPairRow } from './eval-chip';
 import { buildRunHeader } from './run-header';
 import { openSpotPeek, type SpotPeekOptions } from './spot-peek';
 import { WHICH_MOVE_ACCENT } from './exercise-identity';
@@ -474,51 +475,12 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
     // someone who already reads evals; explainPair (which-move.ts) turns them
     // and the board into a sentence.
     const why = explainPair(spot);
-    const evals = document.createElement('div');
-    evals.className = 'wm-facts-evals';
-    evals.appendChild(evalChip(spot.playedSan, spot.evalAfter, 'bad', why.played));
-    evals.appendChild(evalChip(spot.best[0].san, spot.evalBefore, 'good', why.best));
-    factsEl.appendChild(evals);
+    factsEl.appendChild(evalPairRow(
+      spot.playedSan, spot.evalAfter, why.played,
+      spot.best[0].san, spot.evalBefore, why.best,
+    ));
 
     factsEl.hidden = false;
-  }
-
-  /**
-   * "♝xe6 −5.2 / hangs material on e6" — one move, what the position was worth
-   * after it, and the one thing that makes that number make sense.
-   */
-  function evalChip(san: string, cp: number, kind: 'good' | 'bad', why: string): HTMLElement {
-    const chip = document.createElement('span');
-    chip.className = `wm-eval wm-eval--${kind}`;
-    const head = document.createElement('span');
-    head.className = 'wm-eval-head';
-    const move = document.createElement('span');
-    move.className = 'wm-eval-move';
-    move.textContent = formatMove(san);
-    head.appendChild(move);
-    const num = document.createElement('span');
-    num.className = 'wm-eval-cp';
-    num.textContent = showCp(cp);
-    head.appendChild(num);
-    chip.appendChild(head);
-    if (why) {
-      const reason = document.createElement('span');
-      reason.className = 'wm-eval-why';
-      reason.textContent = why;
-      chip.appendChild(reason);
-    }
-    return chip;
-  }
-
-  // Your own perspective. Mate scores are stored as big sentinels (winprob.ts),
-  // so they get words rather than a nonsense number.
-  function showCp(cp: number): string {
-    if (cp >= 90000) return 'mate';
-    if (cp <= -90000) return 'mated';
-    const pawns = cp / 100;
-    // A real minus sign, not a hyphen: these sit next to a figurine at the same
-    // size, and a hyphen reads as a dash between two words.
-    return pawns > 0 ? `+${pawns.toFixed(1)}` : pawns.toFixed(1).replace('-', '\u2212');
   }
 
   function onNextTap(): void {

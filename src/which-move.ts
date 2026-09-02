@@ -22,7 +22,8 @@
 
 import { cpToWin } from './winprob';
 import { moveFacts, SEE_MATERIAL_MARGIN } from './move-facts';
-import type { MistakeSpot, SpotRef } from './mistake-scan';
+import type { MoveEval } from './engine';
+import type { SpotRef } from './mistake-scan';
 
 /**
  * How much worse the played move has to be, in win probability. The grader's
@@ -113,14 +114,29 @@ export interface PairWhy {
 }
 
 /**
+ * The fields explainPair needs, and nothing more — MistakeSpot satisfies it,
+ * and so does detective.ts's DetectiveSpot (evals in the blunderer's own
+ * perspective, same convention as MistakeSpot's "yours"), which is what lets
+ * Blunder detective show the same red/green pair without its own copy of this.
+ */
+export interface EvalPairSpot {
+  preFen: string;
+  playedSan: string;
+  playedUci: string;
+  best: MoveEval[];
+  evalBefore: number;
+  evalAfter: number;
+}
+
+/**
  * A short reason for each side of the red/green pair. Pure: FEN + the stored
  * evals in, two clauses out.
  *
- * Both evals are in YOUR perspective, as MistakeSpot stores them: `evalBefore`
- * is what the position was worth with the engine's move, `evalAfter` what it
- * was worth after the move you actually played.
+ * Both evals are in the mover's own perspective: `evalBefore` is what the
+ * position was worth with the engine's move, `evalAfter` what it was worth
+ * after the move actually played.
  */
-export function explainPair(spot: MistakeSpot): PairWhy {
+export function explainPair(spot: EvalPairSpot): PairWhy {
   const best = spot.best[0];
   const winBefore = cpToWin(spot.evalBefore);
   const winAfter = cpToWin(spot.evalAfter);
@@ -139,7 +155,7 @@ function seeOf(fen: string, uci: string): number | null {
 }
 
 function whyPlayed(
-  spot: MistakeSpot,
+  spot: EvalPairSpot,
   winBefore: number,
   winAfter: number,
   see: number | null,
@@ -157,7 +173,7 @@ function whyPlayed(
 }
 
 function whyBest(
-  spot: MistakeSpot,
+  spot: EvalPairSpot,
   winBefore: number,
   playedSee: number | null,
   bestSee: number | null,
