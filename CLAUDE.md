@@ -72,9 +72,10 @@ Keep this map in mind before reading anything large.
 
 - **`CLAUDE.md`** (this file) — behaviour rules, stack, hard constraints. The
   only doc loaded every session, so keep it short.
-- **`APP-CONTEXT.md`** — a ~340-line orientation **map**: where every module
-  lives and which spec to read. It is deliberately not a spec; don't grow it
-  back into one.
+- **`APP-CONTEXT.md`** — the full reference for how the app works: runtime
+  architecture, every feature area, the module index, build/deploy, conventions
+  and the honest caveats. Read the section you need, not the whole file. It is
+  still NOT the authority on the four specs below — it points at them.
 - **`ROADMAP.md`** — recent rounds in full, plus a one-line index of everything
   older. Add each new round at the bottom.
 - **Specs, cited by section number from ~60 places in source — keep them at the
