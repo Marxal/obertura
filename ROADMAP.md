@@ -1150,6 +1150,17 @@ numbers small enough to ride a push that was happening anyway.
   exclusion. This is account data, so the Settings copy now ends by saying it
   covers anonymous counting only and points at the privacy policy, which
   discloses the summary in the account table and draws the distinction in full.
+- ✅ **An entitlement hole found in the grant audit, closed.** Verifying that
+  `entitled` stayed unwritable turned up `authenticated` holding INSERT on every
+  column of `profiles`: the block revoked UPDATE only, so Supabase's default
+  table-wide INSERT grant survived and the column list merely added to it. RLS
+  kept everyone inside their own row, so no data was ever exposed — but a row
+  does not exist until the first push, so a new account could insert its own row
+  with `entitled = true`, once, and get the paid tier free. `revoke insert` +
+  re-grant, applied together because Postgres drops the column grants with the
+  table privilege and the revoke alone would stop new accounts creating a row at
+  all. Verified as the `authenticated` role: the `entitled` insert and update
+  both come back *permission denied*, the six-column sync insert passes.
 - ✅ **A fingerprint bug found on the way in, fixed first and on its own.**
   `coreFingerprintOf` hashed `backup.lines`, the retired v1/v2 shape;
   `exportCore()` has emitted `repertoires` since version 3. The fingerprint was

@@ -78,11 +78,21 @@ one-time unlock, and a boolean is the honest shape for "has this account paid?".
 A status enum would imply renewals, dunning and a grace period, none of which
 exist. If a subscription is ever introduced, that is the moment to add it.
 
-**It needs a column-level revoke, not just RLS.** The update policy below is
-row-scoped, not column-scoped — on its own it lets a signed-in user update *any*
-column of their own row, `entitled` included, straight from the browser with the
-public anon key. Postgres column privileges are what actually stop that, so the
-SQL revokes UPDATE on `entitled` and re-grants it only on the four sync columns.
+**It needs a column-level revoke, not just RLS.** The policies below are
+row-scoped, not column-scoped — on their own they let a signed-in user write
+*any* column of their own row, `entitled` included, straight from the browser
+with the public anon key. Postgres column privileges are what actually stop
+that, so the SQL revokes UPDATE **and INSERT** wholesale and re-grants each only
+on the sync columns.
+
+**INSERT matters as much as UPDATE, and was missed for a long time.** The first
+version of this block revoked UPDATE only, so Supabase's default table-wide
+INSERT grant survived and `grant insert (…)` simply added to it. RLS still kept
+a user inside their own row, so nobody else's data was ever reachable — but a
+row does not exist until the first push, so a brand-new account could insert its
+own row with `entitled = true` and be waved through. Fixed 2026-09-04; if you
+are re-running this block on a project that predates the fix, the revoke below
+closes it.
 
 **And that revoke is why the app never upserts from the browser.** `id` is not
 in the UPDATE grant, deliberately. PostgREST — the thing behind every
@@ -187,7 +197,30 @@ create policy "own profile: update"
 -- and may never write its own paid status. Anything that later wants to ACT on a
 -- number — a promo, a trial extension — must derive it server-side instead of
 -- trusting this column.
+--
+-- ── AND INSERT HAS TO BE REVOKED TOO, WHICH IT WASN'T ───────────────────────
+-- This block used to revoke UPDATE only. Supabase's default table-wide INSERT
+-- grant therefore survived, the `grant insert (…)` below merely ADDED to it,
+-- and the audit of this table found `authenticated` holding INSERT on every
+-- column — `entitled` included.
+--
+-- RLS still confined a user to their own row, so this was not a way into anyone
+-- else's data. It was a way into the paid tier: a row does not exist until the
+-- first push, so a brand-new account could, once, insert its own row with
+-- `entitled = true` and let RLS wave it through. Closed on 2026-09-04 by the
+-- revoke below.
+--
+-- ORDER MATTERS AND THE TWO LINES CANNOT BE SEPARATED. Postgres drops the
+-- column-level grants when the table-level privilege is revoked, so running the
+-- revoke on its own leaves NO insert permission at all — and the symptom of
+-- that is the nastiest one this file knows: new accounts silently fail to
+-- create a row, so a second device finds nothing to pull and runs the first-run
+-- walkthrough again. Revoke, then re-grant, always together.
+--
+-- `service_role` is named in neither revoke, so the Stripe webhook keeps its
+-- upsert on `entitled` and the purchase flow is untouched.
 revoke update on public.profiles from anon, authenticated;
+revoke insert on public.profiles from anon, authenticated;
 grant update (repertoire, repertoire_updated_at, games, games_updated_at, stats)
   on public.profiles to authenticated;
 grant insert (id, repertoire, repertoire_updated_at, games, games_updated_at, stats)
