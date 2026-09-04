@@ -60,6 +60,7 @@ import { sellablePrice } from './pricing';
 import { celebratePawn, burstConfetti } from './confetti';
 import { pushBack } from './back-nav';
 import { showToast } from './toast';
+import { trackOnce } from './metrics';
 
 // The Worker endpoint that creates the Stripe session. An absolute path, so it
 // resolves against the origin whatever base the app was built with.
@@ -312,6 +313,11 @@ export function handlePurchaseReturn(): void {
 // so it looks like part of the same family) without importing from it — this
 // one has no variants to juggle, so its own copy is simpler than a shared one.
 function celebrate(): void {
+  // Once ever. Both routes here (the ?purchased=1 poll and the manual "Already
+  // paid?" check) can reach this on the same device, and the unlock is bought
+  // once — so a second celebration must not read as a second sale.
+  trackOnce('purchase_confirmed');
+
   const overlay = document.createElement('div');
   overlay.className = 'dc-overlay';
 

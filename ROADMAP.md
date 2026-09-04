@@ -1044,6 +1044,72 @@ puzzle was all downside.
 
 ---
 
+## The counting round — sixteen clickers and nothing to put a name to ✅
+
+I have shipped this app for months with no idea whether anyone opens it. The
+landing page has Umami; the app itself had nothing, and the privacy policy said
+so in as many words. This round buys back the smallest useful amount of that
+without buying an identifier along with it.
+
+- ✅ **The whole payload is one word.** `POST /api/event` with a body of exactly
+  `{"name":"app_open"}` — validated against a hardcoded allowlist of sixteen,
+  400 otherwise, and an object with any SECOND key is also a 400. That last
+  check is the load-bearing one: it means a future call site cannot quietly
+  start attaching something, because attaching something means editing
+  `worker/metrics.ts` where it shows up in a diff.
+- ✅ **The server reads nothing it could identify anyone with.** No IP, no user
+  agent, no Referer, no cookie, no auth header, no body in the reply. The client
+  sets `credentials: 'omit'` and `referrerPolicy: 'no-referrer'` so the browser
+  never offers the last two either. Verified on a live load: the events arrive
+  with `referer=none cookie=none`.
+- ✅ **The stored row is `(name, day, hits)` and there is nowhere for a third
+  column.** Two visits cannot be told apart at either end, so these are counts of
+  EVENTS and never of people. "How many users" is unanswerable here by
+  construction, and that is the design rather than a limitation of it.
+- ✅ **Retention without cohorts.** `return_after_d2/d7/d30`, fired once ever on
+  the first launch that far after `obertura.installedAt`. The obvious design —
+  `retained_d7:2026-w36` — was rejected twice over: a rotating name cannot sit on
+  a literal allowlist, and at this traffic a cohort week with one member is a
+  pseudo-identifier that follows a device across sessions. Nothing derived from
+  the install date leaves the device beyond "a threshold was crossed". The sets
+  NEST, so they mean "ever came back after N days", not day-N retention.
+- ⚠️ **`app_open` is cold launches, not sessions.** A `sessionStorage` flag
+  survives backgrounding and bfcache, but Android evicts a backgrounded PWA's
+  document under memory pressure and resuming re-navigates into a fresh one. So
+  the number is "launches, plus however often the OS reclaimed the app". Never
+  read it as a headcount.
+- ⚠️ **OAuth sign-ups cannot be told from OAuth sign-ins.** Google and the rest
+  come back with a session that looks identical whether the account is ten
+  seconds or ten months old; separating them means asking the server whether
+  `created_at` is within seconds of now, on every sign-in, to learn something no
+  decision depends on. Not doing it. `signed_up_email` is a floor on
+  registrations, not the total.
+- ✅ **Three keys stay on the device, each one registered by name.**
+  `obertura.installedAt`, `obertura.metricsSeen` and `obertura.metricsOptOut` are
+  in `local-keys.ts`'s deny list with their reasons and in
+  `local-keys.selftest.ts` by name. A synced `installedAt` alone would make every
+  retention number a measure of how often people restore backups.
+- ✅ **"Leave me out of the counts", in Settings under the privacy link.** With no
+  identifier there is nothing to filter on afterwards, so the only way for me to
+  stay out of my own numbers is to say so on the device. Off by default.
+- ✅ **The GitHub Pages build compiles it to nothing.** Gated on
+  `__DEPLOY_TARGET__`, and confirmed at the bundle: the string `api/event` does
+  not appear in that build's JavaScript at all.
+- ✅ **Everything fails soft, against the house style.** `stripe-webhook.ts` has a
+  banner insisting on the opposite; that reasoning is Stripe's and does not
+  travel. A missing secret, a Supabase outage and an accepted event all return
+  the same 204. Once-ever events are marked spent BEFORE sending, so a failed
+  send is simply lost — which is correct for a counter and would be a bug for a
+  payment.
+- ✅ **The privacy policy stopped lying in four places.** It used to say "No
+  analytics in the app. I don't know how many people use the app". Replaced with
+  a section naming every event, what is deliberately not collected, the two local
+  values and where the switch is — not softened wording.
+
+---
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

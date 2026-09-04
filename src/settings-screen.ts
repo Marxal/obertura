@@ -67,6 +67,7 @@ import { clearEndgameProgress } from './endgame-progress';
 import { renderBackupSection, exportBackupNow } from './backup';
 import { Icons } from './icons';
 import { row, segmented, toggle } from './settings-controls';
+import { metricsActive, isMetricsOptedOut, setMetricsOptedOut } from './metrics';
 import { renderDailyPrefs } from './daily-prefs';
 import { userAvatar } from './avatar';
 import { pushBack } from './back-nav';
@@ -212,9 +213,37 @@ function buildAboutGroup(): HTMLElement {
   ));
   sec.appendChild(linkRow('About', () => openDoc(LANDING_URL), Icons.info(18)));
   sec.appendChild(linkRow('Privacy policy', () => openDoc(PRIVACY_URL), Icons.shield(18)));
+  // Sits directly under the privacy link, which is the only place someone would
+  // go looking for it. Built ONLY where there is something to switch off: the
+  // GitHub Pages build has no Worker behind it and counts nothing at all, so a
+  // switch there would be a control that does nothing (see src/metrics.ts).
+  if (metricsActive()) sec.appendChild(buildCountMeRow());
   sec.appendChild(linkRow('Terms of use', () => openDoc(TERMS_URL), Icons.file(18)));
 
   return sec;
+}
+
+// The one control the anonymous event counter has.
+//
+// It exists for a specific reason: with no identifier of any kind, there is no
+// way to filter anybody's own visits out of the numbers afterwards — so the
+// only way for the owner (or a tester) to stay out of them is to say so up
+// front, on the device. Off by default; the wording is deliberately plain about
+// what the counter is, because a switch labelled "analytics" in an app whose
+// privacy policy says there are no trackers reads as a contradiction.
+//
+// Device-local and never synced (local-keys.ts): a switch that means "not this
+// device" has to be stored per device or it means nothing.
+function buildCountMeRow(): HTMLElement {
+  return row(
+    'Leave me out of the counts',
+    toggle(isMetricsOptedOut(), (on) => setMetricsOptedOut(on)),
+    {
+      sub: 'The app counts anonymous events like “a line was saved” — no cookies, '
+        + 'no identifier, nothing that says it was you. Turn this on and this '
+        + 'device stops contributing to those counts.',
+    },
+  );
 }
 
 // A full-width tap row that opens a sheet: an optional leading icon, the label,

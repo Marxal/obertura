@@ -73,6 +73,7 @@ import { buildBook, bookNodeAt, loadBookEntries } from './book-tree';
 import { buildRecap, getDailyLog, localDayKey, markDayComplete, type TaskOutcome } from './daily-recap';
 import { showRecapForDay } from './daily-review';
 import { showDailyCelebration, showPerfectDayCelebration, showWhenClear } from './daily-celebration';
+import { track, trackOnce, trackAppOpen } from './metrics';
 import { currentStreak, getTrainingDays } from './streak';
 import { masteredLines } from './stats';
 import { collectSpots, pickSpots, type SpotRef } from './mistake-scan';
@@ -3509,6 +3510,10 @@ function showFirstRunPicker(): void {
     // which routes into the confirm run exactly as any other save does.
     onStart: (colour) => {
       setOnboardingComplete();
+      // NOT hooked to setOnboardingComplete itself: train-screen.ts calls that
+      // on every render once the goal is reached, so counting there would count
+      // repaints. This is the one place a person actually finishes first run.
+      trackOnce('onboarding_complete');
       startNewLine(colour);
       guidedActive = true;
       // The bubbles point at live controls, so they wait for the builder to
@@ -3971,6 +3976,9 @@ function celebrateDaily(config: DailyConfig, active: DailyTaskId[], allLines: Li
   // Only the first completion of the day celebrates — replaying a finished task
   // later on shouldn't pop it again.
   if (!markDayComplete()) return;
+  // markDayComplete() is already the once-per-day gate, so a plain track() here
+  // cannot double-count a replayed task later the same day.
+  track('daily_completed');
 
   const training = allLines.filter((l) => l.inTraining);
   const recap = buildRecap({
@@ -5523,6 +5531,11 @@ async function finishSave(): Promise<void> {
   if (!result) return;
   const { line, isNew, index } = result;
 
+  // Only a NEW line counts. An edit re-saved is not a line being built, and the
+  // analyser's "Save line" is deliberately not counted at all — it extracts a
+  // path from a game, which is a different act with a different intent.
+  if (isNew) track('line_saved');
+
   // One toast for the save, carrying the inheritance sentence when there is one
   // (TRANSPOSITIONS.md §7) — silent at zero, because "0 of these 10 moves you
   // already know" is noise.
@@ -5954,6 +5967,13 @@ function hideAppSplashWhenReady(): void {
 // the gate is then the first thing the user sees, so the splash must clear right
 // there rather than waiting on a pass that may never happen.
 maybeShowGate(() => requestAnimationFrame(() => {
+  // The app is really starting: stamp the install date if this profile has
+  // none, count one cold launch, and count any retention milestone this launch
+  // just crossed. Inside the gate callback, so a beta-code screen nobody gets
+  // past is never counted as an open. A complete no-op on the GitHub Pages
+  // build — see src/metrics.ts.
+  trackAppOpen();
+
   cg = Chessground(boardEl, {
     movable: {
       color: 'both',

@@ -19,6 +19,7 @@ import { Icons } from './icons';
 import { buildPositionCard, colourPip, fenFromUcis } from './card-position';
 import { formatSanLine } from './notation';
 import { pushBack } from './back-nav';
+import { track } from './metrics';
 import { freeTrainingSlots, showBulkCapToast } from './entitlement';
 
 // Lines in training that count as "onboarded". The Train screen stamps the
@@ -272,6 +273,11 @@ function packCard(
     addAll.className = 'onb-addall';
     addAll.textContent = `Add all ${pending.length} without opening them`;
     addAll.addEventListener('click', () => {
+      // ONE count for the tap, not one per line. addSequentially loops
+      // onAddLine over every pending line, so counting inside that loop would
+      // turn a single "add all" on a ten-line pack into ten events and make an
+      // enthusiastic afternoon look like a busy month.
+      track('starter_pack_added');
       addAll.disabled = true;
       addAll.textContent = 'Adding…';
       void addSequentially(pending, pack.colour, onAddLine).then(() => {
@@ -347,6 +353,11 @@ function packLineRow(
     // session — look at the line, change what you don't like, Save — which is
     // the same route the first-run line takes.
     onAdd: () => {
+      // The other half of the same count: one tap on one line. This route opens
+      // the builder rather than saving, so `line_saved` fires later too — that
+      // is the point, and the pair is what says how many pack lines survive
+      // being looked at.
+      track('starter_pack_added');
       closeSheet();
       onAddLine(seedFromPackLine(line), colour, 'build', () => {}, () => {});
     },

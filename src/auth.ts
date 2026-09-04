@@ -15,6 +15,7 @@
 
 import { supabase, isSupabaseConfigured } from './supabase';
 import { showToast } from './toast';
+import { track, trackOnce } from './metrics';
 import type { AuthError, User, EmailOtpType } from '@supabase/supabase-js';
 
 // ENTITLEMENT LIVES IN entitlement.ts, not here. There is exactly one answer to
@@ -253,8 +254,10 @@ export async function initAuth(): Promise<void> {
         beginPasswordRecovery();
       } else if (authReturn.otpType === 'magiclink' || authReturn.otpType === 'email') {
         // A sign-in link, not a confirmation — there was no address to confirm.
+        track('signed_in');
         showToast('Signed in', { variant: 'success' });
       } else {
+        track('signed_in');
         showToast('Email confirmed — you’re signed in', { variant: 'success' });
       }
     } catch (err) {
@@ -268,7 +271,7 @@ export async function initAuth(): Promise<void> {
       );
       if (error) showToast(friendlyAuthError(error));
       else if (authReturn.otpType === 'recovery') beginPasswordRecovery();
-      else showToast('Signed in', { variant: 'success' });
+      else { track('signed_in'); showToast('Signed in', { variant: 'success' }); }
     } catch (err) {
       showToast(friendlyAuthError(err));
     }
@@ -316,8 +319,16 @@ export async function signUpWithPassword(email: string, password: string): Promi
       options: { emailRedirectTo: authRedirectUrl() },
     });
     if (error) return { ok: false, message: friendlyAuthError(error) };
+    // ONCE ever on this device, not once per call. Re-registering is the normal
+    // response to a confirmation email that never arrived (see account-ui.ts's
+    // "Send it again" dialog), and counting each attempt would inflate the one
+    // number a registration figure is for.
+    trackOnce('signed_up_email');
     // No session back means Supabase wants the email confirmed first.
     if (!data.session) return { ok: true, needsEmailConfirmation: true };
+    // A project with confirmation switched off signs the new account straight
+    // in, and that is a sign-in like any other.
+    track('signed_in');
     return { ok: true };
   } catch (err) {
     return { ok: false, message: friendlyAuthError(err) };
@@ -329,6 +340,7 @@ export async function signInWithPassword(email: string, password: string): Promi
   try {
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (error) return { ok: false, message: friendlyAuthError(error) };
+    track('signed_in');
     return { ok: true };
   } catch (err) {
     return { ok: false, message: friendlyAuthError(err) };

@@ -57,6 +57,39 @@ export const RETIRED_KEY_PREFIXES = ['obertura.drive.'];
 //
 // `obertura.lichessReturnTo` — the OAuth return-path crumb. Mid-flight state for
 // one redirect on one device.
+//
+// ── THE THREE METRICS KEYS (src/metrics.ts) ─────────────────────────────────
+// All three exist so that a device does not count the same once-ever event
+// twice, and all three would do active harm if they travelled. They are the
+// only local state the anonymous event counter has, and none of them is ever
+// SENT anywhere — they are read to decide whether to send, never transmitted.
+//
+// `obertura.installedAt` — when this browser profile first opened the app. It
+// is the input to the retention milestones: the app subtracts it from the
+// current time and counts `return_after_d7` the first time the gap is a week.
+// Carried in a backup, it would arrive on a fresh phone claiming that phone was
+// installed months ago — so the new install would count no install, and would
+// trip all three return milestones on its very first launch. Every retention
+// number would then be measuring how often people restore backups.
+//
+// `obertura.metricsSeen` — which once-ever events this device has already
+// spent. The same failure, from the other end: a second phone signing in would
+// inherit "already counted" and go silent for its whole life, and a restored
+// backup would suppress counting on the device that restored it. It describes
+// what this install has done, exactly as `obertura.sync.` describes what this
+// install has pushed.
+//
+// `obertura.metricsOptOut` — the "don't count me" switch in Settings. This one
+// is subtler and is the reason it is listed rather than left to inherit the
+// default. It exists so the owner's own phone stays out of the owner's own
+// numbers; if it travelled, handing somebody a backup file to help them with a
+// problem would silently switch THEIR device off too, and the numbers would
+// quietly under-report for reasons nobody could ever trace back. A switch that
+// means "not this device" has to be stored per device or it does not mean
+// anything.
+//
+// (`obertura.metricsSession`, the once-per-launch flag, is in sessionStorage,
+// which nothing in the backup path ever walks — so it needs no entry here.)
 const PRIVATE_KEY_PREFIXES = [
   'obertura.supabase.',
   'obertura.sync.',
@@ -66,6 +99,9 @@ const PRIVATE_KEYS = [
   'obertura.entitled',
   'obertura.pricing',
   'obertura.lichessReturnTo',
+  'obertura.installedAt',
+  'obertura.metricsSeen',
+  'obertura.metricsOptOut',
 ];
 
 /**

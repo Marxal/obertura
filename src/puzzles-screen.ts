@@ -21,6 +21,7 @@ import { recordPuzzleResult, getPuzzleDays, getPuzzlesByOpening } from './puzzle
 import { reviewResult, takeDueRepeat } from './puzzle-repeat';
 import { getPuzzleRating, difficultyForRating, difficultyForStreak, difficultyStep, targetRatingForStreak } from './puzzle-rating';
 import { countUp } from './count-up';
+import { track } from './metrics';
 import type { TaskOutcome } from './daily-recap';
 import { renderLoadError } from './load-error';
 import { buildEmptyState, type EmptyStateAction } from './empty-state';
@@ -271,6 +272,9 @@ function runMixedPuzzleSession(
     },
     onComplete: (s) => {
       if (mode.kind === 'timed') recordTaBest(taSource, (mode.ms / 60_000) as TaMinutes, s.solved);
+      // ONE count per session, not per puzzle. Counting each solve would mean
+      // twenty-odd requests a sitting for a number that says the same thing.
+      if (s.completed > 0) track('puzzle_session');
       hooks.onComplete?.(s);
     },
     onExit: hooks.onExit,

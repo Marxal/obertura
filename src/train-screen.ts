@@ -23,6 +23,7 @@ import {
   type TimedMinutes,
 } from './prefs';
 import { isOpponentTag } from './scout';
+import { track } from './metrics';
 import { recordMissedMove, clearForgottenMove } from './forgotten-moves';
 import { startFixIt } from './fix-it';
 import {
@@ -2249,6 +2250,9 @@ function renderSessionComplete(container: HTMLElement, stats: SessionStats, next
   // A session that reviewed at least one line counts as today's training for
   // the Home-screen streak.
   if (stats.linesReviewed > 0) recordTrainingDay();
+  // …and, on the same condition, as one completed drill. A session that reaches
+  // this panel having reviewed nothing is an empty queue, not a drill.
+  if (stats.linesReviewed > 0) track('drill_completed');
 
   const { panel, close, dismiss } = mountCompletionOverlay(container);
 

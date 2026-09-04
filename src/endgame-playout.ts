@@ -27,6 +27,7 @@ import { playFeedback } from './sound';
 import { burstConfetti, celebratePawn } from './confetti';
 import type { Endgame } from './endgame-catalog';
 import { recordEndgameResult, getEndgameRecord } from './endgame-progress';
+import { track } from './metrics';
 import {
   probeTablebase, bestMove as tbBestMove, outcomeOf, inTablebaseRange,
   type TbOutcome,
@@ -416,6 +417,8 @@ export function startEndgamePlayout(endgame: Endgame, opts: EndgamePlayoutOption
     const elapsedMs = success && startedAt > 0 ? Date.now() - startedAt : undefined;
     const prevBest = getEndgameRecord(endgame.id)?.bestMs;
     recordEndgameResult(endgame.id, success, elapsedMs);
+    // Solved, not merely attempted — a failed play-out is not a solve.
+    if (success) track('endgame_solved');
     const isBest = success && elapsedMs !== undefined && (prevBest === undefined || elapsedMs < prevBest);
     showCompletion({ success, message, clean, elapsedMs, isBest, prevBest });
   }

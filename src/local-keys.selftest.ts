@@ -66,6 +66,30 @@ export function runLocalKeysSelfTest(): TestResult[] {
     'a retired feature’s leftovers',
   );
 
+  // ── The three metrics keys (src/metrics.ts) ───────────────────────────────
+  // Each is checked on its own line, by name, so that losing one is a named
+  // failure rather than a number that quietly drifts. All three describe what
+  // THIS install has already counted; carrying any of them makes a second
+  // device inherit the first one's history and stop counting.
+  check(
+    'the install date never travels',
+    !backupLocalKey('obertura.installedAt'),
+    'a restored obertura.installedAt would trip every retention milestone on a '
+      + 'brand-new device’s first launch',
+  );
+  check(
+    'the spent-events list never travels',
+    !backupLocalKey('obertura.metricsSeen'),
+    'a device inheriting obertura.metricsSeen would never count its own '
+      + 'once-ever events',
+  );
+  check(
+    'the don’t-count-me switch never travels',
+    !backupLocalKey('obertura.metricsOptOut'),
+    'a backup carrying obertura.metricsOptOut would silently switch off '
+      + 'counting on whatever device restored it',
+  );
+
   // ── What SHOULD travel, so the deny list can't quietly swallow everything ──
   const carried = [
     'obertura.onboardingComplete',

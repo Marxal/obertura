@@ -13,7 +13,7 @@
 // The same answer applies to Supabase Edge Functions, which the Stripe migration
 // was originally sketched against: this repo has no `supabase/` directory, no
 // Supabase CLI and no migration history, and its server already lives here. Four
-// endpoints are not worth a second deploy target, a second secret store and a
+// endpoints were not worth a second deploy target, a second secret store and a
 // second thing to remember to ship.
 //
 // So routing is done the Workers way: by hand, in this file. It is about ten
@@ -33,8 +33,9 @@
 //   POST /api/stripe/checkout  → a Stripe Checkout URL (stripe-checkout.ts)
 //   POST /api/stripe/webhook   Stripe → profiles.entitled (stripe-webhook.ts)
 //   POST /api/account/delete   remove an account for good (account-delete.ts)
+//   POST /api/event            one anonymous counter tick (metrics.ts)
 //
-// No CORS headers anywhere, deliberately. All four are called from pages served
+// No CORS headers anywhere, deliberately. All five are called from pages served
 // by this same Worker's assets — the landing page at the root and the trainer at
 // /app/ — so every call is same-origin and CORS never enters the picture. The
 // GitHub Pages mirror is a different origin and has no Worker at all; it is also
@@ -48,6 +49,7 @@ import { handleStripePrices } from './stripe-prices';
 import { handleStripeCheckout } from './stripe-checkout';
 import { handleStripeWebhook } from './stripe-webhook';
 import { handleAccountDelete } from './account-delete';
+import { handleMetricEvent, type ExecutionContext } from './metrics';
 import type { StripeEnv } from './stripe-env';
 
 // The static-asset binding, declared as `assets.binding` in wrangler.jsonc.
@@ -73,15 +75,24 @@ const WEBHOOK_PATH = '/api/stripe/webhook';
 // Not under /api/stripe/, because it has nothing to do with Stripe — it just
 // happens to need the same service-role key the webhook does.
 const ACCOUNT_DELETE_PATH = '/api/account/delete';
+// The anonymous event counter. Not under /api/stripe/ and not under /api/account/
+// for the same reason as the line above: it belongs to neither. It is also the
+// only endpoint here that no user is ever waiting on — see worker/metrics.ts.
+const EVENT_PATH = '/api/event';
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  // `ctx` is the third argument Workers always passes; it is named here only
+  // because /api/event uses ctx.waitUntil to finish its database write after
+  // the response has gone back. Hand-typed in metrics.ts — this project pulls
+  // in no Workers type package (see the ASSETS note above).
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const { pathname } = new URL(request.url);
 
     if (pathname === PRICES_PATH) return handleStripePrices(request, env);
     if (pathname === CHECKOUT_PATH) return handleStripeCheckout(request, env);
     if (pathname === WEBHOOK_PATH) return handleStripeWebhook(request, env);
     if (pathname === ACCOUNT_DELETE_PATH) return handleAccountDelete(request, env);
+    if (pathname === EVENT_PATH) return handleMetricEvent(request, env, ctx);
 
     // An /api/ path we don't serve. Answered here rather than falling through
     // to the assets, so a typo'd webhook URL gets a plain 404 instead of the

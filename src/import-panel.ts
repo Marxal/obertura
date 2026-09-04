@@ -61,6 +61,7 @@ import {
   setUsername as setLichessUser,
 } from './lichess';
 import { clearGames, saveGames, countGames, getAllGames } from './storage';
+import { track } from './metrics';
 import { pushBack } from './back-nav';
 import { createImportLoader, approxScanFraction, type ImportLoader } from './import-progress';
 import { userAvatar } from './avatar';
@@ -836,6 +837,11 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
           `Imported ${games.length.toLocaleString()} game${games.length === 1 ? '' : 's'}`,
           { variant: 'success' },
         );
+        // One import finished. Counted here rather than on the onImported
+        // callback, which has ten call sites and would count once per listener.
+        // The weekly auto-refresh (auto-refresh.ts) does not come through here
+        // and is deliberately not counted: nobody asked for it.
+        track('games_imported');
         // onImported first, then the panel goes away — so onClose is reliably
         // the LAST thing an import fires, whichever way the panel ended.
         opts.onImported?.(games.length);

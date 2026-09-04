@@ -37,12 +37,13 @@ Counts in this document were measured on 2026-09-02 against `main` at `c55ed98`
 15. [Game import](#15-game-import)
 16. [Accounts, sync, entitlement and payment](#16-accounts-sync-entitlement-and-payment)
 17. [Onboarding, settings and chrome](#17-onboarding-settings-and-chrome)
-18. [Module index](#18-module-index)
-19. [Bundled data and assets](#19-bundled-data-and-assets)
-20. [The Worker, the scripts and the public pages](#20-the-worker-the-scripts-and-the-public-pages)
-21. [Build, deploy and test](#21-build-deploy-and-test)
-22. [Conventions and invariants](#22-conventions-and-invariants)
-23. [Known gaps and honest caveats](#23-known-gaps-and-honest-caveats)
+18. [The anonymous event counter](#18-the-anonymous-event-counter)
+19. [Module index](#19-module-index)
+20. [Bundled data and assets](#20-bundled-data-and-assets)
+21. [The Worker, the scripts and the public pages](#21-the-worker-the-scripts-and-the-public-pages)
+22. [Build, deploy and test](#22-build-deploy-and-test)
+23. [Conventions and invariants](#23-conventions-and-invariants)
+24. [Known gaps and honest caveats](#24-known-gaps-and-honest-caveats)
 
 ---
 
@@ -336,6 +337,11 @@ prefix, deny-by-exception, and every exception carries its reason. The one that
 bit: `obertura.supabase.` is the signed-in session itself (access + refresh
 token) — it matched "starts with obertura", got swept into backups and the synced
 snapshot, and was written over the session of whatever device pulled it.
+
+The three newest exceptions are the event counter's (`obertura.installedAt`,
+`obertura.metricsSeen`, `obertura.metricsOptOut`) — each describes what *this
+install* has already counted, so a synced copy would make a second device
+inherit the first one's history and stop counting. See §18.
 
 ### 5.3 Backup and restore
 
@@ -1091,7 +1097,127 @@ disappears. Per-instance keys fix it.
 
 ---
 
-## 18. Module index
+## 18. The anonymous event counter
+
+**`src/metrics.ts` + `worker/metrics.ts` + `POST /api/event`.** One clicker per
+named event. It is the only measurement in the app and it is built so that it
+*cannot* become anything more.
+
+### What is on the wire
+
+The whole request body is `{"name":"app_open"}` — one string off a fixed list of
+sixteen, and nothing else. `readName` in `worker/metrics.ts` rejects an object
+with any second key, so a future caller cannot quietly add a field: adding one
+means editing that file, on purpose, where it shows up in a diff.
+
+The Worker reads **no** IP, user agent, `Referer`, cookie or `Authorization`
+header, and returns no body, so it can neither observe an identifier nor plant
+one. The client side sets `credentials: 'omit'` and `referrerPolicy:
+'no-referrer'` so the browser doesn't offer either in the first place.
+
+The row written is `(name, day, hits)` — nothing else, ever. **Two visits cannot
+be told apart at either end.** These numbers count *events*, never people; any
+sentence starting "how many users…" is unanswerable here by construction.
+
+### The sixteen names
+
+| | |
+|---|---|
+| `install`, `app_open` | reach |
+| `return_after_d2` / `_d7` / `_d30` | retention |
+| `onboarding_complete`, `starter_pack_added` | did first run work |
+| `line_saved`, `drill_completed`, `puzzle_session`, `daily_completed`, `endgame_solved`, `games_imported` | is it being used for what it is for |
+| `signed_in`, `signed_up_email`, `purchase_confirmed` | accounts and money |
+
+The list lives **twice** — `ALLOWED` in `worker/metrics.ts` and the `MetricName`
+union in `src/metrics.ts` — and is kept in step by hand. The two are separate
+builds with separate typechecks; a name that drifts is a 400 and a dropped
+count, never a user-visible error. Every name must also satisfy the
+`metrics_name_shape` check constraint on the table (`^[a-z0-9_]{1,40}$`).
+
+### `app_open` is cold launches, not sessions
+
+Gated by a `sessionStorage` flag, which belongs to the *document*. Backgrounding
+and resuming does not re-count, and neither does a bfcache restore — but Android
+evicts a backgrounded PWA's document freely under memory pressure, and resuming
+then re-navigates into a fresh document and a fresh flag. So the number is
+"launches, plus however often the OS reclaimed the app". **Never read it as a
+headcount.** Closing that gap needs a persistent per-device marker, which is
+exactly what this feature refuses to have.
+
+### Retention has no cohorts, deliberately
+
+`return_after_dN` fires once ever, on the first launch at least N days after
+`obertura.installedAt`. **The sets nest** (`d30 ⊆ d7 ⊆ d2`), so these mean "ever
+came back after N days", *not* classic day-N retention. Read as a lagged ratio
+against `install` from an earlier period; the lag smears across the boundary.
+
+That imprecision is the price of something specific. The obvious design — naming
+the metric `retained_d7:2026-w36` — was rejected: a rotating name cannot sit on
+a literal allowlist (so the endpoint becomes writable with unbounded distinct
+rows), and at this project's traffic a cohort week with one member is a
+pseudo-identifier that follows a device across sessions. Nothing derived from
+`installedAt` beyond "a threshold was crossed" ever leaves the device.
+
+### OAuth sign-ups cannot be distinguished from OAuth sign-ins
+
+`signed_in` fires at all four points where a session is actually established
+(`auth.ts`): password sign-in, an email link redeemed, an OAuth code exchanged,
+and a sign-up that came back with a session. `signed_up_email` fires only in
+`signUpWithPassword`.
+
+**There is no `signed_up_oauth`, and there will not be one.** Google/Facebook/
+Apple redirect away and come back with a session that looks identical whether
+the account is ten seconds or ten months old. Telling them apart means asking
+the server whether `created_at` is within a few seconds of now — an extra lookup
+on every sign-in, to learn something no decision depends on. **We are
+deliberately not doing it.** So `signed_up_email` is a floor on registrations,
+not the total, and the gap is however many people use a social button.
+
+`signed_up_email` is `trackOnce`, not `track`: re-registering is the normal
+response to a confirmation email that never arrived (see the "Send it again"
+dialog in `account-ui.ts`), and counting each attempt would inflate the one
+number a registration figure exists to give.
+
+### The three local keys, and why none of them travels
+
+All in `localStorage`, all registered in `local-keys.ts` as never-synced, all
+covered by name in `local-keys.selftest.ts`. None is ever *sent* — they are read
+to decide whether to send.
+
+| Key | | If it travelled |
+|---|---|---|
+| `obertura.installedAt` | first launch on this profile | a new phone would count no install and trip all three return milestones on launch one — retention would measure backup restores |
+| `obertura.metricsSeen` | once-ever events already spent | a second phone would inherit "already counted" and go silent for life |
+| `obertura.metricsOptOut` | the Settings switch | handing someone a backup would silently stop counting on *their* device |
+
+`obertura.metricsSession` is in `sessionStorage`, which nothing in the backup
+path walks, so it needs no entry.
+
+### The switch
+
+**Settings → Feedback & about → "Leave me out of the counts."** Off by default,
+device-local. It exists because with no identifier there is nothing to filter on
+afterwards — the only way for the owner or a tester to stay out of the numbers
+is to say so up front, on the device. Built only when `metricsActive()`, so it
+never appears on a build that counts nothing.
+
+### Everything fails soft
+
+`worker/stripe-webhook.ts` carries a banner saying the exact opposite; that
+reasoning is Stripe-specific and does not apply here. A missing secret, a
+Supabase outage and an accepted event all return the same `204`. Once-ever
+events are marked spent **before** they are sent, so "once ever" means one
+attempt — a failed send is simply lost, which is correct. The only loud response
+is `400` on a name that isn't allowlisted, because the only things that produce
+one are a bug in `src/metrics.ts` or somebody poking at the endpoint.
+
+`__DEPLOY_TARGET__ !== 'cloudflare'` makes the entire client compile to a no-op,
+so the GitHub Pages build (which has no Worker behind it) fires nothing.
+
+---
+
+## 19. Module index
 
 Every non-selftest module in `src/`, exactly once.
 
@@ -1323,6 +1449,7 @@ Every non-selftest module in `src/`, exactly once.
 | `pricing.ts` | what the unlock costs, in the reader's currency |
 | `pro-sheet.ts` | the Full Access popup |
 | `gate.ts` | the beta access gate + install screen (self-contained, removable) |
+| `metrics.ts` | the anonymous event counter's app half (§18) — a no-op off Cloudflare |
 
 ### Onboarding, settings, feedback
 | Module | |
@@ -1340,7 +1467,7 @@ Every non-selftest module in `src/`, exactly once.
 
 ---
 
-## 19. Bundled data and assets
+## 20. Bundled data and assets
 
 All JSON in `src/` is **generated** by `scripts/build-*.mjs`. Regenerate;
 never hand-edit.
@@ -1364,7 +1491,7 @@ Assets: `src/style.css` (20,485 lines, all of it) · `src/fonts/` (Chakra Petch
 
 ---
 
-## 20. The Worker, the scripts and the public pages
+## 21. The Worker, the scripts and the public pages
 
 ### `worker/` — the only server-side code
 
@@ -1381,9 +1508,13 @@ page, script and image is served straight from the static assets in `dist/`.
 | `POST /api/stripe/checkout` | `stripe-checkout.ts` |
 | `POST /api/stripe/webhook` | `stripe-webhook.ts` → `profiles.entitled` |
 | `POST /api/account/delete` | `account-delete.ts` |
+| `POST /api/event` | `metrics.ts` → `bump_metric` (see §18) |
 
-No CORS headers anywhere, deliberately: all four are called from pages served by
+No CORS headers anywhere, deliberately: all five are called from pages served by
 this same Worker's assets, so every call is same-origin.
+
+`/api/event` is the only endpoint that takes `ctx` (for `waitUntil`) and the only
+one that fails soft — see §18.
 
 ### `scripts/`
 
@@ -1410,7 +1541,7 @@ mirror by hand. `src/legal.ts` resolves the right URL per host.
 
 ---
 
-## 21. Build, deploy and test
+## 22. Build, deploy and test
 
 | Command | What it does |
 |---|---|
@@ -1440,7 +1571,7 @@ that happen again.
 
 ---
 
-## 22. Conventions and invariants
+## 23. Conventions and invariants
 
 1. **The same moves are never stored twice.** Every write of moves goes through
    `repertoire.mergePath`, never a copy.
@@ -1473,7 +1604,7 @@ that happen again.
 
 ---
 
-## 23. Known gaps and honest caveats
+## 24. Known gaps and honest caveats
 
 - **`src/explorer-stats.json` is empty (`{}`).** The bundled win/draw/loss set has
   never been generated on this checkout, so `bundledStats()` always returns null
