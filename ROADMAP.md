@@ -1110,6 +1110,56 @@ without buying an identifier along with it.
 
 ---
 
+## The account-summary round — who trains, who only builds ✅
+
+The anonymous counter (previous round) answers "how many times did X happen"
+and can never answer "does the same person who builds also train" — that is the
+design, not a gap in it. This round answers the second question the only way it
+can honestly be answered: per account, for people who chose to have one, in
+numbers small enough to ride a push that was happening anyway.
+
+- ✅ **A `stats` jsonb column on `profiles`.** Twelve integers and two strings,
+  ~300 bytes: lines, lines in training, repertoires, games, drills, puzzles,
+  daily challenges, endgames, mistake drills, streak, training days, onboarding
+  done, last active day, app version. Flat on purpose —
+  `select id, stats->>'linesInTraining' from profiles` is the whole admin query,
+  and it never touches a user's repertoire blob.
+- ✅ **It costs no request.** Attached inside the one branch of `pushDirtyParts`
+  that has already decided to write the `repertoire` column — not to the row
+  unconditionally, which would make every 30-second tick a request and defeat the
+  fingerprint skip. Not part of the fingerprint, so it can never make an
+  unchanged payload look new. Wrapped in a `try`: a failed counter must never
+  cost somebody their sync.
+- ✅ **No third timestamp.** Because it only ever rides the core write,
+  `repertoire_updated_at` already dates it exactly.
+- ✅ **⚠️ Reported, not measured.** The browser computes it and the browser
+  uploads it, so it is forgeable. `authenticated` has an UPDATE grant on `stats`
+  and deliberately none on `entitled`; nothing may ever gate on this column, and
+  the app never reads it back. Written down in three places so it survives.
+- ✅ **One new counter, not fourteen.** Thirteen of the numbers were already on
+  the device. `mistakeDrillsCompleted` was not — the per-spot marks live on each
+  game's `retry` blob, so totalling them meant loading every game with its
+  analysis tree. One integer bumped in `recordSpotResult` replaces that, cleared
+  by "Reset progress" with the other logs.
+- ✅ **Honest names.** `daysActive` became `trainingDays`, because that is what
+  it measures — nothing records days the app was merely opened, and the keys that
+  could are device-local by design. `puzzlesSolved` and
+  `dailyChallengesCompleted` are 120- and 180-day windows, said so per field.
+- ✅ **The opt-out does not cover it, and the app says so.** "Leave me out of the
+  counts" is about the anonymous counter, where not counting is the only possible
+  exclusion. This is account data, so the Settings copy now ends by saying it
+  covers anonymous counting only and points at the privacy policy, which
+  discloses the summary in the account table and draws the distinction in full.
+- ✅ **A fingerprint bug found on the way in, fixed first and on its own.**
+  `coreFingerprintOf` hashed `backup.lines`, the retired v1/v2 shape;
+  `exportCore()` has emitted `repertoires` since version 3. The fingerprint was
+  therefore taken over the localStorage snapshot alone, and a repertoire edit
+  touching no localStorage key did not count as a change. The self-test agreed
+  with the bug — its `coreBlob()` built the v1/v2 shape — so that helper now
+  builds what the app really produces.
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

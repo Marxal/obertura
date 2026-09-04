@@ -990,6 +990,52 @@ function uciFromReplay(replay: GameReplay, ply: number): string | null {
 
 // ── Spot training state ───────────────────────────────────────────────────────
 
+// A running total of mistake drills answered on this device.
+//
+// It exists because the per-spot counters it duplicates are UNREACHABLE cheaply:
+// `fixed` and `attempts` live on each game's `retry` blob in IndexedDB, so
+// totalling them means loading every game with its saved analysis tree — the
+// exact cost the synced games' diet was written to avoid (sync-core.ts). One
+// integer bumped at the single choke point below answers "does this person use
+// the mistake drills at all?" for free.
+//
+// Counts forward from the release that added it, like the streak and the puzzle
+// log, and travels in the localStorage snapshot like both of them — it is a
+// genuine user counter, not device state, so a second phone should see it.
+const MISTAKE_DRILLS_KEY = 'obertura.mistakeDrillsDone';
+
+function bumpMistakeDrills(): void {
+  try {
+    const n = Number(localStorage.getItem(MISTAKE_DRILLS_KEY) ?? '0');
+    localStorage.setItem(MISTAKE_DRILLS_KEY, String((Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0) + 1));
+  } catch {
+    /* storage unavailable/full — a counter is a nicety, never block a drill. */
+  }
+}
+
+/**
+ * Forget the running total — part of "Reset progress" in Settings, alongside
+ * the review log, the puzzle log and the endgame progress it sits with. The
+ * per-spot `fixed`/`attempts` marks are a separate button (resetMistakeScans).
+ */
+export function clearMistakeDrills(): void {
+  try {
+    localStorage.removeItem(MISTAKE_DRILLS_KEY);
+  } catch {
+    /* storage unavailable — nothing to clear. */
+  }
+}
+
+/** How many mistake drills have been answered on this device. */
+export function getMistakeDrillsDone(): number {
+  try {
+    const n = Number(localStorage.getItem(MISTAKE_DRILLS_KEY) ?? '0');
+    return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+  } catch {
+    return 0;
+  }
+}
+
 // Record a drill attempt on a spot: bump attempts, stamp lastTrained, and latch
 // `fixed` on a clean solve. Read-modify-write on the fresh record so a
 // concurrent analyser save keeps its data.
@@ -1000,6 +1046,7 @@ export async function recordSpotResult(gameId: string, spotId: string, clean: bo
   spot.attempts = (spot.attempts ?? 0) + 1;
   spot.lastTrained = Date.now();
   if (clean) spot.fixed = true;
+  bumpMistakeDrills();
   await saveGames([fresh]);
 }
 

@@ -26,6 +26,7 @@ One row per user, holding the copy of their data.
 | `repertoire_updated_at`    | `timestamptz` | when that half was last pushed — **the sync reads this**  |
 | `games`                    | `jsonb`       | your imported games                                       |
 | `games_updated_at`         | `timestamptz` | when the games were last pushed — **the sync reads this**  |
+| `stats`                    | `jsonb`       | a ~300-byte summary of how much has been built and trained |
 | `entitled`                 | `boolean`     | has this account paid? Gates the training cap             |
 | `entitled_at`              | `timestamptz` | when the purchase webhook granted it (a record only)      |
 | `stripe_customer_id`       | `text`        | the Stripe customer behind that purchase (a record only)  |
@@ -110,6 +111,7 @@ create table if not exists public.profiles (
   repertoire_updated_at timestamptz,
   games jsonb,
   games_updated_at timestamptz,
+  stats jsonb,
   entitled boolean not null default false,
   entitled_at timestamptz,
   stripe_customer_id text,
@@ -124,7 +126,19 @@ alter table public.profiles
   add column if not exists stripe_customer_id text,
   add column if not exists stripe_payment_intent_id text,
   add column if not exists games jsonb,
-  add column if not exists games_updated_at timestamptz;
+  add column if not exists games_updated_at timestamptz,
+  -- The per-account summary (src/account-stats.ts). A flat object of counters
+  -- written alongside `repertoire`, so "do people train or only build?" can be
+  -- answered without ever reading a user's repertoire blob.
+  --
+  -- It is REPORTED, NOT MEASURED: the browser computes it and the browser
+  -- uploads it, so it is forgeable by anyone with devtools. NOTHING MAY EVER
+  -- GATE ON IT — see the grant note below for why that matters here.
+  --
+  -- No timestamp column of its own on purpose: the app only ever writes it in
+  -- the same statement as `repertoire`, so `repertoire_updated_at` already
+  -- dates it.
+  add column if not exists stats jsonb;
 
 -- Row-level security: without this, the public anon key in the app bundle
 -- would let anyone read everyone's rows. With it, every query is silently
@@ -167,10 +181,16 @@ create policy "own profile: update"
 --
 -- A column added later is not in either grant list, so it starts out unwritable
 -- by the browser. Protection by default rather than by remembering.
+--
+-- `stats` is in both lists and `entitled` is in neither, and that pairing is the
+-- entire safety story for the summary: the browser may write its own counters
+-- and may never write its own paid status. Anything that later wants to ACT on a
+-- number — a promo, a trial extension — must derive it server-side instead of
+-- trusting this column.
 revoke update on public.profiles from anon, authenticated;
-grant update (repertoire, repertoire_updated_at, games, games_updated_at)
+grant update (repertoire, repertoire_updated_at, games, games_updated_at, stats)
   on public.profiles to authenticated;
-grant insert (id, repertoire, repertoire_updated_at, games, games_updated_at)
+grant insert (id, repertoire, repertoire_updated_at, games, games_updated_at, stats)
   on public.profiles to authenticated;
 
 -- ── THE SIZE CEILING, ENFORCED WHERE IT CAN'T BE ARGUED WITH ────────────────
@@ -195,6 +215,13 @@ begin
   if new.games is not null
      and pg_column_size(new.games::text) > 4 * 1024 * 1024 then
     raise exception 'games column is over the 4 MB limit';
+  end if;
+  -- The app writes ~300 bytes here. 8 KB is a wall, not a budget: without it,
+  -- the one column the browser can fill freely is also the only one with no
+  -- ceiling on it.
+  if new.stats is not null
+     and pg_column_size(new.stats::text) > 8 * 1024 then
+    raise exception 'stats column is over the 8 KB limit';
   end if;
   return new;
 end;

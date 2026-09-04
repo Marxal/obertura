@@ -970,6 +970,7 @@ Four columns on `profiles` (one row per user, keyed by auth id):
 | `repertoire_updated_at` | its stamp |
 | `games` | the games, split off because a heavy analysed library is 4–20 MB |
 | `games_updated_at` | its stamp |
+| `stats` | the per-account summary — ~300 bytes, **write-only from the app** |
 | `entitled` | read by `entitlement.ts`, written by the Stripe webhook |
 
 **A pull always merges; there is no merge-or-replace question.** Repertoires merge
@@ -989,6 +990,57 @@ the Later list.
 `signing-in.ts` covers the reload a pull requires (the snapshot is written to
 localStorage after modules have already read it at boot) with the same pulsing
 icon as the boot splash, so signing in reads as one step rather than a crash.
+
+**The fingerprint has to hash `repertoires`, not `lines`.** `coreFingerprintOf`
+hashed `backup.lines` alone for a long time, and `lines` is the retired v1/v2
+shape — `exportCore()` has emitted `repertoires` since backup version 3. So the
+fingerprint was effectively taken over the localStorage snapshot, and a
+repertoire edit that touched no localStorage key did not count as a change: the
+push was skipped until some unrelated preference or streak moved the snapshot
+and carried the lines up with it. A silent delay, not data loss. The self-test
+agreed with the bug because its `coreBlob()` helper built the v1/v2 shape; it
+now builds what `exportCore()` really produces, with `legacyCoreBlob()` kept for
+the pre-split migration cases a pull can still hand us.
+
+#### The `stats` summary (`account-stats.ts`)
+
+A flat object of twelve integers and two strings — lines, lines in training,
+repertoires, games, drills, puzzles, daily challenges, endgames, mistake drills,
+streak, training days, onboarding done, last active day, app version — written
+so the shape of the user base can be read **without ever opening anybody's
+repertoire blob**. `select id, stats->>'linesInTraining' from profiles` is the
+whole admin query.
+
+Three things about it are deliberate and worth not undoing:
+
+- **It rides the existing push and costs no request.** It is attached inside the
+  one branch of `pushDirtyParts` that has already decided to write the
+  `repertoire` column — not to `row` unconditionally, which would make
+  `Object.keys(row).length > 1` always true and turn every 30-second tick into a
+  request, defeating the skip this module exists for. It is not part of the
+  fingerprint, so it can never make an unchanged payload look new. It is built
+  from the books `exportCore()` has just loaded, and wrapped in a `try` — a
+  failed counter must never cost the user their sync.
+- **It has no timestamp of its own.** Because it only ever rides the core write,
+  `repertoire_updated_at` already dates it exactly. That is why it must stay
+  attached to that branch: move it and the dating quietly becomes a lie.
+- **⚠️ It is REPORTED, not MEASURED, and NOTHING MAY EVER GATE ON IT.** The
+  browser computes it and the browser uploads it, so anyone with devtools can
+  put anything in it. `authenticated` holds an UPDATE grant on this column and
+  deliberately holds none on `entitled` (§16.3) — the two must never meet. A
+  promo or trial that read `stats->>'drillsCompleted'` server-side would be
+  free for the asking. Nothing in the app reads the column back.
+
+Several fields are narrower than their names suggest, and `account-stats.ts`
+says so per field: `puzzlesSolved` and `dailyChallengesCompleted` come from logs
+that prune to 120 and 180 days, so they are windows rather than lifetimes;
+`drillsCompleted` counts only lines that still exist; `trainingDays` is days with
+a completed session, not days the app was opened (nothing records the latter —
+the keys that could are device-local by design, §18). `mistakeDrillsCompleted`
+is the one number that needed new tracking: the per-spot `fixed`/`attempts` live
+on each game's `retry` blob, so totalling them would mean loading every game with
+its analysis tree. One integer bumped in `recordSpotResult` replaces that, and
+"Reset progress" clears it with the other logs.
 
 ### 16.3 Entitlement — the free tier
 
@@ -1100,8 +1152,29 @@ disappears. Per-instance keys fix it.
 ## 18. The anonymous event counter
 
 **`src/metrics.ts` + `worker/metrics.ts` + `POST /api/event`.** One clicker per
-named event. It is the only measurement in the app and it is built so that it
-*cannot* become anything more.
+named event. It is built so that it *cannot* become anything more.
+
+**It is not the only measurement any more, and the two must not be confused.**
+There are exactly two, and they differ in kind:
+
+| | This section (`metrics.ts`) | The `stats` column (`account-stats.ts`, §16.2) |
+|---|---|---|
+| Identifier | **none at all** — not even a random one | the user's account id |
+| Exists when | always, signed in or not | **only with an account** |
+| On the wire | one word off a fixed list of sixteen | ~300 bytes of counters, on the existing sync push |
+| Can two records be linked? | no — that is the whole design | yes, they are one row |
+| Covered by the opt-out switch | **yes** | **no** — see below |
+| Deleted by "delete my account" | nothing to delete | yes, with the row |
+
+The opt-out does not cover the summary **on purpose**. This counter is anonymous
+and unlinkable, so the only way to leave somebody out is not to count at all —
+which is exactly what the switch does. The summary is account data, sitting in
+the user's own row next to their repertoire and games, disclosed in the privacy
+policy's account table and removed with the account. Stretching a switch that
+means "don't count this device anonymously" to cover account data would blur what
+it promises, so `buildCountMeRow` in `settings-screen.ts` says in its own copy
+that it covers anonymous counting only and points at the privacy policy for what
+an account stores. If that wording changes, change it in both places.
 
 ### What is on the wire
 
@@ -1201,6 +1274,10 @@ device-local. It exists because with no identifier there is nothing to filter on
 afterwards — the only way for the owner or a tester to stay out of the numbers
 is to say so up front, on the device. Built only when `metricsActive()`, so it
 never appears on a build that counts nothing.
+
+Its sub-copy ends by saying it covers anonymous usage counting only and pointing
+signed-in users at the privacy policy — the `stats` column is not covered by it
+(see the table at the top of this section).
 
 ### Everything fails soft
 
@@ -1442,6 +1519,7 @@ Every non-selftest module in `src/`, exactly once.
 | `account-delete.ts` | "Delete my account" — the app half |
 | `repertoire-sync.ts` | account sync — the cross-device copy |
 | `sync-core.ts` | the sync's pure logic: no Supabase, no auth, no browser |
+| `account-stats.ts` | the `profiles.stats` summary (§16.2) — **forgeable; never gate on it** |
 | `signing-in.ts` | the cover that makes signing in look like one step |
 | `entitlement.ts` | the free tier and its caps |
 | `entitlement-cache.ts` | the last-known "is this account entitled?" answer |

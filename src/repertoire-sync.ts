@@ -98,6 +98,7 @@ import {
   onGamesChanged,
   type BackupFile,
 } from './storage';
+import { buildAccountStats } from './account-stats';
 import { showToast } from './toast';
 import { showSigningIn } from './signing-in';
 // The pure half lives next door so it can be self-tested under plain Node —
@@ -129,6 +130,10 @@ const CORE_COLUMN = 'repertoire'; // lines + localStorage snapshot — see above
 const CORE_STAMP_COLUMN = 'repertoire_updated_at';
 const GAMES_COLUMN = 'games';
 const GAMES_STAMP_COLUMN = 'games_updated_at';
+// The per-account summary (account-stats.ts). Written ONLY alongside the core
+// column, which is what lets it borrow `repertoire_updated_at` as its own
+// timestamp instead of needing a third stamp of its own.
+const STATS_COLUMN = 'stats';
 
 // All state keys sit under the `obertura.` prefix so the Settings "erase
 // everything" sweep (wipeOberturaLocalStorage) clears them with the rest. They
@@ -431,6 +436,25 @@ async function pushDirtyParts(): Promise<void> {
           row[CORE_COLUMN] = core;
           row[CORE_STAMP_COLUMN] = now;
           nextCoreFp = fp;
+          // The summary rides THIS branch and no other. Attaching it here — and
+          // not next to `row` above — is the whole design: we are already
+          // spending a request on this row, so the summary costs nothing, and a
+          // cycle where the fingerprint says "unchanged" still writes nothing at
+          // all. Putting it in `row` unconditionally would make
+          // `Object.keys(row).length > 1` always true and turn every 30-second
+          // tick into a request, which is exactly the skip this module exists
+          // for. It is deliberately NOT part of the fingerprint (computed above,
+          // from the backup alone), so it can never make an unchanged payload
+          // look new.
+          //
+          // The books are handed over rather than re-read: exportCore() has just
+          // loaded them. A failure here must never cost the user their sync, so
+          // the summary is dropped on the floor if it throws.
+          try {
+            row[STATS_COLUMN] = await buildAccountStats(core.repertoires ?? []);
+          } catch {
+            /* a counter is a nicety; the lines are not. Push without it. */
+          }
         }
       }
     }

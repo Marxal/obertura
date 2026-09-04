@@ -64,6 +64,7 @@ import { clearPuzzleRepeat } from './puzzle-repeat';
 import { clearBrilliantLog } from './brilliant-log';
 import { clearTaBest } from './puzzles-screen';
 import { clearEndgameProgress } from './endgame-progress';
+import { clearMistakeDrills } from './mistake-scan';
 import { renderBackupSection, exportBackupNow } from './backup';
 import { Icons } from './icons';
 import { row, segmented, toggle } from './settings-controls';
@@ -234,6 +235,13 @@ function buildAboutGroup(): HTMLElement {
 //
 // Device-local and never synced (local-keys.ts): a switch that means "not this
 // device" has to be stored per device or it means nothing.
+//
+// The last sentence is load-bearing. A signed-in account also stores a small
+// summary of how much has been built and trained (account-stats.ts), and that
+// is NOT anonymous and NOT covered by this switch — so the row has to say so
+// rather than let "leave me out of the counts" be read as covering everything.
+// It points at the privacy policy instead of listing the fields, because the
+// policy is where that list is maintained.
 function buildCountMeRow(): HTMLElement {
   return row(
     'Leave me out of the counts',
@@ -241,7 +249,9 @@ function buildCountMeRow(): HTMLElement {
     {
       sub: 'The app counts anonymous events like “a line was saved” — no cookies, '
         + 'no identifier, nothing that says it was you. Turn this on and this '
-        + 'device stops contributing to those counts.',
+        + 'device stops contributing to those counts. It covers anonymous usage '
+        + 'counting only — if you’re signed in, see the privacy policy for what '
+        + 'your account itself stores.',
     },
   );
 }
@@ -1133,6 +1143,7 @@ function buildBackupGroup(): HTMLElement {
           clearTaBest();
           clearTimedBest();
           clearEndgameProgress();
+          clearMistakeDrills();
           // Push straight away rather than waiting out the 30-second debounce.
           // Clearing the logs above writes localStorage directly, which fires no
           // change notifier, so without this the reset could sit unsynced until
