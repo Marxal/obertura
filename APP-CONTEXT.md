@@ -1031,6 +1031,21 @@ Three things about it are deliberate and worth not undoing:
   promo or trial that read `stats->>'drillsCompleted'` server-side would be
   free for the asking. Nothing in the app reads the column back.
 
+**Reading it back: `npm run admin`.** `scripts/admin-stats.mjs` queries the
+three tables and writes a self-contained HTML dashboard to `.admin/stats.html`
+(gitignored — it is a file full of real account rows). It is a LOCAL page on
+purpose: hosting it would send those rows to a service that is not in the
+privacy policy's sub-processor table, which is a disclosure change rather than a
+build step. It holds no key either — it shells out to `supabase db query
+--linked`, so the credential is the CLI's own stored login.
+
+Because `profiles.stats` is overwritten on every push, it carries no history at
+all. `public.stats_daily` is the tape: a `pg_cron` job copies every account's
+summary once a day at 03:17 UTC. RLS on with no policies *and* grants revoked —
+Supabase grants new public tables to anon/authenticated by default, which is how
+`profiles` acquired a table-wide INSERT grant nobody intended. It cascades on
+account deletion, because the privacy policy promises it does.
+
 Several fields are narrower than their names suggest, and `account-stats.ts`
 says so per field: `puzzlesSolved` and `dailyChallengesCompleted` come from logs
 that prune to 120 and 180 days, so they are windows rather than lifetimes;
@@ -1520,6 +1535,7 @@ Every non-selftest module in `src/`, exactly once.
 | `repertoire-sync.ts` | account sync — the cross-device copy |
 | `sync-core.ts` | the sync's pure logic: no Supabase, no auth, no browser |
 | `account-stats.ts` | the `profiles.stats` summary (§16.2) — **forgeable; never gate on it** |
+| `scripts/admin-stats.mjs` | `npm run admin` — the owner's local dashboard (§16.2) |
 | `signing-in.ts` | the cover that makes signing in look like one step |
 | `entitlement.ts` | the free tier and its caps |
 | `entitlement-cache.ts` | the last-known "is this account entitled?" answer |

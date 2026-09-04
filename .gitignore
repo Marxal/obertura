@@ -12,3 +12,6 @@ scripts/out/
 
 # Supabase CLI link scratch — machine-local, never part of the app build.
 supabase/
+
+# The owner dashboard is a file full of real account rows. Never committed.
+.admin/

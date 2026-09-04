@@ -27,6 +27,7 @@ One row per user, holding the copy of their data.
 | `games`                    | `jsonb`       | your imported games                                       |
 | `games_updated_at`         | `timestamptz` | when the games were last pushed — **the sync reads this**  |
 | `stats`                    | `jsonb`       | a ~300-byte summary of how much has been built and trained |
+| *(and `public.stats_daily`)* | —           | a daily copy of every account's `stats`, so trends exist at all |
 | `entitled`                 | `boolean`     | has this account paid? Gates the training cap             |
 | `entitled_at`              | `timestamptz` | when the purchase webhook granted it (a record only)      |
 | `stripe_customer_id`       | `text`        | the Stripe customer behind that purchase (a record only)  |
@@ -225,6 +226,59 @@ grant update (repertoire, repertoire_updated_at, games, games_updated_at, stats)
   on public.profiles to authenticated;
 grant insert (id, repertoire, repertoire_updated_at, games, games_updated_at, stats)
   on public.profiles to authenticated;
+
+-- ── THE HISTORY TABLE ───────────────────────────────────────────────────────
+-- `profiles.stats` is OVERWRITTEN on every push, so on its own it can only ever
+-- answer "what does the user base look like right now". This is the tape, and
+-- a pg_cron job appends to it once a day.
+--
+-- The browser must never see one row of it: RLS is on with NO policies at all,
+-- and the grants are revoked outright. Both, because Supabase grants new public
+-- tables to anon/authenticated BY DEFAULT — which is exactly how `profiles`
+-- ended up with a table-wide INSERT grant nobody intended.
+--
+-- `on delete cascade` is the privacy promise: "deleting your account deletes it
+-- with the rest" has to include the history, or the policy would be a lie.
+create table if not exists public.stats_daily (
+  day date not null default current_date,
+  id uuid not null references auth.users (id) on delete cascade,
+  stats jsonb not null,
+  primary key (day, id)
+);
+
+alter table public.stats_daily enable row level security;
+revoke all on public.stats_daily from anon, authenticated;
+
+-- One row per account per day; re-running on the same day overwrites, so the
+-- job is idempotent and a manual run is always safe.
+create or replace function public.snapshot_profile_stats()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare n integer;
+begin
+  insert into public.stats_daily (day, id, stats)
+  select current_date, p.id, p.stats
+    from public.profiles p
+   where p.stats is not null
+  on conflict (day, id) do update set stats = excluded.stats;
+  get diagnostics n = row_count;
+  return n;
+end;
+$$;
+
+revoke all on function public.snapshot_profile_stats() from anon, authenticated;
+
+-- pg_cron is free on every Supabase plan and installs into its own `cron`
+-- schema. 03:17 UTC rather than a round hour so it isn't queued behind
+-- everything else in the region that picked midnight.
+create extension if not exists pg_cron;
+select cron.schedule(
+  'snapshot-profile-stats', '17 3 * * *',
+  'select public.snapshot_profile_stats()'
+);
 
 -- ── THE SIZE CEILING, ENFORCED WHERE IT CAN'T BE ARGUED WITH ────────────────
 -- The app refuses to push a column over 4 MB (SYNC_PART_LIMIT_BYTES in
