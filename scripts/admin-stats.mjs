@@ -63,10 +63,13 @@ function query(sql) {
     }
     die(`The query failed.\n\n${text.trim()}`);
   }
-  // The CLI prefixes a status line and wraps the result in an envelope with a
-  // `warning` about untrusted content. Take the first JSON object and read
-  // `rows` off it — never eval, never trust the text as anything but data.
-  const start = raw.indexOf('{');
+  // The CLI sometimes prefixes a status line ("Initialising login role...")
+  // before the JSON starts, and the JSON itself takes one of two shapes: a
+  // bare array of rows with `--output-format json`, or (seen when the format
+  // was left to auto-detect) an envelope object with a `rows` field and an
+  // untrusted-content `warning`. Handle both rather than assume one — never
+  // eval, never trust the text as anything but data.
+  const start = raw.search(/[[{]/);
   if (start < 0) die(`Unexpected output from the CLI:\n\n${raw.slice(0, 400)}`);
   let parsed;
   try {
@@ -74,8 +77,10 @@ function query(sql) {
   } catch {
     die(`Could not parse the CLI's output:\n\n${raw.slice(0, 400)}`);
   }
-  if (parsed.error) die(`Postgres said: ${parsed.error.message ?? JSON.stringify(parsed.error)}`);
-  return Array.isArray(parsed.rows) ? parsed.rows : [];
+  if (Array.isArray(parsed)) return parsed;
+  if (parsed?.error) die(`Postgres said: ${parsed.error.message ?? JSON.stringify(parsed.error)}`);
+  if (Array.isArray(parsed?.rows)) return parsed.rows;
+  die(`Unexpected shape from the CLI:\n\n${raw.slice(0, 400)}`);
 }
 
 function die(message) {
