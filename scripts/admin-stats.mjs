@@ -41,7 +41,11 @@ const OUT = resolve(ROOT, '.admin/stats.html');
 function query(sql) {
   let raw;
   try {
-    raw = execFileSync('supabase', ['db', 'query', '--linked', sql], {
+    // The CLI's output format defaults on whether stdout is a terminal: JSON
+    // when piped (as it was every time this was tested), a pretty ASCII table
+    // when run interactively. `--output-format json` pins it regardless of who
+    // is running the command from where.
+    raw = execFileSync('supabase', ['db', 'query', '--linked', '--output-format', 'json', sql], {
       encoding: 'utf-8',
       maxBuffer: 64 * 1024 * 1024,
       stdio: ['ignore', 'pipe', 'pipe'],
