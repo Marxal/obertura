@@ -9,3 +9,6 @@ scripts/out/
 !.env.example
 .dev.vars
 .wrangler/
+
+# Supabase CLI link scratch — machine-local, never part of the app build.
+supabase/
