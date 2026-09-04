@@ -42,6 +42,7 @@ import {
   type BackupFile,
 } from './storage';
 import type { Line } from './types';
+import type { Repertoire } from './repertoire';
 
 // A signed-in device that has reconciled and pushed successfully — the baseline
 // each state case below perturbs by exactly one field.
@@ -68,7 +69,44 @@ function line(id: string): Line {
   };
 }
 
+function book(san: string): Repertoire {
+  return {
+    id: 'rep-white',
+    name: 'My White lines',
+    colour: 'white',
+    createdAt: 1,
+    tree: {
+      id: 'root',
+      san: '',
+      uci: '',
+      fen: 'startpos',
+      children: [{ id: 'n1', san, uci: 'x', fen: 'after', children: [] }],
+    },
+  };
+}
+
+// WHAT exportCore() ACTUALLY PRODUCES — version 4, carrying `repertoires`.
+//
+// This helper used to build the v1/v2 `lines` shape, and that is precisely how
+// coreFingerprintOf came to hash a field the app has not written since the
+// repertoire redesign: the test agreed with the bug. It is the shape under test,
+// so it has to be the shape that ships. The old blob is still exercised, by
+// name, in legacyCoreBlob below.
 function coreBlob(overrides: Partial<BackupFile> = {}): BackupFile {
+  return {
+    format: 'obertura-backup',
+    version: 4,
+    exportedAt: '2026-08-09T10:00:00.000Z',
+    parts: ['lines', 'stats', 'settings'],
+    repertoires: [book('e4')],
+    local: { 'obertura.puzzleRating': '1500' },
+    ...overrides,
+  };
+}
+
+// A row written by a device from before the redesign. Still READ by a pull, so
+// it still has to reassemble and still has to fingerprint.
+function legacyCoreBlob(overrides: Partial<BackupFile> = {}): BackupFile {
   return {
     format: 'obertura-backup',
     version: 2,
@@ -205,8 +243,8 @@ export function runRepertoireSyncSelfTest(): TestResult[] {
   const splitParsed = split ? parseBackup(split) : null;
   check(
     'core + games columns reassemble into one valid backup',
-    splitParsed?.lines?.length === 1 && splitParsed?.games?.length === 2,
-    `${splitParsed?.lines?.length ?? 0} line(s), ${splitParsed?.games?.length ?? 0} game(s)`,
+    splitParsed?.repertoires?.length === 1 && splitParsed?.games?.length === 2,
+    `${splitParsed?.repertoires?.length ?? 0} book(s), ${splitParsed?.games?.length ?? 0} game(s)`,
   );
   check(
     'the app-state snapshot survives reassembly',
@@ -216,7 +254,7 @@ export function runRepertoireSyncSelfTest(): TestResult[] {
 
   // The migration case: a row written before the split has its games INSIDE the
   // core blob and nothing in the games column. Those games must survive.
-  const legacy = combineRemote(coreBlob({ games: [{ id: 'old1' }, { id: 'old2' }] } as Partial<BackupFile>), null);
+  const legacy = combineRemote(legacyCoreBlob({ games: [{ id: 'old1' }, { id: 'old2' }] } as Partial<BackupFile>), null);
   const legacyParsed = legacy ? parseBackup(legacy) : null;
   check(
     'a pre-split row keeps the games stored inside its blob',
@@ -226,7 +264,7 @@ export function runRepertoireSyncSelfTest(): TestResult[] {
   // And once the games column is populated it wins, so the first post-migration
   // push actually takes effect instead of being shadowed by the stale copy.
   const upgraded = combineRemote(
-    coreBlob({ games: [{ id: 'stale' }] } as Partial<BackupFile>),
+    legacyCoreBlob({ games: [{ id: 'stale' }] } as Partial<BackupFile>),
     [{ id: 'fresh1' }, { id: 'fresh2' }, { id: 'fresh3' }],
   );
   const upgradedParsed = upgraded ? parseBackup(upgraded) : null;
@@ -300,10 +338,28 @@ export function runRepertoireSyncSelfTest(): TestResult[] {
       coreFingerprintOf(coreBlob({ exportedAt: '2027-01-01T00:00:00.000Z' })),
     'restamping the export time alone is not a change',
   );
+  // THE REGRESSION. coreFingerprintOf hashed `backup.lines` alone, and
+  // exportCore() has emitted `repertoires` since backup version 3 — so this
+  // comparison came out EQUAL, an edited repertoire did not count as a change,
+  // and the push was skipped until some unrelated localStorage key moved.
+  // The old coreBlob() helper hid it by building the retired v1/v2 shape.
   check(
-    'the core fingerprint notices a changed line',
-    coreFingerprintOf(coreBlob()) !== coreFingerprintOf(coreBlob({ lines: [line('b')] })),
+    'the core fingerprint notices a changed repertoire',
+    coreFingerprintOf(coreBlob()) !== coreFingerprintOf(coreBlob({ repertoires: [book('d4')] })),
+    'a different move in the book is a change',
+  );
+  check(
+    'the core fingerprint notices a changed line in a legacy blob',
+    coreFingerprintOf(legacyCoreBlob()) !==
+      coreFingerprintOf(legacyCoreBlob({ lines: [line('b')] })),
     'a different line id is a change',
+  );
+  // The two shapes are hashed under their own names, so a v2 row and a v4 row
+  // can never collide into looking like the same payload.
+  check(
+    'the two backup shapes fingerprint differently',
+    coreFingerprintOf(coreBlob()) !== coreFingerprintOf(legacyCoreBlob()),
+    'repertoires and lines are not interchangeable',
   );
   check(
     'the core fingerprint notices a changed app-state snapshot',

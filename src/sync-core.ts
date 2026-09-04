@@ -213,8 +213,32 @@ export function fingerprint(text: string): string {
 // `exportedAt` is restamped on every export, so including it would make every
 // payload look new and defeat the skip entirely. `format`/`version` are
 // constants. That leaves the two things that actually carry user data.
+//
+// ── AND IT HAS TO READ `repertoires`, NOT JUST `lines` ──────────────────────
+// This hashed `backup.lines` alone for as long as the repertoire redesign has
+// been shipped, and `lines` is the RETIRED v1/v2 shape — exportCore() has
+// emitted `repertoires` since backup version 3. `backup.lines` was therefore
+// undefined on every payload this app produces, JSON.stringify dropped the key,
+// and the fingerprint was taken over the localStorage snapshot alone.
+//
+// The effect was a silent delay, not data loss: a repertoire edit that happened
+// to touch no localStorage key did not count as a change, so `pushDirtyParts`
+// skipped the write and the new lines sat on the phone until some unrelated
+// preference, streak or filter moved the snapshot and dragged them up with it.
+// It hid for so long precisely because editing usually DOES write some small
+// key, and because the core column always carries the current repertoires once
+// anything triggers the push.
+//
+// Both shapes are hashed, under their own names, so an old v1/v2 blob (which a
+// pull can still hand us) keeps hashing exactly as it did before.
 export function coreFingerprintOf(backup: BackupFile): string {
-  return fingerprint(JSON.stringify({ lines: backup.lines, local: backup.local ?? null }));
+  return fingerprint(
+    JSON.stringify({
+      repertoires: backup.repertoires ?? null,
+      lines: backup.lines ?? null,
+      local: backup.local ?? null,
+    }),
+  );
 }
 
 // The games half, fingerprinted over WHAT WOULD BE PUSHED rather than over
