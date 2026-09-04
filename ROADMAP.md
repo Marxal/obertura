@@ -1168,6 +1168,44 @@ numbers small enough to ride a push that was happening anyway.
   touching no localStorage key did not count as a change. The self-test agreed
   with the bug — its `coreBlob()` built the v1/v2 shape — so that helper now
   builds what the app really produces.
+- ✅ **`npm run admin` — a local, chart-shaped read of the three tables above.**
+  `scripts/admin-stats.mjs` queries `profiles`, `stats_daily` and `metrics`
+  and writes a self-contained HTML dashboard, opened in the browser. Local on
+  purpose: it holds real per-account rows, and hosting it would send them to a
+  service outside the privacy policy's sub-processor table — a disclosure
+  change, not a build step — so the output is gitignored and the script holds
+  no key of its own, shelling out to `supabase db query --linked` for the
+  CLI's own stored login instead.
+- ✅ **`public.stats_daily`, so the dashboard's trend lines mean something.**
+  `profiles.stats` is overwritten on every push and has no memory of
+  yesterday. A `pg_cron` job copies every account's summary once a day at
+  03:17 UTC into a table with RLS on and no policies *and* grants revoked
+  outright — both, because a bare `create table` is grant-open to
+  anon/authenticated by default, which is exactly how `profiles` got its
+  stray INSERT grant. Cascades on account deletion.
+- ✅ **The Supabase CLI's own output format bit twice, from two different
+  angles.** First: it defaults to a pretty table on a real terminal and JSON
+  when piped, and every test of the script ran piped, so the parser only ever
+  saw JSON until the owner ran it from an actual shell. Second, once
+  `--output-format json` was forced: the CLI wraps that JSON in a
+  `{rows, warning}` envelope ONLY when it detects an agent is driving it (an
+  "untrusted data" notice meant for exactly that case) — so every test still
+  run through this session's own tool saw the wrapped shape, and a real
+  terminal got a bare array instead. The parser now accepts both, and the
+  fix was checked by forcing each shape directly (`--agent no` for the bare
+  one) rather than by re-running from a terminal and hoping.
+- ✅ **Umami folded into the same page — landing page only, and said so.**
+  bitochess.com already runs Umami (previous round); the app itself
+  deliberately does not, and stays that way — extending tracking to
+  bitochess.com/app was raised and declined, since the privacy policy's
+  explicit "the app sends nothing to Umami" line would need rewriting for
+  it. What ships instead: an optional `UMAMI_API_KEY` in `.env` pulls the
+  landing page's own visits, top pages, referrers and CTA click-throughs
+  into the same local dashboard — pulling numbers the policy already
+  discloses collecting, into a file that never leaves the machine, is not a
+  new disclosure. Two response shapes Umami's `/stats` has used across
+  versions (flat numbers vs. `{value, prev}`) are both read safely, since
+  there was no live key on hand to confirm which one applies here.
 
 ---
 

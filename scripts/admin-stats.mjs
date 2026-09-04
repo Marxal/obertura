@@ -27,14 +27,28 @@
 //   • public.metrics       — (name, day, hits) from the anonymous counter. No
 //                            identifier, so it can never be joined to the above.
 //                            That is the design, not a limitation of this page.
+//
+// A fourth, optional source: Umami's REST API, for bitochess.com — the landing
+// page only. The trainer itself (bitochess.com/app) deliberately sends nothing
+// to Umami or any third party (see the privacy policy), so this is the only
+// place traffic toward the app shows up at all, and only as a click-through on
+// the "Try Bito Chess" button. Off by default; needs UMAMI_API_KEY in .env (see
+// readEnvFile below) and degrades to a "not connected, here's how" message
+// without it — every account number above still renders.
 
 import { execFileSync } from 'node:child_process';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = resolve(ROOT, '.admin/stats.html');
+
+// The landing page's Umami website id — public by construction, it's the
+// data-website-id attribute sitting in docs/index.html's page source, sent to
+// every visitor's browser already.
+const UMAMI_WEBSITE_ID = 'a9c7ad59-9e3c-4670-bb1c-0ec9f875c9e1';
+const UMAMI_API = 'https://api.umami.is/v1';
 
 // ── The one privileged call ─────────────────────────────────────────────────
 
@@ -86,6 +100,100 @@ function query(sql) {
 function die(message) {
   console.error(`\n  admin-stats: ${message}\n`);
   process.exit(1);
+}
+
+// ── Umami (the landing page's visits) ───────────────────────────────────────
+//
+// A separate, OPTIONAL credential from the Supabase one above — this script
+// still runs and still shows every account/sync number without it. The key
+// lives in .env (gitignored, never read by anything else — Vite only inlines
+// VITE_-prefixed vars into the app bundle, so this name is deliberately bare)
+// because Umami Cloud's API has no equivalent of "the CLI's own stored login"
+// to borrow the way the Supabase half does.
+function readEnvFile() {
+  try {
+    const text = readFileSync(resolve(ROOT, '.env'), 'utf-8');
+    const out = {};
+    for (const line of text.split('\n')) {
+      const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/i.exec(line);
+      if (m) out[m[1]] = m[2].replace(/^['"]|['"]$/g, '');
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+const UMAMI_API_KEY = process.env.UMAMI_API_KEY || readEnvFile().UMAMI_API_KEY || '';
+
+let umamiWarned = false;
+
+// Every Umami call funnels through here so a bad key, a rate limit or a network
+// hiccup shows up once, as a note on the page, rather than crashing a dashboard
+// whose real point is the account numbers above.
+async function umami(path, params) {
+  if (!UMAMI_API_KEY) return null;
+  const url = new URL(`${UMAMI_API}/websites/${UMAMI_WEBSITE_ID}${path}`);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v));
+  try {
+    const res = await fetch(url, {
+      headers: { Accept: 'application/json', Authorization: `Bearer ${UMAMI_API_KEY}` },
+    });
+    if (!res.ok) {
+      if (!umamiWarned) {
+        console.error(`  admin-stats: Umami API returned ${res.status} — landing-page section will be skipped.`);
+        umamiWarned = true;
+      }
+      return null;
+    }
+    return await res.json();
+  } catch (err) {
+    if (!umamiWarned) {
+      console.error(`  admin-stats: Umami API unreachable (${err.message}) — landing-page section will be skipped.`);
+      umamiWarned = true;
+    }
+    return null;
+  }
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Umami's REST API has no "unit=day" trend endpoint that returns pre-bucketed
+// totals — /stats takes a startAt/endAt range and returns one aggregate for it,
+// so a day-by-day trend means one call per day. HISTORY_DAYS calls, well under
+// the documented rate limit (50 / 15s), and cheap enough to run on every
+// `npm run admin`.
+const HISTORY_DAYS = 14;
+
+async function umamiHistory(now) {
+  const days = [];
+  for (let i = HISTORY_DAYS - 1; i >= 0; i--) {
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    const end = new Date(start.getTime() + DAY_MS);
+    days.push({ day: dayKey(start), startAt: start.getTime(), endAt: Math.min(end.getTime(), now.getTime()) });
+  }
+  const out = [];
+  for (const d of days) {
+    const stats = await umami('/stats', { startAt: d.startAt, endAt: d.endAt });
+    if (!stats) return null; // one failure — stop rather than show a gappy trend
+    out.push({ day: d.day, pageviews: metricValue(stats.pageviews), visits: metricValue(stats.visits) });
+  }
+  return out;
+}
+
+function dayKey(d) {
+  const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// Umami's /stats has returned two different shapes across versions — a flat
+// number per field, and `{ value, prev }` for a period-over-period comparison
+// — and this was written without a live key to check which one the account
+// this script talks to actually gets. Reading either shape safely costs one
+// function; guessing wrong costs every tile silently showing 0.
+function metricValue(x) {
+  if (x && typeof x === 'object') return Number(x.value ?? 0);
+  return Number(x ?? 0);
 }
 
 // ── The reads ───────────────────────────────────────────────────────────────
@@ -174,6 +282,24 @@ const eventTotals = [...events.reduce((m, e) => m.set(e.name, (m.get(e.name) ?? 
 
 const opensByDay = events.filter((e) => e.name === 'app_open').map((e) => ({ day: e.day, value: n(e.hits) }));
 
+// ── Umami (bitochess.com, the landing page only) ───────────────────────────
+//
+// A separate range from the account/event queries above (which cover
+// everything ever recorded): the last 30 days, because Umami holds full
+// history and pulling all of it on every run would only get slower over time
+// for no benefit — a dashboard refreshed on demand wants recent numbers.
+const now = new Date();
+const rangeStart = now.getTime() - 30 * DAY_MS;
+
+const umamiStats = await umami('/stats', { startAt: rangeStart, endAt: now.getTime() });
+const umamiPages = (await umami('/metrics/expanded', { startAt: rangeStart, endAt: now.getTime(), type: 'path', limit: 8 })) ?? [];
+const umamiReferrers = (await umami('/metrics/expanded', { startAt: rangeStart, endAt: now.getTime(), type: 'referrer', limit: 8 })) ?? [];
+const umamiCtaEvents = (await umami('/metrics/expanded', { startAt: rangeStart, endAt: now.getTime(), type: 'event', limit: 12 })) ?? [];
+const umamiTrend = umamiStats ? await umamiHistory(now) : null;
+
+const umamiConfigured = Boolean(UMAMI_API_KEY);
+const umamiOk = Boolean(umamiStats);
+
 // ── Rendering ───────────────────────────────────────────────────────────────
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -257,6 +383,63 @@ function lineChart(points, label) {
       ? `<text class="tick" x="${x(i)}" y="${H - P.b + 18}" text-anchor="${i ? 'end' : 'start'}">${esc(p.day)}</text>`
       : '')).join('')}
   </svg>`;
+}
+
+// The landing-page section: three states, not one. Most of what can go wrong
+// here is outside this script entirely (no key yet, a revoked key, Umami down)
+// so each gets its own honest message rather than a stack trace or a silently
+// empty chart.
+function umamiSection() {
+  if (!umamiConfigured) {
+    return `<p class="empty">Not connected. Generate a key in Umami Cloud → your profile → Settings → API keys, then add to <span class="mono">.env</span> in the project root:</p>
+      <p class="mono" style="margin:8px 0 0">UMAMI_API_KEY=your-key-here</p>
+      <p class="empty" style="margin-top:8px">.env is gitignored — the key never leaves this machine.</p>`;
+  }
+  if (!umamiOk) {
+    return `<p class="empty">Couldn't reach the Umami API with the key in .env — it may be wrong, revoked, or Umami may be down. Everything else on this page is unaffected.</p>`;
+  }
+  const visits = metricValue(umamiStats.visits);
+  const bounces = metricValue(umamiStats.bounces);
+  const bounceRate = visits > 0 ? bounces / visits : 0;
+  const ctaTotal = umamiCtaEvents.reduce((t, e) => t + n(e.pageviews ?? e.total), 0);
+
+  return `
+    <div class="tiles" style="margin-bottom:16px">
+      ${tile(metricValue(umamiStats.pageviews), 'Pageviews')}
+      ${tile(metricValue(umamiStats.visitors), 'Visitors')}
+      ${tile(visits, 'Visits')}
+      ${tile(pct(bounceRate), 'Bounce rate')}
+    </div>
+    <div class="cols">
+      <div>
+        <h3>Visits per day</h3>
+        ${umamiTrend ? lineChart(umamiTrend.map((d) => ({ day: d.day, value: d.visits })), 'Visits') : '<p class="empty">Trend unavailable this run.</p>'}
+      </div>
+      <div>
+        <h3>Top pages</h3>
+        ${barChart(
+          umamiPages.map((p) => ({ label: p.name || '/', value: n(p.pageviews) })),
+          { format: (v) => String(v) },
+        )}
+      </div>
+    </div>
+    <div class="cols" style="margin-top:16px">
+      <div>
+        <h3>Top referrers</h3>
+        ${barChart(
+          umamiReferrers.map((r) => ({ label: r.name || '(direct)', value: n(r.pageviews) })),
+          { format: (v) => String(v) },
+        )}
+      </div>
+      <div>
+        <h3>Button clicks (data-umami-event)</h3>
+        <p class="note" style="margin-bottom:8px">"cta-*" rows are click-throughs into the app — the nearest thing to "opened from the landing page" this section can see. ${ctaTotal} total.</p>
+        ${barChart(
+          umamiCtaEvents.map((e) => ({ label: e.name, value: n(e.pageviews ?? e.total) })),
+          { format: (v) => String(v) },
+        )}
+      </div>
+    </div>`;
 }
 
 const accountRows = accounts
@@ -415,6 +598,12 @@ const html = `<title>Bito Chess — owner dashboard</title>
         ${lineChart(opensByDay, 'App opens')}
       </div>
     </div>
+  </section>
+
+  <section>
+    <h2>Landing page (bitochess.com)</h2>
+    <p class="note">From Umami, last 30 days. This is the ONE place traffic to the app itself shows up at all: the trainer (bitochess.com/app) deliberately sends nothing to Umami or any third party — see the privacy policy — so page-view numbers exist for the landing page only. The "Try Bito Chess" row below is a click-through count, the closest thing to "how many people opened the app" that this section can see.</p>
+    ${umamiSection()}
   </section>
 
   <section>

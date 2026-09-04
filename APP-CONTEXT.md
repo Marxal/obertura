@@ -1046,6 +1046,20 @@ Supabase grants new public tables to anon/authenticated by default, which is how
 `profiles` acquired a table-wide INSERT grant nobody intended. It cascades on
 account deletion, because the privacy policy promises it does.
 
+A fourth, optional source rides the same page: Umami's REST API, for
+bitochess.com — **the landing page only**. The trainer (bitochess.com/app)
+still sends nothing to Umami or any third party, by design (§18 and the
+privacy policy); this is the one place traffic toward the app is visible at
+all, and only as a click-through count on the "Try Bito Chess" button, since
+nothing inside the app is instrumented. It needs `UMAMI_API_KEY` in `.env`
+(gitignored, never read by the app build — deliberately unprefixed, since a
+`VITE_` name would get inlined into the bundle) and shows a "not connected,
+here's how" message without it rather than failing; every account/sync number
+on the page is unaffected either way. Pulling numbers the landing page already
+discloses collecting into a local, owner-only file is not a new data flow, so
+no privacy-policy change came with it — unlike adding tracking inside the app
+itself, which was considered and declined for exactly that reason.
+
 Several fields are narrower than their names suggest, and `account-stats.ts`
 says so per field: `puzzlesSolved` and `dailyChallengesCompleted` come from logs
 that prune to 120 and 180 days, so they are windows rather than lifetimes;
