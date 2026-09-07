@@ -181,6 +181,16 @@ Track your training streaks, move memory, puzzle rating, and win rates by openin
 > price card when everything funnels down to one button in the middle. Only the
 > tick lists themselves stay left-aligned inside the centred box — a tick list
 > read centred loses its scan line down the left edge.
+>
+> **The Free box's import tick used to say "100 games" — that was the GUEST
+> number, not the free-account one.** `FREE_GUEST_IMPORT` (100) caps a
+> signed-out visitor's single scan; a free account has always had the full
+> ladder up to `HARD_CAP` (1,000). Fixed 2026-09, alongside dropping the
+> free-account games-store cap entirely (`FREE_STORED_GAMES` in
+> `src/entitlement.ts` — removed, since games never sync on free anyway and the
+> cap was guarding the user's own phone, not the database). Don't quote the
+> guest number here again; it belongs only in the app's own guest-facing copy
+> (`import-tier.ts`, `import-panel.ts`).
 
 **H2:** Start free
 
@@ -193,7 +203,7 @@ Track your training streaks, move memory, puzzle rating, and win rates by openin
 - Build up to 500 lines
 - Train 10 at a time
 - Sync across your devices
-- Import and scan 100 games for coverage gaps
+- Import up to 1,000 games, kept on your device
 - Library and starter packs
 - Puzzles and endgames
 - Engine and analyser

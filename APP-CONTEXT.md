@@ -1095,14 +1095,22 @@ its analysis tree. One integer bumped in `recordSpotResult` replaces that, and
 ### 16.3 Entitlement — the free tier
 
 `entitlement.ts` caps how many lines may be enrolled in training at once, plus
-two storage guardrails (total saved lines, total stored games) that exist to
-stop one runaway free account growing an unbounded store rather than to
-withhold a feature. Everything else — library, packs, traps, studies, import,
+one storage guardrail (total saved lines) that exists to stop one runaway free
+account growing an unbounded store rather than to withhold a feature.
+Everything else — library, packs, traps, studies, import, My games storage,
 puzzles, endgames, the engine, the analyser, statistics and sync — is unlimited
 on the free tier. The landing page's free/Pro split (`docs/LANDING-COPY.md`'s
-[THE TWO PLANS]) is: free gets 500 lines, 10 in training, 100 imported games,
-the library, puzzles, endgames, engine and backups; Pro adds the synced games
-library, unlimited training and repertoires, and opponent scouting.
+[THE TWO PLANS]) is: free gets 500 lines, 10 in training, up to 1,000 imported
+games kept on the device, the library, puzzles, endgames, engine and backups;
+Pro adds the synced games library, unlimited training and repertoires, and
+opponent scouting.
+
+There used to be a `FREE_STORED_GAMES` cap (100 games in My games for a
+signed-in free account). Removed 2026-09: games never sync for a free account
+(`gateGamesToEntitlement` in `sync-core.ts` gates that column to Pro alone), so
+the cap protected nothing of the database's — only the user's own phone — and
+it was the one place in the app where signing in took something away (a guest's
+import is unbounded; only a *free account* met the 100-game wall).
 
 | Constant | Value | Means |
 |---|---|---|
@@ -1110,11 +1118,10 @@ library, unlimited training and repertoires, and opponent scouting.
 | `TRAINING_COUNT_VISIBLE_FROM` | 7 | where the counter starts showing |
 | `FREE_REPERTOIRES` | 3 | the two defaults plus one; archived books still count |
 | `FREE_SAVED_LINES` | 500 | storage guardrail, not a sales wall — every book, regardless of training status |
-| `FREE_STORED_GAMES` | 100 | storage guardrail on My games (IndexedDB); trims oldest, never refuses an import |
 | `FREE_MISTAKE_GAME_WINDOW` / `_SPOTS` | 50 / 10 | rolling window and rolling top-N *unfixed* spots |
 | `FREE_ENDGAME_GAME_WINDOW` / `_SPOTS` | 50 / 3 | same, for endgames |
 | `FREE_SCOUT_OPPONENTS` | 1 | offers to *replace* rather than refusing |
-| `FREE_GUEST_IMPORT` | 100 | what a signed-out visitor may import at a time |
+| `FREE_GUEST_IMPORT` | 100 | what a signed-out visitor may import at a time (the only games-import cap left) |
 
 Who is entitled: Supabase unconfigured → **everyone** (capping the test channel
 would be absurd); signed in with `profiles.entitled = true` → yes; anything else,

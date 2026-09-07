@@ -1394,6 +1394,48 @@ before repertoires, egress or MAU came anywhere near their limits.
 
 ---
 
+## A free account worth having — lifting a cap that protected nothing ✅
+
+Same audit that found `stats_daily`'s growth curve turned up the opposite
+problem next door: a wall in front of something worthless doesn't convert. A
+free account bought sync and the fuller import ladder, and *cost* one thing a
+guest never met — `FREE_STORED_GAMES`, a 100-game ceiling on My games that only
+applied once you actually signed in. It was the one place in the app where
+signing in took something away, which `entitlement.ts`'s own long-standing
+comment says must never happen.
+
+- ✅ **`FREE_STORED_GAMES` is gone, not just raised.** It was guarding the
+  user's own phone, not the database: games never sync for a free account
+  (`gateGamesToEntitlement` in `sync-core.ts` keeps that column Pro-only), so
+  the cap cost Supabase nothing to lift. Removed the constant, `freeGameRoom()`,
+  `isSignedInFree()` and `noteGamesCapHit()` from `entitlement.ts` outright,
+  and simplified every call site rather than leaving a dead branch: the two
+  `auto-refresh.ts` refresh paths (`takeWithinCap` deleted, its trim was
+  already a no-op for anyone but a signed-in free account), `import-last.ts`
+  (`GamesCapReached` and its callers in `builder-import.ts` and `main.ts`),
+  `import-panel.ts`'s headroom notice and `runPersist`'s baseline/room/capped
+  bookkeeping, and `my-games-screen.ts`'s counter. The now-unreachable
+  `games_cap_hit` metric came out of both `src/metrics.ts` and
+  `worker/metrics.ts`'s allowlists.
+- ✅ **The landing page was advertising the GUEST number as the free-account
+  benefit.** The Free box's "Import and scan 100 games" was
+  `FREE_GUEST_IMPORT` — the signed-OUT cap — when a free account has always had
+  the full ladder to `HARD_CAP` (1,000). Fixed in `docs/LANDING-COPY.md` (the
+  source of truth, with a note explaining why so the guest number doesn't
+  drift back in) and mirrored into `docs/index.html`: "Import up to 1,000
+  games, kept on your device."
+- ✅ **The import panel's guest padlock now names the actual reward.** It
+  already only ever quoted the true guest number, so nothing there was wrong —
+  but it undersold the upgrade. "Without an account you can import 100 games"
+  now continues "— a free account lifts that to your whole history."
+  (`import-panel.ts`)
+- ✅ **`APP-CONTEXT.md` §16.3 rewritten** to drop the retired constant from its
+  table, note why it's gone, and correct the free/Pro split summary.
+- ✅ **`npm run selftest` (1495/1495) and `npm run build` both pass** on the
+  result — a pure subtraction, no new surface added.
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

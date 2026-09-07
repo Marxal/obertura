@@ -75,13 +75,6 @@ import {
   defaultCountFor,
   FREE_GUEST_IMPORT,
 } from './import-tier';
-import {
-  freeGameRoom,
-  noteGamesCapHit,
-  buildCapNotice,
-  showGoProDialog,
-  FREE_STORED_GAMES,
-} from './entitlement';
 
 // ── Remembered choices (device-local) ────────────────────────────────────────
 
@@ -699,7 +692,8 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
 
         const note = document.createElement('p');
         note.className = 'import-guest-note';
-        note.textContent = `Without an account you can import ${FREE_GUEST_IMPORT} games.`;
+        note.textContent = `Without an account you can import ${FREE_GUEST_IMPORT} games — `
+          + 'a free account lifts that to your whole history.';
         guest.appendChild(note);
 
         const link = document.createElement('button');
@@ -710,21 +704,6 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
         guest.appendChild(link);
 
         body.appendChild(guest);
-      }
-    }
-
-    // ── Signed-in free-account headroom (My games only; scouting isn't capped
-    // this way) — shown up front, before the count/time-control choices, so the
-    // ceiling is visible well before an import could actually hit it.
-    if (isMine && !opts.save) {
-      const stored = await countGames();
-      if (freeGameRoom(stored) !== Infinity) {
-        body.appendChild(buildCapNotice(
-          stored > 0
-            ? `You have ${stored} of ${FREE_STORED_GAMES} games`
-            : `Free accounts keep up to ${FREE_STORED_GAMES} games`,
-          { label: 'Pro keeps your whole history', onOpen: showGoProDialog },
-        ));
       }
     }
 
@@ -842,51 +821,23 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     }
 
     // Persist with the chosen sink, then close + toast (or surface the error).
-    //
-    // `baseline` is how many games the device will hold BEFORE this batch lands
-    // — 0 for a replace (or a first-ever import), the existing count for an add
-    // — and is only passed for a "my games" import (opponent scouting isn't
-    // subject to FREE_STORED_GAMES). When given, the batch is trimmed to
-    // whatever fits (newest first — `games` already is) rather than refused
-    // outright, and the toast says so plainly instead of quietly under-importing.
     async function runPersist(
       games: ImportedGame[],
       persist: (g: ImportedGame[], m: { platform: Platform; username: string; avatarUrl?: string }) => Promise<void>,
-      baseline?: number,
     ): Promise<void> {
-      const room = baseline === undefined ? Infinity : freeGameRoom(baseline);
-      const toSave = games.slice(0, room);
-      const capped = toSave.length < games.length;
-
-      if (toSave.length === 0) {
-        // Nothing fits — say so, and offer the way out, rather than a silent no-op.
-        showToast(
-          `You’re at the free ${FREE_STORED_GAMES}-game limit — Pro keeps your whole history.`,
-          { action: { label: 'Go Pro', onClick: () => showGoProDialog() } },
-        );
-        noteGamesCapHit(baseline!);
-        return;
-      }
-
       importBtn.disabled = true;
       scanBtn.disabled = true;
       importStatus.textContent = 'Saving to this device…';
       try {
-        await persist(toSave, {
+        await persist(games, {
           platform: result.platform,
           username: userInput.value.trim(),
           avatarUrl: scannedAvatarUrl,
         });
         showToast(
-          capped
-            ? `Imported ${toSave.length.toLocaleString()} of ${games.length.toLocaleString()} games — `
-              + `you’re at the free ${FREE_STORED_GAMES}-game limit.`
-            : `Imported ${toSave.length.toLocaleString()} game${toSave.length === 1 ? '' : 's'}`,
-          capped
-            ? { action: { label: 'Go Pro', onClick: () => showGoProDialog() } }
-            : { variant: 'success' },
+          `Imported ${games.length.toLocaleString()} game${games.length === 1 ? '' : 's'}`,
+          { variant: 'success' },
         );
-        if (capped) noteGamesCapHit(baseline! + toSave.length);
         // One import finished. Counted here rather than on the onImported
         // callback, which has ten call sites and would count once per listener.
         // The weekly auto-refresh (auto-refresh.ts) does not come through here
@@ -894,7 +845,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
         track('games_imported');
         // onImported first, then the panel goes away — so onClose is reliably
         // the LAST thing an import fires, whichever way the panel ended.
-        opts.onImported?.(toSave.length);
+        opts.onImported?.(games.length);
         close();
       } catch (err) {
         showError(`Couldn’t save your games — ${(err as Error).message}`);
@@ -909,27 +860,22 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       if (games.length === 0) return;
 
       // Opponent scouting passes its own sink (rememberUser: false) and never
-      // prompts, and isn't subject to the my-games storage cap. For a "my
-      // games" import, ask whether to replace or add when the device already
-      // holds games — that's how two platforms get combined — and either way
-      // tell runPersist the resulting baseline so it can enforce FREE_STORED_GAMES.
+      // prompts. For a "my games" import, ask whether to replace or add when
+      // the device already holds games — that's how two platforms get combined.
       if (isMine && !opts.save) {
         const existingGames = await getAllGames();
         if (existingGames.length > 0) {
           chooseImportMode(existingGames.length, games.length, (mode) => {
             if (mode === 'replace') {
-              void runPersist(games, saveMyGames, 0);
+              void runPersist(games, saveMyGames);
               return;
             }
-            // Drop games already in the library BEFORE capping — a duplicate
-            // costs no room (addMyGames would skip it anyway), so it shouldn't
-            // eat a free-tier slot a genuinely new game could have used.
             const existingIds = new Set(existingGames.map(g => g.id));
-            void runPersist(games.filter(g => !existingIds.has(g.id)), addMyGames, existingGames.length);
+            void runPersist(games.filter(g => !existingIds.has(g.id)), addMyGames);
           });
           return;
         }
-        await runPersist(games, saveMyGames, 0);
+        await runPersist(games, saveMyGames);
         return;
       }
       await runPersist(games, opts.save ?? saveMyGames);

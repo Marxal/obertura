@@ -11,14 +11,7 @@ import { importGames, type ImportedGame, type Platform } from './import-games';
 import { getUsername as getChesscomUser } from './chesscom';
 import { getUsername as getLichessUser } from './lichess';
 import { getGamesSource } from './import-panel';
-import { getGame, saveGames, countGames } from './storage';
-import { freeGameRoom, noteGamesCapHit, FREE_STORED_GAMES } from './entitlement';
-
-// Thrown by importLastGame() when the game is new but a signed-in free account
-// has no room left under FREE_STORED_GAMES. A distinct type (rather than a
-// generic Error) so callers can tell "at the cap" apart from "offline" and
-// show the right message instead of a misleading connection error.
-export class GamesCapReached extends Error {}
+import { getGame, saveGames } from './storage';
 
 export interface ConnectedAccount {
   platform: Platform;
@@ -59,17 +52,6 @@ export async function importLastGame(): Promise<ImportedGame | null> {
   // tags or mistake-scan data that a fresh parse of the same game doesn't have.
   const stored = await getGame(game.id);
   if (stored) return stored;
-
-  // A genuinely new game: check there's room before writing it. FREE_STORED_GAMES
-  // is a signed-in free-account cap only — freeGameRoom is Infinity for a guest,
-  // an entitled account, or a build with no accounts at all.
-  const existing = await countGames();
-  if (freeGameRoom(existing) < 1) {
-    noteGamesCapHit(existing);
-    throw new GamesCapReached(
-      `You’re at the free ${FREE_STORED_GAMES}-game limit — Pro keeps your whole history.`,
-    );
-  }
 
   await saveGames([game]);
   return game;

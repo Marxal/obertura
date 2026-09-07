@@ -81,7 +81,6 @@ const ALLOWED: ReadonlySet<string> = new Set([
   'daily_completed',
   'endgame_solved',
   'games_imported',
-  'games_cap_hit',
   // The free tier's walls, each counted once per device per state (not per
   // attempt): reached the cap, saw the sheet, started paying.
   'training_cap_hit',

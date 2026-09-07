@@ -144,7 +144,7 @@ import { maybeShowGate, promptInstallApp, onInstallAvailable } from './gate';
 import { showToast } from './toast';
 import { Icons, classBoardSvg, CLASS_LABEL } from './icons';
 import { mountFab, type FabItem, type FabAction, type FabSplit, type FabController } from './fab';
-import { importLastGame, hasConnectedAccount, connectedAccount, GamesCapReached } from './import-last';
+import { importLastGame, hasConnectedAccount, connectedAccount } from './import-last';
 import { openBuilderImport } from './builder-import';
 import { openExploreOpponent, openExploreTab, importOpponentFlow } from './explore-screen';
 import { formatMove } from './notation';
@@ -3775,11 +3775,7 @@ async function runImportLastGame(): Promise<void> {
     const game = await importLastGame();
     if (!game) { showToast('No recent game found to import.'); return; }
     openImportedGame(game.ucis, game.colour, `vs ${game.opponent}`, game.id, game.endTime);
-  } catch (err) {
-    if (err instanceof GamesCapReached) {
-      showToast(err.message, { action: { label: 'Go Pro', onClick: () => showGoProDialog() } });
-      return;
-    }
+  } catch {
     showToast('Couldn’t reach your account — check your connection.');
   }
 }

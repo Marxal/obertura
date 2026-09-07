@@ -100,42 +100,17 @@ export const FREE_REPERTOIRES = 3;
 // keep one runaway free account from growing an unbounded tree, nothing more.
 export const FREE_SAVED_LINES = 500;
 
-// How many games a free account may hold in My games (IndexedDB) at once. This
-// caps the STORE, not any one import — it's checked at every path that writes
-// into it (import-panel's import button, import-last, the weekly/manual
-// auto-refresh), always keeping the newest games and trimming the rest, never
-// the other way round.
-//
-// A signed-out guest is a different, tighter gate (FREE_GUEST_IMPORT in
-// import-tier.ts, capping each individual scan) and is untouched by this one —
-// signing in only ever adds capability, so a guest must never look like signing
-// in cost them anything.
-export const FREE_STORED_GAMES = 100;
-
-// Is the current session a signed-in account that is NOT entitled? The gate
-// every FREE_STORED_GAMES check shares — a guest and an entitled account both
-// skip it, for opposite reasons (nothing to cap yet vs. nothing left to cap).
-function isSignedInFree(): boolean {
-  return isSupabaseConfigured && !!getAuthUser() && !isEntitled();
-}
-
-// How many more games may be written to My games right now, given how many are
-// already stored. Infinity for a guest, an entitled account, or a build with no
-// accounts at all — so callers can slice against it without special-casing.
-// Never negative: an account already at or over the cap gets 0, not a count
-// that reads as "make room for -12".
-export function freeGameRoom(storedCount: number): number {
-  return isSignedInFree() ? Math.max(0, FREE_STORED_GAMES - storedCount) : Infinity;
-}
-
-// Bump the anonymous games_cap_hit metric the first time this device's account
-// meets or crosses FREE_STORED_GAMES. trackOnce makes this a once-ever count,
-// same as install/onboarding_complete — there is no per-account identity to key
-// a "once per account" flag on, and once-per-device is the honest version of
-// that anyway.
-export function noteGamesCapHit(storedCount: number): void {
-  if (isSignedInFree() && storedCount >= FREE_STORED_GAMES) trackOnce('games_cap_hit');
-}
+// There used to be a FREE_STORED_GAMES cap here (100 games in My games for a
+// signed-in free account). Removed: games never sync for a free account —
+// gateGamesToEntitlement in sync-core.ts keeps the games column Pro-only — so
+// the cap was guarding the user's own phone, not the database, and it cost
+// nothing to lift. Its only real effect was the one place in the app where
+// signing in took something away: a guest's import store is unbounded
+// (import-tier.ts's FREE_GUEST_IMPORT only caps a single scan), so a guest who
+// outgrew 100 stored games and then made a free account hit a ceiling they had
+// never met. Removed 2026-09, see ROADMAP's "a free account worth having"
+// round. A guest and a free account are now identical on storage; the free
+// account's actual edge is sync and the fuller import ladder (import-tier.ts).
 
 // Where the counter starts appearing on the Train hub, so the ceiling is visible
 // before it's hit rather than a surprise at line eleven.
@@ -339,7 +314,8 @@ function openUpgradeDialog(eyebrow?: string): void {
 // Its action opens the SAME upsell dialog as the training cap by default (it
 // already pitches "coaching from your own games", which is exactly what these
 // caps gate) rather than a bespoke dialog per feature — a caller with its own
-// framing (the games-store cap) can override the link's label and what it opens.
+// framing (Scouting's replace-not-refuse offer) can override the link's label
+// and what it opens.
 export function buildCapNotice(
   message: string,
   link: { label?: string; onOpen?: () => void } = {},
