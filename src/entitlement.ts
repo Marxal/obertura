@@ -42,6 +42,7 @@ import { getCachedEntitled, setCachedEntitled, clearCachedEntitled } from './ent
 import { openProSheet } from './pro-sheet';
 import { formatPrice, primePricing, PRICING_CHANGE_EVENT } from './pricing';
 import { showToast } from './toast';
+import { trackOnce } from './metrics';
 
 // How many lines a free account may have in training at once.
 export const FREE_TRAINING_LINES = 10;
@@ -88,6 +89,43 @@ export const FREE_SCOUT_OPPONENTS = 1;
 // Archived books still count. Archiving is a way to put a book aside, not a way
 // to keep six for free, and a cap you can walk around isn't one.
 export const FREE_REPERTOIRES = 3;
+
+// How many games a free account may hold in My games (IndexedDB) at once. This
+// caps the STORE, not any one import — it's checked at every path that writes
+// into it (import-panel's import button, import-last, the weekly/manual
+// auto-refresh), always keeping the newest games and trimming the rest, never
+// the other way round.
+//
+// A signed-out guest is a different, tighter gate (FREE_GUEST_IMPORT in
+// import-tier.ts, capping each individual scan) and is untouched by this one —
+// signing in only ever adds capability, so a guest must never look like signing
+// in cost them anything.
+export const FREE_STORED_GAMES = 100;
+
+// Is the current session a signed-in account that is NOT entitled? The gate
+// every FREE_STORED_GAMES check shares — a guest and an entitled account both
+// skip it, for opposite reasons (nothing to cap yet vs. nothing left to cap).
+function isSignedInFree(): boolean {
+  return isSupabaseConfigured && !!getAuthUser() && !isEntitled();
+}
+
+// How many more games may be written to My games right now, given how many are
+// already stored. Infinity for a guest, an entitled account, or a build with no
+// accounts at all — so callers can slice against it without special-casing.
+// Never negative: an account already at or over the cap gets 0, not a count
+// that reads as "make room for -12".
+export function freeGameRoom(storedCount: number): number {
+  return isSignedInFree() ? Math.max(0, FREE_STORED_GAMES - storedCount) : Infinity;
+}
+
+// Bump the anonymous games_cap_hit metric the first time this device's account
+// meets or crosses FREE_STORED_GAMES. trackOnce makes this a once-ever count,
+// same as install/onboarding_complete — there is no per-account identity to key
+// a "once per account" flag on, and once-per-device is the honest version of
+// that anyway.
+export function noteGamesCapHit(storedCount: number): void {
+  if (isSignedInFree() && storedCount >= FREE_STORED_GAMES) trackOnce('games_cap_hit');
+}
 
 // Where the counter starts appearing on the Train hub, so the ceiling is visible
 // before it's hit rather than a surprise at line eleven.
@@ -254,19 +292,23 @@ function openUpgradeDialog(eyebrow?: string): void {
 // A discreet inline line for wherever a coaching cap is actively hiding
 // something ("Showing your 10 most recent mistakes"). Not a dialog, not a
 // toast — sits in the flow of the screen, so it's visible but never blocks.
-// Its action opens the SAME upsell dialog as the training cap (it already
-// pitches "coaching from your own games", which is exactly what these caps
-// gate) rather than a bespoke dialog per feature.
-export function buildCapNotice(message: string): HTMLElement {
+// Its action opens the SAME upsell dialog as the training cap by default (it
+// already pitches "coaching from your own games", which is exactly what these
+// caps gate) rather than a bespoke dialog per feature — a caller with its own
+// framing (the games-store cap) can override the link's label and what it opens.
+export function buildCapNotice(
+  message: string,
+  link: { label?: string; onOpen?: () => void } = {},
+): HTMLElement {
   const note = document.createElement('div');
   note.className = 'section-desc entitlement-cap-note';
   note.appendChild(document.createTextNode(`${message} · `));
-  const link = document.createElement('button');
-  link.type = 'button';
-  link.className = 'entitlement-cap-link';
-  link.textContent = 'Unlock full access';
-  link.addEventListener('click', () => showTrainingCapDialog());
-  note.appendChild(link);
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'entitlement-cap-link';
+  btn.textContent = link.label ?? 'Unlock full access';
+  btn.addEventListener('click', () => (link.onOpen ?? showTrainingCapDialog)());
+  note.appendChild(btn);
   return note;
 }
 

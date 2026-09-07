@@ -81,6 +81,7 @@ const ALLOWED: ReadonlySet<string> = new Set([
   'daily_completed',
   'endgame_solved',
   'games_imported',
+  'games_cap_hit',
   // Accounts and money.
   'signed_in',
   'signed_up_email',

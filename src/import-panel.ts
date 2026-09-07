@@ -75,6 +75,13 @@ import {
   defaultCountFor,
   FREE_GUEST_IMPORT,
 } from './import-tier';
+import {
+  freeGameRoom,
+  noteGamesCapHit,
+  buildCapNotice,
+  showGoProDialog,
+  FREE_STORED_GAMES,
+} from './entitlement';
 
 // ── Remembered choices (device-local) ────────────────────────────────────────
 
@@ -541,7 +548,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       hideBarTimer = setTimeout(() => {
         if (scanCancelled) return; // backed out during the hold
         unmountLoader();
-        buildStep2(result);
+        void buildStep2(result);
       }, 650);
     } catch (err) {
       if (scanCancelled) return;
@@ -553,7 +560,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     }
   }
 
-  function buildStep2(result: ImportResult): void {
+  async function buildStep2(result: ImportResult): Promise<void> {
     step2.innerHTML = '';
     const total = result.games.length; // newest-first, already ≤ HARD_CAP
     count = defaultCountFor(total, guestCapped());
@@ -566,7 +573,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     // the bigger slices are simply selectable now, with the scan we already
     // have. Guarded on the panel still being open — the listener can also fire
     // long after the user closed it.
-    const unlock = (): void => { if (!closed) buildStep2(result); };
+    const unlock = (): void => { if (!closed) void buildStep2(result); };
 
     // Step 2 takes over the whole screen: hide step 1 (platform / username)
     // and switch the shell to full-screen so the review reads cleanly.
@@ -706,6 +713,21 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       }
     }
 
+    // ── Signed-in free-account headroom (My games only; scouting isn't capped
+    // this way) — shown up front, before the count/time-control choices, so the
+    // ceiling is visible well before an import could actually hit it.
+    if (isMine && !opts.save) {
+      const stored = await countGames();
+      if (freeGameRoom(stored) !== Infinity) {
+        body.appendChild(buildCapNotice(
+          stored > 0
+            ? `You have ${stored} of ${FREE_STORED_GAMES} games`
+            : `Free accounts keep up to ${FREE_STORED_GAMES} games`,
+          { label: 'Pro keeps your whole history', onOpen: showGoProDialog },
+        ));
+      }
+    }
+
     // ── Large-import warning (rebuilt per slice — only shown for big "All") ──
     const capNote = document.createElement('div');
     capNote.className = 'import-cap-note';
@@ -820,23 +842,51 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     }
 
     // Persist with the chosen sink, then close + toast (or surface the error).
+    //
+    // `baseline` is how many games the device will hold BEFORE this batch lands
+    // — 0 for a replace (or a first-ever import), the existing count for an add
+    // — and is only passed for a "my games" import (opponent scouting isn't
+    // subject to FREE_STORED_GAMES). When given, the batch is trimmed to
+    // whatever fits (newest first — `games` already is) rather than refused
+    // outright, and the toast says so plainly instead of quietly under-importing.
     async function runPersist(
       games: ImportedGame[],
       persist: (g: ImportedGame[], m: { platform: Platform; username: string; avatarUrl?: string }) => Promise<void>,
+      baseline?: number,
     ): Promise<void> {
+      const room = baseline === undefined ? Infinity : freeGameRoom(baseline);
+      const toSave = games.slice(0, room);
+      const capped = toSave.length < games.length;
+
+      if (toSave.length === 0) {
+        // Nothing fits — say so, and offer the way out, rather than a silent no-op.
+        showToast(
+          `You’re at the free ${FREE_STORED_GAMES}-game limit — Pro keeps your whole history.`,
+          { action: { label: 'Go Pro', onClick: () => showGoProDialog() } },
+        );
+        noteGamesCapHit(baseline!);
+        return;
+      }
+
       importBtn.disabled = true;
       scanBtn.disabled = true;
       importStatus.textContent = 'Saving to this device…';
       try {
-        await persist(games, {
+        await persist(toSave, {
           platform: result.platform,
           username: userInput.value.trim(),
           avatarUrl: scannedAvatarUrl,
         });
         showToast(
-          `Imported ${games.length.toLocaleString()} game${games.length === 1 ? '' : 's'}`,
-          { variant: 'success' },
+          capped
+            ? `Imported ${toSave.length.toLocaleString()} of ${games.length.toLocaleString()} games — `
+              + `you’re at the free ${FREE_STORED_GAMES}-game limit.`
+            : `Imported ${toSave.length.toLocaleString()} game${toSave.length === 1 ? '' : 's'}`,
+          capped
+            ? { action: { label: 'Go Pro', onClick: () => showGoProDialog() } }
+            : { variant: 'success' },
         );
+        if (capped) noteGamesCapHit(baseline! + toSave.length);
         // One import finished. Counted here rather than on the onImported
         // callback, which has ten call sites and would count once per listener.
         // The weekly auto-refresh (auto-refresh.ts) does not come through here
@@ -844,7 +894,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
         track('games_imported');
         // onImported first, then the panel goes away — so onClose is reliably
         // the LAST thing an import fires, whichever way the panel ended.
-        opts.onImported?.(games.length);
+        opts.onImported?.(toSave.length);
         close();
       } catch (err) {
         showError(`Couldn’t save your games — ${(err as Error).message}`);
@@ -859,16 +909,28 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       if (games.length === 0) return;
 
       // Opponent scouting passes its own sink (rememberUser: false) and never
-      // prompts. For a "my games" import, ask whether to replace or add when the
-      // device already holds games — that's how two platforms get combined.
+      // prompts, and isn't subject to the my-games storage cap. For a "my
+      // games" import, ask whether to replace or add when the device already
+      // holds games — that's how two platforms get combined — and either way
+      // tell runPersist the resulting baseline so it can enforce FREE_STORED_GAMES.
       if (isMine && !opts.save) {
-        const existing = await countGames();
-        if (existing > 0) {
-          chooseImportMode(existing, games.length, (mode) => {
-            void runPersist(games, mode === 'replace' ? saveMyGames : addMyGames);
+        const existingGames = await getAllGames();
+        if (existingGames.length > 0) {
+          chooseImportMode(existingGames.length, games.length, (mode) => {
+            if (mode === 'replace') {
+              void runPersist(games, saveMyGames, 0);
+              return;
+            }
+            // Drop games already in the library BEFORE capping — a duplicate
+            // costs no room (addMyGames would skip it anyway), so it shouldn't
+            // eat a free-tier slot a genuinely new game could have used.
+            const existingIds = new Set(existingGames.map(g => g.id));
+            void runPersist(games.filter(g => !existingIds.has(g.id)), addMyGames, existingGames.length);
           });
           return;
         }
+        await runPersist(games, saveMyGames, 0);
+        return;
       }
       await runPersist(games, opts.save ?? saveMyGames);
     });

@@ -24,6 +24,7 @@ import { renderLoadError } from './load-error';
 import { getGamesSource } from './import-panel';
 import { buildInlineImport } from './import-inline';
 import { refreshGamesNow } from './auto-refresh';
+import { freeGameRoom, buildCapNotice, showGoProDialog, FREE_STORED_GAMES } from './entitlement';
 import { reviewStripData } from './line-analysis';
 import { classIcon, CLASS_COLOR, CLASS_LABEL } from './icons';
 import type { MoveClass } from './winprob';
@@ -167,6 +168,17 @@ export async function renderMyGamesScreen(host: HTMLElement, deps: MyGamesDeps):
     topRow.classList.add('mygames-top-row--secondary');
     root.appendChild(topRow); // appendChild MOVES it below the form
     return;
+  }
+
+  // Free-account games counter — the wall itself, so it has to be visible from
+  // the first imported game, well before it can actually block anything. A
+  // no-op (freeGameRoom is Infinity) for a guest, an entitled account, or a
+  // build with no accounts at all.
+  if (freeGameRoom(games.length) !== Infinity) {
+    root.appendChild(buildCapNotice(
+      `${games.length} of ${FREE_STORED_GAMES} games`,
+      { label: 'Pro keeps your whole history', onOpen: showGoProDialog },
+    ));
   }
 
   // ── Counts for the filter chips ─────────────────────────────────────────────

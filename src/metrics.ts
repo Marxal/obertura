@@ -67,6 +67,7 @@ export type MetricName =
   | 'daily_completed'
   | 'endgame_solved'
   | 'games_imported'
+  | 'games_cap_hit'
   | 'signed_in'
   | 'signed_up_email'
   | 'purchase_confirmed';

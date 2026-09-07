@@ -9,6 +9,7 @@
 import { getGamesSource, getLastGamesRefresh, mergeRefreshedGames } from './import-panel';
 import { getAllGames } from './storage';
 import { importGames, DEFAULT_TIME_CLASSES, type TimeClass, type ImportedGame } from './import-games';
+import { freeGameRoom, noteGamesCapHit } from './entitlement';
 
 const ENABLED_KEY = 'obertura.autoRefreshGames';
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -46,6 +47,21 @@ function allowedTimeClasses(existing: ImportedGame[]): Set<TimeClass> {
   return present.size ? present : new Set(DEFAULT_TIME_CLASSES);
 }
 
+// Trim newly-found games to whatever fits under FREE_STORED_GAMES (a no-op —
+// freeGameRoom is Infinity — for a guest, an entitled account, or a build with
+// no accounts). `fresh` is already newest-first (the platform fetchers emit
+// that way and import-core preserves it), so a plain head-slice keeps the most
+// recent ones. Deliberately silent here: no toast, no dialog — a refresh that
+// quietly keeps fewer games IS the free tier working as intended, and the My
+// games counter is the only signal this ever needs. Still worth a metric, so
+// the once-ever games_cap_hit count doesn't depend on which entry point
+// happened to be the one that met the cap.
+function takeWithinCap(fresh: ImportedGame[], existingCount: number): ImportedGame[] {
+  const kept = fresh.slice(0, freeGameRoom(existingCount));
+  noteGamesCapHit(existingCount + kept.length);
+  return kept;
+}
+
 // Pull the latest games right now — the My-games "Refresh" button — bypassing
 // the weekly gate and the enabled flag. Returns how many genuinely new games
 // were merged. Throws 'no-source' when no username is saved yet (the button
@@ -64,8 +80,9 @@ export async function refreshGamesNow(): Promise<number> {
   const existing = await getAllGames();
   const allowed = allowedTimeClasses(existing);
   const existingIds = new Set(existing.map((g) => g.id));
-  const fresh = result.games.filter(
-    (g) => allowed.has(g.timeClass) && !existingIds.has(g.id),
+  const fresh = takeWithinCap(
+    result.games.filter((g) => allowed.has(g.timeClass) && !existingIds.has(g.id)),
+    existing.length,
   );
   await mergeRefreshedGames(fresh); // also advances the refresh date
   return fresh.length;
@@ -93,8 +110,9 @@ export async function maybeAutoRefreshGames(): Promise<number> {
     const existing = await getAllGames();
     const allowed = allowedTimeClasses(existing);
     const existingIds = new Set(existing.map((g) => g.id));
-    const fresh = result.games.filter(
-      (g) => allowed.has(g.timeClass) && !existingIds.has(g.id),
+    const fresh = takeWithinCap(
+      result.games.filter((g) => allowed.has(g.timeClass) && !existingIds.has(g.id)),
+      existing.length,
     );
     await mergeRefreshedGames(fresh); // also advances the refresh date
     return fresh.length;
