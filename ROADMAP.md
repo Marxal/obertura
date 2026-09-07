@@ -1171,6 +1171,34 @@ numbers small enough to ride a push that was happening anyway.
 
 ---
 
+## The GitHub Pages retirement — a goodbye page for the old test mirror ✅
+
+Bito Chess now lives at bitochess.com; the GitHub Pages URL was only ever the
+internal tester mirror (`DEPLOY_TARGET=github`, gate.ts's beta gate). With real
+users on the real domain, that mirror closes rather than keeps drifting.
+
+- ✅ **`farewell/index.html`** — a single self-contained static page (its own
+  copies of the two Chakra Petch `.woff2` files and `icon-192.png`, no build
+  step, no dependency on `src/`) that explains the move, links to
+  bitochess.com, and carries one working button: "Download my data".
+- ✅ **The export logic is a hand-copied duplicate of `exportBackup()` and
+  `local-keys.ts`'s `backupLocalKey()`**, not an import of them — deliberately,
+  so the page keeps exporting correctly even after the app it once served is
+  deleted from the repo. Reads IndexedDB's `repertoires`/`lines`/`games`
+  stores and the same allow-listed localStorage keys straight from the
+  browser, and writes the exact `obertura-backup` v4 JSON shape the real
+  `parseBackup()` accepts — verified by running the produced file through the
+  actual `parseBackup()`/`repertoiresFrom()`/`partsInBackup()` from
+  `storage.ts` (not just eyeballed).
+- ✅ **`deploy.yml` no longer builds the app.** It used to run the full
+  `npm run build` (the `github` target) and upload `dist/`; now it just
+  uploads `farewell/` as-is. The `github` Vite build target itself is
+  untouched — `npm run dev`/`npm run build` still build the real app locally
+  — only the GitHub Pages *deploy* changed. The `cloudflare` target
+  (bitochess.com) was never touched.
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

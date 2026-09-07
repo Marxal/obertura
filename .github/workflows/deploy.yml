@@ -1,5 +1,11 @@
 name: Deploy to GitHub Pages
 
+# This used to build and deploy the full trainer app — the "internal test
+# mirror" build target described in CLAUDE.md. That app now lives at
+# bitochess.com (the Cloudflare Pages build, unaffected by this workflow);
+# this GitHub Pages URL is retired and serves only a static goodbye page
+# (farewell/) that still lets a tester export their local data. No build step
+# is needed for it, so this workflow no longer runs npm at all.
 on:
   push:
     branches: [main]
@@ -21,27 +27,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Generate icons
-        run: node scripts/generate-icons.mjs
-
-      - name: Build
-        run: npm run build
-
-      # Copy the static landing page (repo /docs) into the Pages artifact so it
-      # goes live at <pages-url>/docs/ alongside the built app. Pages serves the
-      # uploaded `dist`, not a branch, so the page must be inside `dist`.
-      - name: Include landing page
-        run: cp -r docs dist/docs
-
       # Switch Pages source to GitHub Actions mode so Jekyll never overwrites this deploy
       - name: Ensure Pages uses GitHub Actions source
         env:
@@ -62,7 +47,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: farewell
 
   deploy:
     environment:

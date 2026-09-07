@@ -68,20 +68,37 @@ app reads your own games to find what to fix next.
 
 ### The two builds, from one repo
 
-`DEPLOY_TARGET` (read in `vite.config.ts`, inlined as `__DEPLOY_TARGET__`) picks
-the shape:
-
-| | `github` (default) | `cloudflare` |
-|---|---|---|
-| App base | `/obertura/` | `/app/` |
-| App output | `dist/` | `dist/app/` |
-| Landing page | copied by CI to `dist/docs/` | copied to `dist/` root |
-| Beta gate (`gate.ts`) | **on** | **skipped entirely** |
-| Supabase env vars | absent → accounts, sync, entitlement and payment are all inert | present |
-| Purpose | internal test mirror | the public product |
+`DEPLOY_TARGET` (read in `vite.config.ts`, inlined as `__DEPLOY_TARGET__`) still
+picks the trainer's build shape — `github` (default, `dist/` root, base
+`/obertura/`) vs `cloudflare` (`dist/app/`, base `/app/`, landing page copied to
+the `dist/` root, Supabase env vars present, beta gate skipped) — but only the
+`cloudflare` build is deployed anywhere; it's the public product at
+bitochess.com. `npm run build`/`npm run dev` with `DEPLOY_TARGET` unset still
+build the full trainer under the `github` shape locally (nothing about the Vite
+config changed), but nothing publishes that output any more.
 
 `public/manifest.webmanifest` is shared unchanged: `start_url: "."` is relative
 and resolves correctly under either base.
+
+### GitHub Pages: retired, now a goodbye page
+
+The GitHub Pages URL was only ever the internal tester mirror (`github` target
++ `gate.ts`'s beta gate). It's now retired: `.github/workflows/deploy.yml` no
+longer runs `npm run build` or touches `src/` at all — it just uploads
+**`farewell/`**, a small hand-written static page, as the Pages artifact.
+
+`farewell/index.html` is deliberately NOT part of the Vite build and imports
+nothing from `src/`. It explains the move to bitochess.com and offers one
+working button, "Download my data", whose script is a **hand-copied duplicate**
+of `storage.ts`'s `exportBackup()` and `local-keys.ts`'s `backupLocalKey()` —
+not an import of them, so the page keeps exporting a tester's IndexedDB
+(`repertoires`/`lines`/`games`) and allow-listed localStorage keys correctly
+even after the app it once served is deleted from the repo. It writes the same
+`obertura-backup` v4 JSON shape the real `parseBackup()` accepts (checked by
+running its output through the actual `parseBackup()` from `storage.ts`, not
+just eyeballed) — that file imports through the current app's own
+Backup & restore → Import unchanged. If `local-keys.ts`'s private-key list ever
+changes, `farewell/index.html`'s copy needs updating by hand to match.
 
 ---
 

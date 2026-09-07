@@ -131,15 +131,21 @@ After meaningful changes: build the static site and push so the live URL
 updates. Keep a .gitignore (never commit node_modules or secrets).
 
 ## Hosting targets
-The same repo and build produce two different output shapes, picked by the
-`DEPLOY_TARGET` env var (`vite.config.ts`):
-- `DEPLOY_TARGET=github` (or unset, the default) — the trainer builds to the
-  `dist/` root with base `/obertura/`, exactly as before. The GitHub Actions
-  workflow then copies `docs/` to `dist/docs/` itself, unchanged.
-- `DEPLOY_TARGET=cloudflare` — the trainer builds under `dist/app/` with base
-  `/app/`, and `docs/index.html` (the marketing landing page) is copied to the
-  `dist/` root instead, so it serves at the bitochess.com domain root while
-  the trainer lives at bitochess.com/app/. Set this one env var in the
-  Cloudflare Pages dashboard; no other config differs.
+`DEPLOY_TARGET` (`vite.config.ts`) still switches the trainer build between two
+shapes — `github` (or unset, the default): `dist/` root, base `/obertura/`;
+`cloudflare`: `dist/app/` with base `/app/`, plus `docs/index.html` copied to
+the `dist/` root so it serves at the bitochess.com domain root while the
+trainer lives at bitochess.com/app/ (set in the Cloudflare Pages dashboard) —
+but only the `cloudflare` target is actually deployed anywhere now.
+
+GitHub Pages (`.github/workflows/deploy.yml`) no longer builds or deploys the
+`github` target at all: that was only ever the internal tester mirror, and
+with real users on bitochess.com it closed. The workflow now uploads the
+static `farewell/` page instead — a goodbye notice with a "download my data"
+button, self-contained (its own copies of the app's font/icon files, no
+build step, no dependency on `src/`) so it keeps exporting testers' local
+data even after the app it once served is gone. See the ROADMAP entry "The
+GitHub Pages retirement" for how its export logic stays in sync with
+`storage.ts`'s `exportBackup()` and `local-keys.ts`.
 `public/manifest.webmanifest` is shared by both targets unchanged — its
 `start_url: "."` is relative, so it resolves correctly under either base.
