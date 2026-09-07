@@ -33,6 +33,7 @@ import { startPretrainingRun, enrolLineDirectly } from './pretraining';
 import {
   initEntitlement,
   requestTrainingSlot,
+  requestLineSaveRoom,
   showGoProDialog,
   ENTITLEMENT_CHANGE_EVENT,
 } from './entitlement';
@@ -1085,6 +1086,10 @@ async function saveImportedLines(seeds: LineSeed[], colour: 'white' | 'black'): 
   for (const seed of seeds) {
     const line = lineFromUcis(seed, colour);
     if (!line) continue;
+    // Storage cap: stop at whatever already fit rather than refusing the whole
+    // batch — the same "keep what fits, be honest about the rest" shape as the
+    // training cap's bulk add.
+    if (!(await requestLineSaveRoom())) break;
     await saveLine(line);
     saved++;
   }
@@ -2457,7 +2462,10 @@ async function commitBook(intents?: Map<string, boolean>): Promise<void> {
   const wants = intents ?? new Map(drafted.map(l => [l.endId, loadedLineInTraining]));
 
   const { moves, roots } = await commitPending();
-  if (moves === 0) { showToast('Nothing new to add'); return; }
+  // commitPending only clears the draft on success — if it's still sitting
+  // there, this was the storage cap turning the commit away (it has already
+  // shown its own dialog), not a genuinely empty draft.
+  if (moves === 0) { if (!hasPending()) showToast('Nothing new to add'); return; }
   repaintAfterBookWrite();
   // An add is only as cheap as it is reversible, and this one is exactly
   // reversible: the roots name the branches just written, and nothing else can
@@ -3798,13 +3806,18 @@ function addStarterLine(
 
   const line = lineFromUcis(seed, colour);
   if (!line) { onCancel(); return; }
-  // 'save' is the bulk path's overflow: the line still lands in My Lines, just
-  // not in the training rotation. lineFromUcis already builds it un-enrolled, so
-  // there is nothing to switch off — and nothing here can ever pause a line that
-  // was already in training.
-  if (mode === 'save') { void saveLine(line).then(onDone); return; }
-  if (mode === 'learn') addLineToTraining(line, onDone, onCancel);
-  else void enrolLineDirectly(line).then(onDone);
+  // Every mode below stores this line for the first time — the one check here
+  // covers 'save', 'learn' and the direct-enrol default alike.
+  void requestLineSaveRoom().then((allowed) => {
+    if (!allowed) { onCancel(); return; }
+    // 'save' is the bulk path's overflow: the line still lands in My Lines, just
+    // not in the training rotation. lineFromUcis already builds it un-enrolled, so
+    // there is nothing to switch off — and nothing here can ever pause a line that
+    // was already in training.
+    if (mode === 'save') { void saveLine(line).then(onDone); return; }
+    if (mode === 'learn') addLineToTraining(line, onDone, onCancel);
+    else void enrolLineDirectly(line).then(onDone);
+  });
 }
 
 function lineFromUcis(seed: LineSeed | string[], colour: 'white' | 'black'): Line | null {
@@ -5137,7 +5150,10 @@ function showSaveGuard(proceed: () => void): void {
         leaving: true,
         onAddAll: () => {
           const wants = new Map(lines.map(l => [l.endId, l.training]));
-          void commitBook(wants).then(() => proceed());
+          // The storage cap leaves the draft standing rather than clearing it —
+          // stay put with it (and the dialog it already showed) rather than
+          // leaving as if the add had gone through.
+          void commitBook(wants).then(() => { if (!hasPending()) proceed(); });
         },
         onRemove: (cutId) => { discardBranch(cutId); afterDraftEdit(); },
         onGoTo: (endId) => handleMoveClick(endId),
@@ -5155,7 +5171,7 @@ function showSaveGuard(proceed: () => void): void {
         {
           label: n === 1 ? 'Add it' : 'Add them',
           variant: 'primary',
-          onClick: () => { void commitPending().then(() => proceed()); },
+          onClick: () => { void commitPending().then(() => { if (!hasPending()) proceed(); }); },
         },
         { label: 'Discard', variant: 'danger', onClick: () => { discardPending(); proceed(); } },
         { label: 'Keep editing', variant: 'secondary' },
@@ -5239,6 +5255,9 @@ async function persistCurrentLine(): Promise<
     return null;
   }
   const isNew = !loadedLineId;
+  // Only a genuinely new line grows the saved-line count — re-saving one
+  // already in a book doesn't, so the storage cap has nothing to say about it.
+  if (isNew && !(await requestLineSaveRoom())) return null;
   const line = buildCurrentLine();
   // Lock in the auto-named title so it sticks as the manual name.
   manualTitle = line.name;
@@ -5335,6 +5354,7 @@ async function saveLineFromCurrentPath(): Promise<void> {
     try {
       const line = lineFromUcis(ucis, saveColour);
       if (!line) { showToast('Couldn’t build a line here'); return; }
+      if (!(await requestLineSaveRoom())) return;
       await saveLine(line);
       lastSavedLinePath = path;
       builderPanels?.reloadLines();

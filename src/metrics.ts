@@ -68,6 +68,11 @@ export type MetricName =
   | 'endgame_solved'
   | 'games_imported'
   | 'games_cap_hit'
+  | 'training_cap_hit'
+  | 'lines_cap_hit'
+  | 'repertoire_cap_hit'
+  | 'pro_sheet_shown'
+  | 'checkout_started'
   | 'signed_in'
   | 'signed_up_email'
   | 'purchase_confirmed';

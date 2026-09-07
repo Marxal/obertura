@@ -90,6 +90,16 @@ export const FREE_SCOUT_OPPONENTS = 1;
 // to keep six for free, and a cap you can walk around isn't one.
 export const FREE_REPERTOIRES = 3;
 
+// How many lines, TOTAL and regardless of training status, a free account may
+// have saved across every book. This is a STORAGE GUARDRAIL, not a sales
+// wall — it is never mentioned in pro-sheet.ts, in the pricing copy, or in the
+// free/Pro comparison, and the dialog it shows says exactly what it is: a limit
+// on how much a free account stores, not a feature being withheld. Five
+// hundred lines is far past anything normal use reaches — the training cap
+// above already caps the ten in active rotation — so this exists purely to
+// keep one runaway free account from growing an unbounded tree, nothing more.
+export const FREE_SAVED_LINES = 500;
+
 // How many games a free account may hold in My games (IndexedDB) at once. This
 // caps the STORE, not any one import — it's checked at every path that writes
 // into it (import-panel's import button, import-last, the weekly/manual
@@ -185,6 +195,16 @@ export async function countInTraining(): Promise<number> {
   }
 }
 
+// How many lines exist across every book right now, regardless of training
+// status. The count FREE_SAVED_LINES is checked against.
+async function countSavedLines(): Promise<number> {
+  try {
+    return (await getAllLines()).length;
+  } catch {
+    return 0;
+  }
+}
+
 // ── The gate every single-line enrolment goes through ────────────────────────
 
 // "May I enrol one more line?" — the async, UI-side form of canEnrolAnother.
@@ -215,6 +235,7 @@ export async function requestTrainingSlots(count: number): Promise<boolean> {
   if (isEntitled() || count <= 0) return true;
   const free = await freeTrainingSlots();
   if (count <= free) return true;
+  trackOnce('training_cap_hit');
   openUpgradeDialog(
     free === 0
       ? `You’ve got ${FREE_TRAINING_LINES} lines in training`
@@ -227,7 +248,28 @@ export async function requestTrainingSlots(count: number): Promise<boolean> {
 export async function requestRepertoireSlot(existing: number): Promise<boolean> {
   if (isEntitled()) return true;
   if (existing < FREE_REPERTOIRES) return true;
+  trackOnce('repertoire_cap_hit');
   openUpgradeDialog(`Free accounts keep ${FREE_REPERTOIRES} repertoires`);
+  return false;
+}
+
+/**
+ * "May I store `newLines` more lines?" — the storage guardrail's gate, called
+ * right before anything that would grow the saved-line count: the builder's
+ * commit, the classic single-line save, a game's "Save line", a bulk study
+ * import, a starter-pack add. It never fires for editing a line that already
+ * exists (a note, a priority, a training toggle) — those don't grow the count.
+ *
+ * Unlike the training cap this is honest about being a storage limit, not an
+ * upsell: the message says exactly that, and Pro is offered as the way past it
+ * rather than as the point of the dialog.
+ */
+export async function requestLineSaveRoom(newLines = 1): Promise<boolean> {
+  if (isEntitled() || newLines <= 0) return true;
+  const count = await countSavedLines();
+  if (count + newLines <= FREE_SAVED_LINES) return true;
+  trackOnce('lines_cap_hit');
+  openUpgradeDialog(`Free accounts store ${FREE_SAVED_LINES} lines`);
   return false;
 }
 
@@ -237,6 +279,7 @@ export async function requestRepertoireSlot(existing: number): Promise<boolean> 
 // quieter toast below). A paywall in the first minute, before the user has
 // drilled anything, is the wrong first impression.
 export function showTrainingCapDialog(): void {
+  trackOnce('training_cap_hit');
   openUpgradeDialog(`You’ve got ${FREE_TRAINING_LINES} lines in training`);
 }
 
@@ -263,6 +306,7 @@ function openUpgradeDialog(eyebrow?: string): void {
   // Start a fetch now rather than when they tap buy, so the id is usually in hand
   // by the time it's needed.
   primePricing();
+  trackOnce('pro_sheet_shown');
 
   openProSheet({
     eyebrow,

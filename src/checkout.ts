@@ -125,6 +125,7 @@ export function openCheckout(): void {
 // (which supabase-js may need to refresh). Both failures get the same honest
 // message — nothing has been charged, and trying again in a moment usually works.
 async function goToCheckout(): Promise<void> {
+  trackOnce('checkout_started');
   let url: string;
   try {
     const price = await sellablePrice();
