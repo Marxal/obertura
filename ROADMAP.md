@@ -1353,6 +1353,47 @@ just ticks.
 
 ---
 
+## The `stats_daily` retention round — the one table with a growth curve ✅
+
+A full audit of what the free/Pro tiers cost on Supabase's free plan found the
+app's own per-account payload well controlled — the two-column split, the games
+diet, the 4 MB ceilings, the free tier's caps — and exactly one table with no
+bound on it at all. `stats_daily`'s cron took **every** profile with a `stats`
+value, **every day, for ever**: an account that pushed once and never came back
+still cost a row a day of unchanging numbers. At ~420 bytes a row that is
+~0.15 MB per account per year, roughly twice the entire profile row of a typical
+free account, and it was on course to be the thing that filled the 500 MB —
+before repertoires, egress or MAU came anywhere near their limits.
+
+- ✅ **The snapshot only takes accounts used in the last 35 days.**
+  `snapshot_profile_stats()` now filters on `stats->>'lastActiveDay'`, which
+  `src/account-stats.ts` writes as a local `YYYY-MM-DD` and which dates real
+  activity (a push only happens when something changed). Compared **as text**,
+  not cast to a date: ISO dates sort chronologically as strings, so the
+  comparison is exact, and a malformed value fails to match instead of raising
+  and killing the nightly run for everyone.
+- ✅ **And the tape has an end.** A second function, `prune_profile_stats()`,
+  deletes rows past 400 days — a year plus enough margin to have both ends of a
+  year-on-year comparison — on its own weekly cron (`prune-profile-stats`,
+  Sundays 03:47 UTC, clear of the nightly snapshot). Safe to delete by nature:
+  the table is a derived copy of a summary the app rebuilds from scratch on
+  every push, nothing reads it back into the app, and the only loss is a trend
+  line.
+- ✅ **Growth changed shape, not slope.** The table now costs ~0.17 MB per
+  **monthly-active** account and stops climbing, instead of climbing with
+  everyone who ever signed up. 500 active accounts hold it at ~84 MB in a
+  steady state. An account that registers and never returns costs nothing at
+  all: no `stats` until its first push, no row after 35 quiet days.
+- ✅ **`SUPABASE-SYNC.md` §1 and §7 rewritten to match**, including the
+  free-account figures (0.07 MB typical, 0.31 MB at the 500-line cap — games
+  never sync for a free account) and a `pg_total_relation_size` query, so the
+  next person to ask "how much room is left?" measures instead of guessing.
+- ⚠️ **Both cron jobs must be (re-)run from the dashboard** — the SQL is in
+  §1 and is safe to paste whole; pg_cron keys jobs by name, so re-running
+  updates rather than duplicates them.
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

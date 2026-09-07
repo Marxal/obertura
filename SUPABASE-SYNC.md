@@ -27,7 +27,7 @@ One row per user, holding the copy of their data.
 | `games`                    | `jsonb`       | your imported games                                       |
 | `games_updated_at`         | `timestamptz` | when the games were last pushed — **the sync reads this**  |
 | `stats`                    | `jsonb`       | a ~300-byte summary of how much has been built and trained |
-| *(and `public.stats_daily`)* | —           | a daily copy of every account's `stats`, so trends exist at all |
+| *(and `public.stats_daily`)* | —           | a daily copy of each **active** account's `stats`, kept 400 days |
 | `entitled`                 | `boolean`     | has this account paid? Gates the training cap             |
 | `entitled_at`              | `timestamptz` | when the purchase webhook granted it (a record only)      |
 | `stripe_customer_id`       | `text`        | the Stripe customer behind that purchase (a record only)  |
@@ -251,18 +251,50 @@ revoke all on public.stats_daily from anon, authenticated;
 
 -- One row per account per day; re-running on the same day overwrites, so the
 -- job is idempotent and a manual run is always safe.
+--
+-- ── IT ONLY SNAPSHOTS ACCOUNTS THAT HAVE BEEN USED LATELY ───────────────────
+-- The first version of this took every profile with a `stats` value, every day,
+-- for ever. That is the one shape a table on a 500 MB budget must never have:
+-- an account that pushed once in 2026 and never came back still cost a row a
+-- day, holding the same unchanging numbers, until the database filled up.
+--
+-- At roughly 420 bytes a row (the jsonb, the tuple header and the primary key's
+-- index entry) that is ~0.15 MB per account per year — about TWICE the entire
+-- profile row of a typical free account, spent on data nobody would ever read.
+--
+-- So the snapshot is scoped to accounts active within ACTIVE_DAYS, which turns
+-- the table's growth from "everyone who ever signed up" into "whoever used the
+-- app this month". The tape is for trends in the live user base; a dormant
+-- account contributes a flat line to that, and a flat line is not worth paying
+-- to store 365 times a year.
+--
+-- `lastActiveDay` is written by the browser (src/account-stats.ts) as a local
+-- "YYYY-MM-DD" and dates real activity — a push only happens when something
+-- actually changed. It is COMPARED AS TEXT, not cast to a date: ISO dates sort
+-- chronologically as strings, so the comparison is exact, and a hand-edited or
+-- malformed value simply fails to match instead of raising and killing the whole
+-- nightly run. It is also forgeable, like everything else in that column — the
+-- worst a forged value can do is keep one account's own snapshot alive, which is
+-- why nothing may ever gate on this column (see src/account-stats.ts).
 create or replace function public.snapshot_profile_stats()
 returns integer
 language plpgsql
 security definer
 set search_path = public
 as $$
-declare n integer;
+declare
+  n integer;
+  -- How recently an account must have been used to earn a row today.
+  -- Comfortably over a month, so someone who trains a few times a season
+  -- stays on the tape between visits.
+  active_days constant integer := 35;
 begin
   insert into public.stats_daily (day, id, stats)
   select current_date, p.id, p.stats
     from public.profiles p
    where p.stats is not null
+     and p.stats->>'lastActiveDay'
+         >= to_char(current_date - active_days, 'YYYY-MM-DD')
   on conflict (day, id) do update set stats = excluded.stats;
   get diagnostics n = row_count;
   return n;
@@ -271,13 +303,54 @@ $$;
 
 revoke all on function public.snapshot_profile_stats() from anon, authenticated;
 
+-- ── AND THE TAPE HAS AN END ─────────────────────────────────────────────────
+-- The scope above bounds how many rows are written a day; this bounds how long
+-- they are kept. Without it the table still grows for ever, just more slowly.
+--
+-- 400 days rather than 365: a year-on-year comparison needs slightly more than
+-- a year of tape to have both ends of it, and the extra five weeks cost
+-- nothing. Past that, the numbers are answering a question nobody is asking.
+--
+-- Deleting is safe in a way that is worth saying out loud: this table is a
+-- DERIVED copy of `profiles.stats`, which is itself a summary the app rebuilds
+-- from scratch on every push. Nothing here is anybody's data, nothing reads it
+-- back into the app, and losing all of it would cost exactly one thing — the
+-- ability to draw a trend line.
+create or replace function public.prune_profile_stats()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  n integer;
+  keep_days constant integer := 400;
+begin
+  delete from public.stats_daily where day < current_date - keep_days;
+  get diagnostics n = row_count;
+  return n;
+end;
+$$;
+
+revoke all on function public.prune_profile_stats() from anon, authenticated;
+
 -- pg_cron is free on every Supabase plan and installs into its own `cron`
 -- schema. 03:17 UTC rather than a round hour so it isn't queued behind
 -- everything else in the region that picked midnight.
+--
+-- Re-running either `cron.schedule` below is safe: pg_cron keys jobs by name,
+-- so a second call updates the existing job rather than adding a duplicate.
 create extension if not exists pg_cron;
 select cron.schedule(
   'snapshot-profile-stats', '17 3 * * *',
   'select public.snapshot_profile_stats()'
+);
+-- Weekly, and well clear of the nightly snapshot: a prune has nothing to do on
+-- six days out of seven, and running it daily would only mean six no-op
+-- deletes a week competing with the job that matters.
+select cron.schedule(
+  'prune-profile-stats', '47 3 * * 0',
+  'select public.prune_profile_stats()'
 );
 
 -- ── THE SIZE CEILING, ENFORCED WHERE IT CAN'T BE ARGUED WITH ────────────────
@@ -722,6 +795,9 @@ exists to enforce it against a client that has been tampered with.
 
 - A typical user (150 lines, 200 games) stores about **0.13 MB**. That's roughly
   **3,800 users** in 500 MB.
+- A **free** account is cheaper still, because games never sync for one
+  (`gateGamesToEntitlement`): 150 lines and the snapshot is about **0.07 MB**,
+  and the 500-line cap puts its ceiling at **0.31 MB**.
 - A worst-case user at both ceilings stores about **1.05 MB** — roughly **475**
   of those would fill it, and there is no way to have 475 of them.
 - Egress is the one to watch, and the pull loop is built around it: the routine
@@ -729,8 +805,36 @@ exists to enforce it against a client that has been tampered with.
   day costs well under 100 KB. Blobs only come down when the other device has
   actually been busy.
 
-The realistic first constraint is neither: it's the 50,000 monthly active users,
-and that is a very good problem to have.
+**`profiles` is not the table that decides when you outgrow this.** It is
+bounded per account and the ceilings above are enforced. `stats_daily` is the
+one with a growth curve, because it charges by TIME rather than by how much
+anybody stores — and the two rules in §1 are what flatten it:
+
+| | rows a day | in 500 MB |
+| --- | --- | --- |
+| every account, kept for ever *(the original shape)* | every account that ever pushed | fills in 2–3 years at 1,000 accounts |
+| active-only, pruned at 400 days *(what §1 does now)* | this month's active accounts | ~0.17 MB per **active** account, and it stops growing |
+
+At 420 bytes a row, 500 monthly-active accounts hold the table at about **84 MB
+in a steady state** — a number that stops climbing rather than one that climbs
+slower. A signed-up-and-never-returned account costs nothing at all here: it
+has no `stats` until its first push, and no row after 35 quiet days.
+
+**Don't take any of this on trust — measure it.** Both numbers, any time, from
+the SQL editor:
+
+```sql
+select pg_size_pretty(pg_total_relation_size('public.profiles'))   as profiles,
+       pg_size_pretty(pg_total_relation_size('public.stats_daily')) as stats_daily,
+       pg_size_pretty(pg_database_size(current_database()))         as whole_db;
+```
+
+(`auth.users` and its session and refresh-token tables count toward the 500 MB
+too. They are small per account, but `pg_database_size` is the only figure that
+includes everything, which is why it is in the query.)
+
+The realistic first constraint is none of them: it's the 50,000 monthly active
+users, and that is a very good problem to have.
 
 ---
 
@@ -757,7 +861,8 @@ hand any time from **Actions → Supabase keepalive → Run workflow**.
 
 ## 9. The checklist, in one place
 
-- [ ] §1 SQL run (table, RLS, grants, size trigger)
+- [ ] §1 SQL run (table, RLS, grants, size trigger, **both** cron jobs —
+      `snapshot-profile-stats` and `prune-profile-stats`)
 - [ ] §2 Confirm email ON, minimum password length 8, leaked-password check ON
 - [ ] §2 Site URL and Redirect URLs set
 - [ ] §2 All three email templates switched to `token_hash` — Confirm signup,
