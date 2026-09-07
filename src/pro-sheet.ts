@@ -33,7 +33,7 @@ export interface ProSheetOptions {
   // user opened the offer themselves, where a number they haven't reached would
   // just be wrong.
   eyebrow?: string;
-  // '9€' or '99 kr' — already formatted. The sheet is built synchronously, so
+  // '12€' or '139 kr' — already formatted. The sheet is built synchronously, so
   // this is whatever the caller has in hand right now, which may be a cached or
   // built-in number rather than a freshly fetched one.
   price: string;
@@ -59,9 +59,13 @@ export interface ProSheetOptions {
   onSignIn?: () => void;
 }
 
-// The two promises, in the landing page's order and wording.
+// The promises, in the landing page's order and wording.
 const POINTS = [
+  'Your whole games library, synced and kept',
   'Unlimited active training rotation',
+  'Unlimited repertoires',
+  'Opponent scouting',
+  'Coach tools',
   'One-time payment, no subscription ever',
 ];
 
@@ -103,12 +107,12 @@ export function openProSheet(opts: ProSheetOptions): void {
   // ("Your whole repertoire. One payment.") saying the same thing twice.
   const title = document.createElement('h3');
   title.className = 'pro-title';
-  title.textContent = 'Want to train everything you’ve built?';
+  title.textContent = 'Want everything, unlimited?';
   sheet.appendChild(title);
 
   const body = document.createElement('p');
   body.className = 'pro-body';
-  body.textContent = 'Full Access unlocks unlimited training and helps fund what’s next.';
+  body.textContent = 'Full Access unlocks everything you’ve built and helps fund what’s next.';
   sheet.appendChild(body);
 
   // ── The price card ──────────────────────────────────────────────────────────
@@ -126,6 +130,17 @@ export function openProSheet(opts: ProSheetOptions): void {
   price.appendChild(once);
   card.appendChild(price);
 
+  // The launch-price line. Its own amount tracks opts.price the same way the
+  // price tag above does (see onPriceChange below) — the "Chessbook is €80 a
+  // year" and "going to €19" parts are hand-typed and won't update themselves;
+  // see the note in docs/LANDING-COPY.md's [THE TWO PLANS] section.
+  const launch = document.createElement('p');
+  launch.className = 'pro-launch';
+  const launchAmount = document.createTextNode(opts.price);
+  launch.appendChild(launchAmount);
+  launch.appendChild(document.createTextNode(' once. Chessbook is €80 a year. Launch price — it’s going to €19.'));
+  card.appendChild(launch);
+
   const plan = document.createElement('p');
   plan.className = 'pro-plan';
   plan.textContent = 'Full Access & Project Support';
@@ -133,7 +148,7 @@ export function openProSheet(opts: ProSheetOptions): void {
 
   const planDesc = document.createElement('p');
   planDesc.className = 'pro-plan-desc';
-  planDesc.textContent = 'Your entire repertoire, always available for training.';
+  planDesc.textContent = 'Everything you’ve built, fully unlocked.';
   card.appendChild(planDesc);
 
   const list = document.createElement('ul');
@@ -148,12 +163,22 @@ export function openProSheet(opts: ProSheetOptions): void {
   }
   card.appendChild(list);
 
+  // The honest reason game-sync is the paid half: re-importing games is cheap
+  // and instant, but the analysis done on them isn't — see docs/LANDING-COPY.md.
+  const why = document.createElement('p');
+  why.className = 'pro-why';
+  why.textContent = 'Your games re-import in a minute. The analysis doesn’t — that’s why this half is paid.';
+  card.appendChild(why);
+
   sheet.appendChild(card);
 
   // Corrections to the price, if the caller offered any. Unsubscribed on close so
   // a dismissed sheet stops holding a listener and stops writing to a detached
   // node.
-  const unsubscribePrice = opts.onPriceChange?.((next) => { priceText.data = next; });
+  const unsubscribePrice = opts.onPriceChange?.((next) => {
+    priceText.data = next;
+    launchAmount.data = next;
+  });
 
   let closed = false;
   function close(): void {

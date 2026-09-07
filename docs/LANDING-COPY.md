@@ -23,9 +23,11 @@ than straight quotes ('). The wording below is identical either way.
 
   Since the Stripe migration, both the landing page's price card and the app's
   paywall FETCH the real number (`GET /api/stripe/prices`) and overwrite what was
-  typed in. The hard-coded 9€ in each is now a no-JS / offline fallback rather
+  typed in. The hard-coded 12€ in each is now a no-JS / offline fallback rather
   than a second source of truth — so the copy below is the shape, and Stripe is
-  the number. A Swedish device is quoted in kronor instead (99 kr).
+  the number. A Swedish device is quoted in kronor instead (139 kr, a figure you
+  should confirm or change when you set the SEK price in Stripe — see
+  STRIPE-SETUP.md).
 
 The legal documents are separate hand-written pages, not part of this file:
 `docs/privacy.html`, `docs/terms.html`, `docs/licences.html`.
@@ -162,15 +164,29 @@ Track your training streaks, move memory, puzzle rating, and win rates by openin
 > **The paid box is duplicated in the app** — `src/pro-sheet.ts` shows the same
 > offer in the upgrade popup, shorter. Change both.
 >
-> The price is written **9€**, symbol after the number, in both places.
-> There is deliberately no “€0” on the free box: a price of zero invites the
-> reader to price-compare something that isn’t for sale.
+> The price is written **12€**, symbol after the number, in both places —
+> that house style is deliberate and pre-dates this split. There is
+> deliberately no “€0” on the free box: a price of zero invites the reader to
+> price-compare something that isn’t for sale.
 >
-> Both boxes are CENTRED (heading, price, body copy) — this is the opposite
+> **The launch-price line breaks that style on purpose.** "€12 once. Chessbook
+> is €80 a year." is written exactly that way, symbol before the number, because
+> it's quoted as spoken, not displayed as a price tag — and because it sits right
+> next to the big "12€" above it, which already carries the house style. Don't
+> "fix" it to match.
+>
+> **Both boxes are CENTRED** (heading, price, body copy) — this is the opposite
 > choice from [YOUR GAMES] above, and deliberately so: a price card reads as a
 > price card when everything funnels down to one button in the middle. Only the
 > Full Access checklist stays left-aligned inside the centred box — a tick list
 > read centred loses its scan line down the left edge.
+>
+> **Only the "12€" inside the launch-price sentence tracks Stripe live**, the
+> same quote that rewrites the big price above it (`#tier-launch-amount` in
+> `docs/index.html`, the price-text node in `src/pro-sheet.ts`). "Chessbook is
+> €80 a year" and "going to €19" are hand-typed and will NOT update themselves —
+> when the price actually rises, come back here, to `docs/index.html` and to
+> `src/pro-sheet.ts` and edit those two numbers by hand.
 
 **H2:** Start free
 
@@ -180,23 +196,37 @@ Track your training streaks, move memory, puzzle rating, and win rates by openin
 
 **FREE** · **Everything you need to get started.**
 
-Build and save as many repertoire lines as you want. Explore the opening library. Import games. Solve puzzles. Analyse positions. Train up to 10 lines at a time.
+Build up to 500 lines, train 10 at a time, and sync them across your devices. Import and scan 100 games to find coverage gaps. Explore the library and starter packs, solve puzzles, practise endgames, and analyse with the engine. Back up anytime and export to PGN.
 
 **Try Bito Chess →** · No signup required.
 
 ### Box 2 — Full Access (brass edge, deeper shadow: the premium one)
 
-**FULL ACCESS** · **Your whole repertoire.**
+**FULL ACCESS** · **Everything, unlimited.**
 
-**9€** one payment
+**12€** one payment
 
 “One payment” is written once now, next to the price where it belongs (not
 also in the headline — it repeated itself in an earlier draft).
 
-Want to train everything you’ve built? Full Access unlocks unlimited training and helps keep the project alive.
+**Launch-price line, right under the price:** €12 once. Chessbook is €80 a year. Launch price — it’s going to €19.
 
+Full Access unlocks everything you’ve built — and helps keep the project alive.
+
+- Your whole games library, synced and kept
 - Unlimited active training rotation
+- Unlimited repertoires
+- Opponent scouting
+- Coach tools
 - One-time payment, no subscription ever
+
+**Below the ticks, its own line:** Your games re-import in a minute. The analysis doesn’t — that’s why this half is paid.
+
+That’s the honest reason game-sync sits on the paid side: re-importing the
+games themselves is cheap and instant, but every mistake found, endgame
+surfaced and opponent profile built is real analysis work the app already did
+once — redoing it from scratch on every device would be the expensive path,
+so Pro is what keeps it instead of re-deriving it.
 
 **CTA:** Unlock full access →
 

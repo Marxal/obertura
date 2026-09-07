@@ -35,7 +35,7 @@
 -->
 
 <title>Bito Chess — improve your next move</title>
-<meta name="description" content="Build your own chess opening repertoire, drill it with spaced repetition, and stop forgetting your prep on move six. Free to use, €9 once if you want the whole thing, no subscription." />
+<meta name="description" content="Build your own chess opening repertoire, drill it with spaced repetition, and stop forgetting your prep on move six. Free up to 500 lines, Full Access is 12€ once, no subscription." />
 <meta name="robots" content="index, follow" />
 <link rel="canonical" href="https://bitochess.com/" />
 <meta name="color-scheme" content="light dark" />
@@ -2226,7 +2226,7 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
           <div class="plan">
             <p class="tier__name">Free</p>
             <h3>Everything you need to get started.</h3>
-            <p>Build and save as many repertoire lines as you want. Explore the opening library. Import games. Solve puzzles. Analyse positions. Train up to 10 lines at a time.</p>
+            <p>Build up to 500 lines, train 10 at a time, and sync them across your devices. Import and scan 100 games to find coverage gaps. Explore the library and starter packs, solve puzzles, practise endgames, and analyse with the engine. Back up anytime and export to PGN.</p>
             <div class="plan__act">
               <a class="btn js-app" href="/app/" data-umami-event="cta-plans-free">Try Bito Chess →</a>
               <p class="trust">No signup required.</p>
@@ -2237,19 +2237,42 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
         <div class="reveal">
           <div class="plan plan--pro">
             <p class="tier__name">Full Access</p>
-            <h3>Your whole repertoire.</h3>
-            <p class="tier__price">9€ <span>one payment</span></p>
-            <p>Want to train everything you’ve built? Full Access unlocks unlimited training and helps keep the project alive.</p>
+            <h3>Everything, unlimited.</h3>
+            <p class="tier__price">12€ <span>one payment</span></p>
+            <!-- The €12 here is kept live by the price-fetch script below (same
+                 quote as .tier__price, just without the "one payment" span to
+                 rebuild). The €80 (Chessbook) and €19 (future price) are
+                 hand-typed and will NOT update themselves — see the note in
+                 docs/LANDING-COPY.md's [THE TWO PLANS] section before editing. -->
+            <p class="faint"><span id="tier-launch-amount">12€</span> once. Chessbook is €80 a year. Launch price — it’s going to €19.</p>
+            <p>Full Access unlocks everything you’ve built — and helps keep the project alive.</p>
             <ul class="ticks">
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
+                <span>Your whole games library, synced and kept</span>
+              </li>
               <li>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
                 <span>Unlimited active training rotation</span>
               </li>
               <li>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
+                <span>Unlimited repertoires</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
+                <span>Opponent scouting</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
+                <span>Coach tools</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
                 <span>One-time payment, no subscription ever</span>
               </li>
             </ul>
+            <p class="faint">Your games re-import in a minute. The analysis doesn’t — that’s why this half is paid.</p>
             <div class="plan__act">
               <button type="button" class="btn btn--buy" id="buy" data-umami-event="cta-buy">Unlock full access →</button>
               <p class="faint" id="buy-note">Secure checkout. A Bito Chess account is required so your purchase can follow you across devices.</p>
@@ -2417,8 +2440,9 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
      the card below, src/pricing.ts's FALLBACK_AMOUNTS, and Stripe itself. Stripe
      is the one that takes the money, so if they ever disagree Stripe is right and
      the other two are the bug. The card below is now overwritten from Stripe on
-     load, which leaves the hard-coded "9€" in the markup as a no-JS fallback
-     rather than a second source of truth.
+     load, which leaves the hard-coded "12€" in the markup as a no-JS fallback
+     rather than a second source of truth. The launch-price line's own amount
+     (#tier-launch-amount) is overwritten the same way, from the same quote.
 
      NOTE the GitHub Pages mirror (isMirror, below) has no Worker behind it, so
      neither endpoint exists there. Both calls are skipped and the markup's own
@@ -2723,8 +2747,8 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
     return 'eur';
   }
 
-  /* House style, matching src/pricing.ts's formatPrice(): "9€", "99 kr", and no
-     decimals on a round amount. */
+  /* House style, matching src/pricing.ts's formatPrice(): "12€", "139 kr", and
+     no decimals on a round amount. */
   function formatAmount(unitAmount, currency) {
     var digits = unitAmount % 100 === 0 ? 0 : 2;
     var major = unitAmount / 100;
@@ -2742,7 +2766,7 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
   }
 
   /* The quote to show and sell. Null until the fetch lands (or forever, on the
-     mirror and offline), which is what the markup's own "9€" is there for. */
+     mirror and offline), which is what the markup's own "12€" is there for. */
   var quote = null;
 
   function loadPrice() {
@@ -2764,12 +2788,19 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
         if (!match) return;
 
         quote = match;
+        var formatted = formatAmount(match.unitAmount, String(match.currency).toLowerCase());
         var card = document.querySelector('.tier__price');
-        if (!card) return;
-        /* Rewritten in place, keeping the "one payment" span beside the number. */
-        var span = card.querySelector('span');
-        card.textContent = formatAmount(match.unitAmount, String(match.currency).toLowerCase()) + ' ';
-        if (span) card.appendChild(span);
+        if (card) {
+          /* Rewritten in place, keeping the "one payment" span beside the number. */
+          var span = card.querySelector('span');
+          card.textContent = formatted + ' ';
+          if (span) card.appendChild(span);
+        }
+        /* The launch-price line's own amount, kept in step with the same quote —
+           see the comment beside #tier-launch-amount in the markup. The rest of
+           that sentence ("once. Chessbook is €80 a year…") stays as written. */
+        var launchAmount = document.getElementById('tier-launch-amount');
+        if (launchAmount) launchAmount.textContent = formatted;
       })
       .catch(function () { /* the markup's price stands */ });
   }

@@ -48,7 +48,7 @@ import { trackOnce } from './metrics';
 export const FREE_TRAINING_LINES = 10;
 
 // What the unlock costs is no longer written here. It comes from Stripe, per
-// currency, via src/pricing.ts — €9 or a round 99 kr, picked by the device's
+// currency, via src/pricing.ts — €12 or a round 139 kr, picked by the device's
 // language. The built-in numbers that stand in when Stripe can't be reached live
 // in that file (FALLBACK_AMOUNTS), and the landing page keeps its own copy
 // because it is a standalone static page that cannot import from src/.
@@ -300,7 +300,7 @@ export function showGoProDialog(): void {
 // The sheet paints synchronously with whatever price is in hand (a fetched one, a
 // cached one, or the built-in fallback) and is handed a subscription so it can
 // swap in the real number if the fetch lands a moment later. A first-ever visitor
-// on a slow connection therefore sees "9€" and not a spinner, and sees "99 kr"
+// on a slow connection therefore sees "12€" and not a spinner, and sees "139 kr"
 // a half-second later if that is what they should have been shown.
 function openUpgradeDialog(eyebrow?: string): void {
   // Start a fetch now rather than when they tap buy, so the id is usually in hand

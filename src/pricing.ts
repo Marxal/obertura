@@ -1,18 +1,23 @@
 // What the unlock costs, in the currency the reader thinks in.
 //
-// The app used to hard-code '9€'. It still carries that number as a fallback, but
-// the price the paywall SHOWS — and the price id the checkout SELLS — now come
-// from Stripe, via GET /api/stripe/prices (worker/stripe-prices.ts). One place
-// holds the truth, and it is the place that takes the money.
+// The app used to hard-code '9€', then '12€' at launch. It still carries that
+// number as a fallback, but the price the paywall SHOWS — and the price id the
+// checkout SELLS — now come from Stripe, via GET /api/stripe/prices
+// (worker/stripe-prices.ts). One place holds the truth, and it is the place
+// that takes the money.
+//
+// LAUNCH PRICING: 12€ at launch, rising to 19€ later (see docs/LANDING-COPY.md's
+// [THE TWO PLANS] note). That rise happens in the Stripe dashboard, by hand, same
+// as any other price change — nothing here schedules it.
 //
 // ── EUR AND SEK, CHOSEN BY LOCALE ───────────────────────────────────────────
-// Two Price objects exist in Stripe, each with an amount set by hand: €9 and a
-// round 99 kr. Not a converted amount — a Swede should see a number that looks
-// deliberate in Swedish, not 103,47 kr picked by yesterday's exchange rate.
+// Two Price objects exist in Stripe, each with an amount set by hand: €12 and a
+// round 139 kr. Not a converted amount — a Swede should see a number that looks
+// deliberate in Swedish, not 137,96 kr picked by yesterday's exchange rate.
 //
 // The pick is by the DEVICE's language list, not by IP. A Swedish phone gets SEK;
 // everyone else gets EUR. That is a guess, and it will be wrong for a Swede whose
-// phone is in English — they will be quoted €9 and charged €9, which is a
+// phone is in English — they will be quoted €12 and charged €12, which is a
 // perfectly good outcome, just not the friendliest one. Guessing from an IP
 // address would be a request to a geolocation service on every paywall open,
 // which the privacy policy's "no third-party requests" line rules out and which
@@ -43,7 +48,7 @@ export interface PriceQuote {
   id?: string;
   // ISO 4217, lower-case, as Stripe returns it.
   currency: string;
-  // The smallest unit of the currency: 900 is €9.00, 9900 is 99,00 kr.
+  // The smallest unit of the currency: 1200 is €12.00, 13900 is 139,00 kr.
   unitAmount: number;
 }
 
@@ -59,8 +64,8 @@ const FETCH_TIMEOUT_MS = 6000;
 
 // The built-in numbers. See the note above: keep them equal to the Stripe prices.
 const FALLBACK_AMOUNTS: Record<string, number> = {
-  eur: 900,
-  sek: 9900,
+  eur: 1200,
+  sek: 13900,
 };
 
 const DEFAULT_CURRENCY = 'eur';
@@ -131,7 +136,7 @@ export function currentPrice(currency = preferredCurrency()): PriceQuote {
 }
 
 // The price as a string, in the house style: symbol after the number for euros
-// ("9€", as the landing page has always written it), "kr" after a space for
+// ("12€", as the landing page has always written it), "kr" after a space for
 // kronor, and whole numbers with no decimals at all.
 export function formatPrice(quote: PriceQuote = currentPrice()): string {
   const { unitAmount, currency } = quote;
@@ -140,7 +145,7 @@ export function formatPrice(quote: PriceQuote = currentPrice()): string {
 
   // The decimal separator follows the currency's own convention (a comma in both
   // of these), which is what a reader in either place expects. Only ever used on
-  // an amount that has decimals — €9 stays "9€", not "9,00€".
+  // an amount that has decimals — €12 stays "12€", not "12,00€".
   const numberLocale = currency === 'sek' ? 'sv-SE' : 'de-DE';
   let number: string;
   try {

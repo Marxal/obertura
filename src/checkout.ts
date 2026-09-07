@@ -23,7 +23,7 @@
 //
 // (Stripe does offer an embedded Checkout that would restore the overlay feel. It
 // costs js.stripe.com inside the app, Apple Pay domain verification, and an
-// iframe to keep alive across the PWA's lifecycle. Not worth it for a €9 sale
+// iframe to keep alive across the PWA's lifecycle. Not worth it for a €12 sale
 // whose return path is already built and already handles the harder case.)
 //
 // ── HOW THE UNLOCK ACTUALLY ARRIVES ─────────────────────────────────────────
@@ -42,7 +42,7 @@
 // Whichever fires first wins and the others become no-ops. If all three miss,
 // Settings has an "Already paid?" row that runs the same check by hand. Four ways
 // to notice one flag is not paranoia when the alternative is a stranger who paid
-// €9 and has no way to tell you it didn't work.
+// €12 and has no way to tell you it didn't work.
 //
 // ── WHICH WAY THE IMPORTS GO ────────────────────────────────────────────────
 // This module imports entitlement.ts normally. entitlement.ts reaches BACK for

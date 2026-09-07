@@ -2107,6 +2107,12 @@ main {
   color: var(--text-faint);
 }
 
+.pro-launch {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: var(--text-faint);
+}
+
 .pro-plan {
   margin-top: 8px;
   font-size: 0.92rem;
@@ -2138,6 +2144,15 @@ main {
   color: var(--text);
 }
 .pro-points svg { color: var(--accent); flex: none; margin-top: 1px; }
+
+.pro-why {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--hairline);
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
 
 .pro-buy {
   margin-top: var(--space-lg);

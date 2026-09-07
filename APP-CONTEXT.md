@@ -1094,16 +1094,23 @@ its analysis tree. One integer bumped in `recordSpotResult` replaces that, and
 
 ### 16.3 Entitlement — the free tier
 
-`entitlement.ts` caps **exactly one thing**: how many lines may be enrolled in
-training at once. Building and saving lines is unlimited, and so is everything
-else — library, packs, traps, studies, import, puzzles, endgames, the engine, the
-analyser, statistics and sync.
+`entitlement.ts` caps how many lines may be enrolled in training at once, plus
+two storage guardrails (total saved lines, total stored games) that exist to
+stop one runaway free account growing an unbounded store rather than to
+withhold a feature. Everything else — library, packs, traps, studies, import,
+puzzles, endgames, the engine, the analyser, statistics and sync — is unlimited
+on the free tier. The landing page's free/Pro split (`docs/LANDING-COPY.md`'s
+[THE TWO PLANS]) is: free gets 500 lines, 10 in training, 100 imported games,
+the library, puzzles, endgames, engine and backups; Pro adds the synced games
+library, unlimited training and repertoires, opponent scouting and coach tools.
 
 | Constant | Value | Means |
 |---|---|---|
 | `FREE_TRAINING_LINES` | 10 | lines in the rotation at once |
 | `TRAINING_COUNT_VISIBLE_FROM` | 7 | where the counter starts showing |
 | `FREE_REPERTOIRES` | 3 | the two defaults plus one; archived books still count |
+| `FREE_SAVED_LINES` | 500 | storage guardrail, not a sales wall — every book, regardless of training status |
+| `FREE_STORED_GAMES` | 100 | storage guardrail on My games (IndexedDB); trims oldest, never refuses an import |
 | `FREE_MISTAKE_GAME_WINDOW` / `_SPOTS` | 50 / 10 | rolling window and rolling top-N *unfixed* spots |
 | `FREE_ENDGAME_GAME_WINDOW` / `_SPOTS` | 50 / 3 | same, for endgames |
 | `FREE_SCOUT_OPPONENTS` | 1 | offers to *replace* rather than refusing |
@@ -1124,7 +1131,7 @@ Stripe hosted Checkout, a redirect (`checkout.ts`). The return journey is handle
 rather than avoided: `?purchased=1` on the way back, a focus watcher for when
 that URL is never reached, and a poll on a backoff because the webhook lands a
 moment after the money does. `pricing.ts` fetches the real price per currency
-from `GET /api/stripe/prices` — €9 or a round 99 kr, chosen by the *device's
+from `GET /api/stripe/prices` — €12 or a round 139 kr, chosen by the *device's
 language list*, not by IP, with built-in fallbacks. `pro-sheet.ts` is the offer
 popup and deliberately reuses the landing page's wording.
 
@@ -1762,5 +1769,5 @@ that happen again.
 - **Lichess study import drops side variations** (`variations=false`). Studies
   laid out one line per chapter import fully.
 - **Currency is guessed from the device's language list**, not from IP. A Swede
-  whose phone is in English is quoted €9 and charged €9 — a fine outcome, just
+  whose phone is in English is quoted €12 and charged €12 — a fine outcome, just
   not the friendliest one.
