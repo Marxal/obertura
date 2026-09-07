@@ -1102,7 +1102,7 @@ puzzles, endgames, the engine, the analyser, statistics and sync — is unlimite
 on the free tier. The landing page's free/Pro split (`docs/LANDING-COPY.md`'s
 [THE TWO PLANS]) is: free gets 500 lines, 10 in training, 100 imported games,
 the library, puzzles, endgames, engine and backups; Pro adds the synced games
-library, unlimited training and repertoires, opponent scouting and coach tools.
+library, unlimited training and repertoires, and opponent scouting.
 
 | Constant | Value | Means |
 |---|---|---|

@@ -164,29 +164,23 @@ Track your training streaks, move memory, puzzle rating, and win rates by openin
 > **The paid box is duplicated in the app** — `src/pro-sheet.ts` shows the same
 > offer in the upgrade popup, shorter. Change both.
 >
-> The price is written **12€**, symbol after the number, in both places —
-> that house style is deliberate and pre-dates this split. There is
-> deliberately no “€0” on the free box: a price of zero invites the reader to
-> price-compare something that isn’t for sale.
+> **Both boxes are plain feature lists now — no explanatory prose.** An earlier
+> draft had a body paragraph per box, a launch-price comparison against
+> Chessbook, and a line explaining why game-sync is the paid half. All of that
+> got cut: the ticks say what's included, full stop. Don't re-add reasoning
+> sentences here — if a feature needs explaining, that explanation belongs on
+> the feature's own page in the app, not in the pricing box.
 >
-> **The launch-price line breaks that style on purpose.** "€12 once. Chessbook
-> is €80 a year." is written exactly that way, symbol before the number, because
-> it's quoted as spoken, not displayed as a price tag — and because it sits right
-> next to the big "12€" above it, which already carries the house style. Don't
-> "fix" it to match.
+> **The price shown is always the Stripe price** — never hand-typed as a
+> sentence. `docs/index.html`'s script and `src/pro-sheet.ts`'s `opts.price`
+> are the only two places a number appears, and both fetch it. Don't add a
+> price mention anywhere else in this section.
 >
-> **Both boxes are CENTRED** (heading, price, body copy) — this is the opposite
+> **Both boxes are CENTRED** (heading, price, tick list) — this is the opposite
 > choice from [YOUR GAMES] above, and deliberately so: a price card reads as a
 > price card when everything funnels down to one button in the middle. Only the
-> Full Access checklist stays left-aligned inside the centred box — a tick list
+> tick lists themselves stay left-aligned inside the centred box — a tick list
 > read centred loses its scan line down the left edge.
->
-> **Only the "12€" inside the launch-price sentence tracks Stripe live**, the
-> same quote that rewrites the big price above it (`#tier-launch-amount` in
-> `docs/index.html`, the price-text node in `src/pro-sheet.ts`). "Chessbook is
-> €80 a year" and "going to €19" are hand-typed and will NOT update themselves —
-> when the price actually rises, come back here, to `docs/index.html` and to
-> `src/pro-sheet.ts` and edit those two numbers by hand.
 
 **H2:** Start free
 
@@ -196,7 +190,14 @@ Track your training streaks, move memory, puzzle rating, and win rates by openin
 
 **FREE** · **Everything you need to get started.**
 
-Build up to 500 lines, train 10 at a time, and sync them across your devices. Import and scan 100 games to find coverage gaps. Explore the library and starter packs, solve puzzles, practise endgames, and analyse with the engine. Back up anytime and export to PGN.
+- Build up to 500 lines
+- Train 10 at a time
+- Sync across your devices
+- Import and scan 100 games for coverage gaps
+- Library and starter packs
+- Puzzles and endgames
+- Engine and analyser
+- Backup and PGN export
 
 **Try Bito Chess →** · No signup required.
 
@@ -204,29 +205,13 @@ Build up to 500 lines, train 10 at a time, and sync them across your devices. Im
 
 **FULL ACCESS** · **Everything, unlimited.**
 
-**12€** one payment
-
-“One payment” is written once now, next to the price where it belongs (not
-also in the headline — it repeated itself in an earlier draft).
-
-**Launch-price line, right under the price:** €12 once. Chessbook is €80 a year. Launch price — it’s going to €19.
-
-Full Access unlocks everything you’ve built — and helps keep the project alive.
+**{price}** one payment — always the live Stripe number, never typed in.
 
 - Your whole games library, synced and kept
 - Unlimited active training rotation
 - Unlimited repertoires
 - Opponent scouting
-- Coach tools
 - One-time payment, no subscription ever
-
-**Below the ticks, its own line:** Your games re-import in a minute. The analysis doesn’t — that’s why this half is paid.
-
-That’s the honest reason game-sync sits on the paid side: re-importing the
-games themselves is cheap and instant, but every mistake found, endgame
-surfaced and opponent profile built is real analysis work the app already did
-once — redoing it from scratch on every device would be the expensive path,
-so Pro is what keeps it instead of re-deriving it.
 
 **CTA:** Unlock full access →
 

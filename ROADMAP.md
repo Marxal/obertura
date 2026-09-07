@@ -1315,36 +1315,37 @@ reveal ran long.
 
 ---
 
-## The free/Pro copy round — 500 lines, five Pro things instead of one ✅
+## The free/Pro copy round — 500 lines, four Pro things, no explaining ✅
 
 The offer had outgrown its own description. Free already capped storage at 500
 lines and 100 games (two earlier rounds), and Pro already carried unlimited
 repertoires and opponent scouting *in code* (`isEntitled()` waives both caps) —
 but every piece of copy still said the old, narrower thing: Pro as "unlimited
-training rotation" and nothing else, at 9€.
+training rotation" and nothing else, at 9€. A first pass rewrote it with a
+price-comparison line against Chessbook and a paragraph explaining why
+game-sync is the paid half; a second pass cut both, on the instruction that a
+pricing box lists features and stops — no launch-price note, no reasoning,
+just ticks.
 
-- ✅ **The split is now spelled out everywhere it's stated.** Free: 500 lines,
-  train 10 at a time, sync, import and scan 100 games, coverage gaps, library
-  and packs, puzzles and endgames, engine and analyser, backup and PGN export.
-  Pro: the whole games library synced and kept, unlimited training rotation,
-  unlimited repertoires, opponent scouting, coach tools. Rewritten in
-  `docs/LANDING-COPY.md`'s [THE TWO PLANS] (the source of truth), mirrored into
-  `docs/index.html`, and into `src/pro-sheet.ts`'s popup — same words, same
-  order, as the house rule requires. `src/settings-screen.ts`'s Go-Pro CTA and
-  `src/about.ts` carried no offer copy to begin with; confirmed, not touched.
-- ✅ **Price moved to 12€ / 139 kr**, a launch price with its own honest note
-  next to it ("Chessbook is €80 a year. Launch price — it's going to €19.") —
-  hand-typed and flagged as such, since only the `€12` half of that sentence
-  tracks the live Stripe quote the way the big price tag does. Mirrored into
-  `src/pricing.ts`'s `FALLBACK_AMOUNTS`, `docs/terms.html`'s refund and
-  liability-cap clauses, and `STRIPE-SETUP.md`'s dashboard instructions — none
-  of which touches the actual Stripe Price objects, which are a dashboard edit
-  only Marçal can make.
-- ✅ **The honest reason game-sync is the paid half, said once, everywhere:**
-  "Your games re-import in a minute. The analysis doesn't." Re-importing is
-  cheap; redoing the mistake-finding, endgame-surfacing and opponent-profiling
-  work on every device would be the expensive path, so Pro is what keeps it
-  instead.
+- ✅ **Both boxes are now plain tick lists, nothing else.** Free: build up to
+  500 lines, train 10 at a time, sync across your devices, import and scan 100
+  games for coverage gaps, library and starter packs, puzzles and endgames,
+  engine and analyser, backup and PGN export. Pro: your whole games library
+  synced and kept, unlimited training rotation, unlimited repertoires,
+  opponent scouting, one-time payment. No tagline sentence explaining either
+  one beyond the box's own heading. Rewritten in `docs/LANDING-COPY.md`'s [THE
+  TWO PLANS] (the source of truth), mirrored into `docs/index.html`, and into
+  `src/pro-sheet.ts`'s popup — same words, same order, as the house rule
+  requires. `src/settings-screen.ts`'s Go-Pro CTA and `src/about.ts` carried no
+  offer copy to begin with; confirmed, not touched.
+- ✅ **The price is always the live Stripe number, never a sentence.** No
+  hand-typed price comparison anywhere in the offer copy — just the one price
+  tag both surfaces already fetch from `GET /api/stripe/prices`, with the
+  `12€` fallback for when that fetch hasn't landed yet. Mirrored the 9€→12€
+  move into `src/pricing.ts`'s `FALLBACK_AMOUNTS`, `docs/terms.html`'s refund
+  and liability-cap clauses, and `STRIPE-SETUP.md`'s dashboard instructions —
+  none of which touches the actual Stripe Price objects, which are a
+  dashboard edit only Marçal can make.
 - ✅ **`APP-CONTEXT.md` §16.3 was already stale before this round** — it
   documented only the training cap and never picked up `FREE_SAVED_LINES` or
   `FREE_STORED_GAMES` from the two rounds that added them. Fixed in the same

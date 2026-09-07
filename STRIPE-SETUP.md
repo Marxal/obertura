@@ -104,7 +104,7 @@ Stripe dashboard → **Product catalogue** → **+ Add product**
 
 - **Name**: `Bito Chess — Full Access`. This is what appears on the checkout page
   and on the receipt, so write it the way a customer should read it.
-- **Description**: `Your whole games library, unlimited training, unlimited repertoires, opponent scouting and coach tools. One-time payment.`
+- **Description**: `Your whole games library, unlimited training, unlimited repertoires and opponent scouting. One-time payment.`
 - **Pricing model**: **One-off** — *not* recurring. Bito Chess sells a single
   payment and says so in the app, on the landing page and in the terms. The code
   filters recurring prices out on purpose, so a subscription price created here

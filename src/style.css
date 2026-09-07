@@ -2076,13 +2076,6 @@ main {
   text-wrap: balance;
 }
 
-.pro-body {
-  margin-top: 10px;
-  font-size: 0.92rem;
-  line-height: 1.55;
-  color: var(--text-muted);
-}
-
 /* ── The price card ── */
 .pro-card {
   margin-top: var(--space-lg);
@@ -2107,24 +2100,6 @@ main {
   color: var(--text-faint);
 }
 
-.pro-launch {
-  margin-top: 6px;
-  font-size: 0.8rem;
-  color: var(--text-faint);
-}
-
-.pro-plan {
-  margin-top: 8px;
-  font-size: 0.92rem;
-  font-weight: 700;
-  color: var(--text);
-}
-.pro-plan-desc {
-  margin-top: 2px;
-  font-size: 0.82rem;
-  color: var(--text-muted);
-}
-
 .pro-points {
   margin-top: var(--space-md);
   padding-top: var(--space-md);
@@ -2144,15 +2119,6 @@ main {
   color: var(--text);
 }
 .pro-points svg { color: var(--accent); flex: none; margin-top: 1px; }
-
-.pro-why {
-  margin-top: var(--space-md);
-  padding-top: var(--space-md);
-  border-top: 1px solid var(--hairline);
-  font-size: 0.82rem;
-  line-height: 1.4;
-  color: var(--text-muted);
-}
 
 .pro-buy {
   margin-top: var(--space-lg);
