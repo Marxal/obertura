@@ -302,6 +302,22 @@ export function partsToPull(remote: RemoteStamps, seen: RemoteStamps): PullParts
   };
 }
 
+// ── The games half is Pro ────────────────────────────────────────────────────
+//
+// Lines always sync; the games library only syncs for an entitled account.
+// `entitled` is resolved by the caller — entitlement.ts's isEntitled(), a
+// synchronous, network-free read — and handed in as a plain boolean, so this
+// module never imports entitlement.ts and stays pure and Node-testable.
+//
+// Shared by both directions: called on a push's dirty flags and on a pull's
+// partsToPull() result alike, since both are the same {core, games} shape.
+// Composing it with partsToPull rather than folding entitlement into that
+// function keeps "what moved" and "what we're allowed to have" as two
+// separate questions — and leaves partsToPull's own tests untouched.
+export function gateGamesToEntitlement(parts: PullParts, entitled: boolean): PullParts {
+  return entitled ? parts : { ...parts, games: false };
+}
+
 // ── Whose statistics win ─────────────────────────────────────────────────────
 //
 // The lines and the games MERGE — a union of move trees and a union of games by
