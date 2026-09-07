@@ -99,6 +99,7 @@ import {
   onGamesChanged,
   type BackupFile,
 } from './storage';
+import { backupLocalKey } from './local-keys';
 import { buildAccountStats } from './account-stats';
 import { showToast } from './toast';
 import { showSigningIn } from './signing-in';
@@ -143,6 +144,15 @@ const STATS_COLUMN = 'stats';
 // THIS device's relationship with an account, and restoring them onto another
 // phone would simply lie.
 const ACCOUNT_KEY = 'obertura.sync.account';
+// Which account this device's local data (repertoires, games, the localStorage
+// snapshot) currently belongs to — set alongside ACCOUNT_KEY, but NEVER cleared
+// by forgetAccount(). Signing out leaves this device's data physically in
+// place ("your lines are still on this phone" — account-ui.ts), so this is the
+// only record of WHOSE data that still is once the session is gone. Signing
+// into a DIFFERENT account than the one named here means the data on this
+// device does not belong to the account about to be connected — see
+// clearLocalDeviceData() and its call site below.
+const LAST_ACCOUNT_KEY = 'obertura.sync.lastAccount';
 const LAST_KEY = 'obertura.sync.last';
 const PENDING_KEY = 'obertura.sync.pending';
 const FAILED_KEY = 'obertura.sync.failed';
@@ -268,6 +278,7 @@ function markReachable(): void {
 
 function claimAccount(userId: string): void {
   writeLocal(ACCOUNT_KEY, userId);
+  writeLocal(LAST_ACCOUNT_KEY, userId);
 }
 
 // Signing out (or losing the session) puts this device back to "never synced
@@ -275,6 +286,8 @@ function claimAccount(userId: string): void {
 // it. The fingerprints and seen-stamps go too: they describe one account's copy,
 // and keeping them could make the next account's first push skip a half it has
 // never actually seen.
+//
+// LAST_ACCOUNT_KEY is deliberately NOT in this list — see its definition above.
 function forgetAccount(): void {
   for (const key of [
     ACCOUNT_KEY, PENDING_KEY, FAILED_KEY, ERROR_KEY, LAST_KEY,
@@ -283,6 +296,46 @@ function forgetAccount(): void {
   coreDirty = false;
   gamesDirty = false;
   notifyChange();
+}
+
+// ── Switching accounts on one device ──────────────────────────────────────────
+//
+// connect() below has always MERGED whatever is on this device into the account
+// being signed into, on the reasonable assumption that "whatever is on this
+// device" is either nothing (a new phone) or this same account's own earlier
+// work (a resumed sign-in). Signing out never clears that data — see
+// LAST_ACCOUNT_KEY — so the assumption breaks the moment a second, DIFFERENT
+// account signs in on the same device: account A's lines were still sitting in
+// IndexedDB, connect() merged them into account B's copy, and the very next
+// push wrote them straight into B's row. Two people testing with two accounts
+// on one phone/browser is exactly how this was found.
+//
+// The fix is to notice, at the moment a session for a NEW account arrives, that
+// the data on this device is still on record as belonging to a DIFFERENT
+// account, and clear it first — so connect()'s merge has nothing but B's own
+// remote copy to work with, exactly as if this were a freshly installed app.
+//
+// This clears the repertoires, the games, and the localStorage snapshot
+// (stats/streaks/preferences) — everything account sync treats as this user's
+// data (see backupLocalKey). It deliberately does NOT clear the obertura.sync.*
+// / obertura.supabase.* / entitlement / metrics keys — those describe this
+// device and the sign-in in progress, not the account that just left.
+//
+// The one honest cost: anything built on this device WHILE SIGNED OUT, in the
+// gap between the two accounts, is not recoverable from anywhere and is lost
+// here along with account A's leftovers — there is no way to tell "still A's
+// data, untouched" apart from "new work done with nobody signed in" once the
+// session is gone. That is judged the lesser risk against silently uploading
+// one person's lines into another person's account.
+async function clearLocalDeviceData(): Promise<void> {
+  await replaceAllRepertoires([]);
+  await clearGames();
+  const doomed: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && backupLocalKey(key)) doomed.push(key);
+  }
+  for (const key of doomed) writeLocal(key, null);
 }
 
 // ── Saying what went wrong ────────────────────────────────────────────────────
@@ -979,7 +1032,15 @@ export function initAccountSync(): void {
     // A different account, or the first sign-in on this device.
     if (connecting) return;
     connecting = true;
-    void connect(user.id).finally(() => {
+    void (async () => {
+      // Only wipe when this device is on record as holding SOMEONE ELSE's
+      // data — a device that has never claimed any account (LAST_ACCOUNT_KEY
+      // unset) may still hold local-only lines built before ever signing in,
+      // and those are exactly what connect()'s merge is meant to adopt.
+      const last = readLocal(LAST_ACCOUNT_KEY);
+      if (last && last !== user.id) await clearLocalDeviceData();
+      await connect(user.id);
+    })().finally(() => {
       connecting = false;
       startPolling();
     });
