@@ -1522,13 +1522,32 @@ main {
 }
 
 .daily-card {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
-  padding: 0.85rem 0.9rem;
+  gap: 0.6rem;
+  padding: 0.8rem 0.9rem;
   background: linear-gradient(135deg, var(--accent-soft), var(--bg-card) 75%);
   border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
 }
+
+/* The face with today's actual work: a brighter wash fanning from the
+   corner, an accent-tinted border and a soft glow — so it reads as "this is
+   the thing to do today" before a single row is read, not just another card
+   in the stack. The done and locked faces opt back out below: one has
+   already earned its calm, the other has nothing to be excited about yet. */
+.daily-card:not(.daily-card--done):not(.daily-card--locked) {
+  background:
+    radial-gradient(140% 100% at 100% -20%, var(--accent-soft) 0%, transparent 55%),
+    linear-gradient(135deg, var(--accent-soft), var(--bg-card) 65%);
+  border-color: var(--accent);
+  box-shadow: var(--shadow-card), 0 0 0 1px var(--accent-soft);
+}
+
+/* The active card's "how far along today" bar, right under the head row. */
+.daily-card-progress { margin-top: -0.15rem; }
 
 .daily-card-head {
   display: flex;
@@ -1538,40 +1557,77 @@ main {
 }
 
 .daily-card-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   font-weight: 800;
   font-size: 0.98rem;
   letter-spacing: 0.01em;
+}
+.daily-card-title svg { flex: none; color: var(--accent); }
+
+/* The big "just start" action — the card's own accent, not the app-wide
+   green .btn-primary, so it reads as part of this card rather than a
+   generic form button dropped onto it. */
+.daily-card-start {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  padding: 0.6rem 0.9rem;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--on-accent, #fff);
+  font-weight: 800;
+  font-size: 0.88rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.daily-card-start svg { flex: none; }
+.daily-card-start:active { filter: brightness(0.94); }
+@media (hover: hover) {
+  .daily-card-start:hover { filter: brightness(1.06); }
 }
 
 .daily-card-tasks {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.35rem;
 }
 
+/* Compact, list-like rows — up to seven of these can be on screen at once, so
+   each one stays a single tappable line rather than a padded button. */
 .daily-task {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.55rem;
   width: 100%;
-  padding: 0.7rem 0.8rem;
+  padding: 0.45rem 0.6rem;
   border: 1px solid var(--border-card);
-  border-radius: 11px;
+  border-radius: 9px;
   background: var(--bg-card);
   color: var(--text);
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.84rem;
   text-align: left;
   cursor: pointer;
 }
 .daily-task:active { filter: brightness(0.97); }
 
+/* A soft accent disc behind each task's icon — the same recipe as the
+   onboarding intro/wizard icons (.intro-icon), scaled down. */
 .daily-task-icon {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--accent-active);
+  width: 27px;
+  height: 27px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .daily-task-label { flex: 1 1 auto; min-width: 0; }
@@ -1582,7 +1638,7 @@ main {
   color: var(--text-muted);
   cursor: default;
 }
-.daily-task--done .daily-task-icon { color: #5a9e3f; }
+.daily-task--done .daily-task-icon { background: rgba(90, 158, 63, 0.14); color: #5a9e3f; }
 .daily-task--done .daily-task-label { text-decoration: line-through; opacity: 0.8; }
 
 .daily-card-note {
@@ -1636,36 +1692,55 @@ main {
   margin: 0.25rem 0;
 }
 
-/* Both halves done — the card is now a slim success line, and a button: it
-   reopens the day's results popup, whose figures used to be gone the moment it
-   was dismissed. */
+/* Everything done — the card is now a slim success line. When there's a popup
+   to reopen, the WHOLE card is the button (not just this row): its figures
+   used to be gone the moment the popup was dismissed. */
 .daily-card--done {
   gap: 0.5rem;
   padding: 0.7rem 0.9rem;
 }
+.daily-card--tap {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.daily-card--tap:active { filter: brightness(0.96); }
+@media (hover: hover) {
+  .daily-card--tap:hover { border-color: var(--accent); }
+}
 .daily-card-done-msg {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.6rem;
+}
+
+.daily-card-done-badge {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: rgba(90, 158, 63, 0.14);
+  color: #5a9e3f;
+}
+
+.daily-card-done-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.daily-card-done-title {
   font-size: 0.85rem;
   font-weight: 700;
   color: #5a9e3f;
 }
-.daily-card-done-msg--tap {
-  width: 100%;
-  padding: 0;
-  border: none;
-  background: none;
-  font-family: inherit;
-  text-align: left;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.daily-card-done-msg--tap:active { filter: brightness(0.92); }
-.daily-card-done-chev {
-  margin-left: auto;
-  flex: 0 0 auto;
-  opacity: 0.8;
+.daily-card-done-stat {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── The locked daily card ────────────────────────────────────────────────────
@@ -1729,6 +1804,90 @@ main {
 .daily-task--locked .daily-task-icon { color: var(--text-fainter); }
 
 .daily-locked-cta { align-self: flex-start; }
+
+/* ── Grow-a-line notice (top of Train / My Lines / Explore) ───────────────────
+   A standing offer, not a task: one card, one line, dressed like a phone
+   notification (it is not one) so it reads as "something's ready" rather than
+   another to-do. Swipe it away, or tap the ×, and it rests quietly for a few
+   days (grow-notice.ts); tap the card itself to jump into the builder's Grow
+   tab. Lives in its own host — a sibling of the header, not any one screen's
+   render — so it survives Train/My Lines/Explore switching untouched. */
+.grow-notice-host {
+  margin: 0.75rem 1rem 0;
+}
+.grow-notice-host:empty {
+  margin: 0;
+}
+
+@keyframes grow-notice-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.grow-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.7rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-left: 3px solid var(--success);
+  border-radius: 10px;
+  box-shadow: var(--shadow-card);
+  animation: grow-notice-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  touch-action: pan-y;
+  cursor: pointer;
+  will-change: transform, opacity;
+}
+
+/* While a finger is down the card tracks it 1:1 — no transition to fight. */
+.grow-notice--dragging { transition: none; cursor: grabbing; }
+.grow-notice:not(.grow-notice--dragging) { transition: transform 0.2s ease, opacity 0.2s ease; }
+
+.grow-notice--exit-left  { transform: translateX(-120%) !important; opacity: 0 !important; }
+.grow-notice--exit-right { transform: translateX(120%) !important;  opacity: 0 !important; }
+
+.grow-notice-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  color: var(--success);
+}
+
+.grow-notice-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.grow-notice-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.grow-notice-sub {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.grow-notice-chev {
+  flex-shrink: 0;
+  color: var(--text-fainter);
+}
+
+.grow-notice-close {
+  flex-shrink: 0;
+  display: inline-flex;
+  padding: 0.3rem;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--text-fainter);
+  cursor: pointer;
+}
+.grow-notice-close:active { background: var(--accent-soft); }
 
 /* ── "Get started" panel (first-steps.ts) ─────────────────────────────────────
    Takes the daily challenge's slot at the top of Train until five lines are
@@ -1917,13 +2076,6 @@ main {
   text-wrap: balance;
 }
 
-.pro-body {
-  margin-top: 10px;
-  font-size: 0.92rem;
-  line-height: 1.55;
-  color: var(--text-muted);
-}
-
 /* ── The price card ── */
 .pro-card {
   margin-top: var(--space-lg);
@@ -1946,18 +2098,6 @@ main {
   font-weight: 600;
   letter-spacing: 0;
   color: var(--text-faint);
-}
-
-.pro-plan {
-  margin-top: 8px;
-  font-size: 0.92rem;
-  font-weight: 700;
-  color: var(--text);
-}
-.pro-plan-desc {
-  margin-top: 2px;
-  font-size: 0.82rem;
-  color: var(--text-muted);
 }
 
 .pro-points {
@@ -16556,17 +16696,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   font-size: 0.95rem;
 }
 
-/* The opening played — its own small, discrete row under the opponent. */
-.mr-opening {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-faint);
-  font-size: 0.72rem;
-  text-align: center;
-}
-
 /* "You played [♛xe8 ??] here and blundered." — kept to one line; wraps only
    as a last resort on very narrow screens. */
 .mr-intro {
@@ -20240,26 +20369,35 @@ html.picker-open body {
 /* Both picks wear the same colour as both arrows — see which-move-run.ts. A
    button that looked different from its neighbour would be answering the
    question before the user does. */
+/* Before the answer this is just a move name; after, fillEvalContent
+   (eval-chip.ts) fills it with the same head+why stack the reveal chips use
+   — the column layout holds both without changing shape. */
 .wm-pick {
   flex: 1 1 0;
   min-height: 54px;
-  padding: 0.5rem 0.6rem;
+  padding: 0.45rem 0.5rem;
   border: 2px solid var(--wm-pick-color);
   border-radius: 12px;
   background: color-mix(in srgb, var(--wm-pick-color) 12%, var(--bg-card));
   color: var(--text);
-  font-size: 1.05rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  font-size: 0.95rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.12s, opacity 0.12s, transform 0.12s;
 }
-.wm-pick:not(:disabled):active { transform: scale(0.98); }
+.wm-pick:active { transform: scale(0.98); }
 
 /* After the answer both buttons say what they were: the engine's move goes
    green, the played one red, and the one that was tapped is ringed so the
-   verdict is about YOUR answer, not just about the moves. */
+   verdict is about YOUR answer, not just about the moves. Both stay tappable
+   afterwards, to flip the board between the two positions. */
 .wm-pick--best {
   border-color: var(--success);
   background: color-mix(in srgb, var(--success) 18%, var(--bg-card));
@@ -20273,7 +20411,10 @@ html.picker-open body {
 .wm-pick--chosen {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--text-faint) 45%, transparent);
 }
-.wm-pick:disabled { cursor: default; }
+/* Whichever pick's position is currently on the board reads slightly raised. */
+.wm-pick--active {
+  filter: brightness(1.12);
+}
 
 /* ── Better or blunder: the reveal ── */
 .wm-facts {
@@ -20294,6 +20435,31 @@ html.picker-open body {
   color: var(--text-muted);
   font-size: 0.85rem;
   line-height: 1.4;
+}
+
+/* Which move's reveal: right/wrong, then who-you-played, then the engine's
+   read on the position — three short lines stacked instead of one, framing
+   the two pick boxes below rather than repeating what they already say. */
+.wm-reveal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+.wm-reveal-verdict {
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.wm-reveal-verdict--right { color: var(--success); }
+.wm-reveal-verdict--wrong { color: var(--danger); }
+
+.wm-reveal-eval {
+  color: var(--text-faint);
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 /* The two moves and what each was worth: what you played, and what the engine
@@ -20328,6 +20494,20 @@ html.picker-open body {
 .wm-eval--bad { color: var(--danger); }
 .wm-eval--good { color: var(--success); }
 
+/* Mistake retry and Blunder detective's reveal chips are real buttons when
+   tappable (Which move folds this content into its picks instead — see
+   .wm-pick). Reset the native button chrome so it still reads as the same
+   chip. */
+.wm-eval--tap {
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.wm-eval--tap:active { transform: scale(0.97); }
+
 .wm-eval-head {
   display: inline-flex;
   align-items: baseline;
@@ -20358,6 +20538,33 @@ html.picker-open body {
 .pt-overlay--compact .pt-top {
   flex: 0 0 auto;
   padding-top: 0.4rem;
+}
+
+/* ── Pinned footer: Analyse / Next never scroll out of reach ─────────────────
+   Mistake retry, Blunder detective, Brilliant moves and Which move all reveal
+   a stack that can run long (facts, why-clauses, a category story) on top of
+   an already-tall board+controls layout — on a short phone the "Next
+   position" button could end up below the fold. Rather than trust every mode
+   to keep its content short, the overlay itself stops scrolling; a .pt-scroll
+   wrapper inside it holds everything except the post-answer actions, which
+   sit outside that wrapper as an ordinary flex item — so they're always the
+   last thing on screen, never something you have to scroll to find. */
+.pt-overlay--footer {
+  overflow: hidden;
+}
+.pt-overlay--footer > .pt-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.pt-overlay--footer > .mr-after {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0.6rem 1rem calc(0.7rem + env(safe-area-inset-bottom));
+  background: inherit;
+  border-top: 1px solid var(--border-card);
 }
 
 /* ── The Fixed figure, as a door (fixed-sheet.ts) ──────────────────────────── */

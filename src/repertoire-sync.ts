@@ -83,6 +83,7 @@
 
 import { supabase, isSupabaseConfigured } from './supabase';
 import { getAuthUser, onAuthChange } from './auth';
+import { isEntitled, ENTITLEMENT_CHANGE_EVENT } from './entitlement';
 import {
   exportCore,
   getAllGames,
@@ -111,6 +112,7 @@ import {
   gamesFingerprintOf,
   gamesForSync,
   partsToPull,
+  gateGamesToEntitlement,
   anyPart,
   shouldApplyRemoteLocal,
   payloadBytes,
@@ -407,13 +409,24 @@ async function pushDirtyParts(): Promise<void> {
   const user = getAuthUser();
   if (!user) throw new Error('Not signed in.');
 
-  const wantCore = coreDirty;
-  const wantGames = gamesDirty;
-  if (!wantCore && !wantGames) return;
+  // The "is there anything to do" check and the flag-clearing below both run on
+  // the RAW dirty flags, not the entitlement-gated ones — that's what keeps a
+  // free account from getting stuck "pending" on a games half it will never
+  // send. A push whose only dirty half is games, on a free account, still
+  // clears the flag and still reaches markSynced() at the bottom; it just never
+  // builds a games payload or spends a request on it.
+  const rawCore = coreDirty;
+  const rawGames = gamesDirty;
+  if (!rawCore && !rawGames) return;
   // Claim the flags now, so an edit that lands mid-flight re-dirties them and
   // gets its own push rather than being swallowed by this one.
   coreDirty = false;
   gamesDirty = false;
+
+  // Games are a Pro feature — gate what's actually WORTH SENDING separately
+  // from what's owed. See gateGamesToEntitlement in sync-core.ts.
+  const { core: wantCore, games: wantGames } =
+    gateGamesToEntitlement({ core: rawCore, games: rawGames }, isEntitled());
 
   const row: Record<string, unknown> = { id: user.id };
   const now = new Date().toISOString();
@@ -661,7 +674,11 @@ async function pullFromAccount(opts: { force?: boolean } = {}): Promise<boolean>
     if (!stamps) return false; // the account holds nothing yet
 
     const seen = { core: readLocal(SEEN_CORE_KEY), games: readLocal(SEEN_GAMES_KEY) };
-    const parts = partsToPull(stamps, seen);
+    // Games are a Pro feature: a free account never spends a request on that
+    // column, whatever the timestamps say. SEEN_GAMES_KEY is correspondingly
+    // never advanced below while gated, so an upgrade later reads as "never
+    // seen this half" and pulls the full history on its first check.
+    const parts = gateGamesToEntitlement(partsToPull(stamps, seen), isEntitled());
     if (!anyPart(parts)) return false;
 
     const remote = await fetchRemoteBackup(parts);
@@ -727,7 +744,9 @@ async function connect(userId: string): Promise<void> {
 
   let remote: BackupFile | null = null;
   try {
-    remote = await fetchRemoteBackup();
+    // Same gate as the ongoing pull: a free account's first sign-in restores
+    // lines only, never spending a request on the games column.
+    remote = await fetchRemoteBackup(gateGamesToEntitlement({ core: true, games: true }, isEntitled()));
   } catch (err) {
     // Unreachable, or a copy we can't read. Claim nothing, push nothing,
     // destroy nothing: the next auth event, foreground or launch tries again.
@@ -834,6 +853,14 @@ export function markEverythingDirty(): void {
  *
  * Throws with a readable message on failure, because unlike everything else in
  * this module it was asked for and the user is watching.
+ *
+ * DELIBERATELY NOT GATED ON ENTITLEMENT, unlike the ongoing push/pull. This is
+ * an explicit "give me exactly what the account holds", not the ambient
+ * background loop the games-is-Pro gate is about: a free account's games
+ * column is empty anyway (nothing ever pushed it there), so gating here would
+ * save no egress; and a lapsed subscriber's row can still legitimately hold
+ * games from when they were Pro — those were never deleted, and a device
+ * restore should still hand them back.
  */
 export async function replaceFromAccount(): Promise<number> {
   const user = getAuthUser();
@@ -892,6 +919,24 @@ export function initAccountSync(): void {
   onGamesChanged(() => {
     gamesDirty = true;
     schedule();
+  });
+
+  // Re-arm the games half the moment entitlement turns on. This is not just an
+  // upgrade convenience: it is what makes the unconditional `gamesDirty = true`
+  // in the "resumed session" branch below actually safe. That branch offers
+  // games on every launch and lets pushDirtyParts's entitlement gate sort out
+  // whether to send it — but isEntitled() there is a synchronous read of a
+  // snapshot that may not have landed yet (a fresh cache, right after boot). A
+  // Pro user caught in that window reads as free for one push, which clears
+  // gamesDirty without sending anything. Without this listener that games
+  // library would then sit unsent until some unrelated games-touching action
+  // (an import, a scan) happened to fire onGamesChanged again — which could be
+  // a long wait. Listening for the fetch actually landing closes that gap.
+  window.addEventListener(ENTITLEMENT_CHANGE_EVENT, () => {
+    if (isEntitled()) {
+      gamesDirty = true;
+      void runPush();
+    }
   });
 
   // Both events, because neither alone is reliable on a phone: Android usually

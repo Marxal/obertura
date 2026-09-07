@@ -36,8 +36,8 @@ import { showDialog } from './dialog';
 import { formatMove, numberedMove } from './notation';
 import { openInfoSheet, buildInfoButton } from './info-sheet';
 import { whichMoveLog } from './middle-log';
-import { explainPair } from './which-move';
-import { evalPairRow } from './eval-chip';
+import { explainPair, fenAfter } from './which-move';
+import { fillEvalContent, showCp } from './eval-chip';
 import { buildRunHeader } from './run-header';
 import { openSpotPeek, type SpotPeekOptions } from './spot-peek';
 import { WHICH_MOVE_ACCENT } from './exercise-identity';
@@ -131,8 +131,10 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
   // eat the spare height, which works when the bottom is a status line. Both
   // of these carry a stack under the board (a stepper, two picks, the reveal)
   // and need that height instead — without it the primary action lands under
-  // the fold on a phone.
-  overlay.className = 'pt-overlay pt-overlay--puzzle pt-overlay--tinted pt-overlay--compact';
+  // the fold on a phone. --footer: everything but the actions scrolls inside
+  // .pt-scroll, so Next position is never something you have to scroll to.
+  overlay.className =
+    'pt-overlay pt-overlay--puzzle pt-overlay--tinted pt-overlay--compact pt-overlay--footer';
   overlay.style.setProperty('--pt-tint', '#a3492e');
 
   const header = buildRunHeader({
@@ -181,22 +183,21 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
   statusEl.className = 'pt-status';
   statusEl.setAttribute('aria-live', 'polite');
 
-  // The two picks, in one row, each in its arrow's colour.
+  // The two picks, in one row, each in its arrow's colour. Once answered,
+  // these same two boxes carry the verdict — no second row of boxes below.
   const picksEl = document.createElement('div');
   picksEl.className = 'wm-picks';
   const pickBtns: HTMLButtonElement[] = [0, 1].map((side) => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'wm-pick';
-    btn.addEventListener('click', () => choose(side));
+    btn.addEventListener('click', () => {
+      if (!answered) choose(side);
+      else previewMove(side);
+    });
     picksEl.appendChild(btn);
     return btn;
   });
-
-  // The story, after the answer: which game, which move, what it cost.
-  const factsEl = document.createElement('div');
-  factsEl.className = 'wm-facts';
-  factsEl.hidden = true;
 
   const afterEl = document.createElement('div');
   afterEl.className = 'mr-after';
@@ -223,14 +224,19 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
 
   bottomEl.appendChild(statusEl);
   bottomEl.appendChild(picksEl);
-  bottomEl.appendChild(factsEl);
-  bottomEl.appendChild(afterEl);
+
+  // Everything except the post-answer actions scrolls together; the actions
+  // sit outside it, always the last thing on screen (see .pt-overlay--footer).
+  const scrollEl = document.createElement('div');
+  scrollEl.className = 'pt-scroll';
+  if (opts.refs.length >= 2) scrollEl.appendChild(sessionBarEl);
+  scrollEl.appendChild(topEl);
+  scrollEl.appendChild(boardWrap);
+  scrollEl.appendChild(bottomEl);
 
   overlay.appendChild(headerEl);
-  if (opts.refs.length >= 2) overlay.appendChild(sessionBarEl);
-  overlay.appendChild(topEl);
-  overlay.appendChild(boardWrap);
-  overlay.appendChild(bottomEl);
+  overlay.appendChild(scrollEl);
+  overlay.appendChild(afterEl);
   document.body.appendChild(overlay);
 
   // Never viewOnly — see detective-run.ts: chessground binds its input listeners
@@ -318,8 +324,6 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
     const { spot, game } = current;
     answered = false;
     afterEl.hidden = true;
-    factsEl.hidden = true;
-    factsEl.replaceChildren();
     picksEl.hidden = false;
     briefEl.hidden = false;
     renderSessionBar();
@@ -345,7 +349,6 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
     paintCandidates();
 
     pickBtns.forEach((btn, side) => {
-      btn.disabled = false;
       btn.className = 'wm-pick';
       btn.textContent = formatMove(options[side].san);
     });
@@ -400,87 +403,97 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
     // back to you, over and over — see middle-log.ts.
     else whichMoveLog.seen(spot.id);
 
+    // The verdict goes straight into the same two boxes the question was
+    // asked in — no second box underneath repeating the same two moves. Each
+    // pick turns red or green and now carries what the position was worth and
+    // the one clause explaining why, exactly what the eval-chip pair used to
+    // say on its own.
+    const why = explainPair(spot);
     pickBtns.forEach((btn, i) => {
-      btn.disabled = true;
-      btn.classList.add(i === bestSide ? 'wm-pick--best' : 'wm-pick--bad');
+      const isBest = i === bestSide;
+      const cp = isBest ? spot.evalBefore : spot.evalAfter;
+      const clause = isBest ? why.best : why.played;
+      btn.classList.add(isBest ? 'wm-pick--best' : 'wm-pick--bad');
       if (i === side) btn.classList.add('wm-pick--chosen');
+      fillEvalContent(btn, options[i].san, cp, clause);
     });
 
-    // Whichever way they answered, the board ends on the RIGHT move played out:
-    // that is the thing worth remembering, so that is what is left on screen.
-    const best = spot.best[0];
-    const { from, to, promotion } = uciParts(best.uci);
-    chess.load(spot.preFen);
-    try {
-      chess.move({ from, to, promotion });
-    } catch { /* a stored uci should always replay */ }
-    const finalFen = chess.fen();
-
-    const showBest = (): void => {
-      if (isCleaned) return;
-      cg.set({
-        fen: finalFen,
-        animation: { enabled: true },
-        lastMove: [from, to],
-        turnColor: cgTurn(),
-        movable: { color: undefined, dests: new Map() },
-      });
-      cg.setAutoShapes([{ orig: to, customSvg: classBoardSvg('best') }]);
-    };
+    // Whichever way they answered, the board opens on the RIGHT move played
+    // out — that is the thing worth remembering. Either box can be tapped
+    // afterwards to flip the board to that move's own position.
     if (played && !right) {
       // Their drag put the wrong piece somewhere; snap it back with no
       // animation, then play the right move so the correction is visible.
       cg.set({ fen: spot.preFen, animation: { enabled: false } });
-      requestAnimationFrame(showBest);
+      requestAnimationFrame(() => previewMove(bestSide));
     } else {
-      showBest();
+      previewMove(bestSide);
     }
 
     if (right) {
       playFeedback('correct');
-      setStatus(`${formatMove(best.san)} ✓`, 'pt-status--success');
       burstConfetti(boardWrap);
     } else {
       flashError();
-      setStatus(`No — ${formatMove(best.san)} was the move`, 'pt-status--error');
     }
 
-    renderFacts();
+    renderPlayedLine(right);
     renderSessionBar();
     nextBtn.textContent = completed >= opts.refs.length ? 'See results' : 'Next position';
     afterEl.hidden = false;
   }
 
-  /**
-   * The reveal, in two lines. Which game it was and what you played — held back
-   * until now because "vs Kevin, move 14" is a clue about a game you might
-   * remember. Then the two moves side by side with what each was worth: the one
-   * you played in red, the engine's in green. The numbers do the arguing, which
-   * is shorter and more convincing than a sentence saying the same thing.
-   */
-  function renderFacts(): void {
+  /** Show the position after one candidate — either pick stays tappable once answered. */
+  function previewMove(side: number): void {
+    if (isCleaned) return;
     const { spot, game } = current;
-    factsEl.replaceChildren();
+    const uci = options[side].uci;
+    const { from, to } = uciParts(uci);
+    const fen = fenAfter(spot.preFen, uci);
+    chess.load(fen);
+    pickBtns.forEach((btn, i) => btn.classList.toggle('wm-pick--active', i === side));
+    cg.set({
+      fen,
+      orientation: game.colour,
+      animation: { enabled: true },
+      lastMove: [from, to],
+      turnColor: cgTurn(),
+      movable: { color: undefined, dests: new Map() },
+    });
+    cg.setAutoShapes([{ orig: to, customSvg: classBoardSvg(side === bestSide ? 'best' : 'blunder') }]);
+  }
+
+  /**
+   * The reveal, three short lines: right or wrong (the two boxes below say
+   * the same thing in colour, but not everyone reads red/green first), then
+   * which game it was and what you actually played — held back until now
+   * because "vs Kevin, move 14" is a clue about a game you might remember —
+   * and last the engine's own read on the position, the number the two boxes'
+   * evals are relative to.
+   */
+  function renderPlayedLine(right: boolean): void {
+    const { spot, game } = current;
+    statusEl.className = 'pt-status wm-reveal';
+    statusEl.replaceChildren();
+
+    const verdict = document.createElement('div');
+    verdict.className = 'wm-reveal-verdict ' + (right ? 'wm-reveal-verdict--right' : 'wm-reveal-verdict--wrong');
+    verdict.textContent = right ? 'Correct' : 'Incorrect';
+    statusEl.appendChild(verdict);
 
     const line = document.createElement('div');
     line.className = 'wm-facts-line';
-    line.appendChild(document.createTextNode(`Against ${game.opponent} you played`));
+    line.appendChild(document.createTextNode(`Against ${game.opponent} you played `));
     const mv = document.createElement('span');
     mv.className = 'mr-played mr-played--blunder';
     mv.textContent = `${numberedMove(spot.playedSan, spot.ply + 1)} ??`;
     line.appendChild(mv);
-    factsEl.appendChild(line);
+    statusEl.appendChild(line);
 
-    // …and WHY, one clause each. The two numbers alone were an argument only for
-    // someone who already reads evals; explainPair (which-move.ts) turns them
-    // and the board into a sentence.
-    const why = explainPair(spot);
-    factsEl.appendChild(evalPairRow(
-      spot.playedSan, spot.evalAfter, why.played,
-      spot.best[0].san, spot.evalBefore, why.best,
-    ));
-
-    factsEl.hidden = false;
+    const evalLine = document.createElement('div');
+    evalLine.className = 'wm-reveal-eval';
+    evalLine.textContent = `Engine eval ${showCp(spot.evalBefore)}`;
+    statusEl.appendChild(evalLine);
   }
 
   function onNextTap(): void {
@@ -517,10 +530,8 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
     cg.setAutoShapes([]);
 
     headerEl.remove();
-    boardWrap.remove();
-    bottomEl.remove();
-    topEl.remove();
-    sessionBarEl.remove();
+    scrollEl.remove();
+    afterEl.remove();
 
     const wrap = document.createElement('div');
     wrap.className = 'train-completion train-completion--enter pz-results';

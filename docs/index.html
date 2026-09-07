@@ -35,7 +35,7 @@
 -->
 
 <title>Bito Chess — improve your next move</title>
-<meta name="description" content="Build your own chess opening repertoire, drill it with spaced repetition, and stop forgetting your prep on move six. Free to use, €9 once if you want the whole thing, no subscription." />
+<meta name="description" content="Build your own chess opening repertoire, drill it with spaced repetition, and stop forgetting your prep on move six. Free up to 500 lines, Full Access is 12€ once, no subscription." />
 <meta name="robots" content="index, follow" />
 <link rel="canonical" href="https://bitochess.com/" />
 <meta name="color-scheme" content="light dark" />
@@ -2226,7 +2226,40 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
           <div class="plan">
             <p class="tier__name">Free</p>
             <h3>Everything you need to get started.</h3>
-            <p>Build and save as many repertoire lines as you want. Explore the opening library. Import games. Solve puzzles. Analyse positions. Train up to 10 lines at a time.</p>
+            <ul class="ticks">
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
+                <span>Build up to 500 lines</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
+                <span>Train 10 at a time</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
+                <span>Sync across your devices</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
+                <span>Import and scan 100 games for coverage gaps</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
+                <span>Library and starter packs</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
+                <span>Puzzles and endgames</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
+                <span>Engine and analyser</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
+                <span>Backup and PGN export</span>
+              </li>
+            </ul>
             <div class="plan__act">
               <a class="btn js-app" href="/app/" data-umami-event="cta-plans-free">Try Bito Chess →</a>
               <p class="trust">No signup required.</p>
@@ -2237,13 +2270,24 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
         <div class="reveal">
           <div class="plan plan--pro">
             <p class="tier__name">Full Access</p>
-            <h3>Your whole repertoire.</h3>
-            <p class="tier__price">9€ <span>one payment</span></p>
-            <p>Want to train everything you’ve built? Full Access unlocks unlimited training and helps keep the project alive.</p>
+            <h3>Everything, unlimited.</h3>
+            <p class="tier__price">12€ <span>one payment</span></p>
             <ul class="ticks">
               <li>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
+                <span>Your whole games library, synced and kept</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
                 <span>Unlimited active training rotation</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
+                <span>Unlimited repertoires</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
+                <span>Opponent scouting</span>
               </li>
               <li>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
@@ -2417,7 +2461,7 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
      the card below, src/pricing.ts's FALLBACK_AMOUNTS, and Stripe itself. Stripe
      is the one that takes the money, so if they ever disagree Stripe is right and
      the other two are the bug. The card below is now overwritten from Stripe on
-     load, which leaves the hard-coded "9€" in the markup as a no-JS fallback
+     load, which leaves the hard-coded "12€" in the markup as a no-JS fallback
      rather than a second source of truth.
 
      NOTE the GitHub Pages mirror (isMirror, below) has no Worker behind it, so
@@ -2723,8 +2767,8 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
     return 'eur';
   }
 
-  /* House style, matching src/pricing.ts's formatPrice(): "9€", "99 kr", and no
-     decimals on a round amount. */
+  /* House style, matching src/pricing.ts's formatPrice(): "12€", "139 kr", and
+     no decimals on a round amount. */
   function formatAmount(unitAmount, currency) {
     var digits = unitAmount % 100 === 0 ? 0 : 2;
     var major = unitAmount / 100;
@@ -2742,7 +2786,7 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
   }
 
   /* The quote to show and sell. Null until the fetch lands (or forever, on the
-     mirror and offline), which is what the markup's own "9€" is there for. */
+     mirror and offline), which is what the markup's own "12€" is there for. */
   var quote = null;
 
   function loadPrice() {

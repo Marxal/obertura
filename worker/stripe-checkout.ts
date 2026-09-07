@@ -121,7 +121,7 @@ export async function handleStripeCheckout(request: Request, env: StripeEnv): Pr
       // 'auto' asks for as little as the payment method demands and nothing
       // more — usually just a country and postal code, often nothing at all for
       // a wallet. A full billing address is a form nobody enjoys and a
-      // conversion drop for a €9 sale.
+      // conversion drop for a €12 sale.
       //
       // NOTE, because it is a real obligation and not a code concern: going
       // direct on Stripe makes you the merchant of record, so evidence of the

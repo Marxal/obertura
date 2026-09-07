@@ -1,23 +1,23 @@
 // GET /api/stripe/prices — what the unlock costs, per currency.
 //
-// The app used to carry a hard-coded '9€'. It still carries one as a fallback,
+// The app used to carry a hard-coded '12€'. It still carries one as a fallback,
 // but the number the price card SHOWS now comes from here, which means from
 // Stripe, which means from the same object that will actually take the money.
 // Two numbers for the same thing is the fastest way to lose a sale, and the one
 // place that can never be out of step with the store is the store.
 //
 // ── WHAT IT RETURNS ─────────────────────────────────────────────────────────
-//   { "prices": [ { "id": "price_…", "currency": "eur", "unitAmount": 900 },
-//                 { "id": "price_…", "currency": "sek", "unitAmount": 9900 } ] }
+//   { "prices": [ { "id": "price_…", "currency": "eur", "unitAmount": 1200 },
+//                 { "id": "price_…", "currency": "sek", "unitAmount": 13900 } ] }
 //
 // `unitAmount` is in the currency's smallest unit, exactly as Stripe stores it —
-// 900 is €9.00, 9900 is 99.00 kr. The app formats it (src/pricing.ts); nothing
+// 1200 is €12.00, 13900 is 139.00 kr. The app formats it (src/pricing.ts); nothing
 // here decides how a price is written.
 //
 // ONE PRICE OBJECT PER CURRENCY, created by hand in the Stripe dashboard with an
 // explicit amount. Not a converted amount, and not Stripe's `currency_options`
-// on a single price: a Swede should see a round 99 kr, chosen because it looks
-// right in Swedish, rather than 103,47 kr chosen by yesterday's exchange rate.
+// on a single price: a Swede should see a round 139 kr, chosen because it looks
+// right in Swedish, rather than a figure chosen by yesterday's exchange rate.
 // STRIPE-SETUP.md walks through creating both.
 //
 // ── WHY THIS IS CACHED TWICE ────────────────────────────────────────────────

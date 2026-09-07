@@ -29,10 +29,11 @@ import {
 } from './storage';
 import { applyLineWrite, endsUnder, makeLineId, projectRepertoire } from './lines-view';
 import {
-  cloneTree, isLineEnd, findNode, lineTailStart, moveCount, groupAddedBranches,
+  cloneTree, isLineEnd, findNode, lineEnds, lineTailStart, moveCount, groupAddedBranches,
   detachSubtree, reattachSubtree,
   type AddedBranch, type DetachedSubtree, type Repertoire,
 } from './repertoire';
+import { requestLineSaveRoom } from './entitlement';
 
 // The book being edited. `tree` here is the STORED state — the working copy
 // lives in tree.ts and only comes back on commit.
@@ -128,9 +129,16 @@ export interface CommitResult {
  */
 export async function commitPending(): Promise<CommitResult> {
   if (!book) return { moves: 0, roots: [] };
+  const workingTree = serialise();
+  // Extending a line you already have moves its end further out — one line end
+  // disappears where the extension started, one appears where it now stops — so
+  // only a genuinely NEW branch grows the count. That's why this compares line
+  // ends before and after rather than just counting the draft's leaves.
+  const growth = Math.max(0, lineEnds(workingTree).length - lineEnds(book.tree).length);
+  if (growth > 0 && !(await requestLineSaveRoom(growth))) return { moves: 0, roots: [] };
   const moves = pending.size;
   const roots = pendingBranches().map(b => b.rootId);
-  book.tree = serialise();
+  book.tree = workingTree;
   await saveRepertoire(book);
   pending.clear();
   return { moves, roots };

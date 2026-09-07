@@ -12,11 +12,11 @@ test after that is a purchase (Stripe test mode makes that free — see the end)
 Work through it in order. Steps 1–6 all have to be done before the first real
 payment; step 7 is the tidy-up of the old processor.
 
-> **If you've done the dashboard steps and the app still shows the old €9
-> fallback price, or "Couldn't reach the checkout" — you're almost certainly
-> missing Step 4.** Pushing code to GitHub does not deploy a Cloudflare
-> Worker. Nothing in this repo does that automatically; it's a command you run
-> by hand, every time the Worker's code changes.
+> **If you've done the dashboard steps and the app still shows the old fallback
+> price, or "Couldn't reach the checkout" — you're almost certainly missing
+> Step 4.** Pushing code to GitHub does not deploy a Cloudflare Worker. Nothing
+> in this repo does that automatically; it's a command you run by hand, every
+> time the Worker's code changes.
 
 ## What changed, and what it means for you
 
@@ -104,22 +104,24 @@ Stripe dashboard → **Product catalogue** → **+ Add product**
 
 - **Name**: `Bito Chess — Full Access`. This is what appears on the checkout page
   and on the receipt, so write it the way a customer should read it.
-- **Description**: `Unlimited training rotation. One-time payment.`
+- **Description**: `Your whole games library, unlimited training, unlimited repertoires and opponent scouting. One-time payment.`
 - **Pricing model**: **One-off** — *not* recurring. Bito Chess sells a single
   payment and says so in the app, on the landing page and in the terms. The code
   filters recurring prices out on purpose, so a subscription price created here
   would simply never appear.
-- **Price**: `9.00` **EUR**.
+- **Price**: `12.00` **EUR** — the launch price. `docs/LANDING-COPY.md`'s
+  [THE TWO PLANS] note says this is going to €19 later; that rise happens here,
+  by hand, whenever you decide to make it.
 
 Save it, then add the second currency. On the product page → the price → **Add
 another currency** (or **+ Add price** if that is what your dashboard shows):
 
-- **99.00 SEK**, also one-off.
+- **139.00 SEK**, also one-off.
 
-**Set the SEK amount by hand, as a round 99 kr — do not let Stripe convert.** A
-Swede should see a number that looks deliberate in Swedish, not `103,47 kr`
-picked by yesterday's exchange rate. `docs/terms.html` already quotes
-"€9 / 99 SEK".
+**Set the SEK amount by hand, as a round 139 kr — do not let Stripe convert.** A
+Swede should see a number that looks deliberate in Swedish, not a figure picked
+by yesterday's exchange rate. `docs/terms.html` already quotes "€12 / 139 SEK" —
+update both if you pick a different round number here.
 
 Then copy two things down:
 
@@ -328,7 +330,7 @@ is gone. If it doesn't, Settings → **"Already paid? Check again"** is the same
 check on demand, and it always answers one way or the other.
 
 Also worth one look each: open the paywall on a phone set to Swedish and confirm
-it says **99 kr**, and open it on any other phone and confirm **9€**.
+it says **139 kr**, and open it on any other phone and confirm **12€**.
 
 If a delivery fails, Stripe retries it with backoff for up to three days and the
 webhook's page shows the status code. The webhook is deliberately noisy this way;

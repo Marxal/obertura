@@ -1,16 +1,23 @@
-// The rest log for "Grow your lines" — which lines have had their turn, kept on
+// The rest log for "Grow a line" — which lines have had their turn, kept on
 // the device in localStorage, exactly like middle-log.ts and brilliant-log.ts.
 //
-// IT MOSTLY EXISTS FOR "SKIP FOR TODAY". A line that is actually grown looks
-// after itself: adding moves to it gives it moves that have never been drilled,
-// and `lineMastered` stops being true the moment that happens — so a grown line
-// leaves the pool on its own and comes back only once it has been learned
-// again. Skipping is the case with nothing behind it, and without a memory the
-// skipped line would simply be offered again tomorrow, which is the one thing
-// "skip for today" promises it won't do.
+// IT MOSTLY EXISTS FOR THE TWO WAYS OF SAYING "NOT THIS ONE". A line that is
+// actually grown looks after itself: adding moves to it gives it moves that
+// have never been drilled, and `lineMastered` stops being true the moment that
+// happens — so a grown line leaves the pool on its own and comes back only
+// once it has been learned again. The other two rests are the cases with
+// nothing behind them, and without a memory each would simply offer the same
+// line again next time, which is the one thing they promise not to do:
 //
-// The longer rest is kept for the case in between: a line grown into a branch
-// that was already being trained, which can come back mastered within days.
+//   - swiping the notification away (grow-notice.ts) — "not now", without even
+//     opening the builder — rests the longest, because it is the vaguest signal.
+//   - "Skip for today", the quiet link inside the builder's Grow tab
+//     (grow-panel.ts) once you've actually looked at the line — a shorter rest,
+//     because looking and passing is a more specific answer than a swipe.
+//
+// The longer GROWN rest is kept for the case in between: a line grown into a
+// branch that was already being trained, which can come back mastered within
+// days.
 //
 // Throwaway by design — clearing it puts every mastered line back on the table
 // and loses nothing but the rotation.
@@ -19,7 +26,10 @@ const KEY = 'obertura.growLog';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_ITEMS = 200;
 
-/** "Skip for today" — one day, so tomorrow offers a different line. */
+/** Swiped the notification away without opening it — the vaguest "not now". */
+export const GROW_NOTICE_DISMISS_DAYS = 3;
+
+/** "Skip for today", from inside the builder's Grow tab. */
 export const GROW_SKIP_DAYS = 1;
 
 /** A line that has just been grown. Long enough that the next round of the

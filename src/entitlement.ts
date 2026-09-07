@@ -42,12 +42,13 @@ import { getCachedEntitled, setCachedEntitled, clearCachedEntitled } from './ent
 import { openProSheet } from './pro-sheet';
 import { formatPrice, primePricing, PRICING_CHANGE_EVENT } from './pricing';
 import { showToast } from './toast';
+import { trackOnce } from './metrics';
 
 // How many lines a free account may have in training at once.
 export const FREE_TRAINING_LINES = 10;
 
 // What the unlock costs is no longer written here. It comes from Stripe, per
-// currency, via src/pricing.ts — €9 or a round 99 kr, picked by the device's
+// currency, via src/pricing.ts — €12 or a round 139 kr, picked by the device's
 // language. The built-in numbers that stand in when Stripe can't be reached live
 // in that file (FALLBACK_AMOUNTS), and the landing page keeps its own copy
 // because it is a standalone static page that cannot import from src/.
@@ -88,6 +89,53 @@ export const FREE_SCOUT_OPPONENTS = 1;
 // Archived books still count. Archiving is a way to put a book aside, not a way
 // to keep six for free, and a cap you can walk around isn't one.
 export const FREE_REPERTOIRES = 3;
+
+// How many lines, TOTAL and regardless of training status, a free account may
+// have saved across every book. This is a STORAGE GUARDRAIL, not a sales
+// wall — it is never mentioned in pro-sheet.ts, in the pricing copy, or in the
+// free/Pro comparison, and the dialog it shows says exactly what it is: a limit
+// on how much a free account stores, not a feature being withheld. Five
+// hundred lines is far past anything normal use reaches — the training cap
+// above already caps the ten in active rotation — so this exists purely to
+// keep one runaway free account from growing an unbounded tree, nothing more.
+export const FREE_SAVED_LINES = 500;
+
+// How many games a free account may hold in My games (IndexedDB) at once. This
+// caps the STORE, not any one import — it's checked at every path that writes
+// into it (import-panel's import button, import-last, the weekly/manual
+// auto-refresh), always keeping the newest games and trimming the rest, never
+// the other way round.
+//
+// A signed-out guest is a different, tighter gate (FREE_GUEST_IMPORT in
+// import-tier.ts, capping each individual scan) and is untouched by this one —
+// signing in only ever adds capability, so a guest must never look like signing
+// in cost them anything.
+export const FREE_STORED_GAMES = 100;
+
+// Is the current session a signed-in account that is NOT entitled? The gate
+// every FREE_STORED_GAMES check shares — a guest and an entitled account both
+// skip it, for opposite reasons (nothing to cap yet vs. nothing left to cap).
+function isSignedInFree(): boolean {
+  return isSupabaseConfigured && !!getAuthUser() && !isEntitled();
+}
+
+// How many more games may be written to My games right now, given how many are
+// already stored. Infinity for a guest, an entitled account, or a build with no
+// accounts at all — so callers can slice against it without special-casing.
+// Never negative: an account already at or over the cap gets 0, not a count
+// that reads as "make room for -12".
+export function freeGameRoom(storedCount: number): number {
+  return isSignedInFree() ? Math.max(0, FREE_STORED_GAMES - storedCount) : Infinity;
+}
+
+// Bump the anonymous games_cap_hit metric the first time this device's account
+// meets or crosses FREE_STORED_GAMES. trackOnce makes this a once-ever count,
+// same as install/onboarding_complete — there is no per-account identity to key
+// a "once per account" flag on, and once-per-device is the honest version of
+// that anyway.
+export function noteGamesCapHit(storedCount: number): void {
+  if (isSignedInFree() && storedCount >= FREE_STORED_GAMES) trackOnce('games_cap_hit');
+}
 
 // Where the counter starts appearing on the Train hub, so the ceiling is visible
 // before it's hit rather than a surprise at line eleven.
@@ -147,6 +195,16 @@ export async function countInTraining(): Promise<number> {
   }
 }
 
+// How many lines exist across every book right now, regardless of training
+// status. The count FREE_SAVED_LINES is checked against.
+async function countSavedLines(): Promise<number> {
+  try {
+    return (await getAllLines()).length;
+  } catch {
+    return 0;
+  }
+}
+
 // ── The gate every single-line enrolment goes through ────────────────────────
 
 // "May I enrol one more line?" — the async, UI-side form of canEnrolAnother.
@@ -177,6 +235,7 @@ export async function requestTrainingSlots(count: number): Promise<boolean> {
   if (isEntitled() || count <= 0) return true;
   const free = await freeTrainingSlots();
   if (count <= free) return true;
+  trackOnce('training_cap_hit');
   openUpgradeDialog(
     free === 0
       ? `You’ve got ${FREE_TRAINING_LINES} lines in training`
@@ -189,7 +248,28 @@ export async function requestTrainingSlots(count: number): Promise<boolean> {
 export async function requestRepertoireSlot(existing: number): Promise<boolean> {
   if (isEntitled()) return true;
   if (existing < FREE_REPERTOIRES) return true;
+  trackOnce('repertoire_cap_hit');
   openUpgradeDialog(`Free accounts keep ${FREE_REPERTOIRES} repertoires`);
+  return false;
+}
+
+/**
+ * "May I store `newLines` more lines?" — the storage guardrail's gate, called
+ * right before anything that would grow the saved-line count: the builder's
+ * commit, the classic single-line save, a game's "Save line", a bulk study
+ * import, a starter-pack add. It never fires for editing a line that already
+ * exists (a note, a priority, a training toggle) — those don't grow the count.
+ *
+ * Unlike the training cap this is honest about being a storage limit, not an
+ * upsell: the message says exactly that, and Pro is offered as the way past it
+ * rather than as the point of the dialog.
+ */
+export async function requestLineSaveRoom(newLines = 1): Promise<boolean> {
+  if (isEntitled() || newLines <= 0) return true;
+  const count = await countSavedLines();
+  if (count + newLines <= FREE_SAVED_LINES) return true;
+  trackOnce('lines_cap_hit');
+  openUpgradeDialog(`Free accounts store ${FREE_SAVED_LINES} lines`);
   return false;
 }
 
@@ -199,6 +279,7 @@ export async function requestRepertoireSlot(existing: number): Promise<boolean> 
 // quieter toast below). A paywall in the first minute, before the user has
 // drilled anything, is the wrong first impression.
 export function showTrainingCapDialog(): void {
+  trackOnce('training_cap_hit');
   openUpgradeDialog(`You’ve got ${FREE_TRAINING_LINES} lines in training`);
 }
 
@@ -219,12 +300,13 @@ export function showGoProDialog(): void {
 // The sheet paints synchronously with whatever price is in hand (a fetched one, a
 // cached one, or the built-in fallback) and is handed a subscription so it can
 // swap in the real number if the fetch lands a moment later. A first-ever visitor
-// on a slow connection therefore sees "9€" and not a spinner, and sees "99 kr"
+// on a slow connection therefore sees "12€" and not a spinner, and sees "139 kr"
 // a half-second later if that is what they should have been shown.
 function openUpgradeDialog(eyebrow?: string): void {
   // Start a fetch now rather than when they tap buy, so the id is usually in hand
   // by the time it's needed.
   primePricing();
+  trackOnce('pro_sheet_shown');
 
   openProSheet({
     eyebrow,
@@ -254,19 +336,23 @@ function openUpgradeDialog(eyebrow?: string): void {
 // A discreet inline line for wherever a coaching cap is actively hiding
 // something ("Showing your 10 most recent mistakes"). Not a dialog, not a
 // toast — sits in the flow of the screen, so it's visible but never blocks.
-// Its action opens the SAME upsell dialog as the training cap (it already
-// pitches "coaching from your own games", which is exactly what these caps
-// gate) rather than a bespoke dialog per feature.
-export function buildCapNotice(message: string): HTMLElement {
+// Its action opens the SAME upsell dialog as the training cap by default (it
+// already pitches "coaching from your own games", which is exactly what these
+// caps gate) rather than a bespoke dialog per feature — a caller with its own
+// framing (the games-store cap) can override the link's label and what it opens.
+export function buildCapNotice(
+  message: string,
+  link: { label?: string; onOpen?: () => void } = {},
+): HTMLElement {
   const note = document.createElement('div');
   note.className = 'section-desc entitlement-cap-note';
   note.appendChild(document.createTextNode(`${message} · `));
-  const link = document.createElement('button');
-  link.type = 'button';
-  link.className = 'entitlement-cap-link';
-  link.textContent = 'Unlock full access';
-  link.addEventListener('click', () => showTrainingCapDialog());
-  note.appendChild(link);
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'entitlement-cap-link';
+  btn.textContent = link.label ?? 'Unlock full access';
+  btn.addEventListener('click', () => (link.onOpen ?? showTrainingCapDialog)());
+  note.appendChild(btn);
   return note;
 }
 

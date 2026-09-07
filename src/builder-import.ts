@@ -23,9 +23,10 @@
 import { pushBack } from './back-nav';
 import { Icons } from './icons';
 import { showToast } from './toast';
-import { connectedAccount, importLastGame } from './import-last';
+import { connectedAccount, importLastGame, GamesCapReached } from './import-last';
 import { importGames, type ImportedGame } from './import-games';
 import { openAddGameForm } from './manual-game';
+import { showGoProDialog } from './entitlement';
 import {
   parseStudyUrl, parseAnnotatedPgn, parseStudyPgn, fetchStudyPgn, studyNameFromPgn,
   type StudyChapter,
@@ -103,7 +104,12 @@ export function openBuilderImport(deps: BuilderImportDeps): void {
       if (!game) { showToast('No recent game found to import.'); btn.disabled = false; return; }
       deps.onGamesChanged();
       load(game.ucis, game.colour, `vs ${game.opponent}`, game.id, game.endTime);
-    } catch {
+    } catch (err) {
+      if (err instanceof GamesCapReached) {
+        showToast(err.message, { action: { label: 'Go Pro', onClick: () => showGoProDialog() } });
+        btn.disabled = false;
+        return;
+      }
       showToast('Couldn’t reach your account — check your connection.');
       btn.disabled = false;
     }

@@ -256,7 +256,14 @@ function syncRow(): HTMLElement {
   return wrap;
 }
 
+// Games only sync for an entitled account (see repertoire-sync.ts's
+// gateGamesToEntitlement); a free caption has to say so rather than claim
+// "Synced" for a half that never left the phone. Left off 'failed' — an error
+// should stand alone, not share the line with an unrelated upsell note.
+const GAMES_PRO_NOTE = ' · games sync is Pro.';
+
 function syncCaption(): string {
+  const proNote = isEntitled() ? '' : GAMES_PRO_NOTE;
   switch (getSyncState()) {
     case 'failed':
       // Whatever actually went wrong, in words. The old caption said "Sync
@@ -265,13 +272,17 @@ function syncCaption(): string {
       // describeSyncError names the difference.
       return getSyncError() ?? 'Sync failed — will retry.';
     case 'pending':
-      return 'Pending — your latest changes go up in a moment.';
+      return isEntitled()
+        ? 'Pending — your latest changes go up in a moment.'
+        : `Pending — your lines go up in a moment${proNote}`;
     case 'synced':
-      return `Synced ${agoLabel(getLastSync())}.`;
+      return isEntitled()
+        ? `Synced ${agoLabel(getLastSync())}.`
+        : `Lines synced ${agoLabel(getLastSync())}${proNote}`;
     default:
       // 'never' — signed in, nothing up from this device yet. ('off' can't
       // reach here: this row only exists inside the signed-in body.)
-      return 'Nothing synced yet.';
+      return isEntitled() ? 'Nothing synced yet.' : `Nothing synced yet${proNote}`;
   }
 }
 

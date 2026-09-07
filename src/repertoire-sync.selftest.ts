@@ -15,7 +15,12 @@
 //     really gone, that the 500-game cap keeps the RIGHT games, and above all
 //     that the fingerprint is taken over the slimmed payload, because a
 //     fingerprint that still noticed a saved analysis would re-upload the whole
-//     library after every scan and undo the point of the diet entirely.
+//     library after every scan and undo the point of the diet entirely;
+//   • the entitlement gate (gateGamesToEntitlement) — that a free account's
+//     games half is cleared in both directions (what's worth sending, what's
+//     worth fetching) while core always passes through, since this is the one
+//     function standing between "games sync is Pro" and a free account quietly
+//     getting it anyway.
 //
 // Run via `npm run selftest`.
 
@@ -28,6 +33,7 @@ import {
   gamesFingerprintOf,
   gamesForSync,
   partsToPull,
+  gateGamesToEntitlement,
   anyPart,
   shouldApplyRemoteLocal,
   payloadBytes,
@@ -584,6 +590,85 @@ export function runRepertoireSyncSelfTest(): TestResult[] {
     'an OLDER remote stamp is not a reason to pull',
     !anyPart(partsToPull({ core: T1, games: T1 }, { core: T2, games: T2 })),
     'our own push is newer — downloading it back would be a round trip for nothing',
+  );
+
+  // ── Games are Pro ──────────────────────────────────────────────────────────
+  //
+  // gateGamesToEntitlement is deliberately generic over the {core, games}
+  // shape, so the same checks stand in for both directions: fed a push's raw
+  // dirty flags, or a pull's partsToPull() result.
+
+  check(
+    'entitled passes both halves through untouched',
+    (() => {
+      const g = gateGamesToEntitlement({ core: true, games: true }, true);
+      return g.core === true && g.games === true;
+    })(),
+    'a Pro account is not gated at all',
+  );
+  check(
+    'entitled with only core dirty stays core-only',
+    (() => {
+      const g = gateGamesToEntitlement({ core: true, games: false }, true);
+      return g.core === true && g.games === false;
+    })(),
+    'gating never INVENTS a games push',
+  );
+  check(
+    'non-entitled clears games even when it was the only thing that moved',
+    (() => {
+      const g = gateGamesToEntitlement({ core: false, games: true }, false);
+      return g.core === false && g.games === false;
+    })(),
+    'a free account never sends or fetches games, whatever the flags say',
+  );
+  check(
+    'non-entitled still lets core through',
+    (() => {
+      const g = gateGamesToEntitlement({ core: true, games: true }, false);
+      return g.core === true && g.games === false;
+    })(),
+    'lines keep syncing for everyone',
+  );
+
+  // Composed with partsToPull — the pull direction. A free account with both
+  // halves moved on the server only fetches core; games costs no egress.
+  check(
+    'pull: a non-entitled account with both halves moved only pulls core',
+    (() => {
+      const moved = partsToPull({ core: T2, games: T2 }, { core: T1, games: T1 });
+      const gated = gateGamesToEntitlement(moved, false);
+      return gated.core && !gated.games;
+    })(),
+    'games never reaches fetchRemoteBackup for a free account',
+  );
+  check(
+    'pull: an entitled account with both halves moved pulls both',
+    (() => {
+      const moved = partsToPull({ core: T2, games: T2 }, { core: T1, games: T1 });
+      const gated = gateGamesToEntitlement(moved, true);
+      return gated.core && gated.games;
+    })(),
+    'a Pro account is unaffected by the gate',
+  );
+
+  // Composed with a push's raw dirty flags — the push direction. A free
+  // account with both halves dirty only sends core.
+  check(
+    'push: a non-entitled account with both halves dirty only sends core',
+    (() => {
+      const gated = gateGamesToEntitlement({ core: true, games: true }, false);
+      return gated.core && !gated.games;
+    })(),
+    'profiles.games is never written for a free account',
+  );
+  check(
+    'push: a non-entitled account with only games dirty sends nothing',
+    (() => {
+      const gated = gateGamesToEntitlement({ core: false, games: true }, false);
+      return !gated.core && !gated.games;
+    })(),
+    'the raw flag still gets cleared by the caller so the push reaches synced, not pending',
   );
 
   // ── Whose statistics win ──────────────────────────────────────────────────

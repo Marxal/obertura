@@ -32,7 +32,7 @@ import { formatMove } from './notation';
 import type { MoveEval } from './engine';
 import type { MoveClass } from './winprob';
 import { recordSpotResult } from './mistake-scan';
-import { explainPair } from './which-move';
+import { explainPair, fenAfter } from './which-move';
 import { evalPairRow } from './eval-chip';
 import { restSpot } from './spot-rest';
 import type { SpotRef, MistakeCategory } from './mistake-scan';
@@ -129,7 +129,10 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
 
   // ── Overlay scaffold (mirrors puzzle-run.ts) ────────────────────────────────
   const overlay = document.createElement('div');
-  overlay.className = 'pt-overlay pt-overlay--puzzle pt-overlay--tinted';
+  // --compact: the top block never eats the spare height that centres the
+  // board. --footer: everything but the actions scrolls inside .pt-scroll, so
+  // Next position is never something you have to scroll to find.
+  overlay.className = 'pt-overlay pt-overlay--puzzle pt-overlay--tinted pt-overlay--compact pt-overlay--footer';
   // The Mistake retry ember, as a whisper behind the exercise — same hue as
   // its Train tab.
   overlay.style.setProperty('--pt-tint', '#a3492e');
@@ -156,16 +159,13 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
   trackEl.appendChild(sessionFillEl);
   sessionBarEl.appendChild(trackEl);
 
-  // The compact top block: opponent, then the opening (small and quiet), then
-  // the one-line story with the played move on its red chip.
+  // The compact top block: opponent, then the one-line story with the played
+  // move on its red chip.
   const topEl = document.createElement('div');
   topEl.className = 'pt-top mr-top';
   const nameEl = document.createElement('div');
   nameEl.className = 'pt-line-name mr-opponent';
   topEl.appendChild(nameEl);
-  const openingEl = document.createElement('div');
-  openingEl.className = 'mr-opening';
-  topEl.appendChild(openingEl);
   const introEl = document.createElement('div');
   introEl.className = 'mr-intro';
   topEl.appendChild(introEl);
@@ -244,13 +244,19 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
   bottomEl.appendChild(statusRow);
   bottomEl.appendChild(hintBtn);
   bottomEl.appendChild(factsEl);
-  bottomEl.appendChild(afterEl);
+
+  // Everything except the post-answer actions scrolls together; the actions
+  // sit outside it, always the last thing on screen (see .pt-overlay--footer).
+  const scrollEl = document.createElement('div');
+  scrollEl.className = 'pt-scroll';
+  if (opts.refs.length >= 2) scrollEl.appendChild(sessionBarEl);
+  scrollEl.appendChild(topEl);
+  scrollEl.appendChild(boardWrap);
+  scrollEl.appendChild(bottomEl);
 
   overlay.appendChild(headerEl);
-  if (opts.refs.length >= 2) overlay.appendChild(sessionBarEl);
-  overlay.appendChild(topEl);
-  overlay.appendChild(boardWrap);
-  overlay.appendChild(bottomEl);
+  overlay.appendChild(scrollEl);
+  overlay.appendChild(afterEl);
   document.body.appendChild(overlay);
 
   cg = Chessground(boardEl, {
@@ -394,8 +400,6 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
 
     const { game, spot } = current;
     nameEl.textContent = `vs ${game.opponent}`;
-    openingEl.textContent = game.opening ?? '';
-    openingEl.hidden = !game.opening;
     renderIntro();
     setStatus('Find a better move', 'pt-status--prompt');
 
@@ -535,7 +539,8 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
 
   // The mistake and the fix, side by side with what each was worth — the same
   // red/green comparison Which move shows (which-move.ts's explainPair reads
-  // MistakeSpot's fields directly).
+  // MistakeSpot's fields directly). Either chip can be tapped to see that
+  // move's own position on the board.
   function renderFacts(): void {
     const { spot } = current;
     factsEl.replaceChildren();
@@ -545,8 +550,28 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
     factsEl.appendChild(evalPairRow(
       spot.playedSan, spot.evalAfter, why.played,
       best.san, spot.evalBefore, why.best,
+      () => previewMove(spot.playedUci, 'blunder'),
+      () => previewMove(best.uci, 'best'),
     ));
     factsEl.hidden = false;
+  }
+
+  /** Flip the board to show the position after one of the two moves in the reveal. */
+  function previewMove(uci: string, cls: MoveClass): void {
+    if (isCleaned) return;
+    const { spot, game } = current;
+    const { from, to } = uciParts(uci);
+    const fen = fenAfter(spot.preFen, uci);
+    chess.load(fen);
+    cg.set({
+      fen,
+      orientation: game.colour,
+      animation: { enabled: true },
+      lastMove: [from, to],
+      turnColor: cgTurn(),
+      movable: { color: undefined, dests: new Map() },
+    });
+    cg.setAutoShapes([{ orig: to, customSvg: classBoardSvg(cls) }]);
   }
 
   function onNextTap(): void {
@@ -589,10 +614,8 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
     cg.setAutoShapes([]);
 
     headerEl.remove();
-    boardWrap.remove();
-    bottomEl.remove();
-    topEl.remove();
-    sessionBarEl.remove();
+    scrollEl.remove();
+    afterEl.remove();
 
     const wrap = document.createElement('div');
     wrap.className = 'train-completion train-completion--enter pz-results';

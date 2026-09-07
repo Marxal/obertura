@@ -23,9 +23,11 @@ than straight quotes ('). The wording below is identical either way.
 
   Since the Stripe migration, both the landing page's price card and the app's
   paywall FETCH the real number (`GET /api/stripe/prices`) and overwrite what was
-  typed in. The hard-coded 9€ in each is now a no-JS / offline fallback rather
+  typed in. The hard-coded 12€ in each is now a no-JS / offline fallback rather
   than a second source of truth — so the copy below is the shape, and Stripe is
-  the number. A Swedish device is quoted in kronor instead (99 kr).
+  the number. A Swedish device is quoted in kronor instead (139 kr, a figure you
+  should confirm or change when you set the SEK price in Stripe — see
+  STRIPE-SETUP.md).
 
 The legal documents are separate hand-written pages, not part of this file:
 `docs/privacy.html`, `docs/terms.html`, `docs/licences.html`.
@@ -162,14 +164,22 @@ Track your training streaks, move memory, puzzle rating, and win rates by openin
 > **The paid box is duplicated in the app** — `src/pro-sheet.ts` shows the same
 > offer in the upgrade popup, shorter. Change both.
 >
-> The price is written **9€**, symbol after the number, in both places.
-> There is deliberately no “€0” on the free box: a price of zero invites the
-> reader to price-compare something that isn’t for sale.
+> **Both boxes are plain feature lists now — no explanatory prose.** An earlier
+> draft had a body paragraph per box, a launch-price comparison against
+> Chessbook, and a line explaining why game-sync is the paid half. All of that
+> got cut: the ticks say what's included, full stop. Don't re-add reasoning
+> sentences here — if a feature needs explaining, that explanation belongs on
+> the feature's own page in the app, not in the pricing box.
 >
-> Both boxes are CENTRED (heading, price, body copy) — this is the opposite
+> **The price shown is always the Stripe price** — never hand-typed as a
+> sentence. `docs/index.html`'s script and `src/pro-sheet.ts`'s `opts.price`
+> are the only two places a number appears, and both fetch it. Don't add a
+> price mention anywhere else in this section.
+>
+> **Both boxes are CENTRED** (heading, price, tick list) — this is the opposite
 > choice from [YOUR GAMES] above, and deliberately so: a price card reads as a
 > price card when everything funnels down to one button in the middle. Only the
-> Full Access checklist stays left-aligned inside the centred box — a tick list
+> tick lists themselves stay left-aligned inside the centred box — a tick list
 > read centred loses its scan line down the left edge.
 
 **H2:** Start free
@@ -180,22 +190,27 @@ Track your training streaks, move memory, puzzle rating, and win rates by openin
 
 **FREE** · **Everything you need to get started.**
 
-Build and save as many repertoire lines as you want. Explore the opening library. Import games. Solve puzzles. Analyse positions. Train up to 10 lines at a time.
+- Build up to 500 lines
+- Train 10 at a time
+- Sync across your devices
+- Import and scan 100 games for coverage gaps
+- Library and starter packs
+- Puzzles and endgames
+- Engine and analyser
+- Backup and PGN export
 
 **Try Bito Chess →** · No signup required.
 
 ### Box 2 — Full Access (brass edge, deeper shadow: the premium one)
 
-**FULL ACCESS** · **Your whole repertoire.**
+**FULL ACCESS** · **Everything, unlimited.**
 
-**9€** one payment
+**{price}** one payment — always the live Stripe number, never typed in.
 
-“One payment” is written once now, next to the price where it belongs (not
-also in the headline — it repeated itself in an earlier draft).
-
-Want to train everything you’ve built? Full Access unlocks unlimited training and helps keep the project alive.
-
+- Your whole games library, synced and kept
 - Unlimited active training rotation
+- Unlimited repertoires
+- Opponent scouting
 - One-time payment, no subscription ever
 
 **CTA:** Unlock full access →

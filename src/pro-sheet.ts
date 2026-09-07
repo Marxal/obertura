@@ -33,7 +33,7 @@ export interface ProSheetOptions {
   // user opened the offer themselves, where a number they haven't reached would
   // just be wrong.
   eyebrow?: string;
-  // '9€' or '99 kr' — already formatted. The sheet is built synchronously, so
+  // '12€' or '139 kr' — already formatted. The sheet is built synchronously, so
   // this is whatever the caller has in hand right now, which may be a cached or
   // built-in number rather than a freshly fetched one.
   price: string;
@@ -59,9 +59,12 @@ export interface ProSheetOptions {
   onSignIn?: () => void;
 }
 
-// The two promises, in the landing page's order and wording.
+// The promises, in the landing page's order and wording.
 const POINTS = [
+  'Your whole games library, synced and kept',
   'Unlimited active training rotation',
+  'Unlimited repertoires',
+  'Opponent scouting',
   'One-time payment, no subscription ever',
 ];
 
@@ -103,13 +106,8 @@ export function openProSheet(opts: ProSheetOptions): void {
   // ("Your whole repertoire. One payment.") saying the same thing twice.
   const title = document.createElement('h3');
   title.className = 'pro-title';
-  title.textContent = 'Want to train everything you’ve built?';
+  title.textContent = 'Want everything, unlimited?';
   sheet.appendChild(title);
-
-  const body = document.createElement('p');
-  body.className = 'pro-body';
-  body.textContent = 'Full Access unlocks unlimited training and helps fund what’s next.';
-  sheet.appendChild(body);
 
   // ── The price card ──────────────────────────────────────────────────────────
   const card = document.createElement('div');
@@ -125,16 +123,6 @@ export function openProSheet(opts: ProSheetOptions): void {
   once.textContent = 'one payment';
   price.appendChild(once);
   card.appendChild(price);
-
-  const plan = document.createElement('p');
-  plan.className = 'pro-plan';
-  plan.textContent = 'Full Access & Project Support';
-  card.appendChild(plan);
-
-  const planDesc = document.createElement('p');
-  planDesc.className = 'pro-plan-desc';
-  planDesc.textContent = 'Your entire repertoire, always available for training.';
-  card.appendChild(planDesc);
 
   const list = document.createElement('ul');
   list.className = 'pro-points';

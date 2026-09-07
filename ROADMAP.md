@@ -1171,6 +1171,42 @@ numbers small enough to ride a push that was happening anyway.
 
 ---
 
+## The grow-notice round — from a daily quota to a standing offer ✅
+
+Growing a line (previous round) shipped as the daily challenge's eighth part,
+capped at one because the exercise ends by handing you the extended line and
+chaining a second one would yank you back into the builder from a screen you
+were just taken to. That cap made it feel like a chore competing with puzzles
+and lines for one of the day's ticks, when the honest shape of the offer is
+"this one's ready whenever you are" — which a quota row can't say.
+
+- ✅ **Out of Daily Challenge entirely.** `growLines` is gone from
+  `DailyTaskId`, the order, the config, the done-state, the preview — the
+  challenge is seven parts again. `dailyCountCeiling` (the special one-a-day
+  cap it existed for) went with it, since every remaining part shares the same
+  ceiling.
+- ✅ **A dismissable notification card instead** (`grow-notice.ts`), styled
+  like a phone notification — it isn't one — sitting in a host shared by
+  Train, My Lines and Explore (`#grow-notice-host`, a sibling of `<header>` in
+  `index.html`, repainted from `showView()` on every navigation). One card,
+  one line, ever: icon, "Grow a line", the line's name. Nothing else — the
+  reasons for each suggested move still live inside the builder's Grow tab,
+  where there's room to read them.
+- ✅ **Never nagging.** No mastered, growable line with something to prepare
+  for → no card, not an empty one. Three ways to go quiet, sharing the one
+  rest map (`grow-log.ts`) so any of them clears the offer everywhere, not
+  just where it was acted on: swiping the notice away rests the line 3 days
+  (`GROW_NOTICE_DISMISS_DAYS`, the vaguest signal); "Skip for today" inside
+  the builder's Grow tab rests it 1 day (you looked and passed — a more
+  specific answer); finishing the exercise rests it 14 days, as before.
+- ✅ **The same exercise, a new front door.** Tapping the card runs the exact
+  builder-entry recipe the old daily row used — Grow tab preselected, arrows
+  on the board, the three sourced moves — just reached from wherever the
+  notice was tapped. Finishing or skipping now returns to *that* screen
+  (`growReturnView`: Train, My Lines or Explore), not always to Train.
+
+---
+
 ## The GitHub Pages retirement — a goodbye page for the old test mirror ✅
 
 Bito Chess now lives at bitochess.com; the GitHub Pages URL was only ever the
@@ -1196,6 +1232,124 @@ users on the real domain, that mirror closes rather than keeps drifting.
   untouched — `npm run dev`/`npm run build` still build the real app locally
   — only the GitHub Pages *deploy* changed. The `cloudflare` target
   (bitochess.com) was never touched.
+
+---
+
+## The daily challenge card, dressed up ✅
+
+The card worked but read flatly: a filler sentence nobody needed to read
+twice, a done-state that was one line of plain text with no sense of how the
+day went even though the full numbers already exist a tap away in the
+completion popup, and task icons with no visual weight of their own.
+
+- ✅ **Circular icon badges.** Task icons now sit in a soft accent disc — the
+  same recipe as the onboarding intro/wizard icons, scaled down — instead of
+  a bare coloured glyph. Done tasks get the same disc in green.
+- ✅ **A progress bar on the active card.** A thin "N of M done today" bar
+  under the header, built with the same track/fill CSS the locked card's
+  three-line goal bar already used (factored into one shared `buildBar`
+  helper rather than duplicated).
+- ✅ **The footer's flavor text is gone.** "Lines, puzzles and your own
+  mistakes, picked for you." (and its fallback) added nothing worth reading
+  twice a day; the footer is now just the preferences gear, right-aligned.
+- ✅ **The done card shows a real number.** Instead of "Daily challenge done —
+  keep training ✓", a green check badge, "Done for today", and a
+  "N% correct today" line — read straight from the same log
+  (`getDailyLog`/`accuracyOf` in `daily-recap.ts`) the completion popup itself
+  reads, so the two numbers can never disagree. Still the same tappable row
+  that reopens the popup for the full recap.
+
+---
+
+## The which-move reveal, folded into one row ✅
+
+Which move (and Mistake retry / Blunder detective, which share the same
+red/green reveal) used to show the verdict twice: the two pick buttons turned
+red/green, then a second row of two boxes underneath repeated the same two
+moves with their evaluation and a why-clause. That cost a full extra block of
+vertical space to say the same thing twice.
+
+- ✅ **One box per move, not two.** The eval number and the why-clause
+  (`explainPair` in `which-move.ts` — "leaves you losing", "holds the
+  balance", etc.) now render straight inside the same pick button that
+  already turned red or green, via a shared `fillEvalContent` helper
+  (`eval-chip.ts`). Which move no longer renders a second `wm-facts` block at
+  all.
+- ✅ **Tap red or green to see that position.** Both boxes stay tappable after
+  answering — tapping either flips the board to that move's own resulting
+  position (a new `fenAfter` pure helper in `which-move.ts`), with a subtle
+  brightness highlight showing which one is currently on screen. The same
+  tap-to-preview lands on Mistake retry and Blunder detective's reveal chips
+  (`evalPairRow`'s new optional tap callbacks), even though those two don't
+  have pick buttons to fold into.
+- ✅ **"No — X was the move" is gone.** Which move's status line now reads
+  "Against `<opponent>` you played `<move>` ??" instead — the fact worth
+  keeping, since the two boxes already carry the right/wrong verdict.
+
+---
+
+## The four .mr-* drills, made to match ✅
+
+Mistake retry (four categories: Opening blunders, Punish the opening, Missed
+wins, Blunders), Blunder detective and Brilliant moves share the same `.pt-*`
+/ `.mr-*` overlay chrome, but were built in separate rounds and had drifted:
+only Which move and Blunder detective had `--compact` (Mistake retry's top
+block ate the spare height meant for the board), all four still showed the
+game's opening under the opponent's name, and none of them protected the
+post-answer Analyse/Next buttons from being scrolled out of reach when the
+reveal ran long.
+
+- ✅ **The opening is gone.** It named a fact nobody needed mid-drill and cost
+  a line of vertical space in all four exercises for nothing the story line
+  above it didn't already imply.
+- ✅ **Analyse and Next never scroll away.** The overlay itself stopped
+  scrolling; a new `.pt-scroll` wrapper holds everything except the
+  post-answer actions, which now sit outside it as an ordinary flex item — so
+  they're always the last thing on screen (`.pt-overlay--footer` in
+  `style.css`), never something a long reveal pushes below the fold. Mistake
+  retry also picked up `--compact`, matching the other three.
+- ✅ **Which move's reveal, in three lines.** Above "Against X you played Y"
+  now reads Correct/Incorrect in words (not just the red/green the two boxes
+  already carry), and below it the engine's own evaluation of the position —
+  the number the two boxes' own evals are relative to.
+
+---
+
+## The free/Pro copy round — 500 lines, four Pro things, no explaining ✅
+
+The offer had outgrown its own description. Free already capped storage at 500
+lines and 100 games (two earlier rounds), and Pro already carried unlimited
+repertoires and opponent scouting *in code* (`isEntitled()` waives both caps) —
+but every piece of copy still said the old, narrower thing: Pro as "unlimited
+training rotation" and nothing else, at 9€. A first pass rewrote it with a
+price-comparison line against Chessbook and a paragraph explaining why
+game-sync is the paid half; a second pass cut both, on the instruction that a
+pricing box lists features and stops — no launch-price note, no reasoning,
+just ticks.
+
+- ✅ **Both boxes are now plain tick lists, nothing else.** Free: build up to
+  500 lines, train 10 at a time, sync across your devices, import and scan 100
+  games for coverage gaps, library and starter packs, puzzles and endgames,
+  engine and analyser, backup and PGN export. Pro: your whole games library
+  synced and kept, unlimited training rotation, unlimited repertoires,
+  opponent scouting, one-time payment. No tagline sentence explaining either
+  one beyond the box's own heading. Rewritten in `docs/LANDING-COPY.md`'s [THE
+  TWO PLANS] (the source of truth), mirrored into `docs/index.html`, and into
+  `src/pro-sheet.ts`'s popup — same words, same order, as the house rule
+  requires. `src/settings-screen.ts`'s Go-Pro CTA and `src/about.ts` carried no
+  offer copy to begin with; confirmed, not touched.
+- ✅ **The price is always the live Stripe number, never a sentence.** No
+  hand-typed price comparison anywhere in the offer copy — just the one price
+  tag both surfaces already fetch from `GET /api/stripe/prices`, with the
+  `12€` fallback for when that fetch hasn't landed yet. Mirrored the 9€→12€
+  move into `src/pricing.ts`'s `FALLBACK_AMOUNTS`, `docs/terms.html`'s refund
+  and liability-cap clauses, and `STRIPE-SETUP.md`'s dashboard instructions —
+  none of which touches the actual Stripe Price objects, which are a
+  dashboard edit only Marçal can make.
+- ✅ **`APP-CONTEXT.md` §16.3 was already stale before this round** — it
+  documented only the training cap and never picked up `FREE_SAVED_LINES` or
+  `FREE_STORED_GAMES` from the two rounds that added them. Fixed in the same
+  pass, per the "wrong docs cost more than missing ones" rule.
 
 ---
 
