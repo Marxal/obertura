@@ -16678,17 +16678,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   font-size: 0.95rem;
 }
 
-/* The opening played — its own small, discrete row under the opponent. */
-.mr-opening {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-faint);
-  font-size: 0.72rem;
-  text-align: center;
-}
-
 /* "You played [♛xe8 ??] here and blundered." — kept to one line; wraps only
    as a last resort on very narrow screens. */
 .mr-intro {
@@ -20430,6 +20419,31 @@ html.picker-open body {
   line-height: 1.4;
 }
 
+/* Which move's reveal: right/wrong, then who-you-played, then the engine's
+   read on the position — three short lines stacked instead of one, framing
+   the two pick boxes below rather than repeating what they already say. */
+.wm-reveal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+.wm-reveal-verdict {
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.wm-reveal-verdict--right { color: var(--success); }
+.wm-reveal-verdict--wrong { color: var(--danger); }
+
+.wm-reveal-eval {
+  color: var(--text-faint);
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 /* The two moves and what each was worth: what you played, and what the engine
    wanted. Red and green do the arguing — the sentence above says what happened,
    these two say how much it mattered. */
@@ -20506,6 +20520,33 @@ html.picker-open body {
 .pt-overlay--compact .pt-top {
   flex: 0 0 auto;
   padding-top: 0.4rem;
+}
+
+/* ── Pinned footer: Analyse / Next never scroll out of reach ─────────────────
+   Mistake retry, Blunder detective, Brilliant moves and Which move all reveal
+   a stack that can run long (facts, why-clauses, a category story) on top of
+   an already-tall board+controls layout — on a short phone the "Next
+   position" button could end up below the fold. Rather than trust every mode
+   to keep its content short, the overlay itself stops scrolling; a .pt-scroll
+   wrapper inside it holds everything except the post-answer actions, which
+   sit outside that wrapper as an ordinary flex item — so they're always the
+   last thing on screen, never something you have to scroll to find. */
+.pt-overlay--footer {
+  overflow: hidden;
+}
+.pt-overlay--footer > .pt-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.pt-overlay--footer > .mr-after {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0.6rem 1rem calc(0.7rem + env(safe-area-inset-bottom));
+  background: inherit;
+  border-top: 1px solid var(--border-card);
 }
 
 /* ── The Fixed figure, as a door (fixed-sheet.ts) ──────────────────────────── */

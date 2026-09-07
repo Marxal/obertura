@@ -37,7 +37,7 @@ import { formatMove, numberedMove } from './notation';
 import { openInfoSheet, buildInfoButton } from './info-sheet';
 import { whichMoveLog } from './middle-log';
 import { explainPair, fenAfter } from './which-move';
-import { fillEvalContent } from './eval-chip';
+import { fillEvalContent, showCp } from './eval-chip';
 import { buildRunHeader } from './run-header';
 import { openSpotPeek, type SpotPeekOptions } from './spot-peek';
 import { WHICH_MOVE_ACCENT } from './exercise-identity';
@@ -131,8 +131,10 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
   // eat the spare height, which works when the bottom is a status line. Both
   // of these carry a stack under the board (a stepper, two picks, the reveal)
   // and need that height instead — without it the primary action lands under
-  // the fold on a phone.
-  overlay.className = 'pt-overlay pt-overlay--puzzle pt-overlay--tinted pt-overlay--compact';
+  // the fold on a phone. --footer: everything but the actions scrolls inside
+  // .pt-scroll, so Next position is never something you have to scroll to.
+  overlay.className =
+    'pt-overlay pt-overlay--puzzle pt-overlay--tinted pt-overlay--compact pt-overlay--footer';
   overlay.style.setProperty('--pt-tint', '#a3492e');
 
   const header = buildRunHeader({
@@ -222,13 +224,19 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
 
   bottomEl.appendChild(statusEl);
   bottomEl.appendChild(picksEl);
-  bottomEl.appendChild(afterEl);
+
+  // Everything except the post-answer actions scrolls together; the actions
+  // sit outside it, always the last thing on screen (see .pt-overlay--footer).
+  const scrollEl = document.createElement('div');
+  scrollEl.className = 'pt-scroll';
+  if (opts.refs.length >= 2) scrollEl.appendChild(sessionBarEl);
+  scrollEl.appendChild(topEl);
+  scrollEl.appendChild(boardWrap);
+  scrollEl.appendChild(bottomEl);
 
   overlay.appendChild(headerEl);
-  if (opts.refs.length >= 2) overlay.appendChild(sessionBarEl);
-  overlay.appendChild(topEl);
-  overlay.appendChild(boardWrap);
-  overlay.appendChild(bottomEl);
+  overlay.appendChild(scrollEl);
+  overlay.appendChild(afterEl);
   document.body.appendChild(overlay);
 
   // Never viewOnly — see detective-run.ts: chessground binds its input listeners
@@ -429,7 +437,7 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
       flashError();
     }
 
-    renderPlayedLine();
+    renderPlayedLine(right);
     renderSessionBar();
     nextBtn.textContent = completed >= opts.refs.length ? 'See results' : 'Next position';
     afterEl.hidden = false;
@@ -456,20 +464,36 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
   }
 
   /**
-   * The reveal — which game it was and what you actually played, held back
-   * until now because "vs Kevin, move 14" is a clue about a game you might
-   * remember. It replaces the plain right/wrong status line, since the two
-   * boxes above already carry the verdict.
+   * The reveal, three short lines: right or wrong (the two boxes below say
+   * the same thing in colour, but not everyone reads red/green first), then
+   * which game it was and what you actually played — held back until now
+   * because "vs Kevin, move 14" is a clue about a game you might remember —
+   * and last the engine's own read on the position, the number the two boxes'
+   * evals are relative to.
    */
-  function renderPlayedLine(): void {
+  function renderPlayedLine(right: boolean): void {
     const { spot, game } = current;
-    statusEl.className = 'pt-status wm-facts-line';
+    statusEl.className = 'pt-status wm-reveal';
     statusEl.replaceChildren();
-    statusEl.appendChild(document.createTextNode(`Against ${game.opponent} you played `));
+
+    const verdict = document.createElement('div');
+    verdict.className = 'wm-reveal-verdict ' + (right ? 'wm-reveal-verdict--right' : 'wm-reveal-verdict--wrong');
+    verdict.textContent = right ? 'Correct' : 'Incorrect';
+    statusEl.appendChild(verdict);
+
+    const line = document.createElement('div');
+    line.className = 'wm-facts-line';
+    line.appendChild(document.createTextNode(`Against ${game.opponent} you played `));
     const mv = document.createElement('span');
     mv.className = 'mr-played mr-played--blunder';
     mv.textContent = `${numberedMove(spot.playedSan, spot.ply + 1)} ??`;
-    statusEl.appendChild(mv);
+    line.appendChild(mv);
+    statusEl.appendChild(line);
+
+    const evalLine = document.createElement('div');
+    evalLine.className = 'wm-reveal-eval';
+    evalLine.textContent = `Engine eval ${showCp(spot.evalBefore)}`;
+    statusEl.appendChild(evalLine);
   }
 
   function onNextTap(): void {
@@ -506,10 +530,8 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
     cg.setAutoShapes([]);
 
     headerEl.remove();
-    boardWrap.remove();
-    bottomEl.remove();
-    topEl.remove();
-    sessionBarEl.remove();
+    scrollEl.remove();
+    afterEl.remove();
 
     const wrap = document.createElement('div');
     wrap.className = 'train-completion train-completion--enter pz-results';

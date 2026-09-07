@@ -153,8 +153,10 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   // eat the spare height, which works when the bottom is a status line. Both
   // of these carry a stack under the board (a stepper, two picks, the reveal)
   // and need that height instead — without it the primary action lands under
-  // the fold on a phone.
-  overlay.className = 'pt-overlay pt-overlay--puzzle pt-overlay--tinted pt-overlay--compact';
+  // the fold on a phone. --footer: everything but the actions scrolls inside
+  // .pt-scroll, so Next case is never something you have to scroll to find.
+  overlay.className =
+    'pt-overlay pt-overlay--puzzle pt-overlay--tinted pt-overlay--compact pt-overlay--footer';
   // The Middle-game ember, same as the mistake drill — this is the same pane.
   overlay.style.setProperty('--pt-tint', '#a3492e');
 
@@ -179,16 +181,13 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   trackEl.appendChild(sessionFillEl);
   sessionBarEl.appendChild(trackEl);
 
-  // Top block: who it was against, the opening, then the brief — with the (i)
-  // beside it for anyone who wants the longer version.
+  // Top block: who it was against, then the brief — with the (i) beside it
+  // for anyone who wants the longer version.
   const topEl = document.createElement('div');
   topEl.className = 'pt-top mr-top';
   const nameEl = document.createElement('div');
   nameEl.className = 'pt-line-name mr-opponent';
   topEl.appendChild(nameEl);
-  const openingEl = document.createElement('div');
-  openingEl.className = 'mr-opening';
-  topEl.appendChild(openingEl);
   const briefEl = document.createElement('div');
   briefEl.className = 'mr-intro dt-brief';
   const briefText = document.createElement('span');
@@ -299,13 +298,19 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   bottomEl.appendChild(hintBtn);
   bottomEl.appendChild(revealBtn);
   bottomEl.appendChild(factsEl);
-  bottomEl.appendChild(afterEl);
+
+  // Everything except the post-answer actions scrolls together; the actions
+  // sit outside it, always the last thing on screen (see .pt-overlay--footer).
+  const scrollEl = document.createElement('div');
+  scrollEl.className = 'pt-scroll';
+  if (opts.refs.length >= 2) scrollEl.appendChild(sessionBarEl);
+  scrollEl.appendChild(topEl);
+  scrollEl.appendChild(boardWrap);
+  scrollEl.appendChild(bottomEl);
 
   overlay.appendChild(headerEl);
-  if (opts.refs.length >= 2) overlay.appendChild(sessionBarEl);
-  overlay.appendChild(topEl);
-  overlay.appendChild(boardWrap);
-  overlay.appendChild(bottomEl);
+  overlay.appendChild(scrollEl);
+  overlay.appendChild(afterEl);
   document.body.appendChild(overlay);
 
   // NOT viewOnly, even though the browse phase is look-only: chessground binds
@@ -427,8 +432,6 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     renderSessionBar();
 
     nameEl.textContent = `vs ${game.opponent}`;
-    openingEl.textContent = game.opening ?? '';
-    openingEl.hidden = !game.opening;
     briefEl.hidden = false;
 
     const run = replayRun(game, spot.startPly, spot.plies);
@@ -859,10 +862,8 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     cg.setAutoShapes([]);
 
     headerEl.remove();
-    boardWrap.remove();
-    bottomEl.remove();
-    topEl.remove();
-    sessionBarEl.remove();
+    scrollEl.remove();
+    afterEl.remove();
 
     const wrap = document.createElement('div');
     wrap.className = 'train-completion train-completion--enter pz-results';

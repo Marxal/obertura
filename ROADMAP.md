@@ -1288,6 +1288,33 @@ vertical space to say the same thing twice.
 
 ---
 
+## The four .mr-* drills, made to match ✅
+
+Mistake retry (four categories: Opening blunders, Punish the opening, Missed
+wins, Blunders), Blunder detective and Brilliant moves share the same `.pt-*`
+/ `.mr-*` overlay chrome, but were built in separate rounds and had drifted:
+only Which move and Blunder detective had `--compact` (Mistake retry's top
+block ate the spare height meant for the board), all four still showed the
+game's opening under the opponent's name, and none of them protected the
+post-answer Analyse/Next buttons from being scrolled out of reach when the
+reveal ran long.
+
+- ✅ **The opening is gone.** It named a fact nobody needed mid-drill and cost
+  a line of vertical space in all four exercises for nothing the story line
+  above it didn't already imply.
+- ✅ **Analyse and Next never scroll away.** The overlay itself stopped
+  scrolling; a new `.pt-scroll` wrapper holds everything except the
+  post-answer actions, which now sit outside it as an ordinary flex item — so
+  they're always the last thing on screen (`.pt-overlay--footer` in
+  `style.css`), never something a long reveal pushes below the fold. Mistake
+  retry also picked up `--compact`, matching the other three.
+- ✅ **Which move's reveal, in three lines.** Above "Against X you played Y"
+  now reads Correct/Incorrect in words (not just the red/green the two boxes
+  already carry), and below it the engine's own evaluation of the position —
+  the number the two boxes' own evals are relative to.
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on
