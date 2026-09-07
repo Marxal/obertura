@@ -32,7 +32,7 @@ import { formatMove } from './notation';
 import type { MoveEval } from './engine';
 import type { MoveClass } from './winprob';
 import { recordSpotResult } from './mistake-scan';
-import { explainPair } from './which-move';
+import { explainPair, fenAfter } from './which-move';
 import { evalPairRow } from './eval-chip';
 import { restSpot } from './spot-rest';
 import type { SpotRef, MistakeCategory } from './mistake-scan';
@@ -535,7 +535,8 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
 
   // The mistake and the fix, side by side with what each was worth — the same
   // red/green comparison Which move shows (which-move.ts's explainPair reads
-  // MistakeSpot's fields directly).
+  // MistakeSpot's fields directly). Either chip can be tapped to see that
+  // move's own position on the board.
   function renderFacts(): void {
     const { spot } = current;
     factsEl.replaceChildren();
@@ -545,8 +546,28 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
     factsEl.appendChild(evalPairRow(
       spot.playedSan, spot.evalAfter, why.played,
       best.san, spot.evalBefore, why.best,
+      () => previewMove(spot.playedUci, 'blunder'),
+      () => previewMove(best.uci, 'best'),
     ));
     factsEl.hidden = false;
+  }
+
+  /** Flip the board to show the position after one of the two moves in the reveal. */
+  function previewMove(uci: string, cls: MoveClass): void {
+    if (isCleaned) return;
+    const { spot, game } = current;
+    const { from, to } = uciParts(uci);
+    const fen = fenAfter(spot.preFen, uci);
+    chess.load(fen);
+    cg.set({
+      fen,
+      orientation: game.colour,
+      animation: { enabled: true },
+      lastMove: [from, to],
+      turnColor: cgTurn(),
+      movable: { color: undefined, dests: new Map() },
+    });
+    cg.setAutoShapes([{ orig: to, customSvg: classBoardSvg(cls) }]);
   }
 
   function onNextTap(): void {

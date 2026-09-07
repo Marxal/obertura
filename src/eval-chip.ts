@@ -7,12 +7,13 @@
 import { formatMove } from './notation';
 
 /**
- * "♝xe6 −5.2 / hangs material on e6" — one move, what the position was worth
- * after it, and the one thing that makes that number make sense.
+ * Fills an element (a `<span>` chip, or a `<button>` that was already a pick)
+ * with a move's SAN, its evaluation, and the one clause explaining it. Shared
+ * so Which move can put this content straight into the button the user
+ * already answered with, instead of a second box underneath it.
  */
-export function evalChip(san: string, cp: number, kind: 'good' | 'bad', why: string): HTMLElement {
-  const chip = document.createElement('span');
-  chip.className = `wm-eval wm-eval--${kind}`;
+export function fillEvalContent(el: HTMLElement, san: string, cp: number, why: string): void {
+  el.replaceChildren();
   const head = document.createElement('span');
   head.className = 'wm-eval-head';
   const move = document.createElement('span');
@@ -23,13 +24,31 @@ export function evalChip(san: string, cp: number, kind: 'good' | 'bad', why: str
   num.className = 'wm-eval-cp';
   num.textContent = showCp(cp);
   head.appendChild(num);
-  chip.appendChild(head);
+  el.appendChild(head);
   if (why) {
     const reason = document.createElement('span');
     reason.className = 'wm-eval-why';
     reason.textContent = why;
-    chip.appendChild(reason);
+    el.appendChild(reason);
   }
+}
+
+/**
+ * "♝xe6 −5.2 / hangs material on e6" — one move, what the position was worth
+ * after it, and the one thing that makes that number make sense. Tappable
+ * when `onTap` is given, to show that move's resulting position on the board.
+ */
+export function evalChip(
+  san: string, cp: number, kind: 'good' | 'bad', why: string, onTap?: () => void,
+): HTMLElement {
+  const chip = document.createElement(onTap ? 'button' : 'span');
+  if (onTap) {
+    const btn = chip as HTMLButtonElement;
+    btn.type = 'button';
+    btn.addEventListener('click', onTap);
+  }
+  chip.className = `wm-eval wm-eval--${kind}` + (onTap ? ' wm-eval--tap' : '');
+  fillEvalContent(chip, san, cp, why);
   return chip;
 }
 
@@ -44,14 +63,18 @@ export function showCp(cp: number): string {
   return pawns > 0 ? `+${pawns.toFixed(1)}` : pawns.toFixed(1).replace('-', '−');
 }
 
-/** The two moves side by side: the one played in red, the engine's in green. */
+/**
+ * The two moves side by side: the one played in red, the engine's in green.
+ * `onPlayedTap`/`onBestTap`, when given, preview that move's position.
+ */
 export function evalPairRow(
   playedSan: string, playedCp: number, playedWhy: string,
   bestSan: string, bestCp: number, bestWhy: string,
+  onPlayedTap?: () => void, onBestTap?: () => void,
 ): HTMLElement {
   const row = document.createElement('div');
   row.className = 'wm-facts-evals';
-  row.appendChild(evalChip(playedSan, playedCp, 'bad', playedWhy));
-  row.appendChild(evalChip(bestSan, bestCp, 'good', bestWhy));
+  row.appendChild(evalChip(playedSan, playedCp, 'bad', playedWhy, onPlayedTap));
+  row.appendChild(evalChip(bestSan, bestCp, 'good', bestWhy, onBestTap));
   return row;
 }

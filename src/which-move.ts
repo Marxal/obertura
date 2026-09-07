@@ -20,10 +20,30 @@
 //
 // No DOM, no engine, no storage — which-move.selftest.ts covers the lot.
 
+import { Chess } from 'chess.js';
 import { cpToWin } from './winprob';
 import { moveFacts, SEE_MATERIAL_MARGIN } from './move-facts';
 import type { MoveEval } from './engine';
 import type { SpotRef } from './mistake-scan';
+
+/**
+ * The position after playing a UCI move from `preFen` — used to preview
+ * either side of the red/green pair once an answer is in. Falls back to
+ * `preFen` on an illegal move, which should never happen for a stored spot.
+ */
+export function fenAfter(preFen: string, uci: string): string {
+  try {
+    const ch = new Chess(preFen);
+    ch.move({
+      from: uci.slice(0, 2),
+      to: uci.slice(2, 4),
+      promotion: (uci[4] as 'q' | 'r' | 'b' | 'n') || 'q',
+    });
+    return ch.fen();
+  } catch {
+    return preFen;
+  }
+}
 
 /**
  * How much worse the played move has to be, in win probability. The grader's

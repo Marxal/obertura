@@ -20362,26 +20362,35 @@ html.picker-open body {
 /* Both picks wear the same colour as both arrows — see which-move-run.ts. A
    button that looked different from its neighbour would be answering the
    question before the user does. */
+/* Before the answer this is just a move name; after, fillEvalContent
+   (eval-chip.ts) fills it with the same head+why stack the reveal chips use
+   — the column layout holds both without changing shape. */
 .wm-pick {
   flex: 1 1 0;
   min-height: 54px;
-  padding: 0.5rem 0.6rem;
+  padding: 0.45rem 0.5rem;
   border: 2px solid var(--wm-pick-color);
   border-radius: 12px;
   background: color-mix(in srgb, var(--wm-pick-color) 12%, var(--bg-card));
   color: var(--text);
-  font-size: 1.05rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  font-size: 0.95rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.12s, opacity 0.12s, transform 0.12s;
 }
-.wm-pick:not(:disabled):active { transform: scale(0.98); }
+.wm-pick:active { transform: scale(0.98); }
 
 /* After the answer both buttons say what they were: the engine's move goes
    green, the played one red, and the one that was tapped is ringed so the
-   verdict is about YOUR answer, not just about the moves. */
+   verdict is about YOUR answer, not just about the moves. Both stay tappable
+   afterwards, to flip the board between the two positions. */
 .wm-pick--best {
   border-color: var(--success);
   background: color-mix(in srgb, var(--success) 18%, var(--bg-card));
@@ -20395,7 +20404,10 @@ html.picker-open body {
 .wm-pick--chosen {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--text-faint) 45%, transparent);
 }
-.wm-pick:disabled { cursor: default; }
+/* Whichever pick's position is currently on the board reads slightly raised. */
+.wm-pick--active {
+  filter: brightness(1.12);
+}
 
 /* ── Better or blunder: the reveal ── */
 .wm-facts {
@@ -20449,6 +20461,20 @@ html.picker-open body {
 }
 .wm-eval--bad { color: var(--danger); }
 .wm-eval--good { color: var(--success); }
+
+/* Mistake retry and Blunder detective's reveal chips are real buttons when
+   tappable (Which move folds this content into its picks instead — see
+   .wm-pick). Reset the native button chrome so it still reads as the same
+   chip. */
+.wm-eval--tap {
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.wm-eval--tap:active { transform: scale(0.97); }
 
 .wm-eval-head {
   display: inline-flex;

@@ -1261,6 +1261,33 @@ completion popup, and task icons with no visual weight of their own.
 
 ---
 
+## The which-move reveal, folded into one row ✅
+
+Which move (and Mistake retry / Blunder detective, which share the same
+red/green reveal) used to show the verdict twice: the two pick buttons turned
+red/green, then a second row of two boxes underneath repeated the same two
+moves with their evaluation and a why-clause. That cost a full extra block of
+vertical space to say the same thing twice.
+
+- ✅ **One box per move, not two.** The eval number and the why-clause
+  (`explainPair` in `which-move.ts` — "leaves you losing", "holds the
+  balance", etc.) now render straight inside the same pick button that
+  already turned red or green, via a shared `fillEvalContent` helper
+  (`eval-chip.ts`). Which move no longer renders a second `wm-facts` block at
+  all.
+- ✅ **Tap red or green to see that position.** Both boxes stay tappable after
+  answering — tapping either flips the board to that move's own resulting
+  position (a new `fenAfter` pure helper in `which-move.ts`), with a subtle
+  brightness highlight showing which one is currently on screen. The same
+  tap-to-preview lands on Mistake retry and Blunder detective's reveal chips
+  (`evalPairRow`'s new optional tap callbacks), even though those two don't
+  have pick buttons to fold into.
+- ✅ **"No — X was the move" is gone.** Which move's status line now reads
+  "Against `<opponent>` you played `<move>` ??" instead — the fact worth
+  keeping, since the two boxes already carry the right/wrong verdict.
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

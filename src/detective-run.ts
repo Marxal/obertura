@@ -34,7 +34,7 @@ import { showDialog } from './dialog';
 import { formatMove, numberedMove } from './notation';
 import { openInfoSheet, buildInfoButton } from './info-sheet';
 import { detectiveLog } from './middle-log';
-import { explainPair } from './which-move';
+import { explainPair, fenAfter } from './which-move';
 import { evalPairRow } from './eval-chip';
 import { buildRunHeader } from './run-header';
 import { openSpotPeek, type SpotPeekOptions } from './spot-peek';
@@ -801,8 +801,28 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     factsEl.appendChild(evalPairRow(
       spot.playedSan, spot.evalAfter, why.played,
       best.san, spot.evalBefore, why.best,
+      () => previewMove(spot.playedUci, 'blunder'),
+      () => previewMove(best.uci, 'best'),
     ));
     factsEl.hidden = false;
+  }
+
+  /** Flip the board to show the position after one of the two moves in the reveal. */
+  function previewMove(uci: string, cls: 'best' | 'blunder'): void {
+    if (isCleaned) return;
+    const { spot, game } = current;
+    const { from, to } = uciParts(uci);
+    const fen = fenAfter(spot.preFen, uci);
+    chess.load(fen);
+    cg.set({
+      fen,
+      orientation: game.colour,
+      animation: { enabled: true },
+      lastMove: [from, to],
+      turnColor: cgTurn(),
+      movable: { color: undefined, dests: new Map() },
+    });
+    cg.setAutoShapes([{ orig: to, customSvg: classBoardSvg(cls) }]);
   }
 
   function onNextTap(): void {
