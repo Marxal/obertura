@@ -74,6 +74,11 @@
         </div>
       </header>
       <main>
+        <!-- The "grow a line" notification — one shared host above every view, so
+             it survives Train/My Lines/Explore switching without living inside
+             any one screen's own render. Populated by renderGrowNotice() in
+             main.ts; empty (and so invisible) everywhere else. -->
+        <div id="grow-notice-host"></div>
         <div id="view-builder">
           <div id="board-wrap">
             <div id="board"></div>

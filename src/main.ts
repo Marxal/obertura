@@ -57,7 +57,6 @@ import {
   markMistakesDone,
   markDetectiveDone,
   markWhichMoveDone,
-  markGrowLinesDone,
   isDailyDone,
   perfectDayEligible,
   type DailyTaskId,
@@ -65,10 +64,11 @@ import {
 } from './daily-challenge';
 import {
   growCandidates, pickGrowSpots, firstGrowTarget, growGameIndex, growScoutIndex,
-  type GrowSources, type GrowSpot,
+  type GrowSources, type GrowSpot, type GrowTarget,
 } from './grow-line';
 import { growDueMap, restGrowLine, GROW_SKIP_DAYS, GROW_GROWN_DAYS } from './grow-log';
 import { createGrowPanel, type GrowPanel } from './grow-panel';
+import { createGrowNotice } from './grow-notice';
 import { buildBook, bookNodeAt, loadBookEntries } from './book-tree';
 import { buildRecap, getDailyLog, localDayKey, markDayComplete, type TaskOutcome } from './daily-recap';
 import { showRecapForDay } from './daily-review';
@@ -4151,12 +4151,6 @@ function renderTrainTabbed(host: HTMLElement): void {
       mistakesAvailable: spotRefs.length > 0,
       detectiveAvailable: detectiveRefs.length > 0,
       whichMoveAvailable: pairRefs.length > 0,
-      // Cheap on purpose: "is any line mastered, ending on their move". Whether
-      // we know anything to prepare for THERE needs the bundled opening book,
-      // which is a lazily-imported 1.7 MB dataset — far too much to load on
-      // every repaint of the Train screen. The launcher does that part, and
-      // clears the row itself in the rare case it comes up empty.
-      growAvailable: growCandidates(allLines).length > 0,
     };
     const active = activeDailyTasks(config, avail);
 
@@ -4250,12 +4244,6 @@ function renderTrainTabbed(host: HTMLElement): void {
           nextAction: nextFor('detective'),
         });
       },
-      growLines: () => {
-        // The one part that leaves the trainer: it opens the builder, because
-        // adding a move is building. finish() is captured and called later,
-        // from the commit (or the skip) — see startGrowLine.
-        void startGrowLine(allLines, finish(markGrowLinesDone), nextFor('growLines'));
-      },
       whichMove: () => {
         // The quick one: two moves, pick the good one.
         const done = finish(markWhichMoveDone);
@@ -4291,7 +4279,6 @@ function renderTrainTabbed(host: HTMLElement): void {
       onFixMistakes: () => launchers.mistakes(),
       onCatchBlunders: () => launchers.detective(),
       onWhichMove: () => launchers.whichMove(),
-      onGrowLine: () => launchers.growLines(),
       // The finished card reopens today's popup rather than losing its figures
       // to the tap that dismissed it.
       onReplayRecap: () => { void showRecapForDay(localDayKey(), localDayKey(), allLines); },
@@ -4494,6 +4481,11 @@ function showView(view: ViewName): void {
     renderSettingsScreen(settingsEl);
   }
 
+  // The grow-a-line notice lives in a host shared by all views (see index.html)
+  // rather than inside any one screen's render — it repaints itself here on
+  // every navigation, and clears on any screen that isn't Train/My Lines/Explore.
+  void renderGrowNotice();
+
   if (view === 'builder') {
     // Land on the first tab by default (Explore in the builder, Game in the
     // analyser, engine off); an external link can request a different tab via
@@ -4534,66 +4526,52 @@ function showView(view: ViewName): void {
     });
   } else {
     // Leaving the builder for any other screen: stop the engine it was running,
-    // and stand the grow brief down. The daily row is deliberately NOT ticked
-    // off — walking away from it isn't doing it, and the card still offers it.
+    // and stand the grow brief down.
     if (evalPanel && evalPanel.isEnabled) evalPanel.setEnabled(false);
-    if (growPanel?.target()) { growDone = null; growNext = undefined; endGrowSession(); }
+    if (growPanel?.target()) endGrowSession();
   }
 
   // Un-hide the suspended session's overlay only once its home screen is back.
   resumeSuspended?.();
 }
 
-// ── Grow your lines ──────────────────────────────────────────────────────────
+// ── Grow a line ──────────────────────────────────────────────────────────────
 //
-// The daily challenge's one CREATIVE part: stand at the end of a line you have
+// The one CREATIVE thing the app asks for: stand at the end of a line you have
 // mastered and add an answer to something you'd meet next. The choosing and the
-// ranking are grow-line.ts (pure); the brief is grow-panel.ts (the extra tab);
-// this is the wiring — open the book at the right node, hand the panel a target,
-// and notice when the job is done.
+// ranking are grow-line.ts (pure); the brief is grow-panel.ts (the builder's
+// extra tab); the offer is grow-notice.ts (a dismissable card above Train, My
+// Lines and Explore — see its header for why a notification rather than a daily
+// task). This is the wiring between the three: compute today's candidate, open
+// the book at the right node, hand the panel its target, and notice when the
+// job is done.
 //
-// It deliberately does NOT run as a session overlay like every other part. See
-// the header of grow-panel.ts: adding a move is building, and the builder is
-// where the tools are.
+// It deliberately does NOT run as a session overlay like the rest of the daily
+// challenge. See the header of grow-panel.ts: adding a move is building, and
+// the builder is where the tools are.
 
 /** The node the exercise is standing at, so "back to the end" has somewhere to go. */
 let growEndNodeId: string | null = null;
 /**
- * Today's tick-it-off, captured at LAUNCH.
- *
- * Every other part finishes inside the Train screen, where `finish()` is still
- * in scope. This one finishes in the builder — possibly minutes later, after a
- * trip round the Library and the engine — so the callback has to be held rather
- * than looked up. Cleared as soon as it is used: the row is done once.
+ * Which of the three grow-eligible screens the notice was tapped from, so
+ * finishing or skipping the exercise returns there rather than always to Train.
  */
-let growDone: ((o: TaskOutcome) => void) | null = null;
-/**
- * …and the part of the day to move on to once it is, captured at the same
- * moment and for the same reason. Undefined when this was the last open part —
- * the challenge is then done, and the card says so on the way back.
- */
-let growNext: { label: string; run: () => void } | undefined;
+let growReturnView: ViewName = 'train';
 
 /**
- * Open the builder on a line worth growing, with the brief on its own tab.
- *
- * The three evidence sources are read ONCE here rather than on every Train
- * repaint — the opening book is a lazily-imported 1.7 MB dataset, and the game
- * index is a replay of every imported game — which is exactly why the daily
- * card's availability check (growAvailable) asks a cheaper question and leaves
- * this to the tap.
+ * Today's line to grow, if any — the same ranking grow-line.ts has always used.
+ * Read fresh on every call rather than cached: `loadBookEntries` memoises the
+ * 1.7 MB opening-book dataset itself, so only the first call in a session pays
+ * for it, and `getAllGames`/`getAllOpponents` are ordinary local reads — the
+ * same cost every other screen in the app already pays on each visit.
  */
-async function startGrowLine(
-  lines: Line[],
-  done: (o: TaskOutcome) => void,
-  next?: { label: string; run: () => void },
-): Promise<void> {
-  // Ordered, not trimmed. The part grows ONE line (dailyCountCeiling), but the
-  // first candidate may be a position none of the sources knows anything about
-  // — and the answer to that is the next candidate, not an empty exercise.
+async function computeGrowTarget(lines: Line[]): Promise<GrowTarget | null> {
+  // Ordered, not trimmed: the first candidate may be a position none of the
+  // sources knows anything about — and the answer to that is the next
+  // candidate, not an empty offer.
   const candidates = growCandidates(lines);
   const spots = pickGrowSpots(candidates, candidates.length, growAt());
-  if (spots.length === 0) { growNothingToDo(done); return; }
+  if (spots.length === 0) return null;
 
   const colour = spots[0].line.colour;
   const [games, opponents, entries] = await Promise.all([
@@ -4602,7 +4580,7 @@ async function startGrowLine(
   const book = buildBook(entries);
   // One index per colour, and every candidate we look at is that colour's —
   // pickGrowSpots is ordered, so mixing colours would mean rebuilding the index
-  // mid-search for no gain. Candidates of the other colour simply wait a day.
+  // mid-search for no gain. Candidates of the other colour simply wait their turn.
   const gameIndex = growGameIndex(games, colour);
   const scoutIndex = growScoutIndex(
     opponents.map(o => ({ name: o.name, games: o.games })), colour,
@@ -4613,15 +4591,32 @@ async function startGrowLine(
     book: bookReplies(book, spot),
   });
 
-  const target = firstGrowTarget(spots.filter(s => s.line.colour === colour), sources);
-  if (!target) { growNothingToDo(done); return; }
+  return firstGrowTarget(spots.filter(s => s.line.colour === colour), sources);
+}
 
+/** SAN → how many named openings continue that way, at this spot. */
+function bookReplies(book: ReturnType<typeof buildBook>, spot: GrowSpot): Map<string, number> {
+  const node = bookNodeAt(book, spot.sans);
+  const out = new Map<string, number>();
+  if (!node) return out;
+  for (const [san, child] of node.children) out.set(san, child.count);
+  return out;
+}
+
+/** The rest log as the lookup every picker in the app takes. */
+function growAt(): (lineId: string) => number {
+  const map = growDueMap();
+  return (id: string): number => map[id] ?? 0;
+}
+
+/** The notice was tapped — open the builder on its line, brief on its own tab. */
+function openGrowLine(target: GrowTarget): void {
   const line = target.spot.line;
   const parsed = parseLineId(line.id);
-  if (!parsed) { growNothingToDo(done); return; }
+  if (!parsed) return;
 
-  growDone = done;
-  growNext = next;
+  growReturnView = currentView === 'train' || currentView === 'lines' || currentView === 'explore'
+    ? currentView : 'train';
   growEndNodeId = parsed.endNodeId;
   // Before showView: the tab strip is built from whether a target is set.
   growPanel?.setTarget(target);
@@ -4634,32 +4629,40 @@ async function startGrowLine(
   renderBuilderDesc();
   pendingBuilderSlide = 'grow';
   showView('builder');
-  await enterBuilderBook(line.colour, () => handleMoveClick(parsed.endNodeId), parsed.repertoireId);
+  void enterBuilderBook(line.colour, () => handleMoveClick(parsed.endNodeId), parsed.repertoireId);
 }
 
-/** SAN → how many named openings continue that way, at this spot. */
-function bookReplies(book: ReturnType<typeof buildBook>, spot: GrowSpot): Map<string, number> {
-  const node = bookNodeAt(book, spot.sans);
-  const out = new Map<string, number>();
-  if (!node) return out;
-  for (const [san, child] of node.children) out.set(san, child.count);
-  return out;
-}
+/**
+ * The notice, rebuilt in the shared host above Train/My Lines/Explore — see the
+ * hook at the end of showView. Empties the host on every other screen and
+ * whenever there is nothing ready to offer.
+ */
+let growNoticeRenderId = 0;
+async function renderGrowNotice(): Promise<void> {
+  const host = document.getElementById('grow-notice-host');
+  if (!host) return;
+  const myId = ++growNoticeRenderId;
+  const eligible = (): boolean =>
+    currentView === 'train' || currentView === 'lines' || currentView === 'explore';
+  if (!eligible()) { host.replaceChildren(); return; }
 
-// Availability said there was a mastered line; the sources say they know
-// nothing about where it ends. Rare, and not the user's fault, so the row
-// clears rather than sitting there un-clearable for the rest of the day.
-function growNothingToDo(done: (o: TaskOutcome) => void): void {
-  showToast('Nothing new to prepare at the end of your lines today');
-  done({ right: 0, wrong: 0 });
-  growDone = null;
-  growNext = undefined;
-}
-
-/** The rest log as the lookup every picker in the app takes. */
-function growAt(): (lineId: string) => number {
-  const map = growDueMap();
-  return (id: string): number => map[id] ?? 0;
+  let target: GrowTarget | null = null;
+  try {
+    target = await computeGrowTarget(await getAllLines());
+  } catch {
+    target = null;
+  }
+  // Superseded by a newer render — a fast tab switch, or the screen moved on
+  // while the book/games were loading. The newer call owns the host now.
+  if (myId !== growNoticeRenderId) return;
+  host.replaceChildren();
+  if (!eligible() || !target) return;
+  const t = target;
+  host.appendChild(createGrowNotice({
+    target: t,
+    onOpen: () => openGrowLine(t),
+    onDismiss: () => { void renderGrowNotice(); },
+  }));
 }
 
 /**
@@ -4670,11 +4673,8 @@ function growAt(): (lineId: string) => number {
  * would fail the honest case where someone answers the reply and then fixes a
  * neighbouring line while they're in there.
  *
- * It ends by leaving the builder, because the builder was never the
- * destination: the row came from the daily card and the day carries on there.
- * The next part is launched straight away where there is one — the same
- * "Next challenge →" chain every other part offers, taken automatically because
- * this one has no completion screen to put a button on.
+ * It ends by leaving the builder for whichever of Train/My Lines/Explore the
+ * notice was opened from — the builder was never the destination.
  */
 function finishGrowSession(): void {
   const target = growPanel?.target();
@@ -4685,32 +4685,18 @@ function finishGrowSession(): void {
   // already in training can come back mastered within days.
   restGrowLine(target.spot.line.id, GROW_GROWN_DAYS);
   endGrowSession();
-  growDone?.({ right: 0, wrong: 0 });
-  growDone = null;
-  const next = growNext;
-  growNext = undefined;
-  showView('train');
-  liveDaily?.repaint();
-  // After showView, so the launcher it reaches is the freshly-rendered Train
-  // screen's own (liveDaily queues it if that render is still in flight).
-  next?.run();
+  showView(growReturnView);
 }
 
-/** "Skip for today": stand this line aside, clear the row, go back to Train. */
+/** "Skip for today", from inside the builder's Grow tab — go back to where the
+ * notice was opened from. */
 function skipGrowLine(): void {
   const target = growPanel?.target();
   if (!target) return;
   restGrowLine(target.spot.line.id, GROW_SKIP_DAYS);
   endGrowSession();
-  growDone?.({ right: 0, wrong: 0 });
-  growDone = null;
-  // A skip clears the row but does NOT pull the next part up: skipping is
-  // saying "not now", and answering it with another exercise would be the app
-  // arguing. The card is there when they want it.
-  growNext = undefined;
-  liveDaily?.repaint();
   showToast('Skipped — a different line tomorrow');
-  showView('train');
+  showView(growReturnView);
 }
 
 /**
@@ -6128,8 +6114,8 @@ maybeShowGate(() => requestAnimationFrame(() => {
     onRemoveContinuation: removeContinuationFromHere,
   });
 
-  // The Grow line slide — the daily challenge's brief, beside the tools that
-  // answer it. Only ever populated by startGrowLine below.
+  // The Grow line slide — the grow-a-line brief, beside the tools that answer
+  // it. Only ever populated by openGrowLine below.
   growPanel = createGrowPanel({
     el: document.getElementById('slide-grow')!,
     getUcis: currentPathUcis,

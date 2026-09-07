@@ -23,7 +23,6 @@ import {
   orderedDailyTasks,
   normaliseOrder,
   DAILY_COUNT_RANGE,
-  dailyCountCeiling,
   DEFAULT_DAILY_ORDER,
   type DailyConfig,
   type DailyTaskId,
@@ -42,7 +41,6 @@ import { Icons } from './icons';
 const DAILY_TASK_LABEL: Record<DailyTaskId, string> = {
   lines: 'Lines to remember',
   positions: 'Positions to refresh',
-  growLines: 'Lines to grow',
   puzzles: 'Puzzles to solve',
   endgames: 'Endgame puzzles',
   mistakes: 'Mistakes to fix',
@@ -184,7 +182,7 @@ function dailyTaskRow(
   onChange: () => void,
 ): HTMLElement {
   const task = config.tasks[id];
-  const isCustom = task.count > presetMax(id);
+  const isCustom = task.count > DAILY_COUNT_RANGE.stepMax;
 
   const r = row(DAILY_TASK_LABEL[id], dailyCountControl(id, task.count, onChange));
   r.classList.add('daily-order-row');
@@ -254,29 +252,15 @@ function moveButtons(
   return wrap;
 }
 
-/**
- * The highest one-tap preset this part offers. Normally three; a part with a
- * ceiling below that (growing a line, which is one a day by design) shows only
- * up to its ceiling — and therefore no Custom either, since there is nothing
- * past the presets to type.
- */
-function presetMax(id: DailyTaskId): number {
-  return Math.min(DAILY_COUNT_RANGE.stepMax, dailyCountCeiling(id));
-}
-
 // The Off/1/2/3/Custom segmented picker — five short labels, so it still fits
-// one line on a phone (the 0-through-5-plus-Custom row it replaced didn't). A
-// capped part shows fewer: "Off / 1" is the honest control for a part that only
-// ever does one.
+// one line on a phone (the 0-through-5-plus-Custom row it replaced didn't).
 function dailyCountControl(id: DailyTaskId, count: number, onChange: () => void): HTMLElement {
-  const stepMax = presetMax(id);
+  const stepMax = DAILY_COUNT_RANGE.stepMax;
   const options: { value: string; label: string }[] = [];
   for (let n = DAILY_COUNT_RANGE.min; n <= stepMax; n++) {
     options.push({ value: String(n), label: n === 0 ? 'Off' : String(n) });
   }
-  if (dailyCountCeiling(id) > DAILY_COUNT_RANGE.stepMax) {
-    options.push({ value: 'custom', label: 'Custom' });
-  }
+  options.push({ value: 'custom', label: 'Custom' });
 
   const isCustom = count > stepMax;
   const seg = segmented<string>(

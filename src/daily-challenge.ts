@@ -21,7 +21,7 @@
 import type { Line } from './types';
 import { dueLines, recentlyAddedLines, weakestLines } from './scheduler';
 import { currentStreak } from './streak';
-import { recordDailyTask, type TaskOutcome } from './daily-recap';
+import { recordDailyTask, accuracyOf, getDailyLog, localDayKey, type TaskOutcome } from './daily-recap';
 import { TRAINING_UNLOCK_LINES } from './training-goal';
 import { Icons } from './icons';
 
@@ -39,12 +39,6 @@ export const DAILY_ENDGAME_GOAL = 3;
 export const DAILY_MISTAKE_GOAL = 2;
 export const DAILY_DETECTIVE_GOAL = 2;
 export const DAILY_WHICH_MOVE_GOAL = 2;
-// Growing a line ships at ONE, and one is the honest number rather than a shy
-// one: this is the only part that asks you to write something rather than
-// remember something, it opens the builder, and it wants a decision about a
-// position you have never had to think about before. Two of those is a
-// different sort of day. Nothing stops anyone raising it in Preferences.
-export const DAILY_GROW_GOAL = 1;
 
 const KEY = 'obertura.dailyChallenge';
 const CONFIG_KEY = 'obertura.dailyChallenge.config';
@@ -53,10 +47,10 @@ const CONFIG_KEY = 'obertura.dailyChallenge.config';
 // running order — the order is `config.order` below, which the user rearranges
 // in Preferences (or hands over to chance entirely).
 export type DailyTaskId =
-  | 'lines' | 'positions' | 'growLines' | 'puzzles' | 'endgames'
+  | 'lines' | 'positions' | 'puzzles' | 'endgames'
   | 'mistakes' | 'detective' | 'whichMove';
 export const DAILY_TASK_IDS: DailyTaskId[] = [
-  'lines', 'positions', 'growLines', 'puzzles', 'endgames',
+  'lines', 'positions', 'puzzles', 'endgames',
   'mistakes', 'detective', 'whichMove',
 ];
 
@@ -66,7 +60,7 @@ export const DAILY_TASK_IDS: DailyTaskId[] = [
 // games — a new install simply doesn't show them, and the parts that do show are
 // then still in a sensible order rather than full of holes.
 export const DEFAULT_DAILY_ORDER: DailyTaskId[] = [
-  'lines', 'positions', 'growLines', 'puzzles', 'endgames',
+  'lines', 'positions', 'puzzles', 'endgames',
   'whichMove', 'detective', 'mistakes',
 ];
 
@@ -80,7 +74,6 @@ export interface DailyState {
                       // scanned spots exist — see renderDailyChallenge)
   detective: boolean; // the blunder-detective task is done (needs a scanned run)
   whichMove: boolean; // the which-move task is done (needs scanned spots)
-  growLines: boolean; // a mastered line was extended (or skipped for today)
 }
 
 // ── Config (Preferences) ──────────────────────────────────────────────────────
@@ -101,7 +94,6 @@ const DEFAULT_COUNTS: Record<DailyTaskId, number> = {
   mistakes: DAILY_MISTAKE_GOAL,
   detective: DAILY_DETECTIVE_GOAL,
   whichMove: DAILY_WHICH_MOVE_GOAL,
-  growLines: DAILY_GROW_GOAL,
 };
 
 /** What a part ships with — also the floor the perfect-day bar holds it to. */
@@ -142,21 +134,6 @@ export interface DailyConfig {
    * a bug rather than a feature.
    */
   randomOrder: boolean;
-}
-
-/**
- * The most a part may be set to.
- *
- * Everything is capped at COUNT_CUSTOM_MAX except growing a line, which is
- * capped at ONE — and that is a design limit rather than a shy default. The
- * exercise ends by handing you the extended line to confirm, which lands you on
- * My Lines; chaining a second one after that would mean yanking you back into
- * the builder from a screen you were just taken to. The row is therefore an
- * on/off, and Preferences draws it as one rather than offering a number the
- * exercise wouldn't honour.
- */
-export function dailyCountCeiling(id: DailyTaskId): number {
-  return id === 'growLines' ? 1 : COUNT_CUSTOM_MAX;
 }
 
 function clampCount(n: unknown, fallback = DEFAULT_COUNT, ceiling = COUNT_CUSTOM_MAX): number {
@@ -208,8 +185,7 @@ export function getDailyConfig(): DailyConfig {
         // Back-compat with the old on/off switch: an explicit "off" now means
         // a count of zero, whatever count was stored alongside it.
         base.tasks[id] = {
-          count: t.on === false ? 0
-            : clampCount(t.count, DEFAULT_COUNTS[id], dailyCountCeiling(id)),
+          count: t.on === false ? 0 : clampCount(t.count, DEFAULT_COUNTS[id]),
         };
       }
     }
@@ -247,7 +223,7 @@ function load(): DailyState {
   const fresh: DailyState = {
     day: todayKey(),
     lines: false, positions: false, puzzles: false, endgames: false,
-    mistakes: false, detective: false, whichMove: false, growLines: false,
+    mistakes: false, detective: false, whichMove: false,
   };
   try {
     const raw = localStorage.getItem(KEY);
@@ -266,7 +242,6 @@ function load(): DailyState {
       mistakes: !!obj.mistakes,
       detective: !!obj.detective,
       whichMove: !!obj.whichMove,
-      growLines: !!obj.growLines,
     };
   } catch {
     return fresh;
@@ -304,10 +279,6 @@ export function markEndgamesDone(o: TaskOutcome): void { markDone('endgames', o)
 export function markMistakesDone(o: TaskOutcome): void { markDone('mistakes', o); }
 export function markDetectiveDone(o: TaskOutcome): void { markDone('detective', o); }
 export function markWhichMoveDone(o: TaskOutcome): void { markDone('whichMove', o); }
-// Growing a line has no right/wrong to file — there is no answer to get wrong,
-// and a skip is a legitimate way to clear it. Callers pass {right:0,wrong:0}, so
-// a perfect day survives both outcomes.
-export function markGrowLinesDone(o: TaskOutcome): void { markDone('growLines', o); }
 
 // ── Which tasks are active, and the next one ──────────────────────────────────
 
@@ -316,10 +287,6 @@ export interface DailyAvailability {
   mistakesAvailable: boolean;   // the mistake scan has found spots
   detectiveAvailable: boolean;  // the scan has found a "find the blunder" run
   whichMoveAvailable: boolean;     // …and spots that make a fair two-move question
-  // At least one line is mastered, ends on the opponent's move, and has
-  // something known to prepare for (grow-line.ts). Off until then: the exercise
-  // is the reward for finishing something, not a chore to start one with.
-  growAvailable: boolean;
 }
 
 /**
@@ -379,7 +346,6 @@ export function activeDailyTasks(
     if (id === 'mistakes' && !avail.mistakesAvailable) return false;
     if (id === 'detective' && !avail.detectiveAvailable) return false;
     if (id === 'whichMove' && !avail.whichMoveAvailable) return false;
-    if (id === 'growLines' && !avail.growAvailable) return false;
     return true;
   });
 }
@@ -499,9 +465,6 @@ export interface DailyChallengeDeps {
   // pick the better of two moves.
   onCatchBlunders: () => void;
   onWhichMove: () => void;
-  // Open the builder on the end of a line you have mastered, with the moves to
-  // prepare for listed on its own tab.
-  onGrowLine: () => void;
   // Reopen today's completion popup from the "done" card. Omitted where there is
   // nothing to reopen.
   onReplayRecap?: () => void;
@@ -524,7 +487,6 @@ const TASK_META: Record<DailyTaskId, { icon: () => SVGElement; label: (n: number
   mistakes:  { icon: () => Icons.reset(18),       label: (n) => `${n} mistake${n === 1 ? '' : 's'} to fix` },
   detective: { icon: () => Icons.scout(18),       label: (n) => `${n} blunder${n === 1 ? '' : 's'} to catch` },
   whichMove: { icon: () => Icons.merge(18),       label: (n) => `${n} move${n === 1 ? '' : 's'} to pick` },
-  growLines: { icon: () => Icons.sprout(18),      label: (n) => `${n} line${n === 1 ? '' : 's'} to grow` },
 };
 
 // The gear, bottom-right of the card. Which tasks the challenge includes and how
@@ -563,7 +525,6 @@ function runDailyTask(id: DailyTaskId, deps: DailyChallengeDeps): void {
     case 'mistakes': deps.onFixMistakes(); break;
     case 'detective': deps.onCatchBlunders(); break;
     case 'whichMove': deps.onWhichMove(); break;
-    case 'growLines': deps.onGrowLine(); break;
   }
 }
 
@@ -621,9 +582,29 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
       msg.setAttribute('aria-label', 'Daily challenge done — see today’s results');
       msg.addEventListener('click', deps.onReplayRecap!);
     }
-    const label = document.createElement('span');
-    label.textContent = 'Daily challenge done — keep training ✓';
-    msg.appendChild(label);
+
+    const badge = document.createElement('span');
+    badge.className = 'daily-card-done-badge';
+    badge.appendChild(Icons.checkCircle(18));
+    msg.appendChild(badge);
+
+    const text = document.createElement('span');
+    text.className = 'daily-card-done-text';
+    const title = document.createElement('span');
+    title.className = 'daily-card-done-title';
+    title.textContent = 'Done for today';
+    text.appendChild(title);
+    // Read straight from the log, same way getDaily() reads today's task
+    // state — a taste of the popup's numbers without waiting for it to open.
+    const todayRow = getDailyLog().find((r) => r.day === localDayKey());
+    if (todayRow && todayRow.right + todayRow.wrong > 0) {
+      const stat = document.createElement('span');
+      stat.className = 'daily-card-done-stat';
+      stat.textContent = `${accuracyOf(todayRow.right, todayRow.wrong)}% correct today`;
+      text.appendChild(stat);
+    }
+    msg.appendChild(text);
+
     if (msg instanceof HTMLButtonElement) {
       const chev = Icons.chevronRight(15);
       chev.classList.add('daily-card-done-chev');
@@ -634,6 +615,8 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
     if (doneFoot) card.appendChild(doneFoot);
     return card;
   }
+
+  card.appendChild(buildProgressBar(active.filter((id) => state[id]).length, active.length));
 
   const tasks = document.createElement('div');
   tasks.className = 'daily-card-tasks';
@@ -648,15 +631,18 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
   }
   card.appendChild(tasks);
 
-  const note = document.createElement('div');
-  note.className = 'daily-card-note';
-  const fromYourGames = active.some(id => id === 'mistakes' || id === 'detective' || id === 'whichMove');
-  note.textContent = fromYourGames
-    ? 'Lines, puzzles and your own mistakes, picked for you.'
-    : 'A daily mix of lines, puzzles and endgames, picked for you.';
-  card.appendChild(buildFoot(note, deps.onOpenPrefs) ?? note);
+  const activeFoot = buildFoot(null, deps.onOpenPrefs);
+  if (activeFoot) card.appendChild(activeFoot);
 
   return card;
+}
+
+// The active card's "how far along today" bar — same track/fill recipe as
+// the locked card's three-line goal bar, just counting finished tasks
+// instead of saved lines.
+function buildProgressBar(doneCount: number, total: number): HTMLElement {
+  return buildBar('daily-card-progress', doneCount, total,
+    `${doneCount} of ${total} today’s tasks done`);
 }
 
 // ── The locked card ──────────────────────────────────────────────────────────
@@ -666,15 +652,10 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
 // (minus the two that need data nobody has on day one), so the preview is not a
 // mock-up of a feature — it is the feature, greyed.
 
-// The rows the preview shows: everything switched on in Preferences except the
-// three from-your-games parts, which need imported, scanned games and would
-// promise something a new install can't deliver.
-// The rows the preview does NOT show. The three from-your-games parts need
-// imported, scanned games; growing a line needs a line you have already
-// mastered, which is several weeks past the three the bar is counting to.
-// Promising either on day one would be promising something the card can't
-// deliver for a long time.
-const NOT_YET: DailyTaskId[] = ['mistakes', 'detective', 'whichMove', 'growLines'];
+// The rows the preview does NOT show: the three from-your-games parts need
+// imported, scanned games, which a new install doesn't have. Promising them on
+// day one would be promising something the card can't deliver for a long time.
+const NOT_YET: DailyTaskId[] = ['mistakes', 'detective', 'whichMove'];
 
 function previewTasks(config: DailyConfig): DailyTaskId[] {
   return orderedDailyTasks(config)
@@ -747,27 +728,36 @@ function buildLockedCard(deps: DailyChallengeDeps): HTMLElement | null {
   return card;
 }
 
-// The three-line goal as a bar — the same figure the Get-started panel counts,
-// so the two never disagree about how far along you are.
-function buildGoalBar(saved: number): HTMLElement {
+// A slim progress bar: track + fill, with the ARIA a progressbar needs. Used
+// for both the locked card's "N of 3 lines saved" goal and the active card's
+// "N of M tasks done today" — same look, different count.
+function buildBar(extraClass: string, value: number, max: number, label: string): HTMLElement {
   const wrap = document.createElement('div');
-  wrap.className = 'daily-goal';
+  wrap.className = `daily-goal ${extraClass}`;
 
   const track = document.createElement('span');
   track.className = 'daily-goal-track';
   const fill = document.createElement('span');
   fill.className = 'daily-goal-fill';
-  const pct = Math.min(100, (Math.min(saved, TRAINING_UNLOCK_LINES) / TRAINING_UNLOCK_LINES) * 100);
+  const clamped = Math.min(value, max);
+  const pct = max > 0 ? Math.min(100, (clamped / max) * 100) : 0;
   fill.style.width = `${pct}%`;
   track.appendChild(fill);
   wrap.appendChild(track);
 
   wrap.setAttribute('role', 'progressbar');
   wrap.setAttribute('aria-valuemin', '0');
-  wrap.setAttribute('aria-valuemax', String(TRAINING_UNLOCK_LINES));
-  wrap.setAttribute('aria-valuenow', String(Math.min(saved, TRAINING_UNLOCK_LINES)));
-  wrap.setAttribute('aria-label', `${saved} of ${TRAINING_UNLOCK_LINES} lines saved`);
+  wrap.setAttribute('aria-valuemax', String(max));
+  wrap.setAttribute('aria-valuenow', String(clamped));
+  wrap.setAttribute('aria-label', label);
   return wrap;
+}
+
+// The three-line goal as a bar — the same figure the Get-started panel counts,
+// so the two never disagree about how far along you are.
+function buildGoalBar(saved: number): HTMLElement {
+  return buildBar('daily-goal--lines', saved, TRAINING_UNLOCK_LINES,
+    `${saved} of ${TRAINING_UNLOCK_LINES} lines saved`);
 }
 
 // A preview row: the real icon and label, dimmed, and inert. Not a <button> —

@@ -493,13 +493,12 @@ a move was missed.
 `daily-challenge.ts` — the card at the top of Train, spanning every mode. State
 is device-local, reset each local calendar day.
 
-**Eight parts** (`DailyTaskId`), shipped in this order (`DEFAULT_DAILY_ORDER`):
+**Seven parts** (`DailyTaskId`), shipped in this order (`DEFAULT_DAILY_ORDER`):
 
 | Part | Default count | Needs |
 |---|---|---|
 | `lines` | 3 | a repertoire |
 | `positions` | 3 | a repertoire |
-| `growLines` | **1** | a *mastered* line |
 | `puzzles` | 3 | network |
 | `endgames` | 3 | network |
 | `whichMove` | **2** | scanned games |
@@ -508,8 +507,12 @@ is device-local, reset each local calendar day.
 
 The three game-fed parts ship at 2 and sit together at the end, so a new install
 simply doesn't show them and the parts that do show are still in a sensible
-order. Growing a line ships at **1** because it is the only part that asks you to
-*write* something rather than remember something.
+order.
+
+Growing a line (§8.4) is **not** one of these — it used to be an eighth,
+quota-of-one part, but a quota row forced it to compete with puzzles and lines
+for one of the day's ticks. It's a standing offer instead: `grow-notice.ts`
+draws a dismissable card, above Train/My Lines/Explore, whenever one is ready.
 
 - **A count of 0 is off** — there is no separate switch. Range: 0–3 as one-tap
   presets, up to 20 as a custom value.
@@ -589,22 +592,37 @@ queue **everywhere** — never removed, just no longer dealt first.
 (a clean solve rests longer each time; a miss rests one day so it is out of
 today's way but back tomorrow).
 
-### 8.4 Grow your lines
+### 8.4 Grow a line
 
-`grow-line.ts` (pure) + `grow-panel.ts` (the tab) + `grow-log.ts` (the rest log)
-+ the wiring in `main.ts`.
+`grow-line.ts` (pure candidate/ranking logic) + `grow-notice.ts` (the
+dismissable notification card) + `grow-panel.ts` (the builder's Grow tab) +
+`grow-log.ts` (the shared rest log) + the wiring in `main.ts`
+(`computeGrowTarget`, `openGrowLine`, `renderGrowNotice`).
 
-The one **creative** daily part: stand at the end of a line you have genuinely
-mastered and add an answer to something you would meet next. It waits for
-`lineMastered` (three clean runs, 80% recall, every move drilled, and
+The one **creative** thing the app asks for: stand at the end of a line you have
+genuinely mastered and add an answer to something you would meet next. It waits
+for `lineMastered` (three clean runs, 80% recall, every move drilled, and
 `ownMoves > 0` — a line that already continues has nowhere to grow), and only
 offers lines ending on **your** move, so the end position is one where the
 opponent moves next.
+
+**It's a notification, not a task.** `grow-notice.ts` draws one card, for one
+line, above Train/My Lines/Explore — a shared host div in `index.html`
+(`#grow-notice-host`, a sibling of `<header>`), repainted by
+`renderGrowNotice()` on every `showView()` call. No mastered/growable line, or
+the best candidate resting → no card, nothing shown. Tapping it opens the
+builder on the Grow tab (see below); dismissing it (swipe or ×) rests that line
+for `GROW_NOTICE_DISMISS_DAYS` (3 days, `grow-log.ts`) — the same rest map a
+completed grow (14 days) and the panel's own "skip for today" (1 day) write to,
+so any of the three make the offer go quiet everywhere at once, not just where
+it was acted on.
 
 **It is a tab, not an overlay.** Adding a move is *building*, and the builder is
 where the tools are — the board, the library, your games, the engine, the
 explorer. The panel is a pure readout of where the cursor is, so the user can
 wander off to Library and come back to a brief that still knows what it asked.
+Finishing or skipping returns to whichever of Train/My Lines/Explore the
+notice was opened from (`growReturnView`), not always to Train.
 
 ---
 
@@ -1428,7 +1446,8 @@ Every non-selftest module in `src/`, exactly once.
 | `detective-run.ts` | its overlay |
 | `which-move.ts` / `which-move-run.ts` | the two-move question: pure core, then overlay |
 | `eval-chip.ts` | the shared good/bad move comparison chip |
-| `grow-line.ts` | Grow your lines — the pure "add one more move" core |
+| `grow-line.ts` | Grow a line — the pure "add one more move" core |
+| `grow-notice.ts` | the dismissable notification card (Train/My Lines/Explore) |
 | `grow-panel.ts` | the builder's Grow line tab |
 | `grow-log.ts` | which lines have had their turn |
 | `middle-log.ts` | rest logs for the two "read your own games" exercises |

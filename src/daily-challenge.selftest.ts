@@ -46,7 +46,6 @@ function config(over: Partial<DailyConfig> = {}): DailyConfig {
 
 const ALL_AVAILABLE = {
   hasLines: true,
-  growAvailable: true,
   mistakesAvailable: true,
   detectiveAvailable: true,
   whichMoveAvailable: true,
@@ -112,7 +111,7 @@ export function runDailyChallengeSelfTest(): TestResult[] {
   {
     const mine: DailyTaskId[] = [
       'puzzles', 'detective', 'lines', 'endgames', 'positions', 'whichMove',
-      'mistakes', 'growLines',
+      'mistakes',
     ];
     const c = config({ order: mine });
     check('the card follows the stored order',
@@ -138,7 +137,6 @@ export function runDailyChallengeSelfTest(): TestResult[] {
 
     const noGames = activeDailyTasks(config(), {
       hasLines: true,
-      growAvailable: true,
       mistakesAvailable: false,
       detectiveAvailable: false,
       whichMoveAvailable: false,
@@ -148,7 +146,7 @@ export function runDailyChallengeSelfTest(): TestResult[] {
         && !noGames.includes('whichMove'),
       noGames.join(','));
     check('…and the rest are still there, in order',
-      noGames.join(',') === 'lines,positions,growLines,puzzles,endgames', noGames.join(','));
+      noGames.join(',') === 'lines,positions,puzzles,endgames', noGames.join(','));
   }
 
   // ── Shuffle: different day by day, identical within a day ──────────────────
@@ -214,6 +212,6 @@ export function runDailyChallengeSelfTest(): TestResult[] {
 function blankState(): Pick<DailyState, DailyTaskId> {
   return {
     lines: false, positions: false, puzzles: false, endgames: false,
-    mistakes: false, detective: false, whichMove: false, growLines: false,
+    mistakes: false, detective: false, whichMove: false,
   };
 }

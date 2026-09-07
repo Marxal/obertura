@@ -1528,7 +1528,11 @@ main {
   padding: 0.85rem 0.9rem;
   background: linear-gradient(135deg, var(--accent-soft), var(--bg-card) 75%);
   border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-card);
 }
+
+/* The active card's "how far along today" bar, right under the head row. */
+.daily-card-progress { margin-top: -0.15rem; }
 
 .daily-card-head {
   display: flex;
@@ -1566,12 +1570,18 @@ main {
 }
 .daily-task:active { filter: brightness(0.97); }
 
+/* A soft accent disc behind each task's icon — the same recipe as the
+   onboarding intro/wizard icons (.intro-icon), scaled down. */
 .daily-task-icon {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--accent-active);
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .daily-task-label { flex: 1 1 auto; min-width: 0; }
@@ -1582,7 +1592,7 @@ main {
   color: var(--text-muted);
   cursor: default;
 }
-.daily-task--done .daily-task-icon { color: #5a9e3f; }
+.daily-task--done .daily-task-icon { background: rgba(90, 158, 63, 0.14); color: #5a9e3f; }
 .daily-task--done .daily-task-label { text-decoration: line-through; opacity: 0.8; }
 
 .daily-card-note {
@@ -1646,10 +1656,7 @@ main {
 .daily-card-done-msg {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: #5a9e3f;
+  gap: 0.6rem;
 }
 .daily-card-done-msg--tap {
   width: 100%;
@@ -1662,6 +1669,37 @@ main {
   -webkit-tap-highlight-color: transparent;
 }
 .daily-card-done-msg--tap:active { filter: brightness(0.92); }
+
+.daily-card-done-badge {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: rgba(90, 158, 63, 0.14);
+  color: #5a9e3f;
+}
+
+.daily-card-done-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.daily-card-done-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #5a9e3f;
+}
+.daily-card-done-stat {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .daily-card-done-chev {
   margin-left: auto;
   flex: 0 0 auto;
@@ -1729,6 +1767,90 @@ main {
 .daily-task--locked .daily-task-icon { color: var(--text-fainter); }
 
 .daily-locked-cta { align-self: flex-start; }
+
+/* ── Grow-a-line notice (top of Train / My Lines / Explore) ───────────────────
+   A standing offer, not a task: one card, one line, dressed like a phone
+   notification (it is not one) so it reads as "something's ready" rather than
+   another to-do. Swipe it away, or tap the ×, and it rests quietly for a few
+   days (grow-notice.ts); tap the card itself to jump into the builder's Grow
+   tab. Lives in its own host — a sibling of the header, not any one screen's
+   render — so it survives Train/My Lines/Explore switching untouched. */
+.grow-notice-host {
+  margin: 0.75rem 1rem 0;
+}
+.grow-notice-host:empty {
+  margin: 0;
+}
+
+@keyframes grow-notice-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.grow-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.7rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-left: 3px solid var(--success);
+  border-radius: 10px;
+  box-shadow: var(--shadow-card);
+  animation: grow-notice-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  touch-action: pan-y;
+  cursor: pointer;
+  will-change: transform, opacity;
+}
+
+/* While a finger is down the card tracks it 1:1 — no transition to fight. */
+.grow-notice--dragging { transition: none; cursor: grabbing; }
+.grow-notice:not(.grow-notice--dragging) { transition: transform 0.2s ease, opacity 0.2s ease; }
+
+.grow-notice--exit-left  { transform: translateX(-120%) !important; opacity: 0 !important; }
+.grow-notice--exit-right { transform: translateX(120%) !important;  opacity: 0 !important; }
+
+.grow-notice-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  color: var(--success);
+}
+
+.grow-notice-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.grow-notice-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.grow-notice-sub {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.grow-notice-chev {
+  flex-shrink: 0;
+  color: var(--text-fainter);
+}
+
+.grow-notice-close {
+  flex-shrink: 0;
+  display: inline-flex;
+  padding: 0.3rem;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--text-fainter);
+  cursor: pointer;
+}
+.grow-notice-close:active { background: var(--accent-soft); }
 
 /* ── "Get started" panel (first-steps.ts) ─────────────────────────────────────
    Takes the daily challenge's slot at the top of Train until five lines are

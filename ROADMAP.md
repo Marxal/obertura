@@ -1171,6 +1171,42 @@ numbers small enough to ride a push that was happening anyway.
 
 ---
 
+## The grow-notice round — from a daily quota to a standing offer ✅
+
+Growing a line (previous round) shipped as the daily challenge's eighth part,
+capped at one because the exercise ends by handing you the extended line and
+chaining a second one would yank you back into the builder from a screen you
+were just taken to. That cap made it feel like a chore competing with puzzles
+and lines for one of the day's ticks, when the honest shape of the offer is
+"this one's ready whenever you are" — which a quota row can't say.
+
+- ✅ **Out of Daily Challenge entirely.** `growLines` is gone from
+  `DailyTaskId`, the order, the config, the done-state, the preview — the
+  challenge is seven parts again. `dailyCountCeiling` (the special one-a-day
+  cap it existed for) went with it, since every remaining part shares the same
+  ceiling.
+- ✅ **A dismissable notification card instead** (`grow-notice.ts`), styled
+  like a phone notification — it isn't one — sitting in a host shared by
+  Train, My Lines and Explore (`#grow-notice-host`, a sibling of `<header>` in
+  `index.html`, repainted from `showView()` on every navigation). One card,
+  one line, ever: icon, "Grow a line", the line's name. Nothing else — the
+  reasons for each suggested move still live inside the builder's Grow tab,
+  where there's room to read them.
+- ✅ **Never nagging.** No mastered, growable line with something to prepare
+  for → no card, not an empty one. Three ways to go quiet, sharing the one
+  rest map (`grow-log.ts`) so any of them clears the offer everywhere, not
+  just where it was acted on: swiping the notice away rests the line 3 days
+  (`GROW_NOTICE_DISMISS_DAYS`, the vaguest signal); "Skip for today" inside
+  the builder's Grow tab rests it 1 day (you looked and passed — a more
+  specific answer); finishing the exercise rests it 14 days, as before.
+- ✅ **The same exercise, a new front door.** Tapping the card runs the exact
+  builder-entry recipe the old daily row used — Grow tab preselected, arrows
+  on the board, the three sourced moves — just reached from wherever the
+  notice was tapped. Finishing or skipping now returns to *that* screen
+  (`growReturnView`: Train, My Lines or Explore), not always to Train.
+
+---
+
 ## The GitHub Pages retirement — a goodbye page for the old test mirror ✅
 
 Bito Chess now lives at bitochess.com; the GitHub Pages URL was only ever the
@@ -1196,6 +1232,32 @@ users on the real domain, that mirror closes rather than keeps drifting.
   untouched — `npm run dev`/`npm run build` still build the real app locally
   — only the GitHub Pages *deploy* changed. The `cloudflare` target
   (bitochess.com) was never touched.
+
+---
+
+## The daily challenge card, dressed up ✅
+
+The card worked but read flatly: a filler sentence nobody needed to read
+twice, a done-state that was one line of plain text with no sense of how the
+day went even though the full numbers already exist a tap away in the
+completion popup, and task icons with no visual weight of their own.
+
+- ✅ **Circular icon badges.** Task icons now sit in a soft accent disc — the
+  same recipe as the onboarding intro/wizard icons, scaled down — instead of
+  a bare coloured glyph. Done tasks get the same disc in green.
+- ✅ **A progress bar on the active card.** A thin "N of M done today" bar
+  under the header, built with the same track/fill CSS the locked card's
+  three-line goal bar already used (factored into one shared `buildBar`
+  helper rather than duplicated).
+- ✅ **The footer's flavor text is gone.** "Lines, puzzles and your own
+  mistakes, picked for you." (and its fallback) added nothing worth reading
+  twice a day; the footer is now just the preferences gear, right-aligned.
+- ✅ **The done card shows a real number.** Instead of "Daily challenge done —
+  keep training ✓", a green check badge, "Done for today", and a
+  "N% correct today" line — read straight from the same log
+  (`getDailyLog`/`accuracyOf` in `daily-recap.ts`) the completion popup itself
+  reads, so the two numbers can never disagree. Still the same tappable row
+  that reopens the popup for the full recap.
 
 ---
 
