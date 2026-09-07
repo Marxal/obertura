@@ -480,13 +480,13 @@ export interface DailyChallengeDeps {
 
 // Each task's card face: an icon and a label that folds in the configured count.
 const TASK_META: Record<DailyTaskId, { icon: () => SVGElement; label: (n: number) => string }> = {
-  lines:     { icon: () => Icons.tree(18),        label: (n) => `${n} line${n === 1 ? '' : 's'} to remember` },
-  positions: { icon: () => Icons.target(18),      label: (n) => `${n} position${n === 1 ? '' : 's'} to refresh` },
-  puzzles:   { icon: () => Icons.puzzlePiece(18), label: (n) => `${n} puzzle${n === 1 ? '' : 's'} to solve` },
-  endgames:  { icon: () => Icons.flag(18),        label: (n) => `${n} endgame puzzle${n === 1 ? '' : 's'}` },
-  mistakes:  { icon: () => Icons.reset(18),       label: (n) => `${n} mistake${n === 1 ? '' : 's'} to fix` },
-  detective: { icon: () => Icons.scout(18),       label: (n) => `${n} blunder${n === 1 ? '' : 's'} to catch` },
-  whichMove: { icon: () => Icons.merge(18),       label: (n) => `${n} move${n === 1 ? '' : 's'} to pick` },
+  lines:     { icon: () => Icons.tree(16),        label: (n) => `${n} line${n === 1 ? '' : 's'} to remember` },
+  positions: { icon: () => Icons.target(16),      label: (n) => `${n} position${n === 1 ? '' : 's'} to refresh` },
+  puzzles:   { icon: () => Icons.puzzlePiece(16), label: (n) => `${n} puzzle${n === 1 ? '' : 's'} to solve` },
+  endgames:  { icon: () => Icons.flag(16),        label: (n) => `${n} endgame puzzle${n === 1 ? '' : 's'}` },
+  mistakes:  { icon: () => Icons.reset(16),       label: (n) => `${n} mistake${n === 1 ? '' : 's'} to fix` },
+  detective: { icon: () => Icons.scout(16),       label: (n) => `${n} blunder${n === 1 ? '' : 's'} to catch` },
+  whichMove: { icon: () => Icons.merge(16),       label: (n) => `${n} move${n === 1 ? '' : 's'} to pick` },
 };
 
 // The gear, bottom-right of the card. Which tasks the challenge includes and how
@@ -562,26 +562,35 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
   head.className = 'daily-card-head';
   const title = document.createElement('span');
   title.className = 'daily-card-title';
-  title.textContent = 'Daily challenge';
+  title.appendChild(Icons.sparkles(14));
+  const titleText = document.createElement('span');
+  titleText.textContent = 'Daily challenge';
+  title.appendChild(titleText);
   head.appendChild(title);
   head.appendChild(buildStreakPill());
   card.appendChild(head);
 
   if (done) {
-    // The whole line is the button: the completion popup carries the day's
-    // figures, and losing it to a stray tap used to mean losing them until
-    // tomorrow. It reads as a button (chevron, pressable) so nobody has to
-    // discover it.
-    const msg = deps.onReplayRecap
-      ? document.createElement('button')
-      : document.createElement('div');
-    msg.className = 'daily-card-done-msg';
-    if (msg instanceof HTMLButtonElement) {
-      msg.type = 'button';
-      msg.classList.add('daily-card-done-msg--tap');
-      msg.setAttribute('aria-label', 'Daily challenge done — see today’s results');
-      msg.addEventListener('click', deps.onReplayRecap!);
+    // The whole CARD is the button now, not just this row: the completion
+    // popup carries the day's figures, and losing it to a stray tap used to
+    // mean losing them until tomorrow. A card that visibly presses is its own
+    // affordance — no chevron needed to say "tap me".
+    if (deps.onReplayRecap) {
+      const open = deps.onReplayRecap;
+      card.classList.add('daily-card--tap');
+      card.setAttribute('role', 'button');
+      card.tabIndex = 0;
+      card.setAttribute('aria-label', 'Daily challenge done — see today’s results');
+      card.addEventListener('click', open);
+      card.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        open();
+      });
     }
+
+    const msg = document.createElement('div');
+    msg.className = 'daily-card-done-msg';
 
     const badge = document.createElement('span');
     badge.className = 'daily-card-done-badge';
@@ -596,27 +605,31 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
     text.appendChild(title);
     // Read straight from the log, same way getDaily() reads today's task
     // state — a taste of the popup's numbers without waiting for it to open.
+    // One stat line, not two ("Done for today" already says "today"): the
+    // percentage right alongside the raw tally it's built from.
     const todayRow = getDailyLog().find((r) => r.day === localDayKey());
     if (todayRow && todayRow.right + todayRow.wrong > 0) {
+      const total = todayRow.right + todayRow.wrong;
       const stat = document.createElement('span');
       stat.className = 'daily-card-done-stat';
-      stat.textContent = `${accuracyOf(todayRow.right, todayRow.wrong)}% correct today`;
+      stat.textContent = `${accuracyOf(todayRow.right, todayRow.wrong)}% correct · ${todayRow.right} of ${total} moves`;
       text.appendChild(stat);
     }
     msg.appendChild(text);
-
-    if (msg instanceof HTMLButtonElement) {
-      const chev = Icons.chevronRight(15);
-      chev.classList.add('daily-card-done-chev');
-      msg.appendChild(chev);
-    }
     card.appendChild(msg);
+
     const doneFoot = buildFoot(null, deps.onOpenPrefs);
     if (doneFoot) card.appendChild(doneFoot);
     return card;
   }
 
-  card.appendChild(buildProgressBar(active.filter((id) => state[id]).length, active.length));
+  const doneCount = active.filter((id) => state[id]).length;
+  // The bar only earns its place mid-challenge — at zero done it has nothing
+  // to show yet, and the row count below already says how much there is.
+  if (doneCount > 0) card.appendChild(buildProgressBar(doneCount, active.length));
+
+  const nextId = nextDailyTask(state, active);
+  if (nextId) card.appendChild(buildStartButton(doneCount > 0, () => runDailyTask(nextId, deps)));
 
   const tasks = document.createElement('div');
   tasks.className = 'daily-card-tasks';
@@ -635,6 +648,21 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
   if (activeFoot) card.appendChild(activeFoot);
 
   return card;
+}
+
+// The card's one big action: jump straight into the next unfinished part,
+// instead of making the first tap always be "read up to seven rows, pick
+// one". The rows stay tappable too, for picking a specific part on purpose.
+function buildStartButton(resuming: boolean, onClick: () => void): HTMLButtonElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'daily-card-start';
+  btn.appendChild(Icons.play(15));
+  const label = document.createElement('span');
+  label.textContent = resuming ? 'Continue' : 'Start daily challenge';
+  btn.appendChild(label);
+  btn.addEventListener('click', onClick);
+  return btn;
 }
 
 // The active card's "how far along today" bar — same track/fill recipe as
@@ -786,7 +814,7 @@ function buildTask(o: { icon: SVGElement; label: string; done: boolean; onClick:
 
   const icon = document.createElement('span');
   icon.className = 'daily-task-icon';
-  icon.appendChild(o.done ? Icons.checkCircle(18) : o.icon);
+  icon.appendChild(o.done ? Icons.checkCircle(16) : o.icon);
   btn.appendChild(icon);
 
   const label = document.createElement('span');
