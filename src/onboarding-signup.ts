@@ -54,12 +54,18 @@ export function showFirstLineSuccess(opts: {
   title.textContent = opts.title ?? 'Your first line is set!';
   card.appendChild(title);
 
-  const lead = document.createElement('p');
-  lead.className = 'firstwin-lead';
-  lead.textContent = opts.lead
-    ?? 'Add about five lines when you have a minute to build a repertoire '
-      + 'worth training every day. You can save as many lines as you like.';
-  card.appendChild(lead);
+  // The nudge under the title is optional: a caller that leads with the account
+  // ask (the games-first run) passes neither, so the card goes straight from
+  // "4 lines saved" to why that is worth protecting.
+  const leadText = opts.lead ?? (opts.title ? null
+    : 'Add about five lines when you have a minute to build a repertoire '
+      + 'worth training every day. You can save as many lines as you like.');
+  if (leadText) {
+    const lead = document.createElement('p');
+    lead.className = 'firstwin-lead';
+    lead.textContent = leadText;
+    card.appendChild(lead);
+  }
 
   let closed = false;
   function close(): void {
@@ -75,10 +81,15 @@ export function showFirstLineSuccess(opts: {
   const offerAccount = isSupabaseConfigured && !getAuthUser();
 
   if (offerAccount) {
+    // THE ACCOUNT IS THE POINT OF THIS CARD, not a footnote under a
+    // celebration. The user has just made something, and the only thing between
+    // it and a cleared browser is an account nobody has mentioned. So the ask
+    // leads, and the way past it is a quiet word rather than a second button of
+    // equal weight — offered, never required.
     const why = document.createElement('p');
     why.className = 'firstwin-ask';
-    why.textContent = 'Your lines live on this phone. A free account keeps a copy, '
-      + 'so they come back on any device you sign in on.';
+    why.textContent = 'Right now this lives only on this phone. A free account '
+      + 'saves your progress and brings it back on any device you sign in on.';
     card.appendChild(why);
 
     const signUp = document.createElement('button');
@@ -88,8 +99,8 @@ export function showFirstLineSuccess(opts: {
     signUp.addEventListener('click', () => {
       close();
       openSignUpSheet('signup', {
-        lead: 'Your first line is saved on this phone. An account keeps a copy, so it '
-          + 'follows you to any device you sign in on.',
+        lead: 'Your repertoire is saved on this phone. An account keeps a copy, so '
+          + 'it follows you to any device you sign in on.',
       });
     });
     card.appendChild(signUp);
@@ -98,9 +109,11 @@ export function showFirstLineSuccess(opts: {
   const cta = document.createElement('button');
   cta.type = 'button';
   // Two primaries side by side would ask the user to weigh the celebration
-  // against a form. The way on stays a plain word under the offer.
+  // against a form. The way on stays a plain word under the offer — and it says
+  // what it actually is, so nobody continues as a guest without knowing they
+  // are one.
   cta.className = offerAccount ? 'signup-sheet-dismiss' : 'btn-primary firstwin-cta';
-  cta.textContent = offerAccount ? 'Not now' : 'Keep going';
+  cta.textContent = offerAccount ? 'Continue as a guest' : 'Keep going';
   cta.addEventListener('click', close);
   card.appendChild(cta);
 

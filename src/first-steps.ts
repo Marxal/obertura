@@ -173,19 +173,34 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
     });
   }
 
-  // The walkthrough, first — before the connect-this, import-that rows. Someone
-  // still looking at this panel is someone the app hasn't explained itself to
-  // yet, and this is the row that does the explaining. It never disappears once
-  // taken; it just ticks off, because re-running it is a perfectly reasonable
-  // thing to want.
-  steps.push({
-    icon: Icons.play(18),
-    title: 'Take the walkthrough',
-    body: 'A guided tour of the builder — the board, the panels, and how a line '
-      + 'gets saved. About a minute.',
-    done: isBuilderTourComplete(),
-    onClick: deps.onWalkthrough,
-  });
+  // ── THE ORDER FOLLOWS WHAT FIRST RUN ALREADY DID ──────────────────────────
+  //
+  // This panel was written when everyone arrived here with an empty app, so it
+  // led with the builder walkthrough. Most people now reach it having already
+  // imported their games and saved four lines (onboarding-where.ts →
+  // onboarding-recap-screen.ts), which ticks the import row off before they
+  // have seen the panel at all.
+  //
+  // So the account leads instead. It is the only row that protects what they
+  // just made, and the only one whose absence loses work — everything else
+  // adds something. Rows they have already done still appear, ticked: a
+  // checklist that hides its finished items reads as a shorter list of things
+  // undone rather than as progress.
+
+  // Only where accounts exist. The internal GitHub Pages build ships without
+  // Supabase, so there is nothing to sign into and the row would be a dead end.
+  if (isSupabaseConfigured) {
+    steps.push({
+      icon: Icons.userCircle(18),
+      title: getAuthUser() ? 'Account created' : 'Create a free account',
+      body: getAuthUser()
+        ? 'Your lines and progress follow you to any phone you sign in on.'
+        : 'Right now your repertoire lives only on this phone. An account keeps '
+          + 'a copy and brings it back anywhere you sign in.',
+      done: !!getAuthUser(),
+      onClick: deps.onSignIn,
+    });
+  }
 
   steps.push({
     icon: Icons.download(18),
@@ -203,15 +218,19 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
     onClick: deps.onConnectLichess,
   });
 
-  // Only where accounts exist. The internal GitHub Pages build ships without
-  // Supabase, so there is nothing to sign into and the row would be a dead end.
-  if (isSupabaseConfigured) {
+  // Renamed from "Take the walkthrough", which described the tour rather than
+  // the thing the tour is for — and read as homework next to rows that offer
+  // something. It also no longer needs to lead: the walkthrough now fires by
+  // itself the first time anyone opens the builder (main.ts's startNewLine), so
+  // this row is the way to ask for it AGAIN, not the only way to get it.
+  {
     steps.push({
-      icon: Icons.userCircle(18),
-      title: getAuthUser() ? 'Account created' : 'Create a free account',
-      body: 'Your lines and progress follow you to any phone you sign in on.',
-      done: !!getAuthUser(),
-      onClick: deps.onSignIn,
+      icon: Icons.play(18),
+      title: 'Build a line by hand',
+      body: 'A guided tour of the builder — the board, the panels, and how a '
+        + 'line gets saved. About a minute.',
+      done: isBuilderTourComplete(),
+      onClick: deps.onWalkthrough,
     });
   }
 

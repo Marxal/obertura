@@ -13,9 +13,11 @@
 // pass at 15-40 seconds a game, and the background autoscan prepares them for
 // later instead. Nothing on this screen may ever start waiting on an engine.
 //
-// That is also what lets the two controls at the top re-derive everything on
-// the spot: changing the time format or the depth re-runs buildRecap over the
-// games ALREADY on the device. No re-scan, no network, no wait.
+// That is also what lets the time-format chips re-derive everything on the
+// spot: changing one re-runs buildRecap over the games ALREADY on the device.
+// No re-scan, no network, no wait. Line length works the same way, but per
+// line and from inside that line's own popup — a global "make every line
+// longer" was a setting about lines the user had not looked at yet.
 //
 // ── IT ABSORBED THE IMPORT'S REVIEW STEP ────────────────────────────────────
 // There used to be a screen between the scan and this one: "Found N games",
@@ -47,20 +49,18 @@ import { pickStarterOpenings, type OpeningGroup, type Recap } from './onboarding
 // smallest number that gives both books a real pair.
 export const RECAP_STARTER_LINES = 4;
 
-// How many openings the list shows before "Show more". Enough that the default
-// four aren't the only thing visible — the point of the tick boxes is that the
-// choice is real — without opening on a wall of twelve cards.
-const VISIBLE_BEFORE_MORE = 6;
+// How many MORE openings each "Show more" reveals. The list opens on the chosen
+// four alone: a screen that opens on twelve cards is a list to get through
+// rather than an offer to accept, and the four are already the answer for most
+// people. Four at a time keeps every reveal a glance rather than a scroll.
+const REVEAL_STEP = 4;
 
-// The depth choices, in the user's OWN moves. Deliberately three coarse steps
-// rather than a slider: the difference between 4 and 5 is not a judgement
-// anybody can make here, and a slider invites fiddling with a number whose
-// effect they can't see. Matches onboarding-lines.ts's curated cuts.
-const DEPTH_CHOICES: { value: number; label: string }[] = [
-  { value: 4, label: 'Short' },
-  { value: 6, label: 'Standard' },
-  { value: 8, label: 'Deep' },
-];
+// The length a line is built at, and the longest it may be grown to from its own
+// popup — both in the user's OWN moves. Ten is well past where a club player's
+// games still agree with each other, so in practice the trunk runs out first;
+// the ceiling exists so the button can't promise depth for ever.
+const DEFAULT_OWN_MOVES = 6;
+const MAX_OWN_MOVES = 10;
 
 export interface RecapScreenDeps {
   /** The recap for the current filter — rebuilt by onFilterChange. */
@@ -70,28 +70,53 @@ export interface RecapScreenDeps {
   /** How many lines may be kept before the free tier's training cap bites. */
   freeLimit: number;
   /**
-   * Re-derive the recap under a different time format / depth. Synchronous by
-   * contract — it reads games already on the device — so the screen can repaint
-   * in place without a spinner.
+   * Re-derive the recap under a different time format. Synchronous by contract —
+   * it reads games already on the device — so the screen repaints in place with
+   * no spinner.
    */
-  onFilterChange: (opts: { timeClass: TimeClass | null; depth: number }) => Recap;
+  onFilterChange: (opts: { timeClass: TimeClass | null }) => Recap;
+  /**
+   * Rebuild ONE opening's trunk at a different length, in the user's own moves.
+   * Returns null when that opening has no more shared moves to give — which is
+   * what stops "add more moves" promising depth the games don't support.
+   */
+  onDeepen: (opening: OpeningGroup, ownMoves: number) => OpeningGroup | null;
   /** Keep these openings as lines. The screen has closed by the time this runs. */
   onSave: (openings: OpeningGroup[]) => void;
   /** "Not now" — a decision to skip, which ends first run and goes to the app. */
   onSkip: () => void;
   /** The system back gesture: step BACK to "Where do you play?". */
   onBack: () => void;
-  /** Tapped a card: show the whole line, steppable, before deciding. */
-  onPreview: (opening: OpeningGroup) => void;
+  /**
+   * Tapped a card: show the whole line, steppable, with its own controls.
+   * `ctx` is what the popup needs to act on THIS line without knowing anything
+   * about the screen it came from.
+   */
+  onPreview: (opening: OpeningGroup, ctx: PreviewContext) => void;
   /** Tried to tick past `freeLimit` — the paid pitch, shown by the caller. */
   onOverLimit: () => void;
+}
+
+export interface PreviewContext {
+  /** Is this line currently going to be saved? */
+  selected: boolean;
+  /** Can it still grow — more shared moves, and under the ceiling? */
+  canDeepen: boolean;
+  /** Add / remove this line. Closes the popup: a decision has been made. */
+  onToggle: () => void;
+  /** Lengthen this one line by a move, and reopen on the longer version. */
+  onDeepen: () => void;
 }
 
 export function showRecapScreen(deps: RecapScreenDeps): void {
   let recap = deps.recap;
   let timeClass: TimeClass | null = null;
-  let depth = 6;
-  let showAll = false;
+  // How many cards are on screen. Starts at the chosen four; "Show more" adds
+  // REVEAL_STEP at a time.
+  let visibleCount = RECAP_STARTER_LINES;
+  // Per-line length, in the user's own moves, set from each line's own popup.
+  // Absent means the default the recap was built at.
+  const depths = new Map<string, number>();
   // Ticked openings, held by NAME+COLOUR rather than by object identity: every
   // filter change rebuilds the OpeningGroup objects from scratch, and a Set of
   // stale references would silently untick everything the moment a chip moved.
@@ -135,7 +160,16 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
   // Re-run the arithmetic under the current controls and repaint. Ticks survive
   // by name, so a line that still exists under the new filter stays chosen.
   function refilter(): void {
-    recap = deps.onFilterChange({ timeClass, depth });
+    const base = deps.onFilterChange({ timeClass });
+    // Re-apply any per-line lengths the user set before the filter moved. A
+    // line that no longer exists simply drops its override with it.
+    recap = {
+      ...base,
+      openings: base.openings.map((o) => {
+        const want = depths.get(keyOf(o));
+        return want ? (deps.onDeepen(o, want) ?? o) : o;
+      }),
+    };
     const live = new Set(recap.openings.map(keyOf));
     chosen = new Set([...chosen].filter(k => live.has(k)));
     // A filter that wiped every tick would leave the user staring at a disabled
@@ -182,25 +216,34 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
     heading.textContent = 'Your openings — pick the ones to keep';
     stage.appendChild(heading);
 
+    // Chosen lines always sort to the front, so the four the user is actually
+    // saving stay together at the top however far the list is expanded.
+    const ordered = [
+      ...recap.openings.filter(o => chosen.has(keyOf(o))),
+      ...recap.openings.filter(o => !chosen.has(keyOf(o))),
+    ];
+    const shown = Math.max(visibleCount, chosen.size);
+
     const list = document.createElement('div');
     list.className = 'recap-list';
-    const visible = showAll ? recap.openings : recap.openings.slice(0, VISIBLE_BEFORE_MORE);
-    for (const opening of visible) list.appendChild(openingCard(opening));
+    for (const opening of ordered.slice(0, shown)) list.appendChild(openingCard(opening));
     stage.appendChild(list);
 
-    if (!showAll && recap.openings.length > VISIBLE_BEFORE_MORE) {
+    const remaining = ordered.length - shown;
+    if (remaining > 0) {
       const more = document.createElement('button');
       more.type = 'button';
       more.className = 'recap-more';
-      more.textContent = `Show ${recap.openings.length - VISIBLE_BEFORE_MORE} more openings`;
-      more.addEventListener('click', () => { showAll = true; paint(); });
+      const next = Math.min(REVEAL_STEP, remaining);
+      more.textContent = `Show ${next} more opening${next === 1 ? '' : 's'}`;
+      more.addEventListener('click', () => { visibleCount = shown + REVEAL_STEP; paint(); });
       stage.appendChild(more);
     }
 
     buildFoot();
   }
 
-  // ── Time format and depth ───────────────────────────────────────────────────
+  // ── Time format ─────────────────────────────────────────────────────────────
   function buildControls(): HTMLElement {
     const wrap = document.createElement('div');
     wrap.className = 'recap-controls';
@@ -221,7 +264,7 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
         b.addEventListener('click', () => {
           if (timeClass === value) return;
           timeClass = value;
-          showAll = false;
+          visibleCount = RECAP_STARTER_LINES;
           refilter();
         });
         row.appendChild(b);
@@ -233,30 +276,6 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
       }
       wrap.appendChild(row);
     }
-
-    // Depth: quieter than the chips above it, because it is the rarer question.
-    const depthRow = document.createElement('div');
-    depthRow.className = 'recap-depth';
-    const depthLabel = document.createElement('span');
-    depthLabel.className = 'recap-depth-label';
-    depthLabel.textContent = 'Line length';
-    depthRow.appendChild(depthLabel);
-
-    for (const choice of DEPTH_CHOICES) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'recap-depth-btn' + (depth === choice.value ? ' recap-depth-btn--on' : '');
-      b.textContent = choice.label;
-      b.title = `${choice.value} of your own moves`;
-      b.setAttribute('aria-pressed', String(depth === choice.value));
-      b.addEventListener('click', () => {
-        if (depth === choice.value) return;
-        depth = choice.value;
-        refilter();
-      });
-      depthRow.appendChild(b);
-    }
-    wrap.appendChild(depthRow);
 
     return wrap;
   }
@@ -285,6 +304,41 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
     foot.appendChild(skip);
   }
 
+  // Add or remove a line, enforcing the free tier's ceiling at the moment of
+  // choosing rather than after the fact — ticking past it would otherwise save
+  // lines that silently never enter the training rotation.
+  function toggleChosen(key: string): void {
+    if (chosen.has(key)) {
+      chosen.delete(key);
+    } else {
+      if (chosen.size >= deps.freeLimit) { deps.onOverLimit(); return; }
+      chosen.add(key);
+    }
+    paint();
+  }
+
+  // The popup, handed everything it needs to act on this one line.
+  function openPreview(opening: OpeningGroup): void {
+    const key = keyOf(opening);
+    const current = depths.get(key) ?? DEFAULT_OWN_MOVES;
+    deps.onPreview(opening, {
+      selected: chosen.has(key),
+      canDeepen: current < MAX_OWN_MOVES && deps.onDeepen(opening, current + 1) !== null,
+      onToggle: () => toggleChosen(key),
+      onDeepen: () => {
+        const next = Math.min(MAX_OWN_MOVES, current + 1);
+        const grown = deps.onDeepen(opening, next);
+        if (!grown) return;
+        depths.set(key, next);
+        refilter();
+        // Reopen on the longer line, so "add more moves" visibly does something
+        // rather than closing the thing the user was reading.
+        const fresh = recap.openings.find(o => keyOf(o) === key);
+        if (fresh) openPreview(fresh);
+      },
+    });
+  }
+
   function openingCard(opening: OpeningGroup): HTMLElement {
     const key = keyOf(opening);
     const on = chosen.has(key);
@@ -296,7 +350,7 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
       // The miniature opens the preview; the rest of the card toggles the tick.
       // Two different jobs, so they are two different targets rather than one
       // ambiguous one.
-      onMiniClick: () => deps.onPreview(opening),
+      onMiniClick: () => openPreview(opening),
       miniLabel: `Play through ${opening.name}`,
     });
 
@@ -320,7 +374,7 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
     record.appendChild(text);
     content.appendChild(record);
 
-    // ── Save this line / saved ──
+    // ── Add / added ──
     //
     // A real toggle rather than a checkbox in the corner: on this screen the
     // decision IS "keep it or not", so it deserves the card's action slot.
@@ -328,28 +382,17 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
     toggle.type = 'button';
     toggle.className = 'recap-toggle' + (on ? ' recap-toggle--on' : '');
     toggle.setAttribute('aria-pressed', String(on));
-    toggle.textContent = on ? '✓ Saving this line' : 'Save this line';
-    toggle.addEventListener('click', () => {
-      if (chosen.has(key)) {
-        chosen.delete(key);
-      } else {
-        // The free tier trains a fixed number of lines at once. Ticking past it
-        // would save lines that silently never enter the rotation, so the cap is
-        // enforced HERE, where the user can still choose which ones they want,
-        // rather than after the fact.
-        if (chosen.size >= deps.freeLimit) { deps.onOverLimit(); return; }
-        chosen.add(key);
-      }
-      paint();
+    toggle.textContent = on ? '✓ Added' : 'Add this line';
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation(); // the card behind it opens the popup
+      toggleChosen(key);
     });
     content.appendChild(toggle);
 
-    // Tapping the card body is the same as tapping its toggle — the toggle is
-    // the affordance, the whole card is the target.
-    card.addEventListener('click', (e) => {
-      if ((e.target as HTMLElement).closest('.recap-toggle, .pcard-mini')) return;
-      toggle.click();
-    });
+    // THE CARD OPENS THE POPUP; the toggle is the only thing on it that doesn't.
+    // Looking at a line before deciding is the commoner action and wants the
+    // bigger target, and the toggle already says plainly what it does.
+    card.addEventListener('click', () => openPreview(opening));
 
     return card;
   }

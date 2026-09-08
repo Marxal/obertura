@@ -118,6 +118,7 @@ import { openStarterPackPicker, type LineSeed, type AddLineMode } from './onboar
 import { showOnboardingPicker, shouldShowFirstRun } from './onboarding-picker';
 import { showWherePicker } from './onboarding-where';
 import { openLinePeek } from './line-peek';
+import { createImportLoader, type ImportLoader } from './import-progress';
 import { FREE_GUEST_IMPORT } from './import-tier';
 import { showRecapScreen } from './onboarding-recap-screen';
 // Aliased: daily-recap.ts already exports a buildRecap, and the two are
@@ -129,6 +130,7 @@ import {
   type Recap,
   type RecapGame,
 } from './onboarding-recap';
+import type { PreviewContext } from './onboarding-recap-screen';
 import { replayGame } from './mistake-scan';
 import {
   showBuilderIntro,
@@ -3314,6 +3316,31 @@ function startNewLine(colour: 'white' | 'black'): void {
   // …and stand inside that colour's repertoire, so everything already prepared
   // is there to walk rather than a blank board to start over on.
   void enterBuilderBook(colour);
+  maybeRunBuilderWalkthrough();
+}
+
+// THE WALKTHROUGH FIRES ON THE FIRST BUILDER OPEN, whichever door was used.
+//
+// It used to be wired to the first-run colour picker alone, which made sense
+// when that picker WAS the first screen. It isn't any more: the games-first run
+// (onboarding-where.ts) never goes near the builder, so someone who imported
+// their games and saved four lines could open the builder for the first time
+// weeks later and get no explanation of the densest screen in the app. And the
+// manual branch reaches the builder through this same function anyway, so
+// putting it here covers both doors with one rule.
+//
+// Still owed-once: isBuilderTourOwed is the authority, and the Get-started
+// checklist's "Take the walkthrough" row remains the way to ask for it again.
+function maybeRunBuilderWalkthrough(): void {
+  if (!isBuilderTourOwed()) return;
+  guidedActive = true;
+  // The bubbles point at live controls, so they wait for the builder to have
+  // laid itself out.
+  setTimeout(() => {
+    if (!isBuilderTourOwed()) { armEmptyBoardSaveStep(); return; }
+    markBuilderTourSeen();
+    showBuilderIntro(builderIntroDeps(endEmptyBoardWalkthrough));
+  }, 450);
 }
 
 // ── The guided line ──────────────────────────────────────────────────────────
@@ -3608,26 +3635,56 @@ function runFirstRunImport(platform: Platform, username: string): void {
     // visible underneath and the recap arrived on top of it. It read as a
     // glitch. This paints an opaque layer in the same gesture that closes the
     // panel, and showFirstRunRecap drops it once the recap is actually up.
-    onImported: () => { imported = true; showRecapCover(); void showFirstRunRecap(); },
+    onImported: () => { imported = true; showRecapLoader(); void showFirstRunRecap(); },
     onClose: () => { if (!imported) showFirstRun(); },
   });
 }
 
-// An opaque layer held between the import panel closing and the recap mounting,
-// so the Train screen never flashes between the two. Removed by every path out
-// of showFirstRunRecap, including the failures.
-let recapCover: HTMLDivElement | null = null;
+// The scan's own loader, held over the gap between the import finishing and the
+// recap appearing — so the two read as one continuous wait rather than a scan,
+// a flash of the app, and then a screen arriving on top of it.
+//
+// A BLANK COVER WAS NOT ENOUGH. The first attempt appended an opaque div and
+// then went straight into the work; naming the openings replays every game
+// through chess.js, which is a long SYNCHRONOUS block, so the browser never got
+// a frame in which to paint the cover. Showing the real loader (and yielding
+// during the work, see nameOpenings) fixes both halves: something is on screen,
+// and it keeps animating.
+let recapLoader: ImportLoader | null = null;
 
-function showRecapCover(): void {
-  if (recapCover) return;
-  recapCover = document.createElement('div');
-  recapCover.className = 'recap-cover';
-  document.body.appendChild(recapCover);
+function showRecapLoader(): void {
+  if (recapLoader) return;
+  recapLoader = createImportLoader();
+  recapLoader.start();
+  recapLoader.set(1);
+  recapLoader.setStatus('Reading your openings…');
+  document.body.appendChild(recapLoader.el);
 }
 
-function hideRecapCover(): void {
-  recapCover?.remove();
-  recapCover = null;
+function hideRecapLoader(): void {
+  recapLoader?.remove();
+  recapLoader = null;
+}
+
+// Name every game's opening ONCE, yielding to the event loop as it goes.
+//
+// Two reasons this is precomputed rather than done inside buildRecap. It is by
+// far the most expensive thing on this screen — a full chess.js replay per game,
+// 500 of them — and buildRecap runs again on EVERY filter change, so doing it
+// there made changing a chip as slow as the first paint. And done in one
+// unbroken loop it freezes the loader mid-animation, which is exactly the
+// "it hangs" this was reported as.
+async function nameOpenings(games: readonly ImportedGame[]): Promise<Map<RecapGame, string | null>> {
+  const names = new Map<RecapGame, string | null>();
+  for (let i = 0; i < games.length; i++) {
+    const game = games[i];
+    names.set(game, openingForPath(replayGame(game)?.fens.slice(1) ?? [])?.name ?? null);
+    // Every 40 games, let the loader paint. Cheap: a handful of yields across a
+    // 500-game library, and it is the difference between a live progress bar
+    // and a frozen one.
+    if (i % 40 === 39) await new Promise((r) => setTimeout(r, 0));
+  }
+  return names;
 }
 
 // Turn what just landed into the recap. Reads the games back from storage rather
@@ -3638,7 +3695,7 @@ async function showFirstRunRecap(): Promise<void> {
   try {
     games = await getAllGames();
   } catch {
-    hideRecapCover();
+    hideRecapLoader();
     showView('train');
     return;
   }
@@ -3646,7 +3703,7 @@ async function showFirstRunRecap(): Promise<void> {
   // Too thin to say anything honest about — see RECAP_MIN_GAMES. Hand over to
   // the manual branch rather than showing a confident recap built on four games.
   if (!hasEnoughGames(games.length)) {
-    hideRecapCover();
+    hideRecapLoader();
     showToast('Not many games to read yet — let’s build your first line instead.');
     finishFirstRun();
     showFirstRunPicker();
@@ -3658,32 +3715,48 @@ async function showFirstRunRecap(): Promise<void> {
   // names for the same opening depending on which screen you're on is worse
   // than either name alone. fens[0] is the start position, which is dropped so
   // an unrecognised game doesn't get named after the empty board.
-  const nameOf = (game: RecapGame): string | null =>
-    openingForPath(replayGame(game)?.fens.slice(1) ?? [])?.name ?? null;
+  //
+  // Computed once, up front, so every later filter change is a map lookup.
+  const named = await nameOpenings(games);
+  const nameOf = (game: RecapGame): string | null => named.get(game) ?? null;
 
   // Re-derived on every filter change. Synchronous by contract — the games are
-  // already in hand, so changing a chip repaints without a spinner.
-  const build = (opts: { timeClass: TimeClass | null; depth: number }): Recap =>
+  // already in hand and their openings are already named, so changing a chip
+  // repaints without a spinner.
+  const build = (opts: { timeClass: TimeClass | null }, depth = 6): Recap =>
     buildGamesRecap(
       opts.timeClass ? games.filter(g => g.timeClass === opts.timeClass) : games,
       nameOf,
-      opts.depth,
+      depth,
     );
 
-  hideRecapCover();
+  let currentTimeClass: TimeClass | null = null;
+
+  // One opening, rebuilt longer. Returns null when the games stop agreeing —
+  // rebuilding at a bigger depth then yields the same trunk, and a button that
+  // "adds moves" without adding any is worse than one that isn't there.
+  const deepen = (opening: OpeningGroup, ownMoves: number): OpeningGroup | null => {
+    const at = build({ timeClass: currentTimeClass }, ownMoves)
+      .openings.find(o => o.colour === opening.colour && o.name === opening.name);
+    if (!at || at.ucis.length <= opening.ucis.length) return null;
+    return at;
+  };
+
+  hideRecapLoader();
   showRecapScreen({
-    recap: build({ timeClass: null, depth: 6 }),
+    recap: build({ timeClass: null }),
     username: getGamesSource()?.username ?? '',
     // Ticking past the training cap would save lines that silently never enter
     // the rotation, so the ceiling is the rotation's own.
     freeLimit: isEntitled() ? Number.MAX_SAFE_INTEGER : FREE_TRAINING_LINES,
-    onFilterChange: build,
+    onFilterChange: (opts) => { currentTimeClass = opts.timeClass; return build(opts); },
+    onDeepen: deepen,
     onSave: (openings) => { finishFirstRun(); void saveRecapLines(openings); },
     // "Not now" is a decision, so it ends first run. The back gesture is not —
     // it returns to the question, with first run still owed.
     onSkip: () => { finishFirstRun(); showView('train'); },
     onBack: () => showFirstRun(),
-    onPreview: (opening) => previewRecapLine(opening),
+    onPreview: (opening, ctx) => previewRecapLine(opening, ctx),
     onOverLimit: () => showTrainingCapDialog(),
   });
 }
@@ -3695,7 +3768,7 @@ async function showFirstRunRecap(): Promise<void> {
 // figures are training stats (recall, runs, misses), which for a line that has
 // never been drilled would all read "—" and say nothing, so the games record
 // goes in their place — which is the number the user is actually weighing here.
-function previewRecapLine(opening: OpeningGroup): void {
+function previewRecapLine(opening: OpeningGroup, ctx: PreviewContext): void {
   const line = lineFromUcis({ ucis: opening.ucis, name: opening.name }, opening.colour);
   if (!line) return;
   const decided = opening.wins + opening.draws + opening.losses;
@@ -3704,6 +3777,20 @@ function previewRecapLine(opening: OpeningGroup): void {
     // Over a screen the reader is still working through, so the moves wrap
     // inline instead of costing five numbered rows of height.
     inlineMoves: true,
+    // The two things worth doing to a line you are looking at: keep it, or make
+    // it longer. Both live here rather than only on the card, because this is
+    // where the user can actually SEE what they are deciding about.
+    actions: [
+      {
+        label: ctx.selected ? '✓ Added — remove' : 'Add this line',
+        primary: !ctx.selected,
+        onClick: ctx.onToggle,
+      },
+      // NOT keepOpen: onDeepen reopens this popup on the longer line, and
+      // leaving the old one mounted stacked a second overlay on top of the
+      // first (caught in testing as a line that appeared to double in length).
+      ...(ctx.canDeepen ? [{ label: 'Add more moves', onClick: ctx.onDeepen }] : []),
+    ],
     stats: [
       { value: String(opening.games), label: opening.games === 1 ? 'game' : 'games' },
       { value: `${opening.share}%`, label: 'of that colour' },
@@ -3747,10 +3834,11 @@ async function saveRecapLines(openings: OpeningGroup[]): Promise<void> {
   // losing, and nothing else in the app has mentioned that it lives only on
   // this phone. Offered, never required — "Not now" is right there, and the
   // card isn't built at all for someone already signed in.
+  // No "they're in training from today" line here any more: the card's job is
+  // the account, and a sentence about the training schedule in front of that ask
+  // is a fact competing with a decision.
   showFirstLineSuccess({
     title: saved === 1 ? 'Your first line is saved' : `${saved} lines saved`,
-    lead: 'They’re in training from today, built from the moves you actually '
-      + 'play. Add more whenever you like.',
   });
 }
 
@@ -3764,21 +3852,11 @@ function showFirstRunPicker(): void {
     // the walkthrough on it. The walkthrough is the first line: the coach-marks
     // ask for the moves, auto-reply answers them, and the last bubble saves —
     // which routes into the confirm run exactly as any other save does.
+    // The walkthrough is no longer armed here — startNewLine does it for every
+    // door into the builder, this one included.
     onStart: (colour) => {
-      setOnboardingComplete();
-      // NOT hooked to setOnboardingComplete itself: train-screen.ts calls that
-      // on every render once the goal is reached, so counting there would count
-      // repaints. This is the one place a person actually finishes first run.
-      trackOnce('onboarding_complete');
+      finishFirstRun();
       startNewLine(colour);
-      guidedActive = true;
-      // The bubbles point at live controls, so they wait for the builder to
-      // have laid itself out.
-      setTimeout(() => {
-        if (!isBuilderTourOwed({ firstRun: true })) { armEmptyBoardSaveStep(); return; }
-        markBuilderTourSeen();
-        showBuilderIntro(builderIntroDeps(endEmptyBoardWalkthrough));
-      }, 450);
     },
     // Only where accounts exist — in the internal build the line would be a
     // dead end, so the picker's foot simply doesn't grow one.

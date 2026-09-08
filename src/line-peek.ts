@@ -60,6 +60,20 @@ export interface LinePeekOptions {
    * still working through.
    */
   inlineMoves?: boolean;
+  /**
+   * Extra actions in the footer, before Drill / Open in builder.
+   *
+   * The first-run recap uses these for the two things worth doing to a line you
+   * are looking at — keep it, or make it longer — which belong HERE rather than
+   * only on the card behind, because this is where the user can see what they
+   * are deciding about.
+   *
+   * Each closes the popup before running, like every other action here. An
+   * action that REBUILDS the line (the recap's "add more moves") reopens it
+   * afterwards — leaving the old one mounted stacks two overlays, which is what
+   * happened the first time this was wired.
+   */
+  actions?: { label: string; onClick: () => void; primary?: boolean }[];
 }
 
 interface Ply {
@@ -331,6 +345,15 @@ export function openLinePeek(opts: LinePeekOptions): void {
 
   const btnRow = document.createElement('div');
   btnRow.className = 'peek-actions';
+  for (const action of opts.actions ?? []) {
+    const btn = peekActionBtn(
+      action.primary ? Icons.plus(18) : Icons.checkCircle(18),
+      action.label,
+      () => { close(); action.onClick(); },
+    );
+    if (action.primary) btn.classList.add('peek-action--primary');
+    btnRow.appendChild(btn);
+  }
   if (opts.onDrill) {
     btnRow.appendChild(peekActionBtn(Icons.zap(18), opts.drillLabel ?? 'Drill line',
       () => { close(); opts.onDrill!(line); }));
