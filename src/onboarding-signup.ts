@@ -31,7 +31,12 @@ import { celebratePawn, burstConfetti } from './confetti';
 // A centred card on the hub, shown once the first line has been saved AND
 // learned. Two sentences and a button: the first step is finished, and this is
 // what a repertoire looks like from here.
-export function showFirstLineSuccess(): void {
+export function showFirstLineSuccess(opts: {
+  /** Replaces "Your first line is set!" — the games-first run saves several. */
+  title?: string;
+  /** Replaces the "add about five lines" nudge under it. */
+  lead?: string;
+} = {}): void {
   const overlay = document.createElement('div');
   overlay.className = 'edit-overlay firstwin-overlay';
 
@@ -46,13 +51,14 @@ export function showFirstLineSuccess(): void {
 
   const title = document.createElement('h3');
   title.className = 'firstwin-title';
-  title.textContent = 'Your first line is set!';
+  title.textContent = opts.title ?? 'Your first line is set!';
   card.appendChild(title);
 
   const lead = document.createElement('p');
   lead.className = 'firstwin-lead';
-  lead.textContent = 'Add about five lines when you have a minute to build a repertoire '
-    + 'worth training every day. You can save as many lines as you like.';
+  lead.textContent = opts.lead
+    ?? 'Add about five lines when you have a minute to build a repertoire '
+      + 'worth training every day. You can save as many lines as you like.';
   card.appendChild(lead);
 
   let closed = false;

@@ -304,6 +304,27 @@ export interface ImportPanelOptions {
   // ALREADY asked for the platform and the username — re-presenting the same two
   // fields inside the sheet would make the user fill them in twice.
   autoScan?: boolean;
+  /**
+   * Stop the SCAN itself at this many games, rather than fetching up to
+   * HARD_CAP and slicing afterwards.
+   *
+   * The panel normally scans everything the platform will give (up to 1,000)
+   * and lets the user choose a slice. First run doesn't: a guest can only keep
+   * FREE_GUEST_IMPORT games anyway, so fetching ten times that is ten times the
+   * archives, the waiting and the rate-limit exposure, for games that are
+   * thrown away before they are ever stored.
+   */
+  maxGames?: number;
+  /**
+   * Always REPLACE what's stored, without asking.
+   *
+   * The replace-or-add question is the right one when a user with a library
+   * imports a second platform. It is the wrong one mid-first-run: someone who
+   * backed out of onboarding and came back has games on the device from their
+   * own abandoned attempt, and being asked to reason about merging them is a
+   * question about a state they don't know they're in.
+   */
+  alwaysReplace?: boolean;
 }
 
 export function openImportPanel(opts: ImportPanelOptions = {}): void {
@@ -525,6 +546,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     try {
       const result = await importGames(platform, user, {
         months: ALL_MONTHS,
+        ...(opts.maxGames ? { maxGames: opts.maxGames } : {}),
         onProgress: (p) => {
           loader?.setStatus(p.monthsTotal > 1
             ? `Scanning ${p.label} (${p.monthsDone}/${p.monthsTotal}) — ${p.gamesSoFar} games so far…`
@@ -533,6 +555,21 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
         },
       });
       if (scanCancelled) return; // backed out mid-scan — drop the result quietly
+
+      // A REAL ACCOUNT WITH NOTHING IN IT is not the same as a typo, and it used
+      // to land on step 2 saying "Found 0 games" — a review screen reviewing
+      // nothing, with the username field already hidden behind "Edit search".
+      // Both cases end the same way (fix the name, or pick another site), so
+      // both stay on step 1 where the field still is.
+      if (result.games.length === 0) {
+        unmountLoader();
+        showError(
+          `We found ${PLATFORM_LABELS[platform]} account “${user}”, but no games in it. `
+          + 'Check the spelling, or try the other site.',
+        );
+        return;
+      }
+
       scan = result;
       if (opts.rememberUser !== false) saveUsername(platform, user); // remember for next time
       // Snap the pawn home, hold the finished bar for a beat, then let the loader
@@ -864,7 +901,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       // the device already holds games — that's how two platforms get combined.
       if (isMine && !opts.save) {
         const existingGames = await getAllGames();
-        if (existingGames.length > 0) {
+        if (existingGames.length > 0 && !opts.alwaysReplace) {
           chooseImportMode(existingGames.length, games.length, (mode) => {
             if (mode === 'replace') {
               void runPersist(games, saveMyGames);

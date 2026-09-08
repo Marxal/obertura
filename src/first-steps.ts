@@ -112,11 +112,38 @@ export function shouldShowFirstSteps(): boolean {
   return !retired() && !hiddenThisSession();
 }
 
+// Set for the rest of this session when first run has just finished. See
+// firstStepsOwnsSlot for why.
+const JUST_ONBOARDED_KEY = 'obertura.justOnboarded';
+
+/**
+ * Mark that first run has just completed, so the checklist leads the hub for the
+ * rest of this session.
+ *
+ * The games-first run can hand someone four saved lines in a single tap, which
+ * puts them past TRAINING_UNLOCK_LINES before they have seen the app at all —
+ * so the rule below handed the slot straight to the daily challenge, and their
+ * first ever view of the hub was a challenge about lines they had owned for
+ * three seconds. The checklist is what a brand-new user actually needs there
+ * ("import your games", "connect Lichess", "create an account"), so it keeps
+ * the slot for this session however many lines arrived.
+ *
+ * sessionStorage, not local: it is about THIS visit, and a returning user is
+ * not new any more.
+ */
+export function noteJustOnboarded(): void {
+  try { sessionStorage.setItem(JUST_ONBOARDED_KEY, '1'); } catch { /* storage off */ }
+}
+
+function justOnboarded(): boolean {
+  try { return sessionStorage.getItem(JUST_ONBOARDED_KEY) === '1'; } catch { return false; }
+}
+
 // Does it take the daily challenge's slot outright, or ride underneath it? The
 // goal phase owns the slot; past the unlock the daily card comes back and this
 // becomes a compact checklist below it.
 export function firstStepsOwnsSlot(lineCount: number): boolean {
-  return lineCount < TRAINING_UNLOCK_LINES;
+  return justOnboarded() || lineCount < TRAINING_UNLOCK_LINES;
 }
 
 interface Step {

@@ -53,6 +53,13 @@ export interface LinePeekOptions {
    * been asked has not been "never missed", it has never been tested.
    */
   stats?: PeekStat[];
+  /**
+   * Lay the moves out inline ("1. e4 e5 2. Nf3 Nc6 …", wrapping) instead of as
+   * a two-column table. Saves several rows of height on a short line, which is
+   * what the first-run recap needs — it opens this over a screen the reader is
+   * still working through.
+   */
+  inlineMoves?: boolean;
 }
 
 interface Ply {
@@ -186,23 +193,42 @@ export function openLinePeek(opts: LinePeekOptions): void {
   // ── Move list ──────────────────────────────────────────────────────────────
 
   const listWrap = document.createElement('div');
-  listWrap.className = 'lpeek-list';
   const moveBtns = new Map<number, HTMLElement>();
 
-  for (let i = 0; i < plies.length; i += 2) {
-    const row = document.createElement('div');
-    row.className = 'lpeek-row';
-
-    const num = document.createElement('span');
-    num.className = 'lpeek-num';
-    num.textContent = `${Math.floor(i / 2) + 1}.`;
-    row.appendChild(num);
-
-    for (const p of [plies[i], plies[i + 1]]) {
-      if (!p) { row.appendChild(document.createElement('span')); continue; }
-      row.appendChild(buildMoveCell(p));
+  // TWO SHAPES, ONE LIST. The two-column table is right where the popup is the
+  // screen's whole subject and each move carries its own miss count — My Lines
+  // and the Statistics drill-down. Inline wrapping is right where the popup is
+  // a quick look at a short line and vertical space is the scarce thing: the
+  // first-run recap opens this over a screen the user is still reading, and a
+  // ten-move line as five numbered rows pushed the board off a phone.
+  if (opts.inlineMoves) {
+    listWrap.className = 'lpeek-inline';
+    for (let i = 0; i < plies.length; i++) {
+      if (i % 2 === 0) {
+        const num = document.createElement('span');
+        num.className = 'lpeek-inline-num';
+        num.textContent = `${i / 2 + 1}.`;
+        listWrap.appendChild(num);
+      }
+      listWrap.appendChild(buildMoveCell(plies[i]));
     }
-    listWrap.appendChild(row);
+  } else {
+    listWrap.className = 'lpeek-list';
+    for (let i = 0; i < plies.length; i += 2) {
+      const row = document.createElement('div');
+      row.className = 'lpeek-row';
+
+      const num = document.createElement('span');
+      num.className = 'lpeek-num';
+      num.textContent = `${Math.floor(i / 2) + 1}.`;
+      row.appendChild(num);
+
+      for (const p of [plies[i], plies[i + 1]]) {
+        if (!p) { row.appendChild(document.createElement('span')); continue; }
+        row.appendChild(buildMoveCell(p));
+      }
+      listWrap.appendChild(row);
+    }
   }
   sheet.appendChild(listWrap);
 

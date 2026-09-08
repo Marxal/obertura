@@ -115,6 +115,7 @@ import { openStarterPackPicker, type LineSeed, type AddLineMode } from './onboar
 import { showOnboardingPicker, shouldShowFirstRun } from './onboarding-picker';
 import { showWherePicker } from './onboarding-where';
 import { openLinePeek } from './line-peek';
+import { FREE_GUEST_IMPORT } from './import-tier';
 import { showRecapScreen } from './onboarding-recap-screen';
 // Aliased: daily-recap.ts already exports a buildRecap, and the two are
 // unrelated — that one summarises a day's training, this one a games library.
@@ -145,6 +146,7 @@ import {
   renderFirstSteps,
   shouldShowFirstSteps,
   firstStepsOwnsSlot,
+  noteJustOnboarded,
   TRAINING_UNLOCK_LINES,
 } from './first-steps';
 import { maybeAutoRefreshGames } from './auto-refresh';
@@ -3582,6 +3584,14 @@ function runFirstRunImport(platform: Platform, username: string): void {
     platform,
     username,
     autoScan: true,
+    // Scan only what can actually be kept. A guest stores FREE_GUEST_IMPORT
+    // games, so fetching the full 1,000-game HARD_CAP means ten times the
+    // archives and the waiting for games thrown away before they're stored.
+    maxGames: FREE_GUEST_IMPORT,
+    // Backing out and coming back leaves games on the device from the
+    // abandoned attempt; being asked to merge them is a question about a state
+    // the user doesn't know they're in.
+    alwaysReplace: true,
     title: 'Import your games',
     onImported: () => { imported = true; void showFirstRunRecap(); },
     onClose: () => { if (!imported) showFirstRun(); },
@@ -3644,6 +3654,9 @@ function previewRecapLine(opening: OpeningGroup): void {
   const decided = opening.wins + opening.draws + opening.losses;
   openLinePeek({
     line,
+    // Over a screen the reader is still working through, so the moves wrap
+    // inline instead of costing five numbered rows of height.
+    inlineMoves: true,
     stats: [
       { value: String(opening.games), label: opening.games === 1 ? 'game' : 'games' },
       { value: `${opening.share}%`, label: 'of that colour' },
@@ -3675,13 +3688,23 @@ async function saveRecapLines(openings: OpeningGroup[]): Promise<void> {
       // One line failing to store must not cost the other two.
     }
   }
+  // The hub leads with Get started rather than the daily challenge: four lines
+  // arrived in one tap, so a challenge ABOUT them would be this person's first
+  // ever view of the app. See noteJustOnboarded.
+  noteJustOnboarded();
   showView('train');
-  if (saved > 0) {
-    showToast(
-      `${saved} line${saved === 1 ? '' : 's'} saved — they’re in training from today.`,
-      { variant: 'success' },
-    );
-  }
+
+  if (saved === 0) return;
+
+  // The moment to ask for an account: they have just made something worth
+  // losing, and nothing else in the app has mentioned that it lives only on
+  // this phone. Offered, never required — "Not now" is right there, and the
+  // card isn't built at all for someone already signed in.
+  showFirstLineSuccess({
+    title: saved === 1 ? 'Your first line is saved' : `${saved} lines saved`,
+    lead: 'They’re in training from today, built from the moves you actually '
+      + 'play. Add more whenever you like.',
+  });
 }
 
 // The manual branch: the original colour picker, now reached only through
