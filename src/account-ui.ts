@@ -361,13 +361,11 @@ function signedOutBody(
   }
   wrap.appendChild(tabs);
 
-  // The two tabs are shaped differently ON PURPOSE, and it isn't inconsistency.
-  //
-  // Registration is a form: creating an account means agreeing to two documents,
-  // so the checkbox has to be on screen and the email/password pair leads.
-  // Signing in is a CHOICE, and for most people the fastest right answer is a
-  // provider they're already logged into — so Google and Facebook lead there,
-  // and email is folded away behind one tap for the people who want it.
+  // Both tabs lead with the same choice — Google, Facebook, or email — because
+  // for most people the fastest right answer is a provider they're already
+  // logged into. Tapping "Continue with email" swaps the buttons for the actual
+  // form; there's no separate treatment for consent per method any more (see
+  // legalNote), so the two tabs can share this shape instead of diverging.
   if (mode === 'signup') buildSignUpBlock(wrap);
   else buildSignInBlock(wrap, setMode);
 
@@ -376,23 +374,36 @@ function signedOutBody(
 
 // ── Registration ─────────────────────────────────────────────────────────────
 //
-// Google and Facebook lead, then email and password under a divider — the same
-// order as Sign in, because the fastest right answer is the same on both tabs
-// and a form that changes shape between them makes the reader re-learn it.
+// Leads with the three ways in — Google, Facebook, email — as equal-weight
+// buttons; tapping email swaps them for the actual form. No consent checkbox
+// any more: a Google or Facebook tap could never carry one anyway (the app
+// can't tell a first-time registration from a returning sign-in until the
+// redirect comes back), so email gets the same passive legalNote as the other
+// two instead of its own extra step.
 //
 // The magic link is deliberately absent here: it cannot create an account (see
 // signInWithMagicLink), precisely so nobody ends up with an account they never
-// agreed to the Terms for.
+// saw the Terms for.
 
 function buildSignUpBlock(wrap: HTMLElement): void {
   const providers = enabledOAuthProviders();
-  if (providers.length > 0) {
-    const lead = document.createElement('div');
-    lead.className = 'account-providers-lead';
-    for (const provider of providers) lead.appendChild(providerButton(provider, true));
-    wrap.appendChild(lead);
-    wrap.appendChild(orDivider());
-  }
+  const body = document.createElement('div');
+  wrap.appendChild(body);
+
+  let view: 'options' | 'email' = providers.length > 0 ? 'options' : 'email';
+  const paint = (): void => {
+    body.replaceChildren(view === 'options'
+      ? optionsList(providers, () => { view = 'email'; paint(); })
+      : signUpEmailPanel(providers.length > 0 ? () => { view = 'options'; paint(); } : null));
+  };
+  paint();
+
+  wrap.appendChild(legalNote());
+}
+
+function signUpEmailPanel(onBack: (() => void) | null): HTMLElement {
+  const host = document.createElement('div');
+  host.className = 'account-email-panel';
 
   const form = document.createElement('form');
   form.className = 'account-form';
@@ -401,35 +412,6 @@ function buildSignUpBlock(wrap: HTMLElement): void {
   const password = field('password', 'Password', 'At least 6 characters', 'new-password');
   form.appendChild(email.wrap);
   form.appendChild(password.wrap);
-
-  // ── The consent checkbox ───────────────────────────────────────────────────
-  //
-  // Registration only, and required. It is not decoration: the terms and the
-  // privacy policy are the two documents this account is created under, and
-  // "carry on and you'll have agreed" is not consent anybody can point at
-  // later. Sign-in doesn't show it — you agreed when you registered, and asking
-  // again every time would train people to tick without reading.
-  //
-  // The social buttons below get the passive line instead of a checkbox,
-  // because from here a Google tap is indistinguishable from a Google tap: the
-  // app cannot tell a first-time registration from a returning sign-in until
-  // the redirect comes back.
-  const row = document.createElement('label');
-  row.className = 'account-consent';
-  const consent = document.createElement('input');
-  consent.type = 'checkbox';
-  consent.className = 'account-consent-box';
-  consent.required = true;
-  row.appendChild(consent);
-  const text = document.createElement('span');
-  text.className = 'account-consent-text';
-  text.appendChild(document.createTextNode('I have read and agree to the '));
-  text.appendChild(docLink(PRIVACY_URL, 'Privacy policy'));
-  text.appendChild(document.createTextNode(' and '));
-  text.appendChild(docLink(TERMS_URL, 'Terms'));
-  text.appendChild(document.createTextNode('.'));
-  row.appendChild(text);
-  form.appendChild(row);
 
   const submit = document.createElement('button');
   submit.type = 'submit';
@@ -443,11 +425,6 @@ function buildSignUpBlock(wrap: HTMLElement): void {
     const passwordValue = password.input.value;
     if (!emailValue || !passwordValue) {
       showToast('Enter your email and a password.');
-      return;
-    }
-    if (!consent.checked) {
-      showToast('Please agree to the Privacy policy and Terms first.');
-      consent.focus();
       return;
     }
 
@@ -488,43 +465,36 @@ function buildSignUpBlock(wrap: HTMLElement): void {
     // The auth listener re-renders this section; nothing else to do.
   });
 
-  wrap.appendChild(form);
-  wrap.appendChild(legalNote());
+  host.appendChild(form);
+  if (onBack) host.appendChild(backLink(onBack));
+  return host;
 }
 
 // ── Sign in ──────────────────────────────────────────────────────────────────
 //
-// One order, top to bottom, and it is the order of how likely each is to be the
-// right answer: Google and Facebook first (a returning user who registered with
-// one is a single tap from done), then email and password, then the sign-in link
-// as a quiet option under the password.
-//
-// The email pair used to be folded away behind a "Use email instead" button,
-// with the LINK leading once opened and the password behind a swap. That put the
-// commonest way in — an address and a password — two taps deep, and it made the
-// tab look like it had no form on it at all. It is open now, and the link is the
-// small print it always should have been.
+// Same three buttons as Registration — Google, Facebook, email — because a
+// returning user is answering the same question ("which of these do I already
+// have?") either way. Tapping email swaps to the address/password form, with
+// the sign-in link as a quiet option under the password and a way back to the
+// other two above it.
 
 function buildSignInBlock(wrap: HTMLElement, setMode: (m: Mode) => void): void {
   const providers = enabledOAuthProviders();
+  const body = document.createElement('div');
+  wrap.appendChild(body);
 
-  if (providers.length > 0) {
-    const lead = document.createElement('div');
-    lead.className = 'account-providers-lead';
-    for (const provider of providers) lead.appendChild(providerButton(provider, true));
-    wrap.appendChild(lead);
-    wrap.appendChild(orDivider());
-  }
-
-  wrap.appendChild(emailSignInSection(setMode));
+  let view: 'options' | 'email' = providers.length > 0 ? 'options' : 'email';
+  const paint = (): void => {
+    body.replaceChildren(view === 'options'
+      ? optionsList(providers, () => { view = 'email'; paint(); })
+      : emailSignInPanel(setMode, providers.length > 0 ? () => { view = 'options'; paint(); } : null));
+  };
+  paint();
 
   wrap.appendChild(legalNote());
 }
 
-function emailSignInSection(setMode: (m: Mode) => void): HTMLElement {
-  const host = document.createElement('div');
-  host.className = 'account-email-section';
-
+function emailSignInPanel(setMode: (m: Mode) => void, onBack: (() => void) | null): HTMLElement {
   const panel = document.createElement('div');
   panel.className = 'account-email-panel';
 
@@ -635,21 +605,48 @@ function emailSignInSection(setMode: (m: Mode) => void): HTMLElement {
   });
 
   paint();
-  host.appendChild(panel);
-  return host;
+  if (onBack) panel.appendChild(backLink(onBack));
+  return panel;
 }
 
 // ── Shared pieces of both tabs ───────────────────────────────────────────────
 
-function orDivider(): HTMLElement {
-  const divider = document.createElement('div');
-  divider.className = 'account-divider';
-  divider.appendChild(document.createTextNode('or'));
-  return divider;
+// The three ways in, as equal-weight buttons — Google, Facebook, then email
+// last so the order matches VITE_AUTH_PROVIDERS's own google/facebook/apple
+// ordering (see auth.ts's KNOWN_PROVIDERS) with email as the one guaranteed
+// option after it.
+function optionsList(providers: OAuthProvider[], onEmail: () => void): HTMLElement {
+  const lead = document.createElement('div');
+  lead.className = 'account-providers-lead';
+  for (const provider of providers) lead.appendChild(providerButton(provider, true));
+  lead.appendChild(emailOptionButton(onEmail));
+  return lead;
 }
 
-// The consent the registration checkbox can't cover — see the note by the
-// checkbox. Small, always visible, and linked rather than summarised.
+function emailOptionButton(onClick: () => void): HTMLElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn-secondary account-provider account-provider--lead account-provider--email';
+  btn.appendChild(mailMark());
+  btn.appendChild(document.createTextNode('Continue with email'));
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+
+function backLink(onClick: () => void): HTMLElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'account-link-btn account-link-btn--quiet account-back-link';
+  btn.textContent = '← Other options';
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+
+// Under whichever view is showing — the three buttons, or the email form —
+// rather than tied to one method. A Google or Facebook tap can't carry
+// affirmative consent anyway (the app can't tell a first-time registration
+// from a returning sign-in until the redirect comes back), so this passive
+// line is the whole of what every method gets, email included.
 function legalNote(): HTMLElement {
   const legal = document.createElement('p');
   legal.className = 'account-legal-note';
@@ -861,9 +858,6 @@ function docLink(href: string, label: string): HTMLAnchorElement {
   // back to it.
   a.rel = 'noopener noreferrer';
   a.textContent = label;
-  // The checkbox's own <label> wraps this, so a tap on the link would otherwise
-  // toggle the box as well as opening the document.
-  a.addEventListener('click', (e) => e.stopPropagation());
   return a;
 }
 
@@ -934,6 +928,16 @@ function googleMark(): SVGElement {
 function facebookMark(): SVGElement {
   return svg('0 0 24 24',
     '<path fill="#1877F2" d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.68.24 2.68.24v2.96h-1.51c-1.49 0-1.96.93-1.96 1.89v2.26h3.33l-.53 3.49h-2.8V24C19.61 23.1 24 18.1 24 12.07z"/>');
+}
+
+// Not a brand mark — the email option isn't a provider, so it takes
+// `currentColor` like Apple's rather than a fixed colour of its own.
+function mailMark(): SVGElement {
+  return svg('0 0 24 24',
+    '<path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" '
+    + 'stroke-linejoin="round" d="M3 5.5h18v13H3z"/>'
+    + '<path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" '
+    + 'stroke-linejoin="round" d="m3 6 9 7 9-7"/>');
 }
 
 function appleMark(): SVGElement {

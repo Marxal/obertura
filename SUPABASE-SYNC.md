@@ -528,8 +528,10 @@ VITE_AUTH_PROVIDERS=google,facebook,apple
 
 Unset means `google` alone. **A provider named here that isn't also enabled in
 the dashboard produces a button that fails** with "Unsupported provider", so the
-two are changed together: enable it in Supabase, then add it to the variable in
-the Cloudflare Pages settings, then redeploy.
+two are changed together: enable it in Supabase, then add it to `VITE_AUTH_PROVIDERS`
+in the local `.env` used to build the site (there is no Cloudflare dashboard
+build for this project — see `STRIPE-SETUP.md` §4), then rebuild and redeploy:
+`DEPLOY_TARGET=cloudflare npm run build && npx wrangler deploy`.
 
 Every provider needs the same callback URL, which Supabase shows you on its own
 settings page:
@@ -552,7 +554,8 @@ Nothing to do.
 3. **App settings → Basic**: copy the **App ID** and **App Secret**.
 4. Supabase → **Authentication → Sign In / Providers → Facebook**: paste both,
    enable.
-5. Add `facebook` to `VITE_AUTH_PROVIDERS` and redeploy.
+5. Add `facebook` to `VITE_AUTH_PROVIDERS` in `.env` and rebuild + redeploy
+   (`DEPLOY_TARGET=cloudflare npm run build && npx wrangler deploy`).
 
 The one catch: a Facebook app starts in **Development mode**, where only you and
 accounts you add as testers can sign in. Going Live needs a privacy-policy URL

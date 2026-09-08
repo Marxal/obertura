@@ -18283,22 +18283,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 
 .account-submit { width: 100%; }
 
-/* "or" with a rule either side. */
-.account-divider {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  font-size: 0.78rem;
-  color: var(--text-faint);
-}
-.account-divider::before,
-.account-divider::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: var(--border);
-}
-
 /* One row per enabled sign-in provider. Google and Facebook carry their own
    brand colours; Apple's mark takes currentColor, which is its own guidance —
    black on light, white on dark. */
@@ -18327,13 +18311,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   background: var(--bg-card);
   border-color: var(--border);
   box-shadow: var(--shadow-card);
-}
-
-/* Email and password, under the divider that follows the provider buttons. */
-.account-email-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
 }
 
 .account-email-panel {
@@ -18394,6 +18371,13 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   font-weight: 500;
   text-decoration-color: var(--border);
   opacity: 0.85;
+}
+
+/* The way back from the email form to the three buttons — the last thing on
+   the panel, so it's centred rather than left-aligned like the links above it. */
+.account-back-link {
+  align-self: center;
+  margin-top: 0.25rem;
 }
 
 /* The consent the checkbox can't cover: an OAuth tap is indistinguishable from

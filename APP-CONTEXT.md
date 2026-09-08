@@ -1769,8 +1769,14 @@ reason for most of the pure/impure splits in this codebase.
 
 **Deploy:** pushing `main` runs `.github/workflows/` → build → `cp -r docs
 dist/docs` → GitHub Pages (forced into "GitHub Actions" source mode so Jekyll
-can't overwrite it). The Cloudflare build is triggered from its own dashboard
-with `DEPLOY_TARGET=cloudflare` set there; nothing else differs.
+can't overwrite it) — but that workflow now only ships the static `farewell/`
+page (see CLAUDE.md "Hosting targets"). The live site is a Cloudflare
+**Worker**, not a connected Pages build, so nothing deploys it automatically:
+run `DEPLOY_TARGET=cloudflare npm run build && npx wrangler deploy` by hand
+from a checkout with a filled-in `.env` (see STRIPE-SETUP.md §4). Forgetting
+this step, or building with a stale/incomplete `.env`, ships silently wrong —
+e.g. an env var like `VITE_AUTH_PROVIDERS` left unset at build time just
+falls back to its default with no error.
 
 **Versioning (from `CLAUDE.md`, and it matters):** before a risky round —
 `npm run selftest` and `npm run build` both pass → bump `version` in
