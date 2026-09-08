@@ -318,6 +318,33 @@ export function gateGamesToEntitlement(parts: PullParts, entitled: boolean): Pul
   return entitled ? parts : { ...parts, games: false };
 }
 
+// ── Not every account deserves a row ─────────────────────────────────────────
+//
+// A `profiles` row does not exist until the first push, and an account that
+// never pushes costs only its auth.users entry — a couple of KB. That gap is
+// worth protecting now that signing up is one tap and is offered on the
+// first-run success card and in Get started: a fair number of accounts will be
+// made by people who then close the tab, and a row for each of those fills the
+// free tier's 500 MB with empty repertoires.
+//
+// The narrowest rule that helps: skip only the account's VERY FIRST write, and
+// only while the device holds no lines. The moment anything is saved the row is
+// created as normal, and this can never fire again for that account.
+//
+// THE HONEST COST: the app-state snapshot — puzzle rating, streaks, endgame
+// progress — waits with it. Someone who signs up, does fifty puzzles, saves no
+// line and switches phone loses that. Accepted deliberately: the sync exists to
+// protect the repertoire, someone with no lines has not started one, and the
+// alternative is a row for every account that was never used.
+export function shouldDeferFirstPush(opts: {
+  /** Has this device ever completed a push for this account? */
+  everPushed: boolean;
+  /** Lines the device currently holds, across every book. */
+  lineCount: number;
+}): boolean {
+  return !opts.everPushed && opts.lineCount === 0;
+}
+
 // ── Whose statistics win ─────────────────────────────────────────────────────
 //
 // The lines and the games MERGE — a union of move trees and a union of games by

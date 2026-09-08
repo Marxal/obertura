@@ -114,6 +114,7 @@ import {
   gamesForSync,
   partsToPull,
   gateGamesToEntitlement,
+  shouldDeferFirstPush,
   anyPart,
   shouldApplyRemoteLocal,
   payloadBytes,
@@ -494,6 +495,27 @@ async function pushDirtyParts(): Promise<void> {
   try {
     if (wantCore) {
       const core = await exportCore();
+
+      // Don't create the account's row until there is something in it worth
+      // protecting — see shouldDeferFirstPush in sync-core.ts for the whole
+      // reasoning and its accepted cost.
+      if (shouldDeferFirstPush({
+        everPushed: !!readLocal(CORE_FP_KEY),
+        lineCount: backupLineCount(core),
+      })) {
+        // markReachable, NOT markSynced: nothing was written, so the caption
+        // must keep saying "never" rather than claim a copy that doesn't
+        // exist. The pending flag is cleared by clearing the dirty flags —
+        // there is genuinely nothing owed until a line is saved, and saving one
+        // schedules a push of its own.
+        coreDirty = false;
+        gamesDirty = false;
+        writeLocal(PENDING_KEY, null);
+        markReachable();
+        notifyChange();
+        return;
+      }
+
       const fp = coreFingerprintOf(core);
       if (fp !== readLocal(CORE_FP_KEY)) {
         if (payloadBytes(core) > SYNC_PART_LIMIT_BYTES) {

@@ -3573,7 +3573,39 @@ function armEmptyBoardSaveStep(): void {
 // skipping them deliberately, or taking the manual branch. Someone who backs
 // all the way out is offered first run again next launch, which is the honest
 // reading of what they did.
-function showFirstRun(): void {
+// First run, from wherever it got to.
+//
+// ── WHY THIS RESUMES RATHER THAN RESTARTS ───────────────────────────────────
+// Anything that reloads the app mid-first-run — a refresh, the OS reclaiming
+// memory, or signing in through the "I already have an account" line, which
+// leaves and comes back through an OAuth redirect — used to drop the user at
+// the very first question again, with the games they had just waited for still
+// sitting on the device, about to be re-imported over the top.
+//
+// So if the games are already here, we skip straight to the openings. The two
+// conditions are the same ones showFirstRunRecap itself needs: a library big
+// enough to say something about (RECAP_MIN_GAMES) and a source to name the user
+// by. Nothing else about first run is worth persisting — the question this
+// screen asks takes one tap to answer again.
+//
+// NOTE the Lichess round-trip is NOT in this flow: "Where do you play?" takes a
+// typed username for both platforms, so first run never leaves the app. The
+// only OAuth that can interrupt it is the sign-in link, and the walkthrough's
+// own return path is guarded separately (tourResumePending, in offerFirstRun).
+async function showFirstRun(): Promise<void> {
+  try {
+    const games = await getAllGames();
+    if (hasEnoughGames(games.length) && getGamesSource()) {
+      await showFirstRunRecap();
+      return;
+    }
+  } catch {
+    // Storage unreadable — fall through and ask the question.
+  }
+  showWherePickerScreen();
+}
+
+function showWherePickerScreen(): void {
   showWherePicker({
     onPlatform: (platform, username) => runFirstRunImport(platform, username),
     onManual: () => { hideAppSplash(); showFirstRunPicker(); },
@@ -3640,7 +3672,7 @@ function runFirstRunImport(platform: Platform, username: string): void {
       adoptRecapLoader(handOff);
       void showFirstRunRecap();
     },
-    onClose: () => { if (!imported) showFirstRun(); },
+    onClose: () => { if (!imported) showWherePickerScreen(); },
   });
 }
 
@@ -3759,7 +3791,9 @@ async function showFirstRunRecap(): Promise<void> {
     // "Not now" is a decision, so it ends first run. The back gesture is not —
     // it returns to the question, with first run still owed.
     onSkip: () => { finishFirstRun(); showView('train'); },
-    onBack: () => showFirstRun(),
+    // Back always returns to the QUESTION, never to the resume — the user is
+    // stepping back from the openings, so landing on them again is a loop.
+    onBack: () => showWherePickerScreen(),
     onPreview: (opening, ctx) => previewRecapLine(opening, ctx),
     onOverLimit: () => showTrainingCapDialog(),
   });
@@ -6574,7 +6608,7 @@ requestAnimationFrame(() => {
     // top of the first one, still in progress.
     if (tourResumePending) return;
     void shouldShowFirstRun().then((show) => {
-      if (show) showFirstRun();
+      if (show) void showFirstRun();
     });
   };
   // ONE THING GOES FIRST on a phone that has just signed in: the account's copy

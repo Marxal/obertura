@@ -34,6 +34,7 @@ import {
   gamesForSync,
   partsToPull,
   gateGamesToEntitlement,
+  shouldDeferFirstPush,
   anyPart,
   shouldApplyRemoteLocal,
   payloadBytes,
@@ -769,6 +770,28 @@ export function runRepertoireSyncSelfTest(): TestResult[] {
       return partsInBackup(legacy).join(',') === 'lines,games,settings';
     })(),
     'every file written before partial exports existed',
+  );
+
+  // ── Not every account deserves a row ───────────────────────────────────────
+  //
+  // A profiles row is created by the first push, so an account that never
+  // pushes costs only its auth entry. These guard the narrow rule that keeps it
+  // that way: skip the FIRST write only, and only with nothing saved.
+  check(
+    'a brand-new account with no lines does not create a row',
+    shouldDeferFirstPush({ everPushed: false, lineCount: 0 }),
+    'never pushed + 0 lines → deferred',
+  );
+  check(
+    'one saved line is enough to create the row',
+    !shouldDeferFirstPush({ everPushed: false, lineCount: 1 }),
+    'never pushed + 1 line → pushes',
+  );
+  check(
+    'an account that has pushed before always pushes again',
+    !shouldDeferFirstPush({ everPushed: true, lineCount: 0 })
+      && !shouldDeferFirstPush({ everPushed: true, lineCount: 5 }),
+    'deleting every line must still sync that deletion',
   );
 
   return results;
