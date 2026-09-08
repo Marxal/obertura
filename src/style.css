@@ -953,7 +953,10 @@ header h1.header-title--screen {
 
 .nav-settings {
   position: relative;
-  overflow: hidden;
+  /* NOT overflow:hidden. It was here to round off the avatar image, which
+     already rounds itself (.nav-settings-avatar sets its own border-radius and
+     object-fit), and it clipped the auth dot below — that badge deliberately
+     sits a pixel outside the circle, which is exactly what a clip removes. */
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -968,6 +971,29 @@ header h1.header-title--screen {
   -webkit-tap-highlight-color: transparent;
   flex-shrink: 0;
   transition: background 0.12s, color 0.12s;
+}
+
+/* ── Guest or signed in, on every screen ──────────────────────────────────────
+   A dot in the corner of the settings button. Hollow = guest, filled = signed
+   in. Sits OVER the avatar as well as the icon, because that picture is the
+   chess platform's and says nothing about a Bito account. */
+.nav-settings-dot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  background: var(--accent);
+  /* Rings the dot in the header's own ground so it reads as a badge on the
+     button rather than a mark on the picture underneath. */
+  box-shadow: 0 0 0 2px var(--bg);
+  pointer-events: none;
+}
+
+.nav-settings-dot--guest {
+  background: var(--bg);
+  border: 1.5px solid var(--text-faint);
 }
 
 /* Your Chess.com picture, layered over the generic user SVG when connected. */
@@ -2131,6 +2157,37 @@ main {
   line-height: 1.45;
   color: var(--text-faint);
 }
+
+/* The free account, for a guest who has run into a wall. Set apart by a rule
+   above it because it is a DIFFERENT offer, not a softer version of the one
+   above — and quiet, because it is the fallback. It never claims to lift the
+   cap; see onCreateAccount in pro-sheet.ts. */
+.pro-free {
+  margin: var(--space-md) 0 0;
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--hairline);
+  text-align: center;
+}
+.pro-free-line {
+  margin: 0 0 0.35rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+.pro-free-btn {
+  padding: 0.4rem 0.2rem;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.pro-free-btn:active { opacity: 0.7; }
 
 /* "Already have Full Access? Sign in" — for the signed-out reader who has
    already paid. Louder than .pro-note above it (it is an action, not small

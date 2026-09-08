@@ -305,6 +305,19 @@ function openUpgradeDialog(eyebrow?: string): void {
           }));
         }
       : undefined,
+    // The free account, for a guest who has run into a wall. It does NOT lift
+    // the cap — see the note on onCreateAccount in pro-sheet.ts — but this is
+    // the moment a guest has proved they are using the app, and until now
+    // nothing has offered them anything except a price.
+    onCreateAccount: isSupabaseConfigured && !getAuthUser()
+      ? () => {
+          void import('./onboarding-signup').then(m => m.openSignUpSheet('signup', {
+            lead: 'Everything you have built so far lives on this phone alone. '
+              + 'A free account keeps a copy, so it comes back on any device '
+              + 'you sign in on.',
+          }));
+        }
+      : undefined,
   });
 }
 

@@ -57,6 +57,16 @@ export interface ProSheetOptions {
   // hint that signing in is the answer. Being asked to pay twice is the single
   // worst moment this sheet can produce.
   onSignIn?: () => void;
+  // Optional, and passed only when nobody is signed in: "Create a free account".
+  //
+  // THIS IS NOT A WAY PAST THE CAP, and the copy must never imply it is — a free
+  // account meets exactly the same limits a guest does (canEnrolAnother is
+  // `isEntitled() || under the cap`, and a free account is not entitled). It is
+  // here because this sheet is the first time many guests are asked for
+  // anything, and asking someone for money before ever asking them to register
+  // skips a step. What the account genuinely does at this moment is keep the
+  // work they have just proved they care about, so that is what it offers.
+  onCreateAccount?: () => void;
 }
 
 // The promises, in the landing page's order and wording.
@@ -168,6 +178,28 @@ export function openProSheet(opts: ProSheetOptions): void {
     'Secure checkout via Stripe. A Bito Chess account is required so your '
     + 'purchase can follow you across devices.';
   sheet.appendChild(note);
+
+  // The free account, under the offer and clearly separate from it. A guest who
+  // has just hit a cap has been using the app enough to have something worth
+  // losing, and nothing so far has told them it lives only on this phone.
+  if (opts.onCreateAccount) {
+    const free = document.createElement('div');
+    free.className = 'pro-free';
+
+    const line = document.createElement('p');
+    line.className = 'pro-free-line';
+    line.textContent = 'Not ready? Your lines are only on this phone right now.';
+    free.appendChild(line);
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'pro-free-btn';
+    btn.textContent = 'Create a free account to keep them';
+    btn.addEventListener('click', () => { close(); opts.onCreateAccount?.(); });
+    free.appendChild(btn);
+
+    sheet.appendChild(free);
+  }
 
   if (opts.onSignIn) {
     const restore = document.createElement('p');

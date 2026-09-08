@@ -177,7 +177,7 @@ import {
   isConnected as isLichessConnected,
 } from './lichess-auth';
 import { isSupabaseConfigured } from './supabase';
-import { initAuth, isPasswordRecovery, PASSWORD_RECOVERY_EVENT } from './auth';
+import { initAuth, isPasswordRecovery, getAuthUser, onAuthChange, PASSWORD_RECOVERY_EVENT } from './auth';
 import {
   initAccountSync,
   isAwaitingAccountCopy,
@@ -5170,6 +5170,7 @@ function onOpenLine(line: Line, atFen?: string): void {
 // stored (Lichess / no picture keeps the icon). The inline SVG stays in the DOM
 // as the fallback — a broken image removes the img and restores the icon.
 function applyNavSettingsAvatar(): void {
+  applyNavSettingsAuthDot();
   const btn = document.getElementById('nav-settings');
   if (!btn) return;
   const url = getGamesSource()?.avatarUrl;
@@ -5191,6 +5192,43 @@ function applyNavSettingsAvatar(): void {
   });
   existing?.remove();
   btn.appendChild(img);
+}
+
+// ── ARE YOU SIGNED IN? THE ONE PLACE IT IS ALWAYS VISIBLE ───────────────────
+//
+// Nothing in the app used to say. The header's person icon looked identical
+// either way, and signing out changes nothing you can see — the lines are on
+// the phone regardless — so people genuinely did not know which they were. That
+// matters more now: first run is guest-first by design, so the common case is a
+// user with a real repertoire and no account, one cleared browser away from
+// losing it.
+//
+// A DOT, NOT A WORD. This sits in the header of every screen; a label would be
+// a permanent nag, and the thing it marks is a state rather than an action.
+// Hollow means guest, filled means signed in — and tapping through to Settings
+// (which this button already does) is where the words are.
+//
+// Deliberately independent of the avatar above: that picture is the CHESS
+// PLATFORM's, set by an import, so a guest who imported games has one and would
+// otherwise look exactly like a member.
+function applyNavSettingsAuthDot(): void {
+  const btn = document.getElementById('nav-settings');
+  if (!btn) return;
+  // No accounts in this build — nothing to be a guest of.
+  if (!isSupabaseConfigured) return;
+
+  const signedIn = !!getAuthUser();
+  let dot = btn.querySelector<HTMLSpanElement>('.nav-settings-dot');
+  if (!dot) {
+    dot = document.createElement('span');
+    dot.className = 'nav-settings-dot';
+    dot.setAttribute('aria-hidden', 'true');
+    btn.appendChild(dot);
+  }
+  dot.classList.toggle('nav-settings-dot--guest', !signedIn);
+  // The button's own accessible name carries the state, so a screen reader gets
+  // what the dot is showing rather than an unlabelled decoration.
+  btn.setAttribute('aria-label', signedIn ? 'Settings — signed in' : 'Settings — guest');
 }
 
 // The desktop sidebar's five destinations — same views, order and icons as
@@ -5424,6 +5462,9 @@ function setupNav(): void {
     applySideUserAvatar();
     void refreshSideCreate();
   });
+  // Signing in or out changes the guest dot, and neither fires an identity
+  // change — that event is about the CHESS account, not the Bito one.
+  onAuthChange(() => applyNavSettingsAuthDot());
 
   // Settings → Feedback & about → "Replay walkthrough": open the builder on a
   // fresh line and force the coach-marks, the same way "Build my own" does for
