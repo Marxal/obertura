@@ -22,7 +22,7 @@ import { selectedBookId } from './repertoire-picker';
 import { mainlineNodes, DEFAULT_PRIORITY } from './scheduler';
 import type { Annotation, MoveNode } from './tree';
 import { saveLine, getAllLines, getLine, getAllGames, getGame, saveGames, deleteLine, deleteGame, purgeRetiredLocalKeys, countGames, getAllOpponents } from './storage';
-import type { ImportedGame, Platform } from './import-games';
+import type { ImportedGame, Platform, TimeClass } from './import-games';
 import { nameForPath, openingForPath } from './openings';
 import { positionIndex, type DuplicateVerdict } from './position-index';
 import { inheritReviews, inheritanceNote, missingTags, type InheritResult } from './save-index';
@@ -35,6 +35,9 @@ import {
   requestTrainingSlot,
   requestLineSaveRoom,
   showGoProDialog,
+  showTrainingCapDialog,
+  isEntitled,
+  FREE_TRAINING_LINES,
   ENTITLEMENT_CHANGE_EVENT,
 } from './entitlement';
 import { handlePurchaseReturn } from './checkout';
@@ -123,6 +126,8 @@ import {
   buildRecap as buildGamesRecap,
   hasEnoughGames,
   type OpeningGroup,
+  type Recap,
+  type RecapGame,
 } from './onboarding-recap';
 import { replayGame } from './mistake-scan';
 import {
@@ -3592,10 +3597,37 @@ function runFirstRunImport(platform: Platform, username: string): void {
     // abandoned attempt; being asked to merge them is a question about a state
     // the user doesn't know they're in.
     alwaysReplace: true,
+    // The review step's only real question — the time format — now lives on the
+    // recap, where its effect is visible. See ImportPanelOptions.skipReview.
+    skipReview: true,
     title: 'Import your games',
-    onImported: () => { imported = true; void showFirstRunRecap(); },
+    // A COVER GOES UP SYNCHRONOUSLY, before the panel closes.
+    //
+    // onImported fires, then the panel closes itself — but building the recap
+    // means awaiting getAllGames(), so for a frame or two the Train screen was
+    // visible underneath and the recap arrived on top of it. It read as a
+    // glitch. This paints an opaque layer in the same gesture that closes the
+    // panel, and showFirstRunRecap drops it once the recap is actually up.
+    onImported: () => { imported = true; showRecapCover(); void showFirstRunRecap(); },
     onClose: () => { if (!imported) showFirstRun(); },
   });
+}
+
+// An opaque layer held between the import panel closing and the recap mounting,
+// so the Train screen never flashes between the two. Removed by every path out
+// of showFirstRunRecap, including the failures.
+let recapCover: HTMLDivElement | null = null;
+
+function showRecapCover(): void {
+  if (recapCover) return;
+  recapCover = document.createElement('div');
+  recapCover.className = 'recap-cover';
+  document.body.appendChild(recapCover);
+}
+
+function hideRecapCover(): void {
+  recapCover?.remove();
+  recapCover = null;
 }
 
 // Turn what just landed into the recap. Reads the games back from storage rather
@@ -3606,6 +3638,7 @@ async function showFirstRunRecap(): Promise<void> {
   try {
     games = await getAllGames();
   } catch {
+    hideRecapCover();
     showView('train');
     return;
   }
@@ -3613,31 +3646,45 @@ async function showFirstRunRecap(): Promise<void> {
   // Too thin to say anything honest about — see RECAP_MIN_GAMES. Hand over to
   // the manual branch rather than showing a confident recap built on four games.
   if (!hasEnoughGames(games.length)) {
+    hideRecapCover();
     showToast('Not many games to read yet — let’s build your first line instead.');
     finishFirstRun();
     showFirstRunPicker();
     return;
   }
 
-  const recap = buildGamesRecap(
-    games,
-    // The bundled opening table, not the platform's own `opening` field: every
-    // other screen in the app names lines with nameForPath, and two different
-    // names for the same opening depending on which screen you're on is worse
-    // than either name alone. fens[0] is the start position, which is dropped so
-    // an unrecognised game doesn't get named after the empty board.
-    (game) => openingForPath(replayGame(game)?.fens.slice(1) ?? [])?.name ?? null,
-  );
+  // The bundled opening table, not the platform's own `opening` field: every
+  // other screen in the app names lines with nameForPath, and two different
+  // names for the same opening depending on which screen you're on is worse
+  // than either name alone. fens[0] is the start position, which is dropped so
+  // an unrecognised game doesn't get named after the empty board.
+  const nameOf = (game: RecapGame): string | null =>
+    openingForPath(replayGame(game)?.fens.slice(1) ?? [])?.name ?? null;
 
+  // Re-derived on every filter change. Synchronous by contract — the games are
+  // already in hand, so changing a chip repaints without a spinner.
+  const build = (opts: { timeClass: TimeClass | null; depth: number }): Recap =>
+    buildGamesRecap(
+      opts.timeClass ? games.filter(g => g.timeClass === opts.timeClass) : games,
+      nameOf,
+      opts.depth,
+    );
+
+  hideRecapCover();
   showRecapScreen({
-    recap,
+    recap: build({ timeClass: null, depth: 6 }),
     username: getGamesSource()?.username ?? '',
+    // Ticking past the training cap would save lines that silently never enter
+    // the rotation, so the ceiling is the rotation's own.
+    freeLimit: isEntitled() ? Number.MAX_SAFE_INTEGER : FREE_TRAINING_LINES,
+    onFilterChange: build,
     onSave: (openings) => { finishFirstRun(); void saveRecapLines(openings); },
     // "Not now" is a decision, so it ends first run. The back gesture is not —
     // it returns to the question, with first run still owed.
     onSkip: () => { finishFirstRun(); showView('train'); },
     onBack: () => showFirstRun(),
     onPreview: (opening) => previewRecapLine(opening),
+    onOverLimit: () => showTrainingCapDialog(),
   });
 }
 

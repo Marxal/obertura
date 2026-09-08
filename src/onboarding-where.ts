@@ -83,15 +83,6 @@ const PLACEHOLDERS: Record<Platform, string> = {
   lichess: 'Your Lichess username',
 };
 
-// Where a user can go and read their own handle off the page. A mistyped
-// username is the single most likely way this screen fails, and "check the
-// spelling" is useless advice to someone who genuinely isn't sure what theirs
-// is — so the answer is one tap away, on the site itself, before they submit.
-const USERNAME_HELP: Record<Platform, string> = {
-  chesscom: 'https://www.chess.com/settings',
-  lichess: 'https://lichess.org/account/profile',
-};
-
 export function showWherePicker(deps: WherePickerDeps): void {
   let tab: Tab = 'chesscom';
 
@@ -179,14 +170,6 @@ export function showWherePicker(deps: WherePickerDeps): void {
 
   // The manual branch's explanation, in the panel where there is room for the
   // whole sentence. Hidden while a platform tab is selected.
-  // "How do I find my username?" — opens the platform's own settings page.
-  const help = document.createElement('a');
-  help.className = 'where-help';
-  help.target = '_blank';
-  help.rel = 'noopener noreferrer';
-  help.textContent = 'How do I find my username?';
-  panel.appendChild(help);
-
   const manualNote = document.createElement('p');
   manualNote.className = 'where-manual-note';
   manualNote.textContent =
@@ -232,12 +215,8 @@ export function showWherePicker(deps: WherePickerDeps): void {
     }
     const manual = next === 'manual';
     input.hidden = manual;
-    help.hidden = manual;
     manualNote.hidden = !manual;
-    if (!manual) {
-      input.placeholder = PLACEHOLDERS[next];
-      help.href = USERNAME_HELP[next];
-    }
+    if (!manual) input.placeholder = PLACEHOLDERS[next];
     reflectGo();
   }
 

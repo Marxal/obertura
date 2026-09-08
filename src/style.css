@@ -10196,12 +10196,34 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 
 .import-error {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
   font-size: 0.82rem;
   line-height: 1.45;
   color: var(--wrong, #c0531f);
   background: color-mix(in srgb, var(--wrong, #c0531f) 12%, transparent);
   border-radius: 8px;
   padding: 0.55rem 0.7rem;
+}
+
+/* The "no games — here's where to find your username" block. The headline stays
+   in the error colour; the instructions under it drop to body text, because
+   they are help rather than more alarm. */
+.import-error-hint {
+  color: var(--text);
+  opacity: 0.85;
+}
+
+.import-error-link {
+  align-self: flex-start;
+  margin-top: 0.1rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: none;
 }
 
 /* ── Inline import form (import-inline.ts) ────────────────────────────────────
@@ -10377,6 +10399,49 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   text-align: center;
   margin: 0;
   min-height: 1.2em;
+}
+
+/* "N openings found" + a slow slider through their names. Hidden until the scan
+   has actually found one, so it never shows a heading over nothing. The fixed
+   height stops the card jumping as names of different lengths cycle through. */
+.import-found {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  margin-top: 0.5rem;
+  min-height: 2.6em;
+  text-align: center;
+}
+
+.import-found-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.import-found-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--accent);
+  max-width: 26ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import-found-name.is-in { animation: import-found-in 0.34s ease both; }
+
+@keyframes import-found-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .import-found-name.is-in { animation: none; }
 }
 
 /* "Things about the app" ticker — a typewriter line that loops while the scan
@@ -18750,11 +18815,130 @@ html.picker-open body {
   color: var(--text-faint);
 }
 
+/* ── The two controls: time format, then line length ── */
+.recap-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0 0 1.1rem;
+}
+
+.recap-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.recap-chip {
+  min-height: 34px;
+  padding: 0.3rem 0.7rem;
+  border: 1.5px solid var(--border-card);
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  font-variant-numeric: tabular-nums;
+}
+
+.recap-chip--on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* Quieter than the chips: the rarer question, and one most people never touch. */
+.recap-depth {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.recap-depth-label {
+  margin-right: 0.15rem;
+  font-size: 0.76rem;
+  color: var(--text-faint);
+}
+
+.recap-depth-btn {
+  padding: 0.22rem 0.55rem;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.recap-depth-btn--on {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .recap-list {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
   text-align: left;
+}
+
+/* A chosen card is visibly chosen at a glance down the list, not only by the
+   state of its own button. */
+.recap-card--on {
+  border-color: var(--accent);
+}
+
+.recap-toggle {
+  margin-top: 0.45rem;
+  padding: 0.34rem 0.7rem;
+  border: 1.5px solid var(--border-card);
+  border-radius: 9px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.recap-toggle--on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.recap-more {
+  margin: 0.7rem auto 0;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--hairline);
+  border-radius: 9px;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Held between the import panel closing and the recap mounting, so the Train
+   screen never flashes between the two. */
+.recap-cover {
+  position: fixed;
+  inset: 0;
+  z-index: 350;
+  background: var(--bg);
 }
 
 /* Each card opens the line in the peek popup, so it has to look like it does

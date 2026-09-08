@@ -29,7 +29,7 @@
 // not what a database says the London is. A line built from one game would be
 // that game's accidents; a line from the book would not be theirs at all.
 
-import type { GameResult } from './import-core';
+import type { GameResult, TimeClass } from './import-core';
 
 // A game as this module needs to see it. Deliberately the bare minimum rather
 // than ImportedGame, so the self-test can hand it plain little objects.
@@ -38,6 +38,8 @@ export interface RecapGame {
   result: GameResult;
   ucis: string[];
   sans: string[];
+  /** Which bucket this game was played in — the recap's time-format filter. */
+  timeClass?: TimeClass;
 }
 
 // Below this many games the recap has nothing honest to say — a handful of
@@ -83,6 +85,8 @@ export interface OpeningGroup {
 
 export interface Recap {
   total: number;
+  /** Games per time bucket, for the recap's filter chips. Only non-empty ones. */
+  byTimeClass: { timeClass: TimeClass; games: number }[];
   white: number;
   black: number;
   wins: number;
@@ -178,6 +182,7 @@ export function trunkOf(
 export function buildRecap(
   games: readonly RecapGame[],
   nameOf: (game: RecapGame) => string | null,
+  maxOwnMoves = TRUNK_MAX_OWN_MOVES,
 ): Recap {
   let white = 0;
   let wins = 0;
@@ -206,7 +211,7 @@ export function buildRecap(
 
   const openings: OpeningGroup[] = [];
   for (const group of groups.values()) {
-    const trunk = trunkOf(group.games, group.colour);
+    const trunk = trunkOf(group.games, group.colour, maxOwnMoves);
     if (ownMoveCount(trunk.ucis.length, group.colour) < TRUNK_MIN_OWN_MOVES) continue;
 
     let w = 0;
@@ -235,8 +240,17 @@ export function buildRecap(
   // two renders of the same library.
   openings.sort((a, b) => b.games - a.games || a.name.localeCompare(b.name));
 
+  const buckets = new Map<TimeClass, number>();
+  for (const g of games) {
+    if (!g.timeClass) continue;
+    buckets.set(g.timeClass, (buckets.get(g.timeClass) ?? 0) + 1);
+  }
+
   return {
     total: games.length,
+    byTimeClass: [...buckets.entries()]
+      .map(([timeClass, n]) => ({ timeClass, games: n }))
+      .sort((a, b) => b.games - a.games),
     white,
     black,
     wins,

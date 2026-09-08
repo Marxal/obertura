@@ -25,16 +25,16 @@
 // what's stored) and records the source, then hands control back so the caller
 // can re-run its analysis and refresh badges/suggestions.
 //
-// SIGNED OUT, the slice is capped at FREE_GUEST_IMPORT (100). The bigger slices
-// are still shown, with a padlock, and tapping one opens the sign-up sheet —
+// SIGNED OUT, the slice is capped at FREE_GUEST_IMPORT. The bigger slices are
+// still shown, with a padlock, and tapping one opens the sign-up sheet —
 // visible but locked beats hidden, because the point is to say what an account
 // is FOR.
 //
-// The copy says "you can import 100 games", flat. Mechanically it's 100 PER
-// IMPORT (each import replaces what's stored, so a guest can re-scan as often as
-// they like) — but "100 at a time" invites the reader to work out what the catch
-// is, and there isn't one worth the sentence. The simple number is the honest
-// summary of what a guest gets.
+// The copy quotes that number flat. Mechanically it's per IMPORT (each import
+// replaces what's stored, so a guest can re-scan as often as they like) — but
+// "N at a time" invites the reader to work out what the catch is, and there
+// isn't one worth the sentence. The simple number is the honest summary of what
+// a guest gets. Always read it from the constant; it has moved three times.
 
 import {
   importGames,
@@ -84,6 +84,18 @@ const SOURCE_KEY = 'obertura.gamesSource';
 // Set by every "my games" import AND by each successful auto-refresh, so the
 // 7-day window is driven by a single key the user can poke from the console.
 const REFRESH_KEY = 'obertura.lastGamesRefresh';
+
+// Where each site shows you your own handle, and the page it's on. Used only by
+// the no-games block above — the moment someone actually needs it.
+const USERNAME_WHERE: Record<Platform, string> = {
+  chesscom: 'On Chess.com it’s in Settings, under “Username”.',
+  lichess: 'On Lichess your @username is shown top-right when you’re signed in.',
+};
+
+const USERNAME_HELP: Record<Platform, string> = {
+  chesscom: 'https://www.chess.com/settings',
+  lichess: 'https://lichess.org/account/profile',
+};
 
 const PLATFORM_LABELS: Record<Platform, string> = {
   chesscom: 'Chess.com',
@@ -325,6 +337,16 @@ export interface ImportPanelOptions {
    * question about a state they don't know they're in.
    */
   alwaysReplace?: boolean;
+  /**
+   * Import everything the scan found, without showing the review step.
+   *
+   * Step 2 ("Found N games", a how-many chooser, time-control toggles) asks the
+   * user to make decisions about raw games before they have seen anything the
+   * app can do with them. First run skips it: the scan is already bounded by
+   * `maxGames`, and the one choice that mattered — the time format — now lives
+   * on the recap, where changing it visibly changes the openings underneath.
+   */
+  skipReview?: boolean;
 }
 
 export function openImportPanel(opts: ImportPanelOptions = {}): void {
@@ -397,8 +419,50 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
   errorEl.hidden = true;
   errorEl.setAttribute('aria-live', 'assertive');
   sheet.appendChild(errorEl);
-  const showError = (msg: string) => { errorEl.textContent = msg; errorEl.hidden = false; };
+  const showError = (msg: string) => {
+    errorEl.replaceChildren(document.createTextNode(msg));
+    errorEl.hidden = false;
+  };
   const clearError = () => { errorEl.hidden = true; };
+
+  // ── "That account has no games" ────────────────────────────────────────────
+  //
+  // Almost always a typo, and "check the spelling" is useless advice to someone
+  // who isn't sure what their handle is. So this says what happened, then shows
+  // WHERE to read the real one, with a link straight to the page it's on.
+  //
+  // It lives here rather than under the username field on the first screen: a
+  // permanent "how do I find my username?" is a question asked of everyone,
+  // including the overwhelming majority who know theirs. This only appears at
+  // the moment the answer is actually needed.
+  const showNoGames = (platform: Platform, user: string): void => {
+    errorEl.replaceChildren();
+
+    const headline = document.createElement('strong');
+    headline.textContent = `No games found for “${user}” on ${PLATFORM_LABELS[platform]}.`;
+    errorEl.appendChild(headline);
+
+    const hint = document.createElement('span');
+    hint.className = 'import-error-hint';
+    hint.textContent = 'Make sure you typed your username correctly — it’s not '
+      + 'your email or your display name.';
+    errorEl.appendChild(hint);
+
+    const where = document.createElement('span');
+    where.className = 'import-error-hint';
+    where.textContent = USERNAME_WHERE[platform];
+    errorEl.appendChild(where);
+
+    const link = document.createElement('a');
+    link.className = 'import-error-link';
+    link.href = USERNAME_HELP[platform];
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = `Open ${PLATFORM_LABELS[platform]} to check ↗`;
+    errorEl.appendChild(link);
+
+    errorEl.hidden = false;
+  };
 
   // ── STEP 1 ──
   const step1 = document.createElement('div');
@@ -500,6 +564,29 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
     clearError();
   }
 
+  // The skipReview path: keep everything the scan found and hand straight back
+  // to the caller. Deliberately a sibling of buildStep2's own runPersist rather
+  // than a shared helper — that one exists to reconcile a user's CHOICES (a
+  // slice, time-control toggles, replace-or-add), and this one has none to
+  // reconcile. Folding them together would mean a function whose every
+  // parameter is "not applicable" down one of its two paths.
+  async function runPersistAll(result: ImportResult): Promise<void> {
+    const games = result.games;
+    if (games.length === 0) { close(); return; }
+    try {
+      await saveMyGames(games, {
+        platform: result.platform,
+        username: userInput.value.trim(),
+        avatarUrl: scannedAvatarUrl,
+      });
+      track('games_imported');
+      opts.onImported?.(games.length);
+      close();
+    } catch (err) {
+      showError(`Couldn’t save your games — ${(err as Error).message}`);
+    }
+  }
+
   async function runScan(): Promise<void> {
     const user = userInput.value.trim();
     if (!user) { showError(`Enter your ${PLATFORM_LABELS[platform]} username first.`); return; }
@@ -547,6 +634,7 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       const result = await importGames(platform, user, {
         months: ALL_MONTHS,
         ...(opts.maxGames ? { maxGames: opts.maxGames } : {}),
+        onGames: (batch) => { loader?.openings.add(batch.map(g => g.opening)); },
         onProgress: (p) => {
           loader?.setStatus(p.monthsTotal > 1
             ? `Scanning ${p.label} (${p.monthsDone}/${p.monthsTotal}) — ${p.gamesSoFar} games so far…`
@@ -563,21 +651,20 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       // both stay on step 1 where the field still is.
       if (result.games.length === 0) {
         unmountLoader();
-        showError(
-          `We found ${PLATFORM_LABELS[platform]} account “${user}”, but no games in it. `
-          + 'Check the spelling, or try the other site.',
-        );
+        showNoGames(platform, user);
         return;
       }
 
       scan = result;
       if (opts.rememberUser !== false) saveUsername(platform, user); // remember for next time
-      // Snap the pawn home, hold the finished bar for a beat, then let the loader
-      // hand off to step 2's "Found N games".
+      // Snap the pawn home, hold the finished bar for a beat, then either hand
+      // off to step 2's "Found N games" or — for a caller that has somewhere
+      // better to take the user — persist the lot and get out of the way.
       loader?.done();
       hideBarTimer = setTimeout(() => {
         if (scanCancelled) return; // backed out during the hold
         unmountLoader();
+        if (opts.skipReview) { void runPersistAll(result); return; }
         void buildStep2(result);
       }, 650);
     } catch (err) {

@@ -217,9 +217,16 @@ export function createPawnProgress(): PawnProgress {
 // above rather than reimplementing it, and sits at z-index 400 so it covers the
 // import bottom-sheet (.edit-sheet, 300) while scanning.
 
+export interface OpeningsFound {
+  /** Feed newly-seen opening names in; repeats are ignored. */
+  add(names: readonly (string | null | undefined)[]): void;
+}
+
 export interface ImportLoader {
   // The full-screen overlay. Append to document.body to show; remove() to close.
   readonly el: HTMLElement;
+  // Names of openings seen so far, shown as a slow slider under the bar.
+  readonly openings: OpeningsFound;
   // Show the bar at 0% and begin tracking.
   start(): void;
   // Proportional fill, fraction 0..1. Always monotonic — never moves backward.
@@ -257,6 +264,41 @@ export function createImportLoader(): ImportLoader {
   status.className = 'import-loader-status';
   status.setAttribute('aria-live', 'polite');
 
+  // ── "Openings found" ────────────────────────────────────────────────────────
+  //
+  // The one thing worth reading during a scan is what the scan is FINDING, and
+  // it costs nothing: every parsed game already carries the platform's own
+  // opening name (chesscom's ECO url, lichess's opening.name), so this is a
+  // Set and a bit of text rather than any extra work.
+  //
+  // It replaced a generic app-facts ticker here. The difference matters: this
+  // is about the user's own games, it appears only once there is something to
+  // say, and it cannot outlast the wait it fills.
+  const found = document.createElement('div');
+  found.className = 'import-found';
+  found.hidden = true;
+  const foundLabel = document.createElement('span');
+  foundLabel.className = 'import-found-label';
+  found.appendChild(foundLabel);
+  const foundName = document.createElement('span');
+  foundName.className = 'import-found-name';
+  found.appendChild(foundName);
+
+  const seen = new Set<string>();
+  let cycle: number | null = null;
+  const order: string[] = [];
+  let at = 0;
+
+  function showNext(): void {
+    if (order.length === 0) return;
+    at = (at + 1) % order.length;
+    foundName.textContent = order[at];
+    foundName.classList.remove('is-in');
+    // Restart the entry animation on a fresh name.
+    void foundName.offsetWidth;
+    foundName.classList.add('is-in');
+  }
+
   // NO TICKER HERE, deliberately — see createFactsTicker's own note. The import
   // scan turned out to be fast enough that a typewriter never finished its first
   // sentence before the panel moved on, so it read as a flash of half-text
@@ -264,7 +306,7 @@ export function createImportLoader(): ImportLoader {
   // wait is real. If a very large import ever does feel slow, the honest fix is
   // to bring it back on a DELAY — only once the wait has actually happened —
   // not to show it to everyone from the first frame.
-  card.append(avatar, bar.el, status);
+  card.append(avatar, bar.el, status, found);
   el.appendChild(card);
 
   // The three concentric rings that pulse out from behind the avatar block.
@@ -311,7 +353,33 @@ export function createImportLoader(): ImportLoader {
     done(): void {
       bar.done();
     },
+    openings: {
+      add(names: readonly (string | null | undefined)[]): void {
+        let added = false;
+        for (const name of names) {
+          const clean = (name ?? '').trim();
+          if (!clean || seen.has(clean)) continue;
+          seen.add(clean);
+          order.push(clean);
+          added = true;
+        }
+        if (!added) return;
+        foundLabel.textContent = seen.size === 1
+          ? '1 opening found'
+          : `${seen.size} openings found`;
+        if (found.hidden) {
+          found.hidden = false;
+          foundName.textContent = order[0];
+          foundName.classList.add('is-in');
+          at = 0;
+          // Slide through what's been found so far. Slow enough to read, and
+          // it simply stops when the loader is removed.
+          cycle = window.setInterval(showNext, 1600);
+        }
+      },
+    },
     remove(): void {
+      if (cycle !== null) clearInterval(cycle);
       el.remove();
     },
   };

@@ -13,12 +13,18 @@ import { HARD_CAP, type CountChoice } from './import-core';
 // they actually play (which is the whole pitch), small enough that the full
 // library stays a reason to make an account.
 //
-// Raised from 50 to 100: fifty games is a thin sample once it's split by colour
-// and time control — half a dozen games per opening, which is not enough for the
-// map, the suggestions or the mistake scan to say anything confident. A hundred
-// is where a guest's first look starts being worth having, and the 500 / All
-// slices are still the account's job.
-export const FREE_GUEST_IMPORT = 100;
+// Raised 50 → 100 → 500. Fifty games is a thin sample once it's split by colour
+// and time control; a hundred is enough to see which openings you play, but not
+// enough to slice by time control on top of that and still have anything left
+// to say — and the first-run recap now does exactly that (the user picks a time
+// format and the openings re-derive under it).
+//
+// 500 is affordable because the scan is now BOUNDED BY THIS NUMBER rather than
+// by HARD_CAP: first run asks importGames for exactly this many and stops, so a
+// bigger figure here costs archives we actually keep instead of ten times the
+// fetching for games thrown away. The account's edge is the full 1,000 ladder
+// (import-panel's chooser) plus sync, not the raw count of a first look.
+export const FREE_GUEST_IMPORT = 500;
 
 // One chip in the how-many row. A `locked` chip can't be selected: it opens the
 // sign-up sheet instead.
