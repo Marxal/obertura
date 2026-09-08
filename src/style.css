@@ -13927,149 +13927,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   margin-top: 1.5rem;
 }
 
-/* ════════════════════════════════════════════════════════════════════════════
-   BETA ACCESS GATE (gate.ts)
-   A self-contained, full-screen panel shown before the app boots: a code-entry
-   screen, then a welcome / install screen. Styled to the warm-classic theme,
-   reusing the shared button variants. Sits above everything (z-index 400) so it
-   covers the un-booted app underneath. Easy to delete with gate.ts.
-   ════════════════════════════════════════════════════════════════════════════ */
-
-.gate-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 400;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-page);
-  padding: calc(var(--space-xl) + env(safe-area-inset-top, 0))
-           var(--space-xl)
-           calc(var(--space-xl) + env(safe-area-inset-bottom, 0));
-  overflow-y: auto;
-}
-
-.gate-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: var(--space-lg);
-  width: 100%;
-  max-width: 22rem;
-}
-
-.gate-mark {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-/* The real app icon, as a rounded app-icon tile with a soft lift (mirrors the
-   onboarding Welcome mark). */
-.gate-mark-img {
-  width: 88px;
-  height: 88px;
-  border-radius: 20px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
-}
-
-.gate-heading {
-  font-size: 1.5rem;
-  font-weight: 700;
-  line-height: 1.25;
-  color: var(--text);
-  letter-spacing: -0.01em;
-}
-
-.gate-body {
-  font-size: 1rem;
-  line-height: 1.5;
-  color: var(--text-muted);
-  margin: 0;
-}
-
-.gate-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-  width: 100%;
-}
-
-.gate-input {
-  width: 100%;
-  min-height: 48px;
-  padding: var(--space-md) var(--space-lg);
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  color: var(--text);
-  font-size: 1rem;
-  text-align: center;
-  letter-spacing: 0.04em;
-}
-.gate-input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-.gate-input--error {
-  border-color: var(--danger);
-}
-
-.gate-error {
-  margin: 0;
-  font-size: 0.9rem;
-  color: var(--danger);
-}
-
-.gate-submit-btn,
-.gate-install-btn { width: 100%; }
-
-/* iOS install instructions — share → add diagram plus a one-line caption. */
-.gate-steps {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-sm);
-  width: 100%;
-  padding: var(--space-lg);
-  border-radius: 12px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  color: var(--accent);
-}
-.gate-ios-diagram { color: var(--accent); }
-.gate-step-text {
-  margin: 0;
-  font-size: 0.95rem;
-  line-height: 1.45;
-  color: var(--text-muted);
-}
-
-/* A quiet reassurance line above the skip link. */
-.gate-reassure {
-  margin: var(--space-md) 0 0;
-  font-size: 0.9rem;
-  line-height: 1.45;
-  color: var(--text-muted);
-  text-align: center;
-}
-
-/* The "Continue in browser" link — deliberately almost invisible: install is
-   the path we want, this is just an escape hatch. */
-.gate-continue-link {
-  background: none;
-  border: none;
-  margin-top: var(--space-sm);
-  padding: var(--space-xs);
-  color: var(--text-faint);
-  font-size: 0.75rem;
-  font-weight: 400;
-  opacity: 0.6;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.gate-continue-link:active { color: var(--text); opacity: 1; }
 
 /* ════════════════════════════════════════════════════════════════════════════
    GAMER — neon glow
@@ -14151,7 +14008,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
    with the accent border these inputs already adopt on focus. */
 [data-theme="gamer"] .settings-input:focus,
 [data-theme="gamer"] .edit-input:focus,
-[data-theme="gamer"] .gate-input:focus,
 [data-theme="gamer"] .lib-search-input:focus,
 [data-theme="gamer"] .prompt-sheet-textarea:focus {
   border-color: var(--accent);
@@ -18702,83 +18558,99 @@ html.picker-open body {
 .picker-signin-link:active { opacity: 0.7; }
 
 /* ── "Where do you play?" (onboarding-where.ts) ──────────────────────────────
-   The first screen's two platform choices. Full-width rows rather than the
-   side-by-side tiles the colour picker uses: these have a label AND a caption,
-   and a two-line label in a half-width tile wraps into a mess on a narrow
-   phone. Picking one IS the action — there is no Start button on this screen,
-   so each row is a commit, not a selection, and nothing here has an "--on"
-   state to paint. */
-.picker-platforms {
+   A segmented toggle over a panel that changes with it. The three answers are
+   mutually exclusive and the third changes what the rest of the screen is FOR,
+   which is a tab strip's job rather than a menu's — and it lets "I'm new" be
+   short enough for a segment while its explanation sits in the panel below. */
+.where-tabs {
   display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.25rem;
   width: 100%;
   max-width: 340px;
+  padding: 0.25rem;
+  border: 1.5px solid var(--border-card);
+  border-radius: 12px;
+  background: var(--bg-card);
 }
 
-.picker-platform {
+.where-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0.4rem 0.3rem;
+  border: 1.5px solid transparent;
+  border-radius: 9px;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.where-tab--on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.where-panel {
   display: flex;
-  align-items: center;
-  gap: 0.7rem;
+  flex-direction: column;
+  gap: 0.6rem;
   width: 100%;
-  min-height: 62px;
+  max-width: 340px;
+  margin-top: 0.85rem;
+}
+
+.where-input {
+  width: 100%;
+  min-height: 50px;
   padding: 0.6rem 0.85rem;
   border: 1.5px solid var(--border-card);
   border-radius: 12px;
   background: var(--bg-card);
   color: var(--text);
   font: inherit;
-  text-align: left;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: border-color 0.15s, background 0.15s;
+  font-size: 1rem;
 }
 
-.picker-platform:active { transform: scale(0.99); }
-
-@media (hover: hover) {
-  .picker-platform:hover { border-color: var(--accent); }
+.where-input::placeholder { color: var(--text-faint); }
+.where-input:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
-.picker-platform-token {
-  flex: 0 0 auto;
-  display: inline-flex;
+/* The manual branch's whole sentence, in the space the username field would
+   have used — so switching tabs swaps content rather than leaving a hole. */
+.where-manual-note {
+  margin: 0;
+  min-height: 50px;
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.picker-platform-label {
-  font-size: 1rem;
-  font-weight: 700;
-  min-width: 0;
-}
-
-/* The manual branch. Deliberately a sentence, not a third tile: it is the
-   fallback for someone the games path cannot help, and a tile would offer it as
-   an equal third option to people who do play online. It still says what it
-   does in full, so nobody takes it by accident. */
-.picker-manual {
-  margin-top: 1.1rem;
-  padding: 0.4rem 0.2rem;
-  max-width: 300px;
-  border: none;
-  background: none;
-  font: inherit;
-  font-size: 0.84rem;
-  line-height: 1.4;
+  font-size: 0.9rem;
+  line-height: 1.45;
   color: var(--text-muted);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+  text-align: center;
 }
 
-.picker-manual:active { opacity: 0.7; }
+.where-go {
+  width: 100%;
+  min-height: 52px;
+  font-size: 1rem;
+  border-radius: 12px;
+}
+
+.where-go:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
 
 /* Short windows: the headline gives way first, then the tiles. */
 @media (max-height: 620px) {
@@ -18786,8 +18658,8 @@ html.picker-open body {
   .picker-sub { margin-bottom: 0.8rem; }
   .picker-colours--lead .picker-colour { min-height: 96px; }
   .picker-start { margin-top: 1rem; }
-  .picker-platform { min-height: 54px; }
-  .picker-manual { margin-top: 0.7rem; }
+  .where-panel { margin-top: 0.6rem; }
+  .where-input, .where-manual-note { min-height: 46px; }
 }
 
 /* ── The recap (onboarding-recap-screen.ts) ──────────────────────────────────

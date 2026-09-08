@@ -28,7 +28,6 @@ on the remote runner). Use a phone viewport (412×915) — the app is phone-firs
 Set these in `localStorage` before reloading into the app:
 
 ```js
-localStorage.setItem('obertura.betaUnlocked', '1');
 localStorage.setItem('obertura.onboardingComplete', '1');
 localStorage.setItem('obertura.builderTourDone', '1');  // skips the coach-marks
 ```
@@ -37,6 +36,16 @@ localStorage.setItem('obertura.builderTourDone', '1');  // skips the coach-marks
 guest-first round replaced the intro + wizard with a single picker screen, and
 `obertura.onboardingComplete` is the flag that stands in for both. Setting the
 old two does nothing and you'll land in onboarding.
+
+⚠️ `obertura.betaUnlocked` is gone too — the beta access gate was removed
+(2026-09) and `gate.ts` now only captures the PWA install prompt. There is no
+front door any more; a fresh profile lands straight on first run.
+
+**First run is now games-first** (`onboarding-where.ts`): "Where do you play?"
+with a Chess.com / Lichess / I'm new toggle, then an import, then a recap of
+the user's own openings (`onboarding-recap-screen.ts`). To test it you want a
+profile with `onboardingComplete` UNSET and no saved lines — the two halves of
+`shouldShowFirstRun()`. To skip it, set the flag as above.
 
 ## Seeding data
 

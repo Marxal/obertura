@@ -150,7 +150,7 @@ import { maybeAutoRefreshGames } from './auto-refresh';
 import { startAutoScan } from './mistake-autoscan';
 import { startEndgameAutoScan } from './endgame-autoscan';
 import { openDailyPrefsSheet } from './daily-prefs';
-import { maybeShowGate, promptInstallApp, onInstallAvailable } from './gate';
+import { promptInstallApp, onInstallAvailable } from './gate';
 import { showToast } from './toast';
 import { Icons, classBoardSvg, CLASS_LABEL } from './icons';
 import { mountFab, type FabItem, type FabAction, type FabSplit, type FabController } from './fab';
@@ -3524,13 +3524,13 @@ function armEmptyBoardSaveStep(): void {
 // No beta code, no carousel, no setup wizard, no account.
 function showFirstRun(): void {
   showWherePicker({
-    onPlatform: (platform) => {
+    onPlatform: (platform, username) => {
       // Onboarding is finished the moment they commit to a path — everything
       // after this is the app proper, and a user who abandons the import
       // shouldn't be handed the first-run screen again on their next launch.
       setOnboardingComplete();
       trackOnce('onboarding_complete');
-      runFirstRunImport(platform);
+      runFirstRunImport(platform, username);
     },
     onManual: () => { hideAppSplash(); showFirstRunPicker(); },
     onSignIn: isSupabaseConfigured ? () => openSignUpSheet('signin') : undefined,
@@ -3540,21 +3540,26 @@ function showFirstRun(): void {
   });
 }
 
-// The games path: the ordinary import panel, prefilled with the platform they
-// picked, then the recap.
+// The games path: the ordinary import panel, handed the platform AND username
+// the first screen already collected, scanning on arrival — then the recap.
 //
 // IT REUSES openImportPanel RATHER THAN A SLIMMER ONBOARDING IMPORT, on purpose.
-// That panel already handles the username field, the scan, every network
-// failure, the guest cap (FREE_GUEST_IMPORT), and the loader whose feature
-// ticker is the thing filling this wait (import-progress.ts). A second, simpler
-// import path would be a second set of all of those bugs.
+// That panel already handles the scan, every network failure, the guest cap
+// (FREE_GUEST_IMPORT), and the loader whose feature ticker is the thing filling
+// this wait (import-progress.ts). A second, simpler import path would be a
+// second set of all of those bugs.
+//
+// `autoScan` is what stops the sheet asking for the platform and username a
+// second time — import-inline.ts uses it for exactly the same reason.
 //
 // Closing the panel without importing is a perfectly reasonable thing to do, and
 // it just lands them on Train — onboarding is already marked complete, and their
 // games are worth nothing to us if they changed their mind.
-function runFirstRunImport(platform: Platform): void {
+function runFirstRunImport(platform: Platform, username: string): void {
   openImportPanel({
     platform,
+    username,
+    autoScan: true,
     title: 'Import your games',
     onImported: () => { void showFirstRunRecap(); },
   });
@@ -6085,19 +6090,20 @@ function hideAppSplashWhenReady(): void {
 }
 
 // Beta access gate (gate.ts) — a self-contained invitation gate + install screen
-// shown before the app boots. Skips itself when already unlocked or installed,
-// so this is a no-op pass-through on every normal launch. Everything below runs
-// only once the gate calls back.
-//
-// The second argument runs instead, the moment the gate puts itself on screen:
-// the gate is then the first thing the user sees, so the splash must clear right
-// there rather than waiting on a pass that may never happen.
-maybeShowGate(() => requestAnimationFrame(() => {
+// THE BETA GATE IS GONE. There used to be a beta-access-code screen in front of
+// all of this — a SHA-256 check against hashes baked into the bundle, plus an
+// install screen behind it. It was always a friendly speed bump rather than
+// security (the flag it set lived in localStorage, and the whole check ran in
+// JavaScript the user was holding), and its whole purpose was keeping a private
+// beta private. The app is public at bitochess.com now, so the only thing the
+// gate still did was stand between the local dev server and the app on every
+// fresh browser profile. Removed 2026-09; gate.ts keeps only the install-prompt
+// plumbing, which was always a separate job that merely lived in the same file.
+requestAnimationFrame(() => {
   // The app is really starting: stamp the install date if this profile has
   // none, count one cold launch, and count any retention milestone this launch
-  // just crossed. Inside the gate callback, so a beta-code screen nobody gets
-  // past is never counted as an open. A complete no-op on the GitHub Pages
-  // build — see src/metrics.ts.
+  // just crossed. A complete no-op on the GitHub Pages build — see
+  // src/metrics.ts.
   trackAppOpen();
 
   cg = Chessground(boardEl, {
@@ -6413,4 +6419,4 @@ maybeShowGate(() => requestAnimationFrame(() => {
   // One cheap count, so anything painted synchronously (the walkthrough's
   // bubbles) knows whether this device has games without awaiting IndexedDB.
   void refreshGamesOnDevice();
-}), hideAppSplash);
+});

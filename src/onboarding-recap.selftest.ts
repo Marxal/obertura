@@ -180,5 +180,49 @@ export function runOnboardingRecapSelfTest(): TestResult[] {
     `${pickStarterOpenings(recap, 99).length} of ${recap.openings.length}`,
   );
 
+  // ── Four picks deal 2 White + 2 Black ──────────────────────────────────────
+  // The reason RECAP_STARTER_LINES is 4: an odd count always leaves one book
+  // thinner, and the thin one is the half a new user least likely fills in.
+  const balancedGames: RecapGame[] = [
+    ...Array.from({ length: 8 }, () => game('white', 'win', E4)),
+    ...Array.from({ length: 6 }, () => game('white', 'win', ['d2d4', 'd7d5', 'c2c4', 'e7e6', 'b1c3', 'g8f6'])),
+    ...Array.from({ length: 5 }, () => game('black', 'loss', E4)),
+    ...Array.from({ length: 4 }, () => game('black', 'draw', ['d2d4', 'g8f6', 'c2c4', 'e7e6', 'g1f3', 'd7d5'])),
+  ];
+  const balanced = buildRecap(balancedGames, g => (g.ucis[0] === 'e2e4' ? 'King\'s Pawn' : 'Queen\'s Pawn'));
+  const four = pickStarterOpenings(balanced, 4);
+  const whites = four.filter(o => o.colour === 'white').length;
+  const blacks = four.filter(o => o.colour === 'black').length;
+  check(
+    'four picks split 2 White and 2 Black',
+    four.length === 4 && whites === 2 && blacks === 2,
+    `${four.length} picked — ${whites}W / ${blacks}B`,
+  );
+
+  // One colour only: the other takes every slot rather than the set coming
+  // back short.
+  const whiteOnly = buildRecap(
+    [
+      ...Array.from({ length: 6 }, () => game('white', 'win', E4)),
+      ...Array.from({ length: 5 }, () => game('white', 'win', ['d2d4', 'd7d5', 'c2c4', 'e7e6', 'b1c3', 'g8f6'])),
+    ],
+    g => (g.ucis[0] === 'e2e4' ? 'King\'s Pawn' : 'Queen\'s Pawn'),
+  );
+  const wOnly = pickStarterOpenings(whiteOnly, 4);
+  check(
+    'one colour only still fills what it can, without duplicates',
+    wOnly.every(o => o.colour === 'white') && new Set(wOnly).size === wOnly.length,
+    `${wOnly.length} picks, all white: ${wOnly.every(o => o.colour === 'white')}`,
+  );
+
+  // An odd count gives the spare line to the colour they play more.
+  const three = pickStarterOpenings(balanced, 3);
+  check(
+    'an odd count favours the dominant colour',
+    three.filter(o => o.colour === balanced.dominantColour).length === 2,
+    `dominant ${balanced.dominantColour}: `
+      + `${three.filter(o => o.colour === balanced.dominantColour).length} of 3`,
+  );
+
   return results;
 }

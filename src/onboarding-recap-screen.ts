@@ -25,11 +25,15 @@ import { pushBack } from './back-nav';
 import { Icons } from './icons';
 import { pickStarterOpenings, type OpeningGroup, type Recap } from './onboarding-recap';
 
-// How many lines the one-tap offer covers. Three because that is
-// TRAINING_UNLOCK_LINES — clearing the goal in one tap is the entire promise of
-// this screen, and offering two would leave the user one short of the thing
-// they were just told they had unlocked.
-export const RECAP_STARTER_LINES = 3;
+// How many lines the one-tap offer covers.
+//
+// FOUR, NOT THREE — so the split can be 2 White + 2 Black. Three clears
+// TRAINING_UNLOCK_LINES, which is why it was the first number here, but an odd
+// count means one book always starts thinner than the other, and the thin one
+// is the half a new user is least likely to go and fill in themselves.
+// pickStarterOpenings deals alternately between the colours, so four is the
+// smallest number that gives both books a real pair.
+export const RECAP_STARTER_LINES = 4;
 
 export interface RecapScreenDeps {
   recap: Recap;

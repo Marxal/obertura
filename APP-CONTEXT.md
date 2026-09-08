@@ -110,7 +110,7 @@ changes, `farewell/index.html`'s copy needs updating by hand to match.
 | Saving, drilling or counting a line; anything about duplicates | **`TRANSPOSITIONS.md`** (cited by §number from ~60 places) |
 | Accounts, sync, the `profiles` table, RLS, email, providers | **`SUPABASE-SYNC.md`** |
 | The buy flow, Stripe secrets, webhook, prices | **`STRIPE-SETUP.md`** |
-| The beta access codes | **`BETA-ACCESS.md`** |
+| Connecting Lichess / Chess.com, and why it never makes an account | **`PLATFORM-OAUTH.md`** |
 | The landing-page copy | **`docs/LANDING-COPY.md`** (source of truth — edit there, then mirror) |
 | Store/monetization plans not yet built | **`PUBLISHING.md`** |
 | Behaviour rules, stack decisions, hard constraints | **`CLAUDE.md`** |
@@ -1592,7 +1592,7 @@ Every non-selftest module in `src/`, exactly once.
 | `checkout.ts` | the buy flow's app half |
 | `pricing.ts` | what the unlock costs, in the reader's currency |
 | `pro-sheet.ts` | the Full Access popup |
-| `gate.ts` | the beta access gate + install screen (self-contained, removable) |
+| `gate.ts` | captures the PWA install prompt (`beforeinstallprompt`) and offers it — the beta gate it used to hold was removed 2026-09 |
 | `metrics.ts` | the anonymous event counter's app half (§18) — a no-op off Cloudflare |
 
 ### Onboarding, settings, feedback

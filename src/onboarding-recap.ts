@@ -250,29 +250,44 @@ export function buildRecap(
 /**
  * The openings to offer as starter lines.
  *
- * Spread across BOTH colours when it can: a repertoire is two books, and three
- * White lines leaves the Black one empty on day one. So it takes the best of
- * each colour first, then fills the remaining slots by overall popularity.
+ * BALANCED ACROSS THE TWO COLOURS, not simply the most-played N. A repertoire is
+ * two books, and four White lines would leave the Black one empty on day one —
+ * which is exactly the half of the repertoire a new user is least likely to go
+ * and fill in themselves. So it deals alternately, best-first from each colour,
+ * giving 2 White + 2 Black out of four whenever both colours have that much to
+ * offer.
+ *
+ * When one colour runs dry the other takes the remaining slots, so someone who
+ * only ever plays White still gets a full set rather than a short one. Within
+ * each colour it is strictly most-played first, so the lines offered are always
+ * that colour's best candidates.
  */
 export function pickStarterOpenings(recap: Recap, want: number): OpeningGroup[] {
   if (want <= 0) return [];
+
+  const byColour = {
+    white: recap.openings.filter(o => o.colour === 'white'),
+    black: recap.openings.filter(o => o.colour === 'black'),
+  };
+  const next = { white: 0, black: 0 };
   const picked: OpeningGroup[] = [];
-  const taken = new Set<OpeningGroup>();
 
-  for (const colour of ['white', 'black'] as const) {
-    if (picked.length >= want) break;
-    const best = recap.openings.find(o => o.colour === colour && !taken.has(o));
-    if (best) { picked.push(best); taken.add(best); }
+  // Deal one colour at a time, starting with whichever they play more — so an
+  // odd `want` gives the extra line to their dominant colour rather than to
+  // whichever happens to be alphabetically first.
+  let turn: 'white' | 'black' = recap.dominantColour;
+  while (picked.length < want) {
+    const other: 'white' | 'black' = turn === 'white' ? 'black' : 'white';
+    const from = next[turn] < byColour[turn].length ? turn
+      : next[other] < byColour[other].length ? other
+        : null;
+    if (!from) break; // both colours exhausted
+    picked.push(byColour[from][next[from]]);
+    next[from]++;
+    turn = from === 'white' ? 'black' : 'white';
   }
 
-  for (const opening of recap.openings) {
-    if (picked.length >= want) break;
-    if (taken.has(opening)) continue;
-    picked.push(opening);
-    taken.add(opening);
-  }
-
-  // Back into most-played order — the two-colour pass above deliberately
-  // ignores popularity, and the screen should not.
+  // Back into most-played order — the dealing above deliberately ignores
+  // popularity across colours, and the screen should not.
   return picked.sort((a, b) => b.games - a.games || a.name.localeCompare(b.name));
 }

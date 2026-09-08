@@ -82,10 +82,10 @@ Keep this map in mind before reading anything large.
   repo root and don't renumber their sections:** `REPERTOIRE-REDESIGN.md` (the
   data model), `TRANSPOSITIONS.md` (saving, drilling, duplicates),
   `SUPABASE-SYNC.md` (accounts, sync, SQL), `STRIPE-SETUP.md` (the buy flow).
-- **Owner notes:** `BETA-ACCESS.md` (rotating access codes), `PUBLISHING.md`
-  (store plans not yet built), `docs/LANDING-COPY.md` (landing copy's source of
-  truth), `PLATFORM-OAUTH.md` (connecting Lichess/Chess.com — and why platform
-  OAuth never creates Bito accounts).
+- **Owner notes:** `PUBLISHING.md` (store plans not yet built),
+  `docs/LANDING-COPY.md` (landing copy's source of truth), `PLATFORM-OAUTH.md`
+  (connecting Lichess/Chess.com — and why platform OAuth never creates Bito
+  accounts).
 - **`archive/`** — history. Nothing in it describes today's code. **Don't read
   it unless explicitly asked**; it will confidently tell you stale things.
 
