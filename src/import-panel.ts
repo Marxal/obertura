@@ -580,9 +580,13 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
         avatarUrl: scannedAvatarUrl,
       });
       track('games_imported');
+      // The caller mounts its own cover here; unmount ours only afterwards, so
+      // the two overlap rather than leaving a frame of the app between them.
       opts.onImported?.(games.length);
+      unmountLoader();
       close();
     } catch (err) {
+      unmountLoader();
       showError(`Couldn’t save your games — ${(err as Error).message}`);
     }
   }
@@ -663,8 +667,14 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
       loader?.done();
       hideBarTimer = setTimeout(() => {
         if (scanCancelled) return; // backed out during the hold
+        if (opts.skipReview) {
+          // Deliberately NOT unmounted first: the caller takes over with its
+          // own loader the moment onImported fires, and dropping this one
+          // before then leaves a bare screen while the games are written.
+          void runPersistAll(result);
+          return;
+        }
         unmountLoader();
-        if (opts.skipReview) { void runPersistAll(result); return; }
         void buildStep2(result);
       }, 650);
     } catch (err) {

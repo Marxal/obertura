@@ -73,7 +73,12 @@ export interface LinePeekOptions {
    * afterwards — leaving the old one mounted stacks two overlays, which is what
    * happened the first time this was wired.
    */
-  actions?: { label: string; onClick: () => void; primary?: boolean }[];
+  actions?: {
+    label: string;
+    onClick: () => void;
+    /** Renders in the "chosen" state — the same accent fill the recap cards use. */
+    active?: boolean;
+  }[];
 }
 
 interface Ply {
@@ -345,14 +350,23 @@ export function openLinePeek(opts: LinePeekOptions): void {
 
   const btnRow = document.createElement('div');
   btnRow.className = 'peek-actions';
-  for (const action of opts.actions ?? []) {
-    const btn = peekActionBtn(
-      action.primary ? Icons.plus(18) : Icons.checkCircle(18),
-      action.label,
-      () => { close(); action.onClick(); },
-    );
-    if (action.primary) btn.classList.add('peek-action--primary');
-    btnRow.appendChild(btn);
+  // These are decisions about the line ("keep it", "make it longer"), not the
+  // icon-over-label navigation Drill / Open in builder are — so they take the
+  // same pill shape the recap's own cards use, side by side, rather than
+  // pretending to be a third and fourth nav action.
+  if (opts.actions?.length) {
+    const row = document.createElement('div');
+    row.className = 'lpeek-choices';
+    for (const action of opts.actions) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'recap-toggle lpeek-choice'
+        + (action.active ? ' recap-toggle--on' : '');
+      btn.textContent = action.label;
+      btn.addEventListener('click', () => { close(); action.onClick(); });
+      row.appendChild(btn);
+    }
+    sheet.appendChild(row);
   }
   if (opts.onDrill) {
     btnRow.appendChild(peekActionBtn(Icons.zap(18), opts.drillLabel ?? 'Drill line',

@@ -34,6 +34,7 @@
 // of their own moves.
 
 import { buildPositionCard, fenFromUcis, colourPip } from './card-position';
+import { userAvatar } from './avatar';
 import { pushBack } from './back-nav';
 import { Icons } from './icons';
 import { TIME_CLASS_LABELS, type TimeClass } from './import-games';
@@ -41,13 +42,14 @@ import { pickStarterOpenings, type OpeningGroup, type Recap } from './onboarding
 
 // How many lines are ticked when the screen opens.
 //
-// FOUR, NOT THREE — so the split can be 2 White + 2 Black. Three clears
-// TRAINING_UNLOCK_LINES, which is why it was the first number here, but an odd
-// count means one book always starts thinner than the other, and the thin one
-// is the half a new user is least likely to go and fill in themselves.
-// pickStarterOpenings deals alternately between the colours, so four is the
-// smallest number that gives both books a real pair.
-export const RECAP_STARTER_LINES = 4;
+// Three clears TRAINING_UNLOCK_LINES, which is why it was the first number
+// here; four gave both books a real pair rather than leaving one thinner than
+// the other. Five is half the free tier's training rotation — enough that the
+// screen's offer is a repertoire rather than a sample, while leaving room to
+// add more without immediately meeting the cap. pickStarterOpenings deals
+// alternately between the colours, so the spare goes to whichever they play
+// more.
+export const RECAP_STARTER_LINES = 5;
 
 // How many MORE openings each "Show more" reveals. The list opens on the chosen
 // four alone: a screen that opens on twelve cards is a list to get through
@@ -67,6 +69,8 @@ export interface RecapScreenDeps {
   recap: Recap;
   /** The user's handle, echoed so the screen is visibly about THEM. */
   username: string;
+  /** Their profile picture, where the platform has one (Chess.com only). */
+  avatarUrl?: string;
   /** How many lines may be kept before the free tier's training cap bites. */
   freeLimit: number;
   /**
@@ -184,15 +188,24 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
     stage.replaceChildren();
     foot.replaceChildren();
 
-    // ── The headline: their number, their name ──
+    // ── Who this is about ──────────────────────────────────────────────────
+    //
+    // Identity first, then the shape of their play, then the instruction. The
+    // screen used to open on "We read 31 of your games", which is a statement
+    // about what the APP just did; the number is still here, under their name,
+    // where it belongs as evidence rather than as the headline.
+    stage.appendChild(buildIdentity());
+    stage.appendChild(buildRecord());
+
+    // The title is the ACTION, not the report.
     const lead = document.createElement('h1');
     lead.className = 'recap-lead';
-    lead.textContent = `We read ${recap.total} of your games`;
+    lead.textContent = 'Pick your lines';
     stage.appendChild(lead);
 
     const sub = document.createElement('p');
     sub.className = 'recap-sub';
-    sub.textContent = `@${deps.username} · ${describeSplit(recap)}`;
+    sub.textContent = 'These are the openings you play most. Tap any line to see it.';
     stage.appendChild(sub);
 
     // ── The two controls ──
@@ -213,7 +226,7 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
 
     const heading = document.createElement('h2');
     heading.className = 'recap-heading';
-    heading.textContent = 'Your openings — pick the ones to keep';
+    heading.textContent = 'Picked for you';
     stage.appendChild(heading);
 
     // Chosen lines always sort to the front, so the four the user is actually
@@ -241,6 +254,88 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
     }
 
     buildFoot();
+  }
+
+  // Their picture and handle, the way every other identity surface in the app
+  // shows them. The avatar is Chess.com-only (Lichess publishes none), and
+  // userAvatar falls back to the generic glyph on its own.
+  function buildIdentity(): HTMLElement {
+    const row = document.createElement('div');
+    row.className = 'recap-identity';
+    row.appendChild(userAvatar(deps.avatarUrl, 52));
+
+    const text = document.createElement('div');
+    text.className = 'recap-identity-text';
+    const handle = document.createElement('span');
+    handle.className = 'recap-identity-handle';
+    handle.textContent = deps.username ? `@${deps.username}` : 'Your games';
+    text.appendChild(handle);
+    const count = document.createElement('span');
+    count.className = 'recap-identity-count';
+    count.textContent = `${recap.total} games read`;
+    text.appendChild(count);
+    row.appendChild(text);
+    return row;
+  }
+
+  // How their play splits, as two bars rather than a sentence of numbers.
+  //
+  // "16 as White · 15 as Black · 52% wins" made the reader do arithmetic to
+  // find the one thing that matters here — which colour they play, and how it
+  // goes. Two proportional bars answer both at a glance, and the colour of the
+  // pip ties each row to the pips on the cards below.
+  function buildRecord(): HTMLElement {
+    const wrap = document.createElement('div');
+    wrap.className = 'recap-record';
+
+    for (const colour of ['white', 'black'] as const) {
+      const games = colour === 'white' ? recap.white : recap.black;
+      if (games === 0) continue;
+
+      const row = document.createElement('div');
+      row.className = 'recap-record-row';
+
+      row.appendChild(colourPip(colour));
+
+      const label = document.createElement('span');
+      label.className = 'recap-record-label';
+      label.textContent = colour === 'white' ? 'White' : 'Black';
+      row.appendChild(label);
+
+      // The win/draw/loss split for that colour, summed from its openings.
+      // Games whose opening we could not name are not in any group, so this is
+      // a share of the games we can actually speak about — the bar is
+      // normalised to that, never to a total it doesn't cover.
+      let w = 0;
+      let d = 0;
+      let l = 0;
+      for (const o of recap.openings) {
+        if (o.colour !== colour) continue;
+        w += o.wins; d += o.draws; l += o.losses;
+      }
+      const decided = w + d + l;
+
+      const bar = document.createElement('span');
+      bar.className = 'recap-bar';
+      if (decided > 0) {
+        for (const [cls, n] of [['win', w], ['draw', d], ['loss', l]] as const) {
+          if (n === 0) continue;
+          const seg = document.createElement('span');
+          seg.className = `recap-bar-seg recap-bar-seg--${cls}`;
+          seg.style.width = `${(n / decided) * 100}%`;
+          bar.appendChild(seg);
+        }
+      }
+      row.appendChild(bar);
+
+      const pct = document.createElement('span');
+      pct.className = 'recap-record-pct';
+      pct.textContent = decided > 0 ? `${Math.round((w / decided) * 100)}%` : '—';
+      row.appendChild(pct);
+
+      wrap.appendChild(row);
+    }
+    return wrap;
   }
 
   // ── Time format ─────────────────────────────────────────────────────────────
@@ -402,14 +497,4 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
   document.documentElement.classList.add('picker-open');
 }
 
-// "38 as White, 22 as Black · 54% wins" — the one-line shape of their play.
-// Percentages rather than raw W/D/L because the raw three numbers invite
-// arithmetic, and this line is meant to be glanced at.
-function describeSplit(recap: Recap): string {
-  const bits: string[] = [];
-  if (recap.white > 0) bits.push(`${recap.white} as White`);
-  if (recap.black > 0) bits.push(`${recap.black} as Black`);
-  const decided = recap.wins + recap.draws + recap.losses;
-  if (decided > 0) bits.push(`${Math.round((recap.wins / decided) * 100)}% wins`);
-  return bits.join(' · ');
-}
+

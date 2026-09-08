@@ -3657,7 +3657,10 @@ function showRecapLoader(): void {
   recapLoader = createImportLoader();
   recapLoader.start();
   recapLoader.set(1);
-  recapLoader.setStatus('Reading your openings…');
+  // No new status line: this is the SAME wait as the scan from the user's side,
+  // so it keeps the finished bar rather than announcing a second stage they
+  // never asked about.
+  recapLoader.setStatus('');
   document.body.appendChild(recapLoader.el);
 }
 
@@ -3746,6 +3749,7 @@ async function showFirstRunRecap(): Promise<void> {
   showRecapScreen({
     recap: build({ timeClass: null }),
     username: getGamesSource()?.username ?? '',
+    avatarUrl: getGamesSource()?.avatarUrl,
     // Ticking past the training cap would save lines that silently never enter
     // the rotation, so the ceiling is the rotation's own.
     freeLimit: isEntitled() ? Number.MAX_SAFE_INTEGER : FREE_TRAINING_LINES,
@@ -3782,8 +3786,10 @@ function previewRecapLine(opening: OpeningGroup, ctx: PreviewContext): void {
     // where the user can actually SEE what they are deciding about.
     actions: [
       {
-        label: ctx.selected ? '✓ Added — remove' : 'Add this line',
-        primary: !ctx.selected,
+        // Same words and same shape as the card's own toggle, so the two read
+        // as one control seen from two places rather than two decisions.
+        label: ctx.selected ? '✓ Added' : 'Add this line',
+        active: ctx.selected,
         onClick: ctx.onToggle,
       },
       // NOT keepOpen: onDeepen reopens this popup on the longer line, and

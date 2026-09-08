@@ -202,10 +202,16 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
     });
   }
 
+  // "Add openings you play", not "Import your games": the import is the
+  // mechanism, and this row should name what the user GETS from it. It is also
+  // the way back for anyone who declined the openings at first run — they never
+  // saw an "import" step there, so a row named after one describes a thing that
+  // didn't happen to them.
   steps.push({
     icon: Icons.download(18),
-    title: 'Import your games',
-    body: 'From Chess.com or Lichess — the app then knows which openings you actually play.',
+    title: 'Add openings you play',
+    body: 'Read your games from Chess.com or Lichess, and turn the openings you '
+      + 'play most into lines.',
     done: deps.gameCount > 0,
     onClick: deps.onImportGames,
   });

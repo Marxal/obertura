@@ -18788,8 +18788,80 @@ html.picker-open body {
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 0.5rem 0.25rem 0.75rem;
+  padding: 0.9rem 0.25rem 1.2rem;
   text-align: center;
+}
+
+/* ── Identity: picture, handle, and how many games it read ── */
+.recap-identity {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  margin: 0.4rem 0 1.1rem;
+  text-align: left;
+}
+
+.recap-identity-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.recap-identity-handle {
+  font-size: 1.02rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.recap-identity-count {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── The record, as two bars rather than a sentence of numbers ── */
+.recap-record {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-width: 340px;
+  margin: 0 auto 1.6rem;
+}
+
+.recap-record-row {
+  display: grid;
+  grid-template-columns: auto 3.1rem 1fr 2.4rem;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.recap-record-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: left;
+  color: var(--text-muted);
+}
+
+.recap-bar {
+  display: flex;
+  height: 9px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--fill-faint, rgba(128, 128, 128, 0.14));
+}
+
+.recap-bar-seg--win { background: var(--ok, #3d8b5f); }
+.recap-bar-seg--draw { background: var(--text-faint); opacity: 0.5; }
+.recap-bar-seg--loss { background: var(--wrong, #c0531f); opacity: 0.75; }
+
+.recap-record-pct {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: right;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .recap-lead {
@@ -18801,13 +18873,18 @@ html.picker-open body {
 }
 
 .recap-sub {
-  margin: 0 0 1.3rem;
+  margin: 0 0 1.5rem;
   font-size: 0.86rem;
+  line-height: 1.45;
   color: var(--text-muted);
+  max-width: 32ch;
+  margin-inline: auto;
 }
 
+/* The list needs air above it — it is a different KIND of thing from the
+   summary over it, and the two ran together as one dense column. */
 .recap-heading {
-  margin: 0 0 0.6rem;
+  margin: 1.4rem 0 0.7rem;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -18820,7 +18897,7 @@ html.picker-open body {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  margin: 0 0 1.1rem;
+  margin: 0 0 0.4rem;
 }
 
 .recap-chips {
@@ -18888,7 +18965,7 @@ html.picker-open body {
 .recap-list {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.7rem;
   text-align: left;
 }
 
@@ -18916,6 +18993,19 @@ html.picker-open body {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+/* The recap's two decisions inside the line popup: same pills as the cards,
+   side by side, above the navigation actions. */
+.lpeek-choices {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.lpeek-choice {
+  flex: 1 1 0;
+  margin-top: 0;
+  text-align: center;
 }
 
 .recap-more {
