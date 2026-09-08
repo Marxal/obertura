@@ -114,6 +114,7 @@ import { openImportPanel, getGamesSource, IDENTITY_CHANGED_EVENT } from './impor
 import { openStarterPackPicker, type LineSeed, type AddLineMode } from './onboarding-starter';
 import { showOnboardingPicker, shouldShowFirstRun } from './onboarding-picker';
 import { showWherePicker } from './onboarding-where';
+import { openLinePeek } from './line-peek';
 import { showRecapScreen } from './onboarding-recap-screen';
 // Aliased: daily-recap.ts already exports a buildRecap, and the two are
 // unrelated — that one summarises a day's training, this one a games library.
@@ -3522,22 +3523,41 @@ function armEmptyBoardSaveStep(): void {
 //   "I don't play online" → the colour picker below, unchanged.
 //
 // No beta code, no carousel, no setup wizard, no account.
+// ── BACK STEPS THROUGH THE FLOW, IT DOESN'T FALL OUT OF IT ──────────────────
+//
+// Each screen here used to register its back step as "close me", so the system
+// back gesture at any point — mid-import, or on the recap looking at four
+// openings — dropped the user straight into an empty app with no way back to
+// what they were doing. First run is a sequence, so back walks it backwards:
+// the recap and the import both return to "Where do you play?", and only that
+// first screen (which genuinely has nothing behind it) lets go.
+//
+// FINISHING IS ALSO WHAT MARKS IT COMPLETE. setOnboardingComplete() used to run
+// the moment a platform was picked, which meant backing out of the import left
+// the flag set and first run never came back — the user was stranded in an app
+// with no lines. It is now set where the flow actually ends: saving the lines,
+// skipping them deliberately, or taking the manual branch. Someone who backs
+// all the way out is offered first run again next launch, which is the honest
+// reading of what they did.
 function showFirstRun(): void {
   showWherePicker({
-    onPlatform: (platform, username) => {
-      // Onboarding is finished the moment they commit to a path — everything
-      // after this is the app proper, and a user who abandons the import
-      // shouldn't be handed the first-run screen again on their next launch.
-      setOnboardingComplete();
-      trackOnce('onboarding_complete');
-      runFirstRunImport(platform, username);
-    },
+    onPlatform: (platform, username) => runFirstRunImport(platform, username),
     onManual: () => { hideAppSplash(); showFirstRunPicker(); },
     onSignIn: isSupabaseConfigured ? () => openSignUpSheet('signin') : undefined,
     // This is the first screen on a first visit, so it clears the boot splash
     // itself rather than depending on the boot order to have done it.
     onShown: hideAppSplash,
   });
+}
+
+// First run is over and the app proper begins. Called from every path that
+// genuinely finishes it, never from one that merely passes through.
+function finishFirstRun(): void {
+  setOnboardingComplete();
+  // NOT hooked to setOnboardingComplete itself: train-screen.ts calls that on
+  // every render once the goal is reached, so counting there would count
+  // repaints. These are the places a person actually finishes first run.
+  trackOnce('onboarding_complete');
 }
 
 // The games path: the ordinary import panel, handed the platform AND username
@@ -3552,16 +3572,19 @@ function showFirstRun(): void {
 // `autoScan` is what stops the sheet asking for the platform and username a
 // second time — import-inline.ts uses it for exactly the same reason.
 //
-// Closing the panel without importing is a perfectly reasonable thing to do, and
-// it just lands them on Train — onboarding is already marked complete, and their
-// games are worth nothing to us if they changed their mind.
+// Closing the panel WITHOUT importing — the back gesture, or a wrong username
+// they want to correct — returns to the question rather than dumping them in an
+// empty app. `onClose` fires on every close including a successful one, so the
+// flag is what tells the two apart.
 function runFirstRunImport(platform: Platform, username: string): void {
+  let imported = false;
   openImportPanel({
     platform,
     username,
     autoScan: true,
     title: 'Import your games',
-    onImported: () => { void showFirstRunRecap(); },
+    onImported: () => { imported = true; void showFirstRunRecap(); },
+    onClose: () => { if (!imported) showFirstRun(); },
   });
 }
 
@@ -3581,6 +3604,7 @@ async function showFirstRunRecap(): Promise<void> {
   // the manual branch rather than showing a confident recap built on four games.
   if (!hasEnoughGames(games.length)) {
     showToast('Not many games to read yet — let’s build your first line instead.');
+    finishFirstRun();
     showFirstRunPicker();
     return;
   }
@@ -3598,8 +3622,37 @@ async function showFirstRunRecap(): Promise<void> {
   showRecapScreen({
     recap,
     username: getGamesSource()?.username ?? '',
-    onSave: (openings) => { void saveRecapLines(openings); },
-    onSkip: () => showView('train'),
+    onSave: (openings) => { finishFirstRun(); void saveRecapLines(openings); },
+    // "Not now" is a decision, so it ends first run. The back gesture is not —
+    // it returns to the question, with first run still owed.
+    onSkip: () => { finishFirstRun(); showView('train'); },
+    onBack: () => showFirstRun(),
+    onPreview: (opening) => previewRecapLine(opening),
+  });
+}
+
+// Tapping a recap card: the whole line in the existing peek popup — a board you
+// can step through move by move, plus how that opening has actually gone.
+//
+// The line is built but NOT saved: openLinePeek only ever reads. Its usual four
+// figures are training stats (recall, runs, misses), which for a line that has
+// never been drilled would all read "—" and say nothing, so the games record
+// goes in their place — which is the number the user is actually weighing here.
+function previewRecapLine(opening: OpeningGroup): void {
+  const line = lineFromUcis({ ucis: opening.ucis, name: opening.name }, opening.colour);
+  if (!line) return;
+  const decided = opening.wins + opening.draws + opening.losses;
+  openLinePeek({
+    line,
+    stats: [
+      { value: String(opening.games), label: opening.games === 1 ? 'game' : 'games' },
+      { value: `${opening.share}%`, label: 'of that colour' },
+      {
+        value: decided > 0 ? `${Math.round((opening.wins / decided) * 100)}%` : '—',
+        label: 'wins',
+      },
+      { value: `${opening.wins}/${opening.draws}/${opening.losses}`, label: 'W/D/L' },
+    ],
   });
 }
 

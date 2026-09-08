@@ -18712,6 +18712,26 @@ html.picker-open body {
   text-align: left;
 }
 
+/* Each card opens the line in the peek popup, so it has to look like it does
+   something — otherwise the board miniature reads as decoration and the
+   step-through never gets found. */
+.recap-card--tappable {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.15s, transform 0.1s;
+}
+
+.recap-card--tappable:active { transform: scale(0.995); }
+
+@media (hover: hover) {
+  .recap-card--tappable:hover { border-color: var(--accent); }
+}
+
+.recap-card--tappable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .recap-card-name {
   font-size: 0.95rem;
   font-weight: 700;

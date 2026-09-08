@@ -38,6 +38,21 @@ export interface LinePeekOptions {
   onOpen?: (line: Line) => void;
   /** Wording for the drill action — "Drill line" unless the caller says else. */
   drillLabel?: string;
+  /**
+   * Replace the four training figures (recall / runs / correct / misses) with
+   * the caller's own.
+   *
+   * For a line that has never been drilled every one of those reads "—" or "0",
+   * which is four slots saying nothing. The first-run recap
+   * (onboarding-recap-screen.ts) opens this on lines that do not exist yet, and
+   * passes the user's record in that opening instead — the number they are
+   * actually weighing when deciding whether to keep it.
+   *
+   * Providing this ALSO suppresses the per-move training caption ("never
+   * missed", "3 clean in a row"), on the same reasoning: a move nobody has ever
+   * been asked has not been "never missed", it has never been tested.
+   */
+  stats?: PeekStat[];
 }
 
 interface Ply {
@@ -104,7 +119,7 @@ export function openLinePeek(opts: LinePeekOptions): void {
   // so "trained" sits right beside it rather than being buried in a caption.
   const times = opts.timesTrained ?? runs;
 
-  const stats: PeekStat[] = [
+  const stats: PeekStat[] = opts.stats ?? [
     {
       value: recallPct === null ? '—' : `${recallPct}%`,
       label: 'recall',
@@ -249,10 +264,14 @@ export function openLinePeek(opts: LinePeekOptions): void {
     const moveNo = Math.floor(p.index / 2) + 1;
     const dots = p.index % 2 === 0 ? '.' : '…';
     const bits = [`${moveNo}${dots} ${formatMove(p.node.san)}`];
-    if (p.isUser) {
+    // A caller that replaced the stat row has said this line has no training
+    // history, so its per-move history is equally empty — and "never missed" on
+    // a move nobody has ever been asked is a claim, not a fact. Their replies
+    // are still labelled, because that is a property of the line itself.
+    if (p.isUser && !opts.stats) {
       bits.push(p.lapses > 0 ? `missed ${p.lapses}×` : 'never missed');
       if (p.node.review) bits.push(p.reps > 0 ? `${p.reps} clean in a row` : 'slipping');
-    } else {
+    } else if (!p.isUser) {
       bits.push("their reply");
     }
     caption.textContent = bits.join(' · ');

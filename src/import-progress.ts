@@ -257,11 +257,14 @@ export function createImportLoader(): ImportLoader {
   status.className = 'import-loader-status';
   status.setAttribute('aria-live', 'polite');
 
-  // A looping "things about the app" ticker, to fill the wait with something to
-  // read. It runs from the moment the loader mounts and is stopped on remove().
-  const facts = createFactsTicker();
-
-  card.append(avatar, bar.el, status, facts.el);
+  // NO TICKER HERE, deliberately — see createFactsTicker's own note. The import
+  // scan turned out to be fast enough that a typewriter never finished its first
+  // sentence before the panel moved on, so it read as a flash of half-text
+  // rather than something to read. The engine scans still use it, because their
+  // wait is real. If a very large import ever does feel slow, the honest fix is
+  // to bring it back on a DELAY — only once the wait has actually happened —
+  // not to show it to everyone from the first frame.
+  card.append(avatar, bar.el, status);
   el.appendChild(card);
 
   // The three concentric rings that pulse out from behind the avatar block.
@@ -309,7 +312,6 @@ export function createImportLoader(): ImportLoader {
       bar.done();
     },
     remove(): void {
-      facts.stop();
       el.remove();
     },
   };

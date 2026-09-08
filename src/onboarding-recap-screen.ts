@@ -44,8 +44,20 @@ export interface RecapScreenDeps {
    * runs, and it is the caller's job to enrol them and land the user on Train.
    */
   onSave: (openings: OpeningGroup[]) => void;
-  /** "Not now" — skip saving anything and go on to the app. */
+  /**
+   * "Not now" — a decision to skip, which ends first run and goes to the app.
+   * Deliberately NOT what the back gesture does; see onBack.
+   */
   onSkip: () => void;
+  /**
+   * The system back gesture: step BACK to "Where do you play?", with first run
+   * still owed. Backing out of a flow is not the same as declining its offer,
+   * and this screen used to treat them as one — so back dropped the user into
+   * an empty app with no route to what they had been looking at.
+   */
+  onBack: () => void;
+  /** Tapped a card: show the whole line, steppable, before deciding. */
+  onPreview: (opening: OpeningGroup) => void;
 }
 
 export function showRecapScreen(deps: RecapScreenDeps): void {
@@ -64,9 +76,10 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
     document.documentElement.classList.remove('picker-open');
     removeBack();
   };
-  // Back skips rather than saving: the system gesture must never commit
-  // something to the user's repertoire on their behalf.
-  const removeBack = pushBack(() => { close(); deps.onSkip(); });
+  // Back steps back through first run; it neither saves (the gesture must never
+  // commit something to the user's repertoire on their behalf) nor counts as
+  // declining the offer.
+  const removeBack = pushBack(() => { close(); deps.onBack(); });
 
   const stage = document.createElement('div');
   stage.className = 'recap-stage';
@@ -93,14 +106,16 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
 
     const list = document.createElement('div');
     list.className = 'recap-list';
-    for (const opening of picked) list.appendChild(openingCard(opening));
+    for (const opening of picked) {
+      list.appendChild(openingCard(opening, () => deps.onPreview(opening)));
+    }
     stage.appendChild(list);
 
     const note = document.createElement('p');
     note.className = 'recap-note';
     note.textContent = picked.length === 1
-      ? 'Saving it starts your repertoire — you can add more any time.'
-      : 'These become your first lines, built from the moves you actually play.';
+      ? 'Tap it to play through the moves. Saving it starts your repertoire.'
+      : 'Tap any line to play through its moves before you keep them.';
     stage.appendChild(note);
   } else {
     // The floor (RECAP_MIN_GAMES) means we rarely land here, but a library of
@@ -159,11 +174,25 @@ function describeSplit(recap: Recap): string {
   return bits.join(' · ');
 }
 
-function openingCard(opening: OpeningGroup): HTMLElement {
+function openingCard(opening: OpeningGroup, onPreview: () => void): HTMLElement {
   const { card, titleRow, content } = buildPositionCard({
     fen: fenFromUcis(opening.ucis),
     orientation: opening.colour,
     className: 'recap-card',
+    // The miniature opens the same preview the card does, rather than being the
+    // one part of a tappable card that isn't.
+    onMiniClick: onPreview,
+    miniLabel: `Play through ${opening.name}`,
+  });
+
+  // The whole card is the target, not a "preview" link inside it — there is
+  // exactly one thing to do with a card here.
+  card.classList.add('recap-card--tappable');
+  card.setAttribute('role', 'button');
+  card.tabIndex = 0;
+  card.addEventListener('click', onPreview);
+  card.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPreview(); }
   });
 
   titleRow.appendChild(colourPip(opening.colour));
