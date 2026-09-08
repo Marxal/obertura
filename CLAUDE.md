@@ -84,7 +84,8 @@ Keep this map in mind before reading anything large.
   `SUPABASE-SYNC.md` (accounts, sync, SQL), `STRIPE-SETUP.md` (the buy flow).
 - **Owner notes:** `BETA-ACCESS.md` (rotating access codes), `PUBLISHING.md`
   (store plans not yet built), `docs/LANDING-COPY.md` (landing copy's source of
-  truth).
+  truth), `PLATFORM-OAUTH.md` (connecting Lichess/Chess.com — and why platform
+  OAuth never creates Bito accounts).
 - **`archive/`** — history. Nothing in it describes today's code. **Don't read
   it unless explicitly asked**; it will confidently tell you stale things.
 

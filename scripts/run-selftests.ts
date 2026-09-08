@@ -40,6 +40,7 @@ import { runStudyImportSelfTest } from '../src/study-import.selftest';
 import { runStudyCatalogSelfTest } from '../src/study-catalog.selftest';
 import { runRepertoireSyncSelfTest } from '../src/repertoire-sync.selftest';
 import { runOnboardingLinesSelfTest } from '../src/onboarding-lines.selftest';
+import { runOnboardingRecapSelfTest } from '../src/onboarding-recap.selftest';
 import { runLocalKeysSelfTest } from '../src/local-keys.selftest';
 import { runImportTierSelfTest } from '../src/import-tier.selftest';
 import { runExplorerBandSelfTest } from '../src/explorer-band.selftest';
@@ -107,6 +108,7 @@ const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'study-catalog', run: runStudyCatalogSelfTest },
   { suite: 'account-sync', run: runRepertoireSyncSelfTest },
   { suite: 'onboarding-lines', run: runOnboardingLinesSelfTest },
+  { suite: 'onboarding-recap', run: runOnboardingRecapSelfTest },
   { suite: 'local-keys', run: runLocalKeysSelfTest },
 ];
 
