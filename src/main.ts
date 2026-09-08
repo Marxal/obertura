@@ -22,8 +22,8 @@ import { selectedBookId } from './repertoire-picker';
 import { mainlineNodes, DEFAULT_PRIORITY } from './scheduler';
 import type { Annotation, MoveNode } from './tree';
 import { saveLine, getAllLines, getLine, getAllGames, getGame, saveGames, deleteLine, deleteGame, purgeRetiredLocalKeys, countGames, getAllOpponents } from './storage';
-import type { ImportedGame } from './import-games';
-import { nameForPath } from './openings';
+import type { ImportedGame, Platform } from './import-games';
+import { nameForPath, openingForPath } from './openings';
 import { positionIndex, type DuplicateVerdict } from './position-index';
 import { inheritReviews, inheritanceNote, missingTags, type InheritResult } from './save-index';
 import type { Line, LinePriority } from './types';
@@ -113,6 +113,16 @@ import { platformLabel } from './board-explorer';
 import { openImportPanel, getGamesSource, IDENTITY_CHANGED_EVENT } from './import-panel';
 import { openStarterPackPicker, type LineSeed, type AddLineMode } from './onboarding-starter';
 import { showOnboardingPicker, shouldShowFirstRun } from './onboarding-picker';
+import { showWherePicker } from './onboarding-where';
+import { showRecapScreen } from './onboarding-recap-screen';
+// Aliased: daily-recap.ts already exports a buildRecap, and the two are
+// unrelated — that one summarises a day's training, this one a games library.
+import {
+  buildRecap as buildGamesRecap,
+  hasEnoughGames,
+  type OpeningGroup,
+} from './onboarding-recap';
+import { replayGame } from './mistake-scan';
 import {
   showBuilderIntro,
   showSaveStep,
@@ -3503,13 +3513,123 @@ function armEmptyBoardSaveStep(): void {
   check();
 }
 
-// FIRST VISIT: the picker. One screen — colour, depth, style — and then the
-// guided first line. No beta code, no carousel, no setup wizard, no account: a
-// visitor should be looking at their own saved line inside a minute.
+// FIRST VISIT: "Where do you play?" — see onboarding-where.ts for why this
+// replaced the colour picker as the front door. Two ways out of it:
 //
-// It's a function rather than a one-off at boot because the walkthrough can come
-// BACK here: Back on its first bubble is "I picked the wrong line", and the only
-// honest answer to that is the screen the line was picked on.
+//   a platform  → import their games → the recap → one tap saves their first
+//                 lines. They see their OWN openings inside a minute, and the
+//                 three-line goal clears without building anything by hand.
+//   "I don't play online" → the colour picker below, unchanged.
+//
+// No beta code, no carousel, no setup wizard, no account.
+function showFirstRun(): void {
+  showWherePicker({
+    onPlatform: (platform) => {
+      // Onboarding is finished the moment they commit to a path — everything
+      // after this is the app proper, and a user who abandons the import
+      // shouldn't be handed the first-run screen again on their next launch.
+      setOnboardingComplete();
+      trackOnce('onboarding_complete');
+      runFirstRunImport(platform);
+    },
+    onManual: () => { hideAppSplash(); showFirstRunPicker(); },
+    onSignIn: isSupabaseConfigured ? () => openSignUpSheet('signin') : undefined,
+    // This is the first screen on a first visit, so it clears the boot splash
+    // itself rather than depending on the boot order to have done it.
+    onShown: hideAppSplash,
+  });
+}
+
+// The games path: the ordinary import panel, prefilled with the platform they
+// picked, then the recap.
+//
+// IT REUSES openImportPanel RATHER THAN A SLIMMER ONBOARDING IMPORT, on purpose.
+// That panel already handles the username field, the scan, every network
+// failure, the guest cap (FREE_GUEST_IMPORT), and the loader whose feature
+// ticker is the thing filling this wait (import-progress.ts). A second, simpler
+// import path would be a second set of all of those bugs.
+//
+// Closing the panel without importing is a perfectly reasonable thing to do, and
+// it just lands them on Train — onboarding is already marked complete, and their
+// games are worth nothing to us if they changed their mind.
+function runFirstRunImport(platform: Platform): void {
+  openImportPanel({
+    platform,
+    title: 'Import your games',
+    onImported: () => { void showFirstRunRecap(); },
+  });
+}
+
+// Turn what just landed into the recap. Reads the games back from storage rather
+// than taking them from the import callback, so what the recap describes is
+// exactly what the device now holds.
+async function showFirstRunRecap(): Promise<void> {
+  let games: ImportedGame[];
+  try {
+    games = await getAllGames();
+  } catch {
+    showView('train');
+    return;
+  }
+
+  // Too thin to say anything honest about — see RECAP_MIN_GAMES. Hand over to
+  // the manual branch rather than showing a confident recap built on four games.
+  if (!hasEnoughGames(games.length)) {
+    showToast('Not many games to read yet — let’s build your first line instead.');
+    showFirstRunPicker();
+    return;
+  }
+
+  const recap = buildGamesRecap(
+    games,
+    // The bundled opening table, not the platform's own `opening` field: every
+    // other screen in the app names lines with nameForPath, and two different
+    // names for the same opening depending on which screen you're on is worse
+    // than either name alone. fens[0] is the start position, which is dropped so
+    // an unrecognised game doesn't get named after the empty board.
+    (game) => openingForPath(replayGame(game)?.fens.slice(1) ?? [])?.name ?? null,
+  );
+
+  showRecapScreen({
+    recap,
+    username: getGamesSource()?.username ?? '',
+    onSave: (openings) => { void saveRecapLines(openings); },
+    onSkip: () => showView('train'),
+  });
+}
+
+// The one tap. Each opening's trunk becomes a line, saved AND enrolled, so the
+// three-line goal clears and training unlocks in the same gesture.
+//
+// Enrolled directly rather than through the confirm run: that run plays each
+// line through and asks the user to repeat it, which is right for one line the
+// user chose deliberately and far too much for three arriving at once.
+async function saveRecapLines(openings: OpeningGroup[]): Promise<void> {
+  let saved = 0;
+  for (const opening of openings) {
+    const line = lineFromUcis({ ucis: opening.ucis, name: opening.name }, opening.colour);
+    if (!line) continue;
+    if (!(await requestLineSaveRoom())) break;
+    try {
+      await enrolLineDirectly(line);
+      saved++;
+    } catch {
+      // One line failing to store must not cost the other two.
+    }
+  }
+  showView('train');
+  if (saved > 0) {
+    showToast(
+      `${saved} line${saved === 1 ? '' : 's'} saved — they’re in training from today.`,
+      { variant: 'success' },
+    );
+  }
+}
+
+// The manual branch: the original colour picker, now reached only through
+// "I don't play online" (and from the walkthrough's Back on its first bubble,
+// which is "I picked the wrong line" and whose only honest answer is the screen
+// the line was picked on).
 function showFirstRunPicker(): void {
   showOnboardingPicker({
     // One question answered, and straight to an empty board of that colour with
@@ -6241,7 +6361,7 @@ maybeShowGate(() => requestAnimationFrame(() => {
     // top of the first one, still in progress.
     if (tourResumePending) return;
     void shouldShowFirstRun().then((show) => {
-      if (show) showFirstRunPicker();
+      if (show) showFirstRun();
     });
   };
   // ONE THING GOES FIRST on a phone that has just signed in: the account's copy

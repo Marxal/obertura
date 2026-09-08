@@ -13,53 +13,49 @@
 
 import { pixelPawnSvg } from './pixel-pawn';
 
-// ── "Did you know?" facts ticker ──────────────────────────────────────────────
+// ── The feature ticker ────────────────────────────────────────────────────────
 //
 // An import scan (your games, an opponent scout) can take a while — Chess.com and
 // Lichess are slow to hand over archives. Rather than leave you staring at a bar,
-// the loader types out a short fact about the app, holds it long enough to read,
-// fades it, and types the next — looping the list in order. Pure JS timers driving
-// a typewriter; prefers-reduced-motion swaps the typing for a plain cross-fade.
-
+// the loader types out a short line about what the app does, holds it long enough
+// to read, fades it, and types the next — looping the list in order. Pure JS
+// timers driving a typewriter; prefers-reduced-motion swaps the typing for a
+// plain cross-fade.
+//
+// ── ONE FEATURE PER LINE, AND NOTHING ELSE ──────────────────────────────────
+// This list used to be 38 lines of chat in the author's own voice — apologising
+// for the wait, recommending line counts, telling you where the name came from,
+// offering you a coffee, wondering aloud whether Magnus needs the app. It was
+// written when this screen was a rarely-seen corner, and it read as filler
+// because that is what it was.
+//
+// It is now the FIRST thing a new visitor reads: the games-first first run
+// (see onboarding-recap.ts) puts an import in front of everyone before they have
+// seen a single screen of the product. So the wait does the one job it can
+// actually do — say what this thing is for.
+//
+// The rules, if this is ever edited:
+//   • One feature per line. Not two, not a feature plus a joke.
+//   • Say what the user gets, not how it works ("drills the moves you forget",
+//     not "SM-2 spaced repetition").
+//   • Under ~70 characters — readMs() below tops out at 3s, and a longer line
+//     is still being typed when its turn ends.
+//   • No apologies for the wait, no first person, no emoji.
 const APP_FACTS: string[] = [
-  'Meanwhile, let me tell you a few things about the app.',
-  'This app doesn’t store any personal data.',
-  'Everything stays on your phone.',
-  'No subscriptions. No cloud lock-in.',
-  'All your moves stay on your phone.',
-  'You can export and import your data in Settings.',
-  'Sorry this is taking a while…',
-  'It takes some time for Chess.com and Lichess to fetch your games.',
-  'But it’s worth the wait, I promise.',
-  'I recommend saving at least 10 lines.',
-  'The app starts working with just 5 lines.',
-  'But I’m sure you’ll save many more!',
-  'I currently have around 100 lines!',
-  'And I’ve even managed to remember some of them! 😄',
-  'It’s so satisfying when they show up in a game!',
-  'Feel free to send feedback if you like the app.',
-  'And if you don’t like it, that helps me improve too.',
-  'If it’s taking this long, you’ve probably played a lot! 😅',
-  'You can import as many games as you want.',
-  'But I recommend starting with 500.',
-  'If you use the app daily, I’m sure you’ll improve.',
-  'I gained 100+ rating points in my first two weeks.',
-  'That’s a looooooooong wait… 😅',
-  'Stay with me…',
-  'The name “Bito” comes from “Gambito”.',
-  'Now you’re learning languages too! 🌍',
-  'Soon you’ll be learning new openings.',
-  'Grab a coffee ☕',
-  'Maybe I should have mentioned that earlier…',
-  'Anyway, thanks for waiting.',
-  'And thanks for using Bito Chess.',
-  'If you like it, share it with your friends.',
-  'Don’t keep it a secret. 🤫',
-  'They deserve to learn chess too.',
-  'Otherwise, it gets boring when you’re the only one winning… 😏',
-  'Just ask Magnus Carlsen. ♟️',
-  'He probably doesn’t need this app.',
-  'But we mere humans do. 😄',
+  'Bito Chess builds your opening repertoire, one line at a time.',
+  'It drills the moves you forget, and leaves alone the ones you know.',
+  'Lines come back for review right before you would forget them.',
+  'It reads your games to find the openings you actually play.',
+  'It spots the gaps — the replies you have no answer prepared for.',
+  'Your mistakes become training positions you can replay.',
+  'Play your openings against the engine, from any position.',
+  'A daily challenge mixes your lines, puzzles and past mistakes.',
+  'Puzzles are picked from the openings in your own repertoire.',
+  'Endgames you reached in real games become practice positions.',
+  'A built-in engine and analyser, no account needed.',
+  'Scout an opponent before you play them.',
+  'Everything works on your phone, and your data stays there.',
+  'Export a full backup, or your lines as PGN, whenever you like.',
 ];
 
 const TYPE_CHAR_MS = 26;   // per code-point while typing — a calm typewriter

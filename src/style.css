@@ -18701,12 +18701,226 @@ html.picker-open body {
 }
 .picker-signin-link:active { opacity: 0.7; }
 
+/* ── "Where do you play?" (onboarding-where.ts) ──────────────────────────────
+   The first screen's two platform choices. Full-width rows rather than the
+   side-by-side tiles the colour picker uses: these have a label AND a caption,
+   and a two-line label in a half-width tile wraps into a mess on a narrow
+   phone. Picking one IS the action — there is no Start button on this screen,
+   so each row is a commit, not a selection, and nothing here has an "--on"
+   state to paint. */
+.picker-platforms {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  width: 100%;
+  max-width: 340px;
+}
+
+.picker-platform {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  min-height: 62px;
+  padding: 0.6rem 0.85rem;
+  border: 1.5px solid var(--border-card);
+  border-radius: 12px;
+  background: var(--bg-card);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.picker-platform:active { transform: scale(0.99); }
+
+@media (hover: hover) {
+  .picker-platform:hover { border-color: var(--accent); }
+}
+
+.picker-platform-token {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.picker-platform-label {
+  font-size: 1rem;
+  font-weight: 700;
+  min-width: 0;
+}
+
+/* The manual branch. Deliberately a sentence, not a third tile: it is the
+   fallback for someone the games path cannot help, and a tile would offer it as
+   an equal third option to people who do play online. It still says what it
+   does in full, so nobody takes it by accident. */
+.picker-manual {
+  margin-top: 1.1rem;
+  padding: 0.4rem 0.2rem;
+  max-width: 300px;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.picker-manual:active { opacity: 0.7; }
+
 /* Short windows: the headline gives way first, then the tiles. */
 @media (max-height: 620px) {
   .picker-overlay--slim .picker-lead { font-size: 1.25rem; }
   .picker-sub { margin-bottom: 0.8rem; }
   .picker-colours--lead .picker-colour { min-height: 96px; }
   .picker-start { margin-top: 1rem; }
+  .picker-platform { min-height: 54px; }
+  .picker-manual { margin-top: 0.7rem; }
+}
+
+/* ── The recap (onboarding-recap-screen.ts) ──────────────────────────────────
+   Unlike the two screens above this one SCROLLS: it carries up to three
+   opening cards with board miniatures, which will not fit a short phone
+   otherwise. So the stage scrolls and the commit stays pinned at the foot,
+   where a "save" the user has scrolled past would otherwise be lost. */
+.recap-overlay {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.recap-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0.5rem 0.25rem 0.75rem;
+  text-align: center;
+}
+
+.recap-lead {
+  margin: 0 0 0.3rem;
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+.recap-sub {
+  margin: 0 0 1.3rem;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+}
+
+.recap-heading {
+  margin: 0 0 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.recap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  text-align: left;
+}
+
+.recap-card-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.recap-card-meta {
+  margin: 0 0 0.15rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* Their actual moves. Monospace-ish tabular figures keep the move numbers from
+   jittering between cards, and it wraps rather than clipping — a line whose
+   moves are cut off mid-sequence is worse than one that takes two rows. */
+.recap-card-moves {
+  margin: 0 0 0.25rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.recap-card-record {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.recap-note {
+  margin: 0.9rem auto 0;
+  max-width: 34ch;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+/* Pinned: the commit never scrolls out of reach. */
+.recap-foot {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.6rem 0.25rem calc(0.4rem + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--border-card);
+  background: var(--bg);
+}
+
+.recap-save {
+  width: 100%;
+  max-width: 340px;
+  min-height: 52px;
+  font-size: 1rem;
+  border-radius: 12px;
+}
+
+.recap-skip {
+  padding: 0.45rem 0.6rem;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.recap-skip:active { opacity: 0.7; }
+
+@media (max-height: 620px) {
+  .recap-lead { font-size: 1.15rem; }
+  .recap-sub { margin-bottom: 0.9rem; }
 }
 
 /* ── The card: the whole form, and the button that commits it ── */
