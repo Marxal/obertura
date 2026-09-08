@@ -13,6 +13,7 @@ The live documentation is at the repo root — start from `CLAUDE.md`.
 |---|---|---|
 | `APP-CONTEXT-2026-08.md` | The exhaustive 3,173-line codebase snapshot, as it stood on 2026-08-19. It had drifted ~12 rounds behind by the time it was retired. | `APP-CONTEXT.md` at the root, rewritten as a short orientation map |
 | `ROADMAP-history.md` | Every shipped round from `v1.0` through `v0.6d`, ending just before the Stripe migration. | `ROADMAP.md` at the root keeps the recent rounds and a one-line index of these |
+| `BETA-ACCESS.md` | The private beta's rotating access codes and how to change them, from when the app was invite-only. The gate was removed in 2026-09 once bitochess.com went public. | Nothing — there is no gate. `src/gate.ts` keeps only the install prompt |
 | `AUDIT.md` | A read-only code audit from the v1.2 round. Every finding in it is tagged ✅ FIXED. | — |
 | `BACKNAV-DIAGNOSIS.md` | The v1.3 investigation into the dead back gesture in training — a z-index fault where the guard dialog mounted beneath the drill overlay. Fixed. | — |
 | `Obertura_Style_Guide.html` | A standalone visual style guide from the Obertura era. Nothing in the repo ever linked to it. | The design tokens in `src/theme.ts` / `src/appearance.ts` |

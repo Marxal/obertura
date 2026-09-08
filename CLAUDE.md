@@ -31,7 +31,10 @@ understand concepts, not syntax. I direct; you build; I test on my phone.
   `src/openings.ts`). The live explorer API is login-gated nowadays — it's only
   an optional logged-in overlay on the Library slide, never a dependency.
 - Engine (Phase 4 only): Stockfish lite WASM in a Web Worker, behind a toggle.
-- Hosting / preview: GitHub Pages serving the built static app.
+- Hosting: Cloudflare (bitochess.com — the Worker in `worker/`, serving `dist/`).
+  GitHub Pages now serves only the static `farewell/` page; see "Hosting
+  targets" below. Previewing on the phone goes through the standing Cloudflare
+  Tunnel at dev.bitochess.com → localhost:5173 (the `phone-preview` skill).
 
 ## Hard constraints
 - Online-only is fine for v1. Offline (service worker) is LATER.
@@ -127,9 +130,17 @@ Read `REPERTOIRE-REDESIGN.md` before touching any of this.
   that writes moves goes through `repertoire.mergePath`, never through a copy.
 
 ## Deploy / preview loop
-This repo is built by Claude Code on the web and previewed via GitHub Pages.
-After meaningful changes: build the static site and push so the live URL
-updates. Keep a .gitignore (never commit node_modules or secrets).
+Work happens on `dev`; merging it into `main` is what deploys bitochess.com, so
+that push is the production step and is worth confirming. Keep `dev` and `main`
+identical after each round (merge, push both) — they drifted once and the next
+merge could not fast-forward.
+
+Preview on the phone with the standing Cloudflare Tunnel: start the dev server
+(`npm run dev -- --host`) and open dev.bitochess.com/obertura/. It is a PUBLIC
+endpoint while it runs. Accounts need `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`
+in a local `.env` (copy `.env.example`); without them `isSupabaseConfigured` is
+false and every account surface is correctly absent — which looks like a bug and
+isn't. Keep a .gitignore (never commit node_modules or secrets).
 
 ## Hosting targets
 `DEPLOY_TARGET` (`vite.config.ts`) still switches the trainer build between two

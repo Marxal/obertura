@@ -1434,6 +1434,92 @@ comment says must never happen.
 - ✅ **`npm run selftest` (1495/1495) and `npm run build` both pass** on the
   result — a pure subtraction, no new surface added.
 
+
+---
+
+## The games-first onboarding round — the app's front door, rebuilt ✅
+
+The old first run taught the HARDEST thing first: an empty board and a guided
+build, with training, the daily challenge, mistakes from your own games, the map
+and the coverage gaps all behind a three-line wall the user had to grind through
+before seeing any of it. This round replaced the whole entrance.
+
+**The shape.** "Where do you play?" (`onboarding-where.ts`) → import → a recap of
+YOUR openings (`onboarding-recap-screen.ts`) → one tap saves five lines →
+training and the daily challenge unlock with real data in them. Colour is never
+asked on that path; the import already knows which they play more. The colour
+picker survives behind "I'm new" only.
+
+- ✅ **The beta gate is gone.** A SHA-256 code screen in front of the whole app,
+  always a speed bump rather than security, guarding a beta that is now public.
+  `gate.ts` keeps only the install-prompt plumbing. `BETA-ACCESS.md` and 143
+  lines of `.gate-*` CSS went with it.
+- ✅ **The recap is deliberately ENGINE-FREE**, and that is the whole reason it
+  works. The first draft put a mistake and a brilliancy on it; both come from
+  `mistake-scan.ts`'s pass at 15–40 s a game (81 positions, 120 ms cloud pacing,
+  local Stockfish after three misses) — `mistake-autoscan.ts` exists precisely
+  because that is "a progress bar for ten minutes". Cutting them removed the
+  engine from first run entirely. The background autoscan still prepares them for
+  whenever the user reaches Mistake Retry.
+- ✅ **The lines offered are the user's own moves** — a majority-vote trunk
+  through each opening's games (`trunkOf`), always ending on one of their own
+  moves, balanced across both colours so neither book starts empty. 28 self-tests.
+- ✅ **The import's review step folded into the recap.** "Found N games" asked
+  for decisions about raw games before the user had seen anything; its one real
+  question (time format) moved onto the recap, where changing a chip visibly
+  changes the openings. `skipReview`, `alwaysReplace` and `maxGames` are the
+  three options that make the shared panel behave for first run.
+- ✅ **Scan only what we keep.** The panel scanned to `HARD_CAP` (1,000) and
+  sliced afterwards — ten times the archives for games thrown away.
+  `FREE_GUEST_IMPORT` now bounds the scan itself, and rose 100 → 500 so the
+  recap's time filter still has something to say after slicing.
+- ✅ **One loader across the whole wait.** Three attempts: a blank cover never
+  painted (naming openings is a long synchronous block), a fresh loader painted
+  but started empty (avatar, status and openings slider all vanished mid-flow),
+  and finally the import panel HANDS ITS LIVE LOADER OVER (`onImported`'s
+  `handOff`). Naming is precomputed with yields, which also makes every later
+  filter change a map lookup instead of 500 replays.
+- ✅ **"N openings found"** on the loader, sliding through their names — free,
+  because every parsed game already carries the platform's opening name. It
+  replaced 38 lines of chat in the author's voice ("Grab a coffee ☕").
+- ✅ **Back steps through the flow** instead of dropping the user in an empty
+  app, and `setOnboardingComplete()` moved to where the flow genuinely ends — it
+  used to fire on picking a platform, so backing out left first run never to
+  return. A reload mid-flow now RESUMES at the openings.
+- ✅ **The walkthrough fires on the first builder open, whichever door.** It was
+  wired to the first-run colour picker, which no longer exists for most people.
+- ✅ **Get started rebuilt around the new flow**: the account leads (the only row
+  that protects what was just made), "Import your games" became "Add openings you
+  play", "Take the walkthrough" became "Build a line by hand".
+
+---
+
+## Round 4 — saying when you are a guest ✅
+
+Guest-first is the design, which makes "am I signed in?" a question the app never
+answered: the header icon looked identical either way, and signing out changes
+nothing visible because the lines are on the phone regardless.
+
+- ✅ **A dot in the header.** Hollow for guest, filled for signed in, state in the
+  button's accessible name. Deliberately independent of the avatar beside it —
+  that picture is the CHESS PLATFORM's, set by an import, so a guest who imported
+  games looked exactly like a member. `overflow: hidden` came off the button to
+  stop it clipping the badge; it was there to round the avatar, which rounds
+  itself.
+- ✅ **The free account offered before the price.** A signed-out user who hit a
+  cap got a €12 sheet whose only other affordance was "Already have Full Access?
+  Sign in". **It is NOT a way past the cap** — `canEnrolAnother` is
+  `isEntitled() || under the cap`, and a free account is not entitled — so it
+  offers what the account genuinely does at that moment: keep the work. The
+  warning against implying otherwise sits beside the option in `pro-sheet.ts`.
+- ✅ **The first push is deferred** until there is a line to protect
+  (`shouldDeferFirstPush`, `sync-core.ts`) — a `profiles` row is created by the
+  first push, so an account that never pushes costs only its `auth.users` entry.
+- 💤 **iOS storage eviction is still unverified** — Safari may drop IndexedDB
+  after ~7 days for a site not added to the home screen. If it does, "install the
+  app" and "create an account" stop being interchangeable in Get started. Needs a
+  real iPhone over a real fortnight.
+
 ---
 
 ## v1.4 — seeds (parked) 💤

@@ -82,8 +82,8 @@ and resolves correctly under either base.
 
 ### GitHub Pages: retired, now a goodbye page
 
-The GitHub Pages URL was only ever the internal tester mirror (`github` target
-+ `gate.ts`'s beta gate). It's now retired: `.github/workflows/deploy.yml` no
+The GitHub Pages URL was only ever the internal tester mirror (`github` target,
+back when `gate.ts` still held a beta access-code gate). It's now retired: `.github/workflows/deploy.yml` no
 longer runs `npm run build` or touches `src/` at all — it just uploads
 **`farewell/`**, a small hand-written static page, as the Pages artifact.
 
@@ -141,8 +141,10 @@ stale against Vite's hashed assets. It applies the saved theme and board colour
    without a round trip.
 6. `lichessTryCallback()` — complete a "Connect to Lichess" OAuth return and
    stash where to resume.
-7. `maybeShowGate(...)` — the beta gate. Everything below runs inside its
-   callback; on the Cloudflare build the gate passes through immediately.
+7. *(There is no gate step any more — the beta access-code screen was removed
+   in 2026-09, and boot runs straight through. `gate.ts` still loads early, but
+   only to catch `beforeinstallprompt`, which fires once and only if something
+   is listening.)*
 8. Chessground is created on `#board`, brushes registered (`board-brushes.ts`),
    then the `Engine`, `EvalPanel`, `EnginePanel`, `BuilderPanels`, `GrowPanel`
    and `ExplorePanel` are constructed against it.
@@ -150,7 +152,8 @@ stale against Vite's hashed assets. It applies the saved theme and board colour
    net), FAB mounted.
 10. Deferred work, in this order and never blocking launch: a Lichess return
     replay, `?auth=signup`, `handlePurchaseReturn()`, the entitlement-change
-    listener, the first-run picker (held until the account copy lands, or 8s),
+    listener, first run (held until the account copy lands, or 8s — and it
+    RESUMES at the recap when games are already on the device),
     `maybeAutoRefreshGames()`, then after `AUTO_SCAN_DELAY_MS` the background
     `startAutoScan()` and `startEndgameAutoScan()`.
 
@@ -1037,6 +1040,18 @@ agreed with the bug because its `coreBlob()` helper built the v1/v2 shape; it
 now builds what `exportCore()` really produces, with `legacyCoreBlob()` kept for
 the pre-split migration cases a pull can still hand us.
 
+**A row is not created until there is something in it.** `shouldDeferFirstPush`
+(`sync-core.ts`) skips the account's **very first** write while the device holds
+no lines. A `profiles` row does not exist until the first push, so an account
+that never pushes costs only its `auth.users` entry — and signing up is one tap,
+offered on the first-run success card and in Get started, so a fair number of
+accounts will be made by people who then close the tab. The moment anything is
+saved the row is created as normal and this can never fire again for that
+account. It marks the state **reachable, not synced** — nothing was written, so
+the caption keeps saying "never" rather than claiming a copy that isn't there.
+Its accepted cost: the app-state snapshot (puzzle rating, streaks, endgame
+progress) waits with it.
+
 #### The `stats` summary (`account-stats.ts`)
 
 A flat object of twelve integers and two strings — lines, lines in training,
@@ -1121,7 +1136,7 @@ import is unbounded; only a *free account* met the 100-game wall).
 | `FREE_MISTAKE_GAME_WINDOW` / `_SPOTS` | 50 / 10 | rolling window and rolling top-N *unfixed* spots |
 | `FREE_ENDGAME_GAME_WINDOW` / `_SPOTS` | 50 / 3 | same, for endgames |
 | `FREE_SCOUT_OPPONENTS` | 1 | offers to *replace* rather than refusing |
-| `FREE_GUEST_IMPORT` | 100 | what a signed-out visitor may import at a time (the only games-import cap left) |
+| `FREE_GUEST_IMPORT` | 500 | what a signed-out visitor may import at a time, and what first run SCANS (the only games-import cap left) |
 
 Who is entitled: Supabase unconfigured → **everyone** (capping the test channel
 would be absurd); signed in with `profiles.entitled = true` → yes; anything else,
@@ -1146,26 +1161,74 @@ popup and deliberately reuses the landing page's wording.
 
 ## 17. Onboarding, settings and chrome
 
-### 17.1 First run
+### 17.1 First run — games-first
 
-`onboarding-picker.ts` asks **one question** — which colour — and that is the
-whole screen. It used to ask three (colour, depth, style) and hand back a curated
-line somebody else chose, which is the wrong first experience for an app whose
-point is that the lines are *yours*.
+**There is no gate.** The beta access-code screen is gone (2026-09); `gate.ts`
+keeps only the PWA install-prompt plumbing, which always was a separate job
+sharing the file. A fresh browser lands straight on the first question.
 
-Then `onboarding-tour.ts` runs the builder walkthrough as **coach-marks anchored
-beside the real thing they describe**, with everything else dimmed — not a card
-stack on an empty screen, because naming "the tabs under the board" while there
-are no tabs asks the user to do the matching. The walkthrough survives a Lichess
-OAuth round trip (a one-shot, ten-minute stash, read on both the success and the
-back-out paths). `onboarding-signup.ts` closes the run: celebrate first, offer an
-account second, "Not now" in plain text underneath.
+**`onboarding-where.ts` — "Where do you play?"** is the front door. A segmented
+toggle (Chess.com · Lichess · I'm new) over a panel that changes with it: a
+username field for either platform, or the sentence "I don't play online —
+build my repertoire by hand" for the third. The username is typed HERE, not in
+the import sheet, and goes straight through with `autoScan`.
 
-`first-steps.ts` is the Get-started checklist that catches anyone who backed out:
-install the app · take the walkthrough · import your games · connect Lichess ·
-create an account. Below three saved lines it takes the daily card's slot
-outright and leads with the line goal; past the unlock the two swap and it rides
-underneath, compact, until hidden or retired.
+*Colour is never asked on the games path* — the import knows which colour they
+play more (`dominantColour`). The old colour picker (`onboarding-picker.ts`) is
+now reached **only** through "I'm new".
+
+**The import** is the ordinary `openImportPanel`, with three first-run options:
+`maxGames` (scan only what can be kept — `FREE_GUEST_IMPORT`, not `HARD_CAP`),
+`alwaysReplace` (no "replace or add?" mid-onboarding), and `skipReview` (no
+"Found N games" step — its one real question, the time format, moved onto the
+recap where its effect is visible). The scan loader shows *N openings found*
+with a slider through their names, free because every parsed game already
+carries the platform's own opening name.
+
+**`onboarding-recap.ts` — the arithmetic, and it is deliberately engine-free.**
+Replay plus a bundled table lookup, so the recap is instant. The mistake and
+brilliancy cards were cut from first run for exactly this reason: they need
+`mistake-scan.ts`'s engine pass at 15–40 s a game, and `mistake-autoscan.ts`
+already prepares them in the background for whenever the user reaches them.
+**Nothing in that module may ever grow an engine call.**
+
+Each opening's line is a **majority-vote trunk** through that opening's games —
+the shared stem of how this person really plays it, always ending on one of
+their own moves. `pickStarterOpenings` deals alternately between the colours so
+both books get a real pair.
+
+**`onboarding-recap-screen.ts` — the payoff.** Their avatar and handle, the
+games count, their White/Black record as two proportional bars, then "Pick your
+lines". Time-format chips re-derive everything from games already on the device
+(no re-scan). Five openings are ticked by default; "Show 4 more openings"
+reveals the rest a handful at a time, chosen ones sorted to the front. Tapping a
+card opens `openLinePeek` (`inlineMoves`, custom `stats`, its own actions) where
+the line can be lengthened one move at a time up to 10 — **per line**, not
+globally. Ticking past the free tier's training cap opens the Pro sheet.
+
+**Saving** enrols the lines directly, marks the session "just onboarded" so the
+hub leads with Get started rather than a daily challenge about lines owned for
+three seconds, and shows `onboarding-signup.ts`'s card — which now **leads with
+the account**, with "Continue as a guest" as the quiet way past.
+
+**Back steps through the flow rather than falling out of it**: the recap and the
+import both return to the question, and only the first screen lets go.
+`setOnboardingComplete()` fires where the flow genuinely ends, so backing out
+leaves first run still owed. A reload mid-flow **resumes at the openings** when
+the games are already on the device.
+
+**The walkthrough** (`onboarding-tour.ts`) is coach-marks anchored beside the
+real thing they describe, everything else dimmed. It now fires on the **first
+builder open, whichever door** (`startNewLine`), not from the first-run picker —
+a games-first user would otherwise meet the densest screen in the app with no
+explanation. It survives a Lichess OAuth round trip (a one-shot, ten-minute
+stash read on both the success and back-out paths).
+
+`first-steps.ts` is the Get-started checklist, reordered around the new flow:
+**create a free account** (it leads — the only row that protects what was just
+made) · add openings you play · connect Lichess · build a line by hand · install.
+Below three saved lines, or for the rest of a just-onboarded session, it takes
+the daily card's slot outright.
 
 `onboarding-lines.ts` holds the 8 curated first lines (truncated by *the user's
 own moves*, so a cut always ends on a move they have to remember).
@@ -1598,7 +1661,10 @@ Every non-selftest module in `src/`, exactly once.
 ### Onboarding, settings, feedback
 | Module | |
 |---|---|
-| `onboarding-picker.ts` | the first-run screen — one question, and out |
+| `onboarding-where.ts` | the first-run front door — "Where do you play?" |
+| `onboarding-recap.ts` | the recap's arithmetic — openings, trunks, picks (engine-free) |
+| `onboarding-recap-screen.ts` | the payoff screen — pick your lines |
+| `onboarding-picker.ts` | the colour picker, now only behind "I'm new" |
 | `onboarding-lines.ts` | the eight curated first lines |
 | `onboarding-starter.ts` | the starter packs and their picker |
 | `onboarding-signup.ts` | the sign-up sheet that closes the first run |
