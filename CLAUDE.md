@@ -130,10 +130,15 @@ Read `REPERTOIRE-REDESIGN.md` before touching any of this.
   that writes moves goes through `repertoire.mergePath`, never through a copy.
 
 ## Deploy / preview loop
-Work happens on `dev`; merging it into `main` is what deploys bitochess.com, so
-that push is the production step and is worth confirming. Keep `dev` and `main`
-identical after each round (merge, push both) — they drifted once and the next
-merge could not fast-forward.
+Work happens on `dev`; `main` is the record of what's production-ready, and
+merging into it (worth confirming, since it's the shared branch) is how you'd
+know that from a glance — but merging alone does NOT put anything live. The
+site is a Cloudflare **Worker**, not a connected build: nothing deploys it
+until someone runs `DEPLOY_TARGET=cloudflare npm run build && npx wrangler
+deploy` by hand from a checkout with a filled-in `.env` (see `STRIPE-SETUP.md`
+§4). That actually-goes-live step is worth confirming on its own, separately
+from the merge. Keep `dev` and `main` identical after each round (merge, push
+both) — they drifted once and the next merge could not fast-forward.
 
 Preview on the phone with the standing Cloudflare Tunnel: start the dev server
 (`npm run dev -- --host`) and open dev.bitochess.com/obertura/. It is a PUBLIC
