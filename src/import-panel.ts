@@ -305,7 +305,15 @@ export interface ImportPanelOptions {
   // games"); opponent scouting passes its own sink.
   save?: (games: ImportedGame[], meta: { platform: Platform; username: string; avatarUrl?: string }) => Promise<void>;
   // Run after a successful import (games already saved): re-render badges etc.
-  onImported?: (count: number) => void;
+  //
+  // `handOff` is the still-mounted scan loader, passed ONLY on the skipReview
+  // path. A caller that has more work to do before it can show anything (the
+  // first run, which reads the openings out of what just landed) adopts it and
+  // calls its remove() when its own screen is up — so the avatar, the status
+  // line and the "openings found" slider stay exactly as the user left them
+  // instead of being replaced by a fresh, empty loader. Ignore it and it is
+  // cleaned up as usual.
+  onImported?: (count: number, handOff?: ImportLoader) => void;
   // Run when the panel goes away, whatever the reason (imported, dismissed, back
   // gesture) and always after onImported. For a caller that had something of its
   // own on screen and needs to pick it back up — the builder walkthrough, whose
@@ -580,10 +588,16 @@ export function openImportPanel(opts: ImportPanelOptions = {}): void {
         avatarUrl: scannedAvatarUrl,
       });
       track('games_imported');
-      // The caller mounts its own cover here; unmount ours only afterwards, so
-      // the two overlap rather than leaving a frame of the app between them.
-      opts.onImported?.(games.length);
-      unmountLoader();
+      // HAND THE LOADER OVER rather than tearing it down and letting the caller
+      // build another: a second instance starts blank, so the picture, the
+      // status and the openings slider all vanished at the exact moment the
+      // scan finished. Dropping our reference first means close() below leaves
+      // it alone; the caller owns it from here.
+      const handOff = loader;
+      loader = null;
+      removeLoaderBack?.();
+      removeLoaderBack = null;
+      opts.onImported?.(games.length, handOff ?? undefined);
       close();
     } catch (err) {
       unmountLoader();

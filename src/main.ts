@@ -118,7 +118,7 @@ import { openStarterPackPicker, type LineSeed, type AddLineMode } from './onboar
 import { showOnboardingPicker, shouldShowFirstRun } from './onboarding-picker';
 import { showWherePicker } from './onboarding-where';
 import { openLinePeek } from './line-peek';
-import { createImportLoader, type ImportLoader } from './import-progress';
+import type { ImportLoader } from './import-progress';
 import { FREE_GUEST_IMPORT } from './import-tier';
 import { showRecapScreen } from './onboarding-recap-screen';
 // Aliased: daily-recap.ts already exports a buildRecap, and the two are
@@ -3635,33 +3635,33 @@ function runFirstRunImport(platform: Platform, username: string): void {
     // visible underneath and the recap arrived on top of it. It read as a
     // glitch. This paints an opaque layer in the same gesture that closes the
     // panel, and showFirstRunRecap drops it once the recap is actually up.
-    onImported: () => { imported = true; showRecapLoader(); void showFirstRunRecap(); },
+    onImported: (_count, handOff) => {
+      imported = true;
+      adoptRecapLoader(handOff);
+      void showFirstRunRecap();
+    },
     onClose: () => { if (!imported) showFirstRun(); },
   });
 }
 
-// The scan's own loader, held over the gap between the import finishing and the
-// recap appearing — so the two read as one continuous wait rather than a scan,
-// a flash of the app, and then a screen arriving on top of it.
+// THE SCAN'S OWN LOADER, ADOPTED — not a second one.
 //
-// A BLANK COVER WAS NOT ENOUGH. The first attempt appended an opaque div and
-// then went straight into the work; naming the openings replays every game
-// through chess.js, which is a long SYNCHRONOUS block, so the browser never got
-// a frame in which to paint the cover. Showing the real loader (and yielding
-// during the work, see nameOpenings) fixes both halves: something is on screen,
-// and it keeps animating.
+// The import panel hands its live loader over on the way out (onImported's
+// `handOff`), and it stays on screen until the recap is built. From the user's
+// side there is one uninterrupted wait: the same picture, the same status line,
+// the same "openings found" slider, right up until the openings appear.
+//
+// Two earlier attempts were worse and are worth remembering. An opaque div
+// never painted, because naming the openings is a long synchronous block and
+// the browser got no frame in which to draw it. Building a FRESH loader painted
+// fine but started empty — so at the exact moment the scan finished, the
+// avatar, the status and the slider all vanished and were replaced by a bare
+// bar. Adopting the running one is the only version with no seam in it.
 let recapLoader: ImportLoader | null = null;
 
-function showRecapLoader(): void {
-  if (recapLoader) return;
-  recapLoader = createImportLoader();
-  recapLoader.start();
-  recapLoader.set(1);
-  // No new status line: this is the SAME wait as the scan from the user's side,
-  // so it keeps the finished bar rather than announcing a second stage they
-  // never asked about.
-  recapLoader.setStatus('');
-  document.body.appendChild(recapLoader.el);
+function adoptRecapLoader(handOff?: ImportLoader): void {
+  hideRecapLoader();
+  recapLoader = handOff ?? null;
 }
 
 function hideRecapLoader(): void {
