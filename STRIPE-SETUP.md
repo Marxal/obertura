@@ -202,11 +202,12 @@ here are not lost.
 
 ## Step 4 — deploy the Worker
 
-**Pushing `main` now does this for you** — measured on 2026-09-09, a push was
-live about 70 seconds later (see CLAUDE.md "Deploy / preview loop"). The manual
-route below is still what you want for a tree that is NOT on `main`, and it is
-still what to reach for if a push ever fails to appear. Note that it RACES the
-automatic build, which will overwrite it a minute later.
+**Pushing `main` does this for you** — the site rebuilds itself and is live
+about 70 seconds later (CLAUDE.md "Deploy / preview loop"). So the normal way
+to ship this is to merge and push, and the steps below are the exception:
+shipping a tree that is NOT on `main`, or a fallback if a push ever fails to
+appear. The manual deploy RACES the automatic build, which overwrites it a
+minute later — so don't use it to ship something different from `main`.
 
 Pulling this branch to your machine, on its own, puts nothing anywhere Stripe
 or the app can reach. A Cloudflare Worker is deployed by

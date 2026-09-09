@@ -1807,19 +1807,36 @@ under Node's `--experimental-strip-types`, which is why every module they touch
 must stay free of DOM, IndexedDB and `import.meta.env` — that constraint is the
 reason for most of the pure/impure splits in this codebase.
 
-**Deploy:** pushing `main` runs `.github/workflows/` → build → `cp -r docs
-dist/docs` → GitHub Pages (forced into "GitHub Actions" source mode so Jekyll
-can't overwrite it) — but that workflow now only ships the static `farewell/`
-page (see CLAUDE.md "Hosting targets"). The live site is a Cloudflare
-**Worker**, and **pushing `main` deploys it** — measured on 2026-09-09: push at
-12:42:54Z, new bundle serving by 12:44:07Z, nothing else run. (This paragraph
-used to say the opposite; see CLAUDE.md "Deploy / preview loop" for what is
-confirmed and what is only likely.) A manual `DEPLOY_TARGET=cloudflare npm run
-build && npx wrangler deploy` still ships a tree that is NOT on `main`, and
-still races the automatic build (STRIPE-SETUP.md §4). Building with a
-stale/incomplete `.env` ships silently wrong —
-e.g. an env var like `VITE_AUTH_PROVIDERS` left unset at build time just
-falls back to its default with no error.
+**Deploy: pushing `main` is the deploy.** The site rebuilds itself and is
+serving the new bundle about 70 seconds later — no command to run, nothing to
+confirm separately. That is the whole workflow (CLAUDE.md "Deploy / preview
+loop").
+
+*The evidence, since this section said the exact opposite until 2026-09-09 and
+cost two rounds of wrong advice:* a push to `main` at 12:42:54Z had the new
+bundle live at 12:44:07Z with nothing else run, and the two pushes before it
+each drew an extra deployment about a minute afterwards. The MECHANISM is not
+confirmed — most likely a Cloudflare **Workers Build** connected to the repo in
+the dashboard, since it is not in `.github/workflows` (no wrangler step there)
+and the versions it creates carry no git metadata for the CLI to attribute. If
+you ever get dashboard confirmation, say so here and delete this paragraph.
+
+Separately, `.github/workflows/deploy.yml` still publishes the static
+`farewell/` page to GitHub Pages; it has nothing to do with the live app (see
+CLAUDE.md "Hosting targets").
+
+A manual `DEPLOY_TARGET=cloudflare npm run build && npx wrangler deploy` is now
+only for shipping a tree that is NOT on `main`, and it RACES the automatic
+build — a manual deploy at 11:38:12 was overwritten at 11:39:28 (same commit,
+so no harm that time). Either way, building with a stale/incomplete `.env`
+ships silently wrong — e.g. an env var like `VITE_AUTH_PROVIDERS` left unset at
+build time just falls back to its default with no error.
+
+**Checking a deploy landed:** confirm `https://bitochess.com/app/` serves a new
+`assets/index-*.js` and that it contains a string only this round could have
+produced. Mind the minifier: it strips spaces from CSS selectors, so grep the
+stylesheet for `html:has(>body>.pt-overlay)` rather than the spaced version —
+that cost one false "the CSS didn't ship" alarm.
 
 **Versioning (from `CLAUDE.md`, and it matters):** before a risky round —
 `npm run selftest` and `npm run build` both pass → bump `version` in

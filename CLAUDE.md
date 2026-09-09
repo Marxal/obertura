@@ -130,30 +130,28 @@ Read `REPERTOIRE-REDESIGN.md` before touching any of this.
   that writes moves goes through `repertoire.mergePath`, never through a copy.
 
 ## Deploy / preview loop
-Work happens on `dev`; `main` is the record of what's production-ready.
+Work happens on `dev`; `main` is what is live.
 
-**PUSHING `main` PUTS IT LIVE.** Observed twice, deliberately measured on
-2026-09-09: a push to `main` at 12:42:54Z had the new bundle serving on
-bitochess.com by 12:44:07Z with no other action taken. So merging into `main`
-is not a bookkeeping step — it is the deploy, and it is worth confirming on its
-own, every time.
+**"Push and deploy" means: merge `dev` into `main`, push both, done.** Pushing
+`main` deploys it — the site rebuilds itself and is serving the new bundle
+about 70 seconds later. No wrangler command, no separate confirmation step:
+when Marçal says push and deploy, just do it.
 
-This file used to say the opposite ("nothing deploys it until someone runs
-wrangler deploy by hand"), and that was wrong. The mechanism is most likely a
-Cloudflare **Workers Build** connected to the GitHub repo in the dashboard: it
-is not in `.github/workflows` (no wrangler step there), and the versions it
-creates carry no git metadata, so it can't be confirmed from the CLI. What IS
-confirmed is the behaviour above.
+Then check it actually landed, because "it usually works" is not the same as
+"it worked": wait a minute or two and confirm `https://bitochess.com/app/`
+serves a new `assets/index-*.js`, and that the file contains a string only this
+round could have produced. Note that the minifier strips spaces from CSS
+selectors, so grep for `html:has(>body>.pt-overlay)`, not the spaced version.
 
-A manual `DEPLOY_TARGET=cloudflare npm run build && npx wrangler deploy` still
-works and is still the way to ship something that is NOT on `main` (see
-`STRIPE-SETUP.md` §4). Be aware it RACES the automatic build: on 2026-09-09 a
-manual deploy landed at 11:38:12 and the automatic one overwrote it at 11:39:28
-— same commit, so no harm, but a manual deploy of a different tree would be
-silently replaced a minute later.
+Keep `dev` and `main` identical after each round — they drifted once and the
+next merge could not fast-forward.
 
-Keep `dev` and `main` identical after each round (merge, push both) — they
-drifted once and the next merge could not fast-forward.
+**The manual deploy is now the exception**, for shipping a tree that is NOT on
+`main`: `DEPLOY_TARGET=cloudflare npm run build && npx wrangler deploy` from a
+checkout with a filled-in `.env` (`STRIPE-SETUP.md` §4). It RACES the automatic
+build, which will overwrite it about a minute later — so never use it to ship
+something different from what was just pushed. Details and the evidence behind
+all of this are in `APP-CONTEXT.md` §"Build and deploy".
 
 Preview on the phone with the standing Cloudflare Tunnel: start the dev server
 (`npm run dev -- --host`) and open dev.bitochess.com/obertura/. It is a PUBLIC
