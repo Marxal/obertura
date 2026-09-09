@@ -26,6 +26,14 @@ import { HARD_CAP, type CountChoice } from './import-core';
 // (import-panel's chooser) plus sync, not the raw count of a first look.
 export const FREE_GUEST_IMPORT = 500;
 
+// The fixed rungs below "All", smallest first. Both branches below derive their
+// chips from this one list rather than each spelling the numbers out: the guest
+// branch used to name its padlocked rungs by hand, and when the cap moved
+// 100 → 500 that hand-written list stayed put — so a guest with a big history
+// got a padlocked "Last 500" sitting right next to the unlocked "Last 500" they
+// could actually take. Deriving both from here is what stops that recurring.
+const LADDER = [100, 500] as const;
+
 // One chip in the how-many row. A `locked` chip can't be selected: it opens the
 // sign-up sheet instead.
 export interface CountOption {
@@ -61,16 +69,22 @@ export function countOptionsFor(
     opts.push({ value: FREE_GUEST_IMPORT, label: `Last ${FREE_GUEST_IMPORT}` });
     // Only worth padlocking the bigger slices when the account genuinely holds
     // more than the cap — otherwise we'd advertise an upgrade that changes
-    // nothing for this user.
+    // nothing for this user. A rung is only padlocked when it is genuinely
+    // ABOVE the cap: one at or below it is the slice they already have.
     if (total > FREE_GUEST_IMPORT) {
-      opts.push({ value: 500, label: 'Last 500', locked: true });
+      for (const rung of LADDER) {
+        if (rung > FREE_GUEST_IMPORT && total > rung) {
+          opts.push({ value: rung, label: `Last ${rung}`, locked: true });
+        }
+      }
       opts.push({ value: 'all', label: allLabel, locked: true });
     }
     return opts;
   }
 
-  if (total > 100) opts.push({ value: 100, label: 'Last 100' });
-  if (total > 500) opts.push({ value: 500, label: 'Last 500' });
+  for (const rung of LADDER) {
+    if (total > rung) opts.push({ value: rung, label: `Last ${rung}` });
+  }
   opts.push({ value: 'all', label: allLabel });
   return opts;
 }

@@ -77,11 +77,8 @@ export function runImportTierSelfTest(): TestResult[] {
   const big = countOptionsFor(900, false, GUEST);
   check(
     r,
-    'guest over the cap sees the bigger slices, padlocked',
-    big.length === 3
-      && big[0].locked !== true
-      && big[1].locked === true
-      && big[2].locked === true,
+    'guest over the cap sees exactly one takeable slice, the rest padlocked',
+    big.length >= 2 && big[0].locked !== true && big.slice(1).every(o => o.locked === true),
     JSON.stringify(big),
   );
   check(
@@ -90,6 +87,30 @@ export function runImportTierSelfTest(): TestResult[] {
     big[0].value === FREE_GUEST_IMPORT,
     JSON.stringify(big[0]),
   );
+  // THE ONE THAT CAUGHT A REAL BUG. The guest branch used to name its padlocked
+  // rungs by hand, so raising the cap 100 → 500 left a padlocked "Last 500"
+  // beside the unlocked "Last 500" — two identical chips, one of them dead.
+  // A duplicated value is the shape of that mistake whatever the cap becomes.
+  for (const total of [0, 1, CAP - 1, CAP, CAP + 1, 640, 900, 1000]) {
+    for (const [who, guest] of [['guest', GUEST], ['member', MEMBER]] as const) {
+      const opts = countOptionsFor(total, false, guest);
+      const values = opts.map(o => String(o.value));
+      check(
+        r,
+        `${who} with ${total} games gets no duplicated chip`,
+        new Set(values).size === values.length,
+        JSON.stringify(opts),
+      );
+      // The same mistake, seen from the other side: a padlocked chip that isn't
+      // actually more than the takeable one is advertising nothing.
+      check(
+        r,
+        `${who} with ${total} games padlocks only slices above the cap`,
+        opts.every(o => !o.locked || o.value === 'all' || o.value > FREE_GUEST_IMPORT),
+        JSON.stringify(opts.filter(o => o.locked)),
+      );
+    }
+  }
 
   // ── The signed-in ladder, unchanged ────────────────────────────────────────
   check(
