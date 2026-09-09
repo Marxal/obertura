@@ -183,6 +183,18 @@ export function isSignedIn(): boolean {
   return currentUser !== null;
 }
 
+// The profile photo Google/Facebook/Apple handed Supabase at sign-in, if any.
+// Supabase normalizes most providers to `avatar_url` in user_metadata, but
+// raw provider payloads sometimes only carry `picture` (Google's own OIDC
+// claim name) — checking both costs nothing and covers either shape. Purely
+// cosmetic, same as the Chess.com avatar it sits alongside: a miss just means
+// the fallback user icon shows instead.
+export function authAvatarUrl(): string | undefined {
+  const meta = currentUser?.user_metadata as Record<string, unknown> | undefined;
+  const url = meta?.avatar_url ?? meta?.picture;
+  return typeof url === 'string' && url ? url : undefined;
+}
+
 // Subscribe to sign-in / sign-out. Returns an unsubscribe function.
 export function onAuthChange(fn: () => void): () => void {
   listeners.add(fn);

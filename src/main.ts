@@ -180,7 +180,7 @@ import {
   isConnected as isLichessConnected,
 } from './lichess-auth';
 import { isSupabaseConfigured } from './supabase';
-import { initAuth, isPasswordRecovery, getAuthUser, onAuthChange, PASSWORD_RECOVERY_EVENT } from './auth';
+import { initAuth, isPasswordRecovery, getAuthUser, onAuthChange, authAvatarUrl, PASSWORD_RECOVERY_EVENT } from './auth';
 import {
   initAccountSync,
   isAwaitingAccountCopy,
@@ -5188,14 +5188,22 @@ function onOpenLine(line: Line, atFen?: string): void {
   }
 }
 
-// Swap the header's generic user icon for your Chess.com picture when one is
-// stored (Lichess / no picture keeps the icon). The inline SVG stays in the DOM
-// as the fallback — a broken image removes the img and restores the icon.
+// The one picture to show for "you": your Chess.com photo when that's
+// connected (it's the more chess-specific of the two), else whatever Google
+// or Facebook handed over at sign-in, else nothing — the generic icon covers
+// Lichess (no avatars, ever) and mail sign-in (no photo to draw from).
+function identityAvatarUrl(): string | undefined {
+  return getGamesSource()?.avatarUrl ?? authAvatarUrl();
+}
+
+// Swap the header's generic user icon for that picture when one is available.
+// The inline SVG stays in the DOM as the fallback — a broken image removes
+// the img and restores the icon.
 function applyNavSettingsAvatar(): void {
   applyNavSettingsTier();
   const btn = document.getElementById('nav-settings');
   if (!btn) return;
-  const url = getGamesSource()?.avatarUrl;
+  const url = identityAvatarUrl();
   const existing = btn.querySelector<HTMLImageElement>('img.nav-settings-avatar');
   if (!url) {
     existing?.remove();
@@ -5418,7 +5426,7 @@ function buildSideUser(): HTMLElement {
   btn.type = 'button';
   btn.className = 'side-user';
   btn.id = 'side-user';
-  btn.appendChild(userAvatar(getGamesSource()?.avatarUrl, 28));
+  btn.appendChild(userAvatar(identityAvatarUrl(), 28));
   const label = document.createElement('span');
   label.className = 'side-user-label';
   label.textContent = sideUserLabel();
@@ -5432,13 +5440,13 @@ function sideUserLabel(): string {
   return 'Settings';
 }
 
-// Keep the sidebar entry's avatar in step with the connected games source (the
-// same picture the header's settings button shows), rebuilding just the avatar.
+// Keep the sidebar entry's avatar in step with identityAvatarUrl() (the same
+// picture the header's settings button shows), rebuilding just the avatar.
 function applySideUserAvatar(): void {
   const btn = document.getElementById('side-user');
   if (!btn) return;
   btn.firstChild?.remove();
-  btn.prepend(userAvatar(getGamesSource()?.avatarUrl, 28));
+  btn.prepend(userAvatar(identityAvatarUrl(), 28));
 }
 
 // Settings has two shapes. At desktop width the sidebar owns the app's identity
@@ -5511,9 +5519,14 @@ function setupNav(): void {
     applySideUserAvatar();
     void refreshSideCreate();
   });
-  // Signing in or out changes the guest dot, and neither fires an identity
-  // change — that event is about the CHESS account, not the Bito one.
-  onAuthChange(() => { applyNavSettingsTier(); applyNavSignIn(); });
+  // Signing in or out changes the guest ring, and — now that Google/Facebook
+  // sign-in can supply the avatar too — possibly the picture itself. Neither
+  // fires IDENTITY_CHANGED_EVENT, which is about the CHESS account, not this one.
+  onAuthChange(() => {
+    applyNavSettingsAvatar(); // also applies the tier ring
+    applyNavSignIn();
+    applySideUserAvatar();
+  });
 
   // Settings → Feedback & about → "Replay walkthrough": open the builder on a
   // fresh line and force the coach-marks, the same way "Build my own" does for
