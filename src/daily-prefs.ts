@@ -22,7 +22,9 @@ import {
   setDailyConfig,
   orderedDailyTasks,
   normaliseOrder,
-  DAILY_COUNT_RANGE,
+  dailyCountChoices,
+  dailyCountUnit,
+  isCustomDailyCount,
   DEFAULT_DAILY_ORDER,
   type DailyConfig,
   type DailyTaskId,
@@ -46,6 +48,7 @@ const DAILY_TASK_LABEL: Record<DailyTaskId, string> = {
   mistakes: 'Mistakes to fix',
   detective: 'Blunders to catch',
   whichMove: 'Moves to pick',
+  timePressure: 'Time pressure',
 };
 
 /**
@@ -182,7 +185,7 @@ function dailyTaskRow(
   onChange: () => void,
 ): HTMLElement {
   const task = config.tasks[id];
-  const isCustom = task.count > DAILY_COUNT_RANGE.stepMax;
+  const isCustom = isCustomDailyCount(id, task.count);
 
   const r = row(DAILY_TASK_LABEL[id], dailyCountControl(id, task.count, onChange));
   r.classList.add('daily-order-row');
@@ -252,17 +255,19 @@ function moveButtons(
   return wrap;
 }
 
-// The Off/1/2/3/Custom segmented picker — five short labels, so it still fits
-// one line on a phone (the 0-through-5-plus-Custom row it replaced didn't).
+// The segmented picker — five short labels, so it still fits one line on a
+// phone (the 0-through-5-plus-Custom row it replaced didn't).
+//
+// The numbers on it depend on what the part counts: Off/1/2/3 for parts made of
+// items, Off/2/3/5 for Time pressure, whose count is the round's length in
+// MINUTES (daily-challenge.ts's dailyCountUnit). Same row, same shape, same
+// "Off is a count of zero" rule — only the numbers and the units differ.
 function dailyCountControl(id: DailyTaskId, count: number, onChange: () => void): HTMLElement {
-  const stepMax = DAILY_COUNT_RANGE.stepMax;
-  const options: { value: string; label: string }[] = [];
-  for (let n = DAILY_COUNT_RANGE.min; n <= stepMax; n++) {
-    options.push({ value: String(n), label: n === 0 ? 'Off' : String(n) });
-  }
+  const { steps, customStart } = dailyCountChoices(id);
+  const options = steps.map(n => ({ value: String(n), label: n === 0 ? 'Off' : String(n) }));
   options.push({ value: 'custom', label: 'Custom' });
 
-  const isCustom = count > stepMax;
+  const isCustom = isCustomDailyCount(id, count);
   const seg = segmented<string>(
     options,
     isCustom ? 'custom' : String(count),
@@ -271,7 +276,7 @@ function dailyCountControl(id: DailyTaskId, count: number, onChange: () => void)
       const nextCount = v === 'custom'
         // Stepping into Custom keeps whatever custom value was already set;
         // otherwise it starts just past the preset row.
-        ? Math.max(stepMax + 1, cur.tasks[id].count)
+        ? (isCustomDailyCount(id, cur.tasks[id].count) ? cur.tasks[id].count : customStart)
         : Number(v);
       write({ ...cur, tasks: { ...cur.tasks, [id]: { count: nextCount } } });
       onChange(); // show/hide the custom field
@@ -284,8 +289,13 @@ function dailyCountControl(id: DailyTaskId, count: number, onChange: () => void)
   return seg;
 }
 
-// The capped custom-count field, shown only once "Custom" is picked.
+// The capped custom field, shown only once "Custom" is picked. It caps and
+// captions itself from the part's own unit, so Time pressure asks for minutes a
+// round while everything else asks for items a day.
 function dailyCustomInput(id: DailyTaskId, count: number, onChange: () => void): HTMLElement {
+  const { customMin, customMax } = dailyCountChoices(id);
+  const minutes = dailyCountUnit(id) === 'minutes';
+
   const wrap = document.createElement('div');
   wrap.className = 'daily-custom-count';
 
@@ -293,13 +303,13 @@ function dailyCustomInput(id: DailyTaskId, count: number, onChange: () => void):
   input.type = 'number';
   input.inputMode = 'numeric';
   input.className = 'daily-custom-input';
-  input.min = String(DAILY_COUNT_RANGE.stepMax + 1);
-  input.max = String(DAILY_COUNT_RANGE.max);
+  input.min = String(customMin);
+  input.max = String(customMax);
   input.value = String(count);
   input.addEventListener('change', () => {
     const clamped = Math.max(
-      DAILY_COUNT_RANGE.stepMax + 1,
-      Math.min(DAILY_COUNT_RANGE.max, Math.round(Number(input.value)) || DAILY_COUNT_RANGE.stepMax + 1),
+      customMin,
+      Math.min(customMax, Math.round(Number(input.value)) || customMin),
     );
     input.value = String(clamped);
     const cur = getDailyConfig();
@@ -310,7 +320,9 @@ function dailyCustomInput(id: DailyTaskId, count: number, onChange: () => void):
 
   const suffix = document.createElement('span');
   suffix.className = 'daily-custom-suffix';
-  suffix.textContent = `per day (max ${DAILY_COUNT_RANGE.max})`;
+  suffix.textContent = minutes
+    ? `minutes a round (max ${customMax})`
+    : `per day (max ${customMax})`;
   wrap.appendChild(suffix);
 
   return wrap;

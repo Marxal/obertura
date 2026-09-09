@@ -42,7 +42,8 @@ import { buildRunHeader } from './run-header';
 import { openSpotPeek, type SpotPeekOptions } from './spot-peek';
 import { TIME_PRESSURE_ACCENT } from './exercise-identity';
 import {
-  ROUND_MS,
+  DEFAULT_ROUND_MINUTES,
+  roundMsFor,
   PER_POSITION_MS,
   scoreSolve,
   totalsFor,
@@ -74,9 +75,24 @@ const TICK_MS = 100;
 export interface TimePressureSessionOptions {
   /** Already dealt and ordered — see dealRound(). */
   refs: SpotRef[];
+  /**
+   * How long the round runs, in minutes. Defaults to the standard two; the
+   * daily challenge passes whatever length is configured for its part, and the
+   * personal best is filed against that length rather than pooled.
+   */
+  minutes?: number;
   onExit: () => void;
   onPlayAgain?: () => void;
   onOpenGame?: (game: ImportedGame, ctx?: OpenGameCtx) => void;
+  /**
+   * The session's framing above the exercise name in the run header —
+   * "Daily challenge". Context, not identity (run-header.ts).
+   */
+  contextLabel?: string;
+  /** Fired once when the results screen comes up, for the daily challenge's tally. */
+  onComplete?: (summary: { found: number; missed: number; ranOut: number; score: number }) => void;
+  /** Daily challenge: the results screen's primary jumps to the next challenge. */
+  nextAction?: { label: string; run: () => void };
 }
 
 export function startTimePressureSession(opts: TimePressureSessionOptions): void {
@@ -104,9 +120,12 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
   overlay.className = 'pt-overlay pt-overlay--puzzle pt-overlay--tinted pt-overlay--compact';
   overlay.style.setProperty('--pt-tint', TIME_PRESSURE_ACCENT);
 
+  const minutes = Math.max(1, Math.round(opts.minutes ?? DEFAULT_ROUND_MINUTES));
+
   const header = buildRunHeader({
     icon: Icons.clock(18),
     title: 'Time pressure',
+    kicker: opts.contextLabel,
     accent: TIME_PRESSURE_ACCENT,
     endLabel: 'End round',
     // No abandon dialog: a confirmation box with a clock running behind it is
@@ -315,7 +334,15 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
 
   function showResults(): void {
     const totals = totalsFor(entries);
-    const { best, improved } = recordTimePressureRound(totals.score);
+    const { best, improved } = recordTimePressureRound(totals.score, minutes);
+    // The daily challenge ticks its row off this. A round that never got as far
+    // as one position — End round tapped on the way in — did not happen, and
+    // should not be a way to clear the day's work in two taps.
+    if (entries.length > 0) {
+      opts.onComplete?.({
+        found: totals.found, missed: totals.missed, ranOut: totals.ranOut, score: totals.score,
+      });
+    }
 
     overlay.replaceChildren();
     overlay.className = 'pt-overlay pt-overlay--results';
@@ -342,7 +369,9 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
     // number you are already looking at reads as a bug.
     sub.textContent = improved
       ? 'Best yet'
-      : best > totals.score ? `Best so far ${best}` : 'Two minutes, twenty seconds a position';
+      : best > totals.score
+        ? `Best so far ${best}`
+        : `${minutes} minute${minutes === 1 ? '' : 's'}, twenty seconds a position`;
     head.appendChild(sub);
 
     // The three outcomes, side by side. They are the exercise's whole finding:
@@ -378,17 +407,28 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
 
     const actions = document.createElement('div');
     actions.className = 'pz-results-actions';
+    // Daily challenge: straight on to the next part is the main action.
+    if (opts.nextAction) {
+      const next = document.createElement('button');
+      next.type = 'button';
+      next.className = 'btn-primary train-next-btn';
+      next.textContent = opts.nextAction.label;
+      next.addEventListener('click', () => { const fn = opts.nextAction!.run; cleanup(); fn(); });
+      actions.appendChild(next);
+    }
     if (opts.onPlayAgain) {
       const again = document.createElement('button');
       again.type = 'button';
-      again.className = 'btn-primary train-next-btn';
+      again.className = opts.nextAction ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
       again.textContent = 'Go again';
       again.addEventListener('click', () => { const fn = opts.onPlayAgain!; cleanup(); fn(); });
       actions.appendChild(again);
     }
     const doneBtn = document.createElement('button');
     doneBtn.type = 'button';
-    doneBtn.className = opts.onPlayAgain ? 'btn-secondary train-done-btn' : 'btn-primary train-next-btn';
+    doneBtn.className = (opts.nextAction || opts.onPlayAgain)
+      ? 'btn-secondary train-done-btn'
+      : 'btn-primary train-next-btn';
     doneBtn.textContent = 'Close round';
     doneBtn.addEventListener('click', () => doExit());
     actions.appendChild(doneBtn);
@@ -488,7 +528,7 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
 
   // ── Go ─────────────────────────────────────────────────────────────────────
   scoreEl.textContent = '0';
-  roundEndsAt = Date.now() + ROUND_MS;
+  roundEndsAt = Date.now() + roundMsFor(minutes);
   positionEndsAt = roundEndsAt; // replaced by loadPosition, just below
   tick = setInterval(onTick, TICK_MS);
   loadPosition();

@@ -1605,6 +1605,16 @@ was bad, but what kind of moment you played it in.
   - **No abandon dialog**: a confirmation box with a clock running behind it is
     worse than ending early, so End round goes straight to the results with
     everything you found intact.
+  - **It is the daily challenge's eighth part**, last in the shipped order. Its
+    configured number is the round's LENGTH IN MINUTES rather than a count of
+    items — Off/2/3/5, or a typed 1–20 — because the round ends on the clock
+    and how many positions it deals was never the user's to pick. That is the
+    one asymmetry in the daily config, so `dailyCountUnit` names it and the
+    picker, the card label and the custom field all read it from there.
+    Existing configs gain the part at the end for free (`normaliseOrder`
+    appends what it doesn't find), and the day's row only ticks once the round
+    has actually dealt a position — End round on the way in is not a two-tap
+    way to clear the day.
 
 ---
 

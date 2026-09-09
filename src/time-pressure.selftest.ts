@@ -12,6 +12,9 @@ import {
   scoreSolve,
   totalsFor,
   NO_CLOCK_PRESSURE,
+  roundMsFor,
+  DEFAULT_ROUND_MINUTES,
+  MAX_ROUND_MINUTES,
   FAST_MS,
   PER_POSITION_MS,
   SOLVE_POINTS,
@@ -124,6 +127,16 @@ export function runTimePressureSelfTest(): TestResult[] {
   out.push(eq('an empty pool deals nothing', dealRound([], 5).length, 0));
   out.push(eq('a big pool is capped', dealRound(
     Array.from({ length: 60 }, (_, i) => refWithClock(`p${i}`, 100 - i)), 40).length, 40));
+
+  // ── The round's length ──────────────────────────────────────────────────────
+  // The daily challenge sets this per part, so a nonsense value must land
+  // somewhere sane rather than making a round of zero or of five hours.
+  out.push(eq('minutes become milliseconds', roundMsFor(3), 180_000));
+  out.push(eq('the default holds for a missing value',
+    roundMsFor(0), DEFAULT_ROUND_MINUTES * 60_000));
+  out.push(eq('a fraction rounds', roundMsFor(2.4), 120_000));
+  out.push(eq('a negative is floored to one minute', roundMsFor(-5), 60_000));
+  out.push(eq('a huge value is capped', roundMsFor(999), MAX_ROUND_MINUTES * 60_000));
 
   // ── Scoring ─────────────────────────────────────────────────────────────────
   out.push(eq('a quick find is worth double', scoreSolve(1_500), SOLVE_POINTS + FAST_BONUS));

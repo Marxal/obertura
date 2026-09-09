@@ -27,8 +27,27 @@ import type { SpotRef } from './mistake-scan';
 
 // ── The shape of a round ─────────────────────────────────────────────────────
 
-/** The whole round. Two minutes: long enough to find a rhythm, short enough to sprint. */
-export const ROUND_MS = 2 * 60 * 1000;
+/**
+ * The round's default length, in minutes. Two is long enough to find a rhythm
+ * and short enough to sprint, and it is what both the card and the daily
+ * challenge ship with.
+ */
+export const DEFAULT_ROUND_MINUTES = 2;
+
+/** The one-tap lengths offered in the daily challenge's picker. */
+export const ROUND_MINUTE_STEPS = [2, 3, 5] as const;
+
+/** A custom length is still capped — nobody needs a forty-minute sprint. */
+export const MAX_ROUND_MINUTES = 20;
+
+/** The default round, in ms. */
+export const ROUND_MS = DEFAULT_ROUND_MINUTES * 60 * 1000;
+
+/** Minutes → ms, clamped to something a round can actually be. */
+export function roundMsFor(minutes: number): number {
+  const m = Math.max(1, Math.min(MAX_ROUND_MINUTES, Math.round(minutes) || DEFAULT_ROUND_MINUTES));
+  return m * 60 * 1000;
+}
 
 /**
  * Per position. Twenty seconds is the pressure — it is the exercise, not a
@@ -166,12 +185,40 @@ export function totalsFor(entries: TimePressureEntry[]): RoundTotals {
 }
 
 // ── The personal best ────────────────────────────────────────────────────────
+//
+// ONE BEST PER LENGTH. A five-minute round gets through more positions than a
+// two-minute one, so a single number across both would only ever record the
+// longest round you had played — which is a fact about your patience, not your
+// speed. Time attack splits its bests the same way, for the same reason
+// (prefs.ts).
 
-const BEST_KEY = 'obertura.timePressureBest';
+const BEST_PREFIX = 'obertura.timePressureBest.';
+// Where the pre-split single best lived. The exercise shipped at a fixed two
+// minutes, so that is the slot its record belongs in.
+const LEGACY_BEST_KEY = 'obertura.timePressureBest';
 
-export function getTimePressureBest(): number {
+function bestKey(minutes: number): string {
+  return BEST_PREFIX + Math.round(minutes);
+}
+
+// One-time move of the old single best into the two-minute slot. Runs on first
+// access and is harmless afterwards.
+function migrateLegacyBest(): void {
   try {
-    const raw = Number(localStorage.getItem(BEST_KEY));
+    const legacy = localStorage.getItem(LEGACY_BEST_KEY);
+    if (legacy === null) return;
+    const key = bestKey(DEFAULT_ROUND_MINUTES);
+    if (localStorage.getItem(key) === null) localStorage.setItem(key, legacy);
+    localStorage.removeItem(LEGACY_BEST_KEY);
+  } catch {
+    /* storage unavailable — there is nothing to migrate to either */
+  }
+}
+
+export function getTimePressureBest(minutes: number = DEFAULT_ROUND_MINUTES): number {
+  migrateLegacyBest();
+  try {
+    const raw = Number(localStorage.getItem(bestKey(minutes)));
     return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 0;
   } catch {
     return 0;
@@ -179,15 +226,17 @@ export function getTimePressureBest(): number {
 }
 
 /**
- * File a finished round. Returns the best as it now stands and whether this
- * round set it — the results screen says "best yet" off that rather than
- * comparing numbers itself.
+ * File a finished round of `minutes`. Returns the best as it now stands and
+ * whether this round set it — the results screen says "best yet" off that
+ * rather than comparing numbers itself.
  */
-export function recordTimePressureRound(score: number): { best: number; improved: boolean } {
-  const previous = getTimePressureBest();
+export function recordTimePressureRound(
+  score: number, minutes: number = DEFAULT_ROUND_MINUTES,
+): { best: number; improved: boolean } {
+  const previous = getTimePressureBest(minutes);
   if (score <= previous) return { best: previous, improved: false };
   try {
-    localStorage.setItem(BEST_KEY, String(score));
+    localStorage.setItem(bestKey(minutes), String(score));
   } catch {
     return { best: previous, improved: false }; // private mode: the round still counted, it just isn't kept
   }

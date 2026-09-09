@@ -24,6 +24,9 @@ import { currentStreak } from './streak';
 import { recordDailyTask, accuracyOf, getDailyLog, localDayKey, type TaskOutcome } from './daily-recap';
 import { TRAINING_UNLOCK_LINES } from './training-goal';
 import { Icons } from './icons';
+import {
+  DEFAULT_ROUND_MINUTES, ROUND_MINUTE_STEPS, MAX_ROUND_MINUTES,
+} from './time-pressure';
 
 export type { TaskOutcome } from './daily-recap';
 
@@ -39,6 +42,9 @@ export const DAILY_ENDGAME_GOAL = 3;
 export const DAILY_MISTAKE_GOAL = 2;
 export const DAILY_DETECTIVE_GOAL = 2;
 export const DAILY_WHICH_MOVE_GOAL = 2;
+// Time pressure is the one part whose count is NOT a number of items: it is the
+// round's length in MINUTES (see DAILY_TASK_UNIT). Two, the same as the card.
+export const DAILY_TIME_PRESSURE_MINUTES = DEFAULT_ROUND_MINUTES;
 
 const KEY = 'obertura.dailyChallenge';
 const CONFIG_KEY = 'obertura.dailyChallenge.config';
@@ -48,11 +54,21 @@ const CONFIG_KEY = 'obertura.dailyChallenge.config';
 // in Preferences (or hands over to chance entirely).
 export type DailyTaskId =
   | 'lines' | 'positions' | 'puzzles' | 'endgames'
-  | 'mistakes' | 'detective' | 'whichMove';
+  | 'mistakes' | 'detective' | 'whichMove' | 'timePressure';
 export const DAILY_TASK_IDS: DailyTaskId[] = [
   'lines', 'positions', 'puzzles', 'endgames',
-  'mistakes', 'detective', 'whichMove',
+  'mistakes', 'detective', 'whichMove', 'timePressure',
 ];
+
+// WHAT A PART'S COUNT MEANS. For every part but one it is a number of items —
+// lines, puzzles, blunders. Time pressure has no items to count: you get through
+// as many positions as you can, so what there is to choose is how long the round
+// runs. Its count is MINUTES, and this is what tells the picker, the card label
+// and the custom field which of the two they are dealing with.
+export type DailyCountUnit = 'items' | 'minutes';
+export function dailyCountUnit(id: DailyTaskId): DailyCountUnit {
+  return id === 'timePressure' ? 'minutes' : 'items';
+}
 
 // The order the challenge ships in, and what "Reset order" restores: repertoire
 // work first, then puzzles, then the three that read your own games. The three
@@ -61,7 +77,7 @@ export const DAILY_TASK_IDS: DailyTaskId[] = [
 // then still in a sensible order rather than full of holes.
 export const DEFAULT_DAILY_ORDER: DailyTaskId[] = [
   'lines', 'positions', 'puzzles', 'endgames',
-  'whichMove', 'detective', 'mistakes',
+  'whichMove', 'detective', 'mistakes', 'timePressure',
 ];
 
 export interface DailyState {
@@ -74,6 +90,7 @@ export interface DailyState {
                       // scanned spots exist — see renderDailyChallenge)
   detective: boolean; // the blunder-detective task is done (needs a scanned run)
   whichMove: boolean; // the which-move task is done (needs scanned spots)
+  timePressure: boolean; // the timed round is done (needs scanned spots)
 }
 
 // ── Config (Preferences) ──────────────────────────────────────────────────────
@@ -94,6 +111,7 @@ const DEFAULT_COUNTS: Record<DailyTaskId, number> = {
   mistakes: DAILY_MISTAKE_GOAL,
   detective: DAILY_DETECTIVE_GOAL,
   whichMove: DAILY_WHICH_MOVE_GOAL,
+  timePressure: DAILY_TIME_PRESSURE_MINUTES, // minutes, not items
 };
 
 /** What a part ships with — also the floor the perfect-day bar holds it to. */
@@ -113,6 +131,53 @@ export const DAILY_COUNT_RANGE = {
   max: COUNT_CUSTOM_MAX,
   default: DEFAULT_COUNT,
 };
+
+/**
+ * The one-tap choices a part's picker offers, and the range its Custom field
+ * accepts. Items get Off/1/2/3; minutes get Off/2/3/5 — a one-minute round is
+ * over before you have read two positions, so it is not worth a button (it is
+ * still reachable through Custom).
+ */
+export interface DailyCountChoices {
+  steps: number[];
+  /** The lowest a typed value may be. */
+  customMin: number;
+  /**
+   * What Custom starts at when stepped into from a preset. Always just past the
+   * button row, so "Custom" reads as "more than the buttons offer" — for
+   * minutes that matters twice over, since customMin is 1 and starting there
+   * would SHORTEN the round the moment you asked to customise it.
+   */
+  customStart: number;
+  customMax: number;
+}
+
+export function dailyCountChoices(id: DailyTaskId): DailyCountChoices {
+  if (dailyCountUnit(id) === 'minutes') {
+    const longest = ROUND_MINUTE_STEPS[ROUND_MINUTE_STEPS.length - 1];
+    return {
+      steps: [0, ...ROUND_MINUTE_STEPS],
+      // A one-minute round is reachable by typing it — it is just not worth a
+      // button, since it is over before you have read two positions.
+      customMin: 1,
+      customStart: longest + 1,
+      customMax: MAX_ROUND_MINUTES,
+    };
+  }
+  const steps: number[] = [];
+  for (let n = COUNT_MIN; n <= COUNT_STEP_MAX; n++) steps.push(n);
+  return {
+    steps,
+    customMin: COUNT_STEP_MAX + 1,
+    customStart: COUNT_STEP_MAX + 1,
+    customMax: COUNT_CUSTOM_MAX,
+  };
+}
+
+/** Is this count off the picker's one-tap row, and therefore a custom value? */
+export function isCustomDailyCount(id: DailyTaskId, count: number): boolean {
+  return count > 0 && !dailyCountChoices(id).steps.includes(count);
+}
 
 // A task is included in the day's challenge whenever its count is above zero —
 // there's no separate on/off switch, 0 IS off.
@@ -223,7 +288,7 @@ function load(): DailyState {
   const fresh: DailyState = {
     day: todayKey(),
     lines: false, positions: false, puzzles: false, endgames: false,
-    mistakes: false, detective: false, whichMove: false,
+    mistakes: false, detective: false, whichMove: false, timePressure: false,
   };
   try {
     const raw = localStorage.getItem(KEY);
@@ -242,6 +307,7 @@ function load(): DailyState {
       mistakes: !!obj.mistakes,
       detective: !!obj.detective,
       whichMove: !!obj.whichMove,
+      timePressure: !!obj.timePressure,
     };
   } catch {
     return fresh;
@@ -279,6 +345,7 @@ export function markEndgamesDone(o: TaskOutcome): void { markDone('endgames', o)
 export function markMistakesDone(o: TaskOutcome): void { markDone('mistakes', o); }
 export function markDetectiveDone(o: TaskOutcome): void { markDone('detective', o); }
 export function markWhichMoveDone(o: TaskOutcome): void { markDone('whichMove', o); }
+export function markTimePressureDone(o: TaskOutcome): void { markDone('timePressure', o); }
 
 // ── Which tasks are active, and the next one ──────────────────────────────────
 
@@ -346,6 +413,9 @@ export function activeDailyTasks(
     if (id === 'mistakes' && !avail.mistakesAvailable) return false;
     if (id === 'detective' && !avail.detectiveAvailable) return false;
     if (id === 'whichMove' && !avail.whichMoveAvailable) return false;
+    // The timed round deals from the same spots the mistake drill does, so it
+    // is available on exactly the same condition.
+    if (id === 'timePressure' && !avail.mistakesAvailable) return false;
     return true;
   });
 }
@@ -465,6 +535,8 @@ export interface DailyChallengeDeps {
   // pick the better of two moves.
   onCatchBlunders: () => void;
   onWhichMove: () => void;
+  // The timed round, whose configured count is its length in minutes.
+  onTimePressure: () => void;
   // Reopen today's completion popup from the "done" card. Omitted where there is
   // nothing to reopen.
   onReplayRecap?: () => void;
@@ -487,6 +559,9 @@ const TASK_META: Record<DailyTaskId, { icon: () => SVGElement; label: (n: number
   mistakes:  { icon: () => Icons.reset(16),       label: (n) => `${n} mistake${n === 1 ? '' : 's'} to fix` },
   detective: { icon: () => Icons.scout(16),       label: (n) => `${n} blunder${n === 1 ? '' : 's'} to catch` },
   whichMove: { icon: () => Icons.merge(16),       label: (n) => `${n} move${n === 1 ? '' : 's'} to pick` },
+  // The odd one out: its number is minutes, so its label says so. "2 minutes
+  // under pressure" reads as a length; "2 timed rounds" would be a lie.
+  timePressure: { icon: () => Icons.clock(16),    label: (n) => `${n} minute${n === 1 ? '' : 's'} under pressure` },
 };
 
 // The gear, bottom-right of the card. Which tasks the challenge includes and how
@@ -525,6 +600,7 @@ function runDailyTask(id: DailyTaskId, deps: DailyChallengeDeps): void {
     case 'mistakes': deps.onFixMistakes(); break;
     case 'detective': deps.onCatchBlunders(); break;
     case 'whichMove': deps.onWhichMove(); break;
+    case 'timePressure': deps.onTimePressure(); break;
   }
 }
 

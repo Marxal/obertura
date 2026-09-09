@@ -61,6 +61,7 @@ import {
   markMistakesDone,
   markDetectiveDone,
   markWhichMoveDone,
+  markTimePressureDone,
   isDailyDone,
   perfectDayEligible,
   type DailyTaskId,
@@ -86,6 +87,8 @@ import { collectDetectiveSpots, pickDetective, type DetectiveRef } from './detec
 import { startDetectiveSession } from './detective-run';
 import { fairPairs, pickWhichMove } from './which-move';
 import { startWhichMoveSession } from './which-move-run';
+import { startTimePressureSession } from './time-pressure-run';
+import { dealRound } from './time-pressure';
 import { detectiveLog, whichMoveLog } from './middle-log';
 import { combinedDueAt } from './spot-rest';
 import type { AnalyseRequest as PuzzleAnalyseRequest } from './puzzle-run';
@@ -4636,6 +4639,23 @@ function renderTrainTabbed(host: HTMLElement): void {
           nextAction: nextFor('whichMove'),
         });
       },
+      timePressure: () => {
+        // The speed round. Its configured count is MINUTES, not a number of
+        // items (daily-challenge.ts's dailyCountUnit) — the round ends on the
+        // clock, so how many positions it deals was never the user's to pick.
+        const done = finish(markTimePressureDone);
+        startTimePressureSession({
+          refs: dealRound(spotRefs),
+          minutes: config.tasks.timePressure.count,
+          contextLabel: 'Daily challenge',
+          // "Ran out" is not a wrong answer and not a right one, so it counts
+          // as neither here: the day's tally is about what you saw.
+          onComplete: (s) => done({ right: s.found, wrong: s.missed }),
+          onExit: () => { if (trainTab === 'mistakes') paint(); },
+          onOpenGame: openGameFromSession,
+          nextAction: nextFor('timePressure'),
+        });
+      },
     };
 
     launcher.run = (id) => launchers[id]();
@@ -4658,6 +4678,7 @@ function renderTrainTabbed(host: HTMLElement): void {
       onFixMistakes: () => launchers.mistakes(),
       onCatchBlunders: () => launchers.detective(),
       onWhichMove: () => launchers.whichMove(),
+      onTimePressure: () => launchers.timePressure(),
       // The finished card reopens today's popup rather than losing its figures
       // to the tap that dismissed it.
       onReplayRecap: () => { void showRecapForDay(localDayKey(), localDayKey(), allLines); },

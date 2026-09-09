@@ -496,7 +496,7 @@ a move was missed.
 `daily-challenge.ts` — the card at the top of Train, spanning every mode. State
 is device-local, reset each local calendar day.
 
-**Seven parts** (`DailyTaskId`), shipped in this order (`DEFAULT_DAILY_ORDER`):
+**Eight parts** (`DailyTaskId`), shipped in this order (`DEFAULT_DAILY_ORDER`):
 
 | Part | Default count | Needs |
 |---|---|---|
@@ -507,10 +507,16 @@ is device-local, reset each local calendar day.
 | `whichMove` | **2** | scanned games |
 | `detective` | **2** | scanned games |
 | `mistakes` | **2** | scanned games |
+| `timePressure` | **2 minutes** | scanned games |
 
-The three game-fed parts ship at 2 and sit together at the end, so a new install
-simply doesn't show them and the parts that do show are still in a sensible
-order.
+The four game-fed parts sit together at the end, so a new install simply doesn't
+show them and the parts that do show are still in a sensible order.
+
+**`timePressure`'s count is not a count.** It is the round's length in MINUTES —
+the round ends on the clock, so how many positions it deals was never the user's
+to pick. `dailyCountUnit(id)` is what tells the picker, the card label and the
+custom field which of the two they are dealing with, and `dailyCountChoices(id)`
+supplies the numbers: Off/1/2/3 for items, Off/2/3/5 for minutes.
 
 Growing a line (§8.4) is **not** one of these — it used to be an eighth,
 quota-of-one part, but a quota row forced it to compete with puzzles and lines
@@ -518,7 +524,9 @@ for one of the day's ticks. It's a standing offer instead: `grow-notice.ts`
 draws a dismissable card, above Train/My Lines/Explore, whenever one is ready.
 
 - **A count of 0 is off** — there is no separate switch. Range: 0–3 as one-tap
-  presets, up to 20 as a custom value.
+  presets, up to 20 as a custom value (Time pressure: 0/2/3/5 minutes as
+  presets, 1–20 typed; stepping into Custom starts *past* the buttons, so
+  customising can never silently shorten the round).
 - **The order is a preference** (`config.order`), rearrangeable in
   `daily-prefs.ts` — reachable both from Settings and from the gear on the card
   itself. "Shuffle each day" hands the order to chance, stably within a day.

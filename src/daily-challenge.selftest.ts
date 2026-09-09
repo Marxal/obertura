@@ -16,6 +16,9 @@ import {
   normaliseOrder,
   orderedDailyTasks,
   activeDailyTasks,
+  dailyCountUnit,
+  dailyCountChoices,
+  isCustomDailyCount,
   pickDailyLines,
   nextDailyTask,
   defaultDailyCount,
@@ -109,23 +112,57 @@ export function runDailyChallengeSelfTest(): TestResult[] {
 
   // ── A custom order is followed, and the card and the chain agree ────────────
   {
+    // Deliberately a SEVEN-part order: it is what someone's stored config looks
+    // like if they set it before Time pressure existed. normaliseOrder appends
+    // the parts it doesn't find, so an upgrade gains the new one at the end
+    // rather than losing it — the property that matters most here.
     const mine: DailyTaskId[] = [
       'puzzles', 'detective', 'lines', 'endgames', 'positions', 'whichMove',
       'mistakes',
     ];
+    const expected = [...mine, 'timePressure'].join(',');
     const c = config({ order: mine });
-    check('the card follows the stored order',
-      orderedDailyTasks(c, '2026-08-25').join(',') === mine.join(','));
+    check('the card follows the stored order, with a newer part appended',
+      orderedDailyTasks(c, '2026-08-25').join(',') === expected,
+      orderedDailyTasks(c, '2026-08-25').join(','));
 
     const active = activeDailyTasks(c, ALL_AVAILABLE, '2026-08-25');
     check('the active list is in the same order',
-      active.join(',') === mine.join(','), active.join(','));
+      active.join(',') === expected, active.join(','));
 
     // The "Next challenge →" chain walks the active list, so it inherits the
     // order for free — which is the whole reason the two share it.
     const state = { ...blankState(), puzzles: true };
     check('the chain picks the next one in MY order',
       nextDailyTask(state, active) === 'detective');
+  }
+
+  // ── What a part's count MEANS ───────────────────────────────────────────────
+  // Every part but one counts items. Time pressure counts minutes, and the
+  // picker, the card label and the custom field all read that from here.
+  {
+    check('items are the default unit', dailyCountUnit('puzzles') === 'items');
+    check('the timed round counts minutes', dailyCountUnit('timePressure') === 'minutes');
+
+    const items = dailyCountChoices('puzzles');
+    check('items offer Off/1/2/3', items.steps.join(',') === '0,1,2,3', items.steps.join(','));
+    const minutes = dailyCountChoices('timePressure');
+    check('minutes offer Off/2/3/5', minutes.steps.join(',') === '0,2,3,5', minutes.steps.join(','));
+
+    // A one-minute round is reachable by typing it, but stepping INTO Custom
+    // must never shorten the round — it starts past the longest button, the
+    // same way a custom item count starts past the highest one.
+    check('a custom round can be typed shorter than the shortest button',
+      minutes.customMin === 1, String(minutes.customMin));
+    check('but stepping into custom lengthens rather than shortens',
+      minutes.customStart === 6, String(minutes.customStart));
+    check('a custom count starts past the preset row',
+      items.customStart === 4, String(items.customStart));
+
+    check('a value on the row is not custom', !isCustomDailyCount('timePressure', 3));
+    check('a value off the row is custom', isCustomDailyCount('timePressure', 4));
+    check('four items is custom', isCustomDailyCount('puzzles', 4));
+    check('off is never custom', !isCustomDailyCount('timePressure', 0));
   }
 
   // ── A part switched off, or with nothing to deal, drops out ─────────────────
@@ -143,6 +180,7 @@ export function runDailyChallengeSelfTest(): TestResult[] {
     }, '2026-08-25');
     check('the from-your-games parts need scanned games',
       !noGames.includes('mistakes') && !noGames.includes('detective')
+      && !noGames.includes('timePressure')
         && !noGames.includes('whichMove'),
       noGames.join(','));
     check('…and the rest are still there, in order',
@@ -212,6 +250,6 @@ export function runDailyChallengeSelfTest(): TestResult[] {
 function blankState(): Pick<DailyState, DailyTaskId> {
   return {
     lines: false, positions: false, puzzles: false, endgames: false,
-    mistakes: false, detective: false, whichMove: false,
+    mistakes: false, detective: false, whichMove: false, timePressure: false,
   };
 }
