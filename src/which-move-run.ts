@@ -37,9 +37,11 @@ import { formatMove, numberedMove } from './notation';
 import { openInfoSheet, buildInfoButton } from './info-sheet';
 import { whichMoveLog } from './middle-log';
 import { explainPair, fenAfter } from './which-move';
-import { fillEvalContent, showCp } from './eval-chip';
+import { fillEvalContent } from './eval-chip';
 import { buildRunHeader } from './run-header';
 import { openSpotPeek, type SpotPeekOptions } from './spot-peek';
+import { openFullStory, FULL_STORY_LABEL } from './full-story';
+import { buildContextLine, buildContextStrip } from './spot-context';
 import { WHICH_MOVE_ACCENT } from './exercise-identity';
 import type { SpotRef } from './mistake-scan';
 import type { OpenGameCtx } from './mistake-run';
@@ -167,7 +169,8 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
   const briefText = document.createElement('span');
   briefText.textContent = 'One of these two moves went wrong.';
   briefEl.appendChild(briefText);
-  briefEl.appendChild(buildInfoButton('About Which move', openWhichMoveInfo));
+  const briefInfoBtn = buildInfoButton('About Which move', openWhichMoveInfo);
+  briefEl.appendChild(briefInfoBtn);
   topEl.appendChild(briefEl);
 
   const boardWrap = document.createElement('div');
@@ -204,16 +207,22 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
   afterEl.hidden = true;
   const afterActions = document.createElement('div');
   afterActions.className = 'mr-after-actions';
-  if (opts.onOpenGame) {
-    const analyseBtn = document.createElement('button');
-    analyseBtn.type = 'button';
-    analyseBtn.className = 'btn-secondary mr-after-btn';
-    analyseBtn.appendChild(Icons.review(16));
-    analyseBtn.appendChild(document.createTextNode('Analyse'));
-    analyseBtn.addEventListener('click', () =>
-      suspendForAnalysis(current.game, current.spot.preFen));
-    afterActions.appendChild(analyseBtn);
-  }
+  // Analyse moved inside the sheet — see full-story.ts.
+  const storyBtn = document.createElement('button');
+  storyBtn.type = 'button';
+  storyBtn.className = 'btn-secondary mr-after-btn';
+  storyBtn.appendChild(Icons.file(16));
+  storyBtn.appendChild(document.createTextNode(FULL_STORY_LABEL));
+  storyBtn.addEventListener('click', () => {
+    const { game, spot } = current;
+    openFullStory({
+      game,
+      ply: spot.ply,
+      playedSan: spot.playedSan,
+      onAnalyse: opts.onOpenGame ? () => suspendForAnalysis(game, spot.preFen) : undefined,
+    });
+  });
+  afterActions.appendChild(storyBtn);
   const nextBtn = document.createElement('button');
   nextBtn.type = 'button';
   nextBtn.className = 'btn-primary pz-next-btn mr-after-btn';
@@ -222,8 +231,13 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
   afterActions.appendChild(nextBtn);
   afterEl.appendChild(afterActions);
 
+  // The clock and the repertoire, under the two picks once they are answered.
+  const contextEl = document.createElement('div');
+  contextEl.className = 'wm-context';
+
   bottomEl.appendChild(statusEl);
   bottomEl.appendChild(picksEl);
+  bottomEl.appendChild(contextEl);
 
   // Everything except the post-answer actions scrolls together; the actions
   // sit outside it, always the last thing on screen (see .pt-overlay--footer).
@@ -326,6 +340,8 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
     afterEl.hidden = true;
     picksEl.hidden = false;
     briefEl.hidden = false;
+    briefEl.replaceChildren(briefText, briefInfoBtn);
+    contextEl.replaceChildren();
     renderSessionBar();
 
     const best = spot.best[0];
@@ -438,6 +454,7 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
     }
 
     renderPlayedLine(right);
+    contextEl.replaceChildren(buildContextStrip(current.game, spot.ply));
     renderSessionBar();
     nextBtn.textContent = completed >= opts.refs.length ? 'See results' : 'Next position';
     afterEl.hidden = false;
@@ -481,19 +498,13 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
     verdict.textContent = right ? 'Correct' : 'Incorrect';
     statusEl.appendChild(verdict);
 
-    const line = document.createElement('div');
-    line.className = 'wm-facts-line';
-    line.appendChild(document.createTextNode(`Against ${game.opponent} you played `));
-    const mv = document.createElement('span');
-    mv.className = 'mr-played mr-played--blunder';
-    mv.textContent = `${numberedMove(spot.playedSan, spot.ply + 1)} ??`;
-    line.appendChild(mv);
-    statusEl.appendChild(line);
-
-    const evalLine = document.createElement('div');
-    evalLine.className = 'wm-reveal-eval';
-    evalLine.textContent = `Engine eval ${showCp(spot.evalBefore)}`;
-    statusEl.appendChild(evalLine);
+    // Nothing else goes here. The two picks now carry the moves, their evals
+    // and the clause explaining each — so the line that used to repeat "you
+    // played ♛xe8 ??" and the one that restated the engine's eval were both
+    // saying, in words, what the boxes say in place. What the boxes CAN'T say
+    // is which game this was, and that goes where the brief was.
+    const context = buildContextLine(game, spot.ply, { withOpponent: true });
+    if (context) briefEl.replaceChildren(context);
   }
 
   function onNextTap(): void {

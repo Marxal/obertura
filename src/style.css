@@ -16773,6 +16773,197 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   font-size: 0.85rem;
 }
 
+/* ── The context under a solved position (spot-context.ts) ───────────────────
+   Two small rows under the red/green comparison — the clock, and what your
+   repertoire has to say — plus the one line that replaces the brief above the
+   board once the answer is in. Every part renders only when it has something
+   true to say, so this block is often half absent by design. */
+
+/* The line above the board, post-answer: "3 days ago · you lost this one". */
+.sc-line {
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+.sc-cost { font-weight: 700; }
+.sc-cost--loss { color: var(--danger); }
+.sc-cost--win { color: var(--success-active); }
+.sc-cost--draw { color: var(--text-muted); }
+
+.sc-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+}
+/* An empty strip must not add the gap its parent would otherwise leave. */
+.sc-strip:empty { display: none; }
+
+/* The clock row: the tag on the left, the numbers on the right. A fixed shape
+   that can never wrap — it sits under two boxes that already wrap on a narrow
+   phone, and a row that changes height between positions makes the board jump. */
+.sc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-top: 1px solid var(--hairline-soft);
+  padding-top: 0.4rem;
+}
+
+.sc-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--sc-tint, var(--text-muted));
+  /* The tint at a whisper behind its own words — the same trick the category
+     chips use, so one colour defines both the ink and the fill. */
+  background: color-mix(in srgb, var(--sc-tint, var(--text-muted)) 13%, transparent);
+}
+.sc-tag svg { flex: none; }
+
+.sc-nums {
+  font-size: 0.74rem;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The repertoire row — the one thing here that leads somewhere, so it is the
+   one thing that looks tappable. */
+.sc-book {
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  padding: 0.32rem 0.5rem;
+  color: var(--accent-active);
+  background: var(--accent-soft);
+}
+.sc-book svg { flex: none; }
+.sc-book-text {
+  flex: 1;
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+/* ── The full-story sheet (full-story.ts) ────────────────────────────────────
+   Everything we know about one move, one tap behind the exercise. Mostly two
+   charts: a line falling off a cliff says "you were low on time" better than a
+   sentence does. */
+.fs-title { margin-bottom: 0.1rem; }
+
+.fs-sub {
+  margin: 0 0 0.75rem;
+  font-size: 0.78rem;
+  color: var(--text-faint);
+}
+
+.fs-card {
+  background: var(--bg-card);
+  border-radius: 10px;
+  padding: 0.55rem 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.fs-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.fs-card-label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.fs-note {
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+}
+.fs-note--warn { color: var(--warn); }
+.fs-note--danger { color: var(--danger); }
+
+.fs-chart {
+  display: block;
+  width: 100%;
+  height: 54px;
+}
+.fs-axis { stroke: var(--border-card); stroke-width: 1; }
+.fs-clock-line {
+  fill: none;
+  stroke: var(--warn);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.fs-eval-line {
+  fill: none;
+  stroke: var(--success);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.fs-dot { fill: var(--danger); }
+
+/* The repertoire card — the same accent as the strip's row, one size up. */
+.fs-book {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 10px;
+  padding: 0.5rem 0.6rem;
+  margin-bottom: 0.5rem;
+  color: var(--accent-active);
+  background: var(--accent-soft);
+}
+.fs-book svg { flex: none; }
+.fs-book-text { display: flex; flex-direction: column; gap: 0.05rem; }
+.fs-book-head { font-size: 0.8rem; font-weight: 700; }
+.fs-book-sub { font-size: 0.72rem; opacity: 0.85; }
+
+/* Two per row, and the grid simply shortens when a fact is missing — a tile
+   showing a dash would be worse than no tile. */
+.fs-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+.fs-tiles:empty { display: none; }
+
+.fs-tile {
+  background: var(--bg-card);
+  border-radius: 9px;
+  padding: 0.4rem 0.5rem;
+}
+.fs-tile-l {
+  font-size: 0.7rem;
+  color: var(--text-faint);
+}
+.fs-tile-v {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.fs-tile-v--loss { color: var(--danger); }
+.fs-tile-v--win { color: var(--success-active); }
+.fs-tile-v--warn { color: var(--warn); }
+
 /* ── Mistake retry pane (the Train tab body) ── */
 .mistakes-screen {
   display: flex;
@@ -20892,20 +21083,11 @@ html.picker-open body {
 }
 .wm-facts[hidden] { display: none; }
 
-.wm-facts-line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 0.3rem;
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  line-height: 1.4;
-}
-
-/* Which move's reveal: right/wrong, then who-you-played, then the engine's
-   read on the position — three short lines stacked instead of one, framing
-   the two pick boxes below rather than repeating what they already say. */
+/* Which move's reveal: right or wrong, and nothing else. The two pick boxes
+   below now carry both moves, their evals and the clause explaining each, so
+   the lines that used to restate the played move and the engine's eval were
+   saying in words what the boxes say in place. Which GAME it was — the one
+   thing the boxes can't say — took over the brief's line above the board. */
 .wm-reveal {
   display: flex;
   flex-direction: column;
@@ -20921,12 +21103,11 @@ html.picker-open body {
 .wm-reveal-verdict--right { color: var(--success); }
 .wm-reveal-verdict--wrong { color: var(--danger); }
 
-.wm-reveal-eval {
-  color: var(--text-faint);
-  font-size: 0.78rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
+/* Which move's context slot, under the two picks. */
+.wm-context {
+  padding: 0 1rem;
 }
+.wm-context:empty { display: none; }
 
 /* The two moves and what each was worth: what you played, and what the engine
    wanted. Red and green do the arguing — the sentence above says what happened,

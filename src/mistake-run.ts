@@ -39,6 +39,8 @@ import type { SpotRef, MistakeCategory } from './mistake-scan';
 import type { ImportedGame } from './import-core';
 import { buildRunHeader } from './run-header';
 import { openSpotPeek, type SpotPeekOptions } from './spot-peek';
+import { openFullStory, FULL_STORY_LABEL } from './full-story';
+import { buildContextLine, buildContextStrip } from './spot-context';
 
 // Presentation names for the four categories — shared with the pane's cards.
 export const CATEGORY_LABEL: Record<MistakeCategory, string> = {
@@ -222,17 +224,26 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
 
   const afterActions = document.createElement('div');
   afterActions.className = 'mr-after-actions';
-  if (opts.onOpenGame) {
-    const analyseBtn = document.createElement('button');
-    analyseBtn.type = 'button';
-    analyseBtn.className = 'btn-secondary mr-after-btn';
-    analyseBtn.appendChild(Icons.review(16));
-    analyseBtn.appendChild(document.createTextNode('Analyse'));
-    // Opens at the drill position — the same one the spot showed.
-    analyseBtn.addEventListener('click', () =>
-      suspendForAnalysis(current.game, current.spot.preFen));
-    afterActions.appendChild(analyseBtn);
-  }
+  // "The full story" stands where Analyse used to. Analyse is still one tap
+  // away — it is the last button INSIDE the sheet — but it was the rarest thing
+  // anyone wanted from this row, and the row's other half is the button that
+  // continues the run. See full-story.ts.
+  const storyBtn = document.createElement('button');
+  storyBtn.type = 'button';
+  storyBtn.className = 'btn-secondary mr-after-btn';
+  storyBtn.appendChild(Icons.file(16));
+  storyBtn.appendChild(document.createTextNode(FULL_STORY_LABEL));
+  storyBtn.addEventListener('click', () => {
+    const { game, spot } = current;
+    openFullStory({
+      game,
+      ply: spot.ply,
+      playedSan: spot.playedSan,
+      // Opens at the drill position — the same one the spot showed.
+      onAnalyse: opts.onOpenGame ? () => suspendForAnalysis(game, spot.preFen) : undefined,
+    });
+  });
+  afterActions.appendChild(storyBtn);
   const nextBtn = document.createElement('button');
   nextBtn.type = 'button';
   nextBtn.className = 'btn-primary pz-next-btn mr-after-btn';
@@ -542,7 +553,7 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
   // MistakeSpot's fields directly). Either chip can be tapped to see that
   // move's own position on the board.
   function renderFacts(): void {
-    const { spot } = current;
+    const { game, spot } = current;
     factsEl.replaceChildren();
     const best = spot.best[0];
     if (!best) return;
@@ -553,7 +564,15 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
       () => previewMove(spot.playedUci, 'blunder'),
       () => previewMove(best.uci, 'best'),
     ));
+    // The clock and the repertoire, under the comparison (spot-context.ts).
+    factsEl.appendChild(buildContextStrip(game, spot.ply));
     factsEl.hidden = false;
+
+    // The brief above the board has just been made redundant by the red box —
+    // it says the same thing with a number attached — so its line is handed to
+    // the game's context instead of being spent saying it twice.
+    const line = buildContextLine(game, spot.ply);
+    if (line) introEl.replaceChildren(line);
   }
 
   /** Flip the board to show the position after one of the two moves in the reveal. */

@@ -26,6 +26,8 @@ import type { BrilliantRef } from './brilliant';
 import { recordBrilliantSolved, recordBrilliantSeen } from './brilliant-log';
 import { buildRunHeader } from './run-header';
 import type { OpenGameCtx } from './mistake-run';
+import { openFullStory, FULL_STORY_LABEL } from './full-story';
+import { buildContextLine, buildContextStrip } from './spot-context';
 
 export interface BrilliantSessionOptions {
   refs: BrilliantRef[];            // the finds to drill, in order
@@ -140,16 +142,22 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
   afterEl.hidden = true;
   const afterActions = document.createElement('div');
   afterActions.className = 'mr-after-actions';
-  if (opts.onOpenGame) {
-    const analyseBtn = document.createElement('button');
-    analyseBtn.type = 'button';
-    analyseBtn.className = 'btn-secondary mr-after-btn';
-    analyseBtn.appendChild(Icons.review(16));
-    analyseBtn.appendChild(document.createTextNode('Analyse'));
-    analyseBtn.addEventListener('click', () =>
-      suspendForAnalysis(current.game, current.spot.preFen));
-    afterActions.appendChild(analyseBtn);
-  }
+  // Analyse moved inside the sheet — see full-story.ts.
+  const storyBtn = document.createElement('button');
+  storyBtn.type = 'button';
+  storyBtn.className = 'btn-secondary mr-after-btn';
+  storyBtn.appendChild(Icons.file(16));
+  storyBtn.appendChild(document.createTextNode(FULL_STORY_LABEL));
+  storyBtn.addEventListener('click', () => {
+    const { game, spot } = current;
+    openFullStory({
+      game,
+      ply: spot.ply,
+      playedSan: spot.playedSan,
+      onAnalyse: opts.onOpenGame ? () => suspendForAnalysis(game, spot.preFen) : undefined,
+    });
+  });
+  afterActions.appendChild(storyBtn);
   const nextBtn = document.createElement('button');
   nextBtn.type = 'button';
   nextBtn.className = 'btn-primary pz-next-btn mr-after-btn';
@@ -158,8 +166,15 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
   afterActions.appendChild(nextBtn);
   afterEl.appendChild(afterActions);
 
+  // The clock and the repertoire, once the move has been found. There is no
+  // red/green pair in this exercise to hang them under — nothing went wrong —
+  // so they sit under the status line.
+  const contextEl = document.createElement('div');
+  contextEl.className = 'wm-context';
+
   bottomEl.appendChild(statusRow);
   bottomEl.appendChild(hintBtn);
+  bottomEl.appendChild(contextEl);
 
   // Everything except the post-answer actions scrolls together; the actions
   // sit outside it, always the last thing on screen (see .pt-overlay--footer).
@@ -282,6 +297,7 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
     hintBtn.replaceChildren(Icons.bulb(16), document.createTextNode('Hint'));
     hintBtn.hidden = true;
     afterEl.hidden = true;
+    contextEl.replaceChildren();
     renderSessionBar();
 
     const { game, spot } = current;
@@ -385,6 +401,13 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
       clean ? `${label} ✓ — you found it again` : `That's it — ${label} ✓`,
       clean ? 'pt-status--success' : 'pt-status--reveal');
     if (clean) burstConfetti(boardWrap);
+    contextEl.replaceChildren(buildContextStrip(current.game, current.spot.ply));
+    // The brief has just been answered — "can you find it again?" is a question
+    // with an answer on the board now — so its line goes to the game instead.
+    // The tone matters: after a brilliancy the surprise is LOSING, so a lost
+    // game reads "you lost anyway" rather than the mistake drill's phrasing.
+    const line = buildContextLine(current.game, current.spot.ply, { tone: 'brilliancy' });
+    if (line) introEl.replaceChildren(line);
     renderSessionBar();
     nextBtn.textContent = completed >= opts.refs.length ? 'See results' : 'Next position';
     afterEl.hidden = false;

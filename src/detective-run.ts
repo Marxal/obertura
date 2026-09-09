@@ -38,6 +38,8 @@ import { explainPair, fenAfter } from './which-move';
 import { evalPairRow } from './eval-chip';
 import { buildRunHeader } from './run-header';
 import { openSpotPeek, type SpotPeekOptions } from './spot-peek';
+import { openFullStory, FULL_STORY_LABEL } from './full-story';
+import { buildContextLine, buildContextStrip } from './spot-context';
 import { DETECTIVE_ACCENT } from './exercise-identity';
 import type { DetectiveRef } from './detective';
 import type { OpenGameCtx } from './mistake-run';
@@ -193,7 +195,8 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   const briefText = document.createElement('span');
   briefText.textContent = 'Find the blunder — it can be yours or theirs.';
   briefEl.appendChild(briefText);
-  briefEl.appendChild(buildInfoButton('About Blunder detective', openDetectiveInfo));
+  const briefInfoBtn = buildInfoButton('About Blunder detective', openDetectiveInfo);
+  briefEl.appendChild(briefInfoBtn);
   topEl.appendChild(briefEl);
 
   const boardWrap = document.createElement('div');
@@ -273,16 +276,22 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   afterEl.hidden = true;
   const afterActions = document.createElement('div');
   afterActions.className = 'mr-after-actions';
-  if (opts.onOpenGame) {
-    const analyseBtn = document.createElement('button');
-    analyseBtn.type = 'button';
-    analyseBtn.className = 'btn-secondary mr-after-btn';
-    analyseBtn.appendChild(Icons.review(16));
-    analyseBtn.appendChild(document.createTextNode('Analyse'));
-    analyseBtn.addEventListener('click', () =>
-      suspendForAnalysis(current.game, current.spot.preFen));
-    afterActions.appendChild(analyseBtn);
-  }
+  // Analyse moved inside the sheet — see full-story.ts.
+  const storyBtn = document.createElement('button');
+  storyBtn.type = 'button';
+  storyBtn.className = 'btn-secondary mr-after-btn';
+  storyBtn.appendChild(Icons.file(16));
+  storyBtn.appendChild(document.createTextNode(FULL_STORY_LABEL));
+  storyBtn.addEventListener('click', () => {
+    const { game, spot } = current;
+    openFullStory({
+      game,
+      ply: spot.blunderPly,
+      playedSan: spot.playedSan,
+      onAnalyse: opts.onOpenGame ? () => suspendForAnalysis(game, spot.preFen) : undefined,
+    });
+  });
+  afterActions.appendChild(storyBtn);
   const nextBtn = document.createElement('button');
   nextBtn.type = 'button';
   nextBtn.className = 'btn-primary pz-next-btn mr-after-btn';
@@ -422,6 +431,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     afterEl.hidden = true;
     factsEl.hidden = true;
     factsEl.replaceChildren();
+    briefEl.replaceChildren(briefText, briefInfoBtn);
     revealBtn.hidden = false;
     revealBtn.textContent = 'Show solution';
     hintBtn.hidden = true;
@@ -796,7 +806,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   // (DetectiveSpot's evals are in the blunderer's own perspective, exactly
   // like MistakeSpot's "yours" — see which-move.ts's EvalPairSpot).
   function renderFacts(): void {
-    const { spot } = current;
+    const { game, spot } = current;
     factsEl.replaceChildren();
     const best = spot.best[0];
     if (!best) return;
@@ -807,7 +817,16 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
       () => previewMove(spot.playedUci, 'blunder'),
       () => previewMove(best.uci, 'best'),
     ));
+    // The clock and the repertoire (spot-context.ts). When the blunder was the
+    // OPPONENT's there is no clock row: we only keep our own readings, and
+    // guessing at theirs is not something this app is going to do.
+    factsEl.appendChild(buildContextStrip(game, spot.blunderPly));
     factsEl.hidden = false;
+
+    // The brief ("Find the blunder — it can be yours or theirs") has done its
+    // job by now; its line goes to the game the case came out of.
+    const line = buildContextLine(game, spot.blunderPly);
+    if (line) briefEl.replaceChildren(line);
   }
 
   /** Flip the board to show the position after one of the two moves in the reveal. */
