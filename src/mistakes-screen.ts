@@ -397,6 +397,10 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       // doing, idle says what is waiting and offers the button.
       const paintScanState = (st: AutoScanState): void => {
         live.replaceChildren();
+        // Cleared here, and set again only where a face actually hides it —
+        // this painter runs repeatedly over the same nodes as the scan reports
+        // in, so a state left over from the last pass would stick.
+        note.hidden = false;
         // The figures above, plus whatever this pass has turned up so far. They
         // are re-read from disk on the rebuild that follows the pass.
         foundNum.num.textContent = String(counts.spots + (st.running ? st.spots : 0));
@@ -431,10 +435,12 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
         // going to read them, however long the app stays open, and saying "this
         // happens on its own" would be a promise that never lands.
         hero.insertBefore(scan, note);
-        note.textContent = atFreeSpotCap
-          ? `You're at ${FREE_MISTAKE_SPOTS} mistakes to fix, so the engine has stopped `
-            + `reading. Fix some to free up room, or unlock your full history.`
-          : getAutoScanEnabled()
+        // At the cap this note said what the cap notice at the foot of the hero
+        // already says, in different words and a different style — the screen
+        // made the same point twice and neither looked like an offer. The
+        // notice carries it alone now; this stays quiet.
+        if (atFreeSpotCap) { note.hidden = true; return; }
+        note.textContent = getAutoScanEnabled()
           ? rereads >= newGames
             ? `${newGames} ${newGames === 1 ? 'game was' : 'games were'} read under older rules — `
               + 'reading them again is what finds the blunder-detective runs. It happens on its '
@@ -481,7 +487,14 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     }
 
     if (capResult.capped) {
-      hero.appendChild(buildCapNotice(`Showing your ${FREE_MISTAKE_SPOTS} most recent mistakes`));
+      // Two states, one block. At the cap it carries the whole message the
+      // paragraph above used to duplicate — including WHY the scan button above
+      // it has gone quiet, which is the one fact a user can't work out alone.
+      hero.appendChild(atFreeSpotCap
+        ? buildCapNotice(`All ${FREE_MISTAKE_SPOTS} free spots are full`, {
+          detail: 'Fix one to make room for the next — the engine has paused until you do.',
+        })
+        : buildCapNotice(`Showing your ${FREE_MISTAKE_SPOTS} most recent mistakes`));
     }
 
     return hero;

@@ -217,7 +217,11 @@ export function openProSheet(opts: ProSheetOptions): void {
   const later = document.createElement('button');
   later.type = 'button';
   later.className = 'pro-later';
-  later.textContent = 'Not now';
+  // A GUEST is choosing something here; a signed-in free user is only
+  // declining. Telling a member with an account they are continuing "as a
+  // guest" would be plainly wrong, so the label follows onCreateAccount, which
+  // the caller passes only when nobody is signed in (see its note above).
+  later.textContent = opts.onCreateAccount ? 'Continue as a guest' : 'Not now';
   later.addEventListener('click', close);
   sheet.appendChild(later);
 

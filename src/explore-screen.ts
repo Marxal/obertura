@@ -159,7 +159,7 @@ async function ensureRoomForOpponent(): Promise<'proceed' | 'blocked'> {
           ? [{ label: 'OK', variant: 'primary', onClick: () => resolve('blocked') }]
           : [
             { label: 'Not now', variant: 'secondary', onClick: () => resolve('blocked') },
-            { label: 'Unlock full access', variant: 'primary', onClick: () => { showTrainingCapDialog(); resolve('blocked'); } },
+            { label: 'Unlock full access', variant: 'pro', onClick: () => { showTrainingCapDialog(); resolve('blocked'); } },
           ],
         onDismiss: () => resolve('blocked'),
       });

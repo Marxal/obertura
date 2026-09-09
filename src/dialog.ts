@@ -7,10 +7,16 @@
 // handler; a backdrop tap or back gesture counts as a dismiss.
 
 import { pushBack } from './back-nav';
+import { Icons } from './icons';
 
 export interface DialogButton {
   label: string;
-  variant?: 'primary' | 'secondary' | 'danger';
+  // 'pro' is the paid offer, wherever a dialog makes one. It wears the same
+  // outlined-accent-and-sparkles mark as the Go-pro buttons in Settings and on
+  // the Get-started card, so the one button in the app that leads to a price is
+  // never dressed as an ordinary confirm. It was 'primary' in the scouting-cap
+  // dialog, which made "Unlock full access" look exactly like "Save".
+  variant?: 'primary' | 'secondary' | 'danger' | 'pro';
   onClick?: () => void;
 }
 
@@ -114,9 +120,19 @@ export function showDialog(opts: DialogOptions): void {
     btn.className = 'dialog-btn ' + (
       b.variant === 'primary' ? 'btn-primary'
       : b.variant === 'danger' ? 'btn-danger'
+      : b.variant === 'pro' ? 'btn-pro'
       : 'btn-secondary'
     );
-    btn.textContent = b.label;
+    if (b.variant === 'pro') {
+      // The label goes in a span so the icon and the words stay separate flex
+      // children — textContent would wipe the icon out.
+      btn.appendChild(Icons.sparkles(16));
+      const label = document.createElement('span');
+      label.textContent = b.label;
+      btn.appendChild(label);
+    } else {
+      btn.textContent = b.label;
+    }
     btn.addEventListener('click', () => {
       close();
       b.onClick?.();

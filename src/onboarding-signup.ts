@@ -68,9 +68,14 @@ export function showFirstLineSuccess(opts: {
   }
 
   let closed = false;
+  // Set below, only when the card actually offers an account. Dropping it on
+  // close is what stops a dismissed card holding a listener for the rest of the
+  // session.
+  let dropAuth: (() => void) | null = null;
   function close(): void {
     if (closed) return;
     closed = true;
+    dropAuth?.();
     overlay.remove();
     removeBack();
   }
@@ -86,24 +91,29 @@ export function showFirstLineSuccess(opts: {
     // it and a cleared browser is an account nobody has mentioned. So the ask
     // leads, and the way past it is a quiet word rather than a second button of
     // equal weight — offered, never required.
+    //
+    // TWO SHORT SENTENCES. The stake, then what fixes it. The longer version
+    // ("saves your progress and brings it back on any device you sign in on")
+    // spent its second half restating the first, above three buttons that make
+    // the same point by existing.
     const why = document.createElement('p');
     why.className = 'firstwin-ask';
-    why.textContent = 'Right now this lives only on this phone. A free account '
-      + 'saves your progress and brings it back on any device you sign in on.';
+    why.textContent = 'Right now this lives only on this phone. '
+      + 'A free account brings it back on any device.';
     card.appendChild(why);
 
-    const signUp = document.createElement('button');
-    signUp.type = 'button';
-    signUp.className = 'btn-primary firstwin-cta';
-    signUp.textContent = 'Create a free account';
-    signUp.addEventListener('click', () => {
-      close();
-      openSignUpSheet('signup', {
-        lead: 'Your repertoire is saved on this phone. An account keeps a copy, so '
-          + 'it follows you to any device you sign in on.',
-      });
-    });
-    card.appendChild(signUp);
+    // The three ways in, straight on the card. This used to be a button that
+    // opened a sheet containing exactly these buttons — a tap, an animation and
+    // a second reading of the same pitch, in front of the one action the card
+    // is asking for.
+    const auth = buildAuthForm({ initialMode: 'signup', blurb: '' });
+    auth.classList.add('firstwin-auth');
+    card.appendChild(auth);
+
+    // Google and Facebook both leave and come back, but an email sign-in
+    // resolves in place — and the card sitting over the app afterwards would be
+    // asking someone to register an account they now have.
+    dropAuth = onAuthChange(() => { if (getAuthUser()) close(); });
   }
 
   const cta = document.createElement('button');
@@ -174,10 +184,15 @@ export function openSignUpSheet(
 
   sheet.appendChild(buildAuthForm({ initialMode: mode, blurb: '' }));
 
+  // "Continue as a guest", not "Not now" — the same words the first-line card
+  // uses for the same choice. "Not now" describes only what the user is
+  // declining; this names what they are choosing instead, which is a real state
+  // with real consequences (everything stays on this phone alone). Nobody
+  // should end up a guest without having read the word once.
   const notNow = document.createElement('button');
   notNow.type = 'button';
   notNow.className = 'signup-sheet-dismiss';
-  notNow.textContent = 'Not now';
+  notNow.textContent = 'Continue as a guest';
   notNow.addEventListener('click', close);
   sheet.appendChild(notNow);
 

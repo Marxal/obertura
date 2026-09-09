@@ -105,6 +105,14 @@
      feedback, pills…). */
   --success: #708151;
   --success-active: #5c6b41;
+  /* Full Access gold — the settings button's ring, and nothing else so far.
+     Deliberately NOT --accent: the accent is the app's ordinary
+     call-to-action amber and appears on every offer button, so a Pro mark in
+     the same hue would read as one more thing to tap. The glow is what carries
+     "expensive" more than the hue does. */
+  --pro-gold: #c9971f;
+  --pro-soft: rgba(201, 151, 31, 0.14);
+  --pro-glow: rgba(201, 151, 31, 0.5);
   --warn: #b8591a;
   --danger: #b4533a;
   --danger-active: #98442f;
@@ -375,21 +383,34 @@ body {
   50% { opacity: 1; transform: scale(1); }
 }
 
+/* The Full Access gold reads dull on the three dark grounds, so it lifts there.
+   One rule rather than a copy inside each theme block: the Pro mark is the same
+   idea in all of them, only brighter. */
+[data-theme="dark"],
+[data-theme="game"],
+[data-theme="gamer"] {
+  --pro-gold: #e6b53c;
+  --pro-soft: rgba(230, 181, 60, 0.16);
+  --pro-glow: rgba(230, 181, 60, 0.5);
+}
+
 /* ════════════════════════════════════════════════════════════════════════════
-   BUTTONS — one shared chrome, five variants. Phone-first (min 44px tall).
+   BUTTONS — one shared chrome, six variants. Phone-first (min 44px tall).
    Apply a single variant class:
      .btn-primary    felt green — the main action (light-mode top-sheen; flat on dark)
      .btn-secondary  flat tonal surface — the quiet default
      .btn-success    sage — a positive / confirming action
      .btn-danger     brick — a destructive action
      .btn-quiet      ghost / icon — no fill, colour only
+     .btn-pro        outlined accent — the paid offer, and only ever that
    ════════════════════════════════════════════════════════════════════════════ */
 
 .btn-primary,
 .btn-secondary,
 .btn-success,
 .btn-danger,
-.btn-quiet {
+.btn-quiet,
+.btn-pro {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -412,11 +433,28 @@ body {
 .btn-secondary:disabled,
 .btn-success:disabled,
 .btn-danger:disabled,
-.btn-quiet:disabled {
+.btn-quiet:disabled,
+.btn-pro:disabled {
   opacity: 0.55;
   cursor: default;
   filter: none;
 }
+
+/* PRO — the paid offer. Deliberately NOT the green primary: an upgrade is not
+   the same kind of act as saving or confirming, and a user who has met this
+   button once should recognise it the next time without reading it. The same
+   outline-plus-sparkles language as .first-steps-pro (the Go-pro buttons on the
+   Get-started card and in Settings) — this is that button, in dialog chrome. */
+.btn-pro {
+  border-color: var(--accent);
+  border-width: 1.5px;
+  background: none;
+  color: var(--accent-active);
+  font-weight: 700;
+}
+.btn-pro:hover { background: var(--accent-soft); }
+.btn-pro:active { background: var(--accent-soft); transform: translateY(1px); }
+.btn-pro svg { flex: none; }
 
 /* PRIMARY — felt green. Subtle top-light vertical gradient in LIGHT mode only;
    dark mode stays flat (see the override below). */
@@ -629,24 +667,59 @@ body {
    Retry, endgames-from-your-games, Scouting. A discreet inline line, never a
    blocking overlay: sits in the flow of whatever section it's appended to. */
 .entitlement-cap-note {
-  margin: 6px 0 0;
-  font-size: 0.78rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  margin: var(--space-md) 0 0;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 10px;
+  background: var(--accent-soft);
 }
+.entitlement-cap-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1 1 11rem;
+  text-align: left;
+}
+.entitlement-cap-head {
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text);
+}
+.entitlement-cap-detail {
+  font-size: 0.76rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+/* The offer itself wears the same outline-and-sparkles mark as every other
+   route to it (.btn-pro, .first-steps-pro) — this one just sized down to sit
+   inside a notice rather than to lead a screen. */
 .entitlement-cap-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  flex: none;
+  min-height: 34px;
+  padding: 0 0.7rem;
+  border: 1.5px solid var(--accent);
+  border-radius: 999px;
   background: none;
-  border: none;
-  padding: 0;
-  margin: 0;
   font: inherit;
-  font-weight: 600;
-  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--accent-active);
   cursor: pointer;
+  white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
 }
-.entitlement-cap-link:hover,
-.entitlement-cap-link:focus-visible {
-  text-decoration: underline;
-}
+.entitlement-cap-link svg { flex: none; }
+.entitlement-cap-link:active { background: var(--accent-soft); }
 
 /* SETTINGS ACCORDION — each preference group is a collapsed <details> that
    shares one `name`, so only one opens at a time. Collapsed, it's just a title
@@ -951,6 +1024,31 @@ header h1.header-title--screen {
 /* A user icon that opens the Settings screen. Hidden on the builder (where Save
    takes the slot) and on the Settings screen itself. */
 
+/* The header's sign-in invitation, beside the user icon (main.ts's
+   applyNavSignIn). An outlined pill rather than a filled button: it stands on
+   every screen a signed-out person visits, and a loud one would read as a nag
+   instead of an offer. `margin-left: auto` is what keeps it on the right — the
+   header row is space-between, so without it a third child lands in the
+   middle, between the wordmark and the user icon. */
+.nav-signin {
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
+  min-height: 32px;
+  padding: 0 0.7rem;
+  border: 1.5px solid var(--accent);
+  border-radius: 999px;
+  background: none;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--accent-active);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.nav-signin:active { background: var(--accent-soft); }
+
 .nav-settings {
   position: relative;
   /* NOT overflow:hidden. It was here to round off the avatar image, which
@@ -973,28 +1071,38 @@ header h1.header-title--screen {
   transition: background 0.12s, color 0.12s;
 }
 
-/* ── Guest or signed in, on every screen ──────────────────────────────────────
-   A dot in the corner of the settings button. Hollow = guest, filled = signed
-   in. Sits OVER the avatar as well as the icon, because that picture is the
-   chess platform's and says nothing about a Bito account. */
-.nav-settings-dot {
-  position: absolute;
-  right: -1px;
-  bottom: -1px;
-  width: 11px;
-  height: 11px;
-  border-radius: 999px;
-  background: var(--accent);
-  /* Rings the dot in the header's own ground so it reads as a badge on the
-     button rather than a mark on the picture underneath. */
-  box-shadow: 0 0 0 2px var(--bg);
-  pointer-events: none;
+/* ── Guest, free or Pro, on every screen ──────────────────────────────────────
+   A ring around the settings button (main.ts's applyNavSettingsTier). It
+   replaced a dot in the corner, which could only say guest-or-not and read as
+   an unread-notification pip.
+
+   Drawn with box-shadow rather than a border so it costs the layout nothing —
+   the button stays 38px in every state — and so it sits cleanly outside the
+   avatar's own rounded edge. It rings the avatar as well as the icon, because
+   that picture is the chess platform's and says nothing about a Bito account. */
+.nav-settings--guest {
+  box-shadow: 0 0 0 1.5px var(--border);
 }
 
-.nav-settings-dot--guest {
-  background: var(--bg);
-  border: 1.5px solid var(--text-faint);
+.nav-settings--free {
+  box-shadow: 0 0 0 2px var(--primary);
 }
+
+/* PRO — the one piece of furniture in the app allowed to look expensive: a gold
+   ring, a soft glow outside it, and a tinted disc behind the icon. The glow is
+   what does the work; the hue on its own sits too close to the amber accent
+   every offer button already wears. The disc and the gold icon are also the
+   answer to "what does a Pro user with no Chess.com picture see" — the generic
+   person icon, but unmistakably theirs. */
+.nav-settings--pro {
+  background: var(--pro-soft);
+  color: var(--pro-gold);
+  box-shadow: 0 0 0 2px var(--pro-gold), 0 0 9px -1px var(--pro-glow);
+}
+/* The shared :hover / :active below would otherwise outrank the two lines
+   above and drop the gold at a touch. */
+.nav-settings--pro:hover { color: var(--pro-gold); }
+.nav-settings--pro:active { background: var(--pro-soft); }
 
 /* Your Chess.com picture, layered over the generic user SVG when connected. */
 .nav-settings-avatar {
@@ -7220,6 +7328,15 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 }
 .dialog-btn-row .dialog-btn {
   flex: 1;
+}
+/* The pro variant carries an icon as well as its words, so an even split wraps
+   its label where the plain button beside it sits on one line. Give it the room
+   it needs — the offer being the wider of the two is also the right emphasis. */
+.dialog-btn-row .dialog-btn.btn-pro {
+  flex: 2;
+  padding-left: var(--space-md);
+  padding-right: var(--space-md);
+  white-space: nowrap;
 }
 .dialog-btn-row--stack {
   flex-direction: column;
@@ -20411,11 +20528,21 @@ html.picker-open body {
   color: var(--text-muted);
 }
 
+/* Only the no-account card's "Keep going" wears this now — where the ask is
+   made, the auth form itself follows .firstwin-ask and the way past is the
+   plain dismiss below it. */
 .firstwin-cta {
   width: 100%;
   margin-top: 1rem;
 }
-.firstwin-ask + .firstwin-cta { margin-top: 0; }
+
+/* The auth form dropped straight onto the card, in place of the button that
+   used to open a sheet around it. The form brings its own chrome from Settings;
+   all this does is undo the centring the celebration above it needs. */
+.firstwin-auth {
+  margin-top: 0.15rem;
+  text-align: left;
+}
 
 .firstwin-card .signup-sheet-dismiss { margin-top: 0.35rem; }
 

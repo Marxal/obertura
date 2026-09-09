@@ -43,6 +43,7 @@ import { openProSheet } from './pro-sheet';
 import { formatPrice, primePricing, PRICING_CHANGE_EVENT } from './pricing';
 import { showToast } from './toast';
 import { trackOnce } from './metrics';
+import { Icons } from './icons';
 
 // How many lines a free account may have in training at once.
 export const FREE_TRAINING_LINES = 10;
@@ -321,26 +322,51 @@ function openUpgradeDialog(eyebrow?: string): void {
   });
 }
 
-// A discreet inline line for wherever a coaching cap is actively hiding
-// something ("Showing your 10 most recent mistakes"). Not a dialog, not a
-// toast — sits in the flow of the screen, so it's visible but never blocks.
-// Its action opens the SAME upsell dialog as the training cap by default (it
-// already pitches "coaching from your own games", which is exactly what these
-// caps gate) rather than a bespoke dialog per feature — a caller with its own
-// framing (Scouting's replace-not-refuse offer) can override the link's label
-// and what it opens.
+// The block for wherever a coaching cap is actively hiding something ("Showing
+// your 10 most recent mistakes"). Not a dialog, not a toast — it sits in the
+// flow of the screen, so it is visible but never blocks. Its action opens the
+// SAME upsell dialog as the training cap by default (that dialog already
+// pitches "coaching from your own games", which is exactly what these caps
+// gate) rather than a bespoke dialog per feature — a caller with its own
+// framing (Scouting's replace-not-refuse offer) can override the label and what
+// it opens.
+//
+// IT USED TO BE A SENTENCE WITH A LINK GLUED ON THE END: "Showing your 10 most
+// recent mistakes · Unlock full access", in the same grey as every other note
+// on the screen. Two problems. It didn't look like an offer, so it read as
+// small print about a limitation; and on Mistake Retry the screen said the same
+// thing twice, once here and once in a paragraph above. Now it is one tinted
+// row with the mark every other route to the offer carries, and it takes the
+// `detail` line so the screen can say it all in one place.
 export function buildCapNotice(
   message: string,
-  link: { label?: string; onOpen?: () => void } = {},
+  opts: { detail?: string; label?: string; onOpen?: () => void } = {},
 ): HTMLElement {
   const note = document.createElement('div');
-  note.className = 'section-desc entitlement-cap-note';
-  note.appendChild(document.createTextNode(`${message} · `));
+  note.className = 'entitlement-cap-note';
+
+  const text = document.createElement('div');
+  text.className = 'entitlement-cap-text';
+  const head = document.createElement('span');
+  head.className = 'entitlement-cap-head';
+  head.textContent = message;
+  text.appendChild(head);
+  if (opts.detail) {
+    const detail = document.createElement('span');
+    detail.className = 'entitlement-cap-detail';
+    detail.textContent = opts.detail;
+    text.appendChild(detail);
+  }
+  note.appendChild(text);
+
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'entitlement-cap-link';
-  btn.textContent = link.label ?? 'Unlock full access';
-  btn.addEventListener('click', () => (link.onOpen ?? showTrainingCapDialog)());
+  btn.appendChild(Icons.sparkles(15));
+  const label = document.createElement('span');
+  label.textContent = opts.label ?? 'Unlock full access';
+  btn.appendChild(label);
+  btn.addEventListener('click', () => (opts.onOpen ?? showTrainingCapDialog)());
   note.appendChild(btn);
   return note;
 }

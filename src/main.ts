@@ -4829,6 +4829,7 @@ function showView(view: ViewName): void {
   const onBuilder = view === 'builder';
   document.getElementById('header-save')!.toggleAttribute('hidden', !onBuilder || !!suspendedSession);
   document.getElementById('nav-settings')!.toggleAttribute('hidden', onBuilder || view === 'settings');
+  applyNavSignIn(); // follows the user icon on and off the two screens above
 
   document.querySelectorAll<HTMLElement>('#bottom-nav .tab-item, #side-nav .side-item').forEach(btn => {
     const active = btn.dataset.view === view;
@@ -5191,7 +5192,7 @@ function onOpenLine(line: Line, atFen?: string): void {
 // stored (Lichess / no picture keeps the icon). The inline SVG stays in the DOM
 // as the fallback — a broken image removes the img and restores the icon.
 function applyNavSettingsAvatar(): void {
-  applyNavSettingsAuthDot();
+  applyNavSettingsTier();
   const btn = document.getElementById('nav-settings');
   if (!btn) return;
   const url = getGamesSource()?.avatarUrl;
@@ -5215,7 +5216,7 @@ function applyNavSettingsAvatar(): void {
   btn.appendChild(img);
 }
 
-// ── ARE YOU SIGNED IN? THE ONE PLACE IT IS ALWAYS VISIBLE ───────────────────
+// ── GUEST, FREE OR PRO: THE ONE PLACE IT IS ALWAYS VISIBLE ──────────────────
 //
 // Nothing in the app used to say. The header's person icon looked identical
 // either way, and signing out changes nothing you can see — the lines are on
@@ -5224,32 +5225,53 @@ function applyNavSettingsAvatar(): void {
 // user with a real repertoire and no account, one cleared browser away from
 // losing it.
 //
-// A DOT, NOT A WORD. This sits in the header of every screen; a label would be
-// a permanent nag, and the thing it marks is a state rather than an action.
-// Hollow means guest, filled means signed in — and tapping through to Settings
-// (which this button already does) is where the words are.
+// A RING, NOT A DOT AND NOT A WORD. This sits in the header of every screen, so
+// a label would be a permanent nag, and the thing it marks is a state rather
+// than an action. It was a small badge in the corner, which could only say
+// guest-or-not and read as an unread-notification pip; the ring says all three
+// states using the button already on screen, and Pro gets a treatment nothing
+// else in the app wears. Tapping through to Settings is where the words are.
 //
 // Deliberately independent of the avatar above: that picture is the CHESS
 // PLATFORM's, set by an import, so a guest who imported games has one and would
 // otherwise look exactly like a member.
-function applyNavSettingsAuthDot(): void {
+type NavTier = 'guest' | 'free' | 'pro';
+
+function applyNavSettingsTier(): void {
   const btn = document.getElementById('nav-settings');
   if (!btn) return;
-  // No accounts in this build — nothing to be a guest of.
+  // No accounts in this build — nothing to be a guest of, so no ring at all.
   if (!isSupabaseConfigured) return;
 
-  const signedIn = !!getAuthUser();
-  let dot = btn.querySelector<HTMLSpanElement>('.nav-settings-dot');
-  if (!dot) {
-    dot = document.createElement('span');
-    dot.className = 'nav-settings-dot';
-    dot.setAttribute('aria-hidden', 'true');
-    btn.appendChild(dot);
-  }
-  dot.classList.toggle('nav-settings-dot--guest', !signedIn);
+  const tier: NavTier = !getAuthUser() ? 'guest' : isEntitled() ? 'pro' : 'free';
+  btn.classList.toggle('nav-settings--guest', tier === 'guest');
+  btn.classList.toggle('nav-settings--free', tier === 'free');
+  btn.classList.toggle('nav-settings--pro', tier === 'pro');
   // The button's own accessible name carries the state, so a screen reader gets
-  // what the dot is showing rather than an unlabelled decoration.
-  btn.setAttribute('aria-label', signedIn ? 'Settings — signed in' : 'Settings — guest');
+  // what the ring is showing rather than an unlabelled decoration.
+  btn.setAttribute('aria-label',
+    tier === 'guest' ? 'Settings — guest'
+    : tier === 'pro' ? 'Settings — full access'
+    : 'Settings — signed in');
+}
+
+// The standing invitation beside the user icon. The dot above says WHAT you
+// are; this says what to do about it, in a word — and it is the shortest route
+// back in for someone who is simply signed out on a new phone, who otherwise
+// has to work out that a person icon leads to an account at all.
+//
+// Hidden for anyone signed in (there is nothing to offer), in a build with no
+// accounts, and on the two screens where the user icon itself is hidden: the
+// builder, where Save owns that corner, and Settings, which already carries the
+// whole account section a few pixels below.
+function applyNavSignIn(): void {
+  const btn = document.getElementById('nav-signin');
+  if (!btn) return;
+  const offer = isSupabaseConfigured
+    && !getAuthUser()
+    && currentView !== 'builder'
+    && currentView !== 'settings';
+  btn.toggleAttribute('hidden', !offer);
 }
 
 // The desktop sidebar's five destinations — same views, order and icons as
@@ -5463,6 +5485,12 @@ function setupNav(): void {
   document.getElementById('nav-settings')!.addEventListener('click', () => {
     guardBuilderLeave(openSettings);
   });
+  // Straight to the form rather than into Settings: the chip only exists for
+  // people who are signed out, and the account section is the one thing they
+  // would be going to Settings for.
+  document.getElementById('nav-signin')!.addEventListener('click', () => {
+    openSignUpSheet('signin');
+  });
   document.getElementById('side-user')!.addEventListener('click', () => {
     guardBuilderLeave(openSettings);
   });
@@ -5485,7 +5513,7 @@ function setupNav(): void {
   });
   // Signing in or out changes the guest dot, and neither fires an identity
   // change — that event is about the CHESS account, not the Bito one.
-  onAuthChange(() => applyNavSettingsAuthDot());
+  onAuthChange(() => { applyNavSettingsTier(); applyNavSignIn(); });
 
   // Settings → Feedback & about → "Replay walkthrough": open the builder on a
   // fresh line and force the coach-marks, the same way "Build my own" does for
@@ -6645,6 +6673,10 @@ requestAnimationFrame(() => {
   // the current view when the answer actually changes. The event only fires on
   // a real change, so this is not a render loop.
   window.addEventListener(ENTITLEMENT_CHANGE_EVENT, () => {
+    // The header ring is the one thing outside the view, so it repaints before
+    // the early return below — a purchase that lands while the builder is open
+    // should still show up as gold the moment the user leaves it.
+    applyNavSettingsTier();
     // The builder holds unsaved work in the DOM; re-rendering it under the user
     // would be a far worse bug than a stale counter on a screen they aren't
     // looking at. It shows no cap furniture anyway.
