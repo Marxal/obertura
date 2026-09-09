@@ -202,9 +202,14 @@ here are not lost.
 
 ## Step 4 — deploy the Worker
 
-**This is the step it's easiest to skip, because nothing prompts for it.**
-Merging this branch, or pulling it to your machine, does not put the new code
-anywhere Stripe or the app can reach. A Cloudflare Worker is deployed by
+**Pushing `main` now does this for you** — measured on 2026-09-09, a push was
+live about 70 seconds later (see CLAUDE.md "Deploy / preview loop"). The manual
+route below is still what you want for a tree that is NOT on `main`, and it is
+still what to reach for if a push ever fails to appear. Note that it RACES the
+automatic build, which will overwrite it a minute later.
+
+Pulling this branch to your machine, on its own, puts nothing anywhere Stripe
+or the app can reach. A Cloudflare Worker is deployed by
 running a command — there is no git integration doing it in the background for
 this project (check `wrangler.jsonc` if you want to see why: it deploys via
 `npx wrangler deploy`, not a connected build).

@@ -1811,10 +1811,13 @@ reason for most of the pure/impure splits in this codebase.
 dist/docs` → GitHub Pages (forced into "GitHub Actions" source mode so Jekyll
 can't overwrite it) — but that workflow now only ships the static `farewell/`
 page (see CLAUDE.md "Hosting targets"). The live site is a Cloudflare
-**Worker**, not a connected Pages build, so nothing deploys it automatically:
-run `DEPLOY_TARGET=cloudflare npm run build && npx wrangler deploy` by hand
-from a checkout with a filled-in `.env` (see STRIPE-SETUP.md §4). Forgetting
-this step, or building with a stale/incomplete `.env`, ships silently wrong —
+**Worker**, and **pushing `main` deploys it** — measured on 2026-09-09: push at
+12:42:54Z, new bundle serving by 12:44:07Z, nothing else run. (This paragraph
+used to say the opposite; see CLAUDE.md "Deploy / preview loop" for what is
+confirmed and what is only likely.) A manual `DEPLOY_TARGET=cloudflare npm run
+build && npx wrangler deploy` still ships a tree that is NOT on `main`, and
+still races the automatic build (STRIPE-SETUP.md §4). Building with a
+stale/incomplete `.env` ships silently wrong —
 e.g. an env var like `VITE_AUTH_PROVIDERS` left unset at build time just
 falls back to its default with no error.
 

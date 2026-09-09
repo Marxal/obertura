@@ -130,15 +130,30 @@ Read `REPERTOIRE-REDESIGN.md` before touching any of this.
   that writes moves goes through `repertoire.mergePath`, never through a copy.
 
 ## Deploy / preview loop
-Work happens on `dev`; `main` is the record of what's production-ready, and
-merging into it (worth confirming, since it's the shared branch) is how you'd
-know that from a glance — but merging alone does NOT put anything live. The
-site is a Cloudflare **Worker**, not a connected build: nothing deploys it
-until someone runs `DEPLOY_TARGET=cloudflare npm run build && npx wrangler
-deploy` by hand from a checkout with a filled-in `.env` (see `STRIPE-SETUP.md`
-§4). That actually-goes-live step is worth confirming on its own, separately
-from the merge. Keep `dev` and `main` identical after each round (merge, push
-both) — they drifted once and the next merge could not fast-forward.
+Work happens on `dev`; `main` is the record of what's production-ready.
+
+**PUSHING `main` PUTS IT LIVE.** Observed twice, deliberately measured on
+2026-09-09: a push to `main` at 12:42:54Z had the new bundle serving on
+bitochess.com by 12:44:07Z with no other action taken. So merging into `main`
+is not a bookkeeping step — it is the deploy, and it is worth confirming on its
+own, every time.
+
+This file used to say the opposite ("nothing deploys it until someone runs
+wrangler deploy by hand"), and that was wrong. The mechanism is most likely a
+Cloudflare **Workers Build** connected to the GitHub repo in the dashboard: it
+is not in `.github/workflows` (no wrangler step there), and the versions it
+creates carry no git metadata, so it can't be confirmed from the CLI. What IS
+confirmed is the behaviour above.
+
+A manual `DEPLOY_TARGET=cloudflare npm run build && npx wrangler deploy` still
+works and is still the way to ship something that is NOT on `main` (see
+`STRIPE-SETUP.md` §4). Be aware it RACES the automatic build: on 2026-09-09 a
+manual deploy landed at 11:38:12 and the automatic one overwrote it at 11:39:28
+— same commit, so no harm, but a manual deploy of a different tree would be
+silently replaced a minute later.
+
+Keep `dev` and `main` identical after each round (merge, push both) — they
+drifted once and the next merge could not fast-forward.
 
 Preview on the phone with the standing Cloudflare Tunnel: start the dev server
 (`npm run dev -- --host`) and open dev.bitochess.com/obertura/. It is a PUBLIC
