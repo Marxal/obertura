@@ -7428,6 +7428,28 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 
 /* ── Pre-training overlay ──────────────────────────────────────────────────── */
 
+/* ── While a full-screen overlay is open, the PAGE behind it must not scroll ──
+   Every overlay in the app is `position: fixed` over a Train/Lines screen that
+   is often two or three viewports tall. The overlay covered it, but the
+   document kept its own scrollbar — so an exercise showed a scrollbar down the
+   side that moved nothing you could see, and a stray swipe scrolled the screen
+   underneath while you were mid-position.
+
+   Done in CSS rather than in each overlay's open/close, because there are
+   nearly forty of them and a missed unlock would leave the app frozen. `:has()`
+   means the rule applies exactly as long as an overlay is in the DOM and
+   releases itself the moment one is removed — there is no state to get wrong.
+   On a browser without `:has()` nothing matches and the behaviour is simply
+   what it was before. */
+html:has(> body > .pt-overlay),
+html:has(> body > .edit-overlay) {
+  overflow: hidden;
+}
+html:has(> body > .pt-overlay) > body,
+html:has(> body > .edit-overlay) > body {
+  overflow: hidden;
+}
+
 .pt-overlay {
   position: fixed;
   inset: 0;
@@ -16600,6 +16622,16 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   position: relative;
   width: 100%;
 }
+
+/* With a story under it, the board gives up some size so the two are on screen
+   together — the whole point of putting them in one popup. */
+.peek-sheet--story .peek-board { max-width: 216px; }
+.peek-story:empty { display: none; }
+/* The story's own cards sit on the sheet, which is already an elevated surface,
+   so they take the page tone rather than the card tone they wear inside the
+   full-story sheet — otherwise card-on-card reads as a box in a box. */
+.peek-story .fs-card,
+.peek-story .fs-tile { background: var(--bg-parchment); }
 .peek-nav {
   position: absolute;
   top: 50%;
@@ -21170,28 +21202,12 @@ html.picker-open body {
 }
 .wm-pick:active { transform: scale(0.98); }
 
-/* After the answer both buttons say what they were: the engine's move goes
-   green, the played one red, and the one that was tapped is ringed so the
-   verdict is about YOUR answer, not just about the moves. Both stay tappable
-   afterwards, to flip the board between the two positions. */
-.wm-pick--best {
-  border-color: var(--success);
-  background: color-mix(in srgb, var(--success) 18%, var(--bg-card));
-  opacity: 1;
-}
-.wm-pick--bad {
-  border-color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 14%, var(--bg-card));
-  opacity: 1;
-}
-.wm-pick--chosen {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--text-faint) 45%, transparent);
-}
-/* Whichever pick's position is currently on the board reads slightly raised. */
-.wm-pick--active {
-  filter: brightness(1.12);
-}
-
+/* After the answer the two picks STOP being buttons and become the shared
+   red/green comparison (.wm-eval) that every other exercise on this pane shows.
+   They used to keep this skin — two chunky filled boxes that still looked like
+   things to press, under a board that had already moved on. What used to be
+   .wm-pick--best / --bad / --chosen lives on as .wm-eval--good / --bad /
+   --chosen, so there is one reveal style in the whole section. */
 /* ── Better or blunder: the reveal ── */
 .wm-facts {
   display: flex;
@@ -21259,6 +21275,18 @@ html.picker-open body {
 }
 .wm-eval--bad { color: var(--danger); }
 .wm-eval--good { color: var(--success); }
+
+/* Which move's two extras on the shared chip: which one you PICKED (the verdict
+   there is about your answer, not just about the moves), and which one's
+   position is on the board right now. */
+.wm-eval--chosen {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--text-faint) 45%, transparent);
+}
+/* Specificity note: .wm-eval--tap resets `background` further down, so this
+   needs both classes to win — the picks are always tappable when this shows. */
+.wm-eval--tap.wm-eval--active {
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
 
 /* Mistake retry and Blunder detective's reveal chips are real buttons when
    tappable (Which move folds this content into its picks instead — see

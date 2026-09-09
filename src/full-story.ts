@@ -50,6 +50,67 @@ export interface FullStoryOptions {
 }
 
 /**
+ * The story ITSELF — the charts, the repertoire link and the fact tiles, with
+ * no sheet around them.
+ *
+ * Split out because the same content now has two homes: this module's own sheet
+ * (opened from the button beside Next position, where the board is behind you)
+ * and the results-row popup (spot-peek.ts), where it sits under the board it is
+ * about. One builder, so the two can never drift into saying different things
+ * about the same move.
+ *
+ * The two async facts append themselves when they arrive; a caller that unmounts
+ * the element before then simply never sees them (both check isConnected).
+ */
+export function buildStoryContent(game: ImportedGame, ply: number): HTMLElement {
+  const host = document.createElement('div');
+  host.className = 'fs-story';
+  const facts = spotFacts(game, ply);
+
+  const clockChart = buildClockChart(game, ply);
+  if (clockChart) host.appendChild(clockChart);
+
+  const evalChart = buildEvalChart(game, ply);
+  if (evalChart) host.appendChild(evalChart);
+
+  const bookSlot = document.createElement('div');
+  host.appendChild(bookSlot);
+  void repertoireLinkAt(game, ply).then((link) => {
+    if (link && bookSlot.isConnected) bookSlot.appendChild(bookCard(link));
+  }).catch(() => { /* a bonus, not a dependency */ });
+
+  const tiles = document.createElement('div');
+  tiles.className = 'fs-tiles';
+  // WHAT THE GAME DID, not what the move cost. "It cost you the game" and "it
+  // cost you nothing" both left the actual result to be inferred, which is a
+  // strange thing to make someone do about their own game — so the tile names
+  // the result outright, in the colour it deserves.
+  tiles.appendChild(tile('This game', RESULT_WORD[game.result], `fs-tile-v--${game.result}`));
+  // Both ratings, not the gap between them. The gap is arithmetic anyone can do
+  // from the two numbers, and the numbers are the ones you would actually
+  // recognise — "1520 vs 1370" says who you were playing at the time.
+  if (game.myRating != null && game.opponentRating != null) {
+    tiles.appendChild(tile('Ratings', `${game.myRating} vs ${game.opponentRating}`));
+  } else if (game.myRating != null) {
+    tiles.appendChild(tile('Your rating', String(game.myRating)));
+  } else if (game.opponentRating != null) {
+    tiles.appendChild(tile('Their rating', String(game.opponentRating)));
+  }
+  if (facts.wobblesBefore !== null && facts.wobblesBefore > 0) {
+    const n = facts.wobblesBefore;
+    tiles.appendChild(tile('Before this', `${n} slip${n === 1 ? '' : 's'}`));
+  }
+  host.appendChild(tiles);
+
+  void timesWrongInOpening(game).then((times) => {
+    if (!times || !tiles.isConnected) return;
+    tiles.appendChild(tile('In this opening', `${ordinal(times)} time`, 'fs-tile-v--warn'));
+  }).catch(() => { /* the library may be mid-import; the tile just doesn't come */ });
+
+  return host;
+}
+
+/**
  * Open the sheet. Closes on the backdrop, on "Close", and on the back gesture,
  * exactly like every other sheet in the app.
  */
@@ -80,40 +141,7 @@ export function openFullStory(opts: FullStoryOptions): void {
   ].filter(Boolean).join(' · ');
   sheet.appendChild(sub);
 
-  // ── The two charts ────────────────────────────────────────────────────────
-  const clockChart = buildClockChart(game, ply);
-  if (clockChart) sheet.appendChild(clockChart);
-
-  const evalChart = buildEvalChart(game, ply);
-  if (evalChart) sheet.appendChild(evalChart);
-
-  // ── The repertoire link, when there is one ────────────────────────────────
-  const bookSlot = document.createElement('div');
-  sheet.appendChild(bookSlot);
-  void repertoireLinkAt(game, ply).then((link) => {
-    if (link && bookSlot.isConnected) bookSlot.appendChild(bookCard(link));
-  }).catch(() => { /* a bonus, not a dependency */ });
-
-  // ── The tiles ─────────────────────────────────────────────────────────────
-  const tiles = document.createElement('div');
-  tiles.className = 'fs-tiles';
-  tiles.appendChild(tile('It cost you', costValue(game), `fs-tile-v--${game.result}`));
-  if (facts.ratingGap !== null && facts.ratingGap !== 0) {
-    const gap = Math.abs(facts.ratingGap);
-    tiles.appendChild(tile('Rating gap', `${gap} ${facts.ratingGap > 0 ? 'up' : 'down'}`));
-  }
-  if (facts.wobblesBefore !== null && facts.wobblesBefore > 0) {
-    const n = facts.wobblesBefore;
-    tiles.appendChild(tile('Before this', `${n} slip${n === 1 ? '' : 's'}`));
-  }
-  sheet.appendChild(tiles);
-
-  // The repeat count reads every stored game, so it lands late — and only when
-  // it is more than one, since "1st time" is not a finding.
-  void timesWrongInOpening(game).then((times) => {
-    if (!times || !tiles.isConnected) return;
-    tiles.appendChild(tile('In this opening', `${ordinal(times)} time`, 'fs-tile-v--warn'));
-  }).catch(() => { /* the library may be mid-import; the tile just doesn't come */ });
+  sheet.appendChild(buildStoryContent(game, ply));
 
   // ── Actions ───────────────────────────────────────────────────────────────
   let closed = false;
@@ -327,11 +355,12 @@ function timeControlLabel(game: ImportedGame): string {
   return tc ? `${tc.baseSec / 60}+${tc.incSec} ${speed}` : speed;
 }
 
-function costValue(game: ImportedGame): string {
-  if (game.result === 'loss') return 'the game';
-  if (game.result === 'win') return 'nothing';
-  return 'a draw';
-}
+// The result in one word, said rather than implied.
+const RESULT_WORD: Record<ImportedGame['result'], string> = {
+  loss: 'Lost',
+  win: 'Won',
+  draw: 'Drawn',
+};
 
 function ordinal(n: number): string {
   const rem100 = n % 100;
@@ -342,6 +371,7 @@ function ordinal(n: number): string {
   return `${n}th`;
 }
 
-// Re-exported so the exercises can label their button with the same words the
-// sheet answers to, without importing the label from four places.
-export const FULL_STORY_LABEL = 'The full story';
+// The words on the button that opens this, shared so the five exercises can't
+// drift apart. "The full story" was the first name and the wrong one: it is
+// what a newspaper promises, not what a button does. This says what is inside.
+export const FULL_STORY_LABEL = 'About this move';

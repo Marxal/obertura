@@ -1618,6 +1618,40 @@ was bad, but what kind of moment you played it in.
 
 ---
 
+## The middle-game polish round — one style, one popup, no phantom scrollbar ✅
+
+Six small things, all of them found by using the thing rather than reading it.
+
+- ✅ **The results-row popup carries the story.** Tapping a row used to give you
+  the position and a one-line caption while everything known about that move
+  sat behind a different button in a different place. `buildStoryContent()`
+  splits the story out of its sheet so both can show it; the popup puts it
+  under the board and shrinks the board to keep the two together.
+- ✅ **"It cost you: the game / nothing" is gone.** Both readings left the
+  actual result to be inferred, which is a strange thing to make someone do
+  about their own game. The tile now says **This game: Lost / Won / Drawn**, in
+  the colour it deserves.
+- ✅ **Both ratings, not the gap.** The gap was arithmetic anyone can do from
+  two numbers that were already stored; "1520 vs 1370" is what you would
+  actually recognise about a game.
+- ✅ **"The full story" → "About this move."** The first name promised a
+  newspaper feature; the new one says what is inside.
+- ✅ **One reveal style.** Which move kept its two chunky pick buttons after the
+  answer — filled boxes that still read as things to press, under a board that
+  had already moved on. Its picks now become the same `.wm-eval` chips the
+  other three exercises show, keeping a ring on the one you picked and a wash
+  on the one whose position is on the board.
+- ✅ **The phantom scrollbar.** Every overlay is `position: fixed` over a Train
+  screen two or three viewports tall, and the DOCUMENT kept its scrollbar: a
+  bar down the side of an exercise that moved nothing you could see, and a
+  stray swipe scrolled the screen underneath mid-position. Fixed in CSS with
+  `html:has(> body > .pt-overlay)` rather than in each of the ~40 overlays'
+  open/close, because a missed unlock would leave the app frozen — the rule
+  releases itself the moment the overlay leaves the DOM, and a browser without
+  `:has()` simply behaves as before.
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

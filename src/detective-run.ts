@@ -38,7 +38,7 @@ import { explainPair, fenAfter } from './which-move';
 import { evalPairRow } from './eval-chip';
 import { buildRunHeader } from './run-header';
 import { openSpotPeek, type SpotPeekOptions } from './spot-peek';
-import { openFullStory, FULL_STORY_LABEL } from './full-story';
+import { openFullStory, buildStoryContent, FULL_STORY_LABEL } from './full-story';
 import { buildContextLine, buildContextStrip } from './spot-context';
 import { DETECTIVE_ACCENT } from './exercise-identity';
 import type { DetectiveRef } from './detective';
@@ -995,6 +995,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
       meta: `${ref.spot.byUser ? 'Your' : 'Their'} `
         + `${numberedMove(ref.spot.playedSan, ref.spot.blunderPly + 1)} ?? → `
         + `${formatMove(best?.san ?? '?')} · vs ${ref.game.opponent}`,
+      story: () => buildStoryContent(ref.game, ref.spot.blunderPly),
       // The results screen sits over the run, so the hand-off is the same one
       // the Analyse button under the board uses — it comes back here.
       onAnalyse: opts.onOpenGame

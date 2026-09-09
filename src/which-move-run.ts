@@ -40,7 +40,7 @@ import { explainPair, fenAfter } from './which-move';
 import { fillEvalContent } from './eval-chip';
 import { buildRunHeader } from './run-header';
 import { openSpotPeek, type SpotPeekOptions } from './spot-peek';
-import { openFullStory, FULL_STORY_LABEL } from './full-story';
+import { openFullStory, buildStoryContent, FULL_STORY_LABEL } from './full-story';
 import { buildContextLine, buildContextStrip } from './spot-context';
 import { WHICH_MOVE_ACCENT } from './exercise-identity';
 import type { SpotRef } from './mistake-scan';
@@ -339,6 +339,10 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
     answered = false;
     afterEl.hidden = true;
     picksEl.hidden = false;
+    // Back to buttons for the next question (choose() turns them into the
+    // shared reveal chips).
+    picksEl.className = 'wm-picks';
+    pickBtns.forEach((btn) => { btn.className = 'wm-pick'; });
     briefEl.hidden = false;
     briefEl.replaceChildren(briefText, briefInfoBtn);
     contextEl.replaceChildren();
@@ -419,18 +423,28 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
     // back to you, over and over — see middle-log.ts.
     else whichMoveLog.seen(spot.id);
 
-    // The verdict goes straight into the same two boxes the question was
-    // asked in — no second box underneath repeating the same two moves. Each
-    // pick turns red or green and now carries what the position was worth and
-    // the one clause explaining why, exactly what the eval-chip pair used to
-    // say on its own.
+    // The verdict goes into the same two boxes the question was asked in — no
+    // second box underneath repeating the same two moves — but they STOP being
+    // pick buttons at that moment and become the red/green comparison every
+    // other exercise here shows (eval-chip.ts's .wm-eval).
+    //
+    // They used to keep their button skin: two chunky filled boxes that still
+    // looked like things to press, under a board that had already moved on.
+    // Same content, same tap-to-flip, but now the same shape as the reveal in
+    // the mistake drill, the detective and the brilliancies — one style for
+    // "here is what the two moves were worth" across the whole pane.
     const why = explainPair(spot);
+    picksEl.className = 'wm-picks wm-facts-evals';
     pickBtns.forEach((btn, i) => {
       const isBest = i === bestSide;
       const cp = isBest ? spot.evalBefore : spot.evalAfter;
       const clause = isBest ? why.best : why.played;
-      btn.classList.add(isBest ? 'wm-pick--best' : 'wm-pick--bad');
-      if (i === side) btn.classList.add('wm-pick--chosen');
+      // The ring on the one you actually picked is the only thing this reveal
+      // says that the others don't have to: the verdict here is about YOUR
+      // answer, not just about the moves.
+      btn.className = 'wm-eval wm-eval--tap '
+        + (isBest ? 'wm-eval--good' : 'wm-eval--bad')
+        + (i === side ? ' wm-eval--chosen' : '');
       fillEvalContent(btn, options[i].san, cp, clause);
     });
 
@@ -468,7 +482,8 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
     const { from, to } = uciParts(uci);
     const fen = fenAfter(spot.preFen, uci);
     chess.load(fen);
-    pickBtns.forEach((btn, i) => btn.classList.toggle('wm-pick--active', i === side));
+    // Which of the two positions is on the board right now.
+    pickBtns.forEach((btn, i) => btn.classList.toggle('wm-eval--active', i === side));
     cg.set({
       fen,
       orientation: game.colour,
@@ -654,6 +669,7 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
       ],
       meta: `${numberedMove(ref.spot.playedSan, ref.spot.ply + 1)} → `
         + `${formatMove(best?.san ?? '?')} · vs ${ref.game.opponent}`,
+      story: () => buildStoryContent(ref.game, ref.spot.ply),
       onAnalyse: opts.onOpenGame
         ? () => suspendForAnalysis(ref.game, ref.spot.preFen)
         : undefined,

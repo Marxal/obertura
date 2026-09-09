@@ -39,7 +39,7 @@ import type { SpotRef, MistakeCategory } from './mistake-scan';
 import type { ImportedGame } from './import-core';
 import { buildRunHeader } from './run-header';
 import { openSpotPeek, type SpotPeekOptions } from './spot-peek';
-import { openFullStory, FULL_STORY_LABEL } from './full-story';
+import { openFullStory, buildStoryContent, FULL_STORY_LABEL } from './full-story';
 import { buildContextLine, buildContextStrip } from './spot-context';
 
 // Presentation names for the four categories — shared with the pane's cards.
@@ -753,6 +753,7 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
         ...(best ? [{ uci: best.uci, kind: 'accent' as const }] : []),
       ],
       meta: `${formatMove(ref.spot.playedSan)} → ${formatMove(best?.san ?? '?')} · vs ${ref.game.opponent}`,
+      story: () => buildStoryContent(ref.game, ref.spot.ply),
       onAnalyse: opts.onOpenGame
         ? () => suspendForAnalysis(ref.game, ref.spot.preFen)
         : undefined,

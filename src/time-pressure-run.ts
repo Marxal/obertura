@@ -40,6 +40,7 @@ import { burstConfetti, celebratePawn } from './confetti';
 import { formatMove } from './notation';
 import { buildRunHeader } from './run-header';
 import { openSpotPeek, type SpotPeekOptions } from './spot-peek';
+import { buildStoryContent } from './full-story';
 import { TIME_PRESSURE_ACCENT } from './exercise-identity';
 import {
   DEFAULT_ROUND_MINUTES,
@@ -508,6 +509,7 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
         ...(best ? [{ uci: best.uci, kind: 'accent' as const }] : []),
       ],
       meta: `${formatMove(spot.playedSan)} → ${formatMove(best?.san ?? '?')} · vs ${game.opponent}`,
+      story: () => buildStoryContent(game, spot.ply),
       onAnalyse: opts.onOpenGame ? () => { cleanup(); opts.onOpenGame!(game); } : undefined,
       onNav: (dir) => peekOptionsFor(idx + dir),
     };

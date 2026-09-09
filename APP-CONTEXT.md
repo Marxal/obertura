@@ -594,13 +594,25 @@ comparison, used by all three of the first ones once the answer is in.
 ("3 days ago · you lost this one", the result in red or green), and under the
 comparison come up to two small rows — the clock ("Low on time · 14s left · 20s
 spent", from `clock.ts`) and what your own repertoire plays here. Each renders
-only when it has something true to say. Behind "The full story" — the button
-that took Analyse's place beside Next position — `full-story.ts` opens the
-sheet holding everything there is no room for: your clock and the evaluation
-across the whole game as two marked charts, the repertoire link, the rating
-gap, the slide into the mistake, and how often this opening has caught you.
-Analyse now lives at the bottom of that sheet. `spot-facts.ts` is the pure
-fact-gathering behind both; nothing it produces is stored.
+only when it has something true to say. Behind **"About this move"** — the
+button that took Analyse's place beside Next position — `full-story.ts` opens
+the sheet holding everything there is no room for: your clock and the
+evaluation across the whole game as two marked charts, the repertoire link, the
+result, both ratings, the slide into the mistake, and how often this opening
+has caught you. Analyse now lives at the bottom of that sheet. `spot-facts.ts`
+is the pure fact-gathering behind all of it; nothing it produces is stored.
+
+`buildStoryContent()` is that same content with no sheet around it, so the
+results-row popup (`spot-peek.ts`) shows it **under the board** — one popup with
+the position and everything known about it, rather than two. The board shrinks
+(`.peek-sheet--story`) to keep both on screen together.
+
+**One reveal style across the section.** All four exercises end on the same
+red/green `.wm-eval` chips (`eval-chip.ts`). Which move used to keep its two
+chunky pick buttons after the answer — they still looked like things to press
+under a board that had moved on — so on reveal its picks now become the shared
+chips too, keeping only a ring on the one you picked and a wash on the one
+whose position is on the board.
 
 ### 8.3 One blunder, three doors
 

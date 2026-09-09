@@ -45,6 +45,14 @@ export interface SpotPeekOptions {
    * list (the arrow renders disabled).
    */
   onNav?: (dir: -1 | 1) => SpotPeekOptions | null;
+  /**
+   * The move's story — the charts, the repertoire link and the fact tiles
+   * (full-story.ts's buildStoryContent). Given, it renders UNDER the board, so
+   * a results row opens the position and everything known about it in one
+   * place rather than two. Built lazily so browsing to a neighbour with the
+   * arrows rebuilds it for that position.
+   */
+  story?: () => HTMLElement;
 }
 
 function uciParts(uci: string): { from: Key; to: Key } {
@@ -93,6 +101,13 @@ export function openSpotPeek(initial: SpotPeekOptions): void {
   meta.hidden = true;
   sheet.appendChild(meta);
 
+  // The story's slot. It sits between the board and the actions so the board
+  // stays the first thing in the popup and the buttons stay the last —
+  // whatever the story turns out to hold.
+  const storyEl = document.createElement('div');
+  storyEl.className = 'peek-story';
+  sheet.appendChild(storyEl);
+
   const btnRow = document.createElement('div');
   btnRow.className = 'peek-actions';
 
@@ -131,6 +146,12 @@ export function openSpotPeek(initial: SpotPeekOptions): void {
 
     meta.textContent = o.meta ?? '';
     meta.hidden = !o.meta;
+
+    storyEl.replaceChildren();
+    if (o.story) storyEl.appendChild(o.story());
+    // A board plus a story is a tall popup, so the board gives up some of its
+    // size to keep both on screen together.
+    sheet.classList.toggle('peek-sheet--story', !!o.story);
 
     analyse.hidden = !o.onAnalyse;
     const onAnalyse = o.onAnalyse;
