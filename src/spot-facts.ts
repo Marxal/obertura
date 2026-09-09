@@ -143,6 +143,27 @@ export function spotFacts(
 
 // ── The repertoire link ───────────────────────────────────────────────────────
 
+// The longest a line's name may be inside a one-line row. Past this it is cut
+// at a word boundary — the row has to stay one line on a phone, and the part
+// that matters ("plays ♛d2 here") is at the END of the sentence.
+export const MAX_LINE_NAME = 26;
+
+/**
+ * A line's name, short enough to sit inside a sentence.
+ *
+ * Saved lines are named after their moves — "Sicilian: Najdorf, 6.Be2 e5 7.Nb3
+ * Be7 8.O-O O-O 9.Be3 Be6 10.Qd2" is a REAL name this app generates — and the
+ * opening is the half a person recognises. Everything from the first comma is
+ * the move list, so it goes; what is left is capped at a word boundary.
+ */
+export function shortLineName(name: string): string {
+  const head = (name.split(',')[0] ?? '').trim() || name.trim();
+  if (head.length <= MAX_LINE_NAME) return head;
+  const cut = head.slice(0, MAX_LINE_NAME);
+  const lastSpace = cut.lastIndexOf(' ');
+  return `${(lastSpace > 12 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`;
+}
+
 export interface RepertoireLink {
   /**
    * 'covered'  — one of your lines has an answer at this very position, and it

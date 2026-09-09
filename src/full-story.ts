@@ -25,7 +25,8 @@ import { formatMove } from './notation';
 import { showCp } from './eval-chip';
 import { formatClock, parseTimeControl, ownClockIndex } from './clock';
 import {
-  spotFacts, repertoireLinkAt, timesWrongInOpening, type RepertoireLink,
+  spotFacts, repertoireLinkAt, timesWrongInOpening, shortLineName,
+  type RepertoireLink,
 } from './spot-facts';
 import { TIME_CLASS_LABELS } from './import-core';
 import type { ImportedGame } from './import-core';
@@ -303,9 +304,10 @@ function bookCard(link: RepertoireLink): HTMLElement {
   text.className = 'fs-book-text';
   const head = document.createElement('span');
   head.className = 'fs-book-head';
+  const name = shortLineName(link.lineName);
   head.textContent = link.kind === 'covered'
-    ? `Your ${link.lineName} plays ${formatMove(link.san ?? '')} here`
-    : `${link.movesPast} move${link.movesPast === 1 ? '' : 's'} past your ${link.lineName}`;
+    ? `Your ${name} plays ${formatMove(link.san ?? '')} here`
+    : `${link.movesPast} move${link.movesPast === 1 ? '' : 's'} past your ${name}`;
   text.appendChild(head);
   const sub = document.createElement('span');
   sub.className = 'fs-book-sub';

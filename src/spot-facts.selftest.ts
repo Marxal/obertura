@@ -4,7 +4,7 @@
 // The two async answers (the repertoire link, the repeat count) read the
 // position index and IndexedDB, so they stay phone-only like the storage suite.
 
-import { whenLabel, costLine, wobblesBefore, spotFacts } from './spot-facts';
+import { whenLabel, costLine, wobblesBefore, spotFacts, shortLineName } from './spot-facts';
 import type { ImportedGame } from './import-core';
 
 export interface TestResult {
@@ -63,6 +63,18 @@ export function runSpotFactsSelfTest(): TestResult[] {
   // "Anyway" points at the surprise, so it changes sides with the kind of move.
   out.push(eq('a brilliancy in a won game', costLine('win', 'brilliancy'), 'you won this one'));
   out.push(eq('a brilliancy in a lost game', costLine('loss', 'brilliancy'), 'you lost anyway'));
+
+  // ── Line names ──────────────────────────────────────────────────────────────
+  // The real name that forced this to exist: saved lines are named after their
+  // moves, and the whole move list was landing inside a one-line row.
+  out.push(eq('the move list is cut off at the comma',
+    shortLineName('Sicilian: Najdorf, 6.Be2 e5 7.Nb3 Be7 8.O-O O-O 9.Be3 Be6 10.Qd2'),
+    'Sicilian: Najdorf'));
+  out.push(eq('a short name is left alone', shortLineName('French Defence'), 'French Defence'));
+  out.push(eq('a long name with no comma is cut at a word',
+    shortLineName('Kings Indian Attack against everything'), 'Kings Indian Attack…'));
+  out.push(eq('a name that is only a move list still says something',
+    shortLineName('1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Ba4 Nf6 5.O-O'), '1.e4 e5 2.Nf3 Nc6 3.Bb5…'));
 
   // ── The slide ───────────────────────────────────────────────────────────────
   // A white game whose trail drops hard on white's second move (ply 2): +0.2 to

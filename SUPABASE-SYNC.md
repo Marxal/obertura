@@ -767,7 +767,14 @@ below come from generating synthetic trees of realistic shape and size).
 lines share their opening moves, so the tree is cheaper than "lines × 2.5 KB"
 suggests at small counts and settles near it as the repertoire widens.
 
-**Per synced game: about 1.4 KB**, with the analysis and mistake-scan stripped.
+**Per synced game: about 1.4 KB**, with the analysis and mistake-scan stripped,
+plus **about 0.2 KB** for the clock trail on a game imported since the clock
+round — roughly 190 bytes for an 80-ply blitz game. Only the user's OWN readings
+are kept, rounded to whole seconds; keeping both sides would have cost about
+twice that and answers no question the app asks. The clocks are NOT stripped on
+the way up, unlike the analysis and the scan: they cannot be recomputed from the
+moves, only re-fetched from the platform, so a second device would otherwise
+have games that could never say anything about time.
 
 | what                        | raw JSON | as Postgres stores it |
 | --------------------------- | -------- | --------------------- |

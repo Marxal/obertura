@@ -580,6 +580,19 @@ the button obeys.
 comparison, used by all three of the first ones once the answer is in.
 `spot-peek.ts` is the shared results-row popup.
 
+**The context under the answer.** All four exercises end the same way, in
+`spot-context.ts`: the brief above the board is REPLACED by the game's context
+("3 days ago · you lost this one", the result in red or green), and under the
+comparison come up to two small rows — the clock ("Low on time · 14s left · 20s
+spent", from `clock.ts`) and what your own repertoire plays here. Each renders
+only when it has something true to say. Behind "The full story" — the button
+that took Analyse's place beside Next position — `full-story.ts` opens the
+sheet holding everything there is no room for: your clock and the evaluation
+across the whole game as two marked charts, the repertoire link, the rating
+gap, the slide into the mistake, and how often this opening has caught you.
+Analyse now lives at the bottom of that sheet. `spot-facts.ts` is the pure
+fact-gathering behind both; nothing it produces is stored.
+
 ### 8.3 One blunder, three doors
 
 The same move can be dealt by the detective, by Which move and by the mistake
@@ -1523,6 +1536,10 @@ Every non-selftest module in `src/`, exactly once.
 | `detective-run.ts` | its overlay |
 | `which-move.ts` / `which-move-run.ts` | the two-move question: pure core, then overlay |
 | `eval-chip.ts` | the shared good/bad move comparison chip |
+| `clock.ts` | per-move clock times from imported games, and what they mean |
+| `spot-facts.ts` | what we can honestly say about one move of one game (pure) |
+| `spot-context.ts` | the two context rows under the reveal, and the line above the board |
+| `full-story.ts` | the sheet behind "The full story", where Analyse now lives |
 | `grow-line.ts` | Grow a line — the pure "add one more move" core |
 | `grow-notice.ts` | the dismissable notification card (Train/My Lines/Explore) |
 | `grow-panel.ts` | the builder's Grow line tab |

@@ -1522,6 +1522,68 @@ nothing visible because the lines are on the phone regardless.
 
 ---
 
+## The clock round — saying when you were low on time ✅
+
+Both platforms hand the per-move clock over with the games we already download,
+and the import was throwing it away. Now it doesn't, and the "from your games"
+exercises can say what the engine numbers never could: not just that the move
+was bad, but what kind of moment you played it in.
+
+- ✅ **Clocks captured at import, from data we already fetch.** Chess.com writes
+  `{[%clk 0:02:59.9]}` after every move of every live game inside the PGN we
+  already parse (verified against a live archive: 60/60 games carried it);
+  Lichess adds a per-ply centisecond array for one extra URL parameter,
+  `clocks=true`, on the response we already stream. **No extra requests on
+  either platform.** Only YOUR OWN readings are kept, rounded to whole seconds —
+  about 190 bytes a game against ~370 for both sides, and the opponent's clock
+  answers no question this app asks. `clock.ts`, `clock.selftest.ts`.
+- ✅ **Correspondence is excluded on purpose.** Chess.com writes a `[%clk]` for
+  daily games too, but it is not a countdown — a 3-day game shows readings that
+  jump around — and nothing honest can be said about time pressure there.
+- ✅ **Two arithmetic traps, both now covered by tests.** The increment lands on
+  the reading the platform writes (an instant first move on a 180+1 shows
+  180.9), so it has to be added back or every move looks slower than it was; and
+  a berserked Lichess game starts on half the clock with no increment, so its
+  first move reports an unknown spend rather than a two-minute think.
+- ✅ **A context strip under the reveal** (`spot-context.ts`): the clock ("Low on
+  time · 14s left · 20s spent") and what your own repertoire plays here. Two
+  rows is the whole budget, and each renders only when it has something true to
+  say — a 'steady' clock says nothing at all.
+- ✅ **The brief above the board is REPLACED, not added to.** "You played ♛xe8 ??
+  here and blundered" is what the red box says once you answer, with a number
+  attached, so its line carries the game instead: "3 days ago · you lost this
+  one", the result in red or green. The same pixels, a different fact at a
+  different moment — which is where the room for all of this came from.
+- ✅ **"The full story" takes Analyse's place** beside Next position, and Analyse
+  moves inside the sheet it opens (`full-story.ts`). Analyse was the rarest
+  thing wanted from that row and the row's other half is the button that
+  continues the run.
+- ✅ **The sheet is mostly charts, and both were free.** Your clock through the
+  whole game and the evaluation through the whole game, each marked at this
+  move — a line falling off a cliff says "you were low on time" better than a
+  sentence does. The eval trail has been stored on every scanned game since the
+  scan hit v2 and nothing had ever drawn it.
+- ✅ **Which move lost two whole lines.** Its reveal restated the played move and
+  the engine's eval, both of which its two pick boxes already carry;
+  `.wm-facts-line` and `.wm-reveal-eval` went with them.
+- ✅ **Line names are cut to fit.** Saved lines are named after their moves —
+  "Sicilian: Najdorf, 6.Be2 e5 7.Nb3 Be7 8.O-O O-O 9.Be3 Be6 10.Qd2" is a real
+  generated name — and the whole move list was landing inside a one-line row in
+  the running app. `shortLineName` drops everything from the first comma; a
+  two-line clamp is the backstop for a custom name long enough to beat it.
+- ✅ **Nothing new is stored beyond the clocks.** Every other fact is derived at
+  render time, so no game needs re-scanning when a rule changes and
+  `RETRY_VERSION` did not have to move.
+- 💤 **Old games have no clocks.** They arrive only with newly imported games,
+  and "Add to existing" skips games it already has by id — so a library imported
+  before this round stays clock-less until a "Replace" import. Worth teaching
+  the merge to refresh a game that is missing them.
+- 💤 **The Time pressure exercise is still to build** — positions you got wrong
+  ranked by how little time you had, 10 seconds each, a 3-minute round. The
+  data it needs is now all in place.
+
+---
+
 ## v1.4 — seeds (parked) 💤
 
 Deliberately parked during the v1.3 round; revisit once v1.3 has had real use on

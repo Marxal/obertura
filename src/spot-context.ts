@@ -23,7 +23,8 @@ import { Icons } from './icons';
 import { formatMove } from './notation';
 import { TIME_TAG_LABEL, formatTimeFacts, type TimeTag } from './clock';
 import {
-  spotFacts, repertoireLinkAt, type RepertoireLink, type SpotTone,
+  spotFacts, repertoireLinkAt, shortLineName,
+  type RepertoireLink, type SpotTone,
 } from './spot-facts';
 import type { ImportedGame } from './import-core';
 
@@ -132,9 +133,10 @@ function clockRow(tag: Exclude<TimeTag, 'steady'>, readout: string): HTMLElement
 function repertoireRow(
   link: RepertoireLink, onOpenLine?: (lineName: string) => void,
 ): HTMLElement {
+  const name = shortLineName(link.lineName);
   const text = link.kind === 'covered'
-    ? `Your ${link.lineName} plays ${formatMove(link.san ?? '')} here`
-    : `${link.movesPast} move${link.movesPast === 1 ? '' : 's'} past your ${link.lineName}`;
+    ? `Your ${name} plays ${formatMove(link.san ?? '')} here`
+    : `${link.movesPast} move${link.movesPast === 1 ? '' : 's'} past your ${name}`;
 
   const row = document.createElement(onOpenLine ? 'button' : 'div');
   row.className = 'sc-book';

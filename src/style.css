@@ -16856,9 +16856,16 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
 .sc-book svg { flex: none; }
 .sc-book-text {
   flex: 1;
+  min-width: 0;
   font-size: 0.74rem;
   font-weight: 700;
   line-height: 1.25;
+  /* shortLineName() already trims the name; this is the backstop for a custom
+     name long enough to beat it. Two lines, then an ellipsis — never more. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 
 /* ── The full-story sheet (full-story.ts) ────────────────────────────────────
