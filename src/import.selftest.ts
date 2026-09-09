@@ -111,6 +111,8 @@ const liItalianWhiteWin: LichessGame = {
   },
   opening: { eco: 'C50', name: 'Italian Game', ply: 5 },
   clock: { initial: 180, increment: 2, totalTime: 300 },
+  // Centiseconds, one per ply — what `clocks=true` adds to the JSON.
+  clocks: [18000, 18000, 17800, 17900, 17500, 17700],
   pgn: [
     '[Event "Rated Blitz game"]',
     '[White "Marxal"]',
@@ -189,6 +191,14 @@ export function runImportSelfTest(): TestResult[] {
     g1 ? `${g1.colour}/${g1.result}, "${g1.opening}", ${g1.eco}, [${g1.sans.join(' ')}]` : 'returned null',
   );
 
+  // 1b. The clock comments are kept, our side only: white moved at 3:00, 2:58
+  // and 2:55, so three readings land as whole seconds and the opponent's don't.
+  check(
+    'chesscom: keeps our own clock readings',
+    !!g1 && JSON.stringify(g1.clocks) === JSON.stringify([180, 178, 175]),
+    g1 ? `clocks ${JSON.stringify(g1.clocks)}` : 'returned null',
+  );
+
   // 2. Username match is case-insensitive (PGN says "Marxal", we pass "marxal").
   check(
     'chesscom: username match is case-insensitive',
@@ -260,6 +270,15 @@ export function runImportSelfTest(): TestResult[] {
     l1 ? `${l1.colour}/${l1.result}, "${l1.opening}", ${l1.eco}, ${l1.timeControl}, [${l1.sans.join(' ')}]` : 'returned null',
   );
 
+  // 8b. The centisecond array becomes our own readings in whole seconds — the
+  // same three numbers the equivalent Chess.com game produced, from a totally
+  // different field. Both platforms have to land on one shape.
+  check(
+    'lichess: centisecond clocks become our own readings',
+    !!l1 && JSON.stringify(l1.clocks) === JSON.stringify([180, 178, 175]),
+    l1 ? `clocks ${JSON.stringify(l1.clocks)}` : 'returned null',
+  );
+
   // 9. Parses a Black loss from the bare `moves` field; classical → "daily".
   const l2 = parseLichessGame(liFrenchBlackLoss, ME);
   check(
@@ -268,6 +287,15 @@ export function runImportSelfTest(): TestResult[] {
       l2.timeClass === 'daily' && l2.opening === 'French Defense' &&
       l2.sans.join(' ') === 'e4 e6 d4 d5 Nc3 Nf6',
     l2 ? `${l2.colour}/${l2.result}/${l2.timeClass}, "${l2.opening}"` : 'returned null',
+  );
+
+  // 9b. That same game carries NO clocks — it has no `clocks` field, which is
+  // the normal case for correspondence games and for anything imported before
+  // clocks were captured. Every reader treats that as nothing to say.
+  check(
+    'lichess: a game without clocks carries none',
+    !!l2 && l2.clocks === undefined,
+    l2 ? `clocks ${JSON.stringify(l2.clocks)}` : 'returned null',
   );
 
   // 10. A game with no winner reads as a draw.

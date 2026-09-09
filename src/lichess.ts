@@ -74,6 +74,7 @@ export interface LichessGame {
   moves?: string;       // SAN, space-separated (no move numbers)
   pgn?: string;         // full PGN when pgnInJson=true
   clock?: LichessClock;
+  clocks?: number[];    // centiseconds left after each ply, when clocks=true
 }
 
 // Lichess "speed" → our four buckets. ultraBullet folds into bullet; classical
@@ -130,6 +131,9 @@ export function normaliseLichess(g: LichessGame): NormalisedGame | null {
     pgn,
     eco: g.opening?.eco ?? null,
     opening: g.opening?.name ?? null,
+    // Centiseconds → seconds. Correspondence games have no clock array at all,
+    // which is exactly the bucket clock.ts refuses to reason about anyway.
+    clocks: g.clocks?.length ? g.clocks.map(cs => cs / 100) : null,
   };
 }
 
@@ -170,6 +174,9 @@ export const fetchLichess: SourceFetch = async (username, months, emit) => {
   url.searchParams.set('moves', 'true');
   url.searchParams.set('pgnInJson', 'true');
   url.searchParams.set('opening', 'true');
+  // Adds the per-ply `clocks` array (centiseconds). Costs no extra request —
+  // it rides the response we already stream. See clock.ts.
+  url.searchParams.set('clocks', 'true');
 
   const res = await fetch(url.toString(), { headers: { Accept: 'application/x-ndjson' } });
   if (res.status === 404) throw new Error('Player not found — check the username.');

@@ -13,6 +13,7 @@
 // The core parses, caps at HARD_CAP newest-first, tallies and reports. We keep
 // every time format here; filtering by speed happens locally afterwards.
 
+import { clocksFromPgn } from './clock';
 import {
   runImport,
   parseNormalised,
@@ -137,6 +138,11 @@ export function normaliseChesscom(raw: RawGame): NormalisedGame | null {
     raw.black.result === 'win' ? 'black' :
     null;
 
+  // Live games carry a {[%clk …]} after every move; daily games carry one too,
+  // but it is not a countdown (a 3-day game's readings jump around), so the
+  // whole bucket is skipped rather than charted dishonestly. See clock.ts.
+  const clocks = raw.time_class === 'daily' ? null : clocksFromPgn(raw.pgn);
+
   return {
     id: raw.uuid || raw.url,
     url: raw.url,
@@ -152,6 +158,7 @@ export function normaliseChesscom(raw: RawGame): NormalisedGame | null {
     pgn: raw.pgn,
     eco: null,
     opening: openingFromUrl(raw.eco),
+    clocks: clocks && clocks.length ? clocks : null,
   };
 }
 

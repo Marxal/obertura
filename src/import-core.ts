@@ -14,6 +14,7 @@
 // the result — and all the counting/capping — is identical for both.
 
 import { Chess } from 'chess.js';
+import { ownClocks } from './clock';
 import type { MoveNode } from './tree';
 import type { GameRetry } from './mistake-scan';
 import type { GameEndgame } from './endgame-scan';
@@ -89,6 +90,10 @@ export interface NormalisedGame {
   pgn: string;                           // movetext (with or without headers)
   eco: string | null;                    // ECO *code* hint; falls back to PGN [ECO]
   opening: string | null;                // readable opening name, if known
+  // One clock reading per ply, in seconds, BOTH sides interleaved — or null
+  // when the platform gave none (an older import, a correspondence game).
+  // parseNormalised keeps only the user's own half of it; see clock.ts.
+  clocks?: number[] | null;
 }
 
 // The compact, stored shape — what lands in IndexedDB. Deliberately small.
@@ -129,6 +134,11 @@ export interface ImportedGame {
   // checked for a playable endgame position (the "From your games" section).
   // Absent until scanned.
   endgame?: GameEndgame;
+  // YOUR clock after each of your own moves, in whole seconds: clocks[k] is the
+  // move at ply 2k (white) or 2k+1 (black). Absent for correspondence games,
+  // for platforms that gave none, and for everything imported before this
+  // existed — every reader treats that as "nothing to say". See clock.ts.
+  clocks?: number[];
 }
 
 export interface GameAnalysis {
@@ -172,6 +182,9 @@ export function parseNormalised(raw: NormalisedGame, username: string): Imported
   const eco = raw.eco ?? chess.getHeaders().ECO ?? null;
   const opponentRating = iAmWhite ? raw.blackRating : raw.whiteRating;
   const myRating = iAmWhite ? raw.whiteRating : raw.blackRating;
+  // Only our own half of the clock trail is kept, and only when it covers the
+  // whole game (ownClocks returns null otherwise).
+  const clocks = raw.clocks ? ownClocks(raw.clocks, colour, verbose.length) : null;
 
   return {
     id: raw.id,
@@ -190,6 +203,7 @@ export function parseNormalised(raw: NormalisedGame, username: string): Imported
     sans: verbose.map(m => m.san),
     ucis: verbose.map(m => m.lan), // chess.js `lan` is UCI ("e2e4", "e7e8q")
     plyCount: verbose.length,
+    ...(clocks ? { clocks } : {}),
   };
 }
 
