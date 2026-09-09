@@ -1,10 +1,10 @@
 // Time pressure — the pure core of the speed round.
 //
-// THE EXERCISE. Three minutes, ten seconds a position, drawn from the moves you
-// actually got wrong. Any of the engine's top three counts: under a ten-second
-// clock the question is "can you see a move that doesn't lose", not "can you
-// find the single best one", and the scan already stores all three so the
-// judging costs no engine and no network.
+// THE EXERCISE. Two minutes, twenty seconds a position, drawn from the moves you
+// actually got wrong. Any of the engine's top three counts: under that clock the
+// question is "can you see a move that doesn't lose", not "can you find the
+// single best one", and the scan already stores all three so the judging costs
+// no engine and no network.
 //
 // WHY IT RANKS AND DOES NOT FILTER. The obvious build is "positions where you
 // were low on time" — and it would leave most people with an empty card. The
@@ -27,16 +27,22 @@ import type { SpotRef } from './mistake-scan';
 
 // ── The shape of a round ─────────────────────────────────────────────────────
 
-/** The whole round. Three minutes is long enough to find a rhythm, short enough to sprint. */
-export const ROUND_MS = 3 * 60 * 1000;
+/** The whole round. Two minutes: long enough to find a rhythm, short enough to sprint. */
+export const ROUND_MS = 2 * 60 * 1000;
 
-/** Per position. Ten seconds is the pressure — it is the exercise, not a limit. */
-export const PER_POSITION_MS = 10_000;
+/**
+ * Per position. Twenty seconds is the pressure — it is the exercise, not a
+ * limit. Long enough to actually look at a middlegame position, short enough
+ * that you cannot calculate your way out of every one of them.
+ */
+export const PER_POSITION_MS = 20_000;
 
 /**
  * Answer inside this and the solve is worth double. Three seconds is about as
  * long as it takes to see a move you already know rather than work one out,
- * which is the thing this round is trying to train.
+ * which is the thing this round is trying to train. It is deliberately NOT a
+ * share of the twenty — recognition speed doesn't scale with how long you are
+ * allowed, so lengthening the clock must not lower the bar for a bonus.
  */
 export const FAST_MS = 3_000;
 
@@ -98,15 +104,16 @@ export function orderByPressure(refs: SpotRef[]): SpotRef[] {
 }
 
 /**
- * Deal the round: the ordered pool, cycled if it is shorter than three minutes
+ * Deal the round: the ordered pool, cycled if it is shorter than two minutes
  * can get through. Cycling matters — a pool of six positions would otherwise
- * end the round after fifty seconds, and a speed round that stops early feels
+ * end the round in under two minutes, and a speed round that stops early feels
  * like a bug rather than a small library.
  *
- * `max` caps how many are prepared: enough that the clock, not the list, is
- * what ends the round.
+ * `max` caps how many are prepared. Sized for the worst case rather than the
+ * likely one: twenty seconds is a ceiling, not a cost, so a round of instant
+ * answers gets through far more positions than 120 ÷ 20 suggests.
  */
-export function dealRound(refs: SpotRef[], max = 40): SpotRef[] {
+export function dealRound(refs: SpotRef[], max = 60): SpotRef[] {
   const ordered = orderByPressure(refs);
   if (ordered.length === 0) return [];
   const out: SpotRef[] = [];

@@ -1579,7 +1579,7 @@ was bad, but what kind of moment you played it in.
   before this round stays clock-less until a "Replace" import. Worth teaching
   the merge to refresh a game that is missing them.
 - ✅ **Time pressure, the speed round** (`time-pressure.ts`,
-  `time-pressure-run.ts`). Three minutes, ten seconds a position, opening on
+  `time-pressure-run.ts`). Two minutes, twenty seconds a position, opening on
   the moves you had least time for. Any of the engine's top three counts —
   under that clock the skill is seeing a move that doesn't lose, not finding
   the single best one — and the scan already stores all three, so judging costs
@@ -1589,6 +1589,11 @@ was bad, but what kind of moment you played it in.
     ordered by how little clock was left; the framing stays honest because all
     of them are positions you actually got wrong. A short pool cycles rather
     than ending the round early.
+  - **Nothing is drawn on the board** — not the move you played, not the move
+    that was there. The position is read cold, which is what it was in the
+    game; an arrow would answer half the question before the clock started.
+    The only feedback during the round is a tick or a cross, and what was
+    actually there waits for the results screen.
   - **Three outcomes, kept apart to the results screen**: found, missed, and
     ran out. "I knew it and was too slow" is the failure this exercise exists
     to show you, and folding it in with "I had no idea" would hide it.

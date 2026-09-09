@@ -16824,6 +16824,20 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   padding: 0 1rem;
 }
 
+/* The whole of the in-round feedback: right or wrong, for a moment. Its height
+   is reserved whether or not a mark is showing, so the board never shifts under
+   your hands between positions. */
+.tp-mark {
+  height: 1.9rem;
+  line-height: 1.9rem;
+  text-align: center;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+.tp-mark--found { color: var(--success-active); }
+.tp-mark--missed { color: var(--danger); }
+.tp-mark--out { color: var(--warn); }
+
 /* The results screen's three outcomes. They are the exercise's whole finding —
    what you saw, what you got wrong, and what the clock took — so they get equal
    width and their own colours rather than a sentence. */

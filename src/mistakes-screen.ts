@@ -159,12 +159,15 @@ function openMistakeInfo(): void {
       {
         icon: Icons.clock(18), accent: TIME_PRESSURE_ACCENT,
         label: 'Time pressure',
-        detail: 'The speed round. Three minutes, ten seconds a position, and any of the '
+        detail: 'The speed round. Two minutes, twenty seconds a position, and any of the '
           + 'engine’s top three counts — under that clock the skill is seeing a move that '
-          + 'does not lose, not finding the single best one. It opens on the moves you had '
-          + 'least time for and works outwards, so it always has something to deal. Finding '
-          + 'one inside three seconds is worth double. It is not part of the mix above: '
-          + 'three timed minutes does not belong in the middle of a run of untimed ones.',
+          + 'does not lose, not finding the single best one. Nothing is drawn on the board: '
+          + 'you read the position cold, exactly as you had it, and the only answer during '
+          + 'the round is a tick or a cross. What was actually there is on the results '
+          + 'screen, where there is time to look. It opens on the moves you had least time '
+          + 'for and works outwards, so it always has something to deal, and finding one '
+          + 'inside three seconds is worth double. It is not part of the mix above: two '
+          + 'timed minutes does not belong in the middle of a run of untimed ones.',
       },
       {
         icon: Icons.zap(18), accent: CATEGORY_ACCENT['opening-blunder'],
@@ -791,7 +794,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       // The subtitle carries the rules, because they ARE the exercise and a
       // card that only said "your blunders, quickly" would be a card nobody
       // knows what they are starting.
-      sub: '10 seconds a position, 3 minutes',
+      sub: '20 seconds a position, 2 minutes',
       stat: tpBest > 0 ? tpBest : undefined,
       statLabel: tpBest > 0 ? 'best' : undefined,
       disabled: refs.length === 0,

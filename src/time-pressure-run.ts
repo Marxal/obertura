@@ -1,4 +1,4 @@
-// Time pressure — the run overlay. Three minutes, ten seconds a position,
+// Time pressure — the run overlay. Two minutes, twenty seconds a position,
 // drawn from the moves you actually got wrong (time-pressure.ts has the pool,
 // the ranking and the scoring).
 //
@@ -7,12 +7,18 @@
 // what you played against what the engine wanted. None of that belongs here.
 // This asks a smaller question — can you SEE a move that doesn't lose, right
 // now — so there is one try, no hint, and the round moves on the instant you
-// answer. Any of the engine's top three counts, because under ten seconds
+// answer. Any of the engine's top three counts, because under this clock
 // "don't blunder" is the skill and "find the single best" is a different one.
 //
-// THE PLAYED MOVE IS STILL DRAWN IN RED, as it is in the drill. It looks like a
-// giveaway and isn't: it says what went wrong here so you can spend the ten
-// seconds looking for the answer rather than working out the question.
+// NOTHING IS DRAWN ON THE BOARD. Not the move you played, not the move that was
+// there. The drill next door shows both, and that is the drill's job — here the
+// position has to be read cold, which is what it was in the game. An arrow
+// would answer half the question before the clock started, and a reveal at the
+// end would turn a two-minute sprint into a lesson it has no room for.
+//
+// SO THE FEEDBACK IS ONE MARK. Right or wrong, a tick or a cross under the
+// board for a moment, and on. What was actually there is in the results screen
+// afterwards, where there is time to look at it.
 //
 // THREE OUTCOMES. Found, missed, and ran out — kept apart all the way to the
 // results screen, because "I knew it and was too slow" is the failure this
@@ -27,8 +33,6 @@ import { Chess } from 'chess.js';
 import { Chessground } from 'chessground';
 import type { Api } from 'chessground/api';
 import type { Key } from 'chessground/types';
-import type { DrawShape } from 'chessground/draw';
-import { registerBrushes, HINT_COLOR } from './board-brushes';
 import { Icons } from './icons';
 import { playFeedback } from './sound';
 import { pushBack } from './back-nav';
@@ -50,12 +54,18 @@ import type { SpotRef } from './mistake-scan';
 import type { ImportedGame } from './import-core';
 import type { OpenGameCtx } from './mistake-run';
 
-// How long the board holds after an answer before the next position. A find is
-// its own confirmation and moves on fast; a miss or a timeout pauses long
-// enough to see the move that was there, which is the only teaching this
-// exercise does.
+// How long the mark holds before the next position. Both are short now that
+// there is nothing to read on the board — long enough to register a tick or a
+// cross, not long enough to feel like a pause.
 const HOLD_FOUND_MS = 320;
-const HOLD_SHOWN_MS = 900;
+const HOLD_SHOWN_MS = 520;
+
+// The one mark each outcome gets, in the round and again on its results row.
+const MARK_GLYPH: Record<TimePressureOutcome, string> = {
+  found: '✓',
+  missed: '✕',
+  'ran-out': '⏱',
+};
 
 // The clocks are read on a timer rather than a rAF loop: nothing here animates
 // per-frame except the bar's width, which CSS transitions on its own.
@@ -135,6 +145,13 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
   metaEl.className = 'tp-meta';
   bottomEl.appendChild(metaEl);
 
+  // The whole of the in-round feedback: one mark, for a moment. Its slot is
+  // always in the layout so the board never shifts when it appears.
+  const markEl = document.createElement('div');
+  markEl.className = 'tp-mark';
+  markEl.setAttribute('aria-live', 'polite');
+  bottomEl.appendChild(markEl);
+
   const scrollEl = document.createElement('div');
   scrollEl.className = 'pt-scroll';
   scrollEl.appendChild(barEl);
@@ -151,10 +168,6 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
     draggable: { showGhost: true },
     animation: { enabled: true, duration: 150 },
     events: { move(from, to) { onUserMove(from as Key, to as Key); } },
-  });
-  registerBrushes(cg, {
-    accent: { color: HINT_COLOR, opacity: 0.85, lineWidth: 10 },
-    danger: { color: '#c93636', opacity: 0.8, lineWidth: 10 },
   });
   const ro = new ResizeObserver(() => cg.redrawAll());
   ro.observe(boardEl);
@@ -174,13 +187,6 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
     }
     return dests;
   }
-  function uciParts(uci: string): { from: Key; to: Key; promotion: 'q' | 'r' | 'b' | 'n' } {
-    return {
-      from: uci.slice(0, 2) as Key,
-      to: uci.slice(2, 4) as Key,
-      promotion: (uci[4] as 'q' | 'r' | 'b' | 'n') || 'q',
-    };
-  }
   function flashError(): void {
     playFeedback('wrong');
     const flash = document.createElement('div');
@@ -190,22 +196,17 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
   }
 
   /**
-   * The red arrow for the move that was played, plus anything else asked for.
-   * `hidePlayed` is for the moment after a correct answer, where the board is
-   * already showing the move you just made — a red arrow over your own good
-   * move reads as if it were the mistake.
+   * Right or wrong, for a moment — see the note at the top of the file. `null`
+   * clears it for the next position.
    */
-  function paintShapes(o: { answerUci?: string; hidePlayed?: boolean } = {}): void {
-    const shapes: DrawShape[] = [];
-    if (!o.hidePlayed) {
-      const played = uciParts(current.spot.playedUci);
-      shapes.push({ orig: played.from, dest: played.to, brush: 'danger' });
+  function showMark(outcome: TimePressureOutcome | null): void {
+    if (!outcome) {
+      markEl.textContent = '';
+      markEl.className = 'tp-mark';
+      return;
     }
-    if (o.answerUci) {
-      const { from, to } = uciParts(o.answerUci);
-      shapes.push({ orig: from, dest: to, brush: 'accent' });
-    }
-    requestAnimationFrame(() => { if (!isCleaned) cg.setAutoShapes(shapes); });
+    markEl.textContent = MARK_GLYPH[outcome];
+    markEl.className = `tp-mark tp-mark--${outcome === 'ran-out' ? 'out' : outcome}`;
   }
 
   // ── The clocks ─────────────────────────────────────────────────────────────
@@ -247,7 +248,8 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
       lastMove: undefined,
       movable: { color: game.colour, dests: legalDests() },
     });
-    paintShapes();
+    cg.setAutoShapes([]);
+    showMark(null);
 
     inputLocked = false;
     positionStartedAt = Date.now();
@@ -280,23 +282,9 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
     score += points;
     renderScore(points);
 
-    const best = current.spot.best[0];
-    if (outcome === 'found') {
-      playFeedback('correct');
-      // The board already shows the move you found; nothing to add to it.
-      paintShapes({ hidePlayed: true });
-    } else {
-      if (outcome === 'missed') {
-        flashError();
-        // Your wrong move is sitting on the board — put the position back the
-        // way it was so the answer arrow points at the position it belongs to.
-        // `chess` was never advanced, so its FEN is still the drill position.
-        cg.set({ fen: chess.fen(), turnColor: cgTurn(), animation: { enabled: false } });
-      }
-      // Show what was there. This is the only teaching the round does, and it
-      // is the reason a miss holds longer than a find.
-      paintShapes({ answerUci: best?.uci });
-    }
+    if (outcome === 'found') playFeedback('correct');
+    else if (outcome === 'missed') flashError();
+    showMark(outcome);
 
     holdTimer = setTimeout(() => {
       index++;
@@ -354,7 +342,7 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
     // number you are already looking at reads as a bug.
     sub.textContent = improved
       ? 'Best yet'
-      : best > totals.score ? `Best so far ${best}` : 'Three minutes, ten seconds a position';
+      : best > totals.score ? `Best so far ${best}` : 'Two minutes, twenty seconds a position';
     head.appendChild(sub);
 
     // The three outcomes, side by side. They are the exercise's whole finding:
@@ -423,12 +411,6 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
     return tile;
   }
 
-  const OUTCOME_MARK: Record<TimePressureOutcome, string> = {
-    found: '✓',
-    missed: '✕',
-    'ran-out': '⏱',
-  };
-
   function resultRow(e: TimePressureEntry, idx: number): HTMLElement {
     const row = document.createElement('div');
     row.className = 'pz-result-row pz-result-row--linked '
@@ -446,7 +428,7 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
 
     const dot = document.createElement('span');
     dot.className = 'pz-result-dot';
-    dot.textContent = OUTCOME_MARK[e.outcome];
+    dot.textContent = MARK_GLYPH[e.outcome];
     row.appendChild(dot);
 
     const main = document.createElement('div');
