@@ -18,6 +18,10 @@ export const MISTAKE_TINT = '#a3492e';
 // accents, off the four categories' palette because they aren't categories.
 export const DETECTIVE_ACCENT = '#6f6ac0';   // indigo — the search
 export const WHICH_MOVE_ACCENT = '#5c8bb0';  // steel blue — two moves, one choice
+// Time pressure, the speed round. Amber because it is the app's warning colour
+// and this is the one exercise whose subject IS the clock — the same hue the
+// context strip's "Low on time" tag wears, one step darker to sit on a card.
+export const TIME_PRESSURE_ACCENT = '#b8591a';
 
 // Per-category accents for the cards, kin to the Practise cards' palette.
 export const CATEGORY_ACCENT: Record<MistakeCategory, string> = {

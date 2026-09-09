@@ -575,6 +575,7 @@ the button obeys.
 | **Blunder detective** | `detective.ts` + `detective-run.ts` | a run of 4–6 moves; which one is the blunder? Then: what should have been played. **Exactly one** blunder per run, re-verified at depth |
 | **Which move** | `which-move.ts` + `which-move-run.ts` | one position, two arrows — yours and the engine's. Pick |
 | **Brilliant moves** | `brilliant.ts`, `brilliant-run.ts`, `brilliant-log.ts` | find your own `!!`/`!` again. Two sources: a game's saved analysis, and the scan's own finds |
+| **Time pressure** | `time-pressure.ts` + `time-pressure-run.ts` | the speed round: 3 minutes, 10 seconds a position, hardest-pressed first. Any of the engine's top 3 counts |
 
 `eval-chip.ts` is the shared red/green "♝xe6 −5.2 / hangs material on e6"
 comparison, used by all three of the first ones once the answer is in.
@@ -1540,6 +1541,8 @@ Every non-selftest module in `src/`, exactly once.
 | `spot-facts.ts` | what we can honestly say about one move of one game (pure) |
 | `spot-context.ts` | the two context rows under the reveal, and the line above the board |
 | `full-story.ts` | the sheet behind "The full story", where Analyse now lives |
+| `time-pressure.ts` | the speed round's pool, ranking and scoring (pure) |
+| `time-pressure-run.ts` | its overlay — the two clocks, one try, three outcomes |
 | `grow-line.ts` | Grow a line — the pure "add one more move" core |
 | `grow-notice.ts` | the dismissable notification card (Train/My Lines/Explore) |
 | `grow-panel.ts` | the builder's Grow line tab |

@@ -16773,6 +16773,104 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   font-size: 0.85rem;
 }
 
+/* ── Time pressure (time-pressure-run.ts) ────────────────────────────────────
+   The speed round: three minutes, ten seconds a position. Everything here is
+   sized to be read at a glance and then ignored — the board is the only thing
+   that should hold your attention while the clock runs. */
+
+/* The ten-second bar, above the board. It drains rather than counts: a big
+   ticking number over a position you are already meant to feel rushed by tips
+   the exercise from sharp into stressful. */
+.tp-bar {
+  height: 5px;
+  margin: 0 1rem 0.6rem;
+  border-radius: 3px;
+  background: var(--bg-elevated);
+  overflow: hidden;
+}
+.tp-bar-fill {
+  height: 100%;
+  width: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+  transition: width 0.1s linear, background-color 0.2s ease;
+}
+.tp-bar-fill--low { background: var(--danger); }
+/* The rewind between positions must not animate — a bar sliding back to full
+   reads as time being given back. */
+.tp-bar-fill--reset { transition: none; }
+
+.tp-score {
+  color: var(--accent-active);
+  min-width: 1.5ch;
+  text-align: right;
+}
+/* A found position bumps the score once. Deliberately small: it confirms, it
+   doesn't celebrate — there are twenty more coming. */
+.tp-score--pop { animation: tp-score-pop 0.28s ease; }
+@keyframes tp-score-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.28); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tp-score--pop { animation: none; }
+}
+
+.tp-meta {
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  padding: 0 1rem;
+}
+
+/* The results screen's three outcomes. They are the exercise's whole finding —
+   what you saw, what you got wrong, and what the clock took — so they get equal
+   width and their own colours rather than a sentence. */
+.tp-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 22rem;
+  margin: 0.25rem auto 0.6rem;
+}
+.tp-tile {
+  background: var(--bg-card);
+  border-radius: 10px;
+  padding: 0.5rem 0.4rem;
+  text-align: center;
+}
+.tp-tile-v {
+  font-size: 1.25rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.tp-tile-l {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.tp-tile--found .tp-tile-v { color: var(--success-active); }
+.tp-tile--missed .tp-tile-v { color: var(--danger); }
+.tp-tile--out .tp-tile-v { color: var(--warn); }
+
+.tp-note {
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--text-faint);
+  margin-bottom: 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.tp-result-points {
+  flex: none;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent-active);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── The context under a solved position (spot-context.ts) ───────────────────
    Two small rows under the red/green comparison — the clock, and what your
    repertoire has to say — plus the one line that replaces the brief above the

@@ -10,6 +10,7 @@ import { runOpeningsSelfTest } from '../src/openings.selftest';
 import { runImportSelfTest } from '../src/import.selftest';
 import { runClockSelfTest } from '../src/clock.selftest';
 import { runSpotFactsSelfTest } from '../src/spot-facts.selftest';
+import { runTimePressureSelfTest } from '../src/time-pressure.selftest';
 import { runSchedulerSelfTest } from '../src/scheduler.selftest';
 import { runAnalysisSelfTest } from '../src/analysis.selftest';
 import { runScoutSelfTest } from '../src/scout.selftest';
@@ -67,6 +68,7 @@ const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'import-tier', run: runImportTierSelfTest },
   { suite: 'clock', run: runClockSelfTest },
   { suite: 'spot-facts', run: runSpotFactsSelfTest },
+  { suite: 'time-pressure', run: runTimePressureSelfTest },
   { suite: 'scheduler', run: runSchedulerSelfTest },
   { suite: 'analysis', run: runAnalysisSelfTest },
   { suite: 'scout', run: runScoutSelfTest },

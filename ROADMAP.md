@@ -1578,9 +1578,28 @@ was bad, but what kind of moment you played it in.
   and "Add to existing" skips games it already has by id — so a library imported
   before this round stays clock-less until a "Replace" import. Worth teaching
   the merge to refresh a game that is missing them.
-- 💤 **The Time pressure exercise is still to build** — positions you got wrong
-  ranked by how little time you had, 10 seconds each, a 3-minute round. The
-  data it needs is now all in place.
+- ✅ **Time pressure, the speed round** (`time-pressure.ts`,
+  `time-pressure-run.ts`). Three minutes, ten seconds a position, opening on
+  the moves you had least time for. Any of the engine's top three counts —
+  under that clock the skill is seeing a move that doesn't lose, not finding
+  the single best one — and the scan already stores all three, so judging costs
+  no engine and no network. A find inside three seconds is worth double.
+  - It **ranks rather than filters**. "Only positions where you were low on
+    time" would leave most people an empty card, so the pool is every mistake
+    ordered by how little clock was left; the framing stays honest because all
+    of them are positions you actually got wrong. A short pool cycles rather
+    than ending the round early.
+  - **Three outcomes, kept apart to the results screen**: found, missed, and
+    ran out. "I knew it and was too slow" is the failure this exercise exists
+    to show you, and folding it in with "I had no idea" would hide it.
+  - It **writes no training state** — no spot is marked fixed, no rest is
+    filed. Finding a move in four seconds under a clock is not the same act as
+    working one out in the drill, and letting a speed round empty the queue
+    that exists to catch repeat blunders would be a bug wearing a feature's
+    clothes. The only thing kept is the personal best.
+  - **No abandon dialog**: a confirmation box with a clock running behind it is
+    worse than ending early, so End round goes straight to the results with
+    everything you found intact.
 
 ---
 

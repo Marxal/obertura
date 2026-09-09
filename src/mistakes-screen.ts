@@ -64,10 +64,12 @@ import { startDetectiveSession, openDetectiveInfo } from './detective-run';
 import { fairPairs, pickWhichMove, readyWhichMoveCount } from './which-move';
 import { startWhichMoveSession, openWhichMoveInfo } from './which-move-run';
 import { detectiveLog, whichMoveLog, clearMiddleLogs } from './middle-log';
+import { startTimePressureSession } from './time-pressure-run';
+import { dealRound, getTimePressureBest } from './time-pressure';
 import { combinedDueAt, restKey } from './spot-rest';
 import { openFixedSheet } from './fixed-sheet';
 import {
-  DETECTIVE_ACCENT, WHICH_MOVE_ACCENT, CATEGORY_ACCENT,
+  DETECTIVE_ACCENT, WHICH_MOVE_ACCENT, CATEGORY_ACCENT, TIME_PRESSURE_ACCENT,
 } from './exercise-identity';
 
 // Session size for a category card tap — five positions, like a puzzle run.
@@ -155,6 +157,16 @@ function openMistakeInfo(): void {
           + 'you which game it was and what the move cost.',
       },
       {
+        icon: Icons.clock(18), accent: TIME_PRESSURE_ACCENT,
+        label: 'Time pressure',
+        detail: 'The speed round. Three minutes, ten seconds a position, and any of the '
+          + 'engine’s top three counts — under that clock the skill is seeing a move that '
+          + 'does not lose, not finding the single best one. It opens on the moves you had '
+          + 'least time for and works outwards, so it always has something to deal. Finding '
+          + 'one inside three seconds is worth double. It is not part of the mix above: '
+          + 'three timed minutes does not belong in the middle of a run of untimed ones.',
+      },
+      {
         icon: Icons.zap(18), accent: CATEGORY_ACCENT['opening-blunder'],
         label: CATEGORY_LABEL['opening-blunder'],
         detail: 'Mistakes inside the first dozen moves — the ones a line in your repertoire '
@@ -187,7 +199,9 @@ function openMistakeInfo(): void {
           + 'brilliancies the card narrows to those alone. Solved ones rest, then come back.',
       },
     ],
-    footnote: 'Reset, under the mix button, starts all of this again: the spots go, every game '
+    footnote: 'Time pressure is the exception to the marking below — it never marks a spot '
+      + 'fixed and never rests one, because finding a move in four seconds under a clock is '
+      + 'not the same as working it out. Reset, under the mix button, starts all of this again: the spots go, every game '
       + 'is read from scratch, and every brilliant move you have re-found becomes available '
       + 'again. A card stays greyed out until the scan has found something for it. A spot you '
       + 'get right is marked fixed and goes to the back of its queue — it only comes round '
@@ -766,6 +780,27 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       onClick: () => startWhichMove(),
     }));
 
+    // Time pressure — the speed round. It sits third because it is the one
+    // exercise here that is not about working a position out: three minutes,
+    // ten seconds a position, opening on the moves you had least time for.
+    const tpBest = getTimePressureBest();
+    section.appendChild(buildModeCard({
+      accent: TIME_PRESSURE_ACCENT,
+      icon: Icons.clock(20),
+      name: 'Time pressure',
+      // The subtitle carries the rules, because they ARE the exercise and a
+      // card that only said "your blunders, quickly" would be a card nobody
+      // knows what they are starting.
+      sub: '10 seconds a position, 3 minutes',
+      stat: tpBest > 0 ? tpBest : undefined,
+      statLabel: tpBest > 0 ? 'best' : undefined,
+      disabled: refs.length === 0,
+      disabledReason: counts.scanned === 0
+        ? 'Analyse your games first'
+        : 'None found in your analysed games',
+      onClick: () => startTimePressure(),
+    }));
+
     for (const cat of CATEGORIES) {
       const pool = refs.filter(r => r.spot.category === cat);
       const unfixed = counts.unfixedByCategory[cat];
@@ -852,6 +887,23 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       refs: refsForRun,
       onExit: rerender,
       onPlayAgain: () => startWhichMove(count),
+      onOpenGame: deps.onOpenGame,
+    });
+  }
+
+  // Time pressure deals from EVERY mistake, ordered by how little time was on
+  // your clock (time-pressure.ts). It deliberately ignores the rest logs the
+  // other exercises consult: a three-minute round gets through twenty-odd
+  // positions, and a pool filtered down to what is "due" would run dry in a
+  // week. For the same reason it files no rest and marks nothing fixed — see
+  // the note at the top of time-pressure.ts.
+  function startTimePressure(): void {
+    const round = dealRound(refs);
+    if (round.length === 0) return;
+    startTimePressureSession({
+      refs: round,
+      onExit: rerender,
+      onPlayAgain: () => startTimePressure(),
       onOpenGame: deps.onOpenGame,
     });
   }
