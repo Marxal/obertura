@@ -82,10 +82,10 @@ export function renderForgottenSection(host: HTMLElement, lines: Line[], cb: For
   const recall = lineRecall(lines, 50);
 
   if (moves.length > 0) {
-    host.appendChild(buildBlock(
+    host.appendChild(buildStripBlock(
       'Forgotten moves',
       `${moves.length} to work on`,
-      carousel(
+      buildStrip(
         moves.slice(0, PREVIEW).map(m => moveRow(m, lines, cb)),
         moves.length > PREVIEW
           ? seeAllRow(`See all ${moves.length}`, () => openMovesSheet(moves, lines, cb))
@@ -95,10 +95,10 @@ export function renderForgottenSection(host: HTMLElement, lines: Line[], cb: For
   }
 
   if (recall.length > 0) {
-    host.appendChild(buildBlock(
+    host.appendChild(buildStripBlock(
       'Forgotten lines',
       `${recall.length} to work on`,
-      carousel(
+      buildStrip(
         recall.slice(0, PREVIEW).map(r => lineRow(r, lines, cb)),
         recall.length > PREVIEW
           ? seeAllRow(`See all ${recall.length}`, () => openLinesSheet(recall, lines, cb))
@@ -108,8 +108,14 @@ export function renderForgottenSection(host: HTMLElement, lines: Line[], cb: For
   }
 }
 
-/** A heading row and its carousel. Deliberately no card, no border, no wash. */
-function buildBlock(title: string, meta: string, body: HTMLElement): HTMLElement {
+/**
+ * A heading row and its strip. Deliberately no card, no border, no wash.
+ *
+ * Exported because Home builds two more blocks of exactly this shape (lines
+ * ready to grow, mistakes from your last games) and a second copy of the chrome
+ * is a second thing to keep in step.
+ */
+export function buildStripBlock(title: string, meta: string, body: HTMLElement): HTMLElement {
   const block = document.createElement('section');
   block.className = 'fmove-block';
 
@@ -359,7 +365,7 @@ function appendMini(card: HTMLElement, fen: string, colour: 'white' | 'black'): 
  * all" row rides along as the last slide — at the end of the swipe, which is
  * exactly where someone who has looked through the five is.
  */
-function carousel(cards: HTMLElement[], seeAll: HTMLElement | null): HTMLElement {
+export function buildStrip(cards: HTMLElement[], seeAll: HTMLElement | null): HTMLElement {
   const track = document.createElement('div');
   track.className = 'fmove-strip';
   for (const c of cards) {

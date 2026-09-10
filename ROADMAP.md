@@ -1927,6 +1927,44 @@ container (it carries the colour pip) and the label was a bare text node, which
 becomes an anonymous box that cannot take `text-overflow`. It is a span now.
 
 
+
+## Home becomes four strips of boards ✅
+
+Home was a daily card, a grid repeating the four Train doors, and a list of every
+nav destination with its count. Two of those three were menus of the things Home
+is supposed to be showing you the STATE of — the tab bar is one tap away and
+already does that job. Both are gone.
+
+What is there instead: **four strips of boards**, each a horizontal swipe of the
+same card, in the order the answers are useful.
+
+- **Ready to grow** — lines you have mastered, with the replies you would be
+  preparing for **drawn as arrows on the board**. This was a notification:
+  `grow-notice.ts`, one card, one line, pinned above three screens with a
+  swipe-to-dismiss. That shape said "here is a thing to dismiss"; a strip of
+  boards says "here are three positions you know well enough to extend". The
+  module is deleted; `grow-line.ts` gained `growTargets()`, the plural of
+  `firstGrowTarget`.
+- **From your last games** — the mistake spots the scan found, newest first, the
+  move you played drawn on the board and what it cost in pawns. This came the
+  other way, off the Middle game box, because it is a thing you look at rather
+  than start. Rebuilt as a strip to match its three neighbours rather than
+  ported as the old tabbed slide track.
+- **Forgotten moves** and **Forgotten lines**, as before, with bigger boards.
+
+`forgotten-section.ts` exports `buildStrip` / `buildStripBlock` so all four share
+one chrome, and `buildMiniBoard()` gained an `arrows` option — plain SVG geometry
+rather than a `<marker>`, because markers need a `<defs>` id and ids have to be
+unique across a document holding fifty miniatures.
+
+**The scan banner moved to the top**, above the daily card, and reads like a
+notification: an icon, "Reading your games — 24 to go", and three pulsing dots.
+The dots earn their place — the count only moves every few seconds, and a figure
+that has not changed for four of them is indistinguishable from one that has
+stopped. It takes itself off screen when the pass ends, and honours
+`prefers-reduced-motion`.
+
+
 ---
 
 ## Later 💤

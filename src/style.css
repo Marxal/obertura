@@ -1950,105 +1950,6 @@ main {
 
 .daily-locked-cta { align-self: flex-start; }
 
-/* ── Grow-a-line notice (top of Train / My Lines / Explore) ───────────────────
-   A standing offer, not a task: one card, one line, dressed like a phone
-   notification (it is not one) so it reads as "something's ready" rather than
-   another to-do. Swipe it away, or tap the ×, and it rests quietly for a few
-   days (grow-notice.ts); tap the card itself to jump into the builder's Grow
-   tab. Lives in its own host — a sibling of the header, not any one screen's
-   render — so it survives Train/My Lines/Explore switching untouched. */
-.grow-notice-host {
-  margin: 0.75rem 1rem 0;
-}
-.grow-notice-host:empty {
-  margin: 0;
-}
-
-@keyframes grow-notice-in {
-  from { opacity: 0; transform: translateY(-8px); }
-  to   { opacity: 1; transform: none; }
-}
-
-.grow-notice {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.6rem 0.7rem;
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  border-left: 3px solid var(--success);
-  border-radius: 10px;
-  box-shadow: var(--shadow-card);
-  animation: grow-notice-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
-  touch-action: pan-y;
-  cursor: pointer;
-  will-change: transform, opacity;
-}
-
-/* While a finger is down the card tracks it 1:1 — no transition to fight. */
-.grow-notice--dragging { transition: none; cursor: grabbing; }
-.grow-notice:not(.grow-notice--dragging) { transition: transform 0.2s ease, opacity 0.2s ease; }
-
-.grow-notice--exit-left  { transform: translateX(-120%) !important; opacity: 0 !important; }
-.grow-notice--exit-right { transform: translateX(120%) !important;  opacity: 0 !important; }
-
-.grow-notice-icon {
-  flex-shrink: 0;
-  display: inline-flex;
-  color: var(--success);
-}
-
-.grow-notice-text {
-  flex: 1;
-  min-width: 0;
-}
-
-.grow-notice-title {
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.grow-notice-sub {
-  font-size: 0.75rem;
-  color: var(--text-faint);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.grow-notice-chev {
-  flex-shrink: 0;
-  color: var(--text-fainter);
-}
-
-.grow-notice-close {
-  flex-shrink: 0;
-  display: inline-flex;
-  padding: 0.3rem;
-  border: 0;
-  border-radius: 999px;
-  background: none;
-  color: var(--text-fainter);
-  cursor: pointer;
-}
-.grow-notice-close:active { background: var(--accent-soft); }
-
-/* ── "Get started" panel (first-steps.ts) ─────────────────────────────────────
-   Takes the daily challenge's slot at the top of Train until five lines are
-   saved. Deliberately LOUDER than the daily card it replaces — a full accent
-   wash, a 2px accent border and a progress bar — because someone who reaches
-   this screen with an empty repertoire has already missed one set of
-   instructions and shouldn't be able to miss these. */
-
-.first-steps {
-  display: flex;
-  flex-direction: column;
-  gap: 0.8rem;
-  padding: 0.9rem;
-  background: linear-gradient(135deg, var(--accent-soft), var(--bg-card) 85%);
-  border: 2px solid var(--accent);
-}
 
 .first-steps-head {
   display: flex;
@@ -7546,6 +7447,21 @@ html:has(> body > .edit-overlay) > body {
   background: color-mix(in srgb, var(--pt-tint, transparent) 5%, var(--bg-sheet));
 }
 
+/* Arrows over a mini board (the grow cards). Solid rather than the builder's
+   translucent brushes: at 10-units-per-square a translucent shaft over a piece
+   glyph is a smudge. */
+.mini-arrow {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  opacity: 0.9;
+}
+
+.mini-arrow-head {
+  fill: var(--accent);
+  opacity: 0.9;
+}
+
 /* ── Forgotten moves / lines ─────────────────────────────────────────────────
    Two blocks on Home, each a heading row and a horizontal strip of the cards.
 
@@ -7632,11 +7548,11 @@ html:has(> body > .edit-overlay) > body {
   .fmove-card { flex-basis: 300px; }
 }
 
-/* Inside a card this narrow the board takes a third of the width before the
-   name has had any, so it comes down from the .pcard-mini size it wears in the
-   full-width sheets. */
+/* The board is the point of these cards — it is what you recognise a position
+   by — so it takes more of the card than the sheets' .pcard-mini default. Capped
+   in vw as well, so it doesn't swallow the text on a narrow phone. */
 .fmove-card .stats-forgotten-mini {
-  width: 76px;
+  width: clamp(92px, 26vw, 112px);
 }
 
 .fmove-card .stats-sheet-text {
@@ -7763,9 +7679,14 @@ html:has(> body > .edit-overlay) > body {
 }
 
 /* ── Home ────────────────────────────────────────────────────────────────────
-   The daily-challenge card, then a dynamic overview of every section. Three
-   kinds of block: the four training tiles, whatever is waiting today, and one
-   row per section of the app. See home-screen.ts for what belongs here. */
+   The daily-challenge card, then four strips of boards: lines ready to grow,
+   the mistakes your last games left behind, the moves you keep missing, the
+   lines that keep slipping. The scan banner sits above all of it.
+
+   WHAT WAS HERE AND ISN'T: a "Train" grid repeating the four doors that are one
+   tap away in the tab bar, and a "Your app" list of every nav destination with
+   its count. Both were menus of the things Home is meant to show you the STATE
+   of. See home-screen.ts. */
 .home-body {
   display: flex;
   flex-direction: column;
@@ -7773,105 +7694,17 @@ html:has(> body > .edit-overlay) > body {
   padding: 0 var(--space-lg) var(--space-xl);
 }
 
-.home-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.home-section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  padding: 0;
-}
-
-.home-section-title {
-  margin: 0;
-  font-size: 0.74rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-faint);
-}
-
-.home-section-more {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.15rem;
-  padding: 0.2rem 0.1rem 0.2rem 0.4rem;
-  background: none;
-  border: 0;
-  font-size: 0.76rem;
-  font-weight: 600;
-  color: var(--primary);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-/* The four training entries — a 2×2 on a phone. Small on purpose: these are
-   signposts to Train, not a second set of doors. The figure is what earns them
-   the space. */
-.home-train-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-}
-
-.home-train-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.2rem;
-  padding: 0.65rem 0.7rem;
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  border-left: 3px solid var(--mode-accent, var(--border-card));
-  border-radius: 11px;
-  text-align: left;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: border-color 0.12s, box-shadow 0.12s, transform 0.08s;
-}
-
-.home-train-tile:hover {
-  border-color: var(--mode-accent, var(--primary));
-  box-shadow: var(--shadow-card);
-}
-
-.home-train-tile:active { transform: scale(0.98); }
-
-.home-train-icon {
-  display: inline-flex;
-  color: var(--mode-accent, var(--accent));
-}
-
-.home-train-name {
-  font-size: 0.86rem;
-  font-weight: 700;
-  font-family: system-ui, -apple-system, sans-serif;
-  color: var(--text);
-  line-height: 1.15;
-}
-
-.home-train-fig {
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--text-faint);
-  font-variant-numeric: tabular-nums;
-}
-
-/* "Reading your games" — present only while the background pass is running, and
-   it takes itself off screen when the pass ends. */
+/* "Reading your games — 24 to go". A notification: it arrives on its own, says
+   one thing, and takes itself off screen when the pass ends. */
 .home-scan {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.7rem 0.8rem;
+  margin: var(--space-sm) var(--space-lg) 0;
+  padding: 0.7rem 0.85rem;
   background: color-mix(in srgb, var(--accent) 10%, var(--bg-card));
   border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
-  border-radius: 11px;
+  border-radius: 12px;
 }
 
 .home-scan-icon {
@@ -7881,94 +7714,56 @@ html:has(> body > .edit-overlay) > body {
 }
 
 .home-scan-text {
+  flex: 1;
+  min-width: 0;
   font-size: 0.83rem;
   font-weight: 600;
   color: var(--text-muted);
 }
 
-/* One row per section of the app. */
-.home-rows {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.home-row {
-  display: flex;
+/* Three dots, thinking. The count only moves every few seconds, and a figure
+   that has not changed for four of them is indistinguishable from one that has
+   stopped — the animation is what says the app is still working. */
+.home-scan-dots {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 3px;
   align-items: center;
-  gap: 0.7rem;
-  width: 100%;
-  padding: 0.65rem 0.7rem;
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  border-radius: 11px;
-  text-align: left;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: border-color 0.12s, box-shadow 0.12s;
 }
 
-.home-row:hover {
-  border-color: var(--primary);
-  box-shadow: var(--shadow-card);
+.home-scan-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.3;
+  animation: home-scan-pulse 1.2s ease-in-out infinite;
 }
 
-.home-row-icon {
+.home-scan-dots i:nth-child(2) { animation-delay: 0.15s; }
+.home-scan-dots i:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes home-scan-pulse {
+  0%, 70%, 100% { opacity: 0.3; transform: scale(1); }
+  35% { opacity: 1; transform: scale(1.25); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-scan-dots i { animation: none; opacity: 0.6; }
+}
+
+/* The sprout at the end of a grow card — the one card in these strips whose
+   figure is not a number, because "how ready" isn't one. */
+.home-grow-go {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: var(--fill-faint);
-  color: var(--text-muted);
-}
-
-.home-row-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.05rem;
-  min-width: 0;
-  flex: 1;
-}
-
-.home-row-name {
-  font-size: 0.92rem;
-  font-weight: 700;
-  font-family: system-ui, -apple-system, sans-serif;
-  color: var(--text);
-}
-
-/* Clipped rather than wrapped, so every row is the same height and the list
-   scans as a column. */
-.home-row-sub {
-  font-size: 0.74rem;
-  color: var(--text-faint);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.home-row-chev {
-  display: inline-flex;
-  flex-shrink: 0;
-  color: var(--text-fainter);
-}
-
-/* A `.section` card carries its own side and top margin, for screens whose
-   parent isn't padded. Inside .home-body — which is padded — that stacks up and
-   the card sits a full inset further in than the label above it. Forgotten
-   moves hit this and has since dropped its box entirely, but the rule stays for
-   the next block that arrives from a screen with different habits. Written as a
-   descendant selector because these blocks arrive wrapped in a host div. */
-.home-section .section {
-  margin-inline: 0;
-  margin-top: 0;
-}
-
-@media (min-width: 700px) {
-  .home-train-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--success) 16%, transparent);
+  color: var(--success);
 }
 
 @media (min-width: 960px) {

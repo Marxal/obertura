@@ -43,7 +43,7 @@ import {
 import { handlePurchaseReturn } from './checkout';
 import { primePricing } from './pricing';
 import { renderTrainScreen, startLineSession, startPositionsSession, startMoveFix } from './train-screen';
-import { renderHomeBody } from './home-screen';
+import { renderHomeBody, buildScanBanner } from './home-screen';
 import { planRepertoireRun } from './repertoire-run';
 import { getPuzzleRating } from './puzzle-rating';
 import { renderExploreScreen } from './explore-screen';
@@ -71,12 +71,11 @@ import {
   type DailyConfig,
 } from './daily-challenge';
 import {
-  growCandidates, pickGrowSpots, firstGrowTarget, growGameIndex, growScoutIndex,
+  growCandidates, pickGrowSpots, growTargets, growGameIndex, growScoutIndex,
   type GrowSources, type GrowSpot, type GrowTarget,
 } from './grow-line';
 import { growDueMap, restGrowLine, GROW_SKIP_DAYS, GROW_GROWN_DAYS } from './grow-log';
 import { createGrowPanel, type GrowPanel } from './grow-panel';
-import { createGrowNotice } from './grow-notice';
 import { buildBook, bookNodeAt, loadBookEntries } from './book-tree';
 import { buildRecap, getDailyLog, localDayKey, markDayComplete, type TaskOutcome } from './daily-recap';
 import { showRecapForDay } from './daily-review';
@@ -3249,6 +3248,10 @@ const DESKTOP_NAV_BREAKPOINT = 960;
 // device to themselves first — nothing here is urgent, and the whole point is
 // that nobody is waiting for it.
 const AUTO_SCAN_DELAY_MS = 8000;
+
+// How many grow offers Home's strip holds. The search is ordered, so this is
+// also how far down the ranking it looks before giving up.
+const HOME_GROW_MAX = 5;
 const desktopNavQuery = window.matchMedia(`(min-width: ${DESKTOP_NAV_BREAKPOINT}px)`);
 
 // The tab to return to when the back arrow exits a full screen. Builder is
@@ -4511,6 +4514,12 @@ function renderTrainRoom(host: HTMLElement): void {
 function renderHome(host: HTMLElement): void {
   host.innerHTML = '';
 
+  // The scan banner is the FIRST thing on Home, above the daily card: it is a
+  // notification about the app working, and a notification that arrives below
+  // the day's task list is a notification nobody reads.
+  const banner = buildScanBanner();
+  if (banner) host.appendChild(banner);
+
   const dailyHost = document.createElement('div');
   dailyHost.className = 'daily-host';
   const body = document.createElement('div');
@@ -4791,27 +4800,34 @@ function renderHome(host: HTMLElement): void {
 async function renderHomeData(body: HTMLElement): Promise<void> {
   let lines: Line[];
   let games: ImportedGame[];
-  let books: Repertoire[];
   try {
-    [lines, games, books] = await Promise.all([
-      getAllLines(), getAllGames(), getAllRepertoires(),
-    ]);
+    [lines, games] = await Promise.all([getAllLines(), getAllGames()]);
   } catch {
     body.replaceChildren();
     return;
   }
-  const plan = planRepertoireRun(books);
-  const counts = countRetry(games);
+  // The grow search reads the bundled opening book, the scouted opponents and
+  // every game — heavy enough that it is awaited after the rest rather than
+  // alongside it, and failed softly: no offers is a fine Home, an error is not.
+  let grow: GrowTarget[] = [];
+  try {
+    grow = await computeGrowTargets(lines, HOME_GROW_MAX);
+  } catch { /* no offers */ }
+
   renderHomeBody(body, {
     lines,
-    games: [...games].sort((a, b) => (b.endTime ?? 0) - (a.endTime ?? 0)),
-    dueMoves: plan?.dueMoves ?? 0,
-    dueLines: dueLines(lines.filter(l => l.inTraining)).length,
-    spotsToFix: Math.max(0, counts.spots - counts.fixed),
-    puzzleRating: getPuzzleRating(),
-    endgameRating: getPuzzleRating('endgame'),
+    games,
+    grow,
+    // Newest game first, so "from your last games" means what it says.
+    spots: collectSpots([...games].sort((a, b) => (b.endTime ?? 0) - (a.endTime ?? 0))),
   }, {
-    onOpenView: (v) => showView(v),
+    onGrow: (target) => openGrowLine(target),
+    onFixSpots: (refs) => startMistakeSession({
+      refs,
+      contextLabel: 'From your games',
+      onExit: () => showView('home'),
+      onOpenGame: openGameFromSession,
+    }),
     onFixMove: (m, ls) => startMoveFix(
       { preFen: m.preFen, san: m.san, colour: m.colour, count: m.lapses },
       ls,
@@ -4819,7 +4835,6 @@ async function renderHomeData(body: HTMLElement): Promise<void> {
     ),
     onDrillLine: (line) => onTrainLine(line.id, true),
     onOpenLine: (line) => onOpenLine(line),
-    onOpenGame: (g) => openGameForAnalysis(g),
     onRefresh: () => showView('home'),
   });
 }
@@ -4958,10 +4973,6 @@ function showView(view: ViewName): void {
     renderSettingsScreen(settingsEl);
   }
 
-  // The grow-a-line notice lives in a host shared by all views (see index.html)
-  // rather than inside any one screen's render — it repaints itself here on
-  // every navigation, and clears on any screen that isn't Train/My Lines/Explore.
-  void renderGrowNotice();
 
   if (view === 'builder') {
     // Land on the first tab by default (Explore in the builder, Game in the
@@ -5030,25 +5041,30 @@ function showView(view: ViewName): void {
 /** The node the exercise is standing at, so "back to the end" has somewhere to go. */
 let growEndNodeId: string | null = null;
 /**
- * Which of the three grow-eligible screens the notice was tapped from, so
- * finishing or skipping the exercise returns there rather than always to Train.
+ * Where the grow offer was tapped from, so finishing or skipping returns there.
+ *
+ * It is Home in practice — the offer is a strip there now rather than a notice
+ * floating over three screens — but the builder's own Grow tab can be reached
+ * from Train too, and landing somewhere you did not come from is worse than one
+ * extra branch.
  */
-let growReturnView: ViewName = 'train';
+let growReturnView: ViewName = 'home';
 
 /**
- * Today's line to grow, if any — the same ranking grow-line.ts has always used.
+ * The lines ready to grow, best first — the same ranking grow-line.ts has always
+ * used, just more than one of them now that Home shows a strip.
  * Read fresh on every call rather than cached: `loadBookEntries` memoises the
  * 1.7 MB opening-book dataset itself, so only the first call in a session pays
  * for it, and `getAllGames`/`getAllOpponents` are ordinary local reads — the
  * same cost every other screen in the app already pays on each visit.
  */
-async function computeGrowTarget(lines: Line[]): Promise<GrowTarget | null> {
+async function computeGrowTargets(lines: Line[], max: number): Promise<GrowTarget[]> {
   // Ordered, not trimmed: the first candidate may be a position none of the
   // sources knows anything about — and the answer to that is the next
   // candidate, not an empty offer.
   const candidates = growCandidates(lines);
   const spots = pickGrowSpots(candidates, candidates.length, growAt());
-  if (spots.length === 0) return null;
+  if (spots.length === 0) return [];
 
   const colour = spots[0].line.colour;
   const [games, opponents, entries] = await Promise.all([
@@ -5068,7 +5084,7 @@ async function computeGrowTarget(lines: Line[]): Promise<GrowTarget | null> {
     book: bookReplies(book, spot),
   });
 
-  return firstGrowTarget(spots.filter(s => s.line.colour === colour), sources);
+  return growTargets(spots.filter(s => s.line.colour === colour), sources, max);
 }
 
 /** SAN → how many named openings continue that way, at this spot. */
@@ -5093,7 +5109,7 @@ function openGrowLine(target: GrowTarget): void {
   if (!parsed) return;
 
   growReturnView = currentView === 'home' || currentView === 'train' || currentView === 'explore'
-    ? currentView : 'train';
+    ? currentView : 'home';
   growEndNodeId = parsed.endNodeId;
   // Before showView: the tab strip is built from whether a target is set.
   growPanel?.setTarget(target);
@@ -5107,40 +5123,6 @@ function openGrowLine(target: GrowTarget): void {
   pendingBuilderSlide = 'grow';
   showView('builder');
   void enterBuilderBook(line.colour, () => handleMoveClick(parsed.endNodeId), parsed.repertoireId);
-}
-
-/**
- * The notice, rebuilt in the shared host above Train/My Lines/Explore — see the
- * hook at the end of showView. Empties the host on every other screen and
- * whenever there is nothing ready to offer.
- */
-let growNoticeRenderId = 0;
-async function renderGrowNotice(): Promise<void> {
-  const host = document.getElementById('grow-notice-host');
-  if (!host) return;
-  const myId = ++growNoticeRenderId;
-  const eligible = (): boolean =>
-    currentView === 'home' || currentView === 'train'
-    || currentView === 'explore';
-  if (!eligible()) { host.replaceChildren(); return; }
-
-  let target: GrowTarget | null = null;
-  try {
-    target = await computeGrowTarget(await getAllLines());
-  } catch {
-    target = null;
-  }
-  // Superseded by a newer render — a fast tab switch, or the screen moved on
-  // while the book/games were loading. The newer call owns the host now.
-  if (myId !== growNoticeRenderId) return;
-  host.replaceChildren();
-  if (!eligible() || !target) return;
-  const t = target;
-  host.appendChild(createGrowNotice({
-    target: t,
-    onOpen: () => openGrowLine(t),
-    onDismiss: () => { void renderGrowNotice(); },
-  }));
 }
 
 /**

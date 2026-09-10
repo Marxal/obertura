@@ -54,7 +54,16 @@ function rect(x: number, y: number, cls: string): SVGRectElement {
 
 // Build the miniature for a position, oriented from the given side (Black lines
 // show from Black's side, so a black miniature is flipped).
-export function buildMiniBoard(fen: string, orientation: 'white' | 'black'): SVGSVGElement {
+//
+// `arrows` draws UCI moves over the finished board — used by the grow cards,
+// where the whole point is "here are the replies you'd be preparing for" and a
+// list of move names underneath would be a list to read rather than a board to
+// look at. Drawn last so they sit above the pieces.
+export function buildMiniBoard(
+  fen: string,
+  orientation: 'white' | 'black',
+  opts: { arrows?: string[] } = {},
+): SVGSVGElement {
   const grid = parsePlacement(fen);
 
   const svg = document.createElementNS(SVG_NS, 'svg');
@@ -99,5 +108,65 @@ export function buildMiniBoard(fen: string, orientation: 'white' | 'black'): SVG
     }
   }
 
+  for (const uci of opts.arrows ?? []) appendArrow(svg, uci, orientation);
+
   return svg;
+}
+
+// Where a square's centre sits in viewBox units, honouring orientation.
+function centreOf(square: string, orientation: 'white' | 'black'): { x: number; y: number } | null {
+  const file = square.charCodeAt(0) - 97; // a→0
+  const rank = Number(square[1]);
+  if (!(file >= 0 && file <= 7) || !(rank >= 1 && rank <= 8)) return null;
+  // Board cell: row 0 is rank 8, col 0 is the a-file — the same frame
+  // parsePlacement produces.
+  const r = 8 - rank;
+  const c = file;
+  const dr = orientation === 'white' ? r : 7 - r;
+  const dc = orientation === 'white' ? c : 7 - c;
+  return { x: dc * S + S / 2, y: dr * S + S / 2 };
+}
+
+// One move, as a line with a head. Deliberately plain geometry rather than a
+// marker element: markers need a <defs> id, and ids have to be unique across a
+// document that can hold fifty of these at once.
+function appendArrow(svg: SVGSVGElement, uci: string, orientation: 'white' | 'black'): void {
+  const from = centreOf(uci.slice(0, 2), orientation);
+  const to = centreOf(uci.slice(2, 4), orientation);
+  if (!from || !to) return;
+
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const len = Math.hypot(dx, dy);
+  if (len === 0) return;
+  const ux = dx / len;
+  const uy = dy / len;
+
+  const head = 3.4;
+  // Stop the shaft short of the head so the two don't overlap into a blob, and
+  // start it clear of the origin square's own piece.
+  const sx = from.x + ux * 2.2;
+  const sy = from.y + uy * 2.2;
+  const ex = to.x - ux * head;
+  const ey = to.y - uy * head;
+
+  const shaft = document.createElementNS(SVG_NS, 'line');
+  shaft.setAttribute('x1', String(sx));
+  shaft.setAttribute('y1', String(sy));
+  shaft.setAttribute('x2', String(ex));
+  shaft.setAttribute('y2', String(ey));
+  shaft.setAttribute('class', 'mini-arrow');
+  svg.appendChild(shaft);
+
+  const px = -uy;
+  const py = ux;
+  const w = 2.1;
+  const tip = document.createElementNS(SVG_NS, 'polygon');
+  tip.setAttribute('points', [
+    `${to.x},${to.y}`,
+    `${ex + px * w},${ey + py * w}`,
+    `${ex - px * w},${ey - py * w}`,
+  ].join(' '));
+  tip.setAttribute('class', 'mini-arrow-head');
+  svg.appendChild(tip);
 }

@@ -323,6 +323,30 @@ export interface GrowTarget {
  * `bookAt` lookup is a callback because the bundled book is a lazily-imported
  * 1.7 MB dataset: it is consulted per candidate, not loaded per render.
  */
+/**
+ * As many targets as asked for, in ranking order.
+ *
+ * Home shows these as a strip rather than one notification, so it needs more
+ * than the first: `firstGrowTarget` is this with `max: 1`, kept because a good
+ * few callers only ever wanted today's one.
+ */
+export function growTargets(
+  spots: GrowSpot[],
+  sources: (spot: GrowSpot) => GrowSources,
+  max: number,
+  limit: number = GROW_PICKS,
+): GrowTarget[] {
+  const out: GrowTarget[] = [];
+  for (const spot of spots) {
+    if (out.length >= max) break;
+    const moves = growMoves(spot, sources(spot), limit);
+    // A line whose end position none of the three sources knows anything about
+    // is SKIPPED rather than shown empty — see firstGrowTarget.
+    if (moves.length > 0) out.push({ spot, moves });
+  }
+  return out;
+}
+
 export function firstGrowTarget(
   spots: GrowSpot[],
   sources: (spot: GrowSpot) => GrowSources,

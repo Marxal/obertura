@@ -9,7 +9,7 @@
 // nothing behind them, and without a memory each would simply offer the same
 // line again next time, which is the one thing they promise not to do:
 //
-//   - swiping the notification away (grow-notice.ts) — "not now", without even
+//   - dismissing the offer on Home — "not now", without even
 //     opening the builder — rests the longest, because it is the vaguest signal.
 //   - "Skip for today", the quiet link inside the builder's Grow tab
 //     (grow-panel.ts) once you've actually looked at the line — a shorter rest,

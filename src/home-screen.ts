@@ -6,11 +6,18 @@
 // user opens first, so what it shows has to be true TODAY — a figure that never
 // moves belongs in the section it describes, not here.
 //
-// WHAT IT IS NOT. Not a second Train menu. The four training entries here are
-// one compact row that carries each domain's live figure and lands you on Train;
-// Train is where the doors and the boxes are. The rule that keeps the two apart:
-// **Home has one card per section of the app, Train has one door per kind of
-// training.** If Home ever starts listing exercises, it has become Train.
+// EVERYTHING HERE IS A STRIP OF BOARDS. Four of them, in the order the answers
+// are useful: lines ready to grow, the mistakes your last games left behind, the
+// moves you keep missing, the lines that keep slipping. Each is a horizontal
+// swipe of the same card — a board, a line of text, a figure — because a board
+// you can point at is the only summary of a chess position worth putting on an
+// overview, and stacking four blocks of five cards would be six phone screens.
+//
+// WHAT WAS HERE AND ISN'T. A "Train" section repeating the four doors that are
+// one tap away in the tab bar, and a "Your app" list of every nav destination
+// with its count — both of them a menu of things Home is supposed to be showing
+// you the state of. Home tells you what is waiting; the tab bar is how you get
+// anywhere.
 //
 // The daily-challenge card is NOT built here — it lives in main.ts, because its
 // eight launchers reach into every exercise in the app and the `liveDaily`
@@ -20,15 +27,26 @@
 import type { Line } from './types';
 import type { ImportedGame } from './import-core';
 import { Icons } from './icons';
-import { DOMAIN_ACCENT } from './train-doors';
-import { renderForgottenSection } from './forgotten-section';
-import { formatGameDate } from './my-games-screen';
-import { currentStreak } from './streak';
+import { buildMiniBoard } from './board-mini';
+import { getShowLineMiniatures } from './prefs';
+import { colourPip } from './card-position';
+import { formatMove } from './notation';
+import { renderForgottenSection, buildStrip, buildStripBlock } from './forgotten-section';
 import { autoScanState, onAutoScanChange, type AutoScanState } from './mistake-autoscan';
+import type { GrowTarget } from './grow-line';
+import type { SpotRef } from './mistake-scan';
+import { CATEGORY_LABEL } from './mistake-run';
+
+// How many cards each strip previews. Five is what the forgotten strips have
+// always shown, and a strip is a swipe rather than a list — past five nobody is
+// swiping, they are looking for a screen.
+const PREVIEW = 5;
 
 export interface HomeDeps {
-  /** Land on one of the tabs. */
-  onOpenView: (view: 'train' | 'explore' | 'games' | 'progress') => void;
+  /** Open the builder on this line's Grow tab. */
+  onGrow: (target: GrowTarget) => void;
+  /** Drill these mistake spots. */
+  onFixSpots: (refs: SpotRef[]) => void;
   /** A forgotten move: three reps of it, then the whole line. */
   onFixMove: (
     move: { preFen: string; san: string; colour: 'white' | 'black'; lapses: number },
@@ -38,8 +56,6 @@ export interface HomeDeps {
   onDrillLine: (line: Line) => void;
   /** Open a line in the builder. */
   onOpenLine: (line: Line) => void;
-  /** Open a game in the analyser. */
-  onOpenGame: (game: ImportedGame) => void;
   /** Repaint Home — used after anything here changes the numbers. */
   onRefresh: () => void;
 }
@@ -47,34 +63,24 @@ export interface HomeDeps {
 export interface HomeData {
   lines: Line[];
   games: ImportedGame[];
-  /** Moves due through the repertoire run — the Openings door's figure. */
-  dueMoves: number;
-  /** Lines due, counted the other way. */
-  dueLines: number;
-  /** Mistake spots found but not yet fixed — the Middlegame door's figure. */
-  spotsToFix: number;
-  puzzleRating: number;
-  endgameRating: number;
+  /** Lines ready to be extended, best first. */
+  grow: GrowTarget[];
+  /** Mistake spots from your games, newest first. */
+  spots: SpotRef[];
 }
 
-/**
- * Draw everything below the daily card. Called on every Home paint; the
- * autoscan strip subscribes and unsubscribes with it.
- */
+/** Draw everything below the daily card. */
 export function renderHomeBody(host: HTMLElement, data: HomeData, deps: HomeDeps): void {
   host.replaceChildren();
 
-  host.appendChild(buildTrainRow(data, deps));
+  const grow = buildGrowBlock(data, deps);
+  if (grow) host.appendChild(grow);
 
-  // The scan banner needs no heading — it is one sentence that says what it is,
-  // and it is only here at all while the pass is running.
-  const scan = buildScanStrip();
-  if (scan) host.appendChild(scan);
+  const mistakes = buildMistakesBlock(data, deps);
+  if (mistakes) host.appendChild(mistakes);
 
-  // Forgotten moves and forgotten lines, each its own titled block with its own
-  // count. They used to be one boxed card behind a Moves/Lines toggle, which
-  // framed them twice over and kept half of the answer hidden; they arrive here
-  // already shaped as Home sections (forgotten-section.ts).
+  // Forgotten moves and forgotten lines arrive already shaped as blocks of the
+  // same kind (forgotten-section.ts owns those cards and the sheets behind them).
   renderForgottenSection(host, data.lines, {
     onFixMove: (m, lines) => deps.onFixMove(
       { preFen: m.preFen, san: m.san, colour: m.colour, lapses: m.lapses }, lines),
@@ -82,82 +88,29 @@ export function renderHomeBody(host: HTMLElement, data: HomeData, deps: HomeDeps
     onOpenLine: (line) => deps.onOpenLine(line),
     onStartTraining: () => deps.onRefresh(),
   });
-
-  host.appendChild(buildSections(data, deps));
 }
 
-// ── The four training entries ────────────────────────────────────────────────
-
-// WHY THESE LAND ON TRAIN RATHER THAN STARTING A SESSION. Each domain's
-// flagship is launched from inside that domain's own screen, with that screen's
-// data in hand — the mix needs the scanned spots, the repertoire run needs the
-// books. Reaching those from here would mean four more modules loaded on every
-// Home paint to save one tap. The daily card above is the one-tap route, and it
-// deals from all four.
-function buildTrainRow(data: HomeData, deps: HomeDeps): HTMLElement {
-  const section = buildSection('Train', () => deps.onOpenView('train'));
-
-  const grid = document.createElement('div');
-  grid.className = 'home-train-grid';
-
-  const tile = (
-    domain: keyof typeof DOMAIN_ACCENT,
-    icon: SVGElement,
-    name: string,
-    stat: number,
-    statLabel: string,
-  ): HTMLElement => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'home-train-tile';
-    btn.style.setProperty('--mode-accent', DOMAIN_ACCENT[domain]);
-
-    const ic = document.createElement('span');
-    ic.className = 'home-train-icon';
-    ic.appendChild(icon);
-    btn.appendChild(ic);
-
-    const label = document.createElement('span');
-    label.className = 'home-train-name';
-    label.textContent = name;
-    btn.appendChild(label);
-
-    const fig = document.createElement('span');
-    fig.className = 'home-train-fig';
-    // A zero is not worth printing at this size — it reads as a broken figure
-    // rather than as "nothing to do". The label alone says what the tile is.
-    fig.textContent = stat > 0 ? `${stat} ${statLabel}` : statLabel;
-    btn.appendChild(fig);
-
-    btn.addEventListener('click', () => deps.onOpenView('train'));
-    return btn;
-  };
-
-  grid.append(
-    tile('openings', Icons.pawn(20), 'Openings', data.dueMoves, 'due'),
-    tile('middlegame', Icons.swords(20), 'Middlegame', data.spotsToFix, 'to fix'),
-    tile('tactics', Icons.puzzlePiece(20), 'Tactics', data.puzzleRating, 'rating'),
-    tile('endgames', Icons.flag(20), 'Endgames', data.endgameRating, 'rating'),
-  );
-  section.appendChild(grid);
-  return section;
-}
+// ── "Reading your games" ─────────────────────────────────────────────────────
 
 /**
- * "Your games are being read", while the background pass is actually running.
+ * The scan banner, at the very top of Home and above the daily card.
  *
- * This is the whole of what the Middlegame pane's scan hero left behind. Train
- * has no Analyse button any more — the scan runs itself from boot — so the one
- * thing a user still needs is to be told, once, that the empty exercises are
- * filling up rather than broken. It subscribes for as long as it is on screen
- * and takes itself down when the pass finishes.
+ * IT IS A NOTIFICATION, and it reads like one: it appears on its own, says one
+ * thing, and leaves when it is done. Train has no Analyse button any more — the
+ * scan runs itself from boot — so the one thing a user needs is to be told that
+ * the empty exercises are filling up rather than broken.
+ *
+ * The dots animate because a number that only moves every few seconds is
+ * indistinguishable from a number that has stopped. Exported so main.ts can put
+ * it above the daily card rather than in the body.
  */
-function buildScanStrip(): HTMLElement | null {
+export function buildScanBanner(): HTMLElement | null {
   const initial = autoScanState();
   if (!initial.running) return null;
 
   const strip = document.createElement('div');
   strip.className = 'home-scan';
+  strip.setAttribute('role', 'status');
 
   const icon = document.createElement('span');
   icon.className = 'home-scan-icon';
@@ -168,109 +121,166 @@ function buildScanStrip(): HTMLElement | null {
   text.className = 'home-scan-text';
   strip.appendChild(text);
 
+  const dots = document.createElement('span');
+  dots.className = 'home-scan-dots';
+  dots.setAttribute('aria-hidden', 'true');
+  for (let i = 0; i < 3; i++) dots.appendChild(document.createElement('i'));
+  strip.appendChild(dots);
+
   const paint = (st: AutoScanState): void => {
     if (!st.running) { strip.remove(); stop(); return; }
     const left = Math.max(0, st.total - st.done);
     text.textContent = left > 0
       ? `Reading your games — ${left} to go`
-      : 'Reading your games…';
+      : 'Reading your games';
   };
   const stop = onAutoScanChange(paint);
   paint(initial);
   return strip;
 }
 
-// ── One row per section of the app ───────────────────────────────────────────
+// ── Grow your lines ──────────────────────────────────────────────────────────
 
-function buildSections(data: HomeData, deps: HomeDeps): HTMLElement {
-  const section = buildSection('Your app');
-
-  const list = document.createElement('div');
-  list.className = 'home-rows';
-
-  const inTraining = data.lines.filter(l => l.inTraining).length;
-  list.appendChild(buildRow(
-    Icons.pawn(20), 'Openings',
-    data.lines.length === 0
-      ? 'build your first line, or add one from a pack'
-      : `${data.lines.length} saved · ${inTraining} in training`,
-    () => deps.onOpenView('explore'),
-  ));
-
-  const last = data.games[0];
-  list.appendChild(buildRow(
-    Icons.build(20), 'My games',
-    data.games.length === 0
-      ? 'import your games to unlock half the app'
-      : last
-        ? `${data.games.length} games · last vs ${last.opponent || 'unknown'}${
-          formatGameDate(last.endTime) ? ` · ${formatGameDate(last.endTime)}` : ''}`
-        : `${data.games.length} games`,
-    () => deps.onOpenView('games'),
-  ));
-
-  const streak = currentStreak();
-  list.appendChild(buildRow(
-    Icons.barChart(20), 'Statistics',
-    streak > 0 ? `${streak}-day streak` : 'your numbers start with your first session',
-    () => deps.onOpenView('progress'),
-  ));
-
-  section.appendChild(list);
-  return section;
+/**
+ * The lines you have mastered, with the replies you would be preparing for
+ * drawn on the board.
+ *
+ * IT USED TO BE A NOTIFICATION — one card, one line, pinned above three screens
+ * and swipeable away. That shape said "here is a thing to dismiss"; a strip of
+ * boards says "here are three positions you know well enough to extend", which
+ * is the actual offer. The arrows are the whole card: they are what you would be
+ * answering, and naming three moves in text is a list to read rather than a
+ * position to look at.
+ */
+function buildGrowBlock(data: HomeData, deps: HomeDeps): HTMLElement | null {
+  if (data.grow.length === 0) return null;
+  return buildStripBlock(
+    'Ready to grow',
+    `${data.grow.length} ${data.grow.length === 1 ? 'line' : 'lines'}`,
+    buildStrip(data.grow.slice(0, PREVIEW).map(t => growCard(t, deps)), null),
+  );
 }
 
-// ── Shared chrome ────────────────────────────────────────────────────────────
+function growCard(target: GrowTarget, deps: HomeDeps): HTMLElement {
+  const card = document.createElement('button');
+  card.type = 'button';
+  card.className = 'stats-sheet-card stats-forgotten-row';
 
-function buildSection(title: string, onOpen?: () => void): HTMLElement {
-  const section = document.createElement('section');
-  section.className = 'home-section';
-
-  const head = document.createElement('div');
-  head.className = 'home-section-head';
-  const label = document.createElement('h2');
-  label.className = 'home-section-title';
-  label.textContent = title;
-  head.appendChild(label);
-  if (onOpen) {
-    const more = document.createElement('button');
-    more.type = 'button';
-    more.className = 'home-section-more';
-    more.textContent = 'Open';
-    more.appendChild(Icons.chevronRight(15));
-    more.addEventListener('click', onOpen);
-    head.appendChild(more);
+  const colour = target.spot.line.colour;
+  if (getShowLineMiniatures()) {
+    const mini = document.createElement('span');
+    mini.className = 'stats-forgotten-mini';
+    mini.appendChild(buildMiniBoard(target.spot.fen, colour, {
+      arrows: target.moves.map(m => m.uci),
+    }));
+    card.appendChild(mini);
   }
-  section.appendChild(head);
-  return section;
-}
-
-function buildRow(icon: SVGElement, name: string, sub: string, onClick: () => void): HTMLElement {
-  const row = document.createElement('button');
-  row.type = 'button';
-  row.className = 'home-row';
-
-  const ic = document.createElement('span');
-  ic.className = 'home-row-icon';
-  ic.appendChild(icon);
-  row.appendChild(ic);
 
   const text = document.createElement('span');
-  text.className = 'home-row-text';
+  text.className = 'stats-sheet-text';
+
+  const name = document.createElement('span');
+  name.className = 'stats-sheet-name';
+  name.appendChild(colourPip(colour));
   const label = document.createElement('span');
-  label.className = 'home-row-name';
-  label.textContent = name;
-  const desc = document.createElement('span');
-  desc.className = 'home-row-sub';
-  desc.textContent = sub;
-  text.append(label, desc);
-  row.appendChild(text);
+  label.className = 'stats-sheet-name-text';
+  label.textContent = target.spot.line.name;
+  name.appendChild(label);
+  text.appendChild(name);
 
-  const chev = document.createElement('span');
-  chev.className = 'home-row-chev';
-  chev.appendChild(Icons.chevronRight(16));
-  row.appendChild(chev);
+  const meta = document.createElement('span');
+  meta.className = 'stats-sheet-meta';
+  // Short and concrete. "You're mastering this line — prepare a reply and make
+  // it grow" is the idea; on a card this size the idea has to fit two lines, and
+  // the number is what makes it an offer rather than an encouragement.
+  meta.textContent = target.moves.length === 1
+    ? 'Mastered — answer the reply they play'
+    : `Mastered — answer one of ${target.moves.length} replies they play`;
+  text.appendChild(meta);
+  card.appendChild(text);
 
-  row.addEventListener('click', onClick);
-  return row;
+  const go = document.createElement('span');
+  go.className = 'home-grow-go';
+  go.appendChild(Icons.sprout(20));
+  card.appendChild(go);
+
+  card.addEventListener('click', () => deps.onGrow(target));
+  return card;
+}
+
+// ── From your last games ─────────────────────────────────────────────────────
+
+/**
+ * The mistakes the scan found, newest first, each on its own board.
+ *
+ * This is the carousel that used to sit under the Middle game pane. It came off
+ * Train when that box was cut to seven exercise cards and nothing else, because
+ * it is a thing you LOOK at rather than a thing you start — which is what Home
+ * is for. Tapping one drills it, so it is still a way in.
+ */
+function buildMistakesBlock(data: HomeData, deps: HomeDeps): HTMLElement | null {
+  const unfixed = data.spots.filter(r => !r.spot.fixed);
+  if (unfixed.length === 0) return null;
+  return buildStripBlock(
+    'From your last games',
+    `${unfixed.length} to fix`,
+    buildStrip(
+      unfixed.slice(0, PREVIEW).map(r => spotCard(r, deps)),
+      unfixed.length > PREVIEW ? seeAllSpots(unfixed, deps) : null,
+    ),
+  );
+}
+
+function spotCard(ref: SpotRef, deps: HomeDeps): HTMLElement {
+  const card = document.createElement('button');
+  card.type = 'button';
+  card.className = 'stats-sheet-card stats-forgotten-row';
+
+  const { spot, game } = ref;
+  if (getShowLineMiniatures()) {
+    const mini = document.createElement('span');
+    mini.className = 'stats-forgotten-mini';
+    // The position BEFORE the mistake, with the move you actually played drawn
+    // on it — the question, not the answer.
+    mini.appendChild(buildMiniBoard(spot.preFen, game.colour, { arrows: [spot.playedUci] }));
+    card.appendChild(mini);
+  }
+
+  const text = document.createElement('span');
+  text.className = 'stats-sheet-text';
+
+  const name = document.createElement('span');
+  name.className = 'stats-sheet-name';
+  name.appendChild(colourPip(game.colour));
+  const label = document.createElement('span');
+  label.className = 'stats-sheet-name-text';
+  label.textContent = formatMove(spot.playedSan);
+  name.appendChild(label);
+  text.appendChild(name);
+
+  const meta = document.createElement('span');
+  meta.className = 'stats-sheet-meta';
+  meta.textContent = `${CATEGORY_LABEL[spot.category]} · vs ${game.opponent || 'unknown'}`;
+  text.appendChild(meta);
+  card.appendChild(text);
+
+  // How much the move actually cost, in pawns — the one figure that says why
+  // this position is on the card rather than one of the other forty.
+  const lost = Math.max(0, (spot.evalBefore - spot.evalAfter) / 100);
+  const badge = document.createElement('span');
+  badge.className = 'stats-miss-count';
+  badge.textContent = lost >= 0.1 ? `−${lost.toFixed(1)}` : '';
+  card.appendChild(badge);
+
+  card.addEventListener('click', () => deps.onFixSpots([ref]));
+  return card;
+}
+
+function seeAllSpots(refs: SpotRef[], deps: HomeDeps): HTMLElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'stats-see-all';
+  btn.textContent = `Fix all ${refs.length} →`;
+  btn.addEventListener('click', () => deps.onFixSpots(refs.slice(0, 10)));
+  return btn;
 }

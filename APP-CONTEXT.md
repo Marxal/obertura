@@ -446,36 +446,49 @@ owns the card itself and the host it sits in.
 Home answers "what is going on". Every other screen answers one question — what
 shall I train, what is in my book, how am I doing — and Home is the only screen
 that mentions all of them. **The rule that keeps it from becoming a second Train
-menu: Home has one card per section of the app, Train has one door per kind of
-training.** If Home ever starts listing exercises, it has become Train.
+menu: Home shows the STATE of things, the tab bar is how you get anywhere.** If
+Home ever starts listing exercises or destinations, it has become Train.
 
-Three blocks, in order:
+**Everything on it is a strip of boards.** Four, in the order the answers are
+useful, each a horizontal swipe of the same card (board · line of text · figure):
 
-1. **Train** — the four domains as a 2×2 of small tiles carrying their live
-   figures (moves due, spots to fix, both ratings). They **navigate to Train**
-   rather than starting a session: each flagship is launched from inside its own
-   screen with that screen's data in hand, and reaching those from here would
-   mean loading four more modules on every Home paint to save one tap. The daily
-   card above is the one-tap route, and it deals from all four.
-2. **"Reading your games"** — a one-line banner, only while the background pass
-   is actually running (it subscribes and takes itself down when the pass ends).
-   No heading: it is one sentence that says what it is.
-3. **Forgotten moves** and **Forgotten lines** — two titled blocks, each a
-   **horizontal card strip**. They were one boxed card behind a Moves/Lines
-   toggle, which framed already-framed content, pushed the cards in by the box's
-   own padding so they lined up with nothing else, and kept half the answer
-   hidden. Stacked and unboxed, both counts are visible and the cards sit at the
-   page inset. Five of those cards is a board and four lines of text apiece —
-   two phone screens on a page whose job is to show you the whole app — so laid
-   across it costs one card's height and still shows the worst offender in full.
-   "See all" is the last slide. A block with nothing in it isn't built.
-4. **Your app** — one row per section with its live figure: Openings (saved and
-   in-training counts), My games (count plus the last opponent and date),
-   Statistics (the streak).
+| Strip | What it holds |
+|---|---|
+| **Ready to grow** | lines you have mastered, with the replies you'd be preparing for **drawn as arrows on the board** |
+| **From your last games** | the mistake spots the scan found, newest first, the played move on the board and what it cost |
+| **Forgotten moves** | the moves you keep missing |
+| **Forgotten lines** | the lines that keep slipping |
 
-The Get-started checklist and the grow-a-line notice both surface here too — the
-checklist rides with the daily card, and `#grow-notice-host` gained `home` in
-its eligible-views list.
+A board you can point at is the only summary of a chess position worth putting
+on an overview, and four stacked blocks of five cards would be six phone
+screens. `forgotten-section.ts` exports `buildStrip` / `buildStripBlock` so all
+four share one chrome. A strip with nothing in it isn't built.
+
+Above the daily card sits the **scan banner** — "Reading your games — 24 to go",
+with three pulsing dots. Train has no Analyse button any more (the scan runs
+from boot), so the one thing a user needs is to be told that the empty exercises
+are filling up rather than broken. The dots animate because a count that only
+moves every few seconds is indistinguishable from one that has stopped. It
+subscribes to `onAutoScanChange` and takes itself off screen when the pass ends.
+
+The Get-started checklist rides with the daily card.
+
+#### What Home shed, and what shed into it
+
+- **The "Train" grid** repeating the four doors that are one tap away in the tab
+  bar, and the **"Your app" list** of every nav destination with its count. Both
+  were menus of the very things Home is supposed to be showing you the state of.
+- **The grow NOTIFICATION** (`grow-notice.ts`, deleted) — one card, one line,
+  pinned above three screens with a swipe-to-dismiss. That shape said "here is a
+  thing to dismiss"; a strip of boards says "here are three positions you know
+  well enough to extend", which is the actual offer. `grow-line.ts` gained
+  `growTargets()` (the plural of `firstGrowTarget`) to feed it.
+- **The latest-mistakes carousel** came the other way, off the Middle game box,
+  because it is a thing you look at rather than a thing you start.
+
+`buildMiniBoard()` gained an `arrows` option for the first two strips — plain
+SVG geometry rather than a `<marker>`, because markers need a `<defs>` id and
+ids have to be unique across a document holding fifty miniatures.
 
 ### 6.3 The Train screen — four doors, then four boxes
 
