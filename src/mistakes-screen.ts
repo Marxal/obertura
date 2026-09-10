@@ -103,15 +103,17 @@ const CATEGORY_SUB: Record<MistakeCategory, string> = {
   'blunder': 'game-losing moves from level play',
 };
 
-// Sized by the caller: 20 on the cards, 18 in an exercise's run header.
-const CATEGORY_ICON: Record<MistakeCategory, (size?: number) => SVGElement> = {
+// Sized by the caller: 20 on the cards, 18 in an exercise's run header. Exported
+// because Home's "from your last games" carousel labels its slides with the same
+// four icons, and two lists of them would be two lists to keep in step.
+export const CATEGORY_ICON: Record<MistakeCategory, (size?: number) => SVGElement> = {
   'opening-blunder': (s = 20) => Icons.zap(s),
   'punish-opening': (s = 20) => Icons.target(s),
   'missed-win': (s = 20) => Icons.star(s),
   'blunder': (s = 20) => Icons.alert(s),
 };
 
-const CATEGORIES: MistakeCategory[] = ['opening-blunder', 'punish-opening', 'missed-win', 'blunder'];
+export const CATEGORIES: MistakeCategory[] = ['opening-blunder', 'punish-opening', 'missed-win', 'blunder'];
 
 // This domain's own colour — the door, the readouts, every tile's top edge, and
 // the few tiles that have no exercise accent of their own.

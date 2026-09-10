@@ -43,8 +43,11 @@ import {
 import { handlePurchaseReturn } from './checkout';
 import { primePricing } from './pricing';
 import { renderTrainScreen, startLineSession, startPositionsSession, startMoveFix } from './train-screen';
-import { renderHomeBody, buildScanBanner } from './home-screen';
+import { renderHomeBody, fillGrowStrip, buildScanBanner, type HomeDeps } from './home-screen';
 import { planRepertoireRun } from './repertoire-run';
+import { startBrilliantSession } from './brilliant-run';
+import { collectBrilliantSpots, orderBrilliant } from './brilliant';
+import { brilliantDueMap } from './brilliant-log';
 import { getPuzzleRating } from './puzzle-rating';
 import { renderExploreScreen } from './explore-screen';
 import { renderPuzzlesScreen, startDailyPuzzles } from './puzzles-screen';
@@ -3252,6 +3255,10 @@ const AUTO_SCAN_DELAY_MS = 8000;
 // How many grow offers Home's strip holds. The search is ordered, so this is
 // also how far down the ranking it looks before giving up.
 const HOME_GROW_MAX = 5;
+
+// Below this many true brilliancies, Home's carousel pools the engine's
+// "great" grade in with them — same threshold the Middlegame box uses.
+const HOME_BRILLIANT_ONLY_FROM = 10;
 const desktopNavQuery = window.matchMedia(`(min-width: ${DESKTOP_NAV_BREAKPOINT}px)`);
 
 // The tab to return to when the back arrow exits a full screen. Builder is
@@ -4806,25 +4813,20 @@ async function renderHomeData(body: HTMLElement): Promise<void> {
     body.replaceChildren();
     return;
   }
-  // The grow search reads the bundled opening book, the scouted opponents and
-  // every game — heavy enough that it is awaited after the rest rather than
-  // alongside it, and failed softly: no offers is a fine Home, an error is not.
-  let grow: GrowTarget[] = [];
-  try {
-    grow = await computeGrowTargets(lines, HOME_GROW_MAX);
-  } catch { /* no offers */ }
 
-  renderHomeBody(body, {
-    lines,
-    games,
-    grow,
-    // Newest game first, so "from your last games" means what it says.
-    spots: collectSpots([...games].sort((a, b) => (b.endTime ?? 0) - (a.endTime ?? 0))),
-  }, {
+  const deps: HomeDeps = {
     onGrow: (target) => openGrowLine(target),
-    onFixSpots: (refs) => startMistakeSession({
+    onFixSpots: (refs, mode) => startMistakeSession({
       refs,
+      modeLabel: mode?.label,
+      modeIcon: mode?.icon,
+      modeAccent: mode?.accent,
       contextLabel: 'From your games',
+      onExit: () => showView('home'),
+      onOpenGame: openGameFromSession,
+    }),
+    onFindBrilliant: (refs) => startBrilliantSession({
+      refs,
       onExit: () => showView('home'),
       onOpenGame: openGameFromSession,
     }),
@@ -4836,7 +4838,36 @@ async function renderHomeData(body: HTMLElement): Promise<void> {
     onDrillLine: (line) => onTrainLine(line.id, true),
     onOpenLine: (line) => onOpenLine(line),
     onRefresh: () => showView('home'),
-  });
+  };
+
+  const spots = collectSpots(games);
+  // Your own best moves, ordered by what has rested long enough to be worth
+  // re-finding (brilliant-log.ts). Below BRILLIANT_ONLY_FROM of the real thing
+  // the engine's "great" grade is pooled in, exactly as the Middlegame box does
+  // it — a card that only ever offered true brilliancies would be a card with
+  // nothing on it for most people.
+  const gems = collectBrilliantSpots(games);
+  const trueGems = gems.filter(g => g.spot.cls === 'brilliant');
+  const dueMap = brilliantDueMap();
+  const brilliant = orderBrilliant(
+    trueGems.length >= HOME_BRILLIANT_ONLY_FROM ? trueGems : gems,
+    id => dueMap[id] ?? 0,
+  );
+
+  // DRAW FIRST, GROW LATER. The grow search loads the bundled opening book — a
+  // 1.7 MB module — and indexes every game and every scouted opponent. Awaiting
+  // it before painting left Home blank for as long as that took, on the app's
+  // landing screen. The strip fills itself in when the answer arrives.
+  renderHomeBody(body, { lines, games, grow: [], spots, brilliant }, deps);
+
+  let grow: GrowTarget[] = [];
+  try {
+    grow = await computeGrowTargets(lines, HOME_GROW_MAX);
+  } catch { /* no offers */ }
+  // Superseded: a newer render owns this screen, or the user has moved on.
+  const growHost = body.querySelector<HTMLElement>('.home-grow-host');
+  if (!growHost || !body.isConnected) return;
+  fillGrowStrip(growHost, grow, deps);
 }
 
 // Shows #bottom-nav below DESKTOP_NAV_BREAKPOINT and #side-nav at or above it;

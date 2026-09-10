@@ -452,12 +452,23 @@ Home ever starts listing exercises or destinations, it has become Train.
 **Everything on it is a strip of boards.** Four, in the order the answers are
 useful, each a horizontal swipe of the same card (board · line of text · figure):
 
-| Strip | What it holds |
+| Block | What it holds |
 |---|---|
-| **Ready to grow** | lines you have mastered, with the replies you'd be preparing for **drawn as arrows on the board** |
-| **From your last games** | the mistake spots the scan found, newest first, the played move on the board and what it cost |
+| **Ready to grow** | lines you have mastered, as a strip of **full boards in a column card**, the replies you'd be preparing for drawn as arrows |
+| **From your last games** | the **one-at-a-time carousel** that used to live under Middle game: the newest unfixed blunder in each category plus your best find, with the five icons across the top as picker and position indicator |
 | **Forgotten moves** | the moves you keep missing |
 | **Forgotten lines** | the lines that keep slipping |
+
+The grow card is a COLUMN where the other strips are rows: everywhere else the
+text identifies the thing and the board is a thumbnail beside it; here the board
+IS the thing (three arrows on a position you have mastered) and at row size you
+could not read them off it.
+
+The carousel's boards are real view-only Chessgrounds, built **lazily** — an
+`IntersectionObserver` on the track builds each the first time its slide comes
+into view, so a Home paint costs one board instance rather than five. The slides
+reserve their square through `.forgotten-board`'s `aspect-ratio`, so nothing
+jumps when one fills.
 
 A board you can point at is the only summary of a chess position worth putting
 on an overview, and four stacked blocks of five cards would be six phone
@@ -976,6 +987,31 @@ position *before* the move, and `review.ts` is responsible for the conversion.
 ---
 
 ## 12. Explore, coverage, maps and scouting
+
+### 11a. Three things that made the app feel slow
+
+All three arrived with the navigation redesign, and all three are shapes worth
+recognising:
+
+- **A subscription made per render and cancelled per *event*.** Home's scan
+  banner called `onAutoScanChange` on every render and only unsubscribed when
+  the pass finished. During a scan of four hundred games, every visit to Home
+  left another live listener writing into a detached banner, and `publish` fires
+  once per game read. The fix is the pattern the endgame scan already used:
+  self-cancel the moment the host is no longer connected, and keep one
+  module-level handle so a new render can cancel the old one first.
+- **Awaiting the expensive half before painting the cheap half.** Home awaited
+  `computeGrowTargets`, which imports the bundled 1.7 MB opening book and indexes
+  every game and scouted opponent, *before* rendering anything at all — on the
+  app's landing screen. It renders first and fills a `.home-grow-host` when the
+  answer arrives. (Filling a host, not re-rendering: a second full pass would
+  rebuild every inline SVG board on the page to populate one strip.)
+- **One read, five callers.** The Train screen renders four domains at once
+  where it used to render one tab, and Home is a fifth surface — so a paint
+  could ask for every game five times over, each a full IndexedDB `getAll` plus
+  a revive pass. `storage.ts` now coalesces **concurrent** calls to
+  `getAllGames` and `getAllRepertoires`: the slot clears as soon as the promise
+  settles, so nothing is cached and nothing can go stale.
 
 ### 11b. Two insets that stacked, and the class that was already taken
 

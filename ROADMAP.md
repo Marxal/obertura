@@ -1965,6 +1965,40 @@ stopped. It takes itself off screen when the pass ends, and honours
 `prefers-reduced-motion`.
 
 
+
+## Home's boards, and three things that made the app feel slow ✅
+
+**The lag was real, and mostly one bug.** Home's scan banner subscribed to the
+autoscan on every render and only unsubscribed when the pass *finished*. With
+four hundred games left to read, every visit to Home left another live listener
+writing into a detached banner — and the scan publishes once per game. Fixed the
+way the endgame scan already did it: self-cancel the moment the host is
+detached, plus one module-level handle so a new render cancels the old one.
+
+Two more, both mine, both from the redesign:
+
+- Home **awaited** `computeGrowTargets` — which imports the 1.7 MB opening book
+  and indexes every game and scouted opponent — before painting anything at all,
+  on the landing screen. It paints first now and fills a host when the answer
+  arrives. Filling a host rather than re-rendering: a second full pass would
+  rebuild every inline SVG board on the page to populate one strip.
+- Train renders four domains where it used to render one tab, and Home is a
+  fifth surface, so a paint could ask for every game five times over.
+  `storage.ts` coalesces **concurrent** calls to `getAllGames` and
+  `getAllRepertoires` — the slot clears as soon as the promise settles, so
+  nothing is cached and nothing can go stale.
+
+**Two shape changes on Home.** The grow card is a column with a full board on
+top: everywhere else the text identifies the thing and the board is a thumbnail
+beside it, but here the board IS the thing — three arrows on a position you have
+mastered — and at row size you could not read them off it. And the **latest-
+mistakes carousel is back as it was**: one position at a time, the newest
+unfixed blunder in each category plus your best find, with the five icons across
+the top as both picker and position indicator. Its boards are real Chessgrounds,
+so they are built **lazily** — an IntersectionObserver on the track builds each
+the first time its slide is in view, one instance per paint instead of five.
+
+
 ---
 
 ## Later 💤

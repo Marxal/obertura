@@ -7752,18 +7752,53 @@ html:has(> body > .edit-overlay) > body {
   .home-scan-dots i { animation: none; opacity: 0.6; }
 }
 
-/* The sprout at the end of a grow card — the one card in these strips whose
-   figure is not a number, because "how ready" isn't one. */
-.home-grow-go {
-  display: inline-flex;
+/* The grow card is a COLUMN — full board on top, the line and the offer under
+   it. Every other card in these strips is a board beside its text, because the
+   text is what identifies the thing; here the board IS the thing (three arrows
+   on a position you have mastered) and at row size it was a thumbnail you
+   couldn't read them off. */
+.home-grow-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.6rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+.home-grow-card:hover {
+  border-color: var(--success);
+  box-shadow: var(--shadow-card);
+}
+
+.home-grow-board {
+  display: block;
+  width: 100%;
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.home-grow-board svg { display: block; width: 100%; height: auto; }
+
+.home-grow-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.home-grow-name {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 30px;
-  height: 30px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--success) 16%, transparent);
-  color: var(--success);
+  gap: 0.35rem;
+  min-width: 0;
 }
 
 @media (min-width: 960px) {
@@ -17840,6 +17875,18 @@ html:has(> body > .edit-overlay) > body {
    Reuses the forgotten-moves track/slide/board scaffold; only the nav differs:
    four icon-only tabs (one per category, tinted with its accent) with the
    active category's name reading below the row. */
+/* The carousel lives on Home now, as one of its blocks — no boxed .section
+   around it, so the track lines up with every other strip on the page. */
+.mrc-section .forgotten-track {
+  margin-inline: calc(var(--space-lg) * -1);
+  padding-inline: var(--space-lg);
+  scroll-padding-inline: var(--space-lg);
+}
+
+.mrc-section .mrc-slide {
+  flex-basis: 100%;
+}
+
 .mrc-tabs {
   display: flex;
   gap: 0.4rem;

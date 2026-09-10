@@ -189,7 +189,33 @@ async function runMigration(): Promise<void> {
 }
 
 /** Every book, oldest first. Migrates on the first call if it needs to. */
-export async function getAllRepertoires(): Promise<Repertoire[]> {
+/**
+ * Share a read that is already in flight.
+ *
+ * WHY. The Train screen renders four domains at once (it used to render one tab
+ * at a time), and Home renders a fifth surface — so a single paint can ask for
+ * every game five times over, each one a full IndexedDB getAll of hundreds of
+ * records plus the revive pass on top. Coalescing turns those into one read.
+ *
+ * Only concurrent calls share: the slot is cleared as soon as the promise
+ * settles, so anything that starts after a write still does its own read. There
+ * is no cache here and nothing can go stale.
+ */
+function coalesced<T>(slot: { p: Promise<T> | null }, run: () => Promise<T>): Promise<T> {
+  if (slot.p) return slot.p;
+  const p = run().finally(() => { slot.p = null; });
+  slot.p = p;
+  return p;
+}
+
+const repsInFlight: { p: Promise<Repertoire[]> | null } = { p: null };
+const gamesInFlight: { p: Promise<ImportedGame[]> | null } = { p: null };
+
+export function getAllRepertoires(): Promise<Repertoire[]> {
+  return coalesced(repsInFlight, readAllRepertoires);
+}
+
+async function readAllRepertoires(): Promise<Repertoire[]> {
   await ensureMigrated();
   const all: Repertoire[] = await promisify((await repStore('readonly')).getAll());
   return all
@@ -373,7 +399,11 @@ export async function saveGames(games: ImportedGame[]): Promise<void> {
 }
 
 // Every stored game.
-export async function getAllGames(): Promise<ImportedGame[]> {
+export function getAllGames(): Promise<ImportedGame[]> {
+  return coalesced(gamesInFlight, readAllGames);
+}
+
+async function readAllGames(): Promise<ImportedGame[]> {
   const s = await gamesStore('readonly');
   return promisify(s.getAll());
 }
