@@ -7586,6 +7586,167 @@ html:has(> body > .edit-overlay) > body {
   margin-top: var(--space-lg);
 }
 
+/* ── The door ── */
+.train-door {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  width: 100%;
+  text-align: left;
+  padding: 1rem 1rem 1rem 1.15rem;
+  /* FILLED, not edged. A mode card is pale with a coloured left bar because it
+     sits in a list of its peers and the bar is all it needs; a door has to read
+     as the thing you press from across the room. The fill is a tint over the
+     card surface rather than the flat hue, so the text contrast stays the
+     theme's own and is not four separate things to re-check. */
+  background: color-mix(in srgb, var(--mode-accent) 16%, var(--bg-card));
+  border: 1px solid color-mix(in srgb, var(--mode-accent) 38%, transparent);
+  border-radius: 16px;
+  overflow: hidden;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: var(--shadow-card);
+  transition: filter 0.12s, box-shadow 0.12s, border-color 0.12s, transform 0.08s;
+}
+
+/* The tint is built from --bg-card, which is already darker in the dark themes,
+   so the fill follows without a second rule. The border wants a little more
+   presence there to survive the lower contrast. */
+[data-theme="dark"] .train-door,
+[data-theme="game"] .train-door,
+[data-theme="gamer"] .train-door {
+  background: color-mix(in srgb, var(--mode-accent) 24%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--mode-accent) 52%, transparent);
+}
+
+/* A thicker left edge than a mode card's 4px — this is the one card on the
+   screen you are meant to hit without reading it first. */
+.train-door::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: var(--mode-accent);
+}
+
+.train-door:not(.train-door--disabled):hover {
+  border-color: var(--mode-accent);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.train-door:not(.train-door--disabled):active {
+  transform: scale(0.995);
+  filter: brightness(0.97);
+}
+
+.train-door--disabled {
+  opacity: 0.6;
+  cursor: default;
+  box-shadow: none;
+}
+
+.train-door-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  /* Solid, not tinted: on a card that is already tinted, a tinted chip
+     disappears. White glyph on the full hue is the one element that carries the
+     domain's colour at full strength. */
+  background: var(--mode-accent);
+  color: #fff;
+}
+
+.train-door-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.train-door-name {
+  font-size: 1.2rem;
+  font-weight: 700;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text);
+  line-height: 1.1;
+}
+
+.train-door-sub {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.train-door--disabled .train-door-sub {
+  font-weight: 600;
+}
+
+/* The figure. A name never changes and a number does, so this is what makes a
+   door worth a second look — set at display size and in the domain's colour,
+   with its unit underneath at label size. */
+.train-door-fig {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  min-width: 3.2rem;
+  pointer-events: none; /* the whole door is the button */
+}
+
+.train-door-num {
+  font-size: 1.85rem;
+  font-weight: 800;
+  line-height: 1;
+  /* NOT the flat accent. Measured on its own tint, the orange one lands at
+     2.8:1 — under the 3:1 floor large text gets, never mind 4.5 — because the
+     tint is built from the same hue the figure is drawn in. Pulling it toward
+     the ink puts all four between 4.4 and 5.6:1 while keeping the domain
+     readable in the colour. */
+  color: color-mix(in srgb, var(--mode-accent) 72%, var(--text));
+  font-variant-numeric: tabular-nums;
+}
+
+[data-theme="dark"] .train-door-num,
+[data-theme="game"] .train-door-num,
+[data-theme="gamer"] .train-door-num {
+  /* Same idea the other way up: --text is the pale ink there, so mixing toward
+     it lifts the figure off a dark tint instead of sinking into it. */
+  color: color-mix(in srgb, var(--mode-accent) 45%, var(--text));
+}
+
+.train-door-fig-label {
+  margin-top: 0.15rem;
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+  text-align: center;
+  line-height: 1.15;
+}
+
+/* Shown instead of the figure on a door with nothing to count. */
+.train-door-go {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: var(--mode-accent);
+  color: #fff;
+  pointer-events: none;
+}
+
 /* ── The box ── */
 .train-box {
   --box-wash: color-mix(in srgb, var(--domain-accent) 7%, var(--bg-page));
