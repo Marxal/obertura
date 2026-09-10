@@ -1998,6 +1998,48 @@ the top as both picker and position indicator. Its boards are real Chessgrounds,
 so they are built **lazily** — an IntersectionObserver on the track builds each
 the first time its slide is in view, one instance per paint instead of five.
 
+### Home's two carousels get a frame, and Get started gets its gaps back
+
+**One board at a time, in a box.** Both of Home's carousels bled to the screen
+edge like the strips below them, which meant a sliver of the *next* board sat at
+the right edge of every position — two half-read boards side by side, on the two
+blocks whose whole job is "look at this position". They are framed panels now
+(`.home-panel`): one full board centred in a card, nothing of the next slide
+showing, dots under the grow one because its slides have nothing to tell them
+apart. The strips below keep their bleed — there the peek is the point.
+
+Getting there needed `min-width: 0` on the slide, for the second time in three
+rounds: **a flex item's automatic minimum size floors it at min-content**, so a
+slide holding an unbroken opening name came out five pixels wider than the track
+it snaps in. `flex-shrink` cannot fix it; the floor applies to the base size.
+
+**The grow board is a real Chessground now.** It was a `buildMiniBoard`
+miniature, which draws Unicode glyphs — fifty of those on My Lines can't each
+carry the active piece set's background images — so at full size it showed a
+piece set nobody chose, next to boards that showed the right one. At one board
+per panel, built lazily, the real thing costs nothing worth saving.
+
+**Get started was missing its layout rule.** `.first-steps` lost `display: flex`
+and its `gap` to a CSS region replacement two rounds ago (the same way the doors
+did), and `.card` is a plain block — so the head, the goal box, the checklist
+and the Go pro button stacked flush against one another with no spacing at all.
+Restored. That is twice now a whole rule has been eaten by rewriting a block by
+its markers; `git log -S` on the selector finds the commit each time.
+
+**Home's vertical rhythm.** `.home-body` had no top padding, so the daily card
+and the first block sat flush while every other pair had 24px; `.daily-host` was
+inset by a hand-typed `1rem` rather than the token; and the grow host, which is
+on the page from the first paint because its data arrives late, spent the
+column's gap on nothing when there was nothing to grow (`:empty { display:
+none }`).
+
+**Train: the numbers stop counting.** The mode cards' corner figures animated up
+from zero on every paint — a leftover from the training HERO, where one big
+number headed the screen and ticking it up was the screen arriving. Six chips
+counting at once reads as a list still loading. "Review missed moves", "Drill new
+lines" and "Target weak areas" gained the figures they never had, so every card
+in Practise your openings now says how much is behind it.
+
 
 ---
 

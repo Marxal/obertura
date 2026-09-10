@@ -7,11 +7,15 @@
 // moves belongs in the section it describes, not here.
 //
 // EVERYTHING HERE IS BOARDS. Four blocks, in the order the answers are useful:
-// lines ready to grow (a strip of full boards with the replies drawn on them),
-// the mistakes your last games left behind (the one-at-a-time carousel that used
-// to live under Middle game), then the moves you keep missing and the lines that
-// keep slipping. A board you can point at is the only summary of a chess
-// position worth putting on an overview.
+// lines ready to grow, the mistakes your last games left behind, then the moves
+// you keep missing and the lines that keep slipping. A board you can point at is
+// the only summary of a chess position worth putting on an overview.
+//
+// TWO SHAPES, AND THE DIFFERENCE MATTERS. The first two blocks are FRAMED
+// CAROUSELS: one full board at a time, centred in a card, with nothing of the
+// next one showing. The last two are BLEEDING STRIPS of small cards, where the
+// half-visible next card is exactly the point. A big board you are meant to read
+// with another one peeking past it is neither, and read as a mistake.
 //
 // WHAT WAS HERE AND ISN'T. A "Train" section repeating the four doors that are
 // one tap away in the tab bar, and a "Your app" list of every nav destination
@@ -30,10 +34,9 @@ import { registerBrushes } from './board-brushes';
 import type { Line } from './types';
 import type { ImportedGame } from './import-core';
 import { Icons, classIcon, CLASS_COLOR, CLASS_LABEL } from './icons';
-import { buildMiniBoard } from './board-mini';
 import { colourPip } from './card-position';
 import { formatMove } from './notation';
-import { renderForgottenSection, buildStrip, buildStripBlock } from './forgotten-section';
+import { renderForgottenSection } from './forgotten-section';
 import { autoScanState, onAutoScanChange, type AutoScanState } from './mistake-autoscan';
 import type { GrowTarget } from './grow-line';
 import type { MistakeCategory, SpotRef } from './mistake-scan';
@@ -196,68 +199,154 @@ let stopScanWatch: (() => void) | null = null;
  * drawn on the board.
  *
  * IT USED TO BE A NOTIFICATION — one card, one line, pinned above three screens
- * and swipeable away. That shape said "here is a thing to dismiss"; a strip of
- * boards says "here are three positions you know well enough to extend", which
- * is the actual offer. The arrows are the whole card: they are what you would be
- * answering, and naming three moves in text is a list to read rather than a
- * position to look at.
+ * and swipeable away. That shape said "here is a thing to dismiss"; a board with
+ * the replies drawn on it says "here is a position you know well enough to
+ * extend", which is the actual offer.
+ *
+ * ONE SLIDE AT A TIME, IN A FRAME. It was a bleeding strip of 82%-wide cards
+ * with the next one peeking in from the right — two half-read boards side by
+ * side, which on a screen whose whole job is "look at this position" is just
+ * confusing. It is now the same shape as the mistakes carousel below it: a
+ * framed panel, one full board centred in it, dots for the rest.
  */
 export function fillGrowStrip(host: HTMLElement, grow: GrowTarget[], deps: HomeDeps): void {
   host.replaceChildren();
   if (grow.length === 0) return;
-  host.appendChild(buildStripBlock(
-    'Ready to grow',
-    `${grow.length} ${grow.length === 1 ? 'line' : 'lines'}`,
-    buildStrip(grow.slice(0, PREVIEW).map(t => growCard(t, deps)), null),
-  ));
+
+  const targets = grow.slice(0, PREVIEW);
+  const section = buildPanel(
+    'Ready to grow', `${grow.length} ${grow.length === 1 ? 'line' : 'lines'}`);
+
+  const track = document.createElement('div');
+  track.className = 'forgotten-track mrc-track';
+  for (const t of targets) track.appendChild(growSlide(t, deps));
+  section.appendChild(track);
+  if (targets.length > 1) section.appendChild(buildDots(track, targets.length));
+
+  host.appendChild(section);
+  observeBoards(track);
 }
 
 /**
- * A COLUMN, not a row: full board on top, the line and the offer under it.
+ * One line ready to grow: the mastered position with its candidate replies
+ * drawn over it, then the line's name and the way in.
  *
- * Every other card in these strips is a board beside a line of text, because the
- * text is what identifies the thing. Here the board IS the thing — three arrows
- * on a position you have mastered — and at row size it was a thumbnail you
- * couldn't read three arrows off.
+ * A REAL CHESSGROUND, not a mini board. The miniature draws Unicode glyphs,
+ * because fifty of them on My Lines can't each carry the active piece set's
+ * background images — so at full size it showed a piece set nobody chose, next
+ * to boards that showed the right one. At one board per panel, built lazily,
+ * the real thing costs nothing worth saving.
  */
-function growCard(target: GrowTarget, deps: HomeDeps): HTMLElement {
-  const card = document.createElement('button');
-  card.type = 'button';
-  card.className = 'home-grow-card';
+function growSlide(target: GrowTarget, deps: HomeDeps): HTMLElement {
+  const slide = document.createElement('div');
+  slide.className = 'forgotten-slide mrc-slide';
 
   const colour = target.spot.line.colour;
-  const board = document.createElement('span');
-  board.className = 'home-grow-board';
-  board.appendChild(buildMiniBoard(target.spot.fen, colour, {
-    arrows: target.moves.map(m => m.uci),
-  }));
-  card.appendChild(board);
+  const board = document.createElement('div') as Deferred;
+  board.className = 'forgotten-board cg-wrap';
+  board.dataset.board = '';
+  board.__build = () => {
+    const cg = Chessground(board, {
+      fen: target.spot.fen,
+      orientation: colour,
+      viewOnly: true,
+      coordinates: false,
+      animation: { enabled: false },
+      drawable: { enabled: false, visible: true },
+    });
+    // The openings green — these are replies to prepare, not mistakes to fix.
+    registerBrushes(cg, { grow: { color: '#3e6650', opacity: 0.85, lineWidth: 10 } });
+    cg.setAutoShapes(target.moves.map(m => ({
+      orig: m.uci.slice(0, 2) as Key,
+      dest: m.uci.slice(2, 4) as Key,
+      brush: 'grow',
+    })));
+    requestAnimationFrame(() => cg.redrawAll());
+  };
+  slide.appendChild(board);
 
-  const foot = document.createElement('span');
-  foot.className = 'home-grow-foot';
+  const body = document.createElement('div');
+  body.className = 'forgotten-body';
 
-  const name = document.createElement('span');
+  const name = document.createElement('div');
   name.className = 'stats-sheet-name home-grow-name';
   name.appendChild(colourPip(colour));
   const label = document.createElement('span');
   label.className = 'stats-sheet-name-text';
   label.textContent = target.spot.line.name;
   name.appendChild(label);
-  foot.appendChild(name);
+  body.appendChild(name);
 
-  const meta = document.createElement('span');
-  meta.className = 'stats-sheet-meta';
-  // Short and concrete. The idea is "you're mastering this line — prepare a
-  // reply and make it grow"; on a card this size that has to be one line, and
-  // the number is what makes it an offer rather than encouragement.
-  meta.textContent = target.moves.length === 1
-    ? 'Mastered — answer their reply'
-    : `Mastered — answer one of ${target.moves.length} replies`;
-  foot.appendChild(meta);
+  const go = document.createElement('button');
+  go.type = 'button';
+  go.className = 'btn-primary forgotten-fix-btn';
+  go.textContent = 'Prepare a reply';
+  go.addEventListener('click', () => deps.onGrow(target));
+  body.appendChild(go);
 
-  card.appendChild(foot);
-  card.addEventListener('click', () => deps.onGrow(target));
-  return card;
+  const hint = document.createElement('div');
+  hint.className = 'forgotten-hint';
+  hint.textContent = target.moves.length === 1
+    ? 'mastered — one reply to answer'
+    : `mastered — ${target.moves.length} replies to answer`;
+  body.appendChild(hint);
+
+  slide.appendChild(body);
+  return slide;
+}
+
+// ── The shared panel ─────────────────────────────────────────────────────────
+
+/**
+ * The frame both carousels sit in: a titled card, one board wide.
+ *
+ * Home's other two blocks are STRIPS — rows of small cards that bleed off the
+ * screen edge, because "there is more to swipe" is the point of them. These two
+ * are single boards you look at, and an unframed board with the next one peeking
+ * past it read as neither a strip nor a card. The frame says where the position
+ * ends.
+ */
+function buildPanel(title: string, meta: string): HTMLElement {
+  const section = document.createElement('section');
+  section.className = 'fmove-block home-panel';
+
+  const head = document.createElement('div');
+  head.className = 'fmove-block-head';
+  const label = document.createElement('h2');
+  label.className = 'fmove-block-title';
+  label.textContent = title;
+  head.appendChild(label);
+  const count = document.createElement('span');
+  count.className = 'fmove-block-meta';
+  count.textContent = meta;
+  head.appendChild(count);
+  section.appendChild(head);
+  return section;
+}
+
+/** Which slide you are on, for a carousel whose slides all look alike. */
+function buildDots(track: HTMLElement, count: number): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'home-dots';
+  row.setAttribute('aria-hidden', 'true');
+  const dots: HTMLElement[] = [];
+  for (let i = 0; i < count; i++) {
+    const dot = document.createElement('i');
+    if (i === 0) dot.className = 'home-dot--on';
+    row.appendChild(dot);
+    dots.push(dot);
+  }
+  let raf = 0;
+  track.addEventListener('scroll', () => {
+    if (raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      const idx = Math.min(count - 1,
+        Math.max(0, Math.round(track.scrollLeft / (track.clientWidth || 1))));
+      dots.forEach((d, i) => d.classList.toggle('home-dot--on', i === idx));
+    });
+  }, { passive: true });
+  return row;
 }
 
 // ── From your last games ─────────────────────────────────────────────────────
@@ -268,6 +357,10 @@ function growCard(target: GrowTarget, deps: HomeDeps): HTMLElement {
 // under the Middle game pane until that box was cut to seven exercise cards, and
 // it belongs on Home for the same reason the forgotten strips do: it is a thing
 // you LOOK at. Tapping still drills it, so it is a way in as well.
+//
+// ONE BOARD, NOT ONE AND A HALF. Its track used to bleed to the screen edge like
+// the strips below it, which let the next slide's board show past the current
+// one. See .mrc-section in style.css.
 //
 // BOARDS ARE BUILT LAZILY. Each slide is a real view-only Chessground, and five
 // of them on the app's landing screen is five board instances built before you
@@ -303,20 +396,8 @@ function buildMistakesBlock(data: HomeData, deps: HomeDeps): HTMLElement | null 
   if (data.brilliant.length) slides.push({ kind: 'brilliant', pool: data.brilliant });
   if (slides.length === 0) return null;
 
-  const section = document.createElement('section');
-  section.className = 'fmove-block mrc-section';
-
-  const head = document.createElement('div');
-  head.className = 'fmove-block-head';
-  const title = document.createElement('h2');
-  title.className = 'fmove-block-title';
-  title.textContent = 'From your last games';
-  head.appendChild(title);
-  const meta = document.createElement('span');
-  meta.className = 'fmove-block-meta';
-  meta.textContent = `${slides.length} to look at`;
-  head.appendChild(meta);
-  section.appendChild(head);
+  const section = buildPanel('From your last games', `${slides.length} to look at`);
+  section.classList.add('mrc-section');
 
   const tabs = document.createElement('div');
   tabs.className = 'mrc-tabs';

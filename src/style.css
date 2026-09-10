@@ -1663,7 +1663,9 @@ main {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
-  margin: 0.75rem 1rem 0;
+  /* Same inset as .home-scan above it and .home-body below it — on the token,
+     not on a hand-typed 1rem that happened to match. */
+  margin: var(--space-lg) var(--space-lg) 0;
 }
 
 .daily-card {
@@ -1949,6 +1951,27 @@ main {
 .daily-task--locked .daily-task-icon { color: var(--text-fainter); }
 
 .daily-locked-cta { align-self: flex-start; }
+
+
+/* ── "Get started" panel (first-steps.ts) ─────────────────────────────────────
+   Takes the daily challenge's slot at the top of Home until five lines are
+   saved. Deliberately LOUDER than the daily card it replaces — a full accent
+   wash, a 2px accent border and a progress bar — because someone who reaches
+   this screen with an empty repertoire has already missed one set of
+   instructions and shouldn't be able to miss these.
+
+   THE FLEX COLUMN IS LOAD-BEARING. It was dropped once, and without it .card's
+   plain block layout stacks head, goal, checklist and Go pro flush against one
+   another with no gap at all — the panel's own `gap` is the only spacing any of
+   them has. */
+.first-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding: 0.9rem;
+  background: linear-gradient(135deg, var(--accent-soft), var(--bg-card) 85%);
+  border: 2px solid var(--accent);
+}
 
 
 .first-steps-head {
@@ -7691,7 +7714,10 @@ html:has(> body > .edit-overlay) > body {
   display: flex;
   flex-direction: column;
   gap: var(--space-xl);
-  padding: 0 var(--space-lg) var(--space-xl);
+  /* The top pad is the gap between the daily card and the first block. .daily-host
+     has no bottom margin, so without it the two sat flush while every other pair
+     on the page had 24px between them. */
+  padding: var(--space-xl) var(--space-lg) var(--space-xl);
 }
 
 /* "Reading your games — 24 to go". A notification: it arrives on its own, says
@@ -7700,7 +7726,7 @@ html:has(> body > .edit-overlay) > body {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  margin: var(--space-sm) var(--space-lg) 0;
+  margin: var(--space-lg) var(--space-lg) 0;
   padding: 0.7rem 0.85rem;
   background: color-mix(in srgb, var(--accent) 10%, var(--bg-card));
   border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
@@ -7752,46 +7778,66 @@ html:has(> body > .edit-overlay) > body {
   .home-scan-dots i { animation: none; opacity: 0.6; }
 }
 
-/* The grow card is a COLUMN — full board on top, the line and the offer under
-   it. Every other card in these strips is a board beside its text, because the
-   text is what identifies the thing; here the board IS the thing (three arrows
-   on a position you have mastered) and at row size it was a thumbnail you
-   couldn't read them off. */
-.home-grow-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  width: 100%;
-  min-width: 0;
-  padding: 0.6rem;
+/* ── Home's two framed carousels ─────────────────────────────────────────────
+   "Ready to grow" and "From your last games" are the two blocks that show ONE
+   position at a time, so they are framed. The other two are strips of small
+   cards that deliberately bleed off the screen edge — the peek is what says
+   there is more to swipe. A board you are meant to read is the opposite case:
+   half of the next one showing past it is just two unreadable boards. */
+/* The grow strip arrives late (the search loads the bundled book), so its host
+   is on the page from the first paint. Empty, it is still a flex child — and a
+   flex child with no content still takes the column's 24px gap, which is a
+   phantom space above the first block whenever there is nothing to grow. */
+.home-grow-host:empty { display: none; }
+
+.home-panel {
+  gap: var(--space-md);
+  padding: var(--space-md);
   background: var(--bg-card);
   border: 1px solid var(--border-card);
-  border-radius: 12px;
-  text-align: left;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: border-color 0.12s, box-shadow 0.12s;
+  border-radius: 14px;
 }
 
-.home-grow-card:hover {
-  border-color: var(--success);
-  box-shadow: var(--shadow-card);
-}
-
-.home-grow-board {
-  display: block;
-  width: 100%;
-  border-radius: 7px;
-  overflow: hidden;
-}
-
-.home-grow-board svg { display: block; width: 100%; height: auto; }
-
-.home-grow-foot {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
+/* ONE SLIDE, NO PEEK.
+   min-width IS THE WHOLE RULE. A flex item's automatic minimum size floors it at
+   min-content, so a slide holding an unbroken opening name was five pixels wider
+   than the track it snaps in — enough for a sliver of the next board to sit at
+   the edge of every "one at a time" position. flex-shrink can't fix it: the
+   floor is applied to the base size, not by shrinking. */
+.home-panel .forgotten-slide {
+  flex: 0 0 100%;
   min-width: 0;
+  scroll-snap-stop: always;
+}
+
+/* The board is the thing; centre it and stop it growing past a size you can
+   take in at a glance on a wide screen. */
+.home-panel .forgotten-board {
+  max-width: 380px;
+  margin-inline: auto;
+}
+
+/* Which slide you are on, where the slides all look alike (the mistakes
+   carousel has its icon row for this; the grow one has nothing to tell its
+   boards apart). */
+.home-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.home-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-fainter);
+  opacity: 0.4;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.home-dots i.home-dot--on {
+  background: var(--accent);
+  opacity: 1;
 }
 
 .home-grow-name {
@@ -17875,17 +17921,12 @@ html:has(> body > .edit-overlay) > body {
    Reuses the forgotten-moves track/slide/board scaffold; only the nav differs:
    four icon-only tabs (one per category, tinted with its accent) with the
    active category's name reading below the row. */
-/* The carousel lives on Home now, as one of its blocks — no boxed .section
-   around it, so the track lines up with every other strip on the page. */
-.mrc-section .forgotten-track {
-  margin-inline: calc(var(--space-lg) * -1);
-  padding-inline: var(--space-lg);
-  scroll-padding-inline: var(--space-lg);
-}
-
-.mrc-section .mrc-slide {
-  flex-basis: 100%;
-}
+/* The track used to bleed out to the page's padding edge and take the inset
+   back as padding — right for a strip of small cards, wrong here: the bleed is
+   exactly what let the next board show past the current one, and two half-read
+   positions side by side is the "it gets confusing" this was. Both of Home's
+   carousels now sit inside .home-panel, which sizes their slides — see
+   .home-panel .forgotten-slide above. */
 
 .mrc-tabs {
   display: flex;
@@ -17910,7 +17951,8 @@ html:has(> body > .edit-overlay) > body {
   color: #fff;
 }
 .mrc-tab-title {
-  margin-top: 0.45rem;
+  /* The panel's own gap does the spacing now. */
+  margin-top: 0;
   text-align: center;
   font-size: 0.8rem;
   font-weight: 700;

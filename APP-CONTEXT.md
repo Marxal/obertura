@@ -449,31 +449,46 @@ that mentions all of them. **The rule that keeps it from becoming a second Train
 menu: Home shows the STATE of things, the tab bar is how you get anywhere.** If
 Home ever starts listing exercises or destinations, it has become Train.
 
-**Everything on it is a strip of boards.** Four, in the order the answers are
-useful, each a horizontal swipe of the same card (board · line of text · figure):
+**Everything on it is boards.** Four blocks, in the order the answers are
+useful:
 
-| Block | What it holds |
-|---|---|
-| **Ready to grow** | lines you have mastered, as a strip of **full boards in a column card**, the replies you'd be preparing for drawn as arrows |
-| **From your last games** | the **one-at-a-time carousel** that used to live under Middle game: the newest unfixed blunder in each category plus your best find, with the five icons across the top as picker and position indicator |
-| **Forgotten moves** | the moves you keep missing |
-| **Forgotten lines** | the lines that keep slipping |
+| Block | Shape | What it holds |
+|---|---|---|
+| **Ready to grow** | framed carousel | lines you have mastered, one full board at a time, the replies you'd be preparing for drawn as arrows |
+| **From your last games** | framed carousel | the newest unfixed blunder in each category plus your best find, with the five icons across the top as picker and position indicator |
+| **Forgotten moves** | bleeding strip | the moves you keep missing |
+| **Forgotten lines** | bleeding strip | the lines that keep slipping |
 
-The grow card is a COLUMN where the other strips are rows: everywhere else the
-text identifies the thing and the board is a thumbnail beside it; here the board
-IS the thing (three arrows on a position you have mastered) and at row size you
-could not read them off it.
+**Two shapes, and the difference is the point.** The first two show ONE POSITION
+AT A TIME inside a frame (`.home-panel`): a full board centred in a card, with
+nothing of the next slide showing. The last two are STRIPS of small cards that
+bleed to the screen edge, where the half-visible next card is exactly what says
+there is more to swipe. A big board you are meant to read, with another one
+peeking past it, is neither — it reads as a bug, and was reported as one.
 
-The carousel's boards are real view-only Chessgrounds, built **lazily** — an
+The rule that produced the peek is worth remembering, because it has now bitten
+twice: **a flex item's automatic minimum size floors it at min-content**, so a
+slide holding an unbroken opening name came out five pixels wider than the track
+it snaps in. `min-width: 0` on the ITEM is the fix; `flex-shrink: 0` is not,
+because the floor is applied to the base size rather than by shrinking.
+
+Both carousels' boards are real view-only Chessgrounds, built **lazily** — an
 `IntersectionObserver` on the track builds each the first time its slide comes
 into view, so a Home paint costs one board instance rather than five. The slides
 reserve their square through `.forgotten-board`'s `aspect-ratio`, so nothing
 jumps when one fills.
 
+The grow board is a real Chessground and **not** a `buildMiniBoard` miniature,
+which is the one place the two differ visibly: the miniature draws Unicode
+glyphs (fifty of them on My Lines can't each carry the active piece set's
+background images), so at full size it showed a piece set nobody chose, beside
+boards that showed the right one. At one board per panel, built lazily, the real
+thing costs nothing worth saving.
+
 A board you can point at is the only summary of a chess position worth putting
-on an overview, and four stacked blocks of five cards would be six phone
-screens. `forgotten-section.ts` exports `buildStrip` / `buildStripBlock` so all
-four share one chrome. A strip with nothing in it isn't built.
+on an overview. `forgotten-section.ts` exports `buildStrip` / `buildStripBlock`
+for the two strips; `home-screen.ts` owns `buildPanel` / `buildDots` for the two
+carousels. A block with nothing in it isn't built.
 
 Above the daily card sits the **scan banner** — "Reading your games — 24 to go",
 with three pulsing dots. Train has no Analyse button any more (the scan runs
@@ -497,9 +512,19 @@ The Get-started checklist rides with the daily card.
 - **The latest-mistakes carousel** came the other way, off the Middle game box,
   because it is a thing you look at rather than a thing you start.
 
-`buildMiniBoard()` gained an `arrows` option for the first two strips — plain
-SVG geometry rather than a `<marker>`, because markers need a `<defs>` id and
-ids have to be unique across a document holding fifty miniatures.
+`buildMiniBoard()` gained an `arrows` option in the same round — plain SVG
+geometry rather than a `<marker>`, because markers need a `<defs>` id and ids
+have to be unique across a document holding fifty miniatures. Nothing on Home
+uses it now that the grow board is a Chessground, but it is the only way to draw
+a move on a miniature and the strips may want it again.
+
+**The vertical rhythm.** Home is three stacked hosts, not one flex column:
+`.home-scan`, `.daily-host` and `.home-body`, each inset by `--space-lg`. Only
+the body has a gap, so the space between the daily card and the first block is
+`.home-body`'s own `padding-top` — without it those two sat flush while every
+other pair on the page had 24px. `.home-grow-host` is on the page from the first
+paint (its data arrives late), so `:empty { display: none }` keeps it from
+spending the column's gap on nothing.
 
 ### 6.3 The Train screen — four doors, then four boxes
 
@@ -1037,7 +1062,18 @@ Three small bugs from the redesign, worth naming because the shapes recur:
   min-content size — a fixed-width board plus an unbroken opening name. `flex-
   shrink: 0` does not help: the floor applies to the base size rather than by
   shrinking. `min-width: 0` on the item is the fix, and it is needed on the item
-  itself, not only on its child.
+  itself, not only on its child. **It bit a second time** on Home's grow
+  carousel, where a slide with `flex: 0 0 100%` came out five pixels wider than
+  its track — enough for a sliver of the next board at the edge of every "one at
+  a time" position.
+- **A whole rule dropped by a region replacement.** Rewriting a block of CSS by
+  its start and end markers has now silently deleted two rules that lived inside
+  the range: `.train-door*` (doors rendered as run-together centred text) and
+  `.first-steps` (the Get-started panel lost `display: flex` and its `gap`, so
+  head, goal, checklist and Go pro stacked flush against one another — the
+  panel's gap is the *only* spacing any of them has, since `.card` is a plain
+  block). Diff the removed range before writing the new one; `git log -S` on the
+  selector finds the commit that ate it.
 
 ### 12.1 The Openings tab
 

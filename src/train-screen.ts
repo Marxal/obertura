@@ -473,12 +473,15 @@ function renderPractiseBox(
   // Review missed moves — single moves you've missed. Tappable as long as
   // there's anything deep enough to drill (the mode falls back to weak/upcoming
   // moves).
-  const hasPositions = !locked && selectIndividualPositions(allTraining).length > 0;
+  const missed = locked ? [] : selectIndividualPositions(allTraining);
+  const hasPositions = missed.length > 0;
   section.appendChild(buildModeCard({
     accent: MODE_ACCENT.fix,
     icon: Icons.zap(20),
     name: 'Review missed moves',
     sub: 'single moves you’ve missed',
+    stat: hasPositions ? missed.length : undefined,
+    statLabel: missed.length === 1 ? 'move' : 'moves',
     disabled: !hasPositions,
     // "Train a little more" is only true once there IS something to train.
     disabledReason: locked || nothingSaved
@@ -494,6 +497,8 @@ function renderPractiseBox(
     icon: Icons.plus(20),
     name: 'Drill new lines',
     sub: 'full runs of your newest lines',
+    stat: !locked && freshLines.length > 0 ? freshLines.length : undefined,
+    statLabel: freshLines.length === 1 ? 'line' : 'lines',
     disabled: locked || freshLines.length === 0,
     disabledReason: noLinesReason,
     onClick: () => startRounds(freshLines, container, { explicit: true }),
@@ -506,6 +511,8 @@ function renderPractiseBox(
     icon: Icons.trending(20),
     name: 'Target weak areas',
     sub: 'full runs of your weakest lines',
+    stat: !locked && weakLines.length > 0 ? weakLines.length : undefined,
+    statLabel: weakLines.length === 1 ? 'line' : 'lines',
     disabled: locked || weakLines.length === 0,
     disabledReason: noLinesReason,
     onClick: () => startRounds(weakLines, container, { explicit: true }),
@@ -641,8 +648,11 @@ export function buildModeCard(o: {
     stat.className = 'mode-card-stat';
     const num = document.createElement('span');
     num.className = 'mode-card-stat-num';
-    num.textContent = '0';
-    countUp(num, o.stat);
+    // No count-up. It was a leftover from the training HERO, where one big
+    // figure headed the screen and ticking it up was the screen arriving. In a
+    // box of six cards it is six corner chips all counting at once every time
+    // Train repaints, which reads as the list still loading.
+    num.textContent = String(o.stat);
     const lbl = document.createElement('span');
     lbl.className = 'mode-card-stat-label';
     lbl.textContent = o.statLabel ?? '';
