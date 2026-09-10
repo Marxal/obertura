@@ -159,13 +159,19 @@ stale against Vite's hashed assets. It applies the saved theme and board colour
 
 ### 3.2 Views and navigation
 
-Seven views, all present in `index.html` and toggled by `hidden` in `showView()`:
+Eight views, all present in `index.html` and toggled by `hidden` in `showView()`:
 
-`train` · `lines` · `explore` · `games` · `progress` · `builder` · `settings`
+`home` · `train` · `lines` · `explore` · `games` · `progress` · `builder` · `settings`
 
-- **Five tabs** (Train, My Lines, Explore, My games, Statistics) show in
+- **Six tabs** (Home, Train, My Lines, Explore, My games, Statistics) show in
   `#bottom-nav` on a phone and `#side-nav` at/above `DESKTOP_NAV_BREAKPOINT`;
-  `syncNavVisibility()` swaps them on both navigation and live resize.
+  `syncNavVisibility()` swaps them on both navigation and live resize. Six is
+  **temporary** — My Lines and Explore merge into one "Openings" tab in a later
+  round, which takes it back to five. They fit at 375px (63px each, widest label
+  51px), and `.tab-item span` clips rather than pushes its neighbours around.
+- **`home` is the start view and the back-navigation root.** It was `train`
+  until the daily-challenge card moved to Home; the system back gesture now
+  steps to Home from anywhere and lets the press through only there.
 - **Two full screens** (`BACK_VIEWS`: builder, settings) hide both navs and show
   the header back arrow. `returnView` remembers where to go back to.
 - `document.documentElement.dataset.view` is set on every navigation, so CSS
@@ -192,17 +198,26 @@ save-guard runs with priority.
 An exercise can hand off to the analyser mid-run ("Open full analysis" in a
 mistake drill, "Analyse position" from a puzzle). The overlay is **hidden, not
 destroyed**: `suspendedSession` holds `{ resume, discard }`, the header swaps
-Save for "Back to train", and `showView()` resumes it when the user lands back on
-Train — or discards it anywhere else, so a hidden overlay can never linger under
-a different screen.
+Save for "Back to train", and `showView()` resumes it when the user lands back
+on **Home or Train** — or discards it anywhere else, so a hidden overlay can
+never linger under a different screen.
+
+Home is in that list because the daily challenge lives there: finish a daily
+puzzle, tap Analyse, then "Back to train", and the screen you return to is the
+one with the daily card on it. Checking only for `train` sent that case down the
+discard branch and threw the run away silently.
 
 ### 3.5 The `liveDaily` indirection
 
-`renderTrainRoom()` rebuilds the whole Train screen from scratch, including the
-daily card and its launchers. Anything holding the *old* closures then writes
-into detached nodes. So completions and the "Next challenge →" chain go through
-the module-level `liveDaily` box, and the newest render always owns it. Read the
+`renderHome()` rebuilds the whole screen from scratch, including the daily card
+and its launchers. Anything holding the *old* closures then writes into detached
+nodes. So completions and the "Next challenge →" chain go through the
+module-level `liveDaily` box, and the newest render always owns it. Read the
 long comment above `liveDaily` in `main.ts` before touching daily wiring.
+
+The card is built in `main.ts` rather than in `home-screen.ts` because its eight
+launchers reach into every exercise in the app; `home-screen.ts` renders
+everything *below* it into a separate host.
 
 ### 3.6 The desktop path
 
@@ -421,11 +436,41 @@ days late outranks a 90-day move two days late).
   `struggle`, and the `modeLabel`/`modeIcon`/`modeAccent`/`contextLabel` set that
   paints `run-header.ts`.
 
+### 6.2b Home — the overview
+
+`home-screen.ts` renders everything below the daily card; `main.ts:renderHome()`
+owns the card itself and the host it sits in.
+
+Home answers "what is going on". Every other screen answers one question — what
+shall I train, what is in my book, how am I doing — and Home is the only screen
+that mentions all of them. **The rule that keeps it from becoming a second Train
+menu: Home has one card per section of the app, Train has one door per kind of
+training.** If Home ever starts listing exercises, it has become Train.
+
+Three blocks, in order:
+
+1. **Train** — the four domains as a 2×2 of small tiles carrying their live
+   figures (moves due, spots to fix, both ratings). They **navigate to Train**
+   rather than starting a session: each flagship is launched from inside its own
+   screen with that screen's data in hand, and reaching those from here would
+   mean loading four more modules on every Home paint to save one tap. The daily
+   card above is the one-tap route, and it deals from all four.
+2. **Waiting for you** — only what is true today. "Reading your games" while the
+   background pass is actually running (it subscribes and takes itself down when
+   the pass ends), then Forgotten moves. An empty section renders nothing rather
+   than an "all caught up" card.
+3. **Your app** — one row per section with its live figure: My Lines, Explore,
+   My games (count plus the last opponent and date), Statistics (the streak).
+
+The Get-started checklist and the grow-a-line notice both surface here too — the
+checklist rides with the daily card, and `#grow-notice-host` gained `home` in
+its eligible-views list.
+
 ### 6.3 The Train screen — four doors, then four boxes
 
 `main.ts:renderTrainRoom()` (was `renderTrainTabbed`). The tab strip is **gone**.
-Train is two layers, with the daily-challenge card above them until Home takes
-it:
+Train is two layers (the daily-challenge card that used to head it now lives on
+Home):
 
 1. **The four doors, together.** Each is a big card filled in its domain's
    colour, carrying that domain's live figure, and one tap starts that domain's
@@ -1547,7 +1592,8 @@ Every non-selftest module in `src/`, exactly once.
 | `dialog.ts` | the shared bottom-sheet dialog |
 | `toast.ts` | the one transient status toast |
 | `info-sheet.ts` | the shared "what is this?" popup behind (i) buttons |
-| `train-doors.ts` | the Train room's chrome — doors, tiles, drawers, the domain palette |
+| `train-doors.ts` | the Train room's chrome — doors, boxes, accordions, the domain palette |
+| `home-screen.ts` | Home's body — the training tiles, what's waiting, one row per section |
 | `empty-state.ts` | the one "nothing here yet" pattern |
 | `load-error.ts` | the shared "data wouldn't load" + Retry panel |
 | `fab.ts` | the floating action button on the main tabs |

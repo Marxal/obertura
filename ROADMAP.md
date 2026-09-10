@@ -1735,6 +1735,61 @@ strip. The daily-challenge card stays at the top of Train, and Forgotten moves
 has no caller at all, until Home lands.
 
 
+
+## Home — the app gets a front door ✅
+
+**Why.** Every screen in the app answered one question and none of them answered
+"what is going on". The daily challenge sat at the top of Train, where it
+competed with the four doors for the first thing you see; Forgotten moves had no
+home at all after the Train round removed it; and nothing anywhere told you the
+background scan was working rather than broken.
+
+**What shipped.** A sixth tab, first in the bar and the app's new start view:
+
+- **The daily-challenge card**, moved wholesale from Train, with the Get-started
+  checklist that rides with it.
+- **Train** — the four domains as a 2×2 of tiles carrying their live figures
+  (moves due, spots to fix, both ratings), landing on Train. They navigate
+  rather than start: each flagship is launched from inside its own screen with
+  that screen's data in hand, and reaching those from Home would mean loading
+  four more modules on every paint to save one tap.
+- **Waiting for you** — "Reading your games — 24 to go" while the background
+  pass is actually running (it subscribes and takes itself off screen when the
+  pass ends), then Forgotten moves, back from the dead.
+- **Your app** — one row per section with its live figure: My Lines, Explore, My
+  games (count, last opponent, date), Statistics (the streak).
+
+**The rule that keeps Home and Train apart**, because they are now the two
+screens that both talk about training: *Home has one card per section of the
+app, Train has one door per kind of training.* If Home ever starts listing
+exercises, it has become Train.
+
+**The risky wiring, and what it needed.** `liveDaily` moves with the card, so
+`renderHome` is what rebuilds it now. Two things had to follow:
+
+- **The suspended-session resume** keyed on landing back on `train`. Finish a
+  daily puzzle, tap Analyse, then "Back to train" — the screen you return to is
+  the one with the daily card on it, which is Home. It resumes on either now;
+  before the fix that case took the *discard* branch and threw the run away
+  silently.
+- **The back-navigation root** moved from `train` to `home`, along with the
+  start view, the "Back to train" chip, the first-run skip and the
+  install-prompt refresh.
+
+**Six tabs is temporary.** They fit at 375px (63px each, widest label 51px, none
+clipped) and `.tab-item span` clips rather than shoving its neighbours, but the
+answer is structural: My Lines and Explore merge into one "Openings" tab next
+round, which takes it back to five.
+
+New module: `home-screen.ts`. `main.ts` gains `renderHome`, and two module-level
+handles (`trainOpeningsHost`, `repaintMistakes`) so Home's daily launchers can
+still re-render the Train domains they touch — stale-but-harmless when Train is
+not the screen you are on, because re-rendering a detached host costs a little
+work and changes nothing.
+
+**Not deployed** — `main` is still on the tab strip.
+
+
 ---
 
 ## Later 💤

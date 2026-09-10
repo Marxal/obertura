@@ -15,13 +15,13 @@ import {
   planLineRemoval, removeAndStore, restoreAndStore,
 } from './builder-book';
 import { describeRemoval, removalBody, removalDone, removalTitle } from './line-removal';
-import { nodeAtPath, isUserMoveAtDepth, type DetachedSubtree } from './repertoire';
+import { nodeAtPath, isUserMoveAtDepth, type DetachedSubtree, type Repertoire } from './repertoire';
 import { openBranchSheet } from './branch-sheet';
 import { parseLineId } from './lines-view';
 import { selectedBookId } from './repertoire-picker';
-import { mainlineNodes, DEFAULT_PRIORITY } from './scheduler';
+import { mainlineNodes, dueLines, DEFAULT_PRIORITY } from './scheduler';
 import type { Annotation, MoveNode } from './tree';
-import { saveLine, getAllLines, getLine, getAllGames, getGame, saveGames, deleteLine, deleteGame, purgeRetiredLocalKeys, countGames, getAllOpponents } from './storage';
+import { saveLine, getAllLines, getLine, getAllGames, getGame, saveGames, deleteLine, deleteGame, purgeRetiredLocalKeys, countGames, getAllOpponents, getAllRepertoires } from './storage';
 import type { ImportedGame, Platform, TimeClass } from './import-games';
 import { nameForPath, openingForPath } from './openings';
 import { positionIndex, type DuplicateVerdict } from './position-index';
@@ -43,6 +43,9 @@ import {
 import { handlePurchaseReturn } from './checkout';
 import { primePricing } from './pricing';
 import { renderTrainScreen, startLineSession, startPositionsSession, startMoveFix } from './train-screen';
+import { renderHomeBody } from './home-screen';
+import { planRepertoireRun } from './repertoire-run';
+import { getPuzzleRating } from './puzzle-rating';
 import { renderExploreScreen } from './explore-screen';
 import { renderPuzzlesScreen, startDailyPuzzles } from './puzzles-screen';
 import { renderMistakesScreen } from './mistakes-screen';
@@ -81,7 +84,7 @@ import { showDailyCelebration, showPerfectDayCelebration, showWhenClear } from '
 import { track, trackOnce, trackAppOpen } from './metrics';
 import { currentStreak, getTrainingDays } from './streak';
 import { masteredLines } from './stats';
-import { collectSpots, pickSpots, type SpotRef } from './mistake-scan';
+import { collectSpots, pickSpots, countRetry, type SpotRef } from './mistake-scan';
 import { startMistakeSession, type OpenGameCtx } from './mistake-run';
 import { collectDetectiveSpots, pickDetective, type DetectiveRef } from './detective';
 import { startDetectiveSession } from './detective-run';
@@ -1194,7 +1197,7 @@ function mountSessionReturnChip(): void {
   chip.appendChild(Icons.back(14));
   chip.appendChild(document.createTextNode('Back to train'));
   // Landing on Train is what resumes the session (see showView).
-  chip.addEventListener('click', () => showView('train'));
+  chip.addEventListener('click', () => showView('home'));
   const save = document.getElementById('header-save');
   if (save && save.parentElement) save.parentElement.insertBefore(chip, save);
   else document.body.appendChild(chip);
@@ -3222,8 +3225,8 @@ function deleteCurrentLineOrGame(): void {
 // "train" is the start view and back-navigation root; "explore" is a v1.2
 // placeholder; "builder" shows a chessboard, so it counts as a board screen
 // (see BACK_VIEWS below).
-type ViewName = 'train' | 'lines' | 'explore' | 'games' | 'progress' | 'builder' | 'settings';
-let currentView: ViewName = 'train';
+type ViewName = 'home' | 'train' | 'lines' | 'explore' | 'games' | 'progress' | 'builder' | 'settings';
+let currentView: ViewName = 'home';
 
 // The global FAB (mounted at boot). Shown on the four main tabs, hidden on the
 // full-screen views (builder, settings) — see showView.
@@ -3793,7 +3796,7 @@ async function showFirstRunRecap(): Promise<void> {
     onSave: (openings) => { finishFirstRun(); void saveRecapLines(openings); },
     // "Not now" is a decision, so it ends first run. The back gesture is not —
     // it returns to the question, with first run still owed.
-    onSkip: () => { finishFirstRun(); showView('train'); },
+    onSkip: () => { finishFirstRun(); showView('home'); },
     // Back always returns to the QUESTION, never to the resume — the user is
     // stepping back from the openings, so landing on them again is a loop.
     onBack: () => showWherePickerScreen(),
@@ -4334,10 +4337,10 @@ function updateHeaderTitle(): void {
 }
 
 // The Train screen's four domains used to be four tabs, each hiding a pane. They
-// are now four doors and one shared tile grid, all four rendered at once — see
-// train-doors.ts for why, and .train-room in style.css for how. Their colours
-// live in train-doors.ts's DOMAIN_ACCENT, where the four screens can reach them
-// without importing this file.
+// are now four doors above four boxes — see train-doors.ts for why, and
+// .train-room in style.css for how. Their colours live in train-doors.ts's
+// DOMAIN_ACCENT, where the four screens can reach them without importing this
+// file.
 
 // Everything on today's daily challenge is done. Stamp the day, gather the recap
 // and show the celebration — once the finishing task's own results screen has
@@ -4373,9 +4376,8 @@ function celebrateDaily(config: DailyConfig, active: DailyTaskId[], allLines: Li
  * THE LIVE DAILY CHALLENGE — repaint + launch, always pointing at the Train
  * screen that is actually on screen.
  *
- * showView('train') calls renderTrainRoom, which rebuilds the whole Train
- * screen from scratch: new domain hosts, a new daily host, a new renderDaily
- * closure.
+ * showView('home') calls renderHome, which rebuilds the whole screen from
+ * scratch: a new daily host and a new renderDaily closure.
  * Anything holding the OLD closures is then writing into detached nodes.
  *
  * That is not hypothetical. Finish the last puzzle of the daily challenge, tap
@@ -4394,14 +4396,33 @@ let liveDaily: {
   launch: (id: DailyTaskId) => void;
 } | null = null;
 
+// The Train screen: four doors, then a box per domain. The daily-challenge card
+// that used to head it now lives on Home (renderHome below).
+//
+// The two module-level handles exist because Home's daily launchers reach back
+// into this screen: a daily line session re-renders the Openings domain when it
+// ends, and the four game-fed tasks repaint the Middlegame one. Both are set on
+// every Train paint and are simply stale-but-harmless when Train is not the
+// screen you are on — re-rendering a detached host costs a little work and
+// changes nothing on screen.
+let trainOpeningsHost: HTMLElement | null = null;
+let repaintMistakes: (() => void) | null = null;
+
+/**
+ * Where a daily line/position session should re-render when it ends.
+ *
+ * The Openings domain's host when Train has been drawn, and a throwaway div
+ * before that — a session launched from Home on a cold start would otherwise
+ * pass `null` into machinery that has always been handed an element. Rendering
+ * into a detached div is wasted work and nothing else; the next visit to Train
+ * rebuilds it for real.
+ */
+function trainHost(): HTMLElement {
+  return trainOpeningsHost ?? document.createElement('div');
+}
+
 function renderTrainRoom(host: HTMLElement): void {
   host.innerHTML = '';
-
-  // The daily-challenge card sits above the room — it deals from all four
-  // domains, so it's the shared daily face of the Train screen. (When Home
-  // lands, this is the block that moves there.)
-  const dailyHost = document.createElement('div');
-  dailyHost.className = 'daily-host';
 
   // The room: four hosts, one per domain. Each renders TWO things — its door
   // and its box — and CSS `order` sorts all four doors above all four boxes
@@ -4427,7 +4448,61 @@ function renderTrainRoom(host: HTMLElement): void {
   // the app's own subject; Middlegame second because it is the half that reads
   // your games, and it spent this whole redesign being a quarter of one tab.
   room.append(openingsPane, mistakesPane, puzzlesPane, endgamePane);
-  host.append(dailyHost, room);
+  host.appendChild(room);
+
+  // All four render at once now. They used to render lazily, one tab at a time,
+  // so a pane's side effects only ran when it was shown — the cost of dropping
+  // that is four reads of IndexedDB instead of one on a cold Train. Each screen
+  // caps and caches its own heavy work (the mistake and endgame scans are
+  // background passes with their own state), so the extra reads are the whole
+  // of it, and they run in parallel.
+  const paintOpenings = (): void => {
+    renderTrainScreen(openingsPane, {
+      focusLineId: pendingTrainLineId ?? undefined,
+      onOpenLine,
+      onBuildLine: () => startNewLine('white'),
+      onSetFabVisible: (visible) => fabController?.setVisible(visible),
+    });
+    pendingTrainLineId = null;
+  };
+  const paintMistakes = (): void => {
+    void renderMistakesScreen(mistakesPane, {
+      onOpenGame: openGameFromSession,
+    });
+  };
+  trainOpeningsHost = openingsPane;
+  repaintMistakes = paintMistakes;
+  paintOpenings();
+  paintMistakes();
+  void renderPuzzlesScreen(puzzlesPane, {
+    onImportGames: () => showView('games'),
+    onBuildLine: () => startNewLine('white'),
+    onConnectLichess: () => void lichessConnect(),
+    onAnalysePosition: openPuzzleFromSession,
+  });
+  renderEndgameScreen(endgamePane, {
+    onAnalysePosition: openPuzzleFromSession,
+  });
+}
+
+// ── Home ─────────────────────────────────────────────────────────────────────
+//
+// The daily-challenge card plus a dynamic overview of every section — see
+// home-screen.ts for what belongs here and what belongs on Train.
+//
+// The daily card is built HERE rather than in home-screen.ts because its eight
+// launchers reach into every exercise in the app, and `liveDaily` has to own
+// them (read its note above before touching any of this).
+function renderHome(host: HTMLElement): void {
+  host.innerHTML = '';
+
+  const dailyHost = document.createElement('div');
+  dailyHost.className = 'daily-host';
+  const body = document.createElement('div');
+  body.className = 'home-body';
+  host.append(dailyHost, body);
+
+  void renderHomeData(body);
 
   // This render's launchers, filled in once renderDaily has read the data it
   // needs. Held in a box rather than captured so `liveDaily` below can be set
@@ -4481,7 +4556,7 @@ function renderTrainRoom(host: HTMLElement): void {
               // A 'build' add has just moved the user INTO the builder — coming
               // back here would throw them straight out of it again. Every other
               // mode leaves them on Train, where the bar needs to climb.
-              if (mode !== 'build') showView('train');
+              if (mode !== 'build') showView('home');
             },
             onCancel),
         ),
@@ -4490,7 +4565,7 @@ function renderTrainRoom(host: HTMLElement): void {
         // can hand to the builder at any point (the same flow the FAB and Explore
         // open). It used to open an ordinary empty builder with the eval bar
         // switched on, which is an analysis aid, not a way to get a line.
-        onImportGames: () => openImportPanel({ onImported: () => showView('train') }),
+        onImportGames: () => openImportPanel({ onImported: () => showView('home') }),
         onConnectLichess: () => void lichessConnect(),
         // The same replay Settings offers, in the one place a user who skipped
         // the walkthrough is actually looking.
@@ -4500,7 +4575,7 @@ function renderTrainRoom(host: HTMLElement): void {
         // The same offer the training cap makes, asked for rather than run
         // into. One pitch, one price, one place to wire the checkout.
         onGoPro: () => showGoProDialog(),
-        onHide: () => showView('train'),
+        onHide: () => showView('home'),
     });
 
     // Under the three-line goal the checklist LEADS — "how do I get lines" is
@@ -4559,12 +4634,12 @@ function renderTrainRoom(host: HTMLElement): void {
         // Drill today's lines through the Openings domain; mark that task done
         // when the whole sitting finishes, then refresh the card behind the
         // overlay. No tab to switch to any more — every domain is on screen.
-        startLineSession(dailyLines, openingsPane, finish(markLinesDone), nextFor('lines'),
+        startLineSession(dailyLines, trainHost(), finish(markLinesDone), nextFor('lines'),
           'Daily challenge');
       },
       positions: () => {
         // Same domain, but a stream of single due positions rather than whole lines.
-        startPositionsSession(allLines, openingsPane, config.tasks.positions.count,
+        startPositionsSession(allLines, trainHost(), config.tasks.positions.count,
           finish(markPositionsDone), nextFor('positions'), 'Daily challenge');
       },
       puzzles: () => {
@@ -4592,7 +4667,7 @@ function renderTrainRoom(host: HTMLElement): void {
           // just handed you.
           contextLabel: 'Daily challenge',
           onComplete: (s) => done({ right: s.solved, wrong: Math.max(0, s.completed - s.solved) }),
-          onExit: () => paintMistakes(),
+          onExit: () => repaintMistakes?.(),
           onOpenGame: openGameFromSession,
           nextAction: nextFor('mistakes'),
         });
@@ -4606,7 +4681,7 @@ function renderTrainRoom(host: HTMLElement): void {
           refs: pickDetective(detectiveRefs, config.tasks.detective.count, dueAt),
           contextLabel: 'Daily challenge',
           onComplete: (s) => done({ right: s.solved, wrong: Math.max(0, s.completed - s.solved) }),
-          onExit: () => paintMistakes(),
+          onExit: () => repaintMistakes?.(),
           onOpenGame: openGameFromSession,
           nextAction: nextFor('detective'),
         });
@@ -4619,7 +4694,7 @@ function renderTrainRoom(host: HTMLElement): void {
           refs: pickWhichMove(pairRefs, config.tasks.whichMove.count, dueAt),
           contextLabel: 'Daily challenge',
           onComplete: (s) => done({ right: s.solved, wrong: Math.max(0, s.completed - s.solved) }),
-          onExit: () => paintMistakes(),
+          onExit: () => repaintMistakes?.(),
           onOpenGame: openGameFromSession,
           nextAction: nextFor('whichMove'),
         });
@@ -4636,7 +4711,7 @@ function renderTrainRoom(host: HTMLElement): void {
           // "Ran out" is not a wrong answer and not a right one, so it counts
           // as neither here: the day's tally is about what you saw.
           onComplete: (s) => done({ right: s.found, wrong: s.missed }),
-          onExit: () => paintMistakes(),
+          onExit: () => repaintMistakes?.(),
           onOpenGame: openGameFromSession,
           nextAction: nextFor('timePressure'),
         });
@@ -4694,36 +4769,43 @@ function renderTrainRoom(host: HTMLElement): void {
   };
   void renderDaily();
 
-  // All four render at once now. They used to render lazily, one tab at a time,
-  // so a pane's side effects only ran when it was shown — the cost of dropping
-  // that is four reads of IndexedDB instead of one on a cold Train. Each screen
-  // caps and caches its own heavy work (the mistake and endgame scans are
-  // background passes with their own state), so the extra reads are the whole
-  // of it, and they run in parallel.
-  const paintOpenings = (): void => {
-    renderTrainScreen(openingsPane, {
-      focusLineId: pendingTrainLineId ?? undefined,
-      onOpenLine,
-      onBuildLine: () => startNewLine('white'),
-      onSetFabVisible: (visible) => fabController?.setVisible(visible),
-    });
-    pendingTrainLineId = null;
-  };
-  const paintMistakes = (): void => {
-    void renderMistakesScreen(mistakesPane, {
-      onOpenGame: openGameFromSession,
-    });
-  };
-  paintOpenings();
-  paintMistakes();
-  void renderPuzzlesScreen(puzzlesPane, {
-    onImportGames: () => showView('games'),
-    onBuildLine: () => startNewLine('white'),
-    onConnectLichess: () => void lichessConnect(),
-    onAnalysePosition: openPuzzleFromSession,
-  });
-  renderEndgameScreen(endgamePane, {
-    onAnalysePosition: openPuzzleFromSession,
+}
+
+// The figures Home's own body needs, fetched once. Kept apart from the daily
+// card's render so a slow read of one never holds up the other.
+async function renderHomeData(body: HTMLElement): Promise<void> {
+  let lines: Line[];
+  let games: ImportedGame[];
+  let books: Repertoire[];
+  try {
+    [lines, games, books] = await Promise.all([
+      getAllLines(), getAllGames(), getAllRepertoires(),
+    ]);
+  } catch {
+    body.replaceChildren();
+    return;
+  }
+  const plan = planRepertoireRun(books);
+  const counts = countRetry(games);
+  renderHomeBody(body, {
+    lines,
+    games: [...games].sort((a, b) => (b.endTime ?? 0) - (a.endTime ?? 0)),
+    dueMoves: plan?.dueMoves ?? 0,
+    dueLines: dueLines(lines.filter(l => l.inTraining)).length,
+    spotsToFix: Math.max(0, counts.spots - counts.fixed),
+    puzzleRating: getPuzzleRating(),
+    endgameRating: getPuzzleRating('endgame'),
+  }, {
+    onOpenView: (v) => showView(v),
+    onFixMove: (m, ls) => startMoveFix(
+      { preFen: m.preFen, san: m.san, colour: m.colour, count: m.lapses },
+      ls,
+      () => showView('home'),
+    ),
+    onDrillLine: (line) => onTrainLine(line.id, true),
+    onOpenLine: (line) => onOpenLine(line),
+    onOpenGame: (g) => openGameForAnalysis(g),
+    onRefresh: () => showView('home'),
   });
 }
 
@@ -4743,14 +4825,20 @@ function syncNavVisibility(): void {
 }
 
 function showView(view: ViewName): void {
-  // A training session suspended behind the analyser: landing back on Train
-  // resumes it (after the view has rendered, below); landing anywhere else
-  // discards it so its hidden overlay can't linger under a different screen.
+  // A training session suspended behind the analyser: landing back on one of the
+  // two screens an exercise can start from resumes it (after the view has
+  // rendered, below); landing anywhere else discards it so its hidden overlay
+  // can't linger under a different screen.
+  //
+  // HOME IS IN THAT LIST because the daily challenge moved there: finish a daily
+  // puzzle, tap Analyse, then "Back to train", and the screen you return to is
+  // the one with the daily card on it. Checking only for `train` sent that case
+  // down the discard branch, which threw the run away silently.
   let resumeSuspended: (() => void) | null = null;
   if (suspendedSession && view !== 'builder') {
     const s = suspendedSession;
     clearSuspendedSession();
-    if (view === 'train') resumeSuspended = s.resume;
+    if (view === 'train' || view === 'home') resumeSuspended = s.resume;
     else s.discard();
   }
 
@@ -4772,6 +4860,7 @@ function showView(view: ViewName): void {
   if (view === 'builder') armBuilderBack();
   else disarmBuilderBack();
 
+  const homeEl = document.getElementById('view-home')!;
   const builderEl = document.getElementById('view-builder')!;
   const linesEl = document.getElementById('view-lines')!;
   const exploreEl = document.getElementById('view-explore')!;
@@ -4780,6 +4869,7 @@ function showView(view: ViewName): void {
   const progressEl = document.getElementById('view-progress')!;
   const settingsEl = document.getElementById('view-settings')!;
 
+  homeEl.toggleAttribute('hidden', view !== 'home');
   builderEl.toggleAttribute('hidden', view !== 'builder');
   linesEl.toggleAttribute('hidden', view !== 'lines');
   exploreEl.toggleAttribute('hidden', view !== 'explore');
@@ -4823,6 +4913,10 @@ function showView(view: ViewName): void {
       onImport: () => openMyGamesImport(() => showView('games')),
       onOpenGame: (g) => openGameForAnalysis(g),
     });
+  }
+
+  if (view === 'home') {
+    renderHome(homeEl);
   }
 
   if (view === 'train') {
@@ -5016,7 +5110,8 @@ async function renderGrowNotice(): Promise<void> {
   if (!host) return;
   const myId = ++growNoticeRenderId;
   const eligible = (): boolean =>
-    currentView === 'train' || currentView === 'lines' || currentView === 'explore';
+    currentView === 'home' || currentView === 'train'
+    || currentView === 'lines' || currentView === 'explore';
   if (!eligible()) { host.replaceChildren(); return; }
 
   let target: GrowTarget | null = null;
@@ -5258,6 +5353,7 @@ function applyNavSignIn(): void {
 // #bottom-nav's static markup in index.html, built here (rather than
 // hardcoded HTML) so it can reuse Icons.
 const SIDE_NAV_ITEMS: ReadonlyArray<{ view: ViewName; label: string; icon: () => SVGSVGElement }> = [
+  { view: 'home', label: 'Home', icon: () => Icons.sprout(22) },
   { view: 'train', label: 'Train', icon: () => Icons.zap(22) },
   { view: 'lines', label: 'My Lines', icon: () => Icons.pawn(22) },
   { view: 'explore', label: 'Explore', icon: () => Icons.compass(22) },
@@ -5517,13 +5613,13 @@ function setupNav(): void {
       showView(returnView);
       return true;
     }
-    // Any other tab steps back to Train, the start view / back-nav root.
-    if (currentView !== 'train') {
+    // Any other tab steps back to Home, the start view / back-nav root.
+    if (currentView !== 'home') {
       stopPlayback();
-      showView('train');
+      showView('home');
       return true;
     }
-    // Train with nothing open: let the press through so the app can close.
+    // Home with nothing open: let the press through so the app can close.
     return false;
   });
   initBackNav();
@@ -6619,13 +6715,12 @@ requestAnimationFrame(() => {
 
   new ResizeObserver(() => cg.redrawAll()).observe(boardEl);
 
-  // Land on the Train screen — the app's start view. The board (in the builder)
-  // was created above while visible, so chessground sized itself correctly
-  // before we switch away.
-  showView('train');
+  // Land on Home — the app's start view. The board (in the builder) was created
+  // above while visible, so chessground sized itself correctly before we switch
+  // away.
+  showView('home');
 
-  // Drop the boot splash once the Train screen's gating data (the lines) has
-  // loaded — so the launch shows the app icon rather than a bare "Loading…",
+  // Drop the boot splash once Home's gating data (the lines) has loaded — so the launch shows the app icon rather than a bare "Loading…",
   // then reveals a populated screen. A short fallback guarantees it never sticks.
   hideAppSplashWhenReady();
 
@@ -6633,7 +6728,7 @@ requestAnimationFrame(() => {
   // Get-started checklist's install row is usually asked for BEFORE the answer
   // is yes. Repaint Train when the prompt lands, rather than making the user
   // navigate away and back to see the row appear.
-  onInstallAvailable(() => { if (currentView === 'train') showView('train'); });
+  onInstallAvailable(() => { if (currentView === 'home') showView('home'); });
 
   // Now that cg/builder exist, replay a "Connect to Lichess" return if one is
   // pending (the OAuth callback may have resolved before boot finished). This
