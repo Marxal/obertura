@@ -66,8 +66,22 @@ export function renderHomeBody(host: HTMLElement, data: HomeData, deps: HomeDeps
 
   host.appendChild(buildTrainRow(data, deps));
 
-  const waiting = buildWaiting(data, deps);
-  if (waiting) host.appendChild(waiting);
+  // The scan banner needs no heading — it is one sentence that says what it is,
+  // and it is only here at all while the pass is running.
+  const scan = buildScanStrip();
+  if (scan) host.appendChild(scan);
+
+  // Forgotten moves and forgotten lines, each its own titled block with its own
+  // count. They used to be one boxed card behind a Moves/Lines toggle, which
+  // framed them twice over and kept half of the answer hidden; they arrive here
+  // already shaped as Home sections (forgotten-section.ts).
+  renderForgottenSection(host, data.lines, {
+    onFixMove: (m, lines) => deps.onFixMove(
+      { preFen: m.preFen, san: m.san, colour: m.colour, lapses: m.lapses }, lines),
+    onDrillLine: (line) => deps.onDrillLine(line),
+    onOpenLine: (line) => deps.onOpenLine(line),
+    onStartTraining: () => deps.onRefresh(),
+  });
 
   host.appendChild(buildSections(data, deps));
 }
@@ -126,35 +140,6 @@ function buildTrainRow(data: HomeData, deps: HomeDeps): HTMLElement {
     tile('endgames', Icons.flag(20), 'Endgames', data.endgameRating, 'rating'),
   );
   section.appendChild(grid);
-  return section;
-}
-
-// ── What is waiting ──────────────────────────────────────────────────────────
-
-// Only ever the things that are true today. An empty section renders nothing at
-// all rather than an "all caught up" card — the absence says it, and a card that
-// congratulates you for having nothing to do is a card you learn to skip.
-function buildWaiting(data: HomeData, deps: HomeDeps): HTMLElement | null {
-  const cards: HTMLElement[] = [];
-
-  const scan = buildScanStrip();
-  if (scan) cards.push(scan);
-
-  // Forgotten moves — the block that used to close the Train → Openings pane.
-  // It is a readout, which is why it is here and not there.
-  const forgotten = document.createElement('div');
-  renderForgottenSection(forgotten, data.lines, {
-    onFixMove: (m, lines) => deps.onFixMove(
-      { preFen: m.preFen, san: m.san, colour: m.colour, lapses: m.lapses }, lines),
-    onDrillLine: (line) => deps.onDrillLine(line),
-    onOpenLine: (line) => deps.onOpenLine(line),
-    onStartTraining: () => deps.onRefresh(),
-  });
-  if (forgotten.firstChild) cards.push(forgotten);
-
-  if (cards.length === 0) return null;
-  const section = buildSection('Waiting for you');
-  for (const c of cards) section.appendChild(c);
   return section;
 }
 

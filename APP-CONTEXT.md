@@ -457,16 +457,21 @@ Three blocks, in order:
    screen with that screen's data in hand, and reaching those from here would
    mean loading four more modules on every Home paint to save one tap. The daily
    card above is the one-tap route, and it deals from all four.
-2. **Waiting for you** — only what is true today. "Reading your games" while the
-   background pass is actually running (it subscribes and takes itself down when
-   the pass ends), then Forgotten moves — as a **horizontal card carousel**, not
-   a stack: five of those cards is a board and four lines of text apiece, which
-   is two phone screens on a page whose job is to show you the whole app. Laid
-   across, it costs one card's height and still shows the worst offender in
-   full. "See all" rides along as the last slide. An empty section renders
-   nothing rather than an "all caught up" card.
-3. **Your app** — one row per section with its live figure: My Lines, Explore,
-   My games (count plus the last opponent and date), Statistics (the streak).
+2. **"Reading your games"** — a one-line banner, only while the background pass
+   is actually running (it subscribes and takes itself down when the pass ends).
+   No heading: it is one sentence that says what it is.
+3. **Forgotten moves** and **Forgotten lines** — two titled blocks, each a
+   **horizontal card strip**. They were one boxed card behind a Moves/Lines
+   toggle, which framed already-framed content, pushed the cards in by the box's
+   own padding so they lined up with nothing else, and kept half the answer
+   hidden. Stacked and unboxed, both counts are visible and the cards sit at the
+   page inset. Five of those cards is a board and four lines of text apiece —
+   two phone screens on a page whose job is to show you the whole app — so laid
+   across it costs one card's height and still shows the worst offender in full.
+   "See all" is the last slide. A block with nothing in it isn't built.
+4. **Your app** — one row per section with its live figure: Openings (saved and
+   in-training counts), My games (count plus the last opponent and date),
+   Statistics (the streak).
 
 The Get-started checklist and the grow-a-line notice both surface here too — the
 checklist rides with the daily card, and `#grow-notice-host` gained `home` in
@@ -973,11 +978,17 @@ Three small bugs from the redesign, worth naming because the shapes recur:
   class that carries the tab body's side padding — fine as a standalone view,
   double once it became a tab inside Openings. It renders into a plain
   `.lines-list-body` now and the host owns the inset.
-- **`.forgotten-slide` was already taken.** The Forgotten-moves card carousel
+- **`.forgotten-slide` was already taken.** The Forgotten-moves card strip
   picked a class the *window* swipe track in the same component already used
   (Today / This week / All time), which wins by source order — so every card
-  came out full-width with no peek. The card strip is `.fmove-strip` /
-  `.fmove-card`. Grep before naming a class in an 18,000-line stylesheet.
+  came out full-width with no peek. The strip is `.fmove-strip` / `.fmove-card`.
+  Grep before naming a class in an 18,000-line stylesheet.
+- **A flex item's automatic minimum size.** `.fmove-card` had `flex: 0 0 82%`
+  and still came out 493px wide, because a flex item is floored at its
+  min-content size — a fixed-width board plus an unbroken opening name. `flex-
+  shrink: 0` does not help: the floor applies to the base size rather than by
+  shrinking. `min-width: 0` on the item is the fix, and it is needed on the item
+  itself, not only on its child.
 
 ### 12.1 The Openings tab
 

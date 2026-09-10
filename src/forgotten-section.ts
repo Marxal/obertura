@@ -28,7 +28,7 @@ import {
   type MoveMemory,
 } from './stats';
 import { mainlineNodes, describeDue } from './scheduler';
-import { statsSection, buildSegmented, openSheet } from './stats-ui';
+import { openSheet } from './stats-ui';
 import { buildEmptyState } from './empty-state';
 import { colourPip, lineFinalFen } from './card-position';
 import { buildMiniBoard } from './board-mini';
@@ -54,7 +54,6 @@ export interface ForgottenCallbacks {
   onStartTraining: () => void;
 }
 
-type Tab = 'moves' | 'lines';
 
 // A move in the usual written form: "8. ♞f3" for White, "8… c6" for Black — the
 // ellipsis is how notation says "this is Black's half of move 8".
@@ -62,65 +61,74 @@ function moveLabel(m: NeedsWorkMove): string {
   return `${m.moveNumber}${m.colour === 'white' ? '.' : '…'} ${formatMove(m.san)}`;
 }
 
+/**
+ * Two blocks: the moves you keep missing, then the lines that keep slipping.
+ *
+ * THEY USED TO BE ONE, behind a Moves / Lines segmented control inside a boxed
+ * `.section`. Three things went in the move to Home:
+ *
+ * - **The box.** A bordered card inside a page whose sections are already
+ *   spaced and labelled is a second frame around the same thing, and it pushed
+ *   the carousel in by its own padding so the cards no longer lined up with
+ *   anything else on the page.
+ * - **The tabs.** Two halves of the same question, one of them always hidden.
+ *   Stacked, both are visible and each gets its own count in its own heading.
+ * - **The captions.** "Green is recalled, red missed…" under a block whose bars
+ *   are green and red. The peek behind each card carries the full figures for
+ *   anyone who wants them.
+ */
 export function renderForgottenSection(host: HTMLElement, lines: Line[], cb: ForgottenCallbacks): void {
   const moves = needsWorkMoves(lines, 50);
   const recall = lineRecall(lines, 50);
-  // Nothing has ever been missed — no section at all, rather than an empty card.
-  if (moves.length === 0 && recall.length === 0) return;
 
-  const section = statsSection('Forgotten moves', `${moves.length} to work on`);
+  if (moves.length > 0) {
+    host.appendChild(buildBlock(
+      'Forgotten moves',
+      `${moves.length} to work on`,
+      carousel(
+        moves.slice(0, PREVIEW).map(m => moveRow(m, lines, cb)),
+        moves.length > PREVIEW
+          ? seeAllRow(`See all ${moves.length}`, () => openMovesSheet(moves, lines, cb))
+          : null,
+      ),
+    ));
+  }
 
-  const body = document.createElement('div');
-  body.className = 'stats-forgotten-body';
+  if (recall.length > 0) {
+    host.appendChild(buildBlock(
+      'Forgotten lines',
+      `${recall.length} to work on`,
+      carousel(
+        recall.slice(0, PREVIEW).map(r => lineRow(r, lines, cb)),
+        recall.length > PREVIEW
+          ? seeAllRow(`See all ${recall.length}`, () => openLinesSheet(recall, lines, cb))
+          : null,
+      ),
+    ));
+  }
+}
 
-  let tab: Tab = moves.length > 0 ? 'moves' : 'lines';
+/** A heading row and its carousel. Deliberately no card, no border, no wash. */
+function buildBlock(title: string, meta: string, body: HTMLElement): HTMLElement {
+  const block = document.createElement('section');
+  block.className = 'fmove-block';
 
-  // The caption explains whichever bar you're looking at, so it changes with
-  // the tab rather than trying to describe both at once.
-  const cap = document.createElement('p');
-  cap.className = 'stats-trend-caption';
+  const head = document.createElement('div');
+  head.className = 'fmove-block-head';
+  const h = document.createElement('h2');
+  h.className = 'fmove-block-title';
+  h.textContent = title;
+  head.appendChild(h);
+  const m = document.createElement('span');
+  m.className = 'fmove-block-meta';
+  m.textContent = meta;
+  head.appendChild(m);
 
-  const paint = (): void => {
-    body.innerHTML = '';
-    if (tab === 'moves') paintMoves(body, moves, lines, cb);
-    else paintLines(body, recall, lines, cb);
-    cap.textContent = tab === 'moves'
-      ? 'Green is recalled, red missed, over every time the move has been asked.'
-      : 'Recall is the share of a line’s drilled moves you remembered last time.';
-  };
-
-  section.appendChild(buildSegmented<Tab>(
-    [['moves', 'Moves'], ['lines', 'Lines']],
-    tab,
-    (v) => { tab = v; paint(); },
-    'stats-range stats-forgotten-tabs',
-    body,
-  ));
-  section.appendChild(body);
-  paint();
-
-  section.appendChild(cap);
-
-  host.appendChild(section);
+  block.append(head, body);
+  return block;
 }
 
 // ── Moves ────────────────────────────────────────────────────────────────────
-
-function paintMoves(body: HTMLElement, moves: NeedsWorkMove[], lines: Line[], cb: ForgottenCallbacks): void {
-  if (moves.length === 0) {
-    body.appendChild(buildEmptyState({
-      line: 'No missed moves yet — clean run.',
-      cta: { label: 'Start training', onClick: cb.onStartTraining },
-    }));
-    return;
-  }
-  body.appendChild(carousel(
-    moves.slice(0, PREVIEW).map(m => moveRow(m, lines, cb)),
-    moves.length > PREVIEW
-      ? seeAllRow(`See all ${moves.length}`, () => openMovesSheet(moves, lines, cb))
-      : null,
-  ));
-}
 
 function moveRow(m: NeedsWorkMove, lines: Line[], cb: ForgottenCallbacks): HTMLElement {
   const card = document.createElement('button');
@@ -135,7 +143,14 @@ function moveRow(m: NeedsWorkMove, lines: Line[], cb: ForgottenCallbacks): HTMLE
   const name = document.createElement('span');
   name.className = 'stats-sheet-name';
   name.appendChild(colourPip(m.colour));
-  name.appendChild(document.createTextNode(moveLabel(m)));
+  // A SPAN, not a bare text node. The name row is a flex container (it carries
+  // the colour pip), and an anonymous text box in one cannot be given
+  // text-overflow — which is how a long opening name ran off the side of a
+  // carousel card instead of ellipsing.
+  const mLabel = document.createElement('span');
+  mLabel.className = 'stats-sheet-name-text';
+  mLabel.textContent = moveLabel(m);
+  name.appendChild(mLabel);
   if (m.hasNote) {
     const badge = document.createElement('span');
     badge.className = 'stats-note-badge';
@@ -233,22 +248,6 @@ function noteForMove(line: Line, m: NeedsWorkMove): string | undefined {
 
 // ── Lines ────────────────────────────────────────────────────────────────────
 
-function paintLines(body: HTMLElement, recall: LineRecall[], lines: Line[], cb: ForgottenCallbacks): void {
-  if (recall.length === 0) {
-    body.appendChild(buildEmptyState({
-      line: 'Nothing drilled yet — train a line and it shows up here.',
-      cta: { label: 'Start training', onClick: cb.onStartTraining },
-    }));
-    return;
-  }
-  body.appendChild(carousel(
-    recall.slice(0, PREVIEW).map(r => lineRow(r, lines, cb)),
-    recall.length > PREVIEW
-      ? seeAllRow(`See all ${recall.length}`, () => openLinesSheet(recall, lines, cb))
-      : null,
-  ));
-}
-
 function lineRow(r: LineRecall, lines: Line[], cb: ForgottenCallbacks): HTMLElement {
   const card = document.createElement('button');
   card.type = 'button';
@@ -263,7 +262,10 @@ function lineRow(r: LineRecall, lines: Line[], cb: ForgottenCallbacks): HTMLElem
   const name = document.createElement('span');
   name.className = 'stats-sheet-name';
   name.appendChild(colourPip(r.colour));
-  name.appendChild(document.createTextNode(r.lineName));
+  const rLabel = document.createElement('span');
+  rLabel.className = 'stats-sheet-name-text';
+  rLabel.textContent = r.lineName;
+  name.appendChild(rLabel);
   text.appendChild(name);
 
   text.appendChild(memoryBar(r.memory));

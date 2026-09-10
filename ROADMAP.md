@@ -1895,6 +1895,38 @@ Section labels also lost the 4px inline padding that had them sitting just
 inside the cards they label, on both Home and the Train boxes.
 
 
+
+## Forgotten moves, unboxed ✅
+
+Second pass on the block, off the phone.
+
+**The box went.** It was a bordered `.section` card inside a page whose sections
+are already spaced and labelled — a second frame around the same thing — and its
+padding pushed the card strip in so the cards lined up with nothing else on
+Home. Heading and cards now sit at the page inset, same as every other block.
+
+**Moves and Lines are two blocks, not two tabs.** They are two halves of one
+question and the toggle kept one of them hidden. Stacked, each gets its own
+heading and its own count.
+
+**The captions went.** "Green is recalled, red missed…" under a block whose bars
+are green and red; "Recall is the share of a line's drilled moves…" under a
+figure labelled recall. The peek behind each card carries the real numbers.
+
+**The Lines card was too wide — and the reason is worth writing down.**
+`.fmove-card` had `flex: 0 0 82%` and still came out 493px, because a flex
+item's automatic minimum size floors it at min-content: a fixed-width board plus
+an unbroken opening name. `flex-shrink: 0` does not help — the floor applies to
+the base size rather than by shrinking. `min-width: 0` on the item itself (not
+just on its child) is the fix. With it, the card is 281px with a 62px peek, the
+recall figure stays inside the card, long names ellipsis, and the meta clamps to
+two lines so every card in the strip is the same height.
+
+Names needed one markup change to ellipsis at all: the name row is a flex
+container (it carries the colour pip) and the label was a bare text node, which
+becomes an anonymous box that cannot take `text-overflow`. It is a span now.
+
+
 ---
 
 ## Later 💤

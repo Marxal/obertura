@@ -7546,22 +7546,53 @@ html:has(> body > .edit-overlay) > body {
   background: color-mix(in srgb, var(--pt-tint, transparent) 5%, var(--bg-sheet));
 }
 
-/* ── Forgotten moves: the preview carousel ───────────────────────────────────
-   Five cards side by side rather than stacked. The block costs one card's
-   height instead of two phone screens, and still shows the worst offender in
-   full — which is the one you were going to tap.
+/* ── Forgotten moves / lines ─────────────────────────────────────────────────
+   Two blocks on Home, each a heading row and a horizontal strip of the cards.
 
-   THE BLEED IS DELIBERATE. The track is pulled out to the section's padding
-   edge with a negative margin and given the same value back as padding, so the
-   first card lines up with the text above it while the rest of the row runs to
-   the screen edge — which is what tells you there is more to swipe. Without it
-   the row stops short of the edge and reads as a list that happens to be cut
-   off. Nothing here narrows the section's own margins; the compensation is
-   exact.
+   NO CARD AROUND THEM. This was one boxed `.section` with a Moves/Lines
+   segmented control inside it, which put a second frame around blocks that are
+   already spaced and labelled by the page — and pushed the strip in by the
+   box's own padding, so the cards lined up with nothing else on Home. The
+   heading now sits at the page inset and the strip starts there too.
 
    NOT `.forgotten-slide`: that class already belongs to the window swipe track
    further down this file (Today / This week / All time), which is a different
    carousel in the same component and wins by source order. */
+.fmove-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.fmove-block-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+/* Matches .home-section-title, because these ARE Home sections — they just
+   happen to be built by a module that predates Home. */
+.fmove-block-title {
+  margin: 0;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+}
+
+.fmove-block-meta {
+  font-size: 0.74rem;
+  color: var(--text-fainter);
+  font-variant-numeric: tabular-nums;
+}
+
+/* THE BLEED IS DELIBERATE. The strip is pulled out to the page's padding edge
+   and given the same value back as padding, so the first card lines up with the
+   heading above it while the rest of the row runs to the screen edge — which is
+   what tells you there is more to swipe. The compensation is exact; nothing
+   here narrows the page's own margins. */
 .fmove-strip {
   display: flex;
   gap: var(--space-sm);
@@ -7577,9 +7608,22 @@ html:has(> body > .edit-overlay) > body {
 .fmove-strip::-webkit-scrollbar { display: none; }
 
 .fmove-card {
-  flex: 0 0 86%;
+  flex: 0 0 82%;
   scroll-snap-align: start;
   display: flex;
+  /* NOT optional. A flex item's automatic minimum size floors it at min-content,
+     so a card holding a fixed-width board and an unbroken opening name grew past
+     its 82% basis and out of the strip — the exact "card is too wide" this was.
+     flex-shrink: 0 does not help: the floor is applied to the base size, not by
+     shrinking. */
+  min-width: 0;
+}
+
+.fmove-card > * {
+  width: 100%;
+  /* A flex row of board + text + figure whose text cannot shrink pushes the
+     figure off the card. This is the one line that lets the middle column give. */
+  min-width: 0;
 }
 
 /* A peek of the next card is the whole point on a phone; on anything wider the
@@ -7588,18 +7632,48 @@ html:has(> body > .edit-overlay) > body {
   .fmove-card { flex-basis: 300px; }
 }
 
-.fmove-card > * {
-  width: 100%;
+/* Inside a card this narrow the board takes a third of the width before the
+   name has had any, so it comes down from the .pcard-mini size it wears in the
+   full-width sheets. */
+.fmove-card .stats-forgotten-mini {
+  width: 76px;
 }
 
-/* "See all" is the last slide, not a full-width row under the track. Narrower
-   than a card, because it is a link and not one of the things being previewed. */
+.fmove-card .stats-sheet-text {
+  min-width: 0;
+}
+
+/* The name row is a flex container (it carries the colour pip), so the ellipsis
+   has to go on the label inside it — see stats-sheet-name-text, which exists
+   for exactly this. */
+.fmove-card .stats-forgotten-row .stats-sheet-name {
+  min-width: 0;
+}
+
+.stats-sheet-name-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Two lines and no more. A card whose meta wraps to four is a card twice the
+   height of its neighbours, and the strip stops reading as a row. */
+.fmove-card .stats-sheet-meta {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* "See all" is the last slide, not a row under the track. Narrower than a card,
+   because it is a link and not one of the things being previewed. */
 .fmove-card--all {
-  flex-basis: 55%;
+  flex-basis: 46%;
 }
 
 @media (min-width: 560px) {
-  .fmove-card--all { flex-basis: 190px; }
+  .fmove-card--all { flex-basis: 170px; }
 }
 
 .fmove-card--all > .stats-see-all {
@@ -7609,6 +7683,7 @@ html:has(> body > .edit-overlay) > body {
   display: flex;
   align-items: center;
   justify-content: center;
+  text-align: center;
   height: 100%;
   border: 1px dashed var(--border);
   border-radius: 12px;
@@ -7881,13 +7956,12 @@ html:has(> body > .edit-overlay) > body {
   color: var(--text-fainter);
 }
 
-/* The blocks that moved here from Train are `.section` cards, which carry their
-   own side margin AND top margin for screens whose parent isn't padded. Inside
-   .home-body — which is padded — that stacked up: Forgotten moves sat a full
-   inset further in than the "WAITING FOR YOU" label above it, on both sides.
-   The card's own padding stays; only the margin that duplicates the page inset
-   goes. Written as a descendant selector because these blocks arrive wrapped in
-   a host div, so `>` misses them. */
+/* A `.section` card carries its own side and top margin, for screens whose
+   parent isn't padded. Inside .home-body — which is padded — that stacks up and
+   the card sits a full inset further in than the label above it. Forgotten
+   moves hit this and has since dropped its box entirely, but the rule stays for
+   the next block that arrives from a screen with different habits. Written as a
+   descendant selector because these blocks arrive wrapped in a host div. */
 .home-section .section {
   margin-inline: 0;
   margin-top: 0;
