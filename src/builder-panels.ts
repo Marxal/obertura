@@ -374,39 +374,56 @@ export function createBuilderPanels(deps: BuilderPanelsDeps): BuilderPanels {
   }
 
   // The Library slide's top bar, on a single row:
-  //   • connected   → the Masters / Lichess source toggle, then the "i".
-  //   • disconnected → the Connect nudge stands in for the toggle, then the "i".
+  //   • always       → the Masters / Lichess source toggle.
+  //   • connected    → the rating-band dropdown as well.
+  //   • disconnected → the Connect nudge instead of the band dropdown.
   // An optional caption (e.g. "games from here") rides discreetly in between, so
   // off-book notes don't cost their own row.
+  //
+  // THE TOGGLE USED TO BE CONNECTED-ONLY, AND THAT WAS RIGHT UNTIL IT WASN'T.
+  // While `explorer-stats.json` was empty, the bundled set answered nothing for
+  // either database, so a source toggle offered a choice between two blanks and
+  // the Connect nudge was the only useful thing to put there. Now both databases
+  // are bundled — and they reach DIFFERENT depths (masters is complete to move 7,
+  // lichess stops around move 5), so picking between them is the most useful
+  // control on the slide precisely when you are NOT connected. Hiding it was the
+  // one thing that made the bundled masters set unreachable.
+  //
+  // The band dropdown stays connected-only, and genuinely has to: the bundled set
+  // has no rating dimension at all (explorer-resolve.ts always labels it 'all'),
+  // so a band control over bundled numbers could only ever mislabel them.
   function topBar(caption?: string): HTMLElement {
     const bar = document.createElement('div');
     bar.className = 'lib-db-bar';
 
+    const seg = document.createElement('div');
+    seg.className = 'lib-db-seg';
+    const opt = (db: ExplorerDb, label: string) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'lib-db-opt' + (explorerDb === db ? ' is-active' : '');
+      b.textContent = label;
+      b.addEventListener('click', () => {
+        if (explorerDb === db) return;
+        explorerDb = db;
+        setExplorerDb(db);
+        renderLibrary();
+      });
+      return b;
+    };
+    seg.appendChild(opt('masters', 'Masters'));
+    seg.appendChild(opt('lichess', 'Lichess'));
+    bar.appendChild(seg);
+
     if (isConnected()) {
-      const seg = document.createElement('div');
-      seg.className = 'lib-db-seg';
-      const opt = (db: ExplorerDb, label: string) => {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'lib-db-opt' + (explorerDb === db ? ' is-active' : '');
-        b.textContent = label;
-        b.addEventListener('click', () => {
-          if (explorerDb === db) return;
-          explorerDb = db;
-          setExplorerDb(db);
-          renderLibrary();
-        });
-        return b;
-      };
-      seg.appendChild(opt('masters', 'Masters'));
-      seg.appendChild(opt('lichess', 'Lichess'));
-      bar.appendChild(seg);
       bar.appendChild(bandPick());
     } else {
       const cta = document.createElement('button');
       cta.type = 'button';
       cta.className = 'lib-connect-cta lib-connect-cta--inline';
-      cta.textContent = 'Connect Lichess for every position →';
+      // Shorter than it used to be: it now shares the row with the toggle
+      // rather than standing in for it.
+      cta.textContent = 'Connect for every position →';
       cta.addEventListener('click', doConnect);
       bar.appendChild(cta);
     }
