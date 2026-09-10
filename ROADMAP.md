@@ -1831,6 +1831,30 @@ success — goes through the same helper for the same reason.
 **Not deployed** — `main` is still on the tab strip.
 
 
+
+## The My games result bar ✅
+
+The last of the four rounds the navigation redesign planned. One stacked
+won/drawn/lost bar above the list, counts inside their own segments, score on
+the right — draws count a half, and it is called *score* rather than win rate
+because that is the chess convention and this is a chess screen.
+
+Two things earn it the space rather than making it decoration. It reads the
+**filtered** set, so filtering to Black or to one opening re-reads it — a figure
+that changes when you touch the controls above it is a figure people trust. And
+it is **tappable**, opening Statistics, where win rate over time already exists;
+one bar is also the way into the real numbers.
+
+One bar and no second chart: the space above a list is worth one row, and a
+screen whose job is the list should not open with a dashboard. A segment under a
+tenth of the bar drops its count rather than clipping it to half a character,
+and an empty bucket is not built at all — a zero-width segment still draws its
+gap and reads as a hairline in the wrong colour.
+
+**This completes the redesign**: Home, Train's doors and boxes, the Openings
+merge, and this. `main` is still on the tab strip until it is deployed.
+
+
 ---
 
 ## Later 💤

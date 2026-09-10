@@ -29,6 +29,70 @@ import { classIcon, CLASS_COLOR, CLASS_LABEL } from './icons';
 import type { MoveClass } from './winprob';
 import type { MoveNode } from './tree';
 
+// ── The result bar ───────────────────────────────────────────────────────────
+
+/**
+ * Won / drawn / lost across the games currently shown, as one stacked bar.
+ *
+ * TWO THINGS EARN IT THE SPACE, and without them it would be decoration. It
+ * reads the FILTERED set, so filtering to Black or to one opening re-reads it —
+ * a figure that changes when you touch the controls above it is a figure people
+ * trust. And it is TAPPABLE, opening the win-rate-over-time chart that already
+ * exists on Statistics, so the one bar is also the way into the real numbers.
+ *
+ * One bar and no second chart: the vertical space above a list is worth exactly
+ * one row, and a screen whose job is the list should not open with a dashboard.
+ */
+function buildResultBar(games: ImportedGame[], deps: MyGamesDeps): HTMLElement {
+  const wrap = document.createElement('button');
+  wrap.type = 'button';
+  wrap.className = 'mygames-wdl';
+  wrap.setAttribute('aria-label', 'Your results — open Statistics');
+
+  const total = games.length;
+  const won = games.filter(g => g.result === 'win').length;
+  const drew = games.filter(g => g.result === 'draw').length;
+  const lost = games.filter(g => g.result === 'loss').length;
+
+  const bar = document.createElement('span');
+  bar.className = 'mygames-wdl-bar';
+  // A zero-width segment would still draw its 1px gap and read as a hairline of
+  // the wrong colour, so a bucket with nothing in it is simply not built.
+  const seg = (kind: string, n: number): void => {
+    if (n === 0) return;
+    const el = document.createElement('span');
+    el.className = `mygames-wdl-seg mygames-wdl-seg--${kind}`;
+    el.style.flexGrow = String(n);
+    // The count rides INSIDE its own segment, so nothing has to be looked up in
+    // a legend — but only where it fits. Below a tenth of the bar there is no
+    // room for two digits and it would clip to a stripe of half a character.
+    if (n / total >= 0.1) el.textContent = String(n);
+    bar.appendChild(el);
+  };
+  seg('win', won);
+  seg('draw', drew);
+  seg('loss', lost);
+  wrap.appendChild(bar);
+
+  const foot = document.createElement('span');
+  foot.className = 'mygames-wdl-foot';
+  const count = document.createElement('span');
+  count.textContent = total === 1 ? '1 game' : `${total} games`;
+  foot.appendChild(count);
+  const score = document.createElement('span');
+  score.className = 'mygames-wdl-score';
+  // SCORE, not win rate: a draw is half a point, and a player reading a chess
+  // screen expects the chess convention. Called "score" for the same reason.
+  score.textContent = total > 0
+    ? `score ${Math.round((1000 * (won + drew / 2)) / total) / 10}%`
+    : '';
+  foot.appendChild(score);
+  wrap.appendChild(foot);
+
+  wrap.addEventListener('click', () => deps.onOpenStats?.());
+  return wrap;
+}
+
 // A short, locale-aware game date ("12 Mar 2024") from the stored unix seconds.
 // Shared with the analyser's "vs <opponent>" line. Empty when the date is unknown.
 export function formatGameDate(endTimeSec: number | undefined): string {
@@ -57,6 +121,8 @@ export interface MyGamesDeps {
   onImport: () => void;
   // Open a saved game on the board and start (or restore) its analysis.
   onOpenGame: (game: ImportedGame) => void;
+  // Tapping the result bar: Statistics, where win rate over time already lives.
+  onOpenStats?: () => void;
 }
 
 const RESULT_LABEL: Record<ImportedGame['result'], string> = {
@@ -194,7 +260,11 @@ export async function renderMyGamesScreen(host: HTMLElement, deps: MyGamesDeps):
     tagCounts,
     onChange: () => apply(),
   });
+  // The result bar sits BETWEEN the filter bar and the list, because it reads
+  // the filtered set — see buildResultBar. Repainted by apply().
+  const resultHost = document.createElement('div');
   root.appendChild(filter.element);
+  root.appendChild(resultHost);
   root.appendChild(listWrap);
 
   let io: IntersectionObserver | null = null;
@@ -210,6 +280,8 @@ export async function renderMyGamesScreen(host: HTMLElement, deps: MyGamesDeps):
     if (sel.colour !== 'all') gs = gs.filter(g => g.colour === sel.colour);
     if (sel.tags.length > 0) gs = gs.filter(g => sel.tags.some(t => effectiveTags(g).includes(t)));
     gs.sort((a, b) => b.endTime - a.endTime); // always newest-first
+
+    resultHost.replaceChildren(buildResultBar(gs, deps));
 
     if (!gs.length) {
       const none = document.createElement('p');

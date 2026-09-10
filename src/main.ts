@@ -4921,6 +4921,7 @@ function showView(view: ViewName): void {
     void renderMyGamesScreen(gamesEl, {
       onImport: () => openMyGamesImport(() => showView('games')),
       onOpenGame: (g) => openGameForAnalysis(g),
+      onOpenStats: () => showView('progress'),
     });
   }
 

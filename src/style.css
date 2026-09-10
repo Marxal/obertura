@@ -7546,6 +7546,70 @@ html:has(> body > .edit-overlay) > body {
   background: color-mix(in srgb, var(--pt-tint, transparent) 5%, var(--bg-sheet));
 }
 
+/* ── My games: the result bar ────────────────────────────────────────────────
+   One stacked bar over the list, reading the FILTERED set. Tapping it opens
+   Statistics, where win rate over time already lives. */
+.mygames-wdl {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: calc(100% - (2 * var(--space-lg)));
+  margin: 0 var(--space-lg) var(--space-md);
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mygames-wdl-bar {
+  display: flex;
+  gap: 2px;
+  height: 26px;
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.mygames-wdl-seg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  /* flex-grow carries the share; basis 0 so the widths are the counts and not
+     the labels inside them. */
+  flex-basis: 0;
+  transition: flex-grow 0.2s ease;
+}
+
+/* The app's own score palette — the same sage / brick the win-rate bars and the
+   drill feedback use, with the neutral between them for a draw. */
+.mygames-wdl-seg--win { background: var(--success); }
+.mygames-wdl-seg--draw { background: var(--text-fainter); }
+.mygames-wdl-seg--loss { background: var(--danger); }
+
+.mygames-wdl-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 0.74rem;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.mygames-wdl-score {
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mygames-wdl-seg { transition: none; }
+}
+
 /* The Discover tab is two lists: the openings your own games show, then the
    opponents you have scouted. The second used to be a tab of its own, so it
    needs the separation the tab strip used to give it. */

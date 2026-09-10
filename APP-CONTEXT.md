@@ -1137,9 +1137,14 @@ import-panel.ts  (the two-step sheet)      import-inline.ts (the boxed empty-sta
   or on failure.
 - **`import-last.ts`** — the FAB shortcut. Idempotent: a game already held is
   returned as stored, so its analysis, tags and scan data survive.
-- **`my-games-screen.ts`** — the library, mirroring My Lines: filter bar
-  (colour · result · sort · group · tags), cards rendered in batches that grow on
-  scroll.
+- **`my-games-screen.ts`** — the library: filter bar (colour · group · tags), a
+  **result bar**, then cards rendered in batches that grow on scroll. The result
+  bar is one stacked won/drawn/lost row with the counts inside their own
+  segments and the score (draws count a half, per the chess convention) on the
+  right. Two things earn it the space: it reads the **filtered** set, so
+  filtering to Black or one opening re-reads it, and it is **tappable**, opening
+  Statistics where win rate over time already lives. A segment under a tenth of
+  the bar drops its label rather than clipping it to half a character.
 
 ---
 
