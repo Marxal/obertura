@@ -1,5 +1,4 @@
-// The Train screen's chrome — the four doors, the tile grid under them, and the
-// collapsible readouts at the bottom.
+// The Train screen's chrome — the four doors that head the four boxes.
 //
 // WHY THE TAB STRIP WENT. Train used to be four tabs, each opening a pane of
 // five to eight mode cards. Four panes of very different depth (the Openings
@@ -8,28 +7,24 @@
 // were still two decisions from playing anything: pick a tab, read a menu, pick
 // a card.
 //
-// So the four flagships — the ones each pane already fronted with a hero — come
-// up onto four big cards that START a session on one tap. Everything else in the
-// app goes into one flat grid of compact tiles below them, in domain order, with
-// the domain's colour on each tile's top edge so the grid bands by colour
-// without costing a single row of headers. Nothing is nested and nothing is
-// hidden: the whole training offer is one screen and one short scroll.
+// WHAT REPLACED IT. Four boxes, stacked, one per domain. Each is headed by a
+// DOOR — a big coloured card that starts that domain's flagship on one tap —
+// with that domain's own exercises listed underneath it in a single column, the
+// same full-width mode cards they always were. So the screen is: play the
+// obvious thing in one tap, or read down the box you are already in for
+// something specific. No tabs, no nesting, and the grouping is visible rather
+// than implied.
 //
-// HOW THE FOUR SCREENS SHARE IT. Each domain is still handed ONE host and still
-// renders into it — same signature, same data, same self-re-render. None of the
-// session machinery moved, and it did not have to: every drill in this app is a
-// `position: fixed` overlay on <body>, so a screen's host was only ever the
-// thing to redraw on the way back.
+// WHAT WAS TRIED AND UNDONE. The first cut put all four doors at the top and
+// every remaining exercise into ONE three-across tile grid below them, banded by
+// domain colour. It read as a mess: twenty-odd tiles in five colours with
+// two-word names is a wall, and the grouping the colour was supposed to carry
+// did not survive contact with a phone screen. Grouping beats density.
 //
-// What produces three grouped bands out of four separate hosts is two lines of
-// CSS rather than any plumbing. Each host is `display: contents`, so its
-// children become items of the shared `.train-room` grid; and each kind of child
-// carries an `order`, so all four doors sort above every tile, which sort above
-// every readout. A domain re-rendering itself replaces only its own children,
-// and they land back in the right band because the band is a class, not a
-// position in the DOM.
-//
-// See ".train-room" in style.css for the other half of this.
+// The screens keep rendering into one host each and re-rendering themselves
+// alone — no session machinery moved, and it did not have to: every drill in
+// this app is a `position: fixed` overlay on <body>, so a screen's host was only
+// ever the thing to redraw on the way back.
 
 import { Icons } from './icons';
 
@@ -37,13 +32,11 @@ import { Icons } from './icons';
 //
 // One place, because five modules need them: the four screens and main.ts.
 //
-// These are the DOMAIN's colours, and they are not the same thing as an
-// exercise's own accent. Several exercises own a colour that their overlay
-// wears too — a Time attack run's header is gold because the thing that started
-// it was gold (exercise-identity.ts) — and breaking that link to make the grid
-// tidy would cost more than it bought. So a tile carries both: the exercise's
-// colour on its icon and its number, the domain's on its top edge. The band
-// reads as one group at arm's length; up close each tile is still itself.
+// These are the DOMAIN's colours and they are not the same thing as an
+// exercise's accent. Several exercises own a colour that their overlay wears too
+// — a Time attack run's header is gold because the thing that started it was
+// gold (exercise-identity.ts) — so the cards inside a box keep their own hues.
+// The domain's colour is worn by the box itself: its door, its rule, its head.
 export const DOMAIN_ACCENT = {
   openings: '#3e6650',   // felt green — the app's primary; the default domain
   middlegame: '#a3492e', // ember — corrective, kin to the review reds
@@ -51,15 +44,44 @@ export const DOMAIN_ACCENT = {
   endgames: '#33677a',   // deep teal — the long game
 } as const;
 
+export type DomainId = keyof typeof DOMAIN_ACCENT;
+
+// ── The box ──────────────────────────────────────────────────────────────────
+
+/**
+ * One domain's container: the door, then everything that domain offers.
+ *
+ * The screens append their own cards to the returned element, so a box is only
+ * ever as tall as its contents — a domain with nothing to offer yet (Middlegame
+ * before an import) is a door and a short empty state, not a hole.
+ */
+export function buildBox(domain: DomainId, door: HTMLElement): HTMLElement {
+  const box = document.createElement('section');
+  box.className = 'train-box';
+  box.dataset.domain = domain;
+  box.style.setProperty('--domain-accent', DOMAIN_ACCENT[domain]);
+  box.appendChild(door);
+  return box;
+}
+
 // ── The door ─────────────────────────────────────────────────────────────────
 
 export interface DoorOptions {
-  accent: string;
+  /** The domain, which sets the colour the whole box wears. */
+  domain: DomainId;
   icon: SVGElement;
-  /** The domain, one word: Openings / Middlegame / Tactics / Endgames. */
+  /** One word: Openings / Middlegame / Tactics / Endgames. */
   name: string;
-  /** What one tap starts, plus the live count. One short line. */
+  /** What one tap starts. One short line, no count — the count is the figure. */
   sub: string;
+  /**
+   * The live figure, big, on the right — "17" over "moves due". This is what
+   * makes a door worth looking at twice: a name never changes, a number does.
+   * Omit it and the door shows a play arrow instead, which is right for a
+   * domain with nothing to count.
+   */
+  stat?: number | string;
+  statLabel?: string;
   /** Omitted only on a door that is disabled — there is nothing to start. */
   onClick?: () => void;
   disabled?: boolean;
@@ -68,17 +90,20 @@ export interface DoorOptions {
 }
 
 /**
- * One of the four. Deliberately NOT a mode card with bigger padding: a door
- * carries the domain's name alone (no mode name, no stat badge) because the
- * thing it starts is the domain's obvious default, and a badge would invite
- * reading rather than tapping. The count lives in the subtitle, where it reads
- * as part of the sentence.
+ * The big one-tap card at the head of a box.
+ *
+ * Deliberately NOT a bigger mode card. A mode card is pale with a coloured left
+ * edge, because it sits in a list of its peers and the edge is all it needs to
+ * be told apart. A door has to read as the thing you press from across the room,
+ * so it is FILLED with its domain's colour — softly, as a tint over the card
+ * surface rather than the flat hue, so the text contrast stays the theme's own
+ * and is not something to re-check for four different backgrounds.
  */
 export function buildDoor(o: DoorOptions): HTMLElement {
   const card = document.createElement('button');
   card.type = 'button';
   card.className = 'train-door' + (o.disabled ? ' train-door--disabled' : '');
-  card.style.setProperty('--mode-accent', o.accent);
+  card.style.setProperty('--mode-accent', DOMAIN_ACCENT[o.domain]);
   card.disabled = !!o.disabled;
 
   const icon = document.createElement('span');
@@ -98,197 +123,51 @@ export function buildDoor(o: DoorOptions): HTMLElement {
   text.appendChild(sub);
   card.appendChild(text);
 
-  // The play chevron. Its only job is to say "this starts something" — which is
-  // the one thing a door has to promise that a menu card doesn't.
-  const go = document.createElement('span');
-  go.className = 'train-door-go';
-  go.appendChild(Icons.play(18));
-  card.appendChild(go);
+  // The figure, or the play arrow when there is no figure. Never both: two
+  // things competing for the right-hand end of a card is what made the old hero
+  // blocks read as dashboards rather than as buttons.
+  if (!o.disabled && o.stat !== undefined) {
+    const fig = document.createElement('span');
+    fig.className = 'train-door-fig';
+    const num = document.createElement('span');
+    num.className = 'train-door-num';
+    num.textContent = String(o.stat);
+    fig.appendChild(num);
+    if (o.statLabel) {
+      const lbl = document.createElement('span');
+      lbl.className = 'train-door-fig-label';
+      lbl.textContent = o.statLabel;
+      fig.appendChild(lbl);
+    }
+    // Said once, properly, for a screen reader — the figure and its label read
+    // as two loose fragments otherwise.
+    fig.setAttribute('aria-label', `${o.stat} ${o.statLabel ?? ''}`.trim());
+    card.appendChild(fig);
+  } else if (!o.disabled) {
+    const go = document.createElement('span');
+    go.className = 'train-door-go';
+    go.appendChild(Icons.play(18));
+    card.appendChild(go);
+  }
 
   if (!o.disabled && o.onClick) card.addEventListener('click', o.onClick);
   return card;
 }
 
-// ── The tiles ────────────────────────────────────────────────────────────────
-
-export interface TileOptions {
-  accent: string;
-  icon: SVGElement;
-  /**
-   * SHORT. Two words at most — the grid is three columns on a phone and a name
-   * that wraps to three lines breaks the row's rhythm. "Missed moves", not
-   * "Review missed moves"; the long form lives in the (i) sheet, which every
-   * one of these sections already has.
-   */
-  name: string;
-  /** A live number, or a short string like "best 21". Omitted when there's none. */
-  stat?: number | string;
-  /**
-   * The DOMAIN's colour, for the tile's top edge — what makes six tiles read as
-   * one group. Falls back to `accent` for a domain whose exercises have no
-   * colours of their own.
-   */
-  domainAccent?: string;
-  onClick: () => void;
-  disabled?: boolean;
-  /** Shown as the tile's title attribute — there is no room for it in the tile. */
-  disabledReason?: string;
-}
-
-export function buildTile(o: TileOptions): HTMLElement {
-  const tile = document.createElement('button');
-  tile.type = 'button';
-  tile.className = 'train-tile' + (o.disabled ? ' train-tile--disabled' : '');
-  tile.style.setProperty('--mode-accent', o.accent);
-  tile.style.setProperty('--domain-accent', o.domainAccent ?? o.accent);
-  tile.disabled = !!o.disabled;
-  // A tile has no room for the "why is this greyed out" line a mode card gets,
-  // so the reason rides on the accessible name instead of being lost.
-  if (o.disabled && o.disabledReason) {
-    tile.title = o.disabledReason;
-    tile.setAttribute('aria-label', `${o.name} — ${o.disabledReason}`);
-  }
-
-  const icon = document.createElement('span');
-  icon.className = 'train-tile-icon';
-  icon.appendChild(o.icon);
-  tile.appendChild(icon);
-
-  const name = document.createElement('span');
-  name.className = 'train-tile-name';
-  name.textContent = o.name;
-  tile.appendChild(name);
-
-  // No count-up animation here, unlike the mode cards. Nineteen tiles counting
-  // up from zero at once is a slot machine, not a screen.
-  const stat = document.createElement('span');
-  stat.className = 'train-tile-stat';
-  stat.textContent = o.stat === undefined ? '' : String(o.stat);
-  tile.appendChild(stat);
-
-  if (!o.disabled) tile.addEventListener('click', o.onClick);
-  return tile;
-}
-
-// ── The readouts ─────────────────────────────────────────────────────────────
-
-// Which extras sections are open. Module-level so the state survives the many
-// re-renders a training session causes on the way back to this screen — the same
-// discipline as My Lines' expanded opening families.
-const openExtras = new Set<string>();
-
-export interface ExtrasOptions {
-  /** Stable key for the open/closed memory. The domain name does fine. */
-  id: string;
-  accent: string;
-  icon: SVGElement;
-  name: string;
-  /** What's inside, in a few words — this is what makes it worth opening. */
-  sub: string;
-  /** The readouts themselves. An empty list renders nothing at all. */
-  body: HTMLElement[];
-}
+// ── The heading above a box's own cards ──────────────────────────────────────
 
 /**
- * A domain's readouts, collapsed.
- *
- * WHY THESE COLLAPSE WHEN THE TILES DON'T. A tile is something you start; a
- * readout is something you read. Nineteen tiles are a menu and belong open,
- * because choosing is the job. But four heroes, two accordions, a carousel and a
- * fixed-spot list stacked open underneath them would make Train the longest
- * screen in the app — longer than the one tab everyone already found crowded.
- * Collapsed they cost one row each, and the row says what's inside.
+ * The one row between a door and its list — "Practise", "From your games".
+ * Takes the optional (i) that used to sit beside the old section titles, so the
+ * sentence a card's subtitle has no room for stays one tap away.
  */
-export function buildExtras(o: ExtrasOptions): HTMLElement | null {
-  if (o.body.length === 0) return null;
-
-  const section = document.createElement('section');
-  section.className = 'train-extras';
-  section.style.setProperty('--mode-accent', o.accent);
-
-  const head = document.createElement('button');
-  head.type = 'button';
-  head.className = 'train-extras-head';
-
-  const icon = document.createElement('span');
-  icon.className = 'train-extras-icon';
-  icon.appendChild(o.icon);
-  head.appendChild(icon);
-
-  const text = document.createElement('span');
-  text.className = 'train-extras-text';
-  const name = document.createElement('span');
-  name.className = 'train-extras-name';
-  name.textContent = o.name;
-  const sub = document.createElement('span');
-  sub.className = 'train-extras-sub';
-  sub.textContent = o.sub;
-  text.append(name, sub);
-  head.appendChild(text);
-
-  const chev = document.createElement('span');
-  chev.className = 'train-extras-chev';
-  chev.appendChild(Icons.chevronDown(18));
-  head.appendChild(chev);
-
-  const bodyEl = document.createElement('div');
-  bodyEl.className = 'train-extras-body';
-  for (const el of o.body) bodyEl.appendChild(el);
-
-  const apply = (open: boolean): void => {
-    bodyEl.hidden = !open;
-    head.setAttribute('aria-expanded', String(open));
-    section.classList.toggle('train-extras--open', open);
-  };
-  apply(openExtras.has(o.id));
-
-  head.addEventListener('click', () => {
-    const open = !openExtras.has(o.id);
-    if (open) openExtras.add(o.id);
-    else openExtras.delete(o.id);
-    apply(open);
-  });
-
-  section.append(head, bodyEl);
-  // Registered so a tile elsewhere in the room can open this drawer and jump to
-  // one block inside it — see openExtrasAt. Overwriting on every render is
-  // right: the newest section is the one in the document.
-  extrasIndex.set(o.id, { open: () => apply(true), section });
-  return section;
-}
-
-// The drawers currently in the document, by id.
-const extrasIndex = new Map<string, { open: () => void; section: HTMLElement }>();
-
-/**
- * Open a domain's readouts drawer and scroll one block inside it into view.
- *
- * This is for the handful of tiles whose "mode" is really a LIST to choose from
- * — the endgame classics, the endgames found in your games. They have a board
- * and a best time each, so a tile that launched one would be launching at
- * random; what the tile can honestly do is take you to the list. Rather than
- * duplicate that list in a sheet, the tile opens the drawer that already holds
- * it.
- */
-export function openExtrasAt(id: string, anchorClass: string): void {
-  const entry = extrasIndex.get(id);
-  if (!entry) return;
-  entry.open();
-  openExtras.add(id);
-  const target = entry.section.querySelector<HTMLElement>(`.${anchorClass}`) ?? entry.section;
-  // After the drawer has been un-hidden, so the target has a layout box to
-  // scroll to.
-  requestAnimationFrame(() => {
-    target.scrollIntoView({ block: 'start', behavior: 'smooth' });
-  });
-}
-
-// ── Section headings ─────────────────────────────────────────────────────────
-
-/** The one label above the tile grid, and the one above the readouts. */
-export function buildRegionLabel(text: string): HTMLElement {
-  const el = document.createElement('h2');
-  el.className = 'train-region-label';
-  el.textContent = text;
-  return el;
+export function buildBoxHead(text: string, info?: HTMLElement): HTMLElement {
+  const head = document.createElement('div');
+  head.className = 'train-box-head';
+  const label = document.createElement('span');
+  label.className = 'train-box-head-label';
+  label.textContent = text;
+  head.appendChild(label);
+  if (info) head.appendChild(info);
+  return head;
 }

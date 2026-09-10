@@ -7535,96 +7535,90 @@ html:has(> body > .edit-overlay) > body {
   background: color-mix(in srgb, var(--pt-tint, transparent) 5%, var(--bg-sheet));
 }
 
-/* ── The Train room — four doors, one tile grid, four drawers ────────────────
+/* ── The Train room — four boxes, one per domain ─────────────────────────────
 
-   Train used to be a tab strip over four hidden panes. It is now one grid with
-   every domain on it at once, arranged in three bands:
+   Train used to be a tab strip over four hidden panes. It is now a plain column
+   of four boxes, each headed by a big coloured door:
 
        ┌─────────────────────────────────────┐
        │ .daily-host        (above the room) │
+       ├═════════════════════════════════════┤
+       │ ▐ Openings                    17    │  the door — filled in the
+       │ ▐ one pass through your book  due   │  domain's colour, one tap
        ├─────────────────────────────────────┤
-       │ .train-door  Openings           ▶   │  band 1 — one tap plays.
-       │ .train-door  Middlegame         ▶   │   Four, always all four, even
-       │ .train-door  Tactics            ▶   │   when one is greyed out.
-       │ .train-door  Endgames           ▶   │
-       │  More ways to train                 │
-       │ ┌───────┐ ┌───────┐ ┌───────┐       │  band 2 — every other exercise
-       │ │ tile  │ │ tile  │ │ tile  │  …    │   in the app, three across,
-       │ └───────┘ └───────┘ └───────┘       │   banded by domain colour.
-       │  Where you stand                    │
-       │ ▸ Openings — what keeps slipping    │  band 3 — the readouts, shut.
-       │ ▸ Middlegame — 318 games read       │
+       │  Practise                      (i)  │  the box's own heading
+       │  ▏Whole lines                   6   │
+       │  ▏Time attack                       │  its exercises, one column,
+       │  ▏Review missed moves               │  the same mode cards as before
+       ├═════════════════════════════════════┤
+       │ ▐ Middlegame                  12    │
+       │  …                                  │
        └─────────────────────────────────────┘
 
-   THE ONE TRICK. Each of the four screens still renders into a host of its own
-   and still re-renders itself alone — none of the session machinery moved (see
-   train-doors.ts). What sorts four hosts' output into three bands is that every
-   host is `display: contents`, so its children are items of THIS grid, and each
-   kind of child carries an `order`. A domain repainting itself replaces only its
-   own children and they land back in the right band, because the band is a
-   class and not a position in the DOM.
+   WHAT WAS TRIED AND UNDONE. The first cut grouped all four doors at the top and
+   put every remaining exercise into ONE three-across tile grid banded by domain
+   colour. Twenty-odd two-word tiles in five colours read as a wall, and the
+   grouping the colour was meant to carry did not survive a phone screen.
+   Grouping beats density — hence a box per domain, with its cards inside it.
 
-   So: DOM order decides the order WITHIN a band (doors read Openings,
-   Middlegame, Tactics, Endgames because main.ts appends the hosts in that
-   order), and `order` decides which band. */
+   No `display: contents`, no `order`, no bands: a box is a real container and
+   its contents are its children. Each screen still renders into one host and
+   re-renders itself alone. */
 .train-room {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-sm);
-  padding-inline: var(--space-lg);
-  padding-bottom: var(--space-xl);
-  align-content: start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  padding: 0 var(--space-lg) var(--space-xl);
 }
 
+/* The host main.ts hands each screen. It contributes no box of its own — the
+   screen builds the .train-box inside it — so it must not add spacing either. */
 .train-domain {
   display: contents;
 }
 
-/* Anything a domain renders that ISN'T a tile spans the row and sorts to the
-   top band. That default is deliberate: it catches the loading and error states
-   too, which arrive with no band of their own and would otherwise be squeezed
-   into one tile-width column. */
-.train-domain > * {
-  grid-column: 1 / -1;
-  order: 10;
+.train-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
 }
 
-.train-domain > .train-tile {
-  grid-column: auto;
-  order: 30;
+/* The row between a door and its cards. Quieter than a section title: the door
+   above it already says which domain you are in, so this only has to name the
+   list — and carry the (i) that a card's one-line subtitle has no room for. */
+.train-box-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
 }
 
-.train-domain > .train-extras {
-  order: 50;
-}
-
-/* The two band labels. Children of the room rather than of any domain — nobody
-   owns them — so they need their own placement. */
-.train-region-label {
-  grid-column: 1 / -1;
-  margin: var(--space-md) 0 0;
+.train-box-head-label {
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: var(--text-faint);
+  color: var(--domain-accent, var(--text-faint));
 }
-.train-region-label--tiles { order: 20; }
-.train-region-label--extras { order: 40; }
 
 /* ── The door ── */
 .train-door {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 0.85rem;
+  gap: 0.9rem;
   width: 100%;
   text-align: left;
-  padding: 0.95rem 0.9rem 0.95rem 1.15rem;
-  background-color: var(--bg-card);
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.45) 0%, transparent 100%);
-  border: 1px solid var(--border-card);
-  border-radius: 14px;
+  padding: 1rem 1rem 1rem 1.15rem;
+  /* FILLED, not edged. A mode card is pale with a coloured left bar because it
+     sits in a list of its peers and the bar is all it needs; a door has to read
+     as the thing you press from across the room. The fill is a tint over the
+     card surface rather than the flat hue, so the text contrast stays the
+     theme's own and is not four separate things to re-check. */
+  background: color-mix(in srgb, var(--mode-accent) 16%, var(--bg-card));
+  border: 1px solid color-mix(in srgb, var(--mode-accent) 38%, transparent);
+  border-radius: 16px;
   overflow: hidden;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -7632,15 +7626,18 @@ html:has(> body > .edit-overlay) > body {
   transition: filter 0.12s, box-shadow 0.12s, border-color 0.12s, transform 0.08s;
 }
 
+/* The tint is built from --bg-card, which is already darker in the dark themes,
+   so the fill follows without a second rule. The border wants a little more
+   presence there to survive the lower contrast. */
 [data-theme="dark"] .train-door,
 [data-theme="game"] .train-door,
 [data-theme="gamer"] .train-door {
-  background-image: none;
+  background: color-mix(in srgb, var(--mode-accent) 24%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--mode-accent) 52%, transparent);
 }
 
-/* A door's left edge is thicker than a mode card's (4px), because a door is the
-   thing you are meant to hit and the colour is how you tell four of them apart
-   at arm's length. */
+/* A thicker left edge than a mode card's 4px — this is the one card on the
+   screen you are meant to hit without reading it first. */
 .train-door::before {
   content: "";
   position: absolute;
@@ -7648,11 +7645,11 @@ html:has(> body > .edit-overlay) > body {
   top: 0;
   bottom: 0;
   width: 6px;
-  background: var(--mode-accent, transparent);
+  background: var(--mode-accent);
 }
 
 .train-door:not(.train-door--disabled):hover {
-  border-color: var(--mode-accent, var(--primary));
+  border-color: var(--mode-accent);
   box-shadow: var(--shadow-card-hover);
 }
 
@@ -7662,7 +7659,7 @@ html:has(> body > .edit-overlay) > body {
 }
 
 .train-door--disabled {
-  opacity: 0.55;
+  opacity: 0.6;
   cursor: default;
   box-shadow: none;
 }
@@ -7672,216 +7669,129 @@ html:has(> body > .edit-overlay) > body {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--mode-accent, var(--accent)) 15%, transparent);
-  color: var(--mode-accent, var(--accent));
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  /* Solid, not tinted: on a card that is already tinted, a tinted chip
+     disappears. White glyph on the full hue is the one element that carries the
+     domain's colour at full strength. */
+  background: var(--mode-accent);
+  color: #fff;
 }
 
 .train-door-text {
   display: flex;
   flex-direction: column;
-  gap: 0.12rem;
+  gap: 0.15rem;
   min-width: 0;
   flex: 1;
 }
 
 .train-door-name {
-  font-size: 1.12rem;
+  font-size: 1.2rem;
   font-weight: 700;
   font-family: system-ui, -apple-system, sans-serif;
   color: var(--text);
-  line-height: 1.15;
+  line-height: 1.1;
 }
 
 .train-door-sub {
-  font-size: 0.79rem;
-  color: var(--text-faint);
+  font-size: 0.78rem;
+  color: var(--text-muted);
   line-height: 1.3;
 }
 
 .train-door--disabled .train-door-sub {
-  color: var(--accent);
   font-weight: 600;
 }
 
-/* The play chevron. Not a second tap target — the whole door is the button —
-   so it takes no pointer events and exists purely to say "this starts". */
+/* The figure. A name never changes and a number does, so this is what makes a
+   door worth a second look — set at display size and in the domain's colour,
+   with its unit underneath at label size. */
+.train-door-fig {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  min-width: 3.2rem;
+  pointer-events: none; /* the whole door is the button */
+}
+
+.train-door-num {
+  font-size: 1.85rem;
+  font-weight: 800;
+  line-height: 1;
+  /* NOT the flat accent. Measured on its own tint, the orange one lands at
+     2.8:1 — under the 3:1 floor large text gets, never mind 4.5 — because the
+     tint is built from the same hue the figure is drawn in. Pulling it toward
+     the ink puts all four between 4.4 and 5.6:1 while keeping the domain
+     readable in the colour. */
+  color: color-mix(in srgb, var(--mode-accent) 72%, var(--text));
+  font-variant-numeric: tabular-nums;
+}
+
+[data-theme="dark"] .train-door-num,
+[data-theme="game"] .train-door-num,
+[data-theme="gamer"] .train-door-num {
+  /* Same idea the other way up: --text is the pale ink there, so mixing toward
+     it lifts the figure off a dark tint instead of sinking into it. */
+  color: color-mix(in srgb, var(--mode-accent) 45%, var(--text));
+}
+
+.train-door-fig-label {
+  margin-top: 0.15rem;
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+  text-align: center;
+  line-height: 1.15;
+}
+
+/* Shown instead of the figure on a door with nothing to count. */
 .train-door-go {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   border-radius: 999px;
-  background: var(--mode-accent, var(--primary));
+  background: var(--mode-accent);
   color: #fff;
   pointer-events: none;
 }
 
-.train-door--disabled .train-door-go {
-  display: none;
+/* The blocks inside a box (mode-card lists, the classics accordion, the
+   from-your-games section) were written as top-level pane blocks and bring their
+   own side margins. The room already insets them, so drop those — the box's own
+   gap sets the rhythm instead. */
+.train-box > .section,
+.train-box > .mode-cards,
+.train-box > .forgotten-section,
+.train-box > .eg-classics,
+.train-box > .mistakes-empty,
+.train-box > .pz-openings {
+  margin-inline: 0;
 }
 
-/* ── The tiles ── */
-.train-tile {
-  position: relative;
+.train-box > .mode-cards {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 0.3rem;
-  min-height: 92px;
-  padding: 0.6rem 0.55rem 0.55rem;
-  background-color: var(--bg-card);
-  border: 1px solid var(--border-card);
-  /* The DOMAIN's colour on the top edge — not the exercise's, which stays on the
-     icon and the number. Three tiles to a row means a left bar would read as a
-     stripe between columns; a top edge bands the grid horizontally, which is how
-     the eye groups a run of them. */
-  border-top: 2px solid var(--domain-accent, var(--mode-accent, var(--border-card)));
-  border-radius: 10px;
-  text-align: left;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: border-color 0.12s, box-shadow 0.12s, transform 0.08s;
+  gap: 0.5rem;
 }
 
-.train-tile:not(.train-tile--disabled):hover {
-  border-color: var(--domain-accent, var(--mode-accent, var(--primary)));
-  box-shadow: var(--shadow-card);
-}
-
-.train-tile:not(.train-tile--disabled):active {
-  transform: scale(0.98);
-}
-
-.train-tile--disabled {
-  opacity: 0.42;
-  cursor: default;
-}
-
-.train-tile-icon {
-  display: inline-flex;
-  color: var(--mode-accent, var(--accent));
-}
-
-.train-tile-name {
-  font-size: 0.79rem;
-  font-weight: 600;
-  font-family: system-ui, -apple-system, sans-serif;
-  color: var(--text);
-  line-height: 1.2;
-  /* The name takes whatever height it needs and the stat is pushed to the
-     bottom, so a one-line and a two-line tile still align their numbers. */
-  flex: 1;
-}
-
-.train-tile-stat {
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: var(--mode-accent, var(--text-faint));
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  min-height: 0.68rem;
-}
-
-/* ── The readouts drawer ── */
-.train-extras {
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.train-extras + .train-extras {
-  margin-top: calc(var(--space-sm) * -1 + 2px);
-}
-
-.train-extras-head {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  width: 100%;
-  padding: 0.7rem 0.8rem;
-  background: transparent;
-  border: 0;
-  text-align: left;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.train-extras-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--mode-accent, var(--accent)) 13%, transparent);
-  color: var(--mode-accent, var(--accent));
-}
-
-.train-extras-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.05rem;
-  min-width: 0;
-  flex: 1;
-}
-
-.train-extras-name {
-  font-size: 0.88rem;
-  font-weight: 700;
-  font-family: system-ui, -apple-system, sans-serif;
-  color: var(--text);
-}
-
-.train-extras-sub {
-  font-size: 0.72rem;
-  color: var(--text-faint);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.train-extras-chev {
-  display: inline-flex;
-  flex-shrink: 0;
-  color: var(--text-faint);
-  transition: transform 0.16s ease;
-}
-
-.train-extras--open .train-extras-chev {
-  transform: rotate(180deg);
-}
-
-/* The blocks inside a drawer bring their own side margins (they were written as
-   top-level pane blocks), so they sit one step further in than the drawer edge.
-   That extra indent is wanted here — it is what makes a drawer read as nested
-   rather than as more page. */
-.train-extras-body {
-  padding-bottom: var(--space-sm);
-  border-top: 1px solid var(--hairline-soft);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .train-extras-chev { transition: none; }
-}
-
-/* Desktop: the same grid, more columns. The doors and drawers span whatever the
-   count is, so nothing here needs a second breakpoint. */
-@media (min-width: 700px) {
-  .train-room { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-}
-
+/* Desktop: two boxes side by side rather than one very long column. Each box is
+   self-contained, so this needs nothing but a column count. */
 @media (min-width: 960px) {
   .train-room {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
     max-width: 1100px;
     margin-inline: auto;
+    column-gap: var(--space-xl);
   }
 }
 

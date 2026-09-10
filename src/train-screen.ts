@@ -22,7 +22,7 @@ import {
   TIMED_DURATIONS,
   type TimedMinutes,
 } from './prefs';
-import { buildDoor, buildTile, buildExtras, DOMAIN_ACCENT } from './train-doors';
+import { buildDoor, buildBox, buildBoxHead } from './train-doors';
 import { isOpponentTag } from './scout';
 import { track } from './metrics';
 import { recordMissedMove, clearForgottenMove } from './forgotten-moves';
@@ -276,61 +276,20 @@ async function doRender(
     }
   }
 
-  // Three appends, one per band of the Train room. `container` is this domain's
-  // host and it is `display: contents`, so everything appended here becomes an
-  // item of the shared grid and sorts into its band by class — see
-  // train-doors.ts. That is the whole of the plumbing: the door, the tiles and
-  // the readouts are siblings in the DOM and three separate bands on screen.
+  // The box: the door, then this domain's own cards in one column. Nothing is
+  // grouped by anything but the box it is in — which is the point.
   //
-  // (The three contextual cards that used to sit here — import your games,
-  // connect Lichess, make it yours — are gone. Two of them repeated the
-  // Get-started checklist above, and the third asked about theme and notation,
-  // which nobody comes to Train to answer. Settings still has all three.)
-  container.appendChild(buildOpeningsDoor(container, books, allLines, trainingLocked));
-  for (const tile of buildOpeningTiles(
-    container, trainingLines, allLines, books, trainingLocked)) {
-    container.appendChild(tile);
-  }
-
-  // The readouts. The due hero is the same card it always was — it just stopped
-  // being the top of a pane, because the door above now carries the headline
-  // figure in its subtitle and the hero's job here is the detail behind it.
-  //
-  // What keeps slipping joins it. The "Lines in training" list that used to sit
-  // here is still gone: it was a second copy of My Lines one screen away from
-  // the real one, and the only thing it could do that My Lines couldn't was
-  // flick a switch My Lines also has.
-  const readouts: HTMLElement[] = [];
-  if (!trainingLocked) {
-    const heroHost = document.createElement('div');
-    renderHero(heroHost, container, due, trainingLines, books);
-    if (heroHost.firstChild) readouts.push(heroHost);
-  }
-  const forgottenHost = document.createElement('div');
-  renderForgottenSection(forgottenHost, allLines, {
-    onFixMove: (m, lines) => startMoveFix(
-      { preFen: m.preFen, san: m.san, colour: m.colour, count: m.lapses },
-      lines,
-      () => void doRender(container),
-    ),
-    onDrillLine: (line) => startRounds([line], container, { explicit: true }),
-    onOpenLine: onViewLine ? (line) => onViewLine!(line) : undefined,
-    onStartTraining: () => void doRender(container),
-  });
-  if (forgottenHost.firstChild) readouts.push(forgottenHost);
-
-  const extras = buildExtras({
-    id: 'openings',
-    accent: DOMAIN_ACCENT.openings,
-    icon: Icons.pawn(20),
-    name: 'Openings',
-    sub: due.length > 0
-      ? `${due.length} due · what keeps slipping`
-      : 'what keeps slipping',
-    body: readouts,
-  });
-  if (extras) container.appendChild(extras);
+  // WHAT LEFT THIS SCREEN. The due hero and the Forgotten-moves block are gone
+  // from Train. Both are things you READ rather than start, they were the two
+  // tallest blocks here, and both belong on Home, where "what is waiting for me"
+  // is the whole question. The hero's headline figure survives as the door's,
+  // and its second route (walk the due lines rather than the due moves) survives
+  // as the "Whole lines" card.
+  const box = buildBox('openings', buildOpeningsDoor(container, books, allLines, trainingLocked));
+  container.appendChild(box);
+  renderModeCards(box, container, trainingLines, allLines, books, trainingLocked);
 }
+
 
 // The ordered list of lines that "Start training" drills, per the default-mode
 // pref. Already filtered/ordered and known-drillable, so the caller can hand it
@@ -351,27 +310,14 @@ function linesForDefaultMode(trainingLines: Line[], due: Line[]): Line[] | null 
   }
 }
 
-// ── Hero: the due pile, in both of the units it comes in ──────────────────────
+// ── Shared session sizing ────────────────────────────────────────────────────
 //
-// The front door. Three compact stats in a row at half the old headline height,
-// with the two ways through the pile as equal buttons under them.
-//
-// WHY THESE THREE. The card offers two routes — walk the due LINES, or walk the
-// due MOVES — and every figure on it used to describe the first one only: lines
-// due, and the rounds of five those lines break into. Someone weighing the two
-// buttons had one of them measured and the other not, and the number that was
-// least about the choice ("Rounds left") took a whole column to say something
-// derivable from the one beside it.
-//
-// So the middle column is the same pile counted the other way. Lines due and
-// moves due ARE the two buttons, in the order the buttons sit, and the third
-// stays what you have already done today — which was always in moves, and so was
-// always true of both routes. Three columns, both routes, no fourth number.
-//
-// The rounds figure survives only as the stand-in for a repertoire with no due
-// moves of its own to walk (a book whose due moves are all in the opening plies
-// the run skips), where a "0 moves due" column would sit under a button that
-// isn't there.
+// The due hero that used to head this section has moved to Home. What it was
+// for is worth keeping: a due pile can be walked two ways — as whole LINES or as
+// due MOVES — and the two are different lengths on the same pile, because lines
+// that share an opening replay it once per line one way and once in total the
+// other. Train now offers both without a card to explain them: the Openings door
+// runs the moves, the "Whole lines" card walks the lines.
 
 // Lines drilled per explicit-mode session, so Fresh/Weak stay bite-sized.
 const PICKER_SESSION_CAP = 12;
@@ -389,164 +335,6 @@ const TIMED_DEFAULT: TimedMinutes = 3;
 const ROUND_SIZE = 5;            // full lines per round
 const ROUND_SIZE_POSITIONS = 10; // single moves per round (quicker, so a bigger chunk)
 
-function renderHero(
-  host: HTMLElement,
-  container: HTMLElement,
-  due: Line[],
-  allTraining: Line[],
-  // The books, for the Repertoire run half of the refresh pair.
-  books: Repertoire[],
-): void {
-  // Nothing due now → no hero at all. The card only earns its space when there's
-  // something to review; "all caught up" is implied by its absence.
-  if (due.length === 0) return;
-
-  const runPlan = planRepertoireRun(books);
-  // Only when there is a book to run. A repertoire with nothing due through this
-  // route would open a session with nothing in it — and would put a "0" in the
-  // middle column under a button that isn't there.
-  const runnable = !!runPlan && runPlan.dueMoves > 0;
-
-  const hero = document.createElement('div');
-  hero.className = 'card train-hero';
-
-  const stats = document.createElement('div');
-  stats.className = 'train-hero-stats';
-
-  const dueNum = document.createElement('span');
-  dueNum.className = 'train-hero-stat-num';
-  dueNum.textContent = '0';
-  stats.appendChild(buildHeroStat('due', dueNum, 'Lines due'));
-  countUp(dueNum, due.length);
-
-  if (runnable) {
-    // The same pile, counted in moves — what the Repertoire run walks. Lines
-    // that share an opening are one move here and two lines above, which is the
-    // whole difference between the two buttons underneath, stated as a number
-    // rather than as a sentence on a button.
-    const movesNum = document.createElement('span');
-    movesNum.className = 'train-hero-stat-num';
-    movesNum.textContent = '0';
-    stats.appendChild(buildHeroStat('moves', movesNum, 'Moves due'));
-    countUp(movesNum, runPlan!.dueMoves);
-  } else {
-    // No move-walk to measure, so the column falls back to how many rounds of
-    // five the due lines break into. Stateless — it shrinks as rounds are banked
-    // across sittings — and it reads "1" on a short day rather than vanishing,
-    // because a row that flips between two stats and three is worse than a 1.
-    const roundsNum = document.createElement('span');
-    roundsNum.className = 'train-hero-stat-num';
-    roundsNum.textContent = '0';
-    stats.appendChild(buildHeroStat('rounds', roundsNum, 'Rounds left'));
-    countUp(roundsNum, Math.max(1, Math.ceil(due.length / ROUND_SIZE)));
-  }
-
-  const revNum = document.createElement('span');
-  revNum.className = 'train-hero-stat-num';
-  revNum.textContent = '0';
-  stats.appendChild(buildHeroStat('reviewed', revNum, 'Reviewed today'));
-  countUp(revNum, reviewedToday());
-
-  hero.appendChild(stats);
-
-  // ── Refresh your moves ─────────────────────────────────────────────────────
-  //
-  // One button used to sit here, called "Refresh lines", and it ran full lines.
-  // The other way through the same due pile — Repertoire run, which asks each
-  // due MOVE once instead of replaying a shared opening once per line — was
-  // buried a third of the way down the Practise menu, where nobody comparing
-  // "how shall I do today's review?" would find it. They are two answers to one
-  // question, so they belong side by side, the same size, under the question.
-  //
-  // The two sizes are the two figures above now, so each button says what it
-  // DOES instead of repeating a count six millimetres below the same count.
-  const refreshTitle = document.createElement('div');
-  refreshTitle.className = 'train-refresh-title';
-  refreshTitle.textContent = 'Refresh your moves';
-  hero.appendChild(refreshTitle);
-
-  const row = document.createElement('div');
-  row.className = 'train-refresh-row';
-  // The icons say what the two units ARE. Full lines walks a list of lines, one
-  // row at a time, so it gets the list; Repertoire run walks the book itself, so
-  // it gets the book. (A brain and a list, which is what these were, said
-  // "thinking" and "some rows" — neither of which is the difference between
-  // them.)
-  row.appendChild(refreshButton(
-    Icons.list(18),
-    'Full lines',
-    'start to finish',
-    () => startRounds(dueLines(allTraining), container, { explicit: true }),
-  ));
-  if (runnable) {
-    row.appendChild(refreshButton(
-      Icons.book(18),
-      'Repertoire run',
-      'each move once',
-      () => runRepertoireRun(container, books),
-    ));
-  } else {
-    row.classList.add('train-refresh-row--single');
-  }
-  hero.appendChild(row);
-
-  host.appendChild(hero);
-}
-
-// One of the pair. Equal width by construction (the row is a two-column grid),
-// with the count as a quiet second line so the two are comparable at a glance.
-function refreshButton(
-  icon: SVGElement,
-  label: string,
-  sub: string,
-  onClick: () => void,
-): HTMLButtonElement {
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'btn-primary train-refresh-btn';
-
-  const top = document.createElement('span');
-  top.className = 'train-refresh-btn-top';
-  top.appendChild(icon);
-  const name = document.createElement('span');
-  name.textContent = label;
-  top.appendChild(name);
-  btn.appendChild(top);
-
-  const note = document.createElement('span');
-  note.className = 'train-refresh-btn-sub';
-  note.textContent = sub;
-  btn.appendChild(note);
-
-  btn.addEventListener('click', onClick);
-  return btn;
-}
-
-// One column of the hero pair: a big-ish number stacked over its label.
-function buildHeroStat(
-  kind: 'due' | 'moves' | 'reviewed' | 'rounds',
-  num: HTMLElement,
-  label: string,
-): HTMLElement {
-  const col = document.createElement('div');
-  col.className = `train-hero-stat train-hero-stat--${kind}`;
-  col.appendChild(num);
-  const lbl = document.createElement('div');
-  lbl.className = 'train-hero-stat-label';
-  lbl.textContent = label;
-  col.appendChild(lbl);
-  return col;
-}
-
-// ── Mode cards ──────────────────────────────────────────────────────────────────
-//
-// One clear front door per training mode. Each card carries a line icon, a name,
-// a one-line subtitle and a live stat shown as a small badge. They replace the
-// old separate buttons and the practice picker — same underlying modes, presented
-// as one menu. Each mode owns a subtle accent colour (a left edge bar, its icon
-// chip and its stat badge) so Time attack reads distinctly from a review card at
-// a glance — game-y identity without any points/XP.
-
 // Per-mode accent colours. Muted, warm-classic-friendly hues, each clearly
 // distinct from the next; applied via the --mode-accent custom property and
 // tinted softly in CSS (color-mix), so they sit happily on light and dark chrome
@@ -559,6 +347,7 @@ const MODE_ACCENT = {
   prep:   '#3f7d8a', // teal — strategy against an opponent
   run:    '#5b6ea8', // indigo — one pass through the whole book
 } as const;
+
 
 // ── The Openings door ────────────────────────────────────────────────────────
 //
@@ -576,18 +365,17 @@ function buildOpeningsDoor(
 ): HTMLElement {
   const plan = locked ? null : planRepertoireRun(books);
   const runnable = !!plan && plan.totalMoves > 0;
-  // "34 due" is the figure worth leading with when there is one; a book with
-  // nothing due still runs, it just says what it is instead.
   const dueMoves = plan?.dueMoves ?? 0;
-  const sub = dueMoves > 0
-    ? `one pass through your book · ${dueMoves} due`
-    : 'one pass through your book, every move asked once';
 
   return buildDoor({
-    accent: DOMAIN_ACCENT.openings,
-    icon: Icons.pawn(24),
+    domain: 'openings',
+    icon: Icons.pawn(26),
     name: 'Openings',
-    sub,
+    sub: 'one pass through your book, every move asked once',
+    // The due figure when there is one. A book with nothing due still runs — it
+    // just has no number worth printing, and gets the play arrow instead.
+    stat: dueMoves > 0 ? dueMoves : undefined,
+    statLabel: dueMoves > 0 ? (dueMoves === 1 ? 'move due' : 'moves due') : undefined,
     disabled: !runnable,
     disabledReason: locked
       ? trainingLockReason(allLines.length)
@@ -596,14 +384,14 @@ function buildOpeningsDoor(
   });
 }
 
-// ── The Openings tiles ───────────────────────────────────────────────────────
+// ── The Openings cards ───────────────────────────────────────────────────────
 //
-// The five practice modes that aren't the door, plus the (i). Same modes, same
-// launchers, same greying-out rules as the old Practise menu — what changed is
-// that a mode is now a tile with a short name and a number, and the sentence
-// that used to be its subtitle moved to the info sheet, which is where the
-// difference between "Drill new lines" and "Repertoire run" always belonged.
-function buildOpeningTiles(
+// The practice modes that aren't the door, as full-width cards in one column.
+// Same modes, same launchers, same greying-out rules the old Practise menu had —
+// what changed is that the menu now sits inside its domain's box rather than
+// being one of four things a tab strip hid.
+function renderModeCards(
+  box: HTMLElement,
   container: HTMLElement,
   allTraining: Line[],
   allLines: Line[],
@@ -611,14 +399,37 @@ function buildOpeningTiles(
   // Under TRAINING_UNLOCK_LINES saved lines every mode is off, with the count
   // still to go as the reason.
   locked: boolean,
-): HTMLElement[] {
-  const tiles: HTMLElement[] = [];
+): void {
+  const runPlan = locked ? null : planRepertoireRun(books);
+  // The (i) rides on the box's heading, because a card's subtitle has room for
+  // one short line and not for how "Whole lines" differs from the door above it.
+  box.appendChild(buildBoxHead('Practise', buildInfoButton(
+    'About the practice modes', () => openPracticeInfo(runPlan))));
 
-  // Why a mode is greyed out. Under the unlock, every tile here says the same
-  // thing and says it first — the answer is "go and save more lines", whatever
-  // else is or isn't in the rotation. Above it the old reasons apply: with
-  // nothing saved at all every tile is a dead end; once lines exist but none are
-  // enrolled, the material is there, it just isn't in the rotation.
+  const section = document.createElement('div');
+  section.className = 'mode-cards';
+  box.appendChild(section);
+
+  // Under the unlock every card below is greyed for the same reason, and saying
+  // it once at the top is what makes the repetitions read as one rule rather
+  // than five separate dead ends.
+  if (locked) {
+    const left = Math.max(0, TRAINING_UNLOCK_LINES - allLines.length);
+    const note = document.createElement('p');
+    note.className = 'section-desc mode-cards-locked';
+    note.textContent = allLines.length === 0
+      ? `Save ${TRAINING_UNLOCK_LINES} lines to switch practice on. Fewer than that and a `
+        + 'session is the same line over and over, which is where the habit dies.'
+      : `Save at least ${TRAINING_UNLOCK_LINES} lines to switch practice on — `
+        + `you have ${allLines.length}, so ${left} to go.`;
+    section.appendChild(note);
+  }
+
+  // Why a mode is greyed out. Under the unlock, every card says the same thing
+  // and says it first — the answer is "go and save more lines", whatever else is
+  // or isn't in the rotation. Above it the old reasons apply: with nothing saved
+  // at all every card is a dead end; once lines exist but none are enrolled, the
+  // material is there, it just isn't in the rotation.
   const nothingSaved = allLines.length === 0;
   const noLinesReason = locked
     ? trainingLockReason(allLines.length)
@@ -626,24 +437,39 @@ function buildOpeningTiles(
       ? 'Save a line first — then there’s something to drill'
       : 'Switch a line on in My Lines to drill it';
 
+  // Whole lines — the due pile walked as LINES rather than as moves. It is the
+  // other of the two routes the old due hero offered as a pair of buttons; the
+  // door takes the move walk, this takes the line walk.
+  const due = dueLines(allTraining);
+  section.appendChild(buildModeCard({
+    accent: MODE_ACCENT.run,
+    icon: Icons.book(20),
+    name: 'Whole lines',
+    sub: 'walk the lines that are due, start to finish',
+    stat: due.length > 0 ? due.length : undefined,
+    statLabel: due.length === 1 ? 'line' : 'lines',
+    disabled: locked || due.length === 0,
+    disabledReason: locked || nothingSaved ? noLinesReason : 'Nothing due right now',
+    onClick: () => startRounds(due, container, { explicit: true }),
+  }));
+
   // Time attack — ONE length now, not three.
   //
-  // It used to be a card of its own with 1 / 3 / 5-minute chips, each carrying
-  // its own personal best. Three lengths meant three records nobody could
-  // compare and a card twice the height of its neighbours; a tile has room for
-  // one number, and one number you are trying to beat is worth more than three
-  // you are not. Three minutes is the middle length and the one the tactics
-  // side already defaults to. The 1 and 5-minute records are left in storage
+  // It used to carry 1 / 3 / 5-minute chips, each with its own personal best:
+  // three records nobody could compare, on a card twice the height of its
+  // neighbours. Three minutes is the middle length and the one the tactics side
+  // already defaults to. The 1 and 5-minute records are left in storage
   // untouched — nothing reads them now, and they are there if the lengths ever
   // come back.
   const timedReady = !locked && selectTimedPositions(allLines, { max: 80 }).length > 0;
   const timedBest = getTimedBest(TIMED_DEFAULT);
-  tiles.push(buildTile({
-    domainAccent: DOMAIN_ACCENT.openings,
+  section.appendChild(buildModeCard({
     accent: MODE_ACCENT.timed,
     icon: Icons.clock(20),
     name: 'Time attack',
-    stat: timedBest > 0 ? `best ${timedBest}` : `${TIMED_DEFAULT} min`,
+    sub: `single positions against the clock, ${TIMED_DEFAULT} minutes`,
+    stat: timedBest > 0 ? timedBest : undefined,
+    statLabel: timedBest > 0 ? 'best' : undefined,
     disabled: !timedReady,
     disabledReason: locked ? noLinesReason : 'Save a line first to play Time attack',
     onClick: () => runTimed(container, allLines, TIMED_DEFAULT),
@@ -653,11 +479,11 @@ function buildOpeningTiles(
   // there's anything deep enough to drill (the mode falls back to weak/upcoming
   // moves).
   const hasPositions = !locked && selectIndividualPositions(allTraining).length > 0;
-  tiles.push(buildTile({
-    domainAccent: DOMAIN_ACCENT.openings,
+  section.appendChild(buildModeCard({
     accent: MODE_ACCENT.fix,
     icon: Icons.zap(20),
-    name: 'Missed moves',
+    name: 'Review missed moves',
+    sub: 'single moves you’ve missed',
     disabled: !hasPositions,
     // "Train a little more" is only true once there IS something to train.
     disabledReason: locked || nothingSaved
@@ -666,29 +492,13 @@ function buildOpeningTiles(
     onClick: () => runIndividual(container, allTraining),
   }));
 
-  // Whole lines, due first — the other half of the door's pile, counted in
-  // lines rather than moves. This is the route the due hero's first button
-  // takes, kept as a tile now that the door takes the other one.
-  const due = dueLines(allTraining);
-  tiles.push(buildTile({
-    domainAccent: DOMAIN_ACCENT.openings,
-    accent: MODE_ACCENT.run,
-    icon: Icons.book(20),
-    name: 'Whole lines',
-    stat: due.length > 0 ? due.length : undefined,
-    disabled: locked || due.length === 0,
-    disabledReason: locked || nothingSaved ? noLinesReason : 'Nothing due right now',
-    onClick: () => startRounds(due, container, { explicit: true }),
-  }));
-
   // Fresh lines — full runs of the newest lines first.
   const freshLines = recentlyAddedLines(allTraining).slice(0, PICKER_SESSION_CAP);
-  tiles.push(buildTile({
-    domainAccent: DOMAIN_ACCENT.openings,
+  section.appendChild(buildModeCard({
     accent: MODE_ACCENT.fresh,
     icon: Icons.plus(20),
-    name: 'New lines',
-    stat: freshLines.length > 0 ? freshLines.length : undefined,
+    name: 'Drill new lines',
+    sub: 'full runs of your newest lines',
     disabled: locked || freshLines.length === 0,
     disabledReason: noLinesReason,
     onClick: () => startRounds(freshLines, container, { explicit: true }),
@@ -696,12 +506,11 @@ function buildOpeningTiles(
 
   // Weak spots — full runs of the weakest lines first.
   const weakLines = weakestLines(allTraining).slice(0, PICKER_SESSION_CAP);
-  tiles.push(buildTile({
-    domainAccent: DOMAIN_ACCENT.openings,
+  section.appendChild(buildModeCard({
     accent: MODE_ACCENT.weak,
     icon: Icons.trending(20),
-    name: 'Weak areas',
-    stat: weakLines.length > 0 ? weakLines.length : undefined,
+    name: 'Target weak areas',
+    sub: 'full runs of your weakest lines',
     disabled: locked || weakLines.length === 0,
     disabledReason: noLinesReason,
     onClick: () => startRounds(weakLines, container, { explicit: true }),
@@ -711,30 +520,17 @@ function buildOpeningTiles(
   // once any opponent-tagged lines are in training, as before.
   const prepLines = allTraining.filter(l => l.tags.some(isOpponentTag));
   if (prepLines.length > 0 && !locked) {
-    tiles.push(buildTile({
-      domainAccent: DOMAIN_ACCENT.openings,
+    section.appendChild(buildModeCard({
       accent: MODE_ACCENT.prep,
       icon: Icons.target(20),
       name: 'Prep',
+      sub: 'opponent-tagged lines',
       stat: prepLines.length,
+      statLabel: prepLines.length === 1 ? 'line' : 'lines',
       onClick: () => startRounds(
         prepLines.slice(0, PICKER_SESSION_CAP), container, { explicit: true }),
     }));
   }
-
-  // The (i), as the last tile of the band. A tile has room for a short name and
-  // a number and nothing else, so the sentence that used to sit under every
-  // mode name has to live somewhere — and one tile at the end of the colour
-  // band is a better home for it than six subtitles that made the menu a wall.
-  tiles.push(buildTile({
-    domainAccent: DOMAIN_ACCENT.openings,
-    accent: DOMAIN_ACCENT.openings,
-    icon: Icons.info(20),
-    name: 'About',
-    onClick: () => openPracticeInfo(locked ? null : planRepertoireRun(books)),
-  }));
-
-  return tiles;
 }
 
 // What each practice mode actually is, in the words the one-line subtitles have

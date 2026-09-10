@@ -1,28 +1,31 @@
-// The Mistake retry pane on the Train screen — drills the exact positions from
-// your own imported games where you went wrong. This file renders the pane:
-// the stats hero, the "Analyse my games" scan (with its progress overlay), and
-// the four category cards. The scan itself lives in mistake-scan.ts and the
-// solving overlay in mistake-run.ts.
+// The Middlegame box on the Train screen — drills the exact positions from your
+// own imported games where you went wrong. This file renders the box: its door
+// (the mix), the "Analyse my games" scan with its progress overlay, and the
+// seven exercise cards. The scan itself lives in mistake-scan.ts and the solving
+// overlay in mistake-run.ts.
+//
+// GONE FROM HERE, AND WHERE IT WENT. The stats hero ("318 games read · 41 spots
+// · 12 fixed") and the latest-mistakes carousel of board miniatures used to head
+// this pane. Both are things you read rather than start, they were the two
+// tallest blocks on it, and both are Home's job — see the ROADMAP round "Train
+// becomes four boxes". Their code is in git at eecb0d7 if Home wants it back
+// rather than rebuilt. The autoscan's live status went with the hero; the
+// background pass is still kicked off at boot by main.ts, and the "Analyse new
+// games" card reports what is left to read.
 
-import { Chessground } from 'chessground';
-import { registerBrushes } from './board-brushes';
-import type { Key } from 'chessground/types';
 import type { ImportedGame } from './import-core';
 import { getAllGames } from './storage';
 import { buildInlineImport } from './import-inline';
 import { renderLoadError } from './load-error';
-import { Icons, classIcon, CLASS_LABEL, CLASS_COLOR } from './icons';
-import { countUp } from './count-up';
+import { Icons, classIcon, CLASS_COLOR } from './icons';
 import { pushBack } from './back-nav';
-import { formatMove } from './notation';
 import { cloudHealth, type CloudHealth } from './engine';
 import { createPawnProgress, createFactsTicker } from './import-progress';
-import { buildDoor, buildTile, buildExtras, DOMAIN_ACCENT } from './train-doors';
+import { buildModeCard } from './train-screen';
+import { buildDoor, buildBox, buildBoxHead, DOMAIN_ACCENT } from './train-doors';
 import { openInfoSheet, buildInfoButton } from './info-sheet';
 import {
-  autoScanState, onAutoScanChange, startAutoScan,
   suspendAutoScan, resumeAutoScan, getAutoScanEnabled,
-  type AutoScanState,
 } from './mistake-autoscan';
 import { showToast } from './toast';
 import { showDialog } from './dialog';
@@ -121,16 +124,6 @@ const CATEGORY_ICON: Record<MistakeCategory, (size?: number) => SVGElement> = {
 };
 
 const CATEGORIES: MistakeCategory[] = ['opening-blunder', 'punish-opening', 'missed-win', 'blunder'];
-
-// The tile forms of CATEGORY_LABEL. A tile is three columns wide on a phone, so
-// "Chances your opponent handed you" is not a name it can hold; the full label
-// still runs the exercise's header and the (i) sheet.
-const CATEGORY_TILE: Record<MistakeCategory, string> = {
-  'opening-blunder': 'Opening slips',
-  'punish-opening': 'Punish theirs',
-  'missed-win': 'Missed wins',
-  'blunder': 'Blunders',
-};
 
 // This domain's own colour — the door, the readouts, every tile's top edge, and
 // the few tiles that have no exercise accent of their own.
@@ -256,11 +249,11 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   // rather than a button that opens one.
   if (allGames.length === 0) {
     // The door still shows, greyed, saying what it needs — a domain that simply
-    // vanished from the room would read as a bug, and "import your games" is
+    // vanished from the screen would read as a bug, and "import your games" is
     // the one instruction that makes this whole third of the app work.
-    host.appendChild(buildDoor({
-      accent: MIDDLEGAME_ACCENT,
-      icon: Icons.swords(24),
+    const box = buildBox('middlegame', buildDoor({
+      domain: 'middlegame',
+      icon: Icons.swords(26),
       name: 'Middlegame',
       sub: 'a mixed round from your own games',
       disabled: true,
@@ -277,15 +270,8 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       body: 'The scan then finds your blunders, your missed wins and the chances your opponents handed you.',
       onImported: () => { void renderMistakesScreen(host, deps); },
     }));
-    const extras = buildExtras({
-      id: 'middlegame',
-      accent: MIDDLEGAME_ACCENT,
-      icon: Icons.swords(20),
-      name: 'Middlegame',
-      sub: 'nothing read yet',
-      body: [empty],
-    });
-    if (extras) host.appendChild(extras);
+    box.appendChild(empty);
+    host.appendChild(box);
     return;
   }
 
@@ -360,216 +346,30 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   // about to read them. The hero says the real reason instead.
   const atFreeSpotCap = !entitled && (counts.spots - counts.fixed) >= FREE_MISTAKE_SPOTS;
 
-  // The door: the mix, which was already the wide button at the top of the old
-  // hero. It is the only thing here that deals from every exercise at once, so
-  // it was always the flagship — it just used to sit below a stats block.
+  // The box: the door, then this domain's own cards.
+  //
+  // WHAT LEFT THIS SCREEN. The stats hero ("318 games read · 41 spots") and the
+  // latest-mistakes carousel are gone from Train. Both are readouts rather than
+  // things you start, and both belong on Home. The scan they fronted is not lost
+  // — it leads the card list whenever there are games waiting to be read, which
+  // is the only time anyone needed the hero's button.
   const mixReady = mixLegs().length > 0;
-  host.appendChild(buildDoor({
-    accent: MIDDLEGAME_ACCENT,
-    icon: Icons.swords(24),
+  const unfixed = counts.spots - counts.fixed;
+  const box = buildBox('middlegame', buildDoor({
+    domain: 'middlegame',
+    icon: Icons.swords(26),
     name: 'Middlegame',
-    sub: counts.spots > 0
-      ? `a mixed round from your own games · ${counts.spots - counts.fixed} to fix`
-      : 'a mixed round from your own games',
+    sub: 'a mixed round from your own games',
+    stat: mixReady && unfixed > 0 ? unfixed : undefined,
+    statLabel: mixReady && unfixed > 0 ? 'to fix' : undefined,
     disabled: !mixReady,
     disabledReason: counts.scanned === 0
-      ? 'Analyse your games first — the tile below starts it'
+      ? 'Analyse your games first — the card below starts it'
       : 'Nothing waiting — they come back over the next few days',
     onClick: () => startMix(),
   }));
-
-  for (const tile of buildMiddlegameTiles()) host.appendChild(tile);
-
-  const readouts: HTMLElement[] = [renderHero()];
-  const carousel = renderLatestMistakes();
-  if (carousel) readouts.push(carousel);
-  const extras = buildExtras({
-    id: 'middlegame',
-    accent: MIDDLEGAME_ACCENT,
-    icon: Icons.swords(20),
-    name: 'Middlegame',
-    sub: `${counts.scanned} games read · ${counts.spots} spots · ${counts.fixed} fixed`,
-    body: readouts,
-  });
-  if (extras) host.appendChild(extras);
-
-  // ── The stats hero + the scan entry point ───────────────────────────────────
-  function renderHero(): HTMLElement {
-    const hero = document.createElement('div');
-    hero.className = 'card train-hero mistakes-hero';
-
-    const stats = document.createElement('div');
-    stats.className = 'train-hero-stats';
-    const foundNum = heroStat('found', counts.spots, 'Spots found');
-    const scannedNum = heroStat('scanned', counts.scanned, 'Games analysed');
-    stats.appendChild(foundNum.col);
-    // The one figure on this pane worth being proud of, and the only record of
-    // which games have actually been worked through — so it opens the list
-    // rather than just counting (fixed-sheet.ts).
-    stats.appendChild(heroStat('fixed', counts.fixed, 'Fixed', {
-      onTap: counts.fixed > 0 ? openFixed : undefined,
-    }).col);
-    // Just the count of games actually analysed — not "scanned/total", which
-    // read as if the whole library were being added up.
-    stats.appendChild(scannedNum.col);
-    hero.appendChild(stats);
-
-    // ── Your games mix ───────────────────────────────────────────────────────
-    //
-    // The front door this pane never had. Every other Train tab opens with one
-    // wide button that just starts something — Puzzle rated mix, All endgame
-    // puzzles — and this one opened with a menu of five cards and asked you to
-    // choose a category first. Choosing between "Missed wins" and "Blunders" is
-    // a decision about your own games that a first-timer has no basis for, and
-    // the cards are still there for anyone who does. This deals from all of
-    // them: mistake positions round-robin across the four categories, then your
-    // brilliant finds to close on.
-
-    if (newGames > 0) {
-      // The scan runs on its own now (mistake-autoscan.ts), so this is a LIVE
-      // STATUS first and a button second. Watching it is optional: leaving the
-      // screen doesn't stop it, and the spots appear on their own next time you
-      // look. The button stays for someone who wants to sit and watch it — and
-      // it is the only route when the background pass has been turned off.
-      const live = document.createElement('div');
-      live.className = 'mistakes-autoscan';
-      hero.appendChild(live);
-
-      const scan = document.createElement('button');
-      scan.type = 'button';
-      scan.className = 'btn-secondary train-hero-start mistakes-scan-now';
-      scan.appendChild(Icons.review(18));
-      scan.appendChild(document.createTextNode(
-        counts.scanned === 0
-          ? 'Analyse my games now'
-          : rereads >= newGames
-            ? `Read my games again (${newGames})`
-            : `Analyse new games (${newGames})`));
-      scan.addEventListener('click', () => { void runScan(); });
-
-      const note = document.createElement('div');
-      note.className = 'mistakes-hero-note';
-      hero.appendChild(note);
-
-      // One painter for both faces so they can't drift: running says what it is
-      // doing, idle says what is waiting and offers the button.
-      const paintScanState = (st: AutoScanState): void => {
-        live.replaceChildren();
-        // Cleared here, and set again only where a face actually hides it —
-        // this painter runs repeatedly over the same nodes as the scan reports
-        // in, so a state left over from the last pass would stick.
-        note.hidden = false;
-        // The figures above, plus whatever this pass has turned up so far. They
-        // are re-read from disk on the rebuild that follows the pass.
-        foundNum.num.textContent = String(counts.spots + (st.running ? st.spots : 0));
-        scannedNum.num.textContent = String(counts.scanned + (st.running ? st.done : 0));
-        if (st.running) {
-          const bar = document.createElement('div');
-          bar.className = 'mistakes-autoscan-bar';
-          const fill = document.createElement('span');
-          fill.className = 'mistakes-autoscan-fill';
-          fill.style.width = `${Math.round((st.done / Math.max(1, st.total)) * 100)}%`;
-          bar.appendChild(fill);
-          live.appendChild(bar);
-
-          const label = document.createElement('div');
-          label.className = 'mistakes-autoscan-label';
-          label.textContent = st.opponent
-            ? `Analysing in the background — game ${st.done} of ${st.total}, vs ${st.opponent}`
-            : `Analysing in the background — game ${st.done} of ${st.total}`;
-          live.appendChild(label);
-
-          scan.remove();
-          const carryOn = 'Carry on with anything else — this keeps going, and every game '
-            + 'finished is saved.';
-          note.textContent = st.spots > 0
-            ? `${st.spots} ${st.spots === 1 ? 'spot' : 'spots'} found so far. ${carryOn}`
-            : carryOn;
-          return;
-        }
-
-        // Idle. Either it has not got to these games yet, it is switched off, or
-        // the free tier's rolling spot cap is full — in which case nothing is
-        // going to read them, however long the app stays open, and saying "this
-        // happens on its own" would be a promise that never lands.
-        hero.insertBefore(scan, note);
-        // At the cap this note said what the cap notice at the foot of the hero
-        // already says, in different words and a different style — the screen
-        // made the same point twice and neither looked like an offer. The
-        // notice carries it alone now; this stays quiet.
-        if (atFreeSpotCap) { note.hidden = true; return; }
-        note.textContent = getAutoScanEnabled()
-          ? rereads >= newGames
-            ? `${newGames} ${newGames === 1 ? 'game was' : 'games were'} read under older rules — `
-              + 'reading them again is what finds the blunder-detective runs. It happens on its '
-              + 'own while the app is open; the button just makes it happen now.'
-            : `${newGames} ${newGames === 1 ? 'game is' : 'games are'} still to read. This happens `
-              + 'on its own while the app is open — the button just makes it happen now.'
-          : entitled
-            ? `The engine looks through your ${counts.total === 1 ? 'game' : `${counts.total} games`} for mistakes worth retrying. Stop anytime — progress is saved.`
-            : `The engine looks through your ${Math.min(counts.total, FREE_MISTAKE_GAME_WINDOW)} most recent games for mistakes worth retrying. Stop anytime — progress is saved.`;
-      };
-
-      paintScanState(autoScanState());
-      // Live while the pane is mounted. The next render of this screen replaces
-      // the nodes above, so the listener is dropped the moment its host goes.
-      const stopWatching = onAutoScanChange((st) => {
-        if (!hero.isConnected) { stopWatching(); return; }
-        // A pass that has just finished has left new spots on disk; the whole
-        // pane is built from those, so it is rebuilt rather than patched.
-        if (!st.running && st.done > 0) { rerender(); return; }
-        paintScanState(st);
-      });
-      // Nothing waiting means nothing to start; anything else nudges the pass
-      // along, which is a no-op when it is already running (and when the free
-      // cap is full it costs one storage read and stops).
-      startAutoScan();
-    } else {
-      // Nothing to say beyond the fact. "New imports are read automatically" was
-      // an explanation of a background job nobody asked about, printed under a
-      // line that had already reported the job was finished.
-      //
-      // The one thing worth offering here is the way BACK: read them all again.
-      // The engine improves, the scan's rules change, and a spot you fixed
-      // months ago is worth being asked once more — but with the pane reporting
-      // "all analysed" there was no route to any of that short of deleting your
-      // games. It sits as a bare word beside the line, not a button: it is a
-      // long job and a discard, and it asks first.
-      const done = document.createElement('div');
-      done.className = 'mistakes-hero-note mistakes-hero-note--done';
-      const doneText = document.createElement('span');
-      doneText.textContent = 'All games analysed';
-      done.appendChild(doneText);
-      done.appendChild(buildResetLink());
-      hero.appendChild(done);
-    }
-
-    if (capResult.capped) {
-      // Two states, one block. At the cap it carries the whole message the
-      // paragraph above used to duplicate — including WHY the scan button above
-      // it has gone quiet, which is the one fact a user can't work out alone.
-      hero.appendChild(atFreeSpotCap
-        ? buildCapNotice(`All ${FREE_MISTAKE_SPOTS} free spots are full`, {
-          detail: 'Fix one to make room for the next — the engine has paused until you do.',
-        })
-        : buildCapNotice(`Showing your ${FREE_MISTAKE_SPOTS} most recent mistakes`));
-    }
-
-    return hero;
-  }
-
-  // "Reset" beside the all-analysed line: start this pane over.
-  //
-  // It resets EVERY exercise on it, which is two different stores. The scan is
-  // the spots, the fixed marks, the detective runs and the brilliancies it found
-  // itself: they go, and the games are read again from scratch. What the scan
-  // does NOT own is a game's saved analysis — the reviewer's own grades, with
-  // the user's variations and notes attached — so that is left alone, and the
-  // finds read off it survive. The rest is progress: a re-found gem rests for a
-  // few days before coming back, and that log is cleared, as are the two
-  // whole-game exercises' logs (middle-log.ts).
-  //
-  // It is a discard either way, so it asks first and says which is which.
+  host.appendChild(box);
+  renderCategoryCards(box);
   function buildResetLink(): HTMLElement {
     const reset = document.createElement('button');
     reset.type = 'button';
@@ -759,105 +559,78 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       ? { label: `${next.label} →`, run: () => runMixLeg(legs, i + 1) }
       : undefined);
   }
+  function renderCategoryCards(box: HTMLElement): void {
+    box.appendChild(buildBoxHead('From your games',
+      buildInfoButton('About these exercises', openMistakeInfo)));
 
-  // Returns the column AND its number, so a hero watching the background pass
-  // can keep the figures honest — "0 spots found" over "36 spots found so far"
-  // is the sort of contradiction that makes people distrust a whole screen.
-  function heroStat(
-    kind: string,
-    value: number | string,
-    label: string,
-    o: { onTap?: () => void } = {},
-  ): { col: HTMLElement; num: HTMLElement } {
-    const col = document.createElement(o.onTap ? 'button' : 'div');
-    col.className = `train-hero-stat train-hero-stat--${kind}`
-      + (o.onTap ? ' train-hero-stat--tap' : '');
-    if (o.onTap && col instanceof HTMLButtonElement) {
-      col.type = 'button';
-      col.setAttribute('aria-label', `${label} — see them`);
-      col.addEventListener('click', o.onTap);
-    }
-    const num = document.createElement('span');
-    num.className = 'train-hero-stat-num';
-    if (typeof value === 'number') {
-      num.textContent = '0';
-      countUp(num, value);
-    } else {
-      num.textContent = value;
-    }
-    col.appendChild(num);
-    const lbl = document.createElement('div');
-    lbl.className = 'train-hero-stat-label';
-    lbl.textContent = label;
-    col.appendChild(lbl);
-    return { col, num };
-  }
+    const section = document.createElement('div');
+    section.className = 'mode-cards';
+    box.appendChild(section);
 
-  // ── The tiles ───────────────────────────────────────────────────────────────
-  //
-  // The same seven exercises the old category menu offered, in the same order
-  // and with the same greying-out rules — as tiles rather than full-width cards,
-  // because seven cards under a hero was the tallest block on the tallest tab in
-  // the app. The one-line subtitles each of them carried ("openings that lost
-  // you the game") move to the (i) at the end of the band, which is where the
-  // difference between a blunder and an opening blunder always belonged.
-  function buildMiddlegameTiles(): HTMLElement[] {
-    const tiles: HTMLElement[] = [];
-
-    // Why anything here is dead, said the same way on every tile.
+    // Why anything here is dead, said the same way on every card.
     const noneReason = counts.scanned === 0
       ? 'Analyse your games first'
       : 'None found in your analysed games';
 
     // Reading your games comes first when there is reading to do. It is not an
-    // exercise, but it is the thing that MAKES the exercises, and a band of
-    // seven greyed-out tiles with the only way to un-grey them buried in a
-    // collapsed readout would be a dead end with the answer hidden.
+    // exercise, but it is the thing that MAKES the exercises, and a list of
+    // seven greyed-out cards with no visible way to un-grey them is a dead end.
     if (newGames > 0) {
-      tiles.push(buildTile({
-        domainAccent: MIDDLEGAME_ACCENT,
+      section.appendChild(buildModeCard({
         accent: MIDDLEGAME_ACCENT,
         icon: Icons.review(20),
-        name: 'Analyse games',
+        name: counts.scanned === 0 ? 'Analyse my games' : 'Analyse new games',
+        sub: rereads >= newGames
+          ? 'the rules changed — read them again'
+          : 'find the blunders, missed wins and chances',
         stat: newGames,
+        statLabel: newGames === 1 ? 'game' : 'games',
         onClick: () => { void runScan(); },
       }));
     }
 
-    // The two whole-game exercises lead, as they did on the cards. They ask a
-    // smaller question than the categories ("which of these moves is the
-    // blunder") and they don't need you to choose a category of your own
+    // The two whole-game exercises lead. They ask a smaller question than the
+    // category cards ("which of these moves is the blunder", "which of these two
+    // moves is better") and they don't need you to choose a category of your own
     // mistakes first, which is a decision a newcomer has no basis for.
-    tiles.push(buildTile({
-      domainAccent: MIDDLEGAME_ACCENT,
+    section.appendChild(buildModeCard({
       accent: DETECTIVE_ACCENT,
       icon: Icons.scout(20),
-      name: 'Detective',
+      name: 'Blunder detective',
+      sub: detectiveRefs.length > 0 && detectiveReady === 0
+        ? 'all cracked — they come back over the next few days'
+        : 'find the blunder — yours or theirs',
       stat: detectiveReady > 0 ? detectiveReady : undefined,
+      statLabel: detectiveReady > 0 ? 'cases' : undefined,
       disabled: detectiveRefs.length === 0,
       disabledReason: noneReason,
       onClick: () => startDetective(),
     }));
-    tiles.push(buildTile({
-      domainAccent: MIDDLEGAME_ACCENT,
+    section.appendChild(buildModeCard({
       accent: WHICH_MOVE_ACCENT,
       icon: Icons.merge(20),
       name: 'Which move',
+      sub: pairRefs.length > 0 && whichMoveReady === 0
+        ? 'all answered — they come back over the next few days'
+        : 'two moves, one of them yours',
       stat: whichMoveReady > 0 ? whichMoveReady : undefined,
+      statLabel: whichMoveReady > 0 ? 'to answer' : undefined,
       disabled: pairRefs.length === 0,
       disabledReason: noneReason,
       onClick: () => startWhichMove(),
     }));
 
-    // Time pressure — the speed round, and the one exercise here that is not
-    // about working a position out.
+    // Time pressure — the speed round. It sits third because it is the one
+    // exercise here that is not about working a position out.
     const tpBest = getTimePressureBest();
-    tiles.push(buildTile({
-      domainAccent: MIDDLEGAME_ACCENT,
+    section.appendChild(buildModeCard({
       accent: TIME_PRESSURE_ACCENT,
       icon: Icons.clock(20),
       name: 'Time pressure',
-      stat: tpBest > 0 ? `best ${tpBest}` : undefined,
+      // The subtitle carries the rules, because they ARE the exercise.
+      sub: '20 seconds a position, 2 minutes',
+      stat: tpBest > 0 ? tpBest : undefined,
+      statLabel: tpBest > 0 ? 'best' : undefined,
       disabled: refs.length === 0,
       disabledReason: noneReason,
       onClick: () => startTimePressure(),
@@ -865,55 +638,53 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
 
     for (const cat of CATEGORIES) {
       const pool = refs.filter(r => r.spot.category === cat);
-      tiles.push(buildTile({
-        domainAccent: MIDDLEGAME_ACCENT,
+      section.appendChild(buildModeCard({
         accent: CATEGORY_ACCENT[cat],
         icon: CATEGORY_ICON[cat](),
-        name: CATEGORY_TILE[cat],
+        name: CATEGORY_LABEL[cat],
+        sub: CATEGORY_SUB[cat],
         stat: pool.length > 0 ? counts.unfixedByCategory[cat] : undefined,
+        statLabel: pool.length > 0 ? 'to fix' : undefined,
         disabled: pool.length === 0,
         disabledReason: noneReason,
         onClick: () => startSession(pool, cat),
       }));
     }
 
-    // Your brilliant moves — the flip side of the mistake tiles. Nothing waiting
+    // Your brilliant moves — the flip side of the mistake cards. Nothing waiting
     // means they have all been re-found lately, which is a result rather than an
-    // empty tile, so it stays tappable and the badge simply goes.
-    tiles.push(buildTile({
-      domainAccent: MIDDLEGAME_ACCENT,
+    // empty card, so it stays tappable and the subtitle says why the badge went.
+    section.appendChild(buildModeCard({
       accent: CLASS_COLOR.brilliant,
       icon: classIcon('brilliant', 20),
-      name: 'Brilliancies',
+      name: 'Your brilliant moves',
+      sub: brilliantRefs.length > 0 && gemsReady === 0
+        ? 'all found — they come back over the next few days'
+        : gemsOnly ? 'find your brilliancies again' : 'find your best moves again',
       stat: gemsReady > 0 ? gemsReady : undefined,
+      statLabel: gemsReady > 0 ? 'to find' : undefined,
       disabled: brilliantRefs.length === 0,
       disabledReason: noneReason,
       onClick: () => startBrilliant(brilliantRefs),
     }));
 
     // The Fixed list — spots already put right, and the way back into any of
-    // them. It was a block of its own under the cards; it is a sheet already, so
-    // as a tile it costs one cell instead of a section.
+    // them. It opens a sheet, so it costs one card rather than a section.
     if (counts.fixed > 0) {
-      tiles.push(buildTile({
-        domainAccent: MIDDLEGAME_ACCENT,
+      section.appendChild(buildModeCard({
         accent: MIDDLEGAME_ACCENT,
         icon: Icons.checkCircle(20),
         name: 'Fixed',
+        sub: 'the ones you have already put right',
         stat: counts.fixed,
+        statLabel: 'fixed',
         onClick: () => openFixed(),
       }));
     }
 
-    tiles.push(buildTile({
-      domainAccent: MIDDLEGAME_ACCENT,
-      accent: MIDDLEGAME_ACCENT,
-      icon: Icons.info(20),
-      name: 'About',
-      onClick: openMistakeInfo,
-    }));
-
-    return tiles;
+    // Start these exercises again — the reset that clears the rest logs. It used
+    // to sit under the hero; the hero is gone, so it closes the list.
+    section.appendChild(buildResetLink());
   }
 
   // The Fixed list, and the way back into any of it: a row (or the button at the
@@ -1002,232 +773,6 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       onOpenGame: deps.onOpenGame,
     });
   }
-
-  // ── "Latest mistakes" board carousel ────────────────────────────────────────
-  // One slide per category showing the newest unfixed spot: the position as you
-  // had it, the played move as a red arrow, the drill's own story line, and a
-  // "Fix it" that drills exactly that position. The nav is icon-only (all four
-  // fit in a row); the active category's name reads below the icons.
-  function renderLatestMistakes(): HTMLElement | null {
-    const slides: CarouselSlide[] = [];
-    for (const cat of CATEGORIES) {
-      const pool = unfixedPool(cat);
-      if (pool.length) slides.push({ kind: 'mistake', cat, pool });
-    }
-    // The brilliant/great finds, one slide leading with the next one to re-find
-    // (the move stays hidden — finding it is the exercise). Tapping in chains
-    // through the rest so a solve rolls straight on to the next.
-    if (brilliantRefs.length) slides.push({ kind: 'brilliant', pool: brilliantRefs });
-    if (slides.length === 0) return null;
-
-    const section = document.createElement('div');
-    section.className = 'section forgotten-section mrc-section';
-
-    const label = document.createElement('div');
-    label.className = 'section-title';
-    label.textContent = 'Latest games';
-    section.appendChild(label);
-
-    const tabs = document.createElement('div');
-    tabs.className = 'mrc-tabs';
-    // The active slide's name, under the icon row (not inside the buttons, so
-    // all the icons fit side by side).
-    const tabTitle = document.createElement('div');
-    tabTitle.className = 'mrc-tab-title';
-    const track = document.createElement('div');
-    track.className = 'forgotten-track mrc-track';
-
-    const tabEls: HTMLButtonElement[] = [];
-    slides.forEach((s, i) => {
-      const tab = document.createElement('button');
-      tab.type = 'button';
-      tab.className = 'mrc-tab' + (i === 0 ? ' mrc-tab--active' : '');
-      tab.style.setProperty('--mrc-accent', slideAccent(s));
-      tab.setAttribute('aria-label', slideLabel(s));
-      tab.title = slideLabel(s);
-      tab.appendChild(slideIcon(s));
-      tab.addEventListener('click', () => {
-        track.scrollTo({ left: track.clientWidth * i, behavior: 'smooth' });
-      });
-      tabEls.push(tab);
-      tabs.appendChild(tab);
-      track.appendChild(s.kind === 'brilliant'
-        ? buildBrilliantSlide(s.pool)
-        : buildMistakeSlide(s.cat, s.pool));
-    });
-    tabTitle.textContent = slideLabel(slides[0]);
-
-    // Keep the active tab + title in sync as the track is swiped.
-    let raf = 0;
-    track.addEventListener('scroll', () => {
-      if (raf) return;
-      raf = requestAnimationFrame(() => {
-        raf = 0;
-        const idx = Math.min(slides.length - 1,
-          Math.max(0, Math.round(track.scrollLeft / (track.clientWidth || 1))));
-        tabEls.forEach((t, i) => t.classList.toggle('mrc-tab--active', i === idx));
-        tabTitle.textContent = slideLabel(slides[idx]);
-      });
-    }, { passive: true });
-
-    section.appendChild(tabs);
-    section.appendChild(tabTitle);
-    section.appendChild(track);
-    return section;
-  }
-
-  // One carousel slide: either the newest unfixed mistake in a category, or the
-  // newest brilliant/great find. Each carries its own tab icon, accent and name.
-  type CarouselSlide =
-    | { kind: 'mistake'; cat: MistakeCategory; pool: SpotRef[] }
-    | { kind: 'brilliant'; pool: BrilliantRef[] };
-
-  function slideIcon(s: CarouselSlide): SVGElement {
-    return s.kind === 'brilliant' ? classIcon('brilliant', 20) : CATEGORY_ICON[s.cat]();
-  }
-  function slideAccent(s: CarouselSlide): string {
-    return s.kind === 'brilliant' ? CLASS_COLOR.brilliant : CATEGORY_ACCENT[s.cat];
-  }
-  function slideLabel(s: CarouselSlide): string {
-    return s.kind === 'brilliant' ? 'Your brilliant moves' : CATEGORY_LABEL[s.cat];
-  }
-
-  // A brilliant/great find as a carousel slide — the board sits at the position
-  // before your move with NOTHING drawn (the move is the answer), and "Find it
-  // again" drills it, then chains on through the rest of the finds so a solve
-  // rolls straight to the next one (never forcing an End session after one).
-  function buildBrilliantSlide(pool: BrilliantRef[]): HTMLElement {
-    const ref = pool[0];
-    const slide = document.createElement('div');
-    slide.className = 'forgotten-slide mrc-slide';
-
-    const { spot, game } = ref;
-
-    const board = document.createElement('div');
-    board.className = 'forgotten-board cg-wrap';
-    slide.appendChild(board);
-    const cg = Chessground(board, {
-      fen: spot.preFen,
-      orientation: game.colour,
-      viewOnly: true,
-      coordinates: false,
-      animation: { enabled: false },
-      drawable: { enabled: false, visible: false },
-    });
-    requestAnimationFrame(() => cg.redrawAll());
-
-    const body = document.createElement('div');
-    body.className = 'forgotten-body';
-
-    const intro = document.createElement('div');
-    intro.className = 'mr-intro mrc-intro';
-    intro.appendChild(document.createTextNode('You played a '));
-    const chip = document.createElement('span');
-    chip.className = `mr-played mr-played--${spot.cls}`;
-    chip.textContent = CLASS_LABEL[spot.cls];
-    intro.appendChild(chip);
-    intro.appendChild(document.createTextNode(' move here.'));
-    body.appendChild(intro);
-
-    const fix = document.createElement('button');
-    fix.type = 'button';
-    fix.className = 'btn-primary forgotten-fix-btn';
-    fix.textContent = 'Find it again';
-    fix.addEventListener('click', () => {
-      startBrilliantSession({
-        refs: pool.slice(0, SESSION_SIZE),
-        onExit: rerender,
-        onOpenGame: deps.onOpenGame,
-      });
-    });
-    body.appendChild(fix);
-
-    const hint = document.createElement('div');
-    hint.className = 'forgotten-hint';
-    hint.textContent = 'find your best move';
-    body.appendChild(hint);
-
-    slide.appendChild(body);
-    return slide;
-  }
-
-  // The unfixed spots in a category, newest first — the lead is the freshest
-  // thing worth fixing, and the rest chain behind it for "Next position".
-  function unfixedPool(cat: MistakeCategory): SpotRef[] {
-    return refs
-      .filter(r => r.spot.category === cat && !r.spot.fixed)
-      .sort((a, b) => b.game.endTime - a.game.endTime);
-  }
-
-  function buildMistakeSlide(cat: MistakeCategory, pool: SpotRef[]): HTMLElement {
-    const ref = pool[0];
-    const slide = document.createElement('div');
-    slide.className = 'forgotten-slide mrc-slide';
-
-    const { spot, game } = ref;
-
-    // A real (view-only) chessground, mirroring the forgotten-moves slides, with
-    // the played mistake drawn in the review palette's blunder red.
-    const board = document.createElement('div');
-    board.className = 'forgotten-board cg-wrap';
-    slide.appendChild(board);
-    const cg = Chessground(board, {
-      fen: spot.preFen,
-      orientation: game.colour,
-      viewOnly: true,
-      coordinates: false,
-      animation: { enabled: false },
-      drawable: { enabled: false, visible: true },
-    });
-    registerBrushes(cg, { danger: { color: '#c93636', opacity: 0.8, lineWidth: 10 } });
-    cg.setAutoShapes([{
-      orig: spot.playedUci.slice(0, 2) as Key,
-      dest: spot.playedUci.slice(2, 4) as Key,
-      brush: 'danger',
-    }]);
-    requestAnimationFrame(() => cg.redrawAll());
-
-    const body = document.createElement('div');
-    body.className = 'forgotten-body';
-
-    // The drill's own story line: "You played [♛xe8 ??] here and blundered."
-    const badge = CATEGORY_BADGE[spot.category];
-    const intro = document.createElement('div');
-    intro.className = 'mr-intro mrc-intro';
-    intro.appendChild(document.createTextNode('You played '));
-    const chip = document.createElement('span');
-    chip.className = `mr-played mr-played--${badge.cls}`;
-    chip.textContent = `${formatMove(spot.playedSan)} ${badge.sym}`;
-    intro.appendChild(chip);
-    intro.appendChild(document.createTextNode(` here and ${CATEGORY_PHRASE[spot.category]}.`));
-    body.appendChild(intro);
-
-    const fix = document.createElement('button');
-    fix.type = 'button';
-    fix.className = 'btn-primary forgotten-fix-btn';
-    fix.textContent = 'Fix it';
-    fix.addEventListener('click', () => {
-      startMistakeSession({
-        refs: pool.slice(0, SESSION_SIZE),
-        modeLabel: CATEGORY_LABEL[cat],
-        modeIcon: () => CATEGORY_ICON[cat](18),
-        modeAccent: CATEGORY_ACCENT[cat],
-        onExit: rerender,
-        onOpenGame: deps.onOpenGame,
-      });
-    });
-    body.appendChild(fix);
-
-    const hint = document.createElement('div');
-    hint.className = 'forgotten-hint';
-    hint.textContent = 'find the best move';
-    body.appendChild(hint);
-
-    slide.appendChild(body);
-    return slide;
-  }
-
-  // ── The scan run + its progress overlay ─────────────────────────────────────
   async function runScan(): Promise<void> {
     // The button and the background pass would otherwise queue on the same
     // engine worker and each make the other look stuck. The manual one wins:

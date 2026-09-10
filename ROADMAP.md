@@ -1663,69 +1663,71 @@ the phone.
 - 💤 Deeper engine adaptation.
 
 
-## The Train room — four doors, a tile grid, and no tab strip ✅
+## Train becomes four boxes ✅
 
 **The problem.** Train was four tabs over four hidden panes. Whichever tab you
 landed on you were still two decisions from playing anything: pick a tab, read a
-menu of five to eight full-width mode cards, pick one. And the four panes were
-nothing like four equal things — the Openings pane is 2,500 lines of screen code
-and the End game one 700 — but a tab strip presents them as four identical doors.
-Openings also owned two of the five nav slots (My Lines and Explore), so the half
-of the app that reads your own games had a quarter of one tab.
+menu of five to eight cards, pick one. And the four panes were nothing like four
+equal things — the Openings pane is 2,500 lines of screen code and the End game
+one 700 — but a tab strip presents them as four identical doors.
 
-**What shipped.** Train is now one screen with three bands:
+**The first attempt, and why it was undone.** Four doors grouped at the top,
+every remaining exercise in ONE three-across tile grid below them banded by
+domain colour, and the readouts in four collapsible drawers. Shipped to `dev`,
+looked at on a phone, rejected: twenty-odd two-word tiles in five colours is a
+wall, and the grouping the colour was supposed to carry did not survive contact
+with a phone screen. **Grouping beats density.** Recorded here and in
+APP-CONTEXT §6.3 so it isn't re-derived.
 
-- **Four doors.** Openings · Middlegame · Tactics · Endgames, full width, one tap
-  each. Every one of them starts what that pane already fronted with a wide hero
-  button — a repertoire run, the games mix, the Daily Rated Mix, the endgame
-  ladder — so this promoted what existed rather than building anything new.
-- **A tile grid.** Every other exercise in the app, three across on a phone, in
-  domain order. Nothing nested, nothing hidden.
-- **Four collapsed drawers.** The readouts — the due hero, Forgotten moves, the
-  scan hero, the latest-mistakes carousel, the puzzle ladder, the classics list.
-  A tile is something you start; a readout is something you read, and four heroes
-  plus two accordions stacked open would have made Train the longest screen in
-  the app.
+**What shipped.** Four boxes, one per domain, stacked. Each is a door — a big
+card filled in the domain's colour, carrying that domain's live figure, starting
+its flagship on one tap — then a heading with the (i), then that domain's own
+exercises as the same full-width mode cards they always were.
 
-**The one trick, and why it cost so little.** Each of the four screens still gets
-one host and still re-renders itself alone — no session machinery moved. It did
-not have to: every drill in this app is a `position: fixed` overlay on `<body>`,
-so a screen's host was only ever the thing to redraw on the way back. What sorts
-four hosts' output into three bands is two lines of CSS — each `.train-domain`
-host is `display: contents`, so its children are items of the shared grid, and
-each kind of child carries an `order`. DOM order decides the order within a band;
-`order` decides the band. A domain repainting itself replaces only its own
-children and they land back correctly, because the band is a class.
+- **Openings** — a repertoire run · *moves due*
+- **Middlegame** — the games mix · *spots to fix*
+- **Tactics** — the Daily Rated Mix · *puzzle rating*
+- **Endgames** — the rated ladder · *endgame rating*
 
-**Two colours per tile.** The exercise's accent on the icon and the number, the
-domain's on the top edge. Several exercises own a colour their overlay wears too
-(`exercise-identity.ts`), so flattening to one colour per domain would have
-broken that link. The top edge bands the grid; the icon keeps each tile itself.
+Every one of those was already its pane's wide hero button, so this promoted
+what existed rather than adding anything.
 
-**Timed modes, simplified to one length.** Time attack (openings) was 1/3/5
-minutes and Time attack (tactics) 3/5/10 across two sources — six records nobody
-could compare, on cards twice the height of their neighbours. Both are three
-minutes now, which was already the tactics default, so the surviving record is
-the one people actually have. The retired lengths' bests stay on disk, unread;
-`TIMED_DURATIONS` and `TA_TIMES` survive only so "Reset progress" still clears
-them all.
+**Nothing in the plumbing changed, either time.** Each screen still gets one host
+and still re-renders itself alone. It never needed anything else: every drill is
+a `position: fixed` overlay on `<body>`, so a screen's host was only ever the
+thing to redraw on the way back.
 
-**One real bug found on the way.** `--eg-accent` was declared on `.eg-screen`,
-the wrapper `endgame-screen.ts` used to render into. That wrapper is gone, and
-nine rules read the token — it now hangs off `:root` with the dark-theme override
-beside it, like every other colour in the app.
+**Four blocks left Train for Home**, because they are things you read rather
+than start: the due hero, Forgotten moves, the mistake stats hero with its
+autoscan status, and the latest-mistakes carousel. The scan they fronted is not
+lost — it leads the Middlegame card list whenever games are waiting — and
+`main.ts` still starts the background pass at boot. Their code is at `eecb0d7`
+if Home wants it back rather than rebuilt. **Forgotten moves has no caller until
+Home lands**, which is why this stays on `dev`.
 
-**Not done here, deliberately:** Home, and the My Lines / Explore merge. Both are
-their own rounds. Until Home lands, the daily-challenge card stays at the top of
-Train.
+**Timed modes, one length each.** Time attack (openings) was 1/3/5 minutes and
+Time attack (tactics) 3/5/10 across two sources — six records nobody could
+compare, on cards twice the height of their neighbours. Both are three minutes
+now, which was already the tactics default, so the surviving record is the one
+people have. The retired lengths' bests stay on disk, unread; `TIMED_DURATIONS`
+and `TA_TIMES` survive only so "Reset progress" still clears them all.
 
-New module: `train-doors.ts` (doors, tiles, drawers, `DOMAIN_ACCENT`,
-`openExtrasAt`). `renderTrainTabbed` → `renderTrainRoom`. Retired:
-`renderModeCards`, `buildTimedCard`, `buildMixButton`, `renderCategoryCards`,
-`renderTimeAttack`, the `.train-tabs` / `.train-col` / `data-train-mode` CSS and
-the `.pz-screen` / `.mistakes-screen` / `.eg-screen` wrappers.
+**Two real bugs found on the way.** `--eg-accent` was declared on `.eg-screen`,
+a wrapper this round removes, while nine rules read it — it now hangs off
+`:root` with its dark-theme override, like every other colour. And the door's
+figure, drawn in the flat accent on a tint built from the same hue, measured
+2.8:1 for the orange one — under the 3:1 floor large text gets. Mixing it toward
+`--text` puts all four between 4.4 and 5.6:1.
 
-Tagged `v0.10` before starting.
+New module: `train-doors.ts` (`buildDoor`, `buildBox`, `buildBoxHead`,
+`DOMAIN_ACCENT`). `renderTrainTabbed` → `renderTrainRoom`. Retired: the
+`.train-tabs` / `.train-col` / `data-train-mode` CSS, the `.pz-screen` /
+`.mistakes-screen` / `.eg-screen` wrappers, `buildTimedCard`, `buildMixButton`,
+the endgame piece-selector row and all four heroes.
+
+Tagged `v0.10` before starting. **Not deployed** — `main` is still on the tab
+strip until Home lands.
+
 
 ---
 

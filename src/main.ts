@@ -43,7 +43,6 @@ import {
 import { handlePurchaseReturn } from './checkout';
 import { primePricing } from './pricing';
 import { renderTrainScreen, startLineSession, startPositionsSession, startMoveFix } from './train-screen';
-import { buildRegionLabel } from './train-doors';
 import { renderExploreScreen } from './explore-screen';
 import { renderPuzzlesScreen, startDailyPuzzles } from './puzzles-screen';
 import { renderMistakesScreen } from './mistakes-screen';
@@ -4404,11 +4403,10 @@ function renderTrainRoom(host: HTMLElement): void {
   const dailyHost = document.createElement('div');
   dailyHost.className = 'daily-host';
 
-  // The room: one grid, four domain hosts. Every host is `display: contents`,
-  // so the doors, tiles and readouts the four of them render sort themselves
-  // into three bands by CSS `order` rather than by DOM position — which is what
-  // lets each domain keep rendering into its own host, and re-rendering itself
-  // alone, exactly as it did when it owned a pane.
+  // The room: a plain column of four hosts, one per domain. Each screen renders
+  // its own box into its host — a door, then that domain's own exercises — so
+  // the grouping is a container rather than a colour convention, and a domain
+  // re-rendering itself touches nothing but its own box.
   const room = document.createElement('div');
   room.className = 'train-room';
 
@@ -4423,21 +4421,10 @@ function renderTrainRoom(host: HTMLElement): void {
   const mistakesPane = domainHost('mistakes');
   const endgamePane = domainHost('endgame');
 
-  // The two band labels. They are children of the room rather than of any one
-  // domain (no domain owns them) and take their place in the sort order from
-  // their own classes.
-  const tilesLabel = buildRegionLabel('More ways to train');
-  tilesLabel.classList.add('train-region-label--tiles');
-  const extrasLabel = buildRegionLabel('Where you stand');
-  extrasLabel.classList.add('train-region-label--extras');
-
-  // DOM order here decides only the order WITHIN a band: doors read Openings,
-  // Middlegame, Tactics, Endgames because that is the order these four are
-  // appended, and the tiles band bands by colour for the same reason.
-  room.append(
-    openingsPane, mistakesPane, puzzlesPane, endgamePane,
-    tilesLabel, extrasLabel,
-  );
+  // Openings first because it is the app's own subject; Middlegame second
+  // because it is the half that reads your games and it spent this whole
+  // redesign being a quarter of one tab.
+  room.append(openingsPane, mistakesPane, puzzlesPane, endgamePane);
   host.append(dailyHost, room);
 
   // This render's launchers, filled in once renderDaily has read the data it

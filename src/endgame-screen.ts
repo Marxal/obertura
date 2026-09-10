@@ -10,14 +10,14 @@
 //     imported games (endgame-scan.ts) and played out the same way.
 
 import { Icons } from './icons';
-import { buildDoor, buildTile, buildExtras, openExtrasAt, DOMAIN_ACCENT } from './train-doors';
+import { buildDoor, buildBox, buildBoxHead, DOMAIN_ACCENT } from './train-doors';
+import { buildModeCard } from './train-screen';
 import { fetchNextPuzzle } from './puzzles';
 import {
   startPuzzleSession, type PuzzleDraw, type AnalyseRequest,
 } from './puzzle-run';
-import { getPuzzleRating, getBestCleanStreak, difficultyForRating } from './puzzle-rating';
+import { getPuzzleRating, difficultyForRating } from './puzzle-rating';
 import { buildPositionCard, colourPip } from './card-position';
-import { countUp } from './count-up';
 import {
   endgamesByCategory, type Endgame, type EndgameGroup, type EndgameCategory,
   LEVEL_META,
@@ -55,15 +55,6 @@ type PuzzleTheme = 'all' | 'rook' | 'pawn' | 'queen' | 'minor';
 const THEME_LABEL: Record<PuzzleTheme, string> = {
   all: 'All endgames', rook: 'Rook', pawn: 'Pawn', queen: 'Queen', minor: 'Minor piece',
 };
-// The main button's title tracks the chosen theme — pick a piece, then launch.
-// Kept short so it always sits on one line inside the full-width button.
-const START_LABEL: Record<PuzzleTheme, string> = {
-  all: 'All endgame puzzles',
-  rook: 'Rook endgame puzzles',
-  pawn: 'Pawn endgame puzzles',
-  queen: 'Queen endgame puzzles',
-  minor: 'Minor endgame puzzles',
-};
 // The specific themes, as piece-symbol shortcuts under the wide "all" button. A
 // trailing U+FE0E asks for the text (not emoji) glyph — same trick as board-mini.
 const VS = String.fromCharCode(0xfe0e);
@@ -72,12 +63,6 @@ const SPECIFIC_THEMES: { theme: Exclude<PuzzleTheme, 'all'>; symbol: string }[] 
   { theme: 'pawn', symbol: '♟' + VS },
   { theme: 'queen', symbol: '♛' + VS },
   { theme: 'minor', symbol: '♞' + VS },
-];
-// The round selector buttons: an "All" circle (selected by default) then the
-// piece shortcuts. Choosing one only sets the theme; the main button launches.
-const ROUND_THEMES: { theme: PuzzleTheme; symbol: string }[] = [
-  { theme: 'all', symbol: 'All' },
-  ...SPECIFIC_THEMES,
 ];
 const PUZZLE_COUNT = 8;
 // This domain's colour — door, tiles and readouts. Every exercise here wears it,
@@ -192,7 +177,6 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
   host.innerHTML = '';
   const root = host;
 
-  let firstRender = true;
   // Imported games for the "From your games" section, loaded once (null = loading).
   let games: ImportedGame[] | null = null;
   let loadingGames = false;
@@ -212,105 +196,40 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
 
     // The door: the rated ladder over every endgame theme, which was already
     // this pane's wide button. The piece shortcuts that used to sit under it as
-    // a "pick, then launch" row are four tiles now — a shortcut you have to
+    // a "pick one, then press this" row are cards now — a shortcut you have to
     // select before pressing something else is not a shortcut.
-    root.appendChild(buildDoor({
-      accent: ENDGAME_ACCENT,
-      icon: Icons.flag(24),
+    const box = buildBox('endgames', buildDoor({
+      domain: 'endgames',
+      icon: Icons.flag(26),
       name: 'Endgames',
-      sub: `${PUZZLE_COUNT} rated puzzles · rating ${getPuzzleRating('endgame')}`,
+      sub: `${PUZZLE_COUNT} rated puzzles — a ladder just for endgames`,
+      stat: getPuzzleRating('endgame'),
+      statLabel: 'rating',
       onClick: () => runEndgamePuzzles('all', deps, rebuild),
     }));
 
-    for (const tile of buildEndgameTiles()) root.appendChild(tile);
+    box.appendChild(buildBoxHead('By piece'));
+    const pieces = document.createElement('div');
+    pieces.className = 'mode-cards';
+    for (const { theme } of SPECIFIC_THEMES) {
+      pieces.appendChild(buildModeCard({
+        accent: ENDGAME_ACCENT,
+        icon: Icons.flag(20),
+        name: `${THEME_LABEL[theme]} endgames`,
+        sub: `${PUZZLE_COUNT} rated puzzles, ${THEME_LABEL[theme].toLowerCase()} only`,
+        onClick: () => runEndgamePuzzles(theme, deps, rebuild),
+      }));
+    }
+    box.appendChild(pieces);
 
-    const extras = buildExtras({
-      id: 'endgames',
-      accent: ENDGAME_ACCENT,
-      icon: Icons.flag(20),
-      name: 'Endgames',
-      sub: 'your ladder, the classics you have beaten, and the ones from your games',
-      body: [renderPuzzles(firstRender), renderFromGames(), renderClassics()],
-    });
-    if (extras) root.appendChild(extras);
-    firstRender = false;
+    // The two play-it-out halves keep their own lists: which classic to play and
+    // which of your own endgames are real choices with a board apiece, so they
+    // are browsable sections rather than a card that would pick one at random.
+    box.appendChild(renderFromGames());
+    box.appendChild(renderClassics());
+    root.appendChild(box);
   };
 
-  // ── The tiles ───────────────────────────────────────────────────────────────
-  function buildEndgameTiles(): HTMLElement[] {
-    const tiles: HTMLElement[] = SPECIFIC_THEMES.map(({ theme }) => buildTile({
-      accent: ENDGAME_ACCENT,
-      icon: Icons.flag(20),
-      name: THEME_LABEL[theme],
-      onClick: () => runEndgamePuzzles(theme, deps, rebuild),
-    }));
-
-    // The two play-it-out halves. Both open their list in the drawer below
-    // rather than launching straight into a position: which classic to play,
-    // and which of your own endgames, are genuine choices with a board apiece,
-    // so a tile that picked one for you would be picking at random.
-    tiles.push(buildTile({
-      accent: ENDGAME_ACCENT,
-      icon: Icons.book(20),
-      name: 'Classics',
-      onClick: () => openExtrasAt('endgames', 'eg-classics'),
-    }));
-    tiles.push(buildTile({
-      accent: ENDGAME_ACCENT,
-      icon: Icons.scout(20),
-      name: 'From games',
-      onClick: () => openExtrasAt('endgames', 'eg-fg-section'),
-    }));
-    return tiles;
-  }
-
-  // ── Endgame puzzles ─────────────────────────────────────────────────────────
-  function renderPuzzles(animate: boolean): HTMLElement {
-    const hero = document.createElement('div');
-    hero.className = 'card train-hero eg-hero pz-hero';
-
-    const stats = document.createElement('div');
-    stats.className = 'train-hero-stats';
-    stats.appendChild(heroStat('rating', getPuzzleRating('endgame'), 'Endgame rating', animate));
-    stats.appendChild(heroStat('run', getBestCleanStreak('endgame'), 'Best run', animate));
-    hero.appendChild(stats);
-
-    // The wide launch button. It used to be half of a "pick a piece, then press
-    // this" pair; the pieces are tiles now, so this one is simply the all-themes
-    // run — the same thing the door starts, kept here because the hero is where
-    // the rating it moves is shown.
-    const start = document.createElement('button');
-    start.type = 'button';
-    start.className = 'btn-primary train-hero-start eg-hero-start';
-    start.replaceChildren(Icons.puzzlePiece(18), document.createTextNode(START_LABEL.all));
-    start.addEventListener('click', () => runEndgamePuzzles('all', deps, rebuild));
-    hero.appendChild(start);
-
-    const note = document.createElement('div');
-    note.className = 'pz-hero-note';
-    note.textContent = `${PUZZLE_COUNT} rated puzzles — a ladder just for endgames`;
-    hero.appendChild(note);
-
-    return hero;
-  }
-
-  function heroStat(kind: string, value: number, label: string, animate: boolean): HTMLElement {
-    const col = document.createElement('div');
-    col.className = `train-hero-stat train-hero-stat--${kind}`;
-    const num = document.createElement('span');
-    num.className = 'train-hero-stat-num';
-    num.textContent = animate ? '0' : String(value);
-    col.appendChild(num);
-    const lbl = document.createElement('div');
-    lbl.className = 'train-hero-stat-label';
-    lbl.textContent = label;
-    col.appendChild(lbl);
-    if (animate) countUp(num, value);
-    return col;
-  }
-
-  // ── Classic endgames ────────────────────────────────────────────────────────
-  // Play a classic, chaining "Next endgame" through the group's items in order.
   function launchClassic(items: Endgame[], index: number): void {
     const next = items[index + 1];
     startEndgamePlayout(items[index], {

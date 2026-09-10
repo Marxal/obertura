@@ -1,34 +1,39 @@
-// The Puzzles tab. Practise Lichess tactics from the openings you actually train,
-// shaped around three modes:
-//   • Daily Rated Mix — the flagship. Mixed puzzles from your repertoire AND your
-//     games, a 10-puzzle run that moves your personal puzzle rating. The only
-//     rated mode. Fronted by a "today" hero card (mirrors the Training hero).
-//   • Time Attack — 3 / 5 / 10 min against the clock, 3 mistakes and you're out,
-//     difficulty ramping as you solve. Two sources, each with its own per-length
-//     records: "From My Openings" (your repertoire + games) and "Satisfying Traps"
-//     (the Lichess `opening` theme). Casual.
+// The Tactics box on the Train screen. Lichess puzzles, drawn from the openings
+// you actually play, in four shapes:
+//   • The DOOR — Daily Rated Mix, the flagship. Mixed puzzles from your
+//     repertoire AND your games, a 10-puzzle run that moves your personal puzzle
+//     rating. The only rated mode, and the figure on the door is that rating.
+//   • Time attack — 3 minutes, 3 mistakes and you're out, difficulty ramping as
+//     you solve. Two pools, one card each: your own openings, and Satisfying
+//     Traps (the Lichess `opening` theme). Casual; own personal best.
 //   • Practice by opening — drill a single opening; each row shows your accuracy.
+//   • Themes — rated puzzles on one motif, straight from Lichess.
 // Openings resolve to Lichess "angle" keys (puzzles.ts); we only offer openings
 // Lichess actually has a puzzle set for. Connecting to Lichess isn't required —
 // puzzles are fetched anonymously — but it adds the richer Lichess dashboard on
 // the Statistics page, so we still nudge.
+//
+// GONE FROM HERE: the "today" hero (solved / missed / rating, over the wide
+// start button). The button is the door now and the rating is its figure, which
+// left the hero saying only how many you solved today — a Home figure, not a
+// Train one.
 
 import { getAllLines, getAllGames } from './storage';
 import { fetchNextPuzzle, toAngleKey, type Difficulty } from './puzzles';
 import { openingFamily } from './analysis';
 import { startPuzzleSession, type PuzzleMode, type PuzzleDraw, type AnalyseRequest } from './puzzle-run';
-import { recordPuzzleResult, getPuzzleDays, getPuzzlesByOpening } from './puzzle-log';
+import { recordPuzzleResult, getPuzzlesByOpening } from './puzzle-log';
 import { reviewResult, takeDueRepeat } from './puzzle-repeat';
 import { getPuzzleRating, difficultyForRating, difficultyForStreak, difficultyStep, targetRatingForStreak } from './puzzle-rating';
-import { countUp } from './count-up';
 import { track } from './metrics';
 import type { TaskOutcome } from './daily-recap';
 import { renderLoadError } from './load-error';
 import { buildEmptyState, type EmptyStateAction } from './empty-state';
 import { isConnected, LICHESS_CONNECT_BLURB } from './lichess-auth';
 import { Icons } from './icons';
-import { openInfoSheet } from './info-sheet';
-import { buildDoor, buildTile, buildExtras, DOMAIN_ACCENT } from './train-doors';
+import { openInfoSheet, buildInfoButton } from './info-sheet';
+import { buildDoor, buildBox, buildBoxHead, DOMAIN_ACCENT } from './train-doors';
+import { buildModeCard } from './train-screen';
 import { PUZZLE_THEME_GROUPS, type PuzzleTheme, type PuzzleThemeGroup } from './puzzle-themes';
 
 export interface PuzzlesScreenDeps {
@@ -190,12 +195,6 @@ function entriesFrom(items: { opening: string | null; colour: 'white' | 'black' 
   return [...map.values()].sort((a, b) => b.weight - a.weight);
 }
 
-function todayKey(): string {
-  const d = new Date();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${m}-${day}`;
-}
 
 // ── Small UI helpers ──────────────────────────────────────────────────────────
 // A compact segmented control (mirrors the Statistics range chips).
@@ -417,11 +416,6 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
     });
   }
 
-  // The hero's count-up should only play once, on the first paint of the screen.
-  // Later rebuilds (switching the Practice source, returning from a session) just
-  // set the final numbers so they don't re-animate from zero on every tap.
-  let firstRender = true;
-
   const rebuild = (): void => {
     root.innerHTML = '';
 
@@ -432,68 +426,61 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
       // No repertoire and no games: the rated mix has nothing to build a set
       // from, so the door says why and the themes — which need neither — stay
       // available underneath it.
-      root.appendChild(buildDoor({
-        accent: TACTICS_ACCENT,
-        icon: Icons.puzzlePiece(24),
+      const box = buildBox('tactics', buildDoor({
+        domain: 'tactics',
+        icon: Icons.puzzlePiece(26),
         name: 'Tactics',
-        sub: `${DAILY_COUNT} rated puzzles from your openings`,
+        sub: `${DAILY_COUNT} rated puzzles from the openings you play`,
         disabled: true,
         disabledReason: 'Save a line or import your games first',
       }));
-      const empty = buildExtras({
-        id: 'tactics',
-        accent: TACTICS_ACCENT,
-        icon: Icons.puzzlePiece(20),
-        name: 'Tactics',
-        sub: 'puzzles by theme — no repertoire needed',
-        body: [emptyState(hasGames, deps), renderThemes()],
-      });
-      if (empty) root.appendChild(empty);
+      box.appendChild(emptyState(hasGames, deps));
+      box.appendChild(renderThemes());
+      root.appendChild(box);
       return;
     }
 
     // The door: the Daily Rated Mix, which was already this pane's wide button.
-    // The only rated mode here, so it is the one with a number that moves.
-    root.appendChild(buildDoor({
-      accent: TACTICS_ACCENT,
-      icon: Icons.puzzlePiece(24),
+    // The only rated mode here, so it is the one whose number moves.
+    const box = buildBox('tactics', buildDoor({
+      domain: 'tactics',
+      icon: Icons.puzzlePiece(26),
       name: 'Tactics',
-      sub: `${DAILY_COUNT} rated puzzles · rating ${getPuzzleRating()}`,
+      sub: `${DAILY_COUNT} rated puzzles from your openings and games`,
+      stat: getPuzzleRating(),
+      statLabel: 'rating',
       onClick: () => startSession(
         allEntries, 'Puzzle rated mix',
         { kind: 'count', count: DAILY_COUNT, rated: true },
         { repeatAllAngles: true }),
     }));
-
-    for (const tile of buildTacticsTiles()) root.appendChild(tile);
-
-    const extras = buildExtras({
-      id: 'tactics',
-      accent: TACTICS_ACCENT,
-      icon: Icons.puzzlePiece(20),
-      name: 'Tactics',
-      sub: 'today’s solves, your accuracy by opening, and every theme',
-      body: [renderHero(firstRender), renderOpeningsGroup(), renderThemes()],
-    });
-    if (extras) root.appendChild(extras);
-    firstRender = false;
+    box.appendChild(buildBoxHead('More puzzles',
+      buildInfoButton('About the puzzle modes', openTacticsInfo)));
+    box.appendChild(renderTimedCards());
+    box.appendChild(renderOpeningsGroup());
+    box.appendChild(renderThemes());
+    root.appendChild(box);
   };
 
-  // ── The tiles ───────────────────────────────────────────────────────────────
+  // ── The timed cards ─────────────────────────────────────────────────────────
   //
   // Time attack is ONE length now, like its opposite number on the Openings
   // side: three minutes, which was already this screen's default. Its two pools
-  // were a toggle inside one card and are two tiles here, because "my openings"
-  // and "traps" are different things to practise rather than a setting. The
-  // 5 and 10-minute records stay on disk, unread.
-  function buildTacticsTiles(): HTMLElement[] {
-    const timed = (source: TaSource, name: string): HTMLElement => {
+  // were a toggle inside one card and are two cards here, because "my openings"
+  // and "traps" are different things to practise rather than a setting. The 5
+  // and 10-minute records stay on disk, unread.
+  function renderTimedCards(): HTMLElement {
+    const section = document.createElement('div');
+    section.className = 'mode-cards';
+    const timed = (source: TaSource, name: string, sub: string): HTMLElement => {
       const best = getTaBest(source, TA_DEFAULT);
-      return buildTile({
+      return buildModeCard({
         accent: TACTICS_ACCENT,
         icon: Icons.clock(20),
         name,
-        stat: best > 0 ? `best ${best}` : `${TA_DEFAULT} min`,
+        sub,
+        stat: best > 0 ? best : undefined,
+        statLabel: best > 0 ? 'best' : undefined,
         onClick: () => startSession(
           source === 'traps' ? [TRAP_ENTRY] : allEntries,
           source === 'traps' ? 'Time Attack — Traps' : 'Time Attack — Openings',
@@ -501,68 +488,11 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
           { taSource: source }),
       });
     };
-    return [
-      timed('openings', 'Time attack'),
-      timed('traps', 'Traps'),
-      buildTile({
-        accent: TACTICS_ACCENT,
-        icon: Icons.info(20),
-        name: 'About',
-        onClick: openTacticsInfo,
-      }),
-    ];
-  }
-
-  // ── Today hero (Daily Rated Mix) ────────────────────────────────────────────
-  function renderHero(animate: boolean): HTMLElement {
-    const days = getPuzzleDays();
-    const today = days.find((d) => d.day === todayKey());
-    const solvedToday = today?.solved ?? 0;
-    const missedToday = today?.failed ?? 0;
-    const rating = getPuzzleRating();
-
-    const hero = document.createElement('div');
-    hero.className = 'card train-hero pz-hero';
-
-    const stats = document.createElement('div');
-    stats.className = 'train-hero-stats';
-    stats.appendChild(heroStat('solved', solvedToday, 'Solved today', animate));
-    stats.appendChild(heroStat('missed', missedToday, 'Missed today', animate));
-    stats.appendChild(heroStat('rating', rating, 'Rating', animate));
-    hero.appendChild(stats);
-
-    const start = document.createElement('button');
-    start.type = 'button';
-    start.className = 'btn-primary train-hero-start pz-hero-start';
-    start.appendChild(Icons.sparkles(18));
-    start.appendChild(document.createTextNode('Puzzle rated mix'));
-    start.addEventListener('click', () =>
-      startSession(allEntries, 'Puzzle rated mix', { kind: 'count', count: DAILY_COUNT, rated: true },
-        { repeatAllAngles: true }));
-    hero.appendChild(start);
-
-    const note = document.createElement('div');
-    note.className = 'pz-hero-note';
-    note.textContent = `${DAILY_COUNT} puzzles based on your repertoire and games`;
-    hero.appendChild(note);
-
-    return hero;
-  }
-
-  function heroStat(kind: string, value: number, label: string, animate: boolean): HTMLElement {
-    const col = document.createElement('div');
-    col.className = `train-hero-stat train-hero-stat--${kind}`;
-    const num = document.createElement('span');
-    num.className = 'train-hero-stat-num';
-    num.textContent = '0';
-    col.appendChild(num);
-    const lbl = document.createElement('div');
-    lbl.className = 'train-hero-stat-label';
-    lbl.textContent = label;
-    col.appendChild(lbl);
-    if (animate) countUp(num, value);
-    else num.textContent = String(value);
-    return col;
+    section.appendChild(timed('openings', 'Time attack',
+      `${TA_DEFAULT} minutes on your openings — 3 mistakes and you’re out`));
+    section.appendChild(timed('traps', 'Satisfying traps',
+      `${TA_DEFAULT} minutes of opening tactics — no repertoire needed`));
+    return section;
   }
 
   function renderOpeningsGroup(): HTMLElement {
