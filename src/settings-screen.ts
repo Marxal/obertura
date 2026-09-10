@@ -53,7 +53,7 @@ import {
 } from './import-panel';
 import { countGames, resetAllProgress, eraseAllData } from './storage';
 import { getAutoRefreshEnabled, setAutoRefreshEnabled, getLastGamesRefresh } from './auto-refresh';
-import { getAutoScanEnabled, setAutoScanEnabled } from './mistake-autoscan';
+import { getAutoScanEnabled, setAutoScanEnabled, startAutoScan } from './mistake-autoscan';
 import { startEndgameAutoScan, stopEndgameAutoScan } from './endgame-autoscan';
 import { clearTrainingDays, clearReviewedToday, clearReviewLog } from './streak';
 import { clearPuzzleLog } from './puzzle-log';
@@ -1090,12 +1090,16 @@ function buildBackupGroup(): HTMLElement {
     // toggles for "analyse my games quietly" would be one question too many.
     toggle(getAutoScanEnabled(), (on) => {
       setAutoScanEnabled(on);
-      if (on) startEndgameAutoScan({ retryOffline: true });
+      // BOTH passes, not just the endgame one. Switching this back on used to
+      // restart the endgame scan and leave the mistake scan waiting for the next
+      // app open — survivable while Train still had an "Analyse my games" button,
+      // and a dead end now that it doesn't.
+      if (on) { startAutoScan(); startEndgameAutoScan({ retryOffline: true }); }
       else stopEndgameAutoScan();
     }),
     { sub: 'Reads your imported games while the app is open — mistakes first, then the '
-      + 'endgames you reached — so Train → Middle game and End game fill in without you '
-      + 'starting a scan.' },
+      + 'endgames you reached — so the Middlegame and Endgames boxes on Train fill in '
+      + 'without you starting a scan.' },
   ));
 
   // Export / import — the existing backup section does both.

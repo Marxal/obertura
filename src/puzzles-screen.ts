@@ -32,7 +32,7 @@ import { buildEmptyState, type EmptyStateAction } from './empty-state';
 import { isConnected, LICHESS_CONNECT_BLURB } from './lichess-auth';
 import { Icons } from './icons';
 import { openInfoSheet, buildInfoButton } from './info-sheet';
-import { buildDoor, buildBox, buildBoxHead, DOMAIN_ACCENT } from './train-doors';
+import { buildDoor, buildBox, boxBody, buildAccordion, DOMAIN_ACCENT } from './train-doors';
 import { buildModeCard } from './train-screen';
 import { PUZZLE_THEME_GROUPS, type PuzzleTheme, type PuzzleThemeGroup } from './puzzle-themes';
 
@@ -59,7 +59,6 @@ type TaMinutes = 3 | 5 | 10;
 // it. Swap this single constant if we ever build a curated trap set.
 const TRAP_ANGLE = 'opening';
 
-const PRACTICE_SOURCE_KEY = 'obertura.puzzles.practiceSource';
 
 const DAILY_COUNT = 10;
 // Practice-by-opening runs a shorter, focused set than the Daily Rated Mix.
@@ -75,12 +74,6 @@ interface OpeningEntry {
 }
 
 // ── Small persisted prefs ─────────────────────────────────────────────────────
-function getPracticeSource(): Source {
-  return localStorage.getItem(PRACTICE_SOURCE_KEY) === 'games' ? 'games' : 'repertoire';
-}
-function setPracticeSource(s: Source): void {
-  try { localStorage.setItem(PRACTICE_SOURCE_KEY, s); } catch { /* non-critical */ }
-}
 
 // Time attack's one length. TA_TIMES and the per-length records stay exactly as
 // they were on disk — nothing reads the 5 and 10-minute bests now, and putting
@@ -197,30 +190,6 @@ function entriesFrom(items: { opening: string | null; colour: 'white' | 'black' 
 
 
 // ── Small UI helpers ──────────────────────────────────────────────────────────
-// A compact segmented control (mirrors the Statistics range chips).
-function segmented<T extends string | number>(opts: [T, string][], current: T, onChange: (v: T) => void): HTMLElement {
-  const row = document.createElement('div');
-  row.className = 'stats-range pz-segmented';
-  row.setAttribute('role', 'tablist');
-  let selected = current;
-  for (const [key, label] of opts) {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'stats-range-chip' + (key === current ? ' stats-range-chip--on' : '');
-    chip.textContent = label;
-    chip.addEventListener('click', () => {
-      if (key === selected) return;
-      selected = key;
-      // Move the selected highlight ourselves — callers that don't rebuild still
-      // see the chip update (and a full rebuild simply re-creates the row).
-      for (const c of row.children) c.classList.remove('stats-range-chip--on');
-      chip.classList.add('stats-range-chip--on');
-      onChange(key);
-    });
-    row.appendChild(chip);
-  }
-  return row;
-}
 
 function colourPip(colour: 'white' | 'black'): HTMLElement {
   const pip = document.createElement('span');
@@ -425,8 +394,8 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
     if (allEntries.length === 0) {
       // No repertoire and no games: the rated mix has nothing to build a set
       // from, so the door says why and the themes — which need neither — stay
-      // available underneath it.
-      const box = buildBox('tactics', buildDoor({
+      // available in the box underneath it.
+      root.appendChild(buildDoor({
         domain: 'tactics',
         icon: Icons.puzzlePiece(26),
         name: 'Tactics',
@@ -434,15 +403,17 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
         disabled: true,
         disabledReason: 'Save a line or import your games first',
       }));
-      box.appendChild(emptyState(hasGames, deps));
-      box.appendChild(renderThemes());
+      const box = buildBox('tactics', 'More puzzles');
+      const body = boxBody(box);
+      body.appendChild(emptyState(hasGames, deps));
+      for (const group of PUZZLE_THEME_GROUPS) body.appendChild(renderThemeGroup(group));
       root.appendChild(box);
       return;
     }
 
     // The door: the Daily Rated Mix, which was already this pane's wide button.
     // The only rated mode here, so it is the one whose number moves.
-    const box = buildBox('tactics', buildDoor({
+    root.appendChild(buildDoor({
       domain: 'tactics',
       icon: Icons.puzzlePiece(26),
       name: 'Tactics',
@@ -454,11 +425,32 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
         { kind: 'count', count: DAILY_COUNT, rated: true },
         { repeatAllAngles: true }),
     }));
-    box.appendChild(buildBoxHead('More puzzles',
-      buildInfoButton('About the puzzle modes', openTacticsInfo)));
-    box.appendChild(renderTimedCards());
-    box.appendChild(renderOpeningsGroup());
-    box.appendChild(renderThemes());
+
+    // ONE list, top to bottom: the two timed runs you can start outright, then
+    // every catalogue you can pick from. They used to be three separate sections
+    // with their own titles and blurbs ("Time Attack", "Practice by theme", and
+    // an openings group with a segmented source toggle buried inside it), which
+    // is three headings and a control to read before you can choose anything.
+    // Nine rows in one column is the same content, scannable in one pass.
+    const box = buildBox('tactics', 'More puzzles',
+      buildInfoButton('About the puzzle modes', openTacticsInfo));
+    const body = boxBody(box);
+
+    const timed = document.createElement('div');
+    timed.className = 'mode-cards';
+    timed.appendChild(timedCard('openings', 'Time attack',
+      `${TA_DEFAULT} minutes on your openings — 3 mistakes and you’re out`));
+    timed.appendChild(timedCard('traps', 'Satisfying traps',
+      `${TA_DEFAULT} minutes of opening tactics — no repertoire needed`));
+    body.appendChild(timed);
+
+    // The two sources, split. They were one accordion with a segmented toggle
+    // inside it, which hid half of what the app offers behind a control you had
+    // to open something else to find.
+    if (hasGames) body.appendChild(openingsAccordion('games'));
+    body.appendChild(openingsAccordion('repertoire'));
+
+    for (const group of PUZZLE_THEME_GROUPS) body.appendChild(renderThemeGroup(group));
     root.appendChild(box);
   };
 
@@ -469,93 +461,48 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
   // were a toggle inside one card and are two cards here, because "my openings"
   // and "traps" are different things to practise rather than a setting. The 5
   // and 10-minute records stay on disk, unread.
-  function renderTimedCards(): HTMLElement {
-    const section = document.createElement('div');
-    section.className = 'mode-cards';
-    const timed = (source: TaSource, name: string, sub: string): HTMLElement => {
-      const best = getTaBest(source, TA_DEFAULT);
-      return buildModeCard({
-        accent: TACTICS_ACCENT,
-        icon: Icons.clock(20),
-        name,
-        sub,
-        stat: best > 0 ? best : undefined,
-        statLabel: best > 0 ? 'best' : undefined,
-        onClick: () => startSession(
-          source === 'traps' ? [TRAP_ENTRY] : allEntries,
-          source === 'traps' ? 'Time Attack — Traps' : 'Time Attack — Openings',
-          { kind: 'timed', ms: TA_DEFAULT * 60_000, maxMistakes: 3 },
-          { taSource: source }),
-      });
-    };
-    section.appendChild(timed('openings', 'Time attack',
-      `${TA_DEFAULT} minutes on your openings — 3 mistakes and you’re out`));
-    section.appendChild(timed('traps', 'Satisfying traps',
-      `${TA_DEFAULT} minutes of opening tactics — no repertoire needed`));
-    return section;
+  function timedCard(source: TaSource, name: string, sub: string): HTMLElement {
+    const best = getTaBest(source, TA_DEFAULT);
+    return buildModeCard({
+      accent: TACTICS_ACCENT,
+      icon: Icons.clock(20),
+      name,
+      sub,
+      stat: best > 0 ? best : undefined,
+      statLabel: best > 0 ? 'best' : undefined,
+      onClick: () => startSession(
+        source === 'traps' ? [TRAP_ENTRY] : allEntries,
+        source === 'traps' ? 'Time Attack — Traps' : 'Time Attack — Openings',
+        { kind: 'timed', ms: TA_DEFAULT * 60_000, maxMistakes: 3 },
+        { taSource: source }),
+    });
   }
 
-  function renderOpeningsGroup(): HTMLElement {
-    const details = document.createElement('details');
-    details.className = 'section section--acc pz-theme-acc';
+  // One source's openings, as a collapsible list. There are two of these — your
+  // repertoire and your games — where there used to be one accordion with a
+  // segmented toggle inside it. Splitting them costs one row and means the whole
+  // offer is visible without opening anything.
+  function openingsAccordion(source: Source): HTMLElement {
+    const entries = source === 'repertoire' ? repEntries : gameEntries;
+    const list = document.createElement('div');
 
-    const summary = document.createElement('summary');
-    summary.className = 'section-title section-summary';
-    const left = document.createElement('span');
-    left.className = 'section-summary-left';
-    left.appendChild(Icons.pawn(16));
-    const label = document.createElement('span');
-    label.textContent = 'Your openings';
-    left.appendChild(label);
-    summary.appendChild(left);
-    summary.appendChild(Icons.chevronRight(16));
-    details.appendChild(summary);
-
-    const blurb = document.createElement('div');
-    blurb.className = 'eg-group-blurb';
-    blurb.textContent = 'Drill the tactics of one opening at a time; each row shows your accuracy there.';
-    details.appendChild(blurb);
-
-    let source = getPracticeSource();
-    if (source === 'games' && !hasGames) source = 'repertoire';
-
-    const listWrap = document.createElement('div');
-
-    // Source tabs only when there are games to switch to. Switching only
-    // re-fills the list, so the open accordion never snaps shut.
-    if (hasGames) {
-      const toggle = segmented<Source>(
-        [['repertoire', 'Based on my repertoire'], ['games', 'Based on my games']],
-        source,
-        (s) => { source = s; setPracticeSource(s); fillList(); },
-      );
-      toggle.classList.add('pz-practice-source');
-      details.appendChild(toggle);
-    }
-    details.appendChild(listWrap);
-
-    const fillList = (): void => {
-      listWrap.innerHTML = '';
-      const entries = source === 'repertoire' ? repEntries : gameEntries;
-      if (entries.length === 0) {
-        const msg = document.createElement('p');
-        msg.className = 'pz-ta-desc';
-        msg.textContent = source === 'games'
-          ? 'None of your games’ openings have a Lichess puzzle set yet.'
-          : 'Save some opening lines first to practise their puzzles.';
-        listWrap.appendChild(msg);
-        return;
-      }
-
-      // Accuracy per opening (from past app puzzle results), for the performance pill.
+    if (entries.length === 0) {
+      const msg = document.createElement('p');
+      msg.className = 'pz-ta-desc';
+      msg.textContent = source === 'games'
+        ? 'None of your games’ openings have a Lichess puzzle set yet.'
+        : 'Save some opening lines first to practise their puzzles.';
+      list.appendChild(msg);
+    } else {
+      // Accuracy per opening (from past app puzzle results), for the pill.
       const perf = new Map<string, { pct: number; attempts: number }>();
       for (const o of getPuzzlesByOpening()) {
         const attempts = o.solved + o.failed;
         perf.set(o.angle, { pct: attempts ? Math.round((100 * o.solved) / attempts) : 0, attempts });
       }
 
-      const list = document.createElement('div');
-      list.className = 'pz-list pz-theme-list';
+      const rows = document.createElement('div');
+      rows.className = 'pz-list pz-theme-list';
       for (const e of entries) {
         const row = document.createElement('button');
         row.type = 'button';
@@ -573,72 +520,36 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
           count.textContent = `${attempts} done`;
           row.appendChild(count);
         }
-        // Performance pill (or a hint to play it) replaces the old target icon.
         row.appendChild(perfPill(perf.get(e.angle)));
         row.addEventListener('click', () =>
           startSession([e], e.family, { kind: 'count', count: PRACTICE_COUNT }));
-        list.appendChild(row);
+        rows.appendChild(row);
       }
-      listWrap.appendChild(list);
-    };
-    fillList();
+      list.appendChild(rows);
+    }
 
-    return details;
-  }
-
-  // ── Practice by theme (Lichess puzzle themes) ────────────────────────────────
-  // An accordion of rated theme runs — mate-in-X, the mating patterns, tactical
-  // motifs, length and goal buckets — each a Lichess puzzle theme. Rated on the
-  // general puzzle ladder (like the mix), so solving them moves your rating and
-  // feeds the repeat queue. Mirrors the End game screen's classic-endgame
-  // accordion, so the two screens read the same. Your own openings lead the
-  // section as its first group.
-  function renderThemes(): HTMLElement {
-    const section = document.createElement('div');
-    section.className = 'section pz-themes';
-
-    const title = document.createElement('div');
-    title.className = 'section-title section-title--icon';
-    title.appendChild(Icons.puzzlePiece(16));
-    title.appendChild(document.createTextNode('Practice by theme'));
-    section.appendChild(title);
-
-    const desc = document.createElement('p');
-    desc.className = 'pz-ta-desc';
-    desc.textContent = 'Rated puzzles on a single theme, straight from Lichess — they move your puzzle rating and mix into your rated runs.';
-    section.appendChild(desc);
-
-    if (allEntries.length > 0) section.appendChild(renderOpeningsGroup());
-    for (const group of PUZZLE_THEME_GROUPS) section.appendChild(renderThemeGroup(group));
-    return section;
+    return buildAccordion({
+      icon: source === 'games' ? Icons.scout(18) : Icons.pawn(18),
+      label: source === 'games' ? 'Based on my games' : 'Based on my repertoire',
+      sub: entries.length > 0
+        ? `${entries.length} ${entries.length === 1 ? 'opening' : 'openings'}, each with its own accuracy`
+        : 'nothing here yet',
+      accent: TACTICS_ACCENT,
+      body: list,
+    });
   }
 
   function renderThemeGroup(group: PuzzleThemeGroup): HTMLElement {
-    const details = document.createElement('details');
-    details.className = 'section section--acc pz-theme-acc';
-
-    const summary = document.createElement('summary');
-    summary.className = 'section-title section-summary';
-    const left = document.createElement('span');
-    left.className = 'section-summary-left';
-    left.appendChild(group.icon());
-    const label = document.createElement('span');
-    label.textContent = group.label;
-    left.appendChild(label);
-    summary.appendChild(left);
-    summary.appendChild(Icons.chevronRight(16));
-    details.appendChild(summary);
-
-    const blurb = document.createElement('div');
-    blurb.className = 'eg-group-blurb';
-    blurb.textContent = group.blurb;
-    details.appendChild(blurb);
-
     const list = document.createElement('div');
     list.className = 'pz-list pz-theme-list';
     for (const theme of group.themes) list.appendChild(themeRow(theme));
-    details.appendChild(list);
-    return details;
+    return buildAccordion({
+      icon: group.icon(),
+      label: group.label,
+      sub: group.blurb,
+      accent: TACTICS_ACCENT,
+      body: list,
+    });
   }
 
   function themeRow(theme: PuzzleTheme): HTMLElement {

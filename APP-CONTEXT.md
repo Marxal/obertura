@@ -421,72 +421,89 @@ days late outranks a 90-day move two days late).
   `struggle`, and the `modeLabel`/`modeIcon`/`modeAccent`/`contextLabel` set that
   paints `run-header.ts`.
 
-### 6.3 The Train screen — four boxes
+### 6.3 The Train screen — four doors, then four boxes
 
 `main.ts:renderTrainRoom()` (was `renderTrainTabbed`). The tab strip is **gone**.
-Train is the daily-challenge card above `.train-room`, a plain column of four
-**boxes**, one per domain. Each box is:
+Train is two layers, with the daily-challenge card above them until Home takes
+it:
 
-1. a **door** — a big card filled in the domain's colour, carrying that domain's
-   live figure, which starts its flagship on one tap;
-2. a one-row **heading** with the (i) that used to sit beside a section title;
-3. that domain's own **exercises**, as the same full-width mode cards they have
-   always been, in one column.
+1. **The four doors, together.** Each is a big card filled in its domain's
+   colour, carrying that domain's live figure, and one tap starts that domain's
+   flagship. Four in a row is the one place the app states what training is.
+2. **A box per domain below.** Washed in the same colour, each is a title and a
+   list. Two kinds of thing live in one: mode **cards**, which start an
+   exercise, and **accordions**, which open a catalogue you pick from.
 
-| Door | One tap starts | Figure | Lives in |
-|---|---|---|---|
-| **Openings** | a repertoire run — every move asked once | moves due | `train-screen.ts` |
-| **Middlegame** | the mix — 3 which-move, 6 mistakes, 2 detective, 3 brilliancies | spots to fix | `mistakes-screen.ts` |
-| **Tactics** | the Daily Rated Mix, 10 rated puzzles | puzzle rating | `puzzles-screen.ts` |
-| **Endgames** | the rated endgame ladder, all themes | endgame rating | `endgame-screen.ts` |
+| Door | One tap starts | Figure | Its box | Lives in |
+|---|---|---|---|---|
+| **Openings** | a repertoire run — every move asked once | moves due | *Practise your openings* — 5–6 cards | `train-screen.ts` |
+| **Middlegame** | the mix — 3 which-move, 6 mistakes, 2 detective, 3 brilliancies | spots to fix | *From your games* — 7 cards | `mistakes-screen.ts` |
+| **Tactics** | the Daily Rated Mix, 10 rated puzzles | puzzle rating | *More puzzles* — 2 cards + 7 accordions | `puzzles-screen.ts` |
+| **Endgames** | the rated endgame ladder, all themes | endgame rating | *More endgames* — 1 accordion, 4 cards, the classics | `endgame-screen.ts` |
 
-Each was already its pane's wide hero button, so the restructure promoted what
-existed rather than building anything new.
+Each door was already its pane's wide hero button, so the restructure promoted
+what existed rather than building anything new.
 
-**No plumbing changed.** Each of the four screens still gets ONE host and still
-re-renders itself alone. It never needed anything else: every drill is a
-`position: fixed` overlay on `<body>` (§3.3), so a screen's host was only ever
-the thing to redraw on the way back. Consequence to remember: all four render on
-every Train paint, where the old tabs rendered lazily one at a time — four
-IndexedDB reads instead of one, in parallel. The heavy work (the mistake and
-endgame scans) was already a background pass with its own state.
+**No plumbing changed.** Each screen still gets ONE host and still re-renders
+itself alone. It never needed anything else: every drill is a `position: fixed`
+overlay on `<body>` (§3.3), so a screen's host was only ever the thing to redraw
+on the way back. A host holds that domain's door **and** its box; the host is
+`display: contents` and one `order` apiece sorts every door above every box —
+**DOM order decides the order within a band, `order` decides the band.**
 
-`train-doors.ts` owns `buildDoor` / `buildBox` / `buildBoxHead` and
-`DOMAIN_ACCENT` — the four domain colours, in one place because five modules
+Consequence to remember: all four render on every Train paint, where the old
+tabs rendered lazily one at a time. Four IndexedDB reads instead of one, in
+parallel; the heavy work (the mistake and endgame scans) was already a
+background pass with its own state.
+
+`train-doors.ts` owns `buildDoor` / `buildBox` / `boxBody` / `buildAccordion`
+and `DOMAIN_ACCENT` — the four domain colours, in one place because five modules
 need them. An exercise's own accent is a **different** thing and stays on its
 card: several exercises own a colour their overlay wears too
 (`exercise-identity.ts` — a Time attack header is gold because the card that
-started it was gold). The domain's colour is worn by the box; the mode's by the
-cards inside it.
+started it was gold). The domain's colour is worn by the door, the box wash and
+the box title.
 
-**The door's figure is not the flat accent.** Measured on its own tint the
-orange one landed at 2.8:1, under the 3:1 floor large text gets, because the
-tint is built from the hue the figure is drawn in. It is mixed toward `--text`
-(72% in light, 45% in dark), which puts all four between 4.4 and 5.6:1.
+**Two colours needed pulling toward `--text`.** The door's figure, drawn in the
+flat accent on a tint built from the same hue, measured 2.8:1 for the orange one
+— under the 3:1 floor large text gets. It is mixed 72% toward `--text` in light
+and 45% in dark, which puts all four between 4.4 and 5.6:1. The box title has
+the same problem on the dark wash and takes the same treatment.
 
 #### What left the Train screen
 
-Four blocks were removed rather than rehoused, because they are things you
-**read** rather than start, and reading belongs on Home:
+Six blocks were removed rather than rehoused. All are things you **read**, or
+actions nobody asks for by name — both belong on Home or in Settings:
 
 | Gone | Was in | Going to |
 |---|---|---|
 | the due hero (lines due / moves due / reviewed today) | `train-screen.ts` | Home; its headline figure is the Openings door's |
 | Forgotten moves | `forgotten-section.ts`, called from Train | Home (the module is untouched and has no caller meanwhile) |
-| the mistake stats hero + autoscan status | `mistakes-screen.ts` | Home; the scan itself leads the card list when games are waiting, and `main.ts` still starts the background pass at boot |
+| the mistake stats hero + autoscan status | `mistakes-screen.ts` | Home |
 | the latest-mistakes carousel | `mistakes-screen.ts` | Home |
+| "Analyse my games" + its progress overlay (`runScan`) | `mistakes-screen.ts` | Home, as a "your games are being read" state — the scan itself runs from boot (`main.ts`) |
+| "Start these exercises again" (`buildResetLink`/`runReset`) | `mistakes-screen.ts` | Settings, with the other destructive switches |
 
-The deleted code is in git at `eecb0d7` if Home wants it back rather than
-rebuilt.
+Removing the manual scan made one pre-existing gap load-bearing, so it was
+fixed: the Settings toggle "Analyse games in the background" restarted only the
+*endgame* pass, leaving the mistake pass waiting for the next app open. It now
+starts both.
 
-#### The tile grid that was tried and undone
+The deleted code is in git at `97c8733` and `eecb0d7` if Home wants it back
+rather than rebuilt.
 
-The first cut of this round put all four doors at the top and every remaining
-exercise into ONE three-across tile grid below them, banded by domain colour,
-with the readouts in four collapsible drawers underneath. It read as a mess:
-twenty-odd two-word tiles in five colours is a wall, and the grouping the colour
-was supposed to carry did not survive contact with a phone screen. **Grouping
-beats density.** Don't re-derive it.
+#### Two shapes tried and undone
+
+Recorded so they aren't re-derived:
+
+1. **All four doors at the top, every other exercise in one three-across tile
+   grid** banded by domain colour, readouts in collapsible drawers. Twenty-odd
+   two-word tiles in five colours read as a wall, and the grouping the colour
+   was supposed to carry did not survive a phone screen.
+2. **Each door moved down to head its own box**, so the four were no longer
+   together — which lost the one row that says what training is.
+
+The answer was both layers, not either: doors together at the top, boxes below.
 
 ### 6.4 The training unlock
 

@@ -4403,10 +4403,12 @@ function renderTrainRoom(host: HTMLElement): void {
   const dailyHost = document.createElement('div');
   dailyHost.className = 'daily-host';
 
-  // The room: a plain column of four hosts, one per domain. Each screen renders
-  // its own box into its host — a door, then that domain's own exercises — so
-  // the grouping is a container rather than a colour convention, and a domain
-  // re-rendering itself touches nothing but its own box.
+  // The room: four hosts, one per domain. Each renders TWO things — its door
+  // and its box — and CSS `order` sorts all four doors above all four boxes
+  // (see .train-room). That is the whole of the plumbing: a host is
+  // `display: contents`, so a domain repainting itself replaces its own two
+  // children and they land back in the right band, because the band is a class
+  // and not a position in the DOM.
   const room = document.createElement('div');
   room.className = 'train-room';
 
@@ -4421,9 +4423,9 @@ function renderTrainRoom(host: HTMLElement): void {
   const mistakesPane = domainHost('mistakes');
   const endgamePane = domainHost('endgame');
 
-  // Openings first because it is the app's own subject; Middlegame second
-  // because it is the half that reads your games and it spent this whole
-  // redesign being a quarter of one tab.
+  // DOM order decides the order WITHIN each band. Openings first because it is
+  // the app's own subject; Middlegame second because it is the half that reads
+  // your games, and it spent this whole redesign being a quarter of one tab.
   room.append(openingsPane, mistakesPane, puzzlesPane, endgamePane);
   host.append(dailyHost, room);
 

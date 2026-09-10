@@ -7535,255 +7535,211 @@ html:has(> body > .edit-overlay) > body {
   background: color-mix(in srgb, var(--pt-tint, transparent) 5%, var(--bg-sheet));
 }
 
-/* ── The Train room — four boxes, one per domain ─────────────────────────────
+/* ── The Train room — four doors, then four boxes ────────────────────────────
 
-   Train used to be a tab strip over four hidden panes. It is now a plain column
-   of four boxes, each headed by a big coloured door:
+   Train used to be a tab strip over four hidden panes. It is now two layers:
 
        ┌─────────────────────────────────────┐
-       │ .daily-host        (above the room) │
-       ├═════════════════════════════════════┤
-       │ ▐ Openings                    17    │  the door — filled in the
-       │ ▐ one pass through your book  due   │  domain's colour, one tap
+       │ .daily-host        (above the room) │  ← leaves when Home lands
        ├─────────────────────────────────────┤
-       │  Practise                      (i)  │  the box's own heading
-       │  ▏Whole lines                   6   │
-       │  ▏Time attack                       │  its exercises, one column,
-       │  ▏Review missed moves               │  the same mode cards as before
-       ├═════════════════════════════════════┤
-       │ ▐ Middlegame                  12    │
-       │  …                                  │
+       │ ▐ Openings                    17    │
+       │ ▐ Middlegame                  12    │  the four DOORS, together.
+       │ ▐ Tactics                   1420    │  One tap each. This row is the
+       │ ▐ Endgames                  1000    │  one place the app says what
+       ├─────────────────────────────────────┤  training is.
+       │ ░ PRACTISE YOUR OPENINGS       (i)  │
+       │ ░ ▏Whole lines                  6   │  a BOX per domain, washed in
+       │ ░ ▏Time attack                      │  its colour: cards to start,
+       │ ░ ▏…                                │  accordions to browse.
+       ├─────────────────────────────────────┤
+       │ ░ FROM YOUR GAMES              (i)  │
+       │ ░ …                                 │
        └─────────────────────────────────────┘
 
-   WHAT WAS TRIED AND UNDONE. The first cut grouped all four doors at the top and
-   put every remaining exercise into ONE three-across tile grid banded by domain
-   colour. Twenty-odd two-word tiles in five colours read as a wall, and the
-   grouping the colour was meant to carry did not survive a phone screen.
-   Grouping beats density — hence a box per domain, with its cards inside it.
+   TWO THINGS TRIED AND UNDONE, both recorded so they aren't re-derived:
+   (1) doors at the top with every remaining exercise in ONE three-across tile
+   grid — twenty-odd two-word tiles in five colours read as a wall; (2) each
+   door moved down to head its own box, which lost the row of four that says
+   what training is. The answer was both layers, not either.
 
-   No `display: contents`, no `order`, no bands: a box is a real container and
-   its contents are its children. Each screen still renders into one host and
-   re-renders itself alone. */
+   Each screen renders its door AND its box into one host. The host is
+   `display: contents`, so both become items of this flex column, and one
+   `order` apiece sorts every door above every box. DOM order decides the order
+   within a band; `order` decides the band. */
 .train-room {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xl);
+  gap: var(--space-sm);
   padding: 0 var(--space-lg) var(--space-xl);
 }
 
-/* The host main.ts hands each screen. It contributes no box of its own — the
-   screen builds the .train-box inside it — so it must not add spacing either. */
 .train-domain {
   display: contents;
 }
 
+.train-domain > .train-door { order: 10; }
+
+.train-domain > .train-box {
+  order: 20;
+  /* The boxes want more air between them than the doors do — the doors are one
+     block of four, the boxes are four separate things. */
+  margin-top: var(--space-lg);
+}
+
+/* ── The box ── */
 .train-box {
+  --box-wash: color-mix(in srgb, var(--domain-accent) 7%, var(--bg-page));
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
+  padding: var(--space-md) var(--space-sm) var(--space-md);
+  /* "A bit of the domain's colour" — a wash, not a fill. The cards inside are
+     --bg-card and have to keep reading as raised off it, so the wash sits
+     between the page and the card in value rather than competing with either. */
+  background: var(--box-wash);
+  border: 1px solid color-mix(in srgb, var(--domain-accent) 18%, transparent);
+  border-radius: 16px;
 }
 
-/* The row between a door and its cards. Quieter than a section title: the door
-   above it already says which domain you are in, so this only has to name the
-   list — and carry the (i) that a card's one-line subtitle has no room for. */
+[data-theme="dark"] .train-box,
+[data-theme="game"] .train-box,
+[data-theme="gamer"] .train-box {
+  --box-wash: color-mix(in srgb, var(--domain-accent) 13%, var(--bg-page));
+  border-color: color-mix(in srgb, var(--domain-accent) 28%, transparent);
+}
+
 .train-box-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  margin-top: var(--space-xs);
+  padding: 0 var(--space-xs);
 }
 
-.train-box-head-label {
-  font-size: 0.72rem;
+.train-box-title {
+  margin: 0;
+  font-size: 0.74rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--domain-accent, var(--text-faint));
+  letter-spacing: 0.08em;
+  color: var(--domain-accent);
 }
 
-/* ── The door ── */
-.train-door {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-  width: 100%;
-  text-align: left;
-  padding: 1rem 1rem 1rem 1.15rem;
-  /* FILLED, not edged. A mode card is pale with a coloured left bar because it
-     sits in a list of its peers and the bar is all it needs; a door has to read
-     as the thing you press from across the room. The fill is a tint over the
-     card surface rather than the flat hue, so the text contrast stays the
-     theme's own and is not four separate things to re-check. */
-  background: color-mix(in srgb, var(--mode-accent) 16%, var(--bg-card));
-  border: 1px solid color-mix(in srgb, var(--mode-accent) 38%, transparent);
-  border-radius: 16px;
-  overflow: hidden;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  box-shadow: var(--shadow-card);
-  transition: filter 0.12s, box-shadow 0.12s, border-color 0.12s, transform 0.08s;
+[data-theme="dark"] .train-box-title,
+[data-theme="game"] .train-box-title,
+[data-theme="gamer"] .train-box-title {
+  /* The flat hue is too dark to read as a label on the dark wash. */
+  color: color-mix(in srgb, var(--domain-accent) 45%, var(--text));
 }
 
-/* The tint is built from --bg-card, which is already darker in the dark themes,
-   so the fill follows without a second rule. The border wants a little more
-   presence there to survive the lower contrast. */
-[data-theme="dark"] .train-door,
-[data-theme="game"] .train-door,
-[data-theme="gamer"] .train-door {
-  background: color-mix(in srgb, var(--mode-accent) 24%, var(--bg-card));
-  border-color: color-mix(in srgb, var(--mode-accent) 52%, transparent);
-}
-
-/* A thicker left edge than a mode card's 4px — this is the one card on the
-   screen you are meant to hit without reading it first. */
-.train-door::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 6px;
-  background: var(--mode-accent);
-}
-
-.train-door:not(.train-door--disabled):hover {
-  border-color: var(--mode-accent);
-  box-shadow: var(--shadow-card-hover);
-}
-
-.train-door:not(.train-door--disabled):active {
-  transform: scale(0.995);
-  filter: brightness(0.97);
-}
-
-.train-door--disabled {
-  opacity: 0.6;
-  cursor: default;
-  box-shadow: none;
-}
-
-.train-door-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 46px;
-  height: 46px;
-  border-radius: 13px;
-  /* Solid, not tinted: on a card that is already tinted, a tinted chip
-     disappears. White glyph on the full hue is the one element that carries the
-     domain's colour at full strength. */
-  background: var(--mode-accent);
-  color: #fff;
-}
-
-.train-door-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  min-width: 0;
-  flex: 1;
-}
-
-.train-door-name {
-  font-size: 1.2rem;
-  font-weight: 700;
-  font-family: system-ui, -apple-system, sans-serif;
-  color: var(--text);
-  line-height: 1.1;
-}
-
-.train-door-sub {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  line-height: 1.3;
-}
-
-.train-door--disabled .train-door-sub {
-  font-weight: 600;
-}
-
-/* The figure. A name never changes and a number does, so this is what makes a
-   door worth a second look — set at display size and in the domain's colour,
-   with its unit underneath at label size. */
-.train-door-fig {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-  min-width: 3.2rem;
-  pointer-events: none; /* the whole door is the button */
-}
-
-.train-door-num {
-  font-size: 1.85rem;
-  font-weight: 800;
-  line-height: 1;
-  /* NOT the flat accent. Measured on its own tint, the orange one lands at
-     2.8:1 — under the 3:1 floor large text gets, never mind 4.5 — because the
-     tint is built from the same hue the figure is drawn in. Pulling it toward
-     the ink puts all four between 4.4 and 5.6:1 while keeping the domain
-     readable in the colour. */
-  color: color-mix(in srgb, var(--mode-accent) 72%, var(--text));
-  font-variant-numeric: tabular-nums;
-}
-
-[data-theme="dark"] .train-door-num,
-[data-theme="game"] .train-door-num,
-[data-theme="gamer"] .train-door-num {
-  /* Same idea the other way up: --text is the pale ink there, so mixing toward
-     it lifts the figure off a dark tint instead of sinking into it. */
-  color: color-mix(in srgb, var(--mode-accent) 45%, var(--text));
-}
-
-.train-door-fig-label {
-  margin-top: 0.15rem;
-  font-size: 0.58rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-faint);
-  text-align: center;
-  line-height: 1.15;
-}
-
-/* Shown instead of the figure on a door with nothing to count. */
-.train-door-go {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  background: var(--mode-accent);
-  color: #fff;
-  pointer-events: none;
-}
-
-/* The blocks inside a box (mode-card lists, the classics accordion, the
-   from-your-games section) were written as top-level pane blocks and bring their
-   own side margins. The room already insets them, so drop those — the box's own
-   gap sets the rhythm instead. */
-.train-box > .section,
-.train-box > .mode-cards,
-.train-box > .forgotten-section,
-.train-box > .eg-classics,
-.train-box > .mistakes-empty,
-.train-box > .pz-openings {
-  margin-inline: 0;
-}
-
-.train-box > .mode-cards {
+.train-box-body {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-/* Desktop: two boxes side by side rather than one very long column. Each box is
-   self-contained, so this needs nothing but a column count. */
+/* The blocks inside a box were written as top-level pane blocks and bring their
+   own side margins. The box already insets them, so drop those and let its gap
+   set the rhythm. */
+.train-box-body > .section,
+.train-box-body > .mode-cards,
+.train-box-body > .eg-classics,
+.train-box-body > .mistakes-empty,
+.train-box-body > .pz-openings {
+  margin-inline: 0;
+}
+
+.train-box-body > .mode-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* ── The collapsible catalogue rows ── */
+.train-acc {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.train-acc-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.7rem 0.8rem;
+  cursor: pointer;
+  list-style: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Safari draws its own disclosure triangle without this. */
+.train-acc-summary::-webkit-details-marker { display: none; }
+
+.train-acc-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--mode-accent, var(--accent)) 14%, transparent);
+  color: var(--mode-accent, var(--accent));
+}
+
+.train-acc-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.train-acc-label {
+  font-size: 0.92rem;
+  font-weight: 700;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text);
+}
+
+/* The one line that tells you whether opening it is worth it. Clipped rather
+   than wrapped: a shut row costs exactly one row, whatever the blurb says. */
+.train-acc-sub {
+  font-size: 0.74rem;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.train-acc-chev {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--text-faint);
+  transition: transform 0.16s ease;
+}
+
+.train-acc[open] > .train-acc-summary .train-acc-chev {
+  transform: rotate(180deg);
+}
+
+.train-acc-body {
+  padding: 0 0.55rem 0.6rem;
+  border-top: 1px solid var(--hairline-soft);
+}
+
+/* The sections that land inside an accordion body brought their own inset. */
+.train-acc-body.section,
+.train-acc-body > .section {
+  margin-inline: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .train-acc-chev { transition: none; }
+}
+
+/* Desktop: the doors stay one block, the boxes go two across. */
 @media (min-width: 960px) {
   .train-room {
     display: grid;
@@ -7793,6 +7749,7 @@ html:has(> body > .edit-overlay) > body {
     margin-inline: auto;
     column-gap: var(--space-xl);
   }
+  .train-domain > .train-door { grid-column: 1 / -1; }
 }
 
 /* "Back to train" in the top bar while a training session is suspended behind

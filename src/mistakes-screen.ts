@@ -18,19 +18,11 @@ import { getAllGames } from './storage';
 import { buildInlineImport } from './import-inline';
 import { renderLoadError } from './load-error';
 import { Icons, classIcon, CLASS_COLOR } from './icons';
-import { pushBack } from './back-nav';
-import { cloudHealth, type CloudHealth } from './engine';
-import { createPawnProgress, createFactsTicker } from './import-progress';
 import { buildModeCard } from './train-screen';
-import { buildDoor, buildBox, buildBoxHead, DOMAIN_ACCENT } from './train-doors';
+import { buildDoor, buildBox, boxBody, DOMAIN_ACCENT } from './train-doors';
 import { openInfoSheet, buildInfoButton } from './info-sheet';
 import {
-  suspendAutoScan, resumeAutoScan, getAutoScanEnabled,
-} from './mistake-autoscan';
-import { showToast } from './toast';
-import { showDialog } from './dialog';
-import {
-  isEntitled, buildCapNotice, FREE_MISTAKE_GAME_WINDOW, FREE_MISTAKE_SPOTS,
+  isEntitled, FREE_MISTAKE_GAME_WINDOW, FREE_MISTAKE_SPOTS,
 } from './entitlement';
 import {
   startMistakeSession,
@@ -40,23 +32,19 @@ import {
   type OpenGameCtx,
 } from './mistake-run';
 import {
-  scanGames,
   collectSpots,
   pickSpots,
   countRetry,
-  unscannedCount,
-  rescanCount,
   capMistakeGamesForTier,
-  resetMistakeScans,
 } from './mistake-scan';
-import type { MistakeCategory, RetryCounts, ScanProgress, SpotRef } from './mistake-scan';
+import type { MistakeCategory, RetryCounts, SpotRef } from './mistake-scan';
 import { startBrilliantSession } from './brilliant-run';
 import {
   collectBrilliantSpots,
   orderBrilliant,
   type BrilliantRef,
 } from './brilliant';
-import { brilliantDueMap, clearBrilliantLog } from './brilliant-log';
+import { brilliantDueMap } from './brilliant-log';
 import {
   collectDetectiveSpots,
   pickDetective,
@@ -66,7 +54,7 @@ import {
 import { startDetectiveSession, openDetectiveInfo } from './detective-run';
 import { fairPairs, pickWhichMove, readyWhichMoveCount } from './which-move';
 import { startWhichMoveSession, openWhichMoveInfo } from './which-move-run';
-import { detectiveLog, whichMoveLog, clearMiddleLogs } from './middle-log';
+import { detectiveLog, whichMoveLog } from './middle-log';
 import { startTimePressureSession } from './time-pressure-run';
 import { dealRound, getTimePressureBest } from './time-pressure';
 import { combinedDueAt, restKey } from './spot-rest';
@@ -251,7 +239,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     // The door still shows, greyed, saying what it needs — a domain that simply
     // vanished from the screen would read as a bug, and "import your games" is
     // the one instruction that makes this whole third of the app work.
-    const box = buildBox('middlegame', buildDoor({
+    host.appendChild(buildDoor({
       domain: 'middlegame',
       icon: Icons.swords(26),
       name: 'Middlegame',
@@ -259,6 +247,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       disabled: true,
       disabledReason: 'Import your games and this fills itself',
     }));
+    const box = buildBox('middlegame', 'From your games');
     const empty = document.createElement('div');
     empty.className = 'mistakes-empty';
     const line = document.createElement('p');
@@ -270,7 +259,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       body: 'The scan then finds your blunders, your missed wins and the chances your opponents handed you.',
       onImported: () => { void renderMistakesScreen(host, deps); },
     }));
-    box.appendChild(empty);
+    boxBody(box).appendChild(empty);
     host.appendChild(box);
     return;
   }
@@ -337,25 +326,19 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   // every gem back, and the badge says so.
   const gemsReady = brilliantRefs.filter(
     r => (dueMap[r.spot.id] ?? 0) <= Date.now()).length;
-  const newGames = unscannedCount(games);
-  // Games waiting because the RULES changed, not because they are new (see
-  // rescanCount). They dominate the count right after a scan version bump.
-  const rereads = rescanCount(games);
-  // A free account's scan stops once its rolling unfixed count is full, so
-  // "N games still to read" would otherwise sit there forever with nothing
-  // about to read them. The hero says the real reason instead.
-  const atFreeSpotCap = !entitled && (counts.spots - counts.fixed) >= FREE_MISTAKE_SPOTS;
 
-  // The box: the door, then this domain's own cards.
+  // The door goes to the top band, the box to the one below — see .train-room.
   //
-  // WHAT LEFT THIS SCREEN. The stats hero ("318 games read · 41 spots") and the
-  // latest-mistakes carousel are gone from Train. Both are readouts rather than
-  // things you start, and both belong on Home. The scan they fronted is not lost
-  // — it leads the card list whenever there are games waiting to be read, which
-  // is the only time anyone needed the hero's button.
+  // WHAT LEFT THIS SCREEN. The stats hero ("318 games read · 41 spots"), the
+  // latest-mistakes carousel, the "Analyse my games" card and the reset link.
+  // The first two are readouts rather than things you start; the scan is an
+  // action nobody asks for by name (it runs in the background from boot — see
+  // main.ts — and Home is where it should say so while it is working); and a
+  // reset belongs with the other destructive switches in Settings. What is left
+  // in this box is seven exercises and nothing else.
   const mixReady = mixLegs().length > 0;
   const unfixed = counts.spots - counts.fixed;
-  const box = buildBox('middlegame', buildDoor({
+  host.appendChild(buildDoor({
     domain: 'middlegame',
     icon: Icons.swords(26),
     name: 'Middlegame',
@@ -364,62 +347,13 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     statLabel: mixReady && unfixed > 0 ? 'to fix' : undefined,
     disabled: !mixReady,
     disabledReason: counts.scanned === 0
-      ? 'Analyse your games first — the card below starts it'
+      ? 'Your games are still being read'
       : 'Nothing waiting — they come back over the next few days',
     onClick: () => startMix(),
   }));
-  host.appendChild(box);
-  renderCategoryCards(box);
-  function buildResetLink(): HTMLElement {
-    const reset = document.createElement('button');
-    reset.type = 'button';
-    reset.className = 'mistakes-reset-link';
-    reset.textContent = 'Reset';
-    reset.addEventListener('click', () => showDialog({
-      title: 'Start these exercises again?',
-      body: `This clears the ${counts.spots} ${counts.spots === 1 ? 'spot' : 'spots'} found so `
-        + `far and the ${counts.fixed} marked fixed, then reads all `
-        + `${counts.scanned} ${counts.scanned === 1 ? 'game' : 'games'} from scratch. `
-        + 'Every brilliant move you have re-found, every detective case you have cracked and '
-        + 'every which-move question you have answered becomes available again too.\n\n'
-        + 'Your games and their saved analysis are untouched, so nothing you have written is '
-        + 'lost — the same finds will be there again once the re-read is done.',
-      buttons: [
-        {
-          label: 'Start again',
-          variant: 'danger',
-          onClick: () => { void runReset(); },
-        },
-        { label: 'Cancel', variant: 'secondary' },
-      ],
-    }));
-    return reset;
-  }
+  host.appendChild(renderCategoryBox());
 
-  async function runReset(): Promise<void> {
-    // Stop the background pass before the wipe, or it would be halfway through
-    // writing a result for a game we are about to clear.
-    suspendAutoScan();
-    try {
-      await resetMistakeScans();
-      // The rest of this pane's progress. Local and instant — no games are
-      // rewritten, the suppression logs simply stop existing.
-      clearBrilliantLog();
-      // …and the rotation on the two whole-game exercises, so every case and
-      // every question is back on the table too.
-      clearMiddleLogs();
-      // Don't promise a background pass to someone who has turned it off in
-      // Settings — for them the button on this card is the whole of it.
-      showToast(getAutoScanEnabled()
-        ? 'Starting again — analysing your games'
-        : 'Progress cleared — press Analyse my games to read them again');
-    } catch {
-      showToast('Couldn’t reset these exercises');
-    } finally {
-      resumeAutoScan();
-      rerender();
-    }
-  }
+
 
   // The wide launch button, or null when the scan has not turned anything up
   // yet — a primary button that can only tell you there is nothing to do is
@@ -559,35 +493,15 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       ? { label: `${next.label} →`, run: () => runMixLeg(legs, i + 1) }
       : undefined);
   }
-  function renderCategoryCards(box: HTMLElement): void {
-    box.appendChild(buildBoxHead('From your games',
-      buildInfoButton('About these exercises', openMistakeInfo)));
-
-    const section = document.createElement('div');
-    section.className = 'mode-cards';
-    box.appendChild(section);
+  function renderCategoryBox(): HTMLElement {
+    const box = buildBox('middlegame', 'From your games',
+      buildInfoButton('About these exercises', openMistakeInfo));
+    const section = boxBody(box);
 
     // Why anything here is dead, said the same way on every card.
     const noneReason = counts.scanned === 0
       ? 'Analyse your games first'
       : 'None found in your analysed games';
-
-    // Reading your games comes first when there is reading to do. It is not an
-    // exercise, but it is the thing that MAKES the exercises, and a list of
-    // seven greyed-out cards with no visible way to un-grey them is a dead end.
-    if (newGames > 0) {
-      section.appendChild(buildModeCard({
-        accent: MIDDLEGAME_ACCENT,
-        icon: Icons.review(20),
-        name: counts.scanned === 0 ? 'Analyse my games' : 'Analyse new games',
-        sub: rereads >= newGames
-          ? 'the rules changed — read them again'
-          : 'find the blunders, missed wins and chances',
-        stat: newGames,
-        statLabel: newGames === 1 ? 'game' : 'games',
-        onClick: () => { void runScan(); },
-      }));
-    }
 
     // The two whole-game exercises lead. They ask a smaller question than the
     // category cards ("which of these moves is the blunder", "which of these two
@@ -682,9 +596,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       }));
     }
 
-    // Start these exercises again — the reset that clears the rest logs. It used
-    // to sit under the hero; the hero is gone, so it closes the list.
-    section.appendChild(buildResetLink());
+    return box;
   }
 
   // The Fixed list, and the way back into any of it: a row (or the button at the
@@ -772,106 +684,5 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       onPlayAgain: () => startSession(pool, cat),
       onOpenGame: deps.onOpenGame,
     });
-  }
-  async function runScan(): Promise<void> {
-    // The button and the background pass would otherwise queue on the same
-    // engine worker and each make the other look stuck. The manual one wins:
-    // it has someone watching it.
-    suspendAutoScan();
-    const ctrl = new AbortController();
-
-    const overlay = document.createElement('div');
-    overlay.className = 'pt-overlay mr-scan-overlay';
-    const card = document.createElement('div');
-    card.className = 'mr-scan-card';
-    overlay.appendChild(card);
-
-    const title = document.createElement('div');
-    title.className = 'mr-scan-title';
-    title.textContent = 'Analysing your games';
-    card.appendChild(title);
-
-    const pawn = createPawnProgress();
-    card.appendChild(pawn.el);
-
-    const status = document.createElement('div');
-    status.className = 'mr-scan-status';
-    status.textContent = 'Warming up the engine…';
-    card.appendChild(status);
-
-    const opp = document.createElement('div');
-    opp.className = 'mr-scan-opp';
-    card.appendChild(opp);
-
-    // Live Lichess-cloud status, so it's clear whether the cloud is answering,
-    // rate-limited or unreachable (the local engine covers the last two).
-    const cloud = document.createElement('div');
-    cloud.className = 'mr-scan-cloud';
-    card.appendChild(cloud);
-    const CLOUD_TEXT: Record<CloudHealth, string> = {
-      untested: 'Checking the Lichess cloud…',
-      ok: 'Lichess cloud connected ✓',
-      limited: 'Lichess rate limit hit — on-device engine for a minute',
-      down: 'Lichess unreachable — using the on-device engine',
-    };
-    const paintCloud = (): void => {
-      const h = cloudHealth();
-      cloud.textContent = CLOUD_TEXT[h];
-      cloud.className = `mr-scan-cloud mr-scan-cloud--${h}`;
-    };
-    paintCloud();
-    const cloudTimer = window.setInterval(paintCloud, 1500);
-
-    const note = document.createElement('p');
-    note.className = 'mr-scan-note';
-    note.textContent = 'This can take a while — known positions come from the Lichess cloud in a blink, fresh ones run the local engine. Stop anytime — every game finished is saved.';
-    card.appendChild(note);
-
-    // The same looping "things about the app" ticker the import wait uses, so
-    // there's something to read while the engine works.
-    const facts = createFactsTicker();
-    card.appendChild(facts.el);
-
-    const stop = document.createElement('button');
-    stop.type = 'button';
-    stop.className = 'btn-secondary mr-scan-stop';
-    stop.textContent = 'Stop & keep progress';
-    stop.addEventListener('click', () => ctrl.abort());
-    card.appendChild(stop);
-
-    document.body.appendChild(overlay);
-    pawn.start();
-    const removeBack = pushBack(() => ctrl.abort());
-
-    const onProgress = (p: ScanProgress): void => {
-      pawn.set(p.gamesDone / Math.max(1, p.gamesTotal));
-      status.textContent =
-        `Game ${p.gamesDone} of ${p.gamesTotal} · ${p.spotsFound} ${p.spotsFound === 1 ? 'spot' : 'spots'} found`;
-      opp.textContent = `vs ${p.opponent}`;
-    };
-
-    try {
-      const result = await scanGames({
-        signal: ctrl.signal,
-        onProgress,
-        cap: entitled ? undefined : { windowGames: FREE_MISTAKE_GAME_WINDOW, maxUnfixed: FREE_MISTAKE_SPOTS },
-      });
-      // A cap already met before scanning anything burns zero cloud calls, but
-      // that also looks like the button did nothing — say so explicitly rather
-      // than silently closing the overlay.
-      if (result.capped && result.scanned === 0 && !result.aborted) {
-        showToast(`You're at ${FREE_MISTAKE_SPOTS} mistakes — fix some to find more, or unlock full history.`);
-      }
-      pawn.done();
-    } finally {
-      clearInterval(cloudTimer);
-      facts.stop();
-      removeBack();
-      overlay.remove();
-      // Hand the engine back. If the user stopped early, the background pass
-      // picks up from exactly where they left it.
-      resumeAutoScan();
-      rerender();
-    }
   }
 }

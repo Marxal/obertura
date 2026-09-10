@@ -22,7 +22,7 @@ import {
   TIMED_DURATIONS,
   type TimedMinutes,
 } from './prefs';
-import { buildDoor, buildBox, buildBoxHead } from './train-doors';
+import { buildDoor, buildBox, boxBody } from './train-doors';
 import { isOpponentTag } from './scout';
 import { track } from './metrics';
 import { recordMissedMove, clearForgottenMove } from './forgotten-moves';
@@ -276,8 +276,9 @@ async function doRender(
     }
   }
 
-  // The box: the door, then this domain's own cards in one column. Nothing is
-  // grouped by anything but the box it is in — which is the point.
+  // The door goes to the top band, the box to the one below — see .train-room.
+  // Both are children of this host; CSS `order` decides which band each lands
+  // in, so this domain can repaint itself without disturbing the other three.
   //
   // WHAT LEFT THIS SCREEN. The due hero and the Forgotten-moves block are gone
   // from Train. Both are things you READ rather than start, they were the two
@@ -285,11 +286,10 @@ async function doRender(
   // is the whole question. The hero's headline figure survives as the door's,
   // and its second route (walk the due lines rather than the due moves) survives
   // as the "Whole lines" card.
-  const box = buildBox('openings', buildOpeningsDoor(container, books, allLines, trainingLocked));
-  container.appendChild(box);
-  renderModeCards(box, container, trainingLines, allLines, books, trainingLocked);
+  container.appendChild(buildOpeningsDoor(container, books, allLines, trainingLocked));
+  container.appendChild(
+    renderPractiseBox(container, trainingLines, allLines, books, trainingLocked));
 }
-
 
 // The ordered list of lines that "Start training" drills, per the default-mode
 // pref. Already filtered/ordered and known-drillable, so the caller can hand it
@@ -390,8 +390,7 @@ function buildOpeningsDoor(
 // Same modes, same launchers, same greying-out rules the old Practise menu had —
 // what changed is that the menu now sits inside its domain's box rather than
 // being one of four things a tab strip hid.
-function renderModeCards(
-  box: HTMLElement,
+function renderPractiseBox(
   container: HTMLElement,
   allTraining: Line[],
   allLines: Line[],
@@ -399,16 +398,13 @@ function renderModeCards(
   // Under TRAINING_UNLOCK_LINES saved lines every mode is off, with the count
   // still to go as the reason.
   locked: boolean,
-): void {
+): HTMLElement {
   const runPlan = locked ? null : planRepertoireRun(books);
-  // The (i) rides on the box's heading, because a card's subtitle has room for
-  // one short line and not for how "Whole lines" differs from the door above it.
-  box.appendChild(buildBoxHead('Practise', buildInfoButton(
-    'About the practice modes', () => openPracticeInfo(runPlan))));
-
-  const section = document.createElement('div');
-  section.className = 'mode-cards';
-  box.appendChild(section);
+  // The (i) rides on the box's title, because a card's subtitle has room for one
+  // short line and not for how "Whole lines" differs from the door above it.
+  const box = buildBox('openings', 'Practise your openings', buildInfoButton(
+    'About the practice modes', () => openPracticeInfo(runPlan)));
+  const section = boxBody(box);
 
   // Under the unlock every card below is greyed for the same reason, and saying
   // it once at the top is what makes the repetitions read as one rule rather
@@ -531,6 +527,8 @@ function renderModeCards(
         prepLines.slice(0, PICKER_SESSION_CAP), container, { explicit: true }),
     }));
   }
+
+  return box;
 }
 
 // What each practice mode actually is, in the words the one-line subtitles have

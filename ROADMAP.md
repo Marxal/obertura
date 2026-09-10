@@ -1663,7 +1663,7 @@ the phone.
 - 💤 Deeper engine adaptation.
 
 
-## Train becomes four boxes ✅
+## Train becomes four doors and four boxes ✅
 
 **The problem.** Train was four tabs over four hidden panes. Whichever tab you
 landed on you were still two decisions from playing anything: pick a tab, read a
@@ -1671,62 +1671,68 @@ menu of five to eight cards, pick one. And the four panes were nothing like four
 equal things — the Openings pane is 2,500 lines of screen code and the End game
 one 700 — but a tab strip presents them as four identical doors.
 
-**The first attempt, and why it was undone.** Four doors grouped at the top,
-every remaining exercise in ONE three-across tile grid below them banded by
-domain colour, and the readouts in four collapsible drawers. Shipped to `dev`,
-looked at on a phone, rejected: twenty-odd two-word tiles in five colours is a
-wall, and the grouping the colour was supposed to carry did not survive contact
-with a phone screen. **Grouping beats density.** Recorded here and in
-APP-CONTEXT §6.3 so it isn't re-derived.
+**Two shapes were tried on the phone and rejected before this one.** First: all
+four doors at the top with every remaining exercise in ONE three-across tile
+grid banded by domain colour, readouts in collapsible drawers. Twenty-odd
+two-word tiles in five colours read as a wall. Second: each door moved down to
+head its own box — which fixed the grouping and lost the row of four that says
+what training is. The answer was both layers.
 
-**What shipped.** Four boxes, one per domain, stacked. Each is a door — a big
-card filled in the domain's colour, carrying that domain's live figure, starting
-its flagship on one tap — then a heading with the (i), then that domain's own
-exercises as the same full-width mode cards they always were.
+**What shipped.**
 
-- **Openings** — a repertoire run · *moves due*
-- **Middlegame** — the games mix · *spots to fix*
-- **Tactics** — the Daily Rated Mix · *puzzle rating*
-- **Endgames** — the rated ladder · *endgame rating*
+- **Four doors, together, at the top.** Each is a big card filled in its
+  domain's colour with that domain's live figure on it, and one tap starts its
+  flagship: Openings → a repertoire run (*moves due*), Middlegame → the games
+  mix (*to fix*), Tactics → the Daily Rated Mix (*rating*), Endgames → the rated
+  ladder (*rating*). Every one was already its pane's wide hero button.
+- **A box per domain below**, washed in the same colour: *Practise your
+  openings*, *From your games*, *More puzzles*, *More endgames*. Mode cards to
+  start something, accordions to open a catalogue.
+- **Tactics and Endgames are one list each now.** Tactics was three sections
+  with their own titles and blurbs, one of which hid half the offer behind a
+  segmented toggle buried inside an accordion; it is now Time attack, Satisfying
+  traps, Based on my games, Based on my repertoire, then the five theme groups —
+  nine rows, scannable in one pass. Endgames leads with "From your games",
+  collapsed, then the four piece runs, then the classics.
 
-Every one of those was already its pane's wide hero button, so this promoted
-what existed rather than adding anything.
+**Nothing in the plumbing changed, through any of the three shapes.** Each screen
+still gets one host and re-renders itself alone. It never needed anything else:
+every drill is a `position: fixed` overlay on `<body>`, so a screen's host was
+only ever the thing to redraw on the way back. A host holds its door and its
+box; `display: contents` plus one `order` apiece sorts the bands.
 
-**Nothing in the plumbing changed, either time.** Each screen still gets one host
-and still re-renders itself alone. It never needed anything else: every drill is
-a `position: fixed` overlay on `<body>`, so a screen's host was only ever the
-thing to redraw on the way back.
-
-**Four blocks left Train for Home**, because they are things you read rather
-than start: the due hero, Forgotten moves, the mistake stats hero with its
-autoscan status, and the latest-mistakes carousel. The scan they fronted is not
-lost — it leads the Middlegame card list whenever games are waiting — and
-`main.ts` still starts the background pass at boot. Their code is at `eecb0d7`
-if Home wants it back rather than rebuilt. **Forgotten moves has no caller until
-Home lands**, which is why this stays on `dev`.
+**Six blocks left Train.** The due hero, Forgotten moves, the mistake stats hero
+with its autoscan status, the latest-mistakes carousel, "Analyse my games" with
+its progress overlay, and the "start these exercises again" reset. The first
+four are readouts and go to Home; the scan is an action nobody asks for by name
+(it runs from boot, and Home is where it should say so while it works); the
+reset belongs in Settings. Their code is at `97c8733` / `eecb0d7`.
 
 **Timed modes, one length each.** Time attack (openings) was 1/3/5 minutes and
 Time attack (tactics) 3/5/10 across two sources — six records nobody could
-compare, on cards twice the height of their neighbours. Both are three minutes
-now, which was already the tactics default, so the surviving record is the one
-people have. The retired lengths' bests stay on disk, unread; `TIMED_DURATIONS`
-and `TA_TIMES` survive only so "Reset progress" still clears them all.
+compare. Both are three minutes now, which was already the tactics default. The
+retired lengths' bests stay on disk, unread; `TIMED_DURATIONS` and `TA_TIMES`
+survive only so "Reset progress" still clears them all.
 
-**Two real bugs found on the way.** `--eg-accent` was declared on `.eg-screen`,
+**Three real bugs found on the way.** `--eg-accent` was declared on `.eg-screen`,
 a wrapper this round removes, while nine rules read it — it now hangs off
-`:root` with its dark-theme override, like every other colour. And the door's
-figure, drawn in the flat accent on a tint built from the same hue, measured
-2.8:1 for the orange one — under the 3:1 floor large text gets. Mixing it toward
-`--text` puts all four between 4.4 and 5.6:1.
+`:root`. The door's figure, drawn in the flat accent on a tint built from the
+same hue, measured 2.8:1 for the orange one, under the 3:1 floor large text
+gets; mixed toward `--text` all four land between 4.4 and 5.6:1. And the
+Settings toggle "Analyse games in the background" restarted only the *endgame*
+pass when switched back on — survivable while Train had an "Analyse my games"
+button, a dead end without one, so it now starts both.
 
-New module: `train-doors.ts` (`buildDoor`, `buildBox`, `buildBoxHead`,
-`DOMAIN_ACCENT`). `renderTrainTabbed` → `renderTrainRoom`. Retired: the
-`.train-tabs` / `.train-col` / `data-train-mode` CSS, the `.pz-screen` /
-`.mistakes-screen` / `.eg-screen` wrappers, `buildTimedCard`, `buildMixButton`,
-the endgame piece-selector row and all four heroes.
+New module: `train-doors.ts` (`buildDoor`, `buildBox`, `boxBody`,
+`buildAccordion`, `DOMAIN_ACCENT`). `renderTrainTabbed` → `renderTrainRoom`.
+Retired: the `.train-tabs` / `.train-col` / `data-train-mode` CSS, the
+`.pz-screen` / `.mistakes-screen` / `.eg-screen` wrappers, `buildTimedCard`,
+`buildMixButton`, the endgame piece-selector row, the puzzle practice-source
+toggle and all four heroes.
 
 Tagged `v0.10` before starting. **Not deployed** — `main` is still on the tab
-strip until Home lands.
+strip. The daily-challenge card stays at the top of Train, and Forgotten moves
+has no caller at all, until Home lands.
 
 
 ---

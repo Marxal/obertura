@@ -10,7 +10,7 @@
 //     imported games (endgame-scan.ts) and played out the same way.
 
 import { Icons } from './icons';
-import { buildDoor, buildBox, buildBoxHead, DOMAIN_ACCENT } from './train-doors';
+import { buildDoor, buildBox, boxBody, buildAccordion, DOMAIN_ACCENT } from './train-doors';
 import { buildModeCard } from './train-screen';
 import { fetchNextPuzzle } from './puzzles';
 import {
@@ -198,7 +198,7 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
     // this pane's wide button. The piece shortcuts that used to sit under it as
     // a "pick one, then press this" row are cards now — a shortcut you have to
     // select before pressing something else is not a shortcut.
-    const box = buildBox('endgames', buildDoor({
+    root.appendChild(buildDoor({
       domain: 'endgames',
       icon: Icons.flag(26),
       name: 'Endgames',
@@ -208,7 +208,23 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
       onClick: () => runEndgamePuzzles('all', deps, rebuild),
     }));
 
-    box.appendChild(buildBoxHead('By piece'));
+    // One list, same shape as the Tactics box: what you can start outright,
+    // then the catalogues you pick from.
+    //
+    // "From your games" leads and is SHUT. It is the most personal thing here —
+    // endgames you actually reached — but it is also a scan with a board per
+    // row, so open by default it buried the four piece runs under a carousel.
+    const box = buildBox('endgames', 'More endgames');
+    const body = boxBody(box);
+
+    body.appendChild(buildAccordion({
+      icon: Icons.scout(18),
+      label: 'From your games',
+      sub: 'the endgames you actually reached, played out against the engine',
+      accent: ENDGAME_ACCENT,
+      body: renderFromGames(),
+    }));
+
     const pieces = document.createElement('div');
     pieces.className = 'mode-cards';
     for (const { theme } of SPECIFIC_THEMES) {
@@ -220,13 +236,11 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
         onClick: () => runEndgamePuzzles(theme, deps, rebuild),
       }));
     }
-    box.appendChild(pieces);
+    body.appendChild(pieces);
 
-    // The two play-it-out halves keep their own lists: which classic to play and
-    // which of your own endgames are real choices with a board apiece, so they
-    // are browsable sections rather than a card that would pick one at random.
-    box.appendChild(renderFromGames());
-    box.appendChild(renderClassics());
+    // The classics, grouped by theme — already accordions of their own, so they
+    // land in the list as more rows of the same shape.
+    body.appendChild(renderClassics());
     root.appendChild(box);
   };
 
@@ -361,15 +375,12 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
   // ── From your games ───────────────────────────────────────────────────────────
   // A swipeable carousel — one endgame at a time, like the Latest-mistakes and
   // Forgotten-moves carousels (Fix 1). Sits above the Classic endgames.
+  // NO TITLE OF ITS OWN. This is the body of the "From your games" accordion
+  // now, and the accordion's summary already says so — a section title inside it
+  // would print the same three words twice, one line apart.
   function renderFromGames(): HTMLElement {
     const section = document.createElement('div');
     section.className = 'section forgotten-section eg-fg-section';
-
-    const title = document.createElement('div');
-    title.className = 'section-title section-title--icon';
-    title.appendChild(Icons.sparkles(16));
-    title.appendChild(document.createTextNode('From your games'));
-    section.appendChild(title);
 
     ensureGames();
     const gsAll = games; // narrow the mutable closure var once
