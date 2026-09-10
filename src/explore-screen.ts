@@ -61,6 +61,7 @@ import { wdlBlock, wdlScoreRow } from './wdl-bar';
 import { buildMoveStats } from './move-stats';
 import { createFilterBar, type ColourFilter, type FilterSelection } from './filters';
 import { renderFamilyGroups } from './line-groups';
+import { renderLinesScreen } from './lines-screen';
 import { buildEmptyState } from './empty-state';
 import { buildInlineImport } from './import-inline';
 import { pushBack } from './back-nav';
@@ -113,6 +114,9 @@ export interface ExploreDeps {
   // onPrepareReply, but the opponent name is optional — a gap from your own
   // games or from the opening database has nobody to tag it to.
   onPrepareGap: (ucis: string[], answeringColour: 'white' | 'black', opponentName?: string) => void;
+  // Everything the My lines tab needs. Passed straight through: this screen
+  // hosts lines-screen.ts, it doesn't reimplement it.
+  linesDeps: Parameters<typeof renderLinesScreen>[1];
 }
 
 let exploreDeps: ExploreDeps | null = null;
@@ -127,7 +131,7 @@ export function openExploreOpponent(id: string): void { pendingOpponentId = id; 
  * it to point at Openings, which is where "which openings do I play that I
  * haven't saved?" moved to.
  */
-export function openExploreTab(tab: 'coverage' | 'openings' | 'packs' | 'scouting'): void {
+export function openExploreTab(tab: ExploreTab): void {
   exploreTab = tab;
 }
 
@@ -228,7 +232,7 @@ async function buildScreen(container: HTMLElement): Promise<void> {
 
   // A "Full report" tap from the builder's My opponents section asks us to open
   // straight into one opponent's detail — force the Scouting tab active for it.
-  if (pendingOpponentId) exploreTab = 'scouting';
+  if (pendingOpponentId) exploreTab = 'openings';
 
   container.appendChild(
     exploreTabsSection(games, lines, trapPacks, starterPacks, opponents, container),
@@ -242,10 +246,19 @@ async function buildScreen(container: HTMLElement): Promise<void> {
 }
 
 
-// ── Explore tabs (Recommended | Packs | Scouting) ────────────────────────────
-
-// Which tab is showing. Module-level so it survives the screen's rebuilds.
-type ExploreTab = 'coverage' | 'openings' | 'packs' | 'scouting';
+// ── The Openings tabs (My lines | Coverage | Discover | Packs) ───────────────
+//
+// This screen used to be Explore — "everything you don't have yet" — with My
+// Lines, "everything you do", sitting in a nav tab of its own. They are one
+// question asked twice, so they are one screen now: MY LINES is what is in the
+// book, COVERAGE is what the book can't answer, DISCOVER is what your games say
+// you play but haven't saved, and PACKS is what you could add from elsewhere.
+//
+// Scouting left the strip. It is one opponent at a time, capped at one on the
+// free tier, and it was the only tab here not about YOUR repertoire — so it sits
+// at the foot of Discover instead, which is already the "read some games, find
+// the openings in them" tab. Discover reads yours; scouting reads theirs.
+type ExploreTab = 'mylines' | 'coverage' | 'openings' | 'packs';
 let exploreTab: ExploreTab | null = null;
 
 // The Coverage tab's live handle, so switching away (or re-rendering the screen)
@@ -281,10 +294,12 @@ function exploreTabsSection(
   // Explore opens onto a tab and never leaves it. Coverage is deliberately NOT
   // memoised — it owns a live pass, so it is built and disposed per visit.
   let packsTab: HTMLElement | null = null;
-  let openingsTab: HTMLElement | null = null;
 
+  // WHICH TAB LEADS follows what the user actually has: your own lines the
+  // moment there are any, then the openings your games show, then Packs — which
+  // is the only one that is never empty.
   if (exploreTab === null) {
-    exploreTab = lines.length > 0 ? 'coverage' : games.length > 0 ? 'openings' : 'packs';
+    exploreTab = lines.length > 0 ? 'mylines' : games.length > 0 ? 'openings' : 'packs';
   }
 
   const tabs = document.createElement('div');
@@ -293,10 +308,14 @@ function exploreTabsSection(
   content.className = 'lines-tab-content';
 
   const tabEl = (tab: ExploreTab): HTMLElement => {
+    if (tab === 'mylines') return buildMyLinesTab();
     if (tab === 'coverage') return buildCoverageTab(lines, games, container);
-    if (tab === 'openings') return (openingsTab ??= buildOpeningsTab(games, lines, container));
-    if (tab === 'packs') return (packsTab ??= buildPacksTab(starterPacks, trapPacks, games, lines));
-    return buildScoutingTab(opponents, container);
+    if (tab === 'openings') {
+      // Not memoised like the other two: it carries the scouting list, which
+      // changes when an opponent is imported or deleted from inside it.
+      return buildOpeningsTab(games, lines, opponents, container);
+    }
+    return (packsTab ??= buildPacksTab(starterPacks, trapPacks, games, lines));
   };
 
   const render = (): void => {
@@ -331,14 +350,29 @@ function exploreTabsSection(
     return btn;
   };
 
+  tabs.appendChild(makeTab('mylines', 'My lines', Icons.pawn(18)));
   tabs.appendChild(makeTab('coverage', 'Coverage', Icons.target(18)));
-  tabs.appendChild(makeTab('openings', 'Openings', Icons.sparkles(18)));
+  // NOT called "Openings": the tab strip already sits under a tab called
+  // Openings, and a tab with its parent's name says nothing about itself.
+  tabs.appendChild(makeTab('openings', 'Discover', Icons.sparkles(18)));
   tabs.appendChild(makeTab('packs', 'Packs', Icons.build(18)));
-  tabs.appendChild(makeTab('scouting', 'Scouting', Icons.scout(18)));
   wrap.appendChild(tabs);
   wrap.appendChild(content);
   render();
   return wrap;
+}
+
+// ── My lines tab ─────────────────────────────────────────────────────────────
+//
+// The whole of the old My Lines screen, unchanged, rendered into this tab's
+// body. It owns its own filter bar, its own sort, its own tree view and its own
+// re-render — `lines-screen.ts` never learned it used to be a nav destination,
+// and it does not have to.
+function buildMyLinesTab(): HTMLElement {
+  const host = document.createElement('div');
+  host.className = 'explore-mylines';
+  if (exploreDeps) renderLinesScreen(host, exploreDeps.linesDeps);
+  return host;
 }
 
 // ── Coverage tab ──────────────────────────────────────────────────────────────
@@ -492,7 +526,29 @@ function sortOpenings(rows: OpeningRow[], mode: string): OpeningRow[] {
   }
 }
 
+/**
+ * The Discover tab: the openings your own games say you play, then the ones your
+ * scouted opponents play.
+ *
+ * The two halves are the same question asked of two people's games, which is why
+ * scouting landed here when it came off the tab strip. It is deliberately SECOND
+ * and unlabelled-until-you-reach-it: most users have no scouted opponent, and one
+ * opponent is the free tier's cap.
+ */
 function buildOpeningsTab(
+  games: ImportedGame[],
+  lines: Line[],
+  opponents: Opponent[],
+  container: HTMLElement,
+): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'explore-discover';
+  wrap.appendChild(buildOpeningsRows(games, lines, container));
+  wrap.appendChild(buildScoutingTab(opponents, container));
+  return wrap;
+}
+
+function buildOpeningsRows(
   games: ImportedGame[],
   lines: Line[],
   container: HTMLElement,
@@ -941,8 +997,23 @@ function packLineCard(pack: Pack, line: PackLine): HTMLElement {
 
 // The Scouting tab body. No section title here — the tab nav already reads
 // "Scouting" — so the head row pairs the description with the opponent count.
+/**
+ * The scouted opponents, at the foot of Discover.
+ *
+ * IT NEEDS ITS OWN TITLE NOW. This was a tab, and the tab strip was its heading
+ * — "no section title here, the tab nav already reads Scouting" is what the
+ * comment used to say. Off the strip, an untitled list of usernames under a list
+ * of your own openings is just two lists.
+ */
 function buildScoutingTab(opponents: Opponent[], container: HTMLElement): HTMLElement {
   const wrap = document.createElement('div');
+  wrap.className = 'explore-scouting';
+
+  const title = document.createElement('div');
+  title.className = 'section-title section-title--icon';
+  title.appendChild(Icons.scout(16));
+  title.appendChild(document.createTextNode('Opponents'));
+  wrap.appendChild(title);
 
   // No opponents yet: the shared empty-state pattern carries the way in (its CTA
   // is the add-opponent flow), so the standalone description + Add button are

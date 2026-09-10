@@ -1790,6 +1790,47 @@ work and changes nothing.
 **Not deployed** — `main` is still on the tab strip.
 
 
+
+## My Lines and Explore become one tab ✅
+
+**Why.** My Lines answered "what is in my book" and Explore answered "what
+isn't" — one question asked twice, in two of the five nav slots, while the half
+of the app that reads your own games had a quarter of one tab. My Lines had no
+tab bar at all (a comment in `lines-screen.ts` called a one-tab strip "a title
+with extra steps"); Explore had four. The fix was to stop one step further on.
+
+**What shipped.** One tab, **Openings**, with four:
+
+1. **My lines** — the saved list, unchanged. `lines-screen.ts` never learned it
+   used to be a nav destination: it still takes a host, owns its filter bar,
+   sort, groups and re-render, and the host is now a tab body. Its deps arrive
+   through `ExploreDeps.linesDeps`.
+2. **Coverage** — the replies your lines can't answer.
+3. **Discover** — the openings your games say you play. Deliberately *not*
+   called "Openings": a tab with its parent's name says nothing about itself.
+4. **Packs** — starter packs, traps, the study browser.
+
+**Scouting came off the strip** and sits at the foot of Discover. It was the
+only tab here not about *your* repertoire, it is one opponent at a time (one on
+the free tier), and Discover is already "read some games, find the openings in
+them" — Discover reads yours, scouting reads theirs. It needed a section title
+in the move: the tab strip had been its heading, and the old code says so in a
+comment ("no section title here, the tab nav already reads Scouting").
+
+**The nav is back to five** — Home · Train · Openings · My games · Statistics —
+at 75px a tab on a 375px phone, no label clipped. It was briefly six between the
+Home round and this one.
+
+**The one thing that breaks loudly if it is wrong** is the builder's post-save
+focus: save a line and the app shows you where it landed. That was
+`showView('lines')` plus a re-render; it is `showMyLines()` now, which sets the
+TAB and the view together. Every other old `showView('lines')` — the analyser's
+back-at-the-start exit, "See in My Lines", the removal flow, the first-line
+success — goes through the same helper for the same reason.
+
+**Not deployed** — `main` is still on the tab strip.
+
+
 ---
 
 ## Later 💤

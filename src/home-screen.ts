@@ -28,7 +28,7 @@ import { autoScanState, onAutoScanChange, type AutoScanState } from './mistake-a
 
 export interface HomeDeps {
   /** Land on one of the tabs. */
-  onOpenView: (view: 'train' | 'lines' | 'explore' | 'games' | 'progress') => void;
+  onOpenView: (view: 'train' | 'explore' | 'games' | 'progress') => void;
   /** A forgotten move: three reps of it, then the whole line. */
   onFixMove: (
     move: { preFen: string; san: string; colour: 'white' | 'black'; lapses: number },
@@ -205,16 +205,10 @@ function buildSections(data: HomeData, deps: HomeDeps): HTMLElement {
 
   const inTraining = data.lines.filter(l => l.inTraining).length;
   list.appendChild(buildRow(
-    Icons.pawn(20), 'My Lines',
+    Icons.pawn(20), 'Openings',
     data.lines.length === 0
-      ? 'no lines saved yet'
+      ? 'build your first line, or add one from a pack'
       : `${data.lines.length} saved · ${inTraining} in training`,
-    () => deps.onOpenView('lines'),
-  ));
-
-  list.appendChild(buildRow(
-    Icons.compass(20), 'Explore',
-    'coverage gaps, starter packs and the openings you play',
     () => deps.onOpenView('explore'),
   ));
 

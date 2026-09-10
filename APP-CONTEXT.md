@@ -159,16 +159,18 @@ stale against Vite's hashed assets. It applies the saved theme and board colour
 
 ### 3.2 Views and navigation
 
-Eight views, all present in `index.html` and toggled by `hidden` in `showView()`:
+Seven views, all present in `index.html` and toggled by `hidden` in `showView()`:
 
-`home` · `train` · `lines` · `explore` · `games` · `progress` · `builder` · `settings`
+`home` · `train` · `explore` · `games` · `progress` · `builder` · `settings`
 
-- **Six tabs** (Home, Train, My Lines, Explore, My games, Statistics) show in
+- **Five tabs** (Home, Train, Openings, My games, Statistics) show in
   `#bottom-nav` on a phone and `#side-nav` at/above `DESKTOP_NAV_BREAKPOINT`;
-  `syncNavVisibility()` swaps them on both navigation and live resize. Six is
-  **temporary** — My Lines and Explore merge into one "Openings" tab in a later
-  round, which takes it back to five. They fit at 375px (63px each, widest label
-  51px), and `.tab-item span` clips rather than pushes its neighbours around.
+  `syncNavVisibility()` swaps them on both navigation and live resize.
+- **The `explore` view is the "Openings" tab.** The id kept its old name; My
+  Lines was folded into it as a tab (§12.1), so there is no `lines` view any
+  more. `showMyLines()` in `main.ts` is what every old `showView('lines')`
+  became — it sets the tab *and* the view, which is the pair a builder save
+  depends on.
 - **`home` is the start view and the back-navigation root.** It was `train`
   until the daily-challenge card moved to Home; the system back gesture now
   steps to Home from anywhere and lets the press through only there.
@@ -953,19 +955,34 @@ position *before* the move, and `review.ts` is responsible for the conversion.
 
 ## 12. Explore, coverage, maps and scouting
 
-### 12.1 The Explore tab
+### 12.1 The Openings tab
 
-`explore-screen.ts` — **everything you don't have yet**. That sentence is the
-information architecture, and its other half is My Lines (what you own). Four
-tabs:
+`explore-screen.ts` — **your repertoire, and everything just outside it.** My
+Lines used to be a nav destination answering "what is in my book" while Explore
+answered "what isn't"; that is one question asked twice, so they are one screen.
+Four tabs:
 
-1. **Coverage** — the replies your saved lines can't answer. The only tab that
-   reads your repertoire, so the only one whose answer changes as you work.
-2. **Openings** — what your games show, each row saying what to do: no line yet /
-   your line is losing / prepared. (This is the old "Recommended" and "From my
-   games" merged — they were always the same pass with a different `filter()`.)
-3. **Packs** — starter packs (6 packs, 62 lines), traps, and the study browser.
-4. **Scouting** — imported opponents and their opening maps.
+1. **My lines** — the saved list. It is `lines-screen.ts`, unchanged and
+   unaware: it still takes a host, owns its filter bar, sort, groups and
+   re-render, and the host it gets is now a tab body rather than a view. Its
+   deps arrive through `ExploreDeps.linesDeps`, passed straight through.
+2. **Coverage** — the replies your saved lines can't answer. The only tab that
+   reads your repertoire *against* itself, so the only one whose answer changes
+   as you work.
+3. **Discover** — what your games show, each row saying what to do: no line yet
+   / your line is losing / prepared. **Not called "Openings"** — a tab with its
+   parent's name says nothing about itself.
+4. **Packs** — starter packs (6 packs, 62 lines), traps, and the study browser.
+
+**Scouting left the tab strip** and sits at the foot of Discover. It was the
+only tab here not about *your* repertoire, it is one opponent at a time (capped
+at one on the free tier), and Discover is already "read some games, find the
+openings in them" — Discover reads yours, scouting reads theirs. It gained a
+section title in the move: the tab strip used to be its heading.
+
+Coverage and Discover are rebuilt on every visit (Coverage owns a live pass;
+Discover carries the scouting list, which changes when an opponent is imported
+or deleted from inside it). Packs is memoised.
 
 ### 12.2 Coverage
 
@@ -992,7 +1009,7 @@ level". Nothing here is stored.
   land on one node; this is the only mode that can cycle, hence its loop guards).
 - `repertoire-map.ts` draws the zoomable pan/zoom SVG tree, as a full-screen
   overlay or embedded.
-- `lines-tree-view.ts` is My Lines → tree view (position-merged, read-only, four
+- `lines-tree-view.ts` is Openings → My lines → tree view (position-merged, read-only, four
   moves deep before "Go deeper").
 - `move-stats.ts` supplies per-node W/D/L by replaying each game's stored move
   list along the UCI path — deliberately unpruned, so every drawn node finds its
@@ -1752,8 +1769,8 @@ Every non-selftest module in `src/`, exactly once.
 | `explore-panel.ts` | the builder's Explore slide — three curated moves |
 | `repertoire-map.ts` | the zoomable full-colour repertoire tree |
 | `map-merge.ts` | merging lines into one map tree — the data half |
-| `lines-tree-view.ts` | My Lines → tree view |
-| `lines-screen.ts` | the My Lines tab |
+| `lines-tree-view.ts` | the My lines tab's tree view |
+| `lines-screen.ts` | the saved-lines list — the My lines tab of Openings |
 | `coverage-gaps.ts` | the replies your repertoire can't answer (pure) |
 | `coverage-data.ts` | its impure half — the device, and the explorer budget |
 | `coverage-section.ts` | the coverage block on screen |

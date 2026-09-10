@@ -1291,10 +1291,9 @@ header h1.header-title--screen {
 .tab-item span {
   line-height: 1;
   white-space: nowrap;
-  /* SIX tabs since Home landed, not five — 62px each on a 375px phone. The
-     labels still fit at this size, but a longer one ("Statistics") has no room
-     to spare, so clip rather than let it push its neighbours around. Goes back
-     to five when My Lines and Explore merge. */
+  /* Five tabs, 75px each on a 375px phone. It was briefly six (Home landed
+     before My Lines and Explore merged) and every label still fit; the clip
+     stays as the cheap guard it always was. */
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -7545,6 +7544,15 @@ html:has(> body > .edit-overlay) > body {
    mistake retry ember). Subtle by design: identity, not decoration. */
 .pt-overlay--tinted {
   background: color-mix(in srgb, var(--pt-tint, transparent) 5%, var(--bg-sheet));
+}
+
+/* The Discover tab is two lists: the openings your own games show, then the
+   opponents you have scouted. The second used to be a tab of its own, so it
+   needs the separation the tab strip used to give it. */
+.explore-scouting {
+  margin-top: var(--space-xl);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--hairline);
 }
 
 /* ── Home ────────────────────────────────────────────────────────────────────

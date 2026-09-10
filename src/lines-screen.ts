@@ -1,3 +1,12 @@
+// The saved-lines list — the first tab of Openings.
+//
+// It was a nav destination of its own until the merge: My Lines answered "what
+// is in my book" and Explore answered "what isn't", which is one question asked
+// twice, so they are one screen with four tabs now (explore-screen.ts). Nothing
+// in this file learned about that. It still takes a host, owns its filter bar,
+// its sort, its groups and its own re-render, and the host it is handed happens
+// to be a tab body rather than a view.
+
 import type { Line } from './types';
 import {
   getAllLines,

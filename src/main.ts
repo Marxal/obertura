@@ -2708,7 +2708,7 @@ function handleBookHeaderTap(): void {
   if (hasPending()) { addFromHeader(); return; }
   const at = cursorCoverage();
   if (!at || at.lines === 0) { showToast('Play a move to start a line'); return; }
-  if (at.atStart) { showView('lines'); return; }
+  if (at.atStart) { showMyLines(); return; }
   openBranchSheetHere();
 }
 
@@ -2730,7 +2730,7 @@ function openBranchSheetHere(): void {
     repertoireId: book.id,
     ucis,
     sans: currentPathSans(),
-    onSeeInLines: () => showView('lines'),
+    onSeeInLines: () => showMyLines(),
     onOpenLine,
     onChanged: () => { void rereadBookAfterBranchEdit(book.id, ucis); },
   });
@@ -3210,7 +3210,7 @@ function deleteCurrentLineOrGame(): void {
             stopPlayback();
             savedSnapshot = builderSnapshot();
             showToast('Line deleted');
-            showView('lines');
+            showMyLines();
           });
         } },
         { label: 'Cancel', variant: 'secondary' },
@@ -3225,7 +3225,7 @@ function deleteCurrentLineOrGame(): void {
 // "train" is the start view and back-navigation root; "explore" is a v1.2
 // placeholder; "builder" shows a chessboard, so it counts as a board screen
 // (see BACK_VIEWS below).
-type ViewName = 'home' | 'train' | 'lines' | 'explore' | 'games' | 'progress' | 'builder' | 'settings';
+type ViewName = 'home' | 'train' | 'explore' | 'games' | 'progress' | 'builder' | 'settings';
 let currentView: ViewName = 'home';
 
 // The global FAB (mounted at boot). Shown on the four main tabs, hidden on the
@@ -3253,7 +3253,7 @@ const desktopNavQuery = window.matchMedia(`(min-width: ${DESKTOP_NAV_BREAKPOINT}
 
 // The tab to return to when the back arrow exits a full screen. Builder is
 // conceptually opened from My Lines; Settings remembers wherever you came from.
-let returnView: ViewName = 'lines';
+let returnView: ViewName = 'explore';
 
 // Set when a "Drill" button elsewhere wants the Train screen to open straight
 // into one specific line, rather than the due-session list. Consumed (and
@@ -4071,6 +4071,7 @@ function prepareGap(ucis: string[], answeringColour: 'white' | 'black', opponent
 // the FAB's "Build with the engine" shortcut.
 function exploreScreenDeps() {
   return {
+    linesDeps: linesScreenDeps(),
     onPrepareReply: prepareReply,
     onOpenLine,
     onOpenInBuilder: (
@@ -4233,6 +4234,20 @@ function lineFromUcis(seed: LineSeed | string[], colour: 'white' | 'black'): Lin
 
 // The full dependency set the My Lines screen needs. Centralised so every
 // place that (re)renders it stays in sync.
+/**
+ * Land on the saved-lines list.
+ *
+ * There is no My Lines VIEW any more — it is the first tab of Openings, which
+ * absorbed Explore's three (see explore-screen.ts). Everything that used to say
+ * `showView('lines')` says this instead, so the tab comes with it: a builder
+ * save that wants to show you where the line landed is the case that breaks
+ * loudly if it doesn't.
+ */
+function showMyLines(): void {
+  openExploreTab('mylines');
+  showView('explore');
+}
+
 function linesScreenDeps(): Parameters<typeof renderLinesScreen>[1] {
   return {
     onOpenLine,
@@ -4243,7 +4258,8 @@ function linesScreenDeps(): Parameters<typeof renderLinesScreen>[1] {
     onTrainLine: (lineId, inTraining) => void onTrainLine(lineId, inTraining),
     onBuildLine: buildFromUcis,
     onPickStarterPack: () => void openStarterPackPicker(addStarterLine),
-    // "Which openings do I play that I haven't saved?" moved to Explore.
+    // "Which openings do I play that I haven't saved?" is the Discover tab —
+    // one tab over from this list now that the two screens merged.
     onSeeMyOpenings: () => { openExploreTab('openings'); showView('explore'); },
   };
 }
@@ -4309,8 +4325,7 @@ function handleStartTraining(line: Line): void {
     line,
     () => {
       // Re-render lines screen so the "Add to training" button disappears.
-      const linesEl = document.getElementById('view-lines')!;
-      renderLinesScreen(linesEl, linesScreenDeps());
+      showMyLines();
     },
     () => { /* cancelled — user is already back at the lines screen */ }
   );
@@ -4862,7 +4877,6 @@ function showView(view: ViewName): void {
 
   const homeEl = document.getElementById('view-home')!;
   const builderEl = document.getElementById('view-builder')!;
-  const linesEl = document.getElementById('view-lines')!;
   const exploreEl = document.getElementById('view-explore')!;
   const gamesEl = document.getElementById('view-games')!;
   const trainEl = document.getElementById('view-train')!;
@@ -4871,7 +4885,6 @@ function showView(view: ViewName): void {
 
   homeEl.toggleAttribute('hidden', view !== 'home');
   builderEl.toggleAttribute('hidden', view !== 'builder');
-  linesEl.toggleAttribute('hidden', view !== 'lines');
   exploreEl.toggleAttribute('hidden', view !== 'explore');
   gamesEl.toggleAttribute('hidden', view !== 'games');
   trainEl.toggleAttribute('hidden', view !== 'train');
@@ -4899,10 +4912,6 @@ function showView(view: ViewName): void {
     if (active) btn.setAttribute('aria-current', 'page');
     else btn.removeAttribute('aria-current');
   });
-
-  if (view === 'lines') {
-    renderLinesScreen(linesEl, linesScreenDeps());
-  }
 
   if (view === 'explore') {
     renderExploreScreen(exploreEl, exploreScreenDeps());
@@ -5082,7 +5091,7 @@ function openGrowLine(target: GrowTarget): void {
   const parsed = parseLineId(line.id);
   if (!parsed) return;
 
-  growReturnView = currentView === 'train' || currentView === 'lines' || currentView === 'explore'
+  growReturnView = currentView === 'home' || currentView === 'train' || currentView === 'explore'
     ? currentView : 'train';
   growEndNodeId = parsed.endNodeId;
   // Before showView: the tab strip is built from whether a target is set.
@@ -5111,7 +5120,7 @@ async function renderGrowNotice(): Promise<void> {
   const myId = ++growNoticeRenderId;
   const eligible = (): boolean =>
     currentView === 'home' || currentView === 'train'
-    || currentView === 'lines' || currentView === 'explore';
+    || currentView === 'explore';
   if (!eligible()) { host.replaceChildren(); return; }
 
   let target: GrowTarget | null = null;
@@ -5355,8 +5364,7 @@ function applyNavSignIn(): void {
 const SIDE_NAV_ITEMS: ReadonlyArray<{ view: ViewName; label: string; icon: () => SVGSVGElement }> = [
   { view: 'home', label: 'Home', icon: () => Icons.sprout(22) },
   { view: 'train', label: 'Train', icon: () => Icons.zap(22) },
-  { view: 'lines', label: 'My Lines', icon: () => Icons.pawn(22) },
-  { view: 'explore', label: 'Explore', icon: () => Icons.compass(22) },
+  { view: 'explore', label: 'Openings', icon: () => Icons.pawn(22) },
   { view: 'games', label: 'My games', icon: () => Icons.build(22) },
   { view: 'progress', label: 'Statistics', icon: () => Icons.barChart(22) },
 ];
@@ -5933,7 +5941,7 @@ function openCurrentPathInBuilder(): void {
 // Surface a saved line on My Lines, highlighted so it's easy to find.
 function goToSavedLine(id: string): void {
   focusSavedLine(id);
-  showView('lines');
+  showMyLines();
 }
 
 
