@@ -22,6 +22,7 @@ import {
   TIMED_DURATIONS,
   type TimedMinutes,
 } from './prefs';
+import { buildDoor, buildTile, buildExtras, DOMAIN_ACCENT } from './train-doors';
 import { isOpponentTag } from './scout';
 import { track } from './metrics';
 import { recordMissedMove, clearForgottenMove } from './forgotten-moves';
@@ -275,39 +276,38 @@ async function doRender(
     }
   }
 
-  // The pane's blocks are split into two groups by what they're FOR: the things
-  // to do next (the due hero + the Practise menu) and the state you've built up
-  // (what's enrolled, what you keep forgetting). On a phone the two groups are
-  // `display: contents` — the DOM order below is exactly the old single column,
-  // unchanged. Above $desktop-nav they become the pane's two columns, so the
-  // extra width carries state alongside the actions instead of stretching one
-  // column (see .train-pane-openings in style.css).
+  // Three appends, one per band of the Train room. `container` is this domain's
+  // host and it is `display: contents`, so everything appended here becomes an
+  // item of the shared grid and sorts into its band by class — see
+  // train-doors.ts. That is the whole of the plumbing: the door, the tiles and
+  // the readouts are siblings in the DOM and three separate bands on screen.
   //
-  // Each renderer takes (host, container): `host` is the column it draws into,
-  // `container` stays the pane itself — every re-render and drill launch has to
-  // rebuild the WHOLE pane, not just one column.
-  const doNext = document.createElement('div');
-  doNext.className = 'train-col train-col--do';
-  const state = document.createElement('div');
-  state.className = 'train-col train-col--state';
-  container.append(doNext, state);
-
   // (The three contextual cards that used to sit here — import your games,
   // connect Lichess, make it yours — are gone. Two of them repeated the
-  // Get-started checklist above the tabs, and the third asked about theme and
-  // notation, which nobody comes to Train to answer. Settings still has all
-  // three, which is where someone looking for them would look.)
+  // Get-started checklist above, and the third asked about theme and notation,
+  // which nobody comes to Train to answer. Settings still has all three.)
+  container.appendChild(buildOpeningsDoor(container, books, allLines, trainingLocked));
+  for (const tile of buildOpeningTiles(
+    container, trainingLines, allLines, books, trainingLocked)) {
+    container.appendChild(tile);
+  }
 
-  // The streak now lives on the daily-challenge card above the tabs, so Train's
-  // own head is gone — the hero (when anything's due) is the top of this pane.
-  if (!trainingLocked) renderHero(doNext, container, due, trainingLines, books);
-  renderModeCards(doNext, container, trainingLines, allLines, books, trainingLocked);
-  // What keeps slipping — the worst moves and the weakest lines — closes the
-  // pane. The "Lines in training" list that used to sit here is gone: it was a
-  // second copy of My Lines, one screen away from the real one, and the only
-  // thing it could do that My Lines couldn't was flick a switch My Lines also
-  // has. Training belongs to what you drill; the book belongs to My Lines.
-  renderForgottenSection(state, allLines, {
+  // The readouts. The due hero is the same card it always was — it just stopped
+  // being the top of a pane, because the door above now carries the headline
+  // figure in its subtitle and the hero's job here is the detail behind it.
+  //
+  // What keeps slipping joins it. The "Lines in training" list that used to sit
+  // here is still gone: it was a second copy of My Lines one screen away from
+  // the real one, and the only thing it could do that My Lines couldn't was
+  // flick a switch My Lines also has.
+  const readouts: HTMLElement[] = [];
+  if (!trainingLocked) {
+    const heroHost = document.createElement('div');
+    renderHero(heroHost, container, due, trainingLines, books);
+    if (heroHost.firstChild) readouts.push(heroHost);
+  }
+  const forgottenHost = document.createElement('div');
+  renderForgottenSection(forgottenHost, allLines, {
     onFixMove: (m, lines) => startMoveFix(
       { preFen: m.preFen, san: m.san, colour: m.colour, count: m.lapses },
       lines,
@@ -317,6 +317,19 @@ async function doRender(
     onOpenLine: onViewLine ? (line) => onViewLine!(line) : undefined,
     onStartTraining: () => void doRender(container),
   });
+  if (forgottenHost.firstChild) readouts.push(forgottenHost);
+
+  const extras = buildExtras({
+    id: 'openings',
+    accent: DOMAIN_ACCENT.openings,
+    icon: Icons.pawn(20),
+    name: 'Openings',
+    sub: due.length > 0
+      ? `${due.length} due · what keeps slipping`
+      : 'what keeps slipping',
+    body: readouts,
+  });
+  if (extras) container.appendChild(extras);
 }
 
 // The ordered list of lines that "Start training" drills, per the default-mode
@@ -362,6 +375,12 @@ function linesForDefaultMode(trainingLines: Line[], due: Line[]): Line[] | null 
 
 // Lines drilled per explicit-mode session, so Fresh/Weak stay bite-sized.
 const PICKER_SESSION_CAP = 12;
+
+// Time attack's one length. prefs.ts still exports TIMED_DURATIONS ([1, 3, 5])
+// and getTimedBest still keys on minutes, so the other two records survive on
+// disk untouched — nothing reads them, and putting the lengths back would be a
+// one-line change here rather than a migration.
+const TIMED_DEFAULT: TimedMinutes = 3;
 
 // A long session is split into bite-sized rounds so progress can be banked
 // without finishing everything in one sitting. Each completed line is already
@@ -541,56 +560,64 @@ const MODE_ACCENT = {
   run:    '#5b6ea8', // indigo — one pass through the whole book
 } as const;
 
-function renderModeCards(
-  host: HTMLElement,
+// ── The Openings door ────────────────────────────────────────────────────────
+//
+// One tap starts a REPERTOIRE RUN, not a walk of the due lines. The due hero has
+// always offered both routes through the same pile, and a door can only pick
+// one: the run asks every move exactly once, so lines that share an opening
+// replay it once here instead of once per line. That makes it the shorter of the
+// two on any real book — which is what a one-tap door should be. The line walk
+// is still there, as a tile.
+function buildOpeningsDoor(
+  container: HTMLElement,
+  books: Repertoire[],
+  allLines: Line[],
+  locked: boolean,
+): HTMLElement {
+  const plan = locked ? null : planRepertoireRun(books);
+  const runnable = !!plan && plan.totalMoves > 0;
+  // "34 due" is the figure worth leading with when there is one; a book with
+  // nothing due still runs, it just says what it is instead.
+  const dueMoves = plan?.dueMoves ?? 0;
+  const sub = dueMoves > 0
+    ? `one pass through your book · ${dueMoves} due`
+    : 'one pass through your book, every move asked once';
+
+  return buildDoor({
+    accent: DOMAIN_ACCENT.openings,
+    icon: Icons.pawn(24),
+    name: 'Openings',
+    sub,
+    disabled: !runnable,
+    disabledReason: locked
+      ? trainingLockReason(allLines.length)
+      : 'Save a line first — then there’s a book to run',
+    onClick: () => runRepertoireRun(container, books),
+  });
+}
+
+// ── The Openings tiles ───────────────────────────────────────────────────────
+//
+// The five practice modes that aren't the door, plus the (i). Same modes, same
+// launchers, same greying-out rules as the old Practise menu — what changed is
+// that a mode is now a tile with a short name and a number, and the sentence
+// that used to be its subtitle moved to the info sheet, which is where the
+// difference between "Drill new lines" and "Repertoire run" always belonged.
+function buildOpeningTiles(
   container: HTMLElement,
   allTraining: Line[],
   allLines: Line[],
   books: Repertoire[],
-  // Under TRAINING_UNLOCK_LINES saved lines: every mode is off, with the count
+  // Under TRAINING_UNLOCK_LINES saved lines every mode is off, with the count
   // still to go as the reason.
   locked: boolean,
-): void {
-  const section = document.createElement('div');
-  section.className = 'section mode-cards';
+): HTMLElement[] {
+  const tiles: HTMLElement[] = [];
 
-  // Title + the (i). The subtitle on each card has to stay one short line for
-  // the menu to stay scannable, which leaves nowhere to say how "Repertoire run"
-  // differs from "Drill new lines" — so that answer lives one tap away instead
-  // of on every card forever.
-  const head = document.createElement('div');
-  head.className = 'section-head-row';
-  const label = document.createElement('div');
-  label.className = 'section-title';
-  label.textContent = 'Practise';
-  head.appendChild(label);
-  // Planned once, up here, because two things want it: the Repertoire run card
-  // below, and the info sheet — which is where the saving that used to crowd
-  // that card's subtitle now lives.
-  const runPlan = locked ? null : planRepertoireRun(books);
-  head.appendChild(buildInfoButton(
-    'About the practice modes', () => openPracticeInfo(runPlan)));
-  section.appendChild(head);
-
-  // Under the unlock every card below is greyed out for the same reason, and
-  // saying it once at the top is what makes the six repetitions read as one
-  // rule rather than six separate dead ends.
-  if (locked) {
-    const left = Math.max(0, TRAINING_UNLOCK_LINES - allLines.length);
-    const note = document.createElement('p');
-    note.className = 'section-desc mode-cards-locked';
-    note.textContent = allLines.length === 0
-      ? `Save ${TRAINING_UNLOCK_LINES} lines to switch practice on. Fewer than that and a `
-        + 'session is the same line over and over, which is where the habit dies.'
-      : `Save at least ${TRAINING_UNLOCK_LINES} lines to switch practice on — `
-        + `you have ${allLines.length}, so ${left} to go.`;
-    section.appendChild(note);
-  }
-
-  // Why a mode is greyed out. Under the unlock, every card here says the same
+  // Why a mode is greyed out. Under the unlock, every tile here says the same
   // thing and says it first — the answer is "go and save more lines", whatever
-  // else is or isn't in the rotation. Above it, the old reasons apply: with
-  // nothing saved at all every card is a dead end; once lines exist but none are
+  // else is or isn't in the rotation. Above it the old reasons apply: with
+  // nothing saved at all every tile is a dead end; once lines exist but none are
   // enrolled, the material is there, it just isn't in the rotation.
   const nothingSaved = allLines.length === 0;
   const noLinesReason = locked
@@ -599,22 +626,38 @@ function renderModeCards(
       ? 'Save a line first — then there’s something to drill'
       : 'Switch a line on in My Lines to drill it';
 
-  // Time attack leads the list — three timed runs, each with its own personal
-  // best. Always playable when there's any saved position anywhere (it falls back
-  // to shallow and paused lines); only disabled when nothing is saved at all.
+  // Time attack — ONE length now, not three.
+  //
+  // It used to be a card of its own with 1 / 3 / 5-minute chips, each carrying
+  // its own personal best. Three lengths meant three records nobody could
+  // compare and a card twice the height of its neighbours; a tile has room for
+  // one number, and one number you are trying to beat is worth more than three
+  // you are not. Three minutes is the middle length and the one the tactics
+  // side already defaults to. The 1 and 5-minute records are left in storage
+  // untouched — nothing reads them now, and they are there if the lengths ever
+  // come back.
   const timedReady = !locked && selectTimedPositions(allLines, { max: 80 }).length > 0;
-  section.appendChild(buildTimedCard(container, allLines, timedReady, locked ? noLinesReason : undefined));
+  const timedBest = getTimedBest(TIMED_DEFAULT);
+  tiles.push(buildTile({
+    domainAccent: DOMAIN_ACCENT.openings,
+    accent: MODE_ACCENT.timed,
+    icon: Icons.clock(20),
+    name: 'Time attack',
+    stat: timedBest > 0 ? `best ${timedBest}` : `${TIMED_DEFAULT} min`,
+    disabled: !timedReady,
+    disabledReason: locked ? noLinesReason : 'Save a line first to play Time attack',
+    onClick: () => runTimed(container, allLines, TIMED_DEFAULT),
+  }));
 
-  // Review missed moves — single moves you've missed. Tappable as long as there's
-  // anything deep enough to drill (the mode falls back to weak/upcoming moves). No
-  // due-count badge: the daily challenge and hero already carry the "what's due"
-  // signal, so this stays a clean entry point.
+  // Review missed moves — single moves you've missed. Tappable as long as
+  // there's anything deep enough to drill (the mode falls back to weak/upcoming
+  // moves).
   const hasPositions = !locked && selectIndividualPositions(allTraining).length > 0;
-  section.appendChild(buildModeCard({
+  tiles.push(buildTile({
+    domainAccent: DOMAIN_ACCENT.openings,
     accent: MODE_ACCENT.fix,
     icon: Icons.zap(20),
-    name: 'Review missed moves',
-    sub: 'single moves you’ve missed',
+    name: 'Missed moves',
     disabled: !hasPositions,
     // "Train a little more" is only true once there IS something to train.
     disabledReason: locked || nothingSaved
@@ -623,35 +666,29 @@ function renderModeCards(
     onClick: () => runIndividual(container, allTraining),
   }));
 
-  // Repertoire run — one walk through the book, asking each move once.
-  //
-  // NO BADGE, ONE SENTENCE. This card used to carry a "N moves due" stat on the
-  // right and a two-clause subtitle on the left ("one pass through your book —
-  // 34 repeated moves you'd otherwise answer twice"). Every other card in the
-  // menu is icon / name / one short line, so the long subtitle wrapped to two
-  // rows and dragged the stat badge out of line with the badges above it. The
-  // saving is a fact about the mode rather than a number you decide on, so it
-  // has moved to the info sheet; the due count is one tap away in the run itself,
-  // which now counts the whole walk down move by move.
-  if (runPlan && runPlan.totalMoves > 0) {
-    section.appendChild(buildModeCard({
-      accent: MODE_ACCENT.run,
-      icon: Icons.book(20),
-      name: 'Repertoire run',
-      sub: 'every move in your book, asked once',
-      onClick: () => runRepertoireRun(container, books),
-    }));
-  }
+  // Whole lines, due first — the other half of the door's pile, counted in
+  // lines rather than moves. This is the route the due hero's first button
+  // takes, kept as a tile now that the door takes the other one.
+  const due = dueLines(allTraining);
+  tiles.push(buildTile({
+    domainAccent: DOMAIN_ACCENT.openings,
+    accent: MODE_ACCENT.run,
+    icon: Icons.book(20),
+    name: 'Whole lines',
+    stat: due.length > 0 ? due.length : undefined,
+    disabled: locked || due.length === 0,
+    disabledReason: locked || nothingSaved ? noLinesReason : 'Nothing due right now',
+    onClick: () => startRounds(due, container, { explicit: true }),
+  }));
 
-  // Fresh lines — full runs of the newest lines first. Both this and Target
-  // weak areas below used to stay live with an empty rotation and start a
-  // session with nothing in it; they now grey out like the two above.
+  // Fresh lines — full runs of the newest lines first.
   const freshLines = recentlyAddedLines(allTraining).slice(0, PICKER_SESSION_CAP);
-  section.appendChild(buildModeCard({
+  tiles.push(buildTile({
+    domainAccent: DOMAIN_ACCENT.openings,
     accent: MODE_ACCENT.fresh,
     icon: Icons.plus(20),
-    name: 'Drill new lines',
-    sub: 'full runs of your newest lines',
+    name: 'New lines',
+    stat: freshLines.length > 0 ? freshLines.length : undefined,
     disabled: locked || freshLines.length === 0,
     disabledReason: noLinesReason,
     onClick: () => startRounds(freshLines, container, { explicit: true }),
@@ -659,33 +696,45 @@ function renderModeCards(
 
   // Weak spots — full runs of the weakest lines first.
   const weakLines = weakestLines(allTraining).slice(0, PICKER_SESSION_CAP);
-  section.appendChild(buildModeCard({
+  tiles.push(buildTile({
+    domainAccent: DOMAIN_ACCENT.openings,
     accent: MODE_ACCENT.weak,
     icon: Icons.trending(20),
-    name: 'Target weak areas',
-    sub: 'full runs of your weakest lines',
+    name: 'Weak areas',
+    stat: weakLines.length > 0 ? weakLines.length : undefined,
     disabled: locked || weakLines.length === 0,
     disabledReason: noLinesReason,
     onClick: () => startRounds(weakLines, container, { explicit: true }),
   }));
 
   // Prep — full runs of lines prepared against a scouted opponent. Only shown
-  // when any opponent-tagged lines are in training.
+  // once any opponent-tagged lines are in training, as before.
   const prepLines = allTraining.filter(l => l.tags.some(isOpponentTag));
   if (prepLines.length > 0 && !locked) {
-    section.appendChild(buildModeCard({
+    tiles.push(buildTile({
+      domainAccent: DOMAIN_ACCENT.openings,
       accent: MODE_ACCENT.prep,
       icon: Icons.target(20),
       name: 'Prep',
-      sub: 'opponent-tagged lines',
       stat: prepLines.length,
-      statLabel: prepLines.length === 1 ? 'line' : 'lines',
       onClick: () => startRounds(
         prepLines.slice(0, PICKER_SESSION_CAP), container, { explicit: true }),
     }));
   }
 
-  host.appendChild(section);
+  // The (i), as the last tile of the band. A tile has room for a short name and
+  // a number and nothing else, so the sentence that used to sit under every
+  // mode name has to live somewhere — and one tile at the end of the colour
+  // band is a better home for it than six subtitles that made the menu a wall.
+  tiles.push(buildTile({
+    domainAccent: DOMAIN_ACCENT.openings,
+    accent: DOMAIN_ACCENT.openings,
+    icon: Icons.info(20),
+    name: 'About',
+    onClick: () => openPracticeInfo(locked ? null : planRepertoireRun(books)),
+  }));
+
+  return tiles;
 }
 
 // What each practice mode actually is, in the words the one-line subtitles have
@@ -704,9 +753,9 @@ function openPracticeInfo(runPlan: RunPlan | null): void {
       {
         icon: Icons.clock(18), accent: MODE_ACCENT.timed,
         label: 'Time attack',
-        detail: 'Single positions against the clock — 1, 3 or 5 minutes, each with its own '
-          + 'personal best. It draws on everything you have saved, including paused and '
-          + 'shallow lines, so it stays playable early on.',
+        detail: 'Single positions against the clock for three minutes, against one personal '
+          + 'best. It draws on everything you have saved, including paused and shallow '
+          + 'lines, so it stays playable early on.',
       },
       {
         icon: Icons.zap(18), accent: MODE_ACCENT.fix,
@@ -716,7 +765,7 @@ function openPracticeInfo(runPlan: RunPlan | null): void {
       },
       {
         icon: Icons.book(18), accent: MODE_ACCENT.run,
-        label: 'Repertoire run',
+        label: 'Openings (the big button)',
         detail: 'One pass through your whole book, asking every move exactly once. Lines '
           + 'that share an opening replay it once here instead of once per line, which is '
           + 'why it is much shorter than drilling the same lines one by one.'
@@ -824,81 +873,6 @@ function buildModeReason(text: string): HTMLElement {
   reason.className = 'mode-card-reason';
   reason.textContent = text;
   return reason;
-}
-
-// Time attack: the card body isn't itself tappable — its three duration chips
-// are, each starting a run of that length and showing its own personal best.
-// The pool is every saved line (selectTimedPositions falls back to shallow /
-// paused positions), so it stays playable with very little trained.
-function buildTimedCard(
-  container: HTMLElement,
-  allLines: Line[],
-  enabled: boolean,
-  // Overrides the default "save a line first" note — the training lock has its
-  // own count to report.
-  reason?: string,
-): HTMLElement {
-  const card = document.createElement('div');
-  card.className = 'mode-card mode-card--timed' + (enabled ? '' : ' mode-card--disabled');
-  card.style.setProperty('--mode-accent', MODE_ACCENT.timed);
-
-  const head = document.createElement('div');
-  head.className = 'mode-card-head';
-  const icon = document.createElement('span');
-  icon.className = 'mode-card-icon';
-  icon.appendChild(Icons.clock(20));
-  head.appendChild(icon);
-  const text = document.createElement('span');
-  text.className = 'mode-card-text';
-  const name = document.createElement('span');
-  name.className = 'mode-card-name';
-  name.textContent = 'Time attack';
-  const sub = document.createElement('span');
-  sub.className = 'mode-card-sub';
-  sub.textContent = 'beat your best in 1, 3 or 5 minutes';
-  text.appendChild(name);
-  text.appendChild(sub);
-  // Greyed either by the training lock or by having nothing saved at all.
-  if (!enabled) {
-    text.appendChild(buildModeReason(reason ?? 'Save a line first to play Time attack'));
-  }
-  head.appendChild(text);
-  card.appendChild(head);
-
-  const chips = document.createElement('div');
-  chips.className = 'timed-chips';
-  for (const minutes of TIMED_DURATIONS) {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'timed-chip';
-    chip.disabled = !enabled;
-
-    const dur = document.createElement('span');
-    dur.className = 'timed-chip-dur';
-    dur.textContent = `${minutes}m`;
-    chip.appendChild(dur);
-
-    const best = getTimedBest(minutes);
-    const bestEl = document.createElement('span');
-    bestEl.className = 'timed-chip-best';
-    if (best > 0) {
-      bestEl.appendChild(document.createTextNode('best '));
-      const num = document.createElement('span');
-      num.className = 'timed-chip-best-num';
-      num.textContent = '0';
-      bestEl.appendChild(num);
-      countUp(num, best);
-    } else {
-      bestEl.textContent = '—';
-    }
-    chip.appendChild(bestEl);
-
-    if (enabled) chip.addEventListener('click', () => runTimed(container, allLines, minutes));
-    chips.appendChild(chip);
-  }
-  card.appendChild(chips);
-
-  return card;
 }
 
 // ── Locating a forgotten move ─────────────────────────────────────────────────

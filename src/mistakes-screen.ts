@@ -17,7 +17,7 @@ import { pushBack } from './back-nav';
 import { formatMove } from './notation';
 import { cloudHealth, type CloudHealth } from './engine';
 import { createPawnProgress, createFactsTicker } from './import-progress';
-import { buildModeCard } from './train-screen';
+import { buildDoor, buildTile, buildExtras, DOMAIN_ACCENT } from './train-doors';
 import { openInfoSheet, buildInfoButton } from './info-sheet';
 import {
   autoScanState, onAutoScanChange, startAutoScan,
@@ -122,6 +122,20 @@ const CATEGORY_ICON: Record<MistakeCategory, (size?: number) => SVGElement> = {
 
 const CATEGORIES: MistakeCategory[] = ['opening-blunder', 'punish-opening', 'missed-win', 'blunder'];
 
+// The tile forms of CATEGORY_LABEL. A tile is three columns wide on a phone, so
+// "Chances your opponent handed you" is not a name it can hold; the full label
+// still runs the exercise's header and the (i) sheet.
+const CATEGORY_TILE: Record<MistakeCategory, string> = {
+  'opening-blunder': 'Opening slips',
+  'punish-opening': 'Punish theirs',
+  'missed-win': 'Missed wins',
+  'blunder': 'Blunders',
+};
+
+// This domain's own colour — the door, the readouts, every tile's top edge, and
+// the few tiles that have no exercise accent of their own.
+const MIDDLEGAME_ACCENT = DOMAIN_ACCENT.middlegame;
+
 // What the five exercises here actually are. The card subtitles are one short
 // line each — enough to tell them apart in a menu, not enough to say where the
 // positions come from or why a "blunder" and an "opening blunder" are two
@@ -222,10 +236,12 @@ export interface MistakesScreenDeps {
 }
 
 export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScreenDeps): Promise<void> {
+  // `host` is this domain's slice of the Train room and it is `display:
+  // contents` (train-doors.ts), so everything appended here becomes an item of
+  // the shared grid and sorts into the door / tiles / readouts band by its own
+  // class. There is no wrapper element any more — a wrapper would be one grid
+  // item holding all three bands, which is exactly what we stopped doing.
   host.innerHTML = '';
-  const root = document.createElement('div');
-  root.className = 'mistakes-screen';
-  host.appendChild(root);
 
   let allGames: ImportedGame[];
   try {
@@ -239,9 +255,17 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   // nothing to scan yet — and the import form itself is what the screen shows,
   // rather than a button that opens one.
   if (allGames.length === 0) {
-    // .mistakes-screen has no side padding of its own — every block inside it
-    // brings its own gutter (see .mistakes-hero). So does this one, otherwise
-    // the import box runs edge to edge while everything else on Train is inset.
+    // The door still shows, greyed, saying what it needs — a domain that simply
+    // vanished from the room would read as a bug, and "import your games" is
+    // the one instruction that makes this whole third of the app work.
+    host.appendChild(buildDoor({
+      accent: MIDDLEGAME_ACCENT,
+      icon: Icons.swords(24),
+      name: 'Middlegame',
+      sub: 'a mixed round from your own games',
+      disabled: true,
+      disabledReason: 'Import your games and this fills itself',
+    }));
     const empty = document.createElement('div');
     empty.className = 'mistakes-empty';
     const line = document.createElement('p');
@@ -253,7 +277,15 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       body: 'The scan then finds your blunders, your missed wins and the chances your opponents handed you.',
       onImported: () => { void renderMistakesScreen(host, deps); },
     }));
-    root.appendChild(empty);
+    const extras = buildExtras({
+      id: 'middlegame',
+      accent: MIDDLEGAME_ACCENT,
+      icon: Icons.swords(20),
+      name: 'Middlegame',
+      sub: 'nothing read yet',
+      body: [empty],
+    });
+    if (extras) host.appendChild(extras);
     return;
   }
 
@@ -328,10 +360,38 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   // about to read them. The hero says the real reason instead.
   const atFreeSpotCap = !entitled && (counts.spots - counts.fixed) >= FREE_MISTAKE_SPOTS;
 
-  root.appendChild(renderHero());
-  root.appendChild(renderCategoryCards());
+  // The door: the mix, which was already the wide button at the top of the old
+  // hero. It is the only thing here that deals from every exercise at once, so
+  // it was always the flagship — it just used to sit below a stats block.
+  const mixReady = mixLegs().length > 0;
+  host.appendChild(buildDoor({
+    accent: MIDDLEGAME_ACCENT,
+    icon: Icons.swords(24),
+    name: 'Middlegame',
+    sub: counts.spots > 0
+      ? `a mixed round from your own games · ${counts.spots - counts.fixed} to fix`
+      : 'a mixed round from your own games',
+    disabled: !mixReady,
+    disabledReason: counts.scanned === 0
+      ? 'Analyse your games first — the tile below starts it'
+      : 'Nothing waiting — they come back over the next few days',
+    onClick: () => startMix(),
+  }));
+
+  for (const tile of buildMiddlegameTiles()) host.appendChild(tile);
+
+  const readouts: HTMLElement[] = [renderHero()];
   const carousel = renderLatestMistakes();
-  if (carousel) root.appendChild(carousel);
+  if (carousel) readouts.push(carousel);
+  const extras = buildExtras({
+    id: 'middlegame',
+    accent: MIDDLEGAME_ACCENT,
+    icon: Icons.swords(20),
+    name: 'Middlegame',
+    sub: `${counts.scanned} games read · ${counts.spots} spots · ${counts.fixed} fixed`,
+    body: readouts,
+  });
+  if (extras) host.appendChild(extras);
 
   // ── The stats hero + the scan entry point ───────────────────────────────────
   function renderHero(): HTMLElement {
@@ -364,8 +424,6 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     // the cards are still there for anyone who does. This deals from all of
     // them: mistake positions round-robin across the four categories, then your
     // brilliant finds to close on.
-    const mix = buildMixButton();
-    if (mix) hero.appendChild(mix);
 
     if (newGames > 0) {
       // The scan runs on its own now (mistake-autoscan.ts), so this is a LIVE
@@ -566,18 +624,6 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   // The wide launch button, or null when the scan has not turned anything up
   // yet — a primary button that can only tell you there is nothing to do is
   // worse than no button.
-  function buildMixButton(): HTMLElement | null {
-    if (mixLegs().length === 0) return null;
-
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'btn-primary train-hero-start mistakes-mix-btn';
-    btn.appendChild(Icons.sparkles(18));
-    btn.appendChild(document.createTextNode('Your games mix'));
-    btn.addEventListener('click', () => startMix());
-    return btn;
-  }
-
   // The mistake half of the mix: deal round-robin across the four categories so
   // a library heavy in one of them doesn't fill the whole run with it. Each
   // category's own order is pickSpots's — unfixed and newest first, solved ones
@@ -747,123 +793,127 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     return { col, num };
   }
 
-  // ── The four category cards ─────────────────────────────────────────────────
-  function renderCategoryCards(): HTMLElement {
-    const section = document.createElement('div');
-    section.className = 'section mode-cards';
+  // ── The tiles ───────────────────────────────────────────────────────────────
+  //
+  // The same seven exercises the old category menu offered, in the same order
+  // and with the same greying-out rules — as tiles rather than full-width cards,
+  // because seven cards under a hero was the tallest block on the tallest tab in
+  // the app. The one-line subtitles each of them carried ("openings that lost
+  // you the game") move to the (i) at the end of the band, which is where the
+  // difference between a blunder and an opening blunder always belonged.
+  function buildMiddlegameTiles(): HTMLElement[] {
+    const tiles: HTMLElement[] = [];
 
-    const head = document.createElement('div');
-    head.className = 'section-head-row';
-    const label = document.createElement('div');
-    label.className = 'section-title';
-    label.textContent = 'From your games';
-    head.appendChild(label);
-    head.appendChild(buildInfoButton('About these exercises', openMistakeInfo));
-    section.appendChild(head);
+    // Why anything here is dead, said the same way on every tile.
+    const noneReason = counts.scanned === 0
+      ? 'Analyse your games first'
+      : 'None found in your analysed games';
 
-    // The two whole-game exercises lead. They ask a smaller question than the
-    // category cards ("which of these moves is the blunder", "which of these two
-    // moves is better") and they don't need you to choose a category of your own
+    // Reading your games comes first when there is reading to do. It is not an
+    // exercise, but it is the thing that MAKES the exercises, and a band of
+    // seven greyed-out tiles with the only way to un-grey them buried in a
+    // collapsed readout would be a dead end with the answer hidden.
+    if (newGames > 0) {
+      tiles.push(buildTile({
+        domainAccent: MIDDLEGAME_ACCENT,
+        accent: MIDDLEGAME_ACCENT,
+        icon: Icons.review(20),
+        name: 'Analyse games',
+        stat: newGames,
+        onClick: () => { void runScan(); },
+      }));
+    }
+
+    // The two whole-game exercises lead, as they did on the cards. They ask a
+    // smaller question than the categories ("which of these moves is the
+    // blunder") and they don't need you to choose a category of your own
     // mistakes first, which is a decision a newcomer has no basis for.
-    section.appendChild(buildModeCard({
+    tiles.push(buildTile({
+      domainAccent: MIDDLEGAME_ACCENT,
       accent: DETECTIVE_ACCENT,
       icon: Icons.scout(20),
-      name: 'Blunder detective',
-      sub: detectiveRefs.length > 0 && detectiveReady === 0
-        ? 'all cracked — they come back over the next few days'
-        : 'find the blunder — yours or theirs',
+      name: 'Detective',
       stat: detectiveReady > 0 ? detectiveReady : undefined,
-      statLabel: detectiveReady > 0 ? 'cases' : undefined,
       disabled: detectiveRefs.length === 0,
-      disabledReason: counts.scanned === 0
-        ? 'Analyse your games first'
-        : 'None found in your analysed games',
+      disabledReason: noneReason,
       onClick: () => startDetective(),
     }));
-    section.appendChild(buildModeCard({
+    tiles.push(buildTile({
+      domainAccent: MIDDLEGAME_ACCENT,
       accent: WHICH_MOVE_ACCENT,
       icon: Icons.merge(20),
       name: 'Which move',
-      sub: pairRefs.length > 0 && whichMoveReady === 0
-        ? 'all answered — they come back over the next few days'
-        : 'two moves, one of them yours',
       stat: whichMoveReady > 0 ? whichMoveReady : undefined,
-      statLabel: whichMoveReady > 0 ? 'to answer' : undefined,
       disabled: pairRefs.length === 0,
-      disabledReason: counts.scanned === 0
-        ? 'Analyse your games first'
-        : 'None found in your analysed games',
+      disabledReason: noneReason,
       onClick: () => startWhichMove(),
     }));
 
-    // Time pressure — the speed round. It sits third because it is the one
-    // exercise here that is not about working a position out: three minutes,
-    // ten seconds a position, opening on the moves you had least time for.
+    // Time pressure — the speed round, and the one exercise here that is not
+    // about working a position out.
     const tpBest = getTimePressureBest();
-    section.appendChild(buildModeCard({
+    tiles.push(buildTile({
+      domainAccent: MIDDLEGAME_ACCENT,
       accent: TIME_PRESSURE_ACCENT,
       icon: Icons.clock(20),
       name: 'Time pressure',
-      // The subtitle carries the rules, because they ARE the exercise and a
-      // card that only said "your blunders, quickly" would be a card nobody
-      // knows what they are starting.
-      sub: '20 seconds a position, 2 minutes',
-      stat: tpBest > 0 ? tpBest : undefined,
-      statLabel: tpBest > 0 ? 'best' : undefined,
+      stat: tpBest > 0 ? `best ${tpBest}` : undefined,
       disabled: refs.length === 0,
-      disabledReason: counts.scanned === 0
-        ? 'Analyse your games first'
-        : 'None found in your analysed games',
+      disabledReason: noneReason,
       onClick: () => startTimePressure(),
     }));
 
     for (const cat of CATEGORIES) {
       const pool = refs.filter(r => r.spot.category === cat);
-      const unfixed = counts.unfixedByCategory[cat];
-      section.appendChild(buildModeCard({
+      tiles.push(buildTile({
+        domainAccent: MIDDLEGAME_ACCENT,
         accent: CATEGORY_ACCENT[cat],
         icon: CATEGORY_ICON[cat](),
-        name: CATEGORY_LABEL[cat],
-        sub: CATEGORY_SUB[cat],
-        stat: pool.length > 0 ? unfixed : undefined,
-        statLabel: pool.length > 0 ? 'to fix' : undefined,
+        name: CATEGORY_TILE[cat],
+        stat: pool.length > 0 ? counts.unfixedByCategory[cat] : undefined,
         disabled: pool.length === 0,
-        disabledReason: counts.scanned === 0
-          ? 'Analyse your games first'
-          : 'None found in your analysed games',
+        disabledReason: noneReason,
         onClick: () => startSession(pool, cat),
       }));
     }
 
-    // Your brilliant moves — the flip side of the mistake cards: find again the
-    // best moves you already found. Two sources, merged (brilliant.ts): the
-    // grades on a game you have reviewed in the analyser, and the ones the
-    // background scan verified for itself.
-    section.appendChild(buildModeCard({
+    // Your brilliant moves — the flip side of the mistake tiles. Nothing waiting
+    // means they have all been re-found lately, which is a result rather than an
+    // empty tile, so it stays tappable and the badge simply goes.
+    tiles.push(buildTile({
+      domainAccent: MIDDLEGAME_ACCENT,
       accent: CLASS_COLOR.brilliant,
       icon: classIcon('brilliant', 20),
-      name: 'Your brilliant moves',
-      // Nothing waiting means they have all been re-found lately, which is a
-      // result rather than an empty card — so the card stays tappable (the
-      // session deals the nearest-due one) and the subtitle says why the badge
-      // has gone instead of a "0" that looks like a failure.
-      sub: brilliantRefs.length > 0 && gemsReady === 0
-        ? 'all found — they come back over the next few days'
-        : gemsOnly ? 'find your brilliancies again' : 'find your best moves again',
+      name: 'Brilliancies',
       stat: gemsReady > 0 ? gemsReady : undefined,
-      statLabel: gemsReady > 0 ? 'to find' : undefined,
       disabled: brilliantRefs.length === 0,
-      // The same two reasons the mistake cards give. It used to say "analyse
-      // your games to find your brilliant moves" on a screen that had just
-      // reported every game analysed — true of the analyser's review, which is
-      // not the analysis that figure counts, and unanswerable from here.
-      disabledReason: counts.scanned === 0
-        ? 'Analyse your games first'
-        : 'None found in your analysed games',
+      disabledReason: noneReason,
       onClick: () => startBrilliant(brilliantRefs),
     }));
 
-    return section;
+    // The Fixed list — spots already put right, and the way back into any of
+    // them. It was a block of its own under the cards; it is a sheet already, so
+    // as a tile it costs one cell instead of a section.
+    if (counts.fixed > 0) {
+      tiles.push(buildTile({
+        domainAccent: MIDDLEGAME_ACCENT,
+        accent: MIDDLEGAME_ACCENT,
+        icon: Icons.checkCircle(20),
+        name: 'Fixed',
+        stat: counts.fixed,
+        onClick: () => openFixed(),
+      }));
+    }
+
+    tiles.push(buildTile({
+      domainAccent: MIDDLEGAME_ACCENT,
+      accent: MIDDLEGAME_ACCENT,
+      icon: Icons.info(20),
+      name: 'About',
+      onClick: openMistakeInfo,
+    }));
+
+    return tiles;
   }
 
   // The Fixed list, and the way back into any of it: a row (or the button at the

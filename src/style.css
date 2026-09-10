@@ -6080,55 +6080,6 @@ cg-board square.review-sq--blunder    { background: color-mix(in srgb, #c93636 5
   border-color: var(--primary);
 }
 
-/* ── Train tabs — the 2×2 mode grid ─────────────────────────────────────────
-   The Train screen's four modes (Openings / Puzzles / Mistake retry / End
-   game) share the .lines-tab chrome but stack icon-over-label in a two-column
-   grid of taller, chunkier "game mode" buttons. Scoped under .train-tabs so
-   the My Lines / Explore tab rows keep their compact single-row look. Each
-   button may carry a --tab-accent (set inline in main.ts) so the active mode
-   reads in that mode's own colour rather than one global green; Openings has
-   none and falls back to --primary. */
-.train-tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.6rem;
-}
-
-.train-tabs .lines-tab {
-  flex-direction: column;
-  justify-content: center;
-  gap: 0.45rem;
-  min-height: 76px;
-  padding: 0.7rem 0.4rem 0.6rem;
-  font-size: 0.8rem;
-  border-radius: 14px;
-}
-
-/* The glyph sits in its own little tile above the label — the "game mode
-   button" read. .lines-tab-icon is the <svg> itself, so the tile is padding
-   on the svg box. Inactive: the mode's accent on a faint chip (decorative —
-   the label carries the meaning). Active: white glyph on a white-glass chip. */
-.train-tabs .lines-tab-icon {
-  box-sizing: border-box;
-  width: 36px;
-  height: 36px;
-  padding: 7px;
-  border-radius: 10px;
-  background: var(--fill-faint);
-  color: var(--tab-accent, var(--primary));
-  transition: background 0.14s, color 0.14s;
-}
-
-.train-tabs .lines-tab.active {
-  background: var(--tab-accent, var(--primary));
-  border-color: var(--tab-accent, var(--primary));
-}
-
-.train-tabs .lines-tab.active .lines-tab-icon {
-  background: rgba(255, 255, 255, 0.16);
-  color: #fff;
-}
-
 /* ── End game — the coming-soon placeholder pane ── */
 .train-soon-card {
   margin: var(--space-xl) var(--space-lg);
@@ -7584,105 +7535,353 @@ html:has(> body > .edit-overlay) > body {
   background: color-mix(in srgb, var(--pt-tint, transparent) 5%, var(--bg-sheet));
 }
 
-/* The Train screen's panes carry the active mode's colour: a background wash that
-   tints the whole pane (more than a whisper, so the mode is unmistakable) plus a
-   published --train-accent that the pane's own primary buttons + accents adopt,
-   so switching tabs recolours the pane while keeping every other style intact.
-   Openings clears --train-accent (set in main.ts) and falls back to the app
-   green. The wash reads --train-accent too, so it tracks the mode automatically. */
-#view-train[data-train-mode] {
-  transition: background 0.35s ease;
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--train-accent, var(--accent)) 15%, transparent),
-      color-mix(in srgb, var(--train-accent, var(--accent)) 4%, transparent) 300px,
-      transparent 560px);
-}
+/* ── The Train room — four doors, one tile grid, four drawers ────────────────
 
-/* Recolour the pane's primary buttons in the active mode's colour — same shape,
-   sheen and shadow, just the mode's hue (Openings keeps the green fallback). The
-   sheen gradient (background-image) stays; only the base colour swaps. */
-#view-train[data-train-mode] .btn-primary {
-  background-color: var(--train-accent, var(--primary));
-}
-/* Selected chips/pills inside the pane (time lengths, source toggles, range
-   segments) take the mode colour too, so the whole pane reads as one hue. Each
-   keeps its own fill model — the tinted timed chip, the solid range pill. */
-#view-train[data-train-mode] .timed-chip--on {
-  border-color: var(--train-accent, var(--accent));
-  background: color-mix(in srgb, var(--train-accent, var(--accent)) 14%, var(--bg-card));
-}
-#view-train[data-train-mode] .stats-range-chip--on {
-  background: var(--train-accent, var(--accent));
-  border-color: var(--train-accent, var(--accent));
-}
-
-/* ── Openings pane: two-column desktop layout ────────────────────────────────
-   The daily-challenge card and the four-mode grid stay full-width above the
-   pane (they span every mode, and the daily card is the screen's entry point).
-   Inside the Openings pane, the blocks split by what they're FOR — train-
-   screen.ts wraps them in two .train-col groups:
+   Train used to be a tab strip over four hidden panes. It is now one grid with
+   every domain on it at once, arranged in three bands:
 
        ┌─────────────────────────────────────┐
-       │ .daily-host   (full width, above)   │
-       │ .train-tabs   (full width, above)   │
-       ├──────────────────┬──────────────────┤
-       │ .train-hero      │ .forgotten-      │  col 1 — what to do next:
-       │ ("Due now" +     │  section         │   the due count and the primary
-       │  Refresh lines)  │  (what you keep  │   Start, then the Practise menu.
-       │                  │   forgetting)    │
-       │ .mode-cards      │                  │  col 2 — the state behind it:
-       │ (Practise)       │                  │   the moves and lines that keep
-       │                  │                  │   slipping.
-       └──────────────────┴──────────────────┘
+       │ .daily-host        (above the room) │
+       ├─────────────────────────────────────┤
+       │ .train-door  Openings           ▶   │  band 1 — one tap plays.
+       │ .train-door  Middlegame         ▶   │   Four, always all four, even
+       │ .train-door  Tactics            ▶   │   when one is greyed out.
+       │ .train-door  Endgames           ▶   │
+       │  More ways to train                 │
+       │ ┌───────┐ ┌───────┐ ┌───────┐       │  band 2 — every other exercise
+       │ │ tile  │ │ tile  │ │ tile  │  …    │   in the app, three across,
+       │ └───────┘ └───────┘ └───────┘       │   banded by domain colour.
+       │  Where you stand                    │
+       │ ▸ Openings — what keeps slipping    │  band 3 — the readouts, shut.
+       │ ▸ Middlegame — 318 games read       │
+       └─────────────────────────────────────┘
 
-   Below $desktop-nav (960px — mirrors DESKTOP_NAV_BREAKPOINT in main.ts; keep
-   every copy in sync) NOTHING here applies: the groups are `display: contents`,
-   so the pane is byte-for-byte the old single column.
+   THE ONE TRICK. Each of the four screens still renders into a host of its own
+   and still re-renders itself alone — none of the session machinery moved (see
+   train-doors.ts). What sorts four hosts' output into three bands is that every
+   host is `display: contents`, so its children are items of THIS grid, and each
+   kind of child carries an `order`. A domain repainting itself replaces only its
+   own children and they land back in the right band, because the band is a
+   class and not a position in the DOM.
 
-   Guarded by :has(> .train-col) so the onboarding/empty state — which renders
-   straight into the pane with no groups — keeps the plain column, and by
-   :not([hidden]) so switching to another mode still hides the pane (a class
-   `display: grid` would otherwise beat the UA's [hidden] rule). */
-.train-col {
+   So: DOM order decides the order WITHIN a band (doors read Openings,
+   Middlegame, Tactics, Endgames because main.ts appends the hosts in that
+   order), and `order` decides which band. */
+.train-room {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-sm);
+  padding-inline: var(--space-lg);
+  padding-bottom: var(--space-xl);
+  align-content: start;
+}
+
+.train-domain {
   display: contents;
 }
 
+/* Anything a domain renders that ISN'T a tile spans the row and sorts to the
+   top band. That default is deliberate: it catches the loading and error states
+   too, which arrive with no band of their own and would otherwise be squeezed
+   into one tile-width column. */
+.train-domain > * {
+  grid-column: 1 / -1;
+  order: 10;
+}
+
+.train-domain > .train-tile {
+  grid-column: auto;
+  order: 30;
+}
+
+.train-domain > .train-extras {
+  order: 50;
+}
+
+/* The two band labels. Children of the room rather than of any domain — nobody
+   owns them — so they need their own placement. */
+.train-region-label {
+  grid-column: 1 / -1;
+  margin: var(--space-md) 0 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-faint);
+}
+.train-region-label--tiles { order: 20; }
+.train-region-label--extras { order: 40; }
+
+/* ── The door ── */
+.train-door {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.95rem 0.9rem 0.95rem 1.15rem;
+  background-color: var(--bg-card);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.45) 0%, transparent 100%);
+  border: 1px solid var(--border-card);
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: var(--shadow-card);
+  transition: filter 0.12s, box-shadow 0.12s, border-color 0.12s, transform 0.08s;
+}
+
+[data-theme="dark"] .train-door,
+[data-theme="game"] .train-door,
+[data-theme="gamer"] .train-door {
+  background-image: none;
+}
+
+/* A door's left edge is thicker than a mode card's (4px), because a door is the
+   thing you are meant to hit and the colour is how you tell four of them apart
+   at arm's length. */
+.train-door::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: var(--mode-accent, transparent);
+}
+
+.train-door:not(.train-door--disabled):hover {
+  border-color: var(--mode-accent, var(--primary));
+  box-shadow: var(--shadow-card-hover);
+}
+
+.train-door:not(.train-door--disabled):active {
+  transform: scale(0.995);
+  filter: brightness(0.97);
+}
+
+.train-door--disabled {
+  opacity: 0.55;
+  cursor: default;
+  box-shadow: none;
+}
+
+.train-door-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--mode-accent, var(--accent)) 15%, transparent);
+  color: var(--mode-accent, var(--accent));
+}
+
+.train-door-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.train-door-name {
+  font-size: 1.12rem;
+  font-weight: 700;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text);
+  line-height: 1.15;
+}
+
+.train-door-sub {
+  font-size: 0.79rem;
+  color: var(--text-faint);
+  line-height: 1.3;
+}
+
+.train-door--disabled .train-door-sub {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* The play chevron. Not a second tap target — the whole door is the button —
+   so it takes no pointer events and exists purely to say "this starts". */
+.train-door-go {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--mode-accent, var(--primary));
+  color: #fff;
+  pointer-events: none;
+}
+
+.train-door--disabled .train-door-go {
+  display: none;
+}
+
+/* ── The tiles ── */
+.train-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  min-height: 92px;
+  padding: 0.6rem 0.55rem 0.55rem;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-card);
+  /* The DOMAIN's colour on the top edge — not the exercise's, which stays on the
+     icon and the number. Three tiles to a row means a left bar would read as a
+     stripe between columns; a top edge bands the grid horizontally, which is how
+     the eye groups a run of them. */
+  border-top: 2px solid var(--domain-accent, var(--mode-accent, var(--border-card)));
+  border-radius: 10px;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.12s, box-shadow 0.12s, transform 0.08s;
+}
+
+.train-tile:not(.train-tile--disabled):hover {
+  border-color: var(--domain-accent, var(--mode-accent, var(--primary)));
+  box-shadow: var(--shadow-card);
+}
+
+.train-tile:not(.train-tile--disabled):active {
+  transform: scale(0.98);
+}
+
+.train-tile--disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+.train-tile-icon {
+  display: inline-flex;
+  color: var(--mode-accent, var(--accent));
+}
+
+.train-tile-name {
+  font-size: 0.79rem;
+  font-weight: 600;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text);
+  line-height: 1.2;
+  /* The name takes whatever height it needs and the stat is pushed to the
+     bottom, so a one-line and a two-line tile still align their numbers. */
+  flex: 1;
+}
+
+.train-tile-stat {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--mode-accent, var(--text-faint));
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  min-height: 0.68rem;
+}
+
+/* ── The readouts drawer ── */
+.train-extras {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.train-extras + .train-extras {
+  margin-top: calc(var(--space-sm) * -1 + 2px);
+}
+
+.train-extras-head {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.train-extras-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--mode-accent, var(--accent)) 13%, transparent);
+  color: var(--mode-accent, var(--accent));
+}
+
+.train-extras-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.train-extras-name {
+  font-size: 0.88rem;
+  font-weight: 700;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--text);
+}
+
+.train-extras-sub {
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.train-extras-chev {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--text-faint);
+  transition: transform 0.16s ease;
+}
+
+.train-extras--open .train-extras-chev {
+  transform: rotate(180deg);
+}
+
+/* The blocks inside a drawer bring their own side margins (they were written as
+   top-level pane blocks), so they sit one step further in than the drawer edge.
+   That extra indent is wanted here — it is what makes a drawer read as nested
+   rather than as more page. */
+.train-extras-body {
+  padding-bottom: var(--space-sm);
+  border-top: 1px solid var(--hairline-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .train-extras-chev { transition: none; }
+}
+
+/* Desktop: the same grid, more columns. The doors and drawers span whatever the
+   count is, so nothing here needs a second breakpoint. */
+@media (min-width: 700px) {
+  .train-room { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
 @media (min-width: 960px) {
-  .train-pane-openings:not([hidden]):has(> .train-col) {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    /* No column-gap: the blocks' own var(--space-lg) side margins already meet
-       in the middle, giving an inner gutter of exactly twice the outer inset —
-       the same rhythm the rest of the app uses. */
-    align-items: start;
-  }
-
-  .train-col {
-    display: block;
-    min-width: 0;
-  }
-
-  /* The hero and the sections carry different top margins (--space-lg vs
-     --space-xl), which reads as a wobble once they head two columns side by
-     side. Level the tops; everything below keeps its own spacing. */
-  .train-col > :first-child {
-    margin-top: var(--space-lg);
-  }
-
-  /* The carousel board is sized from its slide, which was the full phone width.
-     Half of a desktop pane is far wider than a board wants to be — cap it and
-     centre it in the slide. The slide itself stays 100%-wide, so the scroll
-     snapping (which steps by track width) is untouched. */
-  .train-col .forgotten-board {
-    width: min(100%, 340px);
+  .train-room {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    max-width: 1100px;
     margin-inline: auto;
-  }
-
-  /* Match the board: the Fix-it button stops stretching the full column width. */
-  .train-col .forgotten-fix-btn {
-    align-self: center;
-    min-width: 220px;
   }
 }
 
@@ -14236,9 +14435,6 @@ html:has(> body > .edit-overlay) > body {
 
 /* The Train 2×2 mode tabs — the active mode gets the house cyan halo (its fill
    is the mode's own accent, so the glow, not the fill, is what says "gamer"). */
-[data-theme="gamer"] .train-tabs .lines-tab.active {
-  box-shadow: 0 0 14px rgba(39, 224, 255, 0.45), 0 0 4px rgba(39, 224, 255, 0.55);
-}
 
 /* Bottom-nav active tab — cyan text, glowing icon + label (text-shadow only). */
 [data-theme="gamer"] .tab-item.active {
@@ -15962,12 +16158,6 @@ html:has(> body > .edit-overlay) > body {
 /* ── Puzzles tab ──────────────────────────────────────────────────────────────
    The opening picker (puzzles-screen.ts). The solver overlay reuses the .pt-*
    drill styles; only its themes strip and Next button are new (further down). */
-.pz-screen {
-  padding: var(--space-lg);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-}
 .pz-intro {
   margin: 0;
   color: var(--text-muted);
@@ -16146,14 +16336,11 @@ html:has(> body > .edit-overlay) > body {
   line-height: 1.4;
 }
 
-/* ══ Puzzles tab — reshaped (hero / Time Attack / practice) ══════════════════ */
+/* ══ Tactics — the hero and the by-opening list, inside the readouts drawer ══ */
 
-/* The page already pads + gaps via .pz-screen, so neutralise the inset margins
-   the shared .section / .train-hero carry, and let the flex gap do the spacing. */
-.pz-screen > .section,
-.pz-screen > .train-hero { margin: 0; }
-
-/* Today hero — the Daily Rated Mix front door (mirrors the Training hero). */
+/* Today hero — the Daily Rated Mix figures. It was this pane's front door; the
+   Tactics DOOR starts that run now, so what is left here is the rating and the
+   day's tally, read rather than pressed. */
 .pz-hero { padding: var(--space-lg); }
 .train-hero-stat--solved .train-hero-stat-num { color: var(--success); }
 .train-hero-stat--missed .train-hero-stat-num { color: var(--danger); }
@@ -17233,12 +17420,6 @@ html:has(> body > .edit-overlay) > body {
 .fs-tile-v--warn { color: var(--warn); }
 
 /* ── Mistake retry pane (the Train tab body) ── */
-.mistakes-screen {
-  display: flex;
-  flex-direction: column;
-  padding-bottom: var(--space-xl);
-}
-
 .mistakes-hero {
   margin: var(--space-lg) var(--space-lg) 0;
 }
@@ -17437,25 +17618,23 @@ html:has(> body > .edit-overlay) > body {
 .mr-scan-stop { width: 100%; }
 
 /* ── End game screen ─────────────────────────────────────────────────────────
-   Two pillars: rated endgame puzzles (a train-hero card) and the Classic
-   endgames list (grouped position cards). Deep teal accent, matching the tab. */
-.eg-screen {
-  --eg-accent: #33677a;
-  /* Match the other training modes: the page pads + gaps itself (like .pz-screen),
-     instead of leaning on the shared .section inset margins (Fix 1). */
-  padding: var(--space-lg);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-}
-[data-theme="dark"] .eg-screen,
-[data-theme="game"] .eg-screen,
-[data-theme="gamer"] .eg-screen { --eg-accent: #6fa8bd; }
+   Rated endgame puzzles, the Classic endgames list and the ones found in your
+   games. Deep teal accent, matching the domain's door and tiles.
 
-/* Neutralise the inset margins .section / .train-hero carry, so the screen's own
-   padding + gap set the frame (mirrors .pz-screen). */
-.eg-screen > .section,
-.eg-screen > .train-hero { margin: 0; }
+   --eg-accent hangs off :root rather than off a screen wrapper. It used to be
+   declared on .eg-screen, which was the element endgame-screen.ts rendered into
+   — and that wrapper is gone: the domain's blocks are now children of the Train
+   room's grid and of its readouts drawer, with no ancestor of their own to carry
+   a variable. Nine rules below read it, so a token that resolved only inside a
+   wrapper would silently fall back to nothing. */
+:root {
+  --eg-accent: #33677a;
+}
+[data-theme="dark"],
+[data-theme="game"],
+[data-theme="gamer"] {
+  --eg-accent: #6fa8bd;
+}
 
 /* Puzzles hero */
 .eg-hero .train-hero-stats { justify-content: center; gap: var(--space-lg); }

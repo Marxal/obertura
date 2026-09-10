@@ -10,6 +10,7 @@
 //     imported games (endgame-scan.ts) and played out the same way.
 
 import { Icons } from './icons';
+import { buildDoor, buildTile, buildExtras, openExtrasAt, DOMAIN_ACCENT } from './train-doors';
 import { fetchNextPuzzle } from './puzzles';
 import {
   startPuzzleSession, type PuzzleDraw, type AnalyseRequest,
@@ -79,6 +80,9 @@ const ROUND_THEMES: { theme: PuzzleTheme; symbol: string }[] = [
   ...SPECIFIC_THEMES,
 ];
 const PUZZLE_COUNT = 8;
+// This domain's colour — door, tiles and readouts. Every exercise here wears it,
+// so no tile needs a domainAccent of its own.
+const ENDGAME_ACCENT = DOMAIN_ACCENT.endgames;
 // Cap the "From your games" carousel to a handful; once you've played them, the
 // ones you've done rotate to the back so fresh spots surface (up to this many).
 const FROM_GAMES_MAX = 6;
@@ -182,10 +186,11 @@ function guessCategory(fen: string): EndgameCategory {
 }
 
 export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps): void {
+  // `host` is this domain's slice of the Train room, `display: contents` — see
+  // train-doors.ts. Everything appended lands in the shared grid and finds its
+  // band from its own class, so there is no wrapper element.
   host.innerHTML = '';
-  const root = document.createElement('div');
-  root.className = 'eg-screen';
-  host.appendChild(root);
+  const root = host;
 
   let firstRender = true;
   // Imported games for the "From your games" section, loaded once (null = loading).
@@ -204,11 +209,60 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
 
   const rebuild = (): void => {
     root.innerHTML = '';
-    root.appendChild(renderPuzzles(firstRender));
-    root.appendChild(renderFromGames());
-    root.appendChild(renderClassics());
+
+    // The door: the rated ladder over every endgame theme, which was already
+    // this pane's wide button. The piece shortcuts that used to sit under it as
+    // a "pick, then launch" row are four tiles now — a shortcut you have to
+    // select before pressing something else is not a shortcut.
+    root.appendChild(buildDoor({
+      accent: ENDGAME_ACCENT,
+      icon: Icons.flag(24),
+      name: 'Endgames',
+      sub: `${PUZZLE_COUNT} rated puzzles · rating ${getPuzzleRating('endgame')}`,
+      onClick: () => runEndgamePuzzles('all', deps, rebuild),
+    }));
+
+    for (const tile of buildEndgameTiles()) root.appendChild(tile);
+
+    const extras = buildExtras({
+      id: 'endgames',
+      accent: ENDGAME_ACCENT,
+      icon: Icons.flag(20),
+      name: 'Endgames',
+      sub: 'your ladder, the classics you have beaten, and the ones from your games',
+      body: [renderPuzzles(firstRender), renderFromGames(), renderClassics()],
+    });
+    if (extras) root.appendChild(extras);
     firstRender = false;
   };
+
+  // ── The tiles ───────────────────────────────────────────────────────────────
+  function buildEndgameTiles(): HTMLElement[] {
+    const tiles: HTMLElement[] = SPECIFIC_THEMES.map(({ theme }) => buildTile({
+      accent: ENDGAME_ACCENT,
+      icon: Icons.flag(20),
+      name: THEME_LABEL[theme],
+      onClick: () => runEndgamePuzzles(theme, deps, rebuild),
+    }));
+
+    // The two play-it-out halves. Both open their list in the drawer below
+    // rather than launching straight into a position: which classic to play,
+    // and which of your own endgames, are genuine choices with a board apiece,
+    // so a tile that picked one for you would be picking at random.
+    tiles.push(buildTile({
+      accent: ENDGAME_ACCENT,
+      icon: Icons.book(20),
+      name: 'Classics',
+      onClick: () => openExtrasAt('endgames', 'eg-classics'),
+    }));
+    tiles.push(buildTile({
+      accent: ENDGAME_ACCENT,
+      icon: Icons.scout(20),
+      name: 'From games',
+      onClick: () => openExtrasAt('endgames', 'eg-fg-section'),
+    }));
+    return tiles;
+  }
 
   // ── Endgame puzzles ─────────────────────────────────────────────────────────
   function renderPuzzles(animate: boolean): HTMLElement {
@@ -221,45 +275,16 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
     stats.appendChild(heroStat('run', getBestCleanStreak('endgame'), 'Best run', animate));
     hero.appendChild(stats);
 
-    // Which theme the round buttons have selected — "All" by default. Picking a
-    // round button only sets this; the main button below launches the run.
-    let selected: PuzzleTheme = 'all';
-
-    // The wide launch button — its title names the chosen theme (Fix: pick
-    // first, then start), and stays on one line inside the full-width button.
+    // The wide launch button. It used to be half of a "pick a piece, then press
+    // this" pair; the pieces are tiles now, so this one is simply the all-themes
+    // run — the same thing the door starts, kept here because the hero is where
+    // the rating it moves is shown.
     const start = document.createElement('button');
     start.type = 'button';
     start.className = 'btn-primary train-hero-start eg-hero-start';
-    const paintStart = (): void => {
-      start.replaceChildren(Icons.puzzlePiece(18), document.createTextNode(START_LABEL[selected]));
-    };
-    paintStart();
-    start.addEventListener('click', () => runEndgamePuzzles(selected, deps, rebuild));
+    start.replaceChildren(Icons.puzzlePiece(18), document.createTextNode(START_LABEL.all));
+    start.addEventListener('click', () => runEndgamePuzzles('all', deps, rebuild));
     hero.appendChild(start);
-
-    // The round selector: an "All" circle plus the piece shortcuts, one row.
-    const pieces = document.createElement('div');
-    pieces.className = 'eg-piece-row';
-    const roundBtns: { theme: PuzzleTheme; el: HTMLButtonElement }[] = [];
-    const syncActive = (): void => {
-      for (const { theme, el } of roundBtns) {
-        const on = theme === selected;
-        el.classList.toggle('eg-piece-btn--active', on);
-        el.setAttribute('aria-pressed', String(on));
-      }
-    };
-    for (const { theme, symbol } of ROUND_THEMES) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'eg-piece-btn' + (theme === 'all' ? ' eg-piece-btn--all' : '');
-      btn.textContent = symbol;
-      btn.setAttribute('aria-label', `${THEME_LABEL[theme]} endgames`);
-      btn.addEventListener('click', () => { selected = theme; syncActive(); paintStart(); });
-      roundBtns.push({ theme, el: btn });
-      pieces.appendChild(btn);
-    }
-    syncActive();
-    hero.appendChild(pieces);
 
     const note = document.createElement('div');
     note.className = 'pz-hero-note';

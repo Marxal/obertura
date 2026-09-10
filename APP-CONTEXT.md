@@ -198,7 +198,7 @@ a different screen.
 
 ### 3.5 The `liveDaily` indirection
 
-`renderTrainTabbed()` rebuilds the whole Train screen from scratch, including the
+`renderTrainRoom()` rebuilds the whole Train screen from scratch, including the
 daily card and its launchers. Anything holding the *old* closures then writes
 into detached nodes. So completions and the "Next challenge →" chain go through
 the module-level `liveDaily` box, and the newest render always owns it. Read the
@@ -421,49 +421,104 @@ days late outranks a 90-day move two days late).
   `struggle`, and the `modeLabel`/`modeIcon`/`modeAccent`/`contextLabel` set that
   paints `run-header.ts`.
 
-### 6.3 The Train screen
+### 6.3 The Train screen — four doors, one tile grid, four drawers
 
-`main.ts:renderTrainTabbed()` owns the shared daily-challenge card above four
-tabs, each with its own accent wash (`data-train-mode`, `--train-accent`):
+`main.ts:renderTrainRoom()` (was `renderTrainTabbed`). The tab strip is **gone**.
+Train is now the daily-challenge card above one `.train-room` grid holding three
+bands:
 
-| Tab | Renderer | Accent |
+| Band | What's in it | CSS `order` |
 |---|---|---|
-| **Openings** | `train-screen.ts` | app green |
-| **Puzzles** | `puzzles-screen.ts` | `#c4741d` |
-| **Middle game** | `mistakes-screen.ts` | `#a3492e` |
-| **End game** | `endgame-screen.ts` | `#33677a` |
+| **Doors** | Four full-width cards, one per domain. One tap starts that domain's flagship. | 10 |
+| **Tiles** | Every other exercise in the app, three across on a phone, in domain order. | 30 |
+| **Drawers** | One collapsed `.train-extras` per domain, holding its readouts. | 50 |
 
-The **Openings** pane (`train-screen.ts`, 2,572 lines) is: the due hero (when
-anything is due), the Practise menu, and the "Forgotten moves" block. On desktop
-those split into a *do next* column and a *state* column.
+The two band labels ("More ways to train", "Where you stand") are children of the
+room itself and sort at 20 and 40.
+
+**The four doors, and what one tap starts:**
+
+| Door | Starts | Lives in |
+|---|---|---|
+| **Openings** | a repertoire run — every move asked once | `train-screen.ts` |
+| **Middlegame** | the mix — 3 which-move, 6 mistakes, 2 detective, 3 brilliancies | `mistakes-screen.ts` |
+| **Tactics** | the Daily Rated Mix, 10 rated puzzles | `puzzles-screen.ts` |
+| **Endgames** | the rated endgame ladder, all themes | `endgame-screen.ts` |
+
+Each was already its pane's wide hero button, so the restructure promoted what
+existed rather than building anything new.
+
+**How four screens share one grid — read this before touching any of them.**
+Each of the four still gets ONE host and still re-renders itself alone; no
+session machinery moved, and it did not have to, because every drill is a
+`position: fixed` overlay on `<body>` (§3.3) — a screen's host was only ever the
+thing to redraw on the way back. What sorts four hosts' output into three bands
+is CSS: every `.train-domain` host is `display: contents`, so its children become
+items of the shared grid, and each kind of child carries an `order`. **DOM order
+decides the order within a band; `order` decides the band.** A domain repainting
+itself replaces only its own children and they land back correctly, because the
+band is a class and not a position.
+
+Consequence to remember: all four render on every Train paint, where the old
+tabs rendered lazily one at a time. That is four IndexedDB reads instead of one,
+in parallel; the heavy work (the mistake and endgame scans) was already a
+background pass with its own state, so nothing else changed.
+
+`train-doors.ts` owns `buildDoor` / `buildTile` / `buildExtras` /
+`buildRegionLabel` / `openExtrasAt`, plus `DOMAIN_ACCENT` — the four domain
+colours, in one place because five modules need them.
+
+**Two colours per tile, on purpose.** A tile carries the EXERCISE's accent on its
+icon and its number, and the DOMAIN's on its top edge (`--mode-accent` and
+`--domain-accent`). Several exercises own a colour their overlay wears too
+(`exercise-identity.ts` — a Time attack header is gold because the thing that
+started it was gold), so flattening tiles to one colour per domain would have
+broken that link. The top edge bands the grid; the icon keeps each tile itself.
+
+**Readouts are not modes.** Anything you *read* rather than *start* goes in that
+domain's drawer, collapsed, its open/closed state held module-level in
+`train-doors.ts` so it survives the re-render a session causes on the way back:
+the due hero and Forgotten moves (Openings), the scan hero and the latest-
+mistakes carousel (Middlegame), the today hero, by-opening list and themes
+(Tactics), the ladder hero, classics and from-your-games (Endgames). Two tiles —
+Classics and From games — are lists to choose from rather than one-tap runs, so
+they call `openExtrasAt()` to open the drawer and scroll to their block.
 
 ### 6.4 The training unlock
 
 `TRAINING_UNLOCK_LINES = 3` (`training-goal.ts`, which imports nothing so it stays
-Node-safe). Below three saved lines the Practise menu is greyed out and the due
-hero stays away — a session built from one line teaches the user that the loop is
-trivial. **Not** locked: the confirm run a line goes through on save, and a
-"Drill" button on a named line elsewhere.
+Node-safe). Below three saved lines the Openings door and its tiles are greyed out
+and the due hero stays away — a session built from one line teaches the user that
+the loop is trivial. **Not** locked: the confirm run a line goes through on save,
+and a "Drill" button on a named line elsewhere.
 
-### 6.5 The six practice modes
+### 6.5 The practice modes
 
-`renderModeCards()` in `train-screen.ts`; the same list is explained behind the
-(i) in `openPracticeInfo()` — a mode added to one and not the other is an obvious
+The Openings door starts a repertoire run. `buildOpeningTiles()` in
+`train-screen.ts` builds the rest; the same list is explained behind the "About"
+tile in `openPracticeInfo()` — a mode added to one and not the other is an obvious
 omission because they sit together.
 
-| Mode | Accent | What it asks |
+| Tile | Accent | What it asks |
 |---|---|---|
-| **Time attack** | gold | single positions against the clock (1/3/5 min), own personal bests; falls back to paused and shallow lines so it works early |
-| **Review missed moves** | terracotta | single moves you have actually got wrong, no run-up |
-| **Repertoire run** | indigo | one walk of the whole book, every move asked **once** (`repertoire-run.ts`) |
-| **Drill new lines** | green | full runs of the newest lines |
-| **Target weak areas** | plum | full runs of the weakest lines |
+| **Time attack** | gold | single positions against the clock for **3 minutes**, one personal best; falls back to paused and shallow lines so it works early |
+| **Missed moves** | terracotta | single moves you have actually got wrong, no run-up |
+| **Whole lines** | indigo | the due pile walked as whole lines — the other route through what the door runs as moves |
+| **New lines** | green | full runs of the newest lines |
+| **Weak areas** | plum | full runs of the weakest lines |
 | **Prep** | teal | full runs of opponent-tagged lines; only appears once some exist |
 
 **Repertoire run** deserves its own note: a session of line walks re-asks the
 shared opening once per line. Write-through fixes the *score* afterwards
 (TRANSPOSITIONS §8); it cannot give back the minutes. A repertoire run walks the
-tree depth-first instead, so the dedupe is structural.
+tree depth-first instead, so the dedupe is structural — which is exactly why it,
+and not the line walk, is what the door starts.
+
+**One length for every timed mode.** Time attack (openings) was 1/3/5 minutes,
+Time attack (tactics) 3/5/10 across two sources; both are **3 minutes** now, and
+Time pressure always was one length. Three modes, one number each to beat. The
+records at the retired lengths are still on disk and simply unread — `TIMED_DURATIONS`
+and `TA_TIMES` survive only so "Reset progress" still clears all of them.
 
 ### 6.6 Enrolment and the confirm run
 
@@ -897,7 +952,7 @@ non-simple CORS request Lichess won't preflight from a browser, so the fetch
 throws and no puzzle ever loads. Repeat-avoidance is handled locally instead
 (`puzzle-log.ts`'s seen-id ring). The dashboard endpoint does need the token.
 
-Three modes (`puzzles-screen.ts`):
+The **Tactics** domain (`puzzles-screen.ts`). The door starts the Daily Rated Mix; the rest are tiles:
 
 - **Daily Rated Mix** — the flagship and the *only* rated mode. 10 puzzles from
   your repertoire and your games; moves your personal puzzle Elo.
@@ -1471,6 +1526,7 @@ Every non-selftest module in `src/`, exactly once.
 | `dialog.ts` | the shared bottom-sheet dialog |
 | `toast.ts` | the one transient status toast |
 | `info-sheet.ts` | the shared "what is this?" popup behind (i) buttons |
+| `train-doors.ts` | the Train room's chrome — doors, tiles, drawers, the domain palette |
 | `empty-state.ts` | the one "nothing here yet" pattern |
 | `load-error.ts` | the shared "data wouldn't load" + Retry panel |
 | `fab.ts` | the floating action button on the main tabs |
@@ -1518,7 +1574,7 @@ Every non-selftest module in `src/`, exactly once.
 | `scheduler.ts` | the spaced-repetition brain (SM-2), pure, zero DOM |
 | `session.ts` | a training session — an ordered queue of lines |
 | `drill.ts` | the training session runner — the main drill overlay |
-| `train-screen.ts` | the Train → Openings pane |
+| `train-screen.ts` | the Openings domain of the Train room |
 | `training-goal.ts` | the three-line goal, shared by four screens |
 | `pretraining.ts` | enrol a line straight into training with no confirm run |
 | `repertoire-run.ts` | one walk through a book, asking each move once |
@@ -1549,7 +1605,7 @@ Every non-selftest module in `src/`, exactly once.
 | `mistake-scan.ts` | the scan that turns imported games into training material |
 | `mistake-autoscan.ts` | the same scan, run quietly in the background |
 | `mistake-run.ts` | the Mistake Retry drill overlay |
-| `mistakes-screen.ts` | the Middle game pane on Train |
+| `mistakes-screen.ts` | the Middlegame domain of the Train room |
 | `brilliant.ts` | Brilliant Moves — the "find it again" source |
 | `brilliant-run.ts` | its drill |
 | `brilliant-log.ts` | its "come back after a while" store |
@@ -1640,14 +1696,14 @@ Every non-selftest module in `src/`, exactly once.
 | Module | |
 |---|---|
 | `puzzles.ts` | the free Lichess Puzzle API client, and opening mapping |
-| `puzzles-screen.ts` | the Puzzles tab |
+| `puzzles-screen.ts` | the Tactics domain of the Train room |
 | `puzzle-run.ts` | the puzzle-solving overlay |
 | `puzzle-rating.ts` | the personal puzzle Elo + speed bonus |
 | `puzzle-repeat.ts` | the spaced-repetition-lite repeat queue |
 | `puzzle-alt.ts` | "is this other move just as good?" |
 | `puzzle-log.ts` | device-local record of puzzles solved |
 | `puzzle-themes.ts` | the bundled Lichess theme catalogue |
-| `endgame-screen.ts` | the End game tab — three pillars |
+| `endgame-screen.ts` | the Endgames domain — ladder, classics, from your games |
 | `endgame-catalog.ts` | the bundled fundamental-endgame catalogue |
 | `endgame-playout.ts` | play a classic endgame out against the engine |
 | `endgame-scan.ts` | "from your games" — the endgames you reached |

@@ -43,6 +43,7 @@ import {
 import { handlePurchaseReturn } from './checkout';
 import { primePricing } from './pricing';
 import { renderTrainScreen, startLineSession, startPositionsSession, startMoveFix } from './train-screen';
+import { buildRegionLabel } from './train-doors';
 import { renderExploreScreen } from './explore-screen';
 import { renderPuzzlesScreen, startDailyPuzzles } from './puzzles-screen';
 import { renderMistakesScreen } from './mistakes-screen';
@@ -4333,21 +4334,11 @@ function updateHeaderTitle(): void {
   el.classList.toggle('header-title--screen', !onTab);
 }
 
-// The Train screen's four modes as a 2×2 grid of chunky tabs: Openings (the
-// training home), Puzzles, Mistake retry (positions from your own games) and
-// End game (a placeholder until that round happens). The active pane is
-// rendered lazily so each screen's render side effects only run when shown.
-type TrainTab = 'openings' | 'puzzles' | 'mistakes' | 'endgame';
-let trainTab: TrainTab = 'openings';
-
-// Each mode's colour, used as the active tab fill (white label — all four hues
-// keep it readable) and the inactive icon tint. Static across themes, like the
-// Practise cards' MODE_ACCENT palette.
-const TRAIN_TAB_ACCENT: Record<Exclude<TrainTab, 'openings'>, string> = {
-  puzzles: '#c4741d',  // warm orange — the puzzle gold family, pushed toward orange
-  mistakes: '#a3492e', // ember — corrective, kin to the review reds
-  endgame: '#33677a',  // deep teal — the long game
-};
+// The Train screen's four domains used to be four tabs, each hiding a pane. They
+// are now four doors and one shared tile grid, all four rendered at once — see
+// train-doors.ts for why, and .train-room in style.css for how. Their colours
+// live in train-doors.ts's DOMAIN_ACCENT, where the four screens can reach them
+// without importing this file.
 
 // Everything on today's daily challenge is done. Stamp the day, gather the recap
 // and show the celebration — once the finishing task's own results screen has
@@ -4383,8 +4374,9 @@ function celebrateDaily(config: DailyConfig, active: DailyTaskId[], allLines: Li
  * THE LIVE DAILY CHALLENGE — repaint + launch, always pointing at the Train
  * screen that is actually on screen.
  *
- * showView('train') calls renderTrainTabbed, which rebuilds the whole Train
- * screen from scratch: new panes, a new daily host, a new renderDaily closure.
+ * showView('train') calls renderTrainRoom, which rebuilds the whole Train
+ * screen from scratch: new domain hosts, a new daily host, a new renderDaily
+ * closure.
  * Anything holding the OLD closures is then writing into detached nodes.
  *
  * That is not hypothetical. Finish the last puzzle of the daily challenge, tap
@@ -4392,7 +4384,7 @@ function celebrateDaily(config: DailyConfig, active: DailyTaskId[], allLines: Li
  * results": the puzzle overlay is still the one from before, so its onComplete
  * ticked the task off in storage and repainted a card that was no longer in the
  * document — the visible card sat there un-ticked. The "Next challenge →" chain
- * was worse: it rendered the next session into a detached pane, so nothing
+ * was worse: it rendered the next session into a detached host, so nothing
  * happened at all.
  *
  * So a suspended session reaches the daily challenge through here instead, and
@@ -4403,43 +4395,50 @@ let liveDaily: {
   launch: (id: DailyTaskId) => void;
 } | null = null;
 
-function renderTrainTabbed(host: HTMLElement): void {
+function renderTrainRoom(host: HTMLElement): void {
   host.innerHTML = '';
 
-  const tabs = document.createElement('div');
-  tabs.className = 'lines-tabs train-tabs';
-  const mkTab = (tab: TrainTab, label: string, icon: SVGElement, accent?: string): HTMLButtonElement => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'lines-tab';
-    btn.dataset.tab = tab;
-    if (accent) btn.style.setProperty('--tab-accent', accent);
-    icon.classList.add('lines-tab-icon');
-    btn.appendChild(icon);
-    const span = document.createElement('span');
-    span.className = 'lines-tab-label';
-    span.textContent = label;
-    btn.appendChild(span);
-    btn.addEventListener('click', () => { if (trainTab !== tab) { trainTab = tab; paint(); } });
-    return btn;
-  };
-  tabs.appendChild(mkTab('openings', 'Openings', Icons.pawn(22)));
-  tabs.appendChild(mkTab('puzzles', 'Puzzles', Icons.puzzlePiece(22), TRAIN_TAB_ACCENT.puzzles));
-  tabs.appendChild(mkTab('mistakes', 'Middle game', Icons.swords(22), TRAIN_TAB_ACCENT.mistakes));
-  tabs.appendChild(mkTab('endgame', 'End game', Icons.flag(22), TRAIN_TAB_ACCENT.endgame));
-
-  // The daily-challenge card sits above the tabs — it spans all the modes, so
-  // it's the shared daily face of the Train screen.
+  // The daily-challenge card sits above the room — it deals from all four
+  // domains, so it's the shared daily face of the Train screen. (When Home
+  // lands, this is the block that moves there.)
   const dailyHost = document.createElement('div');
   dailyHost.className = 'daily-host';
-  // The Openings pane carries a class so CSS can give it its own desktop layout
-  // (two columns above $desktop-nav — see .train-pane-openings in style.css).
-  const openingsPane = document.createElement('div');
-  openingsPane.className = 'train-pane-openings';
-  const puzzlesPane = document.createElement('div');
-  const mistakesPane = document.createElement('div');
-  const endgamePane = document.createElement('div');
-  host.append(dailyHost, tabs, openingsPane, puzzlesPane, mistakesPane, endgamePane);
+
+  // The room: one grid, four domain hosts. Every host is `display: contents`,
+  // so the doors, tiles and readouts the four of them render sort themselves
+  // into three bands by CSS `order` rather than by DOM position — which is what
+  // lets each domain keep rendering into its own host, and re-rendering itself
+  // alone, exactly as it did when it owned a pane.
+  const room = document.createElement('div');
+  room.className = 'train-room';
+
+  const domainHost = (name: string): HTMLElement => {
+    const el = document.createElement('div');
+    el.className = 'train-domain';
+    el.dataset.domain = name;
+    return el;
+  };
+  const openingsPane = domainHost('openings');
+  const puzzlesPane = domainHost('puzzles');
+  const mistakesPane = domainHost('mistakes');
+  const endgamePane = domainHost('endgame');
+
+  // The two band labels. They are children of the room rather than of any one
+  // domain (no domain owns them) and take their place in the sort order from
+  // their own classes.
+  const tilesLabel = buildRegionLabel('More ways to train');
+  tilesLabel.classList.add('train-region-label--tiles');
+  const extrasLabel = buildRegionLabel('Where you stand');
+  extrasLabel.classList.add('train-region-label--extras');
+
+  // DOM order here decides only the order WITHIN a band: doors read Openings,
+  // Middlegame, Tactics, Endgames because that is the order these four are
+  // appended, and the tiles band bands by colour for the same reason.
+  room.append(
+    openingsPane, mistakesPane, puzzlesPane, endgamePane,
+    tilesLabel, extrasLabel,
+  );
+  host.append(dailyHost, room);
 
   // This render's launchers, filled in once renderDaily has read the data it
   // needs. Held in a box rather than captured so `liveDaily` below can be set
@@ -4568,15 +4567,14 @@ function renderTrainTabbed(host: HTMLElement): void {
 
     const launchers: Record<DailyTaskId, () => void> = {
       lines: () => {
-        // Drill today's lines on the Openings pane; mark that task done when the
-        // whole sitting finishes, then refresh the card behind the overlay.
-        if (trainTab !== 'openings') { trainTab = 'openings'; paint(); }
+        // Drill today's lines through the Openings domain; mark that task done
+        // when the whole sitting finishes, then refresh the card behind the
+        // overlay. No tab to switch to any more — every domain is on screen.
         startLineSession(dailyLines, openingsPane, finish(markLinesDone), nextFor('lines'),
           'Daily challenge');
       },
       positions: () => {
-        // Same pane, but a stream of single due positions rather than whole lines.
-        if (trainTab !== 'openings') { trainTab = 'openings'; paint(); }
+        // Same domain, but a stream of single due positions rather than whole lines.
         startPositionsSession(allLines, openingsPane, config.tasks.positions.count,
           finish(markPositionsDone), nextFor('positions'), 'Daily challenge');
       },
@@ -4586,15 +4584,13 @@ function renderTrainTabbed(host: HTMLElement): void {
           openPuzzleFromSession);
       },
       endgames: () => {
-        // Rated endgame puzzles (the End game ladder) — its own overlay, no tab
-        // switch needed.
+        // Rated endgame puzzles (the Endgames ladder) — its own overlay.
         startDailyEndgamePuzzles(config.tasks.endgames.count,
           finish(markEndgamesDone), nextFor('endgames'),
           openPuzzleFromSession);
       },
       mistakes: () => {
-        // A short mixed set from the scanned spots — runs as its own overlay,
-        // so no tab switch is needed.
+        // A short mixed set from the scanned spots — runs as its own overlay.
         const done = finish(markMistakesDone);
         startMistakeSession({
           // Read the shared rest at LAUNCH, not when the card was built: the
@@ -4607,7 +4603,7 @@ function renderTrainTabbed(host: HTMLElement): void {
           // just handed you.
           contextLabel: 'Daily challenge',
           onComplete: (s) => done({ right: s.solved, wrong: Math.max(0, s.completed - s.solved) }),
-          onExit: () => { if (trainTab === 'mistakes') paint(); },
+          onExit: () => paintMistakes(),
           onOpenGame: openGameFromSession,
           nextAction: nextFor('mistakes'),
         });
@@ -4621,7 +4617,7 @@ function renderTrainTabbed(host: HTMLElement): void {
           refs: pickDetective(detectiveRefs, config.tasks.detective.count, dueAt),
           contextLabel: 'Daily challenge',
           onComplete: (s) => done({ right: s.solved, wrong: Math.max(0, s.completed - s.solved) }),
-          onExit: () => { if (trainTab === 'mistakes') paint(); },
+          onExit: () => paintMistakes(),
           onOpenGame: openGameFromSession,
           nextAction: nextFor('detective'),
         });
@@ -4634,7 +4630,7 @@ function renderTrainTabbed(host: HTMLElement): void {
           refs: pickWhichMove(pairRefs, config.tasks.whichMove.count, dueAt),
           contextLabel: 'Daily challenge',
           onComplete: (s) => done({ right: s.solved, wrong: Math.max(0, s.completed - s.solved) }),
-          onExit: () => { if (trainTab === 'mistakes') paint(); },
+          onExit: () => paintMistakes(),
           onOpenGame: openGameFromSession,
           nextAction: nextFor('whichMove'),
         });
@@ -4651,7 +4647,7 @@ function renderTrainTabbed(host: HTMLElement): void {
           // "Ran out" is not a wrong answer and not a right one, so it counts
           // as neither here: the day's tally is about what you saw.
           onComplete: (s) => done({ right: s.found, wrong: s.missed }),
-          onExit: () => { if (trainTab === 'mistakes') paint(); },
+          onExit: () => paintMistakes(),
           onOpenGame: openGameFromSession,
           nextAction: nextFor('timePressure'),
         });
@@ -4709,50 +4705,37 @@ function renderTrainTabbed(host: HTMLElement): void {
   };
   void renderDaily();
 
-  const paint = (): void => {
-    // A background wash in the active mode's colour, so each pane carries its
-    // identity (see #view-train[data-train-mode] in CSS). The same colour is
-    // published as --train-accent so the pane's primary buttons and accents pick
-    // it up too — Openings clears it and falls back to the app green.
-    host.dataset.trainMode = trainTab;
-    const paneAccent = trainTab === 'openings' ? null : TRAIN_TAB_ACCENT[trainTab];
-    if (paneAccent) host.style.setProperty('--train-accent', paneAccent);
-    else host.style.removeProperty('--train-accent');
-    tabs.querySelectorAll<HTMLElement>('.lines-tab').forEach(b => {
-      const on = b.dataset.tab === trainTab;
-      b.classList.toggle('active', on);
-      b.setAttribute('aria-current', on ? 'true' : 'false');
+  // All four render at once now. They used to render lazily, one tab at a time,
+  // so a pane's side effects only ran when it was shown — the cost of dropping
+  // that is four reads of IndexedDB instead of one on a cold Train. Each screen
+  // caps and caches its own heavy work (the mistake and endgame scans are
+  // background passes with their own state), so the extra reads are the whole
+  // of it, and they run in parallel.
+  const paintOpenings = (): void => {
+    renderTrainScreen(openingsPane, {
+      focusLineId: pendingTrainLineId ?? undefined,
+      onOpenLine,
+      onBuildLine: () => startNewLine('white'),
+      onSetFabVisible: (visible) => fabController?.setVisible(visible),
     });
-    openingsPane.hidden = trainTab !== 'openings';
-    puzzlesPane.hidden = trainTab !== 'puzzles';
-    mistakesPane.hidden = trainTab !== 'mistakes';
-    endgamePane.hidden = trainTab !== 'endgame';
-    if (trainTab === 'openings') {
-      renderTrainScreen(openingsPane, {
-        focusLineId: pendingTrainLineId ?? undefined,
-        onOpenLine,
-        onBuildLine: () => startNewLine('white'),
-        onSetFabVisible: (visible) => fabController?.setVisible(visible),
-      });
-      pendingTrainLineId = null;
-    } else if (trainTab === 'puzzles') {
-      void renderPuzzlesScreen(puzzlesPane, {
-        onImportGames: () => showView('games'),
-        onBuildLine: () => startNewLine('white'),
-        onConnectLichess: () => void lichessConnect(),
-        onAnalysePosition: openPuzzleFromSession,
-      });
-    } else if (trainTab === 'mistakes') {
-      void renderMistakesScreen(mistakesPane, {
-        onOpenGame: openGameFromSession,
-      });
-    } else {
-      renderEndgameScreen(endgamePane, {
-        onAnalysePosition: openPuzzleFromSession,
-      });
-    }
+    pendingTrainLineId = null;
   };
-  paint();
+  const paintMistakes = (): void => {
+    void renderMistakesScreen(mistakesPane, {
+      onOpenGame: openGameFromSession,
+    });
+  };
+  paintOpenings();
+  paintMistakes();
+  void renderPuzzlesScreen(puzzlesPane, {
+    onImportGames: () => showView('games'),
+    onBuildLine: () => startNewLine('white'),
+    onConnectLichess: () => void lichessConnect(),
+    onAnalysePosition: openPuzzleFromSession,
+  });
+  renderEndgameScreen(endgamePane, {
+    onAnalysePosition: openPuzzleFromSession,
+  });
 }
 
 // Shows #bottom-nav below DESKTOP_NAV_BREAKPOINT and #side-nav at or above it;
@@ -4854,7 +4837,7 @@ function showView(view: ViewName): void {
   }
 
   if (view === 'train') {
-    renderTrainTabbed(trainEl);
+    renderTrainRoom(trainEl);
   }
 
   if (view === 'progress') {
