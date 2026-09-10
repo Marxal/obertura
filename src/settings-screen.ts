@@ -53,7 +53,10 @@ import {
 } from './import-panel';
 import { countGames, resetAllProgress, eraseAllData } from './storage';
 import { getAutoRefreshEnabled, setAutoRefreshEnabled, getLastGamesRefresh } from './auto-refresh';
-import { getAutoScanEnabled, setAutoScanEnabled, startAutoScan } from './mistake-autoscan';
+import {
+  getAutoScanEnabled, setAutoScanEnabled, startAutoScan,
+  suspendAutoScan, resumeAutoScan,
+} from './mistake-autoscan';
 import { startEndgameAutoScan, stopEndgameAutoScan } from './endgame-autoscan';
 import { clearTrainingDays, clearReviewedToday, clearReviewLog } from './streak';
 import { clearPuzzleLog } from './puzzle-log';
@@ -63,6 +66,8 @@ import { clearForgottenMoves } from './forgotten-moves';
 import { clearPuzzleRepeat } from './puzzle-repeat';
 import { clearBrilliantLog } from './brilliant-log';
 import { clearTaBest } from './puzzles-screen';
+import { resetMistakeScans } from './mistake-scan';
+import { clearMiddleLogs } from './middle-log';
 import { clearEndgameProgress } from './endgame-progress';
 import { clearMistakeDrills } from './mistake-scan';
 import { renderBackupSection, exportBackupNow } from './backup';
@@ -1185,6 +1190,13 @@ function buildBackupGroup(): HTMLElement {
   wrap.appendChild(status);
   sec.appendChild(wrap);
 
+  // Re-read your games — the Middlegame box's own reset. It lived on that pane
+  // as a "Start these exercises again" link until the box was cut down to seven
+  // exercises and nothing else; this is where it went. It sits beside Reset
+  // progress because it is the same shape of thing — clears what you have done,
+  // keeps what you have written — and this is where a user looks for it.
+  sec.appendChild(buildRescanSubsection());
+
   // Erase everything — the true nuclear option, kept well clear of Reset
   // progress (which keeps your lines). Two-step, with a back-up-first offer.
   sec.appendChild(buildEraseSubsection());
@@ -1465,6 +1477,88 @@ function openDeleteAccountDialog(): void {
   sheet.appendChild(btnRow);
   document.body.appendChild(overlay);
 }
+
+/**
+ * "Read my games again" — the Middlegame exercises' reset.
+ *
+ * It clears the scan's findings and the three rest logs that decide what a
+ * blunder, a detective case or a which-move question is allowed to ask you
+ * next, then lets the background pass read every game from scratch. Your games
+ * and their saved analysis are untouched, so nothing you have written is lost —
+ * the same finds come back once the re-read is done.
+ */
+function buildRescanSubsection(): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'settings-reset';
+
+  const heading = document.createElement('h3');
+  heading.className = 'settings-subheading';
+  heading.textContent = 'Read my games again';
+  wrap.appendChild(heading);
+
+  const blurb = document.createElement('p');
+  blurb.className = 'section-desc';
+  blurb.textContent = 'Clears what the scan found in your games and starts the Middlegame '
+    + 'exercises over. Your games and their analysis are kept.';
+  wrap.appendChild(blurb);
+
+  const status = document.createElement('p');
+  status.className = 'settings-note';
+  status.setAttribute('aria-live', 'polite');
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn-danger';
+  btn.appendChild(Icons.reset(16));
+  btn.appendChild(document.createTextNode('Read my games again'));
+  btn.addEventListener('click', () => {
+    confirmDialog({
+      title: 'Start these exercises again?',
+      body: 'This clears every spot the scan has found and every one you have marked fixed, '
+        + 'then reads your games from scratch. Every brilliant move you have re-found, every '
+        + 'detective case you have cracked and every which-move question you have answered '
+        + 'becomes available again too.\n\nYour games and their saved analysis are untouched, '
+        + 'so nothing you have written is lost — the same finds will be there again once the '
+        + 're-read is done.',
+      confirmLabel: 'Start again',
+      danger: true,
+      onConfirm: async () => {
+        btn.disabled = true;
+        status.textContent = 'Clearing…';
+        // Stop the background pass before the wipe, or it would be halfway
+        // through writing a result for a game we are about to clear.
+        suspendAutoScan();
+        try {
+          await resetMistakeScans();
+          // The rest of that box's progress. Local and instant — no games are
+          // rewritten, the suppression logs simply stop existing.
+          clearBrilliantLog();
+          // …and the rotation on the two whole-game exercises, so every case
+          // and every question is back on the table too.
+          clearMiddleLogs();
+          // Don't promise a background pass to someone who has turned it off
+          // two rows above this one.
+          status.textContent = getAutoScanEnabled()
+            ? 'Cleared — your games are being read again.'
+            : 'Cleared. Switch background analysis on above to read them again.';
+        } catch {
+          status.textContent = 'Couldn’t reset these exercises.';
+        } finally {
+          resumeAutoScan();
+          btn.disabled = false;
+        }
+      },
+    });
+  });
+
+  const actions = document.createElement('div');
+  actions.className = 'settings-actions';
+  actions.appendChild(btn);
+  wrap.appendChild(actions);
+  wrap.appendChild(status);
+  return wrap;
+}
+
 
 // The "Erase everything" block: a heading, a plain warning, and the button that
 // opens the two-step danger dialog. Visually separated from Reset progress so

@@ -7546,6 +7546,74 @@ html:has(> body > .edit-overlay) > body {
   background: color-mix(in srgb, var(--pt-tint, transparent) 5%, var(--bg-sheet));
 }
 
+/* ── Forgotten moves: the preview carousel ───────────────────────────────────
+   Five cards side by side rather than stacked. The block costs one card's
+   height instead of two phone screens, and still shows the worst offender in
+   full — which is the one you were going to tap.
+
+   THE BLEED IS DELIBERATE. The track is pulled out to the section's padding
+   edge with a negative margin and given the same value back as padding, so the
+   first card lines up with the text above it while the rest of the row runs to
+   the screen edge — which is what tells you there is more to swipe. Without it
+   the row stops short of the edge and reads as a list that happens to be cut
+   off. Nothing here narrows the section's own margins; the compensation is
+   exact.
+
+   NOT `.forgotten-slide`: that class already belongs to the window swipe track
+   further down this file (Today / This week / All time), which is a different
+   carousel in the same component and wins by source order. */
+.fmove-strip {
+  display: flex;
+  gap: var(--space-sm);
+  margin-inline: calc(var(--space-lg) * -1);
+  padding-inline: var(--space-lg);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--space-lg);
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.fmove-strip::-webkit-scrollbar { display: none; }
+
+.fmove-card {
+  flex: 0 0 86%;
+  scroll-snap-align: start;
+  display: flex;
+}
+
+/* A peek of the next card is the whole point on a phone; on anything wider the
+   cards stop growing and simply sit in a row. */
+@media (min-width: 560px) {
+  .fmove-card { flex-basis: 300px; }
+}
+
+.fmove-card > * {
+  width: 100%;
+}
+
+/* "See all" is the last slide, not a full-width row under the track. Narrower
+   than a card, because it is a link and not one of the things being previewed. */
+.fmove-card--all {
+  flex-basis: 55%;
+}
+
+@media (min-width: 560px) {
+  .fmove-card--all { flex-basis: 190px; }
+}
+
+.fmove-card--all > .stats-see-all {
+  /* .stats-see-all is align-self: flex-end for the stacked layout it was
+     written for; in a slide that shrinks it to its text. */
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+}
+
 /* ── My games: the result bar ────────────────────────────────────────────────
    One stacked bar over the list, reading the FILTERED set. Tapping it opens
    Statistics, where win rate over time already lives. */
@@ -7641,7 +7709,7 @@ html:has(> body > .edit-overlay) > body {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  padding: 0 var(--space-xs);
+  padding: 0;
 }
 
 .home-section-title {
@@ -7813,10 +7881,16 @@ html:has(> body > .edit-overlay) > body {
   color: var(--text-fainter);
 }
 
-/* The Forgotten-moves block moved here from Train and brings its own inset. */
-.home-section > .forgotten-section,
-.home-section > div > .forgotten-section {
+/* The blocks that moved here from Train are `.section` cards, which carry their
+   own side margin AND top margin for screens whose parent isn't padded. Inside
+   .home-body — which is padded — that stacked up: Forgotten moves sat a full
+   inset further in than the "WAITING FOR YOU" label above it, on both sides.
+   The card's own padding stays; only the margin that duplicates the page inset
+   goes. Written as a descendant selector because these blocks arrive wrapped in
+   a host div, so `>` misses them. */
+.home-section .section {
   margin-inline: 0;
+  margin-top: 0;
 }
 
 @media (min-width: 700px) {
@@ -8069,7 +8143,9 @@ html:has(> body > .edit-overlay) > body {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  padding: 0 var(--space-xs);
+  /* No inline padding: a label that is 4px in from the cards it labels reads as
+     a mistake, and it is one. */
+  padding: 0;
 }
 
 .train-box-title {

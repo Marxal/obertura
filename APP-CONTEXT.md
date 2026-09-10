@@ -459,8 +459,12 @@ Three blocks, in order:
    card above is the one-tap route, and it deals from all four.
 2. **Waiting for you** — only what is true today. "Reading your games" while the
    background pass is actually running (it subscribes and takes itself down when
-   the pass ends), then Forgotten moves. An empty section renders nothing rather
-   than an "all caught up" card.
+   the pass ends), then Forgotten moves — as a **horizontal card carousel**, not
+   a stack: five of those cards is a board and four lines of text apiece, which
+   is two phone screens on a page whose job is to show you the whole app. Laid
+   across, it costs one card's height and still shows the worst offender in
+   full. "See all" rides along as the last slide. An empty section renders
+   nothing rather than an "all caught up" card.
 3. **Your app** — one row per section with its live figure: My Lines, Explore,
    My games (count plus the last opponent and date), Statistics (the streak).
 
@@ -529,7 +533,7 @@ actions nobody asks for by name — both belong on Home or in Settings:
 | the mistake stats hero + autoscan status | `mistakes-screen.ts` | Home |
 | the latest-mistakes carousel | `mistakes-screen.ts` | Home |
 | "Analyse my games" + its progress overlay (`runScan`) | `mistakes-screen.ts` | Home, as a "your games are being read" state — the scan itself runs from boot (`main.ts`) |
-| "Start these exercises again" (`buildResetLink`/`runReset`) | `mistakes-screen.ts` | Settings, with the other destructive switches |
+| "Start these exercises again" (`buildResetLink`/`runReset`) | `mistakes-screen.ts` | Settings → "Read my games again", beside Reset progress |
 
 Removing the manual scan made one pre-existing gap load-bearing, so it was
 fixed: the Settings toggle "Analyse games in the background" restarted only the
@@ -954,6 +958,26 @@ position *before* the move, and `review.ts` is responsible for the conversion.
 ---
 
 ## 12. Explore, coverage, maps and scouting
+
+### 11b. Two insets that stacked, and the class that was already taken
+
+Three small bugs from the redesign, worth naming because the shapes recur:
+
+- **`.section` inside a padded parent.** The shared `.section` card carries
+  `margin: xl lg 0` for screens whose parent isn't padded. Home's body IS
+  padded, so Forgotten moves sat a full inset further in than the label above
+  it, on both sides. `.home-section .section` drops the margin and keeps the
+  card's own padding. Written as a descendant selector because these blocks
+  arrive wrapped in a host div.
+- **Two `.lines-tab-content` nested.** `lines-screen.ts` wrapped itself in the
+  class that carries the tab body's side padding — fine as a standalone view,
+  double once it became a tab inside Openings. It renders into a plain
+  `.lines-list-body` now and the host owns the inset.
+- **`.forgotten-slide` was already taken.** The Forgotten-moves card carousel
+  picked a class the *window* swipe track in the same component already used
+  (Today / This week / All time), which wins by source order — so every card
+  came out full-width with no peek. The card strip is `.fmove-strip` /
+  `.fmove-card`. Grep before naming a class in an 18,000-line stylesheet.
 
 ### 12.1 The Openings tab
 

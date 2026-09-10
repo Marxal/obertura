@@ -35,7 +35,6 @@ import {
 } from './struggle';
 import { openMoveNoteSheet } from './note-sheet';
 import { openPositionPeek, type PeekAction } from './position-peek';
-import { renderForgottenSection } from './forgotten-section';
 import { lineTrainingCount } from './stats';
 import { lineMastered } from './line-status';
 import { formatMove } from './notation';

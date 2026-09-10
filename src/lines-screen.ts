@@ -148,14 +148,19 @@ async function doRender(container: HTMLElement, deps: LinesDeps): Promise<void> 
   }
   container.innerHTML = '';
 
-  // NO TAB BAR. This screen had two — Saved lines and "From my games" — and the
-  // second was never really about your lines: it read your GAMES and offered
-  // openings you hadn't saved yet, which is a question about what you don't
-  // have. It has moved to Explore, merged with the Recommended tab it
-  // duplicated. With one tab left, a tab bar is a title with extra steps, so the
-  // screen is simply the list and gets that row back.
+  // NO WRAPPER, AND NO TAB BAR. This screen had two tabs — Saved lines and "From
+  // my games" — and the second was never really about your lines: it read your
+  // GAMES and offered openings you hadn't saved yet. It went to Explore, and
+  // then the two screens merged outright, so this list is now the first tab of
+  // Openings (explore-screen.ts).
+  //
+  // It used to wrap itself in its own `.lines-tab-content`, which is the class
+  // that carries the tab body's side padding. Inside Openings' tab body — which
+  // is already that class — the padding applied twice, and the filter chips and
+  // every card sat a full inset further in than the tab strip above them. The
+  // host owns the inset; this renders straight into it.
   const content = document.createElement('section');
-  content.className = 'lines-tab-content';
+  content.className = 'lines-list-body';
   container.appendChild(content);
 
   renderSavedTab(content, allLines, games, deps, container);

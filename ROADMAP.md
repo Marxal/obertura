@@ -1855,6 +1855,46 @@ gap and reads as a hairline in the wrong colour.
 merge, and this. `main` is still on the tab strip until it is deployed.
 
 
+
+## The tidy-up round — a home for the reset, a carousel, and two stacked insets ✅
+
+Three things off the back of the first phone test of the new navigation.
+
+**The reset found its home.** "Start these exercises again" came off the
+Middlegame box when that box was cut to seven exercises and nothing else, and
+had been unreachable since. It is Settings → **"Read my games again"**, beside
+Reset progress, because it is the same shape of thing: clears what you have
+done, keeps what you have written. It stops the background pass before the wipe,
+clears the scan's findings and all three rest logs, and says something different
+if background analysis is switched off two rows above it.
+
+**Forgotten moves is a horizontal carousel.** Five of those cards is a board and
+four lines of text apiece — two phone screens, at the top of a page whose job is
+to show you the whole app. Laid across it costs one card's height and still
+shows the worst offender in full, which is the one you were going to tap. The
+cards are untouched: same markup, same tap target, same peek. "See all" is the
+last slide rather than a row underneath, which is where someone who has looked
+through the five already is.
+
+**Two insets that stacked, and a class that was already taken.**
+
+- The shared `.section` card carries a side margin for screens whose parent
+  isn't padded. Home's body IS padded, so Forgotten moves sat a full inset
+  further in than the label above it — visible in the first screenshot, on both
+  sides.
+- `lines-screen.ts` wrapped itself in `.lines-tab-content`, which is the class
+  carrying the tab body's padding. Fine as a standalone view; doubled the moment
+  it became a tab inside Openings, pushing the filter chips and every card in
+  past the tab strip.
+- The new card carousel picked `.forgotten-slide` — a class the *window* swipe
+  track in the very same component already used, which wins by source order. Every
+  card came out full width with no peek. It is `.fmove-strip` / `.fmove-card` now.
+  Grep before naming a class in an 18,000-line stylesheet.
+
+Section labels also lost the 4px inline padding that had them sitting just
+inside the cards they label, on both Home and the Train boxes.
+
+
 ---
 
 ## Later 💤

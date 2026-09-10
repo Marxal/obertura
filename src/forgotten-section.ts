@@ -114,10 +114,12 @@ function paintMoves(body: HTMLElement, moves: NeedsWorkMove[], lines: Line[], cb
     }));
     return;
   }
-  for (const m of moves.slice(0, PREVIEW)) body.appendChild(moveRow(m, lines, cb));
-  if (moves.length > PREVIEW) {
-    body.appendChild(seeAllRow(`See all ${moves.length}`, () => openMovesSheet(moves, lines, cb)));
-  }
+  body.appendChild(carousel(
+    moves.slice(0, PREVIEW).map(m => moveRow(m, lines, cb)),
+    moves.length > PREVIEW
+      ? seeAllRow(`See all ${moves.length}`, () => openMovesSheet(moves, lines, cb))
+      : null,
+  ));
 }
 
 function moveRow(m: NeedsWorkMove, lines: Line[], cb: ForgottenCallbacks): HTMLElement {
@@ -239,10 +241,12 @@ function paintLines(body: HTMLElement, recall: LineRecall[], lines: Line[], cb: 
     }));
     return;
   }
-  for (const r of recall.slice(0, PREVIEW)) body.appendChild(lineRow(r, lines, cb));
-  if (recall.length > PREVIEW) {
-    body.appendChild(seeAllRow(`See all ${recall.length}`, () => openLinesSheet(recall, lines, cb)));
-  }
+  body.appendChild(carousel(
+    recall.slice(0, PREVIEW).map(r => lineRow(r, lines, cb)),
+    recall.length > PREVIEW
+      ? seeAllRow(`See all ${recall.length}`, () => openLinesSheet(recall, lines, cb))
+      : null,
+  ));
 }
 
 function lineRow(r: LineRecall, lines: Line[], cb: ForgottenCallbacks): HTMLElement {
@@ -338,6 +342,37 @@ function appendMini(card: HTMLElement, fen: string, colour: 'white' | 'black'): 
   mini.className = 'stats-forgotten-mini';
   mini.appendChild(buildMiniBoard(fen, colour));
   card.appendChild(mini);
+}
+
+/**
+ * The five preview cards, side by side and swipeable, instead of stacked.
+ *
+ * WHY. Five of these cards is a board and four lines of text apiece — roughly
+ * two phone screens, at the top of a Home page whose job is to show you the
+ * whole app. Laid across, the block costs one card's height and still shows the
+ * worst offender in full, which is the one you were going to tap. The cards
+ * themselves are untouched: same markup, same tap target, same peek.
+ *
+ * Scroll-snap so a swipe lands on a card rather than between two, and the "See
+ * all" row rides along as the last slide — at the end of the swipe, which is
+ * exactly where someone who has looked through the five is.
+ */
+function carousel(cards: HTMLElement[], seeAll: HTMLElement | null): HTMLElement {
+  const track = document.createElement('div');
+  track.className = 'fmove-strip';
+  for (const c of cards) {
+    const slide = document.createElement('div');
+    slide.className = 'fmove-card';
+    slide.appendChild(c);
+    track.appendChild(slide);
+  }
+  if (seeAll) {
+    const slide = document.createElement('div');
+    slide.className = 'fmove-card fmove-card--all';
+    slide.appendChild(seeAll);
+    track.appendChild(slide);
+  }
+  return track;
 }
 
 function seeAllRow(label: string, onClick: () => void): HTMLElement {
