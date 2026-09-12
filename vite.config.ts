@@ -41,6 +41,20 @@ export default defineConfig({
   build: {
     outDir: target === 'cloudflare' ? 'dist/app' : 'dist',
   },
+  json: {
+    // Emit `JSON.parse("…")` instead of a JavaScript object literal.
+    //
+    // This project ships several megabytes of JSON — the opening names, the
+    // book, and now the bundled explorer statistics — and a big object literal
+    // is the slow way to hand that to a browser: the JS parser has to treat
+    // every brace as possible code, while JSON.parse runs a much simpler grammar
+    // over a string it already knows the shape of. On a phone that is the
+    // difference between a visible pause and none.
+    //
+    // Safe here because nothing imports a NAMED export from a .json file (this
+    // option disables those) — every import in src/ takes the default.
+    stringify: true,
+  },
   plugins: target === 'cloudflare' ? [cloudflareLandingPage()] : [],
   define: {
     __APP_NAME__: JSON.stringify('Bito Chess'),
