@@ -5,6 +5,7 @@
 
 import {
   isFairPair, fairPairs, pickWhichMove, readyWhichMoveCount, explainPair, MIN_GAP,
+  fenAfter, previewLineFrom,
 } from './which-move';
 import type { MistakeSpot, SpotRef } from './mistake-scan';
 import type { ImportedGame } from './import-core';
@@ -165,6 +166,23 @@ export function runWhichMoveSelfTest(): TestResult[] {
       explainPair(mkRef({ id: 'none', best: [] }).spot).best === '');
     check('an unreadable position never crashes the clause',
       explainPair(mkRef({ id: 'nofen', preFen: 'not a fen' }).spot).played.length > 0);
+  }
+
+  // ── Previewing a stored continuation on the board ───────────────────────────
+  {
+    const start = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+    check('an empty line has nothing to preview', previewLineFrom(start, []) === null);
+
+    const one = previewLineFrom(start, ['e2e4']);
+    check('one move matches fenAfter', one?.fen === fenAfter(start, 'e2e4'), one?.fen);
+    check('…and reports that move\'s squares', one?.from === 'e2' && one?.to === 'e4');
+
+    const two = previewLineFrom(start, ['e2e4', 'e7e5']);
+    const expected = fenAfter(fenAfter(start, 'e2e4'), 'e7e5');
+    check('a multi-move line lands on the same fen as chaining fenAfter',
+      two?.fen === expected, two?.fen);
+    check('…and reports the LAST move\'s squares, not the first',
+      two?.from === 'e7' && two?.to === 'e5');
   }
 
   return results;

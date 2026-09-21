@@ -21,6 +21,7 @@
 // No DOM, no engine, no storage — which-move.selftest.ts covers the lot.
 
 import { Chess } from 'chess.js';
+import type { Key } from 'chessground/types';
 import { cpToWin } from './winprob';
 import { moveFacts, SEE_MATERIAL_MARGIN } from './move-facts';
 import type { MoveEval } from './engine';
@@ -43,6 +44,26 @@ export function fenAfter(preFen: string, uci: string): string {
   } catch {
     return preFen;
   }
+}
+
+export interface LinePreview {
+  fen: string;
+  from: Key;
+  to: Key;
+}
+
+/**
+ * Walk a whole UCI sequence from `preFen`, returning the resulting board
+ * state — used to preview the engine's stored continuation (full-story.ts's
+ * "the engine's idea") the same way fenAfter already previews a single answer.
+ * Null for an empty sequence, which the caller shouldn't produce.
+ */
+export function previewLineFrom(preFen: string, ucis: string[]): LinePreview | null {
+  if (ucis.length === 0) return null;
+  let fen = preFen;
+  for (const uci of ucis) fen = fenAfter(fen, uci);
+  const last = ucis[ucis.length - 1];
+  return { fen, from: last.slice(0, 2) as Key, to: last.slice(2, 4) as Key };
 }
 
 /**

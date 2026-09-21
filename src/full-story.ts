@@ -20,13 +20,15 @@
 // longer needs a layer of its own to stand in.
 
 import { Icons } from './icons';
-import { formatMove } from './notation';
+import { formatMove, pvMoveParts } from './notation';
 import { showCp } from './eval-chip';
 import { formatClock, parseTimeControl, ownClockIndex } from './clock';
+import { sanLineToUci, type MoveEval } from './engine';
 import {
-  spotFacts, repertoireLinkAt, timesWrongInOpening, shortLineName,
-  type RepertoireLink,
+  spotFacts, repertoireLinkAt, openingRecord, shortLineName,
+  type RepertoireLink, type OpeningRecord,
 } from './spot-facts';
+import { TIME_CLASS_LABELS } from './import-core';
 import type { ImportedGame } from './import-core';
 
 // The charts are drawn at a fixed viewBox and scaled by CSS — a phone's width
@@ -34,18 +36,39 @@ import type { ImportedGame } from './import-core';
 const CHART_W = 296;
 const CHART_H = 54;
 
+export interface StoryOptions {
+  /**
+   * The engine's line at this move (a MistakeSpot/DetectiveSpot/EvalPairSpot's
+   * `best[0]` and `preFen`) — rendered as "the engine's idea" when the scan
+   * kept more than the one move. Left out entirely by Brilliant Moves, whose
+   * spots have no alternative to show (the move you found already was one).
+   */
+  continuation?: { preFen: string; best: MoveEval };
+  /**
+   * Tapping a move of the continuation — plays the position up to that point
+   * onto the caller's own board, the same way tapping either side of the
+   * red/green comparison already flips the board to that move.
+   */
+  onPreviewLine?: (ucis: string[]) => void;
+  /** Tapping a game in "this opening" opens it. */
+  onOpenGame?: (gameId: string) => void;
+}
+
 /**
- * The story — the charts, the repertoire link and the fact tiles.
+ * The story — the charts, the engine's continuation, the repertoire link and
+ * the fact tiles.
  *
  * Two homes: the run's own scrollable area, right under the exercise's answer,
  * and the results-row popup (spot-peek.ts), where it sits under the board it
  * is about. One builder, so the two can never drift into saying different
- * things about the same move.
+ * things about the same move — `opts` is entirely optional, so a caller with
+ * nowhere to plug an interaction into (spot-peek's own read-only mini board)
+ * still gets the full content, just not the tap-through.
  *
- * The two async facts append themselves when they arrive; a caller that unmounts
- * the element before then simply never sees them (both check isConnected).
+ * The async facts append themselves when they arrive; a caller that unmounts
+ * the element before then simply never sees them (each checks isConnected).
  */
-export function buildStoryContent(game: ImportedGame, ply: number): HTMLElement {
+export function buildStoryContent(game: ImportedGame, ply: number, opts: StoryOptions = {}): HTMLElement {
   const host = document.createElement('div');
   host.className = 'fs-story';
   const facts = spotFacts(game, ply);
@@ -55,6 +78,11 @@ export function buildStoryContent(game: ImportedGame, ply: number): HTMLElement 
 
   const evalChart = buildEvalChart(game, ply);
   if (evalChart) host.appendChild(evalChart);
+
+  if (opts.continuation) {
+    const card = continuationCard(opts.continuation.preFen, opts.continuation.best, opts.onPreviewLine);
+    if (card) host.appendChild(card);
+  }
 
   const bookSlot = document.createElement('div');
   host.appendChild(bookSlot);
@@ -69,6 +97,7 @@ export function buildStoryContent(game: ImportedGame, ply: number): HTMLElement 
   // strange thing to make someone do about their own game — so the tile names
   // the result outright, in the colour it deserves.
   tiles.appendChild(tile('This game', RESULT_WORD[game.result], `fs-tile-v--${game.result}`));
+  tiles.appendChild(tile('Time control', timeControlLabel(game)));
   // Both ratings, not the gap between them. The gap is arithmetic anyone can do
   // from the two numbers, and the numbers are the ones you would actually
   // recognise — "1520 vs 1370" says who you were playing at the time.
@@ -85,10 +114,12 @@ export function buildStoryContent(game: ImportedGame, ply: number): HTMLElement 
   }
   host.appendChild(tiles);
 
-  void timesWrongInOpening(game).then((times) => {
-    if (!times || !tiles.isConnected) return;
-    tiles.appendChild(tile('In this opening', `${ordinal(times)} time`, 'fs-tile-v--warn'));
-  }).catch(() => { /* the library may be mid-import; the tile just doesn't come */ });
+  const recordSlot = document.createElement('div');
+  host.appendChild(recordSlot);
+  void openingRecord(game).then((record) => {
+    if (!record || !recordSlot.isConnected) return;
+    recordSlot.appendChild(openingRecordCard(record, opts.onOpenGame));
+  }).catch(() => { /* the library may be mid-import; the card just doesn't come */ });
 
   return host;
 }
@@ -167,6 +198,84 @@ function buildEvalChart(game: ImportedGame, ply: number): HTMLElement | null {
   const here = pts[Math.min(ply + 1, pts.length - 1)];
   if (here) svg.appendChild(dot(here));
   card.appendChild(svg);
+  return card;
+}
+
+/**
+ * "The engine's idea" — not just what it wanted, but what would have
+ * followed (MoveEval.sanLine, kept by the scan for exactly this). Each move
+ * is its own element: given `onPreview`, tapping one plays the position up to
+ * that point onto the caller's board — the same interaction the engine dock's
+ * own PV chips already teach (engine-panel.ts), so this reads the position
+ * the way opening the analyser would, without leaving the exercise.
+ *
+ * Null when the scan kept no continuation worth showing — an older scan (no
+ * sanLine), or a line that never got past the recommended move itself.
+ */
+function continuationCard(
+  preFen: string, best: MoveEval, onPreview?: (ucis: string[]) => void,
+): HTMLElement | null {
+  const sanLine = best.sanLine;
+  if (!sanLine || sanLine.length < 2) return null;
+
+  // The line can stop early if a stored move turns out illegal at replay (it
+  // shouldn't, but a foreign/corrupted record is not worth a crash over) — the
+  // two walks are kept in lockstep by capping the SAN side to what replayed.
+  const ucis = sanLineToUci(preFen, sanLine);
+  const parts = pvMoveParts(sanLine.slice(0, ucis.length), preFen);
+  if (parts.length < 2) return null;
+
+  const card = chartCard('The engine’s idea', '', '');
+  const row = document.createElement('div');
+  row.className = 'fs-pv';
+  parts.forEach((p, i) => {
+    const chip = document.createElement(onPreview ? 'button' : 'span');
+    chip.className = 'fs-pv-move';
+    chip.textContent = `${p.prefix}${p.san}`;
+    if (onPreview) {
+      (chip as HTMLButtonElement).type = 'button';
+      const upTo = ucis.slice(0, i + 1);
+      chip.addEventListener('click', () => onPreview(upTo));
+    }
+    row.appendChild(chip);
+  });
+  card.appendChild(row);
+  return card;
+}
+
+/**
+ * "This opening" — how many of your games it has caught you in, and where:
+ * up to OPENING_RECORD_CAP of the others, newest first, each one a tap into
+ * its own analyser when `onOpenGame` is given. The count alone (the old "Nth
+ * time" tile) said the fact; this makes it something to act on.
+ */
+function openingRecordCard(record: OpeningRecord, onOpenGame?: (gameId: string) => void): HTMLElement {
+  const card = chartCard('This opening', `${ordinal(record.count)} time`, 'fs-note--warn');
+  const list = document.createElement('div');
+  list.className = 'fs-record';
+  for (const e of record.entries) {
+    const row = document.createElement(onOpenGame ? 'button' : 'div');
+    row.className = 'fs-record-row';
+    if (onOpenGame) {
+      (row as HTMLButtonElement).type = 'button';
+      row.addEventListener('click', () => onOpenGame(e.gameId));
+    }
+    const when = document.createElement('span');
+    when.className = 'fs-record-when';
+    when.textContent = e.when;
+    row.appendChild(when);
+    const vs = document.createElement('span');
+    vs.className = 'fs-record-vs';
+    vs.textContent = `vs ${e.opponent}`;
+    row.appendChild(vs);
+    const result = document.createElement('span');
+    result.className = `fs-record-result fs-record-result--${e.result}`;
+    result.textContent = RESULT_WORD[e.result];
+    row.appendChild(result);
+    if (onOpenGame) row.appendChild(Icons.chevronRight(13));
+    list.appendChild(row);
+  }
+  card.appendChild(list);
   return card;
 }
 
@@ -271,6 +380,14 @@ const RESULT_WORD: Record<ImportedGame['result'], string> = {
   win: 'Won',
   draw: 'Drawn',
 };
+
+// "5+0 Blitz" — falls back to just the speed for a time control clock.ts
+// can't parse (daily/correspondence games have none to parse).
+function timeControlLabel(game: ImportedGame): string {
+  const tc = parseTimeControl(game.timeControl);
+  const speed = TIME_CLASS_LABELS[game.timeClass];
+  return tc ? `${tc.baseSec / 60}+${tc.incSec} ${speed}` : speed;
+}
 
 function ordinal(n: number): string {
   const rem100 = n % 100;

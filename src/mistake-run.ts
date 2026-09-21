@@ -32,9 +32,10 @@ import { formatMove } from './notation';
 import type { MoveEval } from './engine';
 import type { MoveClass } from './winprob';
 import { recordSpotResult } from './mistake-scan';
-import { explainPair, fenAfter } from './which-move';
+import { explainPair, fenAfter, previewLineFrom } from './which-move';
 import { evalPairRow } from './eval-chip';
 import { restSpot } from './spot-rest';
+import { getGame } from './storage';
 import type { SpotRef, MistakeCategory } from './mistake-scan';
 import type { ImportedGame } from './import-core';
 import { buildRunHeader } from './run-header';
@@ -569,7 +570,11 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
     // The clock and the repertoire, under the comparison (spot-context.ts).
     factsEl.appendChild(buildContextStrip(game, spot.ply));
     factsEl.hidden = false;
-    storyEl.replaceChildren(buildStoryContent(game, spot.ply));
+    storyEl.replaceChildren(buildStoryContent(game, spot.ply, {
+      continuation: { preFen: spot.preFen, best },
+      onPreviewLine: previewLine,
+      onOpenGame: opts.onOpenGame ? openOpeningGame : undefined,
+    }));
 
     // The brief above the board has just been made redundant by the red box —
     // it says the same thing with a number attached — so its line is handed to
@@ -596,6 +601,37 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
     cg.setAutoShapes([{ orig: to, customSvg: classBoardSvg(cls) }]);
   }
 
+  /**
+   * Play the engine's stored continuation (full-story.ts's "the engine's
+   * idea") up to one of its moves — tapping either half of the red/green
+   * comparison still returns to the answer via previewMove above, so nothing
+   * new is needed to get back.
+   */
+  function previewLine(ucis: string[]): void {
+    if (isCleaned) return;
+    const { spot, game } = current;
+    const line = previewLineFrom(spot.preFen, ucis);
+    if (!line) return;
+    chess.load(line.fen);
+    cg.set({
+      fen: line.fen,
+      orientation: game.colour,
+      animation: { enabled: true },
+      lastMove: [line.from, line.to],
+      turnColor: cgTurn(),
+      movable: { color: undefined, dests: new Map() },
+    });
+    cg.setAutoShapes([]);
+  }
+
+  /** A game from "this opening" (full-story.ts's record) — opened the same
+   * way "Analyse game" opens the current one, just without a specific ply:
+   * there's no single position it's "about" the way the drill's own is. */
+  function openOpeningGame(gameId: string): void {
+    if (!opts.onOpenGame) return;
+    void getGame(gameId).then((game) => { if (game) suspendForAnalysis(game); });
+  }
+
   function onNextTap(): void {
     if (completed >= opts.refs.length) { showResults(); return; }
     index++;
@@ -606,7 +642,7 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
   // The overlay hides (session state intact) while the analyser opens at the
   // drill position; the app's "Back to train" button in the top bar resumes
   // it, and navigating anywhere else discards it cleanly.
-  function suspendForAnalysis(game: ImportedGame, atFen: string): void {
+  function suspendForAnalysis(game: ImportedGame, atFen?: string): void {
     if (!opts.onOpenGame) return;
     removeBack();
     removeBack = () => {};

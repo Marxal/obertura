@@ -243,25 +243,46 @@ export async function repertoireLinkAt(
 
 // ── The repeat ────────────────────────────────────────────────────────────────
 
+export interface OpeningRecordEntry {
+  gameId: string;
+  when: string;
+  opponent: string;
+  result: GameResult;
+}
+
+export interface OpeningRecord {
+  /** How many of your games hold a scanned mistake in this exact opening,
+   * this game included — "3rd time" is the fact that turns a position into a
+   * reason to go and fix a line. */
+  count: number;
+  /** Up to OPENING_RECORD_CAP of the OTHER such games (this one excluded),
+   * newest first — concrete enough to open, not just a number. */
+  entries: OpeningRecordEntry[];
+}
+
+export const OPENING_RECORD_CAP = 5;
+
 /**
- * How many of your games hold a scanned mistake in the SAME opening as this
- * one, this game included. "3rd time" is the fact that turns a position into a
- * reason to go and fix a line.
+ * How often, and where, this exact opening has caught you out.
  *
  * Matched on the ECO code rather than the opening name: names carry variation
  * detail that splits what is really one opening ("Sicilian Defense" vs
  * "Sicilian Defense: Najdorf, English Attack"), and the code is the level a
  * person means when they say "this opening keeps catching me out".
+ *
+ * Null when there's nothing to say — no ECO code, or this is the only game.
  */
-export async function timesWrongInOpening(game: ImportedGame): Promise<number | null> {
+export async function openingRecord(game: ImportedGame, now = Date.now()): Promise<OpeningRecord | null> {
   const eco = game.eco;
   if (!eco) return null;
   const games = await getAllGames();
-  let count = 0;
-  for (const g of games) {
-    if (g.eco !== eco) continue;
-    if (g.colour !== game.colour) continue;
-    if (g.retry?.spots?.length) count++;
-  }
-  return count > 1 ? count : null;
+  const matches = games.filter(g => g.eco === eco && g.colour === game.colour && g.retry?.spots?.length);
+  if (matches.length <= 1) return null;
+
+  const entries = matches
+    .filter(g => g.id !== game.id)
+    .sort((a, b) => b.endTime - a.endTime)
+    .slice(0, OPENING_RECORD_CAP)
+    .map(g => ({ gameId: g.id, when: whenLabel(g.endTime, now), opponent: g.opponent, result: g.result }));
+  return { count: matches.length, entries };
 }

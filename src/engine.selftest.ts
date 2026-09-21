@@ -7,7 +7,7 @@
 // runtime exactly, as in openings.selftest.ts.
 
 import { Chess } from 'chess.js';
-import { resolveUci, gameOverResult } from './engine';
+import { resolveUci, gameOverResult, sanLineToUci } from './engine';
 import type { TestResult } from './selftest-panel';
 
 function fenAfter(sans: string[]): string {
@@ -69,6 +69,18 @@ export function runEngineSelfTest(): TestResult[] {
   const drawn = gameOverResult(stale.fen());
   check('stalemate yields a draw result', drawn?.gameOver === 'draw', JSON.stringify(drawn));
   check('a live position yields null', gameOverResult(START) === null, 'null expected');
+
+  // 7. sanLineToUci is uciLineToSan's inverse — a stored MoveEval.sanLine
+  //    (full-story.ts's continuation card) replayed back into UCIs so a tap
+  //    can play a prefix of it onto a board.
+  const pv = sanLineToUci(START, ['e4', 'e5', 'Nf3', 'Nc6']);
+  check('a legal SAN line replays into its UCIs',
+    pv.join(',') === 'e2e4,e7e5,g1f3,b8c6', pv.join(','));
+  // O-O is illegal here — the king's own knight and bishop are still home.
+  const short = sanLineToUci(START, ['e4', 'e5', 'O-O', 'Nc6']);
+  check('a line stops at the first move that will not apply',
+    short.join(',') === 'e2e4,e7e5', short.join(','));
+  check('an empty line replays to nothing', sanLineToUci(START, []).length === 0, 'expected []');
 
   return results;
 }

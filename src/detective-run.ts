@@ -34,8 +34,9 @@ import { showDialog } from './dialog';
 import { formatMove, numberedMove } from './notation';
 import { openInfoSheet, buildInfoButton } from './info-sheet';
 import { detectiveLog } from './middle-log';
-import { explainPair, fenAfter } from './which-move';
+import { explainPair, fenAfter, previewLineFrom } from './which-move';
 import { evalPairRow } from './eval-chip';
+import { getGame } from './storage';
 import { buildRunHeader } from './run-header';
 import { openSpotPeek, type SpotPeekOptions } from './spot-peek';
 import { buildStoryContent } from './full-story';
@@ -827,7 +828,11 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     // guessing at theirs is not something this app is going to do.
     factsEl.appendChild(buildContextStrip(game, spot.blunderPly));
     factsEl.hidden = false;
-    storyEl.replaceChildren(buildStoryContent(game, spot.blunderPly));
+    storyEl.replaceChildren(buildStoryContent(game, spot.blunderPly, {
+      continuation: { preFen: spot.preFen, best },
+      onPreviewLine: previewLine,
+      onOpenGame: opts.onOpenGame ? openOpeningGame : undefined,
+    }));
 
     // The brief ("Find the blunder — it can be yours or theirs") has done its
     // job by now; its line goes to the game the case came out of.
@@ -853,6 +858,37 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
     cg.setAutoShapes([{ orig: to, customSvg: classBoardSvg(cls) }]);
   }
 
+  /**
+   * Play the engine's stored continuation (full-story.ts's "the engine's
+   * idea") up to one of its moves — tapping either half of the red/green
+   * comparison still returns to the answer via previewMove above, so nothing
+   * new is needed to get back.
+   */
+  function previewLine(ucis: string[]): void {
+    if (isCleaned) return;
+    const { spot, game } = current;
+    const line = previewLineFrom(spot.preFen, ucis);
+    if (!line) return;
+    chess.load(line.fen);
+    cg.set({
+      fen: line.fen,
+      orientation: game.colour,
+      animation: { enabled: true },
+      lastMove: [line.from, line.to],
+      turnColor: cgTurn(),
+      movable: { color: undefined, dests: new Map() },
+    });
+    cg.setAutoShapes([]);
+  }
+
+  /** A game from "this opening" (full-story.ts's record) — opened the same
+   * way "Analyse game" opens the current one, just without a specific ply:
+   * there's no single position it's "about" the way the case's own is. */
+  function openOpeningGame(gameId: string): void {
+    if (!opts.onOpenGame) return;
+    void getGame(gameId).then((game) => { if (game) suspendForAnalysis(game); });
+  }
+
   function onNextTap(): void {
     if (completed >= opts.refs.length) { showResults(); return; }
     index++;
@@ -860,7 +896,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   }
 
   // ── Suspend for the full analyser ──────────────────────────────────────────
-  function suspendForAnalysis(game: ImportedGame, atFen: string): void {
+  function suspendForAnalysis(game: ImportedGame, atFen?: string): void {
     if (!opts.onOpenGame) return;
     removeBack();
     removeBack = () => {};

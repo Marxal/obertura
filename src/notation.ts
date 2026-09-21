@@ -68,3 +68,38 @@ export function numberedMove(san: string, ply: number, notation: MoveNotation = 
   const n = Math.ceil(ply / 2);
   return `${n}${ply % 2 === 1 ? '.' : '…'}${formatMove(san, notation)}`;
 }
+
+export interface PvMovePart {
+  /** "23." / "23…" / "" (a white move past the first needs no number). */
+  prefix: string;
+  san: string;
+}
+
+// A PV/continuation's move numbers, seeded from an arbitrary position's own
+// move number and side to move (FEN fields 5 and 1) — so the first move gets
+// the right number, "." for white and "…" for black. One move per element,
+// for a caller that renders each as its own element (engine-panel.ts's
+// tappable PV chips, full-story.ts's continuation card); formatPvLine below
+// is the same arithmetic for a caller that just wants the joined string
+// (eval-panel.ts's line preview).
+export function pvMoveParts(
+  sanLine: string[], fen: string, notation: MoveNotation = getMoveNotation(),
+): PvMovePart[] {
+  const parts = fen.split(' ');
+  let moveNo = parseInt(parts[5] ?? '1', 10) || 1;
+  let white = (parts[1] ?? 'w') === 'w';
+  const out: PvMovePart[] = [];
+  for (let i = 0; i < sanLine.length; i++) {
+    const prefix = white ? `${moveNo}.` : (i === 0 ? `${moveNo}…` : '');
+    out.push({ prefix, san: formatMove(sanLine[i], notation) });
+    if (!white) moveNo++;
+    white = !white;
+  }
+  return out;
+}
+
+export function formatPvLine(
+  sanLine: string[], fen: string, notation: MoveNotation = getMoveNotation(),
+): string {
+  return pvMoveParts(sanLine, fen, notation).map(p => `${p.prefix}${p.san}`).join(' ');
+}

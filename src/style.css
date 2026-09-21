@@ -17729,6 +17729,83 @@ html:has(> body > .edit-overlay) > body {
 .fs-tile-v--win { color: var(--success-active); }
 .fs-tile-v--warn { color: var(--warn); }
 
+/* "The engine's idea" — the continuation, one chip per move (full-story.ts's
+   continuationCard). Wraps rather than the engine dock's horizontal scroll
+   (.engine-line-moves): this card is full-width on a vertically-scrolling
+   page, so wrapping reads better than a cramped sideways strip. Given
+   `onPreview`, each chip is its own button — sized for a thumb, not the
+   dock's mouse-era 0.8rem monospace. */
+.fs-pv {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.fs-pv-move {
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  border: 0;
+  border-radius: 7px;
+  padding: 0.28rem 0.45rem;
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+button.fs-pv-move:active { background: var(--accent-soft); color: var(--accent-active); }
+
+/* "This opening" — the games this same opening has also caught you in
+   (full-story.ts's openingRecordCard). One row per game; tappable when
+   `onOpenGame` turns it into a button, exactly like the repertoire row above. */
+.fs-record {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.fs-record-row {
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  border: 0;
+  border-radius: 7px;
+  padding: 0.3rem 0.4rem;
+  background: transparent;
+  color: inherit;
+}
+button.fs-record-row:active { background: var(--bg-card); }
+.fs-record-when {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  min-width: 4.5em;
+}
+.fs-record-vs {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.76rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fs-record-result {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.fs-record-result--loss { color: var(--danger); }
+.fs-record-result--win { color: var(--success-active); }
+.fs-record-result--draw { color: var(--text-muted); }
+.fs-record-row svg { flex: none; }
+
 /* ── Mistake retry pane (the Train tab body) ── */
 .mistakes-hero {
   margin: var(--space-lg) var(--space-lg) 0;

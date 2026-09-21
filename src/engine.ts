@@ -410,6 +410,22 @@ function uciLineToSan(fen: string, ucis: string[], cap: number): string[] {
   return out;
 }
 
+// The other direction: replay a SAN principal variation (MoveEval.sanLine)
+// back into its UCIs, so a tap on the Nth move of a stored line can play it
+// onto a board without re-searching. Stops at the first move that won't
+// apply — a stale/foreign line should show a short preview, not throw.
+export function sanLineToUci(fen: string, sanLine: string[]): string[] {
+  const ch = new Chess(fen);
+  const out: string[] = [];
+  for (const san of sanLine) {
+    let move;
+    try { move = ch.move(san); } catch { move = null; }
+    if (!move) break;
+    out.push(move.from + move.to + (move.promotion ?? ''));
+  }
+  return out;
+}
+
 // How many plies of each line to show.
 const PV_DISPLAY_PLIES = 8;
 

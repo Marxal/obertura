@@ -36,7 +36,8 @@ import { showDialog } from './dialog';
 import { formatMove, numberedMove } from './notation';
 import { openInfoSheet, buildInfoButton } from './info-sheet';
 import { whichMoveLog } from './middle-log';
-import { explainPair, fenAfter } from './which-move';
+import { explainPair, fenAfter, previewLineFrom } from './which-move';
+import { getGame } from './storage';
 import { fillEvalContent } from './eval-chip';
 import { buildRunHeader } from './run-header';
 import { openSpotPeek, type SpotPeekOptions } from './spot-peek';
@@ -475,7 +476,11 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
 
     renderPlayedLine(right);
     contextEl.replaceChildren(buildContextStrip(current.game, spot.ply));
-    storyEl.replaceChildren(buildStoryContent(current.game, spot.ply));
+    storyEl.replaceChildren(buildStoryContent(current.game, spot.ply, {
+      continuation: spot.best[0] ? { preFen: spot.preFen, best: spot.best[0] } : undefined,
+      onPreviewLine: previewLine,
+      onOpenGame: opts.onOpenGame ? openOpeningGame : undefined,
+    }));
     renderSessionBar();
     nextBtn.textContent = completed >= opts.refs.length ? 'See results' : 'Next position';
     afterEl.hidden = false;
@@ -500,6 +505,37 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
       movable: { color: undefined, dests: new Map() },
     });
     cg.setAutoShapes([{ orig: to, customSvg: classBoardSvg(side === bestSide ? 'best' : 'blunder') }]);
+  }
+
+  /**
+   * Play the engine's stored continuation (full-story.ts's "the engine's
+   * idea") up to one of its moves — tapping either pick box still returns to
+   * the answer via previewMove above, so nothing new is needed to get back.
+   */
+  function previewLine(ucis: string[]): void {
+    if (isCleaned) return;
+    const { spot, game } = current;
+    const line = previewLineFrom(spot.preFen, ucis);
+    if (!line) return;
+    chess.load(line.fen);
+    pickBtns.forEach((btn) => btn.classList.remove('wm-eval--active'));
+    cg.set({
+      fen: line.fen,
+      orientation: game.colour,
+      animation: { enabled: true },
+      lastMove: [line.from, line.to],
+      turnColor: cgTurn(),
+      movable: { color: undefined, dests: new Map() },
+    });
+    cg.setAutoShapes([]);
+  }
+
+  /** A game from "this opening" (full-story.ts's record) — opened the same
+   * way "Analyse game" opens the current one, just without a specific ply:
+   * there's no single position it's "about" the way the drill's own is. */
+  function openOpeningGame(gameId: string): void {
+    if (!opts.onOpenGame) return;
+    void getGame(gameId).then((game) => { if (game) suspendForAnalysis(game); });
   }
 
   /**
@@ -536,7 +572,7 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
   }
 
   // ── Suspend for the full analyser ──────────────────────────────────────────
-  function suspendForAnalysis(game: ImportedGame, atFen: string): void {
+  function suspendForAnalysis(game: ImportedGame, atFen?: string): void {
     if (!opts.onOpenGame) return;
     removeBack();
     removeBack = () => {};

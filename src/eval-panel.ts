@@ -1,5 +1,5 @@
 import { cloudLooksOffline, type EvalResult, type MoveEval } from './engine';
-import { formatMove } from './notation';
+import { formatMove, formatPvLine } from './notation';
 
 export interface EvalPanelOpts {
   // Show just the 3 best moves in one fixed-height row (no principal variation)
@@ -219,7 +219,7 @@ export class EvalPanel {
         const pv = (m.sanLine && m.sanLine.length ? m.sanLine : [m.san || m.uci]);
         return `<button class="eval-line" type="button" data-uci="${m.uci}">` +
           `<span class="eval-line-score">${this.fmtScore(m)}</span>` +
-          `<span class="eval-line-pv">${this.escape(this.formatLine(pv, fen))}</span>` +
+          `<span class="eval-line-pv">${this.escape(formatPvLine(pv, fen))}</span>` +
         `</button>`;
       }).join('');
     }
@@ -285,26 +285,6 @@ export class EvalPanel {
     const target = result.targetDepth;
     if (target && result.depth < target) return `local · d${result.depth}…d${target}`;
     return `local · d${result.depth}`;
-  }
-
-  // Render a SAN line with move numbers, seeded from the position's fen so the
-  // first move gets the right number and "." / "…" for white / black to move.
-  // The number is glued to its move ("1.e4", not "1. e4") so each move reads as
-  // one tight unit, matching the main move list.
-  private formatLine(sanLine: string[], fen: string): string {
-    const parts = fen.split(' ');
-    let moveNo = parseInt(parts[5] ?? '1') || 1;
-    let white = (parts[1] ?? 'w') === 'w';
-    const out: string[] = [];
-    for (let i = 0; i < sanLine.length; i++) {
-      const san = formatMove(sanLine[i]);
-      if (white) out.push(`${moveNo}.${san}`);
-      else if (i === 0) out.push(`${moveNo}…${san}`);
-      else out.push(san);
-      if (!white) moveNo++;
-      white = !white;
-    }
-    return out.join(' ');
   }
 
   private escape(s: string): string {
