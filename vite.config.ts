@@ -38,6 +38,16 @@ export default defineConfig({
     // Vite's own DNS-rebinding guard needs it allow-listed here too.
     allowedHosts: ['.local', 'dev.bitochess.com'],
   },
+  // `vite preview` is a SEPARATE server with its own settings — it does not
+  // inherit `server` above, so the tunnel's hostname has to be listed twice.
+  // Worth having: previewing the built bundle is the only way to feel what a
+  // phone actually gets, because the dev server ships every module unminified
+  // with a source map attached (for the megabyte-scale JSON in src/, that turns
+  // 8.6 MB into 66 MB and makes a fast build feel slow).
+  preview: {
+    host: true,
+    allowedHosts: ['.local', 'dev.bitochess.com'],
+  },
   build: {
     outDir: target === 'cloudflare' ? 'dist/app' : 'dist',
   },
