@@ -1,4 +1,4 @@
-// The context under a solved position — the two small rows that sit below the
+// The context under a solved position — the one row that sits below the
 // red/green comparison in every "from your games" exercise, and the one line
 // that replaces the brief above the board once the answer is in.
 //
@@ -11,21 +11,20 @@
 // carry a different fact at a different moment.
 //
 // WHAT IS DELIBERATELY NOT HERE. Every other lesson we could draw out of a
-// game — the rating gap, the slide into the mistake, how often this opening has
-// caught you — lives one tap away in the full-story sheet (full-story.ts). Two
-// rows is the whole budget: past that, the context stops being read at all.
+// game — the rating gap, the slide into the mistake, whether your own
+// repertoire already answers it, how often this opening has caught you — now
+// lives one scroll away in full-story.ts's buildStoryContent, which every
+// caller of buildContextStrip renders directly underneath it. This strip used
+// to also carry the repertoire link, back when reaching it took a tap into a
+// sheet; once both live on the same page one scroll apart, showing it twice
+// was just noise, so it only carries the clock now.
 //
-// Rows only render when they have something true to say. A game with no clock
-// trail has no clock row; a position your repertoire has never seen has no
-// repertoire row; a 'steady' clock says nothing at all.
+// The clock row only renders when it has something true to say — a game with
+// no clock trail, or a 'steady' clock, leaves this whole strip empty.
 
 import { Icons } from './icons';
-import { formatMove } from './notation';
 import { TIME_TAG_LABEL, formatTimeFacts, type TimeTag } from './clock';
-import {
-  spotFacts, repertoireLinkAt, shortLineName,
-  type RepertoireLink, type SpotTone,
-} from './spot-facts';
+import { spotFacts, type SpotTone } from './spot-facts';
 import type { ImportedGame } from './import-core';
 
 // Which move's steel blue, darkened: its own #5c8bb0 measures about 3:1 as
@@ -85,16 +84,10 @@ export function buildContextLine(
 }
 
 /**
- * The clock row and the repertoire row, in one block to append under the
- * comparison. Empty (and so invisible) when the game has neither to offer.
- *
- * The repertoire answer needs the position index, so it arrives late and is
- * appended when it does — the row simply is not there until then, which is
- * better than a placeholder that resolves into a different height.
+ * The clock row, to append under the comparison. Empty (and so invisible)
+ * when the game has nothing to say about your clock at this move.
  */
-export function buildContextStrip(
-  game: ImportedGame, ply: number, onOpenLine?: (lineName: string) => void,
-): HTMLElement {
+export function buildContextStrip(game: ImportedGame, ply: number): HTMLElement {
   const strip = document.createElement('div');
   strip.className = 'sc-strip';
 
@@ -102,12 +95,6 @@ export function buildContextStrip(
   if (facts.time && facts.time.tag !== 'steady') {
     strip.appendChild(clockRow(facts.time.tag, formatTimeFacts(facts.time)));
   }
-
-  // Late, and only if there is something to say.
-  void repertoireLinkAt(game, ply).then((link) => {
-    if (!link || !strip.isConnected) return;
-    strip.appendChild(repertoireRow(link, onOpenLine));
-  }).catch(() => { /* the repertoire is a bonus here, not a dependency */ });
 
   return strip;
 }
@@ -127,30 +114,5 @@ function clockRow(tag: Exclude<TimeTag, 'steady'>, readout: string): HTMLElement
   nums.className = 'sc-nums';
   nums.textContent = readout;
   row.appendChild(nums);
-  return row;
-}
-
-function repertoireRow(
-  link: RepertoireLink, onOpenLine?: (lineName: string) => void,
-): HTMLElement {
-  const name = shortLineName(link.lineName);
-  const text = link.kind === 'covered'
-    ? `Your ${name} plays ${formatMove(link.san ?? '')} here`
-    : `${link.movesPast} move${link.movesPast === 1 ? '' : 's'} past your ${name}`;
-
-  const row = document.createElement(onOpenLine ? 'button' : 'div');
-  row.className = 'sc-book';
-  if (onOpenLine) {
-    (row as HTMLButtonElement).type = 'button';
-    row.addEventListener('click', () => onOpenLine(link.lineName));
-  }
-  row.appendChild(Icons.book(14));
-
-  const label = document.createElement('span');
-  label.className = 'sc-book-text';
-  label.textContent = text;
-  row.appendChild(label);
-
-  if (onOpenLine) row.appendChild(Icons.chevronRight(14));
   return row;
 }
