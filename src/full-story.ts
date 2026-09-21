@@ -1,12 +1,10 @@
-// The full story — everything we know about one move of one of your games,
-// behind the button that used to say "Analyse".
+// The full story — everything we know about one move of one of your games.
 //
 // WHY IT EXISTS. The exercises can afford two small rows of context under the
 // board (spot-context.ts) and no more. But there are a dozen honest things to
 // say about a mistake: what your clock was doing all game, how long the
 // position had been slipping, whether your own repertoire already answers it,
-// how many times this opening has caught you. Layering them behind one tap
-// keeps the exercise an exercise and still gives the moment somewhere to go.
+// how many times this opening has caught you. This is where those live.
 //
 // WHY IT IS MOSTLY CHARTS. Two lines — your clock through the game and the
 // evaluation through the game, both marked at this move — say more at a glance
@@ -14,12 +12,13 @@
 // the import now keeps (clock.ts) and the eval trail has been sitting unread on
 // every scanned game since the mistake scan learned to keep it.
 //
-// "Analyse game" lives here now rather than beside "Next position". It is the
-// deepest thing you can do with a position and the least often wanted, so it
-// belongs at the bottom of the layer you opened on purpose — not competing for
-// the thumb with the button that continues the run.
+// USED TO BE A POPUP behind a button that read "About this move". It now
+// renders straight into the run's own scrollable area, right under the two
+// small rows spot-context.ts already draws — so the story is there to read by
+// scrolling, not a tap (and a whole sheet transition) away. "Analyse game"
+// moved out to the run's fixed footer, next to "Next position", since it no
+// longer needs a layer of its own to stand in.
 
-import { pushBack } from './back-nav';
 import { Icons } from './icons';
 import { formatMove } from './notation';
 import { showCp } from './eval-chip';
@@ -28,7 +27,6 @@ import {
   spotFacts, repertoireLinkAt, timesWrongInOpening, shortLineName,
   type RepertoireLink,
 } from './spot-facts';
-import { TIME_CLASS_LABELS } from './import-core';
 import type { ImportedGame } from './import-core';
 
 // The charts are drawn at a fixed viewBox and scaled by CSS — a phone's width
@@ -36,28 +34,13 @@ import type { ImportedGame } from './import-core';
 const CHART_W = 296;
 const CHART_H = 54;
 
-export interface FullStoryOptions {
-  game: ImportedGame;
-  /** 0-based ply of the move in question — always one of yours. */
-  ply: number;
-  /** The move as played, for the title. */
-  playedSan: string;
-  /**
-   * Open the whole game in the analyser at this position. Omitted where the
-   * caller has nowhere to hand off to, and the button then isn't drawn.
-   */
-  onAnalyse?: () => void;
-}
-
 /**
- * The story ITSELF — the charts, the repertoire link and the fact tiles, with
- * no sheet around them.
+ * The story — the charts, the repertoire link and the fact tiles.
  *
- * Split out because the same content now has two homes: this module's own sheet
- * (opened from the button beside Next position, where the board is behind you)
- * and the results-row popup (spot-peek.ts), where it sits under the board it is
- * about. One builder, so the two can never drift into saying different things
- * about the same move.
+ * Two homes: the run's own scrollable area, right under the exercise's answer,
+ * and the results-row popup (spot-peek.ts), where it sits under the board it
+ * is about. One builder, so the two can never drift into saying different
+ * things about the same move.
  *
  * The two async facts append themselves when they arrive; a caller that unmounts
  * the element before then simply never sees them (both check isConnected).
@@ -108,73 +91,6 @@ export function buildStoryContent(game: ImportedGame, ply: number): HTMLElement 
   }).catch(() => { /* the library may be mid-import; the tile just doesn't come */ });
 
   return host;
-}
-
-/**
- * Open the sheet. Closes on the backdrop, on "Close", and on the back gesture,
- * exactly like every other sheet in the app.
- */
-export function openFullStory(opts: FullStoryOptions): void {
-  const { game, ply } = opts;
-  const facts = spotFacts(game, ply);
-
-  const overlay = document.createElement('div');
-  overlay.className = 'edit-overlay';
-
-  const sheet = document.createElement('div');
-  sheet.className = 'edit-sheet fs-sheet';
-  sheet.setAttribute('role', 'dialog');
-  sheet.setAttribute('aria-modal', 'true');
-
-  // ── Head: which move, out of which game ───────────────────────────────────
-  const title = document.createElement('h3');
-  title.className = 'edit-sheet-title fs-title';
-  title.textContent = `Move ${facts.moveNumber} · ${formatMove(opts.playedSan)}`;
-  sheet.appendChild(title);
-
-  const sub = document.createElement('p');
-  sub.className = 'fs-sub';
-  sub.textContent = [
-    `vs ${game.opponent}`,
-    timeControlLabel(game),
-    facts.when,
-  ].filter(Boolean).join(' · ');
-  sheet.appendChild(sub);
-
-  sheet.appendChild(buildStoryContent(game, ply));
-
-  // ── Actions ───────────────────────────────────────────────────────────────
-  let closed = false;
-  function close(): void {
-    if (closed) return;
-    closed = true;
-    overlay.remove();
-    removeBack();
-  }
-
-  const row = document.createElement('div');
-  row.className = 'dialog-btn-row';
-  if (opts.onAnalyse) {
-    const analyse = document.createElement('button');
-    analyse.type = 'button';
-    analyse.className = 'dialog-btn btn-secondary';
-    analyse.appendChild(Icons.review(16));
-    analyse.appendChild(document.createTextNode('Analyse game'));
-    analyse.addEventListener('click', () => { close(); opts.onAnalyse?.(); });
-    row.appendChild(analyse);
-  }
-  const done = document.createElement('button');
-  done.type = 'button';
-  done.className = 'dialog-btn btn-primary';
-  done.textContent = 'Close';
-  done.addEventListener('click', close);
-  row.appendChild(done);
-  sheet.appendChild(row);
-
-  const removeBack = pushBack(close);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-  overlay.appendChild(sheet);
-  document.body.appendChild(overlay);
 }
 
 // ── The charts ────────────────────────────────────────────────────────────────
@@ -349,12 +265,6 @@ function bookCard(link: RepertoireLink): HTMLElement {
 
 // ── Words ─────────────────────────────────────────────────────────────────────
 
-function timeControlLabel(game: ImportedGame): string {
-  const tc = parseTimeControl(game.timeControl);
-  const speed = TIME_CLASS_LABELS[game.timeClass].toLowerCase();
-  return tc ? `${tc.baseSec / 60}+${tc.incSec} ${speed}` : speed;
-}
-
 // The result in one word, said rather than implied.
 const RESULT_WORD: Record<ImportedGame['result'], string> = {
   loss: 'Lost',
@@ -371,7 +281,3 @@ function ordinal(n: number): string {
   return `${n}th`;
 }
 
-// The words on the button that opens this, shared so the five exercises can't
-// drift apart. "The full story" was the first name and the wrong one: it is
-// what a newspaper promises, not what a button does. This says what is inside.
-export const FULL_STORY_LABEL = 'About this move';

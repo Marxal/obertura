@@ -39,7 +39,7 @@ import type { SpotRef, MistakeCategory } from './mistake-scan';
 import type { ImportedGame } from './import-core';
 import { buildRunHeader } from './run-header';
 import { openSpotPeek, type SpotPeekOptions } from './spot-peek';
-import { openFullStory, buildStoryContent, FULL_STORY_LABEL } from './full-story';
+import { buildStoryContent } from './full-story';
 import { buildContextLine, buildContextStrip } from './spot-context';
 
 // Presentation names for the four categories — shared with the pane's cards.
@@ -224,26 +224,20 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
 
   const afterActions = document.createElement('div');
   afterActions.className = 'mr-after-actions';
-  // "The full story" stands where Analyse used to. Analyse is still one tap
-  // away — it is the last button INSIDE the sheet — but it was the rarest thing
-  // anyone wanted from this row, and the row's other half is the button that
-  // continues the run. See full-story.ts.
-  const storyBtn = document.createElement('button');
-  storyBtn.type = 'button';
-  storyBtn.className = 'btn-secondary mr-after-btn';
-  storyBtn.appendChild(Icons.file(16));
-  storyBtn.appendChild(document.createTextNode(FULL_STORY_LABEL));
-  storyBtn.addEventListener('click', () => {
+  // The full story now renders inline below (storyEl, in the scroll area), so
+  // this button goes straight to the analyser instead of opening a sheet.
+  const analyseBtn = document.createElement('button');
+  analyseBtn.type = 'button';
+  analyseBtn.className = 'btn-secondary mr-after-btn';
+  analyseBtn.appendChild(Icons.review(16));
+  analyseBtn.appendChild(document.createTextNode('Analyse game'));
+  analyseBtn.hidden = !opts.onOpenGame;
+  analyseBtn.addEventListener('click', () => {
     const { game, spot } = current;
-    openFullStory({
-      game,
-      ply: spot.ply,
-      playedSan: spot.playedSan,
-      // Opens at the drill position — the same one the spot showed.
-      onAnalyse: opts.onOpenGame ? () => suspendForAnalysis(game, spot.preFen) : undefined,
-    });
+    // Opens at the drill position — the same one the spot showed.
+    suspendForAnalysis(game, spot.preFen);
   });
-  afterActions.appendChild(storyBtn);
+  afterActions.appendChild(analyseBtn);
   const nextBtn = document.createElement('button');
   nextBtn.type = 'button';
   nextBtn.className = 'btn-primary pz-next-btn mr-after-btn';
@@ -252,9 +246,16 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
   afterActions.appendChild(nextBtn);
   afterEl.appendChild(afterActions);
 
+  // The full story (charts, ratings, how many times this opening has caught
+  // you) — everything spot-context.ts didn't have room for. Below the fold on
+  // purpose: it's worth reading, not worth blocking the next position on.
+  const storyEl = document.createElement('div');
+  storyEl.className = 'wm-story';
+
   bottomEl.appendChild(statusRow);
   bottomEl.appendChild(hintBtn);
   bottomEl.appendChild(factsEl);
+  bottomEl.appendChild(storyEl);
 
   // Everything except the post-answer actions scrolls together; the actions
   // sit outside it, always the last thing on screen (see .pt-overlay--footer).
@@ -407,6 +408,7 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
     afterEl.hidden = true;
     factsEl.hidden = true;
     factsEl.replaceChildren();
+    storyEl.replaceChildren();
     renderSessionBar();
 
     const { game, spot } = current;
@@ -567,6 +569,7 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
     // The clock and the repertoire, under the comparison (spot-context.ts).
     factsEl.appendChild(buildContextStrip(game, spot.ply));
     factsEl.hidden = false;
+    storyEl.replaceChildren(buildStoryContent(game, spot.ply));
 
     // The brief above the board has just been made redundant by the red box —
     // it says the same thing with a number attached — so its line is handed to

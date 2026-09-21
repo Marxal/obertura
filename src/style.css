@@ -17658,25 +17658,18 @@ html:has(> body > .edit-overlay) > body {
   font-weight: 700;
   line-height: 1.25;
   /* shortLineName() already trims the name; this is the backstop for a custom
-     name long enough to beat it. Two lines, then an ellipsis — never more. */
+     name long enough to beat it. Three lines, then an ellipsis — never more —
+     enough room that a normal opening name is never the one that gets cut. */
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   overflow: hidden;
 }
 
-/* ── The full-story sheet (full-story.ts) ────────────────────────────────────
-   Everything we know about one move, one tap behind the exercise. Mostly two
-   charts: a line falling off a cliff says "you were low on time" better than a
-   sentence does. */
-.fs-title { margin-bottom: 0.1rem; }
-
-.fs-sub {
-  margin: 0 0 0.75rem;
-  font-size: 0.78rem;
-  color: var(--text-faint);
-}
-
+/* ── The full story (full-story.ts) ──────────────────────────────────────────
+   Everything we know about one move, rendered inline under the exercise
+   (.wm-story, above). Mostly two charts: a line falling off a cliff says "you
+   were low on time" better than a sentence does. */
 .fs-card {
   background: var(--bg-card);
   border-radius: 10px;
@@ -17738,7 +17731,10 @@ html:has(> body > .edit-overlay) > body {
 }
 .fs-book svg { flex: none; }
 .fs-book-text { display: flex; flex-direction: column; gap: 0.05rem; }
-.fs-book-head { font-size: 0.8rem; font-weight: 700; }
+/* Unclamped, unlike the compact strip's sc-book-text above — this card has the
+   room to let a long opening name wrap onto a second or third line in full,
+   rather than trimming it. */
+.fs-book-head { font-size: 0.8rem; font-weight: 700; line-height: 1.3; }
 .fs-book-sub { font-size: 0.72rem; opacity: 0.85; }
 
 /* Two per row, and the grid simply shortens when a fact is missing — a tile
@@ -21906,6 +21902,18 @@ html.picker-open body {
   padding: 0 1rem;
 }
 .wm-context:empty { display: none; }
+
+/* The full story (full-story.ts's buildStoryContent) — the charts, the
+   repertoire link and the fact tiles. Used to be behind a button that opened a
+   sheet; now it sits right here, in every exercise's own scroll area, so it's
+   a scroll away rather than a tap away. A dashed rule and some breathing room
+   mark it as its own zone, distinct from the compact strip just above it. */
+.wm-story {
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem 0.25rem;
+  border-top: 1px dashed var(--hairline-soft);
+}
+.wm-story:empty { margin-top: 0; padding: 0; border-top: 0; }
 
 /* The two moves and what each was worth: what you played, and what the engine
    wanted. Red and green do the arguing — the sentence above says what happened,

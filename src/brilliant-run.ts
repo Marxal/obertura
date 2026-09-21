@@ -26,7 +26,7 @@ import type { BrilliantRef } from './brilliant';
 import { recordBrilliantSolved, recordBrilliantSeen } from './brilliant-log';
 import { buildRunHeader } from './run-header';
 import type { OpenGameCtx } from './mistake-run';
-import { openFullStory, FULL_STORY_LABEL } from './full-story';
+import { buildStoryContent } from './full-story';
 import { buildContextLine, buildContextStrip } from './spot-context';
 
 export interface BrilliantSessionOptions {
@@ -142,22 +142,19 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
   afterEl.hidden = true;
   const afterActions = document.createElement('div');
   afterActions.className = 'mr-after-actions';
-  // Analyse moved inside the sheet — see full-story.ts.
-  const storyBtn = document.createElement('button');
-  storyBtn.type = 'button';
-  storyBtn.className = 'btn-secondary mr-after-btn';
-  storyBtn.appendChild(Icons.file(16));
-  storyBtn.appendChild(document.createTextNode(FULL_STORY_LABEL));
-  storyBtn.addEventListener('click', () => {
+  // The full story now renders inline below (storyEl, in the scroll area), so
+  // this button goes straight to the analyser instead of opening a sheet.
+  const analyseBtn = document.createElement('button');
+  analyseBtn.type = 'button';
+  analyseBtn.className = 'btn-secondary mr-after-btn';
+  analyseBtn.appendChild(Icons.review(16));
+  analyseBtn.appendChild(document.createTextNode('Analyse game'));
+  analyseBtn.hidden = !opts.onOpenGame;
+  analyseBtn.addEventListener('click', () => {
     const { game, spot } = current;
-    openFullStory({
-      game,
-      ply: spot.ply,
-      playedSan: spot.playedSan,
-      onAnalyse: opts.onOpenGame ? () => suspendForAnalysis(game, spot.preFen) : undefined,
-    });
+    suspendForAnalysis(game, spot.preFen);
   });
-  afterActions.appendChild(storyBtn);
+  afterActions.appendChild(analyseBtn);
   const nextBtn = document.createElement('button');
   nextBtn.type = 'button';
   nextBtn.className = 'btn-primary pz-next-btn mr-after-btn';
@@ -172,9 +169,16 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
   const contextEl = document.createElement('div');
   contextEl.className = 'wm-context';
 
+  // The full story (charts, ratings, how many times this opening has caught
+  // you) — everything spot-context.ts didn't have room for. Below the fold on
+  // purpose: it's worth reading, not worth blocking the next position on.
+  const storyEl = document.createElement('div');
+  storyEl.className = 'wm-story';
+
   bottomEl.appendChild(statusRow);
   bottomEl.appendChild(hintBtn);
   bottomEl.appendChild(contextEl);
+  bottomEl.appendChild(storyEl);
 
   // Everything except the post-answer actions scrolls together; the actions
   // sit outside it, always the last thing on screen (see .pt-overlay--footer).
@@ -298,6 +302,7 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
     hintBtn.hidden = true;
     afterEl.hidden = true;
     contextEl.replaceChildren();
+    storyEl.replaceChildren();
     renderSessionBar();
 
     const { game, spot } = current;
@@ -402,6 +407,7 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
       clean ? 'pt-status--success' : 'pt-status--reveal');
     if (clean) burstConfetti(boardWrap);
     contextEl.replaceChildren(buildContextStrip(current.game, current.spot.ply));
+    storyEl.replaceChildren(buildStoryContent(current.game, current.spot.ply));
     // The brief has just been answered — "can you find it again?" is a question
     // with an answer on the board now — so its line goes to the game instead.
     // The tone matters: after a brilliancy the surprise is LOSING, so a lost
