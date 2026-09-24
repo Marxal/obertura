@@ -49,6 +49,7 @@ import {
   scoreSolve,
   totalsFor,
   recordTimePressureRound,
+  rememberRound,
   type TimePressureEntry,
   type TimePressureOutcome,
 } from './time-pressure';
@@ -118,7 +119,12 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
 
   // ── Scaffold ───────────────────────────────────────────────────────────────
   const overlay = document.createElement('div');
-  overlay.className = 'pt-overlay pt-overlay--puzzle pt-overlay--tinted pt-overlay--compact';
+  // The same frame as the Mistake retry drill (mistake-run.ts): --compact keeps
+  // the top block to its content, --footer makes .pt-scroll a full-height flex
+  // column. Without them the board sat flush under the header, a good sixty
+  // pixels higher than in every other exercise.
+  overlay.className =
+    'pt-overlay pt-overlay--puzzle pt-overlay--tinted pt-overlay--compact pt-overlay--footer';
   overlay.style.setProperty('--pt-tint', TIME_PRESSURE_ACCENT);
 
   const minutes = Math.max(1, Math.round(opts.minutes ?? DEFAULT_ROUND_MINUTES));
@@ -142,13 +148,32 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
   header.extras.appendChild(scoreEl);
   header.extras.appendChild(clockEl);
 
-  // The ten-second bar. It drains left-to-right and turns as it goes, so the
-  // last seconds read as urgent without a number shouting them.
+  // The position's clock, in the strip the other exercises use for "Position X
+  // of N" — same frame, same height, so the board lands where it does in them.
+  // The track drains rather than fills, and turns as it goes, so the last
+  // seconds read as urgent without a number shouting them.
   const barEl = document.createElement('div');
-  barEl.className = 'tp-bar';
+  barEl.className = 'pt-session-bar';
+  const barLabelEl = document.createElement('div');
+  barLabelEl.className = 'pt-session-bar-label';
+  barEl.appendChild(barLabelEl);
+  const barTrackEl = document.createElement('div');
+  barTrackEl.className = 'pt-session-bar-track';
   const barFillEl = document.createElement('div');
   barFillEl.className = 'tp-bar-fill';
-  barEl.appendChild(barFillEl);
+  barTrackEl.appendChild(barFillEl);
+  barEl.appendChild(barTrackEl);
+
+  // The top block, as in the drill: who it was against, then whose move it is
+  // (which you cannot afford to work out at this speed).
+  const topEl = document.createElement('div');
+  topEl.className = 'pt-top mr-top';
+  const opponentEl = document.createElement('div');
+  opponentEl.className = 'pt-line-name mr-opponent';
+  topEl.appendChild(opponentEl);
+  const metaEl = document.createElement('div');
+  metaEl.className = 'mr-intro';
+  topEl.appendChild(metaEl);
 
   const boardWrap = document.createElement('div');
   boardWrap.className = 'pt-board-wrap';
@@ -158,12 +183,6 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
 
   const bottomEl = document.createElement('div');
   bottomEl.className = 'pt-bottom';
-  // One line, and it is about the POSITION rather than the exercise: whose move
-  // it is (which you cannot afford to work out at this speed) and who it was
-  // against (which is what makes it yours).
-  const metaEl = document.createElement('div');
-  metaEl.className = 'tp-meta';
-  bottomEl.appendChild(metaEl);
 
   // The whole of the in-round feedback: one mark, for a moment. Its slot is
   // always in the layout so the board never shifts when it appears.
@@ -175,6 +194,7 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
   const scrollEl = document.createElement('div');
   scrollEl.className = 'pt-scroll';
   scrollEl.appendChild(barEl);
+  scrollEl.appendChild(topEl);
   scrollEl.appendChild(boardWrap);
   scrollEl.appendChild(bottomEl);
 
@@ -259,7 +279,9 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
     const { game, spot } = current;
 
     chess.load(spot.preFen);
-    metaEl.textContent = `${cgTurn() === 'white' ? 'White' : 'Black'} to play · vs ${game.opponent}`;
+    opponentEl.textContent = `vs ${game.opponent}`;
+    metaEl.textContent = `${cgTurn() === 'white' ? 'White' : 'Black'} to play`;
+    barLabelEl.textContent = `Position ${index + 1}`;
 
     cg.set({
       fen: spot.preFen,
@@ -330,6 +352,8 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
     if (tick) { clearInterval(tick); tick = null; }
     if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
     cg.set({ movable: { color: undefined, dests: new Map() } });
+    // What you actually saw — the next deal puts these at the back.
+    rememberRound(entries.map(e => e.ref.spot.id));
     showResults();
   }
 

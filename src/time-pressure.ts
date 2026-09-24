@@ -108,9 +108,9 @@ export function pressureScore(ref: SpotRef): number {
 }
 
 /**
- * The pool, hardest-pressed first. Ties go to the newer game, so a round played
- * twice in a row opens the same way — a shuffled order would make the personal
- * best meaningless.
+ * The pool, hardest-pressed first. Ties go to the newer game. Deterministic —
+ * it is the ranking, and the tests pin it. The round itself is dealt from it
+ * with some shuffling (dealRound, below).
  */
 export function orderByPressure(refs: SpotRef[]): SpotRef[] {
   return refs
@@ -122,27 +122,109 @@ export function orderByPressure(refs: SpotRef[]): SpotRef[] {
     .map(x => x.ref);
 }
 
+// ── Dealing ──────────────────────────────────────────────────────────────────
+//
+// WHY THE ROUND SHUFFLES NOW. The first version dealt the pressure order as it
+// stood and cycled it — on the argument that a reshuffled round makes the
+// personal best meaningless. In use it was the exercise's biggest complaint:
+// every round opened on the same positions in the same order, a small pool (a
+// free account holds ten) looped several times inside one round, and by the
+// third round you were answering from memory of the ROUND, not of the
+// position. The best is still meaningful — it is filed per length, and it is a
+// score over your whole pool, which is what a best should measure.
+//
+// WHAT STILL HOLDS. The round opens on the moves you rushed. Pressure is cut
+// into PRESSURE_BANDS bands and only the order WITHIN a band is shuffled, so a
+// scramble never ends up behind a position you had two minutes for.
+//
+// THREE RULES ON TOP.
+//   • What the last round dealt goes to the back, so "Go again" opens on
+//     positions you haven't just seen.
+//   • Nothing comes back until the whole pool has been dealt once.
+//   • When a small pool does have to go round again, each lap is reshuffled
+//     and never repeats the position that just closed the last one.
+
+/** How finely pressure is ranked before shuffling within a rank. */
+export const PRESSURE_BANDS = 4;
+
+/** 0 (no pressure) … PRESSURE_BANDS (none left on the clock). */
+function pressureBand(ref: SpotRef): number {
+  return Math.min(PRESSURE_BANDS, Math.floor(pressureScore(ref) * PRESSURE_BANDS));
+}
+
+function shuffled<T>(items: T[], random: () => number): T[] {
+  const out = items.slice();
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+export interface DealOptions {
+  /** Spot ids the previous round dealt — they go to the back of this one. */
+  recent?: ReadonlySet<string>;
+  /** Injected so the tests can deal deterministically. */
+  random?: () => number;
+}
+
 /**
- * Deal the round: the ordered pool, cycled if it is shorter than two minutes
- * can get through. Cycling matters — a pool of six positions would otherwise
- * end the round in under two minutes, and a speed round that stops early feels
- * like a bug rather than a small library.
+ * Deal the round: fresh positions before recent ones, harder-pressed bands
+ * before easier ones, shuffled within each, then further laps (reshuffled) if
+ * the pool is shorter than the round can get through. Cycling still matters — a
+ * pool of six would otherwise end a two-minute round early, and a speed round
+ * that stops early feels like a bug rather than a small library.
  *
  * `max` caps how many are prepared. Sized for the worst case rather than the
  * likely one: twenty seconds is a ceiling, not a cost, so a round of instant
  * answers gets through far more positions than 120 ÷ 20 suggests.
  */
-export function dealRound(refs: SpotRef[], max = 60): SpotRef[] {
-  const ordered = orderByPressure(refs);
-  if (ordered.length === 0) return [];
-  const out: SpotRef[] = [];
+export function dealRound(refs: SpotRef[], max = 60, opts: DealOptions = {}): SpotRef[] {
+  if (refs.length === 0) return [];
+  const random = opts.random ?? Math.random;
+  const recent = opts.recent ?? new Set<string>();
+
+  // The first lap: grouped by (fresh before recent, then pressure band), each
+  // group shuffled, groups in order.
+  const groups = new Map<number, SpotRef[]>();
+  for (const ref of refs) {
+    const key = (recent.has(ref.spot.id) ? 0 : 100) + pressureBand(ref);
+    const group = groups.get(key);
+    if (group) group.push(ref);
+    else groups.set(key, [ref]);
+  }
+  const firstLap = [...groups.keys()]
+    .sort((a, b) => b - a)
+    .flatMap(key => shuffled(groups.get(key)!, random));
+
+  const out: SpotRef[] = firstLap.slice(0, max);
   while (out.length < max) {
-    for (const ref of ordered) {
+    const lap = shuffled(refs, random);
+    // Never the same position twice in a row across the seam between laps.
+    const last = out[out.length - 1];
+    if (lap.length > 1 && lap[0].spot.id === last.spot.id) {
+      [lap[0], lap[lap.length - 1]] = [lap[lap.length - 1], lap[0]];
+    }
+    for (const ref of lap) {
       out.push(ref);
       if (out.length >= max) break;
     }
   }
   return out;
+}
+
+// What the last round actually put in front of you, so the next one can deal
+// around it. In memory only: it is about "Go again" and the daily challenge's
+// round a few minutes later, not about yesterday — a fresh launch reshuffles
+// anyway, and keeping it out of localStorage keeps it out of the sync payload.
+let lastRoundIds: ReadonlySet<string> = new Set();
+
+export function recentRoundIds(): ReadonlySet<string> {
+  return lastRoundIds;
+}
+
+export function rememberRound(spotIds: Iterable<string>): void {
+  lastRoundIds = new Set(spotIds);
 }
 
 // ── Scoring ──────────────────────────────────────────────────────────────────

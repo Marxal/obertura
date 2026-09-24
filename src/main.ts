@@ -93,7 +93,7 @@ import { startDetectiveSession } from './detective-run';
 import { fairPairs, pickWhichMove } from './which-move';
 import { startWhichMoveSession } from './which-move-run';
 import { startTimePressureSession } from './time-pressure-run';
-import { dealRound } from './time-pressure';
+import { dealRound, recentRoundIds } from './time-pressure';
 import { detectiveLog, whichMoveLog } from './middle-log';
 import { combinedDueAt } from './spot-rest';
 import type { AnalyseRequest as PuzzleAnalyseRequest } from './puzzle-run';
@@ -4736,7 +4736,7 @@ function renderHome(host: HTMLElement): void {
         // clock, so how many positions it deals was never the user's to pick.
         const done = finish(markTimePressureDone);
         startTimePressureSession({
-          refs: dealRound(spotRefs),
+          refs: dealRound(spotRefs, undefined, { recent: recentRoundIds() }),
           minutes: config.tasks.timePressure.count,
           contextLabel: 'Daily challenge',
           // "Ran out" is not a wrong answer and not a right one, so it counts

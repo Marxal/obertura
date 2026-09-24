@@ -171,20 +171,27 @@ export function buildScanBanner(): HTMLElement | null {
     if (stopScanWatch === stop) stopScanWatch = null;
   };
 
+  const write = (st: AutoScanState): void => {
+    const left = Math.max(0, st.total - st.done);
+    text.textContent = left > 0
+      ? `Reading your games — ${left} to go`
+      : 'Reading your games';
+  };
   const paint = (st: AutoScanState): void => {
     // Detached: a newer Home render owns the screen, or the user has left it.
     // Free the subscription rather than idle in it — the same self-cleaning the
     // endgame scan's watcher does.
     if (!strip.isConnected) { done(); return; }
     if (!st.running) { strip.remove(); done(); return; }
-    const left = Math.max(0, st.total - st.done);
-    text.textContent = left > 0
-      ? `Reading your games — ${left} to go`
-      : 'Reading your games';
+    write(st);
   };
+  // The first paint is written directly, NOT through paint(): the strip isn't
+  // in the document until the caller mounts it, so paint's isConnected check
+  // read it as detached — unsubscribed on the spot and left the banner blank
+  // for the whole scan.
+  write(initial);
   stop = onAutoScanChange(paint);
   stopScanWatch = stop;
-  paint(initial);
   return strip;
 }
 

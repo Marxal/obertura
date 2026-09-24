@@ -17459,24 +17459,18 @@ html:has(> body > .edit-overlay) > body {
 }
 
 /* ── Time pressure (time-pressure-run.ts) ────────────────────────────────────
-   The speed round: three minutes, ten seconds a position. Everything here is
-   sized to be read at a glance and then ignored — the board is the only thing
-   that should hold your attention while the clock runs. */
+   The speed round: two minutes by default, twenty seconds a position. The
+   frame is the Mistake retry drill's (.pt-session-bar, .pt-top.mr-top), so the
+   board sits exactly where it does there; everything added here is sized to be
+   read at a glance and then ignored.
 
-/* The ten-second bar, above the board. It drains rather than counts: a big
-   ticking number over a position you are already meant to feel rushed by tips
-   the exercise from sharp into stressful. */
-.tp-bar {
-  height: 5px;
-  margin: 0 1rem 0.6rem;
-  border-radius: 3px;
-  background: var(--bg-elevated);
-  overflow: hidden;
-}
+   The position's clock is the fill inside the shared session-bar track. It
+   drains rather than counts: a big ticking number over a position you are
+   already meant to feel rushed by tips the exercise from sharp into stressful. */
 .tp-bar-fill {
   height: 100%;
   width: 100%;
-  border-radius: 3px;
+  border-radius: 999px;
   background: var(--accent);
   transition: width 0.1s linear, background-color 0.2s ease;
 }
@@ -17500,13 +17494,6 @@ html:has(> body > .edit-overlay) > body {
 }
 @media (prefers-reduced-motion: reduce) {
   .tp-score--pop { animation: none; }
-}
-
-.tp-meta {
-  text-align: center;
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  padding: 0 1rem;
 }
 
 /* The whole of the in-round feedback: right or wrong, for a moment. Its height
