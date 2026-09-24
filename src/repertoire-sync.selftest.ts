@@ -37,6 +37,10 @@ import {
   shouldDeferFirstPush,
   anyPart,
   shouldApplyRemoteLocal,
+  stampsEqual,
+  snapshotBaseline,
+  planSnapshotMerge,
+  mergeIncomingGames,
   payloadBytes,
   SYNC_GAME_LIMIT,
   type SyncFlags,
@@ -588,10 +592,109 @@ export function runRepertoireSyncSelfTest(): TestResult[] {
     'an empty account row costs nothing',
   );
   check(
-    'an OLDER remote stamp is not a reason to pull',
-    !anyPart(partsToPull({ core: T1, games: T1 }, { core: T2, games: T2 })),
-    'our own push is newer — downloading it back would be a round trip for nothing',
+    'an OLDER remote stamp still pulls — another phone with a slow clock',
+    (() => {
+      const parts = partsToPull({ core: T1, games: T1 }, { core: T2, games: T2 });
+      return parts.core && parts.games;
+    })(),
+    'stamps are each device\'s own clock; only a difference says someone else wrote',
   );
+  check(
+    'the same instant spelled the Postgres way is not a change',
+    !anyPart(partsToPull(
+      { core: '2026-08-19T10:00:00+00:00', games: '2026-08-19T10:00:00.000+00:00' },
+      { core: T1, games: T1 },
+    )),
+    'we write `Z`, the column hands back `+00:00` — no wasted download',
+  );
+  check('stampsEqual compares instants', stampsEqual('2026-08-19T10:00:00+00:00', T1), '');
+  check('stampsEqual: null only equals null',
+    stampsEqual(null, null) && !stampsEqual(null, T1) && !stampsEqual(T1, null), '');
+
+  // ── The snapshot merges key by key ─────────────────────────────────────────
+  //
+  // The two-phone case that used to lose statistics: puzzles on A moved the
+  // rating, a setting changed on B, and whichever pushed last carried its
+  // whole snapshot over the other's.
+  {
+    const base = { rating: '1500', theme: 'light', best: '12' };
+    const baseline = snapshotBaseline(base);
+    const local = { rating: '1500', theme: 'dark', best: '12' };   // B: changed a setting
+    const remote = { rating: '1620', theme: 'light', best: '12' }; // A: played puzzles
+    const plan = planSnapshotMerge(local, remote, baseline);
+    check(
+      'a key only the other device changed is taken',
+      plan.set.rating === '1620',
+      JSON.stringify(plan),
+    );
+    check(
+      'a key only this device changed is kept, and owed to the account',
+      !('theme' in plan.set) && plan.localAhead,
+      JSON.stringify(plan),
+    );
+    check(
+      'an untouched key is left alone',
+      !('best' in plan.set) && plan.remove.length === 0,
+      JSON.stringify(plan),
+    );
+  }
+  {
+    const baseline = snapshotBaseline({ a: '1', gone: 'x' });
+    const plan = planSnapshotMerge({ a: '1', gone: 'x' }, { a: '1', fresh: 'y' }, baseline);
+    check(
+      'a key the account dropped goes, a key it gained arrives',
+      plan.remove.join() === 'gone' && plan.set.fresh === 'y' && !plan.localAhead,
+      JSON.stringify(plan),
+    );
+  }
+  {
+    const baseline = snapshotBaseline({ streak: '4' });
+    const plan = planSnapshotMerge({ streak: '5' }, { streak: '6' }, baseline);
+    check(
+      'a key BOTH changed stays as this device has it, to be pushed',
+      !('streak' in plan.set) && plan.localAhead,
+      'last push wins for that one key — the only case that still does',
+    );
+  }
+  {
+    // No baseline yet: an empty one makes it a union where this device wins —
+    // nothing is dropped, which is the rule for the one transitional sync.
+    const plan = planSnapshotMerge({ a: 'mine', b: 'mine' }, { a: 'theirs', c: 'theirs' }, {});
+    check(
+      'with no baseline nothing is ever removed',
+      plan.remove.length === 0 && plan.set.c === 'theirs' && !('a' in plan.set),
+      JSON.stringify(plan),
+    );
+  }
+
+  // ── Downloaded games keep this device's own engine work ────────────────────
+  {
+    const local = [
+      { id: 'g1', endTime: 1, retry: { spots: ['fixed'] }, analysis: { tree: 1 }, tags: ['old'] },
+      { id: 'g2', endTime: 2 },
+    ];
+    const incoming = [
+      { id: 'g1', endTime: 1, tags: ['new'] },
+      { id: 'g3', endTime: 3 },
+    ];
+    const merged = mergeIncomingGames(local, incoming) as Array<Record<string, unknown>>;
+    const g1 = merged.find(g => g.id === 'g1')!;
+    check(
+      'a downloaded game keeps the local mistake scan and analysis',
+      JSON.stringify(g1.retry) === '{"spots":["fixed"]}' && JSON.stringify(g1.analysis) === '{"tree":1}',
+      JSON.stringify(g1),
+    );
+    check(
+      'and takes the account\'s synced fields',
+      JSON.stringify(g1.tags) === '["new"]',
+      JSON.stringify(g1),
+    );
+    check(
+      'a game new to this device arrives as it is; local-only games are not touched',
+      merged.length === 2 && merged.some(g => g.id === 'g3'),
+      JSON.stringify(merged.map(g => g.id)),
+    );
+  }
 
   // ── Games are Pro ──────────────────────────────────────────────────────────
   //

@@ -31,10 +31,17 @@
 //     become one tree, and the better review record survives on any move both
 //     sides had. Nothing is ever deleted by a pull.
 //   • games merge by id.
-//   • the app-state snapshot (statistics, streaks, ratings, preferences) cannot
-//     merge — there is no union of two streak counters — so it is last-write-
-//     wins on the column's own timestamp, guarded so it can never overwrite
-//     changes this device hasn't pushed yet. See shouldApplyRemoteLocal.
+//   • the app-state snapshot (statistics, streaks, ratings, preferences) merges
+//     KEY BY KEY against a baseline of what both sides last agreed on: a key
+//     this device changed keeps its value, every other key takes the
+//     account's. Only a key BOTH phones changed is last-write-wins — there is
+//     no union of two streak counters. See planSnapshotMerge in sync-core.ts.
+//   • games merge by id, keeping this device's own analyses and mistake scans
+//     (the synced copy carries neither).
+//
+// And a push never lands blind: it is a compare-and-swap on the column's
+// stamp (writeRow), so a device that is behind catches up and merges before
+// its copy can replace anyone else's.
 //
 // The one thing merge cannot do is propagate a DELETION: remove a line on phone
 // A and phone B will hand it back on its next push. That is the honest cost of
@@ -89,6 +96,8 @@ import {
   getAllGames,
   parseBackup,
   applyLocalSnapshot,
+  currentLocalSnapshot,
+  removeLocalSnapshotKeys,
   mergeRepertoires,
   repertoiresFrom,
   replaceAllRepertoires,
@@ -117,11 +126,17 @@ import {
   shouldDeferFirstPush,
   anyPart,
   shouldApplyRemoteLocal,
+  planSnapshotMerge,
+  snapshotBaseline,
+  stampsEqual,
+  mergeIncomingGames,
   payloadBytes,
   SYNC_PART_LIMIT_BYTES,
   SYNC_TOO_LARGE_MESSAGE,
   type SyncState,
   type PullParts,
+  type Snapshot,
+  type SnapshotBaseline,
 } from './sync-core';
 
 export { type SyncState } from './sync-core';
@@ -171,6 +186,12 @@ const GAMES_FP_KEY = 'obertura.sync.gamesFingerprint';
 // from these is another device's work, and the only thing worth downloading.
 const SEEN_CORE_KEY = 'obertura.sync.seenCore';
 const SEEN_GAMES_KEY = 'obertura.sync.seenGames';
+// The app-state snapshot as it stood the last time this device and the account
+// agreed on it, one fingerprint per key — what the per-key merge measures "did
+// this device change it?" against (sync-core.ts's planSnapshotMerge). Absent on
+// a device that hasn't synced since this was added; the first push or pull
+// writes it.
+const BASELINE_KEY = 'obertura.sync.baseline';
 // How many lines the restore that triggered a reload brought down, left for the
 // next boot to announce. Under the `obertura.sync.` prefix like its neighbours,
 // so it is swept by "erase everything" and kept out of backups.
@@ -203,6 +224,21 @@ function writeLocal(key: string, value: string | null): void {
 }
 
 // ISO timestamp of the last successful push, or null before the first one.
+function readBaseline(): SnapshotBaseline | null {
+  const raw = readLocal(BASELINE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return parsed && typeof parsed === 'object' ? (parsed as SnapshotBaseline) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeBaseline(snapshot: Snapshot): void {
+  writeLocal(BASELINE_KEY, JSON.stringify(snapshotBaseline(snapshot)));
+}
+
 export function getLastSync(): string | null {
   return readLocal(LAST_KEY);
 }
@@ -456,6 +492,17 @@ function canPush(): boolean {
 // every other failure here because it will NOT fix itself by retrying.
 class PayloadTooLargeError extends Error {}
 
+// The account moved on since this device last looked: another device wrote in
+// between. Not a failure — the answer is to take its work and try again (see
+// runPush and writeRow).
+class SyncConflictError extends Error {}
+
+// How many times one push may catch up with another device and retry before it
+// gives up for this round. Two phones writing within the same second, over and
+// over, is not a real pattern; the bound is so a bug can never spin.
+const MAX_CONFLICT_RETRIES = 3;
+const CONFLICT_MESSAGE = 'Another device was syncing at the same time — will retry.';
+
 // Upload whichever parts are dirty, in ONE write — two columns of the same row,
 // so a burst that touched lines and games costs one request, not two. Throws on
 // failure; the caller decides whether that's a silent "pending" or visible.
@@ -486,6 +533,9 @@ async function pushDirtyParts(): Promise<void> {
   const now = new Date().toISOString();
   let nextCoreFp: string | null = null;
   let nextGamesFp: string | null = null;
+  // The snapshot that went up with the core, recorded as the new baseline once
+  // the write lands (see BASELINE_KEY).
+  let pushedLocal: Snapshot | null = null;
   // Parts the ceiling refused. Whatever fits still goes up in the same request —
   // an unsyncably huge games library must never stop the lines syncing — but the
   // push as a whole is then reported as failed, because part of it didn't happen.
@@ -517,6 +567,12 @@ async function pushDirtyParts(): Promise<void> {
       }
 
       const fp = coreFingerprintOf(core);
+      // A device that synced before the per-key merge existed has no baseline.
+      // If nothing has changed since its last push, what it holds now IS what
+      // it last pushed — an exact baseline, recorded for free. (Without this,
+      // the first conflict after the update fell back to whole-snapshot rules
+      // and could still hand one phone's stale rating to the other.)
+      if (fp === readLocal(CORE_FP_KEY) && !readBaseline()) writeBaseline(core.local ?? {});
       if (fp !== readLocal(CORE_FP_KEY)) {
         if (payloadBytes(core) > SYNC_PART_LIMIT_BYTES) {
           refusedCore = true;
@@ -524,6 +580,7 @@ async function pushDirtyParts(): Promise<void> {
           row[CORE_COLUMN] = core;
           row[CORE_STAMP_COLUMN] = now;
           nextCoreFp = fp;
+          pushedLocal = core.local ?? {};
           // The summary rides THIS branch and no other. Attaching it here — and
           // not next to `row` above — is the whole design: we are already
           // spending a request on this row, so the summary costs nothing, and a
@@ -567,7 +624,11 @@ async function pushDirtyParts(): Promise<void> {
     // retry-everything sweep on app launch finding the account already in step.
     // Don't spend the request; we ARE synced, so say so.
     if (Object.keys(row).length > 1) {
-      await writeRow(user.id, row);
+      // Only over the version this device last saw — see writeRow.
+      await writeRow(user.id, row, {
+        ...(CORE_COLUMN in row ? { [CORE_STAMP_COLUMN]: readLocal(SEEN_CORE_KEY) } : {}),
+        ...(GAMES_COLUMN in row ? { [GAMES_STAMP_COLUMN]: readLocal(SEEN_GAMES_KEY) } : {}),
+      });
     }
   } catch (err) {
     // Put the flags back so the work is still owed, then let the caller mark it.
@@ -581,6 +642,7 @@ async function pushDirtyParts(): Promise<void> {
   if (nextCoreFp) {
     writeLocal(CORE_FP_KEY, nextCoreFp);
     writeLocal(SEEN_CORE_KEY, now);
+    if (pushedLocal) writeBaseline(pushedLocal);
   }
   if (nextGamesFp) {
     writeLocal(GAMES_FP_KEY, nextGamesFp);
@@ -626,29 +688,58 @@ async function pushDirtyParts(): Promise<void> {
 // up empty and ran the first-run walkthrough all over again.
 //
 // UPDATE first, because after the very first push the row always exists. The
-// INSERT is the once-per-account path, and a duplicate-key error there means
-// another device created the row in the gap between our two statements — so we
-// simply run the UPDATE again.
-async function writeRow(userId: string, row: Record<string, unknown>): Promise<void> {
+// INSERT is the once-per-account path.
+//
+// ── AND THE UPDATE IS CONDITIONAL ───────────────────────────────────────────
+// `expect` names, for each half being written, the stamp this device last SAW
+// in that column. The update only matches the row while those stamps still
+// stand — a compare-and-swap in one request, at no extra cost when nobody else
+// has written. Before this, a push replaced the column blind: a phone that had
+// been in a drawer for a week pushed its week-old lines over the other phone's,
+// and its week-old statistics with them. The lines came back on the other
+// phone's next merge; the statistics did not.
+//
+// Zero rows matched means one of two things, and one small read tells them
+// apart: no row at all (insert it), or a row that has moved on — another
+// device's work, which runPush takes in and then retries over.
+async function writeRow(
+  userId: string,
+  row: Record<string, unknown>,
+  expect: Record<string, string | null>,
+): Promise<void> {
   const { id: _id, ...columns } = row;
-  if (await updateRow(userId, columns)) return;
+  if (await updateRow(userId, columns, expect)) return;
+
+  const stamps = await fetchRemoteStamps(userId);
+  if (stamps) throw new SyncConflictError(CONFLICT_MESSAGE);
 
   const { error } = await supabase.from(TABLE).insert(row);
   if (!error) return;
-  if (!/duplicate key|already exists|conflict/i.test(error.message)) throw new Error(error.message);
-  if (!(await updateRow(userId, columns))) throw new Error(error.message);
+  // Another device created the row between our two statements: its copy is
+  // the one to catch up with.
+  if (/duplicate key|already exists|conflict/i.test(error.message)) {
+    throw new SyncConflictError(CONFLICT_MESSAGE);
+  }
+  throw new Error(error.message);
 }
 
-// True when a row was actually there to update. The `select('id')` is what makes
-// that answerable: without it PostgREST reports nothing about how many rows
-// matched, and "this account has no row yet" would be indistinguishable from a
-// successful write. It costs one uuid on the wire.
-async function updateRow(userId: string, columns: Record<string, unknown>): Promise<boolean> {
-  const { data, error } = await supabase
+// True when a row was actually there to update (and, with `expect`, still held
+// the expected stamps). The `select('id')` is what makes that answerable:
+// without it PostgREST reports nothing about how many rows matched. It costs
+// one uuid on the wire.
+async function updateRow(
+  userId: string,
+  columns: Record<string, unknown>,
+  expect: Record<string, string | null> = {},
+): Promise<boolean> {
+  let query = supabase
     .from(TABLE)
     .update(columns)
-    .eq('id', userId)
-    .select('id');
+    .eq('id', userId);
+  for (const [column, stamp] of Object.entries(expect)) {
+    query = stamp === null ? query.is(column, null) : query.eq(column, stamp);
+  }
+  const { data, error } = await query.select('id');
   if (error) throw new Error(error.message);
   return Array.isArray(data) && data.length > 0;
 }
@@ -658,13 +749,29 @@ async function runPush(): Promise<void> {
   pushBusy = true;
   let ok = false;
   try {
-    await pushDirtyParts();
-    ok = true;
-  } catch (err) {
-    // Offline, RLS misconfigured, migration not run, Supabase down — none of it
-    // is the user's problem mid-edit. The flags carry the retry; Settings shows
-    // the state, and now the reason with it.
-    markFailed(err instanceof PayloadTooLargeError ? err.message : describeSyncError(err));
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await pushDirtyParts();
+        ok = true;
+        break;
+      } catch (err) {
+        // Another device wrote first: take its work in, then push the merge.
+        // pushDirtyParts has already put the dirty flags back.
+        if (err instanceof SyncConflictError && attempt < MAX_CONFLICT_RETRIES) {
+          await catchUp();
+          continue;
+        }
+        // Offline, RLS misconfigured, migration not run, Supabase down — none
+        // of it is the user's problem mid-edit. The flags carry the retry;
+        // Settings shows the state, and now the reason with it.
+        markFailed(
+          err instanceof PayloadTooLargeError || err instanceof SyncConflictError
+            ? err.message
+            : describeSyncError(err),
+        );
+        break;
+      }
+    }
   } finally {
     pushBusy = false;
   }
@@ -725,6 +832,7 @@ const PULL_POLL_MS = 5 * 60_000;
 const PULL_MIN_GAP_MS = 20_000;
 
 let pullBusy = false;
+let pullInFlight: Promise<boolean> | null = null;
 let lastPullAt = 0;
 let pollTimer: number | undefined;
 
@@ -743,8 +851,33 @@ async function pullFromAccount(opts: { force?: boolean } = {}): Promise<boolean>
 
   pullBusy = true;
   lastPullAt = Date.now();
+  pullInFlight = pullOnce(user.id);
   try {
-    const stamps = await fetchRemoteStamps(user.id);
+    return await pullInFlight;
+  } finally {
+    pullBusy = false;
+    pullInFlight = null;
+  }
+}
+
+/**
+ * A push lost the race to another device (SyncConflictError): take that
+ * device's work in now, whatever the poll's rate limit says, so the retry
+ * pushes a merge rather than conflicting again. Waits out a pull already on its
+ * way rather than skipping — skipping would only guarantee a second conflict.
+ */
+async function catchUp(): Promise<void> {
+  if (pullInFlight) await pullInFlight.catch(() => false);
+  await pullFromAccount({ force: true });
+}
+
+async function pullOnce(userId: string): Promise<boolean> {
+  try {
+    // Read BEFORE the data, deliberately: if another device writes in between,
+    // what we record as seen is older than what we merged, so the next push's
+    // compare-and-swap fails safe and catches up again. The other order could
+    // record a stamp for data we never saw, and write straight over it.
+    const stamps = await fetchRemoteStamps(userId);
     markReachable();
     if (!stamps) return false; // the account holds nothing yet
 
@@ -754,6 +887,17 @@ async function pullFromAccount(opts: { force?: boolean } = {}): Promise<boolean>
     // never advanced below while gated, so an upgrade later reads as "never
     // seen this half" and pulls the full history on its first check.
     const parts = gateGamesToEntitlement(partsToPull(stamps, seen), isEntitled());
+    // A half that hasn't moved is re-recorded in the server's own spelling of
+    // the stamp (`+00:00`, not the `Z` we wrote). Same instant, so nothing is
+    // skipped — but the push's compare-and-swap then matches on the exact text,
+    // and a stamp stored in any other shape can't wedge it into conflicting
+    // for ever.
+    if (!parts.core && stamps.core && stampsEqual(stamps.core, seen.core)) {
+      writeLocal(SEEN_CORE_KEY, stamps.core);
+    }
+    if (!parts.games && stamps.games && stampsEqual(stamps.games, seen.games)) {
+      writeLocal(SEEN_GAMES_KEY, stamps.games);
+    }
     if (!anyPart(parts)) return false;
 
     const remote = await fetchRemoteBackup(parts);
@@ -762,26 +906,12 @@ async function pullFromAccount(opts: { force?: boolean } = {}): Promise<boolean>
     let changed = false;
 
     if (parts.core) {
-      const incoming = repertoiresFrom(remote);
-      if (incoming.length > 0) {
-        await mergeRepertoires(incoming);
-        changed = true;
-      }
-      // The statistics/preferences half: last-write-wins, and only when this
-      // device has nothing of its own still waiting to go up.
-      if (remote.local && shouldApplyRemoteLocal({
-        remoteCoreStamp: stamps.core,
-        lastPushedCoreStamp: readLocal(SEEN_CORE_KEY),
-        localDirty: coreDirty,
-      })) {
-        applyLocalSnapshot(remote.local);
-        changed = true;
-      }
+      if (await takeRemoteCore(remote, stamps.core)) changed = true;
       writeLocal(SEEN_CORE_KEY, stamps.core);
     }
 
     if (parts.games && remote.games && remote.games.length > 0) {
-      await saveGames(remote.games);
+      await takeRemoteGames(remote.games);
       changed = true;
     }
     if (parts.games) writeLocal(SEEN_GAMES_KEY, stamps.games);
@@ -791,9 +921,73 @@ async function pullFromAccount(opts: { force?: boolean } = {}): Promise<boolean>
   } catch (err) {
     markFailed(describeSyncError(err));
     return false;
-  } finally {
-    pullBusy = false;
   }
+}
+
+/**
+ * Merge the account's core half into this device: the lines by move, and the
+ * app-state snapshot key by key against the baseline (sync-core.ts's
+ * planSnapshotMerge). Returns true when anything here changed.
+ */
+async function takeRemoteCore(remote: BackupFile, remoteStamp: string | null): Promise<boolean> {
+  let changed = false;
+  const incoming = repertoiresFrom(remote);
+  if (incoming.length > 0) {
+    await mergeRepertoires(incoming);
+    changed = true;
+  }
+  if (!remote.local) return changed;
+
+  const local = currentLocalSnapshot();
+  const baseline = readBaseline();
+  if (baseline) {
+    const plan = planSnapshotMerge(local, remote.local, baseline);
+    applyLocalSnapshot(plan.set);
+    removeLocalSnapshotKeys(plan.remove);
+    // The account's snapshot is now the thing this device's edits are measured
+    // against; whatever is still different here is this device's to send.
+    writeBaseline(remote.local);
+    if (Object.keys(plan.set).length > 0 || plan.remove.length > 0) changed = true;
+    if (plan.localAhead) {
+      coreDirty = true;
+      schedule();
+    }
+    return changed;
+  }
+
+  // No baseline yet — a device that last synced before the per-key merge
+  // existed. The old whole-snapshot rule decides once, but never by DROPPING a
+  // key: whichever side wins the shared keys, a key only the other side holds
+  // is kept. The next push or pull writes the baseline, and from then on the
+  // merge above applies.
+  if (shouldApplyRemoteLocal({
+    remoteCoreStamp: remoteStamp,
+    lastPushedCoreStamp: readLocal(SEEN_CORE_KEY),
+    localDirty: coreDirty,
+  })) {
+    applyLocalSnapshot(remote.local);
+    writeBaseline(remote.local);
+    if (Object.keys(local).some((k) => !(k in remote.local!))) {
+      coreDirty = true;
+      schedule();
+    }
+    return true;
+  }
+  // This device's snapshot wins the shared keys (it has changes still to push);
+  // take only the keys it has never held. An empty baseline reads every key
+  // this device holds as its own change, which is exactly that.
+  const plan = planSnapshotMerge(local, remote.local, {});
+  applyLocalSnapshot(plan.set);
+  return changed || Object.keys(plan.set).length > 0;
+}
+
+/**
+ * Save the account's games without losing what this device derived from them
+ * (sync-core.ts's mergeIncomingGames — the column carries no analyses and no
+ * mistake scans, so writing it straight over deleted both).
+ */
+async function takeRemoteGames(incoming: NonNullable<BackupFile['games']>): Promise<void> {
+  await saveGames(mergeIncomingGames(await getAllGames(), incoming));
 }
 
 // ── Sign-in ───────────────────────────────────────────────────────────────────
@@ -818,10 +1012,15 @@ async function connect(userId: string): Promise<void> {
   const done = showSigningIn('Signing you in…');
 
   let remote: BackupFile | null = null;
+  let stamps: { core: string | null; games: string | null } | null = null;
+  const gated = gateGamesToEntitlement({ core: true, games: true }, isEntitled());
   try {
+    // Stamps first, for the reason pullOnce gives: a write that lands between
+    // the two reads then fails the first push's compare-and-swap safely.
+    stamps = await fetchRemoteStamps(userId);
     // Same gate as the ongoing pull: a free account's first sign-in restores
     // lines only, never spending a request on the games column.
-    remote = await fetchRemoteBackup(gateGamesToEntitlement({ core: true, games: true }, isEntitled()));
+    remote = await fetchRemoteBackup(gated);
   } catch (err) {
     // Unreachable, or a copy we can't read. Claim nothing, push nothing,
     // destroy nothing: the next auth event, foreground or launch tries again.
@@ -835,11 +1034,14 @@ async function connect(userId: string): Promise<void> {
     try {
       const incoming = repertoiresFrom(remote);
       if (incoming.length > 0) await mergeRepertoires(incoming);
-      if (remote.games?.length) await saveGames(remote.games);
+      if (remote.games?.length) await takeRemoteGames(remote.games);
       // On a first connect the account's snapshot is applied unconditionally:
       // there is nothing this device has "already pushed" to weigh it against,
       // and a new phone signing in wants its streaks and ratings back.
-      if (remote.local) applyLocalSnapshot(remote.local);
+      if (remote.local) {
+        applyLocalSnapshot(remote.local);
+        writeBaseline(remote.local);
+      }
     } catch (err) {
       done();
       markFailed(describeSyncError(err));
@@ -847,7 +1049,12 @@ async function connect(userId: string): Promise<void> {
     }
   }
 
-  // Only now is this device in step with the account, so only now may it push.
+  // Only now is this device in step with the account, so only now may it push —
+  // and its first push must land over exactly the version it just merged.
+  if (stamps) {
+    writeLocal(SEEN_CORE_KEY, stamps.core);
+    if (gated.games) writeLocal(SEEN_GAMES_KEY, stamps.games);
+  }
   claimAccount(userId);
   coreDirty = true;
   gamesDirty = true;
@@ -941,7 +1148,9 @@ export async function replaceFromAccount(): Promise<number> {
   const user = getAuthUser();
   if (!isSupabaseConfigured || !user) throw new Error('You’re not signed in.');
   let remote: BackupFile | null;
+  let stamps: { core: string | null; games: string | null } | null;
   try {
+    stamps = await fetchRemoteStamps(user.id); // first — see pullOnce
     remote = await fetchRemoteBackup();
   } catch (err) {
     throw new Error(describeSyncError(err));
@@ -958,6 +1167,9 @@ export async function replaceFromAccount(): Promise<number> {
   // byte-identical copy for nothing.
   writeLocal(CORE_FP_KEY, coreFingerprintOf(remote));
   writeLocal(GAMES_FP_KEY, gamesFingerprintOf(remote.games ?? []));
+  writeLocal(SEEN_CORE_KEY, stamps?.core ?? null);
+  writeLocal(SEEN_GAMES_KEY, stamps?.games ?? null);
+  writeBaseline(remote.local ?? {});
   claimAccount(user.id);
   markSynced();
   return backupLineCount(remote);
@@ -1070,9 +1282,9 @@ export function initAccountSync(): void {
 }
 
 // One round of the loop: send whatever is owed, then take whatever is new.
-// Push first, always — pulling first would let the account's older snapshot land
-// on top of statistics this device hasn't sent yet, and shouldApplyRemoteLocal's
-// guard would then refuse to apply anything at all until the next round.
+// Push first, always: the push is a compare-and-swap, so if the other device
+// has been busy it catches up (merging, key by key) before it writes, and the
+// pull that follows then usually has nothing left to fetch.
 async function syncTick(): Promise<void> {
   if (!canPush()) return;
   offerCore();

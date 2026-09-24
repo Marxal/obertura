@@ -663,7 +663,9 @@ different request to a different place — the terms say so.
 - **Changes pull automatically.** On sign-in, whenever the app comes back to the
   foreground, and every five minutes while it's open, it asks the account whether
   either half has moved since it last looked. That question is two timestamps;
-  only a half that really has moved is downloaded. There is also a **Sync now**
+  only a half that really has moved is downloaded. "Moved" means *different*,
+  not *later*: the stamps come from each phone's own clock, and a phone whose
+  clock ran slow used to have its work ignored because its stamps looked old. There is also a **Sync now**
   button in Settings → Account for when you don't want to wait.
 - **A pull always merges, and never asks.** Signing in used to stop and ask
   "merge or replace?" — at the worst possible moment, with "merge" being the
@@ -671,11 +673,25 @@ different request to a different place — the terms say so.
   unsynced for ever. Now:
   - **lines merge by move.** The two trees become one tree; on a move both sides
     have, the better review record survives. Nothing is ever deleted by a pull.
-  - **games merge by id.**
-  - **statistics and settings are last-write-wins**, decided by
-    `repertoire_updated_at`. There is no sensible union of two streak counters.
-    The device with unpushed changes of its own never has them overwritten — it
-    pushes first and takes the account's copy on the next round.
+  - **games merge by id**, and a downloaded game keeps this phone's own saved
+    analysis and mistake scan. The synced copy carries neither (§7), and
+    writing it straight over the local game used to delete both, fixed marks
+    included.
+  - **statistics and settings merge key by key.** Each phone remembers what
+    every key looked like the last time it and the account agreed (a
+    fingerprint per key, `obertura.sync.baseline`, never synced). A key this
+    phone changed since then keeps its value; every other key takes the
+    account's. Only a key *both* phones changed is last-write-wins; there is
+    no sensible union of two streak counters.
+- **A push never lands blind.** The upload is an UPDATE conditional on the
+  column's timestamp still being the one this phone last saw, which is a
+  compare-and-swap in the same single request. If another phone wrote in
+  between, nothing is written: this phone pulls, merges, and pushes the merge.
+  Before this, a phone that had been in a drawer for a week could push its
+  week-old copy over the other phone's, statistics included. It needs no SQL
+  change: filtering on `repertoire_updated_at` / `games_updated_at` only needs
+  SELECT on them, which `authenticated` already has (the app reads them to
+  poll).
 - **Closing the app** inside the 30-second window pushes on the way out rather
   than waiting for the next launch. Best-effort — Android can kill a PWA before
   the request lands — so the next launch retries, which costs nothing when it

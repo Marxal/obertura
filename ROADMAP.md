@@ -2077,6 +2077,54 @@ Selftest: two `daily-challenge` "trained yesterday" checks fail on `main` too,
 before this round — date-dependent, not touched here.
 
 
+### Sync stops overwriting the other phone (v0.11)
+
+Version bumped to 0.11.0 first, per CLAUDE.md (tag `v0.11` on that commit). Four fixes in the account sync,
+the first two found by reading the push and the third while fixing them.
+
+**Pushes no longer land blind.** A push replaced the whole column with no check
+that the account was still the version this phone last saw. So phone B, which
+had not pulled since phone A added a line, pushed its older copy over A's: the
+account lost A's line until A next pushed, and lost A's statistics for good,
+because A then pulled B's older snapshot over its own. The UPDATE is now
+conditional on the column's stamp (`writeRow`), a compare-and-swap in the same
+single request. Zero rows matched means either no row yet (insert) or another
+device's write, so `runPush` catches up (pull and merge) and retries, at most
+three times. No SQL change: the filter needs only SELECT on the stamp columns,
+which the poll already uses.
+
+**Statistics and settings merge key by key.** The snapshot used to be one
+last-write-wins value. Each phone now keeps a per-key fingerprint of the last
+agreed snapshot (`obertura.sync.baseline`, excluded from sync like every
+`obertura.sync.` key), and `planSnapshotMerge` keeps what this phone changed
+and takes everything else from the account. Devices that synced before this
+record their baseline for free on the first launch after the update, whenever
+nothing has changed since their last push (the core fingerprint still
+matches). Otherwise, one transitional sync falls back to the old rule, but it
+never drops a key.
+
+**Downloaded games keep this phone's analyses and mistake scans.** The games
+column is slimmed (no `analysis`, no `retry`), and a pull wrote it straight
+over the local games: every game the other phone had also pushed lost its
+saved analysis and its scan, fixed marks included, and the autoscan then spent
+the engine re-reading them. `mergeIncomingGames` keeps the local derived fields.
+
+**A phone with a slow clock is no longer ignored.** Stamps come from each
+device's own clock, and the pull only fetched a half whose stamp was *later*
+than the one last seen. So work from a phone running a minute behind was never
+downloaded. Now any difference counts (`stampsEqual`, which compares instants,
+because Postgres hands back `+00:00` where we wrote `Z`).
+
+Verified end to end with two headless browsers against a small fake PostgREST.
+In the scenario (A adds a line and its rating moves; B, not having pulled, adds
+a line and changes a setting), the old build left the account without A's line
+and with B's stale rating, and A then wiped B's setting. The new build leaves
+the account and both phones with all three lines, A's rating and B's setting.
+The same holds when both phones first synced on the old build and are then
+upgraded. Games merging is covered by selftests only, because it needs a Pro
+entitlement headless. Still open: deletions don't travel (Later list).
+
+
 ---
 
 ## Later 💤

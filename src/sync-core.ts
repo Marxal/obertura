@@ -281,18 +281,27 @@ export function anyPart(parts: PullParts): boolean {
   return parts.core || parts.games;
 }
 
-// A stamp is "newer" only when it parses AND it is strictly later than the one
-// we hold. Unparseable stamps (a hand-edited row, a null) count as newer when we
-// hold nothing and as unchanged otherwise — the safe direction, since the worst
-// case is one wasted fetch that merges data we already have.
+// Has this half moved on from the stamp we last saw? ANY difference counts, not
+// just a later one. The stamps are written by each device's own clock, so a
+// phone whose clock runs a minute slow writes stamps that look OLDER than the
+// one this device last pushed — and "only if newer" meant that phone's work was
+// never downloaded at all. Nothing but another device ever changes the stamp
+// away from what we saw, so a difference is always worth one fetch, and the
+// merge that follows is idempotent if it turns out to hold nothing new.
+//
+// Compared as instants where both parse, because the same moment comes back
+// from Postgres as `+00:00` where we wrote `Z`.
+export function stampsEqual(a: string | null, b: string | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  const x = Date.parse(a);
+  const y = Date.parse(b);
+  return Number.isFinite(x) && Number.isFinite(y) && x === y;
+}
+
 function movedOn(remote: string | null, seen: string | null): boolean {
   if (!remote) return false; // that half has never been written at all
-  if (!seen) return true; // we've never seen it — always worth a look
-  if (remote === seen) return false;
-  const r = Date.parse(remote);
-  const s = Date.parse(seen);
-  if (!Number.isFinite(r) || !Number.isFinite(s)) return true;
-  return r > s;
+  return !stampsEqual(remote, seen);
 }
 
 export function partsToPull(remote: RemoteStamps, seen: RemoteStamps): PullParts {
@@ -371,4 +380,93 @@ export function shouldApplyRemoteLocal(opts: {
   const p = Date.parse(opts.lastPushedCoreStamp);
   if (!Number.isFinite(r) || !Number.isFinite(p)) return true;
   return r > p;
+}
+
+// ── Merging the app-state snapshot, key by key ───────────────────────────────
+//
+// shouldApplyRemoteLocal above decides the snapshot as ONE value, and that is
+// what lost statistics between two phones: train puzzles on A, change a setting
+// on B, and whichever pushed last carried its whole snapshot — so A's rating
+// went back to what B last knew, or B's setting vanished under A's.
+//
+// Most of the snapshot is independent keys (a rating, a best, a preference), so
+// it CAN merge, one key at a time, given one more fact: what each key looked
+// like the last time this device and the account agreed. That is the BASELINE —
+// a fingerprint per key, recorded whenever this device pushes its snapshot or
+// takes the account's. Against it, a three-way merge per key:
+//
+//   • changed here since the baseline → this device's value stands (it is
+//     newer information than anything the account can have about it);
+//   • unchanged here → the account's value is taken, including its absence.
+//
+// Two phones that both changed the SAME key still resolve to "last push wins" —
+// there is no union of two streak counters, as above — but that is now one
+// key's question rather than the whole snapshot's.
+
+export type Snapshot = Record<string, string>;
+export type SnapshotBaseline = Record<string, string>;
+
+/** Fingerprint each key's value — what the baseline stores. */
+export function snapshotBaseline(snapshot: Snapshot): SnapshotBaseline {
+  const out: SnapshotBaseline = {};
+  for (const [key, value] of Object.entries(snapshot)) out[key] = fingerprint(value);
+  return out;
+}
+
+export interface SnapshotMergePlan {
+  /** Keys to write on this device, with the account's value. */
+  set: Snapshot;
+  /** Keys to remove on this device — the account no longer holds them. */
+  remove: string[];
+  /** This device holds changes the account doesn't have yet — push them. */
+  localAhead: boolean;
+}
+
+export function planSnapshotMerge(
+  local: Snapshot,
+  remote: Snapshot,
+  baseline: SnapshotBaseline,
+): SnapshotMergePlan {
+  const plan: SnapshotMergePlan = { set: {}, remove: [], localAhead: false };
+  const keys = new Set([...Object.keys(local), ...Object.keys(remote)]);
+  for (const key of keys) {
+    const here = key in local ? fingerprint(local[key]) : undefined;
+    const changedHere = here !== baseline[key];
+    const there = key in remote ? remote[key] : undefined;
+    if (changedHere) {
+      if (local[key] !== there) plan.localAhead = true;
+      continue;
+    }
+    if (there === undefined) {
+      if (key in local) plan.remove.push(key);
+    } else if (local[key] !== there) {
+      plan.set[key] = there;
+    }
+  }
+  return plan;
+}
+
+// ── Taking the account's games without losing this device's work ────────────
+//
+// The games column is slimmed (gamesForSync above): no saved analysis, no
+// mistake scan. Writing a downloaded game straight over the local one therefore
+// DELETED both — every game the other phone had also pushed lost its analysis
+// and its scan, spots' fixed marks and all, and the autoscan then spent the
+// engine re-reading them. The download is merged instead: the synced fields
+// come from the account, the derived ones stay as they are here.
+
+export function mergeIncomingGames<T extends SyncGame>(
+  local: readonly T[],
+  incoming: readonly T[],
+): T[] {
+  const byId = new Map(local.map((g) => [g.id, g]));
+  return incoming.map((game) => {
+    const mine = byId.get(game.id) as Record<string, unknown> | undefined;
+    if (!mine) return game;
+    const merged = { ...game } as Record<string, unknown>;
+    for (const field of DERIVED_GAME_FIELDS) {
+      if (!(field in merged) && field in mine) merged[field] = mine[field];
+    }
+    return merged as T;
+  });
 }

@@ -642,6 +642,23 @@ function snapshotLocalData(parts?: readonly BackupPart[]): Record<string, string
  * without going through a whole restore — and so both paths share the one guard
  * that stops a doctored file planting keys the app doesn't own.
  */
+/**
+ * This device's app-state snapshot as the sync sends it — the `local` half of
+ * exportCore() without reading the repertoires. The account sync's per-key
+ * merge (sync-core.ts's planSnapshotMerge) compares against it.
+ */
+export function currentLocalSnapshot(): Record<string, string> {
+  return snapshotLocalData();
+}
+
+/** Remove snapshot keys the account no longer holds. Same filter as applying. */
+export function removeLocalSnapshotKeys(keys: readonly string[]): void {
+  for (const k of keys) {
+    if (!backupLocalKey(k)) continue;
+    try { localStorage.removeItem(k); } catch { /* storage unavailable — nothing to remove */ }
+  }
+}
+
 export function applyLocalSnapshot(local: Record<string, string>): void {
   for (const [k, v] of Object.entries(local)) {
     if (!backupLocalKey(k)) continue;

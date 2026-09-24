@@ -1309,9 +1309,15 @@ Four columns on `profiles` (one row per user, keyed by auth id):
 | `entitled` | read by `entitlement.ts`, written by the Stripe webhook |
 
 **A pull always merges; there is no merge-or-replace question.** Repertoires merge
-by move (the better review record survives), games merge by id, and the app-state
-snapshot cannot merge so it is last-write-wins on its own timestamp, guarded so it
-can never overwrite unpushed local changes. What goes up is `gamesForSync()`: the
+by move (the better review record survives), games merge by id keeping this
+device's own analyses and scans (`mergeIncomingGames`), and the app-state snapshot
+merges key by key against a per-key baseline (`planSnapshotMerge`, baseline in
+`obertura.sync.baseline`): a key this device changed stays, every other key takes
+the account's; only a key both changed is last-write-wins. **A push is a
+compare-and-swap** on the column's stamp (`writeRow`): if another device wrote
+since this one last looked, it pulls, merges and retries (`SyncConflictError`,
+`catchUp`). Stamps are compared for *difference*, not order, because they come
+from each device's clock. What goes up is `gamesForSync()`: the
 500 most recent games with saved analysis trees and scan spots stripped (engine
 output, derived from moves that *are* synced, and ~80% of the payload). The manual
 backup file keeps all of it. Scouted opponents never sync — pure re-fetchable
