@@ -124,7 +124,7 @@ export function startTimePressureSession(opts: TimePressureSessionOptions): void
   // column. Without them the board sat flush under the header, a good sixty
   // pixels higher than in every other exercise.
   overlay.className =
-    'pt-overlay pt-overlay--puzzle pt-overlay--tinted pt-overlay--compact pt-overlay--footer';
+    'pt-overlay pt-overlay--puzzle pt-overlay--tinted pt-overlay--compact pt-overlay--footer pt-overlay--split';
   overlay.style.setProperty('--pt-tint', TIME_PRESSURE_ACCENT);
 
   const minutes = Math.max(1, Math.round(opts.minutes ?? DEFAULT_ROUND_MINUTES));

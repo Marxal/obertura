@@ -7778,6 +7778,59 @@ html:has(> body > .edit-overlay) > body {
   .home-scan-dots i { animation: none; opacity: 0.6; }
 }
 
+/* ── Home on a desktop: the day on the left, everything else on the right ─────
+   Stacked, the daily card stretched across the whole window (its task rows
+   1,100px wide with a dozen words in each) while the blocks under it sat at a
+   narrower width — two measures on one page. Side by side, the daily card
+   keeps a card's width beside the boards, and the page as a whole stops at a
+   width a person can take in. */
+@media (min-width: 960px) {
+  #view-home:not([hidden]) {
+    display: grid;
+    grid-template-columns: minmax(340px, 400px) minmax(0, 1fr);
+    grid-template-areas:
+      "scan  scan"
+      "daily body";
+    align-items: start;
+    column-gap: var(--space-xl);
+    max-width: 1240px;
+    margin-inline: auto;
+    padding-inline: var(--space-lg);
+  }
+  #view-home > .home-scan { grid-area: scan; margin-inline: 0; }
+  /* Not sticky: with Get started under it the column can outgrow the window,
+     and a pinned column taller than the screen hides its own foot. */
+  #view-home > .daily-host {
+    grid-area: daily;
+    margin: var(--space-lg) 0 var(--space-xl);
+  }
+  #view-home > .home-body {
+    grid-area: body;
+    max-width: none;
+    margin: 0;
+    padding: var(--space-lg) 0 var(--space-xl);
+  }
+  /* No bleed on a desktop: the strips stay inside their column, which is what
+     cut the last card off at the window's edge. */
+  #view-home .fmove-strip {
+    margin-inline: 0;
+    padding-inline: 0;
+    scroll-padding-inline: 0;
+  }
+}
+
+/* The other three tab screens already lay out in columns on a desktop; on a
+   very wide window they just need to stop somewhere, at Home's width, so the
+   cards don't drift to the far edges of a 27-inch screen. */
+@media (min-width: 960px) {
+  #view-explore:not([hidden]),
+  #view-games:not([hidden]),
+  #view-progress:not([hidden]) {
+    max-width: 1240px;
+    margin-inline: auto;
+  }
+}
+
 /* ── Home's two framed carousels ─────────────────────────────────────────────
    "Ready to grow" and "From your last games" are the two blocks that show ONE
    position at a time, so they are framed. The other two are strips of small
@@ -16932,87 +16985,125 @@ html:has(> body > .edit-overlay) > body {
   min-height: 0;
 }
 
-/* ── Puzzle runner: two-column desktop layout ────────────────────────────────
-   The same split the builder uses ($desktop-board, 960px — mirrors
-   DESKTOP_NAV_BREAKPOINT in main.ts; keep every copy in sync).
+/* ── Every exercise on a desktop: board left, panel right ────────────────────
+   One layout for all nine runners, opted into with .pt-overlay--split (drill,
+   puzzles, mistake retry, which move, brilliant, detective, time pressure,
+   endgame play-out, fix-it). It generalises what the puzzle runner alone used
+   to have, and replaces it.
 
-   Below the breakpoint NOTHING here applies: the overlay stays the phone flex
-   column with the top/bottom blocks sharing the spare height around the board,
-   exactly as the rules above describe. At/above it the overlay becomes a grid:
+   Below 960px (mirrors DESKTOP_NAV_BREAKPOINT in main.ts) NOTHING here applies:
+   each overlay stays its phone flex column. At/above it the overlay is a grid:
 
-       ┌───────────────────────────────┐
-       │ .pt-header      (both columns)│
-       ├───────────────────────────────┤
-       │ .pt-session-bar (both columns)│
-       ├──────────────┬────────────────┤
-       │              │ .pt-top        │  col 2: the story text (mode, rating,
-       │ .pt-board-   ├────────────────┤  themes) over an always-visible panel
-       │  wrap        │ .pt-bottom     │  with the status, Hint, Next puzzle
-       │  (col 1,     │  (fills the    │  and Analyse position — no sheet, no
-       │   rows 3-·)  │   rest)        │  drag, no snap states.
-       └──────────────┴────────────────┘
+       ┌──────────────────────────────────────────────────────────┐
+       │ .pt-header                                     (all 4 cols)│
+       ├──────┬──────────────────────────┬──────────────────┬──────┤
+       │      │                          │ session bar      │      │
+       │ 1fr  │  .pt-board-wrap          │ .pt-top          │ 1fr  │
+       │      │  (as tall as the window  │ .pt-bottom       │      │
+       │      │   allows, sticky)        │ actions (footer) │      │
+       │      │                          │ "? shortcuts"    │      │
+       └──────┴──────────────────────────┴──────────────────┴──────┘
 
-   Scoped to .pz-run (set by puzzle-run.ts) rather than .pt-overlay--puzzle,
-   which the mistake and brilliant runners share — those keep the phone layout
-   at every width. */
+   The phone's .pt-scroll wrapper (the pinned-footer runners) becomes
+   `display: contents`, so its children are grid items like everyone else's —
+   which is what lets one set of rules place all nine. The rows are six `auto`
+   ones for the panel's blocks, then a `1fr` that soaks up the rest: an item
+   that spans a flexible track (the board does) is left out of sizing the
+   auto rows, so the panel's blocks stack at their own heights instead of being
+   stretched to share the board's.
+
+   A results screen swaps the whole overlay's contents for one .train-completion
+   panel; with one of those showing, the grid steps aside (:has) and the
+   overlay is its phone column again, centred. */
 @media (min-width: 960px) {
-  .pz-run {
+  .pt-overlay--split:not(:has(> .train-completion)) {
+    --split-gap: 1.75rem;
+    --split-panel: min(380px, 30vw);
+    /* As big as the window allows: its height minus the header and margins,
+       its width minus the panel and the gaps — capped where a board stops
+       getting easier to read. */
+    --split-board: min(calc(100dvh - 8rem), calc(100vw - var(--split-panel) - 4 * var(--split-gap)), 860px);
     display: grid;
-    grid-template-columns: auto minmax(320px, 1fr);
-    /* header · session bar · story · panel. Row gap stays 0 so an absent
-       session bar costs nothing; the blocks carry their own padding. */
-    grid-template-rows: auto auto auto minmax(0, 1fr);
-    column-gap: var(--space-lg);
-    overflow: hidden;
-  }
-
-  .pz-run .pt-header { grid-column: 1 / -1; grid-row: 1; }
-  .pz-run .pt-session-bar { grid-column: 1 / -1; grid-row: 2; }
-
-  /* The board owns the left column top to bottom — it keeps its own square size
-     (unchanged) and simply stops centring, since the column is its own now. */
-  .pz-run .pt-board-wrap {
-    grid-column: 1;
-    grid-row: 3 / -1;
-    align-self: start;
-    margin-inline: var(--space-lg) 0;
-    margin-top: var(--space-md);
-  }
-
-  /* Nothing shares the board's height any more, so the two blocks stop splitting
-     the spare space between them: the story sits at the top of the panel column
-     and the actions fill what's left. */
-  .pz-run .pt-top {
-    grid-column: 2;
-    grid-row: 3;
-    margin-right: var(--space-lg);
-    justify-content: flex-start;
-  }
-
-  /* Hugs its content rather than filling the column — the status and the two or
-     three actions are all it ever holds, and a full-height empty box would read
-     as a loading state. */
-  .pz-run .pt-bottom {
-    grid-column: 2;
-    grid-row: 4;
-    align-self: start;
-    max-height: 100%;
-    min-height: 0;
+    grid-template-columns: 1fr var(--split-board) var(--split-panel) 1fr;
+    grid-template-rows: auto repeat(6, auto) 1fr;
+    column-gap: var(--split-gap);
+    align-content: start;
+    overflow-x: hidden;
     overflow-y: auto;
-    margin: 0 var(--space-lg) var(--space-lg) 0;
-    padding-bottom: var(--space-md);
-    background: var(--bg-card);
+  }
+
+  .pt-overlay--split:not(:has(> .train-completion)) > .pt-scroll {
+    display: contents;
+  }
+
+  .pt-overlay--split > .pt-header {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .pt-overlay--split:not(:has(> .train-completion)) .pt-board-wrap {
+    grid-column: 2;
+    grid-row: 2 / -1;
+    align-self: start;
+    width: var(--split-board);
+    height: var(--split-board);
+    margin: var(--space-lg) 0;
+    /* Stays in view if a long panel ever scrolls the overlay. */
+    position: sticky;
+    top: var(--space-lg);
+  }
+
+  /* Everything else is the panel. */
+  .pt-overlay--split:not(:has(> .train-completion)) > :not(.pt-header, .pt-board-wrap, .pt-scroll),
+  .pt-overlay--split:not(:has(> .train-completion)) > .pt-scroll > :not(.pt-board-wrap) {
+    grid-column: 3;
+    min-width: 0;
+  }
+
+  /* The panel's first block lines up with the top of the board. */
+  .pt-overlay--split .pt-session-bar {
+    margin-top: var(--space-lg);
     border: 1px solid var(--border-card);
     border-radius: 12px;
-    /* A persistent panel earns a real scrollbar — the phone overlay hides it. */
-    scrollbar-width: thin;
+  }
+  .pt-overlay--split:not(:has(.pt-session-bar)) .pt-top {
+    margin-top: var(--space-lg);
   }
 
-  /* The results screen removes every block above and appends its own panel —
-     give it the whole grid rather than letting it land in a single cell. */
-  .pz-run .pz-results {
-    grid-column: 1 / -1;
-    grid-row: 1 / -1;
+  /* The top block stops pushing its content to its foot — there is no board
+     under it to sit against any more. */
+  .pt-overlay--split .pt-top {
+    justify-content: flex-start;
+    padding-inline: 0;
+  }
+
+  /* Room for the drill's note / alternative cards, which float over the foot
+     of this block (position: absolute) rather than pushing anything. */
+  .pt-overlay--split .pt-bottom {
+    min-height: 14rem;
+  }
+
+  /* The pinned footer's actions sit in the panel like any other block. */
+  .pt-overlay--split > .mr-after {
+    border-top: none;
+    background: none;
+    padding: var(--space-sm) 0 var(--space-lg);
+  }
+
+  /* One quiet line at the foot of the panel, for mouse-and-keyboard users only:
+     the keys are otherwise invisible (run-keys.ts). A pseudo-element of the grid
+     is a grid item, so it lands in the panel column like the rest. */
+  @media (hover: hover) and (pointer: fine) {
+    .pt-overlay--split:not(:has(> .train-completion))::after {
+      content: "Press ? for keyboard shortcuts";
+      grid-column: 3;
+      grid-row: -2;
+      align-self: end;
+      padding-bottom: var(--space-lg);
+      font-size: 0.72rem;
+      color: var(--text-faint);
+      text-align: center;
+    }
   }
 }
 

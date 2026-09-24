@@ -67,7 +67,7 @@ export function startFixIt(move: FixItMove, opts: FixItOptions): void {
   // ── Overlay scaffold (mirrors the drill overlay, trimmed for one move) ───────
 
   const overlay = document.createElement('div');
-  overlay.className = 'pt-overlay fixit-overlay';
+  overlay.className = 'pt-overlay pt-overlay--split fixit-overlay';
 
   const header = buildRunHeader({
     icon: Icons.zap(18),

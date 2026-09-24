@@ -2165,6 +2165,50 @@ at 412×915 and 1440×900, light and dark, with and without games, including a
 swipe landing on the right bubble.
 
 
+### Desktop gets its own layout (v0.13)
+
+Version bumped to 0.13.0 first (tag `v0.13` on that commit). The last round
+from the audit: the app was a phone layout stretched across a monitor.
+
+**Every exercise is board left, panel right.** One opt-in class,
+`.pt-overlay--split`, on all nine runners, generalising what only the puzzle
+runner had (its block is gone). The board is as large as the window allows (at
+1440×900 it went from ~520px to 768px), sticky if the panel ever scrolls. The
+panel holds the session bar, the story, the status and the actions. Two tricks
+keep it one set of rules:
+- The pinned-footer runners' `.pt-scroll` wrapper becomes `display: contents`,
+  so its children join the grid.
+- The panel's rows are six `auto` rows plus a `1fr`, so the board, which spans
+  the flexible track, doesn't stretch them.
+
+A results screen turns the grid off with `:has(> .train-completion)`. Phones
+are untouched: every rule sits behind the 960px query.
+
+**Keyboard shortcuts** (`run-keys.ts`): Space or Enter for next, H hint, S show
+solution, N note, A analyse, Esc end or close, and `?` lists the keys this
+screen has. It is one global handler that presses the button the runner already
+renders (the runners share class names for Next, Hint and Analyse), so no
+runner changed and a key can't reach a state the screen doesn't offer. It acts
+only on the topmost layer, and skips fields, focused buttons and modifier
+chords. The arrow keys stay with Blunder detective. Esc also dismisses a dialog
+or sheet opened over an exercise, using the sheet's own backdrop dismissal, but
+nowhere else, so a stray Esc can't throw away a half-written note. Mouse users
+see the key in each button's tooltip, and "Press ? for keyboard shortcuts" at
+the foot of the panel.
+
+**Home is two columns** on a desktop: the daily card (and Get started) on the
+left at a card's width, the board blocks on the right, capped at 1240px. The
+forgotten strips no longer bleed past their column, which is what cut the last
+card off. The daily column isn't sticky, because with Get started under it it
+can be taller than the window. Openings, My games and Statistics already had
+column grids and are now capped at the same width.
+
+Checked headless at 1440×900, 1280×720 and 1920×1000 across the drill,
+puzzles (with the Lichess API stubbed), mistake retry, which move and time
+pressure, plus Home and the tab screens, and the phone at 412×915. Hint, `?`
+and Esc were driven from the keyboard.
+
+
 ---
 
 ## Later 💤

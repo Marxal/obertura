@@ -400,7 +400,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   // board sits vertically centred and within easy thumb reach.
 
   const overlay = document.createElement('div');
-  overlay.className = 'pt-overlay pt-overlay--tinted';
+  overlay.className = 'pt-overlay pt-overlay--tinted pt-overlay--split';
   // Openings training wears the app accent, faintly — each training mode's
   // exercise screen carries its own subtle colour identity.
   overlay.style.setProperty('--pt-tint', 'var(--accent)');

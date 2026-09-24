@@ -137,7 +137,7 @@ export function startWhichMoveSession(opts: WhichMoveSessionOptions): void {
   // the fold on a phone. --footer: everything but the actions scrolls inside
   // .pt-scroll, so Next position is never something you have to scroll to.
   overlay.className =
-    'pt-overlay pt-overlay--puzzle pt-overlay--tinted pt-overlay--compact pt-overlay--footer';
+    'pt-overlay pt-overlay--puzzle pt-overlay--tinted pt-overlay--compact pt-overlay--footer pt-overlay--split';
   overlay.style.setProperty('--pt-tint', '#a3492e');
 
   const header = buildRunHeader({

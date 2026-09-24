@@ -129,7 +129,7 @@ export function startEndgamePlayout(endgame: Endgame, opts: EndgamePlayoutOption
 
   // ── Overlay scaffold (mirrors fix-it.ts) ─────────────────────────────────────
   const overlay = document.createElement('div');
-  overlay.className = 'pt-overlay pt-overlay--tinted endgame-overlay';
+  overlay.className = 'pt-overlay pt-overlay--tinted pt-overlay--split endgame-overlay';
   overlay.style.setProperty('--pt-tint', TINT);
 
   // The endgame's own name is the identity here — "Rook vs pawn" tells you far

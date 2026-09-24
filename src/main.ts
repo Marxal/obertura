@@ -44,6 +44,7 @@ import { handlePurchaseReturn } from './checkout';
 import { primePricing } from './pricing';
 import { renderTrainScreen, startLineSession, startPositionsSession, startMoveFix } from './train-screen';
 import { DOMAIN_ACCENT, type DomainId } from './train-doors';
+import { installRunKeys } from './run-keys';
 import { renderHomeBody, fillGrowStrip, buildScanBanner, type HomeDeps } from './home-screen';
 import { planRepertoireRun } from './repertoire-run';
 import { startBrilliantSession } from './brilliant-run';
@@ -6519,6 +6520,8 @@ setupNav();
 // same event — it fetches the account's plan once per sign-in — so it registers
 // alongside, before initAuth, for exactly the same reason.
 initAccountSync();
+// Keyboard shortcuts for every exercise overlay (run-keys.ts).
+installRunKeys();
 initEntitlement();
 if (isSupabaseConfigured) void initAuth();
 

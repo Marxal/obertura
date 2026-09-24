@@ -79,7 +79,7 @@ export function startBrilliantSession(opts: BrilliantSessionOptions): void {
   // --compact: the top block never eats the spare height that centres the
   // board. --footer: everything but the actions scrolls inside .pt-scroll, so
   // Next position is never something you have to scroll to find.
-  overlay.className = 'pt-overlay pt-overlay--puzzle pt-overlay--tinted pt-overlay--compact pt-overlay--footer';
+  overlay.className = 'pt-overlay pt-overlay--puzzle pt-overlay--tinted pt-overlay--compact pt-overlay--footer pt-overlay--split';
   // The brilliant teal, as a whisper behind the exercise.
   overlay.style.setProperty('--pt-tint', '#1d9e8f');
 

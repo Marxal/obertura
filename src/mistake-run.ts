@@ -135,7 +135,7 @@ export function startMistakeSession(opts: MistakeSessionOptions): void {
   // --compact: the top block never eats the spare height that centres the
   // board. --footer: everything but the actions scrolls inside .pt-scroll, so
   // Next position is never something you have to scroll to find.
-  overlay.className = 'pt-overlay pt-overlay--puzzle pt-overlay--tinted pt-overlay--compact pt-overlay--footer';
+  overlay.className = 'pt-overlay pt-overlay--puzzle pt-overlay--tinted pt-overlay--compact pt-overlay--footer pt-overlay--split';
   // The Mistake retry ember, as a whisper behind the exercise — same hue as
   // its Train tab.
   overlay.style.setProperty('--pt-tint', '#a3492e');

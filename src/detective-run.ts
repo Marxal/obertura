@@ -159,7 +159,7 @@ export function startDetectiveSession(opts: DetectiveSessionOptions): void {
   // the fold on a phone. --footer: everything but the actions scrolls inside
   // .pt-scroll, so Next case is never something you have to scroll to find.
   overlay.className =
-    'pt-overlay pt-overlay--puzzle pt-overlay--tinted pt-overlay--compact pt-overlay--footer';
+    'pt-overlay pt-overlay--puzzle pt-overlay--tinted pt-overlay--compact pt-overlay--footer pt-overlay--split';
   // The Middle-game ember, same as the mistake drill — this is the same pane.
   overlay.style.setProperty('--pt-tint', '#a3492e');
 

@@ -223,11 +223,32 @@ everything *below* it into a separate host.
 
 ### 3.6 The desktop path
 
-Above `DESKTOP_NAV_BREAKPOINT` the same DOM re-lays out: a left sidebar replaces
-the tab bar, the Train Openings pane becomes two columns
-(`.train-pane-openings`), Statistics becomes a dashboard grid with charts capped
-at 460px, and Settings becomes a lightbox. No separate markup, no separate
-render path.
+Above `DESKTOP_NAV_BREAKPOINT` (960px) the same DOM re-lays out; there is no
+separate markup and no separate render path:
+
+- A left sidebar replaces the tab bar, and Settings becomes a lightbox.
+- **Home** is two columns: the daily card (and Get started) on the left, the
+  board blocks on the right, capped at 1240px. The forgotten strips stop
+  bleeding past their column.
+- **Train** shows four tiles across and every box two to a row (§6.3).
+- **Openings, My games and Statistics** keep their own column grids (Statistics
+  is a dashboard with charts capped at 460px) and are capped at 1240px.
+- **Every exercise** (`.pt-overlay--split`: the drill, puzzles, mistake retry,
+  which move, brilliant, detective, time pressure, endgame play-out, fix-it)
+  is board left, panel right. The board is as large as the window allows
+  (`--split-board`), and the panel holds the session bar, the story, the
+  status and the actions. The phone's `.pt-scroll` wrapper becomes
+  `display: contents` so one set of grid rules places all nine runners.
+  A results screen (`.train-completion`) switches the grid off via `:has()`.
+  This replaced the puzzle runner's own two-column block.
+- **Keyboard shortcuts** (`run-keys.ts`, installed at boot): Space or Enter for
+  next, H hint, S show solution, N note, A analyse, Esc end or close, and `?`
+  lists the keys the current screen has. One global handler presses the
+  visible, enabled button the runners already render (matched by the classes
+  they share), so a key can never do something the screen doesn't offer. It
+  only acts on the topmost layer, skips fields and focused buttons, and leaves
+  the arrow keys to Blunder detective. Esc also dismisses a dialog or sheet
+  opened over an exercise, via the sheet's own backdrop-tap dismissal.
 
 ---
 
