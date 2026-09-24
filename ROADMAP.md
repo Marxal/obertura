@@ -2041,6 +2041,42 @@ lines" and "Target weak areas" gained the figures they never had, so every card
 in Practise your openings now says how much is behind it.
 
 
+### Three quick fixes: the blank scan banner, Time pressure's board and its loop
+
+**The scan banner was always blank.** `buildScanBanner()` painted its first line
+through the same `paint()` its live updates use — and `paint()` starts by asking
+whether the strip is still in the document, so a stale banner can drop its
+subscription. On the first call the strip had not been mounted yet, so it read
+as stale: the text was never written, the listener was dropped on the spot, and
+the box sat there empty, dots pulsing, for the whole scan. The first line is now
+written directly; only the live updates go through the check. Reproduced
+headlessly on the old build (empty text) and gone on the new one.
+
+**Time pressure's board sat a strip higher than every other exercise.** It had
+no `.pt-top` block and no `pt-overlay--footer`, so `.pt-scroll` wasn't the
+full-height flex column the other runners lay out in, and the board hugged the
+header. It now wears the Mistake retry frame exactly: the per-position clock
+drains inside the shared `.pt-session-bar` strip ("Position 3"), the opponent and
+whose move it is sit in a `.pt-top.mr-top` block, and the board lands within a
+few pixels of where it does in the drill (146px vs 149px at 412×915). The old
+`.tp-bar` / `.tp-meta` rules went with it.
+
+**Time pressure stops dealing the same round.** `dealRound()` used to take the
+pressure order as fixed and cycle it — deliberately, on the argument that a
+reshuffle makes the personal best meaningless. In use that meant every round
+opened on the same positions in the same order, and a free account's ten spots
+looped several times inside one round. Now: pressure is cut into four bands and
+only the order within a band is shuffled (a scramble still opens the round);
+whatever the last round dealt goes to the back (`rememberRound`, in memory only,
+so it stays out of the sync payload); the whole pool is dealt before anything
+repeats; and each further lap is reshuffled without repeating the position
+across the seam. The best is still filed per length, and it is still a score
+over your whole pool.
+
+Selftest: two `daily-challenge` "trained yesterday" checks fail on `main` too,
+before this round — date-dependent, not touched here.
+
+
 ---
 
 ## Later 💤

@@ -764,7 +764,7 @@ the button obeys.
 | **Blunder detective** | `detective.ts` + `detective-run.ts` | a run of 4–6 moves; which one is the blunder? Then: what should have been played. **Exactly one** blunder per run, re-verified at depth |
 | **Which move** | `which-move.ts` + `which-move-run.ts` | one position, two arrows — yours and the engine's. Pick |
 | **Brilliant moves** | `brilliant.ts`, `brilliant-run.ts`, `brilliant-log.ts` | find your own `!!`/`!` again. Two sources: a game's saved analysis, and the scan's own finds |
-| **Time pressure** | `time-pressure.ts` + `time-pressure-run.ts` | the speed round: 2 minutes, 20 seconds a position, hardest-pressed first. Any of the engine's top 3 counts, nothing drawn on the board |
+| **Time pressure** | `time-pressure.ts` + `time-pressure-run.ts` | the speed round: 2 minutes, 20 seconds a position, hardest-pressed first — shuffled within pressure bands, the last round's positions dealt last, the whole pool before any repeat. Any of the engine's top 3 counts, nothing drawn on the board. Wears the Mistake retry drill's frame so the board sits where it does there |
 
 `eval-chip.ts` is the shared red/green "♝xe6 −5.2 / hangs material on e6"
 comparison, used by all three of the first ones once the answer is in.

@@ -108,8 +108,8 @@ export function runTimePressureSelfTest(): TestResult[] {
     orderByPressure(mixed).map(r => r.game.id),
     ['scramble', 'lowish', 'unknown', 'comfortable']));
 
-  // Two positions under identical pressure: the newer game leads, and the order
-  // is stable — a personal best means nothing if the round reshuffles itself.
+  // Two positions under identical pressure: the newer game leads, and the
+  // ranking is stable (the round's shuffle is dealRound's, below).
   const tied = [
     refWithClock('older', 20, 1_000),
     refWithClock('newer', 20, 9_000),
@@ -121,12 +121,54 @@ export function runTimePressureSelfTest(): TestResult[] {
     orderByPressure(tied).map(r => r.game.id)));
 
   // ── Dealing ─────────────────────────────────────────────────────────────────
+  // A seeded generator, so a shuffle is a fixed fact the tests can check.
+  const seeded = (seed: number) => () => { // mulberry32
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4_294_967_296;
+  };
+  const ids = (refs: SpotRef[]) => refs.map(r => r.spot.id);
   const small = [refWithClock('x', 10), refWithClock('y', 100)];
-  out.push(eq('a small pool cycles rather than running out',
-    dealRound(small, 5).map(r => r.game.id), ['x', 'y', 'x', 'y', 'x']));
+
   out.push(eq('an empty pool deals nothing', dealRound([], 5).length, 0));
   out.push(eq('a big pool is capped', dealRound(
     Array.from({ length: 60 }, (_, i) => refWithClock(`p${i}`, 100 - i)), 40).length, 40));
+
+  // The complaint this fixes: a pool shorter than the round looped in a fixed
+  // order. Every position once before any comes back, whatever the shuffle.
+  const six = Array.from({ length: 6 }, (_, i) => refWithClock(`s${i}`, 10 + i * 30));
+  const dealt = dealRound(six, 20, { random: seeded(7) });
+  out.push(eq('the whole pool is dealt before anything repeats',
+    new Set(ids(dealt.slice(0, 6))).size, 6));
+  out.push(eq('a small pool still fills the round', dealt.length, 20));
+  out.push(eq('never the same position twice in a row',
+    dealt.every((r, i) => i === 0 || r.spot.id !== dealt[i - 1].spot.id), true));
+  const seamsOk = [1, 2, 3, 4, 5, 6, 7, 8].every(seed => {
+    const d = dealRound(six.slice(0, 2), 12, { random: seeded(seed) });
+    return d.every((r, i) => i === 0 || r.spot.id !== d[i - 1].spot.id);
+  });
+  out.push(eq('a two-position pool alternates rather than stuttering', seamsOk, true));
+
+  // Shuffled within a pressure band — never across one. A scramble still opens
+  // the round; which scramble varies.
+  const banded = [
+    refWithClock('calm1', 170), refWithClock('calm2', 175),
+    refWithClock('rush1', 5), refWithClock('rush2', 8), refWithClock('rush3', 3),
+  ];
+  const bandOk = [1, 2, 3, 4, 5].every(seed =>
+    ids(dealRound(banded, 5, { random: seeded(seed) })).slice(0, 3).every(id => id.startsWith('rush')));
+  out.push(eq('the hard-pressed band always opens the round', bandOk, true));
+  const openers = new Set([1, 2, 3, 4, 5, 6, 7, 8].map(seed =>
+    dealRound(banded, 5, { random: seeded(seed) })[0].spot.id));
+  out.push(eq('but not always on the same position', openers.size > 1, true));
+
+  // "Go again": what the last round dealt waits at the back.
+  const recentDeal = dealRound(banded, 5, {
+    recent: new Set(['rush1', 'rush2', 'rush3']), random: seeded(3),
+  });
+  out.push(eq('the last round\'s positions go to the back',
+    ids(recentDeal).slice(0, 2).sort(), ['calm1', 'calm2']));
 
   // ── The round's length ──────────────────────────────────────────────────────
   // The daily challenge sets this per part, so a nonsense value must land

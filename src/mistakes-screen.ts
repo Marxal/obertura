@@ -56,7 +56,7 @@ import { fairPairs, pickWhichMove, readyWhichMoveCount } from './which-move';
 import { startWhichMoveSession, openWhichMoveInfo } from './which-move-run';
 import { detectiveLog, whichMoveLog } from './middle-log';
 import { startTimePressureSession } from './time-pressure-run';
-import { dealRound, getTimePressureBest } from './time-pressure';
+import { dealRound, getTimePressureBest, recentRoundIds } from './time-pressure';
 import { combinedDueAt, restKey } from './spot-rest';
 import { openFixedSheet } from './fixed-sheet';
 import {
@@ -649,7 +649,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   // week. For the same reason it files no rest and marks nothing fixed — see
   // the note at the top of time-pressure.ts.
   function startTimePressure(): void {
-    const round = dealRound(refs);
+    const round = dealRound(refs, undefined, { recent: recentRoundIds() });
     if (round.length === 0) return;
     startTimePressureSession({
       refs: round,
