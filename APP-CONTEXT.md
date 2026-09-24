@@ -526,32 +526,40 @@ other pair on the page had 24px. `.home-grow-host` is on the page from the first
 paint (its data arrives late), so `:empty { display: none }` keeps it from
 spending the column's gap on nothing.
 
-### 6.3 The Train screen — Today, four doors, tabs, one box
+### 6.3 The Train screen — level tiles, bubbles, a swipe track
 
-`main.ts:renderTrainRoom()`. Four bands in one grid, sorted by CSS `order`
-(the daily-challenge card that used to head it now lives on Home):
+`main.ts:renderTrainRoom()`. Three parts, top to bottom (the daily-challenge
+card that used to head Train now lives on Home):
 
-0. **The Today strip** (`train-today.ts`, v0.12): streak, the last seven days
-   as dots, and moves reviewed today, all read from `streak.ts`. It starts
-   nothing, and it isn't a second daily challenge.
-1. **The four doors, together**, as a 2×2 of tiles on a phone (four across on a
-   desktop). Each is filled in its domain's colour, carries that domain's live
-   figure, and one tap starts its flagship. Each also has a thin **progress
-   bar**: lines mastered, mistakes fixed, or for the two rated doors the way to
-   the next hundred (`train-progress.ts`'s `ratingProgress`). A **locked** door
-   shows a padlock and stays tappable: it opens its own box, which holds what
-   it needs (the import form, the first line to save).
-2. **The tabs, on a phone only**: Openings / Middlegame / Tactics / Endgames.
-   The phone shows ONE box, the tabbed one (`.train-room[data-tab]`). The tab is
-   module state (`trainTab`), not localStorage, so tapping one never becomes a
-   sync push. A desktop hides the tabs and shows all four boxes, two per row.
-3. **A box per domain.** Washed in the same colour, each is a title and a
-   list. Two kinds of thing live in one: mode **cards**, which start an
-   exercise, and **accordions**, which open a catalogue you pick from.
+1. **The four doors as "level" tiles**, in a 2×2 grid on a phone and four across
+   on a desktop (`train-doors.ts`'s `buildDoor`). The icon sits in a solid
+   circle inside a **ring that fills with progress**: lines mastered, mistakes
+   fixed, or for the two rated doors the way to the next hundred
+   (`train-progress.ts`'s `ratingProgress`). The live figure is a small
+   **badge** on the ring. Under the name are one short line and the progress
+   in words, written to fit so nothing is clipped. A tile presses down into its
+   bottom edge. A **locked** door shows a padlock badge and stays tappable: it
+   opens its own box, which holds what it needs.
+2. **Bubbles**, on a phone only: Openings / Middlegame / Tactics / Endgames,
+   filled in the domain's colour when selected.
+3. **The track**: the four boxes side by side. On a phone it is a horizontal
+   scroll-snap strip, so you **swipe** between domains or pick one with a
+   bubble. The strip is sized to the showing panel, and the box drops its wash
+   so a panel is just its list. On a desktop it is a two-column grid with every
+   box showing, and the bubbles are hidden. The chosen domain is module state
+   (`trainTab`), not localStorage, so it never becomes a sync push.
 
-Two names changed so none repeats on the screen: the Tactics box's timed run
-is **Puzzle rush** (the Openings box keeps **Time attack**), and the
-"Tactics" motif accordion is **Tactical motifs**.
+**The one piece of plumbing.** Each screen still renders its door and its box
+into one host and repaints that host alone. The host is a panel in the track,
+and a `MutationObserver` lifts each door it renders into that domain's slot in
+the tile grid (`adoptDoor`). The four screens know nothing about the layout.
+
+The list rows (`buildModeCard`, `buildAccordion`) have no coloured stripe. Each
+has a muted icon chip in its mode's colour, the count as a small pill (number
+only, except "best N"), a chevron, and a subtitle that fits on one line (and
+wraps rather than clipping if it ever doesn't). Some names are shorter:
+**Missed moves**, **New lines**, **Weak spots**, and the Tactics box's timed
+run is **Puzzle rush** (the Openings box keeps **Time attack**).
 
 | Door | One tap starts | Figure | Its box | Lives in |
 |---|---|---|---|---|
@@ -611,7 +619,7 @@ starts both.
 The deleted code is in git at `97c8733` and `eecb0d7` if Home wants it back
 rather than rebuilt.
 
-#### Three shapes tried before
+#### Shapes tried before
 
 Recorded so they aren't re-derived:
 
@@ -628,6 +636,10 @@ Recorded so they aren't re-derived:
    together above them, so nothing is ever two decisions from playing. The tab
    strip removed before this one hid the doors as well, which was the real
    problem with it.
+4. **v0.12's first cut**: full-width-style tiles with a coloured left stripe, a
+   display-size figure and a big icon chip, under a streak strip. It was
+   crowded at two to a row, and the subtitles ended in "…". The level tiles
+   came out of a three-option interactive preview.
 
 ### 6.4 The training unlock
 

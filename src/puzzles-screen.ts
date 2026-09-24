@@ -346,9 +346,9 @@ export async function startDailyPuzzles(
 }
 
 export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreenDeps): Promise<void> {
-  // `host` is this domain's slice of the Train room, `display: contents` — see
-  // train-doors.ts. Everything appended goes straight into the shared grid and
-  // finds its band from its own class, so there is no wrapper element.
+  // `host` is this domain's panel in the Train room's swipe track. Append the
+  // door and the box straight into it: main.ts lifts the door into the grid of
+  // tiles (renderTrainRoom's adoptDoor), and the box stays as the panel.
   host.innerHTML = '';
   const root = host;
 
@@ -400,9 +400,9 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
         domain: 'tactics',
         icon: Icons.puzzlePiece(26),
         name: 'Tactics',
-        sub: `${DAILY_COUNT} rated puzzles from the openings you play`,
+        sub: `${DAILY_COUNT} rated puzzles`,
         disabled: true,
-        disabledReason: 'Save a line or import your games first',
+        disabledReason: 'Needs a line or games',
       }));
       const box = buildBox('tactics', 'More puzzles');
       const body = boxBody(box);
@@ -418,7 +418,7 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
       domain: 'tactics',
       icon: Icons.puzzlePiece(26),
       name: 'Tactics',
-      sub: `${DAILY_COUNT} rated puzzles from your openings and games`,
+      sub: `${DAILY_COUNT} rated puzzles`,
       stat: getPuzzleRating(),
       statLabel: 'rating',
       progress: ratingProgress(getPuzzleRating()),
@@ -445,9 +445,9 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
     // exercises under one name on one screen is a question nobody should have
     // to ask.
     timed.appendChild(timedCard('openings', 'Puzzle rush',
-      `${TA_DEFAULT} minutes on your openings — 3 mistakes and you’re out`));
+      `${TA_DEFAULT} min, 3 lives`));
     timed.appendChild(timedCard('traps', 'Satisfying traps',
-      `${TA_DEFAULT} minutes of opening tactics — no repertoire needed`));
+      'no lines needed'));
     body.appendChild(timed);
 
     // The two sources, split. They were one accordion with a segmented toggle
@@ -538,7 +538,7 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
       icon: source === 'games' ? Icons.scout(18) : Icons.pawn(18),
       label: source === 'games' ? 'Based on my games' : 'Based on my repertoire',
       sub: entries.length > 0
-        ? `${entries.length} ${entries.length === 1 ? 'opening' : 'openings'}, each with its own accuracy`
+        ? `${entries.length} ${entries.length === 1 ? 'opening' : 'openings'}`
         : 'nothing here yet',
       accent: TACTICS_ACCENT,
       body: list,

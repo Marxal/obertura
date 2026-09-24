@@ -219,11 +219,9 @@ export interface MistakesScreenDeps {
 }
 
 export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScreenDeps): Promise<void> {
-  // `host` is this domain's slice of the Train room and it is `display:
-  // contents` (train-doors.ts), so everything appended here becomes an item of
-  // the shared grid and sorts into the door / tiles / readouts band by its own
-  // class. There is no wrapper element any more — a wrapper would be one grid
-  // item holding all three bands, which is exactly what we stopped doing.
+  // `host` is this domain's panel in the Train room's swipe track. Append the
+  // door and the box straight into it: main.ts lifts the door into the grid of
+  // tiles (renderTrainRoom's adoptDoor), and the box stays as the panel.
   host.innerHTML = '';
 
   let allGames: ImportedGame[];
@@ -245,7 +243,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       domain: 'middlegame',
       icon: Icons.swords(26),
       name: 'Middlegame',
-      sub: 'a mixed round from your own games',
+      sub: 'Fix mistakes from your games',
       disabled: true,
       disabledReason: 'Import your games to unlock',
     }));
@@ -344,13 +342,13 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     domain: 'middlegame',
     icon: Icons.swords(26),
     name: 'Middlegame',
-    sub: 'a mixed round from your own games',
+    sub: 'Fix mistakes from your games',
     stat: mixReady && unfixed > 0 ? unfixed : undefined,
     statLabel: mixReady && unfixed > 0 ? 'to fix' : undefined,
     disabled: !mixReady,
     disabledReason: counts.scanned === 0
       ? 'Your games are still being read'
-      : 'Nothing waiting — they come back over the next few days',
+      : 'All fixed for now',
     progress: counts.spots > 0
       ? { value: counts.fixed, max: counts.spots, label: `${counts.fixed} of ${counts.spots} fixed` }
       : undefined,
@@ -517,8 +515,8 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       icon: Icons.scout(20),
       name: 'Blunder detective',
       sub: detectiveRefs.length > 0 && detectiveReady === 0
-        ? 'all cracked — they come back over the next few days'
-        : 'find the blunder — yours or theirs',
+        ? 'all cracked, back in a few days'
+        : 'find the blunder, yours or theirs',
       stat: detectiveReady > 0 ? detectiveReady : undefined,
       statLabel: detectiveReady > 0 ? 'cases' : undefined,
       disabled: detectiveRefs.length === 0,
@@ -530,7 +528,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       icon: Icons.merge(20),
       name: 'Which move',
       sub: pairRefs.length > 0 && whichMoveReady === 0
-        ? 'all answered — they come back over the next few days'
+        ? 'all answered, back in a few days'
         : 'two moves, one of them yours',
       stat: whichMoveReady > 0 ? whichMoveReady : undefined,
       statLabel: whichMoveReady > 0 ? 'to answer' : undefined,
@@ -578,7 +576,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       icon: classIcon('brilliant', 20),
       name: 'Your brilliant moves',
       sub: brilliantRefs.length > 0 && gemsReady === 0
-        ? 'all found — they come back over the next few days'
+        ? 'all found, back in a few days'
         : gemsOnly ? 'find your brilliancies again' : 'find your best moves again',
       stat: gemsReady > 0 ? gemsReady : undefined,
       statLabel: gemsReady > 0 ? 'to find' : undefined,
@@ -594,7 +592,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
         accent: MIDDLEGAME_ACCENT,
         icon: Icons.checkCircle(20),
         name: 'Fixed',
-        sub: 'the ones you have already put right',
+        sub: 'the ones you’ve put right',
         stat: counts.fixed,
         statLabel: 'fixed',
         onClick: () => openFixed(),

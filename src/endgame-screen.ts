@@ -172,9 +172,9 @@ function guessCategory(fen: string): EndgameCategory {
 }
 
 export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps): void {
-  // `host` is this domain's slice of the Train room, `display: contents` — see
-  // train-doors.ts. Everything appended lands in the shared grid and finds its
-  // band from its own class, so there is no wrapper element.
+  // `host` is this domain's panel in the Train room's swipe track. Append the
+  // door and the box straight into it: main.ts lifts the door into the grid of
+  // tiles (renderTrainRoom's adoptDoor), and the box stays as the panel.
   host.innerHTML = '';
   const root = host;
 
@@ -203,7 +203,7 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
       domain: 'endgames',
       icon: Icons.flag(26),
       name: 'Endgames',
-      sub: `${PUZZLE_COUNT} rated puzzles — a ladder just for endgames`,
+      sub: 'Rated ladder',
       stat: getPuzzleRating('endgame'),
       statLabel: 'rating',
       progress: ratingProgress(getPuzzleRating('endgame')),
@@ -222,7 +222,7 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
     body.appendChild(buildAccordion({
       icon: Icons.scout(18),
       label: 'From your games',
-      sub: 'the endgames you actually reached, played out against the engine',
+      sub: 'endgames you reached, vs the engine',
       accent: ENDGAME_ACCENT,
       body: renderFromGames(),
     }));

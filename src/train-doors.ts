@@ -29,17 +29,18 @@
 // together at the top, boxes below. Don't re-derive either.
 //
 // AND A THIRD STEP (v0.12). Doors together, all four boxes stacked below, was
-// ~25 cards in one phone scroll. The doors are now a 2×2 of tiles with a
-// progress bar each, a Today strip sits above them, and on a phone a tab strip
-// under the doors picks ONE box to show (a desktop shows all four). This is
-// not the old tab strip back: that one hid the doors too. See .train-room.
+// ~25 cards in one phone scroll. The doors are now "level" tiles in a 2×2 grid
+// (the icon in a progress ring, the figure a badge), and under them bubbles
+// pick which box shows, swiped one at a time on a phone (a desktop shows all
+// four). This is not the old tab strip back: that one hid the doors too. The
+// look came out of a three-option preview; see .train-room.
 //
 // The screens keep rendering into one host each and re-rendering themselves
 // alone — no session machinery moved, and it did not have to: every drill in
 // this app is a `position: fixed` overlay on <body>, so a screen's host was only
 // ever the thing to redraw on the way back. A host holds that domain's door AND
-// its box; `display: contents` plus one `order` apiece sorts the four doors
-// above the four boxes (see .train-room in style.css).
+// its box; the host is a panel in the swipe track and main.ts lifts the door
+// into the grid of tiles (renderTrainRoom).
 
 import { Icons } from './icons';
 
@@ -174,8 +175,8 @@ export interface DoorOptions {
   /**
    * The live figure, big, on the right — "17" over "moves due". This is what
    * makes a door worth looking at twice: a name never changes, a number does.
-   * Omit it and the door shows a play arrow instead, which is right for a
-   * domain with nothing to count.
+   * Omit it and the ring has no badge, which is right for a domain with
+   * nothing to count. Only the number is drawn; the label is spoken.
    */
   stat?: number | string;
   statLabel?: string;
@@ -185,22 +186,23 @@ export interface DoorOptions {
   /** Said under the name when greyed out, so a dead door explains itself. */
   disabledReason?: string;
   /**
-   * How far along this domain is, as a thin bar along the door's foot — lines
-   * mastered, mistakes fixed, the way to the next hundred of a rating. The
-   * figure says what is waiting; this says what you have built.
+   * How far along this domain is: the ring round the icon fills with it, and
+   * the label sits under the name — lines mastered, mistakes fixed, the way to
+   * the next hundred of a rating. The figure says what is waiting; this says
+   * what you have built.
    */
   progress?: { value: number; max: number; label: string };
 }
 
 /**
- * The big one-tap card at the head of a box.
+ * The big one-tap card — a "level" tile (v0.12, option C of the preview).
  *
- * Deliberately NOT a bigger mode card. A mode card is pale with a coloured left
- * edge, because it sits in a list of its peers and the edge is all it needs to
- * be told apart. A door has to read as the thing you press from across the room,
- * so it is FILLED with its domain's colour — softly, as a tint over the card
- * surface rather than the flat hue, so the text contrast stays the theme's own
- * and is not something to re-check for four different backgrounds.
+ * The icon sits in a solid circle inside a RING that fills with the domain's
+ * progress; the live figure is a small badge on the ring, like a notification
+ * count, and the progress in words sits under the name. It replaced a tile
+ * with a coloured left stripe, a display-size figure and a big icon chip,
+ * which read as crowded at two to a row. Centred, one short line under the
+ * name — the words are written to fit, so nothing is ever clipped with "…".
  */
 export function buildDoor(o: DoorOptions): HTMLElement {
   const card = document.createElement('button');
@@ -208,78 +210,58 @@ export function buildDoor(o: DoorOptions): HTMLElement {
   card.className = 'train-door' + (o.disabled ? ' train-door--disabled' : '');
   card.dataset.domain = o.domain;
   card.style.setProperty('--mode-accent', DOMAIN_ACCENT[o.domain]);
-  // A greyed door is NOT a disabled button any more: tapping it opens its
-  // domain's box, which is where the thing it is waiting for lives (the import
-  // form, the first line to save). The room owns that — see the Train room in
-  // main.ts. Not aria-disabled either, since it does do something; the reason
-  // under its name is what it announces.
+  // A greyed door is NOT a disabled button: tapping it opens its domain's box,
+  // which is where the thing it is waiting for lives (the import form, the
+  // first line to save). The room owns that — see the Train room in main.ts.
+  // Not aria-disabled either, since it does do something; the reason under its
+  // name is what it announces.
 
+  const share = o.progress && o.progress.max > 0
+    ? Math.max(0, Math.min(1, o.progress.value / o.progress.max))
+    : 0;
+
+  const ring = document.createElement('span');
+  ring.className = 'train-door-ring';
+  ring.appendChild(progressRing(share));
   const icon = document.createElement('span');
   icon.className = 'train-door-icon';
   icon.appendChild(o.icon);
-  card.appendChild(icon);
+  ring.appendChild(icon);
 
-  const text = document.createElement('span');
-  text.className = 'train-door-text';
+  // The badge: the live figure, or a padlock on a locked door. Nothing at all
+  // on an open door with nothing to count — the tile itself is the button.
+  if (o.disabled) {
+    const lock = document.createElement('span');
+    lock.className = 'train-door-badge train-door-badge--lock';
+    lock.appendChild(Icons.lock(11));
+    ring.appendChild(lock);
+  } else if (o.stat !== undefined) {
+    const badge = document.createElement('span');
+    badge.className = 'train-door-badge';
+    badge.textContent = String(o.stat);
+    // The unit is not drawn (a badge has no room for "moves due"), so it is
+    // said here for a screen reader and in the tooltip for a mouse.
+    const said = `${o.stat} ${o.statLabel ?? ''}`.trim();
+    badge.setAttribute('aria-label', said);
+    badge.title = said;
+    ring.appendChild(badge);
+  }
+  card.appendChild(ring);
+
   const name = document.createElement('span');
   name.className = 'train-door-name';
   name.textContent = o.name;
-  text.appendChild(name);
+  card.appendChild(name);
+
   const sub = document.createElement('span');
   sub.className = 'train-door-sub';
   sub.textContent = o.disabled && o.disabledReason ? o.disabledReason : o.sub;
-  text.appendChild(sub);
-  card.appendChild(text);
+  card.appendChild(sub);
 
-  // The figure, or the play arrow when there is no figure. Never both: two
-  // things competing for the right-hand end of a card is what made the old hero
-  // blocks read as dashboards rather than as buttons.
-  if (!o.disabled && o.stat !== undefined) {
-    const fig = document.createElement('span');
-    fig.className = 'train-door-fig';
-    const num = document.createElement('span');
-    num.className = 'train-door-num';
-    num.textContent = String(o.stat);
-    fig.appendChild(num);
-    if (o.statLabel) {
-      const lbl = document.createElement('span');
-      lbl.className = 'train-door-fig-label';
-      lbl.textContent = o.statLabel;
-      fig.appendChild(lbl);
-    }
-    // Said once, properly, for a screen reader — the figure and its label read
-    // as two loose fragments otherwise.
-    fig.setAttribute('aria-label', `${o.stat} ${o.statLabel ?? ''}`.trim());
-    card.appendChild(fig);
-  } else if (!o.disabled) {
-    const go = document.createElement('span');
-    go.className = 'train-door-go';
-    go.appendChild(Icons.play(18));
-    card.appendChild(go);
-  } else {
-    // Locked, not broken: a padlock where the figure would be says "there is a
-    // way in", and the reason under the name says what it is.
-    const lock = document.createElement('span');
-    lock.className = 'train-door-lock';
-    lock.appendChild(Icons.lock(16));
-    card.appendChild(lock);
-  }
-
-  if (o.progress && o.progress.max > 0) {
-    const share = Math.max(0, Math.min(1, o.progress.value / o.progress.max));
+  if (!o.disabled && o.progress) {
     const prog = document.createElement('span');
     prog.className = 'train-door-progress';
-    const track = document.createElement('span');
-    track.className = 'train-door-progress-track';
-    const fill = document.createElement('span');
-    fill.className = 'train-door-progress-fill';
-    fill.style.width = `${Math.round(share * 100)}%`;
-    track.appendChild(fill);
-    prog.appendChild(track);
-    const lbl = document.createElement('span');
-    lbl.className = 'train-door-progress-label';
-    lbl.textContent = o.progress.label;
-    prog.appendChild(lbl);
+    prog.textContent = o.progress.label;
     card.appendChild(prog);
   }
 
@@ -287,3 +269,30 @@ export function buildDoor(o: DoorOptions): HTMLElement {
   return card;
 }
 
+// The ring round the icon: a faint full track and the progress arc over it,
+// starting at twelve o'clock. Stroke colours come from CSS (--mode-accent).
+const RING_R = 29;
+const RING_C = 2 * Math.PI * RING_R;
+
+function progressRing(share: number): SVGSVGElement {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 64 64');
+  svg.setAttribute('class', 'train-door-ring-svg');
+  svg.setAttribute('aria-hidden', 'true');
+  const track = document.createElementNS(NS, 'circle');
+  track.setAttribute('class', 'train-door-ring-track');
+  const arc = document.createElementNS(NS, 'circle');
+  arc.setAttribute('class', 'train-door-ring-arc');
+  for (const c of [track, arc]) {
+    c.setAttribute('cx', '32');
+    c.setAttribute('cy', '32');
+    c.setAttribute('r', String(RING_R));
+    c.setAttribute('fill', 'none');
+  }
+  arc.setAttribute('stroke-dasharray', String(RING_C));
+  arc.setAttribute('stroke-dashoffset', String(RING_C * (1 - share)));
+  if (share <= 0) arc.setAttribute('visibility', 'hidden');
+  svg.append(track, arc);
+  return svg;
+}

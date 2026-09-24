@@ -373,7 +373,7 @@ function buildOpeningsDoor(
     domain: 'openings',
     icon: Icons.pawn(26),
     name: 'Openings',
-    sub: 'one pass through your book, every move asked once',
+    sub: 'Run your book',
     // The due figure when there is one. A book with nothing due still runs — it
     // just has no number worth printing, and gets the play arrow instead.
     stat: dueMoves > 0 ? dueMoves : undefined,
@@ -381,7 +381,7 @@ function buildOpeningsDoor(
     disabled: !runnable,
     disabledReason: locked
       ? trainingLockReason(allLines.length)
-      : 'Save a line first — then there’s a book to run',
+      : 'Save a line first',
     progress: !locked && training.length > 0
       ? { value: mastered, max: training.length, label: `${mastered} of ${training.length} mastered` }
       : undefined,
@@ -446,7 +446,7 @@ function renderPractiseBox(
     accent: MODE_ACCENT.run,
     icon: Icons.book(20),
     name: 'Whole lines',
-    sub: 'walk the lines that are due, start to finish',
+    sub: 'due lines, start to finish',
     stat: due.length > 0 ? due.length : undefined,
     statLabel: due.length === 1 ? 'line' : 'lines',
     disabled: locked || due.length === 0,
@@ -468,7 +468,7 @@ function renderPractiseBox(
     accent: MODE_ACCENT.timed,
     icon: Icons.clock(20),
     name: 'Time attack',
-    sub: `single positions against the clock, ${TIMED_DEFAULT} minutes`,
+    sub: `beat the clock, ${TIMED_DEFAULT} min`,
     stat: timedBest > 0 ? timedBest : undefined,
     statLabel: timedBest > 0 ? 'best' : undefined,
     disabled: !timedReady,
@@ -484,8 +484,8 @@ function renderPractiseBox(
   section.appendChild(buildModeCard({
     accent: MODE_ACCENT.fix,
     icon: Icons.zap(20),
-    name: 'Review missed moves',
-    sub: 'single moves you’ve missed',
+    name: 'Missed moves',
+    sub: 'moves you got wrong',
     stat: hasPositions ? missed.length : undefined,
     statLabel: missed.length === 1 ? 'move' : 'moves',
     disabled: !hasPositions,
@@ -501,8 +501,8 @@ function renderPractiseBox(
   section.appendChild(buildModeCard({
     accent: MODE_ACCENT.fresh,
     icon: Icons.plus(20),
-    name: 'Drill new lines',
-    sub: 'full runs of your newest lines',
+    name: 'New lines',
+    sub: 'your newest lines',
     stat: !locked && freshLines.length > 0 ? freshLines.length : undefined,
     statLabel: freshLines.length === 1 ? 'line' : 'lines',
     disabled: locked || freshLines.length === 0,
@@ -515,8 +515,8 @@ function renderPractiseBox(
   section.appendChild(buildModeCard({
     accent: MODE_ACCENT.weak,
     icon: Icons.trending(20),
-    name: 'Target weak areas',
-    sub: 'full runs of your weakest lines',
+    name: 'Weak spots',
+    sub: 'your weakest lines',
     stat: !locked && weakLines.length > 0 ? weakLines.length : undefined,
     statLabel: weakLines.length === 1 ? 'line' : 'lines',
     disabled: locked || weakLines.length === 0,
@@ -565,7 +565,7 @@ function openPracticeInfo(runPlan: RunPlan | null): void {
       },
       {
         icon: Icons.zap(18), accent: MODE_ACCENT.fix,
-        label: 'Review missed moves',
+        label: 'Missed moves',
         detail: 'One move at a time, from the positions you have actually got wrong. No '
           + 'run-up: you are dropped straight into the position that beat you.',
       },
@@ -579,13 +579,13 @@ function openPracticeInfo(runPlan: RunPlan | null): void {
       },
       {
         icon: Icons.plus(18), accent: MODE_ACCENT.fresh,
-        label: 'Drill new lines',
+        label: 'New lines',
         detail: 'Full runs of your newest lines, start to finish. The one to use straight '
           + 'after building something, while it is still fresh enough to fix.',
       },
       {
         icon: Icons.trending(18), accent: MODE_ACCENT.weak,
-        label: 'Target weak areas',
+        label: 'Weak spots',
         detail: 'Full runs of the lines you score worst on. Same shape as the one above, '
           + 'picked from the other end of the list.',
       },
@@ -643,32 +643,29 @@ export function buildModeCard(o: {
   }
   card.appendChild(text);
 
-  // The count badge, pinned to the card's top-right corner rather than given a
-  // column of its own. It used to sit in the flex row beside the text, where a
-  // big number and an uppercase label ("12 CASES") ate a third of the card and
-  // squeezed every title and subtitle into two wrapped lines. It is a footnote
-  // about the card, not half of it — so it floats above the text, small, and the
-  // words get the width back.
+  // The count, as a small pill at the end of the row, before the chevron. Just
+  // the number: the unit ("lines", "to fix") is said to a screen reader and in
+  // the tooltip, and only a personal best keeps its word ("best 14"), because a
+  // bare 14 there would read as a count of something waiting.
   if (o.stat !== undefined) {
     const stat = document.createElement('span');
     stat.className = 'mode-card-stat';
-    const num = document.createElement('span');
-    num.className = 'mode-card-stat-num';
     // No count-up. It was a leftover from the training HERO, where one big
     // figure headed the screen and ticking it up was the screen arriving. In a
-    // box of six cards it is six corner chips all counting at once every time
-    // Train repaints, which reads as the list still loading.
-    num.textContent = String(o.stat);
-    const lbl = document.createElement('span');
-    lbl.className = 'mode-card-stat-label';
-    lbl.textContent = o.statLabel ?? '';
-    stat.appendChild(num);
-    stat.appendChild(lbl);
-    // Said once, properly, for a screen reader — the corner chip reads as two
-    // loose fragments otherwise.
-    stat.setAttribute('aria-label', `${o.stat} ${o.statLabel ?? ''}`.trim());
+    // box of six cards it is six chips all counting at once every time Train
+    // repaints, which reads as the list still loading.
+    stat.textContent = o.statLabel === 'best' ? `best ${o.stat}` : String(o.stat);
+    const said = o.statLabel === 'best' ? `best ${o.stat}` : `${o.stat} ${o.statLabel ?? ''}`.trim();
+    stat.setAttribute('aria-label', said);
+    stat.title = said;
     card.appendChild(stat);
-    card.classList.add('mode-card--stat');
+  }
+  if (!o.disabled) {
+    const chev = document.createElement('span');
+    chev.className = 'mode-card-chev';
+    chev.setAttribute('aria-hidden', 'true');
+    chev.appendChild(Icons.chevronRight(18));
+    card.appendChild(chev);
   }
 
   if (!o.disabled) card.addEventListener('click', o.onClick);

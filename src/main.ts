@@ -44,7 +44,6 @@ import { handlePurchaseReturn } from './checkout';
 import { primePricing } from './pricing';
 import { renderTrainScreen, startLineSession, startPositionsSession, startMoveFix } from './train-screen';
 import { DOMAIN_ACCENT, type DomainId } from './train-doors';
-import { buildTodayStrip } from './train-today';
 import { renderHomeBody, fillGrowStrip, buildScanBanner, type HomeDeps } from './home-screen';
 import { planRepertoireRun } from './repertoire-run';
 import { startBrilliantSession } from './brilliant-run';
@@ -4464,38 +4463,98 @@ const TRAIN_TABS: { id: DomainId; label: string }[] = [
 function renderTrainRoom(host: HTMLElement): void {
   host.innerHTML = '';
 
-  // The room: four hosts, one per domain. Each renders TWO things — its door
-  // and its box — and CSS `order` sorts all four doors above all four boxes
-  // (see .train-room). That is the whole of the plumbing: a host is
-  // `display: contents`, so a domain repainting itself replaces its own two
-  // children and they land back in the right band, because the band is a class
-  // and not a position in the DOM.
+  // The room, top to bottom: the four doors as a grid of tiles, the bubble
+  // tabs, then a TRACK holding the four domains' boxes side by side — swiped
+  // (or picked with a bubble) one at a time on a phone, two to a row on a
+  // desktop.
+  //
+  // THE ONE PIECE OF PLUMBING. Each screen still renders its door AND its box
+  // into its own host, and repaints that host alone, exactly as before. The
+  // host is now a panel in the track; a MutationObserver lifts each door it
+  // renders out into that domain's slot in the grid (adoptDoor, below). So the
+  // four screens know nothing about the layout, and a repaint that replaces the
+  // door simply lifts the new one into the same slot.
   const room = document.createElement('div');
   room.className = 'train-room';
-  room.dataset.tab = trainTab;
 
-  // Band 0: how the habit is going (train-today.ts). Reads only.
-  room.appendChild(buildTodayStrip());
+  const doors = document.createElement('div');
+  doors.className = 'train-doors';
+  const slots = new Map<DomainId, HTMLElement>();
+  for (const t of TRAIN_TABS) {
+    const slot = document.createElement('div');
+    slot.className = 'train-door-slot';
+    slot.dataset.domain = t.id;
+    slots.set(t.id, slot);
+    doors.appendChild(slot);
+  }
+  room.appendChild(doors);
 
-  // Band 15, between the doors and the boxes: the tabs. On a phone the four
-  // boxes stacked were ~25 cards in one scroll, most of them never the one you
-  // came for — so the phone shows ONE box, picked here, and CSS hides the rest
-  // (.train-room[data-tab]). The doors stay together above the tabs, which is
-  // what the two earlier layouts were protecting (train-doors.ts): the tab
-  // strip that went before hid the DOORS too, so you were two decisions from
-  // playing anything; this one hides only the lists, one tap from any door.
-  // A desktop has the room for all four boxes, so there the strip is hidden and
-  // they all show.
+  // The bubbles. On a phone the four boxes stacked were ~25 cards in one
+  // scroll; now the track shows one, and these say which and switch it. The
+  // doors stay together above them — the point both earlier layouts were
+  // protecting (train-doors.ts): nothing is two decisions from playing. A
+  // desktop shows all four boxes, so it hides these.
   const tabs = document.createElement('div');
   tabs.className = 'train-tabs';
   tabs.setAttribute('role', 'tablist');
   tabs.setAttribute('aria-label', 'Training areas');
-  const selectTab = (id: DomainId): void => {
+  room.appendChild(tabs);
+
+  const track = document.createElement('div');
+  track.className = 'train-track';
+  room.appendChild(track);
+
+  const domainHost = (name: DomainId): HTMLElement => {
+    const el = document.createElement('div');
+    el.className = 'train-domain';
+    el.dataset.domain = name;
+    el.setAttribute('role', 'tabpanel');
+    return el;
+  };
+  const openingsPane = domainHost('openings');
+  const puzzlesPane = domainHost('tactics');
+  const mistakesPane = domainHost('middlegame');
+  const endgamePane = domainHost('endgames');
+  // Panel order is swipe order and tab order: Openings first because it is the
+  // app's own subject, Middlegame second because it is the half that reads
+  // your games.
+  const panes = [openingsPane, mistakesPane, puzzlesPane, endgamePane];
+  track.append(...panes);
+
+  // Lift each door a domain renders into its slot (see THE ONE PIECE OF
+  // PLUMBING). Observers run before the next paint, so the door is never seen
+  // in the panel.
+  const adoptDoor = (pane: HTMLElement): void => {
+    const door = pane.querySelector<HTMLElement>(':scope > .train-door');
+    if (door) slots.get(pane.dataset.domain as DomainId)?.replaceChildren(door);
+  };
+  for (const pane of panes) {
+    new MutationObserver(() => adoptDoor(pane)).observe(pane, { childList: true });
+  }
+
+  // The phone track: which panel is showing, kept in step with the bubbles,
+  // and the track sized to that panel so a short list leaves no gap under it.
+  const isPaged = (): boolean => getComputedStyle(tabs).display !== 'none';
+  const indexOf = (id: DomainId): number => TRAIN_TABS.findIndex((t) => t.id === id);
+  const fitHeight = (): void => {
+    if (!isPaged()) { track.style.height = ''; return; }
+    const pane = panes[indexOf(trainTab)];
+    track.style.height = `${pane.offsetHeight}px`;
+  };
+  const markTab = (id: DomainId): void => {
     trainTab = id;
-    room.dataset.tab = id;
     for (const b of tabs.querySelectorAll<HTMLButtonElement>('.train-tab')) {
-      b.setAttribute('aria-selected', String(b.dataset.domain === id));
+      const on = b.dataset.domain === id;
+      b.setAttribute('aria-selected', String(on));
+      if (on && isPaged()) b.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
     }
+    fitHeight();
+  };
+  const showTab = (id: DomainId, smooth = true): void => {
+    if (isPaged()) {
+      track.scrollTo({ left: track.clientWidth * indexOf(id), behavior: smooth ? 'smooth' : 'auto' });
+    }
+    markTab(id);
   };
   for (const t of TRAIN_TABS) {
     const b = document.createElement('button');
@@ -4503,41 +4562,46 @@ function renderTrainRoom(host: HTMLElement): void {
     b.className = 'train-tab';
     b.dataset.domain = t.id;
     b.setAttribute('role', 'tab');
-    b.setAttribute('aria-selected', String(t.id === trainTab));
     b.style.setProperty('--domain-accent', DOMAIN_ACCENT[t.id]);
-    b.textContent = t.label;
-    b.addEventListener('click', () => selectTab(t.id));
+    const dot = document.createElement('span');
+    dot.className = 'train-tab-dot';
+    dot.setAttribute('aria-hidden', 'true');
+    b.append(dot, t.label);
+    b.addEventListener('click', () => showTab(t.id));
     tabs.appendChild(b);
   }
-  room.appendChild(tabs);
+
+  // A swipe lands on a panel: whichever is most in view is the tab now.
+  let settle = 0;
+  track.addEventListener('scroll', () => {
+    window.clearTimeout(settle);
+    settle = window.setTimeout(() => {
+      if (!isPaged() || track.clientWidth === 0) return;
+      const i = Math.round(track.scrollLeft / track.clientWidth);
+      const id = TRAIN_TABS[Math.max(0, Math.min(TRAIN_TABS.length - 1, i))].id;
+      if (id !== trainTab) markTab(id);
+    }, 90);
+  }, { passive: true });
+
+  // Panels fill asynchronously (each screen reads IndexedDB first) and change
+  // height as accordions open, so the track follows the showing panel's size.
+  const ro = new ResizeObserver(() => fitHeight());
+  for (const pane of panes) ro.observe(pane);
+  ro.observe(track);
 
   // A locked door opens its own box: that is where what it is waiting for
-  // lives (the import form, the first line to save). Delegated, because each
-  // domain repaints its own door.
-  room.addEventListener('click', (e) => {
+  // lives (the import form, the first line to save).
+  doors.addEventListener('click', (e) => {
     const door = (e.target as HTMLElement).closest<HTMLElement>('.train-door--disabled');
     if (!door?.dataset.domain) return;
-    selectTab(door.dataset.domain as DomainId);
-    const box = room.querySelector<HTMLElement>(`.train-box[data-domain="${door.dataset.domain}"]`);
-    (box && box.offsetParent ? box : tabs).scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const id = door.dataset.domain as DomainId;
+    showTab(id);
+    (isPaged() ? tabs : panes[indexOf(id)]).scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
-  const domainHost = (name: DomainId): HTMLElement => {
-    const el = document.createElement('div');
-    el.className = 'train-domain';
-    el.dataset.domain = name;
-    return el;
-  };
-  const openingsPane = domainHost('openings');
-  const puzzlesPane = domainHost('tactics');
-  const mistakesPane = domainHost('middlegame');
-  const endgamePane = domainHost('endgames');
-
-  // DOM order decides the order WITHIN each band. Openings first because it is
-  // the app's own subject; Middlegame second because it is the half that reads
-  // your games, and it spent this whole redesign being a quarter of one tab.
-  room.append(openingsPane, mistakesPane, puzzlesPane, endgamePane);
   host.appendChild(room);
+  // Back where you left it — a trip into a drill rebuilds this screen.
+  requestAnimationFrame(() => showTab(trainTab, false));
 
   // All four render at once now. They used to render lazily, one tab at a time,
   // so a pane's side effects only ran when it was shown — the cost of dropping

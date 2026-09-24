@@ -2125,40 +2125,44 @@ upgraded. Games merging is covered by selftests only, because it needs a Pro
 entitlement headless. Still open: deletions don't travel (Later list).
 
 
-### Train gets a shape: Today, tiles, tabs (v0.12)
+### Train gets a shape: level tiles, bubbles, swipe (v0.12)
 
 Version bumped to 0.12.0 first (tag `v0.12` on that commit).
 
-**The Today strip.** Train was a menu with not one word about whether you had
-been using it. A strip at the top now shows the streak (the flame greys out at
-zero), the last seven days as dots, and moves reviewed today. It reads from
-what `streak.ts` already records, so there's no new state and nothing synced.
-The daily challenge stays on Home, where it works.
+**First cut, then a preview.** The first version (a streak strip, the four
+doors as a 2×2 of full tiles with a left stripe and a big figure, tabs under
+them) was better but crowded, with subtitles ending in "…". So the next step
+was an interactive HTML preview with three directions (clean tiles, game keys,
+level select) before touching the app. The choice was **C's tiles with A's
+list rows**, in the app's own typography.
 
-**The doors are tiles, with progress.** Four full-width doors took a third of a
-phone screen. They are a 2×2 grid now (four across on a desktop), each with a
-thin bar at the foot:
-- Openings: lines mastered
-- Middlegame: mistakes fixed
-- Tactics and Endgames: the way to the next hundred of the rating ("63 pts to 1500")
+**The doors are "level" tiles.** The icon sits in a circle inside a ring that
+fills with the domain's progress: lines mastered, mistakes fixed, or for the
+rated doors the way to the next hundred. The live figure is a small badge on
+the ring. Each tile has one short line under its name ("Run your book", "Fix
+mistakes from your games", "10 rated puzzles", "Rated ladder") and presses
+down into its bottom edge. A locked door shows a padlock and opens its own
+box.
 
-**One box at a time on a phone.** Under the doors, a tab strip picks which
-domain's list shows, instead of all four stacked (~25 cards in one scroll). The
-doors stay together above it, which is what the two earlier layouts were
-protecting (see `.train-room`). A desktop shows every box and no tabs. The
-selected tab is module state, not localStorage, so it never triggers a sync.
+**Bubbles and swipe.** Under the tiles, coloured bubbles pick a domain, and the
+boxes sit side by side in a scroll-snap track, so a phone swipes between them.
+The track takes the showing panel's height. A desktop shows all four boxes in
+two columns and hides the bubbles. Each screen still renders into one host; a
+`MutationObserver` in `renderTrainRoom` lifts its door into the tile grid, so
+none of the four screens had to learn the layout.
 
-**Locked doors explain themselves.** A greyed door used to be a disabled
-button. It now shows a padlock and, when tapped, opens its own tab, which
-holds the thing it's waiting for (the import form, for Middlegame).
+**Calmer rows.** The list buttons and accordions lost their coloured left edge.
+Each has a muted icon chip, the count as a small pill (number only, except
+"best N"), and a chevron. Every subtitle was shortened to fit one line, and the
+accordion blurb no longer clips with "…". Some names changed: Missed moves, New
+lines, Weak spots and Puzzle rush. Satisfying traps and Tactical motifs kept
+their names.
 
-**No name twice.** The Tactics box's timed run is **Puzzle rush** (the Openings
-box keeps Time attack), and the motif accordion inside Tactics is **Tactical
-motifs**.
+**The streak strip went.** The streak stays on Home's daily card.
 
-The pure parts (`lastSevenDays`, `ratingProgress`) have a selftest suite of
-their own (`train-progress`). Checked headless at 412×915 and 1440×900, in
-light and dark, with and without games.
+`ratingProgress` has its own selftest suite (`train-progress`). Checked headless
+at 412×915 and 1440×900, light and dark, with and without games, including a
+swipe landing on the right bubble.
 
 
 ---
