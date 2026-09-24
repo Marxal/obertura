@@ -55,7 +55,9 @@ export const PUZZLE_THEME_GROUPS: PuzzleThemeGroup[] = [
   },
   {
     id: 'tactics',
-    label: 'Tactics',
+    // Not "Tactics": that is the name of the whole domain and of its big
+    // button, one row above this accordion.
+    label: 'Tactical motifs',
     blurb: 'The everyday motifs — forks, pins, skewers and the rest.',
     icon: () => Icons.swords(16),
     themes: [

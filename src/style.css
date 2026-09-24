@@ -7854,66 +7854,211 @@ html:has(> body > .edit-overlay) > body {
   }
 }
 
-/* ── The Train room — four doors, then four boxes ────────────────────────────
-
-   Train used to be a tab strip over four hidden panes. It is now two layers:
+/* ── The Train room — Today, four doors, tabs, one box ───────────────────────
 
        ┌─────────────────────────────────────┐
-       │ .daily-host        (above the room) │  ← leaves when Home lands
+       │ 🔥 3        ● ● ○ ● ● ● ◉       23   │  TODAY (train-today.ts): streak,
+       │ DAY STREAK  S M T W T F S   MOVES   │  the week, today's count. Reads.
+       ├──────────────────┬──────────────────┤
+       │ ▐ ♟         17   │ ▐ ⚔          12  │  the four DOORS, a 2×2 of tiles.
+       │ ▐ Openings       │ ▐ Middlegame     │  One tap each; a progress bar at
+       │ ▐ ▓▓▓░░ 5 of 40  │ ▐ ▓░░░ 3 of 9    │  the foot says what you've built.
+       ├──────────────────┼──────────────────┤  A locked one opens its box.
+       │ ▐ Tactics  1420  │ ▐ Endgames 1000  │
+       ├──────────────────┴──────────────────┤
+       │ [Openings] Middlegame Tactics Endg. │  TABS — phone only.
        ├─────────────────────────────────────┤
-       │ ▐ Openings                    17    │
-       │ ▐ Middlegame                  12    │  the four DOORS, together.
-       │ ▐ Tactics                   1420    │  One tap each. This row is the
-       │ ▐ Endgames                  1000    │  one place the app says what
-       ├─────────────────────────────────────┤  training is.
-       │ ░ PRACTISE YOUR OPENINGS       (i)  │
-       │ ░ ▏Whole lines                  6   │  a BOX per domain, washed in
-       │ ░ ▏Time attack                      │  its colour: cards to start,
-       │ ░ ▏…                                │  accordions to browse.
-       ├─────────────────────────────────────┤
-       │ ░ FROM YOUR GAMES              (i)  │
-       │ ░ …                                 │
+       │ ░ PRACTISE YOUR OPENINGS       (i)  │  ONE box on a phone, the tabbed
+       │ ░ ▏Whole lines                  6   │  one; all four on a desktop
+       │ ░ ▏…                                │  (four doors across, boxes 2-up).
        └─────────────────────────────────────┘
 
-   TWO THINGS TRIED AND UNDONE, both recorded so they aren't re-derived:
+   THREE SHAPES TRIED BEFORE, recorded so they aren't re-derived:
    (1) doors at the top with every remaining exercise in ONE three-across tile
    grid — twenty-odd two-word tiles in five colours read as a wall; (2) each
    door moved down to head its own box, which lost the row of four that says
-   what training is. The answer was both layers, not either.
+   what training is; (3) doors together, then all four boxes stacked — right in
+   principle, but ~25 cards in one phone scroll with no sense of where you
+   were. The tabs fix (3) without undoing what (1) and (2) taught: the doors
+   stay together above them, so nothing is ever two decisions from playing.
 
    Each screen renders its door AND its box into one host. The host is
-   `display: contents`, so both become items of this flex column, and one
-   `order` apiece sorts every door above every box. DOM order decides the order
-   within a band; `order` decides the band. */
+   `display: contents`, so both become items of this grid, and one `order`
+   apiece sorts them into bands. DOM order decides the order within a band;
+   `order` decides the band. */
+/* THE THIRD SHAPE (v0.12). The room is a GRID now, in four bands sorted by
+   `order`: the Today strip (0), the doors (10) as a 2×2 of tiles, the tabs
+   (15), then the boxes (20). On a phone only the tabbed domain's box shows —
+   the rest are hidden by [data-tab] below — which is what turned ~25 cards in
+   one scroll into one list. The doors stay together above the tabs, so the
+   point of both undone layouts holds: the four things training is, in one
+   block, one tap from playing. */
 .train-room {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-sm);
-  padding: 0 var(--space-lg) var(--space-xl);
+  padding: var(--space-md) var(--space-lg) var(--space-xl);
 }
 
 .train-domain {
   display: contents;
 }
 
+.train-today { order: 0; grid-column: 1 / -1; margin-bottom: var(--space-xs); }
 .train-domain > .train-door { order: 10; }
+.train-tabs { order: 15; grid-column: 1 / -1; margin-top: var(--space-md); }
 
-.train-domain > .train-box {
+/* Everything a domain renders that is not its door — its box, and the loading
+   line or load error that stands in for one — goes in the bottom band. */
+.train-domain > :not(.train-door) {
   order: 20;
-  /* The boxes want more air between them than the doors do — the doors are one
-     block of four, the boxes are four separate things. */
-  margin-top: var(--space-lg);
+  grid-column: 1 / -1;
+}
+
+/* One box at a time on a phone: whichever the tabs picked. */
+@media (max-width: 959.98px) {
+  .train-room[data-tab="openings"] > .train-domain:not([data-domain="openings"]) > :not(.train-door),
+  .train-room[data-tab="middlegame"] > .train-domain:not([data-domain="middlegame"]) > :not(.train-door),
+  .train-room[data-tab="tactics"] > .train-domain:not([data-domain="tactics"]) > :not(.train-door),
+  .train-room[data-tab="endgames"] > .train-domain:not([data-domain="endgames"]) > :not(.train-door) {
+    display: none;
+  }
+}
+
+/* ── The Today strip (train-today.ts) ── */
+.train-today {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: 0.7rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+}
+.train-today-streak {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.train-today-flame {
+  font-size: 1.55rem;
+  line-height: 1;
+}
+/* At zero the flame goes grey — an invitation, not a telling-off. */
+.train-today-streak--cold .train-today-flame {
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+.train-today-streak-text,
+.train-today-count {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+}
+.train-today-count {
+  align-items: flex-end;
+  text-align: right;
+}
+.train-today-num {
+  font-size: 1.35rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.train-today-label {
+  margin-top: 0.1rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+.train-today-week {
+  display: flex;
+  gap: 0.3rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.train-today-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+.train-today-dot {
+  box-sizing: border-box;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  border: 2px solid transparent;
+}
+.train-today-day--on .train-today-dot { background: var(--accent); }
+.train-today-day--today .train-today-dot { border-color: var(--accent); }
+.train-today-initial {
+  font-size: 0.56rem;
+  font-weight: 700;
+  color: var(--text-faint);
+}
+
+/* ── The tabs (phone only — a desktop shows every box) ── */
+.train-tabs {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  background: var(--bg-elevated);
+  border-radius: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.train-tabs::-webkit-scrollbar { display: none; }
+.train-tab {
+  flex: 1 0 auto;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding: 0.5rem 0.55rem;
+  border-radius: 9px;
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.train-tab[aria-selected="true"] {
+  background: var(--bg-card);
+  color: color-mix(in srgb, var(--domain-accent) 75%, var(--text));
+  box-shadow: var(--shadow-card);
+}
+[data-theme="dark"] .train-tab[aria-selected="true"],
+[data-theme="game"] .train-tab[aria-selected="true"],
+[data-theme="gamer"] .train-tab[aria-selected="true"] {
+  color: color-mix(in srgb, var(--domain-accent) 45%, var(--text));
 }
 
 /* ── The door ── */
 .train-door {
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
+  /* A TILE, two to a row: icon and figure across the top, the name and what it
+     starts at the foot, the progress bar under that. A full-width row per door
+     spent a third of a phone screen on four buttons. */
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas:
+    "icon fig"
+    "text text"
+    "prog prog";
+  gap: 0.6rem 0.5rem;
+  min-height: 9.75rem;
   width: 100%;
   text-align: left;
-  padding: 1rem 1rem 1rem 1.15rem;
+  padding: 0.85rem 0.85rem 0.8rem 1.05rem;
   /* FILLED, not edged. A mode card is pale with a coloured left bar because it
      sits in a list of its peers and the bar is all it needs; a door has to read
      as the thing you press from across the room. The fill is a tint over the
@@ -7962,8 +8107,8 @@ html:has(> body > .edit-overlay) > body {
 }
 
 .train-door--disabled {
-  opacity: 0.6;
-  cursor: default;
+  /* Still tappable — it opens its box, which says what it needs. */
+  opacity: 0.72;
   box-shadow: none;
 }
 
@@ -7972,9 +8117,10 @@ html:has(> body > .edit-overlay) > body {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 46px;
-  height: 46px;
-  border-radius: 13px;
+  grid-area: icon;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
   /* Solid, not tinted: on a card that is already tinted, a tinted chip
      disappears. White glyph on the full hue is the one element that carries the
      domain's colour at full strength. */
@@ -7983,15 +8129,16 @@ html:has(> body > .edit-overlay) > body {
 }
 
 .train-door-text {
+  grid-area: text;
+  align-self: end;
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.2rem;
   min-width: 0;
-  flex: 1;
 }
 
 .train-door-name {
-  font-size: 1.2rem;
+  font-size: 1.08rem;
   font-weight: 700;
   font-family: system-ui, -apple-system, sans-serif;
   color: var(--text);
@@ -7999,9 +8146,14 @@ html:has(> body > .edit-overlay) > body {
 }
 
 .train-door-sub {
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
   line-height: 1.3;
+  /* Two lines at most — a tile has a fixed shape to keep. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .train-door--disabled .train-door-sub {
@@ -8012,11 +8164,12 @@ html:has(> body > .edit-overlay) > body {
    door worth a second look — set at display size and in the domain's colour,
    with its unit underneath at label size. */
 .train-door-fig {
+  grid-area: fig;
+  justify-self: end;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-  min-width: 3.2rem;
+  align-items: flex-end;
+  min-width: 0;
   pointer-events: none; /* the whole door is the button */
 }
 
@@ -8048,12 +8201,14 @@ html:has(> body > .edit-overlay) > body {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-faint);
-  text-align: center;
+  text-align: right;
   line-height: 1.15;
 }
 
 /* Shown instead of the figure on a door with nothing to count. */
 .train-door-go {
+  grid-area: fig;
+  justify-self: end;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -8064,6 +8219,52 @@ html:has(> body > .edit-overlay) > body {
   background: var(--mode-accent);
   color: #fff;
   pointer-events: none;
+}
+
+/* A locked door's padlock, where the figure would be. */
+.train-door-lock {
+  grid-area: fig;
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--mode-accent) 22%, transparent);
+  color: color-mix(in srgb, var(--mode-accent) 70%, var(--text));
+  pointer-events: none;
+}
+
+/* How far along the domain is — thin, at the foot, in the domain's colour. */
+.train-door-progress {
+  grid-area: prog;
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  pointer-events: none;
+}
+.train-door-progress-track {
+  display: block;
+  height: 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--mode-accent) 20%, transparent);
+  overflow: hidden;
+}
+.train-door-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--mode-accent);
+}
+.train-door-progress-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── The box ── */
@@ -8223,15 +8424,21 @@ html:has(> body > .edit-overlay) > body {
 
 /* Desktop: the doors stay one block, the boxes go two across. */
 @media (min-width: 960px) {
+  /* Four doors across, then the boxes two to a row — every box shows, so the
+     tabs have nothing to pick between. */
   .train-room {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     align-items: start;
     max-width: 1100px;
     margin-inline: auto;
-    column-gap: var(--space-xl);
+    column-gap: var(--space-lg);
   }
-  .train-domain > .train-door { grid-column: 1 / -1; }
+  .train-tabs { display: none; }
+  .train-domain > :not(.train-door) {
+    grid-column: span 2;
+    margin-top: var(--space-lg);
+  }
+  .train-domain > .train-door { align-self: stretch; }
 }
 
 /* "Back to train" in the top bar while a training session is suspended behind

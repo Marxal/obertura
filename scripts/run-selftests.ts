@@ -11,6 +11,7 @@ import { runImportSelfTest } from '../src/import.selftest';
 import { runClockSelfTest } from '../src/clock.selftest';
 import { runSpotFactsSelfTest } from '../src/spot-facts.selftest';
 import { runTimePressureSelfTest } from '../src/time-pressure.selftest';
+import { runTrainProgressSelfTest } from '../src/train-progress.selftest';
 import { runSchedulerSelfTest } from '../src/scheduler.selftest';
 import { runAnalysisSelfTest } from '../src/analysis.selftest';
 import { runScoutSelfTest } from '../src/scout.selftest';
@@ -116,6 +117,7 @@ const SUITES: { suite: string; run: () => TestResult[] }[] = [
   { suite: 'onboarding-lines', run: runOnboardingLinesSelfTest },
   { suite: 'onboarding-recap', run: runOnboardingRecapSelfTest },
   { suite: 'local-keys', run: runLocalKeysSelfTest },
+  { suite: 'train-progress', run: runTrainProgressSelfTest },
 ];
 
 let total = 0;

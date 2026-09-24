@@ -32,6 +32,7 @@ import { buildEmptyState, type EmptyStateAction } from './empty-state';
 import { isConnected, LICHESS_CONNECT_BLURB } from './lichess-auth';
 import { Icons } from './icons';
 import { openInfoSheet, buildInfoButton } from './info-sheet';
+import { ratingProgress } from './train-progress';
 import { buildDoor, buildBox, boxBody, buildAccordion, DOMAIN_ACCENT } from './train-doors';
 import { buildModeCard } from './train-screen';
 import { PUZZLE_THEME_GROUPS, type PuzzleTheme, type PuzzleThemeGroup } from './puzzle-themes';
@@ -107,7 +108,7 @@ function openTacticsInfo(): void {
       },
       {
         icon: Icons.clock(18), accent: TACTICS_ACCENT,
-        label: 'Time attack',
+        label: 'Puzzle rush',
         detail: `${TA_DEFAULT} minutes against the clock over the openings you play — three `
           + 'mistakes and the run is over. Casual: it has its own personal best and never '
           + 'touches your rating.',
@@ -420,6 +421,7 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
       sub: `${DAILY_COUNT} rated puzzles from your openings and games`,
       stat: getPuzzleRating(),
       statLabel: 'rating',
+      progress: ratingProgress(getPuzzleRating()),
       onClick: () => startSession(
         allEntries, 'Puzzle rated mix',
         { kind: 'count', count: DAILY_COUNT, rated: true },
@@ -438,7 +440,11 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
 
     const timed = document.createElement('div');
     timed.className = 'mode-cards';
-    timed.appendChild(timedCard('openings', 'Time attack',
+    // "Puzzle rush", not "Time attack": the Openings box has its own Time attack
+    // (positions from your lines against the clock), and two different
+    // exercises under one name on one screen is a question nobody should have
+    // to ask.
+    timed.appendChild(timedCard('openings', 'Puzzle rush',
       `${TA_DEFAULT} minutes on your openings — 3 mistakes and you’re out`));
     timed.appendChild(timedCard('traps', 'Satisfying traps',
       `${TA_DEFAULT} minutes of opening tactics — no repertoire needed`));
@@ -472,7 +478,7 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
       statLabel: best > 0 ? 'best' : undefined,
       onClick: () => startSession(
         source === 'traps' ? [TRAP_ENTRY] : allEntries,
-        source === 'traps' ? 'Time Attack — Traps' : 'Time Attack — Openings',
+        source === 'traps' ? 'Puzzle rush — Traps' : 'Puzzle rush — Openings',
         { kind: 'timed', ms: TA_DEFAULT * 60_000, maxMistakes: 3 },
         { taSource: source }),
     });

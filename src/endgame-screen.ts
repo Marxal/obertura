@@ -10,6 +10,7 @@
 //     imported games (endgame-scan.ts) and played out the same way.
 
 import { Icons } from './icons';
+import { ratingProgress } from './train-progress';
 import { buildDoor, buildBox, boxBody, buildAccordion, DOMAIN_ACCENT } from './train-doors';
 import { buildModeCard } from './train-screen';
 import { fetchNextPuzzle } from './puzzles';
@@ -205,6 +206,7 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
       sub: `${PUZZLE_COUNT} rated puzzles — a ladder just for endgames`,
       stat: getPuzzleRating('endgame'),
       statLabel: 'rating',
+      progress: ratingProgress(getPuzzleRating('endgame')),
       onClick: () => runEndgamePuzzles('all', deps, rebuild),
     }));
 

@@ -365,6 +365,9 @@ function buildOpeningsDoor(
   const plan = locked ? null : planRepertoireRun(books);
   const runnable = !!plan && plan.totalMoves > 0;
   const dueMoves = plan?.dueMoves ?? 0;
+  // What the book adds up to so far: lines mastered out of those in training.
+  const training = allLines.filter(l => l.inTraining);
+  const mastered = training.filter(lineMastered).length;
 
   return buildDoor({
     domain: 'openings',
@@ -379,6 +382,9 @@ function buildOpeningsDoor(
     disabledReason: locked
       ? trainingLockReason(allLines.length)
       : 'Save a line first — then there’s a book to run',
+    progress: !locked && training.length > 0
+      ? { value: mastered, max: training.length, label: `${mastered} of ${training.length} mastered` }
+      : undefined,
     onClick: () => runRepertoireRun(container, books),
   });
 }

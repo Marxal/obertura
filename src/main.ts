@@ -43,6 +43,8 @@ import {
 import { handlePurchaseReturn } from './checkout';
 import { primePricing } from './pricing';
 import { renderTrainScreen, startLineSession, startPositionsSession, startMoveFix } from './train-screen';
+import { DOMAIN_ACCENT, type DomainId } from './train-doors';
+import { buildTodayStrip } from './train-today';
 import { renderHomeBody, fillGrowStrip, buildScanBanner, type HomeDeps } from './home-screen';
 import { planRepertoireRun } from './repertoire-run';
 import { startBrilliantSession } from './brilliant-run';
@@ -4446,6 +4448,19 @@ function trainHost(): HTMLElement {
   return trainOpeningsHost ?? document.createElement('div');
 }
 
+// Which domain's box the phone layout shows under the doors (see the tabs in
+// renderTrainRoom). Module state, not localStorage: it should survive a trip
+// into a drill and back, not a relaunch — and a key in localStorage would ride
+// the account sync and push a request every time a tab was tapped.
+let trainTab: DomainId = 'openings';
+
+const TRAIN_TABS: { id: DomainId; label: string }[] = [
+  { id: 'openings', label: 'Openings' },
+  { id: 'middlegame', label: 'Middlegame' },
+  { id: 'tactics', label: 'Tactics' },
+  { id: 'endgames', label: 'Endgames' },
+];
+
 function renderTrainRoom(host: HTMLElement): void {
   host.innerHTML = '';
 
@@ -4457,17 +4472,66 @@ function renderTrainRoom(host: HTMLElement): void {
   // and not a position in the DOM.
   const room = document.createElement('div');
   room.className = 'train-room';
+  room.dataset.tab = trainTab;
 
-  const domainHost = (name: string): HTMLElement => {
+  // Band 0: how the habit is going (train-today.ts). Reads only.
+  room.appendChild(buildTodayStrip());
+
+  // Band 15, between the doors and the boxes: the tabs. On a phone the four
+  // boxes stacked were ~25 cards in one scroll, most of them never the one you
+  // came for — so the phone shows ONE box, picked here, and CSS hides the rest
+  // (.train-room[data-tab]). The doors stay together above the tabs, which is
+  // what the two earlier layouts were protecting (train-doors.ts): the tab
+  // strip that went before hid the DOORS too, so you were two decisions from
+  // playing anything; this one hides only the lists, one tap from any door.
+  // A desktop has the room for all four boxes, so there the strip is hidden and
+  // they all show.
+  const tabs = document.createElement('div');
+  tabs.className = 'train-tabs';
+  tabs.setAttribute('role', 'tablist');
+  tabs.setAttribute('aria-label', 'Training areas');
+  const selectTab = (id: DomainId): void => {
+    trainTab = id;
+    room.dataset.tab = id;
+    for (const b of tabs.querySelectorAll<HTMLButtonElement>('.train-tab')) {
+      b.setAttribute('aria-selected', String(b.dataset.domain === id));
+    }
+  };
+  for (const t of TRAIN_TABS) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'train-tab';
+    b.dataset.domain = t.id;
+    b.setAttribute('role', 'tab');
+    b.setAttribute('aria-selected', String(t.id === trainTab));
+    b.style.setProperty('--domain-accent', DOMAIN_ACCENT[t.id]);
+    b.textContent = t.label;
+    b.addEventListener('click', () => selectTab(t.id));
+    tabs.appendChild(b);
+  }
+  room.appendChild(tabs);
+
+  // A locked door opens its own box: that is where what it is waiting for
+  // lives (the import form, the first line to save). Delegated, because each
+  // domain repaints its own door.
+  room.addEventListener('click', (e) => {
+    const door = (e.target as HTMLElement).closest<HTMLElement>('.train-door--disabled');
+    if (!door?.dataset.domain) return;
+    selectTab(door.dataset.domain as DomainId);
+    const box = room.querySelector<HTMLElement>(`.train-box[data-domain="${door.dataset.domain}"]`);
+    (box && box.offsetParent ? box : tabs).scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  const domainHost = (name: DomainId): HTMLElement => {
     const el = document.createElement('div');
     el.className = 'train-domain';
     el.dataset.domain = name;
     return el;
   };
   const openingsPane = domainHost('openings');
-  const puzzlesPane = domainHost('puzzles');
-  const mistakesPane = domainHost('mistakes');
-  const endgamePane = domainHost('endgame');
+  const puzzlesPane = domainHost('tactics');
+  const mistakesPane = domainHost('middlegame');
+  const endgamePane = domainHost('endgames');
 
   // DOM order decides the order WITHIN each band. Openings first because it is
   // the app's own subject; Middlegame second because it is the half that reads

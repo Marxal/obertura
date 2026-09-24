@@ -247,7 +247,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       name: 'Middlegame',
       sub: 'a mixed round from your own games',
       disabled: true,
-      disabledReason: 'Import your games and this fills itself',
+      disabledReason: 'Import your games to unlock',
     }));
     const box = buildBox('middlegame', 'From your games');
     const empty = document.createElement('div');
@@ -351,6 +351,9 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     disabledReason: counts.scanned === 0
       ? 'Your games are still being read'
       : 'Nothing waiting — they come back over the next few days',
+    progress: counts.spots > 0
+      ? { value: counts.fixed, max: counts.spots, label: `${counts.fixed} of ${counts.spots} fixed` }
+      : undefined,
     onClick: () => startMix(),
   }));
   host.appendChild(renderCategoryBox());

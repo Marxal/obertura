@@ -2125,6 +2125,42 @@ upgraded. Games merging is covered by selftests only, because it needs a Pro
 entitlement headless. Still open: deletions don't travel (Later list).
 
 
+### Train gets a shape: Today, tiles, tabs (v0.12)
+
+Version bumped to 0.12.0 first (tag `v0.12` on that commit).
+
+**The Today strip.** Train was a menu with not one word about whether you had
+been using it. A strip at the top now shows the streak (the flame greys out at
+zero), the last seven days as dots, and moves reviewed today. It reads from
+what `streak.ts` already records, so there's no new state and nothing synced.
+The daily challenge stays on Home, where it works.
+
+**The doors are tiles, with progress.** Four full-width doors took a third of a
+phone screen. They are a 2×2 grid now (four across on a desktop), each with a
+thin bar at the foot:
+- Openings: lines mastered
+- Middlegame: mistakes fixed
+- Tactics and Endgames: the way to the next hundred of the rating ("63 pts to 1500")
+
+**One box at a time on a phone.** Under the doors, a tab strip picks which
+domain's list shows, instead of all four stacked (~25 cards in one scroll). The
+doors stay together above it, which is what the two earlier layouts were
+protecting (see `.train-room`). A desktop shows every box and no tabs. The
+selected tab is module state, not localStorage, so it never triggers a sync.
+
+**Locked doors explain themselves.** A greyed door used to be a disabled
+button. It now shows a padlock and, when tapped, opens its own tab, which
+holds the thing it's waiting for (the import form, for Middlegame).
+
+**No name twice.** The Tactics box's timed run is **Puzzle rush** (the Openings
+box keeps Time attack), and the motif accordion inside Tactics is **Tactical
+motifs**.
+
+The pure parts (`lastSevenDays`, `ratingProgress`) have a selftest suite of
+their own (`train-progress`). Checked headless at 412×915 and 1440×900, in
+light and dark, with and without games.
+
+
 ---
 
 ## Later 💤

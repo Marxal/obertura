@@ -28,6 +28,12 @@
 // lost the one row that says what training is. The answer was both: doors
 // together at the top, boxes below. Don't re-derive either.
 //
+// AND A THIRD STEP (v0.12). Doors together, all four boxes stacked below, was
+// ~25 cards in one phone scroll. The doors are now a 2×2 of tiles with a
+// progress bar each, a Today strip sits above them, and on a phone a tab strip
+// under the doors picks ONE box to show (a desktop shows all four). This is
+// not the old tab strip back: that one hid the doors too. See .train-room.
+//
 // The screens keep rendering into one host each and re-rendering themselves
 // alone — no session machinery moved, and it did not have to: every drill in
 // this app is a `position: fixed` overlay on <body>, so a screen's host was only
@@ -178,6 +184,12 @@ export interface DoorOptions {
   disabled?: boolean;
   /** Said under the name when greyed out, so a dead door explains itself. */
   disabledReason?: string;
+  /**
+   * How far along this domain is, as a thin bar along the door's foot — lines
+   * mastered, mistakes fixed, the way to the next hundred of a rating. The
+   * figure says what is waiting; this says what you have built.
+   */
+  progress?: { value: number; max: number; label: string };
 }
 
 /**
@@ -194,8 +206,13 @@ export function buildDoor(o: DoorOptions): HTMLElement {
   const card = document.createElement('button');
   card.type = 'button';
   card.className = 'train-door' + (o.disabled ? ' train-door--disabled' : '');
+  card.dataset.domain = o.domain;
   card.style.setProperty('--mode-accent', DOMAIN_ACCENT[o.domain]);
-  card.disabled = !!o.disabled;
+  // A greyed door is NOT a disabled button any more: tapping it opens its
+  // domain's box, which is where the thing it is waiting for lives (the import
+  // form, the first line to save). The room owns that — see the Train room in
+  // main.ts. Not aria-disabled either, since it does do something; the reason
+  // under its name is what it announces.
 
   const icon = document.createElement('span');
   icon.className = 'train-door-icon';
@@ -239,6 +256,31 @@ export function buildDoor(o: DoorOptions): HTMLElement {
     go.className = 'train-door-go';
     go.appendChild(Icons.play(18));
     card.appendChild(go);
+  } else {
+    // Locked, not broken: a padlock where the figure would be says "there is a
+    // way in", and the reason under the name says what it is.
+    const lock = document.createElement('span');
+    lock.className = 'train-door-lock';
+    lock.appendChild(Icons.lock(16));
+    card.appendChild(lock);
+  }
+
+  if (o.progress && o.progress.max > 0) {
+    const share = Math.max(0, Math.min(1, o.progress.value / o.progress.max));
+    const prog = document.createElement('span');
+    prog.className = 'train-door-progress';
+    const track = document.createElement('span');
+    track.className = 'train-door-progress-track';
+    const fill = document.createElement('span');
+    fill.className = 'train-door-progress-fill';
+    fill.style.width = `${Math.round(share * 100)}%`;
+    track.appendChild(fill);
+    prog.appendChild(track);
+    const lbl = document.createElement('span');
+    lbl.className = 'train-door-progress-label';
+    lbl.textContent = o.progress.label;
+    prog.appendChild(lbl);
+    card.appendChild(prog);
   }
 
   if (!o.disabled && o.onClick) card.addEventListener('click', o.onClick);

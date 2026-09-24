@@ -526,18 +526,32 @@ other pair on the page had 24px. `.home-grow-host` is on the page from the first
 paint (its data arrives late), so `:empty { display: none }` keeps it from
 spending the column's gap on nothing.
 
-### 6.3 The Train screen — four doors, then four boxes
+### 6.3 The Train screen — Today, four doors, tabs, one box
 
-`main.ts:renderTrainRoom()` (was `renderTrainTabbed`). The tab strip is **gone**.
-Train is two layers (the daily-challenge card that used to head it now lives on
-Home):
+`main.ts:renderTrainRoom()`. Four bands in one grid, sorted by CSS `order`
+(the daily-challenge card that used to head it now lives on Home):
 
-1. **The four doors, together.** Each is a big card filled in its domain's
-   colour, carrying that domain's live figure, and one tap starts that domain's
-   flagship. Four in a row is the one place the app states what training is.
-2. **A box per domain below.** Washed in the same colour, each is a title and a
+0. **The Today strip** (`train-today.ts`, v0.12): streak, the last seven days
+   as dots, and moves reviewed today, all read from `streak.ts`. It starts
+   nothing, and it isn't a second daily challenge.
+1. **The four doors, together**, as a 2×2 of tiles on a phone (four across on a
+   desktop). Each is filled in its domain's colour, carries that domain's live
+   figure, and one tap starts its flagship. Each also has a thin **progress
+   bar**: lines mastered, mistakes fixed, or for the two rated doors the way to
+   the next hundred (`train-progress.ts`'s `ratingProgress`). A **locked** door
+   shows a padlock and stays tappable: it opens its own box, which holds what
+   it needs (the import form, the first line to save).
+2. **The tabs, on a phone only**: Openings / Middlegame / Tactics / Endgames.
+   The phone shows ONE box, the tabbed one (`.train-room[data-tab]`). The tab is
+   module state (`trainTab`), not localStorage, so tapping one never becomes a
+   sync push. A desktop hides the tabs and shows all four boxes, two per row.
+3. **A box per domain.** Washed in the same colour, each is a title and a
    list. Two kinds of thing live in one: mode **cards**, which start an
    exercise, and **accordions**, which open a catalogue you pick from.
+
+Two names changed so none repeats on the screen: the Tactics box's timed run
+is **Puzzle rush** (the Openings box keeps **Time attack**), and the
+"Tactics" motif accordion is **Tactical motifs**.
 
 | Door | One tap starts | Figure | Its box | Lives in |
 |---|---|---|---|---|
@@ -597,7 +611,7 @@ starts both.
 The deleted code is in git at `97c8733` and `eecb0d7` if Home wants it back
 rather than rebuilt.
 
-#### Two shapes tried and undone
+#### Three shapes tried before
 
 Recorded so they aren't re-derived:
 
@@ -608,7 +622,12 @@ Recorded so they aren't re-derived:
 2. **Each door moved down to head its own box**, so the four were no longer
    together — which lost the one row that says what training is.
 
-The answer was both layers, not either: doors together at the top, boxes below.
+3. **Doors together, all four boxes stacked below.** Right in principle, but
+   on a phone it was about 25 cards in one scroll with no sense of where you
+   were. The tabs fix that without undoing (1) and (2): the doors stay
+   together above them, so nothing is ever two decisions from playing. The tab
+   strip removed before this one hid the doors as well, which was the real
+   problem with it.
 
 ### 6.4 The training unlock
 
