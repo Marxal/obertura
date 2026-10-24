@@ -328,3 +328,18 @@ bito chess
 Privacy · Terms · Licences · Contact
 
 © 2026 Bito Chess
+
+
+## Section layout — 2026-10-24
+
+The feature copy above is unchanged. Each section has its own presentation:
+
+- Your games: three-step horizontal journey, stacked on phones.
+- Personal exercises: asymmetric five-card grid with a featured mistake-retry card.
+- Openings: illustrative repertoire tree beside introductory text; three supporting notes below. Tree explicitly labelled as an example, not an app screenshot.
+- Tactics: editorial heading beside a four-tile grid.
+- Endgames: decorative chess-piece vignette beside three text explanations.
+- Daily practice: green panel with a sample activity checklist. No invented completed tasks or streak counts.
+- Rating progress: visual measurement panel beside explanations. No fabricated rating series or promised improvement.
+
+All layouts use the existing theme tokens and collapse for mobile. No external images, fonts or JavaScript dependencies added. Existing demo and checkout behaviour retained.
