@@ -2231,3 +2231,8 @@ Deliberately deferred. Revisited once the app has had more real use on the phone
 Repositioned the hero, search/social descriptions and page sections around game analysis and exercises from imported games. Added explanations of mistake retry, blunder detective, move choice, time pressure and brilliant moves; dedicated openings, tactics, endgames and daily-practice sections; and a rating-progress section distinguishing playing ratings from puzzle ratings. Rewrote the founder story, clarified optional accounts, softened the unlimited headline and made the final free CTA open the app without a signup prompt. Updated LANDING-COPY.md with the matching text. Prices, checkout and app behaviour are unchanged.
 
 Validation: HTML IDs are unique, JSON-LD parses, and all inline JavaScript passes node --check. The removed carousel is guarded by an element check. Visual browser verification could not run because the environment has no installed Chromium executable. Phone check: open the landing page, scroll through the new sections, try the demo and free CTA, and check that the Full Access offer still opens.
+
+
+## 2026-10-24 — Varied landing section layouts
+
+Replaced seven repeated numbered grids with a game-to-practice journey, asymmetric exercise cards, illustrative repertoire tree, tactics tiles, endgame vignette, green daily-practice checklist and visual progress panel. Preserved the feature explanations, theme tokens, demo and checkout. Illustrations are labelled examples; no invented rating results. Responsive CSS stacks layouts on phones. Validation: unique IDs, valid accessible heading references, parsed JSON-LD, and node --check for inline scripts. Browser rendering verification unavailable: Chromium download failed in this environment.
