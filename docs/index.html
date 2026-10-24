@@ -35,7 +35,7 @@
 -->
 
 <title>Bito Chess — improve your next move</title>
-<meta name="description" content="Build your own chess opening repertoire, drill it with spaced repetition, and stop forgetting your prep on move six. Free up to 500 lines, Full Access is 12€ once, no subscription." />
+<meta name="description" content="Analyse your games and turn your mistakes into personal exercises. Train openings, tactics and endgames with Bito Chess. Try it free, no signup required." />
 <meta name="robots" content="index, follow" />
 <link rel="canonical" href="https://bitochess.com/" />
 <meta name="color-scheme" content="light dark" />
@@ -49,18 +49,18 @@
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Bito Chess" />
 <meta property="og:title" content="Bito Chess — improve your next move" />
-<meta property="og:description" content="Build your repertoire, train smarter, and play with confidence." />
+<meta property="og:description" content="Analyse your games, practise your mistakes, and train openings, tactics and endgames." />
 <meta property="og:url" content="https://bitochess.com/" />
 <meta property="og:image" content="https://bitochess.com/og-image.png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
-<meta property="og:image:alt" content="Bito Chess — a chess opening repertoire trainer" />
+<meta property="og:image:alt" content="Bito Chess — personal chess training built around your games" />
 <meta property="og:locale" content="en_GB" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Bito Chess — improve your next move" />
-<meta name="twitter:description" content="Build your repertoire, train smarter, and play with confidence." />
+<meta name="twitter:description" content="Analyse your games, practise your mistakes, and train openings, tactics and endgames." />
 <meta name="twitter:image" content="https://bitochess.com/og-image.png" />
-<meta name="twitter:image:alt" content="Bito Chess — a chess opening repertoire trainer" />
+<meta name="twitter:image:alt" content="Bito Chess — personal chess training built around your games" />
 
 <link rel="icon" href="app-icon.png" />
 <link rel="apple-touch-icon" href="app-icon.png" />
@@ -73,7 +73,7 @@
   "@type": "SoftwareApplication",
   "name": "Bito Chess",
   "url": "https://bitochess.com/",
-  "description": "Build your own chess opening repertoire, drill it with spaced repetition, and stop forgetting your prep on move six.",
+  "description": "Analyse your games, turn your mistakes into personal exercises, and train openings, tactics and endgames.",
   "applicationCategory": "GameApplication",
   "operatingSystem": "Web, installable as a PWA on Android, iOS and desktop",
   "image": "https://bitochess.com/og-image.png",
@@ -214,7 +214,7 @@
   --gutter: 22px;
   --bar-h: 62px;       /* the fixed top bar */
 
-  /* The portrait in the "Why I made Bito Chess" signature. A token because the
+  /* The portrait in the "Built by a player who wanted a better way to learn" signature. A token because the
      speech bubble's tail has to point at the middle of it, and a tail aimed at
      a number that has drifted is worse than no tail at all — see .bubble. */
   --avatar: 190px;     /* phone */
@@ -1913,9 +1913,9 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
     <div class="inner">
       <div class="hero__cols">
         <div class="hero__text">
-          <p class="eyebrow reveal">Your personal chess training lab</p>
+          <p class="eyebrow reveal">Personal chess training, built around your games</p>
           <h1 class="reveal">Improve your next move</h1>
-          <p class="lede reveal">Build your lines, train the moves you forget, and prepare for the games you’ll actually play.</p>
+          <p class="lede reveal">Analyse your games, practise the mistakes that cost you points, and build an opening repertoire you remember. Bito Chess turns the games you play into training made for you.</p>
           <div class="cta-block reveal">
             <!-- Hero CTA: no query string. Only the FINAL CTA carries
                  ?auth=signup (see below). -->
@@ -1973,238 +1973,112 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
     </div>
   </section>
 
-  <!-- ───────────────────────── HOW IT WORKS ───────────────────────── -->
-  <section class="band band--parchment">
-    <div class="float" style="--w: 210px; --rot: 6deg; right: -50px; top: -70px" data-speed="-28" aria-hidden="true">
-      <span class="float__in" style="--delay: -3s"><svg viewBox="0 0 120 140"><use href="#pc3-rook"/></svg></span>
-    </div>
-    <div class="inner">
-      <h2 class="reveal">How it works</h2>
-      <div class="steps">
-        <div class="step reveal">
-          <p class="step__n"><span class="movenum">1.</span></p>
-          <h3>Build your repertoire</h3>
-          <p>Create lines on the board. Pull inspiration from the opening library, curated starter packs, engine suggestions, or your own past games.</p>
-        </div>
-        <div class="step reveal">
-          <p class="step__n"><span class="movenum">2.</span></p>
-          <h3>Confirm it once</h3>
-          <p>Play the line through once. That confirms what you want to learn and puts it into training mode.</p>
-        </div>
-        <div class="step reveal">
-          <p class="step__n"><span class="movenum">3.</span></p>
-          <h3>Remember it</h3>
-          <p>Bito keeps track of the moves you get right and the ones you forget. The moves that need work come back more often. The ones you know stay out of the way.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ─────────────────────────── BUILD ───────────────────────────
-       Layout: the numbered ledger (.ways). Four routes in, so they are
-       numbered rather than bulleted — a list of alternatives that happens to
-       have an order, not a set of features. -->
-  <section class="band">
+  <section class="band band--parchment" id="your-games" aria-labelledby="feature-title-0">
     <div class="inner">
       <div class="feature">
-        <div class="feature__head reveal"><h2>Build your repertoire your way</h2></div>
-        <div class="feature__body">
-          <p class="lede reveal">Build exactly what you want to play.</p>
-        </div>
+        <div class="feature__head reveal"><h2 id="feature-title-0">Your games show you what to practise</h2></div>
+        <div class="feature__body"><p class="lede reveal">Every game leaves something to learn. Bito helps you find it and work on it.</p></div>
       </div>
       <div class="ways">
-        <div class="way reveal">
-          <p class="way__n">01</p>
-          <div>
-            <h3>Play it yourself</h3>
-            <p>Enter moves directly on the board and shape your own lines.</p>
-          </div>
-        </div>
-        <div class="way reveal">
-          <p class="way__n">02</p>
-          <div>
-            <h3>Explore the opening world</h3>
-            <p>Browse thousands of named openings, starter packs or famous traps.</p>
-          </div>
-        </div>
-        <div class="way reveal">
-          <p class="way__n">03</p>
-          <div>
-            <h3>Learn from your own games</h3>
-            <p>Import games from Chess.com or Lichess and turn the positions you actually played into training.</p>
-          </div>
-        </div>
-        <div class="way reveal">
-          <p class="way__n">04</p>
-          <div>
-            <h3>Use the engine</h3>
-            <p>Explore alternatives, find better moves and build lines around ideas you discover.</p>
-          </div>
-        </div>
+        <div class="way reveal"><p class="way__n">01</p><div><h3>Bring in your games</h3><p>Import games from Chess.com or Lichess to build your personal game library.</p></div></div>
+        <div class="way reveal"><p class="way__n">02</p><div><h3>Discover the turning points</h3><p>Find costly mistakes, missed opportunities and positions worth another look. Explore the alternatives with engine analysis.</p></div></div>
+        <div class="way reveal"><p class="way__n">03</p><div><h3>Turn analysis into practice</h3><p>Return to those positions as interactive exercises. Find a better move yourself, then take what you’ve learnt into your next game.</p></div></div>
       </div>
+
     </div>
   </section>
 
-  <!-- ─────────────────────────── TRAIN ─────────────────────────── -->
-  <section class="band band--parchment">
-    <div class="float" style="--w: 240px; --rot: -5deg; left: -70px; top: -90px" data-speed="30" aria-hidden="true">
-      <span class="float__in" style="--delay: -7s"><svg viewBox="0 0 120 140"><use href="#pc3-bishop"/></svg></span>
-    </div>
+  <section class="band" id="personal-exercises" aria-labelledby="feature-title-1">
     <div class="inner">
       <div class="feature feature--flip">
-        <div class="feature__head reveal"><h2>Train what you actually need</h2></div>
-        <div class="feature__body">
-          <p class="lede reveal">Your training is driven by data, not random drills. Bito tracks your weak points and gives you multiple ways to fix them.</p>
-        </div>
+        <div class="feature__head reveal"><h2 id="feature-title-1">Exercises from games you actually played</h2></div>
+        <div class="feature__body"><p class="lede reveal">Recognising a mistake in analysis is a start. Finding the better move yourself is the next step.</p></div>
+      </div>
+      <div class="ways">
+        <div class="way reveal"><p class="way__n">01</p><div><h3>Try your mistakes again</h3><p>Revisit a position where you went wrong and play a stronger move. Practise keeping a winning advantage and punishing your opponent’s mistakes.</p></div></div>
+        <div class="way reveal"><p class="way__n">02</p><div><h3>Become a blunder detective</h3><p>Watch a short sequence from one of your games. Spot the move that changed everything, then find what should have been played.</p></div></div>
+        <div class="way reveal"><p class="way__n">03</p><div><h3>Choose the better move</h3><p>Compare your original move with an engine alternative. Decide which is stronger before revealing the answer.</p></div></div>
+        <div class="way reveal"><p class="way__n">04</p><div><h3>Think under time pressure</h3><p>Work through positions from your games against the clock. Practise making decisions when there’s little time to spare.</p></div></div>
+        <div class="way reveal"><p class="way__n">05</p><div><h3>Rediscover your best moves</h3><p>Find your own strong and brilliant moves again, and practise recognising the ideas behind them.</p></div></div>
       </div>
 
-      <!-- Layout: the row stack (.drills). Four training modes as rows of one
-           panel, because that is how they appear in the app. -->
-      <div class="drills reveal">
-        <div class="drill">
-          <span class="drill__mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-          </span>
-          <div>
-            <h3>Drill new lines</h3>
-            <p>Walk through complete variations until they become muscle memory.</p>
-          </div>
-        </div>
-        <div class="drill">
-          <span class="drill__mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
-          </span>
-          <div>
-            <h3>Review missed moves</h3>
-            <p>Target the individual positions you have forgotten.</p>
-          </div>
-        </div>
-        <div class="drill">
-          <span class="drill__mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M9 2h6"/></svg>
-          </span>
-          <div>
-            <h3>Time attack</h3>
-            <p>Race against the clock through positions to beat your personal best.</p>
-          </div>
-        </div>
-        <div class="drill">
-          <span class="drill__mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/><path d="M11 8v6"/><path d="M8 11h6"/></svg>
-          </span>
-          <div>
-            <h3>Scout real opponents</h3>
-            <p>Import your tournament or online games to see what your opponents play, and build lines against their specific weaknesses.</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="result reveal">
-        <p>The result is simple:</p>
-        <p><strong>Less wondering what to study.</strong> More time actually studying.</p>
-      </div>
     </div>
   </section>
 
-  <!-- ───────────────────────── YOUR GAMES ─────────────────────────
-       Layout: the editorial block (.editorial) — an ink rule, an oversized
-       opening line, and the detail beside it. Short on purpose: this section
-       used to run to four paragraphs and a pull quote, which is more than the
-       point needs. -->
-  <section class="band">
+  <section class="band band--parchment" id="openings" aria-labelledby="feature-title-2">
     <div class="inner">
-      <div class="editorial">
-        <h2 class="reveal">Prepare for the games you actually play</h2>
-        <p class="editorial__lede reveal">Chess study is much more useful when it starts with your own games.</p>
-        <p class="editorial__body reveal">Import your Chess.com, Lichess or enter your tournament games. Bito can show you where your opening play is working — and where it isn’t. Find the openings you keep struggling with. Discover mistakes that keep coming back. Turn those positions into things you can practise.</p>
+      <div class="feature">
+        <div class="feature__head reveal"><h2 id="feature-title-2">Build openings you can rely on</h2></div>
+        <div class="feature__body"><p class="lede reveal">Choose what you want to play, explore your options and remember your moves when you need them.</p></div>
       </div>
+      <div class="ways">
+        <div class="way reveal"><p class="way__n">01</p><div><h3>Create your own repertoire</h3><p>Enter moves on the board, browse thousands of named openings or begin with a starter pack. Explore famous traps and investigate alternatives with the engine.</p></div></div>
+        <div class="way reveal"><p class="way__n">02</p><div><h3>Learn from your opening results</h3><p>See which openings bring good results and which keep causing problems. Turn positions from your games into lines you can practise.</p></div></div>
+        <div class="way reveal"><p class="way__n">03</p><div><h3>Remember with spaced repetition</h3><p>Play through your lines, then review them over time. Moves you struggle with return more often, so practice follows what you need to remember.</p></div></div>
+        <div class="way reveal"><p class="way__n">04</p><div><h3>See how your lines connect</h3><p>Explore your repertoire as a visual tree, with your variations and branches together.</p></div></div>
+        <div class="way reveal"><p class="way__n">05</p><div><h3>Prepare for an opponent</h3><p>Explore an opponent’s games, discover what they tend to play and build your preparation around the positions you might meet. Available with Full Access.</p></div></div>
+      </div>
+
     </div>
   </section>
 
-  <!-- ─────────────────────── BEYOND OPENINGS ─────────────────────── -->
-  <section class="band band--parchment">
-    <div class="float" style="--w: 260px; --rot: 7deg; right: -80px; bottom: -80px" data-speed="-34" aria-hidden="true">
-      <span class="float__in" style="--delay: -11s"><svg viewBox="0 0 120 140"><use href="#pc3-queen"/></svg></span>
-    </div>
+  <section class="band" id="tactics" aria-labelledby="feature-title-3">
     <div class="inner">
-      <h2 class="reveal">There’s more than openings in here</h2>
-      <p class="lede reveal">Once your repertoire is built, keep sharpening the rest of your game.</p>
-      <div class="carousel reveal">
-        <div class="carousel__track" id="more-track" tabindex="0" role="group" aria-label="More than openings">
-          <article class="mcard">
-            <div class="mcard__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.439 7.85c-.049.322.059.648.289.878l1.568 1.568c.47.47.706 1.087.706 1.704s-.235 1.233-.706 1.704l-1.611 1.611a.98.98 0 0 1-.837.276c-.47-.07-.802-.48-.968-.925a2.501 2.501 0 1 0-3.214 3.214c.446.166.855.497.925.968a.979.979 0 0 1-.276.837l-1.61 1.61a2.404 2.404 0 0 1-1.705.707 2.402 2.402 0 0 1-1.704-.706l-1.568-1.568a1.026 1.026 0 0 0-.877-.29c-.493.074-.84.504-1.02.968a2.5 2.5 0 1 1-3.237-3.237c.464-.18.894-.527.967-1.02a1.026 1.026 0 0 0-.289-.877l-1.568-1.568A2.402 2.402 0 0 1 1.998 12c0-.617.236-1.234.706-1.704L4.23 8.77c.24-.24.581-.353.917-.303.515.077.877.528 1.073 1.01a2.5 2.5 0 1 0 3.259-3.259c-.482-.196-.933-.558-1.01-1.073-.05-.336.062-.676.303-.917l1.525-1.525A2.402 2.402 0 0 1 12 1.998c.617 0 1.234.236 1.704.706l1.568 1.568c.23.23.556.338.877.29.493-.074.84-.504 1.02-.968a2.5 2.5 0 1 1 3.237 3.237c-.464.18-.894.527-.967 1.02Z"/></svg>
-            </div>
-            <h3>Puzzles that fit you</h3>
-            <p>Rated tactics matched to your level, with puzzles that can also connect to the openings you actually play.</p>
-          </article>
-
-          <article class="mcard">
-            <div class="mcard__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
-            </div>
-            <h3>Fix your real mistakes</h3>
-            <p>Bito finds mistakes in your own games and turns them into positions you can play again, this time finding the better move.</p>
-          </article>
-
-          <article class="mcard">
-            <div class="mcard__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.94 14.06A2 2 0 0 0 8.5 12.6l-5.2-1.35a.5.5 0 0 1 0-.96L8.5 8.94A2 2 0 0 0 9.94 7.5l1.35-5.2a.5.5 0 0 1 .96 0l1.35 5.2a2 2 0 0 0 1.44 1.44l5.2 1.35a.5.5 0 0 1 0 .96l-5.2 1.35a2 2 0 0 0-1.44 1.44l-1.35 5.2a.5.5 0 0 1-.96 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/></svg>
-            </div>
-            <h3>Rediscover your brilliant moves</h3>
-            <p>You’ve probably played better chess than you realised. Bito brings your great and brilliant moves back so you can recognise those ideas again.</p>
-          </article>
-
-          <article class="mcard">
-            <div class="mcard__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg>
-            </div>
-            <h3>Learn the endings that matter</h3>
-            <p>Practise classic endgames and positions from your own games. Play them out against the engine and test yourself against exact tablebase judgement where available.</p>
-          </article>
-
-          <article class="mcard">
-            <div class="mcard__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></svg>
-            </div>
-            <h3>Analyse with the engine</h3>
-            <p>Play any position against Stockfish 18 lite to test ideas or explore alternatives.</p>
-          </article>
-        </div>
-
-        <div class="carousel__nav">
-          <button type="button" class="carousel__btn" id="car-prev" aria-label="Previous">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
-          </button>
-          <div class="carousel__dots" id="car-dots"></div>
-          <button type="button" class="carousel__btn" id="car-next" aria-label="Next">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
-          </button>
-        </div>
+      <div class="feature feature--flip">
+        <div class="feature__head reveal"><h2 id="feature-title-3">Sharpen your tactics</h2></div>
+        <div class="feature__body"><p class="lede reveal">Practise spotting threats, finding combinations and making the most of your chances.</p></div>
       </div>
+      <div class="ways">
+        <div class="way reveal"><p class="way__n">01</p><div><h3>A daily rated mix</h3><p>Solve a mix of puzzles informed by your repertoire and games, and track your Bito puzzle rating as you practise.</p></div></div>
+        <div class="way reveal"><p class="way__n">02</p><div><h3>Focus your practice</h3><p>Choose puzzles by opening or tactical theme to work on specific ideas.</p></div></div>
+        <div class="way reveal"><p class="way__n">03</p><div><h3>Race the clock</h3><p>Challenge yourself in Time Attack and try to beat your personal best.</p></div></div>
+        <div class="way reveal"><p class="way__n">04</p><div><h3>Revisit missed puzzles</h3><p>Puzzles you get wrong return over time, giving you another chance to recognise the pattern.</p></div></div>
+      </div>
+
     </div>
   </section>
 
-  <!-- ────────────────────────── PROGRESS ──────────────────────────
-       Layout: the tag row (.chips) plus a quote. The four things the app
-       measures are objects here rather than a comma list inside a sentence,
-       which is the whole reason this band doesn't read like the last one. -->
-  <section class="band">
-    <div class="inner feature feature--flip">
-      <div class="feature__head reveal">
-        <h2>Measure your progress</h2>
-        <p class="quote">“See how your moves improve.”</p>
+  <section class="band band--parchment" id="endgames" aria-labelledby="feature-title-4">
+    <div class="inner">
+      <div class="feature">
+        <div class="feature__head reveal"><h2 id="feature-title-4">Finish the games you’ve worked hard to win</h2></div>
+        <div class="feature__body"><p class="lede reveal">Practise converting an advantage or holding a difficult ending.</p></div>
       </div>
-      <div class="feature__body">
-        <p class="lede reveal">Your games and training sessions become a picture of your progress.</p>
-        <p class="quiet reveal">Track your training streaks, move memory, puzzle rating, and win rates by opening to see exactly what needs work.</p>
-        <div class="chips reveal">
-          <span class="chip"><span aria-hidden="true"></span>Training streaks</span>
-          <span class="chip"><span aria-hidden="true"></span>Move memory</span>
-          <span class="chip"><span aria-hidden="true"></span>Puzzle rating</span>
-          <span class="chip"><span aria-hidden="true"></span>Win rate by opening</span>
-        </div>
+      <div class="ways">
+        <div class="way reveal"><p class="way__n">01</p><div><h3>Learn the fundamentals</h3><p>Play classic endgame positions against the engine and work towards a win or draw.</p></div></div>
+        <div class="way reveal"><p class="way__n">02</p><div><h3>Return to your own endings</h3><p>Practise winnable and drawable endgame positions found in your imported games.</p></div></div>
+        <div class="way reveal"><p class="way__n">03</p><div><h3>Solve endgame puzzles</h3><p>Train your calculation in the final phase of the game, with a separate endgame puzzle rating.</p></div></div>
       </div>
+
+    </div>
+  </section>
+
+  <section class="band" id="daily-practice" aria-labelledby="feature-title-5">
+    <div class="inner">
+      <div class="feature feature--flip">
+        <div class="feature__head reveal"><h2 id="feature-title-5">Make improvement a daily habit</h2></div>
+        <div class="feature__body"><p class="lede reveal">Build a daily challenge around opening lines, tactics, endgames and exercises from your own games.</p></div>
+      </div>
+      <div class="ways">
+        <div class="way reveal"><p class="way__n">01</p><div><h3>Choose your daily practice</h3><p>Pick the activities, their order and how much you want to practise.</p></div></div>
+        <div class="way reveal"><p class="way__n">02</p><div><h3>Keep your learning moving</h3><p>Track your streak, revisit previous sessions and keep working on positions that need attention.</p></div></div>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="band band--parchment" id="rating-progress" aria-labelledby="feature-title-6">
+    <div class="inner">
+      <div class="feature">
+        <div class="feature__head reveal"><h2 id="feature-title-6">Train with a higher rating in mind</h2></div>
+        <div class="feature__body"><p class="lede reveal">Work on the decisions that cost you points, from the opening to the endgame. Then follow how your results develop as you keep playing.</p></div>
+      </div>
+      <div class="ways">
+        <div class="way reveal"><p class="way__n">01</p><div><h3>Follow your playing rating</h3><p>Track your Chess.com and Lichess rating trends alongside your training.</p></div></div>
+        <div class="way reveal"><p class="way__n">02</p><div><h3>See which openings are working</h3><p>Compare your results by opening and discover where your repertoire needs attention.</p></div></div>
+        <div class="way reveal"><p class="way__n">03</p><div><h3>Watch your practice develop</h3><p>Follow your move recall, Bito puzzle ratings and training consistency over time.</p></div></div>
+      </div>
+      <p class="faint reveal">Every player’s progress is different. Bito helps you practise with purpose and see how your results change. Playing ratings and Bito puzzle ratings measure different things.</p>
     </div>
   </section>
 
@@ -2270,7 +2144,7 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
         <div class="reveal">
           <div class="plan plan--pro">
             <p class="tier__name">Full Access</p>
-            <h3>Everything, unlimited.</h3>
+            <h3>More room to grow.</h3>
             <p class="tier__price">12€ <span>one payment</span></p>
             <ul class="ticks">
               <li>
@@ -2310,11 +2184,9 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
       <div class="feature__head reveal"><h2>Why I made Bito Chess</h2></div>
       <div class="feature__body">
         <div class="bubble reveal">
-          <p>I’m a passionate chess player, but not a particularly strong one. 🥹</p>
-          <p>I tried a lot of opening trainers. They were too rigid, too complicated, or just didn’t match how I wanted to learn.</p>
-          <p>I wanted something where I could build and store my own repertoire, practise the things I actually forgot, learn from my own games, and prepare for real opponents.</p>
-          <p>So I built the tool I wanted to use — and I got +200 rating points in the first month!</p>
-          <p>If it helps other players enjoy studying chess as much as I do, even better.</p>
+          <p>Bito Chess began as a tool to help me remember my openings. But the more I played, the more I wanted to learn from everything happening in my games.</p>
+          <p>So it grew: game analysis, exercises from my own mistakes, tactics, endgames and preparation for real opponents.</p>
+          <p>I’m Marçal, a designer and chess player, and the whole team behind Bito Chess. I built it to help me improve. I hope it helps you enjoy the process, too.</p>
         </div>
 
         <div class="who reveal">
@@ -2357,7 +2229,7 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
             <span class="colophon__icon"><img src="app-icon.png" alt="" width="512" height="512" /></span>
             <h2>About Bito Chess</h2>
           </div>
-          <p>Bito Chess is a one-person project. There are no investors, no ads, and no business model based on selling your data. An account is strictly optional and is only used to sync your data across devices. Upgrading to Full Access helps keep the project alive.</p>
+          <p>Bito Chess is a one-person project. There are no investors, no ads, and no business model based on selling your data. You can try the app without an account. A free account syncs your repertoire across devices, and Full Access adds game-library sync and is tied to your account. Upgrading to Full Access helps keep the project alive.</p>
         </div>
       </div>
     </div>
@@ -2382,12 +2254,11 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
           </svg>
         </span>
       </div>
-      <h2 class="reveal">Ready to build your first line?</h2>
-      <p class="lede reveal" style="margin: 14px auto 0; max-width: 26ch">Your next move starts here.</p>
+      <h2 class="reveal">Give your next game something to build on</h2>
+      <p class="lede reveal" style="margin: 14px auto 0; max-width: 26ch">Bring your games. Find something to work on. Practise your next move.</p>
       <div class="cta-block reveal">
-        <!-- ?auth=signup is on the FINAL CTA only, by design: someone who has
-             read the whole page is the one worth asking for an account. -->
-        <a class="btn js-app" href="/app/?auth=signup" data-umami-event="cta-final">Try Bito Chess →</a>
+        <!-- Try the app directly; creating an account is optional. -->
+        <a class="btn js-app" href="/app/" data-umami-event="cta-final">Try Bito Chess →</a>
         <p class="trust">No signup required.</p>
       </div>
     </div>

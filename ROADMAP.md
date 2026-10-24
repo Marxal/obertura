@@ -2224,3 +2224,10 @@ Deliberately deferred. Revisited once the app has had more real use on the phone
 - 💤 Offline support (service worker / installable cache)
 - 💤 Deeper engine features and richer explanations
 - 💤 More opening-database coverage and naming
+
+
+## 2026-10-24 — Landing page: personal training from your games
+
+Repositioned the hero, search/social descriptions and page sections around game analysis and exercises from imported games. Added explanations of mistake retry, blunder detective, move choice, time pressure and brilliant moves; dedicated openings, tactics, endgames and daily-practice sections; and a rating-progress section distinguishing playing ratings from puzzle ratings. Rewrote the founder story, clarified optional accounts, softened the unlimited headline and made the final free CTA open the app without a signup prompt. Updated LANDING-COPY.md with the matching text. Prices, checkout and app behaviour are unchanged.
+
+Validation: HTML IDs are unique, JSON-LD parses, and all inline JavaScript passes node --check. The removed carousel is guarded by an element check. Visual browser verification could not run because the environment has no installed Chromium executable. Phone check: open the landing page, scroll through the new sections, try the demo and free CTA, and check that the Full Access offer still opens.
