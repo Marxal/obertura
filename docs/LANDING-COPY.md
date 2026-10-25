@@ -123,34 +123,12 @@ Practise spotting threats, finding combinations and making the most of your chan
 
 ---
 
-## Finish the games you’ve worked hard to win
-
-Practise converting an advantage or holding a difficult ending.
-
-- **Learn the fundamentals** — Play classic endgame positions against the engine and work towards a win or draw.
-- **Return to your own endings** — Practise winnable and drawable endgame positions found in your imported games.
-- **Solve endgame puzzles** — Train your calculation in the final phase of the game, with a separate endgame puzzle rating.
-
----
-
 ## Make improvement a daily habit
 
 Build a daily challenge around opening lines, tactics, endgames and exercises from your own games.
 
 - **Choose your daily practice** — Pick the activities, their order and how much you want to practise.
 - **Keep your learning moving** — Track your streak, revisit previous sessions and keep working on positions that need attention.
-
----
-
-## Train with a higher rating in mind
-
-Work on the decisions that cost you points, from the opening to the endgame. Then follow how your results develop as you keep playing.
-
-- **Follow your playing rating** — Track your Chess.com and Lichess rating trends alongside your training.
-- **See which openings are working** — Compare your results by opening and discover where your repertoire needs attention.
-- **Watch your practice develop** — Follow your move recall, Bito puzzle ratings and training consistency over time.
-
-Every player’s progress is different. Bito helps you practise with purpose and see how your results change. Playing ratings and Bito puzzle ratings measure different things.
 
 ---
 
@@ -350,3 +328,10 @@ All layouts use the existing theme tokens and collapse for mobile. No external i
 Generated transparent wooden chess illustrations replace the faint hero knight and the endgame Unicode vignette, with a floating knight bishop and pawn composition beside the personal-exercises introduction. These are decorative illustrations with empty alternative text and hidden decorative containers; feature text is unchanged.
 
 Assets live in docs/art as 1000px and 500px transparent WebP images. The same files work in both colour schemes, with theme-specific saturation, brightness, soft shadows and an amber radial halo instead of a baked background. Images have fixed dimensions, responsive source selection and lazy loading. Desktop scrolling produces small clamped translations and rotations from stationary anchors. Mobile and reduced-motion visitors see static art. Motion preferences are observed live and no continuous animation loop runs.
+
+
+## Landing refinement 2026-10-25
+
+This update supersedes the endgame and rating/statistics landing sections above: both standalone sections are removed. App features are unchanged. Journey icons now depict import, analysis and practice. Exercise icons use chess mistake (?), blunder (??), comparison, two-sided chess clock and brilliant (!!) symbols, drawn as consistent inline SVGs in the theme palette. Tactics icons follow the same SVG style.
+
+The repertoire illustration is now a labelled Italian Game example: 1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5. White's chosen moves are highlighted, followed by a spaced-repetition explanation. It replaces the schematic branching tree. Scroll reveals ease in over 520ms, journey rules draw on entry and example moves appear in sequence. All new animation is disabled under reduced motion; existing bounded decorative parallax is preserved.

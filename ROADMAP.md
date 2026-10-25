@@ -2241,3 +2241,8 @@ Replaced seven repeated numbered grids with a game-to-practice journey, asymmetr
 ## 2026-10-25 — Wooden landing art and restrained scroll motion
 
 Added generated transparent wooden chess illustrations to the hero accent, personal-exercises heading and endgame section. Responsive WebP variants total about 398 KiB across all four files; browsers select one variant per asset. Preserved alpha and existing theme palette, with dark-mode lighting adjustments and CSS halos. Added bounded desktop scroll transforms from stationary parent anchors, live reduced-motion handling and mobile resets; all art is decorative, lazy loaded and dimensioned. Lowered the board pin maximum to 34px. Validation: image alpha and asset hashes, HTML/JSON-LD/script syntax, and executable motion checks for clamping, stable anchors, frame coalescing, reduced-motion changes, mobile resets and hidden-tab pauses. Live browser visual checks follow deployment.
+
+
+## 2026-10-25 — Clear chess icons and a shorter landing page
+
+Removed standalone endgame and rating/statistics sections. Replaced ambiguous journey glyphs and exercise/tactic symbols with consistent theme-aware inline SVG icons, including standard chess annotations and a two-sided chess clock. Replaced repertoire branches with a labelled Italian Game line and review explanation. Added gentle entrance easing, staggered move rows and journey rule reveals, gated by reduced-motion preferences. Validation: unique HTML IDs, resolved accessible labels, expected icon counts, removed sections, JSON-LD and inline JavaScript syntax.
