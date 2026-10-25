@@ -2251,3 +2251,8 @@ Removed standalone endgame and rating/statistics sections. Replaced ambiguous jo
 ## Exercise badges — 2026-10-25
 
 The personal-exercise cards reuse the app's filled circular move-classification badges, matching classIcon geometry, glyphs and CLASS_COLOR from src/icons.ts: orange mistake (?), red blunder (??), green best-move star and teal brilliant (!!). Timed practice keeps its two-sided chess clock. Explicit SVG fills preserve the badge colours and white symbols in both themes. This supersedes the outline annotation icons from the preceding refinement.
+
+
+## Circular chess-clock badges — 2026-10-25
+
+Timed game exercises and Time Attack use a white two-sided chess clock inside a filled blue disc (#5c8bb0, the app's great-move blue). Both match the other exercise badges' 44px size and circular geometry, with explicit SVG fills/strokes preserved in light and dark themes.
