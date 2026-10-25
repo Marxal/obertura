@@ -345,3 +345,8 @@ The personal-exercise cards reuse the app's filled circular move-classification 
 ## Circular chess-clock badges — 2026-10-25
 
 Timed game exercises and Time Attack use a white two-sided chess clock inside a filled blue disc (#5c8bb0, the app's great-move blue). Both match the other exercise badges' 44px size and circular geometry, with explicit SVG fills/strokes preserved in light and dark themes.
+
+
+## Scroll-driven wooden pieces — 2026-10-25
+
+Wooden images now follow a shallow horizontal arc with vertical drift, rotation, a slight perspective tilt and gentle scaling as their stationary container crosses the viewport. The light pool moves in the opposite direction for layered depth. Desktop movement is bounded to 26px horizontal, 72px vertical and 12 degrees rotation; phones use 38% of the movement. Transforms ease over 180ms, without an idle animation loop. Reduced motion disables all piece and halo transforms/transitions. Live preference changes reset the new variables. Validation: inline script syntax and executable checks of the actual transform block at multiple viewport positions for desktop/mobile bounds and scale.
