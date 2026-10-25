@@ -2246,3 +2246,8 @@ Added generated transparent wooden chess illustrations to the hero accent, perso
 ## 2026-10-25 — Clear chess icons and a shorter landing page
 
 Removed standalone endgame and rating/statistics sections. Replaced ambiguous journey glyphs and exercise/tactic symbols with consistent theme-aware inline SVG icons, including standard chess annotations and a two-sided chess clock. Replaced repertoire branches with a labelled Italian Game line and review explanation. Added gentle entrance easing, staggered move rows and journey rule reveals, gated by reduced-motion preferences. Validation: unique HTML IDs, resolved accessible labels, expected icon counts, removed sections, JSON-LD and inline JavaScript syntax.
+
+
+## Exercise badges — 2026-10-25
+
+The personal-exercise cards reuse the app's filled circular move-classification badges, matching classIcon geometry, glyphs and CLASS_COLOR from src/icons.ts: orange mistake (?), red blunder (??), green best-move star and teal brilliant (!!). Timed practice keeps its two-sided chess clock. Explicit SVG fills preserve the badge colours and white symbols in both themes. This supersedes the outline annotation icons from the preceding refinement.
