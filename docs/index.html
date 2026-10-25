@@ -1879,7 +1879,16 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
   content:""; position:absolute; inset:8%; border-radius:50%;
   background:radial-gradient(ellipse,var(--wood-halo),transparent 70%);
 }
-.wood-motion { transform:translate3d(0,var(--wood-y,0px),0) rotate(var(--wood-turn,0deg)); }
+.wood-motion {
+  transform:perspective(900px) translate3d(var(--wood-x,0px),var(--wood-y,0px),0)
+    rotateX(var(--wood-tilt,0deg)) rotate(var(--wood-turn,0deg)) scale(var(--wood-scale,1));
+  transform-origin:50% 55%;
+  transition:transform 180ms ease-out;
+}
+.study-art::before {
+  transform:translate3d(var(--halo-x,0px),var(--halo-y,0px),0) scale(var(--halo-scale,1));
+  transition:transform 220ms ease-out;
+}
 .wood-motion img {
   display:block; width:100%; height:auto; user-select:none; pointer-events:none;
   filter:var(--wood-filter) var(--wood-shadow);
@@ -1902,8 +1911,8 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
   .endgame-art--wood { width:260px; }
   .wood-ghost { display:none; }
 }
-@media(max-width:899px),(prefers-reduced-motion:reduce) {
-  .wood-motion { transform:none !important; }
+@media(prefers-reduced-motion:reduce) {
+  .wood-motion,.study-art::before { transform:none !important; transition:none !important; }
 }
 /* No scripted animation is required for this art to be visible. */
 
@@ -2568,7 +2577,8 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
       el.style.removeProperty('--y'); el.style.removeProperty('--spin'); el.style.removeProperty('--sc');
     });
     woodPieces.forEach(function (el) {
-      el.style.removeProperty('--wood-y'); el.style.removeProperty('--wood-turn');
+      ['--wood-x','--wood-y','--wood-turn','--wood-tilt','--wood-scale'].forEach(function (key) { el.style.removeProperty(key); });
+      ['--halo-x','--halo-y','--halo-scale'].forEach(function (key) { el.parentNode.style.removeProperty(key); });
     });
     if (boardCol) boardCol.style.setProperty('--pin', '0px');
   }
@@ -2587,16 +2597,26 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
       el.style.setProperty('--sc', (1 + d * 0.03).toFixed(3));
     });
     woodPieces.forEach(function (el) {
-      if (!desktop) {
-        el.style.removeProperty('--wood-y'); el.style.removeProperty('--wood-turn'); return;
-      }
-      // Read the stationary parent, never the transformed image: no scroll feedback.
-      var r = el.parentNode.getBoundingClientRect();
-      if (r.bottom < -100 || r.top > vh + 100) return;
-      var d = Math.max(-1, Math.min(1, (vh / 2 - (r.top + r.height / 2)) / vh));
-      var speed = parseFloat(el.getAttribute('data-wood-speed')) || 0;
-      el.style.setProperty('--wood-y', (d * speed).toFixed(1) + 'px');
-      el.style.setProperty('--wood-turn', (d * 2.2).toFixed(2) + 'deg');
+      // A fixed parent gives stable progress even while the image moves.
+      var anchor = el.parentNode;
+      var r = anchor.getBoundingClientRect();
+      if (r.bottom < -150 || r.top > vh + 150) return;
+      var p = Math.max(0, Math.min(1, (vh - r.top) / (vh + r.height)));
+      var t = p * 2 - 1;
+      var direction = (parseFloat(el.getAttribute('data-wood-speed')) || 1) < 0 ? -1 : 1;
+      var strength = desktop ? 1 : .38;
+      // A shallow arc, rather than a straight vertical slide, gives a floating feel.
+      var x = Math.sin(t * Math.PI / 2) * 26 * direction * strength;
+      var y = t * 72 * direction * strength;
+      el.style.setProperty('--wood-x', x.toFixed(2) + 'px');
+      el.style.setProperty('--wood-y', y.toFixed(2) + 'px');
+      el.style.setProperty('--wood-turn', (t * 12 * direction * strength).toFixed(2) + 'deg');
+      el.style.setProperty('--wood-tilt', (-t * 9 * strength).toFixed(2) + 'deg');
+      el.style.setProperty('--wood-scale', (1.03 - Math.abs(t) * .09 * strength).toFixed(3));
+      // The light pool drifts the other way, creating a second, quieter depth layer.
+      anchor.style.setProperty('--halo-x', (-x * .55).toFixed(2) + 'px');
+      anchor.style.setProperty('--halo-y', (-y * .3).toFixed(2) + 'px');
+      anchor.style.setProperty('--halo-scale', (1.08 - Math.abs(t) * .12).toFixed(3));
     });
     if (boardCol) {
       var y = window.pageYOffset || document.documentElement.scrollTop || 0;
