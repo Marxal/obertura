@@ -343,3 +343,10 @@ The feature copy above is unchanged. Each section has its own presentation:
 - Rating progress: visual measurement panel beside explanations. No fabricated rating series or promised improvement.
 
 All layouts use the existing theme tokens and collapse for mobile. No external images, fonts or JavaScript dependencies added. Existing demo and checkout behaviour retained.
+
+
+## Wooden image treatment 2026 10 25
+
+Generated transparent wooden chess illustrations replace the faint hero knight and the endgame Unicode vignette, with a floating knight bishop and pawn composition beside the personal-exercises introduction. These are decorative illustrations with empty alternative text and hidden decorative containers; feature text is unchanged.
+
+Assets live in docs/art as 1000px and 500px transparent WebP images. The same files work in both colour schemes, with theme-specific saturation, brightness, soft shadows and an amber radial halo instead of a baked background. Images have fixed dimensions, responsive source selection and lazy loading. Desktop scrolling produces small clamped translations and rotations from stationary anchors. Mobile and reduced-motion visitors see static art. Motion preferences are observed live and no continuous animation loop runs.

@@ -1852,6 +1852,61 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
 .metric-row { display:flex; gap:12px; justify-content:space-between; align-items:center; padding:18px 0; border-top:1px solid var(--hairline); font-size:15px; }
 .metric-row span { font-size:12px; color:var(--text-muted); text-align:right; }
 @media(max-width:480px) { .tree-fork { gap:10px; } .tree-leaf { font-size:13px; padding:12px 8px; } .metric-row { flex-wrap:wrap; } }
+
+/* Tactile wooden illustrations. Transparent assets share the page's own surface. */
+:root {
+  --wood-halo: rgba(192,122,42,.13);
+  --wood-shadow: drop-shadow(0 20px 20px rgba(67,42,20,.16));
+  --wood-filter: saturate(.88);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --wood-halo: rgba(227,178,90,.12);
+    --wood-shadow: drop-shadow(0 24px 24px rgba(0,0,0,.36));
+    --wood-filter: saturate(.82) brightness(1.10);
+  }
+}
+.art-heading {
+  display:grid;
+  grid-template-columns:minmax(0,1.25fr) minmax(0,.75fr);
+  align-items:center;
+  gap:clamp(20px,4vw,60px);
+  margin-bottom:36px;
+}
+.art-heading .story-head { margin-bottom:0; }
+.study-art { position:relative; width:100%; max-width:360px; aspect-ratio:1; justify-self:center; pointer-events:none; }
+.study-art::before, .endgame-art--wood::before {
+  content:""; position:absolute; inset:8%; border-radius:50%;
+  background:radial-gradient(ellipse,var(--wood-halo),transparent 70%);
+}
+.wood-motion { transform:translate3d(0,var(--wood-y,0px),0) rotate(var(--wood-turn,0deg)); }
+.wood-motion img {
+  display:block; width:100%; height:auto; user-select:none; pointer-events:none;
+  filter:var(--wood-filter) var(--wood-shadow);
+}
+.wood-ghost { position:absolute; width:220px; left:-95px; bottom:18px; opacity:.17; pointer-events:none; }
+@media (prefers-color-scheme: dark) { .wood-ghost { opacity:.23; } }
+.endgame-art--wood {
+  position:relative; display:block; width:100%; max-width:400px; max-height:none;
+  aspect-ratio:1; margin:auto; padding:0; border:0; border-radius:0;
+  background:none; box-shadow:none; font-size:0; letter-spacing:normal; pointer-events:none;
+}
+.endgame-art--wood::after {
+  content:"";position:absolute; width:58%; height:12%; bottom:1%; left:21%;
+  background:radial-gradient(ellipse,var(--wood-halo),transparent 70%);
+  z-index:-1;
+}
+@media(max-width:800px) {
+  .art-heading { grid-template-columns:1fr; gap:20px; }
+  .study-art { width:260px; }
+  .endgame-art--wood { width:260px; }
+  .wood-ghost { display:none; }
+}
+@media(max-width:899px),(prefers-reduced-motion:reduce) {
+  .wood-motion { transform:none !important; }
+}
+/* No scripted animation is required for this art to be visible. */
+
 </style>
 
 <!-- Analytics — Umami, cookieless, this page only. data-domains restricts the
@@ -1982,9 +2037,7 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
 
   <!-- ─────────────────────────────── HERO ─────────────────────────────── -->
   <section class="band hero" id="hero">
-    <div class="float" style="--w: 300px; --rot: -8deg; left: -90px; bottom: -60px" data-speed="34" aria-hidden="true">
-      <span class="float__in"><svg viewBox="0 0 120 140"><use href="#pc3-knight"/></svg></span>
-    </div>
+    <div class="wood-ghost" aria-hidden="true"><div class="wood-motion" data-wood-speed="16"><img src="art/floating-rook.webp" srcset="art/floating-rook-small.webp 500w, art/floating-rook.webp 1000w" sizes="220px" alt="" width="1000" height="1000" loading="lazy" decoding="async" draggable="false" /></div></div>
     <div class="inner">
       <div class="hero__cols">
         <div class="hero__text">
@@ -2050,13 +2103,13 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
 
   <section class="band band--parchment" id="your-games" aria-labelledby="your-games-title"><div class="inner"><div class="story-head reveal"><h2 id="your-games-title">Your games show you what to practise</h2><p class="lede">Every game leaves something to learn. Bito helps you find it and work on it.</p></div><div class="journey"><article class="reveal"><span class="journey__symbol" aria-hidden="true">01 /</span><h3>Bring in your games</h3><p>Import games from Chess.com or Lichess to build your personal game library.</p></article><article class="reveal"><span class="journey__symbol" aria-hidden="true">⌁</span><h3>Discover the turning points</h3><p>Find costly mistakes, missed opportunities and positions worth another look. Explore the alternatives with engine analysis.</p></article><article class="reveal"><span class="journey__symbol" aria-hidden="true">↻</span><h3>Turn analysis into practice</h3><p>Return to those positions as interactive exercises. Find a better move yourself, then take what you’ve learnt into your next game.</p></article></div></div></section>
 
-  <section class="band" id="personal-exercises" aria-labelledby="personal-exercises-title"><div class="inner"><div class="story-head reveal"><h2 id="personal-exercises-title">Exercises from games you actually played</h2><p class="lede">Recognising a mistake in analysis is a start. Finding the better move yourself is the next step.</p></div><div class="exercise-grid"><article class="exercise-card reveal"><span class="exercise-symbol" aria-hidden="true">↻</span><h3>Try your mistakes again</h3><p>Revisit a position where you went wrong and play a stronger move. Practise keeping a winning advantage and punishing your opponent’s mistakes.</p></article><article class="exercise-card reveal"><span class="exercise-symbol" aria-hidden="true">?</span><h3>Become a blunder detective</h3><p>Watch a short sequence from one of your games. Spot the move that changed everything, then find what should have been played.</p></article><article class="exercise-card reveal"><span class="exercise-symbol" aria-hidden="true">⇄</span><h3>Choose the better move</h3><p>Compare your original move with an engine alternative. Decide which is stronger before revealing the answer.</p></article><article class="exercise-card reveal"><span class="exercise-symbol" aria-hidden="true">◷</span><h3>Think under time pressure</h3><p>Work through positions from your games against the clock. Practise making decisions when there’s little time to spare.</p></article><article class="exercise-card reveal"><span class="exercise-symbol" aria-hidden="true">!!</span><h3>Rediscover your best moves</h3><p>Find your own strong and brilliant moves again, and practise recognising the ideas behind them.</p></article></div></div></section>
+  <section class="band" id="personal-exercises" aria-labelledby="personal-exercises-title"><div class="inner"><div class="art-heading"><div class="story-head reveal"><h2 id="personal-exercises-title">Exercises from games you actually played</h2><p class="lede">Recognising a mistake in analysis is a start. Finding the better move yourself is the next step.</p></div><div class="study-art" aria-hidden="true"><div class="wood-motion" data-wood-speed="-28"><img src="art/flying-chess.webp" srcset="art/flying-chess-small.webp 500w, art/flying-chess.webp 1000w" sizes="(max-width: 800px) 280px, 360px" alt="" width="1000" height="1000" loading="lazy" decoding="async" draggable="false" /></div></div></div><div class="exercise-grid"><article class="exercise-card reveal"><span class="exercise-symbol" aria-hidden="true">↻</span><h3>Try your mistakes again</h3><p>Revisit a position where you went wrong and play a stronger move. Practise keeping a winning advantage and punishing your opponent’s mistakes.</p></article><article class="exercise-card reveal"><span class="exercise-symbol" aria-hidden="true">?</span><h3>Become a blunder detective</h3><p>Watch a short sequence from one of your games. Spot the move that changed everything, then find what should have been played.</p></article><article class="exercise-card reveal"><span class="exercise-symbol" aria-hidden="true">⇄</span><h3>Choose the better move</h3><p>Compare your original move with an engine alternative. Decide which is stronger before revealing the answer.</p></article><article class="exercise-card reveal"><span class="exercise-symbol" aria-hidden="true">◷</span><h3>Think under time pressure</h3><p>Work through positions from your games against the clock. Practise making decisions when there’s little time to spare.</p></article><article class="exercise-card reveal"><span class="exercise-symbol" aria-hidden="true">!!</span><h3>Rediscover your best moves</h3><p>Find your own strong and brilliant moves again, and practise recognising the ideas behind them.</p></article></div></div></section>
 
   <section class="band band--parchment" id="openings" aria-labelledby="openings-title"><div class="inner"><div class="showcase"><div><div class="story-head reveal"><h2 id="openings-title">Build openings you can rely on</h2><p class="lede">Choose what you want to play, explore your options and remember your moves when you need them.</p></div><div class="compact-copy reveal"><article><h3>Create your own repertoire</h3><p>Enter moves on the board, browse thousands of named openings or begin with a starter pack. Explore famous traps and investigate alternatives with the engine.</p></article><article><h3>Learn from your opening results</h3><p>See which openings bring good results and which keep causing problems. Turn positions from your games into lines you can practise.</p></article></div></div><figure class="product-shot repertoire-visual reveal"><div class="visual-label">YOUR REPERTOIRE</div><div class="tree-start">1. e4</div><div class="tree-fork"><div><span>1… e5</span><div class="tree-leaf">Italian Game<small>2. Nf3 Nc6 3. Bc4</small></div><div class="tree-leaf">Ruy López<small>2. Nf3 Nc6 3. Bb5</small></div></div><div><span>1… c5</span><div class="tree-leaf">Sicilian Defence<small>2. Nf3</small></div></div></div><figcaption>An example repertoire. Shape the branches around what you play.</figcaption></figure></div><div class="opening-notes reveal"><article><h3>Remember with spaced repetition</h3><p>Play through your lines, then review them over time. Moves you struggle with return more often, so practice follows what you need to remember.</p></article><article><h3>See how your lines connect</h3><p>Explore your repertoire as a visual tree, with your variations and branches together.</p></article><article><h3>Prepare for an opponent</h3><p>Explore an opponent’s games, discover what they tend to play and build your preparation around the positions you might meet. Available with Full Access.</p></article></div></div></section>
 
   <section class="band" id="tactics" aria-labelledby="tactics-title"><div class="inner"><div class="tactics-layout"><div class="story-head reveal"><h2 id="tactics-title">Sharpen your tactics</h2><p class="lede">Practise spotting threats, finding combinations and making the most of your chances.</p></div><div class="tactics-grid"><article class="tactic-tile reveal"><span class="exercise-symbol" aria-hidden="true">♞</span><h3>A daily rated mix</h3><p>Solve a mix of puzzles informed by your repertoire and games, and track your Bito puzzle rating as you practise.</p></article><article class="tactic-tile reveal"><span class="exercise-symbol" aria-hidden="true">◎</span><h3>Focus your practice</h3><p>Choose puzzles by opening or tactical theme to work on specific ideas.</p></article><article class="tactic-tile reveal"><span class="exercise-symbol" aria-hidden="true">◷</span><h3>Race the clock</h3><p>Challenge yourself in Time Attack and try to beat your personal best.</p></article><article class="tactic-tile reveal"><span class="exercise-symbol" aria-hidden="true">↻</span><h3>Revisit missed puzzles</h3><p>Puzzles you get wrong return over time, giving you another chance to recognise the pattern.</p></article></div></div></div></section>
 
-  <section class="band band--parchment" id="endgames" aria-labelledby="endgames-title"><div class="inner"><div class="endgame-layout"><div class="endgame-art reveal" aria-hidden="true">♔♟</div><div class="endgame-copy reveal"><h2 id="endgames-title">Finish the games you’ve worked hard to win</h2><p class="lede">Practise converting an advantage or holding a difficult ending.</p><div class="compact-copy"><article><h3>Learn the fundamentals</h3><p>Play classic endgame positions against the engine and work towards a win or draw.</p></article><article><h3>Return to your own endings</h3><p>Practise winnable and drawable endgame positions found in your imported games.</p></article><article><h3>Solve endgame puzzles</h3><p>Train your calculation in the final phase of the game, with a separate endgame puzzle rating.</p></article></div></div></div></div></section>
+  <section class="band band--parchment" id="endgames" aria-labelledby="endgames-title"><div class="inner"><div class="endgame-layout"><div class="endgame-art endgame-art--wood" aria-hidden="true"><div class="wood-motion" data-wood-speed="24"><img src="art/floating-rook.webp" srcset="art/floating-rook-small.webp 500w, art/floating-rook.webp 1000w" sizes="(max-width: 800px) 260px, 400px" alt="" width="1000" height="1000" loading="lazy" decoding="async" draggable="false" /></div></div><div class="endgame-copy reveal"><h2 id="endgames-title">Finish the games you’ve worked hard to win</h2><p class="lede">Practise converting an advantage or holding a difficult ending.</p><div class="compact-copy"><article><h3>Learn the fundamentals</h3><p>Play classic endgame positions against the engine and work towards a win or draw.</p></article><article><h3>Return to your own endings</h3><p>Practise winnable and drawable endgame positions found in your imported games.</p></article><article><h3>Solve endgame puzzles</h3><p>Train your calculation in the final phase of the game, with a separate endgame puzzle rating.</p></article></div></div></div></div></section>
 
   <section class="band" id="daily-practice" aria-labelledby="daily-practice-title"><div class="inner"><div class="daily-panel reveal"><div><h2 id="daily-practice-title">Make improvement a daily habit</h2><p class="lede">Build a daily challenge around opening lines, tactics, endgames and exercises from your own games.</p><div class="compact-copy"><article><h3>Choose your daily practice</h3><p>Pick the activities, their order and how much you want to practise.</p></article><article><h3>Keep your learning moving</h3><p>Track your streak, revisit previous sessions and keep working on positions that need attention.</p></article></div></div><div><ul class="daily-list" aria-label="Activities you can include in your daily challenge"><li><span aria-hidden="true">✓</span>Opening lines</li><li><span aria-hidden="true">✓</span>Tactics</li><li><span aria-hidden="true">✓</span>Endgames</li><li><span aria-hidden="true">✓</span>Exercises from your games</li></ul><p class="daily-caption">Your choice of activities. Your own pace.</p></div></div></div></section>
 
@@ -2476,49 +2529,72 @@ html.js .reveal.in .movenum::after { transform: scaleX(1); }
 
      Both are skipped entirely under reduced motion. */
   var floats = Array.prototype.slice.call(document.querySelectorAll('.float'));
-  var calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var woodPieces = Array.prototype.slice.call(document.querySelectorAll('[data-wood-speed]'));
+  var motionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+  var calm = motionQuery ? motionQuery.matches : false;
   var boardCol = document.querySelector('.hero__board');
-  var PIN_MAX = 74;
-  var PIN_FROM = 900;                    /* matches the CSS breakpoint exactly */
+  var PIN_MAX = 34;
+  var PIN_FROM = 900;
+  var queued = false;
 
-  if ((floats.length || boardCol) && !calm) {
-    var queued = false;
+  function resetArtMotion() {
+    floats.forEach(function (el) {
+      el.style.removeProperty('--y'); el.style.removeProperty('--spin'); el.style.removeProperty('--sc');
+    });
+    woodPieces.forEach(function (el) {
+      el.style.removeProperty('--wood-y'); el.style.removeProperty('--wood-turn');
+    });
+    if (boardCol) boardCol.style.setProperty('--pin', '0px');
+  }
 
-    var place = function () {
-      queued = false;
-      var vh = window.innerHeight || 1;
-
-      floats.forEach(function (el) {
-        var r = el.getBoundingClientRect();
-        /* -1 when the piece is a screen below the middle, +1 a screen above. */
-        var d = (vh / 2 - (r.top + r.height / 2)) / vh;
-        var speed = parseFloat(el.getAttribute('data-speed')) || 0;
-        el.style.setProperty('--y', (d * speed).toFixed(1) + 'px');
-        /* A 34px-speed piece turns about 2° across a full screen of scroll. */
-        el.style.setProperty('--spin', (d * speed * 0.06).toFixed(2) + 'deg');
-        el.style.setProperty('--sc', (1 + d * 0.03).toFixed(3));
-      });
-
-      if (boardCol) {
-        if (window.innerWidth < PIN_FROM) {
-          boardCol.style.setProperty('--pin', '0px');
-        } else {
-          var y = window.pageYOffset || document.documentElement.scrollTop || 0;
-          var pin = Math.max(0, Math.min(PIN_MAX, y * 0.34));
-          boardCol.style.setProperty('--pin', pin.toFixed(1) + 'px');
-        }
+  function placeArt() {
+    queued = false;
+    if (calm || document.hidden) return;
+    var vh = window.innerHeight || 1;
+    var desktop = window.innerWidth >= PIN_FROM;
+    floats.forEach(function (el) {
+      var r = el.getBoundingClientRect();
+      var d = Math.max(-1, Math.min(1, (vh / 2 - (r.top + r.height / 2)) / vh));
+      var speed = parseFloat(el.getAttribute('data-speed')) || 0;
+      el.style.setProperty('--y', (d * speed).toFixed(1) + 'px');
+      el.style.setProperty('--spin', (d * speed * 0.06).toFixed(2) + 'deg');
+      el.style.setProperty('--sc', (1 + d * 0.03).toFixed(3));
+    });
+    woodPieces.forEach(function (el) {
+      if (!desktop) {
+        el.style.removeProperty('--wood-y'); el.style.removeProperty('--wood-turn'); return;
       }
-    };
-
-    var onScroll = function () {
-      if (queued) return;
-      queued = true;
-      requestAnimationFrame(place);
-    };
-
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    place();
+      // Read the stationary parent, never the transformed image: no scroll feedback.
+      var r = el.parentNode.getBoundingClientRect();
+      if (r.bottom < -100 || r.top > vh + 100) return;
+      var d = Math.max(-1, Math.min(1, (vh / 2 - (r.top + r.height / 2)) / vh));
+      var speed = parseFloat(el.getAttribute('data-wood-speed')) || 0;
+      el.style.setProperty('--wood-y', (d * speed).toFixed(1) + 'px');
+      el.style.setProperty('--wood-turn', (d * 2.2).toFixed(2) + 'deg');
+    });
+    if (boardCol) {
+      var y = window.pageYOffset || document.documentElement.scrollTop || 0;
+      boardCol.style.setProperty('--pin', (desktop ? Math.max(0, Math.min(PIN_MAX, y * .2)) : 0).toFixed(1) + 'px');
+    }
+  }
+  function queueArt() {
+    if (queued || calm || document.hidden) return;
+    queued = true; requestAnimationFrame(placeArt);
+  }
+  function syncMotionPreference() {
+    calm = motionQuery ? motionQuery.matches : false;
+    resetArtMotion();
+    if (!calm) queueArt();
+  }
+  if (floats.length || woodPieces.length || boardCol) {
+    window.addEventListener('scroll', queueArt, { passive:true });
+    window.addEventListener('resize', queueArt, { passive:true });
+    document.addEventListener('visibilitychange', queueArt);
+    if (motionQuery) {
+      if (motionQuery.addEventListener) motionQuery.addEventListener('change', syncMotionPreference);
+      else if (motionQuery.addListener) motionQuery.addListener(syncMotionPreference);
+    }
+    syncMotionPreference();
   }
 
   /* ── 7. The carousel ─────────────────────────────────────────────────────

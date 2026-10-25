@@ -2236,3 +2236,8 @@ Validation: HTML IDs are unique, JSON-LD parses, and all inline JavaScript passe
 ## 2026-10-24 — Varied landing section layouts
 
 Replaced seven repeated numbered grids with a game-to-practice journey, asymmetric exercise cards, illustrative repertoire tree, tactics tiles, endgame vignette, green daily-practice checklist and visual progress panel. Preserved the feature explanations, theme tokens, demo and checkout. Illustrations are labelled examples; no invented rating results. Responsive CSS stacks layouts on phones. Validation: unique IDs, valid accessible heading references, parsed JSON-LD, and node --check for inline scripts. Browser rendering verification unavailable: Chromium download failed in this environment.
+
+
+## 2026-10-25 — Wooden landing art and restrained scroll motion
+
+Added generated transparent wooden chess illustrations to the hero accent, personal-exercises heading and endgame section. Responsive WebP variants total about 398 KiB across all four files; browsers select one variant per asset. Preserved alpha and existing theme palette, with dark-mode lighting adjustments and CSS halos. Added bounded desktop scroll transforms from stationary parent anchors, live reduced-motion handling and mobile resets; all art is decorative, lazy loaded and dimensioned. Lowered the board pin maximum to 34px. Validation: image alpha and asset hashes, HTML/JSON-LD/script syntax, and executable motion checks for clamping, stable anchors, frame coalescing, reduced-motion changes, mobile resets and hidden-tab pauses. Live browser visual checks follow deployment.
