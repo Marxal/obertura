@@ -335,3 +335,8 @@ Assets live in docs/art as 1000px and 500px transparent WebP images. The same fi
 This update supersedes the endgame and rating/statistics landing sections above: both standalone sections are removed. App features are unchanged. Journey icons now depict import, analysis and practice. Exercise icons use chess mistake (?), blunder (??), comparison, two-sided chess clock and brilliant (!!) symbols, drawn as consistent inline SVGs in the theme palette. Tactics icons follow the same SVG style.
 
 The repertoire illustration is now a labelled Italian Game example: 1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5. White's chosen moves are highlighted, followed by a spaced-repetition explanation. It replaces the schematic branching tree. Scroll reveals ease in over 520ms, journey rules draw on entry and example moves appear in sequence. All new animation is disabled under reduced motion; existing bounded decorative parallax is preserved.
+
+
+## Exercise badges — 2026-10-25
+
+The personal-exercise cards reuse the app's filled circular move-classification badges, matching classIcon geometry, glyphs and CLASS_COLOR from src/icons.ts: orange mistake (?), red blunder (??), green best-move star and teal brilliant (!!). Timed practice keeps its two-sided chess clock. Explicit SVG fills preserve the badge colours and white symbols in both themes. This supersedes the outline annotation icons from the preceding refinement.
