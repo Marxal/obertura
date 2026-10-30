@@ -4,10 +4,11 @@ import type { ImportedGame } from './chesscom';
 import type { Opponent } from './scout';
 import {
   allNodes, DEFAULT_REPERTOIRE_NAMES, emptyTree, lineTailStart, removeSubtree,
+  detachFromBook,
   type Repertoire,
 } from './repertoire';
 import {
-  applyLineWrite, locateLine, mergeLineIntoRepertoire, mergeRepertoireInto,
+  applyLineWrite, locateLine, mergeLineIntoRepertoire, mergeRepertoireInto, mergeBookWithRemovals,
   projectLines, projectRepertoire,
 } from './lines-view';
 import { migrateLines } from './repertoire-migrate';
@@ -376,7 +377,8 @@ export async function deleteLine(id: string): Promise<void> {
   } else {
     const cut = lineTailStart(found.repertoire.tree, found.end.id);
     if (!cut) return;
-    removeSubtree(found.repertoire.tree, cut.id);
+    // Through the book, so the removal leaves a tombstone sync respects.
+    detachFromBook(found.repertoire, cut.id);
   }
   await saveRepertoire(found.repertoire);
 }
@@ -837,7 +839,19 @@ function validateRepertoire(raw: unknown, index: number): Repertoire {
     tree: reviveTree(r.tree as MoveNode),
     createdAt: typeof r.createdAt === 'number' ? r.createdAt : Date.now(),
     archived: r.archived === true ? true : undefined,
+    removed: validTombstones(r.removed),
   };
+}
+
+// Repertoire.removed off the wire: keep only string → finite-number pairs, so a
+// malformed entry is dropped rather than failing the restore.
+function validTombstones(raw: unknown): Record<string, number> | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (k && typeof v === 'number' && Number.isFinite(v)) out[k] = v;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 // The games ride along as-is (their shape is whatever the importer stored) —
@@ -969,7 +983,8 @@ export async function mergeRepertoires(incoming: Repertoire[]): Promise<void> {
   for (const rep of incoming) {
     const target = byId.get(rep.id);
     if (target) {
-      mergeRepertoireInto(target, rep);
+      // Removals travel too — see mergeBookWithRemovals (UX-AUDIT C5).
+      mergeBookWithRemovals(target, rep);
       write.push(target);
     } else {
       write.push(rep);

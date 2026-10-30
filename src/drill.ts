@@ -100,6 +100,14 @@ export interface DrillOptions {
   // move drawn on the board as an arrow. For the guided first line, where there
   // is nothing to remember yet and the point is to show what "your move" means.
   firstMoveHint?: string;
+  // Positions modes (untimed). A move that has never been graded is TAUGHT
+  // before it is tested: its arrow is drawn with "New move" in the status, and
+  // playing it counts as a clean first rep. Without this a freshly added pack is
+  // a quiz on positions nobody has seen (UX-AUDIT C1).
+  teachNewMoves?: boolean;
+  // Positions modes (untimed): a "Show move" control that reveals the answer.
+  // It counts as a miss — the move comes back sooner — but nobody is stuck.
+  showMoveControl?: boolean;
   // Fire a brief confetti burst when the run is completed.
   celebrateOnComplete?: boolean;
   // A quiet way PAST the run, on the runs that are a formality rather than a
@@ -203,6 +211,12 @@ interface Task {
   lastMove?: [Key, Key];
   prelude?: Ply;
   preludeFen?: string;
+  // Positions modes: the line this position belongs to, shown above the board
+  // so the user knows what they are being asked about.
+  label?: string;
+  // Never-trained move, taught before it is tested: the arrow is drawn and the
+  // status says so. See DrillOptions.teachNewMoves.
+  teach?: boolean;
 }
 
 interface DrillConfig {
@@ -299,6 +313,15 @@ interface Position {
   expected: MoveNode;
   prevUci?: string;
   prevFen?: string;
+  /** The line's name, shown above the board (positions modes, untimed). */
+  label?: string;
+}
+
+// A move the scheduler has never graded — nothing to remember yet, so it is
+// shown before it is asked (UX-AUDIT C1).
+export function isUntrained(node: MoveNode): boolean {
+  return !node.review
+    || (node.review.reps === 0 && node.review.lapses === 0 && node.review.interval === 0);
 }
 
 // Build a positions-mode task, wiring up the opponent's previous move as a
@@ -318,6 +341,8 @@ function positionTask(p: Position, opts: DrillOptions): Task {
     lastMove: (opts.showLastMove || canPrelude) ? lastMove : undefined,
     prelude: canPrelude ? { uci: p.prevUci!, fen: p.preFen } : undefined,
     preludeFen: canPrelude ? p.prevFen : undefined,
+    label: opts.timedMs != null ? undefined : p.label,
+    teach: !!opts.teachNewMoves && opts.timedMs == null && isUntrained(p.expected),
   };
 }
 
@@ -610,6 +635,11 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     }
 
     bottomEl.appendChild(controls);
+  } else if (!isLineDrill && !timed && opts.showMoveControl) {
+    const controls = document.createElement('div');
+    controls.className = 'pt-controls';
+    controls.appendChild(buildControl('hint', Icons.bulb(19), 'Show move', () => showMoveAsMiss()));
+    bottomEl.appendChild(controls);
   }
 
   // An empty header is a blank bar with a hairline under it — the guided first
@@ -646,10 +676,10 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
   function showAbandonDialog(onStay: () => void): void {
     showDialog({
       title: 'End this session?',
-      body: 'Progress on finished lines is kept.',
+      body: 'Every answer you have given so far is saved.',
       buttons: [
-        { label: 'End session', variant: 'danger', onClick: doExit },
-        { label: 'Keep going', variant: 'secondary', onClick: onStay },
+        { label: 'Keep going', variant: 'primary', onClick: onStay },
+        { label: 'End session', variant: 'secondary', onClick: doExit },
       ],
       onDismiss: onStay,
     });
@@ -698,6 +728,23 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     const orig = expected.uci.slice(0, 2) as Key;
     const dest = expected.uci.slice(2, 4) as Key;
     cg.setAutoShapes([{ orig, dest, brush: 'accent' }]);
+  }
+
+  // Positions modes' "Show move": the honest version of a hint. It reveals the
+  // answer and asks for it to be played, and it counts as a miss so the
+  // scheduler brings the move back sooner.
+  function showMoveAsMiss(): void {
+    if (awaitingCorrectReplay || awaitingAlternativePlay || checkingAlternative) return;
+    if (awaitingDivertChoice) return;
+    const task = tasks[taskIndex];
+    if (!task) return;
+    if (task.teach) { revealCorrectMove(task.expected); return; }
+    if (wrongAttempts === 0) {
+      opts.recordMiss?.(task.expected);
+      markDot(taskIndex, 'wrong');
+    }
+    wrongAttempts = retriesAllowed + 1;
+    revealCorrectMove(task.expected);
   }
 
   // Turn this line off from training. We confirm first (it stops the line being
@@ -1490,6 +1537,10 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     hideAltCard();
     hideDivertCard();
     updateNoteButton(task.expected);
+    if (!task.continuous && task.label !== undefined) {
+      titleEl.textContent = task.label;
+      titleEl.hidden = !task.label;
+    }
 
     // Fix mistakes: animate the opponent's previous move INTO the position, so you
     // see how you got here, then hand control over.
@@ -1506,6 +1557,7 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
         if (isCleaned) return;
         cg.set({ turnColor: cgTurn(), movable: { color: userColour, dests: legalDests() } });
         promptYourMove();
+        maybeTeach(task);
       });
       return;
     }
@@ -1523,6 +1575,16 @@ function runDrill(config: DrillConfig, opts: DrillOptions): void {
     cg.set(task.continuous ? base : { ...base, lastMove: task.lastMove ?? undefined });
     promptYourMove();
     maybeHintFirstMove(idx, task);
+    maybeTeach(task);
+  }
+
+  // A never-graded move: show it, then ask for it (DrillOptions.teachNewMoves).
+  function maybeTeach(task: Task): void {
+    if (!task.teach) return;
+    setStatus('New move — play the arrow', 'pt-status--prompt');
+    const orig = task.expected.uci.slice(0, 2) as Key;
+    const dest = task.expected.uci.slice(2, 4) as Key;
+    cg.setAutoShapes([{ orig, dest, brush: 'accent' }]);
   }
 
   // The guided first line's opening prompt: name the move that's wanted and draw

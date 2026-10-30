@@ -81,7 +81,7 @@ export function buildAccountGroup(): HTMLElement {
     while (sec.childNodes.length > 1) sec.removeChild(sec.lastChild!);
     const signedIn = !!getAuthUser();
     hint.textContent = signedIn
-      ? `Signed in · ${isEntitled() ? 'Full access' : 'Free'}`
+      ? `Signed in · ${isEntitled() ? 'Full Access' : 'Free'}`
       : 'Not signed in';
     hint.classList.toggle('account-summary-hint--out', !signedIn);
     sec.classList.toggle('section--acc-highlight', !signedIn);
@@ -409,7 +409,7 @@ function signUpEmailPanel(onBack: (() => void) | null): HTMLElement {
   form.className = 'account-form';
 
   const email = field('email', 'Email', 'you@example.com', 'username');
-  const password = field('password', 'Password', 'At least 6 characters', 'new-password');
+  const password = field('password', 'Password', '', 'new-password', 'At least 6 characters');
   form.appendChild(email.wrap);
   form.appendChild(password.wrap);
 
@@ -418,13 +418,17 @@ function signUpEmailPanel(onBack: (() => void) | null): HTMLElement {
   submit.className = 'btn-primary account-submit';
   submit.textContent = 'Create account';
   form.appendChild(submit);
+  const setFormError = formError(form);
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const emailValue = email.input.value.trim();
     const passwordValue = password.input.value;
-    if (!emailValue || !passwordValue) {
-      showToast('Enter your email and a password.');
+    if (!emailValue) { email.setError('Enter your email address.'); email.input.focus(); return; }
+    if (!passwordValue) { password.setError('Choose a password.'); password.input.focus(); return; }
+    if (passwordValue.length < 6) {
+      password.setError('Use at least 6 characters.');
+      password.input.focus();
       return;
     }
 
@@ -437,7 +441,7 @@ function signUpEmailPanel(onBack: (() => void) | null): HTMLElement {
     submit.textContent = 'Create account';
 
     if (!result.ok) {
-      showToast(result.message ?? 'Something went wrong. Try again in a moment.');
+      setFormError(result.message ?? 'Something went wrong. Try again in a moment.');
       return;
     }
     if (result.needsEmailConfirmation) {
@@ -448,8 +452,12 @@ function signUpEmailPanel(onBack: (() => void) | null): HTMLElement {
       showDialog({
         title: 'Check your inbox',
         body: `We’ve sent a confirmation link to ${emailValue}. Open it to finish `
-          + 'creating your account — the link signs you in, so you can come straight back. '
-          + 'It can take a minute, and it sometimes lands in spam.',
+          + 'creating your account. It can take a minute, and it sometimes lands in spam.'
+          + (isInstalledApp()
+            ? ' If the link opens in your browser instead of this app, that’s fine: '
+              + 'your account is confirmed. Come back here and sign in with your email '
+              + 'and password.'
+            : ''),
         buttons: [
           {
             label: 'Send it again',
@@ -510,7 +518,7 @@ function emailSignInPanel(setMode: (m: Mode) => void, onBack: (() => void) | nul
   const email = field('email', 'Email', 'you@example.com', 'username');
   form.appendChild(email.wrap);
 
-  const password = field('password', 'Password', 'Your password', 'current-password');
+  const password = field('password', 'Password', '', 'current-password');
   // A hidden input that is still `required` silently blocks submit with a
   // validation bubble pointing at nothing, so `paint` keeps the two in step.
   form.appendChild(password.wrap);
@@ -520,6 +528,7 @@ function emailSignInPanel(setMode: (m: Mode) => void, onBack: (() => void) | nul
   submit.className = 'btn-primary account-submit';
   form.appendChild(submit);
 
+  const setFormError = formError(form);
   panel.appendChild(form);
 
   const forgot = document.createElement('button');
@@ -556,8 +565,12 @@ function emailSignInPanel(setMode: (m: Mode) => void, onBack: (() => void) | nul
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const emailValue = email.input.value.trim();
-    if (!emailValue) { showToast('Enter your email address.'); return; }
-    if (usePassword && !password.input.value) { showToast('Enter your password.'); return; }
+    if (!emailValue) { email.setError('Enter your email address.'); email.input.focus(); return; }
+    if (usePassword && !password.input.value) {
+      password.setError('Enter your password.');
+      password.input.focus();
+      return;
+    }
 
     submit.disabled = true;
     const restore = submit.textContent;
@@ -586,7 +599,7 @@ function emailSignInPanel(setMode: (m: Mode) => void, onBack: (() => void) | nul
         });
         return;
       }
-      showToast(result.message ?? 'Something went wrong. Try again in a moment.');
+      setFormError(result.message ?? 'Something went wrong. Try again in a moment.');
       return;
     }
 
@@ -599,7 +612,11 @@ function emailSignInPanel(setMode: (m: Mode) => void, onBack: (() => void) | nul
     showDialog({
       title: 'Check your inbox',
       body: `We’ve sent a sign-in link to ${emailValue}. Open it and you’re in — no `
-        + 'password needed. It expires after an hour, and it sometimes lands in spam.',
+        + 'password needed. It expires after an hour, and it sometimes lands in spam.'
+        + (isInstalledApp()
+          ? ' On some phones the link opens in your browser rather than this app. '
+            + 'If that happens, sign in here with your password instead.'
+          : ''),
       buttons: [{ label: 'Got it', variant: 'primary' }],
     });
   });
@@ -730,7 +747,7 @@ export function openPasswordResetSheet(prefill = ''): void {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const value = email.input.value.trim();
-    if (!value) { showToast('Enter your email address.'); return; }
+    if (!value) { email.setError('Enter your email address.'); email.input.focus(); return; }
     send.disabled = true;
     send.textContent = 'Sending…';
     const result = await sendPasswordReset(value);
@@ -863,22 +880,43 @@ function docLink(href: string, label: string): HTMLAnchorElement {
 
 // One labelled input, stacked. `autocomplete` matters more than it looks — it's
 // what makes a phone's password manager offer to fill and save.
+//
+// Errors are written UNDER the field they are about, not into a toast at the
+// bottom of the screen that fades before it is read (UX-AUDIT C4). A rule the
+// field has to meet ("At least 6 characters") is a hint that stays visible,
+// rather than a placeholder that vanishes on the first keystroke. Passwords get
+// a Show/Hide toggle: on a phone keyboard a typo you can't see is the commonest
+// reason a brand-new account "doesn't work".
+interface Field {
+  wrap: HTMLElement;
+  input: HTMLInputElement;
+  /** Show a message under the field (and mark it invalid); '' clears it. */
+  setError: (message: string) => void;
+}
+
 function field(
   type: 'email' | 'password',
   label: string,
   placeholder: string,
   autocomplete: AutoFill,
-): { wrap: HTMLElement; input: HTMLInputElement } {
-  const wrap = document.createElement('label');
+  hint?: string,
+): Field {
+  const wrap = document.createElement('div');
   wrap.className = 'account-field';
 
-  const text = document.createElement('span');
+  const id = `acct-${autocomplete}-${Math.random().toString(36).slice(2, 8)}`;
+  const text = document.createElement('label');
   text.className = 'account-field-label';
   text.textContent = label;
+  text.htmlFor = id;
   wrap.appendChild(text);
+
+  const row = document.createElement('div');
+  row.className = 'account-input-row';
 
   const input = document.createElement('input');
   input.type = type;
+  input.id = id;
   input.className = 'account-input';
   input.placeholder = placeholder;
   input.autocomplete = autocomplete;
@@ -888,9 +926,68 @@ function field(
     input.spellcheck = false;
     input.inputMode = 'email';
   }
-  wrap.appendChild(input);
+  row.appendChild(input);
 
-  return { wrap, input };
+  if (type === 'password') {
+    const reveal = document.createElement('button');
+    reveal.type = 'button';
+    reveal.className = 'account-reveal';
+    reveal.textContent = 'Show';
+    reveal.setAttribute('aria-label', 'Show password');
+    reveal.addEventListener('click', () => {
+      const showing = input.type === 'text';
+      input.type = showing ? 'password' : 'text';
+      reveal.textContent = showing ? 'Show' : 'Hide';
+      reveal.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+    });
+    row.appendChild(reveal);
+  }
+  wrap.appendChild(row);
+
+  if (hint) {
+    const h = document.createElement('span');
+    h.className = 'account-field-hint';
+    h.id = `${id}-hint`;
+    h.textContent = hint;
+    input.setAttribute('aria-describedby', h.id);
+    wrap.appendChild(h);
+  }
+
+  const error = document.createElement('span');
+  error.className = 'account-field-error';
+  error.id = `${id}-error`;
+  error.setAttribute('role', 'alert');
+  error.hidden = true;
+  wrap.appendChild(error);
+
+  const setError = (message: string): void => {
+    error.textContent = message;
+    error.hidden = !message;
+    if (message) input.setAttribute('aria-invalid', 'true');
+    else input.removeAttribute('aria-invalid');
+  };
+  input.addEventListener('input', () => setError(''));
+
+  return { wrap, input, setError };
+}
+
+// A form-level message, under the submit button — for what isn't about one
+// field (the network, the server's own refusal).
+function formError(form: HTMLFormElement): (message: string) => void {
+  const el = document.createElement('p');
+  el.className = 'account-form-error';
+  el.setAttribute('role', 'alert');
+  el.hidden = true;
+  form.appendChild(el);
+  form.addEventListener('input', () => { el.hidden = true; });
+  return (message: string) => { el.textContent = message; el.hidden = !message; };
+}
+
+// A link opened from an email lands in the phone's BROWSER, not in the
+// installed app, on most Android phones — so the app may still look signed out
+// afterwards. Said up front, with the way through (UX-AUDIT C4).
+function isInstalledApp(): boolean {
+  try { return window.matchMedia('(display-mode: standalone)').matches; } catch { return false; }
 }
 
 // ── Provider marks ───────────────────────────────────────────────────────────

@@ -229,7 +229,11 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
   // something. It also no longer needs to lead: the walkthrough now fires by
   // itself the first time anyone opens the builder (main.ts's startNewLine), so
   // this row is the way to ask for it AGAIN, not the only way to get it.
-  {
+  //
+  // Not while the goal panel is up: its own "Build a line" button opens the same
+  // builder with the same walkthrough, and two rows offering one thing read as
+  // two different things (UX-AUDIT C2).
+  if (!firstStepsOwnsSlot(lines)) {
     steps.push({
       icon: Icons.play(18),
       title: 'Build a line by hand',
@@ -354,7 +358,7 @@ export function renderFirstSteps(deps: FirstStepsDeps): HTMLElement {
     pro.className = 'first-steps-pro';
     pro.appendChild(Icons.sparkles(16));
     const proLabel = document.createElement('span');
-    proLabel.textContent = 'Go pro';
+    proLabel.textContent = 'Get Full Access';
     pro.appendChild(proLabel);
     pro.addEventListener('click', deps.onGoPro);
     card.appendChild(pro);

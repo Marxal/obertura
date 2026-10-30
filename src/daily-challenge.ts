@@ -808,7 +808,7 @@ function buildLockedCard(deps: DailyChallengeDeps): HTMLElement | null {
   const note = document.createElement('div');
   note.className = 'daily-card-note';
   note.textContent = saved === 0
-    ? `Save ${TRAINING_UNLOCK_LINES} lines and your first challenge is waiting tomorrow.`
+    ? `Save ${TRAINING_UNLOCK_LINES} lines and your first challenge starts right away.`
     : left === 1
       ? 'One more line and this starts.'
       : `${left} more lines and this starts.`;

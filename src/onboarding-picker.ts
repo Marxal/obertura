@@ -45,6 +45,11 @@ export interface PickerDeps {
   // A colour was chosen and Start pressed: open an empty builder of that colour,
   // guided. The picker has already closed itself by the time this runs.
   onStart: (colour: OnboardingColour) => void;
+  // "Start from a ready-made opening": the starter packs, for the beginner this
+  // path mostly serves. The builder is the densest screen in the app, and a
+  // pack line is a first line that's already good (UX-AUDIT C2). Absent → no
+  // link.
+  onStarterPacks?: () => void;
   // "I already have an account" — absent in a build with no accounts (the
   // internal GitHub Pages one), where the line would be a dead end.
   onSignIn?: () => void;
@@ -147,6 +152,15 @@ export function showOnboardingPicker(deps: PickerDeps): void {
     }
   }));
   stage.appendChild(start);
+
+  if (deps.onStarterPacks) {
+    const packs = document.createElement('button');
+    packs.type = 'button';
+    packs.className = 'btn-secondary picker-packs';
+    packs.textContent = 'Or start from a ready-made opening';
+    packs.addEventListener('click', () => { close(); deps.onStarterPacks?.(); });
+    stage.appendChild(packs);
+  }
   overlay.appendChild(stage);
 
   // ── The returning user's way in, at the very bottom ──

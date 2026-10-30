@@ -458,6 +458,7 @@ export function buildDoor(o: DoorOptions): HTMLElement {
 function switchFigure(stat: number | string, label?: string): string {
   if (!label || label === 'rating') return String(stat);
   if (label.includes('due')) return `${stat} due`;
+  if (label.startsWith('new')) return `${stat} new`;
   return `${stat} ${label}`;
 }
 

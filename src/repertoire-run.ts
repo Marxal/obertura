@@ -54,6 +54,12 @@ export interface RunPlan {
   /** How many of those are due right now. */
   dueMoves: number;
   /**
+   * How many of the due moves have never been trained — NEW material, not a
+   * backlog. The door says "12 new" rather than "87 due" on day one
+   * (UX-AUDIT C1). Counted over every due move, not just the capped run.
+   */
+  newMoves: number;
+  /**
    * What the SAME material costs as line walks — every in-training line's user
    * moves, added up. Counted over exactly the moves the run itself covers (the
    * opening plies below `minDepth` are excluded from both sides), because a
@@ -140,6 +146,7 @@ export function planRepertoireRun(reps: Repertoire[], opts: RunOptions = {}): Ru
   }
 
   const dueMoves = all.filter(p => p.due).length;
+  const newMoves = all.filter(p => p.due && neverTrained(p.expected)).length;
 
   // Due first. With nothing due the mode still has to be playable, so it falls
   // back to whatever comes round soonest rather than being a dead end.
@@ -173,7 +180,7 @@ export function planRepertoireRun(reps: Repertoire[], opts: RunOptions = {}): Ru
     .slice(0, max)
     .sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0));
 
-  return { positions, totalMoves: all.length, dueMoves, asLineWalks };
+  return { positions, totalMoves: all.length, dueMoves, newMoves, asLineWalks };
 }
 
 function dueTime(p: RunPosition, now: Date): number {
@@ -191,4 +198,10 @@ export function runSavingNote(plan: RunPlan): string | null {
   return saved === 1
     ? 'one move you’d otherwise answer twice'
     : `${saved} repeated moves you’d otherwise answer twice`;
+}
+
+// No review record, or one that has never been graded either way.
+function neverTrained(node: MoveNode): boolean {
+  const r = node.review;
+  return !r || (r.reps === 0 && r.lapses === 0 && r.interval === 0);
 }

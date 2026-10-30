@@ -26,6 +26,7 @@
 // from.
 
 import { pushBack } from './back-nav';
+import { showToast } from './toast';
 
 export interface ProSheetOptions {
   // Optional context line above the title, for when the offer was *run into*
@@ -57,6 +58,10 @@ export interface ProSheetOptions {
   // hint that signing in is the answer. Being asked to pay twice is the single
   // worst moment this sheet can produce.
   onSignIn?: () => void;
+  // What the free plan has, per point, shown beside it ("free: 10") so the
+  // offer reads as before → after (UX-AUDIT C6). Keyed by the point's text;
+  // the caller owns the numbers so this module stays free of entitlement.ts.
+  freeValues?: Partial<Record<string, string>>;
   // Optional, and passed only when nobody is signed in: "Create a free account".
   //
   // THIS IS NOT A WAY PAST THE CAP, and the copy must never imply it is — a free
@@ -70,13 +75,13 @@ export interface ProSheetOptions {
 }
 
 // The promises, in the landing page's order and wording.
-const POINTS = [
+export const POINTS = [
   'Your whole games library, synced and kept',
-  'Unlimited active training rotation',
+  'Train unlimited lines at once',
   'Unlimited repertoires',
   'Opponent scouting',
   'One-time payment, no subscription ever',
-];
+] as const;
 
 function tick(): SVGSVGElement {
   const el = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -101,6 +106,11 @@ export function openProSheet(opts: ProSheetOptions): void {
   overlay.setAttribute('role', 'dialog');
   overlay.setAttribute('aria-modal', 'true');
   overlay.setAttribute('aria-label', 'Full Access');
+  // ONE primary action. This sheet used to offer up to five ways out — buy,
+  // create a free account, sign in, continue as a guest, the backdrop — and
+  // with that many none of them led (UX-AUDIT C6). Now: Unlock, a quiet
+  // "Not now", and the already-bought line as small print. The free-account
+  // offer moved to AFTER "Not now", as a toast.
 
   const sheet = document.createElement('div');
   sheet.className = 'edit-sheet pro-sheet';
@@ -141,6 +151,13 @@ export function openProSheet(opts: ProSheetOptions): void {
     li.appendChild(tick());
     const span = document.createElement('span');
     span.textContent = point;
+    const free = opts.freeValues?.[point];
+    if (free) {
+      const was = document.createElement('small');
+      was.className = 'pro-point-free';
+      was.textContent = `free: ${free}`;
+      span.appendChild(was);
+    }
     li.appendChild(span);
     list.appendChild(li);
   }
@@ -165,7 +182,7 @@ export function openProSheet(opts: ProSheetOptions): void {
   const buy = document.createElement('button');
   buy.type = 'button';
   buy.className = 'btn-primary pro-buy';
-  buy.textContent = 'Unlock full access →';
+  buy.textContent = 'Unlock Full Access →';
   buy.addEventListener('click', () => { close(); opts.onBuy(); });
   sheet.appendChild(buy);
 
@@ -179,32 +196,10 @@ export function openProSheet(opts: ProSheetOptions): void {
     + 'purchase can follow you across devices.';
   sheet.appendChild(note);
 
-  // The free account, under the offer and clearly separate from it. A guest who
-  // has just hit a cap has been using the app enough to have something worth
-  // losing, and nothing so far has told them it lives only on this phone.
-  if (opts.onCreateAccount) {
-    const free = document.createElement('div');
-    free.className = 'pro-free';
-
-    const line = document.createElement('p');
-    line.className = 'pro-free-line';
-    line.textContent = 'Not ready? Your lines are only on this phone right now.';
-    free.appendChild(line);
-
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'pro-free-btn';
-    btn.textContent = 'Create a free account to keep them';
-    btn.addEventListener('click', () => { close(); opts.onCreateAccount?.(); });
-    free.appendChild(btn);
-
-    sheet.appendChild(free);
-  }
-
   if (opts.onSignIn) {
     const restore = document.createElement('p');
     restore.className = 'pro-restore';
-    restore.appendChild(document.createTextNode('Already have Full Access? '));
+    restore.appendChild(document.createTextNode('Already bought Full Access? '));
     const link = document.createElement('button');
     link.type = 'button';
     link.className = 'pro-restore-link';
@@ -221,8 +216,18 @@ export function openProSheet(opts: ProSheetOptions): void {
   // declining. Telling a member with an account they are continuing "as a
   // guest" would be plainly wrong, so the label follows onCreateAccount, which
   // the caller passes only when nobody is signed in (see its note above).
-  later.textContent = opts.onCreateAccount ? 'Continue as a guest' : 'Not now';
-  later.addEventListener('click', close);
+  later.textContent = 'Not now';
+  later.addEventListener('click', () => {
+    close();
+    // The free account, offered once the money question is out of the way. A
+    // guest who has hit a cap has something worth keeping, and nothing has yet
+    // told them it lives on this phone alone.
+    if (opts.onCreateAccount) {
+      showToast('Your lines are only on this phone.', {
+        action: { label: 'Keep them safe', onClick: () => opts.onCreateAccount?.() },
+      });
+    }
+  });
   sheet.appendChild(later);
 
   // Backdrop tap and the system back gesture both just close it — declining an

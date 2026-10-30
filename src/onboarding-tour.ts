@@ -133,6 +133,11 @@ export interface CoachStep {
   // Subscribe to something in the app that should advance this step: a move
   // played on the board, the next tab tapped. Return the unsubscribe.
   watch?: (advance: () => void) => () => void;
+  // Hide Next while this returns true (checked as the bubble is painted, after
+  // onEnter): the step asks the user to DO something, and `watch` moves it on
+  // when they have. A Next that skipped the doing let the walkthrough end on
+  // "save it now" over an empty board (UX-AUDIT C2).
+  waitForWatch?: () => boolean;
   // How long to sit on the current bubble after `watch` fires. The default beat
   // lets the thing the user just did finish animating before the bubble moves
   // off it. Zero is for a watch whose event TAKES THE SCREEN — the save button,
@@ -367,7 +372,13 @@ export function showCoachMarks(
         foot.appendChild(spacer);
       }
       if (all.length > 1) foot.appendChild(dots);
-      foot.appendChild(actionButton(step.nextLabel ?? (last ? 'Got it' : 'Next'), 'primary', advance));
+      if (step.waitForWatch?.()) {
+        const spacer = document.createElement('span');
+        spacer.className = 'tour-back-spacer';
+        foot.appendChild(spacer);
+      } else {
+        foot.appendChild(actionButton(step.nextLabel ?? (last ? 'Got it' : 'Next'), 'primary', advance));
+      }
       // Nothing left to skip on the last bubble.
       if (!last && !step.cornerSkip) skipRow.appendChild(cornerSkip(finish));
     }
@@ -863,6 +874,7 @@ function buildSteps(
       // is yours to play on is to play on it.
       interactive: true,
       watch: onBuilderMove,
+      waitForWatch: () => deps.ownMoveCount() === 0,
       onEnter: () => {
         // Explore has to be the panel on screen for its auto-reply to answer —
         // a board that moved on its own while the user was reading the Library
@@ -906,30 +918,17 @@ function buildSteps(
     {
       selector: ['#builder-sheet'],
       title: 'Opening Library',
-      body: 'Get inspiration from Masters and online players. Connect your free '
-        + 'Lichess account to analyze any position. You don’t need to be an '
-        + 'active player of Lichess — a free account is enough.',
+      // No "Connect Lichess" button here any more: an OAuth trip out of the app
+      // in somebody's second minute was the wrong ask (UX-AUDIT C2). The Library
+      // panel's own (i) and Settings still offer it, for when it's wanted.
+      body: 'See what Masters and online players choose in this position. '
+        + 'Tap a move to add it to your line.',
       pad: 4,
       // Look-only for the same reason as Explore: every book move in this list
       // plays onto the line when tapped.
       lookOnly: true,
       onEnter: () => deps.showSlide('library'),
       mainDone: connected ? 'Lichess connected' : undefined,
-      mainAction: connected ? undefined : {
-        label: 'Connect Lichess',
-        // Come back to THIS step: the redirect reloads the app, and landing
-        // back at the start of the walkthrough (or at no walkthrough at all)
-        // is how a connect turns into a dead end.
-        onClick: () => {
-          stashTourStep({
-            step: STEP_LIBRARY,
-            cursor: deps.cursorPly?.(),
-            name: deps.lineName?.(),
-          });
-          stepAside();
-          deps.onConnectLichess();
-        },
-      },
     },
     {
       selector: ['#builder-sheet'],
@@ -971,6 +970,7 @@ function buildSteps(
         // the bar with it rather than counting moves made before it started.
         movesWanted = deps.ownMoveCount() + BACK_TO_LINE_MOVES;
       },
+      waitForWatch: () => deps.ownMoveCount() < movesWanted,
       // It asks for two moves; playing two moves is the answer, so it moves on
       // by itself. Next is still there for anyone who would rather read ahead.
       // Counting the USER's moves, not board events: with auto-reply on, every

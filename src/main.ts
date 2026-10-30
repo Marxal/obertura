@@ -35,7 +35,8 @@ import {
   requestTrainingSlot,
   requestLineSaveRoom,
   showGoProDialog,
-  showTrainingCapDialog,
+  canEnrolAnother,
+  countInTraining,
   isEntitled,
   FREE_TRAINING_LINES,
   ENTITLEMENT_CHANGE_EVENT,
@@ -3802,8 +3803,8 @@ async function showFirstRunRecap(): Promise<void> {
     recap: build({ timeClass: null }),
     username: getGamesSource()?.username ?? '',
     avatarUrl: getGamesSource()?.avatarUrl,
-    // Ticking past the training cap would save lines that silently never enter
-    // the rotation, so the ceiling is the rotation's own.
+    // The rotation's ceiling, shown as slots on the screen. Lines past it are
+    // saved paused by saveRecapLines, never sold to (UX-AUDIT C3).
     freeLimit: isEntitled() ? Number.MAX_SAFE_INTEGER : FREE_TRAINING_LINES,
     onFilterChange: (opts) => { currentTimeClass = opts.timeClass; return build(opts); },
     onDeepen: deepen,
@@ -3815,7 +3816,6 @@ async function showFirstRunRecap(): Promise<void> {
     // stepping back from the openings, so landing on them again is a loop.
     onBack: () => showWherePickerScreen(),
     onPreview: (opening, ctx) => previewRecapLine(opening, ctx),
-    onOverLimit: () => showTrainingCapDialog(),
   });
 }
 
@@ -3871,12 +3871,20 @@ function previewRecapLine(opening: OpeningGroup, ctx: PreviewContext): void {
 // user chose deliberately and far too much for three arriving at once.
 async function saveRecapLines(openings: OpeningGroup[]): Promise<void> {
   let saved = 0;
+  let paused = 0;
   for (const opening of openings) {
     const line = lineFromUcis({ ucis: opening.ucis, name: opening.name }, opening.colour);
     if (!line) continue;
     if (!(await requestLineSaveRoom())) break;
     try {
-      await enrolLineDirectly(line);
+      // Past the free tier's training cap the line is kept, paused — the recap
+      // screen said so before the save (UX-AUDIT C3).
+      if (canEnrolAnother(await countInTraining())) {
+        await enrolLineDirectly(line);
+      } else {
+        await saveLine({ ...line, inTraining: false });
+        paused++;
+      }
       saved++;
     } catch {
       // One line failing to store must not cost the other two.
@@ -3899,6 +3907,9 @@ async function saveRecapLines(openings: OpeningGroup[]): Promise<void> {
   // is a fact competing with a decision.
   showFirstLineSuccess({
     title: saved === 1 ? 'Your first line is saved' : `${saved} lines saved`,
+    lead: paused > 0
+      ? `${saved - paused} are training now; ${paused} are saved paused in Openings → My lines.`
+      : undefined,
   });
 }
 
@@ -3917,6 +3928,11 @@ function showFirstRunPicker(): void {
     onStart: (colour) => {
       finishFirstRun();
       startNewLine(colour);
+    },
+    onStarterPacks: () => {
+      finishFirstRun();
+      showView('home');
+      void openStarterPackPicker(addStarterLine);
     },
     // Only where accounts exist — in the internal build the line would be a
     // dead end, so the picker's foot simply doesn't grow one.

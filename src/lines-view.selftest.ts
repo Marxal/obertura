@@ -13,13 +13,13 @@ import type { MoveNode } from './tree';
 import type { Line } from './types';
 import {
   emptyTree, mergePath, makeIdFactory, linePaths, nodeAtPath, moveCount,
-  resolveTraining, type MergeStep, type Repertoire,
+  resolveTraining, detachFromBook, reattachToBook, type MergeStep, type Repertoire,
 } from './repertoire';
 import {
   projectLines, projectRepertoire, makeLineId, parseLineId, locateLine,
   applyLineWrite, spineNodes, mergeLineIntoRepertoire, mergeRepertoireInto,
   setBranchTraining, setBranchValue, endsUnder, notationName, linePriorityOf,
-  byNewestFirst, endNodeSequence,
+  byNewestFirst, endNodeSequence, mergeBookWithRemovals,
 } from './lines-view';
 
 export interface TestResult {
@@ -600,6 +600,65 @@ export function runLinesViewSelfTest(): TestResult[] {
       [{ ...first, createdAt: 5000 }, { ...second, createdAt: undefined }]
         .sort(byNewestFirst)[0].id === first.id,
       'dated line came first',
+    );
+  }
+
+  // ── Removals travel through a merge (UX-AUDIT C5) ─────────────────────────
+  //
+  // Two devices hold the same book. One deletes a line; the other's next sync
+  // used to hand it straight back, because a merge only ever adds moves.
+
+  {
+    const phone = book('white', 'e4 e5 Nf3 Nc6', 'e4 e5 Bc4 Nf6');
+    const desktop = structuredClone(phone);
+    const later = Date.now() + 60_000;
+    detachFromBook(phone, at(phone, 'e4 e5 Bc4')!.id, later);
+
+    mergeBookWithRemovals(phone, desktop);
+    check(
+      'a deleted line stays deleted when the other device\'s copy is merged in',
+      at(phone, 'e4 e5 Bc4') === null && at(phone, 'e4 e5 Nf3 Nc6') !== null,
+      `Bc4 ${at(phone, 'e4 e5 Bc4') ? 'came back' : 'gone'}, Nf3 kept`,
+    );
+
+    mergeBookWithRemovals(desktop, phone);
+    check(
+      'the other device drops the line when it pulls the deletion',
+      at(desktop, 'e4 e5 Bc4') === null && at(desktop, 'e4 e5 Nf3 Nc6') !== null,
+      `desktop Bc4 ${at(desktop, 'e4 e5 Bc4') ? 'kept' : 'gone'}`,
+    );
+    check(
+      'shared moves above the cut survive',
+      at(desktop, 'e4 e5') !== null && linePaths(desktop.tree).length === 1,
+      `${linePaths(desktop.tree).length} line(s) left`,
+    );
+  }
+
+  {
+    const phone = book('white', 'e4 e5 Nf3 Nc6', 'e4 e5 Bc4 Nf6');
+    const stale = structuredClone(phone);
+    const removedAt = Date.now() + 60_000;
+    detachFromBook(phone, at(phone, 'e4 e5 Bc4')!.id, removedAt);
+    // Played again AFTER the deletion: newer than the tombstone.
+    mergePath(phone.tree, steps('e4 e5 Bc4 Bc5'), makeIdFactory(phone.tree), removedAt + 1000);
+
+    mergeBookWithRemovals(phone, stale);
+    check(
+      'moves played again after a deletion survive a stale copy',
+      at(phone, 'e4 e5 Bc4 Bc5') !== null && at(phone, 'e4 e5 Bc4 Nf6') === null,
+      `Bc5 ${at(phone, 'e4 e5 Bc4 Bc5') ? 'kept' : 'lost'}, old Nf6 ${at(phone, 'e4 e5 Bc4 Nf6') ? 'back' : 'gone'}`,
+    );
+  }
+
+  {
+    const rep = book('white', 'e4 e5 Nf3 Nc6', 'e4 e5 Bc4 Nf6');
+    const cut = detachFromBook(rep, at(rep, 'e4 e5 Bc4')!.id);
+    const hadTombstone = Object.keys(rep.removed ?? {}).length === 1;
+    reattachToBook(rep, cut!);
+    check(
+      'undoing a removal lifts its tombstone',
+      hadTombstone && Object.keys(rep.removed ?? {}).length === 0 && at(rep, 'e4 e5 Bc4 Nf6') !== null,
+      `tombstones after undo: ${Object.keys(rep.removed ?? {}).length}`,
     );
   }
 

@@ -39,7 +39,7 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { getAuthUser, onAuthChange } from './auth';
 import { getAllLines } from './storage';
 import { getCachedEntitled, setCachedEntitled, clearCachedEntitled } from './entitlement-cache';
-import { openProSheet } from './pro-sheet';
+import { openProSheet, POINTS } from './pro-sheet';
 import { formatPrice, primePricing, PRICING_CHANGE_EVENT } from './pricing';
 import { showToast } from './toast';
 import { trackOnce } from './metrics';
@@ -256,7 +256,10 @@ export async function requestLineSaveRoom(newLines = 1): Promise<boolean> {
 // drilled anything, is the wrong first impression.
 export function showTrainingCapDialog(): void {
   trackOnce('training_cap_hit');
-  openUpgradeDialog(`You’ve got ${FREE_TRAINING_LINES} lines in training`);
+  // Says what happened and what the free way out is, not just a count: pausing
+  // a line frees a slot at once (UX-AUDIT C6).
+  openUpgradeDialog(`All ${FREE_TRAINING_LINES} free training slots are in use. `
+    + 'Pause a line in Openings → My lines to make room, or train without a limit.');
 }
 
 // The same offer, asked for rather than run into: the Get-started panel's "Go
@@ -287,6 +290,13 @@ function openUpgradeDialog(eyebrow?: string): void {
   openProSheet({
     eyebrow,
     price: formatPrice(),
+    // Before → after, against what this person has today (UX-AUDIT C6).
+    freeValues: {
+      [POINTS[0]]: 'this phone only',
+      [POINTS[1]]: String(FREE_TRAINING_LINES),
+      [POINTS[2]]: String(FREE_REPERTOIRES),
+      [POINTS[3]]: String(FREE_SCOUT_OPPONENTS),
+    },
     onPriceChange: (update) => {
       const listener = (): void => update(formatPrice());
       window.addEventListener(PRICING_CHANGE_EVENT, listener);
@@ -364,7 +374,7 @@ export function buildCapNotice(
   btn.className = 'entitlement-cap-link';
   btn.appendChild(Icons.sparkles(15));
   const label = document.createElement('span');
-  label.textContent = opts.label ?? 'Unlock full access';
+  label.textContent = opts.label ?? 'Unlock Full Access';
   btn.appendChild(label);
   btn.addEventListener('click', () => (opts.onOpen ?? showTrainingCapDialog)());
   note.appendChild(btn);
@@ -443,5 +453,5 @@ export function initEntitlement(): void {
 
 // The Account card's plan pill.
 export function entitlementLabel(): string {
-  return isEntitled() ? 'Full access' : `Free — ${FREE_TRAINING_LINES} lines in training`;
+  return isEntitled() ? 'Full Access' : `Free — ${FREE_TRAINING_LINES} lines in training`;
 }

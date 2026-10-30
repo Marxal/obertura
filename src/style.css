@@ -2176,6 +2176,14 @@ main {
   gap: 8px;
   text-align: left;
 }
+/* What the free plan has, under each Full Access point (UX-AUDIT C6). */
+.pro-point-free {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
 .pro-points li {
   display: flex;
   align-items: flex-start;
@@ -19468,6 +19476,38 @@ button.fs-record-row:active { background: var(--bg-card); }
 
 .account-submit { width: 100%; }
 
+/* Inline help and errors under each field, and the password reveal
+   (UX-AUDIT C4). */
+.account-input-row { position: relative; display: flex; }
+.account-input-row .account-input { flex: 1; }
+.account-input-row:has(.account-reveal) .account-input { padding-right: 4.2rem; }
+.account-reveal {
+  position: absolute;
+  right: 0.35rem;
+  top: 50%;
+  transform: translateY(-50%);
+  min-height: 36px;
+  padding: 0 0.7rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.account-reveal:focus-visible { outline: 2px solid var(--accent); }
+.account-field-hint { font-size: 0.78rem; color: var(--text-muted); }
+.account-field-error,
+.account-form-error {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--danger);
+}
+.account-form-error { margin: 0; text-align: center; }
+.account-input[aria-invalid="true"] { border-color: var(--danger); }
+
 /* One row per enabled sign-in provider. Google and Facebook carry their own
    brand colours; Apple's mark takes currentColor, which is its own guidance —
    black on light, white on dark. */
@@ -19842,6 +19882,13 @@ html.picker-open body {
 }
 
 .picker-start--in { animation: picker-start-in 0.26s ease both; }
+/* The beginner's other door off the colour picker (UX-AUDIT C2). */
+.picker-packs {
+  display: block;
+  width: 100%;
+  max-width: 340px;
+  margin: 0.75rem auto 0;
+}
 
 @keyframes picker-start-in {
   from { opacity: 0; transform: translateY(6px); }
@@ -20354,6 +20401,15 @@ html.picker-open body {
 }
 
 .recap-skip:active { opacity: 0.7; }
+
+/* Free training slots under the save button (UX-AUDIT C3). */
+.recap-slots {
+  margin: 0.5rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--text-muted, inherit);
+}
 
 @media (max-height: 620px) {
   .recap-lead { font-size: 1.15rem; }

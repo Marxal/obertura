@@ -34,6 +34,22 @@ Each finding has the **problem**, **why it matters** and one or more
 
 ---
 
+## Status — 2026-10-30
+
+The six critical flows (§1) have been worked on; see the ROADMAP entry "UX audit,
+and its six critical fixes". In short:
+
+| | Finding | Status |
+|---|---|---|
+| C1 | Tested before taught | ✅ Fixed — new moves shown first, line name, "Show move", "new" not "due" |
+| C2 | Beginner path | ✅ Fixed — "Elsewhere", starter-pack door, walkthrough waits for moves, no Lichess ask |
+| C3 | Paywall in first run | ✅ Fixed — slots counter, extras saved paused, "Selected" |
+| C4 | Email links / forms | 🟡 Partly — inline errors, Show password, honest copy. 6-digit code needs a Supabase template change |
+| C5 | Deleted lines come back | ✅ Fixed — tombstones, with self-tests |
+| C6 | Go Pro offer | 🟡 Partly — one action, before → after, one name. Pay-first checkout not built |
+
+---
+
 ## Contents
 
 1. [The six critical flows (P0)](#1-the-six-critical-flows-p0)

@@ -190,10 +190,14 @@ Build a daily challenge around opening lines, tactics, endgames and exercises fr
 **{price}** one payment — always the live Stripe number, never typed in.
 
 - Your whole games library, synced and kept
-- Unlimited active training rotation
+- Train unlimited lines at once
 - Unlimited repertoires
 - Opponent scouting
 - One-time payment, no subscription ever
+
+(In the app's popup each line also shows what the free plan has — "free: 10",
+"free: 3", "free: 1", "free: this phone only" — because there the reader is
+deciding against what they already have. 2026-10, UX-AUDIT C6.)
 
 **CTA:** Unlock full access →
 

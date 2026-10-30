@@ -326,7 +326,7 @@ function celebrate(): void {
   pop.className = 'dc-pop';
   pop.setAttribute('role', 'dialog');
   pop.setAttribute('aria-modal', 'true');
-  pop.setAttribute('aria-label', 'Full access unlocked');
+  pop.setAttribute('aria-label', 'Full Access unlocked');
   overlay.appendChild(pop);
 
   let closed = false;
@@ -353,7 +353,7 @@ function celebrate(): void {
 
   const msg = document.createElement('p');
   msg.className = 'dc-pop-msg';
-  msg.textContent = 'Full access is on your account. Train as many lines as you '
+  msg.textContent = 'Full Access is on your account. Train as many lines as you '
     + 'like — and the coaching from your own games is open too. Thank you. Genuinely.';
   pop.appendChild(msg);
 

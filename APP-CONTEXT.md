@@ -1375,10 +1375,18 @@ output, derived from moves that *are* synced, and ~80% of the payload). The manu
 backup file keeps all of it. Scouted opponents never sync — pure re-fetchable
 cache, and the bulkiest thing on the device.
 
-**The known cost: deletions do not travel.** Remove a line on phone A and phone B
-hands it back on its next push. The escape hatch is explicit rather than guessed
-at: Settings → Data → "Replace this device from the account". Tombstones are in
-the Later list.
+**Deletions travel as tombstones.** A merge only ever adds moves, so a line
+removed on phone A used to come back from phone B's next push. Every
+user-facing removal now goes through `detachFromBook` (`repertoire.ts`), which
+records the cut's UCI path and time in `Repertoire.removed`; `reattachToBook`
+(undo) lifts it. `mergeBookWithRemovals` (`lines-view.ts`, used by
+`storage.mergeRepertoires`) unions both books' tombstones and prunes BOTH trees
+before folding the moves together — the incoming copy on a clone, while its
+nodes still carry their own `createdAt`. A move created after the tombstone (the
+user played it again) survives. Capped at `MAX_TOMBSTONES` (500, newest kept).
+Not covered: un-marking a line that ends inside a longer one (`endpoint` is a
+flag, not a cut). Settings → Data → "Replace this device from the account" stays
+as the escape hatch. Self-tests in `lines-view.selftest.ts`.
 
 `signing-in.ts` covers the reload a pull requires (the snapshot is written to
 localStorage after modules have already read it at boot) with the same pulsing
@@ -1523,14 +1531,16 @@ keeps only the PWA install-prompt plumbing, which always was a separate job
 sharing the file. A fresh browser lands straight on the first question.
 
 **`onboarding-where.ts` — "Where do you play?"** is the front door. A segmented
-toggle (Chess.com · Lichess · I'm new) over a panel that changes with it: a
-username field for either platform, or the sentence "I don't play online —
-build my repertoire by hand" for the third. The username is typed HERE, not in
+toggle (Chess.com · Lichess · Elsewhere) over a panel that changes with it: a
+username field for either platform, or "Over the board, or new to openings?
+Start from a ready-made opening or build your own line." for the third (was
+"I'm new", which suited neither user it served — UX-AUDIT C2). The username is typed HERE, not in
 the import sheet, and goes straight through with `autoScan`.
 
 *Colour is never asked on the games path* — the import knows which colour they
 play more (`dominantColour`). The old colour picker (`onboarding-picker.ts`) is
-now reached **only** through "I'm new".
+now reached **only** through "Elsewhere", and it carries a second door, "Or
+start from a ready-made opening", straight to the starter packs.
 
 **The import** is the ordinary `openImportPanel`, with three first-run options:
 `maxGames` (scan only what can be kept — `FREE_GUEST_IMPORT`, not `HARD_CAP`),
@@ -1559,7 +1569,10 @@ lines". Time-format chips re-derive everything from games already on the device
 reveals the rest a handful at a time, chosen ones sorted to the front. Tapping a
 card opens `openLinePeek` (`inlineMoves`, custom `stats`, its own actions) where
 the line can be lengthened one move at a time up to 10 — **per line**, not
-globally. Ticking past the free tier's training cap opens the Pro sheet.
+globally. There is **no paywall here**: ticking past the free tier's training
+cap is allowed, the foot counts the slots ("Uses 5 of your 10 free training
+slots" / "10 will train now. The other 2 are saved paused"), and
+`saveRecapLines` saves the extras with `inTraining: false` (UX-AUDIT C3).
 
 **Saving** enrols the lines directly, marks the session "just onboarded" so the
 hub leads with Get started rather than a daily challenge about lines owned for
@@ -2027,7 +2040,7 @@ Every non-selftest module in `src/`, exactly once.
 | `onboarding-where.ts` | the first-run front door — "Where do you play?" |
 | `onboarding-recap.ts` | the recap's arithmetic — openings, trunks, picks (engine-free) |
 | `onboarding-recap-screen.ts` | the payoff screen — pick your lines |
-| `onboarding-picker.ts` | the colour picker, now only behind "I'm new" |
+| `onboarding-picker.ts` | the colour picker, now only behind "Elsewhere" (plus a starter-pack door) |
 | `onboarding-lines.ts` | the eight curated first lines |
 | `onboarding-starter.ts` | the starter packs and their picker |
 | `onboarding-signup.ts` | the sign-up sheet that closes the first run |

@@ -22,6 +22,7 @@ import {
   isLineEnd, linePaths, resolveLabel, resolveTags, resolveTraining, resolvePriority,
   userMovesOnPath, pathToNode, makeIdFactory, mergePath,
   type MergeStep, type Repertoire,
+  applyTombstones, unionTombstones,
 } from './repertoire';
 import { joinedPath } from './repertoire-join';
 
@@ -418,6 +419,22 @@ export function mergeLineIntoRepertoire(rep: Repertoire, line: Line): Line | nul
  */
 export function mergeRepertoireInto(into: Repertoire, from: Repertoire): void {
   for (const line of projectRepertoire(from)) mergeLineIntoRepertoire(into, line);
+}
+
+/**
+ * The sync/restore merge of one book into another, removals included
+ * (UX-AUDIT C5). Both sides' tombstones apply to BOTH trees before the moves
+ * are folded together, so a move deleted on either device is not handed back by
+ * the other. The incoming copy is pruned on a clone, while its nodes still carry
+ * their own createdAt — once merged they would look as new as the merge.
+ */
+export function mergeBookWithRemovals(into: Repertoire, from: Repertoire): void {
+  const removed = unionTombstones(into.removed, from.removed);
+  const incoming = { ...from, tree: structuredClone(from.tree) };
+  applyTombstones(incoming.tree, removed);
+  applyTombstones(into.tree, removed);
+  mergeRepertoireInto(into, incoming);
+  if (removed) into.removed = removed;
 }
 
 // ── Bulk enrolment, the thing branch toggles need ────────────────────────────

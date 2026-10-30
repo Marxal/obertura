@@ -18,7 +18,7 @@ import {
 } from './storage';
 import {
   nodeAtPath, pathToNode, resolveTraining, resolvePriority, resolveTags,
-  resolveLabel, detachSubtree, reattachSubtree, moveCount,
+  resolveLabel, detachFromBook, reattachToBook, moveCount,
   type DetachedSubtree, type Repertoire,
 } from './repertoire';
 import { describeRemoval, removalBody, removalDone, removalTitle } from './line-removal';
@@ -492,7 +492,7 @@ function build(
   // with the moves, and re-playing them does not bring it back. So the cut is
   // kept whole and handed to the toast, which can put the very same moves back.
   async function doRemove(): Promise<void> {
-    const cut = detachSubtree(book.tree, node.id);
+    const cut = detachFromBook(book, node.id);
     if (!cut) return;
     await save();
     close();
@@ -502,7 +502,7 @@ function build(
   }
 
   async function undoRemove(cut: DetachedSubtree): Promise<void> {
-    if (!reattachSubtree(book.tree, cut)) {
+    if (!reattachToBook(book, cut)) {
       showToast('Those moves can’t be put back now');
       return;
     }

@@ -30,7 +30,7 @@ import {
 import { applyLineWrite, endsUnder, makeLineId, projectRepertoire } from './lines-view';
 import {
   cloneTree, isLineEnd, findNode, lineEnds, lineTailStart, moveCount, groupAddedBranches,
-  detachSubtree, reattachSubtree,
+  detachFromBook, reattachToBook,
   type AddedBranch, type DetachedSubtree, type Repertoire,
 } from './repertoire';
 import { requestLineSaveRoom } from './entitlement';
@@ -405,7 +405,7 @@ export async function removeAndStore(nodeId: string): Promise<DetachedSubtree | 
   if (!book) return null;
   const node = findNode(rootOfWorking(), nodeId);
   const doomed = node ? collectIds(node) : [];
-  const cut = detachSubtree(book.tree, nodeId);
+  const cut = detachFromBook(book, nodeId);
   removeNode(nodeId);
   for (const id of doomed) pending.delete(id);
   if (cut) await saveRepertoire(book);
@@ -423,7 +423,7 @@ export async function removeAndStore(nodeId: string): Promise<DetachedSubtree | 
 export async function restoreAndStore(cut: DetachedSubtree): Promise<boolean> {
   if (!book) return false;
   const copy = cloneTree(cut.node);
-  if (!reattachSubtree(book.tree, cut)) return false;
+  if (!reattachToBook(book, cut)) return false;
   attachNode(cut.parentId, copy, cut.index);
   await saveRepertoire(book);
   return true;
@@ -442,7 +442,7 @@ export async function removeManyAndStore(nodeIds: string[]): Promise<number> {
     const doomed = node ? collectIds(node) : [];
     removed += removeNode(id);
     for (const gone of doomed) pending.delete(gone);
-    detachSubtree(book.tree, id); // the stored side of the same cut
+    detachFromBook(book, id); // the stored side of the same cut
   }
   await saveRepertoire(book);
   return removed;

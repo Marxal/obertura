@@ -32,6 +32,16 @@ export interface Repertoire {
   createdAt: number;
   /** Kept but out of the way: excluded from training and the default views. */
   archived?: boolean;
+  /**
+   * Tombstones: moves the user REMOVED, keyed by their UCI path from the root
+   * ("e2e4 e7e5 g1f3"), valued by when (ms). Sync merges by move and never
+   * removes anything, so without these a line deleted on one device came back
+   * from the next one that pushed (UX-AUDIT C5). A merge drops any incoming
+   * copy of a tombstoned move created at or before the removal; moves played
+   * again afterwards are newer than the tombstone and survive. Absent on old
+   * data — nothing to migrate.
+   */
+  removed?: Record<string, number>;
 }
 
 /** The two books every account starts with. */
@@ -356,6 +366,84 @@ export function reattachSubtree(root: MoveNode, cut: DetachedSubtree): boolean {
   if (findNode(root, cut.node.id)) return false; // already back
   parent.children.splice(Math.min(cut.index, parent.children.length), 0, cut.node);
   return true;
+}
+
+// ── Tombstones (Repertoire.removed) ─────────────────────────────────────────
+
+/** How many tombstones a book keeps — the newest win. Enough for years of edits. */
+export const MAX_TOMBSTONES = 500;
+
+/** The UCI path from the root to `id`, space-separated; null if not in the tree. */
+export function pathKeyOf(root: MoveNode, id: string): string | null {
+  const path = pathToNode(root, id);
+  if (!path || path.length === 0) return null;
+  return path.map(n => n.uci).join(' ');
+}
+
+/**
+ * detachSubtree for a whole BOOK: the same cut, plus a tombstone so the
+ * removal survives a sync merge. Every user-facing removal goes through this.
+ */
+export function detachFromBook(
+  rep: Repertoire, id: string, now: number = Date.now(),
+): DetachedSubtree | null {
+  const key = pathKeyOf(rep.tree, id);
+  const cut = detachSubtree(rep.tree, id);
+  if (cut && key) {
+    rep.removed = { ...(rep.removed ?? {}), [key]: now };
+    trimTombstones(rep);
+  }
+  return cut;
+}
+
+/** reattachSubtree for a whole book: puts the moves back and lifts the tombstone. */
+export function reattachToBook(rep: Repertoire, cut: DetachedSubtree): boolean {
+  if (!reattachSubtree(rep.tree, cut)) return false;
+  const key = pathKeyOf(rep.tree, cut.node.id);
+  if (key && rep.removed?.[key] !== undefined) {
+    const next = { ...rep.removed };
+    delete next[key];
+    rep.removed = next;
+  }
+  return true;
+}
+
+function trimTombstones(rep: Repertoire): void {
+  const entries = Object.entries(rep.removed ?? {});
+  if (entries.length <= MAX_TOMBSTONES) return;
+  entries.sort((a, b) => b[1] - a[1]);
+  rep.removed = Object.fromEntries(entries.slice(0, MAX_TOMBSTONES));
+}
+
+/** Both books' tombstones, the later time winning on a key both hold. */
+export function unionTombstones(
+  a: Record<string, number> | undefined, b: Record<string, number> | undefined,
+): Record<string, number> | undefined {
+  if (!a && !b) return undefined;
+  const out: Record<string, number> = { ...(a ?? {}) };
+  for (const [k, t] of Object.entries(b ?? {})) out[k] = Math.max(out[k] ?? 0, t);
+  return out;
+}
+
+/**
+ * Drop every subtree whose path is tombstoned and which was created at or
+ * before the tombstone (a node with no createdAt is older than any tombstone).
+ * Returns how many subtrees went.
+ */
+export function applyTombstones(root: MoveNode, removed: Record<string, number> | undefined): number {
+  if (!removed || Object.keys(removed).length === 0) return 0;
+  let cut = 0;
+  const walk = (node: MoveNode, prefix: string): void => {
+    node.children = node.children.filter(child => {
+      const key = prefix ? `${prefix} ${child.uci}` : child.uci;
+      const at = removed[key];
+      if (at !== undefined && (child.createdAt ?? 0) <= at) { cut++; return false; }
+      walk(child, key);
+      return true;
+    });
+  };
+  walk(root, '');
+  return cut;
 }
 
 /**

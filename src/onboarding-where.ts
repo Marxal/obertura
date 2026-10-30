@@ -75,7 +75,7 @@ export interface WherePickerDeps {
 const TABS: { value: Tab; label: string }[] = [
   { value: 'chesscom', label: 'Chess.com' },
   { value: 'lichess', label: 'Lichess' },
-  { value: 'manual', label: 'I’m new' },
+  { value: 'manual', label: 'Elsewhere' },
 ];
 
 const PLACEHOLDERS: Record<Platform, string> = {
@@ -173,7 +173,8 @@ export function showWherePicker(deps: WherePickerDeps): void {
   const manualNote = document.createElement('p');
   manualNote.className = 'where-manual-note';
   manualNote.textContent =
-    'I don’t play online — build my repertoire by hand.';
+    'Over the board, or new to openings? Start from a ready-made opening or '
+    + 'build your own line.';
   panel.appendChild(manualNote);
 
   const go = document.createElement('button');
@@ -198,7 +199,7 @@ export function showWherePicker(deps: WherePickerDeps): void {
 
   function reflectGo(): void {
     if (tab === 'manual') {
-      go.textContent = 'Build my first line →';
+      go.textContent = 'Choose my first opening →';
       go.disabled = false;
       return;
     }

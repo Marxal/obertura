@@ -97,8 +97,10 @@ export interface RecapScreenDeps {
    * about the screen it came from.
    */
   onPreview: (opening: OpeningGroup, ctx: PreviewContext) => void;
-  /** Tried to tick past `freeLimit` — the paid pitch, shown by the caller. */
-  onOverLimit: () => void;
+  // No onOverLimit any more. Ticking past the free tier's training cap used to
+  // open the paid pitch here — a price inside first run, which entitlement.ts
+  // itself says must never happen (UX-AUDIT C3). Lines past the cap are now
+  // simply saved paused, and the foot says so before the user commits.
 }
 
 export interface PreviewContext {
@@ -389,6 +391,18 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
       save.disabled = n === 0;
       save.addEventListener('click', () => { close(); deps.onSave(selectedOpenings()); });
       foot.appendChild(save);
+
+      // The free tier's training slots, counted where the decision is made.
+      if (Number.isFinite(deps.freeLimit) && deps.freeLimit < Number.MAX_SAFE_INTEGER && n > 0) {
+        const slots = document.createElement('p');
+        slots.className = 'recap-slots';
+        const over = n - deps.freeLimit;
+        slots.textContent = over > 0
+          ? `${deps.freeLimit} will train now. The other ${over} are saved paused — `
+            + 'switch them on whenever you like.'
+          : `Uses ${n} of your ${deps.freeLimit} free training slots.`;
+        foot.appendChild(slots);
+      }
     }
 
     const skip = document.createElement('button');
@@ -399,14 +413,13 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
     foot.appendChild(skip);
   }
 
-  // Add or remove a line, enforcing the free tier's ceiling at the moment of
-  // choosing rather than after the fact — ticking past it would otherwise save
-  // lines that silently never enter the training rotation.
+  // Add or remove a line. The free tier's ceiling is NOT enforced here: the
+  // foot shows how many training slots the choice uses, and anything past them
+  // is saved paused — said before the save, never discovered after it.
   function toggleChosen(key: string): void {
     if (chosen.has(key)) {
       chosen.delete(key);
     } else {
-      if (chosen.size >= deps.freeLimit) { deps.onOverLimit(); return; }
       chosen.add(key);
     }
     paint();
@@ -477,7 +490,7 @@ export function showRecapScreen(deps: RecapScreenDeps): void {
     toggle.type = 'button';
     toggle.className = 'recap-toggle' + (on ? ' recap-toggle--on' : '');
     toggle.setAttribute('aria-pressed', String(on));
-    toggle.textContent = on ? '✓ Added' : 'Add this line';
+    toggle.textContent = on ? '✓ Selected' : 'Select';
     toggle.addEventListener('click', (e) => {
       e.stopPropagation(); // the card behind it opens the popup
       toggleChosen(key);

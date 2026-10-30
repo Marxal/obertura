@@ -365,6 +365,10 @@ function buildOpeningsDoor(
   const plan = locked ? null : planRepertoireRun(books);
   const runnable = !!plan && plan.totalMoves > 0;
   const dueMoves = plan?.dueMoves ?? 0;
+  // Moves never trained are NEW, not overdue. A freshly added pack used to read
+  // "87 moves due" on day one — a debt the user never ran up (UX-AUDIT C1).
+  const newMoves = plan?.newMoves ?? 0;
+  const reviewMoves = dueMoves - newMoves;
   // What the book adds up to so far: lines mastered out of those in training.
   const training = allLines.filter(l => l.inTraining);
   const mastered = training.filter(lineMastered).length;
@@ -376,8 +380,10 @@ function buildOpeningsDoor(
     sub: 'Run your book',
     // The due figure when there is one. A book with nothing due still runs — it
     // just has no number worth printing, and gets the play arrow instead.
-    stat: dueMoves > 0 ? dueMoves : undefined,
-    statLabel: dueMoves > 0 ? (dueMoves === 1 ? 'move due' : 'moves due') : undefined,
+    stat: reviewMoves > 0 ? reviewMoves : newMoves > 0 ? newMoves : undefined,
+    statLabel: reviewMoves > 0 ? (reviewMoves === 1 ? 'move due' : 'moves due')
+      : newMoves > 0 ? (newMoves === 1 ? 'new move' : 'new moves')
+      : undefined,
     disabled: !runnable,
     disabledReason: locked
       ? trainingLockReason(allLines.length)
@@ -915,10 +921,15 @@ export function startPositionsSession(
   const mistakeKeys = new Set<string>();
 
   startPositionsDrill(
-    positions.map(p => ({ preFen: p.preFen, expected: p.expected, prevUci: p.prevUci, prevFen: p.prevFen })),
+    positions.map(p => ({
+      preFen: p.preFen, expected: p.expected, prevUci: p.prevUci, prevFen: p.prevFen,
+      label: cloneById.get(p.lineId)?.name,
+    })),
     {
       wrongMoveMode: 'full',
       confirmAbandon: true,
+      teachNewMoves: true,
+      showMoveControl: true,
       modeLabel: 'Positions to refresh',
       modeIcon: () => Icons.target(18),
       modeAccent: MODE_ACCENT.fix,
@@ -1319,10 +1330,15 @@ function runRepertoireRun(container: HTMLElement, books: Repertoire[]): void {
 
   startPositionsDrill(
     plan.positions.map(
-      p => ({ preFen: p.preFen, expected: p.expected, prevUci: p.prevUci, prevFen: p.prevFen })),
+      p => ({
+        preFen: p.preFen, expected: p.expected, prevUci: p.prevUci, prevFen: p.prevFen,
+        label: p.lineName,
+      })),
     {
       wrongMoveMode: 'full',
       confirmAbandon: true,
+      teachNewMoves: true,
+      showMoveControl: true,
       modeLabel: 'Repertoire run',
       modeIcon: () => Icons.book(18),
       modeAccent: MODE_ACCENT.run,
@@ -1437,7 +1453,9 @@ function runIndividual(container: HTMLElement, trainingLines: Line[]): void {
       {
         wrongMoveMode: 'full',
         confirmAbandon: true,
-        modeLabel: 'Individual moves',
+        teachNewMoves: true,
+      showMoveControl: true,
+      modeLabel: 'Individual moves',
         modeIcon: () => Icons.zap(18),
         modeAccent: MODE_ACCENT.fix,
         // Replay the opponent's move into each position so you see how it arose.
@@ -2160,6 +2178,8 @@ function runMistakesReview(container: HTMLElement, mistakes: Mistake[]): void {
     mistakes.map(m => ({ preFen: m.preFen, expected: m.expected, prevUci: m.prevUci, prevFen: m.prevFen })),
     {
       wrongMoveMode: 'full',
+      teachNewMoves: true,
+      showMoveControl: true,
       modeLabel: 'Your mistakes',
       modeIcon: () => Icons.reset(18),
       modeAccent: MODE_ACCENT.fix,

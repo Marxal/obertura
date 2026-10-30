@@ -2472,3 +2472,42 @@ at the bottom of the card, in thumb reach. The preferences gear moved up beside
 the streak, which now shows only its number (the words stay in the tooltip and
 for screen readers). The foot row it lived in is gone; the locked card's note
 stands alone.
+
+## 2026-10-30 — UX audit, and its six critical fixes
+
+`UX-AUDIT.md` (screenshots in `ux-audit/`) reviews every flow and ranks ~100
+findings. This round fixes the six it marks critical:
+
+- **C1 — taught before tested.** Positions drills (Repertoire run, Positions to
+  refresh, Individual moves, Your mistakes) now name the line above the board,
+  show a never-graded move as an arrow first ("New move — play the arrow",
+  `DrillOptions.teachNewMoves`), and carry a "Show move" control that reveals
+  the answer and counts as a miss (`showMoveControl`). The Openings door says
+  "87 new moves", not "87 moves due", when nothing has been trained yet
+  (`RunPlan.newMoves`). "End this session?" now leads with Keep going.
+- **C2 — the beginner path.** "I'm new" → "Elsewhere"; the colour picker offers
+  "Or start from a ready-made opening" (starter packs). The builder walkthrough
+  waits for the moves it asks for (`CoachStep.waitForWatch` hides Next) and no
+  longer asks for a Lichess connect in minute two. Get started drops "Build a
+  line by hand" while the goal panel's own "Build a line" is showing.
+- **C3 — no paywall in first run.** The recap screen allows ticking past the
+  training cap, counts the free slots under Save, and saves the extras paused.
+  "✓ Added" → "✓ Selected". The locked daily card no longer says "tomorrow".
+- **C4 — account forms.** Errors under the field (and a form-level line for
+  server errors) instead of toasts; Show/Hide on passwords; "At least 6
+  characters" stays visible. In the installed app the email dialogs say the link
+  may open in the browser and what to do then. **Not done:** a typed 6-digit
+  code instead of links — needs the Supabase email templates to include
+  `{{ .Token }}` (dashboard change) before the app can use `verifyOtp`.
+- **C5 — deletions sync.** Tombstones (`Repertoire.removed`); see APP-CONTEXT
+  §16.2. Five new self-tests.
+- **C6 — the Full Access sheet.** One primary button, "Not now" as text, the
+  free-account offer moved to a toast after "Not now", each point shows the free
+  value ("free: 10"), one name everywhere ("Full Access", "Get Full Access").
+  "Unlimited active training rotation" → "Train unlimited lines at once" in
+  `docs/LANDING-COPY.md`, the landing page and the app. The cap message now says
+  pausing a line frees a slot. **Not done:** pay-first checkout (Worker + Stripe
+  change).
+
+Two self-tests were failing before this round and still fail (the daily shuffle
+ordering in `train-index`), unrelated.
