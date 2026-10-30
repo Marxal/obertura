@@ -554,16 +554,21 @@ spending the column's gap on nothing.
 1. **The switch** — four tabs (icon, name, live figure: "7 due", a rating, or
    a padlock), pinned under the header (`position: sticky`; the window scrolls
    Train, so `#view-train` drops its own `overflow` on a phone). Past ~56px of
-   scroll it folds to names and a coloured dot (`.train-switch--compact`, two
-   thresholds so it can't flicker). **Long-press a tab (450ms) and drag** to
+   scroll the figure line folds away and the icon shrinks a little
+   (`setTrainSwitchCompact`): the height it gives back goes to its bottom
+   margin, so the page below never moves mid-scroll. **Long-press a tab (450ms) and drag** to
    reorder; the order lives in `train-order.ts` (`obertura.trainOrder`, synced
    like any preference), Train opens on the first tab at launch, a one-time toast
    teaches the gesture, and Settings → Training → "Train tab order" resets it.
    The tab showing is module state (`trainTab`), so a trip into a drill and
    back lands on the same domain.
-2. **The track** — four panels side by side in a scroll-snap strip, so a swipe
-   still changes domain; the switch, the tiles and the swipe all follow the
-   user's order. Each panel is that domain's **Start card** (its door, styled as
+2. **The panels** — only the chosen one is drawn (`.train-domain--shown`; the
+   rest are `display: none`), so the page is exactly as tall as its list. It
+   was a horizontal scroll-snap slider until the second v0.14 pass: the strip
+   had to be sized to the showing panel by hand, animated that height, and
+   fought vertical scrolling, which read as a buggy scroll and empty space
+   under short lists. There is no swipe now; the switch switches. The switch
+   and the desktop tiles follow the user's order. Each panel is that domain's **Start card** (its door, styled as
    a filled "hero": ring, headline, figure in words · progress, a Start pill)
    over its **box**.
 3. **Inside a box, headed sections** (`boxSection`), not one flat list. The

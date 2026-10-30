@@ -4469,20 +4469,28 @@ const TRAIN_TABS: Record<DomainId, { label: string; icon: () => SVGElement }> = 
 let trainSwitchEl: HTMLElement | null = null;
 let trainScrollWired = false;
 
-// The switch shrinks once you scroll into the list: icon and figure fold away,
-// the names and a dot stay. Two thresholds, so the height it gives back can't
-// scroll it straight back over the line and make it flicker — and it only
-// shrinks on a page tall enough that losing ~30px can't pull you back to the top.
+// The switch slims down once you scroll into the list: the figure line folds
+// away and the icon gets a little smaller. The height it gives back is handed
+// to its bottom margin, so the page below keeps its exact length and position —
+// nothing shifts under the finger mid-scroll (the first cut moved the page by
+// ~30px each time it folded, which read as the scroll stuttering).
+function setTrainSwitchCompact(sw: HTMLElement, on: boolean): void {
+  if (sw.classList.contains('train-switch--compact') === on) return;
+  sw.style.marginBottom = '';
+  const full = sw.offsetHeight;
+  sw.classList.toggle('train-switch--compact', on);
+  if (on) sw.style.marginBottom = `${full - sw.offsetHeight}px`;
+}
+
 function wireTrainSwitchScroll(): void {
   if (trainScrollWired) return;
   trainScrollWired = true;
   window.addEventListener('scroll', () => {
     const sw = trainSwitchEl;
-    if (!sw?.isConnected) return;
+    if (!sw?.isConnected || getComputedStyle(sw).display === 'none') return;
     const y = window.scrollY;
-    const room = document.documentElement.scrollHeight - window.innerHeight;
-    if (y > 56 && room > 140) sw.classList.add('train-switch--compact');
-    else if (y < 8) sw.classList.remove('train-switch--compact');
+    if (y > 48) setTrainSwitchCompact(sw, true);
+    else if (y < 8) setTrainSwitchCompact(sw, false);
   }, { passive: true });
 }
 
@@ -4490,11 +4498,18 @@ function renderTrainRoom(host: HTMLElement): void {
   host.innerHTML = '';
 
   // The room, top to bottom. On a PHONE: one switch naming the four domains,
-  // pinned under the header as you scroll, then a TRACK holding the four panels
-  // side by side, swiped (or picked in the switch) one at a time. Each panel is
-  // its domain's Start card (the door, styled as a "hero") and its box. On a
-  // DESKTOP the switch hides, the doors sit together as four tiles, and every
-  // box shows, two to a row.
+  // pinned under the header as you scroll, then the four panels with only the
+  // chosen one shown. Each panel is its domain's Start card (the door, styled
+  // as a "hero") and its box. On a DESKTOP the switch hides, the doors sit
+  // together as four tiles, and every box shows, two to a row.
+  //
+  // NOT A SLIDER (v0.14, second pass). The panels used to sit side by side in a
+  // horizontal scroll-snap strip, swiped between. The strip had to be given the
+  // showing panel's height by hand (a scroll box sizes to its tallest child),
+  // animated that height on every change, and fought the page's own vertical
+  // scroll on any diagonal drag — together they read as a buggy scroll and as
+  // empty space under short lists. Now the hidden panels are display: none, so
+  // the page is exactly as tall as what it shows. Switching is the switch.
   //
   // WHY ONE SWITCH (v0.14). The 2×2 tiles above a row of bubbles took nearly
   // half a phone screen, and tiles and bubbles were two controls naming the same
@@ -4601,50 +4616,28 @@ function renderTrainRoom(host: HTMLElement): void {
     // A repaint built a new room: this one's listener retires.
     if (!room.isConnected) { desktop.removeEventListener('change', onBreakpoint); return; }
     for (const id of DEFAULT_TRAIN_ORDER) placeDoor(id);
-    showTab(trainTab!, false);
+    if (!isPaged()) setTrainSwitchCompact(sw, false);
   };
   desktop.addEventListener('change', onBreakpoint);
 
-  // The phone track: which panel is showing, kept in step with the switch,
-  // and the track sized to that panel so a short list leaves no gap under it.
-  const isPaged = (): boolean => !desktop.matches;
+  // The switch's order right now — the user's, live during a drag.
   const current = (): DomainId[] => [...sw.querySelectorAll<HTMLElement>('.train-switch-tab')]
     .map((b) => b.dataset.domain as DomainId);
-  const fitHeight = (): void => {
-    if (!isPaged()) { track.style.height = ''; return; }
-    track.style.height = `${panes.get(trainTab!)!.offsetHeight}px`;
-  };
-  const markTab = (id: DomainId): void => {
+
+  // Which panel shows. Desktop CSS ignores the class and shows all four.
+  const isPaged = (): boolean => !desktop.matches;
+  const showTab = (id: DomainId): void => {
     trainTab = id;
     for (const [tid, b] of tabs) b.setAttribute('aria-selected', String(tid === id));
-    fitHeight();
-  };
-  const showTab = (id: DomainId, smooth = true): void => {
-    if (isPaged()) {
-      track.scrollTo({ left: track.clientWidth * current().indexOf(id), behavior: smooth ? 'smooth' : 'auto' });
-    }
-    markTab(id);
+    for (const [pid, pane] of panes) pane.classList.toggle('train-domain--shown', pid === id);
   };
 
-  // Switching from far down a long list lands at the top of the new one, not
-  // halfway down it — but only when the list has scrolled under the switch.
+  // Switching from far down a long list lands at the top of the new one, just
+  // under the switch, not halfway down it.
   const toListTop = (): void => {
-    const top = track.getBoundingClientRect().top - sw.offsetHeight;
+    const top = track.getBoundingClientRect().top - sw.getBoundingClientRect().bottom;
     if (top < 0) window.scrollBy({ top: top - 8 });
   };
-
-  // A swipe lands on a panel: whichever is most in view is the tab now.
-  let settle = 0;
-  track.addEventListener('scroll', () => {
-    window.clearTimeout(settle);
-    settle = window.setTimeout(() => {
-      if (!isPaged() || track.clientWidth === 0) return;
-      const ids = current();
-      const i = Math.round(track.scrollLeft / track.clientWidth);
-      const id = ids[Math.max(0, Math.min(ids.length - 1, i))];
-      if (id !== trainTab) markTab(id);
-    }, 90);
-  }, { passive: true });
 
   // ── Reordering: long-press a tab, then drag it ──
   //
@@ -4687,10 +4680,7 @@ function renderTrainRoom(host: HTMLElement): void {
     if (to !== from) {
       ids.splice(from, 1);
       ids.splice(to, 0, press.id);
-      const scrolled = current().indexOf(trainTab!);
       applyOrder(ids);
-      // The track's panels moved under it: keep the one showing in view.
-      if (isPaged() && current().indexOf(trainTab!) !== scrolled) showTab(trainTab!, false);
     }
   });
   // Stop the page scrolling under a lifted tab (touch-action can't change
@@ -4718,15 +4708,9 @@ function renderTrainRoom(host: HTMLElement): void {
     if (!b) return;
     const id = b.dataset.domain as DomainId;
     if (id === trainTab) return;
-    toListTop();
     showTab(id);
+    toListTop();
   });
-
-  // Panels fill asynchronously (each screen reads IndexedDB first) and change
-  // height as they repaint, so the track follows the showing panel's size.
-  const ro = new ResizeObserver(() => fitHeight());
-  for (const pane of panes.values()) ro.observe(pane);
-  ro.observe(track);
 
   // Desktop: a locked tile scrolls to its own box, which holds what it is
   // waiting for (the import form, the first line to save).
@@ -4739,9 +4723,9 @@ function renderTrainRoom(host: HTMLElement): void {
   host.appendChild(room);
   trainSwitchEl = sw;
   wireTrainSwitchScroll();
-  sw.classList.toggle('train-switch--compact', window.scrollY > 56);
   // Back where you left it — a trip into a drill rebuilds this screen.
-  requestAnimationFrame(() => showTab(trainTab!, false));
+  showTab(trainTab);
+  if (isPaged()) setTrainSwitchCompact(sw, window.scrollY > 48);
 
   // Long-press is invisible, so say it once, the first time Train is opened
   // on a phone.

@@ -1722,13 +1722,15 @@ main {
   justify-content: center;
   gap: 0.45rem;
   width: 100%;
-  padding: 0.6rem 0.9rem;
+  min-height: 52px;
+  margin-top: 0.15rem;
+  padding: 0.8rem 1rem;
   border: none;
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--accent);
   color: var(--on-accent, #fff);
   font-weight: 800;
-  font-size: 0.88rem;
+  font-size: 1rem;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
@@ -1793,27 +1795,22 @@ main {
   color: var(--text-faint);
 }
 
-/* The card's last row: its note on the left, the preferences gear on the right.
-   The gear is always in the same corner, whichever face the card is wearing —
-   including the finished one, which has no note. */
-.daily-card-foot {
-  display: flex;
+/* The head row's right end: the streak and the preferences gear, together. */
+.daily-card-head-end {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
+  gap: 0.35rem;
+  flex: none;
 }
-.daily-card-foot > .daily-card-note { flex: 1; min-width: 0; }
-.daily-card-foot:only-child,
-.daily-card-foot > .daily-card-prefs:only-child { margin-inline-start: auto; }
 
 .daily-card-prefs {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  margin: -0.25rem -0.25rem -0.25rem 0;
+  width: 32px;
+  height: 32px;
+  margin: -0.25rem -0.35rem -0.25rem 0;
   padding: 0;
   border: none;
   border-radius: 50%;
@@ -7915,7 +7912,7 @@ html:has(> body > .edit-overlay) > body {
    │ Openings Middleg. Tactics  Endgames │     v0.12/v0.13 layout, unchanged
    │  7 due    🔒      1000     1000     │     apart from the sections inside.
    ├─────────────────────────────────────┤ ← the SWITCH: pinned under the header,
-   │ ███ (◔) Run your book      [Start] █│   it folds to names + dots once you
+   │ ███ (◔) Run your book      [Start] █│   it drops the figure line once you
    │ ███     7 moves due · 0 of 4 mast.. █│   scroll. Long-press a tab to drag it.
    │ PLAY YOUR LINES                (i)  │ ← the HERO: the domain's door, filled
    │  Whole lines                   4  › │   in its colour, in its own panel.
@@ -7924,8 +7921,8 @@ html:has(> body > .edit-overlay) > body {
    │  Missed moves                  3  › │   rows that open a sheet.
    └─────────────────────────────────────┘
 
-   The panels sit side by side in a scroll-snap TRACK, so a phone still swipes
-   between domains.
+   Only the chosen panel is drawn on a phone; it was a swipeable scroll-snap
+   slider until the second v0.14 pass (see "NOT A SLIDER" in main.ts).
 
    SHAPES TRIED BEFORE, recorded so they aren't re-derived:
    (1) doors at the top with every remaining exercise in ONE three-across tile
@@ -7939,7 +7936,7 @@ html:has(> body > .edit-overlay) > body {
    a door heading its own box, with the switch as the row of four.
 
    Each screen renders its door and its box into its host (.train-domain, a
-   panel in the track); main.ts leaves the door there on a phone and lifts it
+   panel); main.ts leaves the door there on a phone and lifts it
    into the tile grid on a desktop. */
 .train-room {
   display: flex;
@@ -7986,7 +7983,9 @@ html:has(> body > .edit-overlay) > body {
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   touch-action: pan-y;
-  transition: background 0.15s, color 0.15s, border-color 0.15s, padding 0.2s ease,
+  /* No transition on size: the slimming is measured in one frame
+     (setTrainSwitchCompact) so the page below never moves. */
+  transition: background 0.15s, color 0.15s, border-color 0.15s,
     transform 0.15s ease, box-shadow 0.15s ease;
 }
 .train-switch-icon {
@@ -7998,7 +7997,6 @@ html:has(> body > .edit-overlay) > body {
   background: color-mix(in srgb, var(--domain-accent) 15%, transparent);
   color: var(--domain-accent);
   overflow: hidden;
-  transition: width 0.2s ease, height 0.2s ease, opacity 0.15s;
 }
 .train-switch-name {
   max-width: 100%;
@@ -8027,28 +8025,12 @@ html:has(> body > .edit-overlay) > body {
 }
 .train-switch-tab[aria-selected="true"] .train-switch-figure { color: rgba(255, 255, 255, 0.88); }
 
-/* Scrolled: names and a dot only. */
-.train-switch--compact .train-switch-tab {
-  flex-direction: row;
-  gap: 0.25rem;
-  padding: 0.4rem 0.1rem;
-  font-size: 0.68rem;
-}
-.train-switch--compact .train-switch-icon { width: 0; height: 0; opacity: 0; }
+/* Scrolled: only the figure line folds away and the icon gets a touch
+   smaller — a gentle trim (~20px), since the tabs were never that tall. */
+.train-switch--compact .train-switch-tab { padding: 0.35rem 0.15rem; }
+.train-switch--compact .train-switch-icon { width: 22px; height: 22px; }
+.train-switch--compact .train-switch-icon svg { width: 14px; height: 14px; }
 .train-switch--compact .train-switch-figure { display: none; }
-.train-switch--compact .train-switch-tab::before {
-  content: "";
-  flex: none;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--domain-accent);
-}
-.train-switch--compact .train-switch-tab[aria-selected="true"]::before { background: #fff; }
-/* A narrow phone has no room for a dot AND "Middlegame": the name wins. */
-@media (max-width: 389.98px) {
-  .train-switch--compact .train-switch-tab::before { display: none; }
-}
 
 /* A long-pressed tab, lifted to be dragged. */
 .train-switch-tab--lifted {
@@ -8184,23 +8166,8 @@ html:has(> body > .edit-overlay) > body {
 .train-door-hero,
 .train-door-go { display: none; }
 
-/* ── The track: the four panels side by side, swiped one at a time ── */
-.train-track {
-  display: flex;
-  align-items: flex-start;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  overscroll-behavior-x: contain;
-  scrollbar-width: none;
-  transition: height 0.2s ease;
-}
-.train-track::-webkit-scrollbar { display: none; }
-.train-domain {
-  flex: 0 0 100%;
-  min-width: 0;
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
-}
+/* ── The panels ── */
+.train-domain { min-width: 0; }
 
 @media (max-width: 959.98px) {
   /* The window scrolls Train; a scroll box on the view would trap the sticky
@@ -8209,13 +8176,15 @@ html:has(> body > .edit-overlay) > body {
   #app #view-train { overflow: visible; }
   .train-doors { display: none; }
 
+  /* One panel at a time: the rest are not drawn at all, so the page is as
+     tall as the list it shows (see "NOT A SLIDER" in renderTrainRoom). */
+  .train-domain:not(.train-domain--shown) { display: none; }
+
   .train-domain {
     display: flex;
     flex-direction: column;
     gap: var(--space-md);
-    /* Room for the cards' shadows and the hero's press edge — the track
-       clips, because it scrolls. */
-    padding: 2px 2px 6px;
+    padding: 0;
   }
 
   /* A panel IS its box on a phone: no wash, no frame, no title — the switch
@@ -8322,7 +8291,7 @@ html:has(> body > .edit-overlay) > body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .train-door, .train-track, .train-switch-tab, .train-switch-icon { transition: none; }
+  .train-door, .train-switch-tab { transition: none; }
 }
 
 /* ── The box ── */
@@ -8429,7 +8398,7 @@ html:has(> body > .edit-overlay) > body {
 .train-sheet-holder > .section { margin-inline: 0; }
 
 /* Desktop: four tiles across, and every box showing, two to a row — so the
-   switch has nothing to pick between and the track stops scrolling. */
+   switch has nothing to pick between. */
 @media (min-width: 960px) {
   .train-room {
     max-width: 1100px;
@@ -8440,8 +8409,6 @@ html:has(> body > .edit-overlay) > body {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-lg);
-    overflow: visible;
-    height: auto !important;
   }
 }
 

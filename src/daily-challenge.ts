@@ -564,7 +564,7 @@ const TASK_META: Record<DailyTaskId, { icon: () => SVGElement; label: (n: number
   timePressure: { icon: () => Icons.clock(16),    label: (n) => `${n} minute${n === 1 ? '' : 's'} under pressure` },
 };
 
-// The gear, bottom-right of the card. Which tasks the challenge includes and how
+// The gear, top-right of the card beside the streak. Which tasks the challenge includes and how
 // many of each used to be reachable only from Settings → Daily challenge — a tab
 // away and an accordion down from the card those settings describe, which is a
 // good way to own settings nobody ever finds. It is small and quiet on purpose:
@@ -579,16 +579,16 @@ function buildPrefsButton(onOpen: () => void): HTMLButtonElement {
   return btn;
 }
 
-// The card's last row: whatever note the face carries on the left, the gear on
-// the right. A face with no note still gets the row, so the gear is always in
-// the same corner.
-function buildFoot(note: HTMLElement | null, onOpenPrefs?: () => void): HTMLElement | null {
-  if (!note && !onOpenPrefs) return null;
-  const foot = document.createElement('div');
-  foot.className = 'daily-card-foot';
-  if (note) foot.appendChild(note);
-  if (onOpenPrefs) foot.appendChild(buildPrefsButton(onOpenPrefs));
-  return foot;
+// The right end of the head row: the streak (or the locked card's line count)
+// with the gear beside it. The gear used to sit alone in a foot row under the
+// tasks; up here it costs no row of its own, and the bottom of the card is left
+// to the Start button, where a thumb reaches it.
+function buildHeadEnd(lead: HTMLElement, onOpenPrefs?: () => void): HTMLElement {
+  const end = document.createElement('span');
+  end.className = 'daily-card-head-end';
+  end.appendChild(lead);
+  if (onOpenPrefs) end.appendChild(buildPrefsButton(onOpenPrefs));
+  return end;
 }
 
 function runDailyTask(id: DailyTaskId, deps: DailyChallengeDeps): void {
@@ -643,7 +643,7 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
   titleText.textContent = 'Daily challenge';
   title.appendChild(titleText);
   head.appendChild(title);
-  head.appendChild(buildStreakPill());
+  head.appendChild(buildHeadEnd(buildStreakPill(), deps.onOpenPrefs));
   card.appendChild(head);
 
   if (done) {
@@ -693,9 +693,6 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
     }
     msg.appendChild(text);
     card.appendChild(msg);
-
-    const doneFoot = buildFoot(null, deps.onOpenPrefs);
-    if (doneFoot) card.appendChild(doneFoot);
     return card;
   }
 
@@ -703,9 +700,6 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
   // The bar only earns its place mid-challenge — at zero done it has nothing
   // to show yet, and the row count below already says how much there is.
   if (doneCount > 0) card.appendChild(buildProgressBar(doneCount, active.length));
-
-  const nextId = nextDailyTask(state, active);
-  if (nextId) card.appendChild(buildStartButton(doneCount > 0, () => runDailyTask(nextId, deps)));
 
   const tasks = document.createElement('div');
   tasks.className = 'daily-card-tasks';
@@ -720,8 +714,9 @@ export function renderDailyChallenge(deps: DailyChallengeDeps): HTMLElement | nu
   }
   card.appendChild(tasks);
 
-  const activeFoot = buildFoot(null, deps.onOpenPrefs);
-  if (activeFoot) card.appendChild(activeFoot);
+  // Last, so it sits at the bottom of the card, in reach of a thumb.
+  const nextId = nextDailyTask(state, active);
+  if (nextId) card.appendChild(buildStartButton(doneCount > 0, () => runDailyTask(nextId, deps)));
 
   return card;
 }
@@ -733,7 +728,7 @@ function buildStartButton(resuming: boolean, onClick: () => void): HTMLButtonEle
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'daily-card-start';
-  btn.appendChild(Icons.play(15));
+  btn.appendChild(Icons.play(18));
   const label = document.createElement('span');
   label.textContent = resuming ? 'Continue' : 'Start daily challenge';
   btn.appendChild(label);
@@ -790,7 +785,7 @@ function buildLockedCard(deps: DailyChallengeDeps): HTMLElement | null {
   const lockLabel = document.createElement('span');
   lockLabel.textContent = `${saved} / ${TRAINING_UNLOCK_LINES} lines`;
   lock.appendChild(lockLabel);
-  head.appendChild(lock);
+  head.appendChild(buildHeadEnd(lock, deps.onOpenPrefs));
   card.appendChild(head);
 
   const blurb = document.createElement('p');
@@ -817,7 +812,7 @@ function buildLockedCard(deps: DailyChallengeDeps): HTMLElement | null {
     : left === 1
       ? 'One more line and this starts.'
       : `${left} more lines and this starts.`;
-  card.appendChild(buildFoot(note, deps.onOpenPrefs) ?? note);
+  card.appendChild(note);
 
   // Only where nothing else on screen offers the route — see DailyChallengeDeps.
   if (deps.onBuildLine) {
@@ -918,10 +913,17 @@ function buildStreakPill(): HTMLElement {
   flame.textContent = '🔥';
   pill.appendChild(flame);
 
+  // Just the number: the flame already says "streak", and the words made the
+  // pill crowd the gear beside it. The words are still said to a screen reader
+  // and in the tooltip.
   const label = document.createElement('span');
   label.className = 'streak-pill-label';
-  label.textContent = streak === 0 ? 'No streak yet' : `${streak}-day streak`;
+  label.textContent = String(streak);
   pill.appendChild(label);
+  const said = streak === 0 ? 'No streak yet' : `${streak}-day streak`;
+  pill.setAttribute('role', 'img');
+  pill.setAttribute('aria-label', said);
+  pill.title = said;
 
   return pill;
 }

@@ -2454,3 +2454,21 @@ tests).
 - **Daily challenge on a phone:** less panel padding, tighter copy, a slimmer
   week strip, and one-line rows (up/down stacked in one narrow column): the
   card went from about 520px to 381px tall at 360px wide.
+
+### Train, second pass: no slider; the daily card's button at the bottom
+
+**Train.** The four panels were a horizontal scroll-snap slider. Its height had
+to be set by hand to the showing panel and animated, and it fought vertical
+scrolling, so the scroll felt buggy and short lists had empty space under them.
+Now only the chosen panel is drawn and the page is exactly as tall as its list.
+Swiping between areas is gone; the switch does the switching. The switch also
+shrinks less: only the figure line folds away (about 20px, was about 40px), and
+the height it gives back moves to its bottom margin, so nothing under the finger
+shifts mid-scroll (checked: the first card stays at the same page position
+before and after it folds).
+
+**Daily challenge card.** "Start daily challenge" is bigger (52px tall) and sits
+at the bottom of the card, in thumb reach. The preferences gear moved up beside
+the streak, which now shows only its number (the words stay in the tooltip and
+for screen readers). The foot row it lived in is gone; the locked card's note
+stands alone.

@@ -50,7 +50,7 @@
 // alone — no session machinery moved, and it did not have to: every drill in
 // this app is a `position: fixed` overlay on <body>, so a screen's host was only
 // ever the thing to redraw on the way back. A host holds that domain's door AND
-// its box; the host is a panel in the swipe track. On a phone the door stays
+// its box; the host is one of four panels. On a phone the door stays
 // there as the Start card; on a desktop main.ts lifts it into the grid of tiles
 // (renderTrainRoom's placeDoor).
 
