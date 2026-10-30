@@ -1846,13 +1846,12 @@ html:not(.js) .xcard { grid-template-columns: 1fr; }
 @media (max-width: 560px) {
   .xcard { padding: 20px 18px 18px; border-radius: var(--radius); }
   .xcard__text p { font-size: 15px; line-height: 1.5; }
-  .xb { max-width: min(100%, 270px); }
+  .xb { max-width: min(100%, var(--xb-max, 270px)); }
   .xmsg { font-size: 14px; min-height: 2.6em; }
   .stack__item { top: calc(var(--bar-h) + 10px + var(--i) * 10px); }
 }
-/* A screen too short to hold a whole card: no sticking, just a list (the
-   script sets this after measuring — see readStackTops). */
-.stack.is-flat .stack__item { position: relative; top: auto; }
+/* A card stuck by its bottom edge (readStackTops) sinks toward its bottom. */
+.stack__item.is-tall .xcard { transform-origin: 50% 100%; }
 @media (prefers-reduced-motion: reduce) {
   .xcard { transform: none !important; }
   .xb__fx .badge, .xb__fx .arw, .xmoves button { animation: none !important; }
@@ -3747,7 +3746,18 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
   if (ctaBar && hero && 'IntersectionObserver' in window) {
     var heroGone = false;
     var atFinal = false;
-    var sync = function () { ctaBar.classList.toggle('show', heroGone && !atFinal); };
+    var atStack = false;
+    var sync = function () { ctaBar.classList.toggle('show', heroGone && !atFinal && !atStack); };
+
+    /* Out of the way over the stacking exercise cards, too: on a phone those
+       cards need every pixel of height to stick whole (readStackTops). */
+    var stackList = document.querySelector('.stack');
+    if (stackList) {
+      new IntersectionObserver(function (entries) {
+        atStack = entries[0].isIntersecting;
+        sync();
+      }, { rootMargin: '-40% 0px -40% 0px' }).observe(stackList);
+    }
 
     new IntersectionObserver(function (entries) {
       heroGone = !entries[0].isIntersecting;
@@ -3809,21 +3819,45 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
   var stackItems = Array.prototype.slice.call(document.querySelectorAll('.stack__item'));
   var stackTops = null;
   function readStackTops() {
-    /* A card that sticks has to fit whole between the top bar and the bottom
-       of the screen (less the phone's sticky CTA bar), or its buttons would
-       be covered before anyone could reach them. If any card doesn't fit, the
-       whole stack lies flat and scrolls as a plain list. */
+    /* Each card sticks a little lower than the last, as the CSS sets it — as
+       long as it fits whole between the top bar and the bottom of the screen.
+       (The phone's CTA bar hides over the stack, see section 5.)
+
+       PHONES first get their boards shrunk to make the cards fit: the tallest
+       card's height without its board tells us how big a board the screen has
+       room for, clamped to 220–300px.
+
+       A card that still doesn't fit sticks by its BOTTOM edge instead (a
+       negative top): it scrolls fully into view, then holds while the next one
+       slides over it. Earlier versions laid the whole stack flat when one card
+       didn't fit — which, measured, was every common phone with its browser
+       bars showing, so phones never saw the effect at all. */
     var list = stackItems[0].parentNode;
-    list.classList.remove('is-flat');
-    var room = (window.innerHeight || 1) - (ctaBar && window.innerWidth < 900 ? ctaBar.offsetHeight || 84 : 0);
-    var fits = stackItems.every(function (it) {
-      var cs = getComputedStyle(it);
-      return cs.position !== 'sticky' || parseFloat(cs.top) + it.offsetHeight <= room;
-    });
-    list.classList.toggle('is-flat', !fits);
+    var vh = window.innerHeight || 1;
+    stackItems.forEach(function (it) { it.style.top = ''; it.classList.remove('is-tall'); });
+    if (window.innerWidth <= 560) {
+      list.style.removeProperty('--xb-max');
+      var rest = 0, base = 0;
+      stackItems.forEach(function (it) {
+        var board = it.querySelector('.xb');
+        rest = Math.max(rest, it.offsetHeight - (board ? board.offsetHeight : 0));
+        base = Math.max(base, parseFloat(getComputedStyle(it).top) || 0);
+      });
+      var fit = Math.max(220, Math.min(300, vh - base - rest - 12));
+      list.style.setProperty('--xb-max', (Math.floor(fit / 8) * 8) + 'px');
+      xboards.forEach(function (b) { b.fit(); });
+    }
     stackTops = stackItems.map(function (it) {
       var cs = getComputedStyle(it);
-      return cs.position === 'sticky' ? parseFloat(cs.top) || 0 : null;
+      if (cs.position !== 'sticky') return null;
+      var top = parseFloat(cs.top) || 0;
+      var room = vh - 8 - it.offsetHeight;
+      if (top > room) {
+        top = Math.round(room);
+        it.style.top = top + 'px';
+        it.classList.add('is-tall');
+      }
+      return top;
     });
   }
   function placeStacks(vh) {

@@ -2362,3 +2362,14 @@ Validation: headless Chromium with the rating endpoint mocked (this session
 can't reach Chess.com or bitochess.com), desktop and phone, light and dark;
 Worker type-checks. Check `bitochess.com/api/rating` after deploying.
 
+
+
+## 2026-10-30 — Stacking exercise cards now stack on real phones
+
+Measured with the browser bars showing (345×690, 360×740, 412×780) the cards
+never fitted, so `readStackTops` laid the stack flat and phones never saw the
+effect. Now: the sticky "Try Bito Chess" bar hides over the stack; on phones the
+boards shrink to fit (220–300px, from the tallest card's non-board height); and
+a card that still doesn't fit sticks by its bottom edge (negative top) instead
+of flattening the stack. The flat fallback is gone. Checked sticky at 345×690,
+360×740, 390×844, 412×780 and 1280×720.
