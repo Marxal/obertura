@@ -230,7 +230,7 @@ separate markup and no separate render path:
 - **Home** is two columns: the daily card (and Get started) on the left, the
   board blocks on the right, capped at 1240px. The forgotten strips stop
   bleeding past their column.
-- **Train** shows four tiles across and every box two to a row (§6.3).
+- **Train** shows four tiles across and every box two to a row; the phone's switch hides (§6.3).
 - **Openings, My games and Statistics** keep their own column grids (Statistics
   is a dashboard with charts capped at 460px) and are capped at 1240px.
 - **Every exercise** (`.pt-overlay--split`: the drill, puzzles, mistake retry,
@@ -547,76 +547,65 @@ other pair on the page had 24px. `.home-grow-host` is on the page from the first
 paint (its data arrives late), so `:empty { display: none }` keeps it from
 spending the column's gap on nothing.
 
-### 6.3 The Train screen — level tiles, bubbles, a swipe track
+### 6.3 The Train screen — one switch, a Start card, sections
 
-`main.ts:renderTrainRoom()`. Three parts, top to bottom (the daily-challenge
-card that used to head Train now lives on Home):
+`main.ts:renderTrainRoom()`. On a **phone**, top to bottom:
 
-1. **The four doors as "level" tiles**, in a 2×2 grid on a phone and four across
-   on a desktop (`train-doors.ts`'s `buildDoor`). The icon sits in a solid
-   circle inside a **ring that fills with progress**: lines mastered, mistakes
-   fixed, or for the two rated doors the way to the next hundred
-   (`train-progress.ts`'s `ratingProgress`). The live figure is a small
-   **badge** on the ring. Under the name are one short line and the progress
-   in words, written to fit so nothing is clipped. A tile presses down into its
-   bottom edge. A **locked** door shows a padlock badge and stays tappable: it
-   opens its own box, which holds what it needs.
-2. **Bubbles**, on a phone only: Openings / Middlegame / Tactics / Endgames,
-   filled in the domain's colour when selected.
-3. **The track**: the four boxes side by side. On a phone it is a horizontal
-   scroll-snap strip, so you **swipe** between domains or pick one with a
-   bubble. The strip is sized to the showing panel, and the box drops its wash
-   so a panel is just its list. On a desktop it is a two-column grid with every
-   box showing, and the bubbles are hidden. The chosen domain is module state
-   (`trainTab`), not localStorage, so it never becomes a sync push.
+1. **The switch** — four tabs (icon, name, live figure: "7 due", a rating, or
+   a padlock), pinned under the header (`position: sticky`; the window scrolls
+   Train, so `#view-train` drops its own `overflow` on a phone). Past ~56px of
+   scroll it folds to names and a coloured dot (`.train-switch--compact`, two
+   thresholds so it can't flicker). **Long-press a tab (450ms) and drag** to
+   reorder; the order lives in `train-order.ts` (`obertura.trainOrder`, synced
+   like any preference), Train opens on the first tab at launch, a one-time toast
+   teaches the gesture, and Settings → Training → "Train tab order" resets it.
+   The tab showing is module state (`trainTab`), so a trip into a drill and
+   back lands on the same domain.
+2. **The track** — four panels side by side in a scroll-snap strip, so a swipe
+   still changes domain; the switch, the tiles and the swipe all follow the
+   user's order. Each panel is that domain's **Start card** (its door, styled as
+   a filled "hero": ring, headline, figure in words · progress, a Start pill)
+   over its **box**.
+3. **Inside a box, headed sections** (`boxSection`), not one flat list. The
+   box's (i) rides on the first section head. Catalogues (Tactics' theme groups
+   and opening lists, Endgames' "Your endgames" and the classic groups) are rows
+   that open a **bottom sheet** (`buildSheetRow`); the accordions are gone. The
+   sheet closes itself when a drill overlay lands on `<body>`, and a repaint
+   while it is open hands it the fresh body (matched by key).
+
+On a **desktop** (≥960px) the switch hides, the doors are the four "level"
+tiles in a row, and every box shows, two to a row, with its title and (i) —
+the v0.12/v0.13 layout, plus the sections. A later round will rethink it.
+
+**One colour per domain.** Every card on Train wears its domain's colour
+(`.train-box .mode-card` overrides `--mode-accent`), so switch, Start card and
+list agree. The cards still pass their own accent to the overlays they open
+(`exercise-identity.ts`), so a Time attack run's header is still gold — the
+drill screens were left for a later pass on purpose.
 
 **The one piece of plumbing.** Each screen still renders its door and its box
-into one host and repaints that host alone. The host is a panel in the track,
-and a `MutationObserver` lifts each door it renders into that domain's slot in
-the tile grid (`adoptDoor`). The four screens know nothing about the layout.
+into one host (a panel) and repaints that host alone. A `MutationObserver` per
+panel runs `placeDoor`: on a phone the door stays at the top of its panel, on a
+desktop it is lifted into its tile slot, and either way the switch reads the
+figure off the door's `data-figure` / `data-locked`. The four screens know
+nothing about the layout.
 
-The list rows (`buildModeCard`, `buildAccordion`) have no coloured stripe. Each
-has a muted icon chip in its mode's colour, the count as a small pill (number
-only, except "best N"), a chevron, and a subtitle that fits on one line (and
-wraps rather than clipping if it ever doesn't). Some names are shorter:
-**Missed moves**, **New lines**, **Weak spots**, and the Tactics box's timed
-run is **Puzzle rush** (the Openings box keeps **Time attack**).
+| Domain | Start card | Sections | Lives in |
+|---|---|---|---|
+| **Openings** | Run your book — every move asked once | Play your lines (Whole lines, Weak spots, New lines, Prep) · Single moves (Missed moves) · Against the clock (Time attack) | `train-screen.ts` |
+| **Middlegame** | Today's mix — 3 which-move, 6 mistakes, 2 detective, 3 brilliancies | Fix your mistakes (four categories, Fixed) · Find the right move (Which move, Blunder detective, Your brilliant moves) · Against the clock (Time pressure). Locked until games are imported: the card says so and the box is the import form | `mistakes-screen.ts` |
+| **Tactics** | Daily rated mix, 10 rated puzzles | Against the clock (Puzzle rush, Satisfying traps) · From your openings (sheets) · By theme (sheets) | `puzzles-screen.ts` |
+| **Endgames** | Rated ladder, all themes | From your games (Your endgames, a sheet) · Rated, by piece · Classic endgames (sheets) | `endgame-screen.ts` |
 
-| Door | One tap starts | Figure | Its box | Lives in |
-|---|---|---|---|---|
-| **Openings** | a repertoire run — every move asked once | moves due | *Practise your openings* — 5–6 cards | `train-screen.ts` |
-| **Middlegame** | the mix — 3 which-move, 6 mistakes, 2 detective, 3 brilliancies | spots to fix | *From your games* — 7 cards | `mistakes-screen.ts` |
-| **Tactics** | the Daily Rated Mix, 10 rated puzzles | puzzle rating | *More puzzles* — 2 cards + 7 accordions | `puzzles-screen.ts` |
-| **Endgames** | the rated endgame ladder, all themes | endgame rating | *More endgames* — 1 accordion, 4 cards, the classics | `endgame-screen.ts` |
+`train-doors.ts` owns `buildDoor` / `buildBox` / `boxBody` / `boxSection` /
+`buildSheetRow` and `DOMAIN_ACCENT`. The list rows (`buildModeCard`,
+`buildSheetRow`) share one look: a muted icon chip, the count as a small pill
+(number only, except "best N"), a chevron, a one-line subtitle that wraps rather
+than clips.
 
-Each door was already its pane's wide hero button, so the restructure promoted
-what existed rather than building anything new.
-
-**No plumbing changed.** Each screen still gets ONE host and still re-renders
-itself alone. It never needed anything else: every drill is a `position: fixed`
-overlay on `<body>` (§3.3), so a screen's host was only ever the thing to redraw
-on the way back. A host holds that domain's door **and** its box; the host is
-`display: contents` and one `order` apiece sorts every door above every box —
-**DOM order decides the order within a band, `order` decides the band.**
-
-Consequence to remember: all four render on every Train paint, where the old
-tabs rendered lazily one at a time. Four IndexedDB reads instead of one, in
-parallel; the heavy work (the mistake and endgame scans) was already a
+Consequence to remember: all four domains render on every Train paint — four
+IndexedDB reads in parallel; the heavy work (the mistake and endgame scans) is a
 background pass with its own state.
-
-`train-doors.ts` owns `buildDoor` / `buildBox` / `boxBody` / `buildAccordion`
-and `DOMAIN_ACCENT` — the four domain colours, in one place because five modules
-need them. An exercise's own accent is a **different** thing and stays on its
-card: several exercises own a colour their overlay wears too
-(`exercise-identity.ts` — a Time attack header is gold because the card that
-started it was gold). The domain's colour is worn by the door, the box wash and
-the box title.
-
-**Two colours needed pulling toward `--text`.** The door's figure, drawn in the
-flat accent on a tint built from the same hue, measured 2.8:1 for the orange one
-— under the 3:1 floor large text gets. It is mixed 72% toward `--text` in light
-and 45% in dark, which puts all four between 4.4 and 5.6:1. The box title has
-the same problem on the dark wash and takes the same treatment.
 
 #### What left the Train screen
 
@@ -661,6 +650,12 @@ Recorded so they aren't re-derived:
    display-size figure and a big icon chip, under a streak strip. It was
    crowded at two to a row, and the subtitles ended in "…". The level tiles
    came out of a three-option interactive preview.
+5. **v0.12's level tiles over a row of bubbles.** The 2×2 tiles took nearly
+   half a phone screen before any exercise, and tiles and bubbles were two
+   controls naming the same four domains that did different things (a tile
+   started a run, a bubble switched the list). v0.14's pinned switch keeps the
+   four together as one control and puts each door at the head of its own
+   panel, which is (2)'s idea with (3)'s fix.
 
 ### 6.4 The training unlock
 

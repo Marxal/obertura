@@ -33,7 +33,7 @@ import { isConnected, LICHESS_CONNECT_BLURB } from './lichess-auth';
 import { Icons } from './icons';
 import { openInfoSheet, buildInfoButton } from './info-sheet';
 import { ratingProgress } from './train-progress';
-import { buildDoor, buildBox, boxBody, buildAccordion, DOMAIN_ACCENT } from './train-doors';
+import { buildDoor, buildBox, boxBody, boxSection, buildSheetRow, DOMAIN_ACCENT } from './train-doors';
 import { buildModeCard } from './train-screen';
 import { PUZZLE_THEME_GROUPS, type PuzzleTheme, type PuzzleThemeGroup } from './puzzle-themes';
 
@@ -347,8 +347,9 @@ export async function startDailyPuzzles(
 
 export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreenDeps): Promise<void> {
   // `host` is this domain's panel in the Train room's swipe track. Append the
-  // door and the box straight into it: main.ts lifts the door into the grid of
-  // tiles (renderTrainRoom's adoptDoor), and the box stays as the panel.
+  // door and the box straight into it: on a phone the door stays at the top of
+  // the panel as its Start card; on a desktop main.ts lifts it into the tile
+  // grid (renderTrainRoom's placeDoor). The box stays as the panel.
   host.innerHTML = '';
   const root = host;
 
@@ -401,13 +402,15 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
         icon: Icons.puzzlePiece(26),
         name: 'Tactics',
         sub: `${DAILY_COUNT} rated puzzles`,
+        heroTitle: 'Daily rated mix',
         disabled: true,
         disabledReason: 'Needs a line or games',
       }));
       const box = buildBox('tactics', 'More puzzles');
       const body = boxBody(box);
       body.appendChild(emptyState(hasGames, deps));
-      for (const group of PUZZLE_THEME_GROUPS) body.appendChild(renderThemeGroup(group));
+      const themes = boxSection(box, 'By theme');
+      for (const group of PUZZLE_THEME_GROUPS) themes.appendChild(renderThemeGroup(group));
       root.appendChild(box);
       return;
     }
@@ -419,6 +422,7 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
       icon: Icons.puzzlePiece(26),
       name: 'Tactics',
       sub: `${DAILY_COUNT} rated puzzles`,
+      heroTitle: 'Daily rated mix',
       stat: getPuzzleRating(),
       statLabel: 'rating',
       progress: ratingProgress(getPuzzleRating()),
@@ -436,10 +440,10 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
     // Nine rows in one column is the same content, scannable in one pass.
     const box = buildBox('tactics', 'More puzzles',
       buildInfoButton('About the puzzle modes', openTacticsInfo));
-    const body = boxBody(box);
-
-    const timed = document.createElement('div');
-    timed.className = 'mode-cards';
+    // Three headed groups (v0.14): the timed runs you start outright, then the
+    // catalogues — puzzles from your openings, then by theme — each a row that
+    // opens its list in a sheet.
+    const timed = boxSection(box, 'Against the clock');
     // "Puzzle rush", not "Time attack": the Openings box has its own Time attack
     // (positions from your lines against the clock), and two different
     // exercises under one name on one screen is a question nobody should have
@@ -448,15 +452,16 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
       `${TA_DEFAULT} min, 3 lives`));
     timed.appendChild(timedCard('traps', 'Satisfying traps',
       'no lines needed'));
-    body.appendChild(timed);
 
     // The two sources, split. They were one accordion with a segmented toggle
     // inside it, which hid half of what the app offers behind a control you had
     // to open something else to find.
-    if (hasGames) body.appendChild(openingsAccordion('games'));
-    body.appendChild(openingsAccordion('repertoire'));
+    const fromOpenings = boxSection(box, 'From your openings');
+    if (hasGames) fromOpenings.appendChild(openingsAccordion('games'));
+    fromOpenings.appendChild(openingsAccordion('repertoire'));
 
-    for (const group of PUZZLE_THEME_GROUPS) body.appendChild(renderThemeGroup(group));
+    const themes = boxSection(box, 'By theme');
+    for (const group of PUZZLE_THEME_GROUPS) themes.appendChild(renderThemeGroup(group));
     root.appendChild(box);
   };
 
@@ -534,12 +539,13 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
       list.appendChild(rows);
     }
 
-    return buildAccordion({
-      icon: source === 'games' ? Icons.scout(18) : Icons.pawn(18),
+    return buildSheetRow({
+      icon: source === 'games' ? Icons.scout(20) : Icons.pawn(20),
       label: source === 'games' ? 'Based on my games' : 'Based on my repertoire',
       sub: entries.length > 0
-        ? `${entries.length} ${entries.length === 1 ? 'opening' : 'openings'}`
+        ? `puzzles from the openings you ${source === 'games' ? 'play' : 'saved'}`
         : 'nothing here yet',
+      count: entries.length || undefined,
       accent: TACTICS_ACCENT,
       body: list,
     });
@@ -549,10 +555,11 @@ export async function renderPuzzlesScreen(host: HTMLElement, deps: PuzzlesScreen
     const list = document.createElement('div');
     list.className = 'pz-list pz-theme-list';
     for (const theme of group.themes) list.appendChild(themeRow(theme));
-    return buildAccordion({
+    return buildSheetRow({
       icon: group.icon(),
       label: group.label,
       sub: group.blurb,
+      count: group.themes.length,
       accent: TACTICS_ACCENT,
       body: list,
     });

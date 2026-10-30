@@ -19,7 +19,7 @@ import { buildInlineImport } from './import-inline';
 import { renderLoadError } from './load-error';
 import { Icons, classIcon, CLASS_COLOR } from './icons';
 import { buildModeCard } from './train-screen';
-import { buildDoor, buildBox, boxBody, DOMAIN_ACCENT } from './train-doors';
+import { buildDoor, buildBox, boxBody, boxSection, DOMAIN_ACCENT } from './train-doors';
 import { openInfoSheet, buildInfoButton } from './info-sheet';
 import {
   isEntitled, FREE_MISTAKE_GAME_WINDOW, FREE_MISTAKE_SPOTS,
@@ -220,8 +220,9 @@ export interface MistakesScreenDeps {
 
 export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScreenDeps): Promise<void> {
   // `host` is this domain's panel in the Train room's swipe track. Append the
-  // door and the box straight into it: main.ts lifts the door into the grid of
-  // tiles (renderTrainRoom's adoptDoor), and the box stays as the panel.
+  // door and the box straight into it: on a phone the door stays at the top of
+  // the panel as its Start card; on a desktop main.ts lifts it into the tile
+  // grid (renderTrainRoom's placeDoor). The box stays as the panel.
   host.innerHTML = '';
 
   let allGames: ImportedGame[];
@@ -327,7 +328,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   const gemsReady = brilliantRefs.filter(
     r => (dueMap[r.spot.id] ?? 0) <= Date.now()).length;
 
-  // The door goes to the top band, the box to the one below — see .train-room.
+  // The door, then the box — see .train-room for where each ends up.
   //
   // WHAT LEFT THIS SCREEN. The stats hero ("318 games read · 41 spots"), the
   // latest-mistakes carousel, the "Analyse my games" card and the reset link.
@@ -343,6 +344,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     icon: Icons.swords(26),
     name: 'Middlegame',
     sub: 'Fix mistakes from your games',
+    heroTitle: 'Today\u2019s mix',
     stat: mixReady && unfixed > 0 ? unfixed : undefined,
     statLabel: mixReady && unfixed > 0 ? 'to fix' : undefined,
     disabled: !mixReady,
@@ -499,31 +501,22 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
   function renderCategoryBox(): HTMLElement {
     const box = buildBox('middlegame', 'From your games',
       buildInfoButton('About these exercises', openMistakeInfo));
-    const section = boxBody(box);
+    // Three headed groups (v0.14). Your own mistakes lead — they are what this
+    // domain is for — then the exercises that ask you to judge a position, then
+    // the timed one. They replaced one flat list of seven cards.
+    const fixList = boxSection(box, 'Fix your mistakes');
+    const judgeList = boxSection(box, 'Find the right move');
+    const clockList = boxSection(box, 'Against the clock');
 
     // Why anything here is dead, said the same way on every card.
     const noneReason = counts.scanned === 0
       ? 'Analyse your games first'
       : 'None found in your analysed games';
 
-    // The two whole-game exercises lead. They ask a smaller question than the
-    // category cards ("which of these moves is the blunder", "which of these two
-    // moves is better") and they don't need you to choose a category of your own
-    // mistakes first, which is a decision a newcomer has no basis for.
-    section.appendChild(buildModeCard({
-      accent: DETECTIVE_ACCENT,
-      icon: Icons.scout(20),
-      name: 'Blunder detective',
-      sub: detectiveRefs.length > 0 && detectiveReady === 0
-        ? 'all cracked, back in a few days'
-        : 'find the blunder, yours or theirs',
-      stat: detectiveReady > 0 ? detectiveReady : undefined,
-      statLabel: detectiveReady > 0 ? 'cases' : undefined,
-      disabled: detectiveRefs.length === 0,
-      disabledReason: noneReason,
-      onClick: () => startDetective(),
-    }));
-    section.appendChild(buildModeCard({
+    // The judging exercises. They ask a smaller question than the category
+    // cards ("which of these two moves is better", "which of these moves is the
+    // blunder"), so Which move leads its group.
+    judgeList.appendChild(buildModeCard({
       accent: WHICH_MOVE_ACCENT,
       icon: Icons.merge(20),
       name: 'Which move',
@@ -537,10 +530,24 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
       onClick: () => startWhichMove(),
     }));
 
-    // Time pressure — the speed round. It sits third because it is the one
-    // exercise here that is not about working a position out.
+    judgeList.appendChild(buildModeCard({
+      accent: DETECTIVE_ACCENT,
+      icon: Icons.scout(20),
+      name: 'Blunder detective',
+      sub: detectiveRefs.length > 0 && detectiveReady === 0
+        ? 'all cracked, back in a few days'
+        : 'find the blunder, yours or theirs',
+      stat: detectiveReady > 0 ? detectiveReady : undefined,
+      statLabel: detectiveReady > 0 ? 'cases' : undefined,
+      disabled: detectiveRefs.length === 0,
+      disabledReason: noneReason,
+      onClick: () => startDetective(),
+    }));
+
+    // Time pressure — the speed round, in a group of its own because it is the
+    // one exercise here that is not about working a position out.
     const tpBest = getTimePressureBest();
-    section.appendChild(buildModeCard({
+    clockList.appendChild(buildModeCard({
       accent: TIME_PRESSURE_ACCENT,
       icon: Icons.clock(20),
       name: 'Time pressure',
@@ -555,7 +562,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
 
     for (const cat of CATEGORIES) {
       const pool = refs.filter(r => r.spot.category === cat);
-      section.appendChild(buildModeCard({
+      fixList.appendChild(buildModeCard({
         accent: CATEGORY_ACCENT[cat],
         icon: CATEGORY_ICON[cat](),
         name: CATEGORY_LABEL[cat],
@@ -571,7 +578,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     // Your brilliant moves — the flip side of the mistake cards. Nothing waiting
     // means they have all been re-found lately, which is a result rather than an
     // empty card, so it stays tappable and the subtitle says why the badge went.
-    section.appendChild(buildModeCard({
+    judgeList.appendChild(buildModeCard({
       accent: CLASS_COLOR.brilliant,
       icon: classIcon('brilliant', 20),
       name: 'Your brilliant moves',
@@ -588,7 +595,7 @@ export async function renderMistakesScreen(host: HTMLElement, deps: MistakesScre
     // The Fixed list — spots already put right, and the way back into any of
     // them. It opens a sheet, so it costs one card rather than a section.
     if (counts.fixed > 0) {
-      section.appendChild(buildModeCard({
+      fixList.appendChild(buildModeCard({
         accent: MIDDLEGAME_ACCENT,
         icon: Icons.checkCircle(20),
         name: 'Fixed',

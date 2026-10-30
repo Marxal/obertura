@@ -11,7 +11,8 @@
 
 import { Icons } from './icons';
 import { ratingProgress } from './train-progress';
-import { buildDoor, buildBox, boxBody, buildAccordion, DOMAIN_ACCENT } from './train-doors';
+import { buildDoor, buildBox, boxSection, buildSheetRow, DOMAIN_ACCENT } from './train-doors';
+import { buildInfoButton, openInfoSheet } from './info-sheet';
 import { buildModeCard } from './train-screen';
 import { fetchNextPuzzle } from './puzzles';
 import {
@@ -171,10 +172,43 @@ function guessCategory(fen: string): EndgameCategory {
   return 'mates';
 }
 
+// What the Endgames box offers, behind its (i). The classics' own (i) toggle
+// folded into this when the box gained sections (v0.14), so the box has one
+// "what is this?" like the other three.
+function openEndgameInfo(): void {
+  openInfoSheet({
+    title: 'The endgame modes',
+    entries: [
+      {
+        icon: Icons.flag(18), accent: ENDGAME_ACCENT,
+        label: 'Rated ladder',
+        detail: 'Rated endgame puzzles across every theme. Your endgame rating goes up and down with them.',
+      },
+      {
+        icon: Icons.scout(18), accent: ENDGAME_ACCENT,
+        label: 'Your endgames',
+        detail: 'Endgames you actually reached in your imported games. Play them out against the engine.',
+      },
+      {
+        icon: Icons.flag(18), accent: ENDGAME_ACCENT,
+        label: 'Rated, by piece',
+        detail: `${PUZZLE_COUNT} rated puzzles of one kind of ending: rook, pawn, queen or minor piece.`,
+      },
+      {
+        icon: Icons.book(18), accent: ENDGAME_ACCENT,
+        label: 'Classic endgames',
+        detail: 'The fundamentals every player should know. Load one and play it out against the '
+          + 'engine, then race your own best time.',
+      },
+    ],
+  });
+}
+
 export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps): void {
   // `host` is this domain's panel in the Train room's swipe track. Append the
-  // door and the box straight into it: main.ts lifts the door into the grid of
-  // tiles (renderTrainRoom's adoptDoor), and the box stays as the panel.
+  // door and the box straight into it: on a phone the door stays at the top of
+  // the panel as its Start card; on a desktop main.ts lifts it into the tile
+  // grid (renderTrainRoom's placeDoor). The box stays as the panel.
   host.innerHTML = '';
   const root = host;
 
@@ -216,19 +250,22 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
     // "From your games" leads and is SHUT. It is the most personal thing here —
     // endgames you actually reached — but it is also a scan with a board per
     // row, so open by default it buried the four piece runs under a carousel.
-    const box = buildBox('endgames', 'More endgames');
-    const body = boxBody(box);
+    // Three headed groups (v0.14): your own endgames, the rated runs by piece,
+    // then the classics. "From your games" and each classic group are rows that
+    // open their list in a sheet — the games one is a scan with a board per
+    // row, so open in place it buried everything under it.
+    const box = buildBox('endgames', 'More endgames',
+      buildInfoButton('About the endgame modes', openEndgameInfo));
 
-    body.appendChild(buildAccordion({
-      icon: Icons.scout(18),
-      label: 'From your games',
+    boxSection(box, 'From your games').appendChild(buildSheetRow({
+      icon: Icons.scout(20),
+      label: 'Your endgames',
       sub: 'endgames you reached, vs the engine',
       accent: ENDGAME_ACCENT,
       body: renderFromGames(),
     }));
 
-    const pieces = document.createElement('div');
-    pieces.className = 'mode-cards';
+    const pieces = boxSection(box, 'Rated, by piece');
     for (const { theme } of SPECIFIC_THEMES) {
       pieces.appendChild(buildModeCard({
         accent: ENDGAME_ACCENT,
@@ -238,11 +275,10 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
         onClick: () => runEndgamePuzzles(theme, deps, rebuild),
       }));
     }
-    body.appendChild(pieces);
 
-    // The classics, grouped by theme — already accordions of their own, so they
-    // land in the list as more rows of the same shape.
-    body.appendChild(renderClassics());
+    const classics = boxSection(box, 'Classic endgames');
+    const progress = getEndgameProgress();
+    for (const group of endgamesByCategory()) classics.appendChild(renderGroup(group, progress));
     root.appendChild(box);
   };
 
@@ -254,76 +290,26 @@ export function renderEndgameScreen(host: HTMLElement, deps: EndgameScreenDeps):
     });
   }
 
-  function renderClassics(): HTMLElement {
-    const wrap = document.createElement('div');
-    wrap.className = 'eg-classics';
-
-    // Header: title + an (i) toggle that reveals the intro text (Fix 5).
-    const head = document.createElement('div');
-    head.className = 'eg-section-head';
-    const title = document.createElement('div');
-    title.className = 'section-title section-title--icon';
-    title.appendChild(Icons.flag(16));
-    title.appendChild(document.createTextNode('Classic endgames'));
-    head.appendChild(title);
-    const info = document.createElement('button');
-    info.type = 'button';
-    info.className = 'eg-info-btn';
-    info.appendChild(Icons.info(16));
-    info.setAttribute('aria-label', 'About classic endgames');
-    info.setAttribute('aria-expanded', 'false');
-    head.appendChild(info);
-    wrap.appendChild(head);
-
-    const desc = document.createElement('p');
-    desc.className = 'pz-ta-desc eg-info-text';
-    desc.textContent = 'The fundamentals every player should know. Load one and play it out against the engine — then race your own best time.';
-    desc.hidden = true;
-    info.addEventListener('click', () => {
-      desc.hidden = !desc.hidden;
-      info.setAttribute('aria-expanded', String(!desc.hidden));
-    });
-    wrap.appendChild(desc);
-
-    const progress = getEndgameProgress();
-    // Accordions start closed, so the classic list is a short, scannable stack.
-    for (const group of endgamesByCategory()) wrap.appendChild(renderGroup(group, progress));
-    return wrap;
-  }
-
+  // A classic group — "Rook endings" — as a row whose sheet holds its
+  // positions, played in order with "Next endgame" chained through them.
   function renderGroup(group: EndgameGroup, progress: EndgameProgress): HTMLElement {
-    const details = document.createElement('details');
-    details.className = 'section section--acc eg-acc';
-
-    const summary = document.createElement('summary');
-    summary.className = 'section-title section-summary';
-    const left = document.createElement('span');
-    left.className = 'section-summary-left eg-acc-left';
-    const sym = document.createElement('span');
-    sym.className = 'eg-acc-symbol';
-    sym.textContent = group.symbol;
-    sym.setAttribute('aria-hidden', 'true');
-    left.appendChild(sym);
-    const label = document.createElement('span');
-    label.textContent = group.label;
-    left.appendChild(label);
-    summary.appendChild(left);
-    summary.appendChild(Icons.chevronRight(16));
-    details.appendChild(summary);
-
-    const blurb = document.createElement('div');
-    blurb.className = 'eg-group-blurb';
-    blurb.textContent = group.blurb;
-    details.appendChild(blurb);
-
     const list = document.createElement('div');
     list.className = 'eg-list';
-    // Chain "Next endgame" through this group's items in order.
     group.items.forEach((eg, i) => {
       list.appendChild(renderCard(eg, progress[eg.id]?.bestMs, () => launchClassic(group.items, i)));
     });
-    details.appendChild(list);
-    return details;
+    const sym = document.createElement('span');
+    sym.className = 'eg-row-symbol';
+    sym.textContent = group.symbol;
+    return buildSheetRow({
+      icon: sym,
+      label: group.label,
+      sub: group.blurb,
+      count: group.items.length,
+      accent: ENDGAME_ACCENT,
+      body: list,
+      key: `classic:${group.label}`,
+    });
   }
 
   function renderCard(eg: Endgame, bestMs: number | undefined, onPlay: () => void): HTMLElement {

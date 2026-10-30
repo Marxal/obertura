@@ -7907,35 +7907,40 @@ html:has(> body > .edit-overlay) > body {
   }
 }
 
-/* ── The Train room — four level tiles, bubbles, a swipeable track ──────────
+/* ── The Train room — one switch, a Start card, sections (v0.14) ─────────────
 
-       ┌──────────────────┬──────────────────┐
-       │      ( ♟ )⁸      │      ( ⚔ )⁶      │  the four DOORS as "level" tiles:
-       │     Openings     │    Middlegame    │  the icon in a ring that fills with
-       │   Run your book  │ Fix mistakes ... │  progress, the live figure a badge
-       │  7 of 20 mastered│   3 of 9 fixed   │  on the ring. One tap each; a
-       ├──────────────────┼──────────────────┤  locked one opens its box.
-       │      ( ⚄ )¹⁴³⁷   │      ( ⚑ )¹²¹⁰   │
-       ├──────────────────┴──────────────────┤
-       │ (● Openings) (● Middlegame) (● Tac… │  BUBBLES — phone only.
-       ├─────────────────────────────────────┤
-       │ ░ PRACTISE YOUR OPENINGS  ◀ swipe ▶ │  the TRACK: the four boxes side by
-       │ ░ Whole lines                 4  ›  │  side, one showing on a phone,
-       └─────────────────────────────────────┘  two to a row on a desktop.
+   PHONE                                       DESKTOP (≥960px)
+   ┌─────────────────────────────────────┐     four level tiles in a row, then
+   │ (♟)     (⚔)      (✦)      (⚑)       │     every box, two to a row — the
+   │ Openings Middleg. Tactics  Endgames │     v0.12/v0.13 layout, unchanged
+   │  7 due    🔒      1000     1000     │     apart from the sections inside.
+   ├─────────────────────────────────────┤ ← the SWITCH: pinned under the header,
+   │ ███ (◔) Run your book      [Start] █│   it folds to names + dots once you
+   │ ███     7 moves due · 0 of 4 mast.. █│   scroll. Long-press a tab to drag it.
+   │ PLAY YOUR LINES                (i)  │ ← the HERO: the domain's door, filled
+   │  Whole lines                   4  › │   in its colour, in its own panel.
+   │  Weak spots                    4  › │ ← SECTIONS of cards, every card in
+   │ SINGLE MOVES                        │   the domain's colour; catalogues are
+   │  Missed moves                  3  › │   rows that open a sheet.
+   └─────────────────────────────────────┘
+
+   The panels sit side by side in a scroll-snap TRACK, so a phone still swipes
+   between domains.
 
    SHAPES TRIED BEFORE, recorded so they aren't re-derived:
    (1) doors at the top with every remaining exercise in ONE three-across tile
    grid — twenty-odd two-word tiles in five colours read as a wall; (2) each
    door moved down to head its own box, which lost the row of four that says
    what training is; (3) doors together, then all four boxes stacked — ~25
-   cards in one phone scroll; (4) v0.12's first cut: full-width tiles with a
-   coloured left stripe, a display-size figure and a big icon chip, under a
-   streak strip — crowded at two to a row. The level tiles came out of a
-   three-option preview.
+   cards in one phone scroll; (4) v0.12: the doors as 2×2 "level" tiles over a
+   row of bubbles — nearly half the phone screen before any exercise, and two
+   controls for the same four domains that did different things. The switch
+   came out of a clickable preview of three directions; it keeps (2)'s idea of
+   a door heading its own box, with the switch as the row of four.
 
    Each screen renders its door and its box into its host (.train-domain, a
-   panel in the track); main.ts lifts the door into this domain's slot in the
-   grid. */
+   panel in the track); main.ts leaves the door there on a phone and lifts it
+   into the tile grid on a desktop. */
 .train-room {
   display: flex;
   flex-direction: column;
@@ -7943,14 +7948,125 @@ html:has(> body > .edit-overlay) > body {
   padding: var(--space-md) var(--space-lg) var(--space-xl);
 }
 
+/* ── The switch ── */
+.train-switch {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.4rem;
+  /* Bleeds to the screen edges so the list scrolls under a solid band. */
+  margin: calc(-1 * var(--space-md)) calc(-1 * var(--space-lg)) 0;
+  padding: var(--space-sm) var(--space-lg);
+  background: var(--bg-page);
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.train-switch--compact { border-bottom-color: var(--hairline-soft); }
+
+.train-switch-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  min-width: 0;
+  padding: 0.45rem 0.15rem 0.4rem;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: pan-y;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, padding 0.2s ease,
+    transform 0.15s ease, box-shadow 0.15s ease;
+}
+.train-switch-icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--domain-accent) 15%, transparent);
+  color: var(--domain-accent);
+  overflow: hidden;
+  transition: width 0.2s ease, height 0.2s ease, opacity 0.15s;
+}
+.train-switch-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.train-switch-figure {
+  display: inline-flex;
+  align-items: center;
+  min-height: 0.9rem;
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.train-switch-tab[aria-selected="true"] {
+  background: var(--domain-accent);
+  border-color: var(--domain-accent);
+  color: #fff;
+}
+.train-switch-tab[aria-selected="true"] .train-switch-icon {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+.train-switch-tab[aria-selected="true"] .train-switch-figure { color: rgba(255, 255, 255, 0.88); }
+
+/* Scrolled: names and a dot only. */
+.train-switch--compact .train-switch-tab {
+  flex-direction: row;
+  gap: 0.25rem;
+  padding: 0.4rem 0.1rem;
+  font-size: 0.68rem;
+}
+.train-switch--compact .train-switch-icon { width: 0; height: 0; opacity: 0; }
+.train-switch--compact .train-switch-figure { display: none; }
+.train-switch--compact .train-switch-tab::before {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--domain-accent);
+}
+.train-switch--compact .train-switch-tab[aria-selected="true"]::before { background: #fff; }
+/* A narrow phone has no room for a dot AND "Middlegame": the name wins. */
+@media (max-width: 389.98px) {
+  .train-switch--compact .train-switch-tab::before { display: none; }
+}
+
+/* A long-pressed tab, lifted to be dragged. */
+.train-switch-tab--lifted {
+  transform: scale(1.08);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+  position: relative;
+  z-index: 1;
+}
+.train-switch--dragging .train-switch-tab:not(.train-switch-tab--lifted) { opacity: 0.7; }
+
+/* ── The level tile (desktop) ── */
 .train-doors {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-lg);
 }
 .train-door-slot { display: grid; }
 
-/* ── The level tile ── */
 .train-door {
   display: flex;
   flex-direction: column;
@@ -8064,61 +8180,11 @@ html:has(> body > .edit-overlay) > body {
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
 }
+/* The Start card's own text is a phone thing. */
+.train-door-hero,
+.train-door-go { display: none; }
 
-/* ── The bubbles ── */
-.train-tabs {
-  display: flex;
-  gap: 0.5rem;
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding: 2px 2px 4px;
-  margin-top: var(--space-xs);
-}
-.train-tabs::-webkit-scrollbar { display: none; }
-.train-tab {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  font: inherit;
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--text-muted);
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  border-radius: 999px;
-  padding: 0.55rem 0.95rem;
-  cursor: pointer;
-  white-space: nowrap;
-  -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.08s;
-}
-.train-tab-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--domain-accent);
-}
-.train-tab[aria-selected="true"] {
-  background: var(--domain-accent);
-  border-color: var(--domain-accent);
-  color: #fff;
-}
-.train-tab[aria-selected="true"] .train-tab-dot { background: #fff; }
-.train-tab:active { transform: scale(0.95); }
-
-/* On a phone a panel IS its box, so the box drops its wash and frame: the
-   bubble above already says which domain this is. A couple of pixels of
-   padding keep the cards' shadows inside the track, which clips (it scrolls). */
-@media (max-width: 959.98px) {
-  .train-domain > .train-box {
-    background: none;
-    border: none;
-    padding: 2px 2px 6px;
-  }
-}
-
-/* ── The track: the four boxes side by side, swiped one at a time ── */
+/* ── The track: the four panels side by side, swiped one at a time ── */
 .train-track {
   display: flex;
   align-items: flex-start;
@@ -8136,8 +8202,127 @@ html:has(> body > .edit-overlay) > body {
   scroll-snap-stop: always;
 }
 
+@media (max-width: 959.98px) {
+  /* The window scrolls Train; a scroll box on the view would trap the sticky
+     switch inside a box that never scrolls. `#app` for specificity: the shared
+     main-tab rule (overflow-y: auto, by the FAB rules) comes later in the file. */
+  #app #view-train { overflow: visible; }
+  .train-doors { display: none; }
+
+  .train-domain {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    /* Room for the cards' shadows and the hero's press edge — the track
+       clips, because it scrolls. */
+    padding: 2px 2px 6px;
+  }
+
+  /* A panel IS its box on a phone: no wash, no frame, no title — the switch
+     already says which domain this is. */
+  .train-domain > .train-box {
+    background: none;
+    border: none;
+    padding: 0;
+  }
+  .train-domain > .train-box > .train-box-head { display: none; }
+
+  /* ── The hero: the door as the domain's Start card ── */
+  .train-domain > .train-door {
+    flex-direction: row;
+    align-items: center;
+    text-align: left;
+    gap: 0.85rem;
+    min-height: 0;
+    margin: 0 0 4px;
+    padding: 0.85rem 0.9rem;
+    border: none;
+    border-radius: 18px;
+    background: var(--mode-accent);
+    color: #fff;
+    box-shadow: 0 4px 0 color-mix(in srgb, var(--mode-accent) 62%, #000);
+  }
+  .train-domain > .train-door:active { box-shadow: 0 0 0 transparent; }
+  .train-domain > .train-door .train-door-ring {
+    flex: none;
+    width: 54px;
+    height: 54px;
+    margin: 0;
+  }
+  .train-domain > .train-door .train-door-ring-track { stroke: rgba(255, 255, 255, 0.28); }
+  .train-domain > .train-door .train-door-ring-arc { stroke: #fff; }
+  .train-domain > .train-door .train-door-icon {
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.18);
+  }
+  .train-domain > .train-door .train-door-icon svg { width: 20px; height: 20px; }
+  /* The figure is in the switch and in the detail line. */
+  .train-domain > .train-door .train-door-badge { display: none; }
+  /* Kept for a screen reader — the card's name — not drawn. */
+  .train-domain > .train-door .train-door-name,
+  .train-domain > .train-door .train-door-sub,
+  .train-domain > .train-door .train-door-progress {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .train-domain > .train-door .train-door-hero {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    flex: 1;
+    min-width: 0;
+  }
+  .train-door-hero-title {
+    font-size: 1.06rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .train-door-hero-detail {
+    font-size: 0.78rem;
+    line-height: 1.3;
+    opacity: 0.9;
+    font-variant-numeric: tabular-nums;
+  }
+  .train-domain > .train-door .train-door-go {
+    display: inline-block;
+    flex: none;
+    padding: 0.45rem 0.95rem;
+    border-radius: 999px;
+    background: #fff;
+    color: color-mix(in srgb, var(--mode-accent) 80%, #000);
+    font-size: 0.85rem;
+    font-weight: 800;
+  }
+  /* Locked: the card stays in its colour family but quiet, and says what it
+     needs instead of offering Start. */
+  .train-domain > .train-door--disabled {
+    background: color-mix(in srgb, var(--mode-accent) 10%, var(--bg-card));
+    color: var(--text);
+    border: 1px solid color-mix(in srgb, var(--mode-accent) 22%, transparent);
+    box-shadow: none;
+    cursor: default;
+  }
+  .train-domain > .train-door--disabled:active { transform: none; }
+  .train-domain > .train-door--disabled .train-door-ring-track {
+    stroke: color-mix(in srgb, var(--mode-accent) 20%, transparent);
+  }
+  .train-domain > .train-door--disabled .train-door-icon {
+    background: color-mix(in srgb, var(--mode-accent) 55%, var(--bg-card));
+  }
+  .train-domain > .train-door--disabled .train-door-hero-detail {
+    color: var(--text-muted);
+    opacity: 1;
+    font-weight: 600;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .train-door, .train-tab, .train-track { transition: none; }
+  .train-door, .train-track, .train-switch-tab, .train-switch-icon { transition: none; }
 }
 
 /* ── The box ── */
@@ -8162,6 +8347,13 @@ html:has(> body > .edit-overlay) > body {
   border-color: color-mix(in srgb, var(--domain-accent) 28%, transparent);
 }
 
+/* ONE COLOUR PER DOMAIN (v0.14). Every card on Train wears its domain's colour
+   — the icon chip, the count pill — so the switch, the Start card and the list
+   agree on where you are. The cards still carry their own accent inline
+   (buildModeCard), which is what the overlays they open wear; this overrides
+   it on Train only. */
+.train-box .mode-card { --mode-accent: var(--domain-accent) !important; }
+
 .train-box-head {
   display: flex;
   align-items: center;
@@ -8172,26 +8364,46 @@ html:has(> body > .edit-overlay) > body {
   padding: 0;
 }
 
-.train-box-title {
+.train-box-title,
+.train-section-title {
   margin: 0;
   font-size: 0.74rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--domain-accent);
+  color: color-mix(in srgb, var(--domain-accent) 80%, var(--text));
 }
 
-[data-theme="dark"] .train-box-title,
-[data-theme="game"] .train-box-title,
-[data-theme="gamer"] .train-box-title {
-  /* The flat hue is too dark to read as a label on the dark wash. */
+[data-theme="dark"] :is(.train-box-title, .train-section-title),
+[data-theme="game"] :is(.train-box-title, .train-section-title),
+[data-theme="gamer"] :is(.train-box-title, .train-section-title) {
+  /* The flat hue is too dark to read as a label on the dark page. */
   color: color-mix(in srgb, var(--domain-accent) 45%, var(--text));
 }
 
 .train-box-body {
   display: flex;
   flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* ── A headed group of cards ── */
+.train-section {
+  display: flex;
+  flex-direction: column;
   gap: 0.5rem;
+}
+.train-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  min-height: 1.6rem;
+}
+/* A desktop shows the box title with its own (i); the copy on the first
+   section is the phone's. */
+@media (min-width: 960px) {
+  .train-section-head .info-btn { display: none; }
 }
 
 /* The blocks inside a box were written as top-level pane blocks and bring their
@@ -8199,111 +8411,31 @@ html:has(> body > .edit-overlay) > body {
    set the rhythm. */
 .train-box-body > .section,
 .train-box-body > .mode-cards,
-.train-box-body > .eg-classics,
 .train-box-body > .mistakes-empty,
 .train-box-body > .pz-openings {
   margin-inline: 0;
 }
 
-.train-box-body > .mode-cards {
+.train-box-body .mode-cards {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  margin: 0;
 }
 
-/* ── The collapsible catalogue rows ── */
-.train-acc {
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  border-radius: 14px;
-  box-shadow: var(--shadow-card);
-  overflow: hidden;
-}
-
-.train-acc-summary {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-  padding: 0.75rem 0.8rem 0.75rem 0.85rem;
-  cursor: pointer;
-  list-style: none;
-  -webkit-tap-highlight-color: transparent;
-  user-select: none;
-}
-
-/* Safari draws its own disclosure triangle without this. */
-.train-acc-summary::-webkit-details-marker { display: none; }
-
-.train-acc-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--mode-accent, var(--accent)) 13%, transparent);
-  color: var(--mode-accent, var(--accent));
-}
-
-.train-acc-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.08rem;
-  min-width: 0;
-  flex: 1;
-}
-
-.train-acc-label {
-  font-size: 0.98rem;
-  font-weight: 700;
-  font-family: system-ui, -apple-system, sans-serif;
-  color: var(--text);
-}
-
-/* The one line that tells you whether opening it is worth it. Written short
-   enough to fit (puzzle-themes.ts) and WRAPPED if it ever doesn't — a
-   subtitle ending in "…" was the complaint that shortened them. */
-.train-acc-sub {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-}
-
-.train-acc-chev {
-  display: inline-flex;
-  flex-shrink: 0;
-  color: var(--text-faint);
-  transition: transform 0.16s ease;
-}
-
-.train-acc[open] > .train-acc-summary .train-acc-chev {
-  transform: rotate(180deg);
-}
-
-.train-acc-body {
-  padding: 0 0.55rem 0.6rem;
-  border-top: 1px solid var(--hairline-soft);
-}
-
-/* The sections that land inside an accordion body brought their own inset. */
-.train-acc-body.section,
-.train-acc-body > .section {
-  margin-inline: 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .train-acc-chev { transition: none; }
-}
+/* ── The sheet a catalogue row opens ── */
+.train-sheet-title { color: color-mix(in srgb, var(--sheet-accent, var(--text)) 80%, var(--text)); }
+.train-sheet-sub { margin: -0.4rem 0 0; }
+.train-sheet-holder > .section { margin-inline: 0; }
 
 /* Desktop: four tiles across, and every box showing, two to a row — so the
-   bubbles have nothing to pick between and the track stops scrolling. */
+   switch has nothing to pick between and the track stops scrolling. */
 @media (min-width: 960px) {
   .train-room {
     max-width: 1100px;
     margin-inline: auto;
   }
-  .train-doors { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-lg); }
-  .train-tabs { display: none; }
+  .train-switch { display: none; }
   .train-track {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -18163,39 +18295,10 @@ button.fs-record-row:active { background: var(--bg-card); }
 }
 .eg-piece-btn--active:active { background: var(--eg-accent); }
 
-/* Classic endgames — a heading + (i) toggle, then per-theme accordions. */
-.eg-classics { display: flex; flex-direction: column; gap: var(--space-sm); }
-.eg-section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-}
-.eg-info-btn {
-  display: inline-flex;
-  padding: 0.25rem;
-  border: none;
-  background: none;
-  color: var(--text-faint);
-  cursor: pointer;
-}
-.eg-info-btn svg { flex: none; }
-.eg-info-btn[aria-expanded="true"] { color: var(--eg-accent); }
-.eg-info-text { margin: 0; }
-
-/* Theme accordions: card chrome + accordion padding come from .section--acc; drop
-   the outer .section margin so the .eg-classics flex gap does the spacing. */
-.eg-acc { margin: 0; }
-.eg-acc-symbol {
-  font-size: 1.15rem;
+/* A classic group's row on Train: the piece glyph stands in for an icon. */
+.eg-row-symbol {
+  font-size: 1.2rem;
   line-height: 1;
-  color: var(--eg-accent);
-}
-.eg-group-blurb {
-  margin: 0 0 var(--space-sm);
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  line-height: 1.35;
 }
 .eg-list { display: flex; flex-direction: column; gap: var(--space-sm); }
 

@@ -44,6 +44,7 @@ import { handlePurchaseReturn } from './checkout';
 import { primePricing } from './pricing';
 import { renderTrainScreen, startLineSession, startPositionsSession, startMoveFix } from './train-screen';
 import { DOMAIN_ACCENT, type DomainId } from './train-doors';
+import { DEFAULT_TRAIN_ORDER, getTrainOrder, setTrainOrder, trainOrderHintSeen, markTrainOrderHintSeen } from './train-order';
 import { installRunKeys } from './run-keys';
 import { renderHomeBody, fillGrowStrip, buildScanBanner, type HomeDeps } from './home-screen';
 import { planRepertoireRun } from './repertoire-run';
@@ -4449,129 +4450,188 @@ function trainHost(): HTMLElement {
   return trainOpeningsHost ?? document.createElement('div');
 }
 
-// Which domain's box the phone layout shows under the doors (see the tabs in
-// renderTrainRoom). Module state, not localStorage: it should survive a trip
-// into a drill and back, not a relaunch — and a key in localStorage would ride
-// the account sync and push a request every time a tab was tapped.
-let trainTab: DomainId = 'openings';
+// Which domain the phone shows (see the switch in renderTrainRoom). Module
+// state, not localStorage: it should survive a trip into a drill and back, not
+// a relaunch. On launch it is null, and Train opens on the FIRST tab of your
+// order (train-order.ts) — reordering is how you choose where Train opens.
+let trainTab: DomainId | null = null;
 
-const TRAIN_TABS: { id: DomainId; label: string }[] = [
-  { id: 'openings', label: 'Openings' },
-  { id: 'middlegame', label: 'Middlegame' },
-  { id: 'tactics', label: 'Tactics' },
-  { id: 'endgames', label: 'Endgames' },
-];
+const TRAIN_TABS: Record<DomainId, { label: string; icon: () => SVGElement }> = {
+  openings: { label: 'Openings', icon: () => Icons.pawn(16) },
+  middlegame: { label: 'Middlegame', icon: () => Icons.swords(16) },
+  tactics: { label: 'Tactics', icon: () => Icons.puzzlePiece(16) },
+  endgames: { label: 'Endgames', icon: () => Icons.flag(16) },
+};
+
+// The switch on screen now, for the one window scroll listener below. A Train
+// repaint builds a new switch; the listener is installed once and always finds
+// the current one.
+let trainSwitchEl: HTMLElement | null = null;
+let trainScrollWired = false;
+
+// The switch shrinks once you scroll into the list: icon and figure fold away,
+// the names and a dot stay. Two thresholds, so the height it gives back can't
+// scroll it straight back over the line and make it flicker — and it only
+// shrinks on a page tall enough that losing ~30px can't pull you back to the top.
+function wireTrainSwitchScroll(): void {
+  if (trainScrollWired) return;
+  trainScrollWired = true;
+  window.addEventListener('scroll', () => {
+    const sw = trainSwitchEl;
+    if (!sw?.isConnected) return;
+    const y = window.scrollY;
+    const room = document.documentElement.scrollHeight - window.innerHeight;
+    if (y > 56 && room > 140) sw.classList.add('train-switch--compact');
+    else if (y < 8) sw.classList.remove('train-switch--compact');
+  }, { passive: true });
+}
 
 function renderTrainRoom(host: HTMLElement): void {
   host.innerHTML = '';
 
-  // The room, top to bottom: the four doors as a grid of tiles, the bubble
-  // tabs, then a TRACK holding the four domains' boxes side by side — swiped
-  // (or picked with a bubble) one at a time on a phone, two to a row on a
-  // desktop.
+  // The room, top to bottom. On a PHONE: one switch naming the four domains,
+  // pinned under the header as you scroll, then a TRACK holding the four panels
+  // side by side, swiped (or picked in the switch) one at a time. Each panel is
+  // its domain's Start card (the door, styled as a "hero") and its box. On a
+  // DESKTOP the switch hides, the doors sit together as four tiles, and every
+  // box shows, two to a row.
+  //
+  // WHY ONE SWITCH (v0.14). The 2×2 tiles above a row of bubbles took nearly
+  // half a phone screen, and tiles and bubbles were two controls naming the same
+  // four domains that did different things — a tile started a run, a bubble
+  // switched the list. Now the switch only switches, and the Start card only
+  // starts.
   //
   // THE ONE PIECE OF PLUMBING. Each screen still renders its door AND its box
   // into its own host, and repaints that host alone, exactly as before. The
-  // host is now a panel in the track; a MutationObserver lifts each door it
-  // renders out into that domain's slot in the grid (adoptDoor, below). So the
-  // four screens know nothing about the layout, and a repaint that replaces the
-  // door simply lifts the new one into the same slot.
+  // host is a panel in the track. On a phone the door stays there; on a desktop
+  // a MutationObserver lifts it into that domain's tile slot (placeDoor). The
+  // switch reads each door's figure off its data attributes. So the four
+  // screens know nothing about the layout.
+  const order = getTrainOrder();
+  if (!trainTab) trainTab = order[0];
+
   const room = document.createElement('div');
   room.className = 'train-room';
+  const desktop = window.matchMedia(`(min-width: ${DESKTOP_NAV_BREAKPOINT}px)`);
 
   const doors = document.createElement('div');
   doors.className = 'train-doors';
   const slots = new Map<DomainId, HTMLElement>();
-  for (const t of TRAIN_TABS) {
-    const slot = document.createElement('div');
-    slot.className = 'train-door-slot';
-    slot.dataset.domain = t.id;
-    slots.set(t.id, slot);
-    doors.appendChild(slot);
-  }
-  room.appendChild(doors);
-
-  // The bubbles. On a phone the four boxes stacked were ~25 cards in one
-  // scroll; now the track shows one, and these say which and switch it. The
-  // doors stay together above them — the point both earlier layouts were
-  // protecting (train-doors.ts): nothing is two decisions from playing. A
-  // desktop shows all four boxes, so it hides these.
-  const tabs = document.createElement('div');
-  tabs.className = 'train-tabs';
-  tabs.setAttribute('role', 'tablist');
-  tabs.setAttribute('aria-label', 'Training areas');
-  room.appendChild(tabs);
-
+  const sw = document.createElement('div');
+  sw.className = 'train-switch';
+  sw.setAttribute('role', 'tablist');
+  sw.setAttribute('aria-label', 'Training areas');
+  const tabs = new Map<DomainId, HTMLButtonElement>();
   const track = document.createElement('div');
   track.className = 'train-track';
-  room.appendChild(track);
+  const panes = new Map<DomainId, HTMLElement>();
 
-  const domainHost = (name: DomainId): HTMLElement => {
-    const el = document.createElement('div');
-    el.className = 'train-domain';
-    el.dataset.domain = name;
-    el.setAttribute('role', 'tabpanel');
-    return el;
-  };
-  const openingsPane = domainHost('openings');
-  const puzzlesPane = domainHost('tactics');
-  const mistakesPane = domainHost('middlegame');
-  const endgamePane = domainHost('endgames');
-  // Panel order is swipe order and tab order: Openings first because it is the
-  // app's own subject, Middlegame second because it is the half that reads
-  // your games.
-  const panes = [openingsPane, mistakesPane, puzzlesPane, endgamePane];
-  track.append(...panes);
+  for (const id of DEFAULT_TRAIN_ORDER) {
+    const slot = document.createElement('div');
+    slot.className = 'train-door-slot';
+    slot.dataset.domain = id;
+    slots.set(id, slot);
 
-  // Lift each door a domain renders into its slot (see THE ONE PIECE OF
-  // PLUMBING). Observers run before the next paint, so the door is never seen
-  // in the panel.
-  const adoptDoor = (pane: HTMLElement): void => {
-    const door = pane.querySelector<HTMLElement>(':scope > .train-door');
-    if (door) slots.get(pane.dataset.domain as DomainId)?.replaceChildren(door);
-  };
-  for (const pane of panes) {
-    new MutationObserver(() => adoptDoor(pane)).observe(pane, { childList: true });
+    const pane = document.createElement('div');
+    pane.className = 'train-domain';
+    pane.dataset.domain = id;
+    pane.setAttribute('role', 'tabpanel');
+    panes.set(id, pane);
+
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'train-switch-tab';
+    b.dataset.domain = id;
+    b.setAttribute('role', 'tab');
+    b.style.setProperty('--domain-accent', DOMAIN_ACCENT[id]);
+    const icon = document.createElement('span');
+    icon.className = 'train-switch-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.appendChild(TRAIN_TABS[id].icon());
+    const name = document.createElement('span');
+    name.className = 'train-switch-name';
+    name.textContent = TRAIN_TABS[id].label;
+    const figure = document.createElement('span');
+    figure.className = 'train-switch-figure';
+    b.append(icon, name, figure);
+    tabs.set(id, b);
   }
 
-  // The phone track: which panel is showing, kept in step with the bubbles,
+  // Lay the three rows out in the user's order — the switch, the tiles and the
+  // swipe all follow it. Re-run after a reorder.
+  const applyOrder = (ids: DomainId[]): void => {
+    for (const id of ids) {
+      sw.appendChild(tabs.get(id)!);
+      doors.appendChild(slots.get(id)!);
+      track.appendChild(panes.get(id)!);
+    }
+  };
+  applyOrder(order);
+  room.append(sw, doors, track);
+
+  // The door's home: its tile slot on a desktop, the top of its panel on a
+  // phone. Run whenever a screen repaints its panel and when the window crosses
+  // the breakpoint. Observers run before the next paint, so a door is never
+  // seen in the wrong place.
+  const doorOf = (id: DomainId): HTMLElement | null =>
+    panes.get(id)!.querySelector<HTMLElement>(':scope > .train-door')
+      ?? slots.get(id)!.querySelector<HTMLElement>(':scope > .train-door');
+  const placeDoor = (id: DomainId): void => {
+    const door = doorOf(id);
+    if (door) {
+      if (desktop.matches) {
+        if (door.parentElement !== slots.get(id)) slots.get(id)!.replaceChildren(door);
+      } else if (door.parentElement !== panes.get(id)) {
+        panes.get(id)!.prepend(door);
+      }
+    }
+    // The switch's figure under the name: "7 due", a rating, or a padlock.
+    const figure = tabs.get(id)!.querySelector<HTMLElement>('.train-switch-figure')!;
+    figure.replaceChildren();
+    if (door?.dataset.locked) figure.appendChild(Icons.lock(11));
+    else figure.textContent = door?.dataset.figure ?? '';
+    tabs.get(id)!.setAttribute('aria-label',
+      [TRAIN_TABS[id].label, door?.dataset.locked ? 'locked' : door?.dataset.figure].filter(Boolean).join(', '));
+  };
+  for (const id of DEFAULT_TRAIN_ORDER) {
+    new MutationObserver(() => placeDoor(id)).observe(panes.get(id)!, { childList: true });
+  }
+  const onBreakpoint = (): void => {
+    // A repaint built a new room: this one's listener retires.
+    if (!room.isConnected) { desktop.removeEventListener('change', onBreakpoint); return; }
+    for (const id of DEFAULT_TRAIN_ORDER) placeDoor(id);
+    showTab(trainTab!, false);
+  };
+  desktop.addEventListener('change', onBreakpoint);
+
+  // The phone track: which panel is showing, kept in step with the switch,
   // and the track sized to that panel so a short list leaves no gap under it.
-  const isPaged = (): boolean => getComputedStyle(tabs).display !== 'none';
-  const indexOf = (id: DomainId): number => TRAIN_TABS.findIndex((t) => t.id === id);
+  const isPaged = (): boolean => !desktop.matches;
+  const current = (): DomainId[] => [...sw.querySelectorAll<HTMLElement>('.train-switch-tab')]
+    .map((b) => b.dataset.domain as DomainId);
   const fitHeight = (): void => {
     if (!isPaged()) { track.style.height = ''; return; }
-    const pane = panes[indexOf(trainTab)];
-    track.style.height = `${pane.offsetHeight}px`;
+    track.style.height = `${panes.get(trainTab!)!.offsetHeight}px`;
   };
   const markTab = (id: DomainId): void => {
     trainTab = id;
-    for (const b of tabs.querySelectorAll<HTMLButtonElement>('.train-tab')) {
-      const on = b.dataset.domain === id;
-      b.setAttribute('aria-selected', String(on));
-      if (on && isPaged()) b.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
-    }
+    for (const [tid, b] of tabs) b.setAttribute('aria-selected', String(tid === id));
     fitHeight();
   };
   const showTab = (id: DomainId, smooth = true): void => {
     if (isPaged()) {
-      track.scrollTo({ left: track.clientWidth * indexOf(id), behavior: smooth ? 'smooth' : 'auto' });
+      track.scrollTo({ left: track.clientWidth * current().indexOf(id), behavior: smooth ? 'smooth' : 'auto' });
     }
     markTab(id);
   };
-  for (const t of TRAIN_TABS) {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'train-tab';
-    b.dataset.domain = t.id;
-    b.setAttribute('role', 'tab');
-    b.style.setProperty('--domain-accent', DOMAIN_ACCENT[t.id]);
-    const dot = document.createElement('span');
-    dot.className = 'train-tab-dot';
-    dot.setAttribute('aria-hidden', 'true');
-    b.append(dot, t.label);
-    b.addEventListener('click', () => showTab(t.id));
-    tabs.appendChild(b);
-  }
+
+  // Switching from far down a long list lands at the top of the new one, not
+  // halfway down it — but only when the list has scrolled under the switch.
+  const toListTop = (): void => {
+    const top = track.getBoundingClientRect().top - sw.offsetHeight;
+    if (top < 0) window.scrollBy({ top: top - 8 });
+  };
 
   // A swipe lands on a panel: whichever is most in view is the tab now.
   let settle = 0;
@@ -4579,31 +4639,121 @@ function renderTrainRoom(host: HTMLElement): void {
     window.clearTimeout(settle);
     settle = window.setTimeout(() => {
       if (!isPaged() || track.clientWidth === 0) return;
+      const ids = current();
       const i = Math.round(track.scrollLeft / track.clientWidth);
-      const id = TRAIN_TABS[Math.max(0, Math.min(TRAIN_TABS.length - 1, i))].id;
+      const id = ids[Math.max(0, Math.min(ids.length - 1, i))];
       if (id !== trainTab) markTab(id);
     }, 90);
   }, { passive: true });
 
+  // ── Reordering: long-press a tab, then drag it ──
+  //
+  // Half a second still lifts the tab (a buzz says so); before that, any
+  // movement is a scroll or a swipe and the press is dropped, and a plain tap
+  // is a tap. While lifted, the tab follows the finger across the row and the
+  // others make room. Letting go saves the order; the first tab is where Train
+  // opens next launch.
+  let press: { id: DomainId; x: number; y: number; pointer: number; timer: number; lifted: boolean } | null = null;
+  let swallowClick = false;
+  const lift = (on: boolean): void => {
+    sw.classList.toggle('train-switch--dragging', on);
+    for (const [tid, b] of tabs) b.classList.toggle('train-switch-tab--lifted', on && tid === press?.id);
+  };
+  sw.addEventListener('contextmenu', (e) => e.preventDefault());
+  sw.addEventListener('pointerdown', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('.train-switch-tab');
+    if (!b || e.button > 0) return;
+    const id = b.dataset.domain as DomainId;
+    const p = { id, x: e.clientX, y: e.clientY, pointer: e.pointerId, lifted: false, timer: 0 };
+    p.timer = window.setTimeout(() => {
+      p.lifted = true;
+      try { b.setPointerCapture(p.pointer); } catch { /* the pointer already left */ }
+      navigator.vibrate?.(15);
+      lift(true);
+    }, 450);
+    press = p;
+  });
+  sw.addEventListener('pointermove', (e) => {
+    if (!press) return;
+    if (!press.lifted) {
+      if (Math.hypot(e.clientX - press.x, e.clientY - press.y) > 8) { window.clearTimeout(press.timer); press = null; }
+      return;
+    }
+    const ids = current();
+    const rects = ids.map((tid) => tabs.get(tid)!.getBoundingClientRect());
+    let to = rects.findIndex((r) => e.clientX < r.right);
+    if (to === -1) to = ids.length - 1;
+    const from = ids.indexOf(press.id);
+    if (to !== from) {
+      ids.splice(from, 1);
+      ids.splice(to, 0, press.id);
+      const scrolled = current().indexOf(trainTab!);
+      applyOrder(ids);
+      // The track's panels moved under it: keep the one showing in view.
+      if (isPaged() && current().indexOf(trainTab!) !== scrolled) showTab(trainTab!, false);
+    }
+  });
+  // Stop the page scrolling under a lifted tab (touch-action can't change
+  // mid-gesture, a non-passive touchmove can).
+  sw.addEventListener('touchmove', (e) => { if (press?.lifted) e.preventDefault(); }, { passive: false });
+  const endPress = (): void => {
+    if (!press) return;
+    window.clearTimeout(press.timer);
+    if (press.lifted) {
+      swallowClick = true;
+      const before = getTrainOrder()[0];
+      const ids = current();
+      setTrainOrder(ids);
+      markTrainOrderHintSeen();
+      lift(false);
+      if (ids[0] !== before) showToast(`Train now opens on ${TRAIN_TABS[ids[0]].label}`);
+    }
+    press = null;
+  };
+  sw.addEventListener('pointerup', endPress);
+  sw.addEventListener('pointercancel', endPress);
+  sw.addEventListener('click', (e) => {
+    if (swallowClick) { swallowClick = false; return; }
+    const b = (e.target as HTMLElement).closest<HTMLElement>('.train-switch-tab');
+    if (!b) return;
+    const id = b.dataset.domain as DomainId;
+    if (id === trainTab) return;
+    toListTop();
+    showTab(id);
+  });
+
   // Panels fill asynchronously (each screen reads IndexedDB first) and change
-  // height as accordions open, so the track follows the showing panel's size.
+  // height as they repaint, so the track follows the showing panel's size.
   const ro = new ResizeObserver(() => fitHeight());
-  for (const pane of panes) ro.observe(pane);
+  for (const pane of panes.values()) ro.observe(pane);
   ro.observe(track);
 
-  // A locked door opens its own box: that is where what it is waiting for
-  // lives (the import form, the first line to save).
+  // Desktop: a locked tile scrolls to its own box, which holds what it is
+  // waiting for (the import form, the first line to save).
   doors.addEventListener('click', (e) => {
     const door = (e.target as HTMLElement).closest<HTMLElement>('.train-door--disabled');
     if (!door?.dataset.domain) return;
-    const id = door.dataset.domain as DomainId;
-    showTab(id);
-    (isPaged() ? tabs : panes[indexOf(id)]).scrollIntoView({ behavior: 'smooth', block: 'start' });
+    panes.get(door.dataset.domain as DomainId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
   host.appendChild(room);
+  trainSwitchEl = sw;
+  wireTrainSwitchScroll();
+  sw.classList.toggle('train-switch--compact', window.scrollY > 56);
   // Back where you left it — a trip into a drill rebuilds this screen.
-  requestAnimationFrame(() => showTab(trainTab, false));
+  requestAnimationFrame(() => showTab(trainTab!, false));
+
+  // Long-press is invisible, so say it once, the first time Train is opened
+  // on a phone.
+  if (isPaged() && !trainOrderHintSeen()) {
+    markTrainOrderHintSeen();
+    window.setTimeout(() => { if (room.isConnected) showToast('Tip: long-press a tab to reorder them'); }, 1200);
+  }
+
+  const openingsPane = panes.get('openings')!;
+  const mistakesPane = panes.get('middlegame')!;
+  const puzzlesPane = panes.get('tactics')!;
+  const endgamePane = panes.get('endgames')!;
 
   // All four render at once now. They used to render lazily, one tab at a time,
   // so a pane's side effects only ran when it was shown — the cost of dropping

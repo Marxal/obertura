@@ -22,7 +22,7 @@ import {
   TIMED_DURATIONS,
   type TimedMinutes,
 } from './prefs';
-import { buildDoor, buildBox, boxBody } from './train-doors';
+import { buildDoor, buildBox, boxBody, boxSection } from './train-doors';
 import { isOpponentTag } from './scout';
 import { track } from './metrics';
 import { recordMissedMove, clearForgottenMove } from './forgotten-moves';
@@ -275,7 +275,7 @@ async function doRender(
     }
   }
 
-  // The door goes to the top band, the box to the one below — see .train-room.
+  // The door, then the box — see .train-room for where each ends up.
   // Both are children of this host; CSS `order` decides which band each lands
   // in, so this domain can repaint itself without disturbing the other three.
   //
@@ -426,6 +426,13 @@ function renderPractiseBox(
     section.appendChild(note);
   }
 
+  // Three headed groups (v0.14): whole-line runs, the single-move drill, and
+  // the timed one. Created up front so they keep this order whatever order the
+  // cards below are built in.
+  const linesList = boxSection(box, 'Play your lines');
+  const singleList = boxSection(box, 'Single moves');
+  const clockList = boxSection(box, 'Against the clock');
+
   // Why a mode is greyed out. Under the unlock, every card says the same thing
   // and says it first — the answer is "go and save more lines", whatever else is
   // or isn't in the rotation. Above it the old reasons apply: with nothing saved
@@ -442,7 +449,7 @@ function renderPractiseBox(
   // other of the two routes the old due hero offered as a pair of buttons; the
   // door takes the move walk, this takes the line walk.
   const due = dueLines(allTraining);
-  section.appendChild(buildModeCard({
+  linesList.appendChild(buildModeCard({
     accent: MODE_ACCENT.run,
     icon: Icons.book(20),
     name: 'Whole lines',
@@ -464,7 +471,7 @@ function renderPractiseBox(
   // come back.
   const timedReady = !locked && selectTimedPositions(allLines, { max: 80 }).length > 0;
   const timedBest = getTimedBest(TIMED_DEFAULT);
-  section.appendChild(buildModeCard({
+  clockList.appendChild(buildModeCard({
     accent: MODE_ACCENT.timed,
     icon: Icons.clock(20),
     name: 'Time attack',
@@ -481,7 +488,7 @@ function renderPractiseBox(
   // moves).
   const missed = locked ? [] : selectIndividualPositions(allTraining);
   const hasPositions = missed.length > 0;
-  section.appendChild(buildModeCard({
+  singleList.appendChild(buildModeCard({
     accent: MODE_ACCENT.fix,
     icon: Icons.zap(20),
     name: 'Missed moves',
@@ -496,23 +503,9 @@ function renderPractiseBox(
     onClick: () => runIndividual(container, allTraining),
   }));
 
-  // Fresh lines — full runs of the newest lines first.
-  const freshLines = recentlyAddedLines(allTraining).slice(0, PICKER_SESSION_CAP);
-  section.appendChild(buildModeCard({
-    accent: MODE_ACCENT.fresh,
-    icon: Icons.plus(20),
-    name: 'New lines',
-    sub: 'your newest lines',
-    stat: !locked && freshLines.length > 0 ? freshLines.length : undefined,
-    statLabel: freshLines.length === 1 ? 'line' : 'lines',
-    disabled: locked || freshLines.length === 0,
-    disabledReason: noLinesReason,
-    onClick: () => startRounds(freshLines, container, { explicit: true }),
-  }));
-
   // Weak spots — full runs of the weakest lines first.
   const weakLines = weakestLines(allTraining).slice(0, PICKER_SESSION_CAP);
-  section.appendChild(buildModeCard({
+  linesList.appendChild(buildModeCard({
     accent: MODE_ACCENT.weak,
     icon: Icons.trending(20),
     name: 'Weak spots',
@@ -524,11 +517,25 @@ function renderPractiseBox(
     onClick: () => startRounds(weakLines, container, { explicit: true }),
   }));
 
+  // Fresh lines — full runs of the newest lines first.
+  const freshLines = recentlyAddedLines(allTraining).slice(0, PICKER_SESSION_CAP);
+  linesList.appendChild(buildModeCard({
+    accent: MODE_ACCENT.fresh,
+    icon: Icons.plus(20),
+    name: 'New lines',
+    sub: 'your newest lines',
+    stat: !locked && freshLines.length > 0 ? freshLines.length : undefined,
+    statLabel: freshLines.length === 1 ? 'line' : 'lines',
+    disabled: locked || freshLines.length === 0,
+    disabledReason: noLinesReason,
+    onClick: () => startRounds(freshLines, container, { explicit: true }),
+  }));
+
   // Prep — full runs of lines prepared against a scouted opponent. Only shown
   // once any opponent-tagged lines are in training, as before.
   const prepLines = allTraining.filter(l => l.tags.some(isOpponentTag));
   if (prepLines.length > 0 && !locked) {
-    section.appendChild(buildModeCard({
+    linesList.appendChild(buildModeCard({
       accent: MODE_ACCENT.prep,
       icon: Icons.target(20),
       name: 'Prep',

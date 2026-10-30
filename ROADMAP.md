@@ -2373,3 +2373,44 @@ boards shrink to fit (220–300px, from the tallest card's non-board height); an
 a card that still doesn't fit sticks by its bottom edge (negative top) instead
 of flattening the stack. The flat fallback is gone. Checked sticky at 345×690,
 360×740, 390×844, 412×780 and 1280×720.
+
+## The Train switch round (v0.14) — 2026-10-30 ✅
+
+Version bumped to 0.14.0 first (tag `v0.14` on that commit).
+
+**The problem.** On a phone the four "level" tiles took nearly half the screen
+before any exercise showed, and under them a row of bubbles named the same four
+domains but did something different: a tile started a run, a bubble switched
+the list. The fourth bubble was clipped, and each domain listed its exercises
+differently (flat rows, accordions, a nested list of classics).
+
+**How it was decided.** A clickable preview of three directions (one switcher,
+shelves, hub and rooms), then a refined version of the chosen one with
+toggles to compare colours and list styles, then each domain's sections
+approved one by one.
+
+**What shipped (phone).**
+- **One switch** pinned under the header: icon, name and live figure per
+  domain. It folds to names and dots once you scroll.
+- **Long-press a tab and drag it** to reorder. Train opens on the first tab.
+  Stored in `train-order.ts` (`obertura.trainOrder`, synced like any setting);
+  a one-time toast teaches it; Settings → Training → "Train tab order" resets.
+- **Each domain's door is its Start card** at the head of its panel, filled in
+  the domain colour: Run your book, Today's mix, Daily rated mix, Rated ladder.
+- **Headed sections** in every box, with the (i) on the first one. Middlegame:
+  Fix your mistakes / Find the right move / Against the clock ("other ways in"
+  never shipped). Endgames gained an (i) of its own.
+- **Catalogues open a bottom sheet** instead of an accordion (`buildSheetRow`).
+- **One colour per domain** on every card on Train. The drill screens keep
+  their own colours for now.
+
+Desktop keeps its tiles and two-column boxes (plus the sections); it gets its
+own round later.
+
+Checked headless at 412×915 and 360×780, light and dark, and at 1440×900:
+switching, swiping, scrolling to the folded switch, a long-press drag (order
+saved, Train reopens on the new first tab), the theme and classic sheets, the
+locked Middlegame card, and the Settings reset. Not checked with imported
+games, since that needs a real scan: the Middlegame sections were only seen
+locked. Selftest 1697/1699, the same two date-dependent scheduler tests failing
+before this round.

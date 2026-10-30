@@ -72,6 +72,8 @@ import { clearEndgameProgress } from './endgame-progress';
 import { clearMistakeDrills } from './mistake-scan';
 import { renderBackupSection, exportBackupNow } from './backup';
 import { Icons } from './icons';
+import { isCustomTrainOrder, resetTrainOrder } from './train-order';
+import { showToast } from './toast';
 import { row, segmented, toggle } from './settings-controls';
 import { metricsActive, isMetricsOptedOut, setMetricsOptedOut } from './metrics';
 import { renderDailyPrefs } from './daily-prefs';
@@ -725,6 +727,22 @@ function buildTrainingGroup(): HTMLElement {
     ),
     { sub: 'What “Start training” launches from the Today screen.' },
   ));
+
+  // The Train tabs are reordered by long-pressing one (main.ts); this is the
+  // way back for anyone who scrambled them. Greyed while the order is the
+  // default, so it never looks like it did nothing.
+  const reset = document.createElement('button');
+  reset.type = 'button';
+  reset.className = 'btn-secondary pref-reset-btn';
+  reset.textContent = 'Reset';
+  reset.disabled = !isCustomTrainOrder();
+  reset.addEventListener('click', () => {
+    resetTrainOrder();
+    reset.disabled = true;
+    showToast('Train tabs are back in their first order');
+  });
+  sec.appendChild(row('Train tab order', reset,
+    { sub: 'Long-press a tab on Train and drag it to reorder. Train opens on the first one.' }));
 
   return sec;
 }
