@@ -509,3 +509,26 @@ one sale reads as “nobody is buying”. The rest of both boxes is unchanged.
 Founding buyers keep Full Access for life; after the first 100, new buyers
 may move to a yearly subscription. `docs/terms.html` §5 says so.
 
+
+## [WHY] and [ABOUT] — 2026-10-30 (third pass)
+
+The bubble copy above is unchanged. Beside it (below it on a phone), the
+rating card:
+
+> **Kicker:** The story · **H2:** Why I made Bito Chess
+>
+> **+200** — in my first month with Bito Chess · chip: “Blitz today 1921”
+> (live, links to the profile; hidden if the Worker can't fetch it)
+>
+> Graph: blitz rating Oct 2025 → Oct 2026, marker “Bito Chess”, bracket “+200”.
+>
+> **Before** Stuck between 1600 and 1700 · **One month in** Up to the
+> 1900–2000 club · **Since** The daily challenge keeps me there
+>
+> I play every day on Chess.com and train every day on Bito Chess.
+> **My Chess.com profile ↗** (chess.com/member/marxal87)
+> *Blitz rating, traced from my Chess.com stats.*
+
+**[ABOUT]:** kicker “About”, the paragraph unchanged, then three chips: One
+person, no investors · No ads, no trackers · Your data is never sold.
+

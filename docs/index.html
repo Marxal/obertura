@@ -2267,6 +2267,112 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   WHY — the story beside the evidence
+   ══════════════════════════════════════════════════════════════════════════ */
+.why { display: grid; grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); gap: clamp(36px, 5vw, 72px); align-items: start; }
+.why__story .bubble { max-width: none; }
+.rc {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: calc(var(--radius) + 4px);
+  box-shadow: var(--shadow-frame);
+  padding: clamp(18px, 2.6vw, 28px);
+}
+.rc__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.rc__big { display: flex; align-items: center; gap: 8px; font-size: clamp(38px, 5vw, 52px); font-weight: 800; letter-spacing: -0.04em; line-height: 1; color: #4f8a37; }
+.rc__big .ico { width: 34px; height: 34px; stroke-width: 2.6; }
+@media (prefers-color-scheme: dark) { .rc__big { color: #8fc46f; } }
+.rc__sub { margin-top: 6px; font-size: 15px; color: var(--text-muted); }
+.rc__live {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 12px; border-radius: 999px;
+  background: var(--bg-parchment); box-shadow: inset 0 0 0 1px var(--border-card);
+  color: var(--text-muted); font-size: 13.5px; font-weight: 600; text-decoration: none; white-space: nowrap;
+  transition: box-shadow 160ms ease, color 160ms ease;
+}
+.rc__live b { color: var(--text); font-size: 16px; font-variant-numeric: tabular-nums; }
+.rc__live:hover { color: var(--text); box-shadow: inset 0 0 0 1px var(--accent); }
+.rc__live[hidden] { display: none; }
+.rc__dot { width: 8px; height: 8px; border-radius: 99px; background: #5a9e3f; box-shadow: 0 0 0 0 rgba(90, 158, 63, 0.5); }
+@media (prefers-reduced-motion: no-preference) { .rc__dot { animation: live 2s ease-out infinite; } }
+@keyframes live { 70% { box-shadow: 0 0 0 7px rgba(90, 158, 63, 0); } 100% { box-shadow: 0 0 0 0 rgba(90, 158, 63, 0); } }
+
+.rc__chart { display: block; width: 100%; height: auto; margin: 16px 0 6px; overflow: visible; }
+.rc__chart text { font: 600 11px system-ui, -apple-system, sans-serif; fill: var(--text-faint); }
+.rc__grid { stroke: var(--hairline); stroke-width: 1; }
+.rc__y { text-anchor: end; dominant-baseline: central; }
+.rc__band--before { fill: rgba(150, 130, 110, 0.12); }
+.rc__band--after { fill: rgba(90, 158, 63, 0.13); }
+.rc__area { fill: url(#rc-fill); }
+.rc__line { fill: none; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
+.rc__line--before { stroke: #a8957c; }
+.rc__line--after { stroke: #5a9e3f; }
+.rc__start { stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 4 4; }
+.rc__flag rect { fill: var(--accent); }
+.rc__flag text { fill: #fff; font: 700 10.5px 'Chakra Petch', ui-monospace, monospace; letter-spacing: 0.06em; text-anchor: middle; dominant-baseline: central; }
+.rc__jump path { fill: none; stroke: #4f8a37; stroke-width: 2; }
+.rc__jump text { fill: #4f8a37; font: 800 14px system-ui, sans-serif; dominant-baseline: central; }
+.rc__now { fill: #5a9e3f; stroke: var(--bg-card); stroke-width: 3; }
+.rc__chart .rc__x { font-size: 11px; }
+
+.rc__steps { list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+.rc__step { padding: 10px 12px 12px; border-radius: 12px; background: var(--bg-parchment); font-size: 14px; line-height: 1.4; color: var(--text-muted); border-top: 3px solid; }
+.rc__step b { display: block; font: 700 11px/1.3 'Chakra Petch', ui-monospace, monospace; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 4px; }
+.rc__step--before { border-color: #a8957c; }
+.rc__step--before b { color: var(--text-faint); }
+.rc__step--after { border-color: #5a9e3f; }
+.rc__step--after b { color: #4f8a37; }
+.rc__step--since { border-color: var(--accent); }
+.rc__step--since b { color: var(--accent-active); }
+@media (prefers-color-scheme: dark) { .rc__step--after b { color: #8fc46f; } .rc__step--since b { color: var(--accent); } }
+.rc__foot { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--hairline); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.rc__foot p { font-size: 15px; font-weight: 600; color: var(--text); max-width: 34ch; }
+.rc__link { color: var(--accent-active); font-weight: 700; font-size: 15px; text-decoration: none; border-bottom: 1.5px solid currentColor; }
+@media (prefers-color-scheme: dark) { .rc__link { color: var(--accent); } }
+.rc__foot .rc__note { flex-basis: 100%; font-size: 12.5px; font-weight: 400; color: var(--text-faint); }
+
+/* The draw-in, once, as the card is revealed: the flat months first, the
+   Bito Chess line drops in, then the climb, the +200, today's dot. */
+@media (prefers-reduced-motion: no-preference) {
+  html.js .rc .rc__line { stroke-dasharray: 1400; stroke-dashoffset: 1400; }
+  html.js .rc .rc__line--before { transition: stroke-dashoffset 1300ms cubic-bezier(0.4, 0, 0.2, 1) 300ms; }
+  html.js .rc .rc__line--after { transition: stroke-dashoffset 1400ms cubic-bezier(0.4, 0, 0.2, 1) 1300ms; }
+  html.js .rc.in .rc__line { stroke-dashoffset: 0; }
+  html.js .rc .rc__area, html.js .rc .rc__band--after { opacity: 0; transition: opacity 700ms ease 1900ms; }
+  html.js .rc .rc__band--before { opacity: 0; transition: opacity 600ms ease 200ms; }
+  html.js .rc.in .rc__area, html.js .rc.in .rc__band { opacity: 1; }
+  html.js .rc .rc__start, html.js .rc .rc__flag { opacity: 0; transform: translateY(-10px); transition: opacity 360ms ease 1150ms, transform 460ms cubic-bezier(0.3, 1.6, 0.5, 1) 1150ms; }
+  html.js .rc.in .rc__start, html.js .rc.in .rc__flag { opacity: 1; transform: none; }
+  html.js .rc .rc__jump, html.js .rc .rc__now { opacity: 0; transition: opacity 400ms ease 2300ms; }
+  html.js .rc.in .rc__jump, html.js .rc.in .rc__now { opacity: 1; }
+  html.js .rc .rc__step { opacity: 0; transform: translateY(8px); transition: opacity 420ms ease, transform 420ms ease; }
+  html.js .rc.in .rc__step--before { opacity: 1; transform: none; transition-delay: 600ms; }
+  html.js .rc.in .rc__step--after { opacity: 1; transform: none; transition-delay: 2100ms; }
+  html.js .rc.in .rc__step--since { opacity: 1; transform: none; transition-delay: 2500ms; }
+}
+@media (max-width: 900px) { .why { grid-template-columns: 1fr; } }
+@media (max-width: 520px) {
+  .rc__steps { grid-template-columns: 1fr; gap: 6px; }
+  .rc__step { display: flex; gap: 8px; align-items: baseline; border-top: 0; border-left: 3px solid; padding: 8px 10px; }
+  .rc__step b { margin: 0; flex: none; }
+  /* The chart scales to ~60% here, so its labels are set larger to land near 11px. */
+  .rc__chart text, .rc__chart .rc__x { font-size: 17px; }
+  .rc__jump text { font-size: 20px; }
+  .rc__flag text { font-size: 13px; }
+  .rc__head { flex-direction: column; }
+}
+
+/* ── ABOUT, round two ──────────────────────────────────────────────────── */
+.colophon__head .kicker { margin: 6px 0 -6px; font-size: 13px; line-height: 1.2; max-width: none; color: var(--accent-active); }
+@media (prefers-color-scheme: dark) { .colophon__head .kicker { color: var(--accent); } }
+.colophon__body > p { max-width: 52ch; font-size: clamp(17px, 1.9vw, 19px); line-height: 1.6; color: var(--text-muted); }
+.facts { list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 22px; }
+.facts li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: var(--bg-parchment); box-shadow: inset 0 0 0 1px var(--border-card); font-size: 14.5px; font-weight: 600; line-height: 1.3; }
+.facts .tile { width: 36px; height: 36px; border-radius: 11px; }
+.facts .tile .ico { width: 18px; height: 18px; }
+@media (max-width: 700px) { .facts { grid-template-columns: 1fr; } }
+
+/* ══════════════════════════════════════════════════════════════════════════
    4. PUZZLES — four modes in a row
    ══════════════════════════════════════════════════════════════════════════ */
 .pz-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(14px, 2vw, 22px); }
@@ -2553,6 +2659,10 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
     <symbol id="i-flag" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></symbol>
     <symbol id="i-order" viewBox="0 0 24 24"><path d="m3 16 4 4 4-4"/><path d="M7 20V4"/><path d="M11 4h10"/><path d="M11 8h7"/><path d="M11 12h4"/></symbol>
     <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M9.94 14.06A2 2 0 0 0 8.5 12.6l-5.2-1.35a.5.5 0 0 1 0-.96L8.5 8.94A2 2 0 0 0 9.94 7.5l1.35-5.2a.5.5 0 0 1 .96 0l1.35 5.2a2 2 0 0 0 1.44 1.44l5.2 1.35a.5.5 0 0 1 0 .96l-5.2 1.35a2 2 0 0 0-1.44 1.44l-1.35 5.2a.5.5 0 0 1-.96 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M6.2 18.6a6 6 0 0 1 11.6 0"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+    <symbol id="i-trending" viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></symbol>
     <symbol id="i-up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></symbol>
     <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
     <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
@@ -3284,11 +3394,21 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
     </div>
   </section>
 
-  <!-- ──────────────────────────── WHY ──────────────────────────── -->
-  <section class="band">
-    <div class="inner feature feature--flip">
-      <div class="feature__head reveal"><h2>Why I made Bito Chess</h2></div>
-      <div class="feature__body">
+  <!-- ──────────────────────────── WHY ────────────────────────────
+       The story in Marçal's own words (the speech bubble, unchanged copy),
+       and beside it the evidence: his Chess.com blitz rating over the year,
+       before and after he started using Bito Chess. The curve is traced by
+       eye from his own stats screens and says so; the number in the corner
+       is live (GET /api/rating, worker/rating.ts) and only appears when the
+       Worker could fetch it. -->
+  <section class="band" id="why" aria-labelledby="why-title">
+    <div class="inner">
+      <div class="story-head reveal">
+        <p class="kicker">The story</p>
+        <h2 id="why-title">Why I made Bito Chess</h2>
+      </div>
+      <div class="why">
+        <div class="why__story">
         <div class="bubble reveal">
           <p>I’m a passionate chess player, but not a particularly strong one. 🥹</p>
           <p>I tried a lot of opening trainers. They were too rigid, too complicated, or just didn’t match how I wanted to learn.</p>
@@ -3321,6 +3441,50 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
             <span class="who__role">Designer, chess player, and the whole team behind Bito Chess.</span>
           </span>
         </div>
+        </div>
+
+        <figure class="rc reveal" id="rc">
+          <div class="rc__head">
+            <div>
+              <p class="rc__big"><svg class="ico"><use href="#i-trending"/></svg>+200</p>
+              <p class="rc__sub">in my first month with Bito Chess</p>
+            </div>
+            <a class="rc__live" id="rc-live" href="https://www.chess.com/member/marxal87" target="_blank" rel="noopener noreferrer" hidden>
+              <span class="rc__dot" aria-hidden="true"></span>Blitz today <b id="rc-rating"></b>
+            </a>
+          </div>
+          <svg class="rc__chart" viewBox="0 0 560 250" role="img" aria-labelledby="rc-title rc-desc" preserveAspectRatio="xMidYMid meet">
+<title id="rc-title">My Chess.com blitz rating, October 2025 to October 2026</title>
+<desc id="rc-desc">Between 1600 and 1700 for eight months. After starting Bito Chess in late June 2026 it rose to around 2000 within a month and has stayed between 1900 and 2000 since.</desc>
+<defs><linearGradient id="rc-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5a9e3f" stop-opacity=".32"/><stop offset="1" stop-color="#5a9e3f" stop-opacity="0"/></linearGradient>
+<clipPath id="rc-after"><rect x="359.3" y="0" width="200.7" height="250"/></clipPath><clipPath id="rc-before"><rect x="0" y="0" width="359.3" height="250"/></clipPath></defs>
+<path class="rc__grid" d="M40 185.7H550"/><text class="rc__y" x="32" y="185.7">1600</text>
+<path class="rc__grid" d="M40 117.0H550"/><text class="rc__y" x="32" y="117.0">1800</text>
+<path class="rc__grid" d="M40 48.3H550"/><text class="rc__y" x="32" y="48.3">2000</text>
+<rect class="rc__band rc__band--before" x="40" y="151.3" width="319.3" height="34.3" rx="4"/>
+<rect class="rc__band rc__band--after" x="359.3" y="48.3" width="190.7" height="34.3" rx="4"/>
+<path class="rc__area" clip-path="url(#rc-after)" d="M40.0 175.4C43.5 174.8 53.8 173.4 60.7 171.9C67.6 170.5 74.6 169.6 81.5 166.8C88.4 163.9 95.3 155.3 102.2 154.8C109.1 154.2 116.0 163.3 122.9 163.3C129.8 163.3 136.7 156.2 143.7 154.8C150.6 153.3 157.5 154.2 164.4 154.8C171.3 155.3 178.2 156.8 185.1 158.2C192.0 159.6 199.6 158.8 205.9 163.3C212.1 167.9 216.9 184.5 222.4 185.7C228.0 186.8 233.5 171.1 239.0 170.2C244.6 169.4 250.1 180.2 255.6 180.5C261.1 180.8 266.7 172.5 272.2 171.9C277.7 171.4 283.3 177.1 288.8 177.1C294.3 177.1 299.8 171.1 305.4 171.9C310.9 172.8 316.4 179.9 322.0 182.2C327.5 184.5 333.0 185.0 338.5 185.7C344.1 186.4 349.6 188.6 355.1 186.4C360.7 184.1 366.9 177.8 371.7 171.9C376.5 166.1 380.0 162.8 384.1 151.3C388.3 139.9 392.4 119.9 396.6 103.3C400.7 86.7 405.6 63.8 409.0 51.8C412.5 39.8 413.9 30.9 417.3 31.2C420.8 31.5 424.9 48.3 429.8 53.5C434.6 58.6 440.1 59.8 446.3 62.1C452.6 64.4 460.2 65.2 467.1 67.2C474.0 69.2 481.6 70.9 487.8 74.1C494.0 77.2 498.9 84.1 504.4 86.1C509.9 88.1 515.4 87.5 521.0 86.1C526.5 84.7 532.7 79.3 537.6 77.5C542.4 75.7 547.9 75.8 550.0 75.5L550.0 220L40.0 220Z"/>
+<path class="rc__line rc__line--before" clip-path="url(#rc-before)" d="M40.0 175.4C43.5 174.8 53.8 173.4 60.7 171.9C67.6 170.5 74.6 169.6 81.5 166.8C88.4 163.9 95.3 155.3 102.2 154.8C109.1 154.2 116.0 163.3 122.9 163.3C129.8 163.3 136.7 156.2 143.7 154.8C150.6 153.3 157.5 154.2 164.4 154.8C171.3 155.3 178.2 156.8 185.1 158.2C192.0 159.6 199.6 158.8 205.9 163.3C212.1 167.9 216.9 184.5 222.4 185.7C228.0 186.8 233.5 171.1 239.0 170.2C244.6 169.4 250.1 180.2 255.6 180.5C261.1 180.8 266.7 172.5 272.2 171.9C277.7 171.4 283.3 177.1 288.8 177.1C294.3 177.1 299.8 171.1 305.4 171.9C310.9 172.8 316.4 179.9 322.0 182.2C327.5 184.5 333.0 185.0 338.5 185.7C344.1 186.4 349.6 188.6 355.1 186.4C360.7 184.1 366.9 177.8 371.7 171.9C376.5 166.1 380.0 162.8 384.1 151.3C388.3 139.9 392.4 119.9 396.6 103.3C400.7 86.7 405.6 63.8 409.0 51.8C412.5 39.8 413.9 30.9 417.3 31.2C420.8 31.5 424.9 48.3 429.8 53.5C434.6 58.6 440.1 59.8 446.3 62.1C452.6 64.4 460.2 65.2 467.1 67.2C474.0 69.2 481.6 70.9 487.8 74.1C494.0 77.2 498.9 84.1 504.4 86.1C509.9 88.1 515.4 87.5 521.0 86.1C526.5 84.7 532.7 79.3 537.6 77.5C542.4 75.7 547.9 75.8 550.0 75.5"/>
+<path class="rc__line rc__line--after" clip-path="url(#rc-after)" d="M40.0 175.4C43.5 174.8 53.8 173.4 60.7 171.9C67.6 170.5 74.6 169.6 81.5 166.8C88.4 163.9 95.3 155.3 102.2 154.8C109.1 154.2 116.0 163.3 122.9 163.3C129.8 163.3 136.7 156.2 143.7 154.8C150.6 153.3 157.5 154.2 164.4 154.8C171.3 155.3 178.2 156.8 185.1 158.2C192.0 159.6 199.6 158.8 205.9 163.3C212.1 167.9 216.9 184.5 222.4 185.7C228.0 186.8 233.5 171.1 239.0 170.2C244.6 169.4 250.1 180.2 255.6 180.5C261.1 180.8 266.7 172.5 272.2 171.9C277.7 171.4 283.3 177.1 288.8 177.1C294.3 177.1 299.8 171.1 305.4 171.9C310.9 172.8 316.4 179.9 322.0 182.2C327.5 184.5 333.0 185.0 338.5 185.7C344.1 186.4 349.6 188.6 355.1 186.4C360.7 184.1 366.9 177.8 371.7 171.9C376.5 166.1 380.0 162.8 384.1 151.3C388.3 139.9 392.4 119.9 396.6 103.3C400.7 86.7 405.6 63.8 409.0 51.8C412.5 39.8 413.9 30.9 417.3 31.2C420.8 31.5 424.9 48.3 429.8 53.5C434.6 58.6 440.1 59.8 446.3 62.1C452.6 64.4 460.2 65.2 467.1 67.2C474.0 69.2 481.6 70.9 487.8 74.1C494.0 77.2 498.9 84.1 504.4 86.1C509.9 88.1 515.4 87.5 521.0 86.1C526.5 84.7 532.7 79.3 537.6 77.5C542.4 75.7 547.9 75.8 550.0 75.5"/>
+<path class="rc__start" d="M359.3 10V220"/>
+<g class="rc__flag"><rect x="315.3" y="8" width="88" height="20" rx="10"/><text x="359.3" y="18">Bito Chess</text></g>
+<g class="rc__jump"><path d="M443.2 151.3H449.2V82.7H443.2"/><text x="455.2" y="117.0">+200</text></g>
+<circle class="rc__now" cx="550.0" cy="75.5" r="5"/>
+<text class="rc__x" x="40.0" y="242" text-anchor="start">Oct 2025</text>
+<text class="rc__x" x="288.8" y="242" text-anchor="middle">Apr 2026</text>
+<text class="rc__x" x="550.0" y="242" text-anchor="end">Oct 2026</text>
+</svg>
+          <ol class="rc__steps">
+            <li class="rc__step rc__step--before"><b>Before</b>Stuck between 1600 and 1700</li>
+            <li class="rc__step rc__step--after"><b>One month in</b>Up to the 1900–2000 club</li>
+            <li class="rc__step rc__step--since"><b>Since</b>The daily challenge keeps me there</li>
+          </ol>
+          <figcaption class="rc__foot">
+            <p>I play every day on Chess.com and train every day on Bito Chess.</p>
+            <a class="rc__link" href="https://www.chess.com/member/marxal87" target="_blank" rel="noopener noreferrer">My Chess.com profile <span aria-hidden="true">↗</span></a>
+            <p class="rc__note">Blitz rating, traced from my Chess.com stats.</p>
+          </figcaption>
+        </figure>
       </div>
     </div>
   </section>
@@ -3329,15 +3493,21 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
        The sober counterpart to the section above it: the same subject stated as
        fact rather than as a story. It used to be a small grey box under the
        signature, where it read as a footnote to the speech bubble. -->
-  <section class="band band--parchment">
+  <section class="band band--parchment" id="about" aria-labelledby="about-title">
     <div class="inner">
-      <div class="reveal">
-        <div class="colophon">
-          <div class="colophon__head">
-            <span class="colophon__icon"><img src="app-icon.png" alt="" width="512" height="512" /></span>
-            <h2>About Bito Chess</h2>
-          </div>
+      <div class="colophon reveal">
+        <div class="colophon__head">
+          <span class="colophon__icon"><img src="app-icon.png" alt="" width="512" height="512" /></span>
+          <p class="kicker">About</p>
+          <h2 id="about-title">About Bito Chess</h2>
+        </div>
+        <div class="colophon__body">
           <p>Bito Chess is a one-person project. There are no investors, no ads, and no business model based on selling your data. You can try the app without an account. A free account syncs your repertoire across devices, and Full Access adds game-library sync and is tied to your account. Upgrading to Full Access helps keep the project alive.</p>
+          <ul class="facts">
+            <li><span class="tile"><svg class="ico"><use href="#i-user"/></svg></span>One person, no investors</li>
+            <li><span class="tile"><svg class="ico"><use href="#i-shield"/></svg></span>No ads, no trackers</li>
+            <li><span class="tile"><svg class="ico"><use href="#i-lock"/></svg></span>Your data is never sold</li>
+          </ul>
         </div>
       </div>
     </div>
@@ -5191,6 +5361,22 @@ html.js .os.is-live .os-step.is-on > div { background: var(--bg-card); box-shado
     });
     anForm.addEventListener('submit', function () { anUser.value = anUser.value.trim(); });
   }
+
+  /* ── 14. The live rating on the Why card ─────────────────────────────────
+     From this site's own Worker (worker/rating.ts), never from Chess.com
+     directly — see the note there. No number, no chip. */
+  (function () {
+    var live = document.getElementById('rc-live');
+    if (!live || !window.fetch || isMirror) return;
+    fetch('/api/rating', { headers: { accept: 'application/json' } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || typeof d.rating !== 'number') return;
+        document.getElementById('rc-rating').textContent = String(d.rating);
+        live.hidden = false;
+      })
+      .catch(function () { /* the card stands without it */ });
+  })();
 
   /* Everything the scroll handler drives now exists: place it all once. */
   if (motionQuery || floats.length || woodPieces.length || boardCol || stackItems.length) syncMotionPreference();

@@ -31,6 +31,7 @@
 // ── THE ENDPOINTS ───────────────────────────────────────────────────────────
 //   GET  /api/stripe/prices    what the unlock costs, per currency (stripe-prices.ts)
 //   GET  /api/founding         founding places taken, for the price card (founding.ts)
+//   GET  /api/rating           Marçal's Chess.com blitz rating, for the landing page (rating.ts)
 //   POST /api/stripe/checkout  → a Stripe Checkout URL (stripe-checkout.ts)
 //   POST /api/stripe/webhook   Stripe → profiles.entitled (stripe-webhook.ts)
 //   POST /api/account/delete   remove an account for good (account-delete.ts)
@@ -48,6 +49,7 @@
 
 import { handleStripePrices } from './stripe-prices';
 import { handleFounding } from './founding';
+import { handleRating } from './rating';
 import { handleStripeCheckout } from './stripe-checkout';
 import { handleStripeWebhook } from './stripe-webhook';
 import { handleAccountDelete } from './account-delete';
@@ -74,6 +76,8 @@ export interface Env extends StripeEnv {
 const PRICES_PATH = '/api/stripe/prices';
 // How many founding places are gone — public, cached, read by the price card.
 const FOUNDING_PATH = '/api/founding';
+// The founder's current Chess.com rating, fetched here so the page never calls Chess.com.
+const RATING_PATH = '/api/rating';
 const CHECKOUT_PATH = '/api/stripe/checkout';
 const WEBHOOK_PATH = '/api/stripe/webhook';
 // Not under /api/stripe/, because it has nothing to do with Stripe — it just
@@ -94,6 +98,7 @@ export default {
 
     if (pathname === PRICES_PATH) return handleStripePrices(request, env);
     if (pathname === FOUNDING_PATH) return handleFounding(request, env);
+    if (pathname === RATING_PATH) return handleRating(request);
     if (pathname === CHECKOUT_PATH) return handleStripeCheckout(request, env);
     if (pathname === WEBHOOK_PATH) return handleStripeWebhook(request, env);
     if (pathname === ACCOUNT_DELETE_PATH) return handleAccountDelete(request, env);

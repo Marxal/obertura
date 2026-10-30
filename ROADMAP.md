@@ -1661,6 +1661,13 @@ the phone.
 - 💤 Map transpositions (merge positions reached by different move orders).
 - 💤 True background sync via a service worker.
 - 💤 Deeper engine adaptation.
+- 💤 **Rating before / after Bito Chess** (asked 2026-10-30). A Statistics card
+  that takes the player's Chess.com / Lichess rating history (already reachable
+  through the import) and splits it at the date they started using the app —
+  first saved line or first import — showing the average before, the average
+  since, and the difference, in the style of the landing page's Why card. Shown
+  only with enough games on both sides, and phrased as "since", never as a
+  causal promise.
 
 
 ## Train becomes four doors and four boxes ✅
@@ -2329,3 +2336,29 @@ Black/White switch, form URL (with a pasted space), stack fit at 360–1400px
 wide, light and dark; `tsc` for app and Worker, cloudflare build. App selftest
 still 1697/1699 — the same two date-dependent scheduler tests failing before
 this round.
+
+
+## 2026-10-30 — Landing: Why card with the rating story, About facts
+
+- **Why I made Bito Chess** now follows the page: kicker, the speech bubble
+  and portrait on the left (copy unchanged), and on the right a card with a
+  "+200 in my first month" headline and a blitz-rating graph that draws itself
+  on reveal: the flat 1600–1700 months in grey, a "Bito Chess" marker in late
+  June 2026, the climb in green to the 1900–2000 band, a +200 bracket and
+  today's dot. Three steps under it (Before / One month in / Since: the daily
+  challenge keeps me there), "I play every day on Chess.com and train every day
+  on Bito Chess.", and a link to chess.com/member/marxal87. The curve is traced
+  by eye from Marçal's own stats screens and labelled as such.
+- **Live rating:** `GET /api/rating` (`worker/rating.ts`) fetches the blitz
+  rating from Chess.com's public API server-side, cached six hours, for that one
+  account only (not an open proxy) — so the page itself still makes no
+  third-party request. The "Blitz today" chip appears only when it answers.
+- **About Bito Chess:** kicker and three fact chips with the app's icons (one
+  person, no investors · no ads, no trackers · your data is never sold) under
+  the unchanged paragraph.
+- Future feature logged above: rating before / after Bito Chess, in the app.
+
+Validation: headless Chromium with the rating endpoint mocked (this session
+can't reach Chess.com or bitochess.com), desktop and phone, light and dark;
+Worker type-checks. Check `bitochess.com/api/rating` after deploying.
+
