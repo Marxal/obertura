@@ -88,7 +88,8 @@ Keep this map in mind before reading anything large.
 - **Owner notes:** `PUBLISHING.md` (store plans not yet built),
   `docs/LANDING-COPY.md` (landing copy's source of truth), `PLATFORM-OAUTH.md`
   (connecting Lichess/Chess.com — and why platform OAuth never creates Bito
-  accounts).
+  accounts), `UX-AUDIT.md` (2026-10 UX review: critical flows and a
+  prioritised fix plan; screenshots in `ux-audit/`).
 - **`archive/`** — history. Nothing in it describes today's code. **Don't read
   it unless explicitly asked**; it will confidently tell you stale things.
 
